@@ -1,0 +1,34 @@
+{
+  "name": "skill-tester",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Eval harness for agent skills: generate outputs with headless agents, grade them with code checks and Jev judge packs, review blind.",
+  "type": "module",
+  "scripts": {
+    "st": "tsx cli/st.ts",
+    "server": "tsx server/index.ts",
+    "app": "vite --config app/vite.config.ts",
+    "typecheck": "tsc --noEmit",
+    "lint": "biome check .",
+    "format": "biome format --write .",
+    "check": "pnpm typecheck && pnpm lint"
+  },
+  "dependencies": {
+    "@typesafe-ai/sdk": "0.7.0",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.6.4",
+    "@types/node": "^26.6.6",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^6.1.2",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.5"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": ["esbuild"]
+  }
+}
