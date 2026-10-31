@@ -1,0 +1,5 @@
+title: Release note for the export folder change
+expected_outcome: A short, plain release note with a title, the change, what it means for the reader, and where to find it.
+bench:
+  artifact: markdown
+  words: [30, 120]

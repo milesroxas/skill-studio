@@ -1,0 +1,149 @@
+{
+  "createdAt": "2026-10-30T22:45:21.734Z",
+  "model": "jev-1.14.0",
+  "inputTokens": 3015,
+  "seconds": 0.5,
+  "config": {
+    "packs": [
+      "generic",
+      "workflow"
+    ],
+    "rules": null,
+    "weights": {
+      "adherence": 50,
+      "rubric": 50,
+      "efficiency": 40,
+      "scope": 20,
+      "process": 40
+    },
+    "yes": 0.5,
+    "sure": 0.6,
+    "agreeAt": 70,
+    "workflow": {
+      "maxRetries": 1,
+      "summaryLines": 80
+    }
+  },
+  "packs": [
+    "generic",
+    "workflow"
+  ],
+  "results": [
+    {
+      "sample": "release-note-s1",
+      "case": "release-note",
+      "label": null,
+      "tests": [],
+      "artifacts": [
+        {
+          "file": "outputs/output.md",
+          "kind": "markdown"
+        }
+      ],
+      "primary": {
+        "file": "outputs/output.md",
+        "kind": "markdown"
+      },
+      "words": 39,
+      "range": [
+        30,
+        120
+      ],
+      "packs": {
+        "generic": {
+          "adherence": {
+            "rules": [
+              {
+                "id": "r1",
+                "text": "Start with a one-line title that names the change in plain words.",
+                "section": "Rules",
+                "noul": 0.96
+              },
+              {
+                "id": "r2",
+                "text": "Say what changed and what it means for the reader, in that order.",
+                "section": "Rules",
+                "noul": 0.92
+              },
+              {
+                "id": "r3",
+                "text": "Keep the note under 120 words.",
+                "section": "Rules",
+                "noul": 0.98
+              },
+              {
+                "id": "r4",
+                "text": "Never use the words \"excited\", \"thrilled\" or \"revolutionary\".",
+                "section": "Rules",
+                "noul": 0.99
+              },
+              {
+                "id": "r5",
+                "text": "End with one line that says where to find the change.",
+                "section": "Rules",
+                "noul": 0.95
+              }
+            ]
+          },
+          "rubric": {
+            "statements": [
+              {
+                "id": "01-names-the-change",
+                "text": "The note says the export dialog remembers the last folder picked.",
+                "weight": 2,
+                "noul": 0.98,
+                "units": [
+                  0.98,
+                  0.02
+                ],
+                "best": 0
+              },
+              {
+                "id": "02-says-where",
+                "text": "The note tells the reader the change is under Settings > Export.",
+                "weight": 1,
+                "noul": 0.98,
+                "units": [
+                  0.02,
+                  0.74
+                ],
+                "best": 1
+              }
+            ]
+          }
+        },
+        "workflow": {
+          "metrics": {
+            "steps": 5,
+            "toolCalls": 4,
+            "errors": 0,
+            "retries": 0,
+            "seconds": 11,
+            "costUsd": 0.00307137,
+            "outside": [],
+            "skillReadAt": 2,
+            "firstWriteAt": 6,
+            "skillPresent": true,
+            "wroteOutput": true,
+            "maxTurns": null,
+            "timeoutSeconds": 300
+          },
+          "jev": {
+            "followedTask": 0.7,
+            "recovered": null
+          }
+        }
+      },
+      "scores": {
+        "total": 100,
+        "adherence": 100,
+        "rubric": 100,
+        "efficiency": 100,
+        "scope": 100,
+        "process": 100
+      },
+      "flags": [],
+      "confidence": 0.6657142857142857
+    }
+  ]
+}

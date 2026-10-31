@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Spoke &amp; Chain | Bike repair and tune-ups</title>
+  <style>
+    :root {
+      --ink: #1f2421;
+      --muted: #4a524d;
+      --paper: #f7f4ee;
+      --accent: #b5501f;
+      --accent-ink: #ffffff;
+      --rule: #d9d3c7;
+    }
+    * { box-sizing: border-box; }
+    html, body { height: 100%; }
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+      font-size: 17px;
+      line-height: 1.5;
+      color: var(--ink);
+      background: var(--paper);
+    }
+    main {
+      min-height: 100%;
+      max-width: 880px;
+      margin: 0 auto;
+      padding: 48px 24px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      gap: 32px;
+    }
+    h1 {
+      margin: 0;
+      font-size: clamp(2.25rem, 6vw, 3.5rem);
+      line-height: 1.05;
+      letter-spacing: -0.02em;
+    }
+    .lede {
+      margin: 12px 0 0;
+      font-size: 1.15rem;
+      color: var(--muted);
+      max-width: 36ch;
+    }
+    .cta {
+      display: inline-block;
+      padding: 16px 26px;
+      border-radius: 6px;
+      background: var(--accent);
+      color: var(--accent-ink);
+      font-weight: 700;
+      font-size: 1.15rem;
+      text-decoration: none;
+    }
+    .cta:hover, .cta:focus-visible { background: #963f15; }
+    .cta:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
+    .hours { margin: 12px 0 0; color: var(--muted); }
+    h2 {
+      margin: 0 0 12px;
+      font-size: 0.85rem;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      color: var(--muted);
+    }
+    .services {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      border-top: 1px solid var(--rule);
+    }
+    .services li {
+      padding: 16px 16px 0 0;
+    }
+    .services strong {
+      display: block;
+      font-size: 1.1rem;
+    }
+    .services span { color: var(--muted); font-size: 0.95rem; }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <h1>Spoke &amp; Chain</h1>
+      <p class="lede">Bike repair done properly, by people who ride.</p>
+    </header>
+
+    <section aria-labelledby="book">
+      <h2 id="book">Book a slot</h2>
+      <a class="cta" href="tel:5550192">Call 555 0192 to book</a>
+      <p class="hours">Open Tuesday to Saturday, 9am to 6pm.</p>
+    </section>
+
+    <section aria-labelledby="services">
+      <h2 id="services">What we do</h2>
+      <ul class="services">
+        <li><strong>Tune-ups</strong><span>Brakes, gears and a safety check.</span></li>
+        <li><strong>Flat fixes</strong><span>Patched or replaced, back on the road fast.</span></li>
+        <li><strong>Full overhauls</strong><span>Strip down, rebuild and re-true.</span></li>
+      </ul>
+    </section>
+  </main>
+</body>
+</html>

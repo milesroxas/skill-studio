@@ -10,8 +10,6 @@ export const CONFIGURATIONS = ['with_skill', 'without_skill', 'old_skill'] as co
 /** Which skill the generating agent saw. `old_skill` points at a snapshot directory. */
 export type Configuration = (typeof CONFIGURATIONS)[number]
 
-// Cases
-
 /** One `graders/NN-*.md` statement, or one legacy `expectations` line. */
 export interface Grader {
   id: string
@@ -65,8 +63,6 @@ export interface Case {
   dir: string | null
 }
 
-// Config (evals/bench.json)
-
 export interface LayerHome {
   skill: string
   bench: string
@@ -89,8 +85,6 @@ export interface BenchConfig {
   [key: string]: unknown
 }
 
-// Transcripts
-
 export type TranscriptKind = 'system' | 'text' | 'thinking' | 'tool' | 'result' | 'error'
 
 /** One line of `transcript.jsonl`, the same shape for every engine. */
@@ -108,8 +102,6 @@ export interface TranscriptEvent {
   text?: string
   error?: boolean
 }
-
-// Runs
 
 export interface Writer {
   engine: string
@@ -169,8 +161,6 @@ export interface RunMeta {
   legacy?: boolean
 }
 
-// Reports
-
 export interface Artifact {
   /** Path relative to the sample dir (or the run dir for a legacy flat file). */
   file: string
@@ -214,8 +204,6 @@ export interface Report {
   results: ReportResult[]
 }
 
-// Pairwise
-
 export type Vote = 'a' | 'b' | 'tie'
 
 export interface Preference {
@@ -229,8 +217,6 @@ export interface Preference {
   at: string
 }
 
-// Reviews (evals/reviews.json)
-
 export interface Review {
   rating: number | null
   layers: Record<string, 'good' | 'bad'>
@@ -238,6 +224,7 @@ export interface Review {
   updatedAt: string
 }
 
+/** `evals/reviews.json`. */
 export interface Reviews {
   reviews: Record<string, Review>
   preferences: Preference[]

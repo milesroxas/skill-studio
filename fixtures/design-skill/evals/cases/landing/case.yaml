@@ -1,0 +1,4 @@
+title: Landing page for a bike repair shop
+expected_outcome: outputs/index.html with a heading, the three services, opening hours and one booking call to action.
+bench:
+  artifact: html

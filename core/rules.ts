@@ -1,5 +1,3 @@
-/** Adherence rules from a SKILL.md: every bullet under a heading, with its section. Pure. */
-
 export interface Rule {
   id: string
   text: string
@@ -31,7 +29,7 @@ export function rulesFromSkill(skillMd: string): Rule[] {
     if (pending === null) return
     const text = strip(pending)
     pending = null
-    if (/^\[[^\]]+\]\([^)]*\)$/.test(text.trim())) return
+    if (/^\[[^\]]+\]\([^)]*\)$/.test(text)) return
     if (text.split(' ').length < 4) return
     rules.push({ id: `r${rules.length + 1}`, text, section })
   }

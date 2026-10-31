@@ -1,0 +1,5 @@
+{
+  "ok": true,
+  "error": null,
+  "finalText": "Files are written: the landing page is `outputs/index.html`, with a summary in `outputs/output.md` and choices and caveats in `notes.md`."
+}

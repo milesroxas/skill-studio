@@ -32,17 +32,17 @@ export function bradleyTerry(games: Game[], iterations = 200): Rating[] {
     const key = g.a < g.b ? `${g.a}|${g.b}` : `${g.b}|${g.a}`
     const [a, b] = key.split('|')
     const pair = pairs.get(key) ?? { a, b, aWins: 0, bWins: 0 }
-    const aWon = g.vote === 'a' ? g.a : g.vote === 'b' ? g.b : null
-    if (aWon === null) {
+    const winner = g.vote === 'a' ? g.a : g.vote === 'b' ? g.b : null
+    if (winner === null) {
       pair.aWins += 0.5
       pair.bWins += 0.5
       ties.set(g.a, (ties.get(g.a) ?? 0) + 1)
       ties.set(g.b, (ties.get(g.b) ?? 0) + 1)
     } else {
-      const loser = aWon === g.a ? g.b : g.a
-      if (aWon === a) pair.aWins += 1
+      const loser = winner === g.a ? g.b : g.a
+      if (winner === a) pair.aWins += 1
       else pair.bWins += 1
-      wins.set(aWon, (wins.get(aWon) ?? 0) + 1)
+      wins.set(winner, (wins.get(winner) ?? 0) + 1)
       losses.set(loser, (losses.get(loser) ?? 0) + 1)
     }
     pairs.set(key, pair)

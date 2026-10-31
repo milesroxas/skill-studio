@@ -6,7 +6,6 @@ export interface Scored {
   scores: Scores
   flags: string[]
   confidence: number | null
-  derived: Record<string, unknown>
 }
 
 /** Flags every pack shares: the output against the case's hard settings. */
@@ -38,7 +37,6 @@ export function scoreResult(
   }
   const raw: Record<string, number | null> = {}
   const flags = commonFlags(subject)
-  const derived: Record<string, unknown> = {}
   const confidences: number[] = []
   for (const pack of scorers) {
     if (!config.packs.includes(pack.id)) continue
@@ -46,7 +44,6 @@ export function scoreResult(
     const scored = pack.score(answers, subject, config)
     Object.assign(raw, scored.layers)
     flags.push(...scored.flags)
-    if (scored.derived !== undefined) derived[pack.id] = scored.derived
     const c = pack.confidence(answers)
     if (c !== null) confidences.push(c)
   }
@@ -57,7 +54,7 @@ export function scoreResult(
   const scores: Scores = { total: total === null ? null : Math.round(total * 100) }
   for (const [layer, v] of Object.entries(raw))
     scores[layer] = v === null ? null : Math.round(v * 100)
-  return { scores, flags, confidence: mean(confidences), derived }
+  return { scores, flags, confidence: mean(confidences) }
 }
 
 /** Layers in display order across the active packs, then total. */

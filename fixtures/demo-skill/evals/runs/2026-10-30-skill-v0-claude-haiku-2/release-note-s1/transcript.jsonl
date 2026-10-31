@@ -1,0 +1,10 @@
+{"step":1,"at":209,"kind":"system","text":"claude claude-haiku-5-5"}
+{"step":2,"at":1807,"kind":"tool","tool":"Read","args":"/Users/milesroxas/SITES/tools/skill-tester/fixtures/demo-skill/evals/runs/2026-10-30-skill-v0-claude-haiku-2/release-note-s1/.agents/skills/demo-skill/SKILL.md"}
+{"step":3,"at":1820,"kind":"result","tool":"Read","result":"1 --- 2 name: demo-skill 3 description: Write a short release note for a software change. Use when asked for a release note, changelog entry or \"what's new\" blurb. 4 --- 5 6 # Release notes 7 8 Write…","durationMs":13}
+{"step":4,"at":3532,"kind":"tool","tool":"Glob","args":".agents/skills/demo-skill/**"}
+{"step":5,"at":3565,"kind":"result","tool":"Glob","result":".agents/skills/demo-skill/SKILL.md","durationMs":33}
+{"step":6,"at":7005,"kind":"tool","tool":"Write","args":"/Users/milesroxas/SITES/tools/skill-tester/fixtures/demo-skill/evals/runs/2026-10-30-skill-v0-claude-haiku-2/release-note-s1/outputs/output.md (269 chars)"}
+{"step":7,"at":7017,"kind":"result","tool":"Write","result":"File created successfully at: /Users/milesroxas/SITES/tools/skill-tester/fixtures/demo-skill/evals/runs/2026-10-30-skill-v0-claude-haiku-2/release-note-s1/outputs/output.md (file state is current in…","durationMs":11}
+{"step":8,"at":9199,"kind":"tool","tool":"Write","args":"/Users/milesroxas/SITES/tools/skill-tester/fixtures/demo-skill/evals/runs/2026-10-30-skill-v0-claude-haiku-2/release-note-s1/notes.md (1175 chars)"}
+{"step":9,"at":9224,"kind":"result","tool":"Write","result":"File created successfully at: /Users/milesroxas/SITES/tools/skill-tester/fixtures/demo-skill/evals/runs/2026-10-30-skill-v0-claude-haiku-2/release-note-s1/notes.md (file state is current in your cont…","durationMs":24}
+{"step":10,"at":10528,"kind":"text","text":"Both files are written: the release note is in `outputs/output.md` and my choices and checks are in `notes.md`."}

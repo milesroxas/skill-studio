@@ -1,0 +1,40 @@
+{
+  "name": "2026-10-30-skill-v0-claude-haiku-2",
+  "skillPath": "/Users/milesroxas/SITES/tools/skill-tester/fixtures/demo-skill",
+  "skillVersion": "v0",
+  "skillName": "First draft",
+  "skillHash": "771634f62045",
+  "note": "Five rules, one case",
+  "writer": {
+    "engine": "claude",
+    "model": "haiku",
+    "effort": "default",
+    "harness": "agent"
+  },
+  "configuration": "with_skill",
+  "baselineDir": null,
+  "cases": [
+    "release-note"
+  ],
+  "samplesPerCase": 1,
+  "createdAt": "2026-10-30T22:45:10.228Z",
+  "finishedAt": "2026-10-30T22:45:21.220Z",
+  "samples": [
+    {
+      "dir": "release-note-s1",
+      "case": "release-note",
+      "index": 1,
+      "ok": true,
+      "seconds": 11,
+      "costUsd": 0.00307137,
+      "tokens": {
+        "input": 87843,
+        "output": 1463
+      },
+      "model": "claude-haiku-5-5",
+      "error": null,
+      "steps": 5,
+      "toolCalls": 4
+    }
+  ]
+}

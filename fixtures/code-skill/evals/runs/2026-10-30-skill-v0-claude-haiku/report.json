@@ -1,0 +1,124 @@
+{
+  "createdAt": "2026-10-30T22:41:13.275Z",
+  "model": "jev-1.14.0",
+  "inputTokens": 1708,
+  "seconds": 0.3,
+  "config": {
+    "packs": [
+      "code",
+      "workflow"
+    ],
+    "rules": null,
+    "weights": {
+      "check": 60,
+      "review": 40,
+      "efficiency": 40,
+      "scope": 20,
+      "process": 40
+    },
+    "yes": 0.5,
+    "sure": 0.6,
+    "agreeAt": 70,
+    "codeCheck": {
+      "timeoutSeconds": 120,
+      "maxChars": 24000
+    },
+    "workflow": {
+      "maxRetries": 1,
+      "summaryLines": 80
+    }
+  },
+  "packs": [
+    "code",
+    "workflow"
+  ],
+  "results": [
+    {
+      "sample": "sum-module-s1",
+      "case": "sum-module",
+      "label": null,
+      "tests": [],
+      "artifacts": [
+        {
+          "file": "outputs/sum.mjs",
+          "kind": "code"
+        },
+        {
+          "file": "outputs/sum.test.mjs",
+          "kind": "code"
+        }
+      ],
+      "primary": {
+        "file": "outputs/sum.mjs",
+        "kind": "code"
+      },
+      "words": 47,
+      "range": null,
+      "packs": {
+        "code": {
+          "check": {
+            "command": "node --test outputs/*.test.mjs",
+            "exit": 0,
+            "timedOut": false,
+            "tail": "✔ returns 0 for an empty list (0.345459ms)\n✔ adds up finite numbers (0.059208ms)\n✔ skips values that are not finite numbers (0.051292ms)\n✔ returns 0 when no value is a finite number (0.044708ms)\nℹ tests 4\nℹ suites 0\nℹ pass 4\nℹ fail 0\nℹ cancelled 0\nℹ skipped 0\nℹ todo 0\nℹ duration_ms 43.675667"
+          },
+          "review": {
+            "statements": [
+              {
+                "id": "01-skips-non-numbers",
+                "text": "The function skips values that are not finite numbers instead of throwing or returning NaN.",
+                "weight": 2,
+                "noul": 0.98,
+                "units": null,
+                "best": null
+              },
+              {
+                "id": "02-no-imports",
+                "text": "The module imports nothing.",
+                "weight": 1,
+                "noul": 0.97,
+                "units": null,
+                "best": null
+              }
+            ]
+          },
+          "files": [
+            "outputs/sum.mjs",
+            "outputs/sum.test.mjs"
+          ]
+        },
+        "workflow": {
+          "metrics": {
+            "steps": 7,
+            "toolCalls": 6,
+            "errors": 0,
+            "retries": 0,
+            "seconds": 14,
+            "costUsd": 0.00439306,
+            "outside": [],
+            "skillReadAt": 2,
+            "firstWriteAt": 4,
+            "skillPresent": true,
+            "wroteOutput": true,
+            "maxTurns": 12,
+            "timeoutSeconds": 300
+          },
+          "jev": {
+            "followedTask": 0.94,
+            "recovered": null
+          }
+        }
+      },
+      "scores": {
+        "total": 100,
+        "check": 100,
+        "review": 100,
+        "efficiency": 100,
+        "scope": 100,
+        "process": 100
+      },
+      "flags": [],
+      "confidence": 0.9149999999999999
+    }
+  ]
+}

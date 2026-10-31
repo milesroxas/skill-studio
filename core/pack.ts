@@ -13,8 +13,6 @@ export interface PackScore {
   /** Layer shares, 0 to 1; null leaves the layer out of the total. */
   layers: Record<string, number | null>
   flags: string[]
-  /** Counts and verdicts the UI shows; thresholds already applied. */
-  derived?: unknown
 }
 
 /**

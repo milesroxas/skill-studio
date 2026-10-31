@@ -1,0 +1,158 @@
+{
+  "createdAt": "2026-10-30T22:41:13.664Z",
+  "model": "jev-1.14.0",
+  "inputTokens": 3751,
+  "seconds": 0.2,
+  "config": {
+    "packs": [
+      "design",
+      "workflow"
+    ],
+    "rules": null,
+    "weights": {
+      "efficiency": 40,
+      "scope": 20,
+      "process": 40,
+      "markup": 40,
+      "visual": 60
+    },
+    "yes": 0.5,
+    "sure": 0.6,
+    "agreeAt": 70,
+    "workflow": {
+      "maxRetries": 1,
+      "summaryLines": 80
+    },
+    "design": {
+      "maxChars": 20000
+    }
+  },
+  "packs": [
+    "design",
+    "workflow"
+  ],
+  "results": [
+    {
+      "sample": "landing-s1",
+      "case": "landing",
+      "label": null,
+      "tests": [],
+      "artifacts": [
+        {
+          "file": "outputs/index.html",
+          "kind": "html"
+        },
+        {
+          "file": "outputs/output.md",
+          "kind": "markdown"
+        }
+      ],
+      "primary": {
+        "file": "outputs/index.html",
+        "kind": "html"
+      },
+      "words": 334,
+      "range": null,
+      "packs": {
+        "design": {
+          "markup": [
+            {
+              "id": "doctype",
+              "ok": true,
+              "note": "no <!doctype html>"
+            },
+            {
+              "id": "lang",
+              "ok": true,
+              "note": "no lang on <html>"
+            },
+            {
+              "id": "title",
+              "ok": true,
+              "note": "no <title>"
+            },
+            {
+              "id": "viewport",
+              "ok": true,
+              "note": "no viewport meta"
+            },
+            {
+              "id": "main",
+              "ok": true,
+              "note": "no <main> landmark"
+            },
+            {
+              "id": "headings",
+              "ok": true,
+              "note": "headings skip a level or do not start at h1"
+            },
+            {
+              "id": "alt",
+              "ok": true,
+              "note": "0 <img> without alt"
+            },
+            {
+              "id": "handlers",
+              "ok": true,
+              "note": "inline event handler attributes"
+            }
+          ],
+          "screenshot": null,
+          "jev": {
+            "hierarchy": 0.94,
+            "finished": null,
+            "statements": [
+              {
+                "id": "01-one-cta",
+                "text": "The page has exactly one primary call to action, and it is to book by phone.",
+                "weight": 2,
+                "noul": 0.96,
+                "units": null,
+                "best": null
+              },
+              {
+                "id": "02-hours-present",
+                "text": "The opening hours Tuesday to Saturday, 9 to 6, appear on the page.",
+                "weight": 1,
+                "noul": 0.98,
+                "units": null,
+                "best": null
+              }
+            ]
+          }
+        },
+        "workflow": {
+          "metrics": {
+            "steps": 6,
+            "toolCalls": 5,
+            "errors": 0,
+            "retries": 0,
+            "seconds": 17,
+            "costUsd": 0.00515732,
+            "outside": [],
+            "skillReadAt": 2,
+            "firstWriteAt": 6,
+            "skillPresent": true,
+            "wroteOutput": true,
+            "maxTurns": null,
+            "timeoutSeconds": 300
+          },
+          "jev": {
+            "followedTask": 0.82,
+            "recovered": null
+          }
+        }
+      },
+      "scores": {
+        "total": 100,
+        "efficiency": 100,
+        "scope": 100,
+        "process": 100,
+        "markup": 100,
+        "visual": 100
+      },
+      "flags": [],
+      "confidence": 0.7799999999999999
+    }
+  ]
+}

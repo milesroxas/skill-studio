@@ -1,0 +1,8 @@
+{"step":1,"at":226,"kind":"system","text":"claude claude-haiku-5-5"}
+{"step":2,"at":1839,"kind":"tool","tool":"Read","args":"/Users/milesroxas/SITES/tools/skill-tester/fixtures/demo-skill/evals/runs/2026-10-30-skill-v0-claude-haiku/release-note-s1/.agents/skills/demo-skill/SKILL.md"}
+{"step":3,"at":1874,"kind":"result","tool":"Read","result":"1 --- 2 name: demo-skill 3 description: Write a short release note for a software change. Use when asked for a release note, changelog entry or \"what's new\" blurb. 4 --- 5 6 # Release notes 7 8 Write…","durationMs":34}
+{"step":4,"at":3387,"kind":"tool","tool":"Glob","args":".agents/skills/demo-skill/**"}
+{"step":5,"at":3399,"kind":"result","tool":"Glob","result":".agents/skills/demo-skill/SKILL.md","durationMs":12}
+{"step":6,"at":8450,"kind":"tool","tool":"Bash","args":"mkdir -p /Users/milesroxas/SITES/tools/skill-tester/fixtures/demo-skill/evals/runs/2026-10-30-skill-v0-claude-haiku/release-note-s1/outputs && cd /Users/milesroxas/SITES/tools/skill-tester/fixtures/d…"}
+{"step":7,"at":9505,"kind":"result","tool":"Bash","result":"output.md","durationMs":1055}
+{"step":8,"at":10562,"kind":"text","text":"Wrote the release note to `outputs/output.md` and my notes to `notes.md`."}

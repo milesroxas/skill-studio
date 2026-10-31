@@ -1,7 +1,22 @@
 {
   "$schema": "https://biomejs.dev/schemas/2.6.4/schema.json",
-  "vcs": { "enabled": true, "clientKind": "git", "useIgnoreFile": true },
-  "files": { "includes": ["**", "!node_modules", "!dist", "!app/dist"] },
+  "vcs": {
+    "enabled": true,
+    "clientKind": "git",
+    "useIgnoreFile": true
+  },
+  "files": {
+    "includes": [
+      "**",
+      "!node_modules",
+      "!dist",
+      "!app/dist",
+      "!**/*.md",
+      "!**/evals/runs",
+      "!**/evals/anchors/report.json",
+      "!**/evals/reviews.json"
+    ]
+  },
   "formatter": {
     "enabled": true,
     "indentStyle": "space",
@@ -19,8 +34,24 @@
     "enabled": true,
     "rules": {
       "preset": "recommended",
-      "suspicious": { "noExplicitAny": "error" },
-      "style": { "noNonNullAssertion": "off" }
+      "suspicious": {
+        "noExplicitAny": "error"
+      },
+      "style": {
+        "noNonNullAssertion": "off"
+      }
     }
-  }
+  },
+  "overrides": [
+    {
+      "includes": ["app/src/styles.css"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noDescendingSpecificity": "off"
+          }
+        }
+      }
+    }
+  ]
 }

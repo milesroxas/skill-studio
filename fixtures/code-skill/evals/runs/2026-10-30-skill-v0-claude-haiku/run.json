@@ -1,0 +1,38 @@
+{
+  "name": "2026-10-30-skill-v0-claude-haiku",
+  "skillPath": "/Users/milesroxas/SITES/tools/skill-tester/fixtures/code-skill",
+  "skillVersion": "v0",
+  "skillName": "First draft",
+  "skillHash": "519500c256d4",
+  "note": "Five rules, one case",
+  "writer": {
+    "engine": "claude",
+    "model": "haiku",
+    "effort": "default",
+    "harness": "agent"
+  },
+  "configuration": "with_skill",
+  "baselineDir": null,
+  "cases": ["sum-module"],
+  "samplesPerCase": 1,
+  "createdAt": "2026-10-30T22:34:07.442Z",
+  "finishedAt": "2026-10-30T22:34:21.624Z",
+  "samples": [
+    {
+      "dir": "sum-module-s1",
+      "case": "sum-module",
+      "index": 1,
+      "ok": true,
+      "seconds": 14,
+      "costUsd": 0.00439306,
+      "tokens": {
+        "input": 93140,
+        "output": 2314
+      },
+      "model": "claude-haiku-5-5",
+      "error": null,
+      "steps": 7,
+      "toolCalls": 6
+    }
+  ]
+}

@@ -1,0 +1,5 @@
+{
+  "ok": true,
+  "error": null,
+  "finalText": "Both files are written: the release note is in `outputs/output.md` and my choices and checks are in `notes.md`."
+}

@@ -1,0 +1,5 @@
+{
+  "ok": true,
+  "error": null,
+  "finalText": "Files are written: `outputs/sum.mjs` and `outputs/sum.test.mjs` (4 tests, all passing), with choices and caveats in `notes.md`."
+}

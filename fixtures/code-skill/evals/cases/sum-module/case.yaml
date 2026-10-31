@@ -1,0 +1,5 @@
+title: A sum module with its test
+expected_outcome: outputs/sum.mjs exports sum(list) that adds a list of numbers and ignores non-numbers; outputs/sum.test.mjs covers it.
+bench:
+  artifact: code
+  check: node --test outputs/*.test.mjs

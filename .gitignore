@@ -1,6 +1,24 @@
+# Dependencies and builds
 node_modules/
 dist/
 app/dist/
+*.tsbuildinfo
+.vite/
+coverage/
+
+# Secrets: only the example is committed
 .env
+.env.*
+!.env.example
+
+# Local tool state
+.impeccable/
+.claude/settings.local.json
+.idea/
+.vscode/
 .DS_Store
+
+# Logs
 *.log
+npm-debug.log*
+pnpm-debug.log*
