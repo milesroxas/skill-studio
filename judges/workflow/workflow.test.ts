@@ -29,7 +29,11 @@ const ev = (kind: TranscriptEvent['kind'], extra: Partial<TranscriptEvent> = {})
 })
 const tool = (name: string, args: string) => ev('tool', { tool: name, args })
 
-const metrics = async (events: TranscriptEvent[], settings = {}): Promise<WorkflowMetrics> => {
+const metrics = async (
+  events: TranscriptEvent[],
+  settings = {},
+  sampleDir = dir,
+): Promise<WorkflowMetrics> => {
   const input = {
     text: '',
     units: [],
@@ -40,7 +44,7 @@ const metrics = async (events: TranscriptEvent[], settings = {}): Promise<Workfl
     artifacts: [{ file: 'outputs/note.md', kind: 'markdown' }],
     primary: null,
     transcript: events,
-    dir,
+    dir: sampleDir,
   } satisfies JudgeInput
   const raw = await workflowPack.judge(input, ctx)
   if (!raw) throw new Error('no raw')
@@ -85,16 +89,23 @@ describe('workflow metrics', () => {
   })
 
   it('compares whole path segments, so a sibling sample or system look-alike is outside', async () => {
-    const m = await metrics([
-      tool('Read', `${dir}0/outputs/a.md`),
-      tool('Read', `${dir}/../elsewhere/b.md`),
-      tool('Read', '/etc2/passwd'),
-      tool('Read', '/tmp-cache/x'),
-      tool('Read', `${dir}/outputs/./c.md`),
-    ])
+    // Samples live under the skill's evals/runs/, never under a system dir like /tmp
+    // (which is where os.tmpdir() points on Linux), so this path is not on disk.
+    const sample = '/work/skill/evals/runs/r1/case-s1'
+    const m = await metrics(
+      [
+        tool('Read', `${sample}0/outputs/a.md`),
+        tool('Read', `${sample}/../elsewhere/b.md`),
+        tool('Read', '/etc2/passwd'),
+        tool('Read', '/tmp-cache/x'),
+        tool('Read', `${sample}/outputs/./c.md`),
+      ],
+      {},
+      sample,
+    )
     expect(m.outside).toEqual([
-      `${dir}0/outputs/a.md`,
-      `${dir}/../elsewhere/b.md`,
+      `${sample}0/outputs/a.md`,
+      `${sample}/../elsewhere/b.md`,
       '/etc2/passwd',
       '/tmp-cache/x',
     ])
