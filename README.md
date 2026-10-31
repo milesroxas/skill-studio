@@ -22,6 +22,25 @@ cp .env.example .env        # set TYPESAFE_API_KEY
 ## Quick start
 
 ```
+pnpm start
+```
+
+This builds the app, starts it on http://localhost:4400 and opens it in your browser. It opens on the library: every skill in your user skills folders (`~/.agents`, `~/.claude`, `~/.cursor`, `~/.codex`) and in projects under `~/SITES` (change the folders under "Where skills are found"). From there the whole loop runs in the app:
+
+1. **Library**: open a skill, or create one. A new skill is written to `.agents/skills/<name>` and linked into the agents you pick.
+2. **Skill**: edit `SKILL.md` and `references/`; the side panel lists the rules a run is graded on.
+3. **Cases**: write each task the agent gets, what a good answer does, and the checks the judge holds it to.
+4. **Runs**: start a run with one or more agents and models, then read the scores per case and version.
+5. **Review**: rate answers blind, compare two side by side, read transcripts.
+6. **Bench**: see where your ratings and the judge disagree, and tune the scoring.
+
+The button at the top right always names the next step. Install or uninstall a skill for Claude Code, Cursor or Codex from its row in the library.
+
+### From the command line
+
+For scripts and batch work, the CLI covers scaffolding, runs, grading and reports:
+
+```
 pnpm st new <skill-dir>                       # scaffold SKILL.md and evals/cases/
 pnpm st cases <skill-dir>
 pnpm st run <skill-dir> --engine claude --model sonnet --cases a,b --samples 2 --name "v0 first draft"
