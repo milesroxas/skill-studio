@@ -147,3 +147,7 @@ pnpm format       # biome format --write
 Biome skips Markdown on purpose: its Markdown formatter misreads YAML front matter. Generated eval data (`evals/runs`, reviews, anchor reports) is excluded too.
 
 Layout: `core/` scoring and schemas, `judges/` the packs, `server/` engines, runs and the HTTP API, `cli/` the `st` command, `app/` the React review UI.
+
+## License
+
+[MIT](LICENSE)

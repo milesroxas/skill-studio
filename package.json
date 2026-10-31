@@ -3,6 +3,11 @@
   "version": "0.1.0",
   "private": true,
   "description": "Eval harness for agent skills: generate outputs with headless agents, grade them with code checks and Jev judge packs, review blind.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/milesroxas/skill-tester.git"
+  },
   "type": "module",
   "scripts": {
     "st": "tsx cli/st.ts",
