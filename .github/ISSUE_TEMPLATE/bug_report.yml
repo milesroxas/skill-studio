@@ -1,0 +1,32 @@
+name: Bug report
+description: Something in st, the server or the review UI does not work as documented.
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you ran, what you expected, and what happened instead.
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      description: The exact `pnpm st ...` command or UI steps. A fixture skill (`fixtures/demo-skill`) is the easiest base.
+      render: shell
+    validations:
+      required: true
+  - type: input
+    id: versions
+    attributes:
+      label: Versions
+      description: Output of `node --version`, `pnpm --version`, and the engine CLI version (`claude --version` or `cursor-agent --version`).
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs
+      description: Error output, or the relevant lines of `agent.json` / `transcript.jsonl`. Remove anything private.
+      render: text

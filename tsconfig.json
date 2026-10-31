@@ -23,5 +23,13 @@
       "@app/*": ["./app/src/*"]
     }
   },
-  "include": ["core", "server", "judges", "cli", "app/src", "app/vite.config.ts"]
+  "include": [
+    "core",
+    "server",
+    "judges",
+    "cli",
+    "app/src",
+    "app/vite.config.ts",
+    "vitest.config.ts"
+  ]
 }

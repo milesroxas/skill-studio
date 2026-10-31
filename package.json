@@ -8,15 +8,26 @@
     "type": "git",
     "url": "git+https://github.com/milesroxas/skill-tester.git"
   },
+  "packageManager": "pnpm@12.6.0",
+  "devEngines": {
+    "runtime": {
+      "name": "node",
+      "version": ">=24",
+      "onFail": "error"
+    }
+  },
   "type": "module",
   "scripts": {
     "st": "tsx cli/st.ts",
     "server": "tsx server/index.ts",
     "app": "vite --config app/vite.config.ts",
+    "build": "vite build --config app/vite.config.ts",
     "typecheck": "tsc --noEmit",
     "lint": "biome check .",
-    "format": "biome format --write .",
-    "check": "pnpm typecheck && pnpm lint"
+    "format": "biome check --write .",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "check": "pnpm typecheck && pnpm lint && pnpm test"
   },
   "dependencies": {
     "@typesafe-ai/sdk": "0.7.0",
@@ -32,7 +43,8 @@
     "@vitejs/plugin-react": "^6.1.2",
     "tsx": "^4.23.15",
     "typescript": "^7.0.2",
-    "vite": "^8.3.5"
+    "vite": "^8.3.5",
+    "vitest": "^5.0.5"
   },
   "pnpm": {
     "onlyBuiltDependencies": [

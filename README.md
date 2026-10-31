@@ -1,5 +1,7 @@
 # skill-tester
 
+[![ci](https://github.com/milesroxas/skill-tester/actions/workflows/ci.yml/badge.svg)](https://github.com/milesroxas/skill-tester/actions/workflows/ci.yml)
+
 An eval harness for agent skills. It generates outputs with headless coding agents (Claude Code, Cursor's agent), grades them with code checks and [TypeSafe](https://typesafe.ai) Jev judge packs, and keeps the runs, reports and human reviews beside the skill in its `evals/` folder.
 
 Most skill eval tools stop at pass/fail. skill-tester is built for subjective outputs (writing, HTML, agent process): judge answers are stored so you can reweight without new calls, a blind review queue calibrates the judges against your own ratings, and labelled anchors gate whether a judge pack can be trusted. [docs/landscape.md](docs/landscape.md) compares it with the other tools.
@@ -140,13 +142,14 @@ Isolation is by convention: the skill copy omits `evals/`, and the prompt forbid
 ## Development
 
 ```
-pnpm check        # tsc --noEmit, then biome check
-pnpm format       # biome format --write
+pnpm check        # typecheck, Biome, tests (what CI runs, plus pnpm build)
+pnpm test:watch   # vitest in watch mode
+pnpm format       # Biome formatting and safe fixes
 ```
 
-Biome skips Markdown on purpose: its Markdown formatter misreads YAML front matter. Generated eval data (`evals/runs`, reviews, anchor reports) is excluded too.
+Tests need no API key, network or agent CLI. Biome skips Markdown on purpose: its Markdown formatter misreads YAML front matter. Generated eval data (`evals/runs`, reviews, anchor reports) is excluded too.
 
-Layout: `core/` scoring and schemas, `judges/` the packs, `server/` engines, runs and the HTTP API, `cli/` the `st` command, `app/` the React review UI.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for the layout and test conventions, and [SECURITY.md](SECURITY.md) before running skills you did not write.
 
 ## License
 
