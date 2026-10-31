@@ -1,20 +1,17 @@
-#!/usr/bin/env node
 /**
- * The skill-tester server: a local HTTP API over one or more skills' evals,
- * bound to 127.0.0.1. The UI in `app/` talks to it; the CLI calls the same
- * functions directly.
- *
- *   pnpm server <skill-dir>... [--port 4400]
+ * The skill-tester server: a local HTTP API over the skill library and each
+ * open skill's evals, bound to 127.0.0.1. The UI in `app/` talks to it; the
+ * CLI calls the same functions directly. Started by `st serve`.
  */
 import { existsSync, readFileSync, statSync } from 'node:fs'
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http'
 import { extname, join, relative, resolve } from 'node:path'
-import { parseArgs } from 'node:util'
 import { leaderboards, voteKeys } from '@core/bradley-terry.ts'
 import { isWithin } from '@core/paths.ts'
 import { reviewQueue } from '@core/queue.ts'
 import {
   type BenchConfig,
+  type CaseDraft,
   CONFIGURATIONS,
   type Configuration,
   type Preference,
@@ -23,14 +20,32 @@ import {
 import { agreement } from '@core/stats.ts'
 import type { JudgeInput } from '@judges/index.ts'
 import { packById } from '@judges/index.ts'
-import { benchPath, findCase, loadBench, loadCases, loadRules } from './cases.ts'
+import {
+  benchPath,
+  deleteCase,
+  findCase,
+  loadBench,
+  loadCases,
+  loadRules,
+  saveCase,
+} from './cases.ts'
 import { engineById, engineInfo } from './engines/index.ts'
 import { loadEnv, TOOL_ROOT } from './env.ts'
 import { assertSafe, assertSafePath, isDir, readJson, readTree, writeJson } from './fs.ts'
 import { generateRun } from './generate.ts'
 import { gradeRun, judgeInput } from './grade.ts'
+import { refusal } from './guard.ts'
 import { Jev } from './jev.ts'
 import { listJobs, runJob, say } from './jobs.ts'
+import {
+  createSkill,
+  linkSkill,
+  markOthers,
+  scanLibrary,
+  setWorkspaces,
+  touchRecent,
+  unlinkSkill,
+} from './library.ts'
 import { loadReviews, promoteAnchor, reviewsPath, savePreference, saveReview } from './reviews.ts'
 import {
   anchorList,
@@ -63,6 +78,7 @@ const TYPES: Record<string, string> = {
 
 type Body = Record<string, unknown>
 type Route = (url: URL, body: Body, skill: SkillInfo) => unknown | Promise<unknown>
+type LibraryRoute = (url: URL, body: Body) => unknown | Promise<unknown>
 
 interface Static {
   bytes: Buffer
@@ -74,6 +90,28 @@ const str = (value: unknown, fallback = ''): string =>
 const num = (value: unknown, fallback: number): number =>
   typeof value === 'number' && Number.isFinite(value) ? value : fallback
 const list = (value: unknown): string[] => (Array.isArray(value) ? value.map(String) : [])
+const record = (value: unknown): Body =>
+  value && typeof value === 'object' && !Array.isArray(value) ? (value as Body) : {}
+
+function caseDraftOf(value: unknown): CaseDraft {
+  const input = record(value)
+  const words = Array.isArray(input.words) ? input.words.map(Number) : []
+  return {
+    id: str(input.id).trim(),
+    title: str(input.title),
+    prompt: str(input.prompt),
+    expectedOutcome: str(input.expectedOutcome),
+    words: words.length === 2 ? [words[0], words[1]] : null,
+    graders: (Array.isArray(input.graders) ? input.graders : []).map((raw) => {
+      const g = record(raw)
+      return {
+        id: typeof g.id === 'string' ? g.id : null,
+        statement: str(g.statement),
+        weight: num(g.weight, 1),
+      }
+    }),
+  }
+}
 
 export interface ServerOptions {
   skills: string[]
@@ -82,14 +120,57 @@ export interface ServerOptions {
 
 function createApi(skillDirs: string[]) {
   const skills = skillDirs.map((dir) => skillInfo(dir))
-  if (!skills.length) throw new Error('No skill directory given.')
 
+  /** Serve a skill folder from now on; the same folder twice is one skill. */
+  const open = (dir: string): SkillInfo => {
+    const info = skillInfo(dir)
+    const found = skills.find((s) => s.path === info.path)
+    if (found) return found
+    skills.push(info)
+    touchRecent(info.path)
+    return info
+  }
+
+  /** The skill a request names by path, opened on first use; else the first served. */
   const skillOf = (url: URL, body: Body): SkillInfo => {
     const wanted = str(url.searchParams.get('skill') ?? body.skill)
-    if (!wanted) return skills[0]
+    if (!wanted) {
+      if (!skills.length) throw new Error('Open a skill from the library first.')
+      return skills[0]
+    }
     const match = skills.find((s) => s.path === resolve(wanted) || s.name === wanted)
-    if (!match) throw new Error(`Unknown skill ${wanted}.`)
-    return match
+    if (match) return match
+    if (!existsSync(join(resolve(wanted), 'SKILL.md'))) throw new Error(`No skill at ${wanted}.`)
+    return open(wanted)
+  }
+
+  /** Routes that work before any skill is open. */
+  const libraryRoutes: Record<string, LibraryRoute> = {
+    'GET /api/skills': () => skills,
+    'GET /api/library': () => scanLibrary(skills.map((s) => s.path)),
+    'POST /api/library/create': (_url, body) => {
+      const path = createSkill({
+        scope: str(body.scope, 'user'),
+        name: str(body.name).trim(),
+        description: str(body.description).trim(),
+        agents: list(body.agents),
+      })
+      return open(path)
+    },
+    'POST /api/library/link': (_url, body) => ({
+      linked: linkSkill(str(body.path), str(body.agent), str(body.scope, 'user')),
+    }),
+    'POST /api/library/unlink': (_url, body) => {
+      unlinkSkill(str(body.path), str(body.agent), str(body.scope, 'user'))
+      return { unlinked: true }
+    },
+    'POST /api/library/workspaces': (_url, body) => ({
+      workspaces: setWorkspaces(list(body.workspaces)),
+    }),
+    'POST /api/library/mark': (_url, body) => {
+      markOthers(str(body.path), body.theirs === true)
+      return { marked: true }
+    },
   }
 
   const state = async (skill: SkillInfo) => {
@@ -126,7 +207,6 @@ function createApi(skillDirs: string[]) {
   }
 
   const routes: Record<string, Route> = {
-    'GET /api/skills': () => skills,
     'GET /api/state': (_url, _body, skill) => state(skill),
     'GET /api/run': (url, _body, skill) =>
       readRun(skill.path, assertSafe(url.searchParams.get('run'), 'run')),
@@ -198,6 +278,13 @@ function createApi(skillDirs: string[]) {
       const path = str(body.path)
       deleteSkillFile(skill.path, path)
       return { deleted: path }
+    },
+    'POST /api/case': (_url, body, skill) => ({
+      saved: saveCase(skill.path, caseDraftOf(body.case), body.isNew === true),
+    }),
+    'POST /api/case/delete': (_url, body, skill) => {
+      deleteCase(skill.path, assertSafe(str(body.id), 'case'))
+      return { deleted: true }
     },
     'POST /api/config': (_url, body, skill) => {
       if (!body.config || typeof body.config !== 'object') throw new Error('Bad config.')
@@ -337,7 +424,7 @@ function createApi(skillDirs: string[]) {
     }
   }
 
-  return { skills, skillOf, routes, artifact }
+  return { skills, skillOf, routes, libraryRoutes, artifact }
 }
 
 const send = (
@@ -363,17 +450,20 @@ export function startServer(options: ServerOptions): Promise<number> {
   const api = createApi(options.skills)
   const ui = join(TOOL_ROOT, 'app/dist')
   const server = createServer(async (req, res) => {
-    const url = new URL(req.url ?? '/', `http://${req.headers.host ?? 'localhost'}`)
+    const refused = refusal(req.method, req.headers)
+    if (refused) return send(res, 403, { error: refused })
+    const url = new URL(req.url ?? '/', `http://${req.headers.host}`)
     try {
       const body = req.method === 'POST' ? await bodyOf(req) : {}
-      const skill = api.skillOf(url, body)
+      const free = api.libraryRoutes[`${req.method} ${url.pathname}`]
+      if (free) return send(res, 200, await free(url, body))
       if (url.pathname === '/api/artifact') {
-        const file = api.artifact(url, skill)
+        const file = api.artifact(url, api.skillOf(url, body))
         // Agent-written HTML must never run on this origin: it could call the API.
         return send(res, 200, file.bytes, file.type, { 'content-security-policy': 'sandbox' })
       }
       const route = api.routes[`${req.method} ${url.pathname}`]
-      if (route) return send(res, 200, await route(url, body, skill))
+      if (route) return send(res, 200, await route(url, body, api.skillOf(url, body)))
       if (url.pathname.startsWith('/api/')) return send(res, 404, { error: 'No such route.' })
       if (req.method !== 'GET') return send(res, 405, { error: 'Method not allowed.' })
       if (!isDir(ui))
@@ -403,26 +493,4 @@ export function startServer(options: ServerOptions): Promise<number> {
     })
     server.listen(port, '127.0.0.1', () => done(port))
   })
-}
-
-const isMain =
-  process.argv[1] && resolve(process.argv[1]) === resolve(new URL(import.meta.url).pathname)
-if (isMain) {
-  const { values, positionals } = parseArgs({
-    allowPositionals: true,
-    options: { port: { type: 'string' } },
-  })
-  const skills = positionals.length ? positionals : [process.cwd()]
-  startServer({ skills, port: values.port ? Number(values.port) : undefined }).then(
-    (port) => {
-      console.log(
-        `skill-tester: http://localhost:${port}  (${skills.map((s) => resolve(s)).join(', ')})`,
-      )
-      if (!Jev.available()) console.log('TYPESAFE_API_KEY is not set: new runs will not be judged.')
-    },
-    (error: Error) => {
-      console.error(error.message)
-      process.exit(1)
-    },
-  )
 }

@@ -3,10 +3,25 @@ import { basename, join } from 'node:path'
 import { mergeConfig } from '@core/config.ts'
 import type { Rule } from '@core/rules.ts'
 import { rulesFromList, rulesFromSkill } from '@core/rules.ts'
-import type { BenchConfig, Case, CaseBench, CaseSettings, Grader } from '@core/schemas.ts'
-import { frontMatterBlock, metaList, metaText, readFrontMatter, slug } from '@core/text.ts'
+import type {
+  BenchConfig,
+  Case,
+  CaseBench,
+  CaseDraft,
+  CaseSettings,
+  Grader,
+} from '@core/schemas.ts'
+import {
+  frontMatterBlock,
+  isSlug,
+  metaList,
+  metaText,
+  readFrontMatter,
+  SLUG_RULE,
+  slug,
+} from '@core/text.ts'
 import { scorers } from '@judges/scorers.ts'
-import { parseDocument, parse as parseYaml, stringify as toYaml } from 'yaml'
+import { isMap, parseDocument, parse as parseYaml, stringify as toYaml } from 'yaml'
 import { isFile, listDirs, listFiles, readJson } from './fs.ts'
 
 /** `evals/` entries that are never case folders. */
@@ -184,27 +199,16 @@ export const readSkillFile = (skillDir: string, rel: string): string | null => {
   return isFile(full) ? readFileSync(full, 'utf8') : null
 }
 
-/** What the case editor sends. Graders keep their id; a new one has none. */
-export interface CaseInput {
-  id: string
-  title: string
-  prompt: string
-  expectedOutcome: string
-  words: [number, number] | null
-  graders: Array<{ id: string | null; statement: string; weight: number }>
-}
-
-const CASE_ID = /^[a-z0-9][a-z0-9-]*$/
-
 /**
  * Write a case folder under `evals/cases/<id>/`. Front matter, other
  * `case.yaml` keys and grader settings the editor does not show are kept. A
  * legacy `evals.json` case is written out as a folder, which then wins.
  */
-export function saveCase(skillDir: string, input: CaseInput, isNew: boolean): string {
-  if (!CASE_ID.test(input.id))
-    throw new Error('Use lowercase letters, digits and dashes for the case id, like short-note.')
+export function saveCase(skillDir: string, input: CaseDraft, isNew: boolean): string {
+  if (!isSlug(input.id)) throw new Error(SLUG_RULE)
   if (!input.prompt.trim()) throw new Error('Write the prompt the agent gets.')
+  if (input.words && !(input.words[0] >= 0 && input.words[1] >= input.words[0]))
+    throw new Error('The word range needs a minimum below its maximum.')
   const existing = loadCases(skillDir).find((c) => c.id === input.id)
   if (isNew && existing) throw new Error(`A case called ${input.id} already exists.`)
   const rel = existing?.dir ?? `evals/cases/${input.id}`
@@ -217,18 +221,18 @@ export function saveCase(skillDir: string, input: CaseInput, isNew: boolean): st
 
   const yamlPath = join(dir, 'case.yaml')
   const raw = isFile(yamlPath) ? readFileSync(yamlPath, 'utf8') : ''
-  const doc = parseDocument(raw.trim() ? raw : '{}')
+  // Seeded so a new file is a block mapping, like hand-written ones.
+  const doc = parseDocument(raw.trim() ? raw : 'title: untitled\n')
   doc.set('title', input.title.trim() || input.id)
   if (input.expectedOutcome.trim()) doc.set('expected_outcome', input.expectedOutcome.trim())
   else doc.delete('expected_outcome')
   if (input.words) {
-    const [min, max] = input.words
-    if (!(min >= 0 && max >= min))
-      throw new Error('The word range needs a minimum below its maximum.')
-    const words = doc.createNode([min, max])
+    const words = doc.createNode(input.words)
     words.flow = true
     doc.setIn(['bench', 'words'], words)
   } else if (doc.hasIn(['bench', 'words'])) doc.deleteIn(['bench', 'words'])
+  const bench = doc.get('bench')
+  if (isMap(bench) && !bench.items.length) doc.delete('bench')
   writeFileSync(yamlPath, doc.toString())
 
   const graderDir = join(dir, 'graders')

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   copyOf,
   frontMatterBlock,
+  isSlug,
   metaList,
   metaText,
   readFrontMatter,
@@ -157,6 +158,18 @@ describe('slug', () => {
   })
   it('caps length without a trailing dash', () => {
     expect(slug('abc def', 4)).toBe('abc')
+  })
+})
+
+describe('isSlug', () => {
+  it.each(['a', 'release-notes', 'v2-draft-3'])('accepts %s', (text) => {
+    expect(isSlug(text)).toBe(true)
+  })
+  it.each(['', 'Release', 'a--b', '-a', 'a-', 'a_b', 'a b', '../a'])('refuses %j', (text) => {
+    expect(isSlug(text)).toBe(false)
+  })
+  it('accepts whatever slug derives from a title', () => {
+    expect(isSlug(slug('  A short note: v2! '))).toBe(true)
   })
 })
 

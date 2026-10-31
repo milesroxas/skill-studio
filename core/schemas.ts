@@ -63,6 +63,16 @@ export interface Case {
   dir: string | null
 }
 
+/** The editable part of a folder case. A grader without an id is new. */
+export interface CaseDraft {
+  id: string
+  title: string
+  prompt: string
+  expectedOutcome: string
+  words: [number, number] | null
+  graders: Array<{ id: string | null; statement: string; weight: number }>
+}
+
 export interface LayerHome {
   skill: string
   bench: string

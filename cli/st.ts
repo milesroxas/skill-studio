@@ -13,17 +13,18 @@
  *   st serve [skill...] [--port 4400]
  *   st new <dir> [--name <id>] [--description <text>]
  */
+import { spawn } from 'node:child_process'
 import { existsSync, readFileSync } from 'node:fs'
 import { basename, join, resolve } from 'node:path'
 import { parseArgs } from 'node:util'
 import type { BenchConfig, Configuration, Report } from '@core/schemas.ts'
 import { CONFIGURATIONS } from '@core/schemas.ts'
 import { layerOrder } from '@core/scoring.ts'
+import { isSlug, SLUG_RULE } from '@core/text.ts'
 import { scorers } from '@judges/scorers.ts'
 import { loadCases } from '@server/cases.ts'
 import { engineById, engines } from '@server/engines/index.ts'
 import { loadEnv } from '@server/env.ts'
-import { assertSafe } from '@server/fs.ts'
 import { generateRun } from '@server/generate.ts'
 import { compareReports, gradeAnchors, gradeRun, selfTest } from '@server/grade.ts'
 import { DEFAULT_PORT, startServer } from '@server/index.ts'
@@ -55,7 +56,8 @@ Commands
   new <dir>                   Scaffold a skill: SKILL.md and an empty evals/cases/.
     --name <id>               Skill name; default the folder name.
     --description <text>      Front matter description.
-  serve                       Start the API and UI server (--port ${DEFAULT_PORT}).
+  serve [skill...]            Start the app (--port ${DEFAULT_PORT}; --open opens a browser).
+                              With no skill it opens on the library of skills on this machine.
 
 Common
   --no-jev                    Grade without TypeSafe calls (code checks only).
@@ -84,6 +86,7 @@ const OPTIONS = {
   packs: { type: 'string' },
   bench: { type: 'string' },
   port: { type: 'string' },
+  open: { type: 'boolean' },
   description: { type: 'string' },
   json: { type: 'boolean' },
   help: { type: 'boolean', short: 'h' },
@@ -148,16 +151,24 @@ async function main(): Promise<number> {
   if (command === 'new') {
     const dir = args[0]
     if (!dir) throw new Error('Pass the new skill directory: st new <dir>.')
-    const name = assertSafe(values.name ?? basename(resolve(dir)), 'name')
+    const name = values.name ?? basename(resolve(dir))
+    if (!isSlug(name)) throw new Error(SLUG_RULE)
     const md = newSkill(dir, name, values.description ?? '')
     console.log(`Wrote ${md}. Edit it in the UI: pnpm st serve ${dir}`)
     return 0
   }
 
   if (command === 'serve') {
-    const skills = args.length ? args.map((p) => resolve(p)) : [process.cwd()]
+    const here = existsSync(join(process.cwd(), 'SKILL.md')) ? [process.cwd()] : []
+    const skills = args.length ? args.map((p) => resolve(p)) : here
     const port = await startServer({ skills, port: values.port ? Number(values.port) : undefined })
-    console.log(`skill-tester: http://localhost:${port}  (${skills.join(', ')})`)
+    const url = `http://localhost:${port}`
+    console.log(`skill-tester: ${url}${skills.length ? `  (${skills.join(', ')})` : ''}`)
+    if (values.open)
+      spawn(process.platform === 'darwin' ? 'open' : 'xdg-open', [url], {
+        stdio: 'ignore',
+        detached: true,
+      }).unref()
     return 0
   }
 

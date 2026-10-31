@@ -1,9 +1,4 @@
-/**
- * The skill library: every skill on this machine, found in the folders agents
- * load skills from, at user level and inside the projects under each
- * workspace. A skill lives once in `.agents/skills/` and is installed for an
- * agent by a symlink in that agent's folder, so an edit reaches every agent.
- */
+/** The library on disk: finds skills in every place, and installs them for agents by links. */
 import {
   existsSync,
   lstatSync,
@@ -17,93 +12,88 @@ import {
 } from 'node:fs'
 import { homedir } from 'node:os'
 import { basename, dirname, join, relative, resolve } from 'node:path'
-import { metaText, readFrontMatter } from '@core/text.ts'
+import {
+  AGENTS,
+  type AgentId,
+  HOLDER_RANK,
+  type Holder,
+  type Install,
+  type Library,
+  type LibrarySkill,
+  type Place,
+  STORE_DIR,
+} from '@core/library.ts'
+import { isSlug, metaText, readFrontMatter, SLUG_RULE } from '@core/text.ts'
 import { loadCases } from './cases.ts'
 import { isDir, isFile, listDirs, readJson, writeJson } from './fs.ts'
 import { newSkill } from './skill.ts'
 
-export const AGENTS = [
-  { id: 'claude', label: 'Claude Code', dir: '.claude/skills' },
-  { id: 'cursor', label: 'Cursor', dir: '.cursor/skills' },
-  { id: 'codex', label: 'Codex', dir: '.codex/skills' },
-] as const
-export type AgentId = (typeof AGENTS)[number]['id']
-
-/** Where new skills are written; agents get a link to it. */
-const STORE = '.agents/skills'
-const FOLDERS = [STORE, ...AGENTS.map((a) => a.dir)]
+const HOLDERS: Array<{ holder: Holder; dir: string }> = [
+  { holder: 'store', dir: STORE_DIR },
+  ...AGENTS.map((a) => ({ holder: a.id, dir: a.dir })),
+]
 const SKIP = new Set(['node_modules', 'evals', 'dist', 'build', 'vendor'])
+const PROJECT_DEPTH = 3
+const MAX_RECENT = 24
 
-const HOME = homedir()
+/** SKILL_TESTER_HOME stands in for the home folder, so tests never touch the real one. */
+const HOME = process.env.SKILL_TESTER_HOME || homedir()
 const SETTINGS = join(HOME, '.skill-tester', 'library.json')
 
 interface Settings {
-  /** Folders whose projects are scanned for skills. */
+  /** Folders whose projects are scanned. */
   workspaces: string[]
-  /** Skill paths without a lock entry that are someone else's all the same. */
+  /** Skills without a lock entry that are someone else's all the same. */
   others: string[]
+  /** Skills opened here, newest first. */
+  recent: string[]
 }
 
-export function loadSettings(): Settings {
-  const fallback = existsSync(join(HOME, 'SITES')) ? [join(HOME, 'SITES')] : []
+function loadSettings(): Settings {
   const saved = readJson<Partial<Settings>>(SETTINGS, {})
-  return { workspaces: saved.workspaces ?? fallback, others: saved.others ?? [] }
+  const sites = join(HOME, 'SITES')
+  return {
+    workspaces: saved.workspaces ?? (isDir(sites) ? [sites] : []),
+    others: saved.others ?? [],
+    recent: saved.recent ?? [],
+  }
 }
 
-const saveSettings = (settings: Settings): void => writeJson(SETTINGS, settings)
+function updateSettings(change: (settings: Settings) => void): Settings {
+  const settings = loadSettings()
+  change(settings)
+  writeJson(SETTINGS, settings)
+  return settings
+}
 
 export const tilde = (path: string): string =>
   path === HOME || path.startsWith(`${HOME}/`) ? `~${path.slice(HOME.length)}` : path
 const untilde = (path: string): string => resolve(path.replace(/^~(?=$|\/)/, HOME))
 
-/** A place skills live: the user's home, or one project. */
-export interface Place {
-  /** `user`, or the project's folder. */
-  scope: string
-  label: string
-  root: string
+const realOf = (path: string): string | null => {
+  try {
+    return realpathSync(path)
+  } catch {
+    return null
+  }
 }
 
-export interface Location {
-  agent: AgentId | 'store'
-  path: string
-  /** `dir` holds the files; `link` points at them. */
-  kind: 'dir' | 'link'
+const isLink = (path: string): boolean => {
+  try {
+    return lstatSync(path).isSymbolicLink()
+  } catch {
+    return false
+  }
 }
 
-export interface LibrarySkill {
-  path: string
-  name: string
-  description: string
-  scope: string
-  scopeLabel: string
-  locations: Location[]
-  /** Other folders in the same place with the same name: separate copies an edit will not reach. */
-  copies: string[]
-  /** Where an installed skill came from (a lock entry), `marked` when set by hand, else null. */
-  source: string | null
-  cases: number
-  runs: number
-  modified: string | null
-}
+const taken = (path: string): boolean => existsSync(path) || isLink(path)
 
-export interface Library {
-  skills: LibrarySkill[]
-  places: Place[]
-  workspaces: string[]
-  agents: Array<{ id: AgentId; label: string }>
-  store: string
-}
-
-const hasSkillFolder = (root: string): boolean => FOLDERS.some((f) => isDir(join(root, f)))
-
-/** Projects under a workspace with a skills folder, up to three levels down. */
 function projectsIn(workspace: string): string[] {
   const found: string[] = []
   const walk = (dir: string, depth: number) => {
-    if (hasSkillFolder(dir)) found.push(dir)
-    if (depth === 3) return
-    for (const name of listDirs(dir)) if (!SKIP.has(name)) walk(join(dir, name), depth + 1)
+    if (HOLDERS.some((h) => isDir(join(dir, h.dir)))) found.push(dir)
+    if (depth < PROJECT_DEPTH)
+      for (const name of listDirs(dir)) if (!SKIP.has(name)) walk(join(dir, name), depth + 1)
   }
   if (isDir(workspace)) walk(workspace, 0)
   return found
@@ -112,15 +102,25 @@ function projectsIn(workspace: string): string[] {
 function placesOf(settings: Settings): Place[] {
   const places: Place[] = [{ scope: 'user', label: 'User', root: HOME }]
   for (const workspace of settings.workspaces)
-    for (const root of projectsIn(workspace)) {
-      if (places.some((p) => p.root === root)) continue
-      const rel = relative(workspace, root)
-      places.push({ scope: root, label: rel || basename(root), root })
-    }
+    for (const root of projectsIn(workspace))
+      if (!places.some((p) => p.root === root))
+        places.push({ scope: root, label: relative(workspace, root) || basename(root), root })
   return places
 }
 
-/** Lock entries by skill name: `~/.agents/.skill-lock.json` for the user, `skills-lock.json` in a project. */
+function placeFor(scope: string): Place {
+  const place = placesOf(loadSettings()).find((p) => p.scope === scope)
+  if (!place) throw new Error(`Unknown place ${scope}.`)
+  return place
+}
+
+const agentDir = (agent: string): string => {
+  const found = AGENTS.find((a) => a.id === agent)
+  if (!found) throw new Error(`Unknown agent ${agent}.`)
+  return found.dir
+}
+
+/** Lock-file sources by skill name: `~/.agents/.skill-lock.json`, or a project's `skills-lock.json`. */
 function lockOf(place: Place): Record<string, string> {
   const file =
     place.scope === 'user'
@@ -132,177 +132,183 @@ function lockOf(place: Place): Record<string, string> {
   )
 }
 
-const realOf = (path: string): string | null => {
+interface Entry {
+  place: Place
+  holder: Holder
+  name: string
+  real: string
+  link: boolean
+}
+
+function entriesIn(place: Place): Entry[] {
+  return HOLDERS.flatMap(({ holder, dir }) => {
+    const folder = join(place.root, dir)
+    if (!isDir(folder)) return []
+    return readdirSync(folder).flatMap((name) => {
+      if (name.startsWith('.')) return []
+      const path = join(folder, name)
+      const real = realOf(path)
+      return real && isFile(join(real, 'SKILL.md'))
+        ? [{ place, holder, name, real, link: isLink(path) }]
+        : []
+    })
+  })
+}
+
+/**
+ * One group per skill name per place. A link joins the group holding its
+ * target, so a project linking a user skill installs that skill.
+ */
+function groupEntries(entries: Entry[]): Entry[][] {
+  const groups = new Map<string, Entry[]>()
+  const keyOfReal = new Map<string, string>()
+  const add = (key: string, entry: Entry) => {
+    const group = groups.get(key)
+    if (group) group.push(entry)
+    else groups.set(key, [entry])
+    keyOfReal.set(entry.real, key)
+  }
+  for (const e of entries) if (!e.link) add(`${e.place.scope}\0${e.name}`, e)
+  for (const e of entries)
+    if (e.link) add(keyOfReal.get(e.real) ?? `${e.place.scope}\0${e.name}`, e)
+  return [...groups.values()]
+}
+
+const rank = (entry: Entry): number => HOLDER_RANK.indexOf(entry.holder) + (entry.link ? 10 : 0)
+
+function installOf(group: Entry[], agent: AgentId, primary: Entry): Install {
+  const entry = group.find((e) => e.holder === agent && e.place.scope === primary.place.scope)
+  if (!entry) return null
+  if (entry.real !== primary.real) return 'copy'
+  return entry.link ? 'link' : 'here'
+}
+
+function caseCount(dir: string): number {
   try {
-    return realpathSync(path)
+    return loadCases(dir).length
   } catch {
-    return null
+    return 0
   }
 }
 
-function describe(path: string): { name: string; description: string; modified: string | null } {
-  const md = join(path, 'SKILL.md')
+function toSkill(
+  group: Entry[],
+  context: { locks: Map<string, Record<string, string>>; settings: Settings; open: Set<string> },
+): LibrarySkill {
+  const primary = group.reduce((best, e) => (rank(e) < rank(best) ? e : best))
+  const { real, place } = primary
+  const md = join(real, 'SKILL.md')
   const { meta } = readFrontMatter(readFileSync(md, 'utf8'))
   return {
-    name: metaText(meta, 'name') || basename(path),
+    path: real,
+    name: metaText(meta, 'name') || basename(real),
     description: metaText(meta, 'description') ?? '',
+    scope: place.scope,
+    scopeLabel: place.label,
+    installs: Object.fromEntries(
+      AGENTS.map((a) => [a.id, installOf(group, a.id, primary)]),
+    ) as Record<AgentId, Install>,
+    copies: [...new Set(group.filter((e) => e.real !== real).map((e) => e.real))],
+    source:
+      context.locks.get(place.scope)?.[primary.name] ??
+      (context.settings.others.includes(real) ? 'marked' : null),
+    cases: caseCount(real),
+    runs: listDirs(join(real, 'evals', 'runs')).length,
     modified: statSync(md).mtime.toISOString(),
+    recent: context.settings.recent.includes(real),
+    open: context.open.has(real),
   }
 }
 
-/** Every skill in every place, one row per folder on disk, links folded into it. */
+/** Every skill in every place. `open` lists served skills, kept even when outside every place. */
 export function scanLibrary(open: string[] = []): Library {
   const settings = loadSettings()
   const places = placesOf(settings)
-  const rows = new Map<string, LibrarySkill>()
-  const others = new Set(settings.others)
-
-  const rowFor = (real: string, place: Place | null, lock: Record<string, string>) => {
-    let row = rows.get(real)
-    if (row) return row
-    const info = describe(real)
-    let cases = 0
-    try {
-      cases = loadCases(real).length
-    } catch {
-      // A case folder that does not parse still leaves the skill listed.
+  const entries = places.flatMap(entriesIn)
+  const openReal = new Set(open.flatMap((p) => realOf(p) ?? []))
+  const found = new Set(entries.map((e) => e.real))
+  for (const real of openReal)
+    if (!found.has(real)) {
+      const place = { scope: 'other', label: tilde(dirname(real)), root: dirname(real) }
+      entries.push({ place, holder: 'store', name: basename(real), real, link: false })
     }
-    row = {
-      path: real,
-      ...info,
-      scope: place?.scope ?? 'other',
-      scopeLabel: place?.label ?? tilde(dirname(real)),
-      locations: [],
-      copies: [],
-      source: lock[basename(real)] ?? (others.has(real) ? 'marked' : null),
-      cases,
-      runs: listDirs(join(real, 'evals', 'runs')).length,
-    }
-    rows.set(real, row)
-    return row
-  }
 
-  for (const place of places) {
-    const lock = lockOf(place)
-    for (const folder of FOLDERS) {
-      const dir = join(place.root, folder)
-      if (!isDir(dir)) continue
-      for (const name of readdirSync(dir)) {
-        if (name.startsWith('.')) continue
-        const path = join(dir, name)
-        const real = realOf(path)
-        if (!real || !isFile(join(real, 'SKILL.md'))) continue
-        const link = lstatSync(path).isSymbolicLink()
-        // A link's row belongs to the place its files are in, found on that pass.
-        const row = rowFor(real, link ? null : place, lock)
-        if (!link && row.scope === 'other') {
-          row.scope = place.scope
-          row.scopeLabel = place.label
-          row.source = lock[name] ?? row.source
-        }
-        const agent = folder === STORE ? 'store' : AGENTS.find((a) => a.dir === folder)?.id
-        if (agent) row.locations.push({ agent, path, kind: link ? 'link' : 'dir' })
-      }
-    }
+  const context = {
+    locks: new Map(places.map((p) => [p.scope, lockOf(p)])),
+    settings,
+    open: openReal,
   }
-
-  for (const path of open) {
-    const real = realOf(path)
-    if (real && !rows.has(real)) rowFor(real, null, {})
-  }
-
-  const skills = [...rows.values()]
-  for (const row of skills)
-    row.copies = skills
-      .filter((o) => o !== row && o.scope === row.scope && basename(o.path) === basename(row.path))
-      .map((o) => o.path)
-  skills.sort((a, b) => a.name.localeCompare(b.name))
-
-  return {
-    skills,
-    places,
-    workspaces: settings.workspaces.map(tilde),
-    agents: AGENTS.map(({ id, label }) => ({ id, label })),
-    store: STORE,
-  }
+  const skills = groupEntries(entries)
+    .map((group) => toSkill(group, context))
+    .sort((a, b) => a.name.localeCompare(b.name) || a.scopeLabel.localeCompare(b.scopeLabel))
+  return { skills, places, workspaces: settings.workspaces.map(tilde) }
 }
 
-const placeFor = (scope: string): Place => {
-  const place = placesOf(loadSettings()).find((p) => p.scope === scope)
-  if (!place) throw new Error('Unknown place.')
-  return place
-}
-
-const agentDir = (agent: string): string => {
-  const found = AGENTS.find((a) => a.id === agent)
-  if (!found) throw new Error(`Unknown agent ${agent}.`)
-  return found.dir
-}
-
-/** Install a skill for an agent: a relative symlink in the agent's folder, in that place. */
-export function linkSkill(path: string, agent: string, scope: string): string {
+export function touchRecent(path: string): void {
   const real = realOf(path)
-  if (!real || !isFile(join(real, 'SKILL.md'))) throw new Error('No skill there.')
-  const target = join(placeFor(scope).root, agentDir(agent), basename(real))
-  if (existsSync(target) || isLink(target)) throw new Error(`${tilde(target)} already exists.`)
+  if (!real || loadSettings().recent[0] === real) return
+  updateSettings((s) => {
+    s.recent = [real, ...s.recent.filter((p) => p !== real)].slice(0, MAX_RECENT)
+  })
+}
+
+function link(real: string, agent: string, place: Place): string {
+  const target = join(place.root, agentDir(agent), basename(real))
+  if (taken(target)) throw new Error(`${tilde(target)} already exists.`)
   mkdirSync(dirname(target), { recursive: true })
-  symlinkSync(relative(dirname(target), real), target)
+  // The OS resolves a relative link from the folder's real path (macOS /tmp is /private/tmp).
+  symlinkSync(relative(realpathSync(dirname(target)), real), target)
   return target
 }
 
-const isLink = (path: string): boolean => {
-  try {
-    return lstatSync(path).isSymbolicLink()
-  } catch {
-    return false
-  }
+const skillReal = (path: string): string => {
+  const real = realOf(path)
+  if (!real || !isFile(join(real, 'SKILL.md'))) throw new Error(`No skill at ${path}.`)
+  return real
 }
 
-/** Uninstall: remove the agent's link. A folder that holds files is never removed. */
+export const linkSkill = (path: string, agent: string, scope: string): string =>
+  link(skillReal(path), agent, placeFor(scope))
+
+/** Remove an agent's link to this skill. A folder holding files is never removed. */
 export function unlinkSkill(path: string, agent: string, scope: string): void {
-  const target = join(placeFor(scope).root, agentDir(agent), basename(realOf(path) ?? path))
-  if (!isLink(target)) throw new Error(`${tilde(target)} is not a link, so it is left alone.`)
+  const real = skillReal(path)
+  const target = join(placeFor(scope).root, agentDir(agent), basename(real))
+  if (!isLink(target) || realOf(target) !== real)
+    throw new Error(`${tilde(target)} is not a link to this skill, so it is left alone.`)
   unlinkSync(target)
 }
 
-const NAME = /^[a-z0-9][a-z0-9-]*$/
-
-/** A new skill in the place's `.agents/skills/`, linked for each agent picked. */
+/** A new skill in the place's store, linked for each agent picked. */
 export function createSkill(input: {
   scope: string
   name: string
   description: string
   agents: string[]
 }): string {
-  if (!NAME.test(input.name))
-    throw new Error('Use lowercase letters, digits and dashes for the name, like release-notes.')
+  if (!isSlug(input.name)) throw new Error(SLUG_RULE)
   const place = placeFor(input.scope)
-  const dir = join(place.root, STORE, input.name)
-  if (existsSync(dir)) throw new Error(`${tilde(dir)} already exists.`)
-  for (const agent of input.agents) {
-    const target = join(place.root, agentDir(agent), input.name)
-    if (existsSync(target) || isLink(target)) throw new Error(`${tilde(target)} already exists.`)
-  }
+  const dir = join(place.root, STORE_DIR, input.name)
+  for (const path of [dir, ...input.agents.map((a) => join(place.root, agentDir(a), input.name))])
+    if (taken(path)) throw new Error(`${tilde(path)} already exists.`)
   newSkill(dir, input.name, input.description)
-  for (const agent of input.agents) linkSkill(dir, agent, place.scope)
+  for (const agent of input.agents) link(realpathSync(dir), agent, place)
   return dir
 }
 
 export function setWorkspaces(list: string[]): string[] {
-  const settings = loadSettings()
-  settings.workspaces = [...new Set(list.map(untilde))]
-  for (const w of settings.workspaces)
-    if (!isDir(w)) throw new Error(`${tilde(w)} is not a folder.`)
-  saveSettings(settings)
-  return settings.workspaces.map(tilde)
+  const workspaces = [...new Set(list.map(untilde))]
+  const missing = workspaces.find((w) => !isDir(w))
+  if (missing) throw new Error(`${tilde(missing)} is not a folder.`)
+  return updateSettings((s) => {
+    s.workspaces = workspaces
+  }).workspaces.map(tilde)
 }
 
-/** Mark a skill as someone else's (or yours again). */
+/** List a skill with installed ones (`theirs`), or with yours again. */
 export function markOthers(path: string, theirs: boolean): void {
-  const settings = loadSettings()
-  const set = new Set(settings.others)
-  if (theirs) set.add(path)
-  else set.delete(path)
-  settings.others = [...set]
-  saveSettings(settings)
+  const real = skillReal(path)
+  updateSettings((s) => {
+    s.others = s.others.filter((p) => p !== real).concat(theirs ? [real] : [])
+  })
 }

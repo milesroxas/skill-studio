@@ -11,6 +11,7 @@ import {
 import { basename, dirname, join, resolve } from 'node:path'
 import type { RunMeta } from '@core/schemas.ts'
 import { metaText, readFrontMatter } from '@core/text.ts'
+import { stringify as toYaml } from 'yaml'
 import { assertSafePath, copyTree, isDir, isFile, readTree } from './fs.ts'
 
 /** The files that make a skill version: SKILL.md and every reference. */
@@ -100,9 +101,11 @@ export function newSkill(skillDir: string, name: string, description: string): s
   if (existsSync(md)) throw new Error(`${md} already exists.`)
   mkdirSync(join(path, 'evals', 'cases'), { recursive: true })
   const title = name.replace(/[-_]+/g, ' ').replace(/^\w/, (c) => c.toUpperCase())
+  const front = toYaml({ name, description: description || 'What the skill does. Use when ...' })
+  // Guidance is a comment: every top-level bullet is graded as a rule.
   writeFileSync(
     md,
-    `---\nname: ${name}\ndescription: ${description || 'What the skill does. Use when ...'}\n---\n\n# ${title}\n\n## Rules\n\n- One rule per top-level bullet. Each becomes a graded rule.\n`,
+    `---\n${front}---\n\n# ${title}\n\n<!-- Write for the agent that loads this skill. Each top-level bullet under Rules is one graded rule. -->\n\n## Rules\n\n- \n`,
   )
   return md
 }

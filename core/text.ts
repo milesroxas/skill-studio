@@ -105,5 +105,9 @@ export const slug = (text: string, max = 48): string =>
     .slice(0, max)
     .replace(/-$/, '')
 
+/** Skill names and case ids: what `slug` produces, so either can be typed or derived. */
+export const isSlug = (text: string): boolean => /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(text)
+export const SLUG_RULE = 'Use lowercase letters, digits and single dashes, like release-notes.'
+
 export const round = (value: number | null, places = 2): number | null =>
   value === null || Number.isNaN(value) ? null : Number(value.toFixed(places))
