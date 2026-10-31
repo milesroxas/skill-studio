@@ -5,7 +5,7 @@ import { api } from '../api.ts'
 import { JobLogs } from '../components/Jobs.tsx'
 import type { Ctx } from '../ctx.ts'
 import { useToggleSet } from '../hooks.ts'
-import { capital, runStamp, versionName } from '../model.ts'
+import { capital, plural, runStamp, shortDate, versionName } from '../model.ts'
 
 interface WriterRow {
   id: number
@@ -21,7 +21,7 @@ const CONFIG_HELP: Record<Configuration, string> = {
 }
 
 export function Generate({ ctx }: { ctx: Ctx }) {
-  const { state, jobs, toast } = ctx
+  const { state, jobs, toast, go } = ctx
   const engines = state.engines
   const first = engines.find((e) => e.available) ?? engines[0]
   const current = state.versions.current
@@ -37,7 +37,7 @@ export function Generate({ ctx }: { ctx: Ctx }) {
   const [note, setNote] = useState('')
   const [grade, setGrade] = useState(true)
   const [busy, setBusy] = useState(false)
-  const needsName = current.changed && !skillName.trim()
+  const fallbackName = `Edits of ${shortDate(new Date().toISOString())}`
   const count = cases.size * writers.length * samples
   const missing = engines.filter((e) => !e.available)
 
@@ -52,7 +52,7 @@ export function Generate({ ctx }: { ctx: Ctx }) {
         samples,
         configuration,
         baselineRun: configuration === 'old_skill' ? baseline || null : null,
-        skillName: skillName.trim() || null,
+        skillName: skillName.trim() || (current.changed ? fallbackName : null),
         note,
         grade,
       })
@@ -72,13 +72,13 @@ export function Generate({ ctx }: { ctx: Ctx }) {
           {current.changed ? (
             <>
               <label className="help" htmlFor="gen-name">
-                The skill changed since the last run, so this run starts {current.version}. Name it
-                in a few words.
+                The skill changed since the last run, so this run starts {current.version}. Say what
+                changed, so you can tell versions apart later.
               </label>
               <input
                 id="gen-name"
                 type="text"
-                placeholder={`What changed in ${current.version}`}
+                placeholder={fallbackName}
                 value={skillName}
                 onChange={(e) => setSkillName(e.target.value)}
               />
@@ -93,6 +93,19 @@ export function Generate({ ctx }: { ctx: Ctx }) {
 
         <fieldset className="field">
           <legend>Cases</legend>
+          {!state.cases.length ? (
+            <p className="help">
+              No cases yet.{' '}
+              <button
+                type="button"
+                className="link inline"
+                onClick={() => go('cases', { new: '1' })}
+              >
+                Add one
+              </button>{' '}
+              to run.
+            </p>
+          ) : null}
           {state.cases.map((c) => (
             <label key={c.id} className="check-row">
               <input type="checkbox" checked={cases.has(c.id)} onChange={() => toggleCase(c.id)} />
@@ -259,19 +272,17 @@ export function Generate({ ctx }: { ctx: Ctx }) {
           <button
             type="button"
             className="primary"
-            disabled={busy || needsName || !cases.size || !writers.length}
+            disabled={busy || !cases.size || !writers.length}
             onClick={submit}
           >
-            Generate {count} output{count === 1 ? '' : 's'}
+            Start run: {plural(count, 'output')}
           </button>
-          {needsName ? (
-            <span className="help">Name {current.version} first.</span>
-          ) : !cases.size ? (
+          {!cases.size ? (
             <span className="help">Pick at least one case.</span>
           ) : (
             <span className="help">
-              {cases.size} case{cases.size === 1 ? '' : 's'} × {writers.length} writer
-              {writers.length === 1 ? '' : 's'} × {samples} sample{samples === 1 ? '' : 's'}
+              {plural(cases.size, 'case')} × {plural(writers.length, 'writer')} ×{' '}
+              {plural(samples, 'sample')}
             </span>
           )}
         </div>

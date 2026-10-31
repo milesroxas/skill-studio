@@ -1037,25 +1037,34 @@ button.pill:hover:not(:disabled) {
 }
 
 /* Insights */
+/* The verdict is said by its heading's color on a matching tint; no side bar. */
 .verdict {
   padding: 10px 12px;
   border-radius: var(--radius-sm);
   font-size: 13px;
-  border-left: 3px solid var(--line-strong);
-  background: var(--surface);
+  background: var(--surface-2);
 }
 .verdict b {
   display: block;
   margin-bottom: 2px;
 }
 .verdict.bench {
-  border-left-color: var(--warn);
+  background: var(--warn-soft);
+}
+.verdict.bench b {
+  color: var(--warn);
 }
 .verdict.skill {
-  border-left-color: var(--bad);
+  background: var(--bad-soft);
+}
+.verdict.skill b {
+  color: var(--bad);
 }
 .verdict.ok {
-  border-left-color: var(--good);
+  background: var(--good-soft);
+}
+.verdict.ok b {
+  color: var(--good);
 }
 .scatter {
   width: 100%;
@@ -1260,9 +1269,13 @@ button.pill:hover:not(:disabled) {
   text-align: left;
   overflow-wrap: anywhere;
 }
+.file-list button {
+  color: var(--muted);
+  text-decoration-color: transparent;
+}
 .file-list button[aria-current="true"] {
-  font-weight: 600;
   color: var(--text);
+  text-decoration-color: var(--text);
 }
 .rule-list {
   margin: 0;
@@ -1278,4 +1291,329 @@ button.pill:hover:not(:disabled) {
   .editor-text {
     min-height: 60vh;
   }
+}
+
+/* Small helpers */
+.faint {
+  color: var(--faint);
+}
+.nowrap {
+  white-space: nowrap;
+}
+.clamp,
+.grid-table .sub.clamp {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  max-width: 64ch;
+}
+button.link.inline {
+  display: inline;
+}
+button.danger {
+  color: var(--bad);
+}
+.note {
+  margin: 0;
+  padding: 8px 12px;
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  font-size: 12.5px;
+  max-width: 72ch;
+}
+.empty.compact {
+  padding: 32px 16px;
+}
+
+/* Location: Library / skill */
+.crumbs {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.crumb {
+  min-height: 28px;
+  padding: 0 6px;
+  margin: 0 -6px;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+}
+.crumb:hover:not(:disabled) {
+  background: var(--surface-2);
+  color: var(--text);
+}
+.crumb-sep {
+  color: var(--faint);
+}
+.crumbs [aria-current="page"] {
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Steps: each tab carries its status, so the loop reads left to right. */
+.tabs {
+  counter-reset: step;
+}
+.tabs button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  counter-increment: step;
+}
+.tabs button::before {
+  content: counter(step);
+  font: 500 11px / 1 var(--mono);
+  color: var(--faint);
+}
+.tab-meta {
+  font-size: 11.5px;
+  font-variant-numeric: tabular-nums;
+  color: var(--faint);
+}
+.tabs button[aria-current="page"] .tab-meta,
+.tabs button[aria-current="page"]::before {
+  color: var(--muted);
+}
+.subnav {
+  margin-bottom: 20px;
+}
+
+/* Library */
+.library .search {
+  width: min(320px, 100%);
+}
+input[type="search"] {
+  min-height: 30px;
+  padding: 4px 8px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+}
+.library-table td {
+  vertical-align: top;
+}
+/* A rare action: shown on the row being pointed at or tabbed into. */
+.library-table .row-extra {
+  white-space: nowrap;
+  opacity: 0;
+  transition: opacity 150ms ease-out;
+}
+.library-table tr:hover .row-extra,
+.library-table tr:focus-within .row-extra {
+  opacity: 1;
+}
+@media (hover: none) {
+  .library-table .row-extra {
+    opacity: 1;
+  }
+}
+.skill-cell {
+  min-width: 260px;
+}
+.skill-link {
+  font-weight: 500;
+  text-decoration-color: transparent;
+}
+.skill-link:hover:not(:disabled) {
+  text-decoration-color: currentColor;
+}
+.agents {
+  display: inline-flex;
+  gap: 4px;
+}
+button.agent {
+  min-height: 26px;
+  padding: 0 8px;
+  font-size: 12px;
+  color: var(--muted);
+  border-color: var(--line);
+}
+button.agent[aria-pressed="true"] {
+  color: var(--text);
+  border-color: var(--text);
+  box-shadow: none;
+}
+button.agent[aria-disabled="true"] {
+  cursor: default;
+}
+button.agent[aria-disabled="true"]:active {
+  transform: none;
+}
+button.agent.copy {
+  border-style: dashed;
+}
+.agent-note {
+  margin-left: 4px;
+  color: var(--faint);
+}
+.new-skill {
+  max-width: 720px;
+}
+.new-skill .form-grid {
+  align-items: start;
+}
+.new-skill .form-grid > label,
+.new-skill .form-grid > span {
+  padding-top: 5px;
+}
+.places summary {
+  cursor: pointer;
+  color: var(--muted);
+}
+.places > .stack {
+  margin-top: 10px;
+}
+.place-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.place-list li {
+  display: flex;
+  gap: 12px;
+  align-items: baseline;
+}
+
+/* Cases */
+.split.cases {
+  grid-template-columns: minmax(0, 720px) 300px;
+}
+.case-form {
+  gap: 20px;
+}
+.case-form label,
+.case-form legend {
+  font-size: 13px;
+  font-weight: 600;
+}
+.case-form .check-row,
+.case-form .picker {
+  font-weight: 400;
+}
+.intro {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.checks {
+  margin: 4px 0 8px;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  counter-reset: check;
+}
+.check {
+  display: grid;
+  grid-template-columns: 20px minmax(0, 1fr) auto auto;
+  gap: 6px;
+  align-items: center;
+  counter-increment: check;
+}
+.check::before {
+  content: counter(check);
+  font: 500 11px / 1 var(--mono);
+  color: var(--faint);
+  text-align: right;
+}
+.check input:not([type="number"]) {
+  width: 100%;
+}
+.weight input {
+  width: 56px;
+}
+.form-foot {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  padding-top: 16px;
+  border-top: 1px solid var(--line);
+}
+.case-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.case-item {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  width: 100%;
+  min-height: 44px;
+  padding: 6px 8px;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  white-space: normal;
+}
+.case-item .sub {
+  color: var(--muted);
+  font-size: 12px;
+}
+.case-item[aria-current="true"] {
+  background: var(--surface-2);
+}
+.case-item:active:not(:disabled) {
+  transform: none;
+}
+.file-names {
+  margin: 0;
+  padding-left: 18px;
+}
+@media (max-width: 900px) {
+  .split.cases {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* The suggested next step: quieter than a screen's own primary action. */
+button.next {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding-left: 10px;
+}
+.next-kicker {
+  font-size: 11.5px;
+  color: var(--muted);
+}
+.next-kicker::after {
+  content: "→";
+  margin-left: 6px;
+  color: var(--faint);
+}
+.check-head {
+  font-size: 12px;
+  color: var(--muted);
+  margin-bottom: -2px;
+}
+.check-head::before {
+  content: none;
+}
+.check-head > span:nth-child(3) {
+  width: 56px;
+}
+.check-head > span:last-child {
+  width: 66px;
+}
+.check button.ghost {
+  color: var(--muted);
+}
+
+/* Side panels stack with gap; paragraphs bring no margins of their own. */
+.panel p {
+  margin: 0;
 }

@@ -3,11 +3,13 @@
  * not define are declared here so the browser never imports from `server/`.
  */
 import type { QueueItem, Rating } from '@core/index.ts'
+import type { AgentId, Library } from '@core/library.ts'
 import type { Rule } from '@core/rules.ts'
 import type {
   Artifact,
   BenchConfig,
   Case,
+  CaseDraft,
   Configuration,
   Report,
   Review,
@@ -106,10 +108,20 @@ export interface GenerateRequest {
   grade?: boolean
 }
 
-let skillParam = ''
-/** Which served skill every call addresses; empty means the first. */
+const SKILL_KEY = 'skill-tester.skill'
+// A link can name the skill (`?skill=<path>`); it then becomes the remembered one.
+const linked = new URLSearchParams(window.location.search).get('skill')
+if (linked !== null) {
+  localStorage.setItem(SKILL_KEY, linked)
+  window.history.replaceState(null, '', window.location.pathname + window.location.hash)
+}
+let skillParam = localStorage.getItem(SKILL_KEY) ?? ''
+/** The skill every call addresses, by path; remembered across reloads. Empty: none open. */
+export const currentSkill = (): string => skillParam
 export const setSkill = (path: string): void => {
   skillParam = path
+  if (path) localStorage.setItem(SKILL_KEY, path)
+  else localStorage.removeItem(SKILL_KEY)
 }
 
 const withSkill = (path: string): string => {
@@ -186,4 +198,18 @@ export const api = {
   generate: (body: GenerateRequest) => call<{ started: true; job: number }>('/api/generate', body),
   grade: (run: string, jev = true) =>
     call<{ started: true; job: number }>('/api/grade', { run, jev }),
+  saveCase: (draft: CaseDraft, isNew: boolean) =>
+    call<{ saved: string }>('/api/case', { case: draft, isNew }),
+  deleteCase: (id: string) => call<{ deleted: true }>('/api/case/delete', { id }),
+  library: () => call<Library>('/api/library'),
+  createSkill: (body: { scope: string; name: string; description: string; agents: AgentId[] }) =>
+    call<SkillInfo>('/api/library/create', body),
+  link: (path: string, agent: AgentId, scope: string) =>
+    call<{ linked: string }>('/api/library/link', { path, agent, scope }),
+  unlink: (path: string, agent: AgentId, scope: string) =>
+    call<{ unlinked: true }>('/api/library/unlink', { path, agent, scope }),
+  setWorkspaces: (workspaces: string[]) =>
+    call<{ workspaces: string[] }>('/api/library/workspaces', { workspaces }),
+  mark: (path: string, theirs: boolean) =>
+    call<{ marked: true }>('/api/library/mark', { path, theirs }),
 }

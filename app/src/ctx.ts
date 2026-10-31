@@ -15,4 +15,6 @@ export interface Ctx {
   toast: (message: string) => void
   reload: () => Promise<void>
   jobs: Job[]
+  /** Switch to another skill (empty: none) and show `screen` in it. */
+  openSkill: (path: string, screen?: string) => void
 }

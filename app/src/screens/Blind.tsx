@@ -59,14 +59,20 @@ export function Blind({ ctx }: { ctx: Ctx }) {
   if (!output)
     return (
       <div className="empty">
-        <h2>{items.length ? 'Pick an output to review' : 'Every graded output has a review'}</h2>
+        <h2>
+          {items.length
+            ? 'Pick an output to rate'
+            : reviewed.length
+              ? 'You rated every graded output'
+              : 'Nothing to rate yet'}
+        </h2>
         <p className="help">
-          The queue holds graded outputs you have not reviewed, the judge's least certain first.
-          Grade a run to add more.
+          You rate each answer before you see its score, so the judge cannot sway you. The queue
+          puts the answers the judge was least sure of first. A new run adds more.
         </p>
         <div className="actions">
-          <button type="button" onClick={() => go('overview')}>
-            Open Overview
+          <button type="button" onClick={() => go(state.runs.length ? 'overview' : 'generate')}>
+            {state.runs.length ? 'See runs' : 'Start a run'}
           </button>
         </div>
         <ReviewedList reviewed={reviewed} current={current} open={open} />

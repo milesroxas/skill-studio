@@ -71,8 +71,8 @@ export function Insights({ ctx }: { ctx: Ctx }) {
       <div className="empty">
         <h2>No reviews yet</h2>
         <p className="help">
-          Insights sets your judgement against the bench's. Rate outputs and mark their layers Good
-          or Bad, and this shows which layers need a skill change and which need a bench change.
+          Once you rate some answers, this shows where you and the judge disagree, and whether to
+          change the skill or the scoring.
         </p>
         <div className="actions">
           <button type="button" className="primary" onClick={() => go('blind')}>

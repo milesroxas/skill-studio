@@ -176,3 +176,14 @@ export const money = (value: number | null | undefined): string =>
 
 export const fmt = (value: number | null, places = 1): string =>
   value === null ? '–' : value.toFixed(places)
+
+/** `1 case`, `3 cases`. */
+export const plural = (n: number, one: string, many = `${one}s`): string =>
+  `${n} ${n === 1 ? one : many}`
+
+/** `Oct 26`, with the year only when it is not this one. */
+export function shortDate(iso: string): string {
+  const date = new Date(iso)
+  const year = date.getFullYear() === new Date().getFullYear() ? undefined : 'numeric'
+  return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year })
+}

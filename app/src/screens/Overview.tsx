@@ -44,15 +44,22 @@ export function Overview({ ctx }: { ctx: Ctx }) {
       <div className="empty">
         <h2>No runs yet</h2>
         <p className="help">
-          {state.cases.length === 1
-            ? 'One case is ready.'
-            : `${state.cases.length} cases are ready.`}{' '}
-          A run has an agent write each case with {state.skill.name}, then grades the outputs.
+          A run has an agent answer each case with {state.skill.name} installed, then grades the
+          answers.{' '}
+          {state.cases.length
+            ? `${state.cases.length === 1 ? 'One case is' : `${state.cases.length} cases are`} ready.`
+            : 'Write a case first.'}
         </p>
         <div className="actions">
-          <button type="button" className="primary" onClick={() => go('generate')}>
-            Generate the first run
-          </button>
+          {state.cases.length ? (
+            <button type="button" className="primary" onClick={() => go('generate')}>
+              Start the first run
+            </button>
+          ) : (
+            <button type="button" className="primary" onClick={() => go('cases', { new: '1' })}>
+              Add a case
+            </button>
+          )}
         </div>
       </div>
     )
@@ -60,12 +67,10 @@ export function Overview({ ctx }: { ctx: Ctx }) {
   return (
     <div className="screen narrow">
       <section className="section">
-        <div className="section-head">
-          <h2>Runs</h2>
-          <p className="help">
-            Mean total per case under the current knobs. Open a score to read it.
-          </p>
-        </div>
+        <p className="help">
+          Each cell is a case's mean score out of 100. Click a score to read the answers, or a run
+          for its details.
+        </p>
         <div className="scroll-x">
           <table className="grid-table">
             <thead>
@@ -181,32 +186,6 @@ export function Overview({ ctx }: { ctx: Ctx }) {
                   <td className="num">0</td>
                 </tr>
               ) : null}
-            </tbody>
-          </table>
-        </div>
-      </section>
-
-      <section className="section">
-        <h2>Cases</h2>
-        <div className="scroll-x">
-          <table className="grid-table">
-            <thead>
-              <tr>
-                <th>Case</th>
-                <th>Title</th>
-                <th className="num">Graders</th>
-                <th className="num">Files</th>
-              </tr>
-            </thead>
-            <tbody>
-              {state.cases.map((c) => (
-                <tr key={c.id}>
-                  <td className="mono">{c.id}</td>
-                  <td>{c.title}</td>
-                  <td className="num">{c.graders.length}</td>
-                  <td className="num">{c.files.length}</td>
-                </tr>
-              ))}
             </tbody>
           </table>
         </div>

@@ -9,7 +9,7 @@ export interface Route {
 const parse = (): Route => {
   const hash = window.location.hash.replace(/^#\/?/, '')
   const [screen, query = ''] = hash.split('?')
-  return { screen: screen || 'overview', params: new URLSearchParams(query) }
+  return { screen: screen || 'home', params: new URLSearchParams(query) }
 }
 
 export function useRoute(): [Route, (screen: string, params?: Record<string, string>) => void] {

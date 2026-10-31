@@ -132,7 +132,7 @@ export function Editor({ ctx }: { ctx: Ctx }) {
           </small>
           <span className="spacer" />
           <button type="button" aria-pressed={showDiff} onClick={() => setShowDiff((s) => !s)}>
-            Show changes
+            Compare with saved
           </button>
           <button
             type="button"

@@ -76,7 +76,7 @@ export function Knobs({ ctx }: { ctx: Ctx }) {
             </>
           ) : (
             <p className="help">
-              Matches {state.paths.bench}. Move a knob to rescore every output.
+              Saved in {state.paths.bench}. Move a setting and every output rescores at once.
             </p>
           )}
         </div>
@@ -150,7 +150,7 @@ export function Knobs({ ctx }: { ctx: Ctx }) {
 
         {knobs.length ? (
           <div className="knob-group">
-            <h3>Pack knobs</h3>
+            <h3>Judge pack settings</h3>
             {knobs.map(({ key, value, known }) =>
               typeof value === 'number' ? (
                 <Knob

@@ -18,8 +18,8 @@
   },
   "type": "module",
   "scripts": {
+    "start": "pnpm build --logLevel warn && tsx cli/st.ts serve --open",
     "st": "tsx cli/st.ts",
-    "server": "tsx server/index.ts",
     "app": "vite --config app/vite.config.ts",
     "build": "vite build --config app/vite.config.ts",
     "typecheck": "tsc --noEmit",
