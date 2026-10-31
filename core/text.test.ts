@@ -1,5 +1,17 @@
 import { describe, expect, it } from 'vitest'
-import { copyOf, readFrontMatter, round, slug, titleOf, unitsOf, words } from './text.ts'
+import {
+  copyOf,
+  frontMatterBlock,
+  metaList,
+  metaText,
+  readFrontMatter,
+  round,
+  slug,
+  stripFrontMatter,
+  titleOf,
+  unitsOf,
+  words,
+} from './text.ts'
 
 describe('readFrontMatter', () => {
   it('splits meta fields from the body', () => {
@@ -12,6 +24,59 @@ describe('readFrontMatter', () => {
 
   it('returns the trimmed text when there is no front matter', () => {
     expect(readFrontMatter('\nJust text.\n')).toEqual({ meta: {}, text: 'Just text.' })
+  })
+
+  it('parses the block as YAML: hyphenated keys, quotes, lists and numbers', () => {
+    const raw = [
+      '---',
+      'name: tidy-writer',
+      'description: "Writes: tidy copy"',
+      'allowed-tools: [Read, Write]',
+      'max_turns: 12',
+      '---',
+      'Body.',
+    ].join('\n')
+    expect(readFrontMatter(raw).meta).toEqual({
+      name: 'tidy-writer',
+      description: 'Writes: tidy copy',
+      'allowed-tools': ['Read', 'Write'],
+      max_turns: 12,
+    })
+  })
+
+  it('reads Windows line endings and a byte-order mark', () => {
+    const raw = '\uFEFF---\r\nname: x\r\n---\r\n\r\nLine one.\r\nLine two.\r\n'
+    expect(readFrontMatter(raw)).toEqual({ meta: { name: 'x' }, text: 'Line one.\nLine two.' })
+  })
+
+  it('accepts an empty block and drops a block that is not valid YAML', () => {
+    expect(readFrontMatter('---\n---\nBody.')).toEqual({ meta: {}, text: 'Body.' })
+    expect(readFrontMatter('---\nkey: [unclosed\n---\nBody.')).toEqual({ meta: {}, text: 'Body.' })
+  })
+})
+
+describe('front matter helpers', () => {
+  const raw = '---\na: 1\n---\nBody.'
+  it('returns the block with delimiters, or nothing', () => {
+    expect(frontMatterBlock(raw)).toBe('---\na: 1\n---\n')
+    expect(frontMatterBlock('Body.')).toBe('')
+  })
+  it('strips the block and keeps the body', () => expect(stripFrontMatter(raw)).toBe('Body.'))
+
+  const meta = { s: 'text', n: 3, b: true, list: ['a', 1], csv: 'a, b,,c', obj: { x: 1 } }
+  it('reads scalars as text and nothing else', () => {
+    expect([metaText(meta, 's'), metaText(meta, 'n'), metaText(meta, 'b')]).toEqual([
+      'text',
+      '3',
+      'true',
+    ])
+    expect(metaText(meta, 'obj')).toBeNull()
+    expect(metaText(meta, 'missing')).toBeNull()
+  })
+  it('reads lists from sequences or comma-separated text', () => {
+    expect(metaList(meta, 'list')).toEqual(['a', '1'])
+    expect(metaList(meta, 'csv')).toEqual(['a', 'b', 'c'])
+    expect(metaList(meta, 'missing')).toBeNull()
   })
 })
 
@@ -43,6 +108,10 @@ describe('unitsOf', () => {
     ])
   })
 
+  it('splits Windows line endings the same way', () => {
+    expect(unitsOf(text.replace(/\n/g, '\r\n'))).toEqual(units)
+  })
+
   it('splits list blocks into items', () => {
     expect(units[1]).toEqual({ text: 'one two', items: ['one', 'two'], list: true })
     expect(units[2].items).toEqual(['first', 'second'])
@@ -62,6 +131,17 @@ describe('words', () => {
   })
   it('counts letters beyond ASCII', () => expect(words('café naïve')).toHaveLength(2))
   it('is empty for punctuation only', () => expect(words('... !')).toEqual([]))
+  it('never counts a dash or apostrophe on its own', () => {
+    expect(words("Fast - and ' cheap -- 'quoted' dogs'")).toEqual([
+      'Fast',
+      'and',
+      'cheap',
+      'quoted',
+      'dogs',
+    ])
+  })
+  it('keeps combining marks inside the word', () =>
+    expect(words('nai\u0308ve')).toEqual(['nai\u0308ve']))
 })
 
 describe('titleOf', () => {

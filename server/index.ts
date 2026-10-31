@@ -11,6 +11,7 @@ import { createServer, type IncomingMessage, type ServerResponse } from 'node:ht
 import { extname, join, relative, resolve } from 'node:path'
 import { parseArgs } from 'node:util'
 import { leaderboards, voteKeys } from '@core/bradley-terry.ts'
+import { isWithin } from '@core/paths.ts'
 import { reviewQueue } from '@core/queue.ts'
 import {
   type BenchConfig,
@@ -383,7 +384,7 @@ export function startServer(options: ServerOptions): Promise<number> {
           TYPES['.txt'],
         )
       let path = join(ui, url.pathname === '/' ? 'index.html' : url.pathname.slice(1))
-      if (!path.startsWith(ui) || !existsSync(path) || statSync(path).isDirectory())
+      if (!isWithin(path, ui) || !existsSync(path) || statSync(path).isDirectory())
         path = join(ui, 'index.html')
       return send(res, 200, readFileSync(path), TYPES[extname(path)] ?? 'application/octet-stream')
     } catch (error) {

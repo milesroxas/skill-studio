@@ -10,7 +10,7 @@ import {
 } from 'node:fs'
 import { basename, dirname, join, resolve } from 'node:path'
 import type { RunMeta } from '@core/schemas.ts'
-import { readFrontMatter } from '@core/text.ts'
+import { metaText, readFrontMatter } from '@core/text.ts'
 import { assertSafePath, copyTree, isDir, isFile, readTree } from './fs.ts'
 
 /** The files that make a skill version: SKILL.md and every reference. */
@@ -27,7 +27,11 @@ export function skillInfo(skillDir: string): SkillInfo {
   const md = join(path, 'SKILL.md')
   if (!existsSync(md)) throw new Error(`No SKILL.md at ${path}.`)
   const { meta } = readFrontMatter(readFileSync(md, 'utf8'))
-  return { path, name: meta.name ?? basename(path), description: meta.description ?? '' }
+  return {
+    path,
+    name: metaText(meta, 'name') ?? basename(path),
+    description: metaText(meta, 'description') ?? '',
+  }
 }
 
 /** SKILL.md and references/**, keyed by skill-relative path. */

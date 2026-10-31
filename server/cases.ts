@@ -4,9 +4,9 @@ import { mergeConfig } from '@core/config.ts'
 import type { Rule } from '@core/rules.ts'
 import { rulesFromList, rulesFromSkill } from '@core/rules.ts'
 import type { BenchConfig, Case, CaseBench, CaseSettings, Grader } from '@core/schemas.ts'
-import { readFrontMatter, slug } from '@core/text.ts'
+import { frontMatterBlock, metaList, metaText, readFrontMatter, slug } from '@core/text.ts'
 import { scorers } from '@judges/scorers.ts'
-import { parseDocument, parse as parseYaml } from 'yaml'
+import { parseDocument, parse as parseYaml, stringify as toYaml } from 'yaml'
 import { isFile, listDirs, listFiles, readJson } from './fs.ts'
 
 /** `evals/` entries that are never case folders. */
@@ -22,17 +22,18 @@ const RESERVED = new Set([
   'benchmarks',
 ])
 
-const asList = (value: unknown): string[] =>
-  Array.isArray(value) ? value.map(String) : typeof value === 'string' ? [value] : []
+/** A positive number from front matter; null when absent or not a positive number. */
+const positive = (front: Record<string, unknown>, key: string): number | null => {
+  const value = Number(metaText(front, key) ?? Number.NaN)
+  return Number.isFinite(value) && value > 0 ? value : null
+}
 
-function parseSettings(front: Record<string, string>): CaseSettings {
-  const list = (raw: string | undefined) =>
-    raw === undefined ? null : asList(parseYaml(raw) as unknown)
+function parseSettings(front: Record<string, unknown>): CaseSettings {
   return {
-    tags: list(front.tags) ?? [],
-    maxTurns: front.max_turns ? Number(front.max_turns) : null,
-    timeoutSeconds: front.timeout_seconds ? Number(front.timeout_seconds) : null,
-    allowedTools: list(front.allowed_tools),
+    tags: metaList(front, 'tags') ?? [],
+    maxTurns: positive(front, 'max_turns'),
+    timeoutSeconds: positive(front, 'timeout_seconds'),
+    allowedTools: metaList(front, 'allowed_tools'),
   }
 }
 
@@ -44,9 +45,9 @@ function readGraders(dir: string): Grader[] {
     return [
       {
         id: name.replace(/\.md$/, ''),
-        type: meta.type ?? 'llm',
-        focus: meta.focus ?? null,
-        weight: Number(meta.weight ?? 1) || 1,
+        type: metaText(meta, 'type') ?? 'llm',
+        focus: metaText(meta, 'focus'),
+        weight: positive(meta, 'weight') ?? 1,
         statement: text,
       },
     ]
@@ -211,9 +212,7 @@ export function saveCase(skillDir: string, input: CaseInput, isNew: boolean): st
   mkdirSync(join(dir, 'graders'), { recursive: true })
 
   const promptPath = join(dir, 'prompt.md')
-  const front = isFile(promptPath)
-    ? (/^---\n[\s\S]*?\n---\n?/.exec(readFileSync(promptPath, 'utf8'))?.[0] ?? '')
-    : ''
+  const front = isFile(promptPath) ? frontMatterBlock(readFileSync(promptPath, 'utf8')) : ''
   writeFileSync(promptPath, `${front ? `${front.trimEnd()}\n\n` : ''}${input.prompt.trim()}\n`)
 
   const yamlPath = join(dir, 'case.yaml')
@@ -245,12 +244,14 @@ export function saveCase(skillDir: string, input: CaseInput, isNew: boolean): st
       for (let n = 2; taken.has(id) || kept.has(id); n += 1) id = `${base}-${n}`
     }
     const path = join(graderDir, `${id}.md`)
-    const meta = isFile(path) ? readFrontMatter(readFileSync(path, 'utf8')).meta : { type: 'llm' }
+    const meta: Record<string, unknown> = isFile(path)
+      ? readFrontMatter(readFileSync(path, 'utf8')).meta
+      : { type: 'llm' }
     const weight = Number.isFinite(g.weight) && g.weight > 0 ? g.weight : 1
     if (weight === 1) delete meta.weight
-    else meta.weight = String(weight)
-    const lines = Object.entries(meta).map(([k, v]) => `${k}: ${v}`)
-    writeFileSync(path, `---\n${lines.join('\n')}\n---\n\n${statement}\n`)
+    else meta.weight = weight
+    const fields = Object.keys(meta).length ? toYaml(meta) : ''
+    writeFileSync(path, `---\n${fields}---\n\n${statement}\n`)
     kept.add(id)
   })
   for (const id of taken) if (!kept.has(id)) rmSync(join(graderDir, `${id}.md`))

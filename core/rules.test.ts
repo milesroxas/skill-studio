@@ -62,10 +62,19 @@ describe('rulesFromSkill', () => {
     expect(rulesFromSkill('- Always write in plain English please.')[0].section).toBe('SKILL.md')
   })
 
-  it('folds a nested bullet into its parent rule', () => {
-    const nested = rulesFromSkill('- Name every file you touch\n  - including generated files\n')
-    expect(nested).toHaveLength(1)
-    expect(nested[0].text).toBe('Name every file you touch - including generated files')
+  it('folds nested bullets into their parent rule as clauses, without list markers', () => {
+    const nested = rulesFromSkill(
+      '- Name every file you touch\n  - including generated files\n  1. and lock files\n- Ease these elements in:\n  * modals and sheets\n',
+    )
+    expect(nested.map((r) => r.text)).toEqual([
+      'Name every file you touch; including generated files; and lock files',
+      'Ease these elements in: modals and sheets',
+    ])
+  })
+
+  it('reads a skill saved with Windows line endings', () => {
+    const crlf = rulesFromSkill(skill.replace(/\n/g, '\r\n'))
+    expect(crlf).toEqual(rules)
   })
 
   it('returns nothing for a skill with no bullets', () => {

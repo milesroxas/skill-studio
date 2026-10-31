@@ -8,7 +8,7 @@ import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { parseSampleDir } from '@core/run-name.ts'
 import type { Artifact, Report, RunMeta, SampleMeta } from '@core/schemas.ts'
-import { readFrontMatter } from '@core/text.ts'
+import { metaList, metaText, readFrontMatter } from '@core/text.ts'
 import { detectArtifacts } from './artifacts.ts'
 import { isDir, isFile, listDirs, listFiles, readJson } from './fs.ts'
 import { skillVersions } from './skill.ts'
@@ -43,9 +43,9 @@ export interface FileHead {
 export function readHead(path: string): FileHead {
   const { meta } = readFrontMatter(readFileSync(path, 'utf8'))
   return {
-    case: meta.case ?? null,
-    label: meta.label ?? null,
-    tests: meta.tests ? meta.tests.split(/,\s*/).filter(Boolean) : [],
+    case: metaText(meta, 'case'),
+    label: metaText(meta, 'label'),
+    tests: metaList(meta, 'tests') ?? [],
   }
 }
 

@@ -17,7 +17,7 @@ import {
 } from 'node:fs'
 import { homedir } from 'node:os'
 import { basename, dirname, join, relative, resolve } from 'node:path'
-import { readFrontMatter } from '@core/text.ts'
+import { metaText, readFrontMatter } from '@core/text.ts'
 import { loadCases } from './cases.ts'
 import { isDir, isFile, listDirs, readJson, writeJson } from './fs.ts'
 import { newSkill } from './skill.ts'
@@ -144,8 +144,8 @@ function describe(path: string): { name: string; description: string; modified: 
   const md = join(path, 'SKILL.md')
   const { meta } = readFrontMatter(readFileSync(md, 'utf8'))
   return {
-    name: meta.name || basename(path),
-    description: meta.description ?? '',
+    name: metaText(meta, 'name') || basename(path),
+    description: metaText(meta, 'description') ?? '',
     modified: statSync(md).mtime.toISOString(),
   }
 }

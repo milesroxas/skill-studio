@@ -1,3 +1,5 @@
+import { stripFrontMatter } from './text.ts'
+
 export interface Rule {
   id: string
   text: string
@@ -15,12 +17,14 @@ const strip = (markdown: string): string =>
 
 /**
  * Top-level `-` and `*` bullets outside code blocks and outside the front
- * matter, each tagged with the section it sits under. Bullets that are only a
- * link or shorter than four words are skipped; a `rules` list in bench.json
- * replaces all of this.
+ * matter, each tagged with the section it sits under. Indented lines belong to
+ * the bullet above: a nested bullet is a clause of its parent rule, joined
+ * after a `;` unless the text before it already ends in punctuation. Bullets
+ * that are only a link or shorter than four words are skipped; a `rules` list
+ * in bench.json replaces all of this.
  */
 export function rulesFromSkill(skillMd: string): Rule[] {
-  const body = skillMd.replace(/^---\n[\s\S]*?\n---\n?/, '')
+  const body = stripFrontMatter(skillMd)
   const rules: Rule[] = []
   let section = 'SKILL.md'
   let inCode = false
@@ -53,7 +57,9 @@ export function rulesFromSkill(skillMd: string): Rule[] {
       continue
     }
     if (pending !== null && /^\s{2,}\S/.test(line)) {
-      pending += ` ${line.trim()}`
+      const nested = /^\s+(?:[-*+]|\d+[.)])\s+(.+)$/.exec(line)
+      if (nested) pending += `${/[.,;:!?]$/.test(pending.trim()) ? '' : ';'} ${nested[1].trim()}`
+      else pending += ` ${line.trim()}`
       continue
     }
     flush()

@@ -1,7 +1,7 @@
 /** Write the skill: SKILL.md and references/, edited in place on disk. */
 
 import { rulesFromSkill } from '@core/rules.ts'
-import { readFrontMatter } from '@core/text.ts'
+import { metaText, readFrontMatter } from '@core/text.ts'
 import { useEffect, useState } from 'react'
 import { api } from '../api.ts'
 import type { Ctx } from '../ctx.ts'
@@ -228,11 +228,11 @@ export function Editor({ ctx }: { ctx: Ctx }) {
             <span className="h3">Front matter</span>
             <p className="small">
               <span className="muted">name</span>{' '}
-              {meta.name || <span className="bad">missing</span>}
+              {metaText(meta, 'name') || <span className="bad">missing</span>}
             </p>
             <p className="small">
               <span className="muted">description</span>{' '}
-              {meta.description || <span className="bad">missing</span>}
+              {metaText(meta, 'description') || <span className="bad">missing</span>}
             </p>
           </div>
         ) : null}

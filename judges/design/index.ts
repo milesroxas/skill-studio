@@ -11,35 +11,67 @@ import { askStatements, pairwiseText, round } from '../shared/questions.ts'
 import type { JudgePack } from '../types.ts'
 import { type DesignConfig, type DesignRaw, designScoring, type MarkupCheck } from './score.ts'
 
+interface Tag {
+  name: string
+  /** Attribute names lowercased; a valueless attribute maps to ''. */
+  attrs: Map<string, string>
+}
+
+/** Start tags, attribute values unquoted. Comments and script and style bodies are not markup. */
+function tagsOf(html: string): Tag[] {
+  const markup = html
+    .replace(/<!--[\s\S]*?-->/g, '')
+    .replace(/<(script|style)\b[^>]*>[\s\S]*?<\/\1\s*>/gi, '<$1>')
+  const tags: Tag[] = []
+  const tag =
+    /<([a-z][a-z0-9-]*)((?:\s+[^\s"'>/=]+(?:\s*=\s*(?:"[^"]*"|'[^']*'|[^\s"'=<>`]+))?)*)\s*\/?>/gi
+  const attr = /([^\s"'>/=]+)(?:\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'=<>`]+)))?/g
+  for (const [, name, rest] of markup.matchAll(tag)) {
+    const attrs = new Map<string, string>()
+    for (const [, key, double, single, bare] of rest.matchAll(attr)) {
+      const lower = key.toLowerCase()
+      if (!attrs.has(lower)) attrs.set(lower, double ?? single ?? bare ?? '')
+    }
+    tags.push({ name: name.toLowerCase(), attrs })
+  }
+  return tags
+}
+
+/** Text of the first `<title>`, tags and surrounding space removed; null without one. */
+const titleText = (html: string): string | null => {
+  const match = /<title\b[^>]*>([\s\S]*?)<\/title\s*>/i.exec(html.replace(/<!--[\s\S]*?-->/g, ''))
+  return match ? match[1].replace(/<[^>]*>/g, '').trim() : null
+}
+
 function markupChecks(html: string): MarkupCheck[] {
-  const imgs = [...html.matchAll(/<img\b[^>]*>/gi)].map((m) => m[0])
-  const headings = [...html.matchAll(/<h([1-6])\b/gi)].map((m) => Number(m[1]))
+  const tags = tagsOf(html)
+  const imgs = tags.filter((t) => t.name === 'img')
+  const headings = tags.filter((t) => /^h[1-6]$/.test(t.name)).map((t) => Number(t.name[1]))
   let orderly = headings.length > 0 && headings[0] === 1
   for (let i = 1; i < headings.length; i += 1)
     if (headings[i] > headings[i - 1] + 1) orderly = false
+  const root = tags.find((t) => t.name === 'html')
+  // alt="" is valid: it marks a decorative image. Only a missing alt fails.
+  const missingAlt = imgs.filter((t) => !t.attrs.has('alt')).length
   return [
-    { id: 'doctype', ok: /^\s*<!doctype html>/i.test(html), note: 'no <!doctype html>' },
-    { id: 'lang', ok: /<html\b[^>]*\blang=/i.test(html), note: 'no lang on <html>' },
-    { id: 'title', ok: /<title>\s*\S/i.test(html), note: 'no <title>' },
+    { id: 'doctype', ok: /^\uFEFF?\s*<!doctype html\s*>/i.test(html), note: 'no <!doctype html>' },
+    { id: 'lang', ok: Boolean(root?.attrs.get('lang')?.trim()), note: 'no lang on <html>' },
+    { id: 'title', ok: Boolean(titleText(html)), note: 'no <title>' },
     {
       id: 'viewport',
-      ok: /<meta\b[^>]*name=["']viewport["']/i.test(html),
+      ok: tags.some((t) => t.name === 'meta' && t.attrs.get('name')?.toLowerCase() === 'viewport'),
       note: 'no viewport meta',
     },
-    { id: 'main', ok: /<main\b/i.test(html), note: 'no <main> landmark' },
+    { id: 'main', ok: tags.some((t) => t.name === 'main'), note: 'no <main> landmark' },
     {
       id: 'headings',
       ok: orderly,
       note: headings.length ? 'headings skip a level or do not start at h1' : 'no headings',
     },
-    {
-      id: 'alt',
-      ok: imgs.every((tag) => /\balt=/i.test(tag)),
-      note: `${imgs.filter((tag) => !/\balt=/i.test(tag)).length} <img> without alt`,
-    },
+    { id: 'alt', ok: missingAlt === 0, note: `${missingAlt} <img> without alt` },
     {
       id: 'handlers',
-      ok: !/\son[a-z]+\s*=/i.test(html),
+      ok: !tags.some((t) => [...t.attrs.keys()].some((key) => /^on[a-z]+$/.test(key))),
       note: 'inline event handler attributes',
     },
   ]

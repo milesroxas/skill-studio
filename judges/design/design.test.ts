@@ -70,6 +70,28 @@ describe('design markup checks', () => {
     expect(await failed(html)).toEqual(['alt', 'handlers'])
   })
 
+  it('fails an empty title, an empty lang and look-alike attributes', async () => {
+    const html = GOOD.replace('<title>Home</title>', '<title> </title>')
+      .replace('lang="en"', 'lang=""')
+      .replace('alt=""', 'data-alt="x"')
+    expect(await failed(html)).toEqual(['lang', 'title', 'alt'])
+  })
+
+  it('reads attributes in any case, quoting and order', async () => {
+    const html = GOOD.replace('<html lang="en">', "<HTML data-x='1' LANG=en>")
+      .replace('name="viewport"', "content='x' NAME='Viewport'")
+      .replace('<title>Home</title>', '<title data-x="a > b">Home</title>')
+    expect(await failed(html)).toEqual([])
+  })
+
+  it('ignores markup inside comments and scripts, and handler-like text', async () => {
+    const html = GOOD.replace(
+      '</main>',
+      '<!-- <img src="x.png"> --><script>const tag = "<img src=y onclick=z>"</script><p>Turn on=off</p></main>',
+    )
+    expect(await failed(html)).toEqual([])
+  })
+
   it('has nothing to judge without html or a screenshot', async () => {
     const md = { ...input(''), primary: null, artifacts: [] }
     expect(await designPack.judge(md, ctx)).toBeNull()

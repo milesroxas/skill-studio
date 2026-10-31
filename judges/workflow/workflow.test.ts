@@ -84,6 +84,22 @@ describe('workflow metrics', () => {
     expect(m.outside).toEqual(['/Users/someone/.ssh/config'])
   })
 
+  it('compares whole path segments, so a sibling sample or system look-alike is outside', async () => {
+    const m = await metrics([
+      tool('Read', `${dir}0/outputs/a.md`),
+      tool('Read', `${dir}/../elsewhere/b.md`),
+      tool('Read', '/etc2/passwd'),
+      tool('Read', '/tmp-cache/x'),
+      tool('Read', `${dir}/outputs/./c.md`),
+    ])
+    expect(m.outside).toEqual([
+      `${dir}0/outputs/a.md`,
+      `${dir}/../elsewhere/b.md`,
+      '/etc2/passwd',
+      '/tmp-cache/x',
+    ])
+  })
+
   it('reads time and cost from timing.json and the skill from .agents/skills', async () => {
     writeFileSync(join(dir, 'timing.json'), JSON.stringify({ durationMs: 41_600, costUsd: 0.02 }))
     mkdirSync(join(dir, '.agents/skills'), { recursive: true })

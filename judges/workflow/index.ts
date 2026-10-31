@@ -7,6 +7,7 @@
  */
 import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
+import { isWithin } from '@core/paths.ts'
 import type { Timing, TranscriptEvent } from '@core/schemas.ts'
 import { noul } from '@typesafe-ai/sdk'
 import { round } from '../shared/questions.ts'
@@ -27,6 +28,9 @@ const isWrite = (e: TranscriptEvent): boolean =>
     (/^(?:bash|shell|run|exec)/i.test(e.tool ?? '') &&
       /(?:>|>>|\btee\b|\bcp\b|\bmv\b|\bmkdir\b|\btouch\b|cat\s*<<)/.test(e.args ?? '')))
 
+/** Shared system locations an agent touches without reaching into anyone's files. */
+const SYSTEM_DIRS = ['/dev', '/tmp', '/private/tmp', '/usr', '/bin', '/opt', '/etc']
+
 function metricsOf(events: TranscriptEvent[], input: JudgeInput): WorkflowMetrics {
   const tools = events.filter((e) => e.kind === 'tool')
   const seen = new Set<string>()
@@ -42,9 +46,9 @@ function metricsOf(events: TranscriptEvent[], input: JudgeInput): WorkflowMetric
       const path = match[1]
       // Arguments are cut at one line, so a path that stops where the line stops is unknown.
       const cut = args.endsWith('…') && match.index + match[0].length >= args.length - 1
+      // A cut path is a prefix of what the agent typed, so a plain string prefix is the right test.
       if (cut && input.dir.startsWith(path)) continue
-      if (path.startsWith(input.dir) || /^\/(?:dev|tmp|private\/tmp|usr|bin|opt|etc)\b/.test(path))
-        continue
+      if (isWithin(path, input.dir) || SYSTEM_DIRS.some((root) => isWithin(path, root))) continue
       outside.add(path)
     }
   const timingPath = join(input.dir, 'timing.json')
