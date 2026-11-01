@@ -16,9 +16,9 @@ The test suite needs no API key, no network and no agent CLI.
 ## Before you open a pull request
 
 ```
-pnpm check      # typecheck, Biome, tests: the same steps CI runs
+pnpm check      # typecheck, Biome, tests
+pnpm build      # the app build, which CI also runs
 pnpm format     # apply Biome's formatting and safe fixes
-pnpm build      # if you changed app/
 ```
 
 CI runs `pnpm typecheck`, `pnpm lint`, `pnpm test` and `pnpm build` on every pull request. A pull request needs a green CI run to merge.

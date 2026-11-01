@@ -25,7 +25,7 @@ cp .env.example .env        # set TYPESAFE_API_KEY
 pnpm start
 ```
 
-This builds the app, starts it on http://localhost:4400 and opens it in your browser. It opens on the library: every skill in your user skills folders (`~/.agents`, `~/.claude`, `~/.cursor`, `~/.codex`) and in projects under `~/SITES` (change the folders under "Where skills are found"). From there the whole loop runs in the app:
+This builds the app, starts it on http://localhost:4400 and opens it in your browser. It opens on the library: every skill in your user skills folders (`~/.agents`, `~/.claude`, `~/.cursor`, `~/.codex`) and in projects under your workspace folders (`~/SITES` by default, when it exists; change them under "Where skills are found", saved in `~/.skill-tester/library.json`). From there the whole loop runs in the app:
 
 1. **Library**: open a skill, or create one. A new skill is written to `.agents/skills/<name>` and linked into the agents you pick.
 2. **Skill**: edit `SKILL.md` and `references/`; the side panel lists the rules a run is graded on.
@@ -55,8 +55,8 @@ pnpm st new <skill-dir>                       # scaffold SKILL.md and evals/case
 pnpm st cases <skill-dir>
 pnpm st run <skill-dir> --engine claude --model sonnet --cases a,b --samples 2 --name "v0 first draft"
 pnpm st report <skill-dir> --run <run-name>
-pnpm exec vite build --config app/vite.config.ts
-pnpm st serve <skill-dir>                     # API and review UI on http://127.0.0.1:4400
+pnpm build                                    # build the app into app/dist
+pnpm st serve [skill-dir...]                  # app and API on http://localhost:4400; no dir opens the library
 ```
 
 `pnpm st --help` lists every command and flag. A skill directory is any folder with a `SKILL.md`; the current directory is the default. To try it without writing a skill, point it at `fixtures/demo-skill`.
@@ -133,32 +133,35 @@ A case's word range counts the copy only: prose and list units, not headings or 
 
 ## Server
 
-`st serve` binds `127.0.0.1:4400` by default (`--port` changes it). It listens on loopback only and has no login of its own, so do not expose it any other way than the one below. Routes take `?skill=<path|name>` when more than one skill is served.
+`st serve` binds `127.0.0.1:4400` by default (`--port` changes it). It listens on loopback only and has no login of its own, so do not expose it any other way than `--tailscale` (above). Every request must be addressed to `localhost` (or, with `--tailscale`, come through Tailscale as your login), come from the app's own pages, and send POST bodies as JSON. Skill routes take `?skill=<path|name>` when more than one skill is open; library routes need no skill.
 
-The review UI lives in `app/`. `pnpm exec vite build --config app/vite.config.ts` writes `app/dist`, which `st serve` serves beside the API. `pnpm app` runs the Vite dev server on 4401 and proxies `/api` to 4400.
+The UI lives in `app/`. `pnpm build` writes `app/dist`, which `st serve` serves beside the API. `pnpm app` runs the Vite dev server on 4401 and proxies `/api` to 4400.
 
-| Screen       | Does                                                                                    |
-| ------------ | --------------------------------------------------------------------------------------- |
-| Overview     | runs, versions and scores at a glance                                                   |
-| Blind review | rate an output before its scores show, mark layers, reveal, promote it to an anchor     |
-| Compare      | two outputs side by side, word diff, human and Jev votes, Bradley-Terry boards          |
-| Insights     | your marks against the bench, per layer                                                 |
-| Knobs        | rescore every output from stored answers, save `bench.json`                             |
-| Edit skill   | edit `SKILL.md` and `references/`; a save is refused if the file changed on disk since  |
-| Skill diff   | the working tree against any run's snapshot                                             |
-| Transcript   | one sample's agent steps                                                                |
-| Generate     | start runs and gradings as background jobs with live logs                               |
+The app opens on the library. An open skill has five tabs in loop order; a tab with more than one screen shows them as a segmented control.
 
-Artifacts are served with `Content-Security-Policy: sandbox` and shown in a sandboxed iframe, so HTML an agent wrote cannot run scripts on the API's origin.
+| Tab     | Screens                          | Does                                                                                                                         |
+| ------- | -------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| Library |                                  | every skill on the machine, searchable; create a skill, install or uninstall it per agent, choose the folders to scan        |
+| Skill   | Write, Changes                   | edit `SKILL.md` and `references/` (a save is refused if the file changed on disk since); the working tree against any run's snapshot |
+| Cases   | Cases                            | edit a case's prompt, what a good answer does, weighted checks and word range                                                |
+| Runs    | Results, New run                 | runs, versions and scores; start runs and gradings as background jobs with live logs                                         |
+| Review  | Rate blind, Compare, Transcripts | rate an output before its scores show and promote it to an anchor; two outputs side by side with Bradley-Terry boards; one sample's agent steps |
+| Bench   | Agreement, Scoring               | your marks against the bench, per layer; rescore every output from stored answers and save `bench.json`                     |
+
+Artifacts are served with `Content-Security-Policy: sandbox` and shown in a sandboxed iframe, so HTML an agent wrote cannot run scripts on the API's origin. "Open full size" opens the same sandboxed response in its own tab.
 
 | Route                                                                                   | Does                                                                                                                                            |
 | --------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
-| `GET /api/skills`, `/api/state`                                                         | the served skills; cases, runs, versions, engines, config, reviews, anchors                                                                     |
+| `GET /api/library`                                                                      | every skill on the machine, the places it is in, and the workspace folders scanned                                                              |
+| `POST /api/library/create`, `/api/library/link`, `/api/library/unlink`                  | create `{scope, name, description, agents}` and open it; link or unlink `{path, agent, scope}` into an agent's skills folder                     |
+| `POST /api/library/workspaces`, `/api/library/mark`                                     | set the folders to scan `{workspaces}`; list a skill with installed ones `{path, theirs}`                                                       |
+| `GET /api/skills`, `/api/state`                                                         | the open skills; cases, runs, versions, engines, config, reviews, anchors                                                                       |
 | `GET /api/run?run=`, `/api/transcript?run=&sample=`, `/api/artifact?run=&sample=&file=` | one run; one transcript; one artifact served raw                                                                                                |
 | `GET /api/skill-files?run=current\|<run>`                                               | the working tree or a run's snapshot                                                                                                            |
 | `GET /api/queue`, `/api/leaderboard`, `/api/jobs`                                       | blind review order; Bradley-Terry boards and Jev/human agreement; background jobs                                                               |
 | `POST /api/generate`, `/api/grade`, `/api/pairwise`                                     | start a job: `{cases, configs:[{engine,model,effort}], samples, configuration, baselineRun, skillName, note}`; `{run, jev}`; `{a, b, criteria}` |
 | `POST /api/review`, `/api/preference`, `/api/config`, `/api/anchor`                     | save a rating; a human vote; `bench.json`; promote an output to an anchor                                                                       |
+| `POST /api/case`, `/api/case/delete`                                                    | save `{case, isNew}`, validated before it writes; delete `{id}`                                                                                 |
 | `POST /api/skill-file`, `/api/skill-file/delete`                                        | write `{path, text, previous}` (refused when `previous` no longer matches the file); delete `{path}`. Only `SKILL.md` and `references/**`       |
 
 ## Engines

@@ -472,7 +472,7 @@ export function startServer(options: ServerOptions): Promise<number> {
         return send(
           res,
           200,
-          'skill-tester API is up. Build the UI (pnpm app) to browse it.',
+          'skill-tester API is up. Build the app (pnpm build) to browse it.',
           TYPES['.txt'],
         )
       let path = join(ui, url.pathname === '/' ? 'index.html' : url.pathname.slice(1))

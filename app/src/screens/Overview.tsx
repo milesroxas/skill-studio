@@ -214,7 +214,7 @@ function RunDetail({
         <span className="mono muted small">{view.name}</span>
         <span className="spacer" />
         <button type="button" onClick={() => go('skill', { right: run })}>
-          Skill diff
+          Skill changes
         </button>
         <button type="button" onClick={() => regrade(run)}>
           {state.jevKey ? 'Regrade' : 'Regrade with code checks'}
