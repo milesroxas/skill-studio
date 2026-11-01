@@ -5,7 +5,7 @@
  * button for the next step.
  */
 import type { BenchConfig } from '@core/schemas.ts'
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { api, currentSkill, type Job, type State, setSkill } from './api.ts'
 import { JobsStrip } from './components/Jobs.tsx'
 import type { Ctx } from './ctx.ts'
@@ -22,6 +22,9 @@ import { LibraryScreen } from './screens/Library.tsx'
 import { Overview } from './screens/Overview.tsx'
 import { SkillDiff } from './screens/SkillDiff.tsx'
 import { Transcript } from './screens/Transcript.tsx'
+
+/** The guide loads only when opened. */
+const Docs = lazy(() => import('./screens/Docs.tsx').then((m) => ({ default: m.Docs })))
 
 interface Group {
   id: string
@@ -152,6 +155,41 @@ export function App() {
       {message}
     </div>
   )
+  /** Open the guide, remembering the screen to come back to. */
+  const docsLink = (
+    <button type="button" className="ghost" onClick={() => go('docs', { from: route.screen })}>
+      Docs
+    </button>
+  )
+
+  if (route.screen === 'docs') {
+    const from = route.params.get('from') || (skillPath ? 'home' : 'library')
+    const backTo = from === 'library' || !skillPath ? 'Library' : (state?.skill.name ?? 'Back')
+    return (
+      <div className="app">
+        <header className="masthead">
+          <div className="topbar">
+            <h1>skill-tester</h1>
+            <nav className="crumbs" aria-label="Location">
+              <button type="button" className="crumb" onClick={() => go(from)}>
+                {backTo}
+              </button>
+              <span className="crumb-sep" aria-hidden="true">
+                /
+              </span>
+              <span aria-current="page">Guide</span>
+            </nav>
+          </div>
+        </header>
+        <main className="stage">
+          <Suspense fallback={<p className="help">Loading the guide…</p>}>
+            <Docs />
+          </Suspense>
+        </main>
+        {toastBar}
+      </div>
+    )
+  }
 
   if (inLibrary)
     return (
@@ -163,6 +201,7 @@ export function App() {
               <span aria-current="page">Library</span>
             </nav>
             <span className="spacer" />
+            {docsLink}
             {skillPath && state ? (
               <button type="button" className="ghost" onClick={() => go('home')}>
                 Return to {state.skill.name}
@@ -263,6 +302,7 @@ export function App() {
               : `${current.version}${current.name ? ` · ${current.name}` : ''}`}
           </span>
           <span className="spacer" />
+          {docsLink}
           {!state.jevKey ? (
             <span className="pill warn" title="Set TYPESAFE_API_KEY in .env to grade with Jev">
               Code checks only: no Jev key

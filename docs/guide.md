@@ -1,0 +1,239 @@
+# How to use skill-tester
+
+This guide walks one skill through the whole loop: write it, give it cases, run agents on it, read the scores, rate the answers yourself, tune the scoring, then change the skill and run it again. Each step says what to do in the app and why the step exists. The [README](https://github.com/milesroxas/skill-tester#readme) is the reference for file formats, packs, routes and flags.
+
+## How the loop works
+
+A skill is a `SKILL.md` an agent reads before it works. skill-tester answers one question about it: does the skill make the agent's answers better, and did your last edit help or hurt?
+
+It answers by repeating six steps. Every step lives in the app. When a step is due (the first case, a run of a new version, answers to rate), a Next button at the top right names it.
+
+| Step | Tab | What you do | Why |
+| --- | --- | --- | --- |
+| 1 | Library | Open or create a skill | Every skill on the machine is in one list, so you test the copy the agents use |
+| 2 | Skill | Edit `SKILL.md` and `references/` | Each saved change is a new version, so scores stay tied to the text that produced them |
+| 3 | Cases | Write the tasks the agent gets | A case is a test: a prompt, what a good answer does, and checks |
+| 4 | Runs | Run agents, read scores | Real agent output, graded the same way every time |
+| 5 | Review | Rate answers blind | Your ratings are the ground truth the judge is measured against |
+| 6 | Bench | Find where you and the judge disagree | Disagreement tells you whether to fix the skill or the scoring |
+
+## Before you start
+
+You need four things. Without the API key the app still works, but grading falls back to code checks only.
+
+1. Node 24 and pnpm.
+2. The `claude` CLI or the `cursor-agent` CLI on your `PATH`, signed in. These are the agents that write the answers.
+3. A TypeSafe API key from [typesafe.ai](https://typesafe.ai). Jev, the judge, needs it.
+4. This repository, cloned.
+
+Then, in the repository folder:
+
+```
+pnpm install
+cp .env.example .env
+```
+
+Open `.env` and set `TYPESAFE_API_KEY`. If the app later shows "Code checks only: no Jev key" at the top, this key is missing.
+
+## Start the app
+
+```
+pnpm start
+```
+
+This builds the app, starts it on http://localhost:4400 and opens your browser. The server only answers this machine. Keep the terminal open: closing it stops the app.
+
+To use the app from your phone or another computer, run `pnpm start --tailscale` instead. The [README](https://github.com/milesroxas/skill-tester#from-your-phone-or-another-computer) explains who can reach it and why that is safe.
+
+## 1. Open or create a skill
+
+The app opens on the Library: every skill in your user skills folders (`~/.agents`, `~/.claude`, `~/.cursor`, `~/.codex`) and in projects under your workspace folders.
+
+To work on a skill that exists:
+
+1. Find it in the list, or type in the search box.
+2. Click Open.
+
+To create one:
+
+1. Click New skill.
+2. Type a name: lowercase letters, digits and single dashes, like `release-notes`.
+3. Write a one-line description. Agents read it to decide when to use the skill, so say what it is for.
+4. Pick a Place. "User (every project)" makes it available everywhere; a project place keeps it in that project.
+5. Tick the agents to install it for.
+6. Click Create skill.
+
+The skill is written to `.agents/skills/<name>` and linked into each agent you ticked. The Claude, Cursor and Codex buttons on a skill's row install or uninstall it later. Uninstalling removes the link only, never the skill.
+
+If a project of yours is missing, open "Where skills are found" at the bottom and add its parent folder. The default is `~/SITES` when that folder exists.
+
+## 2. Write the skill
+
+Open the Skill tab, then Write.
+
+1. Edit `SKILL.md` in the main panel. Save with the Save button or Cmd+S (Ctrl+S on Windows and Linux).
+2. Add longer material as files under `references/` from the side panel, and point to them from `SKILL.md`.
+3. Check the Graded rules list in the side panel. The generic pack scores each answer against these rules, one judge question per rule.
+
+Write rules as top-level bullets in `SKILL.md`. A rule hidden inside a paragraph is not graded.
+
+A save is refused if the file changed on disk since you opened it, so an edit made in your code editor is never overwritten. Reload and edit again.
+
+The Changes screen compares the working tree with any earlier run's copy of the skill. Use it to see exactly what changed between two versions you are about to compare.
+
+## 3. Write cases
+
+A case is one task an agent gets with your skill installed. Open the Cases tab. With no cases yet, the form for the first one is already open.
+
+1. Title: a short name for the task.
+2. Id: filled in from the title. It names the case's folder and cannot change after you add it.
+3. Prompt: exactly what the agent is asked, worded the way a user would ask. Never mention the skill: the test is whether the agent finds and uses it on its own.
+4. A good answer: one or two sentences on what a good answer does. You see this when you rate, and the judge reads it too.
+5. Checks: one statement per line that a good answer makes true, such as "The note says where to find the change." The judge marks each one. Raise a check's weight when it matters more than the rest.
+6. Length: tick it and set a word range when length matters. Only prose and list text count, not headings or code.
+7. Input files: files the prompt refers to. The agent finds them in `files/` next to the prompt.
+8. Click Add case.
+
+Write at least three cases before you trust a score, and make them differ. One case measures one task; a skill is meant to help across many.
+
+## 4. Run the agents
+
+Open the Runs tab, then New run.
+
+1. Skill version: if the skill changed since the last run, this run starts a new version. Type what changed, so the version is easy to recognise later.
+2. Cases: tick the cases to run.
+3. Writers: pick the agent, model and effort. Add up to four writers to compare agents or models in one run.
+4. Samples per case: how many answers each writer gives per case. Agents vary run to run, so use 2 or more before you trust a difference between versions.
+5. Skill: choose what the agent gets. "With skill" installs this skill. "Without skill" installs nothing, which is the baseline the skill has to beat. "Old skill" uses an earlier run's copy, to test an edit against the version before it.
+6. Leave "Grade when done" ticked so scores appear when the run finishes.
+7. Click Start run.
+
+The run happens in the background. The strip under the header shows progress; click it for the live log. You can keep working in other tabs.
+
+Runs cost money: each sample is one agent session, and grading makes judge calls. The total is samples per case times cases times writers.
+
+## 5. Read the results
+
+Open the Runs tab, then Results.
+
+Each run shows its version, its writer and a score per case. The total is out of 100 and is split into layers, such as adherence to the skill's rules and the rubric of your checks. Each pack's layers are listed in the [README](https://github.com/milesroxas/skill-tester#grading).
+
+Read the layers, not only the total. A total can hold steady while one layer falls.
+
+Click a run for its detail. From there:
+
+- Skill changes shows what changed since the version before.
+- Regrade grades the run again, for example after you added checks.
+- Each output has a Read link for its answer and a Transcript link for the agent's steps.
+
+A score from a judge is a claim, not a fact. Step 5 tests it.
+
+## 6. Rate answers blind
+
+Open the Review tab, then Rate blind.
+
+The queue lists graded answers you have not rated. Answers the judge was least sure about, and cases whose samples scored far apart, come first, because your rating tells you the most there.
+
+For each answer:
+
+1. Read the answer. The prompt, what a good answer does, and the checks are above it.
+2. Give it a rating from 1 to 5. 1 is unusable; 5 ships as is.
+3. Mark each layer Good or Bad where you have an opinion.
+4. Add a note on what works and what the skill should have done. Notes are what you act on later.
+5. Click Save and reveal.
+
+The scores and the writer stay hidden until you save. Seeing the judge's score first pulls your rating toward it, and then your rating no longer tests anything.
+
+After the reveal you can:
+
+- Compare it with another output.
+- Make it an anchor: a labelled good or bad example the judge must rank correctly. Run `pnpm st self-test <skill-dir>` to check all anchors. Trust a judge pack only once its anchors pass.
+
+### Compare two answers
+
+Review, then Compare puts two outputs side by side, with a word diff for text. Pick the better one under "Which is better?". These pairwise votes feed the Bradley-Terry leaderboard, which ranks versions and writers from head-to-head picks. Pairwise picks are more reliable than 1 to 5 scores, because people and judges agree more on which of two is better than on how good one is.
+
+### Read a transcript
+
+Review, then Transcripts shows every step an agent took on one sample: its messages, tool calls and errors. Read it when a score surprises you. It tells you whether the agent read the skill at all, and where it went wrong.
+
+## 7. Check the judge against you
+
+Open the Bench tab, then Agreement. This screen fills in once you have rated some answers.
+
+It shows, per layer, how often you and the judge agree, and the rank correlation between your ratings and the totals (it needs 3 or more ratings). Read it like this:
+
+| You see | It means | Do this |
+| --- | --- | --- |
+| You and the judge agree, scores are low | The skill is the problem | Edit the skill (step 2) |
+| You and the judge disagree on a layer | The scoring is the problem | Tune that layer (step 8) |
+| The judge gets your pairwise picks wrong | The judge cannot tell good from bad here | Add anchors, then check the pack's settings |
+
+## 8. Tune the scoring
+
+Open the Bench tab, then Scoring.
+
+Move a setting and every graded output rescores at once, with the change shown beside each total. No new judge calls are made: the judge's raw answers are stored and the scoring is applied in code.
+
+- Packs: which judge packs grade this skill.
+- Layer weights: points per layer. A layer with no score drops out and the rest rescale.
+- Thresholds: when a judge answer counts as yes, when it counts as unsure, and which layer score counts as good.
+- Judge pack settings: each pack's own settings, such as the lint command for the writing pack.
+
+Click Save to write them to `evals/bench.json`. Unsaved changes show as "not saved" on the Bench tab.
+
+Change one setting at a time, then reread Agreement. Moving several at once hides which one helped.
+
+## 9. Change the skill and run again
+
+This is the loop. Go back to step 2 with what you learned:
+
+1. Read your notes and the Agreement screen.
+2. Edit the skill to fix what the bad answers have in common, not a single answer.
+3. Start a run. The new version gets a name.
+4. Compare the new version with the old one on Results.
+
+To be sure an edit helped, run it against the version before with the "Old skill" option on the same cases and enough samples. A difference smaller than the spread between samples of the same version is noise.
+
+## Use it from the command line
+
+Everything above can also be scripted. The CLI uses the same files as the app.
+
+```
+pnpm st new <skill-dir>
+pnpm st cases <skill-dir>
+pnpm st run <skill-dir> --engine claude --model sonnet --samples 2 --name "what changed"
+pnpm st grade <skill-dir> --run <run-name>
+pnpm st report <skill-dir> --run <run-name>
+pnpm st compare <skill-dir> <runA> <runB>
+pnpm st self-test <skill-dir>
+```
+
+`pnpm st --help` lists every command and flag.
+
+## Where your data lives
+
+Everything is plain files inside the skill's `evals/` folder, so it can be committed and reviewed like code.
+
+| Path | Holds |
+| --- | --- |
+| `evals/cases/<case>/` | the prompt, `case.yaml`, checks under `graders/`, input files under `files/` |
+| `evals/runs/<run>/` | one folder per run: the skill snapshot, each sample's output and transcript, and `report.json` |
+| `evals/reviews.json` | your ratings, notes and pairwise votes |
+| `evals/anchors/` | labelled good and bad examples |
+| `evals/bench.json` | the scoring settings from step 8 |
+
+The agent never sees `evals/`: its copy of the skill leaves it out, so it cannot read the checks or your ratings.
+
+## When something goes wrong
+
+| Problem | Fix |
+| --- | --- |
+| "Code checks only: no Jev key" | Set `TYPESAFE_API_KEY` in `.env`, then restart the app |
+| An agent shows "(not set up)" in New run | Install that CLI, put it on your `PATH` and sign in |
+| A skill is missing from the Library | Add its parent folder under "Where skills are found" |
+| "Port 4400 is taken" | Stop what holds it (`lsof -nP -iTCP:4400 -sTCP:LISTEN`) or start with `--port` |
+| A save in Write is refused | The file changed on disk. Reload, then edit again |
+| A score looks wrong | Read the transcript, then rate it blind; Agreement will show if the judge is off |
+
+Run skills you did not write in a container or VM. The code pack runs code the agent wrote, with your permissions. [SECURITY.md](https://github.com/milesroxas/skill-tester/blob/main/SECURITY.md) has the details.

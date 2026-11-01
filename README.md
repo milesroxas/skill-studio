@@ -6,6 +6,8 @@ An eval harness for agent skills. It generates outputs with headless coding agen
 
 Most skill eval tools stop at pass/fail. skill-tester is built for subjective outputs (writing, HTML, agent process): judge answers are stored so you can reweight without new calls, a blind review queue calibrates the judges against your own ratings, and labelled anchors gate whether a judge pack can be trusted. [docs/landscape.md](docs/landscape.md) compares it with the other tools.
 
+New here? [docs/guide.md](docs/guide.md) walks one skill through the whole loop, step by step. The same guide opens from Docs at the top of the app.
+
 ## Setup
 
 Needs:
