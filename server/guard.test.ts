@@ -39,4 +39,63 @@ describe('refusal', () => {
     )
     expect(refusal('POST', { host: 'localhost:4400' })).toMatch('application/json')
   })
+
+  describe('on a tailnet host', () => {
+    const remote = { host: 'mac.tail1234.ts.net', users: ['me@github'] }
+    const host = 'mac.tail1234.ts.net:8443'
+    const origin = `https://${host}`
+    const me = { host, 'tailscale-user-login': 'me@github' }
+
+    it('serves the allowed user', () => {
+      expect(refusal('GET', { ...me, 'sec-fetch-site': 'same-origin' }, remote)).toBeNull()
+      expect(refusal('POST', { ...me, origin, ...json }, remote)).toBeNull()
+    })
+
+    it('refuses it when remote access is off', () => {
+      expect(refusal('GET', me)).toMatch('localhost')
+      expect(refusal('GET', me, null)).toMatch('localhost')
+    })
+
+    it('refuses requests with no login, as Funnel and tagged devices send', () => {
+      expect(refusal('GET', { host }, remote)).toMatch('Tailscale user')
+      expect(refusal('GET', { host, 'tailscale-user-login': '' }, remote)).toMatch('Tailscale user')
+    })
+
+    it('refuses other tailnet users', () => {
+      expect(refusal('GET', { host, 'tailscale-user-login': 'you@github' }, remote)).toMatch(
+        'Tailscale user',
+      )
+    })
+
+    it('refuses other host names, even with a login', () => {
+      const evil = { host: 'evil.example', 'tailscale-user-login': 'me@github' }
+      expect(refusal('GET', evil, remote)).toMatch('localhost')
+      const sibling = { host: 'other.tail1234.ts.net', 'tailscale-user-login': 'me@github' }
+      expect(refusal('GET', sibling, remote)).toMatch('localhost')
+    })
+
+    it('refuses a proxied request that claims to be localhost', () => {
+      const via = { 'x-forwarded-for': '100.64.0.9', 'tailscale-user-login': 'you@github' }
+      expect(refusal('GET', { host: 'localhost:4400', ...via }, remote)).toMatch('localhost')
+      expect(refusal('GET', { host: '127.0.0.1', ...via }, remote)).toMatch('localhost')
+      expect(refusal('GET', { host: 'localhost', ...via })).toMatch('localhost')
+      const mine = { ...via, 'tailscale-user-login': 'me@github' }
+      expect(refusal('GET', { host: 'localhost', ...mine }, remote)).toMatch('localhost')
+      expect(refusal('GET', { host: 'localhost', 'tailscale-headers-info': 'x' })).toMatch(
+        'localhost',
+      )
+      const loginOnly = { host: 'localhost:4400', 'tailscale-user-login': 'me@github' }
+      expect(refusal('GET', loginOnly, remote)).toMatch('localhost')
+      expect(refusal('GET', loginOnly)).toMatch('localhost')
+    })
+
+    it('still refuses other sites', () => {
+      expect(refusal('POST', { ...me, origin: 'https://evil.example', ...json }, remote)).toMatch(
+        'other sites',
+      )
+      expect(refusal('GET', { ...me, 'sec-fetch-site': 'cross-site' }, remote)).toMatch(
+        'other sites',
+      )
+    })
+  })
 })

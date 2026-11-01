@@ -36,6 +36,16 @@ This builds the app, starts it on http://localhost:4400 and opens it in your bro
 
 The button at the top right always names the next step. Install or uninstall a skill for Claude Code, Cursor or Codex from its row in the library.
 
+### From your phone or another computer
+
+With [Tailscale](https://tailscale.com) on both devices:
+
+```
+pnpm start --tailscale
+```
+
+This also serves the app at `https://<this-machine>.<tailnet>.ts.net:8443` (`--tailscale-port` changes the port). Only your own Tailscale login gets in: the server checks the user Tailscale signed the request in as, so other people on a shared tailnet, tagged devices and Funnel traffic are refused. The tailnet address goes away when the server stops.
+
 ### From the command line
 
 For scripts and batch work, the CLI covers scaffolding, runs, grading and reports:
@@ -123,7 +133,7 @@ A case's word range counts the copy only: prose and list units, not headings or 
 
 ## Server
 
-`st serve` binds `127.0.0.1:4400` by default (`--port` changes it). It listens on loopback only and has no auth, so do not expose it. Routes take `?skill=<path|name>` when more than one skill is served.
+`st serve` binds `127.0.0.1:4400` by default (`--port` changes it). It listens on loopback only and has no login of its own, so do not expose it any other way than the one below. Routes take `?skill=<path|name>` when more than one skill is served.
 
 The review UI lives in `app/`. `pnpm exec vite build --config app/vite.config.ts` writes `app/dist`, which `st serve` serves beside the API. `pnpm app` runs the Vite dev server on 4401 and proxies `/api` to 4400.
 

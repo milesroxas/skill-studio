@@ -34,7 +34,7 @@ import { loadEnv, TOOL_ROOT } from './env.ts'
 import { assertSafe, assertSafePath, isDir, readJson, readTree, writeJson } from './fs.ts'
 import { generateRun } from './generate.ts'
 import { gradeRun, judgeInput } from './grade.ts'
-import { refusal } from './guard.ts'
+import { type Remote, refusal } from './guard.ts'
 import { Jev } from './jev.ts'
 import { listJobs, runJob, say } from './jobs.ts'
 import {
@@ -116,6 +116,8 @@ function caseDraftOf(value: unknown): CaseDraft {
 export interface ServerOptions {
   skills: string[]
   port?: number
+  /** A tailnet host name to answer too, for the listed Tailscale logins only. */
+  remote?: Remote | null
 }
 
 function createApi(skillDirs: string[]) {
@@ -450,7 +452,7 @@ export function startServer(options: ServerOptions): Promise<number> {
   const api = createApi(options.skills)
   const ui = join(TOOL_ROOT, 'app/dist')
   const server = createServer(async (req, res) => {
-    const refused = refusal(req.method, req.headers)
+    const refused = refusal(req.method, req.headers, options.remote)
     if (refused) return send(res, 403, { error: refused })
     const url = new URL(req.url ?? '/', `http://${req.headers.host}`)
     try {
@@ -476,7 +478,15 @@ export function startServer(options: ServerOptions): Promise<number> {
       let path = join(ui, url.pathname === '/' ? 'index.html' : url.pathname.slice(1))
       if (!isWithin(path, ui) || !existsSync(path) || statSync(path).isDirectory())
         path = join(ui, 'index.html')
-      return send(res, 200, readFileSync(path), TYPES[extname(path)] ?? 'application/octet-stream')
+      // Vite names built assets by content hash, so they never change under one URL.
+      const hashed = isWithin(path, join(ui, 'assets'))
+      return send(
+        res,
+        200,
+        readFileSync(path),
+        TYPES[extname(path)] ?? 'application/octet-stream',
+        hashed ? { 'cache-control': 'private, max-age=31536000, immutable' } : {},
+      )
     } catch (error) {
       return send(res, 400, { error: (error as Error).message })
     }

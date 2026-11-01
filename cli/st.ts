@@ -10,7 +10,7 @@
  *   st compare [skill] <runA> <runB>
  *   st self-test [skill] [--no-jev]
  *   st versions [skill]
- *   st serve [skill...] [--port 4400]
+ *   st serve [skill...] [--port 4400] [--tailscale [--tailscale-port 8443]]
  *   st new <dir> [--name <id>] [--description <text>]
  */
 import { spawn } from 'node:child_process'
@@ -31,6 +31,7 @@ import { DEFAULT_PORT, startServer } from '@server/index.ts'
 import { Jev } from '@server/jev.ts'
 import { listRuns, readRun, runDir, versionsOf } from '@server/runs.ts'
 import { newSkill, skillInfo } from '@server/skill.ts'
+import { DEFAULT_TAILSCALE_PORT, serveOnTailnet, tailnetIdentity } from '@server/tailscale.ts'
 
 const HELP = `Usage: st <command> [skill-dir] [options]
 
@@ -58,6 +59,8 @@ Commands
     --description <text>      Front matter description.
   serve [skill...]            Start the app (--port ${DEFAULT_PORT}; --open opens a browser).
                               With no skill it opens on the library of skills on this machine.
+                              --tailscale also serves it on this machine's tailnet name
+                              (--tailscale-port ${DEFAULT_TAILSCALE_PORT}), for your own Tailscale login only.
 
 Common
   --no-jev                    Grade without TypeSafe calls (code checks only).
@@ -87,6 +90,8 @@ const OPTIONS = {
   bench: { type: 'string' },
   port: { type: 'string' },
   open: { type: 'boolean' },
+  tailscale: { type: 'boolean' },
+  'tailscale-port': { type: 'string' },
   description: { type: 'string' },
   json: { type: 'boolean' },
   help: { type: 'boolean', short: 'h' },
@@ -97,6 +102,15 @@ const padEnd = (value: unknown, width: number): string =>
   String(value ?? '-')
     .slice(0, width - 1)
     .padEnd(width)
+
+/** A port flag's value, or undefined when it was not given. */
+function portOf(value: string | undefined, flag: string): number | undefined {
+  if (value === undefined) return undefined
+  const port = Number(value)
+  if (!Number.isInteger(port) || port < 1 || port > 65535)
+    throw new Error(`${flag} takes a port from 1 to 65535, not "${value}".`)
+  return port
+}
 
 /** The skill dir among the positionals: the first that has a SKILL.md, else cwd. */
 function pickSkill(positionals: string[]): { skill: string; rest: string[] } {
@@ -161,9 +175,27 @@ async function main(): Promise<number> {
   if (command === 'serve') {
     const here = existsSync(join(process.cwd(), 'SKILL.md')) ? [process.cwd()] : []
     const skills = args.length ? args.map((p) => resolve(p)) : here
-    const port = await startServer({ skills, port: values.port ? Number(values.port) : undefined })
-    const url = `http://localhost:${port}`
+    const port = portOf(values.port, '--port')
+    const httpsPort = portOf(values['tailscale-port'], '--tailscale-port')
+    if (httpsPort && !values.tailscale) throw new Error('--tailscale-port needs --tailscale.')
+    const remote = values.tailscale ? await tailnetIdentity() : null
+    const listening = await startServer({ skills, port, remote })
+    const url = `http://localhost:${listening}`
     console.log(`skill-tester: ${url}${skills.length ? `  (${skills.join(', ')})` : ''}`)
+    if (remote) {
+      try {
+        const tailnet = await serveOnTailnet(
+          listening,
+          remote.host,
+          httpsPort ?? DEFAULT_TAILSCALE_PORT,
+        )
+        console.log(`tailnet:      ${tailnet.url}  (${remote.users.join(', ')} only)`)
+      } catch (error) {
+        // The local server is already listening and would keep the process alive.
+        console.error((error as Error).message)
+        process.exit(2)
+      }
+    }
     if (values.open)
       spawn(process.platform === 'darwin' ? 'open' : 'xdg-open', [url], {
         stdio: 'ignore',
