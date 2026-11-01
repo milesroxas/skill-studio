@@ -1,54 +1,95 @@
 /*
- * Ink on paper. The chrome is monochrome so color can mean one thing: a verdict.
- * Green, amber and red only ever say how good something is. The output under
- * review is set in a serif reading face so it never reads as part of the tool.
+ * Neutral product chrome in the Vercel and Linear mold: gray surfaces, hairline
+ * borders, one ink color. Green, amber and red stay reserved for verdicts, so
+ * color only ever says how good something is. The output under review keeps a
+ * serif reading face so it never reads as part of the tool.
  */
 :root {
-  --bg: #f6f5f2;
-  --surface: #ffffff;
-  --surface-2: #f0efeb;
-  --line: rgba(28, 27, 23, 0.09);
-  --line-strong: rgba(28, 27, 23, 0.17);
-  --text: #1c1b18;
-  --muted: #5f5e59;
-  --faint: #9a9993;
-  --on-ink: #ffffff;
-  --good: #1d7448;
-  --good-soft: #e3f0e8;
-  --warn: #8a5600;
-  --warn-soft: #f7ecd5;
-  --bad: #b3261e;
-  --bad-soft: #f9e3e0;
-  --ins: #dcf0e3;
-  --del: #f9e0dd;
-  --radius: 8px;
+  --bg: oklch(0.985 0 0);
+  --surface: oklch(1 0 0);
+  --surface-2: oklch(0.967 0 0);
+  --surface-3: oklch(0.94 0 0);
+  --line: oklch(0 0 0 / 0.08);
+  --line-strong: oklch(0 0 0 / 0.15);
+  --text: oklch(0.205 0 0);
+  --muted: oklch(0.48 0 0);
+  --faint: oklch(0.64 0 0);
+  --on-ink: oklch(0.985 0 0);
+  --good: oklch(0.52 0.13 150);
+  --good-soft: oklch(0.96 0.03 150);
+  --warn: oklch(0.53 0.115 70);
+  --warn-soft: oklch(0.965 0.03 70);
+  --bad: oklch(0.53 0.19 25);
+  --bad-soft: oklch(0.955 0.022 25);
+  --ins: oklch(0.94 0.045 150);
+  --del: oklch(0.94 0.035 25);
+  --shadow-sm: 0 1px 2px oklch(0 0 0 / 0.05);
+  --shadow-card: 0 1px 2px oklch(0 0 0 / 0.04), 0 2px 8px oklch(0 0 0 / 0.03);
+  --ring: 0 0 0 3px oklch(0 0 0 / 0.08);
+  --scroll-thumb: oklch(0 0 0 / 0.18);
+  --scroll-thumb-hover: oklch(0 0 0 / 0.3);
+  --radius: 10px;
   --radius-sm: 6px;
-  --sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --z-header: 10;
+  --z-toast: 400;
+  --sans: "Geist Variable", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
   --serif: Charter, "Iowan Old Style", "Source Serif Pro", Georgia, serif;
-  --mono: ui-monospace, "SF Mono", Menlo, monospace;
+  --mono: "Geist Mono Variable", ui-monospace, "SF Mono", Menlo, monospace;
   color-scheme: light;
 }
 
+/* Dark is the light scale with its lightness roles swapped, hues held. */
 @media (prefers-color-scheme: dark) {
   :root {
-    --bg: #141413;
-    --surface: #1b1b19;
-    --surface-2: #252523;
-    --line: #2b2b28;
-    --line-strong: #3d3d39;
-    --text: #ecebe6;
-    --muted: #a3a29b;
-    --faint: #6c6b66;
-    --on-ink: #141413;
-    --good: #79c597;
-    --good-soft: #18301f;
-    --warn: #e0b064;
-    --warn-soft: #33270f;
-    --bad: #f28b82;
-    --bad-soft: #3a1a18;
-    --ins: #183626;
-    --del: #3d1b19;
+    --bg: oklch(0.145 0 0);
+    --surface: oklch(0.178 0 0);
+    --surface-2: oklch(0.225 0 0);
+    --surface-3: oklch(0.26 0 0);
+    --line: oklch(1 0 0 / 0.08);
+    --line-strong: oklch(1 0 0 / 0.15);
+    --text: oklch(0.95 0 0);
+    --muted: oklch(0.72 0 0);
+    --faint: oklch(0.55 0 0);
+    --on-ink: oklch(0.145 0 0);
+    --good: oklch(0.74 0.15 150);
+    --good-soft: oklch(0.27 0.045 150);
+    --warn: oklch(0.78 0.13 70);
+    --warn-soft: oklch(0.27 0.035 70);
+    --bad: oklch(0.72 0.17 25);
+    --bad-soft: oklch(0.27 0.06 25);
+    --ins: oklch(0.3 0.06 150);
+    --del: oklch(0.3 0.07 25);
+    --shadow-sm: 0 1px 2px oklch(0 0 0 / 0.4);
+    --shadow-card: 0 1px 2px oklch(0 0 0 / 0.4);
+    --ring: 0 0 0 3px oklch(1 0 0 / 0.12);
+    --scroll-thumb: oklch(1 0 0 / 0.18);
+    --scroll-thumb-hover: oklch(1 0 0 / 0.3);
     color-scheme: dark;
+  }
+}
+
+/* Thin themed scrollbars on every scroller, the page included. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--scroll-thumb) transparent;
+}
+/* Safari reads only the prefixed form. */
+@supports not (scrollbar-color: auto) {
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    border: 3px solid transparent;
+    border-radius: 999px;
+    background: var(--scroll-thumb) padding-box;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background-color: var(--scroll-thumb-hover);
   }
 }
 
@@ -62,7 +103,34 @@ body {
   background: var(--bg);
   color: var(--text);
   font: 14px / 1.5 var(--sans);
+  font-optical-sizing: auto;
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+/* Phones: no gray flash on tap, no text inflation in landscape. */
+html {
+  -webkit-tap-highlight-color: transparent;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+/* Fire taps at once, with no double-tap zoom wait. */
+a,
+button,
+input,
+select,
+textarea,
+label,
+summary,
+[role="button"] {
+  touch-action: manipulation;
+}
+/* Controls do not select their label on a long press. Content stays selectable. */
+button,
+summary,
+[role="button"] {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
 }
 
 button,
@@ -87,18 +155,22 @@ input[type="range"] {
 /* Buttons */
 button {
   cursor: pointer;
-  min-height: 30px;
+  min-height: 32px;
   padding: 0 12px;
   border: 1px solid var(--line-strong);
   border-radius: var(--radius-sm);
   background: var(--surface);
+  box-shadow: var(--shadow-sm);
+  font-weight: 500;
   white-space: nowrap;
   transition-property: background-color, border-color, color, box-shadow, transform;
   transition-duration: 150ms;
-  transition-timing-function: ease-out;
+  transition-timing-function: var(--ease-out);
 }
-button:hover:not(:disabled) {
-  background: var(--surface-2);
+@media (hover: hover) and (pointer: fine) {
+  button:hover:not(:disabled) {
+    background: var(--surface-2);
+  }
 }
 button:active:not(:disabled) {
   transform: scale(0.96);
@@ -108,15 +180,17 @@ button:disabled {
   color: var(--faint);
   border-color: var(--line);
   background: transparent;
+  box-shadow: none;
 }
 button.primary {
   background: var(--text);
   border-color: var(--text);
   color: var(--on-ink);
-  font-weight: 500;
 }
-button.primary:hover:not(:disabled) {
-  background: color-mix(in oklch, var(--text) 82%, var(--bg));
+@media (hover: hover) and (pointer: fine) {
+  button.primary:hover:not(:disabled) {
+    background: color-mix(in oklch, var(--text) 82%, var(--bg));
+  }
 }
 button.primary:disabled {
   background: var(--surface-2);
@@ -126,13 +200,16 @@ button.primary:disabled {
 button.ghost {
   border-color: transparent;
   background: transparent;
+  box-shadow: none;
 }
 button.link {
   min-height: 0;
   padding: 0;
   border: 0;
   background: none;
+  box-shadow: none;
   color: inherit;
+  font-weight: inherit;
   text-align: left;
   white-space: normal;
   text-decoration: underline;
@@ -140,9 +217,11 @@ button.link {
   text-underline-offset: 3px;
   transition-property: text-decoration-color;
 }
-button.link:hover:not(:disabled) {
-  background: none;
-  text-decoration-color: currentColor;
+@media (hover: hover) and (pointer: fine) {
+  button.link:hover:not(:disabled) {
+    background: none;
+    text-decoration-color: currentColor;
+  }
 }
 button.link:active:not(:disabled) {
   transform: none;
@@ -163,7 +242,9 @@ button[aria-pressed="true"] {
   background: var(--surface);
   max-width: 100%;
   overflow-x: auto;
-  scrollbar-width: thin;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
+  box-shadow: var(--shadow-sm);
 }
 .seg button {
   min-height: 28px;
@@ -219,18 +300,33 @@ input[type="number"],
 input:not([type]),
 select,
 textarea {
-  min-height: 30px;
+  min-height: 32px;
   min-width: 0;
-  padding: 4px 8px;
+  padding: 4px 10px;
   border: 1px solid var(--line-strong);
   border-radius: var(--radius-sm);
   background: var(--surface);
+  transition-property: border-color, box-shadow;
+  transition-duration: 150ms;
+  transition-timing-function: var(--ease-out);
 }
+/* Fields grow with their text instead of scrolling inside the page. */
 textarea {
   width: 100%;
   min-height: 84px;
-  resize: vertical;
-  line-height: 1.45;
+  padding-block: 8px;
+  resize: none;
+  overflow: hidden;
+  field-sizing: content;
+  line-height: 1.5;
+}
+/* Text fields: a ring that hugs the border. Checkboxes and sliders keep the outline. */
+:is(input:not([type="checkbox"], [type="radio"], [type="range"]), select, textarea):focus-visible {
+  outline: none;
+  border-color: var(--text);
+  box-shadow:
+    0 0 0 1px var(--text),
+    var(--ring);
 }
 input[type="number"] {
   width: 76px;
@@ -266,8 +362,9 @@ h1 {
   margin: 0;
 }
 h2 {
-  font-size: 15px;
+  font-size: 16px;
   font-weight: 600;
+  letter-spacing: -0.012em;
   margin: 0;
   text-wrap: balance;
 }
@@ -317,14 +414,16 @@ small,
 
 /* Shell */
 .app {
-  min-height: 100vh;
+  min-height: 100dvh;
   display: flex;
   flex-direction: column;
 }
+/* viewport-fit=cover paints under the notch; the content pads back out of it. */
 .masthead {
-  background: var(--surface);
+  background: var(--bg);
   border-bottom: 1px solid var(--line);
-  padding: 0 16px;
+  padding: env(safe-area-inset-top, 0px) max(16px, env(safe-area-inset-right, 0px)) 0
+    max(16px, env(safe-area-inset-left, 0px));
 }
 .topbar {
   display: flex;
@@ -353,8 +452,10 @@ small,
   background: var(--warn-soft);
   color: var(--warn);
 }
-button.pill:hover:not(:disabled) {
-  background: color-mix(in oklch, var(--warn-soft) 80%, var(--warn));
+@media (hover: hover) and (pointer: fine) {
+  button.pill:hover:not(:disabled) {
+    background: color-mix(in oklch, var(--warn-soft) 80%, var(--warn));
+  }
 }
 .tabs {
   display: flex;
@@ -362,6 +463,8 @@ button.pill:hover:not(:disabled) {
   gap: 4px;
   margin: 0 -8px;
   overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
 }
 .tabs button {
   min-height: 40px;
@@ -371,11 +474,13 @@ button.pill:hover:not(:disabled) {
   background: transparent;
   color: var(--muted);
   box-shadow: inset 0 -2px 0 transparent;
-  transition-property: color;
+  transition-property: color, box-shadow;
 }
-.tabs button:hover:not(:disabled) {
-  background: transparent;
-  color: var(--text);
+@media (hover: hover) and (pointer: fine) {
+  .tabs button:hover:not(:disabled) {
+    background: transparent;
+    color: var(--text);
+  }
 }
 .tabs button:active:not(:disabled) {
   transform: none;
@@ -392,7 +497,8 @@ button.pill:hover:not(:disabled) {
 }
 .stage {
   flex: 1;
-  padding: 24px 16px 48px;
+  padding: 24px max(16px, env(safe-area-inset-right, 0px))
+    calc(48px + env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px));
 }
 .screen {
   display: flex;
@@ -434,6 +540,7 @@ button.pill:hover:not(:disabled) {
   background: var(--surface);
   border: 1px solid var(--line);
   border-radius: var(--radius);
+  box-shadow: var(--shadow-card);
   padding: 16px;
 }
 .panel.sticky {
@@ -487,6 +594,7 @@ button.pill:hover:not(:disabled) {
 }
 .scroll-x {
   overflow-x: auto;
+  overscroll-behavior-x: contain;
 }
 .form-grid {
   display: grid;
@@ -511,7 +619,7 @@ button.pill:hover:not(:disabled) {
   display: flex;
   align-items: center;
   min-height: 32px;
-  padding: 0 16px;
+  padding: 0 max(16px, env(safe-area-inset-right, 0px)) 0 max(16px, env(safe-area-inset-left, 0px));
   border-bottom: 1px solid var(--line);
   background: var(--surface-2);
   font-size: 12.5px;
@@ -528,14 +636,17 @@ button.pill:hover:not(:disabled) {
   white-space: normal;
   text-align: left;
 }
-.jobs-strip > button:hover:not(:disabled) {
-  background: none;
+@media (hover: hover) and (pointer: fine) {
+  .jobs-strip > button:hover:not(:disabled) {
+    background: none;
+  }
 }
 .jobs-strip > button:active:not(:disabled) {
   transform: none;
 }
 .jobs-open {
-  padding: 8px 16px 12px;
+  padding: 8px max(16px, env(safe-area-inset-right, 0px)) 12px
+    max(16px, env(safe-area-inset-left, 0px));
   border-bottom: 1px solid var(--line);
   background: var(--surface-2);
 }
@@ -645,6 +756,7 @@ button.pill:hover:not(:disabled) {
   border: 1px solid var(--line);
   border-radius: var(--radius);
   background: var(--surface);
+  box-shadow: var(--shadow-card);
 }
 
 /* Scores: chips and bars carry the only color in the tool. */
@@ -754,6 +866,7 @@ button.pill:hover:not(:disabled) {
   background: var(--surface);
   border: 1px solid var(--line);
   border-radius: var(--radius);
+  box-shadow: var(--shadow-card);
   overflow: hidden;
 }
 .card-head {
@@ -908,7 +1021,7 @@ button.pill:hover:not(:disabled) {
 .artifact-frame {
   display: block;
   width: 100%;
-  min-height: 70vh;
+  min-height: 70svh;
   border: 0;
   background: #fff;
 }
@@ -975,7 +1088,7 @@ button.pill:hover:not(:disabled) {
   display: flex;
   flex-direction: column;
   gap: 2px;
-  max-height: 40vh;
+  max-height: 40svh;
   overflow: auto;
   margin: 0 -8px;
 }
@@ -1155,7 +1268,7 @@ button.pill:hover:not(:disabled) {
 .toast {
   position: fixed;
   left: 50%;
-  bottom: 20px;
+  bottom: calc(20px + env(safe-area-inset-bottom, 0px));
   padding: 8px 16px;
   border-radius: 999px;
   background: var(--text);
@@ -1165,8 +1278,10 @@ button.pill:hover:not(:disabled) {
   transform: translate(-50%, 12px);
   transition-property: opacity, transform;
   transition-duration: 200ms;
-  transition-timing-function: ease-out;
+  transition-timing-function: var(--ease-out);
   pointer-events: none;
+  z-index: var(--z-toast);
+  box-shadow: var(--shadow-card);
 }
 .toast.show {
   opacity: 1;
@@ -1251,8 +1366,7 @@ button.pill:hover:not(:disabled) {
   gap: 10px;
 }
 .editor-text {
-  min-height: calc(100vh - 220px);
-  resize: vertical;
+  min-height: calc(100svh - 220px);
   font-size: 13px;
   line-height: 1.55;
   tab-size: 2;
@@ -1289,7 +1403,7 @@ button.pill:hover:not(:disabled) {
     grid-template-columns: minmax(0, 1fr);
   }
   .editor-text {
-    min-height: 60vh;
+    min-height: 60svh;
   }
 }
 
@@ -1341,9 +1455,11 @@ button.danger {
   background: transparent;
   color: var(--muted);
 }
-.crumb:hover:not(:disabled) {
-  background: var(--surface-2);
-  color: var(--text);
+@media (hover: hover) and (pointer: fine) {
+  .crumb:hover:not(:disabled) {
+    background: var(--surface-2);
+    color: var(--text);
+  }
 }
 .crumb-sep {
   color: var(--faint);
@@ -1388,8 +1504,8 @@ button.danger {
   width: min(320px, 100%);
 }
 input[type="search"] {
-  min-height: 30px;
-  padding: 4px 8px;
+  min-height: 32px;
+  padding: 4px 10px;
   border: 1px solid var(--line-strong);
   border-radius: var(--radius-sm);
   background: var(--surface);
@@ -1403,11 +1519,16 @@ input[type="search"] {
   opacity: 0;
   transition: opacity 150ms ease-out;
 }
-.library-table tr:hover .row-extra,
 .library-table tr:focus-within .row-extra {
   opacity: 1;
 }
-@media (hover: none) {
+@media (hover: hover) and (pointer: fine) {
+  .library-table tr:hover .row-extra {
+    opacity: 1;
+  }
+}
+/* No precise hover to reveal it, so it stays on screen. */
+@media not ((hover: hover) and (pointer: fine)) {
   .library-table .row-extra {
     opacity: 1;
   }
@@ -1419,8 +1540,10 @@ input[type="search"] {
   font-weight: 500;
   text-decoration-color: transparent;
 }
-.skill-link:hover:not(:disabled) {
-  text-decoration-color: currentColor;
+@media (hover: hover) and (pointer: fine) {
+  .skill-link:hover:not(:disabled) {
+    text-decoration-color: currentColor;
+  }
 }
 .agents {
   display: inline-flex;
@@ -1616,4 +1739,111 @@ button.next {
 /* Side panels stack with gap; paragraphs bring no margins of their own. */
 .panel p {
   margin: 0;
+}
+
+/*
+ * Touch. A finger needs about 44px, and iOS zooms into any field set under
+ * 16px. Gated on the pointer, so mouse layouts keep their density.
+ */
+@media (pointer: coarse) {
+  button,
+  select,
+  input[type="text"],
+  input[type="number"],
+  input[type="search"],
+  input:not([type]),
+  .seg button,
+  .crumb,
+  .jobs-strip > button,
+  .case-item {
+    min-height: 44px;
+  }
+  .tabs button {
+    min-height: 48px;
+  }
+  button.agent,
+  .pill {
+    min-height: 36px;
+  }
+  button.link {
+    min-height: 0;
+  }
+  /* Inline text links keep their line; a padded box widens what a finger catches. */
+  button.link:not(.inline) {
+    padding-block: 6px;
+  }
+  input,
+  select,
+  textarea,
+  textarea.editor-text,
+  .library .search,
+  .weight input {
+    font-size: 16px;
+  }
+  input[type="checkbox"],
+  input[type="radio"] {
+    width: 20px;
+    height: 20px;
+  }
+  .check-row {
+    min-height: 44px;
+    align-items: center;
+  }
+  input[type="range"] {
+    min-height: 44px;
+  }
+}
+
+/*
+ * One scroller per screen on touch. A box that scrolls inside the page catches
+ * the swipe meant for the page, so on touch these flow at full height.
+ */
+@media (pointer: coarse) {
+  .log,
+  .queue {
+    max-height: none;
+    overflow: visible;
+  }
+}
+
+/* Wide screens: the header stays put and lets content pass under it. */
+@media (min-width: 761px) {
+  .masthead {
+    position: sticky;
+    top: 0;
+    z-index: var(--z-header);
+    background: color-mix(in oklch, var(--bg) 82%, transparent);
+    -webkit-backdrop-filter: saturate(1.8) blur(12px);
+    backdrop-filter: saturate(1.8) blur(12px);
+  }
+  /* Clear the header: its top bar and step tabs. */
+  .panel.sticky {
+    top: 104px;
+  }
+}
+
+/* HTML output: framed inline, opened full size in its own sandboxed tab. */
+.artifact-html {
+  position: relative;
+  isolation: isolate;
+}
+.artifact-open {
+  display: flex;
+  justify-content: flex-end;
+  padding: 8px 16px;
+  border-bottom: 1px solid var(--line);
+  font-size: 12.5px;
+}
+.artifact-open a {
+  color: var(--muted);
+  text-decoration: underline;
+  text-decoration-color: var(--line-strong);
+  text-underline-offset: 3px;
+}
+/* A frame that scrolls would trap the page swipe on touch: show it, open it to scroll. */
+@media (pointer: coarse) {
+  .artifact-html .artifact-frame {
+    pointer-events: none;
+    min-height: 60svh;
+  }
 }

@@ -33,7 +33,16 @@ export function ArtifactView({ run, sample, artifact }: Props) {
   if (artifact.kind === 'image')
     return <img className="artifact-image" src={url} alt={artifact.file} />
   if (artifact.kind === 'html')
-    return <iframe className="artifact-frame" src={url} title={artifact.file} sandbox="" />
+    return (
+      <div className="artifact-html">
+        <p className="artifact-open">
+          <a href={url} target="_blank" rel="noopener noreferrer">
+            Open full size
+          </a>
+        </p>
+        <iframe className="artifact-frame" src={url} title={artifact.file} sandbox="" />
+      </div>
+    )
   if (error) return <p className="help card-note">{error}</p>
   if (text === null) return <p className="help card-note">Loading…</p>
   if (artifact.kind === 'markdown')

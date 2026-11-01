@@ -315,6 +315,7 @@ function Knob({
       />
       <input
         type="number"
+        inputMode="decimal"
         min={min}
         step={step}
         value={value}

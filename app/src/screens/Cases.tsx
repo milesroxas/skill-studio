@@ -1,8 +1,10 @@
 /** Write the cases a run is made of: the prompt, what a good answer does, and the judge's checks. */
+
 import type { Case, CaseDraft } from '@core/schemas.ts'
 import { isSlug, SLUG_RULE, slug } from '@core/text.ts'
 import { useEffect, useMemo, useState } from 'react'
 import { api } from '../api.ts'
+import { TextArea } from '../components/TextArea.tsx'
 import type { Ctx } from '../ctx.ts'
 
 const draftOf = (c: Case): CaseDraft => ({
@@ -153,6 +155,8 @@ export function Cases({ ctx }: { ctx: Ctx }) {
               id="case-id"
               className="mono"
               value={draft.id}
+              autoCapitalize="none"
+              autoCorrect="off"
               spellCheck={false}
               aria-invalid={Boolean(idError || taken) || undefined}
               aria-describedby="case-id-help"
@@ -172,7 +176,7 @@ export function Cases({ ctx }: { ctx: Ctx }) {
 
         <div className="field">
           <label htmlFor="case-prompt">Prompt</label>
-          <textarea
+          <TextArea
             id="case-prompt"
             rows={8}
             value={draft.prompt}
@@ -186,7 +190,7 @@ export function Cases({ ctx }: { ctx: Ctx }) {
 
         <div className="field">
           <label htmlFor="case-expected">A good answer</label>
-          <textarea
+          <TextArea
             id="case-expected"
             rows={3}
             value={draft.expectedOutcome}
@@ -226,6 +230,7 @@ export function Cases({ ctx }: { ctx: Ctx }) {
                   <span className="sr-only">Weight of check {i + 1}</span>
                   <input
                     type="number"
+                    inputMode="numeric"
                     min={1}
                     max={5}
                     value={g.weight}
@@ -271,6 +276,7 @@ export function Cases({ ctx }: { ctx: Ctx }) {
                 <span className="small muted">From</span>
                 <input
                   type="number"
+                  inputMode="numeric"
                   min={0}
                   value={draft.words[0]}
                   onChange={(e) => set({ words: [Number(e.target.value), draft.words?.[1] ?? 0] })}
@@ -280,6 +286,7 @@ export function Cases({ ctx }: { ctx: Ctx }) {
                 <span className="small muted">to</span>
                 <input
                   type="number"
+                  inputMode="numeric"
                   min={0}
                   value={draft.words[1]}
                   onChange={(e) => set({ words: [draft.words?.[0] ?? 0, Number(e.target.value)] })}

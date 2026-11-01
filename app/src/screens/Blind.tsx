@@ -1,10 +1,12 @@
 /** Blind review: judge an output before its scores or its run are shown, then reveal and save. */
+
 import type { Artifact } from '@core/schemas.ts'
 import { useEffect, useState } from 'react'
 import { api } from '../api.ts'
 import { AnchorForm } from '../components/AnchorForm.tsx'
 import { ArtifactPicker, ArtifactView } from '../components/Artifact.tsx'
 import { Flags, Layers, TotalChip } from '../components/Scores.tsx'
+import { TextArea } from '../components/TextArea.tsx'
 import type { Ctx } from '../ctx.ts'
 import { useFetch } from '../hooks.ts'
 import {
@@ -217,7 +219,7 @@ export function Blind({ ctx }: { ctx: Ctx }) {
           <label className="h3" htmlFor="review-note">
             Note
           </label>
-          <textarea
+          <TextArea
             id="review-note"
             value={note}
             onChange={(e) => setNote(e.target.value)}

@@ -147,6 +147,9 @@ export function Generate({ ctx }: { ctx: Ctx }) {
                   value={w.model}
                   onChange={(e) => setWriter(i, { model: e.target.value })}
                   placeholder="Model"
+                  autoCapitalize="none"
+                  autoCorrect="off"
+                  spellCheck={false}
                 />
                 <datalist id={`models-${w.id}`}>
                   {(engine?.models ?? []).map((m) => (
@@ -212,6 +215,7 @@ export function Generate({ ctx }: { ctx: Ctx }) {
           <input
             id="gen-samples"
             type="number"
+            inputMode="numeric"
             min={1}
             max={10}
             value={samples}

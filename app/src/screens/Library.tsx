@@ -1,4 +1,5 @@
 /** Every skill on this machine: open one, create one, or install one for an agent. */
+
 import {
   AGENTS,
   type AgentId,
@@ -10,6 +11,7 @@ import {
 import { isSlug, SLUG_RULE } from '@core/text.ts'
 import { useMemo, useState } from 'react'
 import { api } from '../api.ts'
+import { TextArea } from '../components/TextArea.tsx'
 import { useFetch } from '../hooks.ts'
 import { plural, shortDate } from '../model.ts'
 
@@ -95,6 +97,7 @@ export function LibraryScreen({ openSkill, toast }: Props) {
         <div className="toolbar">
           <input
             type="search"
+            enterKeyHint="search"
             className="search"
             aria-label="Search skills"
             placeholder="Search by name or description"
@@ -307,7 +310,10 @@ function NewSkill({
             id="ns-name"
             value={name}
             autoComplete="off"
+            autoCapitalize="none"
+            autoCorrect="off"
             spellCheck={false}
+            enterKeyHint="next"
             aria-invalid={Boolean(nameError || taken) || undefined}
             aria-describedby="ns-name-help"
             onChange={(e) => setName(e.target.value)}
@@ -322,7 +328,7 @@ function NewSkill({
 
         <label htmlFor="ns-desc">Description</label>
         <div className="field">
-          <textarea
+          <TextArea
             id="ns-desc"
             rows={3}
             value={description}
@@ -416,6 +422,10 @@ function Places({ workspaces, act }: { workspaces: string[]; act: Act }) {
           <input
             aria-label="Folder to look in"
             placeholder="~/Projects"
+            autoCapitalize="none"
+            autoCorrect="off"
+            spellCheck={false}
+            enterKeyHint="done"
             value={adding}
             onChange={(e) => setAdding(e.target.value)}
           />

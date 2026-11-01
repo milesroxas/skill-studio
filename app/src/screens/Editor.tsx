@@ -4,6 +4,7 @@ import { rulesFromSkill } from '@core/rules.ts'
 import { metaText, readFrontMatter } from '@core/text.ts'
 import { useEffect, useState } from 'react'
 import { api } from '../api.ts'
+import { TextArea } from '../components/TextArea.tsx'
 import type { Ctx } from '../ctx.ts'
 import { lineDiff } from '../diff.ts'
 import { useFetch } from '../hooks.ts'
@@ -170,7 +171,7 @@ export function Editor({ ctx }: { ctx: Ctx }) {
             <p className="help">No changes from the file on disk.</p>
           )
         ) : (
-          <textarea
+          <TextArea
             className="editor-text mono"
             aria-label={`Contents of ${file}`}
             spellCheck={false}
@@ -209,6 +210,10 @@ export function Editor({ ctx }: { ctx: Ctx }) {
             <input
               aria-label="New reference file"
               placeholder="references/name.md"
+              autoCapitalize="none"
+              autoCorrect="off"
+              spellCheck={false}
+              enterKeyHint="done"
               value={newName}
               onChange={(e) => setNewName(e.target.value)}
             />
