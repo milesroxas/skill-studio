@@ -56,7 +56,7 @@ Only your own Tailscale login gets in: the server checks the user Tailscale sign
 For scripts and batch work, the CLI covers scaffolding, runs, grading and reports:
 
 ```
-pnpm st new <skill-dir>                       # scaffold SKILL.md and evals/cases/
+pnpm st new <skill-dir> --template code --with-cases   # scaffold from a template, with sample cases
 pnpm st cases <skill-dir>
 pnpm st run <skill-dir> --engine claude --model sonnet --cases a,b --samples 2 --name "v0 first draft"
 pnpm st report <skill-dir> --run <run-name>

@@ -8,6 +8,8 @@ import {
   type Library,
   type LibrarySkill,
 } from '@domain/library.ts'
+import { rulesFromSkill } from '@domain/rules.ts'
+import { TEMPLATES, type TemplateId, templateById } from '@domain/templates.ts'
 import { isSlug, SLUG_RULE } from '@domain/text.ts'
 import { useMemo, useState } from 'react'
 import { api } from '../api.ts'
@@ -270,10 +272,14 @@ function NewSkill({
   const [description, setDescription] = useState('')
   const [scope, setScope] = useState('user')
   const [agents, setAgents] = useState<Set<AgentId>>(() => new Set(['claude']))
+  const [templateId, setTemplateId] = useState<TemplateId>('blank')
+  const [samples, setSamples] = useState(true)
   const [busy, setBusy] = useState(false)
   const nameError = name && !isSlug(name) ? SLUG_RULE : ''
   const taken = data.skills.some((s) => s.scope === scope && s.path.endsWith(`/${name}`))
   const placeLabel = data.places.find((p) => p.scope === scope)?.label ?? ''
+  const template = templateById(templateId)
+  const ruleCount = rulesFromSkill(template.body).length
 
   const toggleAgent = (id: AgentId) =>
     setAgents((prev) => {
@@ -285,7 +291,14 @@ function NewSkill({
   const submit = async () => {
     setBusy(true)
     try {
-      const skill = await api.createSkill({ scope, name, description, agents: [...agents] })
+      const skill = await api.createSkill({
+        scope,
+        name,
+        description,
+        agents: [...agents],
+        template: templateId,
+        samples: samples && template.cases.length > 0,
+      })
       toast(`Created ${skill.name}`)
       created(skill.path)
     } catch (e) {
@@ -304,6 +317,38 @@ function NewSkill({
     >
       <h3>New skill</h3>
       <div className="form-grid">
+        <span id="ns-template-label">Start from</span>
+        <div className="field">
+          <fieldset className="seg fill" aria-labelledby="ns-template-label">
+            {TEMPLATES.map((t) => (
+              <button
+                key={t.id}
+                type="button"
+                aria-pressed={t.id === templateId}
+                onClick={() => setTemplateId(t.id)}
+              >
+                {t.label}
+              </button>
+            ))}
+          </fieldset>
+          <span className="help">
+            {template.summary}
+            {template.cases.length
+              ? ` Starts with ${plural(ruleCount, 'example rule')} to replace.`
+              : ''}
+          </span>
+          {template.cases.length ? (
+            <label className="check-row small">
+              <input
+                type="checkbox"
+                checked={samples}
+                onChange={(e) => setSamples(e.target.checked)}
+              />
+              Add {plural(template.cases.length, 'sample case')} to run against
+            </label>
+          ) : null}
+        </div>
+
         <label htmlFor="ns-name">Name</label>
         <div className="field">
           <input
@@ -332,6 +377,7 @@ function NewSkill({
             id="ns-desc"
             rows={3}
             value={description}
+            placeholder={template.description}
             aria-describedby="ns-desc-help"
             onChange={(e) => setDescription(e.target.value)}
           />

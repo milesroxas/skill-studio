@@ -1,8 +1,18 @@
 /** Write the skill: SKILL.md and references/, edited in place on disk. */
 
 import { rulesFromSkill } from '@domain/rules.ts'
+import {
+  applyTemplate,
+  EXAMPLE_KINDS,
+  insertAt,
+  isScaffold,
+  referenceTemplate,
+  type SkillTemplate,
+  SNIPPETS,
+  type Snippet,
+} from '@domain/templates.ts'
 import { metaText, readFrontMatter } from '@domain/text.ts'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { api } from '../api.ts'
 import { TextArea } from '../components/TextArea.tsx'
 import type { Ctx } from '../ctx.ts'
@@ -33,6 +43,7 @@ export function Editor({ ctx }: { ctx: Ctx }) {
   const [showDiff, setShowDiff] = useState(false)
   const [newName, setNewName] = useState('')
   const [busy, setBusy] = useState(false)
+  const area = useRef<HTMLTextAreaElement>(null)
 
   useEffect(() => {
     drafts.set(state.skill.path, edits)
@@ -58,6 +69,30 @@ export function Editor({ ctx }: { ctx: Ctx }) {
 
   const edit = (value: string) =>
     setEdits((all) => ({ ...all, [file]: { text: value, previous: all[file]?.previous ?? saved } }))
+
+  /** Put a snippet at the cursor (or over the selection) and leave the cursor inside it. */
+  const insert = (snippet: Snippet) => {
+    const el = area.current
+    const start = el?.selectionStart ?? text.length
+    const end = el?.selectionEnd ?? text.length
+    const next = insertAt(text, start, end, snippet)
+    edit(next.text)
+    requestAnimationFrame(() => {
+      el?.focus()
+      el?.setSelectionRange(next.cursor, next.cursor)
+    })
+  }
+
+  /** Replace the body of SKILL.md with a template's, keeping the front matter. */
+  const startFrom = (template: SkillTemplate) => {
+    if (
+      !isScaffold(text) &&
+      !window.confirm(`Replace what is in ${file} with the ${template.label} template?`)
+    )
+      return
+    edit(applyTemplate(text, template, state.skill.name))
+    requestAnimationFrame(() => area.current?.focus())
+  }
 
   const drop = (path: string) =>
     setEdits((all) => {
@@ -85,7 +120,7 @@ export function Editor({ ctx }: { ctx: Ctx }) {
     const path = referencePath(newName)
     if (!path) return toast('Use letters, digits, dots, dashes and slashes only.')
     if (paths.includes(path)) return toast(`${path} already exists.`)
-    setEdits((all) => ({ ...all, [path]: { text: '', previous: null } }))
+    setEdits((all) => ({ ...all, [path]: { text: referenceTemplate(path), previous: null } }))
     setNewName('')
     go('edit', { file: path })
   }
@@ -119,6 +154,7 @@ export function Editor({ ctx }: { ctx: Ctx }) {
   const meta = isSkill ? readFrontMatter(text).meta : {}
   const rules = isSkill && !config.rules?.length ? rulesFromSkill(text) : []
   const diff = showDiff ? lineDiff(saved ?? '', text) : []
+  const blank = isSkill && isScaffold(text)
 
   if (disk.error) return <p className="help">{disk.error}</p>
   if (!disk.data) return <p className="help">Loading…</p>
@@ -171,14 +207,40 @@ export function Editor({ ctx }: { ctx: Ctx }) {
             <p className="help">No changes from the file on disk.</p>
           )
         ) : (
-          <TextArea
-            className="editor-text mono"
-            aria-label={`Contents of ${file}`}
-            spellCheck={false}
-            value={text}
-            onChange={(e) => edit(e.target.value)}
-            onKeyDown={onKey}
-          />
+          <>
+            {blank ? (
+              <section className="starter" aria-label="Start from a template">
+                <div className="starter-text">
+                  <span className="h3">Start from a template</span>
+                  <span className="help">
+                    Each one is a small, finished skill in the shape the judge grades: one rule per
+                    bullet, with its why. Replace the rules with yours.
+                  </span>
+                </div>
+                <div className="actions">
+                  {EXAMPLE_KINDS.map((t) => (
+                    <button key={t.id} type="button" title={t.summary} onClick={() => startFrom(t)}>
+                      {t.label}
+                    </button>
+                  ))}
+                </div>
+              </section>
+            ) : null}
+            <TextArea
+              ref={area}
+              className="editor-text mono"
+              aria-label={`Contents of ${file}`}
+              spellCheck={false}
+              placeholder={
+                isSkill
+                  ? 'Write for the agent that loads this skill. One rule per bullet, with its why.'
+                  : 'Longer material SKILL.md points to. Say first when the agent should read it.'
+              }
+              value={text}
+              onChange={(e) => edit(e.target.value)}
+              onKeyDown={onKey}
+            />
+          </>
         )}
       </div>
 
@@ -241,6 +303,60 @@ export function Editor({ ctx }: { ctx: Ctx }) {
             </p>
           </div>
         ) : null}
+
+        <div className="field">
+          <span className="h3">Insert</span>
+          <div className="actions">
+            {SNIPPETS.map((s) => (
+              <button key={s.id} type="button" className="small" onClick={() => insert(s)}>
+                {s.label}
+              </button>
+            ))}
+          </div>
+          <details className="guide-box">
+            <summary>How to write a rule the agent follows</summary>
+            <ol className="small guide-list">
+              <li>
+                <b>Encode process, not outcome.</b> "Lead with the change for the reader" beats
+                "write clearly". The agent can walk a step; it cannot measure an adjective.
+              </li>
+              <li>
+                <b>Write the why in the same bullet.</b> A rule with its reason generalises to cases
+                you did not write down. A bare rule is applied blindly.
+              </li>
+              <li>
+                <b>Be numeric or absolute.</b> "20 words or fewer", "never", "always". "Reasonably"
+                and "where appropriate" change nothing.
+              </li>
+              <li>
+                <b>Every line must change what the agent does.</b> Cut definitions of things it
+                knows. Attention spent there is taken from your rules.
+              </li>
+              <li>
+                <b>One skill, one aspect.</b> Writing, code, workflow or design. A skill that covers
+                everything is followed on nothing.
+              </li>
+            </ol>
+          </details>
+          {isSkill && !blank ? (
+            <details className="guide-box">
+              <summary>Start over from a template</summary>
+              <div className="actions">
+                {EXAMPLE_KINDS.map((t) => (
+                  <button
+                    key={t.id}
+                    type="button"
+                    className="small"
+                    title={t.summary}
+                    onClick={() => startFrom(t)}
+                  >
+                    {t.label}
+                  </button>
+                ))}
+              </div>
+            </details>
+          ) : null}
+        </div>
 
         {isSkill ? (
           <div className="field">

@@ -17,6 +17,7 @@ import {
   type Vote,
 } from '@domain/schemas.ts'
 import { agreement } from '@domain/stats.ts'
+import { TEMPLATE_IDS } from '@domain/templates.ts'
 import type { Settings, SkillInfo } from '@domain/views.ts'
 import {
   benchPath,
@@ -169,6 +170,8 @@ export const parsers: { [K in OperationName]: (raw: Raw) => Input<K> } = {
     name: str(raw.name).trim(),
     description: str(raw.description).trim(),
     agents: list(raw.agents).map((a) => oneOf(a, ['claude', 'cursor', 'codex'], 'agent')),
+    template: oneOf(str(raw.template, 'blank'), TEMPLATE_IDS, 'template'),
+    samples: raw.samples === true,
   }),
   'library.link': (raw) => ({
     path: str(raw.path),

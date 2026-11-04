@@ -49,13 +49,14 @@ To work on a skill that exists:
 To create one:
 
 1. Click New skill.
-2. Type a name: lowercase letters, digits and single dashes, like `release-notes`.
-3. Write a one-line description. Agents read it to decide when to use the skill, so say what it is for.
-4. Pick a Place. "User (every project)" makes it available everywhere; a project place keeps it in that project.
-5. Tick the agents to install it for.
-6. Click Create skill.
+2. Pick what to start from. Blank is a title and an empty Rules section. Writing, Code, Workflow and Design are each a small finished skill of six to eight rules in the shape the judge grades, with three sample cases. Leave "Add 3 sample cases" ticked to have something to run on the first day.
+3. Type a name: lowercase letters, digits and single dashes, like `release-notes`.
+4. Write a one-line description. Agents read it to decide when to use the skill, so say what it is for. The grey text is the template's own description; leave the field empty to keep it.
+5. Pick a Place. "User (every project)" makes it available everywhere; a project place keeps it in that project.
+6. Tick the agents to install it for.
+7. Click Create skill.
 
-The skill is written to `.agents/skills/<name>` and linked into each agent you ticked. The Claude, Cursor and Codex buttons on a skill's row install or uninstall it later. Uninstalling removes the link only, never the skill.
+The skill is written to `.agents/skills/<name>` and linked into each agent you ticked. A Writing, Code, Workflow or Design skill also gets an `evals/bench.json` that turns on the matching judge pack, so its first run is graded for that kind of work. The Claude, Cursor and Codex buttons on a skill's row install or uninstall it later. Uninstalling removes the link only, never the skill.
 
 If a project of yours is missing, open "Where skills are found" at the bottom and add its parent folder. The default is `~/SITES` when that folder exists.
 
@@ -67,7 +68,15 @@ Open the Skill tab, then Write.
 2. Add longer material as files under `references/` from the side panel, and point to them from `SKILL.md`.
 3. Check the Graded rules list in the side panel. The generic pack scores each answer against these rules, one judge question per rule.
 
-Write rules as top-level bullets in `SKILL.md`. A rule hidden inside a paragraph is not graded.
+Write rules as top-level bullets in `SKILL.md`. A rule hidden inside a paragraph is not graded. Steps and checklists go in numbered lists, which are not graded.
+
+You never start from a blank page:
+
+- A `SKILL.md` with no rules yet shows a Start from a template strip. Each template is a finished small skill to edit, not a form to fill. Pick one and replace its rules with yours.
+- The Insert buttons in the side panel put a rule, a decision tree, a process list or a reference link at the cursor, each in the shape that grades well.
+- "How to write a rule the agent follows" in the side panel is the five-line version of the method: encode process not outcome, write the why in the bullet, be numeric or absolute, cut every line that does not change what the agent does, one skill per aspect.
+- "Start over from a template" is there once the file has rules, behind a confirmation.
+- A new reference file opens with a heading and a line for when the agent should read it.
 
 A save is refused if the file changed on disk since you opened it, so an edit made in your code editor is never overwritten. Reload and edit again.
 
@@ -76,6 +85,8 @@ The Changes screen compares the working tree with any earlier run's copy of the 
 ## 3. Write cases
 
 A case is one task an agent gets with your skill installed. Open the Cases tab. With no cases yet, the form for the first one is already open.
+
+A new case starts with Start from an example: three finished cases for the kind of skill your bench grades (Writing, Code, Workflow or Design, switchable). Pick one and the whole form fills in, with an id no existing case holds. Edit it into your task. The grey text in each field is the first example too, so the shape is visible before you type. Under Checks, "What the judge can mark" shows three vague checks next to the form the judge can actually mark.
 
 1. Title: a short name for the task.
 2. Id: filled in from the title. It names the case's folder and cannot change after you add it.
@@ -192,7 +203,7 @@ To be sure an edit helped, run it against the version before with the "Old skill
 Everything above can also be scripted. The CLI uses the same files as the app.
 
 ```
-pnpm st new <skill-dir>
+pnpm st new <skill-dir> --template writing --with-cases
 pnpm st cases <skill-dir>
 pnpm st run <skill-dir> --engine claude --model sonnet --samples 2 --name "what changed"
 pnpm st grade <skill-dir> --run <run-name>

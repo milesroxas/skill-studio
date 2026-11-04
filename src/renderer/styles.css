@@ -2127,3 +2127,121 @@ button.next {
     scroll-margin-top: 16px;
   }
 }
+
+/* Starting points: a template strip over a blank file, examples over a blank case,
+   a folded guide beside a form. Sunken on surface-2 so they read as help, not content. */
+.starter {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 14px 16px;
+  border-radius: var(--radius);
+  background: var(--surface-2);
+}
+.starter-text {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.starter .seg {
+  align-self: flex-start;
+}
+.example-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 8px;
+}
+button.example {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  width: 100%;
+  min-height: 56px;
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  text-align: left;
+  white-space: normal;
+  font-weight: 500;
+}
+button.example .sub {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 400;
+}
+button.small {
+  min-height: 28px;
+  padding: 0 10px;
+  font-size: 12.5px;
+}
+.guide-box {
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  padding: 8px 12px;
+  font-size: 12.5px;
+}
+.guide-box summary {
+  cursor: pointer;
+  color: var(--muted);
+  font-weight: 500;
+}
+.guide-box[open] summary {
+  color: var(--text);
+  margin-bottom: 10px;
+}
+.guide-list {
+  margin: 0;
+  padding-left: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  color: var(--muted);
+}
+.guide-list b {
+  color: var(--text);
+  font-weight: 600;
+}
+.pair-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.pair-list li {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.pair-bad,
+.pair-good {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+}
+.pair-bad::before,
+.pair-good::before {
+  flex-shrink: 0;
+  width: 40px;
+  font: 500 10.5px / 1.6 var(--mono);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.pair-bad {
+  color: var(--muted);
+  text-decoration: line-through;
+  text-decoration-color: var(--line-strong);
+}
+.pair-bad::before {
+  content: "vague";
+  color: var(--faint);
+  text-decoration: none;
+}
+.pair-good::before {
+  content: "check";
+  color: var(--good);
+}

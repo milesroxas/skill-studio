@@ -23,8 +23,9 @@ import {
   type Place,
   STORE_DIR,
 } from '@domain/library.ts'
+import { templateById } from '@domain/templates.ts'
 import { isSlug, metaText, readFrontMatter, SLUG_RULE } from '@domain/text.ts'
-import { loadCases } from './cases.ts'
+import { loadCases, saveCase } from './cases.ts'
 import { isDir, isFile, listDirs, readJson, writeJson } from './fs.ts'
 import { newSkill } from './skill.ts'
 
@@ -281,19 +282,26 @@ export function unlinkSkill(path: string, agent: string, scope: string): void {
   unlinkSync(target)
 }
 
-/** A new skill in the place's store, linked for each agent picked. */
+/**
+ * A new skill in the place's store, linked for each agent picked. It starts
+ * from a template; with `samples` the template's example cases are written too.
+ */
 export function createSkill(input: {
   scope: string
   name: string
   description: string
   agents: string[]
+  template?: string
+  samples?: boolean
 }): string {
   if (!isSlug(input.name)) throw new Error(SLUG_RULE)
   const place = placeFor(input.scope)
   const dir = join(place.root, STORE_DIR, input.name)
   for (const path of [dir, ...input.agents.map((a) => join(place.root, agentDir(a), input.name))])
     if (taken(path)) throw new Error(`${tilde(path)} already exists.`)
-  newSkill(dir, input.name, input.description)
+  const template = templateById(input.template ?? 'blank')
+  newSkill(dir, input.name, input.description, template)
+  if (input.samples) for (const sample of template.cases) saveCase(dir, sample, true)
   for (const agent of input.agents) link(realpathSync(dir), agent, place)
   return dir
 }

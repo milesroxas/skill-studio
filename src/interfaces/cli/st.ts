@@ -22,8 +22,9 @@ import { compareReports, gradeAnchors, gradeRun, selfTest } from '@application/g
 import type { BenchConfig, Configuration, Report } from '@domain/schemas.ts'
 import { CONFIGURATIONS } from '@domain/schemas.ts'
 import { layerOrder } from '@domain/scoring.ts'
+import { TEMPLATE_IDS, type TemplateId, templateById } from '@domain/templates.ts'
 import { isSlug, SLUG_RULE } from '@domain/text.ts'
-import { loadCases } from '@infrastructure/cases.ts'
+import { loadCases, saveCase } from '@infrastructure/cases.ts'
 import { engineById, engines } from '@infrastructure/engines/index.ts'
 import { listRuns, readRun, runDir, versionsOf } from '@infrastructure/runs.ts'
 import { newSkill, skillInfo } from '@infrastructure/skill.ts'
@@ -57,6 +58,8 @@ Commands
   new <dir>                   Scaffold a skill: SKILL.md and an empty evals/cases/.
     --name <id>               Skill name; default the folder name.
     --description <text>      Front matter description.
+    --template <id>           blank (default), writing, code, workflow or design.
+    --with-cases              Also write the template's sample cases.
   serve [skill...]            Start the app (--port ${DEFAULT_PORT}; --open opens a browser).
                               With no skill it opens on the library of skills on this machine.
                               --tailscale also serves it on this machine's tailnet name
@@ -93,6 +96,8 @@ const OPTIONS = {
   tailscale: { type: 'boolean' },
   'tailscale-port': { type: 'string' },
   description: { type: 'string' },
+  template: { type: 'string' },
+  'with-cases': { type: 'boolean' },
   json: { type: 'boolean' },
   help: { type: 'boolean', short: 'h' },
 } as const
@@ -167,7 +172,12 @@ async function main(): Promise<number> {
     if (!dir) throw new Error('Pass the new skill directory: st new <dir>.')
     const name = values.name ?? basename(resolve(dir))
     if (!isSlug(name)) throw new Error(SLUG_RULE)
-    const md = newSkill(dir, name, values.description ?? '')
+    const template = values.template ?? 'blank'
+    if (!TEMPLATE_IDS.includes(template as TemplateId))
+      throw new Error(`Unknown template ${template}. Use one of ${TEMPLATE_IDS.join(', ')}.`)
+    const chosen = templateById(template)
+    const md = newSkill(dir, name, values.description ?? '', chosen)
+    if (values['with-cases']) for (const sample of chosen.cases) saveCase(dir, sample, true)
     console.log(`Wrote ${md}. Edit it in the app: pnpm st serve ${dir}`)
     return 0
   }

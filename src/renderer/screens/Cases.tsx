@@ -1,6 +1,7 @@
 /** Write the cases a run is made of: the prompt, what a good answer does, and the judge's checks. */
 
 import type { Case, CaseDraft } from '@domain/schemas.ts'
+import { CHECK_EXAMPLES, EXAMPLE_KINDS, templateById, templateForPacks } from '@domain/templates.ts'
 import { isSlug, SLUG_RULE, slug } from '@domain/text.ts'
 import { useEffect, useMemo, useState } from 'react'
 import { api } from '../api.ts'
@@ -26,8 +27,11 @@ const blank = (): CaseDraft => ({
 })
 
 export function Cases({ ctx }: { ctx: Ctx }) {
-  const { state, route, go, toast, reload } = ctx
+  const { state, config, route, go, toast, reload } = ctx
   const cases = state.cases
+  /** Examples come from the kind of skill the bench grades, until the user picks another. */
+  const [kindId, setKindId] = useState(() => templateForPacks(config.packs).id)
+  const kind = templateById(kindId)
   const isNew = route.params.get('new') === '1' || !cases.length
   const selected = isNew ? null : (cases.find((c) => c.id === route.params.get('id')) ?? cases[0])
   const base = useMemo(() => (selected ? draftOf(selected) : blank()), [selected])
@@ -60,6 +64,15 @@ export function Cases({ ctx }: { ctx: Ctx }) {
     set(isNew && !idTouched ? { title, id: slug(title, 40) } : { title })
   const setGrader = (i: number, patch: Partial<CaseDraft['graders'][number]>) =>
     set({ graders: draft.graders.map((g, k) => (k === i ? { ...g, ...patch } : g)) })
+
+  /** Fill the form from an example, with an id no existing case holds. */
+  const fillFrom = (example: CaseDraft) => {
+    if (dirty && !window.confirm('Replace what you typed with this example?')) return
+    let id = example.id
+    for (let n = 2; cases.some((c) => c.id === id); n += 1) id = `${example.id}-${n}`
+    setIdTouched(true)
+    setDraft({ ...example, id, graders: example.graders.map((g) => ({ ...g })) })
+  }
 
   const idError = draft.id && !isSlug(draft.id) ? SLUG_RULE : ''
   const taken = isNew && cases.some((c) => c.id === draft.id)
@@ -137,6 +150,42 @@ export function Cases({ ctx }: { ctx: Ctx }) {
             place.
           </p>
         ) : null}
+        {isNew ? (
+          <section className="starter" aria-label="Start from an example">
+            <div className="starter-text">
+              <span className="h3">Start from an example</span>
+              <span className="help">
+                A finished case to edit: a prompt a user would type, what a good answer does, and
+                checks the judge can mark. Pick the kind of skill, then a case.
+              </span>
+            </div>
+            <fieldset className="seg filters" aria-label="Kind of skill">
+              {EXAMPLE_KINDS.map((t) => (
+                <button
+                  key={t.id}
+                  type="button"
+                  aria-pressed={t.id === kindId}
+                  onClick={() => setKindId(t.id)}
+                >
+                  {t.label}
+                </button>
+              ))}
+            </fieldset>
+            <ul className="example-list">
+              {kind.cases.map((c) => (
+                <li key={c.id}>
+                  <button type="button" className="example" onClick={() => fillFrom(c)}>
+                    <span>{c.title}</span>
+                    <span className="sub">
+                      {c.graders.length} {c.graders.length === 1 ? 'check' : 'checks'}
+                      {c.words ? ` · ${c.words[0]} to ${c.words[1]} words` : ''}
+                    </span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </section>
+        ) : null}
 
         <div className="field">
           <label htmlFor="case-title">Title</label>
@@ -180,6 +229,7 @@ export function Cases({ ctx }: { ctx: Ctx }) {
             id="case-prompt"
             rows={8}
             value={draft.prompt}
+            placeholder={kind.cases[0]?.prompt}
             aria-describedby="case-prompt-help"
             onChange={(e) => set({ prompt: e.target.value })}
           />
@@ -194,6 +244,7 @@ export function Cases({ ctx }: { ctx: Ctx }) {
             id="case-expected"
             rows={3}
             value={draft.expectedOutcome}
+            placeholder={kind.cases[0]?.expectedOutcome}
             aria-describedby="case-expected-help"
             onChange={(e) => set({ expectedOutcome: e.target.value })}
           />
@@ -209,6 +260,18 @@ export function Cases({ ctx }: { ctx: Ctx }) {
             One statement per line that a good answer makes true. The judge marks each one. Weight
             counts a check more.
           </p>
+          <details className="guide-box">
+            <summary>What the judge can mark</summary>
+            <ul className="pair-list small">
+              {CHECK_EXAMPLES.map((ex) => (
+                <li key={ex.good}>
+                  <span className="pair-bad">{ex.bad}</span>
+                  <span className="pair-good">{ex.good}</span>
+                  <span className="help">{ex.why}</span>
+                </li>
+              ))}
+            </ul>
+          </details>
           {draft.graders.length ? (
             <div className="check check-head" aria-hidden="true">
               <span />
@@ -223,7 +286,9 @@ export function Cases({ ctx }: { ctx: Ctx }) {
                 <input
                   aria-label={`Check ${i + 1}`}
                   value={g.statement}
-                  placeholder="The note says where to find the change."
+                  placeholder={
+                    kind.cases[0]?.graders[i]?.statement ?? kind.cases[0]?.graders[0]?.statement
+                  }
                   onChange={(e) => setGrader(i, { statement: e.target.value })}
                 />
                 <label className="weight">

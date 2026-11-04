@@ -14,6 +14,7 @@ import type {
   TranscriptEvent,
   Vote,
 } from '@domain/schemas.ts'
+import type { TemplateId } from '@domain/templates.ts'
 import type { Job, Leaderboard, RunView, Settings, SkillInfo, State } from '@domain/views.ts'
 
 /** Operations on one skill name it by path. The client fills this in. */
@@ -26,6 +27,10 @@ export interface CreateSkillInput {
   name: string
   description: string
   agents: AgentId[]
+  /** The starting SKILL.md; `blank` is the bare scaffold. */
+  template: TemplateId
+  /** Also write the template's sample cases. */
+  samples: boolean
 }
 
 export interface LinkInput {

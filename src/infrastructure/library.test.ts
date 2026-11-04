@@ -1,4 +1,5 @@
 import {
+  existsSync,
   lstatSync,
   mkdirSync,
   mkdtempSync,
@@ -11,6 +12,9 @@ import {
 } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { rulesFromSkill } from '@domain/rules.ts'
+import { templateById } from '@domain/templates.ts'
+import { metaText, readFrontMatter } from '@domain/text.ts'
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest'
 
 // The library reads SKILL_STUDIO_HOME once, at import.
@@ -19,6 +23,7 @@ process.env.SKILL_STUDIO_HOME = home
 const library = await import('./library.ts')
 const { createSkill, linkSkill, markOthers, scanLibrary, setWorkspaces, touchRecent, unlinkSkill } =
   library
+const { loadCases } = await import('./cases.ts')
 
 const project = join(home, 'work', 'shop')
 
@@ -106,6 +111,38 @@ describe('createSkill', () => {
   it('creates in a project', () => {
     createSkill({ scope: project, name: 'shop-copy', description: '', agents: [] })
     expect(rowOf('shop-copy', project).scopeLabel).toBe('shop')
+  })
+
+  it('starts from a template: its rules, its packs and, when asked, its sample cases', () => {
+    const dir = createSkill({
+      scope: 'user',
+      name: 'house-style',
+      description: '',
+      agents: [],
+      template: 'writing',
+      samples: true,
+    })
+    const md = readFileSync(join(dir, 'SKILL.md'), 'utf8')
+    expect(md).toMatch('# House style')
+    expect(metaText(readFrontMatter(md).meta, 'description')).toBe(
+      templateById('writing').description,
+    )
+    expect(rulesFromSkill(md).length).toBeGreaterThanOrEqual(4)
+    expect(JSON.parse(readFileSync(join(dir, 'evals/bench.json'), 'utf8'))).toEqual({
+      packs: ['generic', 'writing'],
+    })
+    expect(loadCases(dir).map((c) => c.id)).toEqual(
+      templateById('writing')
+        .cases.map((c) => c.id)
+        .sort(),
+    )
+    expect(rowOf('house-style').cases).toBe(3)
+  })
+
+  it('writes no cases and no bench for the blank template', () => {
+    const dir = createSkill({ scope: 'user', name: 'bare', description: '', agents: [] })
+    expect(existsSync(join(dir, 'evals/bench.json'))).toBe(false)
+    expect(loadCases(dir)).toEqual([])
   })
 
   it('refuses a bad name, an unknown agent and a name already taken, writing nothing', () => {

@@ -10,6 +10,7 @@ import {
 } from 'node:fs'
 import { basename, dirname, join, resolve } from 'node:path'
 import type { RunMeta } from '@domain/schemas.ts'
+import { type SkillTemplate, templateBody, templateById } from '@domain/templates.ts'
 import { metaText, readFrontMatter } from '@domain/text.ts'
 import type { SkillInfo, SkillVersion, SkillVersions } from '@domain/views.ts'
 import { stringify as toYaml } from 'yaml'
@@ -89,19 +90,28 @@ export function deleteSkillFile(skillDir: string, path: string): void {
   }
 }
 
-/** Scaffold a new skill: SKILL.md with front matter and an empty evals/cases/. */
-export function newSkill(skillDir: string, name: string, description: string): string {
+/**
+ * Scaffold a new skill: SKILL.md from a template, with front matter, and an
+ * empty evals/cases/. A template with judge packs beyond the default writes
+ * them to evals/bench.json, so grading fits the kind of skill from the start.
+ */
+export function newSkill(
+  skillDir: string,
+  name: string,
+  description: string,
+  template: SkillTemplate = templateById('blank'),
+): string {
   const path = resolve(skillDir)
   const md = join(path, 'SKILL.md')
   if (existsSync(md)) throw new Error(`${md} already exists.`)
   mkdirSync(join(path, 'evals', 'cases'), { recursive: true })
-  const title = name.replace(/[-_]+/g, ' ').replace(/^\w/, (c) => c.toUpperCase())
-  const front = toYaml({ name, description: description || 'What the skill does. Use when ...' })
-  // Guidance is a comment: every top-level bullet is graded as a rule.
-  writeFileSync(
-    md,
-    `---\n${front}---\n\n# ${title}\n\n<!-- Write for the agent that loads this skill. Each top-level bullet under Rules is one graded rule. -->\n\n## Rules\n\n- \n`,
-  )
+  const front = toYaml({ name, description: description || template.description })
+  writeFileSync(md, `---\n${front}---\n\n${templateBody(template, name)}`)
+  if (template.packs.some((p) => p !== 'generic'))
+    writeFileSync(
+      join(path, 'evals', 'bench.json'),
+      `${JSON.stringify({ packs: template.packs }, null, 2)}\n`,
+    )
   return md
 }
 

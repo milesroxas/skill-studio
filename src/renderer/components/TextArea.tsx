@@ -13,8 +13,14 @@ function fitHeight(el: HTMLTextAreaElement) {
   el.style.height = `${el.scrollHeight + el.offsetHeight - el.clientHeight}px`
 }
 
-export function TextArea(props: ComponentProps<'textarea'>) {
+export function TextArea({ ref: outer, ...props }: ComponentProps<'textarea'>) {
   const ref = useRef<HTMLTextAreaElement>(null)
+  /** Both this component and the caller see the element. */
+  const attach = (el: HTMLTextAreaElement | null) => {
+    ref.current = el
+    if (typeof outer === 'function') outer(el)
+    else if (outer) outer.current = el
+  }
   useLayoutEffect(() => {
     if (!native && ref.current) fitHeight(ref.current)
   })
@@ -31,5 +37,5 @@ export function TextArea(props: ComponentProps<'textarea'>) {
     document.fonts?.ready.then(() => fitHeight(el))
     return () => observer.disconnect()
   }, [])
-  return <textarea ref={ref} {...props} />
+  return <textarea ref={attach} {...props} />
 }
