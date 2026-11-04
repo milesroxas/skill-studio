@@ -4,7 +4,7 @@
  */
 import type { CreateSkillInput, GenerateInput } from '@application/api/contract.ts'
 import type { AgentId } from '@domain/library.ts'
-import type { BenchConfig, CaseDraft, Review, Vote } from '@domain/schemas.ts'
+import type { BenchConfig, CaseDraft, Review, SkillDrafts, Vote } from '@domain/schemas.ts'
 import { transport } from './transport.ts'
 
 export type { Job, RunView, Sample, Settings, State } from '@domain/views.ts'
@@ -63,7 +63,14 @@ export const api = {
     const { bytes } = await call('skill.artifact', scoped({ run, sample, file }))
     return new TextDecoder().decode(bytes)
   },
-  skillFiles: (run: string) => call('skill.files', scoped({ run })),
+  /** `current`, a version label (`v2`) or a run name. */
+  skillFiles: (source: string) => call('skill.files', scoped({ source })),
+  saveVersion: (name: string, note: string) => call('skill.saveVersion', scoped({ name, note })),
+  restoreVersion: (version: string, force: boolean) =>
+    call('skill.restoreVersion', scoped({ version, force })),
+  /** Drafts name their skill outright: a store can land after another skill is opened. */
+  drafts: (skill: string) => call('skill.drafts', { skill }),
+  saveDrafts: (skill: string, drafts: SkillDrafts) => call('skill.saveDrafts', { skill, drafts }),
   saveSkillFile: (path: string, text: string, previous: string | null) =>
     call('skill.saveFile', scoped({ path, text, previous })),
   deleteSkillFile: (path: string) => call('skill.deleteFile', scoped({ path })),

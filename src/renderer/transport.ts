@@ -64,6 +64,16 @@ async function errorOf(response: Response): Promise<string> {
 function browser(): Transport {
   return {
     call: async (name, input) => {
+      // Bytes do not survive JSON: the artifact comes raw from its GET route instead.
+      if (name === 'skill.artifact') {
+        const response = await fetch(`/api/artifact?${encode(input as Input<typeof name>)}`)
+        if (!response.ok) throw new Error(await errorOf(response))
+        const file: Output<'skill.artifact'> = {
+          bytes: new Uint8Array(await response.arrayBuffer()),
+          type: response.headers.get('content-type') ?? '',
+        }
+        return file as Output<typeof name>
+      }
       const response = await fetch(`/api/${name}`, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },

@@ -8,14 +8,16 @@ A skill is a `SKILL.md` an agent reads before it works. Skill Studio answers one
 
 It answers by repeating six steps. Every step lives in the app. When a step is due (the first case, a run of a new version, answers to rate), a Next button at the top right names it.
 
-| Step | Tab | What you do | Why |
+| Step | In the sidebar | What you do | Why |
 | --- | --- | --- | --- |
 | 1 | Library | Open or create a skill | Every skill on the machine is in one list, so you test the copy the agents use |
-| 2 | Skill | Edit `SKILL.md` and `references/` | Each saved change is a new version, so scores stay tied to the text that produced them |
+| 2 | Write, Versions | Edit `SKILL.md` and `references/`, save versions | Each version keeps its files, so scores stay tied to the text that produced them |
 | 3 | Cases | Write the tasks the agent gets | A case is a test: a prompt, what a good answer does, and checks |
-| 4 | Runs | Run agents, read scores | Real agent output, graded the same way every time |
-| 5 | Review | Rate answers blind | Your ratings are the ground truth the judge is measured against |
-| 6 | Bench | Find where you and the judge disagree | Disagreement tells you whether to fix the skill or the scoring |
+| 4 | New run, Results | Run agents, read scores | Real agent output, graded the same way every time |
+| 5 | Rate blind | Rate answers blind | Your ratings are the ground truth the judge is measured against |
+| 6 | Agreement, Scoring | Find where you and the judge disagree | Disagreement tells you whether to fix the skill or the scoring |
+
+The sidebar lists every screen of the open skill, with what waits on each beside it: the number of cases, runs or answers to rate, and a dot where something is not saved. The top of the sidebar names the open skill and its version. Click it, or press Cmd+K (Ctrl+K on Windows and Linux), to switch to another skill without going back to the library.
 
 ## Before you start
 
@@ -62,7 +64,7 @@ If a project of yours is missing, open "Where skills are found" at the bottom an
 
 ## 2. Write the skill
 
-Open the Skill tab, then Write.
+Open Write.
 
 1. Edit `SKILL.md` in the main panel. Save with the Save button or Cmd+S (Ctrl+S on Windows and Linux).
 2. Add longer material as files under `references/` from the side panel, and point to them from `SKILL.md`.
@@ -78,13 +80,22 @@ You never start from a blank page:
 - "Start over from a template" is there once the file has rules, behind a confirmation.
 - A new reference file opens with a heading and a line for when the agent should read it.
 
-A save is refused if the file changed on disk since you opened it, so an edit made in your code editor is never overwritten. Reload and edit again.
+Everything you type is kept as a draft as you go, in `~/.skill-studio/drafts/`, outside the skill's folder. Close the app, switch skills or reload, and the unsaved text is still there. The sidebar shows a dot beside Write while a draft is open. Save writes the file and clears its draft; Discard throws the draft away.
 
-The Changes screen compares the working tree with any earlier run's copy of the skill. Use it to see exactly what changed between two versions you are about to compare.
+A save is refused if the file changed on disk since your draft began, so an edit made in your code editor is never overwritten. The editor says so and offers two ways on: keep your draft and save over the file, or take the file as it is now.
+
+### Save versions
+
+Open Versions. When the saved files are not a version yet, name them, say what changed and why, and click Save as v1 (or whatever number is next). A version keeps its own copy of `SKILL.md` and `references/` in `evals/versions/`, so it travels with the skill.
+
+The history lists every version, newest first, with its runs and its mean score. A run also names a version: runs and saved versions share one numbering. From the history:
+
+- Compare shows that version's files against the files now, or pick any two under Compare.
+- Restore puts a version's files back. If the files now are not a version yet, you are asked first, because restoring would lose them; save them as a version to keep them.
 
 ## 3. Write cases
 
-A case is one task an agent gets with your skill installed. Open the Cases tab. With no cases yet, the form for the first one is already open.
+A case is one task an agent gets with your skill installed. Open Cases. With no cases yet, the form for the first one is already open.
 
 A new case starts with Start from an example: three finished cases for the kind of skill your bench grades (Writing, Code, Workflow or Design, switchable). Pick one and the whole form fills in, with an id no existing case holds. Edit it into your task. The grey text in each field is the first example too, so the shape is visible before you type. Under Checks, "What the judge can mark" shows three vague checks next to the form the judge can actually mark.
 
@@ -101,7 +112,7 @@ Write at least three cases before you trust a score, and make them differ. One c
 
 ## 4. Run the agents
 
-Open the Runs tab, then New run.
+Open New run.
 
 1. Skill version: if the skill changed since the last run, this run starts a new version. Type what changed, so the version is easy to recognise later.
 2. Cases: tick the cases to run.
@@ -111,13 +122,13 @@ Open the Runs tab, then New run.
 6. Leave "Grade when done" ticked so scores appear when the run finishes.
 7. Click Start run.
 
-The run happens in the background. The strip under the header shows progress; click it for the live log. You can keep working in other tabs.
+The run happens in the background. The foot of the sidebar shows progress; click it for the live log. You can keep working on other screens.
 
 Runs cost money: each sample is one agent session, and grading makes judge calls. The total is samples per case times cases times writers.
 
 ## 5. Read the results
 
-Open the Runs tab, then Results.
+Open Results.
 
 Each run shows its version, its writer and a score per case. The total is out of 100 and is split into layers, such as adherence to the skill's rules and the rubric of your checks. Each pack's layers are listed in the [README](https://github.com/milesroxas/skill-studio#grading).
 
@@ -125,7 +136,7 @@ Read the layers, not only the total. A total can hold steady while one layer fal
 
 Click a run for its detail. From there:
 
-- Skill changes shows what changed since the version before.
+- Compare skill with now opens Versions with this run's version against the files now.
 - Regrade grades the run again, for example after you added checks.
 - Each output has a Read link for its answer and a Transcript link for the agent's steps.
 
@@ -133,7 +144,7 @@ A score from a judge is a claim, not a fact. Step 5 tests it.
 
 ## 6. Rate answers blind
 
-Open the Review tab, then Rate blind.
+Open Rate blind.
 
 The queue lists graded answers you have not rated. Answers the judge was least sure about, and cases whose samples scored far apart, come first, because your rating tells you the most there.
 
@@ -154,7 +165,7 @@ After the reveal you can:
 
 ### Compare two answers
 
-Review, then Compare puts two outputs side by side, with a word diff for text. Pick the better one under "Which is better?". These pairwise votes feed the Bradley-Terry leaderboard, which ranks versions and writers from head-to-head picks. Pairwise picks are more reliable than 1 to 5 scores, because people and judges agree more on which of two is better than on how good one is.
+Compare, under Review, puts two outputs side by side, with a word diff for text. Pick the better one under "Which is better?". These pairwise votes feed the Bradley-Terry leaderboard, which ranks versions and writers from head-to-head picks. Pairwise picks are more reliable than 1 to 5 scores, because people and judges agree more on which of two is better than on how good one is.
 
 ### Read a transcript
 
@@ -162,7 +173,7 @@ Review, then Transcripts shows every step an agent took on one sample: its messa
 
 ## 7. Check the judge against you
 
-Open the Bench tab, then Agreement. This screen fills in once you have rated some answers.
+Open Agreement. This screen fills in once you have rated some answers.
 
 It shows, per layer, how often you and the judge agree, and the rank correlation between your ratings and the totals (it needs 3 or more ratings). Read it like this:
 
@@ -174,7 +185,7 @@ It shows, per layer, how often you and the judge agree, and the rank correlation
 
 ## 8. Tune the scoring
 
-Open the Bench tab, then Scoring.
+Open Scoring.
 
 Move a setting and every graded output rescores at once, with the change shown beside each total. No new judge calls are made: the judge's raw answers are stored and the scoring is applied in code.
 
@@ -183,7 +194,7 @@ Move a setting and every graded output rescores at once, with the change shown b
 - Thresholds: when a judge answer counts as yes, when it counts as unsure, and which layer score counts as good.
 - Judge pack settings: each pack's own settings, such as the lint command for the writing pack.
 
-Click Save to write them to `evals/bench.json`. Unsaved changes show as "not saved" on the Bench tab.
+Click Save to write them to `evals/bench.json`. Unsaved changes show as a dot beside Scoring in the sidebar.
 
 Change one setting at a time, then reread Agreement. Moving several at once hides which one helped.
 
@@ -193,8 +204,8 @@ This is the loop. Go back to step 2 with what you learned:
 
 1. Read your notes and the Agreement screen.
 2. Edit the skill to fix what the bad answers have in common, not a single answer.
-3. Start a run. The new version gets a name.
-4. Compare the new version with the old one on Results.
+3. Save the files as a version on Versions, with what changed and why. A run of unsaved files asks for a name instead.
+4. Start a run, then compare the two versions' scores on Results and their files on Versions.
 
 To be sure an edit helped, run it against the version before with the "Old skill" option on the same cases and enough samples. A difference smaller than the spread between samples of the same version is noise.
 

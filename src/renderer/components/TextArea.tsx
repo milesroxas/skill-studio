@@ -20,8 +20,8 @@ const textAreaVariants = cva('resize-none overflow-hidden', {
   variants: {
     variant: {
       default: 'min-h-21',
-      /** A file being edited: monospace, tall, tabs two wide. */
-      code: 'min-h-[60svh] font-mono text-[13px] leading-[1.55] [tab-size:2] lg:min-h-[calc(100svh-220px)]',
+      /** A file being edited: monospace, tabs two wide, at least as tall as the pane below its toolbar. */
+      code: 'min-h-[calc(100dvh-170px)] font-mono text-[13px] leading-[1.55] [tab-size:2]',
     },
   },
   defaultVariants: { variant: 'default' },

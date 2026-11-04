@@ -1,4 +1,8 @@
-/** Write the skill: SKILL.md and references/, edited in place on disk. */
+/**
+ * Write the skill: SKILL.md and references/, edited in place on disk. Every
+ * keystroke is kept as a draft, so unsaved text survives a reload or a quit;
+ * saving writes the file and clears its draft.
+ */
 
 import { rulesFromSkill } from '@domain/rules.ts'
 import {
@@ -12,9 +16,12 @@ import {
   type Snippet,
 } from '@domain/templates.ts'
 import { metaText, readFrontMatter } from '@domain/text.ts'
-import { useEffect, useRef, useState } from 'react'
+import { useRef, useState } from 'react'
 import { api } from '../api.ts'
+import { DiffLines } from '../components/DiffLines.tsx'
+import { DraftNote } from '../components/DraftNote.tsx'
 import {
+  ActionBar,
   Field,
   List,
   Panel,
@@ -28,22 +35,14 @@ import { NavButton } from '../components/NavButton.tsx'
 import { GuideBox, GuideList, Starter } from '../components/starters.tsx'
 import { TextArea } from '../components/TextArea.tsx'
 import { Heading, Hint, Text } from '../components/text.tsx'
+import { Alert, AlertDescription, AlertTitle } from '../components/ui/alert.tsx'
 import { Button } from '../components/ui/button.tsx'
 import { Input } from '../components/ui/input.tsx'
 import { Toggle } from '../components/ui/toggle.tsx'
 import type { Ctx } from '../ctx.ts'
 import { lineDiff } from '../diff.ts'
 import { useFetch } from '../hooks.ts'
-import { DiffLines } from './SkillDiff.tsx'
-
-/** A file being edited: its text now, and the text it had on disk (null when new). */
-interface Draft {
-  text: string
-  previous: string | null
-}
-
-/** Unsaved drafts per skill, kept across screen switches (not page reloads). */
-const drafts = new Map<string, Record<string, Draft>>()
+import { shortcut } from '../keys.ts'
 
 const referencePath = (name: string): string | null => {
   const clean = name.trim().replace(/^references\//, '')
@@ -52,19 +51,13 @@ const referencePath = (name: string): string | null => {
 }
 
 export function Editor({ ctx }: { ctx: Ctx }) {
-  const { state, route, go, toast, confirm, reload, config } = ctx
+  const { state, route, go, toast, confirm, reload, config, drafts } = ctx
   const disk = useFetch(() => api.skillFiles('current'), [state.skill.path])
-  const [edits, setEdits] = useState<Record<string, Draft>>(
-    () => drafts.get(state.skill.path) ?? {},
-  )
+  const edits = drafts.files
   const [showDiff, setShowDiff] = useState(false)
   const [newName, setNewName] = useState('')
   const [busy, setBusy] = useState(false)
   const area = useRef<HTMLTextAreaElement>(null)
-
-  useEffect(() => {
-    drafts.set(state.skill.path, edits)
-  }, [edits, state.skill.path])
 
   const files = disk.data?.files ?? {}
   const paths = [...new Set([...Object.keys(files), ...Object.keys(edits)])].sort((a, b) =>
@@ -75,17 +68,14 @@ export function Editor({ ctx }: { ctx: Ctx }) {
   const draft = edits[file]
   const text = draft?.text ?? saved ?? ''
   const isDirty = (path: string) => edits[path] !== undefined && edits[path].text !== files[path]
-  const dirtyCount = paths.filter(isDirty).length
-
-  useEffect(() => {
-    if (!dirtyCount) return
-    const warn = (e: BeforeUnloadEvent) => e.preventDefault()
-    window.addEventListener('beforeunload', warn)
-    return () => window.removeEventListener('beforeunload', warn)
-  }, [dirtyCount])
+  /** The file changed on disk after this draft began: saving would be refused. */
+  const stale = draft !== undefined && saved !== null && draft.previous !== saved
 
   const edit = (value: string) =>
-    setEdits((all) => ({ ...all, [file]: { text: value, previous: all[file]?.previous ?? saved } }))
+    drafts.setFile(
+      file,
+      value === saved && !stale ? null : { text: value, previous: draft?.previous ?? saved },
+    )
 
   /** Put a snippet at the cursor (or over the selection) and leave the cursor inside it. */
   const insert = (snippet: Snippet) => {
@@ -115,11 +105,7 @@ export function Editor({ ctx }: { ctx: Ctx }) {
     requestAnimationFrame(() => area.current?.focus())
   }
 
-  const drop = (path: string) =>
-    setEdits((all) => {
-      const { [path]: _, ...rest } = all
-      return rest
-    })
+  const drop = (path: string) => drafts.setFile(path, null)
 
   const save = async () => {
     if (!draft || !isDirty(file) || busy) return
@@ -141,7 +127,7 @@ export function Editor({ ctx }: { ctx: Ctx }) {
     const path = referencePath(newName)
     if (!path) return toast('Use letters, digits, dots, dashes and slashes only.')
     if (paths.includes(path)) return toast(`${path} already exists.`)
-    setEdits((all) => ({ ...all, [path]: { text: referenceTemplate(path), previous: null } }))
+    drafts.setFile(path, { text: referenceTemplate(path), previous: null })
     setNewName('')
     go('edit', { file: path })
   }
@@ -184,35 +170,75 @@ export function Editor({ ctx }: { ctx: Ctx }) {
   const blank = isSkill && isScaffold(text)
 
   if (disk.error) return <Hint>{disk.error}</Hint>
-  if (!disk.data) return <Hint>Loading…</Hint>
+  if (!disk.data || drafts.status === 'loading') return <Hint>Loading…</Hint>
+
+  const missing = isSkill ? ['name', 'description'].filter((k) => !metaText(meta, k)) : []
+  const current = state.versions.current
 
   return (
     <Split layout="editor">
       <Stack gap="md">
-        <Toolbar>
+        <ActionBar edge="top">
           <Text font="mono">{file}</Text>
-          <Text tone="muted" size="xs">
-            {saved === null ? 'new, not on disk yet' : isDirty(file) ? 'unsaved changes' : 'saved'}
-          </Text>
+          <DraftNote
+            drafts={drafts}
+            dirty={isDirty(file)}
+            saved={saved === null ? 'new, not on disk yet' : 'saved'}
+          />
           <Spacer />
-          <Toggle variant="outline" pressed={showDiff} onPressedChange={setShowDiff}>
+          <Toggle variant="outline" size="sm" pressed={showDiff} onPressedChange={setShowDiff}>
             Compare with saved
           </Toggle>
           <Button
             type="button"
-            variant="outline"
-            disabled={!isDirty(file)}
-            onClick={() => {
-              drop(file)
-              disk.reload()
+            variant="ghost"
+            size="sm"
+            disabled={!draft}
+            onClick={async () => {
+              if (
+                await confirm({
+                  title: `Discard your changes to ${file}?`,
+                  description: 'The draft goes and the file stays as it is on disk.',
+                  action: 'Discard',
+                  destructive: true,
+                })
+              )
+                drop(file)
             }}
           >
-            Revert
+            Discard
           </Button>
-          <Button type="button" disabled={!isDirty(file) || busy} onClick={save} title="Cmd/Ctrl+S">
-            Save
+          <Button
+            type="button"
+            size="sm"
+            disabled={!isDirty(file) || busy || stale}
+            onClick={save}
+            title={shortcut('S')}
+          >
+            {busy ? 'Saving…' : 'Save'}
           </Button>
-        </Toolbar>
+        </ActionBar>
+        {stale ? (
+          <Alert variant="warning">
+            <AlertTitle>{file} changed on disk since this draft began</AlertTitle>
+            <AlertDescription>
+              <p>Keep your draft to save over the file, or take the file as it is now.</p>
+              <Toolbar>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => draft && drafts.setFile(file, { ...draft, previous: saved })}
+                >
+                  Keep my draft
+                </Button>
+                <Button type="button" variant="ghost" size="sm" onClick={() => drop(file)}>
+                  Use the file on disk
+                </Button>
+              </Toolbar>
+            </AlertDescription>
+          </Alert>
+        ) : null}
         {showDiff ? (
           diff.length ? (
             <DiffLines lines={diff} />
@@ -272,7 +298,7 @@ export function Editor({ ctx }: { ctx: Ctx }) {
                   <NavButton current={path === file} onClick={() => go('edit', { file: path })}>
                     <Text font="mono" wrap="anywhere">
                       {path}
-                      {isDirty(path) ? ' •' : ''}
+                      {isDirty(path) ? <Text tone="warning"> •</Text> : null}
                     </Text>
                   </NavButton>
                 </li>
@@ -311,20 +337,13 @@ export function Editor({ ctx }: { ctx: Ctx }) {
             ) : null}
           </Field>
 
-          {isSkill ? (
-            <Field>
-              <Heading level={3} as="span">
-                Front matter
-              </Heading>
-              <Text as="p" size="xs">
-                <Text tone="muted">name</Text>{' '}
-                {metaText(meta, 'name') || <Text tone="destructive">missing</Text>}
-              </Text>
-              <Text as="p" size="xs">
-                <Text tone="muted">description</Text>{' '}
-                {metaText(meta, 'description') || <Text tone="destructive">missing</Text>}
-              </Text>
-            </Field>
+          {missing.length ? (
+            <Alert variant="warning">
+              <AlertTitle>Front matter needs {missing.join(' and ')}</AlertTitle>
+              <AlertDescription>
+                Agents find a skill by its name and description, between the --- lines at the top.
+              </AlertDescription>
+            </Alert>
           ) : null}
 
           <Field>
@@ -410,13 +429,21 @@ export function Editor({ ctx }: { ctx: Ctx }) {
             </Field>
           ) : null}
 
-          <Hint>
-            {dirtyCount
-              ? `${dirtyCount} file(s) not saved.`
-              : state.versions.current.changed
-                ? `Saved edits make ${state.versions.current.version} on the next run.`
-                : `Matches ${state.versions.current.version}.`}
-          </Hint>
+          <Field>
+            <Heading level={3} as="span">
+              Version
+            </Heading>
+            <Hint>
+              {current.changed
+                ? `The saved files are not a version yet. Save them as ${current.version} to keep a copy you can return to.`
+                : `The saved files are ${current.version}${current.name ? `, ${current.name}` : ''}.`}
+            </Hint>
+            <Toolbar>
+              <Button type="button" variant="outline" size="sm" onClick={() => go('versions')}>
+                {current.changed ? `Save as ${current.version}` : 'See versions'}
+              </Button>
+            </Toolbar>
+          </Field>
         </aside>
       </Panel>
     </Split>

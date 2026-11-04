@@ -13,7 +13,9 @@ import {
   type CaseDraft,
   CONFIGURATIONS,
   type Configuration,
+  type FileDraft,
   type Review,
+  type SkillDrafts,
   type Vote,
 } from '@domain/schemas.ts'
 import { agreement } from '@domain/stats.ts'
@@ -28,6 +30,7 @@ import {
   loadRules,
   saveCase,
 } from '@infrastructure/cases.ts'
+import { readDrafts, writeDrafts } from '@infrastructure/drafts.ts'
 import { engineById, engineInfo } from '@infrastructure/engines/index.ts'
 import { assertSafe, assertSafePath, readJson, readTree, writeJson } from '@infrastructure/fs.ts'
 import {
@@ -53,9 +56,17 @@ import {
   runDir,
   sampleFile,
   sampleTranscript,
+  versionFiles,
   versionsOf,
 } from '@infrastructure/runs.ts'
-import { deleteSkillFile, skillFiles, skillInfo, writeSkillFile } from '@infrastructure/skill.ts'
+import {
+  deleteSkillFile,
+  replaceSkillFiles,
+  skillFiles,
+  skillInfo,
+  writeSkillFile,
+} from '@infrastructure/skill.ts'
+import { isVersionLabel, saveVersion } from '@infrastructure/versions.ts'
 import type { JudgeInput } from '@judges/index.ts'
 import { packById } from '@judges/index.ts'
 import { Jev } from '@judges/jev.ts'
@@ -130,6 +141,23 @@ function caseDraftOf(value: unknown): CaseDraft {
   }
 }
 
+function draftsOf(value: unknown): SkillDrafts {
+  const input = record(value)
+  const files: Record<string, FileDraft> = {}
+  for (const [path, raw] of Object.entries(record(input.files))) {
+    const draft = record(raw)
+    if (typeof draft.text !== 'string') throw new Error(`Bad draft of ${path}.`)
+    files[assertSafePath(path, 'path')] = {
+      text: draft.text,
+      previous: typeof draft.previous === 'string' ? draft.previous : null,
+    }
+  }
+  const cases = Object.fromEntries(
+    Object.entries(record(input.cases)).map(([key, raw]) => [key, caseDraftOf(raw)]),
+  )
+  return { files, cases, updatedAt: null }
+}
+
 function generateInputOf(raw: Raw): GenerateInput {
   const configs = (Array.isArray(raw.configs) ? raw.configs : []).slice(0, 4).map((c) => {
     const choice = record(c)
@@ -198,9 +226,20 @@ export const parsers: { [K in OperationName]: (raw: Raw) => Input<K> } = {
     file: assertSafePath(str(raw.file), 'file'),
   }),
   'skill.files': (raw) => {
-    const run = str(raw.run, 'current')
-    return { ...scoped(raw), run: run === 'current' ? run : assertSafe(run, 'run') }
+    const source = str(raw.source, 'current')
+    return {
+      ...scoped(raw),
+      source: source === 'current' || isVersionLabel(source) ? source : assertSafe(source, 'run'),
+    }
   },
+  'skill.saveVersion': (raw) => ({ ...scoped(raw), name: str(raw.name), note: str(raw.note) }),
+  'skill.restoreVersion': (raw) => {
+    const version = str(raw.version)
+    if (!isVersionLabel(version)) throw new Error('Bad version.')
+    return { ...scoped(raw), version, force: raw.force === true }
+  },
+  'skill.drafts': scoped,
+  'skill.saveDrafts': (raw) => ({ ...scoped(raw), drafts: draftsOf(raw.drafts) }),
   'skill.queue': scoped,
   'skill.leaderboard': scoped,
   'skill.review': (raw) => {
@@ -369,9 +408,33 @@ export function createOperations(options: OperationsOptions): Runners {
     },
     'skill.files': (input) => {
       const skill = skillOf(input)
-      if (input.run === 'current') return { files: skillFiles(skill.path), label: 'Working tree' }
-      return { files: readTree(join(runDir(skill.path, input.run), '_skill')), label: input.run }
+      if (input.source === 'current')
+        return { files: skillFiles(skill.path), label: 'Working tree' }
+      if (isVersionLabel(input.source))
+        return { files: versionFiles(skill.path, input.source), label: input.source }
+      return {
+        files: readTree(join(runDir(skill.path, input.source), '_skill')),
+        label: input.source,
+      }
     },
+    'skill.saveVersion': (input) => {
+      const skill = skillOf(input)
+      return saveVersion(skill.path, versionsOf(skill.path).current, input.name, input.note)
+    },
+    'skill.restoreVersion': (input) => {
+      const skill = skillOf(input)
+      const { current } = versionsOf(skill.path)
+      if (current.changed && !input.force)
+        throw new Error(
+          `The skill's files are not saved as a version. Save them as ${current.version} first, or restore anyway.`,
+        )
+      replaceSkillFiles(skill.path, versionFiles(skill.path, input.version))
+      return { restored: input.version }
+    },
+    'skill.drafts': (input) => readDrafts(skillOf(input).path),
+    'skill.saveDrafts': (input) => ({
+      updatedAt: writeDrafts(skillOf(input).path, input.drafts),
+    }),
     'skill.queue': (input) => {
       const skill = skillOf(input)
       const reviews = loadReviews(skill.path)

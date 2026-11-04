@@ -9,7 +9,7 @@ import { cn } from '../lib/utils.ts'
 import { Heading, Hint } from './text.tsx'
 import { Card } from './ui/card.tsx'
 
-const screenVariants = cva('flex flex-col gap-9', {
+const screenVariants = cva('mx-auto flex w-full flex-col gap-9', {
   variants: {
     width: {
       default: 'max-w-[1200px]',
@@ -36,15 +36,15 @@ export function SectionHead({ className, ...props }: ComponentProps<'div'>) {
   return <div className={cn('flex flex-wrap items-baseline gap-3', className)} {...props} />
 }
 
-const splitVariants = cva('grid max-w-[1440px] grid-cols-1 items-start gap-5', {
+const splitVariants = cva('mx-auto grid w-full max-w-[1440px] grid-cols-1 items-start gap-5', {
   variants: {
     layout: {
       /** Content with a 320px aside. */
       aside: 'md:grid-cols-[minmax(0,1fr)_320px]',
       even: 'md:grid-cols-2',
       single: 'md:grid-cols-[minmax(0,720px)]',
-      /** A form with a 300px list beside it. */
-      form: 'lg:grid-cols-[minmax(0,720px)_300px]',
+      /** A list to pick from on the left, the form for the picked item beside it. */
+      list: 'lg:grid-cols-[280px_minmax(0,760px)]',
       /** An editor with a 300px aside. */
       editor: 'lg:grid-cols-[minmax(0,1fr)_300px]',
       /** 400px of controls with the result beside them. */
@@ -111,11 +111,27 @@ export function Toolbar({
   return <div className={cn(toolbarVariants({ gap, justify, wrap }), className)} {...props} />
 }
 
-/** The actions under a form, with a rule above them. */
-export function FormFooter({ className, ...props }: ComponentProps<'div'>) {
-  return (
-    <div className={cn('flex flex-wrap items-center gap-2 border-t pt-4', className)} {...props} />
-  )
+const actionBarVariants = cva('sticky z-10 flex flex-wrap items-center gap-2 bg-background', {
+  variants: {
+    /**
+     * Which edge of the pane it holds to. The negative offset and matching padding
+     * cover the pane's own padding, so nothing scrolls by above or below the bar.
+     */
+    edge: {
+      top: '-top-6 -mt-6 pt-6 pb-3',
+      bottom: '-bottom-6 -mb-6 border-t pt-3 pb-6',
+    },
+  },
+  defaultVariants: { edge: 'bottom' },
+})
+
+/** The actions of a long form or editor, kept in view while the pane scrolls. */
+export function ActionBar({
+  edge,
+  className,
+  ...props
+}: ComponentProps<'div'> & VariantProps<typeof actionBarVariants>) {
+  return <div className={cn(actionBarVariants({ edge }), className)} {...props} />
 }
 
 export function Spacer() {
@@ -194,7 +210,8 @@ export function FormGrid({
 const panelVariants = cva('px-4 py-4', {
   variants: {
     sticky: {
-      true: 'md:sticky md:top-[104px]',
+      /** Stays in view while the pane scrolls, scrolling inside itself when taller than the pane. */
+      true: 'md:sticky md:top-0 md:max-h-[calc(100dvh-96px)] md:overflow-y-auto md:overscroll-contain',
       false: '',
     },
     gap: {

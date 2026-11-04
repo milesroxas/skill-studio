@@ -127,7 +127,7 @@ function TocNav({ children }: { children: React.ReactNode }) {
   return (
     <nav
       aria-label="On this page"
-      className="sticky top-28 hidden max-h-[calc(100svh-136px)] flex-col gap-3 overflow-y-auto text-[13px] lg:flex"
+      className="sticky top-0 hidden max-h-[calc(100dvh-96px)] flex-col gap-3 overflow-y-auto text-[13px] lg:flex"
     >
       {children}
     </nav>

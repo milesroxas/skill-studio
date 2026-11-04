@@ -10,7 +10,7 @@ const disclosureVariants = cva('', {
       /** A line of text that opens in place. */
       plain: '',
       /** On its own card, such as one file of a diff. */
-      card: 'rounded-lg border bg-card px-3 py-2',
+      card: 'rounded-lg bg-card px-3 py-2 shadow-raised',
     },
   },
   defaultVariants: { variant: 'plain' },

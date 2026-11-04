@@ -38,6 +38,8 @@ export interface SkillVersion {
   hash: string
   note: string
   date: string | undefined
+  /** Saved by hand with its files, so it can be restored; otherwise known only from its runs. */
+  saved: boolean
 }
 
 export interface SkillVersions {

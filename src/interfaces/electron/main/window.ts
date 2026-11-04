@@ -7,8 +7,8 @@ import { join } from 'node:path'
 import { BrowserWindow, nativeTheme, type Rectangle, screen, shell } from 'electron'
 import { APP_ORIGIN, ARTIFACT_HOST, ARTIFACT_SCHEME } from '../channels.ts'
 
-/** The masthead colors in styles.css, so the window never flashes white on open. */
-const BACKGROUND = { light: '#ffffff', dark: '#1b1b19' }
+/** The page color in styles.css (--background), so the window never flashes on open. */
+const BACKGROUND = { light: '#fcfcfa', dark: '#100f0d' }
 const DEFAULT_BOUNDS = { width: 1280, height: 860 }
 const MIN = { width: 720, height: 480 }
 /** electron-vite writes the preload beside the main bundle, as CommonJS for the sandbox. */

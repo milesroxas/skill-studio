@@ -11,11 +11,20 @@ import type {
   CaseDraft,
   Configuration,
   Review,
+  SkillDrafts,
   TranscriptEvent,
   Vote,
 } from '@domain/schemas.ts'
 import type { TemplateId } from '@domain/templates.ts'
-import type { Job, Leaderboard, RunView, Settings, SkillInfo, State } from '@domain/views.ts'
+import type {
+  Job,
+  Leaderboard,
+  RunView,
+  Settings,
+  SkillInfo,
+  SkillVersion,
+  State,
+} from '@domain/views.ts'
 
 /** Operations on one skill name it by path. The client fills this in. */
 export interface Scoped {
@@ -95,9 +104,21 @@ export interface Contract {
     input: Scoped & { run: string; sample: string; file: string }
     output: ArtifactFile
   }
+  /** The skill's files from `source`: `current` (the working tree), a version (`v2`) or a run name. */
   'skill.files': {
-    input: Scoped & { run: string }
+    input: Scoped & { source: string }
     output: { files: Record<string, string>; label: string }
+  }
+  'skill.saveVersion': { input: Scoped & { name: string; note: string }; output: SkillVersion }
+  /** Put a version's files back in the skill. `force` overwrites a working tree that is no version. */
+  'skill.restoreVersion': {
+    input: Scoped & { version: string; force: boolean }
+    output: { restored: string }
+  }
+  'skill.drafts': { input: Scoped; output: SkillDrafts }
+  'skill.saveDrafts': {
+    input: Scoped & { drafts: SkillDrafts }
+    output: { updatedAt: string | null }
   }
   'skill.queue': { input: Scoped; output: QueueItem[] }
   'skill.leaderboard': { input: Scoped; output: Leaderboard }

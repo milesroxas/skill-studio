@@ -167,6 +167,13 @@ export function LibraryScreen({ openSkill, toast, confirm }: Props) {
   )
 }
 
+/** A long folder as its last two parts, so the table fits the pane; the full path is in the title. */
+const shortPlace = (label: string): string => {
+  if (label.length <= 32) return label
+  const parts = label.split('/').filter(Boolean)
+  return parts.length > 2 ? `…/${parts.slice(-2).join('/')}` : label
+}
+
 const INSTALL_TITLE = {
   here: (agent: string) => `${agent}'s skills folder holds these files`,
   link: (agent: string) => `Installed for ${agent} by a link. Click to uninstall.`,
@@ -201,10 +208,14 @@ function SkillTable({
       <TableHeader>
         <TableRow>
           <TableHead>Skill</TableHead>
-          <TableHead>Place</TableHead>
+          <TableHead optional>Place</TableHead>
           <TableHead>Installed for</TableHead>
-          <TableHead numeric>Evals</TableHead>
-          <TableHead numeric>Edited</TableHead>
+          <TableHead numeric optional>
+            Evals
+          </TableHead>
+          <TableHead numeric optional>
+            Edited
+          </TableHead>
           <TableHead numeric>
             <VisuallyHidden>Actions</VisuallyHidden>
           </TableHead>
@@ -229,8 +240,10 @@ function SkillTable({
                 </Text>
               ) : null}
             </TableCell>
-            <TableCell>
-              <Text size="xs">{s.scopeLabel}</Text>
+            <TableCell optional>
+              <Text size="xs" title={s.scopeLabel}>
+                {shortPlace(s.scopeLabel)}
+              </Text>
               {s.source && s.source !== 'marked' ? (
                 <Text block tone="muted" size="xs">
                   {s.source}
@@ -264,7 +277,7 @@ function SkillTable({
                 })}
               </Toolbar>
             </TableCell>
-            <TableCell numeric>
+            <TableCell numeric optional>
               <Text size="xs">
                 {s.cases || s.runs ? (
                   `${plural(s.cases, 'case')} · ${plural(s.runs, 'run')}`
@@ -273,7 +286,7 @@ function SkillTable({
                 )}
               </Text>
             </TableCell>
-            <TableCell numeric>
+            <TableCell numeric optional>
               <Text size="xs">{shortDate(s.modified)}</Text>
             </TableCell>
             <TableCell numeric>
@@ -290,9 +303,6 @@ function SkillTable({
                     {s.source ? 'Mine' : 'Not mine'}
                   </RowAction>
                 ) : null}
-                <Button type="button" variant="outline" size="sm" onClick={() => openSkill(s.path)}>
-                  Open
-                </Button>
               </Toolbar>
             </TableCell>
           </TableRow>

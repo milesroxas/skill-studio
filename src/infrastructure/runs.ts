@@ -11,9 +11,10 @@ import type { Report, RunMeta, SampleMeta } from '@domain/schemas.ts'
 import { metaList, metaText, readFrontMatter } from '@domain/text.ts'
 import type { AnchorInfo, FileHead, RunView, Sample } from '@domain/views.ts'
 import { detectArtifacts } from './artifacts.ts'
-import { isDir, isFile, listDirs, listFiles, readJson } from './fs.ts'
+import { isDir, isFile, listDirs, listFiles, readJson, readTree } from './fs.ts'
 import { skillVersions } from './skill.ts'
 import { readTranscript } from './transcript.ts'
+import { savedVersionFiles, savedVersions } from './versions.ts'
 
 const runsDir = (skillDir: string): string => join(skillDir, 'evals/runs')
 export const anchorsDir = (skillDir: string): string => join(skillDir, 'evals/anchors')
@@ -125,7 +126,19 @@ const runMetas = (skillDir: string): RunMeta[] =>
     return meta ? [meta] : []
   })
 
-export const versionsOf = (skillDir: string) => skillVersions(skillDir, runMetas(skillDir))
+export const versionsOf = (skillDir: string) =>
+  skillVersions(skillDir, runMetas(skillDir), savedVersions(skillDir))
+
+/** A version's files: its saved copy, or else the snapshot of the first run made with it. */
+export function versionFiles(skillDir: string, version: string): Record<string, string> {
+  const saved = savedVersionFiles(skillDir, version)
+  if (saved) return saved
+  const run = runMetas(skillDir).find(
+    (meta) => meta.skillVersion === version && isDir(join(runDir(skillDir, meta.name), '_skill')),
+  )
+  if (!run) throw new Error(`No copy of ${version} is kept: it was neither saved nor run.`)
+  return readTree(join(runDir(skillDir, run.name), '_skill'))
+}
 
 export const sampleTranscript = (skillDir: string, run: string, sample: string) =>
   readTranscript(join(runDir(skillDir, run), sample, 'transcript.jsonl'))

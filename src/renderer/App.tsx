@@ -1,25 +1,55 @@
 /**
- * The shell. With no skill open it shows the library. With one open it shows
- * that skill's workspace: five tabs in the order of the loop (write the skill,
- * write cases, run, review, tune the bench), each with its status, and one
- * button for the next step.
+ * The shell. A sidebar holds the open skill (switch with ⌘K), every screen of
+ * its loop in one flat list with each one's status, and the library, guide and
+ * settings. The top bar names the screen and offers the one suggested next
+ * step. Library, guide and settings open in the same pane, so the skill in
+ * hand stays one click away.
  */
 import type { BenchConfig } from '@domain/schemas.ts'
-import { ArrowRightIcon } from 'lucide-react'
-import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import {
+  ArrowRightIcon,
+  BookOpenIcon,
+  ChartColumnIcon,
+  Columns2Icon,
+  EyeOffIcon,
+  HistoryIcon,
+  LibraryIcon,
+  ListChecksIcon,
+  type LucideIcon,
+  MenuIcon,
+  PencilLineIcon,
+  PlayIcon,
+  ScaleIcon,
+  ScrollTextIcon,
+  SettingsIcon,
+  SlidersHorizontalIcon,
+} from 'lucide-react'
+import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react'
 import { api, currentSkill, type Job, type State, setSkill } from './api.ts'
 import { useConfirm } from './components/confirm.tsx'
-import { JobsStrip } from './components/Jobs.tsx'
-import { EmptyState, Spacer, Stack } from './components/layout.tsx'
-import { Crumbs, Masthead, StepTabs } from './components/Masthead.tsx'
+import { JobsIndicator } from './components/Jobs.tsx'
+import { EmptyState, Spacer } from './components/layout.tsx'
+import {
+  AppFrame,
+  NavItem,
+  Pane,
+  Sidebar,
+  SidebarBody,
+  SidebarFooter,
+  SidebarSection,
+  TopBar,
+  Workspace,
+} from './components/Shell.tsx'
+import { SkillSwitcher } from './components/SkillSwitcher.tsx'
 import { Toast } from './components/Toast.tsx'
-import { Hint, Text } from './components/text.tsx'
+import { Heading, Hint, Text } from './components/text.tsx'
 import { Badge } from './components/ui/badge.tsx'
 import { Button } from './components/ui/button.tsx'
-import { Tabs, TabsList, TabsTrigger } from './components/ui/tabs.tsx'
+import { Popover, PopoverContent, PopoverTrigger } from './components/ui/popover.tsx'
 import type { Ctx } from './ctx.ts'
+import { useDrafts } from './drafts.ts'
 import { useRoute, useToast } from './hooks.ts'
-import { mergedConfig, outputsOf, plural } from './model.ts'
+import { mergedConfig, outputsOf, plural, versionScore } from './model.ts'
 import { Blind } from './screens/Blind.tsx'
 import { Cases } from './screens/Cases.tsx'
 import { Compare } from './screens/Compare.tsx'
@@ -29,8 +59,8 @@ import { Insights } from './screens/Insights.tsx'
 import { Knobs } from './screens/Knobs.tsx'
 import { LibraryScreen } from './screens/Library.tsx'
 import { Overview } from './screens/Overview.tsx'
-import { SkillDiff } from './screens/SkillDiff.tsx'
 import { Transcript } from './screens/Transcript.tsx'
+import { Versions } from './screens/Versions.tsx'
 
 /** The guide and settings load only when opened. */
 const Docs = lazy(() => import('./screens/Docs.tsx').then((m) => ({ default: m.Docs })))
@@ -38,63 +68,65 @@ const SettingsScreen = lazy(() =>
   import('./screens/Settings.tsx').then((m) => ({ default: m.SettingsScreen })),
 )
 
-interface Group {
-  id: string
+interface Place {
+  screen: string
   label: string
-  screens: Array<[string, string]>
+  icon: LucideIcon
 }
 
-/** The loop, left to right. A tab with more than one screen shows them as a segmented control. */
-const GROUPS: Group[] = [
+interface Section {
+  label?: string
+  places: Place[]
+}
+
+/** The loop, top to bottom: write the skill and its cases, run them, review, tune the bench. */
+const SECTIONS: Section[] = [
   {
-    id: 'skill',
-    label: 'Skill',
-    screens: [
-      ['edit', 'Write'],
-      ['skill', 'Changes'],
+    places: [
+      { screen: 'edit', label: 'Write', icon: PencilLineIcon },
+      { screen: 'versions', label: 'Versions', icon: HistoryIcon },
+      { screen: 'cases', label: 'Cases', icon: ListChecksIcon },
     ],
   },
-  { id: 'cases', label: 'Cases', screens: [['cases', 'Cases']] },
   {
-    id: 'runs',
     label: 'Runs',
-    screens: [
-      ['overview', 'Results'],
-      ['generate', 'New run'],
+    places: [
+      { screen: 'generate', label: 'New run', icon: PlayIcon },
+      { screen: 'overview', label: 'Results', icon: ChartColumnIcon },
     ],
   },
   {
-    id: 'review',
     label: 'Review',
-    screens: [
-      ['blind', 'Rate blind'],
-      ['compare', 'Compare'],
-      ['transcript', 'Transcripts'],
+    places: [
+      { screen: 'blind', label: 'Rate blind', icon: EyeOffIcon },
+      { screen: 'compare', label: 'Compare', icon: Columns2Icon },
+      { screen: 'transcript', label: 'Transcripts', icon: ScrollTextIcon },
     ],
   },
   {
-    id: 'bench',
     label: 'Bench',
-    screens: [
-      ['insights', 'Agreement'],
-      ['knobs', 'Scoring'],
+    places: [
+      { screen: 'insights', label: 'Agreement', icon: ScaleIcon },
+      { screen: 'knobs', label: 'Scoring', icon: SlidersHorizontalIcon },
     ],
   },
 ]
-const groupOf = (screen: string): Group | undefined =>
-  GROUPS.find((g) => g.screens.some(([id]) => id === screen))
 
-/** The page frame: a column the height of the window, the stage filling what the header leaves. */
-function Frame({ children }: { children: React.ReactNode }) {
-  return <div className="flex min-h-dvh flex-col">{children}</div>
-}
+const APP_PLACES: Place[] = [
+  { screen: 'library', label: 'Library', icon: LibraryIcon },
+  { screen: 'docs', label: 'Guide', icon: BookOpenIcon },
+  { screen: 'settings', label: 'Settings', icon: SettingsIcon },
+]
 
-function Stage({ children }: { children: React.ReactNode }) {
-  return (
-    <main className="flex-1 px-[max(16px,env(safe-area-inset-right,0px))] pt-4 pb-10 md:pt-6 md:pb-[calc(48px+env(safe-area-inset-bottom,0px))]">
-      {children}
-    </main>
-  )
+const placeOf = (screen: string): Place | undefined =>
+  [...SECTIONS.flatMap((s) => s.places), ...APP_PLACES].find((p) => p.screen === screen)
+const isSkillScreen = (screen: string): boolean =>
+  SECTIONS.some((s) => s.places.some((p) => p.screen === screen))
+
+/** Status beside each place, from the loaded skill. */
+interface PlaceStatus {
+  meta: Record<string, string | null>
+  dot: Record<string, boolean>
 }
 
 export function App() {
@@ -106,8 +138,6 @@ export function App() {
   const [route, go] = useRoute()
   const [message, toast] = useToast()
   const [confirm, confirmDialog] = useConfirm()
-  /** The screen last shown in each tab, so a tab click returns to it. */
-  const lastIn = useRef<Record<string, string>>({})
 
   const reload = useCallback(async () => {
     if (!currentSkill()) return
@@ -129,9 +159,9 @@ export function App() {
     setState(null)
     setConfig(null)
     setError(null)
-    lastIn.current = {}
     reload()
   }, [skillPath, reload])
+  const drafts = useDrafts(skillPath)
 
   const openSkill = useCallback(
     (path: string, screen = 'home') => {
@@ -177,225 +207,247 @@ export function App() {
   }, [reload])
 
   const outputs = useMemo(() => (state ? outputsOf(state) : []), [state])
-
-  useEffect(() => {
-    const group = groupOf(route.screen)
-    if (group) lastIn.current[group.id] = route.screen
-  }, [route.screen])
-
-  const inLibrary = !skillPath || route.screen === 'library'
+  // Scores every output, so it must not rerun on each keystroke of a draft.
+  const currentVersion = state?.versions.current.version
+  const score = useMemo(
+    () => (config && currentVersion ? versionScore(outputs, config, currentVersion) : null),
+    [outputs, config, currentVersion],
+  )
   const overlays = (
     <>
       <Toast message={message} />
       {confirmDialog}
     </>
   )
-  /** Open the guide or settings, remembering the screen to come back to. */
-  const docsLink = (
-    <Button
-      type="button"
-      variant="ghost"
-      size="sm"
-      onClick={() => go('docs', { from: route.screen })}
-    >
-      Docs
-    </Button>
-  )
-  const settingsLink = (
-    <Button
-      type="button"
-      variant="ghost"
-      size="sm"
-      onClick={() => go('settings', { from: route.screen })}
-    >
-      Settings
-    </Button>
-  )
 
-  /** The guide and settings sit on top of wherever the reader was. */
-  if (route.screen === 'docs' || route.screen === 'settings') {
-    const from = route.params.get('from') || (skillPath ? 'home' : 'library')
-    const backTo = from === 'library' || !skillPath ? 'Library' : (state?.skill.name ?? 'Back')
-    const page = route.screen === 'docs' ? 'Guide' : 'Settings'
-    return (
-      <Frame>
-        <Masthead>
-          <Crumbs path={[{ label: backTo, go: () => go(from) }]} current={page} />
-        </Masthead>
-        <Stage>
-          <Suspense fallback={<Hint>Loading…</Hint>}>
-            {route.screen === 'docs' ? <Docs /> : <SettingsScreen toast={toast} onSaved={reload} />}
-          </Suspense>
-        </Stage>
-        {overlays}
-      </Frame>
-    )
-  }
-
-  if (inLibrary)
-    return (
-      <Frame>
-        <Masthead>
-          <Crumbs path={[]} current="Library" />
-          <Spacer />
-          {docsLink}
-          {settingsLink}
-          {skillPath && state ? (
-            <Button type="button" variant="ghost" size="sm" onClick={() => go('home')}>
-              Return to {state.skill.name}
-            </Button>
-          ) : null}
-        </Masthead>
-        <JobsStrip jobs={jobs} />
-        <Stage>
-          <LibraryScreen openSkill={openSkill} toast={toast} confirm={confirm} />
-        </Stage>
-        {overlays}
-      </Frame>
-    )
-
-  if (error && !state)
-    return (
-      <EmptyState
-        title="Could not open this skill"
-        actions={
-          <>
-            <Button type="button" onClick={() => openSkill('', 'library')}>
-              Go to the library
-            </Button>
-            <Button type="button" variant="outline" onClick={reload}>
-              Try again
-            </Button>
-          </>
-        }
-      >
-        {error}
-      </EmptyState>
-    )
-  if (!state || !config) return <EmptyState>Loading…</EmptyState>
-
-  const current = state.versions.current
-  const unrated = outputs.filter((o) => o.result && !state.reviews.reviews[o.key]).length
-  const home = !state.cases.length ? 'cases' : state.runs.length ? 'overview' : 'edit'
+  const loaded = skillPath && state && config ? { state, config } : null
+  const current = loaded?.state.versions.current
+  const unrated = loaded
+    ? outputs.filter((o) => o.result && !loaded.state.reviews.reviews[o.key]).length
+    : 0
+  const home = !loaded
+    ? 'library'
+    : !loaded.state.cases.length
+      ? 'cases'
+      : loaded.state.runs.length
+        ? 'overview'
+        : 'edit'
   const requested = route.screen === 'home' ? home : route.screen
-  const screen = groupOf(requested) ? requested : home
-  const group = groupOf(screen) as Group
-
-  const ctx: Ctx = {
-    state,
-    config,
-    setConfig,
-    outputs,
-    route,
-    go,
-    toast,
-    confirm,
-    reload,
-    jobs,
-    openSkill,
-  }
-  const dirty = JSON.stringify(config) !== JSON.stringify(mergedConfig(state.savedConfig))
+  // A skill screen with no skill open falls back to the library.
+  const screen = !skillPath && isSkillScreen(requested) ? 'library' : requested
+  const place = placeOf(screen) ?? placeOf(home)
   const running = jobs.some((j) => j.status === 'running')
 
-  // The one suggested next step, in loop order. Hidden while a job runs or when already there.
-  const next: { label: string; screen: string; params?: Record<string, string> } | null = running
-    ? null
-    : !state.cases.length
-      ? { label: 'Add a case', screen: 'cases', params: { new: '1' } }
-      : current.changed || !state.runs.length
-        ? { label: `Run ${current.version}`, screen: 'generate' }
-        : unrated
-          ? { label: `Rate ${plural(unrated, 'output')}`, screen: 'blind' }
-          : null
-
-  const meta: Record<string, string | null> = {
-    skill: current.changed && state.runs.length ? 'edited' : null,
-    cases: String(state.cases.length),
-    runs: state.runs.length ? String(state.runs.length) : null,
-    review: unrated ? `${unrated} to rate` : null,
-    bench: dirty ? 'not saved' : null,
+  const status: PlaceStatus = { meta: {}, dot: {} }
+  if (loaded && current) {
+    const dirty =
+      JSON.stringify(loaded.config) !== JSON.stringify(mergedConfig(loaded.state.savedConfig))
+    status.meta = {
+      versions: loaded.state.versions.versions.length
+        ? String(loaded.state.versions.versions.length)
+        : null,
+      cases: String(loaded.state.cases.length),
+      overview: loaded.state.runs.length ? String(loaded.state.runs.length) : null,
+      blind: unrated ? String(unrated) : null,
+    }
+    status.dot = {
+      edit: Object.keys(drafts.files).length > 0,
+      versions: current.changed,
+      cases: Object.keys(drafts.cases).length > 0,
+      knobs: dirty,
+    }
   }
 
-  return (
-    <Frame>
-      <Masthead
-        tabs={
-          <StepTabs
-            steps={GROUPS.map((g) => ({ id: g.id, label: g.label, meta: meta[g.id] }))}
-            value={group.id}
-            onChange={(id) => {
-              const g = GROUPS.find((x) => x.id === id)
-              if (g) go(lastIn.current[g.id] ?? g.screens[0][0])
-            }}
-          />
-        }
-      >
-        <Crumbs
-          path={[{ label: 'Library', go: () => go('library') }]}
-          current={state.skill.name}
-          title={state.skill.path}
-        />
-        <Text tone="muted" size="xs" tabular title={`Skill hash ${current.hash}`}>
-          {current.changed
-            ? `${current.version}, not run yet`
-            : `${current.version}${current.name ? ` · ${current.name}` : ''}`}
-        </Text>
-        <Spacer />
-        {docsLink}
-        {settingsLink}
-        {!state.jevKey ? (
-          <Badge variant="warning" asChild>
-            <button
-              type="button"
-              title="Add a TypeSafe key in Settings to grade with Jev"
-              onClick={() => go('settings', { from: route.screen })}
-            >
-              Code checks only: no Jev key
-            </button>
-          </Badge>
-        ) : null}
-        {next && next.screen !== screen ? (
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={() => go(next.screen, next.params)}
-          >
-            <Text tone="muted" size="xs">
-              Next
-            </Text>
-            <ArrowRightIcon aria-hidden="true" />
-            {next.label}
-          </Button>
-        ) : null}
-      </Masthead>
-      <JobsStrip jobs={jobs} />
-      <Stage>
-        <Stack gap="lg">
-          {group.screens.length > 1 ? (
-            <Tabs value={screen} onValueChange={(id) => go(id)}>
-              <TabsList aria-label={`${group.label} views`}>
-                {group.screens.map(([id, label]) => (
-                  <TabsTrigger key={id} value={id}>
-                    {label}
-                  </TabsTrigger>
+  // The one suggested next step, in loop order. Hidden while a job runs or when already there.
+  const next: { label: string; screen: string; params?: Record<string, string> } | null =
+    !loaded || !current || running
+      ? null
+      : !loaded.state.cases.length
+        ? { label: 'Add a case', screen: 'cases', params: { new: '1' } }
+        : current.changed || !loaded.state.runs.length
+          ? { label: `Run ${current.version}`, screen: 'generate' }
+          : unrated
+            ? { label: `Rate ${plural(unrated, 'output')}`, screen: 'blind' }
+            : null
+
+  /** The open version, and how it scores: the line every screen shows under the skill's name. */
+  const versionLine = current
+    ? current.changed
+      ? `${current.version} · not saved yet`
+      : `${current.version}${current.name ? ` · ${current.name}` : ''}${score === null ? '' : ` · mean ${Math.round(score)}`}`
+    : skillPath
+      ? 'Loading…'
+      : undefined
+
+  const sidebar = (
+    <>
+      <SkillSwitcher
+        name={skillPath ? (state?.skill.name ?? skillPath.split('/').pop() ?? null) : null}
+        detail={versionLine}
+        onOpen={(path) => openSkill(path)}
+        onLibrary={() => go('library')}
+      />
+      <SidebarBody>
+        {skillPath
+          ? SECTIONS.map((section) => (
+              <SidebarSection key={section.label ?? 'skill'} label={section.label}>
+                {section.places.map((p) => (
+                  <NavItem
+                    key={p.screen}
+                    icon={<p.icon aria-hidden="true" />}
+                    label={p.label}
+                    meta={status.meta[p.screen]}
+                    dot={status.dot[p.screen]}
+                    current={screen === p.screen}
+                    onClick={() => go(p.screen)}
+                  />
                 ))}
-              </TabsList>
-            </Tabs>
+              </SidebarSection>
+            ))
+          : null}
+      </SidebarBody>
+      <SidebarFooter>
+        <JobsIndicator jobs={jobs} />
+        {APP_PLACES.map((p) => (
+          <NavItem
+            key={p.screen}
+            icon={<p.icon aria-hidden="true" />}
+            label={p.label}
+            current={screen === p.screen}
+            onClick={() => go(p.screen)}
+          />
+        ))}
+      </SidebarFooter>
+    </>
+  )
+
+  const ctx: Ctx | null = loaded
+    ? {
+        state: loaded.state,
+        config: loaded.config,
+        setConfig,
+        outputs,
+        route,
+        go,
+        toast,
+        confirm,
+        reload,
+        jobs,
+        drafts,
+        openSkill,
+      }
+    : null
+
+  const body = (() => {
+    if (screen === 'docs')
+      return (
+        <Suspense fallback={<Hint>Loading the guide…</Hint>}>
+          <Docs />
+        </Suspense>
+      )
+    if (screen === 'settings')
+      return (
+        <Suspense fallback={<Hint>Loading settings…</Hint>}>
+          <SettingsScreen toast={toast} onSaved={reload} />
+        </Suspense>
+      )
+    if (screen === 'library')
+      return <LibraryScreen openSkill={openSkill} toast={toast} confirm={confirm} />
+    if (error && !state)
+      return (
+        <EmptyState
+          title="Could not open this skill"
+          actions={
+            <>
+              <Button type="button" onClick={() => openSkill('', 'library')}>
+                Go to the library
+              </Button>
+              <Button type="button" variant="outline" onClick={reload}>
+                Try again
+              </Button>
+            </>
+          }
+        >
+          {error}
+        </EmptyState>
+      )
+    if (!ctx) return <Hint>Loading {skillPath.split('/').pop()}…</Hint>
+    switch (screen) {
+      case 'edit':
+        return <Editor ctx={ctx} />
+      case 'versions':
+        return <Versions ctx={ctx} />
+      case 'cases':
+        return <Cases ctx={ctx} />
+      case 'generate':
+        return <Generate ctx={ctx} />
+      case 'blind':
+        return <Blind ctx={ctx} />
+      case 'compare':
+        return <Compare ctx={ctx} />
+      case 'transcript':
+        return <Transcript ctx={ctx} />
+      case 'insights':
+        return <Insights ctx={ctx} />
+      case 'knobs':
+        return <Knobs ctx={ctx} />
+      default:
+        return <Overview ctx={ctx} />
+    }
+  })()
+
+  return (
+    <AppFrame>
+      <Sidebar>{sidebar}</Sidebar>
+      <Workspace>
+        <TopBar>
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-sm"
+                className="sm:hidden"
+                aria-label="Menu"
+              >
+                <MenuIcon aria-hidden="true" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent align="start" className="flex max-h-[80dvh] w-64 flex-col p-0 py-2">
+              {sidebar}
+            </PopoverContent>
+          </Popover>
+          <Heading level="page" className="truncate">
+            {place?.label ?? ''}
+          </Heading>
+          <Spacer />
+          {loaded && !loaded.state.jevKey ? (
+            <Badge variant="warning" asChild>
+              <button
+                type="button"
+                title="Add a TypeSafe key in Settings to grade with Jev"
+                onClick={() => go('settings')}
+              >
+                No Jev key
+              </button>
+            </Badge>
           ) : null}
-          {screen === 'edit' ? <Editor ctx={ctx} /> : null}
-          {screen === 'skill' ? <SkillDiff ctx={ctx} /> : null}
-          {screen === 'cases' ? <Cases ctx={ctx} /> : null}
-          {screen === 'overview' ? <Overview ctx={ctx} /> : null}
-          {screen === 'generate' ? <Generate ctx={ctx} /> : null}
-          {screen === 'blind' ? <Blind ctx={ctx} /> : null}
-          {screen === 'compare' ? <Compare ctx={ctx} /> : null}
-          {screen === 'transcript' ? <Transcript ctx={ctx} /> : null}
-          {screen === 'insights' ? <Insights ctx={ctx} /> : null}
-          {screen === 'knobs' ? <Knobs ctx={ctx} /> : null}
-        </Stack>
-      </Stage>
+          {next && next.screen !== screen ? (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => go(next.screen, next.params)}
+            >
+              <Text tone="muted">Next</Text>
+              {next.label}
+              <ArrowRightIcon aria-hidden="true" />
+            </Button>
+          ) : null}
+        </TopBar>
+        <Pane>{body}</Pane>
+      </Workspace>
       {overlays}
-    </Frame>
+    </AppFrame>
   )
 }

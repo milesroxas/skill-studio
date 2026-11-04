@@ -1,6 +1,7 @@
 import type { BenchConfig } from '@domain/schemas.ts'
 import type { Job, State } from './api.ts'
 import type { Confirm } from './components/confirm.tsx'
+import type { Drafts } from './drafts.ts'
 import type { Route } from './hooks.ts'
 import type { Output } from './model.ts'
 
@@ -18,6 +19,8 @@ export interface Ctx {
   confirm: Confirm
   reload: () => Promise<void>
   jobs: Job[]
+  /** Unsaved file and case edits, stored on disk as they are typed. */
+  drafts: Drafts
   /** Switch to another skill (empty: none) and show `screen` in it. */
   openSkill: (path: string, screen?: string) => void
 }

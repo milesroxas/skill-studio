@@ -31,6 +31,38 @@ describe('parsers', () => {
     })
   })
 
+  it('read skill files from the tree, a version or a run, and nothing else', () => {
+    expect(parsers['skill.files']({ skill: '/s' }).source).toBe('current')
+    expect(parsers['skill.files']({ skill: '/s', source: 'v3' }).source).toBe('v3')
+    expect(parsers['skill.files']({ skill: '/s', source: '2026-11-01-skill-v3-x' }).source).toBe(
+      '2026-11-01-skill-v3-x',
+    )
+    expect(() => parsers['skill.files']({ skill: '/s', source: '../x' })).toThrow('Bad run.')
+  })
+
+  it('restore only a version label, and only when forced to overwrite', () => {
+    expect(() => parsers['skill.restoreVersion']({ version: 'latest' })).toThrow('Bad version.')
+    expect(parsers['skill.restoreVersion']({ skill: '/s', version: 'v2' }).force).toBe(false)
+    expect(
+      parsers['skill.restoreVersion']({ skill: '/s', version: 'v2', force: 'yes' }).force,
+    ).toBe(false)
+  })
+
+  it('keep drafts to text files at safe paths', () => {
+    const drafts = parsers['skill.saveDrafts']({
+      skill: '/s',
+      drafts: { files: { 'SKILL.md': { text: 'x', previous: 3 } }, cases: { '+new': {} } },
+    }).drafts
+    expect(drafts.files['SKILL.md']).toEqual({ text: 'x', previous: null })
+    expect(drafts.cases['+new'].graders).toEqual([])
+    expect(() =>
+      parsers['skill.saveDrafts']({ drafts: { files: { '../a': { text: 'x' } } } }),
+    ).toThrow('Bad path.')
+    expect(() => parsers['skill.saveDrafts']({ drafts: { files: { a: {} } } })).toThrow(
+      'Bad draft of a.',
+    )
+  })
+
   it('coerce a generate request and bound its writers', () => {
     const input = parsers['skill.generate']({
       skill: '/s',

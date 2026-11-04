@@ -39,7 +39,9 @@ const MAX_RECENT = 24
 
 /** SKILL_STUDIO_HOME stands in for the home folder, so tests never touch the real one. */
 const HOME = process.env.SKILL_STUDIO_HOME || homedir()
-const SETTINGS = join(HOME, '.skill-studio', 'library.json')
+/** The app's own folder: settings and drafts. */
+export const STUDIO_DIR = join(HOME, '.skill-studio')
+const SETTINGS = join(STUDIO_DIR, 'library.json')
 /** Where the tool kept its settings before it was Skill Studio; read once, then left alone. */
 const OLD_SETTINGS = join(HOME, '.skill-tester', 'library.json')
 

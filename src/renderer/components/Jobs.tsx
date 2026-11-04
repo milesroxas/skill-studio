@@ -1,29 +1,40 @@
-/** The jobs strip: what the server is running now, and the last logs. It hides a minute after a job succeeds. */
+/**
+ * What the backend is running, at the foot of the sidebar: a pulsing dot and a
+ * line while a job runs, the last result for a minute after, and the logs in a
+ * popover. It never moves the screen above it.
+ */
 import { cva } from 'class-variance-authority'
-import { useState } from 'react'
 import type { Job } from '../api.ts'
 import { Stack } from './layout.tsx'
 import { Text } from './text.tsx'
-import { Button } from './ui/button.tsx'
+import { Popover, PopoverContent, PopoverTrigger } from './ui/popover.tsx'
 
 const QUIET_AFTER_MS = 60_000
 
-const strip = cva(
-  'flex min-h-8 items-center border-b bg-muted pr-[max(16px,env(safe-area-inset-right,0px))] pl-[max(16px,env(safe-area-inset-left,0px))] text-xs',
+const indicator = cva(
+  'flex min-h-8 w-full items-center gap-2 rounded-md px-2 text-left text-xs outline-none transition-[background-color] duration-150 ease-out hover:bg-sidebar-accent focus-visible:ring-2 focus-visible:ring-ring/50 data-[state=open]:bg-sidebar-accent',
   {
     variants: {
       status: {
-        busy: '',
-        running: '',
-        done: '',
-        failed: 'bg-destructive/10 text-destructive dark:bg-destructive/20',
+        running: 'text-sidebar-foreground',
+        done: 'text-muted-foreground',
+        failed: 'text-destructive',
       },
     },
   },
 )
 
-export function JobsStrip({ jobs }: { jobs: Job[] }) {
-  const [open, setOpen] = useState(false)
+const dot = cva('size-1.5 shrink-0 rounded-full', {
+  variants: {
+    status: {
+      running: 'animate-pulse bg-current',
+      done: 'bg-success',
+      failed: 'bg-destructive',
+    },
+  },
+})
+
+export function JobsIndicator({ jobs }: { jobs: Job[] }) {
   const running = jobs.filter((j) => j.status === 'running')
   const recent = jobs[0]
   if (!recent) return null
@@ -33,38 +44,30 @@ export function JobsStrip({ jobs }: { jobs: Job[] }) {
     recent.finishedAt !== null &&
     Date.now() - recent.finishedAt > QUIET_AFTER_MS
   if (settled) return null
+  const status = running.length ? 'running' : recent.status
   const label = running.length
-    ? `Running ${running.map((j) => j.title).join(', ')}`
+    ? running.length === 1
+      ? running[0].title
+      : `${running.length} jobs running`
     : recent.status === 'failed'
       ? `Failed: ${recent.title}`
       : `Done: ${recent.title}`
   return (
-    <>
-      <div className={strip({ status: running.length ? 'busy' : recent.status })}>
-        <Button
+    <Popover>
+      <PopoverTrigger asChild>
+        <button
           type="button"
-          variant="ghost"
-          size="inline"
-          className="min-h-8 font-normal hover:bg-transparent"
-          aria-expanded={open}
-          onClick={() => setOpen((o) => !o)}
+          className={indicator({ status })}
+          aria-label={`${label}. Show the log.`}
         >
-          {running.length ? (
-            <span
-              className="mr-2 inline-block size-[7px] animate-pulse rounded-full bg-current"
-              aria-hidden="true"
-            />
-          ) : null}
-          {label}
-          <Text tone="muted"> · {open ? 'Hide log' : 'Show log'}</Text>
-        </Button>
-      </div>
-      {open ? (
-        <div className="border-b bg-muted px-[max(16px,env(safe-area-inset-left,0px))] pt-2 pb-3">
-          <JobLogs jobs={jobs.slice(0, 3)} />
-        </div>
-      ) : null}
-    </>
+          <span className={dot({ status })} aria-hidden="true" />
+          <span className="min-w-0 flex-1 truncate">{label}</span>
+        </button>
+      </PopoverTrigger>
+      <PopoverContent side="right" align="end" className="w-[min(520px,calc(100vw-280px))] p-2">
+        <JobLogs jobs={jobs.slice(0, 3)} />
+      </PopoverContent>
+    </Popover>
   )
 }
 

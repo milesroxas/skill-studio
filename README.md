@@ -31,13 +31,13 @@ This starts the desktop app against the dev server, with hot reloading. `pnpm bu
 The app opens on the library: every skill in your user skills folders (`~/.agents`, `~/.claude`, `~/.cursor`, `~/.codex`) and in projects under your workspace folders (`~/SITES` by default, when it exists; change them under "Where skills are found", saved in `~/.skill-studio/library.json`). From there the whole loop runs in the app:
 
 1. **Library**: open a skill, or create one. A new skill is written to `.agents/skills/<name>` and linked into the agents you pick.
-2. **Skill**: edit `SKILL.md` and `references/`; the side panel lists the rules a run is graded on.
+2. **Write** and **Versions**: edit `SKILL.md` and `references/` (the side panel lists the rules a run is graded on), then save the files as a named version you can compare and restore. Unsaved edits are kept as drafts in `~/.skill-studio/drafts/` until you save or discard them.
 3. **Cases**: write each task the agent gets, what a good answer does, and the checks the judge holds it to.
 4. **Runs**: start a run with one or more agents and models, then read the scores per case and version.
 5. **Review**: rate answers blind, compare two side by side, read transcripts.
 6. **Bench**: see where your ratings and the judge disagree, and tune the scoring.
 
-The button at the top right always names the next step. Install or uninstall a skill for Claude Code, Cursor or Codex from its row in the library.
+The sidebar holds every screen of the open skill, with counts and unsaved marks beside them; Cmd+K switches skill from anywhere. The button at the top right always names the next step. Install or uninstall a skill for Claude Code, Cursor or Codex from its row in the library.
 
 ### In a browser, or from another device
 
@@ -80,6 +80,7 @@ pnpm st serve [skill-dir...]                  # app and API on http://localhost:
     bench.json                  packs, weights, yes, sure, agreeAt, rules (optional; the UI writes it)
     anchors/*.md                labelled outputs for `st self-test`: front matter case, label, tests, about
     reviews.json                human ratings and pairwise votes (the UI writes it)
+    versions/<vN>/              a version saved by hand: version.json (name, note, hash, date) and files/
     runs/                       one directory per run, below
 ```
 
@@ -103,7 +104,7 @@ evals/runs/<date>-skill-<vN>-<engine>-<model>[-<effort>][-<configuration>]/
     agent.json                  exit state, error, the agent's last message
 ```
 
-Skill versions come from a hash of `SKILL.md` and `references/`. A changed tree needs a name on its first run (`--name`), after that the version is reused. `--configuration without_skill` runs the same prompt with no skill in the workspace; `old_skill --baseline <run>` runs against that run's `_skill/` snapshot (SKILL.md and references only, so scripts are absent).
+Skill versions come from a hash of `SKILL.md` and `references/`. Save one by hand in the app (it lands in `evals/versions/`), or let a run name it: a changed tree needs a name on its first run (`--name`), after that the version is reused. Saved and run versions share one numbering. `--configuration without_skill` runs the same prompt with no skill in the workspace; `old_skill --baseline <run>` runs against that run's `_skill/` snapshot (SKILL.md and references only, so scripts are absent).
 
 ## Grading
 
@@ -178,23 +179,24 @@ Every operation is `POST /api/<name>` with its input as the JSON body; operation
 | `library.workspaces`, `library.mark`                                                  | set the folders to scan `{workspaces}`; list a skill with installed ones `{path, theirs}`                                                 |
 | `jobs.list`, `settings.read`, `settings.jevKey`                                       | background jobs; where the Jev key comes from; store one `{value}` (desktop app only)                                                      |
 | `skill.state`                                                                         | cases, runs, versions, engines, config, reviews, anchors                                                                                  |
-| `skill.run`, `skill.transcript`, `skill.artifact`, `skill.files`                      | one run `{run}`; one transcript `{run, sample}`; one artifact `{run, sample, file}`; the working tree (`run: "current"`) or a run's snapshot |
+| `skill.run`, `skill.transcript`, `skill.artifact`, `skill.files`                      | one run `{run}`; one transcript `{run, sample}`; one artifact `{run, sample, file}`; the skill's files `{source}`: `current`, a version (`v2`) or a run |
+| `skill.saveVersion`, `skill.restoreVersion`                                           | save the files as the next version `{name, note}`; put a version's files back `{version, force}` (refused without `force` when the files are no version) |
+| `skill.drafts`, `skill.saveDrafts`                                                    | unsaved file and case edits, kept in `~/.skill-studio/drafts/` `{drafts}`                                                                |
 | `skill.queue`, `skill.leaderboard`                                                    | blind review order; Bradley-Terry boards and Jev/human agreement                                                                          |
 | `skill.generate`, `skill.grade`, `skill.pairwise`                                     | start a job: `{cases, configs:[{engine,model,effort}], samples, configuration, baselineRun, skillName, note, grade}`; `{run, jev}`; `{a, b, criteria}` |
 | `skill.review`, `skill.preference`, `skill.config`, `skill.anchor`                    | save a rating `{key, review}`; a human vote `{a, b, criterion, vote}`; `bench.json` `{config}`; promote an output to an anchor             |
 | `skill.saveCase`, `skill.deleteCase`                                                  | save `{case, isNew}`, validated before it writes; delete `{id}`                                                                           |
 | `skill.saveFile`, `skill.deleteFile`                                                  | write `{path, text, previous}` (refused when `previous` no longer matches the file); delete `{path}`. Only `SKILL.md` and `references/**` |
 
-The app opens on the library. An open skill has five tabs in loop order; a tab with more than one screen shows them as a segmented control.
+The app opens on the library. An open skill's screens sit in the sidebar in loop order; Library, Guide and Settings sit at its foot and open in the same pane, so the skill stays one click away.
 
-| Tab     | Screens                          | Does                                                                                                                         |
+| Section | Screens                          | Does                                                                                                                         |
 | ------- | -------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
-| Library |                                  | every skill on the machine, searchable; create a skill, install or uninstall it per agent, choose the folders to scan        |
-| Skill   | Write, Changes                   | edit `SKILL.md` and `references/` (a save is refused if the file changed on disk since); the working tree against any run's snapshot |
-| Cases   | Cases                            | edit a case's prompt, what a good answer does, weighted checks and word range                                                |
-| Runs    | Results, New run                 | runs, versions and scores; start runs and gradings as background jobs with live logs                                         |
+|         | Write, Versions, Cases           | edit `SKILL.md` and `references/` with drafts kept as you type (a save is refused if the file changed on disk since); save, compare and restore versions; edit a case's prompt, what a good answer does, weighted checks and word range |
+| Runs    | New run, Results                 | start runs and gradings as background jobs with live logs; runs and scores per case                                          |
 | Review  | Rate blind, Compare, Transcripts | rate an output before its scores show and promote it to an anchor; two outputs side by side with Bradley-Terry boards; one sample's agent steps |
 | Bench   | Agreement, Scoring               | your marks against the bench, per layer; rescore every output from stored answers and save `bench.json`                     |
+| (foot)  | Library, Guide, Settings         | every skill on the machine, searchable: create, install or uninstall per agent, choose the folders to scan; this guide; the Jev key |
 
 ## Engines
 

@@ -64,6 +64,21 @@ export const scoreOf = (output: Output, config: BenchConfig): Scored | null =>
 export const totalOf = (output: Output, config: BenchConfig): number | null =>
   scoreOf(output, config)?.scores.total ?? null
 
+/** The mean total of a version's outputs run with the skill, under `config`; null when none is graded. */
+export function versionScore(
+  outputs: Output[],
+  config: BenchConfig,
+  version: string,
+): number | null {
+  const totals = outputs
+    .filter(
+      (o) => o.run.meta?.skillVersion === version && o.run.meta.configuration === 'with_skill',
+    )
+    .map((o) => totalOf(o, config))
+    .filter((t): t is number => t !== null)
+  return totals.length ? totals.reduce((a, b) => a + b, 0) / totals.length : null
+}
+
 export const mergedConfig = (saved: Partial<BenchConfig> | null): BenchConfig =>
   mergeConfig(saved, scorers)
 

@@ -87,11 +87,16 @@ const tableCellVariants = cva('', {
     },
     /** The column the row is about: never squeezed below a readable width. */
     wide: {
-      true: 'min-w-[260px]',
+      true: 'min-w-[160px] lg:min-w-[260px]',
+      false: '',
+    },
+    /** A column the row reads fine without: hidden when the window is narrow, so the table fits. */
+    optional: {
+      true: 'max-lg:hidden',
       false: '',
     },
   },
-  defaultVariants: { numeric: false, wrap: false, wide: false },
+  defaultVariants: { numeric: false, wrap: false, wide: false, optional: false },
 })
 
 function TableHead({
@@ -99,6 +104,7 @@ function TableHead({
   numeric,
   wrap,
   wide,
+  optional,
   ...props
 }: React.ComponentProps<'th'> & VariantProps<typeof tableCellVariants>) {
   return (
@@ -106,7 +112,7 @@ function TableHead({
       data-slot="table-head"
       className={cn(
         'h-10 px-2 text-left align-middle text-xs font-medium whitespace-nowrap text-muted-foreground first:pl-0 last:pr-0 [&:has([role=checkbox])]:pr-0 [&>[role=checkbox]]:translate-y-[2px]',
-        tableCellVariants({ numeric, wrap, wide }),
+        tableCellVariants({ numeric, wrap, wide, optional }),
         className,
       )}
       {...props}
@@ -119,6 +125,7 @@ function TableCell({
   numeric,
   wrap,
   wide,
+  optional,
   ...props
 }: React.ComponentProps<'td'> & VariantProps<typeof tableCellVariants>) {
   return (
@@ -126,7 +133,7 @@ function TableCell({
       data-slot="table-cell"
       className={cn(
         'p-2 align-middle whitespace-nowrap first:pl-0 last:pr-0 [&:has([role=checkbox])]:pr-0 [&>[role=checkbox]]:translate-y-[2px]',
-        tableCellVariants({ numeric, wrap, wide }),
+        tableCellVariants({ numeric, wrap, wide, optional }),
         className,
       )}
       {...props}

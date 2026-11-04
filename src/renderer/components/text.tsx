@@ -6,6 +6,11 @@ import { cn } from '../lib/utils.ts'
 const headingVariants = cva('m-0 font-semibold text-balance', {
   variants: {
     level: {
+      /**
+       * The screen's name in the top bar: set in the reading serif the outputs use,
+       * the one place the tool's own chrome speaks in it.
+       */
+      page: 'font-serif text-[19px] leading-tight tracking-[-0.01em]',
       1: 'text-3xl leading-tight tracking-[-0.022em]',
       2: 'text-base tracking-[-0.012em]',
       3: 'text-[13px]',
@@ -25,7 +30,7 @@ export function Heading({
     as?: 'h1' | 'h2' | 'h3' | 'span' | 'legend' | 'p'
     children: ReactNode
   }) {
-  const Comp = as ?? (`h${level ?? 2}` as 'h1' | 'h2' | 'h3')
+  const Comp = as ?? (level === 'page' ? 'h1' : (`h${level ?? 2}` as 'h1' | 'h2' | 'h3'))
   return <Comp className={cn(headingVariants({ level }), className)} {...props} />
 }
 

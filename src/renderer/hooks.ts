@@ -61,11 +61,15 @@ export function useToggleSet<T>(initial: Iterable<T>): [Set<T>, (value: T) => vo
   return [set, toggle]
 }
 
+/** Long enough to read: a floor for short lines, then about 200 words a minute. */
+const toastMs = (message: string): number =>
+  Math.max(2600, message.split(/\s+/).length * 300 + 1000)
+
 export function useToast(): [string | null, (message: string) => void] {
   const [message, setMessage] = useState<string | null>(null)
   useEffect(() => {
     if (!message) return
-    const timer = setTimeout(() => setMessage(null), 2600)
+    const timer = setTimeout(() => setMessage(null), toastMs(message))
     return () => clearTimeout(timer)
   }, [message])
   return [message, setMessage]

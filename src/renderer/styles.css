@@ -1,9 +1,11 @@
 /*
- * The theme, in shadcn/ui's token vocabulary over Tailwind v4. Neutral product
- * chrome: gray surfaces, hairline borders, one ink color as the primary. Green,
+ * The theme, in shadcn/ui's token vocabulary over Tailwind v4. A writing desk:
+ * warm paper neutrals (hue 85) around one ink color as the primary. Green,
  * amber and red stay reserved for verdicts, so color only ever says how good
- * something is. Dark follows the system, with the lightness roles swapped and
- * the hues held. The output under review keeps a serif reading face so it never
+ * something is. The sidebar is the desk, a step darker than the page it holds.
+ * Dark follows the system with the lightness roles remapped and the hue held:
+ * the page stays the brightest surface, borders turn solid and shadows collapse
+ * to a ring. The output under review keeps a serif reading face so it never
  * reads as part of the tool.
  */
 @import "tailwindcss";
@@ -16,52 +18,67 @@
 }
 
 :root {
-  --background: oklch(0.985 0 0);
-  --foreground: oklch(0.205 0 0);
+  --background: oklch(0.99 0.002 85);
+  --foreground: oklch(0.215 0.006 85);
   --card: oklch(1 0 0);
-  --card-foreground: oklch(0.205 0 0);
+  --card-foreground: oklch(0.215 0.006 85);
   --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.205 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.967 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.967 0 0);
-  --muted-foreground: oklch(0.48 0 0);
-  --accent: oklch(0.967 0 0);
-  --accent-foreground: oklch(0.205 0 0);
+  --popover-foreground: oklch(0.215 0.006 85);
+  --primary: oklch(0.215 0.006 85);
+  --primary-foreground: oklch(0.99 0.002 85);
+  --secondary: oklch(0.955 0.004 85);
+  --secondary-foreground: oklch(0.215 0.006 85);
+  --muted: oklch(0.96 0.004 85);
+  --muted-foreground: oklch(0.5 0.008 85);
+  --accent: oklch(0.95 0.005 85);
+  --accent-foreground: oklch(0.215 0.006 85);
+  --sidebar: oklch(0.968 0.004 85);
+  --sidebar-foreground: oklch(0.215 0.006 85);
+  --sidebar-accent: oklch(0.925 0.006 85);
   --destructive: oklch(0.53 0.19 25);
   --success: oklch(0.52 0.13 150);
-  --warning: oklch(0.53 0.115 70);
+  --warning: oklch(0.56 0.12 70);
   --border: oklch(0 0 0 / 0.08);
   --input: oklch(0 0 0 / 0.15);
-  --ring: oklch(0.556 0 0);
+  --ring: oklch(0.556 0.006 85);
   --radius: 0.625rem;
+  /* Raised surfaces: a ring for the edge, a tight shadow, a soft one. */
+  --elevation-raised:
+    0 0 0 1px oklch(0 0 0 / 0.06), 0 1px 2px oklch(0 0 0 / 0.04),
+    0 4px 12px -6px oklch(0 0 0 / 0.08);
+  --elevation-popover:
+    0 0 0 1px oklch(0 0 0 / 0.07), 0 2px 4px oklch(0 0 0 / 0.05),
+    0 12px 32px -8px oklch(0 0 0 / 0.16);
   color-scheme: light;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: oklch(0.145 0 0);
-    --foreground: oklch(0.95 0 0);
-    --card: oklch(0.178 0 0);
-    --card-foreground: oklch(0.95 0 0);
-    --popover: oklch(0.205 0 0);
-    --popover-foreground: oklch(0.95 0 0);
-    --primary: oklch(0.95 0 0);
-    --primary-foreground: oklch(0.145 0 0);
-    --secondary: oklch(0.225 0 0);
-    --secondary-foreground: oklch(0.95 0 0);
-    --muted: oklch(0.225 0 0);
-    --muted-foreground: oklch(0.72 0 0);
-    --accent: oklch(0.225 0 0);
-    --accent-foreground: oklch(0.95 0 0);
-    --destructive: oklch(0.72 0.17 25);
-    --success: oklch(0.74 0.15 150);
-    --warning: oklch(0.78 0.13 70);
-    --border: oklch(1 0 0 / 0.08);
-    --input: oklch(1 0 0 / 0.15);
-    --ring: oklch(0.556 0 0);
+    --background: oklch(0.17 0.004 85);
+    --foreground: oklch(0.95 0.004 85);
+    --card: oklch(0.2 0.004 85);
+    --card-foreground: oklch(0.95 0.004 85);
+    --popover: oklch(0.225 0.005 85);
+    --popover-foreground: oklch(0.95 0.004 85);
+    --primary: oklch(0.95 0.004 85);
+    --primary-foreground: oklch(0.17 0.004 85);
+    --secondary: oklch(0.24 0.005 85);
+    --secondary-foreground: oklch(0.95 0.004 85);
+    --muted: oklch(0.235 0.005 85);
+    --muted-foreground: oklch(0.72 0.008 85);
+    --accent: oklch(0.245 0.005 85);
+    --accent-foreground: oklch(0.95 0.004 85);
+    --sidebar: oklch(0.145 0.004 85);
+    --sidebar-foreground: oklch(0.95 0.004 85);
+    --sidebar-accent: oklch(0.225 0.005 85);
+    --destructive: oklch(0.72 0.15 25);
+    --success: oklch(0.74 0.12 150);
+    --warning: oklch(0.78 0.11 70);
+    --border: oklch(0.27 0.005 85);
+    --input: oklch(0.33 0.005 85);
+    --ring: oklch(0.6 0.006 85);
+    --elevation-raised: 0 0 0 1px oklch(1 0 0 / 0.08);
+    --elevation-popover: 0 0 0 1px oklch(1 0 0 / 0.1), 0 12px 32px -8px oklch(0 0 0 / 0.5);
     color-scheme: dark;
   }
 }
@@ -84,6 +101,9 @@
   --color-destructive: var(--destructive);
   --color-success: var(--success);
   --color-warning: var(--warning);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
@@ -95,7 +115,11 @@
   --font-sans: "Geist Variable", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
   --font-mono: "Geist Mono Variable", ui-monospace, "SF Mono", Menlo, monospace;
   --font-serif: Charter, "Iowan Old Style", "Source Serif Pro", Georgia, serif;
-  --z-index-header: 10;
+  --shadow-raised: var(--elevation-raised);
+  --shadow-popover: var(--elevation-popover);
+  /* A strong ease-out: movement starts at once and settles. */
+  --ease-out-strong: cubic-bezier(0.23, 1, 0.32, 1);
+  --z-index-popover: 50;
   --z-index-toast: 400;
 }
 
@@ -113,6 +137,8 @@
   body {
     @apply bg-background text-foreground font-sans text-sm antialiased;
     font-optical-sizing: auto;
+    /* A weight or style with no file shows as missing, never as a fake. */
+    font-synthesis: none;
   }
   /* Fire taps at once, with no double-tap zoom wait. */
   a,
@@ -153,16 +179,15 @@
     }
   }
   /*
-   * In the desktop app on macOS the title bar is hidden: the masthead is the drag
-   * region, its controls stay clickable, and the first row starts right of the
-   * window buttons.
+   * In the desktop app on macOS the title bar is hidden: the regions marked
+   * data-drag (the top of the sidebar, the top bar) move the window, and the
+   * controls inside them stay clickable.
    */
-  [data-slot="masthead"][data-platform="darwin"] {
+  [data-platform="darwin"] [data-drag] {
     app-region: drag;
     -webkit-app-region: drag;
-    padding-left: 84px;
   }
-  [data-slot="masthead"][data-platform="darwin"] :is(button, a, input, select, [role="tab"]) {
+  [data-platform="darwin"] [data-drag] :is(button, a, input, select, [role="tab"]) {
     app-region: no-drag;
     -webkit-app-region: no-drag;
   }
@@ -269,7 +294,7 @@
     @apply mb-3 text-3xl leading-tight font-semibold tracking-[-0.022em] text-balance;
   }
   .guide-body h2 {
-    @apply mt-14 mb-3.5 scroll-mt-26 border-t pt-8 text-[21px] leading-snug font-semibold tracking-[-0.016em];
+    @apply mt-14 mb-3.5 scroll-mt-6 border-t pt-8 text-[21px] leading-snug font-semibold tracking-[-0.016em];
   }
   .guide-body h3 {
     @apply mt-8 mb-2 text-base font-semibold tracking-[-0.008em];

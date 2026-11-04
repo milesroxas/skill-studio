@@ -1,15 +1,20 @@
-/** Write the cases a run is made of: the prompt, what a good answer does, and the judge's checks. */
+/**
+ * Write the cases a run is made of: the prompt, what a good answer does, and
+ * the judge's checks. Edits are kept as drafts per case, so moving between
+ * cases, screens or skills never loses typing.
+ */
 
-import type { Case, CaseDraft } from '@domain/schemas.ts'
+import { type Case, type CaseDraft, NEW_CASE_KEY } from '@domain/schemas.ts'
 import { CHECK_EXAMPLES, EXAMPLE_KINDS, templateById, templateForPacks } from '@domain/templates.ts'
 import { isSlug, SLUG_RULE, slug } from '@domain/text.ts'
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { api } from '../api.ts'
+import { DraftNote } from '../components/DraftNote.tsx'
 import { CheckRow, InlineField, NumberInput } from '../components/forms.tsx'
 import {
+  ActionBar,
   Field,
   Fieldset,
-  FormFooter,
   List,
   Panel,
   PlainList,
@@ -29,6 +34,7 @@ import { Button } from '../components/ui/button.tsx'
 import { Input } from '../components/ui/input.tsx'
 import { Label } from '../components/ui/label.tsx'
 import type { Ctx } from '../ctx.ts'
+import { shortcut } from '../keys.ts'
 
 const draftOf = (c: Case): CaseDraft => ({
   id: c.id,
@@ -49,7 +55,7 @@ const blank = (): CaseDraft => ({
 })
 
 export function Cases({ ctx }: { ctx: Ctx }) {
-  const { state, config, route, go, toast, confirm, reload } = ctx
+  const { state, config, route, go, toast, confirm, reload, drafts } = ctx
   const cases = state.cases
   /** Examples come from the kind of skill the bench grades, until the user picks another. */
   const [kindId, setKindId] = useState(() => templateForPacks(config.packs).id)
@@ -57,39 +63,24 @@ export function Cases({ ctx }: { ctx: Ctx }) {
   const isNew = route.params.get('new') === '1' || !cases.length
   const selected = isNew ? null : (cases.find((c) => c.id === route.params.get('id')) ?? cases[0])
   const base = useMemo(() => (selected ? draftOf(selected) : blank()), [selected])
-  // By content: state reloads after every job, and an unchanged case must keep unsaved edits.
   const baseJson = JSON.stringify(base)
-  const [draft, setDraft] = useState(base)
+  /** Where this case's draft is kept: its id, or one slot for the case not saved yet. */
+  const key = selected ? selected.id : NEW_CASE_KEY
+  const draft = drafts.cases[key] ?? base
   const [idTouched, setIdTouched] = useState(false)
   const [busy, setBusy] = useState(false)
   const dirty = JSON.stringify(draft) !== baseJson
 
-  useEffect(() => {
-    setDraft(JSON.parse(baseJson))
+  /** Another case. The one being left keeps its draft, so there is nothing to confirm. */
+  const pick = (params: Record<string, string>) => {
     setIdTouched(false)
-  }, [baseJson])
-
-  useEffect(() => {
-    if (!dirty) return
-    const warn = (e: BeforeUnloadEvent) => e.preventDefault()
-    window.addEventListener('beforeunload', warn)
-    return () => window.removeEventListener('beforeunload', warn)
-  }, [dirty])
-
-  const pick = async (params: Record<string, string>) => {
-    if (
-      dirty &&
-      !(await confirm({
-        title: 'Leave this case?',
-        description: 'Your changes are not saved.',
-        action: 'Leave',
-      }))
-    )
-      return
     go('cases', params)
   }
 
-  const set = (patch: Partial<CaseDraft>) => setDraft((d) => ({ ...d, ...patch }))
+  /** Keep the edit as a draft, or drop the draft once the case matches what is saved again. */
+  const setDraft = (next: CaseDraft) =>
+    drafts.setCase(key, JSON.stringify(next) === baseJson ? null : next)
+  const set = (patch: Partial<CaseDraft>) => setDraft({ ...draft, ...patch })
   const setTitle = (title: string) =>
     set(isNew && !idTouched ? { title, id: slug(title, 40) } : { title })
   const setGrader = (i: number, patch: Partial<CaseDraft['graders'][number]>) =>
@@ -122,6 +113,7 @@ export function Cases({ ctx }: { ctx: Ctx }) {
     setBusy(true)
     try {
       await api.saveCase(draft, isNew)
+      drafts.setCase(key, null)
       await reload()
       toast(`Saved ${draft.id}`)
       go('cases', { id: draft.id })
@@ -143,6 +135,7 @@ export function Cases({ ctx }: { ctx: Ctx }) {
     if (!ok) return
     try {
       await api.deleteCase(selected.id)
+      drafts.setCase(selected.id, null)
       await reload()
       toast(`Deleted ${selected.id}`)
       go('cases')
@@ -158,8 +151,74 @@ export function Cases({ ctx }: { ctx: Ctx }) {
     }
   }
 
+  const discard = async () => {
+    if (
+      await confirm({
+        title: isNew ? 'Discard this new case?' : `Discard your changes to ${selected?.id}?`,
+        description: isNew ? 'What you typed goes.' : 'The case stays as it was last saved.',
+        action: 'Discard',
+        destructive: true,
+      })
+    ) {
+      drafts.setCase(key, null)
+      setIdTouched(false)
+    }
+  }
+
   return (
-    <Split layout="form">
+    <Split layout="list">
+      {cases.length ? (
+        <Panel sticky>
+          <aside className="contents">
+            <SectionHead>
+              <Heading level={3} as="span">
+                Cases
+              </Heading>
+              <Text tone="muted" size="xs" tabular>
+                {cases.length}
+              </Text>
+              <Spacer />
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => pick({ new: '1' })}
+                disabled={isNew}
+              >
+                New case
+              </Button>
+            </SectionHead>
+            <PlainList gap="xs">
+              {drafts.cases[NEW_CASE_KEY] && !isNew ? (
+                <li>
+                  <NavButton onClick={() => pick({ new: '1' })}>
+                    <Text size="xs">
+                      New case <Text tone="warning">•</Text>
+                    </Text>
+                    <Text tone="muted" size="xs">
+                      Not added yet
+                    </Text>
+                  </NavButton>
+                </li>
+              ) : null}
+              {cases.map((c) => (
+                <li key={c.id}>
+                  <NavButton current={selected?.id === c.id} onClick={() => pick({ id: c.id })}>
+                    <Text font="mono" size="xs">
+                      {c.id}
+                      {drafts.cases[c.id] ? <Text tone="warning"> •</Text> : null}
+                    </Text>
+                    <Text tone="muted" size="xs">
+                      {c.title !== c.id ? `${c.title} · ` : ''}
+                      {c.graders.length} {c.graders.length === 1 ? 'check' : 'checks'}
+                    </Text>
+                  </NavButton>
+                </li>
+              ))}
+            </PlainList>
+          </aside>
+        </Panel>
+      ) : null}
       <form
         className="contents"
         onKeyDown={onKey}
@@ -393,69 +452,29 @@ export function Cases({ ctx }: { ctx: Ctx }) {
             </Field>
           ) : null}
 
-          <FormFooter>
-            <Button type="submit" disabled={!canSave} title="Cmd/Ctrl+S">
-              {isNew ? 'Add case' : 'Save case'}
+          <ActionBar edge="bottom">
+            <Button type="submit" disabled={!canSave} title={shortcut('S')}>
+              {busy ? 'Saving…' : isNew ? 'Add case' : 'Save case'}
             </Button>
-            {dirty && !isNew ? (
-              <Button type="button" variant="ghost" onClick={() => setDraft(base)}>
-                Revert
+            {dirty ? (
+              <Button type="button" variant="ghost" onClick={discard}>
+                Discard
               </Button>
-            ) : null}
-            {isNew && cases.length ? (
+            ) : isNew && cases.length ? (
               <Button type="button" variant="ghost" onClick={() => pick({})}>
                 Cancel
               </Button>
             ) : null}
+            <DraftNote drafts={drafts} dirty={dirty} saved={isNew ? '' : 'saved'} />
             <Spacer />
             {selected?.dir ? (
               <Button type="button" variant="destructive-ghost" onClick={remove}>
                 Delete case
               </Button>
             ) : null}
-          </FormFooter>
+          </ActionBar>
         </Stack>
       </form>
-
-      {cases.length ? (
-        <Panel sticky>
-          <aside className="contents">
-            <SectionHead>
-              <Heading level={3} as="span">
-                Cases
-              </Heading>
-              <Text tone="muted" size="xs" tabular>
-                {cases.length}
-              </Text>
-              <Spacer />
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => pick({ new: '1' })}
-                disabled={isNew}
-              >
-                New case
-              </Button>
-            </SectionHead>
-            <PlainList gap="xs">
-              {cases.map((c) => (
-                <li key={c.id}>
-                  <NavButton current={selected?.id === c.id} onClick={() => pick({ id: c.id })}>
-                    <Text font="mono" size="xs">
-                      {c.id}
-                    </Text>
-                    <Text tone="muted" size="xs">
-                      {c.title !== c.id ? `${c.title} · ` : ''}
-                      {c.graders.length} {c.graders.length === 1 ? 'check' : 'checks'}
-                    </Text>
-                  </NavButton>
-                </li>
-              ))}
-            </PlainList>
-          </aside>
-        </Panel>
-      ) : null}
     </Split>
   )
 }

@@ -127,9 +127,17 @@ export function skillHash(files: Record<string, string>): string {
   return hash.digest('hex').slice(0, 12)
 }
 
-/** Skill versions seen in runs, oldest first, and where the working tree stands. */
-export function skillVersions(skillDir: string, runMetas: RunMeta[]): SkillVersions {
-  const versions = new Map<string, SkillVersion>()
+/**
+ * The skill's versions, oldest first: those saved by hand, then any known only
+ * from runs. The working tree is the version whose hash it matches, or else the
+ * next number, marked changed.
+ */
+export function skillVersions(
+  skillDir: string,
+  runMetas: RunMeta[],
+  saved: SkillVersion[] = [],
+): SkillVersions {
+  const versions = new Map<string, SkillVersion>(saved.map((v) => [v.version, v]))
   for (const meta of runMetas) {
     if (!meta.skillVersion || versions.has(meta.skillVersion)) continue
     versions.set(meta.skillVersion, {
@@ -138,6 +146,7 @@ export function skillVersions(skillDir: string, runMetas: RunMeta[]): SkillVersi
       hash: meta.skillHash,
       note: meta.note,
       date: meta.createdAt.slice(0, 10) || undefined,
+      saved: false,
     })
   }
   const list = [...versions.values()].sort(
@@ -150,7 +159,30 @@ export function skillVersions(skillDir: string, runMetas: RunMeta[]): SkillVersi
     versions: list,
     current: match
       ? { ...match, changed: false }
-      : { version: next, name: '', hash, note: '', date: undefined, changed: true },
+      : {
+          version: next,
+          name: '',
+          hash,
+          note: '',
+          date: undefined,
+          saved: false,
+          changed: true,
+        },
+  }
+}
+
+/**
+ * Make the skill's files exactly `files`: write each one, and delete references
+ * the set does not hold. SKILL.md is always kept.
+ */
+export function replaceSkillFiles(skillDir: string, files: Record<string, string>): void {
+  if (typeof files['SKILL.md'] !== 'string') throw new Error('That version has no SKILL.md.')
+  for (const path of Object.keys(skillFiles(skillDir)))
+    if (path !== 'SKILL.md' && !(path in files)) deleteSkillFile(skillDir, path)
+  for (const [path, text] of Object.entries(files)) {
+    const full = join(skillDir, editablePath(path))
+    mkdirSync(dirname(full), { recursive: true })
+    writeFileSync(full, text)
   }
 }
 

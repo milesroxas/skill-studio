@@ -75,7 +75,7 @@ export function Overview({ ctx }: { ctx: Ctx }) {
     )
 
   return (
-    <Screen width="narrow">
+    <Screen>
       <Section>
         <Hint>
           Each cell is a case's mean score out of 100. Click a score to read the answers, or a run
@@ -163,55 +163,6 @@ export function Overview({ ctx }: { ctx: Ctx }) {
         </Table>
         {openRun ? <RunDetail ctx={ctx} run={openRun} regrade={regrade} /> : null}
       </Section>
-
-      <Section>
-        <Heading level={2}>Skill versions</Heading>
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Version</TableHead>
-              <TableHead>Name</TableHead>
-              <TableHead>Date</TableHead>
-              <TableHead>Hash</TableHead>
-              <TableHead numeric>Runs</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {state.versions.versions.map((v) => (
-              <TableRow key={v.version}>
-                <TableCell>{v.version}</TableCell>
-                <TableCell wrap>{v.name || <Text tone="muted">Unnamed</Text>}</TableCell>
-                <TableCell>
-                  <Text tabular>{v.date ?? '–'}</Text>
-                </TableCell>
-                <TableCell>
-                  <Text font="mono" tone="muted">
-                    {v.hash}
-                  </Text>
-                </TableCell>
-                <TableCell numeric>
-                  {runs.filter((r) => r.meta?.skillVersion === v.version).length}
-                </TableCell>
-              </TableRow>
-            ))}
-            {state.versions.current.changed ? (
-              <TableRow>
-                <TableCell>{state.versions.current.version}</TableCell>
-                <TableCell wrap>
-                  <Text tone="muted">Working tree, not run yet</Text>
-                </TableCell>
-                <TableCell>–</TableCell>
-                <TableCell>
-                  <Text font="mono" tone="muted">
-                    {state.versions.current.hash}
-                  </Text>
-                </TableCell>
-                <TableCell numeric>0</TableCell>
-              </TableRow>
-            ) : null}
-          </TableBody>
-        </Table>
-      </Section>
     </Screen>
   )
 }
@@ -241,9 +192,12 @@ function RunDetail({
           type="button"
           variant="outline"
           size="sm"
-          onClick={() => go('skill', { right: run })}
+          disabled={!view.meta?.skillVersion}
+          onClick={() =>
+            go('versions', { left: view.meta?.skillVersion ?? 'current', right: 'current' })
+          }
         >
-          Skill changes
+          Compare skill with now
         </Button>
         <Button type="button" variant="outline" size="sm" onClick={() => regrade(run)}>
           {state.jevKey ? 'Regrade' : 'Regrade with code checks'}

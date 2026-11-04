@@ -73,6 +73,27 @@ export interface CaseDraft {
   graders: Array<{ id: string | null; statement: string; weight: number }>
 }
 
+/** A skill file being edited: its text now, and the text it had on disk (null when new). */
+export interface FileDraft {
+  text: string
+  previous: string | null
+}
+
+/**
+ * Unsaved work on one skill, kept outside the skill so it survives a reload or
+ * a quit without touching its git history. Cases are keyed by id; a case not
+ * saved yet is under NEW_CASE_KEY.
+ */
+export interface SkillDrafts {
+  files: Record<string, FileDraft>
+  cases: Record<string, CaseDraft>
+  updatedAt: string | null
+}
+
+export const NEW_CASE_KEY = '+new'
+
+export const emptyDrafts = (): SkillDrafts => ({ files: {}, cases: {}, updatedAt: null })
+
 export interface LayerHome {
   skill: string
   bench: string
