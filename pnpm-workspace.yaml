@@ -7,3 +7,9 @@ allowBuilds:
 # Electron patch releases ship fixes for the embedded Chromium; take them at once.
 minimumReleaseAgeExclude:
   - electron
+# minimatch 7.0.0 to 11.0.0 can be made to do exponential work by a crafted
+# pattern (GHSA-g3hv-75wg-m249). electron-builder 26.18, the latest, still
+# pulls 9 and 10 through app-builder-lib and @electron/universal; the calls
+# they make (minimatch(), new Minimatch()) are unchanged in 11.
+overrides:
+  "minimatch@>=7.0.0 <11.0.1": ^11.0.1
