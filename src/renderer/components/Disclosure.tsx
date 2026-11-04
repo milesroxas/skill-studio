@@ -1,5 +1,6 @@
-/** A folded block: one line that opens to show more. */
+/** A folded block: one line with a chevron that opens to show more. */
 import { cva, type VariantProps } from 'class-variance-authority'
+import { ChevronRightIcon } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { cn } from '../lib/utils.ts'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from './ui/collapsible.tsx'
@@ -9,19 +10,32 @@ const disclosureVariants = cva('', {
     variant: {
       /** A line of text that opens in place. */
       plain: '',
-      /** On its own card, such as one file of a diff. */
-      card: 'rounded-lg bg-card px-3 py-2 shadow-raised',
+      /** On its own bordered block, such as one file of a diff. */
+      card: 'rounded-lg border bg-card px-3 py-1',
     },
   },
   defaultVariants: { variant: 'plain' },
 })
 
-const triggerVariants = cva('cursor-pointer text-left outline-none focus-visible:underline', {
+const triggerVariants = cva(
+  'group/disclosure inline-flex min-h-8 cursor-pointer items-center gap-1.5 rounded-xs text-left outline-none focus-visible:ring-2 focus-visible:ring-ring/50 pointer-coarse:min-h-11 [&>svg]:size-3.5 [&>svg]:shrink-0 [&>svg]:transition-transform [&>svg]:duration-150 [&>svg]:ease-out-strong data-[state=open]:[&>svg]:rotate-90',
+  {
+    variants: {
+      variant: {
+        plain:
+          'text-[13px] text-muted-foreground hover:text-foreground data-[state=open]:text-foreground',
+        card: 'w-full',
+      },
+    },
+    defaultVariants: { variant: 'plain' },
+  },
+)
+
+const contentVariants = cva('', {
   variants: {
     variant: {
-      plain:
-        'text-xs text-muted-foreground hover:text-foreground data-[state=open]:text-foreground',
-      card: '',
+      plain: 'pt-1 pb-2',
+      card: 'pb-2',
     },
   },
   defaultVariants: { variant: 'plain' },
@@ -44,8 +58,11 @@ export function Disclosure({
       defaultOpen={defaultOpen}
       className={cn(disclosureVariants({ variant }), className)}
     >
-      <CollapsibleTrigger className={triggerVariants({ variant })}>{summary}</CollapsibleTrigger>
-      <CollapsibleContent className="mt-2">{children}</CollapsibleContent>
+      <CollapsibleTrigger className={triggerVariants({ variant })}>
+        <ChevronRightIcon aria-hidden="true" />
+        {summary}
+      </CollapsibleTrigger>
+      <CollapsibleContent className={contentVariants({ variant })}>{children}</CollapsibleContent>
     </Collapsible>
   )
 }

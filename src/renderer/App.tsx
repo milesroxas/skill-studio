@@ -118,6 +118,9 @@ const APP_PLACES: Place[] = [
   { screen: 'settings', label: 'Settings', icon: SettingsIcon },
 ]
 
+/** Screens built as a workbench of columns that scroll on their own, not as one scrolling page. */
+const WORKBENCH = new Set(['edit', 'cases', 'blind', 'knobs'])
+
 const placeOf = (screen: string): Place | undefined =>
   [...SECTIONS.flatMap((s) => s.places), ...APP_PLACES].find((p) => p.screen === screen)
 const isSkillScreen = (screen: string): boolean =>
@@ -445,7 +448,7 @@ export function App() {
             </Button>
           ) : null}
         </TopBar>
-        <Pane>{body}</Pane>
+        <Pane layout={ctx && WORKBENCH.has(screen) ? 'flush' : 'page'}>{body}</Pane>
       </Workspace>
       {overlays}
     </AppFrame>

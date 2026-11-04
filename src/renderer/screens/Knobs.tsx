@@ -6,14 +6,16 @@ import { api } from '../api.ts'
 import { Disclosure } from '../components/Disclosure.tsx'
 import { CheckRow, Knob } from '../components/forms.tsx'
 import {
-  Fieldset,
+  Column,
+  ColumnBody,
+  ColumnFooter,
+  ColumnHeader,
+  ColumnSection,
+  ColumnTitle,
+  EmptyState,
   List,
-  Panel,
-  Section,
-  SectionHead,
-  Split,
   Stack,
-  Toolbar,
+  Workbench,
 } from '../components/layout.tsx'
 import { Delta, TotalChip } from '../components/Scores.tsx'
 import { Heading, Hint, Text } from '../components/text.tsx'
@@ -84,181 +86,200 @@ export function Knobs({ ctx }: { ctx: Ctx }) {
   const graded = outputs.filter((o) => o.result)
 
   return (
-    <Split layout="controls">
-      <Panel>
-        <Toolbar>
-          {dirty ? (
-            <>
-              <Button type="button" onClick={save}>
-                Save to {state.paths.bench}
-              </Button>
-              <Button type="button" variant="outline" onClick={() => setConfig(saved)}>
-                Discard changes
-              </Button>
-            </>
-          ) : (
-            <Hint>
-              Saved in {state.paths.bench}. Move a setting and every output rescores at once.
+    <Workbench layout="inspector">
+      <Column>
+        <ColumnHeader>
+          <ColumnTitle>
+            <Heading level={2} as="h2">
+              Rescored
+            </Heading>
+            <Hint as="span">
+              {dirty
+                ? 'Every graded output under these settings, with the change from the saved ones.'
+                : 'Every graded output under the saved settings. Move one and they rescore at once.'}
             </Hint>
+          </ColumnTitle>
+        </ColumnHeader>
+        <ColumnBody>
+          {graded.length ? (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Output</TableHead>
+                  {layers.map((l) => (
+                    <TableHead key={l} numeric>
+                      {capital(l)}
+                    </TableHead>
+                  ))}
+                  <TableHead numeric>Total</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {graded.map((o) => (
+                  <Row key={o.key} output={o} config={config} saved={saved} layers={layers} />
+                ))}
+              </TableBody>
+            </Table>
+          ) : (
+            <EmptyState size="compact" title="No graded outputs yet">
+              Run the skill with grading on, and every output shows here under these settings.
+            </EmptyState>
           )}
-        </Toolbar>
+        </ColumnBody>
+      </Column>
 
-        <Fieldset legend="Packs">
-          {scorers.map((pack) => (
-            <CheckRow
-              key={pack.id}
-              checked={config.packs.includes(pack.id)}
-              disabled={config.packs.length === 1 && config.packs.includes(pack.id)}
-              onCheckedChange={() => togglePack(pack.id)}
-            >
-              {capital(pack.id)}{' '}
-              <Text tone="muted" size="xs">
-                {pack.layers.map(capital).join(', ')}
-              </Text>
-            </CheckRow>
-          ))}
-        </Fieldset>
+      <Column kind="inspector">
+        <ColumnSection inset="inspector" title="Packs">
+          <Stack gap="md">
+            {scorers.map((pack) => (
+              <CheckRow
+                key={pack.id}
+                checked={config.packs.includes(pack.id)}
+                disabled={config.packs.length === 1 && config.packs.includes(pack.id)}
+                onCheckedChange={() => togglePack(pack.id)}
+                description={pack.layers.map(capital).join(', ')}
+              >
+                {capital(pack.id)}
+              </CheckRow>
+            ))}
+          </Stack>
+        </ColumnSection>
 
-        <Stack gap="md">
-          <Heading level={3}>Layer weights</Heading>
-          <Hint>Points per layer. A layer with no score drops out and the rest rescale.</Hint>
-          {layers.map((layer) => (
+        <ColumnSection
+          inset="inspector"
+          title="Layer weights"
+          hint="Points per layer. A layer with no score drops out and the rest rescale."
+        >
+          <Stack gap="lg">
+            {layers.map((layer) => (
+              <Knob
+                key={layer}
+                label={capital(layer)}
+                value={config.weights[layer] ?? 0}
+                min={0}
+                max={60}
+                step={1}
+                onChange={(v) => setWeight(layer, v)}
+              />
+            ))}
+          </Stack>
+        </ColumnSection>
+
+        <ColumnSection inset="inspector" title="Thresholds">
+          <Stack gap="lg">
             <Knob
-              key={layer}
-              label={capital(layer)}
-              value={config.weights[layer] ?? 0}
-              min={0}
-              max={60}
-              step={1}
-              onChange={(v) => setWeight(layer, v)}
+              label="Yes at"
+              about="A judge answer reads as yes at this probability or above."
+              value={config.yes}
+              min={0.3}
+              max={0.8}
+              step={0.05}
+              onChange={(v) => set({ yes: v })}
             />
-          ))}
-        </Stack>
-
-        <Stack gap="md">
-          <Heading level={3}>Thresholds</Heading>
-          <Knob
-            label="Yes at"
-            about="A judge answer reads as yes at this probability or above."
-            value={config.yes}
-            min={0.3}
-            max={0.8}
-            step={0.05}
-            onChange={(v) => set({ yes: v })}
-          />
-          <Knob
-            label="Unsure below"
-            about="Verdicts less certain than this are listed as unsure."
-            value={config.sure}
-            min={0.3}
-            max={0.9}
-            step={0.05}
-            onChange={(v) => set({ sure: v })}
-          />
-          <Knob
-            label="Good at"
-            about="Insights counts a layer score this high or higher as good."
-            value={config.agreeAt}
-            min={40}
-            max={95}
-            step={5}
-            onChange={(v) => set({ agreeAt: v })}
-          />
-        </Stack>
+            <Knob
+              label="Unsure below"
+              about="Verdicts less certain than this are listed as unsure."
+              value={config.sure}
+              min={0.3}
+              max={0.9}
+              step={0.05}
+              onChange={(v) => set({ sure: v })}
+            />
+            <Knob
+              label="Good at"
+              about="Agreement counts a layer score this high or higher as good."
+              value={config.agreeAt}
+              min={40}
+              max={95}
+              step={5}
+              onChange={(v) => set({ agreeAt: v })}
+            />
+          </Stack>
+        </ColumnSection>
 
         {knobs.length ? (
-          <Stack gap="md">
-            <Heading level={3}>Judge pack settings</Heading>
-            {knobs.map(({ key, value, known }) =>
-              typeof value === 'number' ? (
-                <Knob
-                  key={key}
-                  label={humanize(key)}
-                  title={key}
-                  value={value}
-                  {...rangeOf(typeof known?.defaults === 'number' ? known.defaults : value)}
-                  onChange={(v) => set({ [key]: v })}
-                />
-              ) : (
-                <Stack key={key} gap="md">
-                  <Text tone="muted" size="xs" title={key}>
-                    {known && known.key !== known.pack
-                      ? `${capital(known.pack)}: ${humanize(key)}`
-                      : humanize(key)}
-                  </Text>
-                  {Object.entries(value).map(([sub, v]) => {
-                    const base =
-                      known && typeof known.defaults === 'object' ? known.defaults[sub] : undefined
-                    return (
-                      <Knob
-                        key={sub}
-                        label={humanize(sub)}
-                        title={`${key}.${sub}`}
-                        value={v}
-                        {...rangeOf(base ?? v)}
-                        onChange={(n) => set({ [key]: { ...value, [sub]: n } })}
-                      />
-                    )
-                  })}
-                </Stack>
-              ),
-            )}
-          </Stack>
+          <ColumnSection inset="inspector" title="Judge pack settings">
+            <Stack gap="lg">
+              {knobs.map(({ key, value, known }) =>
+                typeof value === 'number' ? (
+                  <Knob
+                    key={key}
+                    label={humanize(key)}
+                    title={key}
+                    value={value}
+                    {...rangeOf(typeof known?.defaults === 'number' ? known.defaults : value)}
+                    onChange={(v) => set({ [key]: v })}
+                  />
+                ) : (
+                  <Stack key={key} gap="lg">
+                    <Text tone="muted" size="xs" weight="medium" title={key}>
+                      {known && known.key !== known.pack
+                        ? `${capital(known.pack)}: ${humanize(key)}`
+                        : humanize(key)}
+                    </Text>
+                    {Object.entries(value).map(([sub, v]) => {
+                      const base =
+                        known && typeof known.defaults === 'object'
+                          ? known.defaults[sub]
+                          : undefined
+                      return (
+                        <Knob
+                          key={sub}
+                          label={humanize(sub)}
+                          title={`${key}.${sub}`}
+                          value={v}
+                          {...rangeOf(base ?? v)}
+                          onChange={(n) => set({ [key]: { ...value, [sub]: n } })}
+                        />
+                      )
+                    })}
+                  </Stack>
+                ),
+              )}
+            </Stack>
+          </ColumnSection>
         ) : null}
 
-        <Disclosure
-          summary={`Rules: ${
-            config.rules
-              ? `${config.rules.length} chosen in bench.json`
-              : `${state.rules.length} read from SKILL.md bullets`
-          }`}
-        >
-          <Stack>
-            {config.rules ? null : <Hint>Set "rules" in bench.json to choose them by hand.</Hint>}
-            <List variant="number" size="xs">
-              {state.rules.map((r) => (
-                <li key={r.id}>
-                  {r.text} <Text tone="muted">({r.section})</Text>
-                </li>
-              ))}
-            </List>
-          </Stack>
-        </Disclosure>
-      </Panel>
-
-      <Section>
-        <SectionHead>
-          <Heading level={2}>Rescored</Heading>
-          <Hint>
-            {dirty
-              ? 'Every graded output under these knobs. The change from the saved knobs sits beside each total.'
-              : 'Every graded output under the saved knobs.'}
-          </Hint>
-        </SectionHead>
-        {graded.length ? (
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Output</TableHead>
-                {layers.map((l) => (
-                  <TableHead key={l} numeric>
-                    {capital(l)}
-                  </TableHead>
+        <ColumnSection inset="inspector">
+          <Disclosure
+            summary={`Rules: ${
+              config.rules
+                ? `${config.rules.length} chosen in bench.json`
+                : `${state.rules.length} read from SKILL.md bullets`
+            }`}
+          >
+            <Stack>
+              {config.rules ? null : <Hint>Set "rules" in bench.json to choose them by hand.</Hint>}
+              <List variant="number" size="xs">
+                {state.rules.map((r) => (
+                  <li key={r.id}>
+                    {r.text} <Text tone="muted">({r.section})</Text>
+                  </li>
                 ))}
-                <TableHead numeric>Total</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {graded.map((o) => (
-                <Row key={o.key} output={o} config={config} saved={saved} layers={layers} />
-              ))}
-            </TableBody>
-          </Table>
-        ) : (
-          <Hint>No graded outputs yet.</Hint>
-        )}
-      </Section>
-    </Split>
+              </List>
+            </Stack>
+          </Disclosure>
+        </ColumnSection>
+
+        <ColumnFooter inset="inspector">
+          <Text tone="muted" size="xs" truncate className="min-w-0 flex-1">
+            {dirty ? 'Unsaved changes' : `Saved in ${state.paths.bench}`}
+          </Text>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            disabled={!dirty}
+            onClick={() => setConfig(saved)}
+          >
+            Discard
+          </Button>
+          <Button type="button" size="sm" disabled={!dirty} onClick={save}>
+            Save
+          </Button>
+        </ColumnFooter>
+      </Column>
+    </Workbench>
   )
 }
 

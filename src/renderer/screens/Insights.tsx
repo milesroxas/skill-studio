@@ -94,7 +94,7 @@ export function Insights({ ctx }: { ctx: Ctx }) {
     )
 
   return (
-    <Screen width="narrow">
+    <Screen width="reading">
       {marked ? (
         <Section>
           <SectionHead>

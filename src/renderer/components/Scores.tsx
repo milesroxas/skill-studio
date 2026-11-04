@@ -73,8 +73,13 @@ export function Layers({
   layers: string[]
   other?: Scored | null
 }) {
+  // Every layer on one row, or two even rows when there are many: never a lone layer on a row of its own.
+  const perRow = layers.length > 6 ? Math.ceil(layers.length / 2) : layers.length
   return (
-    <div className="grid grid-cols-[repeat(auto-fit,minmax(96px,1fr))] gap-x-4 gap-y-3 border-b px-4 py-3 text-xs text-muted-foreground">
+    <div
+      className="grid gap-x-4 gap-y-3 border-b px-4 py-3 text-xs text-muted-foreground"
+      style={{ gridTemplateColumns: `repeat(${perRow}, minmax(0, 1fr))` }}
+    >
       {layers.map((layer) => {
         const value = scored.scores[layer] ?? null
         const o = other?.scores[layer] ?? null

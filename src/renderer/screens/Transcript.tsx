@@ -6,6 +6,7 @@ import { EmptyState, Screen, Section, Toolbar } from '../components/layout.tsx'
 import { FilterGroup } from '../components/Segmented.tsx'
 import { SelectBox } from '../components/SelectBox.tsx'
 import { Code, Hint, Text } from '../components/text.tsx'
+import { Button } from '../components/ui/button.tsx'
 import type { Ctx } from '../ctx.ts'
 import { useFetch, useToggleSet } from '../hooks.ts'
 import { capital, money, runLabel, runStamp, sampleTail } from '../model.ts'
@@ -34,32 +35,46 @@ export function Transcript({ ctx }: { ctx: Ctx }) {
 
   return (
     <Screen>
-      <Toolbar>
-        <SelectBox
-          aria-label="Sample"
-          width="wide"
-          value={current ? current.key : ''}
-          placeholder="Pick a sample"
-          onChange={(key) => {
-            const o = withTranscript.find((x) => x.key === key)
-            if (o) go('transcript', { run: o.run.name, sample: o.sample.name })
-          }}
-          options={withTranscript.map((o) => ({
-            value: o.key,
-            label: `${runLabel(o.run)} · ${o.caseId}${sampleTail(o)} · ${runStamp(o.run)}`,
-          }))}
-        />
-        <FilterGroup
-          aria-label="Show steps"
-          values={kinds}
-          onToggle={toggle}
-          options={KINDS.map((k) => ({ value: k, label: capital(k) }))}
-        />
-      </Toolbar>
+      {withTranscript.length ? (
+        <Toolbar>
+          <SelectBox
+            aria-label="Sample"
+            width="wide"
+            value={current ? current.key : ''}
+            placeholder="Pick a sample"
+            onChange={(key) => {
+              const o = withTranscript.find((x) => x.key === key)
+              if (o) go('transcript', { run: o.run.name, sample: o.sample.name })
+            }}
+            options={withTranscript.map((o) => ({
+              value: o.key,
+              label: `${runLabel(o.run)} · ${o.caseId}${sampleTail(o)} · ${runStamp(o.run)}`,
+            }))}
+          />
+          {current ? (
+            <FilterGroup
+              aria-label="Show steps"
+              values={kinds}
+              onToggle={toggle}
+              options={KINDS.map((k) => ({ value: k, label: capital(k) }))}
+            />
+          ) : null}
+        </Toolbar>
+      ) : null}
       {!current ? (
-        <EmptyState title={withTranscript.length ? 'Pick a sample' : 'No transcripts yet'}>
+        <EmptyState
+          title={withTranscript.length ? 'Pick a sample' : 'No transcripts yet'}
+          actions={
+            withTranscript.length ? null : (
+              <Button type="button" variant="outline" onClick={() => go('generate')}>
+                Start a run
+              </Button>
+            )
+          }
+        >
           A transcript lists every step an agent took while writing one sample: what it read, what
           it ran and how long each took.
+          {withTranscript.length ? '' : ' Every new run records one per sample.'}
         </EmptyState>
       ) : (
         <Section>

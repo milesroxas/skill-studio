@@ -4,9 +4,9 @@
  */
 import { useState } from 'react'
 import { api, type Settings } from '../api.ts'
-import { Field, Panel, Split, Toolbar } from '../components/layout.tsx'
-import { Code, Heading, Hint, Link } from '../components/text.tsx'
-import { Badge } from '../components/ui/badge.tsx'
+import { Field, FormSection, Screen, Toolbar } from '../components/layout.tsx'
+import { Status } from '../components/Status.tsx'
+import { Code, Hint, Link } from '../components/text.tsx'
 import { Button } from '../components/ui/button.tsx'
 import { Input } from '../components/ui/input.tsx'
 import { Label } from '../components/ui/label.tsx'
@@ -41,14 +41,23 @@ export function SettingsScreen({ toast, onSaved }: Props) {
   if (error) return <Hint>{error}</Hint>
   if (!data) return <Hint>Loading…</Hint>
   return (
-    <Split layout="single">
-      <Panel gap="md">
-        <Heading level={2}>Jev key</Heading>
-        <Hint>
-          Jev, the judge behind every pack, is a <Link href="https://typesafe.ai">TypeSafe</Link>{' '}
-          model. Without a key, grading runs code checks only and every judged layer stays empty.
-        </Hint>
-        <Badge variant={data.jevKey ? 'success' : 'warning'}>{describe(data)}</Badge>
+    <Screen width="form">
+      <FormSection
+        title="Jev key"
+        hint={
+          <>
+            Jev, the judge behind every pack, is a <Link href="https://typesafe.ai">TypeSafe</Link>{' '}
+            model. Without a key, grading runs code checks only and every judged layer stays empty.
+          </>
+        }
+      >
+        <Status tone={data.jevKey ? 'success' : 'warning'} detail={describe(data)}>
+          {data.source === 'environment'
+            ? 'From the environment'
+            : data.source === 'stored'
+              ? 'In the keychain'
+              : 'No key'}
+        </Status>
         {data.canStore ? (
           <form
             className="contents"
@@ -70,22 +79,22 @@ export function SettingsScreen({ toast, onSaved }: Props) {
                 placeholder="ts_…"
                 onChange={(event) => setValue(event.target.value)}
               />
-              <Toolbar>
-                <Button type="submit" disabled={busy || !value.trim()}>
-                  Save
-                </Button>
-                {data.source === 'stored' ? (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    disabled={busy}
-                    onClick={() => void save('')}
-                  >
-                    Remove the stored key
-                  </Button>
-                ) : null}
-              </Toolbar>
             </Field>
+            <Toolbar>
+              <Button type="submit" disabled={busy || !value.trim()}>
+                Save
+              </Button>
+              {data.source === 'stored' ? (
+                <Button
+                  type="button"
+                  variant="destructive-ghost"
+                  disabled={busy}
+                  onClick={() => void save('')}
+                >
+                  Remove the stored key
+                </Button>
+              ) : null}
+            </Toolbar>
           </form>
         ) : (
           <Hint>
@@ -93,14 +102,14 @@ export function SettingsScreen({ toast, onSaved }: Props) {
             (or in <Code>.env</Code> when running from a checkout) and start it again.
           </Hint>
         )}
-      </Panel>
-    </Split>
+      </FormSection>
+    </Screen>
   )
 }
 
 function describe(settings: Settings): string {
   if (settings.source === 'environment')
-    return 'Key set in the environment; it wins over a stored one.'
-  if (settings.source === 'stored') return 'Key stored in the system keychain.'
-  return 'No key: grading uses code checks only.'
+    return 'Set in the environment, so it wins over a stored one.'
+  if (settings.source === 'stored') return 'Stored in the system keychain.'
+  return 'Grading uses code checks only.'
 }

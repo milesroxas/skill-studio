@@ -1,9 +1,10 @@
 /** Runs against cases: totals per cell, cost and time per run, versions, cases. */
 
 import { mean } from '@domain/stats.ts'
-import { useState } from 'react'
+import { ChevronRightIcon } from 'lucide-react'
+import { Fragment, useState } from 'react'
 import { api } from '../api.ts'
-import { EmptyState, Panel, Screen, Section, Spacer, Toolbar } from '../components/layout.tsx'
+import { EmptyState, Screen, Section, Spacer, Stack, Toolbar } from '../components/layout.tsx'
 import { TotalChip } from '../components/Scores.tsx'
 import { Heading, Hint, Text, VisuallyHidden } from '../components/text.tsx'
 import { Button } from '../components/ui/button.tsx'
@@ -40,6 +41,8 @@ export function Overview({ ctx }: { ctx: Ctx }) {
     list.reduce((s, o) => s + (scoreOf(o, config)?.flags.length ?? 0), 0)
   const showMean = caseIds.length > 1
   const showFlags = runs.some((run) => flagsOf(byRun.get(run.name) ?? []) > 0)
+  // Run, one per case, mean, cost, time, flags and the spare-width column: what an opened run spans.
+  const columns = 1 + caseIds.length + (showMean ? 1 : 0) + 2 + (showFlags ? 1 : 0) + 1
 
   const regrade = async (run: string) => {
     try {
@@ -84,7 +87,7 @@ export function Overview({ ctx }: { ctx: Ctx }) {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Run</TableHead>
+              <TableHead wide>Run</TableHead>
               {caseIds.map((c) => (
                 <TableHead key={c} numeric title={caseTitle(state, c)}>
                   {c}
@@ -94,6 +97,7 @@ export function Overview({ ctx }: { ctx: Ctx }) {
               <TableHead numeric>Cost</TableHead>
               <TableHead numeric>Time</TableHead>
               {showFlags ? <TableHead numeric>Flags</TableHead> : null}
+              <TableHead filler />
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -103,65 +107,82 @@ export function Overview({ ctx }: { ctx: Ctx }) {
               const seconds = run.meta?.samples.reduce((s, x) => s + x.seconds, 0) ?? 0
               const open = openRun === run.name
               return (
-                <TableRow key={run.name}>
-                  <TableCell wrap>
-                    <Button
-                      type="button"
-                      variant="link"
-                      size="inline"
-                      aria-expanded={open}
-                      title={run.name}
-                      onClick={() => setOpenRun(open ? null : run.name)}
-                    >
-                      {runLabel(run)}
-                    </Button>
-                    <Text block tone="muted" size="xs">
-                      {runStamp(run)}
-                      {run.meta?.note ? ` · ${run.meta.note}` : ''}
-                    </Text>
-                  </TableCell>
-                  {caseIds.map((c) => {
-                    const cell = mine.filter((o) => o.caseId === c)
-                    if (!cell.length)
+                <Fragment key={run.name}>
+                  <TableRow interactive>
+                    <TableCell wrap wide>
+                      <Button
+                        type="button"
+                        variant="link"
+                        size="inline"
+                        aria-expanded={open}
+                        title={`${run.name}: ${open ? 'hide' : 'show'} its samples`}
+                        onClick={() => setOpenRun(open ? null : run.name)}
+                      >
+                        <ChevronRightIcon
+                          aria-hidden="true"
+                          className={
+                            open ? 'rotate-90 transition-transform' : 'transition-transform'
+                          }
+                        />
+                        {runLabel(run)}
+                      </Button>
+                      <Text block tone="muted" size="xs">
+                        {runStamp(run)}
+                        {run.meta?.note ? ` · ${run.meta.note}` : ''}
+                      </Text>
+                    </TableCell>
+                    {caseIds.map((c) => {
+                      const cell = mine.filter((o) => o.caseId === c)
+                      if (!cell.length)
+                        return (
+                          <TableCell key={c} numeric>
+                            <Text tone="muted">–</Text>
+                          </TableCell>
+                        )
+                      const total = mean(totalsOf(cell))
                       return (
                         <TableCell key={c} numeric>
-                          <Text tone="muted">–</Text>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="cell"
+                            title={`Read ${c} from this run`}
+                            onClick={() => go('compare', { a: cell[0].key })}
+                          >
+                            {total === null ? (
+                              <Text tone="muted">Not graded</Text>
+                            ) : (
+                              <TotalChip total={Math.round(total)} />
+                            )}
+                            {cell.length > 1 ? (
+                              <Text tone="muted" size="xs">
+                                ×{cell.length}
+                              </Text>
+                            ) : null}
+                          </Button>
                         </TableCell>
                       )
-                    const total = mean(totalsOf(cell))
-                    return (
-                      <TableCell key={c} numeric>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="cell"
-                          title={`Read ${c} from this run`}
-                          onClick={() => go('compare', { a: cell[0].key })}
-                        >
-                          {total === null ? (
-                            <Text tone="muted">Not graded</Text>
-                          ) : (
-                            <TotalChip total={Math.round(total)} />
-                          )}
-                          {cell.length > 1 ? (
-                            <Text tone="muted" size="xs">
-                              ×{cell.length}
-                            </Text>
-                          ) : null}
-                        </Button>
+                    })}
+                    {showMean ? (
+                      <TableCell numeric>{fmt(mean(totalsOf(mine)), 0)}</TableCell>
+                    ) : null}
+                    <TableCell numeric>{money(cost)}</TableCell>
+                    <TableCell numeric>{seconds ? `${seconds}s` : '–'}</TableCell>
+                    {showFlags ? <TableCell numeric>{flagsOf(mine) || ''}</TableCell> : null}
+                    <TableCell filler />
+                  </TableRow>
+                  {open ? (
+                    <TableRow variant="detail">
+                      <TableCell colSpan={columns}>
+                        <RunDetail ctx={ctx} run={run.name} regrade={regrade} />
                       </TableCell>
-                    )
-                  })}
-                  {showMean ? <TableCell numeric>{fmt(mean(totalsOf(mine)), 0)}</TableCell> : null}
-                  <TableCell numeric>{money(cost)}</TableCell>
-                  <TableCell numeric>{seconds ? `${seconds}s` : '–'}</TableCell>
-                  {showFlags ? <TableCell numeric>{flagsOf(mine) || ''}</TableCell> : null}
-                </TableRow>
+                    </TableRow>
+                  ) : null}
+                </Fragment>
               )
             })}
           </TableBody>
         </Table>
-        {openRun ? <RunDetail ctx={ctx} run={openRun} regrade={regrade} /> : null}
       </Section>
     </Screen>
   )
@@ -181,7 +202,7 @@ function RunDetail({
   if (!view) return null
   const mine = outputs.filter((o) => o.run.name === run)
   return (
-    <Panel gap="sm">
+    <Stack gap="md">
       <Toolbar>
         <Heading level={3}>{versionName(view)}</Heading>
         <Text font="mono" tone="muted" size="xs">
@@ -272,6 +293,6 @@ function RunDetail({
           })}
         </TableBody>
       </Table>
-    </Panel>
+    </Stack>
   )
 }

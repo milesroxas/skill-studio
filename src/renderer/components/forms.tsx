@@ -12,16 +12,26 @@ interface CheckRowProps {
   onCheckedChange: (checked: boolean) => void
   disabled?: boolean
   children: ReactNode
+  /** A second, quieter line under the label. */
+  description?: ReactNode
   size?: 'default' | 'sm'
 }
 
-/** A checkbox and its label on one line; the whole line toggles it. */
-export function CheckRow({ checked, onCheckedChange, disabled, children, size }: CheckRowProps) {
+/** A checkbox and its label; the whole row toggles it. */
+export function CheckRow({
+  checked,
+  onCheckedChange,
+  disabled,
+  children,
+  description,
+  size,
+}: CheckRowProps) {
   return (
     // biome-ignore lint/a11y/noLabelWithoutControl: the Radix checkbox inside is the control
     <label
       className={cn(
-        'flex min-h-6 cursor-pointer items-center gap-2 pointer-coarse:min-h-11',
+        'flex min-h-6 cursor-pointer gap-2.5 pointer-coarse:min-h-11',
+        description ? 'items-start' : 'items-center',
         size === 'sm' ? 'text-xs' : 'text-sm',
         disabled && 'cursor-default opacity-60',
       )}
@@ -29,9 +39,17 @@ export function CheckRow({ checked, onCheckedChange, disabled, children, size }:
       <Checkbox
         checked={checked}
         disabled={disabled}
+        className={description ? 'mt-0.5' : undefined}
         onCheckedChange={(v) => onCheckedChange(v === true)}
       />
-      <span>{children}</span>
+      <span className="flex min-w-0 flex-col gap-0.5">
+        <span>{children}</span>
+        {description ? (
+          <Text tone="muted" size="xs">
+            {description}
+          </Text>
+        ) : null}
+      </span>
     </label>
   )
 }
@@ -40,8 +58,10 @@ const numberVariants = cva('tabular-nums', {
   variants: {
     width: {
       default: 'w-19',
-      /** One digit: a weight from 1 to 5. */
+      /** One or two digits: a weight from 1 to 5. */
       narrow: 'w-14',
+      /** A value beside a slider. */
+      value: 'w-16 text-right',
       full: 'w-full',
     },
   },
@@ -76,14 +96,28 @@ interface KnobProps {
   onChange: (value: number) => void
 }
 
-/** A setting with a slider and the exact number beside it. */
+/**
+ * A setting: its label and exact value on one line, the slider across the full
+ * width under them, and what it does under that.
+ */
 export function Knob({ label, about, title, value, min, max, step, onChange }: KnobProps) {
   return (
-    <div
-      className="grid grid-cols-[96px_minmax(0,1fr)_64px] items-center gap-x-3 gap-y-0.5 text-[13px] md:grid-cols-[104px_minmax(0,1fr)_76px]"
-      title={title}
-    >
-      <span>{label}</span>
+    <div className="flex flex-col gap-2" title={title}>
+      <div className="flex items-center justify-between gap-3">
+        <span className="text-[13px]">{label}</span>
+        <NumberInput
+          aria-label={`${label}, exact`}
+          min={min}
+          step={step}
+          value={value}
+          size="sm"
+          width="value"
+          onChange={(e) => {
+            const next = e.target.valueAsNumber
+            if (!Number.isNaN(next)) onChange(next)
+          }}
+        />
+      </div>
       <Slider
         aria-label={label}
         min={min}
@@ -92,16 +126,8 @@ export function Knob({ label, about, title, value, min, max, step, onChange }: K
         value={[value]}
         onValueChange={([v]) => onChange(v)}
       />
-      <NumberInput
-        aria-label={`${label}, exact`}
-        min={min}
-        step={step}
-        value={value}
-        width="full"
-        onChange={(e) => onChange(Number(e.target.value))}
-      />
       {about ? (
-        <Text as="span" tone="muted" size="xs" className="col-span-full -mt-0.5">
+        <Text as="span" tone="muted" size="xs">
           {about}
         </Text>
       ) : null}

@@ -39,9 +39,14 @@ function TableFooter({ className, ...props }: React.ComponentProps<'tfoot'>) {
 }
 
 const tableRowVariants = cva(
-  'group border-b transition-colors hover:bg-muted/50 has-aria-expanded:bg-muted/50 data-[state=selected]:bg-muted',
+  'group border-b transition-colors has-aria-expanded:bg-muted/50 data-[state=selected]:bg-muted',
   {
     variants: {
+      /** A row that opens something: it lights under the pointer. Plain rows stay still. */
+      interactive: {
+        true: 'hover:bg-muted/50',
+        false: '',
+      },
       align: {
         middle: '',
         /** Rows whose first cell wraps to two lines. */
@@ -50,10 +55,12 @@ const tableRowVariants = cva(
       /** A row the reader must notice: a sample that failed, a check that broke. */
       variant: {
         default: '',
-        destructive: 'bg-destructive/10 hover:bg-destructive/15 dark:bg-destructive/20',
+        destructive: 'bg-destructive/10 dark:bg-destructive/20',
+        /** The detail opened under a row: one cell across the table, padded, on the sunken surface. */
+        detail: 'bg-muted/40 [&>td]:px-4 [&>td]:py-4 [&>td]:whitespace-normal',
       },
     },
-    defaultVariants: { variant: 'default', align: 'middle' },
+    defaultVariants: { variant: 'default', align: 'middle', interactive: false },
   },
 )
 
@@ -61,13 +68,14 @@ function TableRow({
   className,
   variant,
   align,
+  interactive,
   ...props
 }: React.ComponentProps<'tr'> & VariantProps<typeof tableRowVariants>) {
   return (
     <tr
       data-slot="table-row"
       data-variant={variant}
-      className={cn(tableRowVariants({ variant, align }), className)}
+      className={cn(tableRowVariants({ variant, align, interactive }), className)}
       {...props}
     />
   )
@@ -95,8 +103,13 @@ const tableCellVariants = cva('', {
       true: 'max-lg:hidden',
       false: '',
     },
+    /** An empty last column that takes the spare width, so the others sit together on the left. */
+    filler: {
+      true: 'w-full p-0',
+      false: '',
+    },
   },
-  defaultVariants: { numeric: false, wrap: false, wide: false, optional: false },
+  defaultVariants: { numeric: false, wrap: false, wide: false, optional: false, filler: false },
 })
 
 function TableHead({
@@ -105,6 +118,7 @@ function TableHead({
   wrap,
   wide,
   optional,
+  filler,
   ...props
 }: React.ComponentProps<'th'> & VariantProps<typeof tableCellVariants>) {
   return (
@@ -112,7 +126,7 @@ function TableHead({
       data-slot="table-head"
       className={cn(
         'h-10 px-2 text-left align-middle text-xs font-medium whitespace-nowrap text-muted-foreground first:pl-0 last:pr-0 [&:has([role=checkbox])]:pr-0 [&>[role=checkbox]]:translate-y-[2px]',
-        tableCellVariants({ numeric, wrap, wide, optional }),
+        tableCellVariants({ numeric, wrap, wide, optional, filler }),
         className,
       )}
       {...props}
@@ -126,6 +140,7 @@ function TableCell({
   wrap,
   wide,
   optional,
+  filler,
   ...props
 }: React.ComponentProps<'td'> & VariantProps<typeof tableCellVariants>) {
   return (
@@ -133,7 +148,7 @@ function TableCell({
       data-slot="table-cell"
       className={cn(
         'p-2 align-middle whitespace-nowrap first:pl-0 last:pr-0 [&:has([role=checkbox])]:pr-0 [&>[role=checkbox]]:translate-y-[2px]',
-        tableCellVariants({ numeric, wrap, wide, optional }),
+        tableCellVariants({ numeric, wrap, wide, optional, filler }),
         className,
       )}
       {...props}

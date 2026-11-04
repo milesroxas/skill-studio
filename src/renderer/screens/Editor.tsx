@@ -16,25 +16,28 @@ import {
   type Snippet,
 } from '@domain/templates.ts'
 import { metaText, readFrontMatter } from '@domain/text.ts'
+import { PlusIcon } from 'lucide-react'
 import { useRef, useState } from 'react'
 import { api } from '../api.ts'
 import { DiffLines } from '../components/DiffLines.tsx'
 import { DraftNote } from '../components/DraftNote.tsx'
 import {
-  ActionBar,
-  Field,
+  Column,
+  ColumnBody,
+  ColumnHeader,
+  ColumnSection,
+  ColumnTitle,
+  EmptyState,
   List,
-  Panel,
   PlainList,
-  Spacer,
-  Split,
   Stack,
   Toolbar,
+  Workbench,
 } from '../components/layout.tsx'
 import { NavButton } from '../components/NavButton.tsx'
 import { GuideBox, GuideList, Starter } from '../components/starters.tsx'
 import { TextArea } from '../components/TextArea.tsx'
-import { Heading, Hint, Text } from '../components/text.tsx'
+import { Hint, Text } from '../components/text.tsx'
 import { Alert, AlertDescription, AlertTitle } from '../components/ui/alert.tsx'
 import { Button } from '../components/ui/button.tsx'
 import { Input } from '../components/ui/input.tsx'
@@ -169,134 +172,23 @@ export function Editor({ ctx }: { ctx: Ctx }) {
   const diff = showDiff ? lineDiff(saved ?? '', text) : []
   const blank = isSkill && isScaffold(text)
 
-  if (disk.error) return <Hint>{disk.error}</Hint>
-  if (!disk.data || drafts.status === 'loading') return <Hint>Loading…</Hint>
+  if (disk.error)
+    return <EmptyState title="Could not read the skill's files">{disk.error}</EmptyState>
+  if (!disk.data || drafts.status === 'loading') return <EmptyState>Loading…</EmptyState>
 
   const missing = isSkill ? ['name', 'description'].filter((k) => !metaText(meta, k)) : []
   const current = state.versions.current
 
   return (
-    <Split layout="editor">
-      <Stack gap="md">
-        <ActionBar edge="top">
-          <Text font="mono">{file}</Text>
-          <DraftNote
-            drafts={drafts}
-            dirty={isDirty(file)}
-            saved={saved === null ? 'new, not on disk yet' : 'saved'}
-          />
-          <Spacer />
-          <Toggle variant="outline" size="sm" pressed={showDiff} onPressedChange={setShowDiff}>
-            Compare with saved
-          </Toggle>
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            disabled={!draft}
-            onClick={async () => {
-              if (
-                await confirm({
-                  title: `Discard your changes to ${file}?`,
-                  description: 'The draft goes and the file stays as it is on disk.',
-                  action: 'Discard',
-                  destructive: true,
-                })
-              )
-                drop(file)
-            }}
-          >
-            Discard
-          </Button>
-          <Button
-            type="button"
-            size="sm"
-            disabled={!isDirty(file) || busy || stale}
-            onClick={save}
-            title={shortcut('S')}
-          >
-            {busy ? 'Saving…' : 'Save'}
-          </Button>
-        </ActionBar>
-        {stale ? (
-          <Alert variant="warning">
-            <AlertTitle>{file} changed on disk since this draft began</AlertTitle>
-            <AlertDescription>
-              <p>Keep your draft to save over the file, or take the file as it is now.</p>
-              <Toolbar>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => draft && drafts.setFile(file, { ...draft, previous: saved })}
-                >
-                  Keep my draft
-                </Button>
-                <Button type="button" variant="ghost" size="sm" onClick={() => drop(file)}>
-                  Use the file on disk
-                </Button>
-              </Toolbar>
-            </AlertDescription>
-          </Alert>
-        ) : null}
-        {showDiff ? (
-          diff.length ? (
-            <DiffLines lines={diff} />
-          ) : (
-            <Hint>No changes from the file on disk.</Hint>
-          )
-        ) : (
-          <>
-            {blank ? (
-              <Starter
-                aria-label="Start from a template"
-                title="Start from a template"
-                hint="Each one is a small, finished skill in the shape the judge grades: one rule per bullet, with its why. Replace the rules with yours."
-              >
-                <Toolbar>
-                  {EXAMPLE_KINDS.map((t) => (
-                    <Button
-                      key={t.id}
-                      type="button"
-                      variant="outline"
-                      title={t.summary}
-                      onClick={() => startFrom(t)}
-                    >
-                      {t.label}
-                    </Button>
-                  ))}
-                </Toolbar>
-              </Starter>
-            ) : null}
-            <TextArea
-              ref={area}
-              variant="code"
-              aria-label={`Contents of ${file}`}
-              spellCheck={false}
-              placeholder={
-                isSkill
-                  ? 'Write for the agent that loads this skill. One rule per bullet, with its why.'
-                  : 'Longer material SKILL.md points to. Say first when the agent should read it.'
-              }
-              value={text}
-              onChange={(e) => edit(e.target.value)}
-              onKeyDown={onKey}
-            />
-          </>
-        )}
-      </Stack>
-
-      <Panel sticky>
-        <aside className="contents">
-          <Field>
-            <Heading level={3} as="span">
-              Files
-            </Heading>
-            <PlainList>
+    <Workbench>
+      <Column kind="list">
+        <nav aria-label="Skill files" className="contents">
+          <ColumnSection inset="list" title="Files">
+            <PlainList gap="none" bleed>
               {paths.map((path) => (
                 <li key={path}>
                   <NavButton current={path === file} onClick={() => go('edit', { file: path })}>
-                    <Text font="mono" wrap="anywhere">
+                    <Text font="mono" size="xs" wrap="anywhere">
                       {path}
                       {isDirty(path) ? <Text tone="warning"> •</Text> : null}
                     </Text>
@@ -311,7 +203,7 @@ export function Editor({ ctx }: { ctx: Ctx }) {
                 create()
               }}
             >
-              <Toolbar>
+              <Toolbar wrap={false}>
                 <Input
                   aria-label="New reference file"
                   placeholder="references/name.md"
@@ -321,49 +213,41 @@ export function Editor({ ctx }: { ctx: Ctx }) {
                   enterKeyHint="done"
                   value={newName}
                   width="grow"
+                  size="sm"
+                  font="mono"
                   onChange={(e) => setNewName(e.target.value)}
                 />
-                <Button type="submit" variant="outline" disabled={!newName.trim()}>
-                  Add
+                <Button
+                  type="submit"
+                  variant="outline"
+                  size="icon-sm"
+                  aria-label="Add reference file"
+                  title="Add reference file"
+                  disabled={!newName.trim()}
+                >
+                  <PlusIcon aria-hidden="true" />
                 </Button>
               </Toolbar>
             </form>
-            {!isSkill ? (
-              <Toolbar>
-                <Button type="button" variant="destructive-ghost" onClick={remove}>
-                  {saved === null ? 'Discard new file' : 'Delete file'}
-                </Button>
-              </Toolbar>
-            ) : null}
-          </Field>
+          </ColumnSection>
+        </nav>
 
-          {missing.length ? (
-            <Alert variant="warning">
-              <AlertTitle>Front matter needs {missing.join(' and ')}</AlertTitle>
-              <AlertDescription>
-                Agents find a skill by its name and description, between the --- lines at the top.
-              </AlertDescription>
-            </Alert>
-          ) : null}
-
-          <Field>
-            <Heading level={3} as="span">
-              Insert
-            </Heading>
-            <Toolbar>
-              {SNIPPETS.map((s) => (
-                <Button
-                  key={s.id}
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => insert(s)}
-                >
-                  {s.label}
-                </Button>
-              ))}
-            </Toolbar>
-            <GuideBox summary="How to write a rule the agent follows">
+        <ColumnSection inset="list" title="Insert">
+          <Toolbar>
+            {SNIPPETS.map((s) => (
+              <Button
+                key={s.id}
+                type="button"
+                variant="outline"
+                size="xs"
+                onClick={() => insert(s)}
+              >
+                {s.label}
+              </Button>
+            ))}
+          </Toolbar>
+          <Stack gap="xs">
+            <GuideBox summary="How to write a rule">
               <GuideList>
                 <li>
                   <b>Encode process, not outcome.</b> "Lead with the change for the reader" beats
@@ -395,7 +279,7 @@ export function Editor({ ctx }: { ctx: Ctx }) {
                       key={t.id}
                       type="button"
                       variant="outline"
-                      size="sm"
+                      size="xs"
                       title={t.summary}
                       onClick={() => startFrom(t)}
                     >
@@ -405,47 +289,172 @@ export function Editor({ ctx }: { ctx: Ctx }) {
                 </Toolbar>
               </GuideBox>
             ) : null}
-          </Field>
+          </Stack>
+        </ColumnSection>
 
-          {isSkill ? (
-            <Field>
-              <Heading level={3} as="span">
-                Graded rules
-              </Heading>
-              {config.rules?.length ? (
-                <Hint>bench.json lists its own rules, so SKILL.md bullets are not used.</Hint>
-              ) : rules.length ? (
-                <List variant="number" size="xs" gap="sm">
-                  {rules.map((r) => (
-                    <li key={r.id}>
-                      {r.text}
-                      {r.section ? <Text tone="muted"> · {r.section}</Text> : null}
-                    </li>
-                  ))}
-                </List>
-              ) : (
-                <Hint>No rules yet. Each top-level bullet of four words or more is one.</Hint>
-              )}
-            </Field>
+        {isSkill ? (
+          <ColumnSection inset="list" title="Graded rules">
+            {config.rules?.length ? (
+              <Hint>bench.json lists its own rules, so SKILL.md bullets are not used.</Hint>
+            ) : rules.length ? (
+              <List variant="number" size="xs" gap="sm">
+                {rules.map((r) => (
+                  <li key={r.id}>
+                    {r.text}
+                    {r.section ? <Text tone="muted"> · {r.section}</Text> : null}
+                  </li>
+                ))}
+              </List>
+            ) : (
+              <Hint>No rules yet. Each top-level bullet of four words or more is one.</Hint>
+            )}
+          </ColumnSection>
+        ) : null}
+
+        <ColumnSection inset="list" title="Version">
+          <Hint>
+            {current.changed
+              ? `The saved files are not a version yet. Save them as ${current.version} to keep a copy you can return to.`
+              : `The saved files are ${current.version}${current.name ? `, ${current.name}` : ''}.`}
+          </Hint>
+          <div>
+            <Button type="button" variant="outline" size="sm" onClick={() => go('versions')}>
+              {current.changed ? `Save as ${current.version}` : 'See versions'}
+            </Button>
+          </div>
+        </ColumnSection>
+      </Column>
+
+      <Column>
+        <ColumnHeader>
+          <ColumnTitle>
+            <Text font="mono" size="sm" weight="medium">
+              {file}
+            </Text>
+            <DraftNote
+              drafts={drafts}
+              dirty={isDirty(file)}
+              saved={saved === null ? 'New, not on disk yet' : 'Saved'}
+            />
+          </ColumnTitle>
+          <Toggle variant="outline" size="sm" pressed={showDiff} onPressedChange={setShowDiff}>
+            Compare with saved
+          </Toggle>
+          {!isSkill ? (
+            <Button type="button" variant="destructive-ghost" size="sm" onClick={remove}>
+              {saved === null ? 'Discard file' : 'Delete'}
+            </Button>
           ) : null}
-
-          <Field>
-            <Heading level={3} as="span">
-              Version
-            </Heading>
-            <Hint>
-              {current.changed
-                ? `The saved files are not a version yet. Save them as ${current.version} to keep a copy you can return to.`
-                : `The saved files are ${current.version}${current.name ? `, ${current.name}` : ''}.`}
-            </Hint>
-            <Toolbar>
-              <Button type="button" variant="outline" size="sm" onClick={() => go('versions')}>
-                {current.changed ? `Save as ${current.version}` : 'See versions'}
-              </Button>
-            </Toolbar>
-          </Field>
-        </aside>
-      </Panel>
-    </Split>
+          {draft ? (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={async () => {
+                if (
+                  await confirm({
+                    title: `Discard your changes to ${file}?`,
+                    description: 'The draft goes and the file stays as it is on disk.',
+                    action: 'Discard',
+                    destructive: true,
+                  })
+                )
+                  drop(file)
+              }}
+            >
+              Discard
+            </Button>
+          ) : null}
+          <Button
+            type="button"
+            size="sm"
+            disabled={!isDirty(file) || busy || stale}
+            onClick={save}
+            title={shortcut('S')}
+          >
+            {busy ? 'Saving…' : 'Save'}
+          </Button>
+        </ColumnHeader>
+        {stale || missing.length || (blank && !showDiff) || showDiff ? (
+          <ColumnBody>
+            {stale ? (
+              <Alert variant="warning" role="status">
+                <AlertTitle>{file} changed on disk since this draft began</AlertTitle>
+                <AlertDescription>
+                  <p>Keep your draft to save over the file, or take the file as it is now.</p>
+                  <Toolbar>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => draft && drafts.setFile(file, { ...draft, previous: saved })}
+                    >
+                      Keep my draft
+                    </Button>
+                    <Button type="button" variant="ghost" size="sm" onClick={() => drop(file)}>
+                      Use the file on disk
+                    </Button>
+                  </Toolbar>
+                </AlertDescription>
+              </Alert>
+            ) : null}
+            {missing.length ? (
+              <Alert variant="warning">
+                <AlertTitle>Front matter needs {missing.join(' and ')}</AlertTitle>
+                <AlertDescription>
+                  Agents find a skill by its name and description, between the --- lines at the top.
+                </AlertDescription>
+              </Alert>
+            ) : null}
+            {showDiff ? (
+              diff.length ? (
+                <DiffLines lines={diff} />
+              ) : (
+                <Hint>No changes from the file on disk.</Hint>
+              )
+            ) : blank ? (
+              <Starter
+                aria-label="Start from a template"
+                title="Start from a template"
+                hint="Each one is a small, finished skill in the shape the judge grades: one rule per bullet, with its why. Replace the rules with yours."
+              >
+                <Toolbar>
+                  {EXAMPLE_KINDS.map((t) => (
+                    <Button
+                      key={t.id}
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      title={t.summary}
+                      onClick={() => startFrom(t)}
+                    >
+                      {t.label}
+                    </Button>
+                  ))}
+                </Toolbar>
+              </Starter>
+            ) : null}
+          </ColumnBody>
+        ) : null}
+        {showDiff ? null : (
+          <ColumnBody inset="none">
+            <TextArea
+              ref={area}
+              variant="code"
+              aria-label={`Contents of ${file}`}
+              spellCheck={false}
+              placeholder={
+                isSkill
+                  ? 'Write for the agent that loads this skill. One rule per bullet, with its why.'
+                  : 'Longer material SKILL.md points to. Say first when the agent should read it.'
+              }
+              value={text}
+              onChange={(e) => edit(e.target.value)}
+              onKeyDown={onKey}
+            />
+          </ColumnBody>
+        )}
+      </Column>
+    </Workbench>
   )
 }

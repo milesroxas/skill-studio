@@ -1,24 +1,38 @@
 /**
- * The page grammar every screen is built from: a screen of sections, a split
- * with an aside, toolbars, stacks and fields. Each carries its own spacing, so
- * screens compose these and never reach for a utility class.
+ * The page grammar every screen is built from. There are three page types:
+ *
+ * - A scrolling page (`Screen`): tables, reading and settings forms, left
+ *   aligned to the same edge as the top bar's title.
+ * - A workbench (`Workbench`): full-height columns that scroll on their own,
+ *   for a list beside its detail or a result beside its controls. Columns are
+ *   divided by a hairline, never boxed.
+ * - Form sections (`FormSection`): a heading and its note beside the fields,
+ *   one section under the next with a rule between them.
+ *
+ * Regions are never cards. A card is kept for an object the reader handles,
+ * such as one output. Each primitive carries its own spacing, so screens
+ * compose these and never reach for a utility class.
  */
 import { cva, type VariantProps } from 'class-variance-authority'
 import type { ComponentProps, HTMLAttributes, ReactNode } from 'react'
 import { cn } from '../lib/utils.ts'
 import { Heading, Hint } from './text.tsx'
-import { Card } from './ui/card.tsx'
 
-const screenVariants = cva('mx-auto flex w-full flex-col gap-9', {
+const screenVariants = cva('flex w-full flex-col gap-10', {
   variants: {
     width: {
-      default: 'max-w-[1200px]',
-      narrow: 'max-w-[880px]',
+      /** Tables and side-by-side reading. */
+      wide: 'max-w-[1200px]',
+      /** A form of sections, a heading column beside the fields. */
+      form: 'max-w-[880px]',
+      /** One column of prose and small tables. */
+      reading: 'max-w-[760px]',
     },
   },
-  defaultVariants: { width: 'default' },
+  defaultVariants: { width: 'wide' },
 })
 
+/** A scrolling page. Every width starts at the same left edge, so screens never shift sideways. */
 export function Screen({
   width,
   className,
@@ -28,38 +42,240 @@ export function Screen({
 }
 
 export function Section({ className, ...props }: ComponentProps<'section'>) {
-  return <section className={cn('flex flex-col gap-2.5', className)} {...props} />
+  return <section className={cn('flex flex-col gap-3', className)} {...props} />
 }
 
 /** A heading with what sits beside it: a count, a hint, an action at the far end. */
 export function SectionHead({ className, ...props }: ComponentProps<'div'>) {
-  return <div className={cn('flex flex-wrap items-baseline gap-3', className)} {...props} />
+  return (
+    <div className={cn('flex flex-wrap items-baseline gap-x-3 gap-y-1', className)} {...props} />
+  )
 }
 
-const splitVariants = cva('mx-auto grid w-full max-w-[1440px] grid-cols-1 items-start gap-5', {
+const formSectionVariants = cva('grid gap-x-10 gap-y-4 border-t pt-7 first:border-t-0 first:pt-0', {
   variants: {
     layout: {
-      /** Content with a 320px aside. */
-      aside: 'md:grid-cols-[minmax(0,1fr)_320px]',
-      even: 'md:grid-cols-2',
-      single: 'md:grid-cols-[minmax(0,720px)]',
-      /** A list to pick from on the left, the form for the picked item beside it. */
-      list: 'lg:grid-cols-[280px_minmax(0,760px)]',
-      /** An editor with a 300px aside. */
-      editor: 'lg:grid-cols-[minmax(0,1fr)_300px]',
-      /** 400px of controls with the result beside them. */
-      controls: 'lg:grid-cols-[400px_minmax(0,1fr)]',
+      /** The heading and its note in a 200px column, the fields beside it. */
+      split: 'md:grid-cols-[200px_minmax(0,1fr)] md:items-baseline',
+      /** The heading over the fields, for wide fields such as a prompt. */
+      stacked: '',
     },
   },
-  defaultVariants: { layout: 'aside' },
+  defaultVariants: { layout: 'split' },
 })
 
-export function Split({
+/** One part of a form: what it is about, then its fields. Sections are divided by a rule. */
+export function FormSection({
+  title,
+  hint,
+  action,
+  layout,
+  children,
+  className,
+  ...props
+}: Omit<ComponentProps<'section'>, 'title'> &
+  VariantProps<typeof formSectionVariants> & {
+    title: ReactNode
+    hint?: ReactNode
+    /** A control beside the heading, such as an add button. */
+    action?: ReactNode
+  }) {
+  return (
+    <section className={cn(formSectionVariants({ layout }), className)} {...props}>
+      <div className="flex flex-col gap-1">
+        <div className="flex min-h-6 items-center gap-3">
+          <Heading level={3}>{title}</Heading>
+          {action ? <span className="ml-auto">{action}</span> : null}
+        </div>
+        {hint ? <Hint measure="narrow">{hint}</Hint> : null}
+      </div>
+      <div className="flex min-w-0 flex-col gap-5">{children}</div>
+    </section>
+  )
+}
+
+/** The actions at the end of a form, aligned with its fields. */
+export function FormActions({ className, ...props }: ComponentProps<'div'>) {
+  return (
+    <div
+      className={cn('flex flex-wrap items-center gap-3 border-t pt-6 md:pl-[240px]', className)}
+      {...props}
+    />
+  )
+}
+
+const workbenchVariants = cva(
+  'grid min-h-0 flex-1 grid-cols-1 lg:grid-rows-[minmax(0,1fr)] lg:overflow-hidden',
+  {
+    variants: {
+      layout: {
+        /** One column: a workbench screen with nothing to list yet. */
+        single: '',
+        /** A list to pick from on the left, the picked item beside it. */
+        list: 'lg:grid-cols-[260px_minmax(0,1fr)]',
+        /** The work in front, its controls in an inspector on the right. */
+        inspector: 'lg:grid-cols-[minmax(0,1fr)_340px]',
+      },
+    },
+    defaultVariants: { layout: 'list' },
+  },
+)
+
+/**
+ * Full-height columns that each scroll on their own, for a `flush` pane. Below
+ * the large breakpoint the columns stack and the pane scrolls instead.
+ */
+export function Workbench({
   layout,
   className,
   ...props
-}: ComponentProps<'div'> & VariantProps<typeof splitVariants>) {
-  return <div className={cn(splitVariants({ layout }), className)} {...props} />
+}: ComponentProps<'div'> & VariantProps<typeof workbenchVariants>) {
+  return <div className={cn(workbenchVariants({ layout }), className)} {...props} />
+}
+
+const columnVariants = cva(
+  'flex min-w-0 flex-col bg-background lg:min-h-0 lg:overflow-y-auto lg:overscroll-contain',
+  {
+    variants: {
+      kind: {
+        list: 'border-b lg:border-r lg:border-b-0',
+        main: '',
+        inspector: 'border-t lg:border-t-0 lg:border-l',
+      },
+    },
+    defaultVariants: { kind: 'main' },
+  },
+)
+
+/** One column of a workbench. */
+export function Column({
+  kind,
+  className,
+  ...props
+}: ComponentProps<'div'> & VariantProps<typeof columnVariants>) {
+  return <div className={cn(columnVariants({ kind }), className)} {...props} />
+}
+
+const insetVariants = cva('', {
+  variants: {
+    inset: {
+      list: 'px-4',
+      main: 'px-6',
+      inspector: 'px-5',
+    },
+  },
+  defaultVariants: { inset: 'main' },
+})
+
+/**
+ * What a column header names, beside its actions: the title, then quieter
+ * details. It takes the spare width and truncates, so the actions never wrap.
+ */
+export function ColumnTitle({ className, ...props }: ComponentProps<'div'>) {
+  return (
+    <div
+      className={cn(
+        'flex min-w-0 flex-1 items-baseline gap-x-3 overflow-hidden whitespace-nowrap *:min-w-0 *:truncate',
+        className,
+      )}
+      {...props}
+    />
+  )
+}
+
+/** A column's title row: what is open and its actions. It stays put while the column scrolls. */
+export function ColumnHeader({
+  inset,
+  className,
+  ...props
+}: ComponentProps<'header'> & VariantProps<typeof insetVariants>) {
+  return (
+    <header
+      className={cn(
+        'sticky top-0 z-10 flex min-h-12 shrink-0 items-center gap-2 border-b bg-background py-2',
+        insetVariants({ inset }),
+        className,
+      )}
+      {...props}
+    />
+  )
+}
+
+const columnBodyVariants = cva('flex flex-col', {
+  variants: {
+    inset: {
+      /** Rows that reach the column edge, with their own padding. */
+      list: 'gap-px px-2 py-2',
+      main: 'gap-8 px-6 pt-6 pb-16',
+      inspector: 'gap-6 px-5 py-5',
+      /** Content that fills the column edge to edge, such as an editor. */
+      none: 'flex-1',
+    },
+    width: {
+      full: '',
+      /** A form: never wider than reads well. */
+      form: 'max-w-[808px]',
+    },
+  },
+  defaultVariants: { inset: 'main', width: 'full' },
+})
+
+export function ColumnBody({
+  inset,
+  width,
+  className,
+  ...props
+}: ComponentProps<'div'> & VariantProps<typeof columnBodyVariants>) {
+  return <div className={cn(columnBodyVariants({ inset, width }), className)} {...props} />
+}
+
+/** A titled part of an inspector or list column, divided from the next by a rule. */
+export function ColumnSection({
+  title,
+  hint,
+  action,
+  inset,
+  children,
+}: VariantProps<typeof insetVariants> & {
+  title?: ReactNode
+  hint?: ReactNode
+  action?: ReactNode
+  children: ReactNode
+}) {
+  return (
+    <section
+      className={cn('flex flex-col gap-3 border-b py-5 last:border-b-0', insetVariants({ inset }))}
+    >
+      {title ? (
+        <div className="flex flex-col gap-1">
+          <div className="flex min-h-6 items-center gap-3">
+            <Heading level={3}>{title}</Heading>
+            {action ? <span className="ml-auto">{action}</span> : null}
+          </div>
+          {hint ? <Hint>{hint}</Hint> : null}
+        </div>
+      ) : null}
+      {children}
+    </section>
+  )
+}
+
+/** The actions of a column, held to its foot while it scrolls. */
+export function ColumnFooter({
+  inset,
+  className,
+  ...props
+}: ComponentProps<'footer'> & VariantProps<typeof insetVariants>) {
+  return (
+    <footer
+      className={cn(
+        'sticky bottom-0 z-10 mt-auto flex flex-wrap items-center gap-2 border-t bg-background py-3',
+        insetVariants({ inset }),
+        className,
+      )}
+      {...props}
+    />
+  )
 }
 
 /** Equal columns, one per item. */
@@ -111,27 +327,20 @@ export function Toolbar({
   return <div className={cn(toolbarVariants({ gap, justify, wrap }), className)} {...props} />
 }
 
-const actionBarVariants = cva('sticky z-10 flex flex-wrap items-center gap-2 bg-background', {
-  variants: {
-    /**
-     * Which edge of the pane it holds to. The negative offset and matching padding
-     * cover the pane's own padding, so nothing scrolls by above or below the bar.
-     */
-    edge: {
-      top: '-top-6 -mt-6 pt-6 pb-3',
-      bottom: '-bottom-6 -mb-6 border-t pt-3 pb-6',
-    },
-  },
-  defaultVariants: { edge: 'bottom' },
-})
-
-/** The actions of a long form or editor, kept in view while the pane scrolls. */
-export function ActionBar({
-  edge,
-  className,
-  ...props
-}: ComponentProps<'div'> & VariantProps<typeof actionBarVariants>) {
-  return <div className={cn(actionBarVariants({ edge }), className)} {...props} />
+/**
+ * Actions kept in view at the foot of a scrolling page. The negative offset and
+ * matching padding cover the pane's own padding, so nothing scrolls by below it.
+ */
+export function ActionBar({ className, ...props }: ComponentProps<'div'>) {
+  return (
+    <div
+      className={cn(
+        'sticky -bottom-6 z-10 -mb-6 flex flex-wrap items-center gap-x-3 gap-y-2 border-t bg-background pt-3 pb-6',
+        className,
+      )}
+      {...props}
+    />
+  )
 }
 
 export function Spacer() {
@@ -188,57 +397,6 @@ export function Fieldset({
   )
 }
 
-const formGridVariants = cva('grid grid-cols-[max-content_minmax(0,1fr)] gap-x-4 gap-y-2.5', {
-  variants: {
-    align: {
-      center: 'items-center',
-      start: 'items-start [&>:is(label,span):nth-child(odd)]:pt-[5px]',
-    },
-  },
-  defaultVariants: { align: 'center' },
-})
-
-/** Labels in one column, controls in the next. */
-export function FormGrid({
-  align,
-  className,
-  ...props
-}: ComponentProps<'div'> & VariantProps<typeof formGridVariants>) {
-  return <div className={cn(formGridVariants({ align }), className)} {...props} />
-}
-
-const panelVariants = cva('px-4 py-4', {
-  variants: {
-    sticky: {
-      /** Stays in view while the pane scrolls, scrolling inside itself when taller than the pane. */
-      true: 'md:sticky md:top-0 md:max-h-[calc(100dvh-96px)] md:overflow-y-auto md:overscroll-contain',
-      false: '',
-    },
-    gap: {
-      sm: 'gap-3',
-      md: 'gap-4',
-      lg: 'gap-5',
-    },
-    width: {
-      auto: '',
-      /** A form: never wider than reads well. */
-      form: 'max-w-[720px]',
-    },
-  },
-  defaultVariants: { sticky: false, gap: 'lg', width: 'auto' },
-})
-
-/** A card that holds controls or an aside, at the tool's own density. */
-export function Panel({
-  sticky,
-  gap,
-  width,
-  className,
-  ...props
-}: ComponentProps<typeof Card> & VariantProps<typeof panelVariants>) {
-  return <Card className={cn(panelVariants({ sticky, gap, width }), className)} {...props} />
-}
-
 const emptyVariants = cva('flex flex-col items-center gap-2 px-4 text-center', {
   variants: {
     size: {
@@ -254,16 +412,23 @@ export function EmptyState({
   size,
   title,
   actions,
+  more,
   children,
   className,
   ...props
 }: ComponentProps<'div'> &
-  VariantProps<typeof emptyVariants> & { title?: ReactNode; actions?: ReactNode }) {
+  VariantProps<typeof emptyVariants> & {
+    title?: ReactNode
+    actions?: ReactNode
+    /** Anything under the actions, such as a list of what was already done. */
+    more?: ReactNode
+  }) {
   return (
     <div className={cn(emptyVariants({ size }), className)} {...props}>
       {title ? <Heading level={2}>{title}</Heading> : null}
       <Hint measure="narrow">{children}</Hint>
       {actions ? <Toolbar className="mt-2 justify-center">{actions}</Toolbar> : null}
+      {more ? <div className="mt-4 w-full max-w-sm text-left">{more}</div> : null}
     </div>
   )
 }
@@ -271,22 +436,29 @@ export function EmptyState({
 const plainListVariants = cva('flex flex-col p-0', {
   variants: {
     gap: {
+      none: 'gap-px',
       xs: 'gap-0.5',
       sm: 'gap-1',
       md: 'gap-1.5',
     },
+    /** Rows whose hover reaches past the text, so the text lines up with the heading above. */
+    bleed: {
+      true: '-mx-2',
+      false: '',
+    },
   },
-  defaultVariants: { gap: 'sm' },
+  defaultVariants: { gap: 'sm', bleed: false },
 })
 
 /** A list with no bullets, its items stacked. */
 export function PlainList({
   gap,
+  bleed,
   as: Comp = 'ul',
   className,
   ...props
 }: HTMLAttributes<HTMLElement> & VariantProps<typeof plainListVariants> & { as?: 'ul' | 'ol' }) {
-  return <Comp className={cn(plainListVariants({ gap }), className)} {...props} />
+  return <Comp className={cn(plainListVariants({ gap, bleed }), className)} {...props} />
 }
 
 const listVariants = cva('list-outside', {

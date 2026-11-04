@@ -5,6 +5,7 @@
  * hidden: the top of the sidebar and the top bar are the drag regions, and the
  * window buttons sit over the sidebar.
  */
+import { cva, type VariantProps } from 'class-variance-authority'
 import type { ComponentProps, ReactNode } from 'react'
 import { api } from '../api.ts'
 import { cn } from '../lib/utils.ts'
@@ -142,17 +143,31 @@ export function TopBar({ className, children, ...props }: ComponentProps<'header
   )
 }
 
-/** The screen's own region: the one place that scrolls. */
-export function Pane({ className, ...props }: ComponentProps<'main'>) {
+const paneVariants = cva(
+  'relative min-h-0 flex-1 overflow-y-auto overscroll-contain outline-none',
+  {
+    variants: {
+      /**
+       * `page`: the pane scrolls and pads its screen. `flush`: a workbench fills it
+       * edge to edge and its columns scroll on their own; on narrow windows the
+       * columns stack and the pane scrolls again.
+       */
+      layout: {
+        page: 'px-4 py-6 [scrollbar-gutter:stable] sm:px-6',
+        flush: 'flex flex-col lg:overflow-hidden',
+      },
+    },
+    defaultVariants: { layout: 'page' },
+  },
+)
+
+/** The screen's own region: the one place that scrolls, or that holds the columns that do. */
+export function Pane({
+  layout,
+  className,
+  ...props
+}: ComponentProps<'main'> & VariantProps<typeof paneVariants>) {
   return (
-    <main
-      id="main"
-      tabIndex={-1}
-      className={cn(
-        'relative min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-6 outline-none [scrollbar-gutter:stable] sm:px-6',
-        className,
-      )}
-      {...props}
-    />
+    <main id="main" tabIndex={-1} className={cn(paneVariants({ layout }), className)} {...props} />
   )
 }

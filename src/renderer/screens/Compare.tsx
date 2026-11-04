@@ -7,10 +7,9 @@ import { api } from '../api.ts'
 import { ArtifactPicker, ArtifactView } from '../components/Artifact.tsx'
 import { InlineField } from '../components/forms.tsx'
 import {
+  ActionBar,
   Columns,
   EmptyState,
-  List,
-  Panel,
   Screen,
   Section,
   SectionHead,
@@ -177,52 +176,6 @@ export function Compare({ ctx }: { ctx: Ctx }) {
           ) : null}
         </Columns>
       )}
-      {a && b ? (
-        <Panel>
-          <Heading level={3}>Which is better?</Heading>
-          <Toolbar gap="md">
-            <Segmented
-              aria-label="Your vote"
-              options={VOTES}
-              value={humanVote}
-              onChange={(v) => v && vote(v)}
-            />
-            <InlineField label="On">
-              <Input
-                type="text"
-                value={criterion}
-                onChange={(e) => setCriterion(e.target.value)}
-                aria-label="Criterion"
-                width="narrow"
-              />
-            </InlineField>
-            <Spacer />
-            <Button
-              type="button"
-              variant="outline"
-              disabled={!state.jevKey}
-              title={state.jevKey ? undefined : 'Needs TYPESAFE_API_KEY'}
-              onClick={askJev}
-            >
-              Ask Jev
-            </Button>
-          </Toolbar>
-          <BenchPick a={a} b={b} ctx={ctx} />
-          {jevVotes.length ? (
-            <List size="xs">
-              {jevVotes.map((p) => (
-                <li key={`${p.criterion}${p.at}`}>
-                  On {p.criterion}, Jev picked{' '}
-                  {p.vote === 'tie'
-                    ? 'a tie'
-                    : (p.a === a.key ? p.vote : flip(p.vote)).toUpperCase()}
-                  {p.confidence !== undefined ? `, ${Math.round(p.confidence * 100)}% sure` : ''}.
-                </li>
-              ))}
-            </List>
-          ) : null}
-        </Panel>
-      ) : null}
       {boards.length && board.data ? (
         <Section>
           <SectionHead>
@@ -242,6 +195,48 @@ export function Compare({ ctx }: { ctx: Ctx }) {
             </Stack>
           ))}
         </Section>
+      ) : null}
+      {a && b ? (
+        <ActionBar aria-label="Your vote">
+          <Heading level={3} as="h2">
+            Which is better?
+          </Heading>
+          <Segmented
+            aria-label="Your vote"
+            options={VOTES}
+            value={humanVote}
+            onChange={(v) => v && vote(v)}
+          />
+          <InlineField label="on">
+            <Input
+              type="text"
+              value={criterion}
+              onChange={(e) => setCriterion(e.target.value)}
+              aria-label="Criterion"
+              width="narrow"
+              size="sm"
+            />
+          </InlineField>
+          <BenchPick a={a} b={b} ctx={ctx} />
+          {jevVotes.map((p) => (
+            <Hint key={`${p.criterion}${p.at}`}>
+              On {p.criterion}, Jev picked{' '}
+              {p.vote === 'tie' ? 'a tie' : (p.a === a.key ? p.vote : flip(p.vote)).toUpperCase()}
+              {p.confidence !== undefined ? `, ${Math.round(p.confidence * 100)}% sure` : ''}.
+            </Hint>
+          ))}
+          <Spacer />
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={!state.jevKey}
+            title={state.jevKey ? undefined : 'Add a TypeSafe key in Settings to ask Jev'}
+            onClick={askJev}
+          >
+            Ask Jev
+          </Button>
+        </ActionBar>
       ) : null}
     </Screen>
   )

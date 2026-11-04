@@ -20,8 +20,13 @@ const textAreaVariants = cva('resize-none overflow-hidden', {
   variants: {
     variant: {
       default: 'min-h-21',
-      /** A file being edited: monospace, tabs two wide, at least as tall as the pane below its toolbar. */
-      code: 'min-h-[calc(100dvh-170px)] font-mono text-[13px] leading-[1.55] [tab-size:2]',
+      /** One line that grows as it wraps, such as a check: it reads as an input until it needs more. */
+      line: 'min-h-9 py-[7px]',
+      /**
+       * A file being edited: the whole column is the editor, with no box of its own.
+       * Monospace, tabs two wide, at least as tall as the column under its header.
+       */
+      code: 'min-h-[calc(100dvh-96px)] rounded-none border-0 bg-transparent px-6 py-5 font-mono text-[13px] leading-[1.6] shadow-none [tab-size:2] focus-visible:ring-0 dark:bg-transparent',
     },
   },
   defaultVariants: { variant: 'default' },

@@ -4,13 +4,25 @@ import type { ComponentProps, ReactNode } from 'react'
 import { cn } from '../lib/utils.ts'
 import { Card } from './ui/card.tsx'
 
-export function OutputCard({ className, ...props }: ComponentProps<typeof Card>) {
+const outputCardVariants = cva('gap-0 overflow-hidden py-0', {
+  variants: {
+    variant: {
+      /** One of several outputs on a page: an object on its own card. */
+      card: '',
+      /** The one output a column is about: it fills the column, with no card around it. */
+      flush: 'rounded-none bg-transparent shadow-none',
+    },
+  },
+  defaultVariants: { variant: 'card' },
+})
+
+export function OutputCard({
+  variant,
+  className,
+  ...props
+}: ComponentProps<typeof Card> & VariantProps<typeof outputCardVariants>) {
   return (
-    <Card
-      role="article"
-      className={cn('gap-0 overflow-hidden rounded-lg py-0', className)}
-      {...props}
-    />
+    <Card role="article" className={cn(outputCardVariants({ variant }), className)} {...props} />
   )
 }
 
@@ -31,7 +43,7 @@ export function OutputCardHead({
       <span className="font-semibold">{title}</span>
       <span>{total}</span>
       {meta ? (
-        <span className="col-start-2 -col-end-1 flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground">
+        <span className="col-start-2 -col-end-1 flex flex-wrap items-baseline gap-x-3 gap-y-1 text-xs text-muted-foreground">
           {meta}
         </span>
       ) : null}

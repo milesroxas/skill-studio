@@ -13,7 +13,8 @@ const headingVariants = cva('m-0 font-semibold text-balance', {
       page: 'font-serif text-[19px] leading-tight tracking-[-0.01em]',
       1: 'text-3xl leading-tight tracking-[-0.022em]',
       2: 'text-base tracking-[-0.012em]',
-      3: 'text-[13px]',
+      /** A group of fields or a part of a column: a step above the labels inside it. */
+      3: 'text-sm',
     },
   },
   defaultVariants: { level: 2 },

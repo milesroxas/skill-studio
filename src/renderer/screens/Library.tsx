@@ -11,6 +11,7 @@ import {
 import { rulesFromSkill } from '@domain/rules.ts'
 import { TEMPLATES, type TemplateId, templateById } from '@domain/templates.ts'
 import { isSlug, SLUG_RULE } from '@domain/text.ts'
+import { PlusIcon } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { api } from '../api.ts'
 import type { Confirm } from '../components/confirm.tsx'
@@ -19,8 +20,9 @@ import { CheckRow } from '../components/forms.tsx'
 import {
   EmptyState,
   Field,
-  FormGrid,
-  Panel,
+  Fieldset,
+  FormActions,
+  FormSection,
   PlainList,
   Screen,
   Section,
@@ -92,29 +94,46 @@ export function LibraryScreen({ openSkill, toast, confirm }: Props) {
     }
   }
 
+  if (creating)
+    return (
+      <NewSkill
+        data={data}
+        cancel={() => setCreating(false)}
+        created={(path) => openSkill(path, 'edit')}
+        toast={toast}
+      />
+    )
+
   return (
     <Screen>
-      <SectionHead>
-        <Heading level={2}>Skills</Heading>
-        <Text tone="muted" size="xs" tabular>
-          {data.skills.length} in {plural(placeCount, 'place')}
-        </Text>
-        <Spacer />
-        {creating ? null : (
-          <Button type="button" onClick={() => setCreating(true)}>
-            New skill
-          </Button>
-        )}
-      </SectionHead>
-
-      {creating ? (
-        <NewSkill
-          data={data}
-          cancel={() => setCreating(false)}
-          created={(path) => openSkill(path, 'edit')}
-          toast={toast}
+      <Toolbar gap="md">
+        <Input
+          type="search"
+          enterKeyHint="search"
+          aria-label="Search skills"
+          placeholder="Search by name or description"
+          value={query}
+          width="wide"
+          onChange={(e) => setQuery(e.target.value)}
         />
-      ) : null}
+        <SelectBox
+          aria-label="Place"
+          value={place}
+          onChange={setPlace}
+          none="Every place"
+          options={data.places.map((p) => ({ value: p.scope, label: p.label }))}
+        />
+        {installedCount ? (
+          <CheckRow size="sm" checked={showInstalled} onCheckedChange={setShowInstalled}>
+            Show {plural(installedCount, 'skill')} installed from elsewhere
+          </CheckRow>
+        ) : null}
+        <Spacer />
+        <Button type="button" onClick={() => setCreating(true)}>
+          <PlusIcon aria-hidden="true" />
+          New skill
+        </Button>
+      </Toolbar>
 
       {working.length && working.length < data.skills.length && !filtering ? (
         <Section>
@@ -127,30 +146,12 @@ export function LibraryScreen({ openSkill, toast, confirm }: Props) {
       ) : null}
 
       <Section>
-        <Heading level={3}>{filtering ? 'Matches' : 'All skills'}</Heading>
-        <Toolbar>
-          <Input
-            type="search"
-            enterKeyHint="search"
-            aria-label="Search skills"
-            placeholder="Search by name or description"
-            value={query}
-            width="wide"
-            onChange={(e) => setQuery(e.target.value)}
-          />
-          <SelectBox
-            aria-label="Place"
-            value={place}
-            onChange={setPlace}
-            none="Every place"
-            options={data.places.map((p) => ({ value: p.scope, label: p.label }))}
-          />
-          {installedCount ? (
-            <CheckRow size="sm" checked={showInstalled} onCheckedChange={setShowInstalled}>
-              Show {plural(installedCount, 'skill')} installed from elsewhere
-            </CheckRow>
-          ) : null}
-        </Toolbar>
+        <SectionHead>
+          <Heading level={3}>{filtering ? 'Matches' : 'All skills'}</Heading>
+          <Text tone="muted" size="xs" tabular>
+            {filtering ? listed.length : `${data.skills.length} in ${plural(placeCount, 'place')}`}
+          </Text>
+        </SectionHead>
         {listed.length ? (
           <SkillTable skills={listed} openSkill={openSkill} act={act} confirm={confirm} />
         ) : (
@@ -223,7 +224,7 @@ function SkillTable({
       </TableHeader>
       <TableBody>
         {skills.map((s) => (
-          <TableRow key={s.path} align="top">
+          <TableRow key={s.path} align="top" interactive>
             <TableCell wrap wide>
               <Button
                 type="button"
@@ -376,7 +377,14 @@ function NewSkill({
   }
 
   return (
-    <Panel width="form">
+    <Screen width="form">
+      <SectionHead>
+        <Heading level={2}>New skill</Heading>
+        <Spacer />
+        <Button type="button" variant="ghost" size="sm" onClick={cancel}>
+          Back to the library
+        </Button>
+      </SectionHead>
       <form
         className="contents"
         onSubmit={(e) => {
@@ -384,32 +392,31 @@ function NewSkill({
           submit()
         }}
       >
-        <Heading level={3}>New skill</Heading>
-        <FormGrid align="start">
-          <span id="ns-template-label">Start from</span>
-          <Field>
-            <Segmented
-              aria-labelledby="ns-template-label"
-              fill
-              value={templateId}
-              onChange={(v) => v && setTemplateId(v)}
-              options={TEMPLATES.map((t) => ({ value: t.id, label: t.label }))}
-            />
-            <Hint>
-              {template.summary}
-              {template.cases.length
-                ? ` Starts with ${plural(ruleCount, 'example rule')} to replace.`
-                : ''}
-            </Hint>
-            {template.cases.length ? (
-              <CheckRow size="sm" checked={samples} onCheckedChange={setSamples}>
-                Add {plural(template.cases.length, 'sample case')} to run against
-              </CheckRow>
-            ) : null}
-          </Field>
+        <FormSection title="Start from" hint={template.summary}>
+          <Segmented
+            aria-label="Start from"
+            fill
+            value={templateId}
+            onChange={(v) => v && setTemplateId(v)}
+            options={TEMPLATES.map((t) => ({ value: t.id, label: t.label }))}
+          />
+          {template.cases.length ? (
+            <CheckRow
+              checked={samples}
+              onCheckedChange={setSamples}
+              description={`The template starts with ${plural(ruleCount, 'example rule')} to replace.`}
+            >
+              Add {plural(template.cases.length, 'sample case')} to run against
+            </CheckRow>
+          ) : null}
+        </FormSection>
 
-          <Label htmlFor="ns-name">Name</Label>
+        <FormSection
+          title="About it"
+          hint="Agents read the name and description to decide when to load the skill."
+        >
           <Field>
+            <Label htmlFor="ns-name">Name</Label>
             <Input
               id="ns-name"
               value={name}
@@ -418,6 +425,7 @@ function NewSkill({
               autoCorrect="off"
               spellCheck={false}
               enterKeyHint="next"
+              font="mono"
               aria-invalid={Boolean(nameError || taken) || undefined}
               aria-describedby="ns-name-help"
               onChange={(e) => setName(e.target.value)}
@@ -429,56 +437,56 @@ function NewSkill({
                   : `Saved in .agents/skills/${name || 'name'} (${placeLabel})`)}
             </Hint>
           </Field>
-
-          <Label htmlFor="ns-desc">Description</Label>
           <Field>
+            <Label htmlFor="ns-desc">Description</Label>
             <TextArea
               id="ns-desc"
               rows={3}
               value={description}
               placeholder={template.description}
-              aria-describedby="ns-desc-help"
               onChange={(e) => setDescription(e.target.value)}
             />
-            <Hint id="ns-desc-help">
-              What it does and when to use it. Agents read this to decide when to load the skill.
-            </Hint>
           </Field>
+        </FormSection>
 
-          <Label htmlFor="ns-place">Place</Label>
-          <SelectBox
-            id="ns-place"
-            value={scope}
-            onChange={setScope}
-            options={data.places.map((p) => ({
-              value: p.scope,
-              label: p.scope === 'user' ? 'User (every project)' : p.label,
-            }))}
-          />
+        <FormSection title="Where it lives">
+          <Field>
+            <Label htmlFor="ns-place">Place</Label>
+            <SelectBox
+              id="ns-place"
+              value={scope}
+              onChange={setScope}
+              options={data.places.map((p) => ({
+                value: p.scope,
+                label: p.scope === 'user' ? 'User (every project)' : p.label,
+              }))}
+            />
+          </Field>
+          <Fieldset legend="Install for">
+            <Toolbar gap="md">
+              {AGENTS.map((a) => (
+                <CheckRow
+                  key={a.id}
+                  checked={agents.has(a.id)}
+                  onCheckedChange={() => toggleAgent(a.id)}
+                >
+                  {a.label}
+                </CheckRow>
+              ))}
+            </Toolbar>
+          </Fieldset>
+        </FormSection>
 
-          <span>Install for</span>
-          <Toolbar>
-            {AGENTS.map((a) => (
-              <CheckRow
-                key={a.id}
-                checked={agents.has(a.id)}
-                onCheckedChange={() => toggleAgent(a.id)}
-              >
-                {a.label}
-              </CheckRow>
-            ))}
-          </Toolbar>
-        </FormGrid>
-        <Toolbar>
+        <FormActions>
           <Button type="submit" disabled={busy || !name || Boolean(nameError) || taken}>
             Create skill
           </Button>
           <Button type="button" variant="ghost" onClick={cancel}>
             Cancel
           </Button>
-        </Toolbar>
+        </FormActions>
       </form>
-    </Panel>
+    </Screen>
   )
 }
 

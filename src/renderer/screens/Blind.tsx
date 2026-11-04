@@ -1,29 +1,33 @@
 /** Blind review: judge an output before its scores or its run are shown, then reveal and save. */
 
+import type { QueueItem } from '@domain/queue.ts'
 import type { Artifact } from '@domain/schemas.ts'
+import { ChevronDownIcon } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { api } from '../api.ts'
 import { AnchorForm } from '../components/AnchorForm.tsx'
 import { ArtifactPicker, ArtifactView } from '../components/Artifact.tsx'
 import { Disclosure } from '../components/Disclosure.tsx'
 import {
+  Column,
+  ColumnFooter,
+  ColumnSection,
   EmptyState,
   Field,
-  Fieldset,
   List,
-  Panel,
-  Split,
   Stack,
   Toolbar,
+  Workbench,
 } from '../components/layout.tsx'
 import { NavButton } from '../components/NavButton.tsx'
-import { CardFold, OutputCard, OutputCardHead, Slot } from '../components/OutputCard.tsx'
+import { CardFold, OutputCard, OutputCardHead } from '../components/OutputCard.tsx'
 import { Flags, Layers, TotalChip } from '../components/Scores.tsx'
 import { Segmented } from '../components/Segmented.tsx'
 import { TextArea } from '../components/TextArea.tsx'
-import { Heading, Hint, Text } from '../components/text.tsx'
+import { Hint, Text } from '../components/text.tsx'
 import { Button } from '../components/ui/button.tsx'
 import { Label } from '../components/ui/label.tsx'
+import { Popover, PopoverContent, PopoverTrigger } from '../components/ui/popover.tsx'
 import type { Ctx } from '../ctx.ts'
 import { useFetch } from '../hooks.ts'
 import {
@@ -100,10 +104,10 @@ export function Blind({ ctx }: { ctx: Ctx }) {
             {state.runs.length ? 'See runs' : 'Start a run'}
           </Button>
         }
+        more={<ReviewedList reviewed={reviewed} current={current} open={open} />}
       >
         You rate each answer before you see its score, so the judge cannot sway you. The queue puts
         the answers the judge was least sure of first. A new run adds more.
-        <ReviewedList reviewed={reviewed} current={current} open={open} />
       </EmptyState>
     )
 
@@ -135,73 +139,85 @@ export function Blind({ ctx }: { ctx: Ctx }) {
   const canSkip = items.some((i) => i.key !== current)
 
   return (
-    <Split layout="aside">
-      <OutputCard>
-        <OutputCardHead
-          slot={<Slot>{position >= 0 ? `${position + 1} of ${items.length}` : 'Reviewed'}</Slot>}
-          title={
-            revealed ? (
-              <>
-                {versionName(output.run)} <Text tone="muted">· {outputLine(output)}</Text>
-              </>
-            ) : (
-              <>
-                {caseTitle(state, output.caseId)}{' '}
-                <Text tone="muted" font="mono" size="xs">
-                  {output.caseId}
-                </Text>
-              </>
-            )
-          }
-          total={revealed ? <TotalChip total={scored?.scores.total} /> : null}
-          meta={
-            size || !revealed ? (
-              <>
-                {!revealed ? <span>Scores and writer stay hidden until you save</span> : null}
-                {size ? <span>{size}</span> : null}
-              </>
-            ) : null
-          }
-        />
-        {revealed && scored ? (
-          <>
-            <Layers scored={scored} layers={layers} />
-            <Flags flags={scored.flags} />
-          </>
-        ) : null}
-        {testCase ? (
-          <CardFold>
-            <Disclosure
-              summary={`The prompt${testCase.graders.length ? ' and what the case checks' : ''}`}
-            >
-              <Stack gap="md">
-                <Text as="p" font="mono" size="xs" wrap="pre">
-                  {testCase.prompt}
-                </Text>
-                {testCase.expectedOutcome ? (
-                  <Hint>Expected: {testCase.expectedOutcome}</Hint>
-                ) : null}
-                {testCase.graders.length ? (
-                  <List>
-                    {testCase.graders.map((g) => (
-                      <li key={g.id}>{g.statement}</li>
-                    ))}
-                  </List>
-                ) : null}
-              </Stack>
-            </Disclosure>
-          </CardFold>
-        ) : null}
-        <ArtifactPicker
-          artifacts={output.sample.artifacts}
-          value={artifact}
-          onChange={setArtifact}
-        />
-        <ArtifactView run={output.run.name} sample={output.sample.name} artifact={artifact} />
-      </OutputCard>
-      <Panel sticky>
-        <aside className="contents">
-          <Fieldset legend="Your rating">
+    <Workbench layout="inspector">
+      <Column>
+        <OutputCard variant="flush">
+          <OutputCardHead
+            slot={
+              <QueuePicker
+                label={position >= 0 ? `${position + 1} of ${items.length}` : 'Reviewed'}
+                items={items}
+                reviewed={reviewed}
+                current={current}
+                open={open}
+                state={state}
+              />
+            }
+            title={
+              revealed ? (
+                <>
+                  {versionName(output.run)} <Text tone="muted">· {outputLine(output)}</Text>
+                </>
+              ) : (
+                <>
+                  {caseTitle(state, output.caseId)}{' '}
+                  <Text tone="muted" font="mono" size="xs">
+                    {output.caseId}
+                  </Text>
+                </>
+              )
+            }
+            total={revealed ? <TotalChip total={scored?.scores.total} /> : null}
+            meta={
+              size || !revealed ? (
+                <>
+                  {!revealed ? <span>Scores and writer stay hidden until you save</span> : null}
+                  {size ? <span>{size}</span> : null}
+                </>
+              ) : null
+            }
+          />
+          {revealed && scored ? (
+            <>
+              <Layers scored={scored} layers={layers} />
+              <Flags flags={scored.flags} />
+            </>
+          ) : null}
+          {testCase ? (
+            <CardFold>
+              <Disclosure
+                summary={`The prompt${testCase.graders.length ? ' and what the case checks' : ''}`}
+              >
+                <Stack gap="md">
+                  <Text as="p" font="mono" size="xs" wrap="pre">
+                    {testCase.prompt}
+                  </Text>
+                  {testCase.expectedOutcome ? (
+                    <Hint>Expected: {testCase.expectedOutcome}</Hint>
+                  ) : null}
+                  {testCase.graders.length ? (
+                    <List size="xs">
+                      {testCase.graders.map((g) => (
+                        <li key={g.id}>{g.statement}</li>
+                      ))}
+                    </List>
+                  ) : null}
+                </Stack>
+              </Disclosure>
+            </CardFold>
+          ) : null}
+          <ArtifactPicker
+            artifacts={output.sample.artifacts}
+            value={artifact}
+            onChange={setArtifact}
+          />
+          <ArtifactView run={output.run.name} sample={output.sample.name} artifact={artifact} />
+        </OutputCard>
+      </Column>
+
+      <Column kind="inspector">
+        <aside aria-label="Your review" className="contents">
+          <ColumnSection inset="inspector" title="Your rating" hint="1 is unusable, 5 ships as is.">
             <Segmented
               aria-label="Your rating"
               fill
@@ -211,10 +227,9 @@ export function Blind({ ctx }: { ctx: Ctx }) {
               value={rating === null ? null : String(rating)}
               onChange={(v) => setRating(v === null ? null : Number(v))}
             />
-            <Hint>1 is unusable, 5 ships as is.</Hint>
-          </Fieldset>
-          <Fieldset legend="By layer">
-            <Stack>
+          </ColumnSection>
+          <ColumnSection inset="inspector" title="By layer">
+            <Stack gap="md">
               {layers.map((layer) => (
                 <MarkRow key={layer}>
                   <span>{capital(layer)}</span>
@@ -231,27 +246,19 @@ export function Blind({ ctx }: { ctx: Ctx }) {
                 </MarkRow>
               ))}
             </Stack>
-          </Fieldset>
-          <Field>
-            <Label htmlFor="review-note">Note</Label>
-            <TextArea
-              id="review-note"
-              value={note}
-              onChange={(e) => setNote(e.target.value)}
-              placeholder="What works, what you would change, what the skill should have done"
-            />
-          </Field>
-          <Field>
-            <Toolbar>
-              <Button type="button" onClick={save}>
-                {revealed ? 'Save' : 'Save and reveal'}
-              </Button>
-              <Button type="button" variant="outline" onClick={next} disabled={!canSkip}>
-                {revealed ? 'Next' : 'Skip'}
-              </Button>
-            </Toolbar>
+          </ColumnSection>
+          <ColumnSection inset="inspector">
+            <Field>
+              <Label htmlFor="review-note">Note</Label>
+              <TextArea
+                id="review-note"
+                value={note}
+                onChange={(e) => setNote(e.target.value)}
+                placeholder="What works, what you would change, what the skill should have done"
+              />
+            </Field>
             {revealed ? (
-              <Toolbar>
+              <Toolbar gap="md">
                 <Button
                   type="button"
                   variant="link-muted"
@@ -264,6 +271,7 @@ export function Blind({ ctx }: { ctx: Ctx }) {
                   type="button"
                   variant="link-muted"
                   size="inline-sm"
+                  aria-expanded={anchor}
                   onClick={() => setAnchor((a) => !a)}
                 >
                   Make it an anchor
@@ -296,47 +304,89 @@ export function Blind({ ctx }: { ctx: Ctx }) {
                 }}
               />
             ) : null}
-          </Field>
-          <Field>
-            <Heading level={3}>
-              Queue{' '}
-              <Text tone="muted" tabular>
-                {items.length}
-              </Text>
-            </Heading>
-            {items.length ? (
-              <Queue>
-                {items.map((item) => (
-                  <NavButton
-                    key={item.key}
-                    current={item.key === current}
-                    onClick={() => open(item.key)}
-                  >
-                    <span>{item.result.case ?? item.result.sample}</span>
-                    <Text tone="muted" size="xs">
-                      {item.result.confidence === null
-                        ? 'Judge certainty unknown'
-                        : `Judge ${Math.round(item.result.confidence * 100)}% sure`}
-                      {item.caseSpread ? ` · spread ${item.caseSpread}` : ''}
-                    </Text>
-                  </NavButton>
-                ))}
-              </Queue>
-            ) : (
-              <Hint>Empty: every graded output has a review.</Hint>
-            )}
-            <ReviewedList reviewed={reviewed} current={current} open={open} />
-          </Field>
+          </ColumnSection>
+          <ColumnFooter inset="inspector">
+            <Button type="button" size="sm" onClick={save}>
+              {revealed ? 'Save' : 'Save and reveal'}
+            </Button>
+            <Button type="button" variant="outline" size="sm" onClick={next} disabled={!canSkip}>
+              {revealed ? 'Next' : 'Skip'}
+            </Button>
+          </ColumnFooter>
         </aside>
-      </Panel>
-    </Split>
+      </Column>
+    </Workbench>
   )
 }
 
-/** A list of outputs to open; scrolls on its own except on touch, where the page scrolls. */
+/** The queue behind the position chip: what is left to rate, least certain first, and what is done. */
+function QueuePicker({
+  label,
+  items,
+  reviewed,
+  current,
+  open,
+  state,
+}: {
+  label: string
+  items: QueueItem[]
+  reviewed: Output[]
+  current: string | null
+  open: (key: string) => void
+  state: Ctx['state']
+}) {
+  const [shown, setShown] = useState(false)
+  const pick = (key: string) => {
+    setShown(false)
+    open(key)
+  }
+  return (
+    <Popover open={shown} onOpenChange={setShown}>
+      <PopoverTrigger asChild>
+        <Button type="button" variant="outline" size="xs" aria-label={`${label}. Open the queue.`}>
+          <Text tabular>{label}</Text>
+          <ChevronDownIcon aria-hidden="true" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent align="start" className="flex w-80 flex-col gap-2 p-2">
+        <Text size="xs" tone="muted" weight="medium" className="px-2 pt-1">
+          To rate · {items.length}
+        </Text>
+        {items.length ? (
+          <Queue>
+            {items.map((item) => (
+              <NavButton
+                key={item.key}
+                current={item.key === current}
+                onClick={() => pick(item.key)}
+              >
+                <Text size="sm">
+                  {item.result.case ? caseTitle(state, item.result.case) : item.result.sample}
+                </Text>
+                <Text tone="muted" size="xs">
+                  <Text font="mono">{item.result.sample}</Text>
+                  {' · '}
+                  {item.result.confidence === null
+                    ? 'judge certainty unknown'
+                    : `judge ${Math.round(item.result.confidence * 100)}% sure`}
+                  {item.caseSpread ? ` · spread ${item.caseSpread}` : ''}
+                </Text>
+              </NavButton>
+            ))}
+          </Queue>
+        ) : (
+          <Hint className="px-2">Every graded output has a review.</Hint>
+        )}
+        <ReviewedList reviewed={reviewed} current={current} open={pick} />
+      </PopoverContent>
+    </Popover>
+  )
+}
+
+/** A list of outputs to open, scrolling inside the queue popover. */
 function Queue({ children }: { children: React.ReactNode }) {
   return (
-    <div className="-mx-2 flex max-h-[40svh] flex-col gap-0.5 overflow-auto pointer-coarse:max-h-none pointer-coarse:overflow-visible">
+    <div className="flex max-h-[45vh] flex-col gap-px overflow-auto overscroll-contain">
       {children}
     </div>
   )

@@ -49,22 +49,25 @@ export function Docs() {
   const body = useRef<HTMLDivElement>(null)
   const [active, setActive] = useState(sections[0]?.id ?? '')
 
-  // The section being read is the last heading that has passed the top third of the screen.
+  // The section being read is the last heading that has passed the top third of the pane.
+  // The pane scrolls, not the window, so that is what to listen to.
   useEffect(() => {
     const root = body.current
-    if (!root) return
+    const scroller = root?.closest('main')
+    if (!root || !scroller) return
     const headings = [...root.querySelectorAll<HTMLElement>('h2[id]')]
     const update = () => {
-      const line = window.innerHeight / 3
+      const box = scroller.getBoundingClientRect()
+      const line = box.top + box.height / 3
       let current = headings[0]?.id ?? ''
       for (const h of headings) if (h.getBoundingClientRect().top <= line) current = h.id
       setActive(current)
     }
     update()
-    window.addEventListener('scroll', update, { passive: true })
+    scroller.addEventListener('scroll', update, { passive: true })
     window.addEventListener('resize', update)
     return () => {
-      window.removeEventListener('scroll', update)
+      scroller.removeEventListener('scroll', update)
       window.removeEventListener('resize', update)
     }
   }, [])

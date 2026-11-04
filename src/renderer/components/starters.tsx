@@ -1,13 +1,13 @@
 /**
- * Starting points: a template strip over a blank file, examples over a blank
- * case, a folded guide beside a form. Sunken on the muted surface so they read
- * as help, not content.
+ * Starting points: templates over a blank file, examples over a blank case, a
+ * folded guide beside a form. They sit on the page like any other section;
+ * only an opened guide sinks onto the muted surface, so it reads as help.
  */
+import { ChevronRightIcon } from 'lucide-react'
 import type { ComponentProps, ReactNode } from 'react'
 import { cn } from '../lib/utils.ts'
+import { Disclosure } from './Disclosure.tsx'
 import { Heading, Hint, Text } from './text.tsx'
-import { Button } from './ui/button.tsx'
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from './ui/collapsible.tsx'
 
 export function Starter({
   title,
@@ -17,10 +17,7 @@ export function Starter({
   ...props
 }: ComponentProps<'section'> & { title: ReactNode; hint: ReactNode }) {
   return (
-    <section
-      className={cn('flex flex-col gap-3 rounded-lg bg-muted px-4 py-3.5', className)}
-      {...props}
-    >
+    <section className={cn('flex flex-col gap-3', className)} {...props}>
       <div className="flex flex-col gap-1">
         <Heading level={3} as="span">
           {title}
@@ -39,32 +36,37 @@ export interface Example {
   onPick: () => void
 }
 
-/** Finished examples to start from, as cards in a grid. */
+/** Finished examples to start from: one bordered list, a row per example. */
 export function ExampleList({ items }: { items: Example[] }) {
   return (
-    <ul className="grid grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-2 p-0">
+    <ul className="flex flex-col divide-y overflow-hidden rounded-lg border p-0">
       {items.map((item) => (
         <li key={item.key}>
-          <Button
+          <button
             type="button"
-            variant="outline"
-            className="h-auto min-h-14 w-full flex-col items-start gap-0.5 px-3 py-2.5 text-left whitespace-normal"
+            className="group/example flex min-h-12 w-full items-center gap-3 px-3.5 py-2.5 text-left outline-none transition-colors duration-150 hover:bg-muted/60 focus-visible:bg-muted/60 focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-inset"
             onClick={item.onPick}
           >
-            <span>{item.title}</span>
-            {item.sub ? (
-              <Text tone="muted" size="xs" weight="normal">
-                {item.sub}
-              </Text>
-            ) : null}
-          </Button>
+            <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+              <span className="text-sm font-medium">{item.title}</span>
+              {item.sub ? (
+                <Text tone="muted" size="xs">
+                  {item.sub}
+                </Text>
+              ) : null}
+            </span>
+            <ChevronRightIcon
+              aria-hidden="true"
+              className="size-4 shrink-0 text-muted-foreground/60 group-hover/example:text-foreground"
+            />
+          </button>
         </li>
       ))}
     </ul>
   )
 }
 
-/** A folded guide: one line closed, the advice when opened. */
+/** A folded guide: one line with a chevron, the advice on the muted surface when opened. */
 export function GuideBox({
   summary,
   children,
@@ -75,12 +77,9 @@ export function GuideBox({
   defaultOpen?: boolean
 }) {
   return (
-    <Collapsible defaultOpen={defaultOpen} className="rounded-md bg-muted px-3 py-2 text-xs">
-      <CollapsibleTrigger className="cursor-pointer font-medium text-muted-foreground hover:text-foreground data-[state=open]:text-foreground">
-        {summary}
-      </CollapsibleTrigger>
-      <CollapsibleContent className="mt-2.5">{children}</CollapsibleContent>
-    </Collapsible>
+    <Disclosure summary={summary} defaultOpen={defaultOpen}>
+      <div className="rounded-md bg-muted px-3.5 py-3 text-xs">{children}</div>
+    </Disclosure>
   )
 }
 

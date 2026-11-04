@@ -1,19 +1,11 @@
 /** Write new outputs: pick cases, writers, samples and the configuration; watch the job. */
 import { CONFIGURATIONS, type Configuration } from '@domain/schemas.ts'
+import { PlusIcon, XIcon } from 'lucide-react'
 import { useState } from 'react'
 import { api } from '../api.ts'
 import { CheckRow, NumberInput } from '../components/forms.tsx'
 import { JobLogs } from '../components/Jobs.tsx'
-import {
-  Field,
-  Fieldset,
-  FormGrid,
-  Panel,
-  Section,
-  Split,
-  Stack,
-  Toolbar,
-} from '../components/layout.tsx'
+import { Field, FormActions, FormSection, Screen, Section, Stack } from '../components/layout.tsx'
 import { SelectBox } from '../components/SelectBox.tsx'
 import { Heading, Hint, Text } from '../components/text.tsx'
 import { Button } from '../components/ui/button.tsx'
@@ -81,64 +73,74 @@ export function Generate({ ctx }: { ctx: Ctx }) {
   }
 
   return (
-    <Split layout={jobs.length ? 'even' : 'single'}>
-      <Panel>
-        <Field>
-          <Heading level={3}>Skill version</Heading>
-          {current.changed ? (
-            <>
-              <Hint as="label" htmlFor="gen-name">
-                The skill changed since the last run, so this run starts {current.version}. Say what
-                changed, so you can tell versions apart later.
-              </Hint>
-              <Input
-                id="gen-name"
-                type="text"
-                placeholder={fallbackName}
-                value={skillName}
-                onChange={(e) => setSkillName(e.target.value)}
-              />
-            </>
-          ) : (
-            <Hint>
-              Runs use {current.version}
-              {current.name ? ` · ${current.name}` : ''}, unchanged since its last run.
-            </Hint>
-          )}
-        </Field>
+    <Screen width="form">
+      <FormSection
+        title="Skill version"
+        hint={
+          current.changed
+            ? `The skill changed since the last run, so this run starts ${current.version}.`
+            : undefined
+        }
+      >
+        {current.changed ? (
+          <Field>
+            <Label htmlFor="gen-name">What changed</Label>
+            <Input
+              id="gen-name"
+              type="text"
+              placeholder={fallbackName}
+              value={skillName}
+              onChange={(e) => setSkillName(e.target.value)}
+            />
+            <Hint>A short name, so you can tell versions apart later.</Hint>
+          </Field>
+        ) : (
+          <Text size="sm">
+            {current.version}
+            {current.name ? ` · ${current.name}` : ''}{' '}
+            <Text tone="muted">unchanged since its last run</Text>
+          </Text>
+        )}
+      </FormSection>
 
-        <Fieldset legend="Cases">
-          {!state.cases.length ? (
-            <Hint>
-              No cases yet.{' '}
-              <Button
-                type="button"
-                variant="link-muted"
-                size="inline"
-                onClick={() => go('cases', { new: '1' })}
+      <FormSection title="Cases" hint="Each one is written once per writer and sample.">
+        {!state.cases.length ? (
+          <Hint>
+            No cases yet.{' '}
+            <Button
+              type="button"
+              variant="link-muted"
+              size="inline-sm"
+              onClick={() => go('cases', { new: '1' })}
+            >
+              Add one
+            </Button>{' '}
+            to run.
+          </Hint>
+        ) : (
+          <Stack gap="md">
+            {state.cases.map((c) => (
+              <CheckRow
+                key={c.id}
+                checked={cases.has(c.id)}
+                onCheckedChange={() => toggleCase(c.id)}
+                description={c.title !== c.id ? <Text font="mono">{c.id}</Text> : undefined}
               >
-                Add one
-              </Button>{' '}
-              to run.
-            </Hint>
-          ) : null}
-          {state.cases.map((c) => (
-            <CheckRow key={c.id} checked={cases.has(c.id)} onCheckedChange={() => toggleCase(c.id)}>
-              {c.title}{' '}
-              <Text font="mono" tone="muted" size="xs">
-                {c.id}
-              </Text>
-            </CheckRow>
-          ))}
-        </Fieldset>
+                {c.title}
+              </CheckRow>
+            ))}
+          </Stack>
+        )}
+      </FormSection>
 
-        <Fieldset legend="Writers">
+      <FormSection title="Writers" hint="The agents that answer each case, up to four.">
+        <Stack gap="md">
           {writers.map((w, i) => {
             const engine = engines.find((e) => e.id === w.engine)
             return (
               <WriterGrid key={w.id}>
                 <SelectBox
-                  aria-label="Agent"
+                  aria-label={`Agent of writer ${i + 1}`}
                   width="full"
                   value={w.engine}
                   onChange={(id) => {
@@ -156,7 +158,7 @@ export function Generate({ ctx }: { ctx: Ctx }) {
                   }))}
                 />
                 <Input
-                  aria-label="Model"
+                  aria-label={`Model of writer ${i + 1}`}
                   list={`models-${w.id}`}
                   value={w.model}
                   onChange={(e) => setWriter(i, { model: e.target.value })}
@@ -171,26 +173,28 @@ export function Generate({ ctx }: { ctx: Ctx }) {
                   ))}
                 </datalist>
                 <SelectBox
-                  aria-label="Effort"
+                  aria-label={`Effort of writer ${i + 1}`}
                   width="full"
                   value={w.effort}
                   onChange={(effort) => setWriter(i, { effort })}
                   options={[
                     { value: 'default', label: 'Default effort' },
-                    ...(engine?.efforts ?? []).map((ef) => ({
-                      value: ef,
-                      label: `${capital(ef)} effort`,
-                    })),
+                    // The engine lists its own default too; it is the first option already.
+                    ...(engine?.efforts ?? [])
+                      .filter((ef) => ef !== 'default')
+                      .map((ef) => ({ value: ef, label: `${capital(ef)} effort` })),
                   ]}
                 />
                 {writers.length > 1 ? (
                   <Button
                     type="button"
                     variant="ghost"
+                    size="icon"
                     aria-label={`Remove writer ${i + 1}`}
+                    title="Remove"
                     onClick={() => setWriters((rows) => rows.filter((_, k) => k !== i))}
                   >
-                    Remove
+                    <XIcon aria-hidden="true" />
                   </Button>
                 ) : (
                   <span />
@@ -198,10 +202,11 @@ export function Generate({ ctx }: { ctx: Ctx }) {
               </WriterGrid>
             )
           })}
-          <Toolbar>
+          <div>
             <Button
               type="button"
               variant="outline"
+              size="sm"
               disabled={writers.length >= 4 || !first}
               onClick={() =>
                 first &&
@@ -216,17 +221,20 @@ export function Generate({ ctx }: { ctx: Ctx }) {
                 ])
               }
             >
+              <PlusIcon aria-hidden="true" />
               Add a writer
             </Button>
-          </Toolbar>
+          </div>
           {missing.map((e) => (
             <Hint key={e.id}>
               {e.label} is not set up. {e.hint}
             </Hint>
           ))}
-        </Fieldset>
+        </Stack>
+      </FormSection>
 
-        <FormGrid>
+      <FormSection title="Options">
+        <Field>
           <Label htmlFor="gen-samples">Samples per case</Label>
           <NumberInput
             id="gen-samples"
@@ -235,34 +243,36 @@ export function Generate({ ctx }: { ctx: Ctx }) {
             value={samples}
             onChange={(e) => setSamples(Math.max(1, Number(e.target.value) || 1))}
           />
+        </Field>
+        <Field>
           <Label htmlFor="gen-config">Skill</Label>
-          <Stack>
+          <SelectBox
+            id="gen-config"
+            value={configuration}
+            onChange={(v) => setConfiguration(v as Configuration)}
+            options={CONFIGURATIONS.map((c) => ({
+              value: c,
+              label: capital(c.replace('_', ' ')),
+            }))}
+          />
+          <Hint>{CONFIG_HELP[configuration]}</Hint>
+        </Field>
+        {configuration === 'old_skill' ? (
+          <Field>
+            <Label htmlFor="gen-baseline">Copy from</Label>
             <SelectBox
-              id="gen-config"
-              value={configuration}
-              onChange={(v) => setConfiguration(v as Configuration)}
-              options={CONFIGURATIONS.map((c) => ({
-                value: c,
-                label: capital(c.replace('_', ' ')),
+              id="gen-baseline"
+              width="wide"
+              value={baseline}
+              onChange={setBaseline}
+              options={withSkill.map((r) => ({
+                value: r.name,
+                label: `${versionName(r)} · ${runStamp(r)}`,
               }))}
             />
-            <Hint as="span">{CONFIG_HELP[configuration]}</Hint>
-          </Stack>
-          {configuration === 'old_skill' ? (
-            <>
-              <Label htmlFor="gen-baseline">Copy from</Label>
-              <SelectBox
-                id="gen-baseline"
-                width="wide"
-                value={baseline}
-                onChange={setBaseline}
-                options={withSkill.map((r) => ({
-                  value: r.name,
-                  label: `${versionName(r)} · ${runStamp(r)}`,
-                }))}
-              />
-            </>
-          ) : null}
+          </Field>
+        ) : null}
+        <Field>
           <Label htmlFor="gen-note">Note</Label>
           <Input
             id="gen-note"
@@ -271,38 +281,44 @@ export function Generate({ ctx }: { ctx: Ctx }) {
             onChange={(e) => setNote(e.target.value)}
             placeholder="What this run is for"
           />
-          <span />
-          <CheckRow checked={grade} onCheckedChange={setGrade}>
-            Grade when done{' '}
-            <Text tone="muted">{state.jevKey ? 'with Jev' : '(code checks only: no Jev key)'}</Text>
-          </CheckRow>
-        </FormGrid>
+        </Field>
+        <CheckRow
+          checked={grade}
+          onCheckedChange={setGrade}
+          description={
+            state.jevKey ? 'With Jev and the code checks.' : 'Code checks only: no Jev key.'
+          }
+        >
+          Grade when done
+        </CheckRow>
+      </FormSection>
 
-        <Toolbar>
-          <Button type="button" disabled={busy || !cases.size || !writers.length} onClick={submit}>
-            Start run: {plural(count, 'output')}
-          </Button>
-          {!cases.size ? (
-            <Hint>Pick at least one case.</Hint>
-          ) : (
-            <Hint>
-              {plural(cases.size, 'case')} × {plural(writers.length, 'writer')} ×{' '}
-              {plural(samples, 'sample')}
-            </Hint>
-          )}
-        </Toolbar>
-      </Panel>
+      <FormActions>
+        <Button type="button" disabled={busy || !cases.size || !writers.length} onClick={submit}>
+          Start run: {plural(count, 'output')}
+        </Button>
+        <Hint>
+          {!cases.size
+            ? 'Pick at least one case.'
+            : `${plural(cases.size, 'case')} × ${plural(writers.length, 'writer')} × ${plural(samples, 'sample')}`}
+        </Hint>
+      </FormActions>
+
       {jobs.length ? (
         <Section>
           <Heading level={2}>Jobs</Heading>
           <JobLogs jobs={jobs.slice(0, 6)} />
         </Section>
       ) : null}
-    </Split>
+    </Screen>
   )
 }
 
-/** Agent, model and effort in one row; on a phone they wrap to two per line. */
+/** Agent, model, effort and the remove button in one row; on a narrow window they wrap two per line. */
 function WriterGrid({ children }: { children: React.ReactNode }) {
-  return <div className="grid grid-cols-2 gap-1.5 md:grid-cols-[1fr_1fr_1fr_auto]">{children}</div>
+  return (
+    <div className="grid grid-cols-2 gap-2 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_36px]">
+      {children}
+    </div>
+  )
 }

@@ -11,7 +11,7 @@ import { Disclosure } from '../components/Disclosure.tsx'
 import { InlineField } from '../components/forms.tsx'
 import {
   Field,
-  Panel,
+  FormSection,
   Screen,
   Section,
   SectionHead,
@@ -171,7 +171,8 @@ export function Versions({ ctx }: { ctx: Ctx }) {
         )}
       </Section>
 
-      {versions.length ? (
+      {/* With one version and nothing changed, there is nothing to set beside it. */}
+      {versions.length > 1 || (versions.length && current.changed) ? (
         <Compare
           ctx={ctx}
           left={route.params.get('left') ?? versions.at(-1)?.version ?? 'current'}
@@ -206,7 +207,7 @@ function SaveVersion({ ctx, unsavedFiles }: { ctx: Ctx; unsavedFiles: number }) 
   }
 
   return (
-    <Panel width="form" gap="md">
+    <Screen width="form">
       <form
         className="contents"
         onSubmit={(e) => {
@@ -214,53 +215,57 @@ function SaveVersion({ ctx, unsavedFiles }: { ctx: Ctx; unsavedFiles: number }) 
           save()
         }}
       >
-        <SectionHead>
-          <Heading level={2}>Save {current.version}</Heading>
-          <Text tone="muted" size="xs">
-            A copy of SKILL.md and references/ as they are on disk
-          </Text>
-        </SectionHead>
-        {unsavedFiles ? (
-          <Hint tone="destructive">
-            {plural(unsavedFiles, 'file')} in Write {unsavedFiles === 1 ? 'has' : 'have'} unsaved
-            changes. A version keeps the saved files only.{' '}
-            <Button type="button" variant="link-muted" size="inline-sm" onClick={() => go('edit')}>
-              Go to Write
+        <FormSection
+          title={`Save ${current.version}`}
+          hint="A copy of SKILL.md and references/ as they are on disk, to compare and restore later."
+        >
+          {unsavedFiles ? (
+            <Hint tone="destructive">
+              {plural(unsavedFiles, 'file')} in Write {unsavedFiles === 1 ? 'has' : 'have'} unsaved
+              changes. A version keeps the saved files only.{' '}
+              <Button
+                type="button"
+                variant="link-muted"
+                size="inline-sm"
+                onClick={() => go('edit')}
+              >
+                Go to Write
+              </Button>
+            </Hint>
+          ) : null}
+          <Field>
+            <Label htmlFor="version-name">Name</Label>
+            <Input
+              id="version-name"
+              value={name}
+              autoComplete="off"
+              placeholder="Tighter word limit"
+              onChange={(e) => setName(e.target.value)}
+            />
+          </Field>
+          <Field>
+            <Label htmlFor="version-note">What changed, and why</Label>
+            <TextArea
+              id="version-note"
+              value={note}
+              placeholder="Cut the intro rule; the judge kept flagging length."
+              onChange={(e) => setNote(e.target.value)}
+              onKeyDown={(e) => {
+                if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+                  e.preventDefault()
+                  save()
+                }
+              }}
+            />
+          </Field>
+          <Toolbar>
+            <Button type="submit" disabled={!name.trim() || busy}>
+              {busy ? 'Saving…' : `Save as ${current.version}`}
             </Button>
-          </Hint>
-        ) : null}
-        <Field>
-          <Label htmlFor="version-name">Name</Label>
-          <Input
-            id="version-name"
-            value={name}
-            autoComplete="off"
-            placeholder="Tighter word limit"
-            onChange={(e) => setName(e.target.value)}
-          />
-        </Field>
-        <Field>
-          <Label htmlFor="version-note">What changed, and why</Label>
-          <TextArea
-            id="version-note"
-            value={note}
-            placeholder="Cut the intro rule; the judge kept flagging length."
-            onChange={(e) => setNote(e.target.value)}
-            onKeyDown={(e) => {
-              if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
-                e.preventDefault()
-                save()
-              }
-            }}
-          />
-        </Field>
-        <Toolbar>
-          <Button type="submit" disabled={!name.trim() || busy}>
-            {busy ? 'Saving…' : `Save as ${current.version}`}
-          </Button>
-        </Toolbar>
+          </Toolbar>
+        </FormSection>
       </form>
-    </Panel>
+    </Screen>
   )
 }
 
