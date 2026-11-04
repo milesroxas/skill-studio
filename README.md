@@ -150,6 +150,9 @@ src/
     http/          `st serve`: the table over HTTP, the localhost guard, Tailscale
     cli/           the `st` command
   renderer/        the React app; reaches the table through a transport (IPC or HTTP)
+    components/ui/   shadcn/ui sources (Radix + Tailwind v4), owned by the repo
+    components/      the app's composites built on them: layout, text roles, forms, cards
+    screens/         one file per screen
 ```
 
 The layers only point inward, and `fallow` enforces that (`.fallowrc.json`): the domain imports nothing, judges and infrastructure import the domain, the application imports those, and the interfaces and renderer sit on top.

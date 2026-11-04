@@ -1,5 +1,6 @@
 import type { BenchConfig } from '@domain/schemas.ts'
 import type { Job, State } from './api.ts'
+import type { Confirm } from './components/confirm.tsx'
 import type { Route } from './hooks.ts'
 import type { Output } from './model.ts'
 
@@ -13,6 +14,8 @@ export interface Ctx {
   route: Route
   go: (screen: string, params?: Record<string, string>) => void
   toast: (message: string) => void
+  /** Ask before a destructive or lossy step; resolves true when the reader agrees. */
+  confirm: Confirm
   reload: () => Promise<void>
   jobs: Job[]
   /** Switch to another skill (empty: none) and show `screen` in it. */

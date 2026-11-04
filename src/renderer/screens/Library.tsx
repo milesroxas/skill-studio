@@ -13,18 +13,50 @@ import { TEMPLATES, type TemplateId, templateById } from '@domain/templates.ts'
 import { isSlug, SLUG_RULE } from '@domain/text.ts'
 import { useMemo, useState } from 'react'
 import { api } from '../api.ts'
+import type { Confirm } from '../components/confirm.tsx'
+import { Disclosure } from '../components/Disclosure.tsx'
+import { CheckRow } from '../components/forms.tsx'
+import {
+  EmptyState,
+  Field,
+  FormGrid,
+  Panel,
+  PlainList,
+  Screen,
+  Section,
+  SectionHead,
+  Spacer,
+  Stack,
+  Toolbar,
+} from '../components/layout.tsx'
+import { Segmented } from '../components/Segmented.tsx'
+import { SelectBox } from '../components/SelectBox.tsx'
 import { TextArea } from '../components/TextArea.tsx'
+import { Heading, Hint, Text, VisuallyHidden } from '../components/text.tsx'
+import { Button } from '../components/ui/button.tsx'
+import { Input } from '../components/ui/input.tsx'
+import { Label } from '../components/ui/label.tsx'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '../components/ui/table.tsx'
+import { Toggle } from '../components/ui/toggle.tsx'
 import { useFetch } from '../hooks.ts'
 import { plural, shortDate } from '../model.ts'
 
 interface Props {
   openSkill: (path: string, screen?: string) => void
   toast: (message: string) => void
+  confirm: Confirm
 }
 
 type Act = (work: Promise<unknown>, done: string) => void
 
-export function LibraryScreen({ openSkill, toast }: Props) {
+export function LibraryScreen({ openSkill, toast, confirm }: Props) {
   const lib = useFetch(() => api.library(), [])
   const [query, setQuery] = useState('')
   const [place, setPlace] = useState('')
@@ -41,8 +73,8 @@ export function LibraryScreen({ openSkill, toast }: Props) {
     )
   }, [data, query, place])
 
-  if (lib.error) return <p className="help">{lib.error}</p>
-  if (!data) return <p className="help">Finding skills…</p>
+  if (lib.error) return <Hint>{lib.error}</Hint>
+  if (!data) return <Hint>Finding skills…</Hint>
 
   const filtering = Boolean(query.trim() || place)
   const working = data.skills.filter(isInProgress)
@@ -61,19 +93,19 @@ export function LibraryScreen({ openSkill, toast }: Props) {
   }
 
   return (
-    <div className="screen library">
-      <div className="section-head">
-        <h2>Skills</h2>
-        <span className="muted small tnum">
+    <Screen>
+      <SectionHead>
+        <Heading level={2}>Skills</Heading>
+        <Text tone="muted" size="xs" tabular>
           {data.skills.length} in {plural(placeCount, 'place')}
-        </span>
-        <span className="spacer" />
+        </Text>
+        <Spacer />
         {creating ? null : (
-          <button type="button" className="primary" onClick={() => setCreating(true)}>
+          <Button type="button" onClick={() => setCreating(true)}>
             New skill
-          </button>
+          </Button>
         )}
-      </div>
+      </SectionHead>
 
       {creating ? (
         <NewSkill
@@ -85,61 +117,53 @@ export function LibraryScreen({ openSkill, toast }: Props) {
       ) : null}
 
       {working.length && working.length < data.skills.length && !filtering ? (
-        <section className="section">
-          <div className="section-head">
-            <h3>In progress</h3>
-            <p className="help">Skills with cases or runs, and ones you opened here.</p>
-          </div>
-          <SkillTable skills={working} openSkill={openSkill} act={act} />
-        </section>
+        <Section>
+          <SectionHead>
+            <Heading level={3}>In progress</Heading>
+            <Hint>Skills with cases or runs, and ones you opened here.</Hint>
+          </SectionHead>
+          <SkillTable skills={working} openSkill={openSkill} act={act} confirm={confirm} />
+        </Section>
       ) : null}
 
-      <section className="section">
-        <h3>{filtering ? 'Matches' : 'All skills'}</h3>
-        <div className="toolbar">
-          <input
+      <Section>
+        <Heading level={3}>{filtering ? 'Matches' : 'All skills'}</Heading>
+        <Toolbar>
+          <Input
             type="search"
             enterKeyHint="search"
-            className="search"
             aria-label="Search skills"
             placeholder="Search by name or description"
             value={query}
+            width="wide"
             onChange={(e) => setQuery(e.target.value)}
           />
-          <select aria-label="Place" value={place} onChange={(e) => setPlace(e.target.value)}>
-            <option value="">Every place</option>
-            {data.places.map((p) => (
-              <option key={p.scope} value={p.scope}>
-                {p.label}
-              </option>
-            ))}
-          </select>
+          <SelectBox
+            aria-label="Place"
+            value={place}
+            onChange={setPlace}
+            none="Every place"
+            options={data.places.map((p) => ({ value: p.scope, label: p.label }))}
+          />
           {installedCount ? (
-            <label className="check-row small">
-              <input
-                type="checkbox"
-                checked={showInstalled}
-                onChange={(e) => setShowInstalled(e.target.checked)}
-              />
+            <CheckRow size="sm" checked={showInstalled} onCheckedChange={setShowInstalled}>
               Show {plural(installedCount, 'skill')} installed from elsewhere
-            </label>
+            </CheckRow>
           ) : null}
-        </div>
+        </Toolbar>
         {listed.length ? (
-          <SkillTable skills={listed} openSkill={openSkill} act={act} />
+          <SkillTable skills={listed} openSkill={openSkill} act={act} confirm={confirm} />
         ) : (
-          <div className="empty compact">
-            <p className="help">
-              {data.skills.length
-                ? 'No skill matches. Try another word, or every place.'
-                : 'No skills on this machine yet. Create the first one.'}
-            </p>
-          </div>
+          <EmptyState size="compact">
+            {data.skills.length
+              ? 'No skill matches. Try another word, or every place.'
+              : 'No skills on this machine yet. Create the first one.'}
+          </EmptyState>
         )}
-      </section>
+      </Section>
 
       <Places workspaces={data.workspaces} act={act} />
-    </div>
+    </Screen>
   )
 }
 
@@ -154,106 +178,140 @@ function SkillTable({
   skills,
   openSkill,
   act,
+  confirm,
 }: {
   skills: LibrarySkill[]
   openSkill: Props['openSkill']
   act: Act
+  confirm: Confirm
 }) {
-  const toggle = (s: LibrarySkill, agent: AgentId, label: string) => {
-    if (s.installs[agent] === null) act(api.link(s.path, agent, s.scope), `Installed for ${label}`)
-    else if (window.confirm(`Uninstall ${s.name} from ${label}? Only the link is removed.`))
-      act(api.unlink(s.path, agent, s.scope), `Removed from ${label}`)
+  const toggle = async (s: LibrarySkill, agent: AgentId, label: string) => {
+    if (s.installs[agent] === null)
+      return act(api.link(s.path, agent, s.scope), `Installed for ${label}`)
+    const ok = await confirm({
+      title: `Uninstall ${s.name} from ${label}?`,
+      description: 'Only the link is removed.',
+      action: 'Uninstall',
+    })
+    if (ok) act(api.unlink(s.path, agent, s.scope), `Removed from ${label}`)
   }
 
   return (
-    <div className="scroll-x">
-      <table className="grid-table library-table">
-        <thead>
-          <tr>
-            <th>Skill</th>
-            <th>Place</th>
-            <th>Installed for</th>
-            <th className="num">Evals</th>
-            <th className="num">Edited</th>
-            <th className="num">
-              <span className="sr-only">Actions</span>
-            </th>
-          </tr>
-        </thead>
-        <tbody>
-          {skills.map((s) => (
-            <tr key={s.path}>
-              <td className="skill-cell">
-                <button
-                  type="button"
-                  className="link skill-link"
-                  title={s.path}
-                  onClick={() => openSkill(s.path)}
-                >
-                  {s.name}
-                </button>
-                {s.description ? <span className="sub clamp">{s.description}</span> : null}
-              </td>
-              <td className="small nowrap">
-                {s.scopeLabel}
-                {s.source && s.source !== 'marked' ? <span className="sub">{s.source}</span> : null}
-              </td>
-              <td>
-                <span className="agents">
-                  {AGENTS.map((a) => {
-                    const state = s.installs[a.id]
-                    const fixed = state === 'here' || state === 'copy' || s.scope === 'other'
-                    return (
-                      <button
-                        key={a.id}
-                        type="button"
-                        className={`agent${state === 'copy' ? ' copy' : ''}`}
-                        aria-pressed={state === 'here' || state === 'link'}
-                        aria-disabled={fixed || undefined}
-                        title={INSTALL_TITLE[state ?? 'none'](a.label)}
-                        onClick={() => fixed || toggle(s, a.id, a.label)}
-                      >
-                        {a.label.replace(' Code', '')}
-                        {state === 'copy' ? <span className="agent-note">copy</span> : null}
-                      </button>
-                    )
-                  })}
-                </span>
-              </td>
-              <td className="num small tnum">
+    <Table>
+      <TableHeader>
+        <TableRow>
+          <TableHead>Skill</TableHead>
+          <TableHead>Place</TableHead>
+          <TableHead>Installed for</TableHead>
+          <TableHead numeric>Evals</TableHead>
+          <TableHead numeric>Edited</TableHead>
+          <TableHead numeric>
+            <VisuallyHidden>Actions</VisuallyHidden>
+          </TableHead>
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        {skills.map((s) => (
+          <TableRow key={s.path} align="top">
+            <TableCell wrap wide>
+              <Button
+                type="button"
+                variant="link"
+                size="inline"
+                title={s.path}
+                onClick={() => openSkill(s.path)}
+              >
+                {s.name}
+              </Button>
+              {s.description ? (
+                <Text block tone="muted" size="xs" clamp>
+                  {s.description}
+                </Text>
+              ) : null}
+            </TableCell>
+            <TableCell>
+              <Text size="xs">{s.scopeLabel}</Text>
+              {s.source && s.source !== 'marked' ? (
+                <Text block tone="muted" size="xs">
+                  {s.source}
+                </Text>
+              ) : null}
+            </TableCell>
+            <TableCell>
+              <Toolbar gap="xs" wrap={false}>
+                {AGENTS.map((a) => {
+                  const state = s.installs[a.id]
+                  const fixed = state === 'here' || state === 'copy' || s.scope === 'other'
+                  return (
+                    <Toggle
+                      key={a.id}
+                      variant="outline"
+                      size="sm"
+                      pressed={state === 'here' || state === 'link'}
+                      aria-disabled={fixed || undefined}
+                      title={INSTALL_TITLE[state ?? 'none'](a.label)}
+                      className={state === 'copy' ? 'border-dashed' : undefined}
+                      onPressedChange={() => fixed || toggle(s, a.id, a.label)}
+                    >
+                      {a.label.replace(' Code', '')}
+                      {state === 'copy' ? (
+                        <Text tone="faint" size="xs">
+                          copy
+                        </Text>
+                      ) : null}
+                    </Toggle>
+                  )
+                })}
+              </Toolbar>
+            </TableCell>
+            <TableCell numeric>
+              <Text size="xs">
                 {s.cases || s.runs ? (
                   `${plural(s.cases, 'case')} · ${plural(s.runs, 'run')}`
                 ) : (
-                  <span className="faint">None</span>
+                  <Text tone="faint">None</Text>
                 )}
-              </td>
-              <td className="num small tnum">{shortDate(s.modified)}</td>
-              <td className="num">
-                <span className="actions">
-                  {s.source === null || s.source === 'marked' ? (
-                    <button
-                      type="button"
-                      className="link muted small row-extra"
-                      onClick={() =>
-                        act(
-                          api.mark(s.path, !s.source),
-                          s.source ? 'Listed with your skills' : 'Hidden with installed skills',
-                        )
-                      }
-                    >
-                      {s.source ? 'Mine' : 'Not mine'}
-                    </button>
-                  ) : null}
-                  <button type="button" onClick={() => openSkill(s.path)}>
-                    Open
-                  </button>
-                </span>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
+              </Text>
+            </TableCell>
+            <TableCell numeric>
+              <Text size="xs">{shortDate(s.modified)}</Text>
+            </TableCell>
+            <TableCell numeric>
+              <Toolbar gap="md" justify="end" wrap={false}>
+                {s.source === null || s.source === 'marked' ? (
+                  <RowAction
+                    onClick={() =>
+                      act(
+                        api.mark(s.path, !s.source),
+                        s.source ? 'Listed with your skills' : 'Hidden with installed skills',
+                      )
+                    }
+                  >
+                    {s.source ? 'Mine' : 'Not mine'}
+                  </RowAction>
+                ) : null}
+                <Button type="button" variant="outline" size="sm" onClick={() => openSkill(s.path)}>
+                  Open
+                </Button>
+              </Toolbar>
+            </TableCell>
+          </TableRow>
+        ))}
+      </TableBody>
+    </Table>
+  )
+}
+
+/** A rare action: shown on the row being pointed at or tabbed into, always on touch. */
+function RowAction(props: React.ComponentProps<typeof Button>) {
+  return (
+    <Button
+      type="button"
+      variant="link-muted"
+      size="inline"
+      className="text-xs opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 pointer-coarse:opacity-100"
+      {...props}
+    />
   )
 }
 
@@ -308,120 +366,109 @@ function NewSkill({
   }
 
   return (
-    <form
-      className="panel new-skill"
-      onSubmit={(e) => {
-        e.preventDefault()
-        submit()
-      }}
-    >
-      <h3>New skill</h3>
-      <div className="form-grid">
-        <span id="ns-template-label">Start from</span>
-        <div className="field">
-          <fieldset className="seg fill" aria-labelledby="ns-template-label">
-            {TEMPLATES.map((t) => (
-              <button
-                key={t.id}
-                type="button"
-                aria-pressed={t.id === templateId}
-                onClick={() => setTemplateId(t.id)}
-              >
-                {t.label}
-              </button>
-            ))}
-          </fieldset>
-          <span className="help">
-            {template.summary}
-            {template.cases.length
-              ? ` Starts with ${plural(ruleCount, 'example rule')} to replace.`
-              : ''}
-          </span>
-          {template.cases.length ? (
-            <label className="check-row small">
-              <input
-                type="checkbox"
-                checked={samples}
-                onChange={(e) => setSamples(e.target.checked)}
-              />
-              Add {plural(template.cases.length, 'sample case')} to run against
-            </label>
-          ) : null}
-        </div>
+    <Panel width="form">
+      <form
+        className="contents"
+        onSubmit={(e) => {
+          e.preventDefault()
+          submit()
+        }}
+      >
+        <Heading level={3}>New skill</Heading>
+        <FormGrid align="start">
+          <span id="ns-template-label">Start from</span>
+          <Field>
+            <Segmented
+              aria-labelledby="ns-template-label"
+              fill
+              value={templateId}
+              onChange={(v) => v && setTemplateId(v)}
+              options={TEMPLATES.map((t) => ({ value: t.id, label: t.label }))}
+            />
+            <Hint>
+              {template.summary}
+              {template.cases.length
+                ? ` Starts with ${plural(ruleCount, 'example rule')} to replace.`
+                : ''}
+            </Hint>
+            {template.cases.length ? (
+              <CheckRow size="sm" checked={samples} onCheckedChange={setSamples}>
+                Add {plural(template.cases.length, 'sample case')} to run against
+              </CheckRow>
+            ) : null}
+          </Field>
 
-        <label htmlFor="ns-name">Name</label>
-        <div className="field">
-          <input
-            id="ns-name"
-            value={name}
-            autoComplete="off"
-            autoCapitalize="none"
-            autoCorrect="off"
-            spellCheck={false}
-            enterKeyHint="next"
-            aria-invalid={Boolean(nameError || taken) || undefined}
-            aria-describedby="ns-name-help"
-            onChange={(e) => setName(e.target.value)}
+          <Label htmlFor="ns-name">Name</Label>
+          <Field>
+            <Input
+              id="ns-name"
+              value={name}
+              autoComplete="off"
+              autoCapitalize="none"
+              autoCorrect="off"
+              spellCheck={false}
+              enterKeyHint="next"
+              aria-invalid={Boolean(nameError || taken) || undefined}
+              aria-describedby="ns-name-help"
+              onChange={(e) => setName(e.target.value)}
+            />
+            <Hint id="ns-name-help" tone={nameError || taken ? 'destructive' : 'default'}>
+              {nameError ||
+                (taken
+                  ? 'A skill with this name is already in that place.'
+                  : `Saved in .agents/skills/${name || 'name'} (${placeLabel})`)}
+            </Hint>
+          </Field>
+
+          <Label htmlFor="ns-desc">Description</Label>
+          <Field>
+            <TextArea
+              id="ns-desc"
+              rows={3}
+              value={description}
+              placeholder={template.description}
+              aria-describedby="ns-desc-help"
+              onChange={(e) => setDescription(e.target.value)}
+            />
+            <Hint id="ns-desc-help">
+              What it does and when to use it. Agents read this to decide when to load the skill.
+            </Hint>
+          </Field>
+
+          <Label htmlFor="ns-place">Place</Label>
+          <SelectBox
+            id="ns-place"
+            value={scope}
+            onChange={setScope}
+            options={data.places.map((p) => ({
+              value: p.scope,
+              label: p.scope === 'user' ? 'User (every project)' : p.label,
+            }))}
           />
-          <span id="ns-name-help" className={`help${nameError || taken ? ' bad' : ''}`}>
-            {nameError ||
-              (taken
-                ? 'A skill with this name is already in that place.'
-                : `Saved in .agents/skills/${name || 'name'} (${placeLabel})`)}
-          </span>
-        </div>
 
-        <label htmlFor="ns-desc">Description</label>
-        <div className="field">
-          <TextArea
-            id="ns-desc"
-            rows={3}
-            value={description}
-            placeholder={template.description}
-            aria-describedby="ns-desc-help"
-            onChange={(e) => setDescription(e.target.value)}
-          />
-          <span id="ns-desc-help" className="help">
-            What it does and when to use it. Agents read this to decide when to load the skill.
-          </span>
-        </div>
-
-        <label htmlFor="ns-place">Place</label>
-        <select id="ns-place" value={scope} onChange={(e) => setScope(e.target.value)}>
-          {data.places.map((p) => (
-            <option key={p.scope} value={p.scope}>
-              {p.scope === 'user' ? 'User (every project)' : p.label}
-            </option>
-          ))}
-        </select>
-
-        <span>Install for</span>
-        <div className="actions">
-          {AGENTS.map((a) => (
-            <label key={a.id} className="check-row">
-              <input
-                type="checkbox"
+          <span>Install for</span>
+          <Toolbar>
+            {AGENTS.map((a) => (
+              <CheckRow
+                key={a.id}
                 checked={agents.has(a.id)}
-                onChange={() => toggleAgent(a.id)}
-              />
-              {a.label}
-            </label>
-          ))}
-        </div>
-      </div>
-      <div className="actions">
-        <button
-          type="submit"
-          className="primary"
-          disabled={busy || !name || Boolean(nameError) || taken}
-        >
-          Create skill
-        </button>
-        <button type="button" className="ghost" onClick={cancel}>
-          Cancel
-        </button>
-      </div>
-    </form>
+                onCheckedChange={() => toggleAgent(a.id)}
+              >
+                {a.label}
+              </CheckRow>
+            ))}
+          </Toolbar>
+        </FormGrid>
+        <Toolbar>
+          <Button type="submit" disabled={busy || !name || Boolean(nameError) || taken}>
+            Create skill
+          </Button>
+          <Button type="button" variant="ghost" onClick={cancel}>
+            Cancel
+          </Button>
+        </Toolbar>
+      </form>
+    </Panel>
   )
 }
 
@@ -429,34 +476,36 @@ function Places({ workspaces, act }: { workspaces: string[]; act: Act }) {
   const [adding, setAdding] = useState('')
   const save = (list: string[], done: string) => act(api.setWorkspaces(list), done)
   return (
-    <details className="places">
-      <summary className="small">Where skills are found</summary>
-      <div className="stack">
-        <p className="help">
+    <Disclosure summary="Where skills are found">
+      <Stack>
+        <Hint>
           Your user folders (~/.agents, ~/.claude, ~/.cursor and ~/.codex skills), plus every
           project with a skills folder up to three levels inside these folders:
-        </p>
-        <ul className="place-list">
+        </Hint>
+        <PlainList>
           {workspaces.map((w) => (
             <li key={w}>
-              <span className="mono">{w}</span>
-              <button
-                type="button"
-                className="link muted small"
-                onClick={() =>
-                  save(
-                    workspaces.filter((x) => x !== w),
-                    `Stopped looking in ${w}`,
-                  )
-                }
-              >
-                Remove
-              </button>
+              <Toolbar gap="md">
+                <Text font="mono">{w}</Text>
+                <Button
+                  type="button"
+                  variant="link-muted"
+                  size="inline-sm"
+                  onClick={() =>
+                    save(
+                      workspaces.filter((x) => x !== w),
+                      `Stopped looking in ${w}`,
+                    )
+                  }
+                >
+                  Remove
+                </Button>
+              </Toolbar>
             </li>
           ))}
-        </ul>
+        </PlainList>
         <form
-          className="actions"
+          className="contents"
           onSubmit={(e) => {
             e.preventDefault()
             const folder = adding.trim()
@@ -465,21 +514,24 @@ function Places({ workspaces, act }: { workspaces: string[]; act: Act }) {
             setAdding('')
           }}
         >
-          <input
-            aria-label="Folder to look in"
-            placeholder="~/Projects"
-            autoCapitalize="none"
-            autoCorrect="off"
-            spellCheck={false}
-            enterKeyHint="done"
-            value={adding}
-            onChange={(e) => setAdding(e.target.value)}
-          />
-          <button type="submit" disabled={!adding.trim()}>
-            Add folder
-          </button>
+          <Toolbar>
+            <Input
+              aria-label="Folder to look in"
+              placeholder="~/Projects"
+              autoCapitalize="none"
+              autoCorrect="off"
+              spellCheck={false}
+              enterKeyHint="done"
+              value={adding}
+              width="auto"
+              onChange={(e) => setAdding(e.target.value)}
+            />
+            <Button type="submit" variant="outline" disabled={!adding.trim()}>
+              Add folder
+            </Button>
+          </Toolbar>
         </form>
-      </div>
-    </details>
+      </Stack>
+    </Disclosure>
   )
 }

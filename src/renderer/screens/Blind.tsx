@@ -5,8 +5,25 @@ import { useEffect, useState } from 'react'
 import { api } from '../api.ts'
 import { AnchorForm } from '../components/AnchorForm.tsx'
 import { ArtifactPicker, ArtifactView } from '../components/Artifact.tsx'
+import { Disclosure } from '../components/Disclosure.tsx'
+import {
+  EmptyState,
+  Field,
+  Fieldset,
+  List,
+  Panel,
+  Split,
+  Stack,
+  Toolbar,
+} from '../components/layout.tsx'
+import { NavButton } from '../components/NavButton.tsx'
+import { CardFold, OutputCard, OutputCardHead, Slot } from '../components/OutputCard.tsx'
 import { Flags, Layers, TotalChip } from '../components/Scores.tsx'
+import { Segmented } from '../components/Segmented.tsx'
 import { TextArea } from '../components/TextArea.tsx'
+import { Heading, Hint, Text } from '../components/text.tsx'
+import { Button } from '../components/ui/button.tsx'
+import { Label } from '../components/ui/label.tsx'
 import type { Ctx } from '../ctx.ts'
 import { useFetch } from '../hooks.ts'
 import {
@@ -24,6 +41,12 @@ import {
 } from '../model.ts'
 
 type Mark = 'good' | 'bad'
+
+const RATINGS = ['1', '2', '3', '4', '5'].map((n) => ({ value: n, label: n }))
+const MARKS = [
+  { value: 'good', label: 'Good', tone: 'success' },
+  { value: 'bad', label: 'Bad', tone: 'destructive' },
+] as const
 
 export function Blind({ ctx }: { ctx: Ctx }) {
   const { state, config, outputs, toast, reload, route, go } = ctx
@@ -60,25 +83,28 @@ export function Blind({ ctx }: { ctx: Ctx }) {
 
   if (!output)
     return (
-      <div className="empty">
-        <h2>
-          {items.length
+      <EmptyState
+        title={
+          items.length
             ? 'Pick an output to rate'
             : reviewed.length
               ? 'You rated every graded output'
-              : 'Nothing to rate yet'}
-        </h2>
-        <p className="help">
-          You rate each answer before you see its score, so the judge cannot sway you. The queue
-          puts the answers the judge was least sure of first. A new run adds more.
-        </p>
-        <div className="actions">
-          <button type="button" onClick={() => go(state.runs.length ? 'overview' : 'generate')}>
+              : 'Nothing to rate yet'
+        }
+        actions={
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => go(state.runs.length ? 'overview' : 'generate')}
+          >
             {state.runs.length ? 'See runs' : 'Start a run'}
-          </button>
-        </div>
+          </Button>
+        }
+      >
+        You rate each answer before you see its score, so the judge cannot sway you. The queue puts
+        the answers the judge was least sure of first. A new run adds more.
         <ReviewedList reviewed={reviewed} current={current} open={open} />
-      </div>
+      </EmptyState>
     )
 
   const scored = scoreOf(output, config)
@@ -97,10 +123,10 @@ export function Blind({ ctx }: { ctx: Ctx }) {
       toast(`Not saved: ${(e as Error).message}`)
     }
   }
-  const mark = (layer: string, value: Mark) =>
+  const mark = (layer: string, value: Mark | null) =>
     setMarks((prev) => {
       const marked = { ...prev }
-      if (marked[layer] === value) delete marked[layer]
+      if (value === null || marked[layer] === value) delete marked[layer]
       else marked[layer] = value
       return marked
     })
@@ -109,34 +135,34 @@ export function Blind({ ctx }: { ctx: Ctx }) {
   const canSkip = items.some((i) => i.key !== current)
 
   return (
-    <div className="split">
-      <article className="card">
-        <header className="card-head">
-          <span className="slot plain">
-            {position >= 0 ? `${position + 1} of ${items.length}` : 'Reviewed'}
-          </span>
-          <span className="title">
-            {revealed ? (
+    <Split layout="aside">
+      <OutputCard>
+        <OutputCardHead
+          slot={<Slot>{position >= 0 ? `${position + 1} of ${items.length}` : 'Reviewed'}</Slot>}
+          title={
+            revealed ? (
               <>
-                {versionName(output.run)} <span className="muted">· {outputLine(output)}</span>
+                {versionName(output.run)} <Text tone="muted">· {outputLine(output)}</Text>
               </>
             ) : (
               <>
                 {caseTitle(state, output.caseId)}{' '}
-                <span className="muted mono small">{output.caseId}</span>
+                <Text tone="muted" font="mono" size="xs">
+                  {output.caseId}
+                </Text>
               </>
-            )}
-          </span>
-          <span className="total">
-            {revealed ? <TotalChip total={scored?.scores.total} /> : null}
-          </span>
-          {size || !revealed ? (
-            <span className="meta">
-              {!revealed ? <span>Scores and writer stay hidden until you save</span> : null}
-              {size ? <span>{size}</span> : null}
-            </span>
-          ) : null}
-        </header>
+            )
+          }
+          total={revealed ? <TotalChip total={scored?.scores.total} /> : null}
+          meta={
+            size || !revealed ? (
+              <>
+                {!revealed ? <span>Scores and writer stay hidden until you save</span> : null}
+                {size ? <span>{size}</span> : null}
+              </>
+            ) : null
+          }
+        />
         {revealed && scored ? (
           <>
             <Layers scored={scored} layers={layers} />
@@ -144,22 +170,27 @@ export function Blind({ ctx }: { ctx: Ctx }) {
           </>
         ) : null}
         {testCase ? (
-          <details className="prompt-box">
-            <summary>
-              The prompt{testCase.graders.length ? ' and what the case checks' : ''}
-            </summary>
-            <pre>{testCase.prompt}</pre>
-            {testCase.expectedOutcome ? (
-              <p className="help">Expected: {testCase.expectedOutcome}</p>
-            ) : null}
-            {testCase.graders.length ? (
-              <ul>
-                {testCase.graders.map((g) => (
-                  <li key={g.id}>{g.statement}</li>
-                ))}
-              </ul>
-            ) : null}
-          </details>
+          <CardFold>
+            <Disclosure
+              summary={`The prompt${testCase.graders.length ? ' and what the case checks' : ''}`}
+            >
+              <Stack gap="md">
+                <Text as="p" font="mono" size="xs" wrap="pre">
+                  {testCase.prompt}
+                </Text>
+                {testCase.expectedOutcome ? (
+                  <Hint>Expected: {testCase.expectedOutcome}</Hint>
+                ) : null}
+                {testCase.graders.length ? (
+                  <List>
+                    {testCase.graders.map((g) => (
+                      <li key={g.id}>{g.statement}</li>
+                    ))}
+                  </List>
+                ) : null}
+              </Stack>
+            </Disclosure>
+          </CardFold>
         ) : null}
         <ArtifactPicker
           artifacts={output.sample.artifacts}
@@ -167,142 +198,146 @@ export function Blind({ ctx }: { ctx: Ctx }) {
           onChange={setArtifact}
         />
         <ArtifactView run={output.run.name} sample={output.sample.name} artifact={artifact} />
-      </article>
-      <aside className="panel sticky">
-        <fieldset className="field">
-          <legend>Your rating</legend>
-          <div className="seg fill">
-            {[1, 2, 3, 4, 5].map((n) => (
-              <button
-                key={n}
-                type="button"
-                className="tnum"
-                aria-pressed={rating === n}
-                onClick={() => setRating(rating === n ? null : n)}
-              >
-                {n}
-              </button>
-            ))}
-          </div>
-          <p className="help">1 is unusable, 5 ships as is.</p>
-        </fieldset>
-        <fieldset className="field">
-          <legend>By layer</legend>
-          <div className="marks">
-            {layers.map((layer) => (
-              <div key={layer} className="mark-row">
-                <span>{capital(layer)}</span>
-                <span className="bench">{revealed ? (scored?.scores[layer] ?? '–') : ''}</span>
-                <fieldset className="seg" aria-label={capital(layer)}>
-                  <button
-                    type="button"
-                    className="good"
-                    aria-pressed={marks[layer] === 'good'}
-                    onClick={() => mark(layer, 'good')}
-                  >
-                    Good
-                  </button>
-                  <button
-                    type="button"
-                    className="bad"
-                    aria-pressed={marks[layer] === 'bad'}
-                    onClick={() => mark(layer, 'bad')}
-                  >
-                    Bad
-                  </button>
-                </fieldset>
-              </div>
-            ))}
-          </div>
-        </fieldset>
-        <div className="field">
-          <label className="h3" htmlFor="review-note">
-            Note
-          </label>
-          <TextArea
-            id="review-note"
-            value={note}
-            onChange={(e) => setNote(e.target.value)}
-            placeholder="What works, what you would change, what the skill should have done"
-          />
-        </div>
-        <div className="field">
-          <div className="actions">
-            <button type="button" className="primary" onClick={save}>
-              {revealed ? 'Save' : 'Save and reveal'}
-            </button>
-            <button type="button" onClick={next} disabled={!canSkip}>
-              {revealed ? 'Next' : 'Skip'}
-            </button>
-          </div>
-          {revealed ? (
-            <div className="actions small">
-              <button
-                type="button"
-                className="link"
-                onClick={() => go('compare', { a: output.key })}
-              >
-                Compare with another output
-              </button>
-              <button type="button" className="link" onClick={() => setAnchor((a) => !a)}>
-                Make it an anchor
-              </button>
-            </div>
-          ) : (
-            <div className="actions small">
-              <button type="button" className="link" onClick={() => setRevealed(true)}>
-                Reveal without saving
-              </button>
-            </div>
-          )}
-          {revealed && anchor ? (
-            <AnchorForm
-              output={output}
-              layers={layers}
-              badLayers={Object.entries(marks)
-                .filter(([, v]) => v === 'bad')
-                .map(([l]) => l)}
-              about={note}
-              onDone={(m) => {
-                toast(m)
-                setAnchor(false)
-                reload()
-              }}
+      </OutputCard>
+      <Panel sticky>
+        <aside className="contents">
+          <Fieldset legend="Your rating">
+            <Segmented
+              aria-label="Your rating"
+              fill
+              tabular
+              clearable
+              options={RATINGS}
+              value={rating === null ? null : String(rating)}
+              onChange={(v) => setRating(v === null ? null : Number(v))}
             />
-          ) : null}
-        </div>
-        <div className="field">
-          <h3>
-            Queue <span className="muted tnum">{items.length}</span>
-          </h3>
-          {items.length ? (
-            <div className="queue">
-              {items.map((item) => (
-                <button
-                  key={item.key}
+            <Hint>1 is unusable, 5 ships as is.</Hint>
+          </Fieldset>
+          <Fieldset legend="By layer">
+            <Stack>
+              {layers.map((layer) => (
+                <MarkRow key={layer}>
+                  <span>{capital(layer)}</span>
+                  <Text tone="muted" size="xs" tabular>
+                    {revealed ? (scored?.scores[layer] ?? '–') : ''}
+                  </Text>
+                  <Segmented
+                    aria-label={capital(layer)}
+                    clearable
+                    options={MARKS}
+                    value={marks[layer] ?? null}
+                    onChange={(v) => mark(layer, v)}
+                  />
+                </MarkRow>
+              ))}
+            </Stack>
+          </Fieldset>
+          <Field>
+            <Label htmlFor="review-note">Note</Label>
+            <TextArea
+              id="review-note"
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+              placeholder="What works, what you would change, what the skill should have done"
+            />
+          </Field>
+          <Field>
+            <Toolbar>
+              <Button type="button" onClick={save}>
+                {revealed ? 'Save' : 'Save and reveal'}
+              </Button>
+              <Button type="button" variant="outline" onClick={next} disabled={!canSkip}>
+                {revealed ? 'Next' : 'Skip'}
+              </Button>
+            </Toolbar>
+            {revealed ? (
+              <Toolbar>
+                <Button
                   type="button"
-                  className={`row${item.key === current ? ' current' : ''}`}
-                  aria-current={item.key === current ? 'true' : undefined}
-                  onClick={() => open(item.key)}
+                  variant="link-muted"
+                  size="inline-sm"
+                  onClick={() => go('compare', { a: output.key })}
                 >
-                  <span className="name">
-                    {item.result.case ?? item.result.sample}
-                    <small>
+                  Compare with another output
+                </Button>
+                <Button
+                  type="button"
+                  variant="link-muted"
+                  size="inline-sm"
+                  onClick={() => setAnchor((a) => !a)}
+                >
+                  Make it an anchor
+                </Button>
+              </Toolbar>
+            ) : (
+              <Toolbar>
+                <Button
+                  type="button"
+                  variant="link-muted"
+                  size="inline-sm"
+                  onClick={() => setRevealed(true)}
+                >
+                  Reveal without saving
+                </Button>
+              </Toolbar>
+            )}
+            {revealed && anchor ? (
+              <AnchorForm
+                output={output}
+                layers={layers}
+                badLayers={Object.entries(marks)
+                  .filter(([, v]) => v === 'bad')
+                  .map(([l]) => l)}
+                about={note}
+                onDone={(m) => {
+                  toast(m)
+                  setAnchor(false)
+                  reload()
+                }}
+              />
+            ) : null}
+          </Field>
+          <Field>
+            <Heading level={3}>
+              Queue{' '}
+              <Text tone="muted" tabular>
+                {items.length}
+              </Text>
+            </Heading>
+            {items.length ? (
+              <Queue>
+                {items.map((item) => (
+                  <NavButton
+                    key={item.key}
+                    current={item.key === current}
+                    onClick={() => open(item.key)}
+                  >
+                    <span>{item.result.case ?? item.result.sample}</span>
+                    <Text tone="muted" size="xs">
                       {item.result.confidence === null
                         ? 'Judge certainty unknown'
                         : `Judge ${Math.round(item.result.confidence * 100)}% sure`}
                       {item.caseSpread ? ` · spread ${item.caseSpread}` : ''}
-                    </small>
-                  </span>
-                </button>
-              ))}
-            </div>
-          ) : (
-            <p className="help">Empty: every graded output has a review.</p>
-          )}
-          <ReviewedList reviewed={reviewed} current={current} open={open} />
-        </div>
-      </aside>
+                    </Text>
+                  </NavButton>
+                ))}
+              </Queue>
+            ) : (
+              <Hint>Empty: every graded output has a review.</Hint>
+            )}
+            <ReviewedList reviewed={reviewed} current={current} open={open} />
+          </Field>
+        </aside>
+      </Panel>
+    </Split>
+  )
+}
+
+/** A list of outputs to open; scrolls on its own except on touch, where the page scrolls. */
+function Queue({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="-mx-2 flex max-h-[40svh] flex-col gap-0.5 overflow-auto pointer-coarse:max-h-none pointer-coarse:overflow-visible">
+      {children}
     </div>
   )
 }
@@ -318,23 +353,24 @@ function ReviewedList({
 }) {
   if (!reviewed.length) return null
   return (
-    <details>
-      <summary className="help">Reviewed ({reviewed.length})</summary>
-      <div className="queue">
+    <Disclosure summary={`Reviewed (${reviewed.length})`}>
+      <Queue>
         {reviewed.map((o) => (
-          <button
-            key={o.key}
-            type="button"
-            className={`row${o.key === current ? ' current' : ''}`}
-            onClick={() => open(o.key)}
-          >
-            <span className="name">
-              {o.caseId}
-              <small>{outputLine(o)}</small>
-            </span>
-          </button>
+          <NavButton key={o.key} current={o.key === current} onClick={() => open(o.key)}>
+            <span>{o.caseId}</span>
+            <Text tone="muted" size="xs">
+              {outputLine(o)}
+            </Text>
+          </NavButton>
         ))}
-      </div>
-    </details>
+      </Queue>
+    </Disclosure>
+  )
+}
+
+/** One layer: its name, the bench score once revealed, and the good or bad toggle. */
+function MarkRow({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-2.5">{children}</div>
   )
 }

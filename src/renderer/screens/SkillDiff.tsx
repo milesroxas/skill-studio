@@ -1,8 +1,14 @@
 /** The skill's files: the working tree or any run's snapshot, diffed file by file. */
 import { useState } from 'react'
 import { api } from '../api.ts'
+import { Disclosure } from '../components/Disclosure.tsx'
+import { InlineField } from '../components/forms.tsx'
+import { Screen, Toolbar } from '../components/layout.tsx'
+import { SelectBox } from '../components/SelectBox.tsx'
+import { Hint, Text } from '../components/text.tsx'
+import { Toggle } from '../components/ui/toggle.tsx'
 import type { Ctx } from '../ctx.ts'
-import { lineDiff } from '../diff.ts'
+import { type DiffLine, lineDiff } from '../diff.ts'
 import { useFetch } from '../hooks.ts'
 import { runStamp, versionName } from '../model.ts'
 
@@ -32,73 +38,80 @@ export function SkillDiff({ ctx }: { ctx: Ctx }) {
       : null
 
   return (
-    <div className="screen">
-      <div className="toolbar">
-        <label className="picker">
-          <span className="small muted">From</span>
-          <select value={left} onChange={(e) => pick('left', e.target.value)}>
-            {options.map((o) => (
-              <option key={o.value} value={o.value}>
-                {o.label}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="picker">
-          <span className="small muted">To</span>
-          <select value={right} onChange={(e) => pick('right', e.target.value)}>
-            {options.map((o) => (
-              <option key={o.value} value={o.value}>
-                {o.label}
-              </option>
-            ))}
-          </select>
-        </label>
-        <button type="button" aria-pressed={showAll} onClick={() => setShowAll((s) => !s)}>
+    <Screen>
+      <Toolbar>
+        <InlineField label="From">
+          <SelectBox
+            aria-label="From"
+            width="wide"
+            value={left}
+            onChange={(v) => pick('left', v)}
+            options={options}
+          />
+        </InlineField>
+        <InlineField label="To">
+          <SelectBox
+            aria-label="To"
+            width="wide"
+            value={right}
+            onChange={(v) => pick('right', v)}
+            options={options}
+          />
+        </InlineField>
+        <Toggle variant="outline" pressed={showAll} onPressedChange={setShowAll}>
           Show unchanged files
-        </button>
-      </div>
-      {a.error || b.error ? <p className="help">{a.error ?? b.error}</p> : null}
-      {!diffs ? <p className="help">Loading…</p> : null}
+        </Toggle>
+      </Toolbar>
+      {a.error || b.error ? <Hint>{a.error ?? b.error}</Hint> : null}
+      {!diffs ? <Hint>Loading…</Hint> : null}
       {diffs?.map(({ file, before, after, lines }) => {
         if (!lines.length && !showAll) return null
         return (
-          <details key={file} className="diff-file" open={lines.length > 0}>
-            <summary>
-              <span className="mono">{file}</span>{' '}
-              <small className="muted">
-                {!before
-                  ? 'added'
-                  : !after
-                    ? 'removed'
-                    : lines.length
-                      ? `${lines.filter((l) => l.op === 'ins').length} added, ${lines.filter((l) => l.op === 'del').length} removed`
-                      : 'unchanged'}
-              </small>
-            </summary>
-            {lines.length ? (
-              <pre className="diff-lines">
-                {lines.map((line) => (
-                  <span key={line.n} className={line.op}>
-                    {line.op === 'fold'
-                      ? '   …'
-                      : `${line.op === 'ins' ? '+ ' : line.op === 'del' ? '- ' : '  '}${line.text}`}
-                    {'\n'}
-                  </span>
-                ))}
-              </pre>
-            ) : (
-              <pre className="diff-lines">{after}</pre>
-            )}
-          </details>
+          <Disclosure
+            key={file}
+            variant="card"
+            defaultOpen={lines.length > 0}
+            summary={
+              <>
+                <Text font="mono">{file}</Text>{' '}
+                <Text tone="muted" size="xs">
+                  {!before
+                    ? 'added'
+                    : !after
+                      ? 'removed'
+                      : lines.length
+                        ? `${lines.filter((l) => l.op === 'ins').length} added, ${lines.filter((l) => l.op === 'del').length} removed`
+                        : 'unchanged'}
+                </Text>
+              </>
+            }
+          >
+            {lines.length ? <DiffLines lines={lines} /> : <pre className="diff-lines">{after}</pre>}
+          </Disclosure>
         )
       })}
       {diffs && !diffs.some((d) => d.lines.length) ? (
-        <p className="help">
+        <Hint>
           No differences: {options.find((o) => o.value === left)?.label ?? left} and{' '}
           {options.find((o) => o.value === right)?.label ?? right} hold the same files.
-        </p>
+        </Hint>
       ) : null}
-    </div>
+    </Screen>
+  )
+}
+
+/** A line diff as a listing: added lines tinted green, removed red, folds muted. */
+export function DiffLines({ lines }: { lines: DiffLine[] }) {
+  return (
+    <pre className="diff-lines">
+      {lines.map((line) => (
+        <span key={line.n} className={line.op}>
+          {line.op === 'fold'
+            ? '   …'
+            : `${line.op === 'ins' ? '+ ' : line.op === 'del' ? '- ' : '  '}${line.text}`}
+          {'\n'}
+        </span>
+      ))}
+    </pre>
   )
 }

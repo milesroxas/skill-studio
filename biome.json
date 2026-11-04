@@ -45,14 +45,22 @@
   },
   "overrides": [
     {
-      "includes": ["src/renderer/styles.css"],
+      "includes": ["src/renderer/components/ui/**"],
       "linter": {
         "rules": {
-          "style": {
-            "noDescendingSpecificity": "off"
+          "suspicious": {
+            "noArrayIndexKey": "off"
+          },
+          "a11y": {
+            "recommended": false
           }
         }
       }
     }
-  ]
+  ],
+  "css": {
+    "parser": {
+      "tailwindDirectives": true
+    }
+  }
 }

@@ -76,8 +76,11 @@ export const layerHomeOf = (layer: string): LayerHome | null => {
   return null
 }
 
-export function chipClass(total: number | null | undefined): string {
-  if (total === null || total === undefined) return ''
+/** How good a score out of 100 is, from high to very low; `na` when there is none. */
+export type ScoreBand = 'hi' | 'mid' | 'lo' | 'vlo' | 'na'
+
+export function scoreBand(total: number | null | undefined): ScoreBand {
+  if (total === null || total === undefined) return 'na'
   if (total >= 90) return 'hi'
   if (total >= 75) return 'mid'
   if (total >= 60) return 'lo'

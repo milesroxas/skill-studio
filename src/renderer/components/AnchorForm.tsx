@@ -3,6 +3,11 @@ import { useState } from 'react'
 import { api } from '../api.ts'
 import { useToggleSet } from '../hooks.ts'
 import { capital, type Output, primaryOf } from '../model.ts'
+import { CheckRow } from './forms.tsx'
+import { Fieldset, Toolbar } from './layout.tsx'
+import { Segmented } from './Segmented.tsx'
+import { Button } from './ui/button.tsx'
+import { Input } from './ui/input.tsx'
 
 interface Props {
   output: Output
@@ -12,8 +17,15 @@ interface Props {
   onDone: (message: string) => void
 }
 
+type Label = 'good' | 'bad'
+
+const LABELS = [
+  { value: 'good', label: 'Good example', tone: 'success' },
+  { value: 'bad', label: 'Bad example', tone: 'destructive' },
+] as const
+
 export function AnchorForm({ output, layers, badLayers = [], about = '', onDone }: Props) {
-  const [label, setLabel] = useState<'good' | 'bad'>(badLayers.length ? 'bad' : 'good')
+  const [label, setLabel] = useState<Label>(badLayers.length ? 'bad' : 'good')
   const [tests, toggle] = useToggleSet(badLayers.length ? [...badLayers, 'total'] : [])
   const [note, setNote] = useState(about.split('\n')[0])
   const [busy, setBusy] = useState(false)
@@ -39,52 +51,45 @@ export function AnchorForm({ output, layers, badLayers = [], about = '', onDone 
     }
   }
   return (
-    <div className="anchor-form">
-      <fieldset className="seg fill" aria-label="Anchor label">
-        <button
-          type="button"
-          className="good"
-          aria-pressed={label === 'good'}
-          onClick={() => setLabel('good')}
-        >
-          Good example
-        </button>
-        <button
-          type="button"
-          className="bad"
-          aria-pressed={label === 'bad'}
-          onClick={() => setLabel('bad')}
-        >
-          Bad example
-        </button>
-      </fieldset>
+    <div className="flex flex-col gap-2.5 rounded-md border bg-background p-3">
+      <Segmented
+        aria-label="Anchor label"
+        fill
+        options={LABELS}
+        value={label}
+        onChange={(v) => v && setLabel(v)}
+      />
       {label === 'bad' ? (
-        <fieldset className="field">
-          <legend className="help">
-            A bad anchor must score below the case's good anchor on each layer ticked.
-          </legend>
-          <div className="actions small">
+        <Fieldset
+          legend="Must fail on"
+          hint="A bad anchor must score below the case's good anchor on each layer ticked."
+        >
+          <Toolbar>
             {[...layers, 'total'].map((layer) => (
-              <label key={layer} className="check-row">
-                <input type="checkbox" checked={tests.has(layer)} onChange={() => toggle(layer)} />
+              <CheckRow
+                key={layer}
+                size="sm"
+                checked={tests.has(layer)}
+                onCheckedChange={() => toggle(layer)}
+              >
                 {capital(layer)}
-              </label>
+              </CheckRow>
             ))}
-          </div>
-        </fieldset>
+          </Toolbar>
+        </Fieldset>
       ) : null}
-      <input
+      <Input
         type="text"
         aria-label="What it shows"
         placeholder="What it shows, in a line"
         value={note}
         onChange={(e) => setNote(e.target.value)}
       />
-      <div className="actions">
-        <button type="button" disabled={busy || !primary} onClick={submit}>
+      <Toolbar>
+        <Button type="button" variant="outline" disabled={busy || !primary} onClick={submit}>
           Save anchor
-        </button>
-      </div>
+        </Button>
+      </Toolbar>
     </div>
   )
 }

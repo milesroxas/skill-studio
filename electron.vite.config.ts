@@ -1,4 +1,5 @@
 import { fileURLToPath } from 'node:url'
+import tailwindcss from '@tailwindcss/vite'
 import react from '@vitejs/plugin-react'
 import { defineConfig } from 'electron-vite'
 import type { Plugin } from 'vite'
@@ -60,7 +61,7 @@ export default defineConfig(({ command }) => ({
   renderer: {
     root: `${src}/renderer`,
     resolve: { alias },
-    plugins: [react(), cspMeta(command === 'serve')],
+    plugins: [react(), tailwindcss(), cspMeta(command === 'serve')],
     html: command === 'serve' ? { cspNonce: DEV_NONCE } : {},
     build: {
       minify: true,

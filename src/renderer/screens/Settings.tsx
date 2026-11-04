@@ -4,6 +4,12 @@
  */
 import { useState } from 'react'
 import { api, type Settings } from '../api.ts'
+import { Field, Panel, Split, Toolbar } from '../components/layout.tsx'
+import { Code, Heading, Hint, Link } from '../components/text.tsx'
+import { Badge } from '../components/ui/badge.tsx'
+import { Button } from '../components/ui/button.tsx'
+import { Input } from '../components/ui/input.tsx'
+import { Label } from '../components/ui/label.tsx'
 import { useFetch } from '../hooks.ts'
 
 interface Props {
@@ -32,54 +38,63 @@ export function SettingsScreen({ toast, onSaved }: Props) {
     }
   }
 
-  if (error) return <p className="help">{error}</p>
-  if (!data) return <p className="help">Loading…</p>
+  if (error) return <Hint>{error}</Hint>
+  if (!data) return <Hint>Loading…</Hint>
   return (
-    <div className="panel settings">
-      <h2>Jev key</h2>
-      <p className="help">
-        Jev, the judge behind every pack, is a <a href="https://typesafe.ai">TypeSafe</a> model.
-        Without a key, grading runs code checks only and every judged layer stays empty.
-      </p>
-      <p className={`pill ${data.jevKey ? 'ok' : 'warn'}`}>{describe(data)}</p>
-      {data.canStore ? (
-        <form
-          className="field"
-          onSubmit={(event) => {
-            event.preventDefault()
-            if (value.trim()) void save(value.trim())
-          }}
-        >
-          <label htmlFor="jev-key">
-            {data.source === 'stored' ? 'Replace the stored key' : 'Store a key'}
-          </label>
-          <input
-            id="jev-key"
-            type="password"
-            autoComplete="off"
-            spellCheck={false}
-            value={value}
-            placeholder="ts_…"
-            onChange={(event) => setValue(event.target.value)}
-          />
-          <div className="actions">
-            <button type="submit" className="primary" disabled={busy || !value.trim()}>
-              Save
-            </button>
-            {data.source === 'stored' ? (
-              <button type="button" disabled={busy} onClick={() => void save('')}>
-                Remove the stored key
-              </button>
-            ) : null}
-          </div>
-        </form>
-      ) : (
-        <p className="help">
-          This host keeps no key of its own. Set <code>TYPESAFE_API_KEY</code> in the environment
-          (or in <code>.env</code> when running from a checkout) and start it again.
-        </p>
-      )}
-    </div>
+    <Split layout="single">
+      <Panel gap="md">
+        <Heading level={2}>Jev key</Heading>
+        <Hint>
+          Jev, the judge behind every pack, is a <Link href="https://typesafe.ai">TypeSafe</Link>{' '}
+          model. Without a key, grading runs code checks only and every judged layer stays empty.
+        </Hint>
+        <Badge variant={data.jevKey ? 'success' : 'warning'}>{describe(data)}</Badge>
+        {data.canStore ? (
+          <form
+            className="contents"
+            onSubmit={(event) => {
+              event.preventDefault()
+              if (value.trim()) void save(value.trim())
+            }}
+          >
+            <Field>
+              <Label htmlFor="jev-key">
+                {data.source === 'stored' ? 'Replace the stored key' : 'Store a key'}
+              </Label>
+              <Input
+                id="jev-key"
+                type="password"
+                autoComplete="off"
+                spellCheck={false}
+                value={value}
+                placeholder="ts_…"
+                onChange={(event) => setValue(event.target.value)}
+              />
+              <Toolbar>
+                <Button type="submit" disabled={busy || !value.trim()}>
+                  Save
+                </Button>
+                {data.source === 'stored' ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    disabled={busy}
+                    onClick={() => void save('')}
+                  >
+                    Remove the stored key
+                  </Button>
+                ) : null}
+              </Toolbar>
+            </Field>
+          </form>
+        ) : (
+          <Hint>
+            This host keeps no key of its own. Set <Code>TYPESAFE_API_KEY</Code> in the environment
+            (or in <Code>.env</Code> when running from a checkout) and start it again.
+          </Hint>
+        )}
+      </Panel>
+    </Split>
   )
 }
 

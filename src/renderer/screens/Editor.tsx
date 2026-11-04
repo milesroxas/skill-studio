@@ -14,10 +14,27 @@ import {
 import { metaText, readFrontMatter } from '@domain/text.ts'
 import { useEffect, useRef, useState } from 'react'
 import { api } from '../api.ts'
+import {
+  Field,
+  List,
+  Panel,
+  PlainList,
+  Spacer,
+  Split,
+  Stack,
+  Toolbar,
+} from '../components/layout.tsx'
+import { NavButton } from '../components/NavButton.tsx'
+import { GuideBox, GuideList, Starter } from '../components/starters.tsx'
 import { TextArea } from '../components/TextArea.tsx'
+import { Heading, Hint, Text } from '../components/text.tsx'
+import { Button } from '../components/ui/button.tsx'
+import { Input } from '../components/ui/input.tsx'
+import { Toggle } from '../components/ui/toggle.tsx'
 import type { Ctx } from '../ctx.ts'
 import { lineDiff } from '../diff.ts'
 import { useFetch } from '../hooks.ts'
+import { DiffLines } from './SkillDiff.tsx'
 
 /** A file being edited: its text now, and the text it had on disk (null when new). */
 interface Draft {
@@ -35,7 +52,7 @@ const referencePath = (name: string): string | null => {
 }
 
 export function Editor({ ctx }: { ctx: Ctx }) {
-  const { state, route, go, toast, reload, config } = ctx
+  const { state, route, go, toast, confirm, reload, config } = ctx
   const disk = useFetch(() => api.skillFiles('current'), [state.skill.path])
   const [edits, setEdits] = useState<Record<string, Draft>>(
     () => drafts.get(state.skill.path) ?? {},
@@ -84,10 +101,14 @@ export function Editor({ ctx }: { ctx: Ctx }) {
   }
 
   /** Replace the body of SKILL.md with a template's, keeping the front matter. */
-  const startFrom = (template: SkillTemplate) => {
+  const startFrom = async (template: SkillTemplate) => {
     if (
       !isScaffold(text) &&
-      !window.confirm(`Replace what is in ${file} with the ${template.label} template?`)
+      !(await confirm({
+        title: `Replace what is in ${file}?`,
+        description: `The ${template.label} template takes its place. The front matter stays.`,
+        action: 'Replace',
+      }))
     )
       return
     edit(applyTemplate(text, template, state.skill.name))
@@ -130,7 +151,13 @@ export function Editor({ ctx }: { ctx: Ctx }) {
       drop(file)
       return go('edit')
     }
-    if (!window.confirm(`Delete ${file} from disk? Run snapshots keep their copy.`)) return
+    const ok = await confirm({
+      title: `Delete ${file} from disk?`,
+      description: 'Run snapshots keep their copy.',
+      action: 'Delete',
+      destructive: true,
+    })
+    if (!ok) return
     try {
       await api.deleteSkillFile(file)
       drop(file)
@@ -156,23 +183,24 @@ export function Editor({ ctx }: { ctx: Ctx }) {
   const diff = showDiff ? lineDiff(saved ?? '', text) : []
   const blank = isSkill && isScaffold(text)
 
-  if (disk.error) return <p className="help">{disk.error}</p>
-  if (!disk.data) return <p className="help">Loading…</p>
+  if (disk.error) return <Hint>{disk.error}</Hint>
+  if (!disk.data) return <Hint>Loading…</Hint>
 
   return (
-    <div className="split editor">
-      <div className="stack editor-main">
-        <div className="toolbar">
-          <span className="mono">{file}</span>
-          <small className="muted">
+    <Split layout="editor">
+      <Stack gap="md">
+        <Toolbar>
+          <Text font="mono">{file}</Text>
+          <Text tone="muted" size="xs">
             {saved === null ? 'new, not on disk yet' : isDirty(file) ? 'unsaved changes' : 'saved'}
-          </small>
-          <span className="spacer" />
-          <button type="button" aria-pressed={showDiff} onClick={() => setShowDiff((s) => !s)}>
+          </Text>
+          <Spacer />
+          <Toggle variant="outline" pressed={showDiff} onPressedChange={setShowDiff}>
             Compare with saved
-          </button>
-          <button
+          </Toggle>
+          <Button
             type="button"
+            variant="outline"
             disabled={!isDirty(file)}
             onClick={() => {
               drop(file)
@@ -180,55 +208,43 @@ export function Editor({ ctx }: { ctx: Ctx }) {
             }}
           >
             Revert
-          </button>
-          <button
-            type="button"
-            className="primary"
-            disabled={!isDirty(file) || busy}
-            onClick={save}
-            title="Cmd/Ctrl+S"
-          >
+          </Button>
+          <Button type="button" disabled={!isDirty(file) || busy} onClick={save} title="Cmd/Ctrl+S">
             Save
-          </button>
-        </div>
+          </Button>
+        </Toolbar>
         {showDiff ? (
           diff.length ? (
-            <pre className="diff-lines">
-              {diff.map((line) => (
-                <span key={line.n} className={line.op}>
-                  {line.op === 'fold'
-                    ? '   …'
-                    : `${line.op === 'ins' ? '+ ' : line.op === 'del' ? '- ' : '  '}${line.text}`}
-                  {'\n'}
-                </span>
-              ))}
-            </pre>
+            <DiffLines lines={diff} />
           ) : (
-            <p className="help">No changes from the file on disk.</p>
+            <Hint>No changes from the file on disk.</Hint>
           )
         ) : (
           <>
             {blank ? (
-              <section className="starter" aria-label="Start from a template">
-                <div className="starter-text">
-                  <span className="h3">Start from a template</span>
-                  <span className="help">
-                    Each one is a small, finished skill in the shape the judge grades: one rule per
-                    bullet, with its why. Replace the rules with yours.
-                  </span>
-                </div>
-                <div className="actions">
+              <Starter
+                aria-label="Start from a template"
+                title="Start from a template"
+                hint="Each one is a small, finished skill in the shape the judge grades: one rule per bullet, with its why. Replace the rules with yours."
+              >
+                <Toolbar>
                   {EXAMPLE_KINDS.map((t) => (
-                    <button key={t.id} type="button" title={t.summary} onClick={() => startFrom(t)}>
+                    <Button
+                      key={t.id}
+                      type="button"
+                      variant="outline"
+                      title={t.summary}
+                      onClick={() => startFrom(t)}
+                    >
                       {t.label}
-                    </button>
+                    </Button>
                   ))}
-                </div>
-              </section>
+                </Toolbar>
+              </Starter>
             ) : null}
             <TextArea
               ref={area}
-              className="editor-text mono"
+              variant="code"
               aria-label={`Contents of ${file}`}
               spellCheck={false}
               placeholder={
@@ -242,154 +258,167 @@ export function Editor({ ctx }: { ctx: Ctx }) {
             />
           </>
         )}
-      </div>
+      </Stack>
 
-      <aside className="panel sticky">
-        <div className="field">
-          <span className="h3">Files</span>
-          <ul className="file-list">
-            {paths.map((path) => (
-              <li key={path}>
-                <button
+      <Panel sticky>
+        <aside className="contents">
+          <Field>
+            <Heading level={3} as="span">
+              Files
+            </Heading>
+            <PlainList>
+              {paths.map((path) => (
+                <li key={path}>
+                  <NavButton current={path === file} onClick={() => go('edit', { file: path })}>
+                    <Text font="mono" wrap="anywhere">
+                      {path}
+                      {isDirty(path) ? ' •' : ''}
+                    </Text>
+                  </NavButton>
+                </li>
+              ))}
+            </PlainList>
+            <form
+              className="contents"
+              onSubmit={(e) => {
+                e.preventDefault()
+                create()
+              }}
+            >
+              <Toolbar>
+                <Input
+                  aria-label="New reference file"
+                  placeholder="references/name.md"
+                  autoCapitalize="none"
+                  autoCorrect="off"
+                  spellCheck={false}
+                  enterKeyHint="done"
+                  value={newName}
+                  width="grow"
+                  onChange={(e) => setNewName(e.target.value)}
+                />
+                <Button type="submit" variant="outline" disabled={!newName.trim()}>
+                  Add
+                </Button>
+              </Toolbar>
+            </form>
+            {!isSkill ? (
+              <Toolbar>
+                <Button type="button" variant="destructive-ghost" onClick={remove}>
+                  {saved === null ? 'Discard new file' : 'Delete file'}
+                </Button>
+              </Toolbar>
+            ) : null}
+          </Field>
+
+          {isSkill ? (
+            <Field>
+              <Heading level={3} as="span">
+                Front matter
+              </Heading>
+              <Text as="p" size="xs">
+                <Text tone="muted">name</Text>{' '}
+                {metaText(meta, 'name') || <Text tone="destructive">missing</Text>}
+              </Text>
+              <Text as="p" size="xs">
+                <Text tone="muted">description</Text>{' '}
+                {metaText(meta, 'description') || <Text tone="destructive">missing</Text>}
+              </Text>
+            </Field>
+          ) : null}
+
+          <Field>
+            <Heading level={3} as="span">
+              Insert
+            </Heading>
+            <Toolbar>
+              {SNIPPETS.map((s) => (
+                <Button
+                  key={s.id}
                   type="button"
-                  className="link mono"
-                  aria-current={path === file ? 'true' : undefined}
-                  onClick={() => go('edit', { file: path })}
+                  variant="outline"
+                  size="sm"
+                  onClick={() => insert(s)}
                 >
-                  {path}
-                  {isDirty(path) ? ' •' : ''}
-                </button>
-              </li>
-            ))}
-          </ul>
-          <form
-            className="actions"
-            onSubmit={(e) => {
-              e.preventDefault()
-              create()
-            }}
-          >
-            <input
-              aria-label="New reference file"
-              placeholder="references/name.md"
-              autoCapitalize="none"
-              autoCorrect="off"
-              spellCheck={false}
-              enterKeyHint="done"
-              value={newName}
-              onChange={(e) => setNewName(e.target.value)}
-            />
-            <button type="submit" disabled={!newName.trim()}>
-              Add
-            </button>
-          </form>
-          {!isSkill ? (
-            <button type="button" className="ghost bad" onClick={remove}>
-              {saved === null ? 'Discard new file' : 'Delete file'}
-            </button>
+                  {s.label}
+                </Button>
+              ))}
+            </Toolbar>
+            <GuideBox summary="How to write a rule the agent follows">
+              <GuideList>
+                <li>
+                  <b>Encode process, not outcome.</b> "Lead with the change for the reader" beats
+                  "write clearly". The agent can walk a step; it cannot measure an adjective.
+                </li>
+                <li>
+                  <b>Write the why in the same bullet.</b> A rule with its reason generalises to
+                  cases you did not write down. A bare rule is applied blindly.
+                </li>
+                <li>
+                  <b>Be numeric or absolute.</b> "20 words or fewer", "never", "always".
+                  "Reasonably" and "where appropriate" change nothing.
+                </li>
+                <li>
+                  <b>Every line must change what the agent does.</b> Cut definitions of things it
+                  knows. Attention spent there is taken from your rules.
+                </li>
+                <li>
+                  <b>One skill, one aspect.</b> Writing, code, workflow or design. A skill that
+                  covers everything is followed on nothing.
+                </li>
+              </GuideList>
+            </GuideBox>
+            {isSkill && !blank ? (
+              <GuideBox summary="Start over from a template">
+                <Toolbar>
+                  {EXAMPLE_KINDS.map((t) => (
+                    <Button
+                      key={t.id}
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      title={t.summary}
+                      onClick={() => startFrom(t)}
+                    >
+                      {t.label}
+                    </Button>
+                  ))}
+                </Toolbar>
+              </GuideBox>
+            ) : null}
+          </Field>
+
+          {isSkill ? (
+            <Field>
+              <Heading level={3} as="span">
+                Graded rules
+              </Heading>
+              {config.rules?.length ? (
+                <Hint>bench.json lists its own rules, so SKILL.md bullets are not used.</Hint>
+              ) : rules.length ? (
+                <List variant="number" size="xs" gap="sm">
+                  {rules.map((r) => (
+                    <li key={r.id}>
+                      {r.text}
+                      {r.section ? <Text tone="muted"> · {r.section}</Text> : null}
+                    </li>
+                  ))}
+                </List>
+              ) : (
+                <Hint>No rules yet. Each top-level bullet of four words or more is one.</Hint>
+              )}
+            </Field>
           ) : null}
-        </div>
 
-        {isSkill ? (
-          <div className="field">
-            <span className="h3">Front matter</span>
-            <p className="small">
-              <span className="muted">name</span>{' '}
-              {metaText(meta, 'name') || <span className="bad">missing</span>}
-            </p>
-            <p className="small">
-              <span className="muted">description</span>{' '}
-              {metaText(meta, 'description') || <span className="bad">missing</span>}
-            </p>
-          </div>
-        ) : null}
-
-        <div className="field">
-          <span className="h3">Insert</span>
-          <div className="actions">
-            {SNIPPETS.map((s) => (
-              <button key={s.id} type="button" className="small" onClick={() => insert(s)}>
-                {s.label}
-              </button>
-            ))}
-          </div>
-          <details className="guide-box">
-            <summary>How to write a rule the agent follows</summary>
-            <ol className="small guide-list">
-              <li>
-                <b>Encode process, not outcome.</b> "Lead with the change for the reader" beats
-                "write clearly". The agent can walk a step; it cannot measure an adjective.
-              </li>
-              <li>
-                <b>Write the why in the same bullet.</b> A rule with its reason generalises to cases
-                you did not write down. A bare rule is applied blindly.
-              </li>
-              <li>
-                <b>Be numeric or absolute.</b> "20 words or fewer", "never", "always". "Reasonably"
-                and "where appropriate" change nothing.
-              </li>
-              <li>
-                <b>Every line must change what the agent does.</b> Cut definitions of things it
-                knows. Attention spent there is taken from your rules.
-              </li>
-              <li>
-                <b>One skill, one aspect.</b> Writing, code, workflow or design. A skill that covers
-                everything is followed on nothing.
-              </li>
-            </ol>
-          </details>
-          {isSkill && !blank ? (
-            <details className="guide-box">
-              <summary>Start over from a template</summary>
-              <div className="actions">
-                {EXAMPLE_KINDS.map((t) => (
-                  <button
-                    key={t.id}
-                    type="button"
-                    className="small"
-                    title={t.summary}
-                    onClick={() => startFrom(t)}
-                  >
-                    {t.label}
-                  </button>
-                ))}
-              </div>
-            </details>
-          ) : null}
-        </div>
-
-        {isSkill ? (
-          <div className="field">
-            <span className="h3">Graded rules</span>
-            {config.rules?.length ? (
-              <p className="help">
-                bench.json lists its own rules, so SKILL.md bullets are not used.
-              </p>
-            ) : rules.length ? (
-              <ol className="small rule-list">
-                {rules.map((r) => (
-                  <li key={r.id}>
-                    {r.text}
-                    {r.section ? <span className="muted"> · {r.section}</span> : null}
-                  </li>
-                ))}
-              </ol>
-            ) : (
-              <p className="help">
-                No rules yet. Each top-level bullet of four words or more is one.
-              </p>
-            )}
-          </div>
-        ) : null}
-
-        <p className="help">
-          {dirtyCount
-            ? `${dirtyCount} file(s) not saved.`
-            : state.versions.current.changed
-              ? `Saved edits make ${state.versions.current.version} on the next run.`
-              : `Matches ${state.versions.current.version}.`}
-        </p>
-      </aside>
-    </div>
+          <Hint>
+            {dirtyCount
+              ? `${dirtyCount} file(s) not saved.`
+              : state.versions.current.changed
+                ? `Saved edits make ${state.versions.current.version} on the next run.`
+                : `Matches ${state.versions.current.version}.`}
+          </Hint>
+        </aside>
+      </Panel>
+    </Split>
   )
 }

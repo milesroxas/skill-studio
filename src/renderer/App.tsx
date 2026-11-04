@@ -5,10 +5,18 @@
  * button for the next step.
  */
 import type { BenchConfig } from '@domain/schemas.ts'
+import { ArrowRightIcon } from 'lucide-react'
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { api, currentSkill, type Job, type State, setSkill } from './api.ts'
+import { useConfirm } from './components/confirm.tsx'
 import { JobsStrip } from './components/Jobs.tsx'
-import { Masthead } from './components/Masthead.tsx'
+import { EmptyState, Spacer, Stack } from './components/layout.tsx'
+import { Crumbs, Masthead, StepTabs } from './components/Masthead.tsx'
+import { Toast } from './components/Toast.tsx'
+import { Hint, Text } from './components/text.tsx'
+import { Badge } from './components/ui/badge.tsx'
+import { Button } from './components/ui/button.tsx'
+import { Tabs, TabsList, TabsTrigger } from './components/ui/tabs.tsx'
 import type { Ctx } from './ctx.ts'
 import { useRoute, useToast } from './hooks.ts'
 import { mergedConfig, outputsOf, plural } from './model.ts'
@@ -76,6 +84,19 @@ const GROUPS: Group[] = [
 const groupOf = (screen: string): Group | undefined =>
   GROUPS.find((g) => g.screens.some(([id]) => id === screen))
 
+/** The page frame: a column the height of the window, the stage filling what the header leaves. */
+function Frame({ children }: { children: React.ReactNode }) {
+  return <div className="flex min-h-dvh flex-col">{children}</div>
+}
+
+function Stage({ children }: { children: React.ReactNode }) {
+  return (
+    <main className="flex-1 px-[max(16px,env(safe-area-inset-right,0px))] pt-4 pb-10 md:pt-6 md:pb-[calc(48px+env(safe-area-inset-bottom,0px))]">
+      {children}
+    </main>
+  )
+}
+
 export function App() {
   const [skillPath, setSkillPath] = useState(currentSkill)
   const [state, setState] = useState<State | null>(null)
@@ -84,6 +105,7 @@ export function App() {
   const [jobs, setJobs] = useState<Job[]>([])
   const [route, go] = useRoute()
   const [message, toast] = useToast()
+  const [confirm, confirmDialog] = useConfirm()
   /** The screen last shown in each tab, so a tab click returns to it. */
   const lastIn = useRef<Record<string, string>>({})
 
@@ -162,21 +184,32 @@ export function App() {
   }, [route.screen])
 
   const inLibrary = !skillPath || route.screen === 'library'
-  const toastBar = (
-    <div className={`toast${message ? ' show' : ''}`} role="status">
-      {message}
-    </div>
+  const overlays = (
+    <>
+      <Toast message={message} />
+      {confirmDialog}
+    </>
   )
   /** Open the guide or settings, remembering the screen to come back to. */
   const docsLink = (
-    <button type="button" className="ghost" onClick={() => go('docs', { from: route.screen })}>
+    <Button
+      type="button"
+      variant="ghost"
+      size="sm"
+      onClick={() => go('docs', { from: route.screen })}
+    >
       Docs
-    </button>
+    </Button>
   )
   const settingsLink = (
-    <button type="button" className="ghost" onClick={() => go('settings', { from: route.screen })}>
+    <Button
+      type="button"
+      variant="ghost"
+      size="sm"
+      onClick={() => go('settings', { from: route.screen })}
+    >
       Settings
-    </button>
+    </Button>
   )
 
   /** The guide and settings sit on top of wherever the reader was. */
@@ -185,73 +218,61 @@ export function App() {
     const backTo = from === 'library' || !skillPath ? 'Library' : (state?.skill.name ?? 'Back')
     const page = route.screen === 'docs' ? 'Guide' : 'Settings'
     return (
-      <div className="app">
+      <Frame>
         <Masthead>
-          <nav className="crumbs" aria-label="Location">
-            <button type="button" className="crumb" onClick={() => go(from)}>
-              {backTo}
-            </button>
-            <span className="crumb-sep" aria-hidden="true">
-              /
-            </span>
-            <span aria-current="page">{page}</span>
-          </nav>
+          <Crumbs path={[{ label: backTo, go: () => go(from) }]} current={page} />
         </Masthead>
-        <main className="stage">
-          <Suspense fallback={<p className="help">Loading…</p>}>
+        <Stage>
+          <Suspense fallback={<Hint>Loading…</Hint>}>
             {route.screen === 'docs' ? <Docs /> : <SettingsScreen toast={toast} onSaved={reload} />}
           </Suspense>
-        </main>
-        {toastBar}
-      </div>
+        </Stage>
+        {overlays}
+      </Frame>
     )
   }
 
   if (inLibrary)
     return (
-      <div className="app">
+      <Frame>
         <Masthead>
-          <nav className="crumbs" aria-label="Location">
-            <span aria-current="page">Library</span>
-          </nav>
-          <span className="spacer" />
+          <Crumbs path={[]} current="Library" />
+          <Spacer />
           {docsLink}
           {settingsLink}
           {skillPath && state ? (
-            <button type="button" className="ghost" onClick={() => go('home')}>
+            <Button type="button" variant="ghost" size="sm" onClick={() => go('home')}>
               Return to {state.skill.name}
-            </button>
+            </Button>
           ) : null}
         </Masthead>
         <JobsStrip jobs={jobs} />
-        <main className="stage">
-          <LibraryScreen openSkill={openSkill} toast={toast} />
-        </main>
-        {toastBar}
-      </div>
+        <Stage>
+          <LibraryScreen openSkill={openSkill} toast={toast} confirm={confirm} />
+        </Stage>
+        {overlays}
+      </Frame>
     )
 
   if (error && !state)
     return (
-      <div className="empty">
-        <h2>Could not open this skill</h2>
-        <p className="help">{error}</p>
-        <div className="actions">
-          <button type="button" className="primary" onClick={() => openSkill('', 'library')}>
-            Go to the library
-          </button>
-          <button type="button" onClick={reload}>
-            Try again
-          </button>
-        </div>
-      </div>
+      <EmptyState
+        title="Could not open this skill"
+        actions={
+          <>
+            <Button type="button" onClick={() => openSkill('', 'library')}>
+              Go to the library
+            </Button>
+            <Button type="button" variant="outline" onClick={reload}>
+              Try again
+            </Button>
+          </>
+        }
+      >
+        {error}
+      </EmptyState>
     )
-  if (!state || !config)
-    return (
-      <div className="empty">
-        <p className="help">Loading…</p>
-      </div>
-    )
+  if (!state || !config) return <EmptyState>Loading…</EmptyState>
 
   const current = state.versions.current
   const unrated = outputs.filter((o) => o.result && !state.reviews.reviews[o.key]).length
@@ -268,6 +289,7 @@ export function App() {
     route,
     go,
     toast,
+    confirm,
     reload,
     jobs,
     openSkill,
@@ -295,83 +317,85 @@ export function App() {
   }
 
   return (
-    <div className="app">
+    <Frame>
       <Masthead
         tabs={
-          <nav className="tabs" aria-label="Steps">
-            {GROUPS.map((g) => (
-              <button
-                key={g.id}
-                type="button"
-                aria-current={group.id === g.id ? 'page' : undefined}
-                onClick={() => go(lastIn.current[g.id] ?? g.screens[0][0])}
-              >
-                {g.label}
-                {meta[g.id] ? <span className="tab-meta">{meta[g.id]}</span> : null}
-              </button>
-            ))}
-          </nav>
+          <StepTabs
+            steps={GROUPS.map((g) => ({ id: g.id, label: g.label, meta: meta[g.id] }))}
+            value={group.id}
+            onChange={(id) => {
+              const g = GROUPS.find((x) => x.id === id)
+              if (g) go(lastIn.current[g.id] ?? g.screens[0][0])
+            }}
+          />
         }
       >
-        <nav className="crumbs" aria-label="Location">
-          <button type="button" className="crumb" onClick={() => go('library')}>
-            Library
-          </button>
-          <span className="crumb-sep" aria-hidden="true">
-            /
-          </span>
-          <span className="skill-name" aria-current="page" title={state.skill.path}>
-            {state.skill.name}
-          </span>
-        </nav>
-        <span className="muted small tnum" title={`Skill hash ${current.hash}`}>
+        <Crumbs
+          path={[{ label: 'Library', go: () => go('library') }]}
+          current={state.skill.name}
+          title={state.skill.path}
+        />
+        <Text tone="muted" size="xs" tabular title={`Skill hash ${current.hash}`}>
           {current.changed
             ? `${current.version}, not run yet`
             : `${current.version}${current.name ? ` · ${current.name}` : ''}`}
-        </span>
-        <span className="spacer" />
+        </Text>
+        <Spacer />
         {docsLink}
         {settingsLink}
         {!state.jevKey ? (
-          <button
-            type="button"
-            className="pill warn"
-            title="Add a TypeSafe key in Settings to grade with Jev"
-            onClick={() => go('settings', { from: route.screen })}
-          >
-            Code checks only: no Jev key
-          </button>
+          <Badge variant="warning" asChild>
+            <button
+              type="button"
+              title="Add a TypeSafe key in Settings to grade with Jev"
+              onClick={() => go('settings', { from: route.screen })}
+            >
+              Code checks only: no Jev key
+            </button>
+          </Badge>
         ) : null}
         {next && next.screen !== screen ? (
-          <button type="button" className="next" onClick={() => go(next.screen, next.params)}>
-            <span className="next-kicker">Next</span>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => go(next.screen, next.params)}
+          >
+            <Text tone="muted" size="xs">
+              Next
+            </Text>
+            <ArrowRightIcon aria-hidden="true" />
             {next.label}
-          </button>
+          </Button>
         ) : null}
       </Masthead>
       <JobsStrip jobs={jobs} />
-      <main className="stage">
-        {group.screens.length > 1 ? (
-          <fieldset className="seg subnav" aria-label={`${group.label} views`}>
-            {group.screens.map(([id, label]) => (
-              <button key={id} type="button" aria-pressed={screen === id} onClick={() => go(id)}>
-                {label}
-              </button>
-            ))}
-          </fieldset>
-        ) : null}
-        {screen === 'edit' ? <Editor ctx={ctx} /> : null}
-        {screen === 'skill' ? <SkillDiff ctx={ctx} /> : null}
-        {screen === 'cases' ? <Cases ctx={ctx} /> : null}
-        {screen === 'overview' ? <Overview ctx={ctx} /> : null}
-        {screen === 'generate' ? <Generate ctx={ctx} /> : null}
-        {screen === 'blind' ? <Blind ctx={ctx} /> : null}
-        {screen === 'compare' ? <Compare ctx={ctx} /> : null}
-        {screen === 'transcript' ? <Transcript ctx={ctx} /> : null}
-        {screen === 'insights' ? <Insights ctx={ctx} /> : null}
-        {screen === 'knobs' ? <Knobs ctx={ctx} /> : null}
-      </main>
-      {toastBar}
-    </div>
+      <Stage>
+        <Stack gap="lg">
+          {group.screens.length > 1 ? (
+            <Tabs value={screen} onValueChange={(id) => go(id)}>
+              <TabsList aria-label={`${group.label} views`}>
+                {group.screens.map(([id, label]) => (
+                  <TabsTrigger key={id} value={id}>
+                    {label}
+                  </TabsTrigger>
+                ))}
+              </TabsList>
+            </Tabs>
+          ) : null}
+          {screen === 'edit' ? <Editor ctx={ctx} /> : null}
+          {screen === 'skill' ? <SkillDiff ctx={ctx} /> : null}
+          {screen === 'cases' ? <Cases ctx={ctx} /> : null}
+          {screen === 'overview' ? <Overview ctx={ctx} /> : null}
+          {screen === 'generate' ? <Generate ctx={ctx} /> : null}
+          {screen === 'blind' ? <Blind ctx={ctx} /> : null}
+          {screen === 'compare' ? <Compare ctx={ctx} /> : null}
+          {screen === 'transcript' ? <Transcript ctx={ctx} /> : null}
+          {screen === 'insights' ? <Insights ctx={ctx} /> : null}
+          {screen === 'knobs' ? <Knobs ctx={ctx} /> : null}
+        </Stack>
+      </Stage>
+      {overlays}
+    </Frame>
   )
 }

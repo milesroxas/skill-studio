@@ -1,6 +1,11 @@
 /** One sample's transcript: every step with its tool, arguments, result and timing. */
 import type { TranscriptEvent, TranscriptKind } from '@domain/schemas.ts'
+import { cva } from 'class-variance-authority'
 import { api } from '../api.ts'
+import { EmptyState, Screen, Section, Toolbar } from '../components/layout.tsx'
+import { FilterGroup } from '../components/Segmented.tsx'
+import { SelectBox } from '../components/SelectBox.tsx'
+import { Code, Hint, Text } from '../components/text.tsx'
 import type { Ctx } from '../ctx.ts'
 import { useFetch, useToggleSet } from '../hooks.ts'
 import { capital, money, runLabel, runStamp, sampleTail } from '../model.ts'
@@ -28,74 +33,118 @@ export function Transcript({ ctx }: { ctx: Ctx }) {
   const toolTime = (events.data ?? []).reduce((s, e) => s + (e.durationMs ?? 0), 0)
 
   return (
-    <div className="screen">
-      <div className="toolbar">
-        <label className="picker">
-          <span className="sr-only">Sample</span>
-          <select
-            value={current ? current.key : ''}
-            onChange={(e) => {
-              const o = withTranscript.find((x) => x.key === e.target.value)
-              if (o) go('transcript', { run: o.run.name, sample: o.sample.name })
-            }}
-          >
-            <option value="">Pick a sample</option>
-            {withTranscript.map((o) => (
-              <option key={o.key} value={o.key}>
-                {runLabel(o.run)} · {o.caseId}
-                {sampleTail(o)}
-                {` · ${runStamp(o.run)}`}
-              </option>
-            ))}
-          </select>
-        </label>
-        <fieldset className="seg filters" aria-label="Show steps">
-          {KINDS.map((k) => (
-            <button key={k} type="button" aria-pressed={kinds.has(k)} onClick={() => toggle(k)}>
-              {capital(k)}
-            </button>
-          ))}
-        </fieldset>
-      </div>
+    <Screen>
+      <Toolbar>
+        <SelectBox
+          aria-label="Sample"
+          width="wide"
+          value={current ? current.key : ''}
+          placeholder="Pick a sample"
+          onChange={(key) => {
+            const o = withTranscript.find((x) => x.key === key)
+            if (o) go('transcript', { run: o.run.name, sample: o.sample.name })
+          }}
+          options={withTranscript.map((o) => ({
+            value: o.key,
+            label: `${runLabel(o.run)} · ${o.caseId}${sampleTail(o)} · ${runStamp(o.run)}`,
+          }))}
+        />
+        <FilterGroup
+          aria-label="Show steps"
+          values={kinds}
+          onToggle={toggle}
+          options={KINDS.map((k) => ({ value: k, label: capital(k) }))}
+        />
+      </Toolbar>
       {!current ? (
-        <div className="empty">
-          <h2>{withTranscript.length ? 'Pick a sample' : 'No transcripts yet'}</h2>
-          <p className="help">
-            A transcript lists every step an agent took while writing one sample: what it read, what
-            it ran and how long each took.
-          </p>
-        </div>
+        <EmptyState title={withTranscript.length ? 'Pick a sample' : 'No transcripts yet'}>
+          A transcript lists every step an agent took while writing one sample: what it read, what
+          it ran and how long each took.
+        </EmptyState>
       ) : (
-        <section className="section">
-          <p className="help">
+        <Section>
+          <Hint>
             {meta
               ? `${meta.model ?? current.run.meta?.writer.model ?? ''} · ${meta.seconds}s wall, ${seconds(toolTime)} in tools · ${meta.toolCalls} tool calls · ${meta.tokens ? `${meta.tokens.input.toLocaleString()} in, ${meta.tokens.output.toLocaleString()} out` : 'no token count'}${meta.costUsd !== null ? ` · ${money(meta.costUsd)}` : ''}${meta.error ? ` · ${meta.error}` : ''}`
               : state.skill.name}
-          </p>
-          {events.error ? <p className="help">{events.error}</p> : null}
-          <ol className="transcript">
+          </Hint>
+          {events.error ? <Hint>{events.error}</Hint> : null}
+          <EventList>
             {list.map((e) => (
-              <li key={e.step} className={`event ${e.kind}${e.error ? ' is-error' : ''}`}>
-                <span className="at">{seconds(e.at)}</span>
-                <span className="kind">{e.kind}</span>
-                <span className="body">
-                  {e.tool ? <b>{e.tool} </b> : null}
-                  {e.kind === 'tool' ? <code>{short(e.args)}</code> : null}
-                  {e.kind === 'result' ? (
-                    <>
-                      <span className="muted">{short(e.result)}</span>
-                      {e.durationMs !== undefined ? (
-                        <small className="muted"> {seconds(e.durationMs)}</small>
-                      ) : null}
-                    </>
-                  ) : null}
-                  {e.text ? <span className="text">{short(e.text)}</span> : null}
-                </span>
-              </li>
+              <Event key={e.step} kind={e.kind} failed={Boolean(e.error)} at={seconds(e.at)}>
+                {e.tool ? <b>{e.tool} </b> : null}
+                {e.kind === 'tool' ? <Code>{short(e.args)}</Code> : null}
+                {e.kind === 'result' ? (
+                  <>
+                    <Text tone="muted">{short(e.result)}</Text>
+                    {e.durationMs !== undefined ? (
+                      <Text tone="muted" size="xs">
+                        {' '}
+                        {seconds(e.durationMs)}
+                      </Text>
+                    ) : null}
+                  </>
+                ) : null}
+                {e.text ? (
+                  <Text wrap="pre" tone={e.kind === 'thinking' ? 'muted' : 'default'}>
+                    {short(e.text)}
+                  </Text>
+                ) : null}
+              </Event>
             ))}
-          </ol>
-        </section>
+          </EventList>
+        </Section>
       )}
-    </div>
+    </Screen>
+  )
+}
+
+const eventVariants = cva(
+  'grid grid-cols-[44px_minmax(0,1fr)] gap-3 border-b px-3.5 py-1.5 text-xs last:border-b-0 md:grid-cols-[52px_60px_minmax(0,1fr)]',
+  {
+    variants: {
+      kind: {
+        system: '',
+        text: '',
+        thinking: '',
+        tool: 'bg-muted',
+        result: '',
+        error: 'bg-destructive/10 dark:bg-destructive/20',
+      },
+      failed: {
+        true: 'bg-destructive/10 dark:bg-destructive/20',
+        false: '',
+      },
+    },
+    defaultVariants: { failed: false },
+  },
+)
+
+function EventList({ children }: { children: React.ReactNode }) {
+  return <ol className="m-0 overflow-hidden rounded-lg border bg-card p-0">{children}</ol>
+}
+
+/** One step: when, what kind, and the body. On narrow screens the body drops under the time. */
+function Event({
+  kind,
+  failed,
+  at,
+  children,
+}: {
+  kind: TranscriptKind
+  failed: boolean
+  at: string
+  children: React.ReactNode
+}) {
+  return (
+    <li className={eventVariants({ kind, failed })}>
+      <Text tone="muted" tabular align="end">
+        {at}
+      </Text>
+      <Text tone="muted" className="max-md:hidden">
+        {kind}
+      </Text>
+      <span className="min-w-0 break-words max-md:col-span-full">{children}</span>
+    </li>
   )
 }

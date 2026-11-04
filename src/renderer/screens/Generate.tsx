@@ -2,7 +2,23 @@
 import { CONFIGURATIONS, type Configuration } from '@domain/schemas.ts'
 import { useState } from 'react'
 import { api } from '../api.ts'
+import { CheckRow, NumberInput } from '../components/forms.tsx'
 import { JobLogs } from '../components/Jobs.tsx'
+import {
+  Field,
+  Fieldset,
+  FormGrid,
+  Panel,
+  Section,
+  Split,
+  Stack,
+  Toolbar,
+} from '../components/layout.tsx'
+import { SelectBox } from '../components/SelectBox.tsx'
+import { Heading, Hint, Text } from '../components/text.tsx'
+import { Button } from '../components/ui/button.tsx'
+import { Input } from '../components/ui/input.tsx'
+import { Label } from '../components/ui/label.tsx'
 import type { Ctx } from '../ctx.ts'
 import { useToggleSet } from '../hooks.ts'
 import { capital, plural, runStamp, shortDate, versionName } from '../model.ts'
@@ -65,17 +81,17 @@ export function Generate({ ctx }: { ctx: Ctx }) {
   }
 
   return (
-    <div className={`split ${jobs.length ? 'even' : 'single'}`}>
-      <div className="panel">
-        <div className="field">
-          <h3>Skill version</h3>
+    <Split layout={jobs.length ? 'even' : 'single'}>
+      <Panel>
+        <Field>
+          <Heading level={3}>Skill version</Heading>
           {current.changed ? (
             <>
-              <label className="help" htmlFor="gen-name">
+              <Hint as="label" htmlFor="gen-name">
                 The skill changed since the last run, so this run starts {current.version}. Say what
                 changed, so you can tell versions apart later.
-              </label>
-              <input
+              </Hint>
+              <Input
                 id="gen-name"
                 type="text"
                 placeholder={fallbackName}
@@ -84,64 +100,62 @@ export function Generate({ ctx }: { ctx: Ctx }) {
               />
             </>
           ) : (
-            <p className="help">
+            <Hint>
               Runs use {current.version}
               {current.name ? ` · ${current.name}` : ''}, unchanged since its last run.
-            </p>
+            </Hint>
           )}
-        </div>
+        </Field>
 
-        <fieldset className="field">
-          <legend>Cases</legend>
+        <Fieldset legend="Cases">
           {!state.cases.length ? (
-            <p className="help">
+            <Hint>
               No cases yet.{' '}
-              <button
+              <Button
                 type="button"
-                className="link inline"
+                variant="link-muted"
+                size="inline"
                 onClick={() => go('cases', { new: '1' })}
               >
                 Add one
-              </button>{' '}
+              </Button>{' '}
               to run.
-            </p>
+            </Hint>
           ) : null}
           {state.cases.map((c) => (
-            <label key={c.id} className="check-row">
-              <input type="checkbox" checked={cases.has(c.id)} onChange={() => toggleCase(c.id)} />
-              <span>
-                {c.title} <span className="mono muted small">{c.id}</span>
-              </span>
-            </label>
+            <CheckRow key={c.id} checked={cases.has(c.id)} onCheckedChange={() => toggleCase(c.id)}>
+              {c.title}{' '}
+              <Text font="mono" tone="muted" size="xs">
+                {c.id}
+              </Text>
+            </CheckRow>
           ))}
-        </fieldset>
+        </Fieldset>
 
-        <fieldset className="field">
-          <legend>Writers</legend>
+        <Fieldset legend="Writers">
           {writers.map((w, i) => {
             const engine = engines.find((e) => e.id === w.engine)
             return (
-              <div key={w.id} className="writer-row">
-                <select
+              <WriterGrid key={w.id}>
+                <SelectBox
                   aria-label="Agent"
+                  width="full"
                   value={w.engine}
-                  onChange={(e) => {
-                    const next = engines.find((x) => x.id === e.target.value)
+                  onChange={(id) => {
+                    const next = engines.find((x) => x.id === id)
                     setWriter(i, {
-                      engine: e.target.value,
+                      engine: id,
                       model: next?.defaultModel ?? '',
                       effort: 'default',
                     })
                   }}
-                >
-                  {engines.map((e) => (
-                    <option key={e.id} value={e.id} disabled={!e.available}>
-                      {e.label}
-                      {e.available ? '' : ' (not set up)'}
-                    </option>
-                  ))}
-                </select>
-                <input
+                  options={engines.map((e) => ({
+                    value: e.id,
+                    label: `${e.label}${e.available ? '' : ' (not set up)'}`,
+                    disabled: !e.available,
+                  }))}
+                />
+                <Input
                   aria-label="Model"
                   list={`models-${w.id}`}
                   value={w.model}
@@ -156,36 +170,38 @@ export function Generate({ ctx }: { ctx: Ctx }) {
                     <option key={m} value={m} />
                   ))}
                 </datalist>
-                <select
+                <SelectBox
                   aria-label="Effort"
+                  width="full"
                   value={w.effort}
-                  onChange={(e) => setWriter(i, { effort: e.target.value })}
-                >
-                  <option value="default">Default effort</option>
-                  {(engine?.efforts ?? []).map((ef) => (
-                    <option key={ef} value={ef}>
-                      {capital(ef)} effort
-                    </option>
-                  ))}
-                </select>
+                  onChange={(effort) => setWriter(i, { effort })}
+                  options={[
+                    { value: 'default', label: 'Default effort' },
+                    ...(engine?.efforts ?? []).map((ef) => ({
+                      value: ef,
+                      label: `${capital(ef)} effort`,
+                    })),
+                  ]}
+                />
                 {writers.length > 1 ? (
-                  <button
+                  <Button
                     type="button"
-                    className="ghost"
+                    variant="ghost"
                     aria-label={`Remove writer ${i + 1}`}
                     onClick={() => setWriters((rows) => rows.filter((_, k) => k !== i))}
                   >
                     Remove
-                  </button>
+                  </Button>
                 ) : (
                   <span />
                 )}
-              </div>
+              </WriterGrid>
             )
           })}
-          <div className="actions">
-            <button
+          <Toolbar>
+            <Button
               type="button"
+              variant="outline"
               disabled={writers.length >= 4 || !first}
               onClick={() =>
                 first &&
@@ -201,59 +217,54 @@ export function Generate({ ctx }: { ctx: Ctx }) {
               }
             >
               Add a writer
-            </button>
-          </div>
+            </Button>
+          </Toolbar>
           {missing.map((e) => (
-            <p key={e.id} className="help">
+            <Hint key={e.id}>
               {e.label} is not set up. {e.hint}
-            </p>
+            </Hint>
           ))}
-        </fieldset>
+        </Fieldset>
 
-        <div className="form-grid">
-          <label htmlFor="gen-samples">Samples per case</label>
-          <input
+        <FormGrid>
+          <Label htmlFor="gen-samples">Samples per case</Label>
+          <NumberInput
             id="gen-samples"
-            type="number"
-            inputMode="numeric"
             min={1}
             max={10}
             value={samples}
             onChange={(e) => setSamples(Math.max(1, Number(e.target.value) || 1))}
           />
-          <label htmlFor="gen-config">Skill</label>
-          <div className="stack">
-            <select
+          <Label htmlFor="gen-config">Skill</Label>
+          <Stack>
+            <SelectBox
               id="gen-config"
               value={configuration}
-              onChange={(e) => setConfiguration(e.target.value as Configuration)}
-            >
-              {CONFIGURATIONS.map((c) => (
-                <option key={c} value={c}>
-                  {capital(c.replace('_', ' '))}
-                </option>
-              ))}
-            </select>
-            <span className="help">{CONFIG_HELP[configuration]}</span>
-          </div>
+              onChange={(v) => setConfiguration(v as Configuration)}
+              options={CONFIGURATIONS.map((c) => ({
+                value: c,
+                label: capital(c.replace('_', ' ')),
+              }))}
+            />
+            <Hint as="span">{CONFIG_HELP[configuration]}</Hint>
+          </Stack>
           {configuration === 'old_skill' ? (
             <>
-              <label htmlFor="gen-baseline">Copy from</label>
-              <select
+              <Label htmlFor="gen-baseline">Copy from</Label>
+              <SelectBox
                 id="gen-baseline"
+                width="wide"
                 value={baseline}
-                onChange={(e) => setBaseline(e.target.value)}
-              >
-                {withSkill.map((r) => (
-                  <option key={r.name} value={r.name}>
-                    {versionName(r)} · {runStamp(r)}
-                  </option>
-                ))}
-              </select>
+                onChange={setBaseline}
+                options={withSkill.map((r) => ({
+                  value: r.name,
+                  label: `${versionName(r)} · ${runStamp(r)}`,
+                }))}
+              />
             </>
           ) : null}
-          <label htmlFor="gen-note">Note</label>
-          <input
+          <Label htmlFor="gen-note">Note</Label>
+          <Input
             id="gen-note"
             type="text"
             value={note}
@@ -261,42 +272,37 @@ export function Generate({ ctx }: { ctx: Ctx }) {
             placeholder="What this run is for"
           />
           <span />
-          <label className="check-row">
-            <input type="checkbox" checked={grade} onChange={(e) => setGrade(e.target.checked)} />
-            <span>
-              Grade when done{' '}
-              <span className="muted">
-                {state.jevKey ? 'with Jev' : '(code checks only: no Jev key)'}
-              </span>
-            </span>
-          </label>
-        </div>
+          <CheckRow checked={grade} onCheckedChange={setGrade}>
+            Grade when done{' '}
+            <Text tone="muted">{state.jevKey ? 'with Jev' : '(code checks only: no Jev key)'}</Text>
+          </CheckRow>
+        </FormGrid>
 
-        <div className="actions">
-          <button
-            type="button"
-            className="primary"
-            disabled={busy || !cases.size || !writers.length}
-            onClick={submit}
-          >
+        <Toolbar>
+          <Button type="button" disabled={busy || !cases.size || !writers.length} onClick={submit}>
             Start run: {plural(count, 'output')}
-          </button>
+          </Button>
           {!cases.size ? (
-            <span className="help">Pick at least one case.</span>
+            <Hint>Pick at least one case.</Hint>
           ) : (
-            <span className="help">
+            <Hint>
               {plural(cases.size, 'case')} × {plural(writers.length, 'writer')} ×{' '}
               {plural(samples, 'sample')}
-            </span>
+            </Hint>
           )}
-        </div>
-      </div>
+        </Toolbar>
+      </Panel>
       {jobs.length ? (
-        <section className="section">
-          <h2>Jobs</h2>
+        <Section>
+          <Heading level={2}>Jobs</Heading>
           <JobLogs jobs={jobs.slice(0, 6)} />
-        </section>
+        </Section>
       ) : null}
-    </div>
+    </Split>
   )
+}
+
+/** Agent, model and effort in one row; on a phone they wrap to two per line. */
+function WriterGrid({ children }: { children: React.ReactNode }) {
+  return <div className="grid grid-cols-2 gap-1.5 md:grid-cols-[1fr_1fr_1fr_auto]">{children}</div>
 }

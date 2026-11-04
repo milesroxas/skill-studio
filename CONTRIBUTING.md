@@ -45,12 +45,15 @@ Tests are colocated: `src/domain/scoring.ts` is tested by `src/domain/scoring.te
 | `src/interfaces/http/`    | `st serve`: the operations over HTTP, the localhost guard, Tailscale                            |
 | `src/interfaces/cli/`     | the `st` command                                                                               |
 | `src/renderer/`           | the React app, with a transport for IPC or HTTP                                                 |
+| `src/renderer/components/ui/` | shadcn/ui component sources; add one with `pnpm dlx shadcn@latest add <name>`, then run `pnpm format` |
 
 Layers point inward only, and `pnpm fallow` fails on an import that does not (`boundaries` in `.fallowrc.json`). A shape two layers share belongs in the domain (`src/domain/views.ts` for what interfaces show). An operation is added once, in `src/application/api/contract.ts` and `operations.ts`, and the desktop app, `st serve` and the client all get it.
 
 A new pack implements `JudgePack` (`src/judges/types.ts`, which extends `PackScoring` from `src/domain/pack.ts`) and is added to the list in `src/judges/index.ts`. Keep thresholds and weights in its scoring code, not in Jev prompts, so stored answers can be rescored without new calls.
 
 ## Style
+
+The UI is shadcn/ui on Tailwind v4 (`components.json`, theme tokens in `src/renderer/styles.css`). A screen composes components and names a variant; it does not carry utility classes of its own. When a look is missing, add a variant to the component's `cva` (or a composite under `src/renderer/components/`) rather than styling the call site. Color is for verdicts only: `success`, `warning` and `destructive`.
 
 Biome formats and lints everything except Markdown. Write comments for the reason behind the code, not for what it does. Keep commits focused; the commit message says what changed and why.
 

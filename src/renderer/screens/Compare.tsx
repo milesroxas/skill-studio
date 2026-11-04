@@ -5,7 +5,34 @@ import { copyOf } from '@domain/text.ts'
 import { useEffect, useState } from 'react'
 import { api } from '../api.ts'
 import { ArtifactPicker, ArtifactView } from '../components/Artifact.tsx'
+import { InlineField } from '../components/forms.tsx'
+import {
+  Columns,
+  EmptyState,
+  List,
+  Panel,
+  Screen,
+  Section,
+  SectionHead,
+  Spacer,
+  Stack,
+  Toolbar,
+} from '../components/layout.tsx'
+import { OutputCard, OutputCardHead, Slot } from '../components/OutputCard.tsx'
 import { Delta, Flags, Layers, TotalChip } from '../components/Scores.tsx'
+import { Segmented } from '../components/Segmented.tsx'
+import { SelectBox } from '../components/SelectBox.tsx'
+import { Heading, Hint, Text } from '../components/text.tsx'
+import { Button } from '../components/ui/button.tsx'
+import { Input } from '../components/ui/input.tsx'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '../components/ui/table.tsx'
 import type { Ctx } from '../ctx.ts'
 import { wordDiffHtml } from '../diff.ts'
 import { useFetch } from '../hooks.ts'
@@ -27,7 +54,16 @@ import {
   writerName,
 } from '../model.ts'
 
-const VOTES: Vote[] = ['a', 'tie', 'b']
+const VOTES = [
+  { value: 'a', label: 'A is better' },
+  { value: 'tie', label: 'Tie' },
+  { value: 'b', label: 'B is better' },
+] as const satisfies ReadonlyArray<{ value: Vote; label: string }>
+
+const VIEWS = [
+  { value: 'side', label: 'Side by side' },
+  { value: 'diff', label: 'Word diff' },
+] as const
 
 /** With no pair in the URL, open the first graded output against another sample of its case. */
 function defaultPair(outputs: Output[]): [Output | null, Output | null] {
@@ -93,90 +129,87 @@ export function Compare({ ctx }: { ctx: Ctx }) {
 
   if (!outputs.length)
     return (
-      <div className="empty">
-        <h2>Nothing to compare yet</h2>
-        <p className="help">Compare reads two outputs side by side. Generate a run first.</p>
-        <div className="actions">
-          <button type="button" className="primary" onClick={() => go('generate')}>
+      <EmptyState
+        title="Nothing to compare yet"
+        actions={
+          <Button type="button" onClick={() => go('generate')}>
             Open Generate
-          </button>
-        </div>
-      </div>
+          </Button>
+        }
+      >
+        Compare reads two outputs side by side. Generate a run first.
+      </EmptyState>
     )
 
   return (
-    <div className="screen">
-      <div className="toolbar">
+    <Screen>
+      <Toolbar>
         <Picker label="A" outputs={outputs} value={a} onChange={(k) => set('a', k)} ctx={ctx} />
         <Picker label="B" outputs={outputs} value={b} onChange={(k) => set('b', k)} ctx={ctx} />
         {a && b ? (
           <>
-            <fieldset className="seg" aria-label="View">
-              <button type="button" aria-pressed={!diff} onClick={() => setDiff(false)}>
-                Side by side
-              </button>
-              <button type="button" aria-pressed={diff} onClick={() => setDiff(true)}>
-                Word diff
-              </button>
-            </fieldset>
-            <button type="button" onClick={() => go('compare', { a: b.key, b: a.key })}>
+            <Segmented
+              aria-label="View"
+              options={VIEWS}
+              value={diff ? 'diff' : 'side'}
+              onChange={(v) => setDiff(v === 'diff')}
+            />
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => go('compare', { a: b.key, b: a.key })}
+            >
               Swap
-            </button>
+            </Button>
           </>
         ) : null}
-      </div>
+      </Toolbar>
       {!a ? (
-        <div className="empty">
-          <p className="help">Pick an output for A. Add one for B to compare and vote.</p>
-        </div>
+        <EmptyState>Pick an output for A. Add one for B to compare and vote.</EmptyState>
       ) : diff && b ? (
         <DiffCard a={a} b={b} />
       ) : (
-        <div className="columns" style={{ ['--cols' as string]: b ? 2 : 1 }}>
+        <Columns count={b ? 2 : 1}>
           <Card output={a} other={b} slot="a" layers={layers} ctx={ctx} showCase={!sameCase} />
           {b ? (
             <Card output={b} other={a} slot="b" layers={layers} ctx={ctx} showCase={!sameCase} />
           ) : null}
-        </div>
+        </Columns>
       )}
       {a && b ? (
-        <section className="vote-box">
-          <h3>Which is better?</h3>
-          <div className="vote-row">
-            <fieldset className="seg" aria-label="Your vote">
-              {VOTES.map((v) => (
-                <button
-                  key={v}
-                  type="button"
-                  aria-pressed={humanVote === v}
-                  onClick={() => vote(v)}
-                >
-                  {v === 'tie' ? 'Tie' : `${v.toUpperCase()} is better`}
-                </button>
-              ))}
-            </fieldset>
-            <label className="picker small muted">
-              On
-              <input
+        <Panel>
+          <Heading level={3}>Which is better?</Heading>
+          <Toolbar gap="md">
+            <Segmented
+              aria-label="Your vote"
+              options={VOTES}
+              value={humanVote}
+              onChange={(v) => v && vote(v)}
+            />
+            <InlineField label="On">
+              <Input
                 type="text"
                 value={criterion}
                 onChange={(e) => setCriterion(e.target.value)}
                 aria-label="Criterion"
+                width="narrow"
               />
-            </label>
-            <span className="spacer" />
-            <button
+            </InlineField>
+            <Spacer />
+            <Button
               type="button"
+              variant="outline"
               disabled={!state.jevKey}
               title={state.jevKey ? undefined : 'Needs TYPESAFE_API_KEY'}
               onClick={askJev}
             >
               Ask Jev
-            </button>
-          </div>
+            </Button>
+          </Toolbar>
           <BenchPick a={a} b={b} ctx={ctx} />
           {jevVotes.length ? (
-            <ul className="small">
+            <List size="xs">
               {jevVotes.map((p) => (
                 <li key={`${p.criterion}${p.at}`}>
                   On {p.criterion}, Jev picked{' '}
@@ -186,31 +219,31 @@ export function Compare({ ctx }: { ctx: Ctx }) {
                   {p.confidence !== undefined ? `, ${Math.round(p.confidence * 100)}% sure` : ''}.
                 </li>
               ))}
-            </ul>
+            </List>
           ) : null}
-        </section>
+        </Panel>
       ) : null}
       {boards.length && board.data ? (
-        <section className="section">
-          <div className="section-head">
-            <h2>Leaderboard</h2>
-            <p className="help">
+        <Section>
+          <SectionHead>
+            <Heading level={2}>Leaderboard</Heading>
+            <Hint>
               Strength from pairwise votes. Jev and you agree on {board.data.agreement.agreed} of{' '}
               {board.data.agreement.compared} pairs you both voted on.
-            </p>
-          </div>
+            </Hint>
+          </SectionHead>
           {boards.map(([crit, { jev, human: hb }]) => (
-            <div key={crit} className="boards">
-              <h3>{crit}</h3>
-              <div className="columns" style={{ ['--cols' as string]: 2 }}>
+            <Stack key={crit} gap="md">
+              <Heading level={3}>{crit}</Heading>
+              <Columns count={2}>
                 <Board title="Your votes" rows={hb} ctx={ctx} />
                 <Board title="Jev's votes" rows={jev} ctx={ctx} />
-              </div>
-            </div>
+              </Columns>
+            </Stack>
           ))}
-        </section>
+        </Section>
       ) : null}
-    </div>
+    </Screen>
   )
 }
 
@@ -225,7 +258,7 @@ function Picker({
   onChange,
   ctx,
 }: {
-  label: string
+  label: 'A' | 'B'
   outputs: Output[]
   value: Output | null
   onChange: (key: string) => void
@@ -234,23 +267,22 @@ function Picker({
   const groups = new Map<string, Output[]>()
   for (const o of outputs) groups.set(o.caseId, [...(groups.get(o.caseId) ?? []), o])
   return (
-    <label className="picker">
-      <span className={`slot ${label.toLowerCase()}`}>{label}</span>
-      <select value={value?.key ?? ''} onChange={(e) => onChange(e.target.value)}>
-        <option value="">None</option>
-        {[...groups.entries()].map(([caseId, list]) => (
-          <optgroup key={caseId} label={`${caseId} · ${caseTitle(ctx.state, caseId)}`}>
-            {list.map((o) => (
-              <option key={o.key} value={o.key}>
-                {versionName(o.run)} · {outputLine(o)}
-                {configurationTail(o.run)}
-                {` · ${runStamp(o.run)}`}
-              </option>
-            ))}
-          </optgroup>
-        ))}
-      </select>
-    </label>
+    <InlineField label={<Slot variant={label === 'A' ? 'a' : 'b'}>{label}</Slot>}>
+      <SelectBox
+        aria-label={`Output ${label}`}
+        width="wide"
+        value={value?.key ?? ''}
+        onChange={onChange}
+        none="None"
+        groups={[...groups.entries()].map(([caseId, list]) => ({
+          label: `${caseId} · ${caseTitle(ctx.state, caseId)}`,
+          options: list.map((o) => ({
+            value: o.key,
+            label: `${versionName(o.run)} · ${outputLine(o)}${configurationTail(o.run)} · ${runStamp(o.run)}`,
+          })),
+        }))}
+      />
+    </InlineField>
   )
 }
 
@@ -280,46 +312,58 @@ function Card({
       : null
   const size = sizeLine(output)
   return (
-    <article className="card">
-      <header className="card-head">
-        <span className={`slot ${slot}`}>{slot.toUpperCase()}</span>
-        <span className="title">{versionName(output.run)}</span>
-        <span className="total">
-          <TotalChip total={scored?.scores.total} />
-          <Delta value={delta} />
-        </span>
-        <span className="meta">
-          <span>
-            {writerName(output.run.meta?.writer)} · {runStamp(output.run)}
-            {sampleTail(output)}
-          </span>
-          {showCase ? <span>Case {output.caseId}</span> : null}
-          {size ? <span>{size}</span> : null}
-          <button type="button" className="link" onClick={() => go('blind', { key: output.key })}>
-            Review
-          </button>
-          {output.sample.hasTranscript ? (
-            <button
+    <OutputCard>
+      <OutputCardHead
+        slot={<Slot variant={slot}>{slot.toUpperCase()}</Slot>}
+        title={versionName(output.run)}
+        total={
+          <>
+            <TotalChip total={scored?.scores.total} />
+            <Delta value={delta} />
+          </>
+        }
+        meta={
+          <>
+            <span>
+              {writerName(output.run.meta?.writer)} · {runStamp(output.run)}
+              {sampleTail(output)}
+            </span>
+            {showCase ? <span>Case {output.caseId}</span> : null}
+            {size ? <span>{size}</span> : null}
+            <Button
               type="button"
-              className="link"
-              onClick={() => go('transcript', { run: output.run.name, sample: output.sample.name })}
+              variant="link-muted"
+              size="inline"
+              onClick={() => go('blind', { key: output.key })}
             >
-              Transcript
-            </button>
-          ) : null}
-        </span>
-      </header>
+              Review
+            </Button>
+            {output.sample.hasTranscript ? (
+              <Button
+                type="button"
+                variant="link-muted"
+                size="inline"
+                onClick={() =>
+                  go('transcript', { run: output.run.name, sample: output.sample.name })
+                }
+              >
+                Transcript
+              </Button>
+            ) : null}
+          </>
+        }
+      />
       {scored ? (
         <>
           <Layers scored={scored} layers={layers} other={slot === 'b' ? otherScored : null} />
           <Flags flags={scored.flags} />
         </>
       ) : (
-        <p className="help card-note">Not graded.</p>
+        <Hint inset>Not graded.</Hint>
       )}
       <ArtifactPicker artifacts={output.sample.artifacts} value={artifact} onChange={setArtifact} />
       <ArtifactView run={output.run.name} sample={output.sample.name} artifact={artifact} />
-    </article>
+    </OutputCard>
   )
 }
 
@@ -336,24 +380,21 @@ function DiffCard({ a, b }: { a: Output; b: Output }) {
     return wordDiffHtml(copyOf(x), copyOf(y))
   }, [a.key, b.key])
   return (
-    <article className="card">
-      <header className="card-head">
-        <span className="slot plain">Diff</span>
-        <span className="title">
-          {runLabel(a.run)} to {runLabel(b.run)}
-        </span>
-        <span />
-        <span className="meta">Text only in A is struck through. Text only in B is marked.</span>
-      </header>
+    <OutputCard>
+      <OutputCardHead
+        slot={<Slot>Diff</Slot>}
+        title={`${runLabel(a.run)} to ${runLabel(b.run)}`}
+        meta="Text only in A is struck through. Text only in B is marked."
+      />
       {!textual ? (
-        <p className="help card-note">Word diff needs a text output on both sides.</p>
+        <Hint inset>Word diff needs a text output on both sides.</Hint>
       ) : html.data === null ? (
-        <p className="help card-note">{html.error ?? 'Loading…'}</p>
+        <Hint inset>{html.error ?? 'Loading…'}</Hint>
       ) : (
         // biome-ignore lint/security/noDangerouslySetInnerHtml: diff output is escaped
         <div className="diff" dangerouslySetInnerHTML={{ __html: html.data }} />
       )}
-    </article>
+    </OutputCard>
   )
 }
 
@@ -363,57 +404,58 @@ function BenchPick({ a, b, ctx }: { a: Output; b: Output; ctx: Ctx }) {
   if (sa === null || sb === null) return null
   const pick = sa === sb ? 'calls it a tie' : `prefers ${sa > sb ? 'A' : 'B'}`
   return (
-    <p className="help">
+    <Hint>
       The bench {pick}: {sa} against {sb}.
-    </p>
+    </Hint>
   )
 }
 
 function Board({ title, rows, ctx }: { title: string; rows: Rating[]; ctx: Ctx }) {
   return (
-    <table className="grid-table">
-      <thead>
-        <tr>
-          <th>{title}</th>
-          <th className="num">Strength</th>
-          <th className="num" title="Wins">
+    <Table>
+      <TableHeader>
+        <TableRow>
+          <TableHead>{title}</TableHead>
+          <TableHead numeric>Strength</TableHead>
+          <TableHead numeric title="Wins">
             W
-          </th>
-          <th className="num" title="Losses">
+          </TableHead>
+          <TableHead numeric title="Losses">
             L
-          </th>
-          <th className="num" title="Ties">
+          </TableHead>
+          <TableHead numeric title="Ties">
             T
-          </th>
-        </tr>
-      </thead>
-      <tbody>
+          </TableHead>
+        </TableRow>
+      </TableHeader>
+      <TableBody>
         {rows.length ? (
           rows.map((r) => (
-            <tr key={r.id}>
-              <td>
-                <button
+            <TableRow key={r.id}>
+              <TableCell wrap>
+                <Button
                   type="button"
-                  className="link"
+                  variant="link-muted"
+                  size="inline"
                   onClick={() => ctx.go('compare', { a: r.id })}
                 >
                   {r.id}
-                </button>
-              </td>
-              <td className="num">{r.score.toFixed(2)}</td>
-              <td className="num">{r.wins}</td>
-              <td className="num">{r.losses}</td>
-              <td className="num">{r.ties}</td>
-            </tr>
+                </Button>
+              </TableCell>
+              <TableCell numeric>{r.score.toFixed(2)}</TableCell>
+              <TableCell numeric>{r.wins}</TableCell>
+              <TableCell numeric>{r.losses}</TableCell>
+              <TableCell numeric>{r.ties}</TableCell>
+            </TableRow>
           ))
         ) : (
-          <tr>
-            <td className="muted" colSpan={5}>
-              No votes yet
-            </td>
-          </tr>
+          <TableRow>
+            <TableCell colSpan={5}>
+              <Text tone="muted">No votes yet</Text>
+            </TableCell>
+          </TableRow>
         )}
-      </tbody>
-    </table>
+      </TableBody>
+    </Table>
   )
 }

@@ -3,16 +3,38 @@ import { DEFAULT_CONFIG } from '@domain/config.ts'
 import type { BenchConfig } from '@domain/schemas.ts'
 import { scorers } from '@judges/scorers.ts'
 import { api } from '../api.ts'
+import { Disclosure } from '../components/Disclosure.tsx'
+import { CheckRow, Knob } from '../components/forms.tsx'
+import {
+  Fieldset,
+  List,
+  Panel,
+  Section,
+  SectionHead,
+  Split,
+  Stack,
+  Toolbar,
+} from '../components/layout.tsx'
 import { Delta, TotalChip } from '../components/Scores.tsx'
+import { Heading, Hint, Text } from '../components/text.tsx'
+import { Button } from '../components/ui/button.tsx'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '../components/ui/table.tsx'
 import type { Ctx } from '../ctx.ts'
 import {
   capital,
-  chipClass,
   layersOf,
   mergedConfig,
   type Output,
   runLabel,
   runStamp,
+  scoreBand,
   scoreOf,
 } from '../model.ts'
 
@@ -62,48 +84,44 @@ export function Knobs({ ctx }: { ctx: Ctx }) {
   const graded = outputs.filter((o) => o.result)
 
   return (
-    <div className="split knobs">
-      <div className="panel">
-        <div className="toolbar">
+    <Split layout="controls">
+      <Panel>
+        <Toolbar>
           {dirty ? (
             <>
-              <button type="button" className="primary" onClick={save}>
+              <Button type="button" onClick={save}>
                 Save to {state.paths.bench}
-              </button>
-              <button type="button" onClick={() => setConfig(saved)}>
+              </Button>
+              <Button type="button" variant="outline" onClick={() => setConfig(saved)}>
                 Discard changes
-              </button>
+              </Button>
             </>
           ) : (
-            <p className="help">
+            <Hint>
               Saved in {state.paths.bench}. Move a setting and every output rescores at once.
-            </p>
+            </Hint>
           )}
-        </div>
+        </Toolbar>
 
-        <fieldset className="field">
-          <legend>Packs</legend>
+        <Fieldset legend="Packs">
           {scorers.map((pack) => (
-            <label key={pack.id} className="check-row">
-              <input
-                type="checkbox"
-                checked={config.packs.includes(pack.id)}
-                disabled={config.packs.length === 1 && config.packs.includes(pack.id)}
-                onChange={() => togglePack(pack.id)}
-              />
-              <span>
-                {capital(pack.id)}{' '}
-                <small className="muted">{pack.layers.map(capital).join(', ')}</small>
-              </span>
-            </label>
+            <CheckRow
+              key={pack.id}
+              checked={config.packs.includes(pack.id)}
+              disabled={config.packs.length === 1 && config.packs.includes(pack.id)}
+              onCheckedChange={() => togglePack(pack.id)}
+            >
+              {capital(pack.id)}{' '}
+              <Text tone="muted" size="xs">
+                {pack.layers.map(capital).join(', ')}
+              </Text>
+            </CheckRow>
           ))}
-        </fieldset>
+        </Fieldset>
 
-        <div className="knob-group">
-          <h3>Layer weights</h3>
-          <p className="help">
-            Points per layer. A layer with no score drops out and the rest rescale.
-          </p>
+        <Stack gap="md">
+          <Heading level={3}>Layer weights</Heading>
+          <Hint>Points per layer. A layer with no score drops out and the rest rescale.</Hint>
           {layers.map((layer) => (
             <Knob
               key={layer}
@@ -115,10 +133,10 @@ export function Knobs({ ctx }: { ctx: Ctx }) {
               onChange={(v) => setWeight(layer, v)}
             />
           ))}
-        </div>
+        </Stack>
 
-        <div className="knob-group">
-          <h3>Thresholds</h3>
+        <Stack gap="md">
+          <Heading level={3}>Thresholds</Heading>
           <Knob
             label="Yes at"
             about="A judge answer reads as yes at this probability or above."
@@ -146,11 +164,11 @@ export function Knobs({ ctx }: { ctx: Ctx }) {
             step={5}
             onChange={(v) => set({ agreeAt: v })}
           />
-        </div>
+        </Stack>
 
         {knobs.length ? (
-          <div className="knob-group">
-            <h3>Judge pack settings</h3>
+          <Stack gap="md">
+            <Heading level={3}>Judge pack settings</Heading>
             {knobs.map(({ key, value, known }) =>
               typeof value === 'number' ? (
                 <Knob
@@ -162,12 +180,12 @@ export function Knobs({ ctx }: { ctx: Ctx }) {
                   onChange={(v) => set({ [key]: v })}
                 />
               ) : (
-                <div key={key} className="knob-group">
-                  <span className="small muted" title={key}>
+                <Stack key={key} gap="md">
+                  <Text tone="muted" size="xs" title={key}>
                     {known && known.key !== known.pack
                       ? `${capital(known.pack)}: ${humanize(key)}`
                       : humanize(key)}
-                  </span>
+                  </Text>
                   {Object.entries(value).map(([sub, v]) => {
                     const base =
                       known && typeof known.defaults === 'object' ? known.defaults[sub] : undefined
@@ -182,69 +200,75 @@ export function Knobs({ ctx }: { ctx: Ctx }) {
                       />
                     )
                   })}
-                </div>
+                </Stack>
               ),
             )}
-          </div>
+          </Stack>
         ) : null}
 
-        <details>
-          <summary className="small">
-            Rules:{' '}
-            {config.rules
+        <Disclosure
+          summary={`Rules: ${
+            config.rules
               ? `${config.rules.length} chosen in bench.json`
-              : `${state.rules.length} read from SKILL.md bullets`}
-          </summary>
-          {config.rules ? null : (
-            <p className="help">Set "rules" in bench.json to choose them by hand.</p>
-          )}
-          <ol className="small">
-            {state.rules.map((r) => (
-              <li key={r.id}>
-                {r.text} <span className="muted">({r.section})</span>
-              </li>
-            ))}
-          </ol>
-        </details>
-      </div>
+              : `${state.rules.length} read from SKILL.md bullets`
+          }`}
+        >
+          <Stack>
+            {config.rules ? null : <Hint>Set "rules" in bench.json to choose them by hand.</Hint>}
+            <List variant="number" size="xs">
+              {state.rules.map((r) => (
+                <li key={r.id}>
+                  {r.text} <Text tone="muted">({r.section})</Text>
+                </li>
+              ))}
+            </List>
+          </Stack>
+        </Disclosure>
+      </Panel>
 
-      <section className="section">
-        <div className="section-head">
-          <h2>Rescored</h2>
-          <p className="help">
+      <Section>
+        <SectionHead>
+          <Heading level={2}>Rescored</Heading>
+          <Hint>
             {dirty
               ? 'Every graded output under these knobs. The change from the saved knobs sits beside each total.'
               : 'Every graded output under the saved knobs.'}
-          </p>
-        </div>
+          </Hint>
+        </SectionHead>
         {graded.length ? (
-          <div className="scroll-x">
-            <table className="grid-table">
-              <thead>
-                <tr>
-                  <th>Output</th>
-                  {layers.map((l) => (
-                    <th key={l} className="num">
-                      {capital(l)}
-                    </th>
-                  ))}
-                  <th className="num">Total</th>
-                </tr>
-              </thead>
-              <tbody>
-                {graded.map((o) => (
-                  <Row key={o.key} output={o} config={config} saved={saved} layers={layers} />
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Output</TableHead>
+                {layers.map((l) => (
+                  <TableHead key={l} numeric>
+                    {capital(l)}
+                  </TableHead>
                 ))}
-              </tbody>
-            </table>
-          </div>
+                <TableHead numeric>Total</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {graded.map((o) => (
+                <Row key={o.key} output={o} config={config} saved={saved} layers={layers} />
+              ))}
+            </TableBody>
+          </Table>
         ) : (
-          <p className="help">No graded outputs yet.</p>
+          <Hint>No graded outputs yet.</Hint>
         )}
-      </section>
-    </div>
+      </Section>
+    </Split>
   )
 }
+
+const CELL_TONE = {
+  hi: 'default',
+  mid: 'default',
+  lo: 'warning',
+  vlo: 'destructive',
+  na: 'muted',
+} as const
 
 function Row({
   output,
@@ -262,67 +286,24 @@ function Row({
   const delta =
     now?.scores.total != null && was?.scores.total != null ? now.scores.total - was.scores.total : 0
   return (
-    <tr>
-      <td>
+    <TableRow>
+      <TableCell wrap>
         {runLabel(output.run)}
-        <span className="sub">
+        <Text block tone="muted" size="xs">
           {output.caseId} · {runStamp(output.run)}
           {output.samples > 1 ? ` · sample ${output.index}` : ''}
-        </span>
-      </td>
+        </Text>
+      </TableCell>
       {layers.map((l) => (
-        <td key={l} className={`num ${chipClass(now?.scores[l])}`}>
-          {now?.scores[l] ?? '–'}
-        </td>
+        <TableCell key={l} numeric>
+          <Text tone={CELL_TONE[scoreBand(now?.scores[l])]}>{now?.scores[l] ?? '–'}</Text>
+        </TableCell>
       ))}
-      <td className="num">
+      <TableCell numeric>
         <TotalChip total={now?.scores.total} />
         <Delta value={delta} />
-      </td>
-    </tr>
-  )
-}
-
-function Knob({
-  label,
-  about,
-  title,
-  value,
-  min,
-  max,
-  step,
-  onChange,
-}: {
-  label: string
-  about?: string
-  title?: string
-  value: number
-  min: number
-  max: number
-  step: number
-  onChange: (v: number) => void
-}) {
-  return (
-    <label className="knob" title={title}>
-      <span>{label}</span>
-      <input
-        type="range"
-        min={min}
-        max={max}
-        step={step}
-        value={value}
-        onChange={(e) => onChange(Number(e.target.value))}
-      />
-      <input
-        type="number"
-        inputMode="decimal"
-        min={min}
-        step={step}
-        value={value}
-        onChange={(e) => onChange(Number(e.target.value))}
-      />
-      {about ? <span className="about">{about}</span> : null}
-    </label>
+      </TableCell>
+    </TableRow>
   )
 }
 

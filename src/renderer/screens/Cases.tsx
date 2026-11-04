@@ -5,7 +5,29 @@ import { CHECK_EXAMPLES, EXAMPLE_KINDS, templateById, templateForPacks } from '@
 import { isSlug, SLUG_RULE, slug } from '@domain/text.ts'
 import { useEffect, useMemo, useState } from 'react'
 import { api } from '../api.ts'
+import { CheckRow, InlineField, NumberInput } from '../components/forms.tsx'
+import {
+  Field,
+  Fieldset,
+  FormFooter,
+  List,
+  Panel,
+  PlainList,
+  SectionHead,
+  Spacer,
+  Split,
+  Stack,
+  Toolbar,
+} from '../components/layout.tsx'
+import { NavButton } from '../components/NavButton.tsx'
+import { Segmented } from '../components/Segmented.tsx'
+import { ExampleList, GuideBox, PairList, Starter } from '../components/starters.tsx'
 import { TextArea } from '../components/TextArea.tsx'
+import { Heading, Hint, Text } from '../components/text.tsx'
+import { Alert, AlertDescription } from '../components/ui/alert.tsx'
+import { Button } from '../components/ui/button.tsx'
+import { Input } from '../components/ui/input.tsx'
+import { Label } from '../components/ui/label.tsx'
 import type { Ctx } from '../ctx.ts'
 
 const draftOf = (c: Case): CaseDraft => ({
@@ -27,7 +49,7 @@ const blank = (): CaseDraft => ({
 })
 
 export function Cases({ ctx }: { ctx: Ctx }) {
-  const { state, config, route, go, toast, reload } = ctx
+  const { state, config, route, go, toast, confirm, reload } = ctx
   const cases = state.cases
   /** Examples come from the kind of skill the bench grades, until the user picks another. */
   const [kindId, setKindId] = useState(() => templateForPacks(config.packs).id)
@@ -54,8 +76,16 @@ export function Cases({ ctx }: { ctx: Ctx }) {
     return () => window.removeEventListener('beforeunload', warn)
   }, [dirty])
 
-  const pick = (params: Record<string, string>) => {
-    if (dirty && !window.confirm('Leave this case? Your changes are not saved.')) return
+  const pick = async (params: Record<string, string>) => {
+    if (
+      dirty &&
+      !(await confirm({
+        title: 'Leave this case?',
+        description: 'Your changes are not saved.',
+        action: 'Leave',
+      }))
+    )
+      return
     go('cases', params)
   }
 
@@ -66,8 +96,12 @@ export function Cases({ ctx }: { ctx: Ctx }) {
     set({ graders: draft.graders.map((g, k) => (k === i ? { ...g, ...patch } : g)) })
 
   /** Fill the form from an example, with an id no existing case holds. */
-  const fillFrom = (example: CaseDraft) => {
-    if (dirty && !window.confirm('Replace what you typed with this example?')) return
+  const fillFrom = async (example: CaseDraft) => {
+    if (
+      dirty &&
+      !(await confirm({ title: 'Replace what you typed with this example?', action: 'Replace' }))
+    )
+      return
     let id = example.id
     for (let n = 2; cases.some((c) => c.id === id); n += 1) id = `${example.id}-${n}`
     setIdTouched(true)
@@ -100,12 +134,13 @@ export function Cases({ ctx }: { ctx: Ctx }) {
 
   const remove = async () => {
     if (!selected) return
-    if (
-      !window.confirm(
-        `Delete the case ${selected.id} and its folder? Past runs keep their outputs.`,
-      )
-    )
-      return
+    const ok = await confirm({
+      title: `Delete the case ${selected.id}?`,
+      description: 'Its folder goes too. Past runs keep their outputs.',
+      action: 'Delete',
+      destructive: true,
+    })
+    if (!ok) return
     try {
       await api.deleteCase(selected.id)
       await reload()
@@ -124,310 +159,331 @@ export function Cases({ ctx }: { ctx: Ctx }) {
   }
 
   return (
-    <div className="split cases">
+    <Split layout="form">
       <form
-        className="stack case-form"
+        className="contents"
         onKeyDown={onKey}
         onSubmit={(e) => {
           e.preventDefault()
           save()
         }}
       >
-        {!cases.length ? (
-          <div className="intro">
-            <h2>Write the first case</h2>
-            <p className="help">
-              A case is one task an agent gets with {state.skill.name} installed, and what a good
-              answer to it does. A run writes every case, then a judge checks each answer.
-            </p>
-          </div>
-        ) : (
-          <h2>{isNew ? 'New case' : selected?.id}</h2>
-        )}
-        {selected?.source === 'evals.json' ? (
-          <p className="note">
-            This case comes from evals.json. Saving writes it as a case folder, which then takes its
-            place.
-          </p>
-        ) : null}
-        {isNew ? (
-          <section className="starter" aria-label="Start from an example">
-            <div className="starter-text">
-              <span className="h3">Start from an example</span>
-              <span className="help">
-                A finished case to edit: a prompt a user would type, what a good answer does, and
-                checks the judge can mark. Pick the kind of skill, then a case.
-              </span>
-            </div>
-            <fieldset className="seg filters" aria-label="Kind of skill">
-              {EXAMPLE_KINDS.map((t) => (
-                <button
-                  key={t.id}
-                  type="button"
-                  aria-pressed={t.id === kindId}
-                  onClick={() => setKindId(t.id)}
-                >
-                  {t.label}
-                </button>
-              ))}
-            </fieldset>
-            <ul className="example-list">
-              {kind.cases.map((c) => (
-                <li key={c.id}>
-                  <button type="button" className="example" onClick={() => fillFrom(c)}>
-                    <span>{c.title}</span>
-                    <span className="sub">
-                      {c.graders.length} {c.graders.length === 1 ? 'check' : 'checks'}
-                      {c.words ? ` · ${c.words[0]} to ${c.words[1]} words` : ''}
-                    </span>
-                  </button>
-                </li>
-              ))}
-            </ul>
-          </section>
-        ) : null}
-
-        <div className="field">
-          <label htmlFor="case-title">Title</label>
-          <input
-            id="case-title"
-            value={draft.title}
-            placeholder="Release note for the export change"
-            onChange={(e) => setTitle(e.target.value)}
-          />
-        </div>
-
-        {isNew ? (
-          <div className="field">
-            <label htmlFor="case-id">Id</label>
-            <input
-              id="case-id"
-              className="mono"
-              value={draft.id}
-              autoCapitalize="none"
-              autoCorrect="off"
-              spellCheck={false}
-              aria-invalid={Boolean(idError || taken) || undefined}
-              aria-describedby="case-id-help"
-              onChange={(e) => {
-                setIdTouched(true)
-                set({ id: e.target.value })
-              }}
-            />
-            <span id="case-id-help" className={`help${idError || taken ? ' bad' : ''}`}>
-              {idError ||
-                (taken
-                  ? 'A case with this id exists.'
-                  : 'The folder name. It cannot change later.')}
-            </span>
-          </div>
-        ) : null}
-
-        <div className="field">
-          <label htmlFor="case-prompt">Prompt</label>
-          <TextArea
-            id="case-prompt"
-            rows={8}
-            value={draft.prompt}
-            placeholder={kind.cases[0]?.prompt}
-            aria-describedby="case-prompt-help"
-            onChange={(e) => set({ prompt: e.target.value })}
-          />
-          <span id="case-prompt-help" className="help">
-            Exactly what the agent is asked, as a user would ask it. Do not mention the skill.
-          </span>
-        </div>
-
-        <div className="field">
-          <label htmlFor="case-expected">A good answer</label>
-          <TextArea
-            id="case-expected"
-            rows={3}
-            value={draft.expectedOutcome}
-            placeholder={kind.cases[0]?.expectedOutcome}
-            aria-describedby="case-expected-help"
-            onChange={(e) => set({ expectedOutcome: e.target.value })}
-          />
-          <span id="case-expected-help" className="help">
-            One or two sentences on what it does. You see this when you rate; the judge reads it
-            too.
-          </span>
-        </div>
-
-        <fieldset className="field">
-          <legend>Checks</legend>
-          <p className="help">
-            One statement per line that a good answer makes true. The judge marks each one. Weight
-            counts a check more.
-          </p>
-          <details className="guide-box">
-            <summary>What the judge can mark</summary>
-            <ul className="pair-list small">
-              {CHECK_EXAMPLES.map((ex) => (
-                <li key={ex.good}>
-                  <span className="pair-bad">{ex.bad}</span>
-                  <span className="pair-good">{ex.good}</span>
-                  <span className="help">{ex.why}</span>
-                </li>
-              ))}
-            </ul>
-          </details>
-          {draft.graders.length ? (
-            <div className="check check-head" aria-hidden="true">
-              <span />
-              <span>Statement</span>
-              <span>Weight</span>
-              <span />
-            </div>
+        <Stack gap="lg">
+          {!cases.length ? (
+            <Stack>
+              <Heading level={2}>Write the first case</Heading>
+              <Hint>
+                A case is one task an agent gets with {state.skill.name} installed, and what a good
+                answer to it does. A run writes every case, then a judge checks each answer.
+              </Hint>
+            </Stack>
+          ) : (
+            <Heading level={2}>{isNew ? 'New case' : selected?.id}</Heading>
+          )}
+          {selected?.source === 'evals.json' ? (
+            <Alert variant="muted">
+              <AlertDescription>
+                This case comes from evals.json. Saving writes it as a case folder, which then takes
+                its place.
+              </AlertDescription>
+            </Alert>
           ) : null}
-          <ol className="checks">
-            {draft.graders.map((g, i) => (
-              <li key={g.id ?? `new-${i}`} className="check">
-                <input
-                  aria-label={`Check ${i + 1}`}
-                  value={g.statement}
-                  placeholder={
-                    kind.cases[0]?.graders[i]?.statement ?? kind.cases[0]?.graders[0]?.statement
-                  }
-                  onChange={(e) => setGrader(i, { statement: e.target.value })}
-                />
-                <label className="weight">
-                  <span className="sr-only">Weight of check {i + 1}</span>
-                  <input
-                    type="number"
-                    inputMode="numeric"
+          {isNew ? (
+            <Starter
+              aria-label="Start from an example"
+              title="Start from an example"
+              hint="A finished case to edit: a prompt a user would type, what a good answer does, and checks the judge can mark. Pick the kind of skill, then a case."
+            >
+              <Segmented
+                aria-label="Kind of skill"
+                value={kindId}
+                onChange={(v) => v && setKindId(v)}
+                options={EXAMPLE_KINDS.map((t) => ({ value: t.id, label: t.label }))}
+              />
+              <ExampleList
+                items={kind.cases.map((c) => ({
+                  key: c.id,
+                  title: c.title,
+                  sub: `${c.graders.length} ${c.graders.length === 1 ? 'check' : 'checks'}${
+                    c.words ? ` · ${c.words[0]} to ${c.words[1]} words` : ''
+                  }`,
+                  onPick: () => fillFrom(c),
+                }))}
+              />
+            </Starter>
+          ) : null}
+
+          <Field>
+            <Label htmlFor="case-title">Title</Label>
+            <Input
+              id="case-title"
+              value={draft.title}
+              placeholder="Release note for the export change"
+              onChange={(e) => setTitle(e.target.value)}
+            />
+          </Field>
+
+          {isNew ? (
+            <Field>
+              <Label htmlFor="case-id">Id</Label>
+              <Input
+                id="case-id"
+                value={draft.id}
+                autoCapitalize="none"
+                autoCorrect="off"
+                spellCheck={false}
+                font="mono"
+                aria-invalid={Boolean(idError || taken) || undefined}
+                aria-describedby="case-id-help"
+                onChange={(e) => {
+                  setIdTouched(true)
+                  set({ id: e.target.value })
+                }}
+              />
+              <Hint id="case-id-help" tone={idError || taken ? 'destructive' : 'default'}>
+                {idError ||
+                  (taken
+                    ? 'A case with this id exists.'
+                    : 'The folder name. It cannot change later.')}
+              </Hint>
+            </Field>
+          ) : null}
+
+          <Field>
+            <Label htmlFor="case-prompt">Prompt</Label>
+            <TextArea
+              id="case-prompt"
+              rows={8}
+              value={draft.prompt}
+              placeholder={kind.cases[0]?.prompt}
+              aria-describedby="case-prompt-help"
+              onChange={(e) => set({ prompt: e.target.value })}
+            />
+            <Hint id="case-prompt-help">
+              Exactly what the agent is asked, as a user would ask it. Do not mention the skill.
+            </Hint>
+          </Field>
+
+          <Field>
+            <Label htmlFor="case-expected">A good answer</Label>
+            <TextArea
+              id="case-expected"
+              rows={3}
+              value={draft.expectedOutcome}
+              placeholder={kind.cases[0]?.expectedOutcome}
+              aria-describedby="case-expected-help"
+              onChange={(e) => set({ expectedOutcome: e.target.value })}
+            />
+            <Hint id="case-expected-help">
+              One or two sentences on what it does. You see this when you rate; the judge reads it
+              too.
+            </Hint>
+          </Field>
+
+          <Fieldset
+            legend="Checks"
+            hint="One statement per line that a good answer makes true. The judge marks each one. Weight counts a check more."
+          >
+            <GuideBox summary="What the judge can mark">
+              <PairList pairs={CHECK_EXAMPLES} />
+            </GuideBox>
+            {draft.graders.length ? (
+              <CheckLine aria-hidden="true" head>
+                <span />
+                <Text tone="muted" size="xs">
+                  Statement
+                </Text>
+                <Text tone="muted" size="xs" className="w-14">
+                  Weight
+                </Text>
+                <span className="w-16.5" />
+              </CheckLine>
+            ) : null}
+            <PlainList as="ol" gap="md">
+              {draft.graders.map((g, i) => (
+                <CheckLine key={g.id ?? `new-${i}`} as="li" index={i + 1}>
+                  <Input
+                    aria-label={`Check ${i + 1}`}
+                    value={g.statement}
+                    placeholder={
+                      kind.cases[0]?.graders[i]?.statement ?? kind.cases[0]?.graders[0]?.statement
+                    }
+                    onChange={(e) => setGrader(i, { statement: e.target.value })}
+                  />
+                  <NumberInput
+                    aria-label={`Weight of check ${i + 1}`}
                     min={1}
                     max={5}
                     value={g.weight}
+                    className="w-14"
                     onChange={(e) => setGrader(i, { weight: Number(e.target.value) || 1 })}
                   />
-                </label>
-                <button
-                  type="button"
-                  className="ghost"
-                  aria-label={`Remove check ${i + 1}`}
-                  onClick={() => set({ graders: draft.graders.filter((_, k) => k !== i) })}
-                >
-                  Remove
-                </button>
-              </li>
-            ))}
-          </ol>
-          <div>
-            <button
-              type="button"
-              onClick={() =>
-                set({ graders: [...draft.graders, { id: null, statement: '', weight: 1 }] })
-              }
-            >
-              Add a check
-            </button>
-          </div>
-        </fieldset>
-
-        <fieldset className="field">
-          <legend>Length</legend>
-          <label className="check-row">
-            <input
-              type="checkbox"
-              checked={Boolean(draft.words)}
-              onChange={(e) => set({ words: e.target.checked ? [50, 300] : null })}
-            />
-            Score the answer's length in words
-          </label>
-          {draft.words ? (
-            <div className="actions">
-              <label className="picker">
-                <span className="small muted">From</span>
-                <input
-                  type="number"
-                  inputMode="numeric"
-                  min={0}
-                  value={draft.words[0]}
-                  onChange={(e) => set({ words: [Number(e.target.value), draft.words?.[1] ?? 0] })}
-                />
-              </label>
-              <label className="picker">
-                <span className="small muted">to</span>
-                <input
-                  type="number"
-                  inputMode="numeric"
-                  min={0}
-                  value={draft.words[1]}
-                  onChange={(e) => set({ words: [draft.words?.[0] ?? 0, Number(e.target.value)] })}
-                />
-              </label>
-              <span className="small muted">words</span>
-            </div>
-          ) : null}
-          {wordsError ? <span className="help bad">{wordsError}</span> : null}
-        </fieldset>
-
-        {selected?.files.length ? (
-          <div className="field">
-            <span className="h3">Input files</span>
-            <ul className="file-names mono small">
-              {selected.files.map((f) => (
-                <li key={f}>{f.split('/').at(-1)}</li>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    aria-label={`Remove check ${i + 1}`}
+                    onClick={() => set({ graders: draft.graders.filter((_, k) => k !== i) })}
+                  >
+                    Remove
+                  </Button>
+                </CheckLine>
               ))}
-            </ul>
-            <span className="help">The agent finds these in files/ next to the prompt.</span>
-          </div>
-        ) : null}
+            </PlainList>
+            <div>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() =>
+                  set({ graders: [...draft.graders, { id: null, statement: '', weight: 1 }] })
+                }
+              >
+                Add a check
+              </Button>
+            </div>
+          </Fieldset>
 
-        <div className="form-foot">
-          <button type="submit" className="primary" disabled={!canSave} title="Cmd/Ctrl+S">
-            {isNew ? 'Add case' : 'Save case'}
-          </button>
-          {dirty && !isNew ? (
-            <button type="button" className="ghost" onClick={() => setDraft(base)}>
-              Revert
-            </button>
+          <Fieldset legend="Length">
+            <CheckRow
+              checked={Boolean(draft.words)}
+              onCheckedChange={(on) => set({ words: on ? [50, 300] : null })}
+            >
+              Score the answer's length in words
+            </CheckRow>
+            {draft.words ? (
+              <Toolbar>
+                <InlineField label="From">
+                  <NumberInput
+                    aria-label="Fewest words"
+                    min={0}
+                    value={draft.words[0]}
+                    onChange={(e) =>
+                      set({ words: [Number(e.target.value), draft.words?.[1] ?? 0] })
+                    }
+                  />
+                </InlineField>
+                <InlineField label="to">
+                  <NumberInput
+                    aria-label="Most words"
+                    min={0}
+                    value={draft.words[1]}
+                    onChange={(e) =>
+                      set({ words: [draft.words?.[0] ?? 0, Number(e.target.value)] })
+                    }
+                  />
+                </InlineField>
+                <Text tone="muted" size="xs">
+                  words
+                </Text>
+              </Toolbar>
+            ) : null}
+            {wordsError ? <Hint tone="destructive">{wordsError}</Hint> : null}
+          </Fieldset>
+
+          {selected?.files.length ? (
+            <Field>
+              <Heading level={3} as="span">
+                Input files
+              </Heading>
+              <List size="xs" font="mono">
+                {selected.files.map((f) => (
+                  <li key={f}>{f.split('/').at(-1)}</li>
+                ))}
+              </List>
+              <Hint>The agent finds these in files/ next to the prompt.</Hint>
+            </Field>
           ) : null}
-          {isNew && cases.length ? (
-            <button type="button" className="ghost" onClick={() => pick({})}>
-              Cancel
-            </button>
-          ) : null}
-          <span className="spacer" />
-          {selected?.dir ? (
-            <button type="button" className="ghost danger" onClick={remove}>
-              Delete case
-            </button>
-          ) : null}
-        </div>
+
+          <FormFooter>
+            <Button type="submit" disabled={!canSave} title="Cmd/Ctrl+S">
+              {isNew ? 'Add case' : 'Save case'}
+            </Button>
+            {dirty && !isNew ? (
+              <Button type="button" variant="ghost" onClick={() => setDraft(base)}>
+                Revert
+              </Button>
+            ) : null}
+            {isNew && cases.length ? (
+              <Button type="button" variant="ghost" onClick={() => pick({})}>
+                Cancel
+              </Button>
+            ) : null}
+            <Spacer />
+            {selected?.dir ? (
+              <Button type="button" variant="destructive-ghost" onClick={remove}>
+                Delete case
+              </Button>
+            ) : null}
+          </FormFooter>
+        </Stack>
       </form>
 
       {cases.length ? (
-        <aside className="panel sticky">
-          <div className="section-head">
-            <span className="h3">Cases</span>
-            <span className="muted small tnum">{cases.length}</span>
-            <span className="spacer" />
-            <button type="button" onClick={() => pick({ new: '1' })} disabled={isNew}>
-              New case
-            </button>
-          </div>
-          <ul className="case-list">
-            {cases.map((c) => (
-              <li key={c.id}>
-                <button
-                  type="button"
-                  className="case-item"
-                  aria-current={selected?.id === c.id ? 'true' : undefined}
-                  onClick={() => pick({ id: c.id })}
-                >
-                  <span className="mono small">{c.id}</span>
-                  <span className="sub">
-                    {c.title !== c.id ? `${c.title} · ` : ''}
-                    {c.graders.length} {c.graders.length === 1 ? 'check' : 'checks'}
-                  </span>
-                </button>
-              </li>
-            ))}
-          </ul>
-        </aside>
+        <Panel sticky>
+          <aside className="contents">
+            <SectionHead>
+              <Heading level={3} as="span">
+                Cases
+              </Heading>
+              <Text tone="muted" size="xs" tabular>
+                {cases.length}
+              </Text>
+              <Spacer />
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => pick({ new: '1' })}
+                disabled={isNew}
+              >
+                New case
+              </Button>
+            </SectionHead>
+            <PlainList gap="xs">
+              {cases.map((c) => (
+                <li key={c.id}>
+                  <NavButton current={selected?.id === c.id} onClick={() => pick({ id: c.id })}>
+                    <Text font="mono" size="xs">
+                      {c.id}
+                    </Text>
+                    <Text tone="muted" size="xs">
+                      {c.title !== c.id ? `${c.title} · ` : ''}
+                      {c.graders.length} {c.graders.length === 1 ? 'check' : 'checks'}
+                    </Text>
+                  </NavButton>
+                </li>
+              ))}
+            </PlainList>
+          </aside>
+        </Panel>
       ) : null}
-    </div>
+    </Split>
+  )
+}
+
+/** One check: its number, the statement, the weight and the remove button, in aligned columns. */
+function CheckLine({
+  as: Comp = 'div',
+  index,
+  head = false,
+  children,
+  ...props
+}: Omit<React.HTMLAttributes<HTMLElement>, 'children'> & {
+  as?: 'div' | 'li'
+  index?: number
+  head?: boolean
+  children: React.ReactNode
+}) {
+  return (
+    <Comp
+      className={`grid grid-cols-[20px_minmax(0,1fr)_auto_auto] items-center gap-1.5${head ? ' -mb-0.5' : ''}`}
+      {...props}
+    >
+      {head ? null : (
+        <Text tone="faint" font="mono" size="xs" weight="medium" align="end">
+          {index}
+        </Text>
+      )}
+      {children}
+    </Comp>
   )
 }

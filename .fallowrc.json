@@ -64,5 +64,11 @@
         "allowTypeOnly": ["application"]
       }
     ]
-  }
+  },
+  "ignoreExports": [
+    {
+      "file": "src/renderer/components/ui/**",
+      "exports": ["*"]
+    }
+  ]
 }

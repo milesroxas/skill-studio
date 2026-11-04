@@ -3,7 +3,18 @@
 import { mean } from '@domain/stats.ts'
 import { useState } from 'react'
 import { api } from '../api.ts'
+import { EmptyState, Panel, Screen, Section, Spacer, Toolbar } from '../components/layout.tsx'
 import { TotalChip } from '../components/Scores.tsx'
+import { Heading, Hint, Text, VisuallyHidden } from '../components/text.tsx'
+import { Button } from '../components/ui/button.tsx'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '../components/ui/table.tsx'
 import type { Ctx } from '../ctx.ts'
 import {
   caseTitle,
@@ -41,156 +52,167 @@ export function Overview({ ctx }: { ctx: Ctx }) {
 
   if (!runs.length)
     return (
-      <div className="empty">
-        <h2>No runs yet</h2>
-        <p className="help">
-          A run has an agent answer each case with {state.skill.name} installed, then grades the
-          answers.{' '}
-          {state.cases.length
-            ? `${state.cases.length === 1 ? 'One case is' : `${state.cases.length} cases are`} ready.`
-            : 'Write a case first.'}
-        </p>
-        <div className="actions">
-          {state.cases.length ? (
-            <button type="button" className="primary" onClick={() => go('generate')}>
+      <EmptyState
+        title="No runs yet"
+        actions={
+          state.cases.length ? (
+            <Button type="button" onClick={() => go('generate')}>
               Start the first run
-            </button>
+            </Button>
           ) : (
-            <button type="button" className="primary" onClick={() => go('cases', { new: '1' })}>
+            <Button type="button" onClick={() => go('cases', { new: '1' })}>
               Add a case
-            </button>
-          )}
-        </div>
-      </div>
+            </Button>
+          )
+        }
+      >
+        A run has an agent answer each case with {state.skill.name} installed, then grades the
+        answers.{' '}
+        {state.cases.length
+          ? `${state.cases.length === 1 ? 'One case is' : `${state.cases.length} cases are`} ready.`
+          : 'Write a case first.'}
+      </EmptyState>
     )
 
   return (
-    <div className="screen narrow">
-      <section className="section">
-        <p className="help">
+    <Screen width="narrow">
+      <Section>
+        <Hint>
           Each cell is a case's mean score out of 100. Click a score to read the answers, or a run
           for its details.
-        </p>
-        <div className="scroll-x">
-          <table className="grid-table">
-            <thead>
-              <tr>
-                <th>Run</th>
-                {caseIds.map((c) => (
-                  <th key={c} className="num" title={caseTitle(state, c)}>
-                    {c}
-                  </th>
-                ))}
-                {showMean ? <th className="num">Mean</th> : null}
-                <th className="num">Cost</th>
-                <th className="num">Time</th>
-                {showFlags ? <th className="num">Flags</th> : null}
-              </tr>
-            </thead>
-            <tbody>
-              {runs.map((run) => {
-                const mine = byRun.get(run.name) ?? []
-                const cost = run.meta?.samples.reduce((s, x) => s + (x.costUsd ?? 0), 0) ?? null
-                const seconds = run.meta?.samples.reduce((s, x) => s + x.seconds, 0) ?? 0
-                const open = openRun === run.name
-                return (
-                  <tr key={run.name}>
-                    <td>
-                      <button
-                        type="button"
-                        className="link"
-                        aria-expanded={open}
-                        title={run.name}
-                        onClick={() => setOpenRun(open ? null : run.name)}
-                      >
-                        {runLabel(run)}
-                      </button>
-                      <span className="sub">
-                        {runStamp(run)}
-                        {run.meta?.note ? ` · ${run.meta.note}` : ''}
-                      </span>
-                    </td>
-                    {caseIds.map((c) => {
-                      const cell = mine.filter((o) => o.caseId === c)
-                      if (!cell.length)
-                        return (
-                          <td key={c} className="num muted">
-                            –
-                          </td>
-                        )
-                      const total = mean(totalsOf(cell))
-                      return (
-                        <td key={c} className="num">
-                          <button
-                            type="button"
-                            className="cell-btn"
-                            title={`Read ${c} from this run`}
-                            onClick={() => go('compare', { a: cell[0].key })}
-                          >
-                            {total === null ? (
-                              <span className="muted">Not graded</span>
-                            ) : (
-                              <TotalChip total={Math.round(total)} />
-                            )}
-                            {cell.length > 1 ? (
-                              <small className="muted"> ×{cell.length}</small>
-                            ) : null}
-                          </button>
-                        </td>
-                      )
-                    })}
-                    {showMean ? <td className="num">{fmt(mean(totalsOf(mine)), 0)}</td> : null}
-                    <td className="num">{money(cost)}</td>
-                    <td className="num">{seconds ? `${seconds}s` : '–'}</td>
-                    {showFlags ? <td className="num">{flagsOf(mine) || ''}</td> : null}
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
-        </div>
-        {openRun ? <RunDetail ctx={ctx} run={openRun} regrade={regrade} /> : null}
-      </section>
-
-      <section className="section">
-        <h2>Skill versions</h2>
-        <div className="scroll-x">
-          <table className="grid-table">
-            <thead>
-              <tr>
-                <th>Version</th>
-                <th>Name</th>
-                <th>Date</th>
-                <th>Hash</th>
-                <th className="num">Runs</th>
-              </tr>
-            </thead>
-            <tbody>
-              {state.versions.versions.map((v) => (
-                <tr key={v.version}>
-                  <td>{v.version}</td>
-                  <td>{v.name || <span className="muted">Unnamed</span>}</td>
-                  <td className="tnum">{v.date ?? '–'}</td>
-                  <td className="mono muted">{v.hash}</td>
-                  <td className="num">
-                    {runs.filter((r) => r.meta?.skillVersion === v.version).length}
-                  </td>
-                </tr>
+        </Hint>
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Run</TableHead>
+              {caseIds.map((c) => (
+                <TableHead key={c} numeric title={caseTitle(state, c)}>
+                  {c}
+                </TableHead>
               ))}
-              {state.versions.current.changed ? (
-                <tr>
-                  <td>{state.versions.current.version}</td>
-                  <td className="muted">Working tree, not run yet</td>
-                  <td>–</td>
-                  <td className="mono muted">{state.versions.current.hash}</td>
-                  <td className="num">0</td>
-                </tr>
-              ) : null}
-            </tbody>
-          </table>
-        </div>
-      </section>
-    </div>
+              {showMean ? <TableHead numeric>Mean</TableHead> : null}
+              <TableHead numeric>Cost</TableHead>
+              <TableHead numeric>Time</TableHead>
+              {showFlags ? <TableHead numeric>Flags</TableHead> : null}
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {runs.map((run) => {
+              const mine = byRun.get(run.name) ?? []
+              const cost = run.meta?.samples.reduce((s, x) => s + (x.costUsd ?? 0), 0) ?? null
+              const seconds = run.meta?.samples.reduce((s, x) => s + x.seconds, 0) ?? 0
+              const open = openRun === run.name
+              return (
+                <TableRow key={run.name}>
+                  <TableCell wrap>
+                    <Button
+                      type="button"
+                      variant="link"
+                      size="inline"
+                      aria-expanded={open}
+                      title={run.name}
+                      onClick={() => setOpenRun(open ? null : run.name)}
+                    >
+                      {runLabel(run)}
+                    </Button>
+                    <Text block tone="muted" size="xs">
+                      {runStamp(run)}
+                      {run.meta?.note ? ` · ${run.meta.note}` : ''}
+                    </Text>
+                  </TableCell>
+                  {caseIds.map((c) => {
+                    const cell = mine.filter((o) => o.caseId === c)
+                    if (!cell.length)
+                      return (
+                        <TableCell key={c} numeric>
+                          <Text tone="muted">–</Text>
+                        </TableCell>
+                      )
+                    const total = mean(totalsOf(cell))
+                    return (
+                      <TableCell key={c} numeric>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="cell"
+                          title={`Read ${c} from this run`}
+                          onClick={() => go('compare', { a: cell[0].key })}
+                        >
+                          {total === null ? (
+                            <Text tone="muted">Not graded</Text>
+                          ) : (
+                            <TotalChip total={Math.round(total)} />
+                          )}
+                          {cell.length > 1 ? (
+                            <Text tone="muted" size="xs">
+                              ×{cell.length}
+                            </Text>
+                          ) : null}
+                        </Button>
+                      </TableCell>
+                    )
+                  })}
+                  {showMean ? <TableCell numeric>{fmt(mean(totalsOf(mine)), 0)}</TableCell> : null}
+                  <TableCell numeric>{money(cost)}</TableCell>
+                  <TableCell numeric>{seconds ? `${seconds}s` : '–'}</TableCell>
+                  {showFlags ? <TableCell numeric>{flagsOf(mine) || ''}</TableCell> : null}
+                </TableRow>
+              )
+            })}
+          </TableBody>
+        </Table>
+        {openRun ? <RunDetail ctx={ctx} run={openRun} regrade={regrade} /> : null}
+      </Section>
+
+      <Section>
+        <Heading level={2}>Skill versions</Heading>
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Version</TableHead>
+              <TableHead>Name</TableHead>
+              <TableHead>Date</TableHead>
+              <TableHead>Hash</TableHead>
+              <TableHead numeric>Runs</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {state.versions.versions.map((v) => (
+              <TableRow key={v.version}>
+                <TableCell>{v.version}</TableCell>
+                <TableCell wrap>{v.name || <Text tone="muted">Unnamed</Text>}</TableCell>
+                <TableCell>
+                  <Text tabular>{v.date ?? '–'}</Text>
+                </TableCell>
+                <TableCell>
+                  <Text font="mono" tone="muted">
+                    {v.hash}
+                  </Text>
+                </TableCell>
+                <TableCell numeric>
+                  {runs.filter((r) => r.meta?.skillVersion === v.version).length}
+                </TableCell>
+              </TableRow>
+            ))}
+            {state.versions.current.changed ? (
+              <TableRow>
+                <TableCell>{state.versions.current.version}</TableCell>
+                <TableCell wrap>
+                  <Text tone="muted">Working tree, not run yet</Text>
+                </TableCell>
+                <TableCell>–</TableCell>
+                <TableCell>
+                  <Text font="mono" tone="muted">
+                    {state.versions.current.hash}
+                  </Text>
+                </TableCell>
+                <TableCell numeric>0</TableCell>
+              </TableRow>
+            ) : null}
+          </TableBody>
+        </Table>
+      </Section>
+    </Screen>
   )
 }
 
@@ -208,81 +230,94 @@ function RunDetail({
   if (!view) return null
   const mine = outputs.filter((o) => o.run.name === run)
   return (
-    <div className="run-detail">
-      <div className="toolbar">
-        <h3>{versionName(view)}</h3>
-        <span className="mono muted small">{view.name}</span>
-        <span className="spacer" />
-        <button type="button" onClick={() => go('skill', { right: run })}>
+    <Panel gap="sm">
+      <Toolbar>
+        <Heading level={3}>{versionName(view)}</Heading>
+        <Text font="mono" tone="muted" size="xs">
+          {view.name}
+        </Text>
+        <Spacer />
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={() => go('skill', { right: run })}
+        >
           Skill changes
-        </button>
-        <button type="button" onClick={() => regrade(run)}>
+        </Button>
+        <Button type="button" variant="outline" size="sm" onClick={() => regrade(run)}>
           {state.jevKey ? 'Regrade' : 'Regrade with code checks'}
-        </button>
-      </div>
-      <p className="help">
+        </Button>
+      </Toolbar>
+      <Hint>
         {view.report
           ? `Graded ${view.report.createdAt.slice(0, 16).replace('T', ' ')} with ${view.report.model ?? 'code checks only'}, ${view.report.inputTokens.toLocaleString()} input tokens.`
           : 'Not graded yet.'}
-      </p>
-      <table className="grid-table">
-        <thead>
-          <tr>
-            <th>Sample</th>
-            <th className="num">Total</th>
-            <th className="num">Words</th>
-            <th className="num">Cost</th>
-            <th className="num">Time</th>
-            <th className="num">Tool calls</th>
-            <th>Flags</th>
-            <th className="num">
-              <span className="sr-only">Open</span>
-            </th>
-          </tr>
-        </thead>
-        <tbody>
+      </Hint>
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>Sample</TableHead>
+            <TableHead numeric>Total</TableHead>
+            <TableHead numeric>Words</TableHead>
+            <TableHead numeric>Cost</TableHead>
+            <TableHead numeric>Time</TableHead>
+            <TableHead numeric>Tool calls</TableHead>
+            <TableHead>Flags</TableHead>
+            <TableHead numeric>
+              <VisuallyHidden>Open</VisuallyHidden>
+            </TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
           {mine.map((o) => {
             const s = scoreOf(o, config)
             const meta = view.meta?.samples.find((x) => x.dir === o.sample.name)
             return (
-              <tr key={o.key} className={meta && !meta.ok ? 'bad-row' : ''}>
-                <td className="mono">{o.sample.name}</td>
-                <td className="num">
+              <TableRow key={o.key} variant={meta && !meta.ok ? 'destructive' : 'default'}>
+                <TableCell>
+                  <Text font="mono">{o.sample.name}</Text>
+                </TableCell>
+                <TableCell numeric>
                   <TotalChip total={s?.scores.total} />
-                </td>
-                <td className="num">{o.result?.words ?? '–'}</td>
-                <td className="num">{money(meta?.costUsd)}</td>
-                <td className="num">{meta ? `${meta.seconds}s` : '–'}</td>
-                <td className="num">{meta?.toolCalls ?? '–'}</td>
-                <td className="small">
-                  {meta?.error ? <span className="bad">{meta.error}</span> : null}
-                  {s?.flags.join('; ')}
-                </td>
-                <td className="num">
-                  <span className="actions">
-                    <button
+                </TableCell>
+                <TableCell numeric>{o.result?.words ?? '–'}</TableCell>
+                <TableCell numeric>{money(meta?.costUsd)}</TableCell>
+                <TableCell numeric>{meta ? `${meta.seconds}s` : '–'}</TableCell>
+                <TableCell numeric>{meta?.toolCalls ?? '–'}</TableCell>
+                <TableCell wrap>
+                  <Text size="xs">
+                    {meta?.error ? <Text tone="destructive">{meta.error}</Text> : null}
+                    {s?.flags.join('; ')}
+                  </Text>
+                </TableCell>
+                <TableCell numeric>
+                  <Toolbar gap="md" justify="end" wrap={false}>
+                    <Button
                       type="button"
-                      className="link"
+                      variant="link-muted"
+                      size="inline"
                       onClick={() => go('compare', { a: o.key })}
                     >
                       Read
-                    </button>
+                    </Button>
                     {o.sample.hasTranscript ? (
-                      <button
+                      <Button
                         type="button"
-                        className="link"
+                        variant="link-muted"
+                        size="inline"
                         onClick={() => go('transcript', { run, sample: o.sample.name })}
                       >
                         Transcript
-                      </button>
+                      </Button>
                     ) : null}
-                  </span>
-                </td>
-              </tr>
+                  </Toolbar>
+                </TableCell>
+              </TableRow>
             )
           })}
-        </tbody>
-      </table>
-    </div>
+        </TableBody>
+      </Table>
+    </Panel>
   )
 }
