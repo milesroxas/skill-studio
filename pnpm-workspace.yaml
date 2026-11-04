@@ -1,2 +1,9 @@
 allowBuilds:
+  # Vite's compiler, and Electron's postinstall that fetches its binary.
   esbuild: true
+  electron: true
+  # Windows installer tooling pulled in by electron-builder; not built here.
+  electron-winstaller: false
+# Electron patch releases ship fixes for the embedded Chromium; take them at once.
+minimumReleaseAgeExclude:
+  - electron

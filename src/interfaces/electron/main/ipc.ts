@@ -1,0 +1,80 @@
+/**
+ * The IPC handlers behind the preload's bridge. Every message checks the
+ * sending frame's origin first: only the app's own top frame may call.
+ */
+
+import type { Reply, ShellOperation } from '@application/api/contract.ts'
+import {
+  isOperation,
+  isShellOperation,
+  parsers,
+  record,
+  type SecretStore,
+} from '@application/api/operations.ts'
+import type { Settings } from '@domain/views.ts'
+import { BrowserWindow, type IpcMainInvokeEvent, ipcMain, shell } from 'electron'
+import { CHANNELS } from '../channels.ts'
+import type { Backend } from './backend.ts'
+import { openArtifactWindow } from './window.ts'
+
+export interface IpcDeps {
+  backend: Backend
+  secrets: SecretStore
+  /** Origins whose top frame may call: the app scheme, and the dev server while developing. */
+  trusted: Set<string>
+}
+
+const ok = <T>(value: T): Reply<T> => ({ ok: true, value })
+const fail = (error: unknown): Reply<never> => ({ ok: false, error: (error as Error).message })
+
+const isTrusted = (event: IpcMainInvokeEvent, trusted: Set<string>): boolean => {
+  const frame = event.senderFrame
+  return frame !== null && frame === frame.top && trusted.has(frame.origin)
+}
+
+export function registerIpc({ backend, secrets, trusted }: IpcDeps): void {
+  /** The settings operations run here, next to the keychain; everything else goes to the backend. */
+  const shellCall = (name: ShellOperation, input: unknown): Promise<Settings> => {
+    switch (name) {
+      case 'settings.read':
+        return secrets.read()
+      case 'settings.jevKey':
+        return secrets.write(parsers['settings.jevKey'](record(input)).value)
+    }
+  }
+
+  ipcMain.handle(CHANNELS.call, async (event, name: unknown, input: unknown) => {
+    if (!isTrusted(event, trusted)) return fail(new Error('Refused: unknown sender.'))
+    if (!isOperation(name)) return fail(new Error(`No operation ${String(name)}.`))
+    if (!isShellOperation(name)) return backend.call(name, input)
+    try {
+      return ok(await shellCall(name, input))
+    } catch (error) {
+      return fail(error)
+    }
+  })
+
+  ipcMain.handle(CHANNELS.openArtifact, (event, url: unknown) => {
+    if (!isTrusted(event, trusted)) return fail(new Error('Refused: unknown sender.'))
+    try {
+      const parent = BrowserWindow.fromWebContents(event.sender)
+      if (typeof url !== 'string' || !parent) throw new Error('Not an artifact.')
+      openArtifactWindow(url, parent)
+      return ok(null)
+    } catch (error) {
+      return fail(error)
+    }
+  })
+
+  ipcMain.handle(CHANNELS.openExternal, async (event, url: unknown) => {
+    if (!isTrusted(event, trusted)) return fail(new Error('Refused: unknown sender.'))
+    try {
+      if (typeof url !== 'string' || !/^https?:$/.test(new URL(url).protocol))
+        throw new Error('Only web links open outside the app.')
+      await shell.openExternal(url)
+      return ok(null)
+    } catch (error) {
+      return fail(error)
+    }
+  })
+}

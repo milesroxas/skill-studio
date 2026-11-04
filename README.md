@@ -1,10 +1,10 @@
-# skill-tester
+# Skill Studio
 
-[![ci](https://github.com/milesroxas/skill-tester/actions/workflows/ci.yml/badge.svg)](https://github.com/milesroxas/skill-tester/actions/workflows/ci.yml)
+[![ci](https://github.com/milesroxas/skill-studio/actions/workflows/ci.yml/badge.svg)](https://github.com/milesroxas/skill-studio/actions/workflows/ci.yml)
 
-An eval harness for agent skills. It generates outputs with headless coding agents (Claude Code, Cursor's agent), grades them with code checks and [TypeSafe](https://typesafe.ai) Jev judge packs, and keeps the runs, reports and human reviews beside the skill in its `evals/` folder.
+A desktop studio for agent skills. Write a skill, give it cases, run headless coding agents (Claude Code, Cursor's agent) on them, grade the outputs with code checks and [TypeSafe](https://typesafe.ai) Jev judge packs, and review them blind. Runs, reports and your ratings live beside the skill in its `evals/` folder.
 
-Most skill eval tools stop at pass/fail. skill-tester is built for subjective outputs (writing, HTML, agent process): judge answers are stored so you can reweight without new calls, a blind review queue calibrates the judges against your own ratings, and labelled anchors gate whether a judge pack can be trusted. [docs/landscape.md](docs/landscape.md) compares it with the other tools.
+Most skill eval tools stop at pass/fail. Skill Studio is built for subjective outputs (writing, HTML, agent process): judge answers are stored so you can reweight without new calls, a blind review queue calibrates the judges against your own ratings, and labelled anchors gate whether a judge pack can be trusted. [docs/landscape.md](docs/landscape.md) compares it with the other tools.
 
 New here? [docs/guide.md](docs/guide.md) walks one skill through the whole loop, step by step. The same guide opens from Docs at the top of the app.
 
@@ -12,22 +12,23 @@ New here? [docs/guide.md](docs/guide.md) walks one skill through the whole loop,
 
 Needs:
 
-- Node 24 (the version it is tested on) and pnpm.
-- A [TypeSafe](https://typesafe.ai) API key (`TYPESAFE_API_KEY`). Jev is the judge for every pack, so grading needs it. `--no-jev` exists for offline checks, but it leaves every judged layer null.
+- Node 24 and pnpm, to build and to use the CLI. The packaged app needs neither: Electron carries its own Node.
+- A [TypeSafe](https://typesafe.ai) API key. Jev is the judge for every pack, so grading needs it. Add it under Settings in the app, which keeps it in the system keychain, or set `TYPESAFE_API_KEY` in the environment (a `.env` in the checkout works for development). Without it grading runs code checks only and leaves every judged layer null.
 - The `claude` or `cursor-agent` CLI on your `PATH`, signed in, to generate outputs.
 
 ```
 pnpm install
-cp .env.example .env        # set TYPESAFE_API_KEY
 ```
 
 ## Quick start
 
 ```
-pnpm start
+pnpm dev
 ```
 
-This builds the app, starts it on http://localhost:4400 and opens it in your browser. It opens on the library: every skill in your user skills folders (`~/.agents`, `~/.claude`, `~/.cursor`, `~/.codex`) and in projects under your workspace folders (`~/SITES` by default, when it exists; change them under "Where skills are found", saved in `~/.skill-tester/library.json`). From there the whole loop runs in the app:
+This starts the desktop app against the dev server, with hot reloading. `pnpm build && pnpm start` runs the built app; `pnpm dist` packages it with electron-builder into `dist/`.
+
+The app opens on the library: every skill in your user skills folders (`~/.agents`, `~/.claude`, `~/.cursor`, `~/.codex`) and in projects under your workspace folders (`~/SITES` by default, when it exists; change them under "Where skills are found", saved in `~/.skill-studio/library.json`). From there the whole loop runs in the app:
 
 1. **Library**: open a skill, or create one. A new skill is written to `.agents/skills/<name>` and linked into the agents you pick.
 2. **Skill**: edit `SKILL.md` and `references/`; the side panel lists the rules a run is graded on.
@@ -38,15 +39,17 @@ This builds the app, starts it on http://localhost:4400 and opens it in your bro
 
 The button at the top right always names the next step. Install or uninstall a skill for Claude Code, Cursor or Codex from its row in the library.
 
-### From your phone or another computer
+### In a browser, or from another device
 
-With [Tailscale](https://tailscale.com) on both devices:
+The same app also runs as a local web server, for a browser on this machine or, with [Tailscale](https://tailscale.com) on both devices, from your phone:
 
 ```
-pnpm start --tailscale
+pnpm build
+pnpm st serve                 # http://localhost:4400
+pnpm st serve --tailscale     # also https://<this-machine>.<tailnet>.ts.net:8443
 ```
 
-This also serves the app at `https://<this-machine>.<tailnet>.ts.net:8443` (`--tailscale-port` changes the port). Only your own Tailscale login gets in: the server checks the user Tailscale signed the request in as, so other people on a shared tailnet, tagged devices and Funnel traffic are refused. The tailnet address goes away when the server stops.
+Only your own Tailscale login gets in: the server checks the user Tailscale signed the request in as, so other people on a shared tailnet, tagged devices and Funnel traffic are refused (`--tailscale-port` changes the port). The tailnet address goes away when the server stops. In a browser the Jev key comes from the environment only; the keychain belongs to the desktop app.
 
 ### From the command line
 
@@ -57,7 +60,6 @@ pnpm st new <skill-dir>                       # scaffold SKILL.md and evals/case
 pnpm st cases <skill-dir>
 pnpm st run <skill-dir> --engine claude --model sonnet --cases a,b --samples 2 --name "v0 first draft"
 pnpm st report <skill-dir> --run <run-name>
-pnpm build                                    # build the app into app/dist
 pnpm st serve [skill-dir...]                  # app and API on http://localhost:4400; no dir opens the library
 ```
 
@@ -105,7 +107,7 @@ Skill versions come from a hash of `SKILL.md` and `references/`. A changed tree 
 
 ## Grading
 
-`st grade` runs every pack in `bench.json` `packs` over each sample's primary artifact (the case's `bench.artifact` kind, else the first Markdown file) and writes `report.json`. Raw Jev answers are stored; thresholds and weights apply in `core/scoring.ts`, so the review tool can rescore from stored answers without new calls. `--no-jev` skips every TypeSafe call and leaves judged layers null. `--packs a,b` and `--bench <file>` override the skill's `bench.json` for one grading, so a skill in another repo can be graded without writing config into it.
+`st grade` runs every pack in `bench.json` `packs` over each sample's primary artifact (the case's `bench.artifact` kind, else the first Markdown file) and writes `report.json`. Raw Jev answers are stored; thresholds and weights apply in `src/domain/scoring.ts`, so the review tool can rescore from stored answers without new calls. `--no-jev` skips every TypeSafe call and leaves judged layers null. `--packs a,b` and `--bench <file>` override the skill's `bench.json` for one grading, so a skill in another repo can be graded without writing config into it.
 
 A case's word range counts the copy only: prose and list units, not headings or code.
 
@@ -133,11 +135,52 @@ A case's word range counts the copy only: prose and list units, not headings or 
 
 **Parity.** Graded with `writing`, the reference skill's v2 run matches its original benchmark's report within 2 points on every layer and total, and its anchor self-test passes. The remaining gap is Jev's run-to-run variance on single claims, and word counts up to 2% higher where the tokenizer splits forms like "5/57".
 
-## Server
+## How it is built
 
-`st serve` binds `127.0.0.1:4400` by default (`--port` changes it). It listens on loopback only and has no login of its own, so do not expose it any other way than `--tailscale` (above). Every request must be addressed to `localhost` (or, with `--tailscale`, come through Tailscale as your login), come from the app's own pages, and send POST bodies as JSON. Skill routes take `?skill=<path|name>` when more than one skill is open; library routes need no skill.
+One operations table serves every interface. `src/application/api/contract.ts` names each operation with its input and output; `operations.ts` checks the input and runs it. The desktop app calls the table over IPC, `st serve` exposes it as `POST /api/<name>` with a JSON body, and the CLI calls the same application functions directly. A new operation is added once and reaches all three.
 
-The UI lives in `app/`. `pnpm build` writes `app/dist`, which `st serve` serves beside the API. `pnpm app` runs the Vite dev server on 4401 and proxies `/api` to 4400.
+```
+src/
+  domain/          pure: schemas, read models, scoring, stats, Bradley-Terry, text. No I/O
+  judges/          the judge packs and the Jev client; one folder per pack
+  application/     use cases (generate, grade, jobs) and the operations contract and table
+  infrastructure/  files on disk: cases, runs, reviews, the library, skill files; engines; env
+  interfaces/
+    electron/      main process, preload bridge, backend utility process
+    http/          `st serve`: the table over HTTP, the localhost guard, Tailscale
+    cli/           the `st` command
+  renderer/        the React app; reaches the table through a transport (IPC or HTTP)
+```
+
+The layers only point inward, and `fallow` enforces that (`.fallowrc.json`): the domain imports nothing, judges and infrastructure import the domain, the application imports those, and the interfaces and renderer sit on top.
+
+### The desktop app
+
+- The renderer is sandboxed with context isolation; it has no Node and reaches the main process through one preload bridge (`window.studio`) with one function per message. Every IPC message is checked against the sending frame's origin before it is handled.
+- The operations run in a backend utility process, not in the main process, so the window never waits on a file read, a hash or an agent. Job changes are pushed to the window; a browser polls instead.
+- Pages load from the `studio://app/` scheme (never `file://`) under a strict Content Security Policy. A sample's files load from `artifact://sample?...` with `Content-Security-Policy: sandbox; script-src 'none'`, in a sandboxed iframe or in a window of their own, so HTML an agent wrote can never script the app.
+- Navigation away from the app and new windows are refused; web links open in the default browser. Permission requests (camera, notifications and so on) are refused.
+- The Jev key is stored with Electron's `safeStorage` (the macOS Keychain, Windows DPAPI) under the app's user data folder. A key in the environment at launch wins over a stored one.
+
+### The web server
+
+`st serve` binds `127.0.0.1:4400` by default (`--port` changes it). It listens on loopback only and has no login of its own, so do not expose it any other way than `--tailscale` (above). Every request must be addressed to `localhost` (or, with `--tailscale`, come through Tailscale as your login), come from the app's own pages, and send POST bodies as JSON. The built renderer (`out/renderer`) is served beside the API.
+
+Every operation is `POST /api/<name>` with its input as the JSON body; operations on a skill take `skill` (its path) in the body. The artifact operation is also `GET /api/artifact?skill=&run=&sample=&file=`, served raw under the sandbox policy above.
+
+| Operations                                                                            | Do                                                                                                                                        |
+| ------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| `library.skills`, `library.scan`                                                      | the open skills; every skill on the machine, the places it is in, and the workspace folders scanned                                        |
+| `library.create`, `library.link`, `library.unlink`                                    | create `{scope, name, description, agents}` and open it; link or unlink `{path, agent, scope}` into an agent's skills folder               |
+| `library.workspaces`, `library.mark`                                                  | set the folders to scan `{workspaces}`; list a skill with installed ones `{path, theirs}`                                                 |
+| `jobs.list`, `settings.read`, `settings.jevKey`                                       | background jobs; where the Jev key comes from; store one `{value}` (desktop app only)                                                      |
+| `skill.state`                                                                         | cases, runs, versions, engines, config, reviews, anchors                                                                                  |
+| `skill.run`, `skill.transcript`, `skill.artifact`, `skill.files`                      | one run `{run}`; one transcript `{run, sample}`; one artifact `{run, sample, file}`; the working tree (`run: "current"`) or a run's snapshot |
+| `skill.queue`, `skill.leaderboard`                                                    | blind review order; Bradley-Terry boards and Jev/human agreement                                                                          |
+| `skill.generate`, `skill.grade`, `skill.pairwise`                                     | start a job: `{cases, configs:[{engine,model,effort}], samples, configuration, baselineRun, skillName, note, grade}`; `{run, jev}`; `{a, b, criteria}` |
+| `skill.review`, `skill.preference`, `skill.config`, `skill.anchor`                    | save a rating `{key, review}`; a human vote `{a, b, criterion, vote}`; `bench.json` `{config}`; promote an output to an anchor             |
+| `skill.saveCase`, `skill.deleteCase`                                                  | save `{case, isNew}`, validated before it writes; delete `{id}`                                                                           |
+| `skill.saveFile`, `skill.deleteFile`                                                  | write `{path, text, previous}` (refused when `previous` no longer matches the file); delete `{path}`. Only `SKILL.md` and `references/**` |
 
 The app opens on the library. An open skill has five tabs in loop order; a tab with more than one screen shows them as a segmented control.
 
@@ -150,25 +193,9 @@ The app opens on the library. An open skill has five tabs in loop order; a tab w
 | Review  | Rate blind, Compare, Transcripts | rate an output before its scores show and promote it to an anchor; two outputs side by side with Bradley-Terry boards; one sample's agent steps |
 | Bench   | Agreement, Scoring               | your marks against the bench, per layer; rescore every output from stored answers and save `bench.json`                     |
 
-Artifacts are served with `Content-Security-Policy: sandbox` and shown in a sandboxed iframe, so HTML an agent wrote cannot run scripts on the API's origin. "Open full size" opens the same sandboxed response in its own tab.
-
-| Route                                                                                   | Does                                                                                                                                            |
-| --------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
-| `GET /api/library`                                                                      | every skill on the machine, the places it is in, and the workspace folders scanned                                                              |
-| `POST /api/library/create`, `/api/library/link`, `/api/library/unlink`                  | create `{scope, name, description, agents}` and open it; link or unlink `{path, agent, scope}` into an agent's skills folder                     |
-| `POST /api/library/workspaces`, `/api/library/mark`                                     | set the folders to scan `{workspaces}`; list a skill with installed ones `{path, theirs}`                                                       |
-| `GET /api/skills`, `/api/state`                                                         | the open skills; cases, runs, versions, engines, config, reviews, anchors                                                                       |
-| `GET /api/run?run=`, `/api/transcript?run=&sample=`, `/api/artifact?run=&sample=&file=` | one run; one transcript; one artifact served raw                                                                                                |
-| `GET /api/skill-files?run=current\|<run>`                                               | the working tree or a run's snapshot                                                                                                            |
-| `GET /api/queue`, `/api/leaderboard`, `/api/jobs`                                       | blind review order; Bradley-Terry boards and Jev/human agreement; background jobs                                                               |
-| `POST /api/generate`, `/api/grade`, `/api/pairwise`                                     | start a job: `{cases, configs:[{engine,model,effort}], samples, configuration, baselineRun, skillName, note}`; `{run, jev}`; `{a, b, criteria}` |
-| `POST /api/review`, `/api/preference`, `/api/config`, `/api/anchor`                     | save a rating; a human vote; `bench.json`; promote an output to an anchor                                                                       |
-| `POST /api/case`, `/api/case/delete`                                                    | save `{case, isNew}`, validated before it writes; delete `{id}`                                                                                 |
-| `POST /api/skill-file`, `/api/skill-file/delete`                                        | write `{path, text, previous}` (refused when `previous` no longer matches the file); delete `{path}`. Only `SKILL.md` and `references/**`       |
-
 ## Engines
 
-- **claude**: `claude -p --output-format stream-json --setting-sources project --strict-mcp-config --permission-mode acceptEdits`. Only the sample directory's own settings load, so the machine's skills, CLAUDE.md and MCP servers stay out of the run. The `CLAUDECODE` guard variable is dropped so `st` works from inside a Claude Code session. Models: sonnet, opus, haiku, fable; efforts low to max. A case's `max_turns` is not mapped (the CLI no longer has the flag).
+- **claude**: `claude -p --output-format stream-json --setting-sources project --strict-mcp-config --permission-mode acceptEdits`. Only the sample directory's own settings load, so the machine's skills, CLAUDE.md and MCP servers stay out of the run. The `CLAUDECODE` guard variable is dropped so a run works from inside a Claude Code session. Models: sonnet, opus, haiku, fable; efforts low to max. A case's `max_turns` is not mapped (the CLI no longer has the flag).
 - **cursor**: `cursor-agent -p --output-format stream-json --force --trust`. Needs `cursor-agent login` or `CURSOR_API_KEY`. The CLI has no setting-source switch, so a run sees the user's `~/.cursor/skills`. Effort rides on the model string (`model[effort=high]`). The adapter is untested against a live account; the stream parser reads each `tool_call` event's single key as the tool name.
 
 Isolation is by convention: the skill copy omits `evals/`, and the prompt forbids reading outside the sample directory, but nothing stops an agent that follows an absolute path.
@@ -176,9 +203,10 @@ Isolation is by convention: the skill copy omits `evals/`, and the prompt forbid
 ## Development
 
 ```
-pnpm check        # typecheck, Biome, tests (what CI runs, plus pnpm build)
+pnpm check        # typecheck, Biome, fallow, tests (what CI runs, plus pnpm build)
 pnpm test:watch   # vitest in watch mode
 pnpm format       # Biome formatting and safe fixes
+pnpm fallow       # unused code, duplicate exports and layer boundaries
 ```
 
 Tests need no API key, network or agent CLI. Biome skips Markdown on purpose: its Markdown formatter misreads YAML front matter. Generated eval data (`evals/runs`, reviews, anchor reports) is excluded too.

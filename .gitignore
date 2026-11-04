@@ -1,7 +1,7 @@
 # Dependencies and builds
 node_modules/
 dist/
-app/dist/
+out/
 *.tsbuildinfo
 .vite/
 coverage/
@@ -23,3 +23,6 @@ coverage/
 *.log
 npm-debug.log*
 pnpm-debug.log*
+
+# fallow analysis cache
+.fallow/

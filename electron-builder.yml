@@ -1,0 +1,25 @@
+appId: com.milesroxas.skill-studio
+productName: Skill Studio
+directories:
+  output: dist
+  buildResources: build
+files:
+  - out/**
+  - package.json
+  - "!**/*.map"
+asar: true
+npmRebuild: false
+mac:
+  category: public.app-category.developer-tools
+  target:
+    - target: dmg
+    - target: zip
+  hardenedRuntime: true
+  darkModeSupport: true
+linux:
+  target:
+    - AppImage
+  category: Development
+win:
+  target:
+    - nsis

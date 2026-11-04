@@ -1,6 +1,6 @@
-# How skill-tester compares
+# How Skill Studio compares
 
-A survey of agent skill eval tools as of October 2026, and where skill-tester fits among them: Anthropic's skill-creator and `claude plugin eval`, NVIDIA SkillEvaluator, and the 2026 crop of Agent Skills harnesses.
+A survey of agent skill eval tools as of October 2026, and where Skill Studio fits among them: Anthropic's skill-creator and `claude plugin eval`, NVIDIA SkillEvaluator, and the 2026 crop of Agent Skills harnesses.
 
 Sources: public GitHub READMEs, NVIDIA SkillEvaluator docs, Claude Code plugin-eval docs, arXiv [2608.20614](https://arxiv.org/abs/2608.20614) (ACES) and [2602.12670](https://arxiv.org/abs/2602.12670) (SkillsBench).
 
@@ -8,7 +8,7 @@ Sources: public GitHub READMEs, NVIDIA SkillEvaluator docs, Claude Code plugin-e
 
 The outer loop already exists: run an agent with and without a skill, grade, compare versions. Several tools do it well.
 
-What no other tool ships is a calibrated human review loop for subjective skill outputs: stored judge answers you can reweight without new calls, a blind queue that checks the judge against your ratings, and viewers for writing, HTML and agent process instead of pass/fail. skill-tester is built for that loop and reuses the rest (the `claude plugin eval` case format, known isolation flags) instead of reimplementing it.
+What no other tool ships is a calibrated human review loop for subjective skill outputs: stored judge answers you can reweight without new calls, a blind queue that checks the judge against your ratings, and viewers for writing, HTML and agent process instead of pass/fail. Skill Studio is built for that loop and reuses the rest (the `claude plugin eval` case format, known isolation flags) instead of reimplementing it.
 
 ## What is already solved
 
@@ -16,19 +16,19 @@ Paired with-skill / without-skill runs, skill lift, pass@k, deterministic verifi
 
 Anthropic ships this as `claude plugin eval`. NVIDIA ships a three-tier pipeline. skilljack-evals, Caliper, Skillgrade, eval-magic, and Promptfoo cover the same engineering loop with different tradeoffs.
 
-## What skill-tester adds
+## What Skill Studio adds
 
-**Jev as the judge, not an LLM essay.** Every other tool uses a reasoning model as grader (pass/fail or 1–5 rubric). skill-tester stores TypeSafe Nouls, keeps thresholds in code, and rescores from knobs with no new calls. NVIDIA’s own paper reports structural vs LLM-judge Spearman ρ = 0.14 and publishes no human calibration. That gap is the product.
+**Jev as the judge, not an LLM essay.** Every other tool uses a reasoning model as grader (pass/fail or 1–5 rubric). Skill Studio stores TypeSafe Nouls, keeps thresholds in code, and rescores from knobs with no new calls. NVIDIA’s own paper reports structural vs LLM-judge Spearman ρ = 0.14 and publishes no human calibration. That gap is the product.
 
-**Human review as the loop, not a pause.** Skillgrade can pause for a human score. skill-creator opens a one-shot HTML viewer. Nobody ranks a confidence-sorted blind queue, keeps Jev and human pairwise votes apart, runs Bradley-Terry, or names the skill section vs the bench knob. skill-tester does all of these.
+**Human review as the loop, not a pause.** Skillgrade can pause for a human score. skill-creator opens a one-shot HTML viewer. Nobody ranks a confidence-sorted blind queue, keeps Jev and human pairwise votes apart, runs Bradley-Terry, or names the skill section vs the bench knob. Skill Studio does all of these.
 
 **Subjective artifacts.** Live eval tools assume the answer is a file or a test. Writing, HTML prototypes, screenshots, and transcripts need viewers and layered scores. uivet and VisualJudge do Playwright + axe + a vision model for generated UI, not for Agent Skills. Cursor agent is first-class here and almost nowhere else.
 
-**Anchors before trust.** Known-good and known-bad outputs that the judge must rank correctly. Promptfoo docs mention this as practice. skill-tester gates each pack on `st self-test`. The public skill eval CLIs do not ship an anchors self-test as a gate on the pack.
+**Anchors before trust.** Known-good and known-bad outputs that the judge must rank correctly. Promptfoo docs mention this as practice. Skill Studio gates each pack on `st self-test`. The public skill eval CLIs do not ship an anchors self-test as a gate on the pack.
 
 ## Left to other tools
 
-| Capability                         | Already exists                                                                | skill-tester                                       |
+| Capability                         | Already exists                                                                | Skill Studio                                       |
 | ---------------------------------- | ----------------------------------------------------------------------------- | -------------------------------------------------- |
 | Claude Code plugin evals           | `claude plugin eval`: 6 grader types, with/without Δ, 3 runs, report.html, CI | Reads the same case folders; no Claude-only runner |
 | Sandboxed live eval                | Harbor + SkillEvaluator Tier 3, BenchFlow, SkillsBench                        | Runs on the host; no Docker                        |
@@ -48,7 +48,7 @@ A skill, not a harness. It tells Claude to draft cases, spawn with-skill and wit
 - Blind A/B is optional, uses another LLM, and most users never run it
 - Upstream GitHub still documents the old `evals.json`; the current skill uses the `claude plugin eval` folder format
 
-Good for authoring skills. skill-tester reads its case folder format.
+Good for authoring skills. Skill Studio reads its case folder format.
 
 https://github.com/anthropics/skills/tree/main/skills/skill-creator
 
@@ -61,7 +61,7 @@ Official CLI. Same `evals/` tree. With vs without plugin, Δ, CI exit codes.
 - Default 3 runs per arm. Score is weighted grader pass rate. Case passes at `--threshold` (default 1.0)
 - Static `report.html`. No blind ranking. No Cursor
 
-The right tool for pass/fail on Claude plugins. skill-tester reads the same case folders.
+The right tool for pass/fail on Claude plugins. Skill Studio reads the same case folders.
 
 https://code.claude.com/docs/en/plugin-evals
 
@@ -86,10 +86,10 @@ SkillsBench-style TDD plus CI. Deterministic reward is law. An LLM judge never g
 - Runners: `claude-sdk`, `claude-code`, `codex`, `opencode`; Gemini experimental
 - Metrics: resolution rate, pass@k, Skill Lift, invocation rate
 - Caching, GitHub Action, BenchFlow import/export
-- Documents isolation flags that skill-tester follows for claude (`--setting-sources project`, Codex `--ignore-user-config --ephemeral`)
+- Documents isolation flags that Skill Studio follows for claude (`--setting-sources project`, Codex `--ignore-user-config --ephemeral`)
 - Agent runs on the host with all permissions; Docker isolates the verifier only
 
-Best host-run engineering harness. skill-tester borrows its isolation flags.
+Best host-run engineering harness. Skill Studio borrows its isolation flags.
 
 https://github.com/olaservo/skilljack-evals
 
@@ -101,7 +101,7 @@ Ablate skills, MCPs, and rules. Neighbourhoods of competing skills. Token cost.
 - Judge: LLM `expect:` plus local Python `assert:` plus `activates:`
 - CLI compare. No visual review
 
-Its neighbourhood and activation checks have no equivalent in skill-tester yet.
+Its neighbourhood and activation checks have no equivalent in Skill Studio yet.
 
 https://github.com/edonadei/caliper
 
@@ -145,23 +145,23 @@ https://github.com/adewale/skill-eval-harness
 
 uivet, VisualJudge, and mllm-ui-judge render HTML in Playwright, run axe, and score screenshots with a vision model. Right reference for the design pack, not for the skill runner.
 
-mllm-ui-judge found absolute 1–5 scores cluster and pairwise judges show position bias. This is why skill-tester leans on pairwise votes and anchors, and keeps image judging experimental.
+mllm-ui-judge found absolute 1–5 scores cluster and pairwise judges show position bias. This is why Skill Studio leans on pairwise votes and anchors, and keeps image judging experimental.
 
 ## Research backbone
 
 **ACES / Skill Lift** (arXiv 2608.20614). NVIDIA: paired live trials, ATIF trajectories, six runtime metrics. Mean composite Skill Lift 0.2134 across 947 paired cases; positive in 72.8%. Scan-only gates and live judges measure different things.
 
-skill-tester runs `with_skill`, `without_skill` and `old_skill`. The UI does not yet label the with/without delta as Skill Lift, which would make its numbers comparable to the literature.
+Skill Studio runs `with_skill`, `without_skill` and `old_skill`. The UI does not yet label the with/without delta as Skill Lift, which would make its numbers comparable to the literature.
 
 **SkillsBench** (arXiv 2602.12670). 87 containerized tasks, deterministic pytest verifiers, paired no-skill vs curated-skill. Curated skills raise pass rate 33.9% → 50.5%. Focused skills beat large bundles. Self-generated skills add nothing on average.
 
 This supports small, focused skills, and script checks rather than Jev as the hard layer for verifiable skills (the code pack's check layer).
 
-NVIDIA's five dimensions answer a catalog-gate question, not a voice question, so skill-tester keeps them out of writing scores.
+NVIDIA's five dimensions answer a catalog-gate question, not a voice question, so Skill Studio keeps them out of writing scores.
 
 ## Status
 
-| Area                     | Where skill-tester stands                                                                                                                       |
+| Area                     | Where Skill Studio stands                                                                                                                       |
 | ------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------- |
 | Packs                    | generic, writing, code, workflow and design ship. Design reads HTML as text; it does not render the page or run axe yet.                         |
 | Engines                  | claude and cursor-agent. Others wait until a skill needs them.                                                                                  |

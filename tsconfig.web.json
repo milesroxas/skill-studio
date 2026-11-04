@@ -1,0 +1,16 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "lib": ["ES2023", "DOM", "DOM.Iterable"],
+    "jsx": "react-jsx",
+    "types": ["vite/client"]
+  },
+  "include": [
+    "src/renderer",
+    "src/domain",
+    "src/judges/scorers.ts",
+    "src/judges/*/score.ts",
+    "src/judges/shared/score.ts",
+    "src/application/api/contract.ts"
+  ]
+}

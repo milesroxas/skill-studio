@@ -1,0 +1,68 @@
+{
+  "$schema": "https://raw.githubusercontent.com/fallow-rs/fallow/main/schema.json",
+  "entry": [
+    "src/interfaces/electron/main/index.ts",
+    "src/interfaces/electron/preload/index.ts",
+    "src/interfaces/electron/backend/index.ts",
+    "src/interfaces/cli/st.ts",
+    "src/renderer/index.html",
+    "electron.vite.config.ts",
+    "vitest.config.ts"
+  ],
+  "ignorePatterns": ["fixtures/**", ".claude/**"],
+  "boundaries": {
+    "zones": [
+      {
+        "name": "domain",
+        "patterns": ["src/domain/**"]
+      },
+      {
+        "name": "judges",
+        "patterns": ["src/judges/**"]
+      },
+      {
+        "name": "infrastructure",
+        "patterns": ["src/infrastructure/**"]
+      },
+      {
+        "name": "application",
+        "patterns": ["src/application/**"]
+      },
+      {
+        "name": "interfaces",
+        "patterns": ["src/interfaces/**"]
+      },
+      {
+        "name": "renderer",
+        "patterns": ["src/renderer/**"]
+      }
+    ],
+    "rules": [
+      {
+        "from": "domain",
+        "allow": []
+      },
+      {
+        "from": "judges",
+        "allow": ["domain"]
+      },
+      {
+        "from": "infrastructure",
+        "allow": ["domain", "judges"]
+      },
+      {
+        "from": "application",
+        "allow": ["domain", "judges", "infrastructure"]
+      },
+      {
+        "from": "interfaces",
+        "allow": ["application", "infrastructure", "judges", "domain"]
+      },
+      {
+        "from": "renderer",
+        "allow": ["domain", "judges"],
+        "allowTypeOnly": ["application"]
+      }
+    ]
+  }
+}

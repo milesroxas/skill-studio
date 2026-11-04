@@ -1,10 +1,10 @@
-# How to use skill-tester
+# How to use Skill Studio
 
-This guide walks one skill through the whole loop: write it, give it cases, run agents on it, read the scores, rate the answers yourself, tune the scoring, then change the skill and run it again. Each step says what to do in the app and why the step exists. The [README](https://github.com/milesroxas/skill-tester#readme) is the reference for file formats, packs, routes and flags.
+This guide walks one skill through the whole loop: write it, give it cases, run agents on it, read the scores, rate the answers yourself, tune the scoring, then change the skill and run it again. Each step says what to do in the app and why the step exists. The [README](https://github.com/milesroxas/skill-studio#readme) is the reference for file formats, packs, routes and flags.
 
 ## How the loop works
 
-A skill is a `SKILL.md` an agent reads before it works. skill-tester answers one question about it: does the skill make the agent's answers better, and did your last edit help or hurt?
+A skill is a `SKILL.md` an agent reads before it works. Skill Studio answers one question about it: does the skill make the agent's answers better, and did your last edit help or hurt?
 
 It answers by repeating six steps. Every step lives in the app. When a step is due (the first case, a run of a new version, answers to rate), a Next button at the top right names it.
 
@@ -19,31 +19,23 @@ It answers by repeating six steps. Every step lives in the app. When a step is d
 
 ## Before you start
 
-You need four things. Without the API key the app still works, but grading falls back to code checks only.
+You need three things. Without the API key the app still works, but grading falls back to code checks only.
 
-1. Node 24 and pnpm.
-2. The `claude` CLI or the `cursor-agent` CLI on your `PATH`, signed in. These are the agents that write the answers.
-3. A TypeSafe API key from [typesafe.ai](https://typesafe.ai). Jev, the judge, needs it.
-4. This repository, cloned.
-
-Then, in the repository folder:
-
-```
-pnpm install
-cp .env.example .env
-```
-
-Open `.env` and set `TYPESAFE_API_KEY`. If the app later shows "Code checks only: no Jev key" at the top, this key is missing.
+1. The `claude` CLI or the `cursor-agent` CLI on your `PATH`, signed in. These are the agents that write the answers.
+2. A TypeSafe API key from [typesafe.ai](https://typesafe.ai). Jev, the judge, needs it.
+3. The app: a packaged build, or this repository cloned with Node 24 and pnpm (`pnpm install`).
 
 ## Start the app
 
+Open Skill Studio, or from the repository folder:
+
 ```
-pnpm start
+pnpm dev
 ```
 
-This builds the app, starts it on http://localhost:4400 and opens your browser. The server only answers this machine. Keep the terminal open: closing it stops the app.
+Then open Settings at the top right and paste the TypeSafe key. The app keeps it in your system keychain. If the app shows "Code checks only: no Jev key" at the top, the key is missing; the pill takes you to Settings.
 
-To use the app from your phone or another computer, run `pnpm start --tailscale` instead. The [README](https://github.com/milesroxas/skill-tester#from-your-phone-or-another-computer) explains who can reach it and why that is safe.
+To use the app in a browser, or from your phone or another computer, run `pnpm build` then `pnpm st serve` (add `--tailscale` for other devices). The [README](https://github.com/milesroxas/skill-studio#in-a-browser-or-from-another-device) explains who can reach it and why that is safe. In a browser the key comes from `TYPESAFE_API_KEY` in the environment or a `.env` in the checkout.
 
 ## 1. Open or create a skill
 
@@ -116,7 +108,7 @@ Runs cost money: each sample is one agent session, and grading makes judge calls
 
 Open the Runs tab, then Results.
 
-Each run shows its version, its writer and a score per case. The total is out of 100 and is split into layers, such as adherence to the skill's rules and the rubric of your checks. Each pack's layers are listed in the [README](https://github.com/milesroxas/skill-tester#grading).
+Each run shows its version, its writer and a score per case. The total is out of 100 and is split into layers, such as adherence to the skill's rules and the rubric of your checks. Each pack's layers are listed in the [README](https://github.com/milesroxas/skill-studio#grading).
 
 Read the layers, not only the total. A total can hold steady while one layer falls.
 
@@ -229,11 +221,11 @@ The agent never sees `evals/`: its copy of the skill leaves it out, so it cannot
 
 | Problem | Fix |
 | --- | --- |
-| "Code checks only: no Jev key" | Set `TYPESAFE_API_KEY` in `.env`, then restart the app |
+| "Code checks only: no Jev key" | Paste the key under Settings; in a browser, set `TYPESAFE_API_KEY` and restart `st serve` |
 | An agent shows "(not set up)" in New run | Install that CLI, put it on your `PATH` and sign in |
 | A skill is missing from the Library | Add its parent folder under "Where skills are found" |
-| "Port 4400 is taken" | Stop what holds it (`lsof -nP -iTCP:4400 -sTCP:LISTEN`) or start with `--port` |
+| "Port 4400 is taken" (`st serve`) | Stop what holds it (`lsof -nP -iTCP:4400 -sTCP:LISTEN`) or start with `--port` |
 | A save in Write is refused | The file changed on disk. Reload, then edit again |
 | A score looks wrong | Read the transcript, then rate it blind; Agreement will show if the judge is off |
 
-Run skills you did not write in a container or VM. The code pack runs code the agent wrote, with your permissions. [SECURITY.md](https://github.com/milesroxas/skill-tester/blob/main/SECURITY.md) has the details.
+Run skills you did not write in a container or VM. The code pack runs code the agent wrote, with your permissions. [SECURITY.md](https://github.com/milesroxas/skill-studio/blob/main/SECURITY.md) has the details.

@@ -10,8 +10,8 @@
       "**",
       "!node_modules",
       "!.claude",
+      "!out",
       "!dist",
-      "!app/dist",
       "!**/*.md",
       "!**/evals/runs",
       "!**/evals/anchors/report.json",
@@ -45,7 +45,7 @@
   },
   "overrides": [
     {
-      "includes": ["app/src/styles.css"],
+      "includes": ["src/renderer/styles.css"],
       "linter": {
         "rules": {
           "style": {

@@ -1,12 +1,12 @@
 {
-  "name": "skill-tester",
+  "name": "skill-studio",
   "version": "0.1.0",
   "private": true,
-  "description": "Eval harness for agent skills: generate outputs with headless agents, grade them with code checks and Jev judge packs, review blind.",
+  "description": "Desktop studio for agent skills: write a skill, run headless agents on its cases, grade the outputs with code checks and Jev judge packs, and review them blind.",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/milesroxas/skill-tester.git"
+    "url": "git+https://github.com/milesroxas/skill-studio.git"
   },
   "packageManager": "pnpm@12.6.0",
   "devEngines": {
@@ -18,16 +18,18 @@
   },
   "type": "module",
   "scripts": {
-    "start": "pnpm build --logLevel warn && tsx cli/st.ts serve --open",
-    "st": "tsx cli/st.ts",
-    "app": "vite --config app/vite.config.ts",
-    "build": "vite build --config app/vite.config.ts",
-    "typecheck": "tsc --noEmit",
+    "start": "electron-vite preview",
+    "dev": "electron-vite dev",
+    "build": "electron-vite build",
+    "dist": "pnpm build && electron-builder",
+    "st": "tsx src/interfaces/cli/st.ts",
+    "typecheck": "tsc -p tsconfig.node.json && tsc -p tsconfig.web.json",
     "lint": "biome check .",
     "format": "biome check --write .",
+    "fallow": "fallow dead-code --quiet",
     "test": "vitest run",
     "test:watch": "vitest",
-    "check": "pnpm typecheck && pnpm lint && pnpm test"
+    "check": "pnpm typecheck && pnpm lint && pnpm fallow && pnpm test"
   },
   "dependencies": {
     "@fontsource-variable/geist": "^5.3.0",
@@ -43,9 +45,15 @@
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
     "@vitejs/plugin-react": "^6.1.2",
+    "electron": "45.2.2",
+    "electron-builder": "26.18.0",
+    "electron-vite": "6.0.0",
+    "fallow": "^3.38.1",
     "tsx": "^4.23.15",
     "typescript": "^7.0.2",
     "vite": "^8.3.5",
     "vitest": "^5.0.5"
-  }
+  },
+  "productName": "Skill Studio",
+  "main": "./out/main/index.js"
 }
