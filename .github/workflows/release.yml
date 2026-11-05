@@ -153,7 +153,8 @@ jobs:
           path: dist
           merge-multiple: true
       # Lets anyone confirm a download was built here: gh attestation verify <file> -R <repo>
-      - uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
+      - id: attest
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
         with:
           subject-path: |
             dist/*.dmg
@@ -164,7 +165,14 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           VERSION: ${{ needs.version.outputs.version }}
+          BUNDLE: ${{ steps.attest.outputs.bundle-path }}
         run: |
+          # The provenance travels with the release, so a download can be checked offline.
+          if [ -f "$BUNDLE" ]; then
+            cp "$BUNDLE" "dist/skill-studio-$VERSION.intoto.jsonl"
+          else
+            echo "::warning::No provenance bundle to attach; the attestation is still on GitHub."
+          fi
           # 1.2.0-beta.1 and the like are prereleases, and never "latest".
           flags=()
           case "$VERSION" in *-*) flags+=(--prerelease) ;; esac

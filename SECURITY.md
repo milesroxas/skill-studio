@@ -11,7 +11,7 @@ Fixes go into the next release. Only the latest release is supported.
 Packages come from [Releases](https://github.com/milesroxas/skill-studio/releases) only, built by the `release` workflow from a tag on `main`. A published release and its tag cannot be changed afterwards.
 
 - The Mac app is signed with a Developer ID certificate and notarized by Apple. The Windows and Linux packages are not signed.
-- Every package carries a build provenance attestation. `gh attestation verify <file> -R milesroxas/skill-studio` confirms a file was built by that workflow.
+- Every package carries a build provenance attestation. `gh attestation verify <file> -R milesroxas/skill-studio` confirms a file was built by that workflow. The release also holds that provenance as `skill-studio-<version>.intoto.jsonl`, to check offline with `--bundle`.
 
 ## What to know before running it
 
