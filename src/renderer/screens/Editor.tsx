@@ -154,7 +154,7 @@ export function Editor({ ctx }: { ctx: Ctx }) {
       })
     ) {
       drop(file)
-      if (saved === null) go('edit')
+      if (saved === null) go('edit', {}, { replace: true })
     }
   }
 
@@ -172,7 +172,7 @@ export function Editor({ ctx }: { ctx: Ctx }) {
       disk.reload()
       await reload()
       toast(`Deleted ${file}`)
-      go('edit')
+      go('edit', {}, { replace: true })
     } catch (e) {
       toast((e as Error).message)
     }
@@ -430,6 +430,7 @@ export function Editor({ ctx }: { ctx: Ctx }) {
         ) : (
           <MarkdownEditor
             key={file}
+            id={`${state.skill.path}:${file}`}
             ref={editor}
             mode={mode}
             onModeChange={setMode}

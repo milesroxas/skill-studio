@@ -3,10 +3,22 @@
  * formatted, where Markdown is styled in place and its marks show only where
  * the cursor is (Obsidian's live preview), and Markdown, the plain source.
  * Both edit the same characters, so switching views or saving never rewrites
- * the file. The toolbar and shortcuts apply styles by writing Markdown.
+ * the file. The toolbar and shortcuts apply styles by writing Markdown, and
+ * Undo and Redo lead the toolbar. A file's undo history outlives the editor:
+ * it is there again after a look at another file, the changes or another screen.
  */
 
-import { defaultKeymap, history, historyKeymap, indentWithTab } from '@codemirror/commands'
+import {
+  defaultKeymap,
+  history,
+  historyField,
+  historyKeymap,
+  indentWithTab,
+  redo,
+  redoDepth,
+  undo,
+  undoDepth,
+} from '@codemirror/commands'
 import { Compartment, EditorState, type StateCommand } from '@codemirror/state'
 import { drawSelection, EditorView, keymap, placeholder } from '@codemirror/view'
 import type { EditorMode } from '@domain/preferences.ts'
@@ -25,8 +37,10 @@ import {
   ListTodoIcon,
   type LucideIcon,
   PenLineIcon,
+  Redo2Icon,
   StrikethroughIcon,
   TextQuoteIcon,
+  Undo2Icon,
 } from 'lucide-react'
 import { type ReactNode, type Ref, useEffect, useImperativeHandle, useRef, useState } from 'react'
 import {
@@ -73,6 +87,10 @@ interface Action {
   keys?: string
 }
 
+/** They lead the toolbar, where a writing app keeps them, and wear the system's arrows. */
+const UNDO: Action = { label: 'Undo', icon: Undo2Icon, command: undo, keys: 'Z' }
+const REDO: Action = { label: 'Redo', icon: Redo2Icon, command: redo, keys: '⇧Z' }
+
 const ACTIONS: readonly (readonly Action[])[] = [
   [
     { label: 'Heading 1', icon: Heading1Icon, command: toggleHeading(1) },
@@ -99,6 +117,24 @@ const ACTIONS: readonly (readonly Action[])[] = [
   ],
 ]
 
+/**
+ * ⌘[ and ⌘] go Back and Forward on every screen, this one included, so the
+ * editor leaves them alone. Tab and Shift-Tab indent.
+ */
+const EDITING_KEYMAP = defaultKeymap.filter(({ key }) => key !== 'Mod-[' && key !== 'Mod-]')
+
+/** A text with its cursor and undo history, as CodeMirror writes them out. */
+interface Kept {
+  doc: string
+}
+
+/**
+ * What each editor held when it was last put away, by its `id`, for as long as
+ * the window is open. A text that has since changed elsewhere starts afresh:
+ * its old history would undo into a file that is no longer there.
+ */
+const kept = new Map<string, Kept>()
+
 const MODES = [
   { value: 'formatted', label: 'Formatted', title: 'Edit with the Markdown styled in place' },
   { value: 'markdown', label: 'Markdown', title: 'Edit the plain Markdown source' },
@@ -121,6 +157,8 @@ const styleNonce = (): string | undefined =>
 
 interface MarkdownEditorProps {
   ref?: Ref<MarkdownEditorHandle>
+  /** Names the text across mounts, so its undo history and cursor are found again. */
+  id: string
   value: string
   onChange: (value: string) => void
   onSave?: () => void
@@ -140,6 +178,7 @@ interface MarkdownEditorProps {
 /** Mount once per file: give each file its own `key`, so undo history never crosses files. */
 export function MarkdownEditor({
   ref,
+  id,
   value,
   onChange,
   onSave,
@@ -154,49 +193,61 @@ export function MarkdownEditor({
   const editor = useRef<EditorView | null>(null)
   /** The selection "Write with AI" was opened on; null when it has the whole file. */
   const [picked, setPicked] = useState<{ from: number; to: number } | null>(null)
+  /** Whether there is a step to take back, and one to take again. */
+  const [steps, setSteps] = useState({ undo: false, redo: false })
   const modes = useRef(new Compartment())
-  const latest = useRef({ value, mode, hint, label, onChange, onSave })
-  latest.current = { value, mode, hint, label, onChange, onSave }
+  const latest = useRef({ id, value, mode, hint, label, onChange, onSave })
+  latest.current = { id, value, mode, hint, label, onChange, onSave }
 
   useEffect(() => {
-    const { value, mode, hint, label } = latest.current
+    const { id, value, mode, hint, label } = latest.current
     const nonce = styleNonce()
+    /** Tell the toolbar when the first step appears or the last one goes, and not on every key. */
+    const count = (state: EditorState) => {
+      const next = { undo: undoDepth(state) > 0, redo: redoDepth(state) > 0 }
+      setSteps((now) => (now.undo === next.undo && now.redo === next.redo ? now : next))
+    }
+    const extensions = [
+      history(),
+      drawSelection(),
+      EditorView.lineWrapping,
+      skillMarkdown(),
+      markdownHighlighting,
+      editorTheme,
+      keymap.of([
+        ...formatKeymap,
+        {
+          key: 'Mod-s',
+          run: () => {
+            latest.current.onSave?.()
+            return true
+          },
+        },
+        indentWithTab,
+        ...EDITING_KEYMAP,
+        ...historyKeymap,
+      ]),
+      hint ? placeholder(hint) : [],
+      EditorView.contentAttributes.of({ 'aria-label': label, spellcheck: 'false' }),
+      nonce ? EditorView.cspNonce.of(nonce) : [],
+      modes.current.of(mode === 'formatted' ? livePreview : []),
+      EditorView.updateListener.of((update) => {
+        if (update.docChanged) latest.current.onChange(update.state.doc.toString())
+        count(update.state)
+      }),
+    ]
+    const before = kept.get(id)
     const view = new EditorView({
       parent: host.current!,
-      state: EditorState.create({
-        doc: value,
-        extensions: [
-          history(),
-          drawSelection(),
-          EditorView.lineWrapping,
-          skillMarkdown(),
-          markdownHighlighting,
-          editorTheme,
-          keymap.of([
-            ...formatKeymap,
-            {
-              key: 'Mod-s',
-              run: () => {
-                latest.current.onSave?.()
-                return true
-              },
-            },
-            indentWithTab,
-            ...defaultKeymap,
-            ...historyKeymap,
-          ]),
-          hint ? placeholder(hint) : [],
-          EditorView.contentAttributes.of({ 'aria-label': label, spellcheck: 'false' }),
-          nonce ? EditorView.cspNonce.of(nonce) : [],
-          modes.current.of(mode === 'formatted' ? livePreview : []),
-          EditorView.updateListener.of((update) => {
-            if (update.docChanged) latest.current.onChange(update.state.doc.toString())
-          }),
-        ],
-      }),
+      state:
+        before?.doc === value
+          ? EditorState.fromJSON(before, { extensions }, { history: historyField })
+          : EditorState.create({ doc: value, extensions }),
     })
+    count(view.state)
     editor.current = view
     return () => {
+      kept.set(id, view.state.toJSON({ history: historyField }))
       view.destroy()
       editor.current = null
     }
@@ -258,31 +309,33 @@ export function MarkdownEditor({
     view.focus()
   }
 
+  const tool = (action: Action, enabled = true) => (
+    <Button
+      key={action.label}
+      type="button"
+      variant="ghost"
+      size="icon-sm"
+      aria-label={action.label}
+      title={action.keys ? `${action.label} (${shortcut(action.keys)})` : action.label}
+      disabled={!enabled}
+      // Keep the editor's selection: the button acts on it.
+      onMouseDown={(e) => e.preventDefault()}
+      onClick={() => run(action.command)}
+    >
+      <action.icon aria-hidden="true" />
+    </Button>
+  )
+
   return (
     <>
-      <ColumnToolbar aria-label="Formatting">
+      <ColumnToolbar aria-label="Editing">
+        <div className="flex items-center gap-0.5">
+          {tool(UNDO, steps.undo)}
+          {tool(REDO, steps.redo)}
+        </div>
         {ACTIONS.map((group) => (
           <div key={group[0].label} className="flex items-center gap-0.5">
-            {group.map((action) => {
-              const title = action.keys
-                ? `${action.label} (${shortcut(action.keys)})`
-                : action.label
-              return (
-                <Button
-                  key={action.label}
-                  type="button"
-                  variant="ghost"
-                  size="icon-sm"
-                  aria-label={action.label}
-                  title={title}
-                  // Keep the editor's selection: the button acts on it.
-                  onMouseDown={(e) => e.preventDefault()}
-                  onClick={() => run(action.command)}
-                >
-                  <action.icon aria-hidden="true" />
-                </Button>
-              )
-            })}
+            {group.map((action) => tool(action))}
           </div>
         ))}
         <span className="ml-auto flex items-center gap-2">

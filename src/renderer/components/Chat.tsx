@@ -7,7 +7,7 @@
 import { SquarePenIcon, XIcon } from 'lucide-react'
 import { useLayoutEffect, useRef, useState } from 'react'
 import { clearChat, sendChat, stopRun, useAi, useChat } from '../ai.ts'
-import { navigate } from '../hooks.ts'
+import { navigate } from '../history.ts'
 import { useAttached } from '../images.ts'
 import { shortcut } from '../keys.ts'
 import { Composer } from './Composer.tsx'

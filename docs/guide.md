@@ -31,6 +31,8 @@ The sidebar lists every screen of the open skill. Beside a screen is what waits 
 
 The top of the sidebar names the open skill, its version and that version's mean score. Click it, or press Cmd+K (Ctrl+K on Windows and Linux), to switch to another skill without going back to the library. **New skill** at the foot of the list starts one, named after what you typed in the search; when nothing matches, Enter does the same.
 
+In the desktop app, the two arrows at the left of the top bar go back and forward through the screens you visited, as do Cmd+[ and Cmd+] (Ctrl+[ and Ctrl+] on Windows and Linux) and Back and Forward in the View menu. Back returns to the same place: the same case, file or pair of answers, scrolled to where you left it, in the skill you saw it in. In a browser, use the browser's own Back and Forward.
+
 When a step is due, a Next button at the top right names it: "Add a case", "Run v1" or "Rate 11 outputs". It is hidden while a run is in progress.
 
 The pictures in this guide show a sample skill, `release-notes`. Its scores are made up.
@@ -153,6 +155,8 @@ You never start from a blank page:
 
 The editor has two views of the same text, switched at the right of its toolbar. Formatted styles the Markdown in place, as Obsidian does: headings, bold, lists and links read as a page, and their marks (`#`, `**`, a link's address) appear only on the line or word the cursor is in. Markdown shows the plain source. Both edit the same characters, so switching never changes the file. The toolbar applies headings, bold, italic, strikethrough, code, links, lists, task lists and quotes by writing the Markdown for you; ⌘B, ⌘I, ⌘E (code) and ⌘⇧X (strikethrough) do the same from the keyboard. Click a task's box to tick it. The app remembers the view you last chose.
 
+Undo and Redo lead the toolbar; ⌘Z and ⌘⇧Z do the same. A file keeps its undo history while the app is open, so it is still there after you look at another file, at "Changes since saved" or at another screen. Applying a template, discarding a draft and text written with AI are steps like any other: Undo takes them back.
+
 Everything you type is kept as a draft as you go, in `~/.skill-studio/drafts/`, outside the skill's folder. Close the app, switch skills or reload, and the unsaved text is still there. The line beside the file name says so ("Unsaved · draft kept 3:42 PM"), and the sidebar shows a dot beside Write. Save writes the file and clears its draft; Discard throws the draft away. "Changes since saved" shows your draft against the file on disk.
 
 A save is refused if the file changed on disk since your draft began, so an edit made in your code editor is never overwritten. The editor says so and offers two ways on: "Keep my draft" to save over the file, or "Use the file on disk" to take the file as it is now.
@@ -191,7 +195,7 @@ A new case starts with "Start from an example": three finished cases for the kin
 3. Prompt: exactly what the agent is asked, worded the way a user would ask. Never mention the skill: the test is whether the agent finds and uses it on its own.
 4. Pictures: a screenshot, a mock-up or a photo the prompt is about. Click Add pictures, or drop one anywhere on the case. The agent gets each one as a file in `files/`, and the judge sees them beside the prompt, so a check such as "The note says the fourth week had the highest usage" can be marked against the chart itself.
 5. A good answer: one or two sentences on what a good answer does. You see this when you rate, and the judge reads it too.
-6. Checks: one statement per row that a good answer makes true, such as "The note says where to find the change." The judge marks each one. Set a check's weight from 1 to 5; a weight of 2 counts twice. "What the judge can mark" shows three vague checks next to the form the judge can mark. A check can be about a picture of its own, such as "The page matches the mock-up": press the picture button on its row. Only that check is asked with it.
+6. Checks: one statement per row that a good answer makes true, such as "The note says where to find the change." The judge marks each one. Set a check's weight from 1 to 5; a weight of 2 counts twice. Removing a check that has a statement offers Undo for a few seconds. "What the judge can mark" shows three vague checks next to the form the judge can mark. A check can be about a picture of its own, such as "The page matches the mock-up": press the picture button on its row. Only that check is asked with it.
 7. Length: tick "Score the answer's length in words" and set the range when length matters. Only prose and list text count, not headings or code.
 8. Click Add case.
 

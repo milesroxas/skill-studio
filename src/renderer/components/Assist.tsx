@@ -19,7 +19,7 @@ import {
 } from 'react'
 import { startAssist, stopRun, useAi, useRun } from '../ai.ts'
 import { lineDiff } from '../diff.ts'
-import { navigate } from '../hooks.ts'
+import { navigate } from '../history.ts'
 import { useAttached } from '../images.ts'
 import { cn } from '../lib/utils.ts'
 import { Composer } from './Composer.tsx'

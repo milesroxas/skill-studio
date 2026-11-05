@@ -2,7 +2,7 @@
  * The page grammar every screen is built from. There are three page types:
  *
  * - A scrolling page (`Screen`): tables, reading and settings forms, left
- *   aligned to the same edge as the top bar's title.
+ *   aligned to the same edge as the top bar's first control.
  * - A workbench (`Workbench`): full-height columns that scroll on their own,
  *   for a list beside its detail or a result beside its controls. Columns are
  *   divided by a hairline, never boxed.

@@ -3,7 +3,7 @@
 import { mean } from '@domain/stats.ts'
 import { cva } from 'class-variance-authority'
 import { ChevronRightIcon } from 'lucide-react'
-import { Fragment, useState } from 'react'
+import { Fragment } from 'react'
 import { api } from '../api.ts'
 import { EmptyState, Screen, Section, Spacer, Stack, Toolbar } from '../components/layout.tsx'
 import { TotalChip } from '../components/Scores.tsx'
@@ -31,8 +31,10 @@ import {
 } from '../model.ts'
 
 export function Overview({ ctx }: { ctx: Ctx }) {
-  const { state, config, outputs, go, toast } = ctx
-  const [openRun, setOpenRun] = useState<string | null>(null)
+  const { state, config, outputs, route, go, toast } = ctx
+  /** In the URL, so Back from a transcript or a comparison finds the run still open. */
+  const openRun = route.params.get('run')
+  const setOpenRun = (run: string | null) => go('overview', run ? { run } : {}, { replace: true })
   const caseIds = [...new Set(outputs.map((o) => o.caseId))].sort()
   const runs = state.runs
   const byRun = new Map<string, Output[]>()

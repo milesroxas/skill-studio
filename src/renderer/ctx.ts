@@ -2,8 +2,10 @@ import type { BenchConfig } from '@domain/schemas.ts'
 import type { Job, State } from './api.ts'
 import type { Confirm } from './components/confirm.tsx'
 import type { Drafts } from './drafts.ts'
-import type { Route } from './hooks.ts'
+import type { navigate } from './history.ts'
+import type { ShowToast } from './hooks.ts'
 import type { Output } from './model.ts'
+import type { Route } from './route.ts'
 
 /** What every screen gets: the loaded state, the live knobs, the outputs and the shell's helpers. */
 export interface Ctx {
@@ -13,8 +15,8 @@ export interface Ctx {
   setConfig: (config: BenchConfig) => void
   outputs: Output[]
   route: Route
-  go: (screen: string, params?: Record<string, string>) => void
-  toast: (message: string) => void
+  go: typeof navigate
+  toast: ShowToast
   /** Ask before a destructive or lossy step; resolves true when the reader agrees. */
   confirm: Confirm
   reload: () => Promise<void>

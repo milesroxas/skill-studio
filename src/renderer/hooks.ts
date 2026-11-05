@@ -1,32 +1,4 @@
-import { useEffect, useState } from 'react'
-
-/** The hash route: `#/<screen>?a=...&b=...`. */
-export interface Route {
-  screen: string
-  params: URLSearchParams
-}
-
-const parse = (): Route => {
-  const hash = window.location.hash.replace(/^#\/?/, '')
-  const [screen, query = ''] = hash.split('?')
-  return { screen: screen || 'home', params: new URLSearchParams(query) }
-}
-
-export function useRoute(): [Route, (screen: string, params?: Record<string, string>) => void] {
-  const [route, setRoute] = useState<Route>(parse)
-  useEffect(() => {
-    const onChange = () => setRoute(parse())
-    window.addEventListener('hashchange', onChange)
-    return () => window.removeEventListener('hashchange', onChange)
-  }, [])
-  return [route, navigate]
-}
-
-/** Go to a screen. Anything in the page may call it; the route follows the hash. */
-export function navigate(screen: string, params: Record<string, string> = {}): void {
-  const query = new URLSearchParams(params).toString()
-  window.location.hash = `#/${screen}${query ? `?${query}` : ''}`
-}
+import { useCallback, useEffect, useState } from 'react'
 
 /**
  * A value fetched once per `deps`, with its error. The last value stays in
@@ -71,16 +43,30 @@ export function useToggleSet<T>(initial: Iterable<T>): [Set<T>, (value: T) => vo
   return [set, toggle]
 }
 
-/** Long enough to read: a floor for short lines, then about 200 words a minute. */
-const toastMs = (message: string): number =>
-  Math.max(2600, message.split(/\s+/).length * 300 + 1000)
+export interface ToastState {
+  message: string
+  /** Takes back the step the message reports. The toast then offers Undo. */
+  undo?: () => void
+}
 
-export function useToast(): [string | null, (message: string) => void] {
-  const [message, setMessage] = useState<string | null>(null)
+export type ShowToast = (message: string, undo?: () => void) => void
+
+/** With Undo on offer, long enough to notice the slip and reach for it. */
+const UNDO_MS = 7000
+
+/** Long enough to read: a floor for short lines, then about 200 words a minute. */
+const toastMs = ({ message, undo }: ToastState): number =>
+  Math.max(undo ? UNDO_MS : 2600, message.split(/\s+/).length * 300 + 1000)
+
+/** The toast in view, a way to show one, and a way to put it away early. */
+export function useToast(): [ToastState | null, ShowToast, () => void] {
+  const [toast, setToast] = useState<ToastState | null>(null)
   useEffect(() => {
-    if (!message) return
-    const timer = setTimeout(() => setMessage(null), toastMs(message))
+    if (!toast) return
+    const timer = setTimeout(() => setToast(null), toastMs(toast))
     return () => clearTimeout(timer)
-  }, [message])
-  return [message, setMessage]
+  }, [toast])
+  const show = useCallback<ShowToast>((message, undo) => setToast({ message, undo }), [])
+  const dismiss = useCallback(() => setToast(null), [])
+  return [toast, show, dismiss]
 }

@@ -64,8 +64,8 @@ const MARKS = [
 export function Blind({ ctx }: { ctx: Ctx }) {
   const { state, config, outputs, toast, reload, route, go } = ctx
   const queue = useFetch(() => api.queue(), [state])
-  const wanted = route.params.get('key')
-  const [key, setKey] = useState<string | null>(wanted)
+  /** The output the URL names, so Back returns to the one just rated; none means the head of the queue. */
+  const key = route.params.get('key')
   const [revealed, setRevealed] = useState(false)
   const [rating, setRating] = useState<number | null>(null)
   const [marks, setMarks] = useState<Record<string, Mark>>({})
@@ -79,10 +79,7 @@ export function Blind({ ctx }: { ctx: Ctx }) {
   const reviewed = outputs.filter((o) => o.result && reviewOf(state, o.key))
   const current = key ?? items[0]?.key ?? null
   const output = outputByKey(outputs, current)
-  const open = (next: string | null) => {
-    setKey(next)
-    go('blind', next ? { key: next } : {})
-  }
+  const open = (next: string | null) => go('blind', next ? { key: next } : {})
 
   useEffect(() => {
     if (!current) return
@@ -172,7 +169,7 @@ export function Blind({ ctx }: { ctx: Ctx }) {
       await api.review(output.key, { rating, layers: marks, note })
       toast('Saved')
       // Pin the output: it leaves the queue once rated.
-      setKey(output.key)
+      go('blind', { key: output.key }, { replace: true })
       setRevealed(true)
       await reload()
     } catch (e) {

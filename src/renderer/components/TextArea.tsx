@@ -6,7 +6,8 @@
  *
  * Give it `assist`, the kind of field it is, and a button in its corner opens
  * "write with AI" for that kind. Typed and written text reach the caller the
- * same way, through `onValueChange`.
+ * same way, through `onValueChange`, and written text goes in as typing would,
+ * so Undo brings back what it replaced.
  */
 import { cva, type VariantProps } from 'class-variance-authority'
 import { type ComponentProps, useEffect, useLayoutEffect, useRef } from 'react'
@@ -19,6 +20,19 @@ const native = typeof CSS !== 'undefined' && CSS.supports('field-sizing', 'conte
 function fitHeight(el: HTMLTextAreaElement) {
   el.style.height = 'auto'
   el.style.height = `${el.scrollHeight + el.offsetHeight - el.clientHeight}px`
+}
+
+/**
+ * Replace a field's text the way typing over a selection does. The browser
+ * then keeps the old text in the field's own undo history, which setting the
+ * value would wipe. False when the browser refuses, and nothing has changed.
+ */
+function typeOver(el: HTMLTextAreaElement, text: string): boolean {
+  el.focus()
+  // The command writes into whatever holds the focus: it must be this field.
+  if (document.activeElement !== el) return false
+  el.select()
+  return document.execCommand(text ? 'insertText' : 'delete', false, text)
 }
 
 const textAreaVariants = cva('resize-none overflow-hidden', {
@@ -102,6 +116,8 @@ export function TextArea({
         anchor={frame}
         value={value}
         onApply={(text) => {
+          // Typing over fires the field's own change, which carries the text to the caller.
+          if (ref.current && typeOver(ref.current, text)) return
           onValueChange(text)
           ref.current?.focus()
         }}

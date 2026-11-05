@@ -138,6 +138,25 @@ export function Cases({ ctx }: { ctx: Ctx }) {
   const setGrader = (i: number, patch: Partial<CaseDraft['graders'][number]>) =>
     set({ graders: draft.graders.map((g, k) => (k === i ? { ...g, ...patch } : g)) })
 
+  /** The form as it stands when an Undo is taken, which may be a few edits after it was offered. */
+  const live = useRef({ key, draft, setDraft })
+  live.current = { key, draft, setDraft }
+
+  /** Take a check out. One with a statement can come back: a slip costs a sentence otherwise. */
+  const removeGrader = (i: number) => {
+    const removed = draft.graders[i]
+    set({ graders: draft.graders.filter((_, k) => k !== i) })
+    if (!removed.statement.trim()) return
+    toast(`Removed check ${i + 1}`, () => {
+      // Only into the case it came from; elsewhere the offer has passed.
+      const now = live.current
+      if (now.key !== key) return
+      const graders = [...now.draft.graders]
+      graders.splice(i, 0, removed)
+      now.setDraft({ ...now.draft, graders })
+    })
+  }
+
   /** Fill the form from an example, with an id no existing case holds. */
   const fillFrom = async (example: CaseDraft) => {
     if (
@@ -178,7 +197,7 @@ export function Cases({ ctx }: { ctx: Ctx }) {
       drafts.setCase(key, null)
       await reload()
       toast(`Saved ${draft.id}`)
-      go('cases', { id: draft.id })
+      go('cases', { id: draft.id }, { replace: true })
     } catch (e) {
       toast((e as Error).message)
     } finally {
@@ -200,7 +219,7 @@ export function Cases({ ctx }: { ctx: Ctx }) {
       drafts.setCase(selected.id, null)
       await reload()
       toast(`Deleted ${selected.id}`)
-      go('cases')
+      go('cases', {}, { replace: true })
     } catch (e) {
       toast((e as Error).message)
     }
@@ -501,7 +520,7 @@ export function Cases({ ctx }: { ctx: Ctx }) {
                         size="icon"
                         aria-label={`Remove check ${i + 1}`}
                         title="Remove"
-                        onClick={() => set({ graders: draft.graders.filter((_, k) => k !== i) })}
+                        onClick={() => removeGrader(i)}
                       >
                         <XIcon aria-hidden="true" />
                       </Button>

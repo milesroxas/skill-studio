@@ -6,10 +6,13 @@
  * window buttons sit over the sidebar.
  */
 import { cva, type VariantProps } from 'class-variance-authority'
+import { ChevronLeftIcon, ChevronRightIcon } from 'lucide-react'
 import type { ComponentProps, ReactNode } from 'react'
 import { api } from '../api.ts'
+import { shortcut } from '../keys.ts'
 import { cn } from '../lib/utils.ts'
 import { Text } from './text.tsx'
+import { Button } from './ui/button.tsx'
 
 export function AppFrame({
   assistant = false,
@@ -136,7 +139,7 @@ export function Workspace({ className, ...props }: ComponentProps<'div'>) {
   return <div className={cn('flex min-h-0 min-w-0 flex-col', className)} {...props} />
 }
 
-/** Where the reader is and the one step that matters here. The whole bar drags the window. */
+/** The way back, where the reader is, and the one step that matters here. The whole bar drags the window. */
 export function TopBar({ className, children, ...props }: ComponentProps<'header'>) {
   return (
     <header
@@ -149,6 +152,51 @@ export function TopBar({ className, children, ...props }: ComponentProps<'header
     >
       {children}
     </header>
+  )
+}
+
+/**
+ * Back and Forward through the places the reader has been, at the bar's
+ * leading edge, where a Mac window keeps them. The pair is pulled left by the
+ * 14px between a button's edge and its arrow, so the Back arrow itself stands
+ * on the left edge every screen starts from.
+ */
+export function HistoryNav({
+  canBack,
+  canForward,
+  onBack,
+  onForward,
+}: {
+  canBack: boolean
+  canForward: boolean
+  onBack: () => void
+  onForward: () => void
+}) {
+  return (
+    <div className="-ml-3.5 flex shrink-0 items-center">
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon-sm"
+        aria-label="Back"
+        title={`Back (${shortcut('[')})`}
+        disabled={!canBack}
+        onClick={onBack}
+      >
+        <ChevronLeftIcon aria-hidden="true" />
+      </Button>
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon-sm"
+        aria-label="Forward"
+        title={`Forward (${shortcut(']')})`}
+        disabled={!canForward}
+        onClick={onForward}
+      >
+        <ChevronRightIcon aria-hidden="true" />
+      </Button>
+    </div>
   )
 }
 

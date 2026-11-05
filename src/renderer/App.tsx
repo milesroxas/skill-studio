@@ -1,8 +1,8 @@
 /**
  * The shell. A sidebar holds the open skill (switch with ⌘K), every screen of
  * its loop in one flat list with each one's status, and the library, guide and
- * settings. The top bar names the screen and offers the one suggested next
- * step. Library, guide and settings open in the same pane, so the skill in
+ * settings. The top bar goes back and forward through the screens visited,
+ * names the one in view and offers the one suggested next step. Library, guide and settings open in the same pane, so the skill in
  * hand stays one click away.
  */
 import type { BenchConfig } from '@domain/schemas.ts'
@@ -35,6 +35,7 @@ import { PracticeGuide } from './components/PracticeGuide.tsx'
 import {
   AppFrame,
   AssistantPane,
+  HistoryNav,
   NavItem,
   Pane,
   Sidebar,
@@ -53,7 +54,8 @@ import { Popover, PopoverContent, PopoverTrigger } from './components/ui/popover
 import { Toggle } from './components/ui/toggle.tsx'
 import type { Ctx } from './ctx.ts'
 import { useDrafts } from './drafts.ts'
-import { useRoute, useToast } from './hooks.ts'
+import { back, forward, navigate, usePaneScroll, useRoute } from './history.ts'
+import { useToast } from './hooks.ts'
 import { shortcut } from './keys.ts'
 import { mergedConfig, outputsOf, plural, versionScore } from './model.ts'
 import { practiceGuide } from './practice.ts'
@@ -168,7 +170,7 @@ export function App() {
   const [config, setConfig] = useState<BenchConfig | null>(null)
   const [jobs, setJobs] = useState<Job[]>([])
   const [route, go] = useRoute()
-  const [message, toast] = useToast()
+  const [toastShown, toast, dismissToast] = useToast()
   const [confirm, confirmDialog] = useConfirm()
   const [assistant, setAssistant] = useAssistant()
 
@@ -196,13 +198,16 @@ export function App() {
   }, [skillPath, reload])
   const drafts = useDrafts(skillPath)
 
-  const openSkill = useCallback(
-    (path: string, screen = 'home') => {
-      setSkillPath(path)
-      go(screen)
-    },
-    [go],
-  )
+  const openSkill = useCallback((path: string, screen = 'home') => {
+    setSkillPath(path)
+    // The entry names its skill itself: the open one changes only once this renders.
+    navigate(screen, {}, { skill: path })
+  }, [])
+  // Back and Forward return to the skill a place was seen in. An entry made with
+  // no skill open keeps the one in hand.
+  useEffect(() => {
+    if (route.arrival === 'return' && route.skill) setSkillPath(route.skill)
+  }, [route])
 
   // Follow the jobs: pushed by the desktop app, polled in a browser (quickly while one
   // runs). Reload state when a job finishes, including one that started and ended
@@ -248,7 +253,7 @@ export function App() {
   )
   const overlays = (
     <>
-      <Toast message={message} />
+      <Toast toast={toastShown} onDismiss={dismissToast} />
       {confirmDialog}
     </>
   )
@@ -269,6 +274,7 @@ export function App() {
   // A skill screen with no skill open falls back to the library.
   const screen = !skillPath && isSkillScreen(requested) ? 'library' : requested
   const place = placeOf(screen) ?? placeOf(home)
+  const pane = usePaneScroll(route, screen)
   const running = jobs.some((j) => j.status === 'running')
 
   const status: PlaceStatus = { meta: {}, dot: {} }
@@ -403,7 +409,8 @@ export function App() {
         <LibraryScreen
           creating={route.params.get('new') === '1'}
           newName={route.params.get('name') ?? ''}
-          setCreating={(on) => go('library', on ? { new: '1' } : {})}
+          // Leaving the form takes its place in the history: Back never reopens it.
+          setCreating={(on) => go('library', on ? { new: '1' } : {}, { replace: !on })}
           openSkill={openSkill}
           toast={toast}
           confirm={confirm}
@@ -478,6 +485,15 @@ export function App() {
               {sidebar}
             </PopoverContent>
           </Popover>
+          {/* A browser has its own Back and Forward. */}
+          {api.platform === 'web' ? null : (
+            <HistoryNav
+              canBack={route.index > 0}
+              canForward={route.index < route.last}
+              onBack={back}
+              onForward={forward}
+            />
+          )}
           <Heading level="page" className="truncate">
             {place?.label ?? ''}
           </Heading>
@@ -515,7 +531,9 @@ export function App() {
             <PanelRightIcon aria-hidden="true" />
           </Toggle>
         </TopBar>
-        <Pane layout={ctx && WORKBENCH.has(screen) ? 'flush' : 'page'}>{body}</Pane>
+        <Pane ref={pane} layout={ctx && WORKBENCH.has(screen) ? 'flush' : 'page'}>
+          {body}
+        </Pane>
       </Workspace>
       {assistant ? (
         <AssistantPane>
