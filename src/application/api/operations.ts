@@ -7,6 +7,7 @@
 import { existsSync, readFileSync, statSync } from 'node:fs'
 import { extname, join, relative, resolve } from 'node:path'
 import { leaderboards, voteKeys } from '@domain/bradley-terry.ts'
+import { preferencesOf } from '@domain/preferences.ts'
 import { reviewQueue } from '@domain/queue.ts'
 import {
   type BenchConfig,
@@ -42,6 +43,7 @@ import {
   touchRecent,
   unlinkSkill,
 } from '@infrastructure/library.ts'
+import { readPreferences, writePreferences } from '@infrastructure/preferences.ts'
 import {
   loadReviews,
   promoteAnchor,
@@ -212,6 +214,8 @@ export const parsers: { [K in OperationName]: (raw: Raw) => Input<K> } = {
   'jobs.list': none,
   'settings.read': none,
   'settings.jevKey': (raw) => ({ value: str(raw.value).trim() }),
+  'preferences.read': none,
+  'preferences.write': (raw) => ({ preferences: preferencesOf(raw.preferences) }),
   'skill.state': scoped,
   'skill.run': (raw) => ({ ...scoped(raw), run: assertSafe(str(raw.run), 'run') }),
   'skill.transcript': (raw) => ({
@@ -376,6 +380,8 @@ export function createOperations(options: OperationsOptions): Runners {
     'jobs.list': () => listJobs(),
     'settings.read': () => secrets.read(),
     'settings.jevKey': ({ value }) => secrets.write(value),
+    'preferences.read': () => readPreferences(),
+    'preferences.write': ({ preferences }) => writePreferences(preferences),
     'skill.state': async (input) => {
       const skill = skillOf(input)
       const config = loadBench(skill.path)

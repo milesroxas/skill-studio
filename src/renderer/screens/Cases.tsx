@@ -7,6 +7,7 @@
 import { type Case, type CaseDraft, NEW_CASE_KEY } from '@domain/schemas.ts'
 import { CHECK_EXAMPLES, EXAMPLE_KINDS, templateById, templateForPacks } from '@domain/templates.ts'
 import { isSlug, SLUG_RULE, slug } from '@domain/text.ts'
+import { cva } from 'class-variance-authority'
 import { PlusIcon, XIcon } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { api } from '../api.ts'
@@ -20,8 +21,8 @@ import {
   Field,
   FormSection,
   List,
+  ListHeader,
   PlainList,
-  Spacer,
   Stack,
   Toolbar,
   Workbench,
@@ -175,31 +176,19 @@ export function Cases({ ctx }: { ctx: Ctx }) {
       {cases.length ? (
         <Column kind="list">
           <nav aria-label="Cases" className="contents">
-            <ColumnHeader inset="list">
-              <Heading level={3} as="h2">
-                Cases
-              </Heading>
-              <Text tone="muted" size="xs" tabular>
-                {cases.length}
-              </Text>
-              <Spacer />
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                onClick={() => pick({ new: '1' })}
-                disabled={isNew}
-              >
-                <PlusIcon aria-hidden="true" />
-                New
-              </Button>
-            </ColumnHeader>
+            <ListHeader
+              title="Cases"
+              count={cases.length}
+              addLabel="Add a case"
+              addDisabled={isNew}
+              onAdd={() => pick({ new: '1' })}
+            />
             <ColumnBody inset="list">
               <PlainList gap="none">
                 {drafts.cases[NEW_CASE_KEY] && !isNew ? (
                   <li>
                     <NavButton onClick={() => pick({ new: '1' })}>
-                      <Text size="sm">
+                      <Text size="ui">
                         New case <Text tone="warning">•</Text>
                       </Text>
                       <Text tone="muted" size="xs">
@@ -211,7 +200,7 @@ export function Cases({ ctx }: { ctx: Ctx }) {
                 {cases.map((c) => (
                   <li key={c.id}>
                     <NavButton current={selected?.id === c.id} onClick={() => pick({ id: c.id })}>
-                      <Text size="sm" truncate block>
+                      <Text size="ui" truncate block>
                         {c.title !== c.id ? c.title : c.id}
                         {drafts.cases[c.id] ? <Text tone="warning"> •</Text> : null}
                       </Text>
@@ -266,7 +255,8 @@ export function Cases({ ctx }: { ctx: Ctx }) {
             {!cases.length ? (
               <Hint>
                 A case is one task an agent gets with {state.skill.name} installed, and what a good
-                answer to it does. A run writes every case, then a judge checks each answer.
+                answer to it does. A run writes an output for every case, then the judge checks each
+                output.
               </Hint>
             ) : null}
             {selected?.source === 'evals.json' ? (
@@ -422,7 +412,7 @@ export function Cases({ ctx }: { ctx: Ctx }) {
                     </CheckLine>
                   ))}
                 </PlainList>
-                <div>
+                <Toolbar>
                   <Button
                     type="button"
                     variant="outline"
@@ -434,7 +424,7 @@ export function Cases({ ctx }: { ctx: Ctx }) {
                     <PlusIcon aria-hidden="true" />
                     Add a check
                   </Button>
-                </div>
+                </Toolbar>
               </Stack>
             </FormSection>
 
@@ -443,7 +433,7 @@ export function Cases({ ctx }: { ctx: Ctx }) {
                 checked={Boolean(draft.words)}
                 onCheckedChange={(on) => set({ words: on ? [50, 300] : null })}
               >
-                Score the answer's length in words
+                Score the output’s length in words
               </CheckRow>
               {draft.words ? (
                 <Toolbar>
@@ -467,7 +457,7 @@ export function Cases({ ctx }: { ctx: Ctx }) {
                       }
                     />
                   </InlineField>
-                  <Text tone="muted" size="sm">
+                  <Text tone="muted" size="ui">
                     words
                   </Text>
                 </Toolbar>
@@ -495,11 +485,11 @@ export function Cases({ ctx }: { ctx: Ctx }) {
                 title="Delete this case"
                 hint="Its folder goes too. Past runs keep their outputs."
               >
-                <div>
+                <Toolbar>
                   <Button type="button" variant="destructive-ghost" size="sm" onClick={remove}>
                     Delete case
                   </Button>
-                </div>
+                </Toolbar>
               </FormSection>
             ) : null}
           </ColumnBody>
@@ -509,7 +499,19 @@ export function Cases({ ctx }: { ctx: Ctx }) {
   )
 }
 
-/** One check: its number, the statement, the weight and the remove button, in aligned columns. */
+/** Number, statement, weight and remove, in columns that line up from row to row. */
+const checkLine = cva('grid grid-cols-[20px_minmax(0,1fr)_56px_36px] gap-2', {
+  variants: {
+    head: {
+      true: 'items-end',
+      false: 'items-start',
+    },
+  },
+})
+
+/** The check's number, centred on the first line of its 36px controls. */
+const checkIndex = 'flex h-9 items-center justify-end'
+
 function CheckLine({
   as: Comp = 'div',
   index,
@@ -523,14 +525,13 @@ function CheckLine({
   children: React.ReactNode
 }) {
   return (
-    <Comp
-      className={`grid grid-cols-[20px_minmax(0,1fr)_56px_36px] gap-2 ${head ? 'items-end' : 'items-start'}`}
-      {...props}
-    >
+    <Comp className={checkLine({ head })} {...props}>
       {head ? null : (
-        <Text tone="faint" font="mono" size="xs" weight="medium" align="end" className="pt-[11px]">
-          {index}
-        </Text>
+        <span className={checkIndex}>
+          <Text tone="faint" font="mono" size="xs" weight="medium" tabular>
+            {index}
+          </Text>
+        </span>
       )}
       {children}
     </Comp>

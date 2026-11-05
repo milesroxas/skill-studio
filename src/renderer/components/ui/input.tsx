@@ -26,7 +26,7 @@ const inputVariants = cva(
       size: {
         default: 'h-9',
         /** A value beside a slider or in a dense row. */
-        sm: 'h-7 px-2 md:text-[13px]',
+        sm: 'h-7 px-2 md:text-ui',
       },
     },
     defaultVariants: { width: 'full', font: 'sans', size: 'default' },

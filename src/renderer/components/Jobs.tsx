@@ -5,7 +5,7 @@
  */
 import { cva } from 'class-variance-authority'
 import type { Job } from '../api.ts'
-import { Stack } from './layout.tsx'
+import { Rows } from './layout.tsx'
 import { Text } from './text.tsx'
 import { Popover, PopoverContent, PopoverTrigger } from './ui/popover.tsx'
 
@@ -61,40 +61,36 @@ export function JobsIndicator({ jobs }: { jobs: Job[] }) {
           aria-label={`${label}. Show the log.`}
         >
           <span className={dot({ status })} aria-hidden="true" />
-          <span className="min-w-0 flex-1 truncate">{label}</span>
+          <span className="min-w-0 flex-1 truncate" title={label}>
+            {label}
+          </span>
         </button>
       </PopoverTrigger>
-      <PopoverContent side="right" align="end" className="w-[min(520px,calc(100vw-280px))] p-2">
+      <PopoverContent side="right" align="end" size="wide">
         <JobLogs jobs={jobs.slice(0, 3)} />
       </PopoverContent>
     </Popover>
   )
 }
 
-const jobCard = cva('rounded-md border bg-card px-2.5 py-2', {
-  variants: {
-    status: {
-      running: '',
-      done: '',
-      failed: 'border-destructive',
-    },
-  },
-})
-
+/** The latest jobs, newest first: a row each with its title, status and the tail of its log. */
 export function JobLogs({ jobs }: { jobs: Job[] }) {
   return (
-    <Stack>
+    <Rows>
       {jobs.map((job) => (
-        <div key={job.id} className={jobCard({ status: job.status })}>
-          <div className="text-xs">
-            <b>{job.title}</b> <Text tone="muted">{job.status}</Text>
-          </div>
+        <li key={job.id} className="flex flex-col gap-1 py-2.5">
+          <Text size="xs">
+            <Text weight="semibold" tone={job.status === 'failed' ? 'destructive' : 'default'}>
+              {job.title}
+            </Text>{' '}
+            <Text tone="muted">{job.status}</Text>
+          </Text>
           {/* One scroller per screen on touch: the log flows at full height there. */}
-          <pre className="mt-1 max-h-60 overflow-auto font-mono text-[11.5px] whitespace-pre-wrap break-words text-muted-foreground pointer-coarse:max-h-none pointer-coarse:overflow-visible">
+          <pre className="m-0 max-h-60 overflow-auto font-mono text-2xs whitespace-pre-wrap break-words text-muted-foreground pointer-coarse:max-h-none pointer-coarse:overflow-visible">
             {job.log.slice(-40).join('\n') || 'Starting…'}
           </pre>
-        </div>
+        </li>
       ))}
-    </Stack>
+    </Rows>
   )
 }

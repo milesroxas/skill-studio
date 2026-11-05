@@ -3,7 +3,6 @@
  * an empty value, so the "none" choice is a sentinel inside and '' outside.
  */
 import { cva, type VariantProps } from 'class-variance-authority'
-import { cn } from '../lib/utils.ts'
 import {
   Select,
   SelectContent,
@@ -80,7 +79,7 @@ export function SelectBox({
       <SelectTrigger
         id={id}
         size={size}
-        className={cn(triggerVariants({ width }))}
+        className={triggerVariants({ width })}
         aria-label={aria['aria-label']}
       >
         <SelectValue placeholder={placeholder} />

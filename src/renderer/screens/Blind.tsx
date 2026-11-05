@@ -15,6 +15,7 @@ import {
   EmptyState,
   Field,
   List,
+  Loading,
   Stack,
   Toolbar,
   Workbench,
@@ -27,7 +28,13 @@ import { TextArea } from '../components/TextArea.tsx'
 import { Hint, Text } from '../components/text.tsx'
 import { Button } from '../components/ui/button.tsx'
 import { Label } from '../components/ui/label.tsx'
-import { Popover, PopoverContent, PopoverTrigger } from '../components/ui/popover.tsx'
+import {
+  Popover,
+  PopoverContent,
+  PopoverLabel,
+  PopoverSection,
+  PopoverTrigger,
+} from '../components/ui/popover.tsx'
 import type { Ctx } from '../ctx.ts'
 import { useFetch } from '../hooks.ts'
 import {
@@ -63,6 +70,7 @@ export function Blind({ ctx }: { ctx: Ctx }) {
   const [note, setNote] = useState('')
   const [anchor, setAnchor] = useState(false)
   const [artifact, setArtifact] = useState<Artifact | null>(null)
+  const [saving, setSaving] = useState(false)
   const layers = layersOf(config)
 
   const items = queue.data ?? []
@@ -85,9 +93,25 @@ export function Blind({ ctx }: { ctx: Ctx }) {
   }, [current, state])
   useEffect(() => setArtifact(output ? primaryOf(output) : null), [output])
 
+  if (queue.error && !queue.data)
+    return (
+      <EmptyState
+        size="screen"
+        title="Could not load the queue"
+        actions={
+          <Button type="button" onClick={queue.reload}>
+            Try again
+          </Button>
+        }
+      >
+        {queue.error}
+      </EmptyState>
+    )
+  if (!queue.data && !output) return <Loading size="screen" />
   if (!output)
     return (
       <EmptyState
+        size="screen"
         title={
           items.length
             ? 'Pick an output to rate'
@@ -96,18 +120,24 @@ export function Blind({ ctx }: { ctx: Ctx }) {
               : 'Nothing to rate yet'
         }
         actions={
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => go(state.runs.length ? 'overview' : 'generate')}
-          >
-            {state.runs.length ? 'See runs' : 'Start a run'}
-          </Button>
+          state.runs.length ? (
+            <Button type="button" variant="outline" onClick={() => go('overview')}>
+              See results
+            </Button>
+          ) : (
+            <Button type="button" onClick={() => go('generate')}>
+              Start a run
+            </Button>
+          )
         }
-        more={<ReviewedList reviewed={reviewed} current={current} open={open} />}
+        more={
+          reviewed.length ? (
+            <ReviewedList reviewed={reviewed} current={current} open={open} />
+          ) : undefined
+        }
       >
-        You rate each answer before you see its score, so the judge cannot sway you. The queue puts
-        the answers the judge was least sure of first. A new run adds more.
+        You rate each output before you see its score, so the judge cannot sway you. The queue puts
+        the outputs the judge was least sure of first. A new run adds more.
       </EmptyState>
     )
 
@@ -116,15 +146,18 @@ export function Blind({ ctx }: { ctx: Ctx }) {
   const next = () =>
     open((items[position + 1] ?? items.find((i) => i.key !== current))?.key ?? null)
   const save = async () => {
+    setSaving(true)
     try {
       await api.review(output.key, { rating, layers: marks, note })
       toast('Saved')
-      // Pin the output: it leaves the queue once reviewed.
+      // Pin the output: it leaves the queue once rated.
       setKey(output.key)
       setRevealed(true)
       await reload()
     } catch (e) {
       toast(`Not saved: ${(e as Error).message}`)
+    } finally {
+      setSaving(false)
     }
   }
   const mark = (layer: string, value: Mark | null) =>
@@ -145,7 +178,7 @@ export function Blind({ ctx }: { ctx: Ctx }) {
           <OutputCardHead
             slot={
               <QueuePicker
-                label={position >= 0 ? `${position + 1} of ${items.length}` : 'Reviewed'}
+                label={position >= 0 ? `${position + 1} of ${items.length}` : 'Rated'}
                 items={items}
                 reviewed={reviewed}
                 current={current}
@@ -306,10 +339,16 @@ export function Blind({ ctx }: { ctx: Ctx }) {
             ) : null}
           </ColumnSection>
           <ColumnFooter inset="inspector">
-            <Button type="button" size="sm" onClick={save}>
-              {revealed ? 'Save' : 'Save and reveal'}
+            <Button type="button" size="sm" disabled={saving} onClick={save}>
+              {saving ? 'Saving…' : revealed ? 'Save' : 'Save and reveal'}
             </Button>
-            <Button type="button" variant="outline" size="sm" onClick={next} disabled={!canSkip}>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={next}
+              disabled={saving || !canSkip}
+            >
               {revealed ? 'Next' : 'Skip'}
             </Button>
           </ColumnFooter>
@@ -348,22 +387,22 @@ function QueuePicker({
           <ChevronDownIcon aria-hidden="true" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent align="start" className="flex w-80 flex-col gap-2 p-2">
-        <Text size="xs" tone="muted" weight="medium" className="px-2 pt-1">
-          To rate · {items.length}
-        </Text>
-        {items.length ? (
-          <Queue>
-            {items.map((item) => (
+      <PopoverContent align="start" size="menu">
+        <PopoverSection scroll>
+          <PopoverLabel>
+            To rate · <Text tabular>{items.length}</Text>
+          </PopoverLabel>
+          {items.length ? (
+            items.map((item) => (
               <NavButton
                 key={item.key}
                 current={item.key === current}
                 onClick={() => pick(item.key)}
               >
-                <Text size="sm">
+                <Text size="ui">
                   {item.result.case ? caseTitle(state, item.result.case) : item.result.sample}
                 </Text>
-                <Text tone="muted" size="xs">
+                <Text tone="muted" size="xs" tabular>
                   <Text font="mono">{item.result.sample}</Text>
                   {' · '}
                   {item.result.confidence === null
@@ -372,26 +411,25 @@ function QueuePicker({
                   {item.caseSpread ? ` · spread ${item.caseSpread}` : ''}
                 </Text>
               </NavButton>
-            ))}
-          </Queue>
-        ) : (
-          <Hint className="px-2">Every graded output has a review.</Hint>
-        )}
-        <ReviewedList reviewed={reviewed} current={current} open={pick} />
+            ))
+          ) : (
+            <PopoverLabel>Every graded output has a rating.</PopoverLabel>
+          )}
+        </PopoverSection>
+        {reviewed.length ? (
+          <PopoverSection scroll>
+            <PopoverLabel>
+              Rated · <Text tabular>{reviewed.length}</Text>
+            </PopoverLabel>
+            <RatedItems reviewed={reviewed} current={current} open={pick} />
+          </PopoverSection>
+        ) : null}
       </PopoverContent>
     </Popover>
   )
 }
 
-/** A list of outputs to open, scrolling inside the queue popover. */
-function Queue({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="flex max-h-[45vh] flex-col gap-px overflow-auto overscroll-contain">
-      {children}
-    </div>
-  )
-}
-
+/** Outputs already rated, folded under the empty queue. */
 function ReviewedList({
   reviewed,
   current,
@@ -401,24 +439,44 @@ function ReviewedList({
   current: string | null
   open: (key: string) => void
 }) {
-  if (!reviewed.length) return null
   return (
-    <Disclosure summary={`Reviewed (${reviewed.length})`}>
-      <Queue>
-        {reviewed.map((o) => (
-          <NavButton key={o.key} current={o.key === current} onClick={() => open(o.key)}>
-            <span>{o.caseId}</span>
-            <Text tone="muted" size="xs">
-              {outputLine(o)}
-            </Text>
-          </NavButton>
-        ))}
-      </Queue>
+    <Disclosure summary={`Rated (${reviewed.length})`}>
+      <RatedScroll>
+        <RatedItems reviewed={reviewed} current={current} open={open} />
+      </RatedScroll>
     </Disclosure>
   )
 }
 
-/** One layer: its name, the bench score once revealed, and the good or bad toggle. */
+function RatedItems({
+  reviewed,
+  current,
+  open,
+}: {
+  reviewed: Output[]
+  current: string | null
+  open: (key: string) => void
+}) {
+  return reviewed.map((o) => (
+    <NavButton key={o.key} current={o.key === current} onClick={() => open(o.key)}>
+      <span>{o.caseId}</span>
+      <Text tone="muted" size="xs">
+        {outputLine(o)}
+      </Text>
+    </NavButton>
+  ))
+}
+
+/** A long list scrolls on its own rather than pushing the empty state off the screen. */
+function RatedScroll({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="flex max-h-80 flex-col gap-px overflow-y-auto overscroll-contain">
+      {children}
+    </div>
+  )
+}
+
+/** One layer: its name, the judge’s score once revealed, and the good or bad toggle. */
 function MarkRow({ children }: { children: React.ReactNode }) {
   return (
     <div className="grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-2.5">{children}</div>

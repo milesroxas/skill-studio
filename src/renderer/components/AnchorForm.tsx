@@ -4,7 +4,7 @@ import { api } from '../api.ts'
 import { useToggleSet } from '../hooks.ts'
 import { capital, type Output, primaryOf } from '../model.ts'
 import { CheckRow } from './forms.tsx'
-import { Fieldset, Toolbar } from './layout.tsx'
+import { Fieldset, Stack, Toolbar } from './layout.tsx'
 import { Segmented } from './Segmented.tsx'
 import { Button } from './ui/button.tsx'
 import { Input } from './ui/input.tsx'
@@ -51,7 +51,7 @@ export function AnchorForm({ output, layers, badLayers = [], about = '', onDone 
     }
   }
   return (
-    <div className="flex flex-col gap-2.5 rounded-md border bg-background p-3">
+    <Stack gap="md">
       <Segmented
         aria-label="Anchor label"
         fill
@@ -62,7 +62,7 @@ export function AnchorForm({ output, layers, badLayers = [], about = '', onDone 
       {label === 'bad' ? (
         <Fieldset
           legend="Must fail on"
-          hint="A bad anchor must score below the case's good anchor on each layer ticked."
+          hint="A bad anchor must score below the case’s good anchor on each layer ticked."
         >
           <Toolbar>
             {[...layers, 'total'].map((layer) => (
@@ -86,10 +86,16 @@ export function AnchorForm({ output, layers, badLayers = [], about = '', onDone 
         onChange={(e) => setNote(e.target.value)}
       />
       <Toolbar>
-        <Button type="button" variant="outline" disabled={busy || !primary} onClick={submit}>
-          Save anchor
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          disabled={busy || !primary}
+          onClick={submit}
+        >
+          {busy ? 'Saving…' : 'Save anchor'}
         </Button>
       </Toolbar>
-    </div>
+    </Stack>
   )
 }

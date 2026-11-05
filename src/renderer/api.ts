@@ -4,6 +4,7 @@
  */
 import type { CreateSkillInput, GenerateInput } from '@application/api/contract.ts'
 import type { AgentId } from '@domain/library.ts'
+import type { Preferences } from '@domain/preferences.ts'
 import type { BenchConfig, CaseDraft, Review, SkillDrafts, Vote } from '@domain/schemas.ts'
 import { transport } from './transport.ts'
 
@@ -52,6 +53,8 @@ export const api = {
   watchJobs: transport.watchJobs,
   settings: () => call('settings.read', {}),
   setJevKey: (value: string) => call('settings.jevKey', { value }),
+  preferences: () => call('preferences.read', {}),
+  savePreferences: (preferences: Preferences) => call('preferences.write', { preferences }),
   state: () => call('skill.state', scoped({})),
   run: (run: string) => call('skill.run', scoped({ run })),
   transcript: (run: string, sample: string) => call('skill.transcript', scoped({ run, sample })),

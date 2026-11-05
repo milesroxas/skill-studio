@@ -28,7 +28,7 @@ import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react
 import { api, currentSkill, type Job, type State, setSkill } from './api.ts'
 import { useConfirm } from './components/confirm.tsx'
 import { JobsIndicator } from './components/Jobs.tsx'
-import { EmptyState, Spacer } from './components/layout.tsx'
+import { EmptyState, Loading, Spacer } from './components/layout.tsx'
 import {
   AppFrame,
   NavItem,
@@ -42,7 +42,7 @@ import {
 } from './components/Shell.tsx'
 import { SkillSwitcher } from './components/SkillSwitcher.tsx'
 import { Toast } from './components/Toast.tsx'
-import { Heading, Hint, Text } from './components/text.tsx'
+import { Heading, Text } from './components/text.tsx'
 import { Badge } from './components/ui/badge.tsx'
 import { Button } from './components/ui/button.tsx'
 import { Popover, PopoverContent, PopoverTrigger } from './components/ui/popover.tsx'
@@ -344,13 +344,13 @@ export function App() {
   const body = (() => {
     if (screen === 'docs')
       return (
-        <Suspense fallback={<Hint>Loading the guide…</Hint>}>
+        <Suspense fallback={<Loading size="screen" />}>
           <Docs />
         </Suspense>
       )
     if (screen === 'settings')
       return (
-        <Suspense fallback={<Hint>Loading settings…</Hint>}>
+        <Suspense fallback={<Loading size="screen" />}>
           <SettingsScreen toast={toast} onSaved={reload} />
         </Suspense>
       )
@@ -359,6 +359,7 @@ export function App() {
     if (error && !state)
       return (
         <EmptyState
+          size="screen"
           title="Could not open this skill"
           actions={
             <>
@@ -374,11 +375,11 @@ export function App() {
           {error}
         </EmptyState>
       )
-    if (!ctx) return <Hint>Loading {skillPath.split('/').pop()}…</Hint>
+    if (!ctx) return <Loading size="screen" />
     switch (screen) {
       case 'edit':
         return (
-          <Suspense fallback={<EmptyState>Loading…</EmptyState>}>
+          <Suspense fallback={<Loading size="screen" />}>
             <Editor ctx={ctx} />
           </Suspense>
         )
@@ -420,7 +421,7 @@ export function App() {
                 <MenuIcon aria-hidden="true" />
               </Button>
             </PopoverTrigger>
-            <PopoverContent align="start" className="flex max-h-[80dvh] w-64 flex-col p-0 py-2">
+            <PopoverContent align="start" size="nav">
               {sidebar}
             </PopoverContent>
           </Popover>

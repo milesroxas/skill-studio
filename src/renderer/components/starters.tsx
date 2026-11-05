@@ -7,6 +7,7 @@ import { ChevronRightIcon } from 'lucide-react'
 import type { ComponentProps, ReactNode } from 'react'
 import { cn } from '../lib/utils.ts'
 import { Disclosure } from './Disclosure.tsx'
+import { Rows } from './layout.tsx'
 import { Heading, Hint, Text } from './text.tsx'
 
 export function Starter({
@@ -36,19 +37,19 @@ export interface Example {
   onPick: () => void
 }
 
-/** Finished examples to start from: one bordered list, a row per example. */
+/** Finished examples to start from: a row per example, divided by hairlines. */
 export function ExampleList({ items }: { items: Example[] }) {
   return (
-    <ul className="flex flex-col divide-y overflow-hidden rounded-lg border p-0">
+    <Rows as="ul">
       {items.map((item) => (
         <li key={item.key}>
           <button
             type="button"
-            className="group/example flex min-h-12 w-full items-center gap-3 px-3.5 py-2.5 text-left outline-none transition-colors duration-150 hover:bg-muted/60 focus-visible:bg-muted/60 focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-inset"
+            className="group/example flex min-h-12 w-full items-center gap-3 py-2.5 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-inset"
             onClick={item.onPick}
           >
             <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-              <span className="text-sm font-medium">{item.title}</span>
+              <Text weight="medium">{item.title}</Text>
               {item.sub ? (
                 <Text tone="muted" size="xs">
                   {item.sub}
@@ -57,12 +58,12 @@ export function ExampleList({ items }: { items: Example[] }) {
             </span>
             <ChevronRightIcon
               aria-hidden="true"
-              className="size-4 shrink-0 text-muted-foreground/60 group-hover/example:text-foreground"
+              className="size-4 shrink-0 text-muted-foreground/60 transition-colors duration-150 ease-out group-hover/example:text-foreground group-focus-visible/example:text-foreground"
             />
           </button>
         </li>
       ))}
-    </ul>
+    </Rows>
   )
 }
 
@@ -105,12 +106,12 @@ export interface Pair {
 /** Vague next to markable: what the judge cannot check, then what it can. */
 export function PairList({ pairs }: { pairs: readonly Pair[] }) {
   return (
-    <ul className="flex flex-col gap-3 p-0 text-xs">
+    <ul className="m-0 flex flex-col gap-3 p-0 text-xs">
       {pairs.map((pair) => (
         <li key={pair.good} className="flex flex-col gap-0.5">
-          <span className="flex items-baseline gap-2 text-muted-foreground line-through decoration-input">
+          <span className="flex items-baseline gap-2 text-muted-foreground">
             <PairMark>vague</PairMark>
-            {pair.bad}
+            <s className="decoration-input">{pair.bad}</s>
           </span>
           <span className="flex items-baseline gap-2">
             <PairMark>check</PairMark>
@@ -123,9 +124,10 @@ export function PairList({ pairs }: { pairs: readonly Pair[] }) {
   )
 }
 
+/** A small caps tag before a line. The string stays lowercase; the case is set here. */
 function PairMark({ children }: { children: ReactNode }) {
   return (
-    <span className="w-10 shrink-0 font-mono text-[10.5px] leading-relaxed font-medium tracking-[0.04em] uppercase text-muted-foreground/70 no-underline">
+    <span className="w-10 shrink-0 font-mono text-2xs font-medium tracking-wider text-muted-foreground/70 uppercase">
       {children}
     </span>
   )

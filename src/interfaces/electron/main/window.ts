@@ -4,6 +4,7 @@
  */
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
+import type { Theme } from '@domain/preferences.ts'
 import { BrowserWindow, nativeTheme, type Rectangle, screen, shell } from 'electron'
 import { APP_ORIGIN, ARTIFACT_HOST, ARTIFACT_SCHEME } from '../channels.ts'
 
@@ -13,6 +14,18 @@ const DEFAULT_BOUNDS = { width: 1280, height: 860 }
 const MIN = { width: 720, height: 480 }
 /** electron-vite writes the preload beside the main bundle, as CommonJS for the sandbox. */
 const PRELOAD = join(import.meta.dirname, '../preload/index.cjs')
+
+const background = (): string =>
+  nativeTheme.shouldUseDarkColors ? BACKGROUND.dark : BACKGROUND.light
+
+/**
+ * Put the app in a theme: native menus and dialogs follow it, and so does the
+ * page's `prefers-color-scheme`, so even the first paint is in the right colors.
+ */
+export function applyTheme(theme: Theme): void {
+  nativeTheme.themeSource = theme
+  for (const window of BrowserWindow.getAllWindows()) window.setBackgroundColor(background())
+}
 
 const isHttp = (url: string): boolean => /^https?:$/.test(new URL(url).protocol)
 
@@ -49,7 +62,7 @@ export function createWindow({ url, boundsFile }: WindowOptions): BrowserWindow 
     minWidth: MIN.width,
     minHeight: MIN.height,
     show: false,
-    backgroundColor: nativeTheme.shouldUseDarkColors ? BACKGROUND.dark : BACKGROUND.light,
+    backgroundColor: background(),
     titleBarStyle: process.platform === 'darwin' ? 'hiddenInset' : 'default',
     webPreferences: {
       preload: PRELOAD,

@@ -8,10 +8,16 @@ import { ChevronsUpDownIcon, LibraryIcon } from 'lucide-react'
 import { type KeyboardEvent, useEffect, useMemo, useRef, useState } from 'react'
 import { api } from '../api.ts'
 import { shortcut } from '../keys.ts'
-import { cn } from '../lib/utils.ts'
+import { plural } from '../model.ts'
 import { Text } from './text.tsx'
 import { Input } from './ui/input.tsx'
-import { Popover, PopoverContent, PopoverTrigger } from './ui/popover.tsx'
+import {
+  Popover,
+  PopoverContent,
+  PopoverLabel,
+  PopoverSection,
+  PopoverTrigger,
+} from './ui/popover.tsx'
 
 const MAX_SHOWN = 40
 /** A scan walks every workspace folder; one this recent is reused when the switcher reopens. */
@@ -72,7 +78,9 @@ export function SkillSwitcher({
     api.library().then(
       (library) => {
         lastScan = { at: Date.now(), skills: library.skills }
-        if (live) setSkills(library.skills)
+        if (!live) return
+        setSkills(library.skills)
+        setError(null)
       },
       (e: Error) => live && setError(e.message),
     )
@@ -112,33 +120,31 @@ export function SkillSwitcher({
       <PopoverTrigger asChild>
         <button
           type="button"
-          className="mx-2 flex min-h-11 items-center gap-2 rounded-md px-2 py-1.5 text-left outline-none transition-[background-color] duration-150 ease-out hover:bg-sidebar-accent focus-visible:ring-2 focus-visible:ring-ring/50 data-[state=open]:bg-sidebar-accent"
+          className="mx-2 flex min-h-11 items-center gap-2 rounded-md px-2 py-1.5 text-left outline-none transition-[background-color] duration-150 ease-out hover:bg-sidebar-accent focus-visible:ring-2 focus-visible:ring-ring/50 data-[state=open]:bg-sidebar-accent [&>svg]:size-4 [&>svg]:shrink-0 [&>svg]:text-muted-foreground"
         >
           <span className="flex min-w-0 flex-1 flex-col">
-            <Text weight="semibold" truncate>
+            <Text weight="semibold" truncate title={name ?? undefined}>
               {name ?? 'Open a skill'}
             </Text>
             {detail ? (
-              <Text size="xs" tone="muted" truncate tabular>
+              <Text size="xs" tone="muted" truncate tabular title={detail}>
                 {detail}
               </Text>
             ) : null}
           </span>
-          <ChevronsUpDownIcon
-            aria-hidden="true"
-            className="size-4 shrink-0 text-muted-foreground"
-          />
+          <ChevronsUpDownIcon aria-hidden="true" />
         </button>
       </PopoverTrigger>
       <PopoverContent
         align="start"
-        className="w-80 p-0 data-[state=open]:animate-none data-[state=closed]:animate-none"
+        size="menu"
+        still
         onOpenAutoFocus={(e) => {
           e.preventDefault()
           field.current?.focus()
         }}
       >
-        <div className="border-b p-2">
+        <PopoverSection>
           <Input
             ref={field}
             value={query}
@@ -154,27 +160,12 @@ export function SkillSwitcher({
             aria-controls="skill-switcher-list"
             aria-activedescendant={shown[active] ? `skill-option-${active}` : undefined}
           />
-        </div>
-        <div
-          id="skill-switcher-list"
-          role="listbox"
-          aria-label="Skills"
-          className="flex max-h-80 flex-col gap-px overflow-y-auto overscroll-contain p-1"
-        >
-          {error ? (
-            <Text size="xs" tone="destructive" className="p-2">
-              {error}
-            </Text>
-          ) : null}
-          {!skills && !error ? (
-            <Text size="xs" tone="muted" className="p-2">
-              Finding skills…
-            </Text>
-          ) : null}
+        </PopoverSection>
+        <PopoverSection scroll id="skill-switcher-list" role="listbox" aria-label="Skills">
+          {error ? <PopoverLabel role="alert">{error}</PopoverLabel> : null}
+          {!skills && !error ? <PopoverLabel role="status">Loading…</PopoverLabel> : null}
           {skills && !shown.length ? (
-            <Text size="xs" tone="muted" className="p-2">
-              No skill matches “{query.trim()}”.
-            </Text>
+            <PopoverLabel>No skill matches “{query.trim()}”.</PopoverLabel>
           ) : null}
           {shown.map((skill, i) => (
             <button
@@ -184,20 +175,18 @@ export function SkillSwitcher({
               role="option"
               aria-selected={i === active}
               tabIndex={-1}
+              title={skill.path}
               onMouseMove={() => setActive(i)}
               onClick={() => choose(skill)}
-              className={cn(
-                'flex flex-col items-start gap-0.5 rounded-md px-2 py-1.5 text-left outline-none',
-                i === active && 'bg-accent',
-              )}
+              className="flex min-h-10 flex-col items-start justify-center gap-0.5 rounded-md px-2 py-1.5 text-left outline-none aria-selected:bg-accent"
             >
               <span className="flex w-full items-baseline gap-2">
-                <Text size="sm" weight="medium" truncate className="min-w-0 flex-1">
+                <Text size="ui" weight="medium" truncate className="min-w-0 flex-1">
                   {skill.name}
                 </Text>
                 {skill.runs ? (
                   <Text size="xs" tone="faint" tabular>
-                    {skill.runs} {skill.runs === 1 ? 'run' : 'runs'}
+                    {plural(skill.runs, 'run')}
                   </Text>
                 ) : null}
               </span>
@@ -208,21 +197,21 @@ export function SkillSwitcher({
               ) : null}
             </button>
           ))}
-        </div>
-        <div className="flex items-center border-t p-1">
+        </PopoverSection>
+        <PopoverSection>
           <button
             type="button"
             onClick={() => {
               setOpen(false)
               onLibrary()
             }}
-            className="flex min-h-8 flex-1 items-center gap-2 rounded-md px-2 text-left text-[13px] outline-none hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring/50"
+            className="flex min-h-8 items-center gap-2 rounded-md px-2 text-left text-ui outline-none transition-[background-color] duration-150 ease-out hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring/50 [&_svg]:size-4 [&_svg]:text-muted-foreground"
           >
-            <LibraryIcon aria-hidden="true" className="size-4 text-muted-foreground" />
-            All skills in the library
+            <LibraryIcon aria-hidden="true" />
+            <span className="flex-1">All skills in the library</span>
+            <kbd className="font-sans text-xs text-muted-foreground">{shortcut('K')}</kbd>
           </button>
-          <kbd className="mr-2 font-sans text-xs text-muted-foreground">{shortcut('K')}</kbd>
-        </div>
+        </PopoverSection>
       </PopoverContent>
     </Popover>
   )

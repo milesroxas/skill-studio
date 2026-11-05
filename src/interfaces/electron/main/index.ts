@@ -5,6 +5,7 @@
  */
 import { join } from 'node:path'
 import { loadDotEnv } from '@infrastructure/dotenv.ts'
+import { readPreferences } from '@infrastructure/preferences.ts'
 import { app, BrowserWindow } from 'electron'
 import { APP_ORIGIN, CHANNELS } from '../channels.ts'
 import { Backend } from './backend.ts'
@@ -12,7 +13,7 @@ import { registerIpc } from './ipc.ts'
 import { installMenu } from './menu.ts'
 import { handleSchemes, registerSchemes } from './protocol.ts'
 import { JEV_KEY, KeychainSecrets } from './secrets.ts'
-import { createWindow, trustedOrigins } from './window.ts'
+import { applyTheme, createWindow, trustedOrigins } from './window.ts'
 
 const devUrl = process.env.ELECTRON_RENDERER_URL
 
@@ -40,6 +41,7 @@ else {
   }
 
   app.whenReady().then(async () => {
+    applyTheme(readPreferences().theme)
     const key = await secrets.effective()
     if (key) backend.setEnv({ [JEV_KEY]: key })
     backend.start()

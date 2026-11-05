@@ -23,6 +23,7 @@ import {
   Fieldset,
   FormActions,
   FormSection,
+  Loading,
   PlainList,
   Screen,
   Section,
@@ -75,8 +76,21 @@ export function LibraryScreen({ openSkill, toast, confirm }: Props) {
     )
   }, [data, query, place])
 
-  if (lib.error) return <Hint>{lib.error}</Hint>
-  if (!data) return <Hint>Finding skills…</Hint>
+  if (lib.error && !data)
+    return (
+      <EmptyState
+        size="screen"
+        title="Could not read the library"
+        actions={
+          <Button type="button" onClick={lib.reload}>
+            Try again
+          </Button>
+        }
+      >
+        {lib.error}
+      </EmptyState>
+    )
+  if (!data) return <Loading size="screen" />
 
   const filtering = Boolean(query.trim() || place)
   const working = data.skills.filter(isInProgress)
@@ -138,7 +152,7 @@ export function LibraryScreen({ openSkill, toast, confirm }: Props) {
       {working.length && working.length < data.skills.length && !filtering ? (
         <Section>
           <SectionHead>
-            <Heading level={3}>In progress</Heading>
+            <Heading level={2}>In progress</Heading>
             <Hint>Skills with cases or runs, and ones you opened here.</Hint>
           </SectionHead>
           <SkillTable skills={working} openSkill={openSkill} act={act} confirm={confirm} />
@@ -147,18 +161,29 @@ export function LibraryScreen({ openSkill, toast, confirm }: Props) {
 
       <Section>
         <SectionHead>
-          <Heading level={3}>{filtering ? 'Matches' : 'All skills'}</Heading>
+          <Heading level={2}>{filtering ? 'Matches' : 'All skills'}</Heading>
           <Text tone="muted" size="xs" tabular>
             {filtering ? listed.length : `${data.skills.length} in ${plural(placeCount, 'place')}`}
           </Text>
         </SectionHead>
         {listed.length ? (
           <SkillTable skills={listed} openSkill={openSkill} act={act} confirm={confirm} />
+        ) : data.skills.length ? (
+          <EmptyState size="compact" title="No matches">
+            Try another word, or every place.
+          </EmptyState>
         ) : (
-          <EmptyState size="compact">
-            {data.skills.length
-              ? 'No skill matches. Try another word, or every place.'
-              : 'No skills on this machine yet. Create the first one.'}
+          <EmptyState
+            size="compact"
+            title="No skills yet"
+            actions={
+              <Button type="button" onClick={() => setCreating(true)}>
+                New skill
+              </Button>
+            }
+          >
+            A skill is a SKILL.md an agent loads when a task calls for it. Start one here, or add a
+            folder below where your skills already live.
           </EmptyState>
         )}
       </Section>
@@ -176,7 +201,7 @@ const shortPlace = (label: string): string => {
 }
 
 const INSTALL_TITLE = {
-  here: (agent: string) => `${agent}'s skills folder holds these files`,
+  here: (agent: string) => `${agent}’s skills folder holds these files`,
   link: (agent: string) => `Installed for ${agent} by a link. Click to uninstall.`,
   copy: (agent: string) => `${agent} has its own copy. Edits here do not reach it.`,
   none: (agent: string) => `Install for ${agent}`,
@@ -241,8 +266,8 @@ function SkillTable({
                 </Text>
               ) : null}
             </TableCell>
-            <TableCell optional>
-              <Text size="xs" title={s.scopeLabel}>
+            <TableCell wrap optional>
+              <Text size="xs" wrap="anywhere" title={s.scopeLabel}>
                 {shortPlace(s.scopeLabel)}
               </Text>
               {s.source && s.source !== 'marked' ? (
@@ -264,7 +289,6 @@ function SkillTable({
                       pressed={state === 'here' || state === 'link'}
                       aria-disabled={fixed || undefined}
                       title={INSTALL_TITLE[state ?? 'none'](a.label)}
-                      className={state === 'copy' ? 'border-dashed' : undefined}
                       onPressedChange={() => fixed || toggle(s, a.id, a.label)}
                     >
                       {a.label.replace(' Code', '')}
@@ -279,7 +303,7 @@ function SkillTable({
               </Toolbar>
             </TableCell>
             <TableCell numeric optional>
-              <Text size="xs">
+              <Text size="xs" tabular>
                 {s.cases || s.runs ? (
                   `${plural(s.cases, 'case')} · ${plural(s.runs, 'run')}`
                 ) : (
@@ -288,41 +312,36 @@ function SkillTable({
               </Text>
             </TableCell>
             <TableCell numeric optional>
-              <Text size="xs">{shortDate(s.modified)}</Text>
+              <Text size="xs" tabular>
+                {shortDate(s.modified)}
+              </Text>
             </TableCell>
             <TableCell numeric>
-              <Toolbar gap="md" justify="end" wrap={false}>
-                {s.source === null || s.source === 'marked' ? (
-                  <RowAction
-                    onClick={() =>
-                      act(
-                        api.mark(s.path, !s.source),
-                        s.source ? 'Listed with your skills' : 'Hidden with installed skills',
-                      )
-                    }
-                  >
-                    {s.source ? 'Mine' : 'Not mine'}
-                  </RowAction>
-                ) : null}
-              </Toolbar>
+              {s.source === null || s.source === 'marked' ? (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  title={
+                    s.source
+                      ? 'List it with your own skills again'
+                      : 'List it with the skills installed from elsewhere'
+                  }
+                  onClick={() =>
+                    act(
+                      api.mark(s.path, !s.source),
+                      s.source ? 'Listed with your skills' : 'Listed with installed skills',
+                    )
+                  }
+                >
+                  {s.source ? 'Mine' : 'Not mine'}
+                </Button>
+              ) : null}
             </TableCell>
           </TableRow>
         ))}
       </TableBody>
     </Table>
-  )
-}
-
-/** A rare action: shown on the row being pointed at or tabbed into, always on touch. */
-function RowAction(props: React.ComponentProps<typeof Button>) {
-  return (
-    <Button
-      type="button"
-      variant="link-muted"
-      size="inline"
-      className="text-xs opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 pointer-coarse:opacity-100"
-      {...props}
-    />
   )
 }
 
@@ -380,10 +399,6 @@ function NewSkill({
     <Screen width="form">
       <SectionHead>
         <Heading level={2}>New skill</Heading>
-        <Spacer />
-        <Button type="button" variant="ghost" size="sm" onClick={cancel}>
-          Back to the library
-        </Button>
       </SectionHead>
       <form
         className="contents"
@@ -479,7 +494,7 @@ function NewSkill({
 
         <FormActions>
           <Button type="submit" disabled={busy || !name || Boolean(nameError) || taken}>
-            Create skill
+            {busy ? 'Creating…' : 'Create skill'}
           </Button>
           <Button type="button" variant="ghost" onClick={cancel}>
             Cancel
@@ -507,8 +522,9 @@ function Places({ workspaces, act }: { workspaces: string[]; act: Act }) {
                 <Text font="mono">{w}</Text>
                 <Button
                   type="button"
-                  variant="link-muted"
-                  size="inline-sm"
+                  variant="ghost"
+                  size="sm"
+                  aria-label={`Stop looking in ${w}`}
                   onClick={() =>
                     save(
                       workspaces.filter((x) => x !== w),
@@ -545,6 +561,7 @@ function Places({ workspaces, act }: { workspaces: string[]; act: Act }) {
               onChange={(e) => setAdding(e.target.value)}
             />
             <Button type="submit" variant="outline" disabled={!adding.trim()}>
+              <PlusIcon aria-hidden="true" />
               Add folder
             </Button>
           </Toolbar>

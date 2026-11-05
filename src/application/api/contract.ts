@@ -5,6 +5,7 @@
  * renderer's client types each call from here, so a change lands in both.
  */
 import type { AgentId, Library } from '@domain/library.ts'
+import type { Preferences } from '@domain/preferences.ts'
 import type { QueueItem } from '@domain/queue.ts'
 import type {
   BenchConfig,
@@ -97,6 +98,8 @@ export interface Contract {
   'jobs.list': { input: Record<string, never>; output: Job[] }
   'settings.read': { input: Record<string, never>; output: Settings }
   'settings.jevKey': { input: { value: string }; output: Settings }
+  'preferences.read': { input: Record<string, never>; output: Preferences }
+  'preferences.write': { input: { preferences: Preferences }; output: Preferences }
   'skill.state': { input: Scoped; output: State }
   'skill.run': { input: Scoped & { run: string }; output: RunView }
   'skill.transcript': { input: Scoped & { run: string; sample: string }; output: TranscriptEvent[] }

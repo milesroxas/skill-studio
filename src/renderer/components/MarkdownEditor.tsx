@@ -9,6 +9,7 @@
 import { defaultKeymap, history, historyKeymap, indentWithTab } from '@codemirror/commands'
 import { Compartment, EditorState, type StateCommand } from '@codemirror/state'
 import { drawSelection, EditorView, keymap, placeholder } from '@codemirror/view'
+import type { EditorMode } from '@domain/preferences.ts'
 import { insertAt, type Snippet } from '@domain/templates.ts'
 import { cva } from 'class-variance-authority'
 import {
@@ -26,7 +27,7 @@ import {
   StrikethroughIcon,
   TextQuoteIcon,
 } from 'lucide-react'
-import { type ReactNode, type Ref, useEffect, useImperativeHandle, useRef, useState } from 'react'
+import { type ReactNode, type Ref, useEffect, useImperativeHandle, useRef } from 'react'
 import {
   formatKeymap,
   insertLink,
@@ -39,32 +40,22 @@ import { skillMarkdown } from '../editor/language.ts'
 import { livePreview } from '../editor/live-preview.ts'
 import { editorTheme, markdownHighlighting } from '../editor/theme.ts'
 import { shortcut } from '../keys.ts'
+import { setPreferences, usePreferences } from '../preferences.ts'
 import { ColumnToolbar } from './layout.tsx'
 import { Segmented } from './Segmented.tsx'
 import { Button } from './ui/button.tsx'
 
-export type EditorMode = 'formatted' | 'markdown'
-
-const MODE_KEY = 'skill-studio:editor-mode'
-
-/** The view the writer last chose, kept in this browser only. */
-export function useEditorMode(): [EditorMode, (mode: EditorMode) => void] {
-  const [mode, setMode] = useState<EditorMode>(() => {
-    try {
-      return localStorage.getItem(MODE_KEY) === 'markdown' ? 'markdown' : 'formatted'
-    } catch {
-      return 'formatted'
-    }
-  })
-  const choose = (next: EditorMode) => {
-    setMode(next)
-    try {
-      localStorage.setItem(MODE_KEY, next)
-    } catch {
-      // Private windows can refuse storage; the choice then lasts this session.
-    }
-  }
-  return [mode, choose]
+/**
+ * The view the writer last chose, kept with their preferences so Settings
+ * shows it too. A failed store keeps the view for this session and says so.
+ */
+export function useEditorMode(
+  onError: (message: string) => void,
+): [EditorMode, (mode: EditorMode) => void] {
+  const { editorMode } = usePreferences()
+  const choose = (mode: EditorMode) =>
+    void setPreferences({ editorMode: mode }).catch((e: Error) => onError(e.message))
+  return [editorMode, choose]
 }
 
 export interface MarkdownEditorHandle {
@@ -115,9 +106,9 @@ const surfaceVariants = cva('flex flex-1 flex-col', {
   variants: {
     mode: {
       /** Prose: the app's sans at a reading size. */
-      formatted: 'font-sans text-[15px] leading-[1.7]',
+      formatted: 'font-sans text-md leading-[1.7]',
       /** Source: monospace, tabs two wide. */
-      markdown: 'font-mono text-[13px] leading-[1.6] [tab-size:2]',
+      markdown: 'font-mono text-ui leading-[1.6] [tab-size:2]',
     },
   },
 })

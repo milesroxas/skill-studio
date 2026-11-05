@@ -79,7 +79,7 @@ export function SidebarSection({ label, children }: { label?: string; children: 
 }
 
 const NAV_ITEM =
-  'group/nav flex min-h-8 w-full items-center gap-2 rounded-md px-2 text-left text-[13px] text-sidebar-foreground/75 outline-none transition-[color,background-color] duration-150 ease-out hover:bg-sidebar-accent hover:text-sidebar-foreground focus-visible:ring-2 focus-visible:ring-ring/50 aria-[current=page]:bg-sidebar-accent aria-[current=page]:text-sidebar-foreground pointer-coarse:min-h-11 [&_svg]:size-4 [&_svg]:shrink-0 [&_svg]:text-sidebar-foreground/55 aria-[current=page]:[&_svg]:text-sidebar-foreground'
+  'group/nav flex min-h-8 w-full items-center gap-2 rounded-md px-2 text-left text-ui text-sidebar-foreground/75 outline-none transition-[color,background-color] duration-150 ease-out hover:bg-sidebar-accent hover:text-sidebar-foreground focus-visible:ring-2 focus-visible:ring-ring/50 aria-[current=page]:bg-sidebar-accent aria-[current=page]:text-sidebar-foreground pointer-coarse:min-h-11 [&_svg]:size-4 [&_svg]:shrink-0 [&_svg]:text-sidebar-foreground/55 aria-[current=page]:[&_svg]:text-sidebar-foreground'
 
 /**
  * One place in the sidebar. `meta` is its status, right-aligned and tabular;

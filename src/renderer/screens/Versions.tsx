@@ -10,8 +10,10 @@ import { DiffLines } from '../components/DiffLines.tsx'
 import { Disclosure } from '../components/Disclosure.tsx'
 import { InlineField } from '../components/forms.tsx'
 import {
+  EmptyState,
   Field,
   FormSection,
+  Loading,
   Screen,
   Section,
   SectionHead,
@@ -74,7 +76,7 @@ export function Versions({ ctx }: { ctx: Ctx }) {
   }
 
   return (
-    <Screen>
+    <Screen width="form">
       {current.changed ? (
         <SaveVersion ctx={ctx} unsavedFiles={unsavedFiles} />
       ) : (
@@ -139,14 +141,14 @@ export function Versions({ ctx }: { ctx: Ctx }) {
                       {score === null ? <Text tone="faint">–</Text> : <TotalChip total={score} />}
                     </TableCell>
                     <TableCell numeric>
-                      <Toolbar gap="xs" justify="end" wrap={false}>
+                      <Toolbar gap="md" justify="end" wrap={false}>
                         <Button
                           type="button"
-                          variant="ghost"
-                          size="sm"
+                          variant="link-muted"
+                          size="inline"
                           onClick={() => go('versions', { left: v.version, right: 'current' })}
                         >
-                          Compare
+                          Changes
                         </Button>
                         <Button
                           type="button"
@@ -165,15 +167,15 @@ export function Versions({ ctx }: { ctx: Ctx }) {
             </TableBody>
           </Table>
         ) : (
-          <Hint>
-            No versions yet. Save the files above, or run them: a run names its version too.
-          </Hint>
+          <EmptyState size="compact" title="No versions yet">
+            Save the files above as one, or start a run: a run names its version too.
+          </EmptyState>
         )}
       </Section>
 
       {/* With one version and nothing changed, there is nothing to set beside it. */}
       {versions.length > 1 || (versions.length && current.changed) ? (
-        <Compare
+        <Changes
           ctx={ctx}
           left={route.params.get('left') ?? versions.at(-1)?.version ?? 'current'}
           right={route.params.get('right') ?? 'current'}
@@ -207,80 +209,72 @@ function SaveVersion({ ctx, unsavedFiles }: { ctx: Ctx; unsavedFiles: number }) 
   }
 
   return (
-    <Screen width="form">
-      <form
-        className="contents"
-        onSubmit={(e) => {
-          e.preventDefault()
-          save()
-        }}
+    <form
+      className="contents"
+      onSubmit={(e) => {
+        e.preventDefault()
+        save()
+      }}
+    >
+      <FormSection
+        title={`Save ${current.version}`}
+        hint="A copy of SKILL.md and references/ as they are on disk, to compare and restore later."
       >
-        <FormSection
-          title={`Save ${current.version}`}
-          hint="A copy of SKILL.md and references/ as they are on disk, to compare and restore later."
-        >
-          {unsavedFiles ? (
-            <Hint tone="destructive">
-              {plural(unsavedFiles, 'file')} in Write {unsavedFiles === 1 ? 'has' : 'have'} unsaved
-              changes. A version keeps the saved files only.{' '}
-              <Button
-                type="button"
-                variant="link-muted"
-                size="inline-sm"
-                onClick={() => go('edit')}
-              >
-                Go to Write
-              </Button>
-            </Hint>
-          ) : null}
-          <Field>
-            <Label htmlFor="version-name">Name</Label>
-            <Input
-              id="version-name"
-              value={name}
-              autoComplete="off"
-              placeholder="Tighter word limit"
-              onChange={(e) => setName(e.target.value)}
-            />
-          </Field>
-          <Field>
-            <Label htmlFor="version-note">What changed, and why</Label>
-            <TextArea
-              id="version-note"
-              value={note}
-              placeholder="Cut the intro rule; the judge kept flagging length."
-              onChange={(e) => setNote(e.target.value)}
-              onKeyDown={(e) => {
-                if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
-                  e.preventDefault()
-                  save()
-                }
-              }}
-            />
-          </Field>
-          <Toolbar>
-            <Button type="submit" disabled={!name.trim() || busy}>
-              {busy ? 'Saving…' : `Save as ${current.version}`}
+        {unsavedFiles ? (
+          <Hint tone="destructive">
+            {plural(unsavedFiles, 'file')} in Write {unsavedFiles === 1 ? 'has' : 'have'} unsaved
+            changes. A version keeps the saved files only.{' '}
+            <Button type="button" variant="link-muted" size="inline-sm" onClick={() => go('edit')}>
+              Go to Write
             </Button>
-          </Toolbar>
-        </FormSection>
-      </form>
-    </Screen>
+          </Hint>
+        ) : null}
+        <Field>
+          <Label htmlFor="version-name">Name</Label>
+          <Input
+            id="version-name"
+            value={name}
+            autoComplete="off"
+            placeholder="Tighter word limit"
+            onChange={(e) => setName(e.target.value)}
+          />
+        </Field>
+        <Field>
+          <Label htmlFor="version-note">What changed, and why</Label>
+          <TextArea
+            id="version-note"
+            value={note}
+            placeholder="Cut the intro rule; the judge kept flagging length."
+            onChange={(e) => setNote(e.target.value)}
+            onKeyDown={(e) => {
+              if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+                e.preventDefault()
+                save()
+              }
+            }}
+          />
+        </Field>
+        <Toolbar>
+          <Button type="submit" disabled={!name.trim() || busy}>
+            {busy ? 'Saving…' : `Save as ${current.version}`}
+          </Button>
+        </Toolbar>
+      </FormSection>
+    </form>
   )
 }
 
 /** Two versions (or the files now), diffed file by file. */
-function Compare({ ctx, left, right }: { ctx: Ctx; left: string; right: string }) {
+function Changes({ ctx, left, right }: { ctx: Ctx; left: string; right: string }) {
   const { state, route, go } = ctx
   const { versions, current } = state.versions
   const [showAll, setShowAll] = useState(false)
   const a = useFetch(() => api.skillFiles(left), [left, state.versions.current.hash])
   const b = useFetch(() => api.skillFiles(right), [right, state.versions.current.hash])
   const section = useRef<HTMLElement>(null)
-  /** The pair a Compare click asked for; empty when the reader came to the screen itself. */
+  /** The pair a Changes link asked for; empty when the reader came to the screen itself. */
   const asked = route.params.has('left') ? `${left}…${right}` : ''
 
-  // A Compare click in the history brings the diff into view.
   useEffect(() => {
     if (asked) section.current?.scrollIntoView({ block: 'start', behavior: 'smooth' })
   }, [asked])
@@ -312,9 +306,9 @@ function Compare({ ctx, left, right }: { ctx: Ctx; left: string; right: string }
       : null
 
   return (
-    <Section ref={section} className="scroll-mt-6">
+    <Section anchor ref={section}>
       <SectionHead>
-        <Heading level={2}>Compare</Heading>
+        <Heading level={2}>Changes</Heading>
       </SectionHead>
       <Toolbar>
         <InlineField label="From">
@@ -341,7 +335,7 @@ function Compare({ ctx, left, right }: { ctx: Ctx; left: string; right: string }
         </Toggle>
       </Toolbar>
       {a.error || b.error ? <Hint tone="destructive">{a.error ?? b.error}</Hint> : null}
-      {!diffs && !a.error && !b.error ? <Hint>Loading…</Hint> : null}
+      {!diffs && !a.error && !b.error ? <Loading /> : null}
       {diffs?.map(({ file, before, after, lines }) => {
         if (!lines.length && !showAll) return null
         return (

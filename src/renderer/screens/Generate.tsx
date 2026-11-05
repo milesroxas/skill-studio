@@ -5,7 +5,15 @@ import { useState } from 'react'
 import { api } from '../api.ts'
 import { CheckRow, NumberInput } from '../components/forms.tsx'
 import { JobLogs } from '../components/Jobs.tsx'
-import { Field, FormActions, FormSection, Screen, Section, Stack } from '../components/layout.tsx'
+import {
+  Field,
+  FormActions,
+  FormSection,
+  Screen,
+  Section,
+  Stack,
+  Toolbar,
+} from '../components/layout.tsx'
 import { SelectBox } from '../components/SelectBox.tsx'
 import { Heading, Hint, Text } from '../components/text.tsx'
 import { Button } from '../components/ui/button.tsx'
@@ -25,7 +33,7 @@ interface WriterRow {
 const CONFIG_HELP: Record<Configuration, string> = {
   with_skill: 'The agent has this skill installed.',
   without_skill: 'No skill installed: the baseline the skill has to beat.',
-  old_skill: "A past run's copy of the skill, to test an edit against the version before it.",
+  old_skill: 'A past run’s copy of the skill, to test an edit against the version before it.',
 }
 
 export function Generate({ ctx }: { ctx: Ctx }) {
@@ -64,7 +72,7 @@ export function Generate({ ctx }: { ctx: Ctx }) {
         note,
         grade,
       })
-      toast('Started')
+      toast(`Run started: ${plural(count, 'output')}`)
     } catch (e) {
       toast((e as Error).message)
     } finally {
@@ -95,7 +103,7 @@ export function Generate({ ctx }: { ctx: Ctx }) {
             <Hint>A short name, so you can tell versions apart later.</Hint>
           </Field>
         ) : (
-          <Text size="sm">
+          <Text size="ui">
             {current.version}
             {current.name ? ` · ${current.name}` : ''}{' '}
             <Text tone="muted">unchanged since its last run</Text>
@@ -105,18 +113,18 @@ export function Generate({ ctx }: { ctx: Ctx }) {
 
       <FormSection title="Cases" hint="Each one is written once per writer and sample.">
         {!state.cases.length ? (
-          <Hint>
-            No cases yet.{' '}
+          <Stack gap="md" align="start">
+            <Hint>No cases yet. A run needs at least one.</Hint>
             <Button
               type="button"
-              variant="link-muted"
-              size="inline-sm"
+              variant="outline"
+              size="sm"
               onClick={() => go('cases', { new: '1' })}
             >
-              Add one
-            </Button>{' '}
-            to run.
-          </Hint>
+              <PlusIcon aria-hidden="true" />
+              Add a case
+            </Button>
+          </Stack>
         ) : (
           <Stack gap="md">
             {state.cases.map((c) => (
@@ -133,7 +141,10 @@ export function Generate({ ctx }: { ctx: Ctx }) {
         )}
       </FormSection>
 
-      <FormSection title="Writers" hint="The agents that answer each case, up to four.">
+      <FormSection
+        title="Writers"
+        hint="The agents that write an output for each case, up to four."
+      >
         <Stack gap="md">
           {writers.map((w, i) => {
             const engine = engines.find((e) => e.id === w.engine)
@@ -202,7 +213,7 @@ export function Generate({ ctx }: { ctx: Ctx }) {
               </WriterGrid>
             )
           })}
-          <div>
+          <Toolbar>
             <Button
               type="button"
               variant="outline"
@@ -224,7 +235,7 @@ export function Generate({ ctx }: { ctx: Ctx }) {
               <PlusIcon aria-hidden="true" />
               Add a writer
             </Button>
-          </div>
+          </Toolbar>
           {missing.map((e) => (
             <Hint key={e.id}>
               {e.label} is not set up. {e.hint}
@@ -249,6 +260,7 @@ export function Generate({ ctx }: { ctx: Ctx }) {
           <SelectBox
             id="gen-config"
             value={configuration}
+            // The options are CONFIGURATIONS, so the value is always one of them.
             onChange={(v) => setConfiguration(v as Configuration)}
             options={CONFIGURATIONS.map((c) => ({
               value: c,
@@ -295,12 +307,12 @@ export function Generate({ ctx }: { ctx: Ctx }) {
 
       <FormActions>
         <Button type="button" disabled={busy || !cases.size || !writers.length} onClick={submit}>
-          Start run: {plural(count, 'output')}
+          {busy ? 'Starting…' : 'Start a run'}
         </Button>
         <Hint>
           {!cases.size
             ? 'Pick at least one case.'
-            : `${plural(cases.size, 'case')} × ${plural(writers.length, 'writer')} × ${plural(samples, 'sample')}`}
+            : `${plural(cases.size, 'case')} × ${plural(writers.length, 'writer')} × ${plural(samples, 'sample')} = ${plural(count, 'output')}`}
         </Hint>
       </FormActions>
 
@@ -314,7 +326,10 @@ export function Generate({ ctx }: { ctx: Ctx }) {
   )
 }
 
-/** Agent, model, effort and the remove button in one row; on a narrow window they wrap two per line. */
+/**
+ * Agent, model, effort and remove in one row; on a narrow window they wrap two
+ * per line. The last column is the 36px remove button.
+ */
 function WriterGrid({ children }: { children: React.ReactNode }) {
   return (
     <div className="grid grid-cols-2 gap-2 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_36px]">

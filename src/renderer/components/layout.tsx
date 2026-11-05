@@ -14,9 +14,11 @@
  * compose these and never reach for a utility class.
  */
 import { cva, type VariantProps } from 'class-variance-authority'
+import { PlusIcon } from 'lucide-react'
 import type { ComponentProps, HTMLAttributes, ReactNode } from 'react'
 import { cn } from '../lib/utils.ts'
-import { Heading, Hint } from './text.tsx'
+import { Heading, Hint, Text } from './text.tsx'
+import { Button } from './ui/button.tsx'
 
 const screenVariants = cva('flex w-full flex-col gap-10', {
   variants: {
@@ -41,8 +43,20 @@ export function Screen({
   return <div className={cn(screenVariants({ width }), className)} {...props} />
 }
 
-export function Section({ className, ...props }: ComponentProps<'section'>) {
-  return <section className={cn('flex flex-col gap-3', className)} {...props} />
+const sectionVariants = cva('flex flex-col gap-3', {
+  variants: {
+    /** Scrolled to from a link: lands with room above it rather than flush under the pane's edge. */
+    anchor: { true: 'scroll-mt-6', false: '' },
+  },
+  defaultVariants: { anchor: false },
+})
+
+export function Section({
+  anchor,
+  className,
+  ...props
+}: ComponentProps<'section'> & VariantProps<typeof sectionVariants>) {
+  return <section className={cn(sectionVariants({ anchor }), className)} {...props} />
 }
 
 /** A heading with what sits beside it: a count, a hint, an action at the far end. */
@@ -180,6 +194,44 @@ export function ColumnTitle({ className, ...props }: ComponentProps<'div'>) {
       )}
       {...props}
     />
+  )
+}
+
+/** A list column's header: what the list holds, how many, and the button that adds one. */
+export function ListHeader({
+  title,
+  count,
+  addLabel,
+  onAdd,
+  addDisabled,
+}: {
+  title: string
+  count: number
+  addLabel: string
+  onAdd: () => void
+  addDisabled?: boolean
+}) {
+  return (
+    <ColumnHeader inset="list">
+      <Heading level={3} as="h2">
+        {title}
+      </Heading>
+      <Text tone="muted" size="xs" tabular>
+        {count}
+      </Text>
+      <Spacer />
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon-sm"
+        aria-label={addLabel}
+        title={addLabel}
+        disabled={addDisabled}
+        onClick={onAdd}
+      >
+        <PlusIcon aria-hidden="true" />
+      </Button>
+    </ColumnHeader>
   )
 }
 
@@ -415,17 +467,27 @@ export function Fieldset({
   )
 }
 
-const emptyVariants = cva('flex flex-col items-center gap-2 px-4 text-center', {
+const emptyVariants = cva('flex flex-col items-center px-4 text-center', {
   variants: {
     size: {
-      default: 'py-14',
-      compact: 'py-8',
+      /**
+       * The whole screen has nothing to show. It fills the pane and sits a little
+       * above its middle, so it lands in the same place in a padded page and in a
+       * flush workbench. Return it in place of the screen, never inside one.
+       */
+      screen: 'min-h-full flex-1 justify-center gap-2 pt-10 pb-[calc(2.5rem+8vh)]',
+      /** A part of a screen, such as a column or a section, is empty. */
+      default: 'gap-2 py-14',
+      compact: 'gap-2 py-8',
     },
   },
   defaultVariants: { size: 'default' },
 })
 
-/** Nothing here yet: say why, and offer the step that fills it. */
+/**
+ * Nothing here yet: say why, and offer the step that fills it. The step that
+ * fills it is the default button; a second way out is outline.
+ */
 export function EmptyState({
   size,
   title,
@@ -444,11 +506,43 @@ export function EmptyState({
   return (
     <div className={cn(emptyVariants({ size }), className)} {...props}>
       {title ? <Heading level={2}>{title}</Heading> : null}
-      <Hint measure="narrow">{children}</Hint>
-      {actions ? <Toolbar className="mt-2 justify-center">{actions}</Toolbar> : null}
-      {more ? <div className="mt-4 w-full max-w-sm text-left">{more}</div> : null}
+      {children ? (
+        <Text as="p" size="ui" tone="muted" className="max-w-[46ch] text-pretty">
+          {children}
+        </Text>
+      ) : null}
+      {actions ? <Toolbar className="mt-3 justify-center">{actions}</Toolbar> : null}
+      {more ? <div className="mt-6 w-full max-w-sm text-left">{more}</div> : null}
     </div>
   )
+}
+
+/**
+ * Something is on its way. `screen` stands in for a whole screen, in the same
+ * place as a screen-sized `EmptyState`; `inline` stands in for one part of it.
+ */
+export function Loading({ size = 'inline' }: { size?: 'screen' | 'inline' }) {
+  return size === 'screen' ? (
+    <EmptyState size="screen" role="status">
+      Loading…
+    </EmptyState>
+  ) : (
+    <Hint inset role="status">
+      Loading…
+    </Hint>
+  )
+}
+
+/**
+ * Records in a column, such as the steps of a transcript: divided by hairlines
+ * and ruled above and below, never boxed. Each row brings its own padding.
+ */
+export function Rows({
+  as: Comp = 'ol',
+  className,
+  ...props
+}: HTMLAttributes<HTMLElement> & { as?: 'ol' | 'ul' | 'div' }) {
+  return <Comp className={cn('m-0 flex flex-col divide-y border-y p-0', className)} {...props} />
 }
 
 const plainListVariants = cva('flex flex-col p-0', {

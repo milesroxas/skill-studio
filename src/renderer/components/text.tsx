@@ -6,13 +6,11 @@ import { cn } from '../lib/utils.ts'
 const headingVariants = cva('m-0 font-semibold text-balance', {
   variants: {
     level: {
-      /**
-       * The screen's name in the top bar: set in the reading serif the outputs use,
-       * the one place the tool's own chrome speaks in it.
-       */
-      page: 'font-serif text-[19px] leading-tight tracking-[-0.01em]',
-      1: 'text-3xl leading-tight tracking-[-0.022em]',
-      2: 'text-base tracking-[-0.012em]',
+      /** The screen's name in the top bar: the reading size, set firm. */
+      page: 'text-md leading-tight',
+      1: 'text-3xl',
+      /** A screen's sections and its empty states. */
+      2: 'text-base',
       /** A group of fields or a part of a column: a step above the labels inside it. */
       3: 'text-sm',
     },
@@ -35,7 +33,7 @@ export function Heading({
   return <Comp className={cn(headingVariants({ level }), className)} {...props} />
 }
 
-const hintVariants = cva('m-0 text-xs text-muted-foreground', {
+const hintVariants = cva('m-0 text-xs text-pretty text-muted-foreground', {
   variants: {
     tone: {
       default: '',
@@ -83,11 +81,11 @@ const textVariants = cva('', {
     },
     font: {
       sans: '',
-      mono: 'font-mono text-[0.92em]',
+      mono: 'font-mono text-code',
     },
     size: {
       inherit: '',
-      sm: 'text-[13px]',
+      ui: 'text-ui',
       xs: 'text-xs',
     },
     weight: {
@@ -168,7 +166,7 @@ export function Text({
 
 /** A monospace code span inside running text. */
 export function Code({ className, ...props }: HTMLAttributes<HTMLElement>) {
-  return <code className={cn('font-mono text-[0.92em]', className)} {...props} />
+  return <code className={cn('font-mono text-code', className)} {...props} />
 }
 
 /** Text for assistive technology only. */

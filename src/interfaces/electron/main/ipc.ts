@@ -11,11 +11,12 @@ import {
   record,
   type SecretStore,
 } from '@application/api/operations.ts'
+import { preferencesOf } from '@domain/preferences.ts'
 import type { Settings } from '@domain/views.ts'
 import { BrowserWindow, type IpcMainInvokeEvent, ipcMain, shell } from 'electron'
 import { CHANNELS } from '../channels.ts'
 import type { Backend } from './backend.ts'
-import { openArtifactWindow } from './window.ts'
+import { applyTheme, openArtifactWindow } from './window.ts'
 
 export interface IpcDeps {
   backend: Backend
@@ -46,7 +47,12 @@ export function registerIpc({ backend, secrets, trusted }: IpcDeps): void {
   ipcMain.handle(CHANNELS.call, async (event, name: unknown, input: unknown) => {
     if (!isTrusted(event, trusted)) return fail(new Error('Refused: unknown sender.'))
     if (!isOperation(name)) return fail(new Error(`No operation ${String(name)}.`))
-    if (!isShellOperation(name)) return backend.call(name, input)
+    if (!isShellOperation(name)) {
+      const reply = await backend.call(name, input)
+      // The backend stores preferences; the theme is the shell's to apply.
+      if (name === 'preferences.write' && reply.ok) applyTheme(preferencesOf(reply.value).theme)
+      return reply
+    }
     try {
       return ok(await shellCall(name, input))
     } catch (error) {

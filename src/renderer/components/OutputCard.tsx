@@ -52,7 +52,7 @@ export function OutputCardHead({
 }
 
 const slotVariants = cva(
-  'inline-grid h-5 min-w-5 place-items-center rounded-xs border px-1.25 font-mono text-[11px] leading-none font-semibold',
+  'inline-grid h-5 min-w-5 place-items-center rounded-xs border px-1.25 font-mono text-2xs leading-none font-semibold',
   {
     variants: {
       variant: {

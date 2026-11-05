@@ -3,17 +3,25 @@
  * warm paper neutrals (hue 85) around one ink color as the primary. Green,
  * amber and red stay reserved for verdicts, so color only ever says how good
  * something is. The sidebar is the desk, a step darker than the page it holds.
- * Dark follows the system with the lightness roles remapped and the hue held:
- * the page stays the brightest surface, borders turn solid and shadows collapse
- * to a ring. The output under review keeps a serif reading face so it never
- * reads as part of the tool.
+ * Dark remaps the lightness roles and holds the hue: the page stays the
+ * brightest surface, borders turn solid and shadows collapse to a ring.
+ * Two faces only: Geist for everything read, Geist Mono for code and paths.
  */
 @import "tailwindcss";
 @import "tw-animate-css";
 
+/*
+ * The theme is the person's choice, set on <html> as data-theme by
+ * preferences.ts. Until that runs, the system's setting decides.
+ */
 @custom-variant dark {
-  @media (prefers-color-scheme: dark) {
+  &:where([data-theme="dark"], [data-theme="dark"] *) {
     @slot;
+  }
+  @media (prefers-color-scheme: dark) {
+    &:where(:root:not([data-theme]), :root:not([data-theme]) *) {
+      @slot;
+    }
   }
 }
 
@@ -52,8 +60,8 @@
   color-scheme: light;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
+:root {
+  @variant dark {
     --background: oklch(0.17 0.004 85);
     --foreground: oklch(0.95 0.004 85);
     --card: oklch(0.2 0.004 85);
@@ -114,13 +122,58 @@
   --radius-xl: calc(var(--radius) * 1.5);
   --font-sans: "Geist Variable", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
   --font-mono: "Geist Mono Variable", ui-monospace, "SF Mono", Menlo, monospace;
-  --font-serif: Charter, "Iowan Old Style", "Source Serif Pro", Georgia, serif;
   --shadow-raised: var(--elevation-raised);
   --shadow-popover: var(--elevation-popover);
   /* A strong ease-out: movement starts at once and settles. */
   --ease-out-strong: cubic-bezier(0.23, 1, 0.32, 1);
   --z-index-popover: 50;
   --z-index-toast: 400;
+}
+
+/*
+ * The type scale. Every size in the app is one of these steps; a size outside
+ * them needs a reason. Line heights follow the role: open for reading, tighter
+ * as type grows. Large steps carry their own negative tracking.
+ *
+ *   2xs   11  mono chips and chart ticks, never running text
+ *   xs    12  hints, captions, meta beside a value
+ *   ui    13  dense chrome: the sidebar, labels, menus, table cells
+ *   sm    14  the app's body text and controls
+ *   md    15  reading: outputs, the guide, the formatted editor; page titles
+ *   base  16  section headings; inputs on phones (never smaller there)
+ *   lg    18  dialog titles, a lead paragraph
+ *   xl    21  document headings
+ *   2xl   26  the guide's title on small screens
+ *   3xl   30  the guide's title
+ *   code  0.9em  monospace inside running text, sized to its sans neighbours
+ */
+@theme {
+  --text-*: initial;
+  --text-2xs: 0.6875rem;
+  --text-2xs--line-height: 1rem;
+  --text-xs: 0.75rem;
+  --text-xs--line-height: 1.125rem;
+  --text-ui: 0.8125rem;
+  --text-ui--line-height: 1.25rem;
+  --text-sm: 0.875rem;
+  --text-sm--line-height: 1.25rem;
+  --text-md: 0.9375rem;
+  --text-md--line-height: 1.5rem;
+  --text-base: 1rem;
+  --text-base--line-height: 1.5rem;
+  --text-lg: 1.125rem;
+  --text-lg--line-height: 1.625rem;
+  --text-lg--letter-spacing: -0.008em;
+  --text-xl: 1.3125rem;
+  --text-xl--line-height: 1.75rem;
+  --text-xl--letter-spacing: -0.014em;
+  --text-2xl: 1.625rem;
+  --text-2xl--line-height: 2rem;
+  --text-2xl--letter-spacing: -0.019em;
+  --text-3xl: 1.875rem;
+  --text-3xl--line-height: 2.25rem;
+  --text-3xl--letter-spacing: -0.022em;
+  --text-code: 0.9em;
 }
 
 @layer base {
@@ -191,16 +244,25 @@
     app-region: no-drag;
     -webkit-app-region: no-drag;
   }
-  @media (prefers-reduced-motion: reduce) {
-    *,
-    ::before,
-    ::after {
-      /* biome-ignore lint/complexity/noImportantStyles: must win over every transition utility */
-      animation-duration: 0.01ms !important;
-      /* biome-ignore lint/complexity/noImportantStyles: must win over every transition utility */
-      transition-duration: 0.01ms !important;
-    }
-  }
+}
+
+/*
+ * Unlayered, so they beat every transition utility without !important.
+ * data-motion is "reduced" when the person or the system asks for less
+ * movement; data-switching holds transitions for the frame a theme lands in,
+ * so colors change at once rather than each at its own pace.
+ */
+:root[data-motion="reduced"] *,
+:root[data-motion="reduced"] ::before,
+:root[data-motion="reduced"] ::after {
+  animation-duration: 0.01ms;
+  animation-iteration-count: 1;
+  transition-duration: 0.01ms;
+}
+:root[data-switching] *,
+:root[data-switching] ::before,
+:root[data-switching] ::after {
+  transition: none;
 }
 
 /*
@@ -208,21 +270,21 @@
  * elements take their styles from here rather than from a component.
  */
 @layer components {
-  /* An agent's answer: a serif reading column. */
+  /* An agent's answer: a reading column. */
   .doc {
-    @apply max-w-[68ch] px-6 pt-5 pb-2 font-serif text-base leading-relaxed;
+    @apply max-w-[68ch] px-6 pt-5 pb-2 text-md leading-[1.65];
   }
   .doc :is(h1, h2, h3, h4) {
-    @apply font-serif text-balance;
+    @apply font-semibold text-balance;
   }
   .doc h1 {
-    @apply mt-1 mb-3.5 text-2xl leading-tight;
+    @apply mt-1 mb-3 text-xl;
   }
   .doc h2 {
-    @apply mt-6 mb-2 text-lg;
+    @apply mt-7 mb-2 text-lg;
   }
   .doc :is(h3, h4) {
-    @apply mt-5 mb-1.5 text-base;
+    @apply mt-5 mb-1.5 text-md;
   }
   .doc :is(p, ul, ol, blockquote, pre, table, .aside) {
     @apply mb-4;
@@ -243,16 +305,16 @@
     @apply rounded-sm bg-muted px-3 py-2.5 font-mono text-xs whitespace-pre-wrap break-words;
   }
   .doc code {
-    @apply font-mono text-[0.82em];
+    @apply font-mono text-code;
   }
   .doc table {
-    @apply border-collapse font-sans text-[13px] leading-snug;
+    @apply border-collapse text-ui;
   }
   .doc :is(th, td) {
     @apply border border-input px-2 py-1 text-left;
   }
   .doc .check {
-    @apply rounded-xs bg-warning/10 px-1 font-sans text-xs text-warning;
+    @apply rounded-xs bg-warning/10 px-1 text-xs text-warning;
   }
   .doc .aside {
     @apply text-muted-foreground;
@@ -260,7 +322,7 @@
 
   /* A word diff of two answers. */
   .diff {
-    @apply max-w-[68ch] px-6 py-5 font-serif text-base leading-relaxed whitespace-pre-wrap;
+    @apply max-w-[68ch] px-6 py-5 text-md leading-[1.65] whitespace-pre-wrap;
   }
   .diff del {
     @apply bg-destructive/10 text-destructive line-through;
@@ -284,23 +346,23 @@
   }
 
   /*
-   * The guide. A reading page, not a tool screen: sans at 15px with a 70ch
-   * measure and sections a long scroll apart.
+   * The guide. A reading page, not a tool screen: the reading size with a
+   * 70ch measure and sections a long scroll apart.
    */
   .guide-body {
-    @apply min-w-0 text-[15px] leading-[1.7] text-foreground;
+    @apply min-w-0 text-md leading-[1.7] text-foreground;
   }
   .guide-body h1 {
-    @apply mb-3 text-3xl leading-tight font-semibold tracking-[-0.022em] text-balance;
+    @apply mb-3 text-3xl font-semibold text-balance;
   }
   .guide-body h2 {
-    @apply mt-14 mb-3.5 scroll-mt-6 border-t pt-8 text-[21px] leading-snug font-semibold tracking-[-0.016em];
+    @apply mt-14 mb-3.5 scroll-mt-6 border-t pt-8 text-xl font-semibold;
   }
   .guide-body h3 {
-    @apply mt-8 mb-2 text-base font-semibold tracking-[-0.008em];
+    @apply mt-8 mb-2 text-base font-semibold;
   }
   .guide-body > p:first-of-type {
-    @apply text-[17px] leading-relaxed text-muted-foreground;
+    @apply text-lg leading-relaxed text-muted-foreground text-pretty;
   }
   .guide-body :is(p, ul, ol) {
     @apply mb-4;
@@ -327,10 +389,10 @@
     @apply text-foreground underline decoration-input underline-offset-3 transition-colors hover:decoration-current;
   }
   .guide-body code {
-    @apply rounded-xs border bg-muted px-1 py-px font-mono text-[0.86em];
+    @apply rounded-xs border bg-muted px-1 py-px font-mono text-code;
   }
   .guide-body pre {
-    @apply mb-5 rounded-lg border bg-muted px-4 py-3.5 font-mono text-[13px] leading-relaxed whitespace-pre-wrap break-words;
+    @apply mb-5 rounded-lg border bg-muted px-4 py-3.5 font-mono text-ui leading-relaxed whitespace-pre-wrap break-words;
   }
   .guide-body pre code {
     @apply border-0 bg-transparent p-0 text-inherit;
@@ -342,7 +404,7 @@
     @apply my-1 mb-6 overflow-x-auto rounded-lg border bg-card overscroll-x-contain;
   }
   .guide-table table {
-    @apply w-full border-collapse text-[13.5px] leading-normal;
+    @apply w-full border-collapse text-ui;
   }
   .guide-table :is(th, td) {
     @apply border-b px-3.5 py-2.5 text-left align-top;
@@ -358,10 +420,10 @@
   }
   @media (max-width: 900px) {
     .guide-body h1 {
-      @apply text-[26px];
+      @apply text-2xl;
     }
     .guide-body h2 {
-      @apply mt-10 pt-6 text-[19px];
+      @apply mt-10 pt-6 text-lg;
     }
   }
   /* The header scrolls away on narrow screens, so sections need no room for it. */

@@ -26,7 +26,11 @@ export function useRoute(): [Route, (screen: string, params?: Record<string, str
   return [route, go]
 }
 
-/** A value fetched once per `deps`, with its error. */
+/**
+ * A value fetched once per `deps`, with its error. The last value stays in
+ * view while the next one loads, so a refresh never flashes; a success clears
+ * an earlier error.
+ */
 export function useFetch<T>(
   load: () => Promise<T>,
   deps: unknown[],
@@ -38,7 +42,11 @@ export function useFetch<T>(
   useEffect(() => {
     let live = true
     load().then(
-      (value) => live && setData(value),
+      (value) => {
+        if (!live) return
+        setData(value)
+        setError(null)
+      },
       (e: Error) => live && setError(e.message),
     )
     return () => {

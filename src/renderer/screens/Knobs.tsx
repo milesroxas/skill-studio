@@ -1,7 +1,8 @@
-/** The bench knobs: weights, thresholds, packs and pack keys. Every output rescores as they move. */
+/** The scoring settings: weights, thresholds, packs and pack keys. Every output rescores as they move. */
 import { DEFAULT_CONFIG } from '@domain/config.ts'
 import type { BenchConfig } from '@domain/schemas.ts'
 import { scorers } from '@judges/scorers.ts'
+import { useState } from 'react'
 import { api } from '../api.ts'
 import { Disclosure } from '../components/Disclosure.tsx'
 import { CheckRow, Knob } from '../components/forms.tsx'
@@ -14,11 +15,12 @@ import {
   ColumnTitle,
   EmptyState,
   List,
+  Spacer,
   Stack,
   Workbench,
 } from '../components/layout.tsx'
 import { Delta, TotalChip } from '../components/Scores.tsx'
-import { Heading, Hint, Text } from '../components/text.tsx'
+import { Code, Heading, Hint, Text } from '../components/text.tsx'
 import { Button } from '../components/ui/button.tsx'
 import {
   Table,
@@ -54,7 +56,8 @@ const PACK_KNOBS: Array<{ pack: string; key: string; defaults: KnobValue }> = sc
 )
 
 export function Knobs({ ctx }: { ctx: Ctx }) {
-  const { state, config, setConfig, outputs, toast, reload } = ctx
+  const { state, config, setConfig, outputs, toast, confirm, reload } = ctx
+  const [busy, setBusy] = useState(false)
   const saved = mergedConfig(state.savedConfig)
   const layers = layersOf(config)
   const dirty = JSON.stringify(config) !== JSON.stringify(saved)
@@ -70,13 +73,27 @@ export function Knobs({ ctx }: { ctx: Ctx }) {
     setConfig(mergedConfig({ ...config, packs }))
   }
   const save = async () => {
+    setBusy(true)
     try {
       const { saved: path } = await api.config(config)
       toast(`Saved ${path}`)
       await reload()
     } catch (e) {
       toast((e as Error).message)
+    } finally {
+      setBusy(false)
     }
+  }
+  const discard = async () => {
+    if (
+      await confirm({
+        title: 'Discard your scoring changes?',
+        description: `The settings go back to what ${state.paths.bench} holds.`,
+        action: 'Discard',
+        destructive: true,
+      })
+    )
+      setConfig(saved)
   }
   const knobs = Object.entries(config).flatMap(([key, value]) =>
     !RESERVED.has(key) && isKnob(value)
@@ -122,7 +139,7 @@ export function Knobs({ ctx }: { ctx: Ctx }) {
             </Table>
           ) : (
             <EmptyState size="compact" title="No graded outputs yet">
-              Run the skill with grading on, and every output shows here under these settings.
+              Start a run with grading on, and every output shows here under these settings.
             </EmptyState>
           )}
         </ColumnBody>
@@ -249,7 +266,11 @@ export function Knobs({ ctx }: { ctx: Ctx }) {
             }`}
           >
             <Stack>
-              {config.rules ? null : <Hint>Set "rules" in bench.json to choose them by hand.</Hint>}
+              {config.rules ? null : (
+                <Hint>
+                  Set <Code>rules</Code> in <Code>bench.json</Code> to choose them by hand.
+                </Hint>
+              )}
               <List variant="number" size="xs">
                 {state.rules.map((r) => (
                   <li key={r.id}>
@@ -262,21 +283,18 @@ export function Knobs({ ctx }: { ctx: Ctx }) {
         </ColumnSection>
 
         <ColumnFooter inset="inspector">
-          <Text tone="muted" size="xs" truncate className="min-w-0 flex-1">
+          <Button type="button" size="sm" disabled={!dirty || busy} onClick={save}>
+            {busy ? 'Saving…' : 'Save'}
+          </Button>
+          {dirty ? (
+            <Button type="button" variant="ghost" size="sm" disabled={busy} onClick={discard}>
+              Discard
+            </Button>
+          ) : null}
+          <Spacer />
+          <Text tone="muted" size="xs" title={state.paths.bench}>
             {dirty ? 'Unsaved changes' : `Saved in ${state.paths.bench}`}
           </Text>
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            disabled={!dirty}
-            onClick={() => setConfig(saved)}
-          >
-            Discard
-          </Button>
-          <Button type="button" size="sm" disabled={!dirty} onClick={save}>
-            Save
-          </Button>
         </ColumnFooter>
       </Column>
     </Workbench>

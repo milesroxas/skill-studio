@@ -1,6 +1,7 @@
 /** Runs against cases: totals per cell, cost and time per run, versions, cases. */
 
 import { mean } from '@domain/stats.ts'
+import { cva } from 'class-variance-authority'
 import { ChevronRightIcon } from 'lucide-react'
 import { Fragment, useState } from 'react'
 import { api } from '../api.ts'
@@ -56,11 +57,12 @@ export function Overview({ ctx }: { ctx: Ctx }) {
   if (!runs.length)
     return (
       <EmptyState
+        size="screen"
         title="No runs yet"
         actions={
           state.cases.length ? (
             <Button type="button" onClick={() => go('generate')}>
-              Start the first run
+              Start a run
             </Button>
           ) : (
             <Button type="button" onClick={() => go('cases', { new: '1' })}>
@@ -70,7 +72,7 @@ export function Overview({ ctx }: { ctx: Ctx }) {
         }
       >
         A run has an agent answer each case with {state.skill.name} installed, then grades the
-        answers.{' '}
+        outputs.{' '}
         {state.cases.length
           ? `${state.cases.length === 1 ? 'One case is' : `${state.cases.length} cases are`} ready.`
           : 'Write a case first.'}
@@ -81,7 +83,7 @@ export function Overview({ ctx }: { ctx: Ctx }) {
     <Screen>
       <Section>
         <Hint>
-          Each cell is a case's mean score out of 100. Click a score to read the answers, or a run
+          Each cell is a case’s mean score out of 100. Open a score to compare its outputs, or a run
           for its details.
         </Hint>
         <Table>
@@ -115,15 +117,10 @@ export function Overview({ ctx }: { ctx: Ctx }) {
                         variant="link"
                         size="inline"
                         aria-expanded={open}
-                        title={`${run.name}: ${open ? 'hide' : 'show'} its samples`}
+                        title={`${run.name}: ${open ? 'hide' : 'show'} its outputs`}
                         onClick={() => setOpenRun(open ? null : run.name)}
                       >
-                        <ChevronRightIcon
-                          aria-hidden="true"
-                          className={
-                            open ? 'rotate-90 transition-transform' : 'transition-transform'
-                          }
-                        />
+                        <ChevronRightIcon aria-hidden="true" className={chevron({ open })} />
                         {runLabel(run)}
                       </Button>
                       <Text block tone="muted" size="xs">
@@ -146,7 +143,7 @@ export function Overview({ ctx }: { ctx: Ctx }) {
                             type="button"
                             variant="ghost"
                             size="cell"
-                            title={`Read ${c} from this run`}
+                            title={`Compare ${c} from this run`}
                             onClick={() => go('compare', { a: cell[0].key })}
                           >
                             {total === null ? (
@@ -188,6 +185,11 @@ export function Overview({ ctx }: { ctx: Ctx }) {
   )
 }
 
+/** Points right while a run is closed, down while it is open. */
+const chevron = cva('transition-transform duration-150 ease-out-strong', {
+  variants: { open: { true: 'rotate-90', false: '' } },
+})
+
 function RunDetail({
   ctx,
   run,
@@ -218,7 +220,7 @@ function RunDetail({
             go('versions', { left: view.meta?.skillVersion ?? 'current', right: 'current' })
           }
         >
-          Compare skill with now
+          Changes since this run
         </Button>
         <Button type="button" variant="outline" size="sm" onClick={() => regrade(run)}>
           {state.jevKey ? 'Regrade' : 'Regrade with code checks'}
@@ -232,7 +234,7 @@ function RunDetail({
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead>Sample</TableHead>
+            <TableHead>Output</TableHead>
             <TableHead numeric>Total</TableHead>
             <TableHead numeric>Words</TableHead>
             <TableHead numeric>Cost</TableHead>
@@ -274,7 +276,7 @@ function RunDetail({
                       size="inline"
                       onClick={() => go('compare', { a: o.key })}
                     >
-                      Read
+                      Compare
                     </Button>
                     {o.sample.hasTranscript ? (
                       <Button

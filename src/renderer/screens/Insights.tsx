@@ -1,4 +1,5 @@
-/** Your marks against the bench, per layer: what to change, the skill or the benchmark. */
+/** Your marks against the judge, per layer: what to change, the skill or the scoring. */
+import type { Vote } from '@domain/schemas.ts'
 import { mean, spearman } from '@domain/stats.ts'
 import { useState } from 'react'
 import { EmptyState, Screen, Section, SectionHead, Stack } from '../components/layout.tsx'
@@ -20,6 +21,7 @@ import {
   layersOf,
   type Output,
   outputByKey,
+  plural,
   reviewOf,
   runLabel,
   runStamp,
@@ -29,11 +31,14 @@ import {
 
 type Bucket = 'bothGood' | 'bothBad' | 'missed' | 'harsh'
 const BUCKETS: Array<[Bucket, string, string]> = [
-  ['bothGood', 'Both good', 'You good, bench good'],
-  ['bothBad', 'Both bad', 'You bad, bench low: the skill'],
-  ['missed', 'Bench missed', 'You bad, bench high: the benchmark missed it'],
-  ['harsh', 'Too harsh', 'You good, bench low: the benchmark is too harsh'],
+  ['bothGood', 'Both good', 'You good, judge high'],
+  ['bothBad', 'Both bad', 'You bad, judge low: the skill falls short'],
+  ['missed', 'Judge missed', 'You bad, judge high: the scoring missed it'],
+  ['harsh', 'Too harsh', 'You good, judge low: the scoring is too harsh'],
 ]
+
+/** How a side of a pair reads in a sentence. */
+const SIDE = { a: 'A', b: 'B', tie: 'a tie' } as const
 
 export function Insights({ ctx }: { ctx: Ctx }) {
   const { state, config, outputs, go } = ctx
@@ -64,7 +69,7 @@ export function Insights({ ctx }: { ctx: Ctx }) {
     rated.map((r) => r.total),
   )
   const prefs = state.reviews.preferences.filter((p) => p.by === 'human')
-  // A vote can name an output whose run is gone; it then has no bench side.
+  // A vote can name an output whose run is gone; it then has no judge side.
   const totalByKey = (key: string) => {
     const output = outputByKey(outputs, key)
     return output ? totalOf(output, config) : null
@@ -72,8 +77,9 @@ export function Insights({ ctx }: { ctx: Ctx }) {
   const prefRows = prefs.map((p) => {
     const sa = totalByKey(p.a)
     const sb = totalByKey(p.b)
-    const bench = sa === null || sb === null ? null : sa === sb ? 'tie' : sa > sb ? 'a' : 'b'
-    return { p, bench, agree: bench === p.vote }
+    const judge: Vote | null =
+      sa === null || sb === null ? null : sa === sb ? 'tie' : sa > sb ? 'a' : 'b'
+    return { p, judge, agree: judge === p.vote }
   })
   const agreed = prefRows.filter((r) => r.agree).length
   const marked = Object.values(cells).some((c) => Object.values(c).some((l) => l.length))
@@ -81,14 +87,15 @@ export function Insights({ ctx }: { ctx: Ctx }) {
   if (!marked && !rated.length && !prefs.length)
     return (
       <EmptyState
-        title="No reviews yet"
+        size="screen"
+        title="No ratings yet"
         actions={
           <Button type="button" onClick={() => go('blind')}>
-            Start a blind review
+            Rate blind
           </Button>
         }
       >
-        Once you rate some answers, this shows where you and the judge disagree, and whether to
+        Once you rate some outputs, this shows where you and the judge disagree, and whether to
         change the skill or the scoring.
       </EmptyState>
     )
@@ -98,7 +105,7 @@ export function Insights({ ctx }: { ctx: Ctx }) {
       {marked ? (
         <Section>
           <SectionHead>
-            <Heading level={2}>Your marks against the bench</Heading>
+            <Heading level={2}>Your marks against the judge</Heading>
             <Hint>
               A layer score of {at} or more counts as good. Open a count to list those outputs.
             </Hint>
@@ -166,13 +173,13 @@ export function Insights({ ctx }: { ctx: Ctx }) {
             if (wrong && wrong >= c.bothBad.length)
               return (
                 <Alert key={layer} variant="warning">
-                  <AlertTitle>{capital(layer)}: tune the benchmark</AlertTitle>
+                  <AlertTitle>{capital(layer)}: tune the scoring</AlertTitle>
                   <AlertDescription>
                     {c.missed.length
-                      ? `It scored ${c.missed.length} output(s) high that you marked bad. `
+                      ? `The judge scored ${plural(c.missed.length, 'output')} high that you marked bad. `
                       : ''}
                     {c.harsh.length
-                      ? `It scored ${c.harsh.length} output(s) low that you marked good. `
+                      ? `The judge scored ${plural(c.harsh.length, 'output')} low that you marked good. `
                       : ''}
                     {home ? `Change: ${home.bench}.` : ''}
                   </AlertDescription>
@@ -183,7 +190,8 @@ export function Insights({ ctx }: { ctx: Ctx }) {
                 <Alert key={layer} variant="destructive">
                   <AlertTitle>{capital(layer)}: change the skill</AlertTitle>
                   <AlertDescription>
-                    You and the bench agree {c.bothBad.length} output(s) fall short.{' '}
+                    You and the judge agree {plural(c.bothBad.length, 'output')}{' '}
+                    {c.bothBad.length === 1 ? 'falls' : 'fall'} short.{' '}
                     {home ? `Change: ${home.skill}.` : ''}
                   </AlertDescription>
                 </Alert>
@@ -192,7 +200,7 @@ export function Insights({ ctx }: { ctx: Ctx }) {
               <Alert key={layer} variant="success">
                 <AlertTitle>{capital(layer)}: holding</AlertTitle>
                 <AlertDescription>
-                  You and the bench agree the outputs you marked are good.
+                  You and the judge agree the outputs you marked are good.
                 </AlertDescription>
               </Alert>
             )
@@ -203,12 +211,12 @@ export function Insights({ ctx }: { ctx: Ctx }) {
       {rated.length ? (
         <Section>
           <SectionHead>
-            <Heading level={2}>Your rating against the total</Heading>
+            <Heading level={2}>Your rating against the judge’s total</Heading>
             <Hint>
               {rated.length} rated · rank correlation{' '}
               {rho === null
                 ? 'needs 3 or more'
-                : `${rho.toFixed(2)}${rho > 0.6 ? ': the bench ranks like you do.' : rho > 0.2 ? ': loosely related; read the disagreements.' : ': the bench does not rank like you yet.'}`}
+                : `${rho.toFixed(2)}${rho > 0.6 ? ': the judge ranks like you do.' : rho > 0.2 ? ': loosely related; read the disagreements.' : ': the judge does not rank like you yet.'}`}
             </Hint>
           </SectionHead>
           <Scatter rated={rated} />
@@ -220,19 +228,18 @@ export function Insights({ ctx }: { ctx: Ctx }) {
           <SectionHead>
             <Heading level={2}>Pairs</Heading>
             <Hint>
-              The bench agrees with your pick in {agreed} of {prefs.length}.
+              The judge agrees with your pick in {agreed} of {prefs.length}.
             </Hint>
           </SectionHead>
           {prefRows
-            .filter((r) => !r.agree && r.bench)
-            .map(({ p, bench }) => (
+            .flatMap(({ p, judge, agree }) => (!agree && judge ? [{ p, judge }] : []))
+            .map(({ p, judge }) => (
               <Alert key={`${p.a}|${p.b}|${p.criterion}`} variant="warning">
                 <AlertTitle>
-                  You picked {p.vote === 'tie' ? 'a tie' : p.vote.toUpperCase()}, the bench{' '}
-                  {bench === 'tie' ? 'a tie' : bench?.toUpperCase()} ({p.criterion})
+                  You picked {SIDE[p.vote]}, the judge {SIDE[judge]} ({p.criterion})
                 </AlertTitle>
                 <AlertDescription>
-                  {p.a} vs {p.b}
+                  {p.a} against {p.b}
                 </AlertDescription>
               </Alert>
             ))}
@@ -246,7 +253,7 @@ export function Insights({ ctx }: { ctx: Ctx }) {
             <TableRow>
               <TableHead>Run</TableHead>
               <TableHead numeric>Outputs</TableHead>
-              <TableHead numeric>Bench mean</TableHead>
+              <TableHead numeric>Judge mean</TableHead>
               <TableHead numeric>Your mean</TableHead>
               <TableHead>Top flags</TableHead>
             </TableRow>
@@ -293,14 +300,14 @@ export function Insights({ ctx }: { ctx: Ctx }) {
   )
 }
 
-/** Your 1 to 5 against the bench total, one dot per rated output. */
+/** Your 1 to 5 against the judge’s total, one dot per rated output. */
 function Scatter({ rated }: { rated: Array<{ output: Output; rating: number; total: number }> }) {
   return (
     <svg
-      className="h-auto w-full max-w-[420px] fill-muted-foreground text-[10px]"
+      className="h-auto w-full max-w-[420px] fill-muted-foreground text-2xs"
       viewBox="0 0 320 170"
       role="img"
-      aria-label="Rating against bench total"
+      aria-label="Your rating against the judge’s total"
     >
       <line className="stroke-input" x1="40" y1="150" x2="310" y2="150" />
       <line className="stroke-input" x1="40" y1="10" x2="40" y2="150" />
@@ -323,7 +330,7 @@ function Scatter({ rated }: { rated: Array<{ output: Output; rating: number; tot
           r="4.5"
         >
           <title>
-            {r.output.key}: you {r.rating}, bench {r.total}
+            {r.output.key}: you {r.rating}, judge {r.total}
           </title>
         </circle>
       ))}

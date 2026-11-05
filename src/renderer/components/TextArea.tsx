@@ -20,7 +20,11 @@ const textAreaVariants = cva('resize-none overflow-hidden', {
   variants: {
     variant: {
       default: 'min-h-21',
-      /** One line that grows as it wraps, such as a check: it reads as an input until it needs more. */
+      /**
+       * One line that grows as it wraps, such as a check: it reads as an input
+       * until it needs more. 7px top and bottom centre one 20px line in the
+       * input's 36px, borders included.
+       */
       line: 'min-h-9 py-[7px]',
     },
   },

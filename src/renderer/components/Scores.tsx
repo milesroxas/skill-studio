@@ -39,7 +39,7 @@ export function Delta({ value }: { value: number | null }) {
   )
 }
 
-const layerValue = cva('block text-[15px] font-semibold tabular-nums text-foreground', {
+const layerValue = cva('block text-md font-semibold tabular-nums text-foreground', {
   variants: {
     band: {
       hi: '',
@@ -92,7 +92,7 @@ export function Layers({
               {value ?? '–'}
               <Delta value={delta} />
             </b>
-            <div className="mt-1 h-[3px] overflow-hidden rounded-xs bg-muted">
+            <div className="mt-1 h-0.75 overflow-hidden rounded-xs bg-muted">
               <span className={layerBar({ band })} style={{ width: `${value ?? 0}%` }} />
             </div>
           </div>

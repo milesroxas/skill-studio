@@ -23,7 +23,7 @@ const triggerVariants = cva(
     variants: {
       variant: {
         plain:
-          'text-[13px] text-muted-foreground hover:text-foreground data-[state=open]:text-foreground',
+          'text-ui text-muted-foreground hover:text-foreground data-[state=open]:text-foreground',
         card: 'w-full',
       },
     },

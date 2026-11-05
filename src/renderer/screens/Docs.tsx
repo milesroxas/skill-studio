@@ -4,15 +4,10 @@
  * section can be jumped to. Loaded on demand, so it costs nothing until opened.
  */
 
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { type ComponentProps, type ReactNode, useEffect, useMemo, useRef, useState } from 'react'
 import guide from '../../../docs/guide.md?raw'
+import { Disclosure } from '../components/Disclosure.tsx'
 import { Text } from '../components/text.tsx'
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from '../components/ui/collapsible.tsx'
-import { cn } from '../lib/utils.ts'
 import { markdownHtml } from '../markdown.ts'
 
 const REPO = 'https://github.com/milesroxas/skill-studio'
@@ -76,7 +71,7 @@ export function Docs() {
   const jump = (id: string) => {
     const target = document.getElementById(id)
     if (!target) return
-    const still = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    const still = document.documentElement.dataset.motion === 'reduced'
     target.scrollIntoView({ behavior: still ? 'auto' : 'smooth', block: 'start' })
     setActive(id)
   }
@@ -117,7 +112,7 @@ export function Docs() {
 }
 
 /** The contents beside a 70ch reading column; one column on narrow screens. */
-function GuideLayout({ children }: { children: React.ReactNode }) {
+function GuideLayout({ children }: { children: ReactNode }) {
   return (
     <div className="grid max-w-[1120px] grid-cols-1 items-start gap-5 lg:grid-cols-[208px_minmax(0,70ch)] lg:gap-14">
       {children}
@@ -125,63 +120,59 @@ function GuideLayout({ children }: { children: React.ReactNode }) {
   )
 }
 
-/** The contents on a wide screen: in view while the page scrolls. */
-function TocNav({ children }: { children: React.ReactNode }) {
+/**
+ * The contents on a wide screen: in view while the page scrolls, never taller
+ * than the pane (the window less the 48px top bar and the pane's 24px padding).
+ */
+function TocNav({ children }: { children: ReactNode }) {
   return (
     <nav
       aria-label="On this page"
-      className="sticky top-0 hidden max-h-[calc(100dvh-96px)] flex-col gap-3 overflow-y-auto text-[13px] lg:flex"
+      className="sticky top-0 hidden max-h-[calc(100dvh-96px)] flex-col gap-3 overflow-y-auto text-ui lg:flex"
     >
       {children}
     </nav>
   )
 }
 
-/** The contents on a narrow screen: one line that opens. */
-function TocCompact({ children }: { children: React.ReactNode }) {
+/** The contents on a narrow screen: one line that opens, ruled off from the guide. */
+function TocCompact({ children }: { children: ReactNode }) {
   return (
-    <Collapsible className="rounded-lg border bg-card px-3.5 shadow-sm lg:hidden">
-      <CollapsibleTrigger className="flex min-h-11 w-full cursor-pointer items-center text-muted-foreground">
-        On this page
-      </CollapsibleTrigger>
-      <CollapsibleContent className="pb-3 [&_button]:min-h-10">{children}</CollapsibleContent>
-    </Collapsible>
+    <div className="border-b lg:hidden">
+      <Disclosure summary="On this page">{children}</Disclosure>
+    </div>
   )
 }
 
-function TocList({ children }: { children: React.ReactNode }) {
-  return <ol className="flex flex-col border-l p-0">{children}</ol>
+function TocList({ children }: { children: ReactNode }) {
+  return <ol className="m-0 flex flex-col border-l p-0">{children}</ol>
 }
 
-function TocFoot({ children }: { children: React.ReactNode }) {
-  return <p className="m-0 mt-2 flex flex-col gap-1.5 border-t pt-3">{children}</p>
+function TocFoot({ children }: { children: ReactNode }) {
+  return <p className="m-0 flex flex-col gap-1.5 border-t pt-3">{children}</p>
 }
 
 /** One section in the contents: a rail marks the one being read. */
 function TocButton({
   current,
-  className,
   ...props
-}: React.ComponentProps<'button'> & { current: boolean }) {
+}: Omit<ComponentProps<'button'>, 'className'> & { current: boolean }) {
   return (
     <button
       type="button"
       aria-current={current ? 'true' : undefined}
-      className={cn(
-        '-ml-px block min-h-[30px] w-full border-l border-transparent px-3 py-1.25 text-left leading-snug text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring aria-[current]:border-foreground aria-[current]:text-foreground',
-        className,
-      )}
+      className="-ml-px block min-h-8 w-full border-l border-transparent px-3 py-1 text-left text-ui text-muted-foreground transition-colors duration-150 ease-out outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50 aria-[current]:border-foreground aria-[current]:text-foreground pointer-coarse:min-h-11"
       {...props}
     />
   )
 }
 
-function TocLink(props: React.ComponentProps<'a'>) {
+function TocLink(props: Omit<ComponentProps<'a'>, 'className'>) {
   return (
     <a
       target="_blank"
       rel="noreferrer"
-      className="text-muted-foreground no-underline transition-colors hover:text-foreground"
+      className="text-muted-foreground no-underline transition-colors duration-150 ease-out hover:text-foreground"
       {...props}
     />
   )

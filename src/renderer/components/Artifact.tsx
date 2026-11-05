@@ -4,6 +4,7 @@ import { copyOf } from '@domain/text.ts'
 import { useEffect, useState } from 'react'
 import { api } from '../api.ts'
 import { markdownHtml } from '../markdown.ts'
+import { Loading } from './layout.tsx'
 import { Hint } from './text.tsx'
 import { Button } from './ui/button.tsx'
 import { ToggleGroup, ToggleGroupItem } from './ui/toggle-group.tsx'
@@ -31,7 +32,7 @@ export function ArtifactView({ run, sample, artifact }: Props) {
       live = false
     }
   }, [run, sample, artifact, textual])
-  if (!artifact) return <Hint inset>This sample wrote no output.</Hint>
+  if (!artifact) return <Hint inset>The agent wrote no file for this output.</Hint>
   const url = api.artifactUrl(run, sample, artifact.file)
   if (artifact.kind === 'image')
     return <img className="block max-w-full" src={url} alt={artifact.file} />
@@ -42,7 +43,7 @@ export function ArtifactView({ run, sample, artifact }: Props) {
           <Button
             type="button"
             variant="link-muted"
-            size="inline"
+            size="inline-sm"
             onClick={() => api.openArtifact(run, sample, artifact.file)}
           >
             Open full size
@@ -57,8 +58,13 @@ export function ArtifactView({ run, sample, artifact }: Props) {
         />
       </div>
     )
-  if (error) return <Hint inset>{error}</Hint>
-  if (text === null) return <Hint inset>Loading…</Hint>
+  if (error)
+    return (
+      <Hint inset tone="destructive">
+        {error}
+      </Hint>
+    )
+  if (text === null) return <Loading />
   if (artifact.kind === 'markdown')
     return (
       <div
@@ -74,7 +80,7 @@ export function ArtifactView({ run, sample, artifact }: Props) {
   )
 }
 
-/** Pick one of a sample's artifacts to read; hidden when it wrote only one. */
+/** Pick one of an output's files to read; hidden when the agent wrote only one. */
 export function ArtifactPicker({
   artifacts,
   value,

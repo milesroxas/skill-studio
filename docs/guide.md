@@ -37,6 +37,8 @@ pnpm dev
 
 Then open Settings at the foot of the sidebar and paste the TypeSafe key. The app keeps it in your system keychain. If the app shows "No Jev key" at the top right, the key is missing; the pill takes you to Settings.
 
+Settings also holds your own preferences: the theme (system, light or dark), whether to reduce motion, and whether the Write screen opens Markdown formatted or as source.
+
 To use the app in a browser, or from your phone or another computer, run `pnpm build` then `pnpm st serve` (add `--tailscale` for other devices). The [README](https://github.com/milesroxas/skill-studio#in-a-browser-or-from-another-device) explains who can reach it and why that is safe. In a browser the key comes from `TYPESAFE_API_KEY` in the environment or a `.env` in the checkout.
 
 ## 1. Open or create a skill

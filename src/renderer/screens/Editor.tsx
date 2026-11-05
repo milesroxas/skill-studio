@@ -16,8 +16,7 @@ import {
   type Snippet,
 } from '@domain/templates.ts'
 import { metaText, readFrontMatter } from '@domain/text.ts'
-import { PlusIcon } from 'lucide-react'
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { api } from '../api.ts'
 import { DiffLines } from '../components/DiffLines.tsx'
 import { DraftNote } from '../components/DraftNote.tsx'
@@ -29,6 +28,8 @@ import {
   ColumnTitle,
   EmptyState,
   List,
+  ListHeader,
+  Loading,
   PlainList,
   Stack,
   Toolbar,
@@ -41,7 +42,7 @@ import {
 } from '../components/MarkdownEditor.tsx'
 import { NavButton } from '../components/NavButton.tsx'
 import { GuideBox, GuideList, Starter } from '../components/starters.tsx'
-import { Hint, Text } from '../components/text.tsx'
+import { Code, Hint, Text } from '../components/text.tsx'
 import { Alert, AlertDescription, AlertTitle } from '../components/ui/alert.tsx'
 import { Button } from '../components/ui/button.tsx'
 import { Input } from '../components/ui/input.tsx'
@@ -62,10 +63,15 @@ export function Editor({ ctx }: { ctx: Ctx }) {
   const disk = useFetch(() => api.skillFiles('current'), [state.skill.path])
   const edits = drafts.files
   const [showDiff, setShowDiff] = useState(false)
-  const [newName, setNewName] = useState('')
+  const [newName, setNewName] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
-  const [mode, setMode] = useEditorMode()
+  const [mode, setMode] = useEditorMode((message) => toast(`Not saved: ${message}`))
   const editor = useRef<MarkdownEditorHandle>(null)
+  const nameField = useRef<HTMLInputElement>(null)
+  const naming = newName !== null
+  useEffect(() => {
+    if (naming) nameField.current?.focus()
+  }, [naming])
 
   const files = disk.data?.files ?? {}
   const paths = [...new Set([...Object.keys(files), ...Object.keys(edits)])].sort((a, b) =>
@@ -126,19 +132,31 @@ export function Editor({ ctx }: { ctx: Ctx }) {
   }
 
   const create = () => {
-    const path = referencePath(newName)
+    const path = referencePath(newName ?? '')
     if (!path) return toast('Use letters, digits, dots, dashes and slashes only.')
     if (paths.includes(path)) return toast(`${path} already exists.`)
     drafts.setFile(path, { text: referenceTemplate(path), previous: null })
-    setNewName('')
+    setNewName(null)
     go('edit', { file: path })
   }
 
-  const remove = async () => {
-    if (saved === null) {
+  const discard = async () => {
+    if (
+      await confirm({
+        title:
+          saved === null ? `Discard the new file ${file}?` : `Discard your changes to ${file}?`,
+        description:
+          saved === null ? 'What you typed goes.' : 'The file stays as it was last saved.',
+        action: 'Discard',
+        destructive: true,
+      })
+    ) {
       drop(file)
-      return go('edit')
+      if (saved === null) go('edit')
     }
+  }
+
+  const remove = async () => {
     const ok = await confirm({
       title: `Delete ${file} from disk?`,
       description: 'Run snapshots keep their copy.',
@@ -164,9 +182,21 @@ export function Editor({ ctx }: { ctx: Ctx }) {
   const diff = showDiff ? lineDiff(saved ?? '', text) : []
   const blank = isSkill && isScaffold(text)
 
-  if (disk.error)
-    return <EmptyState title="Could not read the skill's files">{disk.error}</EmptyState>
-  if (!disk.data || drafts.status === 'loading') return <EmptyState>Loading…</EmptyState>
+  if (disk.error && !disk.data)
+    return (
+      <EmptyState
+        size="screen"
+        title="Could not read the skill’s files"
+        actions={
+          <Button type="button" onClick={disk.reload}>
+            Try again
+          </Button>
+        }
+      >
+        {disk.error}
+      </EmptyState>
+    )
+  if (!disk.data || drafts.status === 'loading') return <Loading size="screen" />
 
   const missing = isSkill ? ['name', 'description'].filter((k) => !metaText(meta, k)) : []
   const current = state.versions.current
@@ -200,7 +230,8 @@ export function Editor({ ctx }: { ctx: Ctx }) {
           <Alert variant="warning">
             <AlertTitle>Front matter needs {missing.join(' and ')}</AlertTitle>
             <AlertDescription>
-              Agents find a skill by its name and description, between the --- lines at the top.
+              Agents find a skill by its name and description, between the <Code>---</Code> lines at
+              the top.
             </AlertDescription>
           </Alert>
         ) : null}
@@ -211,7 +242,14 @@ export function Editor({ ctx }: { ctx: Ctx }) {
     <Workbench>
       <Column kind="list">
         <nav aria-label="Skill files" className="contents">
-          <ColumnSection inset="list" title="Files">
+          <ListHeader
+            title="Files"
+            count={paths.length}
+            addLabel="Add a reference file"
+            addDisabled={naming}
+            onAdd={() => setNewName('')}
+          />
+          <ColumnSection inset="list">
             <PlainList gap="none" bleed>
               {paths.map((path) => (
                 <li key={path}>
@@ -224,39 +262,40 @@ export function Editor({ ctx }: { ctx: Ctx }) {
                 </li>
               ))}
             </PlainList>
-            <form
-              className="contents"
-              onSubmit={(e) => {
-                e.preventDefault()
-                create()
-              }}
-            >
-              <Toolbar wrap={false}>
+            {naming ? (
+              <form
+                className="contents"
+                onSubmit={(e) => {
+                  e.preventDefault()
+                  create()
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Escape') setNewName(null)
+                }}
+              >
                 <Input
-                  aria-label="New reference file"
+                  ref={nameField}
+                  aria-label="Name of the new reference file"
                   placeholder="references/name.md"
                   autoCapitalize="none"
                   autoCorrect="off"
                   spellCheck={false}
                   enterKeyHint="done"
                   value={newName}
-                  width="grow"
                   size="sm"
                   font="mono"
                   onChange={(e) => setNewName(e.target.value)}
                 />
-                <Button
-                  type="submit"
-                  variant="outline"
-                  size="icon-sm"
-                  aria-label="Add reference file"
-                  title="Add reference file"
-                  disabled={!newName.trim()}
-                >
-                  <PlusIcon aria-hidden="true" />
-                </Button>
-              </Toolbar>
-            </form>
+                <Toolbar>
+                  <Button type="submit" size="sm" disabled={!newName.trim()}>
+                    Add file
+                  </Button>
+                  <Button type="button" variant="ghost" size="sm" onClick={() => setNewName(null)}>
+                    Cancel
+                  </Button>
+                </Toolbar>
+              </form>
+            ) : null}
           </ColumnSection>
         </nav>
 
@@ -267,7 +306,7 @@ export function Editor({ ctx }: { ctx: Ctx }) {
                 key={s.id}
                 type="button"
                 variant="outline"
-                size="xs"
+                size="sm"
                 onClick={() => insert(s)}
               >
                 {s.label}
@@ -278,16 +317,16 @@ export function Editor({ ctx }: { ctx: Ctx }) {
             <GuideBox summary="How to write a rule">
               <GuideList>
                 <li>
-                  <b>Encode process, not outcome.</b> "Lead with the change for the reader" beats
-                  "write clearly". The agent can walk a step; it cannot measure an adjective.
+                  <b>Encode process, not outcome.</b> “Lead with the change for the reader” beats
+                  “write clearly”. The agent can walk a step; it cannot measure an adjective.
                 </li>
                 <li>
                   <b>Write the why in the same bullet.</b> A rule with its reason generalises to
                   cases you did not write down. A bare rule is applied blindly.
                 </li>
                 <li>
-                  <b>Be numeric or absolute.</b> "20 words or fewer", "never", "always".
-                  "Reasonably" and "where appropriate" change nothing.
+                  <b>Be numeric or absolute.</b> “20 words or fewer”, “never”, “always”.
+                  “Reasonably” and “where appropriate” change nothing.
                 </li>
                 <li>
                   <b>Every line must change what the agent does.</b> Cut definitions of things it
@@ -307,7 +346,7 @@ export function Editor({ ctx }: { ctx: Ctx }) {
                       key={t.id}
                       type="button"
                       variant="outline"
-                      size="xs"
+                      size="sm"
                       title={t.summary}
                       onClick={() => startFrom(t)}
                     >
@@ -323,7 +362,9 @@ export function Editor({ ctx }: { ctx: Ctx }) {
         {isSkill ? (
           <ColumnSection inset="list" title="Graded rules">
             {config.rules?.length ? (
-              <Hint>bench.json lists its own rules, so SKILL.md bullets are not used.</Hint>
+              <Hint>
+                <Code>bench.json</Code> lists its own rules, so SKILL.md bullets are not used.
+              </Hint>
             ) : rules.length ? (
               <List variant="number" size="xs" gap="sm">
                 {rules.map((r) => (
@@ -345,18 +386,18 @@ export function Editor({ ctx }: { ctx: Ctx }) {
               ? `The saved files are not a version yet. Save them as ${current.version} to keep a copy you can return to.`
               : `The saved files are ${current.version}${current.name ? `, ${current.name}` : ''}.`}
           </Hint>
-          <div>
+          <Toolbar>
             <Button type="button" variant="outline" size="sm" onClick={() => go('versions')}>
               {current.changed ? `Save as ${current.version}` : 'See versions'}
             </Button>
-          </div>
+          </Toolbar>
         </ColumnSection>
       </Column>
 
       <Column>
         <ColumnHeader>
           <ColumnTitle>
-            <Text font="mono" size="sm" weight="medium">
+            <Text font="mono" size="ui" weight="medium">
               {file}
             </Text>
             <DraftNote
@@ -366,30 +407,15 @@ export function Editor({ ctx }: { ctx: Ctx }) {
             />
           </ColumnTitle>
           <Toggle variant="outline" size="sm" pressed={showDiff} onPressedChange={setShowDiff}>
-            Compare with saved
+            Changes since saved
           </Toggle>
-          {!isSkill ? (
+          {!isSkill && saved !== null ? (
             <Button type="button" variant="destructive-ghost" size="sm" onClick={remove}>
-              {saved === null ? 'Discard file' : 'Delete'}
+              Delete file
             </Button>
           ) : null}
-          {draft ? (
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={async () => {
-                if (
-                  await confirm({
-                    title: `Discard your changes to ${file}?`,
-                    description: 'The draft goes and the file stays as it is on disk.',
-                    action: 'Discard',
-                    destructive: true,
-                  })
-                )
-                  drop(file)
-              }}
-            >
+          {isDirty(file) ? (
+            <Button type="button" variant="ghost" size="sm" onClick={discard}>
               Discard
             </Button>
           ) : null}

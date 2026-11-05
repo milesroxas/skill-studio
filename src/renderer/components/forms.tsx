@@ -104,7 +104,7 @@ export function Knob({ label, about, title, value, min, max, step, onChange }: K
   return (
     <div className="flex flex-col gap-2" title={title}>
       <div className="flex items-center justify-between gap-3">
-        <span className="text-[13px]">{label}</span>
+        <span className="text-ui">{label}</span>
         <NumberInput
           aria-label={`${label}, exact`}
           min={min}
@@ -140,7 +140,7 @@ export function InlineField({ label, children }: { label: ReactNode; children: R
   return (
     <span className="inline-flex max-w-full items-center gap-2">
       {typeof label === 'string' ? (
-        <Text tone="muted" size="sm">
+        <Text tone="muted" size="ui">
           {label}
         </Text>
       ) : (

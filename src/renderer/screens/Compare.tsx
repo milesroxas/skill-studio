@@ -10,6 +10,7 @@ import {
   ActionBar,
   Columns,
   EmptyState,
+  Loading,
   Screen,
   Section,
   SectionHead,
@@ -59,12 +60,14 @@ const VOTES = [
   { value: 'b', label: 'B is better' },
 ] as const satisfies ReadonlyArray<{ value: Vote; label: string }>
 
+const SLOT_LABEL = { a: 'A', b: 'B' } as const
+
 const VIEWS = [
   { value: 'side', label: 'Side by side' },
   { value: 'diff', label: 'Word diff' },
 ] as const
 
-/** With no pair in the URL, open the first graded output against another sample of its case. */
+/** With no pair in the URL, open the first graded output against another output of its case. */
 function defaultPair(outputs: Output[]): [Output | null, Output | null] {
   const graded = outputs.filter((o) => o.result)
   for (const a of graded) {
@@ -111,7 +114,7 @@ export function Compare({ ctx }: { ctx: Ctx }) {
       toast('Vote saved')
       reload()
     } catch (e) {
-      toast((e as Error).message)
+      toast(`Not saved: ${(e as Error).message}`)
     }
   }
   const askJev = async () => {
@@ -129,14 +132,16 @@ export function Compare({ ctx }: { ctx: Ctx }) {
   if (!outputs.length)
     return (
       <EmptyState
+        size="screen"
         title="Nothing to compare yet"
         actions={
           <Button type="button" onClick={() => go('generate')}>
-            Open Generate
+            Start a run
           </Button>
         }
       >
-        Compare reads two outputs side by side. Generate a run first.
+        Compare puts two outputs side by side, so you can read them together and vote for the better
+        one. A run makes the outputs.
       </EmptyState>
     )
 
@@ -165,7 +170,9 @@ export function Compare({ ctx }: { ctx: Ctx }) {
         ) : null}
       </Toolbar>
       {!a ? (
-        <EmptyState>Pick an output for A. Add one for B to compare and vote.</EmptyState>
+        <EmptyState title="Pick an output for A">
+          Then pick one for B to read them side by side and vote.
+        </EmptyState>
       ) : diff && b ? (
         <DiffCard a={a} b={b} />
       ) : (
@@ -190,7 +197,7 @@ export function Compare({ ctx }: { ctx: Ctx }) {
               <Heading level={3}>{crit}</Heading>
               <Columns count={2}>
                 <Board title="Your votes" rows={hb} ctx={ctx} />
-                <Board title="Jev's votes" rows={jev} ctx={ctx} />
+                <Board title="Jev’s votes" rows={jev} ctx={ctx} />
               </Columns>
             </Stack>
           ))}
@@ -217,11 +224,11 @@ export function Compare({ ctx }: { ctx: Ctx }) {
               size="sm"
             />
           </InlineField>
-          <BenchPick a={a} b={b} ctx={ctx} />
+          <ScorePick a={a} b={b} ctx={ctx} />
           {jevVotes.map((p) => (
             <Hint key={`${p.criterion}${p.at}`}>
               On {p.criterion}, Jev picked{' '}
-              {p.vote === 'tie' ? 'a tie' : (p.a === a.key ? p.vote : flip(p.vote)).toUpperCase()}
+              {p.vote === 'tie' ? 'a tie' : SLOT_LABEL[p.a === a.key ? p.vote : otherSlot(p.vote)]}
               {p.confidence !== undefined ? `, ${Math.round(p.confidence * 100)}% sure` : ''}.
             </Hint>
           ))}
@@ -242,7 +249,8 @@ export function Compare({ ctx }: { ctx: Ctx }) {
   )
 }
 
-const flip = (v: Vote): Vote => (v === 'a' ? 'b' : v === 'b' ? 'a' : 'tie')
+const otherSlot = (slot: 'a' | 'b'): 'a' | 'b' => (slot === 'a' ? 'b' : 'a')
+const flip = (v: Vote): Vote => (v === 'tie' ? 'tie' : otherSlot(v))
 const sameTwo = (x: string, y: string, p: string, q: string) =>
   (x === p && y === q) || (x === q && y === p)
 
@@ -309,7 +317,7 @@ function Card({
   return (
     <OutputCard>
       <OutputCardHead
-        slot={<Slot variant={slot}>{slot.toUpperCase()}</Slot>}
+        slot={<Slot variant={slot}>{SLOT_LABEL[slot]}</Slot>}
         title={versionName(output.run)}
         total={
           <>
@@ -328,16 +336,16 @@ function Card({
             <Button
               type="button"
               variant="link-muted"
-              size="inline"
+              size="inline-sm"
               onClick={() => go('blind', { key: output.key })}
             >
-              Review
+              Rate blind
             </Button>
             {output.sample.hasTranscript ? (
               <Button
                 type="button"
                 variant="link-muted"
-                size="inline"
+                size="inline-sm"
                 onClick={() =>
                   go('transcript', { run: output.run.name, sample: output.sample.name })
                 }
@@ -383,8 +391,12 @@ function DiffCard({ a, b }: { a: Output; b: Output }) {
       />
       {!textual ? (
         <Hint inset>Word diff needs a text output on both sides.</Hint>
+      ) : html.error ? (
+        <Hint inset tone="destructive">
+          {html.error}
+        </Hint>
       ) : html.data === null ? (
-        <Hint inset>{html.error ?? 'Loading…'}</Hint>
+        <Loading />
       ) : (
         // biome-ignore lint/security/noDangerouslySetInnerHtml: diff output is escaped
         <div className="diff" dangerouslySetInnerHTML={{ __html: html.data }} />
@@ -393,14 +405,15 @@ function DiffCard({ a, b }: { a: Output; b: Output }) {
   )
 }
 
-function BenchPick({ a, b, ctx }: { a: Output; b: Output; ctx: Ctx }) {
+/** What the scores alone say about the pair, beside your vote. */
+function ScorePick({ a, b, ctx }: { a: Output; b: Output; ctx: Ctx }) {
   const sa = totalOf(a, ctx.config)
   const sb = totalOf(b, ctx.config)
   if (sa === null || sb === null) return null
-  const pick = sa === sb ? 'calls it a tie' : `prefers ${sa > sb ? 'A' : 'B'}`
+  const pick = sa === sb ? 'call it a tie' : `favor ${sa > sb ? 'A' : 'B'}`
   return (
     <Hint>
-      The bench {pick}: {sa} against {sb}.
+      The scores {pick}: <Text tabular>{sa}</Text> against <Text tabular>{sb}</Text>.
     </Hint>
   )
 }
@@ -412,15 +425,9 @@ function Board({ title, rows, ctx }: { title: string; rows: Rating[]; ctx: Ctx }
         <TableRow>
           <TableHead>{title}</TableHead>
           <TableHead numeric>Strength</TableHead>
-          <TableHead numeric title="Wins">
-            W
-          </TableHead>
-          <TableHead numeric title="Losses">
-            L
-          </TableHead>
-          <TableHead numeric title="Ties">
-            T
-          </TableHead>
+          <TableHead numeric>Wins</TableHead>
+          <TableHead numeric>Losses</TableHead>
+          <TableHead numeric>Ties</TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>

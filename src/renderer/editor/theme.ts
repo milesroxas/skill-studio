@@ -64,9 +64,10 @@ export const editorTheme = EditorView.theme({
   '.cm-md-key': { color: 'var(--foreground)' },
 
   // Formatted view. Headings, quotes and lists read as a page, not as source.
-  '.cm-line.cm-md-h1': { fontSize: '1.6em', lineHeight: '1.3', paddingTop: '0.6em' },
-  '.cm-line.cm-md-h2': { fontSize: '1.3em', lineHeight: '1.35', paddingTop: '0.7em' },
-  '.cm-line.cm-md-h3': { fontSize: '1.12em', lineHeight: '1.4', paddingTop: '0.5em' },
+  // The same steps as an output's headings (.doc in styles.css): 21, 18 and 16px over 15.
+  '.cm-line.cm-md-h1': { fontSize: '1.4em', lineHeight: '1.33', paddingTop: '0.6em' },
+  '.cm-line.cm-md-h2': { fontSize: '1.2em', lineHeight: '1.44', paddingTop: '0.7em' },
+  '.cm-line.cm-md-h3': { fontSize: '1.0667em', lineHeight: '1.5', paddingTop: '0.5em' },
   '.cm-line:is(.cm-md-h1, .cm-md-h2, .cm-md-h3, .cm-md-h4, .cm-md-h5, .cm-md-h6)': {
     fontWeight: '600',
     letterSpacing: '-0.012em',
@@ -75,7 +76,7 @@ export const editorTheme = EditorView.theme({
   '.cm-md-strike': { textDecoration: 'line-through' },
   '.cm-md-code': {
     fontFamily: MONO,
-    fontSize: '0.86em',
+    fontSize: '0.9em',
     backgroundColor: 'var(--muted)',
     borderRadius: '4px',
     padding: '0.1em 0.3em',
@@ -113,7 +114,7 @@ export const editorTheme = EditorView.theme({
   },
   '.cm-line:is(.cm-md-codeblock, .cm-md-frontmatter, .cm-md-table)': {
     fontFamily: MONO,
-    fontSize: '0.87em',
+    fontSize: '0.9em',
   },
   '.cm-line.cm-md-codeblock': band('var(--muted)'),
   '.cm-line.cm-md-frontmatter': { ...band('var(--muted)'), color: 'var(--muted-foreground)' },
