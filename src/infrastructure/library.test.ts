@@ -12,6 +12,8 @@ import {
 } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { PRACTICE_SCOPE } from '@domain/library.ts'
+import { PRACTICE, PRACTICE_EDIT } from '@domain/practice.ts'
 import { rulesFromSkill } from '@domain/rules.ts'
 import { templateById } from '@domain/templates.ts'
 import { metaText, readFrontMatter } from '@domain/text.ts'
@@ -21,8 +23,17 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest'
 const home = mkdtempSync(join(tmpdir(), 'st-home-'))
 process.env.SKILL_STUDIO_HOME = home
 const library = await import('./library.ts')
-const { createSkill, linkSkill, markOthers, scanLibrary, setWorkspaces, touchRecent, unlinkSkill } =
-  library
+const {
+  createSkill,
+  isPracticeSkill,
+  linkSkill,
+  markOthers,
+  openPractice,
+  scanLibrary,
+  setWorkspaces,
+  touchRecent,
+  unlinkSkill,
+} = library
 const { loadCases } = await import('./cases.ts')
 
 const project = join(home, 'work', 'shop')
@@ -157,6 +168,52 @@ describe('createSkill', () => {
       createSkill({ scope: 'user', name: 'taken', description: '', agents: ['claude'] }),
     ).toThrow('already exists')
     expect(scanLibrary().skills.map((s) => s.name)).toEqual(['taken'])
+  })
+})
+
+describe('openPractice', () => {
+  it('writes the practice skill and its cases in the app folder, where no agent looks', () => {
+    const dir = openPractice()
+    expect(dir).toBe(join(home, '.skill-studio/practice', PRACTICE.name))
+    const md = readFileSync(join(dir, 'SKILL.md'), 'utf8')
+    expect(metaText(readFrontMatter(md).meta, 'name')).toBe(PRACTICE.name)
+    expect(rulesFromSkill(md).map((r) => r.text)).toContain(PRACTICE_EDIT.bad)
+    expect(loadCases(dir).map((c) => c.id)).toEqual(PRACTICE.cases.map((c) => c.id).sort())
+    for (const agents of ['.agents', '.claude', '.cursor', '.codex'])
+      expect(existsSync(join(home, agents))).toBe(false)
+  })
+
+  it('lists it in a place of its own that no skill is created or installed in', () => {
+    expect(scanLibrary().skills).toEqual([])
+    const dir = openPractice()
+    const { skills, places } = scanLibrary()
+    expect(skills).toHaveLength(1)
+    expect(skills[0]).toMatchObject({
+      name: PRACTICE.name,
+      scope: PRACTICE_SCOPE,
+      scopeLabel: 'Practice',
+      cases: PRACTICE.cases.length,
+      installs: { claude: null, cursor: null, codex: null },
+      source: null,
+    })
+    expect(places.map((p) => p.scope)).not.toContain(PRACTICE_SCOPE)
+    expect(() => linkSkill(dir, 'claude', PRACTICE_SCOPE)).toThrow('Unknown place')
+  })
+
+  it('opens the same skill again without overwriting an edit', () => {
+    const dir = openPractice()
+    const md = join(dir, 'SKILL.md')
+    writeFileSync(md, readFileSync(md, 'utf8').replace(PRACTICE_EDIT.bad, PRACTICE_EDIT.good))
+    expect(openPractice()).toBe(dir)
+    expect(readFileSync(md, 'utf8')).toMatch(PRACTICE_EDIT.good)
+  })
+
+  it('knows the practice skill from any other', () => {
+    expect(isPracticeSkill(join(home, '.skill-studio/practice', PRACTICE.name))).toBe(false)
+    const dir = openPractice()
+    expect(isPracticeSkill(dir)).toBe(true)
+    writeSkill(join(home, '.agents/skills', PRACTICE.name), PRACTICE.name)
+    expect(isPracticeSkill(join(home, '.agents/skills', PRACTICE.name))).toBe(false)
   })
 })
 

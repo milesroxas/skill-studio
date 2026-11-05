@@ -10,7 +10,7 @@ import {
 } from 'node:fs'
 import { basename, dirname, join, resolve } from 'node:path'
 import type { RunMeta } from '@domain/schemas.ts'
-import { type SkillTemplate, templateBody, templateById } from '@domain/templates.ts'
+import { type SkillStart, templateBody, templateById } from '@domain/templates.ts'
 import { metaText, readFrontMatter } from '@domain/text.ts'
 import type { SkillInfo, SkillVersion, SkillVersions } from '@domain/views.ts'
 import { stringify as toYaml } from 'yaml'
@@ -99,7 +99,7 @@ export function newSkill(
   skillDir: string,
   name: string,
   description: string,
-  template: SkillTemplate = templateById('blank'),
+  template: SkillStart = templateById('blank'),
 ): string {
   const path = resolve(skillDir)
   const md = join(path, 'SKILL.md')

@@ -18,7 +18,11 @@ export interface Output {
   samples: number
 }
 
-const versionNumber = (run: RunView): number => Number(run.meta?.skillVersion.slice(1)) || 999
+/** `v2` as 2. A run with no version sorts last; v0 is a version like any other. */
+const versionNumber = (run: RunView): number => {
+  const number = Number(run.meta?.skillVersion.slice(1) || Number.NaN)
+  return Number.isNaN(number) ? 999 : number
+}
 
 /** Every output across runs: version, then writer, then run, then sample. */
 export function outputsOf(state: State): Output[] {

@@ -91,6 +91,8 @@ export interface Leaderboard {
 /** Everything a skill's workspace shows, loaded in one call. */
 export interface State {
   skill: SkillInfo
+  /** This is the practice skill, so the shell walks the reader round the loop. */
+  practice: boolean
   skills: SkillInfo[]
   cases: Case[]
   runs: RunView[]

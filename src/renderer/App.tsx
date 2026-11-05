@@ -29,6 +29,7 @@ import { api, currentSkill, type Job, type State, setSkill } from './api.ts'
 import { useConfirm } from './components/confirm.tsx'
 import { JobsIndicator } from './components/Jobs.tsx'
 import { EmptyState, Loading, Spacer } from './components/layout.tsx'
+import { PracticeGuide } from './components/PracticeGuide.tsx'
 import {
   AppFrame,
   NavItem,
@@ -50,6 +51,7 @@ import type { Ctx } from './ctx.ts'
 import { useDrafts } from './drafts.ts'
 import { useRoute, useToast } from './hooks.ts'
 import { mergedConfig, outputsOf, plural, versionScore } from './model.ts'
+import { practiceGuide } from './practice.ts'
 import { Blind } from './screens/Blind.tsx'
 import { Cases } from './screens/Cases.tsx'
 import { Compare } from './screens/Compare.tsx'
@@ -261,17 +263,27 @@ export function App() {
     }
   }
 
+  // The practice skill is walked round the whole loop, past the point where the next step is plain.
+  const practice = loaded?.state.practice
+    ? practiceGuide(loaded.state, outputs, {
+        unsaved: drafts.files['SKILL.md'] !== undefined,
+        running,
+      })
+    : null
+
   // The one suggested next step, in loop order. Hidden while a job runs or when already there.
   const next: { label: string; screen: string; params?: Record<string, string> } | null =
     !loaded || !current || running
       ? null
-      : !loaded.state.cases.length
-        ? { label: 'Add a case', screen: 'cases', params: { new: '1' } }
-        : current.changed || !loaded.state.runs.length
-          ? { label: `Run ${current.version}`, screen: 'generate' }
-          : unrated
-            ? { label: `Rate ${plural(unrated, 'output')}`, screen: 'blind' }
-            : null
+      : practice
+        ? practice.target
+        : !loaded.state.cases.length
+          ? { label: 'Add a case', screen: 'cases', params: { new: '1' } }
+          : current.changed || !loaded.state.runs.length
+            ? { label: `Run ${current.version}`, screen: 'generate' }
+            : unrated
+              ? { label: `Rate ${plural(unrated, 'output')}`, screen: 'blind' }
+              : null
 
   /** The open version, and how it scores: the line every screen shows under the skill's name. */
   const versionLine = current
@@ -309,6 +321,9 @@ export function App() {
             ))
           : null}
       </SidebarBody>
+      {practice ? (
+        <PracticeGuide guide={practice} onGo={go} onNew={() => go('library', { new: '1' })} />
+      ) : null}
       <SidebarFooter>
         <JobsIndicator jobs={jobs} />
         {APP_PLACES.map((p) => (

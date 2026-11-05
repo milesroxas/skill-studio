@@ -42,6 +42,8 @@ export const api = {
   skills: () => call('library.skills', {}),
   library: () => call('library.scan', {}),
   createSkill: (input: CreateSkillInput) => call('library.create', input),
+  /** The practice skill, written the first time it is asked for. */
+  practice: () => call('library.practice', {}),
   link: (path: string, agent: AgentId, scope: string) =>
     call('library.link', { path, agent, scope }),
   unlink: (path: string, agent: AgentId, scope: string) =>

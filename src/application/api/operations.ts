@@ -36,8 +36,10 @@ import { engineById, engineInfo } from '@infrastructure/engines/index.ts'
 import { assertSafe, assertSafePath, readJson, readTree, writeJson } from '@infrastructure/fs.ts'
 import {
   createSkill,
+  isPracticeSkill,
   linkSkill,
   markOthers,
+  openPractice,
   scanLibrary,
   setWorkspaces,
   touchRecent,
@@ -203,6 +205,7 @@ export const parsers: { [K in OperationName]: (raw: Raw) => Input<K> } = {
     template: oneOf(str(raw.template, 'blank'), TEMPLATE_IDS, 'template'),
     samples: raw.samples === true,
   }),
+  'library.practice': none,
   'library.link': (raw) => ({
     path: str(raw.path),
     agent: oneOf(raw.agent, ['claude', 'cursor', 'codex'], 'agent'),
@@ -367,6 +370,7 @@ export function createOperations(options: OperationsOptions): Runners {
     'library.skills': () => skills,
     'library.scan': () => scanLibrary(skills.map((s) => s.path)),
     'library.create': (input) => open(createSkill(input)),
+    'library.practice': () => open(openPractice()),
     'library.link': ({ path, agent, scope }) => ({ linked: linkSkill(path, agent, scope) }),
     'library.unlink': ({ path, agent, scope }) => {
       unlinkSkill(path, agent, scope)
@@ -387,6 +391,7 @@ export function createOperations(options: OperationsOptions): Runners {
       const config = loadBench(skill.path)
       return {
         skill,
+        practice: isPracticeSkill(skill.path),
         skills,
         cases: loadCases(skill.path),
         runs: listRuns(skill.path),

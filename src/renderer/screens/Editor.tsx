@@ -4,6 +4,7 @@
  * saving writes the file and clears its draft.
  */
 
+import { applyPracticeEdit, PRACTICE_EDIT } from '@domain/practice.ts'
 import { rulesFromSkill } from '@domain/rules.ts'
 import {
   applyTemplate,
@@ -41,7 +42,7 @@ import {
   useEditorMode,
 } from '../components/MarkdownEditor.tsx'
 import { NavButton } from '../components/NavButton.tsx'
-import { GuideBox, GuideList, Starter } from '../components/starters.tsx'
+import { GuideBox, GuideList, PairList, Starter } from '../components/starters.tsx'
 import { Code, Hint, Text } from '../components/text.tsx'
 import { Alert, AlertDescription, AlertTitle } from '../components/ui/alert.tsx'
 import { Button } from '../components/ui/button.tsx'
@@ -181,6 +182,8 @@ export function Editor({ ctx }: { ctx: Ctx }) {
   const rules = isSkill && !config.rules?.length ? rulesFromSkill(text) : []
   const diff = showDiff ? lineDiff(saved ?? '', text) : []
   const blank = isSkill && isScaffold(text)
+  /** The practice skill, run once and still holding its vague rule: offer the exact one. */
+  const tightened = isSkill && state.practice && state.runs.length ? applyPracticeEdit(text) : null
 
   if (disk.error && !disk.data)
     return (
@@ -454,9 +457,31 @@ export function Editor({ ctx }: { ctx: Ctx }) {
             onChange={edit}
             onSave={save}
             banner={
-              notes || blank ? (
+              notes || blank || tightened ? (
                 <ColumnBody>
                   {notes}
+                  {tightened ? (
+                    <Starter
+                      aria-label="Tighten this rule"
+                      title="Tighten this rule"
+                      hint="One rule in this skill is vague on purpose. Swap it for an exact one, or write your own, then save and run again to see what the edit did."
+                    >
+                      <PairList pairs={[PRACTICE_EDIT]} marks={['vague', 'exact']} />
+                      <Toolbar>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            edit(tightened)
+                            requestAnimationFrame(() => editor.current?.focus())
+                          }}
+                        >
+                          Use the exact rule
+                        </Button>
+                      </Toolbar>
+                    </Starter>
+                  ) : null}
                   {blank ? (
                     <Starter
                       aria-label="Start from a template"

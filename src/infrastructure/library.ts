@@ -21,8 +21,10 @@ import {
   type Library,
   type LibrarySkill,
   type Place,
+  PRACTICE_SCOPE,
   STORE_DIR,
 } from '@domain/library.ts'
+import { PRACTICE } from '@domain/practice.ts'
 import { templateById } from '@domain/templates.ts'
 import { isSlug, metaText, readFrontMatter, SLUG_RULE } from '@domain/text.ts'
 import { loadCases, saveCase } from './cases.ts'
@@ -92,6 +94,40 @@ const isLink = (path: string): boolean => {
 }
 
 const taken = (path: string): boolean => existsSync(path) || isLink(path)
+
+/**
+ * Where the practice skill lives: the app's own folder, which no agent reads.
+ * It is a place of its own in the library, never one a skill is created or
+ * installed in.
+ */
+const PRACTICE_PLACE: Place = {
+  scope: PRACTICE_SCOPE,
+  label: 'Practice',
+  root: join(STUDIO_DIR, 'practice'),
+}
+const PRACTICE_DIR = join(PRACTICE_PLACE.root, PRACTICE.name)
+
+/** True when `path` is the practice skill's folder. */
+export const isPracticeSkill = (path: string): boolean => {
+  const real = realOf(path)
+  return real !== null && real === realOf(PRACTICE_DIR)
+}
+
+/** The practice skill's folder, written with its cases the first time it is asked for. */
+export function openPractice(): string {
+  if (!isFile(join(PRACTICE_DIR, 'SKILL.md'))) {
+    newSkill(PRACTICE_DIR, PRACTICE.name, PRACTICE.description, PRACTICE)
+    for (const sample of PRACTICE.cases) saveCase(PRACTICE_DIR, sample, true)
+  }
+  return PRACTICE_DIR
+}
+
+function practiceEntry(): Entry[] {
+  const real = realOf(PRACTICE_DIR)
+  return real && isFile(join(real, 'SKILL.md'))
+    ? [{ place: PRACTICE_PLACE, holder: 'store', name: PRACTICE.name, real, link: false }]
+    : []
+}
 
 function projectsIn(workspace: string): string[] {
   const found: string[] = []
@@ -225,11 +261,14 @@ function toSkill(
   }
 }
 
-/** Every skill in every place. `open` lists served skills, kept even when outside every place. */
+/**
+ * Every skill in every place, and the practice skill once it exists. `open`
+ * lists served skills, kept even when outside every place.
+ */
 export function scanLibrary(open: string[] = []): Library {
   const settings = loadSettings()
   const places = placesOf(settings)
-  const entries = places.flatMap(entriesIn)
+  const entries = [...places.flatMap(entriesIn), ...practiceEntry()]
   const openReal = new Set(open.flatMap((p) => realOf(p) ?? []))
   const found = new Set(entries.map((e) => e.real))
   for (const real of openReal)

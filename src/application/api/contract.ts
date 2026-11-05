@@ -91,6 +91,8 @@ export interface Contract {
   'library.skills': { input: Record<string, never>; output: SkillInfo[] }
   'library.scan': { input: Record<string, never>; output: Library }
   'library.create': { input: CreateSkillInput; output: SkillInfo }
+  /** Open the practice skill, writing it and its cases the first time. */
+  'library.practice': { input: Record<string, never>; output: SkillInfo }
   'library.link': { input: LinkInput; output: { linked: string } }
   'library.unlink': { input: LinkInput; output: { unlinked: true } }
   'library.workspaces': { input: { workspaces: string[] }; output: { workspaces: string[] } }

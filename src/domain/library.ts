@@ -56,6 +56,15 @@ export interface Library {
   workspaces: string[]
 }
 
+/**
+ * The scope of the practice skill. It lives in the app's own folder, outside
+ * every place agents load skills from, so practising never changes what an
+ * agent does.
+ */
+export const PRACTICE_SCOPE = 'practice'
+
+export const isPractice = (skill: LibrarySkill): boolean => skill.scope === PRACTICE_SCOPE
+
 /** True for a skill someone else wrote, as far as the library can tell. */
 export const isInstalled = (skill: LibrarySkill): boolean => skill.source !== null
 

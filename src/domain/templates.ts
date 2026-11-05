@@ -11,12 +11,9 @@ import { frontMatterBlock, stripFrontMatter } from './text.ts'
 export const TEMPLATE_IDS = ['blank', 'writing', 'code', 'workflow', 'design'] as const
 export type TemplateId = (typeof TEMPLATE_IDS)[number]
 
-export interface SkillTemplate {
-  id: TemplateId
-  label: string
-  /** One sentence under the picker: what kind of skill this starts. */
-  summary: string
-  /** An example front-matter description, shown as the placeholder. */
+/** What a new skill is written from: its description, judge packs, SKILL.md body and cases. */
+export interface SkillStart {
+  /** The front-matter description when the author gives none. */
   description: string
   /** Judge packs that fit this kind of skill, in order. */
   packs: string[]
@@ -26,8 +23,15 @@ export interface SkillTemplate {
   cases: CaseDraft[]
 }
 
-/** Case and check text shared by the Cases screen's examples and the templates. */
-const kase = (
+export interface SkillTemplate extends SkillStart {
+  id: TemplateId
+  label: string
+  /** One sentence under the picker: what kind of skill this starts. */
+  summary: string
+}
+
+/** A finished case in one line per part: the templates, the Cases screen's examples and the practice skill share it. */
+export const kase = (
   id: string,
   title: string,
   prompt: string,
@@ -372,7 +376,7 @@ const titleOfName = (name: string): string =>
   name.replace(/[-_]+/g, ' ').replace(/^\w/, (c) => c.toUpperCase())
 
 /** The template's SKILL.md body for a skill of this name. */
-export const templateBody = (template: SkillTemplate, name: string): string =>
+export const templateBody = (template: Pick<SkillStart, 'body'>, name: string): string =>
   template.body.replace(/\{\{title\}\}/g, titleOfName(name))
 
 /**

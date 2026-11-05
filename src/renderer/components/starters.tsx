@@ -30,6 +30,37 @@ export function Starter({
   )
 }
 
+/**
+ * An offer at the top of a screen, for someone who has not started yet: what it
+ * is, what it asks of them, and the one button that takes it. It sits on the
+ * muted surface, as help does, and goes once it is taken.
+ */
+export function Invitation({
+  title,
+  action,
+  children,
+  className,
+  ...props
+}: Omit<ComponentProps<'section'>, 'title'> & { title: ReactNode; action: ReactNode }) {
+  return (
+    <section
+      className={cn(
+        'flex flex-wrap items-center gap-x-8 gap-y-3 rounded-lg bg-muted px-5 py-4',
+        className,
+      )}
+      {...props}
+    >
+      <div className="flex min-w-0 flex-1 basis-80 flex-col gap-1">
+        <Heading level={2}>{title}</Heading>
+        <Text as="p" size="ui" tone="muted" className="max-w-[68ch] text-pretty">
+          {children}
+        </Text>
+      </div>
+      {action}
+    </section>
+  )
+}
+
 export interface Example {
   key: string
   title: ReactNode
@@ -103,18 +134,27 @@ export interface Pair {
   why: string
 }
 
-/** Vague next to markable: what the judge cannot check, then what it can. */
-export function PairList({ pairs }: { pairs: readonly Pair[] }) {
+/**
+ * Vague next to markable: what cannot be checked, then what can. `marks` names
+ * the two lines, five letters at most so they fit the tag column.
+ */
+export function PairList({
+  pairs,
+  marks = ['vague', 'check'],
+}: {
+  pairs: readonly Pair[]
+  marks?: readonly [string, string]
+}) {
   return (
     <ul className="m-0 flex flex-col gap-3 p-0 text-xs">
       {pairs.map((pair) => (
         <li key={pair.good} className="flex flex-col gap-0.5">
           <span className="flex items-baseline gap-2 text-muted-foreground">
-            <PairMark>vague</PairMark>
+            <PairMark>{marks[0]}</PairMark>
             <s className="decoration-input">{pair.bad}</s>
           </span>
           <span className="flex items-baseline gap-2">
-            <PairMark>check</PairMark>
+            <PairMark>{marks[1]}</PairMark>
             {pair.good}
           </span>
           <Hint as="span">{pair.why}</Hint>

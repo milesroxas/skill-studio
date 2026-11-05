@@ -57,6 +57,22 @@ Settings also holds your own preferences: the theme (system, light or dark), whe
 
 To use the app in a browser, or from your phone or another computer, run `pnpm build` then `pnpm st serve` (add `--tailscale` for other devices). The [README](https://github.com/milesroxas/skill-studio#in-a-browser-or-from-another-device) explains who can reach it and why that is safe. In a browser the key comes from `TYPESAFE_API_KEY` in the environment or a `.env` in the checkout.
 
+## Practise on a finished skill first
+
+The fastest way to learn the loop is to go round it once on a skill that is already written. On a first visit the Library offers one: click **Start practice**. The New skill form offers it too, until you have started it.
+
+The practice skill is `thank-you-note`. It writes a short thank-you note, so a run takes under a minute and a note is read and rated in seconds. It comes with three cases, and every form on the way is filled in, so there is nothing to type.
+
+A Practice block at the foot of the sidebar names the step you are on, and clicking it takes you there:
+
+1. **Run the skill.** New run opens with the cases ticked and the version named. Click "Start a run".
+2. **Rate the notes.** Score each note in Rate blind before you see the judge's score.
+3. **Tighten one rule.** One rule is vague on purpose: "Keep the note to a reasonable length." The agent cannot measure "reasonable", so the notes come back long and each case's "exactly two sentences" check fails. Write shows the vague rule beside an exact one. Click "Use the exact rule", or write your own, then Save.
+4. **Run it again.** The same cases against the new rule. Only the skill changed, so any difference is your edit.
+5. **Compare the versions.** Read a note from each version side by side and vote for the better one.
+
+The steps are read from the skill's own runs, ratings and versions, so the block is always where the skill is. The practice skill is kept in `~/.skill-studio/practice/`, outside every folder agents load skills from. It is installed for no agent and cannot be: practising never changes what your agents do. To start it over, delete that folder and click Start practice again.
+
 ## 1. Open or create a skill
 
 The app opens on the Library: every skill in your user skills folders (`~/.agents`, `~/.claude`, `~/.cursor`, `~/.codex`) and in projects under your workspace folders.

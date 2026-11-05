@@ -1,4 +1,5 @@
 /** Write new outputs: pick cases, writers, samples and the configuration; watch the job. */
+import { practiceVersionName } from '@domain/practice.ts'
 import { CONFIGURATIONS, type Configuration } from '@domain/schemas.ts'
 import { PlusIcon, XIcon } from 'lucide-react'
 import { useState } from 'react'
@@ -49,7 +50,14 @@ export function Generate({ ctx }: { ctx: Ctx }) {
   const [samples, setSamples] = useState(1)
   const [configuration, setConfiguration] = useState<Configuration>('with_skill')
   const [baseline, setBaseline] = useState(withSkill[0]?.name ?? '')
-  const [skillName, setSkillName] = useState(current.changed ? '' : current.name)
+  // The practice skill's form needs no typing: its new version comes named.
+  const [skillName, setSkillName] = useState(
+    current.changed
+      ? state.practice
+        ? practiceVersionName(state.versions.versions.length)
+        : ''
+      : current.name,
+  )
   const [note, setNote] = useState('')
   const [grade, setGrade] = useState(true)
   const [busy, setBusy] = useState(false)

@@ -5,6 +5,7 @@ import {
   type AgentId,
   isInProgress,
   isInstalled,
+  isPractice,
   type Library,
   type LibrarySkill,
 } from '@domain/library.ts'
@@ -34,6 +35,7 @@ import {
 } from '../components/layout.tsx'
 import { Segmented } from '../components/Segmented.tsx'
 import { SelectBox } from '../components/SelectBox.tsx'
+import { Invitation } from '../components/starters.tsx'
 import { TextArea } from '../components/TextArea.tsx'
 import { Heading, Hint, Text, VisuallyHidden } from '../components/text.tsx'
 import { Button } from '../components/ui/button.tsx'
@@ -65,6 +67,19 @@ export function LibraryScreen({ openSkill, toast, confirm }: Props) {
   const [place, setPlace] = useState('')
   const [showInstalled, setShowInstalled] = useState(false)
   const [creating, setCreating] = useState(false)
+  const [starting, setStarting] = useState(false)
+
+  /** Open the practice skill, written with its cases on the first call. */
+  const startPractice = async () => {
+    setStarting(true)
+    try {
+      const skill = await api.practice()
+      openSkill(skill.path)
+    } catch (e) {
+      toast((e as Error).message)
+      setStarting(false)
+    }
+  }
 
   const data = lib.data
   const matches = useMemo(() => {
@@ -97,6 +112,9 @@ export function LibraryScreen({ openSkill, toast, confirm }: Props) {
   const installedCount = matches.filter(isInstalled).length
   const listed = showInstalled ? matches : matches.filter((s) => !isInstalled(s))
   const placeCount = new Set(data.skills.map((s) => s.scope)).size
+  const practised = data.skills.some(isPractice)
+  /** Nobody has run anything here yet: lead with the practice skill, and let New skill step back. */
+  const inviting = !practised && !data.skills.some((s) => s.runs > 0)
 
   const act: Act = async (work, done) => {
     try {
@@ -112,6 +130,7 @@ export function LibraryScreen({ openSkill, toast, confirm }: Props) {
     return (
       <NewSkill
         data={data}
+        startPractice={practised ? null : startPractice}
         cancel={() => setCreating(false)}
         created={(path) => openSkill(path, 'edit')}
         toast={toast}
@@ -120,6 +139,21 @@ export function LibraryScreen({ openSkill, toast, confirm }: Props) {
 
   return (
     <Screen>
+      {inviting ? (
+        <Invitation
+          aria-label="Practice"
+          title="Learn the loop on a practice skill"
+          action={
+            <Button type="button" disabled={starting} onClick={startPractice}>
+              {starting ? 'Starting…' : 'Start practice'}
+            </Button>
+          }
+        >
+          Thank-you note is a finished skill with three cases. Run it, rate what the agent wrote,
+          tighten one rule and run it again: a few minutes, nothing to type. It stays inside Skill
+          Studio and is installed for no agent.
+        </Invitation>
+      ) : null}
       <Toolbar gap="md">
         <Input
           type="search"
@@ -143,7 +177,11 @@ export function LibraryScreen({ openSkill, toast, confirm }: Props) {
           </CheckRow>
         ) : null}
         <Spacer />
-        <Button type="button" onClick={() => setCreating(true)}>
+        <Button
+          type="button"
+          variant={inviting ? 'outline' : 'default'}
+          onClick={() => setCreating(true)}
+        >
           <PlusIcon aria-hidden="true" />
           New skill
         </Button>
@@ -177,7 +215,11 @@ export function LibraryScreen({ openSkill, toast, confirm }: Props) {
             size="compact"
             title="No skills yet"
             actions={
-              <Button type="button" onClick={() => setCreating(true)}>
+              <Button
+                type="button"
+                variant={inviting ? 'outline' : 'default'}
+                onClick={() => setCreating(true)}
+              >
                 New skill
               </Button>
             }
@@ -277,30 +319,40 @@ function SkillTable({
               ) : null}
             </TableCell>
             <TableCell>
-              <Toolbar gap="xs" wrap={false}>
-                {AGENTS.map((a) => {
-                  const state = s.installs[a.id]
-                  const fixed = state === 'here' || state === 'copy' || s.scope === 'other'
-                  return (
-                    <Toggle
-                      key={a.id}
-                      variant="outline"
-                      size="sm"
-                      pressed={state === 'here' || state === 'link'}
-                      aria-disabled={fixed || undefined}
-                      title={INSTALL_TITLE[state ?? 'none'](a.label)}
-                      onPressedChange={() => fixed || toggle(s, a.id, a.label)}
-                    >
-                      {a.label.replace(' Code', '')}
-                      {state === 'copy' ? (
-                        <Text tone="faint" size="xs">
-                          copy
-                        </Text>
-                      ) : null}
-                    </Toggle>
-                  )
-                })}
-              </Toolbar>
+              {isPractice(s) ? (
+                <Text
+                  tone="muted"
+                  size="xs"
+                  title="Kept in Skill Studio’s own folder, so no agent loads it."
+                >
+                  Stays in the app
+                </Text>
+              ) : (
+                <Toolbar gap="xs" wrap={false}>
+                  {AGENTS.map((a) => {
+                    const state = s.installs[a.id]
+                    const fixed = state === 'here' || state === 'copy' || s.scope === 'other'
+                    return (
+                      <Toggle
+                        key={a.id}
+                        variant="outline"
+                        size="sm"
+                        pressed={state === 'here' || state === 'link'}
+                        aria-disabled={fixed || undefined}
+                        title={INSTALL_TITLE[state ?? 'none'](a.label)}
+                        onPressedChange={() => fixed || toggle(s, a.id, a.label)}
+                      >
+                        {a.label.replace(' Code', '')}
+                        {state === 'copy' ? (
+                          <Text tone="faint" size="xs">
+                            copy
+                          </Text>
+                        ) : null}
+                      </Toggle>
+                    )
+                  })}
+                </Toolbar>
+              )}
             </TableCell>
             <TableCell numeric optional>
               <Text size="xs" tabular>
@@ -317,7 +369,7 @@ function SkillTable({
               </Text>
             </TableCell>
             <TableCell numeric>
-              {s.source === null || s.source === 'marked' ? (
+              {isPractice(s) ? null : s.source === null || s.source === 'marked' ? (
                 <Button
                   type="button"
                   variant="ghost"
@@ -347,11 +399,14 @@ function SkillTable({
 
 function NewSkill({
   data,
+  startPractice,
   cancel,
   created,
   toast,
 }: {
   data: Library
+  /** Open the practice skill instead; null once it exists. */
+  startPractice: (() => void) | null
   cancel: () => void
   created: (path: string) => void
   toast: Props['toast']
@@ -399,6 +454,15 @@ function NewSkill({
     <Screen width="form">
       <SectionHead>
         <Heading level={2}>New skill</Heading>
+        {startPractice ? (
+          <Hint>
+            New to the loop?{' '}
+            <Button type="button" variant="link-muted" size="inline-sm" onClick={startPractice}>
+              Start with the practice skill
+            </Button>
+            , a finished one with three cases to run.
+          </Hint>
+        ) : null}
       </SectionHead>
       <form
         className="contents"
