@@ -8,6 +8,7 @@ import {
   readFrontMatter,
   round,
   slug,
+  stripComments,
   stripFrontMatter,
   titleOf,
   unitsOf,
@@ -84,6 +85,16 @@ describe('front matter helpers', () => {
 describe('copyOf', () => {
   it('drops front matter and HTML comments', () => {
     expect(copyOf('---\na: 1\n---\n<!-- note -->\nKept copy.')).toBe('Kept copy.')
+  })
+})
+
+describe('stripComments', () => {
+  it('removes every comment and keeps the text around them', () => {
+    expect(stripComments('a <!-- one --> b <!--\ntwo\n--> c')).toBe('a  b  c')
+  })
+  it('leaves no comment that removing another one assembled', () => {
+    expect(stripComments('<!-<!-- a -->- hidden -->shown')).toBe('shown')
+    expect(copyOf('<!-<!-- a -->- hidden -->\nShown.')).toBe('Shown.')
   })
 })
 

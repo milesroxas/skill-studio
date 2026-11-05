@@ -5,7 +5,7 @@
  */
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { round } from '@domain/text.ts'
+import { round, stripComments } from '@domain/text.ts'
 import { image, noul } from '@typesafe-ai/sdk'
 import type { JevState } from '../jev.ts'
 import { askStatements, pairwiseText, requestOf } from '../shared/questions.ts'
@@ -20,9 +20,7 @@ interface Tag {
 
 /** Start tags, attribute values unquoted. Comments and script and style bodies are not markup. */
 function tagsOf(html: string): Tag[] {
-  const markup = html
-    .replace(/<!--[\s\S]*?-->/g, '')
-    .replace(/<(script|style)\b[^>]*>[\s\S]*?<\/\1\s*>/gi, '<$1>')
+  const markup = stripComments(html).replace(/<(script|style)\b[^>]*>[\s\S]*?<\/\1\s*>/gi, '<$1>')
   const tags: Tag[] = []
   const tag =
     /<([a-z][a-z0-9-]*)((?:\s+[^\s"'>/=]+(?:\s*=\s*(?:"[^"]*"|'[^']*'|[^\s"'=<>`]+))?)*)\s*\/?>/gi
@@ -40,7 +38,7 @@ function tagsOf(html: string): Tag[] {
 
 /** Text of the first `<title>`, tags and surrounding space removed; null without one. */
 const titleText = (html: string): string | null => {
-  const match = /<title\b[^>]*>([\s\S]*?)<\/title\s*>/i.exec(html.replace(/<!--[\s\S]*?-->/g, ''))
+  const match = /<title\b[^>]*>([\s\S]*?)<\/title\s*>/i.exec(stripComments(html))
   return match ? match[1].replace(/<[^>]*>/g, '').trim() : null
 }
 

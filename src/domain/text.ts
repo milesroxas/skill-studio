@@ -57,11 +57,27 @@ export const metaList = (meta: Record<string, unknown>, key: string): string[] |
         .filter(Boolean)
 }
 
+/**
+ * `text` with every match of `pattern` taken out, repeated until a pass finds
+ * none: taking one match out can join the text around it into another, as in
+ * `<!-<!-- a -->- b -->`.
+ */
+function without(text: string, pattern: RegExp): string {
+  let rest = text
+  let before: string
+  do {
+    before = rest
+    rest = rest.replace(pattern, '')
+  } while (rest !== before)
+  return rest
+}
+
+/** `text` with its HTML comments removed. */
+export const stripComments = (text: string): string => without(text, /<!--[\s\S]*?-->/g)
+
 /** The copy a piece is judged on: front matter and HTML comments removed. */
 export const copyOf = (raw: string): string =>
-  readFrontMatter(raw)
-    .text.replace(/<!--[\s\S]*?-->\s*/g, '')
-    .trim()
+  without(readFrontMatter(raw).text, /<!--[\s\S]*?-->\s*/g).trim()
 
 export interface Unit {
   text: string

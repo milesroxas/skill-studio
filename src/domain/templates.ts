@@ -6,7 +6,7 @@
  * numeric or absolute, each with its why. Pure data and string functions.
  */
 import type { CaseDraft } from './schemas.ts'
-import { frontMatterBlock, stripFrontMatter } from './text.ts'
+import { frontMatterBlock, stripComments, stripFrontMatter } from './text.ts'
 
 export const TEMPLATE_IDS = ['blank', 'writing', 'code', 'workflow', 'design'] as const
 export type TemplateId = (typeof TEMPLATE_IDS)[number]
@@ -416,8 +416,7 @@ export const templateBody = (template: Pick<SkillStart, 'body'>, name: string): 
  * template in place of a blank page.
  */
 export function isScaffold(skillMd: string): boolean {
-  const body = stripFrontMatter(skillMd)
-    .replace(/<!--[\s\S]*?-->/g, '')
+  const body = stripComments(stripFrontMatter(skillMd))
     .replace(/^#{1,6}\s.*$/gm, '')
     .replace(/^[-*]\s*$/gm, '')
   return body.trim() === ''
@@ -474,8 +473,10 @@ Is the |first question true?
 
 /** The snippet's text and where the cursor goes, as an offset into it. */
 function snippetText(snippet: Snippet): { text: string; cursor: number } {
-  const cursor = snippet.text.indexOf('|')
-  return { text: snippet.text.replace('|', ''), cursor: cursor < 0 ? snippet.text.length : cursor }
+  const { text } = snippet
+  const cursor = text.indexOf('|')
+  if (cursor < 0) return { text, cursor: text.length }
+  return { text: text.slice(0, cursor) + text.slice(cursor + 1), cursor }
 }
 
 /**

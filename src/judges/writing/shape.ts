@@ -3,7 +3,7 @@
  * retrieval and the fallback lint. Ported from the reference skill's
  * check-voice.mjs and bench.mjs so the measures match it exactly. Pure.
  */
-import { round, type Unit } from '@domain/text.ts'
+import { round, stripComments, type Unit } from '@domain/text.ts'
 
 /** Whitespace-delimited tokens, the count the reference's shape bands were drawn with. */
 const tokens = (text: string): string[] => text.match(/\S+/g) ?? []
@@ -116,7 +116,7 @@ const terms = (text: string): Set<string> =>
 export function evidenceChunks(texts: string[]): string[] {
   const chunks: string[] = []
   for (const raw of texts) {
-    const clean = raw.replace(/<!--[\s\S]*?-->/g, '')
+    const clean = stripComments(raw)
     for (const block of clean.split(/\n\s*\n|\n(?=- )/)) {
       const text = block.replace(/^#+\s.*$/gm, '').trim()
       if (tokens(text).length >= 4) chunks.push(text.replace(/^- /, ''))
