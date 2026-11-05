@@ -217,6 +217,12 @@ export interface StudioBridge {
   onAi(listener: (run: AiRun) => void): () => void
   /** A screen the application menu asks for, such as the guide; returns the unsubscribe. */
   onGo(listener: (screen: string) => void): () => void
+  /** A skill the welcome hands this window to open, by path; returns the unsubscribe. */
+  onOpen(listener: (skill: string) => void): () => void
+  /** Show the welcome in its own small window. */
+  openWelcome(): Promise<Reply<null>>
+  /** Leave the welcome for the app itself, on a skill when one is named. */
+  enterApp(skill: string | null): Promise<Reply<null>>
   /** Show an `artifact:` URL in its own sandboxed window. */
   openArtifact(url: string): Promise<Reply<null>>
   /** Open an https link in the default browser. */

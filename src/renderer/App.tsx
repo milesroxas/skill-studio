@@ -5,10 +5,14 @@
  * names the one in view and offers the one suggested next step. Library, guide
  * and settings open in the same pane, so the skill in hand stays one click away.
  *
- * Help is part of the shell, so it is the same on every screen: a first visit
- * lands on the welcome, each screen says what it is for in one line the first
- * time it opens, and the help button at the end of the top bar says it again,
- * with the screen's words and the way to the guide.
+ * Help is part of the shell, so it is the same on every screen: each screen
+ * says what it is for in one line the first time it opens, and the help button
+ * at the end of the top bar says it again, with the screen's words and the way
+ * to the guide and the welcome.
+ *
+ * The welcome is not part of the shell. The desktop app shows it in a small
+ * window of its own before this one opens; a browser, which has one page and
+ * no windows to give, shows it in place of the shell.
  */
 import type { BenchConfig } from '@domain/schemas.ts'
 import { ArrowRightIcon, MenuIcon, PanelRightIcon } from 'lucide-react'
@@ -139,8 +143,12 @@ export function App() {
     navigate(screen, {}, { skill: path })
   }, [])
   const [starting, startPractice] = useStartPractice(openSkill, toast)
-  // The desktop app's Help menu opens the welcome and the guide.
+  // The desktop app's Help menu opens the guide, and its welcome hands over the practice skill.
   useEffect(() => api.watchGo?.((screen) => navigate(screen)), [])
+  useEffect(() => api.watchOpen?.((path) => openSkill(path)), [openSkill])
+  /** The welcome is shown in this page: the host has no window of its own to give it. */
+  const inline = !api.openWelcome
+  const openWelcome = () => (api.openWelcome ? api.openWelcome() : go('welcome'))
   // Back and Forward return to the skill a place was seen in. An entry made with
   // no skill open keeps the one in hand.
   useEffect(() => {
@@ -210,10 +218,10 @@ export function App() {
       })
     : null
 
-  // Before anything else was opened, the app opens on the welcome.
+  // In a browser, before anything else was opened, the app opens on the welcome.
   // The practice skill opens on the step in hand, so the first thing in view is the one thing to do.
   const home =
-    !preferences.welcomed && !skillPath
+    inline && !preferences.welcomed && !skillPath
       ? 'welcome'
       : !loaded
         ? 'library'
@@ -224,7 +232,9 @@ export function App() {
             : loaded.state.runs.length
               ? 'overview'
               : 'edit'
-  const requested = route.screen === 'home' ? home : route.screen
+  // The desktop app's welcome has its own window: here its route is only another name for home.
+  const requested =
+    route.screen === 'home' || (route.screen === 'welcome' && !inline) ? home : route.screen
   // A skill screen with no skill open falls back to the library.
   const screen = !skillPath && isSkillScreen(requested) ? 'library' : requested
   const place = placeFor(screen) ?? placeFor(home)
@@ -232,7 +242,8 @@ export function App() {
 
   // The welcome is where a first visit lands. Going anywhere else, or opening a
   // skill, is the reader moving on: from then on the app opens on the library.
-  const movedOn = Boolean(skillPath) || !['home', 'welcome'].includes(route.screen)
+  // In the desktop app this window opening is itself the reader moving on.
+  const movedOn = !inline || Boolean(skillPath) || !['home', 'welcome'].includes(route.screen)
   useEffect(() => {
     if (!preferences.welcomed && movedOn) void setPreferences({ welcomed: true }).catch(() => {})
   }, [preferences.welcomed, movedOn])
@@ -346,8 +357,6 @@ export function App() {
     : null
 
   const body = (() => {
-    if (screen === 'welcome')
-      return <Welcome starting={starting} onStart={startPractice} onLibrary={() => go('library')} />
     if (screen === 'docs')
       return (
         <Suspense fallback={<Loading size="screen" />}>
@@ -358,7 +367,7 @@ export function App() {
     if (screen === 'settings')
       return (
         <Suspense fallback={<Loading size="screen" />}>
-          <SettingsScreen toast={toast} onSaved={reload} onWelcome={() => go('welcome')} />
+          <SettingsScreen toast={toast} onSaved={reload} onWelcome={openWelcome} />
         </Suspense>
       )
     if (screen === 'library')
@@ -432,6 +441,21 @@ export function App() {
   const keep = (patch: Parameters<typeof setPreferences>[0]) =>
     void setPreferences(patch).catch((e: Error) => toast(`Not saved: ${e.message}`))
 
+  // The welcome stands alone, with none of the shell around it.
+  if (screen === 'welcome')
+    return (
+      <>
+        <Welcome
+          first={!preferences.welcomed}
+          starting={starting}
+          onStart={startPractice}
+          // Opened again from the help, it closes back to where it was opened from.
+          onLeave={() => (preferences.welcomed && route.index > 0 ? back() : go('library'))}
+        />
+        {overlays}
+      </>
+    )
+
   return (
     <AppFrame assistant={assistant}>
       <Sidebar>{sidebar}</Sidebar>
@@ -494,7 +518,7 @@ export function App() {
             help={help}
             hintsOff={preferences.hints === 'hide' || seen.length > 0}
             onGuide={(section) => go('docs', section ? { section } : {})}
-            onWelcome={() => go('welcome')}
+            onWelcome={openWelcome}
             onAsk={() => setAssistant(true)}
             onShowHints={() => {
               keep({ hints: 'show', hintsSeen: [] })

@@ -61,7 +61,11 @@ pnpm dev
 
 Then open Settings at the foot of the sidebar and paste the TypeSafe key. The app keeps it in your system keychain. If the app shows "No Jev key" at the top right, the key is missing; the pill takes you to Settings.
 
-The first time it opens, the app shows a welcome: two sentences on what a skill is, and one button. "See how it works" tells the loop in six steps on the practice skill, one step to a screen, and ends on **Start practice**. Skip goes to your skills at any point. The welcome stays one click away: "How Skill Studio works" under the question mark at the top right, and in the Help menu of the desktop app.
+The first time it opens, the app shows a welcome: one line on what the app does for you, and one button. "See how it works" tells the loop in six steps on the practice skill, one step to a screen, and ends on **Start practice**. Skip, under that button and then at the top right of every step, goes to your skills at any point.
+
+In the desktop app the welcome has a small window of its own, and the app itself opens when you skip the welcome, finish it or close it. In a browser the welcome takes the page. Next and Back step through the tour, and so do the right and left arrow keys.
+
+The welcome stays one click away: "How Skill Studio works" under the question mark at the top right, **Open the welcome** in Settings, and the Help menu of the desktop app. Opened again, it stands beside the app and Close puts it away.
 
 Settings also holds your own preferences: the theme (system, light or dark), whether to reduce motion, whether the Write screen opens Markdown formatted or as source, and whether screens show their hints. "Show every hint again" brings back the ones you put away.
 

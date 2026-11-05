@@ -66,6 +66,12 @@ export const api = {
   watchJobs: transport.watchJobs,
   /** Screens the desktop app's Help menu asks for. */
   watchGo: transport.watchGo,
+  /** A skill the welcome's window hands this one to open. */
+  watchOpen: transport.watchOpen,
+  /** The welcome in a window of its own; undefined in a browser, which shows it in the page. */
+  openWelcome: transport.openWelcome,
+  /** Leave the welcome's window for the app. */
+  enterApp: transport.enterApp,
   settings: () => call('settings.read', {}),
   /** Store a key in the host's keychain; an empty value removes the stored one. */
   setKey: (id: SecretId, value: string) => call('settings.key', { id, value }),

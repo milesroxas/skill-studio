@@ -6,6 +6,8 @@
  * Dark remaps the lightness roles and holds the hue: the page stays the
  * brightest surface, borders turn solid and shadows collapse to a ring.
  * Two faces only: Geist for everything read, Geist Mono for code and paths.
+ * The yellow of the app's icon appears in one place, the welcome, as the mark
+ * and as a highlighter over the one word or number that matters.
  */
 @import "tailwindcss";
 @import "tw-animate-css";
@@ -49,6 +51,9 @@
   --border: oklch(0 0 0 / 0.08);
   --input: oklch(0 0 0 / 0.15);
   --ring: oklch(0.556 0.006 85);
+  /* The icon's yellow and its ink. The same in both themes: they are the brand, not a role. */
+  --brand: #ffe500;
+  --brand-ink: #171918;
   --radius: 0.625rem;
   /* Raised surfaces: a ring for the edge, a tight shadow, a soft one. */
   --elevation-raised:
@@ -115,6 +120,8 @@
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
+  --color-brand: var(--brand);
+  --color-brand-ink: var(--brand-ink);
   --radius-xs: calc(var(--radius) * 0.5);
   --radius-sm: calc(var(--radius) * 0.75);
   --radius-md: calc(var(--radius) * 0.875);
@@ -126,6 +133,10 @@
   --shadow-popover: var(--elevation-popover);
   /* A strong ease-out: movement starts at once and settles. */
   --ease-out-strong: cubic-bezier(0.23, 1, 0.32, 1);
+  /* A pen's stroke: quick off the mark, then a long, even finish. */
+  --ease-stroke: cubic-bezier(0.32, 0.72, 0, 1);
+  /* Lands a touch past its place and settles back. For small things that arrive, never for text. */
+  --ease-out-back: cubic-bezier(0.34, 1.4, 0.64, 1);
   --z-index-popover: 50;
   --z-index-toast: 400;
 }
@@ -174,6 +185,78 @@
   --text-3xl--line-height: 2.25rem;
   --text-3xl--letter-spacing: -0.022em;
   --text-code: 0.9em;
+}
+
+/*
+ * The welcome's movement. It is seen once or twice, so it may say more than the
+ * app's own: things arrive in the order they are read, one after another. Each
+ * waits for `--delay`, set where it is used, and holds its first frame until
+ * then. Only transform, opacity, a small blur and a clip ever move.
+ */
+@property --delay {
+  syntax: "<time>";
+  inherits: false;
+  initial-value: 0ms;
+}
+/* Inline, so each utility reads `--delay` on its own element and not once at the root. */
+@theme inline {
+  /* Text and blocks coming into view: up a little, out of a soft focus. */
+  --animate-rise: rise 500ms var(--ease-out-strong) var(--delay) both;
+  /* A mark stamped or a choice made: small, so it may overshoot. */
+  --animate-pop: pop 320ms var(--ease-out-back) var(--delay) both;
+  /* A highlighter's stroke, or a bar filling, from its left end. */
+  --animate-swipe: swipe 480ms var(--ease-stroke) var(--delay) both;
+  /* Something drawn from left to right, such as a bar of the mark. */
+  --animate-draw: draw 520ms var(--ease-stroke) var(--delay) both;
+  /* A word written. */
+  --animate-ink: ink 260ms ease-out var(--delay) both;
+  /* What a stamp or a choice replaces, gone as it lands. */
+  --animate-vanish: vanish 120ms ease-out var(--delay) both;
+  /* The mark's tile, set down. */
+  --animate-settle: settle 640ms var(--ease-out-back) var(--delay) both;
+
+  @keyframes rise {
+    from {
+      opacity: 0;
+      transform: translateY(8px);
+      filter: blur(4px);
+    }
+  }
+  @keyframes pop {
+    from {
+      opacity: 0;
+      transform: scale(0.7);
+    }
+  }
+  @keyframes swipe {
+    from {
+      transform: scaleX(0);
+    }
+  }
+  @keyframes draw {
+    from {
+      clip-path: inset(0 100% 0 0);
+    }
+    to {
+      clip-path: inset(0);
+    }
+  }
+  @keyframes ink {
+    from {
+      opacity: 0;
+    }
+  }
+  @keyframes vanish {
+    to {
+      opacity: 0;
+    }
+  }
+  @keyframes settle {
+    from {
+      opacity: 0;
+      transform: scale(0.86) rotate(-8deg);
+    }
+  }
 }
 
 @layer base {
@@ -250,14 +333,17 @@
  * Unlayered, so they beat every transition utility without !important.
  * data-motion is "reduced" when the person or the system asks for less
  * movement; data-switching holds transitions for the frame a theme lands in,
- * so colors change at once rather than each at its own pace.
+ * so colors change at once rather than each at its own pace. Delays go too:
+ * nothing stays hidden while it waits its turn in a sequence that will not play.
  */
 :root[data-motion="reduced"] *,
 :root[data-motion="reduced"] ::before,
 :root[data-motion="reduced"] ::after {
   animation-duration: 0.01ms;
+  animation-delay: 0s;
   animation-iteration-count: 1;
   transition-duration: 0.01ms;
+  transition-delay: 0s;
 }
 :root[data-switching] *,
 :root[data-switching] ::before,

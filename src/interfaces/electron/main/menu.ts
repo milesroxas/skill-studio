@@ -7,7 +7,7 @@ import {
   type NavigationHistory,
   shell,
 } from 'electron'
-import { CHANNELS } from '../channels.ts'
+import type { Windows } from './windows.ts'
 
 const DOCS_URL = 'https://github.com/milesroxas/skill-studio/blob/main/docs/guide.md'
 
@@ -23,15 +23,7 @@ const step = (window: BaseWindow | undefined, offset: -1 | 1): void => {
   if (history.canGoToOffset(offset)) history.goToOffset(offset)
 }
 
-/** Show one of the page's own screens in a window, or in the first window when none has the focus. */
-const show = (window: BaseWindow | undefined, screen: string): void => {
-  const target = window instanceof BrowserWindow ? window : BrowserWindow.getAllWindows()[0]
-  if (!target || target.isDestroyed()) return
-  target.show()
-  target.webContents.send(CHANNELS.go, screen)
-}
-
-export function installMenu(): void {
+export function installMenu(windows: Windows): void {
   const mac = process.platform === 'darwin'
   const template: MenuItemConstructorOptions[] = [
     ...(mac ? [{ role: 'appMenu' as const }] : []),
@@ -65,8 +57,8 @@ export function installMenu(): void {
     {
       role: 'help',
       submenu: [
-        { label: 'How Skill Studio Works', click: (_item, window) => show(window, 'welcome') },
-        { label: 'Guide', click: (_item, window) => show(window, 'docs') },
+        { label: 'How Skill Studio Works', click: () => windows.openWelcome() },
+        { label: 'Guide', click: () => void windows.openApp({ screen: 'docs' }) },
         { type: 'separator' },
         { label: 'Guide on GitHub', click: () => void shell.openExternal(DOCS_URL) },
       ],

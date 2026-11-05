@@ -1,24 +1,29 @@
 /**
- * The loop, told one step at a time on the welcome screen. One step is in view
- * and nothing else: its name, one sentence, a picture, and the button to the
- * next. Six facts in a row are easy; six at once are a wall.
+ * The loop, told one step at a time in the welcome. One step is in view and
+ * nothing else: its name, one sentence, a picture, and the button to the next.
+ * Six facts in a row are easy; six at once are a wall.
  *
  * Every picture is the same example carried forward: the practice skill, one
  * of its cases and one note an agent might write for it. So the tour previews
  * the practice it ends on, and nothing in it has to be imagined.
  *
  * The frame holds still from step to step, so Next stays under the pointer and
- * only the step itself changes. Seen once or twice, so the step may move as it
- * changes: it comes in from the side the reader is heading to.
+ * only the step itself changes. Seen once or twice, so the step may move: it
+ * comes in from the side the reader is heading to, and then its picture plays
+ * what the sentence says, in the order it happens. Rules are written, checks
+ * are stamped, the score counts up. Nothing waits on the movement: Next works
+ * from the first frame.
  */
 import { PRACTICE, PRACTICE_EDIT } from '@domain/practice.ts'
 import { rulesFromSkill } from '@domain/rules.ts'
 import { cva } from 'class-variance-authority'
 import { ArrowRightIcon, CheckIcon, EyeOffIcon, XIcon } from 'lucide-react'
-import { type ReactNode, useState } from 'react'
+import type { ReactNode } from 'react'
 import { LOOP_STEPS } from '../help.ts'
+import { after, useCountUp } from '../motion.ts'
 import { type Place, placeFor } from '../places.ts'
 import { Spacer } from './layout.tsx'
+import { Highlight } from './Mark.tsx'
 import { Heading, Hint, Text } from './text.tsx'
 import { Button } from './ui/button.tsx'
 
@@ -36,30 +41,36 @@ const PASSED = [true, true, false]
 const FAILED_WHY = 'It has four.'
 const SCORE = { before: 58, after: 96 }
 const RATING = 2
+/** The note a word at a time, each with its place in the line. */
+const WORDS = NOTE.split(' ').map((word, at) => ({ word, at }))
 
-/** One step of the tour: reached, or still to come. */
-const segmentVariants = cva(
-  'h-1 flex-1 rounded-full transition-[background-color] duration-300 ease-out',
-  {
-    variants: {
-      reached: {
-        true: 'bg-foreground/70',
-        false: 'bg-foreground/10',
-      },
-    },
-  },
-)
+/**
+ * When the parts of a picture move, in milliseconds from the step coming into
+ * view. `start` is the first beat: the step has slid in and the eye has
+ * reached the picture. `row` is the wait between the rows of a list, `stamp`
+ * between the judge's marks, which land slower because each is a verdict.
+ */
+const BEAT = { start: 260, row: 90, stamp: 220, word: 20 }
 
-/** How far through the tour the reader is, as a row of marks and, for a screen reader, in words. */
-function Progress({ index }: { index: number }) {
+/**
+ * How far through the tour the reader is, as a row of marks and, for a screen
+ * reader, in words. A mark fills from its left as its step is reached, and
+ * empties the same way on the way back.
+ */
+export function TourProgress({ index }: { index: number }) {
   return (
-    <div className="flex flex-1 items-center gap-1">
+    <div className="flex w-40 animate-in items-center gap-1 duration-300 ease-out fade-in-0">
       {LOOP_STEPS.map((step, i) => (
         <span
           key={step.screen}
           aria-hidden="true"
-          className={segmentVariants({ reached: i <= index })}
-        />
+          className="h-1 flex-1 overflow-hidden rounded-full bg-foreground/10"
+        >
+          <span
+            data-reached={i <= index || undefined}
+            className="block size-full origin-left scale-x-0 rounded-full bg-foreground/70 transition-transform duration-300 ease-out-strong data-reached:scale-x-100"
+          />
+        </span>
       ))}
       <span className="sr-only">
         Step {index + 1} of {LOOP_STEPS.length}
@@ -71,7 +82,7 @@ function Progress({ index }: { index: number }) {
 /** The picture of a step: a sheet headed like the screen it stands for. */
 function Sheet({ place, children }: { place: Place; children: ReactNode }) {
   return (
-    <div className="pointer-events-none flex h-72 flex-col overflow-hidden rounded-xl bg-card shadow-raised select-none">
+    <div className="pointer-events-none flex h-72 animate-in flex-col overflow-hidden rounded-xl bg-card shadow-raised delay-75 duration-300 ease-out-strong fill-mode-backwards select-none fade-in-0 in-data-[from=after]:slide-in-from-right-4 in-data-[from=before]:slide-in-from-left-4">
       <div className="flex h-10 shrink-0 items-center gap-2 border-b px-4 text-ui font-medium">
         <place.icon aria-hidden="true" className="size-4 text-muted-foreground" />
         {place.label}
@@ -104,34 +115,65 @@ function Quote({ children }: { children: ReactNode }) {
   return <p className="m-0 border-l-2 border-input pl-3 text-ui text-pretty">{children}</p>
 }
 
-const markVariants = cva('mt-0.5 flex size-4 shrink-0 items-center justify-center rounded-xs', {
-  variants: {
-    state: {
-      open: 'border border-input',
-      yes: 'bg-success/15 text-success',
-      no: 'bg-destructive/15 text-destructive',
+const stampVariants = cva(
+  'absolute -inset-px flex animate-pop items-center justify-center rounded-xs',
+  {
+    variants: {
+      passed: {
+        true: 'bg-success/15 text-success',
+        false: 'bg-destructive/15 text-destructive',
+      },
     },
   },
-})
+)
 
-/** The checks of the case: still open, or marked by the judge. */
+/**
+ * The checks of the case. Without `marks` they are still open and arrive one
+ * after another. With `marks` the judge stamps them in turn: each open box
+ * gives way to its verdict.
+ */
 function Checks({ marks }: { marks?: boolean[] }) {
   return (
     <ul className="m-0 flex flex-col gap-1.5 p-0">
       {CHECKS.map((check, i) => {
-        const state = marks ? (marks[i] ? 'yes' : 'no') : 'open'
+        const passed = marks?.[i]
+        const at = BEAT.start + i * (marks ? BEAT.stamp : BEAT.row)
         return (
-          <li key={check} className="flex gap-2 text-ui">
-            <span className={markVariants({ state })}>
-              {state === 'yes' ? <CheckIcon aria-hidden="true" className="size-3" /> : null}
-              {state === 'no' ? <XIcon aria-hidden="true" className="size-3" /> : null}
+          <li
+            key={check}
+            className={marks ? 'flex gap-2 text-ui' : 'flex animate-rise gap-2 text-ui'}
+            style={marks ? undefined : after(at)}
+          >
+            <span className="relative mt-0.5 size-4 shrink-0">
+              <span
+                className={
+                  marks
+                    ? 'absolute inset-0 animate-vanish rounded-xs border border-input'
+                    : 'absolute inset-0 rounded-xs border border-input'
+                }
+                style={marks ? after(at) : undefined}
+              />
+              {passed === undefined ? null : (
+                <span className={stampVariants({ passed })} style={after(at)}>
+                  {passed ? (
+                    <CheckIcon aria-hidden="true" className="size-3" />
+                  ) : (
+                    <XIcon aria-hidden="true" className="size-3" />
+                  )}
+                </span>
+              )}
             </span>
             <span className="min-w-0 flex-1">
-              {state === 'open' ? null : (
-                <span className="sr-only">{state === 'yes' ? 'Passed: ' : 'Failed: '}</span>
+              {passed === undefined ? null : (
+                <span className="sr-only">{passed ? 'Passed: ' : 'Failed: '}</span>
               )}
               {check}
-              {state === 'no' ? <Text tone="muted"> {FAILED_WHY}</Text> : null}
+              {passed === false ? (
+                <Text tone="muted" className="animate-ink" style={after(at + 120)}>
+                  {' '}
+                  {FAILED_WHY}
+                </Text>
+              ) : null}
             </span>
           </li>
         )
@@ -140,11 +182,16 @@ function Checks({ marks }: { marks?: boolean[] }) {
   )
 }
 
-/** A score out of 100, as a number and as a length. */
+/** A score out of 100, as a number and as a length. Both count up once the last check is stamped. */
 function Score({ value }: { value: number }) {
+  const shown = useCountUp(value, { delay: BEAT.start + CHECKS.length * BEAT.stamp, duration: 800 })
   return (
     <div className="flex items-center gap-3">
-      <span className="text-2xl font-semibold tabular-nums">{value}</span>
+      {/* Two figures wide from the start, so nothing beside it moves as it counts. */}
+      <span className="min-w-[2ch] text-2xl font-semibold tabular-nums">
+        <span aria-hidden="true">{shown}</span>
+        <span className="sr-only">{value}</span>
+      </span>
       <span className="flex min-w-0 flex-1 flex-col gap-1">
         <Text size="xs" tone="muted">
           out of 100
@@ -152,7 +199,7 @@ function Score({ value }: { value: number }) {
         <span className="h-1 overflow-hidden rounded-full bg-foreground/10" aria-hidden="true">
           <span
             className="block h-full origin-left rounded-full bg-foreground/70"
-            style={{ transform: `scaleX(${value / 100})` }}
+            style={{ transform: `scaleX(${shown / 100})` }}
           />
         </span>
       </span>
@@ -160,15 +207,77 @@ function Score({ value }: { value: number }) {
   )
 }
 
+/** The note as the agent writes it: a word at a time. A screen reader gets it whole. */
+function Written() {
+  return (
+    <>
+      <span className="sr-only">{NOTE}</span>
+      <span aria-hidden="true">
+        {WORDS.map(({ word, at }) => (
+          <span key={at} className="animate-ink" style={after(BEAT.start + at * BEAT.word)}>
+            {word}{' '}
+          </span>
+        ))}
+      </span>
+    </>
+  )
+}
+
+/** The reader's rating: five to choose from, and the one picked a moment after they appear. */
+function Rating() {
+  const picked = BEAT.start + 420
+  return (
+    <>
+      <span className="flex gap-1.5">
+        {[1, 2, 3, 4, 5].map((n) => (
+          <span key={n} className={ratingVariants()}>
+            {n}
+            {n === RATING ? (
+              <span className={ratingVariants({ picked: true })} style={after(picked)}>
+                {n}
+                <span className="sr-only"> (picked)</span>
+              </span>
+            ) : null}
+          </span>
+        ))}
+      </span>
+      <Text size="ui" tone="muted" className="animate-rise" style={after(picked + 260)}>
+        “Kind, but twice as long as it should be.”
+      </Text>
+    </>
+  )
+}
+
+/** The loop closing: the same case run again, its score counting up to the new one. */
+function Rerun({ at }: { at: number }) {
+  const shown = useCountUp(SCORE.after, { from: SCORE.before, delay: at, duration: 900 })
+  return (
+    <span className="flex items-center gap-2 text-ui tabular-nums">
+      <Text tone="muted">{SCORE.before}</Text>
+      <ArrowRightIcon aria-hidden="true" className="size-3.5 text-muted-foreground" />
+      <span className="sr-only">then {SCORE.after}</span>
+      {/* The new score is the point of the whole tour: the highlighter marks it once it lands. */}
+      <Highlight delay={at + 900}>
+        <Text weight="semibold" aria-hidden="true">
+          {shown}
+        </Text>
+      </Highlight>
+      <Text tone="muted">out of 100</Text>
+    </span>
+  )
+}
+
 const ratingVariants = cva(
-  'flex size-7 items-center justify-center rounded-md border text-ui font-medium tabular-nums',
+  'flex items-center justify-center rounded-md text-ui font-medium tabular-nums',
   {
     variants: {
       picked: {
-        true: 'border-transparent bg-primary text-primary-foreground',
-        false: 'text-muted-foreground',
+        /** Lands over the number it picks, covering its border. */
+        true: 'absolute -inset-px animate-pop bg-primary text-primary-foreground',
+        false: 'relative size-7 border text-muted-foreground',
       },
     },
+    defaultVariants: { picked: false },
   },
 )
 
@@ -181,8 +290,10 @@ const PICTURES: Record<string, ReactNode> = {
       </Part>
       <Part caption="Rules">
         <ul className="m-0 flex list-disc flex-col gap-1.5 pl-4.5 text-ui marker:text-muted-foreground/70">
-          {RULES.map((rule) => (
-            <li key={rule}>{rule}</li>
+          {RULES.map((rule, i) => (
+            <li key={rule} className="animate-rise" style={after(BEAT.start + i * BEAT.row)}>
+              {rule}
+            </li>
           ))}
         </ul>
       </Part>
@@ -200,7 +311,9 @@ const PICTURES: Record<string, ReactNode> = {
   ),
   generate: (
     <Part caption="What the agent wrote, with the skill installed">
-      <p className="m-0 rounded-lg bg-muted px-3 py-2.5 text-ui text-pretty">{NOTE}</p>
+      <p className="m-0 rounded-lg bg-muted px-3 py-2.5 text-ui text-pretty">
+        <Written />
+      </p>
     </Part>
   ),
   overview: (
@@ -222,17 +335,7 @@ const PICTURES: Record<string, ReactNode> = {
         </span>
       </Part>
       <Part caption="Your rating, from 1 to 5">
-        <span className="flex gap-1.5">
-          {[1, 2, 3, 4, 5].map((n) => (
-            <span key={n} className={ratingVariants({ picked: n === RATING })}>
-              {n}
-              {n === RATING ? <span className="sr-only"> (picked)</span> : null}
-            </span>
-          ))}
-        </span>
-        <Text size="ui" tone="muted">
-          “Kind, but twice as long as it should be.”
-        </Text>
+        <Rating />
       </Part>
     </>
   ),
@@ -245,66 +348,61 @@ const PICTURES: Record<string, ReactNode> = {
       </Part>
       <Part caption="So one rule is made exact">
         <p className="m-0 flex flex-col gap-1 text-ui">
-          <del className="rounded-xs bg-destructive/10 px-1.5 py-0.5 text-destructive">
+          <del
+            className="animate-rise rounded-xs bg-destructive/10 px-1.5 py-0.5 text-destructive"
+            style={after(BEAT.start)}
+          >
             {lead(PRACTICE_EDIT.bad)}
           </del>
-          <ins className="rounded-xs bg-success/10 px-1.5 py-0.5 text-success no-underline">
+          <ins
+            className="animate-rise rounded-xs bg-success/10 px-1.5 py-0.5 text-success no-underline"
+            style={after(BEAT.start + 320)}
+          >
             {lead(PRACTICE_EDIT.good)}
           </ins>
         </p>
       </Part>
       <Part caption="Run again">
-        <span className="flex items-center gap-2 text-ui tabular-nums">
-          <Text tone="muted">{SCORE.before}</Text>
-          <ArrowRightIcon aria-hidden="true" className="size-3.5 text-muted-foreground" />
-          <span className="sr-only">then</span>
-          <Text weight="semibold">{SCORE.after}</Text>
-          <Text tone="muted">out of 100</Text>
-        </span>
+        <Rerun at={BEAT.start + 900} />
       </Part>
     </>
   ),
 }
 
 export function LoopTour({
+  index,
+  from,
   starting,
+  onShow,
   onStart,
   onBack,
-  onSkip,
 }: {
+  /** The step in view. */
+  index: number
+  /** The step before it, which says which side this one arrives from. */
+  from: number
   /** The practice skill is being written and opened. */
   starting: boolean
+  onShow: (index: number) => void
   /** The last step's button: go and do it. */
   onStart: () => void
   /** Back from the first step. */
   onBack: () => void
-  onSkip: () => void
 }) {
-  /** The step in view and the one before it, which says which side the step arrives from. */
-  const [{ index, from }, setAt] = useState({ index: 0, from: 0 })
-  const show = (next: number) => setAt({ index: next, from: index })
   const step = LOOP_STEPS[index]
   const place = placeFor(step.screen)
   const last = index === LOOP_STEPS.length - 1
 
   return (
     <section aria-label="How it works" className="flex w-full max-w-[520px] flex-col gap-6">
-      <div className="flex items-center gap-4">
-        <Progress index={index} />
-        {/* The quiet way out, in the same place on every step. Its text ends on the column's edge. */}
-        <Button type="button" variant="ghost" size="sm" className="-mr-3" onClick={onSkip}>
-          Skip
-        </Button>
-      </div>
-
       <div
         key={step.screen}
         aria-live="polite"
         data-from={from > index ? 'before' : 'after'}
-        className="flex animate-in flex-col gap-5 duration-200 ease-out-strong fade-in-0 data-[from=after]:slide-in-from-right-3 data-[from=before]:slide-in-from-left-3"
+        className="flex flex-col gap-5"
       >
         {/* Room for two lines under the title, so a longer sentence moves nothing below it. */}
-        <div className="flex min-h-19 flex-col gap-1.5">
+        <div className="flex min-h-19 animate-in flex-col gap-1.5 duration-300 ease-out-strong fade-in-0 in-data-[from=after]:slide-in-from-right-3 in-data-[from=before]:slide-in-from-left-3">
           <Heading level={2} className="text-xl">
             {step.title}
           </Heading>
@@ -319,7 +417,8 @@ export function LoopTour({
         <Button
           type="button"
           variant="outline"
-          onClick={() => (index === 0 ? onBack() : show(index - 1))}
+          disabled={starting}
+          onClick={() => (index === 0 ? onBack() : onShow(index - 1))}
         >
           Back
         </Button>
@@ -329,7 +428,7 @@ export function LoopTour({
           type="button"
           autoFocus
           disabled={starting}
-          onClick={() => (last ? onStart() : show(index + 1))}
+          onClick={() => (last ? onStart() : onShow(index + 1))}
         >
           {last ? (
             starting ? (
@@ -347,9 +446,12 @@ export function LoopTour({
       </div>
       {/* Its line is held on every step, so the frame is the same height throughout. */}
       <Hint className="min-h-9">
-        {last
-          ? 'Practice is this same skill, for real. About five minutes, nothing to type, and it changes nothing your agents use.'
-          : null}
+        {last ? (
+          <span className="block animate-rise" style={after(BEAT.start)}>
+            Practice is this same skill, for real. About five minutes, nothing to type, and it
+            changes nothing your agents use.
+          </span>
+        ) : null}
       </Hint>
     </section>
   )

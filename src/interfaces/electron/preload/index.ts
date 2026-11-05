@@ -26,6 +26,9 @@ const bridge: StudioBridge = {
   onJobs: subscribe<Job[]>(CHANNELS.jobs),
   onAi: subscribe<AiRun>(CHANNELS.ai),
   onGo: subscribe<string>(CHANNELS.go),
+  onOpen: subscribe<string>(CHANNELS.open),
+  openWelcome: () => ipcRenderer.invoke(CHANNELS.openWelcome),
+  enterApp: (skill) => ipcRenderer.invoke(CHANNELS.enterApp, skill),
   openArtifact: (url) => ipcRenderer.invoke(CHANNELS.openArtifact, url),
   openExternal: (url) => ipcRenderer.invoke(CHANNELS.openExternal, url),
 }

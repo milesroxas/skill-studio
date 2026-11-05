@@ -17,10 +17,12 @@ import { BrowserWindow, type IpcMainInvokeEvent, ipcMain, shell } from 'electron
 import { CHANNELS } from '../channels.ts'
 import type { Backend } from './backend.ts'
 import { applyTheme, openArtifactWindow } from './window.ts'
+import type { Windows } from './windows.ts'
 
 export interface IpcDeps {
   backend: Backend
   secrets: SecretStore
+  windows: Windows
   /** Origins whose top frame may call: the app scheme, and the dev server while developing. */
   trusted: Set<string>
 }
@@ -33,7 +35,7 @@ const isTrusted = (event: IpcMainInvokeEvent, trusted: Set<string>): boolean => 
   return frame !== null && frame === frame.top && trusted.has(frame.origin)
 }
 
-export function registerIpc({ backend, secrets, trusted }: IpcDeps): void {
+export function registerIpc({ backend, secrets, windows, trusted }: IpcDeps): void {
   /** The settings operations run here, next to the keychain; everything else goes to the backend. */
   const shellCall = (name: ShellOperation, input: unknown): Promise<Settings> => {
     switch (name) {
@@ -72,6 +74,19 @@ export function registerIpc({ backend, secrets, trusted }: IpcDeps): void {
     } catch (error) {
       return fail(error)
     }
+  })
+
+  ipcMain.handle(CHANNELS.openWelcome, (event) => {
+    if (!isTrusted(event, trusted)) return fail(new Error('Refused: unknown sender.'))
+    windows.openWelcome()
+    return ok(null)
+  })
+
+  ipcMain.handle(CHANNELS.enterApp, (event, skill: unknown) => {
+    if (!isTrusted(event, trusted)) return fail(new Error('Refused: unknown sender.'))
+    if (skill !== null && typeof skill !== 'string') return fail(new Error('Not a skill.'))
+    windows.enterApp(skill ? { skill } : {})
+    return ok(null)
   })
 
   ipcMain.handle(CHANNELS.openExternal, async (event, url: unknown) => {

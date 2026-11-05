@@ -11,6 +11,9 @@ export const CHANNELS = {
   jobs: 'studio:jobs',
   ai: 'studio:ai',
   go: 'studio:go',
+  open: 'studio:open',
+  openWelcome: 'studio:open-welcome',
+  enterApp: 'studio:enter-app',
   openArtifact: 'studio:open-artifact',
   openExternal: 'studio:open-external',
 } as const

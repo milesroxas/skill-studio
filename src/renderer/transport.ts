@@ -38,6 +38,12 @@ export interface Transport {
   watchAi?: (listener: (run: AiRun) => void) => () => void
   /** Screens the desktop app's menu asks for; a browser has no such menu. */
   watchGo?: (listener: (screen: string) => void) => () => void
+  /** A skill the welcome's window hands over to open; a browser shows the welcome in the page. */
+  watchOpen?: (listener: (skill: string) => void) => () => void
+  /** Show the welcome in its own small window. Undefined where the page shows it itself. */
+  openWelcome?: () => void
+  /** Leave the welcome's window for the app, on a skill when one is named. */
+  enterApp?: (skill: string | null) => void
   platform: string
 }
 
@@ -59,6 +65,9 @@ function desktop(bridge: StudioBridge): Transport {
     watchJobs: (listener) => bridge.onJobs(listener),
     watchAi: (listener) => bridge.onAi(listener),
     watchGo: (listener) => bridge.onGo(listener),
+    watchOpen: (listener) => bridge.onOpen(listener),
+    openWelcome: () => void bridge.openWelcome().then(unwrap),
+    enterApp: (skill) => void bridge.enterApp(skill).then(unwrap),
     platform: bridge.platform,
   }
 }

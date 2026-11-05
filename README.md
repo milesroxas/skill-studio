@@ -6,7 +6,7 @@ A desktop studio for agent skills. Write a skill, give it cases, run headless co
 
 Most skill eval tools stop at pass/fail. Skill Studio is built for subjective outputs (writing, HTML, agent process): judge answers are stored so you can reweight without new calls, a blind review queue calibrates the judges against your own ratings, and labelled anchors gate whether a judge pack can be trusted.
 
-New here? [docs/guide.md](docs/guide.md) walks one skill through the whole loop, step by step. The same guide opens from Guide at the foot of the app's sidebar. The app itself opens on a welcome that tours the loop, and the question mark at the top right of every screen says what that screen is for.
+New here? [docs/guide.md](docs/guide.md) walks one skill through the whole loop, step by step. The same guide opens from Guide at the foot of the app's sidebar. A first launch opens on a welcome that tours the loop, in a small window of its own in the desktop app, and the question mark at the top right of every screen says what that screen is for.
 
 ## Setup
 
