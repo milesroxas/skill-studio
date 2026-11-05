@@ -1,5 +1,5 @@
 name: Bug report
-description: Something in st, the server or the review UI does not work as documented.
+description: Something in the desktop app, st or the server does not work as documented.
 labels: [bug]
 body:
   - type: textarea

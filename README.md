@@ -4,9 +4,9 @@
 
 A desktop studio for agent skills. Write a skill, give it cases, run headless coding agents (Claude Code, Cursor's agent) on them, grade the outputs with code checks and [TypeSafe](https://typesafe.ai) Jev judge packs, and review them blind. Runs, reports and your ratings live beside the skill in its `evals/` folder.
 
-Most skill eval tools stop at pass/fail. Skill Studio is built for subjective outputs (writing, HTML, agent process): judge answers are stored so you can reweight without new calls, a blind review queue calibrates the judges against your own ratings, and labelled anchors gate whether a judge pack can be trusted. [docs/landscape.md](docs/landscape.md) compares it with the other tools.
+Most skill eval tools stop at pass/fail. Skill Studio is built for subjective outputs (writing, HTML, agent process): judge answers are stored so you can reweight without new calls, a blind review queue calibrates the judges against your own ratings, and labelled anchors gate whether a judge pack can be trusted.
 
-New here? [docs/guide.md](docs/guide.md) walks one skill through the whole loop, step by step. The same guide opens from Docs at the top of the app.
+New here? [docs/guide.md](docs/guide.md) walks one skill through the whole loop, step by step. The same guide opens from Guide at the foot of the app's sidebar.
 
 ## Setup
 
@@ -37,7 +37,7 @@ The app opens on the library: every skill in your user skills folders (`~/.agent
 5. **Review**: rate answers blind, compare two side by side, read transcripts.
 6. **Bench**: see where your ratings and the judge disagree, and tune the scoring.
 
-The sidebar holds every screen of the open skill, with counts and unsaved marks beside them; Cmd+K switches skill from anywhere. The button at the top right always names the next step. Install or uninstall a skill for Claude Code, Cursor or Codex from its row in the library.
+The sidebar holds every screen of the open skill, with counts and unsaved marks beside them; Cmd+K switches skill from anywhere. When a step is due, a Next button at the top right names it. Install or uninstall a skill for Claude Code, Cursor or Codex from its row in the library.
 
 ### In a browser, or from another device
 
@@ -60,7 +60,6 @@ pnpm st new <skill-dir> --template code --with-cases   # scaffold from a templat
 pnpm st cases <skill-dir>
 pnpm st run <skill-dir> --engine claude --model sonnet --cases a,b --samples 2 --name "v0 first draft"
 pnpm st report <skill-dir> --run <run-name>
-pnpm st serve [skill-dir...]                  # app and API on http://localhost:4400; no dir opens the library
 ```
 
 `pnpm st --help` lists every command and flag. A skill directory is any folder with a `SKILL.md`; the current directory is the default. To try it without writing a skill, point it at `fixtures/demo-skill`.
@@ -152,7 +151,7 @@ src/
     cli/           the `st` command
   renderer/        the React app; reaches the table through a transport (IPC or HTTP)
     components/ui/   shadcn/ui sources (Radix + Tailwind v4), owned by the repo
-    components/      the app's composites built on them: layout, text roles, forms, cards
+    components/      the app's composites built on them: the shell, screens, workbench columns, form sections, text roles
     screens/         one file per screen
 ```
 
@@ -160,17 +159,18 @@ The layers only point inward, and `fallow` enforces that (`.fallowrc.json`): the
 
 ### The desktop app
 
-- The renderer is sandboxed with context isolation; it has no Node and reaches the main process through one preload bridge (`window.studio`) with one function per message. Every IPC message is checked against the sending frame's origin before it is handled.
 - The operations run in a backend utility process, not in the main process, so the window never waits on a file read, a hash or an agent. Job changes are pushed to the window; a browser polls instead.
-- Pages load from the `studio://app/` scheme (never `file://`) under a strict Content Security Policy. A sample's files load from `artifact://sample?...` with `Content-Security-Policy: sandbox; script-src 'none'`, in a sandboxed iframe or in a window of their own, so HTML an agent wrote can never script the app.
-- Navigation away from the app and new windows are refused; web links open in the default browser. Permission requests (camera, notifications and so on) are refused.
-- The Jev key is stored with Electron's `safeStorage` (the macOS Keychain, Windows DPAPI) under the app's user data folder. A key in the environment at launch wins over a stored one.
+- The renderer reaches the main process through one preload bridge (`window.studio`) with one function per message.
+- Pages load from `studio://app/`; a sample's files load from `artifact://sample?...`.
+- A Jev key in the environment at launch wins over a stored one.
+
+[SECURITY.md](SECURITY.md) covers the hardening: the sandbox, the origin check on IPC, the Content Security Policies, key storage and what the app refuses.
 
 ### The web server
 
 `st serve` binds `127.0.0.1:4400` by default (`--port` changes it). It listens on loopback only and has no login of its own, so do not expose it any other way than `--tailscale` (above). Every request must be addressed to `localhost` (or, with `--tailscale`, come through Tailscale as your login), come from the app's own pages, and send POST bodies as JSON. The built renderer (`out/renderer`) is served beside the API.
 
-Every operation is `POST /api/<name>` with its input as the JSON body; operations on a skill take `skill` (its path) in the body. The artifact operation is also `GET /api/artifact?skill=&run=&sample=&file=`, served raw under the sandbox policy above.
+Every operation is `POST /api/<name>` with its input as the JSON body; operations on a skill take `skill` (its path) in the body. The artifact operation is also `GET /api/artifact?skill=&run=&sample=&file=`, served raw with `Content-Security-Policy: sandbox; script-src 'none'`.
 
 | Operations                                                                            | Do                                                                                                                                        |
 | ------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
@@ -187,16 +187,6 @@ Every operation is `POST /api/<name>` with its input as the JSON body; operation
 | `skill.review`, `skill.preference`, `skill.config`, `skill.anchor`                    | save a rating `{key, review}`; a human vote `{a, b, criterion, vote}`; `bench.json` `{config}`; promote an output to an anchor             |
 | `skill.saveCase`, `skill.deleteCase`                                                  | save `{case, isNew}`, validated before it writes; delete `{id}`                                                                           |
 | `skill.saveFile`, `skill.deleteFile`                                                  | write `{path, text, previous}` (refused when `previous` no longer matches the file); delete `{path}`. Only `SKILL.md` and `references/**` |
-
-The app opens on the library. An open skill's screens sit in the sidebar in loop order; Library, Guide and Settings sit at its foot and open in the same pane, so the skill stays one click away.
-
-| Section | Screens                          | Does                                                                                                                         |
-| ------- | -------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
-|         | Write, Versions, Cases           | edit `SKILL.md` and `references/` with drafts kept as you type (a save is refused if the file changed on disk since); save, compare and restore versions; edit a case's prompt, what a good answer does, weighted checks and word range |
-| Runs    | New run, Results                 | start runs and gradings as background jobs with live logs; runs and scores per case                                          |
-| Review  | Rate blind, Compare, Transcripts | rate an output before its scores show and promote it to an anchor; two outputs side by side with Bradley-Terry boards; one sample's agent steps |
-| Bench   | Agreement, Scoring               | your marks against the bench, per layer; rescore every output from stored answers and save `bench.json`                     |
-| (foot)  | Library, Guide, Settings         | every skill on the machine, searchable: create, install or uninstall per agent, choose the folders to scan; this guide; the Jev key |
 
 ## Engines
 
@@ -216,7 +206,7 @@ pnpm fallow       # unused code, duplicate exports and layer boundaries
 
 Tests need no API key, network or agent CLI. Biome skips Markdown on purpose: its Markdown formatter misreads YAML front matter. Generated eval data (`evals/runs`, reviews, anchor reports) is excluded too.
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for the layout and test conventions, and [SECURITY.md](SECURITY.md) before running skills you did not write.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for test conventions and where a change belongs, and [SECURITY.md](SECURITY.md) before running skills you did not write.
 
 ## License
 

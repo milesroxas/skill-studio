@@ -1,21 +1,21 @@
 # How to use Skill Studio
 
-This guide walks one skill through the whole loop: write it, give it cases, run agents on it, read the scores, rate the answers yourself, tune the scoring, then change the skill and run it again. Each step says what to do in the app and why the step exists. The [README](https://github.com/milesroxas/skill-studio#readme) is the reference for file formats, packs, routes and flags.
+This guide walks one skill through the whole loop: write it, give it cases, run agents on it, read the scores, rate the answers yourself, tune the scoring, then change the skill and run it again. Each step says what to do in the app and why the step exists. The [README](https://github.com/milesroxas/skill-studio#readme) is the reference for file formats, packs, operations and flags.
 
 ## How the loop works
 
 A skill is a `SKILL.md` an agent reads before it works. Skill Studio answers one question about it: does the skill make the agent's answers better, and did your last edit help or hurt?
 
-It answers by repeating six steps. Every step lives in the app. When a step is due (the first case, a run of a new version, answers to rate), a Next button at the top right names it.
+It answers by repeating the steps below, numbered as in this guide. Every step lives in the app. When a step is due (the first case, a run of a new version, answers to rate), a Next button at the top right names it.
 
 | Step | In the sidebar | What you do | Why |
 | --- | --- | --- | --- |
 | 1 | Library | Open or create a skill | Every skill on the machine is in one list, so you test the copy the agents use |
 | 2 | Write, Versions | Edit `SKILL.md` and `references/`, save versions | Each version keeps its files, so scores stay tied to the text that produced them |
 | 3 | Cases | Write the tasks the agent gets | A case is a test: a prompt, what a good answer does, and checks |
-| 4 | New run, Results | Run agents, read scores | Real agent output, graded the same way every time |
-| 5 | Rate blind | Rate answers blind | Your ratings are the ground truth the judge is measured against |
-| 6 | Agreement, Scoring | Find where you and the judge disagree | Disagreement tells you whether to fix the skill or the scoring |
+| 4, 5 | New run, Results | Run agents, read scores | Real agent output, graded the same way every time |
+| 6 | Rate blind | Rate answers blind | Your ratings are the ground truth the judge is measured against |
+| 7, 8 | Agreement, Scoring | Find where you and the judge disagree | Disagreement tells you whether to fix the skill or the scoring |
 
 The sidebar lists every screen of the open skill, with what waits on each beside it: the number of cases, runs or answers to rate, and a dot where something is not saved. The top of the sidebar names the open skill and its version. Click it, or press Cmd+K (Ctrl+K on Windows and Linux), to switch to another skill without going back to the library.
 
@@ -35,7 +35,7 @@ Open Skill Studio, or from the repository folder:
 pnpm dev
 ```
 
-Then open Settings at the top right and paste the TypeSafe key. The app keeps it in your system keychain. If the app shows "Code checks only: no Jev key" at the top, the key is missing; the pill takes you to Settings.
+Then open Settings at the foot of the sidebar and paste the TypeSafe key. The app keeps it in your system keychain. If the app shows "No Jev key" at the top right, the key is missing; the pill takes you to Settings.
 
 To use the app in a browser, or from your phone or another computer, run `pnpm build` then `pnpm st serve` (add `--tailscale` for other devices). The [README](https://github.com/milesroxas/skill-studio#in-a-browser-or-from-another-device) explains who can reach it and why that is safe. In a browser the key comes from `TYPESAFE_API_KEY` in the environment or a `.env` in the checkout.
 
@@ -76,7 +76,7 @@ You never start from a blank page:
 
 - A `SKILL.md` with no rules yet shows a Start from a template strip. Each template is a finished small skill to edit, not a form to fill. Pick one and replace its rules with yours.
 - The Insert buttons in the side panel put a rule, a decision tree, a process list or a reference link at the cursor, each in the shape that grades well.
-- "How to write a rule the agent follows" in the side panel is the five-line version of the method: encode process not outcome, write the why in the bullet, be numeric or absolute, cut every line that does not change what the agent does, one skill per aspect.
+- "How to write a rule" in the side panel is the method in five lines.
 - "Start over from a template" is there once the file has rules, behind a confirmation.
 - A new reference file opens with a heading and a line for when the agent should read it.
 
@@ -140,7 +140,7 @@ Click a run for its detail. From there:
 - Regrade grades the run again, for example after you added checks.
 - Each output has a Read link for its answer and a Transcript link for the agent's steps.
 
-A score from a judge is a claim, not a fact. Step 5 tests it.
+A score from a judge is a claim, not a fact. Step 6 tests it.
 
 ## 6. Rate answers blind
 
@@ -227,11 +227,12 @@ pnpm st self-test <skill-dir>
 
 ## Where your data lives
 
-Everything is plain files inside the skill's `evals/` folder, so it can be committed and reviewed like code.
+Everything but unsaved drafts is plain files inside the skill's `evals/` folder, so it can be committed and reviewed like code.
 
 | Path | Holds |
 | --- | --- |
 | `evals/cases/<case>/` | the prompt, `case.yaml`, checks under `graders/`, input files under `files/` |
+| `evals/versions/<vN>/` | a version saved on Versions: its name, note and files |
 | `evals/runs/<run>/` | one folder per run: the skill snapshot, each sample's output and transcript, and `report.json` |
 | `evals/reviews.json` | your ratings, notes and pairwise votes |
 | `evals/anchors/` | labelled good and bad examples |
@@ -243,11 +244,11 @@ The agent never sees `evals/`: its copy of the skill leaves it out, so it cannot
 
 | Problem | Fix |
 | --- | --- |
-| "Code checks only: no Jev key" | Paste the key under Settings; in a browser, set `TYPESAFE_API_KEY` and restart `st serve` |
+| "No Jev key" at the top right | Paste the key under Settings; in a browser, set `TYPESAFE_API_KEY` and restart `st serve` |
 | An agent shows "(not set up)" in New run | Install that CLI, put it on your `PATH` and sign in |
 | A skill is missing from the Library | Add its parent folder under "Where skills are found" |
 | "Port 4400 is taken" (`st serve`) | Stop what holds it (`lsof -nP -iTCP:4400 -sTCP:LISTEN`) or start with `--port` |
-| A save in Write is refused | The file changed on disk. Reload, then edit again |
+| A save in Write is refused | The file changed on disk. Keep your draft to save over it, or take the file as it is now |
 | A score looks wrong | Read the transcript, then rate it blind; Agreement will show if the judge is off |
 
 Run skills you did not write in a container or VM. The code pack runs code the agent wrote, with your permissions. [SECURITY.md](https://github.com/milesroxas/skill-studio/blob/main/SECURITY.md) has the details.

@@ -4,7 +4,7 @@
 
 ## How it was checked
 
-- [ ] `pnpm check` passes (typecheck, Biome, tests)
+- [ ] `pnpm check` and `pnpm build` pass (typecheck, Biome, fallow, tests, the electron-vite build)
 - [ ] Tests added or updated for changed behaviour
-- [ ] README updated if a command, flag, route or file layout changed
+- [ ] README and `docs/guide.md` updated if a command, flag, operation, file layout or screen label changed
 - [ ] If scoring changed: graded a fixture before and after, and the difference is explained above
