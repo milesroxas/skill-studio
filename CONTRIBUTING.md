@@ -45,6 +45,16 @@ The UI is shadcn/ui on Tailwind v4 (`components.json`, theme tokens in `src/rend
 
 Biome formats and lints everything except Markdown. Write comments for the reason behind the code, not for what it does. Keep commits focused; the commit message says what changed and why.
 
+## The guide
+
+`docs/guide.md` is one text for two readers: GitHub renders it, and the app shows it under Guide through its own small renderer (`src/renderer/markdown.ts`). Write only what both render: headings, paragraphs, one-line list items, tables, fenced code, `https` links, and a picture alone in its paragraph (`![what it shows](images/name.webp)`).
+
+A change to how a screen looks or reads needs the guide checked in the same pull request:
+
+- Retake the screenshots with `pnpm guide:shots`. It builds the app, starts it on a scratch home seeded with sample skills (`scripts/guide-shots/seed.ts`), and writes `docs/images/*.webp`. It never touches your own skills or settings.
+- Read each step of the guide against its new picture, and fix any label, button or order that no longer matches.
+- The two diagrams (`docs/images/*.svg`) are written by hand. Their step numbers must match the guide's headings.
+
 ## License
 
 By contributing, you agree that your contributions are licensed under the [MIT License](LICENSE).

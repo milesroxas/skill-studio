@@ -203,6 +203,7 @@ pnpm check        # typecheck, Biome, fallow, tests (what CI runs, plus pnpm bui
 pnpm test:watch   # vitest in watch mode
 pnpm format       # Biome formatting and safe fixes
 pnpm fallow       # unused code, duplicate exports and layer boundaries
+pnpm guide:shots  # retake the guide's screenshots from sample skills in a scratch home
 ```
 
 Tests need no API key, network or agent CLI. Biome skips Markdown on purpose: its Markdown formatter misreads YAML front matter. Generated eval data (`evals/runs`, reviews, anchor reports) is excluded too.

@@ -400,6 +400,17 @@
   .guide-body blockquote {
     @apply mb-4 border-l-2 border-input py-0.5 pl-4 text-muted-foreground;
   }
+  /* A picture: a screen of the app or a diagram, on its own light sheet in either theme. */
+  .guide-body figure {
+    @apply my-6 overflow-hidden rounded-lg border bg-card;
+  }
+  .guide-body figure img {
+    @apply block h-auto w-full;
+  }
+  /* Every screenshot has one shape (scripts/guide-shots), so its space is held before it loads. */
+  .guide-body figure[data-type="webp"] img {
+    @apply aspect-[5/4];
+  }
   .guide-table {
     @apply my-1 mb-6 overflow-x-auto rounded-lg border bg-card overscroll-x-contain;
   }

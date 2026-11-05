@@ -1,7 +1,8 @@
 /**
- * The guide, rendered from docs/guide.md so the app and GitHub show one text.
- * Sections get ids, a contents list tracks the one being read, and every
- * section can be jumped to. Loaded on demand, so it costs nothing until opened.
+ * The guide, rendered from docs/guide.md so the app and GitHub show one text
+ * and the same pictures. Sections get ids, a contents list tracks the one being
+ * read, and every section can be jumped to. Loaded on demand, so it costs
+ * nothing until opened.
  */
 
 import { type ComponentProps, type ReactNode, useEffect, useMemo, useRef, useState } from 'react'
@@ -11,6 +12,17 @@ import { Text } from '../components/text.tsx'
 import { markdownHtml } from '../markdown.ts'
 
 const REPO = 'https://github.com/milesroxas/skill-studio'
+
+/** The guide's pictures, keyed as guide.md writes them: `images/loop.svg`. */
+const IMAGES = Object.fromEntries(
+  Object.entries(
+    import.meta.glob<string>('../../../docs/images/*', {
+      eager: true,
+      query: '?url',
+      import: 'default',
+    }),
+  ).map(([path, url]) => [path.replace(/^.*\/docs\//, ''), url]),
+)
 
 interface Section {
   id: string
@@ -31,7 +43,7 @@ function render(text: string): { html: string; sections: Section[] } {
     title: m[1].replace(/`/g, ''),
   }))
   let index = 0
-  const html = markdownHtml(text)
+  const html = markdownHtml(text, { images: IMAGES })
     .replace(/<h2>/g, () => `<h2 id="${sections[index++]?.id ?? ''}">`)
     // A wide table scrolls sideways on its own instead of widening the page.
     .replace(/<table>/g, '<div class="guide-table"><table>')

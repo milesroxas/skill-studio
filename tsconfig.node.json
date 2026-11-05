@@ -10,6 +10,7 @@
     "src/application",
     "src/infrastructure",
     "src/interfaces",
+    "scripts",
     "electron.vite.config.ts",
     "vitest.config.ts"
   ]

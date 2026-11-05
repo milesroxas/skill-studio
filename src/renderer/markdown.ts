@@ -18,7 +18,19 @@ function inline(text: string): string {
     )
 }
 
-function block(raw: string): string {
+/** A paragraph that is one image and nothing else: `![alt](path)`. */
+const IMAGE = /^!\[([^\]]*)\]\(([^)\s]+)\)$/
+
+export interface MarkdownOptions {
+  /**
+   * Images the document may show, by the path it writes, each mapped to the
+   * URL to load. A path not listed here stays text, so a document from an
+   * agent can never make the app fetch a picture.
+   */
+  images?: Readonly<Record<string, string>>
+}
+
+function block(raw: string, { images }: MarkdownOptions): string {
   const lines = raw.split('\n')
   const heading = /^(#{1,6})\s+(.*)$/.exec(raw)
   if (heading) {
@@ -44,12 +56,19 @@ function block(raw: string): string {
       })
       .join('')}</table>`
   }
+  const image = IMAGE.exec(raw)
+  const src = image && images?.[image[2]]
+  if (image && src) {
+    // The file type tells the page which pictures share one shape, so it can hold their space.
+    const type = /\.(\w+)$/.exec(image[2])?.[1] ?? ''
+    return `<figure data-type="${esc(type)}"><img src="${esc(src)}" alt="${esc(image[1])}" decoding="async"></figure>`
+  }
   if (/^!\[/.test(raw)) return `<div class="aside">${inline(raw)}</div>`
   return `<p>${inline(raw.replace(/\n/g, ' '))}</p>`
 }
 
 /** The document as HTML, each prose unit wrapped so a note or a mark can attach to it. */
-export function markdownHtml(text: string): string {
+export function markdownHtml(text: string, options: MarkdownOptions = {}): string {
   const parts: string[] = []
   for (const segment of text.split(/(```[\s\S]*?```)/)) {
     if (segment.startsWith('```')) {
@@ -59,7 +78,7 @@ export function markdownHtml(text: string): string {
     for (const raw of segment.split(/\n\s*\n/)) {
       const trimmed = raw.trim()
       if (!trimmed) continue
-      parts.push(block(trimmed))
+      parts.push(block(trimmed, options))
     }
   }
   return parts.join('')

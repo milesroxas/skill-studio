@@ -6,18 +6,34 @@ This guide walks one skill through the whole loop: write it, give it cases, run 
 
 A skill is a `SKILL.md` an agent reads before it works. Skill Studio answers one question about it: does the skill make the agent's answers better, and did your last edit help or hurt?
 
-It answers by repeating the steps below, numbered as in this guide. Every step lives in the app. When a step is due (the first case, a run of a new version, answers to rate), a Next button at the top right names it.
+![The loop: Write, Cases, New run, Results, Rate blind, Agreement. From Agreement one arrow returns to Write, to change the skill, and one goes to Scoring, to tune the judge.](images/loop.svg)
 
-| Step | In the sidebar | What you do | Why |
+It answers by repeating the steps below, numbered as in this guide. Each step is a screen in the sidebar.
+
+| Step | Screen | What you do | Why |
 | --- | --- | --- | --- |
 | 1 | Library | Open or create a skill | Every skill on the machine is in one list, so you test the copy the agents use |
-| 2 | Write, Versions | Edit `SKILL.md` and `references/`, save versions | Each version keeps its files, so scores stay tied to the text that produced them |
+| 2 | Write, Versions | Edit `SKILL.md` and `references/`, save versions | Each version keeps its files, so a score stays tied to the text that produced it |
 | 3 | Cases | Write the tasks the agent gets | A case is a test: a prompt, what a good answer does, and checks |
-| 4, 5 | New run, Results | Run agents, read scores | Real agent output, graded the same way every time |
-| 6 | Rate blind | Rate answers blind | Your ratings are the ground truth the judge is measured against |
-| 7, 8 | Agreement, Scoring | Find where you and the judge disagree | Disagreement tells you whether to fix the skill or the scoring |
+| 4 | New run | Run agents on the cases | You grade what an agent wrote, not what you expect it to write |
+| 5 | Results | Read the judge's scores | Every answer is graded the same way, so two versions can be compared |
+| 6 | Rate blind, Compare | Rate answers before you see their scores | Your ratings are the ground truth the judge is measured against |
+| 7 | Agreement | Find where you and the judge disagree | The disagreement tells you whether to fix the skill or the scoring |
+| 8 | Scoring | Tune the scoring | A judge that disagrees with you measures the wrong thing |
+| 9 | Write | Change the skill and run again | One pass measures a version. The second pass measures your edit |
 
-The sidebar lists every screen of the open skill, with what waits on each beside it: the number of cases, runs or answers to rate, and a dot where something is not saved. The top of the sidebar names the open skill and its version. Click it, or press Cmd+K (Ctrl+K on Windows and Linux), to switch to another skill without going back to the library.
+![The app with the release-notes skill open on Results: the sidebar on the left, four runs in the pane, and a Next button at the top right.](images/app.webp)
+
+The sidebar lists every screen of the open skill. Beside a screen is what waits there:
+
+- A number: the versions, cases and runs the skill has, and the answers left to rate.
+- A dot: a draft not saved in Write or Cases, files not saved as a version yet, or scoring settings not saved.
+
+The top of the sidebar names the open skill, its version and that version's mean score. Click it, or press Cmd+K (Ctrl+K on Windows and Linux), to switch to another skill without going back to the library.
+
+When a step is due, a Next button at the top right names it: "Add a case", "Run v1" or "Rate 11 outputs". It is hidden while a run is in progress.
+
+The pictures in this guide show a sample skill, `release-notes`. Its scores are made up.
 
 ## Before you start
 
@@ -45,72 +61,112 @@ To use the app in a browser, or from your phone or another computer, run `pnpm b
 
 The app opens on the Library: every skill in your user skills folders (`~/.agents`, `~/.claude`, `~/.cursor`, `~/.codex`) and in projects under your workspace folders.
 
+![The Library: a search box, a place filter and a New skill button above two tables, In progress and All skills. Each row has the skill, its place, Claude, Cursor and Codex buttons, and its cases and runs.](images/library.webp)
+
 To work on a skill that exists:
 
-1. Find it in the list, or type in the search box.
-2. Click Open.
+1. Find it in the list, or type in the search box. "In progress" at the top holds the skills that have cases or runs, and the ones you opened before.
+2. Click the skill's name.
 
 To create one:
 
 1. Click New skill.
-2. Pick what to start from. Blank is a title and an empty Rules section. Writing, Code, Workflow and Design are each a small finished skill of six to eight rules in the shape the judge grades, with three sample cases. Leave "Add 3 sample cases" ticked to have something to run on the first day.
+2. Under "Start from", pick a template. Blank is a title and an empty Rules section. Writing, Code, Workflow and Design are each a small finished skill of six to eight rules in the shape the judge grades, with three sample cases. Leave "Add 3 sample cases to run against" ticked to have something to run on the first day.
 3. Type a name: lowercase letters, digits and single dashes, like `release-notes`.
 4. Write a one-line description. Agents read it to decide when to use the skill, so say what it is for. The grey text is the template's own description; leave the field empty to keep it.
 5. Pick a Place. "User (every project)" makes it available everywhere; a project place keeps it in that project.
-6. Tick the agents to install it for.
-7. Click Create skill.
+6. Under "Install for", tick the agents that get it.
+7. Click Create skill. The app opens the new skill on Write.
 
-The skill is written to `.agents/skills/<name>` and linked into each agent you ticked. A Writing, Code, Workflow or Design skill also gets an `evals/bench.json` that turns on the matching judge pack, so its first run is graded for that kind of work. The Claude, Cursor and Codex buttons on a skill's row install or uninstall it later. Uninstalling removes the link only, never the skill.
+The skill is written to `.agents/skills/<name>` and linked into each agent you ticked. A Writing, Code, Workflow or Design skill also gets an `evals/bench.json` that turns on the matching judge pack, so its first run is graded for that kind of work.
 
-If a project of yours is missing, open "Where skills are found" at the bottom and add its parent folder. The default is `~/SITES` when that folder exists.
+The Claude, Cursor and Codex buttons on a skill's row install or uninstall it later. Uninstalling removes the link only, never the skill. A dashed button marked "copy" means that agent has its own copy of the skill, and edits you make here do not reach it.
+
+Two things hide a skill from the list:
+
+- It was installed from somewhere else (it has a lock-file entry), or you clicked "Not mine" on its row. Tick "Show N skills installed from elsewhere" beside the search box. "Mine" on a row you marked lists it with your own skills again.
+- Its project is outside your workspace folders. Open "Where skills are found" at the bottom and add the project's parent folder. Projects are found up to three levels inside a workspace folder. The default is `~/SITES` when that folder exists.
 
 ## 2. Write the skill
 
-Open Write.
+Open Write. The left column holds the skill's files, the Insert buttons, the Graded rules and the Version. The editor fills the rest.
 
-1. Edit `SKILL.md` in the main panel. Save with the Save button or Cmd+S (Ctrl+S on Windows and Linux).
-2. Add longer material as files under `references/` from the side panel, and point to them from `SKILL.md`.
-3. Check the Graded rules list in the side panel. The generic pack scores each answer against these rules, one judge question per rule.
+![Write: the files, Insert buttons and Graded rules on the left; SKILL.md in the editor on the right, with a formatting toolbar and a Formatted or Markdown switch.](images/write.webp)
 
-Write rules as top-level bullets in `SKILL.md`. A rule hidden inside a paragraph is not graded. Steps and checklists go in numbered lists, which are not graded.
+1. Edit `SKILL.md` in the editor. Save with the Save button or Cmd+S (Ctrl+S on Windows and Linux).
+2. Add longer material as files under `references/`: press the plus button beside Files, type a name such as `references/voice.md`, and click "Add file". Point to the file from `SKILL.md`, and say when the agent must read it.
+3. Check the Graded rules list. It shows the rules exactly as the judge will read them.
+
+### What the judge grades
+
+The generic pack scores each answer against the skill's rules, one judge question per rule. A rule is a top-level bullet (`-` or `*`) of four words or more:
+
+- Indented lines and nested bullets belong to the bullet above them, as part of that rule.
+- A numbered list is never graded. Put steps and checklists there.
+- A sentence inside a paragraph is never graded. If it must hold, make it a bullet.
+- A bullet that is only a link is skipped.
+
+### How to write a rule
+
+A rule changes what the agent does only when the agent can act on it the same way every run. Hold each rule to these six tests:
+
+1. **Encode the process, not the outcome.** "Lead with the change for the reader" beats "write clearly". The agent can walk a step; it cannot measure an adjective. For a choice with branches, insert a decision tree.
+2. **Write the why in the same bullet.** A rule with its reason extends to cases you did not write down. A bare rule is applied blindly, including where it does not belong.
+3. **Be numeric or absolute.** "Under 120 words", "never", "always". "Reasonably", "where appropriate" and "try to" give the agent nothing to act on, so it does what it would have done anyway.
+4. **Cut every line that does not change what the agent does.** The agent knows what a release note is. Each definition it already knows takes attention from your rules.
+5. **One skill, one aspect.** Writing, code, workflow or design. A skill that covers everything is followed on nothing.
+6. **Test it by running it.** A rule is a guess until a run shows it changed the answers. Steps 4 to 7 are that test.
+
+```
+Vague, and no reason:
+- Try to keep notes reasonably short.
+
+Strict, with its why:
+- Keep the note under 120 words. A note longer than one screen is not read.
+```
 
 You never start from a blank page:
 
-- A `SKILL.md` with no rules yet shows a Start from a template strip. Each template is a finished small skill to edit, not a form to fill. Pick one and replace its rules with yours.
-- The Insert buttons in the side panel put a rule, a decision tree, a process list or a reference link at the cursor, each in the shape that grades well.
-- "How to write a rule" in the side panel is the method in five lines.
+- A `SKILL.md` with no rules yet shows a "Start from a template" strip. Each template is a finished small skill to edit, not a form to fill. Pick one and replace its rules with yours.
+- The Insert buttons (Rule, Decision tree, Process, Reference link) put that shape at the cursor, written the way that grades well.
+- "How to write a rule" under Insert is the method above in five lines.
 - "Start over from a template" is there once the file has rules, behind a confirmation.
 - A new reference file opens with a heading and a line for when the agent should read it.
 
+### The editor
+
 The editor has two views of the same text, switched at the right of its toolbar. Formatted styles the Markdown in place, as Obsidian does: headings, bold, lists and links read as a page, and their marks (`#`, `**`, a link's address) appear only on the line or word the cursor is in. Markdown shows the plain source. Both edit the same characters, so switching never changes the file. The toolbar applies headings, bold, italic, strikethrough, code, links, lists, task lists and quotes by writing the Markdown for you; ⌘B, ⌘I, ⌘E (code) and ⌘⇧X (strikethrough) do the same from the keyboard. Click a task's box to tick it. The app remembers the view you last chose.
 
-Everything you type is kept as a draft as you go, in `~/.skill-studio/drafts/`, outside the skill's folder. Close the app, switch skills or reload, and the unsaved text is still there. The sidebar shows a dot beside Write while a draft is open. Save writes the file and clears its draft; Discard throws the draft away.
+Everything you type is kept as a draft as you go, in `~/.skill-studio/drafts/`, outside the skill's folder. Close the app, switch skills or reload, and the unsaved text is still there. The line beside the file name says so ("Unsaved · draft kept 3:42 PM"), and the sidebar shows a dot beside Write. Save writes the file and clears its draft; Discard throws the draft away. "Changes since saved" shows your draft against the file on disk.
 
-A save is refused if the file changed on disk since your draft began, so an edit made in your code editor is never overwritten. The editor says so and offers two ways on: keep your draft and save over the file, or take the file as it is now.
+A save is refused if the file changed on disk since your draft began, so an edit made in your code editor is never overwritten. The editor says so and offers two ways on: "Keep my draft" to save over the file, or "Use the file on disk" to take the file as it is now.
 
 ### Save versions
 
-Open Versions. When the saved files are not a version yet, name them, say what changed and why, and click Save as v1 (or whatever number is next). A version keeps its own copy of `SKILL.md` and `references/` in `evals/versions/`, so it travels with the skill.
+Open Versions. When the saved files are not a version yet, name them, say what changed and why, and click the save button: "Save as v0" for the first version, then v1, v2 and so on. A version keeps its own copy of `SKILL.md` and `references/` in `evals/versions/`, so it travels with the skill. A version holds the saved files only; save your drafts in Write first.
 
 The history lists every version, newest first, with its runs and its mean score. A run also names a version: runs and saved versions share one numbering. From the history:
 
-- Compare shows that version's files against the files now, or pick any two under Compare.
+- Compare shows that version's files against the files now. Under Compare, pick any two versions in From and To.
 - Restore puts a version's files back. If the files now are not a version yet, you are asked first, because restoring would lose them; save them as a version to keep them.
 
 ## 3. Write cases
 
-A case is one task an agent gets with your skill installed. Open Cases. With no cases yet, the form for the first one is already open.
+A case is one task an agent gets with your skill installed. Open Cases. With no cases yet, the form for the first one is already open; after that, click New above the list.
 
-A new case starts with Start from an example: three finished cases for the kind of skill your bench grades (Writing, Code, Workflow or Design, switchable). Pick one and the whole form fills in, with an id no existing case holds. Edit it into your task. The grey text in each field is the first example too, so the shape is visible before you type. Under Checks, "What the judge can mark" shows three vague checks next to the form the judge can actually mark.
+![Cases: the list of three cases on the left; on the right the form for one case, with its title, prompt, what a good answer does, and weighted checks.](images/cases.webp)
+
+A new case starts with "Start from an example": three finished cases for the kind of skill your bench grades (Writing, Code, Workflow or Design, switchable). Pick one and the whole form fills in, with an id no existing case holds. Edit it into your task. The grey text in each field is the first example too, so the shape is visible before you type.
 
 1. Title: a short name for the task.
-2. Id: filled in from the title. It names the case's folder and cannot change after you add it.
+2. Id: filled in from the title. It names the case's folder and cannot change after you add the case.
 3. Prompt: exactly what the agent is asked, worded the way a user would ask. Never mention the skill: the test is whether the agent finds and uses it on its own.
 4. A good answer: one or two sentences on what a good answer does. You see this when you rate, and the judge reads it too.
-5. Checks: one statement per line that a good answer makes true, such as "The note says where to find the change." The judge marks each one. Raise a check's weight when it matters more than the rest.
-6. Length: tick it and set a word range when length matters. Only prose and list text count, not headings or code.
-7. Input files: files the prompt refers to. The agent finds them in `files/` next to the prompt.
-8. Click Add case.
+5. Checks: one statement per row that a good answer makes true, such as "The note says where to find the change." The judge marks each one. Set a check's weight from 1 to 5; a weight of 2 counts twice. "What the judge can mark" shows three vague checks next to the form the judge can mark.
+6. Length: tick "Score the answer's length in words" and set the range when length matters. Only prose and list text count, not headings or code.
+7. Click Add case.
+
+A case can come with input files the prompt refers to. The form lists them but cannot add them: put them in `evals/cases/<id>/files/` in the skill's folder. The agent finds them in `files/` next to the prompt.
 
 Write at least three cases before you trust a score, and make them differ. One case measures one task; a skill is meant to help across many.
 
@@ -118,47 +174,50 @@ Write at least three cases before you trust a score, and make them differ. One c
 
 Open New run.
 
+![New run: the skill version, the cases to run ticked, one writer (Claude Code, sonnet, default effort) and the options below.](images/new-run.webp)
+
 1. Skill version: if the skill changed since the last run, this run starts a new version. Type what changed, so the version is easy to recognise later.
 2. Cases: tick the cases to run.
 3. Writers: pick the agent, model and effort. Add up to four writers to compare agents or models in one run.
 4. Samples per case: how many answers each writer gives per case. Agents vary run to run, so use 2 or more before you trust a difference between versions.
-5. Skill: choose what the agent gets. "With skill" installs this skill. "Without skill" installs nothing, which is the baseline the skill has to beat. "Old skill" uses an earlier run's copy, to test an edit against the version before it.
+5. Skill: choose what the agent gets. "With skill" installs this skill. "Without skill" installs nothing, which is the baseline the skill has to beat. "Old skill" uses an earlier run's copy, picked under "Copy from", to test an edit against the version before it.
 6. Leave "Grade when done" ticked so scores appear when the run finishes.
-7. Click Start run.
+7. Click "Start a run". The button counts the answers it will write: cases times writers times samples.
 
 The run happens in the background. The foot of the sidebar shows progress; click it for the live log. You can keep working on other screens.
 
-Runs cost money: each sample is one agent session, and grading makes judge calls. The total is samples per case times cases times writers.
+Runs cost money: each answer is one agent session, and grading makes judge calls.
 
 ## 5. Read the results
 
-Open Results.
+Open Results. Each row is a run: its version and writer, then a score per case, the mean, the cost, the time and the number of flags. A flag is one thing the judge found wrong, such as a rule not followed.
 
-Each run shows its version, its writer and a score per case. The total is out of 100 and is split into layers, such as adherence to the skill's rules and the rubric of your checks. Each pack's layers are listed in the [README](https://github.com/milesroxas/skill-studio#grading).
+![Results: four runs with a score per case. One run is open, listing each sample with its total, words, cost, time, tool calls and flags, and Read and Transcript links.](images/results.webp)
+
+- Click a score to read that answer, with its total split into layers such as adherence to the skill's rules and the rubric of your checks. Each pack's layers are listed in the [README](https://github.com/milesroxas/skill-studio#grading).
+- Click a run to open its samples. Each has a Read link for its answer and a Transcript link for the agent's steps.
+- "Changes since this run", in an open run, opens Versions with that run's version against the files now.
+- Regrade grades the run again, for example after you added checks.
 
 Read the layers, not only the total. A total can hold steady while one layer falls.
-
-Click a run for its detail. From there:
-
-- Compare skill with now opens Versions with this run's version against the files now.
-- Regrade grades the run again, for example after you added checks.
-- Each output has a Read link for its answer and a Transcript link for the agent's steps.
 
 A score from a judge is a claim, not a fact. Step 6 tests it.
 
 ## 6. Rate answers blind
 
-Open Rate blind.
+Open Rate blind. The answer is on the left and your review on the right.
 
-The queue lists graded answers you have not rated. Answers the judge was least sure about, and cases whose samples scored far apart, come first, because your rating tells you the most there.
+![Rate blind: one answer on the left with its scores hidden; on the right a 1 to 5 rating, Good and Bad per layer, a note, and Save and reveal.](images/rate-blind.webp)
+
+The queue holds the graded answers you have not rated. Answers the judge was least sure about, and cases whose samples scored far apart, come first, because your rating tells you the most there. The chip at the top left ("1 of 11") opens the whole queue.
 
 For each answer:
 
-1. Read the answer. The prompt, what a good answer does, and the checks are above it.
+1. Read the answer. Open "The prompt and what the case checks" above it for the prompt, what a good answer does, and the checks.
 2. Give it a rating from 1 to 5. 1 is unusable; 5 ships as is.
 3. Mark each layer Good or Bad where you have an opinion.
 4. Add a note on what works and what the skill should have done. Notes are what you act on later.
-5. Click Save and reveal.
+5. Click "Save and reveal". Skip moves to the next answer without rating this one.
 
 The scores and the writer stay hidden until you save. Seeing the judge's score first pulls your rating toward it, and then your rating no longer tests anything.
 
@@ -169,34 +228,51 @@ After the reveal you can:
 
 ### Compare two answers
 
-Compare, under Review, puts two outputs side by side, with a word diff for text. Pick the better one under "Which is better?". These pairwise votes feed the Bradley-Terry leaderboard, which ranks versions and writers from head-to-head picks. Pairwise picks are more reliable than 1 to 5 scores, because people and judges agree more on which of two is better than on how good one is.
+Compare puts two outputs side by side, or as a word diff of their text. Pick them under A and B.
+
+![Compare: a v0 answer scoring 48 beside a v1 answer to the same case scoring 100, each with its layer scores, and a "Which is better?" bar at the bottom.](images/compare.webp)
+
+Under "Which is better?", pick A, Tie or B. "Ask Jev" has the judge vote on the same pair. These pairwise votes feed the leaderboard lower on the screen, which ranks versions and writers from head-to-head picks (a Bradley-Terry model). Pairwise picks are more reliable than 1 to 5 scores, because people and judges agree more on which of two is better than on how good one is.
 
 ### Read a transcript
 
-Review, then Transcripts shows every step an agent took on one sample: its messages, tool calls and errors. Read it when a score surprises you. It tells you whether the agent read the skill at all, and where it went wrong.
+Transcripts shows every step an agent took on one sample: its messages, tool calls and errors. Read it when a score surprises you. It tells you whether the agent read the skill at all, and where it went wrong.
 
 ## 7. Check the judge against you
 
 Open Agreement. This screen fills in once you have rated some answers.
 
-It shows, per layer, how often you and the judge agree, and the rank correlation between your ratings and the totals (it needs 3 or more ratings). Read it like this:
+![Agreement: a table of layers against Both good, Both bad, Judge missed and Too harsh, then one verdict per layer: tune the scoring, or change the skill.](images/agreement.webp)
 
-| You see | It means | Do this |
+"Your marks against the judge" counts, per layer, the answers you marked Good or Bad against the judge's score for that layer. Each count falls in one of four columns, and the column says what to change:
+
+![A grid of your mark against the judge's score. Both good: leave it. Both bad: change the skill. Judge missed and Too harsh: tune the scoring.](images/which-to-change.svg)
+
+Under the table the app gives one verdict per layer, and names the place to make the change:
+
+| The verdict | It means | Do this |
 | --- | --- | --- |
-| You and the judge agree, scores are low | The skill is the problem | Edit the skill (step 2) |
-| You and the judge disagree on a layer | The scoring is the problem | Tune that layer (step 8) |
-| The judge gets your pairwise picks wrong | The judge cannot tell good from bad here | Add anchors, then check the pack's settings |
+| change the skill | You and the judge agree the answers fall short | Edit the rule the flags name (step 2), then run again |
+| tune the scoring | The judge scored answers high that you marked bad, or low that you marked good | Tune that layer (step 8) |
+| holding | You and the judge agree the answers are good | Nothing |
+
+The rest of the screen checks the judge as a whole:
+
+- "Your rating against the judge's total" gives the rank correlation between your 1 to 5 ratings and the totals. It needs 3 or more ratings. Above 0.6 the judge ranks answers the way you do.
+- Pairs lists each pairwise pick where the judge's totals chose the other answer. If the judge gets your picks wrong, it cannot tell good from bad here: add anchors, then check the pack's settings.
 
 ## 8. Tune the scoring
 
-Open Scoring.
+Open Scoring. The settings are on the right; every graded output is on the left.
+
+![Scoring: every graded output with its layer scores and total on the left; on the right the packs, a slider per layer weight, and Save.](images/scoring.webp)
 
 Move a setting and every graded output rescores at once, with the change shown beside each total. No new judge calls are made: the judge's raw answers are stored and the scoring is applied in code.
 
 - Packs: which judge packs grade this skill.
 - Layer weights: points per layer. A layer with no score drops out and the rest rescale.
-- Thresholds: when a judge answer counts as yes, when it counts as unsure, and which layer score counts as good.
-- Judge pack settings: each pack's own settings, such as the lint command for the writing pack.
+- Thresholds: "Yes at" is when a judge answer counts as yes, "Unsure below" is when it is listed as unsure, and "Good at" is the layer score Agreement counts as good.
+- Judge pack settings: each active pack's numbers, such as how many repeated tool calls the workflow pack allows. A pack's text settings, such as the writing pack's lint command, are set in `evals/bench.json` by hand.
 
 Click Save to write them to `evals/bench.json`. Unsaved changes show as a dot beside Scoring in the sidebar.
 
@@ -211,7 +287,7 @@ This is the loop. Go back to step 2 with what you learned:
 3. Save the files as a version on Versions, with what changed and why. A run of unsaved files asks for a name instead.
 4. Start a run, then compare the two versions' scores on Results and their files on Versions.
 
-To be sure an edit helped, run it against the version before with the "Old skill" option on the same cases and enough samples. A difference smaller than the spread between samples of the same version is noise.
+To be sure an edit helped, run it against the version before with the "Old skill" option on the same cases, with 2 or more samples per case. A difference smaller than the spread between samples of the same version is noise.
 
 ## Use it from the command line
 
@@ -224,6 +300,7 @@ pnpm st run <skill-dir> --engine claude --model sonnet --samples 2 --name "what 
 pnpm st grade <skill-dir> --run <run-name>
 pnpm st report <skill-dir> --run <run-name>
 pnpm st compare <skill-dir> <runA> <runB>
+pnpm st versions <skill-dir>
 pnpm st self-test <skill-dir>
 ```
 
@@ -244,15 +321,18 @@ Everything but unsaved drafts is plain files inside the skill's `evals/` folder,
 
 The agent never sees `evals/`: its copy of the skill leaves it out, so it cannot read the checks or your ratings.
 
+The app's own files are in `~/.skill-studio/`: unsaved drafts under `drafts/`, and the folders the Library looks in.
+
 ## When something goes wrong
 
 | Problem | Fix |
 | --- | --- |
 | "No Jev key" at the top right | Paste the key under Settings; in a browser, set `TYPESAFE_API_KEY` and restart `st serve` |
 | An agent shows "(not set up)" in New run | Install that CLI, put it on your `PATH` and sign in |
-| A skill is missing from the Library | Add its parent folder under "Where skills are found" |
+| A skill is missing from the Library | Tick "Show N skills installed from elsewhere", or add its project's parent folder under "Where skills are found" |
 | "Port 4400 is taken" (`st serve`) | Stop what holds it (`lsof -nP -iTCP:4400 -sTCP:LISTEN`) or start with `--port` |
-| A save in Write is refused | The file changed on disk. Keep your draft to save over it, or take the file as it is now |
+| A save in Write is refused | The file changed on disk. "Keep my draft" saves over it; "Use the file on disk" takes the file as it is now |
+| A rule is missing from Graded rules | Make it a top-level bullet of four words or more, outside a numbered list or a code block |
 | A score looks wrong | Read the transcript, then rate it blind; Agreement will show if the judge is off |
 
 Run skills you did not write in a container or VM. The code pack runs code the agent wrote, with your permissions. [SECURITY.md](https://github.com/milesroxas/skill-studio/blob/main/SECURITY.md) has the details.
