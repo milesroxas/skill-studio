@@ -22,8 +22,9 @@ const triggerVariants = cva(
   {
     variants: {
       variant: {
+        // The chevron's stroke starts 4px into its box; pulled back, it starts on the column's edge.
         plain:
-          'text-ui text-muted-foreground hover:text-foreground data-[state=open]:text-foreground',
+          'text-ui text-muted-foreground hover:text-foreground data-[state=open]:text-foreground [&>svg]:-ml-1',
         card: 'w-full',
       },
     },

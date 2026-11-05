@@ -135,6 +135,8 @@ interface PicturePickerProps {
   label: string
   /** One picture at a time, for a field that holds one. */
   single?: boolean
+  /** In a row that repeats it: the icon stays quiet until pointed at. */
+  quiet?: boolean
   disabled?: boolean
 }
 
@@ -144,6 +146,7 @@ export function PicturePicker({
   variant = 'button',
   label,
   single,
+  quiet,
   disabled,
 }: PicturePickerProps) {
   const input = useRef<HTMLInputElement>(null)
@@ -171,7 +174,7 @@ export function PicturePicker({
       ) : (
         <Button
           type="button"
-          variant="ghost"
+          variant={quiet ? 'ghost-muted' : 'ghost'}
           size={variant}
           aria-label={label}
           title={label}

@@ -21,7 +21,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { api } from '../api.ts'
 import { caseContext, skillContext } from '../assist.ts'
 import { DraftNote } from '../components/DraftNote.tsx'
-import { CheckRow, InlineField, NumberInput } from '../components/forms.tsx'
+import { CheckRow, InlineField, NumberInput, Stepper } from '../components/forms.tsx'
 import {
   Column,
   ColumnBody,
@@ -142,19 +142,63 @@ export function Cases({ ctx }: { ctx: Ctx }) {
   const live = useRef({ key, draft, setDraft })
   live.current = { key, draft, setDraft }
 
+  /**
+   * Adding or removing a check moves the keyboard with it: to the new check's
+   * statement, or to the check that took the removed one's place. With no check
+   * left it goes to the button that adds one, so focus never falls off the list.
+   */
+  const statements = useRef<Array<HTMLTextAreaElement | null>>([])
+  const addCheckButton = useRef<HTMLButtonElement>(null)
+  const [focusCheck, setFocusCheck] = useState<number | null>(null)
+  useEffect(() => {
+    if (focusCheck === null) return
+    const field = statements.current[focusCheck]
+    if (field) {
+      field.focus()
+      field.setSelectionRange(field.value.length, field.value.length)
+    } else addCheckButton.current?.focus()
+    setFocusCheck(null)
+  }, [focusCheck])
+  const addCheck = (at: number) => {
+    set({ graders: [...draft.graders.slice(0, at), newCheck(), ...draft.graders.slice(at)] })
+    setFocusCheck(at)
+  }
   /** Take a check out. One with a statement can come back: a slip costs a sentence otherwise. */
-  const removeGrader = (i: number) => {
+  const removeCheck = (i: number, focus: 'next' | 'previous') => {
     const removed = draft.graders[i]
-    set({ graders: draft.graders.filter((_, k) => k !== i) })
-    if (!removed.statement.trim()) return
+    const graders = draft.graders.filter((_, k) => k !== i)
+    set({ graders })
+    setFocusCheck(focus === 'previous' ? Math.max(i - 1, 0) : Math.min(i, graders.length - 1))
+    if (!removed?.statement.trim()) return
     toast(`Removed check ${i + 1}`, () => {
       // Only into the case it came from; elsewhere the offer has passed.
       const now = live.current
       if (now.key !== key) return
-      const graders = [...now.draft.graders]
-      graders.splice(i, 0, removed)
-      now.setDraft({ ...now.draft, graders })
+      const back = [...now.draft.graders]
+      back.splice(i, 0, removed)
+      now.setDraft({ ...now.draft, graders: back })
     })
+  }
+  /**
+   * A check is one statement, so the list is typed like one: Enter starts the
+   * next check, and Backspace on an empty one takes it away. Shift+Enter still
+   * breaks the line.
+   */
+  const onCheckKey = (i: number) => (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    const check = draft.graders[i]
+    if (!check || e.nativeEvent.isComposing) return
+    if (e.key === 'Enter' && !e.shiftKey && !e.altKey && !e.metaKey && !e.ctrlKey) {
+      e.preventDefault()
+      if (check.statement.trim()) addCheck(i + 1)
+    } else if (
+      e.key === 'Backspace' &&
+      !check.statement &&
+      !check.image &&
+      draft.graders.length > 1
+    ) {
+      e.preventDefault()
+      removeCheck(i, 'previous')
+    }
   }
 
   /** Fill the form from an example, with an id no existing case holds. */
@@ -474,7 +518,6 @@ export function Cases({ ctx }: { ctx: Ctx }) {
               <Stack gap="md">
                 {draft.graders.length ? (
                   <CheckLine aria-hidden="true" head>
-                    <span />
                     <Text tone="muted" size="xs">
                       Statement
                     </Text>
@@ -489,9 +532,13 @@ export function Cases({ ctx }: { ctx: Ctx }) {
                   {draft.graders.map((g, i) => (
                     <CheckLine key={g.id ?? `new-${i}`} as="li" index={i + 1}>
                       <TextArea
+                        ref={(el) => {
+                          statements.current[i] = el
+                        }}
                         variant="line"
                         rows={1}
                         aria-label={`Check ${i + 1}`}
+                        onKeyDown={onCheckKey(i)}
                         value={g.statement}
                         placeholder={
                           kind.cases[0]?.graders[i]?.statement ??
@@ -500,13 +547,12 @@ export function Cases({ ctx }: { ctx: Ctx }) {
                         onValueChange={(statement) => setGrader(i, { statement })}
                         assist={{ field: 'case.check', ...assist }}
                       />
-                      <NumberInput
-                        aria-label={`Weight of check ${i + 1}`}
-                        min={1}
-                        max={5}
-                        width="narrow"
+                      <Stepper
+                        label={`Weight of check ${i + 1}`}
+                        min={WEIGHT.min}
+                        max={WEIGHT.max}
                         value={g.weight}
-                        onChange={(e) => setGrader(i, { weight: Number(e.target.value) || 1 })}
+                        onChange={(weight) => setGrader(i, { weight })}
                       />
                       <CheckPicture
                         index={i + 1}
@@ -516,11 +562,11 @@ export function Cases({ ctx }: { ctx: Ctx }) {
                       />
                       <Button
                         type="button"
-                        variant="ghost"
+                        variant="ghost-muted"
                         size="icon"
                         aria-label={`Remove check ${i + 1}`}
                         title="Remove"
-                        onClick={() => removeGrader(i)}
+                        onClick={() => removeCheck(i, 'next')}
                       >
                         <XIcon aria-hidden="true" />
                       </Button>
@@ -529,10 +575,11 @@ export function Cases({ ctx }: { ctx: Ctx }) {
                 </PlainList>
                 <Toolbar>
                   <Button
+                    ref={addCheckButton}
                     type="button"
                     variant="outline"
                     size="sm"
-                    onClick={() => set({ graders: [...draft.graders, newCheck()] })}
+                    onClick={() => addCheck(draft.graders.length)}
                   >
                     <PlusIcon aria-hidden="true" />
                     Add a check
@@ -599,7 +646,7 @@ export function Cases({ ctx }: { ctx: Ctx }) {
                 hint="Its folder goes too. Past runs keep their outputs."
               >
                 <Toolbar>
-                  <Button type="button" variant="destructive-ghost" size="sm" onClick={remove}>
+                  <Button type="button" variant="destructive-outline" size="sm" onClick={remove}>
                     Delete case
                   </Button>
                 </Toolbar>
@@ -647,6 +694,7 @@ function CheckPicture({
         <PicturePicker
           variant="icon"
           single
+          quiet
           label={`Add a picture check ${index} is about`}
           onFiles={(files) => add(files.slice(0, 1))}
         />
@@ -655,8 +703,16 @@ function CheckPicture({
   )
 }
 
-/** Number, statement, weight, picture and remove, in columns that line up from row to row. */
-const checkLine = cva('grid grid-cols-[20px_minmax(0,1fr)_56px_36px_36px] gap-2', {
+/** The weights a check can have. */
+const WEIGHT = { min: 1, max: 5 }
+
+/**
+ * Statement, weight, picture and remove, in columns that line up from row to
+ * row. The statement starts on the column's edge, with the check's number hung
+ * in the margin before it. The row reaches 10px past the far edge, which puts
+ * the remove icon on that edge, not its 36px box.
+ */
+const checkLine = cva('relative -mr-2.5 grid grid-cols-[minmax(0,1fr)_88px_36px_36px] gap-2', {
   variants: {
     head: {
       true: 'items-end',
@@ -665,8 +721,8 @@ const checkLine = cva('grid grid-cols-[20px_minmax(0,1fr)_56px_36px_36px] gap-2'
   },
 })
 
-/** The check's number, centred on the first line of its 36px controls. */
-const checkIndex = 'flex h-9 items-center justify-end'
+/** The check's number, in the margin, centred on the first line of its 36px controls. */
+const checkIndex = 'absolute top-0 right-full mr-2 flex h-9 items-center'
 
 function CheckLine({
   as: Comp = 'div',

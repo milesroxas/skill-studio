@@ -16,9 +16,19 @@ const buttonVariants = cva(
         secondary: 'bg-secondary text-secondary-foreground hover:bg-secondary/80',
         ghost: 'hover:bg-accent hover:text-accent-foreground dark:hover:bg-accent/50',
         link: 'text-primary underline-offset-4 hover:underline',
+        /** An action a row repeats, such as its remove: quieter than the row's text until pointed at. */
+        'ghost-muted':
+          'text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:text-foreground dark:hover:bg-accent/50',
         /** A rare, destructive action that should not shout: red text on a quiet surface. */
         'destructive-ghost':
           'text-destructive hover:bg-destructive/10 hover:text-destructive focus-visible:ring-destructive/20 dark:hover:bg-destructive/20',
+        /**
+         * The destructive action that stands alone, such as the last section of a form. Its
+         * border puts the button's edge on the column's edge at rest, where a ghost only
+         * shows its box on hover and so reads as indented.
+         */
+        'destructive-outline':
+          'border bg-background text-destructive shadow-xs hover:border-destructive/30 hover:bg-destructive/10 focus-visible:ring-destructive/20 dark:border-input dark:bg-input/30 dark:hover:border-destructive/40 dark:hover:bg-destructive/20',
         /** A quiet text link: muted, with a hairline underline that darkens on hover. */
         'link-muted':
           'text-muted-foreground underline decoration-input underline-offset-3 hover:text-foreground hover:decoration-current',

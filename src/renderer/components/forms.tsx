@@ -1,8 +1,10 @@
 /** Form rows the screens share: a checkbox with its label, a slider with its number. */
 import { cva, type VariantProps } from 'class-variance-authority'
-import type { ComponentProps, ReactNode } from 'react'
+import { MinusIcon, PlusIcon } from 'lucide-react'
+import { type ComponentProps, type KeyboardEvent, type ReactNode, useRef } from 'react'
 import { cn } from '../lib/utils.ts'
 import { Text } from './text.tsx'
+import { Button } from './ui/button.tsx'
 import { Checkbox } from './ui/checkbox.tsx'
 import { Input } from './ui/input.tsx'
 import { Slider } from './ui/slider.tsx'
@@ -58,8 +60,6 @@ const numberVariants = cva('tabular-nums', {
   variants: {
     width: {
       default: 'w-19',
-      /** One or two digits: a weight from 1 to 5. */
-      narrow: 'w-14',
       /** A value beside a slider. */
       value: 'w-16 text-right',
       full: 'w-full',
@@ -82,6 +82,99 @@ export function NumberInput({
       className={cn(numberVariants({ width }), className)}
       {...props}
     />
+  )
+}
+
+interface StepperProps {
+  /** What the number is, read to assistive technology. */
+  label: string
+  value: number
+  /** The range, both ends included. One digit each, so a key can name any value. */
+  min: number
+  max: number
+  onChange: (value: number) => void
+}
+
+/**
+ * A whole number from a short range, such as a weight from 1 to 5: the value
+ * between a minus and a plus, in one field the height of an input.
+ *
+ * There is nothing to edit, so there is no caret: a digit typed is the new
+ * value, the arrow keys step it, Home and End go to the ends, and a value out
+ * of range lands on the nearest end. The buttons are for the pointer. They stay
+ * out of the tab order and hand focus to the number, so the field is one stop
+ * and the arrow keys carry on from a click.
+ */
+export function Stepper({ label, value, min, max, onChange }: StepperProps) {
+  const number = useRef<HTMLInputElement>(null)
+  const to = (next: number) => {
+    const clamped = Math.min(max, Math.max(min, Math.round(next)))
+    if (clamped !== value) onChange(clamped)
+  }
+  const onKey = (e: KeyboardEvent<HTMLInputElement>) => {
+    if (e.metaKey || e.ctrlKey || e.altKey) return
+    const next =
+      e.key === 'ArrowUp'
+        ? value + 1
+        : e.key === 'ArrowDown'
+          ? value - 1
+          : e.key === 'Home'
+            ? min
+            : e.key === 'End'
+              ? max
+              : /^\d$/.test(e.key)
+                ? Number(e.key)
+                : null
+    if (next === null) return
+    e.preventDefault()
+    to(next)
+  }
+  const button = (by: 1 | -1) => ({
+    type: 'button' as const,
+    variant: 'ghost-muted' as const,
+    size: 'icon-xs' as const,
+    tabIndex: -1,
+    disabled: by > 0 ? value >= max : value <= min,
+    // The press does not take focus; the click gives it to the number.
+    onMouseDown: (e: React.MouseEvent) => e.preventDefault(),
+    onClick: () => {
+      to(value + by)
+      number.current?.focus()
+    },
+  })
+  return (
+    // biome-ignore lint/a11y/useSemanticElements: a fieldset brings a legend and its own box; this is one field
+    <div
+      role="group"
+      aria-label={label}
+      // 5px around the 24px buttons, on every side: 36px tall with the border.
+      className="flex h-9 w-full items-center rounded-md border border-input bg-transparent px-1.25 shadow-xs transition-[color,box-shadow] has-[input:focus-visible]:border-ring has-[input:focus-visible]:ring-[3px] has-[input:focus-visible]:ring-ring/50 dark:bg-input/30"
+    >
+      <Button {...button(-1)} aria-label="Decrease" className="rounded-xs">
+        <MinusIcon aria-hidden="true" />
+      </Button>
+      <input
+        ref={number}
+        role="spinbutton"
+        aria-label={label}
+        aria-valuenow={value}
+        aria-valuemin={min}
+        aria-valuemax={max}
+        inputMode="numeric"
+        autoComplete="off"
+        className="w-0 min-w-0 flex-1 cursor-default bg-transparent text-center text-sm font-medium tabular-nums caret-transparent outline-none selection:bg-transparent"
+        value={value}
+        onKeyDown={onKey}
+        // What a key press does not reach: a paste, or text from an input method.
+        onChange={(e) => {
+          const digit = e.target.value.replace(/\D/g, '').slice(-1)
+          if (digit) to(Number(digit))
+        }}
+      />
+      <Button {...button(1)} aria-label="Increase" className="rounded-xs">
+        <PlusIcon aria-hidden="true" />
+      </Button>
+    </div>
   )
 }
 
