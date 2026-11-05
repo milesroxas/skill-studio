@@ -237,6 +237,9 @@ export interface Report {
 
 export type Vote = 'a' | 'b' | 'tie'
 
+/** The criterion a vote is on when the reader names none. */
+export const OVERALL = 'overall'
+
 export interface Preference {
   /** Output keys, `<run>/<sample>`. */
   a: string
@@ -244,6 +247,7 @@ export interface Preference {
   criterion: string
   vote: Vote
   by: 'jev' | 'human'
+  /** Jev's confidence in its vote, 0 to 1. Below `sure` in `bench.json` the vote is not counted. */
   confidence?: number
   at: string
 }

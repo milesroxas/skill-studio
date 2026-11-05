@@ -6,13 +6,20 @@
 
 import { round } from '@domain/text.ts'
 import { noul } from '@typesafe-ai/sdk'
-import { askStatements, pairwiseText, statementQuestion } from '../shared/questions.ts'
+import type { JevState } from '../jev.ts'
+import {
+  answering,
+  askStatements,
+  pairwiseText,
+  statementQuestion,
+  withRequest,
+} from '../shared/questions.ts'
 import type { StatementAnswer } from '../shared/score.ts'
 import type { JudgeContext, JudgeInput, JudgePack } from '../types.ts'
 import { type GenericRaw, genericScoring, type RuleAnswer } from './score.ts'
 
-const ruleQuestion = (rule: string) =>
-  noul(`Does \`output\` follow this rule: "${rule}"`, {
+const ruleQuestion = (rule: string, state: JevState) =>
+  noul(`${answering('output', state)}Does \`output\` follow this rule: "${rule}"`, {
     true: 'The output does what the rule asks everywhere the rule applies, or the rule is about a situation that does not come up in this output.',
     false:
       'The output does something the rule forbids, or leaves out something the rule requires in a place where the rule applies.',
@@ -23,8 +30,10 @@ async function adherence(
   ctx: JudgeContext,
 ): Promise<{ rules: RuleAnswer[] } | null> {
   if (!input.rules.length) return null
-  const questions = Object.fromEntries(input.rules.map((r) => [r.id, ruleQuestion(r.text)]))
-  const answers = await ctx.jev.ask({ output: input.text }, questions)
+  // A rule such as "in the words the request uses" cannot be judged from the output alone.
+  const state = withRequest(input, { output: input.text })
+  const questions = Object.fromEntries(input.rules.map((r) => [r.id, ruleQuestion(r.text, state)]))
+  const answers = await ctx.jev.ask(state, questions)
   return {
     rules: input.rules.map((r) => ({
       id: r.id,
@@ -46,7 +55,7 @@ async function rubric(
     graders.map((g) => [g.id, statementQuestion(g.statement, 'paragraph')]),
   )
   const [whole, unitAnswers] = await Promise.all([
-    askStatements(graders, { output: input.text }, 'output', ctx),
+    askStatements(graders, withRequest(input, { output: input.text }), 'output', ctx),
     input.units.length > 1
       ? ctx.jev.pool(input.units, (unit) => ctx.jev.ask({ paragraph: unit.text }, perUnit))
       : null,

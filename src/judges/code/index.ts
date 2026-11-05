@@ -5,7 +5,7 @@
  * files, build the project or judge files beyond the primary one.
  */
 import { runCommand } from '../shared/exec.ts'
-import { askStatements, pairwiseText } from '../shared/questions.ts'
+import { askStatements, pairwiseText, withRequest } from '../shared/questions.ts'
 import type { JudgePack } from '../types.ts'
 import { type CheckRaw, type CodeConfig, type CodeRaw, codeScoring } from './score.ts'
 
@@ -29,7 +29,7 @@ export const codePack: JudgePack<CodeRaw> = {
     const code = input.text.slice(0, codeCheck.maxChars)
     const review =
       ctx.useJev && graders.length && code.trim()
-        ? { statements: await askStatements(graders, { code }, 'code', ctx) }
+        ? { statements: await askStatements(graders, withRequest(input, { code }), 'code', ctx) }
         : null
     if (!check && !review) return null
     return { check, review }

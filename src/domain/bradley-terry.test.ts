@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { bradleyTerry, leaderboards, voteKeys } from './bradley-terry.ts'
+import { bradleyTerry, isCounted, leaderboards, voteKeys } from './bradley-terry.ts'
 import type { Preference } from './schemas.ts'
 
 const pref = (p: Partial<Preference> & Pick<Preference, 'a' | 'b' | 'vote'>): Preference => ({
@@ -52,17 +52,50 @@ describe('bradleyTerry', () => {
   it('is empty with no games', () => expect(bradleyTerry([])).toEqual([]))
 })
 
+const SURE = 0.6
+
+describe('isCounted', () => {
+  it('counts a Jev vote at the threshold and drops one under it', () => {
+    const jev = (confidence?: number) => pref({ a: 'x', b: 'y', vote: 'a', by: 'jev', confidence })
+    expect(isCounted(jev(0.6), SURE)).toBe(true)
+    expect(isCounted(jev(0.26), SURE)).toBe(false)
+    // Votes stored before confidence was kept have none to test.
+    expect(isCounted(jev(), SURE)).toBe(true)
+  })
+
+  it('always counts a human vote', () =>
+    expect(isCounted(pref({ a: 'x', b: 'y', vote: 'a', confidence: 0 }), SURE)).toBe(true))
+})
+
 describe('leaderboards', () => {
   it('keeps criteria and voters apart', () => {
-    const boards = leaderboards([
-      pref({ a: 'x', b: 'y', vote: 'a', by: 'human' }),
-      pref({ a: 'x', b: 'y', vote: 'b', by: 'jev' }),
-      pref({ a: 'x', b: 'y', vote: 'a', criterion: 'tone' }),
-    ])
+    const boards = leaderboards(
+      [
+        pref({ a: 'x', b: 'y', vote: 'a', by: 'human' }),
+        pref({ a: 'x', b: 'y', vote: 'b', by: 'jev' }),
+        pref({ a: 'x', b: 'y', vote: 'a', criterion: 'tone' }),
+      ],
+      SURE,
+    )
     expect(Object.keys(boards).sort()).toEqual(['overall', 'tone'])
     expect(boards.overall.human[0].id).toBe('x')
     expect(boards.overall.jev[0].id).toBe('y')
     expect(boards.tone.jev).toEqual([])
+  })
+
+  it('leaves a Jev vote it was unsure of off the board', () => {
+    const boards = leaderboards(
+      [
+        pref({ a: 'x', b: 'y', vote: 'a', by: 'jev', confidence: 0.26 }),
+        pref({ a: 'x', b: 'y', vote: 'b', by: 'human' }),
+        pref({ a: 'x', b: 'y', vote: 'a', by: 'jev', confidence: 0.3, criterion: 'tone' }),
+      ],
+      SURE,
+    )
+    expect(boards.overall.jev).toEqual([])
+    expect(boards.overall.human[0].id).toBe('y')
+    // A criterion with no counted vote has no board.
+    expect(Object.keys(boards)).toEqual(['overall'])
   })
 })
 
@@ -71,17 +104,23 @@ describe('voteKeys', () => {
     const keys = voteKeys(
       [pref({ a: 'r/b', b: 'r/a', vote: 'a' }), pref({ a: 'r/d', b: 'r/c', vote: 'tie' })],
       'human',
+      SURE,
     )
     expect(keys).toEqual({ 'r/a|r/b|overall': 'b', 'r/c|r/d|overall': 'tie' })
   })
 
   it('makes the same vote from either order agree', () => {
-    const human = voteKeys([pref({ a: 'p', b: 'q', vote: 'a' })], 'human')
-    const jev = voteKeys([pref({ a: 'q', b: 'p', vote: 'b', by: 'jev' })], 'jev')
+    const human = voteKeys([pref({ a: 'p', b: 'q', vote: 'a' })], 'human', SURE)
+    const jev = voteKeys([pref({ a: 'q', b: 'p', vote: 'b', by: 'jev' })], 'jev', SURE)
     expect(jev).toEqual(human)
   })
 
   it('only takes the asked voter', () => {
-    expect(voteKeys([pref({ a: 'p', b: 'q', vote: 'a', by: 'jev' })], 'human')).toEqual({})
+    expect(voteKeys([pref({ a: 'p', b: 'q', vote: 'a', by: 'jev' })], 'human', SURE)).toEqual({})
+  })
+
+  it('skips a Jev vote it was unsure of, so it is not compared with the human one', () => {
+    const unsure = pref({ a: 'p', b: 'q', vote: 'a', by: 'jev', confidence: 0.26 })
+    expect(voteKeys([unsure], 'jev', SURE)).toEqual({})
   })
 })

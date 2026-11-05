@@ -134,6 +134,8 @@ A case's word range counts the copy only: prose and list units, not headings or 
 
 **Design.** v1 does not render the page. The markup layer checks the document shell, landmarks, heading order, alt text and inline handlers. The visual layer asks about hierarchy and the case's graders over the HTML text, plus a "finished, nothing broken" question when the agent left a screenshot in `outputs/`.
 
+**Pairwise votes.** `skill.pairwise` sends Jev both outputs with the case's prompt, the skill's current rules and the case's graders. The first active pack that judges the output's kind casts the vote, and it compares text: two screenshots cannot be compared yet. A Jev vote with confidence under `sure` is kept in `reviews.json` and left off the leaderboard and the agreement count.
+
 **Parity.** Graded with `writing`, the reference skill's v2 run matches its original benchmark's report within 2 points on every layer and total, and its anchor self-test passes. The remaining gap is Jev's run-to-run variance on single claims, and word counts up to 2% higher where the tokenizer splits forms like "5/57".
 
 ## How it is built

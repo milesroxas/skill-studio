@@ -8,7 +8,7 @@ import { join } from 'node:path'
 import { round } from '@domain/text.ts'
 import { image, noul } from '@typesafe-ai/sdk'
 import type { JevState } from '../jev.ts'
-import { askStatements, pairwiseText } from '../shared/questions.ts'
+import { askStatements, pairwiseText, requestOf } from '../shared/questions.ts'
 import type { JudgePack } from '../types.ts'
 import { type DesignConfig, type DesignRaw, designScoring, type MarkupCheck } from './score.ts'
 
@@ -91,6 +91,8 @@ export const designPack: JudgePack<DesignRaw> = {
     let jev: DesignRaw['jev'] = null
     if (ctx.useJev) {
       const state: JevState = {}
+      const request = requestOf(input)
+      if (request) state.request = request
       if (html) state.html = html.slice(0, (ctx.config as DesignConfig).design.maxChars)
       if (shot) state.screenshot = image(readFileSync(join(input.dir, shot.file)))
       const subject = html ? 'html' : 'screenshot'

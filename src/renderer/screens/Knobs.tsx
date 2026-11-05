@@ -195,7 +195,7 @@ export function Knobs({ ctx }: { ctx: Ctx }) {
             />
             <Knob
               label="Unsure below"
-              about="Verdicts less certain than this are listed as unsure."
+              about="Verdicts less certain than this are listed as unsure, and a Jev vote less certain than this is not counted."
               value={config.sure}
               min={0.3}
               max={0.9}

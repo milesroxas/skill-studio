@@ -258,7 +258,7 @@ Compare puts two outputs side by side, or as a word diff of their text. Pick the
 
 ![Compare: a v0 answer scoring 48 beside a v1 answer to the same case scoring 100, each with its layer scores, and a "Which is better?" bar at the bottom.](images/compare.webp)
 
-Under "Which is better?", pick A, Tie or B. "Ask Jev" has the judge vote on the same pair. These pairwise votes feed the leaderboard lower on the screen, which ranks versions and writers from head-to-head picks (a Bradley-Terry model). Pairwise picks are more reliable than 1 to 5 scores, because people and judges agree more on which of two is better than on how good one is.
+Under "Which is better?", pick A, Tie or B. "Ask Jev" has the judge vote on the same pair. Jev reads both answers with the case's prompt, the skill's rules as they are now and the case's checks, so "overall" means fewer rules broken and fewer checks failed. Type another criterion, such as "warmth", to have it vote on that instead. When Jev is less certain than the "Unsure below" threshold, the screen says it was unsure and the vote is not counted. These pairwise votes feed the leaderboard lower on the screen, which ranks versions and writers from head-to-head picks (a Bradley-Terry model). Pairwise picks are more reliable than 1 to 5 scores, because people and judges agree more on which of two is better than on how good one is.
 
 ### Read a transcript
 
@@ -297,7 +297,7 @@ Move a setting and every graded output rescores at once, with the change shown b
 
 - Packs: which judge packs grade this skill.
 - Layer weights: points per layer. A layer with no score drops out and the rest rescale.
-- Thresholds: "Yes at" is when a judge answer counts as yes, "Unsure below" is when it is listed as unsure, and "Good at" is the layer score Agreement counts as good.
+- Thresholds: "Yes at" is when a judge answer counts as yes, "Unsure below" is when it is listed as unsure and when a Jev vote on Compare is not counted, and "Good at" is the layer score Agreement counts as good.
 - Judge pack settings: each active pack's numbers, such as how many repeated tool calls the workflow pack allows. A pack's text settings, such as the writing pack's lint command, are set in `evals/bench.json` by hand.
 
 Click Save to write them to `evals/bench.json`. Unsaved changes show as a dot beside Scoring in the sidebar.

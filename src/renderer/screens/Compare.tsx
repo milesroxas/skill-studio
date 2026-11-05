@@ -1,6 +1,6 @@
 /** Two outputs side by side: scores, the artifacts, a word diff, votes and the leaderboard. */
-import type { Rating } from '@domain/bradley-terry.ts'
-import type { Vote } from '@domain/schemas.ts'
+import { isCounted, type Rating } from '@domain/bradley-terry.ts'
+import { OVERALL, type Preference, type Vote } from '@domain/schemas.ts'
 import { copyOf } from '@domain/text.ts'
 import { useEffect, useState } from 'react'
 import { api } from '../api.ts'
@@ -84,7 +84,7 @@ export function Compare({ ctx }: { ctx: Ctx }) {
   const a = pinned ? outputByKey(outputs, route.params.get('a')) : fallbackA
   const b = pinned ? outputByKey(outputs, route.params.get('b')) : fallbackB
   const [diff, setDiff] = useState(false)
-  const [criterion, setCriterion] = useState('overall')
+  const [criterion, setCriterion] = useState(OVERALL)
   const board = useFetch(() => api.leaderboard(), [state])
   const layers = layersOf(config)
   // Both keys always go in the URL, so an empty B stays empty instead of falling back.
@@ -93,7 +93,7 @@ export function Compare({ ctx }: { ctx: Ctx }) {
       a: slot === 'a' ? key : (a?.key ?? ''),
       b: slot === 'b' ? key : (b?.key ?? ''),
     })
-  const name = criterion.trim() || 'overall'
+  const name = criterion.trim() || OVERALL
 
   const human =
     a && b
@@ -226,11 +226,7 @@ export function Compare({ ctx }: { ctx: Ctx }) {
           </InlineField>
           <ScorePick a={a} b={b} ctx={ctx} />
           {jevVotes.map((p) => (
-            <Hint key={`${p.criterion}${p.at}`}>
-              On {p.criterion}, Jev picked{' '}
-              {p.vote === 'tie' ? 'a tie' : SLOT_LABEL[p.a === a.key ? p.vote : otherSlot(p.vote)]}
-              {p.confidence !== undefined ? `, ${Math.round(p.confidence * 100)}% sure` : ''}.
-            </Hint>
+            <Hint key={`${p.criterion}${p.at}`}>{jevLine(p, a.key, config.sure)}</Hint>
           ))}
           <Spacer />
           <Button
@@ -250,6 +246,15 @@ export function Compare({ ctx }: { ctx: Ctx }) {
 }
 
 const otherSlot = (slot: 'a' | 'b'): 'a' | 'b' => (slot === 'a' ? 'b' : 'a')
+
+/** Jev's vote on the pair in one sentence. A vote under the `sure` threshold says it is not counted. */
+function jevLine(p: Preference, aKey: string, sure: number): string {
+  const pick = p.vote === 'tie' ? 'a tie' : SLOT_LABEL[p.a === aKey ? p.vote : otherSlot(p.vote)]
+  const percent = p.confidence === undefined ? null : Math.round(p.confidence * 100)
+  if (!isCounted(p, sure))
+    return `On ${p.criterion}, Jev leaned to ${pick} but was unsure (${percent}%), so its vote is not counted.`
+  return `On ${p.criterion}, Jev picked ${pick}${percent === null ? '' : `, ${percent}% sure`}.`
+}
 const flip = (v: Vote): Vote => (v === 'tie' ? 'tie' : otherSlot(v))
 const sameTwo = (x: string, y: string, p: string, q: string) =>
   (x === p && y === q) || (x === q && y === p)

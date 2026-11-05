@@ -16,6 +16,7 @@ import {
   CONFIGURATIONS,
   type Configuration,
   type FileDraft,
+  OVERALL,
   type Review,
   type SkillDrafts,
   type Vote,
@@ -80,7 +81,7 @@ import {
 } from '@infrastructure/skill.ts'
 import { isVersionLabel, saveVersion } from '@infrastructure/versions.ts'
 import type { JudgeInput } from '@judges/index.ts'
-import { packById } from '@judges/index.ts'
+import { pairwisePack } from '@judges/index.ts'
 import { Jev } from '@judges/jev.ts'
 import {
   aiStatus,
@@ -317,7 +318,7 @@ export const parsers: { [K in OperationName]: (raw: Raw) => Input<K> } = {
     ...scoped(raw),
     a: assertSafePath(str(raw.a), 'a'),
     b: assertSafePath(str(raw.b), 'b'),
-    criterion: str(raw.criterion, 'overall'),
+    criterion: str(raw.criterion, OVERALL),
     vote: oneOf<Vote>(raw.vote, ['a', 'b', 'tie'], 'vote'),
   }),
   'skill.saveFile': (raw) => {
@@ -538,10 +539,15 @@ export function createOperations(options: OperationsOptions): Runners {
       )
     },
     'skill.leaderboard': (input) => {
-      const { preferences } = loadReviews(skillOf(input).path)
+      const skill = skillOf(input)
+      const { preferences } = loadReviews(skill.path)
+      const { sure } = loadBench(skill.path)
       return {
-        boards: leaderboards(preferences),
-        agreement: agreement(voteKeys(preferences, 'jev'), voteKeys(preferences, 'human')),
+        boards: leaderboards(preferences, sure),
+        agreement: agreement(
+          voteKeys(preferences, 'jev', sure),
+          voteKeys(preferences, 'human', sure),
+        ),
       }
     },
     'skill.review': (input) => {
@@ -655,27 +661,31 @@ export function createOperations(options: OperationsOptions): Runners {
         const jev = new Jev()
         const inputA = inputFor(skill, a, config)
         const inputB = inputFor(skill, b, config)
-        for (const id of config.packs) {
-          const pack = packById(id)
-          if (!pack?.pairwise) continue
-          const votes = await pack.pairwise(inputA, inputB, criteria, {
-            jev,
-            useJev: true,
-            config,
-            skillDir: skill.path,
-            log: (l) => say(job, l),
+        const pack = pairwisePack(config.packs, inputA.primary?.kind ?? null)
+        if (!pack?.pairwise) throw new Error('No judge pack on this skill compares these outputs.')
+        const votes = await pack.pairwise(inputA, inputB, criteria, {
+          jev,
+          useJev: true,
+          config,
+          skillDir: skill.path,
+          log: (l) => say(job, l),
+        })
+        for (const [criterion, vote] of Object.entries(votes)) {
+          savePreference(skill.path, {
+            a,
+            b,
+            criterion,
+            vote: vote.vote,
+            by: 'jev',
+            confidence: vote.confidence,
           })
-          for (const [criterion, vote] of Object.entries(votes)) {
-            savePreference(skill.path, {
-              a,
-              b,
-              criterion,
-              vote: vote.vote,
-              by: 'jev',
-              confidence: vote.confidence,
-            })
-            say(job, `${criterion}: ${vote.vote} (${Math.round(vote.confidence * 100)}%)`)
-          }
+          const percent = Math.round(vote.confidence * 100)
+          say(
+            job,
+            vote.confidence < config.sure
+              ? `${criterion}: unsure, leaning ${vote.vote} (${percent}%), not counted`
+              : `${criterion}: ${vote.vote} (${percent}%)`,
+          )
         }
         return true
       })

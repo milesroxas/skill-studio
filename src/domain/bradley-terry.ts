@@ -79,16 +79,26 @@ export function bradleyTerry(games: Game[], iterations = 200): Rating[] {
     .sort((x, y) => y.strength - x.strength)
 }
 
-/** Ratings per criterion, with Jev's and human votes kept apart. */
+/**
+ * True when a vote counts. A person's vote always does. Jev's counts when its
+ * confidence reaches `sure`: a split answer is Jev saying it cannot tell, and
+ * counting it as a full win ranks outputs on a coin toss.
+ */
+export const isCounted = (p: Preference, sure: number): boolean =>
+  p.by === 'human' || p.confidence === undefined || p.confidence >= sure
+
+/** Ratings per criterion from the votes that count, with Jev's and human votes kept apart. */
 export function leaderboards(
   preferences: Preference[],
+  sure: number,
 ): Record<string, { jev: Rating[]; human: Rating[] }> {
   const out: Record<string, { jev: Rating[]; human: Rating[] }> = {}
-  const criteria = [...new Set(preferences.map((p) => p.criterion))]
+  const counted = preferences.filter((p) => isCounted(p, sure))
+  const criteria = [...new Set(counted.map((p) => p.criterion))]
   for (const criterion of criteria) {
     const of = (by: Preference['by']) =>
       bradleyTerry(
-        preferences
+        counted
           .filter((p) => p.criterion === criterion && p.by === by)
           .map((p) => ({ a: p.a, b: p.b, vote: p.vote })),
       )
@@ -97,11 +107,15 @@ export function leaderboards(
   return out
 }
 
-/** Votes keyed by unordered pair and criterion, for `agreement`. */
-export function voteKeys(preferences: Preference[], by: Preference['by']): Record<string, string> {
+/** Counted votes keyed by unordered pair and criterion, for `agreement`. */
+export function voteKeys(
+  preferences: Preference[],
+  by: Preference['by'],
+  sure: number,
+): Record<string, string> {
   const out: Record<string, string> = {}
   for (const p of preferences) {
-    if (p.by !== by) continue
+    if (p.by !== by || !isCounted(p, sure)) continue
     const flipped = p.a > p.b
     const key = flipped ? `${p.b}|${p.a}|${p.criterion}` : `${p.a}|${p.b}|${p.criterion}`
     const vote = flipped ? (p.vote === 'a' ? 'b' : p.vote === 'b' ? 'a' : 'tie') : p.vote

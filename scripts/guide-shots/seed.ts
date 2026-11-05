@@ -644,7 +644,7 @@ const vote = (
 vote(`${r0}/export-folder-s1`, `${r1}/export-folder-s1`, 'b', 'b', 0.91)
 vote(`${r0}/breaking-api-s2`, `${r1}/breaking-api-s1`, 'b', 'b', 0.97)
 vote(`${r1}/sync-fix-s1`, `${r1haiku}/sync-fix-s2`, 'a', 'a', 0.74)
-vote(`${r0}/sync-fix-s1`, `${r1}/sync-fix-s2`, 'b', 'a', 0.58)
+vote(`${r0}/sync-fix-s1`, `${r1}/sync-fix-s2`, 'b', 'a', 0.66)
 
 touchRecent(dir)
 
