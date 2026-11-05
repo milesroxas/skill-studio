@@ -11,6 +11,7 @@ import {
   EXAMPLE_KINDS,
   insertAt,
   isScaffold,
+  RULE_GUIDE,
   referenceTemplate,
   type SkillTemplate,
   SNIPPETS,
@@ -319,26 +320,11 @@ export function Editor({ ctx }: { ctx: Ctx }) {
           <Stack gap="xs">
             <GuideBox summary="How to write a rule">
               <GuideList>
-                <li>
-                  <b>Encode process, not outcome.</b> “Lead with the change for the reader” beats
-                  “write clearly”. The agent can walk a step; it cannot measure an adjective.
-                </li>
-                <li>
-                  <b>Write the why in the same bullet.</b> A rule with its reason generalises to
-                  cases you did not write down. A bare rule is applied blindly.
-                </li>
-                <li>
-                  <b>Be numeric or absolute.</b> “20 words or fewer”, “never”, “always”.
-                  “Reasonably” and “where appropriate” change nothing.
-                </li>
-                <li>
-                  <b>Every line must change what the agent does.</b> Cut definitions of things it
-                  knows. Attention spent there is taken from your rules.
-                </li>
-                <li>
-                  <b>One skill, one aspect.</b> Writing, code, workflow or design. A skill that
-                  covers everything is followed on nothing.
-                </li>
+                {RULE_GUIDE.map((item) => (
+                  <li key={item.lead}>
+                    <b>{item.lead}</b> {item.text}
+                  </li>
+                ))}
               </GuideList>
             </GuideBox>
             {isSkill && !blank ? (
@@ -456,6 +442,19 @@ export function Editor({ ctx }: { ctx: Ctx }) {
             value={text}
             onChange={edit}
             onSave={save}
+            assist={{
+              field: isSkill ? 'skill.file' : 'skill.reference',
+              // A reference is written to serve the skill it belongs to.
+              context: () =>
+                isSkill
+                  ? []
+                  : [
+                      {
+                        label: 'SKILL.md',
+                        text: edits['SKILL.md']?.text ?? files['SKILL.md'] ?? '',
+                      },
+                    ],
+            }}
             banner={
               notes || blank || tightened ? (
                 <ColumnBody>

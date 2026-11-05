@@ -6,6 +6,7 @@
  */
 import { existsSync, readFileSync, statSync } from 'node:fs'
 import { extname, join, relative, resolve } from 'node:path'
+import { ASSIST_FIELD_IDS, ASSIST_LIMIT, type AssistInput } from '@domain/assist.ts'
 import { leaderboards, voteKeys } from '@domain/bradley-terry.ts'
 import { preferencesOf } from '@domain/preferences.ts'
 import { reviewQueue } from '@domain/queue.ts'
@@ -19,9 +20,16 @@ import {
   type SkillDrafts,
   type Vote,
 } from '@domain/schemas.ts'
+import {
+  SECRET_IDS,
+  type SecretId,
+  type Settings,
+  secretOf,
+  statusOfEach,
+} from '@domain/secrets.ts'
 import { agreement } from '@domain/stats.ts'
 import { TEMPLATE_IDS } from '@domain/templates.ts'
-import type { Settings, SkillInfo } from '@domain/views.ts'
+import type { SkillInfo } from '@domain/views.ts'
 import {
   benchPath,
   deleteCase,
@@ -74,6 +82,16 @@ import { isVersionLabel, saveVersion } from '@infrastructure/versions.ts'
 import type { JudgeInput } from '@judges/index.ts'
 import { packById } from '@judges/index.ts'
 import { Jev } from '@judges/jev.ts'
+import {
+  aiStatus,
+  aiUsage,
+  chatThread,
+  clearChat,
+  findRun,
+  sendChat,
+  startAssist,
+  stopRun,
+} from '../ai.ts'
 import { generateRun } from '../generate.ts'
 import { gradeRun, judgeInput } from '../grade.ts'
 import { listJobs, runJob, say } from '../jobs.ts'
@@ -193,6 +211,25 @@ function anchorInputOf(raw: Raw): AnchorInput {
   }
 }
 
+function assistInputOf(raw: Raw): AssistInput {
+  const context = (Array.isArray(raw.context) ? raw.context : []).map((item) => {
+    const { label, text } = record(item)
+    return { label: str(label), text: str(text) }
+  })
+  const input: AssistInput = {
+    field: oneOf(raw.field, ASSIST_FIELD_IDS, 'field'),
+    instruction: str(raw.instruction).trim(),
+    current: str(raw.current),
+    context,
+  }
+  if (!input.instruction) throw new Error('Say what to write or change.')
+  const size = input.current.length + context.reduce((sum, c) => sum + c.text.length, 0)
+  if (size > ASSIST_LIMIT) throw new Error('This is more text than one request can carry.')
+  return input
+}
+
+const runId = (raw: Raw): { id: number } => ({ id: num(raw.id, 0) })
+
 /** Every operation's input check, keyed like the contract. Shared by every host of the table. */
 export const parsers: { [K in OperationName]: (raw: Raw) => Input<K> } = {
   'library.skills': none,
@@ -216,7 +253,22 @@ export const parsers: { [K in OperationName]: (raw: Raw) => Input<K> } = {
   'library.mark': (raw) => ({ path: str(raw.path), theirs: raw.theirs === true }),
   'jobs.list': none,
   'settings.read': none,
-  'settings.jevKey': (raw) => ({ value: str(raw.value).trim() }),
+  'settings.key': (raw) => ({
+    id: oneOf(raw.id, SECRET_IDS, 'key'),
+    value: str(raw.value).trim(),
+  }),
+  'ai.status': none,
+  'ai.usage': none,
+  'ai.assist': assistInputOf,
+  'ai.run': runId,
+  'ai.stop': runId,
+  'chat.read': none,
+  'chat.send': (raw) => {
+    const text = str(raw.text).trim()
+    if (!text) throw new Error('Write a message first.')
+    return { ...scoped(raw), text, screen: str(raw.screen) }
+  },
+  'chat.clear': none,
   'preferences.read': none,
   'preferences.write': (raw) => ({ preferences: preferencesOf(raw.preferences) }),
   'skill.state': scoped,
@@ -306,20 +358,22 @@ export const parsers: { [K in OperationName]: (raw: Raw) => Input<K> } = {
 export type Runner<K extends OperationName> = (input: Input<K>) => Output<K> | Promise<Output<K>>
 export type Runners = { [K in OperationName]: Runner<K> }
 
-/** Where a host keeps the Jev key when it can; the default knows only the environment. */
+/** Where a host keeps its keys when it can; the default knows only the environment. */
 export interface SecretStore {
   read(): Promise<Settings>
-  write(value: string): Promise<Settings>
+  write(id: SecretId, value: string): Promise<Settings>
 }
 
 const environmentSecrets: SecretStore = {
   read: async () => ({
-    jevKey: Jev.available(),
-    source: Jev.available() ? 'environment' : null,
     canStore: false,
+    keys: statusOfEach((id) => {
+      const set = Boolean(secretOf(id, process.env))
+      return { set, source: set ? 'environment' : null }
+    }),
   }),
   write: async () => {
-    throw new Error('Set TYPESAFE_API_KEY in the environment; this host keeps no key of its own.')
+    throw new Error('Set the key in the environment; this host keeps no key of its own.')
   },
 }
 
@@ -383,7 +437,34 @@ export function createOperations(options: OperationsOptions): Runners {
     },
     'jobs.list': () => listJobs(),
     'settings.read': () => secrets.read(),
-    'settings.jevKey': ({ value }) => secrets.write(value),
+    'settings.key': ({ id, value }) => secrets.write(id, value),
+    'ai.status': () => aiStatus(),
+    'ai.usage': () => aiUsage(),
+    'ai.assist': (input) => startAssist(input),
+    'ai.run': ({ id }) => findRun(id),
+    'ai.stop': ({ id }) => stopRun(id),
+    'chat.read': () => chatThread(),
+    'chat.send': (input) => {
+      const skill = input.skill ? skillOf(input) : null
+      const files = skill ? skillFiles(skill.path) : {}
+      return sendChat(input.text, {
+        screen: input.screen,
+        skill: skill && {
+          name: skill.name,
+          description: skill.description,
+          skillMd: files['SKILL.md'] ?? '',
+          references: Object.keys(files).filter((path) => path !== 'SKILL.md'),
+          cases: loadCases(skill.path).map((c) => ({
+            id: c.id,
+            title: c.title,
+            prompt: c.prompt,
+            expected: c.expectedOutcome,
+            checks: c.graders.map((g) => g.statement),
+          })),
+        },
+      })
+    },
+    'chat.clear': () => clearChat(),
     'preferences.read': () => readPreferences(),
     'preferences.write': ({ preferences }) => writePreferences(preferences),
     'skill.state': async (input) => {

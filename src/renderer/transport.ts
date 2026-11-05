@@ -11,6 +11,7 @@ import type {
   Reply,
   StudioBridge,
 } from '@application/api/contract.ts'
+import type { AiRun } from '@domain/ai.ts'
 import type { Job } from '@domain/views.ts'
 
 declare global {
@@ -30,6 +31,8 @@ export interface Transport {
   openExternal(url: string): void
   /** Push job changes when the transport has them; otherwise undefined and the shell polls. */
   watchJobs?: (listener: (jobs: Job[]) => void) => () => void
+  /** Push assistant replies as they grow; otherwise undefined and the page polls a running one. */
+  watchAi?: (listener: (run: AiRun) => void) => () => void
   platform: string
 }
 
@@ -48,6 +51,7 @@ function desktop(bridge: StudioBridge): Transport {
     openArtifact: (url) => void bridge.openArtifact(url).then(unwrap),
     openExternal: (url) => void bridge.openExternal(url).then(unwrap),
     watchJobs: (listener) => bridge.onJobs(listener),
+    watchAi: (listener) => bridge.onAi(listener),
     platform: bridge.platform,
   }
 }

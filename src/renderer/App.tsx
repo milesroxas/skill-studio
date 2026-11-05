@@ -17,6 +17,7 @@ import {
   ListChecksIcon,
   type LucideIcon,
   MenuIcon,
+  PanelRightIcon,
   PencilLineIcon,
   PlayIcon,
   ScaleIcon,
@@ -26,12 +27,14 @@ import {
 } from 'lucide-react'
 import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react'
 import { api, currentSkill, type Job, type State, setSkill } from './api.ts'
+import { ChatPanel } from './components/Chat.tsx'
 import { useConfirm } from './components/confirm.tsx'
 import { JobsIndicator } from './components/Jobs.tsx'
 import { EmptyState, Loading, Spacer } from './components/layout.tsx'
 import { PracticeGuide } from './components/PracticeGuide.tsx'
 import {
   AppFrame,
+  AssistantPane,
   NavItem,
   Pane,
   Sidebar,
@@ -47,9 +50,11 @@ import { Heading, Text } from './components/text.tsx'
 import { Badge } from './components/ui/badge.tsx'
 import { Button } from './components/ui/button.tsx'
 import { Popover, PopoverContent, PopoverTrigger } from './components/ui/popover.tsx'
+import { Toggle } from './components/ui/toggle.tsx'
 import type { Ctx } from './ctx.ts'
 import { useDrafts } from './drafts.ts'
 import { useRoute, useToast } from './hooks.ts'
+import { shortcut } from './keys.ts'
 import { mergedConfig, outputsOf, plural, versionScore } from './model.ts'
 import { practiceGuide } from './practice.ts'
 import { Blind } from './screens/Blind.tsx'
@@ -128,6 +133,28 @@ const placeOf = (screen: string): Place | undefined =>
 const isSkillScreen = (screen: string): boolean =>
   SECTIONS.some((s) => s.places.some((p) => p.screen === screen))
 
+const ASSISTANT_KEY = 'skill-studio.assistant'
+
+/** Whether the assistant's panel is open, remembered across reloads, and ⌘J to toggle it. */
+function useAssistant(): [boolean, (open: boolean) => void] {
+  const [open, setOpen] = useState(() => localStorage.getItem(ASSISTANT_KEY) === 'open')
+  const set = useCallback((next: boolean) => {
+    setOpen(next)
+    if (next) localStorage.setItem(ASSISTANT_KEY, 'open')
+    else localStorage.removeItem(ASSISTANT_KEY)
+  }, [])
+  useEffect(() => {
+    const handle = (e: KeyboardEvent) => {
+      if (e.key.toLowerCase() !== 'j' || !(e.metaKey || e.ctrlKey) || e.altKey || e.shiftKey) return
+      e.preventDefault()
+      set(!open)
+    }
+    window.addEventListener('keydown', handle)
+    return () => window.removeEventListener('keydown', handle)
+  }, [open, set])
+  return [open, set]
+}
+
 /** Status beside each place, from the loaded skill. */
 interface PlaceStatus {
   meta: Record<string, string | null>
@@ -143,6 +170,7 @@ export function App() {
   const [route, go] = useRoute()
   const [message, toast] = useToast()
   const [confirm, confirmDialog] = useConfirm()
+  const [assistant, setAssistant] = useAssistant()
 
   const reload = useCallback(async () => {
     if (!currentSkill()) return
@@ -300,6 +328,7 @@ export function App() {
         name={skillPath ? (state?.skill.name ?? skillPath.split('/').pop() ?? null) : null}
         detail={versionLine}
         onOpen={(path) => openSkill(path)}
+        onNew={(name) => go('library', name ? { new: '1', name } : { new: '1' })}
         onLibrary={() => go('library')}
       />
       <SidebarBody>
@@ -370,7 +399,16 @@ export function App() {
         </Suspense>
       )
     if (screen === 'library')
-      return <LibraryScreen openSkill={openSkill} toast={toast} confirm={confirm} />
+      return (
+        <LibraryScreen
+          creating={route.params.get('new') === '1'}
+          newName={route.params.get('name') ?? ''}
+          setCreating={(on) => go('library', on ? { new: '1' } : {})}
+          openSkill={openSkill}
+          toast={toast}
+          confirm={confirm}
+        />
+      )
     if (error && !state)
       return (
         <EmptyState
@@ -420,7 +458,7 @@ export function App() {
   })()
 
   return (
-    <AppFrame>
+    <AppFrame assistant={assistant}>
       <Sidebar>{sidebar}</Sidebar>
       <Workspace>
         <TopBar>
@@ -467,9 +505,28 @@ export function App() {
               <ArrowRightIcon aria-hidden="true" />
             </Button>
           ) : null}
+          <Toggle
+            size="sm"
+            aria-label="Assistant"
+            title={`Assistant (${shortcut('J')})`}
+            pressed={assistant}
+            onPressedChange={setAssistant}
+          >
+            <PanelRightIcon aria-hidden="true" />
+          </Toggle>
         </TopBar>
         <Pane layout={ctx && WORKBENCH.has(screen) ? 'flush' : 'page'}>{body}</Pane>
       </Workspace>
+      {assistant ? (
+        <AssistantPane>
+          <ChatPanel
+            screen={place?.label ?? ''}
+            skill={skillPath ? (state?.skill.name ?? null) : null}
+            confirm={confirm}
+            onClose={() => setAssistant(false)}
+          />
+        </AssistantPane>
+      ) : null}
       {overlays}
     </AppFrame>
   )

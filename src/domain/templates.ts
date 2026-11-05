@@ -47,8 +47,39 @@ export const kase = (
   graders: checks.map((statement) => ({ id: null, statement, weight: 1 })),
 })
 
-const GUIDE =
-  '<!-- Replace the example rules with yours and keep the shape: one rule per top-level bullet, numeric or absolute, with its why in the same bullet. Every top-level bullet of four words or more is graded. Steps and checklists go in numbered lists, which are not graded. -->'
+/** The shape of a graded rule, in one line: the templates say it, and so does the assistant. */
+export const RULE_SHAPE =
+  'one rule per top-level bullet, numeric or absolute, with its why in the same bullet. Every top-level bullet of four words or more is graded. Steps and checklists go in numbered lists, which are not graded.'
+
+const GUIDE = `<!-- Replace the example rules with yours and keep the shape: ${RULE_SHAPE} -->`
+
+/** How to write a rule an agent follows: the advice beside the editor, and what the assistant writes by. */
+export const RULE_GUIDE: ReadonlyArray<{ lead: string; text: string }> = [
+  {
+    lead: 'Encode process, not outcome.',
+    text: '“Lead with the change for the reader” beats “write clearly”. The agent can walk a step; it cannot measure an adjective.',
+  },
+  {
+    lead: 'Write the why in the same bullet.',
+    text: 'A rule with its reason generalises to cases you did not write down. A bare rule is applied blindly.',
+  },
+  {
+    lead: 'Be numeric or absolute.',
+    text: '“20 words or fewer”, “never”, “always”. “Reasonably” and “where appropriate” change nothing.',
+  },
+  {
+    lead: 'Every line must change what the agent does.',
+    text: 'Cut definitions of things it knows. Attention spent there is taken from your rules.',
+  },
+  {
+    lead: 'One skill, one aspect.',
+    text: 'Writing, code, workflow or design. A skill that covers everything is followed on nothing.',
+  },
+]
+
+/** What a case's prompt is, under its field and in the assistant's brief. */
+export const CASE_PROMPT_HINT =
+  'Exactly what the agent is asked, as a user would ask it. Do not mention the skill.'
 
 export const TEMPLATES: readonly SkillTemplate[] = [
   {

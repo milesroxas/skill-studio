@@ -29,7 +29,7 @@ The sidebar lists every screen of the open skill. Beside a screen is what waits 
 - A number: the versions, cases and runs the skill has, and the answers left to rate.
 - A dot: a draft not saved in Write or Cases, files not saved as a version yet, or scoring settings not saved.
 
-The top of the sidebar names the open skill, its version and that version's mean score. Click it, or press Cmd+K (Ctrl+K on Windows and Linux), to switch to another skill without going back to the library.
+The top of the sidebar names the open skill, its version and that version's mean score. Click it, or press Cmd+K (Ctrl+K on Windows and Linux), to switch to another skill without going back to the library. **New skill** at the foot of the list starts one, named after what you typed in the search; when nothing matches, Enter does the same.
 
 When a step is due, a Next button at the top right names it: "Add a case", "Run v1" or "Rate 11 outputs". It is hidden while a run is in progress.
 
@@ -156,6 +156,16 @@ The editor has two views of the same text, switched at the right of its toolbar.
 Everything you type is kept as a draft as you go, in `~/.skill-studio/drafts/`, outside the skill's folder. Close the app, switch skills or reload, and the unsaved text is still there. The line beside the file name says so ("Unsaved · draft kept 3:42 PM"), and the sidebar shows a dot beside Write. Save writes the file and clears its draft; Discard throws the draft away. "Changes since saved" shows your draft against the file on disk.
 
 A save is refused if the file changed on disk since your draft began, so an edit made in your code editor is never overwritten. The editor says so and offers two ways on: "Keep my draft" to save over the file, or "Use the file on disk" to take the file as it is now.
+
+### Write with AI
+
+The app can write with you, once it is connected to a model. Settings has two ways to connect each of Anthropic and OpenAI: store an API key, which bills each request to your API account, or use the `claude` or `codex` command you are already signed in to, which uses your plan and needs no key. Connect either or both. Under Assistant in Settings, pick the model and its effort; the effort levels on offer are the ones that model takes.
+
+Every text area then has a small button in its corner, and the editor has "Write with AI" in its toolbar. Press it, say what to write or change, and read the text as it arrives. Nothing touches the field until you press Replace (or Insert, for an empty field); Discard drops it. A whole SKILL.md comes back as a change to the file, line by line. In the editor, select some text first to rewrite only that.
+
+The text comes back in the shape the field holds. A SKILL.md is rules in the graded form, one per bullet with its why. A check is one fact a judge can mark, on one line. A description says what the skill does and when to use it. The assistant is told the skill, the case and, for a version's note, what changed since the last version.
+
+The Assistant panel opens from the button at the right of the top bar, or with ⌘J. It is one conversation that stays beside whatever screen you are on and is still there after a restart. It reads the open skill and its cases as saved, and changes nothing. From it you can change the model and effort, start a new conversation, and open Usage: requests and tokens today and over the last 30 days, by model, with a link to each provider's own page for the bill or your plan's limits.
 
 ### Save versions
 
@@ -337,7 +347,7 @@ Everything but unsaved drafts is plain files inside the skill's `evals/` folder,
 
 The agent never sees `evals/`: its copy of the skill leaves it out, so it cannot read the checks or your ratings.
 
-The app's own files are in `~/.skill-studio/`: unsaved drafts under `drafts/`, and the folders the Library looks in.
+The app's own files are in `~/.skill-studio/`: unsaved drafts under `drafts/`, the folders the Library looks in, the Assistant's conversation (`chat.json`) and its usage log (`ai-usage.json`).
 
 ## When something goes wrong
 

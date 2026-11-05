@@ -12,9 +12,10 @@ New here? [docs/guide.md](docs/guide.md) walks one skill through the whole loop,
 
 Needs:
 
-- Node 24 and pnpm, to build and to use the CLI. The packaged app needs neither: Electron carries its own Node.
+- Node 24 and pnpm, to build and to use the CLI. The packaged app needs neither: Electron carries its own Node. Download it for macOS, Windows or Linux from [Releases](https://github.com/milesroxas/skill-studio/releases).
 - A [TypeSafe](https://typesafe.ai) API key. Jev is the judge for every pack, so grading needs it. Add it under Settings in the app, which keeps it in the system keychain, or set `TYPESAFE_API_KEY` in the environment (a `.env` in the checkout works for development). Without it grading runs code checks only and leaves every judged layer null.
 - The `claude` or `cursor-agent` CLI on your `PATH`, signed in, to generate outputs.
+- Optional, to write with AI: an Anthropic or OpenAI API key (added under Settings, or `ANTHROPIC_API_KEY` / `OPENAI_API_KEY` in the environment), or the `claude` or `codex` CLI signed in to your plan.
 
 ```
 pnpm install
@@ -162,7 +163,8 @@ The layers only point inward, and `fallow` enforces that (`.fallowrc.json`): the
 - The operations run in a backend utility process, not in the main process, so the window never waits on a file read, a hash or an agent. Job changes are pushed to the window; a browser polls instead.
 - The renderer reaches the main process through one preload bridge (`window.studio`) with one function per message.
 - Pages load from `studio://app/`; a sample's files load from `artifact://sample?...`.
-- A Jev key in the environment at launch wins over a stored one.
+- A key in the environment at launch wins over a stored one. A stored Anthropic or OpenAI key reaches the backend under a name of the app's own (`SKILL_STUDIO_ANTHROPIC_API_KEY`), never as `ANTHROPIC_API_KEY`, so an agent the app starts does not bill a key you stored for the assistant.
+- An assistant reply is pushed to the window as it grows, the same way job changes are; a browser polls a running reply.
 
 [SECURITY.md](SECURITY.md) covers the hardening: the sandbox, the origin check on IPC, the Content Security Policies, key storage and what the app refuses.
 
@@ -178,7 +180,10 @@ Every operation is `POST /api/<name>` with its input as the JSON body; operation
 | `library.create`, `library.link`, `library.unlink`                                    | create `{scope, name, description, agents}` and open it; link or unlink `{path, agent, scope}` into an agent's skills folder               |
 | `library.practice`                                                                    | open the practice skill, written with its cases to `~/.skill-studio/practice/` the first time                                              |
 | `library.workspaces`, `library.mark`                                                  | set the folders to scan `{workspaces}`; list a skill with installed ones `{path, theirs}`                                                 |
-| `jobs.list`, `settings.read`, `settings.jevKey`                                       | background jobs; where the Jev key comes from; store one `{value}` (desktop app only)                                                      |
+| `jobs.list`, `settings.read`, `settings.key`                                          | background jobs; where each key (`jev`, `anthropic`, `openai`) comes from; store one `{id, value}` (desktop app only)                      |
+| `ai.status`, `ai.usage`                                                               | the four ways to reach a model, which are connected and the models each offers; requests and tokens today and over 30 days                 |
+| `ai.assist`, `ai.run`, `ai.stop`                                                      | start writing one field `{field, instruction, current, context}`, in that field's shape; read a reply `{id}` as it grows; stop it          |
+| `chat.read`, `chat.send`, `chat.clear`                                                | the Assistant panel's conversation, kept in `~/.skill-studio/chat.json`; add a message `{skill, text, screen}` and start the reply         |
 | `preferences.read`, `preferences.write`                                               | your theme, motion and editor view, kept in `~/.skill-studio/preferences.json`; write `{preferences}`                                      |
 | `skill.state`                                                                         | cases, runs, versions, engines, config, reviews, anchors                                                                                  |
 | `skill.run`, `skill.transcript`, `skill.artifact`, `skill.files`                      | one run `{run}`; one transcript `{run, sample}`; one artifact `{run, sample, file}`; the skill's files `{source}`: `current`, a version (`v2`) or a run |
@@ -197,6 +202,17 @@ Every operation is `POST /api/<name>` with its input as the JSON body; operation
 
 Isolation is by convention: the skill copy omits `evals/`, and the prompt forbids reading outside the sample directory, but nothing stops an agent that follows an absolute path.
 
+## The assistant
+
+Four providers sit behind one port (`src/infrastructure/ai/`), and the model in use is a preference, so every control shows the same one.
+
+- **anthropic**: the Anthropic SDK with your key. Replies stream; a field's shape is enforced with structured outputs; models and the effort levels each takes come from the Models API. Requests to Claude Fable 5, Opus 5 and Sonnet 5.5 opt in to Anthropic's server-side fallback, so a request a safety classifier declines is retried on the model Anthropic recommends instead of failing.
+- **claude-code**: `claude -p` with no tools, settings or skills, on the plan the CLI is signed in to. The shape goes in as `--json-schema`.
+- **openai**: the OpenAI SDK (Responses API) with your key, with a strict JSON schema for the shape. Untested against a live account.
+- **codex**: `codex exec --json` in a read-only sandbox, on the plan the CLI is signed in to. Untested against a live install; it reports a reply whole, not word by word.
+
+Each text area is one kind of field (`src/domain/assist.ts`). A kind states the shape its text has, built from the same rule guidance the editor shows, and the reply is one JSON object holding that text, fitted to the field before it is shown.
+
 ## Development
 
 ```
@@ -209,7 +225,7 @@ pnpm guide:shots  # retake the guide's screenshots from sample skills in a scrat
 
 Tests need no API key, network or agent CLI. Biome skips Markdown on purpose: its Markdown formatter misreads YAML front matter. Generated eval data (`evals/runs`, reviews, anchor reports) is excluded too.
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for test conventions and where a change belongs, and [SECURITY.md](SECURITY.md) before running skills you did not write.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for test conventions, where a change belongs and how a release is cut, and [SECURITY.md](SECURITY.md) before running skills you did not write.
 
 ## License
 

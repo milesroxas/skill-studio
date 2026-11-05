@@ -3,11 +3,13 @@
  * the URL schemes, and the messages that cross the backend's port.
  */
 import type { Reply } from '@application/api/contract.ts'
+import type { AiRun } from '@domain/ai.ts'
 import type { Job } from '@domain/views.ts'
 
 export const CHANNELS = {
   call: 'studio:call',
   jobs: 'studio:jobs',
+  ai: 'studio:ai',
   openArtifact: 'studio:open-artifact',
   openExternal: 'studio:open-external',
 } as const
@@ -26,7 +28,19 @@ export type ToBackend =
   /** Set or clear environment variables; `undefined` clears. */
   | { type: 'env'; env: Record<string, string | undefined> }
 
+/** What the backend tells the page without being asked, by topic. */
+export interface Pushes {
+  /** The job list, after any change to it. */
+  jobs: Job[]
+  /** An assistant reply, as it grows and when it ends. */
+  ai: AiRun
+}
+export type PushTopic = keyof Pushes
+export const PUSH_TOPICS = ['jobs', 'ai'] as const satisfies readonly PushTopic[]
+
+type Push = { [K in PushTopic]: { type: 'push'; topic: K; value: Pushes[K] } }[PushTopic]
+
 export type FromBackend =
   | { type: 'ready' }
   | { type: 'reply'; id: number; reply: Reply<unknown> }
-  | { type: 'jobs'; jobs: Job[] }
+  | Push

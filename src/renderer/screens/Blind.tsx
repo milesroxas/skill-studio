@@ -1,10 +1,12 @@
 /** Blind review: judge an output before its scores or its run are shown, then reveal and save. */
 
+import type { AssistContext } from '@domain/assist.ts'
 import type { QueueItem } from '@domain/queue.ts'
 import type { Artifact } from '@domain/schemas.ts'
 import { ChevronDownIcon } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { api } from '../api.ts'
+import { caseContext, skillContext } from '../assist.ts'
 import { AnchorForm } from '../components/AnchorForm.tsx'
 import { ArtifactPicker, ArtifactView } from '../components/Artifact.tsx'
 import { Disclosure } from '../components/Disclosure.tsx'
@@ -92,6 +94,25 @@ export function Blind({ ctx }: { ctx: Ctx }) {
     setAnchor(false)
   }, [current, state])
   useEffect(() => setArtifact(output ? primaryOf(output) : null), [output])
+
+  /** What the assistant reads to write a note: the skill, the case asked, and the output in view. */
+  const noteContext = async (): Promise<AssistContext[]> => {
+    if (!output) return []
+    const asked = state.cases.find((c) => c.id === output.caseId)
+    const readable = artifact && artifact.kind !== 'image'
+    return [
+      skillContext(state),
+      ...(asked ? [caseContext(asked)] : []),
+      ...(readable
+        ? [
+            {
+              label: `The output (${artifact.file})`,
+              text: await api.artifactText(output.run.name, output.sample.name, artifact.file),
+            },
+          ]
+        : []),
+    ]
+  }
 
   if (queue.error && !queue.data)
     return (
@@ -286,8 +307,9 @@ export function Blind({ ctx }: { ctx: Ctx }) {
               <TextArea
                 id="review-note"
                 value={note}
-                onChange={(e) => setNote(e.target.value)}
+                onValueChange={setNote}
                 placeholder="What works, what you would change, what the skill should have done"
+                assist={{ field: 'review.note', context: noteContext }}
               />
             </Field>
             {revealed ? (

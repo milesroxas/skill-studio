@@ -3,10 +3,15 @@
  * scrolls. CSS `field-sizing: content` does this where supported; elsewhere
  * the height is set from the content after each render and whenever the
  * field's width changes (rotation, resize, late font load).
+ *
+ * Give it `assist`, the kind of field it is, and a button in its corner opens
+ * "write with AI" for that kind. Typed and written text reach the caller the
+ * same way, through `onValueChange`.
  */
 import { cva, type VariantProps } from 'class-variance-authority'
 import { type ComponentProps, useEffect, useLayoutEffect, useRef } from 'react'
 import { cn } from '../lib/utils.ts'
+import { Assist, AssistButton, type AssistSpec } from './Assist.tsx'
 import { Textarea } from './ui/textarea.tsx'
 
 const native = typeof CSS !== 'undefined' && CSS.supports('field-sizing', 'content')
@@ -31,13 +36,27 @@ const textAreaVariants = cva('resize-none overflow-hidden', {
   defaultVariants: { variant: 'default' },
 })
 
+type TextAreaProps = Omit<ComponentProps<'textarea'>, 'value'> &
+  VariantProps<typeof textAreaVariants> & {
+    value: string
+    /** The new text, whether it was typed or written by the assistant. */
+    onValueChange: (value: string) => void
+    /** The kind of field this is, which puts "write with AI" in its corner. */
+    assist?: AssistSpec
+  }
+
 export function TextArea({
   ref: outer,
   variant,
   className,
+  value,
+  onValueChange,
+  onChange,
+  assist,
   ...props
-}: ComponentProps<'textarea'> & VariantProps<typeof textAreaVariants>) {
+}: TextAreaProps) {
   const ref = useRef<HTMLTextAreaElement>(null)
+  const frame = useRef<HTMLDivElement>(null)
   /** Both this component and the caller see the element. */
   const attach = (el: HTMLTextAreaElement | null) => {
     ref.current = el
@@ -60,7 +79,35 @@ export function TextArea({
     document.fonts?.ready.then(() => fitHeight(el))
     return () => observer.disconnect()
   }, [])
+  const field = (
+    <Textarea
+      ref={attach}
+      // The corner button lies over the field, so the text keeps clear of it.
+      className={cn(textAreaVariants({ variant }), assist && 'pr-9', className)}
+      value={value}
+      onChange={(event) => {
+        onChange?.(event)
+        onValueChange(event.target.value)
+      }}
+      {...props}
+    />
+  )
+  if (!assist) return field
   return (
-    <Textarea ref={attach} className={cn(textAreaVariants({ variant }), className)} {...props} />
+    <div ref={frame} className="relative min-w-0">
+      {field}
+      <Assist
+        {...assist}
+        // It opens under the field, never over the text it is about.
+        anchor={frame}
+        value={value}
+        onApply={(text) => {
+          onValueChange(text)
+          ref.current?.focus()
+        }}
+      >
+        <AssistButton field={assist.field} className="absolute top-1.5 right-1.5" />
+      </Assist>
+    </div>
   )
 }

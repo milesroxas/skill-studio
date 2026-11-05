@@ -12,7 +12,7 @@ import {
   type SecretStore,
 } from '@application/api/operations.ts'
 import { preferencesOf } from '@domain/preferences.ts'
-import type { Settings } from '@domain/views.ts'
+import type { Settings } from '@domain/secrets.ts'
 import { BrowserWindow, type IpcMainInvokeEvent, ipcMain, shell } from 'electron'
 import { CHANNELS } from '../channels.ts'
 import type { Backend } from './backend.ts'
@@ -39,8 +39,10 @@ export function registerIpc({ backend, secrets, trusted }: IpcDeps): void {
     switch (name) {
       case 'settings.read':
         return secrets.read()
-      case 'settings.jevKey':
-        return secrets.write(parsers['settings.jevKey'](record(input)).value)
+      case 'settings.key': {
+        const { id, value } = parsers['settings.key'](record(input))
+        return secrets.write(id, value)
+      }
     }
   }
 

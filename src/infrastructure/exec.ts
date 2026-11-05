@@ -8,6 +8,8 @@ export interface ExecOptions {
   timeoutMs: number
   /** Called with each complete stdout line as it arrives. */
   onLine?: (line: string) => void
+  /** Ends the process when aborted, as a timeout would. */
+  signal?: AbortSignal
 }
 
 export interface ExecResult {
@@ -39,13 +41,17 @@ export function exec(command: string, args: string[], options: ExecOptions): Pro
     }
     const child = spawn(command, args, { cwd: options.cwd, env: options.env })
     let buffer = ''
-    const timer = setTimeout(() => {
-      result.timedOut = true
+    const stop = () => {
       child.kill('SIGTERM')
       setTimeout(() => {
         if (child.exitCode === null) child.kill('SIGKILL')
       }, 5000).unref()
+    }
+    const timer = setTimeout(() => {
+      result.timedOut = true
+      stop()
     }, options.timeoutMs)
+    options.signal?.addEventListener('abort', stop, { once: true })
     child.stdout.on('data', (chunk: Buffer) => {
       const text = chunk.toString()
       result.stdout += text
@@ -67,6 +73,7 @@ export function exec(command: string, args: string[], options: ExecOptions): Pro
     })
     child.on('close', (code, signal) => {
       clearTimeout(timer)
+      options.signal?.removeEventListener('abort', stop)
       if (buffer.trim() && options.onLine) options.onLine(buffer)
       result.code = code
       result.signal = signal

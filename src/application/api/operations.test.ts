@@ -12,7 +12,8 @@ describe('parsers', () => {
 
   it('keep the settings operations for the shell', () => {
     expect(isShellOperation('settings.read')).toBe(true)
-    expect(isShellOperation('settings.jevKey')).toBe(true)
+    expect(isShellOperation('settings.key')).toBe(true)
+    expect(isShellOperation('ai.status')).toBe(false)
     expect(isShellOperation('skill.state')).toBe(false)
   })
 

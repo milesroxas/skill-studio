@@ -319,6 +319,16 @@
   .doc .aside {
     @apply text-muted-foreground;
   }
+  /* The same document in a narrow column, such as a reply in the side panel. */
+  .doc[data-density="compact"] {
+    @apply p-0 text-sm leading-[1.6];
+  }
+  .doc[data-density="compact"] :is(p, ul, ol, blockquote, pre, table, .aside) {
+    @apply mb-2.5 last:mb-0;
+  }
+  .doc[data-density="compact"] :is(h1, h2, h3, h4) {
+    @apply mt-4 mb-1.5 text-sm first:mt-0;
+  }
 
   /* A word diff of two answers. */
   .diff {

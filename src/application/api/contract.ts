@@ -4,6 +4,8 @@
  * input and an output. The table in operations.ts implements each; the
  * renderer's client types each call from here, so a change lands in both.
  */
+import type { AiRun, AiStatus, ChatThread, UsageSummary } from '@domain/ai.ts'
+import type { AssistInput } from '@domain/assist.ts'
 import type { AgentId, Library } from '@domain/library.ts'
 import type { Preferences } from '@domain/preferences.ts'
 import type { QueueItem } from '@domain/queue.ts'
@@ -16,16 +18,9 @@ import type {
   TranscriptEvent,
   Vote,
 } from '@domain/schemas.ts'
+import type { SecretId, Settings } from '@domain/secrets.ts'
 import type { TemplateId } from '@domain/templates.ts'
-import type {
-  Job,
-  Leaderboard,
-  RunView,
-  Settings,
-  SkillInfo,
-  SkillVersion,
-  State,
-} from '@domain/views.ts'
+import type { Job, Leaderboard, RunView, SkillInfo, SkillVersion, State } from '@domain/views.ts'
 
 /** Operations on one skill name it by path. The client fills this in. */
 export interface Scoped {
@@ -99,7 +94,19 @@ export interface Contract {
   'library.mark': { input: { path: string; theirs: boolean }; output: { marked: true } }
   'jobs.list': { input: Record<string, never>; output: Job[] }
   'settings.read': { input: Record<string, never>; output: Settings }
-  'settings.jevKey': { input: { value: string }; output: Settings }
+  /** Store a key, or remove the stored one with an empty value. */
+  'settings.key': { input: { id: SecretId; value: string }; output: Settings }
+  /** The ways to reach a model, which are connected, and the models each offers. */
+  'ai.status': { input: Record<string, never>; output: AiStatus }
+  'ai.usage': { input: Record<string, never>; output: UsageSummary }
+  /** Start writing one field's text. The run it returns grows until it ends. */
+  'ai.assist': { input: AssistInput; output: AiRun }
+  'ai.run': { input: { id: number }; output: AiRun }
+  'ai.stop': { input: { id: number }; output: AiRun }
+  'chat.read': { input: Record<string, never>; output: ChatThread }
+  /** Add a message to the conversation and start the reply. `skill` may be empty: none open. */
+  'chat.send': { input: Scoped & { text: string; screen: string }; output: ChatThread }
+  'chat.clear': { input: Record<string, never>; output: ChatThread }
   'preferences.read': { input: Record<string, never>; output: Preferences }
   'preferences.write': { input: { preferences: Preferences }; output: Preferences }
   'skill.state': { input: Scoped; output: State }
@@ -170,7 +177,7 @@ export const ARTIFACT_POLICY = "sandbox; script-src 'none'"
 /** Operations the desktop shell answers itself: they touch the keychain, which lives in the main process. */
 export const SHELL_OPERATIONS = [
   'settings.read',
-  'settings.jevKey',
+  'settings.key',
 ] as const satisfies readonly OperationName[]
 export type ShellOperation = (typeof SHELL_OPERATIONS)[number]
 
@@ -184,6 +191,8 @@ export interface StudioBridge {
   call<K extends OperationName>(name: K, input: Input<K>): Promise<Reply<Output<K>>>
   /** Job changes pushed from the backend; returns the unsubscribe. */
   onJobs(listener: (jobs: Job[]) => void): () => void
+  /** An assistant reply as it grows and when it ends; returns the unsubscribe. */
+  onAi(listener: (run: AiRun) => void): () => void
   /** Show an `artifact:` URL in its own sandboxed window. */
   openArtifact(url: string): Promise<Reply<null>>
   /** Open an https link in the default browser. */

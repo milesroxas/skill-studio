@@ -15,8 +15,16 @@ describe('preferences', () => {
   })
 
   it('reads back what was written', () => {
-    writePreferences({ theme: 'dark', motion: 'reduced', editorMode: 'markdown' })
-    expect(readPreferences()).toEqual({ theme: 'dark', motion: 'reduced', editorMode: 'markdown' })
+    const chosen = {
+      ...DEFAULT_PREFERENCES,
+      theme: 'dark',
+      motion: 'reduced',
+      editorMode: 'markdown',
+      aiProvider: 'anthropic',
+      aiModel: 'claude-opus-5-5',
+    } as const
+    writePreferences(chosen)
+    expect(readPreferences()).toEqual(chosen)
   })
 
   it('reads a broken file as the defaults', () => {

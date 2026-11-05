@@ -106,10 +106,3 @@ export interface State {
   jevKey: boolean
   paths: { bench: string; reviews: string }
 }
-
-/** Where the Jev key comes from, and whether the app can keep one itself. */
-export interface Settings {
-  jevKey: boolean
-  source: 'environment' | 'stored' | null
-  canStore: boolean
-}

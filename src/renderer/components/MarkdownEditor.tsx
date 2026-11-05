@@ -24,10 +24,11 @@ import {
   ListOrderedIcon,
   ListTodoIcon,
   type LucideIcon,
+  SparklesIcon,
   StrikethroughIcon,
   TextQuoteIcon,
 } from 'lucide-react'
-import { type ReactNode, type Ref, useEffect, useImperativeHandle, useRef } from 'react'
+import { type ReactNode, type Ref, useEffect, useImperativeHandle, useRef, useState } from 'react'
 import {
   formatKeymap,
   insertLink,
@@ -41,6 +42,7 @@ import { livePreview } from '../editor/live-preview.ts'
 import { editorTheme, markdownHighlighting } from '../editor/theme.ts'
 import { shortcut } from '../keys.ts'
 import { setPreferences, usePreferences } from '../preferences.ts'
+import { Assist, type AssistSpec } from './Assist.tsx'
 import { ColumnToolbar } from './layout.tsx'
 import { Segmented } from './Segmented.tsx'
 import { Button } from './ui/button.tsx'
@@ -128,6 +130,11 @@ interface MarkdownEditorProps {
   'aria-label': string
   /** Notes about the file, shown between the toolbar and the text. */
   banner?: ReactNode
+  /**
+   * The kind of file this is, which puts "Write with AI" in the toolbar. With
+   * text selected it rewrites the selection only; otherwise the whole file.
+   */
+  assist?: AssistSpec
 }
 
 /** Mount once per file: give each file its own `key`, so undo history never crosses files. */
@@ -141,9 +148,12 @@ export function MarkdownEditor({
   placeholder: hint,
   'aria-label': label,
   banner,
+  assist,
 }: MarkdownEditorProps) {
   const host = useRef<HTMLDivElement>(null)
   const editor = useRef<EditorView | null>(null)
+  /** The selection "Write with AI" was opened on; null when it has the whole file. */
+  const [picked, setPicked] = useState<{ from: number; to: number } | null>(null)
   const modes = useRef(new Compartment())
   const latest = useRef({ value, mode, hint, label, onChange, onSave })
   latest.current = { value, mode, hint, label, onChange, onSave }
@@ -275,7 +285,39 @@ export function MarkdownEditor({
             })}
           </div>
         ))}
-        <span className="ml-auto">
+        <span className="ml-auto flex items-center gap-2">
+          {assist ? (
+            <Assist
+              field={picked ? 'skill.passage' : assist.field}
+              value={picked ? value.slice(picked.from, picked.to) : value}
+              context={async () => [
+                ...((await assist.context?.()) ?? []),
+                ...(picked ? [{ label: 'The whole file', text: value }] : []),
+              ]}
+              onOpenChange={(open) => {
+                const range = open ? editor.current?.state.selection.main : null
+                setPicked(range && !range.empty ? { from: range.from, to: range.to } : null)
+              }}
+              onApply={(text) => {
+                const view = editor.current
+                if (picked && view)
+                  view.dispatch({ changes: { ...picked, insert: text }, userEvent: 'input' })
+                else onChange(text)
+                view?.focus()
+              }}
+            >
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                // Keep the editor's selection: it decides what gets rewritten.
+                onMouseDown={(e) => e.preventDefault()}
+              >
+                <SparklesIcon aria-hidden="true" />
+                Write with AI
+              </Button>
+            </Assist>
+          ) : null}
           <Segmented<EditorMode>
             aria-label="Editor view"
             value={mode}

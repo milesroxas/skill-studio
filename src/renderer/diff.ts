@@ -82,3 +82,9 @@ export function lineDiff(before: string, after: string, context = 3): DiffLine[]
   })
   return out
 }
+
+/** A diff line as text: `+` added, `-` removed, an ellipsis where unchanged lines are folded. */
+export const diffLineText = (line: DiffLine): string =>
+  line.op === 'fold'
+    ? '   …'
+    : `${line.op === 'ins' ? '+ ' : line.op === 'del' ? '- ' : '  '}${line.text}`

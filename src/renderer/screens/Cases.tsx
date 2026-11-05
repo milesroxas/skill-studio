@@ -5,12 +5,19 @@
  */
 
 import { type Case, type CaseDraft, NEW_CASE_KEY } from '@domain/schemas.ts'
-import { CHECK_EXAMPLES, EXAMPLE_KINDS, templateById, templateForPacks } from '@domain/templates.ts'
+import {
+  CASE_PROMPT_HINT,
+  CHECK_EXAMPLES,
+  EXAMPLE_KINDS,
+  templateById,
+  templateForPacks,
+} from '@domain/templates.ts'
 import { isSlug, SLUG_RULE, slug } from '@domain/text.ts'
 import { cva } from 'class-variance-authority'
 import { PlusIcon, XIcon } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { api } from '../api.ts'
+import { caseContext, skillContext } from '../assist.ts'
 import { DraftNote } from '../components/DraftNote.tsx'
 import { CheckRow, InlineField, NumberInput } from '../components/forms.tsx'
 import {
@@ -102,6 +109,9 @@ export function Cases({ ctx }: { ctx: Ctx }) {
     setIdTouched(true)
     setDraft({ ...example, id, graders: example.graders.map((g) => ({ ...g })) })
   }
+
+  /** What the assistant reads beside any field of this case: the skill and the case as typed. */
+  const context = () => [skillContext(state), caseContext(draft)]
 
   const idError = draft.id && !isSlug(draft.id) ? SLUG_RULE : ''
   const taken = isNew && cases.some((c) => c.id === draft.id)
@@ -337,11 +347,10 @@ export function Cases({ ctx }: { ctx: Ctx }) {
                   value={draft.prompt}
                   placeholder={kind.cases[0]?.prompt}
                   aria-describedby="case-prompt-help"
-                  onChange={(e) => set({ prompt: e.target.value })}
+                  onValueChange={(prompt) => set({ prompt })}
+                  assist={{ field: 'case.prompt', context }}
                 />
-                <Hint id="case-prompt-help">
-                  Exactly what the agent is asked, as a user would ask it. Do not mention the skill.
-                </Hint>
+                <Hint id="case-prompt-help">{CASE_PROMPT_HINT}</Hint>
               </Field>
 
               <Field>
@@ -351,7 +360,8 @@ export function Cases({ ctx }: { ctx: Ctx }) {
                   rows={2}
                   value={draft.expectedOutcome}
                   placeholder={kind.cases[0]?.expectedOutcome}
-                  onChange={(e) => set({ expectedOutcome: e.target.value })}
+                  onValueChange={(expectedOutcome) => set({ expectedOutcome })}
+                  assist={{ field: 'case.expected', context }}
                 />
               </Field>
             </FormSection>
@@ -389,7 +399,8 @@ export function Cases({ ctx }: { ctx: Ctx }) {
                           kind.cases[0]?.graders[i]?.statement ??
                           kind.cases[0]?.graders[0]?.statement
                         }
-                        onChange={(e) => setGrader(i, { statement: e.target.value })}
+                        onValueChange={(statement) => setGrader(i, { statement })}
+                        assist={{ field: 'case.check', context }}
                       />
                       <NumberInput
                         aria-label={`Weight of check ${i + 1}`}

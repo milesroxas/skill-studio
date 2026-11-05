@@ -4,17 +4,19 @@
  */
 
 import type { OperationName, Reply } from '@application/api/contract.ts'
-import type { Job } from '@domain/views.ts'
 import { type UtilityProcess, utilityProcess } from 'electron'
 import backendPath from '../backend/index.ts?modulePath'
-import type { FromBackend, ToBackend } from '../channels.ts'
+import type { FromBackend, Pushes, PushTopic, ToBackend } from '../channels.ts'
 
 type Settle = (reply: Reply<unknown>) => void
 
 export class Backend {
   private child: UtilityProcess | null = null
   private readonly pending = new Map<number, Settle>()
-  private readonly jobListeners = new Set<(jobs: Job[]) => void>()
+  private readonly listeners: { [K in PushTopic]: Set<(value: Pushes[K]) => void> } = {
+    jobs: new Set(),
+    ai: new Set(),
+  }
   private env: Record<string, string | undefined>
   private seq = 0
 
@@ -32,7 +34,7 @@ export class Backend {
       if (message.type === 'reply') {
         this.pending.get(message.id)?.(message.reply)
         this.pending.delete(message.id)
-      } else if (message.type === 'jobs') for (const l of this.jobListeners) l(message.jobs)
+      } else if (message.type === 'push') this.tell(message.topic, message.value)
     })
     child.on('exit', (code) => {
       if (this.child === child) this.child = null
@@ -62,14 +64,21 @@ export class Backend {
 
   /** Change the backend's environment; the same values go to a restarted backend. */
   setEnv(patch: Record<string, string | undefined>): void {
-    this.env = { ...this.env, ...patch }
+    // A cleared variable is left out: a process cannot be started with an unset value.
+    const env = { ...this.env, ...patch }
+    this.env = Object.fromEntries(Object.entries(env).filter(([, value]) => value !== undefined))
     if (this.child) this.send({ type: 'env', env: patch })
   }
 
-  onJobs(listener: (jobs: Job[]) => void): () => void {
-    this.jobListeners.add(listener)
+  private tell<K extends PushTopic>(topic: K, value: Pushes[K]): void {
+    for (const listener of this.listeners[topic]) listener(value)
+  }
+
+  /** Be told what the backend pushes on a topic; returns the unsubscribe. */
+  on<K extends PushTopic>(topic: K, listener: (value: Pushes[K]) => void): () => void {
+    this.listeners[topic].add(listener)
     return () => {
-      this.jobListeners.delete(listener)
+      this.listeners[topic].delete(listener)
     }
   }
 

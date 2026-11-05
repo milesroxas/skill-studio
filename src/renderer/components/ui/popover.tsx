@@ -27,6 +27,12 @@ const popoverContentVariants = cva(
         nav: 'flex max-h-[80dvh] w-64 flex-col p-0 py-2',
         /** A log or a long reading, as wide as the window allows. */
         wide: 'w-[min(520px,calc(100vw-280px))] p-2',
+        /** A few fields under their labels. */
+        form: 'flex w-72 flex-col gap-4 p-3',
+        /** A request to write and the reply under it, in sections (`PopoverSection`). */
+        compose: 'flex w-[min(440px,calc(100vw-32px))] flex-col p-0',
+        /** The same, for a reply as long as a file. */
+        'compose-wide': 'flex w-[min(640px,calc(100vw-32px))] flex-col p-0',
       },
       /** Opened from the keyboard many times a day: no animation at all. */
       still: {
@@ -66,9 +72,9 @@ function PopoverContent({
 
 const popoverSectionVariants = cva('flex flex-col gap-px p-1 [&+&]:border-t', {
   variants: {
-    /** Scrolls on its own when the list runs long. */
+    /** Scrolls on its own when the list runs long. Rows keep their height: a flex column would squeeze them to fit. */
     scroll: {
-      true: 'max-h-80 overflow-y-auto overscroll-contain',
+      true: 'max-h-80 overflow-y-auto overscroll-contain *:shrink-0',
       false: '',
     },
   },

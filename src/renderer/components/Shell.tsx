@@ -11,12 +11,21 @@ import { api } from '../api.ts'
 import { cn } from '../lib/utils.ts'
 import { Text } from './text.tsx'
 
-export function AppFrame({ className, children, ...props }: ComponentProps<'div'>) {
+export function AppFrame({
+  assistant = false,
+  className,
+  children,
+  ...props
+}: ComponentProps<'div'> & {
+  /** The assistant's panel is open: on a wide window it takes a third column. */
+  assistant?: boolean
+}) {
   return (
     <div
       data-platform={api.platform}
+      data-assistant={assistant ? 'open' : undefined}
       className={cn(
-        'grid h-dvh grid-cols-1 grid-rows-[minmax(0,1fr)] overflow-hidden sm:grid-cols-[208px_minmax(0,1fr)] lg:grid-cols-[232px_minmax(0,1fr)]',
+        'grid h-dvh grid-cols-1 grid-rows-[minmax(0,1fr)] overflow-hidden sm:grid-cols-[208px_minmax(0,1fr)] lg:grid-cols-[232px_minmax(0,1fr)] lg:data-[assistant=open]:grid-cols-[232px_minmax(0,1fr)_360px]',
         className,
       )}
       {...props}
@@ -140,6 +149,24 @@ export function TopBar({ className, children, ...props }: ComponentProps<'header
     >
       {children}
     </header>
+  )
+}
+
+/**
+ * The assistant's panel, beside the workspace and never over it on a wide
+ * window, so the work stays in view while it answers. On a narrow window it
+ * lies over the right edge instead. It comes in from the edge it lives on.
+ */
+export function AssistantPane({ className, ...props }: ComponentProps<'aside'>) {
+  return (
+    <aside
+      aria-label="Assistant"
+      className={cn(
+        'flex min-h-0 min-w-0 animate-in flex-col border-l bg-background duration-200 ease-out-strong fade-in-0 slide-in-from-right-3 max-lg:fixed max-lg:inset-y-0 max-lg:right-0 max-lg:z-popover max-lg:w-[min(380px,100vw)] max-lg:shadow-popover',
+        className,
+      )}
+      {...props}
+    />
   )
 }
 

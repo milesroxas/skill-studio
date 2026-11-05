@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 
 /** The hash route: `#/<screen>?a=...&b=...`. */
 export interface Route {
@@ -19,11 +19,13 @@ export function useRoute(): [Route, (screen: string, params?: Record<string, str
     window.addEventListener('hashchange', onChange)
     return () => window.removeEventListener('hashchange', onChange)
   }, [])
-  const go = useCallback((screen: string, params: Record<string, string> = {}) => {
-    const query = new URLSearchParams(params).toString()
-    window.location.hash = `#/${screen}${query ? `?${query}` : ''}`
-  }, [])
-  return [route, go]
+  return [route, navigate]
+}
+
+/** Go to a screen. Anything in the page may call it; the route follows the hash. */
+export function navigate(screen: string, params: Record<string, string> = {}): void {
+  const query = new URLSearchParams(params).toString()
+  window.location.hash = `#/${screen}${query ? `?${query}` : ''}`
 }
 
 /**

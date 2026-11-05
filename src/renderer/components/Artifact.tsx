@@ -3,8 +3,8 @@ import type { Artifact as ArtifactRef } from '@domain/schemas.ts'
 import { copyOf } from '@domain/text.ts'
 import { useEffect, useState } from 'react'
 import { api } from '../api.ts'
-import { markdownHtml } from '../markdown.ts'
 import { Loading } from './layout.tsx'
+import { Prose } from './Prose.tsx'
 import { Hint } from './text.tsx'
 import { Button } from './ui/button.tsx'
 import { ToggleGroup, ToggleGroupItem } from './ui/toggle-group.tsx'
@@ -65,14 +65,7 @@ export function ArtifactView({ run, sample, artifact }: Props) {
       </Hint>
     )
   if (text === null) return <Loading />
-  if (artifact.kind === 'markdown')
-    return (
-      <div
-        className="doc"
-        // biome-ignore lint/security/noDangerouslySetInnerHtml: every string is escaped in markdown.ts
-        dangerouslySetInnerHTML={{ __html: markdownHtml(copyOf(text)) }}
-      />
-    )
+  if (artifact.kind === 'markdown') return <Prose text={copyOf(text)} />
   return (
     <pre className="m-0 overflow-x-auto bg-muted px-5 py-4 font-mono text-xs whitespace-pre-wrap break-words">
       {text}

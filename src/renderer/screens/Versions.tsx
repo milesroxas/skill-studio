@@ -6,6 +6,7 @@
  */
 import { useEffect, useRef, useState } from 'react'
 import { api } from '../api.ts'
+import { changesContext, skillContext } from '../assist.ts'
 import { DiffLines } from '../components/DiffLines.tsx'
 import { Disclosure } from '../components/Disclosure.tsx'
 import { InlineField } from '../components/forms.tsx'
@@ -245,7 +246,14 @@ function SaveVersion({ ctx, unsavedFiles }: { ctx: Ctx; unsavedFiles: number }) 
             id="version-note"
             value={note}
             placeholder="Cut the intro rule; the judge kept flagging length."
-            onChange={(e) => setNote(e.target.value)}
+            onValueChange={setNote}
+            assist={{
+              field: 'version.note',
+              context: async () => [
+                skillContext(state),
+                ...(await changesContext(state.versions.versions.at(-1)?.version ?? null)),
+              ],
+            }}
             onKeyDown={(e) => {
               if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
                 e.preventDefault()

@@ -3,12 +3,14 @@
  * remembered across reloads, so screens never pass it.
  */
 import type { CreateSkillInput, GenerateInput } from '@application/api/contract.ts'
+import type { AssistInput } from '@domain/assist.ts'
 import type { AgentId } from '@domain/library.ts'
 import type { Preferences } from '@domain/preferences.ts'
 import type { BenchConfig, CaseDraft, Review, SkillDrafts, Vote } from '@domain/schemas.ts'
+import type { SecretId } from '@domain/secrets.ts'
 import { transport } from './transport.ts'
 
-export type { Job, RunView, Sample, Settings, State } from '@domain/views.ts'
+export type { Job, RunView, Sample, State } from '@domain/views.ts'
 
 type GenerateRequest = Omit<GenerateInput, 'skill'>
 
@@ -54,7 +56,19 @@ export const api = {
   /** Push job changes when the host can; the shell polls otherwise. */
   watchJobs: transport.watchJobs,
   settings: () => call('settings.read', {}),
-  setJevKey: (value: string) => call('settings.jevKey', { value }),
+  /** Store a key in the host's keychain; an empty value removes the stored one. */
+  setKey: (id: SecretId, value: string) => call('settings.key', { id, value }),
+  aiStatus: () => call('ai.status', {}),
+  aiUsage: () => call('ai.usage', {}),
+  assist: (input: AssistInput) => call('ai.assist', input),
+  aiRun: (id: number) => call('ai.run', { id }),
+  aiStop: (id: number) => call('ai.stop', { id }),
+  /** Push assistant replies when the host can; the store polls otherwise. */
+  watchAi: transport.watchAi,
+  chat: () => call('chat.read', {}),
+  /** The open skill, if any, goes along so the assistant knows what is in hand. */
+  chatSend: (text: string, screen: string) => call('chat.send', scoped({ text, screen })),
+  chatClear: () => call('chat.clear', {}),
   preferences: () => call('preferences.read', {}),
   savePreferences: (preferences: Preferences) => call('preferences.write', { preferences }),
   state: () => call('skill.state', scoped({})),

@@ -7,12 +7,12 @@ import { join } from 'node:path'
 import { loadDotEnv } from '@infrastructure/dotenv.ts'
 import { readPreferences } from '@infrastructure/preferences.ts'
 import { app, BrowserWindow } from 'electron'
-import { APP_ORIGIN, CHANNELS } from '../channels.ts'
+import { APP_ORIGIN, CHANNELS, PUSH_TOPICS } from '../channels.ts'
 import { Backend } from './backend.ts'
 import { registerIpc } from './ipc.ts'
 import { installMenu } from './menu.ts'
 import { handleSchemes, registerSchemes } from './protocol.ts'
-import { JEV_KEY, KeychainSecrets } from './secrets.ts'
+import { KeychainSecrets } from './secrets.ts'
 import { applyTheme, createWindow, trustedOrigins } from './window.ts'
 
 const devUrl = process.env.ELECTRON_RENDERER_URL
@@ -26,24 +26,26 @@ else {
 
   const backend = new Backend({ ...process.env })
   const userData = app.getPath('userData')
-  const secrets = new KeychainSecrets(join(userData, 'secrets.json'), (value) =>
-    backend.setEnv({ [JEV_KEY]: value }),
-  )
+  const secrets = new KeychainSecrets(join(userData, 'secrets.json'), (env) => backend.setEnv(env))
   const url = devUrl ?? `${APP_ORIGIN}/`
   const boundsFile = join(userData, 'window.json')
 
   const openWindow = () => {
     const window = createWindow({ url, boundsFile })
-    const stop = backend.onJobs((jobs) => {
-      if (!window.isDestroyed()) window.webContents.send(CHANNELS.jobs, jobs)
+    // Whatever the backend pushes goes on to the page, on the channel of its topic.
+    const stops = PUSH_TOPICS.map((topic) =>
+      backend.on(topic, (value) => {
+        if (!window.isDestroyed()) window.webContents.send(CHANNELS[topic], value)
+      }),
+    )
+    window.on('closed', () => {
+      for (const stop of stops) stop()
     })
-    window.on('closed', stop)
   }
 
   app.whenReady().then(async () => {
     applyTheme(readPreferences().theme)
-    const key = await secrets.effective()
-    if (key) backend.setEnv({ [JEV_KEY]: key })
+    backend.setEnv(await secrets.effective())
     backend.start()
     handleSchemes(backend, join(app.getAppPath(), 'out/renderer'))
     registerIpc({ backend, secrets, trusted: trustedOrigins(devUrl) })

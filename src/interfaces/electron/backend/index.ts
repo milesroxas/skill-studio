@@ -3,6 +3,7 @@
  * hashing and agent processes never block the main process. Speaks to main
  * over `process.parentPort` only.
  */
+import { watchRuns } from '@application/ai.ts'
 import { createOperations, invoke, isOperation } from '@application/api/operations.ts'
 import { watchJobs } from '@application/jobs.ts'
 import type { FromBackend, ToBackend } from '../channels.ts'
@@ -31,5 +32,6 @@ port.on('message', (event) => {
       else process.env[key] = value
 })
 
-watchJobs((jobs) => post({ type: 'jobs', jobs }))
+watchJobs((jobs) => post({ type: 'push', topic: 'jobs', value: jobs }))
+watchRuns((run) => post({ type: 'push', topic: 'ai', value: run }))
 post({ type: 'ready' })

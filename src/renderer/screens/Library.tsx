@@ -54,6 +54,11 @@ import { useFetch } from '../hooks.ts'
 import { plural, shortDate } from '../model.ts'
 
 interface Props {
+  /** The new-skill form is open: held in the route, so the sidebar can open it too. */
+  creating: boolean
+  /** A name to start the new skill with. */
+  newName: string
+  setCreating: (on: boolean) => void
   openSkill: (path: string, screen?: string) => void
   toast: (message: string) => void
   confirm: Confirm
@@ -61,12 +66,18 @@ interface Props {
 
 type Act = (work: Promise<unknown>, done: string) => void
 
-export function LibraryScreen({ openSkill, toast, confirm }: Props) {
+export function LibraryScreen({
+  creating,
+  newName,
+  setCreating,
+  openSkill,
+  toast,
+  confirm,
+}: Props) {
   const lib = useFetch(() => api.library(), [])
   const [query, setQuery] = useState('')
   const [place, setPlace] = useState('')
   const [showInstalled, setShowInstalled] = useState(false)
-  const [creating, setCreating] = useState(false)
   const [starting, setStarting] = useState(false)
 
   /** Open the practice skill, written with its cases on the first call. */
@@ -129,6 +140,8 @@ export function LibraryScreen({ openSkill, toast, confirm }: Props) {
   if (creating)
     return (
       <NewSkill
+        key={newName}
+        startName={newName}
         data={data}
         startPractice={practised ? null : startPractice}
         cancel={() => setCreating(false)}
@@ -398,12 +411,14 @@ function SkillTable({
 }
 
 function NewSkill({
+  startName,
   data,
   startPractice,
   cancel,
   created,
   toast,
 }: {
+  startName: string
   data: Library
   /** Open the practice skill instead; null once it exists. */
   startPractice: (() => void) | null
@@ -411,7 +426,7 @@ function NewSkill({
   created: (path: string) => void
   toast: Props['toast']
 }) {
-  const [name, setName] = useState('')
+  const [name, setName] = useState(startName)
   const [description, setDescription] = useState('')
   const [scope, setScope] = useState('user')
   const [agents, setAgents] = useState<Set<AgentId>>(() => new Set(['claude']))
@@ -523,7 +538,16 @@ function NewSkill({
               rows={3}
               value={description}
               placeholder={template.description}
-              onChange={(e) => setDescription(e.target.value)}
+              onValueChange={setDescription}
+              assist={{
+                field: 'skill.description',
+                context: () => [
+                  {
+                    label: 'The new skill',
+                    text: `Name: ${name || 'not named yet'}\nKind: ${template.label}. ${template.summary}`,
+                  },
+                ],
+              }}
             />
           </Field>
         </FormSection>
