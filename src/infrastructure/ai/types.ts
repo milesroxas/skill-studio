@@ -4,10 +4,13 @@
  * this and never to an SDK or a CLI.
  */
 import type { AiModel, AiProviderId, AiUsage } from '@domain/ai.ts'
+import type { StoredImage } from '../images.ts'
 
 export interface AiMessage {
   role: 'user' | 'assistant'
   text: string
+  /** Pictures sent with a user's message, read before its text. */
+  images?: StoredImage[]
 }
 
 export interface AiRequest {

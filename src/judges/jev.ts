@@ -3,9 +3,17 @@
  * and recording the model that answered so every report carries both.
  */
 import { type Questions, type SystemOneResult, TypeSafeClient } from '@typesafe-ai/sdk'
+import { holdsImage } from './images.ts'
 
 const DEFAULT_MODEL = 'jev-1.14.0'
 const CONCURRENCY = 6
+
+/**
+ * Pictures are a preview feature of the API: a request that holds one is
+ * refused with a 400 unless it says so with this header. Sent only with such
+ * a request, so a text question never opts in to a preview.
+ */
+const IMAGES_HEADER = { 'TypeSafe-Danger-Zone-Images': 'true' }
 
 export type JevState = NonNullable<Parameters<TypeSafeClient['systemOne']>[0]['state']>
 
@@ -34,7 +42,10 @@ export class Jev {
       timeout: 60_000,
       logLevel: 'error',
     })
-    const result = await this.client.systemOne({ state, questions })
+    const result = await this.client.systemOne(
+      { state, questions },
+      holdsImage(state) || holdsImage(questions) ? { headers: IMAGES_HEADER } : undefined,
+    )
     this.inputTokens += result.usage.input_tokens ?? 0
     this.calls += 1
     this.modelSeen = result.model

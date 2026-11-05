@@ -13,8 +13,9 @@ import {
   type Effort,
 } from '@domain/ai.ts'
 import { secretOf } from '@domain/secrets.ts'
+import { imageBase64 } from '../images.ts'
 import { keyed } from './keyed.ts'
-import type { AiProvider, AiRequest } from './types.ts'
+import type { AiMessage, AiProvider, AiRequest } from './types.ts'
 
 /** Room for a whole SKILL.md and the thinking before it; streamed, so no request times out. */
 const MAX_TOKENS = 64_000
@@ -64,6 +65,25 @@ async function listModels(): Promise<AiModel[]> {
 
 const models = keyed(key, () => listModels())
 
+type ImageType = 'image/png' | 'image/jpeg' | 'image/webp' | 'image/gif'
+
+/** A message as the API takes it: plain text, or its pictures and then its text. */
+const contentOf = (message: AiMessage) =>
+  message.images?.length
+    ? [
+        ...message.images.map((image) => ({
+          type: 'image' as const,
+          source: {
+            type: 'base64' as const,
+            media_type: image.type as ImageType,
+            data: imageBase64(image),
+          },
+        })),
+        // The API refuses an empty text block, so a message of pictures alone has none.
+        ...(message.text ? [{ type: 'text' as const, text: message.text }] : []),
+      ]
+    : message.text
+
 async function run(request: AiRequest) {
   const fallback = declines(request.model)
   const stream = client().beta.messages.stream(
@@ -71,7 +91,7 @@ async function run(request: AiRequest) {
       model: request.model,
       max_tokens: MAX_TOKENS,
       system: request.system,
-      messages: request.messages.map((m) => ({ role: m.role, content: m.text })),
+      messages: request.messages.map((m) => ({ role: m.role, content: contentOf(m) })),
       output_config: {
         ...(request.effort ? { effort: request.effort as Effort } : {}),
         ...(request.schema ? { format: { type: 'json_schema', schema: request.schema } } : {}),

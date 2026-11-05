@@ -1,6 +1,7 @@
-import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
-import { basename, join } from 'node:path'
+import { copyFileSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { basename, extname, join } from 'node:path'
 import { mergeConfig } from '@domain/config.ts'
+import { type ImageFormat, imageFileName, imageTypeOf } from '@domain/image.ts'
 import type { Rule } from '@domain/rules.ts'
 import { rulesFromList, rulesFromSkill } from '@domain/rules.ts'
 import type {
@@ -52,11 +53,17 @@ function parseSettings(front: Record<string, unknown>): CaseSettings {
   }
 }
 
-function readGraders(dir: string): Grader[] {
+/** Where a case keeps the pictures its checks are about, beside `graders/`. */
+const REFERENCES = 'references'
+
+/** The graders of the case folder at `rel`, each with its reference picture when the file is there. */
+function readGraders(skillDir: string, rel: string): Grader[] {
+  const dir = join(skillDir, rel, 'graders')
   return listFiles(dir, (name) => name.endsWith('.md')).flatMap((name) => {
     const raw = readFileSync(join(dir, name), 'utf8')
     if (!raw.startsWith('---')) return []
     const { meta, text } = readFrontMatter(raw)
+    const image = metaText(meta, 'image')
     return [
       {
         id: name.replace(/\.md$/, ''),
@@ -64,6 +71,7 @@ function readGraders(dir: string): Grader[] {
         focus: metaText(meta, 'focus'),
         weight: positive(meta, 'weight') ?? 1,
         statement: text,
+        image: image && isFile(join(skillDir, rel, image)) ? `${rel}/${image}` : null,
       },
     ]
   })
@@ -91,7 +99,7 @@ function loadFolderCase(skillDir: string, rel: string): Case | null {
     prompt,
     expectedOutcome: typeof spec.expected_outcome === 'string' ? spec.expected_outcome.trim() : '',
     files,
-    graders: readGraders(join(dir, 'graders')),
+    graders: readGraders(skillDir, rel),
     settings: parseSettings(settings),
     bench: benchOf(spec.bench),
     source: 'folder',
@@ -130,6 +138,7 @@ function fromLegacy(entry: LegacyEval): Case {
       focus: null,
       weight: 1,
       statement,
+      image: null,
     })),
     settings: { tags: [], maxTurns: null, timeoutSeconds: null, allowedTools: null },
     bench: entry.bench ?? {},
@@ -199,12 +208,31 @@ export const readSkillFile = (skillDir: string, rel: string): string | null => {
   return isFile(full) ? readFileSync(full, 'utf8') : null
 }
 
+/** For a caller with no uploads to give, such as one writing a sample case. */
+const noUploads = (): never => {
+  throw new Error('This case names a picture that was never added.')
+}
+
+/** The format of a kept picture, from its file name. */
+const formatOf = (path: string): ImageFormat =>
+  extname(path).toLowerCase() === '.png' ? 'png' : 'jpg'
+
 /**
  * Write a case folder under `evals/cases/<id>/`. Front matter, other
  * `case.yaml` keys and grader settings the editor does not show are kept. A
  * legacy `evals.json` case is written out as a folder, which then wins.
+ *
+ * Pictures the agent gets go in `files/`, beside any other input file, and a
+ * check's reference picture in `references/`, named after its check. A picture
+ * just added is copied from where `uploadPath` says its upload is; one the
+ * draft no longer lists is removed.
  */
-export function saveCase(skillDir: string, input: CaseDraft, isNew: boolean): string {
+export function saveCase(
+  skillDir: string,
+  input: CaseDraft,
+  isNew: boolean,
+  uploadPath: (id: string) => string = noUploads,
+): string {
   if (!isSlug(input.id)) throw new Error(SLUG_RULE)
   if (!input.prompt.trim()) throw new Error('Write the prompt the agent gets.')
   if (input.words && !(input.words[0] >= 0 && input.words[1] >= input.words[0]))
@@ -235,9 +263,28 @@ export function saveCase(skillDir: string, input: CaseDraft, isNew: boolean): st
   if (isMap(bench) && !bench.items.length) doc.delete('bench')
   writeFileSync(yamlPath, doc.toString())
 
+  const filesDir = join(dir, 'files')
+  const wanted = new Set(input.images.flatMap((i) => (i.file ? [basename(i.file)] : [])))
+  for (const name of listFiles(filesDir))
+    if (imageTypeOf(name) && !wanted.has(name)) rmSync(join(filesDir, name))
+  for (const image of input.images) {
+    if (!image.upload) continue
+    const source = uploadPath(image.upload)
+    mkdirSync(filesDir, { recursive: true })
+    const base = imageFileName(image.name, formatOf(source))
+    let name = base
+    for (let n = 2; existsSync(join(filesDir, name)); n += 1)
+      name = base.replace(/(\.\w+)$/, `-${n}$1`)
+    copyFileSync(source, join(filesDir, name))
+  }
+
   const graderDir = join(dir, 'graders')
+  const referenceDir = join(dir, REFERENCES)
+  const references = new Set<string>()
   const kept = new Set<string>()
-  const taken = new Set(listFiles(graderDir).map((f) => f.replace(/\.md$/, '')))
+  const taken = new Set(
+    listFiles(graderDir, (f) => f.endsWith('.md')).map((f) => f.replace(/\.md$/, '')),
+  )
   input.graders.forEach((g, index) => {
     const statement = g.statement.trim()
     if (!statement) return
@@ -254,11 +301,21 @@ export function saveCase(skillDir: string, input: CaseDraft, isNew: boolean): st
     const weight = Number.isFinite(g.weight) && g.weight > 0 ? g.weight : 1
     if (weight === 1) delete meta.weight
     else meta.weight = weight
+    if (g.image?.upload) {
+      const source = uploadPath(g.image.upload)
+      mkdirSync(referenceDir, { recursive: true })
+      const name = `${id}.${formatOf(source)}`
+      copyFileSync(source, join(referenceDir, name))
+      meta.image = `${REFERENCES}/${name}`
+    } else if (!g.image) delete meta.image
+    if (typeof meta.image === 'string') references.add(basename(meta.image))
     const fields = Object.keys(meta).length ? toYaml(meta) : ''
     writeFileSync(path, `---\n${fields}---\n\n${statement}\n`)
     kept.add(id)
   })
   for (const id of taken) if (!kept.has(id)) rmSync(join(graderDir, `${id}.md`))
+  for (const name of listFiles(referenceDir))
+    if (!references.has(name)) rmSync(join(referenceDir, name))
   return rel
 }
 

@@ -4,6 +4,7 @@
  */
 import type { CreateSkillInput, GenerateInput } from '@application/api/contract.ts'
 import type { AssistInput } from '@domain/assist.ts'
+import type { ImageRef, ImageUpload } from '@domain/image.ts'
 import type { AgentId } from '@domain/library.ts'
 import type { Preferences } from '@domain/preferences.ts'
 import type { BenchConfig, CaseDraft, Review, SkillDrafts, Vote } from '@domain/schemas.ts'
@@ -39,6 +40,14 @@ const scoped = <T extends object>(input: T): T & { skill: string } => ({
 const artifactUrl = (run: string, sample: string, file: string): string =>
   transport.artifactUrl(scoped({ run, sample, file }))
 
+/** Where an `<img>` loads a picture from: an upload by its id, a saved one by its path in the open skill. */
+const imageUrl = (image: ImageRef): string =>
+  transport.imageUrl({
+    skill: image.upload ? '' : skillParam,
+    file: image.file ?? '',
+    upload: image.upload ?? '',
+  })
+
 export const api = {
   platform: transport.platform,
   skills: () => call('library.skills', {}),
@@ -60,15 +69,20 @@ export const api = {
   setKey: (id: SecretId, value: string) => call('settings.key', { id, value }),
   aiStatus: () => call('ai.status', {}),
   aiUsage: () => call('ai.usage', {}),
-  assist: (input: AssistInput) => call('ai.assist', input),
+  /** The open skill goes along, so a picture saved in it can be found. */
+  assist: (input: AssistInput) => call('ai.assist', scoped(input)),
   aiRun: (id: number) => call('ai.run', { id }),
   aiStop: (id: number) => call('ai.stop', { id }),
   /** Push assistant replies when the host can; the store polls otherwise. */
   watchAi: transport.watchAi,
   chat: () => call('chat.read', {}),
   /** The open skill, if any, goes along so the assistant knows what is in hand. */
-  chatSend: (text: string, screen: string) => call('chat.send', scoped({ text, screen })),
+  chatSend: (text: string, images: ImageRef[], screen: string) =>
+    call('chat.send', scoped({ text, images, screen })),
   chatClear: () => call('chat.clear', {}),
+  uploadImage: (upload: ImageUpload) => call('image.upload', upload),
+  imageUrl,
+  openImage: (image: ImageRef) => transport.openArtifact(imageUrl(image)),
   preferences: () => call('preferences.read', {}),
   savePreferences: (preferences: Preferences) => call('preferences.write', { preferences }),
   state: () => call('skill.state', scoped({})),

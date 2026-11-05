@@ -8,6 +8,7 @@ import { existsSync, readFileSync, statSync } from 'node:fs'
 import { extname, join, relative, resolve } from 'node:path'
 import { ASSIST_FIELD_IDS, ASSIST_LIMIT, type AssistInput } from '@domain/assist.ts'
 import { leaderboards, voteKeys } from '@domain/bradley-terry.ts'
+import { type ImageRef, MAX_IMAGES } from '@domain/image.ts'
 import { preferencesOf } from '@domain/preferences.ts'
 import { reviewQueue } from '@domain/queue.ts'
 import {
@@ -43,6 +44,7 @@ import {
 import { readDrafts, writeDrafts } from '@infrastructure/drafts.ts'
 import { engineById, engineInfo } from '@infrastructure/engines/index.ts'
 import { assertSafe, assertSafePath, readJson, readTree, writeJson } from '@infrastructure/fs.ts'
+import { findImage, readImage, saveUpload, uploadPath } from '@infrastructure/images.ts'
 import {
   createSkill,
   isPracticeSkill,
@@ -144,6 +146,23 @@ const oneOf = <T extends string>(value: unknown, options: readonly T[], what: st
 const scoped = (raw: Raw): Scoped => ({ skill: str(raw.skill) })
 const none = (): Record<string, never> => ({})
 
+/** A picture reference from untrusted input; null when it names neither a file nor an upload. */
+function imageRefOf(value: unknown): ImageRef | null {
+  const { name, file, upload } = record(value)
+  const ref = {
+    name: str(name).slice(0, 200),
+    file: typeof file === 'string' && file ? assertSafePath(file, 'picture') : null,
+    upload: typeof upload === 'string' && upload ? assertSafe(upload, 'picture') : null,
+  }
+  return ref.file || ref.upload ? ref : null
+}
+
+const imageRefsOf = (value: unknown): ImageRef[] => {
+  const refs = (Array.isArray(value) ? value : []).flatMap((raw) => imageRefOf(raw) ?? [])
+  if (refs.length > MAX_IMAGES) throw new Error(`Add ${MAX_IMAGES} pictures at most.`)
+  return refs
+}
+
 function caseDraftOf(value: unknown): CaseDraft {
   const input = record(value)
   const words = Array.isArray(input.words) ? input.words.map(Number) : []
@@ -153,12 +172,14 @@ function caseDraftOf(value: unknown): CaseDraft {
     prompt: str(input.prompt),
     expectedOutcome: str(input.expectedOutcome),
     words: words.length === 2 ? [words[0], words[1]] : null,
+    images: imageRefsOf(input.images),
     graders: (Array.isArray(input.graders) ? input.graders : []).map((raw) => {
       const g = record(raw)
       return {
         id: typeof g.id === 'string' ? g.id : null,
         statement: str(g.statement),
         weight: num(g.weight, 1),
+        image: imageRefOf(g.image),
       }
     }),
   }
@@ -212,16 +233,18 @@ function anchorInputOf(raw: Raw): AnchorInput {
   }
 }
 
-function assistInputOf(raw: Raw): AssistInput {
+function assistInputOf(raw: Raw): Scoped & AssistInput {
   const context = (Array.isArray(raw.context) ? raw.context : []).map((item) => {
     const { label, text } = record(item)
     return { label: str(label), text: str(text) }
   })
-  const input: AssistInput = {
+  const input: Scoped & AssistInput = {
+    ...scoped(raw),
     field: oneOf(raw.field, ASSIST_FIELD_IDS, 'field'),
     instruction: str(raw.instruction).trim(),
     current: str(raw.current),
     context,
+    images: imageRefsOf(raw.images),
   }
   if (!input.instruction) throw new Error('Say what to write or change.')
   const size = input.current.length + context.reduce((sum, c) => sum + c.text.length, 0)
@@ -266,10 +289,21 @@ export const parsers: { [K in OperationName]: (raw: Raw) => Input<K> } = {
   'chat.read': none,
   'chat.send': (raw) => {
     const text = str(raw.text).trim()
-    if (!text) throw new Error('Write a message first.')
-    return { ...scoped(raw), text, screen: str(raw.screen) }
+    // A conversation outlives the open skill, so it holds uploads only, never a skill's files.
+    const images = imageRefsOf(raw.images).filter((image) => image.upload)
+    if (!text && !images.length) throw new Error('Write a message first.')
+    return { ...scoped(raw), text, images, screen: str(raw.screen) }
   },
   'chat.clear': none,
+  'image.upload': (raw) => {
+    if (typeof raw.data !== 'string' || !raw.data) throw new Error('No picture was sent.')
+    return { name: str(raw.name).slice(0, 200), data: raw.data }
+  },
+  'image.read': (raw) => {
+    const ref = imageRefOf(raw)
+    if (!ref) throw new Error('Bad picture.')
+    return { ...scoped(raw), file: ref.file ?? '', upload: ref.upload ?? '' }
+  },
   'preferences.read': none,
   'preferences.write': (raw) => ({ preferences: preferencesOf(raw.preferences) }),
   'skill.state': scoped,
@@ -411,14 +445,19 @@ export function createOperations(options: OperationsOptions): Runners {
   }
 
   /** The judge input for one output, by `<run>/<sample>` key, for pairwise calls. */
-  const inputFor = (skill: SkillInfo, key: string, config: BenchConfig): JudgeInput => {
+  const inputFor = (
+    skill: SkillInfo,
+    key: string,
+    config: BenchConfig,
+    log: (line: string) => void,
+  ): JudgeInput => {
     const [run, sample] = key.split('/')
     assertSafe(run, 'run')
     assertSafe(sample, 'sample')
     const found = readRun(skill.path, run).samples.find((s) => s.name === sample)
     if (!found) throw new Error(`No sample ${key}.`)
     const testCase = findCase(loadCases(skill.path), sample)
-    return judgeInput(skill.path, found, testCase, loadRules(skill.path, config))
+    return judgeInput(skill.path, found, testCase, loadRules(skill.path, config), log)
   }
 
   return {
@@ -441,14 +480,20 @@ export function createOperations(options: OperationsOptions): Runners {
     'settings.key': ({ id, value }) => secrets.write(id, value),
     'ai.status': () => aiStatus(),
     'ai.usage': () => aiUsage(),
-    'ai.assist': (input) => startAssist(input),
+    'ai.assist': ({ skill, ...input }) => {
+      const dir = skill ? skillOf({ skill }).path : null
+      return startAssist(
+        input,
+        input.images.map((image) => findImage(dir, image)),
+      )
+    },
     'ai.run': ({ id }) => findRun(id),
     'ai.stop': ({ id }) => stopRun(id),
     'chat.read': () => chatThread(),
     'chat.send': (input) => {
       const skill = input.skill ? skillOf(input) : null
       const files = skill ? skillFiles(skill.path) : {}
-      return sendChat(input.text, {
+      return sendChat(input.text, input.images, {
         screen: input.screen,
         skill: skill && {
           name: skill.name,
@@ -466,6 +511,12 @@ export function createOperations(options: OperationsOptions): Runners {
       })
     },
     'chat.clear': () => clearChat(),
+    'image.upload': (input) => saveUpload(input),
+    'image.read': ({ skill, file, upload }) => {
+      const dir = upload ? null : skillOf({ skill }).path
+      const image = findImage(dir, { name: '', file: file || null, upload: upload || null })
+      return { bytes: readImage(image), type: image.type }
+    },
     'preferences.read': () => readPreferences(),
     'preferences.write': ({ preferences }) => writePreferences(preferences),
     'skill.state': async (input) => {
@@ -573,7 +624,7 @@ export function createOperations(options: OperationsOptions): Runners {
       return { deleted: input.path }
     },
     'skill.saveCase': (input) => ({
-      saved: saveCase(skillOf(input).path, input.case, input.isNew),
+      saved: saveCase(skillOf(input).path, input.case, input.isNew, uploadPath),
     }),
     'skill.deleteCase': (input) => {
       deleteCase(skillOf(input).path, input.id)
@@ -659,8 +710,8 @@ export function createOperations(options: OperationsOptions): Runners {
       const config = loadBench(skill.path)
       const job = runJob('pairwise', `Jev: ${a} vs ${b}`, async (job) => {
         const jev = new Jev()
-        const inputA = inputFor(skill, a, config)
-        const inputB = inputFor(skill, b, config)
+        const inputA = inputFor(skill, a, config, (line) => say(job, line))
+        const inputB = inputFor(skill, b, config, (line) => say(job, line))
         const pack = pairwisePack(config.packs, inputA.primary?.kind ?? null)
         if (!pack?.pairwise) throw new Error('No judge pack on this skill compares these outputs.')
         const votes = await pack.pairwise(inputA, inputB, criteria, {

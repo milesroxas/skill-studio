@@ -33,6 +33,7 @@ describe('assistPrompt', () => {
       field: 'case.check',
       instruction: 'Check the wedding is named',
       current: '',
+      images: [],
       context: [
         { label: 'The case', text: 'Prompt: Thank Priya' },
         { label: 'Empty', text: '  ' },
@@ -52,6 +53,7 @@ describe('assistPrompt', () => {
       instruction: 'Shorter',
       current: 'Thank Priya for the shift.',
       context: [],
+      images: [],
     })
     expect(user).toContain('<field_now>\nThank Priya for the shift.\n</field_now>')
   })

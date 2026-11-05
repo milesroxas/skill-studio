@@ -21,6 +21,7 @@ const input = (html: string): JudgeInput => ({
   units: [],
   title: null,
   case: null,
+  images: [],
   rules: [],
   evidence: {},
   artifacts: [{ file: 'outputs/index.html', kind: 'html' }],

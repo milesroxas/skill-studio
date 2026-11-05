@@ -5,6 +5,7 @@
  */
 import type {
   ARTIFACT_OPERATION,
+  IMAGE_OPERATION,
   Input,
   OperationName,
   Output,
@@ -25,7 +26,9 @@ export interface Transport {
   call<K extends OperationName>(name: K, input: Input<K>): Promise<Output<K>>
   /** A URL an `<img>` or `<iframe>` can load the artifact from. */
   artifactUrl(input: Input<typeof ARTIFACT_OPERATION>): string
-  /** Show an artifact full size; the app opens a sandboxed window, the browser a tab. */
+  /** The same for a picture the writer added. */
+  imageUrl(input: Input<typeof IMAGE_OPERATION>): string
+  /** Show an artifact or a picture full size; the app opens a sandboxed window, the browser a tab. */
   openArtifact(url: string): void
   /** Follow an outside link. */
   openExternal(url: string): void
@@ -48,6 +51,7 @@ function desktop(bridge: StudioBridge): Transport {
   return {
     call: (name, input) => bridge.call(name, input).then(unwrap),
     artifactUrl: (input) => `artifact://sample?${encode(input)}`,
+    imageUrl: (input) => `artifact://image?${encode(input)}`,
     openArtifact: (url) => void bridge.openArtifact(url).then(unwrap),
     openExternal: (url) => void bridge.openExternal(url).then(unwrap),
     watchJobs: (listener) => bridge.onJobs(listener),
@@ -68,7 +72,9 @@ async function errorOf(response: Response): Promise<string> {
 function browser(): Transport {
   return {
     call: async (name, input) => {
-      // Bytes do not survive JSON: the artifact comes raw from its GET route instead.
+      // Bytes do not survive JSON: the page loads a picture by URL, never through a call.
+      if (name === 'image.read') throw new Error('Load a picture by its URL.')
+      // The artifact comes raw from its GET route instead.
       if (name === 'skill.artifact') {
         const response = await fetch(`/api/artifact?${encode(input as Input<typeof name>)}`)
         if (!response.ok) throw new Error(await errorOf(response))
@@ -87,6 +93,7 @@ function browser(): Transport {
       return response.json()
     },
     artifactUrl: (input) => `/api/artifact?${encode(input)}`,
+    imageUrl: (input) => `/api/image?${encode(input)}`,
     openArtifact: (url) => void window.open(url, '_blank', 'noopener,noreferrer'),
     openExternal: (url) => void window.open(url, '_blank', 'noopener,noreferrer'),
     platform: 'web',

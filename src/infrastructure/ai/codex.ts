@@ -2,15 +2,15 @@
  * OpenAI's models through the Codex CLI, headless: `codex exec` in a read-only
  * sandbox, on the ChatGPT plan the CLI is signed in to. Codex takes no system
  * prompt, so the brief leads the prompt; a field's shape goes in as a schema
- * file. It reports each message whole, so the reply appears at once, not word
- * by word.
+ * file, and pictures as `--image` files. It reports each message whole, so the
+ * reply appears at once, not word by word.
  */
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { CODEX_DEFAULT_MODEL, CODEX_MODELS } from '@domain/ai.ts'
 import { hasCommand } from '../exec.ts'
-import { runJsonLines, transcriptPrompt } from './cli.ts'
+import { picturesOf, runJsonLines, transcriptPrompt } from './cli.ts'
 import type { AiProvider, AiReply, AiRequest } from './types.ts'
 
 interface CodexEvent {
@@ -28,6 +28,8 @@ async function run(request: AiRequest): Promise<AiReply> {
     if (request.schema) writeFileSync(schema, JSON.stringify(request.schema))
     const args = [
       'exec',
+      // Each ahead of another flag: `--image` takes every bare word after it as one more file.
+      ...picturesOf(request.messages).flatMap((image) => ['--image', image.path]),
       '--json',
       '--skip-git-repo-check',
       '--sandbox',

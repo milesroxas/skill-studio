@@ -6,6 +6,7 @@
  */
 import type { AiRun, AiStatus, ChatThread, UsageSummary } from '@domain/ai.ts'
 import type { AssistInput } from '@domain/assist.ts'
+import type { ImageRef, ImageUpload } from '@domain/image.ts'
 import type { AgentId, Library } from '@domain/library.ts'
 import type { Preferences } from '@domain/preferences.ts'
 import type { QueueItem } from '@domain/queue.ts'
@@ -99,14 +100,21 @@ export interface Contract {
   /** The ways to reach a model, which are connected, and the models each offers. */
   'ai.status': { input: Record<string, never>; output: AiStatus }
   'ai.usage': { input: Record<string, never>; output: UsageSummary }
-  /** Start writing one field's text. The run it returns grows until it ends. */
-  'ai.assist': { input: AssistInput; output: AiRun }
+  /** Start writing one field's text. The run it returns grows until it ends. `skill` may be empty. */
+  'ai.assist': { input: Scoped & AssistInput; output: AiRun }
   'ai.run': { input: { id: number }; output: AiRun }
   'ai.stop': { input: { id: number }; output: AiRun }
   'chat.read': { input: Record<string, never>; output: ChatThread }
   /** Add a message to the conversation and start the reply. `skill` may be empty: none open. */
-  'chat.send': { input: Scoped & { text: string; screen: string }; output: ChatThread }
+  'chat.send': {
+    input: Scoped & { text: string; images: ImageRef[]; screen: string }
+    output: ChatThread
+  }
   'chat.clear': { input: Record<string, never>; output: ChatThread }
+  /** Keep a picture until a case or a message saves it. The reference it returns names the upload. */
+  'image.upload': { input: ImageUpload; output: ImageRef }
+  /** A picture's bytes: an upload, or a file in the skill. An empty `file` or `upload` means the other. */
+  'image.read': { input: Scoped & { file: string; upload: string }; output: ArtifactFile }
   'preferences.read': { input: Record<string, never>; output: Preferences }
   'preferences.write': { input: { preferences: Preferences }; output: Preferences }
   'skill.state': { input: Scoped; output: State }
@@ -169,8 +177,12 @@ export type OperationName = keyof Contract
 export type Input<K extends OperationName> = Contract[K]['input']
 export type Output<K extends OperationName> = Contract[K]['output']
 
-/** The one operation whose output is bytes, served raw over HTTP and by the artifact scheme. */
+/**
+ * The operations whose output is bytes, served raw over HTTP and by the
+ * artifact scheme: a file a sample wrote, and a picture the writer added.
+ */
 export const ARTIFACT_OPERATION = 'skill.artifact' satisfies OperationName
+export const IMAGE_OPERATION = 'image.read' satisfies OperationName
 /** Every artifact response carries this policy: agent-written HTML must never script the app. */
 export const ARTIFACT_POLICY = "sandbox; script-src 'none'"
 

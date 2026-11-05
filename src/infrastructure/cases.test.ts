@@ -1,6 +1,7 @@
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { pngHeader } from '@domain/image-fixtures.ts'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { deleteCase, loadCases, saveCase } from './cases.ts'
 
@@ -40,7 +41,7 @@ describe('case folders', () => {
     expect(loaded.prompt).toBe('Write it.')
     expect(loaded.settings.tags).toEqual(['x'])
     expect(loaded.graders).toEqual([
-      { id: 'g1', type: 'llm', focus: 'tone', weight: 2, statement: 'Is it calm?' },
+      { id: 'g1', type: 'llm', focus: 'tone', weight: 2, statement: 'Is it calm?', image: null },
     ])
   })
 
@@ -56,7 +57,8 @@ describe('case folders', () => {
         prompt: 'New prompt.',
         expectedOutcome: '',
         words: null,
-        graders: [{ id: 'g1', statement: 'Is it calm?', weight: 3 }],
+        images: [],
+        graders: [{ id: 'g1', statement: 'Is it calm?', weight: 3, image: null }],
       },
       false,
     )
@@ -64,7 +66,14 @@ describe('case folders', () => {
     expect(saved.prompt).toBe('New prompt.')
     expect(saved.settings.maxTurns).toBe(3)
     expect(saved.graders).toEqual([
-      { id: 'g1', type: 'llm', focus: 'tone: calm', weight: 3, statement: 'Is it calm?' },
+      {
+        id: 'g1',
+        type: 'llm',
+        focus: 'tone: calm',
+        weight: 3,
+        statement: 'Is it calm?',
+        image: null,
+      },
     ])
     const grader = readFileSync(join(skill, 'evals/cases/c/graders/g1.md'), 'utf8')
     expect(grader).toBe('---\ntype: llm\nfocus: "tone: calm"\nweight: 3\n---\n\nIs it calm?\n')
@@ -78,9 +87,10 @@ describe('saveCase and deleteCase', () => {
     prompt: 'Write a note about the move to Friday.',
     expectedOutcome: 'Short, says the new day.',
     words: [10, 80] as [number, number],
+    images: [],
     graders: [
-      { id: null, statement: 'The note says Friday.', weight: 2 },
-      { id: null, statement: ' ', weight: 1 },
+      { id: null, statement: 'The note says Friday.', weight: 2, image: null },
+      { id: null, statement: ' ', weight: 1, image: null },
     ],
   }
 
@@ -110,9 +120,10 @@ describe('saveCase and deleteCase', () => {
       {
         ...draft,
         words: null,
+        images: [],
         graders: [
-          { id: first.id, statement: 'The note names Friday.', weight: 1 },
-          { id: null, statement: 'It is under 80 words.', weight: 1 },
+          { id: first.id, statement: 'The note names Friday.', weight: 1, image: null },
+          { id: null, statement: 'It is under 80 words.', weight: 1, image: null },
         ],
       },
       false,
@@ -130,5 +141,88 @@ describe('saveCase and deleteCase', () => {
     deleteCase(skill, 'short-note')
     expect(loadCases(skill)).toEqual([])
     expect(() => deleteCase(skill, 'short-note')).toThrow('Only folder cases')
+  })
+})
+
+describe('case pictures', () => {
+  /** An upload on disk, as the app would hold one, and the function that finds it. */
+  const uploads = () => {
+    const dir = mkdtempSync(join(tmpdir(), 'st-uploads-'))
+    writeFileSync(join(dir, 'aa.png'), pngHeader(800, 600))
+    writeFileSync(join(dir, 'bb.png'), pngHeader(400, 300))
+    return (id: string) => join(dir, id)
+  }
+  const draft = {
+    id: 'landing',
+    title: 'Landing page',
+    prompt: 'Build the page in the mock-up.',
+    expectedOutcome: '',
+    words: null,
+    images: [{ name: 'Home Mock.png', file: null, upload: 'aa.png' }],
+    graders: [
+      {
+        id: null,
+        statement: 'The page matches the mock-up.',
+        weight: 1,
+        image: { name: 'mock.png', file: null, upload: 'bb.png' },
+      },
+    ],
+  }
+
+  it('keeps an added picture in files/, where the agent gets it, and a check’s beside its check', () => {
+    saveCase(skill, draft, true, uploads())
+    const [saved] = loadCases(skill)
+    expect(saved.files).toEqual(['evals/cases/landing/files/home-mock.png'])
+    expect(saved.graders[0].image).toBe(
+      'evals/cases/landing/references/01-the-page-matches-the-mock-up.png',
+    )
+    expect(readFileSync(join(skill, saved.graders[0].image ?? ''))).toEqual(
+      Buffer.from(pngHeader(400, 300)),
+    )
+  })
+
+  it('keeps saved pictures on a later save, and removes the ones taken off', () => {
+    saveCase(skill, draft, true, uploads())
+    const [saved] = loadCases(skill)
+    const kept = {
+      ...draft,
+      images: [{ name: 'home-mock.png', file: saved.files[0], upload: null }],
+      graders: [
+        {
+          ...draft.graders[0],
+          id: saved.graders[0].id,
+          image: { name: 'mock.png', file: saved.graders[0].image, upload: null },
+        },
+      ],
+    }
+    writeFileSync(join(skill, 'evals/cases/landing/files/brief.md'), 'A brief.')
+    saveCase(skill, kept, false)
+    expect(loadCases(skill)[0].files).toHaveLength(2)
+    expect(loadCases(skill)[0].graders[0].image).toBe(saved.graders[0].image)
+
+    saveCase(skill, { ...kept, images: [], graders: [{ ...kept.graders[0], image: null }] }, false)
+    const [after] = loadCases(skill)
+    // An input file that is not a picture is not the form's to remove.
+    expect(after.files).toEqual(['evals/cases/landing/files/brief.md'])
+    expect(after.graders[0].image).toBeNull()
+    expect(existsSync(join(skill, saved.graders[0].image ?? ''))).toBe(false)
+  })
+
+  it('names a second picture of the same name apart from the first', () => {
+    const find = uploads()
+    saveCase(
+      skill,
+      {
+        ...draft,
+        graders: [],
+        images: [draft.images[0], { name: 'home mock.png', file: null, upload: 'bb.png' }],
+      },
+      true,
+      find,
+    )
+    expect(loadCases(skill)[0].files.map((f) => f.split('/').at(-1))).toEqual([
+      'home-mock-2.png',
+      'home-mock.png',
+    ])
   })
 })

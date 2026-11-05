@@ -6,7 +6,7 @@ import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import type { Theme } from '@domain/preferences.ts'
 import { BrowserWindow, nativeTheme, type Rectangle, screen, shell } from 'electron'
-import { APP_ORIGIN, ARTIFACT_HOST, ARTIFACT_SCHEME } from '../channels.ts'
+import { APP_ORIGIN, ARTIFACT_HOST, ARTIFACT_SCHEME, IMAGE_HOST } from '../channels.ts'
 
 /** The page color in styles.css (--background), so the window never flashes on open. */
 const BACKGROUND = { light: '#fcfcfa', dark: '#100f0d' }
@@ -32,7 +32,10 @@ const isHttp = (url: string): boolean => /^https?:$/.test(new URL(url).protocol)
 const isArtifactUrl = (url: string): boolean => {
   try {
     const parsed = new URL(url)
-    return parsed.protocol === `${ARTIFACT_SCHEME}:` && parsed.host === ARTIFACT_HOST
+    return (
+      parsed.protocol === `${ARTIFACT_SCHEME}:` &&
+      (parsed.host === ARTIFACT_HOST || parsed.host === IMAGE_HOST)
+    )
   } catch {
     return false
   }

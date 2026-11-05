@@ -9,6 +9,7 @@ import type {
   Vote,
 } from '@domain/schemas.ts'
 import type { Unit } from '@domain/text.ts'
+import type { RequestImage } from './images.ts'
 import type { Jev } from './jev.ts'
 
 /** One output as a pack sees it. */
@@ -18,6 +19,8 @@ export interface JudgeInput {
   units: Unit[]
   title: string | null
   case: Case | null
+  /** The pictures the case's request came with, which Jev sees beside it. */
+  images: RequestImage[]
   rules: Rule[]
   /** Evidence file texts by skill-relative path. */
   evidence: Record<string, string>

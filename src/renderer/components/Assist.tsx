@@ -6,7 +6,8 @@
  * one fact a judge can mark, a SKILL.md is rules in the graded form.
  */
 import { ASSIST_FIELDS, type AssistContext, type AssistFieldId } from '@domain/assist.ts'
-import { SparklesIcon } from 'lucide-react'
+import { addImages, type ImageRef } from '@domain/image.ts'
+import { PenLineIcon } from 'lucide-react'
 import {
   type ComponentProps,
   type ReactNode,
@@ -19,6 +20,7 @@ import {
 import { startAssist, stopRun, useAi, useRun } from '../ai.ts'
 import { lineDiff } from '../diff.ts'
 import { navigate } from '../hooks.ts'
+import { useAttached } from '../images.ts'
 import { cn } from '../lib/utils.ts'
 import { Composer } from './Composer.tsx'
 import { DiffLines } from './DiffLines.tsx'
@@ -39,6 +41,8 @@ export interface AssistSpec {
   field: AssistFieldId
   /** Texts the model reads beside the field, gathered when a request is sent, so they are current. */
   context?: () => AssistContext[] | Promise<AssistContext[]>
+  /** Pictures the model reads beside the field without being asked, such as the case's own. */
+  images?: () => ImageRef[]
 }
 
 const titleOf = (field: AssistFieldId): string => `Write ${ASSIST_FIELDS[field].name} with AI`
@@ -57,12 +61,13 @@ export function AssistButton({
       aria-label={titleOf(field)}
       title={titleOf(field)}
       className={cn(
-        'text-muted-foreground/80 hover:text-foreground data-[state=open]:bg-accent data-[state=open]:text-foreground [&_svg]:size-3.5',
+        // 24px to look at, 36px to hit: as far as it reaches without covering the field's text.
+        'relative text-muted-foreground/80 before:absolute before:-inset-1.5 hover:text-foreground data-[state=open]:bg-accent data-[state=open]:text-foreground [&_svg]:size-3.5',
         className,
       )}
       {...props}
     >
-      <SparklesIcon aria-hidden="true" />
+      <PenLineIcon aria-hidden="true" />
     </Button>
   )
 }
@@ -84,6 +89,7 @@ export function Assist({
   value,
   onApply,
   context,
+  images,
   onOpenChange,
   anchor,
   children,
@@ -96,6 +102,7 @@ export function Assist({
   const [failure, setFailure] = useState<string | null>(null)
   const [starting, setStarting] = useState(false)
   const run = useRun(runId)
+  const attached = useAttached()
   const shown = useRef(false)
   const accept = useRef<HTMLButtonElement>(null)
   const reply = useRef<HTMLDivElement>(null)
@@ -128,6 +135,7 @@ export function Assist({
       if (run?.status === 'running') void stopRun(run.id)
       reset()
       setRequest('')
+      attached.reset()
     }
     setOpen(next)
     onOpenChange?.(next)
@@ -143,6 +151,7 @@ export function Assist({
         instruction: text,
         current: value,
         context: (await context?.()) ?? [],
+        images: addImages(images?.() ?? [], attached.images),
       })
       // Closed while the request was starting: nobody is waiting for the reply.
       if (shown.current) setRunId(started.id)
@@ -189,6 +198,7 @@ export function Assist({
       onSubmit={() => void ask(request)}
       running={Boolean(running)}
       onStop={() => run && void stopRun(run.id)}
+      pictures={attached}
       actions={
         proposal !== null ? (
           <>

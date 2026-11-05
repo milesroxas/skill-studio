@@ -27,9 +27,11 @@ import {
   chatSystem,
   partialText,
 } from '@domain/assist.ts'
+import type { ImageRef } from '@domain/image.ts'
 import { aiChoiceOf } from '@domain/preferences.ts'
 import { type AiMessage, aiProvider, aiProviderInfo } from '@infrastructure/ai/index.ts'
 import { readChat, readUsage, recordUsage, writeChat } from '@infrastructure/ai/store.ts'
+import { findImage, type StoredImage } from '@infrastructure/images.ts'
 import { readPreferences } from '@infrastructure/preferences.ts'
 
 /** Finished runs stay readable this long, counted in runs, for a page that asks late. */
@@ -160,14 +162,14 @@ function start(work: Work): AiRun {
   return { ...run }
 }
 
-/** Write one field's text, in the shape that field holds. */
-export async function startAssist(input: AssistInput): Promise<AiRun> {
+/** Write one field's text, in the shape that field holds. `images` are `input.images`, found on disk. */
+export async function startAssist(input: AssistInput, images: StoredImage[]): Promise<AiRun> {
   const { system, user } = assistPrompt(input)
   return start({
     kind: 'assist',
     choice: await currentChoice(),
     system,
-    messages: [{ role: 'user', text: user }],
+    messages: [{ role: 'user', text: user, images }],
     schema: ASSIST_SCHEMA,
     preview: partialText,
     finish: (raw) => assistText(input, raw),
@@ -186,26 +188,46 @@ const message = (
   messages: ChatMessage[],
   role: ChatMessage['role'],
   text: string,
+  images: ImageRef[] = [],
 ): ChatMessage => ({
   id: Math.max(0, ...messages.map((m) => m.id)) + 1,
   role,
   text,
+  ...(images.length ? { images } : {}),
   at: new Date().toISOString(),
 })
+
+/** A message's pictures on disk. One whose upload is no longer kept is left out, not an error. */
+const picturesOf = (images: ImageRef[] = []): StoredImage[] =>
+  images.flatMap((ref) => {
+    try {
+      return [findImage(null, ref)]
+    } catch {
+      return []
+    }
+  })
 
 /** The messages the model reads: the latest ones, starting at one from the user. */
 function chatWindow(messages: ChatMessage[]): AiMessage[] {
   const latest = messages.slice(-CHAT_WINDOW)
   const start = latest.findIndex((m) => m.role === 'user')
-  return latest.slice(Math.max(0, start)).map(({ role, text }) => ({ role, text }))
+  return latest
+    .slice(Math.max(0, start))
+    .map(({ role, text, images }) => ({ role, text, images: picturesOf(images) }))
 }
 
-/** Add a message to the side panel's conversation and start the reply. */
-export async function sendChat(text: string, scene: ChatScene): Promise<ChatThread> {
+/** Add a message, with any pictures, to the side panel's conversation and start the reply. */
+export async function sendChat(
+  text: string,
+  images: ImageRef[],
+  scene: ChatScene,
+): Promise<ChatThread> {
   if (chatRun?.status === 'running') throw new Error('Wait for the reply, or stop it first.')
   const choice = await currentChoice()
+  // Fails now, while the writer can add it again, not when the reply is under way.
+  for (const image of images) findImage(null, image)
   const asked = readChat()
-  const messages = [...asked, message(asked, 'user', text)]
+  const messages = [...asked, message(asked, 'user', text, images)]
   writeChat(messages)
   chatRun = start({
     kind: 'chat',

@@ -16,6 +16,7 @@ import {
   resolveChoice,
 } from '@domain/ai.ts'
 import type { AssistInput } from '@domain/assist.ts'
+import type { ImageRef } from '@domain/image.ts'
 import { aiChoiceOf, aiChoicePatch } from '@domain/preferences.ts'
 import { useSyncExternalStore } from 'react'
 import { api } from './api.ts'
@@ -118,8 +119,8 @@ export function useChat(): ChatThread | null {
   return useSyncExternalStore(subscribe, () => thread)
 }
 
-export async function sendChat(text: string, screen: string): Promise<void> {
-  thread = await api.chatSend(text, screen)
+export async function sendChat(text: string, images: ImageRef[], screen: string): Promise<void> {
+  thread = await api.chatSend(text, images, screen)
   if (thread.run) follow(thread.run)
   else emit()
 }

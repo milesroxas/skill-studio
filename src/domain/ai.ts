@@ -4,6 +4,7 @@
  * progress (a run), the conversation in the side panel, and what was spent.
  * Pure types and functions, so the backend and the page agree by construction.
  */
+import type { ImageRef } from './image.ts'
 import type { SecretId } from './secrets.ts'
 
 export const AI_PROVIDER_IDS = ['anthropic', 'claude-code', 'openai', 'codex'] as const
@@ -160,6 +161,8 @@ export interface ChatMessage {
   id: number
   role: 'user' | 'assistant'
   text: string
+  /** Pictures sent with a user's message. */
+  images?: ImageRef[]
   /** ISO time it was sent or finished. */
   at: string
 }

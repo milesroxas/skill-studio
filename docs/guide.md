@@ -163,9 +163,11 @@ The app can write with you, once it is connected to a model. Settings has two wa
 
 Every text area then has a small button in its corner, and the editor has "Write with AI" in its toolbar. Press it, say what to write or change, and read the text as it arrives. Nothing touches the field until you press Replace (or Insert, for an empty field); Discard drops it. A whole SKILL.md comes back as a change to the file, line by line. In the editor, select some text first to rewrite only that.
 
+A request can carry pictures: press the picture button beside the model, paste one, or drop one on the request. Six at most. A request about a case also carries that case's pictures, without your adding them.
+
 The text comes back in the shape the field holds. A SKILL.md is rules in the graded form, one per bullet with its why. A check is one fact a judge can mark, on one line. A description says what the skill does and when to use it. The assistant is told the skill, the case and, for a version's note, what changed since the last version.
 
-The Assistant panel opens from the button at the right of the top bar, or with ⌘J. It is one conversation that stays beside whatever screen you are on and is still there after a restart. It reads the open skill and its cases as saved, and changes nothing. From it you can change the model and effort, start a new conversation, and open Usage: requests and tokens today and over the last 30 days, by model, with a link to each provider's own page for the bill or your plan's limits.
+The Assistant panel opens from the button at the right of the top bar, or with ⌘J. It is one conversation that stays beside whatever screen you are on and is still there after a restart. It reads the open skill and its cases as saved, and changes nothing. A message can carry pictures too, or be pictures alone. From it you can change the model and effort, start a new conversation, and open Usage: requests and tokens today and over the last 30 days, by model, with a link to each provider's own page for the bill or your plan's limits.
 
 ### Save versions
 
@@ -180,19 +182,22 @@ The history lists every version, newest first, with its runs and its mean score.
 
 A case is one task an agent gets with your skill installed. Open Cases. With no cases yet, the form for the first one is already open; after that, click New above the list.
 
-![Cases: the list of three cases on the left; on the right the form for one case, with its title, prompt, what a good answer does, and weighted checks.](images/cases.webp)
+![Cases: the list of three cases on the left; on the right the form for one case, with its title, prompt, an Add pictures button and what a good answer does. The checks start below.](images/cases.webp)
 
 A new case starts with "Start from an example": three finished cases for the kind of skill your bench grades (Writing, Code, Workflow or Design, switchable). Pick one and the whole form fills in, with an id no existing case holds. Edit it into your task. The grey text in each field is the first example too, so the shape is visible before you type.
 
 1. Title: a short name for the task.
 2. Id: filled in from the title. It names the case's folder and cannot change after you add the case.
 3. Prompt: exactly what the agent is asked, worded the way a user would ask. Never mention the skill: the test is whether the agent finds and uses it on its own.
-4. A good answer: one or two sentences on what a good answer does. You see this when you rate, and the judge reads it too.
-5. Checks: one statement per row that a good answer makes true, such as "The note says where to find the change." The judge marks each one. Set a check's weight from 1 to 5; a weight of 2 counts twice. "What the judge can mark" shows three vague checks next to the form the judge can mark.
-6. Length: tick "Score the answer's length in words" and set the range when length matters. Only prose and list text count, not headings or code.
-7. Click Add case.
+4. Pictures: a screenshot, a mock-up or a photo the prompt is about. Click Add pictures, or drop one anywhere on the case. The agent gets each one as a file in `files/`, and the judge sees them beside the prompt, so a check such as "The note says the fourth week had the highest usage" can be marked against the chart itself.
+5. A good answer: one or two sentences on what a good answer does. You see this when you rate, and the judge reads it too.
+6. Checks: one statement per row that a good answer makes true, such as "The note says where to find the change." The judge marks each one. Set a check's weight from 1 to 5; a weight of 2 counts twice. "What the judge can mark" shows three vague checks next to the form the judge can mark. A check can be about a picture of its own, such as "The page matches the mock-up": press the picture button on its row. Only that check is asked with it.
+7. Length: tick "Score the answer's length in words" and set the range when length matters. Only prose and list text count, not headings or code.
+8. Click Add case.
 
-A case can come with input files the prompt refers to. The form lists them but cannot add them: put them in `evals/cases/<id>/files/` in the skill's folder. The agent finds them in `files/` next to the prompt.
+The app redraws every picture you add: upright, as a PNG or JPEG, and between 280 and 1568 pixels a side, the sizes the judge reads. A picture you put in a case folder by hand is sent as it is; one outside those sizes, or in another format, still reaches the agent, and the job log says the judge did not see it.
+
+A case can come with other input files the prompt refers to. The form lists them but cannot add them: put them in `evals/cases/<id>/files/` in the skill's folder. The agent finds them in `files/` next to the prompt.
 
 Write at least three cases before you trust a score, and make them differ. One case measures one task; a skill is meant to help across many.
 
@@ -338,7 +343,7 @@ Everything but unsaved drafts is plain files inside the skill's `evals/` folder,
 
 | Path | Holds |
 | --- | --- |
-| `evals/cases/<case>/` | the prompt, `case.yaml`, checks under `graders/`, input files under `files/` |
+| `evals/cases/<case>/` | the prompt, `case.yaml`, checks under `graders/`, input files and pictures under `files/`, a check's own picture under `references/` |
 | `evals/versions/<vN>/` | a version saved on Versions: its name, note and files |
 | `evals/runs/<run>/` | one folder per run: the skill snapshot, each sample's output and transcript, and `report.json` |
 | `evals/reviews.json` | your ratings, notes and pairwise votes |
@@ -347,7 +352,7 @@ Everything but unsaved drafts is plain files inside the skill's `evals/` folder,
 
 The agent never sees `evals/`: its copy of the skill leaves it out, so it cannot read the checks or your ratings.
 
-The app's own files are in `~/.skill-studio/`: unsaved drafts under `drafts/`, the folders the Library looks in, the Assistant's conversation (`chat.json`) and its usage log (`ai-usage.json`).
+The app's own files are in `~/.skill-studio/`: unsaved drafts under `drafts/`, the folders the Library looks in, the Assistant's conversation (`chat.json`) and its usage log (`ai-usage.json`), and pictures you added but have not saved in a case (`uploads/`, cleared after 30 days unused).
 
 ## When something goes wrong
 

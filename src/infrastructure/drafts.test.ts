@@ -32,7 +32,15 @@ describe('drafts', () => {
     const updatedAt = writeDrafts('/skills/c', {
       ...emptyDrafts(),
       cases: {
-        '+new': { id: 'x', title: '', prompt: 'p', expectedOutcome: '', words: null, graders: [] },
+        '+new': {
+          id: 'x',
+          title: '',
+          prompt: 'p',
+          expectedOutcome: '',
+          words: null,
+          images: [],
+          graders: [],
+        },
       },
     })
     expect(updatedAt).not.toBeNull()

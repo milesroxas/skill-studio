@@ -59,6 +59,7 @@ describe('code pack without Jev', () => {
       units: [],
       title: null,
       case: { bench, graders: [] } as unknown as Case,
+      images: [],
       rules: [],
       evidence: {},
       artifacts: [],

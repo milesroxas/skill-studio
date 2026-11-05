@@ -24,7 +24,7 @@ import {
   ListOrderedIcon,
   ListTodoIcon,
   type LucideIcon,
-  SparklesIcon,
+  PenLineIcon,
   StrikethroughIcon,
   TextQuoteIcon,
 } from 'lucide-react'
@@ -313,7 +313,7 @@ export function MarkdownEditor({
                 // Keep the editor's selection: it decides what gets rewritten.
                 onMouseDown={(e) => e.preventDefault()}
               >
-                <SparklesIcon aria-hidden="true" />
+                <PenLineIcon aria-hidden="true" />
                 Write with AI
               </Button>
             </Assist>

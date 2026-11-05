@@ -11,10 +11,11 @@ import {
   ARTIFACT_OPERATION,
   ARTIFACT_POLICY,
   type ArtifactFile,
+  IMAGE_OPERATION,
 } from '@application/api/contract.ts'
 import { isWithin } from '@domain/paths.ts'
 import { net, protocol } from 'electron'
-import { APP_HOST, APP_SCHEME, ARTIFACT_HOST, ARTIFACT_SCHEME } from '../channels.ts'
+import { APP_HOST, APP_SCHEME, ARTIFACT_HOST, ARTIFACT_SCHEME, IMAGE_HOST } from '../channels.ts'
 import type { Backend } from './backend.ts'
 import { contentSecurityPolicy, withStyleNonce } from './csp.ts'
 
@@ -63,8 +64,14 @@ function serveApp(rendererDir: string): (request: Request) => Promise<Response> 
 function serveArtifacts(backend: Backend): (request: Request) => Promise<Response> {
   return async (request) => {
     const url = new URL(request.url)
-    if (url.host !== ARTIFACT_HOST) return notFound('artifact')
-    const reply = await backend.call(ARTIFACT_OPERATION, Object.fromEntries(url.searchParams))
+    const operation =
+      url.host === ARTIFACT_HOST
+        ? ARTIFACT_OPERATION
+        : url.host === IMAGE_HOST
+          ? IMAGE_OPERATION
+          : null
+    if (!operation) return notFound('artifact')
+    const reply = await backend.call(operation, Object.fromEntries(url.searchParams))
     if (!reply.ok) return notFound('artifact')
     const { bytes, type } = reply.value as ArtifactFile
     return new Response(bytes, {

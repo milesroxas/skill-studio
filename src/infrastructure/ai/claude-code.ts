@@ -2,11 +2,14 @@
  * Claude through Claude Code, headless: `claude -p` with no tools, no settings
  * and no skills, so it answers as a plain model on the plan the CLI is signed
  * in to. A field's shape goes in as `--json-schema`; the reply then arrives as
- * the input of its StructuredOutput tool, streamed the same as prose.
+ * the input of its StructuredOutput tool, streamed the same as prose. Pictures
+ * cannot ride in a plain prompt, so a request with any goes in as one
+ * `stream-json` user message: the pictures, then the prompt.
  */
 import { CLAUDE_CODE_MODELS } from '@domain/ai.ts'
 import { hasCommand } from '../exec.ts'
-import { runJsonLines, transcriptPrompt } from './cli.ts'
+import { imageBase64 } from '../images.ts'
+import { picturesOf, runJsonLines, transcriptPrompt } from './cli.ts'
 import type { AiProvider, AiReply, AiRequest } from './types.ts'
 
 interface StreamEvent {
@@ -28,9 +31,28 @@ interface StreamEvent {
   }
 }
 
+/** The prompt and its pictures as the one line of JSON `--input-format stream-json` reads. */
+const pictureMessage = (prompt: string, pictures: ReturnType<typeof picturesOf>): string =>
+  `${JSON.stringify({
+    type: 'user',
+    message: {
+      role: 'user',
+      content: [
+        ...pictures.map((image) => ({
+          type: 'image',
+          source: { type: 'base64', media_type: image.type, data: imageBase64(image) },
+        })),
+        { type: 'text', text: prompt },
+      ],
+    },
+  })}\n`
+
 async function run(request: AiRequest): Promise<AiReply> {
+  const pictures = picturesOf(request.messages)
+  const prompt = transcriptPrompt(request.messages)
   const args = [
     '-p',
+    ...(pictures.length ? ['--input-format', 'stream-json'] : []),
     '--output-format',
     'stream-json',
     '--verbose',
@@ -58,7 +80,7 @@ async function run(request: AiRequest): Promise<AiReply> {
   await runJsonLines<StreamEvent>(
     'claude',
     args,
-    transcriptPrompt(request.messages),
+    pictures.length ? pictureMessage(prompt || 'See the attached pictures.', pictures) : prompt,
     request,
     (event) => {
       if (event.type === 'system' && event.subtype === 'init' && event.model)

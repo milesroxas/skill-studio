@@ -3,13 +3,14 @@
  * agent left in outputs/, if any. It does not render the page, so layout,
  * color and responsive behaviour are judged only when a screenshot exists.
  */
-import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
+import { isJevFormat } from '@domain/image.ts'
 import { round, stripComments } from '@domain/text.ts'
-import { image, noul } from '@typesafe-ai/sdk'
+import { noul } from '@typesafe-ai/sdk'
+import { type Readable, readForJev } from '../images.ts'
 import type { JevState } from '../jev.ts'
-import { askStatements, pairwiseText, requestOf } from '../shared/questions.ts'
-import type { JudgePack } from '../types.ts'
+import { askStatements, pairwise, requestState, type Side } from '../shared/questions.ts'
+import type { JudgeInput, JudgePack } from '../types.ts'
 import { type DesignConfig, type DesignRaw, designScoring, type MarkupCheck } from './score.ts'
 
 interface Tag {
@@ -76,23 +77,33 @@ function markupChecks(html: string): MarkupCheck[] {
   ]
 }
 
+/** The HTML the visual questions read: the start of the page, up to the configured length. */
+const htmlOf = (input: JudgeInput, config: DesignConfig): string =>
+  input.primary?.kind === 'html' ? input.text.slice(0, config.design.maxChars) : ''
+
+/** The first PNG or JPEG the agent left, read for Jev; null when it left none. */
+function shotOf(input: JudgeInput): Readable | null {
+  const shot = input.artifacts.find((a) => a.kind === 'image' && isJevFormat(a.file))
+  return shot ? readForJev(join(input.dir, shot.file)) : null
+}
+
 export const designPack: JudgePack<DesignRaw> = {
   ...designScoring,
   label: 'Design: markup checks and a visual read of the HTML or screenshot',
   artifacts: ['html', 'image'],
   async judge(input, ctx) {
     const html = input.primary?.kind === 'html' ? input.text : ''
-    const shot =
-      input.artifacts.find((a) => a.kind === 'image' && /\.(?:png|jpe?g)$/i.test(a.file)) ?? null
-    if (!html && !shot) return null
+    const read = shotOf(input)
+    if (!html && !read) return null
     const markup = html ? markupChecks(html) : null
     let jev: DesignRaw['jev'] = null
-    if (ctx.useJev) {
-      const state: JevState = {}
-      const request = requestOf(input)
-      if (request) state.request = request
-      if (html) state.html = html.slice(0, (ctx.config as DesignConfig).design.maxChars)
-      if (shot) state.screenshot = image(readFileSync(join(input.dir, shot.file)))
+    const shot = read?.image ?? null
+    // A screenshot Jev would refuse is left out, so the questions about the HTML still get answers.
+    const unread = read?.problem ? `screenshot not judged: ${read.problem}` : null
+    if (ctx.useJev && (html || shot)) {
+      const state: JevState = { ...requestState(input) }
+      if (html) state.html = htmlOf(input, ctx.config as DesignConfig)
+      if (shot) state.screenshot = shot
       const subject = html ? 'html' : 'screenshot'
       const questions = {
         hierarchy: noul(
@@ -112,17 +123,33 @@ export const designPack: JudgePack<DesignRaw> = {
             }
           : {}),
       }
-      const [answers, statements] = await Promise.all([
+      const graders = input.case?.graders ?? []
+      // A check about a picture, such as a mock-up to match, is asked of the screenshot when there is one.
+      const seen = (pictured: boolean) =>
+        graders.filter((g) => Boolean(g.image && shot) === pictured)
+      const [answers, read, looked] = await Promise.all([
         ctx.jev.ask(state, questions),
-        askStatements(input.case?.graders ?? [], state, subject, ctx),
+        askStatements(seen(false), state, subject, ctx),
+        askStatements(seen(true), state, 'screenshot', ctx),
       ])
+      const statements = graders.flatMap((g) => [...read, ...looked].filter((s) => s.id === g.id))
       jev = {
         hierarchy: round(answers.hierarchy.noul, 3),
         finished: answers.finished ? round(answers.finished.noul, 3) : null,
         statements,
       }
     }
-    return { markup, jev }
+    return unread ? { markup, jev, unread } : { markup, jev }
   },
-  pairwise: pairwiseText,
+  /** Two pages are compared on what each shows: its HTML, and its screenshot when both have one. */
+  pairwise(a, b, criteria, ctx) {
+    const shots = [shotOf(a)?.image ?? null, shotOf(b)?.image ?? null]
+    const both = shots.every(Boolean)
+    const side = (input: JudgeInput, shot: (typeof shots)[number]): Side | null => {
+      const html = htmlOf(input, ctx.config as DesignConfig)
+      if (both && shot) return html ? { html, screenshot: shot } : { screenshot: shot }
+      return html || null
+    }
+    return pairwise(a, b, criteria, ctx, (input) => side(input, shots[input === a ? 0 : 1]))
+  },
 }

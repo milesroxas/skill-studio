@@ -7,8 +7,9 @@
 import { type AiModel, type Effort, isOpenAiChatModel, openAiEfforts } from '@domain/ai.ts'
 import { secretOf } from '@domain/secrets.ts'
 import OpenAI from 'openai'
+import { imageBase64 } from '../images.ts'
 import { keyed } from './keyed.ts'
-import type { AiProvider, AiRequest } from './types.ts'
+import type { AiMessage, AiProvider, AiRequest } from './types.ts'
 
 const key = (): string | undefined => secretOf('openai', process.env)
 const client = keyed(key, (apiKey) => new OpenAI({ apiKey }))
@@ -42,12 +43,28 @@ async function listModels(): Promise<AiModel[]> {
 
 const models = keyed(key, () => listModels())
 
+/** A message as the Responses API takes it: plain text, or its text and its pictures as data URLs. */
+const inputOf = (message: AiMessage) =>
+  message.role === 'user' && message.images?.length
+    ? {
+        role: message.role,
+        content: [
+          ...(message.text ? [{ type: 'input_text' as const, text: message.text }] : []),
+          ...message.images.map((image) => ({
+            type: 'input_image' as const,
+            image_url: `data:${image.type};base64,${imageBase64(image)}`,
+            detail: 'auto' as const,
+          })),
+        ],
+      }
+    : { role: message.role, content: message.text }
+
 async function run(request: AiRequest) {
   const stream = client().responses.stream(
     {
       model: request.model,
       instructions: request.system,
-      input: request.messages.map((m) => ({ role: m.role, content: m.text })),
+      input: request.messages.map(inputOf),
       store: false,
       ...(request.effort ? { reasoning: { effort: request.effort as Effort } } : {}),
       ...(request.schema

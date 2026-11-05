@@ -22,6 +22,8 @@ export const APP_ORIGIN = `${APP_SCHEME}://${APP_HOST}`
 /** Files a sample wrote, each response sandboxed so agent HTML cannot script the app. */
 export const ARTIFACT_SCHEME = 'artifact'
 export const ARTIFACT_HOST = 'sample'
+/** Pictures the writer added, on the same scheme and under the same sandbox. */
+export const IMAGE_HOST = 'image'
 
 export type ToBackend =
   | { type: 'call'; id: number; name: string; input: unknown }

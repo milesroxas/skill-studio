@@ -1,13 +1,14 @@
 /**
  * `st serve`: the operations table over HTTP, bound to 127.0.0.1, with the
  * built renderer served beside it. Every operation is `POST /api/<name>` with
- * a JSON body; the artifact operation is also `GET /api/artifact` so images
- * and frames can load it by URL.
+ * a JSON body; the two operations that answer with bytes are also `GET
+ * /api/artifact` and `GET /api/image`, so images and frames can load them by
+ * URL.
  */
 import { existsSync, readFileSync, statSync } from 'node:fs'
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http'
 import { join } from 'node:path'
-import { ARTIFACT_OPERATION, ARTIFACT_POLICY } from '@application/api/contract.ts'
+import { ARTIFACT_OPERATION, ARTIFACT_POLICY, IMAGE_OPERATION } from '@application/api/contract.ts'
 import {
   CONTENT_TYPES,
   contentTypeOf,
@@ -57,8 +58,16 @@ export function startServer(options: ServerOptions): Promise<number> {
     if (refused) return send(res, 403, { error: refused })
     const url = new URL(req.url ?? '/', `http://${req.headers.host}`)
     try {
-      if (req.method === 'GET' && url.pathname === '/api/artifact') {
-        const file = await invoke(operations, ARTIFACT_OPERATION, query(url))
+      const bytes =
+        req.method !== 'GET'
+          ? null
+          : url.pathname === '/api/artifact'
+            ? ARTIFACT_OPERATION
+            : url.pathname === '/api/image'
+              ? IMAGE_OPERATION
+              : null
+      if (bytes) {
+        const file = await invoke(operations, bytes, query(url))
         return send(res, 200, file.bytes, file.type, { 'content-security-policy': ARTIFACT_POLICY })
       }
       if (url.pathname.startsWith('/api/')) {

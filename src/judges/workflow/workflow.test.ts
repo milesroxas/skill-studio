@@ -39,6 +39,7 @@ const metrics = async (
     units: [],
     title: null,
     case: { settings: { maxTurns: null, timeoutSeconds: null, ...settings } } as unknown as Case,
+    images: [],
     rules: [],
     evidence: {},
     artifacts: [{ file: 'outputs/note.md', kind: 'markdown' }],

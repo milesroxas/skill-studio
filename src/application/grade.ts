@@ -6,6 +6,7 @@
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { mergeConfig } from '@domain/config.ts'
+import { imageTypeOf } from '@domain/image.ts'
 import type { Rule } from '@domain/rules.ts'
 import type { BenchConfig, Case, Report, ReportResult } from '@domain/schemas.ts'
 import { scoreResult } from '@domain/scoring.ts'
@@ -16,6 +17,7 @@ import { benchPath, findCase, loadCases, loadRules, readSkillFile } from '@infra
 import { readJson, writeJson } from '@infrastructure/fs.ts'
 import { anchorsDir, readHead, runDir, runSamples } from '@infrastructure/runs.ts'
 import { readTranscript } from '@infrastructure/transcript.ts'
+import { requestImages } from '@judges/images.ts'
 import { packById } from '@judges/index.ts'
 import { Jev } from '@judges/jev.ts'
 import { scorers } from '@judges/scorers.ts'
@@ -60,6 +62,7 @@ export function judgeInput(
   sample: Sample,
   testCase: Case | null,
   rules: Rule[],
+  log: (line: string) => void,
 ): JudgeInput {
   const primary = primaryArtifact(sample.artifacts, testCase?.bench.artifact)
   const raw =
@@ -76,6 +79,11 @@ export function judgeInput(
     units: markdown ? unitsOf(text) : [],
     title: markdown ? titleOf(text) : null,
     case: testCase,
+    // Every picture the agent got: one Jev cannot read is left out, and the log says which and why.
+    images: requestImages(
+      (testCase?.files ?? []).filter(imageTypeOf).map((rel) => join(skillDir, rel)),
+      log,
+    ),
     rules,
     evidence,
     artifacts: sample.artifacts,
@@ -87,7 +95,9 @@ export function judgeInput(
 
 async function gradeSubject(subject: Subject, ctx: GradeContext): Promise<ReportResult> {
   const testCase = findCase(ctx.cases, subject.caseRef)
-  const input = judgeInput(ctx.judge.skillDir, subject, testCase, ctx.rules)
+  const input = judgeInput(ctx.judge.skillDir, subject, testCase, ctx.rules, (line) =>
+    ctx.judge.log(`${subject.name}: ${line}`),
+  )
   const { primary } = input
   const packs: Record<string, unknown> = {}
   const failures: string[] = []

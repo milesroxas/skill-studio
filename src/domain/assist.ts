@@ -7,6 +7,7 @@
  * field, and the text is then fitted to the field before anything shows it.
  * Pure data and functions.
  */
+import type { ImageRef } from './image.ts'
 import { CASE_PROMPT_HINT, CHECK_EXAMPLES, RULE_GUIDE, RULE_SHAPE } from './templates.ts'
 import { frontMatterBlock } from './text.ts'
 
@@ -131,6 +132,8 @@ export interface AssistInput {
   /** The field as it is now; empty for a blank one. */
   current: string
   context: AssistContext[]
+  /** Pictures the model reads beside the text: the case's own, and any attached to the request. */
+  images: ImageRef[]
 }
 
 /** The most text one request carries, in characters. More than this is refused, never cut. */
@@ -165,8 +168,13 @@ Your reply is put in the field as it is, in place of what is there, so it holds 
   const user = [
     ...input.context.filter((c) => c.text.trim()).map((c) => tag('context', c.text, c.label)),
     input.current.trim() ? tag('field_now', input.current) : 'The field is empty.',
+    input.images.length
+      ? `Attached, in this order: ${input.images.map((image) => image.name).join(', ')}.`
+      : '',
     tag('request', input.instruction),
-  ].join('\n\n')
+  ]
+    .filter(Boolean)
+    .join('\n\n')
   return { system, user }
 }
 

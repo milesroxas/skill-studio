@@ -1,9 +1,11 @@
 /**
- * Write the cases a run is made of: the prompt, what a good answer does, and
- * the judge's checks. Edits are kept as drafts per case, so moving between
- * cases, screens or skills never loses typing.
+ * Write the cases a run is made of: the prompt and the pictures that go with
+ * it, what a good answer does, and the judge's checks. Edits are kept as
+ * drafts per case, so moving between cases, screens or skills never loses
+ * typing.
  */
 
+import { addImages, type ImageRef, imageTypeOf, MAX_IMAGES } from '@domain/image.ts'
 import { type Case, type CaseDraft, NEW_CASE_KEY } from '@domain/schemas.ts'
 import {
   CASE_PROMPT_HINT,
@@ -15,7 +17,7 @@ import {
 import { isSlug, SLUG_RULE, slug } from '@domain/text.ts'
 import { cva } from 'class-variance-authority'
 import { PlusIcon, XIcon } from 'lucide-react'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { api } from '../api.ts'
 import { caseContext, skillContext } from '../assist.ts'
 import { DraftNote } from '../components/DraftNote.tsx'
@@ -35,6 +37,7 @@ import {
   Workbench,
 } from '../components/layout.tsx'
 import { NavButton } from '../components/NavButton.tsx'
+import { PicturePicker, PictureStrip, usePictureDrop } from '../components/Pictures.tsx'
 import { Segmented } from '../components/Segmented.tsx'
 import { ExampleList, GuideBox, PairList, Starter } from '../components/starters.tsx'
 import { TextArea } from '../components/TextArea.tsx'
@@ -44,8 +47,17 @@ import { Button } from '../components/ui/button.tsx'
 import { Input } from '../components/ui/input.tsx'
 import { Label } from '../components/ui/label.tsx'
 import type { Ctx } from '../ctx.ts'
+import { useAddPictures } from '../images.ts'
 import { shortcut } from '../keys.ts'
 import { plural } from '../model.ts'
+
+const nameOf = (path: string): string => path.split('/').at(-1) ?? path
+
+const saved = (file: string): ImageRef => ({ name: nameOf(file), file, upload: null })
+
+/** A case folder's own pictures: the images in its `files/`. A legacy case's files stay where they are. */
+const picturesOf = (c: Case): string[] =>
+  c.dir ? c.files.filter((f) => f.startsWith(`${c.dir}/files/`) && imageTypeOf(f)) : []
 
 const draftOf = (c: Case): CaseDraft => ({
   id: c.id,
@@ -53,7 +65,20 @@ const draftOf = (c: Case): CaseDraft => ({
   prompt: c.prompt,
   expectedOutcome: c.expectedOutcome,
   words: c.bench.words ?? null,
-  graders: c.graders.map((g) => ({ id: g.id, statement: g.statement, weight: g.weight })),
+  images: picturesOf(c).map(saved),
+  graders: c.graders.map((g) => ({
+    id: g.id,
+    statement: g.statement,
+    weight: g.weight,
+    image: g.image ? saved(g.image) : null,
+  })),
+})
+
+const newCheck = (): CaseDraft['graders'][number] => ({
+  id: null,
+  statement: '',
+  weight: 1,
+  image: null,
 })
 
 const blank = (): CaseDraft => ({
@@ -62,7 +87,22 @@ const blank = (): CaseDraft => ({
   prompt: '',
   expectedOutcome: '',
   words: null,
-  graders: [{ id: null, statement: '', weight: 1 }],
+  images: [],
+  graders: [newCheck()],
+})
+
+/**
+ * A draft stored before cases held pictures has none listed. It keeps the
+ * pictures the saved case has, so saving it does not remove them.
+ */
+const withPictures = (stored: CaseDraft, base: CaseDraft): CaseDraft => ({
+  ...stored,
+  images: stored.images ?? base.images,
+  graders: stored.graders.map((g) => ({
+    ...g,
+    image:
+      g.image === undefined ? (base.graders.find((b) => b.id === g.id)?.image ?? null) : g.image,
+  })),
 })
 
 export function Cases({ ctx }: { ctx: Ctx }) {
@@ -77,7 +117,8 @@ export function Cases({ ctx }: { ctx: Ctx }) {
   const baseJson = JSON.stringify(base)
   /** Where this case's draft is kept: its id, or one slot for the case not saved yet. */
   const key = selected ? selected.id : NEW_CASE_KEY
-  const draft = drafts.cases[key] ?? base
+  const stored = drafts.cases[key]
+  const draft = useMemo(() => (stored ? withPictures(stored, base) : base), [stored, base])
   const [idTouched, setIdTouched] = useState(false)
   const [busy, setBusy] = useState(false)
   const dirty = JSON.stringify(draft) !== baseJson
@@ -110,8 +151,15 @@ export function Cases({ ctx }: { ctx: Ctx }) {
     setDraft({ ...example, id, graders: example.graders.map((g) => ({ ...g })) })
   }
 
-  /** What the assistant reads beside any field of this case: the skill and the case as typed. */
+  /** What the assistant reads beside any field of this case: the skill, the case as typed, its pictures. */
   const context = () => [skillContext(state), caseContext(draft)]
+  const assist = { context, images: () => draft.images }
+
+  const pictures = useAddPictures(draft.images.length, (added) =>
+    set({ images: addImages(draft.images, added) }),
+  )
+  /** A picture dropped anywhere on the case joins its pictures. */
+  const drop = usePictureDrop(pictures.add)
 
   const idError = draft.id && !isSlug(draft.id) ? SLUG_RULE : ''
   const taken = isNew && cases.some((c) => c.id === draft.id)
@@ -180,6 +228,8 @@ export function Cases({ ctx }: { ctx: Ctx }) {
   }
 
   const heading = isNew ? draft.title.trim() || 'New case' : draft.title.trim() || draft.id
+  /** The case's input files that are not its pictures, which the form shows above. */
+  const otherFiles = selected ? selected.files.filter((f) => !picturesOf(selected).includes(f)) : []
 
   return (
     <Workbench layout={cases.length ? 'list' : 'single'}>
@@ -230,6 +280,7 @@ export function Cases({ ctx }: { ctx: Ctx }) {
       <Column>
         <form
           className="contents"
+          {...drop.handlers}
           onKeyDown={onKey}
           onSubmit={(e) => {
             e.preventDefault()
@@ -348,9 +399,36 @@ export function Cases({ ctx }: { ctx: Ctx }) {
                   placeholder={kind.cases[0]?.prompt}
                   aria-describedby="case-prompt-help"
                   onValueChange={(prompt) => set({ prompt })}
-                  assist={{ field: 'case.prompt', context }}
+                  assist={{ field: 'case.prompt', ...assist }}
                 />
                 <Hint id="case-prompt-help">{CASE_PROMPT_HINT}</Hint>
+              </Field>
+
+              <Field role="group" aria-labelledby="case-pictures">
+                <Label id="case-pictures">Pictures</Label>
+                <PictureStrip
+                  label="Pictures of this case"
+                  images={draft.images}
+                  adding={pictures.adding}
+                  onRemove={(image) => set({ images: draft.images.filter((i) => i !== image) })}
+                >
+                  <PicturePicker
+                    label="Add pictures"
+                    disabled={draft.images.length + pictures.adding >= MAX_IMAGES}
+                    onFiles={pictures.add}
+                  />
+                </PictureStrip>
+                {pictures.error ? (
+                  <Hint tone="destructive" role="alert">
+                    {pictures.error}
+                  </Hint>
+                ) : (
+                  <Hint>
+                    {drop.over
+                      ? 'Drop to add it to this case.'
+                      : 'A screenshot, a mock-up or a photo the prompt is about. The agent gets each one as a file, and the judge sees them beside the prompt.'}
+                  </Hint>
+                )}
               </Field>
 
               <Field>
@@ -361,7 +439,7 @@ export function Cases({ ctx }: { ctx: Ctx }) {
                   value={draft.expectedOutcome}
                   placeholder={kind.cases[0]?.expectedOutcome}
                   onValueChange={(expectedOutcome) => set({ expectedOutcome })}
-                  assist={{ field: 'case.expected', context }}
+                  assist={{ field: 'case.expected', ...assist }}
                 />
               </Field>
             </FormSection>
@@ -369,7 +447,7 @@ export function Cases({ ctx }: { ctx: Ctx }) {
             <FormSection
               layout="stacked"
               title="Checks"
-              hint="Statements a good answer makes true. The judge marks each one; weight counts a check more."
+              hint="Statements a good answer makes true. The judge marks each one; weight counts a check more. A check can be about a picture, such as a mock-up the output should match."
             >
               <GuideBox summary="What the judge can mark">
                 <PairList pairs={CHECK_EXAMPLES} />
@@ -384,6 +462,7 @@ export function Cases({ ctx }: { ctx: Ctx }) {
                     <Text tone="muted" size="xs">
                       Weight
                     </Text>
+                    <span />
                     <span />
                   </CheckLine>
                 ) : null}
@@ -400,7 +479,7 @@ export function Cases({ ctx }: { ctx: Ctx }) {
                           kind.cases[0]?.graders[0]?.statement
                         }
                         onValueChange={(statement) => setGrader(i, { statement })}
-                        assist={{ field: 'case.check', context }}
+                        assist={{ field: 'case.check', ...assist }}
                       />
                       <NumberInput
                         aria-label={`Weight of check ${i + 1}`}
@@ -409,6 +488,12 @@ export function Cases({ ctx }: { ctx: Ctx }) {
                         width="narrow"
                         value={g.weight}
                         onChange={(e) => setGrader(i, { weight: Number(e.target.value) || 1 })}
+                      />
+                      <CheckPicture
+                        index={i + 1}
+                        image={g.image}
+                        onChange={(image) => setGrader(i, { image })}
+                        onError={toast}
                       />
                       <Button
                         type="button"
@@ -428,9 +513,7 @@ export function Cases({ ctx }: { ctx: Ctx }) {
                     type="button"
                     variant="outline"
                     size="sm"
-                    onClick={() =>
-                      set({ graders: [...draft.graders, { id: null, statement: '', weight: 1 }] })
-                    }
+                    onClick={() => set({ graders: [...draft.graders, newCheck()] })}
                   >
                     <PlusIcon aria-hidden="true" />
                     Add a check
@@ -476,15 +559,15 @@ export function Cases({ ctx }: { ctx: Ctx }) {
               {wordsError ? <Hint tone="destructive">{wordsError}</Hint> : null}
             </FormSection>
 
-            {selected?.files.length ? (
+            {otherFiles.length ? (
               <FormSection
                 layout="stacked"
                 title="Input files"
                 hint="The agent finds these in files/ next to the prompt."
               >
                 <List size="xs" font="mono">
-                  {selected.files.map((f) => (
-                    <li key={f}>{f.split('/').at(-1)}</li>
+                  {otherFiles.map((f) => (
+                    <li key={f}>{nameOf(f)}</li>
                   ))}
                 </List>
               </FormSection>
@@ -510,8 +593,51 @@ export function Cases({ ctx }: { ctx: Ctx }) {
   )
 }
 
-/** Number, statement, weight and remove, in columns that line up from row to row. */
-const checkLine = cva('grid grid-cols-[20px_minmax(0,1fr)_56px_36px] gap-2', {
+/**
+ * The picture a check is about, in a cell the size of the row's controls: the
+ * button that adds one, or the picture, which opens full size and can be
+ * taken off.
+ */
+function CheckPicture({
+  index,
+  image,
+  onChange,
+  onError,
+}: {
+  index: number
+  image: ImageRef | null
+  onChange: (image: ImageRef | null) => void
+  onError: (message: string) => void
+}) {
+  const { adding, error, add } = useAddPictures(0, ([added]) => onChange(added))
+  // Told once per failure, whatever the caller's function is on a later render.
+  const report = useRef(onError)
+  report.current = onError
+  useEffect(() => {
+    if (error) report.current(error)
+  }, [error])
+  return (
+    <PictureStrip
+      size="control"
+      label={`Picture for check ${index}`}
+      images={image ? [image] : []}
+      adding={adding}
+      onRemove={() => onChange(null)}
+    >
+      {image || adding ? null : (
+        <PicturePicker
+          variant="icon"
+          single
+          label={`Add a picture check ${index} is about`}
+          onFiles={(files) => add(files.slice(0, 1))}
+        />
+      )}
+    </PictureStrip>
+  )
+}
+
+/** Number, statement, weight, picture and remove, in columns that line up from row to row. */
+const checkLine = cva('grid grid-cols-[20px_minmax(0,1fr)_56px_36px_36px] gap-2', {
   variants: {
     head: {
       true: 'items-end',

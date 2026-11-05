@@ -27,6 +27,8 @@ export interface DesignRaw {
   /** Null when the primary artifact is an image. */
   markup: MarkupCheck[] | null
   jev: DesignJev | null
+  /** Why the screenshot was left out of the visual questions, when it was. */
+  unread?: string
 }
 
 function scoreDesign(
@@ -37,6 +39,7 @@ function scoreDesign(
   const layers: Record<string, number | null> = { markup: null, visual: null }
   const flags: string[] = []
   if (!raw) return { layers, flags }
+  if (raw.unread) flags.push(raw.unread)
   if (raw.markup?.length) {
     layers.markup = raw.markup.filter((c) => c.ok).length / raw.markup.length
     for (const c of raw.markup) if (!c.ok) flags.push(`markup: ${c.note}`)

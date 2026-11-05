@@ -478,7 +478,13 @@ for (const c of CASES)
       prompt: c.prompt,
       expectedOutcome: c.expectedOutcome,
       words: [30, 120],
-      graders: c.checks.map(([statement, weight]) => ({ id: null, statement, weight })),
+      images: [],
+      graders: c.checks.map(([statement, weight]) => ({
+        id: null,
+        statement,
+        weight,
+        image: null,
+      })),
     },
     true,
   )

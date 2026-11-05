@@ -2,11 +2,14 @@
  * Questions more than one pack asks. Each question is literal and its
  * criteria carry the boundary cases; counting stays in the scorers. Jev sees
  * only the state it is given, so a question about an output carries the
- * request the output answers, and a comparison carries the skill's rules too.
+ * request the output answers with the pictures that came with it, and a
+ * comparison carries the skill's rules too.
  */
+import { join } from 'node:path'
 import { type Grader, OVERALL } from '@domain/schemas.ts'
 import { round } from '@domain/text.ts'
-import { choice, noul } from '@typesafe-ai/sdk'
+import { choice, type Image, noul, withAssets } from '@typesafe-ai/sdk'
+import { readForJev } from '../images.ts'
 import type { JevState } from '../jev.ts'
 import type { JudgeContext, JudgeInput, PairwiseVote } from '../types.ts'
 import type { StatementAnswer } from './score.ts'
@@ -15,30 +18,70 @@ import type { StatementAnswer } from './score.ts'
 const REQUEST_MAX = 4000
 
 /** The case's prompt, as Jev reads it; null for an output with no case. */
-export const requestOf = (input: JudgeInput): string | null =>
+const requestOf = (input: JudgeInput): string | null =>
   input.case?.prompt.trim().slice(0, REQUEST_MAX) || null
 
-/** `state` with the request the output answers in front, when its case has one. */
-export function withRequest<S extends Record<string, unknown>>(
-  input: JudgeInput,
-  state: S,
-): S | (S & { request: string }) {
-  const request = requestOf(input)
-  return request ? { request, ...state } : state
+/** What a case's request adds to a state: its text, and the pictures it came with. */
+type RequestState = {
+  request?: string
+  /** In state once, so every question reads them and they are paid for once. */
+  request_images?: Image[]
 }
 
-const hasRequest = (state: JevState): boolean =>
-  typeof state === 'object' && state !== null && 'request' in state
+/** The request an output answers, as state: empty for an output with no case. */
+export function requestState(input: JudgeInput): RequestState {
+  const request = requestOf(input)
+  if (!request) return {}
+  return input.images.length
+    ? { request, request_images: input.images.map((i) => i.image) }
+    : { request }
+}
+
+/** `state` with the request the output answers in front, when its case has one. */
+export const withRequest = <S extends Record<string, unknown>>(
+  input: JudgeInput,
+  state: S,
+): RequestState & S => ({ ...requestState(input), ...state })
+
+const holds = (state: JevState, key: string): boolean =>
+  typeof state === 'object' && state !== null && key in state
 
 /** Opens a question about `field` when `state` holds the request it answers. */
 export const answering = (field: string, state: JevState): string =>
-  hasRequest(state) ? `\`${field}\` was produced to answer \`request\`. ` : ''
+  holds(state, 'request')
+    ? `\`${field}\` was produced to answer \`request\`${
+        holds(state, 'request_images') ? ', which came with the pictures in `request_images`' : ''
+      }. `
+    : ''
 
-export const statementQuestion = (statement: string, field: string, state: JevState = {}) =>
-  noul(`${answering(field, state)}Is this statement true of \`${field}\`: "${statement}"`, {
-    true: `The statement holds for \`${field}\` as written.`,
-    false: `The statement is false of \`${field}\`, or \`${field}\` does not contain what the statement needs to be true.`,
-  })
+/**
+ * One grader statement as a question over `state[field]`. A statement about a
+ * picture, such as a mock-up the output should match, carries that picture in
+ * its own instructions: only this question needs it.
+ */
+export function statementQuestion(
+  statement: string,
+  field: string,
+  state: JevState = {},
+  reference: Image | null = null,
+) {
+  const asked = `${answering(field, state)}Is this statement true of \`${field}\`: "${statement}"`
+  return noul(
+    reference ? withAssets`${asked} The statement is about this picture: ${reference}` : asked,
+    {
+      true: `The statement holds for \`${field}\` as written.`,
+      false: `The statement is false of \`${field}\`, or \`${field}\` does not contain what the statement needs to be true.`,
+    },
+  )
+}
+
+/** A grader's reference picture, ready for Jev; null when it has none or Jev cannot read the file. */
+function referenceOf(grader: Grader, ctx: JudgeContext): Image | null {
+  if (!grader.image) return null
+  const read = readForJev(join(ctx.skillDir, grader.image))
+  if (read.problem) ctx.log(`${grader.id}: its picture is not shown to Jev, ${read.problem}.`)
+  return read.image
+}
 
 /** Every grader statement asked once over `state[field]`, no per-unit pass. */
 export async function askStatements(
@@ -49,7 +92,7 @@ export async function askStatements(
 ): Promise<StatementAnswer[]> {
   if (!graders.length) return []
   const questions = Object.fromEntries(
-    graders.map((g) => [g.id, statementQuestion(g.statement, field, state)]),
+    graders.map((g) => [g.id, statementQuestion(g.statement, field, state, referenceOf(g, ctx))]),
   )
   const answers = await ctx.jev.ask(state, questions)
   return graders.map((g) => ({
@@ -126,20 +169,26 @@ function namedQuestion(criterion: string, ground: PairGround) {
 
 const isOverall = (criterion: string): boolean => criterion.trim().toLowerCase() === OVERALL
 
+/** What Jev reads of one output in a comparison: its text, or its text and a picture of it. */
+export type Side = string | Record<string, string | Image>
+
 /**
- * One Choice per criterion over the two outputs' judged text, with the
- * request, the skill's rules and the case's graders in the state. Without
- * them Jev can only fall back on which text reads better in general, and
- * prefers a note that breaks the skill's length rule for being fuller.
+ * One Choice per criterion over two outputs, with the request, the skill's
+ * rules and the case's graders in the state. Without them Jev can only fall
+ * back on which output reads better in general, and prefers a note that
+ * breaks the skill's length rule for being fuller. `sideOf` says what Jev
+ * reads of an output, or returns null for one it cannot compare.
  */
-export async function pairwiseText(
+export async function pairwise(
   a: JudgeInput,
   b: JudgeInput,
   criteria: string[],
   ctx: JudgeContext,
+  sideOf: (input: JudgeInput) => Side | null,
 ): Promise<Record<string, PairwiseVote>> {
-  if (!a.text.trim() || !b.text.trim())
-    throw new Error('Jev compares text, and one of these outputs has none.')
+  const sideA = sideOf(a)
+  const sideB = sideOf(b)
+  if (!sideA || !sideB) throw new Error('One of these outputs has nothing Jev can compare.')
   const requestA = requestOf(a)
   const requestB = requestOf(b)
   const requests: PairGround['requests'] =
@@ -156,12 +205,12 @@ export async function pairwiseText(
       : []
   const ground: PairGround = { requests, rules: rules.length > 0, checks: checks.length > 0 }
   const state = {
-    ...(requests === 'shared' ? { request: requestA } : {}),
+    ...(requests === 'shared' ? requestState(a) : {}),
     ...(requests === 'separate' ? { request_a: requestA, request_b: requestB } : {}),
     ...(ground.rules ? { rules } : {}),
     ...(ground.checks ? { checks } : {}),
-    a: a.text,
-    b: b.text,
+    a: sideA,
+    b: sideB,
   }
   // With no rules and no graders there is nothing to count, so "overall" is asked as a named criterion.
   const measured = ground.rules || ground.checks
@@ -179,3 +228,12 @@ export async function pairwiseText(
     }),
   )
 }
+
+/** A comparison of the two outputs' judged text. */
+export const pairwiseText = (
+  a: JudgeInput,
+  b: JudgeInput,
+  criteria: string[],
+  ctx: JudgeContext,
+): Promise<Record<string, PairwiseVote>> =>
+  pairwise(a, b, criteria, ctx, (input) => (input.text.trim() ? input.text : null))

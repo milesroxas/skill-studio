@@ -3,6 +3,8 @@
  * server and the CLI all read the same shapes.
  */
 
+import type { ImageRef } from './image.ts'
+
 const ARTIFACT_KINDS = ['markdown', 'html', 'image', 'code', 'transcript'] as const
 export type ArtifactKind = (typeof ARTIFACT_KINDS)[number]
 
@@ -17,6 +19,8 @@ export interface Grader {
   focus: string | null
   weight: number
   statement: string
+  /** Skill-relative path of the picture the statement is about, such as a mock-up to match. */
+  image: string | null
 }
 
 /** The optional `bench` block of `case.yaml` (or of a legacy `evals.json` entry). */
@@ -70,7 +74,15 @@ export interface CaseDraft {
   prompt: string
   expectedOutcome: string
   words: [number, number] | null
-  graders: Array<{ id: string | null; statement: string; weight: number }>
+  /** Pictures the agent gets with the prompt, which the judge sees too. */
+  images: ImageRef[]
+  graders: Array<{
+    id: string | null
+    statement: string
+    weight: number
+    /** The picture the statement is about; null for a check on the output alone. */
+    image: ImageRef | null
+  }>
 }
 
 /** A skill file being edited: its text now, and the text it had on disk (null when new). */

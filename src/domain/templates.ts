@@ -44,7 +44,8 @@ export const kase = (
   prompt,
   expectedOutcome,
   words,
-  graders: checks.map((statement) => ({ id: null, statement, weight: 1 })),
+  images: [],
+  graders: checks.map((statement) => ({ id: null, statement, weight: 1, image: null })),
 })
 
 /** The shape of a graded rule, in one line: the templates say it, and so does the assistant. */

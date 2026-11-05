@@ -1,6 +1,12 @@
+import { mkdtempSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import { DEFAULT_CONFIG } from '@domain/config.ts'
+import { pngHeader } from '@domain/image-fixtures.ts'
 import type { Case, Grader } from '@domain/schemas.ts'
+import { Image, image } from '@typesafe-ai/sdk'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { holdsImage } from '../images.ts'
 import type { Jev } from '../jev.ts'
 import type { JudgeContext, JudgeInput } from '../types.ts'
 import { askStatements, pairwiseText, withRequest } from './questions.ts'
@@ -29,6 +35,7 @@ const grader = (id: string, weight = 1): Grader => ({
   focus: null,
   weight,
   statement: `statement ${id}`,
+  image: null,
 })
 
 describe('askStatements', () => {
@@ -65,6 +72,7 @@ const output = (text: string, over: Partial<JudgeInput> = {}): JudgeInput => ({
   units: [],
   title: null,
   case: null,
+  images: [],
   rules: [],
   evidence: {},
   artifacts: [],
@@ -180,8 +188,58 @@ describe('pairwiseText', () => {
 
   it('refuses to compare an output with no text', async () => {
     await expect(pairwiseText(output(' '), output('y'), ['overall'], ctx)).rejects.toThrow(
-      'one of these outputs has none',
+      'One of these outputs has nothing Jev can compare.',
     )
     expect(ask).not.toHaveBeenCalled()
+  })
+})
+
+describe('pictures', () => {
+  const picture = image(pngHeader(800, 600))
+
+  it('puts the pictures a request came with in state once, and says so in the question', async () => {
+    const withCase = output('note', {
+      case: testCase('c1', 'Describe the chart.'),
+      images: [{ name: 'chart.png', image: picture }],
+    })
+    const state = withRequest(withCase, { output: 'note' })
+    expect(state).toEqual({
+      request: 'Describe the chart.',
+      request_images: [picture],
+      output: 'note',
+    })
+    await askStatements([grader('g1')], state, 'output', ctx)
+    expect(ask.mock.calls[0][1].g1).toMatchObject({
+      instructions: expect.stringContaining('which came with the pictures in `request_images`'),
+    })
+  })
+
+  it('asks a check about a picture with that picture in its own question', async () => {
+    const skillDir = mkdtempSync(join(tmpdir(), 'st-questions-'))
+    writeFileSync(join(skillDir, 'mock.png'), pngHeader(800, 600))
+    writeFileSync(join(skillDir, 'huge.png'), pngHeader(4000, 3000))
+    const log = vi.fn()
+    await askStatements(
+      [
+        { ...grader('g1'), image: 'mock.png' },
+        { ...grader('g2'), image: 'huge.png' },
+        grader('g3'),
+      ],
+      { output: 'x' },
+      'output',
+      { ...ctx, skillDir, log },
+    )
+    const questions = ask.mock.calls[0][1]
+    expect(holdsImage(questions.g1)).toBe(true)
+    // A picture Jev would refuse is left out and reported: it would fail every question with it.
+    expect(holdsImage(questions.g2)).toBe(false)
+    expect(log).toHaveBeenCalledWith(expect.stringContaining('4000 × 3000 px'))
+    expect(holdsImage(questions.g3)).toBe(false)
+  })
+
+  it('finds a picture however deep it sits in a request', () => {
+    expect(picture).toBeInstanceOf(Image)
+    expect(holdsImage({ frames: [{ at: 1, frame: picture }] })).toBe(true)
+    expect(holdsImage({ output: 'text', rules: ['a', 'b'] })).toBe(false)
   })
 })
