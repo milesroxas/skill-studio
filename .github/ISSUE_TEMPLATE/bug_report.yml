@@ -21,7 +21,7 @@ body:
     id: versions
     attributes:
       label: Versions
-      description: Output of `node --version`, `pnpm --version`, and the engine CLI version (`claude --version` or `cursor-agent --version`).
+      description: The Skill Studio version and your operating system, and the engine CLI version (`claude --version` or `cursor-agent --version`). From a checkout, also `node --version` and `pnpm --version`.
     validations:
       required: true
   - type: textarea

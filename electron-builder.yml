@@ -11,6 +11,18 @@ files:
   - "!**/*.map"
 asar: true
 npmRebuild: false
+# Fuses are flipped in the Electron binary before it is signed. The app then runs
+# only the code in its own signed archive: not as a plain Node, not with injected
+# Node flags or Node's inspector, and not from an archive changed after the build.
+# Cookie encryption stays off: the app keeps no cookies, and the fuse would make
+# every start reach for the system keychain.
+electronFuses:
+  runAsNode: false
+  enableNodeOptionsEnvironmentVariable: false
+  enableNodeCliInspectArguments: false
+  enableEmbeddedAsarIntegrityValidation: true
+  onlyLoadAppFromAsar: true
+  grantFileProtocolExtraPrivileges: false
 # Names the release the update files (latest*.yml) point at. Nothing uploads from
 # here: the release workflow builds with `--publish never` and publishes once.
 publish:

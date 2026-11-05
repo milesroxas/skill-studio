@@ -2,6 +2,8 @@
 
 Thanks for helping. Bug fixes, new judge packs, engine adapters and UI improvements are all welcome. For anything larger than a fix, open an issue first so we can agree on the shape before you write it.
 
+Everyone taking part follows the [code of conduct](CODE_OF_CONDUCT.md).
+
 ## Setup
 
 You need Node 24 or later and pnpm. Any recent pnpm switches itself to the version pinned in `package.json` (`packageManager`).
@@ -87,7 +89,9 @@ gh secret set APPLE_API_KEY_ID --env release
 gh secret set APPLE_API_ISSUER --env release
 ```
 
-The Windows and Linux packages are not signed. Every package carries a build provenance attestation, which `gh attestation verify <file> -R milesroxas/skill-studio` checks.
+A release is permanent. The repository refuses to move or delete a `v*` tag, and a published release and its files cannot be changed. When a release run fails for a reason outside the code, run its failed jobs again; otherwise fix the code and release the next patch version.
+
+[SECURITY.md](SECURITY.md#checking-a-download) says what is signed and how a download is checked.
 
 ## License
 
