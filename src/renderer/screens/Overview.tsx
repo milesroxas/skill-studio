@@ -1,40 +1,56 @@
 /** Runs against cases: totals per cell, cost and time per run, versions, cases. */
 
 import { mean } from '@domain/stats.ts'
-import { cva } from 'class-variance-authority'
-import { ChevronRightIcon } from 'lucide-react'
-import { Fragment } from 'react'
+import { Fragment, useState } from 'react'
 import { api } from '../api.ts'
-import { EmptyState, Screen, Section, Spacer, Stack, Toolbar } from '../components/layout.tsx'
-import { TotalChip } from '../components/Scores.tsx'
+import {
+  EmptyState,
+  PlainList,
+  Screen,
+  Section,
+  SectionHead,
+  Spacer,
+  Stack,
+  Toolbar,
+} from '../components/layout.tsx'
+import { SampleCount, TotalChip } from '../components/Scores.tsx'
 import { Heading, Hint, Text, VisuallyHidden } from '../components/text.tsx'
 import { Button } from '../components/ui/button.tsx'
 import {
+  rowAction,
   Table,
   TableBody,
   TableCell,
+  TableDetail,
   TableHead,
   TableHeader,
   TableRow,
+  TableRowToggle,
 } from '../components/ui/table.tsx'
 import type { Ctx } from '../ctx.ts'
 import {
   caseTitle,
   fmt,
   money,
+  moneyPlaces,
   type Output,
   runLabel,
   runStamp,
   scoreOf,
+  stamp,
   totalOf,
   versionName,
 } from '../model.ts'
+
+const costOf = (run: Ctx['state']['runs'][number]): number | null =>
+  run.meta?.samples.reduce((s, x) => s + (x.costUsd ?? 0), 0) ?? null
 
 export function Overview({ ctx }: { ctx: Ctx }) {
   const { state, config, outputs, route, go, toast } = ctx
   /** In the URL, so Back from a transcript or a comparison finds the run still open. */
   const openRun = route.params.get('run')
   const setOpenRun = (run: string | null) => go('overview', run ? { run } : {}, { replace: true })
+  const [grading, setGrading] = useState<string | null>(null)
   const caseIds = [...new Set(outputs.map((o) => o.caseId))].sort()
   const runs = state.runs
   const byRun = new Map<string, Output[]>()
@@ -44,15 +60,22 @@ export function Overview({ ctx }: { ctx: Ctx }) {
     list.reduce((s, o) => s + (scoreOf(o, config)?.flags.length ?? 0), 0)
   const showMean = caseIds.length > 1
   const showFlags = runs.some((run) => flagsOf(byRun.get(run.name) ?? []) > 0)
+  // Cases some run answered more than once: their column holds room for the count in every row.
+  const repeated = new Set(outputs.filter((o) => o.samples > 1).map((o) => o.caseId))
+  const costPlaces = moneyPlaces(runs.map(costOf))
   // Run, one per case, mean, cost, time, flags and the spare-width column: what an opened run spans.
+  // A narrow window hides cost, time and flags; a span past the last column is harmless.
   const columns = 1 + caseIds.length + (showMean ? 1 : 0) + 2 + (showFlags ? 1 : 0) + 1
 
   const regrade = async (run: string) => {
+    setGrading(run)
     try {
       await api.grade(run, state.jevKey)
       toast(`Grading ${run}`)
     } catch (e) {
       toast((e as Error).message)
+    } finally {
+      setGrading(null)
     }
   }
 
@@ -88,7 +111,7 @@ export function Overview({ ctx }: { ctx: Ctx }) {
           Each cell is a case’s mean score out of 100. Open a score to compare its outputs, or a run
           for its details.
         </Hint>
-        <Table>
+        <Table bleed>
           <TableHeader>
             <TableRow>
               <TableHead wide>Run</TableHead>
@@ -98,37 +121,38 @@ export function Overview({ ctx }: { ctx: Ctx }) {
                 </TableHead>
               ))}
               {showMean ? <TableHead numeric>Mean</TableHead> : null}
-              <TableHead numeric>Cost</TableHead>
-              <TableHead numeric>Time</TableHead>
-              {showFlags ? <TableHead numeric>Flags</TableHead> : null}
+              <TableHead numeric optional>
+                Cost
+              </TableHead>
+              <TableHead numeric optional>
+                Time
+              </TableHead>
+              {showFlags ? (
+                <TableHead numeric optional>
+                  Flags
+                </TableHead>
+              ) : null}
               <TableHead filler />
             </TableRow>
           </TableHeader>
           <TableBody>
             {runs.map((run) => {
               const mine = byRun.get(run.name) ?? []
-              const cost = run.meta?.samples.reduce((s, x) => s + (x.costUsd ?? 0), 0) ?? null
               const seconds = run.meta?.samples.reduce((s, x) => s + x.seconds, 0) ?? 0
               const open = openRun === run.name
+              const toggle = () => setOpenRun(open ? null : run.name)
               return (
                 <Fragment key={run.name}>
-                  <TableRow interactive>
+                  <TableRow interactive onClick={rowAction(toggle)}>
                     <TableCell wrap wide>
-                      <Button
-                        type="button"
-                        variant="link"
-                        size="inline"
-                        aria-expanded={open}
+                      <TableRowToggle
+                        open={open}
                         title={`${run.name}: ${open ? 'hide' : 'show'} its outputs`}
-                        onClick={() => setOpenRun(open ? null : run.name)}
+                        meta={`${runStamp(run)}${run.meta?.note ? ` · ${run.meta.note}` : ''}`}
+                        onClick={toggle}
                       >
-                        <ChevronRightIcon aria-hidden="true" className={chevron({ open })} />
                         {runLabel(run)}
-                      </Button>
-                      <Text block tone="muted" size="xs">
-                        {runStamp(run)}
-                        {run.meta?.note ? ` · ${run.meta.note}` : ''}
-                      </Text>
+                      </TableRowToggle>
                     </TableCell>
                     {caseIds.map((c) => {
                       const cell = mine.filter((o) => o.caseId === c)
@@ -146,6 +170,7 @@ export function Overview({ ctx }: { ctx: Ctx }) {
                             variant="ghost"
                             size="cell"
                             title={`Compare ${c} from this run`}
+                            aria-label={`${c}: ${total === null ? 'not graded' : Math.round(total)}${cell.length > 1 ? `, the mean of ${cell.length} outputs` : ''}. Compare.`}
                             onClick={() => go('compare', { a: cell[0].key })}
                           >
                             {total === null ? (
@@ -153,29 +178,38 @@ export function Overview({ ctx }: { ctx: Ctx }) {
                             ) : (
                               <TotalChip total={Math.round(total)} />
                             )}
-                            {cell.length > 1 ? (
-                              <Text tone="muted" size="xs">
-                                ×{cell.length}
-                              </Text>
-                            ) : null}
+                            {repeated.has(c) ? <SampleCount count={cell.length} /> : null}
                           </Button>
                         </TableCell>
                       )
                     })}
                     {showMean ? (
-                      <TableCell numeric>{fmt(mean(totalsOf(mine)), 0)}</TableCell>
+                      <TableCell numeric>
+                        <Text weight="medium">{fmt(mean(totalsOf(mine)), 0)}</Text>
+                      </TableCell>
                     ) : null}
-                    <TableCell numeric>{money(cost)}</TableCell>
-                    <TableCell numeric>{seconds ? `${seconds}s` : '–'}</TableCell>
-                    {showFlags ? <TableCell numeric>{flagsOf(mine) || ''}</TableCell> : null}
+                    <TableCell numeric optional>
+                      {money(costOf(run), costPlaces)}
+                    </TableCell>
+                    <TableCell numeric optional>
+                      {seconds ? `${seconds}s` : '–'}
+                    </TableCell>
+                    {showFlags ? (
+                      <TableCell numeric optional>
+                        {flagsOf(mine) || ''}
+                      </TableCell>
+                    ) : null}
                     <TableCell filler />
                   </TableRow>
                   {open ? (
-                    <TableRow variant="detail">
-                      <TableCell colSpan={columns}>
-                        <RunDetail ctx={ctx} run={run.name} regrade={regrade} />
-                      </TableCell>
-                    </TableRow>
+                    <TableDetail colSpan={columns}>
+                      <RunDetail
+                        ctx={ctx}
+                        run={run.name}
+                        grading={grading === run.name}
+                        regrade={regrade}
+                      />
+                    </TableDetail>
                   ) : null}
                 </Fragment>
               )
@@ -187,61 +221,84 @@ export function Overview({ ctx }: { ctx: Ctx }) {
   )
 }
 
-/** Points right while a run is closed, down while it is open. */
-const chevron = cva('transition-transform duration-150 ease-out-strong', {
-  variants: { open: { true: 'rotate-90', false: '' } },
-})
-
 function RunDetail({
   ctx,
   run,
+  grading,
   regrade,
 }: {
   ctx: Ctx
   run: string
+  /** A grade of this run is being started. */
+  grading: boolean
   regrade: (run: string) => void
 }) {
   const { state, config, outputs, go } = ctx
   const view = state.runs.find((r) => r.name === run)
   if (!view) return null
   const mine = outputs.filter((o) => o.run.name === run)
+  const metaOf = (o: Output) => view.meta?.samples.find((x) => x.dir === o.sample.name)
+  const costPlaces = moneyPlaces(mine.map((o) => metaOf(o)?.costUsd))
   return (
     <Stack gap="md">
-      <Toolbar>
-        <Heading level={3}>{versionName(view)}</Heading>
-        <Text font="mono" tone="muted" size="xs">
-          {view.name}
-        </Text>
-        <Spacer />
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          disabled={!view.meta?.skillVersion}
-          onClick={() =>
-            go('versions', { left: view.meta?.skillVersion ?? 'current', right: 'current' })
-          }
-        >
-          Changes since this run
-        </Button>
-        <Button type="button" variant="outline" size="sm" onClick={() => regrade(run)}>
-          {state.jevKey ? 'Regrade' : 'Regrade with code checks'}
-        </Button>
-      </Toolbar>
-      <Hint>
-        {view.report
-          ? `Graded ${view.report.createdAt.slice(0, 16).replace('T', ' ')} with ${view.report.model ?? 'code checks only'}, ${view.report.inputTokens.toLocaleString()} input tokens.`
-          : 'Not graded yet.'}
-      </Hint>
-      <Table>
+      <Stack gap="xs">
+        <SectionHead>
+          <Heading level={3}>{versionName(view)}</Heading>
+          <Text font="mono" tone="muted" size="xs">
+            {view.name}
+          </Text>
+          <Spacer />
+          <Toolbar>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={!view.meta?.skillVersion}
+              title={
+                view.meta?.skillVersion
+                  ? undefined
+                  : 'This run did not record which version of the skill it used.'
+              }
+              onClick={() =>
+                go('versions', { left: view.meta?.skillVersion ?? 'current', right: 'current' })
+              }
+            >
+              Changes since this run
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={grading}
+              onClick={() => regrade(run)}
+            >
+              {grading ? 'Starting…' : state.jevKey ? 'Regrade' : 'Regrade with code checks'}
+            </Button>
+          </Toolbar>
+        </SectionHead>
+        <Hint>
+          {view.report
+            ? `Graded ${stamp(view.report.createdAt) ?? view.report.createdAt} with ${view.report.model ?? 'code checks only'}, ${view.report.inputTokens.toLocaleString()} input tokens.`
+            : 'Not graded yet.'}
+        </Hint>
+      </Stack>
+      <Table bleed>
         <TableHeader>
           <TableRow>
             <TableHead>Output</TableHead>
             <TableHead numeric>Total</TableHead>
-            <TableHead numeric>Words</TableHead>
-            <TableHead numeric>Cost</TableHead>
-            <TableHead numeric>Time</TableHead>
-            <TableHead numeric>Tool calls</TableHead>
+            <TableHead numeric optional>
+              Words
+            </TableHead>
+            <TableHead numeric optional>
+              Cost
+            </TableHead>
+            <TableHead numeric optional>
+              Time
+            </TableHead>
+            <TableHead numeric optional>
+              Tool calls
+            </TableHead>
             <TableHead>Flags</TableHead>
             <TableHead numeric>
               <VisuallyHidden>Open</VisuallyHidden>
@@ -251,31 +308,54 @@ function RunDetail({
         <TableBody>
           {mine.map((o) => {
             const s = scoreOf(o, config)
-            const meta = view.meta?.samples.find((x) => x.dir === o.sample.name)
+            const meta = metaOf(o)
             return (
-              <TableRow key={o.key} variant={meta && !meta.ok ? 'destructive' : 'default'}>
+              <TableRow
+                key={o.key}
+                align="baseline"
+                variant={meta && !meta.ok ? 'destructive' : 'default'}
+              >
                 <TableCell>
                   <Text font="mono">{o.sample.name}</Text>
                 </TableCell>
                 <TableCell numeric>
                   <TotalChip total={s?.scores.total} />
                 </TableCell>
-                <TableCell numeric>{o.result?.words ?? '–'}</TableCell>
-                <TableCell numeric>{money(meta?.costUsd)}</TableCell>
-                <TableCell numeric>{meta ? `${meta.seconds}s` : '–'}</TableCell>
-                <TableCell numeric>{meta?.toolCalls ?? '–'}</TableCell>
+                <TableCell numeric optional>
+                  {o.result?.words ?? '–'}
+                </TableCell>
+                <TableCell numeric optional>
+                  {money(meta?.costUsd, costPlaces)}
+                </TableCell>
+                <TableCell numeric optional>
+                  {meta ? `${meta.seconds}s` : '–'}
+                </TableCell>
+                <TableCell numeric optional>
+                  {meta?.toolCalls ?? '–'}
+                </TableCell>
                 <TableCell wrap>
-                  <Text size="xs">
-                    {meta?.error ? <Text tone="destructive">{meta.error}</Text> : null}
-                    {s?.flags.join('; ')}
-                  </Text>
+                  {meta?.error || s?.flags.length ? (
+                    <PlainList gap="md">
+                      {meta?.error ? (
+                        <Text as="li" size="xs" tone="destructive" measure>
+                          {meta.error}
+                        </Text>
+                      ) : null}
+                      {s?.flags.map((flag) => (
+                        <Text as="li" key={flag} size="xs" measure>
+                          {flag}
+                        </Text>
+                      ))}
+                    </PlainList>
+                  ) : null}
                 </TableCell>
                 <TableCell numeric>
                   <Toolbar gap="md" justify="end" wrap={false}>
                     <Button
                       type="button"
                       variant="link-muted"
-                      size="inline"
+                      size="cell-inline"
+                      aria-label={`Compare ${o.sample.name}`}
                       onClick={() => go('compare', { a: o.key })}
                     >
                       Compare
@@ -284,7 +364,8 @@ function RunDetail({
                       <Button
                         type="button"
                         variant="link-muted"
-                        size="inline"
+                        size="cell-inline"
+                        aria-label={`Transcript of ${o.sample.name}`}
                         onClick={() => go('transcript', { run, sample: o.sample.name })}
                       >
                         Transcript

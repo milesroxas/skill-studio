@@ -115,7 +115,7 @@ export function Versions({ ctx }: { ctx: Ctx }) {
                 const isCurrent = !current.changed && v.version === current.version
                 const score = versionScore(outputs, config, v.version)
                 return (
-                  <TableRow key={v.version} align="top">
+                  <TableRow key={v.version} align="baseline">
                     <TableCell>
                       <Text weight="medium" tabular>
                         {v.version}

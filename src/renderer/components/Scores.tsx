@@ -14,12 +14,29 @@ const BADGE_TONE = {
   na: 'secondary',
 } as const
 
-/** The total out of 100 as a chip whose color says how good it is. */
+/**
+ * The total out of 100 as a chip whose color says how good it is. Every chip
+ * is as wide as "100" (40px), so a column of them keeps one edge. A mean
+ * shows as a whole number.
+ */
 export function TotalChip({ total }: { total: number | null | undefined }) {
   return (
-    <Badge variant={BADGE_TONE[scoreBand(total)]} className="min-w-9 tabular-nums">
-      {total ?? '–'}
+    <Badge variant={BADGE_TONE[scoreBand(total)]} className="min-w-10 tabular-nums">
+      {total === null || total === undefined ? '–' : Math.round(total)}
     </Badge>
+  )
+}
+
+/**
+ * How many outputs a mean stands for, "×2". The slot keeps its width when
+ * there is one output, so chips beside it line up down a column where only
+ * some rows repeat a case.
+ */
+export function SampleCount({ count }: { count: number }) {
+  return (
+    <span className="min-w-5 text-left text-xs font-normal text-muted-foreground tabular-nums">
+      {count > 1 ? `×${count}` : null}
+    </span>
   )
 }
 

@@ -36,8 +36,19 @@ const buttonVariants = cva(
         inline: 'h-auto rounded-xs p-0 text-left font-[inherit] whitespace-normal',
         /** The small inline form, for a secondary link under a form or in a list. */
         'inline-sm': 'h-auto rounded-xs p-0 text-left text-xs whitespace-normal',
-        /** Fills a table cell without widening it. */
-        cell: '-mx-1 h-7 px-1 tabular-nums',
+        /**
+         * Fills a table cell without widening it, at the table's own type size.
+         * The box stays 28px; the hit area reaches 4px past it above and below
+         * (36px), the most a single-line row has to give before two rows collide.
+         */
+        cell: 'relative -mx-1 h-7 px-1 align-middle text-ui tabular-nums before:absolute before:inset-x-0 before:-inset-y-1',
+        /**
+         * A text link in a table cell: reads as a word at the cell's size, and
+         * its hit area takes the cell's padding (36px high, 6px past each end,
+         * so two links 12px apart meet and never overlap).
+         */
+        'cell-inline':
+          'relative h-auto rounded-xs p-0 text-left text-[length:inherit] before:absolute before:-inset-x-1.5 before:-inset-y-2',
       },
     },
     defaultVariants: {

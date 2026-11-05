@@ -42,6 +42,7 @@ import { Button } from '../components/ui/button.tsx'
 import { Input } from '../components/ui/input.tsx'
 import { Label } from '../components/ui/label.tsx'
 import {
+  rowAction,
   Table,
   TableBody,
   TableCell,
@@ -285,7 +286,7 @@ function SkillTable({
   }
 
   return (
-    <Table>
+    <Table bleed>
       <TableHeader>
         <TableRow>
           <TableHead>Skill</TableHead>
@@ -304,7 +305,12 @@ function SkillTable({
       </TableHeader>
       <TableBody>
         {skills.map((s) => (
-          <TableRow key={s.path} align="top" interactive>
+          <TableRow
+            key={s.path}
+            align="baseline"
+            interactive
+            onClick={rowAction(() => openSkill(s.path))}
+          >
             <TableCell wrap wide>
               <Button
                 type="button"

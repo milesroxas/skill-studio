@@ -153,10 +153,10 @@ export function configurationTail(run: RunView): string {
 export const runLabel = (run: RunView): string =>
   `${versionOf(run).id} · ${writerName(run.meta?.writer)}${configurationTail(run)}`
 
-/** When the run started, "Oct 30 18:45", so two runs of one version and writer tell apart in a picker. */
-export function runStamp(run: RunView): string {
-  const at = run.meta?.createdAt ? new Date(run.meta.createdAt) : null
-  if (!at || Number.isNaN(at.getTime())) return run.name
+/** A moment in the reader's own time zone, "Oct 30, 18:45"; null when the text is no date. */
+export function stamp(iso: string | null | undefined): string | null {
+  const at = iso ? new Date(iso) : null
+  if (!at || Number.isNaN(at.getTime())) return null
   return at.toLocaleString(undefined, {
     month: 'short',
     day: 'numeric',
@@ -165,6 +165,9 @@ export function runStamp(run: RunView): string {
     hour12: false,
   })
 }
+
+/** When the run started, so two runs of one version and writer tell apart in a picker. */
+export const runStamp = (run: RunView): string => stamp(run.meta?.createdAt) ?? run.name
 
 /** " · sample 2 of 3", or nothing when the case has one sample. */
 export const sampleTail = (output: Output): string =>
@@ -193,8 +196,16 @@ export function sizeLine(output: Output): string | null {
   return primaryOf(output)?.kind === 'markdown' && words ? `${words} words` : null
 }
 
-export const money = (value: number | null | undefined): string =>
-  value === null || value === undefined ? '–' : `$${value.toFixed(value < 0.1 ? 4 : 2)}`
+/** Cents, or four places for an amount under ten cents. `places` holds a column to one precision. */
+export const money = (value: number | null | undefined, places?: number): string =>
+  value === null || value === undefined ? '–' : `$${value.toFixed(places ?? (value < 0.1 ? 4 : 2))}`
+
+/**
+ * The places every amount in a column takes, so its decimal points line up:
+ * four once any amount is under ten cents, else two.
+ */
+export const moneyPlaces = (values: Array<number | null | undefined>): number =>
+  values.some((v) => v !== null && v !== undefined && v < 0.1) ? 4 : 2
 
 export const fmt = (value: number | null, places = 1): string =>
   value === null ? '–' : value.toFixed(places)

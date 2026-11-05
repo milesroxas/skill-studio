@@ -110,6 +110,11 @@ const textVariants = cva('', {
       true: 'overflow-hidden text-ellipsis whitespace-nowrap',
       false: '',
     },
+    /** Wrapping text in a wide place, such as a table's spare column: held to a readable line. */
+    measure: {
+      true: 'max-w-[64ch] text-pretty',
+      false: '',
+    },
     align: {
       start: '',
       end: 'text-right',
@@ -131,6 +136,7 @@ const textVariants = cva('', {
     block: false,
     clamp: false,
     truncate: false,
+    measure: false,
     align: 'start',
     wrap: 'normal',
   },
@@ -146,6 +152,7 @@ export function Text({
   block,
   clamp,
   truncate,
+  measure,
   align,
   wrap,
   as: Comp = 'span',
@@ -156,7 +163,19 @@ export function Text({
   return (
     <Comp
       className={cn(
-        textVariants({ tone, font, size, weight, tabular, block, clamp, truncate, align, wrap }),
+        textVariants({
+          tone,
+          font,
+          size,
+          weight,
+          tabular,
+          block,
+          clamp,
+          truncate,
+          measure,
+          align,
+          wrap,
+        }),
         className,
       )}
       {...props}
