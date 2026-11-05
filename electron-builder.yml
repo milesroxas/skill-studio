@@ -1,5 +1,7 @@
 appId: com.milesroxas.skill-studio
 productName: Skill Studio
+# No spaces: GitHub renames an asset with a space, and the update files would then point at nothing.
+artifactName: skill-studio-${version}-${os}-${arch}.${ext}
 directories:
   output: dist
   buildResources: build
@@ -9,11 +11,19 @@ files:
   - "!**/*.map"
 asar: true
 npmRebuild: false
+# Names the release the update files (latest*.yml) point at. Nothing uploads from
+# here: the release workflow builds with `--publish never` and publishes once.
+publish:
+  provider: github
+  owner: milesroxas
+  repo: skill-studio
 mac:
   category: public.app-category.developer-tools
   target:
     - target: dmg
     - target: zip
+  # Signed with the Developer ID in CSC_LINK, then notarized when the APPLE_API_*
+  # variables are set. Without them a local `pnpm dist` skips both.
   hardenedRuntime: true
   darkModeSupport: true
 linux:

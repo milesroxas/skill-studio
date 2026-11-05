@@ -55,6 +55,40 @@ A change to how a screen looks or reads needs the guide checked in the same pull
 - Read each step of the guide against its new picture, and fix any label, button or order that no longer matches.
 - The two diagrams (`docs/images/*.svg`) are written by hand. Their step numbers must match the guide's headings.
 
+## Releasing
+
+A release is a `v*` tag on `main`. The `release` workflow runs the checks, packages the app for macOS (arm64 and x64, signed and notarized), Windows and Linux, and publishes one GitHub release with generated notes. A version with a suffix, such as `1.2.0-beta.1`, is published as a prerelease.
+
+```
+pnpm version patch -m "Release %s"    # or minor, major, or an exact version; commits and tags vX.Y.Z
+git push --follow-tags
+```
+
+To release the version already in `package.json`, tag it by hand: `git tag -a v0.1.0 -m "Release 0.1.0"`, then `git push origin v0.1.0`. The workflow refuses a tag that does not match `package.json` or is not on `main`.
+
+To rehearse, run it by hand: `gh workflow run release`. That builds every platform, keeps the files as workflow artifacts for 7 days, and publishes nothing.
+
+The Mac job reads its secrets from the `release` environment. A tag fails when the certificate or the notarization key is missing; a rehearsal builds unsigned instead.
+
+| Secret             | Value                                                                                                      |
+| ------------------ | ---------------------------------------------------------------------------------------------------------- |
+| `CSC_LINK`         | The Developer ID Application certificate with its key, exported from Keychain Access as a `.p12`, in base64 |
+| `CSC_KEY_PASSWORD` | The password of that `.p12`                                                                                |
+| `APPLE_API_KEY`    | The text of an App Store Connect API key (`AuthKey_<id>.p8`): a team key with the Developer role           |
+| `APPLE_API_KEY_ID` | The ID of that key                                                                                         |
+| `APPLE_API_ISSUER` | The issuer ID shown above the list of keys                                                                 |
+
+```
+gh api -X PUT repos/milesroxas/skill-studio/environments/release
+base64 -i DeveloperID.p12 | gh secret set CSC_LINK --env release
+gh secret set APPLE_API_KEY --env release < AuthKey_XXXXXXXXXX.p8
+gh secret set CSC_KEY_PASSWORD --env release     # each of these three asks for the value
+gh secret set APPLE_API_KEY_ID --env release
+gh secret set APPLE_API_ISSUER --env release
+```
+
+The Windows and Linux packages are not signed. Every package carries a build provenance attestation, which `gh attestation verify <file> -R milesroxas/skill-studio` checks.
+
 ## License
 
 By contributing, you agree that your contributions are licensed under the [MIT License](LICENSE).
