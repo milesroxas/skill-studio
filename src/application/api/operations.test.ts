@@ -49,6 +49,16 @@ describe('parsers', () => {
     ).toBe(false)
   })
 
+  it('delete only a version label, and undo only a plain trash name', () => {
+    expect(() => parsers['skill.deleteVersion']({ skill: '/s', version: '../v1' })).toThrow(
+      'Bad version.',
+    )
+    expect(parsers['skill.deleteVersion']({ skill: '/s', version: 'v1' }).version).toBe('v1')
+    expect(() => parsers['skill.undeleteVersion']({ skill: '/s', undo: '../x' })).toThrow(
+      'Bad undo.',
+    )
+  })
+
   it('keep drafts to text files at safe paths', () => {
     const drafts = parsers['skill.saveDrafts']({
       skill: '/s',

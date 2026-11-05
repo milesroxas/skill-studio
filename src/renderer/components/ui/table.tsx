@@ -73,7 +73,7 @@ function TableFooter({ className, ...props }: React.ComponentProps<'tfoot'>) {
 }
 
 const tableRowVariants = cva(
-  'group border-b transition-colors duration-150 ease-out has-aria-expanded:bg-muted/50 data-[state=selected]:bg-muted',
+  'group border-b transition-[color,background-color,border-color,opacity] duration-150 ease-out has-aria-expanded:bg-muted/50 data-[state=selected]:bg-muted',
   {
     variants: {
       /** A row that opens something: it lights under the pointer. Plain rows stay still. */
@@ -95,8 +95,16 @@ const tableRowVariants = cva(
         default: '',
         destructive: 'bg-destructive/10 dark:bg-destructive/20',
       },
+      /**
+       * A row on its way out, such as one just deleted: it fades while the step
+       * runs, so it leaves rather than blinks out. Pair it with `inert`.
+       */
+      leaving: {
+        true: 'opacity-0',
+        false: '',
+      },
     },
-    defaultVariants: { variant: 'default', align: 'middle', interactive: false },
+    defaultVariants: { variant: 'default', align: 'middle', interactive: false, leaving: false },
   },
 )
 
@@ -105,6 +113,7 @@ function TableRow({
   variant,
   align,
   interactive,
+  leaving,
   ...props
 }: React.ComponentProps<'tr'> & VariantProps<typeof tableRowVariants>) {
   return (
@@ -112,7 +121,7 @@ function TableRow({
       data-slot="table-row"
       data-variant={variant}
       className={cn(
-        tableRowVariants({ variant, align, interactive }),
+        tableRowVariants({ variant, align, interactive, leaving }),
         // A row that answers a click anywhere says so. An open row and its detail are one surface, with no rule between.
         props.onClick ? 'cursor-pointer' : '',
         'has-[[data-slot=table-row-toggle][aria-expanded=true]]:border-transparent',

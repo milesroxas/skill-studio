@@ -101,6 +101,8 @@ export const api = {
   saveVersion: (name: string, note: string) => call('skill.saveVersion', scoped({ name, note })),
   restoreVersion: (version: string, force: boolean) =>
     call('skill.restoreVersion', scoped({ version, force })),
+  deleteVersion: (version: string) => call('skill.deleteVersion', scoped({ version })),
+  undeleteVersion: (undo: string) => call('skill.undeleteVersion', scoped({ undo })),
   /** Drafts name their skill outright: a store can land after another skill is opened. */
   drafts: (skill: string) => call('skill.drafts', { skill }),
   saveDrafts: (skill: string, drafts: SkillDrafts) => call('skill.saveDrafts', { skill, drafts }),

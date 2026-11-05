@@ -135,6 +135,16 @@ export interface Contract {
     input: Scoped & { version: string; force: boolean }
     output: { restored: string }
   }
+  /**
+   * Delete a version: its saved copy, its runs, and the reviews and votes on their outputs.
+   * The files stay as they are. Refused while a job runs. `undo` names the way back.
+   */
+  'skill.deleteVersion': {
+    input: Scoped & { version: string }
+    output: { deleted: string; runs: number; reviews: number; undo: string }
+  }
+  /** Take back the latest delete, named by the `undo` it returned. */
+  'skill.undeleteVersion': { input: Scoped & { undo: string }; output: { restored: string } }
   'skill.drafts': { input: Scoped; output: SkillDrafts }
   'skill.saveDrafts': {
     input: Scoped & { drafts: SkillDrafts }

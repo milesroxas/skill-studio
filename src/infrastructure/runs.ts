@@ -126,6 +126,12 @@ const runMetas = (skillDir: string): RunMeta[] =>
     return meta ? [meta] : []
   })
 
+/** The runs made with `version`, by name. */
+export const runsOfVersion = (skillDir: string, version: string): string[] =>
+  runMetas(skillDir)
+    .filter((meta) => meta.skillVersion === version)
+    .map((meta) => meta.name)
+
 export const versionsOf = (skillDir: string) =>
   skillVersions(skillDir, runMetas(skillDir), savedVersions(skillDir))
 

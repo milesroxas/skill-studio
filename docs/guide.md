@@ -181,6 +181,7 @@ The history lists every version, newest first, with its runs and its mean score.
 
 - Compare shows that version's files against the files now. Under Compare, pick any two versions in From and To.
 - Restore puts a version's files back. If the files now are not a version yet, you are asked first, because restoring would lose them; save them as a version to keep them.
+- Delete (the bin at the end of the row) removes a version. The skill's files stay as they are. If the version has runs, you are asked first: deleting it deletes those runs too, with their outputs, reviews and votes. Click Undo in the message that follows, or press ⌘Z, to bring it all back; only the latest delete can be undone.
 
 ## 3. Write cases
 

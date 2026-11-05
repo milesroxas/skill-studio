@@ -19,6 +19,13 @@ const buttonVariants = cva(
         /** An action a row repeats, such as its remove: quieter than the row's text until pointed at. */
         'ghost-muted':
           'text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:text-foreground dark:hover:bg-accent/50',
+        /**
+         * A destructive action a row repeats, such as its delete: as quiet as the
+         * row's other icons at rest, and red once pointed at or focused, so the
+         * intent shows just before the click.
+         */
+        'destructive-muted':
+          'text-muted-foreground hover:bg-destructive/10 hover:text-destructive focus-visible:text-destructive focus-visible:ring-destructive/20 dark:hover:bg-destructive/20',
         /** A rare, destructive action that should not shout: red text on a quiet surface. */
         'destructive-ghost':
           'text-destructive hover:bg-destructive/10 hover:text-destructive focus-visible:ring-destructive/20 dark:hover:bg-destructive/20',

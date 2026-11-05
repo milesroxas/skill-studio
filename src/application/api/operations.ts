@@ -81,6 +81,7 @@ import {
   skillInfo,
   writeSkillFile,
 } from '@infrastructure/skill.ts'
+import { deleteVersion, undeleteVersion } from '@infrastructure/trash.ts'
 import { isVersionLabel, saveVersion } from '@infrastructure/versions.ts'
 import type { JudgeInput } from '@judges/index.ts'
 import { pairwisePack } from '@judges/index.ts'
@@ -332,6 +333,12 @@ export const parsers: { [K in OperationName]: (raw: Raw) => Input<K> } = {
     if (!isVersionLabel(version)) throw new Error('Bad version.')
     return { ...scoped(raw), version, force: raw.force === true }
   },
+  'skill.deleteVersion': (raw) => {
+    const version = str(raw.version)
+    if (!isVersionLabel(version)) throw new Error('Bad version.')
+    return { ...scoped(raw), version }
+  },
+  'skill.undeleteVersion': (raw) => ({ ...scoped(raw), undo: assertSafe(str(raw.undo), 'undo') }),
   'skill.drafts': scoped,
   'skill.saveDrafts': (raw) => ({ ...scoped(raw), drafts: draftsOf(raw.drafts) }),
   'skill.queue': scoped,
@@ -575,6 +582,13 @@ export function createOperations(options: OperationsOptions): Runners {
       replaceSkillFiles(skill.path, versionFiles(skill.path, input.version))
       return { restored: input.version }
     },
+    'skill.deleteVersion': (input) => {
+      // A job may be writing a run of this very version.
+      if (listJobs().some((job) => job.status === 'running'))
+        throw new Error('Wait for running jobs to finish, then delete.')
+      return deleteVersion(skillOf(input).path, input.version)
+    },
+    'skill.undeleteVersion': (input) => undeleteVersion(skillOf(input).path, input.undo),
     'skill.drafts': (input) => readDrafts(skillOf(input).path),
     'skill.saveDrafts': (input) => ({
       updatedAt: writeDrafts(skillOf(input).path, input.drafts),

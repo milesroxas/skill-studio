@@ -10,7 +10,7 @@ import { isDir, listDirs, readJson, readTree, writeJson } from './fs.ts'
 import { snapshotSkillFiles } from './skill.ts'
 
 const versionsDir = (skillDir: string): string => join(skillDir, 'evals/versions')
-const versionDir = (skillDir: string, version: string): string =>
+export const versionDir = (skillDir: string, version: string): string =>
   join(versionsDir(skillDir), version)
 
 const VERSION_LABEL = /^v\d+$/

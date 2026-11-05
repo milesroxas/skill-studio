@@ -1,9 +1,12 @@
 /**
  * The skill's history. Save the files as a named version, see every version
- * with its runs and mean score, compare any two file by file, and restore one.
- * A version saved here keeps its own copy of the files; one known only from a
- * run is restored from that run's snapshot.
+ * with its runs and mean score, compare any two file by file, restore one, and
+ * delete one. A version saved here keeps its own copy of the files; one known
+ * only from a run is restored from that run's snapshot.
  */
+
+import type { SkillVersion } from '@domain/views.ts'
+import { Trash2Icon } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { api } from '../api.ts'
 import { changesContext, skillContext } from '../assist.ts'
@@ -49,6 +52,18 @@ export function Versions({ ctx }: { ctx: Ctx }) {
   const runsOf = (version: string) =>
     state.runs.filter((r) => r.meta?.skillVersion === version).length
   const unsavedFiles = Object.keys(drafts.files).length
+  /** The version whose row is fading out while its delete runs. */
+  const [leaving, setLeaving] = useState<string | null>(null)
+  const deleteButtons = useRef(new Map<string, HTMLButtonElement>())
+  /** Where focus goes once the deleted row has left: the row that took its place. */
+  const focusAfter = useRef<string | null>(null)
+
+  useEffect(() => {
+    const target = focusAfter.current
+    if (!target || !versions.some((v) => v.version === target)) return
+    focusAfter.current = null
+    deleteButtons.current.get(target)?.focus()
+  }, [versions])
 
   const restore = async (version: string) => {
     const lose = current.changed
@@ -73,6 +88,53 @@ export function Versions({ ctx }: { ctx: Ctx }) {
       toast(`Restored ${version}`)
     } catch (e) {
       toast((e as Error).message)
+    }
+  }
+
+  const undelete = async (undo: string) => {
+    try {
+      const { restored } = await api.undeleteVersion(undo)
+      await reload()
+      toast(`${restored} is back`)
+    } catch (e) {
+      toast((e as Error).message)
+    }
+  }
+
+  const remove = async (v: SkillVersion) => {
+    const runs = runsOf(v.version)
+    // A saved copy alone comes back with Undo. Runs hold results, so the reader agrees to lose them first.
+    if (
+      runs &&
+      !(await confirm({
+        title: `Delete ${v.version} and its ${plural(runs, 'run')}?`,
+        description:
+          runs === 1
+            ? `The run made with ${v.version} is deleted too, with its outputs, reviews and votes. Your skill files don't change.`
+            : `The ${runs} runs made with ${v.version} are deleted too, with their outputs, reviews and votes. Your skill files don't change.`,
+        action: `Delete ${v.version} and ${runs === 1 ? 'run' : 'runs'}`,
+        destructive: true,
+      }))
+    )
+      return
+    const index = newest.findIndex((x) => x.version === v.version)
+    focusAfter.current = (newest[index + 1] ?? newest[index - 1])?.version ?? null
+    setLeaving(v.version)
+    try {
+      const [gone] = await Promise.all([api.deleteVersion(v.version), rowExit()])
+      // A comparison that named the deleted version would ask for files that are gone.
+      if ([route.params.get('left'), route.params.get('right')].includes(v.version))
+        go('versions', {}, { replace: true })
+      await reload()
+      // When it was the files' version, the Save form that appears says the files stayed.
+      toast(`Deleted ${v.version}${gone.runs ? ` and its ${plural(gone.runs, 'run')}` : ''}`, () =>
+        undelete(gone.undo),
+      )
+    } catch (e) {
+      focusAfter.current = null
+      toast((e as Error).message)
+    } finally {
+      setLeaving(null)
     }
   }
 
@@ -115,7 +177,12 @@ export function Versions({ ctx }: { ctx: Ctx }) {
                 const isCurrent = !current.changed && v.version === current.version
                 const score = versionScore(outputs, config, v.version)
                 return (
-                  <TableRow key={v.version} align="baseline">
+                  <TableRow
+                    key={v.version}
+                    align="baseline"
+                    leaving={leaving === v.version}
+                    inert={leaving === v.version}
+                  >
                     <TableCell>
                       <Text weight="medium" tabular>
                         {v.version}
@@ -146,20 +213,38 @@ export function Versions({ ctx }: { ctx: Ctx }) {
                         <Button
                           type="button"
                           variant="link-muted"
-                          size="inline"
+                          size="cell-inline"
+                          aria-label={`Changes from ${v.version} to the files now`}
                           onClick={() => go('versions', { left: v.version, right: 'current' })}
                         >
                           Changes
                         </Button>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          disabled={isCurrent}
-                          onClick={() => restore(v.version)}
-                        >
-                          Restore
-                        </Button>
+                        <Toolbar gap="xs" wrap={false}>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            disabled={isCurrent}
+                            aria-label={`Restore ${v.version}`}
+                            onClick={() => restore(v.version)}
+                          >
+                            Restore
+                          </Button>
+                          <Button
+                            ref={(el) => {
+                              if (el) deleteButtons.current.set(v.version, el)
+                              else deleteButtons.current.delete(v.version)
+                            }}
+                            type="button"
+                            variant="destructive-muted"
+                            size="icon-sm"
+                            aria-label={`Delete ${v.version}`}
+                            title="Delete version"
+                            onClick={() => remove(v)}
+                          >
+                            <Trash2Icon aria-hidden="true" />
+                          </Button>
+                        </Toolbar>
                       </Toolbar>
                     </TableCell>
                   </TableRow>
@@ -378,3 +463,9 @@ function Changes({ ctx, left, right }: { ctx: Ctx; left: string; right: string }
     </Section>
   )
 }
+
+/** As long as a leaving row takes to fade (TableRow's 150ms), or no time when motion is reduced. */
+const rowExit = (): Promise<void> =>
+  new Promise((done) =>
+    setTimeout(done, document.documentElement.dataset.motion === 'reduced' ? 0 : 150),
+  )
