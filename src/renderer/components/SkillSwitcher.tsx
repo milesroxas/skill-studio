@@ -1,11 +1,13 @@
 /**
  * Jump to another skill without leaving the one in hand: a searchable list,
  * opened from the top of the sidebar or with ⌘K. Skills opened before come
- * first. Opened from the keyboard many times a day, so it does not animate.
+ * first, and a new one starts from the foot of the list, named after the
+ * search. Opened from the keyboard many times a day, so it does not animate.
  */
 import type { LibrarySkill } from '@domain/library.ts'
-import { ChevronsUpDownIcon, LibraryIcon } from 'lucide-react'
-import { type KeyboardEvent, useEffect, useMemo, useRef, useState } from 'react'
+import { slug } from '@domain/text.ts'
+import { ChevronsUpDownIcon, LibraryIcon, PlusIcon } from 'lucide-react'
+import { type KeyboardEvent, type ReactNode, useEffect, useMemo, useRef, useState } from 'react'
 import { api } from '../api.ts'
 import { shortcut } from '../keys.ts'
 import { plural } from '../model.ts'
@@ -46,10 +48,37 @@ function useShortcut(onPress: () => void) {
   }, [onPress])
 }
 
+/** An action at the foot of the list, under the skills. */
+function FootAction({
+  icon,
+  hint,
+  onClick,
+  children,
+}: {
+  icon: ReactNode
+  /** A shortcut, at the far edge. */
+  hint?: string
+  onClick: () => void
+  children: ReactNode
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="flex min-h-8 items-center gap-2 rounded-md px-2 text-left text-ui outline-none transition-[background-color] duration-150 ease-out hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring/50 [&_svg]:size-4 [&_svg]:shrink-0 [&_svg]:text-muted-foreground"
+    >
+      {icon}
+      <span className="min-w-0 flex-1 truncate">{children}</span>
+      {hint ? <kbd className="font-sans text-xs text-muted-foreground">{hint}</kbd> : null}
+    </button>
+  )
+}
+
 export function SkillSwitcher({
   name,
   detail,
   onOpen,
+  onNew,
   onLibrary,
 }: {
   /** The open skill's name; null when none is open. */
@@ -57,6 +86,8 @@ export function SkillSwitcher({
   /** A line under the name: its version. */
   detail?: string
   onOpen: (path: string) => void
+  /** Start a new skill, named after the search when there is one. */
+  onNew: (name: string) => void
   onLibrary: () => void
 }) {
   const [open, setOpen] = useState(false)
@@ -98,20 +129,33 @@ export function SkillSwitcher({
     [skills, query],
   )
 
-  const choose = (skill: LibrarySkill | undefined) => {
-    if (!skill) return
+  /** The search as a skill name, for a new one. */
+  const newName = slug(query)
+
+  const choose = (skill: LibrarySkill) => {
     setOpen(false)
     onOpen(skill.path)
+  }
+
+  const create = () => {
+    setOpen(false)
+    onNew(newName)
   }
 
   const onKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
       e.preventDefault()
+      if (!shown.length) return
       const step = e.key === 'ArrowDown' ? 1 : -1
-      setActive((i) => (shown.length ? (i + step + shown.length) % shown.length : 0))
+      const next = (active + step + shown.length) % shown.length
+      setActive(next)
+      // Only the keyboard scrolls the list: following the pointer would move rows from under it.
+      document.getElementById(`skill-option-${next}`)?.scrollIntoView({ block: 'nearest' })
     } else if (e.key === 'Enter') {
       e.preventDefault()
-      choose(shown[active])
+      const skill = shown[active]
+      if (skill) choose(skill)
+      else if (skills && newName) create()
     }
   }
 
@@ -165,7 +209,11 @@ export function SkillSwitcher({
           {error ? <PopoverLabel role="alert">{error}</PopoverLabel> : null}
           {!skills && !error ? <PopoverLabel role="status">Loading…</PopoverLabel> : null}
           {skills && !shown.length ? (
-            <PopoverLabel>No skill matches “{query.trim()}”.</PopoverLabel>
+            <PopoverLabel>
+              {query.trim()
+                ? `No skill matches “${query.trim()}”.${newName ? ' Press Enter to start it.' : ''}`
+                : 'No skills yet.'}
+            </PopoverLabel>
           ) : null}
           {shown.map((skill, i) => (
             <button
@@ -199,18 +247,19 @@ export function SkillSwitcher({
           ))}
         </PopoverSection>
         <PopoverSection>
-          <button
-            type="button"
+          <FootAction icon={<PlusIcon aria-hidden="true" />} onClick={create}>
+            {newName ? `New skill “${newName}”` : 'New skill'}
+          </FootAction>
+          <FootAction
+            icon={<LibraryIcon aria-hidden="true" />}
+            hint={shortcut('K')}
             onClick={() => {
               setOpen(false)
               onLibrary()
             }}
-            className="flex min-h-8 items-center gap-2 rounded-md px-2 text-left text-ui outline-none transition-[background-color] duration-150 ease-out hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring/50 [&_svg]:size-4 [&_svg]:text-muted-foreground"
           >
-            <LibraryIcon aria-hidden="true" />
-            <span className="flex-1">All skills in the library</span>
-            <kbd className="font-sans text-xs text-muted-foreground">{shortcut('K')}</kbd>
-          </button>
+            All skills in the library
+          </FootAction>
         </PopoverSection>
       </PopoverContent>
     </Popover>
