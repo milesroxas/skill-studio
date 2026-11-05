@@ -1,8 +1,9 @@
 /**
  * How one person likes the app: its theme, its motion, how the editor opens
- * Markdown, and the model the assistant writes with. Every host keeps them in
- * one file; anything missing or unknown in it falls back to the default, so an
- * old or hand-edited file always reads.
+ * Markdown, the model the assistant writes with, and how much of the app's
+ * first-visit help they have seen. Every host keeps them in one file; anything
+ * missing or unknown in it falls back to the default, so an old or hand-edited
+ * file always reads.
  */
 import { AI_PROVIDER_IDS, type AiChoice, type AiProviderId, EFFORTS } from './ai.ts'
 
@@ -17,10 +18,19 @@ export type Motion = (typeof MOTIONS)[number]
 const EDITOR_MODES = ['formatted', 'markdown'] as const
 export type EditorMode = (typeof EDITOR_MODES)[number]
 
+/** `show` explains each screen in one line the first time it opens; `hide` never does. */
+const HINTS = ['show', 'hide'] as const
+export type Hints = (typeof HINTS)[number]
+
 export interface Preferences {
   theme: Theme
   motion: Motion
   editorMode: EditorMode
+  /** The welcome screen has been seen, so the app opens on the library from now on. */
+  welcomed: boolean
+  hints: Hints
+  /** The screens whose hint was read and put away. */
+  hintsSeen: string[]
   /** The assistant's provider; empty until one is chosen, which means the first connected. */
   aiProvider: AiProviderId | ''
   aiModel: string
@@ -32,12 +42,25 @@ export const DEFAULT_PREFERENCES: Preferences = {
   theme: 'system',
   motion: 'system',
   editorMode: 'formatted',
+  welcomed: false,
+  hints: 'show',
+  hintsSeen: [],
   aiProvider: '',
   aiModel: '',
   aiEffort: '',
 }
 
 const MODEL_ID_MAX = 200
+/** More screens than the app has, and longer than any of their names. */
+const SEEN_MAX = 40
+
+/** Screen names from untrusted input: short strings, each once. */
+const seenOf = (value: unknown): string[] =>
+  Array.isArray(value)
+    ? [
+        ...new Set(value.filter((v): v is string => typeof v === 'string' && v.length <= SEEN_MAX)),
+      ].slice(0, SEEN_MAX)
+    : []
 
 const pick = <T extends string, F extends string>(
   value: unknown,
@@ -52,6 +75,9 @@ export function preferencesOf(raw: unknown): Preferences {
     theme: pick(value.theme, THEMES, DEFAULT_PREFERENCES.theme),
     motion: pick(value.motion, MOTIONS, DEFAULT_PREFERENCES.motion),
     editorMode: pick(value.editorMode, EDITOR_MODES, DEFAULT_PREFERENCES.editorMode),
+    welcomed: value.welcomed === true,
+    hints: pick(value.hints, HINTS, DEFAULT_PREFERENCES.hints),
+    hintsSeen: seenOf(value.hintsSeen),
     aiProvider: pick(value.aiProvider, AI_PROVIDER_IDS, DEFAULT_PREFERENCES.aiProvider),
     aiModel: typeof value.aiModel === 'string' ? value.aiModel.slice(0, MODEL_ID_MAX) : '',
     aiEffort: pick(value.aiEffort, EFFORTS, DEFAULT_PREFERENCES.aiEffort),

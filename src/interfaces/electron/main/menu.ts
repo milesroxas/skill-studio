@@ -1,6 +1,5 @@
-/** The application menu: the standard roles, Back and Forward, and the guide. Set before `ready`. */
+/** The application menu: the standard roles, Back and Forward, and the app's own help. Set before `ready`. */
 import {
-  app,
   type BaseWindow,
   BrowserWindow,
   Menu,
@@ -8,6 +7,7 @@ import {
   type NavigationHistory,
   shell,
 } from 'electron'
+import { CHANNELS } from '../channels.ts'
 
 const DOCS_URL = 'https://github.com/milesroxas/skill-studio/blob/main/docs/guide.md'
 
@@ -21,6 +21,14 @@ const step = (window: BaseWindow | undefined, offset: -1 | 1): void => {
   if (!(window instanceof BrowserWindow)) return
   const history: NavigationHistory = window.webContents.navigationHistory
   if (history.canGoToOffset(offset)) history.goToOffset(offset)
+}
+
+/** Show one of the page's own screens in a window, or in the first window when none has the focus. */
+const show = (window: BaseWindow | undefined, screen: string): void => {
+  const target = window instanceof BrowserWindow ? window : BrowserWindow.getAllWindows()[0]
+  if (!target || target.isDestroyed()) return
+  target.show()
+  target.webContents.send(CHANNELS.go, screen)
 }
 
 export function installMenu(): void {
@@ -56,7 +64,12 @@ export function installMenu(): void {
     { role: 'windowMenu' },
     {
       role: 'help',
-      submenu: [{ label: `${app.name} guide`, click: () => void shell.openExternal(DOCS_URL) }],
+      submenu: [
+        { label: 'How Skill Studio Works', click: (_item, window) => show(window, 'welcome') },
+        { label: 'Guide', click: (_item, window) => show(window, 'docs') },
+        { type: 'separator' },
+        { label: 'Guide on GitHub', click: () => void shell.openExternal(DOCS_URL) },
+      ],
     },
   ]
   Menu.setApplicationMenu(Menu.buildFromTemplate(template))

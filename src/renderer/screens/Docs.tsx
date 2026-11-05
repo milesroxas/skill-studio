@@ -1,14 +1,15 @@
 /**
  * The guide, rendered from docs/guide.md so the app and GitHub show one text
  * and the same pictures. Sections get ids, a contents list tracks the one being
- * read, and every section can be jumped to. Loaded on demand, so it costs
- * nothing until opened.
+ * read, and every section can be jumped to or opened on. Loaded on demand, so
+ * it costs nothing until opened.
  */
 
 import { type ComponentProps, type ReactNode, useEffect, useMemo, useRef, useState } from 'react'
 import guide from '../../../docs/guide.md?raw'
 import { Disclosure } from '../components/Disclosure.tsx'
 import { Text } from '../components/text.tsx'
+import { type GuideSection, guideSections } from '../guide.ts'
 import { markdownHtml } from '../markdown.ts'
 
 const REPO = 'https://github.com/milesroxas/skill-studio'
@@ -24,24 +25,9 @@ const IMAGES = Object.fromEntries(
   ).map(([path, url]) => [path.replace(/^.*\/docs\//, ''), url]),
 )
 
-interface Section {
-  id: string
-  title: string
-}
-
-const slug = (text: string): string =>
-  text
-    .toLowerCase()
-    .replace(/`/g, '')
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-|-$/g, '')
-
 /** The guide as HTML with an id on each section heading, and the list of sections. */
-function render(text: string): { html: string; sections: Section[] } {
-  const sections = [...text.matchAll(/^## (.+)$/gm)].map((m) => ({
-    id: slug(m[1]),
-    title: m[1].replace(/`/g, ''),
-  }))
+function render(text: string): { html: string; sections: GuideSection[] } {
+  const sections = guideSections(text)
   let index = 0
   const html = markdownHtml(text, { images: IMAGES })
     .replace(/<h2>/g, () => `<h2 id="${sections[index++]?.id ?? ''}">`)
@@ -51,10 +37,22 @@ function render(text: string): { html: string; sections: Section[] } {
   return { html, sections }
 }
 
-export function Docs() {
+export function Docs({
+  section,
+}: {
+  /** A section to open on, by the id of its heading: the help sends a screen's own step. */
+  section: string | null
+}) {
   const { html, sections } = useMemo(() => render(guide), [])
   const body = useRef<HTMLDivElement>(null)
   const [active, setActive] = useState(sections[0]?.id ?? '')
+
+  // Land on the section asked for, at once: the reader did not scroll here.
+  useEffect(() => {
+    if (!section) return
+    document.getElementById(section)?.scrollIntoView({ block: 'start' })
+    setActive(section)
+  }, [section])
 
   // The section being read is the last heading that has passed the top third of the pane.
   // The pane scrolls, not the window, so that is what to listen to.

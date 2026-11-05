@@ -64,6 +64,8 @@ export const api = {
   jobs: () => call('jobs.list', {}),
   /** Push job changes when the host can; the shell polls otherwise. */
   watchJobs: transport.watchJobs,
+  /** Screens the desktop app's Help menu asks for. */
+  watchGo: transport.watchGo,
   settings: () => call('settings.read', {}),
   /** Store a key in the host's keychain; an empty value removes the stored one. */
   setKey: (id: SecretId, value: string) => call('settings.key', { id, value }),

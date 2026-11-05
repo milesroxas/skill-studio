@@ -12,6 +12,9 @@ describe('preferencesOf', () => {
       theme: 'dark',
       motion: 'reduced',
       editorMode: 'markdown',
+      welcomed: true,
+      hints: 'hide',
+      hintsSeen: ['edit', 'cases'],
       aiProvider: 'claude-code',
       aiModel: 'opus',
       aiEffort: 'high',
@@ -29,6 +32,20 @@ describe('preferencesOf', () => {
   it('turns a choice into preferences and back', () => {
     const choice = { provider: 'anthropic', model: 'claude-opus-5-5', effort: 'medium' } as const
     expect(aiChoiceOf({ ...DEFAULT_PREFERENCES, ...aiChoicePatch(choice) })).toEqual(choice)
+  })
+
+  it('reads a file from before the welcome as not welcomed, with hints on', () => {
+    const read = preferencesOf({ theme: 'dark' })
+    expect(read.welcomed).toBe(false)
+    expect(read.hints).toBe('show')
+    expect(read.hintsSeen).toEqual([])
+  })
+
+  it('keeps each seen screen once and drops what is not a short name', () => {
+    const read = preferencesOf({ hintsSeen: ['edit', 'edit', 7, 'x'.repeat(41), 'cases'] })
+    expect(read.hintsSeen).toEqual(['edit', 'cases'])
+    expect(preferencesOf({ hintsSeen: 'edit' }).hintsSeen).toEqual([])
+    expect(preferencesOf({ welcomed: 'yes' }).welcomed).toBe(false)
   })
 
   it('drops unknown values and fields', () => {

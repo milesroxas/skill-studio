@@ -2,33 +2,21 @@
  * The shell. A sidebar holds the open skill (switch with ⌘K), every screen of
  * its loop in one flat list with each one's status, and the library, guide and
  * settings. The top bar goes back and forward through the screens visited,
- * names the one in view and offers the one suggested next step. Library, guide and settings open in the same pane, so the skill in
- * hand stays one click away.
+ * names the one in view and offers the one suggested next step. Library, guide
+ * and settings open in the same pane, so the skill in hand stays one click away.
+ *
+ * Help is part of the shell, so it is the same on every screen: a first visit
+ * lands on the welcome, each screen says what it is for in one line the first
+ * time it opens, and the help button at the end of the top bar says it again,
+ * with the screen's words and the way to the guide.
  */
 import type { BenchConfig } from '@domain/schemas.ts'
-import {
-  ArrowRightIcon,
-  BookOpenIcon,
-  ChartColumnIcon,
-  Columns2Icon,
-  EyeOffIcon,
-  HistoryIcon,
-  LibraryIcon,
-  ListChecksIcon,
-  type LucideIcon,
-  MenuIcon,
-  PanelRightIcon,
-  PencilLineIcon,
-  PlayIcon,
-  ScaleIcon,
-  ScrollTextIcon,
-  SettingsIcon,
-  SlidersHorizontalIcon,
-} from 'lucide-react'
+import { ArrowRightIcon, MenuIcon, PanelRightIcon } from 'lucide-react'
 import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react'
 import { api, currentSkill, type Job, type State, setSkill } from './api.ts'
 import { ChatPanel } from './components/Chat.tsx'
 import { useConfirm } from './components/confirm.tsx'
+import { HelpButton, ScreenHint } from './components/Help.tsx'
 import { JobsIndicator } from './components/Jobs.tsx'
 import { EmptyState, Loading, Spacer } from './components/layout.tsx'
 import { PracticeGuide } from './components/PracticeGuide.tsx'
@@ -54,11 +42,14 @@ import { Popover, PopoverContent, PopoverTrigger } from './components/ui/popover
 import { Toggle } from './components/ui/toggle.tsx'
 import type { Ctx } from './ctx.ts'
 import { useDrafts } from './drafts.ts'
+import { SCREEN_HELP } from './help.ts'
 import { back, forward, navigate, usePaneScroll, useRoute } from './history.ts'
 import { useToast } from './hooks.ts'
 import { shortcut } from './keys.ts'
 import { mergedConfig, outputsOf, plural, versionScore } from './model.ts'
-import { practiceGuide } from './practice.ts'
+import { APP_PLACES, isSkillScreen, placeFor, SECTIONS, WORKBENCH } from './places.ts'
+import { practiceGuide, useStartPractice } from './practice.ts'
+import { setPreferences, usePreferences } from './preferences.ts'
 import { Blind } from './screens/Blind.tsx'
 import { Cases } from './screens/Cases.tsx'
 import { Compare } from './screens/Compare.tsx'
@@ -69,6 +60,7 @@ import { LibraryScreen } from './screens/Library.tsx'
 import { Overview } from './screens/Overview.tsx'
 import { Transcript } from './screens/Transcript.tsx'
 import { Versions } from './screens/Versions.tsx'
+import { Welcome } from './screens/Welcome.tsx'
 
 /** The guide, settings and the file editor (CodeMirror, about 110 KB gzipped) load only when opened. */
 const Docs = lazy(() => import('./screens/Docs.tsx').then((m) => ({ default: m.Docs })))
@@ -76,64 +68,6 @@ const Editor = lazy(() => import('./screens/Editor.tsx').then((m) => ({ default:
 const SettingsScreen = lazy(() =>
   import('./screens/Settings.tsx').then((m) => ({ default: m.SettingsScreen })),
 )
-
-interface Place {
-  screen: string
-  label: string
-  icon: LucideIcon
-}
-
-interface Section {
-  label?: string
-  places: Place[]
-}
-
-/** The loop, top to bottom: write the skill and its cases, run them, review, tune the bench. */
-const SECTIONS: Section[] = [
-  {
-    places: [
-      { screen: 'edit', label: 'Write', icon: PencilLineIcon },
-      { screen: 'versions', label: 'Versions', icon: HistoryIcon },
-      { screen: 'cases', label: 'Cases', icon: ListChecksIcon },
-    ],
-  },
-  {
-    label: 'Runs',
-    places: [
-      { screen: 'generate', label: 'New run', icon: PlayIcon },
-      { screen: 'overview', label: 'Results', icon: ChartColumnIcon },
-    ],
-  },
-  {
-    label: 'Review',
-    places: [
-      { screen: 'blind', label: 'Rate blind', icon: EyeOffIcon },
-      { screen: 'compare', label: 'Compare', icon: Columns2Icon },
-      { screen: 'transcript', label: 'Transcripts', icon: ScrollTextIcon },
-    ],
-  },
-  {
-    label: 'Bench',
-    places: [
-      { screen: 'insights', label: 'Agreement', icon: ScaleIcon },
-      { screen: 'knobs', label: 'Scoring', icon: SlidersHorizontalIcon },
-    ],
-  },
-]
-
-const APP_PLACES: Place[] = [
-  { screen: 'library', label: 'Library', icon: LibraryIcon },
-  { screen: 'docs', label: 'Guide', icon: BookOpenIcon },
-  { screen: 'settings', label: 'Settings', icon: SettingsIcon },
-]
-
-/** Screens built as a workbench of columns that scroll on their own, not as one scrolling page. */
-const WORKBENCH = new Set(['edit', 'cases', 'blind', 'knobs'])
-
-const placeOf = (screen: string): Place | undefined =>
-  [...SECTIONS.flatMap((s) => s.places), ...APP_PLACES].find((p) => p.screen === screen)
-const isSkillScreen = (screen: string): boolean =>
-  SECTIONS.some((s) => s.places.some((p) => p.screen === screen))
 
 const ASSISTANT_KEY = 'skill-studio.assistant'
 
@@ -173,6 +107,7 @@ export function App() {
   const [toastShown, toast, dismissToast] = useToast()
   const [confirm, confirmDialog] = useConfirm()
   const [assistant, setAssistant] = useAssistant()
+  const preferences = usePreferences()
 
   const reload = useCallback(async () => {
     if (!currentSkill()) return
@@ -203,6 +138,9 @@ export function App() {
     // The entry names its skill itself: the open one changes only once this renders.
     navigate(screen, {}, { skill: path })
   }, [])
+  const [starting, startPractice] = useStartPractice(openSkill, toast)
+  // The desktop app's Help menu opens the welcome and the guide.
+  useEffect(() => api.watchGo?.((screen) => navigate(screen)), [])
   // Back and Forward return to the skill a place was seen in. An entry made with
   // no skill open keeps the one in hand.
   useEffect(() => {
@@ -263,19 +201,41 @@ export function App() {
   const unrated = loaded
     ? outputs.filter((o) => o.result && !loaded.state.reviews.reviews[o.key]).length
     : 0
-  const home = !loaded
-    ? 'library'
-    : !loaded.state.cases.length
-      ? 'cases'
-      : loaded.state.runs.length
-        ? 'overview'
-        : 'edit'
+  const running = jobs.some((j) => j.status === 'running')
+  // The practice skill is walked round the whole loop, past the point where the next step is plain.
+  const practice = loaded?.state.practice
+    ? practiceGuide(loaded.state, outputs, {
+        unsaved: drafts.files['SKILL.md'] !== undefined,
+        running,
+      })
+    : null
+
+  // Before anything else was opened, the app opens on the welcome.
+  // The practice skill opens on the step in hand, so the first thing in view is the one thing to do.
+  const home =
+    !preferences.welcomed && !skillPath
+      ? 'welcome'
+      : !loaded
+        ? 'library'
+        : practice?.target
+          ? practice.target.screen
+          : !loaded.state.cases.length
+            ? 'cases'
+            : loaded.state.runs.length
+              ? 'overview'
+              : 'edit'
   const requested = route.screen === 'home' ? home : route.screen
   // A skill screen with no skill open falls back to the library.
   const screen = !skillPath && isSkillScreen(requested) ? 'library' : requested
-  const place = placeOf(screen) ?? placeOf(home)
+  const place = placeFor(screen) ?? placeFor(home)
   const pane = usePaneScroll(route, screen)
-  const running = jobs.some((j) => j.status === 'running')
+
+  // The welcome is where a first visit lands. Going anywhere else, or opening a
+  // skill, is the reader moving on: from then on the app opens on the library.
+  const movedOn = Boolean(skillPath) || !['home', 'welcome'].includes(route.screen)
+  useEffect(() => {
+    if (!preferences.welcomed && movedOn) void setPreferences({ welcomed: true }).catch(() => {})
+  }, [preferences.welcomed, movedOn])
 
   const status: PlaceStatus = { meta: {}, dot: {} }
   if (loaded && current) {
@@ -296,14 +256,6 @@ export function App() {
       knobs: dirty,
     }
   }
-
-  // The practice skill is walked round the whole loop, past the point where the next step is plain.
-  const practice = loaded?.state.practice
-    ? practiceGuide(loaded.state, outputs, {
-        unsaved: drafts.files['SKILL.md'] !== undefined,
-        running,
-      })
-    : null
 
   // The one suggested next step, in loop order. Hidden while a job runs or when already there.
   const next: { label: string; screen: string; params?: Record<string, string> } | null =
@@ -346,6 +298,7 @@ export function App() {
                     key={p.screen}
                     icon={<p.icon aria-hidden="true" />}
                     label={p.label}
+                    title={SCREEN_HELP[p.screen]?.short}
                     meta={status.meta[p.screen]}
                     dot={status.dot[p.screen]}
                     current={screen === p.screen}
@@ -366,6 +319,7 @@ export function App() {
             key={p.screen}
             icon={<p.icon aria-hidden="true" />}
             label={p.label}
+            title={SCREEN_HELP[p.screen]?.short}
             current={screen === p.screen}
             onClick={() => go(p.screen)}
           />
@@ -392,16 +346,19 @@ export function App() {
     : null
 
   const body = (() => {
+    if (screen === 'welcome')
+      return <Welcome starting={starting} onStart={startPractice} onLibrary={() => go('library')} />
     if (screen === 'docs')
       return (
         <Suspense fallback={<Loading size="screen" />}>
-          <Docs />
+          {/* Going back to the guide returns to where it was read, not to the section it opened on. */}
+          <Docs section={route.arrival === 'step' ? route.params.get('section') : null} />
         </Suspense>
       )
     if (screen === 'settings')
       return (
         <Suspense fallback={<Loading size="screen" />}>
-          <SettingsScreen toast={toast} onSaved={reload} />
+          <SettingsScreen toast={toast} onSaved={reload} onWelcome={() => go('welcome')} />
         </Suspense>
       )
     if (screen === 'library')
@@ -464,6 +421,17 @@ export function App() {
     }
   })()
 
+  const help = SCREEN_HELP[screen] ?? null
+  const seen = preferences.hintsSeen
+  // Each screen of the loop says what it is for on a first visit, once its skill
+  // has loaded and not over a spinner or an error. The library needs no line:
+  // on a first visit it already offers the practice skill.
+  const hinted = isSkillScreen(screen) && ctx !== null
+  const hint =
+    help && hinted && preferences.hints === 'show' && !seen.includes(screen) ? help.what : null
+  const keep = (patch: Parameters<typeof setPreferences>[0]) =>
+    void setPreferences(patch).catch((e: Error) => toast(`Not saved: ${e.message}`))
+
   return (
     <AppFrame assistant={assistant}>
       <Sidebar>{sidebar}</Sidebar>
@@ -521,6 +489,18 @@ export function App() {
               <ArrowRightIcon aria-hidden="true" />
             </Button>
           ) : null}
+          <HelpButton
+            label={place?.label ?? ''}
+            help={help}
+            hintsOff={preferences.hints === 'hide' || seen.length > 0}
+            onGuide={(section) => go('docs', section ? { section } : {})}
+            onWelcome={() => go('welcome')}
+            onAsk={() => setAssistant(true)}
+            onShowHints={() => {
+              keep({ hints: 'show', hintsSeen: [] })
+              toast('Each screen shows its hint again')
+            }}
+          />
           <Toggle
             size="sm"
             aria-label="Assistant"
@@ -531,6 +511,9 @@ export function App() {
             <PanelRightIcon aria-hidden="true" />
           </Toggle>
         </TopBar>
+        {hint ? (
+          <ScreenHint onDismiss={() => keep({ hintsSeen: [...seen, screen] })}>{hint}</ScreenHint>
+        ) : null}
         <Pane ref={pane} layout={ctx && WORKBENCH.has(screen) ? 'flush' : 'page'}>
           {body}
         </Pane>

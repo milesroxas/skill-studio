@@ -3,6 +3,7 @@
 import { mean } from '@domain/stats.ts'
 import { Fragment, useState } from 'react'
 import { api } from '../api.ts'
+import { Term } from '../components/Help.tsx'
 import {
   EmptyState,
   PlainList,
@@ -299,7 +300,9 @@ function RunDetail({
             <TableHead numeric optional>
               Tool calls
             </TableHead>
-            <TableHead>Flags</TableHead>
+            <TableHead>
+              <Term id="flag">Flags</Term>
+            </TableHead>
             <TableHead numeric>
               <VisuallyHidden>Open</VisuallyHidden>
             </TableHead>

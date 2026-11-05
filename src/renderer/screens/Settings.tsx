@@ -1,13 +1,13 @@
 /**
  * Settings. Yours first: how the app looks and moves, how the editor opens
- * Markdown, and the model the assistant writes with, stored with your
- * preferences and applied at once. Then the app's connections: Anthropic and
+ * Markdown, how much the app explains itself, and the model the assistant
+ * writes with, stored with your preferences and applied at once. Then the app's connections: Anthropic and
  * OpenAI, each by a key or by the CLI you are signed in to, and the TypeSafe
  * key Jev grades with. The desktop app keeps keys in the system keychain; a
  * key in the environment always wins and shows as such.
  */
 import { AI_PROVIDERS, type AiProviderId, type AiProviderInfo } from '@domain/ai.ts'
-import type { EditorMode, Motion, Preferences, Theme } from '@domain/preferences.ts'
+import type { EditorMode, Hints, Motion, Preferences, Theme } from '@domain/preferences.ts'
 import { SECRETS, type SecretId, type Settings } from '@domain/secrets.ts'
 import { MonitorIcon, MoonIcon, SunIcon } from 'lucide-react'
 import { type ReactNode, useId, useState } from 'react'
@@ -28,6 +28,7 @@ interface Props {
   toast: (message: string) => void
   /** Called after a change, so the open skill's state picks the key up. */
   onSaved: () => Promise<void>
+  onWelcome: () => void
 }
 
 const THEMES = [
@@ -70,11 +71,16 @@ const EDITOR_MODES = [
   { value: 'markdown', label: 'Markdown' },
 ] as const satisfies ReadonlyArray<{ value: EditorMode; label: string }>
 
-export function SettingsScreen({ toast, onSaved }: Props) {
+const HINTS = [
+  { value: 'show', label: 'Show' },
+  { value: 'hide', label: 'Hide' },
+] as const satisfies ReadonlyArray<{ value: Hints; label: string }>
+
+export function SettingsScreen({ toast, onSaved, onWelcome }: Props) {
   const preferences = usePreferences()
   const settings = useFetch(() => api.settings(), [])
   const { providers, choice } = useAi()
-  const ids = { theme: useId(), motion: useId(), editor: useId() }
+  const ids = { theme: useId(), motion: useId(), editor: useId(), hints: useId() }
   const choose = (patch: Partial<Preferences>) =>
     setPreferences(patch).catch((e: Error) => toast(`Not saved: ${e.message}`))
 
@@ -150,6 +156,38 @@ export function SettingsScreen({ toast, onSaved }: Props) {
             switch above the editor changes this too.
           </Hint>
         </Field>
+      </FormSection>
+
+      <FormSection
+        title="Help"
+        hint="The help button at the top right of every screen stays, whatever you choose here."
+      >
+        <Field>
+          <Label id={ids.hints}>Screen hints</Label>
+          <Segmented<Hints>
+            aria-labelledby={ids.hints}
+            value={preferences.hints}
+            onChange={(hints) => hints && choose({ hints })}
+            options={HINTS}
+          />
+          <Hint>
+            A hint says what a screen is for, in one line under the top bar, the first time you open
+            it.
+          </Hint>
+        </Field>
+        <Toolbar>
+          <Button
+            type="button"
+            variant="outline"
+            disabled={!preferences.hintsSeen.length}
+            onClick={() => choose({ hintsSeen: [] })}
+          >
+            Show every hint again
+          </Button>
+          <Button type="button" variant="outline" onClick={onWelcome}>
+            Open the welcome
+          </Button>
+        </Toolbar>
       </FormSection>
 
       <FormSection

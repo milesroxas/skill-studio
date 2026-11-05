@@ -108,14 +108,28 @@ export function FormSection({
   )
 }
 
+const formActionsVariants = cva('flex flex-wrap items-center gap-3 border-t pt-6 md:pl-[240px]', {
+  variants: {
+    /**
+     * Kept in view at the foot of the pane while the form scrolls, for a form
+     * whose one action would otherwise wait below the fold. The offset and
+     * padding cover the pane's own padding, as `ActionBar` does.
+     */
+    pinned: {
+      true: 'sticky -bottom-6 z-10 -mb-6 bg-background pb-6',
+      false: '',
+    },
+  },
+  defaultVariants: { pinned: false },
+})
+
 /** The actions at the end of a form, aligned with its fields. */
-export function FormActions({ className, ...props }: ComponentProps<'div'>) {
-  return (
-    <div
-      className={cn('flex flex-wrap items-center gap-3 border-t pt-6 md:pl-[240px]', className)}
-      {...props}
-    />
-  )
+export function FormActions({
+  pinned,
+  className,
+  ...props
+}: ComponentProps<'div'> & VariantProps<typeof formActionsVariants>) {
+  return <div className={cn(formActionsVariants({ pinned }), className)} {...props} />
 }
 
 const workbenchVariants = cva(

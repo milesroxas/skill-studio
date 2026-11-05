@@ -6,7 +6,7 @@ A desktop studio for agent skills. Write a skill, give it cases, run headless co
 
 Most skill eval tools stop at pass/fail. Skill Studio is built for subjective outputs (writing, HTML, agent process): judge answers are stored so you can reweight without new calls, a blind review queue calibrates the judges against your own ratings, and labelled anchors gate whether a judge pack can be trusted.
 
-New here? [docs/guide.md](docs/guide.md) walks one skill through the whole loop, step by step. The same guide opens from Guide at the foot of the app's sidebar.
+New here? [docs/guide.md](docs/guide.md) walks one skill through the whole loop, step by step. The same guide opens from Guide at the foot of the app's sidebar. The app itself opens on a welcome that tours the loop, and the question mark at the top right of every screen says what that screen is for.
 
 ## Setup
 
@@ -189,7 +189,7 @@ Every operation is `POST /api/<name>` with its input as the JSON body; operation
 | `ai.assist`, `ai.run`, `ai.stop`                                                      | start writing one field `{field, instruction, current, context, images}`, in that field's shape; read a reply `{id}` as it grows; stop it          |
 | `chat.read`, `chat.send`, `chat.clear`                                                | the Assistant panel's conversation, kept in `~/.skill-studio/chat.json`; add a message `{skill, text, images, screen}` and start the reply         |
 | `image.upload`, `image.read`                                                          | keep a picture `{name, data}` (base64) in `~/.skill-studio/uploads/` until a case or a message saves it; a picture's bytes `{file, upload}`: a file in the skill, or an upload |
-| `preferences.read`, `preferences.write`                                               | your theme, motion and editor view, kept in `~/.skill-studio/preferences.json`; write `{preferences}`                                      |
+| `preferences.read`, `preferences.write`                                               | your theme, motion, editor view and which help you have seen, kept in `~/.skill-studio/preferences.json`; write `{preferences}`                                      |
 | `skill.state`                                                                         | cases, runs, versions, engines, config, reviews, anchors                                                                                  |
 | `skill.run`, `skill.transcript`, `skill.artifact`, `skill.files`                      | one run `{run}`; one transcript `{run, sample}`; one artifact `{run, sample, file}`; the skill's files `{source}`: `current`, a version (`v2`) or a run |
 | `skill.saveVersion`, `skill.restoreVersion`                                           | save the files as the next version `{name, note}`; put a version's files back `{version, force}` (refused without `force` when the files are no version) |

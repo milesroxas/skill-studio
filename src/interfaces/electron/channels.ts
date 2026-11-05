@@ -10,6 +10,7 @@ export const CHANNELS = {
   call: 'studio:call',
   jobs: 'studio:jobs',
   ai: 'studio:ai',
+  go: 'studio:go',
   openArtifact: 'studio:open-artifact',
   openExternal: 'studio:open-external',
 } as const

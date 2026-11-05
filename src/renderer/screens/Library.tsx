@@ -53,6 +53,7 @@ import {
 import { Toggle } from '../components/ui/toggle.tsx'
 import { useFetch } from '../hooks.ts'
 import { plural, shortDate } from '../model.ts'
+import { useStartPractice } from '../practice.ts'
 
 interface Props {
   /** The new-skill form is open: held in the route, so the sidebar can open it too. */
@@ -79,19 +80,7 @@ export function LibraryScreen({
   const [query, setQuery] = useState('')
   const [place, setPlace] = useState('')
   const [showInstalled, setShowInstalled] = useState(false)
-  const [starting, setStarting] = useState(false)
-
-  /** Open the practice skill, written with its cases on the first call. */
-  const startPractice = async () => {
-    setStarting(true)
-    try {
-      const skill = await api.practice()
-      openSkill(skill.path)
-    } catch (e) {
-      toast((e as Error).message)
-      setStarting(false)
-    }
-  }
+  const [starting, startPractice] = useStartPractice(openSkill, toast)
 
   const data = lib.data
   const matches = useMemo(() => {

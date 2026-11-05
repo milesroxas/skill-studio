@@ -36,6 +36,8 @@ export interface Transport {
   watchJobs?: (listener: (jobs: Job[]) => void) => () => void
   /** Push assistant replies as they grow; otherwise undefined and the page polls a running one. */
   watchAi?: (listener: (run: AiRun) => void) => () => void
+  /** Screens the desktop app's menu asks for; a browser has no such menu. */
+  watchGo?: (listener: (screen: string) => void) => () => void
   platform: string
 }
 
@@ -56,6 +58,7 @@ function desktop(bridge: StudioBridge): Transport {
     openExternal: (url) => void bridge.openExternal(url).then(unwrap),
     watchJobs: (listener) => bridge.onJobs(listener),
     watchAi: (listener) => bridge.onAi(listener),
+    watchGo: (listener) => bridge.onGo(listener),
     platform: bridge.platform,
   }
 }

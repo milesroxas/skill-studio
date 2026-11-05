@@ -7,7 +7,7 @@
 import type { LibrarySkill } from '@domain/library.ts'
 import { slug } from '@domain/text.ts'
 import { ChevronsUpDownIcon, LibraryIcon, PlusIcon } from 'lucide-react'
-import { type KeyboardEvent, type ReactNode, useEffect, useMemo, useRef, useState } from 'react'
+import { type KeyboardEvent, useEffect, useMemo, useRef, useState } from 'react'
 import { api } from '../api.ts'
 import { shortcut } from '../keys.ts'
 import { plural } from '../model.ts'
@@ -15,6 +15,7 @@ import { Text } from './text.tsx'
 import { Input } from './ui/input.tsx'
 import {
   Popover,
+  PopoverAction,
   PopoverContent,
   PopoverLabel,
   PopoverSection,
@@ -46,32 +47,6 @@ function useShortcut(onPress: () => void) {
     window.addEventListener('keydown', handle)
     return () => window.removeEventListener('keydown', handle)
   }, [onPress])
-}
-
-/** An action at the foot of the list, under the skills. */
-function FootAction({
-  icon,
-  hint,
-  onClick,
-  children,
-}: {
-  icon: ReactNode
-  /** A shortcut, at the far edge. */
-  hint?: string
-  onClick: () => void
-  children: ReactNode
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="flex min-h-8 items-center gap-2 rounded-md px-2 text-left text-ui outline-none transition-[background-color] duration-150 ease-out hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring/50 [&_svg]:size-4 [&_svg]:shrink-0 [&_svg]:text-muted-foreground"
-    >
-      {icon}
-      <span className="min-w-0 flex-1 truncate">{children}</span>
-      {hint ? <kbd className="font-sans text-xs text-muted-foreground">{hint}</kbd> : null}
-    </button>
-  )
 }
 
 export function SkillSwitcher({
@@ -247,10 +222,10 @@ export function SkillSwitcher({
           ))}
         </PopoverSection>
         <PopoverSection>
-          <FootAction icon={<PlusIcon aria-hidden="true" />} onClick={create}>
+          <PopoverAction icon={<PlusIcon aria-hidden="true" />} onClick={create}>
             {newName ? `New skill “${newName}”` : 'New skill'}
-          </FootAction>
-          <FootAction
+          </PopoverAction>
+          <PopoverAction
             icon={<LibraryIcon aria-hidden="true" />}
             hint={shortcut('K')}
             onClick={() => {
@@ -259,7 +234,7 @@ export function SkillSwitcher({
             }}
           >
             All skills in the library
-          </FootAction>
+          </PopoverAction>
         </PopoverSection>
       </PopoverContent>
     </Popover>

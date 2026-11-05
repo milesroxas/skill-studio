@@ -10,7 +10,8 @@ import {
   type PracticeStep,
   practiceProgress,
 } from '@domain/practice.ts'
-import type { State } from './api.ts'
+import { useState } from 'react'
+import { api, type State } from './api.ts'
 import { type Output, plural } from './model.ts'
 
 export interface PracticeTarget {
@@ -116,4 +117,26 @@ export function practiceGuide(
       ? { ...copy[step].target, screen: 'generate', params: undefined }
       : copy[step].target,
   }
+}
+
+/**
+ * Open the practice skill, written with its cases the first time it is asked
+ * for. The library and the welcome screen both offer it.
+ */
+export function useStartPractice(
+  openSkill: (path: string) => void,
+  toast: (message: string) => void,
+): [starting: boolean, start: () => Promise<void>] {
+  const [starting, setStarting] = useState(false)
+  const start = async () => {
+    setStarting(true)
+    try {
+      const skill = await api.practice()
+      openSkill(skill.path)
+    } catch (e) {
+      toast((e as Error).message)
+    }
+    setStarting(false)
+  }
+  return [starting, start]
 }

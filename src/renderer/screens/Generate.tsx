@@ -313,7 +313,8 @@ export function Generate({ ctx }: { ctx: Ctx }) {
         </CheckRow>
       </FormSection>
 
-      <FormActions>
+      {/* The one step this screen exists for stays in view however long the form above it. */}
+      <FormActions pinned>
         <Button type="button" disabled={busy || !cases.size || !writers.length} onClick={submit}>
           {busy ? 'Starting…' : 'Start a run'}
         </Button>

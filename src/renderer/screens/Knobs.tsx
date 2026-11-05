@@ -6,6 +6,7 @@ import { useState } from 'react'
 import { api } from '../api.ts'
 import { Disclosure } from '../components/Disclosure.tsx'
 import { CheckRow, Knob } from '../components/forms.tsx'
+import { Term } from '../components/Help.tsx'
 import {
   Column,
   ColumnBody,
@@ -146,7 +147,7 @@ export function Knobs({ ctx }: { ctx: Ctx }) {
       </Column>
 
       <Column kind="inspector">
-        <ColumnSection inset="inspector" title="Packs">
+        <ColumnSection inset="inspector" title={<Term id="pack">Packs</Term>}>
           <Stack gap="md">
             {scorers.map((pack) => (
               <CheckRow
@@ -164,7 +165,7 @@ export function Knobs({ ctx }: { ctx: Ctx }) {
 
         <ColumnSection
           inset="inspector"
-          title="Layer weights"
+          title={<Term id="layer">Layer weights</Term>}
           hint="Points per layer. A layer with no score drops out and the rest rescale."
         >
           <Stack gap="lg">

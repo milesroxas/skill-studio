@@ -33,6 +33,10 @@ const popoverContentVariants = cva(
         compose: 'flex w-[min(440px,calc(100vw-32px))] flex-col p-0',
         /** The same, for a reply as long as a file. */
         'compose-wide': 'flex w-[min(640px,calc(100vw-32px))] flex-col p-0',
+        /** What a screen is for and the words it uses, in sections (`PopoverSection`). */
+        help: 'flex w-[min(340px,calc(100vw-32px))] flex-col p-0',
+        /** One word and what it means, beside the word. */
+        note: 'flex w-64 flex-col gap-1 px-3 py-2.5',
       },
       /** Opened from the keyboard many times a day: no animation at all. */
       still: {
@@ -70,24 +74,59 @@ function PopoverContent({
   )
 }
 
-const popoverSectionVariants = cva('flex flex-col gap-px p-1 [&+&]:border-t', {
+const popoverSectionVariants = cva('flex flex-col [&+&]:border-t', {
   variants: {
+    pad: {
+      /** Rows to pick from, each with its own padding. */
+      rows: 'gap-px p-1',
+      /** Text to read. */
+      text: 'gap-2 p-3',
+    },
     /** Scrolls on its own when the list runs long. Rows keep their height: a flex column would squeeze them to fit. */
     scroll: {
       true: 'max-h-80 overflow-y-auto overscroll-contain *:shrink-0',
       false: '',
     },
   },
-  defaultVariants: { scroll: false },
+  defaultVariants: { pad: 'rows', scroll: false },
 })
 
 /** One part of a `menu` popover: a search, a list, a footer. Parts are divided by a rule. */
 function PopoverSection({
   className,
+  pad,
   scroll,
   ...props
 }: React.ComponentProps<'div'> & VariantProps<typeof popoverSectionVariants>) {
-  return <div className={cn(popoverSectionVariants({ scroll }), className)} {...props} />
+  return <div className={cn(popoverSectionVariants({ pad, scroll }), className)} {...props} />
+}
+
+/** A row that does something, in a section of rows: an icon, what it does, and its shortcut. */
+function PopoverAction({
+  icon,
+  hint,
+  className,
+  children,
+  ...props
+}: React.ComponentProps<'button'> & {
+  icon?: React.ReactNode
+  /** A shortcut, at the far edge. */
+  hint?: string
+}) {
+  return (
+    <button
+      type="button"
+      className={cn(
+        'flex min-h-8 items-center gap-2 rounded-md px-2 text-left text-ui outline-none transition-[background-color] duration-150 ease-out hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring/50 pointer-coarse:min-h-11 [&_svg]:size-4 [&_svg]:shrink-0 [&_svg]:text-muted-foreground',
+        className,
+      )}
+      {...props}
+    >
+      {icon}
+      <span className="min-w-0 flex-1 truncate">{children}</span>
+      {hint ? <kbd className="font-sans text-xs text-muted-foreground">{hint}</kbd> : null}
+    </button>
+  )
 }
 
 /** The name of a list inside a popover, or a line in place of an empty one. */
@@ -100,4 +139,12 @@ function PopoverLabel({ className, ...props }: React.ComponentProps<'p'>) {
   )
 }
 
-export { Popover, PopoverAnchor, PopoverContent, PopoverLabel, PopoverSection, PopoverTrigger }
+export {
+  Popover,
+  PopoverAction,
+  PopoverAnchor,
+  PopoverContent,
+  PopoverLabel,
+  PopoverSection,
+  PopoverTrigger,
+}

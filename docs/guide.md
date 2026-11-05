@@ -35,6 +35,12 @@ In the desktop app, the two arrows at the left of the top bar go back and forwar
 
 When a step is due, a Next button at the top right names it: "Add a case", "Run v1" or "Rate 11 outputs". It is hidden while a run is in progress.
 
+Help is in the same place on every screen:
+
+- The question mark at the top right says what the screen in view is for and what its words mean. From there you can open this guide at the matching step, open the welcome again, or ask the Assistant.
+- The first time a screen of the loop opens, a hint under the top bar says what it is for in one line. "Got it" puts it away for good.
+- A word with a dotted line under it, such as Packs on Scoring, opens what it means when you click it.
+
 The pictures in this guide show a sample skill, `release-notes`. Its scores are made up.
 
 ## Before you start
@@ -55,17 +61,19 @@ pnpm dev
 
 Then open Settings at the foot of the sidebar and paste the TypeSafe key. The app keeps it in your system keychain. If the app shows "No Jev key" at the top right, the key is missing; the pill takes you to Settings.
 
-Settings also holds your own preferences: the theme (system, light or dark), whether to reduce motion, and whether the Write screen opens Markdown formatted or as source.
+The first time it opens, the app shows a welcome: two sentences on what a skill is, and one button. "See how it works" tells the loop in six steps on the practice skill, one step to a screen, and ends on **Start practice**. Skip goes to your skills at any point. The welcome stays one click away: "How Skill Studio works" under the question mark at the top right, and in the Help menu of the desktop app.
+
+Settings also holds your own preferences: the theme (system, light or dark), whether to reduce motion, whether the Write screen opens Markdown formatted or as source, and whether screens show their hints. "Show every hint again" brings back the ones you put away.
 
 To use the app in a browser, or from your phone or another computer, run `pnpm build` then `pnpm st serve` (add `--tailscale` for other devices). The [README](https://github.com/milesroxas/skill-studio#in-a-browser-or-from-another-device) explains who can reach it and why that is safe. In a browser the key comes from `TYPESAFE_API_KEY` in the environment or a `.env` in the checkout.
 
 ## Practise on a finished skill first
 
-The fastest way to learn the loop is to go round it once on a skill that is already written. On a first visit the Library offers one: click **Start practice**. The New skill form offers it too, until you have started it.
+The fastest way to learn the loop is to go round it once on a skill that is already written. The welcome offers one, and so does the Library on a first visit: click **Start practice**. The New skill form offers it too, until you have started it.
 
 The practice skill is `thank-you-note`. It writes a short thank-you note, so a run takes under a minute and a note is read and rated in seconds. It comes with three cases, and every form on the way is filled in, so there is nothing to type.
 
-A Practice block at the foot of the sidebar names the step you are on, and clicking it takes you there:
+The practice skill opens on the step you are on. A Practice block at the foot of the sidebar names that step, and clicking it takes you back there:
 
 1. **Run the skill.** New run opens with the cases ticked and the version named. Click "Start a run".
 2. **Rate the notes.** Score each note in Rate blind before you see the judge's score.

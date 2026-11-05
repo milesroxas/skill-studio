@@ -215,6 +215,8 @@ export interface StudioBridge {
   onJobs(listener: (jobs: Job[]) => void): () => void
   /** An assistant reply as it grows and when it ends; returns the unsubscribe. */
   onAi(listener: (run: AiRun) => void): () => void
+  /** A screen the application menu asks for, such as the guide; returns the unsubscribe. */
+  onGo(listener: (screen: string) => void): () => void
   /** Show an `artifact:` URL in its own sandboxed window. */
   openArtifact(url: string): Promise<Reply<null>>
   /** Open an https link in the default browser. */

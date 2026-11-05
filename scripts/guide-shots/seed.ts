@@ -8,6 +8,7 @@
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { mergeConfig } from '@domain/config.ts'
+import { DEFAULT_PREFERENCES } from '@domain/preferences.ts'
 import { rulesFromSkill } from '@domain/rules.ts'
 import { runName, sampleDir } from '@domain/run-name.ts'
 import type { Configuration, ReportResult, RunMeta, SampleMeta } from '@domain/schemas.ts'
@@ -16,6 +17,7 @@ import { copyOf, words } from '@domain/text.ts'
 import { loadBench, loadCases, saveCase } from '@infrastructure/cases.ts'
 import { writeJson } from '@infrastructure/fs.ts'
 import { createSkill, touchRecent } from '@infrastructure/library.ts'
+import { writePreferences } from '@infrastructure/preferences.ts'
 import { savePreference, saveReview } from '@infrastructure/reviews.ts'
 import { runDir, versionsOf } from '@infrastructure/runs.ts'
 import { skillFiles, skillHash, snapshotSkill, snapshotSkillFiles } from '@infrastructure/skill.ts'
@@ -33,6 +35,8 @@ writeJson(join(HOME, '.skill-studio', 'library.json'), {
   others: [],
   recent: [],
 })
+// The pictures show the screens as they are in daily use: past the welcome, with no first-visit hints.
+writePreferences({ ...DEFAULT_PREFERENCES, welcomed: true, hints: 'hide' })
 
 createSkill({
   scope: 'user',
