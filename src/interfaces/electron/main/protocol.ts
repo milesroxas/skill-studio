@@ -3,6 +3,7 @@
  * renderer, `artifact://sample?...` serves a sample's file through the backend
  * with a sandbox policy, so agent-written HTML can never script the app.
  */
+import { randomBytes } from 'node:crypto'
 import { existsSync, statSync } from 'node:fs'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
@@ -15,7 +16,7 @@ import { isWithin } from '@domain/paths.ts'
 import { net, protocol } from 'electron'
 import { APP_HOST, APP_SCHEME, ARTIFACT_HOST, ARTIFACT_SCHEME } from '../channels.ts'
 import type { Backend } from './backend.ts'
-import { contentSecurityPolicy } from './csp.ts'
+import { contentSecurityPolicy, withStyleNonce } from './csp.ts'
 
 /** Must run before `ready`. */
 export function registerSchemes(): void {
@@ -33,7 +34,6 @@ const notFound = (what: string): Response =>
 
 /** Serve the renderer from `rendererDir`; unknown paths get index.html (the app routes by hash). */
 function serveApp(rendererDir: string): (request: Request) => Promise<Response> {
-  const csp = contentSecurityPolicy()
   return async (request) => {
     const url = new URL(request.url)
     if (url.host !== APP_HOST) return notFound('page')
@@ -45,7 +45,14 @@ function serveApp(rendererDir: string): (request: Request) => Promise<Response> 
     if (!existsSync(file) || statSync(file).isDirectory()) file = join(rendererDir, 'index.html')
     const response = await net.fetch(pathToFileURL(file).toString())
     const headers = new Headers(response.headers)
-    if (file.endsWith('.html')) headers.set('content-security-policy', csp)
+    if (file.endsWith('.html')) {
+      // Each page load gets its own style nonce, so a stale or guessed one is useless.
+      const styleNonce = randomBytes(16).toString('base64')
+      headers.set('content-security-policy', contentSecurityPolicy({ styleNonce }))
+      headers.delete('content-length')
+      const html = withStyleNonce(await response.text(), styleNonce)
+      return new Response(html, { status: response.status, headers })
+    }
     // Vite names built assets by content hash, so they never change under one URL.
     if (isWithin(file, join(rendererDir, 'assets')))
       headers.set('cache-control', 'private, max-age=31536000, immutable')

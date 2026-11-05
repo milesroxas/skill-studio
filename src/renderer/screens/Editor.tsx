@@ -34,9 +34,13 @@ import {
   Toolbar,
   Workbench,
 } from '../components/layout.tsx'
+import {
+  MarkdownEditor,
+  type MarkdownEditorHandle,
+  useEditorMode,
+} from '../components/MarkdownEditor.tsx'
 import { NavButton } from '../components/NavButton.tsx'
 import { GuideBox, GuideList, Starter } from '../components/starters.tsx'
-import { TextArea } from '../components/TextArea.tsx'
 import { Hint, Text } from '../components/text.tsx'
 import { Alert, AlertDescription, AlertTitle } from '../components/ui/alert.tsx'
 import { Button } from '../components/ui/button.tsx'
@@ -60,7 +64,8 @@ export function Editor({ ctx }: { ctx: Ctx }) {
   const [showDiff, setShowDiff] = useState(false)
   const [newName, setNewName] = useState('')
   const [busy, setBusy] = useState(false)
-  const area = useRef<HTMLTextAreaElement>(null)
+  const [mode, setMode] = useEditorMode()
+  const editor = useRef<MarkdownEditorHandle>(null)
 
   const files = disk.data?.files ?? {}
   const paths = [...new Set([...Object.keys(files), ...Object.keys(edits)])].sort((a, b) =>
@@ -82,15 +87,9 @@ export function Editor({ ctx }: { ctx: Ctx }) {
 
   /** Put a snippet at the cursor (or over the selection) and leave the cursor inside it. */
   const insert = (snippet: Snippet) => {
-    const el = area.current
-    const start = el?.selectionStart ?? text.length
-    const end = el?.selectionEnd ?? text.length
-    const next = insertAt(text, start, end, snippet)
-    edit(next.text)
-    requestAnimationFrame(() => {
-      el?.focus()
-      el?.setSelectionRange(next.cursor, next.cursor)
-    })
+    if (editor.current) return editor.current.insert(snippet)
+    // The diff is showing: add the snippet at the end.
+    edit(insertAt(text, text.length, text.length, snippet).text)
   }
 
   /** Replace the body of SKILL.md with a template's, keeping the front matter. */
@@ -105,7 +104,7 @@ export function Editor({ ctx }: { ctx: Ctx }) {
     )
       return
     edit(applyTemplate(text, template, state.skill.name))
-    requestAnimationFrame(() => area.current?.focus())
+    requestAnimationFrame(() => editor.current?.focus())
   }
 
   const drop = (path: string) => drafts.setFile(path, null)
@@ -159,13 +158,6 @@ export function Editor({ ctx }: { ctx: Ctx }) {
     }
   }
 
-  const onKey = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if ((e.metaKey || e.ctrlKey) && e.key === 's') {
-      e.preventDefault()
-      save()
-    }
-  }
-
   const isSkill = file === 'SKILL.md'
   const meta = isSkill ? readFrontMatter(text).meta : {}
   const rules = isSkill && !config.rules?.length ? rulesFromSkill(text) : []
@@ -178,6 +170,42 @@ export function Editor({ ctx }: { ctx: Ctx }) {
 
   const missing = isSkill ? ['name', 'description'].filter((k) => !metaText(meta, k)) : []
   const current = state.versions.current
+
+  /** What to know about the file before editing it: a newer copy on disk, missing front matter. */
+  const notes =
+    stale || missing.length ? (
+      <>
+        {stale ? (
+          <Alert variant="warning" role="status">
+            <AlertTitle>{file} changed on disk since this draft began</AlertTitle>
+            <AlertDescription>
+              <p>Keep your draft to save over the file, or take the file as it is now.</p>
+              <Toolbar>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => draft && drafts.setFile(file, { ...draft, previous: saved })}
+                >
+                  Keep my draft
+                </Button>
+                <Button type="button" variant="ghost" size="sm" onClick={() => drop(file)}>
+                  Use the file on disk
+                </Button>
+              </Toolbar>
+            </AlertDescription>
+          </Alert>
+        ) : null}
+        {missing.length ? (
+          <Alert variant="warning">
+            <AlertTitle>Front matter needs {missing.join(' and ')}</AlertTitle>
+            <AlertDescription>
+              Agents find a skill by its name and description, between the --- lines at the top.
+            </AlertDescription>
+          </Alert>
+        ) : null}
+      </>
+    ) : null
 
   return (
     <Workbench>
@@ -375,84 +403,60 @@ export function Editor({ ctx }: { ctx: Ctx }) {
             {busy ? 'Saving…' : 'Save'}
           </Button>
         </ColumnHeader>
-        {stale || missing.length || (blank && !showDiff) || showDiff ? (
+        {showDiff ? (
           <ColumnBody>
-            {stale ? (
-              <Alert variant="warning" role="status">
-                <AlertTitle>{file} changed on disk since this draft began</AlertTitle>
-                <AlertDescription>
-                  <p>Keep your draft to save over the file, or take the file as it is now.</p>
-                  <Toolbar>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => draft && drafts.setFile(file, { ...draft, previous: saved })}
-                    >
-                      Keep my draft
-                    </Button>
-                    <Button type="button" variant="ghost" size="sm" onClick={() => drop(file)}>
-                      Use the file on disk
-                    </Button>
-                  </Toolbar>
-                </AlertDescription>
-              </Alert>
-            ) : null}
-            {missing.length ? (
-              <Alert variant="warning">
-                <AlertTitle>Front matter needs {missing.join(' and ')}</AlertTitle>
-                <AlertDescription>
-                  Agents find a skill by its name and description, between the --- lines at the top.
-                </AlertDescription>
-              </Alert>
-            ) : null}
-            {showDiff ? (
-              diff.length ? (
-                <DiffLines lines={diff} />
-              ) : (
-                <Hint>No changes from the file on disk.</Hint>
-              )
-            ) : blank ? (
-              <Starter
-                aria-label="Start from a template"
-                title="Start from a template"
-                hint="Each one is a small, finished skill in the shape the judge grades: one rule per bullet, with its why. Replace the rules with yours."
-              >
-                <Toolbar>
-                  {EXAMPLE_KINDS.map((t) => (
-                    <Button
-                      key={t.id}
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      title={t.summary}
-                      onClick={() => startFrom(t)}
-                    >
-                      {t.label}
-                    </Button>
-                  ))}
-                </Toolbar>
-              </Starter>
-            ) : null}
+            {notes}
+            {diff.length ? (
+              <DiffLines lines={diff} />
+            ) : (
+              <Hint>No changes from the file on disk.</Hint>
+            )}
           </ColumnBody>
-        ) : null}
-        {showDiff ? null : (
-          <ColumnBody inset="none">
-            <TextArea
-              ref={area}
-              variant="code"
-              aria-label={`Contents of ${file}`}
-              spellCheck={false}
-              placeholder={
-                isSkill
-                  ? 'Write for the agent that loads this skill. One rule per bullet, with its why.'
-                  : 'Longer material SKILL.md points to. Say first when the agent should read it.'
-              }
-              value={text}
-              onChange={(e) => edit(e.target.value)}
-              onKeyDown={onKey}
-            />
-          </ColumnBody>
+        ) : (
+          <MarkdownEditor
+            key={file}
+            ref={editor}
+            mode={mode}
+            onModeChange={setMode}
+            aria-label={`Contents of ${file}`}
+            placeholder={
+              isSkill
+                ? 'Write for the agent that loads this skill. One rule per bullet, with its why.'
+                : 'Longer material SKILL.md points to. Say first when the agent should read it.'
+            }
+            value={text}
+            onChange={edit}
+            onSave={save}
+            banner={
+              notes || blank ? (
+                <ColumnBody>
+                  {notes}
+                  {blank ? (
+                    <Starter
+                      aria-label="Start from a template"
+                      title="Start from a template"
+                      hint="Each one is a small, finished skill in the shape the judge grades: one rule per bullet, with its why. Replace the rules with yours."
+                    >
+                      <Toolbar>
+                        {EXAMPLE_KINDS.map((t) => (
+                          <Button
+                            key={t.id}
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            title={t.summary}
+                            onClick={() => startFrom(t)}
+                          >
+                            {t.label}
+                          </Button>
+                        ))}
+                      </Toolbar>
+                    </Starter>
+                  ) : null}
+                </ColumnBody>
+              ) : null
+            }
+          />
         )}
       </Column>
     </Workbench>

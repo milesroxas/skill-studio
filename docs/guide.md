@@ -80,6 +80,8 @@ You never start from a blank page:
 - "Start over from a template" is there once the file has rules, behind a confirmation.
 - A new reference file opens with a heading and a line for when the agent should read it.
 
+The editor has two views of the same text, switched at the right of its toolbar. Formatted styles the Markdown in place, as Obsidian does: headings, bold, lists and links read as a page, and their marks (`#`, `**`, a link's address) appear only on the line or word the cursor is in. Markdown shows the plain source. Both edit the same characters, so switching never changes the file. The toolbar applies headings, bold, italic, strikethrough, code, links, lists, task lists and quotes by writing the Markdown for you; ⌘B, ⌘I, ⌘E (code) and ⌘⇧X (strikethrough) do the same from the keyboard. Click a task's box to tick it. The app remembers the view you last chose.
+
 Everything you type is kept as a draft as you go, in `~/.skill-studio/drafts/`, outside the skill's folder. Close the app, switch skills or reload, and the unsaved text is still there. The sidebar shows a dot beside Write while a draft is open. Save writes the file and clears its draft; Discard throws the draft away.
 
 A save is refused if the file changed on disk since your draft began, so an edit made in your code editor is never overwritten. The editor says so and offers two ways on: keep your draft and save over the file, or take the file as it is now.

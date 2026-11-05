@@ -53,7 +53,6 @@ import { mergedConfig, outputsOf, plural, versionScore } from './model.ts'
 import { Blind } from './screens/Blind.tsx'
 import { Cases } from './screens/Cases.tsx'
 import { Compare } from './screens/Compare.tsx'
-import { Editor } from './screens/Editor.tsx'
 import { Generate } from './screens/Generate.tsx'
 import { Insights } from './screens/Insights.tsx'
 import { Knobs } from './screens/Knobs.tsx'
@@ -62,8 +61,9 @@ import { Overview } from './screens/Overview.tsx'
 import { Transcript } from './screens/Transcript.tsx'
 import { Versions } from './screens/Versions.tsx'
 
-/** The guide and settings load only when opened. */
+/** The guide, settings and the file editor (CodeMirror, about 110 KB gzipped) load only when opened. */
 const Docs = lazy(() => import('./screens/Docs.tsx').then((m) => ({ default: m.Docs })))
+const Editor = lazy(() => import('./screens/Editor.tsx').then((m) => ({ default: m.Editor })))
 const SettingsScreen = lazy(() =>
   import('./screens/Settings.tsx').then((m) => ({ default: m.SettingsScreen })),
 )
@@ -377,7 +377,11 @@ export function App() {
     if (!ctx) return <Hint>Loading {skillPath.split('/').pop()}…</Hint>
     switch (screen) {
       case 'edit':
-        return <Editor ctx={ctx} />
+        return (
+          <Suspense fallback={<EmptyState>Loading…</EmptyState>}>
+            <Editor ctx={ctx} />
+          </Suspense>
+        )
       case 'versions':
         return <Versions ctx={ctx} />
       case 'cases':

@@ -201,6 +201,24 @@ export function ColumnHeader({
   )
 }
 
+/**
+ * Tools that act on the column's body, such as formatting, in a row under the
+ * header. It sticks just below the header (48px) and covers the header's rule,
+ * so the two read as one bar with one rule under it.
+ */
+export function ColumnToolbar({ className, ...props }: ComponentProps<'div'>) {
+  return (
+    <div
+      role="toolbar"
+      className={cn(
+        'sticky top-12 z-10 -mt-px flex shrink-0 flex-wrap items-center gap-x-3 gap-y-1 border-b bg-background px-4 py-1',
+        className,
+      )}
+      {...props}
+    />
+  )
+}
+
 const columnBodyVariants = cva('flex flex-col', {
   variants: {
     inset: {
