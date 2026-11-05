@@ -93,6 +93,8 @@ A release is permanent. The repository refuses to move or delete a `v*` tag, and
 
 [SECURITY.md](SECURITY.md#checking-a-download) says what is signed and how a download is checked.
 
+The app icon is drawn in `build/icon-src/`: `mac.svg` becomes `build/icon.icns`, and `tile.svg` becomes `build/icon.ico` and `build/icon.png`. The two `-small` drawings carry a larger mark for the 16 to 32 px sizes. Export all three files again when the mark changes.
+
 ## License
 
 By contributing, you agree that your contributions are licensed under the [MIT License](LICENSE).

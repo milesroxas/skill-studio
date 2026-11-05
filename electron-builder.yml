@@ -42,6 +42,8 @@ linux:
   target:
     - AppImage
   category: Development
+  # The tile that fills its square, not the Mac icon with its margin and shadow.
+  icon: build/icon.png
 win:
   target:
     - nsis
