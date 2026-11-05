@@ -12,7 +12,7 @@ New here? [docs/guide.md](docs/guide.md) walks one skill through the whole loop,
 
 Needs:
 
-- Node 24 and pnpm, to build and to use the CLI. The packaged app needs neither: Electron carries its own Node. Download it for macOS, Windows or Linux from [Releases](https://github.com/milesroxas/skill-studio/releases).
+- Node 24 and pnpm, to build and to use the CLI. The packaged app needs neither: Electron carries its own Node. Each [release](https://github.com/milesroxas/skill-studio/releases) carries it for macOS, Windows and Linux.
 - A [TypeSafe](https://typesafe.ai) API key. Jev is the judge for every pack, so grading needs it. Add it under Settings in the app, which keeps it in the system keychain, or set `TYPESAFE_API_KEY` in the environment (a `.env` in the checkout works for development). Without it grading runs code checks only and leaves every judged layer null.
 - The `claude` or `cursor-agent` CLI on your `PATH`, signed in, to generate outputs.
 - Optional, to write with AI: an Anthropic or OpenAI API key (added under Settings, or `ANTHROPIC_API_KEY` / `OPENAI_API_KEY` in the environment), or the `claude` or `codex` CLI signed in to your plan.
@@ -166,7 +166,7 @@ The layers only point inward, and `fallow` enforces that (`.fallowrc.json`): the
 
 - The operations run in a backend utility process, not in the main process, so the window never waits on a file read, a hash or an agent. Job changes are pushed to the window; a browser polls instead.
 - The renderer reaches the main process through one preload bridge (`window.studio`) with one function per message.
-- Pages load from `studio://app/`; a sample's files load from `artifact://sample?...`.
+- Pages load from `studio://app/`; a sample's files load from `artifact://sample?...`, and a picture from `artifact://image?...`.
 - A key in the environment at launch wins over a stored one. A stored Anthropic or OpenAI key reaches the backend under a name of the app's own (`SKILL_STUDIO_ANTHROPIC_API_KEY`), never as `ANTHROPIC_API_KEY`, so an agent the app starts does not bill a key you stored for the assistant.
 - An assistant reply is pushed to the window as it grows, the same way job changes are; a browser polls a running reply.
 
@@ -176,7 +176,7 @@ The layers only point inward, and `fallow` enforces that (`.fallowrc.json`): the
 
 `st serve` binds `127.0.0.1:4400` by default (`--port` changes it). It listens on loopback only and has no login of its own, so do not expose it any other way than `--tailscale` (above). Every request must be addressed to `localhost` (or, with `--tailscale`, come through Tailscale as your login), come from the app's own pages, and send POST bodies as JSON. The built renderer (`out/renderer`) is served beside the API.
 
-Every operation is `POST /api/<name>` with its input as the JSON body; operations on a skill take `skill` (its path) in the body. The artifact operation is also `GET /api/artifact?skill=&run=&sample=&file=`, served raw with `Content-Security-Policy: sandbox; script-src 'none'`.
+Every operation is `POST /api/<name>` with its input as the JSON body; operations on a skill take `skill` (its path) in the body. The two operations that answer with a file are also `GET`, so a page can load them by URL: `/api/artifact?skill=&run=&sample=&file=` and `/api/image?skill=&file=&upload=`. Both are served raw with `Content-Security-Policy: sandbox; script-src 'none'`.
 
 | Operations                                                                            | Do                                                                                                                                        |
 | ------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
@@ -186,8 +186,9 @@ Every operation is `POST /api/<name>` with its input as the JSON body; operation
 | `library.workspaces`, `library.mark`                                                  | set the folders to scan `{workspaces}`; list a skill with installed ones `{path, theirs}`                                                 |
 | `jobs.list`, `settings.read`, `settings.key`                                          | background jobs; where each key (`jev`, `anthropic`, `openai`) comes from; store one `{id, value}` (desktop app only)                      |
 | `ai.status`, `ai.usage`                                                               | the four ways to reach a model, which are connected and the models each offers; requests and tokens today and over 30 days                 |
-| `ai.assist`, `ai.run`, `ai.stop`                                                      | start writing one field `{field, instruction, current, context}`, in that field's shape; read a reply `{id}` as it grows; stop it          |
-| `chat.read`, `chat.send`, `chat.clear`                                                | the Assistant panel's conversation, kept in `~/.skill-studio/chat.json`; add a message `{skill, text, screen}` and start the reply         |
+| `ai.assist`, `ai.run`, `ai.stop`                                                      | start writing one field `{field, instruction, current, context, images}`, in that field's shape; read a reply `{id}` as it grows; stop it          |
+| `chat.read`, `chat.send`, `chat.clear`                                                | the Assistant panel's conversation, kept in `~/.skill-studio/chat.json`; add a message `{skill, text, images, screen}` and start the reply         |
+| `image.upload`, `image.read`                                                          | keep a picture `{name, data}` (base64) in `~/.skill-studio/uploads/` until a case or a message saves it; a picture's bytes `{file, upload}`: a file in the skill, or an upload |
 | `preferences.read`, `preferences.write`                                               | your theme, motion and editor view, kept in `~/.skill-studio/preferences.json`; write `{preferences}`                                      |
 | `skill.state`                                                                         | cases, runs, versions, engines, config, reviews, anchors                                                                                  |
 | `skill.run`, `skill.transcript`, `skill.artifact`, `skill.files`                      | one run `{run}`; one transcript `{run, sample}`; one artifact `{run, sample, file}`; the skill's files `{source}`: `current`, a version (`v2`) or a run |
