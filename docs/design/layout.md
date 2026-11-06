@@ -8,7 +8,7 @@ All in `src/renderer/components/Shell.tsx`. A screen never renders these: `App.t
 
 | Part | Rule |
 | --- | --- |
-| `Sidebar` | ink in both themes **(phase 2)**: it carries `data-surface="ink"`. 208px, 232px from the `lg` breakpoint. |
+| `Sidebar` | ink in both themes: it carries `data-surface="ink"`. 208px, 232px from the `lg` breakpoint. |
 | `SidebarSection` | a label over its `NavItem`s, `Text caps` **(phase 3)** |
 | `NavItem` | one place. `meta` is its count, mono and tabular. `dot` is unsaved work, in `warning`. |
 | `SidebarFooter` | Library, Guide, Settings. `lead` holds what comes and goes: a job, an update. |

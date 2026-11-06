@@ -45,13 +45,17 @@ export function AppFrame({
   )
 }
 
-/** The left column: a drag strip for the window buttons, then the skill, its loop and the app links. */
+/**
+ * The left column, on ink in both themes: a drag strip for the window buttons,
+ * then the skill, its loop and the app links.
+ */
 export function Sidebar({ className, children, ...props }: ComponentProps<'nav'>) {
   return (
     <nav
       aria-label="App"
+      data-surface="ink"
       className={cn(
-        'hidden min-h-0 flex-col border-r bg-sidebar text-sidebar-foreground sm:flex',
+        'hidden min-h-0 flex-col bg-sidebar text-sidebar-foreground sm:flex',
         className,
       )}
       {...props}

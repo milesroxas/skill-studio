@@ -14,10 +14,17 @@
 
 /*
  * The theme is the person's choice, set on <html> as data-theme by
- * preferences.ts. Until that runs, the system's setting decides.
+ * preferences.ts. Until that runs, the system's setting decides. An ink
+ * surface (data-surface="ink": the sidebar, the welcome's opening) is dark in
+ * both themes, so `dark:` matches inside it too.
  */
 @custom-variant dark {
-  &:where([data-theme="dark"], [data-theme="dark"] *) {
+  &:where(
+    [data-theme="dark"],
+    [data-theme="dark"] *,
+    [data-surface="ink"],
+    [data-surface="ink"] *
+  ) {
     @slot;
   }
   @media (prefers-color-scheme: dark) {
@@ -42,9 +49,10 @@
   --muted-foreground: oklch(0.483 0.011 140);
   --accent: oklch(0.917 0.011 95);
   --accent-foreground: oklch(0.198 0.004 165);
-  --sidebar: oklch(0.936 0.011 95);
-  --sidebar-foreground: oklch(0.198 0.004 165);
-  --sidebar-accent: oklch(0.917 0.011 95);
+  /* The sidebar is ink in both themes: its text and hover come from the ink scope below. */
+  --sidebar: oklch(0.198 0.004 165);
+  --sidebar-foreground: oklch(0.961 0.01 94);
+  --sidebar-accent: oklch(0.29 0.004 165);
   --destructive: oklch(0.473 0.148 27);
   --success: oklch(0.452 0.095 148);
   --warning: oklch(0.489 0.1 69);
@@ -68,7 +76,9 @@
   color-scheme: light;
 }
 
-:root {
+/* The dark values: the whole page in the dark theme, and an ink surface in either. */
+:root,
+[data-surface="ink"] {
   @variant dark {
     --background: oklch(0.198 0.004 165);
     --foreground: oklch(0.961 0.01 94);
@@ -97,6 +107,17 @@
     --elevation-popover: 0 0 0 1px oklch(1 0 0 / 0.1), 0 12px 32px -8px oklch(0 0 0 / 0.5);
     color-scheme: dark;
   }
+}
+
+/*
+ * An ink surface takes the dark values on the sidebar's own ground. The
+ * sidebar tokens come from the theme around it, so the light theme's ink is
+ * the brand's and the dark theme's sits a step below the page.
+ */
+[data-surface="ink"] {
+  --sidebar: inherit;
+  --sidebar-accent: inherit;
+  --background: var(--sidebar);
 }
 
 @theme inline {
@@ -278,6 +299,9 @@
     @apply border-border outline-ring/50;
     scrollbar-width: thin;
     scrollbar-color: color-mix(in oklch, var(--foreground) 18%, transparent) transparent;
+  }
+  [data-surface="ink"] {
+    @apply bg-background text-foreground;
   }
   html {
     -webkit-tap-highlight-color: transparent;

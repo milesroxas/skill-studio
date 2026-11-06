@@ -2,7 +2,7 @@
 
 All color lives in `src/renderer/styles.css` as semantic tokens, written in `oklch()`. Components use the Tailwind class of a token. Nothing else names a color.
 
-The values below are in `styles.css`. The ink scope lands in phase 2.
+The values below are in `styles.css`.
 
 ## The three scopes
 
@@ -12,9 +12,9 @@ A token has one value per scope. The page picks the scope; a component never che
 | --- | --- | --- |
 | Light | `:root` | the page in the light theme |
 | Dark | `data-theme="dark"` on `<html>` | every surface in the dark theme |
-| Ink **(phase 2)** | `data-surface="ink"` on an element | the sidebar and the welcome's opening, in both themes |
+| Ink | `data-surface="ink"` on an element | the sidebar and the welcome's opening, in both themes |
 
-Ink uses the dark scope's values, with `--background` set to `--sidebar`. So a component inside the sidebar uses `text-muted-foreground` and `bg-accent` as it would anywhere, and gets values that work on ink. A popover opened from the sidebar renders in `<body>`, outside the scope, and is a paper sheet. That is intended.
+Ink uses the dark scope's values, with `--background` set to `--sidebar` and the sidebar tokens taken from the theme around it. So a component inside the sidebar uses `text-muted-foreground` and `bg-accent` as it would anywhere, and gets values that work on ink. A popover opened from the sidebar renders in `<body>`, outside the scope, and is a paper sheet. That is intended. The one exception is the sidebar itself opened as a popover on a narrow window (`PopoverContent size="nav"`), which carries the scope.
 
 ## Tokens
 
@@ -30,8 +30,8 @@ Ink uses the dark scope's values, with `--background` set to `--sidebar`. So a c
 | `--border` | `oklch(0.198 0.004 165 / 0.1)` | `oklch(0.29 0.004 165)` | hairlines |
 | `--input` | `oklch(0.198 0.004 165 / 0.2)` | `oklch(0.35 0.004 165)` | a control's edge |
 | `--ring` | `oklch(0.198 0.004 165)` | `oklch(0.961 0.01 94)` | focus ring, always used at `/50` |
-| `--sidebar` | `oklch(0.198 0.004 165)` (until phase 2: `oklch(0.936 0.011 95)`) | `oklch(0.165 0.004 165)` | the sidebar's ground |
-| `--sidebar-accent` | `oklch(0.29 0.004 165)` (until phase 2: `oklch(0.917 0.011 95)`) | `oklch(0.25 0.004 165)` | the current place |
+| `--sidebar` | `oklch(0.198 0.004 165)` | `oklch(0.165 0.004 165)` | the sidebar's ground |
+| `--sidebar-accent` | `oklch(0.29 0.004 165)` | `oklch(0.25 0.004 165)` | the current place |
 | `--success` | `oklch(0.452 0.095 148)` | `oklch(0.78 0.12 150)` | a good score, a pass |
 | `--warning` | `oklch(0.489 0.1 69)` | `oklch(0.8 0.11 70)` | a weak score, unsaved |
 | `--destructive` | `oklch(0.473 0.148 27)` | `oklch(0.76 0.12 25)` | a failing score, an error, a delete |
@@ -72,11 +72,11 @@ Does the color state a verdict (pass, weak, fail)?
 Lime marks exactly these:
 
 - the next step: `Button variant="signal"` **(phase 3)** in the top bar. See [buttons.md](buttons.md).
-- a running job: the dot in `JobsIndicator`, on the ink sidebar **(phase 2)**. It is the one lime that may sit beside the next step.
+- a running job: the dot in `JobsIndicator`, on the ink sidebar. It is the one lime that may sit beside the next step.
 - in the welcome: the current step in the progress row, and one `Slab` per frame. See [brand.md](brand.md).
 
 ```tsx
-// Correct after phase 2: the dot of a running job, in components/Jobs.tsx (today: bg-current)
+// Correct: the dot of a running job, in components/Jobs.tsx
 running: 'animate-pulse bg-signal',
 
 // Incorrect: lime as a highlight for something that is neither next nor running

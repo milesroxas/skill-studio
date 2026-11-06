@@ -27,7 +27,7 @@ const indicator = cva(
 const dot = cva('size-1.5 shrink-0 rounded-full', {
   variants: {
     status: {
-      running: 'animate-pulse bg-current',
+      running: 'animate-pulse bg-signal',
       done: 'bg-success',
       failed: 'bg-destructive',
     },

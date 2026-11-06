@@ -23,8 +23,8 @@ const popoverContentVariants = cva(
         default: 'w-72 p-1',
         /** A list to pick from, in sections divided by rules (`PopoverSection`). */
         menu: 'flex w-80 flex-col p-0',
-        /** The sidebar, opened from the top bar on a narrow window. */
-        nav: 'flex max-h-[80dvh] w-64 flex-col p-0 py-2',
+        /** The sidebar, opened from the top bar on a narrow window: ink, as the sidebar is. */
+        nav: 'flex max-h-[80dvh] w-64 flex-col bg-sidebar p-0 py-2 text-sidebar-foreground',
         /** A log or a long reading, as wide as the window allows. */
         wide: 'w-[min(520px,calc(100vw-280px))] p-2',
         /** A few fields under their labels. */
@@ -65,6 +65,7 @@ function PopoverContent({
     <PopoverPrimitive.Portal>
       <PopoverPrimitive.Content
         data-slot="popover-content"
+        data-surface={size === 'nav' ? 'ink' : undefined}
         align={align}
         sideOffset={sideOffset}
         className={cn(popoverContentVariants({ size, still }), className)}
