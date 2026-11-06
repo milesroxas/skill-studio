@@ -6,21 +6,21 @@ This guide walks one skill through the whole loop, from writing it to measuring 
 
 A skill is a `SKILL.md` an agent reads before it works. Skill Studio answers one question about it: does the skill make the agent's answers better, and did your last edit help or hurt?
 
-![The loop: Write, Cases, New run, Results, Rate blind, Agreement. From Agreement one arrow returns to Write, to change the skill, and one goes to Scoring, to tune the judge.](images/loop.svg)
+![The loop: Editor, Cases, New run, Results, Rate blind, Agreement. From Agreement one arrow returns to the Editor, to change the skill, and one goes to Scoring, to tune the judge.](images/loop.svg)
 
 Each step is a screen in the sidebar.
 
 | Step | Screen | What you do | Why |
 | --- | --- | --- | --- |
 | 1 | Library | Open or create a skill | Every skill on the machine is in one list, so you test the copy the agents use |
-| 2 | Write, Versions | Edit `SKILL.md` and `references/`, save versions | A score stays tied to the text that produced it |
+| 2 | Editor, Versions | Edit `SKILL.md` and `references/`, save versions | A score stays tied to the text that produced it |
 | 3 | Cases | Write the tasks the agent gets | A case is a test: a prompt, what a good answer does, and checks |
 | 4 | New run | Run agents on the cases | You grade what an agent wrote, not what you expect it to write |
 | 5 | Results | Read the judge's scores | Every answer is graded the same way, so two versions can be compared |
 | 6 | Rate blind, Compare | Rate answers before you see their scores | Your ratings are the ground truth the judge is measured against |
 | 7 | Agreement | Find where you and the judge disagree | The disagreement tells you whether to fix the skill or the scoring |
 | 8 | Scoring | Tune the scoring | A judge that disagrees with you measures the wrong thing |
-| 9 | Write | Change the skill and run again | One pass measures a version. The second measures your edit |
+| 9 | Editor | Change the skill and run again | One pass measures a version. The second measures your edit |
 
 ![The app with the release-notes skill open on Results: the sidebar on the left, four runs in the pane, and a Next button at the top right.](images/app.webp)
 
@@ -62,7 +62,7 @@ The first time it opens, the app shows a welcome. "See how it works" tells the l
 
 To see the welcome again, choose "How Skill Studio works" under the question mark, **Open the welcome** in Settings, or the Help menu of the desktop app.
 
-Settings also holds your preferences: the theme, whether to reduce motion, whether Write opens Markdown formatted or as source, whether screens show their hints, and, in the desktop app, whether it looks for new versions on its own.
+Settings also holds your preferences: the theme, whether to reduce motion, whether the Editor opens Markdown formatted or as source, whether screens show their hints, and, in the desktop app, whether it looks for new versions on its own.
 
 To use the app in a browser, or from your phone over Tailscale, run `pnpm build` then `pnpm st serve`. The [web server page](https://github.com/milesroxas/skill-studio/blob/main/docs/cli.md#the-web-server) explains who can reach it. In a browser the key comes from `TYPESAFE_API_KEY` in the environment or a `.env` in the checkout.
 
@@ -76,7 +76,7 @@ A Practice block in the sidebar names the step you are on, and clicking it takes
 
 1. **Run the skill.** New run opens with the cases ticked and the version named. Click "Start a run".
 2. **Rate the notes.** Score each note in Rate blind before you see the judge's score.
-3. **Tighten one rule.** One rule is vague on purpose: "Keep the note to a reasonable length." The agent cannot measure "reasonable", so the notes come back long and each case's "exactly two sentences" check fails. Write shows the vague rule beside an exact one. Click "Use the exact rule", or write your own, then Save.
+3. **Tighten one rule.** One rule is vague on purpose: "Keep the note to a reasonable length." The agent cannot measure "reasonable", so the notes come back long and each case's "exactly two sentences" check fails. The Editor shows the vague rule beside an exact one. Click "Use the exact rule", or write your own, then Save.
 4. **Run it again.** The same cases against the new rule. Only the skill changed, so any difference is your edit.
 5. **Compare the versions.** Read a note from each version side by side and vote for the better one.
 
@@ -100,7 +100,7 @@ To create one:
 4. Write a one-line description. Agents read it to decide when to use the skill, so say what it is for.
 5. Pick a Place. "User (every project)" makes it available everywhere; a project place keeps it in that project.
 6. Under "Install for", tick the agents that get it.
-7. Click Create skill. The app opens the new skill on Write.
+7. Click Create skill. The app opens the new skill in the Editor.
 
 The skill is written to `.agents/skills/<name>` and linked into each agent you ticked. A Writing, Code, Workflow or Design skill also gets an `evals/bench.json` that turns on the matching judge pack.
 
@@ -114,9 +114,9 @@ When a skill is missing from the list:
 
 ## 2. Write the skill
 
-Open Write. The left column holds the skill's files, the Insert buttons, the Graded rules and the Version. The editor fills the rest.
+Open the Editor. The left column holds the skill's files, the Insert buttons, the Graded rules and the Version. The editor fills the rest.
 
-![Write: the files, Insert buttons and Graded rules on the left; SKILL.md in the editor on the right, with a formatting toolbar under a switch for Formatted, Markdown or Changes.](images/write.webp)
+![The Editor: the files, Insert buttons and Graded rules on the left; SKILL.md in the editor on the right, with a formatting toolbar under a switch for Formatted, Markdown or Changes.](images/editor.webp)
 
 1. Edit `SKILL.md` in the editor. Save with the Save button or Cmd+S (Ctrl+S on Windows and Linux).
 2. Add longer material as files under `references/`: press the plus button beside Files, type a name such as `references/voice.md`, and click "Add file". Point to the file from `SKILL.md`, and say when the agent must read it.
@@ -166,9 +166,11 @@ A switch beside the file's name picks the view, and the app remembers your choic
 
 The toolbar writes the Markdown for headings, bold, italic, code, links, lists and quotes. ⌘B, ⌘I and ⌘E (code) do the same from the keyboard, and ⌘⇧X strikes text through. Type `- [ ]` for a task, then click its box to tick it.
 
+Five bars at the right end of the toolbar show how big the file is. They fill as it grows and stay grey while the size is fine. At four bars they turn amber: the file is long, so move what the agent reads only sometimes to `references/`. At five they turn red: the file is past 500 lines or about 5,000 tokens, the most a `SKILL.md` should hold, because the agent reads all of it before it works. Point at the bars to see the line and token counts, or click them to show the counts in their place. Tokens are estimated at four characters each.
+
 Undo and Redo lead the toolbar (⌘Z and ⌘⇧Z). A file keeps its undo history while the app is open, also after you look at another file or screen. Applying a template, discarding a draft and text written with AI can all be undone.
 
-Everything you type is kept as a draft in `~/.skill-studio/drafts/`, outside the skill's folder, so unsaved text survives closing the app. The line beside the file name says so ("Unsaved · draft kept 3:42 PM"), and the sidebar shows a dot beside Write. Save writes the file and clears its draft; Discard throws the draft away.
+Everything you type is kept as a draft in `~/.skill-studio/drafts/`, outside the skill's folder, so unsaved text survives closing the app. The line beside the file name says so ("Unsaved · draft kept 3:42 PM"), and the sidebar shows a dot beside Editor. Save writes the file and clears its draft; Discard throws the draft away.
 
 A save is refused if the file changed on disk since your draft began, so an edit made in your code editor is never overwritten. Choose "Keep my draft" to save over the file, or "Use the file on disk" to take the file as it is now.
 
@@ -189,7 +191,7 @@ The Assistant panel opens from the button at the right of the top bar, or with �
 
 ### Save versions
 
-Open Versions. When the saved files are not a version yet, name them, say what changed and why, and click the save button: "Save as v0" for the first version, then v1, v2 and so on. A version keeps its own copy of `SKILL.md` and `references/` in `evals/versions/`, so it travels with the skill. It holds the saved files only, so save your drafts in Write first.
+Open Versions. When the saved files are not a version yet, name them, say what changed and why, and click the save button: "Save as v0" for the first version, then v1, v2 and so on. A version keeps its own copy of `SKILL.md` and `references/` in `evals/versions/`, so it travels with the skill. It holds the saved files only, so save your drafts in the Editor first.
 
 The history lists every version, newest first, with its runs and its mean score. A run also names a version: runs and saved versions share one numbering. From the history:
 
@@ -385,7 +387,7 @@ The app's own files, such as drafts and the Assistant's conversation, are in `~/
 | An agent shows "(not set up)" in New run | Install that CLI, put it on your `PATH` and sign in |
 | A skill is missing from the Library | Choose All beside the place filter, press the round arrow to look again, or add its project's parent folder under "Where skills are found" |
 | "Port 4400 is taken" (`st serve`) | Stop what holds it (`lsof -nP -iTCP:4400 -sTCP:LISTEN`) or start with `--port` |
-| A save in Write is refused | The file changed on disk. "Keep my draft" saves over it; "Use the file on disk" takes the file as it is now |
+| A save in the Editor is refused | The file changed on disk. "Keep my draft" saves over it; "Use the file on disk" takes the file as it is now |
 | A rule is missing from Graded rules | Make it a top-level bullet of four words or more, outside a numbered list or a code block |
 | A score looks wrong | Read the transcript, then rate it blind; Agreement will show if the judge is off |
 

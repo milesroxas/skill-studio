@@ -269,7 +269,7 @@ const ratingVariants = cva(
 
 /** One picture per step, by the screen the step happens on. */
 const PICTURES: Record<string, ReactNode> = {
-  edit: (
+  editor: (
     <>
       <Part caption="SKILL.md" file>
         <Text weight="semibold">Thank-you note</Text>

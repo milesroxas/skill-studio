@@ -34,13 +34,30 @@ function HoverCardTrigger({ ...props }: React.ComponentProps<typeof HoverCardPri
  * the window leaves. It scales in from its trigger like a popover and leaves
  * faster than it came.
  */
+const hoverCardContentVariants = cva(
+  'z-popover flex max-h-[min(30rem,var(--radix-hover-card-content-available-height))] origin-(--radix-hover-card-content-transform-origin) flex-col rounded-chin bg-popover text-popover-foreground shadow-popover outline-hidden duration-150 ease-out-strong data-[state=closed]:animate-out data-[state=closed]:duration-100 data-[state=closed]:fade-out-0 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-[0.97]',
+  {
+    variants: {
+      size: {
+        /** A reading in sections (`HoverCardSection`). */
+        default: 'w-[min(360px,calc(100vw-16px))]',
+        /** A few short lines, as wide as they are. No sections. */
+        note: 'w-max max-w-[min(240px,calc(100vw-16px))] gap-0.5 px-3.5 py-2.5 text-xs',
+      },
+    },
+    defaultVariants: { size: 'default' },
+  },
+)
+
 function HoverCardContent({
   className,
   align = 'start',
   sideOffset = 8,
   collisionPadding = 8,
+  size,
   ...props
-}: React.ComponentProps<typeof HoverCardPrimitive.Content>) {
+}: React.ComponentProps<typeof HoverCardPrimitive.Content> &
+  VariantProps<typeof hoverCardContentVariants>) {
   return (
     <HoverCardPrimitive.Portal>
       <HoverCardPrimitive.Content
@@ -48,10 +65,7 @@ function HoverCardContent({
         align={align}
         sideOffset={sideOffset}
         collisionPadding={collisionPadding}
-        className={cn(
-          'z-popover flex max-h-[min(30rem,var(--radix-hover-card-content-available-height))] w-[min(360px,calc(100vw-16px))] origin-(--radix-hover-card-content-transform-origin) flex-col rounded-chin bg-popover text-popover-foreground shadow-popover outline-hidden duration-150 ease-out-strong data-[state=closed]:animate-out data-[state=closed]:duration-100 data-[state=closed]:fade-out-0 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-[0.97]',
-          className,
-        )}
+        className={cn(hoverCardContentVariants({ size }), className)}
         {...props}
       />
     </HoverCardPrimitive.Portal>

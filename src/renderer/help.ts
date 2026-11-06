@@ -24,7 +24,7 @@ export const SCREEN_HELP: Record<string, ScreenHelp> = {
     terms: ['skill', 'agent', 'case', 'run'],
     guide: '1-open-or-create-a-skill',
   },
-  edit: {
+  editor: {
     short: 'The skill’s instructions',
     what: 'The skill itself: the instructions the agent reads. Each bullet under Rules is one rule the judge checks.',
     terms: ['skill', 'rule', 'draft'],
@@ -103,7 +103,7 @@ export interface LoopStep {
 /** Once round the loop, as the welcome tour tells it: one screen per step, in sidebar order. */
 export const LOOP_STEPS: readonly LoopStep[] = [
   {
-    screen: 'edit',
+    screen: 'editor',
     title: 'Write the rules',
     say: 'A skill is a short page of rules for an AI agent. This one writes thank-you notes.',
   },

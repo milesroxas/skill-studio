@@ -166,7 +166,7 @@ export function LibraryScreen({
         data={data}
         startPractice={practised ? null : startPractice}
         cancel={() => setCreating(false)}
-        created={(path) => openSkill(path, 'edit')}
+        created={(path) => openSkill(path, 'editor')}
         toast={toast}
       />
     )

@@ -14,7 +14,7 @@ describe('preferencesOf', () => {
       editorMode: 'markdown',
       welcomed: true,
       hints: 'hide',
-      hintsSeen: ['edit', 'cases'],
+      hintsSeen: ['editor', 'cases'],
       aiProvider: 'claude-code',
       aiModel: 'opus',
       aiEffort: 'high',
@@ -43,9 +43,9 @@ describe('preferencesOf', () => {
   })
 
   it('keeps each seen screen once and drops what is not a short name', () => {
-    const read = preferencesOf({ hintsSeen: ['edit', 'edit', 7, 'x'.repeat(41), 'cases'] })
-    expect(read.hintsSeen).toEqual(['edit', 'cases'])
-    expect(preferencesOf({ hintsSeen: 'edit' }).hintsSeen).toEqual([])
+    const read = preferencesOf({ hintsSeen: ['editor', 'editor', 7, 'x'.repeat(41), 'cases'] })
+    expect(read.hintsSeen).toEqual(['editor', 'cases'])
+    expect(preferencesOf({ hintsSeen: 'editor' }).hintsSeen).toEqual([])
     expect(preferencesOf({ welcomed: 'yes' }).welcomed).toBe(false)
   })
 
@@ -60,5 +60,12 @@ describe('preferencesOf', () => {
       ...DEFAULT_PREFERENCES,
       editorMode: 'markdown',
     })
+  })
+
+  it('reads a hint put away under a screen id that has since changed', () => {
+    expect(preferencesOf({ hintsSeen: ['edit', 'editor', 'cases'] }).hintsSeen).toEqual([
+      'editor',
+      'cases',
+    ])
   })
 })

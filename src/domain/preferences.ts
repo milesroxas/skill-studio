@@ -62,10 +62,22 @@ const MODEL_ID_MAX = 200
 const SEEN_MAX = 40
 
 /** Screen names from untrusted input: short strings, each once. */
+/**
+ * Screens whose id changed, old to new. A hint put away, or an address kept
+ * from before the change, is read under the new id.
+ */
+const RENAMED_SCREENS: Readonly<Record<string, string>> = { edit: 'editor' }
+
+export const currentScreen = (screen: string): string => RENAMED_SCREENS[screen] ?? screen
+
 const seenOf = (value: unknown): string[] =>
   Array.isArray(value)
     ? [
-        ...new Set(value.filter((v): v is string => typeof v === 'string' && v.length <= SEEN_MAX)),
+        ...new Set(
+          value
+            .filter((v): v is string => typeof v === 'string' && v.length <= SEEN_MAX)
+            .map(currentScreen),
+        ),
       ].slice(0, SEEN_MAX)
     : []
 

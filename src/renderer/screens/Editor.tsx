@@ -160,7 +160,7 @@ export function Editor({ ctx }: { ctx: Ctx }) {
     if (paths.includes(path)) return toast(`${path} already exists.`)
     drafts.setFile(path, { text: referenceTemplate(path), previous: null })
     setNewName(null)
-    go('edit', { file: path })
+    go('editor', { file: path })
   }
 
   const discard = async () => {
@@ -175,7 +175,7 @@ export function Editor({ ctx }: { ctx: Ctx }) {
       })
     ) {
       drop(file)
-      if (saved === null) go('edit', {}, { replace: true })
+      if (saved === null) go('editor', {}, { replace: true })
     }
   }
 
@@ -193,7 +193,7 @@ export function Editor({ ctx }: { ctx: Ctx }) {
       disk.reload()
       await reload()
       toast(`Deleted ${file}`)
-      go('edit', {}, { replace: true })
+      go('editor', {}, { replace: true })
     } catch (e) {
       toast((e as Error).message)
     }
@@ -278,7 +278,7 @@ export function Editor({ ctx }: { ctx: Ctx }) {
             <PlainList gap="none" bleed>
               {paths.map((path) => (
                 <li key={path}>
-                  <NavButton current={path === file} onClick={() => go('edit', { file: path })}>
+                  <NavButton current={path === file} onClick={() => go('editor', { file: path })}>
                     <Text font="mono" size="xs" wrap="anywhere">
                       {path}
                       {isDirty(path) ? <Text tone="warning"> •</Text> : null}

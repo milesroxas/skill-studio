@@ -145,7 +145,8 @@ export function Versions({ ctx }: { ctx: Ctx }) {
       ) : (
         <Hint>
           The files are {current.version}
-          {current.name ? `, ${current.name}` : ''}. Edits you save in Write start the next version.
+          {current.name ? `, ${current.name}` : ''}. Edits you save in the Editor start the next
+          version.
         </Hint>
       )}
 
@@ -308,10 +309,15 @@ function SaveVersion({ ctx, unsavedFiles }: { ctx: Ctx; unsavedFiles: number }) 
       >
         {unsavedFiles ? (
           <Hint tone="destructive">
-            {plural(unsavedFiles, 'file')} in Write {unsavedFiles === 1 ? 'has' : 'have'} unsaved
-            changes. A version keeps the saved files only.{' '}
-            <Button type="button" variant="link-muted" size="inline-sm" onClick={() => go('edit')}>
-              Go to Write
+            {plural(unsavedFiles, 'file')} in the Editor {unsavedFiles === 1 ? 'has' : 'have'}{' '}
+            unsaved changes. A version keeps the saved files only.{' '}
+            <Button
+              type="button"
+              variant="link-muted"
+              size="inline-sm"
+              onClick={() => go('editor')}
+            >
+              Go to the Editor
             </Button>
           </Hint>
         ) : null}

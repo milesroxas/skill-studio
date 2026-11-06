@@ -81,7 +81,7 @@ export function practiceGuide(
       hint: now.unsaved
         ? 'Save SKILL.md. The saved files become a new version.'
         : `“${PRACTICE_EDIT.phrase}” measures nothing. Give it a number.`,
-      target: { label: 'Tighten a rule', screen: 'edit' },
+      target: { label: 'Tighten a rule', screen: 'editor' },
     },
     rerun: {
       title: 'Run it again',

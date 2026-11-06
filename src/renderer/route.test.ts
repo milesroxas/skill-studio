@@ -13,12 +13,18 @@ describe('placeOf', () => {
     expect(placeOf('').screen).toBe('home')
     expect(placeOf('#/').screen).toBe('home')
   })
+
+  it('reads a renamed screen under its new id', () => {
+    const place = placeOf('#/edit?file=SKILL.md')
+    expect(place.screen).toBe('editor')
+    expect(place.params.get('file')).toBe('SKILL.md')
+  })
 })
 
 describe('hashOf', () => {
   it('writes what placeOf reads', () => {
-    const place = placeOf(hashOf('edit', { file: 'references/a b.md' }))
-    expect(place.screen).toBe('edit')
+    const place = placeOf(hashOf('editor', { file: 'references/a b.md' }))
+    expect(place.screen).toBe('editor')
     expect(place.params.get('file')).toBe('references/a b.md')
   })
 

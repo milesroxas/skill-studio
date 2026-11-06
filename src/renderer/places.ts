@@ -36,7 +36,7 @@ interface Section {
 export const SECTIONS: Section[] = [
   {
     places: [
-      { screen: 'edit', label: 'Write', icon: PencilLineIcon },
+      { screen: 'editor', label: 'Editor', icon: PencilLineIcon },
       { screen: 'versions', label: 'Versions', icon: HistoryIcon },
       { screen: 'cases', label: 'Cases', icon: ListChecksIcon },
     ],
@@ -75,7 +75,7 @@ export const APP_PLACES: Place[] = [
 export const WELCOME: Place = { screen: 'welcome', label: 'Welcome', icon: CompassIcon }
 
 /** Screens built as a workbench of columns that scroll on their own, not as one scrolling page. */
-export const WORKBENCH = new Set(['edit', 'cases', 'blind', 'knobs'])
+export const WORKBENCH = new Set(['editor', 'cases', 'blind', 'knobs'])
 
 const SKILL_PLACES = SECTIONS.flatMap((s) => s.places)
 

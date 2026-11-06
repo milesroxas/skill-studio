@@ -15,6 +15,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - The welcome sets you up after its tour, in its own window: the folders your skills are found in, a model for the assistant, and the Jev key. Each step first checks what Skill Studio can already reach, and every step can be left for later.
 - Getting a Jev key: a link to sign up at TypeSafe, and "Show me" for the three steps from there. Settings shows them too.
 - In the desktop app, a folder for the Library to look in is picked in the system's own dialog.
+- The Editor shows how big the file is: five bars at the end of the toolbar that fill as it grows, and turn amber when the file is long and red past 500 lines or 5,000 tokens. Point at them for the line and token counts, or click to show the counts in their place.
 
 ### Changed
 
@@ -26,6 +27,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - Tighter corners. Buttons, fields, toggles and chips have 4px corners. Cards, menus, dialogs and panels are 6px on top and 14px below.
 - The welcome opens on a dark cover with the new mark, and each step of the tour shows its number large.
 - A new app icon: the Flow mark, two ribbons on near-black.
+- The Write screen is now called Editor.
+- Opening or switching to a skill always lands on the Editor, instead of on Cases or Results depending on what the skill holds. The practice skill still opens on the step in hand.
 
 ### Fixed
 

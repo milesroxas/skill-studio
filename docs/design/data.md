@@ -125,6 +125,20 @@ The words carry the state and the dot repeats it, so the line still reads withou
 
 `components/ui/alert.tsx`. A message about the whole screen or section, above its content. Variants: `default`, `destructive`, `success`, `warning`, `muted`. The heading carries the color and the body stays `card-foreground`. A remark that is not a verdict is `muted`. A message about one field is a `Hint` under it, not an alert.
 
+## File size
+
+`components/TextSize.tsx`: `TextSizeIndicator`, at the far end of the editor's toolbar. It is five segments in a row, 14 by 6px with 2px corners (`rounded-xs`) and 2px between, filled up to the file's level from `textSize()` in `domain/size.ts`. The color comes from `sizeBand()` there. Never set a level or a band by hand: the steps are tuned in one place.
+
+| Band | Levels | Filled bars |
+| --- | --- | --- |
+| `fine` | 1 to 3 | `bg-current`: the toolbar's muted text, darker with the button on hover |
+| `long` | 4 | `bg-warning` |
+| `over` | 5 | `bg-destructive` |
+
+- Empty bars are `bg-input`. They are never lime.
+- `long` and `over` also say so in words, in the hover card and the button's label, so color is never the only sign. The counts take the same tone.
+- Pointing at it opens `HoverCardContent size="note"` with the lines and tokens. Clicking puts the counts in place of the bars, in mono `xs`, and the button is `aria-pressed`. The choice holds across files until the window closes.
+
 ## Figures
 
 A chart or a diagram labels its values directly, in mono `2xs`. It uses `foreground` for the thing measured and `muted-foreground` for references. It never uses lime, and it uses a verdict color only for a verdict. The one figure that uses the ribbon is the version lift. See [brand.md](brand.md).

@@ -202,7 +202,7 @@ const pair = new URLSearchParams(sample.compare).toString()
 
 const SHOTS: Shot[] = [
   { file: 'app.webp', route: '#/overview', whole: true },
-  { file: 'write.webp', route: '#/edit' },
+  { file: 'editor.webp', route: '#/editor' },
   { file: 'cases.webp', route: '#/cases?id=breaking-api' },
   { file: 'new-run.webp', route: '#/generate' },
   { file: 'results.webp', route: '#/overview', press: sample.run },

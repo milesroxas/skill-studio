@@ -320,7 +320,7 @@ export interface ChatScene {
 }
 
 const SCREENS =
-  'Write (edit SKILL.md and references/), Versions (save, compare and restore), Cases (the prompts a run is made of, each with checks), New run (agents write an output per case), Results (scores per run), Rate blind (rate outputs before seeing the judge), Compare (two outputs side by side, vote for the better), Transcripts (what the agent did), Agreement (how often the judge and the author agree), Scoring (weights and thresholds), Library, Guide and Settings.'
+  'Editor (edit SKILL.md and references/), Versions (save, compare and restore), Cases (the prompts a run is made of, each with checks), New run (agents write an output per case), Results (scores per run), Rate blind (rate outputs before seeing the judge), Compare (two outputs side by side, vote for the better), Transcripts (what the agent did), Agreement (how often the judge and the author agree), Scoring (weights and thresholds), Library, Guide and Settings.'
 
 /** The brief of the side panel's assistant: the app, how a skill is written, and the skill in hand. */
 export function chatSystem(scene: ChatScene): string {

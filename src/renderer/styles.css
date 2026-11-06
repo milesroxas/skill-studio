@@ -185,10 +185,10 @@
  */
 /*
  * Corners, a closed set.
- *   xs     2  a mark inside running text, a part nested in a control
+ *   xs     2  a mark inside running text, a part nested in a control, a step of a stepped indicator
  *   sm     4  buttons, fields, toggles, chips, list rows
  *   chin   6 over 14  a container: a card, a popover, a dialog, a panel
- *   full      dots and the slider's thumb only
+ *   full      dots, one continuous bar and the slider's thumb only
  */
 @theme {
   --radius-*: initial;

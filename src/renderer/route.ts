@@ -5,6 +5,8 @@
  * place in the skill it was seen in.
  */
 
+import { currentScreen } from '@domain/preferences.ts'
+
 export interface Place {
   screen: string
   params: URLSearchParams
@@ -27,7 +29,7 @@ export interface Route extends Place, Entry {
 
 export const placeOf = (hash: string): Place => {
   const [screen, query = ''] = hash.replace(/^#\/?/, '').split('?')
-  return { screen: screen || 'home', params: new URLSearchParams(query) }
+  return { screen: currentScreen(screen) || 'home', params: new URLSearchParams(query) }
 }
 
 export const hashOf = (screen: string, params: Record<string, string> = {}): string => {

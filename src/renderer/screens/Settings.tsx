@@ -131,7 +131,7 @@ export function SettingsScreen({ running, toast, onSaved, onWelcome }: Props) {
         </Field>
       </FormSection>
 
-      <FormSection title="Editor" hint="How the Write screen opens a skill’s Markdown files.">
+      <FormSection title="Editor" hint="How the Editor opens a skill’s Markdown files.">
         <Field>
           <Label id={ids.editor}>Open Markdown as</Label>
           <Segmented<EditorMode>

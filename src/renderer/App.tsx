@@ -228,19 +228,15 @@ export function App() {
     : null
 
   // In a browser, before anything else was opened, the app opens on the welcome.
-  // The practice skill opens on the step in hand, so the first thing in view is the one thing to do.
+  // A skill opens on the Editor, whatever it holds, so switching skills always
+  // lands in the same place. The practice skill opens on the step in hand
+  // instead, so the first thing in view is the one thing to do.
   const home =
     inline && !preferences.welcomed && !skillPath
       ? 'welcome'
       : !loaded
         ? 'library'
-        : practice?.target
-          ? practice.target.screen
-          : !loaded.state.cases.length
-            ? 'cases'
-            : loaded.state.runs.length
-              ? 'overview'
-              : 'edit'
+        : (practice?.target?.screen ?? 'editor')
   // The desktop app's welcome has its own window: here its route is only another name for home.
   const requested =
     route.screen === 'home' || (route.screen === 'welcome' && !inline) ? home : route.screen
@@ -270,7 +266,7 @@ export function App() {
       blind: unrated ? String(unrated) : null,
     }
     status.dot = {
-      edit: Object.keys(drafts.files).length > 0,
+      editor: Object.keys(drafts.files).length > 0,
       versions: current.changed,
       cases: Object.keys(drafts.cases).length > 0,
       knobs: dirty,
@@ -420,7 +416,7 @@ export function App() {
       )
     if (!ctx) return <Loading size="screen" />
     switch (screen) {
-      case 'edit':
+      case 'editor':
         return (
           <Suspense fallback={<Loading size="screen" />}>
             <Editor ctx={ctx} />

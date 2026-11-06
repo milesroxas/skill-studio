@@ -58,6 +58,7 @@ import { shortcut } from '../keys.ts'
 import { setPreferences, usePreferences } from '../preferences.ts'
 import { Assist, type AssistSpec } from './Assist.tsx'
 import { ColumnToolbar, ToolbarGroup, ToolbarItem } from './layout.tsx'
+import { TextSizeIndicator } from './TextSize.tsx'
 import { Button } from './ui/button.tsx'
 
 /**
@@ -335,8 +336,9 @@ export function MarkdownEditor({
         {ACTIONS.map((group) => (
           <ToolbarGroup key={group[0].label}>{group.map((action) => tool(action))}</ToolbarGroup>
         ))}
-        {assist ? (
-          <span className="ml-auto flex items-center">
+        <span className="ml-auto flex items-center gap-1">
+          <TextSizeIndicator text={value} />
+          {assist ? (
             <Assist
               field={picked ? 'skill.passage' : assist.field}
               value={picked ? value.slice(picked.from, picked.to) : value}
@@ -369,8 +371,8 @@ export function MarkdownEditor({
                 </Button>
               </ToolbarItem>
             </Assist>
-          </span>
-        ) : null}
+          ) : null}
+        </span>
       </ColumnToolbar>
       {instead ?? banner}
       <div ref={host} hidden={covered} className={surfaceVariants({ mode })} />

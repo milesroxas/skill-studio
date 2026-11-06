@@ -13,7 +13,7 @@ import { Text } from './text.tsx'
 import { Button } from './ui/button.tsx'
 
 /** One step of the loop: done, in hand, or still to come. */
-const segment = cva('h-1 flex-1 rounded-full transition-[background-color] duration-300 ease-out', {
+const segment = cva('h-1.5 flex-1 rounded-xs transition-[background-color] duration-300 ease-out', {
   variants: {
     state: {
       done: 'bg-sidebar-foreground/70',
