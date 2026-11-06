@@ -106,6 +106,8 @@ export const api = {
   openExternal: transport.openExternal,
   /** Show a skill's folder in the file manager; undefined in a browser. */
   revealSkill: transport.revealSkill,
+  /** Pick a folder in the system's dialog; undefined in a browser, where one is typed. */
+  chooseFolder: transport.chooseFolder,
   artifactText: async (run: string, sample: string, file: string): Promise<string> => {
     const { bytes } = await call('skill.artifact', scoped({ run, sample, file }))
     return new TextDecoder().decode(bytes)

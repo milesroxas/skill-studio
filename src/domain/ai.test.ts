@@ -9,7 +9,9 @@ import {
   isNewsOf,
   isOpenAiChatModel,
   openAiEfforts,
+  providersOf,
   RUNS_KEPT,
+  readyProviders,
   resolveChoice,
   runsToForget,
   summarizeUsage,
@@ -172,5 +174,30 @@ describe('runsToForget', () => {
   it('forgets the oldest ended runs past the limit, never one still being written', () => {
     const held = [runOf('writing', 'running'), ...ended, runOf('newest', 'failed')]
     expect(runsToForget(held)).toEqual(['ended-0', 'ended-1'])
+  })
+})
+
+describe('providersOf', () => {
+  it('lists a vendor’s ways in, the CLI first', () => {
+    expect(providersOf('Anthropic')).toEqual(['claude-code', 'anthropic'])
+    expect(providersOf('OpenAI')).toEqual(['codex', 'openai'])
+  })
+})
+
+describe('readyProviders', () => {
+  const info = (id: AiProviderInfo['id'], connected: boolean, problem: string | null) => ({
+    id,
+    connected,
+    problem,
+    models: [],
+  })
+
+  it('keeps the connected providers with nothing wrong', () => {
+    const ready = readyProviders([
+      info('anthropic', true, 'The key was refused.'),
+      info('claude-code', true, null),
+      info('openai', false, null),
+    ])
+    expect(ready.map((p) => p.id)).toEqual(['claude-code'])
   })
 })

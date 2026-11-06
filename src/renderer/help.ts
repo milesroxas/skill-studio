@@ -133,3 +133,39 @@ export const LOOP_STEPS: readonly LoopStep[] = [
     say: 'Where you and the judge agree an answer falls short, tighten the rule and run again. That is the loop.',
   },
 ]
+
+export type SetupId = 'folders' | 'assistant' | 'jev'
+
+export interface SetupStep {
+  id: SetupId
+  title: string
+  /** What the step is for, in one or two plain sentences. */
+  say: string
+  /** Where the same setting waits for whoever leaves it for later. */
+  later: string
+}
+
+/**
+ * What the welcome sets up after the tour, one thing per step. Each checks
+ * what the app can already reach before it asks for anything.
+ */
+export const SETUP_STEPS: readonly SetupStep[] = [
+  {
+    id: 'folders',
+    title: 'Find your skills',
+    say: 'Skill Studio reads the skills you already have. Add the folders your projects live in to find theirs too.',
+    later: 'The Library keeps this list for later.',
+  },
+  {
+    id: 'assistant',
+    title: 'Connect a model',
+    say: 'A model writes rules and checks with you. Skill Studio looks for one you can already use.',
+    later: 'Settings keeps this for later.',
+  },
+  {
+    id: 'jev',
+    title: 'Add the judge',
+    say: 'Jev scores every answer the same way each time. It needs a TypeSafe key.',
+    later: 'Settings keeps this for later.',
+  },
+]

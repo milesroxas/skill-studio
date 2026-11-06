@@ -232,6 +232,8 @@ export interface StudioBridge {
   openExternal(url: string): Promise<Reply<null>>
   /** Show a skill's folder in the file manager: Finder, File Explorer or the desktop's own. */
   revealSkill(path: string): Promise<Reply<null>>
+  /** Ask for a folder in the system's own dialog; null when it is cancelled. */
+  chooseFolder(): Promise<Reply<string | null>>
   /** Ask where the app's own updates stand, or for their next step; answered with the state after. */
   update(request: UpdateRequest): Promise<Reply<UpdateState>>
   /** The update state after every change to it; returns the unsubscribe. */

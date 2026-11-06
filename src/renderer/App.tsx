@@ -468,6 +468,7 @@ export function App() {
           onStart={startPractice}
           // Opened again from the help, it closes back to where it was opened from.
           onLeave={() => (preferences.welcomed && route.index > 0 ? back() : go('library'))}
+          toast={toast}
         />
         {overlays}
       </>

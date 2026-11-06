@@ -7,6 +7,12 @@
 export const SECRET_IDS = ['jev', 'anthropic', 'openai'] as const
 export type SecretId = (typeof SECRET_IDS)[number]
 
+/** One step of getting a key: a short verb, then a few words on what it acts on. */
+export interface KeyStep {
+  verb: string
+  what: string
+}
+
 export interface SecretDef {
   /** The variable the backend reads the key from. */
   env: string
@@ -18,6 +24,8 @@ export interface SecretDef {
   launchEnv: string
   /** How such a key starts, shown in the empty field. */
   placeholder: string
+  /** Where an account is made, and the steps from there to a key, when the app walks someone through them. */
+  account?: { label: string; url: string; steps: readonly KeyStep[] }
 }
 
 export const SECRETS: Record<SecretId, SecretDef> = {
@@ -25,6 +33,15 @@ export const SECRETS: Record<SecretId, SecretDef> = {
     env: 'TYPESAFE_API_KEY',
     launchEnv: 'TYPESAFE_API_KEY',
     placeholder: 'ts_…',
+    account: {
+      label: 'TypeSafe',
+      url: 'https://console.typesafe.ai',
+      steps: [
+        { verb: 'Sign up', what: 'for a TypeSafe account' },
+        { verb: 'Open', what: 'API keys in the console' },
+        { verb: 'Create', what: 'a key and paste it here' },
+      ],
+    },
   },
   anthropic: {
     env: 'SKILL_STUDIO_ANTHROPIC_API_KEY',

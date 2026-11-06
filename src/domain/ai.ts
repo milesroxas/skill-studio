@@ -28,7 +28,7 @@ export const effortLabel = (effort: string): string => EFFORT_LABELS[effort as E
 interface ProviderBase {
   /** The name in a model list: who answers, and on whose account. */
   label: string
-  vendor: 'Anthropic' | 'OpenAI'
+  vendor: AiVendor
   /** One line in Settings on what connecting this way means. */
   about: string
   /** Where the provider shows what the account has spent, when it has such a page. */
@@ -38,6 +38,10 @@ interface ProviderBase {
 /** A provider is reached with a key the app keeps, or through a CLI signed in to a plan. */
 export type AiProviderDef = ProviderBase &
   ({ via: 'key'; secret: SecretId } | { via: 'cli'; command: string; install: string })
+
+/** Who makes the models: each is reached by a CLI on a plan, or by an API key. */
+export const AI_VENDORS = ['Anthropic', 'OpenAI'] as const
+export type AiVendor = (typeof AI_VENDORS)[number]
 
 export const AI_PROVIDERS: Record<AiProviderId, AiProviderDef> = {
   anthropic: {
@@ -75,6 +79,16 @@ export const AI_PROVIDERS: Record<AiProviderId, AiProviderDef> = {
     usageUrl: 'https://chatgpt.com/codex/settings/usage',
   },
 }
+
+/** A vendor's ways in, the CLI first: it needs no key. */
+export const providersOf = (vendor: AiVendor): AiProviderId[] =>
+  AI_PROVIDER_IDS.filter((id) => AI_PROVIDERS[id].vendor === vendor).sort(
+    (a, b) => Number(AI_PROVIDERS[b].via === 'cli') - Number(AI_PROVIDERS[a].via === 'cli'),
+  )
+
+/** The providers a request can go to now: connected, and with nothing wrong. */
+export const readyProviders = (providers: readonly AiProviderInfo[]): AiProviderInfo[] =>
+  providers.filter((p) => p.connected && !p.problem)
 
 export interface AiModel {
   id: string

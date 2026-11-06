@@ -17,6 +17,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { api, type Job } from '../api.ts'
 import type { Confirm } from '../components/confirm.tsx'
 import { Disclosure } from '../components/Disclosure.tsx'
+import { Folders } from '../components/Folders.tsx'
 import { CheckRow } from '../components/forms.tsx'
 import { RunningTag } from '../components/Jobs.tsx'
 import {
@@ -27,12 +28,10 @@ import {
   FormSection,
   ListBar,
   Loading,
-  PlainList,
   RefreshButton,
   Screen,
   Section,
   SectionHead,
-  Stack,
   Toolbar,
 } from '../components/layout.tsx'
 import { Segmented } from '../components/Segmented.tsx'
@@ -317,7 +316,7 @@ export function LibraryScreen({
         )}
       </Section>
 
-      <Places workspaces={data.workspaces} act={act} />
+      <Places workspaces={data.workspaces} act={act} toast={toast} />
     </Screen>
   )
 }
@@ -689,68 +688,22 @@ function NewSkill({
   )
 }
 
-function Places({ workspaces, act }: { workspaces: string[]; act: Act }) {
-  const [adding, setAdding] = useState('')
-  const save = (list: string[], done: string) => act(api.setWorkspaces(list), done)
+function Places({
+  workspaces,
+  act,
+  toast,
+}: {
+  workspaces: string[]
+  act: Act
+  toast: (message: string) => void
+}) {
   return (
     <Disclosure summary="Where skills are found">
-      <Stack>
-        <Hint>
-          Your user folders (~/.agents, ~/.claude, ~/.cursor and ~/.codex skills), plus every
-          project with a skills folder up to three levels inside these folders:
-        </Hint>
-        <PlainList>
-          {workspaces.map((w) => (
-            <li key={w}>
-              <Toolbar gap="md">
-                <Text font="mono">{w}</Text>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  aria-label={`Stop looking in ${w}`}
-                  onClick={() =>
-                    save(
-                      workspaces.filter((x) => x !== w),
-                      `Stopped looking in ${w}`,
-                    )
-                  }
-                >
-                  Remove
-                </Button>
-              </Toolbar>
-            </li>
-          ))}
-        </PlainList>
-        <form
-          className="contents"
-          onSubmit={(e) => {
-            e.preventDefault()
-            const folder = adding.trim()
-            if (!folder) return
-            save([...workspaces, folder], `Looking in ${folder}`)
-            setAdding('')
-          }}
-        >
-          <Toolbar>
-            <Input
-              aria-label="Folder to look in"
-              placeholder="~/Projects"
-              autoCapitalize="none"
-              autoCorrect="off"
-              spellCheck={false}
-              enterKeyHint="done"
-              value={adding}
-              width="auto"
-              onChange={(e) => setAdding(e.target.value)}
-            />
-            <Button type="submit" variant="outline" disabled={!adding.trim()}>
-              <PlusIcon aria-hidden="true" />
-              Add folder
-            </Button>
-          </Toolbar>
-        </form>
-      </Stack>
+      <Folders
+        workspaces={workspaces}
+        save={(list, done) => act(api.setWorkspaces(list), done)}
+        toast={toast}
+      />
     </Disclosure>
   )
 }

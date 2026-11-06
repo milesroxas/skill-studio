@@ -8,7 +8,7 @@
  * key in the environment always wins and shows as such. Last, in a copy made
  * for testing only, the way to start the app over.
  */
-import { AI_PROVIDERS, type AiProviderId, type AiProviderInfo } from '@domain/ai.ts'
+import { AI_VENDORS } from '@domain/ai.ts'
 import type {
   EditorMode,
   Hints,
@@ -17,21 +17,19 @@ import type {
   Theme,
   UpdateMode,
 } from '@domain/preferences.ts'
-import { SECRETS, type SecretId, type Settings } from '@domain/secrets.ts'
 import { MonitorIcon, MoonIcon, SunIcon } from 'lucide-react'
 import { type ReactNode, useId, useState } from 'react'
 import { loadAi, useAi } from '../ai.ts'
 import { api } from '../api.ts'
+import { KeySlot, useKeys, VendorRoutes } from '../components/Connections.tsx'
 import { Field, FormSection, Loading, ReadFailed, Screen, Toolbar } from '../components/layout.tsx'
 import { ModelControls } from '../components/ModelControls.tsx'
 import { ResetDialog } from '../components/ResetDialog.tsx'
 import { Segmented } from '../components/Segmented.tsx'
 import { Status } from '../components/Status.tsx'
-import { Code, Hint, Link } from '../components/text.tsx'
+import { Hint, Link } from '../components/text.tsx'
 import { Button } from '../components/ui/button.tsx'
-import { Input } from '../components/ui/input.tsx'
 import { Label } from '../components/ui/label.tsx'
-import { useFetch } from '../hooks.ts'
 import { setPreferences, usePreferences } from '../preferences.ts'
 import { APP_VERSION, checkForUpdates } from '../updates.ts'
 
@@ -96,7 +94,7 @@ const UPDATE_MODES = [
 
 export function SettingsScreen({ running, toast, onSaved, onWelcome }: Props) {
   const preferences = usePreferences()
-  const settings = useFetch(() => api.settings(), [])
+  const { keys, changed } = useKeys(onSaved)
   const { providers, choice, problem } = useAi()
   const ids = {
     theme: useId(),
@@ -107,31 +105,6 @@ export function SettingsScreen({ running, toast, onSaved, onWelcome }: Props) {
   }
   const choose = (patch: Partial<Preferences>) =>
     setPreferences(patch).catch((e: Error) => toast(`Not saved: ${e.message}`))
-
-  /** After a key changes: its status, what the providers offer, and the open skill's state. */
-  const keyChanged = async () => {
-    settings.reload()
-    await Promise.all([loadAi(), onSaved()])
-  }
-  const keys = (id: SecretId, missing: string, provider?: AiProviderInfo) =>
-    settings.error && !settings.data ? (
-      <ReadFailed size="compact" title="Could not read the key’s status" onRetry={settings.reload}>
-        {settings.error}
-      </ReadFailed>
-    ) : !settings.data ? (
-      <Loading />
-    ) : (
-      <KeyField
-        id={id}
-        settings={settings.data}
-        missing={missing}
-        optional={Boolean(provider)}
-        problem={provider?.problem}
-        toast={toast}
-        onSaved={keyChanged}
-      />
-    )
-  const provider = (id: AiProviderId) => providers?.find((p) => p.id === id)
 
   return (
     <Screen width="form">
@@ -254,21 +227,15 @@ export function SettingsScreen({ running, toast, onSaved, onWelcome }: Props) {
         )}
       </FormSection>
 
-      <FormSection
-        title="Anthropic"
-        hint="Two ways to reach Claude. Use either, or both: each shows its own models."
-      >
-        <CliStatus info={provider('claude-code')} />
-        {keys('anthropic', AI_PROVIDERS.anthropic.about, provider('anthropic'))}
-      </FormSection>
-
-      <FormSection
-        title="OpenAI"
-        hint="Two ways to reach OpenAI’s models. Use either, or both: each shows its own models."
-      >
-        <CliStatus info={provider('codex')} />
-        {keys('openai', AI_PROVIDERS.openai.about, provider('openai'))}
-      </FormSection>
+      {AI_VENDORS.map((vendor) => (
+        <FormSection
+          key={vendor}
+          title={vendor}
+          hint={`Two ways to reach ${vendor}’s models. Use either, or both: each shows its own models.`}
+        >
+          <VendorRoutes vendor={vendor} keys={keys} toast={toast} onSaved={changed} />
+        </FormSection>
+      ))}
 
       <FormSection
         title="Jev key"
@@ -279,7 +246,14 @@ export function SettingsScreen({ running, toast, onSaved, onWelcome }: Props) {
           </>
         }
       >
-        {keys('jev', 'Grading uses code checks only.')}
+        <KeySlot
+          id="jev"
+          keys={keys}
+          missing="Grading uses code checks only."
+          optional={false}
+          toast={toast}
+          onSaved={changed}
+        />
       </FormSection>
 
       {/* Only a copy made for testing can start over: a development build, or a prerelease. */}
@@ -325,133 +299,5 @@ function StartOver({
         onConfirm={confirm}
       />
     </FormSection>
-  )
-}
-
-/** A CLI the app can write through: found on this computer or not, and where to get it. */
-function CliStatus({ info }: { info: AiProviderInfo | undefined }) {
-  if (!info) return <Loading />
-  const def = AI_PROVIDERS[info.id]
-  if (def.via !== 'cli') return null
-  return (
-    <Field>
-      <Status
-        tone={info.connected ? 'success' : 'muted'}
-        detail={info.connected ? def.about : null}
-      >
-        {info.connected ? `${def.label} is installed` : `${def.label} is not installed`}
-      </Status>
-      {info.connected ? null : (
-        <Hint>
-          <Link href={def.install}>Install {def.label}</Link> and sign in with the{' '}
-          <Code>{def.command}</Code> command to write on your plan, with no key.
-        </Hint>
-      )}
-    </Field>
-  )
-}
-
-interface KeyFieldProps {
-  id: SecretId
-  settings: Settings
-  /** What having no key means, shown beside "No key". */
-  missing: string
-  /** The app works without this key, so its absence is no warning. */
-  optional: boolean
-  /** Why a key that is set does not work, such as one the provider refused. */
-  problem?: string | null
-  toast: (message: string) => void
-  onSaved: () => Promise<void>
-}
-
-/** One key: where it comes from, and a field to store or replace it. */
-function KeyField({ id, settings, missing, optional, problem, toast, onSaved }: KeyFieldProps) {
-  const [value, setValue] = useState('')
-  const [busy, setBusy] = useState(false)
-  const field = useId()
-  const { placeholder, launchEnv } = SECRETS[id]
-  const { set, source } = settings.keys[id]
-
-  const save = async (next: string) => {
-    setBusy(true)
-    try {
-      await api.setKey(id, next)
-      setValue('')
-      toast(next ? 'Key saved' : 'Key removed')
-      await onSaved()
-    } catch (e) {
-      toast((e as Error).message)
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  return (
-    <>
-      <Field>
-        <Status
-          tone={!set ? (optional ? 'muted' : 'warning') : problem ? 'destructive' : 'success'}
-          detail={
-            source === 'environment'
-              ? 'Set in the environment, so it wins over a stored one.'
-              : source === 'stored'
-                ? 'Stored in the system keychain.'
-                : missing
-          }
-        >
-          {source === 'environment'
-            ? 'From the environment'
-            : source === 'stored'
-              ? 'In the keychain'
-              : 'No key'}
-        </Status>
-        {set && problem ? <Hint tone="destructive">{problem}</Hint> : null}
-      </Field>
-      {settings.canStore ? (
-        <form
-          className="contents"
-          onSubmit={(event) => {
-            event.preventDefault()
-            if (value.trim()) void save(value.trim())
-          }}
-        >
-          <Field>
-            <Label htmlFor={field}>
-              {source === 'stored' ? 'Replace the stored key' : 'Store a key'}
-            </Label>
-            <Input
-              id={field}
-              type="password"
-              autoComplete="off"
-              spellCheck={false}
-              data-1p-ignore
-              value={value}
-              placeholder={placeholder}
-              onChange={(event) => setValue(event.target.value)}
-            />
-          </Field>
-          <Toolbar>
-            <Button type="submit" disabled={busy || !value.trim()}>
-              {busy ? 'Saving…' : 'Save key'}
-            </Button>
-            {source === 'stored' ? (
-              <Button
-                type="button"
-                variant="destructive-ghost"
-                disabled={busy}
-                onClick={() => void save('')}
-              >
-                Remove the stored key
-              </Button>
-            ) : null}
-          </Toolbar>
-        </form>
-      ) : (
-        <Hint>
-          This host keeps no key of its own. Set <Code>{launchEnv}</Code> in the environment (or in{' '}
-          <Code>.env</Code> when running from a checkout) and start it again.
-        </Hint>
-      )}
-    </>
   )
 }

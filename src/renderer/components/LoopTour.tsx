@@ -7,10 +7,9 @@
  * of its cases and one note an agent might write for it. So the tour previews
  * the practice it ends on, and nothing in it has to be imagined.
  *
- * The frame holds still from step to step, so Next stays under the pointer and
- * only the step itself changes. Seen once or twice, so the step may move: it
- * comes in from the side the reader is heading to, and then its picture plays
- * what the sentence says, in the order it happens. Rules are written, checks
+ * Each step sits in the welcome's step frame (`WelcomeStep.tsx`). Seen once or
+ * twice, so the step may move: its picture plays what the sentence says, in
+ * the order it happens. Rules are written, checks
  * are stamped, the score counts up. Nothing waits on the movement: Next works
  * from the first frame.
  */
@@ -24,8 +23,9 @@ import { after, useCountUp } from '../motion.ts'
 import { type Place, placeFor } from '../places.ts'
 import { List } from './layout.tsx'
 import { Slab } from './Mark.tsx'
-import { Heading, Hint, Text } from './text.tsx'
+import { Text } from './text.tsx'
 import { Button } from './ui/button.tsx'
+import { STEP_BEAT, StepFrame } from './WelcomeStep.tsx'
 
 /** The first sentence of a rule or a check: the instruction, without its why. */
 const lead = (text: string): string => text.split(/(?<=[.!?])\s/)[0]
@@ -50,34 +50,7 @@ const WORDS = NOTE.split(' ').map((word, at) => ({ word, at }))
  * reached the picture. `row` is the wait between the rows of a list, `stamp`
  * between the judge's marks, which land slower because each is a verdict.
  */
-const BEAT = { start: 260, row: 90, stamp: 220, word: 20 }
-
-/** A step's number as the tour shows it: two figures, "01". */
-const numeral = (index: number): string => String(index + 1).padStart(2, '0')
-
-/**
- * How far through the tour the reader is: the six step numbers in mono, the
- * current one lime on ink. A screen reader hears it in words.
- */
-export function TourProgress({ index }: { index: number }) {
-  return (
-    <div className="flex animate-in items-center gap-1 duration-300 ease-out fade-in-0">
-      {LOOP_STEPS.map((step, i) => (
-        <span
-          key={step.screen}
-          aria-hidden="true"
-          data-surface={i === index ? 'ink' : undefined}
-          className="flex h-5 w-7.5 items-center justify-center rounded-xs font-mono text-2xs font-medium text-muted-foreground tabular-nums transition-colors duration-150 ease-out data-[surface=ink]:text-signal"
-        >
-          {numeral(i)}
-        </span>
-      ))}
-      <span className="sr-only">
-        Step {index + 1} of {LOOP_STEPS.length}
-      </span>
-    </div>
-  )
-}
+const BEAT = { start: STEP_BEAT, row: 90, stamp: 220, word: 20 }
 
 /** The picture of a step: a sheet with a printed edge, headed like the screen it stands for. */
 function Sheet({ place, children }: { place: Place; children: ReactNode }) {
@@ -389,89 +362,59 @@ const PICTURES: Record<string, ReactNode> = {
 export function LoopTour({
   index,
   from,
-  starting,
+  busy,
   onShow,
-  onStart,
   onBack,
+  onDone,
 }: {
   /** The step in view. */
   index: number
   /** The step before it, which says which side this one arrives from. */
   from: number
-  /** The practice skill is being written and opened. */
-  starting: boolean
+  /** The welcome is on its way out. */
+  busy: boolean
   onShow: (index: number) => void
-  /** The last step's button: go and do it. */
-  onStart: () => void
   /** Back from the first step. */
   onBack: () => void
+  /** On from the last step, to the setup. */
+  onDone: () => void
 }) {
   const step = LOOP_STEPS[index]
   const place = placeFor(step.screen)
   const last = index === LOOP_STEPS.length - 1
 
   return (
-    <section aria-label="How it works" className="flex min-h-0 flex-1 flex-col">
-      <div
-        key={step.screen}
-        aria-live="polite"
-        data-from={from > index ? 'before' : 'after'}
-        className="flex min-h-0 flex-1 items-start gap-10 overflow-y-auto px-12 pt-9"
-      >
-        <div className="flex w-58 shrink-0 animate-in flex-col duration-300 ease-out-strong fade-in-0 in-data-[from=after]:slide-in-from-right-3 in-data-[from=before]:slide-in-from-left-3">
-          {/* The number's stroke, not its box, stands on the column's edge. */}
-          <span aria-hidden="true" className="-ml-1.5 text-numeral tabular-nums">
-            {numeral(index)}
-          </span>
-          <Heading level={2} className="pt-7 text-2xl">
-            {step.title}
-          </Heading>
-          <Text as="p" tone="muted" className="m-0 pt-2.5 text-pretty">
-            {step.say}
-          </Text>
-        </div>
-        {place ? <Sheet place={place}>{PICTURES[step.screen]}</Sheet> : null}
-      </div>
-
-      <div className="flex h-21 shrink-0 items-center gap-6 px-12">
+    <StepFrame
+      label="How it works"
+      id={step.screen}
+      index={index}
+      from={from}
+      title={step.title}
+      say={step.say}
+      back={
         <Button
           type="button"
           variant="outline"
-          disabled={starting}
+          disabled={busy}
           onClick={() => (index === 0 ? onBack() : onShow(index - 1))}
         >
           Back
         </Button>
-        {/* Held on every step, so Next keeps its place from the first step to the last. */}
-        <Hint className="flex-1">
-          {last ? (
-            <span className="block animate-rise" style={after(BEAT.start)}>
-              Practice is this same skill, for real. About five minutes, nothing to type, and it
-              changes nothing your agents use.
-            </span>
-          ) : null}
-        </Hint>
-        {/* One button for both, so it keeps the focus and its place from the first step to the last. */}
+      }
+      next={
+        // One button on every step, so it keeps the focus and its place from the first step to the last.
         <Button
           type="button"
           autoFocus
-          disabled={starting}
-          onClick={() => (last ? onStart() : onShow(index + 1))}
+          disabled={busy}
+          onClick={() => (last ? onDone() : onShow(index + 1))}
         >
-          {last ? (
-            starting ? (
-              'Starting…'
-            ) : (
-              'Start practice'
-            )
-          ) : (
-            <>
-              Next
-              <ArrowRightIcon aria-hidden="true" />
-            </>
-          )}
+          Next
+          <ArrowRightIcon aria-hidden="true" />
         </Button>
-      </div>
-    </section>
+      }
+    >
+      {place ? <Sheet place={place}>{PICTURES[step.screen]}</Sheet> : null}
+    </StepFrame>
   )
 }

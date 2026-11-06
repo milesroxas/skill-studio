@@ -16,7 +16,7 @@ import { preferencesOf } from '@domain/preferences.ts'
 import type { Settings } from '@domain/secrets.ts'
 import { isUpdateRequest, type UpdateRequest } from '@domain/update.ts'
 import { isFile } from '@infrastructure/fs.ts'
-import { BrowserWindow, type IpcMainInvokeEvent, ipcMain, shell } from 'electron'
+import { BrowserWindow, dialog, type IpcMainInvokeEvent, ipcMain, shell } from 'electron'
 import { CHANNELS } from '../channels.ts'
 import type { Backend } from './backend.ts'
 import type { Updater } from './updater.ts'
@@ -148,5 +148,24 @@ export function registerIpc({ backend, secrets, windows, updater, reset, trusted
       return fail(new Error(`No skill at ${String(path)}.`))
     shell.showItemInFolder(path)
     return ok(null)
+  })
+
+  ipcMain.handle(CHANNELS.chooseFolder, async (event) => {
+    if (!isTrusted(event, trusted)) return fail(new Error('Refused: unknown sender.'))
+    try {
+      const options: Electron.OpenDialogOptions = {
+        title: 'Choose a folder to look in',
+        buttonLabel: 'Look here',
+        properties: ['openDirectory', 'createDirectory'],
+      }
+      // Attached to the window that asked, so on macOS it drops down from its title bar.
+      const parent = BrowserWindow.fromWebContents(event.sender)
+      const { canceled, filePaths } = parent
+        ? await dialog.showOpenDialog(parent, options)
+        : await dialog.showOpenDialog(options)
+      return ok(canceled ? null : (filePaths[0] ?? null))
+    } catch (error) {
+      return fail(error)
+    }
   })
 }

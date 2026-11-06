@@ -3,10 +3,11 @@
  * after. It asks one thing of the reader at a time. First the ink cover: the
  * mark, what the app gives you in a headline and one sentence, one button and,
  * beside it, the way out.
- * Then, only if asked for, the loop in six steps, each alone in view. The last
- * step leads into the practice skill. Through the tour the way out keeps to
- * one corner, and nothing here has to be remembered: every screen explains
- * itself again when it is opened.
+ * Then, only if asked for, the loop in six steps, each alone in view, and the
+ * setup in three: where your skills are, a model, the judge's key. The last
+ * step leads into the practice skill. Through both the way out keeps to one
+ * corner, and nothing here has to be remembered: every screen explains itself
+ * again when it is opened, and Settings keeps every connection for later.
  *
  * It is never part of the app's own frame. The desktop app gives it a small
  * window of its own, laid out for exactly this size; a browser shows the same
@@ -16,11 +17,13 @@
 import { ArrowRightIcon } from 'lucide-react'
 import { type ReactNode, useEffect, useState } from 'react'
 import { api } from '../api.ts'
-import { LoopTour, TourProgress } from '../components/LoopTour.tsx'
+import { LoopTour } from '../components/LoopTour.tsx'
 import { Mark, Slab } from '../components/Mark.tsx'
+import { Setup } from '../components/Setup.tsx'
 import { Heading, Text } from '../components/text.tsx'
 import { Button } from '../components/ui/button.tsx'
-import { LOOP_STEPS } from '../help.ts'
+import { StepProgress } from '../components/WelcomeStep.tsx'
+import { LOOP_STEPS, SETUP_STEPS } from '../help.ts'
 import { after, useSwap } from '../motion.ts'
 import { APP_VERSION } from '../updates.ts'
 
@@ -33,7 +36,19 @@ interface Props {
   leaving?: boolean
   onStart: () => void
   onLeave: () => void
+  toast: (message: string) => void
 }
+
+/** A step in view and the one before it, which says which side the step arrives from. */
+interface At {
+  index: number
+  from: number
+}
+
+/** Show `index` next, remembering where the reader came from. */
+const to =
+  (index: number) =>
+  (current: At): At => ({ index, from: current.index })
 
 /**
  * The welcome's frame, the size of its window. The top strip moves the window
@@ -131,11 +146,10 @@ function Opening({ onTour, exit }: { onTour: () => void; exit: ReactNode }) {
   )
 }
 
-export function Welcome({ first, starting, leaving = false, onStart, onLeave }: Props) {
-  const { view, leaving: swapping, swap } = useSwap<'opening' | 'tour'>('opening')
-  /** The step in view and the one before it, which says which side the step arrives from. */
-  const [step, setStep] = useState({ index: 0, from: 0 })
-  const show = (index: number) => setStep((current) => ({ index, from: current.index }))
+export function Welcome({ first, starting, leaving = false, onStart, onLeave, toast }: Props) {
+  const { view, leaving: swapping, swap } = useSwap<'opening' | 'tour' | 'setup'>('opening')
+  const [step, setStep] = useState<At>({ index: 0, from: 0 })
+  const [setupStep, setSetupStep] = useState<At>({ index: 0, from: 0 })
   const touring = view === 'tour'
   const busy = starting || leaving
 
@@ -148,7 +162,7 @@ export function Welcome({ first, starting, leaving = false, onStart, onLeave }: 
       if (!by) return
       setStep((current) => {
         const index = current.index + by
-        return index < 0 || index >= LOOP_STEPS.length ? current : { index, from: current.index }
+        return index < 0 || index >= LOOP_STEPS.length ? current : to(index)(current)
       })
     }
     window.addEventListener('keydown', handle)
@@ -163,20 +177,41 @@ export function Welcome({ first, starting, leaving = false, onStart, onLeave }: 
 
   return (
     <Frame
-      ink={!touring}
+      ink={view === 'opening'}
       leaving={leaving || swapping}
-      progress={touring ? <TourProgress index={step.index} /> : <span />}
+      progress={
+        view === 'tour' ? (
+          <StepProgress count={LOOP_STEPS.length} index={step.index} />
+        ) : view === 'setup' ? (
+          <StepProgress count={SETUP_STEPS.length} index={setupStep.index} />
+        ) : (
+          <span />
+        )
+      }
       // The quiet way out keeps to this corner on every step. The opening holds it beside its button.
-      exit={touring ? exit('sm') : null}
+      exit={view === 'opening' ? null : exit('sm')}
     >
-      {touring ? (
+      {view === 'tour' ? (
         <LoopTour
           index={step.index}
           from={step.from}
-          starting={busy}
-          onShow={show}
-          onStart={onStart}
+          busy={busy}
+          onShow={(index) => setStep(to(index))}
           onBack={() => swap('opening')}
+          onDone={() => {
+            setSetupStep({ index: 0, from: 0 })
+            swap('setup')
+          }}
+        />
+      ) : view === 'setup' ? (
+        <Setup
+          index={setupStep.index}
+          from={setupStep.from}
+          busy={busy}
+          toast={toast}
+          onShow={(index) => setSetupStep(to(index))}
+          onBack={() => swap('tour')}
+          onStart={onStart}
         />
       ) : (
         <Opening

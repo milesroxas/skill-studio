@@ -47,6 +47,8 @@ export interface Transport {
   openExternal(url: string): void
   /** Show a skill's folder in the file manager. Undefined in a browser, which cannot reach one. */
   revealSkill?: (path: string) => Promise<void>
+  /** Pick a folder in the system's dialog; null when cancelled. Undefined in a browser, which types one. */
+  chooseFolder?: () => Promise<string | null>
   /** Push job changes when the transport has them; otherwise undefined and the shell polls. */
   watchJobs?: (listener: (jobs: Job[]) => void) => () => void
   /** Push assistant replies as they grow; otherwise undefined and the page polls a running one. */
@@ -85,6 +87,7 @@ function desktop(bridge: StudioBridge): Transport {
     openArtifact: (url) => void bridge.openArtifact(url).then(unwrap),
     openExternal: (url) => void bridge.openExternal(url).then(unwrap),
     revealSkill: async (path) => void unwrap(await bridge.revealSkill(path)),
+    chooseFolder: async () => unwrap(await bridge.chooseFolder()),
     watchJobs: (listener) => bridge.onJobs(listener),
     watchAi: (listener) => bridge.onAi(listener),
     watchGo: (listener) => bridge.onGo(listener),

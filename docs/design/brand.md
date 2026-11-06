@@ -53,12 +53,17 @@ The welcome runs in its own 760 x 600 window. It is the only surface with displa
 | Frame | Ground | Holds |
 | --- | --- | --- |
 | Opening | ink (`data-surface="ink"`) | version in mono, headline with one slab, one sentence, one button, Skip |
-| Steps 01 to 06 | porcelain | step numeral, title, one sentence, one picture, Back and Next |
+| Tour, steps 01 to 06 | porcelain | step numeral, title, one sentence, one picture, Back and Next |
+| Setup, steps 01 to 03 | porcelain | step numeral, title, one sentence, the step's controls, Back and the way forward |
 
 - **One idea and one action per frame.** Anything more comes one step later, on request. The reader is new and the words are new: six facts in a row are easy, six at once are a wall.
 - The headline is `Heading level="display"` (`text-display`). The step numeral is `text-numeral`, moved 6px left so its stroke sits on the column's edge. Both are in the scale in [typography.md](typography.md).
 - The picture is a sheet with a 1px `border-foreground` edge and no shadow.
-- Progress is the six step numbers in mono. The current one is lime on ink.
+- Progress is the step numbers of the part in view in mono: six through the tour, three through the setup. The current one is lime on ink.
+- The tour and the setup share one step frame (`StepFrame` in `components/WelcomeStep.tsx`): numeral, title and sentence on the left, the step beside them, Back, a hint and the way forward at the foot.
+- The setup comes after the tour: where skills are found (`Folders`), a model to write with, the Jev key. Each step checks first what the app can already reach and asks only for what is missing. Its controls are the same components Settings and the Library use (`components/Connections.tsx`, `components/Folders.tsx`), never copies. They sit in a `StepPanel`, not a sheet: a region is never a card.
+- A setup step's way forward is one button. While the step has something to set up, the step's own control is `default` and the way forward is `outline`, reading "Configure later", with a hint naming where the setting waits (Library or Settings). Once it is set, the way forward is `default` and reads "Continue", or "Start practice" on the last step.
+- A key the app walks someone through (`account` on its entry in `domain/secrets.ts`, today only Jev's) shows a sign-up link and, under it, a `Disclosure` reading "Show me". A quiet line, never a boxed button: it must not outweigh the key's field. It opens the steps, each a mono number, a verb in medium and a few muted words.
 - Every small label is true: the version, the step number, the screen's name. Never a decorative code, a fake serial, a ™ or text in a language the reader is not using. A label a reader cannot use is noise, and a reader who finds one fake label doubts the rest.
 - The way out stays in one corner on every step. It reads "Skip" on a first visit and "Close" after.
 

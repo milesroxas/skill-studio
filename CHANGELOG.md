@@ -12,6 +12,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - A run counts its outputs as they are written, under its line at the foot of the sidebar ("3/6").
 - A skill being run says so on its row in the Library.
 - Graded rules on Write and Scoring are numbered "01", "02" in mono, so a rule is easy to find again.
+- The welcome sets you up after its tour, in its own window: the folders your skills are found in, a model for the assistant, and the Jev key. Each step first checks what Skill Studio can already reach, and every step can be left for later.
+- Getting a Jev key: a link to sign up at TypeSafe, and "Show me" for the three steps from there. Settings shows them too.
+- In the desktop app, a folder for the Library to look in is picked in the system's own dialog.
 
 ### Changed
 

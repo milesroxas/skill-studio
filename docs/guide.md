@@ -58,7 +58,7 @@ pnpm dev
 
 Then open Settings at the foot of the sidebar and paste the TypeSafe key under Jev key. The app stores it encrypted through your system keychain. While the key is missing, a "No Jev key" label at the top right takes you to Settings.
 
-The first time it opens, the app shows a welcome. "See how it works" tells the loop in six steps on the practice skill and ends on **Start practice**. Skip goes to your skills at any point. In the desktop app the welcome has a small window of its own, and the app opens when you skip, finish or close it.
+The first time it opens, the app shows a welcome. "See how it works" tells the loop in six steps on the practice skill. Three setup steps follow: the folders your skills are found in, a model for the Assistant, and the Jev key. Each one first checks what Skill Studio can already reach, so a step that is already set only needs **Continue**. **Configure later** leaves a step for the Library or Settings. The last step ends on **Start practice**. Skip goes to your skills at any point. In the desktop app the welcome has a small window of its own, and the app opens when you skip, finish or close it.
 
 To see the welcome again, choose "How Skill Studio works" under the question mark, **Open the welcome** in Settings, or the Help menu of the desktop app.
 
@@ -109,7 +109,7 @@ The Claude, Cursor and Codex buttons on a skill's row install or uninstall it la
 When a skill is missing from the list:
 
 - It was installed from somewhere else, or you clicked "Not mine" on its row. Choose Installed or All beside the place filter. "Mine" on its row lists it with your own skills again.
-- Its project is outside your workspace folders. Open "Where skills are found" at the bottom and add the project's parent folder. Projects are found up to three levels inside a workspace folder. The default is `~/SITES` when that folder exists.
+- Its project is outside your workspace folders. Open "Where skills are found" at the bottom and add the project's parent folder (**Add a folder…** in the desktop app). Projects are found up to three levels inside a workspace folder. The default is `~/SITES` when that folder exists.
 - It was added a moment ago. The list is read again when you return to the window, or when you press the round arrow beside New skill.
 
 ## 2. Write the skill

@@ -30,6 +30,7 @@ export function WelcomeApp() {
         leaving={leaving}
         onStart={startPractice}
         onLeave={() => enter(null)}
+        toast={toast}
       />
       <Toast toast={toastShown} onDismiss={dismissToast} />
     </>
