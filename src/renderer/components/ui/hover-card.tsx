@@ -49,7 +49,7 @@ function HoverCardContent({
         sideOffset={sideOffset}
         collisionPadding={collisionPadding}
         className={cn(
-          'z-popover flex max-h-[min(30rem,var(--radix-hover-card-content-available-height))] w-[min(360px,calc(100vw-16px))] origin-(--radix-hover-card-content-transform-origin) flex-col rounded-lg bg-popover text-popover-foreground shadow-popover outline-hidden duration-150 ease-out-strong data-[state=closed]:animate-out data-[state=closed]:duration-100 data-[state=closed]:fade-out-0 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-[0.97]',
+          'z-popover flex max-h-[min(30rem,var(--radix-hover-card-content-available-height))] w-[min(360px,calc(100vw-16px))] origin-(--radix-hover-card-content-transform-origin) flex-col rounded-chin bg-popover text-popover-foreground shadow-popover outline-hidden duration-150 ease-out-strong data-[state=closed]:animate-out data-[state=closed]:duration-100 data-[state=closed]:fade-out-0 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-[0.97]',
           className,
         )}
         {...props}

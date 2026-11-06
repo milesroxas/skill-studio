@@ -12,7 +12,7 @@ import { Popover, PopoverContent, PopoverTrigger } from './ui/popover.tsx'
 const QUIET_AFTER_MS = 60_000
 
 const indicator = cva(
-  'flex min-h-8 w-full flex-col justify-center gap-1.5 rounded-md px-2 py-1.5 text-left text-xs outline-none transition-[background-color] duration-150 ease-out hover:bg-sidebar-accent focus-visible:ring-2 focus-visible:ring-ring/50 data-[state=open]:bg-sidebar-accent',
+  'flex min-h-8 w-full flex-col justify-center gap-1.5 rounded-sm px-2 py-1.5 text-left text-xs outline-none transition-[background-color] duration-150 ease-out hover:bg-sidebar-accent focus-visible:ring-2 focus-visible:ring-ring/50 data-[state=open]:bg-sidebar-accent',
   {
     variants: {
       status: {
@@ -64,7 +64,7 @@ export function RunningTag({ jobs, skillPath }: { jobs: readonly Job[]; skillPat
   return (
     <span
       data-surface="ink"
-      className="ml-2 inline-flex h-5 items-center gap-1.5 rounded-xs px-1.5 align-middle font-mono text-2xs font-medium tabular-nums"
+      className="ml-2 inline-flex h-5 items-center gap-1.5 rounded-sm px-1.5 align-middle font-mono text-2xs font-medium tabular-nums"
     >
       <span className={dot({ status: 'running' })} aria-hidden="true" />
       Running{progress ? ` ${progress.done}/${progress.total}` : null}

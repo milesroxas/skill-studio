@@ -48,7 +48,7 @@ One slab per frame, and only in the welcome: on "works" in the opening and on th
 
 ## The welcome
 
-The welcome runs in its own 760 x 600 window. It is the only surface with display type above 30px, the ink cover and the cropped mark.
+The welcome runs in its own 760 x 600 window, laid out for exactly that size and scaled by zoom. Display type that fits at 100% can clip at 110%: check both. It is the only surface with display type above 30px, the ink cover and the cropped mark.
 
 | Frame | Ground | Holds |
 | --- | --- | --- |
@@ -58,7 +58,7 @@ The welcome runs in its own 760 x 600 window. It is the only surface with displa
 
 - **One idea and one action per frame.** Anything more comes one step later, on request. The reader is new and the words are new: six facts in a row are easy, six at once are a wall.
 - The headline is `Heading level="display"` (`text-display`). The step numeral is `text-numeral`, moved 6px left so its stroke sits on the column's edge. Both are in the scale in [typography.md](typography.md).
-- The picture is a sheet with a 1px `border-foreground` edge and no shadow.
+- The picture is a sheet with a 1px `border-foreground` edge, `rounded-chin` corners and no shadow.
 - Progress is the step numbers of the part in view in mono: six through the tour, three through the setup. The current one is lime on ink.
 - The tour and the setup share one step frame (`StepFrame` in `components/WelcomeStep.tsx`): numeral, title and sentence on the left, the step beside them, Back, a hint and the way forward at the foot.
 - The setup comes after the tour: where skills are found (`Folders`), a model to write with, the Jev key. Each step checks first what the app can already reach and asks only for what is missing. Its controls are the same components Settings and the Library use (`components/Connections.tsx`, `components/Folders.tsx`), never copies. They sit in a `StepPanel`, not a sheet: a region is never a card.
@@ -80,7 +80,6 @@ The welcome runs in its own 760 x 600 window. It is the only surface with displa
 - A gradient, a glow, glass blur, a drop shadow on text, or a second accent color.
 - An emoji as an icon. Icons are `lucide-react`, 16px in chrome, `aria-hidden`.
 - A serif, a script or a third typeface.
-- Yellow. `#ffe500` was the old brand.
 
 ## Words
 

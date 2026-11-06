@@ -86,7 +86,7 @@ export function NumberInput({
 }
 
 const stepperVariants = cva(
-  `${FIELD_SURFACE} flex h-9 items-center rounded-md px-1.25 transition-[color,box-shadow] has-[input:focus-visible]:border-ring has-[input:focus-visible]:ring-[3px] has-[input:focus-visible]:ring-ring/50`,
+  `${FIELD_SURFACE} flex h-9 items-center rounded-sm px-1.25 transition-[color,box-shadow] has-[input:focus-visible]:border-ring has-[input:focus-visible]:ring-[3px] has-[input:focus-visible]:ring-ring/50`,
   {
     variants: {
       /** `full` fills a grid track, as in a row of checks; `field` is 112px, in a `Field` on a form. */

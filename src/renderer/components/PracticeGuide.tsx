@@ -65,7 +65,7 @@ function Step({ guide, mark }: { guide: Guide; mark?: ReactNode }) {
   )
 }
 
-const BLOCK = 'flex w-full flex-col gap-2 rounded-md p-2 text-left'
+const BLOCK = 'flex w-full flex-col gap-2 rounded-sm p-2 text-left'
 
 export function PracticeGuide({
   guide,

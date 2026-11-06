@@ -97,7 +97,7 @@ export function FilterGroup<T extends string>({
         const now = new Set(next as T[])
         for (const o of options) if (was.has(o.value) !== now.has(o.value)) onToggle(o.value)
       }}
-      className="rounded-md border shadow-xs"
+      className="rounded-sm border shadow-xs"
       {...aria}
     >
       {options.map((o) => (

@@ -9,12 +9,12 @@
   </g>
   <g text-anchor="end">
     <text x="84" y="96" fill="#5B605A" font-size="13" font-weight="500">You marked</text>
-    <text x="84" y="116" fill="#141615" font-size="16" font-weight="600">Good</text>
+    <text x="84" y="116" fill="#0A1020" font-size="16" font-weight="600">Good</text>
     <text x="84" y="218" fill="#5B605A" font-size="13" font-weight="500">You marked</text>
-    <text x="84" y="238" fill="#141615" font-size="16" font-weight="600">Bad</text>
+    <text x="84" y="238" fill="#0A1020" font-size="16" font-weight="600">Bad</text>
   </g>
 
-  <g stroke="#CDCCC9" stroke-width="1">
+  <g stroke="#CBCBCC" stroke-width="1">
     <rect x="96" y="44" width="320" height="112" rx="9" fill="#FBFAF6"/>
     <rect x="426" y="44" width="320" height="112" rx="9" fill="#EFE9DF"/>
     <rect x="96" y="166" width="320" height="112" rx="9" fill="#EFE9DF"/>
@@ -27,13 +27,13 @@
     <text x="114" y="192" fill="#845410">Judge missed</text>
     <text x="444" y="192" fill="#9E2F2A">Both bad</text>
   </g>
-  <g fill="#141615" font-size="17" font-weight="600">
+  <g fill="#0A1020" font-size="17" font-weight="600">
     <text x="114" y="96">Leave it</text>
     <text x="444" y="96">Tune the scoring</text>
     <text x="114" y="218">Tune the scoring</text>
     <text x="444" y="218">Change the skill</text>
   </g>
-  <g fill="#141615" font-size="13">
+  <g fill="#0A1020" font-size="13">
     <text x="114" y="120">The layer holds.</text>
     <text x="444" y="120">The judge fails an answer you would ship.</text>
     <text x="444" y="139">Go to step 8.</text>

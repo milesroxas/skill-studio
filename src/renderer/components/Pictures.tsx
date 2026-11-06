@@ -16,7 +16,7 @@ const ACCEPT = 'image/png,image/jpeg,image/webp,image/gif'
 
 const thumbVariants = cva(
   // The picture is the surface: one hairline keeps a white screenshot off a white page.
-  'relative block shrink-0 overflow-hidden rounded-md border bg-muted outline-none transition-[border-color,box-shadow] duration-150 ease-out focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50',
+  'relative block shrink-0 overflow-hidden rounded-sm border bg-muted outline-none transition-[border-color,box-shadow] duration-150 ease-out focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50',
   {
     variants: {
       size: {

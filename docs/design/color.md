@@ -20,24 +20,26 @@ Ink uses the dark scope's values, with `--background` set to `--sidebar` and the
 
 | Token | Light | Dark and ink | Role |
 | --- | --- | --- | --- |
-| `--background` | `oklch(0.961 0.01 94)` porcelain | `oklch(0.198 0.004 165)` ink | the page |
-| `--foreground` | `oklch(0.198 0.004 165)` | `oklch(0.961 0.01 94)` | text, icons |
-| `--card`, `--popover` | `oklch(0.985 0.005 95)` | `oklch(0.225 0.004 165)`, `oklch(0.245 0.004 165)` | an object, a floating sheet, an input's fill |
-| `--muted` | `oklch(0.936 0.011 95)` | `oklch(0.255 0.004 165)` | code blocks, an open row |
-| `--accent`, `--secondary` | `oklch(0.917 0.011 95)` | `oklch(0.27 0.004 165)` | hover, a selected list item |
-| `--muted-foreground` | `oklch(0.483 0.011 140)` | `oklch(0.78 0.012 130)` | secondary text |
+| `--background` | `oklch(0.961 0.01 94)` porcelain | `oklch(0.155 0.01 267.3)` near-black, `#0A0C11` | the page |
+| `--foreground` | `oklch(0.177 0.035 267.3)` | `oklch(0.961 0.01 94)` | text, icons |
+| `--card`, `--popover` | `oklch(0.985 0.005 95)` | `oklch(0.18 0.01 267.3)`, `oklch(0.2 0.01 267.3)` | an object, a floating sheet, an input's fill |
+| `--muted` | `oklch(0.936 0.011 95)` | `oklch(0.21 0.01 267.3)` | code blocks, an open row |
+| `--accent`, `--secondary` | `oklch(0.917 0.011 95)` | `oklch(0.225 0.01 267.3)` | hover, a selected list item |
+| `--muted-foreground` | `oklch(0.483 0.011 140)` | `oklch(0.78 0.008 267.3)` | secondary text |
 | `--primary` / `--primary-foreground` | ink / porcelain | porcelain / ink | the filled button |
-| `--border` | `oklch(0.198 0.004 165 / 0.1)` | `oklch(0.29 0.004 165)` | hairlines |
-| `--input` | `oklch(0.198 0.004 165 / 0.2)` | `oklch(0.35 0.004 165)` | a control's edge |
-| `--ring` | `oklch(0.198 0.004 165)` | `oklch(0.961 0.01 94)` | focus ring, always used at `/50` |
-| `--sidebar` | `oklch(0.198 0.004 165)` | `oklch(0.165 0.004 165)` | the sidebar's ground |
-| `--sidebar-accent` | `oklch(0.29 0.004 165)` | `oklch(0.25 0.004 165)` | the current place |
+| `--border` | `oklch(0.177 0.035 267.3 / 0.1)` | `oklch(0.25 0.01 267.3)` | hairlines |
+| `--input` | `oklch(0.177 0.035 267.3 / 0.2)` | `oklch(0.31 0.01 267.3)` | a control's edge |
+| `--ring` | `oklch(0.177 0.035 267.3)` | `oklch(0.961 0.01 94)` | focus ring, always used at `/50` |
+| `--sidebar` | `oklch(0.177 0.035 267.3)` | `oklch(0.125 0.01 267.3)` | the sidebar's ground |
+| `--sidebar-accent` | `oklch(0.269 0.035 267.3)` | `oklch(0.205 0.01 267.3)` | the current place |
 | `--success` | `oklch(0.452 0.095 148)` | `oklch(0.78 0.12 150)` | a good score, a pass |
 | `--warning` | `oklch(0.489 0.1 69)` | `oklch(0.8 0.11 70)` | a weak score, unsaved |
 | `--destructive` | `oklch(0.473 0.148 27)` | `oklch(0.76 0.12 25)` | a failing score, an error, a delete |
-| `--signal` / `--signal-foreground` | `oklch(0.927 0.168 120)` / ink | the same | next and running |
+| `--signal` / `--signal-foreground` | `oklch(0.928 0.168 109)` / ink | the same | next and running |
 
-`--signal` is the same in every scope. It is the brand's lime `#D9F76B`.
+`--signal` is the same in every scope. It is the brand's highlighter lime `#F0F059`.
+
+Ink is a blue-black, `#0A1020`: the light theme's text, its filled button and its sidebar. The dark theme's surfaces are near-black on the same hue, 267.3, at chroma 0.01, so they read as black with a cool cast. Only porcelain, the verdicts and lime sit off that hue.
 
 ## What background do I use?
 
@@ -103,7 +105,11 @@ Green, amber and red say how something stands and nothing else. A decorative use
 - A region ends at a hairline: `border-b`, `border-r`, `divide-y`. The default border color is `--border`. Do not name it.
 - A control's edge is `border-input`.
 - One depth cue per surface. A floating sheet uses `shadow-popover`. A raised object uses `shadow-raised`. Never both, never a shadow plus a border on the same element. In the dark and ink scopes both collapse to a ring.
-- Radius comes from the scale: `rounded-xs` 5px (chips, inline links), `rounded-sm` 7.5px (code blocks), `rounded-md` 8.75px (controls), `rounded-lg` 10px (alerts), `rounded-xl` 15px (cards). `rounded-full` is for dots only.
+- Corners are a closed set, in `styles.css`:
+  - `rounded-sm` 4px: a button, a field, a toggle, a checkbox, a chip, a list row or menu item.
+  - `rounded-chin` 6px on top, 14px below: a container. A card, a popover, a menu, a dialog, an alert, a toast, the composer, a muted panel, a code block, a chat bubble, the welcome's picture sheet. Top and bottom stay 3 to 7.
+  - `rounded-xs` 2px: a mark inside running text (an inline link's focus ring, inline code, a diff mark) and a part nested inside a control.
+  - `rounded-full`: dots, thin bars and the slider's thumb only.
 
 ## Checked pairs
 
@@ -111,12 +117,12 @@ Measured with WCAG 2 and APCA. A new text pair needs 4.5:1, and |Lc| 60 when it 
 
 | Pair | Light | Dark and ink |
 | --- | --- | --- |
-| foreground on background | 16.2:1 | 16.2:1 |
-| muted-foreground on background | 5.7:1, Lc 74 | 9.1:1, Lc 63 |
-| muted-foreground on accent | 5.0:1, Lc 66 | Lc 61 |
+| foreground on background | 16.9:1 | 17.5:1 |
+| muted-foreground on background | 5.7:1, Lc 74 | 9.8:1, Lc 63 |
+| muted-foreground on accent | 5.0:1, Lc 66 | 8.5:1, Lc 62 |
 | success, warning, destructive on their tint | 5.5, 5.0, 5.6:1 | above 5:1, Lc 59, 59, 52 (chips only, never running text) |
-| ink on lime | 15.1:1 | 15.1:1 |
-| focus ring (`ring-ring/50`) on background | 3.4:1 | 4.8:1 |
+| ink on lime | 15.6:1 | 15.6:1 (lime text on the dark page 16.1:1) |
+| focus ring (`ring-ring/50`) on background | 3.5:1 | 4.9:1 |
 
 Two known gaps. `border-input` on porcelain is 1.5:1, so an input is found by its `bg-card` fill and its label, not its edge: never draw an input without both. The brand kit's secondary grey `#7C817B` is 3.6:1 on porcelain and is not a token: use `muted-foreground`.
 

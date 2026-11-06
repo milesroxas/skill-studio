@@ -79,7 +79,7 @@ Only weak things are colored in `Layers`. If every bar is green, the eye has now
 
 ## Badge
 
-`components/ui/badge.tsx`. A badge is a short state on a thing: one or two words or a number. Its corners are `rounded-xs`, a printed label and not a pill.
+`components/ui/badge.tsx`. A badge is a short state on a thing: one or two words or a number. Its corners are `rounded-sm`, a printed label and not a pill.
 
 Variants that exist: `default`, `secondary`, `destructive`, `outline`, `ghost`, `link`, `success`, `warning`, `danger`. Nothing else.
 

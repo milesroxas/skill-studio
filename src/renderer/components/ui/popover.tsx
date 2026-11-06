@@ -16,7 +16,7 @@ function PopoverAnchor({ ...props }: React.ComponentProps<typeof PopoverPrimitiv
 }
 
 const popoverContentVariants = cva(
-  'z-popover origin-(--radix-popover-content-transform-origin) rounded-lg bg-popover text-popover-foreground shadow-popover outline-hidden duration-150 ease-out-strong data-[state=closed]:duration-100 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-[0.97]',
+  'z-popover origin-(--radix-popover-content-transform-origin) rounded-chin bg-popover text-popover-foreground shadow-popover outline-hidden duration-150 ease-out-strong data-[state=closed]:duration-100 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-[0.97]',
   {
     variants: {
       size: {
@@ -118,7 +118,7 @@ function PopoverAction({
     <button
       type="button"
       className={cn(
-        'flex min-h-8 items-center gap-2 rounded-md px-2 text-left text-ui outline-none transition-[background-color] duration-150 ease-out hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring/50 pointer-coarse:min-h-11 [&_svg]:size-4 [&_svg]:shrink-0 [&_svg]:text-muted-foreground',
+        'flex min-h-8 items-center gap-2 rounded-sm px-2 text-left text-ui outline-none transition-[background-color] duration-150 ease-out hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring/50 pointer-coarse:min-h-11 [&_svg]:size-4 [&_svg]:shrink-0 [&_svg]:text-muted-foreground',
         className,
       )}
       {...props}

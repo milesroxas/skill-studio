@@ -78,7 +78,7 @@ export const editorTheme = EditorView.theme({
     fontFamily: MONO,
     fontSize: '0.9em',
     backgroundColor: 'var(--muted)',
-    borderRadius: '4px',
+    borderRadius: 'var(--radius-xs)',
     padding: '0.1em 0.3em',
   },
   '.cm-md-link': {

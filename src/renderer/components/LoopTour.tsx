@@ -55,7 +55,7 @@ const BEAT = { start: STEP_BEAT, row: 90, stamp: 220, word: 20 }
 /** The picture of a step: a sheet with a printed edge, headed like the screen it stands for. */
 function Sheet({ place, children }: { place: Place; children: ReactNode }) {
   return (
-    <div className="pointer-events-none flex h-95 max-h-full min-w-0 flex-1 animate-in flex-col overflow-hidden rounded-lg border border-foreground bg-card delay-75 duration-300 ease-out-strong fill-mode-backwards select-none fade-in-0 in-data-[from=after]:slide-in-from-right-4 in-data-[from=before]:slide-in-from-left-4">
+    <div className="pointer-events-none flex h-95 max-h-full min-w-0 flex-1 animate-in flex-col overflow-hidden rounded-chin border border-foreground bg-card delay-75 duration-300 ease-out-strong fill-mode-backwards select-none fade-in-0 in-data-[from=after]:slide-in-from-right-4 in-data-[from=before]:slide-in-from-left-4">
       <div className="flex h-9.5 shrink-0 items-center gap-2 border-b px-4 text-ui font-medium">
         <place.icon aria-hidden="true" className="size-3.5 text-muted-foreground" />
         {place.label}
@@ -100,7 +100,7 @@ function Quote({ children }: { children: ReactNode }) {
 }
 
 const stampVariants = cva(
-  'absolute -inset-px flex animate-pop items-center justify-center rounded-xs',
+  'absolute -inset-px flex animate-pop items-center justify-center rounded-sm',
   {
     variants: {
       passed: {
@@ -132,8 +132,8 @@ function Checks({ marks }: { marks?: boolean[] }) {
               <span
                 className={
                   marks
-                    ? 'absolute inset-0 animate-vanish rounded-xs border border-input'
-                    : 'absolute inset-0 rounded-xs border border-input'
+                    ? 'absolute inset-0 animate-vanish rounded-sm border border-input'
+                    : 'absolute inset-0 rounded-sm border border-input'
                 }
                 style={marks ? after(at) : undefined}
               />
@@ -254,7 +254,7 @@ function Rerun({ at }: { at: number }) {
 }
 
 const ratingVariants = cva(
-  'flex items-center justify-center rounded-md text-ui font-medium tabular-nums',
+  'flex items-center justify-center rounded-sm text-ui font-medium tabular-nums',
   {
     variants: {
       picked: {
@@ -301,7 +301,7 @@ const PICTURES: Record<string, ReactNode> = {
   ),
   generate: (
     <Part caption="What the agent wrote, with the skill installed">
-      <p className="m-0 rounded-lg bg-muted px-3 py-2.5 text-ui text-pretty">
+      <p className="m-0 rounded-chin bg-muted px-3 py-2.5 text-ui text-pretty">
         <Written />
       </p>
     </Part>

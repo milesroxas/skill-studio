@@ -19,7 +19,7 @@ Read [docs/design/README.md](docs/design/README.md) first, then the one topic fi
 4. **Lime means next or running.** One `signal` element per window. Never decoration, never success.
 5. **Regions are never cards.** `Screen`, `Workbench` columns or `FormSection`, divided by hairlines.
 
-If the design docs and the code disagree, the code is what runs: say so in your report and fix the doc in the same change. Do not follow a doc into a variant that is not there. `docs/design/README.md` lists the names that are planned and not built yet.
+If the design docs and the code disagree, the code is what runs: say so in your report and fix the doc in the same change. Do not follow a doc into a variant that is not there.
 
 If a task needs a color, a size, a component or a pattern the docs do not cover, stop and ask. Do not guess: a guess looks exactly like a decision to the next reader.
 

@@ -11,7 +11,7 @@ const disclosureVariants = cva('', {
       /** A line of text that opens in place. */
       plain: '',
       /** On its own bordered block, such as one file of a diff. */
-      card: 'rounded-lg border bg-card px-3 py-1',
+      card: 'rounded-chin border bg-card px-3 py-1',
     },
   },
   defaultVariants: { variant: 'plain' },

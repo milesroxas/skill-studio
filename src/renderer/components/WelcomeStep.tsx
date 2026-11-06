@@ -30,7 +30,7 @@ export function StepProgress({ count, index }: { count: number; index: number })
           key={i}
           aria-hidden="true"
           data-surface={i === index ? 'ink' : undefined}
-          className="flex h-5 w-7.5 items-center justify-center rounded-xs font-mono text-2xs font-medium text-muted-foreground tabular-nums transition-colors duration-150 ease-out data-[surface=ink]:text-signal"
+          className="flex h-5 w-7.5 items-center justify-center rounded-sm font-mono text-2xs font-medium text-muted-foreground tabular-nums transition-colors duration-150 ease-out data-[surface=ink]:text-signal"
         >
           {numeral(i)}
         </span>

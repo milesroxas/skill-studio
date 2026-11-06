@@ -21,7 +21,7 @@ import { Textarea } from './ui/textarea.tsx'
 const composerVariants = cva('flex flex-col', {
   variants: {
     frame: {
-      box: 'rounded-lg border border-input bg-background shadow-xs transition-[border-color,box-shadow] duration-150 ease-out focus-within:border-ring focus-within:ring-[3px] focus-within:ring-ring/50 dark:bg-input/30',
+      box: 'rounded-chin border border-input bg-background shadow-xs transition-[border-color,box-shadow] duration-150 ease-out focus-within:border-ring focus-within:ring-[3px] focus-within:ring-ring/50 dark:bg-input/30',
       bare: '',
     },
     /** A picture is held over it: the drop lands here. */

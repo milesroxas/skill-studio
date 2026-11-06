@@ -43,7 +43,7 @@ export function Toast({ toast, onDismiss }: { toast: ToastState | null; onDismis
       role="status"
       inert={!toast}
       className={cn(
-        'fixed bottom-[calc(20px+env(safe-area-inset-bottom,0px))] left-1/2 z-toast flex max-w-[min(56ch,calc(100vw-32px))] -translate-x-1/2 items-center gap-3 rounded-full bg-primary px-4 py-2 text-center text-ui text-pretty text-primary-foreground shadow-popover transition-[opacity,translate] duration-200 ease-out',
+        'fixed bottom-[calc(20px+env(safe-area-inset-bottom,0px))] left-1/2 z-toast flex max-w-[min(56ch,calc(100vw-32px))] -translate-x-1/2 items-center gap-3 rounded-chin bg-primary px-4 py-2 text-center text-ui text-pretty text-primary-foreground shadow-popover transition-[opacity,translate] duration-200 ease-out',
         toast ? 'translate-y-0 opacity-100' : 'pointer-events-none translate-y-3 opacity-0',
         // Without a button the pill is only read, so clicks pass through it. With
         // one, the button sits 4px inside the pill's end, its curve inside the pill's.
@@ -55,7 +55,7 @@ export function Toast({ toast, onDismiss }: { toast: ToastState | null; onDismis
         <button
           type="button"
           title={offer.title}
-          className="h-7 shrink-0 rounded-full bg-primary-foreground/15 px-3 font-medium outline-none transition-[background-color,scale] duration-150 ease-out hover:bg-primary-foreground/25 focus-visible:ring-2 focus-visible:ring-primary-foreground/70 active:scale-[0.96]"
+          className="h-7 shrink-0 rounded-sm bg-primary-foreground/15 px-3 font-medium outline-none transition-[background-color,scale] duration-150 ease-out hover:bg-primary-foreground/25 focus-visible:ring-2 focus-visible:ring-primary-foreground/70 active:scale-[0.96]"
           onClick={() => {
             offer.run()
             onDismiss()

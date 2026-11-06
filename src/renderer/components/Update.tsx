@@ -54,7 +54,7 @@ export function ProgressLine({ percent, active }: { percent: number; active: boo
 
 const control = cva(
   // 7px and the 1px border: the icon and the label stand in the columns the places below keep.
-  'group/update relative flex h-8 min-w-0 flex-1 items-center gap-2 overflow-hidden rounded-md border bg-background px-1.75 text-left text-ui font-medium shadow-xs outline-none transition-[background-color,border-color,box-shadow,scale] duration-150 ease-out focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 dark:border-input dark:bg-input/30 pointer-coarse:h-11',
+  'group/update relative flex h-8 min-w-0 flex-1 items-center gap-2 overflow-hidden rounded-sm border bg-background px-1.75 text-left text-ui font-medium shadow-xs outline-none transition-[background-color,border-color,box-shadow,scale] duration-150 ease-out focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 dark:border-input dark:bg-input/30 pointer-coarse:h-11',
   {
     variants: {
       /** A step waits to be taken, or one is under way and there is nothing to press. */
