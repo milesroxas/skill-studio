@@ -6,6 +6,8 @@ A release is permanent. The repository refuses to move or delete a `v*` tag, and
 
 ## Cut a release
 
+[release-plan.md](release-plan.md) tracks what goes into the next release and the checks before it. Work through its release checklist; these are its steps in detail.
+
 1. In [CHANGELOG.md](../CHANGELOG.md), rename `## [Unreleased]` to the version and the day, such as `## [1.2.0] - 2026-11-05`, start a new `## [Unreleased]` above it, and commit. The workflow refuses a version with no entry.
 2. Bump, tag and push:
 

@@ -47,6 +47,7 @@ A first launch opens a welcome that offers a practice skill: a finished skill to
 | [Command line and web server](docs/cli.md) | The `st` command, `st serve` and the HTTP API |
 | [Architecture](docs/architecture.md) | The layers, the desktop app, engines and the assistant |
 | [Releasing](docs/releasing.md) | Cutting a release, signing and updates |
+| [Release plan](docs/release-plan.md) | What goes into the next release, and what is done |
 | [Changelog](CHANGELOG.md) | What changed in each release |
 
 ## Contributing
