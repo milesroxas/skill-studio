@@ -4,15 +4,16 @@
  * open skill and the screen, so a question can say "this rule" and mean it.
  * The model, its effort and what has been spent are in reach from here.
  */
+import type { AiRun, ChatMessage } from '@domain/ai.ts'
 import { SquarePenIcon, XIcon } from 'lucide-react'
 import { useLayoutEffect, useRef, useState } from 'react'
-import { clearChat, sendChat, stopRun, useAi, useChat } from '../ai.ts'
+import { clearChat, loadAi, loadChat, sendChat, stopRun, useAi, useChat } from '../ai.ts'
 import { navigate } from '../history.ts'
 import { useAttached } from '../images.ts'
 import { shortcut } from '../keys.ts'
 import { Composer } from './Composer.tsx'
 import type { Confirm } from './confirm.tsx'
-import { EmptyState, Loading, PlainList, Spacer } from './layout.tsx'
+import { EmptyState, Loading, PlainList, ReadFailed, Spacer } from './layout.tsx'
 import { PictureStrip } from './Pictures.tsx'
 import { Prose } from './Prose.tsx'
 import { Heading, Hint, Text } from './text.tsx'
@@ -45,7 +46,7 @@ const starters = (skill: string | null): string[] =>
       ]
 
 export function ChatPanel({ screen, skill, confirm, onClose }: ChatPanelProps) {
-  const thread = useChat()
+  const { thread } = useChat()
   const { providers, choice } = useAi()
   const [draft, setDraft] = useState('')
   const [failure, setFailure] = useState<string | null>(null)
@@ -99,7 +100,7 @@ export function ChatPanel({ screen, skill, confirm, onClose }: ChatPanelProps) {
 
   const body =
     !providers || !thread ? (
-      <Loading size="screen" />
+      <Unread />
     ) : !choice ? (
       <EmptyState
         size="screen"
@@ -137,49 +138,7 @@ export function ChatPanel({ screen, skill, confirm, onClose }: ChatPanelProps) {
         Rules, cases, checks and scores. It reads the open skill, and changes nothing.
       </EmptyState>
     ) : (
-      <ol className="m-0 flex flex-col gap-4 px-4 py-4">
-        {messages.map((message) =>
-          message.role === 'user' ? (
-            <li key={message.id} className="ml-8 flex max-w-full flex-col items-end gap-2 self-end">
-              {message.images?.length ? (
-                <PictureStrip
-                  size="md"
-                  label="Pictures with this message"
-                  className="justify-end"
-                  images={message.images}
-                />
-              ) : null}
-              {message.text ? (
-                <p className="m-0 max-w-full rounded-lg bg-secondary px-3 py-2 text-sm break-words whitespace-pre-wrap">
-                  {message.text}
-                </p>
-              ) : null}
-            </li>
-          ) : (
-            <li key={message.id}>
-              <Prose text={message.text} density="compact" />
-            </li>
-          ),
-        )}
-        {run?.status === 'running' ? (
-          <li aria-live="polite">
-            {run.text ? (
-              <Prose text={run.text} density="compact" />
-            ) : (
-              <Text tone="muted" className="animate-pulse">
-                Thinking…
-              </Text>
-            )}
-          </li>
-        ) : null}
-        {error ? (
-          <li>
-            <Hint tone="destructive" role="alert">
-              {error}
-            </Hint>
-          </li>
-        ) : null}
-      </ol>
+      <Conversation messages={messages} run={run} error={error} />
     )
 
   return (
@@ -235,12 +194,89 @@ export function ChatPanel({ screen, skill, confirm, onClose }: ChatPanelProps) {
             onChange={setDraft}
             onSubmit={() => void send(draft)}
             running={Boolean(running)}
-            onStop={() => run && void stopRun(run.id)}
+            onStop={() => run && stopRun(run.id)}
             pictures={attached}
             picturesSuffice
           />
         </div>
       ) : null}
     </>
+  )
+}
+
+/** The messages so far, the reply being written under them, and why the last one failed. */
+function Conversation({
+  messages,
+  run,
+  error,
+}: {
+  messages: ChatMessage[]
+  run: AiRun | null
+  error: string | null
+}) {
+  return (
+    <ol className="m-0 flex flex-col gap-4 px-4 py-4">
+      {messages.map((message) =>
+        message.role === 'user' ? (
+          <li key={message.id} className="ml-8 flex max-w-full flex-col items-end gap-2 self-end">
+            {message.images?.length ? (
+              <PictureStrip
+                size="md"
+                label="Pictures with this message"
+                className="justify-end"
+                images={message.images}
+              />
+            ) : null}
+            {message.text ? (
+              <p className="m-0 max-w-full rounded-lg bg-secondary px-3 py-2 text-sm break-words whitespace-pre-wrap">
+                {message.text}
+              </p>
+            ) : null}
+          </li>
+        ) : (
+          <li key={message.id}>
+            <Prose text={message.text} density="compact" />
+          </li>
+        ),
+      )}
+      {run?.status === 'running' ? (
+        <li aria-live="polite">
+          {run.text ? (
+            <Prose text={run.text} density="compact" />
+          ) : (
+            <Text tone="muted" className="animate-pulse">
+              Thinking…
+            </Text>
+          )}
+        </li>
+      ) : null}
+      {error ? (
+        <li>
+          <Hint tone="destructive" role="alert">
+            {error}
+          </Hint>
+        </li>
+      ) : null}
+    </ol>
+  )
+}
+
+/** In place of the conversation until it and the providers are read: loading, or why a read failed. */
+function Unread() {
+  const ai = useAi()
+  const chat = useChat()
+  const problem = (!ai.providers && ai.problem) || (!chat.thread && chat.problem)
+  if (!problem) return <Loading size="screen" />
+  return (
+    <ReadFailed
+      size="screen"
+      title="Could not reach the assistant"
+      onRetry={() => {
+        void loadAi()
+        void loadChat()
+      }}
+    >
+      {problem}
+    </ReadFailed>
   )
 }

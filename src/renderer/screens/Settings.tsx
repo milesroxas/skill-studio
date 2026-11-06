@@ -22,7 +22,7 @@ import { MonitorIcon, MoonIcon, SunIcon } from 'lucide-react'
 import { type ReactNode, useId, useState } from 'react'
 import { loadAi, useAi } from '../ai.ts'
 import { api } from '../api.ts'
-import { EmptyState, Field, FormSection, Loading, Screen, Toolbar } from '../components/layout.tsx'
+import { Field, FormSection, Loading, ReadFailed, Screen, Toolbar } from '../components/layout.tsx'
 import { ModelControls } from '../components/ModelControls.tsx'
 import { ResetDialog } from '../components/ResetDialog.tsx'
 import { Segmented } from '../components/Segmented.tsx'
@@ -97,7 +97,7 @@ const UPDATE_MODES = [
 export function SettingsScreen({ running, toast, onSaved, onWelcome }: Props) {
   const preferences = usePreferences()
   const settings = useFetch(() => api.settings(), [])
-  const { providers, choice } = useAi()
+  const { providers, choice, problem } = useAi()
   const ids = {
     theme: useId(),
     motion: useId(),
@@ -115,17 +115,9 @@ export function SettingsScreen({ running, toast, onSaved, onWelcome }: Props) {
   }
   const keys = (id: SecretId, missing: string, provider?: AiProviderInfo) =>
     settings.error && !settings.data ? (
-      <EmptyState
-        size="compact"
-        title="Could not read the key’s status"
-        actions={
-          <Button type="button" variant="outline" onClick={settings.reload}>
-            Try again
-          </Button>
-        }
-      >
+      <ReadFailed size="compact" title="Could not read the key’s status" onRetry={settings.reload}>
         {settings.error}
-      </EmptyState>
+      </ReadFailed>
     ) : !settings.data ? (
       <Loading />
     ) : (
@@ -243,7 +235,15 @@ export function SettingsScreen({ running, toast, onSaved, onWelcome }: Props) {
         title="Assistant"
         hint="The model that writes with you, in the side panel and beside every text area. Both change it too."
       >
-        {!providers ? (
+        {problem ? (
+          <ReadFailed
+            size="compact"
+            title="Could not read the providers"
+            onRetry={() => void loadAi()}
+          >
+            {problem}
+          </ReadFailed>
+        ) : !providers ? (
           <Loading />
         ) : choice ? (
           <ModelControls />

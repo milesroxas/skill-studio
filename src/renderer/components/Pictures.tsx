@@ -190,7 +190,8 @@ export function PicturePicker({
 
 /**
  * Take pictures dropped on an element. `over` is true while one is held above
- * it, for the element to show where the drop will land.
+ * it, for the element to show where the drop will land. Where one such element
+ * is inside another, the inner one takes the drop and the outer never hears of it.
  */
 export function usePictureDrop(onFiles: (files: File[]) => void) {
   const [over, setOver] = useState(false)
@@ -201,6 +202,7 @@ export function usePictureDrop(onFiles: (files: File[]) => void) {
       onDragOver: (event: DragEvent) => {
         if (!carriesFiles(event)) return
         event.preventDefault()
+        event.stopPropagation()
         setOver(true)
       },
       onDragLeave: (event: DragEvent) => {
@@ -210,6 +212,7 @@ export function usePictureDrop(onFiles: (files: File[]) => void) {
       onDrop: (event: DragEvent) => {
         if (!carriesFiles(event)) return
         event.preventDefault()
+        event.stopPropagation()
         setOver(false)
         onFiles(picturesIn(event.dataTransfer))
       },

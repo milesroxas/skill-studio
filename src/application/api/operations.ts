@@ -253,7 +253,7 @@ function assistInputOf(raw: Raw): Scoped & AssistInput {
   return input
 }
 
-const runId = (raw: Raw): { id: number } => ({ id: num(raw.id, 0) })
+const runId = (raw: Raw): { id: string } => ({ id: str(raw.id) })
 
 /** Every operation's input check, keyed like the contract. Shared by every host of the table. */
 export const parsers: { [K in OperationName]: (raw: Raw) => Input<K> } = {

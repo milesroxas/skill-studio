@@ -144,7 +144,8 @@ export type AiRunStatus = 'running' | 'done' | 'failed' | 'stopped'
 
 /** One reply, while it is written and after. The backend holds it; the page mirrors it. */
 export interface AiRun {
-  id: number
+  /** Unique for good, so a run started after the backend restarts is never taken for an older one. */
+  id: string
   kind: AiRunKind
   status: AiRunStatus
   /** The reply so far: a field's text for `assist`, Markdown for `chat`. */
@@ -156,6 +157,30 @@ export interface AiRun {
 }
 
 export const isSettled = (run: AiRun): boolean => run.status !== 'running'
+
+/**
+ * Whether `next` is news about a run last seen as `known`. A run that has
+ * ended never runs again, so a late report of it still running is not.
+ */
+export const isNewsOf = (known: AiRun | undefined, next: AiRun): boolean =>
+  !known || !isSettled(known) || isSettled(next)
+
+/**
+ * How many runs stay readable: in the backend for a page that asks late, and
+ * in the page's own mirror of them.
+ */
+export const RUNS_KEPT = 30
+
+/**
+ * The runs to forget so that `RUNS_KEPT` are left, given every run held,
+ * oldest first: the oldest that have ended. One still being written is never
+ * forgotten.
+ */
+export const runsToForget = (held: readonly AiRun[]): string[] =>
+  held
+    .filter(isSettled)
+    .slice(0, Math.max(0, held.length - RUNS_KEPT))
+    .map((run) => run.id)
 
 export interface ChatMessage {
   id: number

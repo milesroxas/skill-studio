@@ -6,6 +6,7 @@
  * exist: `assist` fills one field in the field's own shape, `chat` adds a
  * reply to the side panel's conversation.
  */
+import { randomUUID } from 'node:crypto'
 import {
   type AiChoice,
   type AiRun,
@@ -15,6 +16,7 @@ import {
   type ChatMessage,
   type ChatThread,
   resolveChoice,
+  runsToForget,
   summarizeUsage,
   type UsageSummary,
 } from '@domain/ai.ts'
@@ -34,16 +36,13 @@ import { readChat, readUsage, recordUsage, writeChat } from '@infrastructure/ai/
 import { findImage, type StoredImage } from '@infrastructure/images.ts'
 import { readPreferences } from '@infrastructure/preferences.ts'
 
-/** Finished runs stay readable this long, counted in runs, for a page that asks late. */
-const RUNS_KEPT = 30
 /** A growing reply is reported at most this often: smooth to read, light to send. */
 const REPORT_MS = 40
 
-const runs = new Map<number, AiRun>()
-const controllers = new Map<number, AbortController>()
-const pending = new Map<number, ReturnType<typeof setTimeout>>()
+const runs = new Map<string, AiRun>()
+const controllers = new Map<string, AbortController>()
+const pending = new Map<string, ReturnType<typeof setTimeout>>()
 const watchers = new Set<(run: AiRun) => void>()
-let seq = 0
 
 /** Be told as a run grows and when it ends. Returns the unsubscribe. */
 export function watchRuns(listener: (run: AiRun) => void): () => void {
@@ -70,14 +69,14 @@ function changed(run: AiRun): void {
     )
 }
 
-export function findRun(id: number): AiRun {
+export function findRun(id: string): AiRun {
   const run = runs.get(id)
   if (!run) throw new Error('That reply is no longer kept. Ask again.')
   return { ...run }
 }
 
 /** Stop a run that is still being written; one that has ended stays as it is. */
-export function stopRun(id: number): AiRun {
+export function stopRun(id: string): AiRun {
   controllers.get(id)?.abort()
   return findRun(id)
 }
@@ -110,7 +109,7 @@ interface Work {
 function start(work: Work): AiRun {
   const { choice } = work
   const run: AiRun = {
-    id: ++seq,
+    id: randomUUID(),
     kind: work.kind,
     status: 'running',
     text: '',
@@ -120,7 +119,7 @@ function start(work: Work): AiRun {
     usage: null,
   }
   runs.set(run.id, run)
-  for (const id of runs.keys()) if (runs.size > RUNS_KEPT && !controllers.has(id)) runs.delete(id)
+  for (const id of runsToForget([...runs.values()])) runs.delete(id)
   const controller = new AbortController()
   controllers.set(run.id, controller)
   aiProvider(choice.provider)

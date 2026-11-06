@@ -83,8 +83,8 @@ export const api = {
   aiUsage: () => call('ai.usage', {}),
   /** The open skill goes along, so a picture saved in it can be found. */
   assist: (input: AssistInput) => call('ai.assist', scoped(input)),
-  aiRun: (id: number) => call('ai.run', { id }),
-  aiStop: (id: number) => call('ai.stop', { id }),
+  aiRun: (id: string) => call('ai.run', { id }),
+  aiStop: (id: string) => call('ai.stop', { id }),
   /** Push assistant replies when the host can; the store polls otherwise. */
   watchAi: transport.watchAi,
   chat: () => call('chat.read', {}),

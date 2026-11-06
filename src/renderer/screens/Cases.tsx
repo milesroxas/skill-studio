@@ -5,6 +5,7 @@
  * typing.
  */
 
+import { assistItems } from '@domain/assist.ts'
 import { addImages, type ImageRef, imageTypeOf, MAX_IMAGES } from '@domain/image.ts'
 import { type Case, type CaseDraft, NEW_CASE_KEY } from '@domain/schemas.ts'
 import {
@@ -16,10 +17,11 @@ import {
 } from '@domain/templates.ts'
 import { isSlug, SLUG_RULE, slug } from '@domain/text.ts'
 import { cva } from 'class-variance-authority'
-import { PlusIcon, XIcon } from 'lucide-react'
+import { PenLineIcon, PlusIcon, XIcon } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { api } from '../api.ts'
 import { caseContext, skillContext } from '../assist.ts'
+import { Assist, assistTitle } from '../components/Assist.tsx'
 import { DraftNote } from '../components/DraftNote.tsx'
 import { CheckRow, InlineField, NumberInput, Stepper } from '../components/forms.tsx'
 import {
@@ -149,6 +151,7 @@ export function Cases({ ctx }: { ctx: Ctx }) {
    */
   const statements = useRef<Array<HTMLTextAreaElement | null>>([])
   const addCheckButton = useRef<HTMLButtonElement>(null)
+  const checkTools = useRef<HTMLDivElement>(null)
   const [focusCheck, setFocusCheck] = useState<number | null>(null)
   useEffect(() => {
     if (focusCheck === null) return
@@ -163,6 +166,14 @@ export function Cases({ ctx }: { ctx: Ctx }) {
     set({ graders: [...draft.graders.slice(0, at), newCheck(), ...draft.graders.slice(at)] })
     setFocusCheck(at)
   }
+  /** Checks the assistant wrote join the list, in place of any row left blank. */
+  const addChecks = (written: string[]) =>
+    set({
+      graders: [
+        ...draft.graders.filter((g) => g.statement.trim() || g.image),
+        ...written.map((statement) => ({ ...newCheck(), statement })),
+      ],
+    })
   /** Take a check out. One with a statement can come back: a slip costs a sentence otherwise. */
   const removeCheck = (i: number, focus: 'next' | 'previous') => {
     const removed = draft.graders[i]
@@ -575,7 +586,7 @@ export function Cases({ ctx }: { ctx: Ctx }) {
                     </CheckLine>
                   ))}
                 </PlainList>
-                <Toolbar>
+                <Toolbar ref={checkTools}>
                   <Button
                     ref={addCheckButton}
                     type="button"
@@ -586,6 +597,19 @@ export function Cases({ ctx }: { ctx: Ctx }) {
                     <PlusIcon aria-hidden="true" />
                     Add a check
                   </Button>
+                  <Assist
+                    field="case.checks"
+                    value=""
+                    // It opens under the row of buttons, never over the checks it adds to.
+                    anchor={checkTools}
+                    {...assist}
+                    onApply={(text) => addChecks(assistItems(text))}
+                  >
+                    <Button type="button" variant="ghost" size="sm">
+                      <PenLineIcon aria-hidden="true" />
+                      {assistTitle('case.checks')}
+                    </Button>
+                  </Assist>
                 </Toolbar>
               </Stack>
             </FormSection>

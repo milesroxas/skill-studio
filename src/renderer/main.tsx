@@ -32,6 +32,6 @@ if (api.openWelcome && screen === 'welcome') {
   ])
   // The assistant's providers answer in their own time; nothing waits on them.
   void loadAi()
-  void loadChat().catch(() => {})
+  void loadChat()
   root.render(<App />)
 }

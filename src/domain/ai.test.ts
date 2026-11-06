@@ -1,12 +1,17 @@
 import { describe, expect, it } from 'vitest'
 import {
   type AiProviderInfo,
+  type AiRun,
+  type AiRunStatus,
   compactCount,
   defaultFirst,
   effortFor,
+  isNewsOf,
   isOpenAiChatModel,
   openAiEfforts,
+  RUNS_KEPT,
   resolveChoice,
+  runsToForget,
   summarizeUsage,
   type UsageEntry,
 } from './ai.ts'
@@ -130,5 +135,42 @@ describe('compactCount', () => {
     expect(compactCount(12_000)).toBe('12k')
     expect(compactCount(123_456)).toBe('123k')
     expect(compactCount(1_234_567)).toBe('1.2M')
+  })
+})
+
+const runOf = (id: string, status: AiRunStatus): AiRun => ({
+  id,
+  kind: 'assist',
+  status,
+  text: '',
+  error: null,
+  provider: 'claude-code',
+  model: 'opus',
+  usage: null,
+})
+
+describe('isNewsOf', () => {
+  it('takes the first report of a run and every report while it is written', () => {
+    expect(isNewsOf(undefined, runOf('a', 'running'))).toBe(true)
+    expect(isNewsOf(runOf('a', 'running'), runOf('a', 'running'))).toBe(true)
+    expect(isNewsOf(runOf('a', 'running'), runOf('a', 'done'))).toBe(true)
+  })
+
+  it('drops a late report that an ended run is still running', () => {
+    expect(isNewsOf(runOf('a', 'stopped'), runOf('a', 'running'))).toBe(false)
+    expect(isNewsOf(runOf('a', 'done'), runOf('a', 'done'))).toBe(true)
+  })
+})
+
+describe('runsToForget', () => {
+  const ended = Array.from({ length: RUNS_KEPT }, (_, i) => runOf(`ended-${i}`, 'done'))
+
+  it('forgets nothing while no more than the limit are held', () => {
+    expect(runsToForget(ended)).toEqual([])
+  })
+
+  it('forgets the oldest ended runs past the limit, never one still being written', () => {
+    const held = [runOf('writing', 'running'), ...ended, runOf('newest', 'failed')]
+    expect(runsToForget(held)).toEqual(['ended-0', 'ended-1'])
   })
 })

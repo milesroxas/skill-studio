@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   ASSIST_FIELD_IDS,
   ASSIST_FIELDS,
+  assistItems,
   assistPrompt,
   assistText,
   chatSystem,
@@ -12,11 +13,22 @@ import { CASE_PROMPT_HINT, RULE_GUIDE, RULE_SHAPE } from './templates.ts'
 const reply = (text: string): string => JSON.stringify({ text })
 
 describe('ASSIST_FIELDS', () => {
-  it('gives every field a shape and something to ask in one click', () => {
+  it('gives every field a shape, and an edit to ask for in one click where a reply replaces text', () => {
     for (const id of ASSIST_FIELD_IDS) {
-      expect(ASSIST_FIELDS[id].shape.length).toBeGreaterThan(40)
-      expect(ASSIST_FIELDS[id].suggestions.length).toBeGreaterThan(0)
+      const { shape, form, suggestions } = ASSIST_FIELDS[id]
+      expect(shape.length).toBeGreaterThan(40)
+      // A list is only added to.
+      if (form !== 'items') expect(suggestions.edit.length).toBeGreaterThan(0)
     }
+  })
+
+  it('offers something to write in every field a screen shows empty', () => {
+    // A file opens on its template and a passage is a selection, so neither starts blank.
+    const startsEmpty = ASSIST_FIELD_IDS.filter(
+      (id) => ASSIST_FIELDS[id].form !== 'file' && id !== 'skill.passage',
+    )
+    for (const id of startsEmpty)
+      expect(ASSIST_FIELDS[id].suggestions.write.length).toBeGreaterThan(0)
   })
 
   it('writes skills by the same rules the editor shows', () => {
@@ -45,6 +57,20 @@ describe('assistPrompt', () => {
     expect(user).not.toContain('Empty')
     expect(user).toContain('The field is empty.')
     expect(user).toContain('<request>\nCheck the wedding is named\n</request>')
+  })
+
+  it('asks a list for new items, and for nothing in place of what it has', () => {
+    const { system, user } = assistPrompt({
+      field: 'case.checks',
+      instruction: 'Two more',
+      current: '',
+      images: [],
+      context: [{ label: 'The case', text: 'Check: The note names Priya.' }],
+    })
+    expect(system).toContain('added to the list as one new item')
+    expect(system).not.toContain('in place of what is there')
+    expect(user).toContain('Check: The note names Priya.')
+    expect(user).not.toContain('The field is empty.')
   })
 
   it('shows the text an edit starts from', () => {
@@ -79,6 +105,23 @@ describe('assistText', () => {
     expect(
       assistText({ field: 'case.check', current: '' }, reply(' The note\nnames Priya. ')),
     ).toBe('The note names Priya.')
+  })
+
+  it('gives a list its items one to a line, without markers or gaps', () => {
+    const text = assistText(
+      { field: 'case.checks', current: '' },
+      reply(
+        '- The note names Priya.\n\n2. The note gives the date. \n  * The note is 3 - 4 lines.\n',
+      ),
+    )
+    expect(assistItems(text)).toEqual([
+      'The note names Priya.',
+      'The note gives the date.',
+      'The note is 3 - 4 lines.',
+    ])
+    expect(() => assistText({ field: 'case.checks', current: '' }, reply('-\n \n'))).toThrow(
+      'no text',
+    )
   })
 
   it('trims a block and ends a file with one newline', () => {

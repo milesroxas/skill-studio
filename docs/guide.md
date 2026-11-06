@@ -177,7 +177,7 @@ A save is refused if the file changed on disk since your draft began, so an edit
 
 The app can write with you, once it is connected to a model. Settings has two ways to connect each of Anthropic and OpenAI: store an API key, which bills each request to your API account, or use the `claude` or `codex` command you are already signed in to, which uses your plan and needs no key. Connect either or both. Under Assistant in Settings, pick the model and its effort; the effort levels on offer are the ones that model takes.
 
-Every text area then has a small button in its corner, and the editor has "Write with AI" in its toolbar. Press it, say what to write or change, and read the text as it arrives. Nothing touches the field until you press Replace (or Insert, for an empty field); Discard drops it. A whole SKILL.md comes back as a change to the file, line by line. In the editor, select some text first to rewrite only that.
+Every text area then has a small button in its corner, and the editor has "Write with AI" in its toolbar. Press it, say what to write or change, and read the text as it arrives. Nothing touches the field until you press Replace (or Insert, for an empty field); Discard drops it. A whole SKILL.md comes back as a change to the file, line by line. In the editor, select some text first to rewrite only that. Under a case's checks, "Write checks with AI" writes new checks and Add puts them at the end of the list; the button on a check's own row rewrites that check.
 
 A request can carry pictures: press the picture button beside the model, paste one, or drop one on the request. Six at most. A request about a case also carries that case's pictures, without your adding them.
 

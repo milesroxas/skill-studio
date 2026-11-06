@@ -32,7 +32,7 @@ function typeOver(el: HTMLTextAreaElement, text: string): boolean {
   // The command writes into whatever holds the focus: it must be this field.
   if (document.activeElement !== el) return false
   el.select()
-  return document.execCommand(text ? 'insertText' : 'delete', false, text)
+  return document.execCommand('insertText', false, text)
 }
 
 const textAreaVariants = cva('resize-none overflow-hidden', {

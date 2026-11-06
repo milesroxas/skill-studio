@@ -103,8 +103,8 @@ export interface Contract {
   'ai.usage': { input: Record<string, never>; output: UsageSummary }
   /** Start writing one field's text. The run it returns grows until it ends. `skill` may be empty. */
   'ai.assist': { input: Scoped & AssistInput; output: AiRun }
-  'ai.run': { input: { id: number }; output: AiRun }
-  'ai.stop': { input: { id: number }; output: AiRun }
+  'ai.run': { input: { id: string }; output: AiRun }
+  'ai.stop': { input: { id: string }; output: AiRun }
   'chat.read': { input: Record<string, never>; output: ChatThread }
   /** Add a message to the conversation and start the reply. `skill` may be empty: none open. */
   'chat.send': {

@@ -2,10 +2,11 @@
  * What the assistant is asked and what it must hand back. Every text area in
  * the app is one kind of field, and each kind states the shape its text has:
  * a SKILL.md is rules in the graded form, a check is one fact a judge can
- * mark, a description says when to load the skill. The reply is one JSON
- * object with the field's text, so no greeting or explanation can land in a
- * field, and the text is then fitted to the field before anything shows it.
- * Pure data and functions.
+ * mark, a description says when to load the skill. A list is a kind too: its
+ * reply is new items, one per line. The reply is one JSON object with the
+ * field's text, so no greeting or explanation can land in a field, and the
+ * text is then fitted to the field before anything shows it. Pure data and
+ * functions.
  */
 import type { ImageRef } from './image.ts'
 import { CASE_PROMPT_HINT, CHECK_EXAMPLES, RULE_GUIDE, RULE_SHAPE } from './templates.ts'
@@ -19,6 +20,7 @@ export const ASSIST_FIELD_IDS = [
   'case.prompt',
   'case.expected',
   'case.check',
+  'case.checks',
   'version.note',
   'review.note',
 ] as const
@@ -30,12 +32,17 @@ export interface AssistFieldDef {
   /**
    * `line`: one line, never a line break. `block`: a few lines of prose.
    * `file`: a whole Markdown file, shown as a change to the one there.
+   * `items`: new items for a list, one per line, added to those it has.
    */
-  form: 'line' | 'block' | 'file'
+  form: 'line' | 'block' | 'file' | 'items'
   /** The shape the text must have, written for the model. */
   shape: string
-  /** Requests offered in one click, so the common ones are never typed. */
-  suggestions: readonly string[]
+  /**
+   * Requests offered in one click, so the common ones are never typed: `write`
+   * for an empty field, `edit` for one with text, which the reply replaces. A
+   * list is only ever written to.
+   */
+  suggestions: { write: readonly string[]; edit: readonly string[] }
 }
 
 const RULES = [
@@ -47,6 +54,10 @@ const CHECKS = CHECK_EXAMPLES.map(
   (example) => `Not "${example.bad}" but "${example.good}" ${example.why}`,
 ).join('\n- ')
 
+/** What one check is, for the field that holds one and the list that takes several. */
+const CHECK = `a single statement a good answer makes true, that a judge can mark by reading the answer. One fact per check, naming the thing to look for, in one sentence that starts "The answer", "The note" or the like.
+- ${CHECKS}`
+
 export const ASSIST_FIELDS: Record<AssistFieldId, AssistFieldDef> = {
   'skill.file': {
     name: 'SKILL.md',
@@ -55,11 +66,10 @@ export const ASSIST_FIELDS: Record<AssistFieldId, AssistFieldDef> = {
 - It opens with the front matter block between two --- lines, holding name and description. Keep the block that is there unless the request is about it.
 - Below it: a # title, a "## When this applies" section of one or two sentences, a "## Process" numbered list when the work has steps, and a "## Rules" section.
 - ${RULES}`,
-    suggestions: [
-      'Tighten every vague rule',
-      'Add the why to each rule',
-      'Cut what changes nothing',
-    ],
+    suggestions: {
+      write: [],
+      edit: ['Tighten every vague rule', 'Add the why to each rule', 'Cut what changes nothing'],
+    },
   },
   'skill.reference': {
     name: 'the reference file',
@@ -67,55 +77,75 @@ export const ASSIST_FIELDS: Record<AssistFieldId, AssistFieldDef> = {
     shape: `A reference file: longer material SKILL.md points to, as Markdown.
 - It opens with a # title, then one sentence that starts "Read this when" and says when the agent should open it.
 - Then the material itself: tables, examples, long lists. Bullets here are not graded, so write for lookup, not as rules.`,
-    suggestions: ['Shorten it', 'Add a worked example', 'Turn the prose into a table'],
+    suggestions: {
+      write: [],
+      edit: ['Shorten it', 'Add a worked example', 'Turn the prose into a table'],
+    },
   },
   'skill.passage': {
     name: 'the selection',
     form: 'block',
     shape: `Only the text that replaces the selected passage of a skill file, as Markdown that reads right where the selection was. Match the list markers, heading levels and voice of the file around it.
 - ${RULES}`,
-    suggestions: ['Make it exact', 'Add the why', 'Shorten it'],
+    suggestions: { write: [], edit: ['Make it exact', 'Add the why', 'Shorten it'] },
   },
   'skill.description': {
     name: 'the description',
     form: 'line',
     shape:
       'The description in a skill’s front matter, which agents read to decide when to load the skill. One or two sentences, 50 words or fewer, in the third person. First what the skill does, starting with a verb such as "Writes" or "Reviews". Then a sentence starting "Use when" that names the requests it should load for.',
-    suggestions: ['Name when to use it', 'Make it shorter'],
+    suggestions: {
+      write: ['Say what it does and when to use it'],
+      edit: ['Name when to use it', 'Make it shorter'],
+    },
   },
   'case.prompt': {
     name: 'the prompt',
     form: 'block',
     shape: `The prompt of a test case. ${CASE_PROMPT_HINT} Write it in the first person, with the concrete facts a good answer needs: names, numbers, the thing that changed. A check can only look for a fact the prompt gave.`,
-    suggestions: ['Write a realistic request', 'Add concrete facts', 'Make it harder'],
+    suggestions: {
+      write: ['Write a realistic request'],
+      edit: ['Add concrete facts', 'Make it harder'],
+    },
   },
   'case.expected': {
     name: 'the good answer',
     form: 'block',
     shape:
       'What a good answer to the case’s prompt does, in one to three sentences: what it says first, what it must include and how long it is. Describe the answer; do not write it.',
-    suggestions: ['Describe a good answer', 'Make it more specific'],
+    suggestions: { write: ['Describe a good answer'], edit: ['Make it more specific'] },
   },
   'case.check': {
     name: 'the check',
     form: 'line',
-    shape: `One check: a single statement a good answer makes true, that a judge can mark by reading the answer. One fact per check, naming the thing to look for, in one sentence that starts "The answer", "The note" or the like.
-- ${CHECKS}`,
-    suggestions: ['Write a check for this case', 'Make it something a judge can mark'],
+    shape: `One check: ${CHECK}`,
+    suggestions: {
+      write: ['Write a check for this case'],
+      edit: ['Make it something a judge can mark'],
+    },
+  },
+  'case.checks': {
+    name: 'checks',
+    form: 'items',
+    shape: `Checks to add to a test case: two or three, unless the request asks for another number. Each is about a fact the case's prompt gave, and none says what a check the case has already says. Each check is ${CHECK}`,
+    suggestions: {
+      write: ['Write the checks this case lacks', 'Check the facts in the prompt'],
+      edit: [],
+    },
   },
   'version.note': {
     name: 'the note',
     form: 'block',
     shape:
       'The note saved with a version of a skill: what changed and why, in one to three plain sentences. Name the rule or section that changed. No greeting and no list.',
-    suggestions: ['Say what changed and why', 'Make it shorter'],
+    suggestions: { write: ['Say what changed and why'], edit: ['Make it shorter'] },
   },
   'review.note': {
     name: 'the note',
     form: 'block',
     shape:
       'A reviewer’s note on one output of a skill: what works, what to change, and what the skill should have made the agent do. Two to four short sentences that quote or name the part of the output they are about.',
-    suggestions: ['Note what works and what to change', 'Tidy my note'],
+    suggestions: { write: ['Note what works and what to change'], edit: ['Tidy my note'] },
   },
 }
 
@@ -154,6 +184,16 @@ const APP = `Skill Studio is a desktop app for writing agent skills and testing 
 const tag = (name: string, text: string, label?: string): string =>
   `<${name}${label ? ` name="${label.replace(/"/g, "'")}"` : ''}>\n${text.trim()}\n</${name}>`
 
+const REPLACES = `Your reply is put in the field as it is, in place of what is there, so it holds the field's complete new text and nothing else: no greeting, no explanation, no code fence around it. When the field has text already, the request is an edit: change what it asks for and keep the rest word for word.`
+
+/** What becomes of the reply, as the model is told, by the field's form. */
+const PLACING: Record<AssistFieldDef['form'], string> = {
+  line: `${REPLACES} This field is one line, so write no line breaks.`,
+  block: REPLACES,
+  file: REPLACES,
+  items: `Each line of your reply is added to the list as one new item, so it holds the new items and nothing else: one to a line, with no numbers, no bullets, no greeting and no explanation.`,
+}
+
 /** The request as the model reads it: what the field is, what is around it, and what was asked. */
 export function assistPrompt(input: AssistInput): { system: string; user: string } {
   const field = ASSIST_FIELDS[input.field]
@@ -162,12 +202,15 @@ export function assistPrompt(input: AssistInput): { system: string; user: string
 The field holds ${field.name}. What its text must be:
 ${field.shape}
 
-Your reply is put in the field as it is, in place of what is there, so it holds the field's complete new text and nothing else: no greeting, no explanation, no code fence around it. When the field has text already, the request is an edit: change what it asks for and keep the rest word for word. ${
-    field.form === 'line' ? 'This field is one line, so write no line breaks.' : ''
-  }`.trim()
+${PLACING[field.form]}`
   const user = [
     ...input.context.filter((c) => c.text.trim()).map((c) => tag('context', c.text, c.label)),
-    input.current.trim() ? tag('field_now', input.current) : 'The field is empty.',
+    // A list's own items are among the context, and nothing of it is replaced.
+    field.form === 'items'
+      ? ''
+      : input.current.trim()
+        ? tag('field_now', input.current)
+        : 'The field is empty.',
     input.images.length
       ? `Attached, in this order: ${input.images.map((image) => image.name).join(', ')}.`
       : '',
@@ -220,11 +263,30 @@ export function partialText(raw: string): string {
   return out
 }
 
+/** A list marker a model may lead an item with, though it is told not to. */
+const ITEM_MARKER = /^(?:[-*•]|\d+[.)])(?:\s+|$)/
+
+/** The items of a fitted `items` reply. */
+export const assistItems = (text: string): string[] => text.split('\n')
+
+const FIT: Record<AssistFieldDef['form'], (text: string) => string> = {
+  line: (text) => text.replace(/\s+/g, ' ').trim(),
+  block: (text) => text.trim(),
+  file: (text) => text.trim(),
+  items: (text) =>
+    text
+      .split('\n')
+      .map((line) => line.trim().replace(ITEM_MARKER, ''))
+      .filter(Boolean)
+      .join('\n'),
+}
+
 /**
  * The finished reply as the field's text, fitted to the field: one line stays
- * one line, a file ends with a newline, and a SKILL.md that came back without
- * its front matter gets the block it had. Throws when the reply is not the
- * agreed object or holds no text, so a bad reply never reaches a field.
+ * one line, a list's items stand one to a line without their markers, a file
+ * ends with a newline, and a SKILL.md that came back without its front matter
+ * gets the block it had. Throws when the reply is not the agreed object or
+ * holds no text, so a bad reply never reaches a field.
  */
 export function assistText(input: Pick<AssistInput, 'field' | 'current'>, raw: string): string {
   let parsed: unknown
@@ -234,12 +296,11 @@ export function assistText(input: Pick<AssistInput, 'field' | 'current'>, raw: s
     throw new Error('The model’s reply was cut off or malformed. Try again.')
   }
   const value = (parsed as { text?: unknown } | null)?.text
-  if (typeof value !== 'string' || !value.trim())
-    throw new Error('The model returned no text for this field. Try again.')
   const { form } = ASSIST_FIELDS[input.field]
-  if (form === 'line') return value.replace(/\s+/g, ' ').trim()
-  if (form === 'block') return value.trim()
-  const text = `${value.trim()}\n`
+  const fitted = typeof value === 'string' ? FIT[form](value) : ''
+  if (!fitted) throw new Error('The model returned no text for this field. Try again.')
+  if (form !== 'file') return fitted
+  const text = `${fitted}\n`
   const front = input.field === 'skill.file' ? frontMatterBlock(input.current) : ''
   return front && !frontMatterBlock(text) ? `${front.trimEnd()}\n\n${text}` : text
 }

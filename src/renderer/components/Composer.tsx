@@ -3,7 +3,9 @@
  * in use, and one button that sends or stops. Return sends and Shift+Return
  * breaks the line, as in any chat. Pictures join the request by the button,
  * by a paste or by a drop anywhere on it. The side panel frames it as a box;
- * inside a popover it sits bare.
+ * inside a popover it sits bare. It is not a `<form>`: a popover opened from a
+ * field keeps its place in React's tree, so its submit would bubble to the
+ * form around that field and save the screen.
  */
 import { cva, type VariantProps } from 'class-variance-authority'
 import { ArrowUpIcon, SquareIcon } from 'lucide-react'
@@ -76,13 +78,9 @@ export function Composer({
     if (ready && !running) onSubmit()
   }
   return (
-    <form
+    <div
       className={composerVariants({ frame, over: Boolean(pictures) && drop.over })}
       {...(pictures ? drop.handlers : {})}
-      onSubmit={(event) => {
-        event.preventDefault()
-        submit()
-      }}
     >
       {pictures && held ? (
         <PictureStrip
@@ -134,12 +132,18 @@ export function Composer({
           </Button>
         ) : (
           (actions ?? (
-            <Button type="submit" size="icon-sm" aria-label="Send" disabled={!ready}>
+            <Button
+              type="button"
+              size="icon-sm"
+              aria-label="Send"
+              disabled={!ready}
+              onClick={submit}
+            >
               <ArrowUpIcon aria-hidden="true" />
             </Button>
           ))
         )}
       </div>
-    </form>
+    </div>
   )
 }

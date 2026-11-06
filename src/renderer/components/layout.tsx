@@ -608,6 +608,33 @@ export function EmptyState({
   )
 }
 
+/** A read that failed, in the place of what it would have shown, with a way to ask again. */
+export function ReadFailed({
+  size,
+  title,
+  onRetry,
+  children,
+}: Pick<VariantProps<typeof emptyVariants>, 'size'> & {
+  title: string
+  onRetry: () => void
+  /** Why it failed. */
+  children: ReactNode
+}) {
+  return (
+    <EmptyState
+      size={size}
+      title={title}
+      actions={
+        <Button type="button" variant="outline" onClick={onRetry}>
+          Try again
+        </Button>
+      }
+    >
+      {children}
+    </EmptyState>
+  )
+}
+
 /**
  * Something is on its way. `screen` stands in for a whole screen, in the same
  * place as a screen-sized `EmptyState`; `inline` stands in for one part of it.
