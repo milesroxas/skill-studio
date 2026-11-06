@@ -22,8 +22,7 @@ import type { ReactNode } from 'react'
 import { LOOP_STEPS } from '../help.ts'
 import { after, useCountUp } from '../motion.ts'
 import { type Place, placeFor } from '../places.ts'
-import { Spacer } from './layout.tsx'
-import { Highlight } from './Mark.tsx'
+import { Slab } from './Mark.tsx'
 import { Heading, Hint, Text } from './text.tsx'
 import { Button } from './ui/button.tsx'
 
@@ -52,24 +51,24 @@ const WORDS = NOTE.split(' ').map((word, at) => ({ word, at }))
  */
 const BEAT = { start: 260, row: 90, stamp: 220, word: 20 }
 
+/** A step's number as the tour shows it: two figures, "01". */
+const numeral = (index: number): string => String(index + 1).padStart(2, '0')
+
 /**
- * How far through the tour the reader is, as a row of marks and, for a screen
- * reader, in words. A mark fills from its left as its step is reached, and
- * empties the same way on the way back.
+ * How far through the tour the reader is: the six step numbers in mono, the
+ * current one lime on ink. A screen reader hears it in words.
  */
 export function TourProgress({ index }: { index: number }) {
   return (
-    <div className="flex w-40 animate-in items-center gap-1 duration-300 ease-out fade-in-0">
+    <div className="flex animate-in items-center gap-1 duration-300 ease-out fade-in-0">
       {LOOP_STEPS.map((step, i) => (
         <span
           key={step.screen}
           aria-hidden="true"
-          className="h-1 flex-1 overflow-hidden rounded-full bg-foreground/10"
+          data-surface={i === index ? 'ink' : undefined}
+          className="flex h-5 w-7.5 items-center justify-center rounded-xs font-mono text-2xs font-medium text-muted-foreground tabular-nums transition-colors duration-150 ease-out data-[surface=ink]:text-signal"
         >
-          <span
-            data-reached={i <= index || undefined}
-            className="block size-full origin-left scale-x-0 rounded-full bg-foreground/70 transition-transform duration-300 ease-out-strong data-reached:scale-x-100"
-          />
+          {numeral(i)}
         </span>
       ))}
       <span className="sr-only">
@@ -79,32 +78,43 @@ export function TourProgress({ index }: { index: number }) {
   )
 }
 
-/** The picture of a step: a sheet headed like the screen it stands for. */
+/** The picture of a step: a sheet with a printed edge, headed like the screen it stands for. */
 function Sheet({ place, children }: { place: Place; children: ReactNode }) {
   return (
-    <div className="pointer-events-none flex h-72 animate-in flex-col overflow-hidden rounded-xl bg-card shadow-raised delay-75 duration-300 ease-out-strong fill-mode-backwards select-none fade-in-0 in-data-[from=after]:slide-in-from-right-4 in-data-[from=before]:slide-in-from-left-4">
-      <div className="flex h-10 shrink-0 items-center gap-2 border-b px-4 text-ui font-medium">
-        <place.icon aria-hidden="true" className="size-4 text-muted-foreground" />
+    <div className="pointer-events-none flex h-95 max-h-full min-w-0 flex-1 animate-in flex-col overflow-hidden rounded-lg border border-foreground bg-card delay-75 duration-300 ease-out-strong fill-mode-backwards select-none fade-in-0 in-data-[from=after]:slide-in-from-right-4 in-data-[from=before]:slide-in-from-left-4">
+      <div className="flex h-9.5 shrink-0 items-center gap-2 border-b px-4 text-ui font-medium">
+        <place.icon aria-hidden="true" className="size-3.5 text-muted-foreground" />
         {place.label}
       </div>
-      <div className="flex flex-1 flex-col gap-4 px-4 py-4">{children}</div>
+      <div className="flex flex-1 flex-col gap-5 px-4 py-4.5">{children}</div>
     </div>
   )
 }
 
-/** A small label over a part of a picture. */
-function Caption({ children }: { children: ReactNode }) {
+/**
+ * A part of a picture under its label: a caps label, or a file's name in mono,
+ * which keeps its own case.
+ */
+function Part({
+  caption,
+  file = false,
+  children,
+}: {
+  caption: string
+  file?: boolean
+  children: ReactNode
+}) {
   return (
-    <Text as="p" size="xs" tone="muted" weight="medium" className="m-0">
-      {children}
-    </Text>
-  )
-}
-
-function Part({ caption, children }: { caption: ReactNode; children: ReactNode }) {
-  return (
-    <div className="flex flex-col gap-1.5">
-      <Caption>{caption}</Caption>
+    <div className="flex flex-col gap-2">
+      {file ? (
+        <Text as="p" font="mono" size="xs" tone="muted" className="m-0">
+          {caption}
+        </Text>
+      ) : (
+        <Text as="p" caps tone="muted" className="m-0">
+          {caption}
+        </Text>
+      )}
       {children}
     </div>
   )
@@ -252,17 +262,19 @@ function Rating() {
 function Rerun({ at }: { at: number }) {
   const shown = useCountUp(SCORE.after, { from: SCORE.before, delay: at, duration: 900 })
   return (
-    <span className="flex items-center gap-2 text-ui tabular-nums">
-      <Text tone="muted">{SCORE.before}</Text>
-      <ArrowRightIcon aria-hidden="true" className="size-3.5 text-muted-foreground" />
-      <span className="sr-only">then {SCORE.after}</span>
-      {/* The new score is the point of the whole tour: the highlighter marks it once it lands. */}
-      <Highlight delay={at + 900}>
-        <Text weight="semibold" aria-hidden="true">
-          {shown}
-        </Text>
-      </Highlight>
-      <Text tone="muted">out of 100</Text>
+    <span className="flex items-baseline gap-3 tabular-nums">
+      <span className="flex items-baseline gap-3 text-3xl font-semibold">
+        <Text tone="muted">{SCORE.before}</Text>
+        <ArrowRightIcon aria-hidden="true" className="size-4 self-center text-muted-foreground" />
+        <span className="sr-only">then {SCORE.after}</span>
+        {/* The new score is the point of the whole tour: the slab marks it once it lands. */}
+        <Slab delay={at + 900}>
+          <span aria-hidden="true">{shown}</span>
+        </Slab>
+      </span>
+      <Text font="mono" size="xs" tone="muted" className="pl-1">
+        out of 100
+      </Text>
     </span>
   )
 }
@@ -285,7 +297,7 @@ const ratingVariants = cva(
 const PICTURES: Record<string, ReactNode> = {
   edit: (
     <>
-      <Part caption="SKILL.md">
+      <Part caption="SKILL.md" file>
         <Text weight="semibold">Thank-you note</Text>
       </Part>
       <Part caption="Rules">
@@ -394,26 +406,29 @@ export function LoopTour({
   const last = index === LOOP_STEPS.length - 1
 
   return (
-    <section aria-label="How it works" className="flex w-full max-w-[520px] flex-col gap-6">
+    <section aria-label="How it works" className="flex min-h-0 flex-1 flex-col">
       <div
         key={step.screen}
         aria-live="polite"
         data-from={from > index ? 'before' : 'after'}
-        className="flex flex-col gap-5"
+        className="flex min-h-0 flex-1 items-start gap-10 overflow-y-auto px-12 pt-9"
       >
-        {/* Room for two lines under the title, so a longer sentence moves nothing below it. */}
-        <div className="flex min-h-19 animate-in flex-col gap-1.5 duration-300 ease-out-strong fade-in-0 in-data-[from=after]:slide-in-from-right-3 in-data-[from=before]:slide-in-from-left-3">
-          <Heading level={2} className="text-xl">
+        <div className="flex w-58 shrink-0 animate-in flex-col duration-300 ease-out-strong fade-in-0 in-data-[from=after]:slide-in-from-right-3 in-data-[from=before]:slide-in-from-left-3">
+          {/* The number's stroke, not its box, stands on the column's edge. */}
+          <span aria-hidden="true" className="-ml-1.5 text-numeral tabular-nums">
+            {numeral(index)}
+          </span>
+          <Heading level={2} className="pt-7 text-2xl">
             {step.title}
           </Heading>
-          <Text as="p" tone="muted" className="m-0 text-pretty">
+          <Text as="p" tone="muted" className="m-0 pt-2.5 text-pretty">
             {step.say}
           </Text>
         </div>
         {place ? <Sheet place={place}>{PICTURES[step.screen]}</Sheet> : null}
       </div>
 
-      <div className="flex items-center gap-2">
+      <div className="flex h-21 shrink-0 items-center gap-6 px-12">
         <Button
           type="button"
           variant="outline"
@@ -422,7 +437,15 @@ export function LoopTour({
         >
           Back
         </Button>
-        <Spacer />
+        {/* Held on every step, so Next keeps its place from the first step to the last. */}
+        <Hint className="flex-1">
+          {last ? (
+            <span className="block animate-rise" style={after(BEAT.start)}>
+              Practice is this same skill, for real. About five minutes, nothing to type, and it
+              changes nothing your agents use.
+            </span>
+          ) : null}
+        </Hint>
         {/* One button for both, so it keeps the focus and its place from the first step to the last. */}
         <Button
           type="button"
@@ -444,15 +467,6 @@ export function LoopTour({
           )}
         </Button>
       </div>
-      {/* Its line is held on every step, so the frame is the same height throughout. */}
-      <Hint className="min-h-9">
-        {last ? (
-          <span className="block animate-rise" style={after(BEAT.start)}>
-            Practice is this same skill, for real. About five minutes, nothing to type, and it
-            changes nothing your agents use.
-          </span>
-        ) : null}
-      </Hint>
     </section>
   )
 }

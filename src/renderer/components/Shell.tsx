@@ -11,6 +11,7 @@ import type { ComponentProps, ReactNode } from 'react'
 import { api } from '../api.ts'
 import { shortcut } from '../keys.ts'
 import { cn } from '../lib/utils.ts'
+import { Mark } from './Mark.tsx'
 import { Text } from './text.tsx'
 import { Button } from './ui/button.tsx'
 
@@ -46,8 +47,8 @@ export function AppFrame({
 }
 
 /**
- * The left column, on ink in both themes: a drag strip for the window buttons,
- * then the skill, its loop and the app links.
+ * The left column, on ink in both themes: a drag strip for the window buttons
+ * and, on macOS, the mark, then the skill, its loop and the app links.
  */
 export function Sidebar({ className, children, ...props }: ComponentProps<'nav'>) {
   return (
@@ -60,7 +61,12 @@ export function Sidebar({ className, children, ...props }: ComponentProps<'nav'>
       )}
       {...props}
     >
-      <div data-drag className="h-3 shrink-0 in-data-[platform=darwin]:h-12" />
+      <div
+        data-drag
+        className="flex h-3 shrink-0 items-center justify-end px-5 text-sidebar-foreground in-data-[platform=darwin]:h-12"
+      >
+        <Mark size="strip" />
+      </div>
       {children}
     </nav>
   )

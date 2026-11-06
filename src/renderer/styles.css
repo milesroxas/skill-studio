@@ -62,9 +62,6 @@
   /* Lime: the next step and a running job. The same in every scope. */
   --signal: oklch(0.927 0.168 120);
   --signal-foreground: oklch(0.198 0.004 165);
-  /* The icon's yellow and its ink. Removed in phase 4 with their last use. */
-  --brand: #ffe500;
-  --brand-ink: #171918;
   --radius: 0.625rem;
   /* Raised surfaces: a ring for the edge, a tight shadow, a soft one. */
   --elevation-raised:
@@ -146,8 +143,6 @@
   --color-ring: var(--ring);
   --color-signal: var(--signal);
   --color-signal-foreground: var(--signal-foreground);
-  --color-brand: var(--brand);
-  --color-brand-ink: var(--brand-ink);
   --radius-xs: calc(var(--radius) * 0.5);
   --radius-sm: calc(var(--radius) * 0.75);
   --radius-md: calc(var(--radius) * 0.875);
@@ -184,6 +179,8 @@
  *   xl    21  document headings
  *   2xl   26  the guide's title on small screens
  *   3xl   30  the guide's title
+ *   display  64  the welcome's headline, weight 700
+ *   numeral 136  the welcome's step number, weight 700
  *   code  0.9em  monospace inside running text, sized to its sans neighbours
  */
 @theme {
@@ -212,6 +209,15 @@
   --text-3xl: 1.875rem;
   --text-3xl--line-height: 2.25rem;
   --text-3xl--letter-spacing: -0.022em;
+  /* Display: the welcome only. Set tight, with the tracking large type needs. */
+  --text-display: 4rem;
+  --text-display--line-height: 3.75rem;
+  --text-display--letter-spacing: -0.045em;
+  --text-display--font-weight: 700;
+  --text-numeral: 8.5rem;
+  --text-numeral--line-height: 6.5rem;
+  --text-numeral--letter-spacing: -0.055em;
+  --text-numeral--font-weight: 700;
   --text-code: 0.9em;
 }
 
@@ -232,16 +238,12 @@
   --animate-rise: rise 500ms var(--ease-out-strong) var(--delay) both;
   /* A mark stamped or a choice made: small, so it may overshoot. */
   --animate-pop: pop 320ms var(--ease-out-back) var(--delay) both;
-  /* A highlighter's stroke, or a bar filling, from its left end. */
-  --animate-swipe: swipe 480ms var(--ease-stroke) var(--delay) both;
-  /* Something drawn from left to right, such as a bar of the mark. */
+  /* Something drawn from left to right: a ribbon of the mark, the slab. */
   --animate-draw: draw 520ms var(--ease-stroke) var(--delay) both;
   /* A word written. */
   --animate-ink: ink 260ms ease-out var(--delay) both;
   /* What a stamp or a choice replaces, gone as it lands. */
   --animate-vanish: vanish 120ms ease-out var(--delay) both;
-  /* The mark's tile, set down. */
-  --animate-settle: settle 640ms var(--ease-out-back) var(--delay) both;
   /* One full turn of a refresh icon, in answer to its press. */
   --animate-turn: turn 500ms var(--ease-out-strong);
 
@@ -256,11 +258,6 @@
     from {
       opacity: 0;
       transform: scale(0.7);
-    }
-  }
-  @keyframes swipe {
-    from {
-      transform: scaleX(0);
     }
   }
   @keyframes draw {
@@ -279,12 +276,6 @@
   @keyframes vanish {
     to {
       opacity: 0;
-    }
-  }
-  @keyframes settle {
-    from {
-      opacity: 0;
-      transform: scale(0.86) rotate(-8deg);
     }
   }
   @keyframes turn {

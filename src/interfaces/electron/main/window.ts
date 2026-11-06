@@ -183,7 +183,8 @@ export function createWelcomeWindow({ url, over }: CompanionOptions): BrowserWin
     fullscreenable: false,
     show: false,
     title: 'Welcome to Skill Studio',
-    backgroundColor: background(),
+    // The welcome opens on its ink cover, in either theme.
+    backgroundColor: BACKGROUND.dark,
     titleBarStyle: process.platform === 'darwin' ? 'hiddenInset' : 'default',
     webPreferences: PAGE_PREFERENCES,
   })

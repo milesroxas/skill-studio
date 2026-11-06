@@ -72,4 +72,4 @@ It deletes `~/.skill-studio/` (the practice skill included), the settings from b
 
 ## The app icon
 
-The icon is drawn in `build/icon-src/`: `mac.svg` becomes `build/icon.icns`, and `tile.svg` becomes `build/icon.ico` and `build/icon.png`. The two `-small` drawings carry a larger mark for the 16 to 32 px sizes. Export all three files again when the mark changes.
+The icon comes from the Flow brand kit and is drawn in `build/icon-src/`: `mac.svg` becomes `build/icon.icns`, and `tile.svg` becomes `build/icon.ico` and `build/icon.png`. `mark.svg` is the mark alone. Every size is exported from these masters; export all three files again when the mark changes.

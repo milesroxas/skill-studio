@@ -50,7 +50,7 @@ Tests sit beside the code: `src/domain/scoring.ts` is tested by `src/domain/scor
 The UI is shadcn/ui on Tailwind v4 (`components.json`, theme tokens in `src/renderer/styles.css`). Add a component source with `pnpm dlx shadcn@latest add <name>`, then run `pnpm format`.
 
 - A screen composes components and names a variant. When a look is missing, add a variant to the component's `cva`, or a composite under `src/renderer/components/`, rather than styling the call site.
-- Color carries meaning only: `success`, `warning` and `destructive`. The brand yellow belongs to the welcome.
+- Color carries meaning only: `success`, `warning` and `destructive` for verdicts, lime (`signal`) for the next step and a running job. [docs/design/](docs/design/README.md) is the full system.
 
 ## Docs
 

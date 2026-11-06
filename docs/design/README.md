@@ -4,14 +4,14 @@ Skill Studio looks like a print proof: ink on porcelain stock, hairline rules, o
 
 Read this file before any change to `src/renderer`. Then read only the topic files your task touches.
 
-**Target and today.** These docs describe the system after the redesign. A name that is not built yet is marked **(phase N)** where it appears, and listed under "Not in code yet" below. Until its phase merges, use what the code has today, and never write a call site against a planned name: it will not compile.
+**Target and today.** Everything these docs name is in code. [redesign-plan.md](redesign-plan.md) keeps the record of how the app got here, and its phase 6 lists additions that are each their own decision.
 
 ## Five rules that hold everywhere
 
 1. **Tokens only.** A component uses a semantic token class (`bg-background`, `text-muted-foreground`, `border-border`). Never a hex, `rgb()`, `oklch()` or an arbitrary color (`bg-[#141615]`) outside `src/renderer/styles.css`. One raw value is one place the next theme change misses.
 2. **No styling at call sites.** A screen composes components and names variants. If a screen needs a `className` that sets color, size, radius, shadow or font, the variant is missing: add it to the component, then use it. Layout classes (`flex`, `gap-*`, `min-w-0`) are the only exception.
 3. **Closed sets.** Each topic file lists every variant that exists. A variant not listed there does not exist. Do not invent one in a call site, and do not pass one the union type rejects.
-4. **Lime is a signal, not a decoration.** `signal` marks exactly three things: the next step, a running job, and the one slab in the welcome. One lime element per window, a running job's dot excepted. Two lime elements means neither is the next thing to look at. See [color.md](color.md).
+4. **Lime is a signal, not a decoration.** `signal` marks exactly these: the next step, a running job, and in the welcome the current step and one slab per frame. One lime element per window, except a running job's dot in the app and the current step's number in the welcome. Two lime elements means neither is the next thing to look at. See [color.md](color.md).
 5. **Regions are never cards.** A screen is `Screen`, `Workbench` columns or `FormSection`, divided by hairlines. `Card` is for an object a person compares or picks up, such as `OutputCard`. See [layout.md](layout.md).
 
 ## Index
@@ -26,16 +26,6 @@ Read this file before any change to `src/renderer`. Then read only the topic fil
 | [data.md](data.md) | a table, a score, a status, a count |
 | [brand.md](brand.md) | the mark, the ribbon, the welcome, the app icon |
 | [redesign-plan.md](redesign-plan.md) | the move from the old theme to this one, phase by phase |
-
-## Not in code yet
-
-These names are the target. Each lands in the phase named in [redesign-plan.md](redesign-plan.md). Until its phase is merged, a name here does not exist: do not use it. When a phase merges, delete its lines from this list and its **(phase N)** markers in the topic files, in the same pull request.
-
-| Name | Phase |
-| --- | --- |
-| The ribbon `Mark`, the `Slab` | 4 |
-
-Still in code and due to go: `--brand` (`#ffe500`), `--brand-ink`, `Highlight` in `components/Mark.tsx`. Do not add a use of them.
 
 ## Before you say a UI change is done
 

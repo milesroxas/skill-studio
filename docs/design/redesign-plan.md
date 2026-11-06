@@ -66,10 +66,10 @@ Checks: one `signal` element per window. `Segmented` in Settings and the Write s
 Files: `components/Mark.tsx`, `screens/Welcome.tsx`, `components/LoopTour.tsx`, `styles.css`, `window.ts`, `build/`.
 
 1. `Mark`: replace the yellow tile and three bars with the two ribbon paths in [brand.md](brand.md), `fill-current`. Keep `animate-draw`, lower ribbon first.
-2. Replace `Highlight` with `Slab`: `bg-signal text-signal-foreground`, no rotation, `animate-swipe`. Update its two uses (`Welcome.tsx`, `LoopTour.tsx`). Remove `--brand`, `--brand-ink`, `--color-brand*`. `pnpm fallow` must find no dead export.
+2. Replace `Highlight` with `Slab`: `bg-signal text-signal-foreground`, no rotation, drawn with `animate-draw` over an ink copy of the word (so the word reads before the slab lands; `swipe` and `settle` go with the old mark). Update its two uses (`Welcome.tsx`, `LoopTour.tsx`). Remove `--brand`, `--brand-ink`, `--color-brand*`. `pnpm fallow` must find no dead export.
 3. `Welcome.tsx` opening: the frame carries `data-surface="ink"`, left-aligned, the mark cropped by the right and bottom edges, the version in mono from the app's real version.
 4. `LoopTour.tsx`: step numeral, `TourProgress` as six mono numbers, `Sheet` with `border-foreground` and no shadow. Copy does not change.
-5. `window.ts` line 240: the welcome window's `backgroundColor` is the ink value.
+5. `window.ts`: the welcome window's `backgroundColor` is the ink value (`BACKGROUND.dark`).
 6. Copy the kit's `build/icon.icns`, `icon.ico`, `icon.png` over `build/`, and its SVG masters into `build/icon-src/`. Add the mark to the sidebar's drag strip on macOS.
 
 Checks: the welcome at zoom level 0.5 (about 110%): the last step is not cut off. Reduced motion shows every frame complete. Build once and look at the icon in Finder, the Dock and at 16px.

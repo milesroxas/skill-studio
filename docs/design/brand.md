@@ -2,7 +2,7 @@
 
 The brand is three things: the Flow mark (two identical ribbons), ink on porcelain, and lime for what is live. The app shows it through restraint. The welcome is the one place it speaks up.
 
-Today `Mark.tsx` draws the old yellow tile with three bars, and `Highlight` is the old yellow stroke. The ribbon `Mark`, the `Slab` and the welcome below land in phase 4. Do not add a use of the old ones.
+`Mark` and `Slab` live in `components/Mark.tsx`.
 
 ## The mark
 
@@ -13,10 +13,10 @@ M 0 56 H 64 C 104 56 104 0 144 0 H 184 V 32 H 144 C 104 32 104 88 64 88 H 0 Z
 M 0 120 H 64 C 104 120 104 64 144 64 H 184 V 96 H 144 C 104 96 104 152 64 152 H 0 Z
 ```
 
-- Render it with `Mark` from `components/Mark.tsx`. Never paste the paths into a screen, and never redraw them by eye.
+- Render it with `Mark` from `components/Mark.tsx`: `size="strip"` in the sidebar, `size="cover"` in the welcome. Never paste the paths into a screen, and never redraw them by eye.
 - Never stretch, rotate, outline, tilt or recolor it. It is `fill-foreground` on paper and porcelain on ink. The kit's lime mark is not used in the app: lime means live, and a logo is not live.
 - Clear space is one band height on every side: 17.4% of the mark's width. Minimum width is 16px.
-- Sources are in `build/icon-src/`. Icons are in `build/` (`icon.icns`, `icon.ico`, `icon.png`). Regenerate every size from the SVG master. Never scale a small PNG up.
+- Sources are in `build/icon-src/` (`mac.svg`, `tile.svg`, `mark.svg`, from the brand kit). Icons are in `build/` (`icon.icns`, `icon.ico`, `icon.png`). Regenerate every size from the SVG master. Never scale a small PNG up.
 
 ## Where the brand appears in the app
 
@@ -42,7 +42,7 @@ Never use a ribbon as a divider, a background, a progress bar or a loading anima
 
 ## The slab
 
-A `Slab` is a lime rectangle under ink display type. It replaces the old yellow `Highlight`. Its edges are square to the page: no rotation, no rounding. It hangs 8px left of the text column, so the letters inside stay on the column's edge.
+A `Slab` is a lime rectangle under ink display type. Its edges are square to the page: no rotation, no rounding. It hangs 8px left of the text column, so the letters inside stay on the column's edge. It is drawn across from the left (`animate-draw`), carrying an ink copy of the word, so the word reads in its own color before the slab lands and in ink after.
 
 One slab per frame, and only in the welcome: on "works" in the opening and on the final score in the last step.
 
@@ -56,7 +56,7 @@ The welcome runs in its own 760 x 600 window. It is the only surface with displa
 | Steps 01 to 06 | porcelain | step numeral, title, one sentence, one picture, Back and Next |
 
 - **One idea and one action per frame.** Anything more comes one step later, on request. The reader is new and the words are new: six facts in a row are easy, six at once are a wall.
-- The step numeral is sans display type: 136px, weight 700, tracking -0.055em, moved 6px left so its stroke sits on the column's edge.
+- The headline is `Heading level="display"` (`text-display`). The step numeral is `text-numeral`, moved 6px left so its stroke sits on the column's edge. Both are in the scale in [typography.md](typography.md).
 - The picture is a sheet with a 1px `border-foreground` edge and no shadow.
 - Progress is the six step numbers in mono. The current one is lime on ink.
 - Every small label is true: the version, the step number, the screen's name. Never a decorative code, a fake serial, a ™ or text in a language the reader is not using. A label a reader cannot use is noise, and a reader who finds one fake label doubts the rest.
@@ -64,9 +64,9 @@ The welcome runs in its own 760 x 600 window. It is the only surface with displa
 
 ## Motion
 
-- State changes in the app: 150ms, `ease-out`. Movement that travels: `ease-out-strong`. Only `transform`, `opacity` and color move.
+- State changes in the app: 150ms, `ease-out`. Movement that travels: `ease-out-strong`. Only `transform`, `opacity` and color move. The welcome's draws are the one exception: the mark and the slab reveal through `clip-path`.
 - Things used many times a day do not animate: the skill switcher (⌘K), menus opened by key.
-- The welcome may say more, because it is seen once or twice: the mark draws (`animate-draw`), text rises in reading order (`animate-rise`), the slab crosses its word (`animate-swipe`). Delays come from `after(ms)` in `renderer/motion.ts`.
+- The welcome may say more, because it is seen once or twice: the mark draws (`animate-draw`), text rises in reading order (`animate-rise`), the slab crosses its word (`animate-draw`). Delays come from `after(ms)` in `renderer/motion.ts`.
 - Nothing waits on an animation. Next works from the first frame.
 - `data-motion="reduced"` cuts every duration and delay. Never add an animation that hides content until it has played.
 

@@ -1,6 +1,1 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
-  <title>Skill Studio app icon, macOS</title>
-  <filter id="s" x="-20%" y="-20%" width="140%" height="140%"><feDropShadow dx="0" dy="10" stdDeviation="10" flood-color="#000" flood-opacity=".3"/></filter>
-  <rect x="100" y="100" width="824" height="824" rx="185" fill="#FFE500" filter="url(#s)"/>
-  <g fill="#171918" transform="translate(318.08 305.96) scale(6.06)"><path d="M2 12H22L34 0H62V12H38L26 24H2Z"/><path d="M2 34H22L34 22H62V34H38L26 46H2Z"/><path d="M2 56H22L34 44H62V56H38L26 68H2Z"/></g>
-</svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024"><title>Skill Studio app icon, macOS</title><defs><filter id="shadow" x="-30%" y="-30%" width="160%" height="170%"><feGaussianBlur stdDeviation="13"/></filter></defs><rect x="83" y="85" width="858" height="858" rx="187" fill="#000000" opacity=".23" filter="url(#shadow)"/><rect x="83" y="72" width="858" height="858" rx="187" fill="#141615"/><g transform="translate(214.5 259.5) scale(3.233695652173913)" fill="#F4F2EB"><path d="M 0 56 H 64 C 104 56 104 0 144 0 H 184 V 32 H 144 C 104 32 104 88 64 88 H 0 Z"/><path d="M 0 120 H 64 C 104 120 104 64 144 64 H 184 V 96 H 144 C 104 96 104 152 64 152 H 0 Z"/></g></svg>

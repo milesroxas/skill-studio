@@ -8,6 +8,8 @@ const headingVariants = cva('m-0 font-semibold text-balance', {
     level: {
       /** The screen's name in the top bar: the reading size, set firm. */
       page: 'text-md leading-tight',
+      /** The welcome's headline, and nowhere else. */
+      display: 'text-display',
       1: 'text-3xl',
       /** A screen's sections and its empty states. */
       2: 'text-base',
@@ -29,7 +31,9 @@ export function Heading({
     as?: 'h1' | 'h2' | 'h3' | 'span' | 'legend' | 'p'
     children: ReactNode
   }) {
-  const Comp = as ?? (level === 'page' ? 'h1' : (`h${level ?? 2}` as 'h1' | 'h2' | 'h3'))
+  const Comp =
+    as ??
+    (level === 'page' || level === 'display' ? 'h1' : (`h${level ?? 2}` as 'h1' | 'h2' | 'h3'))
   return <Comp className={cn(headingVariants({ level }), className)} {...props} />
 }
 

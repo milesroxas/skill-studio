@@ -1,62 +1,66 @@
 /**
- * The brand, where the welcome shows it: the app icon's yellow tile with its
- * three stepped bars, and the same yellow as a highlighter's stroke. Both are
- * drawn as they arrive, the way a pen would: the tile is set down, each bar is
- * drawn from left to right, lowest first, and the highlighter crosses its word
- * once. Nowhere else in the app uses the yellow.
+ * The brand, where the app shows it: the Flow mark (two identical ribbons) and
+ * the lime slab under the one word or number that matters. The mark is the
+ * foreground color, never lime: lime means live, and a logo is not live. The
+ * slab appears only in the welcome. See docs/design/brand.md.
  */
+import { cva, type VariantProps } from 'class-variance-authority'
 import type { ReactNode } from 'react'
-import { cn } from '../lib/utils.ts'
 import { after } from '../motion.ts'
 
-/** The icon's three bars, in its own units, top to bottom. */
-const BARS = [
-  'M2 12H22L34 0H62V12H38L26 24H2Z',
-  'M2 34H22L34 22H62V34H38L26 46H2Z',
-  'M2 56H22L34 44H62V56H38L26 68H2Z',
+/** The two ribbons in the mark's 184 x 152 box, top first. The second is the first moved down 64. */
+const RIBBONS = [
+  'M 0 56 H 64 C 104 56 104 0 144 0 H 184 V 32 H 144 C 104 32 104 88 64 88 H 0 Z',
+  'M 0 120 H 64 C 104 120 104 64 144 64 H 184 V 96 H 144 C 104 96 104 152 64 152 H 0 Z',
 ]
-/** When the lowest bar starts, and how long each one after it waits for the one below. */
-const DRAW = { start: 180, step: 90 }
+/** When the lower ribbon starts drawing, and how long the upper one waits after it. */
+const DRAW = { start: 120, step: 140 }
 
-/** The app's mark. It draws itself once when it appears. */
-export function Mark({ className }: { className?: string }) {
+const markVariants = cva('h-auto shrink-0 fill-current', {
+  variants: {
+    size: {
+      /** The sidebar's drag strip, on macOS only: other platforms have a title bar that names the app. */
+      strip: 'hidden w-[23px] in-data-[platform=darwin]:block',
+      /** The welcome's opening: cropped by the frame's right and bottom edges, behind the words. */
+      cover: 'pointer-events-none absolute -right-[286px] -bottom-[9px] w-[626px]',
+    },
+  },
+})
+
+/** The app's mark. On the cover it draws itself once, lower ribbon first; in the strip it stands still. */
+export function Mark({ size }: Required<VariantProps<typeof markVariants>>) {
+  const draws = size === 'cover'
   return (
-    <svg
-      viewBox="0 0 64 64"
-      aria-hidden="true"
-      className={cn('size-16 animate-settle overflow-visible', className)}
-    >
-      <rect width="64" height="64" rx="14.4" className="fill-brand" />
-      {/* The bars sit where the icon has them: 44% of the tile wide, half of it high. */}
-      <g transform="translate(16.94 16) scale(0.4707)" className="fill-brand-ink">
-        {BARS.map((d, i) => (
-          <path
-            key={d}
-            d={d}
-            className="animate-draw"
-            style={after(DRAW.start + (BARS.length - 1 - i) * DRAW.step)}
-          />
-        ))}
-      </g>
+    <svg viewBox="0 0 184 152" aria-hidden="true" className={markVariants({ size })}>
+      {RIBBONS.map((d, i) => (
+        <path
+          key={d}
+          d={d}
+          className={draws ? 'animate-draw' : undefined}
+          style={draws ? after(DRAW.start + (RIBBONS.length - 1 - i) * DRAW.step) : undefined}
+        />
+      ))}
     </svg>
   )
 }
 
 /**
- * A highlighter over the one word or number that matters. The stroke crosses
- * from the left after `delay`. On paper it is the icon's yellow under ink; in
- * the dark theme it is a wash of the same yellow, so the words stay readable
- * before the stroke reaches them and after.
+ * A lime slab under ink: the one word or number that matters, once per
+ * frame of the welcome. Square to the page, hanging 8px left of the text so
+ * the letters stay on the column's edge. It is drawn across from the left
+ * after `delay`; the word is readable in its own color before it lands.
  */
-export function Highlight({ delay = 0, children }: { delay?: number; children: ReactNode }) {
+export function Slab({ delay = 0, children }: { delay?: number; children: ReactNode }) {
   return (
-    <span className="relative isolate inline-block">
+    <span className="relative inline-block">
+      {children}
       <span
         aria-hidden="true"
-        className="absolute -inset-x-[0.14em] inset-y-[0.06em] -z-10 origin-left -rotate-1 animate-swipe rounded-[0.14em] bg-brand dark:bg-brand/30"
+        className="absolute top-0 -right-2.5 -bottom-1 -left-2 animate-draw bg-signal pl-2 whitespace-nowrap text-signal-foreground select-none"
         style={after(delay)}
-      />
-      {children}
+      >
+        {children}
+      </span>
     </span>
   )
 }

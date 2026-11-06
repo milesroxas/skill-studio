@@ -1,5 +1,1 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
-  <title>Skill Studio app icon, Windows and Linux</title>
-  <rect width="1024" height="1024" rx="180" fill="#FFE500"/>
-  <g fill="#171918" transform="translate(271.04 255.98) scale(7.53)"><path d="M2 12H22L34 0H62V12H38L26 24H2Z"/><path d="M2 34H22L34 22H62V34H38L26 46H2Z"/><path d="M2 56H22L34 44H62V56H38L26 68H2Z"/></g>
-</svg>
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024" role="img" aria-label="Skill Studio app icon"><rect width="1024" height="1024" fill="#141615"/><g transform="translate(166 237) scale(3.760869565217391)" fill="#F4F2EB"><path d="M 0 56 H 64 C 104 56 104 0 144 0 H 184 V 32 H 144 C 104 32 104 88 64 88 H 0 Z"/><path d="M 0 120 H 64 C 104 120 104 64 144 64 H 184 V 96 H 144 C 104 96 104 152 64 152 H 0 Z"/></g></svg>
