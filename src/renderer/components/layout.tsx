@@ -427,8 +427,16 @@ const toolbarVariants = cva('flex items-center', {
       true: 'min-w-0 flex-1',
       false: '',
     },
+    /**
+     * In a row set on its first line, such as a table row: keeps a button's
+     * text baseline even when the toolbar holds only an icon, which has none.
+     */
+    line: {
+      true: 'strut before:text-sm',
+      false: '',
+    },
   },
-  defaultVariants: { gap: 'sm', justify: 'start', wrap: true, grow: false },
+  defaultVariants: { gap: 'sm', justify: 'start', wrap: true, grow: false, line: false },
 })
 
 /** Controls in a row: a toolbar, or the actions under a form. */
@@ -437,10 +445,16 @@ export function Toolbar({
   justify,
   wrap,
   grow,
+  line,
   className,
   ...props
 }: ComponentProps<'div'> & VariantProps<typeof toolbarVariants>) {
-  return <div className={cn(toolbarVariants({ gap, justify, wrap, grow }), className)} {...props} />
+  return (
+    <div
+      className={cn(toolbarVariants({ gap, justify, wrap, grow, line }), className)}
+      {...props}
+    />
+  )
 }
 
 /**

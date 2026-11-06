@@ -38,6 +38,7 @@ const bridge: StudioBridge = {
   enterApp: (skill) => ipcRenderer.invoke(CHANNELS.enterApp, skill),
   openArtifact: (url) => ipcRenderer.invoke(CHANNELS.openArtifact, url),
   openExternal: (url) => ipcRenderer.invoke(CHANNELS.openExternal, url),
+  revealSkill: (path) => ipcRenderer.invoke(CHANNELS.revealSkill, path),
   update: (request) => ipcRenderer.invoke(CHANNELS.update, request),
   onUpdate: subscribe<UpdateState>(CHANNELS.updateState),
   openChangelog: () => ipcRenderer.invoke(CHANNELS.openChangelog),

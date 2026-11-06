@@ -104,6 +104,8 @@ export const api = {
   openArtifact: (run: string, sample: string, file: string) =>
     transport.openArtifact(artifactUrl(run, sample, file)),
   openExternal: transport.openExternal,
+  /** Show a skill's folder in the file manager; undefined in a browser. */
+  revealSkill: transport.revealSkill,
   artifactText: async (run: string, sample: string, file: string): Promise<string> => {
     const { bytes } = await call('skill.artifact', scoped({ run, sample, file }))
     return new TextDecoder().decode(bytes)

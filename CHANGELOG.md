@@ -14,6 +14,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - Settings, Updates: let the app look for new versions on its own, or only when you ask.
 - Settings, Start over, in test versions only: put the app back to how it opens the first time, to try a release from its first launch. Your skills and your stored keys stay.
 - The Library looks for skills again each time you come back to the window, and when you press the round arrow beside **New skill**.
+- **Reveal in Finder**: the folder icon at the end of a skill’s row in the Library shows its folder in Finder, in File Explorer on Windows, or in your file manager on Linux. For the open skill, the same step is at the foot of the skill list at the top of the sidebar.
 - **Write checks with AI**, under a case’s checks: it writes new checks from the case and adds them to the list.
 
 ### Changed

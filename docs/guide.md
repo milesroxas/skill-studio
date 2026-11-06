@@ -86,9 +86,11 @@ The practice skill is kept in `~/.skill-studio/practice/`, outside every folder 
 
 The Library lists every skill in your user skills folders (`~/.agents/skills`, `~/.claude/skills`, `~/.cursor/skills`, `~/.codex/skills`) and in projects under your workspace folders. The app opens there until you have opened a skill, and on your last skill after that.
 
-![The Library: a search box, a place filter, a round arrow and a New skill button above two tables, In progress and Your skills. Each row has the skill, its place, and Claude, Cursor and Codex buttons.](images/library.webp)
+![The Library: a search box, a place filter, a round arrow and a New skill button above two tables, In progress and Your skills. Each row has the skill, its place, Claude, Cursor and Codex buttons, and a folder icon at its end.](images/library.webp)
 
 To work on a skill that exists, find it in the list or type in the search box, then click its name. "In progress" holds the skills that have cases or runs, and the ones you opened before.
+
+To see a skill's files on disk, click the folder icon at the end of its row. The desktop app shows the skill's folder in Finder, in File Explorer on Windows, or in your file manager on Linux. For the open skill, the same step is at the foot of the skill list at the top of the sidebar.
 
 To create one:
 

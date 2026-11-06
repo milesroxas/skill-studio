@@ -12,7 +12,7 @@ import {
 import { rulesFromSkill } from '@domain/rules.ts'
 import { TEMPLATES, type TemplateId, templateById } from '@domain/templates.ts'
 import { isSlug, SLUG_RULE } from '@domain/text.ts'
-import { PlusIcon } from 'lucide-react'
+import { FolderOpenIcon, PlusIcon } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { api } from '../api.ts'
 import type { Confirm } from '../components/confirm.tsx'
@@ -53,6 +53,7 @@ import {
 } from '../components/ui/table.tsx'
 import { Toggle } from '../components/ui/toggle.tsx'
 import { useFetch } from '../hooks.ts'
+import { REVEAL_LABEL } from '../keys.ts'
 import { plural, shortDate } from '../model.ts'
 import { useStartPractice } from '../practice.ts'
 
@@ -63,6 +64,8 @@ interface Props {
   newName: string
   setCreating: (on: boolean) => void
   openSkill: (path: string, screen?: string) => void
+  /** Show a skill's folder in the file manager. Undefined in a browser, which cannot reach one. */
+  reveal?: (path: string) => void
   toast: (message: string) => void
   confirm: Confirm
 }
@@ -89,6 +92,7 @@ export function LibraryScreen({
   newName,
   setCreating,
   openSkill,
+  reveal,
   toast,
   confirm,
 }: Props) {
@@ -235,7 +239,13 @@ export function LibraryScreen({
             <Heading level={2}>In progress</Heading>
             <Hint>Skills with cases or runs, and ones you opened here.</Hint>
           </SectionHead>
-          <SkillTable skills={working} openSkill={openSkill} act={act} confirm={confirm} />
+          <SkillTable
+            skills={working}
+            openSkill={openSkill}
+            reveal={reveal}
+            act={act}
+            confirm={confirm}
+          />
         </Section>
       ) : null}
 
@@ -252,7 +262,13 @@ export function LibraryScreen({
           </SectionHead>
         ) : null}
         {listed.length ? (
-          <SkillTable skills={listed} openSkill={openSkill} act={act} confirm={confirm} />
+          <SkillTable
+            skills={listed}
+            openSkill={openSkill}
+            reveal={reveal}
+            act={act}
+            confirm={confirm}
+          />
         ) : filtering ? (
           <EmptyState size="compact" title="No matches">
             Try another word, or every place.
@@ -317,11 +333,13 @@ const INSTALL_TITLE = {
 function SkillTable({
   skills,
   openSkill,
+  reveal,
   act,
   confirm,
 }: {
   skills: LibrarySkill[]
   openSkill: Props['openSkill']
+  reveal: Props['reveal']
   act: Act
   confirm: Confirm
 }) {
@@ -351,7 +369,7 @@ function SkillTable({
           <TableHead numeric col="xs" fold="last">
             Edited
           </TableHead>
-          <TableHead numeric col="sm" fold="first">
+          <TableHead numeric col={reveal ? 'lg' : 'sm'} fold="first">
             <VisuallyHidden>Actions</VisuallyHidden>
           </TableHead>
         </TableRow>
@@ -437,26 +455,40 @@ function SkillTable({
               </Text>
             </TableCell>
             <TableCell numeric fold="first">
-              {isPractice(s) ? null : s.source === null || s.source === 'marked' ? (
-                <Button
-                  type="button"
-                  variant="ghost-muted"
-                  size="sm"
-                  title={
-                    s.source
-                      ? 'List it with your own skills again'
-                      : 'List it with the skills installed from elsewhere'
-                  }
-                  onClick={() =>
-                    act(
-                      api.mark(s.path, !s.source),
-                      s.source ? 'Listed with your skills' : 'Listed with installed skills',
-                    )
-                  }
-                >
-                  {s.source ? 'Mine' : 'Not mine'}
-                </Button>
-              ) : null}
+              <Toolbar gap="xs" justify="end" wrap={false} line>
+                {isPractice(s) || (s.source !== null && s.source !== 'marked') ? null : (
+                  <Button
+                    type="button"
+                    variant="ghost-muted"
+                    size="sm"
+                    title={
+                      s.source
+                        ? 'List it with your own skills again'
+                        : 'List it with the skills installed from elsewhere'
+                    }
+                    onClick={() =>
+                      act(
+                        api.mark(s.path, !s.source),
+                        s.source ? 'Listed with your skills' : 'Listed with installed skills',
+                      )
+                    }
+                  >
+                    {s.source ? 'Mine' : 'Not mine'}
+                  </Button>
+                )}
+                {reveal ? (
+                  <Button
+                    type="button"
+                    variant="ghost-muted"
+                    size="icon-sm"
+                    aria-label={`${REVEAL_LABEL}: ${s.name}`}
+                    title={REVEAL_LABEL}
+                    onClick={() => reveal(s.path)}
+                  >
+                    <FolderOpenIcon aria-hidden="true" />
+                  </Button>
+                ) : null}
+              </Toolbar>
             </TableCell>
           </TableRow>
         ))}

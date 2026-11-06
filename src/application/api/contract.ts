@@ -230,6 +230,8 @@ export interface StudioBridge {
   openArtifact(url: string): Promise<Reply<null>>
   /** Open an https link in the default browser. */
   openExternal(url: string): Promise<Reply<null>>
+  /** Show a skill's folder in the file manager: Finder, File Explorer or the desktop's own. */
+  revealSkill(path: string): Promise<Reply<null>>
   /** Ask where the app's own updates stand, or for their next step; answered with the state after. */
   update(request: UpdateRequest): Promise<Reply<UpdateState>>
   /** The update state after every change to it; returns the unsubscribe. */

@@ -359,6 +359,19 @@
 }
 
 /*
+ * A zero-width character ahead of a row's content. An icon has no baseline of
+ * its own, so a row that may hold nothing else takes its baseline from this.
+ * Set through Tailwind's own variable, so a `before:` class beside it (the
+ * strut's type size) keeps the character.
+ */
+@utility strut {
+  &::before {
+    --tw-content: "\200b";
+    content: var(--tw-content);
+  }
+}
+
+/*
  * Rendered documents. Their HTML comes from markdown.ts and diff.ts, so these
  * elements take their styles from here rather than from a component.
  */

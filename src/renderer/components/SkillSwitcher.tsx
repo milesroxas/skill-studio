@@ -6,10 +6,10 @@
  */
 import type { LibrarySkill } from '@domain/library.ts'
 import { slug } from '@domain/text.ts'
-import { ChevronsUpDownIcon, LibraryIcon, PlusIcon } from 'lucide-react'
+import { ChevronsUpDownIcon, FolderOpenIcon, LibraryIcon, PlusIcon } from 'lucide-react'
 import { type KeyboardEvent, useEffect, useMemo, useRef, useState } from 'react'
 import { api } from '../api.ts'
-import { shortcut } from '../keys.ts'
+import { REVEAL_LABEL, shortcut } from '../keys.ts'
 import { plural } from '../model.ts'
 import { Text } from './text.tsx'
 import { Input } from './ui/input.tsx'
@@ -55,6 +55,7 @@ export function SkillSwitcher({
   onOpen,
   onNew,
   onLibrary,
+  onReveal,
 }: {
   /** The open skill's name; null when none is open. */
   name: string | null
@@ -64,6 +65,8 @@ export function SkillSwitcher({
   /** Start a new skill, named after the search when there is one. */
   onNew: (name: string) => void
   onLibrary: () => void
+  /** Show the open skill's folder in the file manager. Undefined with no skill open, and in a browser. */
+  onReveal?: () => void
 }) {
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState('')
@@ -236,6 +239,21 @@ export function SkillSwitcher({
             All skills in the library
           </PopoverAction>
         </PopoverSection>
+        {/* About the open skill, so apart from the rows that lead to another. */}
+        {onReveal && name ? (
+          <PopoverSection>
+            <PopoverAction
+              icon={<FolderOpenIcon aria-hidden="true" />}
+              title={`${REVEAL_LABEL}: ${name}`}
+              onClick={() => {
+                setOpen(false)
+                onReveal()
+              }}
+            >
+              {REVEAL_LABEL}
+            </PopoverAction>
+          </PopoverSection>
+        ) : null}
       </PopoverContent>
     </Popover>
   )

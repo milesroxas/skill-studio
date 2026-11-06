@@ -153,6 +153,11 @@ export function App() {
   /** The welcome is shown in this page: the host has no window of its own to give it. */
   const inline = !api.openWelcome
   const openWelcome = () => (api.openWelcome ? api.openWelcome() : go('welcome'))
+  /** Show a skill's folder in the file manager; undefined where the host has none to show it in. */
+  const revealSkill = api.revealSkill
+  const reveal = revealSkill
+    ? (path: string) => void revealSkill(path).catch((e: Error) => toast(e.message))
+    : undefined
   // Back and Forward return to the skill a place was seen in. An entry made with
   // no skill open keeps the one in hand.
   useEffect(() => {
@@ -303,6 +308,7 @@ export function App() {
         onOpen={(path) => openSkill(path)}
         onNew={(name) => go('library', name ? { new: '1', name } : { new: '1' })}
         onLibrary={() => go('library')}
+        onReveal={skillPath && reveal ? () => reveal(skillPath) : undefined}
       />
       <SidebarBody>
         {skillPath
@@ -387,6 +393,7 @@ export function App() {
           // Leaving the form takes its place in the history: Back never reopens it.
           setCreating={(on) => go('library', on ? { new: '1' } : {}, { replace: !on })}
           openSkill={openSkill}
+          reveal={reveal}
           toast={toast}
           confirm={confirm}
         />

@@ -16,6 +16,8 @@ export const CHANNELS = {
   enterApp: 'studio:enter-app',
   openArtifact: 'studio:open-artifact',
   openExternal: 'studio:open-external',
+  /** A window asks for a skill's folder in the file manager. */
+  revealSkill: 'studio:reveal-skill',
   /** A window asks the updater for its state or its next step. */
   update: 'studio:update',
   /** The updater tells every window its state. */

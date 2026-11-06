@@ -3,6 +3,7 @@
  * sending frame's origin first: only the app's own top frame may call.
  */
 
+import { isAbsolute, join } from 'node:path'
 import type { Reply, ShellOperation } from '@application/api/contract.ts'
 import {
   isOperation,
@@ -14,6 +15,7 @@ import {
 import { preferencesOf } from '@domain/preferences.ts'
 import type { Settings } from '@domain/secrets.ts'
 import { isUpdateRequest, type UpdateRequest } from '@domain/update.ts'
+import { isFile } from '@infrastructure/fs.ts'
 import { BrowserWindow, type IpcMainInvokeEvent, ipcMain, shell } from 'electron'
 import { CHANNELS } from '../channels.ts'
 import type { Backend } from './backend.ts'
@@ -137,5 +139,14 @@ export function registerIpc({ backend, secrets, windows, updater, reset, trusted
     } catch (error) {
       return fail(error)
     }
+  })
+
+  ipcMain.handle(CHANNELS.revealSkill, (event, path: unknown) => {
+    if (!isTrusted(event, trusted)) return fail(new Error('Refused: unknown sender.'))
+    // The page names the folder, so it is checked here: only a skill's folder is shown.
+    if (typeof path !== 'string' || !isAbsolute(path) || !isFile(join(path, 'SKILL.md')))
+      return fail(new Error(`No skill at ${String(path)}.`))
+    shell.showItemInFolder(path)
+    return ok(null)
   })
 }
