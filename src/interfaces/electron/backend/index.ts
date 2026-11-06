@@ -6,6 +6,7 @@
 import { watchRuns } from '@application/ai.ts'
 import { createOperations, invoke, isOperation } from '@application/api/operations.ts'
 import { watchJobs } from '@application/jobs.ts'
+import { stopAll } from '@infrastructure/exec.ts'
 import type { FromBackend, ToBackend } from '../channels.ts'
 
 const port = process.parentPort
@@ -26,10 +27,11 @@ async function call(id: number, name: string, input: unknown): Promise<void> {
 port.on('message', (event) => {
   const message = event.data as ToBackend
   if (message.type === 'call') void call(message.id, message.name, message.input)
-  else if (message.type === 'env')
+  else if (message.type === 'env') {
     for (const [key, value] of Object.entries(message.env))
       if (value === undefined) delete process.env[key]
       else process.env[key] = value
+  } else void stopAll().then(() => process.exit(0))
 })
 
 watchJobs((jobs) => post({ type: 'push', topic: 'jobs', value: jobs }))

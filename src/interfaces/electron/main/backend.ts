@@ -10,6 +10,9 @@ import type { FromBackend, Pushes, PushTopic, ToBackend } from '../channels.ts'
 
 type Settle = (reply: Reply<unknown>) => void
 
+/** How long the backend has to end its processes and exit: longer than it gives them. */
+const STOP_GRACE_MS = 4000
+
 export class Backend {
   private child: UtilityProcess | null = null
   private readonly pending = new Map<number, Settle>()
@@ -86,15 +89,25 @@ export class Backend {
     this.process()
   }
 
-  /** Stop the backend. Resolves once its process is gone, so nothing it was writing lands after. */
+  /**
+   * Stop the backend. It is asked first, so that it ends the agent processes it
+   * started; one that does not answer in time is killed. Resolves once its
+   * process is gone, so nothing it was writing lands after.
+   */
   stop(): Promise<void> {
     const child = this.child
     this.child = null
     if (!child) return Promise.resolve()
     return new Promise((resolve) => {
-      child.once('exit', () => resolve())
-      // A process that never came up has no exit to wait for.
-      if (!child.kill()) resolve()
+      const kill = setTimeout(() => {
+        // A process that never came up has no exit to wait for.
+        if (!child.kill()) resolve()
+      }, STOP_GRACE_MS)
+      child.once('exit', () => {
+        clearTimeout(kill)
+        resolve()
+      })
+      child.postMessage({ type: 'stop' } satisfies ToBackend)
     })
   }
 }

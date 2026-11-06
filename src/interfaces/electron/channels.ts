@@ -49,6 +49,8 @@ export type ToBackend =
   | { type: 'call'; id: number; name: string; input: unknown }
   /** Set or clear environment variables; `undefined` clears. */
   | { type: 'env'; env: Record<string, string | undefined> }
+  /** End the agent processes it started, then exit. */
+  | { type: 'stop' }
 
 /** What the backend tells the page without being asked, by topic. */
 export interface Pushes {

@@ -1,4 +1,4 @@
-import { spawn, spawnSync } from 'node:child_process'
+import { type ChildProcess, spawn, spawnSync } from 'node:child_process'
 
 export interface ExecOptions {
   cwd: string
@@ -25,6 +25,34 @@ export interface ExecResult {
 export const hasCommand = (command: string): boolean =>
   spawnSync('which', [command], { encoding: 'utf8' }).status === 0
 
+/** Every process started here that has not ended yet. */
+const running = new Set<ChildProcess>()
+
+/** Ask a process to end, and end it for good if it has not within `graceMs`. */
+function end(child: ChildProcess, graceMs: number): void {
+  const kill = setTimeout(() => child.kill('SIGKILL'), graceMs)
+  kill.unref()
+  child.once('exit', () => clearTimeout(kill))
+  child.kill('SIGTERM')
+}
+
+/**
+ * End every process still running, and wait until each is gone. For when the
+ * process that started them is going away itself: a process left behind keeps
+ * working, and spending, with nothing left to read it.
+ */
+export async function stopAll(graceMs = 2000): Promise<void> {
+  await Promise.all(
+    [...running].map(
+      (child) =>
+        new Promise<void>((gone) => {
+          child.once('exit', () => gone())
+          end(child, graceMs)
+        }),
+    ),
+  )
+}
+
 /**
  * Run a command to completion, streaming stdout lines to `onLine`. On timeout
  * the process gets SIGTERM, then SIGKILL five seconds later.
@@ -40,13 +68,10 @@ export function exec(command: string, args: string[], options: ExecOptions): Pro
       spawnError: null,
     }
     const child = spawn(command, args, { cwd: options.cwd, env: options.env })
+    running.add(child)
+    child.once('exit', () => running.delete(child))
     let buffer = ''
-    const stop = () => {
-      child.kill('SIGTERM')
-      setTimeout(() => {
-        if (child.exitCode === null) child.kill('SIGKILL')
-      }, 5000).unref()
-    }
+    const stop = () => end(child, 5000)
     const timer = setTimeout(() => {
       result.timedOut = true
       stop()
@@ -69,6 +94,8 @@ export function exec(command: string, args: string[], options: ExecOptions): Pro
       result.stderr += chunk.toString()
     })
     child.on('error', (error) => {
+      // A process that could not start has no exit to wait for.
+      if (child.pid === undefined) running.delete(child)
       result.spawnError = error.message
     })
     child.on('close', (code, signal) => {
