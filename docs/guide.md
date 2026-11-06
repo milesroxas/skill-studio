@@ -236,15 +236,17 @@ Open New run.
 6. Leave "Grade when done" ticked so scores appear when the run finishes.
 7. Click "Start a run". The line beside the button counts the outputs it will write: cases times writers times samples.
 
-The run happens in the background, and you can keep working on other screens. The foot of the sidebar names the running job; click it for the log.
+The run happens in the background, and you can keep working on other screens. The foot of the sidebar names the running job and counts its outputs as they are written; click it for the log. In the Library, the skill's row says it is running.
 
 Runs cost money: each answer is one agent session, and grading makes judge calls.
 
 ## 5. Read the results
 
-Open Results. Each row is a run: its version and writer, then a score per case, the mean, the cost, the time and the number of flags. A flag is one thing the judge found wrong, such as a rule not followed.
+Open Results. Once one writer has run on two versions of the skill, the top of the screen shows the version lift: the latest version's mean, what it gained since the first, and a ribbon from the first version's score to the latest, over the same writer's score without the skill.
 
-![Results: four runs with a score per case. One run is open, listing each sample with its total, words, cost, time, tool calls and flags, and Compare and Transcript links.](images/results.webp)
+Each row is a run: its version and writer, then a score per case, the mean, the cost, the time and the number of flags. A flag is one thing the judge found wrong, such as a rule not followed.
+
+![Results: the version lift at the top, a ribbon from v0's 83 to v1's 98 over 71 without the skill; under it four runs with a score per case. One run is open, listing each sample with its total, words, cost, time, tool calls and flags, and Compare and Transcript links.](images/results.webp)
 
 - Click a score to open that answer in Compare, with its total split into layers such as adherence to the skill's rules and the rubric of your checks.
 - Click a run to open its samples. Each has a Compare link for its answer and a Transcript link for the agent's steps.

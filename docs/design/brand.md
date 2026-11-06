@@ -31,7 +31,7 @@ Nowhere else. No mark in an empty state, a dialog, a loading state or the top ba
 
 ## The ribbon as a figure
 
-The version lift on Results is the only data figure drawn as a ribbon: flat at the first version's mean, one S-curve, flat at the latest version's mean.
+The version lift on Results (`VersionLift` in `components/Lift.tsx`, fed by `versionLift` in `domain/lift.ts`) is the only data figure drawn as a ribbon: flat at the first version's mean, one S-curve, flat at the latest version's mean. It compares one writer with itself, on the first version and on the latest. The band's top edge stands for the mean. The figure is a fixed height and stretches only sideways, so the band keeps its thickness; its labels are HTML text over it, so they stay on the type scale.
 
 - The curve is the mark's own: both control points sit at the horizontal midpoint. `C mx y0, mx y1, x1 y1`.
 - The band keeps one thickness. Rise divided by thickness stays between 1.5 and 2 (the mark's is 1.75). Scale the vertical axis to hold that, and label both ends with their real numbers.

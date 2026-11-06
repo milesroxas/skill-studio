@@ -22,6 +22,7 @@ import type { ReactNode } from 'react'
 import { LOOP_STEPS } from '../help.ts'
 import { after, useCountUp } from '../motion.ts'
 import { type Place, placeFor } from '../places.ts'
+import { List } from './layout.tsx'
 import { Slab } from './Mark.tsx'
 import { Heading, Hint, Text } from './text.tsx'
 import { Button } from './ui/button.tsx'
@@ -301,13 +302,17 @@ const PICTURES: Record<string, ReactNode> = {
         <Text weight="semibold">Thank-you note</Text>
       </Part>
       <Part caption="Rules">
-        <ul className="m-0 flex list-disc flex-col gap-1.5 pl-4.5 text-ui marker:text-muted-foreground/70">
+        <List variant="number" gap="sm">
           {RULES.map((rule, i) => (
-            <li key={rule} className="animate-rise" style={after(BEAT.start + i * BEAT.row)}>
+            <li
+              key={rule}
+              className="animate-rise text-ui"
+              style={after(BEAT.start + i * BEAT.row)}
+            >
               {rule}
             </li>
           ))}
-        </ul>
+        </List>
       </Part>
     </>
   ),

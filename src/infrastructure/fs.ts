@@ -18,6 +18,15 @@ export const writeJson = (path: string, value: unknown): void => {
   writeFileSync(path, `${JSON.stringify(value, null, 2)}\n`)
 }
 
+/** The folder with every link resolved, as the Library lists it; the path itself when it is gone. */
+export const realPath = (path: string): string => {
+  try {
+    return realpathSync(path)
+  } catch {
+    return path
+  }
+}
+
 export const isDir = (path: string): boolean => existsSync(path) && statSync(path).isDirectory()
 export const isFile = (path: string): boolean => existsSync(path) && statSync(path).isFile()
 

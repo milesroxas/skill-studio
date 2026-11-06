@@ -396,6 +396,7 @@ export function App() {
           reveal={reveal}
           toast={toast}
           confirm={confirm}
+          jobs={jobs}
         />
       )
     if (error && !state)

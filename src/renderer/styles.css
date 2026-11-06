@@ -285,6 +285,12 @@
   }
 }
 
+/* A counted item's number, "01", with no period: rules and other numbered lists. */
+@counter-style index {
+  system: extends decimal-leading-zero;
+  suffix: " ";
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;

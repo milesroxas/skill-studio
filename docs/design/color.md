@@ -12,7 +12,7 @@ A token has one value per scope. The page picks the scope; a component never che
 | --- | --- | --- |
 | Light | `:root` | the page in the light theme |
 | Dark | `data-theme="dark"` on `<html>` | every surface in the dark theme |
-| Ink | `data-surface="ink"` on an element | the sidebar and the welcome's opening, in both themes |
+| Ink | `data-surface="ink"` on an element | the sidebar and the welcome's opening, in both themes; and a chip that carries lime: the welcome's current step, a running skill's `RunningTag` |
 
 Ink uses the dark scope's values, with `--background` set to `--sidebar` and the sidebar tokens taken from the theme around it. So a component inside the sidebar uses `text-muted-foreground` and `bg-accent` as it would anywhere, and gets values that work on ink. A popover opened from the sidebar renders in `<body>`, outside the scope, and is a paper sheet. That is intended. The one exception is the sidebar itself opened as a popover on a narrow window (`PopoverContent size="nav"`), which carries the scope.
 
@@ -72,7 +72,7 @@ Does the color state a verdict (pass, weak, fail)?
 Lime marks exactly these:
 
 - the next step: `Button variant="signal"` in the top bar. See [buttons.md](buttons.md).
-- a running job: the dot in `JobsIndicator`, on the ink sidebar. It is the one lime that may sit beside the next step.
+- a running job: the dot in `JobsIndicator` on the ink sidebar, and in `RunningTag` on its skill's row in the Library. It is the one lime that may sit beside the next step. A job's progress bar is foreground, not lime.
 - in the welcome: the current step in the progress row, and one `Slab` per frame. See [brand.md](brand.md).
 
 ```tsx

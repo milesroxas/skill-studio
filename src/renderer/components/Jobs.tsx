@@ -4,7 +4,7 @@
  * popover. It never moves the screen above it.
  */
 import { cva } from 'class-variance-authority'
-import type { Job } from '../api.ts'
+import type { Job, JobProgress } from '../api.ts'
 import { Rows } from './layout.tsx'
 import { Text } from './text.tsx'
 import { Popover, PopoverContent, PopoverTrigger } from './ui/popover.tsx'
@@ -12,7 +12,7 @@ import { Popover, PopoverContent, PopoverTrigger } from './ui/popover.tsx'
 const QUIET_AFTER_MS = 60_000
 
 const indicator = cva(
-  'flex min-h-8 w-full items-center gap-2 rounded-md px-2 text-left text-xs outline-none transition-[background-color] duration-150 ease-out hover:bg-sidebar-accent focus-visible:ring-2 focus-visible:ring-ring/50 data-[state=open]:bg-sidebar-accent',
+  'flex min-h-8 w-full flex-col justify-center gap-1.5 rounded-md px-2 py-1.5 text-left text-xs outline-none transition-[background-color] duration-150 ease-out hover:bg-sidebar-accent focus-visible:ring-2 focus-visible:ring-ring/50 data-[state=open]:bg-sidebar-accent',
   {
     variants: {
       status: {
@@ -34,6 +34,44 @@ const dot = cva('size-1.5 shrink-0 rounded-full', {
   },
 })
 
+/** What the running jobs that know their size add up to; null when none does. */
+function progressOf(jobs: readonly Job[]): JobProgress | null {
+  const sized = jobs.flatMap((j) => (j.status === 'running' && j.progress ? [j.progress] : []))
+  if (!sized.length) return null
+  return sized.reduce((sum, p) => ({ done: sum.done + p.done, total: sum.total + p.total }))
+}
+
+/** How far a job has come, as a hairline that fills from the left. Never lime: the dot says running. */
+function ProgressBar({ done, total }: JobProgress) {
+  return (
+    <span aria-hidden="true" className="block h-0.5 w-full overflow-hidden bg-foreground/10">
+      <span
+        className="block h-full origin-left bg-foreground/70 transition-transform duration-300 ease-out-strong"
+        style={{ transform: `scaleX(${total ? done / total : 0})` }}
+      />
+    </span>
+  )
+}
+
+/**
+ * A skill's run in progress, on its row in a list of skills: the running dot
+ * on an ink chip, and how far the run has come when it knows.
+ */
+export function RunningTag({ jobs, skillPath }: { jobs: readonly Job[]; skillPath: string }) {
+  const mine = jobs.filter((j) => j.status === 'running' && j.skillPath === skillPath)
+  if (!mine.length) return null
+  const progress = progressOf(mine)
+  return (
+    <span
+      data-surface="ink"
+      className="ml-2 inline-flex h-5 items-center gap-1.5 rounded-xs px-1.5 align-middle font-mono text-2xs font-medium tabular-nums"
+    >
+      <span className={dot({ status: 'running' })} aria-hidden="true" />
+      Running{progress ? ` ${progress.done}/${progress.total}` : null}
+    </span>
+  )
+}
+
 export function JobsIndicator({ jobs }: { jobs: Job[] }) {
   const running = jobs.filter((j) => j.status === 'running')
   const recent = jobs[0]
@@ -45,6 +83,7 @@ export function JobsIndicator({ jobs }: { jobs: Job[] }) {
     Date.now() - recent.finishedAt > QUIET_AFTER_MS
   if (settled) return null
   const status = running.length ? 'running' : recent.status
+  const progress = progressOf(running)
   const label = running.length
     ? running.length === 1
       ? running[0].title
@@ -58,12 +97,20 @@ export function JobsIndicator({ jobs }: { jobs: Job[] }) {
         <button
           type="button"
           className={indicator({ status })}
-          aria-label={`${label}. Show the log.`}
+          aria-label={`${label}${progress ? `, ${progress.done} of ${progress.total} done` : ''}. Show the log.`}
         >
-          <span className={dot({ status })} aria-hidden="true" />
-          <span className="min-w-0 flex-1 truncate" title={label}>
-            {label}
+          <span className="flex w-full items-center gap-2">
+            <span className={dot({ status })} aria-hidden="true" />
+            <span className="min-w-0 flex-1 truncate" title={label}>
+              {label}
+            </span>
+            {progress ? (
+              <Text font="mono" tone="muted" tabular aria-hidden="true">
+                {progress.done}/{progress.total}
+              </Text>
+            ) : null}
           </span>
+          {progress ? <ProgressBar {...progress} /> : null}
         </button>
       </PopoverTrigger>
       <PopoverContent side="right" align="end" size="wide">

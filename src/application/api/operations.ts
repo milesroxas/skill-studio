@@ -43,7 +43,14 @@ import {
 } from '@infrastructure/cases.ts'
 import { readDrafts, writeDrafts } from '@infrastructure/drafts.ts'
 import { engineById, engineInfo } from '@infrastructure/engines/index.ts'
-import { assertSafe, assertSafePath, readJson, readTree, writeJson } from '@infrastructure/fs.ts'
+import {
+  assertSafe,
+  assertSafePath,
+  readJson,
+  readTree,
+  realPath,
+  writeJson,
+} from '@infrastructure/fs.ts'
 import { findImage, readImage, saveUpload, uploadPath } from '@infrastructure/images.ts'
 import {
   createSkill,
@@ -96,9 +103,9 @@ import {
   startAssist,
   stopRun,
 } from '../ai.ts'
-import { generateRun } from '../generate.ts'
+import { generateRun, samplesPerCase } from '../generate.ts'
 import { gradeRun, judgeInput } from '../grade.ts'
-import { listJobs, runJob, say } from '../jobs.ts'
+import { listJobs, runJob, say, sizeJob, stepJob } from '../jobs.ts'
 import {
   type AnchorInput,
   type GenerateInput,
@@ -669,9 +676,20 @@ export function createOperations(options: OperationsOptions): Runners {
       const job = runJob(
         'generate',
         `Generate ${selected.length} case(s): ${engines.map((e) => e.engine.id).join(', ')}`,
+        // As the Library lists it, so the skill's row can show the run.
+        realPath(skill.path),
         async (job) => {
+          // One unit per output, and one more per writer for its grading, so the
+          // count only reaches the end when the job does.
+          const perWriter = selected.length * samplesPerCase(input.samples) + (input.grade ? 1 : 0)
+          sizeJob(job, perWriter * engines.length)
           const results = await Promise.all(
             engines.map(async ({ engine, model, effort }) => {
+              let left = perWriter
+              const step = () => {
+                left -= 1
+                stepJob(job)
+              }
               try {
                 const { name } = await generateRun({
                   skillDir: skill.path,
@@ -685,6 +703,7 @@ export function createOperations(options: OperationsOptions): Runners {
                   skillName: input.skillName,
                   note: input.note,
                   log: (line) => say(job, line),
+                  onSample: step,
                 })
                 if (!input.grade) return true
                 say(job, `${name}: grading`)
@@ -693,9 +712,12 @@ export function createOperations(options: OperationsOptions): Runners {
                   log: (line) => say(job, line),
                 })
                 say(job, `${name}: graded`)
+                step()
                 return true
               } catch (error) {
                 say(job, (error as Error).message)
+                // What this writer will never do still counts as settled.
+                while (left > 0) step()
                 return false
               }
             }),
@@ -707,7 +729,7 @@ export function createOperations(options: OperationsOptions): Runners {
     },
     'skill.grade': (input) => {
       const skill = skillOf(input)
-      const job = runJob('grade', `Grade ${input.run}`, async (job) => {
+      const job = runJob('grade', `Grade ${input.run}`, realPath(skill.path), async (job) => {
         await gradeRun(skill.path, input.run, {
           useJev: input.jev && Jev.available(),
           log: (line) => say(job, line),
@@ -722,7 +744,7 @@ export function createOperations(options: OperationsOptions): Runners {
       const { a, b, criteria } = input
       if (!criteria.length) throw new Error('No criteria.')
       const config = loadBench(skill.path)
-      const job = runJob('pairwise', `Jev: ${a} vs ${b}`, async (job) => {
+      const job = runJob('pairwise', `Jev: ${a} vs ${b}`, realPath(skill.path), async (job) => {
         const jev = new Jev()
         const inputA = inputFor(skill, a, config, (line) => say(job, line))
         const inputB = inputFor(skill, b, config, (line) => say(job, line))

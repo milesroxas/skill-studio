@@ -84,14 +84,14 @@ Then: `pnpm guide:shots` and commit every image (all of them changed this time),
 
 ## Phase 6: additions, each its own decision
 
-These are in the Paper proposals and are new features, not restyling. Each needs its data checked first.
+These are in the Paper proposals and are new features, not restyling. Each needed its data checked first. Built 2026-11-05:
 
-| Addition | Needs |
+| Addition | How |
 | --- | --- |
-| Version lift figure on Results | the first and latest version's mean from `runMetas`. Rules in [brand.md](brand.md). |
-| "Running 4/6" tag on a Library row | a job's progress per skill. `Job` has no count today. |
-| Progress bar under the sidebar's job line | the same count |
-| Numbered graded rules on Write | none: `rulesFromSkill` is ordered |
+| Version lift figure on Results | `versionLift` in `domain/lift.ts` picks one writer's run on the first and on the latest version (the writer whose latest run is newest) and its latest run without the skill. `VersionLift` in `components/Lift.tsx` draws it. Rules in [brand.md](brand.md). |
+| "Running 4/6" tag on a Library row | `Job` carries `skillPath` and `progress` (`domain/views.ts`). A run sizes its job (cases × samples × writers, plus one per writer for grading) and steps it per output and per grading (`sizeJob`, `stepJob` in `application/jobs.ts`); a writer that fails counts off what it will never do. `Job.skillPath` is the real path, as the Library lists it. `RunningTag` in `components/Jobs.tsx`. |
+| Progress bar under the sidebar's job line | the same count, in `JobsIndicator`. The bar is foreground, not lime: the dot already says running. |
+| Numbered graded rules on Write | `List variant="number"`: "01" in mono, hanging in the margin, also on Scoring and in the welcome's picture |
 
 ## Risks
 

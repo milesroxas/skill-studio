@@ -709,7 +709,8 @@ const listVariants = cva('list-outside', {
   variants: {
     variant: {
       bullet: 'list-disc pl-4.5',
-      number: 'list-decimal pl-5',
+      /** Rules and other counted items: "01" in mono, hanging in the margin. */
+      number: 'list-[index] pl-6 marker:font-mono marker:text-muted-foreground',
     },
     size: {
       inherit: '',

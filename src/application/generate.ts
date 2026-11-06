@@ -21,6 +21,9 @@ import { TranscriptWriter } from '@infrastructure/transcript.ts'
 const SAMPLE_TIMEOUT_MS = 20 * 60 * 1000
 const MAX_PARALLEL = 3
 
+/** How many outputs a run writes per case: at least one. */
+export const samplesPerCase = (samples: number): number => Math.max(1, samples)
+
 export interface GenerateOptions {
   skillDir: string
   cases: Case[]
@@ -36,6 +39,8 @@ export interface GenerateOptions {
   note: string
   parallel?: number
   log: (line: string) => void
+  /** Called as each output is written, ok or not. */
+  onSample?: () => void
 }
 
 interface SkillStamp {
@@ -121,7 +126,7 @@ export async function generateRun(
     configuration,
     baselineDir: baselineDir ? relative(skillDir, baselineDir) : null,
     cases: options.cases.map((c) => c.id),
-    samplesPerCase: Math.max(1, options.samples),
+    samplesPerCase: samplesPerCase(options.samples),
     createdAt: new Date().toISOString(),
     finishedAt: null,
     samples: [],
@@ -147,6 +152,7 @@ export async function generateRun(
       meta.samples.push(sample)
       meta.samples.sort((a, b) => a.dir.localeCompare(b.dir))
       writeJson(join(dir, 'run.json'), meta)
+      options.onSample?.()
     }
   }
   const parallel = Math.max(1, Math.min(options.parallel ?? MAX_PARALLEL, jobs.length))

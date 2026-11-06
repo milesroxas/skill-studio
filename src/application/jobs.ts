@@ -33,7 +33,7 @@ function changed(): void {
   })
 }
 
-function startJob(kind: JobKind, title: string): Job {
+function startJob(kind: JobKind, title: string, skillPath: string | null): Job {
   const job: Job = {
     id: jobs.length + 1,
     kind,
@@ -42,6 +42,8 @@ function startJob(kind: JobKind, title: string): Job {
     log: [],
     startedAt: Date.now(),
     finishedAt: null,
+    skillPath,
+    progress: null,
   }
   jobs.unshift(job)
   changed()
@@ -53,15 +55,33 @@ export const say = (job: Job, line: string): void => {
   changed()
 }
 
+/** Say how much of the job there is: `total` units, none done yet. */
+export const sizeJob = (job: Job, total: number): void => {
+  job.progress = { done: 0, total }
+  changed()
+}
+
+/** One more unit of a sized job is done. */
+export const stepJob = (job: Job): void => {
+  if (!job.progress) return
+  job.progress = { ...job.progress, done: Math.min(job.progress.total, job.progress.done + 1) }
+  changed()
+}
+
 function finishJob(job: Job, ok: boolean): void {
   job.status = ok ? 'done' : 'failed'
   job.finishedAt = Date.now()
   changed()
 }
 
-/** Run `work` as a job; its errors land in the log instead of the caller. */
-export function runJob(kind: JobKind, title: string, work: (job: Job) => Promise<boolean>): Job {
-  const job = startJob(kind, title)
+/** Run `work` as a job on the skill at `skillPath`; its errors land in the log instead of the caller. */
+export function runJob(
+  kind: JobKind,
+  title: string,
+  skillPath: string | null,
+  work: (job: Job) => Promise<boolean>,
+): Job {
+  const job = startJob(kind, title, skillPath)
   work(job).then(
     (ok) => finishJob(job, ok),
     (error: Error) => {

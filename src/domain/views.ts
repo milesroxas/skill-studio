@@ -73,6 +73,12 @@ export interface EngineInfo {
 export type JobKind = 'generate' | 'grade' | 'pairwise'
 export type JobStatus = 'running' | 'done' | 'failed'
 
+/** How far a job has come, in the units it counts: outputs written, for a run. */
+export interface JobProgress {
+  done: number
+  total: number
+}
+
 export interface Job {
   id: number
   kind: JobKind
@@ -81,6 +87,10 @@ export interface Job {
   log: string[]
   startedAt: number
   finishedAt: number | null
+  /** The skill folder the job works on, so a list of skills can show it running. */
+  skillPath: string | null
+  /** Set by a job that knows its size before it starts; null for one that does not. */
+  progress: JobProgress | null
 }
 
 export interface Leaderboard {

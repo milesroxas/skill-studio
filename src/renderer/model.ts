@@ -137,6 +137,9 @@ const versionOf = (run: RunView): { id: string; name: string } =>
     ? { id: run.meta.skillVersion, name: run.meta.skillName }
     : { id: '?', name: run.name }
 
+/** The version a run was made on: "v1". */
+export const runVersion = (run: RunView): string => versionOf(run).id
+
 /** "v2 · Claims need a source" */
 export const versionName = (run: RunView): string => {
   const v = versionOf(run)

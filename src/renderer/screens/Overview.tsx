@@ -1,9 +1,11 @@
 /** Runs against cases: totals per cell, cost and time per run, versions, cases. */
 
+import { versionLift, writerKey } from '@domain/lift.ts'
 import { mean } from '@domain/stats.ts'
 import { Fragment, useState } from 'react'
 import { api } from '../api.ts'
 import { Term } from '../components/Help.tsx'
+import { VersionLift } from '../components/Lift.tsx'
 import {
   EmptyState,
   PlainList,
@@ -37,10 +39,12 @@ import {
   type Output,
   runLabel,
   runStamp,
+  runVersion,
   scoreOf,
   stamp,
   totalOf,
   versionName,
+  writerName,
 } from '../model.ts'
 
 const costOf = (run: Ctx['state']['runs'][number]): number | null =>
@@ -67,6 +71,17 @@ export function Overview({ ctx }: { ctx: Ctx }) {
   // Run, one per case, mean, cost, time, flags and the spare-width column: what an opened run spans.
   // A narrow window hides cost, time and flags; a span past the last column is harmless.
   const columns = 1 + caseIds.length + (showMean ? 1 : 0) + 2 + (showFlags ? 1 : 0) + 1
+  const lift = versionLift(
+    runs.map((run) => ({
+      name: run.name,
+      version: runVersion(run),
+      writer: writerKey(run.meta?.writer),
+      configuration: run.meta?.configuration ?? 'with_skill',
+      createdAt: run.meta?.createdAt ?? '',
+      mean: mean(totalsOf(byRun.get(run.name) ?? [])),
+    })),
+  )
+  const liftWriter = (name: string) => writerName(runs.find((r) => r.name === name)?.meta?.writer)
 
   const regrade = async (run: string) => {
     setGrading(run)
@@ -107,6 +122,7 @@ export function Overview({ ctx }: { ctx: Ctx }) {
 
   return (
     <Screen>
+      {lift ? <VersionLift lift={lift} writer={liftWriter(lift.latest.name)} /> : null}
       <Section>
         <Hint>
           Each cell is a case’s mean score out of 100. Open a score to compare its outputs, or a run

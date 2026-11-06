@@ -14,10 +14,11 @@ import { TEMPLATES, type TemplateId, templateById } from '@domain/templates.ts'
 import { isSlug, SLUG_RULE } from '@domain/text.ts'
 import { FolderOpenIcon, PlusIcon } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
-import { api } from '../api.ts'
+import { api, type Job } from '../api.ts'
 import type { Confirm } from '../components/confirm.tsx'
 import { Disclosure } from '../components/Disclosure.tsx'
 import { CheckRow } from '../components/forms.tsx'
+import { RunningTag } from '../components/Jobs.tsx'
 import {
   EmptyState,
   Field,
@@ -68,6 +69,8 @@ interface Props {
   reveal?: (path: string) => void
   toast: (message: string) => void
   confirm: Confirm
+  /** The app's jobs, so a skill being run says so on its row. */
+  jobs: readonly Job[]
 }
 
 type Act = (work: Promise<unknown>, done: string) => void
@@ -95,6 +98,7 @@ export function LibraryScreen({
   reveal,
   toast,
   confirm,
+  jobs,
 }: Props) {
   const lib = useFetch(() => api.library(), [])
   const [query, setQuery] = useState('')
@@ -240,6 +244,7 @@ export function LibraryScreen({
             <Hint>Skills with cases or runs, and ones you opened here.</Hint>
           </SectionHead>
           <SkillTable
+            jobs={jobs}
             skills={working}
             openSkill={openSkill}
             reveal={reveal}
@@ -263,6 +268,7 @@ export function LibraryScreen({
         ) : null}
         {listed.length ? (
           <SkillTable
+            jobs={jobs}
             skills={listed}
             openSkill={openSkill}
             reveal={reveal}
@@ -336,12 +342,14 @@ function SkillTable({
   reveal,
   act,
   confirm,
+  jobs,
 }: {
   skills: LibrarySkill[]
   openSkill: Props['openSkill']
   reveal: Props['reveal']
   act: Act
   confirm: Confirm
+  jobs: Props['jobs']
 }) {
   const toggle = async (s: LibrarySkill, agent: AgentId, label: string) => {
     if (s.installs[agent] === null)
@@ -392,6 +400,7 @@ function SkillTable({
               >
                 {s.name}
               </Button>
+              <RunningTag jobs={jobs} skillPath={s.path} />
               {s.description ? (
                 <Text block tone="muted" size="xs" clamp>
                   {s.description}
