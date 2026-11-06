@@ -11,7 +11,6 @@ import { GLOSSARY, type TermId } from '@domain/glossary.ts'
 import {
   BookOpenIcon,
   CircleQuestionMarkIcon,
-  LightbulbIcon,
   MessageCircleQuestionIcon,
   RotateCcwIcon,
 } from 'lucide-react'
@@ -173,7 +172,9 @@ export function HelpButton({
 /**
  * What a screen is for, in one line under the top bar, the first time it
  * opens. It sits beside the work and never over it, and goes for good once
- * read. The help button says the same afterwards.
+ * read. The help button says the same afterwards. It is an aside, so it is
+ * quieter than the screen it describes: muted text and a button with no box,
+ * pulled out by its padding so the words end on the top bar's right edge.
  */
 export function ScreenHint({
   children,
@@ -185,13 +186,12 @@ export function ScreenHint({
   return (
     <aside
       aria-label="About this screen"
-      className="flex shrink-0 items-center gap-3 border-b bg-muted/60 px-4 py-2 sm:px-6"
+      className="flex shrink-0 items-center gap-3 border-b px-4 py-2 sm:px-6"
     >
-      <LightbulbIcon aria-hidden="true" className="size-4 shrink-0 text-muted-foreground" />
-      <Text as="p" size="ui" className="m-0 min-w-0 flex-1 text-pretty">
+      <Text as="p" size="ui" tone="muted" className="m-0 min-w-0 flex-1 text-pretty">
         {children}
       </Text>
-      <Button type="button" variant="outline" size="sm" onClick={onDismiss}>
+      <Button type="button" variant="ghost" size="sm" className="-mr-3" onClick={onDismiss}>
         Got it
       </Button>
     </aside>

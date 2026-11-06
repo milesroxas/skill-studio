@@ -122,7 +122,7 @@ export function Composer({
         </Hint>
       ) : null}
       {children}
-      <div className="flex items-center gap-1 px-2 pb-2">
+      <div className="flex items-center gap-1 px-2 pb-2 pointer-coarse:gap-3">
         {pictures ? (
           <PicturePicker variant="icon-sm" label="Add pictures" onFiles={pictures.add} />
         ) : null}

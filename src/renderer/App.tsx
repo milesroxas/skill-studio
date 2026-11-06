@@ -15,7 +15,7 @@
  * no windows to give, shows it in place of the shell.
  */
 import type { BenchConfig } from '@domain/schemas.ts'
-import { ArrowRightIcon, MenuIcon, PanelRightIcon } from 'lucide-react'
+import { ArrowRightIcon, MenuIcon, MessageCircleIcon } from 'lucide-react'
 import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react'
 import { api, currentSkill, type Job, type State, setSkill } from './api.ts'
 import { ChatPanel } from './components/Chat.tsx'
@@ -508,7 +508,7 @@ export function App() {
               size="sm"
               onClick={() => go(next.screen, next.params)}
             >
-              <Text tone="muted">Next</Text>
+              <Text tone="muted">Next:</Text>
               {next.label}
               <ArrowRightIcon aria-hidden="true" />
             </Button>
@@ -526,13 +526,13 @@ export function App() {
             }}
           />
           <Toggle
-            size="sm"
+            size="icon-sm"
             aria-label="Assistant"
             title={`Assistant (${shortcut('J')})`}
             pressed={assistant}
             onPressedChange={setAssistant}
           >
-            <PanelRightIcon aria-hidden="true" />
+            <MessageCircleIcon aria-hidden="true" />
           </Toggle>
         </TopBar>
         {hint ? (

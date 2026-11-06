@@ -2,6 +2,12 @@
  * Write the skill: SKILL.md and references/, edited in place on disk. Every
  * keystroke is kept as a draft, so unsaved text survives a reload or a quit;
  * saving writes the file and clears its draft.
+ *
+ * The file's header holds one switch for what the column shows (the text
+ * styled, its Markdown, or what changed since the last save) and the two
+ * actions on unsaved work. Save is the one filled button, and only while there
+ * is something to save; Discard is always there, so nothing in the row moves
+ * on the first keystroke.
  */
 
 import { applyPracticeEdit, PRACTICE_EDIT } from '@domain/practice.ts'
@@ -9,7 +15,6 @@ import { rulesFromSkill } from '@domain/rules.ts'
 import {
   applyTemplate,
   EXAMPLE_KINDS,
-  insertAt,
   isScaffold,
   RULE_GUIDE,
   referenceTemplate,
@@ -43,12 +48,12 @@ import {
   useEditorMode,
 } from '../components/MarkdownEditor.tsx'
 import { NavButton } from '../components/NavButton.tsx'
+import { Segmented } from '../components/Segmented.tsx'
 import { GuideBox, GuideList, PairList, Starter } from '../components/starters.tsx'
 import { Code, Hint, Text } from '../components/text.tsx'
 import { Alert, AlertDescription, AlertTitle } from '../components/ui/alert.tsx'
 import { Button } from '../components/ui/button.tsx'
 import { Input } from '../components/ui/input.tsx'
-import { Toggle } from '../components/ui/toggle.tsx'
 import type { Ctx } from '../ctx.ts'
 import { lineDiff } from '../diff.ts'
 import { useFetch } from '../hooks.ts'
@@ -59,6 +64,15 @@ const referencePath = (name: string): string | null => {
   if (!/^[\w][\w.-]*(\/[\w][\w.-]*)*$/.test(clean)) return null
   return `references/${/\.\w+$/.test(clean) ? clean : `${clean}.md`}`
 }
+
+/** What the file's column shows: the text in one of the editor's two views, or its changes. */
+const VIEWS = [
+  { value: 'formatted', label: 'Formatted', title: 'Edit with the Markdown styled in place' },
+  { value: 'markdown', label: 'Markdown', title: 'Edit the plain Markdown source' },
+  { value: 'changes', label: 'Changes', title: 'Read what changed since the file was saved' },
+] as const
+
+type View = (typeof VIEWS)[number]['value']
 
 export function Editor({ ctx }: { ctx: Ctx }) {
   const { state, route, go, toast, confirm, reload, config, drafts } = ctx
@@ -93,11 +107,18 @@ export function Editor({ ctx }: { ctx: Ctx }) {
       value === saved && !stale ? null : { text: value, previous: draft?.previous ?? saved },
     )
 
-  /** Put a snippet at the cursor (or over the selection) and leave the cursor inside it. */
-  const insert = (snippet: Snippet) => {
-    if (editor.current) return editor.current.insert(snippet)
-    // The diff is showing: add the snippet at the end.
-    edit(insertAt(text, text.length, text.length, snippet).text)
+  /**
+   * Put a snippet at the cursor (or over the selection) and leave the cursor
+   * inside it. While the changes are showing it still lands at the cursor, and
+   * shows there as an added line.
+   */
+  const insert = (snippet: Snippet) => editor.current?.insert(snippet)
+
+  /** The editor remembers Formatted or Markdown; the changes are a look, and are not kept. */
+  const look = (next: View | null) => {
+    if (!next) return
+    setShowDiff(next === 'changes')
+    if (next !== 'changes' && next !== mode) setMode(next)
   }
 
   /** Replace the body of SKILL.md with a template's, keeping the front matter. */
@@ -395,120 +416,130 @@ export function Editor({ ctx }: { ctx: Ctx }) {
               saved={saved === null ? 'New, not on disk yet' : 'Saved'}
             />
           </ColumnTitle>
-          <Toggle variant="outline" size="sm" pressed={showDiff} onPressedChange={setShowDiff}>
-            Changes since saved
-          </Toggle>
+          <Segmented<View>
+            aria-label="View"
+            value={showDiff ? 'changes' : mode}
+            onChange={look}
+            options={VIEWS}
+          />
           {!isSkill && saved !== null ? (
             <Button type="button" variant="destructive-ghost" size="sm" onClick={remove}>
               Delete file
             </Button>
           ) : null}
-          {isDirty(file) ? (
-            <Button type="button" variant="ghost" size="sm" onClick={discard}>
-              Discard
-            </Button>
-          ) : null}
           <Button
             type="button"
+            variant="ghost"
+            size="sm"
+            disabled={!isDirty(file) || busy}
+            onClick={discard}
+          >
+            Discard
+          </Button>
+          {/* The label holds still while the file is written, so the row does not shift. */}
+          <Button
+            type="button"
+            variant={isDirty(file) ? 'default' : 'ghost'}
             size="sm"
             disabled={!isDirty(file) || busy || stale}
+            aria-busy={busy}
             onClick={save}
             title={shortcut('S')}
           >
-            {busy ? 'Saving…' : 'Save'}
+            Save
           </Button>
         </ColumnHeader>
-        {showDiff ? (
-          <ColumnBody>
-            {notes}
-            {diff.length ? (
-              <DiffLines lines={diff} />
-            ) : (
-              <Hint>No changes from the file on disk.</Hint>
-            )}
-          </ColumnBody>
-        ) : (
-          <MarkdownEditor
-            key={file}
-            id={`${state.skill.path}:${file}`}
-            ref={editor}
-            mode={mode}
-            onModeChange={setMode}
-            aria-label={`Contents of ${file}`}
-            placeholder={
+        <MarkdownEditor
+          key={file}
+          id={`${state.skill.path}:${file}`}
+          ref={editor}
+          mode={mode}
+          instead={
+            showDiff ? (
+              <ColumnBody>
+                {notes}
+                {diff.length ? (
+                  <DiffLines lines={diff} />
+                ) : (
+                  <Hint>No changes from the file on disk.</Hint>
+                )}
+              </ColumnBody>
+            ) : undefined
+          }
+          aria-label={`Contents of ${file}`}
+          placeholder={
+            isSkill
+              ? 'Write for the agent that loads this skill. One rule per bullet, with its why.'
+              : 'Longer material SKILL.md points to. Say first when the agent should read it.'
+          }
+          value={text}
+          onChange={edit}
+          onSave={save}
+          assist={{
+            field: isSkill ? 'skill.file' : 'skill.reference',
+            // A reference is written to serve the skill it belongs to.
+            context: () =>
               isSkill
-                ? 'Write for the agent that loads this skill. One rule per bullet, with its why.'
-                : 'Longer material SKILL.md points to. Say first when the agent should read it.'
-            }
-            value={text}
-            onChange={edit}
-            onSave={save}
-            assist={{
-              field: isSkill ? 'skill.file' : 'skill.reference',
-              // A reference is written to serve the skill it belongs to.
-              context: () =>
-                isSkill
-                  ? []
-                  : [
-                      {
-                        label: 'SKILL.md',
-                        text: edits['SKILL.md']?.text ?? files['SKILL.md'] ?? '',
-                      },
-                    ],
-            }}
-            banner={
-              notes || blank || tightened ? (
-                <ColumnBody>
-                  {notes}
-                  {tightened ? (
-                    <Starter
-                      aria-label="Tighten this rule"
-                      title="Tighten this rule"
-                      hint="One rule in this skill is vague on purpose. Swap it for an exact one, or write your own, then save and run again to see what the edit did."
-                    >
-                      <PairList pairs={[PRACTICE_EDIT]} marks={['vague', 'exact']} />
-                      <Toolbar>
+                ? []
+                : [
+                    {
+                      label: 'SKILL.md',
+                      text: edits['SKILL.md']?.text ?? files['SKILL.md'] ?? '',
+                    },
+                  ],
+          }}
+          banner={
+            notes || blank || tightened ? (
+              <ColumnBody>
+                {notes}
+                {tightened ? (
+                  <Starter
+                    aria-label="Tighten this rule"
+                    title="Tighten this rule"
+                    hint="One rule in this skill is vague on purpose. Swap it for an exact one, or write your own, then save and run again to see what the edit did."
+                  >
+                    <PairList pairs={[PRACTICE_EDIT]} marks={['vague', 'exact']} />
+                    <Toolbar>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          edit(tightened)
+                          requestAnimationFrame(() => editor.current?.focus())
+                        }}
+                      >
+                        Use the exact rule
+                      </Button>
+                    </Toolbar>
+                  </Starter>
+                ) : null}
+                {blank ? (
+                  <Starter
+                    aria-label="Start from a template"
+                    title="Start from a template"
+                    hint="Each one is a small, finished skill in the shape the judge grades: one rule per bullet, with its why. Replace the rules with yours."
+                  >
+                    <Toolbar>
+                      {EXAMPLE_KINDS.map((t) => (
                         <Button
+                          key={t.id}
                           type="button"
                           variant="outline"
                           size="sm"
-                          onClick={() => {
-                            edit(tightened)
-                            requestAnimationFrame(() => editor.current?.focus())
-                          }}
+                          title={t.summary}
+                          onClick={() => startFrom(t)}
                         >
-                          Use the exact rule
+                          {t.label}
                         </Button>
-                      </Toolbar>
-                    </Starter>
-                  ) : null}
-                  {blank ? (
-                    <Starter
-                      aria-label="Start from a template"
-                      title="Start from a template"
-                      hint="Each one is a small, finished skill in the shape the judge grades: one rule per bullet, with its why. Replace the rules with yours."
-                    >
-                      <Toolbar>
-                        {EXAMPLE_KINDS.map((t) => (
-                          <Button
-                            key={t.id}
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            title={t.summary}
-                            onClick={() => startFrom(t)}
-                          >
-                            {t.label}
-                          </Button>
-                        ))}
-                      </Toolbar>
-                    </Starter>
-                  ) : null}
-                </ColumnBody>
-              ) : null
-            }
-          />
-        )}
+                      ))}
+                    </Toolbar>
+                  </Starter>
+                ) : null}
+              </ColumnBody>
+            ) : null
+          }
+        />
       </Column>
     </Workbench>
   )

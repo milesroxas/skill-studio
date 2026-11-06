@@ -3,9 +3,11 @@
  * formatted, where Markdown is styled in place and its marks show only where
  * the cursor is (Obsidian's live preview), and Markdown, the plain source.
  * Both edit the same characters, so switching views or saving never rewrites
- * the file. The toolbar and shortcuts apply styles by writing Markdown, and
- * Undo and Redo lead the toolbar. A file's undo history outlives the editor:
- * it is there again after a look at another file, the changes or another screen.
+ * the file. The screen chooses the view; the toolbar and shortcuts apply
+ * styles by writing Markdown, and Undo and Redo lead the toolbar. The tools
+ * are quiet until pointed at, so the text is the brightest thing in the
+ * column. A file's undo history outlives the editor: it is there again after a
+ * look at another file or another screen.
  */
 
 import {
@@ -34,11 +36,9 @@ import {
   LinkIcon,
   ListIcon,
   ListOrderedIcon,
-  ListTodoIcon,
   type LucideIcon,
   PenLineIcon,
   Redo2Icon,
-  StrikethroughIcon,
   TextQuoteIcon,
   Undo2Icon,
 } from 'lucide-react'
@@ -57,8 +57,7 @@ import { editorTheme, markdownHighlighting } from '../editor/theme.ts'
 import { shortcut } from '../keys.ts'
 import { setPreferences, usePreferences } from '../preferences.ts'
 import { Assist, type AssistSpec } from './Assist.tsx'
-import { ColumnToolbar } from './layout.tsx'
-import { Segmented } from './Segmented.tsx'
+import { ColumnToolbar, ToolbarGroup, ToolbarItem } from './layout.tsx'
 import { Button } from './ui/button.tsx'
 
 /**
@@ -91,6 +90,10 @@ interface Action {
 const UNDO: Action = { label: 'Undo', icon: Undo2Icon, command: undo, keys: 'Z' }
 const REDO: Action = { label: 'Redo', icon: Redo2Icon, command: redo, keys: '⇧Z' }
 
+/**
+ * The styles a skill file is made of. Strikethrough keeps its shortcut and a
+ * task list is typed as `- [ ]`: neither is common enough to hold a place here.
+ */
 const ACTIONS: readonly (readonly Action[])[] = [
   [
     { label: 'Heading 1', icon: Heading1Icon, command: toggleHeading(1) },
@@ -100,19 +103,12 @@ const ACTIONS: readonly (readonly Action[])[] = [
   [
     { label: 'Bold', icon: BoldIcon, command: toggleInline('strong'), keys: 'B' },
     { label: 'Italic', icon: ItalicIcon, command: toggleInline('emphasis'), keys: 'I' },
-    {
-      label: 'Strikethrough',
-      icon: StrikethroughIcon,
-      command: toggleInline('strike'),
-      keys: '⇧X',
-    },
     { label: 'Inline code', icon: CodeIcon, command: toggleInline('code'), keys: 'E' },
     { label: 'Link', icon: LinkIcon, command: insertLink },
   ],
   [
     { label: 'Bulleted list', icon: ListIcon, command: toggleList('bullet') },
     { label: 'Numbered list', icon: ListOrderedIcon, command: toggleList('ordered') },
-    { label: 'Task list', icon: ListTodoIcon, command: toggleList('task') },
     { label: 'Quote', icon: TextQuoteIcon, command: toggleQuote },
   ],
 ]
@@ -134,11 +130,6 @@ interface Kept {
  * its old history would undo into a file that is no longer there.
  */
 const kept = new Map<string, Kept>()
-
-const MODES = [
-  { value: 'formatted', label: 'Formatted', title: 'Edit with the Markdown styled in place' },
-  { value: 'markdown', label: 'Markdown', title: 'Edit the plain Markdown source' },
-] as const
 
 const surfaceVariants = cva('flex flex-1 flex-col', {
   variants: {
@@ -163,11 +154,16 @@ interface MarkdownEditorProps {
   onChange: (value: string) => void
   onSave?: () => void
   mode: EditorMode
-  onModeChange: (mode: EditorMode) => void
   placeholder?: string
   'aria-label': string
   /** Notes about the file, shown between the toolbar and the text. */
   banner?: ReactNode
+  /**
+   * Something to read in place of the text, such as what changed since the
+   * last save. The toolbar keeps its place with its tools disabled, so the
+   * column does not jump, and the text keeps its cursor for the way back.
+   */
+  instead?: ReactNode
   /**
    * The kind of file this is, which puts "Write with AI" in the toolbar. With
    * text selected it rewrites the selection only; otherwise the whole file.
@@ -183,10 +179,10 @@ export function MarkdownEditor({
   onChange,
   onSave,
   mode,
-  onModeChange,
   placeholder: hint,
   'aria-label': label,
   banner,
+  instead,
   assist,
 }: MarkdownEditorProps) {
   const host = useRef<HTMLDivElement>(null)
@@ -309,37 +305,38 @@ export function MarkdownEditor({
     view.focus()
   }
 
+  /** Something else is being read in place of the text: the tools have nothing to act on. */
+  const covered = instead != null
+
   const tool = (action: Action, enabled = true) => (
-    <Button
-      key={action.label}
-      type="button"
-      variant="ghost"
-      size="icon-sm"
-      aria-label={action.label}
-      title={action.keys ? `${action.label} (${shortcut(action.keys)})` : action.label}
-      disabled={!enabled}
-      // Keep the editor's selection: the button acts on it.
-      onMouseDown={(e) => e.preventDefault()}
-      onClick={() => run(action.command)}
-    >
-      <action.icon aria-hidden="true" />
-    </Button>
+    <ToolbarItem key={action.label} disabled={!enabled || covered}>
+      <Button
+        type="button"
+        variant="ghost-muted"
+        size="icon-sm"
+        aria-label={action.label}
+        title={action.keys ? `${action.label} (${shortcut(action.keys)})` : action.label}
+        // Keep the editor's selection: the button acts on it.
+        onMouseDown={(e) => e.preventDefault()}
+        onClick={() => run(action.command)}
+      >
+        <action.icon aria-hidden="true" />
+      </Button>
+    </ToolbarItem>
   )
 
   return (
     <>
       <ColumnToolbar aria-label="Editing">
-        <div className="flex items-center gap-0.5">
+        <ToolbarGroup>
           {tool(UNDO, steps.undo)}
           {tool(REDO, steps.redo)}
-        </div>
+        </ToolbarGroup>
         {ACTIONS.map((group) => (
-          <div key={group[0].label} className="flex items-center gap-0.5">
-            {group.map((action) => tool(action))}
-          </div>
+          <ToolbarGroup key={group[0].label}>{group.map((action) => tool(action))}</ToolbarGroup>
         ))}
-        <span className="ml-auto flex items-center gap-2">
-          {assist ? (
+        {assist ? (
+          <span className="ml-auto flex items-center">
             <Assist
               field={picked ? 'skill.passage' : assist.field}
               value={picked ? value.slice(picked.from, picked.to) : value}
@@ -359,28 +356,24 @@ export function MarkdownEditor({
                 view?.focus()
               }}
             >
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                // Keep the editor's selection: it decides what gets rewritten.
-                onMouseDown={(e) => e.preventDefault()}
-              >
-                <PenLineIcon aria-hidden="true" />
-                Write with AI
-              </Button>
+              <ToolbarItem disabled={covered}>
+                <Button
+                  type="button"
+                  variant="ghost-muted"
+                  size="sm"
+                  // Keep the editor's selection: it decides what gets rewritten.
+                  onMouseDown={(e) => e.preventDefault()}
+                >
+                  <PenLineIcon aria-hidden="true" />
+                  Write with AI
+                </Button>
+              </ToolbarItem>
             </Assist>
-          ) : null}
-          <Segmented<EditorMode>
-            aria-label="Editor view"
-            value={mode}
-            onChange={(next) => next && onModeChange(next)}
-            options={MODES}
-          />
-        </span>
+          </span>
+        ) : null}
       </ColumnToolbar>
-      {banner}
-      <div ref={host} className={surfaceVariants({ mode })} />
+      {instead ?? banner}
+      <div ref={host} hidden={covered} className={surfaceVariants({ mode })} />
     </>
   )
 }

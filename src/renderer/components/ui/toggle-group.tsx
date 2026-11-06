@@ -68,6 +68,9 @@ function ToggleGroupItem({
           tone,
         }),
         'w-auto min-w-0 shrink-0 px-3 focus:z-10 focus-visible:z-10',
+        // Joined items stay joined when pressed. The group clips a hit area that
+        // reaches past it, so under a finger the items themselves grow to 44px.
+        'active:scale-100 pointer-coarse:h-11 pointer-coarse:before:hidden',
         'data-[spacing=0]:rounded-none data-[spacing=0]:shadow-none data-[spacing=0]:first:rounded-l-md data-[spacing=0]:last:rounded-r-md data-[spacing=0]:data-[variant=outline]:border-l-0 data-[spacing=0]:data-[variant=outline]:first:border-l',
         className,
       )}

@@ -184,7 +184,10 @@ export function ChatPanel({ screen, skill, confirm, onClose }: ChatPanelProps) {
 
   return (
     <>
-      <header data-drag className="flex h-12 shrink-0 items-center gap-1 border-b pr-2 pl-4">
+      <header
+        data-drag
+        className="flex h-12 shrink-0 items-center gap-1 border-b pr-2 pl-4 pointer-coarse:gap-3"
+      >
         <Heading level="page" as="h2">
           Assistant
         </Heading>

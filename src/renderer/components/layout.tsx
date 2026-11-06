@@ -15,6 +15,7 @@
  */
 import { cva, type VariantProps } from 'class-variance-authority'
 import { PlusIcon } from 'lucide-react'
+import { Toolbar as ToolbarPrimitive } from 'radix-ui'
 import type { ComponentProps, HTMLAttributes, ReactNode } from 'react'
 import { cn } from '../lib/utils.ts'
 import { Heading, Hint, Text } from './text.tsx'
@@ -249,7 +250,11 @@ export function ListHeader({
   )
 }
 
-/** A column's title row: what is open and its actions. It stays put while the column scrolls. */
+/**
+ * A column's title row: what is open and its actions. It stays put while the
+ * column scrolls. Under a finger its padding gives way to the taller controls,
+ * so the row keeps its 48px and the toolbar below still meets it.
+ */
 export function ColumnHeader({
   inset,
   className,
@@ -258,7 +263,7 @@ export function ColumnHeader({
   return (
     <header
       className={cn(
-        'sticky top-0 z-10 flex min-h-12 shrink-0 items-center gap-2 border-b bg-background py-2',
+        'sticky top-0 z-10 flex min-h-12 shrink-0 items-center gap-2 border-b bg-background py-2 pointer-coarse:py-0.5',
         insetVariants({ inset }),
         className,
       )}
@@ -270,18 +275,39 @@ export function ColumnHeader({
 /**
  * Tools that act on the column's body, such as formatting, in a row under the
  * header. It sticks just below the header (48px) and covers the header's rule,
- * so the two read as one bar with one rule under it.
+ * so the two read as one bar with one rule under it. The bar is one Tab stop:
+ * the arrow keys, Home and End move between its `ToolbarItem`s.
+ *
+ * Its tools are ghost icons, so it starts 8px left of the header's text and
+ * the first icon lands on that text's edge. Its far end holds a button's box,
+ * which stops where the header's last button does.
  */
-export function ColumnToolbar({ className, ...props }: ComponentProps<'div'>) {
+export function ColumnToolbar({
+  className,
+  ...props
+}: ComponentProps<typeof ToolbarPrimitive.Root>) {
   return (
-    <div
-      role="toolbar"
+    <ToolbarPrimitive.Root
       className={cn(
-        'sticky top-12 z-10 -mt-px flex shrink-0 flex-wrap items-center gap-x-3 gap-y-1 border-b bg-background px-4 py-1',
+        'sticky top-12 z-10 -mt-px flex shrink-0 flex-wrap items-center gap-x-3 gap-y-1 border-b bg-background py-1 pr-6 pl-4 pointer-coarse:gap-y-3',
         className,
       )}
       {...props}
     />
+  )
+}
+
+/** One control of a `ColumnToolbar`, wrapped round its button. A disabled one is passed over. */
+export function ToolbarItem(
+  props: Omit<ComponentProps<typeof ToolbarPrimitive.Button>, 'asChild'>,
+) {
+  return <ToolbarPrimitive.Button asChild {...props} />
+}
+
+/** Tools that belong together, such as the three list styles. Under a finger they stand a hit area apart. */
+export function ToolbarGroup({ className, ...props }: ComponentProps<'div'>) {
+  return (
+    <div className={cn('flex items-center gap-0.5 pointer-coarse:gap-3', className)} {...props} />
   )
 }
 

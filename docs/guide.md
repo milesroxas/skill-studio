@@ -121,7 +121,7 @@ Two things hide a skill from the list:
 
 Open Write. The left column holds the skill's files, the Insert buttons, the Graded rules and the Version. The editor fills the rest.
 
-![Write: the files, Insert buttons and Graded rules on the left; SKILL.md in the editor on the right, with a formatting toolbar and a Formatted or Markdown switch.](images/write.webp)
+![Write: the files, Insert buttons and Graded rules on the left; SKILL.md in the editor on the right, with a formatting toolbar under a switch for Formatted, Markdown or Changes.](images/write.webp)
 
 1. Edit `SKILL.md` in the editor. Save with the Save button or Cmd+S (Ctrl+S on Windows and Linux).
 2. Add longer material as files under `references/`: press the plus button beside Files, type a name such as `references/voice.md`, and click "Add file". Point to the file from `SKILL.md`, and say when the agent must read it.
@@ -165,11 +165,11 @@ You never start from a blank page:
 
 ### The editor
 
-The editor has two views of the same text, switched at the right of its toolbar. Formatted styles the Markdown in place, as Obsidian does: headings, bold, lists and links read as a page, and their marks (`#`, `**`, a link's address) appear only on the line or word the cursor is in. Markdown shows the plain source. Both edit the same characters, so switching never changes the file. The toolbar applies headings, bold, italic, strikethrough, code, links, lists, task lists and quotes by writing the Markdown for you; ⌘B, ⌘I, ⌘E (code) and ⌘⇧X (strikethrough) do the same from the keyboard. Click a task's box to tick it. The app remembers the view you last chose.
+The editor has two views of the same text, switched in the row above its toolbar, beside the file's name. Formatted styles the Markdown in place, as Obsidian does: headings, bold, lists and links read as a page, and their marks (`#`, `**`, a link's address) appear only on the line or word the cursor is in. Markdown shows the plain source. Both edit the same characters, so switching never changes the file. The toolbar applies headings, bold, italic, code, links, lists and quotes by writing the Markdown for you; ⌘B, ⌘I and ⌘E (code) do the same from the keyboard, and ⌘⇧X strikes text through. Type `- [ ]` for a task, then click its box to tick it. Tab reaches the toolbar once; the arrow keys move along it. The app remembers the view you last chose.
 
-Undo and Redo lead the toolbar; ⌘Z and ⌘⇧Z do the same. A file keeps its undo history while the app is open, so it is still there after you look at another file, at "Changes since saved" or at another screen. Applying a template, discarding a draft and text written with AI are steps like any other: Undo takes them back.
+Undo and Redo lead the toolbar; ⌘Z and ⌘⇧Z do the same. A file keeps its undo history while the app is open, so it is still there after you look at another file, at Changes or at another screen. Applying a template, discarding a draft and text written with AI are steps like any other: Undo takes them back.
 
-Everything you type is kept as a draft as you go, in `~/.skill-studio/drafts/`, outside the skill's folder. Close the app, switch skills or reload, and the unsaved text is still there. The line beside the file name says so ("Unsaved · draft kept 3:42 PM"), and the sidebar shows a dot beside Write. Save writes the file and clears its draft; Discard throws the draft away. "Changes since saved" shows your draft against the file on disk.
+Everything you type is kept as a draft as you go, in `~/.skill-studio/drafts/`, outside the skill's folder. Close the app, switch skills or reload, and the unsaved text is still there. The line beside the file name says so ("Unsaved · draft kept 3:42 PM"), and the sidebar shows a dot beside Write. Save writes the file and clears its draft; Discard throws the draft away. Changes, the third choice in the same switch, shows your draft against the file on disk.
 
 A save is refused if the file changed on disk since your draft began, so an edit made in your code editor is never overwritten. The editor says so and offers two ways on: "Keep my draft" to save over the file, or "Use the file on disk" to take the file as it is now.
 

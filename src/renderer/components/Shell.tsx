@@ -173,7 +173,7 @@ export function HistoryNav({
   onForward: () => void
 }) {
   return (
-    <div className="-ml-3.5 flex shrink-0 items-center">
+    <div className="-ml-3.5 flex shrink-0 items-center pointer-coarse:gap-3">
       <Button
         type="button"
         variant="ghost"

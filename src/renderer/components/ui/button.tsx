@@ -43,11 +43,20 @@ const buttonVariants = cva(
       size: {
         default: 'h-9 px-4 py-2 has-[>svg]:px-3',
         xs: "h-6 gap-1 rounded-md px-2 text-xs has-[>svg]:px-1.5 [&_svg:not([class*='size-'])]:size-3",
-        sm: 'h-8 gap-1.5 rounded-md px-3 has-[>svg]:px-2.5',
+        /**
+         * 32px to look at. Under a finger its hit area reaches 6px past the box
+         * above and below (44px); a row of them needs 12px between its lines.
+         */
+        sm: 'h-8 gap-1.5 rounded-md px-3 has-[>svg]:px-2.5 pointer-coarse:relative pointer-coarse:before:absolute pointer-coarse:before:inset-x-0 pointer-coarse:before:-inset-y-1.5',
         lg: 'h-10 rounded-md px-6 has-[>svg]:px-4',
         icon: 'size-9',
         'icon-xs': "size-6 rounded-md [&_svg:not([class*='size-'])]:size-3",
-        'icon-sm': 'size-8',
+        /**
+         * 32px to look at, 44px to touch: under a finger the hit area reaches 6px
+         * past the box on every side, so neighbours stand 12px apart there.
+         */
+        'icon-sm':
+          'size-8 pointer-coarse:relative pointer-coarse:before:absolute pointer-coarse:before:-inset-1.5',
         'icon-lg': 'size-10',
         /** Sits in running text or a table cell: no box of its own, wraps like a word. */
         inline: 'h-auto rounded-xs p-0 text-left font-[inherit] whitespace-normal',
