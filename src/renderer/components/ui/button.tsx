@@ -16,6 +16,8 @@ const buttonVariants = cva(
         secondary: 'bg-secondary text-secondary-foreground hover:bg-secondary/80',
         ghost: 'hover:bg-accent hover:text-accent-foreground dark:hover:bg-accent/50',
         link: 'text-primary underline-offset-4 hover:underline',
+        /** The next step of the loop, in the top bar only: the window's one lime control. */
+        signal: 'bg-signal text-signal-foreground hover:bg-signal/85',
         /** An action a row repeats, such as its remove: quieter than the row's text until pointed at. */
         'ghost-muted':
           'text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:text-foreground dark:hover:bg-accent/50',

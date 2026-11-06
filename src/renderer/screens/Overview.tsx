@@ -174,11 +174,7 @@ export function Overview({ ctx }: { ctx: Ctx }) {
                             aria-label={`${c}: ${total === null ? 'not graded' : Math.round(total)}${cell.length > 1 ? `, the mean of ${cell.length} outputs` : ''}. Compare.`}
                             onClick={() => go('compare', { a: cell[0].key })}
                           >
-                            {total === null ? (
-                              <Text tone="muted">Not graded</Text>
-                            ) : (
-                              <TotalChip total={Math.round(total)} />
-                            )}
+                            <TotalChip total={total === null ? null : Math.round(total)} />
                             {repeated.has(c) ? <SampleCount count={cell.length} /> : null}
                           </Button>
                         </TableCell>
@@ -303,7 +299,7 @@ function RunDetail({
             <TableHead>
               <Term id="flag">Flags</Term>
             </TableHead>
-            <TableHead numeric>
+            <TableHead trailing>
               <VisuallyHidden>Open</VisuallyHidden>
             </TableHead>
           </TableRow>
@@ -352,7 +348,7 @@ function RunDetail({
                     </PlainList>
                   ) : null}
                 </TableCell>
-                <TableCell numeric>
+                <TableCell trailing>
                   <Toolbar gap="md" justify="end" wrap={false}>
                     <Button
                       type="button"

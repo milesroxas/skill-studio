@@ -33,10 +33,6 @@ These names are the target. Each lands in the phase named in [redesign-plan.md](
 
 | Name | Phase |
 | --- | --- |
-| `Button variant="signal"`, `Text caps` | 3 |
-| `rounded-xs` badges, mono in `numeric` cells and `TotalChip` | 3 |
-| Ink fill on a pressed `Segmented` and `Toggle variant="outline"`, `bg-card` inputs | 3 |
-| `Stepper` `width` and `labelledBy` | 3 |
 | The ribbon `Mark`, the `Slab` | 4 |
 
 Still in code and due to go: `--brand` (`#ffe500`), `--brand-ink`, `Highlight` in `components/Mark.tsx`. Do not add a use of them.

@@ -6,7 +6,7 @@ import { cn } from '../lib/utils.ts'
 import { Text } from './text.tsx'
 import { Button } from './ui/button.tsx'
 import { Checkbox } from './ui/checkbox.tsx'
-import { Input } from './ui/input.tsx'
+import { FIELD_SURFACE, Input } from './ui/input.tsx'
 import { Slider } from './ui/slider.tsx'
 
 interface CheckRowProps {
@@ -85,15 +85,41 @@ export function NumberInput({
   )
 }
 
-interface StepperProps {
-  /** What the number is, read to assistive technology. */
-  label: string
+const stepperVariants = cva(
+  `${FIELD_SURFACE} flex h-9 items-center rounded-md px-1.25 transition-[color,box-shadow] has-[input:focus-visible]:border-ring has-[input:focus-visible]:ring-[3px] has-[input:focus-visible]:ring-ring/50`,
+  {
+    variants: {
+      /** `full` fills a grid track, as in a row of checks; `field` is 112px, in a `Field` on a form. */
+      width: {
+        full: 'w-full',
+        field: 'w-28',
+      },
+    },
+    defaultVariants: { width: 'full' },
+  },
+)
+
+type StepperProps = VariantProps<typeof stepperVariants> & {
   value: number
   /** The range, both ends included. One digit each, so a key can name any value. */
   min: number
   max: number
   onChange: (value: number) => void
-}
+} & (
+    | {
+        /** What the number is, read to assistive technology. */
+        label: string
+        labelledBy?: never
+        id?: never
+      }
+    | {
+        /** The id of the visible `Label` that names it, in a `Field`. */
+        labelledBy: string
+        /** The number's own id, for the `Label`'s `htmlFor`, so a click on the label focuses it. */
+        id: string
+        label?: never
+      }
+  )
 
 /**
  * A whole number from a short range, such as a weight from 1 to 5: the value
@@ -105,7 +131,7 @@ interface StepperProps {
  * out of the tab order and hand focus to the number, so the field is one stop
  * and the arrow keys carry on from a click.
  */
-export function Stepper({ label, value, min, max, onChange }: StepperProps) {
+export function Stepper({ label, labelledBy, id, width, value, min, max, onChange }: StepperProps) {
   const number = useRef<HTMLInputElement>(null)
   const to = (next: number) => {
     const clamped = Math.min(max, Math.max(min, Math.round(next)))
@@ -148,15 +174,17 @@ export function Stepper({ label, value, min, max, onChange }: StepperProps) {
       role="group"
       aria-label={label}
       // 5px around the 24px buttons, on every side: 36px tall with the border.
-      className="flex h-9 w-full items-center rounded-md border border-input bg-transparent px-1.25 shadow-xs transition-[color,box-shadow] has-[input:focus-visible]:border-ring has-[input:focus-visible]:ring-[3px] has-[input:focus-visible]:ring-ring/50 dark:bg-input/30"
+      className={stepperVariants({ width })}
     >
       <Button {...button(-1)} aria-label="Decrease" className="rounded-xs">
         <MinusIcon aria-hidden="true" />
       </Button>
       <input
         ref={number}
+        id={id}
         role="spinbutton"
         aria-label={label}
+        aria-labelledby={labelledBy}
         aria-valuenow={value}
         aria-valuemin={min}
         aria-valuemax={max}

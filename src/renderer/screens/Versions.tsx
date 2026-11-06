@@ -167,7 +167,7 @@ export function Versions({ ctx }: { ctx: Ctx }) {
                   Runs
                 </TableHead>
                 <TableHead numeric>Mean</TableHead>
-                <TableHead numeric>
+                <TableHead trailing>
                   <span className="sr-only">Actions</span>
                 </TableHead>
               </TableRow>
@@ -208,7 +208,7 @@ export function Versions({ ctx }: { ctx: Ctx }) {
                     <TableCell numeric>
                       {score === null ? <Text tone="faint">–</Text> : <TotalChip total={score} />}
                     </TableCell>
-                    <TableCell numeric>
+                    <TableCell trailing>
                       <Toolbar gap="md" justify="end" wrap={false}>
                         <Button
                           type="button"

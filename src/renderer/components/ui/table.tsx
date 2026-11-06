@@ -239,7 +239,16 @@ function TableDetail({
 /** Numbers sit right and tabular, in a column no wider than they need. */
 const tableCellVariants = cva('', {
   variants: {
+    /** A number. `TableCell` also sets it in mono; the head stays a word in sans. */
     numeric: {
+      true: 'w-px text-right tabular-nums whitespace-nowrap',
+      false: '',
+    },
+    /**
+     * Not a number, but at the row's end: actions, a date, a short note.
+     * Right-aligned and as narrow as it can be, in the row's own type.
+     */
+    trailing: {
       true: 'w-px text-right tabular-nums whitespace-nowrap',
       false: '',
     },
@@ -295,6 +304,7 @@ const tableCellVariants = cva('', {
   },
   defaultVariants: {
     numeric: false,
+    trailing: false,
     wrap: false,
     wide: false,
     optional: false,
@@ -307,6 +317,7 @@ const tableCellVariants = cva('', {
 function TableHead({
   className,
   numeric,
+  trailing,
   wrap,
   wide,
   optional,
@@ -320,7 +331,7 @@ function TableHead({
       data-slot="table-head"
       className={cn(
         'h-10 px-2 text-left align-middle text-xs font-medium whitespace-nowrap text-muted-foreground first:pl-0 last:pr-0 [&:has([role=checkbox])]:pr-0 [&>[role=checkbox]]:translate-y-[2px]',
-        tableCellVariants({ numeric, wrap, wide, optional, filler, col, fold }),
+        tableCellVariants({ numeric, trailing, wrap, wide, optional, filler, col, fold }),
         className,
       )}
       {...props}
@@ -331,6 +342,7 @@ function TableHead({
 function TableCell({
   className,
   numeric,
+  trailing,
   wrap,
   wide,
   optional,
@@ -344,7 +356,9 @@ function TableCell({
       data-slot="table-cell"
       className={cn(
         'p-2 align-middle whitespace-nowrap first:pl-0 last:pr-0 [&:has([role=checkbox])]:pr-0 [&>[role=checkbox]]:translate-y-[2px]',
-        tableCellVariants({ numeric, wrap, wide, optional, filler, col, fold }),
+        tableCellVariants({ numeric, trailing, wrap, wide, optional, filler, col, fold }),
+        // A measurement is set in mono; its head stays a word in sans.
+        numeric && 'font-mono text-code',
         className,
       )}
       {...props}

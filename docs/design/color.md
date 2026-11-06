@@ -71,7 +71,7 @@ Does the color state a verdict (pass, weak, fail)?
 
 Lime marks exactly these:
 
-- the next step: `Button variant="signal"` **(phase 3)** in the top bar. See [buttons.md](buttons.md).
+- the next step: `Button variant="signal"` in the top bar. See [buttons.md](buttons.md).
 - a running job: the dot in `JobsIndicator`, on the ink sidebar. It is the one lime that may sit beside the next step.
 - in the welcome: the current step in the progress row, and one `Slab` per frame. See [brand.md](brand.md).
 

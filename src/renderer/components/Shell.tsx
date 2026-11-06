@@ -100,7 +100,7 @@ export function SidebarSection({ label, children }: { label?: string; children: 
   return (
     <div className="flex flex-col gap-px">
       {label ? (
-        <Text size="xs" tone="faint" weight="medium" className="px-2 pb-1">
+        <Text caps tone="muted" className="px-2 pb-1">
           {label}
         </Text>
       ) : null}

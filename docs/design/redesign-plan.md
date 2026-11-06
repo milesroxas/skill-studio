@@ -53,7 +53,7 @@ Files: `components/ui/button.tsx`, `ui/badge.tsx`, `ui/table.tsx`, `ui/toggle.ts
 
 1. `Button`: add `signal: 'bg-signal text-signal-foreground hover:bg-signal/85'`. `App.tsx`: the next-step button becomes `variant="signal"`, and its `<Text tone="muted">Next:</Text>` becomes plain text (`muted-foreground` fails on lime in the dark scope).
 2. `Badge`: base `rounded-full` becomes `rounded-xs`. `TotalChip` adds mono.
-3. `tableCellVariants.numeric` adds `font-mono text-code`. Check every numeric column still fits at 720px.
+3. `TableCell numeric` adds `font-mono text-code`; a head cell stays sans. Columns that used `numeric` only to sit right (a date, actions) take a new `trailing` variant and stay sans. Check every numeric column still fits at 720px.
 4. `Toggle variant="outline"` and `Segmented`: pressed is `bg-primary text-primary-foreground`. The `default` (toolbar) and `filter` variants do not change. Read `toggle-group.tsx` first: the pressed style may be set there.
 5. `Input`, `Textarea`, the `Select` trigger: `bg-transparent` becomes `bg-card` in the light scope. Keep the `dark:bg-input/30` they have.
 6. `Text`: add `caps: { true: 'text-2xs font-medium uppercase tracking-caps', false: '' }`. `SidebarSection`'s label becomes `<Text caps tone="muted">`: `faint` is 3.05:1.

@@ -16,7 +16,8 @@ A table sits directly on the page. Never put it in a card or give it an outer bo
 | `align` | `TableRow` | `middle` (default), `baseline` | `baseline` when one cell wraps to several lines |
 | `variant` | `TableRow` | `default`, `destructive` | a failed sample |
 | `leaving` | `TableRow` | boolean | a row fading out after a delete, with `inert` |
-| `numeric` | head, cell | boolean | a number: right-aligned, tabular, and mono **(phase 3)** |
+| `numeric` | head, cell | boolean | a number: right-aligned and tabular. The cell is mono; the head stays a word in sans |
+| `trailing` | head, cell | boolean | not a number, at the row's end: actions, a date, a note. Right-aligned, narrow and tabular, in sans |
 | `wide`, `wrap`, `filler` | head, cell | boolean | the column that takes spare width; text that may wrap |
 | `optional` | head, cell | boolean | hidden below `lg`, so the table fits a 720px window |
 | `col` | head | `auto`, `xs`, `sm`, `md`, `lg`, `xl` | a fixed column's width |
@@ -78,7 +79,7 @@ Only weak things are colored in `Layers`. If every bar is green, the eye has now
 
 ## Badge
 
-`components/ui/badge.tsx`. A badge is a short state on a thing: one or two words or a number. Its corners become `rounded-xs` **(phase 3)**, a printed label and not a pill.
+`components/ui/badge.tsx`. A badge is a short state on a thing: one or two words or a number. Its corners are `rounded-xs`, a printed label and not a pill.
 
 Variants that exist: `default`, `secondary`, `destructive`, `outline`, `ghost`, `link`, `success`, `warning`, `danger`. Nothing else.
 

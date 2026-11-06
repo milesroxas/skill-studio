@@ -76,13 +76,13 @@ Every control sits in a `Field` with a `Label` above it. Never a placeholder as 
 - `font="mono"` for a path, a name used as an id, a key.
 - `width="search"` for a search field in a `ListBar`.
 - `size="sm"` only in workbench chrome.
-- An input's fill becomes `bg-card` **(phase 3)**. On porcelain its 1.5:1 edge is not enough to find it.
+- An input's fill is `bg-card`. On porcelain its 1.5:1 edge is not enough to find it. Every field (`Input`, `TextArea`, the `Select` trigger, `Stepper`) takes its edge and fill from `FIELD_SURFACE` in `ui/input.tsx`: change it there, once.
 
 ## Segmented and FilterGroup
 
 `Segmented` is one choice. Its `size` defaults to `sm`, and every call site leaves it there, in forms too. Do not pass `size="default"`: a taller one stands out against every other in the app. An option's `tone` (`success`, `destructive`) colors it when pressed, for a choice that states a verdict such as pass or fail.
 
-The pressed segment becomes ink fill **(phase 3)**; today it is `bg-accent`.
+The pressed segment is ink fill (`bg-primary`). A segment with a `tone` takes its verdict tint instead.
 
 `FilterGroup` is several toggles that show or hide: what is shown reads plain, what is hidden fades. It never takes ink fill: a filter is not a commitment.
 
@@ -90,7 +90,7 @@ The pressed segment becomes ink fill **(phase 3)**; today it is `bg-accent`.
 
 `Toggle` variants: `default` (hovers as a ghost button, for a toolbar), `outline` (one item's state in a row), `filter`. Sizes: `default`, `sm`, `icon-sm`, `lg`. Every `outline` toggle in the app is `size="sm"`. `tone`: `default`, `success`, `destructive`.
 
-The pressed `outline` toggle becomes ink fill **(phase 3)**, the same as `Segmented`, so "on" reads the same everywhere. A pressed `default` toggle in a toolbar stays `bg-accent`: a formatting tool is a state of the cursor, not a setting.
+The pressed `outline` toggle is ink fill, the same as `Segmented`, so "on" reads the same everywhere. A pressed `default` toggle in a toolbar stays `bg-accent`: a formatting tool is a state of the cursor, not a setting.
 
 ```tsx
 // Correct: screens/Library.tsx. One agent's install state for one skill, applied at once.
@@ -109,7 +109,7 @@ The pressed `outline` toggle becomes ink fill **(phase 3)**, the same as `Segmen
 
 ## Stepper
 
-`Stepper` takes `label` as its accessible name, and fills its container. Today it is used only in the check rows of `Cases.tsx`, where the row's grid gives it an 88px track. A `Stepper` in a `Field` on a `Screen` needs `width` and `labelledBy` props first **(phase 3)**. Until then use `NumberInput`.
+`Stepper` takes `label` as its accessible name and fills its container (`width="full"`, the default). Today it is used only in the check rows of `Cases.tsx`, where the row's grid gives it an 88px track. In a `Field` on a `Screen`, give it `width="field"` (112px), `labelledBy` with the id of its visible `Label` instead of `label`, and an `id` for that label's `htmlFor`. Its fill is `bg-card`, as an input's is.
 
 ## Actions
 

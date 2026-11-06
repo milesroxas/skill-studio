@@ -363,13 +363,13 @@ function SkillTable({
             Place
           </TableHead>
           <TableHead col="xl">Installed for</TableHead>
-          <TableHead numeric col="md" fold="last">
+          <TableHead trailing col="md" fold="last">
             Evals
           </TableHead>
-          <TableHead numeric col="xs" fold="last">
+          <TableHead trailing col="xs" fold="last">
             Edited
           </TableHead>
-          <TableHead numeric col={reveal ? 'lg' : 'sm'} fold="first">
+          <TableHead trailing col={reveal ? 'lg' : 'sm'} fold="first">
             <VisuallyHidden>Actions</VisuallyHidden>
           </TableHead>
         </TableRow>
@@ -444,17 +444,17 @@ function SkillTable({
                 </Toolbar>
               )}
             </TableCell>
-            <TableCell numeric fold="last">
+            <TableCell trailing fold="last">
               {s.cases || s.runs ? (
                 <Text size="xs">{`${plural(s.cases, 'case')} · ${plural(s.runs, 'run')}`}</Text>
               ) : null}
             </TableCell>
-            <TableCell numeric fold="last">
+            <TableCell trailing fold="last">
               <Text tone="muted" size="xs">
                 {shortDate(s.modified)}
               </Text>
             </TableCell>
-            <TableCell numeric fold="first">
+            <TableCell trailing fold="first">
               <Toolbar gap="xs" justify="end" wrap={false} line>
                 {isPractice(s) || (s.source !== null && s.source !== 'marked') ? null : (
                   <Button

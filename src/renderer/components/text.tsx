@@ -119,6 +119,11 @@ const textVariants = cva('', {
       start: '',
       end: 'text-right',
     },
+    /** A label over a group that is not a heading: a sidebar section, a figure. Two words at most. */
+    caps: {
+      true: 'text-2xs font-medium uppercase tracking-caps',
+      false: '',
+    },
     wrap: {
       normal: '',
       /** Keeps the line breaks of the source text. */
@@ -138,6 +143,7 @@ const textVariants = cva('', {
     truncate: false,
     measure: false,
     align: 'start',
+    caps: false,
     wrap: 'normal',
   },
 })
@@ -154,6 +160,7 @@ export function Text({
   truncate,
   measure,
   align,
+  caps,
   wrap,
   as: Comp = 'span',
   className,
@@ -174,6 +181,7 @@ export function Text({
           truncate,
           measure,
           align,
+          caps,
           wrap,
         }),
         className,

@@ -33,7 +33,7 @@ Is it a heading in the page's outline?
  └── No
       ├── Help under a control, or a note at the top of a section? → Hint
       ├── A path, a file name, a command, a version, an id? → Code or Text font="mono"
-      ├── A label over a group that is not in the outline? → Text caps (phase 3; Text size="xs" tone="muted" until then)
+      ├── A label over a group that is not in the outline? → Text caps
       └── Anything else → Text, with tone, size and weight named as props
 ```
 
@@ -55,7 +55,7 @@ Is it a heading in the page's outline?
 
 ## Text props
 
-`Text` takes these and nothing else: `tone` (`default`, `muted`, `faint`, `destructive`, `success`, `warning`), `font` (`sans`, `mono`), `size` (`inherit`, `ui`, `xs`), `weight` (`normal`, `medium`, `semibold`), and the booleans `tabular`, `block`, `clamp`, `truncate`, `measure`, plus `align` (`start`, `end`) and `wrap` (`normal`, `pre`, `anywhere`). The default is inherit everything.
+`Text` takes these and nothing else: `tone` (`default`, `muted`, `faint`, `destructive`, `success`, `warning`), `font` (`sans`, `mono`), `size` (`inherit`, `ui`, `xs`), `weight` (`normal`, `medium`, `semibold`), and the booleans `tabular`, `block`, `clamp`, `truncate`, `measure`, `caps`, plus `align` (`start`, `end`) and `wrap` (`normal`, `pre`, `anywhere`). The default is inherit everything.
 
 Weights are 400, 500 and 600. `font-bold` (700) is for the welcome's display type only. Body text is never bold for emphasis: use `weight="medium"`.
 
@@ -66,7 +66,7 @@ Mono says "this is a literal or a measurement". Use it for:
 - paths, file names, commands, run names, version tags (`v1`), ids
 - numbers a person compares down a column: scores, costs, durations, counts, word counts
 
-A number in a sentence stays in sans, and so does a live count under a field ("42 words", a `Hint` with `tabular`). A date is sans, written by `shortDate` from `model.ts`: never format one by hand. Every number that can change or sits in a column is `tabular`, so digits do not shift as it updates. In a table, `TableCell numeric` and `TableHead numeric` carry tabular figures, right alignment and, from phase 3, mono: do not add them by hand.
+A number in a sentence stays in sans, and so does a live count under a field ("42 words", a `Hint` with `tabular`). A date is sans, written by `shortDate` from `model.ts`: never format one by hand. Every number that can change or sits in a column is `tabular`, so digits do not shift as it updates. In a table, `TableCell numeric` and `TableHead numeric` carry right alignment and tabular figures, and the cell is mono: do not add them by hand. A right-aligned column that is not a number (actions, a date) is `trailing`, and stays sans.
 
 ```tsx
 // Correct: screens/Overview.tsx
@@ -78,7 +78,7 @@ A number in a sentence stays in sans, and so does a live count under a field ("4
 <TableHead className="text-right tabular-nums">Cost</TableHead>
 ```
 
-## Caps labels (phase 3)
+## Caps labels
 
 `Text caps` is 11px, weight 500, uppercase, tracked `--tracking-caps` (0.08em). It names a group without being a heading. Use it for exactly these: a `SidebarSection` label, a caption over a part of a picture in the welcome, and the label of a figure. Two words at most. Never for a button, a table head or a heading: caps slow reading, so they stay where a reader only glances.
 

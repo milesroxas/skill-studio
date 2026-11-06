@@ -39,7 +39,7 @@ import {
 } from './components/Shell.tsx'
 import { SkillSwitcher } from './components/SkillSwitcher.tsx'
 import { Toast } from './components/Toast.tsx'
-import { Heading, Text } from './components/text.tsx'
+import { Heading } from './components/text.tsx'
 import { UpdateControl } from './components/Update.tsx'
 import { Badge } from './components/ui/badge.tsx'
 import { Button } from './components/ui/button.tsx'
@@ -520,12 +520,11 @@ export function App() {
           {next && next.screen !== screen ? (
             <Button
               type="button"
-              variant="outline"
+              variant="signal"
               size="sm"
               onClick={() => go(next.screen, next.params)}
             >
-              <Text tone="muted">Next:</Text>
-              {next.label}
+              Next: {next.label}
               <ArrowRightIcon aria-hidden="true" />
             </Button>
           ) : null}

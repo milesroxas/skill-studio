@@ -11,6 +11,7 @@ const toggleVariants = cva(
         /** Hovers as a ghost button does, so the two sit side by side in a bar. */
         default:
           'bg-transparent hover:bg-accent hover:text-accent-foreground dark:hover:bg-accent/50 dark:data-[state=on]:hover:bg-accent',
+        /** One item's state, or a segment of a choice. Pressed is ink fill: see `compoundVariants`. */
         outline:
           'border border-input bg-transparent shadow-xs hover:bg-accent hover:text-accent-foreground',
         /** A filter: what is shown reads plain, what is hidden fades. */
@@ -34,6 +35,15 @@ const toggleVariants = cva(
           'data-[state=on]:bg-destructive/10 data-[state=on]:text-destructive dark:data-[state=on]:bg-destructive/20',
       },
     },
+    compoundVariants: [
+      {
+        /** "On" reads the same everywhere: ink fill. A tone states its verdict instead. */
+        variant: 'outline',
+        tone: 'default',
+        class:
+          'data-[state=on]:bg-primary data-[state=on]:text-primary-foreground data-[state=on]:hover:bg-primary/90 data-[state=on]:hover:text-primary-foreground',
+      },
+    ],
     defaultVariants: {
       variant: 'default',
       size: 'default',
