@@ -14,9 +14,9 @@
  * compose these and never reach for a utility class.
  */
 import { cva, type VariantProps } from 'class-variance-authority'
-import { PlusIcon } from 'lucide-react'
+import { PlusIcon, RotateCwIcon } from 'lucide-react'
 import { Toolbar as ToolbarPrimitive } from 'radix-ui'
-import type { ComponentProps, HTMLAttributes, ReactNode } from 'react'
+import { type ComponentProps, type HTMLAttributes, type ReactNode, useState } from 'react'
 import { cn } from '../lib/utils.ts'
 import { Heading, Hint, Text } from './text.tsx'
 import { Button } from './ui/button.tsx'
@@ -422,8 +422,13 @@ const toolbarVariants = cva('flex items-center', {
       true: 'flex-wrap',
       false: 'flex-nowrap',
     },
+    /** Takes the width its row has to spare, and wraps inside it rather than push a neighbour down. */
+    grow: {
+      true: 'min-w-0 flex-1',
+      false: '',
+    },
   },
-  defaultVariants: { gap: 'sm', justify: 'start', wrap: true },
+  defaultVariants: { gap: 'sm', justify: 'start', wrap: true, grow: false },
 })
 
 /** Controls in a row: a toolbar, or the actions under a form. */
@@ -431,10 +436,56 @@ export function Toolbar({
   gap,
   justify,
   wrap,
+  grow,
   className,
   ...props
 }: ComponentProps<'div'> & VariantProps<typeof toolbarVariants>) {
-  return <div className={cn(toolbarVariants({ gap, justify, wrap }), className)} {...props} />
+  return <div className={cn(toolbarVariants({ gap, justify, wrap, grow }), className)} {...props} />
+}
+
+/**
+ * The bar over a list: what narrows it on the left, what acts on it on the
+ * right. The filters wrap among themselves when the pane is narrow, so the
+ * actions keep the top right corner at every width.
+ */
+export function ListBar({
+  filters,
+  actions,
+  className,
+  ...props
+}: Omit<ComponentProps<'div'>, 'children'> & { filters: ReactNode; actions: ReactNode }) {
+  return (
+    <div className={cn('flex items-start gap-x-6 gap-y-3', className)} {...props}>
+      <Toolbar gap="md" grow>
+        {filters}
+      </Toolbar>
+      <Toolbar wrap={false}>{actions}</Toolbar>
+    </div>
+  )
+}
+
+/**
+ * Reads a list again from where it lives, such as the disk. The icon turns
+ * once on each press, so a read too quick to see still answers the click.
+ */
+export function RefreshButton({ label, onRefresh }: { label: string; onRefresh: () => void }) {
+  const [turn, setTurn] = useState(0)
+  return (
+    <Button
+      type="button"
+      variant="ghost"
+      size="icon"
+      aria-label={label}
+      title={label}
+      onClick={() => {
+        setTurn((t) => t + 1)
+        onRefresh()
+      }}
+    >
+      {/* A new key on each press, so a second press starts the turn over. */}
+      <RotateCwIcon key={turn} aria-hidden="true" className={turn ? 'animate-turn' : undefined} />
+    </Button>
+  )
 }
 
 /**

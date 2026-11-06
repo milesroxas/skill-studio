@@ -114,7 +114,7 @@ The Claude, Cursor and Codex buttons on a skill's row install or uninstall it la
 
 Two things hide a skill from the list:
 
-- It was installed from somewhere else (it has a lock-file entry), or you clicked "Not mine" on its row. Tick "Show N skills installed from elsewhere" beside the search box. "Mine" on a row you marked lists it with your own skills again.
+- It was installed from somewhere else (it has a lock-file entry), or you clicked "Not mine" on its row. Choose "Installed" or "All" beside the search box. "Mine" on a row you marked lists it with your own skills again.
 - Its project is outside your workspace folders. Open "Where skills are found" at the bottom and add the project's parent folder. Projects are found up to three levels inside a workspace folder. The default is `~/SITES` when that folder exists.
 
 ## 2. Write the skill
@@ -377,7 +377,7 @@ The app's own files are in `~/.skill-studio/`: unsaved drafts under `drafts/`, t
 | --- | --- |
 | "No Jev key" at the top right | Paste the key under Settings; in a browser, set `TYPESAFE_API_KEY` and restart `st serve` |
 | An agent shows "(not set up)" in New run | Install that CLI, put it on your `PATH` and sign in |
-| A skill is missing from the Library | Tick "Show N skills installed from elsewhere", or add its project's parent folder under "Where skills are found" |
+| A skill is missing from the Library | Choose "All" beside the search box, press the round arrow to look again, or add its project's parent folder under "Where skills are found" |
 | "Port 4400 is taken" (`st serve`) | Stop what holds it (`lsof -nP -iTCP:4400 -sTCP:LISTEN`) or start with `--port` |
 | A save in Write is refused | The file changed on disk. "Keep my draft" saves over it; "Use the file on disk" takes the file as it is now |
 | A rule is missing from Graded rules | Make it a top-level bullet of four words or more, outside a numbered list or a code block |

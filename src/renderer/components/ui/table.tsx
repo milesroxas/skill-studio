@@ -6,7 +6,7 @@ import type * as React from 'react'
 const tableContainerVariants = cva('relative overflow-x-auto', {
   variants: {
     bleed: {
-      /* A size container, so a row's note can ask for a share of the table's width. */
+      /* A size container, so a row's note can ask for a share of the table's width and a column can `fold` by it. */
       true: '@container -mx-3',
       /*
        * 4px of slack on each side. A `cell` button in the first or last column
@@ -31,18 +31,34 @@ const tableVariants = cva('w-full caption-bottom text-ui', {
       true: '[&>*>tr>*:first-child]:pl-3 [&>*>tr>*:last-child]:pr-3',
       false: '',
     },
+    layout: {
+      /** Each column as wide as its longest cell. */
+      auto: '',
+      /**
+       * Columns hold the widths their head cells name with `col`, and the one
+       * without a width takes the rest. For a list that is filtered or shown
+       * twice on a page: the columns stay put as rows come and go, and two
+       * tables with the same columns line up.
+       */
+      fixed: 'table-fixed',
+    },
   },
-  defaultVariants: { bleed: false },
+  defaultVariants: { bleed: false, layout: 'auto' },
 })
 
 function Table({
   className,
   bleed,
+  layout,
   ...props
 }: React.ComponentProps<'table'> & VariantProps<typeof tableVariants>) {
   return (
     <div data-slot="table-container" className={tableContainerVariants({ bleed })}>
-      <table data-slot="table" className={cn(tableVariants({ bleed }), className)} {...props} />
+      <table
+        data-slot="table"
+        className={cn(tableVariants({ bleed, layout }), className)}
+        {...props}
+      />
     </div>
   )
 }
@@ -247,8 +263,45 @@ const tableCellVariants = cva('', {
       true: 'w-full p-0',
       false: '',
     },
+    /**
+     * The column's width in a `fixed` table, padding included. Set it on the
+     * head cell; the body follows. After `numeric`, so it replaces that one's width.
+     */
+    col: {
+      auto: '',
+      /** A date. */
+      xs: 'w-24',
+      /** One short action. */
+      sm: 'w-26',
+      /** A count or two. */
+      md: 'w-32',
+      /** A name of a few words. */
+      lg: 'w-40',
+      /** A row of small controls. */
+      xl: 'w-68',
+    },
+    /**
+     * A column the row reads fine without, folded away when the table itself
+     * is narrow: the pane's width decides, not the window's, so it holds with
+     * the assistant open. `last` goes first and `first` holds out longest.
+     * Needs a `bleed` table, which is the size container.
+     */
+    fold: {
+      never: '',
+      last: '@max-5xl:hidden',
+      second: '@max-[50rem]:hidden',
+      first: '@max-2xl:hidden',
+    },
   },
-  defaultVariants: { numeric: false, wrap: false, wide: false, optional: false, filler: false },
+  defaultVariants: {
+    numeric: false,
+    wrap: false,
+    wide: false,
+    optional: false,
+    filler: false,
+    col: 'auto',
+    fold: 'never',
+  },
 })
 
 function TableHead({
@@ -258,6 +311,8 @@ function TableHead({
   wide,
   optional,
   filler,
+  col,
+  fold,
   ...props
 }: React.ComponentProps<'th'> & VariantProps<typeof tableCellVariants>) {
   return (
@@ -265,7 +320,7 @@ function TableHead({
       data-slot="table-head"
       className={cn(
         'h-10 px-2 text-left align-middle text-xs font-medium whitespace-nowrap text-muted-foreground first:pl-0 last:pr-0 [&:has([role=checkbox])]:pr-0 [&>[role=checkbox]]:translate-y-[2px]',
-        tableCellVariants({ numeric, wrap, wide, optional, filler }),
+        tableCellVariants({ numeric, wrap, wide, optional, filler, col, fold }),
         className,
       )}
       {...props}
@@ -280,6 +335,8 @@ function TableCell({
   wide,
   optional,
   filler,
+  col,
+  fold,
   ...props
 }: React.ComponentProps<'td'> & VariantProps<typeof tableCellVariants>) {
   return (
@@ -287,7 +344,7 @@ function TableCell({
       data-slot="table-cell"
       className={cn(
         'p-2 align-middle whitespace-nowrap first:pl-0 last:pr-0 [&:has([role=checkbox])]:pr-0 [&>[role=checkbox]]:translate-y-[2px]',
-        tableCellVariants({ numeric, wrap, wide, optional, filler }),
+        tableCellVariants({ numeric, wrap, wide, optional, filler, col, fold }),
         className,
       )}
       {...props}

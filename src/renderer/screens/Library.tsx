@@ -13,7 +13,7 @@ import { rulesFromSkill } from '@domain/rules.ts'
 import { TEMPLATES, type TemplateId, templateById } from '@domain/templates.ts'
 import { isSlug, SLUG_RULE } from '@domain/text.ts'
 import { PlusIcon } from 'lucide-react'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { api } from '../api.ts'
 import type { Confirm } from '../components/confirm.tsx'
 import { Disclosure } from '../components/Disclosure.tsx'
@@ -24,12 +24,13 @@ import {
   Fieldset,
   FormActions,
   FormSection,
+  ListBar,
   Loading,
   PlainList,
+  RefreshButton,
   Screen,
   Section,
   SectionHead,
-  Spacer,
   Stack,
   Toolbar,
 } from '../components/layout.tsx'
@@ -68,6 +69,21 @@ interface Props {
 
 type Act = (work: Promise<unknown>, done: string) => void
 
+/** Whose skills the list shows: written here, installed from elsewhere, or both. */
+type View = 'yours' | 'installed' | 'all'
+
+const VIEWS: ReadonlyArray<{ value: View; label: string; title: string }> = [
+  { value: 'yours', label: 'Yours', title: 'Skills you wrote' },
+  { value: 'installed', label: 'Installed', title: 'Skills installed from elsewhere' },
+  { value: 'all', label: 'All', title: 'Every skill' },
+]
+
+const VIEW_HEADING: Record<View, string> = {
+  yours: 'Your skills',
+  installed: 'Installed skills',
+  all: 'All skills',
+}
+
 export function LibraryScreen({
   creating,
   newName,
@@ -79,8 +95,15 @@ export function LibraryScreen({
   const lib = useFetch(() => api.library(), [])
   const [query, setQuery] = useState('')
   const [place, setPlace] = useState('')
-  const [showInstalled, setShowInstalled] = useState(false)
+  const [view, setView] = useState<View>('yours')
   const [starting, startPractice] = useStartPractice(openSkill, toast)
+
+  // Skills are made and installed outside the app, so coming back to the window reads them again.
+  const rescan = lib.reload
+  useEffect(() => {
+    window.addEventListener('focus', rescan)
+    return () => window.removeEventListener('focus', rescan)
+  }, [rescan])
 
   const data = lib.data
   const matches = useMemo(() => {
@@ -110,9 +133,10 @@ export function LibraryScreen({
 
   const filtering = Boolean(query.trim() || place)
   const working = data.skills.filter(isInProgress)
-  const installedCount = matches.filter(isInstalled).length
-  const listed = showInstalled ? matches : matches.filter((s) => !isInstalled(s))
-  const placeCount = new Set(data.skills.map((s) => s.scope)).size
+  const anyInstalled = data.skills.some(isInstalled)
+  const listed =
+    view === 'all' ? matches : matches.filter((s) => isInstalled(s) === (view === 'installed'))
+  const placeCount = new Set(listed.map((s) => s.scope)).size
   const practised = data.skills.some(isPractice)
   /** Nobody has run anything here yet: lead with the practice skill, and let New skill step back. */
   const inviting = !practised && !data.skills.some((s) => s.runs > 0)
@@ -157,40 +181,55 @@ export function LibraryScreen({
           Studio and is installed for no agent.
         </Invitation>
       ) : null}
-      <Toolbar gap="md">
-        <Input
-          type="search"
-          enterKeyHint="search"
-          aria-label="Search skills"
-          placeholder="Search by name or description"
-          value={query}
-          width="wide"
-          onChange={(e) => setQuery(e.target.value)}
-        />
-        <SelectBox
-          aria-label="Place"
-          value={place}
-          onChange={setPlace}
-          none="Every place"
-          options={data.places.map((p) => ({ value: p.scope, label: p.label }))}
-        />
-        {installedCount ? (
-          <CheckRow size="sm" checked={showInstalled} onCheckedChange={setShowInstalled}>
-            Show {plural(installedCount, 'skill')} installed from elsewhere
-          </CheckRow>
-        ) : null}
-        <Spacer />
-        <Button
-          type="button"
-          variant={inviting ? 'outline' : 'default'}
-          onClick={() => setCreating(true)}
-        >
-          <PlusIcon aria-hidden="true" />
-          New skill
-        </Button>
-      </Toolbar>
+      <ListBar
+        filters={
+          <>
+            <Input
+              type="search"
+              enterKeyHint="search"
+              aria-label="Search skills"
+              placeholder="Search skills"
+              value={query}
+              width="search"
+              onChange={(e) => setQuery(e.target.value)}
+            />
+            <SelectBox
+              aria-label="Place"
+              value={place}
+              onChange={setPlace}
+              none="Every place"
+              options={data.places.map((p) => ({ value: p.scope, label: p.label }))}
+            />
+            {anyInstalled ? (
+              <Segmented
+                aria-label="Whose skills"
+                size="default"
+                value={view}
+                onChange={(v) => v && setView(v)}
+                options={VIEWS}
+              />
+            ) : null}
+          </>
+        }
+        actions={
+          <>
+            <RefreshButton label="Look for skills again" onRefresh={rescan} />
+            <Button
+              type="button"
+              variant={inviting ? 'outline' : 'default'}
+              onClick={() => setCreating(true)}
+            >
+              <PlusIcon aria-hidden="true" />
+              New skill
+            </Button>
+          </>
+        }
+      />
 
-      {working.length && working.length < data.skills.length && !filtering ? (
+      {working.length &&
+      working.length < data.skills.length &&
+      !filtering &&
+      view !== 'installed' ? (
         <Section>
           <SectionHead>
             <Heading level={2}>In progress</Heading>
@@ -201,17 +240,40 @@ export function LibraryScreen({
       ) : null}
 
       <Section>
-        <SectionHead>
-          <Heading level={2}>{filtering ? 'Matches' : 'All skills'}</Heading>
-          <Text tone="muted" size="xs" tabular>
-            {filtering ? listed.length : `${data.skills.length} in ${plural(placeCount, 'place')}`}
-          </Text>
-        </SectionHead>
+        {/* An empty library has one thing to say, and the empty state under here says it. */}
+        {data.skills.length ? (
+          <SectionHead>
+            <Heading level={2}>{filtering ? 'Matches' : VIEW_HEADING[view]}</Heading>
+            {listed.length ? (
+              <Text tone="muted" size="xs" tabular>
+                {filtering ? listed.length : `${listed.length} in ${plural(placeCount, 'place')}`}
+              </Text>
+            ) : null}
+          </SectionHead>
+        ) : null}
         {listed.length ? (
           <SkillTable skills={listed} openSkill={openSkill} act={act} confirm={confirm} />
-        ) : data.skills.length ? (
+        ) : filtering ? (
           <EmptyState size="compact" title="No matches">
             Try another word, or every place.
+          </EmptyState>
+        ) : data.skills.length ? (
+          <EmptyState
+            size="compact"
+            title={
+              view === 'yours' ? 'No skills of your own yet' : 'Nothing installed from elsewhere'
+            }
+            actions={
+              view === 'yours' ? (
+                <Button type="button" onClick={() => setCreating(true)}>
+                  New skill
+                </Button>
+              ) : null
+            }
+          >
+            {view === 'yours'
+              ? 'Every skill found here was installed from elsewhere. Those are under Installed.'
+              : 'Skills from a lock file, and ones you mark as not yours, are listed here.'}
           </EmptyState>
         ) : (
           <EmptyState
@@ -275,19 +337,21 @@ function SkillTable({
   }
 
   return (
-    <Table bleed>
+    <Table bleed layout="fixed">
       <TableHeader>
         <TableRow>
           <TableHead>Skill</TableHead>
-          <TableHead optional>Place</TableHead>
-          <TableHead>Installed for</TableHead>
-          <TableHead numeric optional>
+          <TableHead col="lg" fold="second">
+            Place
+          </TableHead>
+          <TableHead col="xl">Installed for</TableHead>
+          <TableHead numeric col="md" fold="last">
             Evals
           </TableHead>
-          <TableHead numeric optional>
+          <TableHead numeric col="xs" fold="last">
             Edited
           </TableHead>
-          <TableHead numeric>
+          <TableHead numeric col="sm" fold="first">
             <VisuallyHidden>Actions</VisuallyHidden>
           </TableHead>
         </TableRow>
@@ -300,7 +364,7 @@ function SkillTable({
             interactive
             onClick={rowAction(() => openSkill(s.path))}
           >
-            <TableCell wrap wide>
+            <TableCell wrap>
               <Button
                 type="button"
                 variant="link"
@@ -316,12 +380,12 @@ function SkillTable({
                 </Text>
               ) : null}
             </TableCell>
-            <TableCell wrap optional>
-              <Text size="xs" wrap="anywhere" title={s.scopeLabel}>
+            <TableCell fold="second">
+              <Text block truncate size="xs" title={s.scopeLabel}>
                 {shortPlace(s.scopeLabel)}
               </Text>
               {s.source && s.source !== 'marked' ? (
-                <Text block tone="muted" size="xs">
+                <Text block truncate tone="muted" size="xs" title={s.source}>
                   {s.source}
                 </Text>
               ) : null}
@@ -362,25 +426,21 @@ function SkillTable({
                 </Toolbar>
               )}
             </TableCell>
-            <TableCell numeric optional>
-              <Text size="xs" tabular>
-                {s.cases || s.runs ? (
-                  `${plural(s.cases, 'case')} · ${plural(s.runs, 'run')}`
-                ) : (
-                  <Text tone="faint">None</Text>
-                )}
-              </Text>
+            <TableCell numeric fold="last">
+              {s.cases || s.runs ? (
+                <Text size="xs">{`${plural(s.cases, 'case')} · ${plural(s.runs, 'run')}`}</Text>
+              ) : null}
             </TableCell>
-            <TableCell numeric optional>
-              <Text size="xs" tabular>
+            <TableCell numeric fold="last">
+              <Text tone="muted" size="xs">
                 {shortDate(s.modified)}
               </Text>
             </TableCell>
-            <TableCell numeric>
+            <TableCell numeric fold="first">
               {isPractice(s) ? null : s.source === null || s.source === 'marked' ? (
                 <Button
                   type="button"
-                  variant="ghost"
+                  variant="ghost-muted"
                   size="sm"
                   title={
                     s.source

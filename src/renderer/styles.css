@@ -214,6 +214,8 @@
   --animate-vanish: vanish 120ms ease-out var(--delay) both;
   /* The mark's tile, set down. */
   --animate-settle: settle 640ms var(--ease-out-back) var(--delay) both;
+  /* One full turn of a refresh icon, in answer to its press. */
+  --animate-turn: turn 500ms var(--ease-out-strong);
 
   @keyframes rise {
     from {
@@ -255,6 +257,11 @@
     from {
       opacity: 0;
       transform: scale(0.86) rotate(-8deg);
+    }
+  }
+  @keyframes turn {
+    to {
+      rotate: 360deg;
     }
   }
 }

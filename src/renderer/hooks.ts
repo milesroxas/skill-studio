@@ -27,7 +27,8 @@ export function useFetch<T>(
       live = false
     }
   }, [...deps, tick])
-  return { data, error, reload: () => setTick((t) => t + 1) }
+  const reload = useCallback(() => setTick((t) => t + 1), [])
+  return { data, error, reload }
 }
 
 /** A set and a toggle for one member, for checkbox and filter groups. */
