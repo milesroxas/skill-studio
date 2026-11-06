@@ -3,15 +3,15 @@
   <desc id="loop-desc">Write the skill, write cases, run agents, read the results, rate blind, then check agreement. When you and the judge both fail an answer, change the skill and run again. When you disagree on an answer, tune the scoring.</desc>
   <defs>
     <marker id="head" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
-      <path d="M1 1 9 5 1 9" fill="none" stroke="#8a857b" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M1 1 9 5 1 9" fill="none" stroke="#5B605A" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
     </marker>
     <marker id="head-strong" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
-      <path d="M1 1 9 5 1 9" fill="none" stroke="#1c1b18" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M1 1 9 5 1 9" fill="none" stroke="#141615" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
     </marker>
   </defs>
-  <rect width="760" height="312" fill="#fcfcfa"/>
+  <rect width="760" height="312" fill="#F4F2EB"/>
 
-  <g fill="#ffffff" stroke="#d9d6cf" stroke-width="1">
+  <g fill="#FBFAF6" stroke="#CDCCC9" stroke-width="1">
     <rect x="16" y="20" width="158" height="80" rx="9"/>
     <rect x="206" y="20" width="158" height="80" rx="9"/>
     <rect x="396" y="20" width="158" height="80" rx="9"/>
@@ -21,7 +21,7 @@
     <rect x="206" y="196" width="158" height="80" rx="9"/>
   </g>
 
-  <g fill="#8a857b" font-size="12" font-weight="500">
+  <g fill="#5B605A" font-size="12" font-weight="500">
     <text x="32" y="43">Step 2</text>
     <text x="222" y="43">Step 3</text>
     <text x="412" y="43">Step 4</text>
@@ -30,7 +30,7 @@
     <text x="412" y="219">Step 7</text>
     <text x="222" y="219">Step 8</text>
   </g>
-  <g fill="#1c1b18" font-size="16" font-weight="600">
+  <g fill="#141615" font-size="16" font-weight="600">
     <text x="32" y="65">Write</text>
     <text x="222" y="65">Cases</text>
     <text x="412" y="65">New run</text>
@@ -39,7 +39,7 @@
     <text x="412" y="241">Agreement</text>
     <text x="222" y="241">Scoring</text>
   </g>
-  <g fill="#6f6b63" font-size="13">
+  <g fill="#5B605A" font-size="13">
     <text x="32" y="85">the skill's rules</text>
     <text x="222" y="85">the tasks it gets</text>
     <text x="412" y="85">agents answer</text>
@@ -49,7 +49,7 @@
     <text x="222" y="261">tune the judge</text>
   </g>
 
-  <g fill="none" stroke="#8a857b" stroke-width="1.5" stroke-linecap="round" marker-end="url(#head)">
+  <g fill="none" stroke="#5B605A" stroke-width="1.5" stroke-linecap="round" marker-end="url(#head)">
     <path d="M179 60H201"/>
     <path d="M369 60H391"/>
     <path d="M559 60H581"/>
@@ -57,9 +57,9 @@
     <path d="M581 236H559"/>
     <path d="M391 236H369"/>
   </g>
-  <path d="M475 191V160Q475 148 463 148H107Q95 148 95 136V107" fill="none" stroke="#1c1b18" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#head-strong)"/>
+  <path d="M475 191V160Q475 148 463 148H107Q95 148 95 136V107" fill="none" stroke="#141615" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#head-strong)"/>
 
-  <rect x="141" y="136" width="288" height="24" fill="#fcfcfa"/>
-  <text x="285" y="153" text-anchor="middle" fill="#1c1b18" font-size="13" font-weight="500">You both fail an answer: change the skill</text>
-  <text x="380" y="300" text-anchor="middle" fill="#6f6b63" font-size="13">You disagree on an answer: tune the scoring</text>
+  <rect x="141" y="136" width="288" height="24" fill="#F4F2EB"/>
+  <text x="285" y="153" text-anchor="middle" fill="#141615" font-size="13" font-weight="500">You both fail an answer: change the skill</text>
+  <text x="380" y="300" text-anchor="middle" fill="#5B605A" font-size="13">You disagree on an answer: tune the scoring</text>
 </svg>

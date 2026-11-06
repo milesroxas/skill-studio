@@ -56,7 +56,7 @@ pnpm install
 pnpm dev
 ```
 
-Then open Settings at the foot of the sidebar and paste the TypeSafe key under Jev key. The app stores it encrypted through your system keychain. While the key is missing, a "No Jev key" pill at the top right takes you to Settings.
+Then open Settings at the foot of the sidebar and paste the TypeSafe key under Jev key. The app stores it encrypted through your system keychain. While the key is missing, a "No Jev key" label at the top right takes you to Settings.
 
 The first time it opens, the app shows a welcome. "See how it works" tells the loop in six steps on the practice skill and ends on **Start practice**. Skip goes to your skills at any point. In the desktop app the welcome has a small window of its own, and the app opens when you skip, finish or close it.
 

@@ -30,11 +30,12 @@ export function TotalChip({ total }: { total: number | null | undefined }) {
 /**
  * How many outputs a mean stands for, "×2". The slot keeps its width when
  * there is one output, so chips beside it line up down a column where only
- * some rows repeat a case.
+ * some rows repeat a case. Below `lg` it folds away, as an optional column
+ * does, so a table of cases fits a 720px window; the score's label says it.
  */
 export function SampleCount({ count }: { count: number }) {
   return (
-    <span className="min-w-5 text-left text-xs font-normal text-muted-foreground tabular-nums">
+    <span className="min-w-5 text-left text-xs font-normal text-muted-foreground tabular-nums max-lg:hidden">
       {count > 1 ? `×${count}` : null}
     </span>
   )

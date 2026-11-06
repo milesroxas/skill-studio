@@ -152,6 +152,11 @@ async function take(page: Page, shot: Shot): Promise<void> {
     await press(page, shot.press)
     await settle(page)
   }
+  // No row may show a hover or a focus it only has from the script: park the pointer on the
+  // drag strip and let go of the focus.
+  await page.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: 1, y: 1 })
+  await page.run('document.activeElement instanceof HTMLElement && document.activeElement.blur()')
+  await settle(page)
   const { data } = await page.send('Page.captureScreenshot', {
     format: 'webp',
     quality: 90,

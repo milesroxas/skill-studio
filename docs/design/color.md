@@ -122,4 +122,4 @@ Two known gaps. `border-input` on porcelain is 1.5:1, so an input is found by it
 
 ## Changing a token
 
-Change the value in `styles.css` in all three scopes, re-measure every pair in the table that uses it, and update this file in the same pull request. To fix a failing pair, move L only: chroma and hue do not change contrast.
+Change the value in `styles.css` in all three scopes, re-measure every pair in the table that uses it, and update this file in the same pull request. `paint.test.ts` (main process) fails when a hex copy outside CSS drifts: the window's first paint, `index.html`'s theme colors, and the guide's diagrams in `docs/images/*.svg`, which may use only the light scope's tokens and their tints. To fix a failing pair, move L only: chroma and hue do not change contrast.

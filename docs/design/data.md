@@ -53,7 +53,7 @@ A score is out of 100 and always shows through one of these, from `components/Sc
 | Component | Shows |
 | --- | --- |
 | `TotalChip` | a score as a chip whose color is its band. Every chip is 40px wide, so a column keeps one edge. |
-| `SampleCount` | how many outputs a mean stands for: "×2". Its slot keeps its width when empty. |
+| `SampleCount` | how many outputs a mean stands for: "×2". Its slot keeps its width when empty. Hidden below `lg`, so a table of cases fits 720px: the score's `aria-label` still says it. |
 | `Delta` | a change between two scores: "+15" in `success`, "−4" in `destructive` |
 | `Layers` | each layer's score with a bar. Bars stay grey until a layer is weak. |
 | `Flags` | the list of what a grader flagged |

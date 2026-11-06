@@ -2,17 +2,18 @@ import { cn } from '@renderer/lib/utils.ts'
 import { cva, type VariantProps } from 'class-variance-authority'
 import type * as React from 'react'
 
+/** A verdict's heading carries the color; its body stays readable. See docs/design/data.md. */
+const VERDICT_BODY = '*:data-[slot=alert-description]:text-card-foreground'
+
 const alertVariants = cva(
   'relative grid w-full grid-cols-[0_1fr] items-start gap-y-0.5 rounded-lg border px-4 py-3 text-sm has-[>svg]:grid-cols-[calc(var(--spacing)*4)_1fr] has-[>svg]:gap-x-3 [&>svg]:size-4 [&>svg]:translate-y-0.5 [&>svg]:text-current',
   {
     variants: {
       variant: {
         default: 'bg-card text-card-foreground',
-        destructive:
-          'bg-card text-destructive *:data-[slot=alert-description]:text-destructive/90 [&>svg]:text-current',
-        /* Verdicts beside destructive: the heading carries the color, the body stays readable. */
-        success: 'bg-card text-success *:data-[slot=alert-description]:text-card-foreground',
-        warning: 'bg-card text-warning *:data-[slot=alert-description]:text-card-foreground',
+        destructive: `bg-card text-destructive ${VERDICT_BODY}`,
+        success: `bg-card text-success ${VERDICT_BODY}`,
+        warning: `bg-card text-warning ${VERDICT_BODY}`,
         /** A quiet note on the muted surface, for a remark that is not a verdict. */
         muted: 'border-transparent bg-muted text-card-foreground',
       },
