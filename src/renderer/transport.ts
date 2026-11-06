@@ -59,6 +59,11 @@ export interface Transport {
   enterApp?: (skill: string | null) => void
   /** Undefined in a browser: `st serve` is updated with the checkout it runs from. */
   updates?: UpdateHost
+  /**
+   * Start the app over as a newcomer meets it. Only a desktop copy made for
+   * testing has it: a development build, or a prerelease.
+   */
+  reset?: () => Promise<void>
   platform: string
 }
 
@@ -89,6 +94,7 @@ function desktop(bridge: StudioBridge): Transport {
       watch: (listener) => bridge.onUpdate(listener),
       openChangelog: () => void bridge.openChangelog().then(unwrap),
     },
+    reset: bridge.canReset ? async () => void unwrap(await bridge.reset()) : undefined,
     platform: bridge.platform,
   }
 }

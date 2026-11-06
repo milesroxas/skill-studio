@@ -6,7 +6,7 @@
  * the menu or the app and closed when it has been read.
  */
 import { readPreferences } from '@infrastructure/preferences.ts'
-import { app, type BrowserWindow } from 'electron'
+import { app, BrowserWindow } from 'electron'
 import { CHANNELS, PUSH_TOPICS } from '../channels.ts'
 import type { Backend } from './backend.ts'
 import { pageUrl, type Target } from './launch.ts'
@@ -35,6 +35,12 @@ export interface Windows {
    * it is, a closing welcome opens nothing in its place.
    */
   expectQuit(expected: boolean): void
+  /**
+   * Close every window at once, as starting over does: nothing is saved on the
+   * way out and nothing opens in their place. The zoom goes back to actual
+   * size, since it is kept for the app's page and not in any file of the app's.
+   */
+  closeAll(): void
 }
 
 export interface WindowsOptions {
@@ -149,6 +155,13 @@ export function createWindows({ url, boundsFile, backend }: WindowsOptions): Win
     },
     expectQuit: (expected) => {
       installing = expected
+    },
+    closeAll: () => {
+      // One window of the page is enough: the zoom is shared by all of them.
+      const page = appWindow ?? welcomeWindow ?? changelogWindow
+      page?.webContents.setZoomLevel(0)
+      // Destroyed, not closed: a close saves the window's place and runs the page's own goodbyes.
+      for (const window of BrowserWindow.getAllWindows()) window.destroy()
     },
   }
 }

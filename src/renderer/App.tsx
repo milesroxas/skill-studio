@@ -371,7 +371,12 @@ export function App() {
     if (screen === 'settings')
       return (
         <Suspense fallback={<Loading size="screen" />}>
-          <SettingsScreen toast={toast} onSaved={reload} onWelcome={openWelcome} />
+          <SettingsScreen
+            running={running}
+            toast={toast}
+            onSaved={reload}
+            onWelcome={openWelcome}
+          />
         </Suspense>
       )
     if (screen === 'library')

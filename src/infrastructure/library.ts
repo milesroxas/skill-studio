@@ -45,7 +45,7 @@ const HOME = process.env.SKILL_STUDIO_HOME || homedir()
 export const STUDIO_DIR = join(HOME, '.skill-studio')
 const SETTINGS = join(STUDIO_DIR, 'library.json')
 /** Where the tool kept its settings before it was Skill Studio; read once, then left alone. */
-const OLD_SETTINGS = join(HOME, '.skill-tester', 'library.json')
+export const OLD_SETTINGS = join(HOME, '.skill-tester', 'library.json')
 
 interface Settings {
   /** Folders whose projects are scanned. */

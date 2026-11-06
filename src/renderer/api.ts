@@ -74,6 +74,8 @@ export const api = {
   enterApp: transport.enterApp,
   /** The desktop app's own updates; undefined in a browser. */
   updates: transport.updates,
+  /** Start the app over; undefined unless this copy was made for testing. */
+  reset: transport.reset,
   settings: () => call('settings.read', {}),
   /** Store a key in the host's keychain; an empty value removes the stored one. */
   setKey: (id: SecretId, value: string) => call('settings.key', { id, value }),

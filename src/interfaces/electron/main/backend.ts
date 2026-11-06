@@ -86,8 +86,15 @@ export class Backend {
     this.process()
   }
 
-  stop(): void {
-    this.child?.kill()
+  /** Stop the backend. Resolves once its process is gone, so nothing it was writing lands after. */
+  stop(): Promise<void> {
+    const child = this.child
     this.child = null
+    if (!child) return Promise.resolve()
+    return new Promise((resolve) => {
+      child.once('exit', () => resolve())
+      // A process that never came up has no exit to wait for.
+      if (!child.kill()) resolve()
+    })
   }
 }

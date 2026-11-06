@@ -236,4 +236,11 @@ export interface StudioBridge {
   onUpdate(listener: (state: UpdateState) => void): () => void
   /** Show what changed in each release, in a window of its own. */
   openChangelog(): Promise<Reply<null>>
+  /** True in a copy that can start over: a development build, or a prerelease. */
+  canReset: boolean
+  /**
+   * Start over: delete what the app keeps of its own and open as on a first
+   * launch. Skills and stored keys stay. The asking window closes with the rest.
+   */
+  reset(): Promise<Reply<null>>
 }

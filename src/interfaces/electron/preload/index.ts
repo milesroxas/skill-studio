@@ -8,7 +8,7 @@ import type { AiRun } from '@domain/ai.ts'
 import type { UpdateState } from '@domain/update.ts'
 import type { Job } from '@domain/views.ts'
 import { contextBridge, ipcRenderer } from 'electron'
-import { CHANNELS, VERSION_ARGUMENT } from '../channels.ts'
+import { CHANNELS, RESET_ARGUMENT, VERSION_ARGUMENT } from '../channels.ts'
 
 /** Listen on a channel the main process pushes to; the listener never sees the IPC event. */
 const subscribe =
@@ -41,6 +41,8 @@ const bridge: StudioBridge = {
   update: (request) => ipcRenderer.invoke(CHANNELS.update, request),
   onUpdate: subscribe<UpdateState>(CHANNELS.updateState),
   openChangelog: () => ipcRenderer.invoke(CHANNELS.openChangelog),
+  canReset: process.argv.includes(RESET_ARGUMENT),
+  reset: () => ipcRenderer.invoke(CHANNELS.reset),
 }
 
 contextBridge.exposeInMainWorld('studio', bridge)

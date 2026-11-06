@@ -12,6 +12,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - **What’s New**, under Help: a window with every release, its date and what changed. It also shows where an update stands and the one step that moves it on.
 - **Check for Updates…** in the app menu on macOS, and under Help on Windows and Linux.
 - Settings, Updates: let the app look for new versions on its own, or only when you ask.
+- Settings, Start over, in test versions only: put the app back to how it opens the first time, to try a release from its first launch. Your skills and your stored keys stay.
 
 ## [0.1.0-beta.2] - 2026-11-05
 

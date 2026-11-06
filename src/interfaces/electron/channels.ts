@@ -21,6 +21,8 @@ export const CHANNELS = {
   /** The updater tells every window its state. */
   updateState: 'studio:update-state',
   openChangelog: 'studio:open-changelog',
+  /** A window asks the app to start over. Refused in a copy that does not offer it. */
+  reset: 'studio:reset',
 } as const
 
 /**
@@ -29,6 +31,8 @@ export const CHANNELS = {
  * ask Electron itself.
  */
 export const VERSION_ARGUMENT = '--studio-version='
+/** Added the same way when this copy can start over: a development build, or a prerelease. */
+export const RESET_ARGUMENT = '--studio-can-reset'
 
 /** The renderer's own pages. A custom scheme, so `file:` never loads. */
 export const APP_SCHEME = 'studio'

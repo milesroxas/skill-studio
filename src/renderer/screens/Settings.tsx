@@ -5,7 +5,8 @@
  * preferences and applied at once. Then the app's connections: Anthropic and
  * OpenAI, each by a key or by the CLI you are signed in to, and the TypeSafe
  * key Jev grades with. The desktop app keeps keys in the system keychain; a
- * key in the environment always wins and shows as such.
+ * key in the environment always wins and shows as such. Last, in a copy made
+ * for testing only, the way to start the app over.
  */
 import { AI_PROVIDERS, type AiProviderId, type AiProviderInfo } from '@domain/ai.ts'
 import type {
@@ -23,6 +24,7 @@ import { loadAi, useAi } from '../ai.ts'
 import { api } from '../api.ts'
 import { EmptyState, Field, FormSection, Loading, Screen, Toolbar } from '../components/layout.tsx'
 import { ModelControls } from '../components/ModelControls.tsx'
+import { ResetDialog } from '../components/ResetDialog.tsx'
 import { Segmented } from '../components/Segmented.tsx'
 import { Status } from '../components/Status.tsx'
 import { Code, Hint, Link } from '../components/text.tsx'
@@ -34,6 +36,8 @@ import { setPreferences, usePreferences } from '../preferences.ts'
 import { APP_VERSION, checkForUpdates } from '../updates.ts'
 
 interface Props {
+  /** A run is going: starting over would stop it, and the question says so. */
+  running: boolean
   toast: (message: string) => void
   /** Called after a change, so the open skill's state picks the key up. */
   onSaved: () => Promise<void>
@@ -90,7 +94,7 @@ const UPDATE_MODES = [
   { value: 'manual', label: 'When I ask' },
 ] as const satisfies ReadonlyArray<{ value: UpdateMode; label: string }>
 
-export function SettingsScreen({ toast, onSaved, onWelcome }: Props) {
+export function SettingsScreen({ running, toast, onSaved, onWelcome }: Props) {
   const preferences = usePreferences()
   const settings = useFetch(() => api.settings(), [])
   const { providers, choice } = useAi()
@@ -277,7 +281,50 @@ export function SettingsScreen({ toast, onSaved, onWelcome }: Props) {
       >
         {keys('jev', 'Grading uses code checks only.')}
       </FormSection>
+
+      {/* Only a copy made for testing can start over: a development build, or a prerelease. */}
+      {api.reset ? <StartOver reset={api.reset} running={running} toast={toast} /> : null}
     </Screen>
+  )
+}
+
+/**
+ * The way back to a first launch, to test a release as a newcomer meets it.
+ * The button only asks: the dialog says what goes and what stays.
+ */
+function StartOver({
+  reset,
+  running,
+  toast,
+}: {
+  reset: () => Promise<void>
+  running: boolean
+  toast: (message: string) => void
+}) {
+  const [asking, setAsking] = useState(false)
+  const confirm = () => {
+    setAsking(false)
+    // When it works this window closes with the rest, so only a refusal comes back.
+    reset().catch((e: Error) => toast(`Not reset: ${e.message}`))
+  }
+
+  return (
+    <FormSection
+      title="Start over"
+      hint="Put Skill Studio back to how it opens the first time, to test a release from its first launch. Only test versions have this."
+    >
+      <Toolbar>
+        <Button type="button" variant="destructive-outline" onClick={() => setAsking(true)}>
+          Reset Skill Studio…
+        </Button>
+      </Toolbar>
+      <ResetDialog
+        open={asking}
+        running={running}
+        onCancel={() => setAsking(false)}
+        onConfirm={confirm}
+      />
+    </FormSection>
   )
 }
 

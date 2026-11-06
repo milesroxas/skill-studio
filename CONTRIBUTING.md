@@ -114,6 +114,12 @@ open "dist/mac-arm64/Skill Studio.app"
 
 Give it a prerelease version while every release is a prerelease: a stable version looks for stable releases only. Everything up to **Restart to update** is real. The restart itself is the one step this does not prove: macOS installs an update only over a copy signed by the same Developer ID, so only a released copy can show it.
 
+### Starting over
+
+To meet a release as a newcomer does, use **Reset Skill Studio…** at the foot of Settings. It deletes `~/.skill-studio/`, the settings from before the rename (`~/.skill-tester/library.json`), the window's place, the page's storage and its zoom, then opens the app on the welcome. Skills and stored keys stay. Only a development build and a prerelease offer it (`canReset` in `src/domain/reset.ts`); the main process refuses the request in any other copy. A development build shares its files with an installed copy, so a reset in one resets both.
+
+The order of the steps is in `src/interfaces/electron/main/reset.ts`, tested without Electron: the windows and the backend are gone before anything is deleted, so neither writes its state back.
+
 The app icon is drawn in `build/icon-src/`: `mac.svg` becomes `build/icon.icns`, and `tile.svg` becomes `build/icon.ico` and `build/icon.png`. The two `-small` drawings carry a larger mark for the 16 to 32 px sizes. Export all three files again when the mark changes.
 
 ## License

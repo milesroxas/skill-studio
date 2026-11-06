@@ -8,12 +8,14 @@
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import type { Theme } from '@domain/preferences.ts'
+import { canReset } from '@domain/reset.ts'
 import { app, BrowserWindow, nativeTheme, type Rectangle, screen, shell } from 'electron'
 import {
   APP_ORIGIN,
   ARTIFACT_HOST,
   ARTIFACT_SCHEME,
   IMAGE_HOST,
+  RESET_ARGUMENT,
   VERSION_ARGUMENT,
 } from '../channels.ts'
 import { placed } from './launch.ts'
@@ -75,14 +77,20 @@ export interface WindowOptions {
   boundsFile: string
 }
 
+/** Whether this copy offers to start over: the page shows the button, and the main process honors it. */
+export const RESETTABLE = canReset({ version: app.getVersion(), packaged: app.isPackaged })
+
 /**
  * What every window of the app's own page shares: the preload's bridge and
  * nothing else. The page is told the version Electron reports, the one the
- * updater measures every release against.
+ * updater measures every release against, and whether this copy can start over.
  */
 const PAGE_PREFERENCES = {
   preload: PRELOAD,
-  additionalArguments: [`${VERSION_ARGUMENT}${app.getVersion()}`],
+  additionalArguments: [
+    `${VERSION_ARGUMENT}${app.getVersion()}`,
+    ...(RESETTABLE ? [RESET_ARGUMENT] : []),
+  ],
   sandbox: true,
   contextIsolation: true,
   nodeIntegration: false,

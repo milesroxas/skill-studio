@@ -26,6 +26,8 @@ export interface IpcDeps {
   secrets: SecretStore
   windows: Windows
   updater: Updater
+  /** Start the app over. Undefined in a copy that does not offer it, and the request is refused. */
+  reset?: () => void
   /** Origins whose top frame may call: the app scheme, and the dev server while developing. */
   trusted: Set<string>
 }
@@ -38,7 +40,7 @@ const isTrusted = (event: IpcMainInvokeEvent, trusted: Set<string>): boolean => 
   return frame !== null && frame === frame.top && trusted.has(frame.origin)
 }
 
-export function registerIpc({ backend, secrets, windows, updater, trusted }: IpcDeps): void {
+export function registerIpc({ backend, secrets, windows, updater, reset, trusted }: IpcDeps): void {
   /** The settings operations run here, next to the keychain; everything else goes to the backend. */
   const shellCall = (name: ShellOperation, input: unknown): Promise<Settings> => {
     switch (name) {
@@ -114,6 +116,14 @@ export function registerIpc({ backend, secrets, windows, updater, trusted }: Ipc
   ipcMain.handle(CHANNELS.openChangelog, (event) => {
     if (!isTrusted(event, trusted)) return fail(new Error('Refused: unknown sender.'))
     windows.openChangelog()
+    return ok(null)
+  })
+
+  ipcMain.handle(CHANNELS.reset, (event) => {
+    if (!isTrusted(event, trusted)) return fail(new Error('Refused: unknown sender.'))
+    if (!reset) return fail(new Error('This version of Skill Studio cannot start over.'))
+    // After the reply: starting over closes the window that asked.
+    setImmediate(reset)
     return ok(null)
   })
 
