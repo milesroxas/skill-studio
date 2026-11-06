@@ -19,9 +19,8 @@ import {
   VERSION_ARGUMENT,
 } from '../channels.ts'
 import { placed } from './launch.ts'
+import { BACKGROUND } from './paint.ts'
 
-/** The page color in styles.css (--background), so the window never flashes on open. */
-const BACKGROUND = { light: '#fcfcfa', dark: '#100f0d' }
 const DEFAULT_BOUNDS = { width: 1280, height: 860 }
 const MIN = { width: 720, height: 480 }
 /** Room for one step of the tour and nothing else. The page is laid out for exactly this. */

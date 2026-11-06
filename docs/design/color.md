@@ -2,7 +2,7 @@
 
 All color lives in `src/renderer/styles.css` as semantic tokens, written in `oklch()`. Components use the Tailwind class of a token. Nothing else names a color.
 
-Today `styles.css` holds the old values (warm paper at hue 85, `--brand` yellow). The values below land in phase 1, and the ink scope in phase 2. Token names do not change, so a class written today keeps working.
+The values below are in `styles.css`. The ink scope lands in phase 2.
 
 ## The three scopes
 
@@ -30,12 +30,12 @@ Ink uses the dark scope's values, with `--background` set to `--sidebar`. So a c
 | `--border` | `oklch(0.198 0.004 165 / 0.1)` | `oklch(0.29 0.004 165)` | hairlines |
 | `--input` | `oklch(0.198 0.004 165 / 0.2)` | `oklch(0.35 0.004 165)` | a control's edge |
 | `--ring` | `oklch(0.198 0.004 165)` | `oklch(0.961 0.01 94)` | focus ring, always used at `/50` |
-| `--sidebar` | `oklch(0.198 0.004 165)` | `oklch(0.165 0.004 165)` | the sidebar's ground |
-| `--sidebar-accent` | `oklch(0.29 0.004 165)` | `oklch(0.25 0.004 165)` | the current place |
+| `--sidebar` | `oklch(0.198 0.004 165)` (until phase 2: `oklch(0.936 0.011 95)`) | `oklch(0.165 0.004 165)` | the sidebar's ground |
+| `--sidebar-accent` | `oklch(0.29 0.004 165)` (until phase 2: `oklch(0.917 0.011 95)`) | `oklch(0.25 0.004 165)` | the current place |
 | `--success` | `oklch(0.452 0.095 148)` | `oklch(0.78 0.12 150)` | a good score, a pass |
 | `--warning` | `oklch(0.489 0.1 69)` | `oklch(0.8 0.11 70)` | a weak score, unsaved |
 | `--destructive` | `oklch(0.473 0.148 27)` | `oklch(0.76 0.12 25)` | a failing score, an error, a delete |
-| `--signal` / `--signal-foreground` **(phase 1)** | `oklch(0.927 0.168 120)` / ink | the same | next and running |
+| `--signal` / `--signal-foreground` | `oklch(0.927 0.168 120)` / ink | the same | next and running |
 
 `--signal` is the same in every scope. It is the brand's lime `#D9F76B`.
 

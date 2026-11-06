@@ -1,13 +1,13 @@
 /*
- * The theme, in shadcn/ui's token vocabulary over Tailwind v4. A writing desk:
- * warm paper neutrals (hue 85) around one ink color as the primary. Green,
- * amber and red stay reserved for verdicts, so color only ever says how good
- * something is. The sidebar is the desk, a step darker than the page it holds.
- * Dark remaps the lightness roles and holds the hue: the page stays the
- * brightest surface, borders turn solid and shadows collapse to a ring.
- * Two faces only: Geist for everything read, Geist Mono for code and paths.
- * The yellow of the app's icon appears in one place, the welcome, as the mark
- * and as a highlighter over the one word or number that matters.
+ * The theme, in shadcn/ui's token vocabulary over Tailwind v4. A print proof:
+ * ink on porcelain stock, hairline rules, one fluorescent mark for what is
+ * live. Green, amber and red stay reserved for verdicts, so color only says
+ * how something stands. Lime (--signal) marks the next step and a running job,
+ * nothing else, and is the same in every scope.
+ * Dark remaps the lightness roles: the page is ink, borders turn solid and
+ * shadows collapse to a ring.
+ * Two faces only: Geist for everything read, Geist Mono for code and numbers.
+ * docs/design/color.md holds every value and the contrast pairs checked.
  */
 @import "tailwindcss";
 @import "tw-animate-css";
@@ -28,30 +28,33 @@
 }
 
 :root {
-  --background: oklch(0.99 0.002 85);
-  --foreground: oklch(0.215 0.006 85);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.215 0.006 85);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.215 0.006 85);
-  --primary: oklch(0.215 0.006 85);
-  --primary-foreground: oklch(0.99 0.002 85);
-  --secondary: oklch(0.955 0.004 85);
-  --secondary-foreground: oklch(0.215 0.006 85);
-  --muted: oklch(0.96 0.004 85);
-  --muted-foreground: oklch(0.5 0.008 85);
-  --accent: oklch(0.95 0.005 85);
-  --accent-foreground: oklch(0.215 0.006 85);
-  --sidebar: oklch(0.968 0.004 85);
-  --sidebar-foreground: oklch(0.215 0.006 85);
-  --sidebar-accent: oklch(0.925 0.006 85);
-  --destructive: oklch(0.53 0.19 25);
-  --success: oklch(0.52 0.13 150);
-  --warning: oklch(0.56 0.12 70);
-  --border: oklch(0 0 0 / 0.08);
-  --input: oklch(0 0 0 / 0.15);
-  --ring: oklch(0.556 0.006 85);
-  /* The icon's yellow and its ink. The same in both themes: they are the brand, not a role. */
+  --background: oklch(0.961 0.01 94);
+  --foreground: oklch(0.198 0.004 165);
+  --card: oklch(0.985 0.005 95);
+  --card-foreground: oklch(0.198 0.004 165);
+  --popover: oklch(0.985 0.005 95);
+  --popover-foreground: oklch(0.198 0.004 165);
+  --primary: oklch(0.198 0.004 165);
+  --primary-foreground: oklch(0.961 0.01 94);
+  --secondary: oklch(0.917 0.011 95);
+  --secondary-foreground: oklch(0.198 0.004 165);
+  --muted: oklch(0.936 0.011 95);
+  --muted-foreground: oklch(0.483 0.011 140);
+  --accent: oklch(0.917 0.011 95);
+  --accent-foreground: oklch(0.198 0.004 165);
+  --sidebar: oklch(0.936 0.011 95);
+  --sidebar-foreground: oklch(0.198 0.004 165);
+  --sidebar-accent: oklch(0.917 0.011 95);
+  --destructive: oklch(0.473 0.148 27);
+  --success: oklch(0.452 0.095 148);
+  --warning: oklch(0.489 0.1 69);
+  --border: oklch(0.198 0.004 165 / 0.1);
+  --input: oklch(0.198 0.004 165 / 0.2);
+  --ring: oklch(0.198 0.004 165);
+  /* Lime: the next step and a running job. The same in every scope. */
+  --signal: oklch(0.927 0.168 120);
+  --signal-foreground: oklch(0.198 0.004 165);
+  /* The icon's yellow and its ink. Removed in phase 4 with their last use. */
   --brand: #ffe500;
   --brand-ink: #171918;
   --radius: 0.625rem;
@@ -67,29 +70,29 @@
 
 :root {
   @variant dark {
-    --background: oklch(0.17 0.004 85);
-    --foreground: oklch(0.95 0.004 85);
-    --card: oklch(0.2 0.004 85);
-    --card-foreground: oklch(0.95 0.004 85);
-    --popover: oklch(0.225 0.005 85);
-    --popover-foreground: oklch(0.95 0.004 85);
-    --primary: oklch(0.95 0.004 85);
-    --primary-foreground: oklch(0.17 0.004 85);
-    --secondary: oklch(0.24 0.005 85);
-    --secondary-foreground: oklch(0.95 0.004 85);
-    --muted: oklch(0.235 0.005 85);
-    --muted-foreground: oklch(0.72 0.008 85);
-    --accent: oklch(0.245 0.005 85);
-    --accent-foreground: oklch(0.95 0.004 85);
-    --sidebar: oklch(0.145 0.004 85);
-    --sidebar-foreground: oklch(0.95 0.004 85);
-    --sidebar-accent: oklch(0.225 0.005 85);
-    --destructive: oklch(0.72 0.15 25);
-    --success: oklch(0.74 0.12 150);
-    --warning: oklch(0.78 0.11 70);
-    --border: oklch(0.27 0.005 85);
-    --input: oklch(0.33 0.005 85);
-    --ring: oklch(0.6 0.006 85);
+    --background: oklch(0.198 0.004 165);
+    --foreground: oklch(0.961 0.01 94);
+    --card: oklch(0.225 0.004 165);
+    --card-foreground: oklch(0.961 0.01 94);
+    --popover: oklch(0.245 0.004 165);
+    --popover-foreground: oklch(0.961 0.01 94);
+    --primary: oklch(0.961 0.01 94);
+    --primary-foreground: oklch(0.198 0.004 165);
+    --secondary: oklch(0.27 0.004 165);
+    --secondary-foreground: oklch(0.961 0.01 94);
+    --muted: oklch(0.255 0.004 165);
+    --muted-foreground: oklch(0.78 0.012 130);
+    --accent: oklch(0.27 0.004 165);
+    --accent-foreground: oklch(0.961 0.01 94);
+    --sidebar: oklch(0.165 0.004 165);
+    --sidebar-foreground: oklch(0.961 0.01 94);
+    --sidebar-accent: oklch(0.25 0.004 165);
+    --destructive: oklch(0.76 0.12 25);
+    --success: oklch(0.78 0.12 150);
+    --warning: oklch(0.8 0.11 70);
+    --border: oklch(0.29 0.004 165);
+    --input: oklch(0.35 0.004 165);
+    --ring: oklch(0.961 0.01 94);
     --elevation-raised: 0 0 0 1px oklch(1 0 0 / 0.08);
     --elevation-popover: 0 0 0 1px oklch(1 0 0 / 0.1), 0 12px 32px -8px oklch(0 0 0 / 0.5);
     color-scheme: dark;
@@ -120,6 +123,8 @@
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
+  --color-signal: var(--signal);
+  --color-signal-foreground: var(--signal-foreground);
   --color-brand: var(--brand);
   --color-brand-ink: var(--brand-ink);
   --radius-xs: calc(var(--radius) * 0.5);
@@ -129,6 +134,8 @@
   --radius-xl: calc(var(--radius) * 1.5);
   --font-sans: "Geist Variable", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
   --font-mono: "Geist Mono Variable", ui-monospace, "SF Mono", Menlo, monospace;
+  /* Caps labels: a sidebar section, a figure's label. */
+  --tracking-caps: 0.08em;
   --shadow-raised: var(--elevation-raised);
   --shadow-popover: var(--elevation-popover);
   /* A strong ease-out: movement starts at once and settles. */

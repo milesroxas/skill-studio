@@ -29,7 +29,7 @@ Files: `src/renderer/styles.css`, `src/interfaces/electron/main/window.ts`, `src
 1. Replace the `:root` and dark token values with the table in [color.md](color.md). Keep every token name. In this phase set `--sidebar` to `oklch(0.936 0.011 95)` and `--sidebar-accent` to `oklch(0.917 0.011 95)` in the light scope: the ink sidebar needs phase 2's scope, and ink without it puts dark grey text on ink.
 2. Add `--signal`, `--signal-foreground` to `:root` and `--color-signal`, `--color-signal-foreground` to `@theme inline`. Add `--tracking-caps: 0.08em`. Leave `--brand` and `--brand-ink` until phase 4 removes their last use.
 3. Rewrite the header comment of `styles.css`, which describes the old theme (hue 85, the yellow icon). Fonts do not change.
-4. `window.ts`: `BACKGROUND = { light: '#F4F2EB', dark: '#141615' }`. `index.html`: the two `theme-color` metas take the same values. These are first-paint colors outside CSS, so they are hex by necessity.
+4. `paint.ts` (main process): `BACKGROUND = { light: '#F4F2EB', dark: '#141615' }`. `index.html`: the two `theme-color` metas take the same values. These are first-paint colors outside CSS, so they are hex by necessity. `paint.test.ts` fails if either drifts from `--background` in `styles.css`.
 
 Checks: both themes at every screen. No text pair below the table in [color.md](color.md). The focus ring is visible on a button, an input and a nav item. The window does not flash white or yellow on launch.
 

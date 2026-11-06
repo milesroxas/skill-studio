@@ -33,8 +33,6 @@ These names are the target. Each lands in the phase named in [redesign-plan.md](
 
 | Name | Phase |
 | --- | --- |
-| The token values in [color.md](color.md), `--signal`, `--signal-foreground` | 1 |
-| `--tracking-caps` | 1 |
 | `data-surface="ink"` | 2 |
 | `Button variant="signal"`, `Text caps` | 3 |
 | `rounded-xs` badges, mono in `numeric` cells and `TotalChip` | 3 |
