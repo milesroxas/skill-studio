@@ -153,7 +153,8 @@ async function main(): Promise<number> {
   const [command, ...args] = positionals
   if (values.help || !command) {
     console.log(HELP)
-    return command ? 0 : 2
+    // Asking for the help succeeds; running with no command is a usage error.
+    return values.help ? 0 : 2
   }
   const jevOptions = {
     useJev: !values['no-jev'] && Jev.available(),
