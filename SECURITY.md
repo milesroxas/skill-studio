@@ -11,19 +11,47 @@ Fixes go into the next release. Only the latest release is supported.
 Packages come from [Releases](https://github.com/milesroxas/skill-studio/releases) only, built by the `release` workflow from a tag on `main`. A published release and its tag cannot be changed afterwards.
 
 - The Mac app is signed with a Developer ID certificate and notarized by Apple. The Windows and Linux packages are not signed.
-- The desktop app updates itself from those releases, over HTTPS from GitHub. It installs a download only when it matches the SHA-512 hash the release publishes for it. On macOS the system also refuses an update that is not signed by the same Developer ID as the running app. The Windows and Linux packages are not signed, so there the hash is the only check. The check for a new version asks GitHub for the release list. It carries nothing about you, your skills or the copy that asks: the per-install ID the updater would add is replaced with a fixed word. Settings, Updates turns the automatic check off.
 - Every package carries a build provenance attestation. `gh attestation verify <file> -R milesroxas/skill-studio` confirms a file was built by that workflow. The release also holds that provenance as `skill-studio-<version>.intoto.jsonl`, to check offline with `--bundle`.
+
+## Updates
+
+Releases after 0.1.0-beta.2 update themselves from GitHub, over HTTPS.
+
+- A download is installed only when it matches the SHA-512 hash the release publishes for it. On macOS the system also refuses an update not signed by the same Developer ID as the running app. On Windows and Linux the hash is the only check.
+- The check for a new version asks GitHub for the release list. It carries nothing about you, your skills or the copy that asks: the per-install ID the updater would add is replaced with a fixed word.
+- Settings, Updates turns the automatic check off.
 
 ## What to know before running it
 
-Skill Studio runs coding agents and executes the code they write. Treat every skill and case you have not written yourself as untrusted.
+Skill Studio runs coding agents and executes the code they write. Treat every skill and case you did not write as untrusted, and run it in a container or VM.
 
-- The `code` pack's check command runs in the sample directory, so it executes agent-written code with your user's permissions. Run untrusted skills in a container or VM.
+### Agents and their code
+
+- The `code` pack's check command runs in the sample directory, so it executes agent-written code with your user's permissions.
 - Agents run with `--permission-mode acceptEdits` (claude) or `--force` (cursor-agent). Isolation is by convention: nothing stops an agent that follows an absolute path out of its sample directory.
-- `st serve` binds to `127.0.0.1` and has no login of its own. It answers only requests addressed to `localhost`. Do not expose it on a network any other way.
-- `st serve --tailscale` is the one supported way to reach it from another device. It proxies one HTTPS port on your tailnet name with `tailscale serve`, and the server lets a request through only if Tailscale signed it in as the login that owns the machine. Funnel (public) traffic, tagged devices and other tailnet users carry no matching login and are refused. The mapping ends when the server stops. A way around that check is in scope.
-- Artifacts are served with `Content-Security-Policy: sandbox; script-src 'none'` and shown in a sandboxed iframe, or opened in their own tab or window under the same header, so agent-written HTML cannot script the app. A bypass of that is in scope.
-- The desktop app's renderer runs sandboxed with context isolation and no Node. It reaches the main process only through the preload bridge, and every IPC message is checked against the sending frame's origin. Pages load from the `studio://` scheme under a Content Security Policy that allows the app's own scripts only. Navigation away from the app, new windows and permission requests are refused; web links open in the default browser. A way for a page, including an artifact, to reach Node, the file system or an operation it should not is in scope.
-- The packaged app runs only the code in its own archive. It cannot be started as plain Node, and it ignores `NODE_OPTIONS` and Node's `--inspect` flags. Where Electron supports the check (macOS and Windows), it refuses an archive that was changed after the build.
-- The keys the app stores (TypeSafe, Anthropic, OpenAI) go through Electron's `safeStorage` (the OS keychain) into the app's user data folder, readable by your user only. They are held by the main process and the backend, never by the page. A stored Anthropic or OpenAI key reaches the backend under a name of the app's own, so an agent the app starts does not find it in `ANTHROPIC_API_KEY` or `OPENAI_API_KEY`.
-- The assistant sends what you ask it to the provider you chose: the request, the field's text, the skill, case or output beside it, and any picture you attach. A request about a case carries that case's pictures too. The Assistant panel sends the open skill's `SKILL.md` and cases with each message, and the pictures you add to it. Nothing is sent until you ask. The Claude Code and Codex providers run with no tools, so a reply cannot read or change files.
+- Artifacts are served with `Content-Security-Policy: sandbox; script-src 'none'` and shown in a sandboxed iframe, or in their own tab or window under the same header, so agent-written HTML cannot script the app. A bypass is in scope.
+
+### The web server
+
+- `st serve` binds to `127.0.0.1` and has no login of its own. It answers only requests addressed to `localhost`, `127.0.0.1` or `[::1]`. Do not expose it on a network any other way than `--tailscale`.
+- `st serve --tailscale` proxies one HTTPS port on your tailnet name with `tailscale serve`. The server lets a request through only if Tailscale signed it in as the login that owns the machine. Funnel (public) traffic, tagged devices and other tailnet users are refused, and the mapping ends when the server stops. A way around that check is in scope.
+
+### The desktop app
+
+- The renderer runs sandboxed, with context isolation and no Node. It reaches the main process only through the preload bridge, and every IPC message is checked against the sending frame's origin.
+- Pages load from the `studio://` scheme under a Content Security Policy that allows the app's own scripts only. Navigation away from the app, new windows and permission requests are refused; web links open in the default browser.
+- The packaged app runs only the code in its own archive. It cannot be started as plain Node, and it ignores `NODE_OPTIONS` and Node's `--inspect` flags. On macOS and Windows it refuses an archive changed after the build.
+- A way for a page, including an artifact, to reach Node, the file system or an operation it should not is in scope.
+
+### Keys
+
+- The keys the app stores (TypeSafe, Anthropic, OpenAI) are encrypted with Electron's `safeStorage`, whose key the OS keychain holds, and written to the app's user data folder, readable by your user only.
+- The main process and the backend hold them, never the page.
+- A stored Anthropic or OpenAI key reaches the backend under a name of the app's own, so an agent the app starts does not find it in `ANTHROPIC_API_KEY` or `OPENAI_API_KEY`.
+
+### The assistant
+
+- A request goes to the provider you chose with what it is about: your instruction, the field's text, the skill, case or output beside it, and any picture you attach. A request about a case carries that case's pictures too.
+- The Assistant panel sends the open skill's name, description, `SKILL.md`, reference file names and cases with each message, the name of the screen you are on, and the pictures you add.
+- No content is sent until you ask. With a stored Anthropic or OpenAI key, the app asks that provider for its list of models when it opens.
+- The Claude Code provider runs with no tools, so a reply cannot read or change files. The Codex provider runs in a read-only sandbox: it can read files and cannot change them.

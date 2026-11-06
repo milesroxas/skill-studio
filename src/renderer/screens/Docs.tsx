@@ -106,7 +106,7 @@ export function Docs({
         </Text>
         {contents}
         <TocFoot>
-          <TocLink href={`${REPO}#readme`}>Full reference</TocLink>
+          <TocLink href={`${REPO}#documentation`}>Full reference</TocLink>
           <TocLink href={`${REPO}/blob/main/docs/guide.md`}>Edit on GitHub</TocLink>
         </TocFoot>
       </TocNav>

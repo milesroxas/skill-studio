@@ -1,14 +1,14 @@
 # Changelog
 
-What changed in each release of Skill Studio. The app shows this file under Help, What’s New, and each release on GitHub carries its own entry.
+What changed in each release of Skill Studio. The app shows this file under Help, What’s New, and the release workflow publishes each version’s entry as its GitHub release notes.
 
-The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html). Write for the person using the app: what they can do now, or what no longer goes wrong. Keep each change to one line.
+The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
 ### Added
 
-- The app updates itself. It looks for a new version when it opens and every few hours, downloads it in the background, and shows **Restart to update** at the foot of the sidebar when it is ready. One click restarts into the new version. Rest the pointer on the button to read what the update brings.
+- The app updates itself: it looks for a new version when it opens and every few hours, downloads it in the background, and shows **Restart to update** at the foot of the sidebar. Rest the pointer on the button to read what the update brings.
 - **What’s New**, under Help: a window with every release, its date and what changed. It also shows where an update stands and the one step that moves it on.
 - **Check for Updates…** in the app menu on macOS, and under Help on Windows and Linux.
 - Settings, Updates: let the app look for new versions on its own, or only when you ask.
