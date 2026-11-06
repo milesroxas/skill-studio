@@ -2,13 +2,20 @@
  * The windows the app opens, each with a sandboxed renderer, context
  * isolation, no Node, no new windows and no navigation away from the app. The
  * app window remembers its bounds between runs. The welcome is small and fixed,
- * and stands in the middle of the display, as a first-run window does.
+ * and stands in the middle of the display, as a first-run window does. The
+ * changelog is a reading column that stands over the app.
  */
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import type { Theme } from '@domain/preferences.ts'
-import { BrowserWindow, nativeTheme, type Rectangle, screen, shell } from 'electron'
-import { APP_ORIGIN, ARTIFACT_HOST, ARTIFACT_SCHEME, IMAGE_HOST } from '../channels.ts'
+import { app, BrowserWindow, nativeTheme, type Rectangle, screen, shell } from 'electron'
+import {
+  APP_ORIGIN,
+  ARTIFACT_HOST,
+  ARTIFACT_SCHEME,
+  IMAGE_HOST,
+  VERSION_ARGUMENT,
+} from '../channels.ts'
 import { placed } from './launch.ts'
 
 /** The page color in styles.css (--background), so the window never flashes on open. */
@@ -19,6 +26,9 @@ const MIN = { width: 720, height: 480 }
 const WELCOME_SIZE = { width: 760, height: 600 }
 /** On an empty display the welcome stands a little above the middle, where the eye rests. */
 const WELCOME_RISE = 0.42
+/** One column of release notes at a reading width; taller or wider when the reader pulls it. */
+const CHANGELOG_SIZE = { width: 560, height: 680 }
+const CHANGELOG_MIN = { width: 420, height: 360 }
 /** electron-vite writes the preload beside the main bundle, as CommonJS for the sandbox. */
 const PRELOAD = join(import.meta.dirname, '../preload/index.cjs')
 
@@ -65,9 +75,14 @@ export interface WindowOptions {
   boundsFile: string
 }
 
-/** What every window of the app's own page shares: the preload's bridge and nothing else. */
+/**
+ * What every window of the app's own page shares: the preload's bridge and
+ * nothing else. The page is told the version Electron reports, the one the
+ * updater measures every release against.
+ */
 const PAGE_PREFERENCES = {
   preload: PRELOAD,
+  additionalArguments: [`${VERSION_ARGUMENT}${app.getVersion()}`],
   sandbox: true,
   contextIsolation: true,
   nodeIntegration: false,
@@ -109,11 +124,24 @@ export function createWindow({ url, boundsFile }: WindowOptions): BrowserWindow 
   return window
 }
 
-export interface WelcomeOptions {
-  /** The page, on its welcome screen. */
+/** A small window beside the app's own: the welcome, the changelog. */
+export interface CompanionOptions {
+  /** The page, on the window's own screen. */
   url: string
-  /** The app window, when it is open: the welcome stands over it. */
+  /** The app window, when it is open: this one stands over it. */
   over: BrowserWindow | null
+}
+
+/** What a small window stands over, and the display it must stay on: the app's, or the pointer's. */
+function ground(over: BrowserWindow | null): {
+  anchor: Rectangle | undefined
+  workArea: Rectangle
+} {
+  const anchor = over?.getBounds()
+  const display = anchor
+    ? screen.getDisplayMatching(anchor)
+    : screen.getDisplayNearestPoint(screen.getCursorScreenPoint())
+  return { anchor, workArea: display.workArea }
 }
 
 /**
@@ -127,19 +155,16 @@ export interface WelcomeOptions {
  * grows and shrinks with the zoom, and the page always has the room it was
  * drawn for.
  */
-export function createWelcomeWindow({ url, over }: WelcomeOptions): BrowserWindow {
-  const anchor = over?.getBounds()
-  const display = anchor
-    ? screen.getDisplayMatching(anchor)
-    : screen.getDisplayNearestPoint(screen.getCursorScreenPoint())
+export function createWelcomeWindow({ url, over }: CompanionOptions): BrowserWindow {
+  const { anchor, workArea } = ground(over)
   const at = (zoom: number) =>
     placed(
       {
         width: Math.ceil(WELCOME_SIZE.width * zoom),
         height: Math.ceil(WELCOME_SIZE.height * zoom),
       },
-      anchor ?? display.workArea,
-      display.workArea,
+      anchor ?? workArea,
+      workArea,
       anchor ? 0.5 : WELCOME_RISE,
     )
   const window = new BrowserWindow({
@@ -162,6 +187,34 @@ export function createWelcomeWindow({ url, over }: WelcomeOptions): BrowserWindo
     const zoom = window.webContents.getZoomFactor()
     if (zoom !== 1) window.setContentBounds(at(zoom))
   })
+  window.once('ready-to-show', () => window.show())
+  confine(window, url)
+  void window.loadURL(url)
+  return window
+}
+
+/**
+ * The changelog's own window: what changed in each release, and the update in
+ * hand with the one step that installs it. It is a page to read, so it scrolls
+ * and can be resized, and a zoom only makes its text larger. Like the welcome,
+ * it is placed fresh each time and never remembered.
+ */
+export function createChangelogWindow({ url, over }: CompanionOptions): BrowserWindow {
+  const { anchor, workArea } = ground(over)
+  const window = new BrowserWindow({
+    ...placed(CHANGELOG_SIZE, anchor ?? workArea, workArea),
+    minWidth: CHANGELOG_MIN.width,
+    minHeight: CHANGELOG_MIN.height,
+    maximizable: false,
+    fullscreenable: false,
+    show: false,
+    title: 'What’s New',
+    backgroundColor: background(),
+    titleBarStyle: process.platform === 'darwin' ? 'hiddenInset' : 'default',
+    webPreferences: PAGE_PREFERENCES,
+  })
+  // Windows and Linux hang the menu bar on every window; this one has no use for it.
+  if (process.platform !== 'darwin') window.removeMenu()
   window.once('ready-to-show', () => window.show())
   confine(window, url)
   void window.loadURL(url)

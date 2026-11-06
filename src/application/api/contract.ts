@@ -21,6 +21,7 @@ import type {
 } from '@domain/schemas.ts'
 import type { SecretId, Settings } from '@domain/secrets.ts'
 import type { TemplateId } from '@domain/templates.ts'
+import type { UpdateRequest, UpdateState } from '@domain/update.ts'
 import type { Job, Leaderboard, RunView, SkillInfo, SkillVersion, State } from '@domain/views.ts'
 
 /** Operations on one skill name it by path. The client fills this in. */
@@ -210,6 +211,8 @@ export type Reply<T> = { ok: true; value: T } | { ok: false; error: string }
 export interface StudioBridge {
   /** `process.platform` of the host, for platform-specific chrome. */
   platform: string
+  /** The version running, as Electron reports it: the one every release is measured against. */
+  version: string
   call<K extends OperationName>(name: K, input: Input<K>): Promise<Reply<Output<K>>>
   /** Job changes pushed from the backend; returns the unsubscribe. */
   onJobs(listener: (jobs: Job[]) => void): () => void
@@ -227,4 +230,10 @@ export interface StudioBridge {
   openArtifact(url: string): Promise<Reply<null>>
   /** Open an https link in the default browser. */
   openExternal(url: string): Promise<Reply<null>>
+  /** Ask where the app's own updates stand, or for their next step; answered with the state after. */
+  update(request: UpdateRequest): Promise<Reply<UpdateState>>
+  /** The update state after every change to it; returns the unsubscribe. */
+  onUpdate(listener: (state: UpdateState) => void): () => void
+  /** Show what changed in each release, in a window of its own. */
+  openChangelog(): Promise<Reply<null>>
 }

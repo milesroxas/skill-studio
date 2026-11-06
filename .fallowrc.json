@@ -6,6 +6,7 @@
     "src/interfaces/electron/backend/index.ts",
     "src/interfaces/cli/st.ts",
     "scripts/guide-shots/index.ts",
+    "scripts/release-notes.ts",
     "src/renderer/index.html",
     "electron.vite.config.ts",
     "vitest.config.ts"

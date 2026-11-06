@@ -18,6 +18,7 @@ describe('preferencesOf', () => {
       aiProvider: 'claude-code',
       aiModel: 'opus',
       aiEffort: 'high',
+      updates: 'manual',
     }
     expect(preferencesOf(stored)).toEqual(stored)
   })
@@ -46,6 +47,12 @@ describe('preferencesOf', () => {
     expect(read.hintsSeen).toEqual(['edit', 'cases'])
     expect(preferencesOf({ hintsSeen: 'edit' }).hintsSeen).toEqual([])
     expect(preferencesOf({ welcomed: 'yes' }).welcomed).toBe(false)
+  })
+
+  it('looks for updates on its own unless told to wait', () => {
+    expect(preferencesOf({}).updates).toBe('auto')
+    expect(preferencesOf({ updates: 'never' }).updates).toBe('auto')
+    expect(preferencesOf({ updates: 'manual' }).updates).toBe('manual')
   })
 
   it('drops unknown values and fields', () => {

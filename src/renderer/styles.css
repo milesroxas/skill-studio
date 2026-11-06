@@ -415,6 +415,24 @@
   .doc[data-density="compact"] :is(h1, h2, h3, h4) {
     @apply mt-4 mb-1.5 text-sm first:mt-0;
   }
+  /*
+   * A release's notes. The version above them is the heading, so Added, Changed
+   * and Fixed are small labels. The bullets hang in the margin: every change
+   * starts on the column's edge, under the version.
+   */
+  .doc[data-density="notes"] {
+    @apply max-w-none p-0 text-sm leading-[1.55];
+  }
+  .doc[data-density="notes"] :is(h1, h2, h3, h4) {
+    @apply mt-4 mb-1.5 text-xs font-medium text-muted-foreground first:mt-0;
+  }
+  .doc[data-density="notes"] :is(p, ul, ol, blockquote, pre, table, .aside) {
+    @apply mb-2.5 last:mb-0;
+  }
+  /* No heavier than `.doc :is(ul, ol)`: it wins by coming later. */
+  .doc:where([data-density="notes"]) :is(ul, ol) {
+    @apply space-y-1.5 pl-0 marker:text-muted-foreground/70;
+  }
 
   /* A word diff of two answers. */
   .diff {

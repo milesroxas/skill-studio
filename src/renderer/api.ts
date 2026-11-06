@@ -72,6 +72,8 @@ export const api = {
   openWelcome: transport.openWelcome,
   /** Leave the welcome's window for the app. */
   enterApp: transport.enterApp,
+  /** The desktop app's own updates; undefined in a browser. */
+  updates: transport.updates,
   settings: () => call('settings.read', {}),
   /** Store a key in the host's keychain; an empty value removes the stored one. */
   setKey: (id: SecretId, value: string) => call('settings.key', { id, value }),

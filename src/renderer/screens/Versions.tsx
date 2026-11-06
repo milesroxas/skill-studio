@@ -127,9 +127,9 @@ export function Versions({ ctx }: { ctx: Ctx }) {
         go('versions', {}, { replace: true })
       await reload()
       // When it was the files' version, the Save form that appears says the files stayed.
-      toast(`Deleted ${v.version}${gone.runs ? ` and its ${plural(gone.runs, 'run')}` : ''}`, () =>
-        undelete(gone.undo),
-      )
+      toast(`Deleted ${v.version}${gone.runs ? ` and its ${plural(gone.runs, 'run')}` : ''}`, {
+        undo: () => undelete(gone.undo),
+      })
     } catch (e) {
       focusAfter.current = null
       toast((e as Error).message)

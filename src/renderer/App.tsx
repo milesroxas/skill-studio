@@ -40,6 +40,7 @@ import {
 import { SkillSwitcher } from './components/SkillSwitcher.tsx'
 import { Toast } from './components/Toast.tsx'
 import { Heading, Text } from './components/text.tsx'
+import { UpdateControl } from './components/Update.tsx'
 import { Badge } from './components/ui/badge.tsx'
 import { Button } from './components/ui/button.tsx'
 import { Popover, PopoverContent, PopoverTrigger } from './components/ui/popover.tsx'
@@ -65,6 +66,7 @@ import { Overview } from './screens/Overview.tsx'
 import { Transcript } from './screens/Transcript.tsx'
 import { Versions } from './screens/Versions.tsx'
 import { Welcome } from './screens/Welcome.tsx'
+import { useUpdateNotices, useUpdateStep } from './updates.ts'
 
 /** The guide, settings and the file editor (CodeMirror, about 110 KB gzipped) load only when opened. */
 const Docs = lazy(() => import('./screens/Docs.tsx').then((m) => ({ default: m.Docs })))
@@ -112,6 +114,8 @@ export function App() {
   const [confirm, confirmDialog] = useConfirm()
   const [assistant, setAssistant] = useAssistant()
   const preferences = usePreferences()
+  // An update that finishes downloading, or was just installed, says so once.
+  useUpdateNotices(toast, useUpdateStep(confirm, toast))
 
   const reload = useCallback(async () => {
     if (!currentSkill()) return
@@ -323,7 +327,7 @@ export function App() {
       {practice ? (
         <PracticeGuide guide={practice} onGo={go} onNew={() => go('library', { new: '1' })} />
       ) : null}
-      <SidebarFooter>
+      <SidebarFooter lead={<UpdateControl confirm={confirm} toast={toast} />}>
         <JobsIndicator jobs={jobs} />
         {APP_PLACES.map((p) => (
           <NavItem

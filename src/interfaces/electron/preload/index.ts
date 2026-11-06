@@ -5,9 +5,10 @@
  */
 import type { StudioBridge } from '@application/api/contract.ts'
 import type { AiRun } from '@domain/ai.ts'
+import type { UpdateState } from '@domain/update.ts'
 import type { Job } from '@domain/views.ts'
 import { contextBridge, ipcRenderer } from 'electron'
-import { CHANNELS } from '../channels.ts'
+import { CHANNELS, VERSION_ARGUMENT } from '../channels.ts'
 
 /** Listen on a channel the main process pushes to; the listener never sees the IPC event. */
 const subscribe =
@@ -20,8 +21,14 @@ const subscribe =
     }
   }
 
+const version =
+  process.argv
+    .find((argument) => argument.startsWith(VERSION_ARGUMENT))
+    ?.slice(VERSION_ARGUMENT.length) ?? ''
+
 const bridge: StudioBridge = {
   platform: process.platform,
+  version,
   call: (name, input) => ipcRenderer.invoke(CHANNELS.call, name, input),
   onJobs: subscribe<Job[]>(CHANNELS.jobs),
   onAi: subscribe<AiRun>(CHANNELS.ai),
@@ -31,6 +38,9 @@ const bridge: StudioBridge = {
   enterApp: (skill) => ipcRenderer.invoke(CHANNELS.enterApp, skill),
   openArtifact: (url) => ipcRenderer.invoke(CHANNELS.openArtifact, url),
   openExternal: (url) => ipcRenderer.invoke(CHANNELS.openExternal, url),
+  update: (request) => ipcRenderer.invoke(CHANNELS.update, request),
+  onUpdate: subscribe<UpdateState>(CHANNELS.updateState),
+  openChangelog: () => ipcRenderer.invoke(CHANNELS.openChangelog),
 }
 
 contextBridge.exposeInMainWorld('studio', bridge)

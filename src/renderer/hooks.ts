@@ -43,20 +43,26 @@ export function useToggleSet<T>(initial: Iterable<T>): [Set<T>, (value: T) => vo
   return [set, toggle]
 }
 
-export interface ToastState {
-  message: string
+/** What a toast offers beside its message. One at most: a toast is one line. */
+export interface ToastOffer {
   /** Takes back the step the message reports. The toast then offers Undo. */
   undo?: () => void
+  /** One step that follows from the message, such as opening what it announces. */
+  action?: { label: string; run: () => void }
 }
 
-export type ShowToast = (message: string, undo?: () => void) => void
+export interface ToastState extends ToastOffer {
+  message: string
+}
 
-/** With Undo on offer, long enough to notice the slip and reach for it. */
-const UNDO_MS = 7000
+export type ShowToast = (message: string, offer?: ToastOffer) => void
+
+/** With a button on offer, long enough to notice it and reach for it. */
+const OFFER_MS = 7000
 
 /** Long enough to read: a floor for short lines, then about 200 words a minute. */
-const toastMs = ({ message, undo }: ToastState): number =>
-  Math.max(undo ? UNDO_MS : 2600, message.split(/\s+/).length * 300 + 1000)
+const toastMs = ({ message, undo, action }: ToastState): number =>
+  Math.max(undo || action ? OFFER_MS : 2600, message.split(/\s+/).length * 300 + 1000)
 
 /** The toast in view, a way to show one, and a way to put it away early. */
 export function useToast(): [ToastState | null, ShowToast, () => void] {
@@ -66,7 +72,7 @@ export function useToast(): [ToastState | null, ShowToast, () => void] {
     const timer = setTimeout(() => setToast(null), toastMs(toast))
     return () => clearTimeout(timer)
   }, [toast])
-  const show = useCallback<ShowToast>((message, undo) => setToast({ message, undo }), [])
+  const show = useCallback<ShowToast>((message, offer) => setToast({ message, ...offer }), [])
   const dismiss = useCallback(() => setToast(null), [])
   return [toast, show, dismiss]
 }

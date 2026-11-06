@@ -6,6 +6,9 @@ out/
 .vite/
 coverage/
 
+# One release's notes, written from CHANGELOG.md when a release is packaged
+build/release-notes.md
+
 # Secrets: only the example is committed
 .env
 .env.*

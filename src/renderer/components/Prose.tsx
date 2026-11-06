@@ -6,8 +6,12 @@ export function Prose({
   density = 'reading',
 }: {
   text: string
-  /** `reading`: a column to read at length. `compact`: a narrow column, with no padding of its own. */
-  density?: 'reading' | 'compact'
+  /**
+   * `reading`: a column to read at length. `compact`: a narrow column, with no
+   * padding of its own. `notes`: a release's changes, one to a line under small
+   * labels, with the bullets hung in the margin.
+   */
+  density?: 'reading' | 'compact' | 'notes'
 }) {
   return (
     <div

@@ -59,12 +59,16 @@ A change to how a screen looks or reads needs the guide checked in the same pull
 
 ## Releasing
 
-A release is a `v*` tag on `main`. The `release` workflow runs the checks, packages the app for macOS (arm64 and x64, signed and notarized), Windows and Linux, and publishes one GitHub release with generated notes. A version with a suffix, such as `1.2.0-beta.1`, is published as a prerelease.
+A release is a `v*` tag on `main`. The `release` workflow runs the checks, packages the app for macOS (arm64 and x64, signed and notarized), Windows and Linux, and publishes one GitHub release. A version with a suffix, such as `1.2.0-beta.1`, is published as a prerelease.
+
+Every release needs an entry in [CHANGELOG.md](CHANGELOG.md), and the workflow refuses a version without one. Add changes under `## [Unreleased]` as they land, one line each, written for the person using the app. To release, rename that heading to the version and the day, `## [1.2.0] - 2026-11-05`, start a new `## [Unreleased]` above it, and commit. That entry is the release's notes in three places: the What's New window in the app, the GitHub release, and the update files (`latest*.yml`), where a running copy reads what an update brings before it is installed.
 
 ```
 pnpm version patch -m "Release %s"    # or minor, major, or an exact version; commits and tags vX.Y.Z
 git push --follow-tags
 ```
+
+`pnpm exec tsx scripts/release-notes.ts` prints the entry the workflow will use for the version in `package.json`.
 
 To release the version already in `package.json`, tag it by hand: `git tag -a v0.1.0 -m "Release 0.1.0"`, then `git push origin v0.1.0`. The workflow refuses a tag that does not match `package.json` or is not on `main`.
 
@@ -92,6 +96,23 @@ gh secret set APPLE_API_ISSUER --env release
 A release is permanent. The repository refuses to move or delete a `v*` tag, and a published release and its files cannot be changed. When a release run fails for a reason outside the code, run its failed jobs again; otherwise fix the code and release the next patch version.
 
 [SECURITY.md](SECURITY.md#checking-a-download) says what is signed and how a download is checked.
+
+### Updates
+
+A packaged copy updates itself from these releases through [electron-updater](https://www.electron.build/auto-update). It reads the release's `latest*.yml`, so those files and the `.zip` (macOS), `.exe` (Windows) and `.AppImage` (Linux) must stay in every release under the names electron-builder gave them. A copy on a prerelease version follows prereleases and stable releases; a copy on a stable version follows stable releases only.
+
+The updater lives in `src/interfaces/electron/main/updater.ts`, and the state every window shows is worked out in `src/domain/update.ts`. Both are tested without Electron. A development build does not update itself: its windows show the updater as unsupported.
+
+To see the real thing, package a copy under an older version and open it. It finds the newest release on GitHub and downloads it for real.
+
+```
+pnpm build
+pnpm exec electron-builder --mac zip --arm64 --publish never -c.extraMetadata.version=0.1.0-beta.1
+codesign --force --deep --sign - "dist/mac-arm64/Skill Studio.app"    # Apple silicon starts no unsigned app
+open "dist/mac-arm64/Skill Studio.app"
+```
+
+Give it a prerelease version while every release is a prerelease: a stable version looks for stable releases only. Everything up to **Restart to update** is real. The restart itself is the one step this does not prove: macOS installs an update only over a copy signed by the same Developer ID, so only a released copy can show it.
 
 The app icon is drawn in `build/icon-src/`: `mac.svg` becomes `build/icon.icns`, and `tile.svg` becomes `build/icon.ico` and `build/icon.png`. The two `-small` drawings carry a larger mark for the 16 to 32 px sizes. Export all three files again when the mark changes.
 

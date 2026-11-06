@@ -36,6 +36,17 @@ export function useCountUp(
   return value
 }
 
+/**
+ * Whether what `key` names arrived after the view opened. What is there when a
+ * view opens is at rest and plays no entrance; only a change someone can watch
+ * does. True from the first change on.
+ */
+export function useArrived(key: string): boolean {
+  const [seen, setSeen] = useState({ key, arrived: false })
+  if (key !== seen.key) setSeen({ key, arrived: true })
+  return seen.arrived
+}
+
 /** How long a view takes to leave before the next one comes in: quicker than any arrival. */
 const LEAVE_MS = 140
 

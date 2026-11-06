@@ -72,8 +72,23 @@ export function SidebarBody({ className, ...props }: ComponentProps<'div'>) {
   )
 }
 
-export function SidebarFooter({ className, ...props }: ComponentProps<'div'>) {
-  return <div className={cn('flex flex-col gap-0.5 border-t px-2 py-2', className)} {...props} />
+/**
+ * The foot of the sidebar: the app's own places under one rule. `lead` stands
+ * above them inside the same rule, for something of the app's that comes and
+ * goes, such as its update. It brings its own top and side padding.
+ */
+export function SidebarFooter({
+  lead,
+  className,
+  children,
+  ...props
+}: ComponentProps<'div'> & { lead?: ReactNode }) {
+  return (
+    <div className={cn('shrink-0 border-t', className)} {...props}>
+      {lead}
+      <div className="flex flex-col gap-0.5 px-2 py-2">{children}</div>
+    </div>
+  )
 }
 
 /** A labelled group of nav items. */

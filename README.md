@@ -12,7 +12,7 @@ New here? [docs/guide.md](docs/guide.md) walks one skill through the whole loop,
 
 Needs:
 
-- Node 24 and pnpm, to build and to use the CLI. The packaged app needs neither: Electron carries its own Node. Each [release](https://github.com/milesroxas/skill-studio/releases) carries it for macOS, Windows and Linux.
+- Node 24 and pnpm, to build and to use the CLI. The packaged app needs neither: Electron carries its own Node. Each [release](https://github.com/milesroxas/skill-studio/releases) carries it for macOS, Windows and Linux. The packaged app keeps itself up to date: it downloads a new release in the background and shows **Restart to update** at the foot of the sidebar. Help, What's New lists what changed in each release ([CHANGELOG.md](CHANGELOG.md)).
 - A [TypeSafe](https://typesafe.ai) API key. Jev is the judge for every pack, so grading needs it. Add it under Settings in the app, which keeps it in the system keychain, or set `TYPESAFE_API_KEY` in the environment (a `.env` in the checkout works for development). Without it grading runs code checks only and leaves every judged layer null.
 - The `claude` or `cursor-agent` CLI on your `PATH`, signed in, to generate outputs.
 - Optional, to write with AI: an Anthropic or OpenAI API key (added under Settings, or `ANTHROPIC_API_KEY` / `OPENAI_API_KEY` in the environment), or the `claude` or `codex` CLI signed in to your plan.

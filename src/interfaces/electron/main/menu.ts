@@ -1,5 +1,9 @@
-/** The application menu: the standard roles, Back and Forward, and the app's own help. Set before `ready`. */
+/**
+ * The application menu: the standard roles, Back and Forward, the app's own
+ * help, and the way to its updates where each platform keeps it. Set before `ready`.
+ */
 import {
+  app,
   type BaseWindow,
   BrowserWindow,
   Menu,
@@ -7,6 +11,7 @@ import {
   type NavigationHistory,
   shell,
 } from 'electron'
+import type { Updater } from './updater.ts'
 import type { Windows } from './windows.ts'
 
 const DOCS_URL = 'https://github.com/milesroxas/skill-studio/blob/main/docs/guide.md'
@@ -23,10 +28,34 @@ const step = (window: BaseWindow | undefined, offset: -1 | 1): void => {
   if (history.canGoToOffset(offset)) history.goToOffset(offset)
 }
 
-export function installMenu(windows: Windows): void {
+export function installMenu(windows: Windows, updater: Updater): void {
   const mac = process.platform === 'darwin'
+  /** The changelog window shows the check as it runs and what it finds. */
+  const checkForUpdates: MenuItemConstructorOptions = {
+    label: 'Check for Updates…',
+    click: () => {
+      windows.openChangelog()
+      updater.check(true)
+    },
+  }
+  /** The standard app menu, with the check under About, where a Mac app keeps it. */
+  const appMenu: MenuItemConstructorOptions = {
+    label: app.name,
+    submenu: [
+      { role: 'about' },
+      checkForUpdates,
+      { type: 'separator' },
+      { role: 'services' },
+      { type: 'separator' },
+      { role: 'hide' },
+      { role: 'hideOthers' },
+      { role: 'unhide' },
+      { type: 'separator' },
+      { role: 'quit' },
+    ],
+  }
   const template: MenuItemConstructorOptions[] = [
-    ...(mac ? [{ role: 'appMenu' as const }] : []),
+    ...(mac ? [appMenu] : []),
     { role: 'fileMenu' },
     { role: 'editMenu' },
     {
@@ -59,6 +88,8 @@ export function installMenu(windows: Windows): void {
       submenu: [
         { label: 'How Skill Studio Works', click: () => windows.openWelcome() },
         { label: 'Guide', click: () => void windows.openApp({ screen: 'docs' }) },
+        { label: 'What’s New', click: () => windows.openChangelog() },
+        ...(mac ? [] : [checkForUpdates]),
         { type: 'separator' },
         { label: 'Guide on GitHub', click: () => void shell.openExternal(DOCS_URL) },
       ],

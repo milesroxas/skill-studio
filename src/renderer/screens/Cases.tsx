@@ -170,13 +170,15 @@ export function Cases({ ctx }: { ctx: Ctx }) {
     set({ graders })
     setFocusCheck(focus === 'previous' ? Math.max(i - 1, 0) : Math.min(i, graders.length - 1))
     if (!removed?.statement.trim()) return
-    toast(`Removed check ${i + 1}`, () => {
-      // Only into the case it came from; elsewhere the offer has passed.
-      const now = live.current
-      if (now.key !== key) return
-      const back = [...now.draft.graders]
-      back.splice(i, 0, removed)
-      now.setDraft({ ...now.draft, graders: back })
+    toast(`Removed check ${i + 1}`, {
+      undo: () => {
+        // Only into the case it came from; elsewhere the offer has passed.
+        const now = live.current
+        if (now.key !== key) return
+        const back = [...now.draft.graders]
+        back.splice(i, 0, removed)
+        now.setDraft({ ...now.draft, graders: back })
+      },
     })
   }
   /**

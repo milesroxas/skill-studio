@@ -1,13 +1,21 @@
 /**
  * Settings. Yours first: how the app looks and moves, how the editor opens
- * Markdown, how much the app explains itself, and the model the assistant
- * writes with, stored with your preferences and applied at once. Then the app's connections: Anthropic and
+ * Markdown, how much the app explains itself, whether it looks for its own
+ * updates, and the model the assistant writes with, stored with your
+ * preferences and applied at once. Then the app's connections: Anthropic and
  * OpenAI, each by a key or by the CLI you are signed in to, and the TypeSafe
  * key Jev grades with. The desktop app keeps keys in the system keychain; a
  * key in the environment always wins and shows as such.
  */
 import { AI_PROVIDERS, type AiProviderId, type AiProviderInfo } from '@domain/ai.ts'
-import type { EditorMode, Hints, Motion, Preferences, Theme } from '@domain/preferences.ts'
+import type {
+  EditorMode,
+  Hints,
+  Motion,
+  Preferences,
+  Theme,
+  UpdateMode,
+} from '@domain/preferences.ts'
 import { SECRETS, type SecretId, type Settings } from '@domain/secrets.ts'
 import { MonitorIcon, MoonIcon, SunIcon } from 'lucide-react'
 import { type ReactNode, useId, useState } from 'react'
@@ -23,6 +31,7 @@ import { Input } from '../components/ui/input.tsx'
 import { Label } from '../components/ui/label.tsx'
 import { useFetch } from '../hooks.ts'
 import { setPreferences, usePreferences } from '../preferences.ts'
+import { APP_VERSION, checkForUpdates } from '../updates.ts'
 
 interface Props {
   toast: (message: string) => void
@@ -76,11 +85,22 @@ const HINTS = [
   { value: 'hide', label: 'Hide' },
 ] as const satisfies ReadonlyArray<{ value: Hints; label: string }>
 
+const UPDATE_MODES = [
+  { value: 'auto', label: 'Automatically' },
+  { value: 'manual', label: 'When I ask' },
+] as const satisfies ReadonlyArray<{ value: UpdateMode; label: string }>
+
 export function SettingsScreen({ toast, onSaved, onWelcome }: Props) {
   const preferences = usePreferences()
   const settings = useFetch(() => api.settings(), [])
   const { providers, choice } = useAi()
-  const ids = { theme: useId(), motion: useId(), editor: useId(), hints: useId() }
+  const ids = {
+    theme: useId(),
+    motion: useId(),
+    editor: useId(),
+    hints: useId(),
+    updates: useId(),
+  }
   const choose = (patch: Partial<Preferences>) =>
     setPreferences(patch).catch((e: Error) => toast(`Not saved: ${e.message}`))
 
@@ -189,6 +209,31 @@ export function SettingsScreen({ toast, onSaved, onWelcome }: Props) {
           </Button>
         </Toolbar>
       </FormSection>
+
+      {/* A browser has no app to update: `st serve` moves with the checkout it runs from. */}
+      {api.updates ? (
+        <FormSection title="Updates" hint={`You have Skill Studio ${APP_VERSION}.`}>
+          <Field>
+            <Label id={ids.updates}>Look for new versions</Label>
+            <Segmented<UpdateMode>
+              aria-labelledby={ids.updates}
+              value={preferences.updates}
+              onChange={(updates) => updates && choose({ updates })}
+              options={UPDATE_MODES}
+            />
+            <Hint>
+              Automatically asks GitHub for the newest release when the app opens and every few
+              hours, and downloads it in the background. You choose when to restart. Nothing about
+              you or your skills is sent.
+            </Hint>
+          </Field>
+          <Toolbar>
+            <Button type="button" variant="outline" onClick={checkForUpdates}>
+              Check for updates
+            </Button>
+          </Toolbar>
+        </FormSection>
+      ) : null}
 
       <FormSection
         title="Assistant"

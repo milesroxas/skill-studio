@@ -1,7 +1,8 @@
 /**
  * One line of feedback at the foot of the window, gone after a moment. When
  * the step it reports can be taken back, it offers Undo, and the Undo shortcut
- * takes the offer while it stands.
+ * takes the offer while it stands. A toast that announces something can offer
+ * the one step that follows instead.
  */
 import { useEffect, useState } from 'react'
 import type { ToastState } from '../hooks.ts'
@@ -18,6 +19,11 @@ export function Toast({ toast, onDismiss }: { toast: ToastState | null; onDismis
   const [shown, setShown] = useState(toast)
   if (toast && toast !== shown) setShown(toast)
   const undo = toast?.undo
+  const offer = shown?.undo
+    ? { label: 'Undo', title: `Undo (${shortcut('Z')})`, run: shown.undo }
+    : shown?.action
+      ? { ...shown.action, title: undefined }
+      : null
 
   useEffect(() => {
     if (!undo) return
@@ -41,21 +47,21 @@ export function Toast({ toast, onDismiss }: { toast: ToastState | null; onDismis
         toast ? 'translate-y-0 opacity-100' : 'pointer-events-none translate-y-3 opacity-0',
         // Without a button the pill is only read, so clicks pass through it. With
         // one, the button sits 4px inside the pill's end, its curve inside the pill's.
-        shown?.undo ? 'py-1 pr-1' : 'pointer-events-none',
+        offer ? 'py-1 pr-1' : 'pointer-events-none',
       )}
     >
       <span className="min-w-0">{shown?.message}</span>
-      {shown?.undo ? (
+      {offer ? (
         <button
           type="button"
-          title={`Undo (${shortcut('Z')})`}
+          title={offer.title}
           className="h-7 shrink-0 rounded-full bg-primary-foreground/15 px-3 font-medium outline-none transition-[background-color,scale] duration-150 ease-out hover:bg-primary-foreground/25 focus-visible:ring-2 focus-visible:ring-primary-foreground/70 active:scale-[0.96]"
           onClick={() => {
-            shown.undo?.()
+            offer.run()
             onDismiss()
           }}
         >
-          Undo
+          {offer.label}
         </button>
       ) : null}
     </div>

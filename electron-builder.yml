@@ -23,8 +23,14 @@ electronFuses:
   enableEmbeddedAsarIntegrityValidation: true
   onlyLoadAppFromAsar: true
   grantFileProtocolExtraPrivileges: false
-# Names the release the update files (latest*.yml) point at. Nothing uploads from
-# here: the release workflow builds with `--publish never` and publishes once.
+# Names the release the update files (latest*.yml) point at, and the release a
+# running copy asks for its updates (app-update.yml, written into the package).
+# Nothing uploads from here: the release workflow builds with `--publish never`
+# and publishes once.
+#
+# When build/release-notes.md exists, electron-builder writes it into the update
+# files by that name, and a running copy shows it as what the update brings. The
+# release workflow writes the file from CHANGELOG.md; a local `pnpm dist` has none.
 publish:
   provider: github
   owner: milesroxas

@@ -1,7 +1,8 @@
 /**
  * How one person likes the app: its theme, its motion, how the editor opens
- * Markdown, the model the assistant writes with, and how much of the app's
- * first-visit help they have seen. Every host keeps them in one file; anything
+ * Markdown, the model the assistant writes with, how much of the app's
+ * first-visit help they have seen, and whether the desktop app looks for its
+ * own updates. Every host keeps them in one file; anything
  * missing or unknown in it falls back to the default, so an old or hand-edited
  * file always reads.
  */
@@ -22,6 +23,10 @@ export type EditorMode = (typeof EDITOR_MODES)[number]
 const HINTS = ['show', 'hide'] as const
 export type Hints = (typeof HINTS)[number]
 
+/** `auto` looks for a new version on its own and downloads it; `manual` waits to be asked. */
+const UPDATE_MODES = ['auto', 'manual'] as const
+export type UpdateMode = (typeof UPDATE_MODES)[number]
+
 export interface Preferences {
   theme: Theme
   motion: Motion
@@ -36,6 +41,7 @@ export interface Preferences {
   aiModel: string
   /** Empty for the model's own default. */
   aiEffort: string
+  updates: UpdateMode
 }
 
 export const DEFAULT_PREFERENCES: Preferences = {
@@ -48,6 +54,7 @@ export const DEFAULT_PREFERENCES: Preferences = {
   aiProvider: '',
   aiModel: '',
   aiEffort: '',
+  updates: 'auto',
 }
 
 const MODEL_ID_MAX = 200
@@ -81,6 +88,7 @@ export function preferencesOf(raw: unknown): Preferences {
     aiProvider: pick(value.aiProvider, AI_PROVIDER_IDS, DEFAULT_PREFERENCES.aiProvider),
     aiModel: typeof value.aiModel === 'string' ? value.aiModel.slice(0, MODEL_ID_MAX) : '',
     aiEffort: pick(value.aiEffort, EFFORTS, DEFAULT_PREFERENCES.aiEffort),
+    updates: pick(value.updates, UPDATE_MODES, DEFAULT_PREFERENCES.updates),
   }
 }
 

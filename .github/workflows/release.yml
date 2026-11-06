@@ -3,6 +3,10 @@ name: release
 # A `v*` tag builds every platform, signs and notarizes the Mac app, and
 # publishes one GitHub release. A manual run is a rehearsal: it builds and
 # keeps the files as workflow artifacts, and publishes nothing.
+#
+# The version's entry in CHANGELOG.md is read once and used twice: it goes into
+# the update files, where a running copy reads what an update brings, and into
+# the release on GitHub.
 on:
   push:
     tags: ["v*"]
@@ -21,9 +25,10 @@ jobs:
 
   version:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 10
     outputs:
       version: ${{ steps.read.outputs.version }}
+      notes: ${{ steps.notes.outputs.notes }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -43,6 +48,22 @@ jobs:
             echo "::error::Tag $GITHUB_REF_NAME is not on main."
             exit 1
           fi
+      - uses: pnpm/setup@fa36a5ef7dcdefc3a7cb25655c122e00cf6e636e # v3.1.2
+        with:
+          require-lockfile: true
+      - id: notes
+        name: Read the version's changelog entry, and hold a release to having one
+        env:
+          VERSION: ${{ steps.read.outputs.version }}
+        run: |
+          pnpm exec tsx scripts/release-notes.ts "$VERSION" > "$RUNNER_TEMP/notes.md"
+          # A delimiter no line of the notes can match, so nothing ends the value early.
+          delimiter="notes-$(openssl rand -hex 16)"
+          {
+            echo "notes<<$delimiter"
+            cat "$RUNNER_TEMP/notes.md"
+            echo "$delimiter"
+          } >> "$GITHUB_OUTPUT"
 
   mac:
     needs: version
@@ -66,6 +87,11 @@ jobs:
         with:
           require-lockfile: true
       - run: pnpm build
+      # electron-builder writes this file into latest-mac.yml, where a running copy reads it.
+      - name: Write the notes the update files carry
+        env:
+          NOTES: ${{ needs.version.outputs.notes }}
+        run: printf '%s\n' "$NOTES" > build/release-notes.md
       - name: Package, sign and notarize
         if: env.SIGNED == 'true'
         env:
@@ -123,6 +149,12 @@ jobs:
         with:
           require-lockfile: true
       - run: pnpm build
+      # electron-builder writes this file into latest.yml and latest-linux.yml.
+      - name: Write the notes the update files carry
+        shell: bash
+        env:
+          NOTES: ${{ needs.version.outputs.notes }}
+        run: printf '%s\n' "$NOTES" > build/release-notes.md
       - run: pnpm exec electron-builder "$TARGET" --x64 --publish never
         shell: bash
         env:
@@ -165,6 +197,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           VERSION: ${{ needs.version.outputs.version }}
+          NOTES: ${{ needs.version.outputs.notes }}
           BUNDLE: ${{ steps.attest.outputs.bundle-path }}
         run: |
           # The provenance travels with the release, so a download can be checked offline.
@@ -176,9 +209,11 @@ jobs:
           # 1.2.0-beta.1 and the like are prereleases, and never "latest".
           flags=()
           case "$VERSION" in *-*) flags+=(--prerelease) ;; esac
+          # The changelog entry leads; GitHub's own list of commits and its compare link follow.
           gh release create "$GITHUB_REF_NAME" dist/* \
             --repo "$GITHUB_REPOSITORY" \
             --verify-tag \
             --title "Skill Studio $VERSION" \
+            --notes "$NOTES" \
             --generate-notes \
             "${flags[@]}"

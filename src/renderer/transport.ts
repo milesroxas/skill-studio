@@ -13,6 +13,7 @@ import type {
   StudioBridge,
 } from '@application/api/contract.ts'
 import type { AiRun } from '@domain/ai.ts'
+import type { UpdateRequest, UpdateState } from '@domain/update.ts'
 import type { Job } from '@domain/views.ts'
 
 declare global {
@@ -20,6 +21,18 @@ declare global {
     /** Present only inside the desktop app; the preload defines it. */
     studio?: StudioBridge
   }
+}
+
+/** The desktop app's own updates, as a window reaches them. */
+export interface UpdateHost {
+  /** The version running, which every release is measured against. */
+  version: string
+  /** Ask where the updates stand, or for their next step; resolves to the state after. */
+  request(request: UpdateRequest): Promise<UpdateState>
+  /** Be told the state after every change; returns the unsubscribe. */
+  watch(listener: (state: UpdateState) => void): () => void
+  /** Show what changed in each release, in a window of its own. */
+  openChangelog(): void
 }
 
 export interface Transport {
@@ -44,6 +57,8 @@ export interface Transport {
   openWelcome?: () => void
   /** Leave the welcome's window for the app, on a skill when one is named. */
   enterApp?: (skill: string | null) => void
+  /** Undefined in a browser: `st serve` is updated with the checkout it runs from. */
+  updates?: UpdateHost
   platform: string
 }
 
@@ -68,6 +83,12 @@ function desktop(bridge: StudioBridge): Transport {
     watchOpen: (listener) => bridge.onOpen(listener),
     openWelcome: () => void bridge.openWelcome().then(unwrap),
     enterApp: (skill) => void bridge.enterApp(skill).then(unwrap),
+    updates: {
+      version: bridge.version,
+      request: (request) => bridge.update(request).then(unwrap),
+      watch: (listener) => bridge.onUpdate(listener),
+      openChangelog: () => void bridge.openChangelog().then(unwrap),
+    },
     platform: bridge.platform,
   }
 }

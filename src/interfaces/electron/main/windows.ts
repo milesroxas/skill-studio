@@ -2,17 +2,21 @@
  * Which windows are open. A first launch shows the welcome alone, in its own
  * small window; the app opens when the reader skips it, finishes it or closes
  * it. From then on a launch opens the app, and the welcome comes back beside
- * it whenever it is asked for.
+ * it whenever it is asked for. The changelog is a third window, opened from
+ * the menu or the app and closed when it has been read.
  */
 import { readPreferences } from '@infrastructure/preferences.ts'
 import { app, type BrowserWindow } from 'electron'
 import { CHANNELS, PUSH_TOPICS } from '../channels.ts'
 import type { Backend } from './backend.ts'
 import { pageUrl, type Target } from './launch.ts'
-import { createWelcomeWindow, createWindow } from './window.ts'
+import { createChangelogWindow, createWelcomeWindow, createWindow } from './window.ts'
 
 export interface Windows {
-  /** What a launch shows: the welcome the first time, the app ever after. */
+  /**
+   * What a launch shows: the welcome the first time, the app ever after. Does
+   * nothing when one of the two is already open.
+   */
   launch(): void
   /** Open the app, or bring it forward, on a skill or a screen when one is named. */
   openApp(target?: Target): BrowserWindow
@@ -20,8 +24,17 @@ export interface Windows {
   openWelcome(): void
   /** Leave the welcome for the app: the welcome closes once the app is in view. */
   enterApp(target?: Target): void
-  /** Bring forward whichever window is open. */
+  /** Show what changed in each release, or bring that window forward. */
+  openChangelog(): void
+  /** Bring the app forward, or the welcome standing in for it; open one when neither is. */
   focus(): void
+  /** Send a message to every window that shows the app's own page. */
+  tell(channel: string, value: unknown): void
+  /**
+   * The app is closing its windows to install an update, or no longer is. While
+   * it is, a closing welcome opens nothing in its place.
+   */
+  expectQuit(expected: boolean): void
 }
 
 export interface WindowsOptions {
@@ -40,7 +53,10 @@ const raise = (window: BrowserWindow): void => {
 export function createWindows({ url, boundsFile, backend }: WindowsOptions): Windows {
   let appWindow: BrowserWindow | null = null
   let welcomeWindow: BrowserWindow | null = null
+  let changelogWindow: BrowserWindow | null = null
   let quitting = false
+  // An update's restart closes every window before the app hears `before-quit`.
+  let installing = false
   app.on('before-quit', () => {
     quitting = true
   })
@@ -81,17 +97,40 @@ export function createWindows({ url, boundsFile, backend }: WindowsOptions): Win
     // Closing the welcome is one more way to skip it: the app opens in its place.
     // It opens before the welcome is gone, so the app is never left with no window.
     window.on('close', () => {
-      if (!quitting && !appWindow) openApp()
+      if (!quitting && !installing && !appWindow) openApp()
     })
     window.on('closed', () => {
       welcomeWindow = null
     })
   }
 
+  const openChangelog = (): void => {
+    if (changelogWindow) {
+      raise(changelogWindow)
+      return
+    }
+    const window = createChangelogWindow({
+      url: pageUrl(url, { screen: 'changelog' }),
+      over: appWindow,
+    })
+    changelogWindow = window
+    window.on('closed', () => {
+      changelogWindow = null
+    })
+  }
+
+  // The changelog is no place to work from: with it alone left open, a launch still opens the app.
+  const launch = (): void => {
+    if (appWindow || welcomeWindow) return
+    if (readPreferences().welcomed) openApp()
+    else openWelcome()
+  }
+
   return {
-    launch: () => (readPreferences().welcomed ? void openApp() : openWelcome()),
+    launch,
     openApp,
     openWelcome,
+    openChangelog,
     enterApp: (target) => {
       const window = openApp(target)
       const leave = () => welcomeWindow?.close()
@@ -102,6 +141,14 @@ export function createWindows({ url, boundsFile, backend }: WindowsOptions): Win
     focus: () => {
       const window = appWindow ?? welcomeWindow
       if (window) raise(window)
+      else launch()
+    },
+    tell: (channel, value) => {
+      for (const window of [appWindow, welcomeWindow, changelogWindow])
+        if (window && !window.isDestroyed()) window.webContents.send(channel, value)
+    },
+    expectQuit: (expected) => {
+      installing = expected
     },
   }
 }

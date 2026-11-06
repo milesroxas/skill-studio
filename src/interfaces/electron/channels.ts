@@ -16,7 +16,19 @@ export const CHANNELS = {
   enterApp: 'studio:enter-app',
   openArtifact: 'studio:open-artifact',
   openExternal: 'studio:open-external',
+  /** A window asks the updater for its state or its next step. */
+  update: 'studio:update',
+  /** The updater tells every window its state. */
+  updateState: 'studio:update-state',
+  openChangelog: 'studio:open-changelog',
 } as const
+
+/**
+ * How a window's preload learns the app's version: an argument the main
+ * process adds to every page it opens. The preload runs sandboxed and cannot
+ * ask Electron itself.
+ */
+export const VERSION_ARGUMENT = '--studio-version='
 
 /** The renderer's own pages. A custom scheme, so `file:` never loads. */
 export const APP_SCHEME = 'studio'
