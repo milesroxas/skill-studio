@@ -1,6 +1,6 @@
 {
   "name": "skill-studio",
-  "version": "0.1.0-beta.2",
+  "version": "0.1.0",
   "private": true,
   "description": "Desktop studio for agent skills: write a skill, run headless agents on its cases, grade the outputs with code checks and Jev judge packs, and review them blind.",
   "license": "MIT",
