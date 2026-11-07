@@ -177,7 +177,7 @@ Write at least three different cases before you trust a score.
 ![New run: the skill version, the cases to run ticked, one writer (Claude Code, sonnet, default effort) and the options below.](images/new-run.webp)
 
 1. **Skill version:** if the skill changed, type what changed.
-2. **Cases:** tick the ones to run.
+2. **Cases:** tick the ones to run. One starts ticked. **Default case**, under the list, picks the one every run starts with: it moves to the top of the list and can still be unticked.
 3. **Writers:** pick the agent and model. Add up to four to compare them.
 4. **Samples per case:** use 2 or more. Agents answer a little differently each time.
 5. **Skill:** "With skill", "Without skill" (the baseline to beat), or "Old skill" (an earlier version).

@@ -8,6 +8,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Added
 
+- A default case: pick one under the cases on New run and it is ticked on every new run, first in the list. It can still be unticked. The Cases list says which case it is, and `bench.json` keeps it as `defaultCase`.
 - Results opens with the version lift: the latest version's mean, what it gained since the first version, and a ribbon from one score to the other, over the same writer's score without the skill.
 - A run counts its outputs as they are written, under its line at the foot of the sidebar ("3/6").
 - A skill being run says so on its row in the Library.
@@ -21,6 +22,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Changed
 
+- New run starts with one case ticked, the default case or else the first, instead of every case. Running every case is a choice.
 - A dialog's confirm button is one verb: Restart, Restore, Start, Delete, Reset. The dialog's title names what it acts on.
 - Practice is now the walkthrough, and it takes the thank-you note through the whole workflow in 12 steps: read the skill, save a version, read the cases, run, read the scores, rate, check the judge, see the scoring, tighten a rule, save it, run again and compare. It opens on the Editor.
 - A new look. The sidebar is a blue-black ink in both themes, and the page is a warm off-white in the light theme and near-black in the dark one.

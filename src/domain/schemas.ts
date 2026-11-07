@@ -125,6 +125,8 @@ export interface BenchConfig {
   sure: number
   /** Review tool only: a layer at or above this agrees with a "good" mark. */
   agreeAt: number
+  /** The case ticked on every new run; `null` ticks the first case. */
+  defaultCase: string | null
   [key: string]: unknown
 }
 

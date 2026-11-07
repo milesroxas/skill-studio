@@ -344,6 +344,7 @@ export function Cases({ ctx }: { ctx: Ctx }) {
                         {c.title !== c.id ? <Text font="mono">{c.id}</Text> : null}
                         {c.title !== c.id ? ' · ' : ''}
                         {plural(c.graders.length, 'check')}
+                        {config.defaultCase === c.id ? ' · Default' : ''}
                       </Text>
                     </NavButton>
                   </li>

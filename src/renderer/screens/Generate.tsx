@@ -22,7 +22,7 @@ import { Input } from '../components/ui/input.tsx'
 import { Label } from '../components/ui/label.tsx'
 import type { Ctx } from '../ctx.ts'
 import { useToggleSet } from '../hooks.ts'
-import { capital, plural, runStamp, shortDate, versionName } from '../model.ts'
+import { capital, mergedConfig, plural, runStamp, shortDate, versionName } from '../model.ts'
 
 interface WriterRow {
   id: number
@@ -38,12 +38,18 @@ const CONFIG_HELP: Record<Configuration, string> = {
 }
 
 export function Generate({ ctx }: { ctx: Ctx }) {
-  const { state, jobs, toast, go } = ctx
+  const { state, config, setConfig, jobs, toast, go, reload } = ctx
   const engines = state.engines
   const first = engines.find((e) => e.available) ?? engines[0]
   const current = state.versions.current
   const withSkill = state.runs.filter((r) => r.hasSkill)
-  const [cases, toggleCase] = useToggleSet(state.cases.map((c) => c.id))
+  /** The default case leads the list, so the row every run starts with is the first one. */
+  const defaultCase = state.cases.find((c) => c.id === config.defaultCase) ?? null
+  const ordered = defaultCase
+    ? [defaultCase, ...state.cases.filter((c) => c !== defaultCase)]
+    : state.cases
+  // One case starts ticked, the default or else the first: running every case is a choice, not a default.
+  const [cases, toggleCase] = useToggleSet(ordered[0] ? [ordered[0].id] : [])
   const [writers, setWriters] = useState<WriterRow[]>(
     first ? [{ id: 1, engine: first.id, model: first.defaultModel, effort: 'default' }] : [],
   )
@@ -64,6 +70,29 @@ export function Generate({ ctx }: { ctx: Ctx }) {
   const fallbackName = `Edits of ${shortDate(new Date().toISOString())}`
   const count = cases.size * writers.length * samples
   const missing = engines.filter((e) => !e.available)
+
+  /**
+   * Mark the case every new run starts with, or take the mark off. It is kept
+   * in bench.json beside the scoring, written at once over what is saved there
+   * so unsaved Scoring edits stay unsaved. The tick moves with it: the case
+   * that led the list is unticked and the new one ticked, as a fresh run would
+   * start. Either can still be changed by hand.
+   */
+  const setDefault = async (id: string | null) => {
+    try {
+      await api.config({ ...mergedConfig(state.savedConfig), defaultCase: id })
+      setConfig({ ...config, defaultCase: id })
+      const previous = ordered[0]?.id
+      const next = id ?? state.cases[0]?.id
+      if (previous && previous !== next && cases.has(previous)) toggleCase(previous)
+      if (next && !cases.has(next)) toggleCase(next)
+      await reload()
+      const named = state.cases.find((c) => c.id === id)
+      toast(named ? `${named.title} is ticked on every new run` : 'No case is ticked by default')
+    } catch (e) {
+      toast((e as Error).message)
+    }
+  }
 
   const setWriter = (i: number, patch: Partial<WriterRow>) =>
     setWriters((w) => w.map((row, k) => (k === i ? { ...row, ...patch } : row)))
@@ -134,17 +163,31 @@ export function Generate({ ctx }: { ctx: Ctx }) {
             </Button>
           </Stack>
         ) : (
-          <Stack gap="md">
-            {state.cases.map((c) => (
-              <CheckRow
-                key={c.id}
-                checked={cases.has(c.id)}
-                onCheckedChange={() => toggleCase(c.id)}
-                description={c.title !== c.id ? <Text font="mono">{c.id}</Text> : undefined}
-              >
-                {c.title}
-              </CheckRow>
-            ))}
+          <Stack gap="lg">
+            <Field>
+              <Label htmlFor="gen-default">Default case</Label>
+              <SelectBox
+                id="gen-default"
+                width="wide"
+                value={defaultCase?.id ?? ''}
+                none="First in the list"
+                onChange={(id) => setDefault(id || null)}
+                options={state.cases.map((c) => ({ value: c.id, label: c.title }))}
+              />
+              <Hint>Ticked on every new run. It can still be unticked.</Hint>
+            </Field>
+            <Stack gap="md">
+              {ordered.map((c) => (
+                <CheckRow
+                  key={c.id}
+                  checked={cases.has(c.id)}
+                  onCheckedChange={() => toggleCase(c.id)}
+                  description={c.title !== c.id ? <Text font="mono">{c.id}</Text> : undefined}
+                >
+                  {c.title}
+                </CheckRow>
+              ))}
+            </Stack>
           </Stack>
         )}
       </FormSection>

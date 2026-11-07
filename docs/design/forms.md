@@ -17,6 +17,8 @@ Is it on or off?
  │     such as "Show" / "Hide". Name what each state does, not "On" / "Off".
  ├── A tool in a toolbar, or the state of one item in a row → Toggle
  └── Part of a form saved with a button → CheckRow
+One of the items in a list above, applied at once? → SelectBox under the list,
+  not a control on every row: ten identical icons say nothing until one is on.
 Is it one of 2 to 5 fixed values, all worth seeing? → Segmented
 One value from a longer or changing list? → SelectBox
 Several of a set to show or hide? → FilterGroup

@@ -8,6 +8,7 @@ export const DEFAULT_CONFIG: BenchConfig = {
   yes: 0.5,
   sure: 0.6,
   agreeAt: 70,
+  defaultCase: null,
 }
 
 const isObject = (value: unknown): value is Record<string, unknown> =>

@@ -19,6 +19,7 @@ Grading runs a skill's judge packs over each sample of a run and writes `report.
 | `yes` | `0.5` | A judge answer at or above this counts as yes |
 | `sure` | `0.6` | A verdict below this confidence is listed as unsure, and a Jev pairwise vote below it is not counted |
 | `agreeAt` | `70` | The layer score the Agreement screen counts as good |
+| `defaultCase` | `null` | The case ticked on every new run; `null` ticks the first. "Default case" on New run writes it |
 
 Each pack adds its own keys, below. `--packs a,b` and `--bench <file>` override the file for one grading, so a skill in another repository can be graded without writing config into it.
 
