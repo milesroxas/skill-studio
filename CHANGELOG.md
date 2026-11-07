@@ -31,6 +31,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - The welcome opens on a dark cover with the new mark, and each step of the tour shows its number large.
 - A new app icon: the Flow mark, two ribbons on near-black.
 - The Write screen is now called Editor.
+- The guide is shorter and written for people who use the app: each step leads with its picture and a few short lines. Developer setup, the command line and file paths are in the reference pages instead.
 - Opening or switching to a skill always lands on the Editor, instead of on Cases or Results depending on what the skill holds. The practice skill still opens on the step in hand.
 
 ### Fixed

@@ -56,7 +56,9 @@ The UI is shadcn/ui on Tailwind v4 (`components.json`, theme tokens in `src/rend
 
 Update the docs in the same pull request as the change they describe: [docs/](docs/) for a command, flag, file layout or pack, and the guide for a screen.
 
-`docs/guide.md` is one text for two readers: GitHub renders it, and the app shows it under Guide through its own small renderer (`src/renderer/markdown.ts`). The app's help links to the guide's `##` headings by name (`src/renderer/help.ts`), and a test fails when one is missing. Write only what both render:
+`docs/guide.md` is for people who use the app, not people who build it. Keep commands, file paths and developer setup out of it: they belong in the reference pages. Lead each step with its picture, then a few short lines.
+
+The guide is one text for two renderers: GitHub renders it, and the app shows it under Guide through its own small renderer (`src/renderer/markdown.ts`). The app's help links to the guide's `##` headings by name (`src/renderer/help.ts`), and a test fails when one is missing. Write only what both render:
 
 - Headings, paragraphs, bold, italic, inline code, tables, fenced code and quotes.
 - Lists whose items are one line each. A nested item is flattened.
