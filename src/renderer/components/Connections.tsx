@@ -9,7 +9,7 @@ import { SECRETS, type SecretId, type Settings } from '@domain/secrets.ts'
 import { useId, useState } from 'react'
 import { loadAi, useAi } from '../ai.ts'
 import { api } from '../api.ts'
-import { useFetch } from '../hooks.ts'
+import { type Reporter, useFetch } from '../hooks.ts'
 import { Disclosure } from './Disclosure.tsx'
 import { Field, List, Loading, ReadFailed, Stack, Toolbar } from './layout.tsx'
 import { Status } from './Status.tsx'
@@ -72,7 +72,7 @@ interface KeyFieldProps {
    * for one and asks when there is none, or when it does not work.
    */
   replace?: boolean
-  toast: (message: string) => void
+  report: Reporter
   onSaved: () => Promise<void>
 }
 
@@ -101,7 +101,7 @@ function KeyField({
   optional,
   problem,
   replace = true,
-  toast,
+  report,
   onSaved,
 }: KeyFieldProps & { settings: Settings }) {
   const [value, setValue] = useState('')
@@ -115,10 +115,10 @@ function KeyField({
     try {
       await api.setKey(id, next)
       setValue('')
-      toast(next ? 'Key saved' : 'Key removed')
+      report(next ? 'Key saved' : 'Key removed')
       await onSaved()
     } catch (e) {
-      toast((e as Error).message)
+      report(e as Error)
     } finally {
       setBusy(false)
     }
@@ -203,13 +203,13 @@ export function VendorRoutes({
   vendor,
   keys,
   replace,
-  toast,
+  report,
   onSaved,
 }: {
   vendor: AiVendor
   keys: Keys
   replace?: boolean
-  toast: (message: string) => void
+  report: Reporter
   onSaved: () => Promise<void>
 }) {
   const { providers } = useAi()
@@ -227,7 +227,7 @@ export function VendorRoutes({
         optional
         problem={info?.problem}
         replace={replace}
-        toast={toast}
+        report={report}
         onSaved={onSaved}
       />
     )

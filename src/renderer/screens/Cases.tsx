@@ -108,7 +108,7 @@ const withPictures = (stored: CaseDraft, base: CaseDraft): CaseDraft => ({
 })
 
 export function Cases({ ctx }: { ctx: Ctx }) {
-  const { state, config, route, go, toast, confirm, reload, drafts } = ctx
+  const { state, config, route, go, report, confirm, reload, drafts } = ctx
   const cases = state.cases
   /** Examples come from the kind of skill the bench grades, until the user picks another. */
   const [kindId, setKindId] = useState(() => templateForPacks(config.packs).id)
@@ -182,7 +182,7 @@ export function Cases({ ctx }: { ctx: Ctx }) {
     set({ graders })
     setFocusCheck(focus === 'previous' ? Math.max(i - 1, 0) : Math.min(i, graders.length - 1))
     if (!removed?.statement.trim()) return
-    toast(`Removed check ${i + 1}`, {
+    report(`Removed check ${i + 1}`, {
       undo: () => {
         // Only into the case it came from; elsewhere the offer has passed.
         const now = live.current
@@ -261,10 +261,10 @@ export function Cases({ ctx }: { ctx: Ctx }) {
       await api.saveCase(draft, isNew)
       drafts.setCase(key, null)
       await reload()
-      toast(`Saved ${draft.id}`)
+      report(`Saved ${draft.id}`)
       go('cases', { id: draft.id }, { replace: true })
     } catch (e) {
-      toast((e as Error).message)
+      report(e as Error)
     } finally {
       setBusy(false)
     }
@@ -284,10 +284,10 @@ export function Cases({ ctx }: { ctx: Ctx }) {
       await api.deleteCase(selected.id)
       drafts.setCase(selected.id, null)
       await reload()
-      toast(`Deleted ${selected.id}`)
+      report(`Deleted ${selected.id}`)
       go('cases', {}, { replace: true })
     } catch (e) {
-      toast((e as Error).message)
+      report(e as Error)
     } finally {
       setDeleting(false)
     }
@@ -596,7 +596,7 @@ export function Cases({ ctx }: { ctx: Ctx }) {
                         index={i + 1}
                         image={g.image}
                         onChange={(image) => setGrader(i, { image })}
-                        onError={toast}
+                        onError={report}
                       />
                       <Button
                         type="button"

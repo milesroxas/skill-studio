@@ -5,19 +5,17 @@
  * window, with the same question before a restart.
  */
 import { useConfirm } from './components/confirm.tsx'
-import { Toast } from './components/Toast.tsx'
-import { useToast } from './hooks.ts'
+import { useNotice } from './hooks.ts'
 import { Changelog } from './screens/Changelog.tsx'
 import { useUpdateStep } from './updates.ts'
 
 export function ChangelogApp() {
-  const [toastShown, toast, dismissToast] = useToast()
+  const [notice, report, dismissNotice] = useNotice()
   const [confirm, confirmDialog] = useConfirm()
-  const step = useUpdateStep(confirm, toast)
+  const step = useUpdateStep(confirm, report)
   return (
     <>
-      <Changelog onStep={step} />
-      <Toast toast={toastShown} onDismiss={dismissToast} />
+      <Changelog onStep={step} notice={notice} onDismiss={dismissNotice} />
       {confirmDialog}
     </>
   )

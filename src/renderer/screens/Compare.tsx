@@ -79,7 +79,7 @@ function defaultPair(outputs: Output[]): [Output | null, Output | null] {
 }
 
 export function Compare({ ctx }: { ctx: Ctx }) {
-  const { state, config, outputs, route, go, toast, reload, jobs } = ctx
+  const { state, config, outputs, route, go, report, reload, jobs } = ctx
   const pinned = route.params.has('a') || route.params.has('b')
   const [fallbackA, fallbackB] = pinned ? [null, null] : defaultPair(outputs)
   const a = pinned ? outputByKey(outputs, route.params.get('a')) : fallbackA
@@ -115,10 +115,10 @@ export function Compare({ ctx }: { ctx: Ctx }) {
     setVoting(true)
     try {
       await api.preference(a.key, b.key, name, v)
-      toast('Vote saved')
+      report('Vote saved')
       await reload()
     } catch (e) {
-      toast(`Not saved: ${(e as Error).message}`)
+      report(`Not saved: ${(e as Error).message}`, { tone: 'destructive' })
     } finally {
       setVoting(false)
     }
@@ -128,9 +128,9 @@ export function Compare({ ctx }: { ctx: Ctx }) {
     setAsking(true)
     try {
       await api.pairwise(a.key, b.key, [name])
-      toast('Jev is voting')
+      report('Jev is voting')
     } catch (e) {
-      toast((e as Error).message)
+      report(e as Error)
     } finally {
       setAsking(false)
     }

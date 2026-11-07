@@ -57,7 +57,7 @@ const PACK_KNOBS: Array<{ pack: string; key: string; defaults: KnobValue }> = sc
 )
 
 export function Knobs({ ctx }: { ctx: Ctx }) {
-  const { state, config, setConfig, outputs, toast, confirm, reload } = ctx
+  const { state, config, setConfig, outputs, report, confirm, reload } = ctx
   const [busy, setBusy] = useState(false)
   const saved = mergedConfig(state.savedConfig)
   const layers = layersOf(config)
@@ -77,10 +77,10 @@ export function Knobs({ ctx }: { ctx: Ctx }) {
     setBusy(true)
     try {
       const { saved: path } = await api.config(config)
-      toast(`Saved ${path}`)
+      report(`Saved ${path}`)
       await reload()
     } catch (e) {
-      toast((e as Error).message)
+      report(e as Error)
     } finally {
       setBusy(false)
     }

@@ -21,7 +21,7 @@ import {
 } from 'lucide-react'
 import { useState } from 'react'
 import { api } from '../api.ts'
-import type { ShowToast } from '../hooks.ts'
+import type { Reporter } from '../hooks.ts'
 import { cn } from '../lib/utils.ts'
 import { useArrived } from '../motion.ts'
 import { offerOf, useUpdate, useUpdateStep } from '../updates.ts'
@@ -199,9 +199,9 @@ function UpdateNotes({ view, onChangelog }: { view: View; onChangelog: () => voi
   )
 }
 
-export function UpdateControl({ confirm, toast }: { confirm: Confirm; toast: ShowToast }) {
+export function UpdateControl({ confirm, report }: { confirm: Confirm; report: Reporter }) {
   const state = useUpdate()
-  const take = useUpdateStep(confirm, toast)
+  const take = useUpdateStep(confirm, report)
   const open = viewOf(state) !== null
   // The last state shown stays in the button while it folds away, so it leaves whole.
   const [shown, setShown] = useState(state)

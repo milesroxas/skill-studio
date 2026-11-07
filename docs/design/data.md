@@ -102,7 +102,7 @@ Is it the standing of one thing (connected, installed, allowed, set)?
  └── No
       ├── Must the reader act before the whole screen works? → Alert, above the content
       ├── Is it about one field? → Hint under that field
-      └── Did an action just finish or fail? → a toast
+      └── Did an action just finish or fail? → report it: `ctx.report`, read on the status line
 ```
 
 ## Status
@@ -120,6 +120,29 @@ Is it the standing of one thing (connected, installed, allowed, set)?
 ```
 
 The words carry the state and the dot repeats it, so the line still reads without color.
+
+## Status line
+
+`components/StatusLine.tsx`, fed by `ctx.report`. One line at the foot of the window's frame, in a strip the frame keeps for it, so it never lies over the work: under the pane in the app and in the changelog window (`place="foot"`), in the first cell of the welcome's title strip (`place="head"`). While it speaks the strip is ink, drawn in from the left on `ease-stroke` in 300ms, and the words rise in after it; then it goes quiet and the strip is paper again. Its Undo is an `outline` button, so the offer is seen. It is the only place a finished or failed step is announced. Nothing floats over the screen to say so, and a question that must be answered first is `ctx.confirm` ([forms.md](forms.md)), not a notice.
+
+```tsx
+// Correct: screens/Versions.tsx
+report(`Saved ${saved.version} · ${saved.name}`)
+report(e as Error)
+report(`Deleted ${v.version}`, { undo })
+
+// Incorrect: a failure in the plain tone, or a message of its own over the screen
+report(e.message)
+<div className="fixed bottom-4 …">Saved</div>
+```
+
+- A string alone is a fact, with the plain dot: "Saved 1.2.0", "Run started: 3 outputs".
+- An `Error`, or a string with `{ tone: 'destructive' }` when the caller words it ("Not saved: …"), is a step that failed. Red dot.
+- `{ tone: 'warning' }` is a step the reader must change something before taking ("1.2.0 already exists."). Amber dot.
+- `{ undo }` offers Undo, and the Undo shortcut takes it while the line stands. `{ action }` offers the one step that follows. One offer at most: a notice is one line, and the line truncates past the strip.
+- Never `success`. A notice that something worked is the fact itself.
+
+The dot is `Dot` from `components/Status.tsx`, the one dot in the app. `Status`, the jobs line and a `NavItem`'s unsaved mark use it too, so a color means the same thing wherever it is read: `signal` runs, `success` works, `warning` needs the reader, `destructive` failed, `muted` is a fact.
 
 ## Alert
 

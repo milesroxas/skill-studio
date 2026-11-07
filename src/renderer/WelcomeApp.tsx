@@ -6,14 +6,13 @@
  */
 import { useState } from 'react'
 import { api } from './api.ts'
-import { Toast } from './components/Toast.tsx'
-import { useToast } from './hooks.ts'
+import { useNotice } from './hooks.ts'
 import { useStartPractice } from './practice.ts'
 import { usePreferences } from './preferences.ts'
 import { Welcome } from './screens/Welcome.tsx'
 
 export function WelcomeApp() {
-  const [toastShown, toast, dismissToast] = useToast()
+  const [notice, report, dismissNotice] = useNotice()
   // Fixed when the window opens: the app marks the welcome seen as it opens, behind this one.
   const [first] = useState(!usePreferences().welcomed)
   const [leaving, setLeaving] = useState(false)
@@ -21,18 +20,17 @@ export function WelcomeApp() {
     setLeaving(true)
     api.enterApp?.(skill)
   }
-  const [starting, startPractice] = useStartPractice(enter, toast)
+  const [starting, startPractice] = useStartPractice(enter, report)
   return (
-    <>
-      <Welcome
-        first={first}
-        starting={starting}
-        leaving={leaving}
-        onStart={startPractice}
-        onLeave={() => enter(null)}
-        toast={toast}
-      />
-      <Toast toast={toastShown} onDismiss={dismissToast} />
-    </>
+    <Welcome
+      first={first}
+      starting={starting}
+      leaving={leaving}
+      onStart={startPractice}
+      onLeave={() => enter(null)}
+      report={report}
+      notice={notice}
+      onDismiss={dismissNotice}
+    />
   )
 }

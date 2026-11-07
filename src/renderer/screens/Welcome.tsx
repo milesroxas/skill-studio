@@ -20,10 +20,12 @@ import { api } from '../api.ts'
 import { LoopTour } from '../components/LoopTour.tsx'
 import { Mark, Slab } from '../components/Mark.tsx'
 import { Setup } from '../components/Setup.tsx'
+import { StatusLine } from '../components/StatusLine.tsx'
 import { Heading, Text } from '../components/text.tsx'
 import { Button } from '../components/ui/button.tsx'
 import { StepProgress } from '../components/WelcomeStep.tsx'
 import { LOOP_STEPS, SETUP_STEPS } from '../help.ts'
+import type { Notice, Reporter } from '../hooks.ts'
 import { after, useSwap } from '../motion.ts'
 import { APP_VERSION } from '../updates.ts'
 
@@ -36,7 +38,10 @@ interface Props {
   leaving?: boolean
   onStart: () => void
   onLeave: () => void
-  toast: (message: string) => void
+  report: Reporter
+  /** What the status line in the title strip says, and how it is cleared. */
+  notice: Notice | null
+  onDismiss: () => void
 }
 
 /** A step in view and the one before it, which says which side the step arrives from. */
@@ -58,12 +63,15 @@ const to =
  */
 function Frame({
   ink,
+  status,
   progress,
   exit,
   leaving,
   children,
 }: {
   ink: boolean
+  /** The status line, in the strip's first cell. */
+  status: ReactNode
   progress: ReactNode
   exit: ReactNode
   leaving: boolean
@@ -81,7 +89,7 @@ function Frame({
           data-rule={!ink || undefined}
           className="relative z-10 grid h-12 shrink-0 grid-cols-[1fr_auto_1fr] items-center px-5 data-rule:border-b"
         >
-          <span />
+          {status}
           {progress}
           <span className="flex justify-end">{exit}</span>
         </header>
@@ -146,7 +154,16 @@ function Opening({ onTour, exit }: { onTour: () => void; exit: ReactNode }) {
   )
 }
 
-export function Welcome({ first, starting, leaving = false, onStart, onLeave, toast }: Props) {
+export function Welcome({
+  first,
+  starting,
+  leaving = false,
+  onStart,
+  onLeave,
+  report,
+  notice,
+  onDismiss,
+}: Props) {
   const { view, leaving: swapping, swap } = useSwap<'opening' | 'tour' | 'setup'>('opening')
   const [step, setStep] = useState<At>({ index: 0, from: 0 })
   const [setupStep, setSetupStep] = useState<At>({ index: 0, from: 0 })
@@ -178,6 +195,7 @@ export function Welcome({ first, starting, leaving = false, onStart, onLeave, to
   return (
     <Frame
       ink={view === 'opening'}
+      status={<StatusLine place="head" notice={notice} onDismiss={onDismiss} />}
       leaving={leaving || swapping}
       progress={
         view === 'tour' ? (
@@ -208,7 +226,7 @@ export function Welcome({ first, starting, leaving = false, onStart, onLeave, to
           index={setupStep.index}
           from={setupStep.from}
           busy={busy}
-          toast={toast}
+          report={report}
           onShow={(index) => setSetupStep(to(index))}
           onBack={() => swap('tour')}
           onStart={onStart}

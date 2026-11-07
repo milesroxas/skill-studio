@@ -9,7 +9,7 @@ import { useCallback, useEffect, useRef, useSyncExternalStore } from 'react'
 import { homepage } from '../../package.json'
 import { api } from './api.ts'
 import type { Confirm } from './components/confirm.tsx'
-import type { ShowToast } from './hooks.ts'
+import type { Reporter } from './hooks.ts'
 
 const host = api.updates
 
@@ -100,11 +100,8 @@ async function take(step: UpdateStep, confirm: Confirm): Promise<void> {
 }
 
 /** A way to take an update step from a button: it asks before a restart, and says when it fails. */
-export function useUpdateStep(confirm: Confirm, toast: ShowToast): (step: UpdateStep) => void {
-  return useCallback(
-    (step) => void take(step, confirm).catch((e: Error) => toast(e.message)),
-    [confirm, toast],
-  )
+export function useUpdateStep(confirm: Confirm, report: Reporter): (step: UpdateStep) => void {
+  return useCallback((step) => void take(step, confirm).catch(report), [confirm, report])
 }
 
 /** Open the changelog's window and look for a newer release; the window shows the check as it runs. */
@@ -127,27 +124,27 @@ function takeUpdatedNotice(): boolean {
 }
 
 /**
- * The two moments worth a toast in the app's window. A download that finishes
+ * The two moments worth a notice in the app's window. A download that finishes
  * while the window is open: the update is ready, and one click restarts into
  * it. And the first launch of a new version: it worked, and here is what changed.
  */
-export function useUpdateNotices(toast: ShowToast, take: (step: UpdateStep) => void): void {
+export function useUpdateNotices(report: Reporter, take: (step: UpdateStep) => void): void {
   const state = useUpdate()
   const before = useRef(state.status)
 
   useEffect(() => {
     if (takeUpdatedNotice())
-      toast(`Updated to Skill Studio ${APP_VERSION}`, {
+      report(`Updated to Skill Studio ${APP_VERSION}`, {
         action: { label: 'What’s new', run: () => host?.openChangelog() },
       })
-  }, [toast])
+  }, [report])
 
   useEffect(() => {
     const was = before.current
     before.current = state.status
     if (state.status === 'ready' && was === 'downloading')
-      toast(`Skill Studio ${state.update.version} is ready to install`, {
+      report(`Skill Studio ${state.update.version} is ready to install`, {
         action: { label: 'Restart', run: () => take('install') },
       })
-  }, [state, toast, take])
+  }, [state, report, take])
 }

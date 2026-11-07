@@ -4,7 +4,7 @@ The window never scrolls. `AppFrame` is a window-sized grid, the sidebar and top
 
 ## The shell
 
-All in `src/renderer/components/Shell.tsx`. A screen never renders these: `App.tsx` does.
+All in `src/renderer/components/Shell.tsx`, except `StatusLine`, which has its own file. A screen never renders these: `App.tsx` does.
 
 | Part | Rule |
 | --- | --- |
@@ -14,6 +14,7 @@ All in `src/renderer/components/Shell.tsx`. A screen never renders these: `App.t
 | `SidebarFooter` | Library, Guide, Settings, with a running job above them. `lead` holds the update. |
 | `TopBar` | history, `Heading level="page"`, then the next step (`App.tsx` only), then help and the assistant |
 | `Pane` | `layout="page"` for a `Screen` (the default), `layout="flush"` for a `Workbench` |
+| `StatusLine` | under the pane: what just happened, read for a moment in a 48px strip kept for it, the top bar's mirror, ink while it speaks. Fed by `ctx.report`. See [data.md](data.md). |
 
 The sidebar lists every screen flat so a reader always sees where they are. Never a second level of navigation, tabs inside a screen, or a link in the top bar.
 

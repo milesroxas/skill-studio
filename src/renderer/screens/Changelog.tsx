@@ -15,9 +15,11 @@ import changelog from '../../../CHANGELOG.md?raw'
 import { api } from '../api.ts'
 import { Spacer } from '../components/layout.tsx'
 import { Prose } from '../components/Prose.tsx'
+import { StatusLine } from '../components/StatusLine.tsx'
 import { Heading, Hint, Link, Text } from '../components/text.tsx'
 import { ProgressLine } from '../components/Update.tsx'
 import { Button } from '../components/ui/button.tsx'
+import type { Notice } from '../hooks.ts'
 import { cn } from '../lib/utils.ts'
 import { useArrived } from '../motion.ts'
 import { APP_VERSION, offerOf, RELEASES_URL, releaseUrl, useUpdate } from '../updates.ts'
@@ -212,7 +214,15 @@ function ReleaseEntry({ entry, arrived }: { entry: Entry; arrived: boolean }) {
   )
 }
 
-export function Changelog({ onStep }: { onStep: (step: UpdateStep) => void }) {
+export function Changelog({
+  onStep,
+  notice,
+  onDismiss,
+}: {
+  onStep: (step: UpdateStep) => void
+  notice: Notice | null
+  onDismiss: () => void
+}) {
   const state = useUpdate()
   const bundled = useMemo(() => releasesOf(changelog), [])
   const entries = entriesOf(bundled, state)
@@ -249,6 +259,7 @@ export function Changelog({ onStep }: { onStep: (step: UpdateStep) => void }) {
           </Hint>
         </div>
       </main>
+      <StatusLine notice={notice} onDismiss={onDismiss} />
     </div>
   )
 }

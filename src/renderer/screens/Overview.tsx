@@ -52,7 +52,7 @@ const costOf = (run: Ctx['state']['runs'][number]): number | null =>
   run.meta?.samples.reduce((s, x) => s + (x.costUsd ?? 0), 0) ?? null
 
 export function Overview({ ctx }: { ctx: Ctx }) {
-  const { state, config, outputs, route, go, toast, jobs } = ctx
+  const { state, config, outputs, route, go, report, jobs } = ctx
   /** In the URL, so Back from a transcript or a comparison finds the run still open. */
   const openRun = route.params.get('run')
   const setOpenRun = (run: string | null) => go('overview', run ? { run } : {}, { replace: true })
@@ -88,9 +88,9 @@ export function Overview({ ctx }: { ctx: Ctx }) {
     setGrading(run)
     try {
       await api.grade(run, state.jevKey)
-      toast(`Grading ${run}`)
+      report(`Grading ${run}`)
     } catch (e) {
-      toast((e as Error).message)
+      report(e as Error)
     } finally {
       setGrading(null)
     }

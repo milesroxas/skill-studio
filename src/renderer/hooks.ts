@@ -52,36 +52,48 @@ export function useToggleSet<T>(initial: Iterable<T>): [Set<T>, (value: T) => vo
   return [set, toggle]
 }
 
-/** What a toast offers beside its message. One at most: a toast is one line. */
-export interface ToastOffer {
-  /** Takes back the step the message reports. The toast then offers Undo. */
+/** What the status line says about a step that just finished or failed, and what it offers beside it. */
+export interface Notice {
+  message: string
+  /**
+   * `destructive`: the step failed. `warning`: the reader must change something
+   * before it can be taken. Otherwise the plain dot: a notice is a fact, not a
+   * verdict.
+   */
+  tone?: 'warning' | 'destructive'
+  /** Takes back the step the message reports. The line then offers Undo. One offer at most: a notice is one line. */
   undo?: () => void
   /** One step that follows from the message, such as opening what it announces. */
   action?: { label: string; run: () => void }
 }
 
-export interface ToastState extends ToastOffer {
-  message: string
-}
-
-export type ShowToast = (message: string, offer?: ToastOffer) => void
+/** Say what just happened. An Error reports as a failure; a string takes the tone it is given. */
+export type Reporter = (message: string | Error, more?: Omit<Notice, 'message'>) => void
 
 /** With a button on offer, long enough to notice it and reach for it. */
 const OFFER_MS = 7000
 
 /** Long enough to read: a floor for short lines, then about 200 words a minute. */
-const toastMs = ({ message, undo, action }: ToastState): number =>
+const noticeMs = ({ message, undo, action }: Notice): number =>
   Math.max(undo || action ? OFFER_MS : 2600, message.split(/\s+/).length * 300 + 1000)
 
-/** The toast in view, a way to show one, and a way to put it away early. */
-export function useToast(): [ToastState | null, ShowToast, () => void] {
-  const [toast, setToast] = useState<ToastState | null>(null)
+/** The notice on the status line, a way to report one, and a way to clear it early. */
+export function useNotice(): [Notice | null, Reporter, () => void] {
+  const [notice, setNotice] = useState<Notice | null>(null)
   useEffect(() => {
-    if (!toast) return
-    const timer = setTimeout(() => setToast(null), toastMs(toast))
+    if (!notice) return
+    const timer = setTimeout(() => setNotice(null), noticeMs(notice))
     return () => clearTimeout(timer)
-  }, [toast])
-  const show = useCallback<ShowToast>((message, offer) => setToast({ message, ...offer }), [])
-  const dismiss = useCallback(() => setToast(null), [])
-  return [toast, show, dismiss]
+  }, [notice])
+  const report = useCallback<Reporter>(
+    (message, more) =>
+      setNotice(
+        typeof message === 'string'
+          ? { message, ...more }
+          : { message: message.message, tone: 'destructive', ...more },
+      ),
+    [],
+  )
+  const dismiss = useCallback(() => setNotice(null), [])
+  return [notice, report, dismiss]
 }

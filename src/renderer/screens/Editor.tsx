@@ -75,14 +75,16 @@ const VIEWS = [
 type View = (typeof VIEWS)[number]['value']
 
 export function Editor({ ctx }: { ctx: Ctx }) {
-  const { state, route, go, toast, confirm, reload, config, drafts } = ctx
+  const { state, route, go, report, confirm, reload, config, drafts } = ctx
   const disk = useFetch(() => api.skillFiles('current'), [state.skill.path])
   const edits = drafts.files
   const [showDiff, setShowDiff] = useState(false)
   const [newName, setNewName] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [deleting, setDeleting] = useState(false)
-  const [mode, setMode] = useEditorMode((message) => toast(`Not saved: ${message}`))
+  const [mode, setMode] = useEditorMode((message) =>
+    report(`Not saved: ${message}`, { tone: 'destructive' }),
+  )
   const editor = useRef<MarkdownEditorHandle>(null)
   const nameField = useRef<HTMLInputElement>(null)
   const naming = newName !== null
@@ -147,9 +149,9 @@ export function Editor({ ctx }: { ctx: Ctx }) {
       drop(file)
       disk.reload()
       await reload()
-      toast(`Saved ${file}`)
+      report(`Saved ${file}`)
     } catch (e) {
-      toast((e as Error).message)
+      report(e as Error)
     } finally {
       setBusy(false)
     }
@@ -157,8 +159,9 @@ export function Editor({ ctx }: { ctx: Ctx }) {
 
   const create = () => {
     const path = referencePath(newName ?? '')
-    if (!path) return toast('Use letters, digits, dots, dashes and slashes only.')
-    if (paths.includes(path)) return toast(`${path} already exists.`)
+    if (!path)
+      return report('Use letters, digits, dots, dashes and slashes only.', { tone: 'warning' })
+    if (paths.includes(path)) return report(`${path} already exists.`, { tone: 'warning' })
     drafts.setFile(path, { text: referenceTemplate(path), previous: null })
     setNewName(null)
     go('editor', { file: path })
@@ -194,10 +197,10 @@ export function Editor({ ctx }: { ctx: Ctx }) {
       drop(file)
       disk.reload()
       await reload()
-      toast(`Deleted ${file}`)
+      report(`Deleted ${file}`)
       go('editor', {}, { replace: true })
     } catch (e) {
-      toast((e as Error).message)
+      report(e as Error)
     } finally {
       setDeleting(false)
     }

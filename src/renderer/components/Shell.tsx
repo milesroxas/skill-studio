@@ -12,6 +12,7 @@ import { api } from '../api.ts'
 import { shortcut } from '../keys.ts'
 import { cn } from '../lib/utils.ts'
 import { Mark } from './Mark.tsx'
+import { Dot } from './Status.tsx'
 import { Text } from './text.tsx'
 import { Button } from './ui/button.tsx'
 
@@ -37,7 +38,7 @@ export function AppFrame({
       {/* Keyboard users skip the sidebar's dozen links on the way to the screen. */}
       <a
         href="#main"
-        className="sr-only z-toast rounded-sm bg-primary px-3 py-2 text-primary-foreground focus:not-sr-only focus:fixed focus:top-2 focus:left-2"
+        className="sr-only z-skip rounded-sm bg-primary px-3 py-2 text-primary-foreground focus:not-sr-only focus:fixed focus:top-2 focus:left-2"
       >
         Skip to the screen
       </a>
@@ -148,7 +149,7 @@ export function NavItem({
       <span className="min-w-0 flex-1 truncate">{label}</span>
       {dot ? (
         <>
-          <span className="size-1.5 rounded-full bg-warning" aria-hidden="true" />
+          <Dot size="sm" tone="warning" />
           <span className="sr-only">, unsaved changes</span>
         </>
       ) : null}

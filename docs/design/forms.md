@@ -4,7 +4,7 @@ A form on a `Screen` is a column of `FormSection`s (`layout="split"`, the defaul
 
 ## Saved at once, or with a button?
 
-- **Settings and preferences apply at once.** No Save button. A change that can fail reports it in a toast. This is how `Settings.tsx` works.
+- **Settings and preferences apply at once.** No Save button. A change that can fail says so on the status line (`ctx.report`). This is how `Settings.tsx` works.
 - **Content is saved with a button**: a skill file, a case, a check. Those forms have `FormActions` or a `ColumnFooter`, and show "Discard" only when dirty.
 
 ## Which control?
@@ -127,7 +127,7 @@ The pressed `outline` toggle is ink fill, the same as `Segmented`, so "on" reads
 Does it lose something a person made?
  ├── No (preferences back to defaults) → act at once. No dialog, no Undo.
  └── Yes
-      ├── Can the next toast take it back? → act at once, toast with Undo. No dialog.
+      ├── Can the status line's Undo take it back? → act at once, report with `{ undo }`. No dialog.
       └── No → ctx.confirm first, then act
 ```
 

@@ -12,7 +12,7 @@ A token has one value per scope. The page picks the scope; a component never che
 | --- | --- | --- |
 | Light | `:root` | the page in the light theme |
 | Dark | `data-theme="dark"` on `<html>` | every surface in the dark theme |
-| Ink | `data-surface="ink"` on an element | the sidebar and the welcome's opening, in both themes; and a chip that carries lime: the welcome's current step, a running skill's `RunningTag` |
+| Ink | `data-surface="ink"` on an element | the sidebar, the welcome's opening and the status line while it speaks, in both themes; and a chip that carries lime: the welcome's current step, a running skill's `RunningTag` |
 
 Ink uses the dark scope's values, with `--background` set to `--sidebar` and the sidebar tokens taken from the theme around it. So a component inside the sidebar uses `text-muted-foreground` and `bg-accent` as it would anywhere, and gets values that work on ink. A popover opened from the sidebar renders in `<body>`, outside the scope, and is a paper sheet. That is intended. The one exception is the sidebar itself opened as a popover on a narrow window (`PopoverContent size="nav"`), which carries the scope.
 
@@ -47,7 +47,7 @@ Ink is a blue-black, `#0A1020`: the light theme's text, its filled button and it
 Is it the page or a column?
  ├── Yes → bg-background
  └── No
-      ├── Does it float over the page (popover, dialog, toast)? → bg-popover
+      ├── Does it float over the page (popover, dialog)? → bg-popover
       ├── Is it an object someone compares or picks up, or an input's fill? → bg-card
       ├── Is it code, front matter, or a table row that is open? → bg-muted
       ├── Is it hovered or the selected item of a list? → bg-accent
@@ -107,7 +107,7 @@ Green, amber and red say how something stands and nothing else. A decorative use
 - One depth cue per surface. A floating sheet uses `shadow-popover`. A raised object uses `shadow-raised`. Never both, never a shadow plus a border on the same element. In the dark and ink scopes both collapse to a ring.
 - Corners are a closed set, in `styles.css`:
   - `rounded-sm` 4px: a button, a field, a toggle, a checkbox, a chip, a list row or menu item.
-  - `rounded-chin` 10px on top, 12.5px below: a container. A card, a popover, a menu, a dialog, an alert, a toast, the composer, a muted panel, a code block, a chat bubble, the welcome's picture sheet. Top and bottom stay 4 to 5.
+  - `rounded-chin` 10px on top, 12.5px below: a container. A card, a popover, a menu, a dialog, an alert, the composer, a muted panel, a code block, a chat bubble, the welcome's picture sheet. Top and bottom stay 4 to 5.
   - `rounded-xs` 2px: a mark inside running text (an inline link's focus ring, inline code, a diff mark), a part nested inside a control, and each segment of a stepped indicator (the walkthrough's progress, the file size meter). A segment is at least 6px tall, so its corners read as corners and not as a pill.
   - `rounded-full`: dots, a single continuous bar and the slider's thumb only. A row of steps is never pills.
 

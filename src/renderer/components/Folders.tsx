@@ -8,6 +8,7 @@ import { AGENTS, STORE_DIR } from '@domain/library.ts'
 import { FolderPlusIcon, PlusIcon } from 'lucide-react'
 import { useState } from 'react'
 import { api } from '../api.ts'
+import type { Reporter } from '../hooks.ts'
 import { PlainList, Stack, Toolbar } from './layout.tsx'
 import { Hint, Text } from './text.tsx'
 import { Button } from './ui/button.tsx'
@@ -21,13 +22,13 @@ const USER_FOLDERS = new Intl.ListFormat('en', { type: 'conjunction' }).format(
 export function Folders({
   workspaces,
   save,
-  toast,
+  report,
   variant = 'outline',
 }: {
   workspaces: string[]
-  /** Store the new list; `done` says what changed, for a toast. Settles when the list is stored. */
+  /** Store the new list; `done` says what changed, for the status line. Settles when the list is stored. */
   save: (list: string[], done: string) => Promise<unknown>
-  toast: (message: string) => void
+  report: Reporter
   /** The add button's weight: filled where adding a folder is the step to take. */
   variant?: 'default' | 'outline'
 }) {
@@ -85,12 +86,9 @@ export function Folders({
             busy={busy}
             busyLabel="Saving…"
             onClick={() =>
-              chooseFolder().then(
-                (folder) => {
-                  if (folder) void add(folder)
-                },
-                (e: Error) => toast(e.message),
-              )
+              chooseFolder().then((folder) => {
+                if (folder) void add(folder)
+              }, report)
             }
           >
             <FolderPlusIcon aria-hidden="true" />

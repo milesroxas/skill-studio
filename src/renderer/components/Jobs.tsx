@@ -6,6 +6,7 @@
 import { cva } from 'class-variance-authority'
 import type { Job, JobProgress } from '../api.ts'
 import { Rows } from './layout.tsx'
+import { Dot, type Tone } from './Status.tsx'
 import { Text } from './text.tsx'
 import { Popover, PopoverContent, PopoverTrigger } from './ui/popover.tsx'
 
@@ -39,15 +40,12 @@ const indicator = cva(
   },
 )
 
-const dot = cva('size-1.5 shrink-0 rounded-full', {
-  variants: {
-    status: {
-      running: 'animate-pulse bg-signal',
-      done: 'bg-success',
-      failed: 'bg-destructive',
-    },
-  },
-})
+/** Running is the lime dot, the one that moves. */
+const TONE = {
+  running: 'signal',
+  done: 'success',
+  failed: 'destructive',
+} as const satisfies Record<string, Tone>
 
 /** What the running jobs that know their size add up to; null when none does. */
 function progressOf(jobs: readonly Job[]): JobProgress | null {
@@ -81,7 +79,7 @@ export function RunningTag({ jobs, skillPath }: { jobs: readonly Job[]; skillPat
       data-surface="ink"
       className="ml-2 inline-flex h-5 items-center gap-1.5 rounded-sm px-1.5 align-middle font-mono text-2xs font-medium tabular-nums"
     >
-      <span className={dot({ status: 'running' })} aria-hidden="true" />
+      <Dot size="sm" tone={TONE.running} />
       Running{progress ? ` ${progress.done}/${progress.total}` : null}
     </span>
   )
@@ -115,7 +113,7 @@ export function JobsIndicator({ jobs }: { jobs: Job[] }) {
           aria-label={`${label}${progress ? `, ${progress.done} of ${progress.total} done` : ''}. Show the log.`}
         >
           <span className="flex w-full items-center gap-2">
-            <span className={dot({ status })} aria-hidden="true" />
+            <Dot size="sm" tone={TONE[status]} />
             <span className="min-w-0 flex-1 truncate" title={label}>
               {label}
             </span>

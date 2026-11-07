@@ -62,7 +62,7 @@ const MARKS = [
 ] as const
 
 export function Blind({ ctx }: { ctx: Ctx }) {
-  const { state, config, outputs, toast, reload, route, go } = ctx
+  const { state, config, outputs, report, reload, route, go } = ctx
   const queue = useFetch(() => api.queue(), [state])
   /** The output the URL names, so Back returns to the one just rated; none means the head of the queue. */
   const key = route.params.get('key')
@@ -172,13 +172,13 @@ export function Blind({ ctx }: { ctx: Ctx }) {
     setSaving(true)
     try {
       await api.review(output.key, { rating, layers: marks, note })
-      toast('Saved')
+      report('Saved')
       // Pin the output: it leaves the queue once rated.
       go('blind', { key: output.key }, { replace: true })
       setRevealed(true)
       await reload()
     } catch (e) {
-      toast(`Not saved: ${(e as Error).message}`)
+      report(`Not saved: ${(e as Error).message}`, { tone: 'destructive' })
     } finally {
       setSaving(false)
     }
@@ -355,7 +355,7 @@ export function Blind({ ctx }: { ctx: Ctx }) {
                   .map(([l]) => l)}
                 about={note}
                 onDone={(m) => {
-                  toast(m)
+                  report(m)
                   setAnchor(false)
                   reload()
                 }}

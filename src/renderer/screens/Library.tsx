@@ -52,7 +52,7 @@ import {
   TableRow,
 } from '../components/ui/table.tsx'
 import { Toggle } from '../components/ui/toggle.tsx'
-import { useFetch } from '../hooks.ts'
+import { type Reporter, useFetch } from '../hooks.ts'
 import { REVEAL_LABEL } from '../keys.ts'
 import { plural, shortDate } from '../model.ts'
 import { useStartPractice } from '../practice.ts'
@@ -66,7 +66,7 @@ interface Props {
   openSkill: (path: string, screen?: string) => void
   /** Show a skill's folder in the file manager. Undefined in a browser, which cannot reach one. */
   reveal?: (path: string) => void
-  toast: (message: string) => void
+  report: Reporter
   confirm: Confirm
   /** The app's jobs, so a skill being run says so on its row. */
   jobs: readonly Job[]
@@ -100,7 +100,7 @@ export function LibraryScreen({
   setCreating,
   openSkill,
   reveal,
-  toast,
+  report,
   confirm,
   jobs,
 }: Props) {
@@ -110,7 +110,7 @@ export function LibraryScreen({
   const [view, setView] = useState<View>('yours')
   /** The skill a change is on its way for, by path: its row's controls wait for it. */
   const [pending, setPending] = useState<string | null>(null)
-  const [starting, startPractice] = useStartPractice(openSkill, toast)
+  const [starting, startPractice] = useStartPractice(openSkill, report)
 
   // Skills are made and installed outside the app, so coming back to the window reads them again.
   const rescan = lib.reload
@@ -159,10 +159,10 @@ export function LibraryScreen({
     if (key) setPending(key)
     try {
       await work
-      toast(done)
+      report(done)
       lib.reload()
     } catch (e) {
-      toast((e as Error).message)
+      report(e as Error)
     } finally {
       if (key) setPending((p) => (p === key ? null : p))
     }
@@ -178,7 +178,7 @@ export function LibraryScreen({
         starting={starting}
         cancel={() => setCreating(false)}
         created={(path) => openSkill(path, 'editor')}
-        toast={toast}
+        report={report}
       />
     )
 
@@ -329,7 +329,7 @@ export function LibraryScreen({
         )}
       </Section>
 
-      <Places workspaces={data.workspaces} act={act} toast={toast} />
+      <Places workspaces={data.workspaces} act={act} report={report} />
     </Screen>
   )
 }
@@ -533,7 +533,7 @@ function NewSkill({
   starting,
   cancel,
   created,
-  toast,
+  report,
 }: {
   startName: string
   data: Library
@@ -543,7 +543,7 @@ function NewSkill({
   starting: boolean
   cancel: () => void
   created: (path: string) => void
-  toast: Props['toast']
+  report: Props['report']
 }) {
   const [name, setName] = useState(startName)
   const [description, setDescription] = useState('')
@@ -576,10 +576,10 @@ function NewSkill({
         template: templateId,
         samples: samples && template.cases.length > 0,
       })
-      toast(`Created ${skill.name}`)
+      report(`Created ${skill.name}`)
       created(skill.path)
     } catch (e) {
-      toast((e as Error).message)
+      report(e as Error)
       setBusy(false)
     }
   }
@@ -723,21 +723,13 @@ function NewSkill({
   )
 }
 
-function Places({
-  workspaces,
-  act,
-  toast,
-}: {
-  workspaces: string[]
-  act: Act
-  toast: (message: string) => void
-}) {
+function Places({ workspaces, act, report }: { workspaces: string[]; act: Act; report: Reporter }) {
   return (
     <Disclosure summary="Where skills are found">
       <Folders
         workspaces={workspaces}
         save={(list, done) => act(api.setWorkspaces(list), done)}
-        toast={toast}
+        report={report}
       />
     </Disclosure>
   )

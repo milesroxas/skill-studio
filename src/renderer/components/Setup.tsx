@@ -19,7 +19,7 @@ import { useEffect, useId, useState } from 'react'
 import { loadAi, useAi } from '../ai.ts'
 import { api } from '../api.ts'
 import { SETUP_STEPS, type SetupId } from '../help.ts'
-import { useFetch } from '../hooks.ts'
+import { type Reporter, useFetch } from '../hooks.ts'
 import { plural } from '../model.ts'
 import { KeySlot, useKeys, VendorRoutes } from './Connections.tsx'
 import { Folders } from './Folders.tsx'
@@ -31,8 +31,6 @@ import { Button } from './ui/button.tsx'
 import { Label } from './ui/label.tsx'
 import { StepFrame, StepPanel } from './WelcomeStep.tsx'
 
-type Toast = (message: string) => void
-
 const VENDORS = AI_VENDORS.map((vendor) => ({ value: vendor, label: vendor }))
 
 /** What the last step's way forward leads to, said beside it once everything is set. */
@@ -43,7 +41,7 @@ export function Setup({
   index,
   from,
   busy,
-  toast,
+  report,
   onShow,
   onBack,
   onStart,
@@ -52,7 +50,7 @@ export function Setup({
   from: number
   /** The practice skill is being opened, or the welcome is on its way out. */
   busy: boolean
-  toast: Toast
+  report: Reporter
   onShow: (index: number) => void
   /** Back from the first step, to the tour. */
   onBack: () => void
@@ -76,13 +74,10 @@ export function Setup({
   const last = index === SETUP_STEPS.length - 1
   const set = done[step.id]
   const saveFolders = (list: string[], said: string) =>
-    api.setWorkspaces(list).then(
-      () => {
-        toast(said)
-        library.reload()
-      },
-      (e: Error) => toast(e.message),
-    )
+    api.setWorkspaces(list).then(() => {
+      report(said)
+      library.reload()
+    }, report)
 
   return (
     <StepFrame
@@ -159,13 +154,13 @@ export function Setup({
               <Folders
                 workspaces={library.data.workspaces}
                 save={saveFolders}
-                toast={toast}
+                report={report}
                 variant={set ? 'outline' : 'default'}
               />
             </>
           )
         ) : step.id === 'assistant' ? (
-          <Assistant keys={keys} toast={toast} onSaved={changed} />
+          <Assistant keys={keys} report={report} onSaved={changed} />
         ) : (
           <KeySlot
             id="jev"
@@ -173,7 +168,7 @@ export function Setup({
             missing="Grading runs code checks only."
             optional={false}
             replace={false}
-            toast={toast}
+            report={report}
             onSaved={changed}
           />
         )}
@@ -188,11 +183,11 @@ export function Setup({
  */
 function Assistant({
   keys,
-  toast,
+  report,
   onSaved,
 }: {
   keys: ReturnType<typeof useKeys>['keys']
-  toast: Toast
+  report: Reporter
   onSaved: () => Promise<void>
 }) {
   const { providers, problem } = useAi()
@@ -234,7 +229,7 @@ function Assistant({
           options={VENDORS}
         />
       </Field>
-      <VendorRoutes vendor={vendor} keys={keys} replace={false} toast={toast} onSaved={onSaved} />
+      <VendorRoutes vendor={vendor} keys={keys} replace={false} report={report} onSaved={onSaved} />
     </>
   )
 }

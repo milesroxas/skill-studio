@@ -39,7 +39,7 @@ import {
   Workspace,
 } from './components/Shell.tsx'
 import { SkillSwitcher } from './components/SkillSwitcher.tsx'
-import { Toast } from './components/Toast.tsx'
+import { StatusLine } from './components/StatusLine.tsx'
 import { Heading } from './components/text.tsx'
 import { UpdateControl } from './components/Update.tsx'
 import { Badge } from './components/ui/badge.tsx'
@@ -50,7 +50,7 @@ import type { Ctx } from './ctx.ts'
 import { useDrafts } from './drafts.ts'
 import { SCREEN_HELP } from './help.ts'
 import { back, forward, navigate, usePaneScroll, useRoute } from './history.ts'
-import { useToast } from './hooks.ts'
+import { useNotice } from './hooks.ts'
 import { shortcut } from './keys.ts'
 import { mergedConfig, outputsOf, plural, versionScore } from './model.ts'
 import { APP_PLACES, isSkillScreen, placeFor, SECTIONS, WORKBENCH } from './places.ts'
@@ -111,12 +111,12 @@ export function App() {
   const [config, setConfig] = useState<BenchConfig | null>(null)
   const [jobs, setJobs] = useState<Job[]>([])
   const [route, go] = useRoute()
-  const [toastShown, toast, dismissToast] = useToast()
+  const [notice, report, dismissNotice] = useNotice()
   const [confirm, confirmDialog] = useConfirm()
   const [assistant, setAssistant] = useAssistant()
   const preferences = usePreferences()
   // An update that finishes downloading, or was just installed, says so once.
-  useUpdateNotices(toast, useUpdateStep(confirm, toast))
+  useUpdateNotices(report, useUpdateStep(confirm, report))
 
   const reload = useCallback(async () => {
     if (!currentSkill()) return
@@ -147,7 +147,7 @@ export function App() {
     // The entry names its skill itself: the open one changes only once this renders.
     navigate(screen, {}, { skill: path })
   }, [])
-  const [starting, startPractice] = useStartPractice(openSkill, toast)
+  const [starting, startPractice] = useStartPractice(openSkill, report)
   // Starting over lands on the guide's first step, as opening the practice skill does.
   const [restarting, restartPractice] = useRestartPractice(
     confirm,
@@ -156,7 +156,7 @@ export function App() {
       await reload()
       go('home')
     },
-    toast,
+    report,
   )
   // The desktop app's Help menu opens the guide, and its welcome hands over the practice skill.
   useEffect(() => api.watchGo?.((screen) => navigate(screen)), [])
@@ -166,9 +166,7 @@ export function App() {
   const openWelcome = () => (api.openWelcome ? api.openWelcome() : go('welcome'))
   /** Show a skill's folder in the file manager; undefined where the host has none to show it in. */
   const revealSkill = api.revealSkill
-  const reveal = revealSkill
-    ? (path: string) => void revealSkill(path).catch((e: Error) => toast(e.message))
-    : undefined
+  const reveal = revealSkill ? (path: string) => void revealSkill(path).catch(report) : undefined
   // Back and Forward return to the skill a place was seen in. An entry made with
   // no skill open keeps the one in hand.
   useEffect(() => {
@@ -216,12 +214,6 @@ export function App() {
   const score = useMemo(
     () => (config && currentVersion ? versionScore(outputs, config, currentVersion) : null),
     [outputs, config, currentVersion],
-  )
-  const overlays = (
-    <>
-      <Toast toast={toastShown} onDismiss={dismissToast} />
-      {confirmDialog}
-    </>
   )
 
   const loaded = skillPath && state && config ? { state, config } : null
@@ -367,7 +359,7 @@ export function App() {
       {practice ? (
         <PracticeGuide guide={practice} onGo={go} onNew={() => go('library', { new: '1' })} />
       ) : null}
-      <SidebarFooter lead={<UpdateControl confirm={confirm} toast={toast} />}>
+      <SidebarFooter lead={<UpdateControl confirm={confirm} report={report} />}>
         <JobsIndicator jobs={jobs} />
         {APP_PLACES.map((p) => (
           <NavItem
@@ -391,7 +383,7 @@ export function App() {
         outputs,
         route,
         go,
-        toast,
+        report,
         confirm,
         reload,
         jobs,
@@ -413,7 +405,7 @@ export function App() {
         <Suspense fallback={<Loading size="screen" />}>
           <SettingsScreen
             running={running}
-            toast={toast}
+            report={report}
             onSaved={reload}
             onWelcome={openWelcome}
           />
@@ -428,7 +420,7 @@ export function App() {
           setCreating={(on) => go('library', on ? { new: '1' } : {}, { replace: !on })}
           openSkill={openSkill}
           reveal={reveal}
-          toast={toast}
+          report={report}
           confirm={confirm}
           jobs={jobs}
         />
@@ -490,7 +482,9 @@ export function App() {
   const hint =
     help && hinted && preferences.hints === 'show' && !seen.includes(screen) ? help.what : null
   const keep = (patch: Parameters<typeof setPreferences>[0]) =>
-    void setPreferences(patch).catch((e: Error) => toast(`Not saved: ${e.message}`))
+    void setPreferences(patch).catch((e: Error) =>
+      report(`Not saved: ${e.message}`, { tone: 'destructive' }),
+    )
 
   // The welcome stands alone, with none of the shell around it.
   if (screen === 'welcome')
@@ -502,9 +496,11 @@ export function App() {
           onStart={startPractice}
           // Opened again from the help, it closes back to where it was opened from.
           onLeave={() => (preferences.welcomed && route.index > 0 ? back() : go('library'))}
-          toast={toast}
+          report={report}
+          notice={notice}
+          onDismiss={dismissNotice}
         />
-        {overlays}
+        {confirmDialog}
       </>
     )
 
@@ -573,7 +569,7 @@ export function App() {
             onAsk={() => setAssistant(true)}
             onShowHints={() => {
               keep({ hints: 'show', hintsSeen: [] })
-              toast('Each screen shows its hint again')
+              report('Each screen shows its hint again')
             }}
           />
           <Toggle
@@ -592,6 +588,7 @@ export function App() {
         <Pane ref={pane} layout={ctx && WORKBENCH.has(screen) ? 'flush' : 'page'}>
           {body}
         </Pane>
+        <StatusLine notice={notice} onDismiss={dismissNotice} />
       </Workspace>
       {assistant ? (
         <AssistantPane>
@@ -603,7 +600,7 @@ export function App() {
           />
         </AssistantPane>
       ) : null}
-      {overlays}
+      {confirmDialog}
     </AppFrame>
   )
 }

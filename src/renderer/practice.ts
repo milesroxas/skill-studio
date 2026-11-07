@@ -13,6 +13,7 @@ import {
 import { useState } from 'react'
 import { api, type State } from './api.ts'
 import type { Confirm } from './components/confirm.tsx'
+import type { Reporter } from './hooks.ts'
 import { type Output, plural } from './model.ts'
 
 export interface PracticeTarget {
@@ -168,7 +169,7 @@ export function practiceGuide(
  */
 export function useStartPractice(
   openSkill: (path: string) => void,
-  toast: (message: string) => void,
+  report: Reporter,
 ): [starting: boolean, start: () => Promise<void>] {
   const [starting, setStarting] = useState(false)
   const start = async () => {
@@ -177,7 +178,7 @@ export function useStartPractice(
       const skill = await api.practice()
       openSkill(skill.path)
     } catch (e) {
-      toast((e as Error).message)
+      report(e as Error)
     }
     setStarting(false)
   }
@@ -193,7 +194,7 @@ export function useRestartPractice(
   confirm: Confirm,
   discardDrafts: () => void,
   done: () => Promise<void>,
-  toast: (message: string) => void,
+  report: Reporter,
 ): [restarting: boolean, restart: () => Promise<void>] {
   const [restarting, setRestarting] = useState(false)
   const restart = async () => {
@@ -211,7 +212,7 @@ export function useRestartPractice(
       await api.restartPractice()
       await done()
     } catch (e) {
-      toast((e as Error).message)
+      report(e as Error)
     }
     setRestarting(false)
   }

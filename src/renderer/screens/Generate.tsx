@@ -38,7 +38,7 @@ const CONFIG_HELP: Record<Configuration, string> = {
 }
 
 export function Generate({ ctx }: { ctx: Ctx }) {
-  const { state, config, setConfig, jobs, toast, go, reload } = ctx
+  const { state, config, setConfig, jobs, report, go, reload } = ctx
   const engines = state.engines
   const first = engines.find((e) => e.available) ?? engines[0]
   const current = state.versions.current
@@ -98,9 +98,9 @@ export function Generate({ ctx }: { ctx: Ctx }) {
       if (next && !cases.has(next)) toggleCase(next)
       await reload()
       const named = state.cases.find((c) => c.id === id)
-      toast(named ? `${named.title} is ticked on every new run` : 'No case is ticked by default')
+      report(named ? `${named.title} is ticked on every new run` : 'No case is ticked by default')
     } catch (e) {
-      toast((e as Error).message)
+      report(e as Error)
     }
   }
 
@@ -119,9 +119,9 @@ export function Generate({ ctx }: { ctx: Ctx }) {
         note,
         grade,
       })
-      toast(`Run started: ${plural(count, 'output')}`)
+      report(`Run started: ${plural(count, 'output')}`)
     } catch (e) {
-      toast((e as Error).message)
+      report(e as Error)
     } finally {
       setBusy(false)
     }

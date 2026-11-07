@@ -47,7 +47,7 @@ import { useFetch } from '../hooks.ts'
 import { plural, versionScore } from '../model.ts'
 
 export function Versions({ ctx }: { ctx: Ctx }) {
-  const { state, config, outputs, route, go, toast, confirm, reload, drafts } = ctx
+  const { state, config, outputs, route, go, report, confirm, reload, drafts } = ctx
   const { versions, current } = state.versions
   const newest = [...versions].reverse()
   const runsOf = (version: string) =>
@@ -89,9 +89,9 @@ export function Versions({ ctx }: { ctx: Ctx }) {
     try {
       await api.restoreVersion(version, lose)
       await reload()
-      toast(`Restored ${version}`)
+      report(`Restored ${version}`)
     } catch (e) {
-      toast((e as Error).message)
+      report(e as Error)
     } finally {
       setRestoring(null)
     }
@@ -101,9 +101,9 @@ export function Versions({ ctx }: { ctx: Ctx }) {
     try {
       const { restored } = await api.undeleteVersion(undo)
       await reload()
-      toast(`${restored} is back`)
+      report(`${restored} is back`)
     } catch (e) {
-      toast((e as Error).message)
+      report(e as Error)
     }
   }
 
@@ -133,12 +133,12 @@ export function Versions({ ctx }: { ctx: Ctx }) {
         go('versions', {}, { replace: true })
       await reload()
       // When it was the files' version, the Save form that appears says the files stayed.
-      toast(`Deleted ${v.version}${gone.runs ? ` and its ${plural(gone.runs, 'run')}` : ''}`, {
+      report(`Deleted ${v.version}${gone.runs ? ` and its ${plural(gone.runs, 'run')}` : ''}`, {
         undo: () => undelete(gone.undo),
       })
     } catch (e) {
       focusAfter.current = null
-      toast((e as Error).message)
+      report(e as Error)
     } finally {
       setLeaving(null)
     }
@@ -282,7 +282,7 @@ export function Versions({ ctx }: { ctx: Ctx }) {
 }
 
 function SaveVersion({ ctx, unsavedFiles }: { ctx: Ctx; unsavedFiles: number }) {
-  const { state, go, toast, reload } = ctx
+  const { state, go, report, reload } = ctx
   const { current } = state.versions
   // The walkthrough's form needs no typing: its version comes named.
   const [name, setName] = useState(
@@ -299,9 +299,9 @@ function SaveVersion({ ctx, unsavedFiles }: { ctx: Ctx; unsavedFiles: number }) 
       await reload()
       setName('')
       setNote('')
-      toast(`Saved ${saved.version} · ${saved.name}`)
+      report(`Saved ${saved.version} · ${saved.name}`)
     } catch (e) {
-      toast((e as Error).message)
+      report(e as Error)
     } finally {
       setBusy(false)
     }

@@ -30,13 +30,14 @@ import { Status } from '../components/Status.tsx'
 import { Hint, Link } from '../components/text.tsx'
 import { Button } from '../components/ui/button.tsx'
 import { Label } from '../components/ui/label.tsx'
+import type { Reporter } from '../hooks.ts'
 import { setPreferences, usePreferences } from '../preferences.ts'
 import { APP_VERSION, checkForUpdates } from '../updates.ts'
 
 interface Props {
   /** A run is going: starting over would stop it, and the question says so. */
   running: boolean
-  toast: (message: string) => void
+  report: Reporter
   /** Called after a change, so the open skill's state picks the key up. */
   onSaved: () => Promise<void>
   onWelcome: () => void
@@ -92,7 +93,7 @@ const UPDATE_MODES = [
   { value: 'manual', label: 'When I ask' },
 ] as const satisfies ReadonlyArray<{ value: UpdateMode; label: string }>
 
-export function SettingsScreen({ running, toast, onSaved, onWelcome }: Props) {
+export function SettingsScreen({ running, report, onSaved, onWelcome }: Props) {
   const preferences = usePreferences()
   const { keys, changed } = useKeys(onSaved)
   const { providers, choice, problem } = useAi()
@@ -104,7 +105,9 @@ export function SettingsScreen({ running, toast, onSaved, onWelcome }: Props) {
     updates: useId(),
   }
   const choose = (patch: Partial<Preferences>) =>
-    setPreferences(patch).catch((e: Error) => toast(`Not saved: ${e.message}`))
+    setPreferences(patch).catch((e: Error) =>
+      report(`Not saved: ${e.message}`, { tone: 'destructive' }),
+    )
 
   return (
     <Screen width="form">
@@ -233,7 +236,7 @@ export function SettingsScreen({ running, toast, onSaved, onWelcome }: Props) {
           title={vendor}
           hint={`Two ways to reach ${vendor}’s models. Use either, or both: each shows its own models.`}
         >
-          <VendorRoutes vendor={vendor} keys={keys} toast={toast} onSaved={changed} />
+          <VendorRoutes vendor={vendor} keys={keys} report={report} onSaved={changed} />
         </FormSection>
       ))}
 
@@ -251,13 +254,13 @@ export function SettingsScreen({ running, toast, onSaved, onWelcome }: Props) {
           keys={keys}
           missing="Grading uses code checks only."
           optional={false}
-          toast={toast}
+          report={report}
           onSaved={changed}
         />
       </FormSection>
 
       {/* Only a copy made for testing can start over: a development build, or a prerelease. */}
-      {api.reset ? <StartOver reset={api.reset} running={running} toast={toast} /> : null}
+      {api.reset ? <StartOver reset={api.reset} running={running} report={report} /> : null}
     </Screen>
   )
 }
@@ -269,11 +272,11 @@ export function SettingsScreen({ running, toast, onSaved, onWelcome }: Props) {
 function StartOver({
   reset,
   running,
-  toast,
+  report,
 }: {
   reset: () => Promise<void>
   running: boolean
-  toast: (message: string) => void
+  report: Reporter
 }) {
   const [asking, setAsking] = useState(false)
   const [resetting, setResetting] = useState(false)
@@ -282,7 +285,7 @@ function StartOver({
     setResetting(true)
     // When it works this window closes with the rest, so only a refusal comes back.
     reset().catch((e: Error) => {
-      toast(`Not reset: ${e.message}`)
+      report(`Not reset: ${e.message}`, { tone: 'destructive' })
       setResetting(false)
     })
   }
