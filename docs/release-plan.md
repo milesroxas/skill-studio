@@ -49,6 +49,7 @@ Each commit's message has the detail of its phase. [docs/design/](design/README.
 
 - [x] Results fits a 720px window: the "×2" beside a score folds away below 1024px. `4067090`
 - [x] A failing message on Agreement colors only its heading, like the other verdicts. `4067090`
+- [x] The welcome's first screen opens with no focus ring on its button. `48c0af2`
 
 ### Docs and project
 
