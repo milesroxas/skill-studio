@@ -63,11 +63,11 @@
   --signal: oklch(0.928 0.168 109);
   --signal-foreground: oklch(0.177 0.035 267.3);
   /*
-   * A container's corners: tight on top, a fuller curve below, 3 to 7. Read by
+   * A container's corners: a smaller curve on top, a fuller one below, 4 to 5. Read by
    * the rounded-chin utility. Small parts take rounded-sm from the scale.
    */
-  --radius-chin-top: 0.375rem;
-  --radius-chin-bottom: 0.875rem;
+  --radius-chin-top: 0.625rem;
+  --radius-chin-bottom: 0.78125rem;
   /* Raised surfaces: a ring for the edge, a tight shadow, a soft one. */
   --elevation-raised:
     0 0 0 1px oklch(0 0 0 / 0.06), 0 1px 2px oklch(0 0 0 / 0.04),
@@ -187,7 +187,7 @@
  * Corners, a closed set.
  *   xs     2  a mark inside running text, a part nested in a control, a step of a stepped indicator
  *   sm     4  buttons, fields, toggles, chips, list rows
- *   chin   6 over 14  a container: a card, a popover, a dialog, a panel
+ *   chin  10 over 12.5  a container: a card, a popover, a dialog, a panel
  *   full      dots, one continuous bar and the slider's thumb only
  */
 @theme {

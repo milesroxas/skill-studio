@@ -45,7 +45,7 @@ Each commit's message has the detail of its phase. [docs/design/](design/README.
 - [x] Phase 4: the Flow mark, the welcome's ink cover and the new app icon. `43dd765`
 - [x] Phase 5: every screen checked in both themes at 1280 x 860 and 720 x 480, and every guide picture retaken. `4067090`
 - [x] Phase 6: the version lift, run progress and numbered rules (the features above). `515c89a`
-- [x] Highlighter lime (`#F0F059`) and blue-black ink (`#0A1020`). Small parts have 4px corners; cards, menus, dialogs and panels are 6px on top and 14px below. `55cdcd5`
+- [x] Highlighter lime (`#F0F059`) and blue-black ink (`#0A1020`). Small parts have 4px corners; cards, menus, dialogs and panels are 10px on top and 12.5px below. `55cdcd5`
 
 ### Fixes
 

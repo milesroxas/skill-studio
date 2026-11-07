@@ -28,7 +28,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - Scores, costs and times in tables are set in mono, so digits line up down a column. Score chips have small 4px corners.
 - A pressed choice (a theme, an install toggle, a vote between two outputs) is filled solid, the same everywhere. Good and Bad marks stay green and red.
 - Fields have a light fill, so they are easy to find on the page.
-- Tighter corners. Buttons, fields, toggles and chips have 4px corners. Cards, menus, dialogs and panels are 6px on top and 14px below.
+- Tighter corners. Buttons, fields, toggles and chips have 4px corners. Cards, menus, dialogs and panels are 10px on top and 12.5px below.
 - The welcome opens on a dark cover with the new mark, and each step of the tour shows its number large.
 - A new app icon: the Flow mark, two ribbons on near-black.
 - The Write screen is now called Editor.
