@@ -11,7 +11,7 @@ These exist. Nothing else does: an unlisted variant is a bug, not an option.
 | `default` | the single most important action of a screen or dialog: ink fill | one per view |
 | `outline` | every other action. **This is the one to reach for first.** | any |
 | `ghost` | an action beside other buttons in a toolbar or header | any |
-| `signal` | the next step of the loop, in the top bar only: lime fill | one per window |
+| `signal` | the next step of the loop, in the top bar only: yellow fill | one per window |
 | `secondary` | not used by any screen. Do not start. | 0 |
 | `link` | a link in a sentence that leaves the screen | rare |
 | `link-muted` | navigation inside a table cell or under a form | any |
@@ -97,7 +97,7 @@ Otherwise → default
 
 ## The next step
 
-The top bar shows where the loop goes next. It is the app's one lime control. Only `App.tsx` renders it: a screen never adds its own.
+The top bar shows where the loop goes next. It is the app's one yellow control. Only `App.tsx` renders it: a screen never adds its own.
 
 ```tsx
 // Correct: App.tsx
@@ -107,7 +107,7 @@ The top bar shows where the loop goes next. It is the app's one lime control. On
 </Button>
 
 // Incorrect: a tone inside it. muted-foreground is light grey in the dark scope
-// and disappears on lime. Text on signal is always signal-foreground.
+// and disappears on yellow. Text on signal is always signal-foreground.
 <Button type="button" variant="signal" size="sm" onClick={…}>
   <Text tone="muted">Next:</Text>
   {next.label}

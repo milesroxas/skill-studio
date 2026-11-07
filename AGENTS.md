@@ -16,7 +16,7 @@ Read [docs/design/README.md](docs/design/README.md) first, then the one topic fi
 1. **Tokens only.** No hex, `rgb()`, `oklch()` or arbitrary color class outside `src/renderer/styles.css`.
 2. **No styling at call sites.** Screens compose components and name variants. A missing look is a missing variant: add it to the component.
 3. **Closed sets.** A variant the design docs do not list does not exist. Do not invent one.
-4. **Lime means next or running.** One `signal` element per window. Never decoration, never success.
+4. **Yellow means next or running.** One `signal` element per window. Never decoration, never success.
 5. **Regions are never cards.** `Screen`, `Workbench` columns or `FormSection`, divided by hairlines.
 
 If the design docs and the code disagree, the code is what runs: say so in your report and fix the doc in the same change. Do not follow a doc into a variant that is not there.

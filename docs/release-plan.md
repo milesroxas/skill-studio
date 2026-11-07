@@ -41,11 +41,11 @@ Each commit's message has the detail of its phase. [docs/design/](design/README.
 
 - [x] Phase 1: the Flow color tokens, and first-paint colors held to the CSS by a test. `b9b68fd`
 - [x] Phase 2: the ink sidebar, in both themes. `8d9d90d`
-- [x] Phase 3: components: the lime next step, mono numbers, square chips, filled fields and pressed choices. `dc60f9d`
+- [x] Phase 3: components: the yellow next step, mono numbers, square chips, filled fields and pressed choices. `dc60f9d`
 - [x] Phase 4: the Flow mark, the welcome's ink cover and the new app icon. `43dd765`
 - [x] Phase 5: every screen checked in both themes at 1280 x 860 and 720 x 480, and every guide picture retaken. `4067090`
 - [x] Phase 6: the version lift, run progress and numbered rules (the features above). `515c89a`
-- [x] Highlighter lime (`#F0F059`) and blue-black ink (`#0A1020`). Small parts have 4px corners; cards, menus, dialogs and panels are 10px on top and 12.5px below. `55cdcd5`
+- [x] Highlighter yellow (`#F0F059`) and blue-black ink (`#0A1020`). Small parts have 4px corners; cards, menus, dialogs and panels are 10px on top and 12.5px below. `55cdcd5`
 
 ### Fixes
 

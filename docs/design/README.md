@@ -1,6 +1,6 @@
 # Design system
 
-Skill Studio looks like a print proof: ink on porcelain stock, hairline rules, one fluorescent mark for what is live. The sidebar is the app icon's ink ground and the page is the paper it prints on. Color says only two things: how something stands (green works or passes, amber needs action, red is broken or failing) and what is running or next (lime).
+Skill Studio looks like a print proof: ink on porcelain stock, hairline rules, one fluorescent mark for what is live. The sidebar is the app icon's ink ground and the page is the paper it prints on. Color says only two things: how something stands (green works or passes, amber needs action, red is broken or failing) and what is running or next (yellow).
 
 Read this file before any change to `src/renderer`. Then read only the topic files your task touches.
 
@@ -9,7 +9,7 @@ Read this file before any change to `src/renderer`. Then read only the topic fil
 1. **Tokens only.** A component uses a semantic token class (`bg-background`, `text-muted-foreground`, `border-border`). Never a hex, `rgb()`, `oklch()` or an arbitrary color (`bg-[#0A1020]`) outside `src/renderer/styles.css`. One raw value is one place the next theme change misses.
 2. **No styling at call sites.** A screen composes components and names variants. If a screen needs a `className` that sets color, size, radius, shadow or font, the variant is missing: add it to the component, then use it. Layout classes (`flex`, `gap-*`, `min-w-0`) are the only exception.
 3. **Closed sets.** Each topic file lists every variant that exists. A variant not listed there does not exist. Do not invent one in a call site, and do not pass one the union type rejects.
-4. **Lime is a signal, not a decoration.** `signal` marks exactly these: the next step, a running job, and in the welcome the current step and one slab per frame. One lime element per window, except a running job's dot in the app and the current step's number in the welcome. Two lime elements means neither is the next thing to look at. See [color.md](color.md).
+4. **Yellow is a signal, not a decoration.** `signal` marks exactly these: the next step, a running job, and in the welcome the current step and one slab per frame. One yellow element per window, except a running job's dot in the app and the current step's number in the welcome. Two yellow elements means neither is the next thing to look at. See [color.md](color.md).
 5. **Regions are never cards.** A screen is `Screen`, `Workbench` columns or `FormSection`, divided by hairlines. `Card` is for an object a person compares or picks up, such as `OutputCard`. See [layout.md](layout.md).
 
 ## Index

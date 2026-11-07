@@ -12,7 +12,7 @@ A token has one value per scope. The page picks the scope; a component never che
 | --- | --- | --- |
 | Light | `:root` | the page in the light theme |
 | Dark | `data-theme="dark"` on `<html>` | every surface in the dark theme |
-| Ink | `data-surface="ink"` on an element | the sidebar, the welcome's opening and the status line while it speaks, in both themes; and a chip that carries lime: the welcome's current step, a running skill's `RunningTag` |
+| Ink | `data-surface="ink"` on an element | the sidebar, the welcome's opening and the status line while it speaks, in both themes; and a chip that carries yellow: the welcome's current step, a running skill's `RunningTag` |
 
 Ink uses the dark scope's values, with `--background` set to `--sidebar` and the sidebar tokens taken from the theme around it. So a component inside the sidebar uses `text-muted-foreground` and `bg-accent` as it would anywhere, and gets values that work on ink. A popover opened from the sidebar renders in `<body>`, outside the scope, and is a paper sheet. That is intended. The one exception is the sidebar itself opened as a popover on a narrow window (`PopoverContent size="nav"`), which carries the scope.
 
@@ -37,9 +37,9 @@ Ink uses the dark scope's values, with `--background` set to `--sidebar` and the
 | `--destructive` | `oklch(0.473 0.148 27)` | `oklch(0.76 0.12 25)` | a failing score, an error, a delete |
 | `--signal` / `--signal-foreground` | `oklch(0.928 0.168 109)` / ink | the same | next and running |
 
-`--signal` is the same in every scope. It is the brand's highlighter lime `#F0F059`.
+`--signal` is the same in every scope. It is the brand's highlighter yellow `#F0F059`.
 
-Ink is a blue-black, `#0A1020`: the light theme's text, its filled button and its sidebar. The dark theme's surfaces are near-black on the same hue, 267.3, at chroma 0.01, so they read as black with a cool cast. Only porcelain, the verdicts and lime sit off that hue.
+Ink is a blue-black, `#0A1020`: the light theme's text, its filled button and its sidebar. The dark theme's surfaces are near-black on the same hue, 267.3, at chroma 0.01, so they read as black with a cool cast. Only porcelain, the verdicts and yellow sit off that hue.
 
 ## What background do I use?
 
@@ -67,25 +67,25 @@ Does the color state a verdict (pass, weak, fail)?
 
 `tone="faint"` is 3.05:1 on porcelain. Never put a word a person must read in it.
 
-## Lime
+## Yellow
 
-`bg-signal` with `text-signal-foreground`, or `text-signal` on an ink surface. No other pairing: lime on porcelain is 1.07:1 and cannot be seen.
+`bg-signal` with `text-signal-foreground`, or `text-signal` on an ink surface. No other pairing: yellow on porcelain is 1.07:1 and cannot be seen.
 
-Lime marks exactly these:
+Yellow marks exactly these:
 
 - the next step: `Button variant="signal"` in the top bar. See [buttons.md](buttons.md).
-- a running job: the dot in `JobsIndicator` on the ink sidebar, and in `RunningTag` on its skill's row in the Library. It is the one lime that may sit beside the next step. A job's progress bar is foreground, not lime.
+- a running job: the dot in `JobsIndicator` on the ink sidebar, and in `RunningTag` on its skill's row in the Library. It is the one yellow that may sit beside the next step. A job's progress bar is foreground, not yellow.
 - in the welcome: the current step in the progress row, and one `Slab` per frame. See [brand.md](brand.md).
 
 ```tsx
 // Correct: the dot of a running job, in components/Jobs.tsx
 running: 'animate-pulse bg-signal',
 
-// Incorrect: lime as a highlight for something that is neither next nor running
+// Incorrect: yellow as a highlight for something that is neither next nor running
 <Badge className="bg-signal">New</Badge>
 ```
 
-Never use lime for success. A pass is `success`. Lime next to green makes a reader ask which one means good.
+Never use yellow for success. A pass is `success`. Yellow next to green makes a reader ask which one means good.
 
 ## Verdicts
 
@@ -121,7 +121,7 @@ Measured with WCAG 2 and APCA. A new text pair needs 4.5:1, and |Lc| 60 when it 
 | muted-foreground on background | 5.7:1, Lc 74 | 9.8:1, Lc 63 |
 | muted-foreground on accent | 5.0:1, Lc 66 | 8.5:1, Lc 62 |
 | success, warning, destructive on their tint | 5.5, 5.0, 5.6:1 | above 5:1, Lc 59, 59, 52 (chips only, never running text) |
-| ink on lime | 15.6:1 | 15.6:1 (lime text on the dark page 16.1:1) |
+| ink on yellow | 15.6:1 | 15.6:1 (yellow text on the dark page 16.1:1) |
 | focus ring (`ring-ring/50`) on background | 3.5:1 | 4.9:1 |
 
 Two known gaps. `border-input` on porcelain is 1.5:1, so an input is found by its `bg-card` fill and its label, not its edge: never draw an input without both. The brand kit's secondary grey `#7C817B` is 3.6:1 on porcelain and is not a token: use `muted-foreground`.

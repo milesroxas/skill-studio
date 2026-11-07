@@ -19,7 +19,7 @@ const numeral = (index: number): string => String(index + 1).padStart(2, '0')
 
 /**
  * How far through the steps the reader is: each step's number in mono, the
- * current one lime on ink. A screen reader hears it in words.
+ * current one yellow on ink. A screen reader hears it in words.
  */
 export function StepProgress({ count, index }: { count: number; index: number }) {
   return (

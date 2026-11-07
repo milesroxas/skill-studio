@@ -1,7 +1,7 @@
 /**
  * The brand, where the app shows it: the Flow mark (two identical ribbons) and
- * the lime slab under the one word or number that matters. The mark is the
- * foreground color, never lime: lime means live, and a logo is not live. The
+ * the yellow slab under the one word or number that matters. The mark is the
+ * foreground color, never yellow: yellow means live, and a logo is not live. The
  * slab appears only in the welcome. See docs/design/brand.md.
  */
 import { cva, type VariantProps } from 'class-variance-authority'
@@ -45,7 +45,7 @@ export function Mark({ size }: Required<VariantProps<typeof markVariants>>) {
 }
 
 /**
- * A lime slab under ink: the one word or number that matters, once per
+ * A yellow slab under ink: the one word or number that matters, once per
  * frame of the welcome. Square to the page, hanging 8px left of the text so
  * the letters stay on the column's edge. It is drawn across from the left
  * after `delay`; the word is readable in its own color before it lands.

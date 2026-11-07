@@ -32,7 +32,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - A dialog's confirm button is one verb: Restart, Restore, Start, Delete, Reset. The dialog's title names what it acts on.
 - Practice is now the walkthrough, and it takes the thank-you note through the whole workflow in 12 steps: read the skill, save a version, read the cases, run, read the scores, rate, check the judge, see the scoring, tighten a rule, save it, run again and compare. It opens on the Editor.
 - A new look. The sidebar is a blue-black ink in both themes, and the page is a warm off-white in the light theme and near-black in the dark one.
-- The next step at the top right is a highlighter lime, the one lime control in the window. A running job's dot in the sidebar is lime too.
+- The next step at the top right is a highlighter yellow, the one yellow control in the window. A running job's dot in the sidebar is yellow too.
 - Scores, costs and times in tables are set in mono, so digits line up down a column. Score chips have small 4px corners.
 - A pressed choice (a theme, an install toggle, a vote between two outputs) is filled solid, the same everywhere. Good and Bad marks stay green and red.
 - Fields have a light fill, so they are easy to find on the page.

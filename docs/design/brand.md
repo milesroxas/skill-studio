@@ -1,6 +1,6 @@
 # Brand
 
-The brand is three things: the Flow mark (two identical ribbons), ink on porcelain, and lime for what is live. The app shows it through restraint. The welcome is the one place it speaks up.
+The brand is three things: the Flow mark (two identical ribbons), ink on porcelain, and yellow for what is live. The app shows it through restraint. The welcome is the one place it speaks up.
 
 `Mark` and `Slab` live in `components/Mark.tsx`.
 
@@ -14,7 +14,7 @@ M 0 120 H 64 C 104 120 104 64 144 64 H 184 V 96 H 144 C 104 96 104 152 64 152 H 
 ```
 
 - Render it with `Mark` from `components/Mark.tsx`: `size="strip"` in the sidebar, `size="cover"` in the welcome. Never paste the paths into a screen, and never redraw them by eye.
-- Never stretch, rotate, outline, tilt or recolor it. It is `fill-foreground` on paper and porcelain on ink. The kit's lime mark is not used in the app: lime means live, and a logo is not live.
+- Never stretch, rotate, outline, tilt or recolor it. It is `fill-foreground` on paper and porcelain on ink. The mark is never yellow: yellow means live, and a logo is not live.
 - Clear space is one band height on every side: 17.4% of the mark's width. Minimum width is 16px.
 - Sources are in `build/icon-src/` (`mac.svg`, `tile.svg`, `mark.svg`, from the brand kit). Icons are in `build/` (`icon.icns`, `icon.ico`, `icon.png`). Regenerate every size from the SVG master. Never scale a small PNG up.
 
@@ -42,7 +42,7 @@ Never use a ribbon as a divider, a background, a progress bar or a loading anima
 
 ## The slab
 
-A `Slab` is a lime rectangle under ink display type. Its edges are square to the page: no rotation, no rounding. It hangs 8px left of the text column, so the letters inside stay on the column's edge. It is drawn across from the left (`animate-draw`), carrying an ink copy of the word, so the word reads in its own color before the slab lands and in ink after.
+A `Slab` is a yellow rectangle under ink display type. Its edges are square to the page: no rotation, no rounding. It hangs 8px left of the text column, so the letters inside stay on the column's edge. It is drawn across from the left (`animate-draw`), carrying an ink copy of the word, so the word reads in its own color before the slab lands and in ink after.
 
 One slab per frame, and only in the welcome: on "works" in the opening and on the final score in the last step.
 
@@ -59,7 +59,7 @@ The welcome runs in its own 760 x 600 window, laid out for exactly that size and
 - **One idea and one action per frame.** Anything more comes one step later, on request. The reader is new and the words are new: six facts in a row are easy, six at once are a wall.
 - The headline is `Heading level="display"` (`text-display`). The step numeral is `text-numeral`, moved 6px left so its stroke sits on the column's edge. Both are in the scale in [typography.md](typography.md).
 - The picture is a sheet with a 1px `border-foreground` edge, `rounded-chin` corners and no shadow.
-- Progress is the step numbers of the part in view in mono: six through the tour, three through the setup. The current one is lime on ink.
+- Progress is the step numbers of the part in view in mono: six through the tour, three through the setup. The current one is yellow on ink.
 - The tour and the setup share one step frame (`StepFrame` in `components/WelcomeStep.tsx`): numeral, title and sentence on the left, the step beside them, Back, a hint and the way forward at the foot.
 - The setup comes after the tour: where skills are found (`Folders`), a model to write with, the Jev key. Each step checks first what the app can already reach and asks only for what is missing. Its controls are the same components Settings and the Library use (`components/Connections.tsx`, `components/Folders.tsx`), never copies. They sit in a `StepPanel`, not a sheet: a region is never a card.
 - A setup step's way forward is one button. While the step has something to set up, the step's own control is `default` and the way forward is `outline`, reading "Configure later", with a hint naming where the setting waits (Library or Settings). Once it is set, the way forward is `default` and reads "Continue", or "Start the walkthrough" on the last step.

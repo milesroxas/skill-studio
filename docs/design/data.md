@@ -158,10 +158,10 @@ The dot is `Dot` from `components/Status.tsx`, the one dot in the app. `Status`,
 | `long` | 4 | `bg-warning` |
 | `over` | 5 | `bg-destructive` |
 
-- Empty bars are `bg-input`. They are never lime.
+- Empty bars are `bg-input`. They are never yellow.
 - `long` and `over` also say so in words, in the hover card and the button's label, so color is never the only sign. The counts take the same tone.
 - Pointing at it opens `HoverCardContent size="note"` with the lines and tokens. Clicking puts the counts in place of the bars, in mono `xs`, and the button is `aria-pressed`. The choice holds across files until the window closes.
 
 ## Figures
 
-A chart or a diagram labels its values directly, in mono `2xs`. It uses `foreground` for the thing measured and `muted-foreground` for references. It never uses lime, and it uses a verdict color only for a verdict. The one figure that uses the ribbon is the version lift. See [brand.md](brand.md).
+A chart or a diagram labels its values directly, in mono `2xs`. It uses `foreground` for the thing measured and `muted-foreground` for references. It never uses yellow, and it uses a verdict color only for a verdict. The one figure that uses the ribbon is the version lift. See [brand.md](brand.md).

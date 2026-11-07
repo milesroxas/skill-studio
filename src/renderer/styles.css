@@ -2,7 +2,7 @@
  * The theme, in shadcn/ui's token vocabulary over Tailwind v4. A print proof:
  * ink on porcelain stock, hairline rules, one fluorescent mark for what is
  * live. Green, amber and red stay reserved for verdicts, so color only says
- * how something stands. Lime (--signal) marks the next step and a running job,
+ * how something stands. Yellow (--signal) marks the next step and a running job,
  * nothing else, and is the same in every scope.
  * Dark remaps the lightness roles: the page is ink, borders turn solid and
  * shadows collapse to a ring.
@@ -59,7 +59,7 @@
   --border: oklch(0.177 0.035 267.3 / 0.1);
   --input: oklch(0.177 0.035 267.3 / 0.2);
   --ring: oklch(0.177 0.035 267.3);
-  /* Lime: the next step and a running job. The same in every scope. */
+  /* Yellow: the next step and a running job. The same in every scope. */
   --signal: oklch(0.928 0.168 109);
   --signal-foreground: oklch(0.177 0.035 267.3);
   /*

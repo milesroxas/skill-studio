@@ -14,7 +14,7 @@ const dotVariants = cva('shrink-0 rounded-full', {
       warning: 'bg-warning',
       destructive: 'bg-destructive',
       muted: 'bg-muted-foreground/50',
-      /** Running. Lime, and it pulses: the one moving thing in the window. */
+      /** Running. Yellow, and it pulses: the one moving thing in the window. */
       signal: 'animate-pulse bg-signal',
     },
     /** `sm` beside 12px text in the chrome, `default` beside body text. */

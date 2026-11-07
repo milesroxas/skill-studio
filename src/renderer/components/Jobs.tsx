@@ -40,7 +40,7 @@ const indicator = cva(
   },
 )
 
-/** Running is the lime dot, the one that moves. */
+/** Running is the yellow dot, the one that moves. */
 const TONE = {
   running: 'signal',
   done: 'success',
@@ -54,7 +54,7 @@ function progressOf(jobs: readonly Job[]): JobProgress | null {
   return sized.reduce((sum, p) => ({ done: sum.done + p.done, total: sum.total + p.total }))
 }
 
-/** How far a job has come, as a hairline that fills from the left. Never lime: the dot says running. */
+/** How far a job has come, as a hairline that fills from the left. Never yellow: the dot says running. */
 function ProgressBar({ done, total }: JobProgress) {
   return (
     <span aria-hidden="true" className="block h-0.5 w-full overflow-hidden bg-foreground/10">
