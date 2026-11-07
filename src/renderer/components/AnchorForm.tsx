@@ -90,10 +90,12 @@ export function AnchorForm({ output, layers, badLayers = [], about = '', onDone 
           type="button"
           variant="outline"
           size="sm"
-          disabled={busy || !primary}
+          disabled={!primary}
+          busy={busy}
+          busyLabel="Saving…"
           onClick={submit}
         >
-          {busy ? 'Saving…' : 'Save anchor'}
+          Save anchor
         </Button>
       </Toolbar>
     </Stack>

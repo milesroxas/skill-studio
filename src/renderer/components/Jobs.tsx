@@ -11,6 +11,21 @@ import { Popover, PopoverContent, PopoverTrigger } from './ui/popover.tsx'
 
 const QUIET_AFTER_MS = 60_000
 
+/**
+ * The job of `kind` still running, by its title when one is given: a screen
+ * keeps the button that started it busy until the job is over, so a second
+ * press cannot start it twice.
+ */
+export function runningJob(
+  jobs: readonly Job[],
+  kind: Job['kind'],
+  title?: string,
+): Job | undefined {
+  return jobs.find(
+    (j) => j.status === 'running' && j.kind === kind && (title === undefined || j.title === title),
+  )
+}
+
 const indicator = cva(
   'flex min-h-8 w-full flex-col justify-center gap-1.5 rounded-sm px-2 py-1.5 text-left text-xs outline-none transition-[background-color] duration-150 ease-out hover:bg-sidebar-accent focus-visible:ring-2 focus-visible:ring-ring/50 data-[state=open]:bg-sidebar-accent',
   {

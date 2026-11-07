@@ -51,6 +51,7 @@ export function ChatPanel({ screen, skill, confirm, onClose }: ChatPanelProps) {
   const [draft, setDraft] = useState('')
   const [failure, setFailure] = useState<string | null>(null)
   const [sending, setSending] = useState(false)
+  const [clearing, setClearing] = useState(false)
   const attached = useAttached()
   const scroller = useRef<HTMLDivElement>(null)
   const pinned = useRef(true)
@@ -94,7 +95,12 @@ export function ChatPanel({ screen, skill, confirm, onClose }: ChatPanelProps) {
       })
     ) {
       setFailure(null)
-      await clearChat()
+      setClearing(true)
+      try {
+        await clearChat()
+      } finally {
+        setClearing(false)
+      }
     }
   }
 
@@ -158,7 +164,8 @@ export function ChatPanel({ screen, skill, confirm, onClose }: ChatPanelProps) {
           size="icon-sm"
           aria-label="New conversation"
           title="New conversation"
-          disabled={!messages.length && !run}
+          disabled={(!messages.length && !run) || clearing}
+          aria-busy={clearing || undefined}
           onClick={startOver}
         >
           <SquarePenIcon aria-hidden="true" />

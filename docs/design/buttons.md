@@ -43,7 +43,16 @@ Is it the next step of the loop, in the top bar?
 
 ```tsx
 // Correct: screens/Cases.tsx. Alone in its section, so its edge sits on the column's edge.
-<Button type="button" variant="destructive-outline" size="sm" onClick={remove}>
+// Busy while the delete runs, and disabled while the case is being saved.
+<Button
+  type="button"
+  variant="destructive-outline"
+  size="sm"
+  disabled={busy}
+  busy={deleting}
+  busyLabel="Deleting…"
+  onClick={remove}
+>
   Delete case
 </Button>
 
@@ -112,9 +121,13 @@ The top bar shows where the loop goes next. It is the app's one lime control. On
 
 - `type="button"` unless it submits a form. A bare button inside a form submits it.
 - An icon-only button has `aria-label` and `title` with the same words.
-- An icon inside a button is `aria-hidden="true"` and takes its size from the button. Do not add `size-*`.
+- An icon inside a button is `aria-hidden="true"` and takes its size from the button. Do not add `size-*`. The `aria-hidden` is also how `Button` knows which side the icon is on: that side gives up 2px of padding (`data-icon="lead"` or `"trail"`), because a 16px icon holds about 2px of air inside its box and its ink would otherwise sit further from the edge than the text's. Text is centred on its cap height already, so never nudge a label with a margin.
 - A label ends in an ellipsis in two cases only: it is busy ("Saving…", "Starting…"), or it opens a dialog that asks more before acting ("Reset Skill Studio…"). A button that acts at once has none.
-- A button is `disabled` while busy, and when pressing it would change nothing: "Show every hint again" is disabled when no hint has been seen. It keeps its width while busy.
+- A button is `disabled` when pressing it would change nothing: "Show every hint again" is disabled when no hint has been seen.
+- Every button whose press awaits something is busy until it lands: `busy={saving} busyLabel="Saving…"`. `busy` disables the button and sets `aria-busy`; `busyLabel` is what it says meanwhile, laid over the label in the same cell so the button is as wide as the wider of the two from the start and nothing beside it moves. Never write the swap as a ternary in the label, and never leave an `await` behind a button that stays enabled: a button that comes straight back asks to be pressed again.
+- A button that starts a job stays busy until the job is over, not until the call returns: starting returns as soon as the job is queued. `runningJob(jobs, kind, title?)` in `Jobs.tsx` finds the job; "Start a run" says "Running…" with the count written so far in its hint, "Regrade" says "Grading…", "Ask Jev" says "Jev is voting…".
+- The other buttons of the same form or row are `disabled` while one of them is busy, so Save and Delete, or Restore on two rows, cannot run at once. A row's controls in a list wait on the row's own key (`pending` in `Library.tsx`), not on every row.
+- "Try again" after a failed read is busy while the read runs again: `useFetch` returns `loading`, and `ReadFailed` takes it as `retrying`.
 - A label is a verb and its object: "Start a run", "Delete case", "Save case", and "Add case" for an item's first save. Never "OK", "Submit" or "Click here". "Save" alone is right where what it saves is plain: an inspector's `ColumnFooter`, where it saves everything in the column (`Knobs.tsx`, `Blind.tsx`), and the Editor's `ColumnHeader`, where it saves the open file.
 - A dialog's confirm button is one verb: "Restart", "Restore", "Delete", "Discard", "Reset". The title above it names the object, so the button does not repeat it. The button that opens the dialog keeps its object: "Restart walkthrough…" opens a dialog whose button says "Restart".
 - Press feedback (`active:scale-[0.96]`) and the focus ring are built in. Do not restyle them.

@@ -81,6 +81,7 @@ export function Editor({ ctx }: { ctx: Ctx }) {
   const [showDiff, setShowDiff] = useState(false)
   const [newName, setNewName] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  const [deleting, setDeleting] = useState(false)
   const [mode, setMode] = useEditorMode((message) => toast(`Not saved: ${message}`))
   const editor = useRef<MarkdownEditorHandle>(null)
   const nameField = useRef<HTMLInputElement>(null)
@@ -187,6 +188,7 @@ export function Editor({ ctx }: { ctx: Ctx }) {
       destructive: true,
     })
     if (!ok) return
+    setDeleting(true)
     try {
       await api.deleteSkillFile(file)
       drop(file)
@@ -196,6 +198,8 @@ export function Editor({ ctx }: { ctx: Ctx }) {
       go('editor', {}, { replace: true })
     } catch (e) {
       toast((e as Error).message)
+    } finally {
+      setDeleting(false)
     }
   }
 
@@ -215,7 +219,7 @@ export function Editor({ ctx }: { ctx: Ctx }) {
         size="screen"
         title="Could not read the skill’s files"
         actions={
-          <Button type="button" onClick={disk.reload}>
+          <Button type="button" busy={disk.loading} busyLabel="Trying again…" onClick={disk.reload}>
             Try again
           </Button>
         }
@@ -425,7 +429,15 @@ export function Editor({ ctx }: { ctx: Ctx }) {
             options={VIEWS}
           />
           {!isSkill && saved !== null ? (
-            <Button type="button" variant="destructive-ghost" size="sm" onClick={remove}>
+            <Button
+              type="button"
+              variant="destructive-ghost"
+              size="sm"
+              disabled={busy}
+              busy={deleting}
+              busyLabel="Deleting…"
+              onClick={remove}
+            >
               Delete file
             </Button>
           ) : null}
@@ -433,7 +445,7 @@ export function Editor({ ctx }: { ctx: Ctx }) {
             type="button"
             variant="ghost"
             size="sm"
-            disabled={!isDirty(file) || busy}
+            disabled={!isDirty(file) || busy || deleting}
             onClick={discard}
           >
             Discard
@@ -443,8 +455,9 @@ export function Editor({ ctx }: { ctx: Ctx }) {
             type="button"
             variant={isDirty(file) ? 'default' : 'ghost'}
             size="sm"
-            disabled={!isDirty(file) || busy || stale}
-            aria-busy={busy}
+            disabled={!isDirty(file) || stale || deleting}
+            busy={busy}
+            busyLabel="Saving…"
             onClick={save}
             title={shortcut('S')}
           >

@@ -8,27 +8,35 @@ import { useCallback, useEffect, useState } from 'react'
 export function useFetch<T>(
   load: () => Promise<T>,
   deps: unknown[],
-): { data: T | null; error: string | null; reload: () => void } {
+): { data: T | null; error: string | null; loading: boolean; reload: () => void } {
   const [data, setData] = useState<T | null>(null)
   const [error, setError] = useState<string | null>(null)
+  /** A load is on its way, from the first one to any reload: a Try again button stays busy meanwhile. */
+  const [loading, setLoading] = useState(true)
   const [tick, setTick] = useState(0)
   // biome-ignore lint/correctness/useExhaustiveDependencies: deps come from the caller
   useEffect(() => {
     let live = true
+    setLoading(true)
     load().then(
       (value) => {
         if (!live) return
         setData(value)
         setError(null)
+        setLoading(false)
       },
-      (e: Error) => live && setError(e.message),
+      (e: Error) => {
+        if (!live) return
+        setError(e.message)
+        setLoading(false)
+      },
     )
     return () => {
       live = false
     }
   }, [...deps, tick])
   const reload = useCallback(() => setTick((t) => t + 1), [])
-  return { data, error, reload }
+  return { data, error, loading, reload }
 }
 
 /** A set and a toggle for one member, for checkbox and filter groups. */

@@ -5,6 +5,7 @@ import { mean } from '@domain/stats.ts'
 import { Fragment, useState } from 'react'
 import { api } from '../api.ts'
 import { Term } from '../components/Help.tsx'
+import { runningJob } from '../components/Jobs.tsx'
 import { VersionLift } from '../components/Lift.tsx'
 import {
   EmptyState,
@@ -51,7 +52,7 @@ const costOf = (run: Ctx['state']['runs'][number]): number | null =>
   run.meta?.samples.reduce((s, x) => s + (x.costUsd ?? 0), 0) ?? null
 
 export function Overview({ ctx }: { ctx: Ctx }) {
-  const { state, config, outputs, route, go, toast } = ctx
+  const { state, config, outputs, route, go, toast, jobs } = ctx
   /** In the URL, so Back from a transcript or a comparison finds the run still open. */
   const openRun = route.params.get('run')
   const setOpenRun = (run: string | null) => go('overview', run ? { run } : {}, { replace: true })
@@ -219,7 +220,10 @@ export function Overview({ ctx }: { ctx: Ctx }) {
                       <RunDetail
                         ctx={ctx}
                         run={run.name}
-                        grading={grading === run.name}
+                        grading={
+                          grading === run.name ||
+                          Boolean(runningJob(jobs, 'grade', `Grade ${run.name}`))
+                        }
                         regrade={regrade}
                       />
                     </TableDetail>
@@ -242,7 +246,7 @@ function RunDetail({
 }: {
   ctx: Ctx
   run: string
-  /** A grade of this run is being started. */
+  /** A grade of this run is being started, or is still going. */
   grading: boolean
   regrade: (run: string) => void
 }) {
@@ -282,10 +286,11 @@ function RunDetail({
               type="button"
               variant="outline"
               size="sm"
-              disabled={grading}
+              busy={grading}
+              busyLabel="Grading…"
               onClick={() => regrade(run)}
             >
-              {grading ? 'Starting…' : state.jevKey ? 'Regrade' : 'Regrade with code checks'}
+              {state.jevKey ? 'Regrade' : 'Regrade with code checks'}
             </Button>
           </Toolbar>
         </SectionHead>

@@ -6,6 +6,7 @@ import { useEffect, useState } from 'react'
 import { api } from '../api.ts'
 import { ArtifactPicker, ArtifactView } from '../components/Artifact.tsx'
 import { InlineField } from '../components/forms.tsx'
+import { runningJob } from '../components/Jobs.tsx'
 import {
   ActionBar,
   Columns,
@@ -78,13 +79,15 @@ function defaultPair(outputs: Output[]): [Output | null, Output | null] {
 }
 
 export function Compare({ ctx }: { ctx: Ctx }) {
-  const { state, config, outputs, route, go, toast, reload } = ctx
+  const { state, config, outputs, route, go, toast, reload, jobs } = ctx
   const pinned = route.params.has('a') || route.params.has('b')
   const [fallbackA, fallbackB] = pinned ? [null, null] : defaultPair(outputs)
   const a = pinned ? outputByKey(outputs, route.params.get('a')) : fallbackA
   const b = pinned ? outputByKey(outputs, route.params.get('b')) : fallbackB
   const [diff, setDiff] = useState(false)
   const [criterion, setCriterion] = useState(OVERALL)
+  const [voting, setVoting] = useState(false)
+  const [asking, setAsking] = useState(false)
   const board = useFetch(() => api.leaderboard(), [state])
   const layers = layersOf(config)
   // Both keys always go in the URL, so an empty B stays empty instead of falling back.
@@ -108,24 +111,39 @@ export function Compare({ ctx }: { ctx: Ctx }) {
       : []
 
   const vote = async (v: Vote) => {
-    if (!a || !b) return
+    if (!a || !b || voting) return
+    setVoting(true)
     try {
       await api.preference(a.key, b.key, name, v)
       toast('Vote saved')
-      reload()
+      await reload()
     } catch (e) {
       toast(`Not saved: ${(e as Error).message}`)
+    } finally {
+      setVoting(false)
     }
   }
   const askJev = async () => {
-    if (!a || !b) return
+    if (!a || !b || asking) return
+    setAsking(true)
     try {
       await api.pairwise(a.key, b.key, [name])
       toast('Jev is voting')
     } catch (e) {
       toast((e as Error).message)
+    } finally {
+      setAsking(false)
     }
   }
+  /** Jev is still voting on this pair: the button stays busy until the vote lands, however the pair is ordered. */
+  const jevBusy =
+    asking ||
+    (a && b
+      ? Boolean(
+          runningJob(jobs, 'pairwise', `Jev: ${a.key} vs ${b.key}`) ??
+            runningJob(jobs, 'pairwise', `Jev: ${b.key} vs ${a.key}`),
+        )
+      : false)
   const boards = board.data ? Object.entries(board.data.boards) : []
   const sameCase = !a || !b || a.caseId === b.caseId
 
@@ -212,6 +230,7 @@ export function Compare({ ctx }: { ctx: Ctx }) {
             aria-label="Your vote"
             options={VOTES}
             value={humanVote}
+            disabled={voting}
             onChange={(v) => v && vote(v)}
           />
           <InlineField label="on">
@@ -234,6 +253,8 @@ export function Compare({ ctx }: { ctx: Ctx }) {
             variant="outline"
             size="sm"
             disabled={!state.jevKey}
+            busy={jevBusy}
+            busyLabel="Jev is voting…"
             title={state.jevKey ? undefined : 'Add a TypeSafe key in Settings to ask Jev'}
             onClick={askJev}
           >

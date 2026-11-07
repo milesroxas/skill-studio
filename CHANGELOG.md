@@ -22,6 +22,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Changed
 
+- Every button that waits for something is busy until it lands: disabled, and saying what it is doing ("Saving…", "Deleting…", "Restoring…") at the same width, so nothing beside it moves. Start a run stays "Running…" until the run is over, Regrade "Grading…", Ask Jev "Jev is voting…"; before, each came back as soon as the job was queued and looked ready to press again. The other buttons of the same form wait meanwhile, and "Try again" after a failed read says "Trying again…".
+- A button with an icon keeps its text padding and trims 2px on the icon's side only, so the icon's ink sits as far from the edge as the letters do. Before, both sides shrank and the icon looked loose.
 - New run starts with one case ticked, the default case or else the first, instead of every case. Running every case is a choice.
 - A dialog's confirm button is one verb: Restart, Restore, Start, Delete, Reset. The dialog's title names what it acts on.
 - Practice is now the walkthrough, and it takes the thank-you note through the whole workflow in 12 steps: read the skill, save a version, read the cases, run, read the scores, rate, check the judge, see the scoring, tighten a rule, save it, run again and compare. It opens on the Editor.

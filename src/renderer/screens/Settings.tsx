@@ -276,10 +276,15 @@ function StartOver({
   toast: (message: string) => void
 }) {
   const [asking, setAsking] = useState(false)
+  const [resetting, setResetting] = useState(false)
   const confirm = () => {
     setAsking(false)
+    setResetting(true)
     // When it works this window closes with the rest, so only a refusal comes back.
-    reset().catch((e: Error) => toast(`Not reset: ${e.message}`))
+    reset().catch((e: Error) => {
+      toast(`Not reset: ${e.message}`)
+      setResetting(false)
+    })
   }
 
   return (
@@ -288,7 +293,13 @@ function StartOver({
       hint="Put Skill Studio back to how it opens the first time, to test a release from its first launch. Only test versions have this."
     >
       <Toolbar>
-        <Button type="button" variant="destructive-outline" onClick={() => setAsking(true)}>
+        <Button
+          type="button"
+          variant="destructive-outline"
+          busy={resetting}
+          busyLabel="Resetting…"
+          onClick={() => setAsking(true)}
+        >
           Reset Skill Studio…
         </Button>
       </Toolbar>

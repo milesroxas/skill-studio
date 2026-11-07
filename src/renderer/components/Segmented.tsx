@@ -28,6 +28,8 @@ interface SegmentedProps<T extends string> extends VariantProps<typeof groupVari
   onChange: (value: T | null) => void
   options: ReadonlyArray<SegmentOption<T>>
   clearable?: boolean
+  /** A change is being saved: no choice can be pressed until it lands. */
+  disabled?: boolean
   size?: 'sm' | 'default'
   tabular?: boolean
   'aria-label'?: string
@@ -39,6 +41,7 @@ export function Segmented<T extends string>({
   onChange,
   options,
   clearable = false,
+  disabled,
   fill,
   size = 'sm',
   tabular,
@@ -49,6 +52,7 @@ export function Segmented<T extends string>({
       type="single"
       variant="outline"
       size={size}
+      disabled={disabled}
       value={value ?? ''}
       onValueChange={(v) => {
         if (v) onChange(v as T)

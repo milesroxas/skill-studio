@@ -284,8 +284,15 @@ export function Knobs({ ctx }: { ctx: Ctx }) {
         </ColumnSection>
 
         <ColumnFooter inset="inspector">
-          <Button type="button" size="sm" disabled={!dirty || busy} onClick={save}>
-            {busy ? 'Saving…' : 'Save'}
+          <Button
+            type="button"
+            size="sm"
+            disabled={!dirty}
+            busy={busy}
+            busyLabel="Saving…"
+            onClick={save}
+          >
+            Save
           </Button>
           {dirty ? (
             <Button type="button" variant="ghost" size="sm" disabled={busy} onClick={discard}>

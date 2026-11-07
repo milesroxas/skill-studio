@@ -123,6 +123,7 @@ export function Cases({ ctx }: { ctx: Ctx }) {
   const draft = useMemo(() => (stored ? withPictures(stored, base) : base), [stored, base])
   const [idTouched, setIdTouched] = useState(false)
   const [busy, setBusy] = useState(false)
+  const [deleting, setDeleting] = useState(false)
   const dirty = JSON.stringify(draft) !== baseJson
 
   /** Another case. The one being left keeps its draft, so there is nothing to confirm. */
@@ -244,7 +245,14 @@ export function Cases({ ctx }: { ctx: Ctx }) {
       ? 'The minimum must not be above the maximum.'
       : ''
   const canSave =
-    dirty && draft.id && !idError && !taken && draft.prompt.trim() && !wordsError && !busy
+    dirty &&
+    draft.id &&
+    !idError &&
+    !taken &&
+    draft.prompt.trim() &&
+    !wordsError &&
+    !busy &&
+    !deleting
 
   const save = async () => {
     if (!canSave) return
@@ -271,6 +279,7 @@ export function Cases({ ctx }: { ctx: Ctx }) {
       destructive: true,
     })
     if (!ok) return
+    setDeleting(true)
     try {
       await api.deleteCase(selected.id)
       drafts.setCase(selected.id, null)
@@ -279,6 +288,8 @@ export function Cases({ ctx }: { ctx: Ctx }) {
       go('cases', {}, { replace: true })
     } catch (e) {
       toast((e as Error).message)
+    } finally {
+      setDeleting(false)
     }
   }
 
@@ -377,7 +388,13 @@ export function Cases({ ctx }: { ctx: Ctx }) {
               <DraftNote drafts={drafts} dirty={dirty} saved={isNew ? '' : 'Saved'} />
             </ColumnTitle>
             {dirty ? (
-              <Button type="button" variant="ghost" size="sm" onClick={discard}>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                disabled={busy || deleting}
+                onClick={discard}
+              >
                 Discard
               </Button>
             ) : isNew && cases.length ? (
@@ -385,8 +402,15 @@ export function Cases({ ctx }: { ctx: Ctx }) {
                 Cancel
               </Button>
             ) : null}
-            <Button type="submit" size="sm" disabled={!canSave} title={shortcut('S')}>
-              {busy ? 'Saving…' : isNew ? 'Add case' : 'Save case'}
+            <Button
+              type="submit"
+              size="sm"
+              disabled={!canSave}
+              busy={busy}
+              busyLabel="Saving…"
+              title={shortcut('S')}
+            >
+              {isNew ? 'Add case' : 'Save case'}
             </Button>
           </ColumnHeader>
           <ColumnBody width="form">
@@ -673,7 +697,15 @@ export function Cases({ ctx }: { ctx: Ctx }) {
                 hint="Its folder goes too. Past runs keep their outputs."
               >
                 <Toolbar>
-                  <Button type="button" variant="destructive-outline" size="sm" onClick={remove}>
+                  <Button
+                    type="button"
+                    variant="destructive-outline"
+                    size="sm"
+                    disabled={busy}
+                    busy={deleting}
+                    busyLabel="Deleting…"
+                    onClick={remove}
+                  >
                     Delete case
                   </Button>
                 </Toolbar>

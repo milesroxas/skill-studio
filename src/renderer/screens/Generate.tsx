@@ -5,7 +5,7 @@ import { PlusIcon, XIcon } from 'lucide-react'
 import { useState } from 'react'
 import { api } from '../api.ts'
 import { CheckRow, NumberInput } from '../components/forms.tsx'
-import { JobLogs } from '../components/Jobs.tsx'
+import { JobLogs, runningJob } from '../components/Jobs.tsx'
 import {
   Field,
   FormActions,
@@ -70,6 +70,16 @@ export function Generate({ ctx }: { ctx: Ctx }) {
   const fallbackName = `Edits of ${shortDate(new Date().toISOString())}`
   const count = cases.size * writers.length * samples
   const missing = engines.filter((e) => !e.available)
+  /**
+   * A run of this skill still going. The button that started it stays busy
+   * until it is over: starting returns as soon as the job is queued, and a
+   * button that came straight back would ask to be pressed again.
+   */
+  const running = runningJob(
+    jobs.filter((j) => j.skillPath === state.skill.path),
+    'generate',
+  )
+  const progress = running?.progress
 
   /**
    * Mark the case every new run starts with, or take the mark off. It is kept
@@ -358,13 +368,23 @@ export function Generate({ ctx }: { ctx: Ctx }) {
 
       {/* The one step this screen exists for stays in view however long the form above it. */}
       <FormActions pinned>
-        <Button type="button" disabled={busy || !cases.size || !writers.length} onClick={submit}>
-          {busy ? 'Starting…' : 'Start a run'}
+        <Button
+          type="button"
+          disabled={!cases.size || !writers.length}
+          busy={busy || Boolean(running)}
+          busyLabel={busy ? 'Starting…' : 'Running…'}
+          onClick={submit}
+        >
+          Start a run
         </Button>
-        <Hint>
-          {!cases.size
-            ? 'Pick at least one case.'
-            : `${plural(cases.size, 'case')} × ${plural(writers.length, 'writer')} × ${plural(samples, 'sample')} = ${plural(count, 'output')}`}
+        <Hint role={running ? 'status' : undefined}>
+          {running
+            ? progress
+              ? `${progress.done} of ${plural(progress.total, 'output')} written. The next run can start when this one is done.`
+              : `${running.title} is going. The next run can start when it is done.`
+            : !cases.size
+              ? 'Pick at least one case.'
+              : `${plural(cases.size, 'case')} × ${plural(writers.length, 'writer')} × ${plural(samples, 'sample')} = ${plural(count, 'output')}`}
         </Hint>
       </FormActions>
 

@@ -1,8 +1,16 @@
 import { cn } from '@renderer/lib/utils.ts'
 import { cva, type VariantProps } from 'class-variance-authority'
 import { Slot } from 'radix-ui'
-import type * as React from 'react'
+import * as React from 'react'
 
+/*
+ * Padding beside an icon: the icon's side gives up 2px, because a 16px icon
+ * holds about 2px of air inside its box, so its ink would sit further from the
+ * edge than the text's. Only the side the icon is on changes: a leading icon
+ * trims the left, a trailing one the right, and the text keeps the size's own
+ * padding. `data-icon` says which side; `iconSide` below reads it from the
+ * children, since CSS cannot tell an icon before a text node from one after it.
+ */
 const buttonVariants = cva(
   "inline-flex shrink-0 items-center justify-center gap-2 rounded-sm text-sm font-medium whitespace-nowrap transition-[color,background-color,border-color,box-shadow,scale] duration-150 ease-out outline-none active:scale-[0.96] focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:pointer-events-none disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
   {
@@ -43,14 +51,15 @@ const buttonVariants = cva(
           'text-muted-foreground underline decoration-input underline-offset-3 hover:text-foreground hover:decoration-current',
       },
       size: {
-        default: 'h-9 px-4 py-2 has-[>svg]:px-3',
-        xs: "h-6 gap-1 rounded-sm px-2 text-xs has-[>svg]:px-1.5 [&_svg:not([class*='size-'])]:size-3",
+        default:
+          'h-9 px-4 py-2 data-[icon=lead]:pl-3.5 data-[icon=trail]:pr-3.5 data-[icon=both]:px-3.5',
+        xs: "h-6 gap-1 rounded-sm px-2 text-xs data-[icon=lead]:pl-1.5 data-[icon=trail]:pr-1.5 data-[icon=both]:px-1.5 [&_svg:not([class*='size-'])]:size-3",
         /**
          * 32px to look at. Under a finger its hit area reaches 6px past the box
          * above and below (44px); a row of them needs 12px between its lines.
          */
-        sm: 'h-8 gap-1.5 rounded-sm px-3 has-[>svg]:px-2.5 pointer-coarse:relative pointer-coarse:before:absolute pointer-coarse:before:inset-x-0 pointer-coarse:before:-inset-y-1.5',
-        lg: 'h-10 rounded-sm px-6 has-[>svg]:px-4',
+        sm: 'h-8 gap-1.5 rounded-sm px-3 data-[icon=lead]:pl-2.5 data-[icon=trail]:pr-2.5 data-[icon=both]:px-2.5 pointer-coarse:relative pointer-coarse:before:absolute pointer-coarse:before:inset-x-0 pointer-coarse:before:-inset-y-1.5',
+        lg: 'h-10 rounded-sm px-6 data-[icon=lead]:pl-5.5 data-[icon=trail]:pr-5.5 data-[icon=both]:px-5.5',
         icon: 'size-9',
         'icon-xs': "size-6 rounded-sm [&_svg:not([class*='size-'])]:size-3",
         /**
@@ -86,15 +95,77 @@ const buttonVariants = cva(
   },
 )
 
+/** The children as a flat list, with fragments opened and blank strings dropped. */
+function flatten(children: React.ReactNode): React.ReactNode[] {
+  return React.Children.toArray(children).flatMap((node) => {
+    if (React.isValidElement<{ children?: React.ReactNode }>(node) && node.type === React.Fragment)
+      return flatten(node.props.children)
+    return typeof node === 'string' && !node.trim() ? [] : [node]
+  })
+}
+
+/** An icon in a button is `aria-hidden="true"`; nothing else in one is. */
+const isIcon = (node: React.ReactNode): boolean =>
+  React.isValidElement<{ 'aria-hidden'?: unknown }>(node) &&
+  (node.props['aria-hidden'] === 'true' || node.props['aria-hidden'] === true)
+
+/** Which side of the label the icon sits on, for the padding that side gives up. Undefined with no label. */
+function iconSide(children: React.ReactNode): 'lead' | 'trail' | 'both' | undefined {
+  const list = flatten(children)
+  if (list.length < 2) return undefined
+  const lead = isIcon(list[0])
+  const trail = isIcon(list[list.length - 1])
+  return lead && trail ? 'both' : lead ? 'lead' : trail ? 'trail' : undefined
+}
+
+/**
+ * A label and the label it shows while busy, laid over each other in one cell,
+ * so the button is as wide as the wider of the two from the start and nothing
+ * beside it moves when the work begins. The one not showing keeps its box and
+ * is hidden from assistive technology.
+ */
+function BusyLabel({
+  busy,
+  label,
+  children,
+}: {
+  busy: boolean
+  label: React.ReactNode
+  children: React.ReactNode
+}) {
+  const face = 'col-start-1 row-start-1 inline-flex items-center justify-center gap-[inherit]'
+  return (
+    <span data-slot="label" className="inline-grid gap-[inherit]">
+      <span className={cn(face, busy && 'invisible')} aria-hidden={busy || undefined}>
+        {children}
+      </span>
+      <span className={cn(face, !busy && 'invisible')} aria-hidden={!busy || undefined}>
+        {label}
+      </span>
+    </span>
+  )
+}
+
 function Button({
   className,
   variant = 'default',
   size = 'default',
   asChild = false,
+  busy = false,
+  busyLabel,
+  disabled,
+  children,
   ...props
 }: React.ComponentProps<'button'> &
   VariantProps<typeof buttonVariants> & {
     asChild?: boolean
+    /**
+     * The action is under way: the button is disabled, says so to assistive
+     * technology, and shows `busyLabel` in place of its label at the same width.
+     */
+    busy?: boolean
+    /** What the button says while busy: a verb in progress with an ellipsis, "Saving…". */
+    busyLabel?: React.ReactNode
   }) {
   const Comp = asChild ? Slot.Root : 'button'
 
@@ -103,9 +174,20 @@ function Button({
       data-slot="button"
       data-variant={variant}
       data-size={size}
+      data-icon={asChild ? undefined : iconSide(children)}
       className={cn(buttonVariants({ variant, size, className }))}
+      disabled={disabled || busy}
+      aria-busy={busy || undefined}
       {...props}
-    />
+    >
+      {busyLabel !== undefined ? (
+        <BusyLabel busy={busy} label={busyLabel}>
+          {children}
+        </BusyLabel>
+      ) : (
+        children
+      )}
+    </Comp>
   )
 }
 

@@ -72,7 +72,12 @@ interface Props {
   jobs: readonly Job[]
 }
 
-type Act = (work: Promise<unknown>, done: string) => void
+/**
+ * Run one change to the library and say what it did. `key` names what the
+ * change is about, such as a skill's path: its controls stay busy until the
+ * work lands, so nothing can be pressed twice.
+ */
+type Act = (work: Promise<unknown>, done: string, key?: string) => Promise<void>
 
 /** Whose skills the list shows: written here, installed from elsewhere, or both. */
 type View = 'yours' | 'installed' | 'all'
@@ -103,6 +108,8 @@ export function LibraryScreen({
   const [query, setQuery] = useState('')
   const [place, setPlace] = useState('')
   const [view, setView] = useState<View>('yours')
+  /** The skill a change is on its way for, by path: its row's controls wait for it. */
+  const [pending, setPending] = useState<string | null>(null)
   const [starting, startPractice] = useStartPractice(openSkill, toast)
 
   // Skills are made and installed outside the app, so coming back to the window reads them again.
@@ -128,7 +135,7 @@ export function LibraryScreen({
         size="screen"
         title="Could not read the library"
         actions={
-          <Button type="button" onClick={lib.reload}>
+          <Button type="button" busy={lib.loading} busyLabel="Trying again…" onClick={lib.reload}>
             Try again
           </Button>
         }
@@ -148,13 +155,16 @@ export function LibraryScreen({
   /** Nobody has run anything here yet: lead with the practice skill, and let New skill step back. */
   const inviting = !practised && !data.skills.some((s) => s.runs > 0)
 
-  const act: Act = async (work, done) => {
+  const act: Act = async (work, done, key) => {
+    if (key) setPending(key)
     try {
       await work
       toast(done)
       lib.reload()
     } catch (e) {
       toast((e as Error).message)
+    } finally {
+      if (key) setPending((p) => (p === key ? null : p))
     }
   }
 
@@ -165,6 +175,7 @@ export function LibraryScreen({
         startName={newName}
         data={data}
         startPractice={practised ? null : startPractice}
+        starting={starting}
         cancel={() => setCreating(false)}
         created={(path) => openSkill(path, 'editor')}
         toast={toast}
@@ -178,8 +189,8 @@ export function LibraryScreen({
           aria-label="Walkthrough"
           title="Learn the workflow with a walkthrough"
           action={
-            <Button type="button" disabled={starting} onClick={startPractice}>
-              {starting ? 'Starting…' : 'Start the walkthrough'}
+            <Button type="button" busy={starting} busyLabel="Starting…" onClick={startPractice}>
+              Start the walkthrough
             </Button>
           }
         >
@@ -248,6 +259,7 @@ export function LibraryScreen({
             openSkill={openSkill}
             reveal={reveal}
             act={act}
+            pending={pending}
             confirm={confirm}
           />
         </Section>
@@ -272,6 +284,7 @@ export function LibraryScreen({
             openSkill={openSkill}
             reveal={reveal}
             act={act}
+            pending={pending}
             confirm={confirm}
           />
         ) : filtering ? (
@@ -340,6 +353,7 @@ function SkillTable({
   openSkill,
   reveal,
   act,
+  pending,
   confirm,
   jobs,
 }: {
@@ -347,18 +361,20 @@ function SkillTable({
   openSkill: Props['openSkill']
   reveal: Props['reveal']
   act: Act
+  /** The skill whose change is on its way, by path: its row's controls are busy. */
+  pending: string | null
   confirm: Confirm
   jobs: Props['jobs']
 }) {
   const toggle = async (s: LibrarySkill, agent: AgentId, label: string) => {
     if (s.installs[agent] === null)
-      return act(api.link(s.path, agent, s.scope), `Installed for ${label}`)
+      return act(api.link(s.path, agent, s.scope), `Installed for ${label}`, s.path)
     const ok = await confirm({
       title: `Uninstall ${s.name} from ${label}?`,
       description: 'Only the link is removed.',
       action: 'Uninstall',
     })
-    if (ok) act(api.unlink(s.path, agent, s.scope), `Removed from ${label}`)
+    if (ok) act(api.unlink(s.path, agent, s.scope), `Removed from ${label}`, s.path)
   }
 
   return (
@@ -436,6 +452,8 @@ function SkillTable({
                         variant="outline"
                         size="sm"
                         pressed={state === 'here' || state === 'link'}
+                        disabled={pending === s.path}
+                        aria-busy={pending === s.path || undefined}
                         aria-disabled={fixed || undefined}
                         title={INSTALL_TITLE[state ?? 'none'](a.label)}
                         onPressedChange={() => fixed || toggle(s, a.id, a.label)}
@@ -474,10 +492,13 @@ function SkillTable({
                         ? 'List it with your own skills again'
                         : 'List it with the skills installed from elsewhere'
                     }
+                    disabled={pending === s.path}
+                    aria-busy={pending === s.path || undefined}
                     onClick={() =>
                       act(
                         api.mark(s.path, !s.source),
                         s.source ? 'Listed with your skills' : 'Listed with installed skills',
+                        s.path,
                       )
                     }
                   >
@@ -509,6 +530,7 @@ function NewSkill({
   startName,
   data,
   startPractice,
+  starting,
   cancel,
   created,
   toast,
@@ -517,6 +539,8 @@ function NewSkill({
   data: Library
   /** Open the practice skill instead; null once it exists. */
   startPractice: (() => void) | null
+  /** The walkthrough is being written, so its link waits. */
+  starting: boolean
   cancel: () => void
   created: (path: string) => void
   toast: Props['toast']
@@ -567,7 +591,13 @@ function NewSkill({
         {startPractice ? (
           <Hint>
             New to the loop?{' '}
-            <Button type="button" variant="link-muted" size="inline-sm" onClick={startPractice}>
+            <Button
+              type="button"
+              variant="link-muted"
+              size="inline-sm"
+              disabled={starting}
+              onClick={startPractice}
+            >
               Take the walkthrough
             </Button>{' '}
             on a finished skill with three cases.
@@ -676,10 +706,15 @@ function NewSkill({
         </FormSection>
 
         <FormActions>
-          <Button type="submit" disabled={busy || !name || Boolean(nameError) || taken}>
-            {busy ? 'Creating…' : 'Create skill'}
+          <Button
+            type="submit"
+            disabled={!name || Boolean(nameError) || taken}
+            busy={busy}
+            busyLabel="Creating…"
+          >
+            Create skill
           </Button>
-          <Button type="button" variant="ghost" onClick={cancel}>
+          <Button type="button" variant="ghost" disabled={busy} onClick={cancel}>
             Cancel
           </Button>
         </FormActions>

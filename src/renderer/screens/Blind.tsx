@@ -117,7 +117,12 @@ export function Blind({ ctx }: { ctx: Ctx }) {
         size="screen"
         title="Could not load the queue"
         actions={
-          <Button type="button" onClick={queue.reload}>
+          <Button
+            type="button"
+            busy={queue.loading}
+            busyLabel="Trying again…"
+            onClick={queue.reload}
+          >
             Try again
           </Button>
         }
@@ -358,8 +363,8 @@ export function Blind({ ctx }: { ctx: Ctx }) {
             ) : null}
           </ColumnSection>
           <ColumnFooter inset="inspector">
-            <Button type="button" size="sm" disabled={saving} onClick={save}>
-              {saving ? 'Saving…' : revealed ? 'Save' : 'Save and reveal'}
+            <Button type="button" size="sm" busy={saving} busyLabel="Saving…" onClick={save}>
+              {revealed ? 'Save' : 'Save and reveal'}
             </Button>
             <Button
               type="button"

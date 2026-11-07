@@ -80,7 +80,12 @@ interface KeyFieldProps {
 export function KeySlot({ keys, ...props }: KeyFieldProps & { keys: Keys }) {
   if (keys.error && !keys.data)
     return (
-      <ReadFailed size="compact" title="Could not read the key’s status" onRetry={keys.reload}>
+      <ReadFailed
+        size="compact"
+        title="Could not read the key’s status"
+        retrying={keys.loading}
+        onRetry={keys.reload}
+      >
         {keys.error}
       </ReadFailed>
     )
@@ -168,8 +173,8 @@ function KeyField({
             />
           </Field>
           <Toolbar>
-            <Button type="submit" disabled={busy || !value.trim()}>
-              {busy ? 'Saving…' : 'Save key'}
+            <Button type="submit" disabled={!value.trim()} busy={busy} busyLabel="Saving…">
+              Save key
             </Button>
             {replace && source === 'stored' ? (
               <Button

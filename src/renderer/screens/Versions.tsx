@@ -55,6 +55,8 @@ export function Versions({ ctx }: { ctx: Ctx }) {
   const unsavedFiles = Object.keys(drafts.files).length
   /** The version whose row is fading out while its delete runs. */
   const [leaving, setLeaving] = useState<string | null>(null)
+  /** The version being restored over the files: its button is busy, and the others wait. */
+  const [restoring, setRestoring] = useState<string | null>(null)
   const deleteButtons = useRef(new Map<string, HTMLButtonElement>())
   /** Where focus goes once the deleted row has left: the row that took its place. */
   const focusAfter = useRef<string | null>(null)
@@ -83,12 +85,15 @@ export function Versions({ ctx }: { ctx: Ctx }) {
           },
     )
     if (!ok) return
+    setRestoring(version)
     try {
       await api.restoreVersion(version, lose)
       await reload()
       toast(`Restored ${version}`)
     } catch (e) {
       toast((e as Error).message)
+    } finally {
+      setRestoring(null)
     }
   }
 
@@ -226,7 +231,9 @@ export function Versions({ ctx }: { ctx: Ctx }) {
                             type="button"
                             variant="ghost"
                             size="sm"
-                            disabled={isCurrent}
+                            disabled={isCurrent || (restoring !== null && restoring !== v.version)}
+                            busy={restoring === v.version}
+                            busyLabel="Restoring…"
                             aria-label={`Restore ${v.version}`}
                             onClick={() => restore(v.version)}
                           >
@@ -242,6 +249,7 @@ export function Versions({ ctx }: { ctx: Ctx }) {
                             size="icon-sm"
                             aria-label={`Delete ${v.version}`}
                             title="Delete version"
+                            disabled={restoring !== null || leaving !== null}
                             onClick={() => remove(v)}
                           >
                             <Trash2Icon aria-hidden="true" />
@@ -358,8 +366,8 @@ function SaveVersion({ ctx, unsavedFiles }: { ctx: Ctx; unsavedFiles: number }) 
           />
         </Field>
         <Toolbar>
-          <Button type="submit" disabled={!name.trim() || busy}>
-            {busy ? 'Saving…' : `Save as ${current.version}`}
+          <Button type="submit" disabled={!name.trim()} busy={busy} busyLabel="Saving…">
+            Save as {current.version}
           </Button>
         </Toolbar>
       </FormSection>

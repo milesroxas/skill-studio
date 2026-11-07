@@ -25,13 +25,23 @@ export function Folders({
   variant = 'outline',
 }: {
   workspaces: string[]
-  /** Store the new list; `done` says what changed, for a toast. */
-  save: (list: string[], done: string) => void
+  /** Store the new list; `done` says what changed, for a toast. Settles when the list is stored. */
+  save: (list: string[], done: string) => Promise<unknown>
   toast: (message: string) => void
   /** The add button's weight: filled where adding a folder is the step to take. */
   variant?: 'default' | 'outline'
 }) {
-  const add = (folder: string) => save([...workspaces, folder], `Looking in ${folder}`)
+  /** A change to the list is on its way: every control of the list waits for it. */
+  const [busy, setBusy] = useState(false)
+  const store = async (list: string[], done: string) => {
+    setBusy(true)
+    try {
+      await save(list, done)
+    } finally {
+      setBusy(false)
+    }
+  }
+  const add = (folder: string) => store([...workspaces, folder], `Looking in ${folder}`)
   const { chooseFolder } = api
   return (
     <Stack gap="md">
@@ -52,8 +62,9 @@ export function Folders({
                   variant="ghost"
                   size="sm"
                   aria-label={`Stop looking in ${w}`}
+                  disabled={busy}
                   onClick={() =>
-                    save(
+                    store(
                       workspaces.filter((x) => x !== w),
                       `Stopped looking in ${w}`,
                     )
@@ -71,9 +82,13 @@ export function Folders({
           <Button
             type="button"
             variant={variant}
+            busy={busy}
+            busyLabel="Saving…"
             onClick={() =>
               chooseFolder().then(
-                (folder) => folder && add(folder),
+                (folder) => {
+                  if (folder) void add(folder)
+                },
                 (e: Error) => toast(e.message),
               )
             }
@@ -83,7 +98,7 @@ export function Folders({
           </Button>
         </Toolbar>
       ) : (
-        <TypedFolder variant={variant} onAdd={add} />
+        <TypedFolder variant={variant} busy={busy} onAdd={add} />
       )}
     </Stack>
   )
@@ -92,9 +107,11 @@ export function Folders({
 /** A folder typed by its path, where no dialog can pick one. */
 function TypedFolder({
   variant,
+  busy,
   onAdd,
 }: {
   variant: 'default' | 'outline'
+  busy: boolean
   onAdd: (folder: string) => void
 }) {
   const [adding, setAdding] = useState('')
@@ -122,7 +139,13 @@ function TypedFolder({
           width="auto"
           onChange={(e) => setAdding(e.target.value)}
         />
-        <Button type="submit" variant={variant} disabled={!adding.trim()}>
+        <Button
+          type="submit"
+          variant={variant}
+          disabled={!adding.trim()}
+          busy={busy}
+          busyLabel="Saving…"
+        >
           <PlusIcon aria-hidden="true" />
           Add folder
         </Button>

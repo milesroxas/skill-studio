@@ -627,10 +627,13 @@ export function ReadFailed({
   size,
   title,
   onRetry,
+  retrying = false,
   children,
 }: Pick<VariantProps<typeof emptyVariants>, 'size'> & {
   title: string
   onRetry: () => void
+  /** The retry is on its way: the button stays busy until it answers. */
+  retrying?: boolean
   /** Why it failed. */
   children: ReactNode
 }) {
@@ -639,7 +642,13 @@ export function ReadFailed({
       size={size}
       title={title}
       actions={
-        <Button type="button" variant="outline" onClick={onRetry}>
+        <Button
+          type="button"
+          variant="outline"
+          busy={retrying}
+          busyLabel="Trying again…"
+          onClick={onRetry}
+        >
           Try again
         </Button>
       }

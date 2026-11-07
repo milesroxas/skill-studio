@@ -138,7 +138,12 @@ export function Setup({
       <StepPanel>
         {step.id === 'folders' ? (
           library.error && !library.data ? (
-            <ReadFailed size="compact" title="Could not look for skills" onRetry={library.reload}>
+            <ReadFailed
+              size="compact"
+              title="Could not look for skills"
+              retrying={library.loading}
+              onRetry={library.reload}
+            >
               {library.error}
             </ReadFailed>
           ) : !library.data ? (
