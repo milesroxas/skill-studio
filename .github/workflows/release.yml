@@ -77,7 +77,7 @@ jobs:
       - name: Refuse to release an unsigned app
         if: github.ref_type == 'tag' && env.SIGNED != 'true'
         run: |
-          echo "::error::The release environment is missing signing secrets. See Releasing in CONTRIBUTING.md."
+          echo "::error::The release environment is missing signing secrets. See docs/releasing.md."
           exit 1
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:

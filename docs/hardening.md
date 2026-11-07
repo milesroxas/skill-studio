@@ -1,6 +1,6 @@
 # Hardening checklist
 
-Known issues in the product's logic and workflow, from a QA review on 2026-11-06. Each line is one issue: its id, its severity, what is wrong, and where. Paths and line numbers are as of `f6a1adf`.
+Known issues in the product's logic and workflow, from a QA review on 2026-11-06. Each line is one issue: its id, its severity, what is wrong, and where. Paths and line numbers are as of `2b9c6ec`.
 
 ## How to use this file
 
@@ -21,13 +21,13 @@ Severity: **high** gives wrong scores or loses data. **med** misleads or breaks 
 
 ## Results integrity
 
-- [ ] **R1** high. A sample is graded against the wrong case when one case id starts with another plus `-` (`intro`, `intro-long`): `findCase` falls back to a prefix match. Pairwise votes have the same problem. `src/infrastructure/cases.ts:187`, `src/application/grade.ts:193`, `src/application/api/operations.ts:473`
-- [ ] **R2** high. One run can mix two skill texts. Each sample copies the live skill folder when it starts, the version label is taken once, and Save and Restore are not blocked during a run. `src/application/generate.ts:149,199`, `src/application/api/operations.ts:582,636`
+- [ ] **R1** high. A sample is graded against the wrong case when one case id starts with another plus `-` (`intro`, `intro-long`): `findCase` falls back to a prefix match. Pairwise votes have the same problem. `src/infrastructure/cases.ts:187`, `src/application/grade.ts:193`, `src/application/api/operations.ts:480`
+- [ ] **R2** high. One run can mix two skill texts. Each sample copies the live skill folder when it starts, the version label is taken once, and Save and Restore are not blocked during a run. `src/application/generate.ts:149,199`, `src/application/api/operations.ts:599,653`
 - [ ] **R3** high. Grading reads the live `SKILL.md`, cases and `bench.json`, never the run's `_skill/` snapshot. A regrade judges v0 by v1's rules, and an `old_skill` run is graded by the current rules. `src/application/grade.ts:158-159`
 - [ ] **R4** high. A sample with no score is left out of the mean, so a version that fails often looks no worse. `src/renderer/screens/Overview.tsx:63`, `src/renderer/model.ts:82`
 - [ ] **R5** high. With the workflow pack on, an empty output can score 100. "nothing written to outputs/" is only a flag. `src/judges/workflow/score.ts:67`, `src/judges/workflow/index.ts:138`
 - [ ] **R6** med. A timed-out sample with partial output counts as complete. `src/application/generate.ts:239`
-- [ ] **R7** med. "Regrade with code checks" overwrites `report.json` and throws away stored Jev answers. `src/application/grade.ts:196`, `src/renderer/screens/Overview.tsx:296`
+- [ ] **R7** med. "Regrade with code checks" overwrites `report.json` and throws away stored Jev answers. `src/application/grade.ts:196`, `src/renderer/screens/Overview.tsx:288`
 
 ## Comparability
 
@@ -36,7 +36,7 @@ Severity: **high** gives wrong scores or loses data. **med** misleads or breaks 
 - [ ] **C3** high. Totals built from different layer sets are compared: a missing key, a failed pack, a pack added later or a crashed lint each drop layers and rescale the rest. `src/domain/scoring.ts:43-53`, `src/application/grade.ts:113-119`
 - [ ] **C4** med. No spread or sample count is shown anywhere, so noise reads as lift. `stddev` and `spread` are unused. `src/domain/stats.ts`, `src/domain/lift.ts:71`
 - [ ] **C5** med. The lift ribbon draws a full rise for a change that rounds to zero. `src/renderer/components/Lift.tsx:76-77,136,151`
-- [ ] **C6** med. Versions and the sidebar score average every writer together. `src/renderer/model.ts:72-84`, `src/renderer/screens/Versions.tsx:178`
+- [ ] **C6** med. Versions and the sidebar score average every writer together. `src/renderer/model.ts:72-84`, `src/renderer/screens/Versions.tsx:180`
 - [ ] **C7** med. The version hash covers `SKILL.md` and `references/` only. Edits to `scripts/`, `assets/` or other top-level files keep the same version. `src/infrastructure/skill.ts:20,203-209`
 - [ ] **C8** med. An `old_skill` run gets no scripts, and the UI does not say so. `src/application/generate.ts:94`
 - [ ] **C9** med. Undo of a version delete after its number was reused leaves two different v3s, averaged together. `src/infrastructure/trash.ts:97-101`, `src/infrastructure/skill.ts:141-157`
@@ -44,11 +44,11 @@ Severity: **high** gives wrong scores or loses data. **med** misleads or breaks 
 - [ ] **C11** low. The without-skill baseline skips the "read SKILL.md first" check, so process is harder for the skill to score on. `src/judges/workflow/score.ts:72-79`
 - [ ] **C12** med. Rule extraction grades non-rules: bullets in `~~~` fences, bullets under a "Bad example" heading, "See references/x.md" pointers. Rules in reference files are never graded. `src/domain/rules.ts:41,53`
 - [ ] **C13** low. The primary artifact is the first file in name order, and `.txt` counts as Markdown, so `notes.md` can beat `post.md`. `src/infrastructure/artifacts.ts:7-19,82`
-- [ ] **C14** low. Unsaved Scoring changes rescore every screen. Grade-time-only settings (`workflow.summaryLines`, `codeCheck.*`, `design.maxChars`) look live but change nothing. The CLI reads stored scores, so it disagrees with the app after Save. `src/renderer/App.tsx:126-128`, `src/interfaces/cli/st.ts:138`
+- [ ] **C14** low. Unsaved Scoring changes rescore every screen. Grade-time-only settings (`workflow.summaryLines`, `codeCheck.*`, `design.maxChars`) look live but change nothing. The CLI reads stored scores, so it disagrees with the app after Save. `src/renderer/App.tsx:129`, `src/interfaces/cli/st.ts:138`
 
 ## Human review
 
-- [ ] **V1** high. A finished background job resets an unsaved blind rating, and can swap the output on screen, so the next click rates the wrong one. `src/renderer/screens/Blind.tsx:66,80,84-92`, `src/renderer/App.tsx:175`
+- [ ] **V1** high. A finished background job resets an unsaved blind rating, and can swap the output on screen, so the next click rates the wrong one. `src/renderer/screens/Blind.tsx:66,80,84-92`, `src/renderer/App.tsx:186`
 - [ ] **V2** high. Agreement pools baseline, old-skill and past-version outputs. Baseline answers break rules they never saw and produce "change the skill". `src/renderer/screens/Insights.tsx:52-66`
 - [ ] **V3** high. Compare votes are cast with totals, the delta and "The scores favor A" on screen, then used to test the judge. `src/renderer/screens/Compare.tsx:228-230,289,327-331,421`
 - [ ] **V4** med. Ratings made after a reveal are stored like blind ones: the review has no blind flag. `src/domain/schemas.ts:267`, `src/renderer/screens/Blind.tsx:338-362`
@@ -59,7 +59,7 @@ Severity: **high** gives wrong scores or loses data. **med** misleads or breaks 
 - [ ] **V9** low. When all ratings are equal, the correlation screen says "needs 3 or more". A correlation from 3 ratings reads as settled. `src/domain/stats.ts:53`, `src/renderer/screens/Insights.tsx:217-219`
 - [ ] **V10** low. The queue list shows "judge N% sure · spread N" before rating. `src/renderer/screens/Blind.tsx:427-430`
 - [ ] **V11** low. Criteria are case-sensitive: "Warmth" and "warmth" are two boards. `src/renderer/screens/Compare.tsx:96`
-- [ ] **V12** low. `skill.review` accepts any rating number and any layer mark. `src/application/api/operations.ts:353-363`
+- [ ] **V12** low. `skill.review` accepts any rating number and any layer mark. `src/application/api/operations.ts:360-371`
 
 ## Anchors
 
@@ -71,7 +71,7 @@ Severity: **high** gives wrong scores or loses data. **med** misleads or breaks 
 
 - [ ] **D1** high. Restore corrupts binary files under `references/`: files are read and written as UTF-8. `src/infrastructure/fs.ts:65`, `src/infrastructure/skill.ts:185`
 - [ ] **D2** med. Saving a case deletes check files and pictures the draft does not list, with no check that the case changed on disk. `src/infrastructure/cases.ts:268-269,316-318`
-- [ ] **D3** med. Restore does not warn about unsaved drafts. "Keep my draft" afterwards undoes the restore. `src/renderer/screens/Versions.tsx:69`
+- [ ] **D3** med. Restore does not warn about unsaved drafts. "Keep my draft" afterwards undoes the restore. `src/renderer/screens/Versions.tsx:70`
 - [ ] **D4** med. Undo of a version delete lives only in the toast. A restart or another toast loses it. `src/renderer/hooks.ts:73`
 - [ ] **D5** low. `reviews.json` is not written atomically. A crash or a merge conflict in it stops the skill from opening. `src/infrastructure/fs.ts:13-19`
 - [ ] **D6** low. The drafts file is rewritten whole, so the desktop app and `st serve` overwrite each other's drafts. `src/infrastructure/drafts.ts:43`
@@ -81,7 +81,7 @@ Severity: **high** gives wrong scores or loses data. **med** misleads or breaks 
 
 - [ ] **P1** med. One sample that throws fails the job, while the other workers keep starting paid sessions. `src/application/generate.ts:141-159`
 - [ ] **P2** med. There is no cancel. An interrupted run later looks finished. A regrade during a run writes "no output" for samples still in progress. The renderer never reads `finishedAt`.
-- [ ] **P3** low. Samples per case are not bounded or checked to be whole numbers on the server. `src/application/api/operations.ts:144,220`
+- [ ] **P3** low. Samples per case are not bounded or checked to be whole numbers on the server. `src/application/api/operations.ts:149,227`
 - [ ] **P4** low. The run's note is replaced by the version's note. `src/application/generate.ts:57,99`
 - [ ] **P5** low. Jev cost covers input tokens only. A failed question empties the whole pack. `src/judges/jev.ts:49`
 
@@ -93,8 +93,8 @@ Severity: **high** gives wrong scores or loses data. **med** misleads or breaks 
 ## Refinement loop
 
 - [ ] **U1** med. No link from Results, Agreement, Rate blind or Compare to the rule or case in question. Graded rules shows no pass rate per rule. The guide's arrow back to the Editor has no UI.
-- [ ] **U2** med. New run and the Next button ignore unsaved drafts and run the saved text as "unchanged". `src/renderer/App.tsx:288`, `src/renderer/screens/Generate.tsx`
+- [ ] **U2** med. New run and the Next button ignore unsaved drafts and run the saved text as "unchanged". `src/renderer/App.tsx:312`, `src/renderer/screens/Generate.tsx`
 - [ ] **U3** low. The Editor does not reload when the window regains focus, so an outside edit only shows as a refused save. `src/renderer/screens/Editor.tsx:79`
 - [ ] **U4** low. The walkthrough gets stuck on "Rate" when the first run's grading failed. `src/domain/practice.ts:162`, `src/renderer/practice.ts:55`
 - [ ] **U5** low. Front matter that is not valid YAML reads as "needs name and description". Name and description are not checked against length or the folder name. `src/domain/text.ts:27-31`
-- [ ] **U6** low. A link whose name differs from its target folder shows as installed but cannot be uninstalled. `src/infrastructure/library.ts:221,300,320`
+- [ ] **U6** low. A link whose name differs from its target folder shows as installed but cannot be uninstalled. `src/infrastructure/library.ts:252,331,351`

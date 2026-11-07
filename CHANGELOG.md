@@ -11,7 +11,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - Results opens with the version lift: the latest version's mean, what it gained since the first version, and a ribbon from one score to the other, over the same writer's score without the skill.
 - A run counts its outputs as they are written, under its line at the foot of the sidebar ("3/6").
 - A skill being run says so on its row in the Library.
-- Graded rules on Write and Scoring are numbered "01", "02" in mono, so a rule is easy to find again.
+- Graded rules on the Editor and Scoring are numbered "01", "02" in mono, so a rule is easy to find again.
 - The welcome sets you up after its tour, in its own window: the folders your skills are found in, a model for the assistant, and the Jev key. Each step first checks what Skill Studio can already reach, and every step can be left for later.
 - Getting a Jev key: a link to sign up at TypeSafe, and "Show me" for the three steps from there. Settings shows them too.
 - In the desktop app, a folder for the Library to look in is picked in the system's own dialog.
@@ -21,6 +21,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Changed
 
+- A dialog's confirm button is one verb: Restart, Restore, Start, Delete, Reset. The dialog's title names what it acts on.
 - Practice is now the walkthrough, and it takes the thank-you note through the whole workflow in 12 steps: read the skill, save a version, read the cases, run, read the scores, rate, check the judge, see the scoring, tighten a rule, save it, run again and compare. It opens on the Editor.
 - A new look. The sidebar is a blue-black ink in both themes, and the page is a warm off-white in the light theme and near-black in the dark one.
 - The next step at the top right is a highlighter lime, the one lime control in the window. A running job's dot in the sidebar is lime too.

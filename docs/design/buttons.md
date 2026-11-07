@@ -21,7 +21,7 @@ These exist. Nothing else does: an unlisted variant is a bug, not an option.
 | `destructive-ghost` | a destructive action beside other buttons | rare |
 | `destructive-muted` | a delete icon a row repeats: quiet until pointed at | any |
 
-`default` is the cva default, so a bare `<Button>` is the filled one. Count them: 34 call sites use `outline`, 28 use `ghost`. If a screen has two filled buttons, it has no hierarchy: make one `outline`.
+`default` is the cva default, so a bare `<Button>` is the filled one. Count them: 29 `Button` call sites name `outline` and 28 name `ghost`, and a few more pick one of the two in a ternary. If a screen has two filled buttons, it has no hierarchy: make one `outline`.
 
 **Destructive** means it deletes something a person made (a skill, a case, a version, a run, a key) or resets the whole app. Putting preferences back to their defaults is not destructive: it is `outline`, like "Show every hint again" in `Settings.tsx`.
 
@@ -115,7 +115,7 @@ The top bar shows where the loop goes next. It is the app's one lime control. On
 - An icon inside a button is `aria-hidden="true"` and takes its size from the button. Do not add `size-*`.
 - A label ends in an ellipsis in two cases only: it is busy ("Saving…", "Starting…"), or it opens a dialog that asks more before acting ("Reset Skill Studio…"). A button that acts at once has none.
 - A button is `disabled` while busy, and when pressing it would change nothing: "Show every hint again" is disabled when no hint has been seen. It keeps its width while busy.
-- A label is a verb and its object: "Start a run", "Delete case", "Save case", and "Add case" for an item's first save. Never "OK", "Submit" or "Click here". "Save" alone is right in one place: an inspector's `ColumnFooter`, where it saves everything in the column (`Knobs.tsx`).
+- A label is a verb and its object: "Start a run", "Delete case", "Save case", and "Add case" for an item's first save. Never "OK", "Submit" or "Click here". "Save" alone is right where what it saves is plain: an inspector's `ColumnFooter`, where it saves everything in the column (`Knobs.tsx`, `Blind.tsx`), and the Editor's `ColumnHeader`, where it saves the open file.
 - A dialog's confirm button is one verb: "Restart", "Restore", "Delete", "Discard", "Reset". The title above it names the object, so the button does not repeat it. The button that opens the dialog keeps its object: "Restart walkthrough…" opens a dialog whose button says "Restart".
 - Press feedback (`active:scale-[0.96]`) and the focus ring are built in. Do not restyle them.
 - Never show an action only on hover. A row's actions are `ghost-muted` at rest, so touch and keyboard reach them.

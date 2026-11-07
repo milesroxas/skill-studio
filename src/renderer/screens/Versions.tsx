@@ -113,7 +113,7 @@ export function Versions({ ctx }: { ctx: Ctx }) {
           runs === 1
             ? `The run made with ${v.version} is deleted too, with its outputs, reviews and votes. Your skill files don't change.`
             : `The ${runs} runs made with ${v.version} are deleted too, with their outputs, reviews and votes. Your skill files don't change.`,
-        action: `Delete ${v.version} and ${runs === 1 ? 'run' : 'runs'}`,
+        action: 'Delete',
         destructive: true,
       }))
     )

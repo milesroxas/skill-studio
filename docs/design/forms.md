@@ -80,7 +80,7 @@ Every control sits in a `Field` with a `Label` above it. Never a placeholder as 
 
 ## Segmented and FilterGroup
 
-`Segmented` is one choice. Its `size` defaults to `sm`, and every call site leaves it there, in forms too. Do not pass `size="default"`: a taller one stands out against every other in the app. An option's `tone` (`success`, `destructive`) colors it when pressed, for a choice that states a verdict such as pass or fail.
+`Segmented` is one choice. Its `size` defaults to `sm`, and call sites leave it there, in forms too. The one exception is a `ListBar` beside a default-size search field: "Whose skills" in `Library.tsx` passes `size="default"` so the two match. Anywhere else a taller one stands out against every other in the app. An option's `tone` (`success`, `destructive`) colors it when pressed, for a choice that states a verdict such as pass or fail.
 
 The pressed segment is ink fill (`bg-primary`). A segment with a `tone` takes its verdict tint instead.
 
@@ -114,7 +114,7 @@ The pressed `outline` toggle is ink fill, the same as `Segmented`, so "on" reads
 ## Actions
 
 - `FormActions` at the foot of a saved form: primary first, destructive last after `Spacer`.
-- An action that is the only control of its section (a reset, "Open the welcome") sits in a `Toolbar` inside a `FormSection` of its own, as in `Settings.tsx`.
+- An action that is the only control of its section ("Reset Skill Studio…") sits in a `Toolbar` inside a `FormSection` of its own, as in `Settings.tsx`.
 - "Discard" shows only when the form is dirty, and goes through `ctx.confirm`.
 - Adding or removing a repeated row moves focus with it: to the new row, or to the next row's remove button.
 - Fields in a repeated row start on the column's edge. Row numbers hang in the margin. Trailing icon actions end on the edge and use `ghost-muted`.

@@ -83,7 +83,7 @@ export function StepFrame({
           <span aria-hidden="true" className="-ml-1.5 text-numeral tabular-nums">
             {numeral(index)}
           </span>
-          <Heading level={2} className="pt-7 text-2xl">
+          <Heading level="step" className="pt-7">
             {title}
           </Heading>
           <Text as="p" tone="muted" className="m-0 pt-2.5 text-pretty">

@@ -28,10 +28,12 @@ Everything merged since v0.1.0.
 - [x] Results opens with the version lift: the latest version's mean, its gain since the first version, and a ribbon over the score without the skill. `515c89a`
 - [x] A run counts its outputs as they are written ("3/6"), under its line at the foot of the sidebar. `515c89a`
 - [x] A skill being run says so on its row in the Library. `515c89a`
-- [x] Graded rules on Write and Scoring are numbered "01", "02" in mono. `515c89a`
+- [x] Graded rules on the Editor and Scoring are numbered "01", "02" in mono. `515c89a`
 - [x] Welcome setup after the tour: the skill folders, a model for the assistant and the Jev key. Each step checks what the app can already reach and can be left for later. `622ffe1`
 - [x] Getting a Jev key: a TypeSafe sign-up link and "Show me" for the three steps, in the welcome and in Settings. `622ffe1`
 - [x] The desktop app picks a Library folder in the system's own dialog. `622ffe1`
+- [x] The Editor: Write is called Editor, a skill always opens on it, and its toolbar shows the file's size. `2baacd3`
+- [x] The walkthrough: practice takes Thank-you note through the whole workflow in 12 steps, names its skill on the first screen, and can be restarted from the skill menu. `1ec4ee2`
 
 ### Redesign: the Flow brand
 
@@ -50,11 +52,14 @@ Each commit's message has the detail of its phase. [docs/design/](design/README.
 - [x] Results fits a 720px window: the "×2" beside a score folds away below 1024px. `4067090`
 - [x] A failing message on Agreement colors only its heading, like the other verdicts. `4067090`
 - [x] The welcome's first screen opens with no focus ring on its button. `48c0af2`
+- [x] Starting the walkthrough stays on the Editor. `1ec4ee2`
 
 ### Docs and project
 
 - [x] [PRIVACY.md](../PRIVACY.md): each time data leaves the computer, where it goes and what it carries. The README says the MIT license is the terms of use. `99a8ed7`
 - [x] The Flow design system in [docs/design/](design/README.md), and [AGENTS.md](../AGENTS.md) for agents working in the repository. `5110a76`
+- [x] A hardening checklist from the QA review: [docs/hardening.md](hardening.md). `7864c3f`
+- [x] The guide, rewritten for people who use the app. `34380f4`
 
 ## Planned
 

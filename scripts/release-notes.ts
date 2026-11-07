@@ -1,8 +1,8 @@
 /**
  * Print one version's entry from CHANGELOG.md. The release workflow runs it
- * twice for a tag: into `build/release-notes.md`, which electron-builder
- * writes into the update files so a running copy can show what an update
- * brings, and into the body of the GitHub release.
+ * once for a tag and uses the entry twice: in `build/release-notes.md`, which
+ * electron-builder writes into the update files so a running copy can show
+ * what an update brings, and in the body of the GitHub release.
  *
  * `tsx scripts/release-notes.ts [version]`: the version defaults to the one in
  * package.json. It fails when the changelog has no entry for it, so a release

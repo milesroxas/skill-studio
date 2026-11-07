@@ -74,7 +74,7 @@ A run's configuration says which skill the agent saw:
 
 | Path | Holds |
 | --- | --- |
-| `library.json` | The workspace folders the Library scans |
+| `library.json` | The workspace folders the Library scans, skills marked as someone else's, and skills opened recently |
 | `preferences.json` | Theme, motion, editor view, hints, the assistant's model, the update setting |
 | `drafts/` | Unsaved edits to files and cases |
 | `practice/` | The walkthrough's skill, and `seen.json`: the walkthrough steps that only ask you to look at a screen, once you have |

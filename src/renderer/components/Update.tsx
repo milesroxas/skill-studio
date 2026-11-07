@@ -180,7 +180,7 @@ function UpdateNotes({ view, onChangelog }: { view: View; onChangelog: () => voi
         <Heading level={3} as="p">
           {view.heading}
         </Heading>
-        <Hint className="tabular-nums">{ago ? `${version} · ${ago}` : version}</Hint>
+        <Hint tabular>{ago ? `${version} · ${ago}` : version}</Hint>
         {view.problem ? <Hint tone="destructive">{view.problem}</Hint> : null}
       </HoverCardSection>
       <HoverCardSection>

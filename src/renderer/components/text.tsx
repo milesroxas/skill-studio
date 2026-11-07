@@ -10,6 +10,8 @@ const headingVariants = cva('m-0 font-semibold text-balance', {
       page: 'text-md leading-tight',
       /** The welcome's headline, and nowhere else. */
       display: 'text-display',
+      /** A welcome step's title, beside its numeral: the welcome only. */
+      step: 'text-2xl',
       1: 'text-3xl',
       /** A screen's sections and its empty states. */
       2: 'text-base',
@@ -33,7 +35,11 @@ export function Heading({
   }) {
   const Comp =
     as ??
-    (level === 'page' || level === 'display' ? 'h1' : (`h${level ?? 2}` as 'h1' | 'h2' | 'h3'))
+    (level === 'page' || level === 'display'
+      ? 'h1'
+      : level === 'step'
+        ? 'h2'
+        : (`h${level ?? 2}` as 'h1' | 'h2' | 'h3'))
   return <Comp className={cn(headingVariants({ level }), className)} {...props} />
 }
 
@@ -52,8 +58,13 @@ const hintVariants = cva('m-0 text-xs text-pretty text-muted-foreground', {
       true: 'p-4',
       false: '',
     },
+    /** A count that changes: digits keep their width as it updates. */
+    tabular: {
+      true: 'tabular-nums',
+      false: '',
+    },
   },
-  defaultVariants: { tone: 'default', measure: 'default', inset: false },
+  defaultVariants: { tone: 'default', measure: 'default', inset: false, tabular: false },
 })
 
 /** Help under a control or a short explanation at the top of a section. */
@@ -61,6 +72,7 @@ export function Hint({
   tone,
   measure,
   inset,
+  tabular,
   as: Comp = 'p',
   className,
   ...props
@@ -70,7 +82,9 @@ export function Hint({
     /** When rendered as a label, the control it names. */
     htmlFor?: string
   }) {
-  return <Comp className={cn(hintVariants({ tone, measure, inset }), className)} {...props} />
+  return (
+    <Comp className={cn(hintVariants({ tone, measure, inset, tabular }), className)} {...props} />
+  )
 }
 
 const textVariants = cva('', {

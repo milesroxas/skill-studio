@@ -5,7 +5,7 @@
  * beside it, the way out.
  * Then, only if asked for, the loop in six steps, each alone in view, and the
  * setup in three: where your skills are, a model, the judge's key. The last
- * step leads into the practice skill. Through both the way out keeps to one
+ * step leads into the walkthrough. Through both the way out keeps to one
  * corner, and nothing here has to be remembered: every screen explains itself
  * again when it is opened, and Settings keeps every connection for later.
  *

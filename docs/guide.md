@@ -47,7 +47,8 @@ The first time you open the app, a welcome walks you through:
 
 1. **See how it works:** the loop in six steps.
 2. **Setup:** where your skills are, a model for the Assistant, and the Jev key. Already set? Click **Continue**. Not now? Click **Configure later**.
-3. **Start the walkthrough:** opens the walkthrough.
+
+The last setup step's button opens the walkthrough. It reads **Start the walkthrough** once the Jev key is set, and **Configure later** before that.
 
 To see the welcome again, click the question mark, then "How Skill Studio works".
 
@@ -67,10 +68,10 @@ The walkthrough's skill, Thank-you note, writes short thank-you notes, so a run 
 6. **Rate the notes.** Score each note before you see the judge's score.
 7. **Check the judge.** Agreement sets your ratings against the judge's.
 8. **See how a score adds up.** Scoring shows what each part of a score is worth.
-9. **Fix one rule.** "Keep the note to a reasonable length" is vague on purpose, so the notes come back too long. Click "Use the exact rule", then Save.
+9. **Tighten one rule.** "Keep the note to a reasonable length" is vague on purpose, so the notes come back too long. Click "Use the exact rule", then Save.
 10. **Save your edit as v1.**
 11. **Run it again.** Only the rule changed, so any difference is your edit.
-12. **Compare.** Read a note from each version side by side, and pick the better one.
+12. **Compare the versions.** Read a note from each version side by side, and pick the better one.
 
 A step that only asks you to look is done once you open its screen.
 
@@ -110,7 +111,7 @@ A skill missing from the list?
 - **Graded rules** (left) lists each rule exactly as the judge will check it.
 - **Insert** adds a ready-made rule, process or decision tree at the cursor.
 - **Formatted, Markdown, Changes:** read the page styled, as plain text, or as your unsaved changes.
-- **Five bars** (end of the toolbar) show the file's size. Amber: getting long. Red: too long.
+- **Five bars** (before Write with AI, at the end of the toolbar) show the file's size. Amber: getting long. Red: too long.
 - **Long background material** goes in a file of its own: click the plus beside Files.
 
 Unsaved text is kept, even if you close the app. **Discard** throws it away.
@@ -278,7 +279,7 @@ To be sure an edit helped, run it against "Old skill" on the same cases, with 2 
 | "No Jev key" at the top right | Add the key in Settings |
 | An agent says "(not set up)" in New run | Install that agent and sign in to it |
 | A skill is missing from the Library | Choose All, click the round arrow, or add its folder under "Where skills are found" |
-| A save is refused | The file changed outside the app. "Keep my draft" saves yours; "Use the file on disk" keeps the other |
+| A save is refused | The file changed outside the app. "Keep my draft", then Save, writes yours over it; "Use the file on disk" keeps the other |
 | A rule is missing from Graded rules | Make it a bullet of four words or more, outside a numbered list |
 | A score looks wrong | Read the transcript, then rate the answer blind |
 

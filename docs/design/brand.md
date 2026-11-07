@@ -84,6 +84,6 @@ The welcome runs in its own 760 x 600 window, laid out for exactly that size and
 ## Words
 
 - Sentence case everywhere. No title case, no trailing period on a label.
-- A button is a verb and its object. The run button is always "Start a run". The review button is "Rate blind". The thing graded is an "output".
+- A button is a verb and its object, except a dialog's confirm button, which is one verb ([buttons.md](buttons.md)). The run button is always "Start a run". The review button is "Rate blind". The thing graded is an "output".
 - Plain and specific. No "powerful", "seamless", "simply". Say what happens.
 - An error says what failed and the next step. Never "Something went wrong".

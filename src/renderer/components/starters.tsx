@@ -164,11 +164,11 @@ export function PairList({
   )
 }
 
-/** A small caps tag before a line. The string stays lowercase; the case is set here. */
+/** A caps tag before a line. The string stays lowercase: `caps` sets the case. */
 function PairMark({ children }: { children: ReactNode }) {
   return (
-    <span className="w-10 shrink-0 font-mono text-2xs font-medium tracking-wider text-muted-foreground/70 uppercase">
+    <Text caps tone="faint" className="w-10 shrink-0">
       {children}
-    </span>
+    </Text>
   )
 }

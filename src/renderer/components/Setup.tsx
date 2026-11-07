@@ -10,7 +10,7 @@
  * The way forward is one button. While a step still has something to set up,
  * the step's own control is the filled one and the way forward reads
  * "Configure later". Once it is set, the way forward fills and reads
- * "Continue", or "Start practice" on the last step.
+ * "Continue", or "Start the walkthrough" on the last step.
  */
 import { AI_PROVIDERS, AI_VENDORS, type AiVendor, readyProviders } from '@domain/ai.ts'
 import { isPractice } from '@domain/library.ts'
@@ -56,7 +56,7 @@ export function Setup({
   onShow: (index: number) => void
   /** Back from the first step, to the tour. */
   onBack: () => void
-  /** On from the last step: open the practice skill. */
+  /** On from the last step: open the walkthrough. */
   onStart: () => void
 }) {
   const library = useFetch(() => api.library(), [])

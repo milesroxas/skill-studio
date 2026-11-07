@@ -25,6 +25,6 @@ If a task needs a color, a size, a component or a pattern the docs do not cover,
 
 ## Also
 
-- The Electron CSP is `style-src 'self'`. A library that injects a `<style>` tag will not render.
+- The built app's CSP is `style-src 'self'` plus one per-page nonce, which only CodeMirror's style tag carries (`src/interfaces/electron/main/csp.ts`). A library that injects a `<style>` tag will not render. Dev allows inline styles, so check in a build.
 - Update the docs in the same pull request as the change they describe.
 - A release needs a `CHANGELOG.md` entry.

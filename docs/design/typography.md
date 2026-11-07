@@ -16,8 +16,8 @@ Every size is one of these steps. `--text-*: initial` removes Tailwind's own sca
 | `base` | 16px | section headings |
 | `lg` | 18px | dialog titles, a lead paragraph |
 | `xl` | 21px | document headings |
-| `2xl` | 26px | the guide's title on a small window |
-| `3xl` | 30px | the guide's title |
+| `2xl` | 26px | a welcome step's title (`Heading level="step"`), the tour's score, and the guide's title on a small window |
+| `3xl` | 30px | the guide's title, and the tour's score once it is run again |
 | `display` | 64px | the welcome's headline, `Heading level="display"`. Weight 700 and tracking -0.045em come with the step. |
 | `numeral` | 136px | the welcome's step number. Weight 700 and tracking -0.055em come with the step. |
 | `code` | 0.9em | mono inside running text, sized to its sans neighbours. `Text font="mono"` and `Code` apply it. |
@@ -30,6 +30,7 @@ Never go below 11px. Never set running text below 12px. Sizes above 30px exist o
 Is it a heading in the page's outline?
  ├── Yes → Heading
  │         ├── the welcome's headline → level="display" (the welcome only)
+ │         ├── a welcome step's title → level="step" (the welcome only)
  │         ├── the screen's name in the top bar → level="page"
  │         ├── a section of a screen, an empty state's title → level={2}
  │         └── a group of fields, a part of a column → level={3}
@@ -40,7 +41,7 @@ Is it a heading in the page's outline?
       └── Anything else → Text, with tone, size and weight named as props
 ```
 
-`Heading level={1}` (30px) is for the guide's title only. A screen's title is `level="page"` in the top bar. A screen never repeats its own name in its body.
+The guide's title is its Markdown `h1`, set to `3xl` (`2xl` on a small window) by `.guide-body` in `styles.css`. No screen uses `Heading level={1}`. A screen's title is `level="page"` in the top bar. A screen never repeats its own name in its body.
 
 ```tsx
 // Correct: components/layout.tsx, ListHeader
@@ -83,14 +84,14 @@ A number in a sentence stays in sans, and so does a live count under a field ("4
 
 ## Caps labels
 
-`Text caps` is 11px, weight 500, uppercase, tracked `--tracking-caps` (0.08em). It names a group without being a heading. Use it for exactly these: a `SidebarSection` label, a caption over a part of a picture in the welcome, and the label of a figure. Two words at most. Never for a button, a table head or a heading: caps slow reading, so they stay where a reader only glances.
+`Text caps` is 11px, weight 500, uppercase, tracked `--tracking-caps` (0.08em). It names a group without being a heading. Use it for exactly these: a `SidebarSection` label, a caption over a part of a picture in the welcome, the label of a figure, and the tag before each line of a rule pair ("vague", "exact": `PairList` in `starters.tsx`). Two words at most. Never for a button, a table head or a heading: caps slow reading, so they stay where a reader only glances.
 
 ## Display type
 
 Large type carries its own negative tracking from the scale (`lg` and up). Do not add `tracking-tight`. Do not set a line height on a heading: the step sets it. Text that wraps to two or more lines in a heading uses `text-balance`, which `Heading` already has; a paragraph uses `text-pretty`.
 
-## Why Geist, not the kit's Inter
+## Geist, not the kit's Inter
 
-The brand kit recommends Inter. Miles chose to keep Geist (2026-11-05): the app is built and tuned on it, and Geist Mono already pairs with it. Do not add Inter or any third family.
+The brand kit recommends Inter. The app uses Geist: its sizes and tracking are tuned on it, and Geist Mono pairs with it. Do not add Inter or any third family.
 
 Geist has no italic file, and `body` sets `font-synthesis: none`, so italic shows upright. Emphasis is `weight="medium"`, never italic. The Markdown editor is the one exception: it sets `fontSynthesis: 'style'` in `editor/theme.ts` so a skill's own `*emphasis*` still shows.
