@@ -1,0 +1,46 @@
+/** A case as the Cases form edits it: the draft that `skill.saveCase` takes. Pure functions. */
+import { type ImageRef, imageTypeOf } from './image.ts'
+import type { Case, CaseDraft } from './schemas.ts'
+
+/** A case's own pictures: the images in its `files/`. A legacy case's files stay where they are. */
+export const picturesOf = (c: Case): string[] =>
+  c.dir ? c.files.filter((f) => f.startsWith(`${c.dir}/files/`) && imageTypeOf(f)) : []
+
+const savedPicture = (file: string): ImageRef => ({
+  name: file.split('/').at(-1) ?? file,
+  file,
+  upload: null,
+})
+
+/** A saved case as the form edits it. */
+export const draftOf = (c: Case): CaseDraft => ({
+  id: c.id,
+  title: c.title === c.id ? '' : c.title,
+  prompt: c.prompt,
+  expectedOutcome: c.expectedOutcome,
+  words: c.bench.words ?? null,
+  images: picturesOf(c).map(savedPicture),
+  graders: c.graders.map((g) => ({
+    id: g.id,
+    statement: g.statement,
+    weight: g.weight,
+    image: g.image ? savedPicture(g.image) : null,
+  })),
+})
+
+export const newCheck = (): CaseDraft['graders'][number] => ({
+  id: null,
+  statement: '',
+  weight: 1,
+  image: null,
+})
+
+export const blankDraft = (): CaseDraft => ({
+  id: '',
+  title: '',
+  prompt: '',
+  expectedOutcome: '',
+  words: null,
+  images: [],
+  graders: [newCheck()],
+})

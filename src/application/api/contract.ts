@@ -5,7 +5,7 @@
  * renderer's client types each call from here, so a change lands in both.
  */
 import type { AiRun, AiStatus, ChatThread, UsageSummary } from '@domain/ai.ts'
-import type { AssistInput } from '@domain/assist.ts'
+import type { AssistInput, ChatScene } from '@domain/assist.ts'
 import type { SlashCommand } from '@domain/commands.ts'
 import type { ImageRef, ImageUpload } from '@domain/image.ts'
 import type { ImproveThread, RefineResult } from '@domain/improve.ts'
@@ -118,7 +118,7 @@ export interface Contract {
   'chat.read': { input: Record<string, never>; output: ChatThread }
   /** Add a message to the conversation and start the reply. `skill` may be empty: none open. */
   'chat.send': {
-    input: Scoped & { text: string; images: ImageRef[]; screen: string }
+    input: Scoped & { text: string; images: ImageRef[]; screen: string; open: ChatScene['open'] }
     output: ChatThread
   }
   'chat.clear': { input: Record<string, never>; output: ChatThread }

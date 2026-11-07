@@ -88,3 +88,13 @@ export const diffLineText = (line: DiffLine): string =>
   line.op === 'fold'
     ? '   …'
     : `${line.op === 'ins' ? '+ ' : line.op === 'del' ? '- ' : '  '}${line.text}`
+
+/** How much changed, in a few words. An empty side means the file is not there. */
+export const changeSummary = (before: string, after: string, lines: DiffLine[]): string =>
+  !before
+    ? 'added'
+    : !after
+      ? 'removed'
+      : lines.length
+        ? `${lines.filter((l) => l.op === 'ins').length} added, ${lines.filter((l) => l.op === 'del').length} removed`
+        : 'unchanged'

@@ -5,7 +5,7 @@
  * and stands in the middle of the display, as a first-run window does. The
  * changelog is a reading column that stands over the app.
  */
-import { existsSync, readFileSync, writeFileSync } from 'node:fs'
+import { readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import type { Theme } from '@domain/preferences.ts'
 import { canReset } from '@domain/reset.ts'
@@ -18,7 +18,7 @@ import {
   RESET_ARGUMENT,
   VERSION_ARGUMENT,
 } from '../channels.ts'
-import { placed } from './launch.ts'
+import { boundsOf, placed } from './launch.ts'
 import { BACKGROUND } from './paint.ts'
 
 const DEFAULT_BOUNDS = { width: 1280, height: 860 }
@@ -59,9 +59,19 @@ const isArtifactUrl = (url: string): boolean => {
   }
 }
 
+/** The saved bounds, or null when the file is missing or damaged, as a quit mid-write leaves it. */
+function savedBounds(file: string): Rectangle | null {
+  try {
+    return boundsOf(readFileSync(file, 'utf8'))
+  } catch {
+    // No file yet, or one that cannot be read: the window opens at the default size.
+    return null
+  }
+}
+
 function readBounds(file: string): Partial<Rectangle> {
-  if (!existsSync(file)) return DEFAULT_BOUNDS
-  const saved = JSON.parse(readFileSync(file, 'utf8')) as Rectangle
+  const saved = savedBounds(file)
+  if (!saved) return DEFAULT_BOUNDS
   // A display that is gone leaves the window off screen; fall back to the default size.
   const onScreen = screen.getAllDisplays().some((d) => {
     const { x, y, width, height } = d.workArea

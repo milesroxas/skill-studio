@@ -1,5 +1,6 @@
+import { NEW_CASE_KEY } from '@domain/schemas.ts'
 import { describe, expect, it } from 'vitest'
-import { entryOf, hashOf, placeOf } from './route.ts'
+import { caseKey, entryOf, hashOf, openAt, placeOf } from './route.ts'
 
 describe('placeOf', () => {
   it('reads the screen and its parameters', () => {
@@ -46,5 +47,28 @@ describe('entryOf', () => {
     expect(entryOf('3')).toBeNull()
     expect(entryOf({ index: '3', skill: '' })).toBeNull()
     expect(entryOf({ index: 3 })).toBeNull()
+  })
+})
+
+describe('openAt', () => {
+  const ids = ['shift', 'thanks']
+
+  it('names the Editor file, SKILL.md by default', () => {
+    expect(openAt(placeOf('#/editor?file=references/voice.md'), ids)).toEqual({
+      file: 'references/voice.md',
+      case: null,
+    })
+    expect(openAt(placeOf('#/editor'), ids).file).toBe('SKILL.md')
+  })
+
+  it('names the case Cases shows, as the screen picks it', () => {
+    expect(openAt(placeOf('#/cases?id=thanks'), ids)).toEqual({ file: null, case: 'thanks' })
+    expect(caseKey(new URLSearchParams('id=gone'), ids)).toBe('shift')
+    expect(caseKey(new URLSearchParams('new=1'), ids)).toBe(NEW_CASE_KEY)
+    expect(caseKey(new URLSearchParams(), [])).toBe(NEW_CASE_KEY)
+  })
+
+  it('names nothing elsewhere', () => {
+    expect(openAt(placeOf('#/results?run=r1'), ids)).toEqual({ file: null, case: null })
   })
 })

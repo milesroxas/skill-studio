@@ -1,14 +1,16 @@
 /**
  * The assistant's side panel: one conversation that stays open beside
  * whatever screen is in view and is still there after a restart. It knows the
- * open skill and the screen, so a question can say "this rule" and mean it.
+ * screen, the file or case open on it and the skill with its unsaved edits,
+ * so a question can say "this rule" or "the file I just made" and mean it,
+ * and a reply can propose changes to the skill, each applied with a button.
  * A message that starts with a slash is a command: one of the panel's own, or
  * one of the CLI's skills, picked from a list that opens on the slash. The
  * model, its effort and what has been spent are in reach from here.
  */
 import type { AiRun, ChatMessage } from '@domain/ai.ts'
-import { SquarePenIcon, XIcon } from 'lucide-react'
-import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { SquarePenIcon } from 'lucide-react'
+import { type ReactNode, useEffect, useMemo, useState } from 'react'
 import {
   clearChat,
   loadAi,
@@ -20,27 +22,31 @@ import {
   useChat,
   useCommands,
 } from '../ai.ts'
+import { api } from '../api.ts'
 import { APP_COMMANDS, appCommandOf } from '../commands.ts'
+import type { Ctx } from '../ctx.ts'
 import { navigate } from '../history.ts'
+import { useFetch } from '../hooks.ts'
 import { useAttached } from '../images.ts'
-import { shortcut } from '../keys.ts'
+import { openAt } from '../route.ts'
+import { type ChangeHost, Reply } from './Change.tsx'
 import { Composer } from './Composer.tsx'
 import type { Confirm } from './confirm.tsx'
-import { EmptyState, Loading, PlainList, ReadFailed, Spacer } from './layout.tsx'
+import { EmptyState, Loading, PlainList, ReadFailed } from './layout.tsx'
+import { PanelBody, PanelHeader, usePin } from './PanelFrame.tsx'
 import { PictureStrip } from './Pictures.tsx'
 import { Prose } from './Prose.tsx'
-import { Heading, Hint, Text } from './text.tsx'
+import { Hint, Text } from './text.tsx'
 import { UsageButton } from './Usage.tsx'
 import { Button } from './ui/button.tsx'
-
-/** Within this many pixels of the end, new text keeps the view at the end. */
-const PINNED_WITHIN = 48
 
 interface ChatPanelProps {
   /** The screen in view, by its name in the sidebar. */
   screen: string
   /** The open skill's name; null when none is open. */
   skill: string | null
+  /** The open skill, once it is loaded: where the changes a reply proposes are applied. */
+  ctx: Ctx | null
   confirm: Confirm
   onClose: () => void
 }
@@ -58,7 +64,7 @@ const starters = (skill: string | null): string[] =>
         'What should a skill’s description say?',
       ]
 
-export function ChatPanel({ screen, skill, confirm, onClose }: ChatPanelProps) {
+export function ChatPanel({ screen, skill, ctx, confirm, onClose }: ChatPanelProps) {
   const { thread } = useChat()
   const { providers, choice } = useAi()
   const commands = useCommands()
@@ -67,11 +73,23 @@ export function ChatPanel({ screen, skill, confirm, onClose }: ChatPanelProps) {
   const [sending, setSending] = useState(false)
   const [clearing, setClearing] = useState(false)
   const attached = useAttached()
-  const scroller = useRef<HTMLDivElement>(null)
-  const pinned = useRef(true)
+  const pin = usePin()
 
   const messages = thread?.messages ?? []
   const run = thread?.run ?? null
+
+  // The skill's files as saved, read again whenever they change: a file change shows against them.
+  const skillPath = ctx?.state.skill.path ?? null
+  const hash = ctx?.state.versions.current.hash ?? null
+  const disk = useFetch(
+    () => (skillPath ? api.skillFiles('current') : Promise.resolve(null)),
+    [skillPath, hash],
+  )
+  const files = disk.data?.files ?? null
+  const host = useMemo<ChangeHost>(() => ({ ctx, files }), [ctx, files])
+  const reply = (text: string, skillOf: string | undefined, writing: boolean) => (
+    <Reply text={text} skill={skillOf} writing={writing} host={host} />
+  )
   const running = sending || run?.status === 'running'
   const error = failure ?? (run?.status === 'failed' ? run.error : null)
 
@@ -80,12 +98,6 @@ export function ChatPanel({ screen, skill, confirm, onClose }: ChatPanelProps) {
   useEffect(() => {
     if (provider) void loadCommands()
   }, [provider])
-
-  // After every render, keep the newest text in view unless the reader scrolled away from it.
-  useLayoutEffect(() => {
-    const el = scroller.current
-    if (el && pinned.current) el.scrollTop = el.scrollHeight
-  })
 
   const send = async (text: string) => {
     const command = appCommandOf(text)
@@ -100,9 +112,17 @@ export function ChatPanel({ screen, skill, confirm, onClose }: ChatPanelProps) {
     setSending(true)
     setDraft('')
     attached.reset()
-    pinned.current = true
+    pin.pinned.current = true
     try {
-      await sendChat(text.trim(), images, screen)
+      // The backend reads the skill with its stored drafts, so the latest keystrokes go first.
+      await ctx?.drafts.flush()
+      const open = ctx
+        ? openAt(
+            ctx.route,
+            ctx.state.cases.map((c) => c.id),
+          )
+        : { file: null, case: null }
+      await sendChat(text.trim(), images, screen, open)
     } catch (e) {
       setFailure((e as Error).message)
       setDraft(text)
@@ -167,22 +187,16 @@ export function ChatPanel({ screen, skill, confirm, onClose }: ChatPanelProps) {
           </PlainList>
         }
       >
-        Rules, cases, checks and scores. It reads the open skill, and changes nothing.
+        Rules, cases, checks and scores. It reads the open skill, and changes it only when you apply
+        a change it proposes.
       </EmptyState>
     ) : (
-      <Conversation messages={messages} run={run} error={error} />
+      <Conversation messages={messages} run={run} error={error} reply={reply} />
     )
 
   return (
     <>
-      <header
-        data-drag
-        className="flex h-12 shrink-0 items-center gap-1 border-b pr-2 pl-4 pointer-coarse:gap-3"
-      >
-        <Heading level="page" as="h2">
-          Assistant
-        </Heading>
-        <Spacer />
+      <PanelHeader title="Assistant" onClose={onClose}>
         <UsageButton />
         <Button
           type="button"
@@ -196,27 +210,8 @@ export function ChatPanel({ screen, skill, confirm, onClose }: ChatPanelProps) {
         >
           <SquarePenIcon aria-hidden="true" />
         </Button>
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon-sm"
-          aria-label="Close the assistant"
-          title={`Close (${shortcut('J')})`}
-          onClick={onClose}
-        >
-          <XIcon aria-hidden="true" />
-        </Button>
-      </header>
-      <div
-        ref={scroller}
-        className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain"
-        onScroll={(event) => {
-          const el = event.currentTarget
-          pinned.current = el.scrollHeight - el.scrollTop - el.clientHeight < PINNED_WITHIN
-        }}
-      >
-        {body}
-      </div>
+      </PanelHeader>
+      <PanelBody pin={pin}>{body}</PanelBody>
       {choice ? (
         <div className="shrink-0 px-3 pb-3">
           <Composer
@@ -246,15 +241,21 @@ export function ChatPanel({ screen, skill, confirm, onClose }: ChatPanelProps) {
   )
 }
 
+/** A reply as prose, by default: a conversation that proposes changes shows them too. */
+const prose = (text: string): ReactNode => <Prose text={text} density="compact" />
+
 /** The messages so far, the reply being written under them, and why the last one failed. */
 export function Conversation({
   messages,
   run,
   error,
+  reply = prose,
 }: {
   messages: ChatMessage[]
   run: AiRun | null
   error: string | null
+  /** How a reply reads: its text, the skill it was written about, and whether it is still arriving. */
+  reply?: (text: string, skill: string | undefined, writing: boolean) => ReactNode
 }) {
   return (
     <ol className="m-0 flex flex-col gap-4 px-4 py-4">
@@ -276,15 +277,13 @@ export function Conversation({
             ) : null}
           </li>
         ) : (
-          <li key={message.id}>
-            <Prose text={message.text} density="compact" />
-          </li>
+          <li key={message.id}>{reply(message.text, message.skill, false)}</li>
         ),
       )}
       {run?.status === 'running' ? (
         <li aria-live="polite">
           {run.text ? (
-            <Prose text={run.text} density="compact" />
+            reply(run.text, undefined, true)
           ) : (
             <Text tone="muted" className="animate-pulse">
               Thinking…

@@ -10,6 +10,7 @@
  * on the first keystroke.
  */
 
+import { byFileOrder } from '@domain/paths.ts'
 import { applyPracticeEdit, PRACTICE_EDIT } from '@domain/practice.ts'
 import { rulesFromSkill } from '@domain/rules.ts'
 import {
@@ -58,11 +59,32 @@ import type { Ctx } from '../ctx.ts'
 import { lineDiff } from '../diff.ts'
 import { useFetch } from '../hooks.ts'
 import { shortcut } from '../keys.ts'
+import { editorFile } from '../route.ts'
 
 const referencePath = (name: string): string | null => {
   const clean = name.trim().replace(/^references\//, '')
   if (!/^[\w][\w.-]*(\/[\w][\w.-]*)*$/.test(clean)) return null
   return `references/${/\.\w+$/.test(clean) ? clean : `${clean}.md`}`
+}
+
+/** One button per template, each starting the skill over from it. */
+function TemplateButtons({ onPick }: { onPick: (template: SkillTemplate) => void }) {
+  return (
+    <Toolbar>
+      {EXAMPLE_KINDS.map((t) => (
+        <Button
+          key={t.id}
+          type="button"
+          variant="outline"
+          size="sm"
+          title={t.summary}
+          onClick={() => onPick(t)}
+        >
+          {t.label}
+        </Button>
+      ))}
+    </Toolbar>
+  )
 }
 
 /** What the file's column shows: the text in one of the editor's two views, or its changes. */
@@ -76,7 +98,11 @@ type View = (typeof VIEWS)[number]['value']
 
 export function Editor({ ctx }: { ctx: Ctx }) {
   const { state, route, go, report, confirm, reload, config, drafts } = ctx
-  const disk = useFetch(() => api.skillFiles('current'), [state.skill.path])
+  // Read again whenever the files change, here or from the assistant's panel.
+  const disk = useFetch(
+    () => api.skillFiles('current'),
+    [state.skill.path, state.versions.current.hash],
+  )
   const edits = drafts.files
   const [showDiff, setShowDiff] = useState(false)
   const [newName, setNewName] = useState<string | null>(null)
@@ -93,10 +119,8 @@ export function Editor({ ctx }: { ctx: Ctx }) {
   }, [naming])
 
   const files = disk.data?.files ?? {}
-  const paths = [...new Set([...Object.keys(files), ...Object.keys(edits)])].sort((a, b) =>
-    a === 'SKILL.md' ? -1 : b === 'SKILL.md' ? 1 : a.localeCompare(b),
-  )
-  const file = route.params.get('file') ?? 'SKILL.md'
+  const paths = [...new Set([...Object.keys(files), ...Object.keys(edits)])].sort(byFileOrder)
+  const file = editorFile(route.params)
   const saved = files[file] ?? null
   const draft = edits[file]
   const text = draft?.text ?? saved ?? ''
@@ -147,7 +171,6 @@ export function Editor({ ctx }: { ctx: Ctx }) {
     try {
       await api.saveSkillFile(file, draft.text, draft.previous)
       drop(file)
-      disk.reload()
       await reload()
       report(`Saved ${file}`)
     } catch (e) {
@@ -195,7 +218,6 @@ export function Editor({ ctx }: { ctx: Ctx }) {
     try {
       await api.deleteSkillFile(file)
       drop(file)
-      disk.reload()
       await reload()
       report(`Deleted ${file}`)
       go('editor', {}, { replace: true })
@@ -359,20 +381,7 @@ export function Editor({ ctx }: { ctx: Ctx }) {
             </GuideBox>
             {isSkill && !blank ? (
               <GuideBox summary="Start over from a template">
-                <Toolbar>
-                  {EXAMPLE_KINDS.map((t) => (
-                    <Button
-                      key={t.id}
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      title={t.summary}
-                      onClick={() => startFrom(t)}
-                    >
-                      {t.label}
-                    </Button>
-                  ))}
-                </Toolbar>
+                <TemplateButtons onPick={startFrom} />
               </GuideBox>
             ) : null}
           </Stack>
@@ -553,20 +562,7 @@ export function Editor({ ctx }: { ctx: Ctx }) {
                     title="Start from a template"
                     hint="Each one is a small, finished skill in the shape the judge grades: one rule per bullet, with its why. Replace the rules with yours."
                   >
-                    <Toolbar>
-                      {EXAMPLE_KINDS.map((t) => (
-                        <Button
-                          key={t.id}
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          title={t.summary}
-                          onClick={() => startFrom(t)}
-                        >
-                          {t.label}
-                        </Button>
-                      ))}
-                    </Toolbar>
+                    <TemplateButtons onPick={startFrom} />
                   </Starter>
                 ) : null}
               </ColumnBody>

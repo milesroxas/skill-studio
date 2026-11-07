@@ -8,7 +8,10 @@
  * text is then fitted to the field before anything shows it. Pure data and
  * functions.
  */
+import { CHANGES_GUIDE } from './changes.ts'
 import type { ImageRef } from './image.ts'
+import { byFileOrder, isEditablePath } from './paths.ts'
+import { type CaseDraft, NEW_CASE_KEY, type SkillDrafts } from './schemas.ts'
 import { CASE_PROMPT_HINT, CHECK_EXAMPLES, RULE_GUIDE, RULE_SHAPE } from './templates.ts'
 import { frontMatterBlock } from './text.ts'
 
@@ -305,59 +308,168 @@ export function assistText(input: Pick<AssistInput, 'field' | 'current'>, raw: s
   return front && !frontMatterBlock(text) ? `${front.trimEnd()}\n\n${text}` : text
 }
 
+/** One file of the open skill as the reader has it: their unsaved text when there is some. */
+export interface SceneFile {
+  path: string
+  text: string
+  unsaved: boolean
+}
+
+/** One case of the open skill as the reader has it. A case not saved yet has the id NEW_CASE_KEY. */
+export interface SceneCase {
+  id: string
+  title: string
+  prompt: string
+  expected: string
+  checks: string[]
+  unsaved: boolean
+}
+
 /** What the side panel's assistant knows about where the reader is. */
 export interface ChatScene {
   /** The screen in view, by its name in the sidebar. */
   screen: string
-  /** The open skill as saved: SKILL.md, its reference files by name, and its cases. Null when none is open. */
-  skill: {
-    name: string
-    description: string
-    skillMd: string
-    references: string[]
-    cases: Array<{ id: string; title: string; prompt: string; expected: string; checks: string[] }>
-  } | null
+  /** What the reader has open on that screen: a file in the Editor, a case on Cases (NEW_CASE_KEY: a new one). */
+  open: { file: string | null; case: string | null }
+  /** The open skill as the reader has it, unsaved work included. Null when none is open. */
+  skill: { name: string; files: SceneFile[]; cases: SceneCase[] } | null
 }
+
+/** A case as saved or as drafted: both name these fields alike. */
+type CaseText = Pick<CaseDraft, 'id' | 'title' | 'prompt' | 'expectedOutcome'> & {
+  graders: Array<{ statement: string }>
+}
+
+const sceneCase = (c: CaseText, unsaved: boolean): SceneCase => ({
+  id: c.id,
+  title: c.title,
+  prompt: c.prompt,
+  expected: c.expectedOutcome,
+  checks: c.graders.map((g) => g.statement).filter((s) => s.trim()),
+  unsaved,
+})
+
+/**
+ * The skill as the reader has it: each saved file and case with their draft
+ * laid over it, a file only drafted so far, and a new case not saved yet. A
+ * draft that names a path the editor cannot write, or a case that is gone, is
+ * left out.
+ */
+export function workingSkill(
+  files: Record<string, string>,
+  cases: CaseText[],
+  drafts: Pick<SkillDrafts, 'files' | 'cases'>,
+): { files: SceneFile[]; cases: SceneCase[] } {
+  const paths = new Set([...Object.keys(files), ...Object.keys(drafts.files)])
+  const fresh = drafts.cases[NEW_CASE_KEY]
+  return {
+    files: [...paths]
+      .filter(isEditablePath)
+      .sort(byFileOrder)
+      .map((path) => {
+        const draft = drafts.files[path]
+        const saved = files[path]
+        return draft && draft.text !== saved
+          ? { path, text: draft.text, unsaved: true }
+          : { path, text: saved ?? '', unsaved: false }
+      }),
+    cases: [
+      ...cases.map((c) => {
+        const draft = drafts.cases[c.id]
+        return draft ? sceneCase({ ...draft, id: c.id }, true) : sceneCase(c, false)
+      }),
+      ...(fresh ? [sceneCase({ ...fresh, id: NEW_CASE_KEY }, true)] : []),
+    ],
+  }
+}
+
+/**
+ * How much reference text the assistant reads, in characters, about 15,000
+ * tokens. SKILL.md is always read whole; the open file is read first.
+ */
+export const REFERENCE_BUDGET = 60_000
 
 const SCREENS =
   'Editor (edit SKILL.md and references/), Versions (save, compare and restore), Cases (the prompts a run is made of, each with checks), New run (agents write an output per case), Results (scores per run), Rate blind (rate outputs before seeing the judge), Compare (two outputs side by side, vote for the better), Transcripts (what the agent did), Agreement (how often the judge and the author agree), Scoring (weights and thresholds), Library, Guide and Settings.'
 
-/** The brief of the side panel's assistant: the app, how a skill is written, and the skill in hand. */
+/** Where the reader is and what they have open, as the brief says it. */
+function whereText(scene: ChatScene): string {
+  const { screen, open, skill } = scene
+  const parts = screen ? [`The reader is on the ${screen} screen.`] : []
+  const file = open.file && skill?.files.find((f) => f.path === open.file)
+  if (file)
+    parts.push(`They have ${file.path} open${file.unsaved ? ', with unsaved changes' : ''}.`)
+  if (open.case === NEW_CASE_KEY) parts.push('They are writing a new case, not saved yet.')
+  else {
+    const c = open.case && skill?.cases.find((x) => x.id === open.case)
+    if (c) parts.push(`They have the case "${c.title || c.id}" open.`)
+  }
+  return parts.join(' ')
+}
+
+/** The skill's files: SKILL.md whole, then each reference in full while the budget lasts, the open one first. */
+function filesText(files: SceneFile[], open: string | null): string {
+  const mark = (f: SceneFile) => (f.unsaved ? `${f.path} (unsaved)` : f.path)
+  const skillMd = files.find((f) => f.path === 'SKILL.md')
+  const references = files
+    .filter((f) => f !== skillMd)
+    .sort((a, b) => Number(b.path === open) - Number(a.path === open))
+  let left = REFERENCE_BUDGET
+  const shown: string[] = []
+  const named: string[] = []
+  for (const f of references) {
+    if (f.text.length <= left) {
+      left -= f.text.length
+      shown.push(tag('file', f.text, mark(f)))
+    } else named.push(mark(f))
+  }
+  return [
+    skillMd ? tag('file', skillMd.text, mark(skillMd)) : 'The skill has no SKILL.md yet.',
+    ...shown,
+    named.length ? `Reference files too long to include here: ${named.join(', ')}.` : '',
+  ]
+    .filter(Boolean)
+    .join('\n')
+}
+
+const caseText = (c: SceneCase): string =>
+  tag(
+    'case',
+    [
+      `Prompt: ${c.prompt}`,
+      c.expected ? `A good answer: ${c.expected}` : '',
+      ...c.checks.map((check, i) => `Check ${i + 1}: ${check}`),
+    ]
+      .filter(Boolean)
+      .join('\n'),
+    c.id === NEW_CASE_KEY
+      ? `${c.title || 'New case'} (new, unsaved)`
+      : `${c.title || c.id}${c.title && c.title !== c.id ? `, id ${c.id}` : ''}${c.unsaved ? ' (unsaved)' : ''}`,
+  )
+
+/** The brief of the side panel's assistant: the app, how a skill is written, where the reader is, the skill in hand, and how to change it. */
 export function chatSystem(scene: ChatScene): string {
   const parts = [
     `You are the assistant in Skill Studio's side panel. ${APP}`,
     `Its screens: ${SCREENS}`,
     `How a skill is written here. ${RULE_SHAPE.charAt(0).toUpperCase()}${RULE_SHAPE.slice(1)}\n- ${RULE_GUIDE.map((item) => `${item.lead} ${item.text}`).join('\n- ')}`,
     `How a check is written: one statement a judge can mark by reading the answer.\n- ${CHECKS}`,
-    'Answer in a few short paragraphs of Markdown, without headings unless the answer is long. Lead with the answer. When you suggest a rule, a check or a prompt, write it out in full so it can be copied as it is. You cannot change files: say which screen the change is made on. If you do not know something about this app, say so.',
+    'Answer in a few short paragraphs of Markdown, without headings unless the answer is long. Lead with the answer. When you suggest a rule, a check or a prompt, write it out in full. If you do not know something about this app, say so.',
   ]
-  if (scene.screen) parts.push(`The reader is on the ${scene.screen} screen.`)
+  const where = whereText(scene)
+  if (where) parts.push(where)
   if (scene.skill) {
-    const { name, description, skillMd, references, cases } = scene.skill
+    const { name, files, cases } = scene.skill
+    parts.push(CHANGES_GUIDE)
     parts.push(
-      `The open skill is "${name}"${description ? `: ${description}` : '.'}${
-        references.length ? `\nIts reference files: ${references.join(', ')}.` : ''
-      }\n${tag('skill_md', skillMd)}`,
+      `The open skill is "${name}". You see its files and cases as the reader has them. One marked unsaved holds edits they have not saved yet: it is the current text, and a change you propose to it replaces those edits.\n${filesText(files, scene.open.file)}`,
     )
     parts.push(
       cases.length
-        ? `Its cases, as saved:\n${cases
-            .map((c) =>
-              tag(
-                'case',
-                [
-                  `Prompt: ${c.prompt}`,
-                  c.expected ? `A good answer: ${c.expected}` : '',
-                  ...c.checks.map((check, i) => `Check ${i + 1}: ${check}`),
-                ]
-                  .filter(Boolean)
-                  .join('\n'),
-                c.title || c.id,
-              ),
-            )
-            .join('\n')}`
+        ? `Its cases:\n${cases.map(caseText).join('\n')}`
         : 'The skill has no cases yet.',
     )
-  } else parts.push('No skill is open.')
+  } else
+    parts.push('No skill is open, so you cannot change one: say to open it from the Library first.')
   return parts.join('\n\n')
 }

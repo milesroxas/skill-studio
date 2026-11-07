@@ -606,6 +606,7 @@ export function App() {
             <ChatPanel
               screen={place?.label ?? ''}
               skill={skillPath ? (state?.skill.name ?? null) : null}
+              ctx={ctx}
               confirm={confirm}
               onClose={() => setAssistant(false)}
             />

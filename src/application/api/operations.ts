@@ -6,7 +6,13 @@
  */
 import { existsSync, readFileSync, statSync } from 'node:fs'
 import { extname, join, relative, resolve } from 'node:path'
-import { ASSIST_FIELD_IDS, ASSIST_LIMIT, type AssistInput } from '@domain/assist.ts'
+import {
+  ASSIST_FIELD_IDS,
+  ASSIST_LIMIT,
+  type AssistInput,
+  type ChatScene,
+  workingSkill,
+} from '@domain/assist.ts'
 import { leaderboards, voteKeys } from '@domain/bradley-terry.ts'
 import { type ImageRef, MAX_IMAGES } from '@domain/image.ts'
 import { type RuleScene, worthChecking } from '@domain/lint.ts'
@@ -20,6 +26,7 @@ import {
   type Configuration,
   emptyDrafts,
   type FileDraft,
+  NEW_CASE_KEY,
   OVERALL,
   type Review,
   type SkillDrafts,
@@ -206,6 +213,20 @@ function caseDraftOf(value: unknown): CaseDraft {
   }
 }
 
+/** What the reader has open, from untrusted input: a file path and a case key, each checked. */
+function chatOpenOf(value: unknown): ChatScene['open'] {
+  const { file, case: key } = record(value)
+  return {
+    file: typeof file === 'string' && file ? assertSafePath(file, 'file') : null,
+    case:
+      typeof key === 'string' && key
+        ? key === NEW_CASE_KEY
+          ? key
+          : assertSafe(key, 'case')
+        : null,
+  }
+}
+
 function draftsOf(value: unknown): SkillDrafts {
   const input = record(value)
   const files: Record<string, FileDraft> = {}
@@ -333,7 +354,13 @@ export const parsers: { [K in OperationName]: (raw: Raw) => Input<K> } = {
     // A conversation outlives the open skill, so it holds uploads only, never a skill's files.
     const images = imageRefsOf(raw.images).filter((image) => image.upload)
     if (!text && !images.length) throw new Error('Write a message first.')
-    return { ...scoped(raw), text, images, screen: str(raw.screen) }
+    return {
+      ...scoped(raw),
+      text,
+      images,
+      screen: str(raw.screen).slice(0, 80),
+      open: chatOpenOf(raw.open),
+    }
   },
   'chat.clear': none,
   'ai.refine': sceneOf,
@@ -559,23 +586,16 @@ export function createOperations(options: OperationsOptions): Runners {
     'chat.read': () => chatThread(),
     'chat.send': (input) => {
       const skill = input.skill ? skillOf(input) : null
-      const files = skill ? skillFiles(skill.path) : {}
-      return sendChat(input.text, input.images, {
+      // The skill as the reader has it: what is saved, with their stored drafts over it.
+      const scene: ChatScene = {
         screen: input.screen,
+        open: input.open,
         skill: skill && {
           name: skill.name,
-          description: skill.description,
-          skillMd: files['SKILL.md'] ?? '',
-          references: Object.keys(files).filter((path) => path !== 'SKILL.md'),
-          cases: loadCases(skill.path).map((c) => ({
-            id: c.id,
-            title: c.title,
-            prompt: c.prompt,
-            expected: c.expectedOutcome,
-            checks: c.graders.map((g) => g.statement),
-          })),
+          ...workingSkill(skillFiles(skill.path), loadCases(skill.path), readDrafts(skill.path)),
         },
-      })
+      }
+      return sendChat(input.text, input.images, scene, skill?.path ?? null)
     },
     'chat.clear': () => clearChat(),
     'ai.refine': (scene) => startRefine(scene),

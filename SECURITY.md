@@ -52,6 +52,7 @@ Skill Studio runs coding agents and executes the code they write. Treat every sk
 ### The assistant
 
 - A request goes to the provider you chose with what it is about: your instruction, the field's text, the skill, case or output beside it, and any picture you attach. A request about a case carries that case's pictures too.
-- The Assistant panel sends the open skill's name, description, `SKILL.md`, reference file names and cases with each message, the name of the screen you are on, and the pictures you add.
+- The Assistant panel sends the open skill as you have it with each message: `SKILL.md`, each file under `references/` (up to about 60,000 characters of them), and its cases, your unsaved edits included. It also sends the name of the screen you are on, the file or case you have open there, and the pictures you add.
 - No content is sent until you ask. With a stored Anthropic or OpenAI key, the app asks that provider for its list of models when it opens.
+- A reply in the Assistant panel can propose changes to the open skill: SKILL.md, a file under `references/`, a case, or a version. Nothing changes until you click its button, which goes through the same checks as saving from the Editor, Cases or Versions screen. A change applies only to the skill the reply was written about, and only while that skill is open.
 - The Claude Code provider runs with no tools, so a reply cannot read or change files. The Codex provider runs in a read-only sandbox: it can read files and cannot change them.

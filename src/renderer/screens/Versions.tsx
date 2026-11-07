@@ -11,8 +11,7 @@ import { Trash2Icon } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { api } from '../api.ts'
 import { changesContext, skillContext } from '../assist.ts'
-import { DiffLines } from '../components/DiffLines.tsx'
-import { Disclosure } from '../components/Disclosure.tsx'
+import { FileDiff } from '../components/FileDiff.tsx'
 import { InlineField } from '../components/forms.tsx'
 import {
   EmptyState,
@@ -450,27 +449,14 @@ function Changes({ ctx, left, right }: { ctx: Ctx; left: string; right: string }
       {diffs?.map(({ file, before, after, lines }) => {
         if (!lines.length && !showAll) return null
         return (
-          <Disclosure
+          <FileDiff
             key={`${left}-${right}-${file}`}
-            variant="card"
+            file={file}
+            before={before}
+            after={after}
+            lines={lines}
             defaultOpen={lines.length > 0}
-            summary={
-              <>
-                <Text font="mono">{file}</Text>{' '}
-                <Text tone="muted" size="xs" tabular>
-                  {!before
-                    ? 'added'
-                    : !after
-                      ? 'removed'
-                      : lines.length
-                        ? `${lines.filter((l) => l.op === 'ins').length} added, ${lines.filter((l) => l.op === 'del').length} removed`
-                        : 'unchanged'}
-                </Text>
-              </>
-            }
-          >
-            {lines.length ? <DiffLines lines={lines} /> : <pre className="diff-lines">{after}</pre>}
-          </Disclosure>
+          />
         )
       })}
       {diffs && !diffs.some((d) => d.lines.length) ? (

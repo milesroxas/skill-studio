@@ -3,7 +3,7 @@
  * remembered across reloads, so screens never pass it.
  */
 import type { CreateSkillInput, GenerateInput } from '@application/api/contract.ts'
-import type { AssistInput } from '@domain/assist.ts'
+import type { AssistInput, ChatScene } from '@domain/assist.ts'
 import type { ImageRef, ImageUpload } from '@domain/image.ts'
 import type { AgentId } from '@domain/library.ts'
 import type { RuleScene } from '@domain/lint.ts'
@@ -96,8 +96,8 @@ export const api = {
   watchAi: transport.watchAi,
   chat: () => call('chat.read', {}),
   /** The open skill, if any, goes along so the assistant knows what is in hand. */
-  chatSend: (text: string, images: ImageRef[], screen: string) =>
-    call('chat.send', scoped({ text, images, screen })),
+  chatSend: (text: string, images: ImageRef[], screen: string, open: ChatScene['open']) =>
+    call('chat.send', scoped({ text, images, screen, open })),
   chatClear: () => call('chat.clear', {}),
   /** Auto refine on a selected rule: the findings, and the revision on its way when anything drifts. */
   refine: (scene: RuleScene) => call('ai.refine', scene),

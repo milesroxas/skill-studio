@@ -258,11 +258,16 @@ function chatWindow(messages: ChatMessage[]): AiMessage[] {
     .map(({ role, text, images }) => ({ role, text, images: picturesOf(images) }))
 }
 
-/** Add a message, with any pictures, to the side panel's conversation and start the reply. */
+/**
+ * Add a message, with any pictures, to the side panel's conversation and start
+ * the reply. `skill` is the open skill's path: the reply is marked with it, so
+ * the changes it proposes are offered only while that skill is open.
+ */
 export async function sendChat(
   text: string,
   images: ImageRef[],
   scene: ChatScene,
+  skill: string | null,
 ): Promise<ChatThread> {
   if (chatRun?.status === 'running') throw new Error('Wait for the reply, or stop it first.')
   const choice = await currentChoice()
@@ -289,7 +294,8 @@ export async function sendChat(
       // A finished reply, and what a stopped one had written, join the conversation.
       if (run.status === 'failed' || !run.text.trim()) return
       const now = readChat()
-      writeChat([...now, message(now, 'assistant', run.text.trim())])
+      const reply = message(now, 'assistant', run.text.trim())
+      writeChat([...now, skill ? { ...reply, skill } : reply])
       chatRun = null
     },
   })

@@ -544,6 +544,10 @@
   .diff-lines {
     @apply font-mono text-xs leading-normal whitespace-pre-wrap break-words;
   }
+  /* A wrapped line hangs under its text, past the + or -, so it never reads as a line of its own. */
+  .diff-lines > span {
+    @apply block pl-[2ch] -indent-[2ch];
+  }
   .diff-lines .ins {
     @apply block bg-success/10;
   }

@@ -9,6 +9,7 @@ import {
   writeFileSync,
 } from 'node:fs'
 import { basename, dirname, join, resolve } from 'node:path'
+import { isEditablePath } from '@domain/paths.ts'
 import type { RunMeta } from '@domain/schemas.ts'
 import { type SkillStart, templateBody, templateById } from '@domain/templates.ts'
 import { metaText, readFrontMatter } from '@domain/text.ts'
@@ -47,8 +48,7 @@ export function skillFiles(skillDir: string): Record<string, string> {
 /** A skill-relative path the editor may write: SKILL.md or a file under references/. */
 export function editablePath(path: string): string {
   assertSafePath(path, 'path')
-  const parts = path.split('/')
-  if (path === 'SKILL.md' || (parts[0] === 'references' && parts.length > 1)) return path
+  if (isEditablePath(path)) return path
   throw new Error('Only SKILL.md and files under references/ can be edited.')
 }
 

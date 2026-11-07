@@ -5,7 +5,7 @@
  */
 import { agentEnv } from '../env.ts'
 import { hasCommand } from '../exec.ts'
-import { type ResultEvent, readResult, runStreamJson } from './stream.ts'
+import { type ResultEvent, readInit, readResult, runStreamJson } from './stream.ts'
 import type { Engine, EngineRequest, EngineResult } from './types.ts'
 
 const DEFAULT_TOOLS = ['Read', 'Write', 'Edit', 'Glob', 'Grep', 'Bash']
@@ -36,11 +36,7 @@ interface StreamEvent extends ResultEvent {
 
 function handle(event: StreamEvent, request: EngineRequest, result: EngineResult): void {
   const { transcript } = request
-  if (event.type === 'system' && event.subtype === 'init') {
-    result.model = event.model ?? null
-    transcript.push({ kind: 'system', text: `claude ${event.model ?? ''}`.trim() })
-    return
-  }
+  if (readInit(event, 'claude', request, result)) return
   const blocks = Array.isArray(event.message?.content) ? event.message.content : []
   if (event.type === 'assistant') {
     for (const block of blocks) {

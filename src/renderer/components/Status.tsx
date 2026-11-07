@@ -33,13 +33,26 @@ export function Dot({ tone, size }: VariantProps<typeof dotVariants>) {
   return <span className={dotVariants({ tone, size })} aria-hidden="true" />
 }
 
+const statusVariants = cva('m-0 flex flex-wrap items-center gap-x-2 gap-y-0.5', {
+  variants: {
+    /** `default` in a section's text; `ui` at the end of a row whose title is `text-ui`. */
+    size: {
+      default: 'text-sm',
+      ui: 'text-ui',
+    },
+  },
+  defaultVariants: { size: 'default' },
+})
+
 export function Status({
   tone,
+  size,
   detail,
   children,
-}: Pick<VariantProps<typeof dotVariants>, 'tone'> & { detail?: ReactNode; children: ReactNode }) {
+}: Pick<VariantProps<typeof dotVariants>, 'tone'> &
+  VariantProps<typeof statusVariants> & { detail?: ReactNode; children: ReactNode }) {
   return (
-    <p className="m-0 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-sm">
+    <p className={statusVariants({ size })}>
       <Dot tone={tone} />
       <Text weight="medium">{children}</Text>
       {detail ? <Text tone="muted">{detail}</Text> : null}

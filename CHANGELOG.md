@@ -8,6 +8,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Added
 
+- The Assistant can change the open skill. Ask it to rewrite SKILL.md, add a reference file, add or replace a case, or save a version first, and each change stands under its reply: the file's changes, the case, or the version. One click applies it, and Undo in the status line takes it back. Nothing changes until you click, and a reply's changes apply only to the skill it was written about.
+- The Assistant reads the open skill as you have it: your unsaved edits, a reference file you have not saved yet, and a case you are still writing. It reads each reference file's text, not just its name, and knows which file or case you have open. A change it proposes shows against your unsaved text.
 - Select four or more words in SKILL.md and a bar appears over them: Auto refine, Suggest changes, Help me improve. Auto refine checks the rule against the writing guide, its conditions and its length, and offers a revision only when something drifts; otherwise it says the rule already complies. Suggest changes offers three labelled rewrites, Best practice, More direct and Shorter, each one click to put in place. Help me improve opens the Assistant on a few fixed questions about the rule, drafts it from your answers, and puts the draft in the file with one button.
 - With a TypeSafe key, Jev reads a selected rule before any model writes: whether it names a step, carries its why, fixes its boundary, changes what the agent does and belongs to the skill. A rule that holds costs no model call. Jev also checks that each suggested rewrite kept the selection's facts.
 - The writing guide beside the editor has a sixth line: test it by running it.

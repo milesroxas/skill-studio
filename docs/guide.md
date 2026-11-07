@@ -146,7 +146,7 @@ Exact, with its reason:
 - **Ask:** click the small button in any text box, or **Write with AI** in the editor toolbar. Say what you want.
 - **Nothing changes** until you click **Replace** or **Insert**.
 - **Select text first** to rewrite only that part.
-- **Assistant** (top right, or Cmd+J): a chat beside every screen. It reads your skill but never changes it.
+- **Assistant** (top right, or Cmd+J): a chat beside every screen. It reads the open skill as you have it, unsaved edits and new files included, and knows the screen you are on and the file or case you have open. Ask it to change something and the reply shows each change under it: a file's changes, a new case, or a version to save first. Click the button under a change to apply it. Undo in the status line takes it back. Nothing changes until you click.
 - **Commands in the Assistant:** type `/` and pick from the list, or keep typing a name; Tab takes the one shown. `/clear` starts a new conversation, `/settings` and `/guide` open those screens. While a reply is written, the send button becomes Stop.
 - **Run a skill in the Assistant:** with Claude Code as the model, the same list holds the skills your CLI knows. Pick one, add any words it takes and press Return. The skill shapes the reply the way it would in your terminal, and still nothing in your files changes.
 

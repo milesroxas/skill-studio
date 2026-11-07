@@ -23,6 +23,8 @@ export interface Drafts {
   setCase: (key: string, draft: CaseDraft | null) => void
   /** Drop every draft of the open skill without storing it: the files on disk replaced them. */
   discard: () => void
+  /** Store what is waiting now, so a reader on disk sees every keystroke. A failed write still resolves. */
+  flush: () => Promise<void>
 }
 
 const without = <T>(all: Record<string, T>, key: string): Record<string, T> => {
@@ -39,23 +41,27 @@ export function useDrafts(skillPath: string): Drafts {
   const skill = useRef(skillPath)
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
 
-  const store = useCallback(() => {
+  /** The write under way, so a flush waits for one a timer already started. */
+  const writing = useRef<Promise<void>>(Promise.resolve())
+
+  const store = useCallback((): Promise<void> => {
     clearTimeout(timer.current)
     const next = waiting.current
-    if (!next) return
+    if (!next) return writing.current
     waiting.current = null
-    api.saveDrafts(next.skill, next.drafts).then(
+    writing.current = api.saveDrafts(next.skill, next.drafts).then(
       ({ updatedAt }) => {
         setStoredAt(updatedAt ? new Date(updatedAt) : null)
         setStatus(waiting.current ? 'pending' : 'stored')
       },
       () => setStatus('failed'),
     )
+    return writing.current
   }, [])
 
   // Load the open skill's drafts. Anything still waiting for the last skill is stored first.
   useEffect(() => {
-    store()
+    void store()
     skill.current = skillPath
     setDrafts(emptyDrafts())
     setStoredAt(null)
@@ -78,8 +84,9 @@ export function useDrafts(skillPath: string): Drafts {
 
   // Leaving the page stores what is waiting at once.
   useEffect(() => {
-    window.addEventListener('pagehide', store)
-    return () => window.removeEventListener('pagehide', store)
+    const leave = () => void store()
+    window.addEventListener('pagehide', leave)
+    return () => window.removeEventListener('pagehide', leave)
   }, [store])
 
   const change = useCallback(
@@ -121,5 +128,14 @@ export function useDrafts(skillPath: string): Drafts {
     setStatus('idle')
   }, [])
 
-  return { files: drafts.files, cases: drafts.cases, status, storedAt, setFile, setCase, discard }
+  return {
+    files: drafts.files,
+    cases: drafts.cases,
+    status,
+    storedAt,
+    setFile,
+    setCase,
+    discard,
+    flush: store,
+  }
 }

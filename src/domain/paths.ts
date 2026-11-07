@@ -24,3 +24,13 @@ export function isWithin(path: string, root: string): boolean {
   const outer = segments(root)
   return outer.length <= inner.length && outer.every((segment, i) => segment === inner[i])
 }
+
+/** A skill-relative path the editor may write: SKILL.md or a file under references/. */
+export const isEditablePath = (path: string): boolean => {
+  const parts = path.split('/')
+  return path === 'SKILL.md' || (parts[0] === 'references' && parts.length > 1)
+}
+
+/** The order a skill's files are listed in: SKILL.md first, then by path. */
+export const byFileOrder = (a: string, b: string): number =>
+  a === 'SKILL.md' ? -1 : b === 'SKILL.md' ? 1 : a.localeCompare(b)

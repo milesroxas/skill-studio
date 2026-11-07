@@ -7,7 +7,11 @@ import {
   assistText,
   chatSystem,
   partialText,
+  REFERENCE_BUDGET,
+  workingSkill,
 } from './assist.ts'
+import { CHANGES_GUIDE } from './changes.ts'
+import { NEW_CASE_KEY } from './schemas.ts'
 import { CASE_PROMPT_HINT, RULE_GUIDE, RULE_SHAPE } from './templates.ts'
 
 const reply = (text: string): string => JSON.stringify({ text })
@@ -153,36 +157,109 @@ describe('assistText', () => {
   })
 })
 
-describe('chatSystem', () => {
-  it('carries the open skill and the screen', () => {
-    const system = chatSystem({
-      screen: 'Cases',
-      skill: {
-        name: 'notes',
-        description: 'Writes notes.',
-        skillMd: '# Notes',
-        references: ['references/tone.md'],
-        cases: [
-          {
-            id: 'shift',
-            title: 'A covered shift',
-            prompt: 'Thank Priya.',
-            expected: '',
-            checks: ['The note names Priya.'],
+const graders = (...statements: string[]) =>
+  statements.map((statement) => ({ id: null, statement, weight: 1, image: null }))
+const savedCase = {
+  id: 'shift',
+  title: 'A covered shift',
+  prompt: 'Thank Priya.',
+  expectedOutcome: '',
+  graders: graders('The note names Priya.'),
+}
+
+describe('workingSkill', () => {
+  it('lays unsaved drafts over the saved files and cases', () => {
+    const working = workingSkill(
+      { 'SKILL.md': '# Notes\n', 'references/tone.md': 'Warm.\n' },
+      [savedCase],
+      {
+        files: {
+          'references/voice.md': { text: 'Samples.\n', previous: null },
+          'references/tone.md': { text: 'Warm.\n', previous: 'Warm.\n' },
+          'evals/bench.json': { text: '{}', previous: null },
+        },
+        cases: {
+          shift: { ...savedCase, prompt: 'Thank Priya warmly.', words: null, images: [] },
+          gone: { ...savedCase, id: 'gone', words: null, images: [] },
+          [NEW_CASE_KEY]: {
+            ...savedCase,
+            id: '',
+            title: 'Edit a draft',
+            graders: graders('', 'No em dash.'),
+            words: null,
+            images: [],
           },
-        ],
+        },
       },
-    })
-    expect(system).toContain(
-      '<case name="A covered shift">\nPrompt: Thank Priya.\nCheck 1: The note names Priya.\n</case>',
     )
-    expect(system).toContain('The reader is on the Cases screen.')
-    expect(system).toContain('The open skill is "notes": Writes notes.')
-    expect(system).toContain('references/tone.md')
-    expect(system).toContain('<skill_md>\n# Notes\n</skill_md>')
+    expect(working.files).toEqual([
+      { path: 'SKILL.md', text: '# Notes\n', unsaved: false },
+      // A draft that matches the saved text is not unsaved work.
+      { path: 'references/tone.md', text: 'Warm.\n', unsaved: false },
+      { path: 'references/voice.md', text: 'Samples.\n', unsaved: true },
+    ])
+    expect(working.cases.map((c) => [c.id, c.prompt, c.checks, c.unsaved])).toEqual([
+      ['shift', 'Thank Priya warmly.', ['The note names Priya.'], true],
+      [NEW_CASE_KEY, 'Thank Priya.', ['No em dash.'], true],
+    ])
+  })
+})
+
+describe('chatSystem', () => {
+  const skill = {
+    name: 'notes',
+    ...workingSkill({ 'SKILL.md': '---\nname: notes\n---\n# Notes\n' }, [savedCase], {
+      files: { 'references/voice.md': { text: 'Samples.\n', previous: null } },
+      cases: {},
+    }),
+  }
+
+  it('carries the skill as the reader has it, unsaved work included', () => {
+    const system = chatSystem({ screen: 'Cases', open: { file: null, case: 'shift' }, skill })
+    expect(system).toContain(
+      '<case name="A covered shift, id shift">\nPrompt: Thank Priya.\nCheck 1: The note names Priya.\n</case>',
+    )
+    expect(system).toContain(
+      'The reader is on the Cases screen. They have the case "A covered shift" open.',
+    )
+    expect(system).toContain('The open skill is "notes".')
+    expect(system).toContain('<file name="SKILL.md">\n---\nname: notes\n---\n# Notes\n</file>')
+    expect(system).toContain('<file name="references/voice.md (unsaved)">\nSamples.\n</file>')
+    expect(system).toContain(CHANGES_GUIDE)
+  })
+
+  it('names the open file and a new case', () => {
+    expect(
+      chatSystem({ screen: 'Editor', open: { file: 'references/voice.md', case: null }, skill }),
+    ).toContain('They have references/voice.md open, with unsaved changes.')
+    expect(
+      chatSystem({ screen: 'Cases', open: { file: null, case: NEW_CASE_KEY }, skill }),
+    ).toContain('They are writing a new case, not saved yet.')
+  })
+
+  it('reads references whole while the budget lasts, the open one first', () => {
+    const long = 'x'.repeat(REFERENCE_BUDGET - 10)
+    const big = {
+      name: 'notes',
+      ...workingSkill(
+        { 'SKILL.md': '# Notes\n', 'references/a.md': long, 'references/b.md': long },
+        [],
+        { files: {}, cases: {} },
+      ),
+    }
+    const system = chatSystem({
+      screen: 'Editor',
+      open: { file: 'references/b.md', case: null },
+      skill: big,
+    })
+    expect(system).toContain('<file name="references/b.md">')
+    expect(system).not.toContain('<file name="references/a.md">')
+    expect(system).toContain('Reference files too long to include here: references/a.md.')
   })
 
   it('says so when no skill is open', () => {
-    expect(chatSystem({ screen: 'Library', skill: null })).toContain('No skill is open.')
+    const system = chatSystem({ screen: 'Library', open: { file: null, case: null }, skill: null })
+    expect(system).toContain('No skill is open, so you cannot change one')
+    expect(system).not.toContain(CHANGES_GUIDE)
   })
 })

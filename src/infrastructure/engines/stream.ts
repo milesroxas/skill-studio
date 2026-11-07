@@ -10,6 +10,22 @@ export interface ResultEvent {
   error?: string
 }
 
+/**
+ * Read the opening `init` event both CLIs send: the model the run uses, and a
+ * first transcript line naming the CLI. False for any other event.
+ */
+export function readInit(
+  event: ResultEvent & { model?: string },
+  cli: string,
+  request: EngineRequest,
+  result: EngineResult,
+): boolean {
+  if (event.type !== 'system' || event.subtype !== 'init') return false
+  result.model = event.model ?? null
+  request.transcript.push({ kind: 'system', text: `${cli} ${event.model ?? ''}`.trim() })
+  return true
+}
+
 /** Read the closing `result` event: the agent's last word, and whether the session failed. */
 export function readResult(event: ResultEvent, request: EngineRequest, result: EngineResult): void {
   if (typeof event.result === 'string' && event.result.trim()) result.finalText = event.result

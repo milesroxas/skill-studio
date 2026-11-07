@@ -55,6 +55,8 @@ Does the reader pick one item from a list and work on it?
 
 A region is a part of the page: a column, a section, a group of fields. It ends at a hairline and has no fill, radius or shadow of its own. `Card` (`components/ui/card.tsx`) is for an object a person compares or picks up. Two things are cards: an output (`OutputCard`), and a rewrite to pick in the selection popout (`Rewrites.tsx`, a button with the card's surface, since the whole object is the action).
 
+`Disclosure` (`components/Disclosure.tsx`) folds a block behind one line, in three variants. `plain` is a line of text that opens in place. `card` is one file of a diff, on its own bordered block (the Versions comparison). `row` is one row of a `DisclosureList`: the changes an Assistant reply proposes, a title over a line of detail, with one control at the end in a slot of fixed width so the controls line up down the list. A row with nothing to open keeps the chevron's slot empty, so the titles line up too.
+
 ```tsx
 // Correct: screens/Settings.tsx
 <FormSection title="Appearance" hint="How Skill Studio looks and moves on this computer.">

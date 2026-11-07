@@ -6,21 +6,16 @@
  * draft where the selection was, while SKILL.md is open in the Editor.
  */
 import { currentStep } from '@domain/improve.ts'
-import { XIcon } from 'lucide-react'
-import { useLayoutEffect, useRef, useState } from 'react'
+import { useState } from 'react'
 import { clearImprove, sendImprove, stopRun, useAi, useImprove } from '../ai.ts'
-import { shortcut } from '../keys.ts'
 import { useReplacer } from '../replace.ts'
 import { Conversation } from './Chat.tsx'
 import { Composer } from './Composer.tsx'
-import { Spacer } from './layout.tsx'
+import { PanelBody, PanelHeader, usePin } from './PanelFrame.tsx'
 import { Unjudged } from './Refine.tsx'
 import { Status } from './Status.tsx'
-import { Heading, Hint, Text } from './text.tsx'
+import { Hint, Text } from './text.tsx'
 import { Button } from './ui/button.tsx'
-
-/** Within this many pixels of the end, new text keeps the view at the end. */
-const PINNED_WITHIN = 48
 
 export function ImprovePanel({ onBack, onClose }: { onBack: () => void; onClose: () => void }) {
   const { thread, problem } = useImprove()
@@ -30,13 +25,7 @@ export function ImprovePanel({ onBack, onClose }: { onBack: () => void; onClose:
   const [failure, setFailure] = useState<string | null>(null)
   const [sending, setSending] = useState(false)
   const [note, setNote] = useState<string | null>(null)
-  const scroller = useRef<HTMLDivElement>(null)
-  const pinned = useRef(true)
-
-  useLayoutEffect(() => {
-    const el = scroller.current
-    if (el && pinned.current) el.scrollTop = el.scrollHeight
-  })
+  const pin = usePin()
 
   if (!thread) return null
   const run = thread.run
@@ -54,7 +43,7 @@ export function ImprovePanel({ onBack, onClose }: { onBack: () => void; onClose:
     setFailure(null)
     setSending(true)
     setReply('')
-    pinned.current = true
+    pin.pinned.current = true
     try {
       await sendImprove(text.trim())
     } catch (e) {
@@ -78,36 +67,12 @@ export function ImprovePanel({ onBack, onClose }: { onBack: () => void; onClose:
 
   return (
     <>
-      <header
-        data-drag
-        className="flex h-12 shrink-0 items-center gap-1 border-b pr-2 pl-4 pointer-coarse:gap-3"
-      >
-        <Heading level="page" as="h2">
-          Improve a rule
-        </Heading>
-        <Spacer />
+      <PanelHeader title="Improve a rule" onClose={onClose}>
         <Button type="button" variant="ghost" size="sm" onClick={onBack}>
           Back to chat
         </Button>
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon-sm"
-          aria-label="Close the assistant"
-          title={`Close (${shortcut('J')})`}
-          onClick={onClose}
-        >
-          <XIcon aria-hidden="true" />
-        </Button>
-      </header>
-      <div
-        ref={scroller}
-        className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain"
-        onScroll={(event) => {
-          const el = event.currentTarget
-          pinned.current = el.scrollHeight - el.scrollTop - el.clientHeight < PINNED_WITHIN
-        }}
-      >
+      </PanelHeader>
+      <PanelBody pin={pin}>
         <section className="flex flex-col gap-2 border-b px-4 py-3">
           <span className="flex items-baseline justify-between gap-3">
             <Text size="xs" caps tone="muted">
@@ -145,7 +110,7 @@ export function ImprovePanel({ onBack, onClose }: { onBack: () => void; onClose:
             <Unjudged />
           </div>
         ) : null}
-      </div>
+      </PanelBody>
       {choice ? (
         <div className="shrink-0 px-3 pb-3">
           <Composer

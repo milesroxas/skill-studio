@@ -58,3 +58,13 @@ export function placed(size: Size, anchor: Area, bounds: Area, rise = 0.5): Area
     height,
   }
 }
+
+/** The window bounds a saved file holds, or null when its text is damaged, as a quit mid-write leaves it. */
+export function boundsOf(text: string): Area | null {
+  try {
+    const { x, y, width, height } = (JSON.parse(text) ?? {}) as Partial<Area>
+    return [x, y, width, height].every(Number.isFinite) ? ({ x, y, width, height } as Area) : null
+  } catch {
+    return null
+  }
+}

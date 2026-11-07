@@ -5,7 +5,7 @@
  * the key rather than a fixed list.
  */
 import { hasCommand, tryCommand } from '../exec.ts'
-import { type ResultEvent, readResult, runStreamJson } from './stream.ts'
+import { type ResultEvent, readInit, readResult, runStreamJson } from './stream.ts'
 import type { Engine, EngineRequest, EngineResult } from './types.ts'
 
 interface ToolCallBody {
@@ -30,11 +30,7 @@ function handle(
   thinking: { text: string },
 ): void {
   const { transcript } = request
-  if (event.type === 'system' && event.subtype === 'init') {
-    result.model = event.model ?? null
-    transcript.push({ kind: 'system', text: `cursor-agent ${event.model ?? ''}`.trim() })
-    return
-  }
+  if (readInit(event, 'cursor-agent', request, result)) return
   if (event.type === 'thinking') {
     if (event.subtype === 'completed') {
       transcript.text('thinking', thinking.text || event.text || '')

@@ -5,7 +5,9 @@
  * place in the skill it was seen in.
  */
 
+import type { ChatScene } from '@domain/assist.ts'
 import { currentScreen } from '@domain/preferences.ts'
+import { NEW_CASE_KEY } from '@domain/schemas.ts'
 
 export interface Place {
   screen: string
@@ -43,3 +45,23 @@ export const entryOf = (state: unknown): Entry | null => {
   const { index, skill } = state as Partial<Entry>
   return typeof index === 'number' && typeof skill === 'string' ? { index, skill } : null
 }
+
+/** The file the Editor shows: its `file` param, SKILL.md when there is none. */
+export const editorFile = (params: URLSearchParams): string => params.get('file') ?? 'SKILL.md'
+
+/**
+ * The case the Cases screen shows, by its draft key: the case named by `id`,
+ * the first case when none or an unknown one is named, NEW_CASE_KEY for a new
+ * case or when there are none.
+ */
+export function caseKey(params: URLSearchParams, ids: string[]): string {
+  if (params.get('new') === '1' || !ids.length) return NEW_CASE_KEY
+  const id = params.get('id')
+  return id !== null && ids.includes(id) ? id : ids[0]
+}
+
+/** What a place has open that the assistant can change: the Editor's file, or the case on Cases. */
+export const openAt = (place: Place, caseIds: string[]): ChatScene['open'] => ({
+  file: place.screen === 'editor' ? editorFile(place.params) : null,
+  case: place.screen === 'cases' ? caseKey(place.params, caseIds) : null,
+})

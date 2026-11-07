@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { pageUrl, placed } from './launch.ts'
+import { boundsOf, pageUrl, placed } from './launch.ts'
 
 describe('pageUrl', () => {
   it('leaves the page as it is when no place is named', () => {
@@ -39,5 +39,22 @@ describe('placed', () => {
   it('shrinks to a display smaller than it is', () => {
     const small = { x: 0, y: 0, width: 640, height: 480 }
     expect(placed(size, small, small)).toEqual({ x: 0, y: 0, width: 640, height: 480 })
+  })
+})
+
+describe('boundsOf', () => {
+  it('reads saved bounds', () => {
+    expect(boundsOf('{"x":10,"y":20,"width":800,"height":600}')).toEqual({
+      x: 10,
+      y: 20,
+      width: 800,
+      height: 600,
+    })
+  })
+
+  it('is null for a damaged or partial file', () => {
+    expect(boundsOf('{"x":10,"y":2')).toBeNull()
+    expect(boundsOf('null')).toBeNull()
+    expect(boundsOf('{"x":10,"y":20,"width":"wide","height":600}')).toBeNull()
   })
 })

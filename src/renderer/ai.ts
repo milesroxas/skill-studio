@@ -18,7 +18,7 @@ import {
   resolveChoice,
   runsToForget,
 } from '@domain/ai.ts'
-import type { AssistInput } from '@domain/assist.ts'
+import type { AssistInput, ChatScene } from '@domain/assist.ts'
 import type { SlashCommand } from '@domain/commands.ts'
 import type { ImageRef } from '@domain/image.ts'
 import type { ImproveThread, RefineResult } from '@domain/improve.ts'
@@ -228,8 +228,14 @@ export function useChat(): { thread: ChatThread | null; problem: string | null }
   }
 }
 
-export async function sendChat(text: string, images: ImageRef[], screen: string): Promise<void> {
-  thread = await api.chatSend(text, images, screen)
+/** Send a message from `screen`, where the reader has `open` in view. */
+export async function sendChat(
+  text: string,
+  images: ImageRef[],
+  screen: string,
+  open: ChatScene['open'],
+): Promise<void> {
+  thread = await api.chatSend(text, images, screen, open)
   if (thread.run) follow(thread.run)
   else emit()
 }

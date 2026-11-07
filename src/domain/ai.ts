@@ -208,6 +208,8 @@ export interface ChatMessage {
   text: string
   /** Pictures sent with a user's message. */
   images?: ImageRef[]
+  /** The skill a reply was written about, by path: the only one its changes apply to. */
+  skill?: string
   /** ISO time it was sent or finished. */
   at: string
 }

@@ -6,8 +6,9 @@
  */
 
 import { assistItems } from '@domain/assist.ts'
-import { addImages, type ImageRef, imageTypeOf, MAX_IMAGES } from '@domain/image.ts'
-import { type Case, type CaseDraft, NEW_CASE_KEY } from '@domain/schemas.ts'
+import { blankDraft, draftOf, newCheck, picturesOf } from '@domain/case-draft.ts'
+import { addImages, type ImageRef, MAX_IMAGES } from '@domain/image.ts'
+import { type CaseDraft, NEW_CASE_KEY } from '@domain/schemas.ts'
 import {
   CASE_PROMPT_HINT,
   CHECK_EXAMPLES,
@@ -52,46 +53,9 @@ import type { Ctx } from '../ctx.ts'
 import { useAddPictures } from '../images.ts'
 import { shortcut } from '../keys.ts'
 import { plural } from '../model.ts'
+import { caseKey } from '../route.ts'
 
 const nameOf = (path: string): string => path.split('/').at(-1) ?? path
-
-const saved = (file: string): ImageRef => ({ name: nameOf(file), file, upload: null })
-
-/** A case folder's own pictures: the images in its `files/`. A legacy case's files stay where they are. */
-const picturesOf = (c: Case): string[] =>
-  c.dir ? c.files.filter((f) => f.startsWith(`${c.dir}/files/`) && imageTypeOf(f)) : []
-
-const draftOf = (c: Case): CaseDraft => ({
-  id: c.id,
-  title: c.title === c.id ? '' : c.title,
-  prompt: c.prompt,
-  expectedOutcome: c.expectedOutcome,
-  words: c.bench.words ?? null,
-  images: picturesOf(c).map(saved),
-  graders: c.graders.map((g) => ({
-    id: g.id,
-    statement: g.statement,
-    weight: g.weight,
-    image: g.image ? saved(g.image) : null,
-  })),
-})
-
-const newCheck = (): CaseDraft['graders'][number] => ({
-  id: null,
-  statement: '',
-  weight: 1,
-  image: null,
-})
-
-const blank = (): CaseDraft => ({
-  id: '',
-  title: '',
-  prompt: '',
-  expectedOutcome: '',
-  words: null,
-  images: [],
-  graders: [newCheck()],
-})
 
 /**
  * A draft stored before cases held pictures has none listed. It keeps the
@@ -113,12 +77,15 @@ export function Cases({ ctx }: { ctx: Ctx }) {
   /** Examples come from the kind of skill the bench grades, until the user picks another. */
   const [kindId, setKindId] = useState(() => templateForPacks(config.packs).id)
   const kind = templateById(kindId)
-  const isNew = route.params.get('new') === '1' || !cases.length
-  const selected = isNew ? null : (cases.find((c) => c.id === route.params.get('id')) ?? cases[0])
-  const base = useMemo(() => (selected ? draftOf(selected) : blank()), [selected])
-  const baseJson = JSON.stringify(base)
   /** Where this case's draft is kept: its id, or one slot for the case not saved yet. */
-  const key = selected ? selected.id : NEW_CASE_KEY
+  const key = caseKey(
+    route.params,
+    cases.map((c) => c.id),
+  )
+  const isNew = key === NEW_CASE_KEY
+  const selected = isNew ? null : (cases.find((c) => c.id === key) ?? null)
+  const base = useMemo(() => (selected ? draftOf(selected) : blankDraft()), [selected])
+  const baseJson = JSON.stringify(base)
   const stored = drafts.cases[key]
   const draft = useMemo(() => (stored ? withPictures(stored, base) : base), [stored, base])
   const [idTouched, setIdTouched] = useState(false)
