@@ -91,21 +91,52 @@ export function applyPracticeEdit(skillMd: string): string | null {
 export const practiceVersionName = (versionsRun: number): string =>
   versionsRun ? 'My edit' : 'As written'
 
-/** Once round the loop, in order: run, rate, change one rule, run again, compare. */
-export const PRACTICE_STEPS = ['run', 'rate', 'edit', 'rerun', 'compare'] as const
+/**
+ * Once round the whole workflow, in the guide's order: read the skill, save it,
+ * read the cases, run, read the scores, rate, check the judge, see the
+ * scoring, change one rule, save that, run again, compare.
+ */
+export const PRACTICE_STEPS = [
+  'read',
+  'version',
+  'cases',
+  'run',
+  'results',
+  'rate',
+  'agreement',
+  'scoring',
+  'edit',
+  'save',
+  'rerun',
+  'compare',
+] as const
 export type PracticeStep = (typeof PRACTICE_STEPS)[number]
 
-/** What the skill's own files say about how far the practice went. Nothing else is stored. */
+/**
+ * The steps that only ask the reader to look at a screen. Nothing on disk shows
+ * that they looked, so opening the screen while the step is in hand marks it.
+ */
+export const LOOK_STEPS = ['read', 'cases', 'results', 'agreement', 'scoring'] as const
+export type LookStep = (typeof LOOK_STEPS)[number]
+export const isLookStep = (step: string): step is LookStep =>
+  (LOOK_STEPS as readonly string[]).includes(step)
+
+/** What the skill's own files say about how far the walkthrough went, and the screens looked at. */
 export interface PracticeFacts {
   /** Skill versions that have outputs, oldest first. */
   versions: string[]
-  /** The version the saved files are now. */
+  /** Versions saved on Versions. */
+  saved: number
+  /** The version the files are now, and whether they are saved as it. */
   current: string
+  changed: boolean
   /** Graded outputs of the first version, and how many of those are rated. */
   graded: number
   rated: number
   /** Votes cast between two outputs. */
   votes: number
+  /** Look steps marked as seen. */
+  seen: readonly string[]
 }
 
 export interface PracticeProgress {
@@ -117,11 +148,22 @@ export interface PracticeProgress {
 export function practiceProgress(facts: PracticeFacts): PracticeProgress {
   const ran = facts.versions.length > 0
   const reran = facts.versions.length > 1
+  // Running a second version proves an edit was made, even if it was undone since.
+  const edited = reran || (ran && facts.current !== facts.versions[0])
+  // A later step done means the reader went past the look steps before it.
+  const seen = (step: LookStep, past: boolean) => past || facts.seen.includes(step)
   const done: Record<PracticeStep, boolean> = {
+    read: seen('read', facts.saved > 0 || ran),
+    // A run of unsaved files saves them as a version too.
+    version: facts.saved > 0 || ran,
+    cases: seen('cases', ran),
     run: ran,
+    results: seen('results', facts.rated > 0 || edited),
     rate: facts.graded > 0 && facts.rated >= facts.graded,
-    // Running a second version proves an edit was made, even if it was undone since.
-    edit: reran || (ran && facts.current !== facts.versions[0]),
+    agreement: seen('agreement', edited),
+    scoring: seen('scoring', edited),
+    edit: edited,
+    save: reran || (edited && !facts.changed),
     rerun: reran,
     compare: reran && facts.votes > 0,
   }

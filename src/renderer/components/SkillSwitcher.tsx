@@ -6,7 +6,13 @@
  */
 import type { LibrarySkill } from '@domain/library.ts'
 import { slug } from '@domain/text.ts'
-import { ChevronsUpDownIcon, FolderOpenIcon, LibraryIcon, PlusIcon } from 'lucide-react'
+import {
+  ChevronsUpDownIcon,
+  FolderOpenIcon,
+  LibraryIcon,
+  PlusIcon,
+  RotateCcwIcon,
+} from 'lucide-react'
 import { type KeyboardEvent, useEffect, useMemo, useRef, useState } from 'react'
 import { api } from '../api.ts'
 import { REVEAL_LABEL, shortcut } from '../keys.ts'
@@ -56,6 +62,7 @@ export function SkillSwitcher({
   onNew,
   onLibrary,
   onReveal,
+  onRestartPractice,
 }: {
   /** The open skill's name; null when none is open. */
   name: string | null
@@ -67,6 +74,8 @@ export function SkillSwitcher({
   onLibrary: () => void
   /** Show the open skill's folder in the file manager. Undefined with no skill open, and in a browser. */
   onReveal?: () => void
+  /** Put the practice skill back as first written. Undefined unless it is open with something to undo. */
+  onRestartPractice?: () => void
 }) {
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState('')
@@ -240,18 +249,31 @@ export function SkillSwitcher({
           </PopoverAction>
         </PopoverSection>
         {/* About the open skill, so apart from the rows that lead to another. */}
-        {onReveal && name ? (
+        {(onReveal || onRestartPractice) && name ? (
           <PopoverSection>
-            <PopoverAction
-              icon={<FolderOpenIcon aria-hidden="true" />}
-              title={`${REVEAL_LABEL}: ${name}`}
-              onClick={() => {
-                setOpen(false)
-                onReveal()
-              }}
-            >
-              {REVEAL_LABEL}
-            </PopoverAction>
+            {onReveal ? (
+              <PopoverAction
+                icon={<FolderOpenIcon aria-hidden="true" />}
+                title={`${REVEAL_LABEL}: ${name}`}
+                onClick={() => {
+                  setOpen(false)
+                  onReveal()
+                }}
+              >
+                {REVEAL_LABEL}
+              </PopoverAction>
+            ) : null}
+            {onRestartPractice ? (
+              <PopoverAction
+                icon={<RotateCcwIcon aria-hidden="true" />}
+                onClick={() => {
+                  setOpen(false)
+                  onRestartPractice()
+                }}
+              >
+                Restart walkthrough…
+              </PopoverAction>
+            ) : null}
           </PopoverSection>
         ) : null}
       </PopoverContent>

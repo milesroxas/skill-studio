@@ -28,7 +28,10 @@ const {
   isPracticeSkill,
   linkSkill,
   markOthers,
+  markPracticeSeen,
   openPractice,
+  practiceSeen,
+  restartPractice,
   scanLibrary,
   setWorkspaces,
   touchRecent,
@@ -191,7 +194,7 @@ describe('openPractice', () => {
     expect(skills[0]).toMatchObject({
       name: PRACTICE.name,
       scope: PRACTICE_SCOPE,
-      scopeLabel: 'Practice',
+      scopeLabel: 'Walkthrough',
       cases: PRACTICE.cases.length,
       installs: { claude: null, cursor: null, codex: null },
       source: null,
@@ -206,6 +209,21 @@ describe('openPractice', () => {
     writeFileSync(md, readFileSync(md, 'utf8').replace(PRACTICE_EDIT.bad, PRACTICE_EDIT.good))
     expect(openPractice()).toBe(dir)
     expect(readFileSync(md, 'utf8')).toMatch(PRACTICE_EDIT.good)
+  })
+
+  it('restarts as first written, with its runs and edits gone', () => {
+    const dir = openPractice()
+    const md = join(dir, 'SKILL.md')
+    writeFileSync(md, readFileSync(md, 'utf8').replace(PRACTICE_EDIT.bad, PRACTICE_EDIT.good))
+    mkdirSync(join(dir, 'evals/runs/first'), { recursive: true })
+    markPracticeSeen('read')
+    expect(markPracticeSeen('read')).toEqual(['read'])
+    expect(practiceSeen()).toEqual(['read'])
+    expect(restartPractice()).toBe(dir)
+    expect(practiceSeen()).toEqual([])
+    expect(readFileSync(md, 'utf8')).toMatch(PRACTICE_EDIT.bad)
+    expect(existsSync(join(dir, 'evals/runs'))).toBe(false)
+    expect(loadCases(dir).map((c) => c.id)).toEqual(PRACTICE.cases.map((c) => c.id).sort())
   })
 
   it('knows the practice skill from any other', () => {

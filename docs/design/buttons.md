@@ -116,5 +116,6 @@ The top bar shows where the loop goes next. It is the app's one lime control. On
 - A label ends in an ellipsis in two cases only: it is busy ("Saving…", "Starting…"), or it opens a dialog that asks more before acting ("Reset Skill Studio…"). A button that acts at once has none.
 - A button is `disabled` while busy, and when pressing it would change nothing: "Show every hint again" is disabled when no hint has been seen. It keeps its width while busy.
 - A label is a verb and its object: "Start a run", "Delete case", "Save case", and "Add case" for an item's first save. Never "OK", "Submit" or "Click here". "Save" alone is right in one place: an inspector's `ColumnFooter`, where it saves everything in the column (`Knobs.tsx`).
+- A dialog's confirm button is one verb: "Restart", "Restore", "Delete", "Discard", "Reset". The title above it names the object, so the button does not repeat it. The button that opens the dialog keeps its object: "Restart walkthrough…" opens a dialog whose button says "Restart".
 - Press feedback (`active:scale-[0.96]`) and the focus ring are built in. Do not restyle them.
 - Never show an action only on hover. A row's actions are `ghost-muted` at rest, so touch and keyboard reach them.

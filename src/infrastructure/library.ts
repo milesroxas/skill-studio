@@ -6,6 +6,7 @@ import {
   readdirSync,
   readFileSync,
   realpathSync,
+  rmSync,
   statSync,
   symlinkSync,
   unlinkSync,
@@ -24,7 +25,7 @@ import {
   PRACTICE_SCOPE,
   STORE_DIR,
 } from '@domain/library.ts'
-import { PRACTICE } from '@domain/practice.ts'
+import { isLookStep, type LookStep, PRACTICE } from '@domain/practice.ts'
 import { templateById } from '@domain/templates.ts'
 import { isSlug, metaText, readFrontMatter, SLUG_RULE } from '@domain/text.ts'
 import { loadCases, saveCase } from './cases.ts'
@@ -102,7 +103,7 @@ const taken = (path: string): boolean => existsSync(path) || isLink(path)
  */
 const PRACTICE_PLACE: Place = {
   scope: PRACTICE_SCOPE,
-  label: 'Practice',
+  label: 'Walkthrough',
   root: join(STUDIO_DIR, 'practice'),
 }
 const PRACTICE_DIR = join(PRACTICE_PLACE.root, PRACTICE.name)
@@ -120,6 +121,36 @@ export function openPractice(): string {
     for (const sample of PRACTICE.cases) saveCase(PRACTICE_DIR, sample, true)
   }
   return PRACTICE_DIR
+}
+
+/**
+ * The walkthrough's look steps the reader has opened. Kept beside the practice
+ * skill, not in it, so the skill's folder stays an ordinary skill.
+ */
+const PRACTICE_SEEN = join(PRACTICE_PLACE.root, 'seen.json')
+
+export const practiceSeen = (): LookStep[] =>
+  readJson<unknown[]>(PRACTICE_SEEN, []).filter(
+    (step): step is LookStep => typeof step === 'string' && isLookStep(step),
+  )
+
+export function markPracticeSeen(step: LookStep): LookStep[] {
+  const seen = practiceSeen()
+  if (seen.includes(step)) return seen
+  const next = [...seen, step]
+  writeJson(PRACTICE_SEEN, next)
+  return next
+}
+
+/**
+ * The practice skill as it was first written: its runs, ratings, votes,
+ * versions, edits and the screens marked as seen go. Progress is read from those files, so the loop starts
+ * again at its first step. Only the app's own copy is touched.
+ */
+export function restartPractice(): string {
+  rmSync(PRACTICE_DIR, { recursive: true, force: true })
+  rmSync(PRACTICE_SEEN, { force: true })
+  return openPractice()
 }
 
 function practiceEntry(): Entry[] {

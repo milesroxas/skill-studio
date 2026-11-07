@@ -8,6 +8,7 @@ import type { AiRun, AiStatus, ChatThread, UsageSummary } from '@domain/ai.ts'
 import type { AssistInput } from '@domain/assist.ts'
 import type { ImageRef, ImageUpload } from '@domain/image.ts'
 import type { AgentId, Library } from '@domain/library.ts'
+import type { LookStep } from '@domain/practice.ts'
 import type { Preferences } from '@domain/preferences.ts'
 import type { QueueItem } from '@domain/queue.ts'
 import type {
@@ -90,6 +91,10 @@ export interface Contract {
   'library.create': { input: CreateSkillInput; output: SkillInfo }
   /** Open the practice skill, writing it and its cases the first time. */
   'library.practice': { input: Record<string, never>; output: SkillInfo }
+  /** Put the practice skill back as it was first written: its runs, ratings, edits and drafts go. */
+  'library.restartPractice': { input: Record<string, never>; output: SkillInfo }
+  /** Mark a walkthrough step that only asks the reader to look at a screen. */
+  'library.practiceSeen': { input: { step: LookStep }; output: { seen: LookStep[] } }
   'library.link': { input: LinkInput; output: { linked: string } }
   'library.unlink': { input: LinkInput; output: { unlinked: true } }
   'library.workspaces': { input: { workspaces: string[] }; output: { workspaces: string[] } }

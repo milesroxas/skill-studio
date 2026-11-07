@@ -42,7 +42,7 @@ function Head({ guide }: { guide: Guide }) {
   return (
     <span className="flex items-baseline justify-between gap-2">
       <Text size="xs" tone="faint" weight="medium">
-        Practice
+        Walkthrough
       </Text>
       <Text size="xs" tone="faint" tabular>
         {guide.number ? `${guide.number} of ${guide.steps.length}` : 'Done'}
@@ -79,7 +79,7 @@ export function PracticeGuide({
 }) {
   const target = guide.target
   return (
-    <section aria-label="Practice" className="border-t px-2 py-2">
+    <section aria-label="Walkthrough" className="border-t px-2 py-2">
       {target ? (
         <button
           type="button"

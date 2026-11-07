@@ -16,9 +16,12 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - Getting a Jev key: a link to sign up at TypeSafe, and "Show me" for the three steps from there. Settings shows them too.
 - In the desktop app, a folder for the Library to look in is picked in the system's own dialog.
 - The Editor shows how big the file is: five bars at the end of the toolbar that fill as it grows, and turn amber when the file is long and red past 500 lines or 5,000 tokens. Point at them for the line and token counts, or click to show the counts in their place.
+- The walkthrough's first screen says which skill it uses: until the first run, the Editor opens with a note that this is Thank-you note and what the walkthrough does with it.
+- Restart walkthrough: once you have done any of the walkthrough, the skill menu at the top of the sidebar offers to start it over. Its skill goes back to how it was written, and its runs, ratings, votes, versions and unsaved edits are deleted.
 
 ### Changed
 
+- Practice is now the walkthrough, and it takes the thank-you note through the whole workflow in 12 steps: read the skill, save a version, read the cases, run, read the scores, rate, check the judge, see the scoring, tighten a rule, save it, run again and compare. It opens on the Editor.
 - A new look. The sidebar is a blue-black ink in both themes, and the page is a warm off-white in the light theme and near-black in the dark one.
 - The next step at the top right is a highlighter lime, the one lime control in the window. A running job's dot in the sidebar is lime too.
 - Scores, costs and times in tables are set in mono, so digits line up down a column. Score chips have small 4px corners.
@@ -32,6 +35,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Fixed
 
+- Starting the walkthrough opens on the Editor and stays there. It used to move on to Versions as soon as the Editor marked its first step done.
 - Results fits a 720px window: the "×2" beside a score folds away below 1024px, and the score still says it to a screen reader.
 - Like the other verdicts, a failing message on Agreement colors only its heading.
 

@@ -103,6 +103,8 @@ export interface State {
   skill: SkillInfo
   /** This is the practice skill, so the shell walks the reader round the loop. */
   practice: boolean
+  /** The walkthrough's look steps the reader has opened; empty for any other skill. */
+  practiceSeen: string[]
   skills: SkillInfo[]
   cases: Case[]
   runs: RunView[]

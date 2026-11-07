@@ -108,7 +108,7 @@ Green, amber and red say how something stands and nothing else. A decorative use
 - Corners are a closed set, in `styles.css`:
   - `rounded-sm` 4px: a button, a field, a toggle, a checkbox, a chip, a list row or menu item.
   - `rounded-chin` 6px on top, 14px below: a container. A card, a popover, a menu, a dialog, an alert, a toast, the composer, a muted panel, a code block, a chat bubble, the welcome's picture sheet. Top and bottom stay 3 to 7.
-  - `rounded-xs` 2px: a mark inside running text (an inline link's focus ring, inline code, a diff mark), a part nested inside a control, and each segment of a stepped indicator (the practice progress, the file size meter). A segment is at least 6px tall, so its corners read as corners and not as a pill.
+  - `rounded-xs` 2px: a mark inside running text (an inline link's focus ring, inline code, a diff mark), a part nested inside a control, and each segment of a stepped indicator (the walkthrough's progress, the file size meter). A segment is at least 6px tall, so its corners read as corners and not as a pill.
   - `rounded-full`: dots, a single continuous bar and the slider's thumb only. A row of steps is never pills.
 
 ## Checked pairs

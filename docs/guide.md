@@ -58,7 +58,7 @@ pnpm dev
 
 Then open Settings at the foot of the sidebar and paste the TypeSafe key under Jev key. The app stores it encrypted through your system keychain. While the key is missing, a "No Jev key" label at the top right takes you to Settings.
 
-The first time it opens, the app shows a welcome. "See how it works" tells the loop in six steps on the practice skill. Three setup steps follow: the folders your skills are found in, a model for the Assistant, and the Jev key. Each one first checks what Skill Studio can already reach, so a step that is already set only needs **Continue**. **Configure later** leaves a step for the Library or Settings. The last step ends on **Start practice**. Skip goes to your skills at any point. In the desktop app the welcome has a small window of its own, and the app opens when you skip, finish or close it.
+The first time it opens, the app shows a welcome. "See how it works" tells the loop in six steps on the walkthrough's skill. Three setup steps follow: the folders your skills are found in, a model for the Assistant, and the Jev key. Each one first checks what Skill Studio can already reach, so a step that is already set only needs **Continue**. **Configure later** leaves a step for the Library or Settings. The last step ends on **Start the walkthrough**. Skip goes to your skills at any point. In the desktop app the welcome has a small window of its own, and the app opens when you skip, finish or close it.
 
 To see the welcome again, choose "How Skill Studio works" under the question mark, **Open the welcome** in Settings, or the Help menu of the desktop app.
 
@@ -66,21 +66,32 @@ Settings also holds your preferences: the theme, whether to reduce motion, wheth
 
 To use the app in a browser, or from your phone over Tailscale, run `pnpm build` then `pnpm st serve`. The [web server page](https://github.com/milesroxas/skill-studio/blob/main/docs/cli.md#the-web-server) explains who can reach it. In a browser the key comes from `TYPESAFE_API_KEY` in the environment or a `.env` in the checkout.
 
-## Practise on a finished skill first
+## Take the walkthrough first
 
-The fastest way to learn the loop is to go round it once on a skill that is already written. Click **Start practice** in the welcome or in the Library, or "Start with the practice skill" in the New skill form.
+The fastest way to learn the workflow is to take a skill that is already written through every step of it once. Click **Start the walkthrough** in the welcome or in the Library, or "Take the walkthrough" in the New skill form.
 
-The practice skill is `thank-you-note`. It writes a short thank-you note, so a run takes a minute or two and a note is read and rated in seconds. It comes with three cases, and every form on the way is filled in.
+The walkthrough's skill is `thank-you-note`. It writes a short thank-you note, so a run takes a minute or two and a note is read and rated in seconds. It comes with three cases, and every form on the way is filled in.
 
-A Practice block in the sidebar names the step you are on, and clicking it takes you there:
+A Walkthrough block in the sidebar names the step you are on, and clicking it takes you there. The steps follow this guide, in its order:
 
-1. **Run the skill.** New run opens with the cases ticked and the version named. Click "Start a run".
-2. **Rate the notes.** Score each note in Rate blind before you see the judge's score.
-3. **Tighten one rule.** One rule is vague on purpose: "Keep the note to a reasonable length." The agent cannot measure "reasonable", so the notes come back long and each case's "exactly two sentences" check fails. The Editor shows the vague rule beside an exact one. Click "Use the exact rule", or write your own, then Save.
-4. **Run it again.** The same cases against the new rule. Only the skill changed, so any difference is your edit.
-5. **Compare the versions.** Read a note from each version side by side and vote for the better one.
+1. **Read the skill.** The Editor shows `SKILL.md`, the rules the agent reads and the judge grades. Until the first run, a note above it says this is Thank-you note, the walkthrough's skill, and what the walkthrough does with it.
+2. **Save it as v0.** Versions opens with the name filled in. Click "Save as v0".
+3. **Read the cases.** Cases shows the three tasks, what a good note does, and the checks.
+4. **Run the skill.** New run opens with the cases ticked. Click "Start a run".
+5. **Read the scores.** Results shows the judge's score for each case.
+6. **Rate the notes.** Score each note in Rate blind before you see the judge's score.
+7. **Check the judge.** Agreement sets your ratings against the judge's.
+8. **See how a score adds up.** Scoring shows the layers and their weights. Move one and every score updates.
+9. **Tighten one rule.** One rule is vague on purpose: "Keep the note to a reasonable length." The agent cannot measure "reasonable", so the notes come back long and each case's "exactly two sentences" check fails. The Editor shows the vague rule beside an exact one. Click "Use the exact rule", or write your own, then Save.
+10. **Save your edit as v1.** Versions again, with the name filled in.
+11. **Run it again.** The same cases against the new rule. Only the skill changed, so any difference is your edit.
+12. **Compare the versions.** Read a note from each version side by side and vote for the better one. Results then shows what the edit gained.
 
-The practice skill is kept in `~/.skill-studio/practice/`, outside every folder agents load skills from, so practising never changes what your agents do. To start it over, delete that folder and open it again from the New skill form.
+A step that only asks you to look at a screen is done once you open that screen while the step is in hand.
+
+The walkthrough's skill is kept in `~/.skill-studio/practice/`, outside every folder agents load skills from, so the walkthrough never changes what your agents do.
+
+To start it over, open the skill menu at the top of the sidebar (⌘K) and choose **Restart walkthrough…**. It is there once any step is done or an edit is drafted. After you confirm, the skill goes back to how it was written: its runs, ratings, votes, versions and unsaved edits are deleted, and the block is back at step 1. It waits while a run is going.
 
 ## 1. Open or create a skill
 

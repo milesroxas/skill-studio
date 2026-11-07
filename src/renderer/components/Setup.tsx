@@ -37,7 +37,7 @@ const VENDORS = AI_VENDORS.map((vendor) => ({ value: vendor, label: vendor }))
 
 /** What the last step's way forward leads to, said beside it once everything is set. */
 const PRACTICE_HINT =
-  'Practice comes next: about five minutes, nothing to type, and it changes nothing your agents use.'
+  'The walkthrough comes next: it takes Thank-you note, a finished skill, round the whole loop. About ten minutes, nothing to type, and it changes nothing your agents use.'
 
 export function Setup({
   index,
@@ -98,7 +98,7 @@ export function Setup({
             ? PRACTICE_HINT
             : null
           : last
-            ? `${step.later} Practice comes next.`
+            ? `${step.later} The walkthrough comes next.`
             : step.later
       }
       back={
@@ -130,7 +130,7 @@ export function Setup({
           ) : busy ? (
             'Starting…'
           ) : (
-            'Start practice'
+            'Start the walkthrough'
           )}
         </Button>
       }

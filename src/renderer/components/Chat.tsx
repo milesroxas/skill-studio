@@ -90,7 +90,7 @@ export function ChatPanel({ screen, skill, confirm, onClose }: ChatPanelProps) {
       await confirm({
         title: 'Start a new conversation?',
         description: 'This one is not kept.',
-        action: 'Start new',
+        action: 'Start',
       })
     ) {
       setFailure(null)

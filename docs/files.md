@@ -77,7 +77,7 @@ A run's configuration says which skill the agent saw:
 | `library.json` | The workspace folders the Library scans |
 | `preferences.json` | Theme, motion, editor view, hints, the assistant's model, the update setting |
 | `drafts/` | Unsaved edits to files and cases |
-| `practice/` | The practice skill |
+| `practice/` | The walkthrough's skill, and `seen.json`: the walkthrough steps that only ask you to look at a screen, once you have |
 | `chat.json`, `ai-usage.json` | The Assistant's conversation and its usage log |
 | `uploads/` | Pictures added but not yet saved in a case, cleared after 30 days unused |
 | `trash/` | The last deleted version, until the next delete |

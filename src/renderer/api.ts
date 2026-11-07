@@ -6,6 +6,7 @@ import type { CreateSkillInput, GenerateInput } from '@application/api/contract.
 import type { AssistInput } from '@domain/assist.ts'
 import type { ImageRef, ImageUpload } from '@domain/image.ts'
 import type { AgentId } from '@domain/library.ts'
+import type { LookStep } from '@domain/practice.ts'
 import type { Preferences } from '@domain/preferences.ts'
 import type { BenchConfig, CaseDraft, Review, SkillDrafts, Vote } from '@domain/schemas.ts'
 import type { SecretId } from '@domain/secrets.ts'
@@ -55,6 +56,10 @@ export const api = {
   createSkill: (input: CreateSkillInput) => call('library.create', input),
   /** The practice skill, written the first time it is asked for. */
   practice: () => call('library.practice', {}),
+  /** The practice skill as first written, with its runs, ratings, edits and drafts gone. */
+  restartPractice: () => call('library.restartPractice', {}),
+  /** Mark a walkthrough step that only asks to look at its screen. */
+  practiceSeen: (step: LookStep) => call('library.practiceSeen', { step }),
   link: (path: string, agent: AgentId, scope: string) =>
     call('library.link', { path, agent, scope }),
   unlink: (path: string, agent: AgentId, scope: string) =>

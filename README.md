@@ -35,7 +35,7 @@ Keys can also come from the environment or a `.env` in the checkout ([.env.examp
 
 ## Get started
 
-A first launch opens a welcome that offers a practice skill: a finished skill to take once round the loop. The [guide](docs/guide.md) then walks a skill of your own through each step. It also opens from Guide in the app's sidebar.
+A first launch opens a welcome that offers a walkthrough: a finished skill to take through the whole workflow once. The [guide](docs/guide.md) then walks a skill of your own through each step. It also opens from Guide in the app's sidebar.
 
 ## Documentation
 

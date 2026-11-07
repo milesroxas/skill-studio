@@ -5,6 +5,7 @@
  * only from a run is restored from that run's snapshot.
  */
 
+import { practiceVersionName } from '@domain/practice.ts'
 import type { SkillVersion } from '@domain/views.ts'
 import { Trash2Icon } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
@@ -72,7 +73,7 @@ export function Versions({ ctx }: { ctx: Ctx }) {
         ? {
             title: `Restore ${version} over files that are no version?`,
             description: `The files now are not saved as a version, so restoring loses them. Save them as ${current.version} first to keep them.`,
-            action: 'Restore anyway',
+            action: 'Restore',
             destructive: true,
           }
         : {
@@ -275,7 +276,10 @@ export function Versions({ ctx }: { ctx: Ctx }) {
 function SaveVersion({ ctx, unsavedFiles }: { ctx: Ctx; unsavedFiles: number }) {
   const { state, go, toast, reload } = ctx
   const { current } = state.versions
-  const [name, setName] = useState('')
+  // The walkthrough's form needs no typing: its version comes named.
+  const [name, setName] = useState(
+    state.practice ? practiceVersionName(state.versions.versions.length) : '',
+  )
   const [note, setNote] = useState('')
   const [busy, setBusy] = useState(false)
 

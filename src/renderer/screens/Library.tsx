@@ -175,17 +175,17 @@ export function LibraryScreen({
     <Screen>
       {inviting ? (
         <Invitation
-          aria-label="Practice"
-          title="Learn the loop on a practice skill"
+          aria-label="Walkthrough"
+          title="Learn the workflow with a walkthrough"
           action={
             <Button type="button" disabled={starting} onClick={startPractice}>
-              {starting ? 'Starting…' : 'Start practice'}
+              {starting ? 'Starting…' : 'Start the walkthrough'}
             </Button>
           }
         >
-          Thank-you note is a finished skill with three cases. Run it, rate what the agent wrote,
-          tighten one rule and run it again: a few minutes, nothing to type. It stays inside Skill
-          Studio and is installed for no agent.
+          Thank-you note is a finished skill with three cases. The walkthrough takes it through the
+          whole workflow: read it, run it, rate what the agent wrote, check the judge, tighten one
+          rule and run it again. Nothing to type, and it is installed for no agent.
         </Invitation>
       ) : null}
       <ListBar
@@ -568,9 +568,9 @@ function NewSkill({
           <Hint>
             New to the loop?{' '}
             <Button type="button" variant="link-muted" size="inline-sm" onClick={startPractice}>
-              Start with the practice skill
-            </Button>
-            , a finished one with three cases to run.
+              Take the walkthrough
+            </Button>{' '}
+            on a finished skill with three cases.
           </Hint>
         ) : null}
       </SectionHead>

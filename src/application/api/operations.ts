@@ -9,6 +9,7 @@ import { extname, join, relative, resolve } from 'node:path'
 import { ASSIST_FIELD_IDS, ASSIST_LIMIT, type AssistInput } from '@domain/assist.ts'
 import { leaderboards, voteKeys } from '@domain/bradley-terry.ts'
 import { type ImageRef, MAX_IMAGES } from '@domain/image.ts'
+import { LOOK_STEPS } from '@domain/practice.ts'
 import { preferencesOf } from '@domain/preferences.ts'
 import { reviewQueue } from '@domain/queue.ts'
 import {
@@ -16,6 +17,7 @@ import {
   type CaseDraft,
   CONFIGURATIONS,
   type Configuration,
+  emptyDrafts,
   type FileDraft,
   OVERALL,
   type Review,
@@ -57,7 +59,10 @@ import {
   isPracticeSkill,
   linkSkill,
   markOthers,
+  markPracticeSeen,
   openPractice,
+  practiceSeen,
+  restartPractice,
   scanLibrary,
   setWorkspaces,
   touchRecent,
@@ -275,6 +280,8 @@ export const parsers: { [K in OperationName]: (raw: Raw) => Input<K> } = {
     samples: raw.samples === true,
   }),
   'library.practice': none,
+  'library.restartPractice': none,
+  'library.practiceSeen': (raw) => ({ step: oneOf(raw.step, LOOK_STEPS, 'step') }),
   'library.link': (raw) => ({
     path: str(raw.path),
     agent: oneOf(raw.agent, ['claude', 'cursor', 'codex'], 'agent'),
@@ -479,6 +486,15 @@ export function createOperations(options: OperationsOptions): Runners {
     'library.scan': () => scanLibrary(skills.map((s) => s.path)),
     'library.create': (input) => open(createSkill(input)),
     'library.practice': () => open(openPractice()),
+    'library.restartPractice': () => {
+      // A job may be writing a run of the practice skill.
+      if (listJobs().some((job) => job.status === 'running'))
+        throw new Error('Wait for running jobs to finish, then restart.')
+      const skill = open(restartPractice())
+      writeDrafts(skill.path, emptyDrafts())
+      return skill
+    },
+    'library.practiceSeen': ({ step }) => ({ seen: markPracticeSeen(step) }),
     'library.link': ({ path, agent, scope }) => ({ linked: linkSkill(path, agent, scope) }),
     'library.unlink': ({ path, agent, scope }) => {
       unlinkSkill(path, agent, scope)
@@ -539,6 +555,7 @@ export function createOperations(options: OperationsOptions): Runners {
       return {
         skill,
         practice: isPracticeSkill(skill.path),
+        practiceSeen: isPracticeSkill(skill.path) ? practiceSeen() : [],
         skills,
         cases: loadCases(skill.path),
         runs: listRuns(skill.path),

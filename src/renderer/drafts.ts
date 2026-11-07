@@ -21,6 +21,8 @@ export interface Drafts {
   storedAt: Date | null
   setFile: (path: string, draft: FileDraft | null) => void
   setCase: (key: string, draft: CaseDraft | null) => void
+  /** Drop every draft of the open skill without storing it: the files on disk replaced them. */
+  discard: () => void
 }
 
 const without = <T>(all: Record<string, T>, key: string): Record<string, T> => {
@@ -111,5 +113,13 @@ export function useDrafts(skillPath: string): Drafts {
     [change],
   )
 
-  return { files: drafts.files, cases: drafts.cases, status, storedAt, setFile, setCase }
+  const discard = useCallback(() => {
+    clearTimeout(timer.current)
+    waiting.current = null
+    setDrafts(emptyDrafts())
+    setStoredAt(null)
+    setStatus('idle')
+  }, [])
+
+  return { files: drafts.files, cases: drafts.cases, status, storedAt, setFile, setCase, discard }
 }

@@ -88,7 +88,7 @@ async function take(step: UpdateStep, confirm: Confirm): Promise<void> {
         (await confirm({
           title: 'Restart while a run is going?',
           description: 'Restarting stops the run. You can also update later: it waits for you.',
-          action: 'Stop the run and restart',
+          action: 'Restart',
           destructive: true,
         }))
       if (!agreed) return

@@ -95,6 +95,6 @@ Severity: **high** gives wrong scores or loses data. **med** misleads or breaks 
 - [ ] **U1** med. No link from Results, Agreement, Rate blind or Compare to the rule or case in question. Graded rules shows no pass rate per rule. The guide's arrow back to the Editor has no UI.
 - [ ] **U2** med. New run and the Next button ignore unsaved drafts and run the saved text as "unchanged". `src/renderer/App.tsx:288`, `src/renderer/screens/Generate.tsx`
 - [ ] **U3** low. The Editor does not reload when the window regains focus, so an outside edit only shows as a refused save. `src/renderer/screens/Editor.tsx:79`
-- [ ] **U4** low. Practice gets stuck on "Rate" when the first run's grading failed. `src/domain/practice.ts:122`, `src/renderer/practice.ts:75`
+- [ ] **U4** low. The walkthrough gets stuck on "Rate" when the first run's grading failed. `src/domain/practice.ts:162`, `src/renderer/practice.ts:55`
 - [ ] **U5** low. Front matter that is not valid YAML reads as "needs name and description". Name and description are not checked against length or the folder name. `src/domain/text.ts:27-31`
 - [ ] **U6** low. A link whose name differs from its target folder shows as installed but cannot be uninstalled. `src/infrastructure/library.ts:221,300,320`

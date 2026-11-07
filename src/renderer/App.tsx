@@ -14,6 +14,7 @@
  * window of its own before this one opens; a browser, which has one page and
  * no windows to give, shows it in place of the shell.
  */
+import { isLookStep } from '@domain/practice.ts'
 import type { BenchConfig } from '@domain/schemas.ts'
 import { ArrowRightIcon, MenuIcon, MessageCircleIcon } from 'lucide-react'
 import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react'
@@ -53,7 +54,7 @@ import { useToast } from './hooks.ts'
 import { shortcut } from './keys.ts'
 import { mergedConfig, outputsOf, plural, versionScore } from './model.ts'
 import { APP_PLACES, isSkillScreen, placeFor, SECTIONS, WORKBENCH } from './places.ts'
-import { practiceGuide, useStartPractice } from './practice.ts'
+import { practiceGuide, useRestartPractice, useStartPractice } from './practice.ts'
 import { setPreferences, usePreferences } from './preferences.ts'
 import { Blind } from './screens/Blind.tsx'
 import { Cases } from './screens/Cases.tsx'
@@ -147,6 +148,16 @@ export function App() {
     navigate(screen, {}, { skill: path })
   }, [])
   const [starting, startPractice] = useStartPractice(openSkill, toast)
+  // Starting over lands on the guide's first step, as opening the practice skill does.
+  const [restarting, restartPractice] = useRestartPractice(
+    confirm,
+    drafts.discard,
+    async () => {
+      await reload()
+      go('home')
+    },
+    toast,
+  )
   // The desktop app's Help menu opens the guide, and its welcome hands over the practice skill.
   useEffect(() => api.watchGo?.((screen) => navigate(screen)), [])
   useEffect(() => api.watchOpen?.((path) => openSkill(path)), [openSkill])
@@ -245,6 +256,23 @@ export function App() {
   const place = placeFor(screen) ?? placeFor(home)
   const pane = usePaneScroll(route, screen)
 
+  // `home` follows the guide, and the guide moves on as soon as a look step's
+  // screen opens. Once the skill has loaded, the entry takes the screen `home`
+  // chose, so the reader stays on it instead of being carried to the next step.
+  const settled = loaded ? home : null
+  useEffect(() => {
+    if (settled && route.screen === 'home') navigate(settled, {}, { replace: true })
+  }, [settled, route.screen])
+
+  // A walkthrough step that only asks to look at a screen is done once that screen opens.
+  const looking =
+    practice?.step && isLookStep(practice.step) && !running && screen === practice.target?.screen
+      ? practice.step
+      : null
+  useEffect(() => {
+    if (looking) void api.practiceSeen(looking).then(reload, () => {})
+  }, [looking, reload])
+
   // The welcome is where a first visit lands. Going anywhere else, or opening a
   // skill, is the reader moving on: from then on the app opens on the library.
   // In the desktop app this window opening is itself the reader moving on.
@@ -305,6 +333,16 @@ export function App() {
         onNew={(name) => go('library', name ? { new: '1', name } : { new: '1' })}
         onLibrary={() => go('library')}
         onReveal={skillPath && reveal ? () => reveal(skillPath) : undefined}
+        // Rarely wanted, so it waits in this menu. Only once there is something to undo, and never mid-run.
+        onRestartPractice={
+          practice &&
+          !running &&
+          !restarting &&
+          (practice.steps.some((s) => s.done) ||
+            Object.keys(drafts.files).length + Object.keys(drafts.cases).length > 0)
+            ? () => void restartPractice()
+            : undefined
+        }
       />
       <SidebarBody>
         {skillPath
