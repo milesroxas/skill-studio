@@ -20,6 +20,8 @@
   },
   "type": "module",
   "scripts": {
+    "postinstall": "install-electron",
+    "bootstrap": "node scripts/bootstrap.ts",
     "start": "electron-vite preview",
     "dev": "electron-vite dev",
     "build": "electron-vite build",

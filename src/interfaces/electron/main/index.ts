@@ -3,8 +3,8 @@
  * keychain, the URL schemes and the app's own updates; the operations run in
  * a backend utility process so the window never waits on disk or on an agent.
  */
-import { rmSync } from 'node:fs'
-import { join } from 'node:path'
+import { mkdirSync, rmSync } from 'node:fs'
+import { basename, join } from 'node:path'
 import { loadDotEnv } from '@infrastructure/dotenv.ts'
 import { readPreferences } from '@infrastructure/preferences.ts'
 import { clearStudioData } from '@infrastructure/reset.ts'
@@ -22,6 +22,21 @@ import { applyTheme, RESETTABLE, trustedOrigins } from './window.ts'
 import { createWindows } from './windows.ts'
 
 const devUrl = process.env.ELECTRON_RENDERER_URL
+
+/**
+ * A development copy keeps its data apart from the installed app, as Signal and
+ * VS Code do, and here one folder per checkout, so two worktrees' `pnpm dev`
+ * open side by side instead of the second finding the instance lock taken and
+ * quitting without a window. Skills and `~/.skill-studio` stay shared. A
+ * `--user-data-dir` on the command line (the guide's screenshots) wins, as in
+ * any Chromium app. The folder is made first: the lock lives in it.
+ */
+if (!app.isPackaged && !app.commandLine.hasSwitch('user-data-dir')) {
+  const profile = join(app.getPath('appData'), `${app.name} Dev`, basename(app.getAppPath()))
+  mkdirSync(profile, { recursive: true })
+  app.setPath('userData', profile)
+  app.setPath('sessionData', profile)
+}
 
 if (!app.requestSingleInstanceLock()) app.quit()
 else {

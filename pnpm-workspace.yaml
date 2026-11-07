@@ -1,7 +1,7 @@
 allowBuilds:
-  # Vite's compiler, and Electron's postinstall that fetches its binary.
+  # Vite's compiler. Electron has no install script: its binary is fetched by
+  # the root `postinstall` (`install-electron`), which pnpm always runs.
   esbuild: true
-  electron: true
   # Windows installer tooling pulled in by electron-builder; not built here.
   electron-winstaller: false
 # Electron patch releases ship fixes for the embedded Chromium; take them at once.

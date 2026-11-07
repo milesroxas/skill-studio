@@ -14,6 +14,12 @@ cp .env.example .env    # optional: API keys for grading with Jev and for the as
 pnpm dev                # the desktop app, with hot reloading
 ```
 
+### Worktrees
+
+In a worktree you have just made, `pnpm bootstrap` runs `pnpm install` and copies the main checkout's `.env` when the worktree has none (`scripts/bootstrap.ts`). Electron fetches no binary at install time since Electron 42, and electron-vite 6.0.0 does not trigger its lazy download, so the root `postinstall` runs `install-electron`; it returns at once when the binary is there.
+
+A development copy keeps its data under `~/Library/Application Support/Skill Studio Dev/<checkout>`, one folder per checkout, so two worktrees and the installed app can be open at once. They share your skills and `~/.skill-studio`. `--user-data-dir` overrides it. Vite takes the first free port from 5173. Keys typed into a development copy's Settings belong to that checkout; `.env` is read by all of them.
+
 ## Before you open a pull request
 
 ```

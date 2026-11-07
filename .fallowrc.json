@@ -5,6 +5,7 @@
     "src/interfaces/electron/preload/index.ts",
     "src/interfaces/electron/backend/index.ts",
     "src/interfaces/cli/st.ts",
+    "scripts/bootstrap.ts",
     "scripts/guide-shots/index.ts",
     "scripts/release-notes.ts",
     "src/renderer/index.html",
