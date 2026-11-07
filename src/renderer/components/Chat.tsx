@@ -212,7 +212,7 @@ export function ChatPanel({ screen, skill, confirm, onClose }: ChatPanelProps) {
 }
 
 /** The messages so far, the reply being written under them, and why the last one failed. */
-function Conversation({
+export function Conversation({
   messages,
   run,
   error,

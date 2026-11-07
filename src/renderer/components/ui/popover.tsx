@@ -37,6 +37,8 @@ const popoverContentVariants = cva(
         help: 'flex w-[min(340px,calc(100vw-32px))] flex-col p-0',
         /** One word and what it means, beside the word. */
         note: 'flex w-64 flex-col gap-1 px-3 py-2.5',
+        /** A row of actions over a selection in the editor: as wide as its buttons. */
+        selection: 'flex w-auto flex-row items-center gap-0.5 p-1',
       },
       /** Opened from the keyboard many times a day: no animation at all. */
       still: {

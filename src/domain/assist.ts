@@ -233,12 +233,12 @@ const UNESCAPES: Record<string, string> = {
 }
 
 /**
- * The field's text from a reply that is still arriving: the `text` string of
- * the JSON so far, decoded up to where it stops. Lets the page show the words
+ * The field's text from a reply that is still arriving: the `key` string of
+ * the JSON so far (`text` by default), decoded up to where it stops. Lets the page show the words
  * as they come, though the JSON is not complete until the end.
  */
-export function partialText(raw: string): string {
-  const start = /"text"\s*:\s*"/.exec(raw)
+export function partialText(raw: string, key = 'text'): string {
+  const start = new RegExp(`"${key}"\\s*:\\s*"`).exec(raw)
   if (!start) return ''
   let out = ''
   for (let i = start.index + start[0].length; i < raw.length; i++) {

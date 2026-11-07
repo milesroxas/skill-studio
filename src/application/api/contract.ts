@@ -7,7 +7,9 @@
 import type { AiRun, AiStatus, ChatThread, UsageSummary } from '@domain/ai.ts'
 import type { AssistInput } from '@domain/assist.ts'
 import type { ImageRef, ImageUpload } from '@domain/image.ts'
+import type { ImproveThread, RefineResult } from '@domain/improve.ts'
 import type { AgentId, Library } from '@domain/library.ts'
+import type { RuleScene } from '@domain/lint.ts'
 import type { LookStep } from '@domain/practice.ts'
 import type { Preferences } from '@domain/preferences.ts'
 import type { QueueItem } from '@domain/queue.ts'
@@ -117,6 +119,16 @@ export interface Contract {
     output: ChatThread
   }
   'chat.clear': { input: Record<string, never>; output: ChatThread }
+  /** Check a selected rule and, when anything drifts, start its revision. */
+  'ai.refine': { input: RuleScene; output: RefineResult }
+  /** Start the three rewrites of a selected rule. The finished run's text is a `RewritesResult` as JSON. */
+  'ai.rewrites': { input: RuleScene; output: AiRun }
+  /** The side panel's improve conversation; null when none is open. */
+  'improve.read': { input: Record<string, never>; output: ImproveThread | null }
+  /** Open an improve conversation on a selected rule and ask its first question. */
+  'improve.start': { input: RuleScene; output: ImproveThread }
+  'improve.send': { input: { text: string }; output: ImproveThread }
+  'improve.clear': { input: Record<string, never>; output: { cleared: true } }
   /** Keep a picture until a case or a message saves it. The reference it returns names the upload. */
   'image.upload': { input: ImageUpload; output: ImageRef }
   /** A picture's bytes: an upload, or a file in the skill. An empty `file` or `upload` means the other. */

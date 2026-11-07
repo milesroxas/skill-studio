@@ -23,6 +23,7 @@ import {
 } from '@codemirror/commands'
 import { Compartment, EditorState, type StateCommand } from '@codemirror/state'
 import { drawSelection, EditorView, keymap, placeholder } from '@codemirror/view'
+import { type RuleScene, sceneOf, worthChecking } from '@domain/lint.ts'
 import type { EditorMode } from '@domain/preferences.ts'
 import { insertAt, type Snippet } from '@domain/templates.ts'
 import { cva } from 'class-variance-authority'
@@ -43,6 +44,7 @@ import {
   Undo2Icon,
 } from 'lucide-react'
 import { type ReactNode, type Ref, useEffect, useImperativeHandle, useRef, useState } from 'react'
+import { startImprove } from '../ai.ts'
 import {
   formatKeymap,
   insertLink,
@@ -56,8 +58,10 @@ import { livePreview } from '../editor/live-preview.ts'
 import { editorTheme, markdownHighlighting } from '../editor/theme.ts'
 import { shortcut } from '../keys.ts'
 import { setPreferences, usePreferences } from '../preferences.ts'
+import { registerReplacer } from '../replace.ts'
 import { Assist, type AssistSpec } from './Assist.tsx'
 import { ColumnToolbar, ToolbarGroup, ToolbarItem } from './layout.tsx'
+import { SelectionTools, type VirtualAnchor } from './SelectionTools.tsx'
 import { TextSizeIndicator } from './TextSize.tsx'
 import { Button } from './ui/button.tsx'
 
@@ -143,6 +147,36 @@ const surfaceVariants = cva('flex flex-1 flex-col', {
   },
 })
 
+/** The popout waits this long after the selection settles, so it does not flicker through a drag. */
+const SETTLE_MS = 150
+
+/**
+ * Put `next` where `original` is in the view's text: at `hint` when the text
+ * there is still `original`, else where `original` is found once. A deleted
+ * passage takes its closing newline with it, so no blank line is left.
+ */
+function replaceIn(
+  view: EditorView,
+  original: string,
+  next: string,
+  hint?: { from: number; to: number },
+): 'replaced' | 'missing' {
+  const doc = view.state.doc.toString()
+  let from = hint && doc.slice(hint.from, hint.to) === original ? hint.from : doc.indexOf(original)
+  if (from === -1 || (!hint && doc.indexOf(original, from + 1) !== -1)) return 'missing'
+  let to = from + original.length
+  if (!next && doc[to] === '\n') to += 1
+  else if (!next && from > 0 && doc[from - 1] === '\n') from -= 1
+  view.dispatch({
+    changes: { from, to, insert: next },
+    selection: { anchor: from + next.length },
+    scrollIntoView: true,
+    userEvent: 'input',
+  })
+  view.focus()
+  return 'replaced'
+}
+
 /** The page's style nonce, which lets CodeMirror's one style tag past the app's policy. */
 const styleNonce = (): string | undefined =>
   document.querySelector<HTMLMetaElement>('meta[property="csp-nonce"]')?.nonce || undefined
@@ -170,6 +204,12 @@ interface MarkdownEditorProps {
    * text selected it rewrites the selection only; otherwise the whole file.
    */
   assist?: AssistSpec
+  /**
+   * This is a SKILL.md: a selection of four words or more gets the popout with
+   * Auto refine, Suggest changes and Help me improve. The description says
+   * what the skill is about, which the checks read; errors go to the screen.
+   */
+  refine?: { description: string; onError: (message: string) => void }
 }
 
 /** Mount once per file: give each file its own `key`, so undo history never crosses files. */
@@ -185,9 +225,18 @@ export function MarkdownEditor({
   banner,
   instead,
   assist,
+  refine,
 }: MarkdownEditorProps) {
   const host = useRef<HTMLDivElement>(null)
   const editor = useRef<EditorView | null>(null)
+  /** The selection the popout stands over, as the checks read it; null when none is worth checking. */
+  const [tools, setTools] = useState<(RuleScene & { from: number; to: number }) | null>(null)
+  const [toolsOpen, setToolsOpen] = useState(false)
+  const anchor = useRef<VirtualAnchor | null>(null)
+  const dragging = useRef(false)
+  const settle = useRef<ReturnType<typeof setTimeout>>(undefined)
+  const refining = useRef(refine)
+  refining.current = refine
   /** The selection "Write with AI" was opened on; null when it has the whole file. */
   const [picked, setPicked] = useState<{ from: number; to: number } | null>(null)
   /** Whether there is a step to take back, and one to take again. */
@@ -199,6 +248,36 @@ export function MarkdownEditor({
   useEffect(() => {
     const { id, value, mode, hint, label } = latest.current
     const nonce = styleNonce()
+    /** Put the popout over the selection, or take it away, once the selection has settled. */
+    const place = (view: EditorView) => {
+      if (dragging.current || !refining.current) return
+      const range = view.state.selection.main
+      const doc = view.state.doc.toString()
+      if (range.empty || !worthChecking(doc.slice(range.from, range.to))) {
+        setToolsOpen(false)
+        setTools(null)
+        return
+      }
+      const scene = sceneOf(doc, range, refining.current.description)
+      const start = view.coordsAtPos(scene.from)
+      const end = view.coordsAtPos(scene.to, -1)
+      const box = host.current?.getBoundingClientRect()
+      anchor.current = {
+        getBoundingClientRect: () => {
+          if (!start || !end) return box ?? new DOMRect()
+          const left = Math.min(start.left, end.left)
+          const right = Math.max(start.right, end.right)
+          return new DOMRect(left, start.top, Math.max(right - left, 1), end.bottom - start.top)
+        },
+      }
+      setTools(scene)
+      setToolsOpen(true)
+    }
+    const settled = (view: EditorView) => {
+      clearTimeout(settle.current)
+      settle.current = setTimeout(() => place(view), SETTLE_MS)
+    }
+
     /** Tell the toolbar when the first step appears or the last one goes, and not on every key. */
     const count = (state: EditorState) => {
       const next = { undo: undoDepth(state) > 0, redo: redoDepth(state) > 0 }
@@ -226,11 +305,18 @@ export function MarkdownEditor({
       ]),
       hint ? placeholder(hint) : [],
       EditorView.contentAttributes.of({ 'aria-label': label, spellcheck: 'false' }),
+      EditorView.domEventHandlers({
+        mousedown: () => {
+          dragging.current = true
+          return false
+        },
+      }),
       nonce ? EditorView.cspNonce.of(nonce) : [],
       modes.current.of(mode === 'formatted' ? livePreview : []),
       EditorView.updateListener.of((update) => {
         if (update.docChanged) latest.current.onChange(update.state.doc.toString())
         count(update.state)
+        if (update.selectionSet || update.docChanged) settled(update.view)
       }),
     ]
     const before = kept.get(id)
@@ -243,12 +329,31 @@ export function MarkdownEditor({
     })
     count(view.state)
     editor.current = view
+    // A drag ends outside the editor as often as in it.
+    const up = () => {
+      if (!dragging.current) return
+      dragging.current = false
+      settled(view)
+    }
+    window.addEventListener('mouseup', up)
     return () => {
+      window.removeEventListener('mouseup', up)
+      clearTimeout(settle.current)
       kept.set(id, view.state.toJSON({ history: historyField }))
       view.destroy()
       editor.current = null
     }
   }, [])
+
+  // While a SKILL.md is open here, the side panel's draft has somewhere to land.
+  const refined = refine !== undefined
+  useEffect(() => {
+    if (!refined) return
+    registerReplacer((original, next) =>
+      editor.current ? replaceIn(editor.current, original, next) : 'missing',
+    )
+    return () => registerReplacer(null)
+  }, [refined])
 
   // Text that changed outside the editor (a template, a discarded draft): change only what differs.
   useEffect(() => {
@@ -376,6 +481,24 @@ export function MarkdownEditor({
       </ColumnToolbar>
       {instead ?? banner}
       <div ref={host} hidden={covered} className={surfaceVariants({ mode })} />
+      {refine && tools && !covered ? (
+        <SelectionTools
+          key={`${tools.from}:${tools.to}`}
+          anchor={anchor}
+          open={toolsOpen}
+          onOpenChange={setToolsOpen}
+          onClosed={() => editor.current?.focus()}
+          scene={tools}
+          onApply={(text) => {
+            const view = editor.current
+            if (view && replaceIn(view, tools.selection, text, tools) === 'missing')
+              refine.onError('The selection changed before the text could be replaced.')
+          }}
+          onImprove={() => {
+            startImprove(tools).catch((e: Error) => refine.onError(e.message))
+          }}
+        />
+      ) : null}
     </>
   )
 }

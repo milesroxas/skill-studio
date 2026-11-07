@@ -20,6 +20,8 @@ import {
 } from '@domain/ai.ts'
 import type { AssistInput } from '@domain/assist.ts'
 import type { ImageRef } from '@domain/image.ts'
+import type { ImproveThread, RefineResult } from '@domain/improve.ts'
+import type { RuleScene } from '@domain/lint.ts'
 import { aiChoiceOf, aiChoicePatch } from '@domain/preferences.ts'
 import { useSyncExternalStore } from 'react'
 import { api } from './api.ts'
@@ -37,6 +39,9 @@ let providersProblem: string | null = null
 let thread: ChatThread | null = null
 /** The same for the conversation. */
 let threadProblem: string | null = null
+/** The improve conversation on a selected rule; null when none is open. */
+let improve: ImproveThread | null = null
+let improveProblem: string | null = null
 const runs = new Map<string, AiRun>()
 const listeners = new Set<() => void>()
 
@@ -54,6 +59,9 @@ const subscribe = (listener: () => void) => {
 const joinedChat = (run: AiRun): boolean =>
   run.kind === 'chat' && isSettled(run) && run.status !== 'failed'
 
+/** An improve reply that ended changed its thread: a question joined it, or a draft and its checklist. */
+const joinedImprove = (run: AiRun): boolean => run.kind === 'improve' && isSettled(run)
+
 /** Hold a run. A new one goes in last, so the map stays oldest first, and the oldest ended ones make room. */
 function hold(run: AiRun): void {
   const isNew = !runs.has(run.id)
@@ -69,8 +77,10 @@ function take(run: AiRun): void {
   if (!isNewsOf(runs.get(run.id), run)) return
   hold(run)
   if (thread?.run?.id === run.id) thread = { ...thread, run }
+  if (improve?.run?.id === run.id) improve = { ...improve, run }
   emit()
   if (joinedChat(run)) void loadChat()
+  if (joinedImprove(run)) void loadImprove()
 }
 
 /** A run the host can no longer answer for has failed, as far as the page can tell. */
@@ -119,6 +129,18 @@ export async function loadChat(): Promise<void> {
     if (thread.run) hold(thread.run)
   } catch (e) {
     threadProblem = (e as Error).message
+  }
+  emit()
+}
+
+/** Read the improve conversation. A failed read keeps what was known and says why. */
+export async function loadImprove(): Promise<void> {
+  try {
+    improve = await api.improve()
+    improveProblem = null
+    if (improve?.run) hold(improve.run)
+  } catch (e) {
+    improveProblem = (e as Error).message
   }
   emit()
 }
@@ -178,5 +200,45 @@ export async function sendChat(text: string, images: ImageRef[], screen: string)
 
 export async function clearChat(): Promise<void> {
   thread = await api.chatClear()
+  emit()
+}
+
+/** Auto refine: what is wrong with the rule, and the revision on its way when anything drifts. */
+export async function startRefine(scene: RuleScene): Promise<RefineResult> {
+  const result = await api.refine(scene)
+  return result.run ? { ...result, run: follow(result.run) } : result
+}
+
+/** Suggest changes: the run whose finished text holds the three rewrites. */
+export const startRewrites = async (scene: RuleScene): Promise<AiRun> =>
+  follow(await api.rewrites(scene))
+
+/** The improve conversation, null when none is open, and why the last read of it failed. */
+export function useImprove(): { thread: ImproveThread | null; problem: string | null } {
+  return {
+    thread: useSyncExternalStore(subscribe, () => improve),
+    problem: useSyncExternalStore(subscribe, () => improveProblem),
+  }
+}
+
+const tookImprove = (next: ImproveThread): void => {
+  improve = next
+  if (next.run) follow(next.run)
+  else emit()
+}
+
+/** Open an improve conversation on a selected rule. It opens the side panel. */
+export async function startImprove(scene: RuleScene): Promise<void> {
+  tookImprove(await api.improveStart(scene))
+}
+
+export async function sendImprove(text: string): Promise<void> {
+  tookImprove(await api.improveSend(text))
+}
+
+/** Close the improve conversation. The side panel goes back to the chat. */
+export async function clearImprove(): Promise<void> {
+  await api.improveClear()
+  improve = null
   emit()
 }

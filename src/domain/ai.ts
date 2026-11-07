@@ -153,7 +153,13 @@ export interface AiUsage {
   output: number
 }
 
-export type AiRunKind = 'assist' | 'chat'
+/**
+ * `assist` fills one field, `chat` adds to the side panel's conversation, `refine`
+ * writes Auto refine's one revision, `rewrites` writes Suggest changes' three
+ * (its text is the JSON of a `RewritesResult`), and `improve` adds to a Help me
+ * improve conversation.
+ */
+export type AiRunKind = 'assist' | 'chat' | 'refine' | 'rewrites' | 'improve'
 export type AiRunStatus = 'running' | 'done' | 'failed' | 'stopped'
 
 /** One reply, while it is written and after. The backend holds it; the page mirrors it. */
@@ -162,7 +168,7 @@ export interface AiRun {
   id: string
   kind: AiRunKind
   status: AiRunStatus
-  /** The reply so far: a field's text for `assist`, Markdown for `chat`. */
+  /** The reply so far: a field's text for `assist` and `refine`, Markdown for `chat` and `improve`, JSON for `rewrites`. */
   text: string
   error: string | null
   provider: AiProviderId

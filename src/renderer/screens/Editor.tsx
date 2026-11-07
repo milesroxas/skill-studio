@@ -493,6 +493,14 @@ export function Editor({ ctx }: { ctx: Ctx }) {
           value={text}
           onChange={edit}
           onSave={save}
+          refine={
+            isSkill
+              ? {
+                  description: metaText(meta, 'description') ?? state.skill.description,
+                  onError: (message) => report(message, { tone: 'destructive' }),
+                }
+              : undefined
+          }
           assist={{
             field: isSkill ? 'skill.file' : 'skill.reference',
             // A reference is written to serve the skill it belongs to.

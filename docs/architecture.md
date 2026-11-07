@@ -62,3 +62,16 @@ Four providers sit behind one port (`src/infrastructure/ai/`). The model in use 
 Only `claude-code` has been run against a live account.
 
 Each text area is one kind of field (`src/domain/assist.ts`). A kind states the shape its text has, built from the same rule guidance the editor shows. The reply is one JSON object holding that text, fitted to the field before it is shown.
+
+### Improving a selected rule
+
+Selecting four or more words in SKILL.md opens a popout with three actions. Code owns each workflow; a generative model only writes prose.
+
+1. `src/domain/lint.ts` checks the selection by word lists and counts: hedge words, outcome adjectives, a missing number or absolute, a missing reason, a definition, nested bullets, piled conditions, words per rule, and the file's size band. Free and instant.
+2. `src/judges/rule/index.ts` asks Jev one request over the rule and two lines either side: a yes/no per principle (`RULE_GUIDE`) and a complexity score. `src/domain/improve.ts` turns the probabilities into findings (holds above 0.7, drifts below 0.3, a maybe between). Without a TypeSafe key only step 1 runs.
+3. Only then a model is asked, with the findings as its brief:
+   - **Auto refine** (`ai.refine`) asks for one revision when anything drifts, and for nothing when the rule complies.
+   - **Suggest changes** (`ai.rewrites`) asks for three rewrites in one reply, then has Jev check each kept the selection's facts and that the best practice one now holds every principle. The finished run's text is the `RewritesResult` as JSON.
+   - **Help me improve** (`improve.*`) is a conversation in the side panel. The questions live in `IMPROVE_STEPS`, in a fixed order; the plan skips those the judge already cleared. After each reply Jev says whether the question was answered, and code moves on or asks once more. The draft is the last fenced block of the model's reply, and Jev's reading of it is the checklist under it. One button puts it where the selection was, through the editor's registered replacer (`src/renderer/replace.ts`).
+
+The run kinds `refine`, `rewrites` and `improve` sit beside `assist` and `chat` in `src/domain/ai.ts`.

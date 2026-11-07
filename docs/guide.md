@@ -148,6 +148,16 @@ Exact, with its reason:
 - **Select text first** to rewrite only that part.
 - **Assistant** (top right, or Cmd+J): a chat beside every screen. It reads your skill but never changes it.
 
+### Improve a selected rule
+
+Select four or more words in SKILL.md and a small bar appears over them with three choices. Nothing changes until you click a result.
+
+- **Auto refine** checks the rule against the guide above, how many conditions it holds, and how long it and the file are. If something drifts, you see what and a revision to **Replace**. If nothing does, it says so and offers Help me improve instead.
+- **Suggest changes** writes three rewrites, always in this order: **Best practice** fixes what drifts, **More direct** puts the constraint first in the imperative, **Shorter** cuts what changes nothing. Click one to put it in place. Undo brings the selection back.
+- **Help me improve** opens the Assistant on a short set of questions about this rule: what the agent does differently, whether it is a step or a quality, where the line is, why the rule exists. Answer each in a sentence or two. It then drafts the rule, shows how the draft stands against the guide, and **Replace selection** puts it in the file.
+
+With a TypeSafe key, Jev reads the rule and the answers, so the checks are exact and the same whatever model writes the text. Without one, only the word and count checks run.
+
 ### Save versions
 
 - Open **Versions**, say what changed, and click **Save as v0**. Next time it is v1, then v2.

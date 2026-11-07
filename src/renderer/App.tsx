@@ -18,10 +18,12 @@ import { isLookStep } from '@domain/practice.ts'
 import type { BenchConfig } from '@domain/schemas.ts'
 import { ArrowRightIcon, MenuIcon, MessageCircleIcon } from 'lucide-react'
 import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react'
+import { clearImprove, useImprove } from './ai.ts'
 import { api, currentSkill, type Job, type State, setSkill } from './api.ts'
 import { ChatPanel } from './components/Chat.tsx'
 import { useConfirm } from './components/confirm.tsx'
 import { HelpButton, ScreenHint } from './components/Help.tsx'
+import { ImprovePanel } from './components/Improve.tsx'
 import { JobsIndicator } from './components/Jobs.tsx'
 import { EmptyState, Loading, Spacer } from './components/layout.tsx'
 import { PracticeGuide } from './components/PracticeGuide.tsx'
@@ -114,6 +116,12 @@ export function App() {
   const [notice, report, dismissNotice] = useNotice()
   const [confirm, confirmDialog] = useConfirm()
   const [assistant, setAssistant] = useAssistant()
+  const { thread: improving } = useImprove()
+  // A rule sent from the Editor opens the panel on its conversation.
+  const improveStarted = improving?.messages[0]?.at ?? null
+  useEffect(() => {
+    if (improveStarted) setAssistant(true)
+  }, [improveStarted, setAssistant])
   const preferences = usePreferences()
   // An update that finishes downloading, or was just installed, says so once.
   useUpdateNotices(report, useUpdateStep(confirm, report))
@@ -592,12 +600,16 @@ export function App() {
       </Workspace>
       {assistant ? (
         <AssistantPane>
-          <ChatPanel
-            screen={place?.label ?? ''}
-            skill={skillPath ? (state?.skill.name ?? null) : null}
-            confirm={confirm}
-            onClose={() => setAssistant(false)}
-          />
+          {improving ? (
+            <ImprovePanel onBack={() => void clearImprove()} onClose={() => setAssistant(false)} />
+          ) : (
+            <ChatPanel
+              screen={place?.label ?? ''}
+              skill={skillPath ? (state?.skill.name ?? null) : null}
+              confirm={confirm}
+              onClose={() => setAssistant(false)}
+            />
+          )}
         </AssistantPane>
       ) : null}
       {confirmDialog}

@@ -2,9 +2,12 @@
  * The assistant's work. A request starts a run: one reply, written by the
  * model the preferences name, held here while it grows and for a while after.
  * Interfaces either poll a run or subscribe with `watchRuns`, which reports a
- * growing reply a few times a second and its end at once. Two kinds of run
+ * growing reply a few times a second and its end at once. Five kinds of run
  * exist: `assist` fills one field in the field's own shape, `chat` adds a
- * reply to the side panel's conversation.
+ * reply to the side panel's conversation, and `refine`, `rewrites` and
+ * `improve` serve the three actions on a selected rule. For those, the lint
+ * and Jev decide what is wrong before any model writes, so a rule that
+ * already complies costs no generative call at all.
  */
 import { randomUUID } from 'node:crypto'
 import {
@@ -30,11 +33,39 @@ import {
   partialText,
 } from '@domain/assist.ts'
 import type { ImageRef } from '@domain/image.ts'
+import {
+  ASKS_MAX,
+  checklistOf,
+  codeVerdicts,
+  currentStep,
+  DRIFTS,
+  drafting,
+  draftOf,
+  drifts,
+  HOLDS,
+  type ImproveThread,
+  improveSystem,
+  judgmentFindings,
+  mergeFindings,
+  planImprove,
+  REFINE_SCHEMA,
+  REWRITES_SCHEMA,
+  type RefineResult,
+  type RuleJudgment,
+  refinePrompt,
+  refineText,
+  rewritesOf,
+  rewritesPrompt,
+  rewritesText,
+} from '@domain/improve.ts'
+import { type Finding, lintScene, type RuleScene } from '@domain/lint.ts'
 import { aiChoiceOf } from '@domain/preferences.ts'
 import { type AiMessage, aiProvider, aiProviderInfo } from '@infrastructure/ai/index.ts'
 import { readChat, readUsage, recordUsage, writeChat } from '@infrastructure/ai/store.ts'
 import { findImage, type StoredImage } from '@infrastructure/images.ts'
 import { readPreferences } from '@infrastructure/preferences.ts'
+import { Jev } from '@judges/jev.ts'
+import { judgeAnswer, judgeDraft, judgeRule, verifyRewrites } from '@judges/rule/index.ts'
 
 /** A growing reply is reported at most this often: smooth to read, light to send. */
 const REPORT_MS = 40
@@ -101,9 +132,9 @@ interface Work {
   /** What the run shows of the reply so far. */
   preview: (raw: string) => string
   /** The run's text from the finished reply. Throws when the reply does not hold up. */
-  finish: (raw: string) => string
-  /** Called once, when the run has ended for any reason. */
-  ended?: (run: AiRun) => void
+  finish: (raw: string) => string | Promise<string>
+  /** Called once, when the run has ended for any reason, and before the end is reported. */
+  ended?: (run: AiRun) => void | Promise<void>
 }
 
 function start(work: Work): AiRun {
@@ -135,7 +166,7 @@ function start(work: Work): AiRun {
         changed(run)
       },
     })
-    .then((reply) => {
+    .then(async (reply) => {
       if (controller.signal.aborted) return
       run.usage = reply.usage
       recordUsage({
@@ -144,7 +175,7 @@ function start(work: Work): AiRun {
         model: reply.model,
         ...reply.usage,
       })
-      run.text = work.finish(reply.text)
+      run.text = await work.finish(reply.text)
       run.status = 'done'
     })
     .catch((error: Error) => {
@@ -152,10 +183,10 @@ function start(work: Work): AiRun {
       run.status = 'failed'
       run.error = error.message
     })
-    .finally(() => {
+    .finally(async () => {
       if (run.status === 'running') run.status = 'stopped'
       controllers.delete(run.id)
-      work.ended?.(run)
+      await work.ended?.(run)
       changed(run)
     })
   return { ...run }
@@ -259,4 +290,186 @@ export function clearChat(): ChatThread {
   chatRun = null
   writeChat([])
   return chatThread()
+}
+
+/**
+ * What is wrong with a selected rule, as code and the judge read it. Jev reads
+ * it only when a TypeSafe key is set; a judge that cannot be reached leaves
+ * code's findings standing rather than failing the action.
+ */
+async function assess(
+  scene: RuleScene,
+  jev: Jev,
+): Promise<{ findings: Finding[]; judgment: RuleJudgment | null; judged: boolean }> {
+  const code = lintScene(scene)
+  if (!Jev.available()) return { findings: code, judgment: null, judged: false }
+  try {
+    const judgment = await judgeRule(jev, scene)
+    return { findings: mergeFindings(code, judgmentFindings(judgment)), judgment, judged: true }
+  } catch {
+    return { findings: code, judgment: null, judged: false }
+  }
+}
+
+/** Auto refine: check the rule, and start its revision only when something drifts. */
+export async function startRefine(scene: RuleScene): Promise<RefineResult> {
+  const { findings, judged } = await assess(scene, new Jev())
+  if (!drifts(findings)) return { findings, judged, run: null }
+  const { system, user } = refinePrompt(scene, findings)
+  const run = start({
+    kind: 'refine',
+    choice: await currentChoice(),
+    system,
+    messages: [{ role: 'user', text: user }],
+    schema: REFINE_SCHEMA,
+    preview: (raw) => partialText(raw, 'revision'),
+    finish: refineText,
+  })
+  return { findings, judged, run }
+}
+
+/**
+ * Suggest changes: three rewrites in one reply, each checked before it is
+ * offered. The finished run's text is the `RewritesResult` as JSON.
+ */
+export async function startRewrites(scene: RuleScene): Promise<AiRun> {
+  const jev = new Jev()
+  const { findings, judged } = await assess(scene, jev)
+  const { system, user } = rewritesPrompt(scene, findings)
+  return start({
+    kind: 'rewrites',
+    choice: await currentChoice(),
+    system,
+    messages: [{ role: 'user', text: user }],
+    schema: REWRITES_SCHEMA,
+    preview: () => '',
+    finish: async (raw) => {
+      const rewrites = rewritesOf(raw)
+      const verdicts = codeVerdicts(scene, rewrites)
+      if (judged)
+        try {
+          const verified = await verifyRewrites(jev, scene, rewrites)
+          for (const kind of ['practice', 'direct', 'shorter'] as const)
+            verdicts[kind].kept = verified.kept[kind]
+          verdicts.practice.drift = judgmentFindings(verified.practice)
+        } catch {
+          // The rewrites stand unverified, as they would without a key.
+        }
+      return rewritesText({ rewrites, verdicts })
+    },
+  })
+}
+
+/** The one improve conversation, on one selection, kept while the window is open. */
+let improve: ImproveThread | null = null
+const improveJev = new Jev()
+
+const snapshot = (thread: ImproveThread): ImproveThread => ({
+  ...thread,
+  run: thread.run && (runs.get(thread.run.id) ?? thread.run),
+  messages: [...thread.messages],
+})
+
+export const improveThread = (): ImproveThread | null => (improve ? snapshot(improve) : null)
+
+/** The next reply of the improve conversation: a question, or the draft. */
+async function improveReply(thread: ImproveThread): Promise<void> {
+  const choice = await currentChoice()
+  thread.run = start({
+    kind: 'improve',
+    choice,
+    system: improveSystem(thread),
+    messages: chatWindow(thread.messages),
+    schema: null,
+    preview: (raw) => raw,
+    finish: (raw) => {
+      if (!raw.trim()) throw new Error('The model returned nothing. Try again.')
+      return raw.trim()
+    },
+    ended: async (run) => {
+      // The conversation was closed, or started over, while this reply was on its way.
+      if (improve !== thread || thread.run?.id !== run.id) return
+      thread.run = run
+      if (run.status === 'failed' || !run.text.trim()) return
+      thread.messages = [...thread.messages, message(thread.messages, 'assistant', run.text.trim())]
+      thread.run = null
+      if (!drafting(thread)) return
+      const draft = draftOf(run.text)
+      if (thread.cut && !draft) {
+        thread.draft = ''
+        thread.checklist = null
+        return
+      }
+      if (!draft) return
+      thread.draft = draft
+      if (!thread.judged) return
+      try {
+        thread.checklist = checklistOf(await judgeDraft(improveJev, thread.scene, draft))
+      } catch {
+        thread.checklist = null
+      }
+    },
+  })
+}
+
+/** Open an improve conversation on a selected rule and ask its first question. */
+export async function startImprove(scene: RuleScene): Promise<ImproveThread> {
+  clearImprove()
+  const { findings, judgment, judged } = await assess(scene, improveJev)
+  const thread: ImproveThread = {
+    scene,
+    steps: planImprove(findings, judgment),
+    at: 0,
+    asks: 0,
+    cut: false,
+    messages: [message([], 'user', scene.selection)],
+    run: null,
+    draft: null,
+    checklist: null,
+    judged,
+  }
+  improve = thread
+  await improveReply(thread)
+  return snapshot(thread)
+}
+
+/**
+ * The writer's reply. Code decides where the walk goes: the judge says
+ * whether the reply answered the question in hand, so an unanswered one is put
+ * once more and an answered one moves on; on the first question, a reply that
+ * says the line does nothing sends the walk straight to a draft that deletes it.
+ */
+export async function sendImprove(text: string): Promise<ImproveThread> {
+  const thread = improve
+  if (!thread) throw new Error('No rule is being improved. Select one in the Editor first.')
+  if (thread.run?.status === 'running') throw new Error('Wait for the reply, or stop it first.')
+  thread.messages = [...thread.messages, message(thread.messages, 'user', text)]
+  const step = currentStep(thread)
+  if (step) {
+    let advance = true
+    if (thread.judged)
+      try {
+        const { answered, cut } = await judgeAnswer(improveJev, thread.scene, step, text)
+        if (cut !== null && cut >= HOLDS) {
+          thread.cut = true
+          thread.at = thread.steps.length
+        } else if (answered < DRIFTS && thread.asks + 1 < ASKS_MAX) advance = false
+      } catch {
+        // Without the judge's reading, every reply counts as an answer.
+      }
+    if (!thread.cut) {
+      if (advance) {
+        thread.at += 1
+        thread.asks = 0
+      } else thread.asks += 1
+    }
+  }
+  await improveReply(thread)
+  return snapshot(thread)
+}
+
+/** Close the improve conversation, stopping a reply still on its way. */
+export function clearImprove(): void {
+  if (improve?.run) controllers.get(improve.run.id)?.abort()
+  improve = null
 }

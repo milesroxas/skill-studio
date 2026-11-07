@@ -9,6 +9,7 @@ import { extname, join, relative, resolve } from 'node:path'
 import { ASSIST_FIELD_IDS, ASSIST_LIMIT, type AssistInput } from '@domain/assist.ts'
 import { leaderboards, voteKeys } from '@domain/bradley-terry.ts'
 import { type ImageRef, MAX_IMAGES } from '@domain/image.ts'
+import { type RuleScene, worthChecking } from '@domain/lint.ts'
 import { LOOK_STEPS } from '@domain/practice.ts'
 import { preferencesOf } from '@domain/preferences.ts'
 import { reviewQueue } from '@domain/queue.ts'
@@ -103,9 +104,15 @@ import {
   aiUsage,
   chatThread,
   clearChat,
+  clearImprove,
   findRun,
+  improveThread,
   sendChat,
+  sendImprove,
   startAssist,
+  startImprove,
+  startRefine,
+  startRewrites,
   stopRun,
 } from '../ai.ts'
 import { generateRun, samplesPerCase } from '../generate.ts'
@@ -267,6 +274,23 @@ function assistInputOf(raw: Raw): Scoped & AssistInput {
 
 const runId = (raw: Raw): { id: string } => ({ id: str(raw.id) })
 
+/** A selected rule with its surroundings. Too little to check, or more than a request carries, is refused. */
+const sceneOf = (raw: Raw): RuleScene => {
+  const selection = str(raw.selection)
+  if (!worthChecking(selection)) throw new Error('Select at least four words.')
+  const before = str(raw.before)
+  const after = str(raw.after)
+  if (selection.length + before.length + after.length > ASSIST_LIMIT)
+    throw new Error('The selection is too long for one request.')
+  return {
+    selection,
+    before,
+    after,
+    description: str(raw.description),
+    band: oneOf(raw.band, ['fine', 'long', 'over'], 'band'),
+  }
+}
+
 /** Every operation's input check, keyed like the contract. Shared by every host of the table. */
 export const parsers: { [K in OperationName]: (raw: Raw) => Input<K> } = {
   'library.skills': none,
@@ -310,6 +334,16 @@ export const parsers: { [K in OperationName]: (raw: Raw) => Input<K> } = {
     return { ...scoped(raw), text, images, screen: str(raw.screen) }
   },
   'chat.clear': none,
+  'ai.refine': sceneOf,
+  'ai.rewrites': sceneOf,
+  'improve.read': none,
+  'improve.start': sceneOf,
+  'improve.send': (raw) => {
+    const text = str(raw.text).trim()
+    if (!text) throw new Error('Write a reply first.')
+    return { text }
+  },
+  'improve.clear': none,
   'image.upload': (raw) => {
     if (typeof raw.data !== 'string' || !raw.data) throw new Error('No picture was sent.')
     return { name: str(raw.name).slice(0, 200), data: raw.data }
@@ -541,6 +575,15 @@ export function createOperations(options: OperationsOptions): Runners {
       })
     },
     'chat.clear': () => clearChat(),
+    'ai.refine': (scene) => startRefine(scene),
+    'ai.rewrites': (scene) => startRewrites(scene),
+    'improve.read': () => improveThread(),
+    'improve.start': (scene) => startImprove(scene),
+    'improve.send': ({ text }) => sendImprove(text),
+    'improve.clear': () => {
+      clearImprove()
+      return { cleared: true as const }
+    },
     'image.upload': (input) => saveUpload(input),
     'image.read': ({ skill, file, upload }) => {
       const dir = upload ? null : skillOf({ skill }).path

@@ -8,6 +8,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Added
 
+- Select four or more words in SKILL.md and a bar appears over them: Auto refine, Suggest changes, Help me improve. Auto refine checks the rule against the writing guide, its conditions and its length, and offers a revision only when something drifts; otherwise it says the rule already complies. Suggest changes offers three labelled rewrites, Best practice, More direct and Shorter, each one click to put in place. Help me improve opens the Assistant on a few fixed questions about the rule, drafts it from your answers, and puts the draft in the file with one button.
+- With a TypeSafe key, Jev reads a selected rule before any model writes: whether it names a step, carries its why, fixes its boundary, changes what the agent does and belongs to the skill. A rule that holds costs no model call. Jev also checks that each suggested rewrite kept the selection's facts.
+- The writing guide beside the editor has a sixth line: test it by running it.
 - A default case: pick one under the cases on New run and it is ticked on every new run, first in the list. It can still be unticked. The Cases list says which case it is, and `bench.json` keeps it as `defaultCase`.
 - Results opens with the version lift: the latest version's mean, what it gained since the first version, and a ribbon from one score to the other, over the same writer's score without the skill.
 - A run counts its outputs as they are written, under its line at the foot of the sidebar ("3/6").

@@ -6,6 +6,7 @@ import type { CreateSkillInput, GenerateInput } from '@application/api/contract.
 import type { AssistInput } from '@domain/assist.ts'
 import type { ImageRef, ImageUpload } from '@domain/image.ts'
 import type { AgentId } from '@domain/library.ts'
+import type { RuleScene } from '@domain/lint.ts'
 import type { LookStep } from '@domain/practice.ts'
 import type { Preferences } from '@domain/preferences.ts'
 import type { BenchConfig, CaseDraft, Review, SkillDrafts, Vote } from '@domain/schemas.ts'
@@ -97,6 +98,14 @@ export const api = {
   chatSend: (text: string, images: ImageRef[], screen: string) =>
     call('chat.send', scoped({ text, images, screen })),
   chatClear: () => call('chat.clear', {}),
+  /** Auto refine on a selected rule: the findings, and the revision on its way when anything drifts. */
+  refine: (scene: RuleScene) => call('ai.refine', scene),
+  /** Suggest changes on a selected rule: one run whose finished text is the three rewrites. */
+  rewrites: (scene: RuleScene) => call('ai.rewrites', scene),
+  improve: () => call('improve.read', {}),
+  improveStart: (scene: RuleScene) => call('improve.start', scene),
+  improveSend: (text: string) => call('improve.send', { text }),
+  improveClear: () => call('improve.clear', {}),
   uploadImage: (upload: ImageUpload) => call('image.upload', upload),
   imageUrl,
   openImage: (image: ImageRef) => transport.openArtifact(imageUrl(image)),

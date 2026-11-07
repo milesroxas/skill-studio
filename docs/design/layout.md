@@ -53,7 +53,7 @@ Does the reader pick one item from a list and work on it?
 
 ## Regions are never cards
 
-A region is a part of the page: a column, a section, a group of fields. It ends at a hairline and has no fill, radius or shadow of its own. `Card` (`components/ui/card.tsx`) is for an object, and today only `OutputCard` uses it.
+A region is a part of the page: a column, a section, a group of fields. It ends at a hairline and has no fill, radius or shadow of its own. `Card` (`components/ui/card.tsx`) is for an object a person compares or picks up. Two things are cards: an output (`OutputCard`), and a rewrite to pick in the selection popout (`Rewrites.tsx`, a button with the card's surface, since the whole object is the action).
 
 ```tsx
 // Correct: screens/Settings.tsx
@@ -142,6 +142,25 @@ Does the whole screen have nothing to show?
   actions={<Button type="button" onClick={() => go('generate')}>Start a run</Button>}
 />
 ```
+
+## Popovers
+
+`PopoverContent` in `components/ui/popover.tsx` takes one `size`. These exist; an unlisted one does not.
+
+| Size | Use |
+| --- | --- |
+| `default` | a short list under a trigger |
+| `menu` | a list to pick from, in `PopoverSection`s |
+| `nav` | the sidebar on a narrow window: ink |
+| `wide` | a log or a long reading |
+| `form` | a few fields under their labels |
+| `compose` | a request to write and its reply (`Assist`, Auto refine) |
+| `compose-wide` | the same for a reply as long as a file, or three rewrites side by side in a column |
+| `help` | what a screen is for |
+| `note` | one word and what it means |
+| `selection` | the row of actions over a selection in the editor: as wide as its buttons, no focus of its own |
+
+The selection popout (`SelectionTools.tsx`) opens over four or more selected words in SKILL.md, 150ms after the selection settles, anchored to the selection itself. It is `selection` while it is a row of buttons and becomes `compose` or `compose-wide` once a result is in it. Its buttons are `ghost` `sm`, in one fixed order: Auto refine, Suggest changes, Help me improve. Nothing in it is lime.
 
 ## Spacing
 

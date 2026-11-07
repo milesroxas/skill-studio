@@ -54,29 +54,47 @@ export const RULE_SHAPE =
 
 const GUIDE = `<!-- Replace the example rules with yours and keep the shape: ${RULE_SHAPE} -->`
 
-/** How to write a rule an agent follows: the advice beside the editor, and what the assistant writes by. */
-export const RULE_GUIDE: ReadonlyArray<{ lead: string; text: string }> = [
+/** The six principles a rule is written and checked by, as Help me improve and the lint name them. */
+const PRINCIPLES = ['process', 'why', 'strict', 'earns', 'focused', 'tested'] as const
+export type Principle = (typeof PRINCIPLES)[number]
+
+/** How to write a rule an agent follows: the advice beside the editor, what the assistant writes by, and what Auto refine checks. */
+export const RULE_GUIDE: ReadonlyArray<{ id: Principle; lead: string; text: string }> = [
   {
+    id: 'process',
     lead: 'Encode process, not outcome.',
     text: '“Lead with the change for the reader” beats “write clearly”. The agent can walk a step; it cannot measure an adjective.',
   },
   {
+    id: 'why',
     lead: 'Write the why in the same bullet.',
     text: 'A rule with its reason generalises to cases you did not write down. A bare rule is applied blindly.',
   },
   {
+    id: 'strict',
     lead: 'Be numeric or absolute.',
     text: '“20 words or fewer”, “never”, “always”. “Reasonably” and “where appropriate” change nothing.',
   },
   {
+    id: 'earns',
     lead: 'Every line must change what the agent does.',
     text: 'Cut definitions of things it knows. Attention spent there is taken from your rules.',
   },
   {
+    id: 'focused',
     lead: 'One skill, one aspect.',
     text: 'Writing, code, workflow or design. A skill that covers everything is followed on nothing.',
   },
+  {
+    id: 'tested',
+    lead: 'Test it by running it.',
+    text: 'A rule is a hypothesis until a run shows it held. Change one rule, run again, compare.',
+  },
 ]
+
+/** The guide entry for a principle. */
+export const principleGuide = (id: Principle): { lead: string; text: string } =>
+  RULE_GUIDE.find((item) => item.id === id) ?? RULE_GUIDE[0]
 
 /** What a case's prompt is, under its field and in the assistant's brief. */
 export const CASE_PROMPT_HINT =
