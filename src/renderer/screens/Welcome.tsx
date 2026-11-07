@@ -135,7 +135,7 @@ function Opening({ onTour, exit }: { onTour: () => void; exit: ReactNode }) {
           Run it on real tasks, score the results, and see what each change improves.
         </Text>
         <div className="flex animate-rise items-center gap-3 pt-1.5" style={after(280)}>
-          <Button type="button" size="lg" autoFocus onClick={onTour}>
+          <Button type="button" size="lg" onClick={onTour}>
             See how it works
             <ArrowRightIcon aria-hidden="true" />
           </Button>

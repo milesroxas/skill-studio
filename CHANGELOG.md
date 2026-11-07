@@ -39,6 +39,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - Starting the walkthrough opens on the Editor and stays there. It used to move on to Versions as soon as the Editor marked its first step done.
 - Results fits a 720px window: the "×2" beside a score folds away below 1024px, and the score still says it to a screen reader.
 - Like the other verdicts, a failing message on Agreement colors only its heading.
+- The welcome's first screen no longer opens with a focus ring on "See how it works".
 
 ## [0.1.0] - 2026-11-05
 
