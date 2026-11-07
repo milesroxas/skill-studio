@@ -115,6 +115,7 @@ Below `lg` the columns stack and the pane scrolls. Check every workbench at 720p
 | Need | Use |
 | --- | --- |
 | Items to open in a list column | `NavButton` inside `PlainList` |
+| A list to pick from while typing (the skill switcher, the composer's slash menu) | `PopoverContent size="menu" still` holding a `PopoverSection role="listbox"` of `role="option"` rows |
 | Records with several fields | `Table`. See [data.md](data.md). |
 | Records of one or two lines, not tabular | `Rows` (hairlines, never boxed) |
 | Filters on the left, actions on the right, over a list | `ListBar` |

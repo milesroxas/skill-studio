@@ -147,6 +147,8 @@ Exact, with its reason:
 - **Nothing changes** until you click **Replace** or **Insert**.
 - **Select text first** to rewrite only that part.
 - **Assistant** (top right, or Cmd+J): a chat beside every screen. It reads your skill but never changes it.
+- **Commands in the Assistant:** type `/` and pick from the list, or keep typing a name; Tab takes the one shown. `/clear` starts a new conversation, `/settings` and `/guide` open those screens. While a reply is written, the send button becomes Stop.
+- **Run a skill in the Assistant:** with Claude Code as the model, the same list holds the skills your CLI knows. Pick one, add any words it takes and press Return. The skill shapes the reply the way it would in your terminal, and still nothing in your files changes.
 
 ### Improve a selected rule
 

@@ -55,11 +55,13 @@ Isolation is by convention. The skill copy omits `evals/` and the prompt forbids
 Four providers sit behind one port (`src/infrastructure/ai/`). The model in use is a preference, so every control shows the same one.
 
 - **anthropic**: the Anthropic SDK with your key. Replies stream, and a field's shape is enforced with structured outputs. Requests to Fable 5, Opus 5 and Sonnet 5.5 models opt in to Anthropic's server-side fallback, so a request a safety classifier declines is retried on the model Anthropic recommends.
-- **claude-code**: `claude -p` with no tools, settings or skills, on the plan the CLI is signed in to. The shape goes in as `--json-schema`.
+- **claude-code**: `claude -p` with no tools, settings or skills, on the plan the CLI is signed in to. The shape goes in as `--json-schema`. One exception: a chat message that starts with `/name` is a command. That run loads the user's settings (`--setting-sources user`, so the user's hooks run too) and keeps slash commands on, the message goes in as the whole prompt so the CLI expands the skill as a terminal would, and the earlier turns go into the system prompt as context. Tools stay off, so a skill that needs one cannot use it.
 - **openai**: the OpenAI SDK (Responses API) with your key, with a strict JSON schema for the shape.
 - **codex**: `codex exec --json` in a read-only sandbox, on the plan the CLI is signed in to. It reports a reply whole, not word by word.
 
-Only `claude-code` has been run against a live account.
+Only `claude-code` has been run against a live account. A command with pictures attached has not been run live.
+
+The side panel's slash menu lists the panel's own commands first (`src/renderer/commands.ts`: clear, settings and guide, run in the page and never sent) and then the skills Claude Code can invoke (`src/domain/commands.ts`, `src/infrastructure/ai/commands.ts`), through `ai.commands`. Only the CLI knows the whole list, with every plugin and every override, and it prints the list in the `init` event of a run before the model is asked. The lister starts such a run and ends it as soon as that event arrives, so a request to the model is at most cut off as it starts, then reads each skill's description from its file (`~/.claude/skills`, `~/.claude/commands`, or the plugin's folder, under `CLAUDE_CONFIG_DIR` when set). The list is kept for five minutes. The other providers offer no commands, and the menu does not open on them.
 
 Each text area is one kind of field (`src/domain/assist.ts`). A kind states the shape its text has, built from the same rule guidance the editor shows. The reply is one JSON object holding that text, fitted to the field before it is shown.
 

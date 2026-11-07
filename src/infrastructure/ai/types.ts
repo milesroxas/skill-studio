@@ -4,6 +4,7 @@
  * this and never to an SDK or a CLI.
  */
 import type { AiModel, AiProviderId, AiUsage } from '@domain/ai.ts'
+import type { SlashCommand } from '@domain/commands.ts'
 import type { StoredImage } from '../images.ts'
 
 export interface AiMessage {
@@ -41,4 +42,6 @@ export interface AiProvider {
   models(): Promise<AiModel[]>
   /** Write one reply. Throws an `Error` whose message can be shown as it is. */
   run(request: AiRequest): Promise<AiReply>
+  /** The commands a chat message may start with, for a provider that expands them. Throws when it cannot say. */
+  commands?(): Promise<SlashCommand[]>
 }

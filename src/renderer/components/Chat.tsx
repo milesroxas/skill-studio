@@ -2,12 +2,25 @@
  * The assistant's side panel: one conversation that stays open beside
  * whatever screen is in view and is still there after a restart. It knows the
  * open skill and the screen, so a question can say "this rule" and mean it.
- * The model, its effort and what has been spent are in reach from here.
+ * A message that starts with a slash is a command: one of the panel's own, or
+ * one of the CLI's skills, picked from a list that opens on the slash. The
+ * model, its effort and what has been spent are in reach from here.
  */
 import type { AiRun, ChatMessage } from '@domain/ai.ts'
 import { SquarePenIcon, XIcon } from 'lucide-react'
-import { useLayoutEffect, useRef, useState } from 'react'
-import { clearChat, loadAi, loadChat, sendChat, stopRun, useAi, useChat } from '../ai.ts'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import {
+  clearChat,
+  loadAi,
+  loadChat,
+  loadCommands,
+  sendChat,
+  stopRun,
+  useAi,
+  useChat,
+  useCommands,
+} from '../ai.ts'
+import { APP_COMMANDS, appCommandOf } from '../commands.ts'
 import { navigate } from '../history.ts'
 import { useAttached } from '../images.ts'
 import { shortcut } from '../keys.ts'
@@ -48,6 +61,7 @@ const starters = (skill: string | null): string[] =>
 export function ChatPanel({ screen, skill, confirm, onClose }: ChatPanelProps) {
   const { thread } = useChat()
   const { providers, choice } = useAi()
+  const commands = useCommands()
   const [draft, setDraft] = useState('')
   const [failure, setFailure] = useState<string | null>(null)
   const [sending, setSending] = useState(false)
@@ -61,6 +75,12 @@ export function ChatPanel({ screen, skill, confirm, onClose }: ChatPanelProps) {
   const running = sending || run?.status === 'running'
   const error = failure ?? (run?.status === 'failed' ? run.error : null)
 
+  // The commands on offer are the provider's: read them when it is known, and again when it changes.
+  const provider = choice?.provider ?? null
+  useEffect(() => {
+    if (provider) void loadCommands()
+  }, [provider])
+
   // After every render, keep the newest text in view unless the reader scrolled away from it.
   useLayoutEffect(() => {
     const el = scroller.current
@@ -68,6 +88,12 @@ export function ChatPanel({ screen, skill, confirm, onClose }: ChatPanelProps) {
   })
 
   const send = async (text: string) => {
+    const command = appCommandOf(text)
+    if (command) {
+      setDraft('')
+      command.run({ startOver: () => void startOver() })
+      return
+    }
     const images = attached.images
     if ((!text.trim() && !images.length) || running) return
     setFailure(null)
@@ -196,14 +222,23 @@ export function ChatPanel({ screen, skill, confirm, onClose }: ChatPanelProps) {
           <Composer
             frame="box"
             label="Message the assistant"
-            placeholder={skill ? `Ask about ${skill}` : 'Ask a question'}
+            placeholder={`${skill ? `Ask about ${skill}` : 'Ask a question'}, or type / for a command`}
             value={draft}
             onChange={setDraft}
-            onSubmit={() => void send(draft)}
+            onSubmit={(text) => void send(text)}
             running={Boolean(running)}
             onStop={() => run && stopRun(run.id)}
             pictures={attached}
             picturesSuffice
+            commands={{
+              sections: [
+                { label: 'Assistant', commands: [...APP_COMMANDS], instant: true, compact: true },
+                // A provider that runs no skills gets no empty section.
+                ...(commands.list?.length === 0 && !commands.problem
+                  ? []
+                  : [{ label: 'Skills', commands: commands.list, problem: commands.problem }]),
+              ],
+            }}
           />
         </div>
       ) : null}

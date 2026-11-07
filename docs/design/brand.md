@@ -74,6 +74,7 @@ The welcome runs in its own 760 x 600 window, laid out for exactly that size and
 - The status line is the one place in the app that draws: its ink is laid down left to right on `ease-stroke` in 300ms (a `scale-x` of its own layer, not `clip-path`), its words rise in after it, and it withdraws in 150ms. A notice is occasional and asks to be seen; nothing else in the app does this.
 - The welcome may say more, because it is seen once or twice: the mark draws (`animate-draw`), text rises in reading order (`animate-rise`), the slab crosses its word (`animate-draw`). Delays come from `after(ms)` in `renderer/motion.ts`.
 - Nothing waits on an animation. Next works from the first frame.
+- Hazard bars are the brand's one texture: yellow hairlines on ink at 45 degrees, hard-edged, moving left at a constant speed across the composer's button while the assistant writes a reply (`hazard`, `animate-hazard`). They fade in over the ink and out again. Nowhere else, never static as decoration, and never as a progress bar.
 - `data-motion="reduced"` cuts every duration and delay. Never add an animation that hides content until it has played.
 
 ## Never

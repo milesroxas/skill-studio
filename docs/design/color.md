@@ -75,6 +75,7 @@ Yellow marks exactly these:
 
 - the next step: `Button variant="signal"` in the top bar. See [buttons.md](buttons.md).
 - a running job: the dot in `JobsIndicator` on the ink sidebar, and in `RunningTag` on its skill's row in the Library. It is the one yellow that may sit beside the next step. A job's progress bar is foreground, not yellow.
+- a reply being written: the composer's Stop button, yellow hairlines on ink moving left under the square (`hazard` and `animate-hazard`). It is that reply's running dot, so it too may sit beside the next step, and the yellow is there only while the reply is written. The square stays porcelain: red would say failed, not stop.
 - in the welcome: the current step in the progress row, and one `Slab` per frame. See [brand.md](brand.md).
 
 ```tsx
@@ -103,7 +104,7 @@ Green, amber and red say how something stands and nothing else. A decorative use
 ## Borders and depth
 
 - A region ends at a hairline: `border-b`, `border-r`, `divide-y`. The default border color is `--border`. Do not name it.
-- A control's edge is `border-input`.
+- A control's edge is `border-input`. Focus adds the 3px `ring-ring/50` ring, built into each field. One exception: the composer's `box` frame shows focus as its edge in `border-ring` alone, because it holds the focus for a whole conversation and a halo that never leaves is noise. Its ring is kept for a picture held over it.
 - One depth cue per surface. A floating sheet uses `shadow-popover`. A raised object uses `shadow-raised`. Never both, never a shadow plus a border on the same element. In the dark and ink scopes both collapse to a ring.
 - Corners are a closed set, in `styles.css`:
   - `rounded-sm` 4px: a button, a field, a toggle, a checkbox, a chip, a list row or menu item.

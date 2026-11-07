@@ -31,20 +31,39 @@ function turnText(message: AiMessage, firstPicture: number): string {
   return message.text ? `${note}\n${message.text}` : note
 }
 
-/** The conversation as one prompt: a lone message as it is, a longer one as a transcript. */
-export function transcriptPrompt(messages: AiMessage[]): string {
-  if (messages.length === 1) return messages[0].text
+/** Each message's text as the transcript holds it, in order. */
+function turnTexts(messages: AiMessage[]): string[] {
   let pictures = 0
-  const texts = messages.map((m) => {
+  return messages.map((m) => {
     const text = turnText(m, pictures)
     pictures += m.images?.length ?? 0
     return text
   })
-  const turns = messages
+}
+
+/** Every turn but the last, tagged by role, as the context a prompt or a system prompt carries. */
+const conversationSoFar = (messages: AiMessage[], texts: string[]): string =>
+  `The conversation so far:\n<conversation>\n${messages
     .slice(0, -1)
     .map((m, i) => `<${m.role}>\n${texts[i]}\n</${m.role}>`)
-    .join('\n')
-  return `The conversation so far:\n<conversation>\n${turns}\n</conversation>\n\nReply to this next message from the user:\n${texts.at(-1) ?? ''}`
+    .join('\n')}\n</conversation>`
+
+/** The conversation as one prompt: a lone message as it is, a longer one as a transcript. */
+export function transcriptPrompt(messages: AiMessage[]): string {
+  if (messages.length === 1) return messages[0].text
+  const texts = turnTexts(messages)
+  return `${conversationSoFar(messages, texts)}\n\nReply to this next message from the user:\n${texts.at(-1) ?? ''}`
+}
+
+/**
+ * A command's run. The CLI expands `/name` only when it is the whole prompt,
+ * so the last message goes in as it was typed and the earlier turns, if any,
+ * become context for the system prompt.
+ */
+export function commandPrompt(messages: AiMessage[]): { prompt: string; context: string | null } {
+  const prompt = messages.at(-1)?.text ?? ''
+  if (messages.length <= 1) return { prompt, context: null }
+  return { prompt, context: conversationSoFar(messages, turnTexts(messages)) }
 }
 
 /**

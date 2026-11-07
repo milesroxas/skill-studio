@@ -1,15 +1,19 @@
 /**
  * Claude through Claude Code, headless: `claude -p` with no tools, no settings
  * and no skills, so it answers as a plain model on the plan the CLI is signed
- * in to. A field's shape goes in as `--json-schema`; the reply then arrives as
- * the input of its StructuredOutput tool, streamed the same as prose. Pictures
- * cannot ride in a plain prompt, so a request with any goes in as one
- * `stream-json` user message: the pictures, then the prompt.
+ * in to. One exception: a message that starts with `/name` is a command, and
+ * runs with the user's own settings loaded so the CLI expands the skill as it
+ * would in a terminal. A field's shape goes in as `--json-schema`; the reply
+ * then arrives as the input of its StructuredOutput tool, streamed the same as
+ * prose. Pictures cannot ride in a plain prompt, so a request with any goes in
+ * as one `stream-json` user message: the pictures, then the prompt.
  */
 import { CLAUDE_CODE_MODELS } from '@domain/ai.ts'
+import { isCommand } from '@domain/commands.ts'
 import { hasCommand } from '../exec.ts'
 import { imageBase64 } from '../images.ts'
-import { picturesOf, runJsonLines, transcriptPrompt } from './cli.ts'
+import { commandPrompt, picturesOf, runJsonLines, transcriptPrompt } from './cli.ts'
+import { listClaudeCommands } from './commands.ts'
 import type { AiProvider, AiReply, AiRequest } from './types.ts'
 
 interface StreamEvent {
@@ -49,7 +53,10 @@ const pictureMessage = (prompt: string, pictures: ReturnType<typeof picturesOf>)
 
 async function run(request: AiRequest): Promise<AiReply> {
   const pictures = picturesOf(request.messages)
-  const prompt = transcriptPrompt(request.messages)
+  const command = isCommand(request.messages.at(-1)?.text ?? '')
+  const { prompt, context } = command
+    ? commandPrompt(request.messages)
+    : { prompt: transcriptPrompt(request.messages), context: null }
   const args = [
     '-p',
     ...(pictures.length ? ['--input-format', 'stream-json'] : []),
@@ -59,13 +66,14 @@ async function run(request: AiRequest): Promise<AiReply> {
     '--include-partial-messages',
     '--no-session-persistence',
     '--strict-mcp-config',
-    '--disable-slash-commands',
-    '--setting-sources',
-    '',
+    // A command needs the user's skills; anything else runs as a plain model.
+    ...(command
+      ? ['--setting-sources', 'user']
+      : ['--disable-slash-commands', '--setting-sources', '']),
     '--tools',
     '',
     '--system-prompt',
-    request.system,
+    context ? `${request.system}\n\n${context}` : request.system,
     '--model',
     request.model,
     ...(request.effort ? ['--effort', request.effort] : []),
@@ -120,4 +128,5 @@ export const claudeCodeProvider: AiProvider = {
   connected: () => hasCommand('claude'),
   models: async () => [...CLAUDE_CODE_MODELS],
   run,
+  commands: listClaudeCommands,
 }

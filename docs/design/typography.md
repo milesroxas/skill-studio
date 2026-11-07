@@ -84,7 +84,7 @@ A number in a sentence stays in sans, and so does a live count under a field ("4
 
 ## Caps labels
 
-`Text caps` is 11px, weight 500, uppercase, tracked `--tracking-caps` (0.08em). It names a group without being a heading. Use it for exactly these: a `SidebarSection` label, a caption over a part of a picture in the welcome, the label of a figure, and the tag before each line of a rule pair ("vague", "exact": `PairList` in `starters.tsx`). Two words at most. Never for a button, a table head or a heading: caps slow reading, so they stay where a reader only glances.
+`Text caps` is 11px, weight 500, uppercase, tracked `--tracking-caps` (0.08em). It names a group without being a heading. Use it for exactly these: a `SidebarSection` label, a section of the composer's slash menu ("Assistant", "Skills"), a caption over a part of a picture in the welcome, the label of a figure, and the tag before each line of a rule pair ("vague", "exact": `PairList` in `starters.tsx`). Two words at most. Never for a button, a table head or a heading: caps slow reading, so they stay where a reader only glances.
 
 ## Display type
 

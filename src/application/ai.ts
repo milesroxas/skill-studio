@@ -32,6 +32,7 @@ import {
   chatSystem,
   partialText,
 } from '@domain/assist.ts'
+import type { SlashCommand } from '@domain/commands.ts'
 import type { ImageRef } from '@domain/image.ts'
 import {
   ASKS_MAX,
@@ -116,11 +117,22 @@ export const aiStatus = async (): Promise<AiStatus> => ({ providers: await aiPro
 
 export const aiUsage = (): UsageSummary => summarizeUsage(readUsage(), new Date())
 
-/** The model the preferences name, among what is connected now. */
+/** The model the preferences name, among what is connected now; null when nothing is. */
+const choiceNow = async (): Promise<AiChoice | null> =>
+  resolveChoice(aiChoiceOf(readPreferences()), await aiProviderInfo())
+
+/** The model in use, or why there is none. */
 async function currentChoice(): Promise<AiChoice> {
-  const choice = resolveChoice(aiChoiceOf(readPreferences()), await aiProviderInfo())
+  const choice = await choiceNow()
   if (!choice) throw new Error('Connect a provider in Settings first.')
   return choice
+}
+
+/** The commands a message may start with on the model in use: none on a provider that takes none, or with nothing connected. */
+export async function aiCommands(): Promise<SlashCommand[]> {
+  const choice = await choiceNow()
+  const list = choice && aiProvider(choice.provider).commands
+  return list ? list() : []
 }
 
 interface Work {

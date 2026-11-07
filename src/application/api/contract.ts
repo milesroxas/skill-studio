@@ -6,6 +6,7 @@
  */
 import type { AiRun, AiStatus, ChatThread, UsageSummary } from '@domain/ai.ts'
 import type { AssistInput } from '@domain/assist.ts'
+import type { SlashCommand } from '@domain/commands.ts'
 import type { ImageRef, ImageUpload } from '@domain/image.ts'
 import type { ImproveThread, RefineResult } from '@domain/improve.ts'
 import type { AgentId, Library } from '@domain/library.ts'
@@ -108,6 +109,8 @@ export interface Contract {
   /** The ways to reach a model, which are connected, and the models each offers. */
   'ai.status': { input: Record<string, never>; output: AiStatus }
   'ai.usage': { input: Record<string, never>; output: UsageSummary }
+  /** The commands a chat message may start with on the model in use; empty when it takes none. */
+  'ai.commands': { input: Record<string, never>; output: SlashCommand[] }
   /** Start writing one field's text. The run it returns grows until it ends. `skill` may be empty. */
   'ai.assist': { input: Scoped & AssistInput; output: AiRun }
   'ai.run': { input: { id: string }; output: AiRun }

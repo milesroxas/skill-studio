@@ -87,6 +87,7 @@ export const api = {
   setKey: (id: SecretId, value: string) => call('settings.key', { id, value }),
   aiStatus: () => call('ai.status', {}),
   aiUsage: () => call('ai.usage', {}),
+  aiCommands: () => call('ai.commands', {}),
   /** The open skill goes along, so a picture saved in it can be found. */
   assist: (input: AssistInput) => call('ai.assist', scoped(input)),
   aiRun: (id: string) => call('ai.run', { id }),

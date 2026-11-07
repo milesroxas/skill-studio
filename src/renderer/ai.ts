@@ -19,6 +19,7 @@ import {
   runsToForget,
 } from '@domain/ai.ts'
 import type { AssistInput } from '@domain/assist.ts'
+import type { SlashCommand } from '@domain/commands.ts'
 import type { ImageRef } from '@domain/image.ts'
 import type { ImproveThread, RefineResult } from '@domain/improve.ts'
 import type { RuleScene } from '@domain/lint.ts'
@@ -42,6 +43,11 @@ let threadProblem: string | null = null
 /** The improve conversation on a selected rule; null when none is open. */
 let improve: ImproveThread | null = null
 let improveProblem: string | null = null
+/** The commands a message may start with, null until read; and why the read failed. */
+let commands: SlashCommand[] | null = null
+let commandsProblem: string | null = null
+/** Which read of the commands is the latest: an older one landing later is dropped. */
+let commandsRead = 0
 const runs = new Map<string, AiRun>()
 const listeners = new Set<() => void>()
 
@@ -119,6 +125,36 @@ export async function loadAi(): Promise<void> {
     providersProblem = (e as Error).message
   }
   emit()
+}
+
+/** Read the commands the model in use can run. Call when the side panel opens and when the provider changes. */
+export async function loadCommands(): Promise<void> {
+  const read = ++commandsRead
+  let next: SlashCommand[] = []
+  let problem: string | null = null
+  try {
+    next = await api.aiCommands()
+  } catch (e) {
+    problem = (e as Error).message
+  }
+  // The provider changed and a newer read is on its way: its list is the one to show.
+  if (read !== commandsRead) return
+  commands = next
+  commandsProblem = problem
+  emit()
+}
+
+/** The commands a message may start with: null until the first read, and why the last read failed. */
+export interface Commands {
+  list: SlashCommand[] | null
+  problem: string | null
+}
+
+export function useCommands(): Commands {
+  return {
+    list: useSyncExternalStore(subscribe, () => commands),
+    problem: useSyncExternalStore(subscribe, () => commandsProblem),
+  }
 }
 
 /** Read the conversation. A failed read keeps what was known and says why. */

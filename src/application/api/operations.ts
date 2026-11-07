@@ -100,6 +100,7 @@ import type { JudgeInput } from '@judges/index.ts'
 import { pairwisePack } from '@judges/index.ts'
 import { Jev } from '@judges/jev.ts'
 import {
+  aiCommands,
   aiStatus,
   aiUsage,
   chatThread,
@@ -322,6 +323,7 @@ export const parsers: { [K in OperationName]: (raw: Raw) => Input<K> } = {
   }),
   'ai.status': none,
   'ai.usage': none,
+  'ai.commands': none,
   'ai.assist': assistInputOf,
   'ai.run': runId,
   'ai.stop': runId,
@@ -544,6 +546,7 @@ export function createOperations(options: OperationsOptions): Runners {
     'settings.key': ({ id, value }) => secrets.write(id, value),
     'ai.status': () => aiStatus(),
     'ai.usage': () => aiUsage(),
+    'ai.commands': () => aiCommands(),
     'ai.assist': ({ skill, ...input }) => {
       const dir = skill ? skillOf({ skill }).path : null
       return startAssist(
