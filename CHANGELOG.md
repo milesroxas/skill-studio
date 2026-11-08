@@ -6,6 +6,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-11-08
+
 ### Added
 
 - The Assistant can change the open skill. Ask it to rewrite SKILL.md, add a reference file, add or replace a case, or save a version first, and each change stands under its reply: the file's changes, the case, or the version. One click applies it, and Undo in the status line takes it back. Nothing changes until you click, and a reply's changes apply only to the skill it was written about.
