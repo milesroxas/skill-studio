@@ -122,7 +122,7 @@ function PopoverAction({
     <button
       type="button"
       className={cn(
-        'flex min-h-8 items-center gap-2 rounded-sm px-2 text-left text-ui outline-none transition-[background-color] duration-150 ease-out hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring/50 pointer-coarse:min-h-11 [&_svg]:size-4 [&_svg]:shrink-0 [&_svg]:text-muted-foreground',
+        'flex min-h-8 items-center gap-2 rounded-sm px-2 text-left text-ui focus-ring-inset transition-[background-color] duration-150 ease-out hover:bg-accent pointer-coarse:min-h-11 [&_svg]:size-4 [&_svg]:shrink-0 [&_svg]:text-muted-foreground',
         className,
       )}
       {...props}

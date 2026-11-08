@@ -171,7 +171,7 @@ function TocButton({
     <button
       type="button"
       aria-current={current ? 'true' : undefined}
-      className="-ml-px block min-h-8 w-full border-l border-transparent px-3 py-1 text-left text-ui text-muted-foreground transition-colors duration-150 ease-out outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50 aria-[current]:border-foreground aria-[current]:text-foreground pointer-coarse:min-h-11"
+      className="-ml-px block min-h-8 w-full border-l border-transparent px-3 py-1 text-left text-ui text-muted-foreground transition-colors duration-150 ease-out focus-ring-inset hover:text-foreground aria-[current]:border-foreground aria-[current]:text-foreground pointer-coarse:min-h-11"
       {...props}
     />
   )

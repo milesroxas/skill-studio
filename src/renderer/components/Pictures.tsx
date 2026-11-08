@@ -16,7 +16,7 @@ const ACCEPT = 'image/png,image/jpeg,image/webp,image/gif'
 
 const thumbVariants = cva(
   // The picture is the surface: one hairline keeps a white screenshot off a white page.
-  'relative block shrink-0 overflow-hidden rounded-sm border bg-muted outline-none transition-[border-color,box-shadow] duration-150 ease-out focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50',
+  'relative block shrink-0 overflow-hidden rounded-sm border bg-muted focus-ring transition-[border-color,box-shadow] duration-150 ease-out',
   {
     variants: {
       size: {
@@ -64,7 +64,7 @@ function Picture({ image, size, onRemove }: PictureProps) {
           type="button"
           // 16px to look at, 32px to hit: the pseudo-element reaches past the corner. The ring
           // cuts it out of the picture, so it reads on a white screenshot and a dark photo alike.
-          className="absolute -top-1.5 -right-1.5 flex size-4 items-center justify-center rounded-full bg-foreground text-background ring-2 ring-background outline-none transition-[scale,box-shadow] duration-150 ease-out before:absolute before:-inset-2 active:scale-[0.96] focus-visible:ring-[3px] focus-visible:ring-ring/50"
+          className="absolute -top-1.5 -right-1.5 flex size-4 items-center justify-center rounded-full bg-foreground text-background ring-2 ring-background focus-ring transition-[scale,box-shadow] duration-150 ease-out before:absolute before:-inset-2 active:scale-[0.96]"
           aria-label={`Remove ${image.name}`}
           title="Remove"
           onClick={onRemove}

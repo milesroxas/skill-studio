@@ -174,7 +174,7 @@ function TableRowToggle({
         aria-expanded={open}
         className={cn(
           // A block, not inline: an inline button would sit on a text line and add 4px of slop under it.
-          'flex w-fit items-start gap-2 rounded-xs text-left font-medium outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50',
+          'flex w-fit items-start gap-2 rounded-xs text-left font-medium focus-ring',
           className,
         )}
         {...props}

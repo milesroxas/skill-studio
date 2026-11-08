@@ -183,7 +183,7 @@ export function Composer({
               aria-label={label}
               rows={1}
               // The frame or the popover shows the focus; the field itself stays plain.
-              className="max-h-48 min-h-10 resize-none overflow-y-auto border-0 bg-transparent px-3 py-2.5 shadow-none focus-visible:ring-0 dark:bg-transparent"
+              className="max-h-48 min-h-10 resize-none overflow-y-auto border-0 bg-transparent px-3 py-2.5 shadow-none dark:bg-transparent"
               placeholder={placeholder}
               autoFocus={autoFocus}
               value={value}

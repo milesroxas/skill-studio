@@ -2,10 +2,14 @@ import { createRoot } from 'react-dom/client'
 import '@fontsource-variable/geist'
 import '@fontsource-variable/geist-mono'
 import { api } from './api.ts'
+import { trackInput } from './focus.ts'
 import { loadPreferences } from './preferences.ts'
 import { placeOf } from './route.ts'
 import { loadUpdates } from './updates.ts'
 import './styles.css'
+
+// The focus ring shows for the keyboard only, so the document learns which hand moved first.
+trackInput()
 
 // The theme lands before the first render, so the app never paints in the wrong one.
 // So does where the app's updates stand: a window never shows a state it is not in.

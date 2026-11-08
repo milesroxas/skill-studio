@@ -29,7 +29,7 @@ Ink uses the dark scope's values, with `--background` set to `--sidebar` and the
 | `--primary` / `--primary-foreground` | ink / porcelain | porcelain / ink | the filled button |
 | `--border` | `oklch(0.177 0.035 267.3 / 0.1)` | `oklch(0.25 0.01 267.3)` | hairlines |
 | `--input` | `oklch(0.177 0.035 267.3 / 0.2)` | `oklch(0.31 0.01 267.3)` | a control's edge |
-| `--ring` | `oklch(0.177 0.035 267.3)` | `oklch(0.961 0.01 94)` | focus ring, always used at `/50` |
+| `--ring` | `oklch(0.177 0.035 267.3)` | `oklch(0.961 0.01 94)` | focus: the keyboard's line at 50%, a field's edge at full |
 | `--sidebar` | `oklch(0.177 0.035 267.3)` | `oklch(0.125 0.01 267.3)` | the sidebar's ground |
 | `--sidebar-accent` | `oklch(0.269 0.035 267.3)` | `oklch(0.205 0.01 267.3)` | the current place |
 | `--success` | `oklch(0.452 0.095 148)` | `oklch(0.78 0.12 150)` | a good score, a pass |
@@ -104,13 +104,39 @@ Green, amber and red say how something stands and nothing else. A decorative use
 ## Borders and depth
 
 - A region ends at a hairline: `border-b`, `border-r`, `divide-y`. The default border color is `--border`. Do not name it.
-- A control's edge is `border-input`. Focus adds the 3px `ring-ring/50` ring, built into each field. One exception: the composer's `box` frame shows focus as its edge in `border-ring` alone, because it holds the focus for a whole conversation and a halo that never leaves is noise. Its ring is kept for a picture held over it.
+- A control's edge is `border-input`. How focus shows is in [Focus](#focus) below.
 - One depth cue per surface. A floating sheet uses `shadow-popover`. A raised object uses `shadow-raised`. Never both, never a shadow plus a border on the same element. In the dark and ink scopes both collapse to a ring.
 - Corners are a closed set, in `styles.css`:
   - `rounded-sm` 4px: a button, a field, a toggle, a checkbox, a chip, a list row or menu item.
   - `rounded-chin` 10px on top, 12.5px below: a container. A card, a popover, a menu, a dialog, an alert, the composer, a muted panel, a code block, a chat bubble, the welcome's picture sheet. Top and bottom stay 4 to 5.
   - `rounded-xs` 2px: a mark inside running text (an inline link's focus ring, inline code, a diff mark), a part nested inside a control, and each segment of a stepped indicator (the walkthrough's progress, the file size meter). A segment is at least 6px tall, so its corners read as corners and not as a pill.
   - `rounded-full`: dots, a single continuous bar and the slider's thumb only. A row of steps is never pills.
+
+## Focus
+
+Focus answers one question, "where did I land?", and only a keyboard asks it. A person who clicked knows where they clicked. So every focus style is one of four utilities in `styles.css`, and none of them is a halo stacked on an edge.
+
+| Utility | What shows | Where |
+| --- | --- | --- |
+| `focus-ring` | a 2px line in `--ring` at 50%, 2px clear of the control, from the keyboard only | anything pressed rather than typed in: a button, a toggle, a checkbox, a select trigger, a card, a link |
+| `focus-ring-inset` | the same line 2px inside the control | a row in a list that scrolls (the sidebar, a list column, a menu), which would clip a line outside it |
+| `focus-ring-segment` | the line 4px inside one segment of a joined group, in the segment's own text color | `ToggleGroup` items (`Segmented`, `FilterGroup`), set by `toggleVariants({ place: 'group' })`. A pressed segment is ink, so a line in the ring color would vanish into it. |
+| `focus-edge` | the field's own edge turns `--ring`, on any focus | a text field and the `Stepper`: the caret already says where typing goes, so nothing is added around it |
+
+"From the keyboard only" is `data-input` on `<html>`, which `renderer/focus.ts` sets to `pointer` on a press and `keyboard` on a key. The browser's own `:focus-visible` is not enough: when a menu or dialog closes, its script hands the focus back to its trigger, and the browser lights the trigger up under the pointer that just closed it. Before the first input there is no attribute, so the line shows: a keyboard user is never left without it. A select's edge also turns ink while its list is open (`data-[state=open]:border-ring`). `focus-key:` is the same keyboard test as a variant, for a reveal: a `ghost-muted` icon turns to text color when focused (`focus-key:text-foreground`).
+
+- A component names one of the four. Never `outline-none` alone on something focusable, and never a `ring-*` for focus: a ring is a box shadow, it sits on top of the edge, and it is the heavy halo this replaces.
+- Anything focusable that names none of them still gets the line from the base layer: a link in prose, a `summary`.
+- The composer's `box` frame shows focus as its edge in `border-ring` (`focus-within`), because it holds the focus for a whole conversation.
+- A field in error keeps its red edge when focused: `focus-edge` does not paint over `aria-invalid`.
+
+```tsx
+// Correct: ui/button.tsx
+'… focus-ring active:scale-[0.96] …'
+
+// Incorrect: an edge and a 3px halo on every focus, mouse included
+'outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50'
+```
 
 ## Checked pairs
 
@@ -123,7 +149,7 @@ Measured with WCAG 2 and APCA. A new text pair needs 4.5:1, and |Lc| 60 when it 
 | muted-foreground on accent | 5.0:1, Lc 66 | 8.5:1, Lc 62 |
 | success, warning, destructive on their tint | 5.5, 5.0, 5.6:1 | above 5:1, Lc 59, 59, 52 (chips only, never running text) |
 | ink on yellow | 15.6:1 | 15.6:1 (yellow text on the dark page 16.1:1) |
-| focus ring (`ring-ring/50`) on background | 3.5:1 | 4.9:1 |
+| focus line (`--ring` at 50%) on background | 3.5:1 | 4.9:1 |
 
 Two known gaps. `border-input` on porcelain is 1.5:1, so an input is found by its `bg-card` fill and its label, not its edge: never draw an input without both. The brand kit's secondary grey `#7C817B` is 3.6:1 on porcelain and is not a token: use `muted-foreground`.
 

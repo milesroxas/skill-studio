@@ -202,6 +202,61 @@
     var(--radius-chin-bottom);
 }
 
+/*
+ * Focus. One sign per control, and never a halo stacked on an edge:
+ *
+ *   focus-ring        a 2px line 2px clear of the control. Anything pressed
+ *                     rather than typed in: buttons, toggles, checkboxes,
+ *                     select triggers, cards, links.
+ *   focus-ring-inset  the same line 2px inside the control, for a row in a
+ *                     list that scrolls, which would clip a line outside it.
+ *   focus-ring-segment  the line 3px inside one segment of a joined group,
+ *                     in the segment's own text color: porcelain on a pressed
+ *                     (ink) segment, ink on the others.
+ *   focus-edge        a field's own edge turns ink, on any focus: the caret
+ *                     already says where typing goes, so a halo would only
+ *                     repeat it. Inputs, text areas, the stepper.
+ *
+ * The ring answers "where did I land?", which only a keyboard asks: after a
+ * click it stays off (`data-input`, set by focus.ts). With no input yet, it
+ * shows. `focus-key:` is the same test, for a reveal such as a muted icon
+ * turning to text color.
+ */
+@custom-variant focus-key (&:focus-visible:not(:where([data-input="pointer"] *)));
+
+@utility focus-ring {
+  outline: none;
+  &:focus-visible:not(:where([data-input="pointer"] *)) {
+    outline: 2px solid color-mix(in oklch, var(--ring) 50%, transparent);
+    outline-offset: 2px;
+  }
+}
+
+@utility focus-ring-inset {
+  outline: none;
+  &:focus-visible:not(:where([data-input="pointer"] *)) {
+    outline: 2px solid color-mix(in oklch, var(--ring) 50%, transparent);
+    outline-offset: -2px;
+  }
+}
+
+@utility focus-ring-segment {
+  outline: none;
+  &:focus-visible:not(:where([data-input="pointer"] *)) {
+    outline: 2px solid color-mix(in oklch, currentColor 55%, transparent);
+    outline-offset: -4px;
+  }
+}
+
+@utility focus-edge {
+  outline: none;
+  &:not([aria-invalid="true"]):where(input, textarea):focus,
+  &:not([aria-invalid="true"]):focus-visible:not(:where([data-input="pointer"] *)),
+  &:not([aria-invalid="true"]):has(input:focus-visible):not(:where([data-input="pointer"] *)) {
+    border-color: var(--color-ring);
+  }
+}
+
 @theme {
   --text-*: initial;
   --text-2xs: 0.6875rem;
@@ -340,12 +395,20 @@
 
 @layer base {
   * {
-    @apply border-border outline-ring/50;
+    @apply border-border;
     scrollbar-width: thin;
     scrollbar-color: color-mix(in oklch, var(--foreground) 18%, transparent) transparent;
   }
   [data-surface="ink"] {
     @apply bg-background text-foreground;
+  }
+  /* Anything focusable that names no focus style of its own: a link in prose, a summary. */
+  :focus-visible {
+    outline: 2px solid color-mix(in oklch, var(--ring) 50%, transparent);
+    outline-offset: 2px;
+  }
+  [data-input="pointer"] :focus-visible {
+    outline: none;
   }
   html {
     -webkit-tap-highlight-color: transparent;

@@ -66,8 +66,9 @@ function ToggleGroupItem({
           variant: context.variant || variant,
           size: context.size || size,
           tone,
+          place: 'group',
         }),
-        'w-auto min-w-0 shrink-0 px-3 focus:z-10 focus-visible:z-10',
+        'w-auto min-w-0 shrink-0 px-3',
         // Joined items stay joined when pressed. The group clips a hit area that
         // reaches past it, so under a finger the items themselves grow to 44px.
         'active:scale-100 pointer-coarse:h-11 pointer-coarse:before:hidden',

@@ -24,7 +24,7 @@ import { PopoverSection } from './ui/popover.tsx'
 
 /** A rewrite as an object to pick up: a card that is a button. */
 const rewriteCard = cva(
-  'flex w-full flex-col gap-1.5 rounded-chin bg-card px-3.5 py-3 text-left text-card-foreground shadow-raised outline-none transition-[background-color,box-shadow] duration-150 ease-out focus-visible:ring-2 focus-visible:ring-ring/50',
+  'flex w-full flex-col gap-1.5 rounded-chin bg-card px-3.5 py-3 text-left text-card-foreground shadow-raised focus-ring transition-[background-color,box-shadow] duration-150 ease-out',
   {
     variants: {
       offered: {

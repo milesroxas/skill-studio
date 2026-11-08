@@ -85,7 +85,7 @@ export function PracticeGuide({
           type="button"
           className={cn(
             BLOCK,
-            'group/practice outline-none transition-[background-color] duration-150 ease-out hover:bg-sidebar-accent focus-visible:ring-2 focus-visible:ring-ring/50',
+            'group/practice focus-ring-inset transition-[background-color] duration-150 ease-out hover:bg-sidebar-accent',
           )}
           onClick={() => onGo(target.screen, target.params)}
         >

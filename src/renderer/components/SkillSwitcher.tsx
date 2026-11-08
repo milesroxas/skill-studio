@@ -151,7 +151,7 @@ export function SkillSwitcher({
       <PopoverTrigger asChild>
         <button
           type="button"
-          className="mx-2 flex min-h-11 items-center gap-2 rounded-sm px-2 py-1.5 text-left outline-none transition-[background-color] duration-150 ease-out hover:bg-sidebar-accent focus-visible:ring-2 focus-visible:ring-ring/50 data-[state=open]:bg-sidebar-accent [&>svg]:size-4 [&>svg]:shrink-0 [&>svg]:text-muted-foreground"
+          className="mx-2 flex min-h-11 items-center gap-2 rounded-sm px-2 py-1.5 text-left focus-ring-inset transition-[background-color] duration-150 ease-out hover:bg-sidebar-accent data-[state=open]:bg-sidebar-accent [&>svg]:size-4 [&>svg]:shrink-0 [&>svg]:text-muted-foreground"
         >
           <span className="flex min-w-0 flex-1 flex-col">
             <Text weight="semibold" truncate title={name ?? undefined}>

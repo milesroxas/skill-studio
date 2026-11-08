@@ -53,7 +53,7 @@ export function Term({ id, children }: { id: TermId; children?: ReactNode }) {
     <Popover>
       <PopoverTrigger
         title={`What “${term.toLowerCase()}” means`}
-        className="cursor-help rounded-xs text-left underline decoration-muted-foreground/50 decoration-dotted underline-offset-4 outline-none transition-[text-decoration-color] duration-150 ease-out hover:decoration-current focus-visible:ring-2 focus-visible:ring-ring/50 data-[state=open]:decoration-current"
+        className="cursor-help rounded-xs text-left underline decoration-muted-foreground/50 decoration-dotted underline-offset-4 focus-ring transition-[text-decoration-color] duration-150 ease-out hover:decoration-current data-[state=open]:decoration-current"
       >
         {children ?? term}
       </PopoverTrigger>

@@ -20,7 +20,7 @@ const disclosureVariants = cva('', {
 })
 
 const triggerVariants = cva(
-  'group/disclosure inline-flex min-h-8 items-center gap-1.5 rounded-xs text-left outline-none focus-visible:ring-2 focus-visible:ring-ring/50 pointer-coarse:min-h-11 [&>svg]:size-3.5 [&>svg]:shrink-0 [&>svg]:transition-transform [&>svg]:duration-150 [&>svg]:ease-out-strong data-[state=open]:[&>svg]:rotate-90',
+  'group/disclosure inline-flex min-h-8 items-center gap-1.5 rounded-xs text-left focus-ring pointer-coarse:min-h-11 [&>svg]:size-3.5 [&>svg]:shrink-0 [&>svg]:transition-transform [&>svg]:duration-150 [&>svg]:ease-out-strong data-[state=open]:[&>svg]:rotate-90',
   {
     variants: {
       variant: {

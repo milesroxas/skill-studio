@@ -130,5 +130,5 @@ The top bar shows where the loop goes next. It is the app's one yellow control. 
 - "Try again" after a failed read is busy while the read runs again: `useFetch` returns `loading`, and `ReadFailed` takes it as `retrying`.
 - A label is a verb and its object: "Start a run", "Delete case", "Save case", and "Add case" for an item's first save. Never "OK", "Submit" or "Click here". "Save" alone is right where what it saves is plain: an inspector's `ColumnFooter`, where it saves everything in the column (`Knobs.tsx`, `Blind.tsx`), and the Editor's `ColumnHeader`, where it saves the open file.
 - A dialog's confirm button is one verb: "Restart", "Restore", "Delete", "Discard", "Reset". The title above it names the object, so the button does not repeat it. The button that opens the dialog keeps its object: "Restart walkthrough…" opens a dialog whose button says "Restart".
-- Press feedback (`active:scale-[0.96]`) and the focus ring are built in. Do not restyle them.
+- Press feedback (`active:scale-[0.96]`) and the focus ring (`focus-ring`: keyboard only, see [color.md](color.md#focus)) are built in. Do not restyle them.
 - Never show an action only on hover. A row's actions are `ghost-muted` at rest, so touch and keyboard reach them.
