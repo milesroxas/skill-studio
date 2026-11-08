@@ -16,16 +16,16 @@
 
   <g stroke="#CBCBCC" stroke-width="1">
     <rect x="96" y="44" width="320" height="112" rx="9" fill="#FBFAF6"/>
-    <rect x="426" y="44" width="320" height="112" rx="9" fill="#EFE9DF"/>
-    <rect x="96" y="166" width="320" height="112" rx="9" fill="#EFE9DF"/>
-    <rect x="426" y="166" width="320" height="112" rx="9" fill="#F2E6E2"/>
+    <rect x="426" y="44" width="320" height="112" rx="9" fill="#F0EADF"/>
+    <rect x="96" y="166" width="320" height="112" rx="9" fill="#F0EADF"/>
+    <rect x="426" y="166" width="320" height="112" rx="9" fill="#F5E4E1"/>
   </g>
 
   <g font-size="12" font-weight="500">
     <text x="114" y="70" fill="#5B605A">Both good</text>
-    <text x="444" y="70" fill="#845410">Too harsh</text>
-    <text x="114" y="192" fill="#845410">Judge missed</text>
-    <text x="444" y="192" fill="#9E2F2A">Both bad</text>
+    <text x="444" y="70" fill="#8C5910">Too harsh</text>
+    <text x="114" y="192" fill="#8C5910">Judge missed</text>
+    <text x="444" y="192" fill="#C11A1E">Both bad</text>
   </g>
   <g fill="#0A1020" font-size="17" font-weight="600">
     <text x="114" y="96">Leave it</text>

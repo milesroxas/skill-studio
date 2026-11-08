@@ -32,9 +32,9 @@ Ink uses the dark scope's values, with `--background` set to `--sidebar` and the
 | `--ring` | `oklch(0.177 0.035 267.3)` | `oklch(0.961 0.01 94)` | focus: the keyboard's line at 50%, a field's edge at full |
 | `--sidebar` | `oklch(0.177 0.035 267.3)` | `oklch(0.125 0.01 267.3)` | the sidebar's ground |
 | `--sidebar-accent` | `oklch(0.269 0.035 267.3)` | `oklch(0.205 0.01 267.3)` | the current place |
-| `--success` | `oklch(0.452 0.095 148)` | `oklch(0.78 0.12 150)` | a good score, a pass |
-| `--warning` | `oklch(0.489 0.1 69)` | `oklch(0.8 0.11 70)` | a weak score, unsaved |
-| `--destructive` | `oklch(0.473 0.148 27)` | `oklch(0.76 0.12 25)` | a failing score, an error, a delete |
+| `--success` | `oklch(0.49 0.133 148)` | `oklch(0.8 0.207 150)` | a good score, a pass |
+| `--warning` | `oklch(0.51 0.105 69)` | `oklch(0.8 0.152 70)` | a weak score, unsaved |
+| `--destructive` | `oklch(0.52 0.199 27)` | `oklch(0.76 0.134 25)` | a failing score, an error, a delete |
 | `--signal` / `--signal-foreground` | `oklch(0.928 0.168 109)` / ink | the same | next and running |
 
 `--signal` is the same in every scope. It is the brand's highlighter yellow `#F0F059`.
@@ -101,6 +101,8 @@ Green, amber and red say how something stands and nothing else. A decorative use
 
  A verdict on a surface is a 10% tint under colored text (`bg-success/10 text-success`), 20% in the dark and ink scopes. `Badge` and `TableRow` already do this: use their variants, do not rebuild the tint.
 
+A diff (`.diff` and `.diff-lines` in `styles.css`) takes the same tints, but its text stays in text color, because colored running text on a tint is too faint to read. The color goes on a mark instead: a word diff underlines an added word and strikes through a removed one in the verdict color, and a line diff colors only the `+` or `-`. Unchanged lines in a line diff are `muted-foreground`, so the changed lines are the brightest text in the listing.
+
 ## Borders and depth
 
 - A region ends at a hairline: `border-b`, `border-r`, `divide-y`. The default border color is `--border`. Do not name it.
@@ -147,7 +149,10 @@ Measured with WCAG 2 and APCA. A new text pair needs 4.5:1, and |Lc| 60 when it 
 | foreground on background | 16.9:1 | 17.5:1 |
 | muted-foreground on background | 5.7:1, Lc 74 | 9.8:1, Lc 63 |
 | muted-foreground on accent | 5.0:1, Lc 66 | 8.5:1, Lc 62 |
-| success, warning, destructive on their tint | 5.5, 5.0, 5.6:1 | above 5:1, Lc 59, 59, 52 (chips only, never running text) |
+| success, warning, destructive on their tint | 4.9, 4.9, 5.0:1, Lc 67, 67, 64 | 7.2, 6.6, 5.9:1, Lc 66, 60, 53 (chips only, never running text) |
+| success, warning, destructive on background | 5.3, 5.3, 5.5:1 | 11.3, 10.2, 8.6:1 |
+| foreground on a diff's tint | 15.4:1 and above | 11.1:1 and above |
+| a diff's `+`, `-` on its tint (card) | 4.9, 5.0:1 | 7.2, 5.9:1 (a mark, not running text) |
 | ink on yellow | 15.6:1 | 15.6:1 (yellow text on the dark page 16.1:1) |
 | focus line (`--ring` at 50%) on background | 3.5:1 | 4.9:1 |
 
@@ -155,4 +160,4 @@ Two known gaps. `border-input` on porcelain is 1.5:1, so an input is found by it
 
 ## Changing a token
 
-Change the value in `styles.css` in all three scopes, re-measure every pair in the table that uses it, and update this file in the same pull request. `paint.test.ts` (main process) fails when a hex copy outside CSS drifts: the window's first paint, `index.html`'s theme colors, and the guide's diagrams in `docs/images/*.svg`, which may use only the light scope's tokens and their tints. To fix a failing pair, move L only: chroma and hue do not change contrast.
+Change the value in `styles.css` in all three scopes, re-measure every pair in the table that uses it, and update this file in the same pull request. The three verdict colors are set the same way: in the light scope, as light as 4.9:1 on their own 10% tint over a card allows; in the dark scope, as light as the hue stays itself (red turns pink above L 0.76); and in both, at 94% of the chroma sRGB can show for that hue at that lightness. So no one of them reads duller or darker than the others. A new verdict value follows the same two steps: lightness from the contrast floor, then chroma from the ceiling. `paint.test.ts` (main process) fails when a hex copy outside CSS drifts: the window's first paint, `index.html`'s theme colors, and the guide's diagrams in `docs/images/*.svg`, which may use only the light scope's tokens and their tints. To fix a failing pair, move L only: chroma and hue do not change contrast.

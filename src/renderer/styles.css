@@ -53,9 +53,13 @@
   --sidebar: oklch(0.177 0.035 267.3);
   --sidebar-foreground: oklch(0.961 0.01 94);
   --sidebar-accent: oklch(0.269 0.035 267.3);
-  --destructive: oklch(0.473 0.148 27);
-  --success: oklch(0.452 0.095 148);
-  --warning: oklch(0.489 0.1 69);
+  /*
+   * Verdicts: as light as 4.9:1 on their own tint allows, and 94% of their hue's
+   * sRGB chroma ceiling at that lightness, so the three read as equally vivid.
+   */
+  --destructive: oklch(0.52 0.199 27);
+  --success: oklch(0.49 0.133 148);
+  --warning: oklch(0.51 0.105 69);
   --border: oklch(0.177 0.035 267.3 / 0.1);
   --input: oklch(0.177 0.035 267.3 / 0.2);
   --ring: oklch(0.177 0.035 267.3);
@@ -99,9 +103,9 @@
     --sidebar: oklch(0.125 0.01 267.3);
     --sidebar-foreground: oklch(0.961 0.01 94);
     --sidebar-accent: oklch(0.205 0.01 267.3);
-    --destructive: oklch(0.76 0.12 25);
-    --success: oklch(0.78 0.12 150);
-    --warning: oklch(0.8 0.11 70);
+    --destructive: oklch(0.76 0.134 25);
+    --success: oklch(0.8 0.207 150);
+    --warning: oklch(0.8 0.152 70);
     --border: oklch(0.25 0.01 267.3);
     --input: oklch(0.31 0.01 267.3);
     --ring: oklch(0.961 0.01 94);
@@ -592,33 +596,44 @@
     @apply space-y-1.5 pl-0 marker:text-muted-foreground/70;
   }
 
-  /* A word diff of two answers. */
+  /*
+   * A word diff of two answers. The words stay in text color, since colored
+   * running text on a tint is too faint to read: the tint and a mark in the
+   * verdict color say what changed.
+   */
   .diff {
     @apply max-w-[68ch] px-6 py-5 text-md leading-[1.65] whitespace-pre-wrap;
   }
   .diff del {
-    @apply bg-destructive/10 text-destructive line-through;
+    @apply bg-destructive/10 text-foreground line-through decoration-destructive dark:bg-destructive/20;
   }
   .diff ins {
-    @apply bg-success/10 text-success no-underline;
+    @apply bg-success/10 text-foreground underline decoration-success underline-offset-3 dark:bg-success/20;
   }
 
-  /* A line diff of two files. */
+  /*
+   * A line diff of two files. Unchanged lines are muted, so the changed ones
+   * are the brightest text in the listing, and their + or - takes the verdict
+   * color, so the change reads down the left edge.
+   */
   .diff-lines {
     @apply font-mono text-xs leading-normal whitespace-pre-wrap break-words;
   }
   /* A wrapped line hangs under its text, past the + or -, so it never reads as a line of its own. */
   .diff-lines > span {
-    @apply block pl-[2ch] -indent-[2ch];
+    @apply block pl-[2ch] -indent-[2ch] text-muted-foreground;
   }
   .diff-lines .ins {
-    @apply block bg-success/10;
+    @apply bg-success/10 text-foreground dark:bg-success/20;
   }
   .diff-lines .del {
-    @apply block bg-destructive/10;
+    @apply bg-destructive/10 text-foreground dark:bg-destructive/20;
   }
-  .diff-lines .fold {
-    @apply block text-muted-foreground;
+  .diff-lines .ins .sign {
+    @apply text-success;
+  }
+  .diff-lines .del .sign {
+    @apply text-destructive;
   }
 
   /*
