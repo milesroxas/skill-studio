@@ -108,7 +108,7 @@ A skill missing from the list?
 
 - **Write** the skill's rules in the editor. Save with **Save** or Cmd+S.
 - **An empty SKILL.md** has one line over it: write the first rule, take a template's rules, or draft rules with AI. It goes once you write.
-- **Rules are numbered.** Each bullet the judge will check shows its number in place of the bullet, 01, 02, in the order Scoring lists them. A bullet that keeps its dot is skipped; point at it for why. An amber number means the writing checks found something: the words that set a check off are underlined (point at one to read why), the findings stand under the rule while your cursor is in it, and clicking the number selects the rule for Auto refine, Suggest changes and Help me improve.
+- **Rules are numbered.** Each bullet the judge will check shows its number in place of the bullet, 01, 02, in the order Scoring lists them. A bullet that keeps its dot is skipped; point at it for why. An amber number means the writing checks found something: the words that set a check off are underlined (point at one to read why), and clicking the number selects the rule: the popout lists what the checks found over Auto refine, Suggest changes and Help me improve.
 - **Insert** adds a ready-made rule, process or decision tree at the cursor.
 - **Formatted, Markdown, Changes:** read the page styled, as plain text, or as your unsaved changes.
 - **Five bars** (before Write with AI, at the end of the toolbar) show the file's size. Amber: getting long. Red: too long.

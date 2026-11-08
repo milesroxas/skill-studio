@@ -23,7 +23,7 @@ import {
 } from '@codemirror/commands'
 import { Compartment, EditorState, type StateCommand } from '@codemirror/state'
 import { drawSelection, EditorView, keymap, placeholder } from '@codemirror/view'
-import { type RuleScene, sceneOf, worthChecking } from '@domain/lint.ts'
+import { type Finding, type RuleScene, sceneOf, worthChecking } from '@domain/lint.ts'
 import type { EditorMode } from '@domain/preferences.ts'
 import { insertAt, type Snippet } from '@domain/templates.ts'
 import { cva } from 'class-variance-authority'
@@ -53,7 +53,7 @@ import {
   toggleList,
   toggleQuote,
 } from '../editor/format.ts'
-import { gradedRules, ruleAt } from '../editor/graded.ts'
+import { findingsWithin, gradedRules, ruleAt } from '../editor/graded.ts'
 import { skillMarkdown } from '../editor/language.ts'
 import { livePreview } from '../editor/live-preview.ts'
 import { editorTheme, markdownHighlighting } from '../editor/theme.ts'
@@ -235,8 +235,10 @@ export function MarkdownEditor({
 }: MarkdownEditorProps) {
   const host = useRef<HTMLDivElement>(null)
   const editor = useRef<EditorView | null>(null)
-  /** The selection the popout stands over, as the checks read it; null when none is worth checking. */
-  const [tools, setTools] = useState<(RuleScene & { from: number; to: number }) | null>(null)
+  /** The selection the popout stands over, as the checks read it, with what they found; null when none is worth checking. */
+  const [tools, setTools] = useState<
+    (RuleScene & { from: number; to: number; findings: Finding[] }) | null
+  >(null)
   const [toolsOpen, setToolsOpen] = useState(false)
   const anchor = useRef<VirtualAnchor | null>(null)
   const dragging = useRef(false)
@@ -279,7 +281,7 @@ export function MarkdownEditor({
           return new DOMRect(left, start.top, Math.max(right - left, 1), end.bottom - start.top)
         },
       }
-      setTools(scene)
+      setTools({ ...scene, findings: findingsWithin(view.state, scene.from, scene.to) })
       setToolsOpen(true)
     }
     const settled = (view: EditorView) => {
@@ -527,6 +529,7 @@ export function MarkdownEditor({
           onOpenChange={setToolsOpen}
           onClosed={() => editor.current?.focus()}
           scene={tools}
+          findings={tools.findings}
           onApply={(text) => {
             const view = editor.current
             if (view && replaceIn(view, tools.selection, text, tools) === 'missing')

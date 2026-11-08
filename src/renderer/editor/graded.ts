@@ -92,32 +92,6 @@ class RuleNumber extends WidgetType {
   }
 }
 
-/** What the checks found in the rule the cursor is in, under the rule. */
-class Findings extends WidgetType {
-  constructor(readonly findings: Finding[]) {
-    super()
-  }
-  eq(other: Findings) {
-    return (
-      other.findings.length === this.findings.length &&
-      other.findings.every((f, i) => f.message === this.findings[i].message)
-    )
-  }
-  toDOM() {
-    const box = document.createElement('div')
-    box.className = 'cm-md-findings'
-    box.setAttribute('role', 'note')
-    for (const finding of this.findings) {
-      const line = document.createElement('div')
-      const lead = document.createElement('b')
-      lead.textContent = finding.lead
-      line.append(lead, ` ${finding.message}`)
-      box.append(line)
-    }
-    return box
-  }
-}
-
 const skippedLine = (reason: SkippedBullet['reason']) =>
   Decoration.line({ class: 'cm-md-skipped', attributes: { title: SKIPPED[reason] } })
 /** The words that set a check off, underlined, with the finding for the pointer that rests on them. */
@@ -127,10 +101,9 @@ const flagWord = (finding: Finding) =>
     attributes: { title: `${finding.lead} ${finding.message}` },
   })
 
-const decorations = EditorView.decorations.compute([field, hanging, 'selection'], (state) => {
+const decorations = EditorView.decorations.compute([field, hanging], (state) => {
   const { rules, skipped } = state.field(field)
   const hang = state.facet(hanging)
-  const head = state.selection.main.head
   const out: Range<Decoration>[] = []
   for (const bullet of skipped)
     out.push(skippedLine(bullet.reason).range(state.doc.line(bullet.line).from))
@@ -149,15 +122,15 @@ const decorations = EditorView.decorations.compute([field, hanging, 'selection']
       if (at >= 0)
         out.push(flagWord(finding).range(rule.from + at, rule.from + at + finding.quote.length))
     }
-    if (flagged && head >= rule.from && head <= rule.to)
-      out.push(
-        Decoration.widget({ widget: new Findings(rule.findings), block: true, side: 1 }).range(
-          rule.to,
-        ),
-      )
   }
   return Decoration.set(out, true)
 })
+
+/** What the checks found in the rule that holds `from`..`to`; nothing when the range is prose or crosses rules. */
+export function findingsWithin(state: EditorState, from: number, to: number): Finding[] {
+  const rule = ruleAt(state, from)
+  return rule && to <= rule.to ? rule.findings : []
+}
 
 /** The rule whose lines hold `pos`, or null when the position is prose. */
 export function ruleAt(state: EditorState, pos: number): GradedRule | null {

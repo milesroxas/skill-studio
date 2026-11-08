@@ -1,17 +1,19 @@
 /**
- * The popout over a selection in SKILL.md: three ways to improve the selected
- * rule, in one fixed order. Auto refine checks it and rewrites it only when
- * something drifts; Suggest changes offers three labelled rewrites; Help me
- * improve moves to the side panel for a few questions and a draft. The popout
- * takes no focus while it is a row of buttons, so typing goes on in the
- * editor; it takes focus once a result is in it.
+ * The popout over a selection in SKILL.md: what the writing checks found in
+ * the rule, when they found anything, over three ways to improve it, in one
+ * fixed order. Auto refine checks it and rewrites it only when something
+ * drifts; Suggest changes offers three labelled rewrites; Help me improve
+ * moves to the side panel for a few questions and a draft. The popout takes
+ * no focus while it is a row of buttons, so typing goes on in the editor; it
+ * takes focus once a result is in it.
  */
-import type { RuleScene } from '@domain/lint.ts'
+import type { Finding, RuleScene } from '@domain/lint.ts'
 import { type RefObject, useState } from 'react'
-import { RefineBody } from './Refine.tsx'
+import { FindingList, RefineBody } from './Refine.tsx'
 import { RewritesBody } from './Rewrites.tsx'
+import { Text } from './text.tsx'
 import { Button } from './ui/button.tsx'
-import { Popover, PopoverAnchor, PopoverContent } from './ui/popover.tsx'
+import { Popover, PopoverAnchor, PopoverContent, PopoverSection } from './ui/popover.tsx'
 
 type Mode = 'menu' | 'refine' | 'rewrites'
 
@@ -32,6 +34,7 @@ export function SelectionTools({
   onOpenChange,
   onClosed,
   scene,
+  findings,
   onApply,
   onImprove,
 }: {
@@ -41,6 +44,8 @@ export function SelectionTools({
   /** The popout closed: the editor takes focus back. */
   onClosed: () => void
   scene: RuleScene
+  /** What the checks found in the selected rule, shown over the actions; empty for prose. */
+  findings: Finding[]
   /** Put `text` in place of the selection. */
   onApply: (text: string) => void
   onImprove: () => void
@@ -48,6 +53,42 @@ export function SelectionTools({
   const [mode, setMode] = useState<Mode>('menu')
   const pick = (next: Mode) => setMode(next)
   const close = () => onOpenChange(false)
+  const noted = mode === 'menu' && findings.length > 0
+
+  const actions = (
+    <>
+      <Button
+        type="button"
+        variant="ghost"
+        size="sm"
+        onMouseDown={(e) => e.preventDefault()}
+        onClick={() => pick('refine')}
+      >
+        Auto refine
+      </Button>
+      <Button
+        type="button"
+        variant="ghost"
+        size="sm"
+        onMouseDown={(e) => e.preventDefault()}
+        onClick={() => pick('rewrites')}
+      >
+        Suggest changes
+      </Button>
+      <Button
+        type="button"
+        variant="ghost"
+        size="sm"
+        onMouseDown={(e) => e.preventDefault()}
+        onClick={() => {
+          onImprove()
+          close()
+        }}
+      >
+        Help me improve
+      </Button>
+    </>
+  )
 
   return (
     <Popover
@@ -62,7 +103,15 @@ export function SelectionTools({
         side="top"
         align="center"
         sideOffset={8}
-        size={mode === 'menu' ? 'selection' : mode === 'refine' ? 'compose' : 'compose-wide'}
+        size={
+          mode === 'menu'
+            ? noted
+              ? 'compose'
+              : 'selection'
+            : mode === 'refine'
+              ? 'compose'
+              : 'compose-wide'
+        }
         aria-label={TITLES[mode]}
         // A row of buttons takes no focus: the selection stays live in the editor.
         onOpenAutoFocus={(event) => event.preventDefault()}
@@ -73,39 +122,20 @@ export function SelectionTools({
         // Its own surface, though React nests it in the screen: a shortcut typed here is not the screen's.
         onKeyDown={(event) => event.stopPropagation()}
       >
-        {mode === 'menu' ? (
+        {noted ? (
           <>
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onMouseDown={(e) => e.preventDefault()}
-              onClick={() => pick('refine')}
-            >
-              Auto refine
-            </Button>
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onMouseDown={(e) => e.preventDefault()}
-              onClick={() => pick('rewrites')}
-            >
-              Suggest changes
-            </Button>
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onMouseDown={(e) => e.preventDefault()}
-              onClick={() => {
-                onImprove()
-                close()
-              }}
-            >
-              Help me improve
-            </Button>
+            <PopoverSection pad="text">
+              <Text size="ui" weight="medium">
+                Writing checks
+              </Text>
+              <FindingList findings={findings} />
+            </PopoverSection>
+            <PopoverSection>
+              <div className="flex items-center gap-0.5">{actions}</div>
+            </PopoverSection>
           </>
+        ) : mode === 'menu' ? (
+          actions
         ) : mode === 'refine' ? (
           <RefineBody
             scene={scene}

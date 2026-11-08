@@ -29,7 +29,7 @@ function FindingLine({ finding }: { finding: Finding }) {
   )
 }
 
-function FindingList({ findings }: { findings: Finding[] }) {
+export function FindingList({ findings }: { findings: Finding[] }) {
   return (
     <ul className="m-0 flex list-none flex-col gap-2.5 p-0">
       {findings.map((finding) => (

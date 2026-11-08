@@ -79,13 +79,6 @@ export const editorTheme = EditorView.theme({
     textDecorationColor: 'var(--warning)',
     textUnderlineOffset: '3px',
   },
-  '.cm-md-findings': {
-    padding: `0.15em ${GUTTER} 0.6em calc(${GUTTER} + ${MARK_SLOT}em)`,
-    fontSize: '0.85em',
-    lineHeight: '1.5',
-    color: 'var(--muted-foreground)',
-  },
-  '.cm-md-findings b': { fontWeight: '500', color: 'var(--warning)' },
   '.cm-cursor, .cm-dropCursor': { borderLeftColor: 'var(--foreground)', borderLeftWidth: '1.5px' },
   '&.cm-focused > .cm-scroller > .cm-selectionLayer .cm-selectionBackground, .cm-selectionBackground, .cm-content ::selection':
     { backgroundColor: 'color-mix(in oklch, var(--foreground) 13%, transparent)' },
