@@ -25,6 +25,8 @@ Each pack adds its own keys, below. `--packs a,b` and `--bench <file>` override 
 
 ## Packs
 
+A check's weight (1 to 5, `weight` in its grader file's front matter, 1 when absent) multiplies it inside the layer that asks the case's checks: `rubric` (generic), `review` (code) and `visual` (design). A layer is the weighted share of its checks that read as yes, so one check at weight 2 counts as two. An unmet check's flag names its weight when it is not 1. Layer weights in `bench.json` are a different thing: points per layer.
+
 | Pack | Judges | Layers (default points) | Keys in `bench.json` |
 | --- | --- | --- | --- |
 | `generic` | Markdown | adherence 50 (one question per skill rule), rubric 50 (one per check) | `rules` |

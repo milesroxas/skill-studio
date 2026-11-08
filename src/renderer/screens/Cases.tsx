@@ -5,7 +5,7 @@
  * typing.
  */
 
-import { assistItems } from '@domain/assist.ts'
+import { checkItems } from '@domain/assist.ts'
 import { blankDraft, CHECK_WEIGHT, draftOf, newCheck, picturesOf } from '@domain/case-draft.ts'
 import { addImages, type ImageRef, MAX_IMAGES } from '@domain/image.ts'
 import { type CaseDraft, NEW_CASE_KEY } from '@domain/schemas.ts'
@@ -134,12 +134,16 @@ export function Cases({ ctx }: { ctx: Ctx }) {
     set({ graders: [...draft.graders.slice(0, at), newCheck(), ...draft.graders.slice(at)] })
     setFocusCheck(at)
   }
-  /** Checks the assistant wrote join the list, in place of any row left blank. */
-  const addChecks = (written: string[]) =>
+  /** Checks the assistant wrote join the list, in place of any row left blank, each at the weight it named or 1. */
+  const addChecks = (written: ReturnType<typeof checkItems>) =>
     set({
       graders: [
         ...draft.graders.filter((g) => g.statement.trim() || g.image),
-        ...written.map((statement) => ({ ...newCheck(), statement })),
+        ...written.map(({ statement, weight }) => ({
+          ...newCheck(),
+          statement,
+          weight: weight ?? 1,
+        })),
       ],
     })
   /** Take a check out. One with a statement can come back: a slip costs a sentence otherwise. */
@@ -589,7 +593,7 @@ export function Cases({ ctx }: { ctx: Ctx }) {
                     // It opens under the row of buttons, never over the checks it adds to.
                     anchor={checkTools}
                     {...assist}
-                    onApply={(text) => addChecks(assistItems(text))}
+                    onApply={(text) => addChecks(checkItems(text))}
                   >
                     <Button type="button" variant="ghost" size="sm">
                       <PenLineIcon aria-hidden="true" />

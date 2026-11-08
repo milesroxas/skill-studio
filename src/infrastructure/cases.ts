@@ -1,5 +1,6 @@
 import { copyFileSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { basename, extname, join } from 'node:path'
+import { checkWeight } from '@domain/case-draft.ts'
 import { mergeConfig } from '@domain/config.ts'
 import { type ImageFormat, imageFileName, imageTypeOf } from '@domain/image.ts'
 import type { Rule } from '@domain/rules.ts'
@@ -69,7 +70,8 @@ function readGraders(skillDir: string, rel: string): Grader[] {
         id: name.replace(/\.md$/, ''),
         type: metaText(meta, 'type') ?? 'llm',
         focus: metaText(meta, 'focus'),
-        weight: positive(meta, 'weight') ?? 1,
+        // Held to the range the form offers, so a file written by hand scores as it shows.
+        weight: checkWeight(positive(meta, 'weight')) ?? 1,
         statement: text,
         image: image && isFile(join(skillDir, rel, image)) ? `${rel}/${image}` : null,
       },
@@ -298,7 +300,7 @@ export function saveCase(
     const meta: Record<string, unknown> = isFile(path)
       ? readFrontMatter(readFileSync(path, 'utf8')).meta
       : { type: 'llm' }
-    const weight = Number.isFinite(g.weight) && g.weight > 0 ? g.weight : 1
+    const weight = checkWeight(g.weight) ?? 1
     if (weight === 1) delete meta.weight
     else meta.weight = weight
     if (g.image?.upload) {

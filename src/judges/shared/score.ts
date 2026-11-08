@@ -15,4 +15,6 @@ export interface StatementAnswer {
 export const clip = (text: string, max = 110): string =>
   text.length > max ? `${text.slice(0, max - 1).trimEnd()}…` : text
 
-export const unmetFlag = (s: StatementAnswer): string => `grader ${s.id} not met: ${clip(s.text)}`
+/** An unmet check, with its weight when that is not the usual 1: a weighted miss costs more of the layer. */
+export const unmetFlag = (s: StatementAnswer): string =>
+  `grader ${s.id}${s.weight === 1 ? '' : ` (weight ${s.weight})`} not met: ${clip(s.text)}`

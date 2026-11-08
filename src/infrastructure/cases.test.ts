@@ -45,6 +45,16 @@ describe('case folders', () => {
     ])
   })
 
+  it('holds a hand-written weight to 1 to 5, and reads a missing or bad one as 1', () => {
+    writeCase('w', 'Write it.', {
+      g1: '---\nweight: 10\n---\n\nToo heavy.\n',
+      g2: '---\nweight: 0.4\n---\n\nToo light.\n',
+      g3: '---\nweight: two\n---\n\nNot a number.\n',
+    })
+    const [loaded] = loadCases(skill)
+    expect(loaded.graders.map((g) => g.weight)).toEqual([5, 1, 1])
+  })
+
   it('keeps grader fields it does not edit and writes front matter that reads back', () => {
     writeCase('c', '---\nmax_turns: 3\n---\nOld prompt.', {
       g1: '---\ntype: llm\nfocus: "tone: calm"\nweight: 2\n---\n\nIs it calm?\n',

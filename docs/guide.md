@@ -178,7 +178,7 @@ A case is one task for the agent: a request, plus checks a good answer passes.
 3. **Prompt:** what a user would ask. Do not mention the skill: the test is whether the agent uses it on its own.
 4. **Pictures** (optional): a screenshot or mock-up the prompt is about.
 5. **A good answer:** one or two sentences on what it does.
-6. **Checks:** one fact per row that a good answer makes true. The picture button in a check's corner attaches a mock-up or screenshot the check is about. **Weight** is how much the check counts: 2 counts twice as much as 1.
+6. **Checks:** one fact per row that a good answer makes true. The picture button in a check's corner attaches a mock-up or screenshot the check is about. **Weight** is how much the check counts: 2 counts twice as much as 1. **Write checks with AI** adds checks from the prompt; say in the request if one should count more.
 7. **Length** (optional): tick it to score the word count.
 8. Click **Add case**.
 

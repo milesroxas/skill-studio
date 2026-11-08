@@ -14,6 +14,7 @@ import {
   workingSkill,
 } from '@domain/assist.ts'
 import { leaderboards, voteKeys } from '@domain/bradley-terry.ts'
+import { checkWeight } from '@domain/case-draft.ts'
 import { type ImageRef, MAX_IMAGES } from '@domain/image.ts'
 import { type RuleScene, worthChecking } from '@domain/lint.ts'
 import { LOOK_STEPS } from '@domain/practice.ts'
@@ -206,7 +207,7 @@ function caseDraftOf(value: unknown): CaseDraft {
       return {
         id: typeof g.id === 'string' ? g.id : null,
         statement: str(g.statement),
-        weight: num(g.weight, 1),
+        weight: checkWeight(g.weight) ?? 1,
         image: imageRefOf(g.image),
       }
     }),
