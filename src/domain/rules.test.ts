@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { rulesFromList, rulesFromSkill } from './rules.ts'
+import { rulesFromList, rulesFromSkill, scanRules } from './rules.ts'
 
 const skill = `---
 name: tidy-writer
@@ -87,5 +87,28 @@ describe('rulesFromList', () => {
     expect(rulesFromList(['  Be brief. '])).toEqual([
       { id: 'r1', text: 'Be brief.', section: 'bench.json rules' },
     ])
+  })
+})
+
+describe('scanRules', () => {
+  it('names the line of each rule, front matter included, and each bullet it skipped', () => {
+    const scan = scanRules(skill)
+    expect(scan.rules.map((r) => r.text)).toEqual(rulesFromSkill(skill).map((r) => r.text))
+    // Line 8 is the first bullet: three front matter lines, a blank, the title and a blank before it.
+    // The wrapped bullet on line 14 takes line 15 with it.
+    expect(scan.spans).toEqual([
+      { from: 8, to: 8 },
+      { from: 13, to: 13 },
+      { from: 14, to: 15 },
+      { from: 24, to: 24 },
+    ])
+    expect(scan.skipped).toEqual([
+      { line: 9, reason: 'short' },
+      { line: 16, reason: 'link' },
+    ])
+  })
+
+  it('counts lines from one when there is no front matter', () => {
+    expect(scanRules('- One two three four.\n').spans).toEqual([{ from: 1, to: 1 }])
   })
 })

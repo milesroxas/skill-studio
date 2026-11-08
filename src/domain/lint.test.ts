@@ -64,6 +64,14 @@ describe('lintScene', () => {
     )
   })
 
+  it('reads a quoted word as a mention, not a hedge', () => {
+    expect(
+      principles(
+        '- Never write "reasonably" or "where appropriate": they give the agent nothing to act on.',
+      ),
+    ).not.toContain('strict')
+  })
+
   it('skips headings, numbered steps and code', () => {
     expect(
       lintScene(scene('## Rules\n\n1. Read it reasonably.\n\n```\ntry to be nice\n```\n')),

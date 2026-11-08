@@ -53,6 +53,7 @@ import {
   toggleList,
   toggleQuote,
 } from '../editor/format.ts'
+import { gradedRules, ruleAt } from '../editor/graded.ts'
 import { skillMarkdown } from '../editor/language.ts'
 import { livePreview } from '../editor/live-preview.ts'
 import { editorTheme, markdownHighlighting } from '../editor/theme.ts'
@@ -212,6 +213,8 @@ interface MarkdownEditorProps {
    * what the skill is about, which the checks read; errors go to the screen.
    */
   refine?: { description: string; onError: (message: string) => void }
+  /** This SKILL.md's bullets are what the judge grades: mark and number them in the margin. */
+  graded?: boolean
 }
 
 /** Mount once per file: give each file its own `key`, so undo history never crosses files. */
@@ -228,6 +231,7 @@ export function MarkdownEditor({
   instead,
   assist,
   refine,
+  graded = false,
 }: MarkdownEditorProps) {
   const host = useRef<HTMLDivElement>(null)
   const editor = useRef<EditorView | null>(null)
@@ -245,11 +249,13 @@ export function MarkdownEditor({
   /** Whether there is a step to take back, and one to take again. */
   const [steps, setSteps] = useState({ undo: false, redo: false })
   const modes = useRef(new Compartment())
-  const latest = useRef({ id, value, mode, hint, label, onChange, onSave })
-  latest.current = { id, value, mode, hint, label, onChange, onSave }
+  const grading = useRef(new Compartment())
+  const about = refine?.description ?? ''
+  const latest = useRef({ id, value, mode, hint, label, graded, about, onChange, onSave })
+  latest.current = { id, value, mode, hint, label, graded, about, onChange, onSave }
 
   useEffect(() => {
-    const { id, value, mode, hint, label } = latest.current
+    const { id, value, mode, hint, label, graded, about } = latest.current
     const nonce = styleNonce()
     /** Put the popout over the selection, or take it away, once the selection has settled. */
     const place = (view: EditorView) => {
@@ -309,13 +315,25 @@ export function MarkdownEditor({
       hint ? placeholder(hint) : [],
       EditorView.contentAttributes.of({ 'aria-label': label, spellcheck: 'false' }),
       EditorView.domEventHandlers({
-        mousedown: () => {
+        mousedown: (event, view) => {
+          // A click on a rule's number selects the rule, and the popout opens on it.
+          const number = (event.target as HTMLElement).closest?.('.cm-md-rulenum')
+          if (number) {
+            const rule = ruleAt(view.state, view.posAtDOM(number))
+            if (rule) {
+              view.dispatch({ selection: { anchor: rule.from, head: rule.to } })
+              view.focus()
+              settled(view)
+              return true
+            }
+          }
           dragging.current = true
           return false
         },
       }),
       nonce ? EditorView.cspNonce.of(nonce) : [],
       modes.current.of(mode === 'formatted' ? livePreview : []),
+      grading.current.of(graded ? gradedRules(about, mode === 'markdown') : []),
       EditorView.updateListener.of((update) => {
         if (update.docChanged) latest.current.onChange(update.state.doc.toString())
         count(update.state)
@@ -380,6 +398,12 @@ export function MarkdownEditor({
       effects: modes.current.reconfigure(mode === 'formatted' ? livePreview : []),
     })
   }, [mode])
+
+  useEffect(() => {
+    editor.current?.dispatch({
+      effects: grading.current.reconfigure(graded ? gradedRules(about, mode === 'markdown') : []),
+    })
+  }, [graded, about, mode])
 
   useImperativeHandle(
     ref,

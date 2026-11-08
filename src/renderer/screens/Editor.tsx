@@ -12,7 +12,6 @@
 
 import { byFileOrder } from '@domain/paths.ts'
 import { applyPracticeEdit, PRACTICE_EDIT } from '@domain/practice.ts'
-import { rulesFromSkill } from '@domain/rules.ts'
 import {
   applyTemplate,
   EXAMPLE_KINDS,
@@ -35,7 +34,6 @@ import {
   ColumnSection,
   ColumnTitle,
   EmptyState,
-  List,
   ListHeader,
   Loading,
   PlainList,
@@ -232,7 +230,8 @@ export function Editor({ ctx }: { ctx: Ctx }) {
 
   const isSkill = file === 'SKILL.md'
   const meta = isSkill ? readFrontMatter(text).meta : {}
-  const rules = isSkill && !config.rules?.length ? rulesFromSkill(text) : []
+  /** The bullets are the judge's rules, so the editor marks them; not when bench.json names its own. */
+  const graded = isSkill && !config.rules?.length
   const diff = showDiff ? lineDiff(saved ?? '', text) : []
   /** SKILL.md says nothing yet: the sidebar shows how to write a rule and keeps the rest for later. */
   const blank = isSkill && isScaffold(text)
@@ -361,6 +360,20 @@ export function Editor({ ctx }: { ctx: Ctx }) {
           </ColumnSection>
         </nav>
 
+        {blank ? null : (
+          <ColumnSection inset="list" title="Version">
+            <Hint>
+              {current.changed
+                ? `The saved files are not a version yet. A version is a copy of them to come back to; ${current.version} is next.`
+                : `The saved files are ${current.version}${current.name ? `, ${current.name}` : ''}.`}
+            </Hint>
+            <Toolbar>
+              <Button type="button" variant="outline" size="sm" onClick={() => go('versions')}>
+                {current.changed ? `Save as ${current.version}` : 'See versions'}
+              </Button>
+            </Toolbar>
+          </ColumnSection>
+        )}
         <ColumnSection inset="list" title="Insert">
           <Toolbar>
             {SNIPPETS.map((s) => (
@@ -385,44 +398,6 @@ export function Editor({ ctx }: { ctx: Ctx }) {
             </GuideList>
           </GuideBox>
         </ColumnSection>
-
-        {isSkill && !blank ? (
-          <ColumnSection inset="list" title="Graded rules">
-            {config.rules?.length ? (
-              <Hint>
-                <Code>bench.json</Code> lists its own rules, so SKILL.md bullets are not used.
-              </Hint>
-            ) : rules.length ? (
-              <List variant="number" size="xs" gap="sm">
-                {rules.map((r) => (
-                  <li key={r.id}>
-                    {r.text}
-                    {r.section ? <Text tone="muted"> · {r.section}</Text> : null}
-                  </li>
-                ))}
-              </List>
-            ) : (
-              <Hint>
-                Rules you write show up here: each top-level bullet of four words or more.
-              </Hint>
-            )}
-          </ColumnSection>
-        ) : null}
-
-        {blank ? null : (
-          <ColumnSection inset="list" title="Version">
-            <Hint>
-              {current.changed
-                ? `The saved files are not a version yet. A version is a copy of them to come back to; ${current.version} is next.`
-                : `The saved files are ${current.version}${current.name ? `, ${current.name}` : ''}.`}
-            </Hint>
-            <Toolbar>
-              <Button type="button" variant="outline" size="sm" onClick={() => go('versions')}>
-                {current.changed ? `Save as ${current.version}` : 'See versions'}
-              </Button>
-            </Toolbar>
-          </ColumnSection>
-        )}
       </Column>
 
       <Column>
@@ -505,6 +480,7 @@ export function Editor({ ctx }: { ctx: Ctx }) {
           value={text}
           onChange={edit}
           onSave={save}
+          graded={graded}
           refine={
             isSkill
               ? {

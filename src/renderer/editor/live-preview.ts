@@ -15,6 +15,7 @@ import {
   type ViewUpdate,
   WidgetType,
 } from '@codemirror/view'
+import { ruleBulletAt } from './graded.ts'
 
 const hide = Decoration.replace({})
 const marks = new Map<string, Decoration>()
@@ -154,6 +155,10 @@ function decorate(view: EditorView): DecorationSet {
         case 'QuoteMark':
           if (!onLines(from, to)) hideWithSpace(from, to)
           return
+        case 'ListItem':
+          // A hanging indent: lines that wrap start under the item's text, not under its mark.
+          out.push(line('cm-md-li').range(doc.lineAt(from).from))
+          return
         case 'ListMark': {
           const item = node.node.parent
           const task = item?.getChild('Task')
@@ -162,8 +167,12 @@ function decorate(view: EditorView): DecorationSet {
             return
           }
           if (touches(from, to + 1)) return
-          if (task) out.push(hide.range(from, Math.min(to + 1, task.from)))
-          else out.push(BULLET.range(from, to))
+          if (task) {
+            out.push(hide.range(from, Math.min(to + 1, task.from)))
+            return
+          }
+          // A graded rule's number stands in for its bullet.
+          out.push((ruleBulletAt(state, doc.lineAt(from).from) ?? BULLET).range(from, to))
           return
         }
         case 'TaskMarker': {

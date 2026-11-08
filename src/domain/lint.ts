@@ -218,7 +218,8 @@ export function rulesIn(selection: string): Array<{ raw: string; text: string }>
 function checkUnit(unit: { raw: string; text: string }): Finding[] {
   const { raw, text } = unit
   const out: Finding[] = []
-  const lower = text.toLowerCase()
+  // A word in quotes is mentioned, not used: a rule that bans "reasonably" is not hedging.
+  const lower = text.toLowerCase().replace(/["“”][^"“”]*["“”]/g, ' ')
   const words = count(text)
   if (words < WORDS_MIN) return out
 

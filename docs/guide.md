@@ -104,11 +104,11 @@ A skill missing from the list?
 
 ## 2. Write the skill
 
-![The Editor: the files, Insert buttons and Graded rules on the left; SKILL.md in the editor on the right, with a formatting toolbar under a switch for Formatted, Markdown or Changes.](images/editor.webp)
+![The Editor: the files, the version, Insert buttons and the count of rules the judge will check on the left; SKILL.md in the editor on the right, each graded rule numbered in the margin, with a formatting toolbar under a switch for Formatted, Markdown or Changes.](images/editor.webp)
 
 - **Write** the skill's rules in the editor. Save with **Save** or Cmd+S.
 - **An empty SKILL.md** has one line over it: write the first rule, take a template's rules, or draft rules with AI. It goes once you write.
-- **Graded rules** (left) lists each rule exactly as the judge will check it.
+- **Rules are numbered.** Each bullet the judge will check shows its number in place of the bullet, 01, 02, in the order Scoring lists them. A bullet that keeps its dot is skipped; point at it for why. An amber number means the writing checks found something: the words that set a check off are underlined (point at one to read why), the findings stand under the rule while your cursor is in it, and clicking the number selects the rule for Auto refine, Suggest changes and Help me improve.
 - **Insert** adds a ready-made rule, process or decision tree at the cursor.
 - **Formatted, Markdown, Changes:** read the page styled, as plain text, or as your unsaved changes.
 - **Five bars** (before Write with AI, at the end of the toolbar) show the file's size. Amber: getting long. Red: too long.
@@ -292,7 +292,7 @@ To be sure an edit helped, run it against "Old skill" on the same cases, with 2 
 | An agent says "(not set up)" in New run | Install that agent and sign in to it |
 | A skill is missing from the Library | Choose All, click the round arrow, or add its folder under "Where skills are found" |
 | A save is refused | The file changed outside the app. "Keep my draft", then Save, writes yours over it; "Use the file on disk" keeps the other |
-| A rule is missing from Graded rules | Make it a bullet of four words or more, outside a numbered list |
+| A bullet keeps its dot and gets no number | Make it a bullet of four words or more, outside a numbered list, and not only a link |
 | A score looks wrong | Read the transcript, then rate the answer blind |
 
 Only test skills you trust. A skill can make the agent run code on your computer.

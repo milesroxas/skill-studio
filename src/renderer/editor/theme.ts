@@ -12,6 +12,8 @@ import { tagHighlighter, tags } from '@lezer/highlight'
 
 const MONO = 'var(--font-mono, ui-monospace, monospace)'
 const GUTTER = '24px'
+/** The width a list mark takes, in the line's em: a bullet, a rule's number, or `1.`. */
+const MARK_SLOT = 1.4
 /** A full-width band behind a line, inset to the text's edges, for code and front matter. */
 const band = (color: string) => ({
   backgroundImage: `linear-gradient(${color}, ${color})`,
@@ -50,6 +52,40 @@ export const editorTheme = EditorView.theme({
   '.cm-scroller': { fontFamily: 'inherit', lineHeight: 'inherit' },
   '.cm-content': { padding: '20px 0 64px', caretColor: 'var(--foreground)' },
   '.cm-line': { padding: `0 ${GUTTER}` },
+  // A graded rule's number stands where its bullet was, in the same slot, so rules and plain
+  // bullets share one text edge. In the Markdown view it hangs before the source mark instead.
+  // Amber when the checks found something; the words that set a check off are underlined, and
+  // the findings stand under the rule while the cursor is in it.
+  '.cm-md-rulenum': {
+    display: 'inline-block',
+    width: `${MARK_SLOT / 0.8}em`,
+    textIndent: '0',
+    fontFamily: MONO,
+    fontSize: '0.8em',
+    fontVariantNumeric: 'tabular-nums',
+    color: 'var(--muted-foreground)',
+    cursor: 'pointer',
+    userSelect: 'none',
+  },
+  '.cm-md-rulenum.cm-md-hanging': {
+    width: `${MARK_SLOT / 0.8}em`,
+    marginLeft: `-${MARK_SLOT / 0.8}em`,
+    paddingRight: '0.45em',
+    textAlign: 'right',
+  },
+  '.cm-md-rulenum.cm-md-flagged': { color: 'var(--warning)' },
+  '.cm-md-flag': {
+    textDecoration: 'underline dotted',
+    textDecorationColor: 'var(--warning)',
+    textUnderlineOffset: '3px',
+  },
+  '.cm-md-findings': {
+    padding: `0.15em ${GUTTER} 0.6em calc(${GUTTER} + ${MARK_SLOT}em)`,
+    fontSize: '0.85em',
+    lineHeight: '1.5',
+    color: 'var(--muted-foreground)',
+  },
+  '.cm-md-findings b': { fontWeight: '500', color: 'var(--warning)' },
   '.cm-cursor, .cm-dropCursor': { borderLeftColor: 'var(--foreground)', borderLeftWidth: '1.5px' },
   '&.cm-focused > .cm-scroller > .cm-selectionLayer .cm-selectionBackground, .cm-selectionBackground, .cm-content ::selection':
     { backgroundColor: 'color-mix(in oklch, var(--foreground) 13%, transparent)' },
@@ -95,7 +131,17 @@ export const editorTheme = EditorView.theme({
     backgroundRepeat: 'no-repeat',
     paddingLeft: `calc(${GUTTER} + 14px)`,
   },
-  '.cm-md-bullet': { color: 'var(--muted-foreground)', paddingRight: '0.15em' },
+  // List items hang: the mark takes a fixed slot and wrapped lines start under the text.
+  '.cm-line.cm-md-li': {
+    paddingLeft: `calc(${GUTTER} + ${MARK_SLOT}em)`,
+    textIndent: `-${MARK_SLOT}em`,
+  },
+  '.cm-md-bullet': {
+    display: 'inline-block',
+    width: `${MARK_SLOT}em`,
+    textIndent: '0',
+    color: 'var(--muted-foreground)',
+  },
   '.cm-md-number': { color: 'var(--muted-foreground)', fontVariantNumeric: 'tabular-nums' },
   '.cm-md-task': {
     width: '0.95em',
