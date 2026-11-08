@@ -5,6 +5,7 @@ import type { PackScoring } from './pack.ts'
 const pack = (id: string, defaults: PackScoring['defaults']): PackScoring => ({
   id,
   layers: [],
+  checks: null,
   defaults,
   layerHome: {},
   score: () => ({ layers: {}, flags: [] }),

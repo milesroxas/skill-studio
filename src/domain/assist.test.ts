@@ -6,7 +6,6 @@ import {
   assistPrompt,
   assistText,
   chatSystem,
-  checkItems,
   partialText,
   REFERENCE_BUDGET,
   weightNote,
@@ -128,19 +127,6 @@ describe('assistText', () => {
     expect(() => assistText({ field: 'case.checks', current: '' }, reply('-\n \n'))).toThrow(
       'no text',
     )
-  })
-
-  it('reads a weight a check line ends with, and leaves the rest at none', () => {
-    expect(
-      checkItems(
-        'The note names Priya. (weight 2)\nThe note gives the date.\nThe note is short (Weight 9)\nThe note ends. (x3)',
-      ),
-    ).toEqual([
-      { statement: 'The note names Priya.', weight: 2 },
-      { statement: 'The note gives the date.', weight: null },
-      { statement: 'The note is short', weight: 5 },
-      { statement: 'The note ends.', weight: 3 },
-    ])
   })
 
   it('trims a block and ends a file with one newline', () => {

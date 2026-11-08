@@ -57,7 +57,7 @@ A score is out of 100 and always shows through one of these, from `components/Sc
 | `Delta` | a change between two scores: "+15" in `success`, "−4" in `destructive` |
 | `Layers` | each layer's score with a bar. Bars stay grey until a layer is weak. |
 | `Flags` | the list of what a grader flagged |
-| `CheckWeight` | how much a check counts, after its statement, only when it is not 1: "weight 2". Rate blind's check list and the Assistant's case change use it. |
+| `CheckWeight` | a check's ×2 mark after its statement, only when it counts more than 1. The Assistant's case change uses it; Rate blind lists checks without it, since a rater judges the output, not the scoring. |
 
 Bands come from `scoreBand()` in `model.ts`. Never compare a score to a number in a component: the bands are tuned in one place.
 

@@ -52,6 +52,7 @@ const confidenceCode = (raw: CodeRaw | null): number | null =>
 export const codeScoring: PackScoring<CodeRaw> = {
   id: 'code',
   layers: ['check', 'review'],
+  checks: 'review',
   defaults: {
     weights: { check: 60, review: 40 },
     /** Seconds the check command may run, and how many characters of code the review question reads. */
@@ -60,11 +61,11 @@ export const codeScoring: PackScoring<CodeRaw> = {
   layerHome: {
     check: {
       skill: 'The part of SKILL.md that says how the code must run or be tested',
-      bench: "The case's bench.check command, or the check weight",
+      bench: "The case's bench.check command, or the check points",
     },
     review: {
       skill: 'The SKILL.md section that should produce what the failed statement asks for',
-      bench: "The case's graders/*.md statements, the review weight, or yes",
+      bench: "The case's graders/*.md statements, the review points, or yes",
     },
   },
   score: scoreCode,

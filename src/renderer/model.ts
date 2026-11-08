@@ -1,8 +1,9 @@
 /** Outputs across runs, their scores under the current knobs, and display names. */
 import { mergeConfig } from '@domain/config.ts'
+import type { PackScoring } from '@domain/pack.ts'
 import { parseSampleDir } from '@domain/run-name.ts'
 import type { BenchConfig, LayerHome, ReportResult, Review, Writer } from '@domain/schemas.ts'
-import { layerOrder, type Scored, scoreResult } from '@domain/scoring.ts'
+import { checkReaders, layerOrder, type Scored, scoreResult } from '@domain/scoring.ts'
 import { scorers } from '@judges/scorers.ts'
 import type { RunView, Sample, State } from './api.ts'
 
@@ -89,6 +90,12 @@ export const mergedConfig = (saved: Partial<BenchConfig> | null): BenchConfig =>
 /** Layers the active packs score, without the total. */
 export const layersOf = (config: BenchConfig): string[] =>
   layerOrder(config, scorers).filter((l) => l !== 'total')
+
+/** The active packs that mark a case's checks; empty when no judge reads them. */
+export const checkReadersOf = (config: BenchConfig): PackScoring[] => checkReaders(config, scorers)
+
+/** The packs that would mark a case's checks if they were active. */
+export const CHECK_READERS: PackScoring[] = scorers.filter((p) => p.checks !== null)
 
 export const layerHomeOf = (layer: string): LayerHome | null => {
   for (const pack of scorers) if (pack.layerHome[layer]) return pack.layerHome[layer]

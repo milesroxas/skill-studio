@@ -57,16 +57,17 @@ function confidenceGeneric(raw: GenericRaw | null): number | null {
 export const genericScoring: PackScoring<GenericRaw> = {
   id: 'generic',
   layers: ['adherence', 'rubric'],
+  checks: 'rubric',
   defaults: { weights: { adherence: 50, rubric: 50 } },
   layerHome: {
     adherence: {
       skill: 'The violated rule, in the SKILL.md section each flag names',
-      bench: 'rules in evals/bench.json (which bullets count), the adherence weight, or yes',
+      bench: 'rules in evals/bench.json (which bullets count), the adherence points, or yes',
     },
     rubric: {
       skill:
         'The part of SKILL.md or its references that should produce what the failed statement asks for',
-      bench: "The case's graders/*.md statements, the rubric weight, or yes",
+      bench: "The case's graders/*.md statements, the rubric points, or yes",
     },
   },
   score: scoreGeneric,

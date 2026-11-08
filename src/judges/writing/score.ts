@@ -256,6 +256,7 @@ function confidenceWriting(raw: WritingRaw | null): number | null {
 export const writingScoring: PackScoring<WritingRaw> = {
   id: 'writing',
   layers: WRITING_LAYERS,
+  checks: null,
   defaults: {
     weights: { lint: 15, shape: 15, structure: 20, substance: 25, tone: 10, grounding: 15 },
     /** The kind a case takes when its bench names none; KIND_LAYERS picks the layers. */
@@ -288,7 +289,7 @@ export const writingScoring: PackScoring<WritingRaw> = {
     },
     shape: {
       skill: 'The paragraph, sentence and heading guidance in the references',
-      bench: 'bands, or the shape weight',
+      bench: 'bands, or the shape points',
     },
     structure: {
       skill: 'The open, close and title guidance in the references',
@@ -300,7 +301,7 @@ export const writingScoring: PackScoring<WritingRaw> = {
     },
     tone: {
       skill: 'The stance and voice guidance in SKILL.md or the references',
-      bench: 'The selling question, or the tone weight',
+      bench: 'The selling question, or the tone points',
     },
     grounding: {
       skill: 'How SKILL.md asks for claims to be sourced',

@@ -99,6 +99,7 @@ const confidenceWorkflow = (raw: WorkflowRaw | null): number | null =>
 export const workflowScoring: PackScoring<WorkflowRaw> = {
   id: 'workflow',
   layers: ['efficiency', 'scope', 'process'],
+  checks: null,
   defaults: {
     weights: { efficiency: 40, scope: 20, process: 40 },
     /**
@@ -115,7 +116,7 @@ export const workflowScoring: PackScoring<WorkflowRaw> = {
     },
     scope: {
       skill: 'What SKILL.md tells the agent to read; it reached outside the sample',
-      bench: 'The scope weight',
+      bench: 'The scope points',
     },
     process: {
       skill:

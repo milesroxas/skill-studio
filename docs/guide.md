@@ -146,7 +146,7 @@ Exact, with its reason:
 - **Ask:** click the small button in any text box, or **Write with AI** in the editor toolbar. Say what you want.
 - **Nothing changes** until you click **Replace** or **Insert**.
 - **Select text first** to rewrite only that part.
-- **Assistant** (top right, or Cmd+J): a chat beside every screen. It reads the open skill as you have it, unsaved edits and new files included, and knows the screen you are on and the file or case you have open. Ask it to change something and the reply shows each change under it: a file's changes, a new case, or a version to save first. A case it adds or replaces can set a check's weight: ask for it. Click the button under a change to apply it. Undo in the status line takes it back. Nothing changes until you click.
+- **Assistant** (top right, or Cmd+J): a chat beside every screen. It reads the open skill as you have it, unsaved edits and new files included, and knows the screen you are on and the file or case you have open. Ask it to change something and the reply shows each change under it: a file's changes, a new case, or a version to save first. A case it adds or replaces can mark a check ×2: ask for it. Click the button under a change to apply it. Undo in the status line takes it back. Nothing changes until you click.
 - **Commands in the Assistant:** type `/` and pick from the list, or keep typing a name; Tab takes the one shown. `/clear` starts a new conversation, `/settings` and `/guide` open those screens. While a reply is written, the send button becomes Stop.
 - **Run a skill in the Assistant:** with Claude Code as the model, the same list holds the skills your CLI knows. Pick one, add any words it takes and press Return. The skill shapes the reply the way it would in your terminal, and still nothing in your files changes.
 
@@ -178,7 +178,7 @@ A case is one task for the agent: a request, plus checks a good answer passes.
 3. **Prompt:** what a user would ask. Do not mention the skill: the test is whether the agent uses it on its own.
 4. **Pictures** (optional): a screenshot or mock-up the prompt is about.
 5. **A good answer:** one or two sentences on what it does.
-6. **Checks:** one fact per row that a good answer makes true. The picture button in a check's corner attaches a mock-up or screenshot the check is about. **Weight** is how much the check counts: 2 counts twice as much as 1. **Write checks with AI** adds checks from the prompt; say in the request if one should count more.
+6. **Checks:** one fact per row that a good answer makes true. The picture button in a check's corner attaches a mock-up or screenshot the check is about. **×2** makes a check count double. **Write checks with AI** adds checks from the prompt.
 7. **Length** (optional): tick it to score the word count.
 8. Click **Add case**.
 
@@ -265,12 +265,12 @@ This screen fills in once you have rated some answers. Each layer lands in one o
 
 ## 8. Tune the scoring
 
-![Scoring: every graded output with its layer scores and total on the left; on the right the packs, a slider per layer weight, and Save.](images/scoring.webp)
+![Scoring: every graded output with its layer scores and total on the left; on the right the packs, a slider per layer's points, and Save.](images/scoring.webp)
 
 Move a setting and every score updates at once. Nothing runs again, so it costs nothing.
 
 - **Packs:** which sets of judge questions grade this skill.
-- **Layer weights:** how much each layer counts.
+- **Points per layer:** how much each layer counts.
 - **Thresholds:** when a judge's answer counts as yes, as unsure, or as good.
 
 Click **Save**. Change one setting at a time, then look at Agreement again.

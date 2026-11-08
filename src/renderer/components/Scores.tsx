@@ -1,4 +1,5 @@
 /** Layer bars, the total chip and the flag list for one scored output. */
+import { weightMark } from '@domain/case-draft.ts'
 import type { Scored } from '@domain/scoring.ts'
 import { cva } from 'class-variance-authority'
 import { capital, type ScoreBand, scoreBand } from '../model.ts'
@@ -121,14 +122,15 @@ export function Layers({
 }
 
 /**
- * How much a check counts, after its statement, only when it is not the usual
- * 1: "weight 2" counts twice. Null is a check whose weight is not known yet.
+ * A check's ×2 mark after its statement, only when it counts more than the
+ * usual 1. Null is a check whose weight is not known yet.
  */
 export function CheckWeight({ weight }: { weight: number | null }) {
   if (weight === null || weight === 1) return null
   return (
     <Text tone="muted" size="xs" tabular>
-      {' · '}weight {weight}
+      {' · '}
+      {weightMark(weight)}
     </Text>
   )
 }

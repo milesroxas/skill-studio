@@ -28,8 +28,17 @@ export const draftOf = (c: Case): CaseDraft => ({
   })),
 })
 
-/** The weights a check can have. 1 is usual; 2 counts twice as much. */
-export const CHECK_WEIGHT = { min: 1, max: 5 }
+/**
+ * The weights a check can have. 1 is usual. The form sets 1 or 2, the ×2
+ * mark; a grader file written by hand, or the Assistant, may say up to 5.
+ */
+const CHECK_WEIGHT = { min: 1, max: 5 }
+
+/** The weight the ×2 mark sets. */
+export const DOUBLE = 2
+
+/** How a check that counts more is marked wherever it is listed: "×2". */
+export const weightMark = (weight: number): string => `×${weight}`
 
 /** `value` as a check's weight: whole, within the range, or null when it is not a number. */
 export const checkWeight = (value: unknown): number | null =>

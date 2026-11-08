@@ -110,7 +110,7 @@ export function practiceGuide(
     },
     scoring: {
       title: 'See how a score adds up',
-      hint: 'Each layer is worth points. Move a weight and every score updates, with no new judge calls.',
+      hint: 'Each layer is worth points. Move one and every score updates, with no new judge calls.',
       target: { label: 'See the scoring', screen: 'knobs' },
     },
     edit: {

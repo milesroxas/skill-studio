@@ -15,7 +15,7 @@ Everything Skill Studio knows about a skill is plain files in the skill's `evals
     cases/<case>/files/           input files and pictures the agent gets
     cases/<case>/references/      pictures a check is about
     evals.json                    legacy skill-creator cases, read when no folder has the same id
-    bench.json                    packs, weights and thresholds (see grading.md)
+    bench.json                    packs, points per layer and thresholds (see grading.md)
     anchors/*.md                  labelled outputs for `st self-test`; front matter: case, label, tests, about
     reviews.json                  your ratings and pairwise votes
     versions/<vN>/                a saved version: version.json and files/

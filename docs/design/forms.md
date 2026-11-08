@@ -23,9 +23,8 @@ Is it one of 2 to 5 fixed values, all worth seeing? → Segmented
 One value from a longer or changing list? → SelectBox
 Usually one of a few known names, but any other may be typed (a model)? → ComboBox
 Several of a set to show or hide? → FilterGroup
-A whole number from 1 to 5 in a repeated row? → Stepper
 A number on a continuous range, tuned by feel? → Knob
-Any other number (a weight, a bound, minutes)? → NumberInput
+Any other number (a bound, minutes)? → NumberInput
 One line of text? → Input
 More than one line? → TextArea
 ```
@@ -70,7 +69,7 @@ Every control sits in a `Field` with a `Label` above it. Never a placeholder as 
 
 ## Disabling
 
-`Segmented`, `Stepper`, `Knob` and `FilterGroup` have no `disabled` prop. Do not fake one with opacity at the call site. If a control truly cannot apply, add `disabled` to the component first. Otherwise leave it enabled and say why it has no effect in a `Hint` under it.
+`Segmented`, `Knob` and `FilterGroup` have no `disabled` prop. Do not fake one with opacity at the call site. If a control truly cannot apply, add `disabled` to the component first. Otherwise leave it enabled and say why it has no effect in a `Hint` under it.
 
 ## Input
 
@@ -79,11 +78,11 @@ Every control sits in a `Field` with a `Label` above it. Never a placeholder as 
 - `font="mono"` for a path, a name used as an id, a key.
 - `width="search"` for a search field in a `ListBar`.
 - `size="sm"` only in workbench chrome.
-- An input's fill is `bg-card`. On porcelain its 1.5:1 edge is not enough to find it. Every field (`Input`, `TextArea`, the `Select` trigger, `Stepper`) takes its edge and fill from `FIELD_SURFACE` in `ui/input.tsx`: change it there, once.
+- An input's fill is `bg-card`. On porcelain its 1.5:1 edge is not enough to find it. Every field (`Input`, `TextArea`, the `Select` trigger) takes its edge and fill from `FIELD_SURFACE` in `ui/input.tsx`: change it there, once.
 
 ## Corner actions
 
-An action about a field's own content sits in the field's corner as a `CornerButton` (`components/CornerButton.tsx`): "write with AI" on every field that takes `assist`, and on a check the picture it is about (`PicturePicker variant="corner"`, passed as the `TextArea`'s `corner`). The pen is last; one more corner action stands before it, 12px away, so their hit areas meet without overlapping. A setting of the row the field is in, and the row's removal, sit outside the field, after it: a check row in `Cases.tsx` reads statement, weight, remove. Once added, the check's picture sits inside the field under the text (`TextArea`'s `foot`, a `PictureStrip size="sm"`), within the field's edge as the composer holds its pictures, and the corner button goes. A picture outside the field reads as a thing beside the check, not part of it. Nothing else goes in a corner.
+An action about a field's own content sits in the field's corner as a `CornerButton` (`components/CornerButton.tsx`): "write with AI" on every field that takes `assist`, and on a check the picture it is about (`PicturePicker variant="corner"`, passed as the `TextArea`'s `corner`). The pen is last; one more corner action stands before it, 12px away, so their hit areas meet without overlapping. A setting of the row the field is in, and the row's removal, sit outside the field, after it: a check row in `Cases.tsx` reads statement, ×2, remove. Once added, the check's picture sits inside the field under the text (`TextArea`'s `foot`, a `PictureStrip size="sm"`), within the field's edge as the composer holds its pictures, and the corner button goes. A picture outside the field reads as a thing beside the check, not part of it. Nothing else goes in a corner.
 
 ## ComboBox
 
@@ -99,7 +98,7 @@ The pressed segment is ink fill (`bg-primary`). A segment with a `tone` takes it
 
 ## Toggle
 
-`Toggle` variants: `default` (hovers as a ghost button, for a toolbar), `outline` (one item's state in a row), `filter`. Sizes: `default`, `sm`, `icon-sm`, `lg`. Every `outline` toggle in the app is `size="sm"`. `tone`: `default`, `success`, `destructive`.
+`Toggle` variants: `default` (hovers as a ghost button, for a toolbar), `outline` (one item's state in a row: an agent's install on Library, a check's ×2 on Cases), `filter`. Sizes: `default`, `sm`, `icon-sm`, `lg`. Every `outline` toggle in the app is `size="sm"`. `tone`: `default`, `success`, `destructive`.
 
 The pressed `outline` toggle is ink fill, the same as `Segmented`, so "on" reads the same everywhere. A pressed `default` toggle in a toolbar stays `bg-accent`: a formatting tool is a state of the cursor, not a setting.
 
@@ -117,10 +116,6 @@ The pressed `outline` toggle is ink fill, the same as `Segmented`, so "on" reads
 // Incorrect: a button that swaps its own variant to look pressed
 <Button variant={installed ? 'default' : 'outline'} size="sm">Claude</Button>
 ```
-
-## Stepper
-
-`Stepper` takes `label` as its accessible name and fills its container (`width="full"`, the default). Today it is used only in the check rows of `Cases.tsx`, where the row's grid gives it an 88px track. In a `Field` on a `Screen`, give it `width="field"` (112px), `labelledBy` with the id of its visible `Label` instead of `label`, and an `id` for that label's `htmlFor`. Its fill is `bg-card`, as an input's is.
 
 ## Actions
 

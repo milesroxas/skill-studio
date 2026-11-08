@@ -5,8 +5,15 @@
  * typing.
  */
 
-import { checkItems } from '@domain/assist.ts'
-import { blankDraft, CHECK_WEIGHT, draftOf, newCheck, picturesOf } from '@domain/case-draft.ts'
+import { assistItems } from '@domain/assist.ts'
+import {
+  blankDraft,
+  DOUBLE,
+  draftOf,
+  newCheck,
+  picturesOf,
+  weightMark,
+} from '@domain/case-draft.ts'
 import { addImages, type ImageRef, MAX_IMAGES } from '@domain/image.ts'
 import { type CaseDraft, NEW_CASE_KEY } from '@domain/schemas.ts'
 import {
@@ -17,14 +24,13 @@ import {
   templateForPacks,
 } from '@domain/templates.ts'
 import { isSlug, SLUG_RULE, slug } from '@domain/text.ts'
-import { cva } from 'class-variance-authority'
 import { PenLineIcon, PlusIcon, XIcon } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { api } from '../api.ts'
 import { caseContext, skillContext } from '../assist.ts'
 import { Assist, type AssistSpec, assistTitle } from '../components/Assist.tsx'
 import { DraftNote } from '../components/DraftNote.tsx'
-import { CheckRow, InlineField, NumberInput, Stepper } from '../components/forms.tsx'
+import { CheckRow, InlineField, NumberInput } from '../components/forms.tsx'
 import {
   Column,
   ColumnBody,
@@ -49,13 +55,20 @@ import { Alert, AlertDescription } from '../components/ui/alert.tsx'
 import { Button } from '../components/ui/button.tsx'
 import { Input } from '../components/ui/input.tsx'
 import { Label } from '../components/ui/label.tsx'
+import { Toggle } from '../components/ui/toggle.tsx'
 import type { Ctx } from '../ctx.ts'
 import { useAddPictures } from '../images.ts'
 import { shortcut } from '../keys.ts'
-import { plural } from '../model.ts'
+import { CHECK_READERS, capital, checkReadersOf, plural } from '../model.ts'
 import { caseKey } from '../route.ts'
 
 const nameOf = (path: string): string => path.split('/').at(-1) ?? path
+
+/** Pack ids as a spoken list: "Generic, Code and Design". */
+const names = (ids: string[]): string => {
+  const list = ids.map(capital)
+  return list.length > 1 ? `${list.slice(0, -1).join(', ')} and ${list.at(-1)}` : (list[0] ?? '')
+}
 
 /**
  * A draft stored before cases held pictures has none listed. It keeps the
@@ -134,16 +147,12 @@ export function Cases({ ctx }: { ctx: Ctx }) {
     set({ graders: [...draft.graders.slice(0, at), newCheck(), ...draft.graders.slice(at)] })
     setFocusCheck(at)
   }
-  /** Checks the assistant wrote join the list, in place of any row left blank, each at the weight it named or 1. */
-  const addChecks = (written: ReturnType<typeof checkItems>) =>
+  /** Checks the assistant wrote join the list, in place of any row left blank. */
+  const addChecks = (statements: string[]) =>
     set({
       graders: [
         ...draft.graders.filter((g) => g.statement.trim() || g.image),
-        ...written.map(({ statement, weight }) => ({
-          ...newCheck(),
-          statement,
-          weight: weight ?? 1,
-        })),
+        ...statements.map((statement) => ({ ...newCheck(), statement })),
       ],
     })
   /** Take a check out. One with a statement can come back: a slip costs a sentence otherwise. */
@@ -286,6 +295,8 @@ export function Cases({ ctx }: { ctx: Ctx }) {
   }
 
   const heading = isNew ? draft.title.trim() || 'New case' : draft.title.trim() || draft.id
+  /** Whether a judge of this skill marks the checks at all: the writing and workflow packs read none. */
+  const checksRead = checkReadersOf(config).length > 0
   /** The case's input files that are not its pictures, which the form shows above. */
   const otherFiles = selected ? selected.files.filter((f) => !picturesOf(selected).includes(f)) : []
 
@@ -516,93 +527,103 @@ export function Cases({ ctx }: { ctx: Ctx }) {
               </Field>
             </FormSection>
 
-            <FormSection
-              layout="stacked"
-              title="Checks"
-              hint="Statements a good answer makes true. The judge marks each one; weight counts a check more. A check can be about a picture, such as a mock-up the output should match."
-            >
-              <GuideBox summary="What the judge can mark">
-                <PairList pairs={CHECK_EXAMPLES} />
-              </GuideBox>
-              <Stack gap="md">
-                {draft.graders.length ? (
-                  <CheckLine aria-hidden="true" head>
-                    <Text tone="muted" size="xs">
-                      Statement
-                    </Text>
-                    <Text tone="muted" size="xs">
-                      Weight
-                    </Text>
-                    <span />
-                  </CheckLine>
-                ) : null}
-                <PlainList as="ol" gap="md">
-                  {draft.graders.map((g, i) => (
-                    <CheckLine key={g.id ?? `new-${i}`} as="li" index={i + 1}>
-                      <CheckStatement
-                        index={i + 1}
-                        fieldRef={(el) => {
-                          statements.current[i] = el
-                        }}
-                        statement={g.statement}
-                        image={g.image}
-                        placeholder={
-                          kind.cases[0]?.graders[i]?.statement ??
-                          kind.cases[0]?.graders[0]?.statement
-                        }
-                        onKeyDown={onCheckKey(i)}
-                        onStatement={(statement) => setGrader(i, { statement })}
-                        onImage={(image) => setGrader(i, { image })}
-                        onError={report}
-                        assist={{ field: 'case.check', ...assist }}
-                      />
-                      <Stepper
-                        label={`Weight of check ${i + 1}`}
-                        min={CHECK_WEIGHT.min}
-                        max={CHECK_WEIGHT.max}
-                        value={g.weight}
-                        onChange={(weight) => setGrader(i, { weight })}
-                      />
-                      <Button
-                        type="button"
-                        variant="ghost-muted"
-                        size="icon"
-                        aria-label={`Remove check ${i + 1}`}
-                        title="Remove"
-                        onClick={() => removeCheck(i, 'next')}
-                      >
-                        <XIcon aria-hidden="true" />
-                      </Button>
-                    </CheckLine>
-                  ))}
-                </PlainList>
-                <Toolbar ref={checkTools}>
-                  <Button
-                    ref={addCheckButton}
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => addCheck(draft.graders.length)}
-                  >
-                    <PlusIcon aria-hidden="true" />
-                    Add a check
-                  </Button>
-                  <Assist
-                    field="case.checks"
-                    value=""
-                    // It opens under the row of buttons, never over the checks it adds to.
-                    anchor={checkTools}
-                    {...assist}
-                    onApply={(text) => addChecks(checkItems(text))}
-                  >
-                    <Button type="button" variant="ghost" size="sm">
-                      <PenLineIcon aria-hidden="true" />
-                      {assistTitle('case.checks')}
+            {checksRead ? (
+              <FormSection
+                layout="stacked"
+                title="Checks"
+                hint="Statements a good answer makes true. The judge marks each one. A check can be about a picture, such as a mock-up the output should match."
+              >
+                <GuideBox summary="What the judge can mark">
+                  <PairList pairs={CHECK_EXAMPLES} />
+                </GuideBox>
+                <Stack gap="md">
+                  <PlainList as="ol" gap="md">
+                    {draft.graders.map((g, i) => (
+                      <CheckLine key={g.id ?? `new-${i}`} index={i + 1}>
+                        <CheckStatement
+                          index={i + 1}
+                          fieldRef={(el) => {
+                            statements.current[i] = el
+                          }}
+                          statement={g.statement}
+                          image={g.image}
+                          placeholder={
+                            kind.cases[0]?.graders[i]?.statement ??
+                            kind.cases[0]?.graders[0]?.statement
+                          }
+                          onKeyDown={onCheckKey(i)}
+                          onStatement={(statement) => setGrader(i, { statement })}
+                          onImage={(image) => setGrader(i, { image })}
+                          onError={report}
+                          assist={{ field: 'case.check', ...assist }}
+                        />
+                        <span className="flex h-9 items-center">
+                          <Toggle
+                            variant="outline"
+                            size="sm"
+                            pressed={g.weight > 1}
+                            aria-label={`Check ${i + 1} counts double`}
+                            title="Counts double"
+                            onPressedChange={(on) => setGrader(i, { weight: on ? DOUBLE : 1 })}
+                          >
+                            {weightMark(g.weight > 1 ? g.weight : DOUBLE)}
+                          </Toggle>
+                        </span>
+                        <Button
+                          type="button"
+                          variant="ghost-muted"
+                          size="icon"
+                          aria-label={`Remove check ${i + 1}`}
+                          title="Remove"
+                          onClick={() => removeCheck(i, 'next')}
+                        >
+                          <XIcon aria-hidden="true" />
+                        </Button>
+                      </CheckLine>
+                    ))}
+                  </PlainList>
+                  <Toolbar ref={checkTools}>
+                    <Button
+                      ref={addCheckButton}
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => addCheck(draft.graders.length)}
+                    >
+                      <PlusIcon aria-hidden="true" />
+                      Add a check
                     </Button>
-                  </Assist>
+                    <Assist
+                      field="case.checks"
+                      value=""
+                      // It opens under the row of buttons, never over the checks it adds to.
+                      anchor={checkTools}
+                      {...assist}
+                      onApply={(text) => addChecks(assistItems(text))}
+                    >
+                      <Button type="button" variant="ghost" size="sm">
+                        <PenLineIcon aria-hidden="true" />
+                        {assistTitle('case.checks')}
+                      </Button>
+                    </Assist>
+                  </Toolbar>
+                </Stack>
+              </FormSection>
+            ) : (
+              <FormSection
+                layout="stacked"
+                title="Checks"
+                hint={`Checks are not judged with the ${names(config.packs)} ${
+                  config.packs.length > 1 ? 'packs' : 'pack'
+                }. ${names(CHECK_READERS.map((p) => p.id))} mark them: pick one on Scoring.`}
+              >
+                <Toolbar>
+                  <Button type="button" variant="outline" size="sm" onClick={() => go('knobs')}>
+                    Open Scoring
+                  </Button>
                 </Toolbar>
-              </Stack>
-            </FormSection>
+              </FormSection>
+            )}
 
             <FormSection layout="stacked" title="Length">
               <CheckRow
@@ -686,7 +707,7 @@ export function Cases({ ctx }: { ctx: Ctx }) {
 /**
  * What a check is: its statement, and the picture it is about when it has one.
  * The field's corner adds the picture, beside "write with AI", because both
- * are about the statement's content; the weight and the remove button are the
+ * are about the statement's content; the ×2 mark and the remove button are the
  * row's and sit outside it. An added picture sits inside the field under the
  * statement, within its edge, and the corner button goes, since a check is
  * about one picture.
@@ -759,46 +780,26 @@ function CheckStatement({
 }
 
 /**
- * Statement, weight and remove, in columns that line up from row to row. The
+ * Statement, ×2 mark and remove, in columns that line up from row to row. The
  * statement starts on the column's edge, with the check's number hung in the
  * margin before it; its picture, when it has one, sits inside the field under
  * the text. The row reaches 10px past the far edge, which puts the remove icon
  * on that edge, not its 36px box.
  */
-const checkLine = cva('relative -mr-2.5 grid grid-cols-[minmax(0,1fr)_88px_36px] gap-2', {
-  variants: {
-    head: {
-      true: 'items-end',
-      false: 'items-start',
-    },
-  },
-})
+const checkLine = 'relative -mr-2.5 grid grid-cols-[minmax(0,1fr)_auto_36px] items-start gap-2'
 
 /** The check's number, in the margin, centred on the first line of its 36px controls. */
 const checkIndex = 'absolute top-0 right-full mr-2 flex h-9 items-center'
 
-function CheckLine({
-  as: Comp = 'div',
-  index,
-  head = false,
-  children,
-  ...props
-}: Omit<React.HTMLAttributes<HTMLElement>, 'children'> & {
-  as?: 'div' | 'li'
-  index?: number
-  head?: boolean
-  children: React.ReactNode
-}) {
+function CheckLine({ index, children }: { index: number; children: React.ReactNode }) {
   return (
-    <Comp className={checkLine({ head })} {...props}>
-      {head ? null : (
-        <span className={checkIndex}>
-          <Text tone="faint" font="mono" size="xs" weight="medium" tabular>
-            {index}
-          </Text>
-        </span>
-      )}
+    <li className={checkLine}>
+      <span className={checkIndex}>
+        <Text tone="faint" font="mono" size="xs" weight="medium" tabular>
+          {index}
+        </Text>
+      </span>
       {children}
-    </Comp>
+    </li>
   )
 }

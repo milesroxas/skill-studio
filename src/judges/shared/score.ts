@@ -1,4 +1,5 @@
 /** Helpers the packs' pure halves share. No server imports: the browser loads these. */
+import { weightMark } from '@domain/case-draft.ts'
 
 export interface StatementAnswer {
   id: string
@@ -15,6 +16,6 @@ export interface StatementAnswer {
 export const clip = (text: string, max = 110): string =>
   text.length > max ? `${text.slice(0, max - 1).trimEnd()}…` : text
 
-/** An unmet check, with its weight when that is not the usual 1: a weighted miss costs more of the layer. */
+/** An unmet check, with its ×2 mark when it counts more: a marked miss costs more of the layer. */
 export const unmetFlag = (s: StatementAnswer): string =>
-  `grader ${s.id}${s.weight === 1 ? '' : ` (weight ${s.weight})`} not met: ${clip(s.text)}`
+  `grader ${s.id}${s.weight === 1 ? '' : ` (${weightMark(s.weight)})`} not met: ${clip(s.text)}`

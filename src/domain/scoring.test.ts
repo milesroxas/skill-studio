@@ -2,14 +2,15 @@ import { describe, expect, it } from 'vitest'
 import { DEFAULT_CONFIG } from './config.ts'
 import type { PackScoring } from './pack.ts'
 import type { BenchConfig } from './schemas.ts'
-import { layerOrder, scoreResult } from './scoring.ts'
+import { checkReaders, layerOrder, scoreResult } from './scoring.ts'
 
 type Raw = { layers: Record<string, number | null>; confidence?: number }
 
 /** A fixture pack that returns whatever layer shares its stored answers hold. */
-const pack = (id: string, layers: string[]): PackScoring<Raw> => ({
+const pack = (id: string, layers: string[], checks: string | null = null): PackScoring<Raw> => ({
   id,
   layers,
+  checks,
   defaults: {},
   layerHome: {},
   score: (raw) => ({
@@ -20,7 +21,7 @@ const pack = (id: string, layers: string[]): PackScoring<Raw> => ({
 })
 
 const voice = pack('voice', ['voice', 'clarity'])
-const rules = pack('rules', ['adherence'])
+const rules = pack('rules', ['adherence'], 'adherence')
 const scorers = [voice, rules] as PackScoring[]
 
 const config = (over: Partial<BenchConfig> = {}): BenchConfig => ({
@@ -117,5 +118,12 @@ describe('layerOrder', () => {
   it('lists active pack layers in order, then total', () => {
     expect(layerOrder(config(), scorers)).toEqual(['voice', 'clarity', 'adherence', 'total'])
     expect(layerOrder(config({ packs: ['rules'] }), scorers)).toEqual(['adherence', 'total'])
+  })
+})
+
+describe('checkReaders', () => {
+  it('names the active packs with a layer that marks the checks', () => {
+    expect(checkReaders(config(), scorers).map((p) => p.id)).toEqual(['rules'])
+    expect(checkReaders(config({ packs: ['voice'] }), scorers)).toEqual([])
   })
 })

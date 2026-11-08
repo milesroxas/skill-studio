@@ -1,4 +1,4 @@
-/** The scoring settings: weights, thresholds, packs and pack keys. Every output rescores as they move. */
+/** The scoring settings: points per layer, thresholds, packs and pack keys. Every output rescores as they move. */
 import { DEFAULT_CONFIG } from '@domain/config.ts'
 import type { BenchConfig } from '@domain/schemas.ts'
 import { scorers } from '@judges/scorers.ts'
@@ -165,8 +165,8 @@ export function Knobs({ ctx }: { ctx: Ctx }) {
 
         <ColumnSection
           inset="inspector"
-          title={<Term id="layer">Layer weights</Term>}
-          hint="Points per layer. A layer with no score drops out and the rest rescale."
+          title={<Term id="layer">Points per layer</Term>}
+          hint="A layer with no score drops out and the rest rescale."
         >
           <Stack gap="lg">
             {layers.map((layer) => (

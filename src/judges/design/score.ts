@@ -70,6 +70,7 @@ const confidenceDesign = (raw: DesignRaw | null): number | null =>
 export const designScoring: PackScoring<DesignRaw> = {
   id: 'design',
   layers: ['markup', 'visual'],
+  checks: 'visual',
   defaults: {
     weights: { markup: 40, visual: 60 },
     /** How many characters of HTML the visual questions read. */
@@ -78,11 +79,11 @@ export const designScoring: PackScoring<DesignRaw> = {
   layerHome: {
     markup: {
       skill: 'The HTML rules in SKILL.md: document shell, landmarks, alt text, heading order',
-      bench: 'The markup checks in judges/design, or the markup weight',
+      bench: 'The markup checks in judges/design, or the markup points',
     },
     visual: {
       skill: 'The layout, hierarchy and copy guidance in SKILL.md or its references',
-      bench: "The hierarchy and finished questions, the case's graders, the visual weight, or yes",
+      bench: "The hierarchy and finished questions, the case's graders, the visual points, or yes",
     },
   },
   score: scoreDesign,

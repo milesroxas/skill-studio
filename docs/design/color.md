@@ -123,7 +123,7 @@ Focus answers one question, "where did I land?", and only a keyboard asks it. A 
 | `focus-ring` | a 2px line in `--ring` at 50%, 2px clear of the control, from the keyboard only | anything pressed rather than typed in: a button, a toggle, a checkbox, a select trigger, a card, a link |
 | `focus-ring-inset` | the same line 2px inside the control | a row in a list that scrolls (the sidebar, a list column, a menu), which would clip a line outside it |
 | `focus-ring-segment` | the line 4px inside one segment of a joined group, in the segment's own text color | `ToggleGroup` items (`Segmented`, `FilterGroup`), set by `toggleVariants({ place: 'group' })`. A pressed segment is ink, so a line in the ring color would vanish into it. |
-| `focus-edge` | the field's own edge turns `--ring`, on any focus | a text field and the `Stepper`: the caret already says where typing goes, so nothing is added around it |
+| `focus-edge` | the field's own edge turns `--ring`, on any focus | a text field: the caret already says where typing goes, so nothing is added around it |
 
 "From the keyboard only" is `data-input` on `<html>`, which `renderer/focus.ts` sets to `pointer` on a press and `keyboard` on a key. The browser's own `:focus-visible` is not enough: when a menu or dialog closes, its script hands the focus back to its trigger, and the browser lights the trigger up under the pointer that just closed it. Before the first input there is no attribute, so the line shows: a keyboard user is never left without it. A select's edge also turns ink while its list is open (`data-[state=open]:border-ring`). `focus-key:` is the same keyboard test as a variant, for a reveal: a `ghost-muted` icon turns to text color when focused (`focus-key:text-foreground`).
 

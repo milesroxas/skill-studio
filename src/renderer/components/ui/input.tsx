@@ -5,7 +5,7 @@ import type * as React from 'react'
 /**
  * A field's surface: a hairline edge, the card fill (on porcelain the 1.5:1
  * edge alone does not show a field) and a tint in the dark scope. Every field
- * shares it: Input, TextArea, the Select trigger and the Stepper.
+ * shares it: Input, TextArea and the Select trigger.
  */
 export const FIELD_SURFACE = 'border border-input bg-card shadow-xs dark:bg-input/30'
 

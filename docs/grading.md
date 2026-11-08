@@ -3,7 +3,7 @@
 Grading runs a skill's judge packs over each sample of a run and writes `report.json`. It follows a run unless you turn it off, and runs again on Regrade in the app or with `st grade`.
 
 - A pack runs on a sample when it judges the kind of the sample's primary artifact: the first output of the case's `bench.artifact` kind, else the first Markdown file, else the first output of any kind.
-- Jev's raw answers are stored. Weights, thresholds and pack settings are applied in code (`src/domain/scoring.ts` and each pack's `score.ts`), so the Scoring screen rescores without new judge calls.
+- Jev's raw answers are stored. Points per layer, thresholds and pack settings are applied in code (`src/domain/scoring.ts` and each pack's `score.ts`), so the Scoring screen rescores without new judge calls.
 - Without a TypeSafe key, or with `--no-jev`, only code checks run and every judged layer is null. A null layer is left out of the total and the rest rescale.
 - A case's word range counts prose and list text, not headings or code.
 
@@ -25,7 +25,7 @@ Each pack adds its own keys, below. `--packs a,b` and `--bench <file>` override 
 
 ## Packs
 
-A check's weight (1 to 5, `weight` in its grader file's front matter, 1 when absent) multiplies it inside the layer that asks the case's checks: `rubric` (generic), `review` (code) and `visual` (design). A layer is the weighted share of its checks that read as yes, so one check at weight 2 counts as two. An unmet check's flag names its weight when it is not 1. Layer weights in `bench.json` are a different thing: points per layer.
+A check marked ×2 on the Cases screen counts double inside the layer that marks the case's checks: `rubric` (generic), `review` (code) and `visual` (design), named by each pack's `checks`. The writing and workflow packs read no checks, and the Cases screen says so in their place. The mark is `weight: 2` in the grader file's front matter; a file written by hand, or the Assistant, may say up to 5, and the screen shows that number. An unmet check's flag carries the mark: `(×2)`. Points per layer in `bench.json` are a different thing.
 
 | Pack | Judges | Layers (default points) | Keys in `bench.json` |
 | --- | --- | --- | --- |

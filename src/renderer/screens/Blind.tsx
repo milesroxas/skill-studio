@@ -24,7 +24,7 @@ import {
 } from '../components/layout.tsx'
 import { NavButton } from '../components/NavButton.tsx'
 import { CardFold, OutputCard, OutputCardHead } from '../components/OutputCard.tsx'
-import { CheckWeight, Flags, Layers, TotalChip } from '../components/Scores.tsx'
+import { Flags, Layers, TotalChip } from '../components/Scores.tsx'
 import { Segmented } from '../components/Segmented.tsx'
 import { TextArea } from '../components/TextArea.tsx'
 import { Hint, Text } from '../components/text.tsx'
@@ -254,10 +254,7 @@ export function Blind({ ctx }: { ctx: Ctx }) {
                   {testCase.graders.length ? (
                     <List size="xs">
                       {testCase.graders.map((g) => (
-                        <li key={g.id}>
-                          {g.statement}
-                          <CheckWeight weight={g.weight} />
-                        </li>
+                        <li key={g.id}>{g.statement}</li>
                       ))}
                     </List>
                   ) : null}

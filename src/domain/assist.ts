@@ -9,7 +9,6 @@
  * functions.
  */
 
-import { checkWeight } from './case-draft.ts'
 import { CHANGES_GUIDE } from './changes.ts'
 import type { ImageRef } from './image.ts'
 import { byFileOrder, isEditablePath } from './paths.ts'
@@ -132,8 +131,7 @@ export const ASSIST_FIELDS: Record<AssistFieldId, AssistFieldDef> = {
   'case.checks': {
     name: 'checks',
     form: 'items',
-    shape: `Checks to add to a test case: two or three, unless the request asks for another number. Each is about a fact the case's prompt gave, and none says what a check the case has already says. Each check is ${CHECK}
-A check counts once unless the request says one should count more: then end that line with its weight in parentheses, such as "(weight 2)", from 1 to 5. Otherwise write no weight.`,
+    shape: `Checks to add to a test case: two or three, unless the request asks for another number. Each is about a fact the case's prompt gave, and none says what a check the case has already says. Each check is ${CHECK}`,
     suggestions: {
       write: ['Write the checks this case lacks', 'Check the facts in the prompt'],
       edit: [],
@@ -275,21 +273,6 @@ const ITEM_MARKER = /^(?:[-*•]|\d+[.)])(?:\s+|$)/
 /** The items of a fitted `items` reply. */
 export const assistItems = (text: string): string[] => text.split('\n')
 
-/** A weight the model wrote at the end of a check, as the brief for `case.checks` asks: "(weight 2)". */
-const ITEM_WEIGHT = /\s*\((?:weight|×|x)\s*(\d)\)\s*$/i
-
-/**
- * The checks of a fitted `case.checks` reply: each line's statement, and the
- * weight it ends with when the model gave one, else null for the usual 1.
- */
-export const checkItems = (text: string): Array<{ statement: string; weight: number | null }> =>
-  assistItems(text).map((line) => {
-    const found = ITEM_WEIGHT.exec(line)
-    return found
-      ? { statement: line.slice(0, found.index).trim(), weight: checkWeight(Number(found[1])) }
-      : { statement: line, weight: null }
-  })
-
 const FIT: Record<AssistFieldDef['form'], (text: string) => string> = {
   line: (text) => text.replace(/\s+/g, ' ').trim(),
   block: (text) => text.trim(),
@@ -411,7 +394,7 @@ export function workingSkill(
 export const REFERENCE_BUDGET = 60_000
 
 const SCREENS =
-  'Editor (edit SKILL.md and references/), Versions (save, compare and restore), Cases (the prompts a run is made of, each with checks), New run (agents write an output per case), Results (scores per run), Rate blind (rate outputs before seeing the judge), Compare (two outputs side by side, vote for the better), Transcripts (what the agent did), Agreement (how often the judge and the author agree), Scoring (layer weights and thresholds), Library, Guide and Settings.'
+  'Editor (edit SKILL.md and references/), Versions (save, compare and restore), Cases (the prompts a run is made of, each with checks), New run (agents write an output per case), Results (scores per run), Rate blind (rate outputs before seeing the judge), Compare (two outputs side by side, vote for the better), Transcripts (what the agent did), Agreement (how often the judge and the author agree), Scoring (points per layer and thresholds), Library, Guide and Settings.'
 
 /** Where the reader is and what they have open, as the brief says it. */
 function whereText(scene: ChatScene): string {

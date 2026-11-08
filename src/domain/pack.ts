@@ -25,6 +25,8 @@ export interface PackScoring<Raw = unknown> {
   id: string
   /** Layers this pack scores, in display order. */
   layers: string[]
+  /** The layer that marks the case's checks, one of `layers`; null when the pack reads none. */
+  checks: string | null
   /** Points for its layers and its own knobs, laid under `bench.json`. */
   defaults: Partial<BenchConfig>
   /** Where each layer is fixed when it is low: the skill section, or the benchmark knob. */
