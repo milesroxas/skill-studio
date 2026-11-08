@@ -21,6 +21,7 @@ One of the items in a list above, applied at once? → SelectBox under the list,
   not a control on every row: ten identical icons say nothing until one is on.
 Is it one of 2 to 5 fixed values, all worth seeing? → Segmented
 One value from a longer or changing list? → SelectBox
+Usually one of a few known names, but any other may be typed (a model)? → ComboBox
 Several of a set to show or hide? → FilterGroup
 A whole number from 1 to 5 in a repeated row? → Stepper
 A number on a continuous range, tuned by feel? → Knob
@@ -80,6 +81,10 @@ Every control sits in a `Field` with a `Label` above it. Never a placeholder as 
 - `size="sm"` only in workbench chrome.
 - An input's fill is `bg-card`. On porcelain its 1.5:1 edge is not enough to find it. Every field (`Input`, `TextArea`, the `Select` trigger, `Stepper`) takes its edge and fill from `FIELD_SURFACE` in `ui/input.tsx`: change it there, once.
 
+## ComboBox
+
+`ComboBox` (`components/ComboBox.tsx`) is a text field that opens a list under it, for a value that is usually one of a few known names but may be any other: a writer's model on New run. It looks like a `SelectBox` trigger, chevron included, so a row of the two reads as one row. Opening shows the whole list with the current value ticked; a key typed narrows it, and a value the list does not have is used as typed, which the list says. The focus stays in the field: arrows move through the list, Enter picks, Escape closes. Its list is `PopoverContent size="field"`. Never a native `<datalist>`: its popup is the system's, unstyled and outside the theme.
+
 ## Segmented and FilterGroup
 
 `Segmented` is one choice. Its `size` defaults to `sm`, and call sites leave it there, in forms too. The one exception is a `ListBar` beside a default-size search field: "Whose skills" in `Library.tsx` passes `size="default"` so the two match. Anywhere else a taller one stands out against every other in the app. An option's `tone` (`success`, `destructive`) colors it when pressed, for a choice that states a verdict such as pass or fail.
@@ -116,6 +121,7 @@ The pressed `outline` toggle is ink fill, the same as `Segmented`, so "on" reads
 ## Actions
 
 - `FormActions` at the foot of a saved form: primary first, destructive last after `Spacer`.
+- `FormActions layout="summary"` for a form whose one action costs something: what it will do on the left, from the form's own edge (New run: the output count over its sum), and the action at the far end. New run is the one form that uses it, `pinned`.
 - An action that is the only control of its section ("Reset Skill Studio…") sits in a `Toolbar` inside a `FormSection` of its own, as in `Settings.tsx`.
 - "Discard" shows only when the form is dirty, and goes through `ctx.confirm`.
 - Adding or removing a repeated row moves focus with it: to the new row, or to the next row's remove button.

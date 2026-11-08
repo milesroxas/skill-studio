@@ -109,6 +109,7 @@ Below `lg` the columns stack and the pane scrolls. Check every workbench at 720p
 
 - A header or a trailing row puts the primary action last.
 - A left-aligned footer (`FormActions`, `ColumnFooter`, `ActionBar`) puts the primary first and a destructive action last, after `Spacer`.
+- A summary bar (`FormActions layout="summary"`) states what its action will do first and puts the action last, at the far end. See [forms.md](forms.md).
 - Workbench chrome uses `size="sm"` controls. A `Screen` form uses the default size.
 - A long form keeps its actions in view with `ActionBar`.
 
@@ -161,6 +162,7 @@ Does the whole screen have nothing to show?
 | `compose-wide` | the same for a reply as long as a file, or three rewrites side by side in a column |
 | `help` | what a screen is for |
 | `note` | one word and what it means |
+| `field` | the list under a `ComboBox`: as wide as its field |
 | `selection` | the row of actions over a selection in the editor: as wide as its buttons, no focus of its own |
 
 The selection popout (`SelectionTools.tsx`) opens over four or more selected words in SKILL.md, 150ms after the selection settles, anchored to the selection itself. It is `selection` while it is a row of buttons and becomes `compose` or `compose-wide` once a result is in it. Its buttons are `ghost` `sm`, in one fixed order: Auto refine, Suggest changes, Help me improve. Nothing in it is yellow.

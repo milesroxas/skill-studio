@@ -109,8 +109,18 @@ export function FormSection({
   )
 }
 
-const formActionsVariants = cva('flex flex-wrap items-center gap-3 border-t pt-6 md:pl-[240px]', {
+const formActionsVariants = cva('flex flex-wrap items-center gap-3 border-t pt-6', {
   variants: {
+    layout: {
+      /** Under the fields, primary first. */
+      fields: 'md:pl-[240px]',
+      /**
+       * What the action will do on the left, from the form's own edge, and the
+       * action at the far end: for a form whose one action costs something, so
+       * its size is read before it is pressed (New run).
+       */
+      summary: 'justify-between gap-x-8',
+    },
     /**
      * Kept in view at the foot of the pane while the form scrolls, for a form
      * whose one action would otherwise wait below the fold. The offset and
@@ -121,16 +131,17 @@ const formActionsVariants = cva('flex flex-wrap items-center gap-3 border-t pt-6
       false: '',
     },
   },
-  defaultVariants: { pinned: false },
+  defaultVariants: { layout: 'fields', pinned: false },
 })
 
 /** The actions at the end of a form, aligned with its fields. */
 export function FormActions({
+  layout,
   pinned,
   className,
   ...props
 }: ComponentProps<'div'> & VariantProps<typeof formActionsVariants>) {
-  return <div className={cn(formActionsVariants({ pinned }), className)} {...props} />
+  return <div className={cn(formActionsVariants({ layout, pinned }), className)} {...props} />
 }
 
 const workbenchVariants = cva(

@@ -55,7 +55,7 @@ function progressOf(jobs: readonly Job[]): JobProgress | null {
 }
 
 /** How far a job has come, as a hairline that fills from the left. Never yellow: the dot says running. */
-function ProgressBar({ done, total }: JobProgress) {
+export function ProgressBar({ done, total }: JobProgress) {
   return (
     <span aria-hidden="true" className="block h-0.5 w-full overflow-hidden bg-foreground/10">
       <span

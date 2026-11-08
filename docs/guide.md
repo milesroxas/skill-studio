@@ -186,17 +186,17 @@ Write at least three different cases before you trust a score.
 
 ## 4. Run the agents
 
-![New run: the skill version, the cases to run ticked, one writer (Claude Code, sonnet, default effort) and the options below.](images/new-run.webp)
+![New run: the version under test at the top, Write with set to This version, the cases to run ticked, and a bar at the foot with the output count and Start a run.](images/new-run.webp)
 
-1. **Skill version:** if the skill changed, type what changed.
-2. **Cases:** tick the ones to run. One starts ticked. **Default case**, under the list, picks the one every run starts with: it moves to the top of the list and can still be unticked.
-3. **Writers:** pick the agent and model. Add up to four to compare them.
-4. **Samples per case:** use 2 or more. Agents answer a little differently each time.
-5. **Skill:** "With skill", "Without skill" (the baseline to beat), or "Old skill" (an earlier version).
+1. **The top line** is the version this run tests. If the skill changed since its last run, it is a new version: type what changed under **Write with**.
+2. **Write with:** "This version", "No skill" (the baseline to beat), or "An earlier version" (to test an edit against the one before it).
+3. **Cases:** tick the ones to run. One starts ticked. **Ticked on every new run**, under the list, picks the one every run starts with: it moves to the top of the list and can still be unticked.
+4. **Writers:** pick the agent, model and effort. Pick a model from the list or type its name. Add up to four writers to compare them.
+5. **Samples per case:** use 2 or more. Agents answer a little differently each time.
 6. Leave **Grade when done** ticked.
 7. Click **Start a run**.
 
-The run works in the background. Its progress shows at the foot of the sidebar.
+The run works in the background. Its progress shows in the bar on New run and at the foot of the sidebar.
 
 Runs cost money: each answer is an agent session, and the judge is paid per call.
 

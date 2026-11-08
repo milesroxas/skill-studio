@@ -1,11 +1,13 @@
 /** Write new outputs: pick cases, writers, samples and the configuration; watch the job. */
 import { practiceVersionName } from '@domain/practice.ts'
 import { CONFIGURATIONS, type Configuration } from '@domain/schemas.ts'
-import { PlusIcon, XIcon } from 'lucide-react'
-import { useState } from 'react'
+import { cva, type VariantProps } from 'class-variance-authority'
+import { PlayIcon, PlusIcon, XIcon } from 'lucide-react'
+import { type ReactNode, useState } from 'react'
 import { api } from '../api.ts'
+import { ComboBox } from '../components/ComboBox.tsx'
 import { CheckRow, NumberInput } from '../components/forms.tsx'
-import { JobLogs, runningJob } from '../components/Jobs.tsx'
+import { JobLogs, ProgressBar, runningJob } from '../components/Jobs.tsx'
 import {
   Field,
   FormActions,
@@ -15,6 +17,7 @@ import {
   Stack,
   Toolbar,
 } from '../components/layout.tsx'
+import { Segmented } from '../components/Segmented.tsx'
 import { SelectBox } from '../components/SelectBox.tsx'
 import { Heading, Hint, Text } from '../components/text.tsx'
 import { Button } from '../components/ui/button.tsx'
@@ -31,9 +34,15 @@ interface WriterRow {
   effort: string
 }
 
+const CONFIG_LABEL: Record<Configuration, string> = {
+  with_skill: 'This version',
+  without_skill: 'No skill',
+  old_skill: 'An earlier version',
+}
+
 const CONFIG_HELP: Record<Configuration, string> = {
-  with_skill: 'The agent has this skill installed.',
-  without_skill: 'No skill installed: the baseline the skill has to beat.',
+  with_skill: 'The agent has the skill as it is now installed.',
+  without_skill: 'No skill installed. Run this once to see whether the skill helps at all.',
   old_skill: 'A past run’s copy of the skill, to test an edit against the version before it.',
 }
 
@@ -127,17 +136,78 @@ export function Generate({ ctx }: { ctx: Ctx }) {
     }
   }
 
+  const pastRun = withSkill.find((r) => r.name === baseline) ?? null
+  /** The version this run files its results under, named as the lead says it. */
+  const versionTitle = current.changed
+    ? `${current.version} · ${skillName.trim() || fallbackName}`
+    : current.name
+      ? `${current.version} · ${current.name}`
+      : current.version
+  const lead =
+    configuration === 'without_skill'
+      ? {
+          title: 'No skill',
+          hint: `A baseline: the same cases written without the skill, filed under ${current.version}. It is the score the skill has to beat.`,
+        }
+      : configuration === 'old_skill'
+        ? {
+            title: pastRun ? versionName(pastRun) : 'An earlier version',
+            hint: pastRun
+              ? `The copy of the skill from the run of ${runStamp(pastRun)}, to test the latest edit against.`
+              : 'Pick the run whose copy of the skill to use.',
+          }
+        : {
+            title: versionTitle,
+            hint: current.changed
+              ? `The skill changed since its last run, so this run saves it as ${current.version}.`
+              : `Unchanged since its last run, so new results join ${current.version}’s.`,
+          }
+  const configurations = withSkill.length
+    ? CONFIGURATIONS
+    : CONFIGURATIONS.filter((c) => c !== 'old_skill')
+  const ids = {
+    config: 'gen-config',
+    agent: 'gen-agent-1',
+    model: 'gen-model-1',
+    effort: 'gen-effort-1',
+  }
+
   return (
     <Screen width="form">
-      <FormSection
-        title="Skill version"
-        hint={
-          current.changed
-            ? `The skill changed since the last run, so this run starts ${current.version}.`
-            : undefined
-        }
-      >
-        {current.changed ? (
+      {/* What this run tests, first and largest: everything below is how. */}
+      <Stack gap="sm">
+        <Heading level={2} as="p">
+          {lead.title}
+        </Heading>
+        <Hint>{lead.hint}</Hint>
+      </Stack>
+
+      <FormSection title="Skill" hint="What each writer is given.">
+        <Field>
+          <Label id={ids.config}>Write with</Label>
+          <Segmented<Configuration>
+            aria-labelledby={ids.config}
+            value={configuration}
+            onChange={(v) => v && setConfiguration(v)}
+            options={configurations.map((c) => ({ value: c, label: CONFIG_LABEL[c] }))}
+          />
+          <Hint>{CONFIG_HELP[configuration]}</Hint>
+        </Field>
+        {configuration === 'old_skill' ? (
+          <Field>
+            <Label htmlFor="gen-baseline">Copy from</Label>
+            <SelectBox
+              id="gen-baseline"
+              width="wide"
+              value={baseline}
+              onChange={setBaseline}
+              options={withSkill.map((r) => ({
+                value: r.name,
+                label: `${versionName(r)} · ${runStamp(r)}`,
+              }))}
+            />
+          </Field>
+        ) : current.changed ? (
           <Field>
             <Label htmlFor="gen-name">What changed</Label>
             <Input
@@ -147,45 +217,25 @@ export function Generate({ ctx }: { ctx: Ctx }) {
               value={skillName}
               onChange={(e) => setSkillName(e.target.value)}
             />
-            <Hint>A short name, so you can tell versions apart later.</Hint>
+            <Hint>Names {current.version}, so you can tell versions apart later.</Hint>
           </Field>
-        ) : (
-          <Text size="ui">
-            {current.version}
-            {current.name ? ` · ${current.name}` : ''}{' '}
-            <Text tone="muted">unchanged since its last run</Text>
-          </Text>
-        )}
+        ) : null}
       </FormSection>
 
-      <FormSection title="Cases" hint="Each one is written once per writer and sample.">
+      <FormSection
+        title="Cases"
+        hint="The tasks to run. Each one is written once per writer and sample."
+      >
         {!state.cases.length ? (
           <Stack gap="md" align="start">
             <Hint>No cases yet. A run needs at least one.</Hint>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => go('cases', { new: '1' })}
-            >
+            <Button type="button" variant="outline" onClick={() => go('cases', { new: '1' })}>
               <PlusIcon aria-hidden="true" />
               Add a case
             </Button>
           </Stack>
         ) : (
-          <Stack gap="lg">
-            <Field>
-              <Label htmlFor="gen-default">Default case</Label>
-              <SelectBox
-                id="gen-default"
-                width="wide"
-                value={defaultCase?.id ?? ''}
-                none="First in the list"
-                onChange={(id) => setDefault(id || null)}
-                options={state.cases.map((c) => ({ value: c.id, label: c.title }))}
-              />
-              <Hint>Ticked on every new run. It can still be unticked.</Hint>
-            </Field>
+          <>
             <Stack gap="md">
               {ordered.map((c) => (
                 <CheckRow
@@ -198,20 +248,40 @@ export function Generate({ ctx }: { ctx: Ctx }) {
                 </CheckRow>
               ))}
             </Stack>
-          </Stack>
+            {state.cases.length > 1 ? (
+              <Field>
+                <Label htmlFor="gen-default">Ticked on every new run</Label>
+                <SelectBox
+                  id="gen-default"
+                  width="wide"
+                  value={defaultCase?.id ?? ''}
+                  none="The first in the list"
+                  onChange={(id) => setDefault(id || null)}
+                  options={state.cases.map((c) => ({ value: c.id, label: c.title }))}
+                />
+              </Field>
+            ) : null}
+          </>
         )}
       </FormSection>
 
       <FormSection
         title="Writers"
-        hint="The agents that write an output for each case, up to four."
+        hint="The agents that do the cases. Add up to four to compare agents or models."
       >
         <Stack gap="md">
+          <WriterGrid head>
+            <Label htmlFor={ids.agent}>Agent</Label>
+            <Label htmlFor={ids.model}>Model</Label>
+            <Label htmlFor={ids.effort}>Effort</Label>
+          </WriterGrid>
           {writers.map((w, i) => {
             const engine = engines.find((e) => e.id === w.engine)
+            const top = i === 0
             return (
               <WriterGrid key={w.id}>
                 <SelectBox
+                  id={top ? ids.agent : undefined}
                   aria-label={`Agent of writer ${i + 1}`}
                   width="full"
                   value={w.engine}
@@ -229,41 +299,36 @@ export function Generate({ ctx }: { ctx: Ctx }) {
                     disabled: !e.available,
                   }))}
                 />
-                <Input
+                <ComboBox
+                  id={top ? ids.model : undefined}
                   aria-label={`Model of writer ${i + 1}`}
-                  list={`models-${w.id}`}
+                  noun="model"
                   value={w.model}
-                  onChange={(e) => setWriter(i, { model: e.target.value })}
-                  placeholder="Model"
-                  autoCapitalize="none"
-                  autoCorrect="off"
-                  spellCheck={false}
+                  onChange={(model) => setWriter(i, { model })}
+                  options={engine?.models ?? []}
+                  placeholder={engine?.defaultModel ?? 'Model'}
                 />
-                <datalist id={`models-${w.id}`}>
-                  {(engine?.models ?? []).map((m) => (
-                    <option key={m} value={m} />
-                  ))}
-                </datalist>
                 <SelectBox
+                  id={top ? ids.effort : undefined}
                   aria-label={`Effort of writer ${i + 1}`}
                   width="full"
                   value={w.effort}
                   onChange={(effort) => setWriter(i, { effort })}
                   options={[
-                    { value: 'default', label: 'Default effort' },
+                    { value: 'default', label: 'Default' },
                     // The engine lists its own default too; it is the first option already.
                     ...(engine?.efforts ?? [])
                       .filter((ef) => ef !== 'default')
-                      .map((ef) => ({ value: ef, label: `${capital(ef)} effort` })),
+                      .map((ef) => ({ value: ef, label: capital(ef) })),
                   ]}
                 />
                 {writers.length > 1 ? (
                   <Button
                     type="button"
-                    variant="ghost"
+                    variant="ghost-muted"
                     size="icon"
                     aria-label={`Remove writer ${i + 1}`}
-                    title="Remove"
+                    title={`Remove writer ${i + 1}`}
                     onClick={() => setWriters((rows) => rows.filter((_, k) => k !== i))}
                   >
                     <XIcon aria-hidden="true" />
@@ -278,7 +343,6 @@ export function Generate({ ctx }: { ctx: Ctx }) {
             <Button
               type="button"
               variant="outline"
-              size="sm"
               disabled={writers.length >= 4 || !first}
               onClick={() =>
                 first &&
@@ -305,7 +369,7 @@ export function Generate({ ctx }: { ctx: Ctx }) {
         </Stack>
       </FormSection>
 
-      <FormSection title="Options">
+      <FormSection title="Options" hint="The defaults suit a first run.">
         <Field>
           <Label htmlFor="gen-samples">Samples per case</Label>
           <NumberInput
@@ -315,36 +379,11 @@ export function Generate({ ctx }: { ctx: Ctx }) {
             value={samples}
             onChange={(e) => setSamples(Math.max(1, Number(e.target.value) || 1))}
           />
+          <Hint>
+            An agent answers a little differently each time. Two or more show how steady the skill
+            is.
+          </Hint>
         </Field>
-        <Field>
-          <Label htmlFor="gen-config">Skill</Label>
-          <SelectBox
-            id="gen-config"
-            value={configuration}
-            // The options are CONFIGURATIONS, so the value is always one of them.
-            onChange={(v) => setConfiguration(v as Configuration)}
-            options={CONFIGURATIONS.map((c) => ({
-              value: c,
-              label: capital(c.replace('_', ' ')),
-            }))}
-          />
-          <Hint>{CONFIG_HELP[configuration]}</Hint>
-        </Field>
-        {configuration === 'old_skill' ? (
-          <Field>
-            <Label htmlFor="gen-baseline">Copy from</Label>
-            <SelectBox
-              id="gen-baseline"
-              width="wide"
-              value={baseline}
-              onChange={setBaseline}
-              options={withSkill.map((r) => ({
-                value: r.name,
-                label: `${versionName(r)} · ${runStamp(r)}`,
-              }))}
-            />
-          </Field>
-        ) : null}
         <Field>
           <Label htmlFor="gen-note">Note</Label>
           <Input
@@ -366,8 +405,30 @@ export function Generate({ ctx }: { ctx: Ctx }) {
         </CheckRow>
       </FormSection>
 
-      {/* The one step this screen exists for stays in view however long the form above it. */}
-      <FormActions pinned>
+      {/*
+       * The one step this screen exists for stays in view however long the form
+       * above it, with what it will cost said first: a run's size is its price.
+       */}
+      <FormActions layout="summary" pinned>
+        <Stack gap="xs" className="min-w-0 flex-1" role={running ? 'status' : undefined}>
+          <Text weight="medium" tabular>
+            {running
+              ? progress
+                ? `${progress.done} of ${plural(progress.total, 'output')} written`
+                : `${running.title} is going`
+              : count
+                ? plural(count, 'output')
+                : 'Nothing to run yet'}
+          </Text>
+          {running && progress ? <ProgressBar {...progress} /> : null}
+          <Hint tabular>
+            {running
+              ? 'The next run can start when this one is done.'
+              : !cases.size
+                ? 'Tick at least one case.'
+                : `${plural(cases.size, 'case')} × ${plural(writers.length, 'writer')} × ${plural(samples, 'sample')}${grade ? ', graded when done' : ''}`}
+          </Hint>
+        </Stack>
         <Button
           type="button"
           disabled={!cases.size || !writers.length}
@@ -375,17 +436,9 @@ export function Generate({ ctx }: { ctx: Ctx }) {
           busyLabel={busy ? 'Starting…' : 'Running…'}
           onClick={submit}
         >
+          <PlayIcon aria-hidden="true" />
           Start a run
         </Button>
-        <Hint role={running ? 'status' : undefined}>
-          {running
-            ? progress
-              ? `${progress.done} of ${plural(progress.total, 'output')} written. The next run can start when this one is done.`
-              : `${running.title} is going. The next run can start when it is done.`
-            : !cases.size
-              ? 'Pick at least one case.'
-              : `${plural(cases.size, 'case')} × ${plural(writers.length, 'writer')} × ${plural(samples, 'sample')} = ${plural(count, 'output')}`}
-        </Hint>
       </FormActions>
 
       {jobs.length ? (
@@ -398,14 +451,18 @@ export function Generate({ ctx }: { ctx: Ctx }) {
   )
 }
 
+const writerGrid = cva('grid gap-2 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_36px]', {
+  variants: {
+    /** The labels over the columns. On a narrow window the fields wrap, so each keeps its own name. */
+    head: { true: 'max-md:hidden -mb-0.5', false: 'grid-cols-2' },
+  },
+  defaultVariants: { head: false },
+})
+
 /**
- * Agent, model, effort and remove in one row; on a narrow window they wrap two
- * per line. The last column is the 36px remove button.
+ * Agent, model, effort and remove in one row, under one row of labels; on a
+ * narrow window they wrap two per line. The last column is the 36px remove button.
  */
-function WriterGrid({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="grid grid-cols-2 gap-2 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_36px]">
-      {children}
-    </div>
-  )
+function WriterGrid({ head, children }: VariantProps<typeof writerGrid> & { children: ReactNode }) {
+  return <div className={writerGrid({ head })}>{children}</div>
 }
