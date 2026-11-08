@@ -82,6 +82,8 @@ export interface MarkdownEditorHandle {
   /** Put a snippet over the selection and leave the cursor inside it. */
   insert: (snippet: Snippet) => void
   focus: () => void
+  /** Open "Write with AI" on the whole file, as the toolbar button does. */
+  assist: () => void
 }
 
 interface Action {
@@ -237,6 +239,7 @@ export function MarkdownEditor({
   const settle = useRef<ReturnType<typeof setTimeout>>(undefined)
   const refining = useRef(refine)
   refining.current = refine
+  const [assistOpen, setAssistOpen] = useState(false)
   /** The selection "Write with AI" was opened on; null when it has the whole file. */
   const [picked, setPicked] = useState<{ from: number; to: number } | null>(null)
   /** Whether there is a step to take back, and one to take again. */
@@ -400,6 +403,14 @@ export function MarkdownEditor({
         view.focus()
       },
       focus: () => editor.current?.focus(),
+      assist: () => {
+        // Opened from the page, not from the toolbar: it takes the whole file.
+        editor.current?.dispatch({
+          selection: { anchor: editor.current.state.selection.main.head },
+        })
+        setPicked(null)
+        setAssistOpen(true)
+      },
     }),
     [],
   )
@@ -447,11 +458,14 @@ export function MarkdownEditor({
             <Assist
               field={picked ? 'skill.passage' : assist.field}
               value={picked ? value.slice(picked.from, picked.to) : value}
+              blank={assist.blank}
               context={async () => [
                 ...((await assist.context?.()) ?? []),
                 ...(picked ? [{ label: 'The whole file', text: value }] : []),
               ]}
+              open={assistOpen}
               onOpenChange={(open) => {
+                setAssistOpen(open)
                 const range = open ? editor.current?.state.selection.main : null
                 setPicked(range && !range.empty ? { from: range.from, to: range.to } : null)
               }}

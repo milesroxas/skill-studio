@@ -10,10 +10,10 @@ import {
   type LibrarySkill,
 } from '@domain/library.ts'
 import { rulesFromSkill } from '@domain/rules.ts'
-import { TEMPLATES, type TemplateId, templateById } from '@domain/templates.ts'
+import { DESCRIPTION_HINT, TEMPLATES, type TemplateId, templateById } from '@domain/templates.ts'
 import { isSlug, SLUG_RULE } from '@domain/text.ts'
 import { FolderOpenIcon, PlusIcon } from 'lucide-react'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { api, type Job } from '../api.ts'
 import type { Confirm } from '../components/confirm.tsx'
 import { Disclosure } from '../components/Disclosure.tsx'
@@ -32,13 +32,14 @@ import {
   Screen,
   Section,
   SectionHead,
+  Stack,
   Toolbar,
 } from '../components/layout.tsx'
 import { Segmented } from '../components/Segmented.tsx'
 import { SelectBox } from '../components/SelectBox.tsx'
 import { Invitation } from '../components/starters.tsx'
 import { TextArea } from '../components/TextArea.tsx'
-import { Heading, Hint, Text, VisuallyHidden } from '../components/text.tsx'
+import { Code, Heading, Hint, Text, VisuallyHidden } from '../components/text.tsx'
 import { Button } from '../components/ui/button.tsx'
 import { Input } from '../components/ui/input.tsx'
 import { Label } from '../components/ui/label.tsx'
@@ -526,6 +527,17 @@ function SkillTable({
   )
 }
 
+/** A place's name in the form: the user's home is every project. */
+const placeName = (place: Library['places'][number]): string =>
+  place.scope === 'user' ? 'User (every project)' : place.label
+
+/**
+ * The new-skill form, in the order the questions are usually answered: what it
+ * is, what to start from, then where it goes. The name has focus on open, so
+ * from the switcher a skill is a name and two Returns away. Where it lives is
+ * one line until opened: the defaults suit most skills, and the Library can
+ * change both later.
+ */
 function NewSkill({
   startName,
   data,
@@ -552,11 +564,16 @@ function NewSkill({
   const [templateId, setTemplateId] = useState<TemplateId>('blank')
   const [samples, setSamples] = useState(true)
   const [busy, setBusy] = useState(false)
+  const nameField = useRef<HTMLInputElement>(null)
+  useEffect(() => {
+    nameField.current?.focus()
+  }, [])
   const nameError = name && !isSlug(name) ? SLUG_RULE : ''
   const taken = data.skills.some((s) => s.scope === scope && s.path.endsWith(`/${name}`))
-  const placeLabel = data.places.find((p) => p.scope === scope)?.label ?? ''
+  const place = data.places.find((p) => p.scope === scope)
   const template = templateById(templateId)
   const ruleCount = rulesFromSkill(template.body).length
+  const installed = AGENTS.filter((a) => agents.has(a.id)).map((a) => a.label)
 
   const toggleAgent = (id: AgentId) =>
     setAgents((prev) => {
@@ -611,25 +628,6 @@ function NewSkill({
           submit()
         }}
       >
-        <FormSection title="Start from" hint={template.summary}>
-          <Segmented
-            aria-label="Start from"
-            fill
-            value={templateId}
-            onChange={(v) => v && setTemplateId(v)}
-            options={TEMPLATES.map((t) => ({ value: t.id, label: t.label }))}
-          />
-          {template.cases.length ? (
-            <CheckRow
-              checked={samples}
-              onCheckedChange={setSamples}
-              description={`The template starts with ${plural(ruleCount, 'example rule')} to replace.`}
-            >
-              Add {plural(template.cases.length, 'sample case')} to run against
-            </CheckRow>
-          ) : null}
-        </FormSection>
-
         <FormSection
           title="About it"
           hint="Agents read the name and description to decide when to load the skill."
@@ -637,13 +635,14 @@ function NewSkill({
           <Field>
             <Label htmlFor="ns-name">Name</Label>
             <Input
+              ref={nameField}
               id="ns-name"
               value={name}
               autoComplete="off"
               autoCapitalize="none"
               autoCorrect="off"
               spellCheck={false}
-              enterKeyHint="next"
+              enterKeyHint="done"
               font="mono"
               aria-invalid={Boolean(nameError || taken) || undefined}
               aria-describedby="ns-name-help"
@@ -651,9 +650,7 @@ function NewSkill({
             />
             <Hint id="ns-name-help" tone={nameError || taken ? 'destructive' : 'default'}>
               {nameError ||
-                (taken
-                  ? 'A skill with this name is already in that place.'
-                  : `Saved in .agents/skills/${name || 'name'} (${placeLabel})`)}
+                (taken ? 'A skill with this name is already in that place.' : SLUG_RULE)}
             </Hint>
           </Field>
           <Field>
@@ -662,7 +659,7 @@ function NewSkill({
               id="ns-desc"
               rows={3}
               value={description}
-              placeholder={template.description}
+              placeholder={template.description || DESCRIPTION_HINT}
               onValueChange={setDescription}
               assist={{
                 field: 'skill.description',
@@ -677,32 +674,68 @@ function NewSkill({
           </Field>
         </FormSection>
 
-        <FormSection title="Where it lives">
+        <FormSection
+          title="Start from"
+          hint="A template is a small, finished skill of one kind: example rules to replace, each with its why, and sample cases to run it against."
+        >
           <Field>
-            <Label htmlFor="ns-place">Place</Label>
-            <SelectBox
-              id="ns-place"
-              value={scope}
-              onChange={setScope}
-              options={data.places.map((p) => ({
-                value: p.scope,
-                label: p.scope === 'user' ? 'User (every project)' : p.label,
-              }))}
+            <Label id="ns-template">Template</Label>
+            <Segmented
+              aria-labelledby="ns-template"
+              fill
+              value={templateId}
+              onChange={(v) => v && setTemplateId(v)}
+              options={TEMPLATES.map((t) => ({ value: t.id, label: t.label }))}
             />
+            <Hint>{template.summary}</Hint>
           </Field>
-          <Fieldset legend="Install for">
-            <Toolbar gap="md">
-              {AGENTS.map((a) => (
-                <CheckRow
-                  key={a.id}
-                  checked={agents.has(a.id)}
-                  onCheckedChange={() => toggleAgent(a.id)}
-                >
-                  {a.label}
-                </CheckRow>
-              ))}
-            </Toolbar>
-          </Fieldset>
+          {template.cases.length ? (
+            <CheckRow
+              checked={samples}
+              onCheckedChange={setSamples}
+              description={`The template starts with ${plural(ruleCount, 'example rule')} to replace.`}
+            >
+              Add {plural(template.cases.length, 'sample case')} to run against
+            </CheckRow>
+          ) : null}
+        </FormSection>
+
+        <FormSection title="Where it lives" hint="Both can be changed later from the Library.">
+          <Stack gap="md">
+            <Text as="p" size="ui">
+              Saved in <Code>.agents/skills/{name || 'name'}</Code>
+              {place ? ` in ${placeName(place)}` : ''}.{' '}
+              {installed.length
+                ? `Installed for ${installed.join(', ')}.`
+                : 'Installed for no agent yet.'}
+            </Text>
+            <Disclosure summary="Change the place or the agents">
+              <Stack gap="lg">
+                <Field>
+                  <Label htmlFor="ns-place">Place</Label>
+                  <SelectBox
+                    id="ns-place"
+                    value={scope}
+                    onChange={setScope}
+                    options={data.places.map((p) => ({ value: p.scope, label: placeName(p) }))}
+                  />
+                </Field>
+                <Fieldset legend="Install for">
+                  <Toolbar gap="md">
+                    {AGENTS.map((a) => (
+                      <CheckRow
+                        key={a.id}
+                        checked={agents.has(a.id)}
+                        onCheckedChange={() => toggleAgent(a.id)}
+                      >
+                        {a.label}
+                      </CheckRow>
+                    ))}
+                  </Toolbar>
+                </Fieldset>
+              </Stack>
+            </Disclosure>
+          </Stack>
         </FormSection>
 
         <FormActions>

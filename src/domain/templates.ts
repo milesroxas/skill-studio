@@ -13,7 +13,10 @@ export type TemplateId = (typeof TEMPLATE_IDS)[number]
 
 /** What a new skill is written from: its description, judge packs, SKILL.md body and cases. */
 export interface SkillStart {
-  /** The front-matter description when the author gives none. */
+  /**
+   * The front-matter description when the author gives none. Empty for the
+   * blank template, so the editor asks for one rather than saving a stand-in.
+   */
   description: string
   /** Judge packs that fit this kind of skill, in order. */
   packs: string[]
@@ -96,6 +99,10 @@ export const RULE_GUIDE: ReadonlyArray<{ id: Principle; lead: string; text: stri
 export const principleGuide = (id: Principle): { lead: string; text: string } =>
   RULE_GUIDE.find((item) => item.id === id) ?? RULE_GUIDE[0]
 
+/** What a skill's description is for, under its field while it is empty. */
+export const DESCRIPTION_HINT =
+  'What the skill does, then "Use when" and the requests it should load for.'
+
 /** What a case's prompt is, under its field and in the assistant's brief. */
 export const CASE_PROMPT_HINT =
   'Exactly what the agent is asked, as a user would ask it. Do not mention the skill.'
@@ -105,7 +112,7 @@ export const TEMPLATES: readonly SkillTemplate[] = [
     id: 'blank',
     label: 'Blank',
     summary: 'A title and an empty Rules section. Pick this when you know the shape you want.',
-    description: 'What the skill does. Use when ...',
+    description: '',
     packs: ['generic'],
     body: `# {{title}}
 

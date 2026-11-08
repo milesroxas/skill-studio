@@ -24,7 +24,7 @@ import {
   type Snippet,
 } from '@domain/templates.ts'
 import { metaText, readFrontMatter } from '@domain/text.ts'
-import { useEffect, useRef, useState } from 'react'
+import { Fragment, useEffect, useRef, useState } from 'react'
 import { api } from '../api.ts'
 import { DiffLines } from '../components/DiffLines.tsx'
 import { DraftNote } from '../components/DraftNote.tsx'
@@ -39,7 +39,6 @@ import {
   ListHeader,
   Loading,
   PlainList,
-  Stack,
   Toolbar,
   Workbench,
 } from '../components/layout.tsx'
@@ -67,23 +66,35 @@ const referencePath = (name: string): string | null => {
   return `references/${/\.\w+$/.test(clean) ? clean : `${clean}.md`}`
 }
 
-/** One button per template, each starting the skill over from it. */
-function TemplateButtons({ onPick }: { onPick: (template: SkillTemplate) => void }) {
+/**
+ * One line over an empty SKILL.md: the ways to begin, in a sentence. The
+ * template was offered when the skill was made; here it is a way out of a
+ * blank page, not a question asked again. It goes on the first keystroke.
+ */
+function BlankStart({
+  onTemplate,
+  onAssist,
+}: {
+  onTemplate: (template: SkillTemplate) => void
+  onAssist: () => void
+}) {
   return (
-    <Toolbar>
-      {EXAMPLE_KINDS.map((t) => (
-        <Button
-          key={t.id}
-          type="button"
-          variant="outline"
-          size="sm"
-          title={t.summary}
-          onClick={() => onPick(t)}
-        >
-          {t.label}
-        </Button>
+    <Hint role="note">
+      Nothing here yet. Write the first rule, take a template’s rules (
+      {EXAMPLE_KINDS.map((t, i) => (
+        <Fragment key={t.id}>
+          {i ? ' · ' : ''}
+          <Button type="button" variant="link-muted" size="inline-sm" onClick={() => onTemplate(t)}>
+            {t.label}
+          </Button>
+        </Fragment>
       ))}
-    </Toolbar>
+      ), or{' '}
+      <Button type="button" variant="link-muted" size="inline-sm" onClick={onAssist}>
+        draft rules with AI
+      </Button>
+      .
+    </Hint>
   )
 }
 
@@ -148,17 +159,8 @@ export function Editor({ ctx }: { ctx: Ctx }) {
     if (next !== 'changes' && next !== mode) setMode(next)
   }
 
-  /** Replace the body of SKILL.md with a template's, keeping the front matter. */
-  const startFrom = async (template: SkillTemplate) => {
-    if (
-      !isScaffold(text) &&
-      !(await confirm({
-        title: `Replace what is in ${file}?`,
-        description: `The ${template.label} template takes its place. The front matter stays.`,
-        action: 'Replace',
-      }))
-    )
-      return
+  /** Put a template's body under the front matter of an empty SKILL.md. */
+  const startFrom = (template: SkillTemplate) => {
     edit(applyTemplate(text, template, state.skill.name))
     requestAnimationFrame(() => editor.current?.focus())
   }
@@ -232,6 +234,7 @@ export function Editor({ ctx }: { ctx: Ctx }) {
   const meta = isSkill ? readFrontMatter(text).meta : {}
   const rules = isSkill && !config.rules?.length ? rulesFromSkill(text) : []
   const diff = showDiff ? lineDiff(saved ?? '', text) : []
+  /** SKILL.md says nothing yet: the sidebar shows how to write a rule and keeps the rest for later. */
   const blank = isSkill && isScaffold(text)
   /** The practice skill, run once and still holding its vague rule: offer the exact one. */
   const tightened = isSkill && state.practice && state.runs.length ? applyPracticeEdit(text) : null
@@ -286,8 +289,11 @@ export function Editor({ ctx }: { ctx: Ctx }) {
           <Alert variant="warning">
             <AlertTitle>Front matter needs {missing.join(' and ')}</AlertTitle>
             <AlertDescription>
-              Agents find a skill by its name and description, between the <Code>---</Code> lines at
-              the top.
+              {/* One paragraph: the description is a grid, and a bare code span would be a row of its own. */}
+              <p>
+                Agents find a skill by its name and description, between the <Code>---</Code> lines
+                at the top.
+              </p>
             </AlertDescription>
           </Alert>
         ) : null}
@@ -369,25 +375,18 @@ export function Editor({ ctx }: { ctx: Ctx }) {
               </Button>
             ))}
           </Toolbar>
-          <Stack gap="xs">
-            <GuideBox summary="How to write a rule">
-              <GuideList>
-                {RULE_GUIDE.map((item) => (
-                  <li key={item.lead}>
-                    <b>{item.lead}</b> {item.text}
-                  </li>
-                ))}
-              </GuideList>
-            </GuideBox>
-            {isSkill && !blank ? (
-              <GuideBox summary="Start over from a template">
-                <TemplateButtons onPick={startFrom} />
-              </GuideBox>
-            ) : null}
-          </Stack>
+          <GuideBox summary="How to write a rule" defaultOpen={blank}>
+            <GuideList>
+              {RULE_GUIDE.map((item) => (
+                <li key={item.lead}>
+                  <b>{item.lead}</b> {item.text}
+                </li>
+              ))}
+            </GuideList>
+          </GuideBox>
         </ColumnSection>
 
-        {isSkill ? (
+        {isSkill && !blank ? (
           <ColumnSection inset="list" title="Graded rules">
             {config.rules?.length ? (
               <Hint>
@@ -403,23 +402,27 @@ export function Editor({ ctx }: { ctx: Ctx }) {
                 ))}
               </List>
             ) : (
-              <Hint>No rules yet. Each top-level bullet of four words or more is one.</Hint>
+              <Hint>
+                Rules you write show up here: each top-level bullet of four words or more.
+              </Hint>
             )}
           </ColumnSection>
         ) : null}
 
-        <ColumnSection inset="list" title="Version">
-          <Hint>
-            {current.changed
-              ? `The saved files are not a version yet. Save them as ${current.version} to keep a copy you can return to.`
-              : `The saved files are ${current.version}${current.name ? `, ${current.name}` : ''}.`}
-          </Hint>
-          <Toolbar>
-            <Button type="button" variant="outline" size="sm" onClick={() => go('versions')}>
-              {current.changed ? `Save as ${current.version}` : 'See versions'}
-            </Button>
-          </Toolbar>
-        </ColumnSection>
+        {blank ? null : (
+          <ColumnSection inset="list" title="Version">
+            <Hint>
+              {current.changed
+                ? `The saved files are not a version yet. A version is a copy of them to come back to; ${current.version} is next.`
+                : `The saved files are ${current.version}${current.name ? `, ${current.name}` : ''}.`}
+            </Hint>
+            <Toolbar>
+              <Button type="button" variant="outline" size="sm" onClick={() => go('versions')}>
+                {current.changed ? `Save as ${current.version}` : 'See versions'}
+              </Button>
+            </Toolbar>
+          </ColumnSection>
+        )}
       </Column>
 
       <Column>
@@ -512,6 +515,7 @@ export function Editor({ ctx }: { ctx: Ctx }) {
           }
           assist={{
             field: isSkill ? 'skill.file' : 'skill.reference',
+            blank,
             // A reference is written to serve the skill it belongs to.
             context: () =>
               isSkill
@@ -557,13 +561,7 @@ export function Editor({ ctx }: { ctx: Ctx }) {
                   </Starter>
                 ) : null}
                 {blank ? (
-                  <Starter
-                    aria-label="Start from a template"
-                    title="Start from a template"
-                    hint="Each one is a small, finished skill in the shape the judge grades: one rule per bullet, with its why. Replace the rules with yours."
-                  >
-                    <TemplateButtons onPick={startFrom} />
-                  </Starter>
+                  <BlankStart onTemplate={startFrom} onAssist={() => editor.current?.assist()} />
                 ) : null}
               </ColumnBody>
             ) : null

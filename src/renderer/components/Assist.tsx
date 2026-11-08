@@ -51,6 +51,8 @@ export interface AssistSpec {
   context?: () => AssistContext[] | Promise<AssistContext[]>
   /** Pictures the model reads beside the field without being asked, such as the case's own. */
   images?: () => ImageRef[]
+  /** The field holds only a scaffold, so the offers are for writing, not for changing. */
+  blank?: boolean
 }
 
 /** What the control is called, for the button that opens it and for the popover. */
@@ -87,6 +89,8 @@ interface AssistProps extends AssistSpec {
   value: string
   /** Put the accepted text in the field, or its items in the list. */
   onApply: (text: string) => void
+  /** Opened from outside the trigger, such as by a line on an empty page. Uncontrolled when absent. */
+  open?: boolean
   onOpenChange?: (open: boolean) => void
   /** What it opens beside, so the field stays in view; the control that opens it by default. */
   anchor?: RefObject<HTMLElement | null>
@@ -277,20 +281,23 @@ export function Assist({
   onApply,
   context,
   images,
+  blank,
+  open: controlled,
   onOpenChange,
   anchor,
   children,
 }: AssistProps) {
   const def = ASSIST_FIELDS[field]
   const { providers, choice, problem } = useAi()
-  const [open, setOpen] = useState(false)
+  const [own, setOpen] = useState(false)
+  const open = controlled ?? own
   const [request, setRequest] = useState('')
   const work = useAssistRun()
   const attached = useAttached()
   const accept = useRef<HTMLButtonElement>(null)
 
   /** The field has text, so a request changes it and the reply takes its place. */
-  const editing = Boolean(value.trim())
+  const editing = !blank && Boolean(value.trim())
   const proposal = work.run?.status === 'done' ? work.run.text : null
   /** The same text back is nothing to accept. */
   const acceptable = proposal !== null && proposal !== value

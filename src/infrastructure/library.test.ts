@@ -153,10 +153,13 @@ describe('createSkill', () => {
     expect(rowOf('house-style').cases).toBe(3)
   })
 
-  it('writes no cases and no bench for the blank template', () => {
+  it('writes no cases, no bench and no stand-in description for the blank template', () => {
     const dir = createSkill({ scope: 'user', name: 'bare', description: '', agents: [] })
     expect(existsSync(join(dir, 'evals/bench.json'))).toBe(false)
     expect(loadCases(dir)).toEqual([])
+    // Left empty, so the editor asks for one rather than an agent reading placeholder text.
+    const md = readFileSync(join(dir, 'SKILL.md'), 'utf8')
+    expect(metaText(readFrontMatter(md).meta, 'description')).toBe('')
   })
 
   it('refuses a bad name, an unknown agent and a name already taken, writing nothing', () => {

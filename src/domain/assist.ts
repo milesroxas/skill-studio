@@ -70,7 +70,7 @@ export const ASSIST_FIELDS: Record<AssistFieldId, AssistFieldDef> = {
 - Below it: a # title, a "## When this applies" section of one or two sentences, a "## Process" numbered list when the work has steps, and a "## Rules" section.
 - ${RULES}`,
     suggestions: {
-      write: [],
+      write: ['Draft rules for this skill', 'Write a process with three steps'],
       edit: ['Tighten every vague rule', 'Add the why to each rule', 'Cut what changes nothing'],
     },
   },

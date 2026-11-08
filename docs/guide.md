@@ -89,13 +89,12 @@ The walkthrough never changes what your agents do. To start over, open the skill
 
 To make a new skill:
 
-1. Click **New skill**.
-2. Pick a template. Leave "Add 3 sample cases to run against" ticked.
-3. Type a name in lowercase, with dashes, like release-notes.
-4. Write one line on what it is for. Agents read this to decide when to use it.
-5. Pick a Place: "User (every project)", or one project.
-6. Tick the agents that get it.
-7. Click **Create skill**.
+1. Click **New skill**, or press Cmd+K, type the name and press Return.
+2. Type a name in lowercase, with dashes, like release-notes.
+3. Write one line on what it is for. Agents read this to decide when to use it. Left empty, the Editor asks for it.
+4. Pick a template: Blank, or a kind of skill with example rules to replace. Leave "Add 3 sample cases to run against" ticked.
+5. **Where it lives** says the folder and the agents that get it: your home, for Claude Code. Open "Change the place or the agents" to pick a project or other agents.
+6. Click **Create skill**, or press Return.
 
 A skill missing from the list?
 
@@ -108,6 +107,7 @@ A skill missing from the list?
 ![The Editor: the files, Insert buttons and Graded rules on the left; SKILL.md in the editor on the right, with a formatting toolbar under a switch for Formatted, Markdown or Changes.](images/editor.webp)
 
 - **Write** the skill's rules in the editor. Save with **Save** or Cmd+S.
+- **An empty SKILL.md** has one line over it: write the first rule, take a template's rules, or draft rules with AI. It goes once you write.
 - **Graded rules** (left) lists each rule exactly as the judge will check it.
 - **Insert** adds a ready-made rule, process or decision tree at the cursor.
 - **Formatted, Markdown, Changes:** read the page styled, as plain text, or as your unsaved changes.
