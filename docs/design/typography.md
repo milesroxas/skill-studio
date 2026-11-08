@@ -18,7 +18,7 @@ Every size is one of these steps. `--text-*: initial` removes Tailwind's own sca
 | `xl` | 21px | document headings |
 | `2xl` | 26px | a welcome step's title (`Heading level="step"`), the tour's score, and the guide's title on a small window |
 | `3xl` | 30px | the guide's title, and the tour's score once it is run again |
-| `display` | 64px | the welcome's headline, `Heading level="display"`. Weight 700 and tracking -0.045em come with the step. |
+| `display` | 64px | the welcome's headline, `Heading level="display"`, and the version lift's latest mean (`Lift.tsx`). Weight 700 and tracking -0.045em come with the step. |
 | `numeral` | 136px | the welcome's step number. Weight 700 and tracking -0.055em come with the step. |
 | `code` | 0.9em | mono inside running text, sized to its sans neighbours. `Text font="mono"` and `Code` apply it. |
 
@@ -41,7 +41,9 @@ Is it a heading in the page's outline?
       └── Anything else → Text, with tone, size and weight named as props
 ```
 
-The guide's title is its Markdown `h1`, set to `3xl` (`2xl` on a small window) by `.guide-body` in `styles.css`. No screen uses `Heading level={1}`. A screen's title is `level="page"` in the top bar. A screen never repeats its own name in its body.
+The guide's title is its Markdown `h1`, set to `3xl` (`2xl` on a small window) by `.guide-body` in `styles.css`. `Heading level={1}` exists at `3xl` and no screen uses it. A screen's title is `level="page"` in the top bar. A screen never repeats its own name in its body.
+
+Markdown the app renders itself (a reply, an output, the changelog) goes through `Prose` (`components/Prose.tsx`), which sets `.doc` in `styles.css`. Its `density` is `reading` (a column read at length), `compact` (a narrow column with no padding of its own) or `notes` (a release's changes, one to a line under small labels, bullets hung in the margin).
 
 ```tsx
 // Correct: components/layout.tsx, ListHeader
@@ -59,7 +61,9 @@ The guide's title is its Markdown `h1`, set to `3xl` (`2xl` on a small window) b
 
 ## Text props
 
-`Text` takes these and nothing else: `tone` (`default`, `muted`, `faint`, `destructive`, `success`, `warning`), `font` (`sans`, `mono`), `size` (`inherit`, `ui`, `xs`), `weight` (`normal`, `medium`, `semibold`), and the booleans `tabular`, `block`, `clamp`, `truncate`, `measure`, `caps`, plus `align` (`start`, `end`) and `wrap` (`normal`, `pre`, `anywhere`). The default is inherit everything.
+`Text` takes these and nothing else: `tone` (`default`, `muted`, `faint`, `destructive`, `success`, `warning`), `font` (`sans`, `mono`), `size` (`inherit`, `ui`, `xs`), `weight` (`normal`, `medium`, `semibold`), and the booleans `tabular`, `block`, `clamp`, `truncate`, `measure`, `caps`, plus `align` (`start`, `end`), `wrap` (`normal`, `pre`, `anywhere`) and the element it renders, `as` (`span`, `p`, `b`, `small`, `div`, `li`). The default is inherit everything.
+
+`Hint` takes `tone` (`default`, `destructive`), `measure` (`default`, `narrow`, `none`), `inset`, `tabular`, `as` and `htmlFor`. `Heading` takes `as` (`h1`, `h2`, `h3`, `span`, `legend`, `p`) and `tabular` (a heading that is a number, such as a version) beside its `level`.
 
 Weights are 400, 500 and 600. 700 belongs to the `display` and `numeral` steps, which carry it: never write `font-bold`. Body text is never bold for emphasis: use `weight="medium"`.
 
@@ -84,11 +88,11 @@ A number in a sentence stays in sans, and so does a live count under a field ("4
 
 ## Caps labels
 
-`Text caps` is 11px, weight 500, uppercase, tracked `--tracking-caps` (0.08em). It names a group without being a heading. Use it for exactly these: a `SidebarSection` label, a section of the composer's slash menu ("Assistant", "Skills"), a caption over a part of a picture in the welcome, the label of a figure, and the tag before each line of a rule pair ("vague", "exact": `PairList` in `starters.tsx`). Two words at most. Never for a button, a table head or a heading: caps slow reading, so they stay where a reader only glances.
+`Text caps` is 11px, weight 500, uppercase, tracked `--tracking-caps` (0.08em). It names a group without being a heading. Use it for exactly these: a `SidebarSection` label, a section of the composer's slash menu ("Assistant", "Skills"), a caption over a part of a picture in the welcome, the label of a figure, the tag before each line of a rule pair (`PairList` in `starters.tsx`: "vague" and "check" by default, "vague" and "exact" on the Editor), the part labels of a case change in the Assistant ("Prompt", "A good answer", "Checks"), a rewrite's kind ("Best practice", "More direct", "Shorter"), and the section labels of Auto refine and Help me improve ("What drifts", "Revision", "The selection", "The draft against the guide"). Two words at most. Never for a button, a table head or a heading: caps slow reading, so they stay where a reader only glances.
 
 ## Display type
 
-Large type carries its own negative tracking from the scale (`lg` and up). Do not add `tracking-tight`. Do not set a line height on a heading: the step sets it. Text that wraps to two or more lines in a heading uses `text-balance`, which `Heading` already has; a paragraph uses `text-pretty`.
+Large type carries its own negative tracking from the scale (`lg` and up). Do not add `tracking-tight`: `AlertTitle` in `ui/alert.tsx` is the one place that carries it, from shadcn. Do not set a line height on a heading: the step sets it. Text that wraps to two or more lines in a heading uses `text-balance`, which `Heading` already has; a paragraph uses `text-pretty`.
 
 ## Geist, not the kit's Inter
 

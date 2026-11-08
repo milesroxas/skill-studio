@@ -17,6 +17,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - The writing guide beside the editor has a sixth line: test it by running it.
 - Commands in the Assistant: type `/` and pick from the list, or keep typing a name and press Tab. `/clear` starts a new conversation, `/settings` and `/guide` open those screens.
 - Run a skill from the Assistant: with Claude Code as the model, the same list holds the skills your CLI knows, plugins included. Pick one and add any words it takes. The reply follows the skill as it would in your terminal, and your files still do not change.
+- While the Assistant writes a reply, the send button becomes Stop, with yellow hazard bars moving under it.
 - A default case: pick one under the cases on New run and it is ticked on every new run, first in the list. It can still be unticked. The Cases list says which case it is, and `bench.json` keeps it as `defaultCase`.
 - Results opens with the version lift: the latest version's mean, what it gained since the first version, and a ribbon from one score to the other, over the same writer's score without the skill.
 - A run counts its outputs as they are written, under its line at the foot of the sidebar ("3/6").
@@ -51,6 +52,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - A new look. The sidebar is a blue-black ink in both themes, and the page is a warm off-white in the light theme and near-black in the dark one.
 - The next step at the top right is a highlighter yellow, the one yellow control in the window. A running job's dot in the sidebar is yellow too.
 - Scores, costs and times in tables are set in mono, so digits line up down a column. Score chips have small 4px corners.
+- Stepped indicators, the file size meter and the walkthrough's progress, have 2px corners instead of pills, so each step reads as a step.
+- Rate blind lists a case's checks without their weight, so a ×2 does not hint at which check matters before you rate.
 - A pressed choice (a theme, an install toggle, a vote between two outputs) is filled solid, the same everywhere. Good and Bad marks stay green and red.
 - Fields have a light fill, so they are easy to find on the page.
 - Tighter corners. Buttons, fields, toggles and chips have 4px corners. Cards, menus, dialogs and panels are 10px on top and 12.5px below.
@@ -66,6 +69,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - Results fits a 720px window: the "×2" beside a score folds away below 1024px, and the score still says it to a screen reader.
 - Like the other verdicts, a failing message on Agreement colors only its heading.
 - The welcome's first screen no longer opens with a focus ring on "See how it works".
+- The window opens even when its saved bounds file is damaged, instead of failing to start.
+- The writing checks skip words inside quotes, so a rule that bans "reasonably" is not itself flagged for saying it.
 
 ## [0.1.0] - 2026-11-05
 

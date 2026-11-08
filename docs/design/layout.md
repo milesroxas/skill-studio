@@ -8,11 +8,13 @@ All in `src/renderer/components/Shell.tsx`, except `StatusLine`, which has its o
 
 | Part | Rule |
 | --- | --- |
-| `Sidebar` | ink in both themes: it carries `data-surface="ink"`. 208px, 232px from the `lg` breakpoint. |
+| `AppFrame` | the window-sized grid: the sidebar, then `Workspace` |
+| `Sidebar` | ink in both themes: it carries `data-surface="ink"`. 208px, 232px from the `lg` breakpoint. `SidebarBody` is its middle, scrolling on its own when the window is short. |
 | `SidebarSection` | a label over its `NavItem`s, `Text caps` |
-| `NavItem` | one place. `meta` is its count, mono and tabular. `dot` is unsaved work, in `warning`. |
+| `NavItem` | one place. `meta` is its count, `xs` sans at 55%, tabular. `dot` is unsaved work, in `warning`. |
 | `SidebarFooter` | Library, Guide, Settings, with a running job above them. `lead` holds the update. |
-| `TopBar` | history, `Heading level="page"`, then the next step (`App.tsx` only), then help and the assistant |
+| `Workspace` | the right column: the top bar over the pane, with `AssistantPane` beside them when the Assistant is open |
+| `TopBar` | `HistoryNav` (back and forward), `Heading level="page"`, then the next step (`App.tsx` only), then help and the assistant |
 | `Pane` | `layout="page"` for a `Screen` (the default), `layout="flush"` for a `Workbench` |
 | `StatusLine` | under the pane: what just happened, read for a moment in a 48px strip kept for it, the top bar's mirror, ink while it speaks. Fed by `ctx.report`. See [data.md](data.md). |
 
@@ -53,7 +55,7 @@ Does the reader pick one item from a list and work on it?
 
 ## Regions are never cards
 
-A region is a part of the page: a column, a section, a group of fields. It ends at a hairline and has no fill, radius or shadow of its own. `Card` (`components/ui/card.tsx`) is for an object a person compares or picks up. Two things are cards: an output (`OutputCard`), and a rewrite to pick in the selection popout (`Rewrites.tsx`, a button with the card's surface, since the whole object is the action).
+A region is a part of the page: a column, a section, a group of fields. It ends at a hairline and has no fill, radius or shadow of its own. `Card` (`components/ui/card.tsx`) is for an object a person compares or picks up. Two things use it: an output (`OutputCard`), and a rewrite to pick in the selection popout (`Rewrites.tsx`, a button with the card's surface, since the whole object is the action). The same surface (`rounded-chin border bg-card`) bounds a `Disclosure variant="card"`, a `DisclosureList`, an `Alert`, and a figure or a table in the guide: each is one object standing in a flow of text, never a region of the page.
 
 `Disclosure` (`components/Disclosure.tsx`) folds a block behind one line, in three variants. `plain` is a line of text that opens in place. `card` is one file of a diff, on its own bordered block (the Versions comparison). `row` is one row of a `DisclosureList`: the changes an Assistant reply proposes, a title over a line of detail, with one control at the end in a slot of fixed width so the controls line up down the list. A row with nothing to open keeps the chevron's slot empty, so the titles line up too.
 
@@ -88,7 +90,7 @@ A box around a region adds an edge the eye has to cross and takes 32px of width 
 | `ColumnBody`, `ColumnSection` | the scrolling content, split by hairlines |
 | `ColumnFooter` | actions that stay in view |
 
-Insets are fixed: 16px in a list, 24px in main, 20px in an inspector (`inset="list" | "main" | "inspector"`). A header, a toolbar and the body of one column share one inset, so their left edges line up. Never pad a column by hand.
+Insets are fixed: 16px in a list, 24px in main, 20px in an inspector (`inset="list" | "main" | "inspector"`). `ColumnBody inset="none"` fills the column edge to edge, for an editor. Its `width` is `full` or `form` (808px). A header, a toolbar and the body of one column share one inset, so their left edges line up. Never pad a column by hand.
 
 ### A list workbench, the Cases pattern
 
@@ -121,7 +123,9 @@ Below `lg` the columns stack and the pane scrolls. Check every workbench at 720p
 | A list to pick from while typing (the skill switcher, the composer's slash menu) | `PopoverContent size="menu" still` holding a `PopoverSection role="listbox"` of `role="option"` rows |
 | Records with several fields | `Table`. See [data.md](data.md). |
 | Records of one or two lines, not tabular | `Rows` (hairlines, never boxed) |
+| The steps of a transcript | `TranscriptEvent` rows in `Rows`: when, kind, body; a tool call on `muted`, an error or a failed step on the destructive tint |
 | Filters on the left, actions on the right, over a list | `ListBar` |
+| A document with its contents beside it (the guide) | `GuideLayout`, `GuideBody` and the `Toc*` parts in `components/Guide.tsx`: a `TocNav` that stays in view on a wide window, a `TocCompact` line that opens on a narrow one, `TocButton` rows with a rail on the one being read |
 
 ## Empty, loading and failed
 
@@ -165,8 +169,24 @@ Does the whole screen have nothing to show?
 | `field` | the list under a `ComboBox`: as wide as its field |
 | `selection` | the row of actions over a selection in the editor: as wide as its buttons, no focus of its own |
 
+Inside one: `PopoverSection` with `pad="rows"` (rows to pick from, the default) or `pad="text"`, and `scroll` for a list that may outgrow 320px; `PopoverAction` is a row that does something (an icon, what it does, its shortcut); `PopoverLabel` names a section. A `HoverCardContent` (`ui/hover-card.tsx`) is `default` (360px) or `note` (one word and what it means, `xs`), with `HoverCardSection part="head" | "body" | "foot"`.
+
 The selection popout (`SelectionTools.tsx`) opens over four or more selected words in SKILL.md, 150ms after the selection settles, anchored to the selection itself. It is `selection` while it is a row of buttons, `compose` when the writing checks found something in the selected rule (the findings in a `PopoverSection` over the row), and `compose` or `compose-wide` once a result is in it. Its buttons are `ghost` `sm`, in one fixed order: Auto refine, Suggest changes, Help me improve. Nothing in it is yellow.
 
 ## Spacing
 
 Spacing comes from Tailwind's 4px scale. `Screen` sets 40px between sections, `Section` 12px inside one, `FormSection` 28px above its rule. Use `Stack` for a vertical group and `Toolbar` for a horizontal one rather than a bare `flex gap-*` when one fits. Related things sit closer than unrelated ones: if two gaps are equal, the grouping is not showing.
+
+The groups in `layout.tsx`, with every variant they have:
+
+| Group | Variants |
+| --- | --- |
+| `Section`, `SectionHead` | a titled part of a `Screen`; `anchor` gives it an id the help can link to |
+| `Columns` | `count` 1 or 2 side by side |
+| `Fieldset` | fields under one legend |
+| `Toolbar` | `gap` `xs` 4px, `sm` 8px, `md` 12px; `justify` `start`, `end`; `wrap`; `grow`; `line` keeps a text baseline when it holds only an icon |
+| `Stack` | `gap` `xs` 4px, `sm` 6px, `md` 10px, `lg` 20px; `align` `stretch`, `start` |
+| `PlainList` | `gap` `none`, `xs`, `sm`, `md`; `bleed` pulls it 8px past the column's inset |
+| `List` | `variant` `bullet`, or `number` with the "01" mono counter; `size` `inherit`, `xs`; `font` `sans`, `mono`; `gap` `none`, `sm` |
+| `FormActions` | `layout` `fields` (the default, under the fields of a split form), `summary`; `pinned` |
+| `RefreshButton` | the round arrow, one `animate-turn` per press |

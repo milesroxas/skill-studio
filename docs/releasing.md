@@ -70,7 +70,7 @@ Give the copy a prerelease version while every release is a prerelease. Everythi
 
 To meet a release as a newcomer does, use **Reset Skill Studio…** under Start over, the last section of Settings. Only a development build and a prerelease offer it (`canReset` in `src/domain/reset.ts`).
 
-It deletes `~/.skill-studio/` (the walkthrough's skill included), `~/.skill-tester/library.json`, the window's place, and the page's storage, cache and zoom, then opens the app on the welcome. Your skills and stored keys stay. A development build shares these files with an installed copy, so a reset in one resets both.
+It deletes `~/.skill-studio/` (the walkthrough's skill included), `~/.skill-tester/library.json`, the window's place, and the page's storage and cache, then opens the app on the welcome. Your skills and stored keys stay. A development build shares these files with an installed copy, so a reset in one resets both.
 
 ## The app icon
 

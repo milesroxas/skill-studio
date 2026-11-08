@@ -7,9 +7,9 @@ Read this file before any change to `src/renderer`. Then read only the topic fil
 ## Five rules that hold everywhere
 
 1. **Tokens only.** A component uses a semantic token class (`bg-background`, `text-muted-foreground`, `border-border`). Never a hex, `rgb()`, `oklch()` or an arbitrary color (`bg-[#0A1020]`) outside `src/renderer/styles.css`. One raw value is one place the next theme change misses.
-2. **No styling at call sites.** A screen composes components and names variants. If a screen needs a `className` that sets color, size, radius, shadow or font, the variant is missing: add it to the component, then use it. Layout classes (`flex`, `gap-*`, `min-w-0`) are the only exception.
+2. **No styling at call sites.** A screen composes components and names variants. If a screen needs a `className` that sets color, size, radius, shadow or font, the variant is missing: add it to the component, then use it. Layout classes (`flex`, `gap-*`, `min-w-0`) are the only exception, with one color: a window's root, and a band stuck to the top of its own page, may name `bg-background`, the page's ground. A screen file defines no styled sub-components of its own: a figure, a list row or a contents list is a component in `components/`, however small.
 3. **Closed sets.** Each topic file lists every variant that exists. A variant not listed there does not exist. Do not invent one in a call site, and do not pass one the union type rejects.
-4. **Yellow is a signal, not a decoration.** `signal` marks exactly these: the next step, a running job, and in the welcome the current step and one slab per frame. One yellow element per window, except a running job's dot in the app and the current step's number in the welcome. Two yellow elements means neither is the next thing to look at. See [color.md](color.md).
+4. **Yellow is a signal, not a decoration.** `signal` marks exactly these: the next step, a running job, and in the welcome the current step and one slab per frame. One yellow element per window, except a running job's dot in the app, the composer's Stop button while a reply is written, and the current step's number in the welcome. Two yellow elements means neither is the next thing to look at. See [color.md](color.md).
 5. **Regions are never cards.** A screen is `Screen`, `Workbench` columns or `FormSection`, divided by hairlines. `Card` is for an object a person compares or picks up, such as `OutputCard`. See [layout.md](layout.md).
 
 ## Index
@@ -31,6 +31,6 @@ Run each check. Each one is a command or a look, not a judgment.
 1. `pnpm check` passes.
 2. `grep -rnE '#[0-9a-fA-F]{3,8}\b|oklch\(|rgba?\(' src/renderer --include='*.tsx' --include='*.ts'` prints only `images.ts:43` (a JPEG's white ground).
 3. `grep -rnoE '(text|bg|border|fill|stroke)-\[[^]]+\]' src/renderer --include='*.tsx'` prints only `text-[length:inherit]` in `ui/button.tsx`.
-4. The screen has at most one `signal` element besides a running job's dot.
+4. The screen has at most one `signal` element besides a running job's dot and the composer's Stop button.
 5. You looked at the screen in the light theme and the dark theme, at 1280 x 860 and at the 720 x 480 minimum. A component in the sidebar also needs the light theme's ink sidebar, where the page around it is paper.
 6. Every text pair you added meets 4.5:1. [color.md](color.md) lists the pairs already checked.

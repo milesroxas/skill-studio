@@ -56,7 +56,7 @@ To add the Jev key later, open **Settings** at the foot of the sidebar. Until yo
 
 ## Take the walkthrough first
 
-Take a finished skill once round the loop. Click **Start the walkthrough** in the welcome or the Library.
+Take a finished skill once round the loop. Click **Start the walkthrough** in the welcome, or in the Library before your first run. After that, the New skill form has a **Take the walkthrough** link.
 
 The walkthrough's skill, Thank-you note, writes short thank-you notes, so a run takes a minute or two. Every form is filled in for you. The Walkthrough box in the sidebar shows your step, and clicking it takes you there:
 
@@ -79,40 +79,41 @@ The walkthrough never changes what your agents do. To start over, open the skill
 
 ## 1. Open or create a skill
 
-![The Library: a search box, a place filter, a round arrow and a New skill button above two tables, In progress and Your skills. Each row has the skill, its place, Claude, Cursor and Codex buttons, and a folder icon at its end.](images/library.webp)
+![The Library: a search box, a place filter, a round arrow and a New skill button above two tables, In progress and Your skills. Each row has the skill and its description, its place, Claude, Cursor and Codex buttons, and at its end a Not mine button and a folder icon.](images/library.webp)
 
 - **Open a skill:** click its name. Type in the search box to find one.
 - **In progress:** the skills you have worked on.
 - **Claude, Cursor, Codex:** install the skill for that agent, or remove it. Removing never deletes the skill.
 - **"copy" on a button:** that agent has its own copy. Your edits here do not reach it.
+- **Not mine:** moves a skill you did not write to the Installed list. Once a skill is there, a **Yours / Installed / All** switch appears beside the place filter, and **Mine** on an installed skill brings it back.
 - **Folder icon:** shows the skill's files on your computer.
 
 To make a new skill:
 
-1. Click **New skill**, or press Cmd+K, type the name and press Return.
+1. Click **New skill**, or press Cmd+K and type the name. Return creates it when no skill of that name exists; otherwise it opens the one that matches.
 2. Type a name in lowercase, with dashes, like release-notes.
 3. Write one line on what it is for. Agents read this to decide when to use it. Left empty, the Editor asks for it.
-4. Pick a template: Blank, or a kind of skill with example rules to replace. Leave "Add 3 sample cases to run against" ticked.
+4. Pick a template: Blank, or a kind of skill with example rules to replace. For a kind of skill, leave "Add 3 sample cases to run against" ticked.
 5. **Where it lives** says the folder and the agents that get it: your home, for Claude Code. Open "Change the place or the agents" to pick a project or other agents.
 6. Click **Create skill**, or press Return.
 
 A skill missing from the list?
 
-- Choose **All** beside the place filter.
+- Choose **Every place** in the place filter, and **All** on the Yours / Installed / All switch if it shows.
 - Click the round arrow beside New skill to look again.
 - Open "Where skills are found" at the bottom, and add the folder its project is in.
 
 ## 2. Write the skill
 
-![The Editor: the files, the version, Insert buttons and the count of rules the judge will check on the left; SKILL.md in the editor on the right, each graded rule numbered in the margin, with a formatting toolbar under a switch for Formatted, Markdown or Changes.](images/editor.webp)
+![The Editor: the files, the version, Insert buttons and a folded How to write a rule on the left; SKILL.md in the editor on the right, each graded rule numbered in the margin, with a formatting toolbar under a switch for Formatted, Markdown or Changes.](images/editor.webp)
 
 - **Write** the skill's rules in the editor. Save with **Save** or Cmd+S.
 - **An empty SKILL.md** has one line over it: write the first rule, take a template's rules, or draft rules with AI. It goes once you write.
 - **Rules are numbered.** Each bullet the judge will check shows its number in place of the bullet, 01, 02, in the order Scoring lists them. A bullet that keeps its dot is skipped; point at it for why. An amber number means the writing checks found something: the words that set a check off are underlined (point at one to read why), and clicking the number selects the rule: the popout lists what the checks found over Auto refine, Suggest changes and Help me improve.
-- **Insert** adds a ready-made rule, process or decision tree at the cursor.
+- **Insert** adds a ready-made rule, decision tree, process or reference link at the cursor.
 - **Formatted, Markdown, Changes:** read the page styled, as plain text, or as your unsaved changes.
 - **Five bars** (before Write with AI, at the end of the toolbar) show the file's size. Amber: getting long. Red: too long.
-- **Long background material** goes in a file of its own: click the plus beside Files.
+- **Long background material** goes in a file of its own: click the plus beside Files. **Delete file** under a saved reference file removes it.
 
 Unsaved text is kept, even if you close the app. **Discard** throws it away.
 
@@ -146,7 +147,7 @@ Exact, with its reason:
 - **Ask:** click the small button in any text box, or **Write with AI** in the editor toolbar. Say what you want.
 - **Nothing changes** until you click **Replace** or **Insert**.
 - **Select text first** to rewrite only that part.
-- **Assistant** (top right, or Cmd+J): a chat beside every screen. It reads the open skill as you have it, unsaved edits and new files included, and knows the screen you are on and the file or case you have open. Ask it to change something and the reply shows each change under it: a file's changes, a new case, or a version to save first. A case it adds or replaces can mark a check ×2: ask for it. Click the button under a change to apply it. Undo in the status line takes it back. Nothing changes until you click.
+- **Assistant** (top right, or Cmd+J): a chat beside every screen. It reads the open skill as you have it, unsaved edits and new files included, and knows the screen you are on and the file or case you have open. Ask it to change something and the reply shows each change under it: a file's changes, a new case, or a version to save first. A case it adds or replaces can mark a check ×2: ask for it. Click the button at the end of a change's row to apply it. For a file change or a new case, Undo in the status line takes it back; a replaced case or a saved version offers **Open** instead. Nothing changes until you click. **New conversation** in the panel's header starts over.
 - **Commands in the Assistant:** type `/` and pick from the list, or keep typing a name; Tab takes the one shown. `/clear` starts a new conversation, `/settings` and `/guide` open those screens. While a reply is written, the send button becomes Stop.
 - **Run a skill in the Assistant:** with Claude Code as the model, the same list holds the skills your CLI knows. Pick one, add any words it takes and press Return. The skill shapes the reply the way it would in your terminal, and still nothing in your files changes.
 
@@ -173,12 +174,12 @@ A case is one task for the agent: a request, plus checks a good answer passes.
 
 ![Cases: the list of three cases on the left; on the right the form for one case, with its title, prompt, an Add pictures button and what a good answer does. The checks start below.](images/cases.webp)
 
-1. Click the plus above the list. Or pick one under "Start from an example" and edit it.
-2. **Title:** a short name.
+1. Click the plus above the list. A new case can start empty or from one of the examples under "Start from an example".
+2. **Title:** a short name. **Id** is its folder name, and cannot change later.
 3. **Prompt:** what a user would ask. Do not mention the skill: the test is whether the agent uses it on its own.
 4. **Pictures** (optional): a screenshot or mock-up the prompt is about.
 5. **A good answer:** one or two sentences on what it does.
-6. **Checks:** one fact per row that a good answer makes true. The picture button in a check's corner attaches a mock-up or screenshot the check is about. **×2** makes a check count double. **Write checks with AI** adds checks from the prompt.
+6. **Checks:** one fact per row that a good answer makes true. Return starts the next row; Backspace on an empty row removes it. The picture button in a check's corner attaches a mock-up or screenshot the check is about. **×2** makes a check count double. **Write checks with AI** adds checks from the prompt. When no pack on Scoring reads checks, this section says so instead, with a button to Scoring.
 7. **Length** (optional): tick it to score the word count.
 8. Click **Add case**.
 
@@ -186,7 +187,7 @@ Write at least three different cases before you trust a score.
 
 ## 4. Run the agents
 
-![New run: the version under test at the top, Write with set to This version, the cases to run ticked, and a bar at the foot with the output count and Start a run.](images/new-run.webp)
+![New run: the version under test at the top, Write with set to This version, one of three cases ticked, and a bar at the foot with the output count and Start a run.](images/new-run.webp)
 
 1. **The top line** is the version this run tests. If the skill changed since its last run, it is a new version: type what changed under **Write with**.
 2. **Write with:** "This version", "No skill" (the baseline to beat), or "An earlier version" (to test an edit against the one before it).
@@ -194,9 +195,10 @@ Write at least three different cases before you trust a score.
 4. **Writers:** pick the agent, model and effort. Pick a model from the list or type its name. Add up to four writers to compare them.
 5. **Samples per case:** use 2 or more. Agents answer a little differently each time.
 6. Leave **Grade when done** ticked.
-7. Click **Start a run**.
+7. **Note** (optional): why you are running, so Results can say it under the run's name.
+8. Click **Start a run**.
 
-The run works in the background. Its progress shows in the bar on New run and at the foot of the sidebar.
+The run works in the background. Its progress shows in the bar on New run and at the foot of the sidebar, and its log under **Jobs** at the bottom of New run.
 
 Runs cost money: each answer is an agent session, and the judge is paid per call.
 
@@ -207,11 +209,12 @@ Runs cost money: each answer is an agent session, and the judge is paid per call
 - **Top:** how much your latest version gained since the first, and against no skill at all.
 - **Each row:** one run, with a score per case, the average, cost, time and flags.
 - **Flag:** something the judge found wrong, such as a broken rule.
-- **Click a score** to read that answer.
+- **Click a score** to open Compare on that case's answers from the run.
 - **Click a run** to see each answer, and **Transcript** for the agent's steps.
+- **Changes since this run** shows what changed in the skill after the run was written.
 - **Regrade** scores a run again, for example after you add checks.
 
-A total is made of **layers**, such as "followed the rules" and "passed the checks". Read the layers: a total can hold steady while one layer drops.
+A total is made of **layers**: Adherence (the rules followed) and Rubric (the checks passed), and with the workflow pack Efficiency, Scope and Process. Read the layers: a total can hold steady while one layer drops.
 
 The judge can be wrong. Step 6 checks it.
 
@@ -225,18 +228,18 @@ For each answer:
 2. Rate it from 1 (unusable) to 5 (ready to use).
 3. Mark each layer **Good** or **Bad**, where you have an opinion.
 4. Add a note: what works, and what the skill should have done.
-5. Click **Save and reveal**, or **Skip**.
+5. Click **Save and reveal**, or **Skip**. **Reveal without saving** shows the scores and keeps no rating.
 
 Scores stay hidden until you save. Seeing the judge's score first would pull your rating toward it.
 
-The answers you learn most from come first. After the reveal, you can save the answer as an anchor: a good or bad example the judge must get right.
+The answers you learn most from come first. After the reveal, **Compare with another output** opens Compare, and **Make it an anchor** saves the answer as a good or bad example the judge must get right.
 
 ### Compare two answers
 
 ![Compare: a v0 answer scoring 48 beside a v1 answer to the same case scoring 100, each with its layer scores, and a "Which is better?" bar at the bottom.](images/compare.webp)
 
-- Pick two answers under **A** and **B**.
-- Vote: **A is better**, **Tie** or **B is better**.
+- Pick two answers under **A** and **B**. **Side by side** shows both; **Word diff** marks what differs; **Swap** trades them.
+- Vote: **A is better**, **Tie** or **B is better**. The field after **on** names what the vote is about; it starts as "overall", and you can type a layer or a quality instead.
 - **Ask Jev** has the judge vote on the same pair.
 - Your votes and Jev's build two rankings lower on the screen.
 
@@ -260,8 +263,10 @@ This screen fills in once you have rated some answers. Each layer lands in one o
 | tune the scoring | You and the judge disagree | Adjust that layer in Scoring |
 | holding | You both say the answers are good | Nothing |
 
+- **Good** means a layer score at or above **Good at** on Scoring, 70 to start.
 - **Your rating against the judge's total:** above 0.6, the judge ranks answers the way you do. It needs 3 ratings.
 - **Pairs:** the picks where the judge chose the other answer.
+- **Runs:** the judge's mean against yours per run, with its top flags.
 
 ## 8. Tune the scoring
 
@@ -272,8 +277,9 @@ Move a setting and every score updates at once. Nothing runs again, so it costs 
 - **Packs:** which sets of judge questions grade this skill.
 - **Points per layer:** how much each layer counts.
 - **Thresholds:** when a judge's answer counts as yes, as unsure, or as good.
+- **Rules:** the bullets read from SKILL.md, in the order the Editor numbers them.
 
-Click **Save**. Change one setting at a time, then look at Agreement again.
+Click **Save**, or **Discard**. Change one setting at a time, then look at Agreement again.
 
 ## 9. Change the skill and run again
 
@@ -282,7 +288,7 @@ Click **Save**. Change one setting at a time, then look at Agreement again.
 3. Save a version on Versions, with what changed.
 4. Run again, and compare the scores on Results.
 
-To be sure an edit helped, run it against "Old skill" on the same cases, with 2 or more samples. If the scores differ less than one version's samples do, the edit made no clear difference.
+To be sure an edit helped, run the same cases with **Write with** set to "An earlier version", with 2 or more samples. If the scores differ less than one version's samples do, the edit made no clear difference.
 
 ## When something goes wrong
 
@@ -290,8 +296,8 @@ To be sure an edit helped, run it against "Old skill" on the same cases, with 2 
 | --- | --- |
 | "No Jev key" at the top right | Add the key in Settings |
 | An agent says "(not set up)" in New run | Install that agent and sign in to it |
-| A skill is missing from the Library | Choose All, click the round arrow, or add its folder under "Where skills are found" |
-| A save is refused | The file changed outside the app. "Keep my draft", then Save, writes yours over it; "Use the file on disk" keeps the other |
+| A skill is missing from the Library | Choose Every place, click the round arrow, or add its folder under "Where skills are found" |
+| Save is greyed and a notice says the file changed on disk | The file changed outside the app. "Keep my draft", then Save, writes yours over it; "Use the file on disk" keeps the other |
 | A bullet keeps its dot and gets no number | Make it a bullet of four words or more, outside a numbered list, and not only a link |
 | A score looks wrong | Read the transcript, then rate the answer blind |
 

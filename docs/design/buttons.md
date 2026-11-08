@@ -21,7 +21,9 @@ These exist. Nothing else does: an unlisted variant is a bug, not an option.
 | `destructive-ghost` | a destructive action beside other buttons | rare |
 | `destructive-muted` | a delete icon a row repeats: quiet until pointed at | any |
 
-`default` is the cva default, so a bare `<Button>` is the filled one. Count them: 29 `Button` call sites name `outline` and 28 name `ghost`, and a few more pick one of the two in a ternary. If a screen has two filled buttons, it has no hierarchy: make one `outline`.
+`default` is the cva default, so a bare `<Button>` is the filled one. Most call sites name `outline` or `ghost`, and a few pick one of the two in a ternary. If a screen has two filled buttons, it has no hierarchy: make one `outline`.
+
+`CornerButton` (`components/CornerButton.tsx`) is `ghost` at `icon-xs`, in `muted-foreground` at 80% until pointed at, with a 36px hit area around its 24px: the action in a field's corner. Where it goes is in [forms.md](forms.md).
 
 **Destructive** means it deletes something a person made (a skill, a case, a version, a run, a key) or resets the whole app. Putting preferences back to their defaults is not destructive: it is `outline`, like "Show every hint again" in `Settings.tsx`.
 

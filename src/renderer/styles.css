@@ -184,7 +184,7 @@
  *   xl    21  document headings
  *   2xl   26  the guide's title on small screens
  *   3xl   30  the guide's title
- *   display  64  the welcome's headline, weight 700
+ *   display  64  the welcome's headline and the version lift's mean, weight 700
  *   numeral 136  the welcome's step number, weight 700
  *   code  0.9em  monospace inside running text, sized to its sans neighbours
  */
@@ -214,7 +214,7 @@
  *                     select triggers, cards, links.
  *   focus-ring-inset  the same line 2px inside the control, for a row in a
  *                     list that scrolls, which would clip a line outside it.
- *   focus-ring-segment  the line 3px inside one segment of a joined group,
+ *   focus-ring-segment  the line 4px inside one segment of a joined group,
  *                     in the segment's own text color: porcelain on a pressed
  *                     (ink) segment, ink on the others.
  *   focus-edge        a field's own edge turns ink, on any focus: the caret
@@ -287,7 +287,7 @@
   --text-3xl: 1.875rem;
   --text-3xl--line-height: 2.25rem;
   --text-3xl--letter-spacing: -0.022em;
-  /* Display: the welcome only. Set tight, with the tracking large type needs. */
+  /* Display: the welcome's headline and the version lift. Set tight, with the tracking large type needs. */
   --text-display: 4rem;
   --text-display--line-height: 3.75rem;
   --text-display--letter-spacing: -0.045em;

@@ -6,13 +6,13 @@ The `st` command runs from a checkout and uses the same files as the app:
 pnpm st <command> [skill-dir] [options]
 ```
 
-A skill directory is any folder with a `SKILL.md`. Paths are read from the checkout's root. To try a command without writing a skill, use `fixtures/demo-skill`.
+A skill directory is any folder with a `SKILL.md`. Paths are read from the checkout's root. With no skill directory named, the current directory is used when it holds a `SKILL.md`; otherwise the command stops with `No SKILL.md here. Pass the skill directory.` To try a command without writing a skill, use `fixtures/demo-skill`.
 
 ## Commands
 
 | Command | Does |
 | --- | --- |
-| `new <dir>` | Scaffold a skill. `--template` is `blank`, `writing`, `code`, `workflow` or `design`; `--with-cases` adds the template's sample cases |
+| `new <dir>` | Scaffold a skill. `--name <id>` is the skill name (default the folder name; it must be a slug) and `--description <text>` its front matter description; `--template` is `blank`, `writing`, `code`, `workflow` or `design`; `--with-cases` adds the template's sample cases |
 | `cases` | List the skill's cases |
 | `run` | Generate outputs with a headless agent, then grade them |
 | `grade` | Grade a run again: `--run <name>` or `--all` |
@@ -28,9 +28,11 @@ pnpm st run skills/release-notes --engine claude --model sonnet --samples 2 --na
 pnpm st report skills/release-notes --run <run-name>
 ```
 
-`run` takes `--engine` (`claude` or `cursor`), `--model`, `--effort`, `--cases a,b`, `--samples n`, `--configuration` with `--baseline <run>` ([versions](files.md#versions)), `--name`, `--note`, `--parallel n` and `--no-grade`.
+`run` takes `--engine` (`claude`, the default, or `cursor`), `--model`, `--effort`, `--cases a,b`, `--samples n` (1), `--configuration` (`with_skill`) with `--baseline <run>` ([versions](files.md#versions)), `--name`, `--note`, `--parallel n` (3) and `--no-grade`.
 
-Every grading command takes `--no-jev`, `--packs a,b`, `--bench <file>` and `--jev-model <id>` ([grading](grading.md)). `--json` prints JSON instead of a table. `pnpm st --help` lists every command and flag.
+Every grading command takes `--no-jev`, `--packs a,b`, `--bench <file>` and `--jev-model <id>` ([grading](grading.md)). Without `TYPESAFE_API_KEY`, `run`, `grade` and `self-test` print `TYPESAFE_API_KEY is not set: grading without Jev.` to stderr and go on with the code checks. `--json` prints JSON instead of a table for `cases`, `versions`, `run`, `grade` and `report`; `compare` and `self-test` print tables only. `pnpm st --help` lists every command and flag.
+
+The exit code is 0 on success. `self-test` exits 1 when any check fails. An error, an unknown command or no command (which prints the help) exits 2; `--help` exits 0.
 
 The CLI covers scaffolding, runs, grading and reports. Rating, voting, saving versions and tuning the scoring are in the app only.
 
@@ -44,7 +46,7 @@ pnpm st serve                 # http://localhost:4400
 pnpm st serve --tailscale     # also https://<this-machine>.<tailnet>.ts.net:8443
 ```
 
-`--port` and `--tailscale-port` change the ports, and `--open` opens a browser. With no skill named, the server opens on the Library.
+`--port` and `--tailscale-port` change the ports, and `--open` opens a browser. With no skill named, the server serves the skill in the current directory when it holds a `SKILL.md`, and otherwise opens on the Library.
 
 The server listens on `127.0.0.1` only and has no login of its own. `--tailscale` is the one supported way to reach it from another device: it lets in the Tailscale login that owns this machine and nobody else, and the tailnet address goes away when the server stops. Do not expose the server any other way. [SECURITY.md](../SECURITY.md#the-web-server) has the details.
 

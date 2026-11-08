@@ -32,12 +32,15 @@ Ink uses the dark scope's values, with `--background` set to `--sidebar` and the
 | `--ring` | `oklch(0.177 0.035 267.3)` | `oklch(0.961 0.01 94)` | focus: the keyboard's line at 50%, a field's edge at full |
 | `--sidebar` | `oklch(0.177 0.035 267.3)` | `oklch(0.125 0.01 267.3)` | the sidebar's ground |
 | `--sidebar-accent` | `oklch(0.269 0.035 267.3)` | `oklch(0.205 0.01 267.3)` | the current place |
+| `--sidebar-foreground` | porcelain | porcelain | text on the sidebar |
 | `--success` | `oklch(0.49 0.133 148)` | `oklch(0.8 0.207 150)` | a good score, a pass |
 | `--warning` | `oklch(0.51 0.105 69)` | `oklch(0.8 0.152 70)` | a weak score, unsaved |
 | `--destructive` | `oklch(0.52 0.199 27)` | `oklch(0.76 0.134 25)` | a failing score, an error, a delete |
 | `--signal` / `--signal-foreground` | `oklch(0.928 0.168 109)` / ink | the same | next and running |
 
 `--signal` is the same in every scope. It is the brand's highlighter yellow `#F0F059`.
+
+Each surface token has a `-foreground` partner (`--card-foreground`, `--popover-foreground`, `--accent-foreground`, `--secondary-foreground`) for text on it. The depth and corner values are tokens too: `--elevation-raised` and `--elevation-popover` behind `shadow-raised` and `shadow-popover`, `--radius-chin-top` (0.625rem) and `--radius-chin-bottom` (0.78125rem) behind `rounded-chin`.
 
 Ink is a blue-black, `#0A1020`: the light theme's text, its filled button and its sidebar. The dark theme's surfaces are near-black on the same hue, 267.3, at chroma 0.01, so they read as black with a cool cast. Only porcelain, the verdicts and yellow sit off that hue.
 
@@ -51,6 +54,7 @@ Is it the page or a column?
       ├── Is it an object someone compares or picks up, or an input's fill? → bg-card
       ├── Is it code, front matter, or a table row that is open? → bg-muted
       ├── Is it hovered or the selected item of a list? → bg-accent
+      ├── Is it the reader's own message in the chat, or a Badge variant="secondary"? → bg-secondary
       └── Is it the sidebar? → bg-sidebar, and the element carries data-surface="ink"
 ```
 
@@ -79,8 +83,8 @@ Yellow marks exactly these:
 - in the welcome: the current step in the progress row, and one `Slab` per frame. See [brand.md](brand.md).
 
 ```tsx
-// Correct: the dot of a running job, in components/Jobs.tsx
-running: 'animate-pulse bg-signal',
+// Correct: the dot of a running job, Dot in components/Status.tsx
+signal: 'animate-pulse bg-signal',
 
 // Incorrect: yellow as a highlight for something that is neither next nor running
 <Badge className="bg-signal">New</Badge>
@@ -107,7 +111,7 @@ A diff (`.diff` and `.diff-lines` in `styles.css`) takes the same tints, but its
 
 - A region ends at a hairline: `border-b`, `border-r`, `divide-y`. The default border color is `--border`. Do not name it.
 - A control's edge is `border-input`. How focus shows is in [Focus](#focus) below.
-- One depth cue per surface. A floating sheet uses `shadow-popover`. A raised object uses `shadow-raised`. Never both, never a shadow plus a border on the same element. In the dark and ink scopes both collapse to a ring.
+- One depth cue per surface. A floating sheet uses `shadow-popover`. A raised object uses `shadow-raised`. Never both, and never one of them on a bordered region. In the dark and ink scopes both collapse to a ring. A control is not a surface: a field (`FIELD_SURFACE`), an `outline` button or toggle, a checkbox and the slider's thumb carry Tailwind's `shadow-xs` under their `border-input` edge, set once in `ui/`. That hairline is part of the control's edge, not depth: never add it at a call site.
 - Corners are a closed set, in `styles.css`:
   - `rounded-sm` 4px: a button, a field, a toggle, a checkbox, a chip, a list row or menu item.
   - `rounded-chin` 10px on top, 12.5px below: a container. A card, a popover, a menu, a dialog, an alert, the composer, a muted panel, a code block, a chat bubble, the welcome's picture sheet. Top and bottom stay 4 to 5.
@@ -127,7 +131,7 @@ Focus answers one question, "where did I land?", and only a keyboard asks it. A 
 
 "From the keyboard only" is `data-input` on `<html>`, which `renderer/focus.ts` sets to `pointer` on a press and `keyboard` on a key. The browser's own `:focus-visible` is not enough: when a menu or dialog closes, its script hands the focus back to its trigger, and the browser lights the trigger up under the pointer that just closed it. Before the first input there is no attribute, so the line shows: a keyboard user is never left without it. A select's edge also turns ink while its list is open (`data-[state=open]:border-ring`). `focus-key:` is the same keyboard test as a variant, for a reveal: a `ghost-muted` icon turns to text color when focused (`focus-key:text-foreground`).
 
-- A component names one of the four. Never `outline-none` alone on something focusable, and never a `ring-*` for focus: a ring is a box shadow, it sits on top of the edge, and it is the heavy halo this replaces.
+- A component names one of the four. Never `outline-none` alone on something focusable, and never a `ring-*` for focus: a ring is a box shadow, it sits on top of the edge, and it is the heavy halo this replaces. The one bare `outline-none` is `Pane` (`tabIndex={-1}`), which only the skip link focuses: a reader lands in it, not on it.
 - Anything focusable that names none of them still gets the line from the base layer: a link in prose, a `summary`.
 - The composer's `box` frame shows focus as its edge in `border-ring` (`focus-within`), because it holds the focus for a whole conversation.
 - A field in error keeps its red edge when focused: `focus-edge` does not paint over `aria-invalid`.

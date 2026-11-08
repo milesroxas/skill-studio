@@ -7,16 +7,23 @@ One table of operations serves the desktop app and the web server. [`src/applica
 ```
 src/
   domain/          pure: schemas, read models, scoring, stats, text. No I/O
-  judges/          the judge packs, one folder each, and the Jev client
+  judges/          the judge packs (generic, writing, code, workflow, design), one folder each, and the Jev client
+    rule/            the judge behind the editor's selection popout; not a pack
+    shared/          what the packs share: Jev questions, scoring helpers, running a check or lint command
   application/     use cases (generate, grade, jobs, the assistant) and the operations table
-  infrastructure/  files on disk, the engines, the assistant's providers, the environment
+  infrastructure/  files on disk, the environment
+    engines/         the agent CLIs: claude, cursor
+    ai/              the assistant's providers
   interfaces/
+    host.ts        the checkout's paths for the CLI and `st serve`: `.env` and `out/renderer`
     electron/      main process, preload bridge, backend utility process
     http/          `st serve`: the table over HTTP, the request guard, Tailscale
     cli/           the `st` command
   renderer/        the React app; reaches the table through a transport (IPC or HTTP)
     components/ui/   shadcn/ui sources (Radix + Tailwind v4), owned by the repo
     components/      the app's composites built on them
+    editor/          CodeMirror: the Markdown language, the theme, the live preview
+    lib/             `cn`, the class-name helper
     screens/         one file per screen
 ```
 
@@ -45,7 +52,7 @@ Imports point inward only, and `pnpm fallow` fails on one that does not (`bounda
 
 An engine runs one agent CLI in a sample directory (`src/infrastructure/engines/`).
 
-- **claude**: `claude -p --output-format stream-json --setting-sources project --strict-mcp-config --permission-mode acceptEdits`, with `--allowedTools` set from the case's `allowed_tools` (by default Read, Write, Edit, Glob, Grep and Bash). Only the sample directory's own settings load, so the machine's skills, `CLAUDE.md` and MCP servers stay out of the run. Variables starting with `CLAUDECODE` are dropped, so a run works from inside a Claude Code session. Models: sonnet, opus, haiku, fable. Efforts: low to max.
+- **claude**: `claude -p --output-format stream-json --verbose --no-session-persistence --strict-mcp-config --setting-sources project --permission-mode acceptEdits`, with `--allowedTools` set from the case's `allowed_tools` (by default Read, Write, Edit, Glob, Grep and Bash). Only the sample directory's own settings load, so the machine's skills, `CLAUDE.md` and MCP servers stay out of the run. Variables starting with `CLAUDECODE` are dropped, so a run works from inside a Claude Code session. Models: sonnet, opus, haiku, fable, and default (the CLI's own, with no `--model` flag). Efforts: low to max.
 - **cursor**: `cursor-agent -p --output-format stream-json --force --trust`. It needs `cursor-agent login` or `CURSOR_API_KEY`. Models come from `cursor-agent --list-models`, and effort rides on the model string (`model[effort=high]`). The CLI has no setting-source switch, so a run sees the user's `~/.cursor/skills`. This adapter has not been run against a live account.
 
 Isolation is by convention. The skill copy omits `evals/` and the prompt forbids reading outside the sample directory, but nothing stops an agent that follows an absolute path.

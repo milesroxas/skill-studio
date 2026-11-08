@@ -4,17 +4,17 @@ Grading runs a skill's judge packs over each sample of a run and writes `report.
 
 - A pack runs on a sample when it judges the kind of the sample's primary artifact: the first output of the case's `bench.artifact` kind, else the first Markdown file, else the first output of any kind.
 - Jev's raw answers are stored. Points per layer, thresholds and pack settings are applied in code (`src/domain/scoring.ts` and each pack's `score.ts`), so the Scoring screen rescores without new judge calls.
-- Without a TypeSafe key, or with `--no-jev`, only code checks run and every judged layer is null. A null layer is left out of the total and the rest rescale.
-- A case's word range counts prose and list text, not headings or code.
+- Without a TypeSafe key, or with `--no-jev`, only code checks run and every judged layer is null. A null layer, or one given 0 points, is left out of the total and the rest rescale. A pack that throws leaves every one of its layers null and adds the flag `<pack> pack failed: ...`.
+- A case's word range counts prose and list text, not headings or code. An output outside it is flagged `length: N words, case asks a to b`; a sample with no output is flagged `no output to judge`.
 
 ## `bench.json`
 
-`evals/bench.json` is optional. The Scoring screen writes it, and so does a skill created from a template.
+`evals/bench.json` is optional. The Scoring screen writes it, and so does `st new` for a template whose packs go beyond `generic` (`{ "packs": [...] }`); `blank` writes none.
 
 | Key | Default | Does |
 | --- | --- | --- |
 | `packs` | `["generic"]` | The judge packs that apply, in order |
-| `rules` | `null` | The rules adherence is judged on; `null` reads the top-level bullets of `SKILL.md` |
+| `rules` | `null` | The rules adherence is judged on; `null` or an empty list reads the bullets of `SKILL.md`, below |
 | `weights` | `{}` | Points per layer, over each pack's defaults |
 | `yes` | `0.5` | A judge answer at or above this counts as yes |
 | `sure` | `0.6` | A verdict below this confidence is listed as unsure, and a Jev pairwise vote below it is not counted |
@@ -23,9 +23,13 @@ Grading runs a skill's judge packs over each sample of a run and writes `report.
 
 Each pack adds its own keys, below. `--packs a,b` and `--bench <file>` override the file for one grading, so a skill in another repository can be graded without writing config into it.
 
+With no `rules`, the rules are the top-level `-` and `*` bullets of `SKILL.md`, outside code blocks and the front matter. Indented lines under a bullet join it as a clause of the same rule. A bullet under four words, or made only of a link, is not a rule, and the editor says so. Numbered lists are never rules.
+
 ## Packs
 
 A check marked ×2 on the Cases screen counts double inside the layer that marks the case's checks: `rubric` (generic), `review` (code) and `visual` (design), named by each pack's `checks`. The writing and workflow packs read no checks, and the Cases screen says so in their place. The mark is `weight: 2` in the grader file's front matter; a file written by hand, or the Assistant, may say up to 5, and the screen shows that number. An unmet check's flag carries the mark: `(×2)`. Points per layer in `bench.json` are a different thing.
+
+Within a layer, an answer at or above `yes` counts as met. Adherence is the share of rules met; rubric, review and visual are the share of checks met, each check counted by its weight.
 
 | Pack | Judges | Layers (default points) | Keys in `bench.json` |
 | --- | --- | --- | --- |
@@ -33,11 +37,11 @@ A check marked ×2 on the Cases screen counts double inside the layer that marks
 | `writing` | Markdown | lint 15, shape 15, structure 20, substance 25, tone 10, grounding 15 | `lint`, `writingKind`, `warningCost`, `structure`, `substance`, `bands`, `groundingPrior`, `contradictionCap`, `writer`, `borrowed` |
 | `code` | code | check 60 (the exit code of the case's `bench.check`), review 40 (the case's checks over the file) | `codeCheck.timeoutSeconds`, `codeCheck.maxChars` |
 | `workflow` | the transcript | efficiency 40, scope 20, process 40 | `workflow.maxRetries`, `workflow.summaryLines` |
-| `design` | HTML, PNG or JPEG | markup 40 (code checks), visual 60 (Jev) | `design.maxChars` |
+| `design` | HTML or an image | markup 40 (code checks), visual 60 (Jev) | `design.maxChars` |
 
 ### Writing
 
-A case's `bench.kind` (`article`, `linkedinPost`, `coverLetter`, `youtubeScript`) picks the layers; shape applies to articles only.
+A case's `bench.kind` (`article`, `linkedinPost`, `coverLetter`, `youtubeScript`) picks the layers; shape applies to articles only. A case with no `bench.kind` takes `writingKind` (default `article`). A kind outside that list scores lint, substance, tone and grounding only.
 
 - Grounding asks one question per factual claim against the nearest chunks of the case's `bench.evidence` files. A contradiction counts only when a second, literal question agrees.
 - `writer` names who "I" is in the copy.
@@ -49,9 +53,9 @@ A case's `bench.kind` (`article`, `linkedinPost`, `coverLetter`, `youtubeScript`
 { "packs": ["writing"], "lint": { "command": "node scripts/lint.mjs --kind {kind}" }, "writer": "Ada Lovelace" }
 ```
 
-The command prints `{ "findings": [...] }` or a bare array of `{ severity: "error" | "warning" | "info", rule, message, excerpt? }`. Its exit code is ignored. Any error scores lint 0, and each warning costs `warningCost`. A command that prints no findings, or runs past `lint.timeoutSeconds` (60), leaves the layer null with a flag.
+The command prints `{ "findings": [...] }` or a bare array of `{ severity: "error" | "warning" | "info", rule, message, excerpt? }`. Its exit code is ignored. Any error scores lint 0, and each warning costs `warningCost` (0.2). A command that prints no findings, or runs past `lint.timeoutSeconds` (60), leaves the layer null with a flag.
 
-With no command, a fallback lint treats an em dash as an error, and warns on exclamation marks, emoji and a word count outside the case's range. Its word count includes headings.
+With no command, a fallback lint treats an em dash as an error (`em-dash`), and warns on exclamation marks (`exclamation`), emoji (`emoji`) and a word count outside the case's range (`length`). Its word count includes headings.
 
 ### Code
 
@@ -59,20 +63,21 @@ The check command runs in the sample directory, so it executes code the agent wr
 
 ### Workflow
 
-The pack needs a transcript; legacy runs and anchors have none and get no workflow layers.
+The pack needs a transcript; a run whose outputs sit flat at the run root (`RunMeta.legacy`) and an anchor have none and get no workflow layers.
 
-- Code counts tool calls, errors, identical repeated calls, time against the case's `timeout_seconds`, tool calls against `max_turns`, and absolute paths outside the sample directory. System folders such as `/tmp` and `/usr` are not counted.
+- Code counts tool calls, errors, identical repeated calls, time against the case's `timeout_seconds`, tool calls against `max_turns`, and absolute paths outside the sample directory. System folders are not counted: `/dev`, `/tmp`, `/private/tmp`, `/usr`, `/bin`, `/opt` and `/etc`.
+- Efficiency is the share of checks passed: no errors, repeated calls within `workflow.maxRetries` (1), tool calls within `max_turns` and seconds within `timeout_seconds`, the last two only when the case sets them. Scope is 0 when any path lands outside the sample, else 1.
 - Code checks that `SKILL.md` was read before the first write. A `without_skill` sample skips that check.
-- Jev reads a one-line-per-step summary and answers whether the task was done and, after an error, whether the agent changed course.
+- Jev reads a one-line-per-step summary and answers whether the task was done and, after an error, whether the agent changed course. Process is the share of those answers at or above `yes`.
 
 ### Design
 
-The pack does not render the page, and runs only when the primary artifact is HTML or an image. When the agent also writes Markdown, set `bench.artifact: html` on the case.
+The pack does not render the page, and runs only when the primary artifact is HTML or an image (`.png`, `.jpg`, `.jpeg`, `.webp`, `.gif` or `.svg`). When the agent also writes Markdown, set `bench.artifact: html` on the case.
 
-- Markup checks the document shell, landmarks, heading order, alt text and inline handlers.
-- Visual asks Jev about hierarchy and the case's checks, over the HTML text.
-- When the agent left a PNG or JPEG screenshot in `outputs/`, Jev is also asked whether the page looks finished with nothing broken, and a check that has its own picture is asked of the screenshot.
-- A screenshot outside the sizes Jev reads (280 to 1568 px a side) is left out and flagged. The HTML is still judged.
+- Markup checks the document shell, landmarks, heading order, alt text and inline handlers: eight checks of equal worth, `doctype`, `lang`, `title`, `viewport`, `main`, `headings`, `alt` and `handlers`.
+- Visual asks Jev about hierarchy and the case's checks, over the HTML text. Hierarchy counts once, the finished question once when there is a screenshot, and each check by its weight.
+- When the agent left a PNG or JPEG screenshot in `outputs/`, Jev is also asked whether the page looks finished with nothing broken, and a check that has its own picture is asked of the screenshot. Only the first PNG or JPEG is read; an image in another format is not.
+- A screenshot outside the sizes Jev reads (280 to 1568 px a side) is left out with the flag `screenshot not judged: ...`. The HTML is still judged.
 
 ## Pictures
 
@@ -90,6 +95,14 @@ The first active pack that judges the first output's kind casts the vote, and it
 
 A vote with confidence under `sure` is kept in `reviews.json` but left off the leaderboard and the agreement count.
 
+## Agreement
+
+The Agreement screen sets your marks, ratings and votes from Rate blind against the judge's scores.
+
+- Per layer, each output you marked falls in one of four boxes, by your mark and whether the layer score is at or above `agreeAt`: both good, both bad, judge missed (the judge scored high, you marked bad) and too harsh (the judge scored low, you marked good). The layer reads "tune the scoring" when missed and harsh together are at least one and at least the both-bad count, "change the skill" when any output is both bad, and "holding" otherwise.
+- Your rating against the judge's total is a Spearman rank correlation over the rated outputs, and needs three or more. Above 0.6 the judge ranks like you do; above 0.2 the two are loosely related; otherwise the judge does not rank like you yet.
+- Each of your pairwise votes is set against the two totals: the judge's side is the higher total, or a tie when they are equal. A vote on an output whose run is gone has no judge side.
+
 ## Anchors
 
-An anchor is an output labelled good or bad, promoted from Rate blind or written by hand in `evals/anchors/`. `st self-test` grades every anchor and checks that each bad one scores below the good ones. Trust a pack on a skill only once its anchors pass.
+An anchor is an output labelled good or bad, promoted from Rate blind or written by hand in `evals/anchors/`. `st self-test` grades every anchor, writes `evals/anchors/report.json`, and checks that each bad anchor scores below the good anchor of its case, on each layer named in its `tests` front matter, else on `total`. A case has one good anchor: a later one replaces an earlier one, and a bad anchor whose case has no good anchor is not checked. Trust a pack on a skill only once its anchors pass.

@@ -69,7 +69,8 @@ The welcome runs in its own 760 x 600 window, laid out for exactly that size and
 
 ## Motion
 
-- State changes in the app: 150ms, `ease-out`. Movement that travels: `ease-out-strong`. Only `transform`, `opacity` and color move. The welcome's draws are the one exception: the mark and the slab reveal through `clip-path`.
+- State changes in the app: 150ms, `ease-out`. Movement that travels: `ease-out-strong`. Only `transform`, `opacity` and color move, with two exceptions in the welcome: the mark and the slab reveal through `clip-path` (`animate-draw`), and text rising in (`animate-rise`) comes out of a 4px blur.
+- The small arrivals have their own utilities, in `styles.css`: `animate-pop` (a mark stamped or a choice made, on `ease-out-back`, so it may overshoot: the status line's dot, a mark stamped in the tour), `animate-ink` (a word written: a change's title, an opened disclosure), `animate-vanish` (what a stamp replaces, gone as it lands) and `animate-turn` (one turn of a refresh icon in answer to its press). Each waits for `--delay`, set where it is used.
 - Things used many times a day do not animate: the skill switcher (⌘K), menus opened by key.
 - The status line is the one place in the app that draws: its ink is laid down left to right on `ease-stroke` in 300ms (a `scale-x` of its own layer, not `clip-path`), its words rise in after it, and it withdraws in 150ms. A notice is occasional and asks to be seen; nothing else in the app does this.
 - The welcome may say more, because it is seen once or twice: the mark draws (`animate-draw`), text rises in reading order (`animate-rise`), the slab crosses its word (`animate-draw`). Delays come from `after(ms)` in `renderer/motion.ts`.

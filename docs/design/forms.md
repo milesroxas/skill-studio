@@ -69,7 +69,7 @@ Every control sits in a `Field` with a `Label` above it. Never a placeholder as 
 
 ## Disabling
 
-`Segmented`, `Knob` and `FilterGroup` have no `disabled` prop. Do not fake one with opacity at the call site. If a control truly cannot apply, add `disabled` to the component first. Otherwise leave it enabled and say why it has no effect in a `Hint` under it.
+`Knob` and `FilterGroup` have no `disabled` prop. `Segmented` takes one, for a choice whose change is being saved. Do not fake one with opacity at the call site. If a control truly cannot apply, add `disabled` to the component first. Otherwise leave it enabled and say why it has no effect in a `Hint` under it.
 
 ## Input
 
@@ -79,6 +79,8 @@ Every control sits in a `Field` with a `Label` above it. Never a placeholder as 
 - `width="search"` for a search field in a `ListBar`.
 - `size="sm"` only in workbench chrome.
 - An input's fill is `bg-card`. On porcelain its 1.5:1 edge is not enough to find it. Every field (`Input`, `TextArea`, the `Select` trigger) takes its edge and fill from `FIELD_SURFACE` in `ui/input.tsx`: change it there, once.
+
+`TextArea` variants: `default` (84px minimum, grows), `line` (one line that grows as it wraps, 36px to start: a check reads as an input until it needs more). `CheckRow` takes `size` (`default`, `sm`) and a `description` line under its label. `NumberInput` takes `width` (`default`, `value` for a number beside a slider, `full`). `SelectBox` takes `width` (`auto`, `full`, `wide` for a run with its writer and time), `size` (`default`, `sm` 32px), `none` (the label of the choice that means no value) and `groups`. Nothing else on these changes their look.
 
 ## Corner actions
 
@@ -98,7 +100,7 @@ The pressed segment is ink fill (`bg-primary`). A segment with a `tone` takes it
 
 ## Toggle
 
-`Toggle` variants: `default` (hovers as a ghost button, for a toolbar), `outline` (one item's state in a row: an agent's install on Library, a check's ×2 on Cases), `filter`. Sizes: `default`, `sm`, `icon-sm`, `lg`. Every `outline` toggle in the app is `size="sm"`. `tone`: `default`, `success`, `destructive`.
+`Toggle` variants: `default` (hovers as a ghost button, for a toolbar), `outline` (one item's state in a row: an agent's install on Library, a check's ×2 on Cases), `filter`. Sizes: `default`, `sm`, `icon-sm`, `lg`. Every `outline` toggle in the app is `size="sm"`. `tone`: `default`, `success`, `destructive`. `place`: `alone` (the focus line outside the toggle, the default) or `group` (inside it, for a segment of a `Segmented` or `FilterGroup`; see [color.md](color.md)).
 
 The pressed `outline` toggle is ink fill, the same as `Segmented`, so "on" reads the same everywhere. A pressed `default` toggle in a toolbar stays `bg-accent`: a formatting tool is a state of the cursor, not a setting.
 

@@ -108,7 +108,7 @@ Is it the standing of one thing (connected, installed, allowed, set)?
 
 ## Status
 
-`components/Status.tsx`: a dot, a state in a word or two, then detail. `tone`: `success`, `warning`, `destructive`, `muted` (the default). `size`: `default` in a section's text, `ui` at the end of a row whose title is `text-ui`, such as a change in the Assistant panel. Pick the tone from the table in [color.md](color.md): works is `success`, needs the reader's action is `warning`, broken is `destructive`, not set and fine is `muted`. The detail says what to do when the tone is not `success`.
+`components/Status.tsx`: a dot, a state in a word or two, then detail. `tone`: `success`, `warning`, `destructive`, `muted` (the default), `signal` for a job that is running. `size`: `default` in a section's text, `ui` at the end of a row whose title is `text-ui`, such as a change in the Assistant panel. Pick the tone from the table in [color.md](color.md): works is `success`, needs the reader's action is `warning`, broken is `destructive`, not set and fine is `muted`. The detail says what to do when the tone is not `success`.
 
 ```tsx
 // Correct: screens/Settings.tsx
@@ -165,4 +165,4 @@ The dot is `Dot` from `components/Status.tsx`, the one dot in the app. `Status`,
 
 ## Figures
 
-A chart or a diagram labels its values directly, in mono `2xs`. It uses `foreground` for the thing measured and `muted-foreground` for references. It never uses yellow, and it uses a verdict color only for a verdict. The one figure that uses the ribbon is the version lift. See [brand.md](brand.md).
+A chart or a diagram labels its values directly, in mono `2xs`. It uses `foreground` for the thing measured and `muted-foreground` for references, with axes in `input`. It never uses yellow, and it uses a verdict color only for a verdict. Every figure is a component: `Scatter` (`components/Scatter.tsx`) is your rating against the judge's total on Agreement, one dot per rated output; the version lift is the one figure that uses the ribbon. See [brand.md](brand.md).

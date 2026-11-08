@@ -20,7 +20,7 @@ export interface AppCommand extends SlashCommand {
 export const APP_COMMANDS: readonly AppCommand[] = [
   { name: 'clear', description: 'New conversation', run: (panel) => panel.startOver() },
   { name: 'settings', description: 'Model, effort and keys', run: () => navigate('settings') },
-  { name: 'guide', description: 'How to use Skill Studio', run: () => navigate('guide') },
+  { name: 'guide', description: 'How to use Skill Studio', run: () => navigate('docs') },
 ]
 
 /** The panel's command `text` invokes, or null when the message is for the model. */
