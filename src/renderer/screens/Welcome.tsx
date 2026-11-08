@@ -137,7 +137,7 @@ function Opening({ onTour, exit }: { onTour: () => void; exit: ReactNode }) {
         <Text
           as="p"
           tone="muted"
-          className="m-0 max-w-[40ch] animate-rise text-pretty"
+          className="max-w-[40ch] animate-rise text-pretty"
           style={after(210)}
         >
           Run it on real tasks, score the results, and see what each change improves.

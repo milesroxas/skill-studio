@@ -5,9 +5,18 @@
  * it costs nothing until opened.
  */
 
-import { type ComponentProps, type ReactNode, useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import guide from '../../../docs/guide.md?raw'
-import { Disclosure } from '../components/Disclosure.tsx'
+import {
+  GuideBody,
+  GuideLayout,
+  TocButton,
+  TocCompact,
+  TocFoot,
+  TocLink,
+  TocList,
+  TocNav,
+} from '../components/Guide.tsx'
 import { Text } from '../components/text.tsx'
 import { type GuideSection, guideSections } from '../guide.ts'
 import { markdownHtml } from '../markdown.ts'
@@ -111,79 +120,11 @@ export function Docs({
         </TocFoot>
       </TocNav>
       <TocCompact>{contents}</TocCompact>
-      <article
+      <GuideBody
         ref={body}
-        className="guide-body"
         // biome-ignore lint/security/noDangerouslySetInnerHtml: markdown.ts escapes every string
         dangerouslySetInnerHTML={{ __html: html }}
       />
     </GuideLayout>
-  )
-}
-
-/** The contents beside a 70ch reading column; one column on narrow screens. */
-function GuideLayout({ children }: { children: ReactNode }) {
-  return (
-    <div className="grid max-w-[1120px] grid-cols-1 items-start gap-5 lg:grid-cols-[208px_minmax(0,70ch)] lg:gap-14">
-      {children}
-    </div>
-  )
-}
-
-/**
- * The contents on a wide screen: in view while the page scrolls, never taller
- * than the pane (the window less the 48px top bar and the pane's 24px padding).
- */
-function TocNav({ children }: { children: ReactNode }) {
-  return (
-    <nav
-      aria-label="On this page"
-      className="sticky top-0 hidden max-h-[calc(100dvh-96px)] flex-col gap-3 overflow-y-auto text-ui lg:flex"
-    >
-      {children}
-    </nav>
-  )
-}
-
-/** The contents on a narrow screen: one line that opens, ruled off from the guide. */
-function TocCompact({ children }: { children: ReactNode }) {
-  return (
-    <div className="border-b lg:hidden">
-      <Disclosure summary="On this page">{children}</Disclosure>
-    </div>
-  )
-}
-
-function TocList({ children }: { children: ReactNode }) {
-  return <ol className="m-0 flex flex-col border-l p-0">{children}</ol>
-}
-
-function TocFoot({ children }: { children: ReactNode }) {
-  return <p className="m-0 flex flex-col gap-1.5 border-t pt-3">{children}</p>
-}
-
-/** One section in the contents: a rail marks the one being read. */
-function TocButton({
-  current,
-  ...props
-}: Omit<ComponentProps<'button'>, 'className'> & { current: boolean }) {
-  return (
-    <button
-      type="button"
-      aria-current={current ? 'true' : undefined}
-      className="-ml-px block min-h-8 w-full border-l border-transparent px-3 py-1 text-left text-ui text-muted-foreground transition-colors duration-150 ease-out focus-ring-inset hover:text-foreground aria-[current]:border-foreground aria-[current]:text-foreground pointer-coarse:min-h-11"
-      {...props}
-    />
-  )
-}
-
-function TocLink(props: Omit<ComponentProps<'a'>, 'className'>) {
-  return (
-    <a
-      target="_blank"
-      rel="noreferrer"
-      className="text-muted-foreground no-underline transition-colors duration-150 ease-out hover:text-foreground"
-      {...props}
-    />
   )
 }

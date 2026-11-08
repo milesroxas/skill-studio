@@ -18,13 +18,19 @@ const headingVariants = cva('m-0 font-semibold text-balance', {
       /** A group of fields or a part of a column: a step above the labels inside it. */
       3: 'text-sm',
     },
+    /** A heading that is a number, such as a version: digits keep one width down a list. */
+    tabular: {
+      true: 'tabular-nums',
+      false: '',
+    },
   },
-  defaultVariants: { level: 2 },
+  defaultVariants: { level: 2, tabular: false },
 })
 
 /** `level` sets the size; `as` the element, which defaults to the matching h tag. */
 export function Heading({
   level = 2,
+  tabular,
   as,
   className,
   ...props
@@ -40,7 +46,7 @@ export function Heading({
       : level === 'step'
         ? 'h2'
         : (`h${level ?? 2}` as 'h1' | 'h2' | 'h3'))
-  return <Comp className={cn(headingVariants({ level }), className)} {...props} />
+  return <Comp className={cn(headingVariants({ level, tabular }), className)} {...props} />
 }
 
 const hintVariants = cva('m-0 text-xs text-pretty text-muted-foreground', {

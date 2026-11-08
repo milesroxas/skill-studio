@@ -1,11 +1,11 @@
 /** One output's transcript: every step with its tool, arguments, result and timing. */
 import type { TranscriptKind } from '@domain/schemas.ts'
-import { cva } from 'class-variance-authority'
 import { api } from '../api.ts'
 import { InlineField } from '../components/forms.tsx'
 import { EmptyState, Loading, Rows, Screen, Section, Toolbar } from '../components/layout.tsx'
 import { FilterGroup } from '../components/Segmented.tsx'
 import { SelectBox } from '../components/SelectBox.tsx'
+import { TranscriptEvent } from '../components/TranscriptEvent.tsx'
 import { Code, Hint, Text } from '../components/text.tsx'
 import { Button } from '../components/ui/button.tsx'
 import type { Ctx } from '../ctx.ts'
@@ -107,7 +107,12 @@ export function Transcript({ ctx }: { ctx: Ctx }) {
           ) : list.length ? (
             <Rows>
               {list.map((e) => (
-                <Event key={e.step} kind={e.kind} failed={Boolean(e.error)} at={seconds(e.at)}>
+                <TranscriptEvent
+                  key={e.step}
+                  kind={e.kind}
+                  failed={Boolean(e.error)}
+                  at={seconds(e.at)}
+                >
                   {e.tool ? <b>{e.tool} </b> : null}
                   {e.kind === 'tool' ? <Code>{short(e.args)}</Code> : null}
                   {e.kind === 'result' ? (
@@ -126,7 +131,7 @@ export function Transcript({ ctx }: { ctx: Ctx }) {
                       {short(e.text)}
                     </Text>
                   ) : null}
-                </Event>
+                </TranscriptEvent>
               ))}
             </Rows>
           ) : (
@@ -139,51 +144,5 @@ export function Transcript({ ctx }: { ctx: Ctx }) {
         </Section>
       )}
     </Screen>
-  )
-}
-
-const eventVariants = cva(
-  'grid grid-cols-[44px_minmax(0,1fr)] gap-3 px-3 py-2 text-ui md:grid-cols-[52px_64px_minmax(0,1fr)]',
-  {
-    variants: {
-      kind: {
-        system: '',
-        text: '',
-        thinking: '',
-        tool: 'bg-muted',
-        result: '',
-        error: 'bg-destructive/10 dark:bg-destructive/20',
-      },
-      failed: {
-        true: 'bg-destructive/10 dark:bg-destructive/20',
-        false: '',
-      },
-    },
-    defaultVariants: { failed: false },
-  },
-)
-
-/** One step: when, what kind, and the body. On narrow screens the body drops under the time. */
-function Event({
-  kind,
-  failed,
-  at,
-  children,
-}: {
-  kind: TranscriptKind
-  failed: boolean
-  at: string
-  children: React.ReactNode
-}) {
-  return (
-    <li className={eventVariants({ kind, failed })}>
-      <Text tone="muted" tabular align="end">
-        {at}
-      </Text>
-      <Text tone="muted" className="max-md:hidden">
-        {kind}
-      </Text>
-      <span className="min-w-0 break-words max-md:col-span-full">{children}</span>
-    </li>
   )
 }

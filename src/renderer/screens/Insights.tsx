@@ -3,6 +3,7 @@ import type { Vote } from '@domain/schemas.ts'
 import { mean, spearman } from '@domain/stats.ts'
 import { useState } from 'react'
 import { EmptyState, Screen, Section, SectionHead, Stack } from '../components/layout.tsx'
+import { Scatter } from '../components/Scatter.tsx'
 import { Heading, Hint, Text } from '../components/text.tsx'
 import { Alert, AlertDescription, AlertTitle } from '../components/ui/alert.tsx'
 import { Button } from '../components/ui/button.tsx'
@@ -219,7 +220,9 @@ export function Insights({ ctx }: { ctx: Ctx }) {
                 : `${rho.toFixed(2)}${rho > 0.6 ? ': the judge ranks like you do.' : rho > 0.2 ? ': loosely related; read the disagreements.' : ': the judge does not rank like you yet.'}`}
             </Hint>
           </SectionHead>
-          <Scatter rated={rated} />
+          <Scatter
+            points={rated.map((r) => ({ key: r.output.key, rating: r.rating, total: r.total }))}
+          />
         </Section>
       ) : null}
 
@@ -297,43 +300,5 @@ export function Insights({ ctx }: { ctx: Ctx }) {
         </Table>
       </Section>
     </Screen>
-  )
-}
-
-/** Your 1 to 5 against the judge’s total, one dot per rated output. */
-function Scatter({ rated }: { rated: Array<{ output: Output; rating: number; total: number }> }) {
-  return (
-    <svg
-      className="h-auto w-full max-w-[420px] fill-muted-foreground text-2xs"
-      viewBox="0 0 320 170"
-      role="img"
-      aria-label="Your rating against the judge’s total"
-    >
-      <line className="stroke-input" x1="40" y1="150" x2="310" y2="150" />
-      <line className="stroke-input" x1="40" y1="10" x2="40" y2="150" />
-      {[1, 2, 3, 4, 5].map((n) => (
-        <text key={n} x={40 + (n - 1) * 66} y="165" textAnchor="middle">
-          {n}
-        </text>
-      ))}
-      {[0, 50, 100].map((v) => (
-        <text key={v} x="34" y={150 - v * 1.4 + 3} textAnchor="end">
-          {v}
-        </text>
-      ))}
-      {rated.map((r, i) => (
-        <circle
-          key={r.output.key}
-          className="fill-foreground opacity-70"
-          cx={40 + (r.rating - 1) * 66 + ((i * 7) % 15) - 7}
-          cy={150 - r.total * 1.4}
-          r="4.5"
-        >
-          <title>
-            {r.output.key}: you {r.rating}, judge {r.total}
-          </title>
-        </circle>
-      ))}
-    </svg>
   )
 }

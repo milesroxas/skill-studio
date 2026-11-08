@@ -114,13 +114,13 @@ function UpdateBand({ state, onStep }: { state: UpdateState; onStep: (step: Upda
               arrived && 'animate-in duration-200 ease-out-strong fade-in-0 slide-in-from-bottom-1',
             )}
           >
-            <Text as="p" weight="medium" className="m-0">
+            <Text as="p" weight="medium">
               {title}
             </Text>
             {detail ? (
               <Hint
                 tone={failed ? 'destructive' : 'default'}
-                className="tabular-nums"
+                tabular
                 aria-live={downloading ? 'off' : undefined}
               >
                 {detail}
@@ -187,7 +187,7 @@ function ReleaseEntry({ entry, arrived }: { entry: Entry; arrived: boolean }) {
     >
       {/* The mark is a word beside the number, not a pill: the band above already carries the one filled shape. */}
       <header className="flex items-baseline gap-2">
-        <Heading level={2} className="tabular-nums">
+        <Heading level={2} tabular>
           {entry.version}
         </Heading>
         {entry.mark ? (
@@ -197,7 +197,7 @@ function ReleaseEntry({ entry, arrived }: { entry: Entry; arrived: boolean }) {
         ) : null}
         <Spacer />
         {entry.date ? (
-          <Text as="p" size="xs" tone="muted" className="m-0">
+          <Text as="p" size="xs" tone="muted">
             <time dateTime={entry.date}>{formatDay(entry.date)}</time>
           </Text>
         ) : null}
