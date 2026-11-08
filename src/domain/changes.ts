@@ -6,7 +6,7 @@
  * writer's click does, and the backend checks every path and id as it does for
  * those screens. Pure data and functions.
  */
-import { blankDraft, draftOf, newCheck } from './case-draft.ts'
+import { blankDraft, checkWeight, draftOf, newCheck } from './case-draft.ts'
 import type { Case, CaseDraft } from './schemas.ts'
 import { isSlug, slug } from './text.ts'
 
@@ -15,6 +15,15 @@ import { isSlug, slug } from './text.ts'
  * holds a code fence, which would end a backtick block early.
  */
 const CHANGE_FENCE = '~~~~'
+
+/**
+ * One check of a proposed case. `weight` is null when the block did not name
+ * one: a saved check keeps the weight it has, and a new one gets 1.
+ */
+export interface CaseCheck {
+  statement: string
+  weight: number | null
+}
 
 export type SkillChange =
   /** The whole new text of SKILL.md or of a file under references/. */
@@ -26,7 +35,7 @@ export type SkillChange =
       title: string
       prompt: string
       expected: string
-      checks: string[]
+      checks: CaseCheck[]
     }
   /** Save the skill's files as they stand as the next version, under this name. */
   | { kind: 'version'; name: string }
@@ -46,6 +55,15 @@ const record = (value: unknown): Record<string, unknown> =>
     : {}
 const text = (value: unknown): string => (typeof value === 'string' ? value.trim() : '')
 
+/** A check of a case block: a statement alone, or an object that names its weight too. */
+function checkOf(value: unknown): CaseCheck | null {
+  if (typeof value === 'string')
+    return value.trim() ? { statement: value.trim(), weight: null } : null
+  const raw = record(value)
+  const statement = text(raw.statement)
+  return statement ? { statement, weight: checkWeight(raw.weight) } : null
+}
+
 /** A case block's JSON as a change, or null when it is not a case the Cases screen could save. */
 function caseChange(body: string): SkillChange | null {
   let raw: Record<string, unknown>
@@ -56,7 +74,9 @@ function caseChange(body: string): SkillChange | null {
   }
   const title = text(raw.title)
   const prompt = text(raw.prompt)
-  const checks = (Array.isArray(raw.checks) ? raw.checks : []).map(text).filter(Boolean)
+  const checks = (Array.isArray(raw.checks) ? raw.checks : [])
+    .map(checkOf)
+    .filter((check): check is CaseCheck => check !== null)
   const id = isSlug(text(raw.id)) ? text(raw.id) : slug(title, 40)
   if (!prompt || !id) return null
   return { kind: 'case', id, title, prompt, expected: text(raw.expected), checks }
@@ -121,7 +141,7 @@ export function replyParts(reply: string, { partial = false } = {}): ReplyPart[]
 export const CHANGES_GUIDE = [
   'You can propose changes to the open skill. The reader applies each one with a button under it, and can undo it, so never tell them to copy or paste. Write each change as a block that opens and closes with a line of four tildes, outside any other fence:',
   `- A file: open with "${CHANGE_FENCE} file SKILL.md", or "${CHANGE_FENCE} file references/<name>.md" for a reference, then the whole new text of the file, never a part of it, then "${CHANGE_FENCE}". A new path creates the file. Only SKILL.md and files under references/ can be written.`,
-  `- A case: open with "${CHANGE_FENCE} case", then one JSON object {"title": "…", "prompt": "…", "expected": "…", "checks": ["…"]}, then "${CHANGE_FENCE}". Add "id" with an existing case's id to replace that case; leave it out to add a new one.`,
+  `- A case: open with "${CHANGE_FENCE} case", then one JSON object {"title": "…", "prompt": "…", "expected": "…", "checks": […]}, then "${CHANGE_FENCE}". Add "id" with an existing case's id to replace that case; leave it out to add a new one. A check is a string, or {"statement": "…", "weight": 2} when it should count more than the others: weights run 1 to 5, and 1 is usual. A check written as a string keeps the weight it has, so to change a weight, write the case again with every check and the new weight on that one.`,
   `- A version: "${CHANGE_FENCE} version", one line naming the version, such as "Before the voice rewrite", then "${CHANGE_FENCE}". It saves the skill's files as they stand. Put it before a file change when the reader will want to compare the two later.`,
   "You make no change yourself, so never say you made one or will make one: say what each change does. Keep that outside the blocks, short. The skill's name is the name in SKILL.md's front matter: changing it there renames the skill in the app, and its folder keeps its own name.",
 ].join('\n')
@@ -129,7 +149,8 @@ export const CHANGES_GUIDE = [
 /**
  * A case change as the draft to save. Over a saved case it keeps what the
  * change does not name: the pictures, the word range, and each check whose
- * statement it repeats, with that check's weight and picture.
+ * statement it repeats, with that check's picture and, unless the change
+ * names one, its weight.
  */
 export function changeDraft(
   change: Extract<SkillChange, { kind: 'case' }>,
@@ -142,10 +163,13 @@ export function changeDraft(
     title: change.title,
     prompt: change.prompt,
     expectedOutcome: change.expected,
-    graders: change.checks.map(
-      (statement) =>
-        base.graders.find((g) => g.statement.trim() === statement) ?? { ...newCheck(), statement },
-    ),
+    graders: change.checks.map(({ statement, weight }) => {
+      const kept = base.graders.find((g) => g.statement.trim() === statement) ?? {
+        ...newCheck(),
+        statement,
+      }
+      return weight === null ? kept : { ...kept, weight }
+    }),
   }
 }
 
@@ -158,4 +182,10 @@ export const caseHolds = (
   saved?.prompt.trim() === change.prompt &&
   saved.expectedOutcome.trim() === change.expected &&
   (saved.title === change.title || (!change.title && saved.title === saved.id)) &&
-  saved.graders.map((g) => g.statement.trim()).join('\n') === change.checks.join('\n')
+  saved.graders.length === change.checks.length &&
+  saved.graders.every((g, i) => {
+    const check = change.checks[i]
+    return (
+      g.statement.trim() === check.statement && (check.weight === null || g.weight === check.weight)
+    )
+  })

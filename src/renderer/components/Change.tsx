@@ -38,6 +38,7 @@ import { DiffLines } from './DiffLines.tsx'
 import { Disclosure, DisclosureList } from './Disclosure.tsx'
 import { List, Stack } from './layout.tsx'
 import { Prose } from './Prose.tsx'
+import { CheckWeight } from './Scores.tsx'
 import { Status } from './Status.tsx'
 import { Hint, Text } from './text.tsx'
 import { Button } from './ui/button.tsx'
@@ -316,8 +317,9 @@ function CaseRow({
           <CasePart label="Checks">
             <List variant="number" gap="sm">
               {change.checks.map((check) => (
-                <Text as="li" size="ui" key={check}>
-                  {check}
+                <Text as="li" size="ui" key={check.statement}>
+                  {check.statement}
+                  <CheckWeight weight={check.weight} />
                 </Text>
               ))}
             </List>

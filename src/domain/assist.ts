@@ -321,7 +321,8 @@ export interface SceneCase {
   title: string
   prompt: string
   expected: string
-  checks: string[]
+  /** Each check's statement and weight; 1 is usual. */
+  checks: Array<{ statement: string; weight: number }>
   unsaved: boolean
 }
 
@@ -337,7 +338,7 @@ export interface ChatScene {
 
 /** A case as saved or as drafted: both name these fields alike. */
 type CaseText = Pick<CaseDraft, 'id' | 'title' | 'prompt' | 'expectedOutcome'> & {
-  graders: Array<{ statement: string }>
+  graders: Array<{ statement: string; weight: number }>
 }
 
 const sceneCase = (c: CaseText, unsaved: boolean): SceneCase => ({
@@ -345,7 +346,9 @@ const sceneCase = (c: CaseText, unsaved: boolean): SceneCase => ({
   title: c.title,
   prompt: c.prompt,
   expected: c.expectedOutcome,
-  checks: c.graders.map((g) => g.statement).filter((s) => s.trim()),
+  checks: c.graders
+    .filter((g) => g.statement.trim())
+    .map((g) => ({ statement: g.statement, weight: g.weight })),
   unsaved,
 })
 
@@ -432,13 +435,18 @@ function filesText(files: SceneFile[], open: string | null): string {
     .join('\n')
 }
 
+/** A check's weight after its number, only when it is not the usual 1. */
+export const weightNote = (weight: number): string => (weight === 1 ? '' : ` (weight ${weight})`)
+
 const caseText = (c: SceneCase): string =>
   tag(
     'case',
     [
       `Prompt: ${c.prompt}`,
       c.expected ? `A good answer: ${c.expected}` : '',
-      ...c.checks.map((check, i) => `Check ${i + 1}: ${check}`),
+      ...c.checks.map(
+        (check, i) => `Check ${i + 1}${weightNote(check.weight)}: ${check.statement}`,
+      ),
     ]
       .filter(Boolean)
       .join('\n'),

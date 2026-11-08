@@ -29,8 +29,8 @@ import { loadAi, startAssist, stopRun, useAi, useRun } from '../ai.ts'
 import { lineDiff } from '../diff.ts'
 import { navigate } from '../history.ts'
 import { useAttached } from '../images.ts'
-import { cn } from '../lib/utils.ts'
 import { Composer } from './Composer.tsx'
+import { CornerButton } from './CornerButton.tsx'
 import { DiffLines } from './DiffLines.tsx'
 import { Toolbar } from './layout.tsx'
 import { Hint, Text } from './text.tsx'
@@ -66,21 +66,14 @@ export function AssistButton({
   ...props
 }: ComponentProps<typeof Button> & { field: AssistFieldId }) {
   return (
-    <Button
-      type="button"
-      variant="ghost"
-      size="icon-xs"
+    <CornerButton
       aria-label={assistTitle(field)}
       title={assistTitle(field)}
-      className={cn(
-        // 24px to look at, 36px to hit: as far as it reaches without covering the field's text.
-        'relative text-muted-foreground/80 before:absolute before:-inset-1.5 hover:text-foreground data-[state=open]:bg-accent data-[state=open]:text-foreground [&_svg]:size-3.5',
-        className,
-      )}
+      className={className}
       {...props}
     >
       <PenLineIcon aria-hidden="true" />
-    </Button>
+    </CornerButton>
   )
 }
 

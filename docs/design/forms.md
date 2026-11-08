@@ -81,6 +81,10 @@ Every control sits in a `Field` with a `Label` above it. Never a placeholder as 
 - `size="sm"` only in workbench chrome.
 - An input's fill is `bg-card`. On porcelain its 1.5:1 edge is not enough to find it. Every field (`Input`, `TextArea`, the `Select` trigger, `Stepper`) takes its edge and fill from `FIELD_SURFACE` in `ui/input.tsx`: change it there, once.
 
+## Corner actions
+
+An action about a field's own content sits in the field's corner as a `CornerButton` (`components/CornerButton.tsx`): "write with AI" on every field that takes `assist`, and on a check the picture it is about (`PicturePicker variant="corner"`, passed as the `TextArea`'s `corner`). The pen is last; one more corner action stands before it, 12px away, so their hit areas meet without overlapping. A setting of the row the field is in, and the row's removal, sit outside the field, after it: a check row in `Cases.tsx` reads statement, weight, remove. Once added, the check's picture sits inside the field under the text (`TextArea`'s `foot`, a `PictureStrip size="sm"`), within the field's edge as the composer holds its pictures, and the corner button goes. A picture outside the field reads as a thing beside the check, not part of it. Nothing else goes in a corner.
+
 ## ComboBox
 
 `ComboBox` (`components/ComboBox.tsx`) is a text field that opens a list under it, for a value that is usually one of a few known names but may be any other: a writer's model on New run. It looks like a `SelectBox` trigger, chevron included, so a row of the two reads as one row. Opening shows the whole list with the current value ticked; a key typed narrows it, and a value the list does not have is used as typed, which the list says. The focus stays in the field: arrows move through the list, Enter picks, Escape closes. Its list is `PopoverContent size="field"`. Never a native `<datalist>`: its popup is the system's, unstyled and outside the theme.

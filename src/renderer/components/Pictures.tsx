@@ -10,6 +10,7 @@ import { ImagePlusIcon, XIcon } from 'lucide-react'
 import { type DragEvent, type ReactNode, useRef, useState } from 'react'
 import { api } from '../api.ts'
 import { picturesIn } from '../images.ts'
+import { CornerButton } from './CornerButton.tsx'
 import { Button } from './ui/button.tsx'
 
 const ACCEPT = 'image/png,image/jpeg,image/webp,image/gif'
@@ -129,14 +130,15 @@ export function PictureStrip({
 
 interface PicturePickerProps {
   onFiles: (files: File[]) => void
-  /** `icon` sits in a row of controls; `button` names what it adds. */
-  variant?: 'icon' | 'icon-sm' | 'button'
+  /**
+   * `button` names what it adds; `icon-sm` sits in a row of controls; `corner`
+   * is a `CornerButton` in a text field's corner, for the picture its text is about.
+   */
+  variant?: 'icon-sm' | 'button' | 'corner'
   /** What it adds to, read to assistive technology and shown on the button form. */
   label: string
   /** One picture at a time, for a field that holds one. */
   single?: boolean
-  /** In a row that repeats it: the icon stays quiet until pointed at. */
-  quiet?: boolean
   disabled?: boolean
 }
 
@@ -146,7 +148,6 @@ export function PicturePicker({
   variant = 'button',
   label,
   single,
-  quiet,
   disabled,
 }: PicturePickerProps) {
   const input = useRef<HTMLInputElement>(null)
@@ -171,11 +172,15 @@ export function PicturePicker({
           <ImagePlusIcon aria-hidden="true" />
           {label}
         </Button>
+      ) : variant === 'corner' ? (
+        <CornerButton aria-label={label} title={label} disabled={disabled} onClick={open}>
+          <ImagePlusIcon aria-hidden="true" />
+        </CornerButton>
       ) : (
         <Button
           type="button"
-          variant={quiet ? 'ghost-muted' : 'ghost'}
-          size={variant}
+          variant="ghost"
+          size="icon-sm"
           aria-label={label}
           title={label}
           disabled={disabled}

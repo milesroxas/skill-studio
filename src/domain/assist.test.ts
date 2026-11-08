@@ -8,6 +8,7 @@ import {
   chatSystem,
   partialText,
   REFERENCE_BUDGET,
+  weightNote,
   workingSkill,
 } from './assist.ts'
 import { CHANGES_GUIDE } from './changes.ts'
@@ -198,10 +199,19 @@ describe('workingSkill', () => {
       { path: 'references/tone.md', text: 'Warm.\n', unsaved: false },
       { path: 'references/voice.md', text: 'Samples.\n', unsaved: true },
     ])
-    expect(working.cases.map((c) => [c.id, c.prompt, c.checks, c.unsaved])).toEqual([
+    expect(
+      working.cases.map((c) => [c.id, c.prompt, c.checks.map((x) => x.statement), c.unsaved]),
+    ).toEqual([
       ['shift', 'Thank Priya warmly.', ['The note names Priya.'], true],
       [NEW_CASE_KEY, 'Thank Priya.', ['No em dash.'], true],
     ])
+  })
+})
+
+describe('weightNote', () => {
+  it('names a weight only when it is not 1', () => {
+    expect(weightNote(1)).toBe('')
+    expect(weightNote(2)).toBe(' (weight 2)')
   })
 })
 
@@ -222,6 +232,7 @@ describe('chatSystem', () => {
     expect(system).toContain(
       'The reader is on the Cases screen. They have the case "A covered shift" open.',
     )
+    expect(system).toContain('"weight": 2}')
     expect(system).toContain('The open skill is "notes".')
     expect(system).toContain('<file name="SKILL.md">\n---\nname: notes\n---\n# Notes\n</file>')
     expect(system).toContain('<file name="references/voice.md (unsaved)">\nSamples.\n</file>')

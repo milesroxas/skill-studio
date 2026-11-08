@@ -6,7 +6,7 @@
  */
 
 import { assistItems } from '@domain/assist.ts'
-import { blankDraft, draftOf, newCheck, picturesOf } from '@domain/case-draft.ts'
+import { blankDraft, CHECK_WEIGHT, draftOf, newCheck, picturesOf } from '@domain/case-draft.ts'
 import { addImages, type ImageRef, MAX_IMAGES } from '@domain/image.ts'
 import { type CaseDraft, NEW_CASE_KEY } from '@domain/schemas.ts'
 import {
@@ -22,7 +22,7 @@ import { PenLineIcon, PlusIcon, XIcon } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { api } from '../api.ts'
 import { caseContext, skillContext } from '../assist.ts'
-import { Assist, assistTitle } from '../components/Assist.tsx'
+import { Assist, type AssistSpec, assistTitle } from '../components/Assist.tsx'
 import { DraftNote } from '../components/DraftNote.tsx'
 import { CheckRow, InlineField, NumberInput, Stepper } from '../components/forms.tsx'
 import {
@@ -530,40 +530,34 @@ export function Cases({ ctx }: { ctx: Ctx }) {
                       Weight
                     </Text>
                     <span />
-                    <span />
                   </CheckLine>
                 ) : null}
                 <PlainList as="ol" gap="md">
                   {draft.graders.map((g, i) => (
                     <CheckLine key={g.id ?? `new-${i}`} as="li" index={i + 1}>
-                      <TextArea
-                        ref={(el) => {
+                      <CheckStatement
+                        index={i + 1}
+                        fieldRef={(el) => {
                           statements.current[i] = el
                         }}
-                        variant="line"
-                        rows={1}
-                        aria-label={`Check ${i + 1}`}
-                        onKeyDown={onCheckKey(i)}
-                        value={g.statement}
+                        statement={g.statement}
+                        image={g.image}
                         placeholder={
                           kind.cases[0]?.graders[i]?.statement ??
                           kind.cases[0]?.graders[0]?.statement
                         }
-                        onValueChange={(statement) => setGrader(i, { statement })}
+                        onKeyDown={onCheckKey(i)}
+                        onStatement={(statement) => setGrader(i, { statement })}
+                        onImage={(image) => setGrader(i, { image })}
+                        onError={report}
                         assist={{ field: 'case.check', ...assist }}
                       />
                       <Stepper
                         label={`Weight of check ${i + 1}`}
-                        min={WEIGHT.min}
-                        max={WEIGHT.max}
+                        min={CHECK_WEIGHT.min}
+                        max={CHECK_WEIGHT.max}
                         value={g.weight}
                         onChange={(weight) => setGrader(i, { weight })}
-                      />
-                      <CheckPicture
-                        index={i + 1}
-                        image={g.image}
-                        onChange={(image) => setGrader(i, { image })}
-                        onError={report}
                       />
                       <Button
                         type="button"
@@ -686,59 +680,88 @@ export function Cases({ ctx }: { ctx: Ctx }) {
 }
 
 /**
- * The picture a check is about, in a cell the size of the row's controls: the
- * button that adds one, or the picture, which opens full size and can be
- * taken off.
+ * What a check is: its statement, and the picture it is about when it has one.
+ * The field's corner adds the picture, beside "write with AI", because both
+ * are about the statement's content; the weight and the remove button are the
+ * row's and sit outside it. An added picture sits inside the field under the
+ * statement, within its edge, and the corner button goes, since a check is
+ * about one picture.
  */
-function CheckPicture({
+function CheckStatement({
   index,
+  fieldRef,
+  statement,
   image,
-  onChange,
+  placeholder,
+  onKeyDown,
+  onStatement,
+  onImage,
   onError,
+  assist,
 }: {
   index: number
+  fieldRef: (el: HTMLTextAreaElement | null) => void
+  statement: string
   image: ImageRef | null
-  onChange: (image: ImageRef | null) => void
+  placeholder: string | undefined
+  onKeyDown: (e: React.KeyboardEvent<HTMLTextAreaElement>) => void
+  onStatement: (statement: string) => void
+  onImage: (image: ImageRef | null) => void
   onError: (message: string) => void
+  assist: AssistSpec
 }) {
-  const { adding, error, add } = useAddPictures(0, ([added]) => onChange(added))
+  const { adding, error, add } = useAddPictures(0, ([added]) => onImage(added))
   // Told once per failure, whatever the caller's function is on a later render.
   const report = useRef(onError)
   report.current = onError
   useEffect(() => {
     if (error) report.current(error)
   }, [error])
+  const has = Boolean(image) || adding > 0
   return (
-    <PictureStrip
-      size="control"
-      label={`Picture for check ${index}`}
-      images={image ? [image] : []}
-      adding={adding}
-      onRemove={() => onChange(null)}
-    >
-      {image || adding ? null : (
-        <PicturePicker
-          variant="icon"
-          single
-          quiet
-          label={`Add a picture check ${index} is about`}
-          onFiles={(files) => add(files.slice(0, 1))}
-        />
-      )}
-    </PictureStrip>
+    <TextArea
+      ref={fieldRef}
+      variant="line"
+      rows={1}
+      aria-label={`Check ${index}`}
+      onKeyDown={onKeyDown}
+      value={statement}
+      placeholder={placeholder}
+      onValueChange={onStatement}
+      assist={assist}
+      corner={
+        has ? null : (
+          <PicturePicker
+            variant="corner"
+            single
+            label={`Add a picture check ${index} is about`}
+            onFiles={(files) => add(files.slice(0, 1))}
+          />
+        )
+      }
+      foot={
+        has ? (
+          <PictureStrip
+            size="sm"
+            label={`Picture for check ${index}`}
+            images={image ? [image] : []}
+            adding={adding}
+            onRemove={() => onImage(null)}
+          />
+        ) : null
+      }
+    />
   )
 }
 
-/** The weights a check can have. */
-const WEIGHT = { min: 1, max: 5 }
-
 /**
- * Statement, weight, picture and remove, in columns that line up from row to
- * row. The statement starts on the column's edge, with the check's number hung
- * in the margin before it. The row reaches 10px past the far edge, which puts
- * the remove icon on that edge, not its 36px box.
+ * Statement, weight and remove, in columns that line up from row to row. The
+ * statement starts on the column's edge, with the check's number hung in the
+ * margin before it; its picture, when it has one, sits inside the field under
+ * the text. The row reaches 10px past the far edge, which puts the remove icon
+ * on that edge, not its 36px box.
  */
-const checkLine = cva('relative -mr-2.5 grid grid-cols-[minmax(0,1fr)_88px_36px_36px] gap-2', {
+const checkLine = cva('relative -mr-2.5 grid grid-cols-[minmax(0,1fr)_88px_36px] gap-2', {
   variants: {
     head: {
       true: 'items-end',

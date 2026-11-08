@@ -7,10 +7,14 @@
  * Give it `assist`, the kind of field it is, and a button in its corner opens
  * "write with AI" for that kind. Typed and written text reach the caller the
  * same way, through `onValueChange`, and written text goes in as typing would,
- * so Undo brings back what it replaced.
+ * so Undo brings back what it replaced. `corner` is one more `CornerButton`
+ * about the field's content, before the pen, and `foot` is content attached
+ * under the text inside the field's own edge, as the composer holds its
+ * pictures: the picture a check is about is part of the check, not a thing
+ * beside it.
  */
 import { cva, type VariantProps } from 'class-variance-authority'
-import { type ComponentProps, useEffect, useLayoutEffect, useRef } from 'react'
+import { type ComponentProps, type ReactNode, useEffect, useLayoutEffect, useRef } from 'react'
 import { cn } from '../lib/utils.ts'
 import { Assist, AssistButton, type AssistSpec } from './Assist.tsx'
 import { Textarea } from './ui/textarea.tsx'
@@ -57,6 +61,10 @@ type TextAreaProps = Omit<ComponentProps<'textarea'>, 'value'> &
     onValueChange: (value: string) => void
     /** The kind of field this is, which puts "write with AI" in its corner. */
     assist?: AssistSpec
+    /** A `CornerButton` about the field's content, in the corner before the pen. */
+    corner?: ReactNode
+    /** Attached content under the text, inside the field: a 40px picture row. */
+    foot?: ReactNode
   }
 
 export function TextArea({
@@ -67,6 +75,8 @@ export function TextArea({
   onValueChange,
   onChange,
   assist,
+  corner,
+  foot,
   ...props
 }: TextAreaProps) {
   const ref = useRef<HTMLTextAreaElement>(null)
@@ -96,8 +106,15 @@ export function TextArea({
   const field = (
     <Textarea
       ref={attach}
-      // The corner button lies over the field, so the text keeps clear of it.
-      className={cn(textAreaVariants({ variant }), assist && 'pr-9', className)}
+      // The corner buttons lie over the field, so the text keeps clear of them: one is 24px
+      // at 6px from the edge; two stand 12px apart, so their 36px hit areas meet and do not overlap.
+      className={cn(
+        textAreaVariants({ variant }),
+        assist && corner ? 'pr-17' : (assist || corner) && 'pr-9',
+        // The foot lies inside the bottom padding: 8px under the text, a 40px picture, 8px to the edge.
+        foot && 'pb-14',
+        className,
+      )}
       value={value}
       onChange={(event) => {
         onChange?.(event)
@@ -106,24 +123,30 @@ export function TextArea({
       {...props}
     />
   )
-  if (!assist) return field
+  if (!assist && !corner && !foot) return field
   return (
     <div ref={frame} className="relative min-w-0">
       {field}
-      <Assist
-        {...assist}
-        // It opens under the field, never over the text it is about.
-        anchor={frame}
-        value={value}
-        onApply={(text) => {
-          // Typing over fires the field's own change, which carries the text to the caller.
-          if (ref.current && typeOver(ref.current, text)) return
-          onValueChange(text)
-          ref.current?.focus()
-        }}
-      >
-        <AssistButton field={assist.field} className="absolute top-1.5 right-1.5" />
-      </Assist>
+      {foot ? <div className="absolute bottom-2 left-3">{foot}</div> : null}
+      <span className="absolute top-1.5 right-1.5 flex gap-3">
+        {corner}
+        {assist ? (
+          <Assist
+            {...assist}
+            // It opens under the field, never over the text it is about.
+            anchor={frame}
+            value={value}
+            onApply={(text) => {
+              // Typing over fires the field's own change, which carries the text to the caller.
+              if (ref.current && typeOver(ref.current, text)) return
+              onValueChange(text)
+              ref.current?.focus()
+            }}
+          >
+            <AssistButton field={assist.field} />
+          </Assist>
+        ) : null}
+      </span>
     </div>
   )
 }

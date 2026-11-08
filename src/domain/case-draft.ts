@@ -28,6 +28,15 @@ export const draftOf = (c: Case): CaseDraft => ({
   })),
 })
 
+/** The weights a check can have. 1 is usual; 2 counts twice as much. */
+export const CHECK_WEIGHT = { min: 1, max: 5 }
+
+/** `value` as a check's weight: whole, within the range, or null when it is not a number. */
+export const checkWeight = (value: unknown): number | null =>
+  typeof value === 'number' && Number.isFinite(value)
+    ? Math.min(CHECK_WEIGHT.max, Math.max(CHECK_WEIGHT.min, Math.round(value)))
+    : null
+
 export const newCheck = (): CaseDraft['graders'][number] => ({
   id: null,
   statement: '',

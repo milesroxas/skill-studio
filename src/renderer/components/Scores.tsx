@@ -120,6 +120,19 @@ export function Layers({
   )
 }
 
+/**
+ * How much a check counts, after its statement, only when it is not the usual
+ * 1: "weight 2" counts twice. Null is a check whose weight is not known yet.
+ */
+export function CheckWeight({ weight }: { weight: number | null }) {
+  if (weight === null || weight === 1) return null
+  return (
+    <Text tone="muted" size="xs" tabular>
+      {' · '}weight {weight}
+    </Text>
+  )
+}
+
 export function Flags({ flags }: { flags: string[] }) {
   if (!flags.length) return null
   return (

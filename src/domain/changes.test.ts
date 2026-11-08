@@ -72,10 +72,34 @@ describe('replyParts', () => {
           title: 'Edit a draft',
           prompt: 'Edit this.',
           expected: '',
-          checks: ['The answer lists the changes.'],
+          checks: [{ statement: 'The answer lists the changes.', weight: null }],
         },
       },
     ])
+  })
+
+  it('reads a check with a weight, held to 1 to 5, and a string as one with none', () => {
+    const block = `~~~~ case\n${JSON.stringify({
+      title: 'Weighted',
+      prompt: 'P',
+      checks: [
+        { statement: 'The note names Priya.', weight: 2 },
+        { statement: 'The note is short.', weight: 9 },
+        { statement: 'The note is warm.', weight: 'two' },
+        { statement: ' ' },
+        'The note ends.',
+      ],
+    })}\n~~~~`
+    expect(replyParts(block)[0]).toMatchObject({
+      change: {
+        checks: [
+          { statement: 'The note names Priya.', weight: 2 },
+          { statement: 'The note is short.', weight: 5 },
+          { statement: 'The note is warm.', weight: null },
+          { statement: 'The note ends.', weight: null },
+        ],
+      },
+    })
   })
 
   it('keeps an id that names a case, and drops one that is not a slug', () => {
@@ -110,7 +134,10 @@ describe('changeDraft', () => {
     title: 'A covered shift',
     prompt: 'Thank Priya for Sunday.',
     expected: '',
-    checks: ['The note names Priya.', 'The note says Sunday.'],
+    checks: [
+      { statement: 'The note names Priya.', weight: null },
+      { statement: 'The note says Sunday.', weight: null },
+    ],
   }
 
   it('keeps what the change does not name on a saved case', () => {
@@ -121,6 +148,23 @@ describe('changeDraft', () => {
     expect(draft.graders).toEqual([
       { id: '01-names', statement: 'The note names Priya.', weight: 2, image: null },
       { id: null, statement: 'The note says Sunday.', weight: 1, image: null },
+    ])
+  })
+
+  it('sets a weight the change names, on a kept check and on a new one', () => {
+    const draft = changeDraft(
+      {
+        ...change,
+        checks: [
+          { statement: 'The note names Priya.', weight: 3 },
+          { statement: 'The note says Sunday.', weight: 2 },
+        ],
+      },
+      savedCase(),
+    )
+    expect(draft.graders).toEqual([
+      { id: '01-names', statement: 'The note names Priya.', weight: 3, image: null },
+      { id: null, statement: 'The note says Sunday.', weight: 2, image: null },
     ])
   })
 
@@ -138,12 +182,28 @@ describe('caseHolds', () => {
     title: 'A covered shift',
     prompt: 'Thank Priya.',
     expected: 'Names Priya.',
-    checks: ['The note names Priya.', 'The note is short.'],
+    checks: [
+      { statement: 'The note names Priya.', weight: null },
+      { statement: 'The note is short.', weight: null },
+    ],
   }
 
   it('is true only when the saved case says what the change says', () => {
     expect(caseHolds(same, savedCase())).toBe(true)
-    expect(caseHolds({ ...same, checks: ['The note names Priya.'] }, savedCase())).toBe(false)
+    expect(caseHolds({ ...same, checks: same.checks.slice(0, 1) }, savedCase())).toBe(false)
+    // A weight the change names must hold too; one it leaves out is not compared.
+    expect(
+      caseHolds(
+        { ...same, checks: [{ ...same.checks[0], weight: 2 }, same.checks[1]] },
+        savedCase(),
+      ),
+    ).toBe(true)
+    expect(
+      caseHolds(
+        { ...same, checks: [{ ...same.checks[0], weight: 3 }, same.checks[1]] },
+        savedCase(),
+      ),
+    ).toBe(false)
     expect(caseHolds(same, undefined)).toBe(false)
   })
 })

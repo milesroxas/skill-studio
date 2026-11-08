@@ -3,7 +3,7 @@
  * and its rules, the case in hand, what changed since the last version. Each
  * is a named text, built when the request is sent.
  */
-import type { AssistContext } from '@domain/assist.ts'
+import { type AssistContext, weightNote } from '@domain/assist.ts'
 import type { CaseDraft } from '@domain/schemas.ts'
 import { api, type State } from './api.ts'
 import { diffLineText, lineDiff } from './diff.ts'
@@ -21,7 +21,7 @@ export const skillContext = ({ skill, rules }: State): AssistContext => ({
 
 export const caseContext = (
   draft: Pick<CaseDraft, 'title' | 'prompt' | 'expectedOutcome'> & {
-    graders: ReadonlyArray<{ statement: string }>
+    graders: ReadonlyArray<{ statement: string; weight: number }>
   },
 ): AssistContext => ({
   label: 'The case',
@@ -29,7 +29,9 @@ export const caseContext = (
     draft.title ? `Title: ${draft.title}` : '',
     draft.prompt ? `Prompt: ${draft.prompt}` : '',
     draft.expectedOutcome ? `A good answer: ${draft.expectedOutcome}` : '',
-    ...draft.graders.filter((g) => g.statement.trim()).map((g) => `Check: ${g.statement}`),
+    ...draft.graders
+      .filter((g) => g.statement.trim())
+      .map((g) => `Check${weightNote(g.weight)}: ${g.statement}`),
   ]
     .filter(Boolean)
     .join('\n'),
