@@ -6,6 +6,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-11-09
+
 ### Added
 
 - **Add a check**, under two outputs on Results: one sentence on what a good answer does that one of these does not. It joins the case's checks, and Regrade applies it to the outputs in front of you.

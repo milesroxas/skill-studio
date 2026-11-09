@@ -62,11 +62,11 @@ Checks that are not covered by `pnpm check`.
 
 The steps in [releasing.md](releasing.md), in order.
 
-1. [ ] Every item under "Planned" is shipped or moved to "Later".
+1. [x] Every item under "Planned" is shipped or moved to "Later".
 2. [ ] Every item under "Before the release" is done.
 3. [ ] `pnpm check` and `pnpm build` pass on `main`.
 4. [ ] `gh workflow run release` builds every platform.
-5. [ ] In the changelog, rename `## [Unreleased]` to `## [0.3.0] - <date>`, start a new `## [Unreleased]` above it, and commit.
+5. [x] In the changelog, rename `## [Unreleased]` to `## [0.3.0] - <date>`, start a new `## [Unreleased]` above it, and commit.
 6. [ ] `pnpm version minor -m "Release %s"`, then `git push --follow-tags`.
 7. [ ] The release workflow publishes v0.3.0, with the changelog entry as its notes.
 8. [ ] A running 0.2.0 finds the update and shows **Restart to update**.
