@@ -1,6 +1,6 @@
 /**
  * Auto refine, inside the selection popout. The checks run first and cost
- * nothing; the judge reads the rule when a TypeSafe key is set; a model is
+ * nothing; Jev reads the rule when a TypeSafe key is set; a model is
  * asked to rewrite only when something drifts. A rule that already complies
  * gets told so, and offered the longer way: Help me improve.
  */
@@ -42,12 +42,11 @@ export function FindingList({ findings }: { findings: Finding[] }) {
   )
 }
 
-/** The judge did not read this: only code's checks ran. */
+/** Jev did not read this: only code's checks ran. */
 export function Unjudged() {
   return (
     <Hint>
-      Only the word and count checks ran. Add a TypeSafe key in Settings and the judge reads the
-      rule too.
+      Only the word and count checks ran. Add a TypeSafe key in Settings and Jev reads the rule too.
     </Hint>
   )
 }

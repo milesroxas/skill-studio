@@ -1,7 +1,7 @@
 /**
  * Suggest changes, inside the selection popout: three rewrites of the
  * selection, always in the same order with the same labels, each an object to
- * pick up. One click puts it in the file. A rewrite the judge saw drop a fact
+ * pick up. One click puts it in the file. A rewrite Jev saw drop a fact
  * is shown greyed with the reason, not offered.
  */
 import {

@@ -1,10 +1,19 @@
-import type { PackScoring, ScoreSubject } from './pack.ts'
+import {
+  type Corrections,
+  NO_CORRECTIONS,
+  type PackScoring,
+  type ScoreSubject,
+  type Verdict,
+} from './pack.ts'
 import type { BenchConfig, ReportResult, Scores } from './schemas.ts'
 import { mean, weighted } from './stats.ts'
+import { finding } from './verdict.ts'
 
 export interface Scored {
   scores: Scores
   flags: string[]
+  /** Every fact the scores were counted from, the reader's corrections applied. */
+  verdicts: Verdict[]
   confidence: number | null
 }
 
@@ -19,14 +28,16 @@ function commonFlags(subject: ScoreSubject): string[] {
 }
 
 /**
- * Layer scores (0 to 100), the total, the flags and the judge's confidence for
- * one graded output, from every active pack's stored answers. Pure, so the
- * review tool rescores as a knob moves.
+ * Layer scores (0 to 100), the total, the flags, the verdicts and Jev's
+ * confidence for one graded output, from every active pack's stored answers.
+ * `corrections` are the reader's own answers, which stand over Jev's. Pure, so
+ * the page rescores as a setting moves or a verdict is corrected.
  */
 export function scoreResult(
   result: Pick<ReportResult, 'packs' | 'case' | 'primary' | 'artifacts' | 'words' | 'range'>,
   config: BenchConfig,
   scorers: PackScoring[],
+  corrections: Corrections = NO_CORRECTIONS,
 ): Scored {
   const subject: ScoreSubject = {
     case: result.case,
@@ -37,13 +48,15 @@ export function scoreResult(
   }
   const raw: Record<string, number | null> = {}
   const flags = commonFlags(subject)
+  const verdicts = flags.map(finding)
   const confidences: number[] = []
   for (const pack of scorers) {
     if (!config.packs.includes(pack.id)) continue
     const answers = result.packs[pack.id] ?? null
-    const scored = pack.score(answers, subject, config)
+    const scored = pack.score(answers, subject, config, corrections)
     Object.assign(raw, scored.layers)
     flags.push(...scored.flags)
+    verdicts.push(...scored.verdicts)
     const c = pack.confidence(answers)
     if (c !== null) confidences.push(c)
   }
@@ -54,10 +67,10 @@ export function scoreResult(
   const scores: Scores = { total: total === null ? null : Math.round(total * 100) }
   for (const [layer, v] of Object.entries(raw))
     scores[layer] = v === null ? null : Math.round(v * 100)
-  return { scores, flags, confidence: mean(confidences) }
+  return { scores, flags, verdicts, confidence: mean(confidences) }
 }
 
-/** The active packs that mark the case's checks; empty when no judge reads them. */
+/** The active packs that mark the case's checks; empty when no pack reads them. */
 export const checkReaders = (config: BenchConfig, scorers: PackScoring[]): PackScoring[] =>
   scorers.filter((p) => config.packs.includes(p.id) && p.checks !== null)
 

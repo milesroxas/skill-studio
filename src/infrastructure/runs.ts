@@ -9,7 +9,7 @@ import { join } from 'node:path'
 import { parseSampleDir } from '@domain/run-name.ts'
 import type { Report, RunMeta, SampleMeta } from '@domain/schemas.ts'
 import { metaList, metaText, readFrontMatter } from '@domain/text.ts'
-import type { AnchorInfo, FileHead, RunView, Sample } from '@domain/views.ts'
+import type { FileHead, RunView, Sample } from '@domain/views.ts'
 import { detectArtifacts } from './artifacts.ts'
 import { isDir, isFile, listDirs, listFiles, readJson, readTree } from './fs.ts'
 import { skillVersions } from './skill.ts'
@@ -148,9 +148,3 @@ export function versionFiles(skillDir: string, version: string): Record<string, 
 
 export const sampleTranscript = (skillDir: string, run: string, sample: string) =>
   readTranscript(join(runDir(skillDir, run), sample, 'transcript.jsonl'))
-
-export const anchorList = (skillDir: string): AnchorInfo[] =>
-  listFiles(anchorsDir(skillDir), (f) => f.endsWith('.md')).map((file) => ({
-    file,
-    ...readHead(join(anchorsDir(skillDir), file)),
-  }))

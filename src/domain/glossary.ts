@@ -21,7 +21,7 @@ export const GLOSSARY = {
   rule: {
     term: 'Rule',
     means:
-      'One instruction in a skill, written as a bullet. The judge checks every answer against every rule.',
+      'One instruction in a skill, written as a bullet. Jev checks every output against every rule.',
   },
   agent: {
     term: 'Agent',
@@ -30,77 +30,52 @@ export const GLOSSARY = {
   },
   case: {
     term: 'Case',
-    means: 'One task that tests the skill: a request to the agent, plus what a good answer does.',
+    means:
+      'One task that tests the skill: a request to the agent, and the checks a good answer passes.',
   },
   check: {
     term: 'Check',
     means:
-      'One fact a good answer makes true, such as “The note mentions the wedding.” The judge marks each check yes or no.',
+      'One fact a good answer makes true, such as “The note mentions the wedding.” Jev marks each check met or missed.',
   },
   run: {
     term: 'Run',
-    means: 'One round of testing: an agent does every case you picked, and the judge scores it.',
+    means:
+      'One round of testing: an agent does every case you picked, and Jev grades what it wrote.',
   },
   output: {
     term: 'Output',
     means: 'What the agent wrote for one case in one run. Its answer.',
-  },
-  writer: {
-    term: 'Writer',
-    means: 'The agent and model that write the outputs of a run.',
   },
   sample: {
     term: 'Sample',
     means:
       'One attempt at a case. Agents vary from one attempt to the next, so two or more samples show whether a result was luck.',
   },
-  judge: {
-    term: 'Judge',
+  jev: {
+    term: 'Jev',
     means:
-      'Jev, an AI model that scores every output the same way, against your rules and your checks.',
+      'The AI model that grades every output the same way, against your rules and your checks. Where you disagree with it, your answer stands.',
   },
   score: {
     term: 'Score',
     means:
-      'A number from 0 to 100 for one output. The mean is the average over a run or a version.',
+      'A number from 0 to 100 for one output, counted from the rules it follows and the checks it meets. A version’s score is the average of its outputs.',
   },
-  layer: {
-    term: 'Layer',
+  missed: {
+    term: 'Missed',
     means:
-      'One part of a score, such as how well the rules were followed or how many checks passed.',
+      'A rule the output breaks or a check it does not meet, as Jev read it. Each one names what to change.',
   },
-  flag: {
-    term: 'Flag',
-    means: 'One thing the judge found wrong in an output, such as a rule that was not followed.',
-  },
-  pack: {
-    term: 'Pack',
-    means: 'A set of judge questions for one kind of work: writing, code, workflow or design.',
-  },
-  blind: {
-    term: 'Rate blind',
+  pick: {
+    term: 'Pick',
     means:
-      'To rate an output yourself before you see the judge’s score, so the score cannot sway you.',
-  },
-  agreement: {
-    term: 'Agreement',
-    means:
-      'How often you and the judge reach the same verdict. Where you differ shows what to fix.',
-  },
-  scoring: {
-    term: 'Scoring',
-    means:
-      'The settings that turn the judge’s answers into scores. Changing them rescores at once, with nothing run again.',
+      'Your choice of the better of two outputs. It is the last word on which version is better.',
   },
   version: {
     term: 'Version',
     means:
-      'A saved copy of the skill, named v0, v1 and so on. Every score stays tied to the version that produced it.',
-  },
-  anchor: {
-    term: 'Anchor',
-    means:
-      'An output you labelled good or bad, kept as a test that the judge ranks it the way you do.',
+      'A copy of the skill as it was for a run, named v0, v1 and so on. Every score stays tied to the version that produced it.',
   },
   transcript: {
     term: 'Transcript',

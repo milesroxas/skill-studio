@@ -7,6 +7,7 @@
 import type { PackScore, PackScoring, ScoreSubject } from '@domain/pack.ts'
 import type { BenchConfig } from '@domain/schemas.ts'
 import { certainty, mean, weighted } from '@domain/stats.ts'
+import { finding } from '@domain/verdict.ts'
 import type { ShapeMeasures } from './shape.ts'
 
 type Band = [number, number]
@@ -118,7 +119,6 @@ interface WritingDerived {
   supported: number
   contradicted: ClaimVerdict[]
   missing: ClaimVerdict[]
-  unsure: ClaimVerdict[]
   share: number
 }
 
@@ -136,7 +136,7 @@ function shapeScore(shape: ShapeMeasures, config: WritingConfig): number {
 /** Counts and verdicts that depend on the thresholds, from Jev's raw answers. */
 function deriveWriting(jev: WritingJev | null, config: WritingConfig): WritingDerived | null {
   if (!jev) return null
-  const { yes, sure } = config
+  const { yes } = config
   const units = jev.perUnit
   const aiUnits = units.filter((u) => u.aiDidWork !== null && u.aiDidWork >= yes)
   const ending =
@@ -170,7 +170,6 @@ function deriveWriting(jev: WritingJev | null, config: WritingConfig): WritingDe
     supported,
     contradicted: factual.filter((v) => v.final === 'contradicted'),
     missing: factual.filter((v) => v.final === 'missing'),
-    unsure: factual.filter((v) => v.confidence < sure),
     share: (supported + config.groundingPrior) / (factual.length + 1),
   }
 }
@@ -201,7 +200,7 @@ function scoreWriting(
   const layers: Record<string, number | null> = Object.fromEntries(
     WRITING_LAYERS.map((l) => [l, null]),
   )
-  if (!raw) return { layers, flags: [] }
+  if (!raw) return { layers, flags: [], verdicts: [] }
   const active = KIND_LAYERS[raw.kind] ?? DEFAULT_KIND_LAYERS
   const d = deriveWriting(raw.jev, config)
   if (active.includes('lint') && raw.lint && !raw.lint.failed)
@@ -238,7 +237,9 @@ function scoreWriting(
         ? Math.min(d.share, config.contradictionCap)
         : d.share
   }
-  return { layers, flags: flagsOf(raw, d) }
+  // Its layers are measures, not counts of facts: what it found wrong is all a reader can act on.
+  const flags = flagsOf(raw, d)
+  return { layers, flags, verdicts: flags.map(finding) }
 }
 
 function confidenceWriting(raw: WritingRaw | null): number | null {
@@ -281,33 +282,6 @@ export const writingScoring: PackScoring<WritingRaw> = {
     writer: null,
     /** Case-insensitive patterns for lines the copy must not lift from a source; each match is a flag. */
     borrowed: [],
-  },
-  layerHome: {
-    lint: {
-      skill: 'The rule and its reason in SKILL.md, or the example pair in the references',
-      bench: 'The lint command named in bench.json (its rules and severities), or warningCost',
-    },
-    shape: {
-      skill: 'The paragraph, sentence and heading guidance in the references',
-      bench: 'bands, or the shape points',
-    },
-    structure: {
-      skill: 'The open, close and title guidance in the references',
-      bench: 'The opens_on_work, point_early, ending and title questions; structure points',
-    },
-    substance: {
-      skill: 'The shape, evidence and honesty guidance in the references',
-      bench: 'The specificity, decision, setback and ai_split questions; substance points; yes',
-    },
-    tone: {
-      skill: 'The stance and voice guidance in SKILL.md or the references',
-      bench: 'The selling question, or the tone points',
-    },
-    grounding: {
-      skill: 'How SKILL.md asks for claims to be sourced',
-      bench:
-        "The case's evidence files; the grounding and conflict questions; groundingPrior, contradictionCap",
-    },
   },
   score: scoreWriting,
   confidence: confidenceWriting,

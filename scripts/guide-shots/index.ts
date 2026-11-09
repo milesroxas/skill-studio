@@ -31,8 +31,8 @@ interface Shot {
   file: string
   /** The route, as the app writes it in the URL hash. */
   route: string
-  /** A button to press once the screen is up, by the start of its text. */
-  press?: string
+  /** Buttons to press in turn once the screen is up, each by the start of its text. */
+  press?: string[]
   /** Show the whole window, sidebar included. */
   whole?: boolean
   /** A wider window, for a screen whose table needs it. */
@@ -111,11 +111,13 @@ async function press(page: Page, label: string): Promise<void> {
   if (!pressed) throw new Error(`No button starts with "${label}".`)
 }
 
-/** Fonts in, two frames painted, and time for the screen's own fetches to land. */
+/**
+ * Fonts in, and time for the screen's own fetches to land and paint. It waits
+ * on the clock, not on a frame: a window behind others paints none until the
+ * screenshot asks for one.
+ */
 const settle = (page: Page) =>
-  page.run(`document.fonts.ready
-    .then(() => new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done))))
-    .then(() => new Promise((done) => setTimeout(done, 700)))`)
+  page.run(`document.fonts.ready.then(() => new Promise((done) => setTimeout(done, 900)))`)
 
 /** Wait for the sidebar: the app has rendered. A page still loading throws, so ask again. */
 async function appReady(page: Page): Promise<void> {
@@ -148,8 +150,8 @@ async function take(page: Page, shot: Shot): Promise<void> {
   await resize(page, width, height)
   await page.run(`window.location.hash = ${JSON.stringify(shot.route)}`)
   await settle(page)
-  if (shot.press) {
-    await press(page, shot.press)
+  for (const label of shot.press ?? []) {
+    await press(page, label)
     await settle(page)
   }
   // No row may show a hover or a focus it only has from the script: park the pointer on the
@@ -198,18 +200,17 @@ writeFileSync(
 // The library module reads the home folder when it loads, so the seed loads after it is set.
 process.env.SKILL_STUDIO_HOME = home
 const { sample } = await import('./seed.ts')
-const pair = new URLSearchParams(sample.compare).toString()
+const compared = `#/results?case=${sample.case}`
 
+// Run comes last: it leaves its panel open over the top bar.
 const SHOTS: Shot[] = [
-  { file: 'app.webp', route: '#/overview', whole: true },
+  { file: 'app.webp', route: compared, whole: true, width: 1280 },
   { file: 'editor.webp', route: '#/editor' },
-  { file: 'cases.webp', route: '#/cases?id=breaking-api' },
-  { file: 'new-run.webp', route: '#/generate' },
-  { file: 'results.webp', route: '#/overview', press: sample.run },
-  { file: 'rate-blind.webp', route: '#/blind' },
-  { file: 'compare.webp', route: `#/compare?${pair}` },
-  { file: 'agreement.webp', route: '#/insights' },
-  { file: 'scoring.webp', route: '#/knobs', width: 1280 },
+  { file: 'versions.webp', route: `#/editor?version=${sample.version}` },
+  { file: 'cases.webp', route: `#/cases?id=${sample.case}` },
+  { file: 'results.webp', route: compared, width: 1280 },
+  { file: 'all-cases.webp', route: '#/results?view=all' },
+  { file: 'run.webp', route: `#/cases?id=${sample.case}`, press: ['Run v'] },
 ]
 
 const { app, port } = await launch(home, profile)

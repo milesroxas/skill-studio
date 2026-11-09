@@ -3,7 +3,7 @@
  * is redrawn before it is sent for keeping: upright, since a model is shown
  * the pixels and not the camera's rotation note, and inside the sizes Jev
  * reads, since Jev refuses a picture outside them. So every picture the app
- * keeps is a PNG or JPEG that both the judge and the assistant can read.
+ * keeps is a PNG or JPEG that both Jev and the assistant can read.
  */
 import { addImages, fitForJev, type ImageRef, MAX_IMAGES } from '@domain/image.ts'
 import { useRef, useState } from 'react'

@@ -13,7 +13,6 @@ import { shortcut } from '../keys.ts'
 import { cn } from '../lib/utils.ts'
 import { Mark } from './Mark.tsx'
 import { Dot } from './Status.tsx'
-import { Text } from './text.tsx'
 import { Button } from './ui/button.tsx'
 
 export function AppFrame({
@@ -35,7 +34,7 @@ export function AppFrame({
       )}
       {...props}
     >
-      {/* Keyboard users skip the sidebar's dozen links on the way to the screen. */}
+      {/* Keyboard users skip the sidebar's links on the way to the screen. */}
       <a
         href="#main"
         className="sr-only z-skip rounded-sm bg-primary px-3 py-2 text-primary-foreground focus:not-sr-only focus:fixed focus:top-2 focus:left-2"
@@ -73,7 +72,7 @@ export function Sidebar({ className, children, ...props }: ComponentProps<'nav'>
   )
 }
 
-/** The middle of the sidebar: the loop's sections, scrolling on their own when the window is short. */
+/** The middle of the sidebar: the skill's places, scrolling on their own when the window is short. */
 export function SidebarBody({ className, ...props }: ComponentProps<'div'>) {
   return (
     <div
@@ -102,18 +101,9 @@ export function SidebarFooter({
   )
 }
 
-/** A labelled group of nav items. */
-export function SidebarSection({ label, children }: { label?: string; children: ReactNode }) {
-  return (
-    <div className="flex flex-col gap-px">
-      {label ? (
-        <Text caps tone="muted" className="px-2 pb-1">
-          {label}
-        </Text>
-      ) : null}
-      {children}
-    </div>
-  )
+/** The open skill's places, one under the next. */
+export function SidebarSection({ children }: { children: ReactNode }) {
+  return <div className="flex flex-col gap-px">{children}</div>
 }
 
 const NAV_ITEM =
@@ -121,7 +111,7 @@ const NAV_ITEM =
 
 /**
  * One place in the sidebar. `meta` is its status, right-aligned and tabular;
- * `dot` marks something waiting (an unsaved draft, an unsaved bench).
+ * `dot` marks something waiting (an unsaved draft, unsaved scoring).
  */
 export function NavItem({
   icon,

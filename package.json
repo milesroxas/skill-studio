@@ -2,7 +2,7 @@
   "name": "skill-studio",
   "version": "0.2.0",
   "private": true,
-  "description": "Desktop studio for agent skills: write a skill, run headless agents on its cases, grade the outputs with code checks and Jev judge packs, and review them blind.",
+  "description": "Desktop studio for agent skills: write a skill, run headless agents on its cases, and compare each version's outputs side by side, graded by code checks and Jev.",
   "license": "MIT",
   "author": "Miles Roxas",
   "homepage": "https://github.com/milesroxas/skill-studio",

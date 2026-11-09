@@ -1,7 +1,7 @@
 /**
  * Grade a run or the anchors: every active pack asks its questions about each
  * sample's primary artifact, the raw answers go in `report.json`, and the
- * scores come from core so the review tool can rescore as a knob moves.
+ * scores come from core so the app can rescore as a setting moves.
  */
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
@@ -56,8 +56,8 @@ function benchFor(skillDir: string, options: GradeOptions): BenchConfig {
   )
 }
 
-/** One sample as the packs see it, for grading and for pairwise votes alike. */
-export function judgeInput(
+/** One sample as the packs see it. */
+function judgeInput(
   skillDir: string,
   sample: Sample,
   testCase: Case | null,

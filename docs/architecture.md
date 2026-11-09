@@ -49,6 +49,23 @@ Imports point inward only, and `pnpm fallow` fails on one that does not (`bounda
 
 [SECURITY.md](../SECURITY.md) covers the hardening, and [cli.md](cli.md#the-web-server) the web server.
 
+## The loop in the renderer
+
+A skill has three screens (`SKILL_PLACES` in `src/renderer/places.ts`), one per step of the loop that is a place:
+
+- **Skill** (`screens/Editor.tsx`) edits `SKILL.md` and `references/`, and lists the versions. A version opens in the main column (`components/VersionDetail.tsx`) with its changes and Restore.
+- **Cases** (`screens/Cases.tsx`) edits the cases a run is made of. A case needs a prompt only.
+- **Results** (`screens/Results.tsx`) lists the cases a run answered and compares two outputs of the one picked (`components/Comparison.tsx`). "All cases" is every run at once (`components/ResultsSummary.tsx`), with Scoring folded at its foot (`components/Scoring.tsx`).
+
+Running is a button in the top bar, not a screen (`components/Run.tsx`): it calls `skill.generate`, which keeps the files as the next version when they changed since the last run.
+
+Two things a reader says are kept, both in `evals/reviews.json` and both written from Results:
+
+- A **pick** between two outputs (`skill.pick`). `src/domain/picks.ts` chooses the pair a case opens with, the latest version beside the one before it by the same writer, and says how a pick stands against the two scores.
+- A **correction** to one verdict (`skill.correct`). Every pack's scorer reports the facts it counted (`Verdict` in `src/domain/pack.ts`) and takes the reader's corrections, so a score follows a correction with no new call to Jev. [grading.md](grading.md#verdicts) has the details.
+
+A retired screen's address opens the screen its work moved to (`MOVED_SCREENS` in `src/domain/preferences.ts`).
+
 ## Engines
 
 An engine runs one agent CLI in a sample directory (`src/infrastructure/engines/`).
@@ -77,7 +94,7 @@ The side panel's assistant can propose changes to the open skill: a whole file (
 
 The assistant reads the skill as the writer has it, not as saved. `chat.send` carries the screen and what is open on it (the Editor's file, the case on Cases: `openAt` in `src/renderer/route.ts`, the same reading those screens use), and the backend lays the skill's stored drafts over its saved files and cases (`workingSkill` in `src/domain/assist.ts`). The drafts on disk are the one copy of unsaved work: the panel stores any still waiting before it sends (`Drafts.flush`), so a keystroke made just before is read. SKILL.md is read whole, and reference files in full up to `REFERENCE_BUDGET` characters, the open one first. A file change shows against the writer's unsaved text when there is some.
 
-Nothing is written until the writer clicks. The button calls the operations the Editor, Cases and Versions screens call (`skill.saveFile`, `skill.saveCase`, `skill.saveVersion`), so the backend checks the path, the id and the file's text on disk as it does for them, and the status line offers Undo. A reply is marked with the path of the skill it was written about (`ChatMessage.skill`), and its changes are offered only while that skill is open. Whether a change is applied is read from the skill as it stands, never stored.
+Nothing is written until the writer clicks. The button calls the operations the Skill and Cases screens call (`skill.saveFile`, `skill.saveCase`), and `skill.saveVersion` for a version, so the backend checks the path, the id and the file's text on disk as it does for them, and the status line offers Undo. A reply is marked with the path of the skill it was written about (`ChatMessage.skill`), and its changes are offered only while that skill is open. Whether a change is applied is read from the skill as it stands, never stored.
 
 Each text area is one kind of field (`src/domain/assist.ts`). A kind states the shape its text has, built from the same rule guidance the editor shows. The reply is one JSON object holding that text, fitted to the field before it is shown.
 

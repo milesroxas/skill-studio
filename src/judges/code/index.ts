@@ -5,7 +5,7 @@
  * files, build the project or judge files beyond the primary one.
  */
 import { runCommand } from '../shared/exec.ts'
-import { askStatements, pairwiseText, withRequest } from '../shared/questions.ts'
+import { askStatements, withRequest } from '../shared/questions.ts'
 import type { JudgePack } from '../types.ts'
 import { type CheckRaw, type CodeConfig, type CodeRaw, codeScoring } from './score.ts'
 
@@ -34,5 +34,4 @@ export const codePack: JudgePack<CodeRaw> = {
     if (!check && !review) return null
     return { check, review }
   },
-  pairwise: pairwiseText,
 }

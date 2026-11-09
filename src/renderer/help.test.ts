@@ -1,8 +1,9 @@
+import { GLOSSARY } from '@domain/glossary.ts'
 import { describe, expect, it } from 'vitest'
 import guide from '../../docs/guide.md?raw'
 import { guideSections } from './guide.ts'
 import { LOOP_STEPS, SCREEN_HELP } from './help.ts'
-import { APP_PLACES, isSkillScreen, placeFor, SECTIONS } from './places.ts'
+import { APP_PLACES, isSkillScreen, placeFor, SKILL_PLACES } from './places.ts'
 
 const sections = new Set(guideSections(guide).map((s) => s.id))
 
@@ -16,7 +17,7 @@ describe('guideSections', () => {
 
 describe('the help', () => {
   it('explains every screen of the loop, and the library and settings', () => {
-    const screens = [...SECTIONS.flatMap((s) => s.places), ...APP_PLACES]
+    const screens = [...SKILL_PLACES, ...APP_PLACES]
       .map((p) => p.screen)
       .filter((screen) => screen !== 'docs')
     expect(Object.keys(SCREEN_HELP).sort()).toEqual(screens.sort())
@@ -29,6 +30,11 @@ describe('the help', () => {
 
   it('keeps a tooltip short enough to read at a glance', () => {
     for (const help of Object.values(SCREEN_HELP)) expect(help.short.length).toBeLessThan(48)
+  })
+
+  it('uses only words the glossary explains', () => {
+    for (const [screen, help] of Object.entries(SCREEN_HELP))
+      for (const term of help.terms) expect(GLOSSARY[term], `${screen}: ${term}`).toBeDefined()
   })
 
   it('tours screens of the loop, each of which has a name and help', () => {

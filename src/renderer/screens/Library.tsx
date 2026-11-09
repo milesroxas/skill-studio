@@ -195,9 +195,9 @@ export function LibraryScreen({
             </Button>
           }
         >
-          Thank-you note is a finished skill with three cases. The walkthrough takes it through the
-          whole workflow: read it, run it, rate what the agent wrote, check the judge, tighten one
-          rule and run it again. Nothing to type, and it is installed for no agent.
+          Thank-you note is a finished skill with three cases. The walkthrough takes it round the
+          loop: read it, run it, read what the notes missed, tighten one rule, run it again and
+          compare. Nothing to type, and it is installed for no agent.
         </Invitation>
       ) : null}
       <ListBar

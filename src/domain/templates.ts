@@ -538,7 +538,7 @@ export const CHECK_EXAMPLES: readonly CheckExample[] = [
   {
     bad: 'The answer is clear and well written.',
     good: 'The first sentence says what changed for the user.',
-    why: 'A judge can find a first sentence and read it. It cannot measure "clear".',
+    why: 'Jev can find a first sentence and read it. It cannot measure "clear".',
   },
   {
     bad: 'The code is tested.',

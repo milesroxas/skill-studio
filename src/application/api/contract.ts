@@ -13,12 +13,10 @@ import type { AgentId, Library } from '@domain/library.ts'
 import type { RuleScene } from '@domain/lint.ts'
 import type { LookStep } from '@domain/practice.ts'
 import type { Preferences } from '@domain/preferences.ts'
-import type { QueueItem } from '@domain/queue.ts'
 import type {
   BenchConfig,
   CaseDraft,
   Configuration,
-  Review,
   SkillDrafts,
   TranscriptEvent,
   Vote,
@@ -26,7 +24,7 @@ import type {
 import type { SecretId, Settings } from '@domain/secrets.ts'
 import type { TemplateId } from '@domain/templates.ts'
 import type { UpdateRequest, UpdateState } from '@domain/update.ts'
-import type { Job, Leaderboard, RunView, SkillInfo, SkillVersion, State } from '@domain/views.ts'
+import type { Job, RunView, SkillInfo, SkillVersion, State } from '@domain/views.ts'
 
 /** Operations on one skill name it by path. The client fills this in. */
 export interface Scoped {
@@ -67,16 +65,6 @@ export interface GenerateInput extends Scoped {
   grade: boolean
 }
 
-export interface AnchorInput extends Scoped {
-  run: string
-  sample: string
-  file: string
-  case: string
-  label: 'good' | 'bad'
-  tests: string[]
-  about: string
-}
-
 export interface ArtifactFile {
   bytes: Uint8Array
   type: string
@@ -94,7 +82,7 @@ export interface Contract {
   'library.create': { input: CreateSkillInput; output: SkillInfo }
   /** Open the practice skill, writing it and its cases the first time. */
   'library.practice': { input: Record<string, never>; output: SkillInfo }
-  /** Put the practice skill back as it was first written: its runs, ratings, edits and drafts go. */
+  /** Put the practice skill back as it was first written: its runs, picks, edits and drafts go. */
   'library.restartPractice': { input: Record<string, never>; output: SkillInfo }
   /** Mark a walkthrough step that only asks the reader to look at a screen. */
   'library.practiceSeen': { input: { step: LookStep }; output: { seen: LookStep[] } }
@@ -157,7 +145,7 @@ export interface Contract {
     output: { restored: string }
   }
   /**
-   * Delete a version: its saved copy, its runs, and the reviews and votes on their outputs.
+   * Delete a version: its saved copy, its runs, and the corrections and picks on their outputs.
    * The files stay as they are. Refused while a job runs. `undo` names the way back.
    */
   'skill.deleteVersion': {
@@ -171,14 +159,17 @@ export interface Contract {
     input: Scoped & { drafts: SkillDrafts }
     output: { updatedAt: string | null }
   }
-  'skill.queue': { input: Scoped; output: QueueItem[] }
-  'skill.leaderboard': { input: Scoped; output: Leaderboard }
-  'skill.review': {
-    input: Scoped & { key: string; review: Omit<Review, 'updatedAt'> }
+  /**
+   * The reader's own answer on one verdict of one output, which stands over Jev's:
+   * `met` true or false, or null to take it back.
+   */
+  'skill.correct': {
+    input: Scoped & { key: string; verdict: string; met: boolean | null }
     output: { saved: string }
   }
-  'skill.preference': {
-    input: Scoped & { a: string; b: string; criterion: string; vote: Vote }
+  /** The reader's pick of the better of two outputs. A new pick on the pair replaces the old. */
+  'skill.pick': {
+    input: Scoped & { a: string; b: string; vote: Vote }
     output: { saved: string }
   }
   'skill.saveFile': {
@@ -195,13 +186,8 @@ export interface Contract {
     input: Scoped & { config: BenchConfig }
     output: { saved: string; config: BenchConfig }
   }
-  'skill.anchor': { input: AnchorInput; output: { saved: string } }
   'skill.generate': { input: GenerateInput; output: Started }
   'skill.grade': { input: Scoped & { run: string; jev: boolean }; output: Started }
-  'skill.pairwise': {
-    input: Scoped & { a: string; b: string; criteria: string[] }
-    output: Started
-  }
 }
 
 export type OperationName = keyof Contract

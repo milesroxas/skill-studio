@@ -1,8 +1,8 @@
 /**
- * The judge's reading of SKILL.md, drawn on the bullets it reads. A graded
+ * Jev's reading of SKILL.md, drawn on the bullets it reads. A graded
  * rule's number takes the place of its bullet, "01", "02", in the order
- * Scoring lists them, hanging in the margin so the text keeps its edge; a
- * bullet the judge skips keeps its dot and says why to the pointer that rests
+ * they stand in the file, hanging in the margin so the text keeps its edge; a
+ * bullet Jev skips keeps its dot and says why to the pointer that rests
  * on it. The number turns amber when the writing checks find something in
  * the rule, the words that set a check off are underlined and say why when
  * pointed at, and while the cursor is in the rule its findings stand under it. A click on the number

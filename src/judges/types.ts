@@ -1,13 +1,6 @@
 import type { PackScoring } from '@domain/pack.ts'
 import type { Rule } from '@domain/rules.ts'
-import type {
-  Artifact,
-  ArtifactKind,
-  BenchConfig,
-  Case,
-  TranscriptEvent,
-  Vote,
-} from '@domain/schemas.ts'
+import type { Artifact, ArtifactKind, BenchConfig, Case, TranscriptEvent } from '@domain/schemas.ts'
 import type { Unit } from '@domain/text.ts'
 import type { RequestImage } from './images.ts'
 import type { Jev } from './jev.ts'
@@ -41,11 +34,6 @@ export interface JudgeContext {
   log: (line: string) => void
 }
 
-export interface PairwiseVote {
-  vote: Vote
-  confidence: number
-}
-
 /**
  * A judge pack: the pure scorer plus the questions and code checks that
  * produce its raw answers. `judge` returns null when the pack has nothing to
@@ -56,13 +44,6 @@ export interface JudgePack<Raw = unknown> extends PackScoring<Raw> {
   /** Artifact kinds this pack can judge; empty means any sample, with or without an artifact. */
   artifacts: ArtifactKind[]
   judge(input: JudgeInput, ctx: JudgeContext): Promise<Raw | null>
-  /** One Choice per criterion over two outputs; fed to Bradley-Terry in core. */
-  pairwise?(
-    a: JudgeInput,
-    b: JudgeInput,
-    criteria: string[],
-    ctx: JudgeContext,
-  ): Promise<Record<string, PairwiseVote>>
   /** Front matter and body a new anchors file starts from. */
   anchorsTemplate?: string
 }

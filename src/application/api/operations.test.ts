@@ -94,12 +94,21 @@ describe('parsers', () => {
     )
   })
 
-  it('accept only known votes, labels and agents', () => {
-    expect(() => parsers['skill.preference']({ a: 'r/s', b: 'r/t', vote: 'maybe' })).toThrow(
-      'Bad vote.',
-    )
-    expect(() => parsers['skill.anchor']({ label: 'meh' })).toThrow('Bad label.')
+  it('accept only known votes and agents', () => {
+    expect(() => parsers['skill.pick']({ a: 'r/s', b: 'r/t', vote: 'maybe' })).toThrow('Bad vote.')
     expect(() => parsers['library.link']({ path: '/p', agent: 'emacs' })).toThrow('Bad agent.')
     expect(parsers['library.link']({ path: '/p', agent: 'codex' }).scope).toBe('user')
+  })
+
+  it('read a correction as met, missed, or taken back', () => {
+    const read = (met: unknown) =>
+      parsers['skill.correct']({ key: 'run/sample', verdict: 'rule:Be brief.', met }).met
+    expect(read(true)).toBe(true)
+    expect(read(false)).toBe(false)
+    expect(read(undefined)).toBeNull()
+    expect(() => parsers['skill.correct']({ key: 'run/sample', verdict: '' })).toThrow(
+      'Bad verdict.',
+    )
+    expect(() => parsers['skill.correct']({ key: '../x', verdict: 'rule:x' })).toThrow()
   })
 })

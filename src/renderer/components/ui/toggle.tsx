@@ -35,20 +35,11 @@ const toggleVariants = cva(
         alone: 'focus-ring',
         group: 'focus-ring-segment',
       },
-      /** The verdict a pressed toggle states, so color says good or bad and nothing else. */
-      tone: {
-        default: '',
-        success:
-          'data-[state=on]:bg-success/10 data-[state=on]:text-success dark:data-[state=on]:bg-success/20',
-        destructive:
-          'data-[state=on]:bg-destructive/10 data-[state=on]:text-destructive dark:data-[state=on]:bg-destructive/20',
-      },
     },
     compoundVariants: [
       {
-        /** "On" reads the same everywhere: ink fill. A tone states its verdict instead. */
+        /** "On" reads the same everywhere: ink fill. */
         variant: 'outline',
-        tone: 'default',
         class:
           'data-[state=on]:bg-primary data-[state=on]:text-primary-foreground data-[state=on]:hover:bg-primary/90 data-[state=on]:hover:text-primary-foreground',
       },
@@ -56,7 +47,6 @@ const toggleVariants = cva(
     defaultVariants: {
       variant: 'default',
       size: 'default',
-      tone: 'default',
       place: 'alone',
     },
   },
@@ -66,13 +56,12 @@ function Toggle({
   className,
   variant,
   size,
-  tone,
   ...props
 }: React.ComponentProps<typeof TogglePrimitive.Root> & VariantProps<typeof toggleVariants>) {
   return (
     <TogglePrimitive.Root
       data-slot="toggle"
-      className={cn(toggleVariants({ variant, size, tone, className }))}
+      className={cn(toggleVariants({ variant, size, className }))}
       {...props}
     />
   )

@@ -1,6 +1,6 @@
 /**
  * Deleting a version, with a way back. The version's saved copy, the runs made
- * with it, and the reviews and votes on their outputs move to
+ * with it, and the corrections and picks on their outputs move to
  * `~/.skill-studio/trash/<id>/`, outside the skill so they never show in its
  * git status. Only the latest delete can be undone: each delete empties the
  * trash first, so it never holds more than one version.
@@ -8,10 +8,14 @@
 import { randomUUID } from 'node:crypto'
 import { cpSync, mkdirSync, renameSync, rmSync } from 'node:fs'
 import { dirname, join } from 'node:path'
-import type { Preference, Review } from '@domain/schemas.ts'
 import { isDir, readJson, writeJson } from './fs.ts'
 import { STUDIO_DIR } from './library.ts'
-import { loadReviews, reviewsPath } from './reviews.ts'
+import {
+  readStoredReviews,
+  type StoredReview,
+  type StoredVote,
+  writeStoredReviews,
+} from './reviews.ts'
 import { runDir, runsOfVersion, versionsOf } from './runs.ts'
 import { versionDir } from './versions.ts'
 
@@ -22,8 +26,8 @@ interface TrashEntry {
   version: string
   saved: boolean
   runs: string[]
-  reviews: Record<string, Review>
-  preferences: Preference[]
+  reviews: Record<string, StoredReview>
+  preferences: StoredVote[]
 }
 
 export interface DeletedVersion {
@@ -54,11 +58,11 @@ export function deleteVersion(skillDir: string, version: string): DeletedVersion
     throw new Error(`There is no ${version}.`)
   const runs = runsOfVersion(skillDir, version)
   const gone = new Set(runs)
-  const stored = loadReviews(skillDir)
-  const reviews = Object.fromEntries(
-    Object.entries(stored.reviews).filter(([key]) => gone.has(runOf(key))),
-  )
-  const preferences = stored.preferences.filter((p) => gone.has(runOf(p.a)) || gone.has(runOf(p.b)))
+  const stored = readStoredReviews(skillDir)
+  const kept = stored.reviews ?? {}
+  const votes = stored.preferences ?? []
+  const reviews = Object.fromEntries(Object.entries(kept).filter(([key]) => gone.has(runOf(key))))
+  const preferences = votes.filter((p) => gone.has(runOf(p.a)) || gone.has(runOf(p.b)))
 
   rmSync(TRASH, { recursive: true, force: true })
   const id = randomUUID()
@@ -75,9 +79,12 @@ export function deleteVersion(skillDir: string, version: string): DeletedVersion
   if (saved) move(versionDir(skillDir, version), join(entry, 'version'))
   for (const run of runs) move(runDir(skillDir, run), join(entry, 'runs', run))
   if (Object.keys(reviews).length || preferences.length) {
-    for (const key of Object.keys(reviews)) delete stored.reviews[key]
-    stored.preferences = stored.preferences.filter((p) => !preferences.includes(p))
-    writeJson(reviewsPath(skillDir), stored)
+    for (const key of Object.keys(reviews)) delete kept[key]
+    writeStoredReviews(skillDir, {
+      ...stored,
+      reviews: kept,
+      preferences: votes.filter((p) => !preferences.includes(p)),
+    })
   }
   return {
     deleted: version,
@@ -100,10 +107,12 @@ export function undeleteVersion(skillDir: string, undo: string): { restored: str
   if (file.saved) move(join(entry, 'version'), versionDir(skillDir, file.version))
   for (const run of file.runs) move(join(entry, 'runs', run), runDir(skillDir, run))
   if (Object.keys(file.reviews).length || file.preferences.length) {
-    const stored = loadReviews(skillDir)
-    stored.reviews = { ...file.reviews, ...stored.reviews }
-    stored.preferences.push(...file.preferences)
-    writeJson(reviewsPath(skillDir), stored)
+    const stored = readStoredReviews(skillDir)
+    writeStoredReviews(skillDir, {
+      ...stored,
+      reviews: { ...file.reviews, ...stored.reviews },
+      preferences: [...(stored.preferences ?? []), ...file.preferences],
+    })
   }
   rmSync(entry, { recursive: true, force: true })
   return { restored: file.version }

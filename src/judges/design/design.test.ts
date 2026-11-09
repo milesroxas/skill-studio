@@ -108,11 +108,54 @@ describe('design scoring', () => {
       ],
       jev: null,
     }
-    expect(designScoring.score(raw, subject, config)).toEqual({
+    const scored = designScoring.score(raw, subject, config)
+    expect(scored).toMatchObject({
       layers: { markup: 0.5, visual: null },
       flags: ['markup: no <main> landmark'],
     })
+    // Code measured these, so neither is open to a correction.
+    expect(scored.verdicts.map((v) => [v.text, v.met, v.open, v.layer])).toEqual([
+      ['markup: a', true, false, 'markup'],
+      ['markup: no <main> landmark', false, false, 'markup'],
+    ])
     expect(designScoring.confidence(raw)).toBeNull()
+  })
+
+  it('counts the visual layer from Jev’s answers, with the reader’s own over them', () => {
+    const raw: DesignRaw = {
+      markup: null,
+      jev: {
+        hierarchy: 0.9,
+        finished: 0.2,
+        statements: [
+          {
+            id: 'g1',
+            text: 'The form has a submit button.',
+            weight: 2,
+            noul: 0.1,
+            units: null,
+            best: null,
+          },
+        ],
+      },
+    }
+    const jev = designScoring.score(raw, subject, config)
+    // hierarchy met (1), finished missed (1), the check missed (×2)
+    expect(jev.layers.visual).toBe(1 / 4)
+    expect(jev.flags).toEqual([
+      'screenshot does not look finished',
+      'grader g1 (×2) not met: The form has a submit button.',
+    ])
+    const own = designScoring.score(raw, subject, config, {
+      'check:The form has a submit button.': true,
+    })
+    expect(own.layers.visual).toBe(3 / 4)
+    expect(own.flags).toEqual(['screenshot does not look finished'])
+    expect(own.verdicts.find((v) => v.kind === 'check')).toMatchObject({
+      met: true,
+      corrected: true,
+      weight: 2,
+    })
   })
 
   it('leaves every layer null without raw answers', () => {

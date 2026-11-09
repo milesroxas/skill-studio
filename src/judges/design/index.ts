@@ -9,7 +9,7 @@ import { round, stripComments } from '@domain/text.ts'
 import { noul } from '@typesafe-ai/sdk'
 import { type Readable, readForJev } from '../images.ts'
 import type { JevState } from '../jev.ts'
-import { askStatements, pairwise, requestState, type Side } from '../shared/questions.ts'
+import { askStatements, requestState } from '../shared/questions.ts'
 import type { JudgeInput, JudgePack } from '../types.ts'
 import { type DesignConfig, type DesignRaw, designScoring, type MarkupCheck } from './score.ts'
 
@@ -140,16 +140,5 @@ export const designPack: JudgePack<DesignRaw> = {
       }
     }
     return unread ? { markup, jev, unread } : { markup, jev }
-  },
-  /** Two pages are compared on what each shows: its HTML, and its screenshot when both have one. */
-  pairwise(a, b, criteria, ctx) {
-    const shots = [shotOf(a)?.image ?? null, shotOf(b)?.image ?? null]
-    const both = shots.every(Boolean)
-    const side = (input: JudgeInput, shot: (typeof shots)[number]): Side | null => {
-      const html = htmlOf(input, ctx.config as DesignConfig)
-      if (both && shot) return html ? { html, screenshot: shot } : { screenshot: shot }
-      return html || null
-    }
-    return pairwise(a, b, criteria, ctx, (input) => side(input, shots[input === a ? 0 : 1]))
   },
 }

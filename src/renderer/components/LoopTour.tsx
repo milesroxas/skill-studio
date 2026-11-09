@@ -1,7 +1,7 @@
 /**
- * The loop, told one step at a time in the welcome. One step is in view and
- * nothing else: its name, one sentence, a picture, and the button to the next.
- * Six facts in a row are easy; six at once are a wall.
+ * The loop, told one step at a time in the welcome: write, run, compare. One
+ * step is in view and nothing else: its name, one sentence, a picture, and the
+ * button to the next. Three facts in a row are easy; three at once are a wall.
  *
  * Every picture is the same example carried forward: the practice skill, one
  * of its cases and one note an agent might write for it. So the tour previews
@@ -9,14 +9,14 @@
  *
  * Each step sits in the welcome's step frame (`WelcomeStep.tsx`). Seen once or
  * twice, so the step may move: its picture plays what the sentence says, in
- * the order it happens. Rules are written, checks
- * are stamped, the score counts up. Nothing waits on the movement: Next works
- * from the first frame.
+ * the order it happens. Rules are written, the note is written, its checks are
+ * stamped, the score counts up, the better note is picked. Nothing waits on
+ * the movement: Next works from the first frame.
  */
 import { PRACTICE, PRACTICE_EDIT } from '@domain/practice.ts'
 import { rulesFromSkill } from '@domain/rules.ts'
 import { cva } from 'class-variance-authority'
-import { ArrowRightIcon, CheckIcon, EyeOffIcon, XIcon } from 'lucide-react'
+import { ArrowRightIcon, CheckIcon, XIcon } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { LOOP_STEPS } from '../help.ts'
 import { after, useCountUp } from '../motion.ts'
@@ -36,11 +36,13 @@ const CHECKS = KASE.graders.map((g) => g.statement)
 /** What the agent writes while the rule is still vague: kind, and twice too long. */
 const NOTE =
   'Priya, thank you so much for covering my on-call shift on Saturday. I know giving up a weekend is a lot to ask. Because you stepped in, I could be at my sister’s wedding without checking my phone once. I owe you one.'
-/** Which checks that note passes, in the order of `CHECKS`, and what the judge says of one it fails. */
+/** Which checks that note passes, in the order of `CHECKS`, and what Jev says of one it fails. */
 const PASSED = [true, true, false]
 const FAILED_WHY = 'It has four.'
 const SCORE = { before: 58, after: 96 }
-const RATING = 2
+/** The two versions the last step sets side by side, and the one picked. */
+const VERSIONS = ['v0', 'v1'] as const
+const PICKED = 'v1'
 /** The note a word at a time, each with its place in the line. */
 const WORDS = NOTE.split(' ').map((word, at) => ({ word, at }))
 
@@ -48,14 +50,16 @@ const WORDS = NOTE.split(' ').map((word, at) => ({ word, at }))
  * When the parts of a picture move, in milliseconds from the step coming into
  * view. `start` is the first beat: the step has slid in and the eye has
  * reached the picture. `row` is the wait between the rows of a list, `stamp`
- * between the judge's marks, which land slower because each is a verdict.
+ * between Jev's marks, which land slower because each is a verdict.
  */
 const BEAT = { start: STEP_BEAT, row: 90, stamp: 220, word: 20 }
+/** When the note's last word has landed, and a breath after it: the checks follow the writing. */
+const WRITTEN = BEAT.start + WORDS.length * BEAT.word + 240
 
 /** The picture of a step: a sheet with a printed edge, headed like the screen it stands for. */
 function Sheet({ place, children }: { place: Place; children: ReactNode }) {
   return (
-    <div className="pointer-events-none flex h-95 max-h-full min-w-0 flex-1 animate-in flex-col overflow-hidden rounded-chin border border-foreground bg-card delay-75 duration-300 ease-out-strong fill-mode-backwards select-none fade-in-0 in-data-[from=after]:slide-in-from-right-4 in-data-[from=before]:slide-in-from-left-4">
+    <div className="pointer-events-none flex h-105 max-h-full min-w-0 flex-1 animate-in flex-col overflow-hidden rounded-chin border border-foreground bg-card delay-75 duration-300 ease-out-strong fill-mode-backwards select-none fade-in-0 in-data-[from=after]:slide-in-from-right-4 in-data-[from=before]:slide-in-from-left-4">
       <div className="flex h-9.5 shrink-0 items-center gap-2 border-b px-4 text-ui font-medium">
         <place.icon aria-hidden="true" className="size-3.5 text-muted-foreground" />
         {place.label}
@@ -112,45 +116,32 @@ const stampVariants = cva(
 )
 
 /**
- * The checks of the case. Without `marks` they are still open and arrive one
- * after another. With `marks` the judge stamps them in turn: each open box
- * gives way to its verdict.
+ * The checks of the case, which Jev stamps in turn once the note is written:
+ * each open box gives way to its verdict. `from` is when the first one lands.
  */
-function Checks({ marks }: { marks?: boolean[] }) {
+function Checks({ marks, from }: { marks: boolean[]; from: number }) {
   return (
     <ul className="m-0 flex flex-col gap-1.5 p-0">
       {CHECKS.map((check, i) => {
-        const passed = marks?.[i]
-        const at = BEAT.start + i * (marks ? BEAT.stamp : BEAT.row)
+        const passed = marks[i]
+        const at = from + i * BEAT.stamp
         return (
-          <li
-            key={check}
-            className={marks ? 'flex gap-2 text-ui' : 'flex animate-rise gap-2 text-ui'}
-            style={marks ? undefined : after(at)}
-          >
+          <li key={check} className="flex gap-2 text-ui">
             <span className="relative mt-0.5 size-4 shrink-0">
               <span
-                className={
-                  marks
-                    ? 'absolute inset-0 animate-vanish rounded-sm border border-input'
-                    : 'absolute inset-0 rounded-sm border border-input'
-                }
-                style={marks ? after(at) : undefined}
+                className="absolute inset-0 animate-vanish rounded-sm border border-input"
+                style={after(at)}
               />
-              {passed === undefined ? null : (
-                <span className={stampVariants({ passed })} style={after(at)}>
-                  {passed ? (
-                    <CheckIcon aria-hidden="true" className="size-3" />
-                  ) : (
-                    <XIcon aria-hidden="true" className="size-3" />
-                  )}
-                </span>
-              )}
+              <span className={stampVariants({ passed })} style={after(at)}>
+                {passed ? (
+                  <CheckIcon aria-hidden="true" className="size-3" />
+                ) : (
+                  <XIcon aria-hidden="true" className="size-3" />
+                )}
+              </span>
             </span>
             <span className="min-w-0 flex-1">
-              {passed === undefined ? null : (
-                <span className="sr-only">{passed ? 'Passed: ' : 'Failed: '}</span>
-              )}
+              <span className="sr-only">{passed ? 'Met: ' : 'Missed: '}</span>
               {check}
               {passed === false ? (
                 <Text tone="muted" className="animate-ink" style={after(at + 120)}>
@@ -163,31 +154,6 @@ function Checks({ marks }: { marks?: boolean[] }) {
         )
       })}
     </ul>
-  )
-}
-
-/** A score out of 100, as a number and as a length. Both count up once the last check is stamped. */
-function Score({ value }: { value: number }) {
-  const shown = useCountUp(value, { delay: BEAT.start + CHECKS.length * BEAT.stamp, duration: 800 })
-  return (
-    <div className="flex items-center gap-3">
-      {/* Two figures wide from the start, so nothing beside it moves as it counts. */}
-      <span className="min-w-[2ch] text-2xl font-semibold tabular-nums">
-        <span aria-hidden="true">{shown}</span>
-        <span className="sr-only">{value}</span>
-      </span>
-      <span className="flex min-w-0 flex-1 flex-col gap-1">
-        <Text size="xs" tone="muted">
-          out of 100
-        </Text>
-        <span className="h-1 overflow-hidden rounded-full bg-foreground/10" aria-hidden="true">
-          <span
-            className="block h-full origin-left rounded-full bg-foreground/70"
-            style={{ transform: `scaleX(${shown / 100})` }}
-          />
-        </span>
-      </span>
-    </div>
   )
 }
 
@@ -207,26 +173,25 @@ function Written() {
   )
 }
 
-/** The reader's rating: five to choose from, and the one picked a moment after they appear. */
-function Rating() {
-  const picked = BEAT.start + 420
+/** The reader's pick: the two versions to choose from, and the better one a moment after they appear. */
+function Pick({ at }: { at: number }) {
   return (
     <>
       <span className="flex gap-1.5">
-        {[1, 2, 3, 4, 5].map((n) => (
-          <span key={n} className={ratingVariants()}>
-            {n}
-            {n === RATING ? (
-              <span className={ratingVariants({ picked: true })} style={after(picked)}>
-                {n}
+        {VERSIONS.map((version) => (
+          <span key={version} className={choiceVariants()}>
+            {version}
+            {version === PICKED ? (
+              <span className={choiceVariants({ picked: true })} style={after(at)}>
+                {version}
                 <span className="sr-only"> (picked)</span>
               </span>
             ) : null}
           </span>
         ))}
       </span>
-      <Text size="ui" tone="muted" className="animate-rise" style={after(picked + 260)}>
-        “Kind, but twice as long as it should be.”
+      <Text size="ui" tone="muted" className="animate-rise" style={after(at + 260)}>
+        “Two sentences, and it still says what her help made possible.”
       </Text>
     </>
   )
@@ -253,14 +218,14 @@ function Rerun({ at }: { at: number }) {
   )
 }
 
-const ratingVariants = cva(
+const choiceVariants = cva(
   'flex items-center justify-center rounded-sm text-ui font-medium tabular-nums',
   {
     variants: {
       picked: {
-        /** Lands over the number it picks, covering its border. */
+        /** Lands over the version it picks, covering its border. */
         true: 'absolute -inset-px animate-pop bg-primary text-primary-foreground',
-        false: 'relative size-7 border text-muted-foreground',
+        false: 'relative h-7 w-9 border text-muted-foreground',
       },
     },
     defaultVariants: { picked: false },
@@ -294,49 +259,19 @@ const PICTURES: Record<string, ReactNode> = {
       <Part caption="The request">
         <Quote>{KASE.prompt}</Quote>
       </Part>
-      <Part caption="A good answer passes these checks">
-        <Checks />
+      <Part caption="What the agent wrote, with the skill installed">
+        <p className="m-0 rounded-chin bg-muted px-3 py-2.5 text-ui text-pretty">
+          <Written />
+        </p>
+      </Part>
+      <Part caption="Jev marked each check">
+        <Checks marks={PASSED} from={WRITTEN} />
       </Part>
     </>
   ),
-  generate: (
-    <Part caption="What the agent wrote, with the skill installed">
-      <p className="m-0 rounded-chin bg-muted px-3 py-2.5 text-ui text-pretty">
-        <Written />
-      </p>
-    </Part>
-  ),
-  overview: (
+  results: (
     <>
-      <Part caption="The judge marked each check">
-        <Checks marks={PASSED} />
-      </Part>
-      <Part caption="The judge’s score">
-        <Score value={SCORE.before} />
-      </Part>
-    </>
-  ),
-  blind: (
-    <>
-      <Part caption="The judge’s score">
-        <span className="inline-flex items-center gap-1.5 text-ui text-muted-foreground">
-          <EyeOffIcon aria-hidden="true" className="size-4" />
-          Hidden until you rate
-        </span>
-      </Part>
-      <Part caption="Your rating, from 1 to 5">
-        <Rating />
-      </Part>
-    </>
-  ),
-  insights: (
-    <>
-      <Part caption="You and the judge agree">
-        <Text size="ui" className="text-pretty">
-          You rated it {RATING} of 5. The judge scored it {SCORE.before}. The note falls short.
-        </Text>
-      </Part>
-      <Part caption="So one rule is made exact">
+      <Part caption="What it missed names the rule to change">
         <p className="m-0 flex flex-col gap-1 text-ui">
           <del
             className="animate-rise rounded-xs bg-destructive/10 px-1.5 py-0.5 text-destructive"
@@ -354,6 +289,9 @@ const PICTURES: Record<string, ReactNode> = {
       </Part>
       <Part caption="Run again">
         <Rerun at={BEAT.start + 900} />
+      </Part>
+      <Part caption="Read both notes, and pick the better">
+        <Pick at={BEAT.start + 2100} />
       </Part>
     </>
   ),

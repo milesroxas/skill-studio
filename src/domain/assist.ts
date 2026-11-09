@@ -1,7 +1,7 @@
 /**
  * What the assistant is asked and what it must hand back. Every text area in
  * the app is one kind of field, and each kind states the shape its text has:
- * a SKILL.md is rules in the graded form, a check is one fact a judge can
+ * a SKILL.md is rules in the graded form, a check is one fact Jev can
  * mark, a description says when to load the skill. A list is a kind too: its
  * reply is new items, one per line. The reply is one JSON object with the
  * field's text, so no greeting or explanation can land in a field, and the
@@ -25,8 +25,6 @@ export const ASSIST_FIELD_IDS = [
   'case.expected',
   'case.check',
   'case.checks',
-  'version.note',
-  'review.note',
 ] as const
 export type AssistFieldId = (typeof ASSIST_FIELD_IDS)[number]
 
@@ -59,7 +57,7 @@ const CHECKS = CHECK_EXAMPLES.map(
 ).join('\n- ')
 
 /** What one check is, for the field that holds one and the list that takes several. */
-const CHECK = `a single statement a good answer makes true, that a judge can mark by reading the answer. One fact per check, naming the thing to look for, in one sentence that starts "The answer", "The note" or the like.
+const CHECK = `a single statement a good answer makes true, that Jev, the grader, can mark by reading the answer. One fact per check, naming the thing to look for, in one sentence that starts "The answer", "The note" or the like.
 - ${CHECKS}`
 
 export const ASSIST_FIELDS: Record<AssistFieldId, AssistFieldDef> = {
@@ -125,7 +123,7 @@ export const ASSIST_FIELDS: Record<AssistFieldId, AssistFieldDef> = {
     shape: `One check: ${CHECK}`,
     suggestions: {
       write: ['Write a check for this case'],
-      edit: ['Make it something a judge can mark'],
+      edit: ['Make it something Jev can mark'],
     },
   },
   'case.checks': {
@@ -136,20 +134,6 @@ export const ASSIST_FIELDS: Record<AssistFieldId, AssistFieldDef> = {
       write: ['Write the checks this case lacks', 'Check the facts in the prompt'],
       edit: [],
     },
-  },
-  'version.note': {
-    name: 'the note',
-    form: 'block',
-    shape:
-      'The note saved with a version of a skill: what changed and why, in one to three plain sentences. Name the rule or section that changed. No greeting and no list.',
-    suggestions: { write: ['Say what changed and why'], edit: ['Make it shorter'] },
-  },
-  'review.note': {
-    name: 'the note',
-    form: 'block',
-    shape:
-      'A reviewer’s note on one output of a skill: what works, what to change, and what the skill should have made the agent do. Two to four short sentences that quote or name the part of the output they are about.',
-    suggestions: { write: ['Note what works and what to change'], edit: ['Tidy my note'] },
   },
 }
 
@@ -183,7 +167,7 @@ export const ASSIST_SCHEMA = {
   additionalProperties: false,
 } as const
 
-const APP = `Skill Studio is a desktop app for writing agent skills and testing them. A skill is a folder with a SKILL.md an AI agent loads when its description matches the request. The app runs headless agents on the skill's cases, grades each output with code checks and a judge, and lets the author rate the outputs blind and compare versions.`
+const APP = `Skill Studio is a desktop app for writing agent skills and testing them. A skill is a folder with a SKILL.md an AI agent loads when its description matches the request. The app runs headless agents on the skill's cases, and Jev, a grading model, marks each output against the skill's rules and the case's checks. The author then reads the new version's output beside the last one's and picks the better. Where they disagree with Jev, their answer stands.`
 
 const tag = (name: string, text: string, label?: string): string =>
   `<${name}${label ? ` name="${label.replace(/"/g, "'")}"` : ''}>\n${text.trim()}\n</${name}>`
@@ -394,7 +378,7 @@ export function workingSkill(
 export const REFERENCE_BUDGET = 60_000
 
 const SCREENS =
-  'Editor (edit SKILL.md and references/), Versions (save, compare and restore), Cases (the prompts a run is made of, each with checks), New run (agents write an output per case), Results (scores per run), Rate blind (rate outputs before seeing the judge), Compare (two outputs side by side, vote for the better), Transcripts (what the agent did), Agreement (how often the judge and the author agree), Scoring (points per layer and thresholds), Library, Guide and Settings.'
+  'Skill (edit SKILL.md and references/, with every version to compare and restore), Cases (the prompts a run is made of, each with checks), Results (two outputs of a case side by side with what each missed, a pick between them, and every run under All cases), Library, Guide and Settings. Run, at the top of the window, has an agent do the cases and saves the skill as a version.'
 
 /** Where the reader is and what they have open, as the brief says it. */
 function whereText(scene: ChatScene): string {
@@ -462,7 +446,7 @@ export function chatSystem(scene: ChatScene): string {
     `You are the assistant in Skill Studio's side panel. ${APP}`,
     `Its screens: ${SCREENS}`,
     `How a skill is written here. ${RULE_SHAPE.charAt(0).toUpperCase()}${RULE_SHAPE.slice(1)}\n- ${RULE_GUIDE.map((item) => `${item.lead} ${item.text}`).join('\n- ')}`,
-    `How a check is written: one statement a judge can mark by reading the answer.\n- ${CHECKS}`,
+    `How a check is written: one statement Jev can mark by reading the answer.\n- ${CHECKS}`,
     'Answer in a few short paragraphs of Markdown, without headings unless the answer is long. Lead with the answer. When you suggest a rule, a check or a prompt, write it out in full. If you do not know something about this app, say so.',
   ]
   const where = whereText(scene)

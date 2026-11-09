@@ -3,7 +3,6 @@
  * desktop app, the HTTP API, the CLI). Pure types, so the renderer imports
  * them without touching Node.
  */
-import type { Rating } from './bradley-terry.ts'
 import type { Rule } from './rules.ts'
 import type { Artifact, BenchConfig, Case, Report, Reviews, RunMeta } from './schemas.ts'
 
@@ -54,10 +53,6 @@ export interface FileHead {
   tests: string[]
 }
 
-export interface AnchorInfo extends FileHead {
-  file: string
-}
-
 /** What the UI and CLI show about an engine. */
 export interface EngineInfo {
   id: string
@@ -70,7 +65,7 @@ export interface EngineInfo {
   hint: string
 }
 
-export type JobKind = 'generate' | 'grade' | 'pairwise'
+export type JobKind = 'generate' | 'grade'
 export type JobStatus = 'running' | 'done' | 'failed'
 
 /** How far a job has come, in the units it counts: outputs written, for a run. */
@@ -93,11 +88,6 @@ export interface Job {
   progress: JobProgress | null
 }
 
-export interface Leaderboard {
-  boards: Record<string, { jev: Rating[]; human: Rating[] }>
-  agreement: { agreed: number; compared: number; share: number | null }
-}
-
 /** Everything a skill's workspace shows, loaded in one call. */
 export interface State {
   skill: SkillInfo
@@ -114,7 +104,6 @@ export interface State {
   config: BenchConfig
   savedConfig: Partial<BenchConfig>
   rules: Rule[]
-  anchors: AnchorInfo[]
   jevKey: boolean
   paths: { bench: string; reviews: string }
 }

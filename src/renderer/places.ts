@@ -5,20 +5,13 @@
  */
 import {
   BookOpenIcon,
-  ChartColumnIcon,
   Columns2Icon,
   CompassIcon,
-  EyeOffIcon,
-  HistoryIcon,
   LibraryIcon,
   ListChecksIcon,
   type LucideIcon,
   PencilLineIcon,
-  PlayIcon,
-  ScaleIcon,
-  ScrollTextIcon,
   SettingsIcon,
-  SlidersHorizontalIcon,
 } from 'lucide-react'
 
 export interface Place {
@@ -27,42 +20,15 @@ export interface Place {
   icon: LucideIcon
 }
 
-interface Section {
-  label?: string
-  places: Place[]
-}
-
-/** The loop, top to bottom: write the skill and its cases, run them, review, tune the bench. */
-export const SECTIONS: Section[] = [
-  {
-    places: [
-      { screen: 'editor', label: 'Editor', icon: PencilLineIcon },
-      { screen: 'versions', label: 'Versions', icon: HistoryIcon },
-      { screen: 'cases', label: 'Cases', icon: ListChecksIcon },
-    ],
-  },
-  {
-    label: 'Runs',
-    places: [
-      { screen: 'generate', label: 'New run', icon: PlayIcon },
-      { screen: 'overview', label: 'Results', icon: ChartColumnIcon },
-    ],
-  },
-  {
-    label: 'Review',
-    places: [
-      { screen: 'blind', label: 'Rate blind', icon: EyeOffIcon },
-      { screen: 'compare', label: 'Compare', icon: Columns2Icon },
-      { screen: 'transcript', label: 'Transcripts', icon: ScrollTextIcon },
-    ],
-  },
-  {
-    label: 'Bench',
-    places: [
-      { screen: 'insights', label: 'Agreement', icon: ScaleIcon },
-      { screen: 'knobs', label: 'Scoring', icon: SlidersHorizontalIcon },
-    ],
-  },
+/**
+ * The loop, top to bottom: write the skill, write the cases that test it,
+ * compare what each version made of them. Running is a button in the top bar,
+ * not a place: it is the step between the second and the third.
+ */
+export const SKILL_PLACES: Place[] = [
+  { screen: 'editor', label: 'Skill', icon: PencilLineIcon },
+  { screen: 'cases', label: 'Cases', icon: ListChecksIcon },
+  { screen: 'results', label: 'Results', icon: Columns2Icon },
 ]
 
 export const APP_PLACES: Place[] = [
@@ -75,9 +41,7 @@ export const APP_PLACES: Place[] = [
 export const WELCOME: Place = { screen: 'welcome', label: 'Welcome', icon: CompassIcon }
 
 /** Screens built as a workbench of columns that scroll on their own, not as one scrolling page. */
-export const WORKBENCH = new Set(['editor', 'cases', 'blind', 'knobs'])
-
-const SKILL_PLACES = SECTIONS.flatMap((s) => s.places)
+export const WORKBENCH = new Set(['editor', 'cases', 'results'])
 
 export const placeFor = (screen: string): Place | undefined =>
   [...SKILL_PLACES, ...APP_PLACES, WELCOME].find((p) => p.screen === screen)

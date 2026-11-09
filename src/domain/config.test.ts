@@ -7,8 +7,7 @@ const pack = (id: string, defaults: PackScoring['defaults']): PackScoring => ({
   layers: [],
   checks: null,
   defaults,
-  layerHome: {},
-  score: () => ({ layers: {}, flags: [] }),
+  score: () => ({ layers: {}, flags: [], verdicts: [] }),
   confidence: () => null,
 })
 
@@ -33,9 +32,16 @@ describe('mergeConfig', () => {
   })
 
   it('lays saved values over pack defaults, merging objects one level deep', () => {
-    const merged = mergeConfig({ weights: { clarity: 0 }, sure: 0.8 }, scorers)
+    const merged = mergeConfig({ weights: { clarity: 0 }, yes: 0.8 }, scorers)
     expect(merged.weights).toEqual({ voice: 30, clarity: 0 })
-    expect(merged.sure).toBe(0.8)
+    expect(merged.yes).toBe(0.8)
+  })
+
+  it('does not carry on keys nothing reads any more', () => {
+    const merged = mergeConfig({ sure: 0.8, agreeAt: 70, defaultCase: 'intro' }, scorers)
+    expect(merged).not.toHaveProperty('sure')
+    expect(merged).not.toHaveProperty('agreeAt')
+    expect(merged).not.toHaveProperty('defaultCase')
   })
 
   it('falls back to the default packs for an empty saved list', () => {

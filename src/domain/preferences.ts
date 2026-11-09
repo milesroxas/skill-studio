@@ -61,22 +61,37 @@ const MODEL_ID_MAX = 200
 /** More screens than the app has, and longer than any of their names. */
 const SEEN_MAX = 40
 
-/** Screen names from untrusted input: short strings, each once. */
-/**
- * Screens whose id changed, old to new. A hint put away, or an address kept
- * from before the change, is read under the new id.
- */
+/** Screens whose id changed, old to new. A hint put away under the old id is read under the new one. */
 const RENAMED_SCREENS: Readonly<Record<string, string>> = { edit: 'editor' }
 
-export const currentScreen = (screen: string): string => RENAMED_SCREENS[screen] ?? screen
+/**
+ * Screens whose work now happens on another screen. An address kept from
+ * before opens that screen. A hint put away for one of them says nothing about
+ * the screen its work moved to, so that screen still explains itself once.
+ */
+const MOVED_SCREENS: Readonly<Record<string, string>> = {
+  versions: 'editor',
+  overview: 'results',
+  generate: 'results',
+  blind: 'results',
+  compare: 'results',
+  transcript: 'results',
+  insights: 'results',
+  knobs: 'results',
+}
 
+/** The screen an address names today, whatever id it was written with. */
+export const currentScreen = (screen: string): string =>
+  RENAMED_SCREENS[screen] ?? MOVED_SCREENS[screen] ?? screen
+
+/** Screen names from untrusted input: short strings, each once. */
 const seenOf = (value: unknown): string[] =>
   Array.isArray(value)
     ? [
         ...new Set(
           value
             .filter((v): v is string => typeof v === 'string' && v.length <= SEEN_MAX)
-            .map(currentScreen),
+            .map((screen) => RENAMED_SCREENS[screen] ?? screen),
         ),
       ].slice(0, SEEN_MAX)
     : []

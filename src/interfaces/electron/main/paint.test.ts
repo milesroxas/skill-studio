@@ -64,20 +64,16 @@ describe('first-paint colors', () => {
   })
 })
 
-describe("the guide's diagrams", () => {
-  it("use only the light theme's colors", () => {
+describe("the guide's diagram", () => {
+  it("uses only the light theme's colors", () => {
     const card = light('card')
     const allowed = new Set([
-      ...['background', 'card', 'foreground', 'muted-foreground', 'warning', 'destructive'].map(
-        (name) => toHex(light(name)),
-      ),
-      // A control's edge, and a verdict's tint, as the app paints them on a card.
+      ...['background', 'card', 'foreground', 'muted-foreground'].map((name) => toHex(light(name))),
+      // A control's edge, as the app paints it on a card.
       over(light('foreground'), 0.2, card),
-      over(light('warning'), 0.1, card),
-      over(light('destructive'), 0.1, card),
     ])
-    for (const file of ['docs/images/loop.svg', 'docs/images/which-to-change.svg'])
-      for (const [color] of read(file).matchAll(/#[0-9a-fA-F]{6}\b/g))
-        expect(allowed, `${file}: ${color}`).toContain(color.toUpperCase())
+    const file = 'docs/images/loop.svg'
+    for (const [color] of read(file).matchAll(/#[0-9a-fA-F]{6}\b/g))
+      expect(allowed, `${file}: ${color}`).toContain(color.toUpperCase())
   })
 })

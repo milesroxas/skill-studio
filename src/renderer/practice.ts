@@ -1,7 +1,7 @@
 /**
  * The practice skill's guide: which step of the loop the reader is on, what it
  * asks of them and where it happens. Worked out from the skill's own runs,
- * ratings and versions every time, so it never disagrees with what is on disk
+ * picks and versions every time, so it never disagrees with what is on disk
  * and there is no progress to store or reset.
  */
 import {
@@ -14,12 +14,13 @@ import { useState } from 'react'
 import { api, type State } from './api.ts'
 import type { Confirm } from './components/confirm.tsx'
 import type { Reporter } from './hooks.ts'
-import { type Output, plural } from './model.ts'
+import type { Output } from './model.ts'
 
 export interface PracticeTarget {
   /** The top bar's name for the step. */
   label: string
-  screen: string
+  /** The screen the step happens on; null for a step that is the Run button's. */
+  screen: string | null
   params?: Record<string, string>
 }
 
@@ -53,32 +54,23 @@ export function practiceGuide(
   )
   const first = versions[0]
   const last = versions.at(-1)
-  const graded = outputs.filter((o) => o.result && versionOf(o) === first)
-  const rated = graded.filter((o) => state.reviews.reviews[o.key]).length
   const current = state.versions.current
   const { done, step } = practiceProgress({
     versions,
-    saved: state.versions.versions.filter((v) => v.saved).length,
     current: current.version,
-    changed: current.changed,
-    graded: graded.length,
-    rated,
-    votes: state.reviews.preferences.filter((p) => p.by === 'human').length,
+    picks: state.reviews.preferences.length,
     seen: state.practiceSeen,
   })
-  const before = graded[0] ?? outputs.find((o) => versionOf(o) === first)
-  const after = outputs.find((o) => versionOf(o) === last && o.caseId === before?.caseId)
+  // The case to open on: the first one both versions answered.
+  const compared = state.cases.find((c) =>
+    [first, last].every((v) => outputs.some((o) => o.caseId === c.id && versionOf(o) === v)),
+  )
 
   const copy: Record<PracticeStep, { title: string; hint: string; target: PracticeTarget }> = {
     read: {
       title: 'Read the skill',
-      hint: 'Thank-you note writes a two-sentence thank-you. Its SKILL.md is what the agent reads first, and the judge grades each of its rules.',
+      hint: 'Thank-you note writes a two-sentence thank-you. Its SKILL.md is what the agent reads first, and Jev checks each of its rules.',
       target: { label: 'Read the skill', screen: 'editor' },
-    },
-    version: {
-      title: `Save it as ${current.version}`,
-      hint: 'A version keeps a copy of the files, so every score points at the text behind it.',
-      target: { label: `Save ${current.version}`, screen: 'versions' },
     },
     cases: {
       title: 'Read the cases',
@@ -87,56 +79,33 @@ export function practiceGuide(
     },
     run: {
       title: 'Run the skill',
-      hint: 'An agent writes a note for each case, then the judge grades it.',
-      target: { label: `Run ${current.version}`, screen: 'generate' },
+      hint: 'An agent writes a note for each case, then Jev grades it. Click Run at the top right.',
+      target: { label: `Run ${current.version}`, screen: null },
     },
     results: {
-      title: 'Read the scores',
-      hint: 'A score per case, from the judge. Click one to see what it marked down.',
-      target: { label: 'Read the scores', screen: 'overview' },
-    },
-    rate: {
-      title: 'Rate the notes',
-      hint: 'Score each note before you see the judge’s score.',
-      target: {
-        label: `Rate ${plural(Math.max(1, graded.length - rated), 'output')}`,
-        screen: 'blind',
-      },
-    },
-    agreement: {
-      title: 'Check the judge',
-      hint: 'Your ratings against the judge’s. Where you both mark notes bad, the skill needs the change.',
-      target: { label: 'Check the judge', screen: 'insights' },
-    },
-    scoring: {
-      title: 'See how a score adds up',
-      hint: 'Each layer is worth points. Move one and every score updates, with no new judge calls.',
-      target: { label: 'See the scoring', screen: 'knobs' },
+      title: 'Read what the notes missed',
+      hint: 'Each note with its score, and under it the rules and checks it missed.',
+      target: { label: 'Read the results', screen: 'results' },
     },
     edit: {
       title: 'Tighten one rule',
       hint: now.unsaved
-        ? 'Save SKILL.md, then save the files as a new version.'
+        ? 'Save SKILL.md, so the next run tests your edit.'
         : `“${PRACTICE_EDIT.phrase}” measures nothing. Give it a number.`,
       target: { label: 'Tighten a rule', screen: 'editor' },
     },
-    save: {
-      title: `Save your edit as ${current.version}`,
-      hint: 'Name what changed, so the version is easy to find later.',
-      target: { label: `Save ${current.version}`, screen: 'versions' },
-    },
     rerun: {
       title: 'Run it again',
-      hint: 'Same cases, new rule: any difference is your edit.',
-      target: { label: `Run ${current.version}`, screen: 'generate' },
+      hint: 'Same cases, new rule: any difference is your edit. Click Run at the top right.',
+      target: { label: `Run ${current.version}`, screen: null },
     },
     compare: {
-      title: 'Compare the versions',
-      hint: `Read ${first} beside ${last}, then vote for the better note.`,
+      title: 'Pick the better note',
+      hint: `Read ${first} beside ${last}, then say which is better.`,
       target: {
         label: `Compare ${first} and ${last}`,
-        screen: 'compare',
-        params: before && after ? { a: before.key, b: after.key } : undefined,
+        screen: 'results',
+        params: compared ? { case: compared.id } : undefined,
       },
     },
   }
@@ -148,7 +117,7 @@ export function practiceGuide(
       step: null,
       number: null,
       title: 'You have been round the loop',
-      hint: 'Results shows what your edit gained. A skill of your own goes round the same way.',
+      hint: 'Write, run, compare. A skill of your own goes round the same way.',
       target: null,
     }
   return {
@@ -157,9 +126,7 @@ export function practiceGuide(
     number: PRACTICE_STEPS.indexOf(step) + 1,
     title: copy[step].title,
     hint: now.running ? 'A run is in progress. It takes a minute or two.' : copy[step].hint,
-    target: now.running
-      ? { ...copy[step].target, screen: 'generate', params: undefined }
-      : copy[step].target,
+    target: copy[step].target,
   }
 }
 
@@ -187,7 +154,7 @@ export function useStartPractice(
 
 /**
  * Put the practice skill back as it was first written, once the reader agrees:
- * its runs, ratings, votes, versions and drafts go, so the guide is back at its
+ * its runs, corrections, picks, versions and drafts go, so the guide is back at its
  * first step. `done` reloads the skill and goes to that step.
  */
 export function useRestartPractice(
@@ -201,7 +168,7 @@ export function useRestartPractice(
     const ok = await confirm({
       title: 'Restart the walkthrough?',
       description:
-        'Thank-you note goes back to how it was written, and the walkthrough to its first step. Its runs, ratings, votes, versions and unsaved edits are deleted. Your own skills are not touched.',
+        'Thank-you note goes back to how it was written, and the walkthrough to its first step. Its runs, picks, versions and unsaved edits are deleted. Your own skills are not touched.',
       action: 'Restart',
       destructive: true,
     })

@@ -35,19 +35,19 @@ export const DRIFTS = 0.3
 const COMPLEX_FROM = 2.25
 
 const JUDGE_MESSAGE: Record<Judged, string> = {
-  process: 'The judge reads this as a quality the result should have, not a step the agent takes.',
-  why: 'The judge finds no reason in the rule: nothing says what goes wrong without it.',
-  strict: 'The judge finds no boundary: no number, no always or never.',
-  earns: 'The judge thinks an agent that never read this line would do the same work.',
-  focused: 'The judge reads this as about another aspect than the skill’s description names.',
+  process: 'Jev reads this as a quality the result should have, not a step the agent takes.',
+  why: 'Jev finds no reason in the rule: nothing says what goes wrong without it.',
+  strict: 'Jev finds no boundary: no number, no always or never.',
+  earns: 'Jev thinks an agent that never read this line would do the same work.',
+  focused: 'Jev reads this as about another aspect than the skill’s description names.',
 }
 
 const MAYBE_MESSAGE: Record<Judged, string> = {
-  process: 'The judge is unsure this names a step the agent can take.',
-  why: 'The judge is unsure the reason is here.',
-  strict: 'The judge is unsure where the line is.',
-  earns: 'The judge is unsure this line changes what the agent does.',
-  focused: 'The judge is unsure this belongs to the skill’s one aspect.',
+  process: 'Jev is unsure this names a step the agent can take.',
+  why: 'Jev is unsure the reason is here.',
+  strict: 'Jev is unsure where the line is.',
+  earns: 'Jev is unsure this line changes what the agent does.',
+  focused: 'Jev is unsure this belongs to the skill’s one aspect.',
 }
 
 /** The findings a judgment makes: a drift, a maybe, and a tree in disguise. */
@@ -72,7 +72,7 @@ export function judgmentFindings(judgment: RuleJudgment): Finding[] {
       principle: null,
       lead: 'Keep each rule walkable.',
       message:
-        'The judge reads several conditions in one rule. A decision tree or numbered steps is walked the same way every run.',
+        'Jev reads several conditions in one rule. A decision tree or numbered steps is walked the same way every run.',
       quote: null,
       source: judgment.complexity >= COMPLEX_FROM + 0.5 ? 'judge' : 'maybe',
     })

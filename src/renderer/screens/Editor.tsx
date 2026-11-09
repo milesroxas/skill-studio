@@ -3,6 +3,10 @@
  * keystroke is kept as a draft, so unsaved text survives a reload or a quit;
  * saving writes the file and clears its draft.
  *
+ * The skill's versions are listed under its files. A run keeps the version it
+ * tested, so none is saved by hand; opening one shows what changed and offers
+ * the way back to it.
+ *
  * The file's header holds one switch for what the column shows (the text
  * styled, its Markdown, or what changed since the last save) and the two
  * actions on unsaved work. Save is the one filled button, and only while there
@@ -12,6 +16,7 @@
 
 import { byFileOrder } from '@domain/paths.ts'
 import { applyPracticeEdit, PRACTICE_EDIT } from '@domain/practice.ts'
+import { scanRules } from '@domain/rules.ts'
 import {
   applyTemplate,
   EXAMPLE_KINDS,
@@ -52,10 +57,12 @@ import { Code, Hint, Text } from '../components/text.tsx'
 import { Alert, AlertDescription, AlertTitle } from '../components/ui/alert.tsx'
 import { Button } from '../components/ui/button.tsx'
 import { Input } from '../components/ui/input.tsx'
+import { VersionDetail } from '../components/VersionDetail.tsx'
 import type { Ctx } from '../ctx.ts'
 import { lineDiff } from '../diff.ts'
 import { useFetch } from '../hooks.ts'
 import { shortcut } from '../keys.ts'
+import { shortDate, versionScore } from '../model.ts'
 import { editorFile } from '../route.ts'
 
 const referencePath = (name: string): string | null => {
@@ -106,7 +113,7 @@ const VIEWS = [
 type View = (typeof VIEWS)[number]['value']
 
 export function Editor({ ctx }: { ctx: Ctx }) {
-  const { state, route, go, report, confirm, reload, config, drafts } = ctx
+  const { state, route, go, report, confirm, reload, config, drafts, outputs } = ctx
   // Read again whenever the files change, here or from the assistant's panel.
   const disk = useFetch(
     () => api.skillFiles('current'),
@@ -130,6 +137,10 @@ export function Editor({ ctx }: { ctx: Ctx }) {
   const files = disk.data?.files ?? {}
   const paths = [...new Set([...Object.keys(files), ...Object.keys(edits)])].sort(byFileOrder)
   const file = editorFile(route.params)
+  /** A version opened from the list: the column shows it in place of the file. */
+  const version = route.params.get('version')
+  /** A rule someone was sent here to change, by its text: Results links a missed rule to it. */
+  const wanted = route.arrival === 'step' ? route.params.get('rule') : null
   const saved = files[file] ?? null
   const draft = edits[file]
   const text = draft?.text ?? saved ?? ''
@@ -230,7 +241,7 @@ export function Editor({ ctx }: { ctx: Ctx }) {
 
   const isSkill = file === 'SKILL.md'
   const meta = isSkill ? readFrontMatter(text).meta : {}
-  /** The bullets are the judge's rules, so the editor marks them; not when bench.json names its own. */
+  /** The bullets are the rules Jev grades, so the editor marks them; not when bench.json names its own. */
   const graded = isSkill && !config.rules?.length
   const diff = showDiff ? lineDiff(saved ?? '', text) : []
   /** SKILL.md says nothing yet: the sidebar shows how to write a rule and keeps the rest for later. */
@@ -239,6 +250,20 @@ export function Editor({ ctx }: { ctx: Ctx }) {
   const tightened = isSkill && state.practice && state.runs.length ? applyPracticeEdit(text) : null
   /** The practice skill before its first run: say which skill this is and what the walkthrough does with it. */
   const introduced = isSkill && state.practice && !state.runs.length
+
+  // Select the rule the reader came for, once the file is in the editor. The
+  // selection opens the popout on it, as a click on its number does.
+  const ready = Boolean(disk.data) && drafts.status !== 'loading' && !version && !showDiff
+  const revealed = useRef<string | null>(null)
+  useEffect(() => {
+    const visit = `${route.index}:${wanted}`
+    if (!wanted || !ready || !isSkill || revealed.current === visit) return
+    revealed.current = visit
+    const scan = scanRules(text)
+    const span = scan.spans[scan.rules.findIndex((r) => r.text === wanted)]
+    // The editor mounted in this same commit, and a child's effects run before its parent's.
+    if (span) editor.current?.selectLines(span.from, span.to)
+  }, [wanted, ready, isSkill, text, route.index])
 
   if (disk.error && !disk.data)
     return (
@@ -257,7 +282,7 @@ export function Editor({ ctx }: { ctx: Ctx }) {
   if (!disk.data || drafts.status === 'loading') return <Loading size="screen" />
 
   const missing = isSkill ? ['name', 'description'].filter((k) => !metaText(meta, k)) : []
-  const current = state.versions.current
+  const { current, versions } = state.versions
 
   /** What to know about the file before editing it: a newer copy on disk, missing front matter. */
   const notes =
@@ -314,7 +339,10 @@ export function Editor({ ctx }: { ctx: Ctx }) {
             <PlainList gap="none" bleed>
               {paths.map((path) => (
                 <li key={path}>
-                  <NavButton current={path === file} onClick={() => go('editor', { file: path })}>
+                  <NavButton
+                    current={!version && path === file}
+                    onClick={() => go('editor', { file: path })}
+                  >
                     <Text font="mono" size="xs" wrap="anywhere">
                       {path}
                       {isDirty(path) ? <Text tone="warning"> •</Text> : null}
@@ -360,18 +388,43 @@ export function Editor({ ctx }: { ctx: Ctx }) {
           </ColumnSection>
         </nav>
 
-        {blank ? null : (
-          <ColumnSection inset="list" title="Version">
+        {blank && !versions.length ? null : (
+          <ColumnSection inset="list" title="Versions">
             <Hint>
               {current.changed
-                ? `The saved files are not a version yet. A version is a copy of them to come back to; ${current.version} is next.`
-                : `The saved files are ${current.version}${current.name ? `, ${current.name}` : ''}.`}
+                ? versions.length
+                  ? `The files changed since ${versions.at(-1)?.version}. The next run keeps them as ${current.version}.`
+                  : `No version yet. The first run keeps the files as ${current.version}.`
+                : `The files are ${current.version}${current.name ? `, ${current.name}` : ''}.`}
             </Hint>
-            <Toolbar>
-              <Button type="button" variant="outline" size="sm" onClick={() => go('versions')}>
-                {current.changed ? `Save as ${current.version}` : 'See versions'}
-              </Button>
-            </Toolbar>
+            {versions.length ? (
+              <PlainList gap="none" bleed>
+                {[...versions].reverse().map((v) => {
+                  const score = versionScore(outputs, config, v.version)
+                  return (
+                    <li key={v.version}>
+                      <NavButton
+                        current={v.version === version}
+                        onClick={() => go('editor', { version: v.version })}
+                      >
+                        <Text size="ui" truncate block tabular>
+                          {v.version}
+                          {v.name ? ` · ${v.name}` : ''}
+                        </Text>
+                        <Text tone="muted" size="xs" tabular>
+                          {[
+                            v.date ? shortDate(v.date) : null,
+                            score === null ? null : `scored ${Math.round(score)}`,
+                          ]
+                            .filter(Boolean)
+                            .join(' · ') || 'Not run yet'}
+                        </Text>
+                      </NavButton>
+                    </li>
+                  )
+                })}
+              </PlainList>
+            ) : null}
           </ColumnSection>
         )}
         <ColumnSection inset="list" title="Insert">
@@ -400,150 +453,156 @@ export function Editor({ ctx }: { ctx: Ctx }) {
         </ColumnSection>
       </Column>
 
-      <Column>
-        <ColumnHeader>
-          <ColumnTitle>
-            <Text font="mono" size="ui" weight="medium">
-              {file}
-            </Text>
-            <DraftNote
-              drafts={drafts}
-              dirty={isDirty(file)}
-              saved={saved === null ? 'New, not on disk yet' : 'Saved'}
+      {version ? (
+        <Column>
+          <VersionDetail key={version} ctx={ctx} version={version} />
+        </Column>
+      ) : (
+        <Column>
+          <ColumnHeader>
+            <ColumnTitle>
+              <Text font="mono" size="ui" weight="medium">
+                {file}
+              </Text>
+              <DraftNote
+                drafts={drafts}
+                dirty={isDirty(file)}
+                saved={saved === null ? 'New, not on disk yet' : 'Saved'}
+              />
+            </ColumnTitle>
+            <Segmented<View>
+              aria-label="View"
+              value={showDiff ? 'changes' : mode}
+              onChange={look}
+              options={VIEWS}
             />
-          </ColumnTitle>
-          <Segmented<View>
-            aria-label="View"
-            value={showDiff ? 'changes' : mode}
-            onChange={look}
-            options={VIEWS}
-          />
-          {!isSkill && saved !== null ? (
+            {!isSkill && saved !== null ? (
+              <Button
+                type="button"
+                variant="destructive-ghost"
+                size="sm"
+                disabled={busy}
+                busy={deleting}
+                busyLabel="Deleting…"
+                onClick={remove}
+              >
+                Delete file
+              </Button>
+            ) : null}
             <Button
               type="button"
-              variant="destructive-ghost"
+              variant="ghost"
               size="sm"
-              disabled={busy}
-              busy={deleting}
-              busyLabel="Deleting…"
-              onClick={remove}
+              disabled={!isDirty(file) || busy || deleting}
+              onClick={discard}
             >
-              Delete file
+              Discard
             </Button>
-          ) : null}
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            disabled={!isDirty(file) || busy || deleting}
-            onClick={discard}
-          >
-            Discard
-          </Button>
-          {/* The label holds still while the file is written, so the row does not shift. */}
-          <Button
-            type="button"
-            variant={isDirty(file) ? 'default' : 'ghost'}
-            size="sm"
-            disabled={!isDirty(file) || stale || deleting}
-            busy={busy}
-            busyLabel="Saving…"
-            onClick={save}
-            title={shortcut('S')}
-          >
-            Save
-          </Button>
-        </ColumnHeader>
-        <MarkdownEditor
-          key={file}
-          id={`${state.skill.path}:${file}`}
-          ref={editor}
-          mode={mode}
-          instead={
-            showDiff ? (
-              <ColumnBody>
-                {notes}
-                {diff.length ? (
-                  <DiffLines lines={diff} />
-                ) : (
-                  <Hint>No changes from the file on disk.</Hint>
-                )}
-              </ColumnBody>
-            ) : undefined
-          }
-          aria-label={`Contents of ${file}`}
-          placeholder={
-            isSkill
-              ? 'Write for the agent that loads this skill. One rule per bullet, with its why.'
-              : 'Longer material SKILL.md points to. Say first when the agent should read it.'
-          }
-          value={text}
-          onChange={edit}
-          onSave={save}
-          graded={graded}
-          refine={
-            isSkill
-              ? {
-                  description: metaText(meta, 'description') ?? state.skill.description,
-                  onError: (message) => report(message, { tone: 'destructive' }),
-                }
-              : undefined
-          }
-          assist={{
-            field: isSkill ? 'skill.file' : 'skill.reference',
-            blank,
-            // A reference is written to serve the skill it belongs to.
-            context: () =>
+            {/* The label holds still while the file is written, so the row does not shift. */}
+            <Button
+              type="button"
+              variant={isDirty(file) ? 'default' : 'ghost'}
+              size="sm"
+              disabled={!isDirty(file) || stale || deleting}
+              busy={busy}
+              busyLabel="Saving…"
+              onClick={save}
+              title={shortcut('S')}
+            >
+              Save
+            </Button>
+          </ColumnHeader>
+          <MarkdownEditor
+            key={file}
+            id={`${state.skill.path}:${file}`}
+            ref={editor}
+            mode={mode}
+            instead={
+              showDiff ? (
+                <ColumnBody>
+                  {notes}
+                  {diff.length ? (
+                    <DiffLines lines={diff} />
+                  ) : (
+                    <Hint>No changes from the file on disk.</Hint>
+                  )}
+                </ColumnBody>
+              ) : undefined
+            }
+            aria-label={`Contents of ${file}`}
+            placeholder={
               isSkill
-                ? []
-                : [
-                    {
-                      label: 'SKILL.md',
-                      text: edits['SKILL.md']?.text ?? files['SKILL.md'] ?? '',
-                    },
-                  ],
-          }}
-          banner={
-            notes || blank || tightened || introduced ? (
-              <ColumnBody>
-                {notes}
-                {introduced ? (
-                  <Starter
-                    aria-label="The walkthrough’s skill"
-                    title="This is Thank-you note"
-                    hint="The walkthrough’s skill: a finished one that writes a two-sentence thank-you, with three cases to test it. Read its rules below. The guide at the foot of the sidebar then takes it round the loop: save it, run it, rate the notes, fix one rule, run it again. No agent of yours uses it."
-                  />
-                ) : null}
-                {tightened ? (
-                  <Starter
-                    aria-label="Tighten this rule"
-                    title="Tighten this rule"
-                    hint="One rule in this skill is vague on purpose. Swap it for an exact one, or write your own, then save and run again to see what the edit did."
-                  >
-                    <PairList pairs={[PRACTICE_EDIT]} marks={['vague', 'exact']} />
-                    <Toolbar>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() => {
-                          edit(tightened)
-                          requestAnimationFrame(() => editor.current?.focus())
-                        }}
-                      >
-                        Use the exact rule
-                      </Button>
-                    </Toolbar>
-                  </Starter>
-                ) : null}
-                {blank ? (
-                  <BlankStart onTemplate={startFrom} onAssist={() => editor.current?.assist()} />
-                ) : null}
-              </ColumnBody>
-            ) : null
-          }
-        />
-      </Column>
+                ? 'Write for the agent that loads this skill. One rule per bullet, with its why.'
+                : 'Longer material SKILL.md points to. Say first when the agent should read it.'
+            }
+            value={text}
+            onChange={edit}
+            onSave={save}
+            graded={graded}
+            refine={
+              isSkill
+                ? {
+                    description: metaText(meta, 'description') ?? state.skill.description,
+                    onError: (message) => report(message, { tone: 'destructive' }),
+                  }
+                : undefined
+            }
+            assist={{
+              field: isSkill ? 'skill.file' : 'skill.reference',
+              blank,
+              // A reference is written to serve the skill it belongs to.
+              context: () =>
+                isSkill
+                  ? []
+                  : [
+                      {
+                        label: 'SKILL.md',
+                        text: edits['SKILL.md']?.text ?? files['SKILL.md'] ?? '',
+                      },
+                    ],
+            }}
+            banner={
+              notes || blank || tightened || introduced ? (
+                <ColumnBody>
+                  {notes}
+                  {introduced ? (
+                    <Starter
+                      aria-label="The walkthrough’s skill"
+                      title="This is Thank-you note"
+                      hint="The walkthrough’s skill: a finished one that writes a two-sentence thank-you, with three cases to test it. Read its rules below. The guide at the foot of the sidebar then takes it round the loop: run it, read what the notes missed, fix one rule, run it again and compare. No agent of yours uses it."
+                    />
+                  ) : null}
+                  {tightened ? (
+                    <Starter
+                      aria-label="Tighten this rule"
+                      title="Tighten this rule"
+                      hint="One rule in this skill is vague on purpose, which is why the notes came back long. Swap it for an exact one, or write your own, then save and run again to see what the edit did."
+                    >
+                      <PairList pairs={[PRACTICE_EDIT]} marks={['vague', 'exact']} />
+                      <Toolbar>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            edit(tightened)
+                            requestAnimationFrame(() => editor.current?.focus())
+                          }}
+                        >
+                          Use the exact rule
+                        </Button>
+                      </Toolbar>
+                    </Starter>
+                  ) : null}
+                  {blank ? (
+                    <BlankStart onTemplate={startFrom} onAssist={() => editor.current?.assist()} />
+                  ) : null}
+                </ColumnBody>
+              ) : null
+            }
+          />
+        </Column>
+      )}
     </Workbench>
   )
 }

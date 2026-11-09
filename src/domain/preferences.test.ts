@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import { aiChoiceOf, aiChoicePatch, DEFAULT_PREFERENCES, preferencesOf } from './preferences.ts'
+import {
+  aiChoiceOf,
+  aiChoicePatch,
+  currentScreen,
+  DEFAULT_PREFERENCES,
+  preferencesOf,
+} from './preferences.ts'
 
 describe('preferencesOf', () => {
   it('reads nothing as the defaults', () => {
@@ -67,5 +73,12 @@ describe('preferencesOf', () => {
       'editor',
       'cases',
     ])
+  })
+
+  it('does not count a retired screen’s hint as read for the screen its work moved to', () => {
+    expect(preferencesOf({ hintsSeen: ['overview', 'compare'] }).hintsSeen).not.toContain('results')
+    expect(currentScreen('compare')).toBe('results')
+    expect(currentScreen('versions')).toBe('editor')
+    expect(currentScreen('cases')).toBe('cases')
   })
 })

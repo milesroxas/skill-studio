@@ -1,33 +1,28 @@
 # How to use Skill Studio
 
-Skill Studio shows you whether a skill makes an AI agent's answers better, and whether your last edit helped.
+Skill Studio helps you write a skill for an AI agent, and shows you whether your last edit made its answers better.
 
 ## How the loop works
 
-![The loop: Editor, Cases, New run, Results, Rate blind, Agreement. From Agreement one arrow returns to the Editor, to change the skill, and one goes to Scoring, to tune the judge.](images/loop.svg)
+![The loop: Write, Run, Compare. An arrow returns from Compare to Write.](images/loop.svg)
 
-Each step is a screen in the sidebar.
-
-| Step | Screen | You |
+| Step | Where | You |
 | --- | --- | --- |
-| 1 | Library | Pick a skill |
-| 2 | Editor | Write its rules |
-| 3 | Cases | Write tasks that test it |
-| 4 | New run | Let agents do the tasks |
-| 5 | Results | Read the judge's scores |
-| 6 | Rate blind | Score the answers yourself |
-| 7 | Agreement | See where you and the judge differ |
-| 8 | Scoring | Adjust the judge |
-| 9 | Editor | Fix the skill and run again |
+| 1. Write | Skill | Write the skill's rules, or change one |
+| 2. Run | The Run button | Have an agent do the skill's cases |
+| 3. Compare | Results | Read the new answer beside the last one, and pick the better |
 
-![The app with the release-notes skill open on Results: the sidebar on the left, four runs in the pane, and a Next button at the top right.](images/app.webp)
+Then you go round again. Cases are the tasks a run is made of. You write them once on the Cases screen and add to them as you learn what to check.
+
+![The app with the release-notes skill open on Results: the sidebar with Skill, Cases and Results; three cases listed with how each score moved; and two outputs of one case side by side, each with its score and what it missed.](images/app.webp)
 
 The pictures show a sample skill, release-notes. Its scores are made up.
 
 ### Finding your way
 
-- **Sidebar:** every screen of the open skill. A number counts what is there. A dot means unsaved work.
-- **Next button** (top right): the step to do now.
+- **Sidebar:** the three screens of the open skill. A number counts what is there: the cases, and on Results the cases that wait for your pick. A dot means unsaved work.
+- **Run** (top right): has an agent do the cases. It is yellow when running is the step to do now.
+- **Next** (top right, yellow): the step to do now, when it is on another screen.
 - **Switch skill:** click the skill's name at the top of the sidebar, or press Cmd+K.
 - **Back and forward:** the arrows at the top left.
 - **Help:** the question mark at the top right explains the screen you are on.
@@ -35,17 +30,25 @@ The pictures show a sample skill, release-notes. Its scores are made up.
 
 On Windows and Linux, press Ctrl where this guide says Cmd.
 
+### Who decides what is good
+
+You do. You say what good is in writing: the **rules** of the skill and the **checks** of each case.
+
+**Jev** is an AI model that reads every output against those rules and checks, the same way each time. It answers facts: was this rule followed, was this check met. A score is a count of those facts.
+
+You answer the one question Jev cannot: which of two outputs is better. That is your **pick**, and it is the last word. "When you and Jev disagree", under step 5, says what to do then.
+
 ## Start the app
 
 You need:
 
 1. **Skill Studio.** Download it from [Releases](https://github.com/milesroxas/skill-studio/releases).
 2. **Claude Code or Cursor**, installed and signed in. These agents write the answers.
-3. **A TypeSafe key** from [typesafe.ai](https://typesafe.ai), for Jev, the judge. Without it, answers get basic automatic checks only.
+3. **A TypeSafe key** from [typesafe.ai](https://typesafe.ai), for Jev. Without it, outputs get basic automatic checks only: no rule and no check is marked.
 
 The first time you open the app, a welcome walks you through:
 
-1. **See how it works:** the loop in six steps.
+1. **See how it works:** the loop in three steps.
 2. **Setup:** where your skills are, a model for the Assistant, and the Jev key. Already set? Click **Continue**. Not now? Click **Configure later**.
 
 The last setup step's button opens the walkthrough. It reads **Start the walkthrough** once the Jev key is set, and **Configure later** before that.
@@ -58,20 +61,15 @@ To add the Jev key later, open **Settings** at the foot of the sidebar. Until yo
 
 Take a finished skill once round the loop. Click **Start the walkthrough** in the welcome, or in the Library before your first run. After that, the New skill form has a **Take the walkthrough** link.
 
-The walkthrough's skill, Thank-you note, writes short thank-you notes, so a run takes a minute or two. Every form is filled in for you. The Walkthrough box in the sidebar shows your step, and clicking it takes you there:
+The walkthrough's skill, Thank-you note, writes short thank-you notes, so a run takes a minute or two. Nothing needs typing. The Walkthrough box in the sidebar shows your step, and clicking it takes you there:
 
-1. **Read the skill.** The Editor shows the rules the agent reads.
-2. **Save it as v0.** Click "Save as v0" on Versions.
-3. **Read the cases.** The three tasks, and the checks a good note passes.
-4. **Run the skill.** Click "Start a run".
-5. **Read the scores.** Results shows the judge's score for each case.
-6. **Rate the notes.** Score each note before you see the judge's score.
-7. **Check the judge.** Agreement sets your ratings against the judge's.
-8. **See how a score adds up.** Scoring shows what each part of a score is worth.
-9. **Tighten one rule.** "Keep the note to a reasonable length" is vague on purpose, so the notes come back too long. Click "Use the exact rule", then Save.
-10. **Save your edit as v1.**
-11. **Run it again.** Only the rule changed, so any difference is your edit.
-12. **Compare the versions.** Read a note from each version side by side, and pick the better one.
+1. **Read the skill.** The Skill screen shows the rules the agent reads.
+2. **Read the cases.** The three tasks, and the checks a good note passes.
+3. **Run the skill.** Click **Run** at the top right, then "Start a run".
+4. **Read what the notes missed.** Results shows each note with its score, and under it the rules and checks it missed.
+5. **Tighten one rule.** "Keep the note to a reasonable length" is vague on purpose, so the notes come back too long. Click "Use the exact rule", then Save.
+6. **Run it again.** Only the rule changed, so any difference is your edit.
+7. **Pick the better note.** Read a note from each version side by side, and say which is better.
 
 A step that only asks you to look is done once you open its screen.
 
@@ -92,7 +90,7 @@ To make a new skill:
 
 1. Click **New skill**, or press Cmd+K and type the name. Return creates it when no skill of that name exists; otherwise it opens the one that matches.
 2. Type a name in lowercase, with dashes, like release-notes.
-3. Write one line on what it is for. Agents read this to decide when to use it. Left empty, the Editor asks for it.
+3. Write one line on what it is for. Agents read this to decide when to use it. Left empty, the Skill screen asks for it.
 4. Pick a template: Blank, or a kind of skill with example rules to replace. For a kind of skill, leave "Add 3 sample cases to run against" ticked.
 5. **Where it lives** says the folder and the agents that get it: your home, for Claude Code. Open "Change the place or the agents" to pick a project or other agents.
 6. Click **Create skill**, or press Return.
@@ -105,11 +103,11 @@ A skill missing from the list?
 
 ## 2. Write the skill
 
-![The Editor: the files, the version, Insert buttons and a folded How to write a rule on the left; SKILL.md in the editor on the right, each graded rule numbered in the margin, with a formatting toolbar under a switch for Formatted, Markdown or Changes.](images/editor.webp)
+![The Skill screen: the files, the versions with each one's score, Insert buttons and a folded How to write a rule on the left; SKILL.md in the editor on the right, each graded rule numbered in the margin, with a formatting toolbar under a switch for Formatted, Markdown or Changes.](images/editor.webp)
 
 - **Write** the skill's rules in the editor. Save with **Save** or Cmd+S.
 - **An empty SKILL.md** has one line over it: write the first rule, take a template's rules, or draft rules with AI. It goes once you write.
-- **Rules are numbered.** Each bullet the judge will check shows its number in place of the bullet, 01, 02, in the order Scoring lists them. A bullet that keeps its dot is skipped; point at it for why. An amber number means the writing checks found something: the words that set a check off are underlined (point at one to read why), and clicking the number selects the rule: the popout lists what the checks found over Auto refine, Suggest changes and Help me improve.
+- **Rules are numbered.** Each bullet Jev will check shows its number in place of the bullet, 01, 02. A bullet that keeps its dot is skipped; point at it for why. An amber number means the writing checks found something: the words that set a check off are underlined (point at one to read why), and clicking the number selects the rule: the popout lists what the checks found over Auto refine, Suggest changes and Help me improve.
 - **Insert** adds a ready-made rule, decision tree, process or reference link at the cursor.
 - **Formatted, Markdown, Changes:** read the page styled, as plain text, or as your unsaved changes.
 - **Five bars** (before Write with AI, at the end of the toolbar) show the file's size. Amber: getting long. Red: too long.
@@ -117,9 +115,9 @@ A skill missing from the list?
 
 Unsaved text is kept, even if you close the app. **Discard** throws it away.
 
-### What the judge checks
+### What Jev checks
 
-The judge checks every bullet that starts a line and has four words or more. It skips:
+Jev checks every bullet that starts a line and has four words or more. It skips:
 
 - Numbered lists. Use them for steps.
 - Sentences inside a paragraph.
@@ -147,7 +145,7 @@ Exact, with its reason:
 - **Ask:** click the small button in any text box, or **Write with AI** in the editor toolbar. Say what you want.
 - **Nothing changes** until you click **Replace** or **Insert**.
 - **Select text first** to rewrite only that part.
-- **Assistant** (top right, or Cmd+J): a chat beside every screen. It reads the open skill as you have it, unsaved edits and new files included, and knows the screen you are on and the file or case you have open. Ask it to change something and the reply shows each change under it: a file's changes, a new case, or a version to save first. A case it adds or replaces can mark a check ×2: ask for it. Click the button at the end of a change's row to apply it. For a file change or a new case, Undo in the status line takes it back; a replaced case or a saved version offers **Open** instead. Nothing changes until you click. **New conversation** in the panel's header starts over.
+- **Assistant** (top right, or Cmd+J): a chat beside every screen. It reads the open skill as you have it, unsaved edits and new files included, and knows the screen you are on and the file or case you have open. Ask it to change something and the reply shows each change under it: a file's changes, a new case, or a version to keep first. A case it adds or replaces can mark a check ×2: ask for it. Click the button at the end of a change's row to apply it. For a file change or a new case, Undo in the status line takes it back; a replaced case or a kept version offers **Open** instead. Nothing changes until you click. **New conversation** in the panel's header starts over.
 - **Commands in the Assistant:** type `/` and pick from the list, or keep typing a name; Tab takes the one shown. `/clear` starts a new conversation, `/settings` and `/guide` open those screens. While a reply is written, the send button becomes Stop.
 - **Run a skill in the Assistant:** with Claude Code as the model, the same list holds the skills your CLI knows. Pick one, add any words it takes and press Return. The skill shapes the reply the way it would in your terminal, and still nothing in your files changes.
 
@@ -161,144 +159,131 @@ Select four or more words in SKILL.md and a small bar appears over them with thr
 
 With a TypeSafe key, Jev reads the rule and the answers, so the checks are exact and the same whatever model writes the text. Without one, only the word and count checks run.
 
-### Save versions
+### Versions
 
-- Open **Versions**, say what changed, and click **Save as v0**. Next time it is v1, then v2.
-- Save your edits in the Editor first. A version holds saved files only.
-- **Changes** compares two versions. **Restore** brings one back.
-- **The bin** deletes a version and its runs. **Undo** brings them back.
+![A version open on the Skill screen: the list of versions on the left with each one's date and score; on the right v0 with its score, Restore and Delete version, and the lines that changed between it and the files now.](images/versions.webp)
+
+A version is a copy of the skill as it was for a run, named v0, v1 and so on. You never save one by hand: when the files changed since the last run, the next run keeps them as the next version. Every score stays tied to the version that produced it.
+
+- **Versions**, under Files, lists them, newest first, each with its date and score.
+- **Click one** to see what changed between it and the files now, file by file. **The version before** shows what that version itself changed.
+- **Restore** puts a version's files back. If the files changed since the last run, they are kept nowhere else: run them first to keep them.
+- **Delete version** deletes it and its runs. **Undo** brings them back.
 
 ## 3. Write cases
 
-A case is one task for the agent: a request, plus checks a good answer passes.
+A case is one task for the agent: a request, and what a good answer does.
 
-![Cases: the list of three cases on the left; on the right the form for one case, with its title, prompt, an Add pictures button and what a good answer does. The checks start below.](images/cases.webp)
+![Cases: the list of three cases on the left; on the right the form for one case, with its prompt, its title, an Add pictures button and what a good answer does. The checks start below.](images/cases.webp)
+
+Start with the prompt alone. It is enough to run the case, and reading what the agent wrote shows you what to check.
 
 1. Click the plus above the list. A new case can start empty or from one of the examples under "Start from an example".
-2. **Title:** a short name. **Id** is its folder name, and cannot change later.
-3. **Prompt:** what a user would ask. Do not mention the skill: the test is whether the agent uses it on its own.
+2. **Prompt:** what a user would ask. Do not mention the skill: the test is whether the agent uses it on its own.
+3. **Title** (optional): a short name for the lists. Left empty, the case is named after its prompt.
 4. **Pictures** (optional): a screenshot or mock-up the prompt is about.
-5. **A good answer:** one or two sentences on what it does.
-6. **Checks:** one fact per row that a good answer makes true. Return starts the next row; Backspace on an empty row removes it. The picture button in a check's corner attaches a mock-up or screenshot the check is about. **×2** makes a check count double. **Write checks with AI** adds checks from the prompt. When no pack on Scoring reads checks, this section says so instead, with a button to Scoring.
+5. **A good answer** (optional): one or two sentences on what it does.
+6. **Checks** (optional): one fact per row that a good answer makes true. Return starts the next row; Backspace on an empty row removes it. The picture button in a check's corner attaches a mock-up or screenshot the check is about. **×2** makes a check count double. **Write checks with AI** adds checks from the prompt.
 7. **Length** (optional): tick it to score the word count.
 8. Click **Add case**.
 
+Checks can come later: on Results, **Add a check** turns what an output got wrong into one.
+
+Some kinds of skill are not scored on checks. A skill graded as Writing or Workflow says so in place of the Checks section. Scoring, on Results, changes how a skill is graded.
+
 Write at least three different cases before you trust a score.
 
-## 4. Run the agents
+## 4. Run it
 
-![New run: the version under test at the top, Write with set to This version, one of three cases ticked, and a bar at the foot with the output count and Start a run.](images/new-run.webp)
+![The Run panel, opened from the Run button at the top right: what this run will do, how many outputs it writes, and Start a run, with Options folded under it.](images/run.webp)
 
-1. **The top line** is the version this run tests. If the skill changed since its last run, it is a new version: type what changed under **Write with**.
-2. **Write with:** "This version", "No skill" (the baseline to beat), or "An earlier version" (to test an edit against the one before it).
-3. **Cases:** tick the ones to run. One starts ticked. **Ticked on every new run**, under the list, picks the one every run starts with: it moves to the top of the list and can still be unticked.
-4. **Writers:** pick the agent, model and effort. Pick a model from the list or type its name. Add up to four writers to compare them.
-5. **Samples per case:** use 2 or more. Agents answer a little differently each time.
-6. Leave **Grade when done** ticked.
-7. **Note** (optional): why you are running, so Results can say it under the run's name.
-8. Click **Start a run**.
+1. Click **Run** at the top right. A panel opens and says what the run will do: the version it tests and how many outputs it writes.
+2. If the skill changed since its last run, the run keeps it as a new version. Type what changed under **What changed**, or leave it: the version is then named after the date.
+3. Click **Start a run**.
 
-The run works in the background. Its progress shows in the bar on New run and at the foot of the sidebar, and its log under **Jobs** at the bottom of New run.
+The defaults suit most runs: every case, once, with the agent you used last. **Options** changes them:
 
-Runs cost money: each answer is an agent session, and the judge is paid per call.
+- **Cases:** untick the ones to leave out.
+- **Write with:** "This version", "No skill" (the baseline to beat), or "An earlier version" (to run an old copy of the skill again).
+- **Agent, Model, Effort:** who writes the outputs. Pick a model from the list or type its name.
+- **Samples per case:** use 2 or more to see how steady the skill is. Agents answer a little differently each time.
 
-## 5. Read the results
+The run works in the background. Its progress shows at the foot of the sidebar: click it for the log. Jev grades the outputs when they are written.
 
-![Results: the version lift at the top, a ribbon from v0's 83 to v1's 98 over 71 without the skill; under it four runs with a score per case. One run is open, listing each sample with its total, words, cost, time, tool calls and flags, and Compare and Transcript links.](images/results.webp)
+Runs cost money: each output is an agent session, and Jev is paid per call.
 
-- **Top:** how much your latest version gained since the first, and against no skill at all.
-- **Each row:** one run, with a score per case, the average, cost, time and flags.
-- **Flag:** something the judge found wrong, such as a broken rule.
-- **Click a score** to open Compare on that case's answers from the run.
-- **Click a run** to see each answer, and **Transcript** for the agent's steps.
-- **Changes since this run** shows what changed in the skill after the run was written.
-- **Regrade** scores a run again, for example after you add checks.
+## 5. Compare the results
 
-A total is made of **layers**: Adherence (the rules followed) and Rubric (the checks passed), and with the workflow pack Efficiency, Scope and Process. Read the layers: a total can hold steady while one layer drops.
+![Results: three cases on the left, each with its score before and after; on the right two outputs of one case side by side, A from v0 and B from v1, each with its score, the rules and checks it met as counts, and a list of what it missed. A bar at the foot asks which is better.](images/results.webp)
 
-The judge can be wrong. Step 6 checks it.
+Results opens on a case with two outputs side by side: **A**, the version before, and **B**, the latest. With one version, A is the answer written without the skill, if you ran one.
 
-## 6. Rate answers blind
+- **The list** on the left has every case that was run, with how its score moved. Click one to compare it.
+- **Each output** has its score out of 100, then what the score is counted from: "Rules 4 of 5", "Checks 2 of 3".
+- **Missed** lists each rule the output broke and each check it did not meet. This is what to fix. **Open rule** takes you to that rule on the Skill screen.
+- **Met** folds the rest away. Open it to read them.
+- **Transcript**, above the output, shows every step the agent took. Read it when a score surprises you. Did the agent read the skill at all?
+- **Word diff** marks what differs between the two. **Swap** trades their sides, and the **A** and **B** menus pick any other outputs of the case.
+- **Regrade** has Jev read an output's run again, for example after you add a check.
 
-![Rate blind: one answer on the left with its scores hidden; on the right a 1 to 5 rating, Good and Bad per layer, a note, and Save and reveal.](images/rate-blind.webp)
+Then say **which is better**: A, B, or a tie. Picking the better of two answers is easier, and more reliable, than scoring one.
 
-For each answer:
+### When you and Jev disagree
 
-1. Read it. Open "The prompt and what the case checks" above it for context.
-2. Rate it from 1 (unusable) to 5 (ready to use).
-3. Mark each layer **Good** or **Bad**, where you have an opinion.
-4. Add a note: what works, and what the skill should have done.
-5. Click **Save and reveal**, or **Skip**. **Reveal without saving** shows the scores and keeps no rating.
+Your pick is the last word. When Jev scores the other side higher, the bar at the foot says so, and the case is marked in the list. A disagreement means one of three things, and each has a fix:
 
-Scores stay hidden until you save. Seeing the judge's score first would pull your rating toward it.
-
-The answers you learn most from come first. After the reveal, **Compare with another output** opens Compare, and **Make it an anchor** saves the answer as a good or bad example the judge must get right.
-
-### Compare two answers
-
-![Compare: a v0 answer scoring 48 beside a v1 answer to the same case scoring 100, each with its layer scores, and a "Which is better?" bar at the bottom.](images/compare.webp)
-
-- Pick two answers under **A** and **B**. **Side by side** shows both; **Word diff** marks what differs; **Swap** trades them.
-- Vote: **A is better**, **Tie** or **B is better**. The field after **on** names what the vote is about; it starts as "overall", and you can type a layer or a quality instead.
-- **Ask Jev** has the judge vote on the same pair.
-- Your votes and Jev's build two rankings lower on the screen.
-
-Picking the better of two answers is easier, and more reliable, than scoring one.
-
-### Read a transcript
-
-**Transcript** shows every step the agent took. Read it when a score surprises you. Did the agent read the skill at all?
-
-## 7. Check the judge against you
-
-![Agreement: a table of layers against Both good, Both bad, Judge missed and Too harsh, then one verdict per layer: tune the scoring, or change the skill.](images/agreement.webp)
-
-This screen fills in once you have rated some answers. Each layer lands in one of four boxes:
-
-![A grid of your mark against the judge's score. Both good: leave it. Both bad: change the skill. Judge missed and Too harsh: tune the scoring.](images/which-to-change.svg)
-
-| Verdict | Means | Do |
+| You see | It means | Do |
 | --- | --- | --- |
-| change the skill | You both say the answers fall short | Fix the rule the flags name, then run again |
-| tune the scoring | You and the judge disagree | Adjust that layer in Scoring |
-| holding | You both say the answers are good | Nothing |
+| Jev passes an output you do not like | Something you care about is not written down | Add a check, below, or add a rule to the skill |
+| Jev fails an output you like | A rule or a check asks for the wrong thing | Edit or delete it |
+| Jev misread one rule or check | That verdict is wrong | Click **Mark as met** or **Mark as missed** beside it |
 
-- **Good** means a layer score at or above **Good at** on Scoring, 70 to start.
-- **Your rating against the judge's total:** above 0.6, the judge ranks answers the way you do. It needs 3 ratings.
-- **Pairs:** the picks where the judge chose the other answer.
-- **Runs:** the judge's mean against yours per run, with its top flags.
+A verdict you mark is yours from then on. It moves to the other list with "your answer" beside it, the score follows, and **Take back** lets Jev's answer stand again.
 
-## 8. Tune the scoring
+### Add a check
 
-![Scoring: every graded output with its layer scores and total on the left; on the right the packs, a slider per layer's points, and Save.](images/scoring.webp)
+Under the two outputs, **Add a check** takes one sentence: what a good answer does that one of these does not. It joins the case's checks. Jev marks it on every run from then on, and on the outputs in front of you once you click **Regrade**.
 
-Move a setting and every score updates at once. Nothing runs again, so it costs nothing.
+### All cases
 
-- **Packs:** which sets of judge questions grade this skill.
-- **Points per layer:** how much each layer counts.
-- **Thresholds:** when a judge's answer counts as yes, as unsure, or as good.
-- **Rules:** the bullets read from SKILL.md, in the order the Editor numbers them.
+![All cases: the version lift, a ribbon from v0's score to v1's over the score without the skill; under it the latest version's rules and checks added up, and each run with a score per case.](images/all-cases.webp)
 
-Click **Save**, or **Discard**. Change one setting at a time, then look at Agreement again.
+**All cases**, at the top of the list, shows every run at once.
 
-## 9. Change the skill and run again
+- **Top:** how much your latest version gained since the first, and against no skill at all. Under it, the latest version's rules followed and checks met, added up.
+- **Each row:** one run, with a score per case and the average. Under its name: when it ran, how long it took and what it cost.
+- **Click a score** to read that output beside the one before it.
+- **Click a run** to see each output with what it missed. **Changes since this run** shows what changed in the skill after it. **Regrade** has Jev read the run again.
 
-1. Read your notes and Agreement.
-2. Fix what the bad answers have in common, not one answer.
-3. Save a version on Versions, with what changed.
-4. Run again, and compare the scores on Results.
+To be sure an edit helped, run with **Samples per case** at 2 or more. If two versions' scores differ less than one version's samples do, the edit made no clear difference.
 
-To be sure an edit helped, run the same cases with **Write with** set to "An earlier version", with 2 or more samples. If the scores differ less than one version's samples do, the edit made no clear difference.
+### Scoring
+
+Most skills never need this. **Scoring**, folded at the foot of All cases, sets how Jev's answers become a score. Move a setting and every score updates at once. Nothing runs again, so it costs nothing.
+
+- **Graded as:** the kind of work the skill does. Generic counts rules and checks. Writing, Code, Workflow and Design score their own parts.
+- **Points:** how much each part counts.
+- **Threshold:** how sure Jev must be before a rule or check counts as met.
+- **Rules:** the bullets read from SKILL.md, in the order the Skill screen numbers them.
+
+Click **Save scoring**, or **Discard**.
+
+### Then change the skill
+
+1. Read what the outputs missed.
+2. Fix what the weak outputs have in common, not one output.
+3. Run again, and compare.
 
 ## When something goes wrong
 
 | Problem | Fix |
 | --- | --- |
 | "No Jev key" at the top right | Add the key in Settings |
-| An agent says "(not set up)" in New run | Install that agent and sign in to it |
+| An agent says "(not set up)" under Run, Options | Install that agent and sign in to it |
 | A skill is missing from the Library | Choose Every place, click the round arrow, or add its folder under "Where skills are found" |
 | Save is greyed and a notice says the file changed on disk | The file changed outside the app. "Keep my draft", then Save, writes yours over it; "Use the file on disk" keeps the other |
 | A bullet keeps its dot and gets no number | Make it a bullet of four words or more, outside a numbered list, and not only a link |
-| A score looks wrong | Read the transcript, then rate the answer blind |
+| A score looks wrong | Read the transcript, then mark the verdict that is wrong |
+| Results shows one output and no pick | The case has one version and no run without the skill. Edit the skill and run again, or run with "No skill" under Options |
 
 Only test skills you trust. A skill can make the agent run code on your computer.

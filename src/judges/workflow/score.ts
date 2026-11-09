@@ -3,9 +3,17 @@
  * Efficiency and scope are code over the events; process is Jev over a
  * compact summary. Nothing here reads the output itself.
  */
-import type { PackScore, PackScoring, ScoreSubject } from '@domain/pack.ts'
+import {
+  type Corrections,
+  NO_CORRECTIONS,
+  type PackScore,
+  type PackScoring,
+  type ScoreSubject,
+  type Verdict,
+} from '@domain/pack.ts'
 import type { BenchConfig } from '@domain/schemas.ts'
 import { certainty, mean } from '@domain/stats.ts'
+import { codeVerdict, finding, jevVerdict } from '@domain/verdict.ts'
 
 /** The config an active workflow pack sees: core/config.ts lays these defaults under bench.json. */
 export type WorkflowConfig = BenchConfig & {
@@ -47,44 +55,126 @@ function scoreWorkflow(
   raw: WorkflowRaw | null,
   _subject: ScoreSubject,
   config: BenchConfig,
+  corrections: Corrections = NO_CORRECTIONS,
 ): PackScore {
   const layers: Record<string, number | null> = { efficiency: null, scope: null, process: null }
   const flags: string[] = []
-  if (!raw) return { layers, flags }
+  const verdicts: Verdict[] = []
+  if (!raw) return { layers, flags, verdicts }
   const m = raw.metrics
   const { maxRetries } = (config as WorkflowConfig).workflow
-  const checks: boolean[] = [m.errors === 0, m.retries <= maxRetries]
-  if (m.errors) flags.push(`${m.errors} tool error(s)`)
-  if (m.retries > maxRetries) flags.push(`${m.retries} repeated tool call(s)`)
-  if (m.maxTurns !== null) {
-    checks.push(m.toolCalls <= m.maxTurns)
-    if (m.toolCalls > m.maxTurns) flags.push(`${m.toolCalls} tool calls, case allows ${m.maxTurns}`)
+  /** One of the efficiency checks: what it says when it passes, and when it does not. */
+  const measure = (id: string, ok: boolean, passed: string, failed: string): boolean => {
+    if (!ok) flags.push(failed)
+    verdicts.push(
+      codeVerdict(
+        { kind: 'other', id: `other:${id}`, text: ok ? passed : failed, layer: 'efficiency' },
+        ok,
+      ),
+    )
+    return ok
   }
-  if (m.timeoutSeconds !== null && m.seconds !== null) {
-    checks.push(m.seconds <= m.timeoutSeconds)
-    if (m.seconds > m.timeoutSeconds) flags.push(`${m.seconds} s, case allows ${m.timeoutSeconds}`)
+  const checks: boolean[] = [
+    measure('errors', m.errors === 0, 'no tool errors', `${m.errors} tool error(s)`),
+    measure(
+      'retries',
+      m.retries <= maxRetries,
+      'no repeated tool calls beyond the allowance',
+      `${m.retries} repeated tool call(s)`,
+    ),
+  ]
+  if (m.maxTurns !== null)
+    checks.push(
+      measure(
+        'turns',
+        m.toolCalls <= m.maxTurns,
+        `${m.toolCalls} tool calls, within the case's ${m.maxTurns}`,
+        `${m.toolCalls} tool calls, case allows ${m.maxTurns}`,
+      ),
+    )
+  if (m.timeoutSeconds !== null && m.seconds !== null)
+    checks.push(
+      measure(
+        'time',
+        m.seconds <= m.timeoutSeconds,
+        `${m.seconds} s, within the case's ${m.timeoutSeconds}`,
+        `${m.seconds} s, case allows ${m.timeoutSeconds}`,
+      ),
+    )
+  if (!m.wroteOutput) {
+    flags.push('nothing written to outputs/')
+    verdicts.push(finding('nothing written to outputs/'))
   }
-  if (!m.wroteOutput) flags.push('nothing written to outputs/')
   layers.efficiency = checks.filter(Boolean).length / checks.length
   layers.scope = m.outside.length ? 0 : 1
   for (const path of m.outside.slice(0, 3)) flags.push(`reached outside the sample: ${path}`)
+  verdicts.push(
+    codeVerdict(
+      {
+        kind: 'other',
+        id: 'other:scope',
+        text: m.outside.length
+          ? `reached outside the sample: ${m.outside.slice(0, 3).join(', ')}`
+          : 'stayed inside the sample',
+        layer: 'scope',
+      },
+      m.outside.length === 0,
+    ),
+  )
   // Code, not Jev: the transcript says exactly when SKILL.md was read and when writing began.
   const readFirst = m.skillPresent
     ? m.skillReadAt !== null && (m.firstWriteAt === null || m.skillReadAt < m.firstWriteAt)
     : null
   if (readFirst === false) flags.push('skill not read before writing')
+  if (readFirst !== null)
+    verdicts.push(
+      codeVerdict(
+        {
+          kind: 'other',
+          id: 'other:read first',
+          text: readFirst ? 'skill read before writing' : 'skill not read before writing',
+          // Without Jev there is no process layer for it to count in.
+          layer: raw.jev ? 'process' : null,
+        },
+        readFirst,
+      ),
+    )
   if (raw.jev) {
     const yes = config.yes
-    const parts = [raw.jev.followedTask >= yes]
+    const followed = jevVerdict(
+      {
+        kind: 'other',
+        id: 'other:followed task',
+        text: 'The transcript shows the task being done as asked',
+        layer: 'process',
+      },
+      raw.jev.followedTask,
+      yes,
+      corrections,
+    )
+    const recovered =
+      raw.jev.recovered === null
+        ? null
+        : jevVerdict(
+            {
+              kind: 'other',
+              id: 'other:recovered',
+              text: 'After an error the agent changed course',
+              layer: 'process',
+            },
+            raw.jev.recovered,
+            yes,
+            corrections,
+          )
+    const parts = [followed.met]
     if (readFirst !== null) parts.push(readFirst)
-    if (raw.jev.recovered !== null) parts.push(raw.jev.recovered >= yes)
+    if (recovered) parts.push(recovered.met)
     layers.process = parts.filter(Boolean).length / parts.length
-    if (raw.jev.followedTask < yes)
-      flags.push('transcript does not show the task being done as asked')
-    if (raw.jev.recovered !== null && raw.jev.recovered < yes)
-      flags.push('after an error the agent repeated itself')
+    if (!followed.met) flags.push('transcript does not show the task being done as asked')
+    if (recovered && !recovered.met) flags.push('after an error the agent repeated itself')
+    verdicts.push(followed, ...(recovered ? [recovered] : []))
   }
-  return { layers, flags }
+  return { layers, flags, verdicts }
 }
 
 const confidenceWorkflow = (raw: WorkflowRaw | null): number | null =>
@@ -107,23 +197,6 @@ export const workflowScoring: PackScoring<WorkflowRaw> = {
      * summaryLines: transcript lines the process questions read.
      */
     workflow: { maxRetries: 1, summaryLines: 80 },
-  },
-  layerHome: {
-    efficiency: {
-      skill:
-        'The steps SKILL.md asks for: too many, in the wrong order, or missing a stop condition',
-      bench: 'The case front matter (max_turns, timeout_seconds), or workflow.maxRetries',
-    },
-    scope: {
-      skill: 'What SKILL.md tells the agent to read; it reached outside the sample',
-      bench: 'The scope points',
-    },
-    process: {
-      skill:
-        'How SKILL.md tells the agent to start (read the skill, then the inputs) and to finish',
-      bench:
-        'The followed_task and recovered questions, the skill-read check in judges/workflow, the process weight, or yes',
-    },
   },
   score: scoreWorkflow,
   confidence: confidenceWorkflow,

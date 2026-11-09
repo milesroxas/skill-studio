@@ -6,10 +6,10 @@ export const DEFAULT_CONFIG: BenchConfig = {
   rules: null,
   weights: {},
   yes: 0.5,
-  sure: 0.6,
-  agreeAt: 70,
-  defaultCase: null,
 }
+
+/** Keys a `bench.json` written by an earlier version may hold. Nothing reads them, so they are not carried on. */
+const UNREAD = new Set(['sure', 'agreeAt', 'defaultCase'])
 
 const isObject = (value: unknown): value is Record<string, unknown> =>
   Boolean(value) && typeof value === 'object' && !Array.isArray(value)
@@ -35,7 +35,7 @@ export function mergeConfig(
     }
   }
   for (const [key, value] of Object.entries(saved ?? {})) {
-    if (key === 'packs' || value === undefined) continue
+    if (key === 'packs' || value === undefined || UNREAD.has(key)) continue
     const current = merged[key]
     merged[key] = isObject(current) && isObject(value) ? { ...current, ...value } : value
   }

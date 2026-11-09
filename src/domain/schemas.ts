@@ -106,11 +106,6 @@ export const NEW_CASE_KEY = '+new'
 
 export const emptyDrafts = (): SkillDrafts => ({ files: {}, cases: {}, updatedAt: null })
 
-export interface LayerHome {
-  skill: string
-  bench: string
-}
-
 /** Everything in `evals/bench.json`, after defaults. Packs add their own keys. */
 export interface BenchConfig {
   /** Judge packs that apply, in order. */
@@ -121,12 +116,6 @@ export interface BenchConfig {
   weights: Record<string, number>
   /** A Noul at or above this reads as yes. */
   yes: number
-  /** A verdict below this confidence is listed as unsure. */
-  sure: number
-  /** Review tool only: a layer at or above this agrees with a "good" mark. */
-  agreeAt: number
-  /** The case ticked on every new run; `null` ticks the first case. */
-  defaultCase: string | null
   [key: string]: unknown
 }
 
@@ -251,29 +240,28 @@ export interface Report {
 
 export type Vote = 'a' | 'b' | 'tie'
 
-/** The criterion a vote is on when the reader names none. */
+/** What a pick is about: which of two outputs is the better answer, all told. */
 export const OVERALL = 'overall'
 
+/** The reader's pick between two outputs. */
 export interface Preference {
   /** Output keys, `<run>/<sample>`. */
   a: string
   b: string
   criterion: string
   vote: Vote
-  by: 'jev' | 'human'
-  /** Jev's confidence in its vote, 0 to 1. Below `sure` in `bench.json` the vote is not counted. */
-  confidence?: number
+  by: 'human'
   at: string
 }
 
+/** What the reader said about one output: their own answers where Jev's verdict was wrong. */
 export interface Review {
-  rating: number | null
-  layers: Record<string, 'good' | 'bad'>
-  note: string
+  /** By verdict id: true when the output meets the rule or check, false when it does not. */
+  corrections: Record<string, boolean>
   updatedAt: string
 }
 
-/** `evals/reviews.json`. */
+/** `evals/reviews.json`, as the app reads it. */
 export interface Reviews {
   reviews: Record<string, Review>
   preferences: Preference[]

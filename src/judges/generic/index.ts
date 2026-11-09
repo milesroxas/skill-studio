@@ -7,13 +7,7 @@
 import { round } from '@domain/text.ts'
 import { noul } from '@typesafe-ai/sdk'
 import type { JevState } from '../jev.ts'
-import {
-  answering,
-  askStatements,
-  pairwiseText,
-  statementQuestion,
-  withRequest,
-} from '../shared/questions.ts'
+import { answering, askStatements, statementQuestion, withRequest } from '../shared/questions.ts'
 import type { StatementAnswer } from '../shared/score.ts'
 import type { JudgeContext, JudgeInput, JudgePack } from '../types.ts'
 import { type GenericRaw, genericScoring, type RuleAnswer } from './score.ts'
@@ -79,7 +73,6 @@ export const genericPack: JudgePack<GenericRaw> = {
     if (!adh && !rub) return null
     return { adherence: adh, rubric: rub }
   },
-  pairwise: pairwiseText,
   anchorsTemplate: [
     '---',
     'case: <case key>',

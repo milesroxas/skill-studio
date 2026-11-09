@@ -4,26 +4,9 @@ import type { ComponentProps, ReactNode } from 'react'
 import { cn } from '../lib/utils.ts'
 import { Card } from './ui/card.tsx'
 
-const outputCardVariants = cva('gap-0 overflow-hidden py-0', {
-  variants: {
-    variant: {
-      /** One of several outputs on a page: an object on its own card. */
-      card: '',
-      /** The one output a column is about: it fills the column, with no card around it. */
-      flush: 'rounded-none bg-transparent shadow-none',
-    },
-  },
-  defaultVariants: { variant: 'card' },
-})
-
-export function OutputCard({
-  variant,
-  className,
-  ...props
-}: ComponentProps<typeof Card> & VariantProps<typeof outputCardVariants>) {
-  return (
-    <Card role="article" className={cn(outputCardVariants({ variant }), className)} {...props} />
-  )
+/** One output: an object a reader sets beside another, so it stands on its own card. */
+export function OutputCard({ className, ...props }: ComponentProps<typeof Card>) {
+  return <Card role="article" className={cn('gap-0 overflow-hidden py-0', className)} {...props} />
 }
 
 export function OutputCardHead({
@@ -72,9 +55,4 @@ export function Slot({
   ...props
 }: ComponentProps<'span'> & VariantProps<typeof slotVariants>) {
   return <span className={cn(slotVariants({ variant }), className)} {...props} />
-}
-
-/** A folded block inside the card: the prompt, the checks. */
-export function CardFold({ className, ...props }: ComponentProps<'div'>) {
-  return <div className={cn('border-b px-4 py-2.5 text-xs', className)} {...props} />
 }

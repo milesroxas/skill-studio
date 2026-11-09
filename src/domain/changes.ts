@@ -2,7 +2,7 @@
  * Changes the side panel's assistant proposes to the open skill. The model
  * writes each one as a fenced block in its reply. The panel shows the block as
  * a change the writer applies with one click, through the operations the
- * Editor, Cases and Versions screens use. The model never writes a file: the
+ * Skill and Cases screens use. The model never writes a file: the
  * writer's click does, and the backend checks every path and id as it does for
  * those screens. Pure data and functions.
  */

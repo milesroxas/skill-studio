@@ -1,7 +1,7 @@
 /**
  * The sample skills the guide's screenshots show. Importing this file writes
  * them into the folder SKILL_STUDIO_HOME names, through the app's own
- * infrastructure, so the files are the shape the app writes itself. The judge
+ * infrastructure, so the files are the shape the app writes itself. Jev's
  * answers are made up by hand and scored by the real scoring code: no agent
  * runs and nothing is sent to Jev.
  */
@@ -14,11 +14,12 @@ import { runName, sampleDir } from '@domain/run-name.ts'
 import type { Configuration, ReportResult, RunMeta, SampleMeta } from '@domain/schemas.ts'
 import { scoreResult } from '@domain/scoring.ts'
 import { copyOf, words } from '@domain/text.ts'
+import { verdictId } from '@domain/verdict.ts'
 import { loadBench, loadCases, saveCase } from '@infrastructure/cases.ts'
 import { writeJson } from '@infrastructure/fs.ts'
 import { createSkill, touchRecent } from '@infrastructure/library.ts'
 import { writePreferences } from '@infrastructure/preferences.ts'
-import { savePreference, saveReview } from '@infrastructure/reviews.ts'
+import { saveCorrection, savePick } from '@infrastructure/reviews.ts'
 import { runDir, versionsOf } from '@infrastructure/runs.ts'
 import { skillFiles, skillHash, snapshotSkill, snapshotSkillFiles } from '@infrastructure/skill.ts'
 import { saveVersion } from '@infrastructure/versions.ts'
@@ -220,7 +221,7 @@ We have made sync more reliable. Some users reported problems with notes after e
   },
 }
 
-/** The judge's made-up probability per rule, by what the rule is about. */
+/** Jev's made-up probability per rule, by what the rule is about. */
 const RULE_NOULS: Record<Variant, Record<string, number>> = {
   good: { title: 0.95, order: 0.92, under: 0.99, never: 0.99, where: 0.93, only: 0.88 },
   ok: { title: 0.9, order: 0.84, under: 0.99, never: 0.98, where: 0.34, only: 0.81 },
@@ -525,7 +526,7 @@ const r0 = writeRun({
     { 'breaking-api-s2': { errors: 1 } },
   ),
 })
-const r0bare = writeRun({
+writeRun({
   date: '2026-11-02',
   time: '15:31',
   version: v0,
@@ -551,7 +552,7 @@ const v1 = saveAs(
 )
 const r1 = writeRun({
   date: '2026-11-03',
-  time: '10:04',
+  time: '10:26',
   version: v1,
   versionName: 'Lead with the change',
   note: 'Same cases after the order rule',
@@ -564,9 +565,9 @@ const r1 = writeRun({
     'sync-fix': ['good', 'good'],
   }),
 })
-const r1haiku = writeRun({
+writeRun({
   date: '2026-11-03',
-  time: '10:26',
+  time: '10:04',
   version: v1,
   versionName: 'Lead with the change',
   note: 'Does a smaller model follow it?',
@@ -586,83 +587,27 @@ const r1haiku = writeRun({
   ),
 })
 
-// Reviews of the first runs; the newest runs stay in the blind queue.
-const rate = (
-  run: string,
-  sample: string,
-  rating: number,
-  layers: Record<string, 'good' | 'bad'>,
-  note: string,
-) => saveReview(dir, `${run}/${sample}`, { rating, layers, note })
-rate(
-  r0,
-  'export-folder-s1',
-  3,
-  { adherence: 'bad', rubric: 'bad' },
-  'Clear, but never says where the setting is.',
+// Picks on two of the three cases, so the third still waits to be compared.
+savePick(dir, { a: `${r0}/export-folder-s1`, b: `${r1}/export-folder-s1`, vote: 'b' })
+savePick(dir, { a: `${r0}/sync-fix-s1`, b: `${r1}/sync-fix-s1`, vote: 'b' })
+// One verdict the reader read differently: the v0 note does end by saying where the fix is.
+saveCorrection(
+  dir,
+  `${r0}/sync-fix-s1`,
+  verdictId(
+    'rule',
+    'End with one line that says where to find the change. A reader who cannot find it files a ticket.',
+  ),
+  true,
 )
-rate(r0, 'export-folder-s2', 5, { adherence: 'good', rubric: 'good' }, 'Ships as is.')
-rate(
-  r0,
-  'breaking-api-s1',
-  3,
-  { adherence: 'good', rubric: 'bad' },
-  'Date is there. Does not say the fields stay the same.',
-)
-rate(
-  r0,
-  'breaking-api-s2',
-  1,
-  { adherence: 'bad', rubric: 'bad', process: 'bad' },
-  'Hype, no date. The skill should have forced the date into the title.',
-)
-rate(
-  r0,
-  'sync-fix-s1',
-  4,
-  { adherence: 'good', rubric: 'good' },
-  'Good note. The version number is missing but the update line covers it.',
-)
-rate(r0, 'sync-fix-s2', 3, { adherence: 'bad', rubric: 'bad' }, 'No version number.')
-rate(r0bare, 'export-folder-s1', 1, { adherence: 'bad', rubric: 'bad' }, 'Reads like an advert.')
-rate(r0bare, 'sync-fix-s1', 3, { rubric: 'bad' }, 'Fine, no version.')
-rate(
-  r1,
-  'export-folder-s1',
-  5,
-  { adherence: 'good', rubric: 'good', process: 'good' },
-  'Leads with the change.',
-)
-rate(
-  r1,
-  'breaking-api-s1',
-  5,
-  { adherence: 'good', rubric: 'good' },
-  'Date in the title, as the reference asks.',
-)
-
-const vote = (
-  a: string,
-  b: string,
-  human: 'a' | 'b' | 'tie',
-  jev: 'a' | 'b' | 'tie',
-  sure: number,
-) => {
-  savePreference(dir, { a, b, criterion: 'overall', vote: human, by: 'human' })
-  savePreference(dir, { a, b, criterion: 'overall', vote: jev, by: 'jev', confidence: sure })
-}
-vote(`${r0}/export-folder-s1`, `${r1}/export-folder-s1`, 'b', 'b', 0.91)
-vote(`${r0}/breaking-api-s2`, `${r1}/breaking-api-s1`, 'b', 'b', 0.97)
-vote(`${r1}/sync-fix-s1`, `${r1haiku}/sync-fix-s2`, 'a', 'a', 0.74)
-vote(`${r0}/sync-fix-s1`, `${r1}/sync-fix-s2`, 'b', 'a', 0.66)
 
 touchRecent(dir)
 
 /** What the capture script looks for on screen. */
 export const sample = {
   skill: 'release-notes',
-  /** The run whose detail the Results shot opens. */
-  run: 'v1 · Claude Sonnet',
-  /** A weak v0 answer beside a v1 answer to the same case. */
-  compare: { a: `${r0}/breaking-api-s2`, b: `${r1}/breaking-api-s1` },
+  /** The case the Results shot compares: a weak v0 answer beside a v1 answer. */
+  case: 'breaking-api',
+  /** The version the Skill shot of a version opens: the one before the files now. */
+  version: v0,
 }

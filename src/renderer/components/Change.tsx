@@ -2,8 +2,8 @@
  * An assistant reply with the changes it proposes to the open skill. Prose
  * reads as prose; the changes stand under it as one list, a row each: what it
  * changes, how much, and one button. A row opens to the file's diff or the
- * case. Applying goes through the operations the Editor, Cases and Versions
- * screens use, so the backend checks it as it checks them, and the status
+ * case. Applying goes through the operations the Skill and Cases screens
+ * use, so the backend checks it as it checks them, and the status
  * line offers Undo. A reply's changes apply only to the skill it was written
  * about.
  */
@@ -350,7 +350,7 @@ function VersionRow({
       const version = await api.saveVersion(change.name, '')
       await ctx.reload()
       ctx.report(`Saved ${version.version}`, {
-        action: { label: 'Open', run: () => ctx.go('versions') },
+        action: { label: 'Open', run: () => ctx.go('editor', { version: version.version }) },
       })
     } catch (e) {
       ctx.report(e as Error)

@@ -1,10 +1,10 @@
 /**
  * The practice skill: a small finished skill a newcomer takes round the whole
  * loop before writing one of their own. Its answer is two sentences, so a run
- * is quick and an output is read and rated in seconds. One rule is vague on
- * purpose, so the first run comes back long: swapping that rule for an exact
- * one is the practice. Each case checks for two sentences, which the judge
- * scores, and holds a word limit, which shows without a judge. Pure data and
+ * is quick and two outputs are read side by side in seconds. One rule is vague
+ * on purpose, so the first run comes back long: swapping that rule for an
+ * exact one is the practice. Each case checks for two sentences, which Jev
+ * grades, and holds a word limit, which shows without Jev. Pure data and
  * functions.
  */
 import { kase, type SkillStart } from './templates.ts'
@@ -92,21 +92,15 @@ export const practiceVersionName = (versionsRun: number): string =>
   versionsRun ? 'My edit' : 'As written'
 
 /**
- * Once round the whole workflow, in the guide's order: read the skill, save it,
- * read the cases, run, read the scores, rate, check the judge, see the
- * scoring, change one rule, save that, run again, compare.
+ * Once round the loop, twice past its run: read the skill and its cases, run,
+ * read what the notes missed, change one rule, run again, compare.
  */
 export const PRACTICE_STEPS = [
   'read',
-  'version',
   'cases',
   'run',
   'results',
-  'rate',
-  'agreement',
-  'scoring',
   'edit',
-  'save',
   'rerun',
   'compare',
 ] as const
@@ -116,7 +110,7 @@ export type PracticeStep = (typeof PRACTICE_STEPS)[number]
  * The steps that only ask the reader to look at a screen. Nothing on disk shows
  * that they looked, so opening the screen while the step is in hand marks it.
  */
-export const LOOK_STEPS = ['read', 'cases', 'results', 'agreement', 'scoring'] as const
+export const LOOK_STEPS = ['read', 'cases', 'results'] as const
 export type LookStep = (typeof LOOK_STEPS)[number]
 export const isLookStep = (step: string): step is LookStep =>
   (LOOK_STEPS as readonly string[]).includes(step)
@@ -125,16 +119,10 @@ export const isLookStep = (step: string): step is LookStep =>
 export interface PracticeFacts {
   /** Skill versions that have outputs, oldest first. */
   versions: string[]
-  /** Versions saved on Versions. */
-  saved: number
-  /** The version the files are now, and whether they are saved as it. */
+  /** The version the files are now. */
   current: string
-  changed: boolean
-  /** Graded outputs of the first version, and how many of those are rated. */
-  graded: number
-  rated: number
-  /** Votes cast between two outputs. */
-  votes: number
+  /** Picks made between two outputs. */
+  picks: number
   /** Look steps marked as seen. */
   seen: readonly string[]
 }
@@ -153,19 +141,13 @@ export function practiceProgress(facts: PracticeFacts): PracticeProgress {
   // A later step done means the reader went past the look steps before it.
   const seen = (step: LookStep, past: boolean) => past || facts.seen.includes(step)
   const done: Record<PracticeStep, boolean> = {
-    read: seen('read', facts.saved > 0 || ran),
-    // A run of unsaved files saves them as a version too.
-    version: facts.saved > 0 || ran,
+    read: seen('read', ran),
     cases: seen('cases', ran),
     run: ran,
-    results: seen('results', facts.rated > 0 || edited),
-    rate: facts.graded > 0 && facts.rated >= facts.graded,
-    agreement: seen('agreement', edited),
-    scoring: seen('scoring', edited),
+    results: seen('results', edited),
     edit: edited,
-    save: reran || (edited && !facts.changed),
     rerun: reran,
-    compare: reran && facts.votes > 0,
+    compare: reran && facts.picks > 0,
   }
   return { done, step: PRACTICE_STEPS.find((step) => !done[step]) ?? null }
 }

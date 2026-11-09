@@ -50,7 +50,6 @@ function ToggleGroupItem({
   children,
   variant,
   size,
-  tone,
   ...props
 }: React.ComponentProps<typeof ToggleGroupPrimitive.Item> & VariantProps<typeof toggleVariants>) {
   const context = React.useContext(ToggleGroupContext)
@@ -65,7 +64,6 @@ function ToggleGroupItem({
         toggleVariants({
           variant: context.variant || variant,
           size: context.size || size,
-          tone,
           place: 'group',
         }),
         'w-auto min-w-0 shrink-0 px-3',

@@ -2,15 +2,21 @@
 
 [![ci](https://github.com/milesroxas/skill-studio/actions/workflows/ci.yml/badge.svg)](https://github.com/milesroxas/skill-studio/actions/workflows/ci.yml)
 
-A desktop app for writing and testing agent skills. Write a skill, give it cases, run headless coding agents (Claude Code, Cursor's agent) on them, grade the outputs with code checks and [TypeSafe](https://typesafe.ai) Jev judge packs, and rate them blind. Runs, reports and your ratings are plain files beside the skill, in its `evals/` folder.
+A desktop app for writing agent skills and seeing whether an edit made them better. The loop has three steps:
+
+1. **Write** the skill's rules.
+2. **Run** headless coding agents (Claude Code, Cursor's agent) on the skill's cases.
+3. **Compare** what each version wrote, side by side, and pick the better.
+
+[TypeSafe](https://typesafe.ai)'s Jev reads every output against your rules and each case's checks, so each output shows what it missed and a missed rule links back to the editor. Runs, reports and your picks are plain files beside the skill, in its `evals/` folder.
 
 It is built for outputs that are a matter of judgement, such as writing, HTML and agent process:
 
-- Judge answers are stored, so you can change the scoring without new judge calls.
-- A blind review queue measures the judge against your own ratings.
-- Labelled good and bad outputs (anchors) show whether a judge pack can be trusted.
+- Jev answers facts: was this rule followed, was this check met. You answer which output is better, and your answer is the last word.
+- Where you disagree with a verdict, you mark it, and the score follows. What an output gets wrong that nothing checks yet becomes a check in one line.
+- Jev's answers are stored, so you can change the scoring without new calls.
 
-![Skill Studio with a skill open on Results: the sidebar on the left, and four runs with a score per case.](docs/images/app.webp)
+![Skill Studio with a skill open on Results: the sidebar with Skill, Cases and Results, three cases with how each score moved, and two outputs of one case side by side with what each missed.](docs/images/app.webp)
 
 ## Install
 
@@ -43,7 +49,7 @@ A first launch opens a welcome that offers a walkthrough: a finished skill to ta
 | --- | --- |
 | [Guide](docs/guide.md) | Using the app, step by step |
 | [Skill and run files](docs/files.md) | What a skill, a case and a run hold on disk |
-| [Grading](docs/grading.md) | The judge packs, `bench.json` and how scores are made |
+| [Grading](docs/grading.md) | The judge packs, `bench.json`, how scores are made, corrections and picks |
 | [Command line and web server](docs/cli.md) | The `st` command, `st serve` and the HTTP API |
 | [Architecture](docs/architecture.md) | The layers, the desktop app, engines and the assistant |
 | [Releasing](docs/releasing.md) | Cutting a release, signing and updates |

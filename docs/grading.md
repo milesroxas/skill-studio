@@ -1,25 +1,24 @@
 # Grading
 
-Grading runs a skill's judge packs over each sample of a run and writes `report.json`. It follows a run unless you turn it off, and runs again on Regrade in the app or with `st grade`.
+Grading runs a skill's judge packs over each sample of a run and writes `report.json`. It follows a run started in the app (`st run --no-grade` skips it), and runs again on Regrade in the app or with `st grade`.
+
+This page uses the words of the files: a **pack** is a set of judge questions for one kind of work, and a **layer** is one part of a score. The app calls a pack the kind of work a skill is "graded as", and a layer a part of the score: Rules, Checks and so on.
 
 - A pack runs on a sample when it judges the kind of the sample's primary artifact: the first output of the case's `bench.artifact` kind, else the first Markdown file, else the first output of any kind.
-- Jev's raw answers are stored. Points per layer, thresholds and pack settings are applied in code (`src/domain/scoring.ts` and each pack's `score.ts`), so the Scoring screen rescores without new judge calls.
+- Jev's raw answers are stored. Points per layer, the threshold and pack settings are applied in code (`src/domain/scoring.ts` and each pack's `score.ts`), so Scoring, on Results, rescores without new judge calls.
 - Without a TypeSafe key, or with `--no-jev`, only code checks run and every judged layer is null. A null layer, or one given 0 points, is left out of the total and the rest rescale. A pack that throws leaves every one of its layers null and adds the flag `<pack> pack failed: ...`.
 - A case's word range counts prose and list text, not headings or code. An output outside it is flagged `length: N words, case asks a to b`; a sample with no output is flagged `no output to judge`.
 
 ## `bench.json`
 
-`evals/bench.json` is optional. The Scoring screen writes it, and so does `st new` for a template whose packs go beyond `generic` (`{ "packs": [...] }`); `blank` writes none.
+`evals/bench.json` is optional. Scoring, at the foot of All cases on Results, writes it, and so does `st new` for a template whose packs go beyond `generic` (`{ "packs": [...] }`); `blank` writes none.
 
 | Key | Default | Does |
 | --- | --- | --- |
 | `packs` | `["generic"]` | The judge packs that apply, in order |
 | `rules` | `null` | The rules adherence is judged on; `null` or an empty list reads the bullets of `SKILL.md`, below |
 | `weights` | `{}` | Points per layer, over each pack's defaults |
-| `yes` | `0.5` | A judge answer at or above this counts as yes |
-| `sure` | `0.6` | A verdict below this confidence is listed as unsure, and a Jev pairwise vote below it is not counted |
-| `agreeAt` | `70` | The layer score the Agreement screen counts as good |
-| `defaultCase` | `null` | The case ticked on every new run; `null` ticks the first. "Default case" on New run writes it |
+| `yes` | `0.5` | A judge answer at or above this counts as yes: the rule is followed, the check is met |
 
 Each pack adds its own keys, below. `--packs a,b` and `--bench <file>` override the file for one grading, so a skill in another repository can be graded without writing config into it.
 
@@ -27,7 +26,7 @@ With no `rules`, the rules are the top-level `-` and `*` bullets of `SKILL.md`, 
 
 ## Packs
 
-A check marked ×2 on the Cases screen counts double inside the layer that marks the case's checks: `rubric` (generic), `review` (code) and `visual` (design), named by each pack's `checks`. The writing and workflow packs read no checks, and the Cases screen says so in their place. The mark is `weight: 2` in the grader file's front matter; a file written by hand, or the Assistant, may say up to 5, and the screen shows that number. An unmet check's flag carries the mark: `(×2)`. Points per layer in `bench.json` are a different thing.
+A check marked ×2 on the Cases screen counts double inside the layer that marks the case's checks: `rubric` (generic), `review` (code) and `visual` (design), named by each pack's `checks`. The writing and workflow packs read no checks, and the Cases screen says so in their place. Results offers "Add a check" only where a pack reads them. The mark is `weight: 2` in the grader file's front matter; a file written by hand, or the Assistant, may say up to 5, and the screen shows that number. An unmet check's flag carries the mark: `(×2)`. Points per layer in `bench.json` are a different thing.
 
 Within a layer, an answer at or above `yes` counts as met. Adherence is the share of rules met; rubric, review and visual are the share of checks met, each check counted by its weight.
 
@@ -87,22 +86,24 @@ Jev's image input is a preview. A request that holds a picture is sent with the 
 - A check with `image: references/<file>` in its front matter is asked with that picture.
 - Each picture is checked against Jev's limits first, because Jev fails the whole request for one it refuses.
 
-## Pairwise votes
+## Verdicts
 
-"Ask Jev" on Compare sends both outputs with the skill's current rules. The case's prompt goes too when both outputs have a case, and the case's checks when both come from the same case and the criterion is "overall".
+A score is counted from facts, and the scorers report each one (`Verdict` in `src/domain/pack.ts`): a rule of the skill followed or broken, a check of the case met or missed, or another thing a pack measured. Results lists them under each output, missed first.
 
-The first active pack that judges the first output's kind casts the vote, and it compares text. The design pack also compares screenshots when both outputs have one Jev can read.
+- A fact is named by its kind and its words, such as `rule:Keep the note under 120 words.` or `check:The note names Priya.`, so a rule or check that is edited is a new fact. The fixed questions of a pack have names of their own (`other:hierarchy`, `other:followed task`).
+- A fact Jev answered is open to the reader's own answer. A fact code measured is not: the exit code of a check command, a markup check, a count of tool calls, a word range.
+- The writing pack's layers are measures, not counts of facts. It reports what it found wrong, and none of it is open to an answer.
 
-A vote with confidence under `sure` is kept in `reviews.json` but left off the leaderboard and the agreement count.
+## Corrections and picks
 
-## Agreement
+`evals/reviews.json` holds what the reader said. Both are written by Results.
 
-The Agreement screen sets your marks, ratings and votes from Rate blind against the judge's scores.
+- **A correction** is the reader's own answer on one fact of one output: `reviews["<run>/<sample>"].corrections["<fact>"]` is `true` when the output meets it and `false` when it does not, whatever Jev said. It stands over Jev's answer wherever the app scores that output: the fact moves between Missed and Met, and the layer and the total follow. "Take back" removes it. `report.json` keeps Jev's own answers, so `st report` prints the scores without corrections.
+- **A pick** is the reader's choice of the better of two outputs: an entry of `preferences` with the two output keys, `vote` (`a`, `b` or `tie`), `criterion: "overall"` and `by: "human"`. One pick is kept per pair. It changes no score. Results sets it beside the two totals, and says so when the output not picked scores higher.
+- Deleting a version moves the corrections and picks on its runs' outputs to the trash with it, and Undo brings them back.
 
-- Per layer, each output you marked falls in one of four boxes, by your mark and whether the layer score is at or above `agreeAt`: both good, both bad, judge missed (the judge scored high, you marked bad) and too harsh (the judge scored low, you marked good). The layer reads "tune the scoring" when missed and harsh together are at least one and at least the both-bad count, "change the skill" when any output is both bad, and "holding" otherwise.
-- Your rating against the judge's total is a Spearman rank correlation over the rated outputs, and needs three or more. Above 0.6 the judge ranks like you do; above 0.2 the two are loosely related; otherwise the judge does not rank like you yet.
-- Each of your pairwise votes is set against the two totals: the judge's side is the higher total, or a tie when they are equal. A vote on an output whose run is gone has no judge side.
+A `reviews.json` from an earlier version of the app may hold more: ratings, notes, votes by Jev. They are kept as they are when the file is written, and nothing reads them.
 
 ## Anchors
 
-An anchor is an output labelled good or bad, promoted from Rate blind or written by hand in `evals/anchors/`. `st self-test` grades every anchor, writes `evals/anchors/report.json`, and checks that each bad anchor scores below the good anchor of its case, on each layer named in its `tests` front matter, else on `total`. A case has one good anchor: a later one replaces an earlier one, and a bad anchor whose case has no good anchor is not checked. Trust a pack on a skill only once its anchors pass.
+An anchor is an output labelled good or bad, written by hand in `evals/anchors/`. `st self-test` grades every anchor, writes `evals/anchors/report.json`, and checks that each bad anchor scores below the good anchor of its case, on each layer named in its `tests` front matter, else on `total`. A case has one good anchor: a later one replaces an earlier one, and a bad anchor whose case has no good anchor is not checked. Trust a pack on a skill only once its anchors pass.

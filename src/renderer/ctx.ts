@@ -7,10 +7,10 @@ import type { Reporter } from './hooks.ts'
 import type { Output } from './model.ts'
 import type { Route } from './route.ts'
 
-/** What every screen gets: the loaded state, the live knobs, the outputs and the shell's helpers. */
+/** What every screen gets: the loaded state, the scoring in hand, the outputs and the shell's helpers. */
 export interface Ctx {
   state: State
-  /** The knobs as edited; equal to the saved config until Knobs changes them. */
+  /** The scoring as edited; equal to the saved config until Scoring, on Results, changes it. */
   config: BenchConfig
   setConfig: (config: BenchConfig) => void
   outputs: Output[]
@@ -25,4 +25,6 @@ export interface Ctx {
   drafts: Drafts
   /** Switch to another skill (empty: none) and show `screen` in it. */
   openSkill: (path: string, screen?: string) => void
+  /** Open Run, at the top of the window: what the next run will do, and the button that starts it. */
+  openRun: () => void
 }

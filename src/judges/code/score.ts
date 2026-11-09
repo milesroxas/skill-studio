@@ -2,10 +2,18 @@
  * The code pack's pure half: a hard check layer from the case's command and a
  * review layer from the grader statements over the primary code file.
  */
-import type { PackScore, PackScoring, ScoreSubject } from '@domain/pack.ts'
+import {
+  type Corrections,
+  NO_CORRECTIONS,
+  type PackScore,
+  type PackScoring,
+  type ScoreSubject,
+  type Verdict,
+} from '@domain/pack.ts'
 import type { BenchConfig } from '@domain/schemas.ts'
-import { certainty, mean, weighted } from '@domain/stats.ts'
-import { clip, type StatementAnswer, unmetFlag } from '../shared/score.ts'
+import { certainty, mean } from '@domain/stats.ts'
+import { codeVerdict } from '@domain/verdict.ts'
+import { checkVerdict, clip, metShare, type StatementAnswer, unmetFlag } from '../shared/score.ts'
 
 /** The config an active code pack sees: core/config.ts lays these defaults under bench.json. */
 export type CodeConfig = BenchConfig & { codeCheck: { timeoutSeconds: number; maxChars: number } }
@@ -24,26 +32,44 @@ export interface CodeRaw {
   review: { statements: StatementAnswer[] } | null
 }
 
-function scoreCode(raw: CodeRaw | null, _subject: ScoreSubject, config: BenchConfig): PackScore {
+function scoreCode(
+  raw: CodeRaw | null,
+  _subject: ScoreSubject,
+  config: BenchConfig,
+  corrections: Corrections = NO_CORRECTIONS,
+): PackScore {
   const layers: Record<string, number | null> = { check: null, review: null }
   const flags: string[] = []
-  if (!raw) return { layers, flags }
+  const verdicts: Verdict[] = []
+  if (!raw) return { layers, flags, verdicts }
   if (raw.check) {
     const passed = raw.check.exit === 0 && !raw.check.timedOut
     layers.check = passed ? 1 : 0
-    if (!passed)
-      flags.push(
-        raw.check.timedOut
-          ? `check timed out: ${raw.check.command}`
-          : `check failed (exit ${raw.check.exit ?? '?'}): ${clip(raw.check.tail.replace(/\s+/g, ' '), 160)}`,
-      )
+    const failure = raw.check.timedOut
+      ? `check timed out: ${raw.check.command}`
+      : `check failed (exit ${raw.check.exit ?? '?'}): ${clip(raw.check.tail.replace(/\s+/g, ' '), 160)}`
+    if (!passed) flags.push(failure)
+    verdicts.push(
+      codeVerdict(
+        {
+          kind: 'other',
+          id: 'other:check command',
+          text: passed ? `check passed: ${raw.check.command}` : failure,
+          layer: 'check',
+        },
+        passed,
+      ),
+    )
   }
-  const yes = config.yes
-  if (raw.review?.statements.length) {
-    layers.review = weighted(raw.review.statements.map((s) => [s.noul >= yes ? 1 : 0, s.weight]))
-    for (const s of raw.review.statements) if (s.noul < yes) flags.push(unmetFlag(s))
+  const statements = raw.review?.statements ?? []
+  const reviewed = statements.map((s) => checkVerdict(s, 'review', config.yes, corrections))
+  if (statements.length) {
+    layers.review = metShare(reviewed)
+    statements.forEach((s, i) => {
+      if (!reviewed[i].met) flags.push(unmetFlag(s))
+    })
   }
-  return { layers, flags }
+  return { layers, flags, verdicts: [...verdicts, ...reviewed] }
 }
 
 const confidenceCode = (raw: CodeRaw | null): number | null =>
@@ -57,16 +83,6 @@ export const codeScoring: PackScoring<CodeRaw> = {
     weights: { check: 60, review: 40 },
     /** Seconds the check command may run, and how many characters of code the review question reads. */
     codeCheck: { timeoutSeconds: 120, maxChars: 24000 },
-  },
-  layerHome: {
-    check: {
-      skill: 'The part of SKILL.md that says how the code must run or be tested',
-      bench: "The case's bench.check command, or the check points",
-    },
-    review: {
-      skill: 'The SKILL.md section that should produce what the failed statement asks for',
-      bench: "The case's graders/*.md statements, the review points, or yes",
-    },
   },
   score: scoreCode,
   confidence: confidenceCode,

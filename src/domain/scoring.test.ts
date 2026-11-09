@@ -12,10 +12,20 @@ const pack = (id: string, layers: string[], checks: string | null = null): PackS
   layers,
   checks,
   defaults: {},
-  layerHome: {},
-  score: (raw) => ({
+  score: (raw, _subject, _config, corrections = {}) => ({
     layers: Object.fromEntries(layers.map((l) => [l, raw?.layers[l] ?? null])),
     flags: raw ? [] : [`${id}: not judged`],
+    verdicts: raw
+      ? layers.map((layer) => ({
+          id: `rule:${layer}`,
+          kind: 'rule' as const,
+          text: layer,
+          met: corrections[`rule:${layer}`] ?? (raw.layers[layer] ?? 0) >= 0.5,
+          open: true,
+          corrected: corrections[`rule:${layer}`] !== undefined,
+          layer,
+        }))
+      : [],
   }),
   confidence: (raw) => raw?.confidence ?? null,
 })
@@ -111,6 +121,36 @@ describe('scoreResult', () => {
     expect(scoreResult(result({}, { words: 120, range: [50, 120] }), config(), []).flags).toEqual(
       [],
     )
+  })
+})
+
+describe('verdicts', () => {
+  it('lists the facts of every active pack, after what every output is held to', () => {
+    const { verdicts } = scoreResult(
+      result(
+        { voice: { layers: { voice: 1, clarity: 0.2 } }, rules: { layers: { adherence: 0 } } },
+        { words: 40, range: [50, 120] },
+      ),
+      config(),
+      scorers,
+    )
+    expect(verdicts.map((v) => [v.text, v.met])).toEqual([
+      ['length: 40 words, case asks 50 to 120', false],
+      ['voice', true],
+      ['clarity', false],
+      ['adherence', false],
+    ])
+    expect(verdicts[0]).toMatchObject({ kind: 'other', open: false, layer: null })
+  })
+
+  it('hands the reader’s corrections to each pack', () => {
+    const { verdicts } = scoreResult(
+      result({ rules: { layers: { adherence: 0 } } }),
+      config({ packs: ['rules'] }),
+      scorers,
+      { 'rule:adherence': true },
+    )
+    expect(verdicts).toEqual([expect.objectContaining({ met: true, corrected: true })])
   })
 })
 

@@ -1,7 +1,7 @@
 /**
  * Help me improve, in the side panel: one selected rule, a few fixed questions
  * put one at a time, then a draft to talk over. Code decides which question
- * comes next; the model only phrases it and writes the draft. The judge's
+ * comes next; the model only phrases it and writes the draft. Jev's
  * reading of the draft stands under it as a checklist. One button puts the
  * draft where the selection was, while SKILL.md is open in the Editor.
  */

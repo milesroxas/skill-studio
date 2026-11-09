@@ -3,8 +3,8 @@
  * after. It asks one thing of the reader at a time. First the ink cover: the
  * mark, what the app gives you in a headline and one sentence, one button and,
  * beside it, the way out.
- * Then, only if asked for, the loop in six steps, each alone in view, and the
- * setup in three: where your skills are, a model, the judge's key. The last
+ * Then, only if asked for, the loop in three steps, each alone in view, and the
+ * setup in three: where your skills are, a model, Jev's key. The last
  * step leads into the walkthrough. Through both the way out keeps to one
  * corner, and nothing here has to be remembered: every screen explains itself
  * again when it is opened, and Settings keeps every connection for later.
@@ -140,7 +140,7 @@ function Opening({ onTour, exit }: { onTour: () => void; exit: ReactNode }) {
           className="max-w-[40ch] animate-rise text-pretty"
           style={after(210)}
         >
-          Run it on real tasks, score the results, and see what each change improves.
+          Run it on real tasks, compare each version’s results, and see what a change improves.
         </Text>
         <div className="flex animate-rise items-center gap-3 pt-1.5" style={after(280)}>
           <Button type="button" size="lg" onClick={onTour}>

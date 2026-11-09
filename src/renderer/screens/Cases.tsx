@@ -1,6 +1,8 @@
 /**
- * Write the cases a run is made of: the prompt and the pictures that go with
- * it, what a good answer does, and the judge's checks. Edits are kept as
+ * Write the cases a run is made of. A case starts as a prompt: what you would
+ * really ask the agent. That is enough to run it. What a good answer does, and
+ * the checks Jev marks, are easier to write once an output is in front of you,
+ * so they are optional here and can be added from Results. Edits are kept as
  * drafts per case, so moving between cases, screens or skills never loses
  * typing.
  */
@@ -10,6 +12,7 @@ import {
   blankDraft,
   DOUBLE,
   draftOf,
+  newCaseId,
   newCheck,
   picturesOf,
   weightMark,
@@ -23,7 +26,6 @@ import {
   templateById,
   templateForPacks,
 } from '@domain/templates.ts'
-import { isSlug, SLUG_RULE, slug } from '@domain/text.ts'
 import { PenLineIcon, PlusIcon, XIcon } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { api } from '../api.ts'
@@ -59,14 +61,14 @@ import { Toggle } from '../components/ui/toggle.tsx'
 import type { Ctx } from '../ctx.ts'
 import { useAddPictures } from '../images.ts'
 import { shortcut } from '../keys.ts'
-import { CHECK_READERS, capital, checkReadersOf, plural } from '../model.ts'
+import { CHECK_READERS, checksGraded, kindLabel, plural } from '../model.ts'
 import { caseKey } from '../route.ts'
 
 const nameOf = (path: string): string => path.split('/').at(-1) ?? path
 
-/** Pack ids as a spoken list: "Generic, Code and Design". */
+/** Kinds of work as a spoken list: "Generic, Code and Design". */
 const names = (ids: string[]): string => {
-  const list = ids.map(capital)
+  const list = ids.map(kindLabel)
   return list.length > 1 ? `${list.slice(0, -1).join(', ')} and ${list.at(-1)}` : (list[0] ?? '')
 }
 
@@ -87,7 +89,7 @@ const withPictures = (stored: CaseDraft, base: CaseDraft): CaseDraft => ({
 export function Cases({ ctx }: { ctx: Ctx }) {
   const { state, config, route, go, report, confirm, reload, drafts } = ctx
   const cases = state.cases
-  /** Examples come from the kind of skill the bench grades, until the user picks another. */
+  /** Examples come from the kind of work the skill is graded as, until the user picks another. */
   const [kindId, setKindId] = useState(() => templateForPacks(config.packs).id)
   const kind = templateById(kindId)
   /** Where this case's draft is kept: its id, or one slot for the case not saved yet. */
@@ -101,23 +103,17 @@ export function Cases({ ctx }: { ctx: Ctx }) {
   const baseJson = JSON.stringify(base)
   const stored = drafts.cases[key]
   const draft = useMemo(() => (stored ? withPictures(stored, base) : base), [stored, base])
-  const [idTouched, setIdTouched] = useState(false)
   const [busy, setBusy] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const dirty = JSON.stringify(draft) !== baseJson
 
   /** Another case. The one being left keeps its draft, so there is nothing to confirm. */
-  const pick = (params: Record<string, string>) => {
-    setIdTouched(false)
-    go('cases', params)
-  }
+  const pick = (params: Record<string, string>) => go('cases', params)
 
   /** Keep the edit as a draft, or drop the draft once the case matches what is saved again. */
   const setDraft = (next: CaseDraft) =>
     drafts.setCase(key, JSON.stringify(next) === baseJson ? null : next)
   const set = (patch: Partial<CaseDraft>) => setDraft({ ...draft, ...patch })
-  const setTitle = (title: string) =>
-    set(isNew && !idTouched ? { title, id: slug(title, 40) } : { title })
   const setGrader = (i: number, patch: Partial<CaseDraft['graders'][number]>) =>
     set({ graders: draft.graders.map((g, k) => (k === i ? { ...g, ...patch } : g)) })
 
@@ -204,7 +200,6 @@ export function Cases({ ctx }: { ctx: Ctx }) {
       return
     let id = example.id
     for (let n = 2; cases.some((c) => c.id === id); n += 1) id = `${example.id}-${n}`
-    setIdTouched(true)
     setDraft({ ...example, id, graders: example.graders.map((g) => ({ ...g })) })
   }
 
@@ -218,31 +213,24 @@ export function Cases({ ctx }: { ctx: Ctx }) {
   /** A picture dropped anywhere on the case joins its pictures. */
   const drop = usePictureDrop(pictures.add)
 
-  const idError = draft.id && !isSlug(draft.id) ? SLUG_RULE : ''
-  const taken = isNew && cases.some((c) => c.id === draft.id)
   const wordsError =
     draft.words && !(draft.words[0] >= 0 && draft.words[1] >= draft.words[0])
       ? 'The minimum must not be above the maximum.'
       : ''
-  const canSave =
-    dirty &&
-    draft.id &&
-    !idError &&
-    !taken &&
-    draft.prompt.trim() &&
-    !wordsError &&
-    !busy &&
-    !deleting
+  const canSave = dirty && draft.prompt.trim() && !wordsError && !busy && !deleting
 
   const save = async () => {
     if (!canSave) return
     setBusy(true)
     try {
-      await api.saveCase(draft, isNew)
+      // A new case is named after its title, or its prompt: the id is its folder, never typed.
+      const ids = cases.map((c) => c.id)
+      const id = isNew && (!draft.id || ids.includes(draft.id)) ? newCaseId(draft, ids) : draft.id
+      await api.saveCase({ ...draft, id }, isNew)
       drafts.setCase(key, null)
       await reload()
-      report(`Saved ${draft.id}`)
-      go('cases', { id: draft.id }, { replace: true })
+      report(isNew ? `Added ${draft.title.trim() || id}` : `Saved ${id}`)
+      go('cases', { id }, { replace: true })
     } catch (e) {
       report(e as Error)
     } finally {
@@ -288,15 +276,13 @@ export function Cases({ ctx }: { ctx: Ctx }) {
         action: 'Discard',
         destructive: true,
       })
-    ) {
+    )
       drafts.setCase(key, null)
-      setIdTouched(false)
-    }
   }
 
   const heading = isNew ? draft.title.trim() || 'New case' : draft.title.trim() || draft.id
-  /** Whether a judge of this skill marks the checks at all: the writing and workflow packs read none. */
-  const checksRead = checkReadersOf(config).length > 0
+  /** Whether checks are graded for this skill at all: writing and workflow are scored on other things. */
+  const checksRead = checksGraded(config)
   /** The case's input files that are not its pictures, which the form shows above. */
   const otherFiles = selected ? selected.files.filter((f) => !picturesOf(selected).includes(f)) : []
 
@@ -337,7 +323,6 @@ export function Cases({ ctx }: { ctx: Ctx }) {
                         {c.title !== c.id ? <Text font="mono">{c.id}</Text> : null}
                         {c.title !== c.id ? ' · ' : ''}
                         {plural(c.graders.length, 'check')}
-                        {config.defaultCase === c.id ? ' · Default' : ''}
                       </Text>
                     </NavButton>
                   </li>
@@ -398,9 +383,9 @@ export function Cases({ ctx }: { ctx: Ctx }) {
           <ColumnBody width="form">
             {!cases.length ? (
               <Hint>
-                A case is one task an agent gets with {state.skill.name} installed, and what a good
-                answer to it does. A run writes an output for every case, then the judge checks each
-                output.
+                A case is one task an agent gets with {state.skill.name} installed. Write what you
+                would really ask: the prompt is enough to run it. A run writes an output for every
+                case, and reading it shows what to check.
               </Hint>
             ) : null}
             {selected?.source === 'evals.json' ? (
@@ -438,42 +423,6 @@ export function Cases({ ctx }: { ctx: Ctx }) {
 
             <FormSection layout="stacked" title="Task">
               <Field>
-                <Label htmlFor="case-title">Title</Label>
-                <Input
-                  id="case-title"
-                  value={draft.title}
-                  placeholder="Release note for the export change"
-                  onChange={(e) => setTitle(e.target.value)}
-                />
-              </Field>
-
-              {isNew ? (
-                <Field>
-                  <Label htmlFor="case-id">Id</Label>
-                  <Input
-                    id="case-id"
-                    value={draft.id}
-                    autoCapitalize="none"
-                    autoCorrect="off"
-                    spellCheck={false}
-                    font="mono"
-                    aria-invalid={Boolean(idError || taken) || undefined}
-                    aria-describedby="case-id-help"
-                    onChange={(e) => {
-                      setIdTouched(true)
-                      set({ id: e.target.value })
-                    }}
-                  />
-                  <Hint id="case-id-help" tone={idError || taken ? 'destructive' : 'default'}>
-                    {idError ||
-                      (taken
-                        ? 'A case with this id exists.'
-                        : 'The folder name. It cannot change later.')}
-                  </Hint>
-                </Field>
-              ) : null}
-
-              <Field>
                 <Label htmlFor="case-prompt">Prompt</Label>
                 <TextArea
                   id="case-prompt"
@@ -485,6 +434,22 @@ export function Cases({ ctx }: { ctx: Ctx }) {
                   assist={{ field: 'case.prompt', ...assist }}
                 />
                 <Hint id="case-prompt-help">{CASE_PROMPT_HINT}</Hint>
+              </Field>
+
+              <Field>
+                <Label htmlFor="case-title">Title</Label>
+                <Input
+                  id="case-title"
+                  value={draft.title}
+                  placeholder="Release note for the export change"
+                  aria-describedby={isNew ? 'case-title-help' : undefined}
+                  onChange={(e) => set({ title: e.target.value })}
+                />
+                {isNew ? (
+                  <Hint id="case-title-help">
+                    A short name for the lists. Left empty, the case is named after its prompt.
+                  </Hint>
+                ) : null}
               </Field>
 
               <Field role="group" aria-labelledby="case-pictures">
@@ -509,7 +474,7 @@ export function Cases({ ctx }: { ctx: Ctx }) {
                   <Hint>
                     {drop.over
                       ? 'Drop to add it to this case.'
-                      : 'A screenshot, a mock-up or a photo the prompt is about. The agent gets each one as a file, and the judge sees them beside the prompt.'}
+                      : 'A screenshot, a mock-up or a photo the prompt is about. The agent gets each one as a file, and Jev sees them beside the prompt.'}
                   </Hint>
                 )}
               </Field>
@@ -531,9 +496,9 @@ export function Cases({ ctx }: { ctx: Ctx }) {
               <FormSection
                 layout="stacked"
                 title="Checks"
-                hint="Statements a good answer makes true. The judge marks each one. A check can be about a picture, such as a mock-up the output should match."
+                hint="Statements a good answer makes true. Jev marks each one. They can wait: run the case first, and what an output gets wrong becomes a check, here or on Results. A check can be about a picture, such as a mock-up the output should match."
               >
-                <GuideBox summary="What the judge can mark">
+                <GuideBox summary="What Jev can mark">
                   <PairList pairs={CHECK_EXAMPLES} />
                 </GuideBox>
                 <Stack gap="md">
@@ -613,13 +578,16 @@ export function Cases({ ctx }: { ctx: Ctx }) {
               <FormSection
                 layout="stacked"
                 title="Checks"
-                hint={`Checks are not judged with the ${names(config.packs)} ${
-                  config.packs.length > 1 ? 'packs' : 'pack'
-                }. ${names(CHECK_READERS.map((p) => p.id))} mark them: pick one on Scoring.`}
+                hint={`This skill is graded as ${names(config.packs)}, which is scored on other things than checks. A skill graded as ${names(CHECK_READERS.map((p) => p.id)).replace(/ and /, ' or ')} has its checks marked: change it under Scoring, on Results.`}
               >
                 <Toolbar>
-                  <Button type="button" variant="outline" size="sm" onClick={() => go('knobs')}>
-                    Open Scoring
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => go('results', { view: 'all' })}
+                  >
+                    Open Results
                   </Button>
                 </Toolbar>
               </FormSection>

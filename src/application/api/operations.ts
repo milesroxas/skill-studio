@@ -13,13 +13,11 @@ import {
   type ChatScene,
   workingSkill,
 } from '@domain/assist.ts'
-import { leaderboards, voteKeys } from '@domain/bradley-terry.ts'
 import { checkWeight } from '@domain/case-draft.ts'
 import { type ImageRef, MAX_IMAGES } from '@domain/image.ts'
 import { type RuleScene, worthChecking } from '@domain/lint.ts'
 import { LOOK_STEPS } from '@domain/practice.ts'
 import { preferencesOf } from '@domain/preferences.ts'
-import { reviewQueue } from '@domain/queue.ts'
 import {
   type BenchConfig,
   type CaseDraft,
@@ -28,8 +26,6 @@ import {
   emptyDrafts,
   type FileDraft,
   NEW_CASE_KEY,
-  OVERALL,
-  type Review,
   type SkillDrafts,
   type Vote,
 } from '@domain/schemas.ts'
@@ -40,13 +36,11 @@ import {
   secretOf,
   statusOfEach,
 } from '@domain/secrets.ts'
-import { agreement } from '@domain/stats.ts'
 import { TEMPLATE_IDS } from '@domain/templates.ts'
 import type { SkillInfo } from '@domain/views.ts'
 import {
   benchPath,
   deleteCase,
-  findCase,
   loadBench,
   loadCases,
   loadRules,
@@ -78,15 +72,8 @@ import {
   unlinkSkill,
 } from '@infrastructure/library.ts'
 import { readPreferences, writePreferences } from '@infrastructure/preferences.ts'
+import { loadReviews, reviewsPath, saveCorrection, savePick } from '@infrastructure/reviews.ts'
 import {
-  loadReviews,
-  promoteAnchor,
-  reviewsPath,
-  savePreference,
-  saveReview,
-} from '@infrastructure/reviews.ts'
-import {
-  anchorList,
   listRuns,
   readRun,
   runDir,
@@ -104,8 +91,6 @@ import {
 } from '@infrastructure/skill.ts'
 import { deleteVersion, undeleteVersion } from '@infrastructure/trash.ts'
 import { isVersionLabel, saveVersion } from '@infrastructure/versions.ts'
-import type { JudgeInput } from '@judges/index.ts'
-import { pairwisePack } from '@judges/index.ts'
 import { Jev } from '@judges/jev.ts'
 import {
   aiCommands,
@@ -125,10 +110,9 @@ import {
   stopRun,
 } from '../ai.ts'
 import { generateRun, samplesPerCase } from '../generate.ts'
-import { gradeRun, judgeInput } from '../grade.ts'
+import { gradeRun } from '../grade.ts'
 import { listJobs, runJob, say, sizeJob, stepJob } from '../jobs.ts'
 import {
-  type AnchorInput,
   type GenerateInput,
   type Input,
   type OperationName,
@@ -263,19 +247,6 @@ function generateInputOf(raw: Raw): GenerateInput {
   }
 }
 
-function anchorInputOf(raw: Raw): AnchorInput {
-  return {
-    ...scoped(raw),
-    run: str(raw.run),
-    sample: str(raw.sample),
-    file: str(raw.file),
-    case: str(raw.case),
-    label: oneOf(raw.label, ['good', 'bad'], 'label'),
-    tests: list(raw.tests),
-    about: str(raw.about),
-  }
-}
-
 function assistInputOf(raw: Raw): Scoped & AssistInput {
   const context = (Array.isArray(raw.context) ? raw.context : []).map((item) => {
     const { label, text } = record(item)
@@ -296,6 +267,9 @@ function assistInputOf(raw: Raw): Scoped & AssistInput {
 }
 
 const runId = (raw: Raw): { id: string } => ({ id: str(raw.id) })
+
+/** Longer than any rule or check a verdict is named after. */
+const VERDICT_MAX = 4000
 
 /** A selected rule with its surroundings. Too little to check, or more than a request carries, is refused. */
 const sceneOf = (raw: Raw): RuleScene => {
@@ -419,25 +393,20 @@ export const parsers: { [K in OperationName]: (raw: Raw) => Input<K> } = {
   'skill.undeleteVersion': (raw) => ({ ...scoped(raw), undo: assertSafe(str(raw.undo), 'undo') }),
   'skill.drafts': scoped,
   'skill.saveDrafts': (raw) => ({ ...scoped(raw), drafts: draftsOf(raw.drafts) }),
-  'skill.queue': scoped,
-  'skill.leaderboard': scoped,
-  'skill.review': (raw) => {
-    const review = record(raw.review) as Partial<Review>
+  'skill.correct': (raw) => {
+    const verdict = str(raw.verdict)
+    if (!verdict || verdict.length > VERDICT_MAX) throw new Error('Bad verdict.')
     return {
       ...scoped(raw),
       key: assertSafePath(str(raw.key), 'key'),
-      review: {
-        rating: typeof review.rating === 'number' ? review.rating : null,
-        layers: review.layers ?? {},
-        note: str(review.note),
-      },
+      verdict,
+      met: typeof raw.met === 'boolean' ? raw.met : null,
     }
   },
-  'skill.preference': (raw) => ({
+  'skill.pick': (raw) => ({
     ...scoped(raw),
     a: assertSafePath(str(raw.a), 'a'),
     b: assertSafePath(str(raw.b), 'b'),
-    criterion: str(raw.criterion, OVERALL),
     vote: oneOf<Vote>(raw.vote, ['a', 'b', 'tie'], 'vote'),
   }),
   'skill.saveFile': (raw) => {
@@ -460,18 +429,11 @@ export const parsers: { [K in OperationName]: (raw: Raw) => Input<K> } = {
     if (!raw.config || typeof raw.config !== 'object') throw new Error('Bad config.')
     return { ...scoped(raw), config: raw.config as BenchConfig }
   },
-  'skill.anchor': anchorInputOf,
   'skill.generate': generateInputOf,
   'skill.grade': (raw) => ({
     ...scoped(raw),
     run: assertSafe(str(raw.run), 'run'),
     jev: raw.jev !== false,
-  }),
-  'skill.pairwise': (raw) => ({
-    ...scoped(raw),
-    a: assertSafePath(str(raw.a), 'a'),
-    b: assertSafePath(str(raw.b), 'b'),
-    criteria: list(raw.criteria),
   }),
 }
 
@@ -527,22 +489,6 @@ export function createOperations(options: OperationsOptions): Runners {
     if (match) return match
     if (!existsSync(join(resolve(wanted), 'SKILL.md'))) throw new Error(`No skill at ${wanted}.`)
     return open(wanted)
-  }
-
-  /** The judge input for one output, by `<run>/<sample>` key, for pairwise calls. */
-  const inputFor = (
-    skill: SkillInfo,
-    key: string,
-    config: BenchConfig,
-    log: (line: string) => void,
-  ): JudgeInput => {
-    const [run, sample] = key.split('/')
-    assertSafe(run, 'run')
-    assertSafe(sample, 'sample')
-    const found = readRun(skill.path, run).samples.find((s) => s.name === sample)
-    if (!found) throw new Error(`No sample ${key}.`)
-    const testCase = findCase(loadCases(skill.path), sample)
-    return judgeInput(skill.path, found, testCase, loadRules(skill.path, config), log)
   }
 
   return {
@@ -632,7 +578,6 @@ export function createOperations(options: OperationsOptions): Runners {
         config,
         savedConfig: readJson<Partial<BenchConfig>>(benchPath(skill.path), {}),
         rules: loadRules(skill.path, config),
-        anchors: anchorList(skill.path),
         jevKey: Jev.available(),
         paths: {
           bench: relative(skill.path, benchPath(skill.path)),
@@ -684,37 +629,14 @@ export function createOperations(options: OperationsOptions): Runners {
     'skill.saveDrafts': (input) => ({
       updatedAt: writeDrafts(skillOf(input).path, input.drafts),
     }),
-    'skill.queue': (input) => {
+    'skill.correct': (input) => {
       const skill = skillOf(input)
-      const reviews = loadReviews(skill.path)
-      return reviewQueue(
-        listRuns(skill.path).flatMap((r) =>
-          r.report ? [{ name: r.name, results: r.report.results }] : [],
-        ),
-        new Set(Object.keys(reviews.reviews)),
-      )
-    },
-    'skill.leaderboard': (input) => {
-      const skill = skillOf(input)
-      const { preferences } = loadReviews(skill.path)
-      const { sure } = loadBench(skill.path)
-      return {
-        boards: leaderboards(preferences, sure),
-        agreement: agreement(
-          voteKeys(preferences, 'jev', sure),
-          voteKeys(preferences, 'human', sure),
-        ),
-      }
-    },
-    'skill.review': (input) => {
-      const skill = skillOf(input)
-      saveReview(skill.path, input.key, input.review)
+      saveCorrection(skill.path, input.key, input.verdict, input.met)
       return { saved: reviewsPath(skill.path) }
     },
-    'skill.preference': (input) => {
+    'skill.pick': (input) => {
       const skill = skillOf(input)
-      const { a, b, criterion, vote } = input
-      savePreference(skill.path, { a, b, criterion, vote, by: 'human' })
+      savePick(skill.path, { a: input.a, b: input.b, vote: input.vote })
       return { saved: reviewsPath(skill.path) }
     },
     'skill.saveFile': (input) => {
@@ -739,10 +661,6 @@ export function createOperations(options: OperationsOptions): Runners {
       const skill = skillOf(input)
       writeJson(benchPath(skill.path), input.config)
       return { saved: benchPath(skill.path), config: loadBench(skill.path) }
-    },
-    'skill.anchor': (input) => {
-      const { skill: _skill, ...anchor } = input
-      return { saved: promoteAnchor(skillOf(input).path, anchor) }
     },
     'skill.generate': (input) => {
       const skill = skillOf(input)
@@ -819,45 +737,6 @@ export function createOperations(options: OperationsOptions): Runners {
           log: (line) => say(job, line),
         })
         say(job, 'Graded.')
-        return true
-      })
-      return { started: true, job: job.id }
-    },
-    'skill.pairwise': (input) => {
-      const skill = skillOf(input)
-      const { a, b, criteria } = input
-      if (!criteria.length) throw new Error('No criteria.')
-      const config = loadBench(skill.path)
-      const job = runJob('pairwise', `Jev: ${a} vs ${b}`, realPath(skill.path), async (job) => {
-        const jev = new Jev()
-        const inputA = inputFor(skill, a, config, (line) => say(job, line))
-        const inputB = inputFor(skill, b, config, (line) => say(job, line))
-        const pack = pairwisePack(config.packs, inputA.primary?.kind ?? null)
-        if (!pack?.pairwise) throw new Error('No judge pack on this skill compares these outputs.')
-        const votes = await pack.pairwise(inputA, inputB, criteria, {
-          jev,
-          useJev: true,
-          config,
-          skillDir: skill.path,
-          log: (l) => say(job, l),
-        })
-        for (const [criterion, vote] of Object.entries(votes)) {
-          savePreference(skill.path, {
-            a,
-            b,
-            criterion,
-            vote: vote.vote,
-            by: 'jev',
-            confidence: vote.confidence,
-          })
-          const percent = Math.round(vote.confidence * 100)
-          say(
-            job,
-            vote.confidence < config.sure
-              ? `${criterion}: unsure, leaning ${vote.vote} (${percent}%), not counted`
-              : `${criterion}: ${vote.vote} (${percent}%)`,
-          )
-        }
         return true
       })
       return { started: true, job: job.id }

@@ -1,6 +1,7 @@
 /** A case as the Cases form edits it: the draft that `skill.saveCase` takes. Pure functions. */
 import { type ImageRef, imageTypeOf } from './image.ts'
 import type { Case, CaseDraft } from './schemas.ts'
+import { slug } from './text.ts'
 
 /** A case's own pictures: the images in its `files/`. A legacy case's files stay where they are. */
 export const picturesOf = (c: Case): string[] =>
@@ -62,3 +63,24 @@ export const blankDraft = (): CaseDraft => ({
   images: [],
   graders: [newCheck()],
 })
+
+/** Enough of a prompt to name a case after, when it has no title. */
+const ID_WORDS = 6
+const ID_MAX = 40
+
+/**
+ * The id a new case is saved under, which is its folder's name: its title as a
+ * slug, or the first words of its prompt when it has none, with a number after
+ * it when a case already has that id. A case can then be written as a prompt
+ * alone, and still be found by name.
+ */
+export function newCaseId(
+  draft: Pick<CaseDraft, 'title' | 'prompt'>,
+  taken: readonly string[],
+): string {
+  const words = draft.prompt.trim().split(/\s+/).slice(0, ID_WORDS).join(' ')
+  const base = slug(draft.title, ID_MAX) || slug(words, ID_MAX) || 'case'
+  let id = base
+  for (let n = 2; taken.includes(id); n += 1) id = `${base}-${n}`
+  return id
+}

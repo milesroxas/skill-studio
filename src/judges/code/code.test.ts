@@ -43,6 +43,46 @@ describe('code check layer', () => {
     expect(layers.check).toBe(0)
     expect(flags).toEqual(['check timed out: node --test'])
   })
+
+  it('reports the command as one fact code measured, which no correction changes', () => {
+    const raw = { check: check({ exit: 1, tail: 'boom' }), review: null }
+    const { layers, verdicts } = codeScoring.score(raw, subject, config, {
+      'other:check command': true,
+    })
+    expect(layers.check).toBe(0)
+    expect(verdicts).toEqual([
+      expect.objectContaining({
+        text: 'check failed (exit 1): boom',
+        met: false,
+        open: false,
+        layer: 'check',
+      }),
+    ])
+  })
+})
+
+describe('code review layer', () => {
+  const statement = (id: string, noul: number, weight = 1) => ({
+    id,
+    text: `statement ${id}`,
+    weight,
+    noul,
+    units: null,
+    best: null,
+  })
+
+  it('weighs the checks met, and takes the reader’s answer over Jev’s', () => {
+    const raw = {
+      check: null,
+      review: { statements: [statement('a', 0.9), statement('b', 0.1, 2)] },
+    }
+    const jev = codeScoring.score(raw, subject, config)
+    expect(jev.layers.review).toBe(1 / 3)
+    expect(jev.flags).toEqual(['grader b (×2) not met: statement b'])
+    const own = codeScoring.score(raw, subject, config, { 'check:statement b': true })
+    expect(own.layers.review).toBe(1)
+    expect(own.flags).toEqual([])
+  })
 })
 
 describe('code pack without Jev', () => {

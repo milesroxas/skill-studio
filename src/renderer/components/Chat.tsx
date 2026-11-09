@@ -56,11 +56,11 @@ const starters = (skill: string | null): string[] =>
     ? [
         `Which rules in ${skill} are too vague to grade?`,
         `Suggest three cases that would test ${skill}.`,
-        'How do I write a check a judge can mark?',
+        'How do I write a check Jev can mark?',
       ]
     : [
         'What makes a rule an agent actually follows?',
-        'How do I write a check a judge can mark?',
+        'How do I write a check Jev can mark?',
         'What should a skill’s description say?',
       ]
 

@@ -77,7 +77,7 @@ Does the color state a verdict (pass, weak, fail)?
 
 Yellow marks exactly these:
 
-- the next step: `Button variant="signal"` in the top bar. See [buttons.md](buttons.md).
+- the next step: `Button variant="signal"` in the top bar, which is either "Next: …" or Run. See [buttons.md](buttons.md).
 - a running job: the dot in `JobsIndicator` on the ink sidebar, and in `RunningTag` on its skill's row in the Library. It is the one yellow that may sit beside the next step. A job's progress bar is foreground, not yellow.
 - a reply being written: the composer's Stop button, yellow hairlines on ink moving left under the square (`hazard` and `animate-hazard`). It is that reply's running dot, so it too may sit beside the next step, and the yellow is there only while the reply is written. The square stays porcelain: red would say failed, not stop.
 - in the welcome: the current step in the progress row, and one `Slab` per frame. See [brand.md](brand.md).

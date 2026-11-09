@@ -1,11 +1,12 @@
-/** Layer bars, the total chip and the flag list for one scored output. */
+/** The total chip, a score's move from one version to the next, and the parts one score is made of. */
 import { weightMark } from '@domain/case-draft.ts'
 import type { Scored } from '@domain/scoring.ts'
+import { layerCount } from '@domain/verdict.ts'
 import { cva } from 'class-variance-authority'
-import { capital, type ScoreBand, scoreBand } from '../model.ts'
+import { ArrowRightIcon } from 'lucide-react'
+import { partLabel, type ScoreBand, scoreBand } from '../model.ts'
 import { Text } from './text.tsx'
 import { Badge } from './ui/badge.tsx'
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from './ui/collapsible.tsx'
 
 const BADGE_TONE = {
   hi: 'success',
@@ -58,17 +59,20 @@ export function Delta({ value }: { value: number | null }) {
   )
 }
 
-const layerValue = cva('block text-md font-semibold tabular-nums text-foreground', {
-  variants: {
-    band: {
-      hi: '',
-      mid: '',
-      lo: 'text-warning',
-      vlo: 'text-destructive',
-      na: 'text-muted-foreground/70',
+const layerValue = cva(
+  'block text-md font-semibold whitespace-nowrap tabular-nums text-foreground',
+  {
+    variants: {
+      band: {
+        hi: '',
+        mid: '',
+        lo: 'text-warning',
+        vlo: 'text-destructive',
+        na: 'text-muted-foreground/70',
+      },
     },
   },
-})
+)
 
 const layerBar = cva('block h-full bg-input', {
   variants: {
@@ -82,8 +86,39 @@ const layerBar = cva('block h-full bg-input', {
   },
 })
 
-/** Each layer's score with a bar. Bars stay grey until a layer is weak, so the eye lands on problems. */
-export function Layers({
+/**
+ * A score's move between two outputs or two versions: the earlier chip, an
+ * arrow, the later chip and the change. With no earlier score it is the later
+ * chip alone, so a list of cases keeps one edge whether or not each was run before.
+ */
+export function ScoreMove({
+  from,
+  to,
+}: {
+  from: number | null | undefined
+  to: number | null | undefined
+}) {
+  const before = from ?? null
+  const after = to ?? null
+  if (before === null) return <TotalChip total={after} />
+  return (
+    <span className="inline-flex items-center gap-1">
+      <TotalChip total={before} />
+      <ArrowRightIcon aria-hidden="true" className="size-3 shrink-0 text-muted-foreground" />
+      <span className="sr-only">then</span>
+      <TotalChip total={after} />
+      <Delta value={after === null ? null : Math.round(after) - Math.round(before)} />
+    </span>
+  )
+}
+
+/**
+ * The parts one score is made of, each with a bar: the rules followed, the
+ * checks met, and whatever else was measured. A part counted from facts says
+ * the count, "3 of 4"; any other says its score. Bars stay grey until a part
+ * is weak, so the eye lands on problems.
+ */
+export function Parts({
   scored,
   layers,
   other,
@@ -92,7 +127,7 @@ export function Layers({
   layers: string[]
   other?: Scored | null
 }) {
-  // Every layer on one row, or two even rows when there are many: never a lone layer on a row of its own.
+  // Every part on one row, or two even rows when there are many: never a lone part on a row of its own.
   const perRow = layers.length > 6 ? Math.ceil(layers.length / 2) : layers.length
   return (
     <div
@@ -104,12 +139,20 @@ export function Layers({
         const o = other?.scores[layer] ?? null
         const delta = value !== null && o !== null ? value - o : null
         const band: ScoreBand = scoreBand(value)
+        const count = value === null ? null : layerCount(scored.verdicts, layer)
         return (
           <div key={layer} className={band === 'na' ? 'text-muted-foreground/70' : undefined}>
-            {capital(layer)}
+            {partLabel(layer)}
             <b className={layerValue({ band })}>
-              {value ?? '–'}
-              <Delta value={delta} />
+              {/* A count beside the other side's count already says the change. */}
+              {count ? (
+                `${count.met} of ${count.total}`
+              ) : (
+                <>
+                  {value ?? '–'}
+                  <Delta value={delta} />
+                </>
+              )}
             </b>
             <div className="mt-1 h-0.75 overflow-hidden rounded-xs bg-muted">
               <span className={layerBar({ band })} style={{ width: `${value ?? 0}%` }} />
@@ -132,23 +175,5 @@ export function CheckWeight({ weight }: { weight: number | null }) {
       {' · '}
       {weightMark(weight)}
     </Text>
-  )
-}
-
-export function Flags({ flags }: { flags: string[] }) {
-  if (!flags.length) return null
-  return (
-    <Collapsible defaultOpen={flags.length <= 3} className="border-b px-4 py-2.5 text-xs">
-      <CollapsibleTrigger className="cursor-pointer text-warning hover:underline">
-        {flags.length} flag{flags.length > 1 ? 's' : ''}
-      </CollapsibleTrigger>
-      <CollapsibleContent>
-        <ul className="mt-1.5 list-disc pl-4.5">
-          {flags.map((f) => (
-            <li key={f}>{f}</li>
-          ))}
-        </ul>
-      </CollapsibleContent>
-    </Collapsible>
   )
 }

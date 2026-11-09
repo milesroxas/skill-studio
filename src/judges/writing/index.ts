@@ -7,7 +7,6 @@
 import { round, type Unit } from '@domain/text.ts'
 import { choice, noul, score } from '@typesafe-ai/sdk'
 import { runCommand } from '../shared/exec.ts'
-import { pairwiseText } from '../shared/questions.ts'
 import type { JudgeContext, JudgeInput, JudgePack } from '../types.ts'
 import {
   type LintRaw,
@@ -344,7 +343,6 @@ export const writingPack: JudgePack<WritingRaw> = {
       jev: runJev ? await judgeJev(input, ctx, chunks, writer) : null,
     }
   },
-  pairwise: pairwiseText,
   anchorsTemplate: [
     '---',
     'case: <case key>',

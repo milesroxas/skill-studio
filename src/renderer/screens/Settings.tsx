@@ -244,8 +244,9 @@ export function SettingsScreen({ running, report, onSaved, onWelcome }: Props) {
         title="Jev key"
         hint={
           <>
-            Jev, the judge behind every pack, is a <Link href="https://typesafe.ai">TypeSafe</Link>{' '}
-            model. Without a key, grading runs code checks only and every judged layer stays empty.
+            Jev, the model that grades every output, is a{' '}
+            <Link href="https://typesafe.ai">TypeSafe</Link> model. Without a key, grading runs code
+            checks only: no rule and no check is marked.
           </>
         }
       >

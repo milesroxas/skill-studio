@@ -1,6 +1,6 @@
 /**
  * The welcome's setup, after the tour: where your skills are, a model to
- * write with, and the judge's key. One thing per step, each in the welcome's
+ * write with, and Jev's key. One thing per step, each in the welcome's
  * own window, with no trip to Settings.
  *
  * Every step checks first what Skill Studio can already reach, and asks only

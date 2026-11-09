@@ -145,7 +145,29 @@ describe('workflow scoring', () => {
     workflowScoring.score({ metrics: { ...base, ...over }, jev: null }, subject, config)
 
   it('gives a clean run full efficiency and scope, process left to Jev', () => {
-    expect(score({})).toEqual({ layers: { efficiency: 1, scope: 1, process: null }, flags: [] })
+    const scored = score({})
+    expect(scored).toMatchObject({ layers: { efficiency: 1, scope: 1, process: null }, flags: [] })
+    expect(scored.verdicts.map((v) => [v.text, v.met, v.layer])).toEqual([
+      ['no tool errors', true, 'efficiency'],
+      ['no repeated tool calls beyond the allowance', true, 'efficiency'],
+      ['stayed inside the sample', true, 'scope'],
+      // Without Jev there is no process layer for it to count in.
+      ['skill read before writing', true, null],
+    ])
+  })
+
+  it('counts process from Jev’s answers, with the reader’s own over them', () => {
+    const raw = { metrics: base, jev: { followedTask: 0.2, recovered: null } }
+    const jev = workflowScoring.score(raw, subject, config)
+    // followed the task: no. Read the skill first: yes.
+    expect(jev.layers.process).toBe(1 / 2)
+    expect(jev.flags).toEqual(['transcript does not show the task being done as asked'])
+    const own = workflowScoring.score(raw, subject, config, { 'other:followed task': true })
+    expect(own.layers.process).toBe(1)
+    expect(own.flags).toEqual([])
+    expect(own.verdicts.filter((v) => v.corrected).map((v) => v.id)).toEqual([
+      'other:followed task',
+    ])
   })
 
   it('loses efficiency checks for errors, repeats and the case limits', () => {

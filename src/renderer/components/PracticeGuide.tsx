@@ -8,7 +8,7 @@ import { cva } from 'class-variance-authority'
 import { ArrowRightIcon } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { cn } from '../lib/utils.ts'
-import type { PracticeGuide as Guide } from '../practice.ts'
+import type { PracticeGuide as Guide, PracticeTarget } from '../practice.ts'
 import { Text } from './text.tsx'
 import { Button } from './ui/button.tsx'
 
@@ -73,7 +73,8 @@ export function PracticeGuide({
   onNew,
 }: {
   guide: Guide
-  onGo: (screen: string, params?: Record<string, string>) => void
+  /** Go to where the step happens. */
+  onGo: (target: PracticeTarget) => void
   /** Start a skill of one's own, offered once the loop is closed. */
   onNew: () => void
 }) {
@@ -87,7 +88,7 @@ export function PracticeGuide({
             BLOCK,
             'group/practice focus-ring-inset transition-[background-color] duration-150 ease-out hover:bg-sidebar-accent',
           )}
-          onClick={() => onGo(target.screen, target.params)}
+          onClick={() => onGo(target)}
         >
           <Head guide={guide} />
           <Progress guide={guide} />

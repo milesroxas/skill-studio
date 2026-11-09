@@ -1,6 +1,6 @@
 /**
- * Background work the application runs: generation, grading and pairwise
- * votes. Interfaces either poll `listJobs` or subscribe with `watchJobs`, which
+ * Background work the application runs: generation and grading. Interfaces
+ * either poll `listJobs` or subscribe with `watchJobs`, which
  * reports once per tick however many lines a job logged in it.
  */
 import type { Job, JobKind } from '@domain/views.ts'

@@ -9,7 +9,7 @@ import type { AgentId } from '@domain/library.ts'
 import type { RuleScene } from '@domain/lint.ts'
 import type { LookStep } from '@domain/practice.ts'
 import type { Preferences } from '@domain/preferences.ts'
-import type { BenchConfig, CaseDraft, Review, SkillDrafts, Vote } from '@domain/schemas.ts'
+import type { BenchConfig, CaseDraft, SkillDrafts, Vote } from '@domain/schemas.ts'
 import type { SecretId } from '@domain/secrets.ts'
 import { transport } from './transport.ts'
 
@@ -57,7 +57,7 @@ export const api = {
   createSkill: (input: CreateSkillInput) => call('library.create', input),
   /** The practice skill, written the first time it is asked for. */
   practice: () => call('library.practice', {}),
-  /** The practice skill as first written, with its runs, ratings, edits and drafts gone. */
+  /** The practice skill as first written, with its runs, picks, edits and drafts gone. */
   restartPractice: () => call('library.restartPractice', {}),
   /** Mark a walkthrough step that only asks to look at its screen. */
   practiceSeen: (step: LookStep) => call('library.practiceSeen', { step }),
@@ -140,24 +140,12 @@ export const api = {
   saveSkillFile: (path: string, text: string, previous: string | null) =>
     call('skill.saveFile', scoped({ path, text, previous })),
   deleteSkillFile: (path: string) => call('skill.deleteFile', scoped({ path })),
-  queue: () => call('skill.queue', scoped({})),
-  leaderboard: () => call('skill.leaderboard', scoped({})),
-  review: (key: string, review: Omit<Review, 'updatedAt'>) =>
-    call('skill.review', scoped({ key, review })),
-  preference: (a: string, b: string, criterion: string, vote: Vote) =>
-    call('skill.preference', scoped({ a, b, criterion, vote })),
-  pairwise: (a: string, b: string, criteria: string[]) =>
-    call('skill.pairwise', scoped({ a, b, criteria })),
+  /** Your own answer on one verdict of an output; null takes it back, so Jev's stands again. */
+  correct: (key: string, verdict: string, met: boolean | null) =>
+    call('skill.correct', scoped({ key, verdict, met })),
+  /** Your pick of the better of two outputs. */
+  pick: (a: string, b: string, vote: Vote) => call('skill.pick', scoped({ a, b, vote })),
   config: (config: BenchConfig) => call('skill.config', scoped({ config })),
-  anchor: (anchor: {
-    run: string
-    sample: string
-    file: string
-    case: string
-    label: 'good' | 'bad'
-    tests: string[]
-    about: string
-  }) => call('skill.anchor', scoped(anchor)),
   generate: (request: GenerateRequest) => call('skill.generate', scoped(request)),
   grade: (run: string, jev = true) => call('skill.grade', scoped({ run, jev })),
   saveCase: (draft: CaseDraft, isNew: boolean) =>

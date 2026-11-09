@@ -73,17 +73,28 @@ export function ArtifactView({ run, sample, artifact }: Props) {
   )
 }
 
-/** Pick one of an output's files to read; hidden when the agent wrote only one. */
+/** What of an output is being read: one of the files the agent wrote, or the steps it took. */
+export type OutputView = ArtifactRef | 'transcript'
+
+const TRANSCRIPT = ':transcript'
+
+/**
+ * Pick what of an output to read: one of its files, or its transcript when it
+ * has one. Hidden when there is one thing to read and nothing to pick.
+ */
 export function ArtifactPicker({
   artifacts,
   value,
   onChange,
+  transcript = false,
 }: {
   artifacts: ArtifactRef[]
-  value: ArtifactRef | null
-  onChange: (a: ArtifactRef) => void
+  value: OutputView | null
+  onChange: (view: OutputView) => void
+  /** The run kept the agent's steps for this output. */
+  transcript?: boolean
 }) {
-  if (artifacts.length < 2) return null
+  if (artifacts.length + (transcript ? 1 : 0) < 2) return null
   return (
     <div className="border-b px-4 py-2">
       <ToggleGroup
@@ -91,10 +102,11 @@ export function ArtifactPicker({
         variant="outline"
         size="sm"
         spacing={1}
-        aria-label="Files"
-        value={value?.file ?? ''}
-        onValueChange={(file) => {
-          const next = artifacts.find((a) => a.file === file)
+        aria-label="Read"
+        value={value === 'transcript' ? TRANSCRIPT : (value?.file ?? '')}
+        onValueChange={(picked) => {
+          if (picked === TRANSCRIPT) return onChange('transcript')
+          const next = artifacts.find((a) => a.file === picked)
           if (next) onChange(next)
         }}
       >
@@ -103,6 +115,11 @@ export function ArtifactPicker({
             {a.file.replace(/^outputs\//, '')}
           </ToggleGroupItem>
         ))}
+        {transcript ? (
+          <ToggleGroupItem value={TRANSCRIPT} className="text-xs">
+            Transcript
+          </ToggleGroupItem>
+        ) : null}
       </ToggleGroup>
     </div>
   )

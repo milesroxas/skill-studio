@@ -20,8 +20,6 @@ const inputVariants = cva(
         auto: 'w-auto',
         /** Takes what a toolbar leaves. */
         grow: 'w-auto flex-1',
-        /** A short value: a criterion, a name. */
-        narrow: 'w-35',
         /** A search box: wide, but never wider than its row. */
         wide: 'w-[min(320px,100%)]',
         /** A search box in a bar of filters: 320px when the bar has it, and it gives way before the bar wraps. */

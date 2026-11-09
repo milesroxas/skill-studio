@@ -4,8 +4,8 @@
  * - A scrolling page (`Screen`): tables, reading and settings forms, left
  *   aligned to the same edge as the top bar's first control.
  * - A workbench (`Workbench`): full-height columns that scroll on their own,
- *   for a list beside its detail or a result beside its controls. Columns are
- *   divided by a hairline, never boxed.
+ *   for a list beside the item picked from it. Columns are divided by a
+ *   hairline, never boxed.
  * - Form sections (`FormSection`): a heading and its note beside the fields,
  *   one section under the next with a rule between them.
  *
@@ -44,20 +44,8 @@ export function Screen({
   return <div className={cn(screenVariants({ width }), className)} {...props} />
 }
 
-const sectionVariants = cva('flex flex-col gap-3', {
-  variants: {
-    /** Scrolled to from a link: lands with room above it rather than flush under the pane's edge. */
-    anchor: { true: 'scroll-mt-6', false: '' },
-  },
-  defaultVariants: { anchor: false },
-})
-
-export function Section({
-  anchor,
-  className,
-  ...props
-}: ComponentProps<'section'> & VariantProps<typeof sectionVariants>) {
-  return <section className={cn(sectionVariants({ anchor }), className)} {...props} />
+export function Section({ className, ...props }: ComponentProps<'section'>) {
+  return <section className={cn('flex flex-col gap-3', className)} {...props} />
 }
 
 /** A heading with what sits beside it: a count, a hint, an action at the far end. */
@@ -109,39 +97,14 @@ export function FormSection({
   )
 }
 
-const formActionsVariants = cva('flex flex-wrap items-center gap-3 border-t pt-6', {
-  variants: {
-    layout: {
-      /** Under the fields, primary first. */
-      fields: 'md:pl-[240px]',
-      /**
-       * What the action will do on the left, from the form's own edge, and the
-       * action at the far end: for a form whose one action costs something, so
-       * its size is read before it is pressed (New run).
-       */
-      summary: 'justify-between gap-x-8',
-    },
-    /**
-     * Kept in view at the foot of the pane while the form scrolls, for a form
-     * whose one action would otherwise wait below the fold. The offset and
-     * padding cover the pane's own padding, as `ActionBar` does.
-     */
-    pinned: {
-      true: 'sticky -bottom-6 z-10 -mb-6 bg-background pb-6',
-      false: '',
-    },
-  },
-  defaultVariants: { layout: 'fields', pinned: false },
-})
-
-/** The actions at the end of a form, aligned with its fields. */
-export function FormActions({
-  layout,
-  pinned,
-  className,
-  ...props
-}: ComponentProps<'div'> & VariantProps<typeof formActionsVariants>) {
-  return <div className={cn(formActionsVariants({ layout, pinned }), className)} {...props} />
+/** The actions at the end of a form, aligned with its fields: primary first. */
+export function FormActions({ className, ...props }: ComponentProps<'div'>) {
+  return (
+    <div
+      className={cn('flex flex-wrap items-center gap-3 border-t pt-6 md:pl-[240px]', className)}
+      {...props}
+    />
+  )
 }
 
 const workbenchVariants = cva(
@@ -153,8 +116,6 @@ const workbenchVariants = cva(
         single: '',
         /** A list to pick from on the left, the picked item beside it. */
         list: 'lg:grid-cols-[260px_minmax(0,1fr)]',
-        /** The work in front, its controls in an inspector on the right. */
-        inspector: 'lg:grid-cols-[minmax(0,1fr)_340px]',
       },
     },
     defaultVariants: { layout: 'list' },
@@ -180,7 +141,6 @@ const columnVariants = cva(
       kind: {
         list: 'border-b lg:border-r lg:border-b-0',
         main: '',
-        inspector: 'border-t lg:border-t-0 lg:border-l',
       },
     },
     defaultVariants: { kind: 'main' },
@@ -201,7 +161,6 @@ const insetVariants = cva('', {
     inset: {
       list: 'px-4',
       main: 'px-6',
-      inspector: 'px-5',
     },
   },
   defaultVariants: { inset: 'main' },
@@ -328,7 +287,6 @@ const columnBodyVariants = cva('flex flex-col', {
       /** Rows that reach the column edge, with their own padding. */
       list: 'gap-px px-2 py-2',
       main: 'gap-8 px-6 pt-6 pb-16',
-      inspector: 'gap-6 px-5 py-5',
       /** Content that fills the column edge to edge, such as an editor. */
       none: 'flex-1',
     },
@@ -350,7 +308,7 @@ export function ColumnBody({
   return <div className={cn(columnBodyVariants({ inset, width }), className)} {...props} />
 }
 
-/** A titled part of an inspector or list column, divided from the next by a rule. */
+/** A titled part of a list column, divided from the next by a rule. */
 export function ColumnSection({
   title,
   hint,
@@ -381,7 +339,11 @@ export function ColumnSection({
   )
 }
 
-/** The actions of a column, held to its foot while it scrolls. */
+/**
+ * What stays at a column's foot while it scrolls. On a narrow window the
+ * columns stack and the pane scrolls: there it stands at the column's end, so
+ * it never lies over a column the reader has not reached yet.
+ */
 export function ColumnFooter({
   inset,
   className,
@@ -390,7 +352,7 @@ export function ColumnFooter({
   return (
     <footer
       className={cn(
-        'sticky bottom-0 z-10 mt-auto flex flex-wrap items-center gap-2 border-t bg-background py-3',
+        'z-10 mt-auto flex flex-wrap items-center gap-2 border-t bg-background py-3 lg:sticky lg:bottom-0',
         insetVariants({ inset }),
         className,
       )}
@@ -510,22 +472,6 @@ export function RefreshButton({ label, onRefresh }: { label: string; onRefresh: 
       {/* A new key on each press, so a second press starts the turn over. */}
       <RotateCwIcon key={turn} aria-hidden="true" className={turn ? 'animate-turn' : undefined} />
     </Button>
-  )
-}
-
-/**
- * Actions kept in view at the foot of a scrolling page. The negative offset and
- * matching padding cover the pane's own padding, so nothing scrolls by below it.
- */
-export function ActionBar({ className, ...props }: ComponentProps<'div'>) {
-  return (
-    <div
-      className={cn(
-        'sticky -bottom-6 z-10 -mb-6 flex flex-wrap items-center gap-x-3 gap-y-2 border-t bg-background pt-3 pb-6',
-        className,
-      )}
-      {...props}
-    />
   )
 }
 

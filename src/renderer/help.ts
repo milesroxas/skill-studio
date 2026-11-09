@@ -20,74 +20,32 @@ export interface ScreenHelp {
 export const SCREEN_HELP: Record<string, ScreenHelp> = {
   library: {
     short: 'Every skill on this computer',
-    what: 'Every skill on this computer. Open one to test it, or start a new one.',
+    what: 'Every skill on this computer. Open one to work on it, or start a new one.',
     terms: ['skill', 'agent', 'case', 'run'],
     guide: '1-open-or-create-a-skill',
   },
   editor: {
-    short: 'The skill’s instructions',
-    what: 'The skill itself: the instructions the agent reads. Each bullet under Rules is one rule the judge checks.',
-    terms: ['skill', 'rule', 'draft'],
-    guide: '2-write-the-skill',
-  },
-  versions: {
-    short: 'Saved copies of the skill',
-    what: 'Saved copies of the skill. Save one before a run, so each score stays tied to the text that produced it.',
-    terms: ['version', 'run'],
+    short: 'The skill’s instructions and versions',
+    what: 'The skill itself: the instructions the agent reads. Each numbered bullet is one rule Jev checks. Every run keeps the version it tested, listed on the left.',
+    terms: ['skill', 'rule', 'version', 'draft'],
     guide: '2-write-the-skill',
   },
   cases: {
     short: 'The tasks that test the skill',
-    what: 'The tasks that test the skill. Each case is a request to the agent, plus the checks a good answer passes.',
+    what: 'The tasks that test the skill. A case is a request to the agent. Start with the prompt alone: its checks can come once you have read what the agent wrote.',
     terms: ['case', 'check', 'agent'],
     guide: '3-write-cases',
   },
-  generate: {
-    short: 'Have an agent do the cases',
-    what: 'Start a run: an agent does each case with the skill installed, then the judge scores what it wrote.',
-    terms: ['run', 'writer', 'sample', 'version'],
-    guide: '4-run-the-agents',
-  },
-  overview: {
-    short: 'The judge’s scores for each run',
-    what: 'The judge’s scores, one row per run. Click a score to read that output and see what the judge found.',
-    terms: ['output', 'judge', 'score', 'layer', 'flag'],
-    guide: '5-read-the-results',
-  },
-  blind: {
-    short: 'Rate outputs before you see their scores',
-    what: 'Your turn to judge. Rate each output before its score is shown, so the judge’s opinion cannot sway yours.',
-    terms: ['blind', 'output', 'layer', 'anchor'],
-    guide: '6-rate-answers-blind',
-  },
-  compare: {
-    short: 'Two outputs side by side',
-    what: 'Two outputs side by side. Pick the better one: choosing between two is easier, and more reliable, than scoring one.',
-    terms: ['output', 'version', 'judge'],
-    guide: '6-rate-answers-blind',
-  },
-  transcript: {
-    short: 'Each step an agent took',
-    what: 'Every step the agent took on one case. Read it when a score surprises you.',
-    terms: ['transcript', 'agent', 'sample'],
-    guide: '6-rate-answers-blind',
-  },
-  insights: {
-    short: 'Where you and the judge differ',
-    what: 'Your ratings beside the judge’s. Where you both find an output poor, change the skill. Where you differ, tune the scoring.',
-    terms: ['agreement', 'layer', 'anchor'],
-    guide: '7-check-the-judge-against-you',
-  },
-  knobs: {
-    short: 'Tune how the judge scores',
-    what: 'How the judge’s answers become scores. Move a setting and every output rescores at once; nothing is run again.',
-    terms: ['scoring', 'pack', 'layer'],
-    guide: '8-tune-the-scoring',
+  results: {
+    short: 'Each version’s output, side by side',
+    what: 'What the agent wrote for each case, the latest version beside the one before. Read both and pick the better. Under each, what it missed names the rule or check to change.',
+    terms: ['output', 'score', 'missed', 'pick', 'jev'],
+    guide: '5-compare-the-results',
   },
   settings: {
     short: 'Appearance, the assistant and keys',
-    what: 'How the app looks, the model the assistant writes with, and the keys that connect it to the judge.',
-    terms: ['judge'],
+    what: 'How the app looks, the model the assistant writes with, and the keys that connect it to Jev.',
+    terms: ['jev'],
     guide: 'start-the-app',
   },
 }
@@ -109,28 +67,13 @@ export const LOOP_STEPS: readonly LoopStep[] = [
   },
   {
     screen: 'cases',
-    title: 'Give it tasks',
-    say: 'A case is a request you might really make, plus the checks a good answer passes.',
+    title: 'Run it on a real task',
+    say: 'A case is a request you might really make. An agent does it with your skill installed, and Jev checks what it wrote against your rules.',
   },
   {
-    screen: 'generate',
-    title: 'Run an agent',
-    say: 'An agent does each task with your skill installed. A run takes a minute or two.',
-  },
-  {
-    screen: 'overview',
-    title: 'Read the judge’s scores',
-    say: 'A judge marks every check, the same way each time, and gives the answer a score out of 100.',
-  },
-  {
-    screen: 'blind',
-    title: 'Rate it yourself',
-    say: 'You rate the same answer before you see its score, so the judge cannot sway you.',
-  },
-  {
-    screen: 'insights',
-    title: 'Fix what you both found',
-    say: 'Where you and the judge agree an answer falls short, tighten the rule and run again. That is the loop.',
+    screen: 'results',
+    title: 'Compare, then fix',
+    say: 'What the note missed names the rule to tighten. Run again, read both notes side by side and pick the better. That is the loop.',
   },
 ]
 
@@ -160,7 +103,7 @@ export const SETUP_STEPS: readonly SetupStep[] = [
   },
   {
     id: 'jev',
-    title: 'Add the judge',
-    say: 'Jev scores every answer the same way each time. It needs a TypeSafe key.',
+    title: 'Add Jev',
+    say: 'Jev grades every answer the same way each time. It needs a TypeSafe key.',
   },
 ]

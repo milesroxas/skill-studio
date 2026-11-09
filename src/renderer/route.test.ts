@@ -4,8 +4,8 @@ import { caseKey, entryOf, hashOf, openAt, placeOf } from './route.ts'
 
 describe('placeOf', () => {
   it('reads the screen and its parameters', () => {
-    const place = placeOf('#/compare?a=run-1%2Fone&b=')
-    expect(place.screen).toBe('compare')
+    const place = placeOf('#/results?a=run-1%2Fone&b=')
+    expect(place.screen).toBe('results')
     expect(place.params.get('a')).toBe('run-1/one')
     expect(place.params.get('b')).toBe('')
   })
@@ -19,6 +19,15 @@ describe('placeOf', () => {
     const place = placeOf('#/edit?file=SKILL.md')
     expect(place.screen).toBe('editor')
     expect(place.params.get('file')).toBe('SKILL.md')
+  })
+
+  it('opens the screen a retired screen’s work moved to, keeping what the address named', () => {
+    const compare = placeOf('#/compare?a=run-1%2Fone&b=run-2%2Fone')
+    expect(compare.screen).toBe('results')
+    expect(compare.params.get('b')).toBe('run-2/one')
+    for (const old of ['overview', 'generate', 'blind', 'transcript', 'insights', 'knobs'])
+      expect(placeOf(`#/${old}`).screen).toBe('results')
+    expect(placeOf('#/versions').screen).toBe('editor')
   })
 })
 

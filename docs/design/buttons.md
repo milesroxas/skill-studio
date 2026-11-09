@@ -11,7 +11,7 @@ These exist. Nothing else does: an unlisted variant is a bug, not an option.
 | `default` | the single most important action of a screen or dialog: ink fill | one per view |
 | `outline` | every other action. **This is the one to reach for first.** | any |
 | `ghost` | an action beside other buttons in a toolbar or header | any |
-| `signal` | the next step of the loop, in the top bar only: yellow fill | one per window |
+| `signal` | the next step of the loop, in the top bar only: yellow fill. Either "Next: …" or Run, never both. | one per window |
 | `secondary` | not used by any screen. Do not start. | 0 |
 | `link` | a link in a sentence that leaves the screen | rare |
 | `link-muted` | navigation inside a table cell or under a form | any |
@@ -88,18 +88,20 @@ Otherwise → default
 ```
 
 ```tsx
-// Correct: screens/Overview.tsx
-<Button variant="link-muted" size="cell-inline" aria-label={`Compare ${o.sample.name}`} onClick={…}>
-  Compare
+// Correct: components/ResultsSummary.tsx
+<Button variant="link-muted" size="cell-inline" aria-label={`Read ${o.sample.name}`} onClick={…}>
+  Read
 </Button>
 
 // Incorrect: a default-size button in a cell makes the row 36px taller than its neighbours
-<Button variant="outline" onClick={…}>Compare</Button>
+<Button variant="outline" onClick={…}>Read</Button>
 ```
 
 ## The next step
 
 The top bar shows where the loop goes next. It is the app's one yellow control. Only `App.tsx` renders it: a screen never adds its own.
+
+The loop is write, run, compare, and running is a button, not a place. So the next step is one of two things: a place to go ("Next: Add a case", "Next: Compare v0 and v1"), drawn as below, or the run itself. `RunButton` (`components/Run.tsx`) stands in the top bar whenever the skill has a case. It is `signal` when running is the next step and `outline` otherwise, and its label is the same either way ("Run v2"), so it keeps its place. It opens a `form` popover that says what the run will do before the button that starts it, because a run costs money.
 
 ```tsx
 // Correct: App.tsx
@@ -115,7 +117,7 @@ The top bar shows where the loop goes next. It is the app's one yellow control. 
   {next.label}
 </Button>
 
-// Incorrect: signal on a screen's own action. A run button is the screen's primary: default.
+// Incorrect: signal on the action inside Run's own panel. It is the panel's primary: default.
 <Button variant="signal" onClick={start}>Start a run</Button>
 ```
 
@@ -127,10 +129,10 @@ The top bar shows where the loop goes next. It is the app's one yellow control. 
 - A label ends in an ellipsis in two cases only: it is busy ("Saving…", "Starting…"), or it opens a dialog that asks more before acting ("Reset Skill Studio…"). A button that acts at once has none.
 - A button is `disabled` when pressing it would change nothing: "Show every hint again" is disabled when no hint has been seen.
 - Every button whose press awaits something is busy until it lands: `busy={saving} busyLabel="Saving…"`. `busy` disables the button and sets `aria-busy`; `busyLabel` is what it says meanwhile, laid over the label in the same cell so the button is as wide as the wider of the two from the start and nothing beside it moves. Never write the swap as a ternary in the label, and never leave an `await` behind a button that stays enabled: a button that comes straight back asks to be pressed again.
-- A button that starts a job stays busy until the job is over, not until the call returns: starting returns as soon as the job is queued. `runningJob(jobs, kind, title?)` in `Jobs.tsx` finds the job; "Start a run" says "Running…" with the count written so far in its hint, "Regrade" says "Grading…", "Ask Jev" says "Jev is voting…".
+- A button that starts a job stays busy until the job is over, not until the call returns: starting returns as soon as the job is queued. `runningJob(jobs, kind, title?)` in `Jobs.tsx` finds the job; Run says "Running…" while the run's count shows at the foot of the sidebar, and "Regrade" says "Grading…".
 - The other buttons of the same form or row are `disabled` while one of them is busy, so Save and Delete, or Restore on two rows, cannot run at once. A row's controls in a list wait on the row's own key (`pending` in `Library.tsx`), not on every row.
 - "Try again" after a failed read is busy while the read runs again: `useFetch` returns `loading`, and `ReadFailed` takes it as `retrying`.
-- A label is a verb and its object: "Start a run", "Delete case", "Save case", and "Add case" for an item's first save. Never "OK", "Submit" or "Click here". "Save" alone is right where what it saves is plain: an inspector's `ColumnFooter`, where it saves everything in the column (`Knobs.tsx`, `Blind.tsx`), and the Editor's `ColumnHeader`, where it saves the open file.
+- A label is a verb and its object: "Start a run", "Delete case", "Save case", and "Add case" for an item's first save. Never "OK", "Submit" or "Click here". "Save" alone is right where what it saves is plain: the Skill screen's `ColumnHeader`, where it saves the open file.
 - A dialog's confirm button is one verb: "Restart", "Restore", "Delete", "Discard", "Reset". The title above it names the object, so the button does not repeat it. The button that opens the dialog keeps its object: "Restart walkthrough…" opens a dialog whose button says "Restart".
 - Press feedback (`active:scale-[0.96]`) and the focus ring (`focus-ring`: keyboard only, see [color.md](color.md#focus)) are built in. Do not restyle them.
 - Never show an action only on hover. A row's actions are `ghost-muted` at rest, so touch and keyboard reach them.

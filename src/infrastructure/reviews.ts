@@ -1,75 +1,91 @@
 /**
- * Human judgments live in `<skill>/evals/reviews.json`: one review per output
- * key (`<run>/<sample>`) and the pairwise preferences, Jev's and the human's.
- * Anchors are outputs promoted to `evals/anchors/` with a label.
+ * What the reader said lives in `<skill>/evals/reviews.json`: for each output
+ * key (`<run>/<sample>`) their own answers where Jev's verdict was wrong, and
+ * their picks between two outputs. A file written by an earlier version may
+ * hold more beside these; whatever it holds is kept when the file is written.
  */
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
-import type { Preference, Review, Reviews } from '@domain/schemas.ts'
-import { readFrontMatter, slug } from '@domain/text.ts'
-import { assertSafe, assertSafePath, readJson, today, writeJson } from './fs.ts'
-import { anchorsDir, sampleFile } from './runs.ts'
+import { OVERALL, type Preference, type Review, type Reviews } from '@domain/schemas.ts'
+import { readJson, writeJson } from './fs.ts'
 
 export const reviewsPath = (skillDir: string): string => join(skillDir, 'evals/reviews.json')
 
-const EMPTY: Reviews = { reviews: {}, preferences: [] }
+/** One stored entry about an output: the app's own fields, and any others left as they are. */
+export type StoredReview = Partial<Review> & Record<string, unknown>
+/** One stored vote between two outputs, whoever cast it. */
+export type StoredVote = Omit<Preference, 'by'> & { by: string }
 
-export const loadReviews = (skillDir: string): Reviews =>
-  readJson<Reviews>(reviewsPath(skillDir), structuredClone(EMPTY))
+/** The file as it is on disk. Deleting a version moves entries out of it and back whole. */
+export interface StoredReviews {
+  reviews?: Record<string, StoredReview>
+  preferences?: StoredVote[]
+  [key: string]: unknown
+}
 
-export function saveReview(skillDir: string, key: string, review: Omit<Review, 'updatedAt'>): void {
-  const stored = loadReviews(skillDir)
-  stored.reviews[key] = { ...review, updatedAt: new Date().toISOString() }
+export const readStoredReviews = (skillDir: string): StoredReviews =>
+  readJson<StoredReviews>(reviewsPath(skillDir), {})
+
+export const writeStoredReviews = (skillDir: string, stored: StoredReviews): void =>
   writeJson(reviewsPath(skillDir), stored)
+
+const readStored = readStoredReviews
+
+const correctionsOf = (value: unknown): Record<string, boolean> =>
+  value && typeof value === 'object' && !Array.isArray(value)
+    ? Object.fromEntries(
+        Object.entries(value).filter((entry): entry is [string, boolean] => {
+          return typeof entry[1] === 'boolean'
+        }),
+      )
+    : {}
+
+/** The reader's corrections and picks. A vote that is not the reader's own is not a pick. */
+export function loadReviews(skillDir: string): Reviews {
+  const stored = readStored(skillDir)
+  return {
+    reviews: Object.fromEntries(
+      Object.entries(stored.reviews ?? {}).map(([key, review]) => [
+        key,
+        {
+          corrections: correctionsOf(review.corrections),
+          updatedAt: typeof review.updatedAt === 'string' ? review.updatedAt : '',
+        },
+      ]),
+    ),
+    preferences: (stored.preferences ?? []).filter(
+      (p): p is Preference => p.by === 'human' && p.criterion === OVERALL,
+    ),
+  }
 }
 
-/** One vote per unordered pair, criterion and voter; a new vote replaces the old. */
-export function savePreference(skillDir: string, preference: Omit<Preference, 'at'>): void {
-  const stored = loadReviews(skillDir)
-  const same = (p: Preference) =>
-    p.by === preference.by &&
-    p.criterion === preference.criterion &&
-    ((p.a === preference.a && p.b === preference.b) ||
-      (p.a === preference.b && p.b === preference.a))
-  stored.preferences = stored.preferences.filter((p) => !same(p))
-  stored.preferences.push({ ...preference, at: new Date().toISOString() })
-  writeJson(reviewsPath(skillDir), stored)
+/**
+ * The reader's own answer on one verdict of one output: `met` true or false,
+ * or null to take the answer back and let Jev's stand again.
+ */
+export function saveCorrection(
+  skillDir: string,
+  key: string,
+  verdict: string,
+  met: boolean | null,
+): void {
+  const stored = readStored(skillDir)
+  const reviews = stored.reviews ?? {}
+  const review = reviews[key] ?? {}
+  const corrections = correctionsOf(review.corrections)
+  if (met === null) delete corrections[verdict]
+  else corrections[verdict] = met
+  reviews[key] = { ...review, corrections, updatedAt: new Date().toISOString() }
+  writeStoredReviews(skillDir, { ...stored, reviews })
 }
 
-export interface PromoteOptions {
-  run: string
-  sample: string
-  /** Sample-relative artifact path; the markdown file to copy. */
-  file: string
-  case: string
-  label: 'good' | 'bad'
-  tests: string[]
-  about: string
-}
-
-/** Copy an output into `evals/anchors/` with the front matter the grader reads. */
-export function promoteAnchor(skillDir: string, options: PromoteOptions): string {
-  assertSafe(options.run, 'run')
-  assertSafe(options.sample, 'sample')
-  assertSafePath(options.file, 'file')
-  const source = sampleFile(skillDir, options.run, options.sample, options.file)
-  const body = readFrontMatter(readFileSync(source, 'utf8')).text
-  const name = `${slug(`${options.run}-${options.sample.replace(/\.md$/, '')}`)}-${options.label}.md`
-  const head = [
-    '---',
-    `case: ${options.case}`,
-    `label: ${options.label}`,
-    ...(options.label === 'bad' && options.tests.length
-      ? [`tests: ${options.tests.join(', ')}`]
-      : []),
-    `about: Promoted from evals/runs/${options.run}/${options.sample} on ${today()}.${
-      options.about ? ` ${options.about.replace(/\n/g, ' ')}` : ''
-    }`,
-    '---',
-    '',
-  ].join('\n')
-  mkdirSync(anchorsDir(skillDir), { recursive: true })
-  const path = join(anchorsDir(skillDir), name)
-  writeFileSync(path, `${head}${body}\n`)
-  return path
+/** One pick per unordered pair; a new pick replaces the old. */
+export function savePick(skillDir: string, pick: Pick<Preference, 'a' | 'b' | 'vote'>): void {
+  const stored = readStored(skillDir)
+  const same = (p: { a: string; b: string; by: string; criterion: string }) =>
+    p.by === 'human' &&
+    p.criterion === OVERALL &&
+    ((p.a === pick.a && p.b === pick.b) || (p.a === pick.b && p.b === pick.a))
+  const preferences = (stored.preferences ?? []).filter((p) => !same(p))
+  preferences.push({ ...pick, criterion: OVERALL, by: 'human', at: new Date().toISOString() })
+  writeStoredReviews(skillDir, { ...stored, preferences })
 }

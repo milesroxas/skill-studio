@@ -1,9 +1,11 @@
 /**
- * The shell. A sidebar holds the open skill (switch with ⌘K), every screen of
- * its loop in one flat list with each one's status, and the library, guide and
- * settings. The top bar goes back and forward through the screens visited,
- * names the one in view and offers the one suggested next step. Library, guide
- * and settings open in the same pane, so the skill in hand stays one click away.
+ * The shell. A sidebar holds the open skill (switch with ⌘K), the three
+ * screens of its loop (write the skill, write its cases, compare the results)
+ * with each one's status, and the library, guide and settings. The top bar
+ * goes back and forward through the screens visited, names the one in view,
+ * offers the one suggested next step and holds Run, the step between writing
+ * and comparing. Library, guide and settings open in the same pane, so the
+ * skill in hand stays one click away.
  *
  * Help is part of the shell, so it is the same on every screen: each screen
  * says what it is for in one line the first time it opens, and the help button
@@ -14,6 +16,7 @@
  * window of its own before this one opens; a browser, which has one page and
  * no windows to give, shows it in place of the shell.
  */
+import { pickBetween } from '@domain/picks.ts'
 import { isLookStep } from '@domain/practice.ts'
 import type { BenchConfig } from '@domain/schemas.ts'
 import { ArrowRightIcon, MenuIcon, MessageCircleIcon } from 'lucide-react'
@@ -27,6 +30,7 @@ import { ImprovePanel } from './components/Improve.tsx'
 import { JobsIndicator } from './components/Jobs.tsx'
 import { EmptyState, Loading, Spacer } from './components/layout.tsx'
 import { PracticeGuide } from './components/PracticeGuide.tsx'
+import { RunButton } from './components/Run.tsx'
 import {
   AppFrame,
   AssistantPane,
@@ -54,20 +58,18 @@ import { SCREEN_HELP } from './help.ts'
 import { back, forward, navigate, usePaneScroll, useRoute } from './history.ts'
 import { useNotice } from './hooks.ts'
 import { shortcut } from './keys.ts'
-import { mergedConfig, outputsOf, plural, versionScore } from './model.ts'
-import { APP_PLACES, isSkillScreen, placeFor, SECTIONS, WORKBENCH } from './places.ts'
-import { practiceGuide, useRestartPractice, useStartPractice } from './practice.ts'
+import { casePair, casesRun, mergedConfig, outputsOf, sideName, versionScore } from './model.ts'
+import { APP_PLACES, isSkillScreen, placeFor, SKILL_PLACES, WORKBENCH } from './places.ts'
+import {
+  type PracticeTarget,
+  practiceGuide,
+  useRestartPractice,
+  useStartPractice,
+} from './practice.ts'
 import { setPreferences, usePreferences } from './preferences.ts'
-import { Blind } from './screens/Blind.tsx'
 import { Cases } from './screens/Cases.tsx'
-import { Compare } from './screens/Compare.tsx'
-import { Generate } from './screens/Generate.tsx'
-import { Insights } from './screens/Insights.tsx'
-import { Knobs } from './screens/Knobs.tsx'
 import { LibraryScreen } from './screens/Library.tsx'
-import { Overview } from './screens/Overview.tsx'
-import { Transcript } from './screens/Transcript.tsx'
-import { Versions } from './screens/Versions.tsx'
+import { Results } from './screens/Results.tsx'
 import { Welcome } from './screens/Welcome.tsx'
 import { useUpdateNotices, useUpdateStep } from './updates.ts'
 
@@ -106,6 +108,17 @@ interface PlaceStatus {
   dot: Record<string, boolean>
 }
 
+/** The one step the top bar suggests: a place to go to, or the run to start. */
+type NextStep =
+  | { kind: 'go'; label: string; screen: string; params?: Record<string, string> }
+  | { kind: 'run' }
+
+/** A walkthrough step as the top bar's step: one with no screen is the Run button's. */
+const stepOf = (target: PracticeTarget): NextStep =>
+  target.screen === null
+    ? { kind: 'run' }
+    : { kind: 'go', label: target.label, screen: target.screen, params: target.params }
+
 export function App() {
   const [skillPath, setSkillPath] = useState(currentSkill)
   const [state, setState] = useState<State | null>(null)
@@ -116,6 +129,9 @@ export function App() {
   const [notice, report, dismissNotice] = useNotice()
   const [confirm, confirmDialog] = useConfirm()
   const [assistant, setAssistant] = useAssistant()
+  /** Run, in the top bar, is open: what the next run will do, over the button that starts it. */
+  const [runOpen, setRunOpen] = useState(false)
+  const openRun = useCallback(() => setRunOpen(true), [])
   const { thread: improving } = useImprove()
   // A rule sent from the Editor opens the panel on its conversation.
   const improveStarted = improving?.messages[0]?.at ?? null
@@ -146,6 +162,7 @@ export function App() {
     setState(null)
     setConfig(null)
     setError(null)
+    setRunOpen(false)
     reload()
   }, [skillPath, reload])
   const drafts = useDrafts(skillPath)
@@ -226,9 +243,19 @@ export function App() {
 
   const loaded = skillPath && state && config ? { state, config } : null
   const current = loaded?.state.versions.current
-  const unrated = loaded
-    ? outputs.filter((o) => o.result && !loaded.state.reviews.reviews[o.key]).length
-    : 0
+  // The cases whose latest output stands beside an earlier one, and has no pick between them yet.
+  const toCompare = useMemo(
+    () =>
+      state
+        ? casesRun(state, outputs).flatMap((id) => {
+            const { a, b } = casePair(outputs, id)
+            return a && b && pickBetween(state.reviews.preferences, a.key, b.key) === null
+              ? [{ id, a, b }]
+              : []
+          })
+        : [],
+    [state, outputs],
+  )
   const running = jobs.some((j) => j.status === 'running')
   // The practice skill is walked round the whole loop, past the point where the next step is plain.
   const practice = loaded?.state.practice
@@ -247,7 +274,10 @@ export function App() {
       ? 'welcome'
       : !loaded
         ? 'library'
-        : (practice?.target?.screen ?? 'editor')
+        : // A step that is the Run button's has no screen of its own: the skill opens on Results.
+          practice?.target
+          ? (practice.target.screen ?? 'results')
+          : 'editor'
   // The desktop app's welcome has its own window: here its route is only another name for home.
   const requested =
     route.screen === 'home' || (route.screen === 'welcome' && !inline) ? home : route.screen
@@ -286,39 +316,42 @@ export function App() {
     const dirty =
       JSON.stringify(loaded.config) !== JSON.stringify(mergedConfig(loaded.state.savedConfig))
     status.meta = {
-      versions: loaded.state.versions.versions.length
-        ? String(loaded.state.versions.versions.length)
-        : null,
       cases: String(loaded.state.cases.length),
-      overview: loaded.state.runs.length ? String(loaded.state.runs.length) : null,
-      blind: unrated ? String(unrated) : null,
+      // How many cases wait for a pick between their two versions.
+      results: toCompare.length ? String(toCompare.length) : null,
     }
     status.dot = {
       editor: Object.keys(drafts.files).length > 0,
-      versions: current.changed,
       cases: Object.keys(drafts.cases).length > 0,
-      knobs: dirty,
+      // Scoring, on Results, has changes that are not saved.
+      results: dirty,
     }
   }
 
-  // The one suggested next step, in loop order. Hidden while a job runs or when already there.
-  const next: { label: string; screen: string; params?: Record<string, string> } | null =
+  // The one suggested next step, in loop order: write, run, compare. None while a job runs.
+  const first = toCompare[0]
+  const next: NextStep | null =
     !loaded || !current || running
       ? null
       : practice
-        ? practice.target
+        ? practice.target && stepOf(practice.target)
         : !loaded.state.cases.length
-          ? { label: 'Add a case', screen: 'cases', params: { new: '1' } }
+          ? { kind: 'go', label: 'Add a case', screen: 'cases', params: { new: '1' } }
           : current.changed || !loaded.state.runs.length
-            ? { label: `Run ${current.version}`, screen: 'generate' }
-            : unrated
-              ? { label: `Rate ${plural(unrated, 'output')}`, screen: 'blind' }
+            ? { kind: 'run' }
+            : first
+              ? {
+                  kind: 'go',
+                  label: `Compare ${sideName(first.a)} and ${sideName(first.b)}`,
+                  screen: 'results',
+                  params: { case: first.id },
+                }
               : null
 
   /** The open version, and how it scores: the line every screen shows under the skill's name. */
   const versionLine = current
     ? current.changed
-      ? `${current.version} · not saved yet`
+      ? `${current.version} · not run yet`
       : `${current.version}${current.name ? ` · ${current.name}` : ''}${score === null ? '' : ` · mean ${Math.round(score)}`}`
     : skillPath
       ? 'Loading…'
@@ -345,27 +378,30 @@ export function App() {
         }
       />
       <SidebarBody>
-        {skillPath
-          ? SECTIONS.map((section) => (
-              <SidebarSection key={section.label ?? 'skill'} label={section.label}>
-                {section.places.map((p) => (
-                  <NavItem
-                    key={p.screen}
-                    icon={<p.icon aria-hidden="true" />}
-                    label={p.label}
-                    title={SCREEN_HELP[p.screen]?.short}
-                    meta={status.meta[p.screen]}
-                    dot={status.dot[p.screen]}
-                    current={screen === p.screen}
-                    onClick={() => go(p.screen)}
-                  />
-                ))}
-              </SidebarSection>
-            ))
-          : null}
+        {skillPath ? (
+          <SidebarSection>
+            {SKILL_PLACES.map((p) => (
+              <NavItem
+                key={p.screen}
+                icon={<p.icon aria-hidden="true" />}
+                label={p.label}
+                title={SCREEN_HELP[p.screen]?.short}
+                meta={status.meta[p.screen]}
+                dot={status.dot[p.screen]}
+                current={screen === p.screen}
+                onClick={() => go(p.screen)}
+              />
+            ))}
+          </SidebarSection>
+        ) : null}
       </SidebarBody>
       {practice ? (
-        <PracticeGuide guide={practice} onGo={go} onNew={() => go('library', { new: '1' })} />
+        <PracticeGuide
+          guide={practice}
+          // A step with no screen is the Run button's: open it where it stands.
+          onGo={(target) => (target.screen === null ? openRun() : go(target.screen, target.params))}
+          onNew={() => go('library', { new: '1' })}
+        />
       ) : null}
       <SidebarFooter lead={<UpdateControl confirm={confirm} report={report} />}>
         <JobsIndicator jobs={jobs} />
@@ -397,6 +433,7 @@ export function App() {
         jobs,
         drafts,
         openSkill,
+        openRun,
       }
     : null
 
@@ -460,24 +497,10 @@ export function App() {
             <Editor ctx={ctx} />
           </Suspense>
         )
-      case 'versions':
-        return <Versions ctx={ctx} />
       case 'cases':
         return <Cases ctx={ctx} />
-      case 'generate':
-        return <Generate ctx={ctx} />
-      case 'blind':
-        return <Blind ctx={ctx} />
-      case 'compare':
-        return <Compare ctx={ctx} />
-      case 'transcript':
-        return <Transcript ctx={ctx} />
-      case 'insights':
-        return <Insights ctx={ctx} />
-      case 'knobs':
-        return <Knobs ctx={ctx} />
       default:
-        return <Overview ctx={ctx} />
+        return <Results ctx={ctx} />
     }
   })()
 
@@ -557,7 +580,7 @@ export function App() {
               </button>
             </Badge>
           ) : null}
-          {next && next.screen !== screen ? (
+          {next?.kind === 'go' && next.screen !== screen ? (
             <Button
               type="button"
               variant="signal"
@@ -567,6 +590,19 @@ export function App() {
               Next: {next.label}
               <ArrowRightIcon aria-hidden="true" />
             </Button>
+          ) : null}
+          {/* Run is the step between writing and comparing. It is yellow when it is the next one. */}
+          {loaded?.state.cases.length ? (
+            <RunButton
+              key={loaded.state.skill.path}
+              state={loaded.state}
+              jobs={jobs}
+              report={report}
+              open={runOpen}
+              onOpenChange={setRunOpen}
+              next={next?.kind === 'run'}
+              unsaved={Object.keys(drafts.files).length}
+            />
           ) : null}
           <HelpButton
             label={place?.label ?? ''}

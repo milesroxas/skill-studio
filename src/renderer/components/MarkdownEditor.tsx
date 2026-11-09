@@ -85,6 +85,12 @@ export interface MarkdownEditorHandle {
   focus: () => void
   /** Open "Write with AI" on the whole file, as the toolbar button does. */
   assist: () => void
+  /**
+   * Select whole lines, numbered from 1, and bring them into view: a rule
+   * someone was sent here to change. On a SKILL.md the selection opens the
+   * popout, as a click on the rule's number does.
+   */
+  selectLines: (from: number, to: number) => void
 }
 
 interface Action {
@@ -213,7 +219,7 @@ interface MarkdownEditorProps {
    * what the skill is about, which the checks read; errors go to the screen.
    */
   refine?: { description: string; onError: (message: string) => void }
-  /** This SKILL.md's bullets are what the judge grades: mark and number them in the margin. */
+  /** This SKILL.md's bullets are the rules Jev grades: mark and number them in the margin. */
   graded?: boolean
 }
 
@@ -436,6 +442,18 @@ export function MarkdownEditor({
         })
         setPicked(null)
         setAssistOpen(true)
+      },
+      selectLines(from, to) {
+        const view = editor.current
+        if (!view) return
+        const doc = view.state.doc
+        if (from < 1 || to < from || to > doc.lines) return
+        const anchor = doc.line(from).from
+        view.dispatch({
+          selection: { anchor, head: doc.line(to).to },
+          effects: EditorView.scrollIntoView(anchor, { y: 'center' }),
+        })
+        view.focus()
       },
     }),
     [],

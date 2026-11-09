@@ -77,18 +77,16 @@ Mono says "this is a literal or a measurement". Use it for:
 A number in a sentence stays in sans, and so does a live count under a field ("42 words", a `Hint` with `tabular`). A date is sans, written by `shortDate` from `model.ts`: never format one by hand. Every number that can change or sits in a column is `tabular`, so digits do not shift as it updates. In a table, `TableCell numeric` and `TableHead numeric` carry right alignment and tabular figures, and the cell is mono: do not add them by hand. A right-aligned column that is not a number (actions, a date) is `trailing`, and stays sans.
 
 ```tsx
-// Correct: screens/Overview.tsx
-<TableHead numeric optional>
-  Cost
-</TableHead>
+// Correct: components/ResultsSummary.tsx
+<TableHead numeric>Mean</TableHead>
 
 // Incorrect: alignment and figures rebuilt at the call site
-<TableHead className="text-right tabular-nums">Cost</TableHead>
+<TableHead className="text-right tabular-nums">Mean</TableHead>
 ```
 
 ## Caps labels
 
-`Text caps` is 11px, weight 500, uppercase, tracked `--tracking-caps` (0.08em). It names a group without being a heading. Use it for exactly these: a `SidebarSection` label, a section of the composer's slash menu ("Assistant", "Skills"), a caption over a part of a picture in the welcome, the label of a figure, the tag before each line of a rule pair (`PairList` in `starters.tsx`: "vague" and "check" by default, "vague" and "exact" on the Editor), the part labels of a case change in the Assistant ("Prompt", "A good answer", "Checks"), a rewrite's kind ("Best practice", "More direct", "Shorter"), and the section labels of Auto refine and Help me improve ("What drifts", "Revision", "The selection", "The draft against the guide"). Two words at most. Never for a button, a table head or a heading: caps slow reading, so they stay where a reader only glances.
+`Text caps` is 11px, weight 500, uppercase, tracked `--tracking-caps` (0.08em). It names a group without being a heading. Use it for exactly these: a section of the composer's slash menu ("Assistant", "Skills"), a caption over a part of a picture in the welcome, the label of a figure, the tag before each line of a rule pair (`PairList` in `starters.tsx`: "vague" and "check" by default, "vague" and "exact" on the Editor), the part labels of a case change in the Assistant ("Prompt", "A good answer", "Checks"), a rewrite's kind ("Best practice", "More direct", "Shorter"), and the section labels of Auto refine and Help me improve ("What drifts", "Revision", "The selection", "The draft against the guide"). Two words at most. Never for a button, a table head or a heading: caps slow reading, so they stay where a reader only glances.
 
 ## Display type
 

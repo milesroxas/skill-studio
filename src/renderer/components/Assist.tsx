@@ -3,7 +3,7 @@
  * say what to write or change, watch the text arrive, then put it in the field
  * or drop it. Nothing reaches the field until it is accepted. Every field
  * names its kind, and the reply comes back in that kind's shape: a check is
- * one fact a judge can mark, a SKILL.md is rules in the graded form. Beside a
+ * one fact Jev can mark, a SKILL.md is rules in the graded form. Beside a
  * list it writes new items, which are added to the ones there.
  */
 import type { AiRun } from '@domain/ai.ts'

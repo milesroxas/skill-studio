@@ -8,8 +8,6 @@ interface SegmentOption<T extends string> {
   value: T
   label: ReactNode
   title?: string
-  /** The verdict this choice states, coloring it when pressed. */
-  tone?: 'success' | 'destructive'
 }
 
 const groupVariants = cva('', {
@@ -23,15 +21,14 @@ const groupVariants = cva('', {
 })
 
 interface SegmentedProps<T extends string> extends VariantProps<typeof groupVariants> {
+  /** The choice pressed; null when none is yet, such as a pick not made. */
   value: T | null
-  /** `null` when the pressed choice is pressed again and `clearable` is set. */
-  onChange: (value: T | null) => void
+  /** A choice stays pressed when it is pressed again, so this is never null. */
+  onChange: (value: T) => void
   options: ReadonlyArray<SegmentOption<T>>
-  clearable?: boolean
   /** A change is being saved: no choice can be pressed until it lands. */
   disabled?: boolean
   size?: 'sm' | 'default'
-  tabular?: boolean
   'aria-label'?: string
   'aria-labelledby'?: string
 }
@@ -40,11 +37,9 @@ export function Segmented<T extends string>({
   value,
   onChange,
   options,
-  clearable = false,
   disabled,
   fill,
   size = 'sm',
-  tabular,
   ...aria
 }: SegmentedProps<T>) {
   return (
@@ -56,19 +51,12 @@ export function Segmented<T extends string>({
       value={value ?? ''}
       onValueChange={(v) => {
         if (v) onChange(v as T)
-        else if (clearable) onChange(null)
       }}
       className={cn(groupVariants({ fill }))}
       {...aria}
     >
       {options.map((o) => (
-        <ToggleGroupItem
-          key={o.value}
-          value={o.value}
-          title={o.title}
-          tone={o.tone}
-          className={tabular ? 'tabular-nums' : undefined}
-        >
+        <ToggleGroupItem key={o.value} value={o.value} title={o.title}>
           {o.label}
         </ToggleGroupItem>
       ))}

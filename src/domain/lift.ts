@@ -37,7 +37,7 @@ export const writerKey = (writer: Writer | null | undefined): string =>
   writer ? `${writer.engine}/${writer.model ?? ''}/${writer.effort ?? ''}` : 'unknown'
 
 /** "v3" is 3; anything else is no version. */
-const versionNumber = (version: string): number | null =>
+export const versionNumber = (version: string): number | null =>
   /^v\d+$/.test(version) ? Number(version.slice(1)) : null
 
 const newest = (a: Scored, b: Scored): Scored => (b.createdAt > a.createdAt ? b : a)

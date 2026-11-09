@@ -15,7 +15,6 @@ A table sits directly on the page. Never put it in a card or give it an outer bo
 | `interactive` | `TableRow` | `false` (default), `true` | the row opens something |
 | `align` | `TableRow` | `middle` (default), `baseline` | `baseline` when one cell wraps to several lines |
 | `variant` | `TableRow` | `default`, `destructive` | a failed sample |
-| `leaving` | `TableRow` | boolean | a row fading out after a delete, with `inert` |
 | `numeric` | head, cell | boolean | a number: right-aligned and tabular. The cell is mono; the head stays a word in sans |
 | `trailing` | head, cell | boolean | not a number, at the row's end: actions, a date, a note. Right-aligned, narrow and tabular, in sans |
 | `wide`, `wrap`, `filler` | head, cell | boolean | the column that takes spare width; text that may wrap |
@@ -26,16 +25,13 @@ A table sits directly on the page. Never put it in a card or give it an outer bo
 A row that opens a detail uses `TableRowToggle` and `TableDetail`. Do not build a disclosure row by hand: the toggle carries `aria-expanded`, and the open row's `bg-muted` fill comes from it.
 
 ```tsx
-// Correct: screens/Overview.tsx
+// Correct: components/ResultsSummary.tsx
 <TableHead wide>Run</TableHead>
 <TableHead numeric>Mean</TableHead>
-<TableHead numeric optional>
-  Cost
-</TableHead>
 
 // Incorrect: widths and alignment by hand, and a column that overflows at 720px
 <TableHead className="w-[300px]">Run</TableHead>
-<TableHead className="text-right">Cost</TableHead>
+<TableHead className="text-right">Mean</TableHead>
 ```
 
 Rules:
@@ -55,9 +51,11 @@ A score is out of 100 and always shows through one of these, from `components/Sc
 | `TotalChip` | a score as a chip whose color is its band. Every chip is 40px wide, so a column keeps one edge. |
 | `SampleCount` | how many outputs a mean stands for: "×2". Its slot keeps its width when empty. Hidden below `lg`, so a table of cases fits 720px: the score's `aria-label` still says it. |
 | `Delta` | a change between two scores: "+15" in `success`, "−4" in `destructive` |
-| `Layers` | each layer's score with a bar. Bars stay grey until a layer is weak. |
-| `Flags` | the list of what a grader flagged |
-| `CheckWeight` | a check's ×2 mark after its statement, only when it counts more than 1. The Assistant's case change uses it; Rate blind lists checks without it, since a rater judges the output, not the scoring. |
+| `ScoreMove` | a score's move from one version to the next: the earlier chip, an arrow, the later chip and the `Delta`. With no earlier score it is the later chip alone, so a list keeps one edge. |
+| `Parts` | the parts one score is made of, each with a bar: "Rules 4 of 5", "Checks 2 of 3". A part counted from facts says the count; any other says its score. Bars stay grey until a part is weak. |
+| `CheckWeight` | a check's ×2 mark after its statement, only when it counts more than 1 |
+
+What a score is counted from shows under it as `Verdicts` (`components/Verdicts.tsx`), on an `OutputCard`: **Missed** first and open, one row per rule broken or check not met, then **Met** folded under its count. A row is a mark (a red cross or a green tick, which repeat the words "Missed" and "Met"), the rule or check in full, and under it `link-muted` actions at `inline-sm`: "Open rule" for a rule SKILL.md still holds, and "Mark as met" or "Mark as missed" for a fact Jev answered. A fact code measured, such as a word count, has no answer to give and no action. A fact the reader answered says "your answer", and its action is "Take back".
 
 Bands come from `scoreBand()` in `model.ts`. Never compare a score to a number in a component: the bands are tuned in one place.
 
@@ -76,7 +74,7 @@ Bands come from `scoreBand()` in `model.ts`. Never compare a score to a number i
 <Badge variant={mean > 90 ? 'success' : 'warning'}>{mean}</Badge>
 ```
 
-Only weak things are colored in `Layers`. If every bar is green, the eye has nowhere to land: grey is the resting state and color is the exception.
+Only weak things are colored in `Parts`. If every bar is green, the eye has nowhere to land: grey is the resting state and color is the exception.
 
 ## Badge
 
@@ -127,8 +125,8 @@ The words carry the state and the dot repeats it, so the line still reads withou
 `components/StatusLine.tsx`, fed by `ctx.report`. One line at the foot of the window's frame, in a strip the frame keeps for it, so it never lies over the work: under the pane in the app and in the changelog window (`place="foot"`), in the first cell of the welcome's title strip (`place="head"`). While it speaks the strip is ink, drawn in from the left on `ease-stroke` in 300ms, and the words rise in after it; then it goes quiet and the strip is paper again. Its Undo is an `outline` button, so the offer is seen. It is the only place a finished or failed step is announced. Nothing floats over the screen to say so, and a question that must be answered first is `ctx.confirm` ([forms.md](forms.md)), not a notice.
 
 ```tsx
-// Correct: screens/Versions.tsx
-report(`Saved ${saved.version} · ${saved.name}`)
+// Correct: components/VersionDetail.tsx
+report(`Restored ${found.version}`)
 report(e as Error)
 report(`Deleted ${v.version}`, { undo })
 
@@ -165,4 +163,4 @@ The dot is `Dot` from `components/Status.tsx`, the one dot in the app. `Status`,
 
 ## Figures
 
-A chart or a diagram labels its values directly, in mono `2xs`. It uses `foreground` for the thing measured and `muted-foreground` for references, with axes in `input`. It never uses yellow, and it uses a verdict color only for a verdict. Every figure is a component: `Scatter` (`components/Scatter.tsx`) is your rating against the judge's total on Agreement, one dot per rated output; the version lift is the one figure that uses the ribbon. See [brand.md](brand.md).
+A chart or a diagram labels its values directly, in mono `2xs`. It uses `foreground` for the thing measured and `muted-foreground` for references, with axes in `input`. It never uses yellow, and it uses a verdict color only for a verdict. Every figure is a component. The app has one: the version lift on Results, the one figure that uses the ribbon. See [brand.md](brand.md).

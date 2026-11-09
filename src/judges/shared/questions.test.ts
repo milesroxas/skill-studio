@@ -9,13 +9,11 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { holdsImage } from '../images.ts'
 import type { Jev } from '../jev.ts'
 import type { JudgeContext, JudgeInput } from '../types.ts'
-import { askStatements, pairwiseText, withRequest } from './questions.ts'
+import { askStatements, withRequest } from './questions.ts'
 
-// Jev is a network call: answer every question with a fixed Noul and a fixed Choice.
+// Jev is a network call: answer every question with a fixed Noul.
 const ask = vi.fn(async (_state: unknown, questions: Record<string, unknown>) =>
-  Object.fromEntries(
-    Object.keys(questions).map((id) => [id, { noul: 0.12345, choice: 'b', confidence: 0.96049 }]),
-  ),
+  Object.fromEntries(Object.keys(questions).map((id) => [id, { noul: 0.12345 }])),
 )
 // A braced body: a hook that returns the mock would have it called again as a teardown.
 beforeEach(() => {
@@ -82,7 +80,7 @@ const output = (text: string, over: Partial<JudgeInput> = {}): JudgeInput => ({
   ...over,
 })
 
-/** The state and the question texts of the one request `pairwiseText` made. */
+/** The state and the question texts of the one request made. */
 const asked = () => {
   const [state, questions] = ask.mock.calls[0] as [
     Record<string, unknown>,
@@ -107,90 +105,6 @@ describe('withRequest', () => {
     expect(asked().questions.g1.instructions).toBe(
       '`output` was produced to answer `request`. Is this statement true of `output`: "statement g1"',
     )
-  })
-})
-
-describe('pairwiseText', () => {
-  const rules = [{ id: 'r1', text: 'Write exactly two sentences.', section: 'Rules' }]
-  const intro = testCase('intro', 'Thank Elena.', ['The note has exactly two sentences.'])
-
-  it('gives Jev the request, the rules and the graders, and asks overall against them', async () => {
-    const votes = await pairwiseText(
-      output('long note', { case: intro, rules }),
-      output('short note', { case: intro, rules }),
-      ['overall'],
-      ctx,
-    )
-    const { state, questions } = asked()
-    expect(state).toEqual({
-      request: 'Thank Elena.',
-      rules: ['Write exactly two sentences.'],
-      checks: ['The note has exactly two sentences.'],
-      a: 'long note',
-      b: 'short note',
-    })
-    expect(questions.c0.instructions).toBe(
-      'Which of `a` and `b` is the better answer to `request`, judged by `rules` and `checks`?',
-    )
-    expect(questions.c0.criteria).toEqual({
-      a: '`a` breaks fewer of `rules` and fails fewer of `checks` than `b`. If they break and fail the same ones, `a` does what `request` asks more exactly.',
-      b: '`b` breaks fewer of `rules` and fails fewer of `checks` than `a`. If they break and fail the same ones, `b` does what `request` asks more exactly.',
-      tie: '`a` and `b` break the same `rules` and fail the same `checks`, and answer `request` equally well.',
-    })
-    expect(votes).toEqual({ overall: { vote: 'b', confidence: 0.96 } })
-  })
-
-  it('asks a named criterion with the request and the rules in view, and leaves the graders out', async () => {
-    await pairwiseText(
-      output('x', { case: intro, rules }),
-      output('y', { case: intro, rules }),
-      ['warmth'],
-      ctx,
-    )
-    const { state, questions } = asked()
-    expect(Object.keys(state)).toEqual(['request', 'rules', 'a', 'b'])
-    expect(questions.c0.instructions).toBe(
-      '`a` and `b` were each written to answer `request` while following `rules`. Which of `a` and `b` better satisfies this criterion: "warmth"',
-    )
-  })
-
-  it('names each request when the outputs answer different cases', async () => {
-    await pairwiseText(
-      output('x', { case: intro, rules }),
-      output('y', { case: testCase('shift', 'Thank Omar.', ['Names the shift.']), rules }),
-      ['overall'],
-      ctx,
-    )
-    const { state, questions } = asked()
-    expect(state).toEqual({
-      request_a: 'Thank Elena.',
-      request_b: 'Thank Omar.',
-      rules: ['Write exactly two sentences.'],
-      a: 'x',
-      b: 'y',
-    })
-    expect(questions.c0.instructions).toBe(
-      '`a` was written to answer `request_a` and `b` to answer `request_b`. Which of `a` and `b` is the better answer to its own request, judged by `rules`?',
-    )
-    expect(questions.c0.criteria.tie).toBe(
-      '`a` and `b` break the same `rules`, and answer their own requests equally well.',
-    )
-  })
-
-  it('falls back to the bare criterion when there is no case and no rule', async () => {
-    await pairwiseText(output('x'), output('y'), ['overall'], ctx)
-    const { state, questions } = asked()
-    expect(state).toEqual({ a: 'x', b: 'y' })
-    expect(questions.c0.instructions).toBe(
-      'Which of `a` and `b` better satisfies this criterion: "overall"',
-    )
-  })
-
-  it('refuses to compare an output with no text', async () => {
-    await expect(pairwiseText(output(' '), output('y'), ['overall'], ctx)).rejects.toThrow(
-      'One of these outputs has nothing Jev can compare.',
-    )
-    expect(ask).not.toHaveBeenCalled()
   })
 })
 

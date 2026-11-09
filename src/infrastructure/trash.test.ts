@@ -8,7 +8,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 const home = mkdtempSync(join(tmpdir(), 'st-trash-home-'))
 process.env.SKILL_STUDIO_HOME = home
 const { deleteVersion, undeleteVersion } = await import('./trash.ts')
-const { loadReviews, saveReview, savePreference } = await import('./reviews.ts')
+const { loadReviews, saveCorrection, savePick } = await import('./reviews.ts')
 const { versionsOf } = await import('./runs.ts')
 const { saveVersion } = await import('./versions.ts')
 
@@ -30,8 +30,6 @@ function writeRun(name: string, version: string) {
   writeFileSync(join(run, 'run.json'), JSON.stringify(meta))
 }
 
-const review = { rating: 4, layers: {}, note: '' }
-
 describe('deleteVersion', () => {
   it('moves a saved version out, and the files stay as they are', () => {
     saveVersion(dir, versionsOf(dir).current, 'One', '')
@@ -43,19 +41,13 @@ describe('deleteVersion', () => {
     expect(versionsOf(dir).current).toMatchObject({ version: 'v0', changed: true })
   })
 
-  it('takes the runs of the version and the reviews and votes on them', () => {
+  it('takes the runs of the version and the corrections and picks on them', () => {
     saveVersion(dir, versionsOf(dir).current, 'One', '')
     writeRun('r-v0', 'v0')
     writeRun('r-v1', 'v1')
-    saveReview(dir, 'r-v0/case-s1', review)
-    saveReview(dir, 'r-v1/case-s1', review)
-    savePreference(dir, {
-      a: 'r-v0/case-s1',
-      b: 'r-v1/case-s1',
-      criterion: 'overall',
-      vote: 'a',
-      by: 'human',
-    })
+    saveCorrection(dir, 'r-v0/case-s1', 'rule:Be brief.', true)
+    saveCorrection(dir, 'r-v1/case-s1', 'rule:Be brief.', true)
+    savePick(dir, { a: 'r-v0/case-s1', b: 'r-v1/case-s1', vote: 'a' })
     expect(deleteVersion(dir, 'v0')).toMatchObject({ runs: 1, reviews: 1 })
     expect(existsSync(join(dir, 'evals/runs/r-v0'))).toBe(false)
     expect(existsSync(join(dir, 'evals/runs/r-v1'))).toBe(true)
@@ -80,17 +72,11 @@ describe('deleteVersion', () => {
 })
 
 describe('undeleteVersion', () => {
-  it('puts the version, its runs and its reviews back', () => {
+  it('puts the version, its runs, its corrections and its picks back', () => {
     saveVersion(dir, versionsOf(dir).current, 'One', '')
     writeRun('r-v0', 'v0')
-    saveReview(dir, 'r-v0/case-s1', review)
-    savePreference(dir, {
-      a: 'r-v0/case-s1',
-      b: 'r-v0/case-s2',
-      criterion: 'overall',
-      vote: 'a',
-      by: 'human',
-    })
+    saveCorrection(dir, 'r-v0/case-s1', 'rule:Be brief.', true)
+    savePick(dir, { a: 'r-v0/case-s1', b: 'r-v0/case-s2', vote: 'a' })
     const { undo } = deleteVersion(dir, 'v0')
     expect(undeleteVersion(dir, undo)).toEqual({ restored: 'v0' })
     expect(versionsOf(dir).versions.map((v) => [v.version, v.saved])).toEqual([['v0', true]])

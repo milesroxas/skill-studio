@@ -143,7 +143,7 @@ export function markPracticeSeen(step: LookStep): LookStep[] {
 }
 
 /**
- * The practice skill as it was first written: its runs, ratings, votes,
+ * The practice skill as it was first written: its runs, corrections, picks,
  * versions, edits and the screens marked as seen go. Progress is read from those files, so the loop starts
  * again at its first step. Only the app's own copy is touched.
  */
