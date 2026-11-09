@@ -1,5 +1,6 @@
 import {
   AI_PROVIDER_IDS,
+  AI_PROVIDERS,
   type AiModel,
   type AiProviderId,
   type AiProviderInfo,
@@ -30,15 +31,44 @@ export function aiProviderInfo(): Promise<AiProviderInfo[]> {
   return Promise.all(
     AI_PROVIDER_IDS.map(async (id): Promise<AiProviderInfo> => {
       const provider = providers[id]
-      if (!provider.connected()) return { id, connected: false, problem: null, models: [] }
+      if (!provider.connected())
+        return {
+          id,
+          connected: false,
+          problem: null,
+          models: [],
+          account: null,
+          installable: Boolean(provider.installable),
+        }
+      // A CLI that cannot say who it is stays usable, as it was before it could.
+      const account = (await provider.account?.().catch(() => null)) ?? null
+      // Signed out, every request would fail: offer no model until it signs in.
+      if (account && !account.signedIn)
+        return {
+          id,
+          connected: true,
+          problem: `${AI_PROVIDERS[id].label} is not signed in.`,
+          models: [],
+          account,
+          installable: false,
+        }
       try {
-        return { id, connected: true, problem: null, models: await provider.models() }
+        return {
+          id,
+          connected: true,
+          problem: null,
+          models: await provider.models(),
+          account,
+          installable: false,
+        }
       } catch (error) {
         return {
           id,
           connected: true,
           problem: (error as Error).message,
           models: [...(KNOWN_MODELS[id] ?? [])],
+          account,
+          installable: false,
         }
       }
     }),

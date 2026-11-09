@@ -75,7 +75,7 @@ Every control sits in a `Field` with a `Label` above it. Never a placeholder as 
 
 `Input` props that change its look: `width` (`full`, `auto`, `grow`, `narrow`, `wide`, `search`), `font` (`sans`, `mono`), `size` (`default` 36px, `sm` 28px). Nothing else exists.
 
-- `font="mono"` for a path, a name used as an id, a key.
+- `font="mono"` for a path, a name used as an id, a key, or a command to copy. A command to copy is `readOnly` under its own label ("Run in Terminal"), selects whole on focus, and has a **Copy command** button under it (`CliSetup` in `components/Connections.tsx`).
 - `width="search"` for a search field in a `ListBar`.
 - `size="sm"` only in workbench chrome.
 - An input's fill is `bg-card`. On porcelain its 1.5:1 edge is not enough to find it. Every field (`Input`, `TextArea`, the `Select` trigger) takes its edge and fill from `FIELD_SURFACE` in `ui/input.tsx`: change it there, once.

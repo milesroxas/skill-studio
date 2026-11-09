@@ -5,11 +5,18 @@
  */
 import { tmpdir } from 'node:os'
 import { agentEnv } from '../env.ts'
-import { exec } from '../exec.ts'
+import { type ExecResult, exec } from '../exec.ts'
 import type { StoredImage } from '../images.ts'
 import type { AiMessage, AiRequest } from './types.ts'
 
 const TIMEOUT_MS = 5 * 60_000
+/**
+ * Ask a CLI how it is signed in. The answer is in what it prints and how it
+ * exits. This only reads: signing in and installing are the person's to do, in
+ * their own terminal, with the CLI's own command. The app runs neither.
+ */
+export const cliStatus = (command: string, args: string[]): Promise<ExecResult> =>
+  exec(command, args, { cwd: tmpdir(), env: agentEnv(), timeoutMs: 10_000 })
 
 /** Every picture in the conversation, oldest first: a CLI takes them beside its one prompt. */
 export const picturesOf = (messages: AiMessage[]): StoredImage[] =>

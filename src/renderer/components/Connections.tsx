@@ -4,12 +4,21 @@
  * to get a key the app walks someone through. One set of components, so a
  * connection reads and saves the same way wherever it is made.
  */
-import { AI_PROVIDERS, type AiProviderInfo, type AiVendor, providersOf } from '@domain/ai.ts'
+import {
+  AI_PROVIDERS,
+  type AiProviderInfo,
+  type AiVendor,
+  accountLine,
+  needsSignIn,
+  providersOf,
+} from '@domain/ai.ts'
 import { SECRETS, type SecretId, type Settings } from '@domain/secrets.ts'
-import { useId, useState } from 'react'
-import { loadAi, useAi } from '../ai.ts'
+import { type ReactNode, useEffect, useId, useState } from 'react'
+import { loadAi, recheck, useAi } from '../ai.ts'
 import { api } from '../api.ts'
+import { copyText } from '../clipboard.ts'
 import { type Reporter, useFetch } from '../hooks.ts'
+import { knownKeys, readKeys } from '../secrets.ts'
 import { Disclosure } from './Disclosure.tsx'
 import { Field, List, Loading, ReadFailed, Stack, Toolbar } from './layout.tsx'
 import { Status } from './Status.tsx'
@@ -28,34 +37,176 @@ export function useKeys(onSaved?: () => Promise<void>): {
   keys: Keys
   changed: () => Promise<void>
 } {
-  const keys = useFetch(() => api.settings(), [])
+  const keys = useFetch(readKeys, [])
   const changed = async () => {
     keys.reload()
     await Promise.all([loadAi(), onSaved?.()])
   }
-  return { keys, changed }
+  // Until this visit's own read lands, the last one stands in for it.
+  return { keys: { ...keys, data: keys.data ?? knownKeys() }, changed }
 }
 
-/** A CLI the app can write through: found on this computer or not, and where to get it. */
-function CliStatus({ info }: { info: AiProviderInfo | undefined }) {
+/**
+ * A CLI the app can write through: found on this computer or not, and signed
+ * in or not. The app runs the CLI as its maker publishes it and reads how it
+ * stands. It never installs the CLI or signs it in: it shows the maker's own
+ * command for the person to run in their terminal, and looks again after.
+ */
+function CliStatus({
+  info,
+  report,
+  onSaved,
+}: {
+  info: AiProviderInfo | undefined
+  report: Reporter
+  onSaved: () => Promise<void>
+}) {
   if (!info) return <Loading />
   const def = AI_PROVIDERS[info.id]
   if (def.via !== 'cli') return null
+
+  if (!info.connected) {
+    const command = info.installable ? def.installCommand : undefined
+    return (
+      <CliSetup
+        info={info}
+        title={`${def.label} is not installed`}
+        detail="Install it to write on your own account, with no key."
+        command={command}
+        report={report}
+        onSaved={onSaved}
+      >
+        {command ? (
+          <>
+            The command in {def.vendor}’s <Link href={def.install}>install guide</Link>.
+          </>
+        ) : (
+          <>
+            Follow {def.vendor}’s <Link href={def.install}>install guide</Link>, then check again.
+          </>
+        )}
+      </CliSetup>
+    )
+  }
+
+  if (needsSignIn(info))
+    return (
+      <CliSetup
+        info={info}
+        title={`${def.label} is not signed in`}
+        command={def.signInCommand}
+        report={report}
+        onSaved={onSaved}
+      >
+        Your browser opens on {def.vendor}’s page to sign in. Skill Studio never sees your login.
+      </CliSetup>
+    )
+
+  const { account } = info
   return (
     <Field>
-      <Status
-        tone={info.connected ? 'success' : 'muted'}
-        detail={info.connected ? def.about : null}
-      >
-        {info.connected ? `${def.label} is installed` : `${def.label} is not installed`}
+      <Status tone="success" detail={accountLine(info.id, account)}>
+        {!account?.signedIn
+          ? `${def.label} is installed`
+          : account.billing === 'key'
+            ? `${def.label} uses an API key`
+            : `${def.label} is signed in`}
       </Status>
-      {info.connected ? null : (
-        <Hint>
-          <Link href={def.install}>Install {def.label}</Link> and sign in with the{' '}
-          <Code>{def.command}</Code> command to write on your plan, with no key.
-        </Hint>
-      )}
     </Field>
+  )
+}
+
+/**
+ * A CLI that still needs something only the person can do. The command to run
+ * is the object of the row, so it stands in a field of its own, in mono and
+ * selected whole on a click, with a line under it on what running it does.
+ * One button copies it and one looks again. Coming back to this window looks
+ * again too, so the row follows without a click.
+ */
+function CliSetup({
+  info,
+  title,
+  detail,
+  command,
+  children,
+  report,
+  onSaved,
+}: {
+  info: AiProviderInfo
+  title: string
+  detail?: string
+  /** The command to run; none when the maker's guide has no one line for this computer. */
+  command: string | undefined
+  /** What running the command does, or what to do without one. */
+  children: ReactNode
+  report: Reporter
+  onSaved: () => Promise<void>
+}) {
+  const [checking, setChecking] = useState(false)
+  const field = useId()
+  useEffect(() => {
+    const look = () => void loadAi()
+    window.addEventListener('focus', look)
+    return () => window.removeEventListener('focus', look)
+  }, [])
+
+  const copy = async () =>
+    (await copyText(command ?? ''))
+      ? report('Command copied. Paste it in Terminal and press Return.')
+      : report('Could not copy. Select the command and copy it.', { tone: 'destructive' })
+
+  const check = async () => {
+    setChecking(true)
+    try {
+      const now = await recheck(info.id)
+      // Unchanged: say so, or the click looks like it did nothing.
+      if (!now?.connected || needsSignIn(now)) report(`${title} yet`)
+      else await onSaved()
+    } catch (e) {
+      report(e as Error)
+    } finally {
+      setChecking(false)
+    }
+  }
+
+  return (
+    <>
+      <Status tone="muted" detail={detail}>
+        {title}
+      </Status>
+      <Field>
+        {command ? (
+          <>
+            <Label htmlFor={field}>Run in Terminal</Label>
+            <Input
+              id={field}
+              readOnly
+              font="mono"
+              spellCheck={false}
+              value={command}
+              onFocus={(event) => event.currentTarget.select()}
+            />
+          </>
+        ) : null}
+        <Hint>{children}</Hint>
+      </Field>
+      <Toolbar>
+        {command ? (
+          <Button type="button" onClick={() => void copy()}>
+            Copy command
+          </Button>
+        ) : null}
+        <Button
+          type="button"
+          variant="outline"
+          busy={checking}
+          busyLabel="Checking…"
+          onClick={() => void check()}
+        >
+          Check again
+        </Button>
+      </Toolbar>
+    </>
   )
 }
 
@@ -198,7 +349,12 @@ function KeyField({
   )
 }
 
-/** Both ways to reach one vendor's models: its CLI, then its key. */
+/**
+ * The ways to reach one vendor's models. Its CLI is the main one and stands
+ * first, in full. An API key is supported too, folded behind one quiet line so
+ * it never competes with the CLI. The line opens by itself when a key is
+ * already set, or its status cannot be read, so nothing in use is hidden.
+ */
 export function VendorRoutes({
   vendor,
   keys,
@@ -216,20 +372,30 @@ export function VendorRoutes({
   return providersOf(vendor).map((id) => {
     const def = AI_PROVIDERS[id]
     const info = providers?.find((p) => p.id === id)
-    return def.via === 'cli' ? (
-      <CliStatus key={id} info={info} />
-    ) : (
-      <KeySlot
+    if (def.via === 'cli')
+      return <CliStatus key={id} info={info} report={report} onSaved={onSaved} />
+    // Not drawn until the key's status is known: only then is it known whether to start open.
+    if (!keys.data && !keys.error) return <Loading key={id} />
+    const inUse = Boolean(keys.data?.keys[def.secret].set || !keys.data)
+    return (
+      <Disclosure
         key={id}
-        id={def.secret}
-        keys={keys}
-        missing={def.about}
-        optional
-        problem={info?.problem}
-        replace={replace}
-        report={report}
-        onSaved={onSaved}
-      />
+        summary={keys.data?.keys[def.secret].set ? 'API key' : 'Use an API key'}
+        defaultOpen={inUse}
+      >
+        <Stack gap="lg">
+          <KeySlot
+            id={def.secret}
+            keys={keys}
+            missing={def.about}
+            optional
+            problem={info?.problem}
+            replace={replace}
+            report={report}
+            onSaved={onSaved}
+          />
+        </Stack>
+      </Disclosure>
     )
   })
 }

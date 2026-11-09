@@ -30,12 +30,14 @@ if (api.openWelcome && screen === 'welcome') {
   const { ChangelogApp } = await import('./ChangelogApp.tsx')
   root.render(<ChangelogApp />)
 } else {
-  const [{ App }, { loadAi, loadChat, loadImprove }] = await Promise.all([
+  const [{ App }, { loadAi, loadChat, loadImprove }, { loadKeys }] = await Promise.all([
     import('./App.tsx'),
     import('./ai.ts'),
+    import('./secrets.ts'),
   ])
   // The assistant's providers answer in their own time; nothing waits on them.
   void loadAi()
+  void loadKeys()
   void loadChat()
   void loadImprove()
   root.render(<App />)

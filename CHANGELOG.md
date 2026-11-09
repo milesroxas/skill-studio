@@ -6,6 +6,19 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+### Added
+
+- Settings and the welcome say how Claude Code and Codex stand: not installed, not signed in, or signed in, with the account and what pays. On a plan it names the plan; with an API key in the environment it says each request bills to that API account instead. A signed-out Claude Code or Codex no longer looks ready and fails on the first request.
+- When Claude Code or Codex needs installing or signing in, Skill Studio shows its maker's own command with a button to copy it. You run it in Terminal, and Skill Studio looks again when you come back, or when you press Check again. Skill Studio never installs either tool, never signs you in, and never sees your login.
+
+### Changed
+
+- Claude Code and Codex are the main way to connect a model. Each stands first in Settings and the welcome, and in every model list, and is the default when both it and an API key are set up. The API key is still supported, one click away under "Use an API key", and opens by itself when a key is already set.
+
+### Fixed
+
+- The app opened from the Finder or the Dock now finds Claude Code, Codex and Cursor installed in your home folder or with Homebrew. It used to say they were not installed.
+
 ## [0.2.0] - 2026-11-08
 
 ### Added

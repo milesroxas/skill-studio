@@ -186,9 +186,7 @@ function Connect({ onSettings }: { onSettings: () => void }) {
       <Text size="ui" weight="medium">
         Connect a provider to write with AI
       </Text>
-      <Hint>
-        Add an Anthropic or OpenAI key, or use the Claude Code or Codex CLI you are signed in to.
-      </Hint>
+      <Hint>Set up Claude Code or Codex, or add an Anthropic or OpenAI API key.</Hint>
       <Toolbar>
         <Button type="button" size="sm" onClick={onSettings}>
           Open Settings

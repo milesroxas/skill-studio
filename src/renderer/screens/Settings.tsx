@@ -3,12 +3,12 @@
  * Markdown, how much the app explains itself, whether it looks for its own
  * updates, and the model the assistant writes with, stored with your
  * preferences and applied at once. Then the app's connections: Anthropic and
- * OpenAI, each by a key or by the CLI you are signed in to, and the TypeSafe
+ * OpenAI, each by its CLI first and by an API key as well, and the TypeSafe
  * key Jev grades with. The desktop app keeps keys in the system keychain; a
  * key in the environment always wins and shows as such. Last, in a copy made
  * for testing only, the way to start the app over.
  */
-import { AI_VENDORS } from '@domain/ai.ts'
+import { AI_PROVIDERS, AI_VENDORS, mainProviderOf } from '@domain/ai.ts'
 import type {
   EditorMode,
   Hints,
@@ -224,7 +224,7 @@ export function SettingsScreen({ running, report, onSaved, onWelcome }: Props) {
         ) : choice ? (
           <ModelControls />
         ) : (
-          <Status tone="warning" detail="Connect Anthropic or OpenAI below to choose a model.">
+          <Status tone="warning" detail="Set up Claude Code or Codex below to choose a model.">
             Not connected
           </Status>
         )}
@@ -234,7 +234,7 @@ export function SettingsScreen({ running, report, onSaved, onWelcome }: Props) {
         <FormSection
           key={vendor}
           title={vendor}
-          hint={`Two ways to reach ${vendor}’s models. Use either, or both: each shows its own models.`}
+          hint={`${AI_PROVIDERS[mainProviderOf(vendor)].label} runs on your own account, with no key. An API key works too.`}
         >
           <VendorRoutes vendor={vendor} keys={keys} report={report} onSaved={changed} />
         </FormSection>

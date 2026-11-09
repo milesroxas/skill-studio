@@ -4,8 +4,10 @@
  * a backend utility process so the window never waits on disk or on an agent.
  */
 import { mkdirSync, rmSync } from 'node:fs'
-import { basename, join } from 'node:path'
+import { homedir } from 'node:os'
+import { basename, delimiter, join } from 'node:path'
 import { loadDotEnv } from '@infrastructure/dotenv.ts'
+import { installDirs, loginShellPath, mergePath } from '@infrastructure/path.ts'
 import { readPreferences } from '@infrastructure/preferences.ts'
 import { clearStudioData } from '@infrastructure/reset.ts'
 import { app, dialog, session } from 'electron'
@@ -44,7 +46,20 @@ else {
   if (!app.isPackaged) loadDotEnv(app.getAppPath())
   registerSchemes()
 
-  const backend = new Backend({ ...process.env })
+  // Opened from the Finder, the app has the system's bare PATH: add the folders
+  // CLIs are installed in now, and the login shell's PATH once it answers.
+  // HOME, as a CLI's own installer reads it: `~/.local/bin` is where it lands.
+  const home = homedir()
+  const backend = new Backend({
+    ...process.env,
+    PATH: mergePath(process.env.PATH, installDirs(home)),
+  })
+  void loginShellPath().then((path) => {
+    if (path)
+      backend.setEnv({
+        PATH: mergePath(path, (process.env.PATH ?? '').split(delimiter), installDirs(home)),
+      })
+  })
   const userData = app.getPath('userData')
   const secrets = new KeychainSecrets(join(userData, 'secrets.json'), (env) => backend.setEnv(env))
   const boundsFile = join(userData, 'window.json')

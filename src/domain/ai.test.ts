@@ -1,13 +1,18 @@
 import { describe, expect, it } from 'vitest'
 import {
+  AI_PROVIDER_IDS,
+  AI_PROVIDERS,
   type AiProviderInfo,
   type AiRun,
   type AiRunStatus,
+  accountLine,
   compactCount,
   defaultFirst,
   effortFor,
   isNewsOf,
   isOpenAiChatModel,
+  mainProviderOf,
+  needsSignIn,
   openAiEfforts,
   providersOf,
   RUNS_KEPT,
@@ -21,15 +26,38 @@ import {
 const opus = { id: 'opus', label: 'Opus', efforts: ['low', 'high'] as const }
 const plain = { id: 'plain', label: 'Plain', efforts: [] }
 const providers: AiProviderInfo[] = [
-  { id: 'anthropic', connected: false, problem: null, models: [] },
+  {
+    id: 'anthropic',
+    connected: false,
+    problem: null,
+    models: [],
+    account: null,
+    installable: false,
+  },
   {
     id: 'claude-code',
     connected: true,
     problem: null,
     models: [{ ...opus, efforts: [...opus.efforts] }, plain],
+    account: null,
+    installable: false,
   },
-  { id: 'openai', connected: true, problem: null, models: [plain] },
-  { id: 'codex', connected: true, problem: 'cannot list', models: [] },
+  {
+    id: 'openai',
+    connected: true,
+    problem: null,
+    models: [plain],
+    account: null,
+    installable: false,
+  },
+  {
+    id: 'codex',
+    connected: true,
+    problem: 'cannot list',
+    models: [],
+    account: null,
+    installable: false,
+  },
 ]
 
 describe('resolveChoice', () => {
@@ -190,6 +218,8 @@ describe('readyProviders', () => {
     connected,
     problem,
     models: [],
+    account: null,
+    installable: false,
   })
 
   it('keeps the connected providers with nothing wrong', () => {
@@ -199,5 +229,73 @@ describe('readyProviders', () => {
       info('openai', false, null),
     ])
     expect(ready.map((p) => p.id)).toEqual(['claude-code'])
+  })
+})
+
+describe('needsSignIn', () => {
+  const info = (id: AiProviderInfo['id'], signedIn: boolean | null): AiProviderInfo => ({
+    id,
+    connected: true,
+    problem: null,
+    models: [],
+    account: signedIn === null ? null : { signedIn, email: null, billing: null, plan: null },
+    installable: false,
+  })
+
+  it('asks only a signed-out CLI the app can sign in', () => {
+    expect(needsSignIn(info('claude-code', false))).toBe(true)
+    expect(needsSignIn(info('claude-code', true))).toBe(false)
+    expect(needsSignIn(info('claude-code', null))).toBe(false)
+    expect(needsSignIn(info('codex', false))).toBe(true)
+    expect(needsSignIn(info('anthropic', false))).toBe(false)
+  })
+})
+
+describe('accountLine', () => {
+  const signedIn = { signedIn: true, email: 'a@b.co', billing: 'plan', plan: 'max' } as const
+
+  it('says who is signed in and which plan pays', () => {
+    expect(accountLine('claude-code', signedIn)).toBe('As a@b.co, on the Max plan. No key needed.')
+    expect(accountLine('codex', { ...signedIn, email: null, plan: null })).toBe(
+      'On your plan. No key needed.',
+    )
+  })
+
+  it('never takes a key in the environment for a plan', () => {
+    const line = accountLine('claude-code', { ...signedIn, billing: 'key', plan: null })
+    expect(line).toContain('bills to that API account')
+    expect(line).not.toContain('No key needed')
+  })
+
+  it('claims no plan when the CLI does not say what pays', () => {
+    expect(accountLine('claude-code', { ...signedIn, billing: null })).toBe(
+      'Uses the account the claude command is set up with.',
+    )
+  })
+
+  it('falls back to the provider’s own line', () => {
+    expect(accountLine('claude-code', null)).toBe(AI_PROVIDERS['claude-code'].about)
+    expect(accountLine('anthropic', signedIn)).toBe(AI_PROVIDERS.anthropic.about)
+  })
+})
+
+describe('the CLI as the main way in', () => {
+  it('lists each vendor’s CLI ahead of its key, so the default lands on it', () => {
+    expect([...AI_PROVIDER_IDS]).toEqual(['claude-code', 'anthropic', 'codex', 'openai'])
+    expect(mainProviderOf('Anthropic')).toBe('claude-code')
+    expect(mainProviderOf('OpenAI')).toBe('codex')
+  })
+
+  it('starts on the CLI when a key is connected too and nothing is chosen', () => {
+    const model = { id: 'm', label: 'M', efforts: [] }
+    const both = AI_PROVIDER_IDS.map((id) => ({
+      id,
+      connected: true,
+      problem: null,
+      models: [model],
+      account: null,
+      installable: false,
+    }))
+    expect(resolveChoice(null, both)?.provider).toBe('claude-code')
   })
 })

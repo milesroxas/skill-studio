@@ -163,7 +163,7 @@ export function ChatPanel({ screen, skill, ctx, confirm, onClose }: ChatPanelPro
           </Button>
         }
       >
-        Add an Anthropic or OpenAI key, or use the Claude Code or Codex CLI you are signed in to.
+        Set up Claude Code or Codex, or add an Anthropic or OpenAI API key.
       </EmptyState>
     ) : !messages.length && !run ? (
       <EmptyState

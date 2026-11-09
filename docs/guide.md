@@ -143,7 +143,7 @@ Exact, with its reason:
 
 ### Write with AI
 
-- **Connect a model** in Settings: an API key, or the Claude Code or Codex account you already use.
+- **Connect a model** in Settings. Claude Code and Codex are the main way: they run on the account you already use, with no key. An API key works too, under **Use an API key**. Settings says whether Claude Code and Codex are installed and signed in. When one is not, it shows the command to run in Terminal (`claude auth login`, or `codex login`), with **Copy command**. Run it, come back, and Settings shows the account and the plan.
 - **Ask:** click the small button in any text box, or **Write with AI** in the editor toolbar. Say what you want.
 - **Nothing changes** until you click **Replace** or **Insert**.
 - **Select text first** to rewrite only that part.

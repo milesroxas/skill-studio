@@ -9,6 +9,7 @@
 import {
   type AiChoice,
   type AiModel,
+  type AiProviderId,
   type AiProviderInfo,
   type AiRun,
   type ChatThread,
@@ -125,6 +126,15 @@ export async function loadAi(): Promise<void> {
     providersProblem = (e as Error).message
   }
   emit()
+}
+
+/**
+ * Read the providers again and return one of them as it stands now: after the
+ * person has installed a CLI or signed it in themselves, in a terminal.
+ */
+export async function recheck(provider: AiProviderId): Promise<AiProviderInfo | undefined> {
+  await loadAi()
+  return providers?.find((p) => p.id === provider)
 }
 
 /** Read the commands the model in use can run. Call when the side panel opens and when the provider changes. */

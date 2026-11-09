@@ -12,7 +12,7 @@
  * "Configure later". Once it is set, the way forward fills and reads
  * "Continue", or "Start the walkthrough" on the last step.
  */
-import { AI_PROVIDERS, AI_VENDORS, type AiVendor, readyProviders } from '@domain/ai.ts'
+import { AI_PROVIDERS, AI_VENDORS, type AiVendor, accountLine, readyProviders } from '@domain/ai.ts'
 import { isPractice } from '@domain/library.ts'
 import { ArrowRightIcon } from 'lucide-react'
 import { useEffect, useId, useState } from 'react'
@@ -207,7 +207,7 @@ function Assistant({
     return (
       <>
         {ready.map((p) => (
-          <Status key={p.id} tone="success" detail={AI_PROVIDERS[p.id].about}>
+          <Status key={p.id} tone="success" detail={accountLine(p.id, p.account)}>
             {AI_PROVIDERS[p.id].label} is ready
           </Status>
         ))}

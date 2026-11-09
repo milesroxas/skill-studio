@@ -7,12 +7,18 @@
  * then arrives as the input of its StructuredOutput tool, streamed the same as
  * prose. Pictures cannot ride in a plain prompt, so a request with any goes in
  * as one `stream-json` user message: the pictures, then the prompt.
+ *
+ * The adapter only runs the CLI as Anthropic publishes it, on whatever
+ * account the person signed it in to. It reads how the CLI is signed in
+ * (`claude auth status`) and nothing more: it never installs the CLI, never
+ * starts its sign-in, and never reads a token. Those are the person's, in
+ * their own terminal.
  */
-import { CLAUDE_CODE_MODELS } from '@domain/ai.ts'
+import { CLAUDE_CODE_MODELS, type CliAccount } from '@domain/ai.ts'
 import { isCommand } from '@domain/commands.ts'
 import { hasCommand } from '../exec.ts'
 import { imageBase64 } from '../images.ts'
-import { commandPrompt, picturesOf, runJsonLines, transcriptPrompt } from './cli.ts'
+import { cliStatus, commandPrompt, picturesOf, runJsonLines, transcriptPrompt } from './cli.ts'
 import { listClaudeCommands } from './commands.ts'
 import type { AiProvider, AiReply, AiRequest } from './types.ts'
 
@@ -123,10 +129,52 @@ async function run(request: AiRequest): Promise<AiReply> {
   return reply
 }
 
+/**
+ * The account in what `claude auth status --json` prints; null when it prints
+ * something else. A login to claude.ai, or a token made from one, writes on
+ * the plan; a key in the environment bills an API account instead.
+ */
+export function claudeAccountOf(stdout: string): CliAccount | null {
+  let status: {
+    loggedIn?: unknown
+    email?: unknown
+    authMethod?: unknown
+    subscriptionType?: unknown
+  }
+  try {
+    status = JSON.parse(stdout)
+  } catch {
+    return null
+  }
+  if (typeof status?.loggedIn !== 'boolean') return null
+  const text = (value: unknown): string | null =>
+    typeof value === 'string' && value ? value : null
+  const method = text(status.authMethod)
+  return {
+    signedIn: status.loggedIn,
+    email: text(status.email),
+    billing:
+      method === 'claude.ai' || method === 'oauth_token'
+        ? 'plan'
+        : method === 'api_key'
+          ? 'key'
+          : null,
+    plan: text(status.subscriptionType),
+  }
+}
+
+/** Who the CLI is signed in as. A CLI too old to say counts as unknown, not as signed out. */
+const account = async (): Promise<CliAccount | null> =>
+  // Signed out, it prints the same JSON and exits 1.
+  claudeAccountOf((await cliStatus('claude', ['auth', 'status', '--json'])).stdout)
+
 export const claudeCodeProvider: AiProvider = {
   id: 'claude-code',
   connected: () => hasCommand('claude'),
   models: async () => [...CLAUDE_CODE_MODELS],
   run,
   commands: listClaudeCommands,
+  // The guide's one-line installer is a bash script, for macOS and Linux.
+  installable: process.platform !== 'win32',
+  account,
 }

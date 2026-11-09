@@ -3,14 +3,15 @@
  * sandbox, on the ChatGPT plan the CLI is signed in to. Codex takes no system
  * prompt, so the brief leads the prompt; a field's shape goes in as a schema
  * file, and pictures as `--image` files. It reports each message whole, so the
- * reply appears at once, not word by word.
+ * reply appears at once, not word by word. The adapter reads how the CLI
+ * is signed in (`codex login status`) and never signs it in itself.
  */
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { CODEX_DEFAULT_MODEL, CODEX_MODELS } from '@domain/ai.ts'
+import { type CliAccount, CODEX_DEFAULT_MODEL, CODEX_MODELS } from '@domain/ai.ts'
 import { hasCommand } from '../exec.ts'
-import { picturesOf, runJsonLines, transcriptPrompt } from './cli.ts'
+import { cliStatus, picturesOf, runJsonLines, transcriptPrompt } from './cli.ts'
 import type { AiProvider, AiReply, AiRequest } from './types.ts'
 
 interface CodexEvent {
@@ -68,9 +69,33 @@ async function run(request: AiRequest): Promise<AiReply> {
   }
 }
 
+/**
+ * The account in what `codex login status` prints: "Logged in using ChatGPT",
+ * "Logged in using an API key", or "Not logged in". Null for anything else,
+ * such as a CLI too old to have the command.
+ */
+export function codexAccountOf(printed: string): CliAccount | null {
+  if (/not logged in/i.test(printed))
+    return { signedIn: false, email: null, billing: null, plan: null }
+  const how = /logged in using (.+)/i.exec(printed)?.[1]
+  if (!how) return null
+  return {
+    signedIn: true,
+    email: null,
+    billing: /chatgpt/i.test(how) ? 'plan' : /api key/i.test(how) ? 'key' : null,
+    plan: null,
+  }
+}
+
+async function account(): Promise<CliAccount | null> {
+  const result = await cliStatus('codex', ['login', 'status'])
+  return codexAccountOf(`${result.stdout}\n${result.stderr}`)
+}
+
 export const codexProvider: AiProvider = {
   id: 'codex',
   connected: () => hasCommand('codex'),
   models: async () => [...CODEX_MODELS],
   run,
+  account,
 }

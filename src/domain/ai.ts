@@ -7,7 +7,14 @@
 import type { ImageRef } from './image.ts'
 import type { SecretId } from './secrets.ts'
 
-export const AI_PROVIDER_IDS = ['anthropic', 'claude-code', 'openai', 'codex'] as const
+/**
+ * Every way to reach a model, each vendor's CLI ahead of its API key. The CLI
+ * is the main way in: it runs on the person's own account with no key. The
+ * order is the order of every model list, and of the default when nothing is
+ * chosen yet, so someone with both set up starts on the CLI, not on a key that
+ * bills each request.
+ */
+export const AI_PROVIDER_IDS = ['claude-code', 'anthropic', 'codex', 'openai'] as const
 export type AiProviderId = (typeof AI_PROVIDER_IDS)[number]
 
 /** Every effort level a model may take, weakest first. A model lists the ones it accepts. */
@@ -35,9 +42,28 @@ interface ProviderBase {
   usageUrl: string | null
 }
 
-/** A provider is reached with a key the app keeps, or through a CLI signed in to a plan. */
+/**
+ * A provider is reached with a key the app keeps, or through a CLI its maker
+ * publishes, on the account the person signed that CLI in to. The app runs the
+ * CLI and reads how it stands. Installing it and signing it in are the
+ * person's to do, in their own terminal, with the maker's own commands: the
+ * app shows those commands and never runs them, so it offers no login of its
+ * own and never holds one.
+ */
 export type AiProviderDef = ProviderBase &
-  ({ via: 'key'; secret: SecretId } | { via: 'cli'; command: string; install: string })
+  (
+    | { via: 'key'; secret: SecretId }
+    | {
+        via: 'cli'
+        command: string
+        /** The maker's install guide. */
+        install: string
+        /** The one-line install command that guide gives for macOS and Linux, when it has one. */
+        installCommand?: string
+        /** The CLI's own sign-in command. */
+        signInCommand: string
+      }
+  )
 
 /** Who makes the models: each is reached by a CLI on a plan, or by an API key. */
 export const AI_VENDORS = ['Anthropic', 'OpenAI'] as const
@@ -58,7 +84,9 @@ export const AI_PROVIDERS: Record<AiProviderId, AiProviderDef> = {
     via: 'cli',
     command: 'claude',
     install: 'https://code.claude.com/docs/en/setup',
-    about: 'Uses the Claude plan the claude command is signed in to. No key needed.',
+    installCommand: 'curl -fsSL https://claude.ai/install.sh | bash',
+    signInCommand: 'claude auth login',
+    about: 'Runs Claude Code installed on this computer, on the account it is signed in to.',
     usageUrl: 'https://claude.ai/settings/usage',
   },
   openai: {
@@ -75,16 +103,18 @@ export const AI_PROVIDERS: Record<AiProviderId, AiProviderDef> = {
     via: 'cli',
     command: 'codex',
     install: 'https://developers.openai.com/codex/cli',
-    about: 'Uses the ChatGPT plan the codex command is signed in to. No key needed.',
+    signInCommand: 'codex login',
+    about: 'Runs Codex installed on this computer, on the account it is signed in to.',
     usageUrl: 'https://chatgpt.com/codex/settings/usage',
   },
 }
 
-/** A vendor's ways in, the CLI first: it needs no key. */
+/** A vendor's ways in, the CLI first: it is the main one. */
 export const providersOf = (vendor: AiVendor): AiProviderId[] =>
-  AI_PROVIDER_IDS.filter((id) => AI_PROVIDERS[id].vendor === vendor).sort(
-    (a, b) => Number(AI_PROVIDERS[b].via === 'cli') - Number(AI_PROVIDERS[a].via === 'cli'),
-  )
+  AI_PROVIDER_IDS.filter((id) => AI_PROVIDERS[id].vendor === vendor)
+
+/** A vendor's CLI: the main way to its models. */
+export const mainProviderOf = (vendor: AiVendor): AiProviderId => providersOf(vendor)[0]
 
 /** The providers a request can go to now: connected, and with nothing wrong. */
 export const readyProviders = (providers: readonly AiProviderInfo[]): AiProviderInfo[] =>
@@ -97,6 +127,40 @@ export interface AiModel {
   efforts: Effort[]
 }
 
+/** Who a CLI is signed in as, and what pays for what it writes. */
+export interface CliAccount {
+  signedIn: boolean
+  /** The account's email, when the CLI says. */
+  email: string | null
+  /**
+   * What its requests bill to: the account's plan, or an API key the CLI found
+   * in its environment, which it uses ahead of any plan. Null when it does not say.
+   */
+  billing: 'plan' | 'key' | null
+  /** The plan as the CLI names it, such as `max`; null without one. */
+  plan: string | null
+}
+
+const capital = (text: string): string => text.replace(/^./, (first) => first.toUpperCase())
+
+/**
+ * One line on an installed CLI: who it is signed in as and what pays for its
+ * requests, so a key in the environment is never taken for a plan. The
+ * provider's own line when the CLI cannot say.
+ */
+export function accountLine(id: AiProviderId, account: CliAccount | null): string {
+  const def = AI_PROVIDERS[id]
+  if (!account?.signedIn || def.via !== 'cli') return def.about
+  if (account.billing === 'key')
+    return 'It found an API key in the environment, so each request bills to that API account, not to a plan.'
+  if (account.billing !== 'plan')
+    return `Uses the account the ${def.command} command is set up with.`
+  const plan = account.plan
+    ? `on the ${capital(account.plan.replace(/_/g, ' '))} plan`
+    : 'on your plan'
+  return `${capital(account.email ? `as ${account.email}, ${plan}` : plan)}. No key needed.`
+}
+
 /** A provider as a host sees it now. */
 export interface AiProviderInfo {
   id: AiProviderId
@@ -106,6 +170,19 @@ export interface AiProviderInfo {
   problem: string | null
   /** The models to offer, the provider's default first. */
   models: AiModel[]
+  /**
+   * For an installed CLI that can say who it is signed in as. Null for a key,
+   * a CLI that is not installed, or one that cannot say.
+   */
+  account: CliAccount | null
+  /** Not installed, and its maker's one-line install command works on this host. */
+  installable: boolean
+}
+
+/** An installed CLI that says it is signed out. */
+export const needsSignIn = (info: AiProviderInfo): boolean => {
+  const def = AI_PROVIDERS[info.id]
+  return def.via === 'cli' && info.account?.signedIn === false
 }
 
 export interface AiStatus {

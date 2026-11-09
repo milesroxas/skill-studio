@@ -3,7 +3,7 @@
  * connected, list its models, and write one reply. The application talks to
  * this and never to an SDK or a CLI.
  */
-import type { AiModel, AiProviderId, AiUsage } from '@domain/ai.ts'
+import type { AiModel, AiProviderId, AiUsage, CliAccount } from '@domain/ai.ts'
 import type { SlashCommand } from '@domain/commands.ts'
 import type { StoredImage } from '../images.ts'
 
@@ -44,4 +44,8 @@ export interface AiProvider {
   run(request: AiRequest): Promise<AiReply>
   /** The commands a chat message may start with, for a provider that expands them. Throws when it cannot say. */
   commands?(): Promise<SlashCommand[]>
+  /** The one-line install command its maker's guide gives works on this host. */
+  installable?: boolean
+  /** Who an installed CLI is signed in as; null when it cannot say. */
+  account?(): Promise<CliAccount | null>
 }
