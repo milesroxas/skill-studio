@@ -13,6 +13,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Changed
 
+- The welcome's setup says each thing once. The line between Back and the way forward is gone, and so are the notes that repeated the step's own sentence. What the walkthrough is, its first screen says.
 - Claude Code and Codex are the main way to connect a model. Each stands first in Settings and the welcome, and in every model list, and is the default when both it and an API key are set up. The API key is still supported, one click away under "Use an API key", and opens by itself when a key is already set.
 
 ### Fixed

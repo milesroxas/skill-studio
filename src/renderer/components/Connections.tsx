@@ -286,7 +286,7 @@ function KeyField({
             source === 'environment'
               ? 'Set in the environment, so it wins over a stored one.'
               : source === 'stored'
-                ? 'Stored in the system keychain.'
+                ? null
                 : missing
           }
         >
@@ -412,7 +412,7 @@ function KeySteps({ id }: { id: SecretId }) {
   return (
     <Stack gap="xs">
       <Hint>
-        No key yet? <Link href={account.url}>Sign up at {account.label}</Link> and create one.
+        <Link href={account.url}>Sign up at {account.label}</Link> to create a key.
       </Hint>
       <Disclosure summary="Show me">
         <List variant="number" gap="sm">

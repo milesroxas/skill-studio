@@ -26,16 +26,11 @@ import { Folders } from './Folders.tsx'
 import { Field, ReadFailed } from './layout.tsx'
 import { Segmented } from './Segmented.tsx'
 import { Status } from './Status.tsx'
-import { Hint } from './text.tsx'
 import { Button } from './ui/button.tsx'
 import { Label } from './ui/label.tsx'
 import { StepFrame, StepPanel } from './WelcomeStep.tsx'
 
 const VENDORS = AI_VENDORS.map((vendor) => ({ value: vendor, label: vendor }))
-
-/** What the last step's way forward leads to, said beside it once everything is set. */
-const PRACTICE_HINT =
-  'The walkthrough comes next: it takes Thank-you note, a finished skill, round the whole loop. About ten minutes, nothing to type, and it changes nothing your agents use.'
 
 export function Setup({
   index,
@@ -87,15 +82,6 @@ export function Setup({
       from={from}
       title={step.title}
       say={step.say}
-      hint={
-        set
-          ? last
-            ? PRACTICE_HINT
-            : null
-          : last
-            ? `${step.later} The walkthrough comes next.`
-            : step.later
-      }
       back={
         <Button
           type="button"
@@ -145,17 +131,16 @@ export function Setup({
             <Status tone="muted">Looking for skills…</Status>
           ) : (
             <>
-              <Status
-                tone={found ? 'success' : 'muted'}
-                detail={found ? null : 'Add the folder your projects live in.'}
-              >
+              <Status tone={found ? 'success' : 'muted'}>
                 {found ? `${plural(found, 'skill')} found` : 'No skills found yet'}
               </Status>
+              {/* The step's own sentence says what is read: the list does not say it again. */}
               <Folders
                 workspaces={library.data.workspaces}
                 save={saveFolders}
                 report={report}
                 variant={set ? 'outline' : 'default'}
+                explain={false}
               />
             </>
           )
@@ -204,22 +189,15 @@ function Assistant({
 
   const ready = readyProviders(providers)
   if (ready.length)
-    return (
-      <>
-        {ready.map((p) => (
-          <Status key={p.id} tone="success" detail={accountLine(p.id, p.account)}>
-            {AI_PROVIDERS[p.id].label} is ready
-          </Status>
-        ))}
-        <Hint>Settings can connect another, or change the model.</Hint>
-      </>
-    )
+    return ready.map((p) => (
+      <Status key={p.id} tone="success" detail={accountLine(p.id, p.account)}>
+        {AI_PROVIDERS[p.id].label} is ready
+      </Status>
+    ))
 
   return (
     <>
-      <Status tone="warning" detail="Connect one to write with the assistant.">
-        No model connected
-      </Status>
+      <Status tone="warning">No model connected</Status>
       <Field>
         <Label id={label}>Connect</Label>
         <Segmented<AiVendor>

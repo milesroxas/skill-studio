@@ -8,8 +8,7 @@
  * the reader is heading to.
  */
 import type { ReactNode } from 'react'
-import { after } from '../motion.ts'
-import { Heading, Hint, Text } from './text.tsx'
+import { Heading, Text } from './text.tsx'
 
 /** When a step's own parts start to move: it has slid in and the eye has reached them. */
 export const STEP_BEAT = 260
@@ -49,7 +48,6 @@ export function StepFrame({
   from,
   title,
   say,
-  hint,
   back,
   next,
   children,
@@ -63,8 +61,6 @@ export function StepFrame({
   from: number
   title: string
   say: string
-  /** A line beside the way forward, on the steps that need one. */
-  hint?: ReactNode
   back: ReactNode
   next: ReactNode
   /** What the step shows or asks for, beside its words. */
@@ -93,16 +89,9 @@ export function StepFrame({
         {children}
       </div>
 
-      <div className="flex h-21 shrink-0 items-center gap-6 px-12">
+      {/* Two buttons and nothing between them: what a step has to say, it says above. */}
+      <div className="flex h-21 shrink-0 items-center justify-between px-12">
         {back}
-        {/* Held on every step, so the way forward keeps its place from the first step to the last. */}
-        <Hint className="flex-1">
-          {hint ? (
-            <span key={id} className="block animate-rise" style={after(STEP_BEAT)}>
-              {hint}
-            </span>
-          ) : null}
-        </Hint>
         {next}
       </div>
     </section>

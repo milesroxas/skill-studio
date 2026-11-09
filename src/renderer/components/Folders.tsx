@@ -24,6 +24,7 @@ export function Folders({
   save,
   report,
   variant = 'outline',
+  explain = true,
 }: {
   workspaces: string[]
   /** Store the new list; `done` says what changed, for the status line. Settles when the list is stored. */
@@ -31,6 +32,8 @@ export function Folders({
   report: Reporter
   /** The add button's weight: filled where adding a folder is the step to take. */
   variant?: 'default' | 'outline'
+  /** Say which folders are always read. Off where the words around the list already say it. */
+  explain?: boolean
 }) {
   /** A change to the list is on its way: every control of the list waits for it. */
   const [busy, setBusy] = useState(false)
@@ -46,10 +49,12 @@ export function Folders({
   const { chooseFolder } = api
   return (
     <Stack gap="md">
-      <Hint>
-        Skill Studio always reads the skills in {USER_FOLDERS}. It also finds every project with a
-        skills folder up to three levels inside the folders below.
-      </Hint>
+      {explain ? (
+        <Hint>
+          Skill Studio always reads the skills in {USER_FOLDERS}. It also finds every project with a
+          skills folder up to three levels inside the folders below.
+        </Hint>
+      ) : null}
       {workspaces.length ? (
         <PlainList>
           {workspaces.map((w) => (
