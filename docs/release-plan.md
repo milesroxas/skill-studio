@@ -4,8 +4,8 @@ The plan for the next release: what is in it, what is still to do, and the check
 
 | | |
 | --- | --- |
-| Version | 0.3.0 (proposed) |
-| Status | In progress |
+| Version | 0.3.0 |
+| Status | Released 2026-11-09, [v0.3.0](https://github.com/milesroxas/skill-studio/releases/tag/v0.3.0) |
 | Previous release | [v0.2.0](https://github.com/milesroxas/skill-studio/releases/tag/v0.2.0), 2026-11-08 |
 | Target date | Not set |
 | Owner | Miles Roxas |
@@ -64,10 +64,10 @@ The steps in [releasing.md](releasing.md), in order.
 
 1. [x] Every item under "Planned" is shipped or moved to "Later".
 2. [ ] Every item under "Before the release" is done.
-3. [ ] `pnpm check` and `pnpm build` pass on `main`.
-4. [ ] `gh workflow run release` builds every platform.
+3. [x] `pnpm check` and `pnpm build` pass on `main`.
+4. [x] `gh workflow run release` builds every platform.
 5. [x] In the changelog, rename `## [Unreleased]` to `## [0.3.0] - <date>`, start a new `## [Unreleased]` above it, and commit.
-6. [ ] `pnpm version minor -m "Release %s"`, then `git push --follow-tags`.
-7. [ ] The release workflow publishes v0.3.0, with the changelog entry as its notes.
+6. [x] `pnpm version minor -m "Release %s"`, then `git push --follow-tags`.
+7. [x] The release workflow publishes v0.3.0, with the changelog entry as its notes.
 8. [ ] A running 0.2.0 finds the update and shows **Restart to update**.
 9. [ ] Start the plan for the next version.
