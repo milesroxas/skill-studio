@@ -15,13 +15,13 @@ import { type SkillStart, templateBody, templateById } from '@domain/templates.t
 import { metaText, readFrontMatter } from '@domain/text.ts'
 import type { SkillInfo, SkillVersion, SkillVersions } from '@domain/views.ts'
 import { stringify as toYaml } from 'yaml'
-import { assertSafePath, copyTree, isDir, isFile, readTree } from './fs.ts'
+import { assertSafePath, copyTree, isDir, isFile, readTree, realPath } from './fs.ts'
 
 /** The files that make a skill version: SKILL.md and every reference. */
 const SKILL_FILES = ['SKILL.md', 'references']
 
 export function skillInfo(skillDir: string): SkillInfo {
-  const path = resolve(skillDir)
+  const path = realPath(resolve(skillDir))
   const md = join(path, 'SKILL.md')
   if (!existsSync(md)) throw new Error(`No SKILL.md at ${path}.`)
   const { meta } = readFrontMatter(readFileSync(md, 'utf8'))

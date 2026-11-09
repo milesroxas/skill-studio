@@ -10,6 +10,8 @@ export interface EngineRequest {
   /** Tool names the agent may use without asking; null for the engine's default. */
   allowedTools: string[] | null
   timeoutMs: number
+  /** Ends the agent when aborted, as the timeout would; the job it belongs to was stopped. */
+  signal?: AbortSignal
   transcript: TranscriptWriter
   log: (line: string) => void
 }

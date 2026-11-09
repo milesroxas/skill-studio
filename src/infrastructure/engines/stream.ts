@@ -58,6 +58,7 @@ export async function runStreamJson<E>(
     ...options,
     cwd: request.cwd,
     timeoutMs: request.timeoutMs,
+    signal: request.signal,
     onLine: (line) => {
       let event: E
       try {
@@ -70,6 +71,7 @@ export async function runStreamJson<E>(
     },
   })
   if (run.spawnError) result.error = run.spawnError
+  else if (request.signal?.aborted) result.error = 'stopped'
   else if (run.timedOut) result.error = `timed out after ${Math.round(request.timeoutMs / 1000)} s`
   else if (run.code !== 0)
     result.error ??= (run.stderr || run.stdout).trim().slice(-400) || `exit ${run.code}`

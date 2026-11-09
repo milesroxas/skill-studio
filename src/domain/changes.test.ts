@@ -53,6 +53,38 @@ describe('replyParts', () => {
     ])
   })
 
+  it('keeps a four-tilde fence inside a file, closing at the last tildes before the next block or the end', () => {
+    const file = ['# Notes', '', '~~~~md', '- An example rule here.', '~~~~', '', '## Rules'].join(
+      '\n',
+    )
+    const reply = [
+      '~~~~ file SKILL.md',
+      file,
+      '~~~~',
+      'Then save it.',
+      '~~~~ version',
+      'After the fence',
+      '~~~~',
+    ].join('\n')
+    expect(replyParts(reply)).toEqual([
+      { kind: 'change', change: { kind: 'file', path: 'SKILL.md', text: `${file}\n` } },
+      { kind: 'prose', text: 'Then save it.' },
+      { kind: 'change', change: { kind: 'version', name: 'After the fence' } },
+    ])
+    // The same file as the last block of the reply, with prose after it.
+    const last = replyParts(['Here.', '~~~~ file SKILL.md', file, '~~~~', 'Done.'].join('\n'))
+    expect(last).toEqual([
+      { kind: 'prose', text: 'Here.' },
+      { kind: 'change', change: { kind: 'file', path: 'SKILL.md', text: `${file}\n` } },
+      { kind: 'prose', text: 'Done.' },
+    ])
+  })
+
+  it('closes a case at the first tildes, as its JSON holds none', () => {
+    const reply = '~~~~ case\n{"title": "T", "prompt": "P"}\n~~~~\n~~~~\n'
+    expect(replyParts(reply)[0]).toMatchObject({ kind: 'change', change: { kind: 'case' } })
+  })
+
   it('reads a case and a version', () => {
     const reply = [
       '~~~~ version',

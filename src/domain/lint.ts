@@ -9,6 +9,7 @@
  */
 import { type SizeBand, sizeBand, textSize } from './size.ts'
 import { type Principle, principleGuide } from './templates.ts'
+import { closesFence, type Fence, fenceOf } from './text.ts'
 
 export type Dimension = 'principle' | 'complexity' | 'length'
 
@@ -107,20 +108,25 @@ const OUTCOMES = [
   'looks',
 ] as const
 
-/** A number, or a word that closes the boundary: these make a rule checkable. */
+/** A number, or a word that closes the boundary, an order among them: these make a rule checkable. */
 const ANCHOR =
-  /\d|\b(?:always|never|exactly|only|every|each|none|no|all|must|at most|at least|or fewer|or more|or less|under|over|within|maximum|minimum|once|twice|first|last)\b/i
+  /\d|\b(?:always|never|exactly|only|every|each|none|no|all|must|at most|at least|or fewer|or more|or less|under|over|within|maximum|minimum|once|twice|first|last|before|whole|same)\b/i
 
 /** The reason follows one of these, or stands as a second sentence. */
 const REASON =
   /\b(?:because|so that|so the|so a|so an|so it|so they|since|otherwise|which means|or else|or the|or a|or it)\b|: /i
 
-/** A line that tells the agent what a thing is. It knows. */
+/**
+ * A line that tells the agent what a thing is. It knows. The subject is a
+ * short noun phrase and what follows the verb names a thing ("A modal is a
+ * dialog"), so an instruction in which "are" happens to follow its object
+ * ("Read the code you are about to change") is not one.
+ */
 const DEFINITION =
-  /^(?:\*\*)?(?:an? |the )?[A-Z][\w\s/-]{0,40}?(?:\*\*)?\s+(?:is|are|means|refers to|stands for|describes)\b/
+  /^(?:\*\*)?(?:An? |The )?[A-Z][\w'-]*(?: [\w'/-]+){0,3}(?:\*\*)? (?:is|are|means|refers to|stands for|describes) (?:an? |the |one |what |how |when )/
 
-/** Where one condition ends and the next begins. */
-const CLAUSE = /[,;:]|\b(?:and|or|unless|if|when|while|except|but)\b/gi
+/** Where one condition ends and the next begins. A list of things, "a, b and c", is not conditions. */
+const CONDITION = /\b(?:or|unless|if|when|while|except|but|otherwise)\b/gi
 
 /** The most conditions one rule holds before it is a tree written as prose. */
 const CLAUSES_MAX = 4
@@ -142,6 +148,16 @@ const sentences = (text: string): string[] =>
 
 const quoteOf = (text: string, re: RegExp): string | null => re.exec(text)?.[0] ?? null
 
+/** A list marker at the start of a line, with the space after it. */
+const MARKER = /^\s*(?:[-*+]|\d+[.)])\s+/
+
+/** A rule's text without its list marker, each line's own. */
+const unmarked = (text: string): string =>
+  text
+    .split('\n')
+    .map((line) => line.replace(MARKER, ''))
+    .join('\n')
+
 const found = (
   dimension: Dimension,
   principle: Principle | null,
@@ -162,14 +178,15 @@ const found = (
 })
 
 /**
- * The rules in a selection: each top-level bullet with its indented lines,
- * each paragraph otherwise. Headings, numbered steps and code are not rules,
- * so they are not checked. `raw` keeps the indentation, `text` is one line.
+ * The rules in a selection: each top-level bullet with its indented lines, as
+ * `scanRules` reads a SKILL.md. Prose, headings, numbered steps and code are
+ * not rules, so they are not checked: a selection of prose has nothing to
+ * find. `raw` keeps the indentation, `text` is one line.
  */
 export function rulesIn(selection: string): Array<{ raw: string; text: string }> {
   const units: Array<{ raw: string; text: string }> = []
   let pending: string[] = []
-  let inCode = false
+  let fence: Fence | null = null
   const flush = () => {
     if (!pending.length) return
     const raw = pending.join('\n')
@@ -184,14 +201,15 @@ export function rulesIn(selection: string): Array<{ raw: string; text: string }>
     if (text) units.push({ raw, text })
   }
   for (const line of selection.split('\n')) {
-    if (/^\s*```/.test(line)) {
-      flush()
-      inCode = !inCode
+    // A fence closes only on its own character, at least as long: a ``` inside a ~~~ block is text.
+    if (fence) {
+      if (closesFence(line, fence)) fence = null
       continue
     }
-    if (inCode) continue
-    if (!line.trim() || /^#{1,6}\s/.test(line) || /^\s*\d+[.)]\s/.test(line)) {
+    const opened = fenceOf(line)
+    if (opened) {
       flush()
+      fence = opened
       continue
     }
     if (/^[-*]\s+/.test(line)) {
@@ -203,12 +221,7 @@ export function rulesIn(selection: string): Array<{ raw: string; text: string }>
       pending.push(line)
       continue
     }
-    if (pending.length && !/^[-*]\s+/.test(pending[0])) {
-      pending.push(line)
-      continue
-    }
     flush()
-    pending = [line]
   }
   flush()
   return units
@@ -218,27 +231,23 @@ export function rulesIn(selection: string): Array<{ raw: string; text: string }>
 function checkUnit(unit: { raw: string; text: string }): Finding[] {
   const { raw, text } = unit
   const out: Finding[] = []
-  // A word in quotes is mentioned, not used: a rule that bans "reasonably" is not hedging.
-  const lower = text.toLowerCase().replace(/["“”][^"“”]*["“”]/g, ' ')
   const words = count(text)
   if (words < WORDS_MIN) return out
+  // The rule is the first sentence; what follows is its why, which may name an outcome or a thing.
+  const rule = sentences(text)[0] ?? text
+  // A word in quotes is mentioned, not used: a rule that bans "reasonably" is not hedging.
+  const lower = rule.toLowerCase().replace(/["“”][^"“”]*["“”]/g, ' ')
 
+  // A hedge with no number or absolute anywhere in the rule leaves the agent nothing to act on.
+  // A bare rule with neither is left to the judge: code cannot tell a boundary from a habit.
   const hedge = HEDGES.find((h) => new RegExp(`\\b${h.replace(/ /g, '\\s+')}\\b`).test(lower))
-  if (hedge)
+  if (hedge && !ANCHOR.test(text))
     out.push(
       found(
         'principle',
         'strict',
         `“${hedge}” gives the agent nothing to act on. Put a number or an always or never in its place.`,
         hedge,
-      ),
-    )
-  else if (!ANCHOR.test(text))
-    out.push(
-      found(
-        'principle',
-        'strict',
-        'No number and no always or never: the agent cannot tell where the line is.',
       ),
     )
 
@@ -262,13 +271,13 @@ function checkUnit(unit: { raw: string; text: string }): Finding[] {
       ),
     )
 
-  if (DEFINITION.test(text))
+  if (DEFINITION.test(rule))
     out.push(
       found(
         'principle',
         'earns',
         'This line explains what something is. The agent knows; the line takes attention from the rules.',
-        quoteOf(text, /^[^.:]{0,48}/),
+        quoteOf(rule, /^[^.:]{0,48}/),
       ),
     )
 
@@ -281,7 +290,8 @@ function checkUnit(unit: { raw: string; text: string }): Finding[] {
       ),
     )
 
-  const clauses = text.split(CLAUSE).filter((c) => c.trim()).length
+  // The main clause and one more per condition word, so "or when" counts both.
+  const clauses = (rule.match(CONDITION) ?? []).length + 1
   if (clauses > CLAUSES_MAX)
     out.push(
       found(
@@ -317,8 +327,8 @@ export function lintScene(scene: RuleScene): Finding[] {
   return findings
 }
 
-/** Whether the selection has enough in it to check: four words or more. */
-export const worthChecking = (selection: string): boolean => count(selection) >= WORDS_MIN
+/** Whether the selection has enough in it to check: four words or more, a list marker not counted. */
+export const worthChecking = (selection: string): boolean => count(unmarked(selection)) >= WORDS_MIN
 
 /** Lines around `from`..`to` in `text`, up to `n` non-blank lines on the side asked for. */
 function linesAround(text: string, at: number, n: number, side: 'before' | 'after'): string {

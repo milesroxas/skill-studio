@@ -77,6 +77,28 @@ describe('rulesFromSkill', () => {
     expect(crlf).toEqual(rules)
   })
 
+  it('skips bullets inside a tilde fence, and inside a backtick fence that holds tildes', () => {
+    const fenced = [
+      '- Always lead with the answer here.',
+      '~~~md',
+      '- A bullet inside a tilde fence is an example.',
+      '```',
+      '- Still inside: backticks do not close a tilde fence.',
+      '~~~~',
+      '- Outside again: a longer fence of the same character closed it.',
+      '````',
+      '~~~',
+      '- A tilde fence inside four backticks is text.',
+      '````',
+      '- Never end with a question here.',
+    ].join('\n')
+    expect(rulesFromSkill(fenced).map((r) => r.text)).toEqual([
+      'Always lead with the answer here.',
+      'Outside again: a longer fence of the same character closed it.',
+      'Never end with a question here.',
+    ])
+  })
+
   it('returns nothing for a skill with no bullets', () => {
     expect(rulesFromSkill('# Title\n\nJust prose here.')).toEqual([])
   })
@@ -110,5 +132,11 @@ describe('scanRules', () => {
 
   it('counts lines from one when there is no front matter', () => {
     expect(scanRules('- One two three four.\n').spans).toEqual([{ from: 1, to: 1 }])
+  })
+
+  it('names the same lines when the file has Windows line endings', () => {
+    const crlf = scanRules(skill.replace(/\n/g, '\r\n'))
+    expect(crlf.spans).toEqual(scanRules(skill).spans)
+    expect(crlf.skipped).toEqual(scanRules(skill).skipped)
   })
 })

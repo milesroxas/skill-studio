@@ -68,6 +68,7 @@ export const api = {
   setWorkspaces: (workspaces: string[]) => call('library.workspaces', { workspaces }),
   mark: (path: string, theirs: boolean) => call('library.mark', { path, theirs }),
   jobs: () => call('jobs.list', {}),
+  stopJob: (id: number) => call('jobs.stop', { id }),
   /** Push job changes when the host can; the shell polls otherwise. */
   watchJobs: transport.watchJobs,
   /** Screens the desktop app's Help menu asks for. */

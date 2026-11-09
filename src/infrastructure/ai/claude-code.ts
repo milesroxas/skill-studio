@@ -41,6 +41,36 @@ interface StreamEvent {
   }
 }
 
+/**
+ * Above this many bytes the brief goes on stdin, not as an argument: Linux caps
+ * one argument at 128 KiB and Windows a whole command line at 32 K characters,
+ * and a brief with the whole skill in it can pass either.
+ */
+const ARGV_BRIEF_LIMIT = 24 * 1024
+
+/** The one-line system prompt that stands in when the brief itself leads the prompt. */
+const BRIEF_IN_PROMPT =
+  'The first block of the prompt, between <system> and </system>, is your system prompt. Follow it as such; the request follows it.'
+
+/**
+ * Where the brief rides: as the `--system-prompt` argument when it is small,
+ * else as the first block of the prompt. A command (`/name`) is expanded by the
+ * CLI only when it is the whole prompt, so its brief stays an argument whatever
+ * its size. On Windows a command line cannot carry a line break at all, so there
+ * the brief always leads the prompt.
+ */
+export function placeBrief(
+  brief: string,
+  prompt: string,
+  command: boolean,
+  platform: NodeJS.Platform = process.platform,
+): { systemPrompt: string; prompt: string } {
+  const inline =
+    !command && (platform === 'win32' || Buffer.byteLength(brief, 'utf8') > ARGV_BRIEF_LIMIT)
+  if (!inline) return { systemPrompt: brief, prompt }
+  return { systemPrompt: BRIEF_IN_PROMPT, prompt: `<system>\n${brief}\n</system>\n\n${prompt}` }
+}
+
 /** The prompt and its pictures as the one line of JSON `--input-format stream-json` reads. */
 const pictureMessage = (prompt: string, pictures: ReturnType<typeof picturesOf>): string =>
   `${JSON.stringify({
@@ -60,9 +90,14 @@ const pictureMessage = (prompt: string, pictures: ReturnType<typeof picturesOf>)
 async function run(request: AiRequest): Promise<AiReply> {
   const pictures = picturesOf(request.messages)
   const command = isCommand(request.messages.at(-1)?.text ?? '')
-  const { prompt, context } = command
+  const { prompt: typed, context } = command
     ? commandPrompt(request.messages)
     : { prompt: transcriptPrompt(request.messages), context: null }
+  const { systemPrompt, prompt } = placeBrief(
+    context ? `${request.system}\n\n${context}` : request.system,
+    typed || (pictures.length ? 'See the attached pictures.' : ''),
+    command,
+  )
   const args = [
     '-p',
     ...(pictures.length ? ['--input-format', 'stream-json'] : []),
@@ -79,7 +114,7 @@ async function run(request: AiRequest): Promise<AiReply> {
     '--tools',
     '',
     '--system-prompt',
-    context ? `${request.system}\n\n${context}` : request.system,
+    systemPrompt,
     '--model',
     request.model,
     ...(request.effort ? ['--effort', request.effort] : []),
@@ -94,7 +129,7 @@ async function run(request: AiRequest): Promise<AiReply> {
   await runJsonLines<StreamEvent>(
     'claude',
     args,
-    pictures.length ? pictureMessage(prompt || 'See the attached pictures.', pictures) : prompt,
+    pictures.length ? pictureMessage(prompt, pictures) : prompt,
     request,
     (event) => {
       if (event.type === 'system' && event.subtype === 'init' && event.model)

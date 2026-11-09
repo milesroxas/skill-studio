@@ -6,11 +6,18 @@
 import { watchRuns } from '@application/ai.ts'
 import { createOperations, invoke, isOperation } from '@application/api/operations.ts'
 import { watchJobs } from '@application/jobs.ts'
-import { stopAll } from '@infrastructure/exec.ts'
+import { agentWatcher, endOrphans } from '@infrastructure/children.ts'
+import { stopAll, watchChildren } from '@infrastructure/exec.ts'
 import type { FromBackend, ToBackend } from '../channels.ts'
 
 const port = process.parentPort
 const post = (message: FromBackend): void => port.postMessage(message)
+
+// A backend that died left its agents running: end them before starting any more.
+const orphans = endOrphans()
+if (orphans.length)
+  console.warn(`Ended ${orphans.length} agent process(es) left by an earlier session.`)
+watchChildren(agentWatcher)
 
 const operations = createOperations({ skills: [] })
 

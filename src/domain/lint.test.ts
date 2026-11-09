@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { lintScene, type RuleScene, rulesIn, sceneOf, worthChecking } from './lint.ts'
-import { PRACTICE_EDIT } from './practice.ts'
+import { applyPracticeEdit, PRACTICE, PRACTICE_EDIT } from './practice.ts'
+import { EXAMPLE_KINDS, SNIPPETS, TEMPLATES, templateBody } from './templates.ts'
 
 const scene = (selection: string, more: Partial<RuleScene> = {}): RuleScene => ({
   selection,
@@ -28,6 +29,27 @@ describe('lintScene', () => {
     )
   })
 
+  it('reads the rule in the first sentence, and lets the why name an outcome or a thing', () => {
+    expect(
+      principles(
+        '- Lead with the change, never the background. A note that opens on it feels slow.',
+      ),
+    ).toEqual([])
+    expect(
+      principles('- Set every colour on :root first. A token is a value named once for the page.'),
+    ).toEqual([])
+  })
+
+  it('leaves a bare rule with no number or absolute to the judge', () => {
+    expect(principles('- Open with the name. The sender signs it themselves.')).not.toContain(
+      'strict',
+    )
+    // A hedge beside a number is a question for the judge too, not a finding code is sure of.
+    expect(principles('- Keep it to 20 words where possible. Longer notes are skimmed.')).toEqual(
+      [],
+    )
+  })
+
   it('wants a reason unless the bullet already gives one', () => {
     expect(principles('- Never add a sign-off.')).toContain('why')
     expect(principles('- Never add a sign-off: the sender signs it themselves.')).not.toContain(
@@ -38,9 +60,15 @@ describe('lintScene', () => {
     )
   })
 
-  it('reads a definition as a line that changes nothing', () => {
+  it('reads a definition as a line that changes nothing, and an instruction as none', () => {
     expect(principles('- A modal is a dialog that blocks the page until it is closed.')).toContain(
       'earns',
+    )
+    expect(
+      principles('- Read the code you are about to change before you propose a change. Why.'),
+    ).not.toContain('earns')
+    expect(principles('- Name the files you changed. The reader is the one who reviews.')).toEqual(
+      [],
     )
   })
 
@@ -53,6 +81,12 @@ describe('lintScene', () => {
         '- If the request names a person and the note is short, or when it is long but formal, open with the name unless it is a group, and never sign off.',
       ),
     ).toContain('complexity')
+    // A list of four things is one instruction, not four conditions.
+    expect(
+      principles(
+        '- Start every page with a doctype, a lang, a title and a viewport meta. Without them it renders in quirks mode, reads wrong, or zooms.',
+      ),
+    ).toEqual([])
   })
 
   it('measures the rule and the file', () => {
@@ -72,10 +106,25 @@ describe('lintScene', () => {
     ).not.toContain('strict')
   })
 
-  it('skips headings, numbered steps and code', () => {
+  it('skips headings, numbered steps, prose and code in either fence', () => {
     expect(
-      lintScene(scene('## Rules\n\n1. Read it reasonably.\n\n```\ntry to be nice\n```\n')),
+      lintScene(
+        scene(
+          '## Rules\n\nTry to be reasonably nice here.\n\n1. Read it reasonably.\n\n```\n- try to be nice\n```\n\n~~~md\n- try to be reasonable\n```\n- still inside the tildes, reasonably\n~~~\n',
+        ),
+      ),
     ).toEqual([])
+  })
+
+  it('finds nothing in the templates, the rule snippet and the practice skill’s good rules', () => {
+    for (const t of TEMPLATES)
+      expect(lintScene(scene(templateBody(t, 'release-notes'))), t.id).toEqual([])
+    expect(EXAMPLE_KINDS.length).toBeGreaterThan(0)
+    const rule = SNIPPETS.find((s) => s.id === 'rule')?.text.replace('|', '') ?? ''
+    expect(lintScene(scene(rule))).toEqual([])
+    const practice = templateBody(PRACTICE, PRACTICE.name)
+    expect(lintScene(scene(practice)).length).toBeGreaterThan(0)
+    expect(lintScene(scene(applyPracticeEdit(practice) ?? ''))).toEqual([])
   })
 })
 
@@ -92,11 +141,15 @@ describe('rulesIn', () => {
     )
   })
 
-  it('reads a paragraph as one unit', () => {
-    expect(rulesIn('One line.\nTwo line.\n\nThree.').map((u) => u.text)).toEqual([
-      'One line. Two line.',
-      'Three.',
-    ])
+  it('reads prose as no rule at all', () => {
+    expect(rulesIn('One line.\nTwo line.\n\nThree.')).toEqual([])
+    expect(rulesIn('Is it a bug?\n  Yes: reproduce it.\n  No: plan.')).toEqual([])
+  })
+
+  it('ends a bullet at a prose line', () => {
+    expect(
+      rulesIn('- A rule here now.\nProse after it.\n- Another rule now.').map((u) => u.text),
+    ).toEqual(['A rule here now.', 'Another rule now.'])
   })
 })
 
@@ -125,8 +178,10 @@ describe('sceneOf', () => {
 })
 
 describe('worthChecking', () => {
-  it('needs four words', () => {
+  it('needs four words, a list marker not counted', () => {
     expect(worthChecking('one two three')).toBe(false)
     expect(worthChecking('one two three four')).toBe(true)
+    expect(worthChecking('- one two three')).toBe(false)
+    expect(worthChecking('1. one two three four')).toBe(true)
   })
 })

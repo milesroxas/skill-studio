@@ -2,8 +2,26 @@
 import { parse as parseYaml } from 'yaml'
 
 /** Unix line endings, no byte-order mark: every parser below splits on `\n`. */
-const normalizeNewlines = (raw: string): string =>
+export const normalizeNewlines = (raw: string): string =>
   raw.replace(/^\uFEFF/, '').replace(/\r\n?/g, '\n')
+
+/** A code fence as a line opens it: three or more backticks or tildes, indented or not. */
+export interface Fence {
+  char: '`' | '~'
+  length: number
+}
+
+/** The fence a line opens, or null for any other line. */
+export function fenceOf(line: string): Fence | null {
+  const match = /^\s*(`{3,}|~{3,})/.exec(line)
+  return match ? { char: match[1][0] as Fence['char'], length: match[1].length } : null
+}
+
+/** Whether the line closes `fence`: the same character, at least as many, and nothing else. */
+export const closesFence = (line: string, fence: Fence): boolean => {
+  const match = /^\s*(`{3,}|~{3,})\s*$/.exec(line)
+  return match !== null && match[1][0] === fence.char && match[1].length >= fence.length
+}
 
 const FRONT_MATTER = /^---\n(?:([\s\S]*?)\n)?---(?:\n|$)/
 

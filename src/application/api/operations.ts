@@ -26,6 +26,7 @@ import {
   emptyDrafts,
   type FileDraft,
   NEW_CASE_KEY,
+  type Report,
   type SkillDrafts,
   type Vote,
 } from '@domain/schemas.ts'
@@ -37,7 +38,7 @@ import {
   statusOfEach,
 } from '@domain/secrets.ts'
 import { TEMPLATE_IDS } from '@domain/templates.ts'
-import type { SkillInfo } from '@domain/views.ts'
+import type { Job, SkillInfo } from '@domain/views.ts'
 import {
   benchPath,
   deleteCase,
@@ -76,6 +77,7 @@ import { loadReviews, reviewsPath, saveCorrection, savePick } from '@infrastruct
 import {
   listRuns,
   readRun,
+  readRunMeta,
   runDir,
   sampleFile,
   sampleTranscript,
@@ -110,8 +112,8 @@ import {
   stopRun,
 } from '../ai.ts'
 import { generateRun, samplesPerCase } from '../generate.ts'
-import { gradeRun } from '../grade.ts'
-import { listJobs, runJob, say, sizeJob, stepJob } from '../jobs.ts'
+import { gradeRun, unjudged } from '../grade.ts'
+import { listJobs, runJob, runningJob, say, sizeJob, stepJob, stopJob } from '../jobs.ts'
 import {
   type GenerateInput,
   type Input,
@@ -229,6 +231,9 @@ function draftsOf(value: unknown): SkillDrafts {
   return { files, cases, updatedAt: null }
 }
 
+/** Outputs per case in one run, as the Run panel offers them. */
+const MAX_SAMPLES = 10
+
 function generateInputOf(raw: Raw): GenerateInput {
   const configs = (Array.isArray(raw.configs) ? raw.configs : []).slice(0, 4).map((c) => {
     const choice = record(c)
@@ -238,7 +243,7 @@ function generateInputOf(raw: Raw): GenerateInput {
     ...scoped(raw),
     cases: list(raw.cases),
     configs,
-    samples: num(raw.samples, 1),
+    samples: Math.min(MAX_SAMPLES, num(raw.samples, 1)),
     configuration: oneOf(str(raw.configuration, 'with_skill'), CONFIGURATIONS, 'configuration'),
     baselineRun: str(raw.baselineRun) || null,
     skillName: str(raw.skillName) || null,
@@ -312,6 +317,7 @@ export const parsers: { [K in OperationName]: (raw: Raw) => Input<K> } = {
   'library.workspaces': (raw) => ({ workspaces: list(raw.workspaces) }),
   'library.mark': (raw) => ({ path: str(raw.path), theirs: raw.theirs === true }),
   'jobs.list': none,
+  'jobs.stop': (raw) => ({ id: num(raw.id, 0) }),
   'settings.read': none,
   'settings.key': (raw) => ({
     id: oneOf(raw.id, SECRET_IDS, 'key'),
@@ -465,6 +471,20 @@ export interface OperationsOptions {
   secrets?: SecretStore
 }
 
+/**
+ * Say in the job's log what a grading could not judge. False when no output
+ * was judged at all: the report then holds no verdicts, and the job fails
+ * rather than say "Graded." over scores counted from nothing.
+ */
+function reportJudging(job: Job, report: Report): boolean {
+  const { failed, total, reason } = unjudged(report)
+  if (!failed) return true
+  say(job, `${failed} of ${total} outputs were not judged: ${reason}`)
+  if (failed === total) return false
+  say(job, 'The scores of those outputs count only the layers that were judged.')
+  return true
+}
+
 export function createOperations(options: OperationsOptions): Runners {
   const secrets = options.secrets ?? environmentSecrets
   const skills = options.skills.map((dir) => skillInfo(dir))
@@ -516,6 +536,7 @@ export function createOperations(options: OperationsOptions): Runners {
       return { marked: true }
     },
     'jobs.list': () => listJobs(),
+    'jobs.stop': ({ id }) => stopJob(id),
     'settings.read': () => secrets.read(),
     'settings.key': ({ id, value }) => secrets.write(id, value),
     'ai.status': () => aiStatus(),
@@ -675,16 +696,21 @@ export function createOperations(options: OperationsOptions): Runners {
       })
       if (!engines.length) throw new Error('No available engine selected.')
       const configuration: Configuration = input.configuration
+      // As the Library lists it, so the skill's row can show the run.
+      const skillPath = realPath(skill.path)
+      if (runningJob('generate', skillPath))
+        throw new Error('This skill is already running. Wait for it to finish, or stop it.')
       const job = runJob(
         'generate',
         `Generate ${selected.length} case(s): ${engines.map((e) => e.engine.id).join(', ')}`,
-        // As the Library lists it, so the skill's row can show the run.
-        realPath(skill.path),
-        async (job) => {
+        skillPath,
+        skillPath,
+        async (job, signal) => {
           // One unit per output, and one more per writer for its grading, so the
           // count only reaches the end when the job does.
           const perWriter = selected.length * samplesPerCase(input.samples) + (input.grade ? 1 : 0)
           sizeJob(job, perWriter * engines.length)
+          const useJev = Jev.available()
           const results = await Promise.all(
             engines.map(async ({ engine, model, effort }) => {
               let left = perWriter
@@ -706,18 +732,22 @@ export function createOperations(options: OperationsOptions): Runners {
                   note: input.note,
                   log: (line) => say(job, line),
                   onSample: step,
+                  signal,
                 })
-                if (!input.grade) return true
+                if (!input.grade || signal.aborted) return !signal.aborted
                 say(job, `${name}: grading`)
-                await gradeRun(skill.path, name, {
-                  useJev: Jev.available(),
+                if (!useJev) say(job, 'No TypeSafe key: code checks only.')
+                const report = await gradeRun(skill.path, name, {
+                  useJev,
                   log: (line) => say(job, line),
+                  signal,
                 })
-                say(job, `${name}: graded`)
+                const judged = reportJudging(job, report)
+                if (judged) say(job, `${name}: graded`)
                 step()
-                return true
+                return judged
               } catch (error) {
-                say(job, (error as Error).message)
+                if (!signal.aborted) say(job, (error as Error).message)
                 // What this writer will never do still counts as settled.
                 while (left > 0) step()
                 return false
@@ -731,13 +761,25 @@ export function createOperations(options: OperationsOptions): Runners {
     },
     'skill.grade': (input) => {
       const skill = skillOf(input)
-      const job = runJob('grade', `Grade ${input.run}`, realPath(skill.path), async (job) => {
-        await gradeRun(skill.path, input.run, {
-          useJev: input.jev && Jev.available(),
+      const skillPath = realPath(skill.path)
+      const target = `${skillPath}/${input.run}`
+      // A report over a run still writing would miss the outputs still to come.
+      const meta = readRunMeta(skill.path, input.run)
+      if (meta && !meta.finishedAt)
+        throw new Error('This run is still writing. Grade it when it finishes.')
+      if (runningJob('grade', target))
+        throw new Error('This run is already being graded. Wait for it to finish, or stop it.')
+      const useJev = input.jev && Jev.available()
+      const job = runJob('grade', `Grade ${input.run}`, skillPath, target, async (job, signal) => {
+        if (input.jev && !useJev) say(job, 'No TypeSafe key: code checks only.')
+        const report = await gradeRun(skill.path, input.run, {
+          useJev,
           log: (line) => say(job, line),
+          signal,
         })
-        say(job, 'Graded.')
-        return true
+        const judged = reportJudging(job, report)
+        if (judged) say(job, 'Graded.')
+        return judged
       })
       return { started: true, job: job.id }
     },

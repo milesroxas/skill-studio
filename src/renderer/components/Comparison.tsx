@@ -77,6 +77,9 @@ const VOTES = [
 
 const SLOT_LABEL = { a: 'A', b: 'B' } as const
 
+/** How long Regrade stays busy after the call returns while its job has not shown in the list, which a browser polls. */
+const ASKED_FOR_MS = 5000
+
 const VIEWS = [
   { value: 'side', label: 'Side by side' },
   { value: 'diff', label: 'Word diff' },
@@ -123,16 +126,45 @@ export function Comparison({
     }
   }
 
+  /**
+   * The runs whose grade was asked for and has not shown in the jobs yet: the
+   * button is busy from the press, not from the first poll that lists the job.
+   */
+  const [asked, setAsked] = useState<string[]>([])
+  const graded = (run: string) => Boolean(runningJob(jobs, 'grade', `Grade ${run}`))
+  useEffect(() => {
+    setAsked((list) => {
+      const left = list.filter((run) => !runningJob(jobs, 'grade', `Grade ${run}`))
+      return left.length === list.length ? list : left
+    })
+  }, [jobs])
+  useEffect(() => {
+    if (!asked.length) return
+    // A job that never shows, such as one refused before it was listed, does not hold the button for good.
+    const timer = setTimeout(() => setAsked([]), ASKED_FOR_MS)
+    return () => clearTimeout(timer)
+  }, [asked])
+
   /** Grade the runs these outputs came from again: each run is graded whole. */
   const regrade = async (runs: string[]) => {
+    const names = [...new Set(runs)]
+    if (asked.length) return
+    setAsked(names)
     try {
-      for (const run of new Set(runs)) await api.grade(run, state.jevKey)
-      report(runs.length > 1 ? 'Grading both runs' : `Grading ${runs[0]}`)
+      for (const run of names) await api.grade(run, state.jevKey)
+      report(
+        names.length > 1
+          ? 'Grading both runs'
+          : runs.length > 1
+            ? 'Grading the run'
+            : `Grading ${names[0]}`,
+      )
     } catch (e) {
       report(e as Error)
+      setAsked([])
     }
   }
-  const grading = (run: string) => Boolean(runningJob(jobs, 'grade', `Grade ${run}`))
+  const grading = (run: string) => asked.includes(run) || graded(run)
 
   const sides = [a, b].filter((o): o is Output => o !== null)
 
@@ -351,9 +383,12 @@ function Side({
   const { state, config, go, report, reload } = ctx
   const scored = scoreOf(output, config)
   const otherScored = other ? scoreOf(other, config) : null
-  const [view, setView] = useState<OutputView | null>(primaryOf(output))
+  // The artifact in view, kept by the output's key: a reload after a correction
+  // or a pick brings a new output object for the same output, and the view holds.
+  const [picked, setPicked] = useState<{ key: string; view: OutputView | null } | null>(null)
+  const view = picked?.key === output.key ? picked.view : primaryOf(output)
+  const setView = (next: OutputView | null) => setPicked({ key: output.key, view: next })
   const [pending, setPending] = useState<string | null>(null)
-  useEffect(() => setView(primaryOf(output)), [output])
   const delta =
     scored?.scores.total != null && otherScored?.scores.total != null
       ? scored.scores.total - otherScored.scores.total

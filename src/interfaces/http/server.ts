@@ -5,6 +5,7 @@
  * /api/artifact` and `GET /api/image`, so images and frames can load them by
  * URL.
  */
+import { randomBytes } from 'node:crypto'
 import { existsSync, readFileSync, statSync } from 'node:fs'
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http'
 import { join } from 'node:path'
@@ -18,6 +19,8 @@ import {
 } from '@application/api/operations.ts'
 import { isWithin } from '@domain/paths.ts'
 import { isDir } from '@infrastructure/fs.ts'
+// The same policy the desktop app's scheme sends; the module imports nothing of Electron's.
+import { contentSecurityPolicy, withStyleNonce } from '../electron/main/csp.ts'
 import { loadEnv, RENDERER_DIST } from '../host.ts'
 import { type Remote, refusal } from './guard.ts'
 
@@ -87,6 +90,19 @@ export function startServer(options: ServerOptions): Promise<number> {
       let path = join(RENDERER_DIST, url.pathname === '/' ? 'index.html' : url.pathname.slice(1))
       if (!isWithin(path, RENDERER_DIST) || !existsSync(path) || statSync(path).isDirectory())
         path = join(RENDERER_DIST, 'index.html')
+      if (path.endsWith('.html')) {
+        // The page gets the app's policy, with a style nonce of its own for the editor's one style tag.
+        const styleNonce = randomBytes(16).toString('base64')
+        return send(
+          res,
+          200,
+          withStyleNonce(readFileSync(path, 'utf8'), styleNonce),
+          contentTypeOf(path),
+          {
+            'content-security-policy': contentSecurityPolicy({ styleNonce, web: true }),
+          },
+        )
+      }
       // Vite names built assets by content hash, so they never change under one URL.
       const hashed = isWithin(path, join(RENDERER_DIST, 'assets'))
       return send(

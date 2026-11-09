@@ -58,7 +58,7 @@ export const answering = (field: string, state: JevState): string =>
  * picture, such as a mock-up the output should match, carries that picture in
  * its own instructions: only this question needs it.
  */
-export function statementQuestion(
+function statementQuestion(
   statement: string,
   field: string,
   state: JevState = {},

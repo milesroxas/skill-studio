@@ -36,7 +36,7 @@ import { lineDiff } from '../diff.ts'
 import { useArrived } from '../motion.ts'
 import { DiffLines } from './DiffLines.tsx'
 import { Disclosure, DisclosureList } from './Disclosure.tsx'
-import { List, Stack } from './layout.tsx'
+import { List, Stack, Toolbar } from './layout.tsx'
 import { Prose } from './Prose.tsx'
 import { CheckWeight } from './Scores.tsx'
 import { Status } from './Status.tsx'
@@ -49,7 +49,15 @@ export interface ChangeHost {
   ctx: Ctx | null
   /** The open skill's files as saved, by path; null until read. */
   files: Record<string, string> | null
+  /** Why the files could not be read; null while they are being read or once they have been. */
+  filesProblem?: string | null
+  /** Read the files again, and whether that read is on its way. */
+  readFiles?: { run: () => void; running: boolean }
 }
+
+/** A file row's detail while the saved file is unknown because it could not be read; null while it is being read. */
+const unreadDetail = (host: ChangeHost): string | null =>
+  host.filesProblem ? 'Could not read the saved file.' : null
 
 type Change<K extends SkillChange['kind']> = Extract<SkillChange, { kind: K }>
 
@@ -209,7 +217,12 @@ function FileRow({
         <Summary
           mono
           title={name}
-          detail={[folder, fileDetail(standing, lines)].filter(Boolean).join(' · ')}
+          detail={[
+            folder,
+            (before === undefined && unreadDetail(host)) || fileDetail(standing, lines),
+          ]
+            .filter(Boolean)
+            .join(' · ')}
         />
       }
       action={
@@ -412,6 +425,9 @@ function Row({ part, host, offer }: { part: ChangeRowPart; host: ChangeHost; off
 
 type ChangeRowPart = Exclude<ReplyPart, { kind: 'prose' }>
 
+const isFileChange = (part: ChangeRowPart): boolean =>
+  part.kind !== 'writing' && part.change.kind === 'file'
+
 /** The reply as runs of prose and runs of changes, in order. */
 function segments(parts: ReplyPart[]): Array<string | ChangeRowPart[]> {
   const out: Array<string | ChangeRowPart[]> = []
@@ -447,6 +463,13 @@ export function Reply({
     : blocked
       ? { kind: 'blocked', reason: blocked }
       : { kind: 'open' }
+  // A file change waits on the saved files. When they could not be read, the reply says so once, with the way to try again.
+  const unread =
+    offer.kind === 'open' &&
+    host.filesProblem &&
+    parts.some((part) => Array.isArray(part) && part.some(isFileChange))
+      ? host.filesProblem
+      : null
   return (
     <Stack gap="lg">
       {parts.map((part, i) =>
@@ -466,6 +489,25 @@ export function Reply({
           </Stack>
         ),
       )}
+      {unread ? (
+        <Toolbar>
+          <Hint tone="destructive" role="alert">
+            Could not read the skill’s saved files. {unread}
+          </Hint>
+          {host.readFiles ? (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              busy={host.readFiles.running}
+              busyLabel="Reading…"
+              onClick={host.readFiles.run}
+            >
+              Retry
+            </Button>
+          ) : null}
+        </Toolbar>
+      ) : null}
     </Stack>
   )
 }

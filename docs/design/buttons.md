@@ -77,6 +77,7 @@ Is it the next step of the loop, in the top bar?
 | `inline`, `inline-sm` | none | a link in running text, or small under a form |
 | `cell` | 28px | a button filling a table cell |
 | `cell-inline` | none | a text link in a table cell |
+| `row` | grows | a full-width row in a list, left-aligned and wrapping, at the text's own weight: the questions to ask on the Assistant's empty state (`Chat.tsx`), with `ghost`. Nowhere else yet. |
 
 ```
 Is it in a table cell?
@@ -129,7 +130,8 @@ The loop is write, run, compare, and running is a button, not a place. So the ne
 - A label ends in an ellipsis in two cases only: it is busy ("Saving…", "Starting…"), or it opens a dialog that asks more before acting ("Reset Skill Studio…"). A button that acts at once has none.
 - A button is `disabled` when pressing it would change nothing: "Show every hint again" is disabled when no hint has been seen.
 - Every button whose press awaits something is busy until it lands: `busy={saving} busyLabel="Saving…"`. `busy` disables the button and sets `aria-busy`; `busyLabel` is what it says meanwhile, laid over the label in the same cell so the button is as wide as the wider of the two from the start and nothing beside it moves. Never write the swap as a ternary in the label, and never leave an `await` behind a button that stays enabled: a button that comes straight back asks to be pressed again.
-- A button that starts a job stays busy until the job is over, not until the call returns: starting returns as soon as the job is queued. `runningJob(jobs, kind, title?)` in `Jobs.tsx` finds the job; Run says "Running…" while the run's count shows at the foot of the sidebar, and "Regrade" says "Grading…".
+- A button that starts a job stays busy until the job is over, not until the call returns: starting returns as soon as the job is queued. `runningJob(jobs, kind, title?)` in `Jobs.tsx` finds the job; Run says "Running…" while the run's count shows at the foot of the sidebar, and "Regrade" says "Grading…". It is busy from the press, too: a browser polls the list of jobs every few seconds, so the button holds its own busy state until the job shows there, or for five seconds when it never does (`Run.tsx`, `Comparison.tsx`).
+- The composer's Stop is `disabled` until there is a reply to stop: a request still being sent has no id yet (`Composer` takes no `onStop` then).
 - The other buttons of the same form or row are `disabled` while one of them is busy, so Save and Delete, or Restore on two rows, cannot run at once. A row's controls in a list wait on the row's own key (`pending` in `Library.tsx`), not on every row.
 - "Try again" after a failed read is busy while the read runs again: `useFetch` returns `loading`, and `ReadFailed` takes it as `retrying`.
 - A label is a verb and its object: "Start a run", "Delete case", "Save case", and "Add case" for an item's first save. Never "OK", "Submit" or "Click here". "Save" alone is right where what it saves is plain: the Skill screen's `ColumnHeader`, where it saves the open file.

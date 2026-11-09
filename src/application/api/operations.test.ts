@@ -87,6 +87,7 @@ describe('parsers', () => {
     expect(input.configs).toHaveLength(4)
     expect(input.configs[0]).toEqual({ engine: 'claude', model: 'sonnet', effort: '' })
     expect(input.samples).toBe(1)
+    expect(parsers['skill.generate']({ skill: '/s', samples: 40 }).samples).toBe(10)
     expect(input.configuration).toBe('without_skill')
     expect(input.grade).toBe(false)
     expect(() => parsers['skill.generate']({ configuration: 'sideways' })).toThrow(

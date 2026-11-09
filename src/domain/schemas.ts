@@ -25,10 +25,7 @@ export interface Grader {
 
 /** The optional `bench` block of `case.yaml` (or of a legacy `evals.json` entry). */
 export interface CaseBench {
-  /** Judge pack id; defaults to the packs in `bench.json`. */
-  pack?: string
   artifact?: ArtifactKind
-  viewports?: string[]
   /** Command whose exit code is a hard layer (code pack). */
   check?: string
   /** Word range the primary output should fall in. */

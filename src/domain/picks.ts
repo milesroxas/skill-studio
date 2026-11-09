@@ -21,6 +21,8 @@ export interface PickOutput {
   createdAt: string
   /** Which sample of its case it is, from 1. */
   index: number
+  /** The agent wrote an output. A run stopped or failed before it did leaves nothing to read. */
+  written: boolean
 }
 
 export interface Pair<T extends PickOutput = PickOutput> {
@@ -30,9 +32,9 @@ export interface Pair<T extends PickOutput = PickOutput> {
   b: T | null
 }
 
-/** The newest run's first sample. */
+/** The newest run's first sample, among the outputs that were written when any was. */
 const first = <T extends PickOutput>(outputs: T[]): T | null =>
-  outputs.reduce<T | null>(
+  (outputs.some((o) => o.written) ? outputs.filter((o) => o.written) : outputs).reduce<T | null>(
     (best, o) =>
       !best ||
       o.createdAt > best.createdAt ||

@@ -18,6 +18,14 @@ import { Button } from './ui/button.tsx'
 
 const KIND = { rule: 'Rule', check: 'Check', other: null } as const
 
+/** How the reader's answer stands: it is theirs even where Jev, under the scoring in hand, now says the same. */
+const answerNote = (verdict: Verdict): string =>
+  verdict.corrected
+    ? verdict.jev === verdict.met
+      ? ' · your answer, agrees with Jev'
+      : ' · your answer'
+    : ''
+
 interface Actions {
   /** A rule that still stands in SKILL.md as it is written here: open it in the editor. */
   onOpenRule?: (text: string) => void
@@ -50,7 +58,7 @@ function Row({ verdict, actions }: { verdict: Verdict; actions: Actions }) {
           <Text tone="faint">
             {kind}
             {verdict.weight ? ` ${weightMark(verdict.weight)}` : ''}
-            {verdict.corrected ? ' · your answer' : ''}
+            {answerNote(verdict)}
           </Text>
         ) : null}
         {stands && onOpenRule ? (

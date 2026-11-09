@@ -66,7 +66,8 @@ export interface EngineInfo {
 }
 
 export type JobKind = 'generate' | 'grade'
-export type JobStatus = 'running' | 'done' | 'failed'
+/** `stopped`: the reader ended it before it finished; it did not fail, and it did not do what it set out to. */
+export type JobStatus = 'running' | 'done' | 'failed' | 'stopped'
 
 /** How far a job has come, in the units it counts: outputs written, for a run. */
 export interface JobProgress {

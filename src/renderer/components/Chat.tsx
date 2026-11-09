@@ -86,7 +86,18 @@ export function ChatPanel({ screen, skill, ctx, confirm, onClose }: ChatPanelPro
     [skillPath, hash],
   )
   const files = disk.data?.files ?? null
-  const host = useMemo<ChangeHost>(() => ({ ctx, files }), [ctx, files])
+  // A failed read is said once, in the reply, with the way to read again: a row cannot apply without it.
+  const filesProblem = files === null ? disk.error : null
+  const { reload: readFiles, loading: readingFiles } = disk
+  const host = useMemo<ChangeHost>(
+    () => ({
+      ctx,
+      files,
+      filesProblem,
+      readFiles: { run: readFiles, running: readingFiles },
+    }),
+    [ctx, files, filesProblem, readFiles, readingFiles],
+  )
   const reply = (text: string, skillOf: string | undefined, writing: boolean) => (
     <Reply text={text} skill={skillOf} writing={writing} host={host} />
   )
@@ -176,8 +187,7 @@ export function ChatPanel({ screen, skill, ctx, confirm, onClose }: ChatPanelPro
                 <Button
                   type="button"
                   variant="ghost"
-                  size="sm"
-                  className="h-auto w-full justify-start py-1.5 text-left font-normal whitespace-normal"
+                  size="row"
                   onClick={() => void send(question)}
                 >
                   {question}
@@ -222,7 +232,8 @@ export function ChatPanel({ screen, skill, ctx, confirm, onClose }: ChatPanelPro
             onChange={setDraft}
             onSubmit={(text) => void send(text)}
             running={Boolean(running)}
-            onStop={() => run && stopRun(run.id)}
+            // Until the reply has an id there is nothing to stop: the button waits disabled.
+            onStop={run?.status === 'running' ? () => stopRun(run.id) : undefined}
             pictures={attached}
             picturesSuffice
             commands={{

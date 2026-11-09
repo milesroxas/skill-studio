@@ -257,10 +257,22 @@ const ITEM_MARKER = /^(?:[-*•]|\d+[.)])(?:\s+|$)/
 /** The items of a fitted `items` reply. */
 export const assistItems = (text: string): string[] => text.split('\n')
 
+/** A reply that is one code fence around the whole text, with any language after the opening. */
+const WRAPPED = /^\s*(`{3,}|~{3,})[^\n]*\n([\s\S]*?)\n[ \t]*\1[ \t]*$/
+
+/** Whether the text opens with a code fence. */
+const startsFenced = (text: string): boolean => /^\s*(?:`{3,}|~{3,})/.test(text)
+
+/** The text without the one fence a model may wrap a whole file in, though it is told not to. */
+const unwrapped = (text: string): string => {
+  const match = WRAPPED.exec(text.trim())
+  return match ? match[2] : text
+}
+
 const FIT: Record<AssistFieldDef['form'], (text: string) => string> = {
   line: (text) => text.replace(/\s+/g, ' ').trim(),
   block: (text) => text.trim(),
-  file: (text) => text.trim(),
+  file: (text) => unwrapped(text).trim(),
   items: (text) =>
     text
       .split('\n')
@@ -273,8 +285,10 @@ const FIT: Record<AssistFieldDef['form'], (text: string) => string> = {
  * The finished reply as the field's text, fitted to the field: one line stays
  * one line, a list's items stand one to a line without their markers, a file
  * ends with a newline, and a SKILL.md that came back without its front matter
- * gets the block it had. Throws when the reply is not the agreed object or
- * holds no text, so a bad reply never reaches a field.
+ * gets the block it had. A file wrapped whole in one code fence is unwrapped.
+ * Throws when the reply is not the agreed object, holds no text, or is a file
+ * that still opens with a fence (its front matter would sit inside a code
+ * block, and no rule would be graded), so a bad reply never reaches a field.
  */
 export function assistText(input: Pick<AssistInput, 'field' | 'current'>, raw: string): string {
   let parsed: unknown
@@ -288,6 +302,8 @@ export function assistText(input: Pick<AssistInput, 'field' | 'current'>, raw: s
   const fitted = typeof value === 'string' ? FIT[form](value) : ''
   if (!fitted) throw new Error('The model returned no text for this field. Try again.')
   if (form !== 'file') return fitted
+  if (startsFenced(fitted))
+    throw new Error('The model wrapped the file in a code fence. Try again.')
   const text = `${fitted}\n`
   const front = input.field === 'skill.file' ? frontMatterBlock(input.current) : ''
   return front && !frontMatterBlock(text) ? `${front.trimEnd()}\n\n${text}` : text
@@ -372,10 +388,13 @@ export function workingSkill(
 }
 
 /**
- * How much reference text the assistant reads, in characters, about 15,000
- * tokens. SKILL.md is always read whole; the open file is read first.
+ * How much of the skill beyond SKILL.md the assistant reads each turn, in
+ * characters, about 10,000 tokens: one budget for the reference files and the
+ * cases together. SKILL.md is always read whole. The open file comes first,
+ * then the other references, then the cases; a case past the budget is named
+ * by its title alone.
  */
-export const REFERENCE_BUDGET = 60_000
+export const CONTEXT_BUDGET = 40_000
 
 const SCREENS =
   'Skill (edit SKILL.md and references/, with every version to compare and restore), Cases (the prompts a run is made of, each with checks), Results (two outputs of a case side by side with what each missed, a pick between them, and every run under All cases), Library, Guide and Settings. Run, at the top of the window, has an agent do the cases and saves the skill as a version.'
@@ -395,21 +414,30 @@ function whereText(scene: ChatScene): string {
   return parts.join(' ')
 }
 
+/** What is left of the budget as the brief is built: files take from it first, then cases. */
+interface Budget {
+  left: number
+}
+
+/** Whether `text` fits in what is left; when it does, it is spent. */
+function spend(budget: Budget, text: string): boolean {
+  if (text.length > budget.left) return false
+  budget.left -= text.length
+  return true
+}
+
 /** The skill's files: SKILL.md whole, then each reference in full while the budget lasts, the open one first. */
-function filesText(files: SceneFile[], open: string | null): string {
+function filesText(files: SceneFile[], open: string | null, budget: Budget): string {
   const mark = (f: SceneFile) => (f.unsaved ? `${f.path} (unsaved)` : f.path)
   const skillMd = files.find((f) => f.path === 'SKILL.md')
   const references = files
     .filter((f) => f !== skillMd)
     .sort((a, b) => Number(b.path === open) - Number(a.path === open))
-  let left = REFERENCE_BUDGET
   const shown: string[] = []
   const named: string[] = []
   for (const f of references) {
-    if (f.text.length <= left) {
-      left -= f.text.length
-      shown.push(tag('file', f.text, mark(f)))
-    } else named.push(mark(f))
+    if (spend(budget, f.text)) shown.push(tag('file', f.text, mark(f)))
+    else named.push(mark(f))
   }
   return [
     skillMd ? tag('file', skillMd.text, mark(skillMd)) : 'The skill has no SKILL.md yet.',
@@ -423,6 +451,12 @@ function filesText(files: SceneFile[], open: string | null): string {
 /** A check's weight after its number, only when it is not the usual 1. */
 export const weightNote = (weight: number): string => (weight === 1 ? '' : ` (weight ${weight})`)
 
+/** A case's name in the brief: its title and id, and whether it is unsaved. */
+const caseName = (c: SceneCase): string =>
+  c.id === NEW_CASE_KEY
+    ? `${c.title || 'New case'} (new, unsaved)`
+    : `${c.title || c.id}${c.title && c.title !== c.id ? `, id ${c.id}` : ''}${c.unsaved ? ' (unsaved)' : ''}`
+
 const caseText = (c: SceneCase): string =>
   tag(
     'case',
@@ -435,10 +469,28 @@ const caseText = (c: SceneCase): string =>
     ]
       .filter(Boolean)
       .join('\n'),
-    c.id === NEW_CASE_KEY
-      ? `${c.title || 'New case'} (new, unsaved)`
-      : `${c.title || c.id}${c.title && c.title !== c.id ? `, id ${c.id}` : ''}${c.unsaved ? ' (unsaved)' : ''}`,
+    caseName(c),
   )
+
+/** The skill's cases, each in full while the budget lasts; the rest by name, with how many. */
+function casesText(cases: SceneCase[], budget: Budget): string {
+  if (!cases.length) return 'The skill has no cases yet.'
+  const shown: string[] = []
+  const named: string[] = []
+  for (const c of cases) {
+    const text = caseText(c)
+    if (spend(budget, text)) shown.push(text)
+    else named.push(caseName(c))
+  }
+  return [
+    shown.length ? `Its cases:\n${shown.join('\n')}` : '',
+    named.length
+      ? `${named.length} more ${named.length === 1 ? 'case is' : 'cases are'} left out here for length, by name: ${named.join('; ')}.`
+      : '',
+  ]
+    .filter(Boolean)
+    .join('\n')
+}
 
 /** The brief of the side panel's assistant: the app, how a skill is written, where the reader is, the skill in hand, and how to change it. */
 export function chatSystem(scene: ChatScene): string {
@@ -453,15 +505,12 @@ export function chatSystem(scene: ChatScene): string {
   if (where) parts.push(where)
   if (scene.skill) {
     const { name, files, cases } = scene.skill
+    const budget: Budget = { left: CONTEXT_BUDGET }
     parts.push(CHANGES_GUIDE)
     parts.push(
-      `The open skill is "${name}". You see its files and cases as the reader has them. One marked unsaved holds edits they have not saved yet: it is the current text, and a change you propose to it replaces those edits.\n${filesText(files, scene.open.file)}`,
+      `The open skill is "${name}". You see its files and cases as the reader has them. One marked unsaved holds edits they have not saved yet: it is the current text, and a change you propose to it replaces those edits.\n${filesText(files, scene.open.file, budget)}`,
     )
-    parts.push(
-      cases.length
-        ? `Its cases:\n${cases.map(caseText).join('\n')}`
-        : 'The skill has no cases yet.',
-    )
+    parts.push(casesText(cases, budget))
   } else
     parts.push('No skill is open, so you cannot change one: say to open it from the Library first.')
   return parts.join('\n\n')

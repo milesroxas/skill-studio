@@ -134,7 +134,7 @@ export function VersionLift({
 }) {
   const { first, latest, baseline } = lift
   const change = round(latest.mean) - round(first.mean)
-  const summary = `Version lift for ${writer}: ${first.version} scored ${round(first.mean)}, ${latest.version} scored ${round(latest.mean)}${baseline ? `, and without the skill ${round(baseline.mean)}` : ''}.`
+  const summary = `Version lift for ${writer}: ${first.version} scored ${round(first.mean)}, ${latest.version} scored ${round(latest.mean)}${baseline ? `, and without the skill ${round(baseline.mean)}` : ''}${lift.casesDiffer ? `, over the ${lift.sharedCases} cases both runs answered` : ''}.`
   return (
     <figure
       aria-label={summary}
@@ -153,6 +153,9 @@ export function VersionLift({
             {/* Delta keeps its own lead from the score; this line starts where it does. */}
             <Text size="ui" tone="muted" className={change ? 'pl-1.5' : undefined}>
               {writer}
+              {lift.casesDiffer
+                ? `, over the ${lift.sharedCases} ${lift.sharedCases === 1 ? 'case' : 'cases'} both runs answered`
+                : null}
             </Text>
           </span>
         </div>

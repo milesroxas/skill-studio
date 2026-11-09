@@ -6,11 +6,50 @@
  * login shell's own PATH once it has been read.
  */
 import { spawn } from 'node:child_process'
+import { readdirSync } from 'node:fs'
 import { delimiter, join } from 'node:path'
 
-/** Where Claude Code's installer, Homebrew on Apple silicon, and Homebrew on Intel put commands. */
-export const installDirs = (home: string): string[] => [
+/** A version folder's number, for sorting: `v22.3.1` reads as [22, 3, 1]. */
+const versionOf = (name: string): number[] =>
+  name
+    .replace(/^v/, '')
+    .split('.')
+    .map((part) => Number.parseInt(part, 10) || 0)
+
+const newestFirst = (a: string, b: string): number => {
+  const [va, vb] = [versionOf(a), versionOf(b)]
+  for (let i = 0; i < Math.max(va.length, vb.length); i += 1)
+    if ((va[i] ?? 0) !== (vb[i] ?? 0)) return (vb[i] ?? 0) - (va[i] ?? 0)
+  return 0
+}
+
+/**
+ * The `bin` folder of every Node that nvm installed, newest first. A CLI
+ * installed with npm under nvm lives in one of these, and only the shell's
+ * startup files put the chosen one on the PATH.
+ */
+export function nvmBinDirs(home: string): string[] {
+  const versions = join(home, '.nvm', 'versions', 'node')
+  let names: string[]
+  try {
+    names = readdirSync(versions).filter((name) => /^v?\d/.test(name))
+  } catch {
+    return []
+  }
+  return names.sort(newestFirst).map((name) => join(versions, name, 'bin'))
+}
+
+/**
+ * Where the usual installers put commands: Claude Code's own installer, each
+ * Node that nvm installed, Volta, Bun, a global npm prefix, Homebrew on Apple
+ * silicon, and Homebrew on Intel.
+ */
+export const installDirs = (home: string, nvm: string[] = nvmBinDirs(home)): string[] => [
   join(home, '.local', 'bin'),
+  ...nvm,
+  join(home, '.volta', 'bin'),
+  join(home, '.bun', 'bin'),
+  join(home, '.npm-global', 'bin'),
   '/opt/homebrew/bin',
   '/usr/local/bin',
 ]

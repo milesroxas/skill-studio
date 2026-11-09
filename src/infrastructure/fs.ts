@@ -5,17 +5,37 @@ import {
   readdirSync,
   readFileSync,
   realpathSync,
+  renameSync,
   statSync,
   writeFileSync,
 } from 'node:fs'
 import { join, relative } from 'node:path'
 
-export const readJson = <T>(path: string, fallback: T): T =>
-  existsSync(path) ? (JSON.parse(readFileSync(path, 'utf8')) as T) : fallback
+/**
+ * A JSON file, or `fallback` when there is none. A file that does not parse
+ * throws an error naming it, so a torn or hand-edited file is found and fixed
+ * rather than read as empty and written over. A caller listing many files
+ * catches and skips the bad one.
+ */
+export function readJson<T>(path: string, fallback: T): T {
+  if (!existsSync(path)) return fallback
+  const raw = readFileSync(path, 'utf8')
+  try {
+    return JSON.parse(raw) as T
+  } catch (error) {
+    throw new Error(`${path} is malformed and could not be read: ${(error as Error).message}`)
+  }
+}
 
-export const writeJson = (path: string, value: unknown): void => {
+/**
+ * Write a JSON file whole: the text goes to a temporary file beside it, which
+ * then takes its name. A crash midway leaves the old file, never half a new one.
+ */
+export function writeJson(path: string, value: unknown, mode?: number): void {
   mkdirSync(join(path, '..'), { recursive: true })
-  writeFileSync(path, `${JSON.stringify(value, null, 2)}\n`)
+  const temp = `${path}.${process.pid}.tmp`
+  writeFileSync(temp, `${JSON.stringify(value, null, 2)}\n`, mode === undefined ? {} : { mode })
+  renameSync(temp, path)
 }
 
 /** The folder with every link resolved, as the Library lists it; the path itself when it is gone. */

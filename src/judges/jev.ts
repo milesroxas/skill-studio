@@ -2,7 +2,13 @@
  * The Jev client: one TypeSafe client per grading run, counting input tokens
  * and recording the model that answered so every report carries both.
  */
-import { type Questions, type SystemOneResult, TypeSafeClient } from '@typesafe-ai/sdk'
+import {
+  AuthenticationError,
+  PermissionDeniedError,
+  type Questions,
+  type SystemOneResult,
+  TypeSafeClient,
+} from '@typesafe-ai/sdk'
 import { holdsImage } from './images.ts'
 
 const DEFAULT_MODEL = 'jev-1.14.0'
@@ -17,9 +23,15 @@ const IMAGES_HEADER = { 'TypeSafe-Danger-Zone-Images': 'true' }
 
 export type JevState = NonNullable<Parameters<TypeSafeClient['systemOne']>[0]['state']>
 
+/** TypeSafe refused the key: it is missing, wrong, or may not do this. */
+export const isAuthError = (error: unknown): boolean =>
+  error instanceof AuthenticationError || error instanceof PermissionDeniedError
+
 export class Jev {
   readonly model: string
   private client: TypeSafeClient | null = null
+  /** The key the client was built with. A key changed in Settings builds a new one. */
+  private key: string | undefined
   inputTokens = 0
   calls = 0
   modelSeen: string | null = null
@@ -36,12 +48,17 @@ export class Jev {
     state: JevState,
     questions: Q,
   ): Promise<SystemOneResult<Q>['answers']> {
-    if (!Jev.available()) throw new Error('TYPESAFE_API_KEY is not set.')
-    this.client ??= new TypeSafeClient({
-      defaultModel: this.model,
-      timeout: 60_000,
-      logLevel: 'error',
-    })
+    const key = process.env.TYPESAFE_API_KEY
+    if (!key) throw new Error('TYPESAFE_API_KEY is not set.')
+    if (!this.client || this.key !== key) {
+      this.client = new TypeSafeClient({
+        apiKey: key,
+        defaultModel: this.model,
+        timeout: 60_000,
+        logLevel: 'error',
+      })
+      this.key = key
+    }
     const result = await this.client.systemOne(
       { state, questions },
       holdsImage(state) || holdsImage(questions) ? { headers: IMAGES_HEADER } : undefined,

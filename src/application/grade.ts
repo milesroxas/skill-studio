@@ -3,6 +3,7 @@
  * sample's primary artifact, the raw answers go in `report.json`, and the
  * scores come from core so the app can rescore as a setting moves.
  */
+import { createHash } from 'node:crypto'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { mergeConfig } from '@domain/config.ts'
@@ -32,7 +33,14 @@ export interface GradeOptions {
   /** Keys laid over the skill's `bench.json` for this grading only. */
   config?: Partial<BenchConfig>
   log?: (line: string) => void
+  /** The job was stopped: no further sample is judged, and no report is written. */
+  signal?: AbortSignal
 }
+
+/** The file beside `report.json` that keeps each pack's raw answers by the hash of what it was asked. */
+const CACHE_FILE = 'judge-cache.json'
+/** How a pack's failure reads in a sample's flags; `unjudged` counts these. */
+const PACK_FAILED = / pack failed: /
 
 interface Subject extends Sample {
   caseRef: string | null
@@ -40,11 +48,19 @@ interface Subject extends Sample {
   tests: string[]
 }
 
+interface JudgeCache {
+  /** The answers the last grading kept, by hash. */
+  old: Record<string, unknown>
+  /** The answers this grading keeps: reused and new. */
+  fresh: Record<string, unknown>
+}
+
 interface GradeContext {
   cases: Case[]
   rules: Rule[]
   packs: JudgePack[]
   judge: JudgeContext
+  cache: JudgeCache
 }
 
 /** The skill's `bench.json`, with the call's overrides and pack list laid over it. */
@@ -93,7 +109,36 @@ function judgeInput(
   }
 }
 
-async function gradeSubject(subject: Subject, ctx: GradeContext): Promise<ReportResult> {
+/**
+ * The hash of everything a pack's answer depends on: the model, the pack, the
+ * output and what it is judged against. Points per layer and the `yes`
+ * threshold are left out, since they are applied after, in scoring. The same
+ * hash on Regrade means the same questions over the same text, so the kept
+ * answer stands and Jev is not asked again.
+ */
+function judgeKey(pack: JudgePack, input: JudgeInput, ctx: GradeContext): string {
+  const { weights: _weights, yes: _yes, ...config } = ctx.judge.config
+  const asked = {
+    model: ctx.judge.useJev ? ctx.judge.jev.model : null,
+    pack: pack.id,
+    config,
+    text: input.text,
+    title: input.title,
+    case: input.case,
+    images: input.images.map((image) => image.name),
+    rules: input.rules,
+    evidence: input.evidence,
+    artifacts: input.artifacts,
+    primary: input.primary,
+    transcript: input.transcript,
+  }
+  return createHash('sha256').update(JSON.stringify(asked)).digest('hex')
+}
+
+async function gradeSubject(
+  subject: Subject,
+  ctx: GradeContext,
+): Promise<{ result: ReportResult; unchanged: boolean }> {
   const testCase = findCase(ctx.cases, subject.caseRef)
   const input = judgeInput(ctx.judge.skillDir, subject, testCase, ctx.rules, (line) =>
     ctx.judge.log(`${subject.name}: ${line}`),
@@ -101,6 +146,8 @@ async function gradeSubject(subject: Subject, ctx: GradeContext): Promise<Report
   const { primary } = input
   const packs: Record<string, unknown> = {}
   const failures: string[] = []
+  let applied = 0
+  let kept = 0
   for (const pack of ctx.packs) {
     const applies =
       pack.artifacts.length === 0 || (primary !== null && pack.artifacts.includes(primary.kind))
@@ -108,8 +155,18 @@ async function gradeSubject(subject: Subject, ctx: GradeContext): Promise<Report
       packs[pack.id] = null
       continue
     }
+    applied += 1
+    const key = judgeKey(pack, input, ctx)
+    if (Object.hasOwn(ctx.cache.old, key)) {
+      packs[pack.id] = ctx.cache.old[key]
+      ctx.cache.fresh[key] = ctx.cache.old[key]
+      kept += 1
+      continue
+    }
     try {
-      packs[pack.id] = await pack.judge(input, ctx.judge)
+      const answer = await pack.judge(input, ctx.judge)
+      packs[pack.id] = answer
+      ctx.cache.fresh[key] = answer
     } catch (error) {
       // One pack failing leaves its layers out of the total, so the report says so.
       const failure = `${pack.id} pack failed: ${(error as Error).message}`
@@ -132,15 +189,23 @@ async function gradeSubject(subject: Subject, ctx: GradeContext): Promise<Report
   }
   const scored = scoreResult(base, ctx.judge.config, scorers)
   return {
-    ...base,
-    scores: scored.scores,
-    flags: [...failures, ...scored.flags],
-    confidence: scored.confidence,
+    result: {
+      ...base,
+      scores: scored.scores,
+      flags: [...failures, ...scored.flags],
+      confidence: scored.confidence,
+    },
+    unchanged: applied > 0 && kept === applied,
   }
 }
 
+/**
+ * Grade `subjects` and write the report and the judge cache in `dir`. Stopped
+ * part way, it writes neither: the report there stays as it was.
+ */
 async function gradeSubjects(
   skillDir: string,
+  dir: string,
   subjects: Subject[],
   options: GradeOptions,
 ): Promise<Report> {
@@ -159,15 +224,20 @@ async function gradeSubjects(
     rules: loadRules(skillDir, config),
     packs,
     judge: { jev, useJev: options.useJev, config, skillDir, log },
+    cache: { old: readJson<Record<string, unknown>>(join(dir, CACHE_FILE), {}), fresh: {} },
   }
   const started = performance.now()
   const results: ReportResult[] = []
+  let unchanged = 0
   for (const subject of subjects) {
-    const result = await gradeSubject(subject, ctx)
-    results.push(result)
-    log(`${subject.name}: total ${result.scores.total ?? '-'}`)
+    if (options.signal?.aborted) throw new Error('Stopped.')
+    const graded = await gradeSubject(subject, ctx)
+    results.push(graded.result)
+    if (graded.unchanged) unchanged += 1
+    log(`${subject.name}: total ${graded.result.scores.total ?? '-'}`)
   }
-  return {
+  if (unchanged) log(`${unchanged} of ${subjects.length} outputs unchanged: kept their verdicts.`)
+  const report: Report = {
     createdAt: new Date().toISOString(),
     model: options.useJev ? (jev.modelSeen ?? jev.model) : null,
     inputTokens: jev.inputTokens,
@@ -175,6 +245,24 @@ async function gradeSubjects(
     config,
     packs: config.packs,
     results,
+  }
+  writeJson(join(dir, CACHE_FILE), ctx.cache.fresh)
+  writeJson(join(dir, 'report.json'), report)
+  return report
+}
+
+/**
+ * How many of a report's outputs a pack failed on, with the first reason. A
+ * pack that throws (an expired key, no network) leaves its layers null, and
+ * the total is counted from the rest, so a report with failures says less
+ * than it seems to.
+ */
+export function unjudged(report: Report): { failed: number; total: number; reason: string | null } {
+  const failed = report.results.filter((r) => r.flags.some((f) => PACK_FAILED.test(f)))
+  return {
+    failed: failed.length,
+    total: report.results.length,
+    reason: failed[0]?.flags.find((f) => PACK_FAILED.test(f)) ?? null,
   }
 }
 
@@ -192,9 +280,7 @@ export async function gradeRun(
     }
     return { ...sample, caseRef: sample.name, label: null, tests: [] }
   })
-  const report = await gradeSubjects(skillDir, subjects, options)
-  writeJson(join(dir, 'report.json'), report)
-  return report
+  return gradeSubjects(skillDir, dir, subjects, options)
 }
 
 /** Grade `evals/anchors/*.md` and write `evals/anchors/report.json`. */
@@ -204,9 +290,7 @@ export async function gradeAnchors(skillDir: string, options: GradeOptions): Pro
     const head = readHead(join(dir, sample.name))
     return { ...sample, caseRef: head.case, label: head.label, tests: head.tests }
   })
-  const report = await gradeSubjects(skillDir, subjects, options)
-  writeJson(join(dir, 'report.json'), report)
-  return report
+  return gradeSubjects(skillDir, dir, subjects, options)
 }
 
 export interface SelfTestLine {

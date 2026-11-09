@@ -41,6 +41,8 @@ export interface GenerateOptions {
   log: (line: string) => void
   /** Called as each output is written, ok or not. */
   onSample?: () => void
+  /** The job was stopped: workers take no more samples and the agents in flight are ended. */
+  signal?: AbortSignal
 }
 
 interface SkillStamp {
@@ -139,16 +141,26 @@ export async function generateRun(
   )
   let next = 0
   const worker = async () => {
-    while (next < jobs.length) {
+    while (next < jobs.length && !options.signal?.aborted) {
       const job = jobs[next++]
-      const sample = await generateSample(job.testCase, job.index, {
+      const sampleOptions: SampleOptions = {
         ...options,
         runDir: dir,
         model,
         effort,
         skillSource: configuration === 'without_skill' ? null : (baselineDir ?? skillDir),
         skillName: info.name,
-      })
+      }
+      let sample: SampleMeta
+      try {
+        sample = await generateSample(job.testCase, job.index, sampleOptions)
+      } catch (error) {
+        // One sample's failure is recorded as its own; the other workers go on.
+        const sampleName = sampleDir(job.testCase.id, job.index)
+        const message = (error as Error).message
+        log(`${sampleName}: failed, ${message}`)
+        sample = failedSample(sampleName, job.testCase.id, job.index, message)
+      }
       meta.samples.push(sample)
       meta.samples.sort((a, b) => a.dir.localeCompare(b.dir))
       writeJson(join(dir, 'run.json'), meta)
@@ -159,11 +171,29 @@ export async function generateRun(
   await Promise.all(Array.from({ length: parallel }, worker))
   meta.finishedAt = new Date().toISOString()
   writeJson(join(dir, 'run.json'), meta)
+  const wrote = meta.samples.filter((s) => s.ok).length
   log(
-    `${name}: done, ${meta.samples.filter((s) => s.ok).length}/${meta.samples.length} wrote output`,
+    options.signal?.aborted
+      ? `${name}: stopped, ${wrote}/${jobs.length} wrote output`
+      : `${name}: done, ${wrote}/${meta.samples.length} wrote output`,
   )
   return { name, dir, meta }
 }
+
+/** A sample that never ran to the end, as the run records it. */
+const failedSample = (dir: string, caseId: string, index: number, error: string): SampleMeta => ({
+  dir,
+  case: caseId,
+  index,
+  ok: false,
+  seconds: 0,
+  costUsd: null,
+  tokens: null,
+  model: null,
+  error,
+  steps: 0,
+  toolCalls: 0,
+})
 
 interface SampleOptions {
   skillDir: string
@@ -174,6 +204,7 @@ interface SampleOptions {
   skillSource: string | null
   skillName: string
   log: (line: string) => void
+  signal?: AbortSignal
 }
 
 async function generateSample(
@@ -217,6 +248,7 @@ async function generateSample(
     effort: options.effort,
     allowedTools: testCase.settings.allowedTools,
     timeoutMs: (testCase.settings.timeoutSeconds ?? SAMPLE_TIMEOUT_MS / 1000) * 1000,
+    signal: options.signal,
     transcript,
     log: (line) => options.log(`${label}: ${line}`),
   })

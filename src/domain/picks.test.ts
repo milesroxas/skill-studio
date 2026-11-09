@@ -10,6 +10,7 @@ const output = (key: string, over: Partial<PickOutput> = {}): PickOutput => ({
   writer: 'claude/sonnet/default',
   createdAt: '2026-11-01T10:00:00.000Z',
   index: 1,
+  written: true,
   ...over,
 })
 
@@ -24,6 +25,18 @@ const pick = (a: string, b: string, vote: Preference['vote'], over = {}): Prefer
 })
 
 describe('defaultPair', () => {
+  it('passes over a newer output that was never written, such as one of a stopped run', () => {
+    const pair = defaultPair([
+      output('v1-a/intro-s1', { version: 'v1', createdAt: '2026-11-02T10:00:00.000Z' }),
+      output('v1-b/intro-s1', {
+        version: 'v1',
+        createdAt: '2026-11-03T10:00:00.000Z',
+        written: false,
+      }),
+    ])
+    expect(pair.b?.key).toBe('v1-a/intro-s1')
+  })
+
   it('sets the latest version beside the version before it', () => {
     const pair = defaultPair([
       output('r0/intro-s1', { version: 'v0' }),

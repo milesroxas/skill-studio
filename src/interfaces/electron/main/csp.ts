@@ -16,9 +16,15 @@ export interface CspOptions {
    * its `csp-nonce` meta tag. Any other inline style tag stays blocked.
    */
   styleNonce?: string
+  /**
+   * For `st serve`, where the page is on an HTTP origin and a sample's files
+   * and the writer's pictures come from `/api/...` on that same origin, not
+   * from the artifact scheme.
+   */
+  web?: boolean
 }
 
-export function contentSecurityPolicy({ nonce, styleNonce }: CspOptions = {}): string {
+export function contentSecurityPolicy({ nonce, styleNonce, web }: CspOptions = {}): string {
   const scripts = nonce ? `'self' 'nonce-${nonce}'` : "'self'"
   const styles = nonce
     ? "'self' 'unsafe-inline'"
@@ -30,8 +36,8 @@ export function contentSecurityPolicy({ nonce, styleNonce }: CspOptions = {}): s
     `script-src ${scripts}`,
     `style-src ${styles}`,
     "style-src-attr 'unsafe-inline'",
-    `img-src 'self' data: ${ARTIFACT_SCHEME}:`,
-    `frame-src ${ARTIFACT_SCHEME}:`,
+    web ? "img-src 'self' data:" : `img-src 'self' data: ${ARTIFACT_SCHEME}:`,
+    web ? "frame-src 'self'" : `frame-src ${ARTIFACT_SCHEME}:`,
     "connect-src 'self'",
     "font-src 'self'",
     "object-src 'none'",

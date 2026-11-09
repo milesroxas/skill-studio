@@ -1,11 +1,12 @@
 /** Outputs across runs, their scores under the scoring in hand, the pair to compare per case, and display names. */
 import { mergeConfig } from '@domain/config.ts'
-import { type Lift, versionLift, writerKey } from '@domain/lift.ts'
+import { type Lift, type LiftRun, liftWriter, versionLift, writerKey } from '@domain/lift.ts'
 import { type Corrections, NO_CORRECTIONS, type PackScoring } from '@domain/pack.ts'
 import { defaultPair, type PickOutput } from '@domain/picks.ts'
 import { parseSampleDir } from '@domain/run-name.ts'
 import type { BenchConfig, ReportResult, Writer } from '@domain/schemas.ts'
 import { checkReaders, layerOrder, type Scored, scoreResult } from '@domain/scoring.ts'
+import { mean } from '@domain/stats.ts'
 import { type Count, countOf, finding, sumCounts } from '@domain/verdict.ts'
 import { scorers } from '@judges/scorers.ts'
 import type { RunView, Sample, State } from './api.ts'
@@ -94,26 +95,38 @@ export function scoreOf(output: Output, config: BenchConfig): Scored | null {
 export const totalOf = (output: Output, config: BenchConfig): number | null =>
   scoreOf(output, config)?.scores.total ?? null
 
+/** Each case's mean total over its graded outputs among `outputs`, by case id; a case with none graded is absent. */
+function caseMeans(outputs: Output[], config: BenchConfig): Record<string, number> {
+  const totals = new Map<string, number[]>()
+  for (const o of outputs) {
+    const total = totalOf(o, config)
+    if (total !== null) totals.set(o.caseId, [...(totals.get(o.caseId) ?? []), total])
+  }
+  return Object.fromEntries([...totals].map(([id, list]) => [id, mean(list) as number]))
+}
+
+/** The runs as the lift reads them: each with its writer, version and a mean per case. */
+const liftRuns = (runs: RunView[], outputs: Output[], config: BenchConfig): LiftRun[] =>
+  runs.map((run) => ({
+    name: run.name,
+    version: runVersion(run),
+    writer: writerKey(run.meta?.writer),
+    configuration: run.meta?.configuration ?? 'with_skill',
+    createdAt: run.meta?.createdAt ?? '',
+    cases: caseMeans(
+      outputs.filter((o) => o.run.name === run.name),
+      config,
+    ),
+  }))
+
 /**
  * How much the skill's edits raised its score: one writer's first version
  * against the same writer's latest, with its run without the skill as the
- * floor. Null until one writer has run two versions.
+ * floor, over the cases both runs answered. Null until one writer has run
+ * two versions with a case in common.
  */
-export function liftOf(state: State, outputs: Output[], config: BenchConfig): Lift | null {
-  return versionLift(
-    state.runs.map((run) => ({
-      name: run.name,
-      version: runVersion(run),
-      writer: writerKey(run.meta?.writer),
-      configuration: run.meta?.configuration ?? 'with_skill',
-      createdAt: run.meta?.createdAt ?? '',
-      mean: meanTotal(
-        outputs.filter((o) => o.run.name === run.name),
-        config,
-      ),
-    })),
-  )
-}
+export const liftOf = (state: State, outputs: Output[], config: BenchConfig): Lift | null =>
+  versionLift(liftRuns(state.runs, outputs, config))
 
 /** The versions that have outputs written with the skill, oldest first: "v0", "v1". */
 export function versionsRun(outputs: Output[]): string[] {
@@ -136,12 +149,23 @@ export const versionOutputs = (outputs: Output[], version: string): Output[] =>
     (o) => o.run.meta?.skillVersion === version && o.run.meta.configuration === 'with_skill',
   )
 
-/** The mean total of a version's outputs run with the skill, under `config`; null when none is graded. */
-export const versionScore = (
+/**
+ * A version's score under `config`: each case's mean over its graded outputs,
+ * then the mean of those cases, so a case run three times counts once. Where
+ * the writer the lift compares ran this version, only that writer's outputs
+ * count, so one version's score is read against the next. Null when none is graded.
+ */
+export function versionScore(
   outputs: Output[],
   config: BenchConfig,
   version: string,
-): number | null => meanTotal(versionOutputs(outputs, version), config)
+): number | null {
+  const mine = versionOutputs(outputs, version)
+  const runs = [...new Map(outputs.map((o) => [o.run.name, o.run])).values()]
+  const writer = liftWriter(liftRuns(runs, outputs, config))
+  const pinned = writer ? mine.filter((o) => writerKey(o.run.meta?.writer) === writer) : []
+  return mean(Object.values(caseMeans(pinned.length ? pinned : mine, config)))
+}
 
 export const mergedConfig = (saved: Partial<BenchConfig> | null): BenchConfig =>
   mergeConfig(saved, scorers)
@@ -193,12 +217,6 @@ export function countsLine(counts: { rules: Count | null; checks: Count | null }
   return parts.length ? parts.join(' · ') : null
 }
 
-/** The mean total of `outputs` under `config`; null when none is graded. */
-function meanTotal(outputs: Output[], config: BenchConfig): number | null {
-  const totals = outputs.map((o) => totalOf(o, config)).filter((t): t is number => t !== null)
-  return totals.length ? totals.reduce((a, b) => a + b, 0) / totals.length : null
-}
-
 /** An output as picking reads it, with the output it stands for. */
 interface Candidate extends PickOutput {
   output: Output
@@ -212,6 +230,7 @@ const candidate = (output: Output): Candidate => ({
   writer: writerKey(output.run.meta?.writer),
   createdAt: output.run.meta?.createdAt ?? '',
   index: output.index,
+  written: output.sample.artifacts.length > 0,
   output,
 })
 

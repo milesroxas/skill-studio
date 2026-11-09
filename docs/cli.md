@@ -48,7 +48,7 @@ pnpm st serve --tailscale     # also https://<this-machine>.<tailnet>.ts.net:844
 
 `--port` and `--tailscale-port` change the ports, and `--open` opens a browser. With no skill named, the server serves the skill in the current directory when it holds a `SKILL.md`, and otherwise opens on the Library.
 
-The server listens on `127.0.0.1` only and has no login of its own. `--tailscale` is the one supported way to reach it from another device: it lets in the Tailscale login that owns this machine and nobody else, and the tailnet address goes away when the server stops. Do not expose the server any other way. [SECURITY.md](../SECURITY.md#the-web-server) has the details.
+The page is served under the desktop app's Content Security Policy, with frames and pictures allowed from the server's own origin. The server listens on `127.0.0.1` only and has no login of its own. `--tailscale` is the one supported way to reach it from another device: it lets in the Tailscale login that owns this machine and nobody else, and the tailnet address goes away when the server stops. Do not expose the server any other way. [SECURITY.md](../SECURITY.md#the-web-server) has the details.
 
 In a browser, API keys come from the environment or a `.env` in the checkout. The Settings screen stores keys in the desktop app only.
 

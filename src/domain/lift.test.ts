@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { type LiftRun, versionLift, writerKey } from './lift.ts'
+import { type LiftRun, liftWriter, versionLift, writerKey } from './lift.ts'
 
 const run = (over: Partial<LiftRun>): LiftRun => ({
   name: 'r',
@@ -7,43 +7,58 @@ const run = (over: Partial<LiftRun>): LiftRun => ({
   writer: 'claude:sonnet',
   configuration: 'with_skill',
   createdAt: '2026-11-02T10:00:00Z',
-  mean: 80,
+  cases: { intro: 80 },
   ...over,
 })
 
 describe('versionLift', () => {
   it('compares one writer on the first and the latest version, over its run without the skill', () => {
     const lift = versionLift([
-      run({ name: 'v0-sonnet', mean: 83 }),
+      run({ name: 'v0-sonnet', cases: { intro: 83 } }),
       run({
         name: 'v0-bare',
         configuration: 'without_skill',
-        mean: 71,
+        cases: { intro: 71 },
         createdAt: '2026-11-02T10:31:00Z',
       }),
-      run({ name: 'v1-sonnet', version: 'v1', mean: 98, createdAt: '2026-11-03T05:04:00Z' }),
+      run({
+        name: 'v1-sonnet',
+        version: 'v1',
+        cases: { intro: 98 },
+        createdAt: '2026-11-03T05:04:00Z',
+      }),
       // A newer run by a writer that ran on one version only does not count.
       run({
         name: 'v1-haiku',
         version: 'v1',
         writer: 'claude:haiku',
-        mean: 92,
+        cases: { intro: 92 },
         createdAt: '2026-11-03T05:26:00Z',
       }),
     ])
-    expect(lift?.first.name).toBe('v0-sonnet')
-    expect(lift?.latest.name).toBe('v1-sonnet')
-    expect(lift?.baseline?.name).toBe('v0-bare')
+    expect(lift?.first).toMatchObject({ name: 'v0-sonnet', mean: 83 })
+    expect(lift?.latest).toMatchObject({ name: 'v1-sonnet', mean: 98 })
+    expect(lift?.baseline).toMatchObject({ name: 'v0-bare', mean: 71 })
     expect(lift?.rises).toBe(true)
+    expect(lift).toMatchObject({ sharedCases: 1, casesDiffer: false })
   })
 
   it('never takes a run against an old skill as the floor', () => {
     const lift = versionLift([
       run({}),
-      run({ version: 'v1', mean: 90 }),
-      run({ name: 'old', configuration: 'old_skill', mean: 60 }),
+      run({ version: 'v1', cases: { intro: 90 } }),
+      run({ name: 'old', configuration: 'old_skill', cases: { intro: 60 } }),
     ])
     expect(lift?.baseline).toBeNull()
+  })
+
+  it("counts a run against an old skill's snapshot as that version, as the picks do", () => {
+    const lift = versionLift([
+      run({ name: 'old', configuration: 'old_skill', version: 'v0', cases: { intro: 60 } }),
+      run({ version: 'v1', cases: { intro: 90 } }),
+    ])
+    expect(lift?.first.mean).toBe(60)
+    expect(lift?.latest.mean).toBe(90)
   })
 
   it('is null when no writer ran on two versions', () => {
@@ -51,7 +66,7 @@ describe('versionLift', () => {
   })
 
   it('skips runs with no graded output', () => {
-    expect(versionLift([run({}), run({ version: 'v1', mean: null })])).toBeNull()
+    expect(versionLift([run({}), run({ version: 'v1', cases: {} })])).toBeNull()
   })
 
   it('takes the latest run of the latest version and the first of the first', () => {
@@ -65,12 +80,63 @@ describe('versionLift', () => {
   })
 
   it('does not rise when the latest scores no higher', () => {
-    expect(versionLift([run({ mean: 90 }), run({ version: 'v1', mean: 85 })])?.rises).toBe(false)
+    expect(
+      versionLift([run({ cases: { intro: 90 } }), run({ version: 'v1', cases: { intro: 85 } })])
+        ?.rises,
+    ).toBe(false)
   })
 
   it('reads v10 as later than v9', () => {
     const lift = versionLift([run({ version: 'v9' }), run({ version: 'v10', name: 'ten' })])
     expect(lift?.latest.name).toBe('ten')
+  })
+
+  it('compares the cases both runs answered, each case once, and says when some were left out', () => {
+    const lift = versionLift([
+      run({ cases: { intro: 60, shift: 80, review: 100 } }),
+      run({ version: 'v1', cases: { intro: 90, shift: 70 } }),
+      run({
+        configuration: 'without_skill',
+        cases: { intro: 40, review: 10 },
+        createdAt: '2026-11-02T10:31:00Z',
+      }),
+    ])
+    // Over intro and shift only: review ran on v0 alone.
+    expect(lift?.first.mean).toBe(70)
+    expect(lift?.latest.mean).toBe(80)
+    // The floor is read over the same cases where it has them.
+    expect(lift?.baseline?.mean).toBe(40)
+    expect(lift).toMatchObject({ sharedCases: 2, casesDiffer: true, rises: true })
+  })
+
+  it('leaves the floor out when it answered none of the shared cases', () => {
+    const lift = versionLift([
+      run({ cases: { intro: 60 } }),
+      run({ version: 'v1', cases: { intro: 90 } }),
+      run({ configuration: 'without_skill', cases: { review: 10 } }),
+    ])
+    expect(lift?.baseline).toBeNull()
+  })
+
+  it('passes over a writer whose two versions share no case', () => {
+    expect(
+      versionLift([run({ cases: { intro: 60 } }), run({ version: 'v1', cases: { shift: 90 } })]),
+    ).toBeNull()
+    // Another writer with a case in common is chosen over it.
+    const lift = versionLift([
+      run({ cases: { intro: 60 } }),
+      run({ version: 'v1', cases: { shift: 90 }, createdAt: '2026-11-05T00:00:00Z' }),
+      run({ name: 'h0', writer: 'claude:haiku', cases: { intro: 50 } }),
+      run({ name: 'h1', writer: 'claude:haiku', version: 'v1', cases: { intro: 70 } }),
+    ])
+    expect(lift?.latest.name).toBe('h1')
+  })
+})
+
+describe('liftWriter', () => {
+  it('names the writer the lift compares, and nobody before one has run two versions', () => {
+    expect(liftWriter([run({}), run({ version: 'v1' })])).toBe('claude:sonnet')
+    expect(liftWriter([run({}), run({ writer: 'claude:haiku', version: 'v1' })])).toBeNull()
   })
 })
 

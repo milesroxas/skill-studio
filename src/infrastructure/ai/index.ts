@@ -75,4 +75,4 @@ export function aiProviderInfo(): Promise<AiProviderInfo[]> {
   )
 }
 
-export type { AiMessage } from './types.ts'
+export { type AiMessage, isProviderError } from './types.ts'

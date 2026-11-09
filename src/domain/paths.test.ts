@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { isWithin } from './paths.ts'
+import { isEditablePath, isWithin } from './paths.ts'
 
 describe('isWithin', () => {
   it('accepts the root itself and anything below it', () => {
@@ -19,5 +19,25 @@ describe('isWithin', () => {
 
   it('keeps a file whose name starts with two dots inside', () => {
     expect(isWithin('/runs/case-s1/..notes', '/runs/case-s1')).toBe(true)
+  })
+})
+
+describe('isEditablePath', () => {
+  it('accepts SKILL.md and a file under references/', () => {
+    expect(isEditablePath('SKILL.md')).toBe(true)
+    expect(isEditablePath('references/voice.md')).toBe(true)
+    expect(isEditablePath('references/notes/..voice.md')).toBe(true)
+  })
+
+  it('rejects anything else, and a reference path that does not read as written', () => {
+    expect(isEditablePath('evals/bench.json')).toBe(false)
+    expect(isEditablePath('skill.md')).toBe(false)
+    expect(isEditablePath('references')).toBe(false)
+    expect(isEditablePath('references/')).toBe(false)
+    expect(isEditablePath('references//voice.md')).toBe(false)
+    expect(isEditablePath('references/./voice.md')).toBe(false)
+    expect(isEditablePath('references/../../x')).toBe(false)
+    expect(isEditablePath('references/../SKILL.md')).toBe(false)
+    expect(isEditablePath('references\\voice.md')).toBe(false)
   })
 })

@@ -1,11 +1,4 @@
-/**
- * The environment a generating agent runs with. Claude Code refuses to start
- * inside another Claude Code session unless its guard variable is gone; the
- * guard is for interactive terminals and a subprocess is safe.
- */
-export function agentEnv(): NodeJS.ProcessEnv {
-  const env: NodeJS.ProcessEnv = {}
-  for (const [key, value] of Object.entries(process.env))
-    if (!key.startsWith('CLAUDECODE')) env[key] = value
-  return env
-}
+/** The environment a child of the backend runs with: `@domain/env.ts` says what is left out. */
+import { agentEnv as pure } from '@domain/env.ts'
+
+export const agentEnv = (source: NodeJS.ProcessEnv = process.env): NodeJS.ProcessEnv => pure(source)

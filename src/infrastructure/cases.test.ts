@@ -1,9 +1,17 @@
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  utimesSync,
+  writeFileSync,
+} from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { pngHeader } from '@domain/image-fixtures.ts'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { deleteCase, loadCases, saveCase } from './cases.ts'
+import { caseSavedAt, deleteCase, loadCases, saveCase } from './cases.ts'
 
 let skill: string
 beforeEach(() => {
@@ -151,6 +159,32 @@ describe('saveCase and deleteCase', () => {
     deleteCase(skill, 'short-note')
     expect(loadCases(skill)).toEqual([])
     expect(() => deleteCase(skill, 'short-note')).toThrow('Only folder cases')
+  })
+
+  it('refuses a save over a case written since it was loaded, and takes one that matches', () => {
+    const rel = saveCase(skill, draft, true)
+    const loadedAt = caseSavedAt(skill, rel)
+    expect(loadedAt).toMatch(/^\d{4}-\d{2}-\d{2}T/)
+    // The form's own time matches: the save goes through, and the folder's time moves on.
+    saveCase(skill, { ...draft, title: 'Renamed' }, false, undefined, loadedAt)
+    // Someone else writes the prompt a while later.
+    const later = new Date(Date.now() + 5000)
+    utimesSync(join(skill, rel, 'prompt.md'), later, later)
+    expect(() => saveCase(skill, draft, false, undefined, loadedAt)).toThrow(
+      'changed on disk since you opened it',
+    )
+    expect(loadCases(skill)[0].title).toBe('Renamed')
+    // Without a time to check against, the save is taken as before.
+    saveCase(skill, draft, false)
+    expect(loadCases(skill)[0].title).toBe('A short note')
+  })
+
+  it('says when the case to save over was deleted', () => {
+    const rel = saveCase(skill, draft, true)
+    const loadedAt = caseSavedAt(skill, rel)
+    deleteCase(skill, 'short-note')
+    expect(() => saveCase(skill, draft, false, undefined, loadedAt)).toThrow('was deleted on disk')
+    expect(caseSavedAt(skill, rel)).toBeNull()
   })
 })
 

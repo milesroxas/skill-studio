@@ -1,4 +1,12 @@
-import { copyFileSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import {
+  copyFileSync,
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from 'node:fs'
 import { basename, extname, join } from 'node:path'
 import { checkWeight } from '@domain/case-draft.ts'
 import { mergeConfig } from '@domain/config.ts'
@@ -220,9 +228,33 @@ const formatOf = (path: string): ImageFormat =>
   extname(path).toLowerCase() === '.png' ? 'png' : 'jpg'
 
 /**
+ * When a case folder was last written: the newest change to its prompt, its
+ * `case.yaml` or one of its checks, as an ISO time. Null when it holds none of
+ * them. What a form loads beside the case and gives back to `saveCase`, so a
+ * save over a newer one is refused.
+ */
+export function caseSavedAt(skillDir: string, rel: string): string | null {
+  const dir = join(skillDir, rel)
+  const graders = join(dir, 'graders')
+  const files = [
+    join(dir, 'prompt.md'),
+    join(dir, 'case.yaml'),
+    ...listFiles(graders, (name) => name.endsWith('.md')).map((name) => join(graders, name)),
+  ]
+  let latest = Number.NEGATIVE_INFINITY
+  for (const file of files) if (isFile(file)) latest = Math.max(latest, statSync(file).mtimeMs)
+  return Number.isFinite(latest) ? new Date(latest).toISOString() : null
+}
+
+/**
  * Write a case folder under `evals/cases/<id>/`. Front matter, other
  * `case.yaml` keys and grader settings the editor does not show are kept. A
  * legacy `evals.json` case is written out as a folder, which then wins.
+ *
+ * `expectedSavedAt` is the `caseSavedAt` the form loaded. Given, the save is
+ * refused when the folder was written since, so a stale form never writes over
+ * a newer save; left out, no check is made. A legacy `evals.json` case has no
+ * folder to check.
  *
  * Pictures the agent gets go in `files/`, beside any other input file, and a
  * check's reference picture in `references/`, named after its check. A picture
@@ -234,6 +266,7 @@ export function saveCase(
   input: CaseDraft,
   isNew: boolean,
   uploadPath: (id: string) => string = noUploads,
+  expectedSavedAt?: string | null,
 ): string {
   if (!isSlug(input.id)) throw new Error(SLUG_RULE)
   if (!input.prompt.trim()) throw new Error('Write the prompt the agent gets.')
@@ -241,6 +274,11 @@ export function saveCase(
     throw new Error('The word range needs a minimum below its maximum.')
   const existing = loadCases(skillDir).find((c) => c.id === input.id)
   if (isNew && existing) throw new Error(`A case called ${input.id} already exists.`)
+  if (!isNew && expectedSavedAt != null) {
+    if (!existing) throw new Error(`Case ${input.id} was deleted on disk. Reload to see it.`)
+    if (existing.dir && caseSavedAt(skillDir, existing.dir) !== expectedSavedAt)
+      throw new Error(`Case ${input.id} changed on disk since you opened it. Reload to see it.`)
+  }
   const rel = existing?.dir ?? `evals/cases/${input.id}`
   const dir = join(skillDir, rel)
   mkdirSync(join(dir, 'graders'), { recursive: true })

@@ -60,7 +60,7 @@ export const GLOSSARY = {
   score: {
     term: 'Score',
     means:
-      'A number from 0 to 100 for one output, counted from the rules it follows and the checks it meets. A version’s score is the average of its outputs.',
+      'A number from 0 to 100 for one output, counted from the rules it follows and the checks it meets. A version’s score averages its cases, each case averaged over its outputs, so two versions are compared on the cases both ran.',
   },
   missed: {
     term: 'Missed',

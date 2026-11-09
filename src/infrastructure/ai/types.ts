@@ -35,12 +35,36 @@ export interface AiReply {
   model: string
 }
 
+/**
+ * A reply that was billed and then refused: the model declined, or the reply
+ * ran past its length. The tokens were spent all the same, so the error
+ * carries what the reply would have, for the application to record.
+ */
+export class ProviderError extends Error {
+  readonly usage: AiUsage
+  /** The model that answered, as the provider names it. */
+  readonly model: string
+
+  constructor(message: string, usage: AiUsage, model: string) {
+    super(message)
+    this.name = 'ProviderError'
+    this.usage = usage
+    this.model = model
+  }
+}
+
+export const isProviderError = (error: unknown): error is ProviderError =>
+  error instanceof ProviderError
+
 export interface AiProvider {
   id: AiProviderId
   connected(): boolean
   /** The models to offer, the default first. Throws when the provider cannot say. */
   models(): Promise<AiModel[]>
-  /** Write one reply. Throws an `Error` whose message can be shown as it is. */
+  /**
+   * Write one reply. Throws an `Error` whose message can be shown as it is: a
+   * `ProviderError` when the request was billed before it failed.
+   */
   run(request: AiRequest): Promise<AiReply>
   /** The commands a chat message may start with, for a provider that expands them. Throws when it cannot say. */
   commands?(): Promise<SlashCommand[]>

@@ -15,9 +15,9 @@ import {
   type AiRun,
   type AiRunKind,
   type AiStatus,
-  CHAT_WINDOW,
   type ChatMessage,
   type ChatThread,
+  chatWindowOf,
   resolveChoice,
   runsToForget,
   summarizeUsage,
@@ -62,11 +62,16 @@ import {
 } from '@domain/improve.ts'
 import { type Finding, lintScene, type RuleScene } from '@domain/lint.ts'
 import { aiChoiceOf } from '@domain/preferences.ts'
-import { type AiMessage, aiProvider, aiProviderInfo } from '@infrastructure/ai/index.ts'
+import {
+  type AiMessage,
+  aiProvider,
+  aiProviderInfo,
+  isProviderError,
+} from '@infrastructure/ai/index.ts'
 import { readChat, readUsage, recordUsage, writeChat } from '@infrastructure/ai/store.ts'
 import { findImage, type StoredImage } from '@infrastructure/images.ts'
 import { readPreferences } from '@infrastructure/preferences.ts'
-import { Jev } from '@judges/jev.ts'
+import { isAuthError, Jev } from '@judges/jev.ts'
 import { judgeAnswer, judgeDraft, judgeRule, verifyRewrites } from '@judges/rule/index.ts'
 
 /** A growing reply is reported at most this often: smooth to read, light to send. */
@@ -193,6 +198,16 @@ function start(work: Work): AiRun {
     })
     .catch((error: Error) => {
       if (controller.signal.aborted) return
+      // A reply the provider billed and then refused still cost tokens; the log keeps them.
+      if (isProviderError(error)) {
+        run.usage = error.usage
+        recordUsage({
+          at: new Date().toISOString(),
+          provider: choice.provider,
+          model: error.model,
+          ...error.usage,
+        })
+      }
       run.status = 'failed'
       run.error = error.message
     })
@@ -252,11 +267,11 @@ const picturesOf = (images: ImageRef[] = []): StoredImage[] =>
 
 /** The messages the model reads: the latest ones, starting at one from the user. */
 function chatWindow(messages: ChatMessage[]): AiMessage[] {
-  const latest = messages.slice(-CHAT_WINDOW)
-  const start = latest.findIndex((m) => m.role === 'user')
-  return latest
-    .slice(Math.max(0, start))
-    .map(({ role, text, images }) => ({ role, text, images: picturesOf(images) }))
+  return chatWindowOf(messages).map(({ role, text, images }) => ({
+    role,
+    text,
+    images: picturesOf(images),
+  }))
 }
 
 /**
@@ -314,7 +329,9 @@ export function clearChat(): ChatThread {
 /**
  * What is wrong with a selected rule, as code and the judge read it. Jev reads
  * it only when a TypeSafe key is set; a judge that cannot be reached leaves
- * code's findings standing rather than failing the action.
+ * code's findings standing rather than failing the action, and says why in
+ * the backend's log. A key TypeSafe refuses is an error the writer can fix,
+ * so that one is thrown.
  */
 interface Assessment {
   findings: Finding[]
@@ -339,19 +356,23 @@ async function assess(scene: RuleScene, jev: Jev): Promise<Assessment> {
     }
     assessed = { key, value }
     return value
-  } catch {
+  } catch (error) {
+    if (isAuthError(error)) throw new Error('TypeSafe refused the key. Check it in Settings.')
+    console.warn(`Jev could not read the rule: ${(error as Error).message}`)
     return { findings: code, judgment: null, judged: false }
   }
 }
 
 /** Auto refine: check the rule, and start its revision only when something drifts. */
 export async function startRefine(scene: RuleScene): Promise<RefineResult> {
+  // Before Jev is paid: no model to write with means nothing to check for.
+  const choice = await currentChoice()
   const { findings, judged } = await assess(scene, new Jev())
   if (!drifts(findings)) return { findings, judged, run: null }
   const { system, user } = refinePrompt(scene, findings)
   const run = start({
     kind: 'refine',
-    choice: await currentChoice(),
+    choice,
     system,
     messages: [{ role: 'user', text: user }],
     schema: REFINE_SCHEMA,
@@ -366,12 +387,13 @@ export async function startRefine(scene: RuleScene): Promise<RefineResult> {
  * offered. The finished run's text is the `RewritesResult` as JSON.
  */
 export async function startRewrites(scene: RuleScene): Promise<AiRun> {
+  const choice = await currentChoice()
   const jev = new Jev()
   const { findings, judged } = await assess(scene, jev)
   const { system, user } = rewritesPrompt(scene, findings)
   return start({
     kind: 'rewrites',
-    choice: await currentChoice(),
+    choice,
     system,
     messages: [{ role: 'user', text: user }],
     schema: REWRITES_SCHEMA,
@@ -389,8 +411,9 @@ export async function startRewrites(scene: RuleScene): Promise<AiRun> {
             verdicts[kind].kept = read.kept[kind]
           verdicts.practice.drift = judgmentFindings(read.practice)
           verified = true
-        } catch {
+        } catch (error) {
           // The rewrites stand unverified, as they would without a key.
+          console.warn(`Jev could not check the rewrites: ${(error as Error).message}`)
         }
       return rewritesText({ rewrites, verdicts, judged: verified })
     },
@@ -453,6 +476,7 @@ async function improveReply(thread: ImproveThread): Promise<void> {
 /** Open an improve conversation on a selected rule and ask its first question. */
 export async function startImprove(scene: RuleScene): Promise<ImproveThread> {
   clearImprove()
+  await currentChoice()
   const { findings, judgment, judged } = await assess(scene, improveJev)
   const thread: ImproveThread = {
     scene,
@@ -467,7 +491,13 @@ export async function startImprove(scene: RuleScene): Promise<ImproveThread> {
     judged,
   }
   improve = thread
-  await improveReply(thread)
+  try {
+    await improveReply(thread)
+  } catch (error) {
+    // A conversation with no first question is nothing to come back to.
+    if (improve === thread) improve = null
+    throw error
+  }
   return snapshot(thread)
 }
 

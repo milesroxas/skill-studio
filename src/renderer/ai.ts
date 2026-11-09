@@ -28,12 +28,14 @@ import { aiChoiceOf, aiChoicePatch } from '@domain/preferences.ts'
 import { useSyncExternalStore } from 'react'
 import { api } from './api.ts'
 import { setPreferences, usePreferences } from './preferences.ts'
+import { reportFailure } from './transport.ts'
 
 /**
  * How often a running reply is asked after: often where asking is the only way
- * to see it grow, seldom where pushes bring the text.
+ * to see it grow, seldom where pushes bring the text. Over HTTP each ask is a
+ * request, so a reply grows in steps a reader still sees as a stream.
  */
-const POLL_MS = api.watchAi ? 2000 : 150
+const POLL_MS = api.watchAi ? 2000 : 400
 
 let providers: AiProviderInfo[] | null = null
 /** Why the providers could not be read; null once they have been. */
@@ -199,6 +201,7 @@ export interface Ai {
   /** The model in use; null when nothing is connected. */
   choice: AiChoice | null
   model: AiModel | null
+  /** Pick the model in use. It shows at once; a store that fails is said on the status line. */
   choose: (choice: AiChoice) => void
 }
 
@@ -212,7 +215,10 @@ export function useAi(): Ai {
     problem,
     choice,
     model: (choice && known && modelOf(choice, known)) ?? null,
-    choose: (next) => void setPreferences(aiChoicePatch(next)),
+    choose: (next) =>
+      void setPreferences(aiChoicePatch(next)).catch((e: Error) =>
+        reportFailure(new Error(`Not saved: ${e.message}`)),
+      ),
   }
 }
 

@@ -198,7 +198,14 @@ function lockOf(place: Place): Record<string, string> {
     place.scope === 'user'
       ? join(HOME, '.agents/.skill-lock.json')
       : join(place.root, 'skills-lock.json')
-  const lock = readJson<{ skills?: Record<string, { source?: string }> }>(file, {})
+  let lock: { skills?: Record<string, { source?: string }> }
+  try {
+    lock = readJson(file, {})
+  } catch (error) {
+    // A lock file someone else's tool wrote badly must not take the whole library down.
+    console.warn((error as Error).message)
+    lock = {}
+  }
   return Object.fromEntries(
     Object.entries(lock.skills ?? {}).map(([name, entry]) => [name, entry.source ?? 'installed']),
   )

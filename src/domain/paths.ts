@@ -25,10 +25,16 @@ export function isWithin(path: string, root: string): boolean {
   return outer.length <= inner.length && outer.every((segment, i) => segment === inner[i])
 }
 
-/** A skill-relative path the editor may write: SKILL.md or a file under references/. */
+/**
+ * A skill-relative path the editor may write: SKILL.md or a file under
+ * references/, written plainly. A path that resolves to something other
+ * than itself (`..`, `.`, an empty segment, a backslash) or names the
+ * directory alone is not one.
+ */
 export const isEditablePath = (path: string): boolean => {
-  const parts = path.split('/')
-  return path === 'SKILL.md' || (parts[0] === 'references' && parts.length > 1)
+  if (path === 'SKILL.md') return true
+  const parts = segments(path)
+  return parts[0] === 'references' && parts.length > 1 && parts.join('/') === path
 }
 
 /** The order a skill's files are listed in: SKILL.md first, then by path. */

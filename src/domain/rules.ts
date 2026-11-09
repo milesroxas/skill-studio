@@ -1,4 +1,4 @@
-import { stripFrontMatter } from './text.ts'
+import { closesFence, type Fence, fenceOf, normalizeNewlines, stripFrontMatter } from './text.ts'
 
 export interface Rule {
   id: string
@@ -50,16 +50,16 @@ const LINK_ONLY = /^\[[^\]]+\]\([^)]*\)$/
  * a `rules` list in bench.json replaces all of this.
  */
 export function scanRules(skillMd: string): RuleScan {
-  const body = stripFrontMatter(skillMd)
+  // Measured on the text as `stripFrontMatter` reads it, so a `\r` it drops does not shift a line.
+  const source = normalizeNewlines(skillMd)
+  const body = stripFrontMatter(source)
   // Lines the front matter took, so each line number names the line in the editor.
-  const offset =
-    (skillMd.length - body.length ? skillMd.slice(0, skillMd.length - body.length) : '').split('\n')
-      .length - 1
+  const offset = source.slice(0, source.length - body.length).split('\n').length - 1
   const rules: Rule[] = []
   const spans: RuleSpan[] = []
   const skipped: SkippedBullet[] = []
   let section = 'SKILL.md'
-  let inCode = false
+  let fence: Fence | null = null
   let pending: { text: string; line: number; last: number } | null = null
   const flush = () => {
     if (pending === null) return
@@ -75,12 +75,17 @@ export function scanRules(skillMd: string): RuleScan {
   }
   body.split('\n').forEach((line, i) => {
     const number = offset + i + 1
-    if (/^\s*```/.test(line)) {
-      flush()
-      inCode = !inCode
+    // A fence closes only on its own character, at least as long: a ``` inside a ~~~ block is text.
+    if (fence) {
+      if (closesFence(line, fence)) fence = null
       return
     }
-    if (inCode) return
+    const opened = fenceOf(line)
+    if (opened) {
+      flush()
+      fence = opened
+      return
+    }
     const heading = /^#{1,6}\s+(.+)$/.exec(line)
     if (heading) {
       flush()

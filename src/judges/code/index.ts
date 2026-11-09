@@ -9,8 +9,8 @@ import { askStatements, withRequest } from '../shared/questions.ts'
 import type { JudgePack } from '../types.ts'
 import { type CheckRaw, type CodeConfig, type CodeRaw, codeScoring } from './score.ts'
 
-function runCheck(command: string, dir: string, timeoutSeconds: number): CheckRaw {
-  const { exit, timedOut, tail } = runCommand(command, {
+async function runCheck(command: string, dir: string, timeoutSeconds: number): Promise<CheckRaw> {
+  const { exit, timedOut, tail } = await runCommand(command, {
     cwd: dir,
     timeoutMs: timeoutSeconds * 1000,
   })
@@ -24,7 +24,7 @@ export const codePack: JudgePack<CodeRaw> = {
   async judge(input, ctx) {
     const { codeCheck } = ctx.config as CodeConfig
     const command = input.case?.bench.check
-    const check = command ? runCheck(command, input.dir, codeCheck.timeoutSeconds) : null
+    const check = command ? await runCheck(command, input.dir, codeCheck.timeoutSeconds) : null
     const graders = input.case?.graders ?? []
     const code = input.text.slice(0, codeCheck.maxChars)
     const review =

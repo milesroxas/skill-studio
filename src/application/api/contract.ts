@@ -91,6 +91,8 @@ export interface Contract {
   'library.workspaces': { input: { workspaces: string[] }; output: { workspaces: string[] } }
   'library.mark': { input: { path: string; theirs: boolean }; output: { marked: true } }
   'jobs.list': { input: Record<string, never>; output: Job[] }
+  /** Stop a running job: its agents are ended and it finishes with "Stopped." in its log. */
+  'jobs.stop': { input: { id: number }; output: Job }
   'settings.read': { input: Record<string, never>; output: Settings }
   /** Store a key, or remove the stored one with an empty value. */
   'settings.key': { input: { id: SecretId; value: string }; output: Settings }

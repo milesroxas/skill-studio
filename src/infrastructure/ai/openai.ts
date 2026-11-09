@@ -9,7 +9,7 @@ import { secretOf } from '@domain/secrets.ts'
 import OpenAI from 'openai'
 import { imageBase64 } from '../images.ts'
 import { keyed } from './keyed.ts'
-import type { AiMessage, AiProvider, AiRequest } from './types.ts'
+import { type AiMessage, type AiProvider, type AiRequest, ProviderError } from './types.ts'
 
 const key = (): string | undefined => secretOf('openai', process.env)
 const client = keyed(key, (apiKey) => new OpenAI({ apiKey }))
@@ -86,21 +86,22 @@ async function run(request: AiRequest) {
     } else if (event.type === 'response.refusal.delta') refusal += event.delta
   }
   const response = await stream.finalResponse()
-  if (refusal) throw new Error(`The model declined this request: ${refusal}`)
+  const usage = {
+    input: response.usage?.input_tokens ?? 0,
+    output: response.usage?.output_tokens ?? 0,
+  }
+  // Billed either way: the error carries the usage so it is still recorded.
+  if (refusal)
+    throw new ProviderError(`The model declined this request: ${refusal}`, usage, response.model)
   if (response.status === 'incomplete')
-    throw new Error(
+    throw new ProviderError(
       response.incomplete_details?.reason === 'max_output_tokens'
         ? 'The reply ran past the length limit. Ask for something shorter.'
         : 'The reply stopped before it was complete. Try again.',
+      usage,
+      response.model,
     )
-  return {
-    text: response.output_text || text,
-    model: response.model,
-    usage: {
-      input: response.usage?.input_tokens ?? 0,
-      output: response.usage?.output_tokens ?? 0,
-    },
-  }
+  return { text: response.output_text || text, model: response.model, usage }
 }
 
 export const openaiProvider: AiProvider = {

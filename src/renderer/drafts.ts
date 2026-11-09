@@ -2,7 +2,9 @@
  * Unsaved work on the open skill, kept on disk as you type. Editing a file or a
  * case writes a draft here; a short pause after the last keystroke stores it,
  * so a reload, a quit or a switch to another skill loses nothing. Saving the
- * file or case clears its draft.
+ * file or case clears its draft. A write that fails keeps what it carried for
+ * the next change or flush, and an edit typed before the stored drafts are read
+ * waits for them, so it never replaces them.
  */
 import { type CaseDraft, emptyDrafts, type FileDraft, type SkillDrafts } from '@domain/schemas.ts'
 import { useCallback, useEffect, useRef, useState } from 'react'
@@ -43,6 +45,13 @@ export function useDrafts(skillPath: string): Drafts {
 
   /** The write under way, so a flush waits for one a timer already started. */
   const writing = useRef<Promise<void>>(Promise.resolve())
+  /**
+   * The stored drafts are still being read, and the edits made meanwhile. They
+   * are applied over what loads: a draft built on nothing would, once stored,
+   * replace every other file's and case's draft with nothing.
+   */
+  const loading = useRef(false)
+  const queued = useRef<Array<(all: SkillDrafts) => SkillDrafts>>([])
 
   const store = useCallback((): Promise<void> => {
     clearTimeout(timer.current)
@@ -54,42 +63,17 @@ export function useDrafts(skillPath: string): Drafts {
         setStoredAt(updatedAt ? new Date(updatedAt) : null)
         setStatus(waiting.current ? 'pending' : 'stored')
       },
-      () => setStatus('failed'),
+      () => {
+        // The drafts wait for the next change or flush, unless a newer set is waiting already.
+        if (!waiting.current) waiting.current = next
+        setStatus('failed')
+      },
     )
     return writing.current
   }, [])
 
-  // Load the open skill's drafts. Anything still waiting for the last skill is stored first.
-  useEffect(() => {
-    void store()
-    skill.current = skillPath
-    setDrafts(emptyDrafts())
-    setStoredAt(null)
-    if (!skillPath) return setStatus('idle')
-    setStatus('loading')
-    let live = true
-    api.drafts(skillPath).then(
-      (loaded) => {
-        if (!live) return
-        setDrafts(loaded)
-        setStoredAt(loaded.updatedAt ? new Date(loaded.updatedAt) : null)
-        setStatus('idle')
-      },
-      () => live && setStatus('failed'),
-    )
-    return () => {
-      live = false
-    }
-  }, [skillPath, store])
-
-  // Leaving the page stores what is waiting at once.
-  useEffect(() => {
-    const leave = () => void store()
-    window.addEventListener('pagehide', leave)
-    return () => window.removeEventListener('pagehide', leave)
-  }, [store])
-
-  const change = useCallback(
+  /** Take an edit: into the drafts, and on to disk after a pause. */
+  const apply = useCallback(
     (update: (all: SkillDrafts) => SkillDrafts) => {
       setDrafts((all) => {
         const next = update(all)
@@ -101,6 +85,59 @@ export function useDrafts(skillPath: string): Drafts {
       timer.current = setTimeout(store, STORE_AFTER_MS)
     },
     [store],
+  )
+
+  // Load the open skill's drafts. Anything still waiting for the last skill is stored first.
+  useEffect(() => {
+    void store()
+    skill.current = skillPath
+    queued.current = []
+    setDrafts(emptyDrafts())
+    setStoredAt(null)
+    if (!skillPath) {
+      loading.current = false
+      return setStatus('idle')
+    }
+    loading.current = true
+    setStatus('loading')
+    let live = true
+    /** The edits typed while the read was under way, over `base`. */
+    const settle = (base: SkillDrafts, status: DraftStatus) => {
+      loading.current = false
+      const edits = queued.current
+      queued.current = []
+      setDrafts(base)
+      setStatus(status)
+      for (const edit of edits) apply(edit)
+    }
+    api.drafts(skillPath).then(
+      (loaded) => {
+        if (!live) return
+        setStoredAt(loaded.updatedAt ? new Date(loaded.updatedAt) : null)
+        settle(loaded, 'idle')
+      },
+      // Nothing to build on: what was typed is kept in the page, and stored on the next change or flush.
+      () => live && settle(emptyDrafts(), 'failed'),
+    )
+    return () => {
+      live = false
+    }
+  }, [skillPath, store, apply])
+
+  // Leaving the page stores what is waiting at once.
+  useEffect(() => {
+    const leave = () => void store()
+    window.addEventListener('pagehide', leave)
+    return () => window.removeEventListener('pagehide', leave)
+  }, [store])
+
+  const change = useCallback(
+    (update: (all: SkillDrafts) => SkillDrafts) => {
+      // The stored drafts are not read yet: the edit waits for them, and is applied over them.
+      if (loading.current) queued.current.push(update)
+      else apply(update)
+    },
+    [apply],
   )
 
   const setFile = useCallback(
@@ -123,6 +160,7 @@ export function useDrafts(skillPath: string): Drafts {
   const discard = useCallback(() => {
     clearTimeout(timer.current)
     waiting.current = null
+    queued.current = []
     setDrafts(emptyDrafts())
     setStoredAt(null)
     setStatus('idle')

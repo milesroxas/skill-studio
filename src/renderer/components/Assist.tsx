@@ -93,8 +93,9 @@ interface AssistProps extends AssistSpec {
 
 /**
  * One request and its reply, for the popover that asked. The reply is that
- * popover's alone: discarding it, closing the popover or leaving the screen
- * stops the writing.
+ * popover's alone: discarding it or leaving the screen stops the writing.
+ * Closing the popover does not: the reply goes on, and opening it again on
+ * the same text finds it where it was, or finished.
  */
 function useAssistRun() {
   const [runId, setRunId] = useState<string | null>(null)
@@ -292,24 +293,44 @@ export function Assist({
   const proposal = work.run?.status === 'done' ? work.run.text : null
   /** The same text back is nothing to accept. */
   const acceptable = proposal !== null && proposal !== value
+  /** A reply is on its way or ready: closing the popover keeps it. */
+  const held = work.running || acceptable
+  /** The field and text the request in hand was made for. A reply is only for those. */
+  const askedFor = useRef<{ field: AssistFieldId; value: string } | null>(null)
+  const now = useRef({ field, value })
+  now.current = { field, value }
 
   // The reply is ready: Return now accepts it.
   useEffect(() => {
     if (acceptable) accept.current?.focus()
   }, [acceptable])
 
+  /** Let go of the request, its reply and what was typed for it. */
+  const letGo = () => {
+    work.discard()
+    setRequest('')
+    attached.reset()
+    askedFor.current = null
+  }
+
+  // Opened again on other text than the reply was written for, such as after
+  // the editor's selection moved: that reply is for text no longer here.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: checked only as it opens, against what stands then
+  useEffect(() => {
+    const was = askedFor.current
+    if (!open || !was) return
+    if (was.field !== now.current.field || was.value !== now.current.value) letGo()
+  }, [open])
+
   const change = (next: boolean) => {
-    if (!next) {
-      work.discard()
-      setRequest('')
-      attached.reset()
-    }
+    if (!next && !held) letGo()
     setOpen(next)
     onOpenChange?.(next)
   }
 
   const ask = (instruction: string) => {
     if (!instruction.trim()) return
+    askedFor.current = { field, value }
     void work.start(async () => ({
       field,
       instruction,
@@ -342,7 +363,7 @@ export function Assist({
       actions={
         acceptable ? (
           <>
-            <Button type="button" variant="ghost" size="sm" onClick={work.discard}>
+            <Button type="button" variant="ghost" size="sm" onClick={letGo}>
               Discard
             </Button>
             <Button
@@ -351,6 +372,7 @@ export function Assist({
               size="sm"
               onClick={() => {
                 onApply(proposal)
+                letGo()
                 change(false)
               }}
             >

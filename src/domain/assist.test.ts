@@ -5,9 +5,9 @@ import {
   assistItems,
   assistPrompt,
   assistText,
+  CONTEXT_BUDGET,
   chatSystem,
   partialText,
-  REFERENCE_BUDGET,
   weightNote,
   workingSkill,
 } from './assist.ts'
@@ -147,6 +147,25 @@ describe('assistText', () => {
     expect(assistText({ field: 'skill.file', current }, reply(rewritten))).toBe(rewritten)
   })
 
+  it('unwraps a file the model fenced whole, and refuses one that still opens with a fence', () => {
+    const current = '---\nname: notes\n---\n\n# Notes\n'
+    const file = '---\nname: notes\ndescription: Better.\n---\n\n# Notes\n\n```sh\npnpm check\n```'
+    expect(
+      assistText({ field: 'skill.file', current }, reply(`\`\`\`markdown\n${file}\n\`\`\`\n`)),
+    ).toBe(`${file}\n`)
+    expect(assistText({ field: 'skill.reference', current: '' }, reply(`~~~\n# Ref\n~~~`))).toBe(
+      '# Ref\n',
+    )
+    // A fence at the top that is not around the whole file: the front matter would sit in a code block.
+    expect(() =>
+      assistText({ field: 'skill.file', current }, reply('```md\n---\nname: x\n---\n```\n# T')),
+    ).toThrow('wrapped the file in a code fence')
+    // A block field keeps a fence: a passage may be one.
+    expect(assistText({ field: 'skill.passage', current: '' }, reply('```\nx\n```'))).toBe(
+      '```\nx\n```',
+    )
+  })
+
   it('refuses a reply that is not the agreed object, or is empty', () => {
     expect(() => assistText({ field: 'case.check', current: '' }, '{"text": "cut of')).toThrow(
       'cut off',
@@ -249,7 +268,7 @@ describe('chatSystem', () => {
   })
 
   it('reads references whole while the budget lasts, the open one first', () => {
-    const long = 'x'.repeat(REFERENCE_BUDGET - 10)
+    const long = 'x'.repeat(CONTEXT_BUDGET - 10)
     const big = {
       name: 'notes',
       ...workingSkill(
@@ -266,6 +285,35 @@ describe('chatSystem', () => {
     expect(system).toContain('<file name="references/b.md">')
     expect(system).not.toContain('<file name="references/a.md">')
     expect(system).toContain('Reference files too long to include here: references/a.md.')
+  })
+
+  it('shares the budget with the cases, and names the cases left out', () => {
+    const long = 'x'.repeat(CONTEXT_BUDGET - 100)
+    const cases = ['one', 'two', 'three'].map((id) => ({
+      ...savedCase,
+      id,
+      title: `Case ${id}`,
+      prompt: 'y'.repeat(60),
+    }))
+    const big = {
+      name: 'notes',
+      ...workingSkill({ 'SKILL.md': '# Notes\n', 'references/a.md': long }, cases, {
+        files: {},
+        cases: {},
+      }),
+    }
+    const system = chatSystem({ screen: 'Cases', open: { file: null, case: null }, skill: big })
+    expect(system).toContain('<file name="references/a.md">')
+    expect(system).not.toContain('<case name="Case one, id one">')
+    expect(system).toContain(
+      '3 more cases are left out here for length, by name: Case one, id one; Case two, id two; Case three, id three.',
+    )
+    expect(system).not.toContain('Its cases:')
+    // With room, every case is read in full and nothing is said to be left out.
+    const small = { ...big, files: big.files.filter((f) => f.path === 'SKILL.md') }
+    const roomy = chatSystem({ screen: 'Cases', open: { file: null, case: null }, skill: small })
+    expect(roomy).toContain('<case name="Case three, id three">')
+    expect(roomy).not.toContain('left out here')
   })
 
   it('says so when no skill is open', () => {

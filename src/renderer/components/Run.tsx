@@ -16,7 +16,7 @@
 import { practiceVersionName } from '@domain/practice.ts'
 import { CONFIGURATIONS, type Configuration } from '@domain/schemas.ts'
 import { PlayIcon } from 'lucide-react'
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { api, type Job, type State } from '../api.ts'
 import { type Reporter, useToggleSet } from '../hooks.ts'
 import { capital, plural, runStamp, shortDate, versionName } from '../model.ts'
@@ -51,6 +51,13 @@ interface Writer {
   model: string
   effort: string
 }
+
+/**
+ * How long Start stays busy after the call returns while the job has not shown
+ * in the list yet. In a browser the list is polled every few seconds, so a
+ * second press before the next poll would start a second run.
+ */
+const SHOW_WITHIN_MS = 5000
 
 export function RunButton({
   state,
@@ -120,11 +127,19 @@ export function RunButton({
     jobs.filter((j) => j.skillPath === state.skill.path),
     'generate',
   )
+  // Starting ends when the job is in the list, which keeps the button busy from then on.
+  const shown = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+  useEffect(() => {
+    if (!running) return
+    clearTimeout(shown.current)
+    setStarting(false)
+  }, [running])
+  useEffect(() => () => clearTimeout(shown.current), [])
   const pastRun = withSkill.find((r) => r.name === baseline) ?? withSkill[0] ?? null
   const usable = Boolean(chosen && engine?.available)
 
   const start = async () => {
-    if (!chosen) return
+    if (!chosen || starting) return
     setStarting(true)
     try {
       await api.generate({
@@ -140,9 +155,11 @@ export function RunButton({
       report(`Run started: ${plural(count, 'output')}`)
       setName('')
       onOpenChange(false)
+      // The job is queued. Stay busy until it shows in the list, or for a while when it never does.
+      clearTimeout(shown.current)
+      shown.current = setTimeout(() => setStarting(false), SHOW_WITHIN_MS)
     } catch (e) {
       report(e as Error)
-    } finally {
       setStarting(false)
     }
   }
@@ -180,7 +197,7 @@ export function RunButton({
           type="button"
           variant={next ? 'signal' : 'outline'}
           size="sm"
-          busy={Boolean(running)}
+          busy={Boolean(running) || starting}
           busyLabel="Running…"
         >
           <RUN.icon aria-hidden="true" />

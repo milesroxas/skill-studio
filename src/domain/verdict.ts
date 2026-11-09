@@ -28,7 +28,8 @@ export function jevVerdict(
   const id = fact.id ?? verdictId(fact.kind, fact.text)
   const jev = noul >= yes
   const own = corrections[id]
-  return { ...fact, id, met: own ?? jev, open: true, corrected: own !== undefined && own !== jev }
+  // An answer the reader gave is theirs whatever Jev said: moving the threshold must not hide it.
+  return { ...fact, id, met: own ?? jev, jev, open: true, corrected: own !== undefined }
 }
 
 /** A fact code measured. Nobody corrects a count. */
@@ -44,22 +45,33 @@ export const codeVerdict = (fact: Fact, met: boolean): Verdict => ({
 export const finding = (text: string): Verdict =>
   codeVerdict({ kind: 'other', text, layer: null }, false)
 
+/**
+ * Facts met out of facts counted, each by its weight: a ×2 check counts two
+ * on both sides, so "3 of 4" and a bar at 75 say the same thing. Without a
+ * weighted fact the numbers are plain counts.
+ */
 export interface Count {
   met: number
   total: number
 }
 
-/** How many of the facts of one kind an output meets; null when it has none of that kind. */
-export function countOf(verdicts: readonly Verdict[], kind: VerdictKind): Count | null {
-  const mine = verdicts.filter((v) => v.kind === kind)
-  return mine.length ? { met: mine.filter((v) => v.met).length, total: mine.length } : null
-}
+const weightOf = (v: Verdict): number => v.weight ?? 1
 
-/** How many of a layer's facts an output meets; null when the layer is not counted from facts. */
-export function layerCount(verdicts: readonly Verdict[], layer: string): Count | null {
-  const mine = verdicts.filter((v) => v.layer === layer)
-  return mine.length ? { met: mine.filter((v) => v.met).length, total: mine.length } : null
-}
+const countFacts = (facts: readonly Verdict[]): Count | null =>
+  facts.length
+    ? {
+        met: facts.reduce((sum, v) => sum + (v.met ? weightOf(v) : 0), 0),
+        total: facts.reduce((sum, v) => sum + weightOf(v), 0),
+      }
+    : null
+
+/** How many of the facts of one kind an output meets, by weight; null when it has none of that kind. */
+export const countOf = (verdicts: readonly Verdict[], kind: VerdictKind): Count | null =>
+  countFacts(verdicts.filter((v) => v.kind === kind))
+
+/** How many of a layer's facts an output meets, by weight; null when the layer is not counted from facts. */
+export const layerCount = (verdicts: readonly Verdict[], layer: string): Count | null =>
+  countFacts(verdicts.filter((v) => v.layer === layer))
 
 /** Counts added up across outputs; null when none of them has a count. */
 export function sumCounts(counts: ReadonlyArray<Count | null>): Count | null {

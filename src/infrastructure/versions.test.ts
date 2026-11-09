@@ -62,6 +62,24 @@ describe('saveVersion', () => {
     expect(() => saveVersion(dir, versionsOf(dir).current, '  ', '')).toThrow('Name the version')
     expect(existsSync(join(dir, 'evals/versions'))).toBe(false)
   })
+
+  it('finishes a save that crashed before version.json was written', () => {
+    // The files were copied, then the process died: no version.json, so nothing is saved yet.
+    mkdirSync(join(dir, 'evals/versions/v0/files'), { recursive: true })
+    writeFileSync(join(dir, 'evals/versions/v0/files/SKILL.md'), 'stale')
+    expect(savedVersions(dir)).toEqual([])
+    expect(() => versionFiles(dir, 'v0')).toThrow('No copy of v0')
+    const saved = saveVersion(dir, versionsOf(dir).current, 'One', '')
+    expect(saved.version).toBe('v0')
+    expect(readFileSync(join(dir, 'evals/versions/v0/files/SKILL.md'), 'utf8')).toBe('first')
+  })
+
+  it('lists the other versions when one version.json cannot be read', () => {
+    saveVersion(dir, versionsOf(dir).current, 'One', '')
+    mkdirSync(join(dir, 'evals/versions/v7'), { recursive: true })
+    writeFileSync(join(dir, 'evals/versions/v7/version.json'), '{"version": "v7"')
+    expect(savedVersions(dir).map((v) => v.version)).toEqual(['v0'])
+  })
 })
 
 describe('versionFiles', () => {

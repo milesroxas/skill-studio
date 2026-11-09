@@ -85,6 +85,11 @@ const buttonVariants = cva(
          */
         'cell-inline':
           'relative h-auto rounded-xs p-0 text-left text-[length:inherit] before:absolute before:-inset-x-1.5 before:-inset-y-2',
+        /**
+         * A full-width row in a list, such as a question to ask: left-aligned,
+         * at the text's own weight, wrapping onto a second line when it is long.
+         */
+        row: 'h-auto w-full justify-start rounded-sm px-3 py-1.5 text-left font-normal whitespace-normal',
       },
     },
     defaultVariants: {

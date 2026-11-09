@@ -35,6 +35,16 @@ export function readHead(path: string): FileHead {
 
 const isLegacyOutput = (file: string): boolean => file.endsWith('.md') && !file.startsWith('_')
 
+/** A run's JSON file, or `fallback` when it is missing or cannot be read: one bad run must not hide the rest. */
+function readRunJson<T>(path: string, fallback: T): T {
+  try {
+    return readJson<T>(path, fallback)
+  } catch (error) {
+    console.warn((error as Error).message)
+    return fallback
+  }
+}
+
 const isLegacy = (dir: string): boolean =>
   !listDirs(dir).some((d) => parseSampleDir(d)) && listFiles(dir, isLegacyOutput).length > 0
 
@@ -67,7 +77,7 @@ export function readRunMeta(skillDir: string, name: string): RunMeta | null {
   const dir = runDir(skillDir, name)
   type LegacySample = Partial<SampleMeta> & { file?: string }
   type RawMeta = Partial<Omit<RunMeta, 'samples'>> & { samples?: LegacySample[] }
-  const raw = readJson<RawMeta | null>(join(dir, 'run.json'), null)
+  const raw = readRunJson<RawMeta | null>(join(dir, 'run.json'), null)
   if (!raw) return null
   const legacy = isLegacy(dir)
   const samples: SampleMeta[] = (raw.samples ?? []).map((s, i) => {
@@ -111,7 +121,7 @@ export function readRun(skillDir: string, name: string): RunView {
   return {
     name,
     meta: readRunMeta(skillDir, name),
-    report: readJson<Report | null>(join(dir, 'report.json'), null),
+    report: readRunJson<Report | null>(join(dir, 'report.json'), null),
     samples: runSamples(dir),
     hasSkill: isDir(join(dir, '_skill')),
   }

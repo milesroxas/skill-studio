@@ -3,10 +3,10 @@
  * `safeStorage`. A key in the environment at launch wins over a stored one.
  * This is the shell's `SecretStore`: it runs in main, where safeStorage lives.
  */
-import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
-import { dirname } from 'node:path'
+import { rmSync } from 'node:fs'
 import type { SecretStore } from '@application/api/operations.ts'
 import { SECRET_IDS, SECRETS, type SecretId, type Settings, statusOfEach } from '@domain/secrets.ts'
+import { readJson, writeJson } from '@infrastructure/fs.ts'
 import { safeStorage } from 'electron'
 
 /** Each stored key, encrypted and base64, under the variable the backend reads it from. */
@@ -29,12 +29,30 @@ export class KeychainSecrets implements SecretStore {
     this.onChange = onChange
   }
 
+  /**
+   * Whether a key can be kept here. On Linux, safeStorage falls back to
+   * `basic_text` when no keyring is found: a fixed key anyone can read, so a
+   * key is not stored that way and the environment variable is the way in.
+   */
   private canStore(): Promise<boolean> {
+    if (
+      process.platform === 'linux' &&
+      typeof safeStorage.getSelectedStorageBackend === 'function' &&
+      safeStorage.getSelectedStorageBackend() === 'basic_text'
+    )
+      return Promise.resolve(false)
     return safeStorage.isAsyncEncryptionAvailable()
   }
 
+  /** The stored keys. A file that cannot be read counts as none, so the app still opens. */
   private saved(): Stored {
-    return existsSync(this.file) ? (JSON.parse(readFileSync(this.file, 'utf8')) as Stored) : {}
+    try {
+      const value = readJson<unknown>(this.file, {})
+      return value && typeof value === 'object' && !Array.isArray(value) ? (value as Stored) : {}
+    } catch (error) {
+      console.warn((error as Error).message)
+      return {}
+    }
   }
 
   private async stored(id: SecretId): Promise<string | undefined> {
@@ -71,10 +89,9 @@ export class KeychainSecrets implements SecretStore {
     const saved = this.saved()
     if (value) saved[env] = (await safeStorage.encryptStringAsync(value)).toString('base64')
     else delete saved[env]
-    if (Object.keys(saved).length) {
-      mkdirSync(dirname(this.file), { recursive: true })
-      writeFileSync(this.file, `${JSON.stringify(saved, null, 2)}\n`, { mode: 0o600 })
-    } else rmSync(this.file, { force: true })
+    // Written whole, readable by this user only.
+    if (Object.keys(saved).length) writeJson(this.file, saved, 0o600)
+    else rmSync(this.file, { force: true })
     this.onChange(await this.effective())
     return this.read()
   }

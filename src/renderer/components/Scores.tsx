@@ -115,8 +115,9 @@ export function ScoreMove({
 /**
  * The parts one score is made of, each with a bar: the rules followed, the
  * checks met, and whatever else was measured. A part counted from facts says
- * the count, "3 of 4"; any other says its score. Bars stay grey until a part
- * is weak, so the eye lands on problems.
+ * the count, "3 of 4", each fact by its weight so a ×2 check counts two and
+ * the count agrees with the bar; any other says its score. Bars stay grey
+ * until a part is weak, so the eye lands on problems.
  */
 export function Parts({
   scored,

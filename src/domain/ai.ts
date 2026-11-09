@@ -300,6 +300,30 @@ export interface ChatThread {
 /** Only this many of the latest messages go back to the model, so a long thread stays affordable. */
 export const CHAT_WINDOW = 40
 
+/** And only this much of their text, in characters, about 6,000 tokens: a few long replies would otherwise fill the window. */
+export const CHAT_WINDOW_CHARS = 24_000
+
+/**
+ * The messages the model reads: the newest that fit both caps, starting at
+ * one from the user so the model never opens on its own words. The newest
+ * message always goes, however long.
+ */
+export function chatWindowOf<T extends { role: 'user' | 'assistant'; text: string }>(
+  messages: readonly T[],
+): T[] {
+  const latest = messages.slice(-CHAT_WINDOW)
+  let kept = latest.length
+  let chars = 0
+  for (let i = latest.length - 1; i >= 0; i -= 1) {
+    chars += latest[i].text.length
+    if (chars > CHAT_WINDOW_CHARS && i < latest.length - 1) break
+    kept = i
+  }
+  const window = latest.slice(kept)
+  const start = window.findIndex((m) => m.role === 'user')
+  return window.slice(Math.max(0, start))
+}
+
 /** One finished request, as the usage log keeps it. */
 export interface UsageEntry extends AiUsage {
   at: string

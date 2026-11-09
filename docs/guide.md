@@ -144,6 +144,7 @@ Exact, with its reason:
 - **Connect a model** in Settings. Claude Code and Codex are the main way: they run on the account you already use, with no key. An API key works too, under **Use an API key**. Settings says whether Claude Code and Codex are installed and signed in. When one is not, it shows the command to run in Terminal (`claude auth login`, or `codex login`), with **Copy command**. Run it, come back, and Settings shows the account and the plan.
 - **Ask:** click the small button in any text box, or **Write with AI** in the editor toolbar. Say what you want.
 - **Nothing changes** until you click **Replace** or **Insert**.
+- **Closing the box keeps the reply.** A reply being written goes on, and opening the box again on the same text finds it. Only **Discard** throws it away. Opening it on other text, or with another selection, starts afresh.
 - **Select text first** to rewrite only that part.
 - **Assistant** (top right, or Cmd+J): a chat beside every screen. It reads the open skill as you have it, unsaved edits and new files included, and knows the screen you are on and the file or case you have open. Ask it to change something and the reply shows each change under it: a file's changes, a new case, or a version to keep first. A case it adds or replaces can mark a check ×2: ask for it. Click the button at the end of a change's row to apply it. For a file change or a new case, Undo in the status line takes it back; a replaced case or a kept version offers **Open** instead. Nothing changes until you click. **New conversation** in the panel's header starts over.
 - **Commands in the Assistant:** type `/` and pick from the list, or keep typing a name; Tab takes the one shown. `/clear` starts a new conversation, `/settings` and `/guide` open those screens. While a reply is written, the send button becomes Stop.
@@ -208,7 +209,7 @@ The defaults suit most runs: every case, once, with the agent you used last. **O
 - **Agent, Model, Effort:** who writes the outputs. Pick a model from the list or type its name.
 - **Samples per case:** use 2 or more to see how steady the skill is. Agents answer a little differently each time.
 
-The run works in the background. Its progress shows at the foot of the sidebar: click it for the log. Jev grades the outputs when they are written.
+The run works in the background. Its progress shows at the foot of the sidebar: click it for the log, where **Stop** ends the run. Jev grades the outputs when they are written.
 
 Runs cost money: each output is an agent session, and Jev is paid per call.
 
@@ -219,7 +220,7 @@ Runs cost money: each output is an agent session, and Jev is paid per call.
 Results opens on a case with two outputs side by side: **A**, the version before, and **B**, the latest. With one version, A is the output written without the skill, if you ran one.
 
 - **The list** on the left has every case that was run, with how its score moved. Click one to compare it.
-- **Each output** has its score out of 100, then what the score is counted from: "Rules 4 of 5", "Checks 2 of 3".
+- **Each output** has its score out of 100, then what the score is counted from: "Rules 4 of 5", "Checks 2 of 3". A check marked ×2 counts two in both numbers, so the count matches the bar.
 - **Missed** lists each rule the output broke and each check it did not meet. This is what to fix. **Open rule** takes you to that rule on the Skill screen.
 - **Met** folds the rest away. Open it to read them.
 - **Transcript**, above the output, shows every step the agent took. Read it when a score surprises you. Did the agent read the skill at all?
@@ -238,7 +239,7 @@ Your pick is the last word. When Jev scores the other side higher, the bar at th
 | Jev fails an output you like | A rule or a check asks for the wrong thing | Edit or delete it |
 | Jev misread one rule or check | That verdict is wrong | Click **Mark as met** or **Mark as missed** beside it |
 
-A verdict you mark is yours from then on. It moves to the other list with "your answer" beside it, the score follows, and **Take back** lets Jev's answer stand again.
+A verdict you mark is yours from then on. It moves to the other list with "your answer" beside it, the score follows, and **Take back** lets Jev's answer stand again. If a change to Scoring later brings Jev round to your answer, the row says so and stays yours.
 
 ### Add a check
 
@@ -266,7 +267,7 @@ Most skills never need this. **Scoring**, folded at the foot of All cases, sets 
 - **Threshold:** how sure Jev must be before a rule or check counts as met.
 - **Rules:** the bullets read from SKILL.md, in the order the Skill screen numbers them.
 
-Click **Save scoring**, or **Discard**.
+Click **Save scoring**, or **Discard**. Opening another skill with scoring changes unsaved asks first.
 
 ### Then change the skill
 

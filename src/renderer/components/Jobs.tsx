@@ -4,10 +4,12 @@
  * popover. It never moves the screen above it.
  */
 import { cva } from 'class-variance-authority'
-import type { Job, JobProgress } from '../api.ts'
+import { useState } from 'react'
+import { api, type Job, type JobProgress } from '../api.ts'
 import { Rows } from './layout.tsx'
 import { Dot, type Tone } from './Status.tsx'
 import { Text } from './text.tsx'
+import { Button } from './ui/button.tsx'
 import { Popover, PopoverContent, PopoverTrigger } from './ui/popover.tsx'
 
 const QUIET_AFTER_MS = 60_000
@@ -35,6 +37,7 @@ const indicator = cva(
         running: 'text-sidebar-foreground',
         done: 'text-muted-foreground',
         failed: 'text-destructive',
+        stopped: 'text-muted-foreground',
       },
     },
   },
@@ -45,6 +48,8 @@ const TONE = {
   running: 'signal',
   done: 'success',
   failed: 'destructive',
+  // Ended by the reader: a fact, not a verdict.
+  stopped: 'muted',
 } as const satisfies Record<string, Tone>
 
 /** What the running jobs that know their size add up to; null when none does. */
@@ -91,7 +96,7 @@ export function JobsIndicator({ jobs }: { jobs: Job[] }) {
   if (!recent) return null
   const settled =
     !running.length &&
-    recent.status === 'done' &&
+    (recent.status === 'done' || recent.status === 'stopped') &&
     recent.finishedAt !== null &&
     Date.now() - recent.finishedAt > QUIET_AFTER_MS
   if (settled) return null
@@ -103,7 +108,9 @@ export function JobsIndicator({ jobs }: { jobs: Job[] }) {
       : `${running.length} jobs running`
     : recent.status === 'failed'
       ? `Failed: ${recent.title}`
-      : `Done: ${recent.title}`
+      : recent.status === 'stopped'
+        ? `Stopped: ${recent.title}`
+        : `Done: ${recent.title}`
   return (
     <Popover>
       <PopoverTrigger asChild>
@@ -133,18 +140,42 @@ export function JobsIndicator({ jobs }: { jobs: Job[] }) {
   )
 }
 
+/** Stop the running job on this row. The job's log says "Stopped." when it has. */
+function StopJob({ job }: { job: Job }) {
+  const [stopping, setStopping] = useState(false)
+  return (
+    <Button
+      type="button"
+      variant="outline"
+      size="sm"
+      busy={stopping}
+      busyLabel="Stopping…"
+      onClick={() => {
+        setStopping(true)
+        // The row leaves with the job's status, so a failed stop puts the button back.
+        api.stopJob(job.id).catch(() => setStopping(false))
+      }}
+    >
+      Stop
+    </Button>
+  )
+}
+
 /** The latest jobs, newest first: a row each with its title, status and the tail of its log. */
 function JobLogs({ jobs }: { jobs: Job[] }) {
   return (
     <Rows>
       {jobs.map((job) => (
         <li key={job.id} className="flex flex-col gap-1 py-2.5">
-          <Text size="xs">
-            <Text weight="semibold" tone={job.status === 'failed' ? 'destructive' : 'default'}>
-              {job.title}
-            </Text>{' '}
-            <Text tone="muted">{job.status}</Text>
-          </Text>
+          <span className="flex items-center justify-between gap-2">
+            <Text size="xs">
+              <Text weight="semibold" tone={job.status === 'failed' ? 'destructive' : 'default'}>
+                {job.title}
+              </Text>{' '}
+              <Text tone="muted">{job.status}</Text>
+            </Text>
+            {job.status === 'running' ? <StopJob job={job} /> : null}
+          </span>
           {/* One scroller per screen on touch: the log flows at full height there. */}
           <pre className="m-0 max-h-60 overflow-auto font-mono text-2xs whitespace-pre-wrap break-words text-muted-foreground pointer-coarse:max-h-none pointer-coarse:overflow-visible">
             {job.log.slice(-40).join('\n') || 'Starting…'}

@@ -19,6 +19,17 @@ describe('contentSecurityPolicy', () => {
       "style-src 'self' 'unsafe-inline'",
     )
   })
+
+  it('frames and pictures come from the artifact scheme in the app, and from the page’s own origin on the web', () => {
+    const directives = (policy: string) => policy.split('; ')
+    expect(directives(contentSecurityPolicy({ styleNonce: 'abc' }))).toEqual(
+      expect.arrayContaining(["img-src 'self' data: artifact:", 'frame-src artifact:']),
+    )
+    const web = directives(contentSecurityPolicy({ styleNonce: 'abc', web: true }))
+    expect(web).toEqual(expect.arrayContaining(["img-src 'self' data:", "frame-src 'self'"]))
+    expect(web).toContain("style-src 'self' 'nonce-abc'")
+    expect(web.join(' ')).not.toContain('artifact:')
+  })
 })
 
 describe('withStyleNonce', () => {

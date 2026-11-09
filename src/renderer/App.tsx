@@ -20,7 +20,7 @@ import { pickBetween } from '@domain/picks.ts'
 import { isLookStep, type LookStep } from '@domain/practice.ts'
 import type { BenchConfig } from '@domain/schemas.ts'
 import { ArrowRightIcon, MenuIcon, MessageCircleIcon } from 'lucide-react'
-import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react'
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { clearImprove, useImprove } from './ai.ts'
 import { api, currentSkill, type Job, type State, setSkill } from './api.ts'
 import { ChatPanel } from './components/Chat.tsx'
@@ -73,6 +73,7 @@ import { Cases } from './screens/Cases.tsx'
 import { LibraryScreen } from './screens/Library.tsx'
 import { Results } from './screens/Results.tsx'
 import { Welcome } from './screens/Welcome.tsx'
+import { watchFailures } from './transport.ts'
 import { useUpdateNotices, useUpdateStep } from './updates.ts'
 
 /** The guide, settings and the file editor (CodeMirror, about 110 KB gzipped) load only when opened. */
@@ -83,6 +84,9 @@ const SettingsScreen = lazy(() =>
 )
 
 const ASSISTANT_KEY = 'skill-studio.assistant'
+
+/** The least time between two reloads made for a run's progress: each output lands within this of being written. */
+const PROGRESS_RELOAD_MS = 2000
 
 /** Whether the assistant's panel is open, remembered across reloads, and ⌘J to toggle it. */
 function useAssistant(): [boolean, (open: boolean) => void] {
@@ -143,6 +147,8 @@ export function App() {
   const preferences = usePreferences()
   // An update that finishes downloading, or was just installed, says so once.
   useUpdateNotices(report, useUpdateStep(confirm, report))
+  // A failure no caller awaits, such as a window that would not open, lands on the status line.
+  useEffect(() => watchFailures(report), [report])
 
   const reload = useCallback(async () => {
     if (!currentSkill()) return
@@ -169,11 +175,28 @@ export function App() {
   }, [skillPath, reload])
   const drafts = useDrafts(skillPath)
 
-  const openSkill = useCallback((path: string, screen = 'home') => {
-    setSkillPath(path)
-    // The entry names its skill itself: the open one changes only once this renders.
-    navigate(screen, {}, { skill: path })
-  }, [])
+  /** Scoring, on Results, has changes that are not saved. Read when a skill is opened, so it is a ref. */
+  const scoringDirty = useRef(false)
+  const openSkill = useCallback(
+    async (path: string, screen = 'home') => {
+      // Scoring edits live in this window alone: another skill's state would replace them.
+      if (
+        path !== currentSkill() &&
+        scoringDirty.current &&
+        !(await confirm({
+          title: 'Discard your scoring changes?',
+          description: 'The scoring of the open skill has changes that are not saved.',
+          action: 'Discard',
+          destructive: true,
+        }))
+      )
+        return
+      setSkillPath(path)
+      // The entry names its skill itself: the open one changes only once this renders.
+      navigate(screen, {}, { skill: path })
+    },
+    [confirm],
+  )
   const [starting, startPractice] = useStartPractice(openSkill, report)
   // Starting over lands on the guide's first step, as opening the practice skill does.
   const [restarting, restartPractice] = useRestartPractice(
@@ -202,19 +225,50 @@ export function App() {
 
   // Follow the jobs: pushed by the desktop app, polled in a browser (quickly while one
   // runs). Reload state when a job finishes, including one that started and ended
-  // between two polls (a Jev vote takes under a second).
+  // between two polls (a Jev vote takes under a second), and as a run of the open
+  // skill writes each output, so Results shows them as they land.
   useEffect(() => {
     let finished: Set<number> | null = null
+    /** How far each running job had come when state was last read for it. */
+    const progressed = new Map<number, number>()
+    let progressReloadAt = 0
+    let progressTimer: ReturnType<typeof setTimeout> | undefined
+    /** Reload for progress at most once every two seconds; a reload for an end resets the wait. */
+    const reloadForProgress = () => {
+      const wait = progressReloadAt + PROGRESS_RELOAD_MS - Date.now()
+      if (wait <= 0) {
+        progressReloadAt = Date.now()
+        reload()
+      } else if (progressTimer === undefined)
+        progressTimer = setTimeout(() => {
+          progressTimer = undefined
+          progressReloadAt = Date.now()
+          reload()
+        }, wait)
+    }
     const take = (list: Job[]) => {
       setJobs(list)
       const done = new Set(list.filter((j) => j.status !== 'running').map((j) => j.id))
-      if (finished && [...done].some((id) => !finished?.has(id))) reload()
+      if (finished && [...done].some((id) => !finished?.has(id))) {
+        progressReloadAt = Date.now()
+        reload()
+      }
       finished = done
+      const skill = currentSkill()
+      let advanced = false
+      for (const job of list) {
+        if (job.status !== 'running' || job.kind !== 'generate' || job.skillPath !== skill) continue
+        const before = progressed.get(job.id) ?? 0
+        const now = job.progress?.done ?? 0
+        if (now > before) {
+          progressed.set(job.id, now)
+          advanced = true
+        }
+      }
+      if (advanced) reloadForProgress()
     }
-    if (api.watchJobs) {
-      api.jobs().then(take, () => {})
-      return api.watchJobs(take)
-    }
+    const stop = api.watchJobs ? api.watchJobs(take) : null
+    if (stop) api.jobs().then(take, () => {})
     let timer: ReturnType<typeof setTimeout>
     let live = true
     const tick = async () => {
@@ -228,10 +282,12 @@ export function App() {
         if (live) timer = setTimeout(tick, 8000)
       }
     }
-    tick()
+    if (!stop) tick()
     return () => {
       live = false
+      stop?.()
       clearTimeout(timer)
+      clearTimeout(progressTimer)
     }
   }, [reload])
 
@@ -258,7 +314,10 @@ export function App() {
         : [],
     [state, outputs],
   )
-  const running = jobs.some((j) => j.status === 'running')
+  /** A job of the open skill is running: its next step waits, and so does its walkthrough. */
+  const running = jobs.some((j) => j.status === 'running' && j.skillPath === state?.skill.path)
+  /** A job of any skill is running: resetting the app would end it. */
+  const anyRunning = jobs.some((j) => j.status === 'running')
   // The practice skill is walked round the whole loop, past the point where the next step is plain.
   const walk = loaded?.state.practice ? practiceWalk(loaded.state, outputs) : null
 
@@ -330,9 +389,11 @@ export function App() {
   }, [preferences.welcomed, movedOn])
 
   const status: PlaceStatus = { meta: {}, dot: {} }
+  scoringDirty.current = false
   if (loaded && current) {
     const dirty =
       JSON.stringify(loaded.config) !== JSON.stringify(mergedConfig(loaded.state.savedConfig))
+    scoringDirty.current = dirty
     status.meta = {
       cases: String(loaded.state.cases.length),
       // How many cases wait for a pick between their two versions.
@@ -472,7 +533,7 @@ export function App() {
       return (
         <Suspense fallback={<Loading size="screen" />}>
           <SettingsScreen
-            running={running}
+            running={anyRunning}
             report={report}
             onSaved={reload}
             onWelcome={openWelcome}
@@ -500,7 +561,7 @@ export function App() {
           title="Could not open this skill"
           actions={
             <>
-              <Button type="button" onClick={() => openSkill('', 'library')}>
+              <Button type="button" onClick={() => void openSkill('', 'library')}>
                 Go to the library
               </Button>
               <Button type="button" variant="outline" onClick={reload}>

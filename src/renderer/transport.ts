@@ -76,6 +76,27 @@ const unwrap = <T>(reply: Reply<T>): T => {
   throw new Error(reply.error)
 }
 
+const logFailure = (error: Error): void => console.error(error)
+/** Where a failure nobody awaits is said, such as a window that would not open. The console until the shell listens. */
+let sayFailed: (error: Error) => void = logFailure
+
+/** Say a failure that no caller awaits. The shell routes it to the status line. */
+export const reportFailure = (error: Error): void => sayFailed(error)
+
+/** Be told of every failure nobody awaits; returns the unsubscribe. One listener: the shell's status line. */
+export function watchFailures(listener: (error: Error) => void): () => void {
+  sayFailed = listener
+  return () => {
+    sayFailed = logFailure
+  }
+}
+
+/** A window the browser would not open, which it says nothing about itself. */
+const openTab = (url: string): void => {
+  if (!window.open(url, '_blank', 'noopener,noreferrer'))
+    reportFailure(new Error('The browser blocked the window. Allow pop-ups for this site.'))
+}
+
 const encode = (params: object): string =>
   new URLSearchParams(Object.entries(params).map(([key, value]) => [key, String(value)])).toString()
 
@@ -84,21 +105,21 @@ function desktop(bridge: StudioBridge): Transport {
     call: (name, input) => bridge.call(name, input).then(unwrap),
     artifactUrl: (input) => `artifact://sample?${encode(input)}`,
     imageUrl: (input) => `artifact://image?${encode(input)}`,
-    openArtifact: (url) => void bridge.openArtifact(url).then(unwrap),
-    openExternal: (url) => void bridge.openExternal(url).then(unwrap),
+    openArtifact: (url) => void bridge.openArtifact(url).then(unwrap).catch(reportFailure),
+    openExternal: (url) => void bridge.openExternal(url).then(unwrap).catch(reportFailure),
     revealSkill: async (path) => void unwrap(await bridge.revealSkill(path)),
     chooseFolder: async () => unwrap(await bridge.chooseFolder()),
     watchJobs: (listener) => bridge.onJobs(listener),
     watchAi: (listener) => bridge.onAi(listener),
     watchGo: (listener) => bridge.onGo(listener),
     watchOpen: (listener) => bridge.onOpen(listener),
-    openWelcome: () => void bridge.openWelcome().then(unwrap),
-    enterApp: (skill) => void bridge.enterApp(skill).then(unwrap),
+    openWelcome: () => void bridge.openWelcome().then(unwrap).catch(reportFailure),
+    enterApp: (skill) => void bridge.enterApp(skill).then(unwrap).catch(reportFailure),
     updates: {
       version: bridge.version,
       request: (request) => bridge.update(request).then(unwrap),
       watch: (listener) => bridge.onUpdate(listener),
-      openChangelog: () => void bridge.openChangelog().then(unwrap),
+      openChangelog: () => void bridge.openChangelog().then(unwrap).catch(reportFailure),
     },
     reset: bridge.canReset ? async () => void unwrap(await bridge.reset()) : undefined,
     platform: bridge.platform,
@@ -139,8 +160,8 @@ function browser(): Transport {
     },
     artifactUrl: (input) => `/api/artifact?${encode(input)}`,
     imageUrl: (input) => `/api/image?${encode(input)}`,
-    openArtifact: (url) => void window.open(url, '_blank', 'noopener,noreferrer'),
-    openExternal: (url) => void window.open(url, '_blank', 'noopener,noreferrer'),
+    openArtifact: openTab,
+    openExternal: openTab,
     platform: 'web',
   }
 }

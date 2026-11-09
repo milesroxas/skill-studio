@@ -60,10 +60,10 @@ Severity: **high** gives wrong scores or loses data. **med** misleads or breaks 
 ## Data loss
 
 - [ ] **D1** high. Restore corrupts binary files under `references/`: files are read and written as UTF-8. `src/infrastructure/fs.ts:65`, `src/infrastructure/skill.ts:185`
-- [ ] **D2** med. Saving a case deletes check files and pictures the draft does not list, with no check that the case changed on disk. `src/infrastructure/cases.ts:270-271,318-320`
+- [ ] **D2** med. Saving a case deletes check files and pictures the draft does not list, with no check that the case changed on disk. `src/infrastructure/cases.ts:270-271,318-320` In part: `saveCase` takes the `caseSavedAt` time the form loaded and refuses a save over a newer one; the form does not pass it yet.
 - [ ] **D3** med. Restore does not warn about unsaved drafts. "Keep my draft" afterwards undoes the restore. `src/renderer/components/VersionDetail.tsx`
 - [ ] **D4** med. Undo of a version delete lives only in the status line notice (`Notice.undo`). A restart, another notice or the notice timing out loses it. `src/renderer/hooks.ts:64-65,77-78,85`
-- [ ] **D5** low. `reviews.json` is not written atomically. A crash or a merge conflict in it stops the skill from opening. `src/infrastructure/fs.ts:13-19`
+- [x] **D5** low. `reviews.json` is not written atomically. A crash or a merge conflict in it stops the skill from opening. `src/infrastructure/fs.ts:13-19` Fixed: every JSON file is written to a temporary file and renamed, and a damaged one is named in the error.
 - [ ] **D6** low. The drafts file is rewritten whole, so the desktop app and `st serve` overwrite each other's drafts. `src/infrastructure/drafts.ts:43`
 - [ ] **D7** low. A draft of a reference file that was deleted on disk can never be saved. `src/renderer/screens/Editor.tsx:138`, `src/infrastructure/skill.ts:67-71`
 
@@ -77,7 +77,7 @@ Severity: **high** gives wrong scores or loses data. **med** misleads or breaks 
 
 ## Security and isolation
 
-- [ ] **S1** high. Agents get the whole environment, including `TYPESAFE_API_KEY` and the stored Anthropic and OpenAI keys. Bash is allowed by default. `src/infrastructure/env.ts:6-10`, `src/interfaces/electron/backend/index.ts:30-33`
+- [ ] **S1** high. Agents get the whole environment, including `TYPESAFE_API_KEY` and the stored Anthropic and OpenAI keys. Bash is allowed by default. `src/infrastructure/env.ts:6-10`, `src/interfaces/electron/backend/index.ts:30-33` In part: agents and the assistant's CLIs no longer get the keys (`agentEnv`). The `code` pack's check command (`src/judges/shared/exec.ts`) still does, and Bash is still the default.
 - [ ] **S2** med. Isolation relies on the prompt. The sample sits inside `evals/runs/`, so `../..` reaches the graders, and its folder name says whether the skill is installed. Relative paths outside the sample are not flagged. Cursor ignores `allowed_tools`. `src/judges/workflow/index.ts:43`, `src/infrastructure/engines/cursor.ts:93-101`
 
 ## Refinement loop

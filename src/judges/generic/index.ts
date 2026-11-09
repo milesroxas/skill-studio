@@ -7,7 +7,7 @@
 import { round } from '@domain/text.ts'
 import { noul } from '@typesafe-ai/sdk'
 import type { JevState } from '../jev.ts'
-import { answering, askStatements, statementQuestion, withRequest } from '../shared/questions.ts'
+import { answering, askStatements, withRequest } from '../shared/questions.ts'
 import type { StatementAnswer } from '../shared/score.ts'
 import type { JudgeContext, JudgeInput, JudgePack } from '../types.ts'
 import { type GenericRaw, genericScoring, type RuleAnswer } from './score.ts'
@@ -38,27 +38,20 @@ async function adherence(
   }
 }
 
-/** Each statement over the whole output, and over each unit to say where it comes closest. */
+/** Each statement once, over the whole output. */
 async function rubric(
   input: JudgeInput,
   ctx: JudgeContext,
 ): Promise<{ statements: StatementAnswer[] } | null> {
   const graders = input.case?.graders ?? []
   if (!graders.length) return null
-  const perUnit = Object.fromEntries(
-    graders.map((g) => [g.id, statementQuestion(g.statement, 'paragraph')]),
-  )
-  const [whole, unitAnswers] = await Promise.all([
-    askStatements(graders, withRequest(input, { output: input.text }), 'output', ctx),
-    input.units.length > 1
-      ? ctx.jev.pool(input.units, (unit) => ctx.jev.ask({ paragraph: unit.text }, perUnit))
-      : null,
-  ])
   return {
-    statements: whole.map((s) => {
-      const units = unitAnswers ? unitAnswers.map((a) => round(a[s.id].noul, 3)) : null
-      return { ...s, units, best: units ? units.indexOf(Math.max(...units)) : null }
-    }),
+    statements: await askStatements(
+      graders,
+      withRequest(input, { output: input.text }),
+      'output',
+      ctx,
+    ),
   }
 }
 

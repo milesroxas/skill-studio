@@ -5,14 +5,20 @@
  * of a run, before the model is asked, so the list is read from a run that is
  * ended the moment that event arrives. Descriptions come from each skill's own
  * file on disk, where one can be found.
+ *
+ * The list is kept in memory for a while and on disk for as long as the
+ * folders it was read from are unchanged, so a backend that starts again does
+ * not run the CLI again.
  */
-import { existsSync, readFileSync } from 'node:fs'
+import { existsSync, readFileSync, statSync } from 'node:fs'
 import { homedir, tmpdir } from 'node:os'
 import { join } from 'node:path'
 import type { SlashCommand } from '@domain/commands.ts'
 import { metaText, readFrontMatter } from '@domain/text.ts'
 import { agentEnv } from '../env.ts'
 import { exec } from '../exec.ts'
+import { readJson, writeJson } from '../fs.ts'
+import { STUDIO_DIR } from '../library.ts'
 
 interface InitEvent {
   type: string
@@ -28,8 +34,54 @@ let cached: { at: number; commands: SlashCommand[] } | null = null
 /** A read under way, so two askers share one run. */
 let reading: Promise<SlashCommand[]> | null = null
 
+/** The list on disk, with what it was read from, so a later backend can tell whether it still holds. */
+const STORED = join(STUDIO_DIR, 'claude-commands.json')
+
+interface StoredCommands {
+  /** The modification times of every folder and file the list depends on. */
+  fingerprint: string
+  /** The plugin folders the CLI reported, which the fingerprint covers too. */
+  plugins: string[]
+  commands: SlashCommand[]
+}
+
 /** Where the CLI keeps the user's own skills and commands. */
 const configDir = (): string => process.env.CLAUDE_CONFIG_DIR || join(homedir(), '.claude')
+
+/** The folders and files whose change can change the list: the user's own, the plugins', and the settings that enable them. */
+const watched = (plugins: string[]): string[] => {
+  const home = configDir()
+  return [
+    join(home, 'skills'),
+    join(home, 'commands'),
+    join(home, 'plugins'),
+    join(home, 'settings.json'),
+    ...plugins,
+  ]
+}
+
+const fingerprint = (paths: string[]): string =>
+  paths
+    .map((path) => {
+      try {
+        return `${path}:${statSync(path).mtimeMs}`
+      } catch {
+        return `${path}:-`
+      }
+    })
+    .join('\n')
+
+/** The list stored by an earlier read, when nothing it was read from has changed since. */
+function storedCommands(): SlashCommand[] | null {
+  try {
+    const stored = readJson<Partial<StoredCommands> | null>(STORED, null)
+    if (!stored || !Array.isArray(stored.commands)) return null
+    const plugins = Array.isArray(stored.plugins) ? stored.plugins : []
+    return fingerprint(watched(plugins)) === stored.fingerprint ? stored.commands : null
+  } catch {
+    return null
+  }
+}
 
 /** The files a skill's description may be in: a plugin's folders for `plugin:skill`, else the user's own. */
 function filesOf(name: string, plugins: Map<string, string>): string[] {
@@ -57,7 +109,11 @@ function descriptionIn(files: string[]): string {
   return ''
 }
 
-/** Read the list from the CLI. Throws when the CLI cannot start or does not report one. */
+/**
+ * Read the list from the CLI. Throws when the CLI cannot start or does not
+ * report one. The run is ended at its first event, before the model is asked;
+ * should that ever slip, the smallest model takes one turn at most.
+ */
 async function readCommands(): Promise<SlashCommand[]> {
   const controller = new AbortController()
   let init: InitEvent | null = null
@@ -74,6 +130,10 @@ async function readCommands(): Promise<SlashCommand[]> {
       'user',
       '--tools',
       '',
+      '--model',
+      'haiku',
+      '--max-turns',
+      '1',
     ],
     {
       cwd: tmpdir(),
@@ -105,15 +165,27 @@ async function readCommands(): Promise<SlashCommand[]> {
     )
   }
   const plugins = new Map((found.plugins ?? []).map((plugin) => [plugin.name, plugin.path]))
-  return (found.skills ?? []).map((name) => ({
+  const commands = (found.skills ?? []).map((name) => ({
     name,
     description: descriptionIn(filesOf(name, plugins)),
   }))
+  const pluginDirs = [...plugins.values()]
+  writeJson(STORED, {
+    fingerprint: fingerprint(watched(pluginDirs)),
+    plugins: pluginDirs,
+    commands,
+  } satisfies StoredCommands)
+  return commands
 }
 
-/** The skills the CLI can invoke now, read again after a while. */
+/** The skills the CLI can invoke now: from memory, from the stored list while it holds, else from the CLI. */
 export function listClaudeCommands(): Promise<SlashCommand[]> {
   if (cached && Date.now() - cached.at < CACHE_MS) return Promise.resolve(cached.commands)
+  const stored = storedCommands()
+  if (stored) {
+    cached = { at: Date.now(), commands: stored }
+    return Promise.resolve(stored)
+  }
   reading ??= readCommands()
     .then((commands) => {
       cached = { at: Date.now(), commands }

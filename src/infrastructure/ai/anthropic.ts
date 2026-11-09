@@ -15,7 +15,7 @@ import {
 import { secretOf } from '@domain/secrets.ts'
 import { imageBase64 } from '../images.ts'
 import { keyed } from './keyed.ts'
-import type { AiMessage, AiProvider, AiRequest } from './types.ts'
+import { type AiMessage, type AiProvider, type AiRequest, ProviderError } from './types.ts'
 
 /** Room for a whole SKILL.md and the thinking before it; streamed, so no request times out. */
 const MAX_TOKENS = 64_000
@@ -90,7 +90,19 @@ async function run(request: AiRequest) {
     {
       model: request.model,
       max_tokens: MAX_TOKENS,
-      system: request.system,
+      // The system prompt carries the whole skill and is the same from one turn
+      // to the next, so it is cached: a turn reads it at the cached rate.
+      ...(request.system
+        ? {
+            system: [
+              {
+                type: 'text' as const,
+                text: request.system,
+                cache_control: { type: 'ephemeral' as const },
+              },
+            ],
+          }
+        : {}),
       messages: request.messages.map((m) => ({ role: m.role, content: contentOf(m) })),
       output_config: {
         ...(request.effort ? { effort: request.effort as Effort } : {}),
@@ -110,25 +122,29 @@ async function run(request: AiRequest) {
     }
   }
   const message = await stream.finalMessage()
+  const usage = {
+    input:
+      message.usage.input_tokens +
+      (message.usage.cache_read_input_tokens ?? 0) +
+      (message.usage.cache_creation_input_tokens ?? 0),
+    output: message.usage.output_tokens,
+  }
+  // Billed either way: the error carries the usage so it is still recorded.
   if (message.stop_reason === 'refusal')
-    throw new Error(
+    throw new ProviderError(
       `The model declined this request${
         message.stop_details?.explanation ? `: ${message.stop_details.explanation}` : '.'
       }`,
+      usage,
+      message.model,
     )
   if (message.stop_reason === 'max_tokens')
-    throw new Error('The reply ran past the length limit. Ask for something shorter.')
-  return {
-    text,
-    model: message.model,
-    usage: {
-      input:
-        message.usage.input_tokens +
-        (message.usage.cache_read_input_tokens ?? 0) +
-        (message.usage.cache_creation_input_tokens ?? 0),
-      output: message.usage.output_tokens,
-    },
-  }
+    throw new ProviderError(
+      'The reply ran past the length limit. Ask for something shorter.',
+      usage,
+      message.model,
+    )
+  return { text, model: message.model, usage }
 }
 
 export const anthropicProvider: AiProvider = {

@@ -8,13 +8,64 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Fixed
 
+- A run made against an older version's snapshot counted as that version in a comparison but not in the version lift. It counts as that version in both.
+- The code pack's check command ran with the app's own keys in its environment. It runs with the same environment an agent gets, with the keys left out.
 - **Suggest changes** could leave nothing to pick: a rewrite Jev read as dropping a fact was locked. Every rewrite that changes something can now be picked, and the card says "May drop a fact" where Jev saw one.
+- A grading whose judge failed on every output, such as with an expired TypeSafe key or no network, said "Graded." over scores counted from the code checks alone. The job now fails and says how many outputs were not judged and why; when only some failed it says so and goes on. A grading with no TypeSafe key says "No TypeSafe key: code checks only." as it starts.
+- A check or lint command held the whole backend while it ran, so the window hung and the job's log stopped for up to two minutes per output. It now runs in the background.
+- One output that failed to start no longer fails the run while the other outputs went on writing; it is recorded as a failed output and the rest finish.
+- A TypeSafe key added in Settings during a session was not used by the selection tools until the app restarted, and every error from Jev there read as a missing key. The key is picked up at once, a refused key says "TypeSafe refused the key", and other errors are logged.
+- Auto refine, Suggest changes and Help me improve asked Jev before checking that a model was connected, so Jev was paid for nothing when none was. They check first.
+- A request the provider billed and then refused was left out of the usage log. Its tokens are recorded.
+- The job list no longer grows without end: the last 50 finished jobs are kept.
+- "Checks 2 of 3" beside a bar at 50: a check marked ×2 counted double in the score and once in the count. The count now counts each check by its weight, so it reads "3 of 4" and agrees with the bar.
+- The version lift and a version's score averaged every output of a run, so a run on fewer cases or more samples was read as a better or worse skill. Each case now counts once, and two versions are compared over the cases both ran, by the writer that ran both.
+- A file the assistant proposed with a line of four tildes inside, such as a tilde code fence, was cut off at that line and Apply wrote the fragment. The block now ends at its last line of four tildes.
+- A SKILL.md the assistant handed back inside a code fence was saved with the fence, so its front matter sat in a code block and no rule was graded. The fence is removed, and a file that still opens with one is refused with "Try again".
+- Bullets inside a `~~~` code fence were graded as rules and linted. A fence now closes only on its own character, as in Markdown.
+- The selection tools flagged the templates' own rules and the practice skill's good rules: a why that said "feels slow" read as an outcome, "Read the code you are about to change" read as a definition, a list of four things read as four conditions, and a rule with no number read as vague. Checks now read the rule's first sentence, a definition needs a noun subject, only condition words count, and a bare rule with no hedge is left to Jev.
+- Selecting prose opened the popout with rule findings on it. Only top-level bullets are rules; prose gets none, and a selection's first four words no longer count its list marker.
+- A verdict you marked stopped saying "your answer" when a change to Scoring brought Jev round to it, and Take back disappeared with it. It stays yours, says "agrees with Jev", and Take back stays.
+- A reference path such as `references/../x` or `references/` passed the editor's check. Only a plain path under `references/` is accepted.
+- Open rule landed one line off on a SKILL.md saved with Windows line endings.
+- **Regrade** on Results is busy from the press, where in a browser it waited for the next poll of the job list, so a second press could grade the run twice. When both outputs come from one run it says "Grading the run".
+- Closing **Write with AI** discarded a reply being written, or one ready to accept, with no way back. The reply now goes on, and opening the box again on the same text finds it. Only **Discard** throws it away.
+- **Start a run** pressed twice within a few seconds in a browser started two runs. The button stays busy until the run shows in the job list.
+- Unsaved edits were lost when storing them failed. They are kept and stored on the next edit or when the page is left.
+- A keystroke on Cases made before the stored drafts had been read replaced every other file's and case's unsaved edits with nothing. The edit now waits for the read and is laid over what it finds.
+- Results said the first outputs show as the run writes them, but showed them only when the run ended. Each output now shows within two seconds of being written.
+- In the Assistant, a file change whose saved file could not be read said "Reading the saved file…" for good, with no button. It now says "Could not read the saved file." and the reply offers **Retry**.
+- Picking the transcript or another artifact on an output snapped back to the main one after a correction or a pick. It holds.
+- A run of another skill hid the next step, the walkthrough's step and **Restart walkthrough** on the skill in view, and the walkthrough said a run was in progress. Only the open skill's own run does.
+- Opening another skill with scoring changes unsaved dropped them. It asks first.
+- **Stop** in the Assistant did nothing while a request was still being sent. It is disabled until there is a reply to stop.
+- A model choice that could not be saved, a link or an artifact window that would not open, and a pop-up the browser blocked said nothing. They are reported on the status line.
+- A skill with a run, report, review, version or draft file cut short, as a crash while writing leaves it, could not be opened, and the error named no file. These files are now written whole, so a crash leaves the old one; a damaged file is named in the error; and one damaged run or version leaves the rest listed.
+- A version save that crashed partway left a folder that refused every later save of that version with "already saved". Such a folder is finished on the next save.
+- A damaged keys file kept the window from opening. The app opens without the keys, says so once, and they can be set again in Settings.
+- Quitting left a run's agents working, and billing, for up to twenty minutes. Quit now waits up to three seconds for them to end, and an app whose backend crashed ends the agents it left behind when it starts again.
+- Ending an agent, on Stop, on a timeout or on quit, left the shells it had started with Bash running. Its whole process group is ended.
+- On Windows every CLI read as not installed, and Claude Code installed with npm (`claude.cmd`) could not be started. The CLIs are found on the PATH, with `PATHEXT`, and started by their full name.
+- Claude Code failed to start on a brief longer than the system allows for one argument, as a long SKILL.md with many references makes. Such a brief goes on stdin.
+- The slash menu's list of skills is read from a run of `claude` ended at its first event; had that slipped, the run billed a full model call with the user's whole CLAUDE.md. The run is on the smallest model for one turn at most, and the list is kept on disk so a restart does not run it again.
+- `st serve` sent the page with no Content Security Policy. It sends the desktop app's.
+- On Linux with no keyring, a key could be stored under a fixed key anyone can read. The app refuses to store it there and says to set the environment variable instead.
 
 ### Changed
 
+- **Stop** on a running job, in the job log at the foot of the sidebar. The agents in flight are ended, no more outputs start, and the job ends with "Stopped." in its log.
+- Regrade asks Jev only about outputs whose text, rules, checks and settings changed since the last grading, and says "N of M outputs unchanged: kept their verdicts." A correction or a change of points or threshold still rescores at once. The kept answers live in `judge-cache.json` beside `report.json`.
+- The generic pack's checks are asked once over the whole output. The "(closest: unit N)" note on an unmet check is gone with the per-paragraph pass, which cost one request per paragraph and no screen read.
+- The writing pack asks about the title in the same request as the opening and ending.
+- Regrade refuses a run that is still writing, and a run or a grading already in progress on the same skill or run is not started twice. A run writes at most 10 outputs per case.
 - Suggest changes shows its three cards at once, each with "Replace" and its number key: click one or press 1, 2 or 3. The new text is tinted for a moment in the editor, and the status line offers Undo. **Try again** asks for three more, and the labels and notes are shorter.
 - Auto refine says less: "Nothing to fix" when the rule holds.
 - The selection tools work on whole lines. Selecting part of a rule selects the rule, so a rewrite never breaks the sentence it sits in. Auto refine, Suggest changes and Help me improve all put their text in place the same way: tinted for a moment, with Undo on the status line. Closing the popout stops a rewrite still being written, and asking a second tool about the same rule does not ask Jev to read it again.
+- The assistant reads less of a long skill per turn: the reference files and the cases share 40,000 characters, the open file first, and a case past that is named by its title. The conversation sent back is capped at 24,000 characters of the newest messages as well as 40 messages.
+- `bench.pack` and `viewports` on a case, which nothing read, are gone from the case schema.
+- An agent, and the Claude Code and Codex CLIs the assistant runs, no longer see the app's keys: `TYPESAFE_API_KEY` and the stored Anthropic and OpenAI keys are dropped from their environment, so a skill from someone else cannot send them away.
+- The app looks for a CLI where nvm, Volta, Bun and a global npm prefix install it, as well as in `~/.local/bin` and Homebrew, and reads the login shell's PATH once more, with longer to answer, when the first read ran out of time.
+- With an Anthropic API key, the brief is cached between turns, so a conversation reads the skill at the cached rate.
 
 ## [0.3.0] - 2026-11-09
 

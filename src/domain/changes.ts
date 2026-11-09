@@ -49,6 +49,20 @@ export type ReplyPart =
 const OPENING = new RegExp(`^${CHANGE_FENCE}[ \\t]*(file|case|version)\\b[ \\t]*(.*)$`)
 const isClosing = (line: string): boolean => line.trimEnd() === CHANGE_FENCE
 
+/**
+ * Where the block opened at `i` closes, or -1 when it does not. A case or a
+ * version closes at the first line of four tildes. A file closes at the last
+ * one before the next block opens or the reply ends: a file may hold a tilde
+ * fence of its own, and the first would cut the file short.
+ */
+function closingOf(lines: readonly string[], i: number, kind: string): number {
+  if (kind !== 'file') return lines.findIndex((line, k) => k > i && isClosing(line))
+  let next = lines.findIndex((line, k) => k > i && OPENING.test(line))
+  if (next < 0) next = lines.length
+  for (let k = next - 1; k > i; k -= 1) if (isClosing(lines[k])) return k
+  return -1
+}
+
 const record = (value: unknown): Record<string, unknown> =>
   value && typeof value === 'object' && !Array.isArray(value)
     ? (value as Record<string, unknown>)
@@ -119,7 +133,7 @@ export function replyParts(reply: string, { partial = false } = {}): ReplyPart[]
       continue
     }
     const [, kind, rest] = opening
-    const end = lines.findIndex((line, k) => k > i && isClosing(line))
+    const end = closingOf(lines, i, kind)
     const body = lines.slice(i + 1, end < 0 ? undefined : end)
     if (end < 0 && partial) {
       flush()
@@ -140,7 +154,7 @@ export function replyParts(reply: string, { partial = false } = {}): ReplyPart[]
 /** The brief that teaches the model the blocks, from the same fence the parser reads. */
 export const CHANGES_GUIDE = [
   'You can propose changes to the open skill. The reader applies each one with a button under it, and can undo it, so never tell them to copy or paste. Write each change as a block that opens and closes with a line of four tildes, outside any other fence:',
-  `- A file: open with "${CHANGE_FENCE} file SKILL.md", or "${CHANGE_FENCE} file references/<name>.md" for a reference, then the whole new text of the file, never a part of it, then "${CHANGE_FENCE}". A new path creates the file. Only SKILL.md and files under references/ can be written.`,
+  `- A file: open with "${CHANGE_FENCE} file SKILL.md", or "${CHANGE_FENCE} file references/<name>.md" for a reference, then the whole new text of the file, never a part of it, then "${CHANGE_FENCE}". A new path creates the file. Only SKILL.md and files under references/ can be written. The file block ends at the last line of four tildes before the next block or the end of your reply, so a tilde fence inside the file is kept; put no prose made of four tildes after it.`,
   `- A case: open with "${CHANGE_FENCE} case", then one JSON object {"title": "…", "prompt": "…", "expected": "…", "checks": […]}, then "${CHANGE_FENCE}". Add "id" with an existing case's id to replace that case; leave it out to add a new one. A check is a string, or {"statement": "…", "weight": 2} for one that counts double. A string keeps the weight the saved check has, so to change one, write the case again with every check and the new weight on that one.`,
   `- A version: "${CHANGE_FENCE} version", one line naming the version, such as "Before the voice rewrite", then "${CHANGE_FENCE}". It saves the skill's files as they stand. Put it before a file change when the reader will want to compare the two later.`,
   "You make no change yourself, so never say you made one or will make one: say what each change does. Keep that outside the blocks, short. The skill's name is the name in SKILL.md's front matter: changing it there renames the skill in the app, and its folder keeps its own name.",

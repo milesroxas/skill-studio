@@ -143,6 +143,7 @@ interface PieceAnswers {
   point_early: { noul: number }
   ending: { choice: string; probabilities: Record<string, number> }
   ending_before?: { choice: string }
+  title?: { choice: string }
 }
 
 interface UnitAnswers {
@@ -197,17 +198,17 @@ const asFindings = (parsed: unknown): LintFinding[] | null => {
  * bare array of `{ severity, rule, message, excerpt? }`. Its exit code is
  * ignored: errors are read from the findings.
  */
-function lint(
+async function lint(
   input: JudgeInput,
   ctx: JudgeContext,
   config: WritingConfig['lint'],
   kind: string,
-): LintRaw {
+): Promise<LintRaw> {
   let findings: LintFinding[] | null
   let failed: string | null = null
   const command = config.command ? config.command.replaceAll('{kind}', kind) : null
   if (command) {
-    const result = runCommand(command, {
+    const result = await runCommand(command, {
       cwd: ctx.skillDir,
       input: input.text,
       timeoutMs: config.timeoutSeconds * 1000,
@@ -281,13 +282,21 @@ async function judgeJev(
     .join('\n\n')
   const ending = prose.at(-1)?.text ?? ''
   const beforeEnding = prose.length > 2 ? prose[prose.length - 2].text : ''
-  const pieceState = { opening, ending, ...(beforeEnding ? { before_ending: beforeEnding } : {}) }
-
-  const pieceQuestions = beforeEnding ? { ...PIECE_QUESTIONS, ...ENDING_BEFORE } : PIECE_QUESTIONS
+  // The title rides in the same request as the opening and ending: one state, one call.
+  const pieceState = {
+    ...(input.title ? { title: input.title } : {}),
+    opening,
+    ending,
+    ...(beforeEnding ? { before_ending: beforeEnding } : {}),
+  }
+  const pieceQuestions = {
+    ...PIECE_QUESTIONS,
+    ...(beforeEnding ? ENDING_BEFORE : {}),
+    ...(input.title ? TITLE_QUESTION : {}),
+  }
   const pieceAnswers: Promise<PieceAnswers> = ctx.jev.ask(pieceState, pieceQuestions)
-  const [piece, titleAnswer, unitAnswers] = await Promise.all([
+  const [piece, unitAnswers] = await Promise.all([
     pieceAnswers,
-    input.title ? ctx.jev.ask({ title: input.title }, TITLE_QUESTION) : null,
     ctx.jev.pool(units, async (unit): Promise<UnitAnswers> => {
       const state = { paragraph: unit.text }
       if (!AI_MENTION.test(unit.text)) return ctx.jev.ask(state, UNIT_QUESTIONS)
@@ -315,7 +324,7 @@ async function judgeJev(
     ending: piece.ending.choice,
     endingBefore: piece.ending_before?.choice ?? null,
     endingProbabilities: piece.ending.probabilities,
-    title: titleAnswer ? titleAnswer.title.choice : null,
+    title: piece.title?.choice ?? null,
     aiBuilt: Boolean(input.case?.bench.aiBuilt),
     aiMentioned: AI_MENTION.test(input.text),
     grounding,
@@ -336,7 +345,7 @@ export const writingPack: JudgePack<WritingRaw> = {
     const writer = config.writer ?? 'the writer'
     return {
       kind,
-      lint: lint(input, ctx, config.lint, kind),
+      lint: await lint(input, ctx, config.lint, kind),
       shape: kind === 'article' ? shapeOf(input.text) : null,
       borrowed: borrowedIn(input.text, config.borrowed, ctx),
       hasEvidence: chunks.length > 0,

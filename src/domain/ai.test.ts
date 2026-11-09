@@ -6,6 +6,9 @@ import {
   type AiRun,
   type AiRunStatus,
   accountLine,
+  CHAT_WINDOW,
+  CHAT_WINDOW_CHARS,
+  chatWindowOf,
   compactCount,
   defaultFirst,
   effortFor,
@@ -297,5 +300,30 @@ describe('the CLI as the main way in', () => {
       installable: false,
     }))
     expect(resolveChoice(null, both)?.provider).toBe('claude-code')
+  })
+})
+
+describe('chatWindowOf', () => {
+  const turn = (i: number, size = 10) => ({
+    role: (i % 2 ? 'assistant' : 'user') as 'user' | 'assistant',
+    text: `${i}:`.padEnd(size, 'x'),
+  })
+
+  it('keeps the latest messages that fit both caps, starting at one from the user', () => {
+    const many = Array.from({ length: CHAT_WINDOW + 5 }, (_, i) => turn(i))
+    const window = chatWindowOf(many)
+    expect(window.length).toBeLessThanOrEqual(CHAT_WINDOW)
+    expect(window[0].role).toBe('user')
+    expect(window.at(-1)).toEqual(many.at(-1))
+
+    const long = Array.from({ length: 10 }, (_, i) => turn(i, CHAT_WINDOW_CHARS / 4))
+    const capped = chatWindowOf(long)
+    expect(capped.map((m) => m.text.slice(0, 2))).toEqual(['6:', '7:', '8:', '9:'])
+    expect(capped[0].role).toBe('user')
+  })
+
+  it('always sends the newest message, however long', () => {
+    const huge = [turn(0), { role: 'user' as const, text: 'y'.repeat(CHAT_WINDOW_CHARS * 2) }]
+    expect(chatWindowOf(huge)).toEqual([huge[1]])
   })
 })

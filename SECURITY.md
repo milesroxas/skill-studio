@@ -27,13 +27,16 @@ Skill Studio runs coding agents and executes the code they write. Treat every sk
 
 ### Agents and their code
 
-- The `code` pack's check command runs in the sample directory, so it executes agent-written code with your user's permissions.
+- The `code` pack's check command runs in the sample directory, so it executes agent-written code with your user's permissions. It runs with the backend's whole environment.
 - Agents run with `--permission-mode acceptEdits` (claude) or `--force` (cursor-agent). Isolation is by convention: nothing stops an agent that follows an absolute path out of its sample directory.
+- An agent, and the Claude Code or Codex CLI the assistant runs, gets the backend's environment less the app's own keys: `TYPESAFE_API_KEY` and every variable starting `SKILL_STUDIO_` are dropped (`src/infrastructure/env.ts`), so an agent with Bash cannot read them.
+- An agent is started in its own process group, and ending it, on Stop, on a timeout or when the app quits, ends the group, so a shell it started with Bash goes with it. Quitting waits up to three seconds for that. The backend records the agents it starts in `~/.skill-studio/agents.json`; a backend that starts after one crashed ends those still running, after checking that each pid still names that command and started when the record says.
 - Artifacts are served with `Content-Security-Policy: sandbox; script-src 'none'` and shown in a sandboxed iframe, or in their own tab or window under the same header, so agent-written HTML cannot script the app. A bypass is in scope.
 
 ### The web server
 
 - `st serve` binds to `127.0.0.1` and has no login of its own. It answers only requests addressed to `localhost`, `127.0.0.1` or `[::1]`. Do not expose it on a network any other way than `--tailscale`.
+- The page is served under the desktop app's Content Security Policy, with scripts from the server only, one nonce per page load for the editor's style tag, and frames and pictures from the server's own origin.
 - `st serve --tailscale` proxies one HTTPS port on your tailnet name with `tailscale serve`. The server lets a request through only if Tailscale signed it in as the login that owns the machine. Funnel (public) traffic, tagged devices and other tailnet users are refused, and the mapping ends when the server stops. A way around that check is in scope.
 
 ### The desktop app
@@ -45,7 +48,8 @@ Skill Studio runs coding agents and executes the code they write. Treat every sk
 
 ### Keys
 
-- The keys the app stores (TypeSafe, Anthropic, OpenAI) are encrypted with Electron's `safeStorage`, whose key the OS keychain holds, and written to the app's user data folder, readable by your user only.
+- The keys the app stores (TypeSafe, Anthropic, OpenAI) are encrypted with Electron's `safeStorage`, whose key the OS keychain holds, and written whole to the app's user data folder, readable by your user only. A keys file that cannot be read counts as no keys: the app opens, says so once, and the keys can be set again.
+- On Linux with no keyring, `safeStorage` falls back to a fixed key anyone can read (`basic_text`). The app then refuses to store a key and says to set the environment variable instead.
 - The main process and the backend hold them, never the page.
 - A stored Anthropic or OpenAI key reaches the backend under a name of the app's own, so an agent the app starts does not find it in `ANTHROPIC_API_KEY` or `OPENAI_API_KEY`.
 

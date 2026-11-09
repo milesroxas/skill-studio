@@ -25,9 +25,11 @@ export interface Verdict {
   text: string
   /** Whether the output meets it: the reader's own answer where they gave one, else the pack's. */
   met: boolean
+  /** Jev's own answer under the scoring in hand, for a fact Jev answered. */
+  jev?: boolean
   /** Jev answered it, so the reader may answer it themselves. Code's measurements are not open. */
   open: boolean
-  /** The reader answered it, and differently from Jev. */
+  /** The reader answered it. Their answer stands whether or not it agrees with Jev's. */
   corrected: boolean
   /** The layer of the score it counts in; null for a finding that counts in none. */
   layer: string | null

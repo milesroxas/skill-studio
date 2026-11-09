@@ -58,8 +58,7 @@ function scoreGeneric(
   if (statements.length) {
     layers.rubric = metShare(checked)
     statements.forEach((s, i) => {
-      if (!checked[i].met)
-        flags.push(`${unmetFlag(s)}${s.best !== null ? ` (closest: unit ${s.best + 1})` : ''}`)
+      if (!checked[i].met) flags.push(unmetFlag(s))
     })
   }
   return { layers, flags, verdicts: [...followed, ...checked] }

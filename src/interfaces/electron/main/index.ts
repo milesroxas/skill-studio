@@ -25,6 +25,9 @@ import { createWindows } from './windows.ts'
 
 const devUrl = process.env.ELECTRON_RENDERER_URL
 
+/** How long a quit waits for the backend to end its agents before going ahead. */
+const STOP_WAIT_MS = 3000
+
 /**
  * A development copy keeps its data apart from the installed app, as Signal and
  * VS Code do, and here one folder per checkout, so two worktrees' `pnpm dev`
@@ -54,12 +57,21 @@ else {
     ...process.env,
     PATH: mergePath(process.env.PATH, installDirs(home)),
   })
-  void loginShellPath().then((path) => {
-    if (path)
-      backend.setEnv({
-        PATH: mergePath(path, (process.env.PATH ?? '').split(delimiter), installDirs(home)),
-      })
-  })
+  /**
+   * The login shell's PATH, handed to the backend when it answers. A shell
+   * that is slow to start (a heavy profile, a cold disk) can miss the first
+   * wait, so one more read follows a while after launch, with longer to answer.
+   */
+  const readLoginShellPath = (retry: boolean): void => {
+    void loginShellPath(process.env.SHELL, retry ? 15_000 : 5000).then((path) => {
+      if (path)
+        backend.setEnv({
+          PATH: mergePath(path, (process.env.PATH ?? '').split(delimiter), installDirs(home)),
+        })
+      else if (!retry) setTimeout(() => readLoginShellPath(true), 10_000).unref()
+    })
+  }
+  readLoginShellPath(false)
   const userData = app.getPath('userData')
   const secrets = new KeychainSecrets(join(userData, 'secrets.json'), (env) => backend.setEnv(env))
   const boundsFile = join(userData, 'window.json')
@@ -110,7 +122,15 @@ else {
   })
 
   app.whenReady().then(async () => {
-    backend.setEnv(await secrets.effective())
+    // The window opens whatever the state of the stored keys: without them the
+    // app still runs, and Settings says what is missing.
+    let keysProblem: Error | null = null
+    try {
+      backend.setEnv(await secrets.effective())
+    } catch (error) {
+      keysProblem = error as Error
+      console.error('Could not read the stored keys:', keysProblem)
+    }
     handleSchemes(backend, join(app.getAppPath(), 'out/renderer'))
     registerIpc({
       backend,
@@ -121,6 +141,11 @@ else {
       trusted: trustedOrigins(devUrl),
     })
     open()
+    if (keysProblem)
+      dialog.showErrorBox(
+        'Skill Studio could not read its stored keys',
+        `The app opened without them. Set them again in Settings. ${keysProblem.message}`,
+      )
     // A click on the Dock icon with no app window: open one, whatever else is still up.
     // Not in the middle of starting over: the app opens by itself when that is done.
     app.on('activate', () => {
@@ -134,5 +159,21 @@ else {
     // Starting over closes every window and opens one again: that is no reason to quit.
     if (process.platform !== 'darwin' && !reset.running()) app.quit()
   })
-  app.on('will-quit', () => void backend.stop())
+  /**
+   * Quitting waits for the backend to end its agents. Electron tears the
+   * utility process down the moment `will-quit` returns, before the backend
+   * could stop anything, so the first pass holds the quit and asks; the quit
+   * goes through on the second pass, or after the wait is up. An update's
+   * restart (`quitAndInstall`) quits the same way, so it waits too.
+   */
+  let backendStopped = false
+  app.on('will-quit', (event) => {
+    if (backendStopped) return
+    event.preventDefault()
+    const wait = new Promise<void>((done) => setTimeout(done, STOP_WAIT_MS))
+    void Promise.race([backend.stop(), wait]).finally(() => {
+      backendStopped = true
+      app.quit()
+    })
+  })
 }

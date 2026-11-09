@@ -34,7 +34,7 @@ describe('generic scoring', () => {
     expect(layers).toEqual({ adherence: 1 / 2, rubric: 1 / 3 })
     expect(flags).toEqual([
       'rule not followed (Rules): Keep it under 25 words.',
-      'grader g2 (×2) not met: The note has two sentences. (closest: unit 2)',
+      'grader g2 (×2) not met: The note has two sentences.',
     ])
   })
 
@@ -59,7 +59,7 @@ describe('generic scoring', () => {
     expect(layers).toEqual({ adherence: 1, rubric: 0 })
     expect(flags).toEqual([
       'grader g1 not met: The note names Priya.',
-      'grader g2 (×2) not met: The note has two sentences. (closest: unit 2)',
+      'grader g2 (×2) not met: The note has two sentences.',
     ])
     expect(verdicts.filter((v) => v.corrected).map((v) => v.id)).toEqual([
       'rule:Keep it under 25 words.',
@@ -67,11 +67,11 @@ describe('generic scoring', () => {
     ])
   })
 
-  it('does not call an answer corrected when it says what Jev said', () => {
+  it('keeps the reader’s answer as theirs when it says what Jev said', () => {
     const { verdicts } = genericScoring.score(raw, subject, config, {
       'rule:Open with the first name.': true,
     })
-    expect(verdicts[0]).toMatchObject({ met: true, corrected: false })
+    expect(verdicts[0]).toMatchObject({ met: true, corrected: true })
   })
 
   it('leaves every layer out without raw answers', () => {

@@ -91,7 +91,8 @@ interface ComposerProps extends Pick<VariantProps<typeof composerVariants>, 'fra
   onSubmit: (text: string) => void
   /** A reply is on its way: the button stops it. */
   running: boolean
-  onStop: () => void
+  /** Stop the reply. Undefined while there is nothing to stop yet, such as a request still being sent: the button waits disabled. */
+  onStop?: () => void
   /** What the field is for, read to assistive technology. */
   label: string
   placeholder: string
@@ -230,7 +231,7 @@ export function Composer({
             type="button"
             size="icon-sm"
             aria-label={running ? 'Stop' : 'Send'}
-            disabled={!running && !ready}
+            disabled={running ? !onStop : !ready}
             onClick={running ? onStop : submit}
             className="relative overflow-hidden"
           >
