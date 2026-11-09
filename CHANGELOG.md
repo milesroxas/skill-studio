@@ -6,6 +6,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-11-09
+
 ### Fixed
 
 - A run made against an older version's snapshot counted as that version in a comparison but not in the version lift. It counts as that version in both.
