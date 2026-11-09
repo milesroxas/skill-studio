@@ -21,7 +21,7 @@ import { MonitorIcon, MoonIcon, SunIcon } from 'lucide-react'
 import { type ReactNode, useId, useState } from 'react'
 import { loadAi, useAi } from '../ai.ts'
 import { api } from '../api.ts'
-import { KeySlot, useKeys, VendorRoutes } from '../components/Connections.tsx'
+import { KeySlot, NO_JEV_KEY, useKeys, VendorRoutes } from '../components/Connections.tsx'
 import { Field, FormSection, Loading, ReadFailed, Screen, Toolbar } from '../components/layout.tsx'
 import { ModelControls } from '../components/ModelControls.tsx'
 import { ResetDialog } from '../components/ResetDialog.tsx'
@@ -245,7 +245,7 @@ export function SettingsScreen({ running, report, onSaved, onWelcome }: Props) {
         hint={
           <>
             Jev, the model that grades every output, is a{' '}
-            <Link href="https://typesafe.ai">TypeSafe</Link> model. Without a key, grading runs code
+            <Link href="https://typesafe.ai">TypeSafe</Link> model. Without a key, grading uses code
             checks only: no rule and no check is marked.
           </>
         }
@@ -253,7 +253,7 @@ export function SettingsScreen({ running, report, onSaved, onWelcome }: Props) {
         <KeySlot
           id="jev"
           keys={keys}
-          missing="Grading uses code checks only."
+          missing={NO_JEV_KEY}
           optional={false}
           report={report}
           onSaved={changed}

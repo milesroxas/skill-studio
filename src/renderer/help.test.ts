@@ -37,11 +37,16 @@ describe('the help', () => {
       for (const term of help.terms) expect(GLOSSARY[term], `${screen}: ${term}`).toBeDefined()
   })
 
-  it('tours screens of the loop, each of which has a name and help', () => {
+  it('tours the loop in order: write, run, compare', () => {
+    expect(LOOP_STEPS.map((step) => step.at)).toEqual(['editor', 'run', 'results'])
+  })
+
+  it('tours screens that have a name and help, and the run, which has a button', () => {
     for (const step of LOOP_STEPS) {
-      expect(isSkillScreen(step.screen)).toBe(true)
-      expect(placeFor(step.screen)).toBeDefined()
-      expect(SCREEN_HELP[step.screen]).toBeDefined()
+      if (step.at === 'run') continue
+      expect(isSkillScreen(step.at)).toBe(true)
+      expect(placeFor(step.at)).toBeDefined()
+      expect(SCREEN_HELP[step.at]).toBeDefined()
     }
   })
 })

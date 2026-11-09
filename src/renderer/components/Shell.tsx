@@ -72,13 +72,23 @@ export function Sidebar({ className, children, ...props }: ComponentProps<'nav'>
   )
 }
 
-/** The middle of the sidebar: the skill's places, scrolling on their own when the window is short. */
-export function SidebarBody({ className, ...props }: ComponentProps<'div'>) {
+/**
+ * The middle of the sidebar: the skill's places, scrolling on their own when
+ * the window is short. `foot` stands at its end, edge to edge, and scrolls
+ * with it: on a short window it is the part that goes out of view, never the
+ * places above it.
+ */
+export function SidebarBody({
+  foot,
+  className,
+  children,
+  ...props
+}: ComponentProps<'div'> & { foot?: ReactNode }) {
   return (
-    <div
-      className={cn('flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-2 py-3', className)}
-      {...props}
-    />
+    <div className={cn('flex min-h-0 flex-1 flex-col overflow-y-auto', className)} {...props}>
+      <div className="flex shrink-0 flex-col gap-4 px-2 py-3">{children}</div>
+      {foot ? <div className="mt-auto shrink-0">{foot}</div> : null}
+    </div>
   )
 }
 

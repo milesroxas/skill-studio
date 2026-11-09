@@ -10,7 +10,7 @@ Skill Studio helps you write a skill for an AI agent, and shows you whether your
 | --- | --- | --- |
 | 1. Write | Skill | Write the skill's rules, or change one |
 | 2. Run | The Run button | Have an agent do the skill's cases |
-| 3. Compare | Results | Read the new answer beside the last one, and pick the better |
+| 3. Compare | Results | Read the new output beside the last one, and pick the better |
 
 Then you go round again. Cases are the tasks a run is made of. You write them once on the Cases screen and add to them as you learn what to check.
 
@@ -43,7 +43,7 @@ You answer the one question Jev cannot: which of two outputs is better. That is 
 You need:
 
 1. **Skill Studio.** Download it from [Releases](https://github.com/milesroxas/skill-studio/releases).
-2. **Claude Code or Cursor**, installed and signed in. These agents write the answers.
+2. **Claude Code or Cursor**, installed and signed in. These agents write the outputs.
 3. **A TypeSafe key** from [typesafe.ai](https://typesafe.ai), for Jev. Without it, outputs get basic automatic checks only: no rule and no check is marked.
 
 The first time you open the app, a welcome walks you through:
@@ -61,7 +61,7 @@ To add the Jev key later, open **Settings** at the foot of the sidebar. Until yo
 
 Take a finished skill once round the loop. Click **Start the walkthrough** in the welcome, or in the Library before your first run. After that, the New skill form has a **Take the walkthrough** link.
 
-The walkthrough's skill, Thank-you note, writes short thank-you notes, so a run takes a minute or two. Nothing needs typing. The Walkthrough box in the sidebar shows your step, and clicking it takes you there:
+The walkthrough's skill, Thank-you note, writes short thank-you notes, so a run takes a minute or two. Nothing needs typing. The Walkthrough box in the sidebar shows your step, and clicking it takes you there. The yellow button at the top right is the way on:
 
 1. **Read the skill.** The Skill screen shows the rules the agent reads.
 2. **Read the cases.** The three tasks, and the checks a good note passes.
@@ -71,7 +71,7 @@ The walkthrough's skill, Thank-you note, writes short thank-you notes, so a run 
 6. **Run it again.** Only the rule changed, so any difference is your edit.
 7. **Pick the better note.** Read a note from each version side by side, and say which is better.
 
-A step that only asks you to look is done once you open its screen.
+A step that only asks you to look is done once you open its screen. The box keeps to that step while you read, and the yellow button leads to the one after it.
 
 The walkthrough never changes what your agents do. To start over, open the skill menu at the top of the sidebar (Cmd+K) and choose **Restart walkthrough…**.
 
@@ -216,7 +216,7 @@ Runs cost money: each output is an agent session, and Jev is paid per call.
 
 ![Results: three cases on the left, each with its score before and after; on the right two outputs of one case side by side, A from v0 and B from v1, each with its score, the rules and checks it met as counts, and a list of what it missed. A bar at the foot asks which is better.](images/results.webp)
 
-Results opens on a case with two outputs side by side: **A**, the version before, and **B**, the latest. With one version, A is the answer written without the skill, if you ran one.
+Results opens on a case with two outputs side by side: **A**, the version before, and **B**, the latest. With one version, A is the output written without the skill, if you ran one.
 
 - **The list** on the left has every case that was run, with how its score moved. Click one to compare it.
 - **Each output** has its score out of 100, then what the score is counted from: "Rules 4 of 5", "Checks 2 of 3".
@@ -226,7 +226,7 @@ Results opens on a case with two outputs side by side: **A**, the version before
 - **Word diff** marks what differs between the two. **Swap** trades their sides, and the **A** and **B** menus pick any other outputs of the case.
 - **Regrade** has Jev read an output's run again, for example after you add a check.
 
-Then say **which is better**: A, B, or a tie. Picking the better of two answers is easier, and more reliable, than scoring one.
+Then say **which is better**: A, B, or a tie. Picking the better of two outputs is easier, and more reliable, than scoring one.
 
 ### When you and Jev disagree
 

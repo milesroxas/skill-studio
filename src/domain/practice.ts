@@ -109,6 +109,7 @@ export type PracticeStep = (typeof PRACTICE_STEPS)[number]
 /**
  * The steps that only ask the reader to look at a screen. Nothing on disk shows
  * that they looked, so opening the screen while the step is in hand marks it.
+ * The guide still shows the step while that screen is in view: `practiceView`.
  */
 export const LOOK_STEPS = ['read', 'cases', 'results'] as const
 export type LookStep = (typeof LOOK_STEPS)[number]
@@ -150,4 +151,33 @@ export function practiceProgress(facts: PracticeFacts): PracticeProgress {
     compare: reran && facts.picks > 0,
   }
   return { done, step: PRACTICE_STEPS.find((step) => !done[step]) ?? null }
+}
+
+export interface PracticeView {
+  /** The step the guide shows; null once the loop is closed. */
+  shown: PracticeStep | null
+  /**
+   * The step the top bar points to: the one shown, or the one after it while
+   * the reader is on the screen the shown one asks them to look at.
+   */
+  next: PracticeStep | null
+}
+
+/**
+ * What the guide shows of the progress. Opening a look step's screen marks the
+ * step done at once, so the progress runs a step ahead of a reader who is
+ * still reading. Until they leave that screen the guide keeps to its step, and
+ * points on to the one after. `looking` is the look step the reader is reading
+ * now: the one in hand with its screen open, or the one this visit to its
+ * screen marked. A look step left behind is not read again by coming back.
+ */
+export function practiceView(progress: PracticeProgress, looking: LookStep | null): PracticeView {
+  const { step } = progress
+  if (!step) return { shown: null, next: null }
+  const at = PRACTICE_STEPS.indexOf(step)
+  // Still being read: the step was marked done when its screen opened.
+  if (looking && PRACTICE_STEPS[at - 1] === looking) return { shown: looking, next: step }
+  // Its screen has just opened, and the mark is on its way.
+  if (looking === step) return { shown: step, next: PRACTICE_STEPS[at + 1] ?? null }
+  return { shown: step, next: step }
 }

@@ -18,9 +18,9 @@ import { rulesFromSkill } from '@domain/rules.ts'
 import { cva } from 'class-variance-authority'
 import { ArrowRightIcon, CheckIcon, XIcon } from 'lucide-react'
 import type { ReactNode } from 'react'
-import { LOOP_STEPS } from '../help.ts'
+import { LOOP_STEPS, type LoopStep } from '../help.ts'
 import { after, useCountUp } from '../motion.ts'
-import { type Place, placeFor } from '../places.ts'
+import { type Place, placeFor, RUN } from '../places.ts'
 import { List } from './layout.tsx'
 import { Slab } from './Mark.tsx'
 import { Text } from './text.tsx'
@@ -56,8 +56,11 @@ const BEAT = { start: STEP_BEAT, row: 90, stamp: 220, word: 20 }
 /** When the note's last word has landed, and a breath after it: the checks follow the writing. */
 const WRITTEN = BEAT.start + WORDS.length * BEAT.word + 240
 
-/** The picture of a step: a sheet with a printed edge, headed like the screen it stands for. */
-function Sheet({ place, children }: { place: Place; children: ReactNode }) {
+/**
+ * The picture of a step: a sheet with a printed edge, headed like what it
+ * stands for. That is a screen, or for the run the button that starts one.
+ */
+function Sheet({ place, children }: { place: Pick<Place, 'label' | 'icon'>; children: ReactNode }) {
   return (
     <div className="pointer-events-none flex h-105 max-h-full min-w-0 flex-1 animate-in flex-col overflow-hidden rounded-chin border border-foreground bg-card delay-75 duration-300 ease-out-strong fill-mode-backwards select-none fade-in-0 in-data-[from=after]:slide-in-from-right-4 in-data-[from=before]:slide-in-from-left-4">
       <div className="flex h-9.5 shrink-0 items-center gap-2 border-b px-4 text-ui font-medium">
@@ -176,24 +179,19 @@ function Written() {
 /** The reader's pick: the two versions to choose from, and the better one a moment after they appear. */
 function Pick({ at }: { at: number }) {
   return (
-    <>
-      <span className="flex gap-1.5">
-        {VERSIONS.map((version) => (
-          <span key={version} className={choiceVariants()}>
-            {version}
-            {version === PICKED ? (
-              <span className={choiceVariants({ picked: true })} style={after(at)}>
-                {version}
-                <span className="sr-only"> (picked)</span>
-              </span>
-            ) : null}
-          </span>
-        ))}
-      </span>
-      <Text size="ui" tone="muted" className="animate-rise" style={after(at + 260)}>
-        “Two sentences, and it still says what her help made possible.”
-      </Text>
-    </>
+    <span className="flex gap-1.5">
+      {VERSIONS.map((version) => (
+        <span key={version} className={choiceVariants()}>
+          {version}
+          {version === PICKED ? (
+            <span className={choiceVariants({ picked: true })} style={after(at)}>
+              {version}
+              <span className="sr-only"> (picked)</span>
+            </span>
+          ) : null}
+        </span>
+      ))}
+    </span>
   )
 }
 
@@ -232,8 +230,8 @@ const choiceVariants = cva(
   },
 )
 
-/** One picture per step, by the screen the step happens on. */
-const PICTURES: Record<string, ReactNode> = {
+/** One picture per step, by where the step happens. */
+const PICTURES: Record<LoopStep['at'], ReactNode> = {
   editor: (
     <>
       <Part caption="SKILL.md" file>
@@ -254,7 +252,7 @@ const PICTURES: Record<string, ReactNode> = {
       </Part>
     </>
   ),
-  cases: (
+  run: (
     <>
       <Part caption="The request">
         <Quote>{KASE.prompt}</Quote>
@@ -318,13 +316,13 @@ export function LoopTour({
   onDone: () => void
 }) {
   const step = LOOP_STEPS[index]
-  const place = placeFor(step.screen)
+  const place = step.at === 'run' ? RUN : placeFor(step.at)
   const last = index === LOOP_STEPS.length - 1
 
   return (
     <StepFrame
       label="How it works"
-      id={step.screen}
+      id={step.at}
       index={index}
       from={from}
       title={step.title}
@@ -352,7 +350,7 @@ export function LoopTour({
         </Button>
       }
     >
-      {place ? <Sheet place={place}>{PICTURES[step.screen]}</Sheet> : null}
+      {place ? <Sheet place={place}>{PICTURES[step.at]}</Sheet> : null}
     </StepFrame>
   )
 }

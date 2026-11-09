@@ -20,6 +20,7 @@ import { useState } from 'react'
 import { api, type Job, type State } from '../api.ts'
 import { type Reporter, useToggleSet } from '../hooks.ts'
 import { capital, plural, runStamp, shortDate, versionName } from '../model.ts'
+import { RUN } from '../places.ts'
 import { ComboBox } from './ComboBox.tsx'
 import { Disclosure } from './Disclosure.tsx'
 import { CheckRow, NumberInput } from './forms.tsx'
@@ -182,8 +183,8 @@ export function RunButton({
           busy={Boolean(running)}
           busyLabel="Running…"
         >
-          <PlayIcon aria-hidden="true" />
-          Run {current.version}
+          <RUN.icon aria-hidden="true" />
+          {RUN.label} {current.version}
         </Button>
       </PopoverTrigger>
       <PopoverContent

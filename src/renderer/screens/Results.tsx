@@ -59,8 +59,8 @@ export function Results({ ctx }: { ctx: Ctx }) {
           )
         }
       >
-        A run has an agent do each case with {state.skill.name} installed, then Jev checks what it
-        wrote against your rules.{' '}
+        A run has an agent do each case with {state.skill.name} installed, then Jev marks what it
+        wrote against your rules and each case’s checks.{' '}
         {state.cases.length
           ? `${state.cases.length === 1 ? 'One case is' : `${state.cases.length} cases are`} ready.`
           : 'Write a case first.'}

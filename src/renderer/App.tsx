@@ -17,7 +17,7 @@
  * no windows to give, shows it in place of the shell.
  */
 import { pickBetween } from '@domain/picks.ts'
-import { isLookStep } from '@domain/practice.ts'
+import { isLookStep, type LookStep } from '@domain/practice.ts'
 import type { BenchConfig } from '@domain/schemas.ts'
 import { ArrowRightIcon, MenuIcon, MessageCircleIcon } from 'lucide-react'
 import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react'
@@ -63,6 +63,8 @@ import { APP_PLACES, isSkillScreen, placeFor, SKILL_PLACES, WORKBENCH } from './
 import {
   type PracticeTarget,
   practiceGuide,
+  practiceHome,
+  practiceWalk,
   useRestartPractice,
   useStartPractice,
 } from './practice.ts'
@@ -258,25 +260,19 @@ export function App() {
   )
   const running = jobs.some((j) => j.status === 'running')
   // The practice skill is walked round the whole loop, past the point where the next step is plain.
-  const practice = loaded?.state.practice
-    ? practiceGuide(loaded.state, outputs, {
-        unsaved: drafts.files['SKILL.md'] !== undefined,
-        running,
-      })
-    : null
+  const walk = loaded?.state.practice ? practiceWalk(loaded.state, outputs) : null
 
   // In a browser, before anything else was opened, the app opens on the welcome.
   // A skill opens on the Editor, whatever it holds, so switching skills always
-  // lands in the same place. The practice skill opens on the step in hand
-  // instead, so the first thing in view is the one thing to do.
+  // lands in the same place. The practice skill opens where its next step
+  // happens instead, so the first thing in view is the one thing to do.
   const home =
     inline && !preferences.welcomed && !skillPath
       ? 'welcome'
       : !loaded
         ? 'library'
-        : // A step that is the Run button's has no screen of its own: the skill opens on Results.
-          practice?.target
-          ? (practice.target.screen ?? 'results')
+        : walk
+          ? practiceHome(walk)
           : 'editor'
   // The desktop app's welcome has its own window: here its route is only another name for home.
   const requested =
@@ -285,8 +281,22 @@ export function App() {
   const screen = !skillPath && isSkillScreen(requested) ? 'library' : requested
   const place = placeFor(screen) ?? placeFor(home)
   const pane = usePaneScroll(route, screen)
+  // The look step this visit to a screen marked done, and where: the guide
+  // keeps to it until the reader moves on, and coming back does not revive it.
+  const [reading, setReading] = useState<{ step: LookStep; at: string } | null>(null)
+  const at = `${skillPath ?? ''} ${screen}`
+  useEffect(() => setReading((r) => (r && r.at !== at ? null : r)), [at])
+  const practice =
+    loaded && walk
+      ? practiceGuide(loaded.state, outputs, walk, {
+          screen,
+          reading: reading?.at === at ? reading.step : null,
+          unsaved: drafts.files['SKILL.md'] !== undefined,
+          running,
+        })
+      : null
 
-  // `home` follows the guide, and the guide moves on as soon as a look step's
+  // `home` follows the walkthrough, which moves on as soon as a look step's
   // screen opens. Once the skill has loaded, the entry takes the screen `home`
   // chose, so the reader stays on it instead of being carried to the next step.
   const settled = loaded ? home : null
@@ -294,14 +304,22 @@ export function App() {
     if (settled && route.screen === 'home') navigate(settled, {}, { replace: true })
   }, [settled, route.screen])
 
-  // A walkthrough step that only asks to look at a screen is done once that screen opens.
+  // A walkthrough step that only asks to look at a screen is done once that
+  // screen opens, though not while a run is still writing what there is to read.
+  // The guide goes on showing the step for as long as the screen is in view.
   const looking =
-    practice?.step && isLookStep(practice.step) && !running && screen === practice.target?.screen
+    practice?.step &&
+    isLookStep(practice.step) &&
+    practice.here &&
+    !running &&
+    !loaded?.state.practiceSeen.includes(practice.step)
       ? practice.step
       : null
   useEffect(() => {
-    if (looking) void api.practiceSeen(looking).then(reload, () => {})
-  }, [looking, reload])
+    if (!looking) return
+    setReading({ step: looking, at })
+    void api.practiceSeen(looking).then(reload, () => {})
+  }, [looking, at, reload])
 
   // The welcome is where a first visit lands. Going anywhere else, or opening a
   // skill, is the reader moving on: from then on the app opens on the library.
@@ -334,7 +352,7 @@ export function App() {
     !loaded || !current || running
       ? null
       : practice
-        ? practice.target && stepOf(practice.target)
+        ? practice.next && stepOf(practice.next)
         : !loaded.state.cases.length
           ? { kind: 'go', label: 'Add a case', screen: 'cases', params: { new: '1' } }
           : current.changed || !loaded.state.runs.length
@@ -377,7 +395,20 @@ export function App() {
             : undefined
         }
       />
-      <SidebarBody>
+      <SidebarBody
+        foot={
+          practice ? (
+            <PracticeGuide
+              guide={practice}
+              // A step with no screen is the Run button's: open it where it stands.
+              onGo={(target) =>
+                target.screen === null ? openRun() : go(target.screen, target.params)
+              }
+              onNew={() => go('library', { new: '1' })}
+            />
+          ) : null
+        }
+      >
         {skillPath ? (
           <SidebarSection>
             {SKILL_PLACES.map((p) => (
@@ -395,14 +426,6 @@ export function App() {
           </SidebarSection>
         ) : null}
       </SidebarBody>
-      {practice ? (
-        <PracticeGuide
-          guide={practice}
-          // A step with no screen is the Run button's: open it where it stands.
-          onGo={(target) => (target.screen === null ? openRun() : go(target.screen, target.params))}
-          onNew={() => go('library', { new: '1' })}
-        />
-      ) : null}
       <SidebarFooter lead={<UpdateControl confirm={confirm} report={report} />}>
         <JobsIndicator jobs={jobs} />
         {APP_PLACES.map((p) => (

@@ -53,13 +53,13 @@ The welcome runs in its own 760 x 600 window, laid out for exactly that size and
 | Frame | Ground | Holds |
 | --- | --- | --- |
 | Opening | ink (`data-surface="ink"`) | version in mono, headline with one slab, one sentence, one button, Skip |
-| Tour, steps 01 to 06 | porcelain | step numeral, title, one sentence, one picture, Back and Next |
+| Tour, steps 01 to 03 | porcelain | step numeral, title, one sentence, one picture, Back and Next |
 | Setup, steps 01 to 03 | porcelain | step numeral, title, one sentence, the step's controls, Back and the way forward |
 
-- **One idea and one action per frame.** Anything more comes one step later, on request. The reader is new and the words are new: six facts in a row are easy, six at once are a wall.
+- **One idea and one action per frame.** Anything more comes one step later, on request. The reader is new and the words are new: three facts in a row are easy, three at once are a wall.
 - The headline is `Heading level="display"` (`text-display`). The step numeral is `text-numeral`, moved 6px left so its stroke sits on the column's edge. Both are in the scale in [typography.md](typography.md).
 - The picture is a sheet with a 1px `border-foreground` edge, `rounded-chin` corners and no shadow.
-- Progress is the step numbers of the part in view in mono: six through the tour, three through the setup. The current one is yellow on ink.
+- Progress is the step numbers of the part in view in mono: three through the tour, three through the setup. The current one is yellow on ink.
 - The tour and the setup share one step frame (`StepFrame` in `components/WelcomeStep.tsx`): numeral, title and sentence on the left, the step beside them, Back and the way forward at the foot, with nothing between them.
 - The setup comes after the tour: where skills are found (`Folders`), a model to write with, the Jev key. Each step checks first what the app can already reach and asks only for what is missing. Its controls are the same components Settings and the Library use (`components/Connections.tsx`, `components/Folders.tsx`), never copies. They sit in a `StepPanel`, not a sheet: a region is never a card.
 - A setup step's way forward is one button. While the step has something to set up, the step's own control is `default` and the way forward is `outline`, reading "Configure later". Once it is set, the way forward is `default` and reads "Continue", or "Start the walkthrough" on the last step.

@@ -563,13 +563,13 @@ export function Editor({ ctx }: { ctx: Ctx }) {
             }}
             banner={
               notes || blank || tightened || introduced ? (
-                <ColumnBody>
+                <>
                   {notes}
                   {introduced ? (
                     <Starter
                       aria-label="The walkthrough’s skill"
                       title="This is Thank-you note"
-                      hint="The walkthrough’s skill: a finished one that writes a two-sentence thank-you, with three cases to test it. Read its rules below. The guide at the foot of the sidebar then takes it round the loop: run it, read what the notes missed, fix one rule, run it again and compare. No agent of yours uses it."
+                      hint="The walkthrough’s skill: a finished one that writes a two-sentence thank-you, with three cases to test it. Read its rules below. The walkthrough at the foot of the sidebar then takes it round the loop: run it, read what the notes missed, fix one rule, run it again and compare. No agent of yours uses it."
                     />
                   ) : null}
                   {tightened ? (
@@ -597,7 +597,7 @@ export function Editor({ ctx }: { ctx: Ctx }) {
                   {blank ? (
                     <BlankStart onTemplate={startFrom} onAssist={() => editor.current?.assist()} />
                   ) : null}
-                </ColumnBody>
+                </>
               ) : null
             }
           />

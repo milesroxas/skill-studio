@@ -20,7 +20,7 @@ import {
 const DELETED = [
   'Your preferences, and the folders and recent skills the Library remembers',
   'Drafts you have not saved',
-  'The walkthrough’s skill, with its runs and ratings',
+  'The walkthrough’s skill, with its runs and picks',
   'The Assistant’s conversation',
   'The version you deleted last, which Undo could still bring back',
 ]

@@ -156,6 +156,14 @@ const surfaceVariants = cva('flex flex-1 flex-col', {
   },
 })
 
+/**
+ * The notes over the text. They take the text's gutter, so their left edge is
+ * the document's. They stand as far from its first line as from each other:
+ * the text brings 20px of its own (`.cm-content` in `editor/theme.ts`), and
+ * the 12px here makes that the 32px between two notes.
+ */
+const BANNER = 'flex flex-col gap-8 px-6 pt-6 pb-3'
+
 /** The popout waits this long after the selection settles, so it does not flicker through a drag. */
 const SETTLE_MS = 150
 
@@ -200,7 +208,7 @@ interface MarkdownEditorProps {
   mode: EditorMode
   placeholder?: string
   'aria-label': string
-  /** Notes about the file, shown between the toolbar and the text. */
+  /** Notes about the file, shown between the toolbar and the text. The editor spaces them. */
   banner?: ReactNode
   /**
    * Something to read in place of the text, such as what changed since the
@@ -537,7 +545,7 @@ export function MarkdownEditor({
           ) : null}
         </span>
       </ColumnToolbar>
-      {instead ?? banner}
+      {instead ?? (banner ? <div className={BANNER}>{banner}</div> : null)}
       <div ref={host} hidden={covered} className={surfaceVariants({ mode })} />
       {refine && tools && !covered ? (
         <SelectionTools

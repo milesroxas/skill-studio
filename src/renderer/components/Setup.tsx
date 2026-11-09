@@ -21,7 +21,7 @@ import { api } from '../api.ts'
 import { SETUP_STEPS, type SetupId } from '../help.ts'
 import { type Reporter, useFetch } from '../hooks.ts'
 import { plural } from '../model.ts'
-import { KeySlot, useKeys, VendorRoutes } from './Connections.tsx'
+import { KeySlot, NO_JEV_KEY, useKeys, VendorRoutes } from './Connections.tsx'
 import { Folders } from './Folders.tsx'
 import { Field, ReadFailed } from './layout.tsx'
 import { Segmented } from './Segmented.tsx'
@@ -150,7 +150,7 @@ export function Setup({
           <KeySlot
             id="jev"
             keys={keys}
-            missing="Grading runs code checks only."
+            missing={NO_JEV_KEY}
             optional={false}
             replace={false}
             report={report}

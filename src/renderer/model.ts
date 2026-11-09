@@ -184,13 +184,13 @@ export function countsOf(
   }
 }
 
-/** "Rules 9 of 11 · checks 7 of 9", or null when nothing was counted. */
+/** "rules 9 of 11 · checks 7 of 9", to follow other parts of a line; null when nothing was counted. */
 export function countsLine(counts: { rules: Count | null; checks: Count | null }): string | null {
   const parts = [
     counts.rules ? `rules ${counts.rules.met} of ${counts.rules.total}` : null,
     counts.checks ? `checks ${counts.checks.met} of ${counts.checks.total}` : null,
   ].filter(Boolean)
-  return parts.length ? capital(parts.join(' · ')) : null
+  return parts.length ? parts.join(' · ') : null
 }
 
 /** The mean total of `outputs` under `config`; null when none is graded. */

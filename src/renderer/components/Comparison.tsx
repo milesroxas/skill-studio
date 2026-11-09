@@ -179,22 +179,25 @@ export function Comparison({
                   value={a}
                   onChange={(o) => show({ a: o, b })}
                 />
-                <Picker
-                  slot="b"
-                  outputs={candidates}
-                  value={b}
-                  onChange={(o) => show({ a, b: o })}
-                />
-                {both ? (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => show({ a: b, b: a })}
-                  >
-                    Swap
-                  </Button>
-                ) : null}
+                {/* B and Swap wrap as one, so Swap never stands on a line of its own. */}
+                <Toolbar>
+                  <Picker
+                    slot="b"
+                    outputs={candidates}
+                    value={b}
+                    onChange={(o) => show({ a, b: o })}
+                  />
+                  {both ? (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => show({ a: b, b: a })}
+                    >
+                      Swap
+                    </Button>
+                  ) : null}
+                </Toolbar>
               </Toolbar>
             ) : null}
             {testCase ? <Asked testCase={testCase} /> : null}

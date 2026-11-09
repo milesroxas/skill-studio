@@ -1,8 +1,9 @@
 /**
  * The practice skill's guide, at the foot of the sidebar: how far round the
  * loop the reader is and the one step in hand. The whole block goes to where
- * that step happens. It shows one step at a time on purpose: the sidebar above
- * it is already the map.
+ * that step happens. Once the reader is there it is no button: it says what
+ * the step asks, and the top bar holds the way on. It shows one step at a time
+ * on purpose: the sidebar above it is already the map.
  */
 import { cva } from 'class-variance-authority'
 import { ArrowRightIcon } from 'lucide-react'
@@ -78,7 +79,8 @@ export function PracticeGuide({
   /** Start a skill of one's own, offered once the loop is closed. */
   onNew: () => void
 }) {
-  const target = guide.target
+  // Somewhere to go: the step happens elsewhere. Null where the reader already is, and once the loop is closed.
+  const target = guide.here ? null : guide.target
   return (
     <section aria-label="Walkthrough" className="border-t px-2 py-2">
       {target ? (
@@ -107,9 +109,11 @@ export function PracticeGuide({
           <Head guide={guide} />
           <Progress guide={guide} />
           <Step guide={guide} />
-          <Button type="button" size="sm" className="mt-1 self-start" onClick={onNew}>
-            New skill
-          </Button>
+          {guide.step ? null : (
+            <Button type="button" size="sm" className="mt-1 self-start" onClick={onNew}>
+              New skill
+            </Button>
+          )}
         </div>
       )}
     </section>

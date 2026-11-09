@@ -9,7 +9,7 @@ All in `src/renderer/components/Shell.tsx`, except `StatusLine`, which has its o
 | Part | Rule |
 | --- | --- |
 | `AppFrame` | the window-sized grid: the sidebar, then `Workspace` |
-| `Sidebar` | ink in both themes: it carries `data-surface="ink"`. 208px, 232px from the `lg` breakpoint. `SidebarBody` is its middle, scrolling on its own when the window is short. |
+| `Sidebar` | ink in both themes: it carries `data-surface="ink"`. 208px, 232px from the `lg` breakpoint. `SidebarBody` is its middle, scrolling on its own when the window is short. Its `foot` (the Walkthrough box) stands at its end and scrolls with it, so a short window hides the foot and never the places. |
 | `SidebarSection` | the open skill's three places, one `NavItem` each: Skill, Cases, Results |
 | `NavItem` | one place. `meta` is its count, `xs` sans at 55%, tabular: the cases, and on Results the cases that wait for a pick. `dot` is unsaved work, in `warning`. |
 | `SidebarFooter` | Library, Guide, Settings, with a running job above them. `lead` holds the update. |
@@ -91,7 +91,7 @@ A box around a region adds an edge the eye has to cross and takes 32px of width 
 | `ColumnBody`, `ColumnSection` | the scrolling content, split by hairlines |
 | `ColumnFooter` | what stays in view at the column's foot: the pick between two outputs on Results |
 
-Insets are fixed: 16px in a list, 24px in main (`inset="list" | "main"`). `ColumnBody inset="none"` fills the column edge to edge, for an editor. Its `width` is `full` or `form` (808px). A header, a toolbar and the body of one column share one inset, so their left edges line up. Never pad a column by hand.
+Insets are fixed: 16px in a list, 24px in main (`inset="list" | "main"`). `ColumnBody inset="none"` fills the column edge to edge, for an editor. A `ColumnBody` is a column's whole content and ends in 64px of room, so there is one per column: notes over an editor go in the editor's `banner`, which spaces them itself (`components/MarkdownEditor.tsx`). Its `width` is `full` or `form` (808px). A header, a toolbar and the body of one column share one inset, so their left edges line up. Never pad a column by hand.
 
 ### A list workbench, the Cases pattern
 

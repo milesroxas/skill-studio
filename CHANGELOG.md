@@ -17,7 +17,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 ### Changed
 
 - The loop is three steps: write, run, compare. A skill has three screens in the sidebar, Skill, Cases and Results, where it had ten in four groups. The work of the other seven moved into these three, and an address or a link to one of them opens the screen its work moved to.
-- Results is the comparison. It lists the cases a run answered, each with how its score moved, and opens on one case with two outputs side by side: the version before on the left and the latest on the right, or the answer written without the skill when there is one version. Compare, Transcripts and Rate blind are no longer screens.
+- Results is the comparison. It lists the cases a run answered, each with how its score moved, and opens on one case with two outputs side by side: the version before on the left and the latest on the right, or the output written without the skill when there is one version. Compare, Transcripts and Rate blind are no longer screens.
 - A score says what it is counted from. Each output shows "Rules 4 of 5" and "Checks 2 of 3" under its score, then **Missed**: every rule it broke and every check it did not meet, a line each. What it met folds away under its count. A missed rule has **Open rule**, which selects that rule on the Skill screen.
 - You pick, Jev checks. Under two outputs, "Which is better?" takes A, B or a tie, and that pick is the last word. When Jev scores the other side higher, the bar says so, with the two ways out: mark the verdict that is wrong, or add what Jev missed as a check. The 1 to 5 rating, the Good and Bad marks per layer, the notes and "Ask Jev" are gone, and so are the Agreement screen and the leaderboard.
 - A verdict you disagree with is yours to mark: **Mark as met** or **Mark as missed** beside any rule or check Jev read. It moves to the other list with "your answer" beside it, the score follows at once, and **Take back** lets Jev's answer stand again. Before, a rating changed no score.
@@ -27,6 +27,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - A transcript opens beside the output it belongs to, from the switch over the output, in place of a screen with a menu of every output.
 - Scoring is folded at the foot of All cases on Results. Most skills never open it. Packs are "Graded as", layers are the parts of a score by name (Rules, Checks), and the settings that only the Agreement screen read are gone.
 - The walkthrough takes Thank-you note round the loop in 7 steps, where it took 12: read the skill, read the cases, run, read what the notes missed, tighten a rule, run again, pick the better note.
+- The Walkthrough box says where you are. A step that only asks you to look stays in the box while you are on its screen, and the yellow button at the top right leads to the step after it. The box used to move on the moment the screen opened, so the walkthrough began at step 2.
 - The welcome tells the loop in three steps.
 - The app says Jev, not "the judge". A judge's verdict is final, and here yours is.
 - The pair a case opens with compares like with like: when one agent and model wrote on both sides, those two outputs are the pair, though another model wrote the latest version last.
@@ -48,6 +49,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 - `reviews.json` keeps what an earlier version wrote in it. Ratings, notes and Jev's votes stay in the file when a pick or a correction is written.
 - The app opened from the Finder or the Dock now finds Claude Code, Codex and Cursor installed in your home folder or with Homebrew. It used to say they were not installed.
+- On a short window the Walkthrough box no longer pushes Cases and Results out of the sidebar. The box scrolls with them and goes out of view first.
+- A note over the editor's text sits 32px above the text. It sat 84px above.
+- "Saved" beside a file's or a case's name is read whole in a narrow column. It was cut to "Sa…".
+- A label too long for its menu ends in an ellipsis. It was cut off mid-word.
 
 ## [0.2.0] - 2026-11-08
 

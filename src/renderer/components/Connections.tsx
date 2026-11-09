@@ -210,6 +210,9 @@ function CliSetup({
   )
 }
 
+/** What having no Jev key means, said one way wherever the key is asked for. */
+export const NO_JEV_KEY = 'Grading uses code checks only.'
+
 interface KeyFieldProps {
   id: SecretId
   /** What having no key means, shown beside "No key". */

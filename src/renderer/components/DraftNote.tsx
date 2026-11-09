@@ -16,9 +16,10 @@ export function DraftNote({
   /** Its saved state, shown when nothing is unsaved: "saved", "new". */
   saved: string
 }) {
+  // A saved state is a word or two: the title beside it gives way, so it is never cut to "Sa…".
   if (!dirty)
     return (
-      <Text size="xs" tone="muted">
+      <Text size="xs" tone="muted" className="shrink-0">
         {saved}
       </Text>
     )

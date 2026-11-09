@@ -3,11 +3,13 @@ import {
   applyPracticeEdit,
   isLookStep,
   LOOK_STEPS,
+  type LookStep,
   PRACTICE,
   PRACTICE_EDIT,
   type PracticeFacts,
   practiceProgress,
   practiceVersionName,
+  practiceView,
 } from './practice.ts'
 import { rulesFromSkill } from './rules.ts'
 import { templateBody } from './templates.ts'
@@ -132,5 +134,44 @@ describe('practiceProgress', () => {
   it('names the versions it runs', () => {
     expect(practiceVersionName(0)).toBe('As written')
     expect(practiceVersionName(1)).toBe('My edit')
+  })
+})
+
+describe('practiceView', () => {
+  const view = (patch: Partial<PracticeFacts>, looking: LookStep | null) =>
+    practiceView(
+      practiceProgress({ versions: [], current: 'v0', picks: 0, seen: [], ...patch }),
+      looking,
+    )
+  const ran = { versions: ['v0'], seen: ['read', 'cases'] }
+
+  it('keeps to a look step while its screen is in view, and points to the step after it', () => {
+    // The screen has just opened, then the mark lands: the guide says the same both times.
+    expect(view({}, 'read')).toEqual({ shown: 'read', next: 'cases' })
+    expect(view({ seen: ['read'] }, 'read')).toEqual({ shown: 'read', next: 'cases' })
+    expect(view({ seen: ['read', 'cases'] }, 'cases')).toEqual({ shown: 'cases', next: 'run' })
+    expect(view({ ...ran, seen: ['read', 'cases', 'results'] }, 'results')).toEqual({
+      shown: 'results',
+      next: 'edit',
+    })
+  })
+
+  it('shows the step in hand, and points to it, from any other screen', () => {
+    expect(view({}, null)).toEqual({ shown: 'read', next: 'read' })
+    expect(view({ seen: ['read', 'cases'] }, 'read')).toEqual({ shown: 'run', next: 'run' })
+    expect(view(ran, 'cases')).toEqual({ shown: 'results', next: 'results' })
+  })
+
+  it('does not go back to a look step passed long ago', () => {
+    // Tightening a rule on the Skill screen is not reading the skill again.
+    expect(view({ ...ran, seen: ['read', 'cases', 'results'] }, 'read')).toEqual({
+      shown: 'edit',
+      next: 'edit',
+    })
+  })
+
+  it('shows no step once the loop is closed', () => {
+    const closed = { versions: ['v0', 'v1'], current: 'v1', picks: 1 }
+    expect(view(closed, 'results')).toEqual({ shown: null, next: null })
   })
 })

@@ -5,10 +5,14 @@
  * and there is no progress to store or reset.
  */
 import {
+  isLookStep,
+  type LookStep,
   PRACTICE_EDIT,
   PRACTICE_STEPS,
+  type PracticeProgress,
   type PracticeStep,
   practiceProgress,
+  practiceView,
 } from '@domain/practice.ts'
 import { useState } from 'react'
 import { api, type State } from './api.ts'
@@ -25,7 +29,7 @@ export interface PracticeTarget {
 }
 
 export interface PracticeGuide {
-  /** Every step in loop order, and whether it is done. */
+  /** Every step in loop order, and whether it is done. The step in hand never is. */
   steps: Array<{ id: PracticeStep; done: boolean }>
   /** The step in hand; null once the loop is closed. */
   step: PracticeStep | null
@@ -35,32 +39,85 @@ export interface PracticeGuide {
   hint: string
   /** Where the step happens; null once the loop is closed. */
   target: PracticeTarget | null
+  /** The reader is where the step happens: the guide has nowhere to take them. */
+  here: boolean
+  /**
+   * Where the top bar points: where the step happens, or where the step after
+   * it does while the reader is on the screen this one asks them to look at.
+   * Null once the loop is closed.
+   */
+  next: PracticeTarget | null
+}
+
+/** Where each step happens: a screen, or null for a step that is the Run button's. */
+const SCREEN: Record<PracticeStep, string | null> = {
+  read: 'editor',
+  cases: 'cases',
+  run: null,
+  results: 'results',
+  edit: 'editor',
+  rerun: null,
+  compare: 'results',
+}
+
+/** How far the walkthrough has come, as the skill's own files say. */
+export interface PracticeWalk {
+  /** Skill versions that have outputs, oldest first. */
+  versions: string[]
+  progress: PracticeProgress
 }
 
 const versionOf = (output: Output): string => output.run.meta?.skillVersion ?? ''
 
+export function practiceWalk(state: State, outputs: Output[]): PracticeWalk {
+  const versions = [...new Set(outputs.map(versionOf).filter(Boolean))].sort(
+    (a, b) => Number(a.slice(1)) - Number(b.slice(1)),
+  )
+  const progress = practiceProgress({
+    versions,
+    current: state.versions.current.version,
+    picks: state.reviews.preferences.length,
+    seen: state.practiceSeen,
+  })
+  return { versions, progress }
+}
+
+/**
+ * The screen the practice skill opens on: where its next step happens, so the
+ * first thing in view is the one thing to do. A step that is the Run button's
+ * has no screen of its own, and opens on Results.
+ */
+export const practiceHome = ({ progress }: PracticeWalk): string =>
+  progress.step ? (SCREEN[progress.step] ?? 'results') : 'editor'
+
 export function practiceGuide(
   state: State,
   outputs: Output[],
+  { versions, progress }: PracticeWalk,
   now: {
+    /** The screen in view. */
+    screen: string
+    /** The look step this visit to the screen marked done, which the reader is still reading. */
+    reading: LookStep | null
     /** SKILL.md has an edit that is not saved yet. */
     unsaved: boolean
     /** A run or a grading job is in progress. */
     running: boolean
   },
 ): PracticeGuide {
-  const versions = [...new Set(outputs.map(versionOf).filter(Boolean))].sort(
-    (a, b) => Number(a.slice(1)) - Number(b.slice(1)),
-  )
   const first = versions[0]
   const last = versions.at(-1)
   const current = state.versions.current
-  const { done, step } = practiceProgress({
-    versions,
-    current: current.version,
-    picks: state.reviews.preferences.length,
-    seen: state.practiceSeen,
-  })
+  const { done } = progress
+  const inHand = progress.step
+  // A run in progress is the step in hand, whatever screen it is watched from.
+  const looking = now.running
+    ? null
+    : inHand && isLookStep(inHand) && SCREEN[inHand] === now.screen
+      ? inHand
+      : now.reading
+  const view = practiceView(progress, looking)
+  const step = view.shown
   // The case to open on: the first one both versions answered.
   const compared = state.cases.find((c) =>
     [first, last].every((v) => outputs.some((o) => o.caseId === c.id && versionOf(o) === v)),
@@ -69,48 +126,49 @@ export function practiceGuide(
   const copy: Record<PracticeStep, { title: string; hint: string; target: PracticeTarget }> = {
     read: {
       title: 'Read the skill',
-      hint: 'Thank-you note writes a two-sentence thank-you. Its SKILL.md is what the agent reads first, and Jev checks each of its rules.',
-      target: { label: 'Read the skill', screen: 'editor' },
+      hint: 'Read its rules. The yellow button at the top right is the way on.',
+      target: { label: 'Read the skill', screen: SCREEN.read },
     },
     cases: {
       title: 'Read the cases',
       hint: 'Three tasks the agent gets. Each says what a good note does, and checks it.',
-      target: { label: 'Read the cases', screen: 'cases' },
+      target: { label: 'Read the cases', screen: SCREEN.cases },
     },
     run: {
       title: 'Run the skill',
       hint: 'An agent writes a note for each case, then Jev grades it. Click Run at the top right.',
-      target: { label: `Run ${current.version}`, screen: null },
+      target: { label: `Run ${current.version}`, screen: SCREEN.run },
     },
     results: {
       title: 'Read what the notes missed',
       hint: 'Each note with its score, and under it the rules and checks it missed.',
-      target: { label: 'Read the results', screen: 'results' },
+      target: { label: 'Read the results', screen: SCREEN.results },
     },
     edit: {
       title: 'Tighten one rule',
       hint: now.unsaved
         ? 'Save SKILL.md, so the next run tests your edit.'
         : `“${PRACTICE_EDIT.phrase}” measures nothing. Give it a number.`,
-      target: { label: 'Tighten a rule', screen: 'editor' },
+      target: { label: 'Tighten a rule', screen: SCREEN.edit },
     },
     rerun: {
       title: 'Run it again',
       hint: 'Same cases, new rule: any difference is your edit. Click Run at the top right.',
-      target: { label: `Run ${current.version}`, screen: null },
+      target: { label: `Run ${current.version}`, screen: SCREEN.run },
     },
     compare: {
       title: 'Pick the better note',
       hint: `Read ${first} beside ${last}, then say which is better.`,
       target: {
         label: `Compare ${first} and ${last}`,
-        screen: 'results',
+        screen: SCREEN.compare,
         params: compared ? { case: compared.id } : undefined,
       },
     },
   }
 
-  const steps = PRACTICE_STEPS.map((id) => ({ id, done: done[id] }))
+  // The step in hand is still to do, though opening its screen has marked it.
+  const steps = PRACTICE_STEPS.map((id) => ({ id, done: done[id] && id !== step }))
   if (!step)
     return {
       steps,
@@ -119,14 +177,20 @@ export function practiceGuide(
       title: 'You have been round the loop',
       hint: 'Write, run, compare. A skill of your own goes round the same way.',
       target: null,
+      here: false,
+      next: null,
     }
+  const { target } = copy[step]
   return {
     steps,
     step,
     number: PRACTICE_STEPS.indexOf(step) + 1,
     title: copy[step].title,
     hint: now.running ? 'A run is in progress. It takes a minute or two.' : copy[step].hint,
-    target: copy[step].target,
+    target,
+    // A step that opens one case still has somewhere to go from the same screen.
+    here: target.screen === now.screen && !target.params,
+    next: view.next ? copy[view.next].target : null,
   }
 }
 

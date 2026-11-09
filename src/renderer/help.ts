@@ -1,8 +1,8 @@
 /**
  * What each screen is for, in words for someone who has never tested a skill.
- * One entry serves four places: the sidebar's tooltip, the hint under the top
- * bar on a first visit, the help button's panel and the welcome tour. So the
- * app explains a screen the same way wherever it explains it.
+ * One entry serves three places: the sidebar's tooltip, the hint under the top
+ * bar on a first visit and the help button's panel. So the app explains a
+ * screen the same way wherever it explains it.
  */
 import type { TermId } from '@domain/glossary.ts'
 
@@ -51,27 +51,30 @@ export const SCREEN_HELP: Record<string, ScreenHelp> = {
 }
 
 export interface LoopStep {
-  /** The screen the step happens on. */
-  screen: string
+  /** Where the step happens: a screen of the loop, or `run`, which is the Run button's and no screen. */
+  at: 'editor' | 'run' | 'results'
   title: string
   /** What happens, in one or two plain sentences. */
   say: string
 }
 
-/** Once round the loop, as the welcome tour tells it: one screen per step, in sidebar order. */
+/**
+ * Once round the loop, as the welcome tour tells it: write, run, compare.
+ * Writing and comparing each have a screen. The run has a button.
+ */
 export const LOOP_STEPS: readonly LoopStep[] = [
   {
-    screen: 'editor',
+    at: 'editor',
     title: 'Write the rules',
     say: 'A skill is a short page of rules for an AI agent. This one writes thank-you notes.',
   },
   {
-    screen: 'cases',
+    at: 'run',
     title: 'Run it on a real task',
-    say: 'A case is a request you might really make. An agent does it with your skill installed, and Jev checks what it wrote against your rules.',
+    say: 'A case is a request you might really make. An agent does it with your skill installed, and Jev marks what it wrote against your rules and the case’s checks.',
   },
   {
-    screen: 'results',
+    at: 'results',
     title: 'Compare, then fix',
     say: 'What the note missed names the rule to tighten. Run again, read both notes side by side and pick the better. That is the loop.',
   },
@@ -104,6 +107,6 @@ export const SETUP_STEPS: readonly SetupStep[] = [
   {
     id: 'jev',
     title: 'Add Jev',
-    say: 'Jev grades every answer the same way each time. It needs a TypeSafe key.',
+    say: 'Jev grades every output the same way each time. It needs a TypeSafe key.',
   },
 ]

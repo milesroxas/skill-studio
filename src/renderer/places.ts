@@ -11,6 +11,7 @@ import {
   ListChecksIcon,
   type LucideIcon,
   PencilLineIcon,
+  PlayIcon,
   SettingsIcon,
 } from 'lucide-react'
 
@@ -36,6 +37,12 @@ export const APP_PLACES: Place[] = [
   { screen: 'docs', label: 'Guide', icon: BookOpenIcon },
   { screen: 'settings', label: 'Settings', icon: SettingsIcon },
 ]
+
+/**
+ * Running, which is a button and not a place, so it has no route. Its name and
+ * icon are here so the button and the welcome's picture of a run match.
+ */
+export const RUN: Pick<Place, 'label' | 'icon'> = { label: 'Run', icon: PlayIcon }
 
 /** The welcome: where a first visit lands, and one click from the help ever after. Not in the sidebar. */
 export const WELCOME: Place = { screen: 'welcome', label: 'Welcome', icon: CompassIcon }
