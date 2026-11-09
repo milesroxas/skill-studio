@@ -544,6 +544,7 @@ export function Editor({ ctx }: { ctx: Ctx }) {
                 ? {
                     description: metaText(meta, 'description') ?? state.skill.description,
                     onError: (message) => report(message, { tone: 'destructive' }),
+                    onReplaced: (undo) => report('Replaced the selection.', { undo }),
                   }
                 : undefined
             }

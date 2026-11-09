@@ -44,11 +44,7 @@ export function FindingList({ findings }: { findings: Finding[] }) {
 
 /** Jev did not read this: only code's checks ran. */
 export function Unjudged() {
-  return (
-    <Hint>
-      Only the word and count checks ran. Add a TypeSafe key in Settings and Jev reads the rule too.
-    </Hint>
-  )
+  return <Hint>Word checks only. Add a TypeSafe key in Settings and Jev reads the rule too.</Hint>
 }
 
 export function RefineBody({
@@ -73,10 +69,13 @@ export function RefineBody({
     alive.current = true
     setResult(null)
     setError(null)
+    let started: string | null = null
     startRefine(scene).then(
       (next) => {
-        if (alive.current) setResult(next)
-        else if (next.run) stopRun(next.run.id)
+        if (alive.current) {
+          started = next.run?.id ?? null
+          setResult(next)
+        } else if (next.run) stopRun(next.run.id)
       },
       (e: Error) => {
         if (alive.current) setError(e.message)
@@ -84,6 +83,8 @@ export function RefineBody({
     )
     return () => {
       alive.current = false
+      // The popout closed on a run still writing: nothing will read it.
+      if (started) stopRun(started)
     }
   }, [scene])
 
@@ -122,8 +123,7 @@ export function RefineBody({
       <>
         <PopoverSection pad="text">
           <Text as="p" size="ui">
-            This already reads like a rule an agent can follow. It names a step, carries its why and
-            leaves nothing to guess at.
+            Nothing to fix. The rule names a step, says why, and leaves nothing to guess.
           </Text>
           {maybes.length ? (
             <>
@@ -137,8 +137,7 @@ export function RefineBody({
         </PopoverSection>
         <PopoverSection pad="text">
           <Text as="p" size="ui" tone="muted">
-            Want to push it further anyway? Help me improve asks a few questions and drafts a
-            stronger version.
+            To push it further, answer a few questions and get a draft.
           </Text>
           <Toolbar>
             <Button type="button" variant="outline" size="sm" onClick={onImprove}>

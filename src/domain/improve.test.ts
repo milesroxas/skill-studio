@@ -4,9 +4,11 @@ import {
   codeVerdicts,
   draftOf,
   drifts,
+  dropsFact,
   type ImproveThread,
   improveSystem,
   judgmentFindings,
+  keepListMark,
   mergeFindings,
   offerable,
   planImprove,
@@ -107,17 +109,27 @@ describe('rewrites', () => {
     const verdicts = codeVerdicts(scene, rewrites)
     expect(verdicts.shorter.shorter).toBe(true)
     expect(verdicts.practice.kept).toBeNull()
-    const text = rewritesText({ rewrites, verdicts })
-    expect(rewritesResult(text)).toEqual({ rewrites, verdicts })
+    const text = rewritesText({ rewrites, verdicts, judged: false })
+    expect(rewritesResult(text)).toEqual({ rewrites, verdicts, judged: false })
     expect(() => rewritesResult('{}')).toThrow()
   })
 
-  it('offers a rewrite that kept the facts and is not the selection again', () => {
+  it('offers every rewrite that is not the selection again, and warns where Jev saw a fact dropped', () => {
     const verdict = { kept: null, drift: [] as Finding[], shorter: null }
-    expect(offerable(scene, scene.selection, verdict)).toBe(false)
-    expect(offerable(scene, 'other', verdict)).toBe(true)
-    expect(offerable(scene, 'other', { ...verdict, kept: 0.1 })).toBe(false)
-    expect(offerable(scene, 'other', { ...verdict, kept: 0.5 })).toBe(true)
+    expect(offerable(scene, scene.selection)).toBe(false)
+    expect(offerable(scene, 'other')).toBe(true)
+    expect(dropsFact(verdict)).toBe(false)
+    expect(dropsFact({ ...verdict, kept: 0.1 })).toBe(true)
+    expect(dropsFact({ ...verdict, kept: 0.5 })).toBe(false)
+  })
+})
+
+describe('keepListMark', () => {
+  it('puts back the list mark the model left off, and leaves one it kept', () => {
+    expect(keepListMark('- Try to date it.', 'Always date it.')).toBe('- Always date it.')
+    expect(keepListMark('  3. Try to date it.', 'Always date it.')).toBe('  3. Always date it.')
+    expect(keepListMark('- Try to date it.', '- Always date it.')).toBe('- Always date it.')
+    expect(keepListMark('Try to date it.', 'Always date it.')).toBe('Always date it.')
   })
 })
 

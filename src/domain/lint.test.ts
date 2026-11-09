@@ -104,11 +104,12 @@ describe('sceneOf', () => {
   const text =
     '# T\n\n## Rules\n\n- First rule here now.\n- Second rule here now.\n- Third rule here now.\n'
 
-  it('keeps a selection inside one line as it is', () => {
+  it('widens a selection inside one line to the line', () => {
     const from = text.indexOf('rule here')
     const made = sceneOf(text, { from, to: from + 9 }, 'd')
-    expect(made.selection).toBe('rule here')
-    expect(made.from).toBe(from)
+    expect(made.selection).toBe('- First rule here now.')
+    expect(made.from).toBe(text.indexOf('- First'))
+    expect(made.to).toBe(text.indexOf('- Second') - 1)
   })
 
   it('widens a selection across lines to whole lines, without the closing newline', () => {

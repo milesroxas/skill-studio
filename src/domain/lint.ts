@@ -329,9 +329,10 @@ function linesAround(text: string, at: number, n: number, side: 'before' | 'afte
 }
 
 /**
- * A selection of `text` as the checks and the judge read it. A selection that
- * crosses a line is widened to whole lines, so a half bullet is never judged
- * or rewritten; one inside a line is kept as it is.
+ * A selection of `text` as the checks and the judge read it. The selection is
+ * widened to whole lines: a rule is a line, and a fragment has no why or
+ * boundary to check, so judging or rewriting one would break the sentence it
+ * sits in. `before` and `after` are the lines around it.
  */
 export function sceneOf(
   text: string,
@@ -339,13 +340,11 @@ export function sceneOf(
   description: string,
 ): RuleScene & { from: number; to: number } {
   let { from, to } = range
-  if (text.slice(from, to).includes('\n')) {
-    // A drag often takes the newline that closes the last line: that is not a line of its own.
-    while (to > from && text[to - 1] === '\n') to -= 1
-    from = text.lastIndexOf('\n', from - 1) + 1
-    const end = text.indexOf('\n', to)
-    to = end === -1 ? text.length : end
-  }
+  // A drag often takes the newline that closes the last line: that is not a line of its own.
+  while (to > from && text[to - 1] === '\n') to -= 1
+  from = text.lastIndexOf('\n', from - 1) + 1
+  const end = text.indexOf('\n', to)
+  to = end === -1 ? text.length : end
   return {
     selection: text.slice(from, to),
     before: linesAround(text, from, 2, 'before'),

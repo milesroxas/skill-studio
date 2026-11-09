@@ -54,6 +54,7 @@ import {
   toggleQuote,
 } from '../editor/format.ts'
 import { findingsWithin, gradedRules, ruleAt } from '../editor/graded.ts'
+import { landed, landedField } from '../editor/landed.ts'
 import { skillMarkdown } from '../editor/language.ts'
 import { livePreview } from '../editor/live-preview.ts'
 import { editorTheme, markdownHighlighting } from '../editor/theme.ts'
@@ -187,6 +188,7 @@ function replaceIn(
   view.dispatch({
     changes: { from, to, insert: next },
     selection: { anchor: from + next.length },
+    effects: next ? landed(view, from, from + next.length) : [],
     scrollIntoView: true,
     userEvent: 'input',
   })
@@ -226,7 +228,12 @@ interface MarkdownEditorProps {
    * Auto refine, Suggest changes and Help me improve. The description says
    * what the skill is about, which the checks read; errors go to the screen.
    */
-  refine?: { description: string; onError: (message: string) => void }
+  refine?: {
+    description: string
+    onError: (message: string) => void
+    /** The popout put text in place of the selection; `undo` takes it back. */
+    onReplaced: (undo: () => void) => void
+  }
   /** This SKILL.md's bullets are the rules Jev grades: mark and number them in the margin. */
   graded?: boolean
 }
@@ -311,6 +318,7 @@ export function MarkdownEditor({
     const extensions = [
       history(),
       drawSelection(),
+      landedField,
       EditorView.lineWrapping,
       skillMarkdown(),
       markdownHighlighting,
@@ -382,13 +390,34 @@ export function MarkdownEditor({
     }
   }, [])
 
+  /**
+   * Put `next` where `original` is, and report it on the status line with
+   * Undo. Every replace from the popout or the side panel comes through here.
+   */
+  const apply = (original: string, next: string, hint?: { from: number; to: number }) => {
+    const view = editor.current
+    const spec = refining.current
+    if (!view || !spec) return 'missing' as const
+    if (replaceIn(view, original, next, hint) === 'missing') return 'missing' as const
+    const after = view.state.doc
+    spec.onReplaced(() => {
+      const now = editor.current
+      if (!now) return
+      // Nothing typed since: the history step is exactly the replace.
+      if (now.state.doc === after) undo(now)
+      else if (replaceIn(now, next, original) === 'missing')
+        spec.onError('The new text has changed since. Undo it in the editor.')
+    })
+    return 'replaced' as const
+  }
+  const applying = useRef(apply)
+  applying.current = apply
+
   // While a SKILL.md is open here, the side panel's draft has somewhere to land.
   const refined = refine !== undefined
   useEffect(() => {
     if (!refined) return
-    registerReplacer((original, next) =>
-      editor.current ? replaceIn(editor.current, original, next) : 'missing',
-    )
+    registerReplacer((original, next) => applying.current(original, next))
     return () => registerReplacer(null)
   }, [refined])
 
@@ -557,8 +586,7 @@ export function MarkdownEditor({
           scene={tools}
           findings={tools.findings}
           onApply={(text) => {
-            const view = editor.current
-            if (view && replaceIn(view, tools.selection, text, tools) === 'missing')
+            if (apply(tools.selection, text, tools) === 'missing')
               refine.onError('The selection changed before the text could be replaced.')
           }}
           onImprove={() => {

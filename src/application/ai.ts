@@ -47,6 +47,7 @@ import {
   type ImproveThread,
   improveSystem,
   judgmentFindings,
+  keepListMark,
   mergeFindings,
   planImprove,
   REFINE_SCHEMA,
@@ -315,15 +316,29 @@ export function clearChat(): ChatThread {
  * it only when a TypeSafe key is set; a judge that cannot be reached leaves
  * code's findings standing rather than failing the action.
  */
-async function assess(
-  scene: RuleScene,
-  jev: Jev,
-): Promise<{ findings: Finding[]; judgment: RuleJudgment | null; judged: boolean }> {
+interface Assessment {
+  findings: Finding[]
+  judgment: RuleJudgment | null
+  judged: boolean
+}
+
+/** The last rule Jev read and what it said: the same rule asked about twice in a row costs one reading. */
+let assessed: { key: string; value: Assessment } | null = null
+
+async function assess(scene: RuleScene, jev: Jev): Promise<Assessment> {
   const code = lintScene(scene)
   if (!Jev.available()) return { findings: code, judgment: null, judged: false }
+  const key = JSON.stringify(scene)
+  if (assessed?.key === key && assessed.value.judged) return assessed.value
   try {
     const judgment = await judgeRule(jev, scene)
-    return { findings: mergeFindings(code, judgmentFindings(judgment)), judgment, judged: true }
+    const value = {
+      findings: mergeFindings(code, judgmentFindings(judgment)),
+      judgment,
+      judged: true,
+    }
+    assessed = { key, value }
+    return value
   } catch {
     return { findings: code, judgment: null, judged: false }
   }
@@ -341,7 +356,7 @@ export async function startRefine(scene: RuleScene): Promise<RefineResult> {
     messages: [{ role: 'user', text: user }],
     schema: REFINE_SCHEMA,
     preview: (raw) => partialText(raw, 'revision'),
-    finish: refineText,
+    finish: (raw) => keepListMark(scene.selection, refineText(raw)),
   })
   return { findings, judged, run }
 }
@@ -363,17 +378,21 @@ export async function startRewrites(scene: RuleScene): Promise<AiRun> {
     preview: () => '',
     finish: async (raw) => {
       const rewrites = rewritesOf(raw)
+      for (const kind of ['practice', 'direct', 'shorter'] as const)
+        rewrites[kind] = keepListMark(scene.selection, rewrites[kind])
       const verdicts = codeVerdicts(scene, rewrites)
+      let verified = false
       if (judged)
         try {
-          const verified = await verifyRewrites(jev, scene, rewrites)
+          const read = await verifyRewrites(jev, scene, rewrites)
           for (const kind of ['practice', 'direct', 'shorter'] as const)
-            verdicts[kind].kept = verified.kept[kind]
-          verdicts.practice.drift = judgmentFindings(verified.practice)
+            verdicts[kind].kept = read.kept[kind]
+          verdicts.practice.drift = judgmentFindings(read.practice)
+          verified = true
         } catch {
           // The rewrites stand unverified, as they would without a key.
         }
-      return rewritesText({ rewrites, verdicts })
+      return rewritesText({ rewrites, verdicts, judged: verified })
     },
   })
 }
@@ -412,7 +431,8 @@ async function improveReply(thread: ImproveThread): Promise<void> {
       thread.messages = [...thread.messages, message(thread.messages, 'assistant', run.text.trim())]
       thread.run = null
       if (!drafting(thread)) return
-      const draft = draftOf(run.text)
+      const found = draftOf(run.text)
+      const draft = found && keepListMark(thread.scene.selection, found)
       if (thread.cut && !draft) {
         thread.draft = ''
         thread.checklist = null

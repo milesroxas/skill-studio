@@ -6,6 +6,16 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+### Fixed
+
+- **Suggest changes** could leave nothing to pick: a rewrite Jev read as dropping a fact was locked. Every rewrite that changes something can now be picked, and the card says "May drop a fact" where Jev saw one.
+
+### Changed
+
+- Suggest changes shows its three cards at once, each with "Replace" and its number key: click one or press 1, 2 or 3. The new text is tinted for a moment in the editor, and the status line offers Undo. **Try again** asks for three more, and the labels and notes are shorter.
+- Auto refine says less: "Nothing to fix" when the rule holds.
+- The selection tools work on whole lines. Selecting part of a rule selects the rule, so a rewrite never breaks the sentence it sits in. Auto refine, Suggest changes and Help me improve all put their text in place the same way: tinted for a moment, with Undo on the status line. Closing the popout stops a rewrite still being written, and asking a second tool about the same rule does not ask Jev to read it again.
+
 ## [0.3.0] - 2026-11-09
 
 ### Added

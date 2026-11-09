@@ -83,6 +83,19 @@ export const editorTheme = EditorView.theme({
   '&.cm-focused > .cm-scroller > .cm-selectionLayer .cm-selectionBackground, .cm-selectionBackground, .cm-content ::selection':
     { backgroundColor: 'color-mix(in oklch, var(--foreground) 13%, transparent)' },
   '.cm-placeholder': { color: 'var(--muted-foreground)' },
+  // Text the app just put in place, such as a picked rewrite: it keeps the selection's tint,
+  // then fades, so the eye finds what changed (`landed.ts`). Color only, so it holds still.
+  '@keyframes cm-landed-fade': {
+    '0%, 45%': { backgroundColor: 'color-mix(in oklch, var(--foreground) 13%, transparent)' },
+    '100%': { backgroundColor: 'transparent' },
+  },
+  '.cm-landed': {
+    backgroundColor: 'color-mix(in oklch, var(--foreground) 13%, transparent)',
+    animation: 'cm-landed-fade 1400ms ease-out forwards',
+    borderRadius: '2px',
+  },
+  // Less movement asked for: the tint holds plain until the mark clears. It is a color, not motion.
+  ':root[data-motion="reduced"] & .cm-landed': { animation: 'none' },
 
   '.tok-heading, .tok-strong': { fontWeight: '600' },
   // Geist ships no italic and the app turns font synthesis off, so emphasis would not show.

@@ -151,11 +151,11 @@ Exact, with its reason:
 
 ### Improve a selected rule
 
-Select four or more words in SKILL.md and a small bar appears over them with three choices. Nothing changes until you click a result.
+Select four or more words in SKILL.md and a small bar appears over them with three choices. The whole line is taken, since a rule is a line. Nothing changes until you click a result.
 
 - **Auto refine** checks the rule against the guide above, how many conditions it holds, and how long it and the file are. If something drifts, you see what and a revision to **Replace**. If nothing does, it says so and offers Help me improve instead.
-- **Suggest changes** writes three rewrites, always in this order: **Best practice** fixes what drifts, **More direct** puts the constraint first in the imperative, **Shorter** cuts what changes nothing. Click one to put it in place. Undo brings the selection back.
-- **Help me improve** opens the Assistant on a short set of questions about this rule: what the agent does differently, whether it is a step or a quality, where the line is, why the rule exists. Answer each in a sentence or two. It then drafts the rule, shows how the draft stands against the guide, and **Replace selection** puts it in the file.
+- **Suggest changes** writes three rewrites, always in this order: **Best practice** fixes what the checks found, **More direct** puts the constraint first in the imperative, **Shorter** keeps the rule in fewer words. Click one, or press 1, 2 or 3, to put it in place. The new text is tinted for a moment, and the status line offers **Undo**. When Jev reads a rewrite as dropping a fact of the selection, the card says "May drop a fact": read it before you pick, but the pick is yours. **Try again** asks for three more.
+- **Help me improve** opens the Assistant on a short set of questions about this rule: what the agent does differently, whether it is a step or a quality, where the line is, why the rule exists. Answer each in a sentence or two. It then drafts the rule, shows how the draft stands against the guide, and **Replace selection** puts it in the file, with **Undo** on the status line.
 
 With a TypeSafe key, Jev reads the rule and the answers, so the checks are exact and the same whatever model writes the text. Without one, only the word and count checks run.
 

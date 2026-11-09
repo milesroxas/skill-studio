@@ -163,6 +163,17 @@ const parse = (raw: string): Record<string, unknown> => {
 }
 
 /** The revision from a finished Auto refine reply. Throws when there is none. */
+const LIST_MARK = /^[ \t]*(?:[-*+]|\d+[.)])[ \t]+/
+
+/**
+ * `text` with the list mark the selection starts with, when the model left it
+ * off: a rule replaced without its dash stops being a rule.
+ */
+export function keepListMark(selection: string, text: string): string {
+  const mark = LIST_MARK.exec(selection)?.[0]
+  return mark && !LIST_MARK.test(text) ? `${mark}${text}` : text
+}
+
 export function refineText(raw: string): string {
   const { revision } = parse(raw)
   const text = typeof revision === 'string' ? revision.trim() : ''
@@ -185,15 +196,15 @@ export type RewriteKind = (typeof REWRITE_KINDS)[number]
 export const REWRITE_LABELS: Record<RewriteKind, { label: string; means: string }> = {
   practice: {
     label: 'Best practice',
-    means: 'Fixes what drifts from the guide: the number, the why, the step. Meaning kept.',
+    means: 'Fixes what the checks found',
   },
   direct: {
     label: 'More direct',
-    means: 'Same facts, imperative voice, the constraint first.',
+    means: 'Imperative, constraint first',
   },
   shorter: {
     label: 'Shorter',
-    means: 'Every word that changes nothing is cut. The why and the number stay.',
+    means: 'Same rule, fewer words',
   },
 }
 
@@ -272,6 +283,8 @@ export interface RewriteVerdict {
 export interface RewritesResult {
   rewrites: Rewrites
   verdicts: Record<RewriteKind, RewriteVerdict>
+  /** Jev read each rewrite against the selection; false without a key, or when Jev could not be reached. */
+  judged: boolean
 }
 
 export const rewritesText = (result: RewritesResult): string => JSON.stringify(result)
@@ -282,7 +295,7 @@ export function rewritesResult(text: string): RewritesResult {
   const rewrites = value.rewrites as Rewrites
   const verdicts = value.verdicts as RewritesResult['verdicts']
   if (!rewrites || !verdicts) throw new Error('The rewrites could not be read. Ask again.')
-  return { rewrites, verdicts }
+  return { rewrites, verdicts, judged: value.judged === true }
 }
 
 /** The verdicts code alone can give: whether `shorter` is shorter. */
@@ -295,9 +308,16 @@ export function codeVerdicts(scene: RuleScene, rewrites: Rewrites): RewritesResu
   }
 }
 
-/** A rewrite worth offering: it kept the facts, as far as anyone can tell, and is not the selection again. */
-export const offerable = (scene: RuleScene, text: string, verdict: RewriteVerdict): boolean =>
-  text.trim() !== scene.selection.trim() && (verdict.kept === null || verdict.kept >= DRIFTS)
+/** A rewrite that changes something: the selection again has nothing to replace. */
+export const offerable = (scene: RuleScene, text: string): boolean =>
+  text.trim() !== scene.selection.trim()
+
+/**
+ * Jev read the rewrite as dropping a fact of the selection. A warning, never
+ * a gate: the writer reads both and their pick stands.
+ */
+export const dropsFact = (verdict: RewriteVerdict): boolean =>
+  verdict.kept !== null && verdict.kept < DRIFTS
 
 /**
  * Help me improve walks these in this order. Each step is one question the
