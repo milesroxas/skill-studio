@@ -10,8 +10,7 @@ const badgeVariants = cva(
       variant: {
         default: 'bg-primary text-primary-foreground [a&]:hover:bg-primary/90',
         secondary: 'bg-secondary text-secondary-foreground [a&]:hover:bg-secondary/90',
-        destructive:
-          'bg-destructive text-white dark:bg-destructive/60 [a&]:hover:bg-destructive/90',
+        destructive: 'bg-destructive text-destructive-foreground [a&]:hover:bg-destructive/90',
         outline:
           'border-border text-foreground [a&]:hover:bg-accent [a&]:hover:text-accent-foreground',
         ghost: '[a&]:hover:bg-accent [a&]:hover:text-accent-foreground',
@@ -21,9 +20,19 @@ const badgeVariants = cva(
         warning: 'bg-warning/10 text-warning dark:bg-warning/20',
         danger: 'bg-destructive/10 text-destructive dark:bg-destructive/20',
       },
+      /**
+       * A number a reader compares down a column, such as a score: as wide as
+       * "100" (40px) and centred, so a column of them keeps one edge, in mono
+       * with tabular figures.
+       */
+      numeric: {
+        true: 'min-w-10 font-mono tabular-nums',
+        false: '',
+      },
     },
     defaultVariants: {
       variant: 'default',
+      numeric: false,
     },
   },
 )
@@ -31,6 +40,7 @@ const badgeVariants = cva(
 function Badge({
   className,
   variant = 'default',
+  numeric,
   asChild = false,
   ...props
 }: React.ComponentProps<'span'> & VariantProps<typeof badgeVariants> & { asChild?: boolean }) {
@@ -40,7 +50,7 @@ function Badge({
     <Comp
       data-slot="badge"
       data-variant={variant}
-      className={cn(badgeVariants({ variant }), className)}
+      className={cn(badgeVariants({ variant, numeric }), className)}
       {...props}
     />
   )

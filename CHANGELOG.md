@@ -97,6 +97,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - Failed reads of an output, a transcript, a diff, usage or a version's files offer **Try again**.
 - The skill is read again when the window regains focus, so an edit made outside the app shows at once.
 - A failure or a warning on the status line stays until you dismiss it or the next message replaces it, instead of leaving after a few seconds. Other messages wait while the pointer or the keyboard is on the line.
+- Delete and reset buttons in the dark theme are pale red with dark text, readable at rest and on hover.
+- An agent's HTML output shows on a white page in every theme, so a page that assumes white reads as written.
+- The selection in Help me improve, Auto refine's revision and the assist panel's reply sit on one muted panel, and long words wrap instead of running out of it.
 
 ## [0.4.0] - 2026-11-09
 

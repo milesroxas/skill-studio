@@ -9,7 +9,7 @@ Every size is one of these steps. `--text-*: initial` removes Tailwind's own sca
 | Step | Size | Use |
 | --- | --- | --- |
 | `2xs` | 11px | mono chips, chart ticks, caps labels. Never running text. |
-| `xs` | 12px | hints, captions, meta beside a value |
+| `xs` | 12px | hints, captions, meta beside a value, the labels of a picker over an object (`text="xs"` on a toggle) |
 | `ui` | 13px | dense chrome: sidebar, labels, menus, table cells |
 | `sm` | 14px | body text and controls. The default: `body` sets it. |
 | `md` | 15px | reading: outputs, the guide, the formatted editor; the page title |
@@ -38,6 +38,7 @@ Is it a heading in the page's outline?
       ├── Help under a control, or a note at the top of a section? → Hint
       ├── A path, a file name, a command, a version, an id? → Code or Text font="mono"
       ├── A label over a group that is not in the outline? → Text caps
+      ├── A passage of the skill's own text set apart, such as the selection a tool works on? → Excerpt
       └── Anything else → Text, with tone, size and weight named as props
 ```
 
@@ -63,7 +64,7 @@ Markdown the app renders itself (a reply, an output, the changelog) goes through
 
 `Text` takes these and nothing else: `tone` (`default`, `muted`, `faint`, `destructive`, `success`, `warning`), `font` (`sans`, `mono`), `size` (`inherit`, `ui`, `xs`), `weight` (`normal`, `medium`, `semibold`), and the booleans `tabular`, `block`, `clamp`, `truncate`, `measure`, `caps`, plus `align` (`start`, `end`), `wrap` (`normal`, `pre`, `anywhere`) and the element it renders, `as` (`span`, `p`, `b`, `small`, `div`, `li`). The default is inherit everything.
 
-`Hint` takes `tone` (`default`, `destructive`), `measure` (`default`, `narrow`, `none`), `inset`, `tabular` and `as` (`p`, `span`, `div`). `Heading` takes `as` (`h1`, `h2`, `h3`, `span`, `legend`, `p`) and `tabular` (a heading that is a number, such as a version) beside its `level`.
+`Hint` takes `tone` (`default`, `destructive`), `measure` (`default`, `narrow`, `none`), `inset`, `tabular` and `as` (`p`, `span`, `div`). `Excerpt` is `ui` text on the muted panel (`bg-muted`). It takes `edge`: `inset`, the default, with a container's corners (`rounded-chin`), or `bleed`, across a side panel's full width between hairlines. And `holds`: `text`, the default, a paragraph with its line breaks kept, or `writing`, a block held to 18rem and scrolled, for a rewrite as it is written. "The selection" in Help me improve (`Improve.tsx`) is `text`; Auto refine's Revision (`Refine.tsx`) and the reply under a field in the assist panel (`Assist.tsx`, `bleed`) are `writing`. `Heading` takes `as` (`h1`, `h2`, `h3`, `span`, `legend`, `p`) and `tabular` (a heading that is a number, such as a version) beside its `level`.
 
 Weights are 400, 500 and 600. 700 belongs to the `display` and `numeral` steps, which carry it: never write `font-bold`. Body text is never bold for emphasis: use `weight="medium"`.
 

@@ -23,7 +23,7 @@ const BADGE_TONE = {
  */
 export function TotalChip({ total }: { total: number | null | undefined }) {
   return (
-    <Badge variant={BADGE_TONE[scoreBand(total)]} className="min-w-10 font-mono tabular-nums">
+    <Badge variant={BADGE_TONE[scoreBand(total)]} numeric>
       {total === null || total === undefined ? '–' : Math.round(total)}
     </Badge>
   )

@@ -16,7 +16,7 @@ These exist. Nothing else does: an unlisted variant is a bug, not an option.
 | `link` | a name that opens its item: a skill's name in the Library's table | rare |
 | `link-muted` | navigation inside a table cell or under a form | any |
 | `ghost-muted` | an action a row repeats, such as "show in Finder", and the tools in the editor's toolbar | any |
-| `destructive` | the confirm button of a destructive dialog | one per dialog |
+| `destructive` | the confirm button of a destructive dialog: red fill, its label in `destructive-foreground` (porcelain, ink in the dark) | one per dialog |
 | `destructive-outline` | a destructive action alone in its section | one per section |
 | `destructive-ghost` | a destructive action beside other buttons | rare |
 | `destructive-muted` | a delete icon a row repeats: quiet until pointed at | any |

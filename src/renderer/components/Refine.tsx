@@ -12,7 +12,7 @@ import { lineDiff } from '../diff.ts'
 import { useStartedRun } from '../started-run.ts'
 import { DiffLines } from './DiffLines.tsx'
 import { Loading, Toolbar } from './layout.tsx'
-import { Hint, Text } from './text.tsx'
+import { Excerpt, Hint, Text } from './text.tsx'
 import { Button } from './ui/button.tsx'
 import { PopoverSection } from './ui/popover.tsx'
 
@@ -143,10 +143,7 @@ export function RefineBody({
         <Text size="xs" caps tone="muted">
           Revision
         </Text>
-        <div
-          aria-live="polite"
-          className="max-h-72 overflow-y-auto overscroll-contain rounded-sm bg-muted/50 px-3 py-2.5 text-ui"
-        >
+        <Excerpt holds="writing" aria-live="polite">
           {changes ? (
             <DiffLines lines={changes} />
           ) : run?.status === 'failed' ? (
@@ -160,7 +157,7 @@ export function RefineBody({
           ) : (
             <Text tone="muted">{run?.status === 'stopped' ? 'Stopped.' : 'Writing…'}</Text>
           )}
-        </div>
+        </Excerpt>
         <Toolbar justify="end">
           {running ? (
             <Button

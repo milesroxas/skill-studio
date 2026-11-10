@@ -15,7 +15,7 @@ import { useConfirm } from './confirm.tsx'
 import { PanelBody, PanelHeader, usePin } from './PanelFrame.tsx'
 import { Unjudged } from './Refine.tsx'
 import { Status } from './Status.tsx'
-import { Hint, Text } from './text.tsx'
+import { Excerpt, Hint, Text } from './text.tsx'
 import { Button } from './ui/button.tsx'
 
 export function ImprovePanel({ onBack, onClose }: { onBack: () => void; onClose: () => void }) {
@@ -105,9 +105,7 @@ export function ImprovePanel({ onBack, onClose }: { onBack: () => void; onClose:
               {progress}
             </Text>
           </span>
-          <Text as="p" size="ui" wrap="pre" className="m-0 rounded-sm bg-muted/50 px-3 py-2">
-            {thread.scene.selection}
-          </Text>
+          <Excerpt>{thread.scene.selection}</Excerpt>
         </section>
         <Conversation messages={thread.messages.slice(1)} run={run} error={error} />
         {thread.checklist ? (

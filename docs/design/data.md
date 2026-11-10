@@ -47,7 +47,7 @@ A score is out of 100 and always shows through one of these, from `components/Sc
 
 | Component | Shows |
 | --- | --- |
-| `TotalChip` | a score as a chip whose color is its band. Every chip is 40px wide, so a column keeps one edge. |
+| `TotalChip` | a score as a chip whose color is its band. Every chip is 40px wide (`Badge numeric`), so a column keeps one edge. |
 | `SampleCount` | how many outputs a mean stands for: "×2". Its slot keeps its width when empty. Hidden below `lg`, so a table of cases fits 720px: the score's `aria-label` still says it. |
 | `Delta` | a change between two scores: "+15" in `success`, "−4" in `destructive` |
 | `ScoreMove` | a score's move from one version to the next: the earlier chip, an arrow, the later chip and the `Delta`. With no earlier score it is the later chip alone, so a list keeps one edge. |
@@ -79,7 +79,7 @@ Only weak things are colored in `Parts`. If every bar is green, the eye has nowh
 
 `components/ui/badge.tsx`. A badge is a short state on a thing: one or two words or a number. Its corners are `rounded-sm`, a printed label and not a pill.
 
-Variants that exist: `default`, `secondary`, `destructive`, `outline`, `ghost`, `link`, `success`, `warning`, `danger`. Nothing else.
+Variants that exist: `default`, `secondary`, `destructive`, `outline`, `ghost`, `link`, `success`, `warning`, `danger`. Nothing else. One boolean beside them, `numeric`: a number a reader compares down a column, as wide as "100" (40px) and centred, in mono with tabular figures. `TotalChip` is the one that sets it: a score is a `TotalChip`, never a `Badge numeric` of its own.
 
 ```
 Does it state how good something is?

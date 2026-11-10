@@ -4,8 +4,11 @@ import type { VariantProps } from 'class-variance-authority'
 import { ToggleGroup as ToggleGroupPrimitive } from 'radix-ui'
 import * as React from 'react'
 
+/** What a group sets for every item in it. An item's label (`font`, `text`) is its own. */
+type GroupVariants = Pick<VariantProps<typeof toggleVariants>, 'variant' | 'size'>
+
 const ToggleGroupContext = React.createContext<
-  VariantProps<typeof toggleVariants> & {
+  GroupVariants & {
     spacing?: number
   }
 >({
@@ -22,7 +25,7 @@ function ToggleGroup({
   children,
   ...props
 }: React.ComponentProps<typeof ToggleGroupPrimitive.Root> &
-  VariantProps<typeof toggleVariants> & {
+  GroupVariants & {
     spacing?: number
   }) {
   return (
@@ -50,8 +53,11 @@ function ToggleGroupItem({
   children,
   variant,
   size,
+  font,
+  text,
   ...props
-}: React.ComponentProps<typeof ToggleGroupPrimitive.Item> & VariantProps<typeof toggleVariants>) {
+}: React.ComponentProps<typeof ToggleGroupPrimitive.Item> &
+  Omit<VariantProps<typeof toggleVariants>, 'place'>) {
   const context = React.useContext(ToggleGroupContext)
 
   return (
@@ -65,6 +71,8 @@ function ToggleGroupItem({
           variant: context.variant || variant,
           size: context.size || size,
           place: 'group',
+          font,
+          text,
         }),
         'w-auto min-w-0 shrink-0 px-3',
         // Joined items stay joined when pressed. The group clips a hit area that

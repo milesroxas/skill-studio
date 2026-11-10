@@ -69,7 +69,7 @@ export function ArtifactView({ run, sample, artifact }: Props) {
         </p>
         {/* A frame that scrolls would trap the page swipe on touch: show it, open it to scroll. */}
         <iframe
-          className="block min-h-[70svh] w-full border-0 bg-white pointer-coarse:pointer-events-none pointer-coarse:min-h-[60svh]"
+          className="block min-h-[70svh] w-full border-0 bg-artifact pointer-coarse:pointer-events-none pointer-coarse:min-h-[60svh]"
           src={url}
           title={artifact.file}
           sandbox=""
@@ -135,12 +135,12 @@ export function ArtifactPicker({
         }}
       >
         {artifacts.map((a) => (
-          <ToggleGroupItem key={a.file} value={a.file} className="font-mono text-xs">
+          <ToggleGroupItem key={a.file} value={a.file} font="mono" text="xs">
             {a.file.replace(/^outputs\//, '')}
           </ToggleGroupItem>
         ))}
         {transcript ? (
-          <ToggleGroupItem value={TRANSCRIPT} className="text-xs">
+          <ToggleGroupItem value={TRANSCRIPT} text="xs">
             Transcript
           </ToggleGroupItem>
         ) : null}

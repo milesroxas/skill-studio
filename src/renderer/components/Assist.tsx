@@ -29,7 +29,7 @@ import { Composer } from './Composer.tsx'
 import { CornerButton } from './CornerButton.tsx'
 import { DiffLines } from './DiffLines.tsx'
 import { Toolbar } from './layout.tsx'
-import { Hint, Text } from './text.tsx'
+import { Excerpt, Hint, Text } from './text.tsx'
 import { Button } from './ui/button.tsx'
 import {
   Popover,
@@ -153,11 +153,7 @@ function Reply({
     [status, asChanges, current, text],
   )
   return (
-    <div
-      ref={box}
-      aria-live="polite"
-      className="mb-2 max-h-72 overflow-y-auto overscroll-contain border-y bg-muted/50 px-3 py-2.5 text-ui"
-    >
+    <Excerpt ref={box} holds="writing" edge="bleed" aria-live="polite" className="mb-2">
       {status === 'done' && text === current ? (
         <Text tone="muted">The same text came back: there is nothing to change.</Text>
       ) : changes ? (
@@ -169,7 +165,7 @@ function Reply({
       ) : (
         <Text tone="muted">{status === 'stopped' ? 'Stopped.' : 'Writing…'}</Text>
       )}
-    </div>
+    </Excerpt>
   )
 }
 

@@ -58,6 +58,8 @@
    * sRGB chroma ceiling at that lightness, so the three read as equally vivid.
    */
   --destructive: oklch(0.52 0.199 27);
+  /* Text on a solid red fill: porcelain on the light red, ink on the dark scope's pale one. */
+  --destructive-foreground: oklch(0.961 0.01 94);
   --success: oklch(0.49 0.133 148);
   --warning: oklch(0.51 0.105 69);
   --border: oklch(0.177 0.035 267.3 / 0.1);
@@ -66,6 +68,13 @@
   /* Yellow: the next step and a running job. The same in every scope. */
   --signal: oklch(0.928 0.168 109);
   --signal-foreground: oklch(0.177 0.035 267.3);
+  /* What a dialog lays over the page it stops. The same in every scope. */
+  --scrim: oklch(0 0 0 / 0.5);
+  /*
+   * An agent's page, on the ground a browser gives it, so a page that assumes
+   * white reads as written. The same in every scope.
+   */
+  --artifact: oklch(1 0 0);
   /*
    * A container's corners: a smaller curve on top, a fuller one below, 4 to 5. Read by
    * the rounded-chin utility. Small parts take rounded-sm from the scale.
@@ -104,6 +113,7 @@
     --sidebar-foreground: oklch(0.961 0.01 94);
     --sidebar-accent: oklch(0.205 0.01 267.3);
     --destructive: oklch(0.76 0.134 25);
+    --destructive-foreground: oklch(0.177 0.035 267.3);
     --success: oklch(0.8 0.207 150);
     --warning: oklch(0.8 0.152 70);
     --border: oklch(0.25 0.01 267.3);
@@ -142,6 +152,7 @@
   --color-accent: var(--accent);
   --color-accent-foreground: var(--accent-foreground);
   --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
   --color-success: var(--success);
   --color-warning: var(--warning);
   --color-sidebar: var(--sidebar);
@@ -152,6 +163,8 @@
   --color-ring: var(--ring);
   --color-signal: var(--signal);
   --color-signal-foreground: var(--signal-foreground);
+  --color-scrim: var(--scrim);
+  --color-artifact: var(--artifact);
   --font-sans: "Geist Variable", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
   --font-mono: "Geist Mono Variable", ui-monospace, "SF Mono", Menlo, monospace;
   /* Caps labels: a group's name that is not a heading, such as a figure's label. */

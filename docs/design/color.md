@@ -23,7 +23,7 @@ Ink uses the dark scope's values, with `--background` set to `--sidebar` and the
 | `--background` | `oklch(0.961 0.01 94)` porcelain | `oklch(0.155 0.01 267.3)` near-black, `#0A0C11` | the page |
 | `--foreground` | `oklch(0.177 0.035 267.3)` | `oklch(0.961 0.01 94)` | text, icons |
 | `--card`, `--popover` | `oklch(0.985 0.005 95)` | `oklch(0.18 0.01 267.3)`, `oklch(0.2 0.01 267.3)` | an object, a floating sheet, an input's fill |
-| `--muted` | `oklch(0.936 0.011 95)` | `oklch(0.21 0.01 267.3)` | code blocks, an open row |
+| `--muted` | `oklch(0.936 0.011 95)` | `oklch(0.21 0.01 267.3)` | code blocks, an open row, a passage set apart |
 | `--accent`, `--secondary` | `oklch(0.917 0.011 95)` | `oklch(0.225 0.01 267.3)` | hover, a selected list item |
 | `--muted-foreground` | `oklch(0.483 0.011 140)` | `oklch(0.78 0.008 267.3)` | secondary text |
 | `--primary` / `--primary-foreground` | ink / porcelain | porcelain / ink | the filled button |
@@ -36,13 +36,16 @@ Ink uses the dark scope's values, with `--background` set to `--sidebar` and the
 | `--success` | `oklch(0.49 0.133 148)` | `oklch(0.8 0.207 150)` | a good score, a pass |
 | `--warning` | `oklch(0.51 0.105 69)` | `oklch(0.8 0.152 70)` | a weak score, unsaved |
 | `--destructive` | `oklch(0.52 0.199 27)` | `oklch(0.76 0.134 25)` | a failing score, an error, a delete |
+| `--destructive-foreground` | porcelain | ink | text on a solid red fill: a destructive dialog's confirm button |
 | `--signal` / `--signal-foreground` | `oklch(0.928 0.168 109)` / ink | the same | next and running |
+| `--scrim` | `oklch(0 0 0 / 0.5)` | the same | what a dialog lays over the page it stops |
+| `--artifact` | `oklch(1 0 0)` white | the same | an agent's HTML page, framed: the ground a browser gives it, so a page that assumes white reads as written |
 
-`--signal` is the same in every scope. It is the brand's highlighter yellow `#F0F059`.
+`--signal`, `--scrim` and `--artifact` are the same in every scope. `--signal` is the brand's highlighter yellow `#F0F059`.
 
-Each surface token has a `-foreground` partner (`--card-foreground`, `--popover-foreground`, `--accent-foreground`, `--secondary-foreground`) for text on it. The depth and corner values are tokens too: `--elevation-raised` and `--elevation-popover` behind `shadow-raised` and `shadow-popover`, `--radius-chin-top` (0.625rem) and `--radius-chin-bottom` (0.78125rem) behind `rounded-chin`.
+Each surface token has a `-foreground` partner (`--card-foreground`, `--popover-foreground`, `--accent-foreground`, `--secondary-foreground`) for text on it. So does `--destructive`, for a solid red fill: `--destructive-foreground` turns from porcelain to ink with the red, as `--primary-foreground` does with the filled button. The depth and corner values are tokens too: `--elevation-raised` and `--elevation-popover` behind `shadow-raised` and `shadow-popover`, `--radius-chin-top` (0.625rem) and `--radius-chin-bottom` (0.78125rem) behind `rounded-chin`.
 
-Ink is a blue-black, `#0A1020`: the light theme's text, its filled button and its sidebar. The dark theme's surfaces are near-black on the same hue, 267.3, at chroma 0.01, so they read as black with a cool cast. Only porcelain, the verdicts and yellow sit off that hue.
+Ink is a blue-black, `#0A1020`: the light theme's text, its filled button and its sidebar. The dark theme's surfaces are near-black on the same hue, 267.3, at chroma 0.01, so they read as black with a cool cast. Only porcelain, the verdicts and yellow sit off that hue. The scrim's black and the artifact's white have no hue at all: neither is a surface of the app's own.
 
 ## What background do I use?
 
@@ -50,9 +53,11 @@ Ink is a blue-black, `#0A1020`: the light theme's text, its filled button and it
 Is it the page or a column?
  ├── Yes → bg-background
  └── No
-      ├── Does it float over the page (popover, dialog)? → bg-popover
+      ├── Does it float over the page (a popover, a menu)? → bg-popover
+      ├── Is it a dialog? → bg-background, over bg-scrim, which dims the page it stops
+      ├── Is it an agent's own page, framed (an HTML output)? → bg-artifact
       ├── Is it an object someone compares or picks up, or an input's fill? → bg-card
-      ├── Is it code, front matter, or a table row that is open? → bg-muted
+      ├── Is it code, front matter, a passage set apart (Excerpt), or a table row that is open? → bg-muted
       ├── Is it hovered or the selected item of a list? → bg-accent
       ├── Is it the reader's own message in the chat, or a Badge variant="secondary"? → bg-secondary
       └── Is it the sidebar? → bg-sidebar, and the element carries data-surface="ink"
@@ -158,6 +163,7 @@ Measured with WCAG 2 and APCA. A new text pair needs 4.5:1, and |Lc| 60 when it 
 | foreground on a diff's tint | 15.4:1 and above | 11.1:1 and above |
 | a diff's `+`, `-` on its tint (card) | 4.9, 5.0:1 | 7.2, 5.9:1 (a mark, not running text) |
 | ink on yellow | 15.6:1 | 15.6:1 (yellow text on the dark page 16.1:1) |
+| destructive-foreground on destructive (porcelain, ink) | 5.5:1, Lc 75; hovered 4.9:1 | 8.4:1, Lc 59; hovered 6.9:1 (a button's label, not running text) |
 | focus line (`--ring` at 50%) on background | 3.5:1 | 4.9:1 |
 
 Two known gaps. `border-input` on porcelain is 1.5:1, so an input is found by its `bg-card` fill and its label, not its edge: never draw an input without both. The brand kit's secondary grey `#7C817B` is 3.6:1 on porcelain and is not a token: use `muted-foreground`.

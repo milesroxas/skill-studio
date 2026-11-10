@@ -1,6 +1,6 @@
 /** Headings, hints and inline text roles, so screens name a role rather than a style. */
 import { cva, type VariantProps } from 'class-variance-authority'
-import type { AnchorHTMLAttributes, HTMLAttributes, ReactNode } from 'react'
+import type { AnchorHTMLAttributes, ComponentProps, HTMLAttributes, ReactNode } from 'react'
 import { cn } from '../lib/utils.ts'
 
 const headingVariants = cva('m-0 font-semibold text-balance', {
@@ -210,6 +210,41 @@ export function Text({
       {...props}
     />
   )
+}
+
+const excerptVariants = cva('m-0 bg-muted px-3 py-2.5 text-ui', {
+  variants: {
+    /**
+     * `inset`: a panel inside a section or a popout, its corners a container's.
+     * `bleed`: across a side panel's full width, between hairlines.
+     */
+    edge: { inset: 'rounded-chin', bleed: 'border-y' },
+    /**
+     * `text`: a passage, its line breaks kept. `writing`: a rewrite as it is
+     * written, held to 18rem and scrolled, holding whatever shows it (a diff,
+     * a paragraph, a line saying where it stands).
+     */
+    holds: {
+      text: 'whitespace-pre-wrap break-words',
+      writing: 'max-h-72 overflow-y-auto overscroll-contain',
+    },
+  },
+  defaultVariants: { edge: 'inset', holds: 'text' },
+})
+
+/**
+ * A passage of the skill's own text set apart, on the muted panel: the
+ * selection a tool works on, or the rewrite it writes. A passage is a
+ * paragraph; a rewrite being written is a block, so its diff can sit inside.
+ */
+export function Excerpt({
+  className,
+  edge,
+  holds,
+  ...props
+}: ComponentProps<'div'> & VariantProps<typeof excerptVariants>) {
+  const Tag = holds === 'writing' ? 'div' : 'p'
+  return <Tag className={cn(excerptVariants({ edge, holds }), className)} {...props} />
 }
 
 /** A monospace code span inside running text. */

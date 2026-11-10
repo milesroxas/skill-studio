@@ -35,6 +35,19 @@ const toggleVariants = cva(
         alone: 'focus-ring',
         group: 'focus-ring-segment',
       },
+      /** `mono` for a literal, such as a file's name. */
+      font: {
+        sans: '',
+        mono: 'font-mono',
+      },
+      /**
+       * The label's step on the type scale. `xs` for a picker over an object, as the
+       * files over an output are: the size of the meta beside it, not of a control.
+       */
+      text: {
+        sm: '',
+        xs: 'text-xs',
+      },
     },
     compoundVariants: [
       {
@@ -48,6 +61,8 @@ const toggleVariants = cva(
       variant: 'default',
       size: 'default',
       place: 'alone',
+      font: 'sans',
+      text: 'sm',
     },
   },
 )
@@ -56,12 +71,14 @@ function Toggle({
   className,
   variant,
   size,
+  font,
+  text,
   ...props
 }: React.ComponentProps<typeof TogglePrimitive.Root> & VariantProps<typeof toggleVariants>) {
   return (
     <TogglePrimitive.Root
       data-slot="toggle"
-      className={cn(toggleVariants({ variant, size, className }))}
+      className={cn(toggleVariants({ variant, size, font, text, className }))}
       {...props}
     />
   )
