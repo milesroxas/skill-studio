@@ -128,19 +128,22 @@ Jev checks every bullet that starts a line and has four words or more. It skips:
 
 ### How to write a good rule
 
-- **Say what to do.** "Lead with the change" beats "write clearly".
-- **Give the reason.** The agent applies a rule better when it knows why.
-- **Use numbers or absolutes.** "Under 120 words" or "never", not "reasonably".
-- **Cut what changes nothing.** Every extra line takes attention from your rules.
-- **One skill, one job.** A skill that covers everything is followed on nothing.
+- **Name the action, not the result.** "Open with what changed for the reader", not "write clearly".
+- **Give the reason in the same bullet.** It tells the agent where the rule stops. Jev grades one bullet at a time.
+- **Make it checkable.** A count, a limit, or always, never or only.
+- **Cut what the agent would do anyway.** Definitions and reminders to be correct change nothing.
+- **One skill, one job.** Rules for another job crowd out the ones this skill is for.
+- **Prove it with a case.** Change one rule, run the cases, compare the scores.
 
 ```
-Vague:
-- Try to keep notes reasonably short.
+Leaves the agent to guess:
+- Release notes should be clear and not too long.
 
-Exact, with its reason:
-- Keep the note under 120 words. A note longer than one screen is not read.
+Says what to do, and why:
+- Open each note with what changed for the user, in one sentence. Most readers stop after the first line.
 ```
+
+This approach to rules comes from Emil Kowalski's course [AI for Designers and Engineers](https://aiforui.dev), which teaches how to turn your taste into rules and skills an agent follows. Skill Studio was made possible by it.
 
 ### Write with AI
 

@@ -38,7 +38,7 @@ const commands = [
   { name: 'animate', description: 'Build an animation from scratch.' },
   { name: 'apple-design', description: "Apple's approach to motion." },
   { name: 'anthropic-skills:docs', description: 'Work with documents.' },
-  { name: 'emil-ui-polish', description: 'The details that make interfaces feel finished.' },
+  { name: 'ui-polish', description: 'A final look at spacing.' },
 ]
 
 describe('matchCommands', () => {
@@ -47,7 +47,7 @@ describe('matchCommands', () => {
       'animate',
       'anthropic-skills:docs',
       'apple-design',
-      'emil-ui-polish',
+      'ui-polish',
     ])
   })
 
@@ -58,7 +58,7 @@ describe('matchCommands', () => {
     ])
     expect(matchCommands(commands, 'docs').map((c) => c.name)).toEqual(['anthropic-skills:docs'])
     expect(matchCommands(commands, 'motion').map((c) => c.name)).toEqual(['apple-design'])
-    expect(matchCommands(commands, 'polish').map((c) => c.name)).toEqual(['emil-ui-polish'])
+    expect(matchCommands(commands, 'polish').map((c) => c.name)).toEqual(['ui-polish'])
   })
 
   it('drops what matches nowhere and stops at the limit', () => {

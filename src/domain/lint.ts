@@ -42,7 +42,7 @@ export interface RuleScene {
   band: SizeBand
 }
 
-/** Words that give the agent nothing to act on. */
+/** Words that leave the boundary to the agent's judgment. */
 const HEDGES = [
   'reasonably',
   'reasonable',
@@ -216,7 +216,7 @@ function principleFindings(text: string): Finding[] {
   // A word in quotes is mentioned, not used: a rule that bans "reasonably" is not hedging.
   const lower = rule.toLowerCase().replace(/["“”][^"“”]*["“”]/g, ' ')
 
-  // A hedge with no number or absolute anywhere in the rule leaves the agent nothing to act on.
+  // A hedge with no number or absolute anywhere in the rule leaves the boundary to the agent.
   // A bare rule with neither is left to the judge: code cannot tell a boundary from a habit.
   const hedge = firstMatch(HEDGE_PATTERNS, lower)
   if (hedge && !ANCHOR.test(text))
@@ -224,7 +224,7 @@ function principleFindings(text: string): Finding[] {
       found(
         'principle',
         'strict',
-        `“${hedge}” gives the agent nothing to act on. Put a number or an always or never in its place.`,
+        `“${hedge}” leaves the line to the agent’s judgment. Put a number or an always or never in its place.`,
         hedge,
       ),
     )
@@ -284,7 +284,7 @@ function sizeFindings(raw: string, text: string, words: number): Finding[] {
       found(
         'complexity',
         null,
-        `This rule holds ${clauses} conditions. Write them as a decision tree or numbered steps, which the agent walks the same way every run.`,
+        `This rule holds ${clauses} conditions. Split them into a decision tree or numbered steps, so the agent takes one branch at a time.`,
       ),
     )
 

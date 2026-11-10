@@ -48,7 +48,7 @@ const MAYBE_MESSAGE: Record<Judged, string> = {
   process: 'Jev is unsure this names a step the agent can take.',
   why: 'Jev is unsure the reason is here.',
   strict: 'Jev is unsure where the line is.',
-  earns: 'Jev is unsure this line changes what the agent does.',
+  earns: 'Jev is unsure the agent would act any differently without this line.',
   focused: 'Jev is unsure this belongs to the skill’s one aspect.',
 }
 
@@ -74,7 +74,7 @@ export function judgmentFindings(judgment: RuleJudgment): Finding[] {
       principle: null,
       lead: 'Keep each rule walkable.',
       message:
-        'Jev reads several conditions in one rule. A decision tree or numbered steps is walked the same way every run.',
+        'Jev reads several conditions in one rule. Split them into a decision tree or numbered steps, so the agent takes one branch at a time.',
       quote: null,
       source: judgment.complexity >= COMPLEX_FROM + 0.5 ? 'judge' : 'maybe',
     })

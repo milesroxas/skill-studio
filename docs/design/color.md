@@ -47,7 +47,7 @@ Each surface token has a `-foreground` partner (`--card-foreground`, `--popover-
 
 Ink is a blue-black, `#0A1020`: the light theme's text, its filled button and its sidebar. The dark theme's surfaces are near-black on the same hue, 267.3, at chroma 0.01, so they read as black with a cool cast. Only porcelain, the verdicts and yellow sit off that hue. The scrim's black and the artifact's white have no hue at all: neither is a surface of the app's own.
 
-## What background do I use?
+## Picking a background
 
 ```
 Is it the page or a column?
@@ -63,7 +63,7 @@ Is it the page or a column?
       └── Is it the sidebar? → bg-sidebar, and the element carries data-surface="ink"
 ```
 
-## What text color do I use?
+## Picking a text color
 
 ```
 Does the color state a verdict (pass, weak, fail)?
@@ -116,7 +116,7 @@ A diff (`.diff` and `.diff-lines` in `styles.css`) takes the same tints, but its
 
 - A region ends at a hairline: `border-b`, `border-r`, `divide-y`. The default border color is `--border`. Do not name it.
 - A control's edge is `border-input`. How focus shows is in [Focus](#focus) below.
-- One depth cue per surface. A floating sheet uses `shadow-popover`. A raised object uses `shadow-raised`. Never both, and never one of them on a bordered region. In the dark and ink scopes both collapse to a ring. A control is not a surface: a field (`FIELD_SURFACE`), an `outline` button or toggle, and a checkbox carry Tailwind's `shadow-xs` under their `border-input` edge, and the slider's thumb `shadow-sm`, set once in `ui/`. That hairline is part of the control's edge, not depth: never add it at a call site.
+- A surface gets one kind of depth, never two. A floating sheet uses `shadow-popover`. A raised object uses `shadow-raised`. Never both, and never one of them on a bordered region. In the dark and ink scopes both collapse to a ring. A control is not a surface: a field (`FIELD_SURFACE`), an `outline` button or toggle, and a checkbox carry Tailwind's `shadow-xs` under their `border-input` edge, and the slider's thumb `shadow-sm`, set once in `ui/`. That hairline is part of the control's edge, not depth: never add it at a call site.
 - Corners are a closed set, in `styles.css`:
   - `rounded-sm` 4px: a button, a field, a toggle, a checkbox, a chip, a list row or menu item.
   - `rounded-chin` 10px on top, 12.5px below: a container. A card, a popover, a menu, a dialog, an alert, the composer, a muted panel, a code block, a chat bubble, the welcome's picture sheet. Top and bottom stay 4 to 5.

@@ -78,6 +78,10 @@ Skill Studio runs coding agents and executes the code they write. Read [SECURITY
 
 The app has no account, analytics or crash reporting. [PRIVACY.md](PRIVACY.md) lists what it sends, to which service, and when.
 
+## Acknowledgments
+
+Skill Studio was made possible by Emil Kowalski's course [AI for Designers and Engineers](https://aiforui.dev). The course teaches designers and engineers to turn their taste into rules and skills an agent follows, and to review what comes back. Skill Studio's guide to writing a rule, and the way its own design docs are written for agents, come from what it teaches. If you want to write skills that hold your bar, take the course.
+
 ## License
 
 [MIT](LICENSE). The license is the only terms for using Skill Studio. The services it calls (Anthropic, OpenAI, Cursor, TypeSafe, GitHub) apply their own terms to what you send them.

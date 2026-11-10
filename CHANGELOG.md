@@ -6,6 +6,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+### Changed
+
+- The guide to writing a rule, beside the editor and in the guide, is reworded with new examples: name the action, give the reason in the same bullet, make it checkable, cut what the agent would do anyway, one skill per job, prove it with a case. The checks and scores are unchanged.
+- The README and the guide credit Emil Kowalski's course [AI for Designers and Engineers](https://aiforui.dev), which Skill Studio's approach to rules comes from.
+
 ## [0.5.1] - 2026-11-10
 
 ### Changed

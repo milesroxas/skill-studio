@@ -4,11 +4,11 @@
 
 ## Variants
 
-These exist. Nothing else does: an unlisted variant is a bug, not an option.
+These are all the variants there are. A variant missing from this table is missing from the component, so add it there before you use it.
 
 | Variant | Use | Count |
 | --- | --- | --- |
-| `default` | the single most important action of a screen or dialog: ink fill | one per view |
+| `default` | the main action of a screen or dialog: ink fill | one per view |
 | `outline` | every other action. **This is the one to reach for first.** | any |
 | `ghost` | an action beside other buttons in a toolbar or header | any |
 | `signal` | the next step of the loop, in the top bar only: yellow fill. Either "Next: …" or Run, never both. | one per window |
@@ -21,7 +21,7 @@ These exist. Nothing else does: an unlisted variant is a bug, not an option.
 | `destructive-ghost` | a destructive action beside other buttons | rare |
 | `destructive-muted` | a delete icon a row repeats: quiet until pointed at | any |
 
-`default` is the cva default, so a bare `<Button>` is the filled one. Most call sites name `outline` or `ghost`, and a few pick their variant in a ternary. If a screen has two filled buttons, it has no hierarchy: make one `outline`.
+`default` is the cva default, so a bare `<Button>` is the filled one. Most call sites name `outline` or `ghost`, and a few pick their variant in a ternary. Two filled buttons on one screen compete for the first look: make one `outline`.
 
 `CornerButton` (`components/CornerButton.tsx`) is `ghost` at `icon-xs`, in `muted-foreground` at 80% until pointed at, with a 36px hit area around its 24px: the action in a field's corner. Where it goes is in [forms.md](forms.md).
 

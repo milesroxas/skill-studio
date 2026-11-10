@@ -21,7 +21,7 @@ Read [docs/design/README.md](docs/design/README.md) first, then the one topic fi
 
 If the design docs and the code disagree, the code is what runs: say so in your report and fix the doc in the same change. Do not follow a doc into a variant that is not there.
 
-If a task needs a color, a size, a component or a pattern the docs do not cover, stop and ask. Do not guess: a guess looks exactly like a decision to the next reader.
+If a task needs a color, a size, a component or a pattern the docs do not cover, stop and ask. Do not guess: the next reader cannot tell your guess from a choice someone made on purpose.
 
 ## Also
 

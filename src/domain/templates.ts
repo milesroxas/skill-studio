@@ -61,37 +61,42 @@ const GUIDE = `<!-- Replace the example rules with yours and keep the shape: ${R
 const PRINCIPLES = ['process', 'why', 'strict', 'earns', 'focused', 'tested'] as const
 export type Principle = (typeof PRINCIPLES)[number]
 
-/** How to write a rule an agent follows: the advice beside the editor, what the assistant writes by, and what Auto refine checks. */
+/**
+ * How to write a rule an agent follows: the advice beside the editor, what the
+ * assistant writes by, and what Auto refine checks. The approach comes from
+ * Emil Kowalski's course AI for Designers and Engineers (https://aiforui.dev),
+ * written here in Skill Studio's own terms.
+ */
 export const RULE_GUIDE: ReadonlyArray<{ id: Principle; lead: string; text: string }> = [
   {
     id: 'process',
-    lead: 'Encode process, not outcome.',
-    text: '“Lead with the change for the reader” beats “write clearly”. The agent can walk a step; it cannot measure an adjective.',
+    lead: 'Name the action, not the result.',
+    text: '“Open with what changed for the reader”, not “write clearly”. An action can be carried out as written; an adjective has to be guessed at.',
   },
   {
     id: 'why',
-    lead: 'Write the why in the same bullet.',
-    text: 'A rule with its reason generalises to cases you did not write down. A bare rule is applied blindly.',
+    lead: 'Give the reason in the same bullet.',
+    text: 'The reason tells the agent where the rule stops and what to do in a case you did not list. Jev grades one bullet at a time, so a reason two lines down does not count.',
   },
   {
     id: 'strict',
-    lead: 'Be numeric or absolute.',
-    text: '“20 words or fewer”, “never”, “always”. “Reasonably” and “where appropriate” change nothing.',
+    lead: 'Make it checkable.',
+    text: 'A count, a limit, or always, never or only. If you could not say whether a run met the rule, the agent cannot either.',
   },
   {
     id: 'earns',
-    lead: 'Every line must change what the agent does.',
-    text: 'Cut definitions of things it knows. Attention spent there is taken from your rules.',
+    lead: 'Cut what the agent would do anyway.',
+    text: 'Definitions of terms it knows and reminders to be correct change nothing, and they draw attention from the lines that do.',
   },
   {
     id: 'focused',
-    lead: 'One skill, one aspect.',
-    text: 'Writing, code, workflow or design. A skill that covers everything is followed on nothing.',
+    lead: 'One skill, one job.',
+    text: 'Writing, code, workflow or design. Rules for another job crowd out the ones this skill is for.',
   },
   {
     id: 'tested',
-    lead: 'Test it by running it.',
-    text: 'A rule is a hypothesis until a run shows it held. Change one rule, run again, compare.',
+    lead: 'Prove it with a case.',
+    text: 'Change one rule, run the cases, compare the scores. Until a run shows the rule held, it is a guess.',
   },
 ]
 
@@ -143,14 +148,14 @@ The user asks for prose that other people will read: a release note, a docs page
 
 1. Name the reader and the one thing they must be able to do after reading.
 2. Draft the shortest text that gets them there.
-3. Cut every sentence that does not change what the reader does.
+3. Cut every sentence the reader could skip and still do the thing.
 4. Read it once as the reader. Fix the first place you had to reread.
 
 ## Rules
 
 - Lead with the outcome for the reader, never with background. Readers decide on the first line whether to keep reading.
 - One idea per sentence, 20 words or fewer. A longer sentence buries its verb and gets skimmed.
-- Never use hedge words such as "reasonably", "where appropriate" or "try to". They give the reader nothing to act on.
+- Never use hedge words such as "reasonably", "where appropriate" or "try to". They leave the reader to guess where the line is.
 - Name the file, command or setting the reader has to touch, spelled exactly as it is. A paraphrase sends them searching.
 - Numbers go on their own line or in a table, never inside a sentence. A number mid-sentence is missed on a skim.
 - No em dashes and no parentheticals. Split the thought into two sentences instead.
@@ -373,7 +378,7 @@ The user asks for a page, a screen, a component or a prototype in HTML and CSS.
 - Define colours as variables on :root and flip them under prefers-color-scheme: dark. Per-element dark overrides drift apart.
 - Animate only transform and opacity, 300ms or less, with an ease-out curve. Anything else drops frames or feels slow.
 - Derive a nested radius as the outer radius minus the padding. A copied radius pinches the corner gap.
-- Signal depth with a layered translucent shadow, and keep solid borders for dividers and inputs. A border tuned to one background looks wrong on every other.
+- Raise a card or a popover with a shadow token, never a solid border. Borders are for dividers and inputs, so a bordered card reads as part of the page.
 - Fit the layout to a 360px wide screen with a 16px side gutter and no horizontal scroll. Most first views are on a phone.
 `,
     cases: [
