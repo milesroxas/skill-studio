@@ -20,7 +20,16 @@ It is built for outputs that are a matter of judgement, such as writing, HTML an
 
 ## Install
 
-Download the package for macOS, Windows or Linux from [Releases](https://github.com/milesroxas/skill-studio/releases). [SECURITY.md](SECURITY.md#checking-a-download) says how to check a download.
+Download the newest version for your computer:
+
+- **macOS, Apple silicon (M1 and later):** [skill-studio-mac-arm64.dmg](https://github.com/milesroxas/skill-studio/releases/latest/download/skill-studio-mac-arm64.dmg)
+- **macOS, Intel:** [skill-studio-mac-x64.dmg](https://github.com/milesroxas/skill-studio/releases/latest/download/skill-studio-mac-x64.dmg)
+- **Windows (64-bit):** [skill-studio-win-x64.exe](https://github.com/milesroxas/skill-studio/releases/latest/download/skill-studio-win-x64.exe)
+- **Linux (x86-64):** [skill-studio-linux-x86_64.AppImage](https://github.com/milesroxas/skill-studio/releases/latest/download/skill-studio-linux-x86_64.AppImage)
+
+On macOS, open the `.dmg` and drag Skill Studio to Applications. The Windows installer is not signed, so Windows may warn before it runs: choose **More info**, then **Run anyway**. On Linux, make the AppImage executable (`chmod +x skill-studio-linux-x86_64.AppImage`) and run it.
+
+The app updates itself after that. Every version is on [Releases](https://github.com/milesroxas/skill-studio/releases), and [SECURITY.md](SECURITY.md#checking-a-download) says how to check a download.
 
 You also need:
 

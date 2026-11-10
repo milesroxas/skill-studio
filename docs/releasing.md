@@ -63,7 +63,7 @@ To check the limit, `gh api repos/milesroxas/skill-studio/environments/release/d
 
 A packaged copy updates itself from these releases through [electron-updater](https://www.electron.build/auto-update). It reads the release's `latest*.yml`, so those files and the `.zip` (macOS), `.exe` (Windows) and `.AppImage` (Linux) must stay in every release under the names electron-builder gave them. The update files name each download and its SHA-512; the updater never reads a version from a file name.
 
-A download's name carries no version (`artifactName` in `electron-builder.yml`), so it is the same in every release, and `releases/latest/download/<name>` always fetches the newest one. The website links there:
+A download's name carries no version (`artifactName` in `electron-builder.yml`), so it is the same in every release, and `releases/latest/download/<name>` always fetches the newest one. The website and the README's Install section link there:
 
 - `skill-studio-mac-arm64.dmg` and `skill-studio-mac-x64.dmg`
 - `skill-studio-win-x64.exe`
