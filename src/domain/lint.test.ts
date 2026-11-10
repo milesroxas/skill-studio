@@ -120,7 +120,7 @@ describe('lintScene', () => {
     for (const t of TEMPLATES)
       expect(lintScene(scene(templateBody(t, 'release-notes'))), t.id).toEqual([])
     expect(EXAMPLE_KINDS.length).toBeGreaterThan(0)
-    const rule = SNIPPETS.find((s) => s.id === 'rule')?.text.replace('|', '') ?? ''
+    const rule = SNIPPETS.find((s) => s.id === 'rule')?.text.replaceAll('|', '') ?? ''
     expect(lintScene(scene(rule))).toEqual([])
     const practice = templateBody(PRACTICE, PRACTICE.name)
     expect(lintScene(scene(practice)).length).toBeGreaterThan(0)

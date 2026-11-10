@@ -124,6 +124,9 @@ function without(text: string, pattern: RegExp): string {
 /** `text` with its HTML comments removed. */
 export const stripComments = (text: string): string => without(text, /<!--[\s\S]*?-->/g)
 
+/** `text` with its HTML tags removed, `<b>` and `</b>` alike. */
+export const stripTags = (text: string): string => without(text, /<[^>]*>/g)
+
 /** The copy a piece is judged on: front matter and HTML comments removed. */
 export const copyOf = (raw: string): string =>
   without(readFrontMatter(raw).text, /<!--[\s\S]*?-->\s*/g).trim()

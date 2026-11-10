@@ -5,7 +5,7 @@
  */
 import { join } from 'node:path'
 import { isJevFormat } from '@domain/image.ts'
-import { stripComments } from '@domain/text.ts'
+import { stripComments, stripTags } from '@domain/text.ts'
 import { noul } from '@typesafe-ai/sdk'
 import { type Readable, readForJev } from '../images.ts'
 import type { JevState } from '../jev.ts'
@@ -46,7 +46,7 @@ function tagsOf(html: string): Tag[] {
 /** Text of the first `<title>`, tags and surrounding space removed; null without one. */
 const titleText = (html: string): string | null => {
   const match = /<title\b[^>]*>([\s\S]*?)<\/title\s*>/i.exec(stripComments(html))
-  return match ? match[1].replace(/<[^>]*>/g, '').trim() : null
+  return match ? stripTags(match[1]).trim() : null
 }
 
 /**

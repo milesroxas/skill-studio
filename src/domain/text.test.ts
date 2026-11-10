@@ -13,6 +13,7 @@ import {
   slug,
   stripComments,
   stripFrontMatter,
+  stripTags,
   titleOf,
   tokens,
   unitsOf,
@@ -100,6 +101,12 @@ describe('stripComments', () => {
   it('leaves no comment that removing another one assembled', () => {
     expect(stripComments('<!-<!-- a -->- hidden -->shown')).toBe('shown')
     expect(copyOf('<!-<!-- a -->- hidden -->\nShown.')).toBe('Shown.')
+  })
+})
+
+describe('stripTags', () => {
+  it('removes every tag and keeps the text between them', () => {
+    expect(stripTags('<b>bold</b> and <i class="x">italic</i>')).toBe('bold and italic')
   })
 })
 
