@@ -23,7 +23,7 @@ The version follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html): 
 
 Everything merged since v0.4.0.
 
-- [ ] A Cursor agent runs without the app's keys, as a Claude Code agent does.
+- [x] A Cursor agent runs without the app's keys, as a Claude Code agent does. `13f7e7c`
 
 ## Planned
 
