@@ -101,6 +101,8 @@ export interface SkillDrafts {
    * for a case not saved yet), so a save over a case changed since is refused.
    */
   caseBases?: Record<string, string | null>
+  /** The scoring edited on Results and not saved yet: the whole scoring in hand. */
+  scoring?: BenchConfig | null
   updatedAt: string | null
 }
 

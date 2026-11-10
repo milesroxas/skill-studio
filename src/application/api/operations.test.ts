@@ -75,6 +75,14 @@ describe('parsers', () => {
     }).drafts
     // A base is kept only beside a draft it dates.
     expect(based.caseBases).toEqual({ intro: '2026-11-09T10:00:00.000Z' })
+    expect(drafts.scoring).toBeNull()
+    // Unsaved scoring is read as bench.json is: a value of the wrong kind takes its default.
+    const scored = parsers['skill.saveDrafts']({
+      skill: '/s',
+      drafts: { scoring: { packs: ['generic'], yes: 'high', weights: { adherence: 40 } } },
+    }).drafts
+    expect(scored.scoring?.weights).toEqual({ adherence: 40 })
+    expect(typeof scored.scoring?.yes).not.toBe('string')
     expect(() =>
       parsers['skill.saveDrafts']({ drafts: { files: { '../a': { text: 'x' } } } }),
     ).toThrow('Bad path.')

@@ -6,15 +6,22 @@
  * write that fails keeps what it carried for the next change or flush, and an
  * edit typed before the stored drafts are read waits for them, so it never
  * replaces them. A read that fails is tried again before anything is stored
- * over what it could not read.
+ * over what it could not read. Scoring edited on Results is kept the same way,
+ * whole, until it is saved or set back.
  *
  * A save that ends after another skill was opened still clears its draft, in
  * the stored drafts of the skill it saved: left there, it would be saved twice.
- * Each case draft also keeps, in this window, when its case was saved as the
+ * Each case draft also keeps, stored with it, when its case was saved as the
  * draft began, which the save sends so an edit made outside is never written
  * over unseen.
  */
-import { type CaseDraft, emptyDrafts, type FileDraft, type SkillDrafts } from '@domain/schemas.ts'
+import {
+  type BenchConfig,
+  type CaseDraft,
+  emptyDrafts,
+  type FileDraft,
+  type SkillDrafts,
+} from '@domain/schemas.ts'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { api } from './api.ts'
 import {
@@ -52,7 +59,11 @@ export interface Drafts {
    * stored before bases were kept has none until it is shown.
    */
   caseBases: CaseBases
+  /** The scoring edited and not saved; null when it says what is saved. */
+  scoring: BenchConfig | null
   setFile: (path: string, draft: FileDraft | null) => void
+  /** Keep the scoring in hand as a draft, or clear it (null) once it is saved or set back. */
+  setScoring: (scoring: BenchConfig | null) => void
   /**
    * Set or clear a case's draft. `base` is when the case was saved, given as a
    * draft begins; clearing the draft clears it.
@@ -263,6 +274,10 @@ export function useDrafts(skillPath: string): Drafts {
     },
     [change, rebase],
   )
+  const setScoring = useCallback(
+    (scoring: BenchConfig | null) => change((all) => ({ ...all, scoring })),
+    [change],
+  )
   const baseCase = useCallback(
     (key: string, savedAt: string | null) =>
       rebase(skill.current, (held) => withBase(held, key, savedAt)),
@@ -300,6 +315,7 @@ export function useDrafts(skillPath: string): Drafts {
 
   const { files, cases } = drafts
   const caseBases = drafts.caseBases ?? NO_BASES
+  const scoring = drafts.scoring ?? null
   return useMemo(
     () => ({
       files,
@@ -307,7 +323,9 @@ export function useDrafts(skillPath: string): Drafts {
       status,
       storedAt,
       caseBases,
+      scoring,
       setFile,
+      setScoring,
       setCase,
       baseCase,
       savedFile,
@@ -321,7 +339,9 @@ export function useDrafts(skillPath: string): Drafts {
       status,
       storedAt,
       caseBases,
+      scoring,
       setFile,
+      setScoring,
       setCase,
       baseCase,
       savedFile,

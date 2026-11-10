@@ -66,7 +66,7 @@ import type { Ctx } from './ctx.ts'
 import { orphanCases, unsavedCases } from './draft-edits.ts'
 import { useDrafts } from './drafts.ts'
 import { SCREEN_HELP } from './help.ts'
-import { back, forward, navigate, travel, usePaneScroll, useRoute } from './history.ts'
+import { back, forward, navigate, usePaneScroll, useRoute } from './history.ts'
 import { useNotice } from './hooks.ts'
 import { shortcut } from './keys.ts'
 import { casePair, casesRun, outputsOf, scoringDirty, sideName, versionScore } from './model.ts'
@@ -80,6 +80,7 @@ import {
   useStartPractice,
 } from './practice.ts'
 import { savePreference, setPreferences, usePreferences } from './preferences.ts'
+import { useScoringDraft } from './scoring-draft.ts'
 import { Cases } from './screens/Cases.tsx'
 import { LibraryScreen } from './screens/Library.tsx'
 import { Results } from './screens/Results.tsx'
@@ -131,7 +132,7 @@ export function App() {
   /**
    * The route in view. Back or Forward to a place seen in another skill waits
    * on the place the reader is on until that skill is open, so no screen shows
-   * one skill's place with another's data, even while a question is asked.
+   * one skill's place with another's data.
    */
   const shown = useRef(asked)
   const crossing = asked.arrival === 'return' && Boolean(asked.skill) && asked.skill !== skillPath
@@ -180,30 +181,16 @@ export function App() {
     [files.saved, drafts.files],
   )
 
-  /** Scoring, on Results, has changes that are not saved. Read when a skill is opened, so it is a ref. */
-  const unsavedScoring = useRef(false)
-  /** Scoring edits live in this window alone, and another skill's state replaces them: ask first. */
-  const leaveScoring = useCallback(
-    async (path: string): Promise<boolean> =>
-      path === currentSkill() ||
-      !unsavedScoring.current ||
-      confirm({
-        title: 'Discard your scoring changes?',
-        description: 'The scoring of the open skill has changes that are not saved.',
-        action: 'Discard',
-        destructive: true,
-      }),
-    [confirm],
-  )
+  // Unsaved scoring is a draft like a file's: stored as it changes, and given back when the skill opens.
+  useScoringDraft({ skillPath, state, config, setConfig, drafts })
   const openSkill = useCallback(
     async (path: string, screen = 'home'): Promise<boolean> => {
-      if (!(await leaveScoring(path))) return false
       enter(path)
       // The entry names its skill itself: the open one changes only once this renders.
       navigate(screen, {}, { skill: path })
       return true
     },
-    [leaveScoring, enter],
+    [enter],
   )
   const [starting, startPractice] = useStartPractice(openSkill, report)
   // Starting over lands on the guide's first step, as opening the practice skill does.
@@ -226,24 +213,11 @@ export function App() {
   const revealSkill = api.revealSkill
   const reveal = revealSkill ? (path: string) => void revealSkill(path).catch(report) : undefined
   // Back and Forward return to the skill a place was seen in. An entry made with
-  // no skill open keeps the one in hand. Leaving unsaved scoring asks first, as
-  // opening a skill does; a no goes back to the entry the reader was on, however
-  // many entries the step crossed.
+  // no skill open keeps the one in hand.
   useEffect(() => {
     const skill = asked.skill
-    if (asked.arrival !== 'return' || !skill || skill === currentSkill()) return
-    let live = true
-    void leaveScoring(skill).then((leave) => {
-      if (!live) return
-      if (leave) return enter(skill)
-      // Never a step of nothing: going by 0 would load the page again.
-      const steps = shown.current.index - asked.index
-      if (steps) travel(steps)
-    })
-    return () => {
-      live = false
-    }
-  }, [asked, leaveScoring, enter])
+    if (asked.arrival === 'return' && skill && skill !== currentSkill()) enter(skill)
+  }, [asked, enter])
 
   const outputs = useMemo(() => (state ? outputsOf(state) : []), [state])
   // Scores every output, so it must not rerun on each keystroke of a draft.
@@ -361,10 +335,8 @@ export function App() {
     [state, drafts.cases],
   )
   const status: PlaceStatus = { meta: {}, dot: {} }
-  unsavedScoring.current = false
   if (loaded && current) {
     const dirty = scoringDirty(loaded.config, loaded.state.savedConfig)
-    unsavedScoring.current = dirty
     status.meta = {
       cases: String(loaded.state.cases.length),
       // How many cases wait for a pick between their two versions.

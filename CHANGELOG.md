@@ -34,7 +34,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - A full disk or a deleted sample folder during a run took the backend down with every job. The job log says the transcript could not be written.
 - Saving a file put the old text back in the editor for a moment, and what was typed then could be lost. What you type while it saves is kept.
 - Opening another skill while the first was still loading could show, or save, the first skill's scoring in the second.
-- Back and Forward discarded unsaved scoring without asking.
+- Unsaved scoring was lost on a reload or a quit, and Back and Forward discarded it without asking. It is kept with the skill's drafts, as unsaved text is, until you save or discard it, so opening another skill no longer asks first.
 - One unreadable case, or an odd file an agent left behind, stopped the skill from opening.
 - Files and outputs with spaces or accents in their names could not be opened, saved or restored.
 - Saving a case that changed on disk since its draft began deleted its checks or wrote over the outside edit. Cases says it changed on disk, as the Skill screen does for files, and you choose which to keep, after a restart too.

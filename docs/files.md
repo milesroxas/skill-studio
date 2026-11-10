@@ -94,7 +94,7 @@ A run's configuration says which skill the agent saw:
 | --- | --- |
 | `library.json` | The workspace folders the Library scans, skills marked as someone else's, and skills opened recently |
 | `preferences.json` | `theme`, `motion`, `editorMode`, `welcomed`, `hints`, `hintsSeen`, `aiProvider`, `aiModel`, `aiEffort`, `updates` |
-| `drafts/` | Unsaved edits to files and cases, with when each drafted case was saved as its draft began, so a save over a case changed since is refused |
+| `drafts/` | Unsaved edits to files, cases and scoring, with when each drafted case was saved as its draft began, so a save over a case changed since is refused |
 | `practice/` | The walkthrough's skill, and `seen.json`: the walkthrough steps that only ask you to look at a screen, once you have |
 | `chat.json`, `ai-usage.json` | The Assistant's conversation and its usage log |
 | `claude-commands.json` | The skills Claude Code can invoke, for the side panel's slash menu, with the modification times of the folders they were read from |

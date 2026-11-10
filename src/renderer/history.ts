@@ -80,8 +80,6 @@ export function navigate(
 
 export const back = (): void => window.history.back()
 export const forward = (): void => window.history.forward()
-/** Step `delta` entries through the history at once: back when negative. */
-export const travel = (delta: number): void => window.history.go(delta)
 
 export function useRoute(): [Route, typeof navigate] {
   return [useStore(route), navigate]

@@ -39,6 +39,14 @@ describe('drafts', () => {
     expect(readDrafts('/skills/bases').caseBases).toEqual({ intro: '2026-11-09T10:00:00.000Z' })
   })
 
+  it('keeps unsaved scoring, on its own too', () => {
+    const scoring = { packs: ['generic'], rules: null, weights: { adherence: 50 }, yes: 0.6 }
+    writeDrafts('/skills/scoring', { ...emptyDrafts(), scoring })
+    expect(readDrafts('/skills/scoring').scoring).toEqual(scoring)
+    writeDrafts('/skills/scoring', { ...emptyDrafts(), scoring: null })
+    expect(readDrafts('/skills/scoring')).toEqual(emptyDrafts())
+  })
+
   it('stamps when the drafts were stored', () => {
     const updatedAt = writeDrafts('/skills/c', {
       ...emptyDrafts(),

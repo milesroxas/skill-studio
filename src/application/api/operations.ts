@@ -249,7 +249,9 @@ function draftsOf(value: unknown): SkillDrafts {
       ([key, at]) => Object.hasOwn(cases, key) && (at === null || typeof at === 'string'),
     ),
   ) as Record<string, string | null>
-  return { files, cases, caseBases, updatedAt: null }
+  // Scoring is checked as bench.json is: a value of the wrong kind takes its default.
+  const scoring = input.scoring == null ? null : benchOf(input.scoring)
+  return { files, cases, caseBases, scoring, updatedAt: null }
 }
 
 function generateInputOf(raw: Raw): GenerateInput {

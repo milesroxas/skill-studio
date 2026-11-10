@@ -275,7 +275,7 @@ Most skills never need this. **Scoring**, folded at the foot of All cases, sets 
 - **Settings of its kind:** the numbers a kind of skill scores by, when it has any.
 - **Rules:** the bullets read from SKILL.md, in the order the Skill screen numbers them. A `rules` list in `bench.json` replaces them.
 
-Click **Save scoring**, or **Discard**. Opening another skill with scoring changes unsaved asks first.
+Click **Save scoring**, or **Discard**. Until then your changes are kept as unsaved text is: a reload, a quit or another skill loses nothing.
 
 ### Then change the skill
 
