@@ -241,7 +241,9 @@ describe('exec, reading output', () => {
 describe('exec, with a shell command line', () => {
   it('runs the line in a shell', async () => {
     const result = await exec('echo one && echo two', [], { ...here, shell: true })
-    expect(result.stdout.split(/\r?\n/).filter(Boolean)).toEqual(['one', 'two'])
+    // cmd.exe echoes the space before `&&` too.
+    const lines = result.stdout.split(/\r?\n/).map((line) => line.trim())
+    expect(lines.filter(Boolean)).toEqual(['one', 'two'])
     expect(result.code).toBe(0)
   })
 
@@ -471,12 +473,16 @@ describe('resolveCommand', () => {
   })
   afterEach(() => rmSync(bin, { recursive: true, force: true }))
 
-  it('finds a command in a PATH folder and gives its full path', () => {
-    const tool = join(bin, 'st-tool')
-    writeFileSync(tool, '#!/bin/sh\n')
-    chmodSync(tool, 0o755)
-    expect(resolveCommand('st-tool', { PATH: `/nowhere:${bin}` }, 'linux')).toBe(tool)
-  })
+  // A Windows temp path holds a drive's colon, which a POSIX PATH would split; the PATHEXT test below covers Windows.
+  it.skipIf(process.platform === 'win32')(
+    'finds a command in a PATH folder and gives its full path',
+    () => {
+      const tool = join(bin, 'st-tool')
+      writeFileSync(tool, '#!/bin/sh\n')
+      chmodSync(tool, 0o755)
+      expect(resolveCommand('st-tool', { PATH: `/nowhere:${bin}` }, 'linux')).toBe(tool)
+    },
+  )
 
   it('finds nothing for a name no folder holds, or with no PATH at all', () => {
     expect(resolveCommand('st-tool', { PATH: bin }, 'linux')).toBeNull()
@@ -492,7 +498,7 @@ describe('resolveCommand', () => {
     expect(resolveCommand('st-dir', env, 'linux')).toBeNull()
   })
 
-  it('checks a name with a folder in it as given', () => {
+  it.skipIf(process.platform === 'win32')('checks a name with a folder in it as given', () => {
     const tool = join(bin, 'st-tool')
     writeFileSync(tool, '#!/bin/sh\n')
     chmodSync(tool, 0o755)

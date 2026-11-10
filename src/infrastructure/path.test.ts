@@ -1,17 +1,18 @@
 import { chmodSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { delimiter, join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { installDirs, loginShellPath, markedPath, mergePath, nvmBinDirs } from './path.ts'
 
 describe('installDirs', () => {
   it("lists the installers' folders, each Node of nvm newest first among them", () => {
+    // Folders under the home are joined the platform's way; the two Homebrew folders are fixed.
     expect(installDirs('/Users/a', ['/Users/a/.nvm/versions/node/v22.0.0/bin'])).toEqual([
-      '/Users/a/.local/bin',
+      join('/Users/a', '.local', 'bin'),
       '/Users/a/.nvm/versions/node/v22.0.0/bin',
-      '/Users/a/.volta/bin',
-      '/Users/a/.bun/bin',
-      '/Users/a/.npm-global/bin',
+      join('/Users/a', '.volta', 'bin'),
+      join('/Users/a', '.bun', 'bin'),
+      join('/Users/a', '.npm-global', 'bin'),
       '/opt/homebrew/bin',
       '/usr/local/bin',
     ])
@@ -45,11 +46,10 @@ describe('nvmBinDirs', () => {
 
 describe('mergePath', () => {
   it('adds only the folders the PATH lacks, in order', () => {
+    const path = (...dirs: string[]) => dirs.join(delimiter)
     expect(
-      mergePath('/usr/bin:/bin', ['/opt/homebrew/bin', '/usr/bin'], installDirs('/Users/a', [])),
-    ).toBe(
-      '/usr/bin:/bin:/opt/homebrew/bin:/Users/a/.local/bin:/Users/a/.volta/bin:/Users/a/.bun/bin:/Users/a/.npm-global/bin:/usr/local/bin',
-    )
+      mergePath(path('/usr/bin', '/bin'), ['/opt/homebrew/bin', '/usr/bin'], ['/a', '/bin']),
+    ).toBe(path('/usr/bin', '/bin', '/opt/homebrew/bin', '/a'))
   })
 
   it('starts from nothing', () => {

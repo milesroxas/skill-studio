@@ -14,7 +14,7 @@ import {
   writeFileSync,
 } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { dirname, join, relative } from 'node:path'
+import { basename, dirname, join, relative, sep } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { failRenames, patchFs } from './__fixtures__/fs.ts'
 import {
@@ -196,7 +196,7 @@ describe("what an agent's copy holds, and the hash covers", () => {
   const everything = (root: string): string[] =>
     (readdirSync(root, { recursive: true, withFileTypes: true }) as Dirent[])
       .filter((entry) => !entry.isDirectory())
-      .map((entry) => relative(root, join(entry.parentPath, entry.name)))
+      .map((entry) => relative(root, join(entry.parentPath, entry.name)).split(sep).join('/'))
       .sort()
 
   it('leaves out what a crash or a failed restore left: a hidden temporary file and a .restore folder', () => {
@@ -303,6 +303,6 @@ describe('skillInfo', () => {
   it('names a skill by its folder when the front matter gives no name, or an empty one', () => {
     writeFileSync(join(dir, 'SKILL.md'), '---\nname: ""\ndescription: Does a thing.\n---\nBody')
     expect(skillInfo(dir)).toMatchObject({ description: 'Does a thing.' })
-    expect(skillInfo(dir).name).toBe(skillInfo(dir).path.split('/').at(-1))
+    expect(skillInfo(dir).name).toBe(basename(skillInfo(dir).path))
   })
 })

@@ -118,7 +118,9 @@ describe('createSkill', () => {
     expect(readFileSync(join(dir, 'SKILL.md'), 'utf8')).toMatch('description: "Notes: short."')
     const link = join(home, '.claude/skills/notes')
     expect(lstatSync(link).isSymbolicLink()).toBe(true)
-    expect(readlinkSync(link)).toBe('../../.agents/skills/notes')
+    expect(realpathSync(link)).toBe(realpathSync(dir))
+    // A Windows junction holds an absolute target; elsewhere the link is relative, so the store can move.
+    if (process.platform !== 'win32') expect(readlinkSync(link)).toBe('../../.agents/skills/notes')
     expect(rowOf('notes').installs).toEqual({ claude: 'link', cursor: null, codex: null })
   })
 
