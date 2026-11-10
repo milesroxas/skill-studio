@@ -150,26 +150,40 @@ export function replyParts(reply: string, { partial = false } = {}): ReplyPart[]
       prose.push(lines[i])
       continue
     }
-    const [, kind, rest] = opening
-    const end = closingOf(lines, i, kind)
-    const body = lines.slice(i + 1, end < 0 ? undefined : end)
-    // A file closes at its last line of tildes, and while the reply is arriving the last one so
-    // far may be a fence inside the file: the last file block is on its way until the reply ends.
-    const arriving = kind === 'file' && !lines.some((line, k) => k > i && OPENING.test(line))
-    if (partial && (end < 0 || arriving)) {
+    const { part, body, end } = blockAt(lines, i, opening, partial)
+    if (!part) prose.push('```', ...body, '```')
+    else {
       flush()
-      parts.push({ kind: 'writing', label: writingLabel(kind, rest) })
-      return parts
+      parts.push(part)
+      if (part.kind === 'writing') return parts
     }
-    const change = end < 0 ? null : changeOf(kind, rest, body)
-    if (change) {
-      flush()
-      parts.push({ kind: 'change', change })
-    } else prose.push('```', ...body, '```')
     i = end < 0 ? lines.length : end
   }
   flush()
   return parts
+}
+
+/** A block in a reply as `replyParts` reads it. */
+interface Block {
+  /** The change it holds, or the change on its way; null when it stays in the prose as code. */
+  part: ReplyPart | null
+  body: string[]
+  /** The line that closes it, -1 when none does. */
+  end: number
+}
+
+/** The block that `opening`, the line at `at`, opens. */
+function blockAt(lines: string[], at: number, opening: RegExpExecArray, partial: boolean): Block {
+  const [, kind, rest] = opening
+  const end = closingOf(lines, at, kind)
+  const body = lines.slice(at + 1, end < 0 ? undefined : end)
+  // A file closes at its last line of tildes, and while the reply is arriving the last one so
+  // far may be a fence inside the file: the last file block is on its way until the reply ends.
+  const arriving = kind === 'file' && !lines.some((line, k) => k > at && OPENING.test(line))
+  if (partial && (end < 0 || arriving))
+    return { part: { kind: 'writing', label: writingLabel(kind, rest) }, body, end }
+  const change = end < 0 ? null : changeOf(kind, rest, body)
+  return { part: change && { kind: 'change', change }, body, end }
 }
 
 /** The brief that teaches the model the blocks, from the same fence the parser reads. */

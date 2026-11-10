@@ -80,14 +80,26 @@ export function scoreResult(
     verdicts.push(...scored.verdicts)
     certainties.push(...pack.certainties(answers))
   }
-  const present = Object.entries(raw).filter(
+  return { scores: scoresOf(raw, config, empty), flags, verdicts, confidence: mean(certainties) }
+}
+
+/**
+ * Each layer's share as a score out of 100, and the total: the layers with
+ * points, weighted by them. An output with nothing in it totals 0.
+ */
+function scoresOf(
+  shares: Record<string, number | null>,
+  config: BenchConfig,
+  empty: boolean,
+): Scores {
+  const present = Object.entries(shares).filter(
     ([layer, v]) => v !== null && (config.weights[layer] ?? 0) > 0,
   ) as Array<[string, number]>
   const total = weighted(present.map(([layer, v]) => [v, config.weights[layer]]))
   const scores: Scores = { total: empty ? 0 : total === null ? null : Math.round(total * 100) }
-  for (const [layer, v] of Object.entries(raw))
+  for (const [layer, v] of Object.entries(shares))
     scores[layer] = v === null ? null : Math.round(v * 100)
-  return { scores, flags, verdicts, confidence: mean(certainties) }
+  return scores
 }
 
 /** The active packs that mark the case's checks; empty when no pack reads them. */

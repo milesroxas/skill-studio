@@ -106,24 +106,38 @@ const strings = (value: unknown): string[] =>
 export function benchOf(raw: unknown): BenchConfig {
   const source = isObject(raw) ? raw : {}
   const rules = strings(source.rules)
-  const weights: Record<string, number> = {}
-  if (isObject(source.weights))
-    for (const [layer, points] of Object.entries(source.weights))
-      if (isNumber(points)) weights[layer] = clamp(points, AT_LEAST_NOTHING)
   const config: BenchConfig = {
     packs: strings(source.packs),
     rules: rules.length ? rules : null,
-    weights,
+    weights: weightsOf(source.weights),
     yes: isNumber(source.yes) ? clamp(source.yes, PROBABILITY) : DEFAULT_CONFIG.yes,
   }
   for (const [key, value] of Object.entries(source)) {
     if (Object.hasOwn(config, key) || UNREAD.has(key) || value === undefined) continue
-    const range = Object.hasOwn(SETTING_RANGES, key) ? SETTING_RANGES[key] : null
-    if (range) {
-      if (isNumber(value)) config[key] = clamp(value, range)
-    } else config[key] = isObject(value) ? nestedOf(key, value) : value
+    const setting = settingOf(key, value)
+    if (setting !== undefined) config[key] = setting
   }
   return config
+}
+
+/** Points per layer from untrusted input, each held at 0 or more; a layer whose points are not a number is dropped. */
+function weightsOf(value: unknown): Record<string, number> {
+  const weights: Record<string, number> = {}
+  if (isObject(value))
+    for (const [layer, points] of Object.entries(value))
+      if (isNumber(points)) weights[layer] = clamp(points, AT_LEAST_NOTHING)
+  return weights
+}
+
+/**
+ * A pack's own setting as `benchOf` keeps it: a share or a cost held to its
+ * range, an object with its numbers brought into range, anything else as it
+ * is. Undefined for a share or a cost that is not a number, which is dropped.
+ */
+function settingOf(key: string, value: unknown): unknown {
+  const range = Object.hasOwn(SETTING_RANGES, key) ? SETTING_RANGES[key] : null
+  if (range) return isNumber(value) ? clamp(value, range) : undefined
+  return isObject(value) ? nestedOf(key, value) : value
 }
 
 /** What kind of value a setting is, so a saved one of another kind does not take a default's place. */

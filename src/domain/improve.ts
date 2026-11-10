@@ -27,8 +27,8 @@ export interface RuleJudgment extends Record<Judged, number> {
 }
 
 /** A principle holds above this and drifts below `DRIFTS`; between, the judge could not tell. */
-export const HOLDS = 0.7
-export const DRIFTS = 0.3
+const HOLDS = 0.7
+const DRIFTS = 0.3
 /**
  * Complexity is a mean over four levels. A clean two-sentence rule lands
  * between 1 and 1.5, a tree written as prose near 2.4 (jev-1.14.0, 2026-11-07),
@@ -386,7 +386,7 @@ export const CUT_QUESTION =
   'Does `answer` say the rule changes nothing, does no work, or should be removed?'
 
 /** The most times one question is put before the walk moves on anyway. */
-export const ASKS_MAX = 2
+const ASKS_MAX = 2
 
 const stepById = (id: ImproveStepId): ImproveStep =>
   IMPROVE_STEPS.find((s) => s.id === id) ?? IMPROVE_STEPS[0]
@@ -435,6 +435,33 @@ export const drafting = (thread: Pick<ImproveThread, 'steps' | 'at'>): boolean =
 /** The step in hand, null once the draft is due. */
 export const currentStep = (thread: Pick<ImproveThread, 'steps' | 'at'>): ImproveStep | null =>
   drafting(thread) ? null : stepById(thread.steps[thread.at])
+
+/** The judge's reading of a reply: whether it answered the step, and, on the first, whether it says the line does nothing. */
+export interface AnswerReading {
+  answered: number
+  cut: number | null
+}
+
+type Walk = Pick<ImproveThread, 'at' | 'asks' | 'cut'>
+
+/**
+ * Where the walk stands after a reply to the step in hand. A reply the judge
+ * read as saying the line does nothing goes straight to a draft that deletes
+ * it. One it read as no answer has the question put once more, up to
+ * `ASKS_MAX` times in all; any other reply moves on. Without the judge's
+ * reading (`null`), every reply counts as an answer.
+ */
+export function walkAfter(
+  thread: Pick<ImproveThread, 'steps'> & Walk,
+  reading: AnswerReading | null,
+): Walk {
+  const { at, asks, cut } = thread
+  if (reading !== null && reading.cut !== null && reading.cut >= HOLDS)
+    return { at: thread.steps.length, asks, cut: true }
+  if (cut) return { at, asks, cut }
+  const again = reading !== null && reading.answered < DRIFTS && asks + 1 < ASKS_MAX
+  return again ? { at, asks: asks + 1, cut } : { at: at + 1, asks: 0, cut }
+}
 
 /** The draft in a reply: the last fenced block. */
 export function draftOf(text: string): string | null {

@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest'
-import { DIFF_BUDGET, lineDiff, wordDiffHtml } from './diff.ts'
+import {
+  type Compared,
+  compareTexts,
+  DIFF_BUDGET,
+  diffShown,
+  lineDiff,
+  wordDiffHtml,
+} from './diff.ts'
 
 describe('wordDiffHtml', () => {
   it('strikes what was removed and marks what was added', () => {
@@ -90,5 +97,35 @@ describe('lineDiff', () => {
     expect(lines).toHaveLength(side * 2)
     expect(lines[0].op).toBe('del')
     expect(lines.at(-1)?.op).toBe('ins')
+  })
+})
+
+describe('compareTexts', () => {
+  it('compares word by word, and line by line when the words are too many', () => {
+    expect(compareTexts('a quick fox', 'a slow fox')).toEqual({
+      kind: 'words',
+      html: 'a <del>quick</del><ins>slow</ins> fox',
+    })
+    const side = Math.ceil(Math.sqrt(DIFF_BUDGET))
+    const before = Array.from({ length: side }, (_, i) => `a${i}`).join(' ')
+    const after = Array.from({ length: side }, (_, i) => `b${i}`).join(' ')
+    expect(compareTexts(before, after)).toEqual({ kind: 'lines', lines: lineDiff(before, after) })
+  })
+})
+
+describe('diffShown', () => {
+  const words: Compared = { kind: 'words', html: 'a' }
+
+  it('says so when either output is not text, whatever the read did', () => {
+    expect(diffShown(false, words, 'boom')).toEqual({ kind: 'not-text' })
+  })
+
+  it('shows the comparison once read, even after a later read failed', () => {
+    expect(diffShown(true, words, 'boom')).toBe(words)
+  })
+
+  it('shows the failure, else that the read is on its way', () => {
+    expect(diffShown(true, null, 'boom')).toEqual({ kind: 'failed', error: 'boom' })
+    expect(diffShown(true, null, null)).toEqual({ kind: 'loading' })
   })
 })

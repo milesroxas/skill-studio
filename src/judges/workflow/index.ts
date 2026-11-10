@@ -100,6 +100,9 @@ interface ShellWord {
 /** What divides one simple command from the next: `|`, `;` and `&` as `;`, and a bracket, which opens or closes a subshell. */
 type ShellMark = ';' | '(' | ')'
 
+/** The mark a dividing character stands for: a bracket is itself, and `|`, `;` and `&` all end a command. */
+const markOf = (char: string): ShellMark => (char === '(' || char === ')' ? char : ';')
+
 /** A command line as words and the marks between commands, quotes kept together. */
 function shellTokens(line: string): Array<ShellWord | ShellMark> {
   const tokens: Array<ShellWord | ShellMark> = []
@@ -119,17 +122,17 @@ function shellTokens(line: string): Array<ShellWord | ShellMark> {
     if (quote) {
       if (char === quote) quote = null
       else word += char
-    } else if (char === '"' || char === "'") {
+    } else if ('"\''.includes(char)) {
       quote = char
       quoted = true
-    } else if (char === '<' || char === '>') {
+    } else if ('<>'.includes(char)) {
       end()
       redirect = true
     } else if (/\s/.test(char)) end()
     else if ('|;&()'.includes(char)) {
       end()
       redirect = false
-      tokens.push(char === '(' || char === ')' ? char : ';')
+      tokens.push(markOf(char))
     } else word += char
   }
   end()
@@ -176,45 +179,51 @@ function commandPaths(command: ShellWord[], shell: ShellPlace): Found[] {
     if (shell.stack.length) shell.cwd = shell.stack.pop() ?? null
     return []
   }
-  const pattern = PATTERN_PROGRAMS.has(program)
-  const textOnly = STDIN_PROGRAMS.has(program)
-  let patternSeen = false
-  // What the word after an option is: the pattern itself, or a file of patterns.
-  let given: 'pattern' | 'file' | null = null
+  const isText = textArguments(program)
   const found: Found[] = []
   command.forEach((word, i) => {
+    // A redirection's file is a place whatever the program reads.
+    if (i > at && !word.redirect && isText(word.text)) return
     // `--out=/x`, and `VAR=/x` before the program, name a place after the `=`.
-    const text = /^[\w-]+=/.test(word.text) ? word.text.replace(/^[\w-]+=/, '') : word.text
-    if (i > at && !word.redirect) {
-      if (textOnly) return
-      if (pattern) {
-        const after = given
-        given = null
-        if (after === 'pattern') return
-        if (after === null) {
-          const [option, value] = word.text.split(/=(.*)/s)
-          if (PATTERN_OPTIONS.has(option)) {
-            patternSeen = true
-            if (value === undefined) given = 'pattern'
-            return
-          }
-          if (PATTERN_FILE_OPTIONS.has(option)) {
-            patternSeen = true
-            if (value === undefined) {
-              given = 'file'
-              return
-            }
-          } else if (!patternSeen && !word.text.startsWith('-')) {
-            // The first word that is no option is the pattern or the script, quoted or not.
-            patternSeen = true
-            return
-          }
-        }
-      }
-    }
+    const text = word.text.replace(/^[\w-]+=/, '')
     if (isPathLike(text)) found.push({ path: text, place: placed(text, shell.cwd) })
   })
   return found
+}
+
+/**
+ * Which of a program's arguments are text rather than files, asked of each in
+ * order. Every word given to a program that reads stdin only is text. For a
+ * pattern program the pattern or script is: the first word that is no option,
+ * quoted or not, or the word an option such as `-e` gives. A file of patterns
+ * given with `-f` is a file, and so is every word after the pattern.
+ */
+function textArguments(program: string): (word: string) => boolean {
+  if (STDIN_PROGRAMS.has(program)) return () => true
+  if (!PATTERN_PROGRAMS.has(program)) return () => false
+  let patternSeen = false
+  // What the word after an option is: the pattern itself, or a file of patterns.
+  let given: 'pattern' | 'file' | null = null
+  return (word) => {
+    const after = given
+    given = null
+    if (after !== null) return after === 'pattern'
+    const [option, value] = word.split(/=(.*)/s)
+    if (PATTERN_OPTIONS.has(option)) {
+      patternSeen = true
+      if (value === undefined) given = 'pattern'
+      return true
+    }
+    if (PATTERN_FILE_OPTIONS.has(option)) {
+      patternSeen = true
+      if (value === undefined) given = 'file'
+      // `-f=/x` names its file after the `=`.
+      return value === undefined
+    }
+    if (patternSeen || word.startsWith('-')) return false
+    patternSeen = true
+    return true
+  }
 }
 
 /**

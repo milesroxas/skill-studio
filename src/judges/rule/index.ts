@@ -8,6 +8,7 @@
  * what it costs.
  */
 import {
+  type AnswerReading,
   CUT_QUESTION,
   type ImproveStep,
   JUDGED,
@@ -147,7 +148,7 @@ export async function judgeAnswer(
   scene: RuleScene,
   step: ImproveStep,
   answer: string,
-): Promise<{ answered: number; cut: number | null }> {
+): Promise<AnswerReading> {
   const state = { ...stateOf(scene), question: step.ask, answer }
   const answered = noul(step.answered, {
     true: 'The answer gives what the question asked for, even briefly or in passing.',

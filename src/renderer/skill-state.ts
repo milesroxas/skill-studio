@@ -50,6 +50,20 @@ export interface SkillState {
 }
 
 export function useSkillState(skillPath: string, report: Reporter): SkillState {
+  const { state, config, setConfig, error, reload } = useSkillRead(skillPath, report)
+  const files = useSavedFiles(
+    skillPath,
+    state?.skill.path ?? null,
+    state?.versions.current.hash ?? null,
+  )
+  return { state, config, setConfig, error, reload, files }
+}
+
+/**
+ * The open skill's state and the scoring in hand, read when the skill opens,
+ * when the window comes back into focus, and on `reload`.
+ */
+function useSkillRead(skillPath: string, report: Reporter): Omit<SkillState, 'files'> {
   const [state, setState] = useState<State | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [config, setConfig] = useState<BenchConfig | null>(null)
@@ -89,14 +103,6 @@ export function useSkillState(skillPath: string, report: Reporter): SkillState {
     )
   }, [report, reads])
 
-  const [files, setFiles] = useState<{ skill: string; files: Record<string, string> } | null>(null)
-  const [filesError, setFilesError] = useState<string | null>(null)
-  const [filesTick, setFilesTick] = useState(0)
-  /** The read that has landed, by what it was asked for. */
-  const [filesLanded, setFilesLanded] = useState<string | null>(null)
-  /** Counts the writes told to `took`: a read asked for before one may hold the text from before it. */
-  const writes = useRef(0)
-
   useEffect(() => {
     setSkill(skillPath)
     savedBefore.current = null
@@ -105,8 +111,6 @@ export function useSkillState(skillPath: string, report: Reporter): SkillState {
     setState(null)
     setConfig(null)
     setError(null)
-    setFiles(null)
-    setFilesError(null)
     void reload()
   }, [skillPath, reload])
 
@@ -118,9 +122,29 @@ export function useSkillState(skillPath: string, report: Reporter): SkillState {
     return () => window.removeEventListener('focus', look)
   }, [reload])
 
+  return { state, config, setConfig, error, reload }
+}
+
+/**
+ * The open skill's files as saved. `path` and `hash` are the skill and its
+ * version as last read, null before it is. Opening another skill clears them.
+ */
+function useSavedFiles(skillPath: string, path: string | null, hash: string | null): SavedFiles {
+  const [files, setFiles] = useState<{ skill: string; files: Record<string, string> } | null>(null)
+  const [filesError, setFilesError] = useState<string | null>(null)
+  const [filesTick, setFilesTick] = useState(0)
+  /** The read that has landed, by what it was asked for. */
+  const [filesLanded, setFilesLanded] = useState<string | null>(null)
+  /** Counts the writes told to `took`: a read asked for before one may hold the text from before it. */
+  const writes = useRef(0)
+
+  // biome-ignore lint/correctness/useExhaustiveDependencies: the files are cleared each time another skill opens.
+  useEffect(() => {
+    setFiles(null)
+    setFilesError(null)
+  }, [skillPath])
+
   // The files are read again whenever they change, here or from the side panel.
-  const path = state?.skill.path ?? null
-  const hash = state?.versions.current.hash ?? null
   const asked = path === null ? null : `${path}\n${hash}\n${filesTick}`
   useEffect(() => {
     if (asked === null || path === null) return
@@ -159,10 +183,8 @@ export function useSkillState(skillPath: string, report: Reporter): SkillState {
 
   const saved = files && files.skill === path ? files.files : null
   const filesLoading = asked !== null && filesLanded !== asked
-  const savedFiles = useMemo<SavedFiles>(
+  return useMemo<SavedFiles>(
     () => ({ saved, error: filesError, loading: filesLoading, reload: reloadFiles, took }),
     [saved, filesError, filesLoading, reloadFiles, took],
   )
-
-  return { state, config, setConfig, error, reload, files: savedFiles }
 }

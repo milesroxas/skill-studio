@@ -152,22 +152,43 @@ function origin(
   // claiming to be localhost is still remote. Tailscale always sets these.
   const proxied = PROXY_HEADERS.some((name) => headers[name] !== undefined)
   const tailnet = proxied || !LOCAL_HOSTS.has(host.hostname)
-  if (tailnet) {
-    if (!remote || host.hostname !== remote.host)
-      return { refused: 'Only localhost may call this server.' }
-    const login = headers['tailscale-user-login']
-    if (typeof login !== 'string' || !remote.users.includes(login))
-      return { refused: 'This Tailscale user may not call this server.' }
-  }
-  const site = headers['sec-fetch-site']
-  if (site && !SAME_SITE.has(String(site)))
-    return { refused: 'Requests from other sites are refused.' }
-  const from = headers.origin
-  if (from && hostOf(from)?.host !== host.host)
-    return { refused: 'Requests from other sites are refused.' }
-  if (method === 'POST' && !headers['content-type']?.startsWith('application/json'))
-    return { refused: 'Send POST bodies as application/json.' }
+  const refused =
+    (tailnet ? tailnetRefusal(host, headers, remote) : null) ??
+    crossSiteRefusal(method, headers, host)
+  if (refused) return { refused }
   return { via: tailnet ? 'tailnet' : 'local', host }
+}
+
+/** Why a request from the tailnet is refused: a host name other than the one served, or a login not allowed on it. Null when it is neither. */
+function tailnetRefusal(
+  host: URL,
+  headers: IncomingHttpHeaders,
+  remote: Remote | null | undefined,
+): string | null {
+  if (!remote || host.hostname !== remote.host) return 'Only localhost may call this server.'
+  const login = headers['tailscale-user-login']
+  if (typeof login !== 'string' || !remote.users.includes(login))
+    return 'This Tailscale user may not call this server.'
+  return null
+}
+
+/**
+ * Why a request a page on another site could have sent is refused: fetch
+ * metadata or an origin naming another site, or a POST that is not JSON,
+ * which a page can send without a preflight. Null when it is none of these.
+ */
+function crossSiteRefusal(
+  method: string | undefined,
+  headers: IncomingHttpHeaders,
+  host: URL,
+): string | null {
+  const site = headers['sec-fetch-site']
+  if (site && !SAME_SITE.has(String(site))) return 'Requests from other sites are refused.'
+  const from = headers.origin
+  if (from && hostOf(from)?.host !== host.host) return 'Requests from other sites are refused.'
+  if (method === 'POST' && !headers['content-type']?.startsWith('application/json'))
+    return 'Send POST bodies as application/json.'
+  return null
 }
 
 /**

@@ -19,6 +19,7 @@ import {
   rewritesPrompt,
   rewritesResult,
   rewritesText,
+  walkAfter,
 } from './improve.ts'
 import { type Finding, lintScene, type RuleScene } from './lint.ts'
 import { PRACTICE_EDIT } from './practice.ts'
@@ -179,6 +180,33 @@ describe('improveSystem', () => {
     expect(improveSystem({ ...thread, at: 2, scene: { ...scene, band: 'over' } })).toContain(
       'must be shorter',
     )
+  })
+})
+
+describe('walkAfter', () => {
+  const walk = {
+    steps: ['earns', 'strict', 'why'] as ImproveThread['steps'],
+    at: 0,
+    asks: 0,
+    cut: false,
+  }
+
+  it('moves on after an answer, and after any reply without the judge', () => {
+    expect(walkAfter(walk, { answered: 0.9, cut: null })).toEqual({ at: 1, asks: 0, cut: false })
+    expect(walkAfter({ ...walk, asks: 1 }, null)).toEqual({ at: 1, asks: 0, cut: false })
+  })
+
+  it('puts an unanswered question once more, then moves on', () => {
+    const missed = { answered: 0.1, cut: null }
+    expect(walkAfter(walk, missed)).toEqual({ at: 0, asks: 1, cut: false })
+    expect(walkAfter({ ...walk, asks: 1 }, missed)).toEqual({ at: 1, asks: 0, cut: false })
+    // A reply the judge could not place either way counts as an answer.
+    expect(walkAfter(walk, { answered: 0.5, cut: null })).toEqual({ at: 1, asks: 0, cut: false })
+  })
+
+  it('goes straight to the draft when the reply says the line does nothing', () => {
+    expect(walkAfter(walk, { answered: 0.1, cut: 0.9 })).toEqual({ at: 3, asks: 0, cut: true })
+    expect(walkAfter(walk, { answered: 0.9, cut: 0.5 })).toEqual({ at: 1, asks: 0, cut: false })
   })
 })
 

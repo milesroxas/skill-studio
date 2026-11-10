@@ -213,6 +213,31 @@ export function CheckList({
 }
 
 /**
+ * Adding the one picture a check is about: `onImage` gets it once it is read,
+ * and `onError` each failure, once.
+ */
+function useCheckPicture(onImage: (image: ImageRef) => void, onError: (message: string) => void) {
+  // A picture still being read when its check is removed, or its case left, has nowhere to go.
+  const here = useRef(true)
+  useEffect(
+    () => () => {
+      here.current = false
+    },
+    [],
+  )
+  const { adding, error, add } = useAddPictures(0, ([added]) => {
+    if (here.current && added) onImage(added)
+  })
+  // Told once per failure, whatever the caller's function is on a later render.
+  const report = useRef(onError)
+  report.current = onError
+  useEffect(() => {
+    if (error) report.current(error)
+  }, [error])
+  return { adding, add }
+}
+
+/**
  * What a check is: its statement, and the picture it is about when it has one.
  * The field's corner adds the picture, beside "write with AI", because both
  * are about the statement's content; the ×2 mark and the remove button are the
@@ -243,23 +268,7 @@ function CheckStatement({
   onError: (message: string) => void
   assist: AssistSpec
 }) {
-  // A picture still being read when its check is removed, or its case left, has nowhere to go.
-  const here = useRef(true)
-  useEffect(
-    () => () => {
-      here.current = false
-    },
-    [],
-  )
-  const { adding, error, add } = useAddPictures(0, ([added]) => {
-    if (here.current && added) onImage(added)
-  })
-  // Told once per failure, whatever the caller's function is on a later render.
-  const report = useRef(onError)
-  report.current = onError
-  useEffect(() => {
-    if (error) report.current(error)
-  }, [error])
+  const { adding, add } = useCheckPicture(onImage, onError)
   const has = Boolean(image) || adding > 0
   return (
     <TextArea

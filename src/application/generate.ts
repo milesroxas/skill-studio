@@ -146,25 +146,36 @@ function stageInputs(
     }
 }
 
+/**
+ * The copy of the skill an `old_skill` run is made against, the baseline
+ * run's own, and the version that run was stamped with. Throws when no run is
+ * named, or the run kept no copy or no record of its version.
+ */
+function baselineOf(
+  skillDir: string,
+  baselineRun: string | null,
+): { dir: string; stamp: SkillStamp } {
+  if (!baselineRun) throw new Error('old_skill needs the run whose copy of the skill to use.')
+  const baseline = assertSafe(baselineRun, 'run')
+  const dir = join(runDir(skillDir, baseline), SKILL_DIR)
+  if (!existsSync(join(dir, 'SKILL.md')))
+    throw new Error(`${baseline} keeps no copy of its skill, so no run can be made against it.`)
+  const old = readRunMeta(skillDir, baseline)
+  if (!old) throw new Error(`${baseline} has no record of the version it ran.`)
+  return {
+    dir,
+    stamp: { version: old.skillVersion, name: old.skillName, hash: old.skillHash, note: old.note },
+  }
+}
+
 export async function generateRun(
   options: GenerateOptions,
 ): Promise<{ name: string; dir: string; meta: RunMeta }> {
   const { skillDir, engine, log } = options
   const info = skillInfo(skillDir)
   const configuration = options.configuration
-  let stamp: SkillStamp
-  let baselineDir: string | null = null
-  if (configuration === 'old_skill') {
-    if (!options.baselineRun)
-      throw new Error('old_skill needs the run whose copy of the skill to use.')
-    const baseline = assertSafe(options.baselineRun, 'run')
-    baselineDir = join(runDir(skillDir, baseline), SKILL_DIR)
-    if (!existsSync(join(baselineDir, 'SKILL.md')))
-      throw new Error(`${baseline} keeps no copy of its skill, so no run can be made against it.`)
-    const old = readRunMeta(skillDir, baseline)
-    if (!old) throw new Error(`${baseline} has no record of the version it ran.`)
-    stamp = { version: old.skillVersion, name: old.skillName, hash: old.skillHash, note: old.note }
-  } else stamp = stampSkill(skillDir, options.skillName, options.note)
+  const baseline = configuration === 'old_skill' ? baselineOf(skillDir, options.baselineRun) : null
+  const stamp = baseline ? baseline.stamp : stampSkill(skillDir, options.skillName, options.note)
   const model = options.model?.trim() || engine.defaultModel
   const effort = options.effort || 'default'
   const name = freshRunName(
@@ -182,7 +193,7 @@ export async function generateRun(
   mkdirSync(dir, { recursive: true })
   // The one copy of the skill every sample of this run is made from.
   const snapshot = join(dir, SKILL_DIR)
-  if (baselineDir) copyTree(baselineDir, snapshot)
+  if (baseline) copyTree(baseline.dir, snapshot)
   else snapshotSkill(skillDir, snapshot)
   stageInputs(skillDir, dir, options.cases, log)
 
@@ -195,7 +206,7 @@ export async function generateRun(
     note: stamp.note,
     writer: { engine: engine.id, model, effort, harness: engine.harness },
     configuration,
-    baselineDir: baselineDir ? relative(skillDir, baselineDir) : null,
+    baselineDir: baseline ? relative(skillDir, baseline.dir) : null,
     cases: options.cases.map((c) => c.id),
     samplesPerCase: samplesPerCase(options.samples),
     createdAt: new Date().toISOString(),
@@ -231,20 +242,11 @@ export async function generateRun(
   const worker = async () => {
     while (next < jobs.length && !stop.signal.aborted) {
       const job = jobs[next++]
-      let sample: SampleMeta
-      try {
-        sample = await generateSample(job.testCase, job.index, sampleOptions)
-      } catch (error) {
-        const message = (error as Error).message
-        // The process is going away and starts nothing more: the run was stopped, the sample never ran.
-        if (message === STOPPING) {
-          stop.abort()
-          return
-        }
-        // One sample's failure is recorded as its own; the other workers go on.
-        const sampleName = sampleDir(job.testCase.id, job.index)
-        log(`${sampleName}: failed, ${message}`)
-        sample = failedSample(sampleName, job.testCase.id, job.index, message)
+      const sample = await sampleOrFailure(job.testCase, job.index, sampleOptions)
+      // The process is going away and starts nothing more: the run was stopped, the sample never ran.
+      if (!sample) {
+        stop.abort()
+        return
       }
       try {
         meta.samples.push(sample)
@@ -276,6 +278,27 @@ export async function generateRun(
       : `${name}: done, ${wrote}/${meta.samples.length} wrote output`,
   )
   return { name, dir, meta }
+}
+
+/**
+ * One sample, or, when it fails, the failure as the run records it, so the
+ * other workers go on. Null when the process is going away and the sample
+ * never ran.
+ */
+async function sampleOrFailure(
+  testCase: Case,
+  index: number,
+  options: SampleOptions,
+): Promise<SampleMeta | null> {
+  try {
+    return await generateSample(testCase, index, options)
+  } catch (error) {
+    const message = (error as Error).message
+    if (message === STOPPING) return null
+    const name = sampleDir(testCase.id, index)
+    options.log(`${name}: failed, ${message}`)
+    return failedSample(name, testCase.id, index, message)
+  }
 }
 
 /** A sample that never ran to the end, as the run records it. */

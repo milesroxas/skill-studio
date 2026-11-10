@@ -6,7 +6,7 @@ The plan for the one `fallow` gate that fails: `fallow health`, 199 functions ab
 | --- | --- |
 | Status | Phase 1 done; phases 2 to 4 planned |
 | Baseline | 239 above threshold with real coverage at `f53950b`, the commit before the 2026-11-09 audit (199 under fallow's estimate at `000e95c`) |
-| Now | 238 above threshold with real coverage (2026-11-10): 165 in `src/renderer`, 69 in the rest of `src/`, 4 in `scripts/guide-shots/` |
+| Now | 229 above threshold with real coverage (2026-11-10): 164 in `src/renderer`, 60 in the rest of `src/`, 5 in `scripts/guide-shots/` |
 | Duplication | `pnpm exec fallow dupes` reports "No code duplication found" |
 | Gate | The full `fallow` run passes, then joins `pnpm check` |
 | Owner | Miles Roxas |

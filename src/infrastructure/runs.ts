@@ -107,44 +107,55 @@ export function runSamples(dir: string): Sample[] {
     })
 }
 
+type LegacySample = Partial<SampleMeta> & { file?: string }
+type RawMeta = Partial<Omit<RunMeta, 'samples'>> & { samples?: LegacySample[] }
+
+/** A sample as `run.json` lists it, the legacy shape brought up to `SampleMeta`. */
+function sampleMetaOf(s: LegacySample, i: number): SampleMeta {
+  const sampleName = s.dir ?? s.file ?? `s${i + 1}`
+  const parsedName = parseSampleDir(sampleName)
+  return {
+    dir: sampleName,
+    case: s.case ?? parsedName?.case ?? '',
+    index: s.index ?? parsedName?.index ?? i + 1,
+    ok: s.ok ?? true,
+    seconds: s.seconds ?? 0,
+    costUsd: s.costUsd ?? null,
+    tokens: s.tokens ?? null,
+    model: s.model ?? null,
+    error: s.error ?? null,
+    steps: s.steps ?? 0,
+    toolCalls: s.toolCalls ?? 0,
+    ...(s.stopped === true ? { stopped: true } : {}),
+  }
+}
+
 /**
- * `run.json` with the legacy shape brought up to `RunMeta`. The version is a
- * label (`v3`) or nothing: the file may have been written by anyone, and its
- * version names a folder when the version is deleted.
+ * The skill version a run names. The version is a label (`v3`) or nothing:
+ * the file may have been written by anyone, and its version names a folder
+ * when the version is deleted.
  */
-export function readRunMeta(skillDir: string, name: string): RunMeta | null {
-  const dir = runDir(skillDir, name)
-  type LegacySample = Partial<SampleMeta> & { file?: string }
-  type RawMeta = Partial<Omit<RunMeta, 'samples'>> & { samples?: LegacySample[] }
-  const raw = readRunJson<RawMeta | null>(join(dir, 'run.json'), null)
-  if (!raw || typeof raw !== 'object') return null
-  const legacy = isLegacy(dir)
-  const samples: SampleMeta[] = (Array.isArray(raw.samples) ? raw.samples : []).map((s, i) => {
-    const sampleName = s.dir ?? s.file ?? `s${i + 1}`
-    const parsedName = parseSampleDir(sampleName)
-    return {
-      dir: sampleName,
-      case: s.case ?? parsedName?.case ?? '',
-      index: s.index ?? parsedName?.index ?? i + 1,
-      ok: s.ok ?? true,
-      seconds: s.seconds ?? 0,
-      costUsd: s.costUsd ?? null,
-      tokens: s.tokens ?? null,
-      model: s.model ?? null,
-      error: s.error ?? null,
-      steps: s.steps ?? 0,
-      toolCalls: s.toolCalls ?? 0,
-      ...(s.stopped === true ? { stopped: true } : {}),
-    }
-  })
+function stampOf(raw: RawMeta): Pick<RunMeta, 'skillVersion' | 'skillName' | 'skillHash' | 'note'> {
   const version = typeof raw.skillVersion === 'string' ? raw.skillVersion : ''
   return {
-    name,
-    skillPath: raw.skillPath ?? skillDir,
     skillVersion: isVersionLabel(version) ? version : '',
     skillName: raw.skillName ?? '',
     skillHash: raw.skillHash ?? '',
     note: raw.note ?? '',
+  }
+}
+
+/** `run.json` with the legacy shape brought up to `RunMeta`. */
+export function readRunMeta(skillDir: string, name: string): RunMeta | null {
+  const dir = runDir(skillDir, name)
+  const raw = readRunJson<RawMeta | null>(join(dir, 'run.json'), null)
+  if (!raw || typeof raw !== 'object') return null
+  const legacy = isLegacy(dir)
+  const samples = (Array.isArray(raw.samples) ? raw.samples : []).map(sampleMetaOf)
+  return {
+    name,
+    skillPath: raw.skillPath ?? skillDir,
+    ...stampOf(raw),
     writer: raw.writer ?? { engine: 'unknown', model: null, effort: null, harness: 'agent' },
     configuration: raw.configuration ?? 'with_skill',
     baselineDir: raw.baselineDir ?? null,

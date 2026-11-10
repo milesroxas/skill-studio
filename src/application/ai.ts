@@ -35,15 +35,14 @@ import {
 import type { SlashCommand } from '@domain/commands.ts'
 import type { ImageRef } from '@domain/image.ts'
 import {
-  ASKS_MAX,
+  type AnswerReading,
   checklistOf,
   codeVerdicts,
   currentStep,
-  DRIFTS,
   drafting,
   draftOf,
   drifts,
-  HOLDS,
+  type ImproveStep,
   type ImproveThread,
   improveSystem,
   judgmentFindings,
@@ -59,6 +58,7 @@ import {
   rewritesOf,
   rewritesPrompt,
   rewritesText,
+  walkAfter,
 } from '@domain/improve.ts'
 import { type Finding, lintScene, type RuleScene } from '@domain/lint.ts'
 import { aiChoiceOf } from '@domain/preferences.ts'
@@ -612,33 +612,36 @@ async function sendImproveNow(text: string): Promise<ImproveThread> {
   thread.messages = [...thread.messages, message(thread.messages, 'user', text)]
   const step = currentStep(thread)
   if (step) {
-    let advance = true
-    if (thread.judged)
-      try {
-        const { answered, cut } = await judgeAnswer(improveJev, thread.scene, step, text)
-        if (cut !== null && cut >= HOLDS) {
-          thread.cut = true
-          thread.at = thread.steps.length
-        } else if (answered < DRIFTS && thread.asks + 1 < ASKS_MAX) advance = false
-      } catch {
-        // Without the judge's reading, every reply counts as an answer.
-      }
-    if (!thread.cut) {
-      if (advance) {
-        thread.at += 1
-        thread.asks = 0
-      } else thread.asks += 1
-    }
+    const reading = thread.judged ? await readAnswer(thread.scene, step, text) : null
+    Object.assign(thread, walkAfter(thread, reading))
   }
   // Another rule was picked, or the conversation closed, while the answer was read: no reply is paid for.
-  if (improve !== thread) return overtaken(ticket) ? latest() : Promise.reject(new Error(CLOSED))
+  if (improve !== thread) return gone(ticket)
   await improveReply(thread)
   if (improve !== thread) {
     stopReply(thread)
-    return overtaken(ticket) ? latest() : Promise.reject(new Error(CLOSED))
+    return gone(ticket)
   }
   return snapshot(thread)
 }
+
+/** The judge's reading of the writer's reply to `step`; null when it could not read it. */
+async function readAnswer(
+  scene: RuleScene,
+  step: ImproveStep,
+  text: string,
+): Promise<AnswerReading | null> {
+  try {
+    return await judgeAnswer(improveJev, scene, step, text)
+  } catch {
+    // Without the judge's reading, every reply counts as an answer.
+    return null
+  }
+}
+
+/** What a reply answers with once its conversation is gone: the latest start's when another rule was picked, else a refusal. */
+const gone = (ticket: number): Promise<ImproveThread> =>
+  overtaken(ticket) ? latest() : Promise.reject(new Error(CLOSED))
 
 /** Close the improve conversation, stopping a reply still on its way. */
 export function clearImprove(): void {

@@ -375,6 +375,38 @@ interface Moved {
 const moveBack = (moves: Array<{ from: string; to: string }>): string =>
   moves.map(({ from, to }) => `${to} to ${from}`).join(', and ')
 
+/** Take back every move, the newest first, going on past one that fails; the moves that could not be taken back. */
+const takeBack = (moved: Moved[]): Moved[] =>
+  [...moved].reverse().filter(({ from, to }) => {
+    try {
+      mkdirSync(dirname(from), { recursive: true })
+      renameSync(to, from)
+      return false
+    } catch {
+      return true
+    }
+  })
+
+/**
+ * What a restore that stopped partway and could not put every file back
+ * throws: where the writer's own files are kept (`kept`) and what to move
+ * where, and which of the version's files are left over and can go.
+ */
+function stoppedPartway(error: Error, kept: string, mine: Moved[], left: string[]): Error {
+  return new Error(
+    [
+      `The restore stopped partway (${error.message}), and some files could not be put back.`,
+      mine.length
+        ? `Nothing of yours is lost: your files are in ${kept}. Move ${moveBack(mine)}.`
+        : '',
+      left.length ? `${left.join(' and ')} came from the version and can be deleted.` : '',
+    ]
+      .filter(Boolean)
+      .join(' '),
+    { cause: error },
+  )
+}
+
 /**
  * Make the skill's SKILL.md and references/ exactly those in `source`, a
  * folder holding a version's copy. Bytes are copied, never read as text, so a
@@ -404,43 +436,19 @@ export function restoreSkillFiles(skillDir: string, source: string): void {
     moved.push({ rel, from, to, mine })
   }
   try {
-    for (const file of incoming) {
-      const copy = join(stage, 'new', file.rel)
-      mkdirSync(dirname(copy), { recursive: true })
-      copyFileSync(file.real, copy)
-    }
+    copyFiles(incoming, join(stage, 'new'))
     try {
       for (const file of current) move(file.rel, file.path, join(stage, 'old', file.rel), true)
       for (const [rel, path] of wanted) move(rel, join(stage, 'new', rel), path, false)
     } catch (error) {
-      // Every move is taken back, even after one that fails.
-      const stuck = moved.reverse().filter(({ from, to }) => {
-        try {
-          mkdirSync(dirname(from), { recursive: true })
-          renameSync(to, from)
-          return false
-        } catch {
-          return true
-        }
-      })
+      const stuck = takeBack(moved)
       const mine = stuck.filter((m) => m.mine)
       // A file of the version is still in the skill only where the writer had none: theirs went back over it.
       const had = new Set(current.map((file) => file.rel))
       const left = stuck.filter((m) => !m.mine && !had.has(m.rel)).map((m) => m.to)
       if (!mine.length && !left.length) throw error
       keep = mine.length > 0
-      throw new Error(
-        [
-          `The restore stopped partway (${(error as Error).message}), and some files could not be put back.`,
-          mine.length
-            ? `Nothing of yours is lost: your files are in ${join(stage, 'old')}. Move ${moveBack(mine)}.`
-            : '',
-          left.length ? `${left.join(' and ')} came from the version and can be deleted.` : '',
-        ]
-          .filter(Boolean)
-          .join(' '),
-        { cause: error },
-      )
+      throw stoppedPartway(error as Error, join(stage, 'old'), mine, left)
     }
   } finally {
     if (keep) rmSync(join(stage, 'new'), { recursive: true, force: true })

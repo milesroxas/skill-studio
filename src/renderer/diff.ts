@@ -73,35 +73,49 @@ function fits<T>(x: T[], y: T[]): boolean {
  */
 function diffTokens<T>(x: T[], y: T[]): Array<[Op, T]> {
   const { head, tail } = sharedEnds(x, y)
-  const out: Array<[Op, T]> = []
-  for (let k = 0; k < head; k += 1) out.push(['same', x[k]])
   const mx = x.slice(head, x.length - tail)
   const my = y.slice(head, y.length - tail)
-  if (tableBytes(mx.length, my.length) > DIFF_BUDGET) {
-    for (const token of mx) out.push(['del', token])
-    for (const token of my) out.push(['ins', token])
-  } else {
-    const cols = my.length + 1
-    const table = lcs(mx, my)
-    let i = 0
-    let j = 0
-    while (i < mx.length && j < my.length) {
-      if (mx[i] === my[j]) {
-        out.push(['same', mx[i]])
-        i += 1
-        j += 1
-      } else if (table[(i + 1) * cols + j] >= table[i * cols + j + 1]) {
-        out.push(['del', mx[i]])
-        i += 1
-      } else {
-        out.push(['ins', my[j]])
-        j += 1
-      }
+  const middle =
+    tableBytes(mx.length, my.length) > DIFF_BUDGET ? replaced(mx, my) : lcsSteps(mx, my)
+  return [
+    ...marked('same', x.slice(0, head)),
+    ...middle,
+    ...marked('same', x.slice(x.length - tail)),
+  ]
+}
+
+/** Each token as one step of the same kind. */
+const marked = <T>(op: Op, tokens: T[]): Array<[Op, T]> => tokens.map((token) => [op, token])
+
+/** The steps from `x` to `y` when they are too large to compare: all of `x` removed, then all of `y` added. */
+const replaced = <T>(x: T[], y: T[]): Array<[Op, T]> => [...marked('del', x), ...marked('ins', y)]
+
+/**
+ * The steps from `x` to `y`, read back from their LCS table: a token they
+ * share is kept, and where they differ the step taken is the one that keeps
+ * the longer common subsequence ahead, a removal when both keep as much.
+ */
+function lcsSteps<T>(x: T[], y: T[]): Array<[Op, T]> {
+  const out: Array<[Op, T]> = []
+  const cols = y.length + 1
+  const table = lcs(x, y)
+  let i = 0
+  let j = 0
+  while (i < x.length && j < y.length) {
+    if (x[i] === y[j]) {
+      out.push(['same', x[i]])
+      i += 1
+      j += 1
+    } else if (table[(i + 1) * cols + j] >= table[i * cols + j + 1]) {
+      out.push(['del', x[i]])
+      i += 1
+    } else {
+      out.push(['ins', y[j]])
+      j += 1
     }
-    for (; i < mx.length; i += 1) out.push(['del', mx[i]])
-    for (; j < my.length; j += 1) out.push(['ins', my[j]])
   }
-  for (let k = x.length - tail; k < x.length; k += 1) out.push(['same', x[k]])
+  for (; i < x.length; i += 1) out.push(['del', x[i]])
+  for (; j < y.length; j += 1) out.push(['ins', y[j]])
   return out
 }
 
@@ -152,6 +166,34 @@ export function wordDiffHtml(before: string, after: string): string | null {
     .join('')
     .replace(/<\/del><del>/g, '')
     .replace(/<\/ins><ins>/g, '')
+}
+
+/** Two texts compared word by word, as HTML, or, when they differ over too many words, line by line. */
+export type Compared = { kind: 'words'; html: string } | { kind: 'lines'; lines: DiffLine[] }
+
+export const compareTexts = (before: string, after: string): Compared => {
+  const html = wordDiffHtml(before, after)
+  return html === null ? { kind: 'lines', lines: lineDiff(before, after) } : { kind: 'words', html }
+}
+
+/**
+ * What a card comparing two outputs shows: that one of them is not text, the
+ * comparison once it is read, else the read's failure or that it is on its way.
+ */
+export type DiffShown =
+  | Compared
+  | { kind: 'not-text' }
+  | { kind: 'failed'; error: string }
+  | { kind: 'loading' }
+
+export function diffShown(
+  textual: boolean,
+  compared: Compared | null,
+  error: string | null,
+): DiffShown {
+  if (!textual) return { kind: 'not-text' }
+  if (compared) return compared
+  return error ? { kind: 'failed', error } : { kind: 'loading' }
 }
 
 export interface DiffLine {
