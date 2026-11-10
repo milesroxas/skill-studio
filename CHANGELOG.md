@@ -6,6 +6,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+### Fixed
+
+- A Cursor agent still saw the app's keys: `TYPESAFE_API_KEY` and the stored Anthropic and OpenAI keys. It now runs with the same environment as a Claude Code agent, with the keys left out.
+
 ## [0.4.0] - 2026-11-09
 
 ### Fixed

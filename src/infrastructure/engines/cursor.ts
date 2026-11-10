@@ -4,6 +4,8 @@
  * key names the tool (`readToolCall`, `shellToolCall`...), so the parser reads
  * the key rather than a fixed list.
  */
+
+import { agentEnv } from '../env.ts'
 import { hasCommand, tryCommand } from '../exec.ts'
 import { type ResultEvent, readInit, readResult, runStreamJson } from './stream.ts'
 import type { Engine, EngineRequest, EngineResult } from './types.ts'
@@ -100,8 +102,12 @@ export const cursorEngine: Engine = {
       request.prompt,
     ]
     const thinking = { text: '' }
-    return runStreamJson<StreamEvent>('cursor-agent', args, request, (event, result) =>
-      handle(event, request, result, thinking),
+    return runStreamJson<StreamEvent>(
+      'cursor-agent',
+      args,
+      request,
+      (event, result) => handle(event, request, result, thinking),
+      { env: agentEnv() },
     )
   },
 }
