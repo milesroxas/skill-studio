@@ -55,7 +55,7 @@ A score is out of 100 and always shows through one of these, from `components/Sc
 | `Parts` | the parts one score is made of, each with a bar: "Rules 4 of 5", "Checks 2 of 3". A part counted from facts says the count, each fact by its weight so a ×2 check counts two and the count agrees with the bar; any other says its score. Bars stay grey until a part is weak. |
 | `CheckWeight` | a check's ×2 mark after its statement, only when it counts more than 1 |
 
-What a score is counted from shows under it as `Verdicts` (`components/Verdicts.tsx`), on an `OutputCard`: **Missed** first and open, one row per rule broken or check not met, then **Met** folded under its count. A row is a mark (a red cross or a green tick, which repeat the words "Missed" and "Met"), the rule or check in full, and under it `link-muted` actions at `inline-sm`: "Open rule" for a rule SKILL.md still holds, and "Mark as met" or "Mark as missed" for a fact Jev answered. A fact code measured, such as a word count, has no answer to give and no action. A fact the reader answered says "your answer", or "your answer, agrees with Jev" when the scoring in hand gives Jev the same answer, and its action is "Take back" either way.
+What a score is counted from shows under it as `Verdicts` (`components/Verdicts.tsx`), on an `OutputCard`: **Missed** first and open, one row per rule broken or check not met, then **Marked as met by you**, open, so the reader's own answers stay in view, then **Met** folded under its count. A row is a mark (a red cross or a green tick, which repeat the words "Missed" and "Met"), the rule or check in full, and under it its kind in `faint` ("Rule", "Check ×2") and `link-muted` actions at `inline-sm`: "Open rule" for a rule SKILL.md still holds, and "Mark as met" or "Mark as missed" for a fact Jev answered. A fact code measured, such as a word count, has no answer to give and no action. A fact the reader answered says "your answer", or "your answer, agrees with Jev" when the scoring in hand gives Jev the same answer, and its action is "Take back" either way.
 
 Bands come from `scoreBand()` in `model.ts`. Never compare a score to a number in a component: the bands are tuned in one place.
 
@@ -110,7 +110,7 @@ Is it the standing of one thing (connected, installed, allowed, set)?
 
 ```tsx
 // Correct: screens/Settings.tsx
-<Status tone="warning" detail="Connect Anthropic or OpenAI below to choose a model.">
+<Status tone="warning" detail="Set up Claude Code or Codex below to choose a model.">
   Not connected
 </Status>
 
@@ -122,7 +122,7 @@ The words carry the state and the dot repeats it, so the line still reads withou
 
 ## Status line
 
-`components/StatusLine.tsx`, fed by `ctx.report`. One line at the foot of the window's frame, in a strip the frame keeps for it, so it never lies over the work: under the pane in the app and in the changelog window (`place="foot"`), in the first cell of the welcome's title strip (`place="head"`). While it speaks the strip is ink, drawn in from the left on `ease-stroke` in 300ms, and the words rise in after it; then it goes quiet and the strip is paper again. Its Undo is an `outline` button, so the offer is seen. It is the only place a finished or failed step is announced. Nothing floats over the screen to say so, and a question that must be answered first is `ctx.confirm` ([forms.md](forms.md)), not a notice.
+`components/StatusLine.tsx`, fed by `ctx.report`. One line at the foot of the window's frame, in a strip the frame keeps for it, so it never lies over the work: under the pane in the app and in the changelog window (`place="foot"`), in the first cell of the welcome's title strip (`place="head"`). While it speaks the foot's strip is ink, drawn in from the left on `ease-stroke` in 300ms, and the words rise in after it; then it goes quiet and the strip is paper again. The head keeps the title strip's own surface and draws no stroke. Its Undo is an `outline` button, so the offer is seen. It is the only place a finished or failed step is announced. Nothing floats over the screen to say so, and a question that must be answered first is `ctx.confirm` ([forms.md](forms.md)), not a notice.
 
 ```tsx
 // Correct: components/VersionDetail.tsx

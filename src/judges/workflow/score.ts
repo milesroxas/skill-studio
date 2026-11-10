@@ -15,7 +15,7 @@ import type { BenchConfig } from '@domain/schemas.ts'
 import { certainty, mean } from '@domain/stats.ts'
 import { codeVerdict, finding, jevVerdict } from '@domain/verdict.ts'
 
-/** The config an active workflow pack sees: core/config.ts lays these defaults under bench.json. */
+/** The config an active workflow pack sees: domain/config.ts lays these defaults under bench.json. */
 export type WorkflowConfig = BenchConfig & {
   workflow: { maxRetries: number; summaryLines: number }
 }

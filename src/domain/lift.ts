@@ -3,8 +3,8 @@
  * runs. It compares like with like: one writer's run on the first version
  * against the same writer's run on the latest, with that writer's latest run
  * without the skill as the floor. Of the writers that ran on two versions, the
- * one whose latest run is newest is chosen. A run against an old skill is
- * neither: it measures something else.
+ * one whose latest run is newest is chosen. A run against an old skill's copy
+ * counts as the version it copied.
  *
  * Two runs are compared on the cases both answered. Each case counts once,
  * whatever the number of samples, so a run of more samples or more cases is

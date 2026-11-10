@@ -77,7 +77,7 @@ When a screen changes how it looks or reads:
 
 1. Retake the screenshots with `pnpm guide:shots`. It builds the app, starts it on a scratch home seeded with sample skills (`scripts/guide-shots/seed.ts`), and writes `docs/images/*.webp`. It never touches your own skills or settings.
 2. Read each step of the guide against its new picture, and fix any label, button or order that no longer matches.
-3. Check the two diagrams (`docs/images/*.svg`). They are written by hand, and their step numbers must match the guide's headings.
+3. Check the diagram (`docs/images/loop.svg`). It is written by hand, and its steps must match the loop table at the top of the guide.
 
 ## Releasing
 

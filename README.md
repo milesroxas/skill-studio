@@ -24,9 +24,9 @@ Download the package for macOS, Windows or Linux from [Releases](https://github.
 
 You also need:
 
-- The `claude` or `cursor-agent` CLI on your `PATH`, signed in. These agents write the outputs.
+- The `claude` or `cursor-agent` CLI, installed and signed in. These agents write the outputs.
 - A [TypeSafe](https://typesafe.ai) API key, added under Settings. Without it, grading runs code checks only.
-- Optional, to write with AI: an Anthropic or OpenAI API key, or the `claude` or `codex` CLI signed in.
+- Optional, to write with AI: the `claude` or `codex` CLI signed in, or an Anthropic or OpenAI API key.
 
 ## Run from source
 

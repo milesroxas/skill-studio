@@ -14,7 +14,7 @@ M 0 120 H 64 C 104 120 104 64 144 64 H 184 V 96 H 144 C 104 96 104 152 64 152 H 
 ```
 
 - Render it with `Mark` from `components/Mark.tsx`: `size="strip"` in the sidebar, `size="cover"` in the welcome. Never paste the paths into a screen, and never redraw them by eye.
-- Never stretch, rotate, outline, tilt or recolor it. It is `fill-foreground` on paper and porcelain on ink. The mark is never yellow: yellow means live, and a logo is not live.
+- Never stretch, rotate, outline, tilt or recolor it. It takes the text color (`fill-current`): ink on paper, porcelain on ink. The mark is never yellow: yellow means live, and a logo is not live.
 - Clear space is one band height on every side: 17.4% of the mark's width. Minimum width is 16px.
 - Sources are in `build/icon-src/` (`mac.svg`, `tile.svg`, `mark.svg`, from the brand kit). Icons are in `build/` (`icon.icns`, `icon.ico`, `icon.png`). Regenerate every size from the SVG master. Never scale a small PNG up.
 
@@ -36,7 +36,7 @@ The version lift on Results (`VersionLift` in `components/Lift.tsx`, fed by `ver
 - The curve is the mark's own: both control points sit at the horizontal midpoint. `C mx y0, mx y1, x1 y1`.
 - The band keeps one thickness. Rise divided by thickness stays between 1.5 and 2 (the mark's is 1.75). Scale the vertical axis to hold that, and label both ends with their real numbers.
 - It is ink on porcelain. The baseline without the skill is a dashed hairline in `muted-foreground`.
-- If the latest mean is not higher than the first, draw no ribbon: show the two numbers and the `Delta`. A ribbon that falls or lies flat would misstate the brand's one motif.
+- If the latest mean is not higher than the first, draw no ribbon: the latest mean and its `Delta` since the first say it. A ribbon that falls or lies flat would misstate the brand's one motif.
 
 Never use a ribbon as a divider, a background, a progress bar or a loading animation.
 
@@ -52,7 +52,7 @@ The welcome runs in its own 760 x 600 window, laid out for exactly that size and
 
 | Frame | Ground | Holds |
 | --- | --- | --- |
-| Opening | ink (`data-surface="ink"`) | version in mono, headline with one slab, one sentence, one button, Skip |
+| Opening | ink (`data-surface="ink"`) | the name, the version in mono, headline with one slab, one sentence, one button, Skip |
 | Tour, steps 01 to 03 | porcelain | step numeral, title, one sentence, one picture, Back and Next |
 | Setup, steps 01 to 03 | porcelain | step numeral, title, one sentence, the step's controls, Back and the way forward |
 

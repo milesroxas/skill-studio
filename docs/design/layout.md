@@ -8,13 +8,14 @@ All in `src/renderer/components/Shell.tsx`, except `StatusLine`, which has its o
 
 | Part | Rule |
 | --- | --- |
-| `AppFrame` | the window-sized grid: the sidebar, then `Workspace` |
+| `AppFrame` | the window-sized grid: the sidebar, then `Workspace`, then `AssistantPane` when the Assistant is open |
 | `Sidebar` | ink in both themes: it carries `data-surface="ink"`. 208px, 232px from the `lg` breakpoint. `SidebarBody` is its middle, scrolling on its own when the window is short. Its `foot` (the Walkthrough box) stands at its end and scrolls with it, so a short window hides the foot and never the places. |
 | `SidebarSection` | the open skill's three places, one `NavItem` each: Skill, Cases, Results |
 | `NavItem` | one place. `meta` is its count, `xs` sans at 55%, tabular: the cases, and on Results the cases that wait for a pick. `dot` is unsaved work, in `warning`. |
 | `SidebarFooter` | Library, Guide, Settings, with a running job above them. `lead` holds the update. |
-| `Workspace` | the right column: the top bar over the pane, with `AssistantPane` beside them when the Assistant is open |
-| `TopBar` | `HistoryNav` (back and forward), `Heading level="page"`, then the next step and Run (`App.tsx` only), then help and the assistant |
+| `Workspace` | the column beside the sidebar: the top bar over the pane |
+| `AssistantPane` | the Assistant's panel: a 360px column beside `Workspace` on a wide window, over its right edge on a narrow one |
+| `TopBar` | `HistoryNav` (back and forward), `Heading level="page"`, then the "No Jev key" badge while there is none, the next step and Run (`App.tsx` only), then help and the assistant. Below `sm` a menu button leads it and opens the sidebar as `PopoverContent size="nav"`. |
 | `Pane` | `layout="page"` for a `Screen` (the default), `layout="flush"` for a `Workbench` |
 | `StatusLine` | under the pane: what just happened, read for a moment in a 48px strip kept for it, the top bar's mirror, ink while it speaks. Fed by `ctx.report`. See [data.md](data.md). |
 
@@ -35,7 +36,7 @@ Is it a preference about how the app behaves on this computer?
 
 A new screen needs all of these in one pull request, or a test or the help breaks:
 
-1. an entry in `SKILL_PLACES` in `places.ts`: its route, sidebar label and icon
+1. an entry in `SKILL_PLACES` in `places.ts` (`APP_PLACES` for an app-level screen): its route, sidebar label and icon
 2. its branch in `App.tsx`, and an entry in `WORKBENCH` in `places.ts` if it is a workbench
 3. an entry in `SCREEN_HELP` in `help.ts`: `help.test.ts` fails without one
 4. a `##` section in `docs/guide.md` with the name the help links to
@@ -91,7 +92,7 @@ A box around a region adds an edge the eye has to cross and takes 32px of width 
 | `ColumnBody`, `ColumnSection` | the scrolling content, split by hairlines |
 | `ColumnFooter` | what stays in view at the column's foot: the pick between two outputs on Results |
 
-Insets are fixed: 16px in a list, 24px in main (`inset="list" | "main"`). `ColumnBody inset="none"` fills the column edge to edge, for an editor. A `ColumnBody` is a column's whole content and ends in 64px of room, so there is one per column: notes over an editor go in the editor's `banner`, which spaces them itself (`components/MarkdownEditor.tsx`). Its `width` is `full` or `form` (808px). A header, a toolbar and the body of one column share one inset, so their left edges line up. Never pad a column by hand.
+Insets are fixed: 16px in a list, 24px in main (`inset="list" | "main"`). A list's `ColumnBody` is inset 8px and its rows bring the other 8px. `ColumnBody inset="none"` fills the column edge to edge, for an editor. A `ColumnBody` is a column's whole content, and in main it ends in 64px of room, so there is one per column: notes over an editor go in the editor's `banner`, which spaces them itself (`components/MarkdownEditor.tsx`). Its `width` is `full` or `form` (808px). A header and the body of one column share one inset, so their left edges line up. A `ColumnToolbar` starts 8px short of it, so its first icon lands on that edge. Never pad a column by hand.
 
 ### A list workbench, the Cases pattern
 
@@ -119,7 +120,7 @@ Below `lg` the columns stack and the pane scrolls, and a `ColumnFooter` stands a
 | Need | Use |
 | --- | --- |
 | Items to open in a list column | `NavButton` inside `PlainList` |
-| A list to pick from while typing (the skill switcher, the composer's slash menu) | `PopoverContent size="menu" still` holding a `PopoverSection role="listbox"` of `role="option"` rows |
+| A list to pick from while typing (the skill switcher, the composer's slash menu) | `PopoverContent size="menu" still` holding `role="option"` rows in a `role="listbox"`: one `PopoverSection` in the skill switcher, the whole popover in the slash menu, with a `role="group"` section each |
 | Records with several fields | `Table`. See [data.md](data.md). |
 | Records of one or two lines, not tabular | `Rows` (hairlines, never boxed) |
 | The steps of a transcript | `TranscriptEvent` rows in `Rows`: when, kind, body; a tool call on `muted`, an error or a failed step on the destructive tint |
@@ -172,7 +173,7 @@ Inside one: `PopoverSection` with `pad="rows"` (rows to pick from, the default) 
 
 The selection popout (`SelectionTools.tsx`) opens over four or more selected words in SKILL.md, 150ms after the selection settles, anchored to the selection itself. It is `selection` while it is a row of buttons, `compose` when the writing checks found something in the selected rule (the findings in a `PopoverSection` over the row), and `compose` or `compose-wide` once a result is in it. Its buttons are `ghost` `sm`, in one fixed order: Auto refine, Suggest changes, Help me improve. Nothing in it is yellow.
 
-Suggest changes (`Rewrites.tsx`) shows its three cards from the first frame, each with its label, what it does and its number key, and "Writing…" in place of the text, so the popout does not jump when the rewrites land. Each card is pickable unless it is the selection again; Jev's verdicts are lines on the card (`warning` for a dropped fact), never a lock. A footer section says what is happening on the left and holds Stop, or Try again, on the right. Once the rewrites are in, the first card takes focus: 1 to 3 pick, the arrows walk the cards. A picked rewrite closes the popout, tints the new text in the editor for 1.4s (`editor/landed.ts`) and reports "Replaced the selection." with Undo on the status line; Auto refine's Replace and the side panel's Replace selection take the same path. Closing the popout stops a run still writing. The popout always works on whole lines: `sceneOf` widens any selection to its lines.
+Suggest changes (`Rewrites.tsx`) shows its three cards from the first frame, each with its label, what it does and its number key, and "Writing…" in place of the text, so the popout does not jump when the rewrites land. Each card is pickable unless it is the selection again; Jev's verdicts are lines on the card (`warning` for a dropped fact), never a lock. A footer section says what is happening on the left and holds Stop, or Try again, on the right. Once the rewrites are in, the first card that can be picked takes focus: 1 to 3 pick, the arrows walk the cards. A picked rewrite closes the popout, tints the new text in the editor for 1.4s (`editor/landed.ts`) and reports "Replaced the selection." with Undo on the status line; Auto refine's Replace and the side panel's Replace selection take the same path. Closing the popout stops a run still writing. The popout always works on whole lines: `sceneOf` widens any selection to its lines.
 
 ## Spacing
 

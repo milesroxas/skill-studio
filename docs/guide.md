@@ -21,9 +21,10 @@ The pictures show a sample skill, release-notes. Its scores are made up.
 ### Finding your way
 
 - **Sidebar:** the three screens of the open skill. A number counts what is there: the cases, and on Results the cases that wait for your pick. A dot means unsaved work.
-- **Run** (top right): has an agent do the cases. It is yellow when running is the step to do now.
+- **Run** (top right): has an agent do the cases. It shows once the skill has a case, and is yellow when running is the step to do now.
 - **Next** (top right, yellow): the step to do now, when it is on another screen.
 - **Switch skill:** click the skill's name at the top of the sidebar, or press Cmd+K.
+- **Library, Guide and Settings:** at the foot of the sidebar. A run's progress shows there too.
 - **Back and forward:** the arrows at the top left.
 - **Help:** the question mark at the top right explains the screen you are on.
 - **Dotted underline:** click the word to see what it means.
@@ -122,6 +123,8 @@ Jev checks every bullet that starts a line and has four words or more. It skips:
 - Numbered lists. Use them for steps.
 - Sentences inside a paragraph.
 - Indented bullets. They count as part of the bullet above.
+- Bullets inside a code block.
+- A bullet that is only a link.
 
 ### How to write a good rule
 
@@ -185,8 +188,10 @@ Start with the prompt alone. It is enough to run the case, and reading what the 
 4. **Pictures** (optional): a screenshot or mock-up the prompt is about.
 5. **A good answer** (optional): one or two sentences on what it does.
 6. **Checks** (optional): one fact per row that a good answer makes true. Return starts the next row; Backspace on an empty row removes it. The picture button in a check's corner attaches a mock-up or screenshot the check is about. **×2** makes a check count double. **Write checks with AI** adds checks from the prompt.
-7. **Length** (optional): tick it to score the word count.
+7. **Length** (optional): tick it to score the word count, then set the fewest and the most words.
 8. Click **Add case**.
+
+To change a case, click it in the list, edit it and click **Save case** (Cmd+S). **Delete case**, at the foot of the form, removes it. Past runs keep their outputs.
 
 Checks can come later: on Results, **Add a check** turns what an output got wrong into one.
 
@@ -202,10 +207,12 @@ Write at least three different cases before you trust a score.
 2. If the skill changed since its last run, the run keeps it as a new version. Type what changed under **What changed**, or leave it: the version is then named after the date.
 3. Click **Start a run**.
 
+A run tests the files as saved. When a file has unsaved edits, the panel says so: save it on the Skill screen first.
+
 The defaults suit most runs: every case, once, with the agent you used last. **Options** changes them:
 
 - **Cases:** untick the ones to leave out.
-- **Write with:** "This version", "No skill" (the baseline to beat), or "An earlier version" (to run an old copy of the skill again).
+- **Write with:** "This version", "No skill" (the baseline to beat), or "An earlier version" (to run an old copy of the skill again: pick it under **Copy from**).
 - **Agent, Model, Effort:** who writes the outputs. Pick a model from the list or type its name.
 - **Samples per case:** use 2 or more to see how steady the skill is. Agents answer a little differently each time.
 
@@ -225,7 +232,7 @@ Results opens on a case with two outputs side by side: **A**, the version before
 - **Met** folds the rest away. Open it to read them.
 - **Transcript**, above the output, shows every step the agent took. Read it when a score surprises you. Did the agent read the skill at all?
 - **Word diff** marks what differs between the two. **Swap** trades their sides, and the **A** and **B** menus pick any other outputs of the case.
-- **Regrade** has Jev read an output's run again, for example after you add a check.
+- **Regrade** has Jev read an output's run again, for example after you add a check. An output not graded yet shows **Grade**.
 
 Then say **which is better**: A, B, or a tie. Picking the better of two outputs is easier, and more reliable, than scoring one.
 
@@ -262,10 +269,11 @@ To be sure an edit helped, run with **Samples per case** at 2 or more. If two ve
 
 Most skills never need this. **Scoring**, folded at the foot of All cases, sets how Jev's answers become a score. Move a setting and every score updates at once. Nothing runs again, so it costs nothing.
 
-- **Graded as:** the kind of work the skill does. Generic counts rules and checks. Writing, Code, Workflow and Design score their own parts.
+- **Graded as:** the kind of work the skill does. Tick one or more. Generic counts rules and checks. Writing, Code, Workflow and Design score their own parts.
 - **Points:** how much each part counts.
 - **Threshold:** how sure Jev must be before a rule or check counts as met.
-- **Rules:** the bullets read from SKILL.md, in the order the Skill screen numbers them.
+- **Settings of its kind:** the numbers a kind of skill scores by, when it has any.
+- **Rules:** the bullets read from SKILL.md, in the order the Skill screen numbers them. A `rules` list in `bench.json` replaces them.
 
 Click **Save scoring**, or **Discard**. Opening another skill with scoring changes unsaved asks first.
 

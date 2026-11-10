@@ -27,9 +27,9 @@ Skill Studio runs coding agents and executes the code they write. Treat every sk
 
 ### Agents and their code
 
-- The `code` pack's check command runs in the sample directory, so it executes agent-written code with your user's permissions. It runs with the backend's whole environment.
-- Agents run with `--permission-mode acceptEdits` (claude) or `--force` (cursor-agent). Isolation is by convention: nothing stops an agent that follows an absolute path out of its sample directory.
-- An agent, and the Claude Code or Codex CLI the assistant runs, gets the backend's environment less the app's own keys: `TYPESAFE_API_KEY` and every variable starting `SKILL_STUDIO_` are dropped (`src/infrastructure/env.ts`), so an agent with Bash cannot read them.
+- The `code` pack's check command runs in the sample directory, so it executes agent-written code with your user's permissions.
+- Agents run with `--permission-mode acceptEdits` (claude) or `--force --trust` (cursor-agent). Isolation is by convention: nothing stops an agent that follows an absolute path out of its sample directory.
+- Agents, the `code` pack's check command, and the Claude Code or Codex CLI the assistant runs, get the backend's environment less the app's own keys: `TYPESAFE_API_KEY` and every variable starting `SKILL_STUDIO_` are dropped (`src/domain/env.ts`), so an agent with Bash cannot read them.
 - An agent is started in its own process group, and ending it, on Stop, on a timeout or when the app quits, ends the group, so a shell it started with Bash goes with it. Quitting waits up to three seconds for that. The backend records the agents it starts in `~/.skill-studio/agents.json`; a backend that starts after one crashed ends those still running, after checking that each pid still names that command and started when the record says.
 - Artifacts are served with `Content-Security-Policy: sandbox; script-src 'none'` and shown in a sandboxed iframe, or in their own tab or window under the same header, so agent-written HTML cannot script the app. A bypass is in scope.
 
@@ -56,7 +56,8 @@ Skill Studio runs coding agents and executes the code they write. Treat every sk
 ### The assistant
 
 - A request goes to the provider you chose with what it is about: your instruction, the field's text, the skill, case or output beside it, and any picture you attach. A request about a case carries that case's pictures too.
-- The Assistant panel sends the open skill as you have it with each message: `SKILL.md`, each file under `references/` (up to about 60,000 characters of them), and its cases, your unsaved edits included. It also sends the name of the screen you are on, the file or case you have open there, and the pictures you add.
+- The Assistant panel sends the open skill as you have it with each message, your unsaved edits included: `SKILL.md` whole, then the files under `references/` and the cases, up to about 40,000 characters of those together. The open file goes first, and a case past that limit is sent by its title only. It also sends the conversation so far (its last 40 messages, up to 24,000 characters), the name of the screen you are on, the file or case you have open there, and the pictures you add.
+- Auto refine, Suggest changes and Help me improve also send the selected rule, the lines around it and the skill's description to Jev, with your TypeSafe key. Jev then reads the rewrites the model offers, or your draft and answers in Help me improve.
 - No content is sent until you ask. With a stored Anthropic or OpenAI key, the app asks that provider for its list of models when it opens.
-- A reply in the Assistant panel can propose changes to the open skill: SKILL.md, a file under `references/`, a case, or a version. Nothing changes until you click its button, which goes through the same checks as saving from the Editor, Cases or Versions screen. A change applies only to the skill the reply was written about, and only while that skill is open.
+- A reply in the Assistant panel can propose changes to the open skill: SKILL.md, a file under `references/`, a case, or a version. Nothing changes until you click its button, which goes through the same checks as saving from the Skill or Cases screen. A change applies only to the skill the reply was written about, and only while that skill is open.
 - The Claude Code provider runs with no tools, so a reply cannot read or change files. The Codex provider runs in a read-only sandbox: it can read files and cannot change them.

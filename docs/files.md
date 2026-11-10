@@ -17,8 +17,8 @@ Everything Skill Studio knows about a skill is plain files in the skill's `evals
     <case>/                       a case folder may also sit here, below
     evals.json                    cases in skill-creator's `evals.json` shape, read when no folder has the same id
     bench.json                    packs, points per layer and the threshold (see grading.md)
-    anchors/*.md                  labelled outputs for `st self-test`; front matter: case, label, tests, about
-    anchors/report.json           what `st self-test` scored, written each time it runs
+    anchors/*.md                  labelled outputs for `st self-test`; front matter: case, label, tests
+    anchors/report.json           what `st self-test` scored, written each time it runs, with judge-cache.json beside it
     reviews.json                  your corrections to Jev's verdicts and your picks between two outputs (see grading.md)
     versions/<vN>/                a version saved by the Assistant: version.json and files/
     runs/                         one directory per run, below
@@ -48,6 +48,7 @@ Everything Skill Studio knows about a skill is plain files in the skill's `evals
 evals/runs/<date>-skill-<vN>-<engine>-<model>[-<effort>][-<configuration>]/
   run.json                        skill version and hash, writer, cases, per-sample cost and tokens
   report.json                     raw judge answers and scores per sample, written by grading
+  judge-cache.json                each pack's raw answer by a hash of what it was asked, so Regrade asks only about what changed
   _skill/                         SKILL.md and references/ as they were for this run
   <case>-s<n>/                    one sample: the agent's working directory
     prompt.md                     the exact prompt sent
@@ -68,7 +69,7 @@ Graded artifacts are read under `outputs/` only, by extension: `.md`, `.markdown
 
 ## Versions
 
-A skill's version is a hash of `SKILL.md` and `references/`. A run keeps the version it tested: its `_skill/` snapshot is the copy the app reads and restores. A changed tree needs a name on its first run. The app names it after the date unless you type what changed; `st run` asks for `--name`. Later runs of the same files reuse the version. The Assistant can also save the files as a version before it changes them: that copy lands in `evals/versions/`. Saved and run versions share one numbering.
+A skill's version is a hash of `SKILL.md` and `references/`. A run keeps the version it tested: its `_skill/` snapshot is the copy the app reads and restores. A changed tree needs a name on its first run. The app names a skill's first version "First version" and a later one after the date, unless you type what changed; `st run` asks for `--name`. Later runs of the same files reuse the version. The Assistant can also save the files as a version before it changes them: that copy lands in `evals/versions/`. Saved and run versions share one numbering.
 
 A run's configuration says which skill the agent saw:
 
@@ -87,6 +88,8 @@ A run's configuration says which skill the agent saw:
 | `drafts/` | Unsaved edits to files and cases |
 | `practice/` | The walkthrough's skill, and `seen.json`: the walkthrough steps that only ask you to look at a screen, once you have |
 | `chat.json`, `ai-usage.json` | The Assistant's conversation and its usage log |
+| `claude-commands.json` | The skills Claude Code can invoke, for the side panel's slash menu, with the modification times of the folders they were read from |
+| `agents.json` | The agents the backend has started, so a backend that starts after a crash can end them |
 | `uploads/` | Pictures added but not yet saved in a case. One nothing has read for 30 days is removed when the next picture is uploaded |
 | `trash/` | The last deleted version, until the next delete: `<uuid>/entry.json` (the skill, the version, its run names, and the corrections and picks that went with them), `version/` and `runs/<run>/` |
 

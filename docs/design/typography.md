@@ -31,7 +31,7 @@ Is it a heading in the page's outline?
  ├── Yes → Heading
  │         ├── the welcome's headline → level="display" (the welcome only)
  │         ├── a welcome step's title → level="step" (the welcome only)
- │         ├── the screen's name in the top bar → level="page"
+ │         ├── the screen's name in the top bar, the Assistant panel's title → level="page"
  │         ├── a section of a screen, an empty state's title → level={2}
  │         └── a group of fields, a part of a column → level={3}
  └── No
@@ -86,7 +86,7 @@ A number in a sentence stays in sans, and so does a live count under a field ("4
 
 ## Caps labels
 
-`Text caps` is 11px, weight 500, uppercase, tracked `--tracking-caps` (0.08em). It names a group without being a heading. Use it for exactly these: a section of the composer's slash menu ("Assistant", "Skills"), a caption over a part of a picture in the welcome, the label of a figure, the tag before each line of a rule pair (`PairList` in `starters.tsx`: "vague" and "check" by default, "vague" and "exact" on the Editor), the part labels of a case change in the Assistant ("Prompt", "A good answer", "Checks"), a rewrite's kind ("Best practice", "More direct", "Shorter"), and the section labels of Auto refine and Help me improve ("What drifts", "Revision", "The selection", "The draft against the guide"). Two words at most. Never for a button, a table head or a heading: caps slow reading, so they stay where a reader only glances.
+`Text caps` is 11px, weight 500, uppercase, tracked `--tracking-caps` (0.08em). It names a group without being a heading. Use it for exactly these: a section of the composer's slash menu ("Assistant", "Skills"), a caption over a part of a picture in the welcome, the label of a figure, the tag before each line of a rule pair (`PairList` in `starters.tsx`: "vague" and "check" by default, "vague" and "exact" on the Skill screen), the part labels of a case change in the Assistant ("Prompt", "A good answer", "Checks"), a rewrite's kind ("Best practice", "More direct", "Shorter"), the section labels of Auto refine and Help me improve ("What drifts", "Worth a look", "Revision", "The selection", "The draft against the guide"), and the guide line over each writing-check finding in the selection popout (`FindingList` in `Refine.tsx`). Keep it short. Never for a button, a table head or a heading: caps slow reading, so they stay where a reader only glances.
 
 ## Display type
 

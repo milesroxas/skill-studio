@@ -15,7 +15,7 @@ import { certainty, mean } from '@domain/stats.ts'
 import { codeVerdict, finding, jevVerdict } from '@domain/verdict.ts'
 import { checkVerdict, metShare, type StatementAnswer, unmetFlag } from '../shared/score.ts'
 
-/** The config an active design pack sees: core/config.ts lays these defaults under bench.json. */
+/** The config an active design pack sees: domain/config.ts lays these defaults under bench.json. */
 export type DesignConfig = BenchConfig & { design: { maxChars: number } }
 
 export interface MarkupCheck {

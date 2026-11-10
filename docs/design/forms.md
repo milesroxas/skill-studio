@@ -5,7 +5,7 @@ A form on a `Screen` is a column of `FormSection`s (`layout="split"`, the defaul
 ## Saved at once, or with a button?
 
 - **Settings and preferences apply at once.** No Save button. A change that can fail says so on the status line (`ctx.report`). This is how `Settings.tsx` works.
-- **Content is saved with a button**: a skill file, a case, a check. Those forms have `FormActions` or a `ColumnFooter`, and show "Discard" only when dirty.
+- **Content is saved with a button**: a skill file, a case, a check. Those forms have `FormActions` or a `ColumnHeader`, and "Discard" acts only when they are dirty.
 
 ## Which control?
 
@@ -50,8 +50,8 @@ Every control sits in a `Field` with a `Label` above it. Never a placeholder as 
 
 - An `Input`, `TextArea` or `NumberInput`: `<Label htmlFor="case-title">` and the same `id` on the control.
 - A `Segmented`, `SelectBox` trigger, or a group of controls: `<Label id={…}>` and `aria-labelledby` on the control, or `role="group"` with `aria-labelledby` on the `Field`.
-- `Knob` is the one exception: it draws its own label, exact value and description. Use it bare, not in a `Field`. Help goes under the control in a `Hint`. An error is `<Hint tone="destructive">` under the control, and the control gets `aria-invalid`.
-
+- `Knob` is the one exception: it draws its own label, exact value and description. Use it bare, not in a `Field`.
+- Help goes under the control in a `Hint`. An error is `<Hint tone="destructive">` under the control, and the control gets `aria-invalid`.
 - A unit goes in the label: "Minimum run length, in minutes". Never as a suffix inside the field.
 - A row of buttons or toggles inside a `Field` sits in a `Toolbar`, so they keep their own width.
 - A short label before a control on one line ("From" before a select) is `InlineField`.
@@ -77,7 +77,7 @@ Every control sits in a `Field` with a `Label` above it. Never a placeholder as 
 
 - `font="mono"` for a path, a name used as an id, a key, or a command to copy. A command to copy is `readOnly` under its own label ("Run in Terminal"), selects whole on focus, and has a **Copy command** button under it (`CliSetup` in `components/Connections.tsx`).
 - `width="search"` for a search field in a `ListBar`.
-- `size="sm"` only in workbench chrome.
+- `size="sm"` only for the value beside a slider, in `Knob`.
 - An input's fill is `bg-card`. On porcelain its 1.5:1 edge is not enough to find it. Every field (`Input`, `TextArea`, the `Select` trigger) takes its edge and fill from `FIELD_SURFACE` in `ui/input.tsx`: change it there, once.
 
 `TextArea` variants: `default` (84px minimum, grows), `line` (one line that grows as it wraps, 36px to start: a check reads as an input until it needs more). `CheckRow` takes `size` (`default`, `sm`) and a `description` line under its label. `NumberInput` takes `width` (`default`, `value` for a number beside a slider, `full`). `SelectBox` takes `width` (`auto`, `full`, `wide` for an output with its version, writer and time), `size` (`default`, `sm` 32px), `none` (the label of the choice that means no value) and `groups`. Nothing else on these changes their look.
@@ -100,9 +100,9 @@ The pressed segment is ink fill (`bg-primary`). A choice not yet made (a pick be
 
 ## Toggle
 
-`Toggle` variants: `default` (hovers as a ghost button, for a toolbar), `outline` (one item's state in a row: an agent's install on Library, a check's ×2 on Cases), `filter`. Sizes: `default`, `sm`, `icon-sm`, `lg`. Every `outline` toggle in the app is `size="sm"`. `place`: `alone` (the focus line outside the toggle, the default) or `group` (inside it, for a segment of a `Segmented` or `FilterGroup`; see [color.md](color.md)).
+`Toggle` variants: `default` (hovers as a ghost button, for a bar of them: the Assistant's toggle in the top bar), `outline` (one item's state in a row: an agent's install on Library, a check's ×2 on Cases), `filter`. Sizes: `default`, `sm`, `icon-sm`, `lg`. Every `outline` toggle in the app is `size="sm"`. `place`: `alone` (the focus line outside the toggle, the default) or `group` (inside it, for a segment of a `Segmented` or `FilterGroup`; see [color.md](color.md)).
 
-The pressed `outline` toggle is ink fill, the same as `Segmented`, so "on" reads the same everywhere. A pressed `default` toggle in a toolbar stays `bg-accent`: a formatting tool is a state of the cursor, not a setting.
+The pressed `outline` toggle is ink fill, the same as `Segmented`, so "on" reads the same everywhere. A pressed `default` toggle stays `bg-accent`, as the Assistant's toggle does while its panel is open.
 
 ```tsx
 // Correct: screens/Library.tsx. One agent's install state for one skill, applied at once.
@@ -124,7 +124,7 @@ The pressed `outline` toggle is ink fill, the same as `Segmented`, so "on" reads
 - `FormActions` at the foot of a saved form: primary first, destructive last after `Spacer`.
 - A form whose one action costs something says what it will do before the action: Run states the output count and how it adds up in a `Hint` over "Start a run" (`components/Run.tsx`).
 - An action that is the only control of its section ("Reset Skill Studio…") sits in a `Toolbar` inside a `FormSection` of its own, as in `Settings.tsx`.
-- "Discard" shows only when the form is dirty, and goes through `ctx.confirm`.
+- "Discard" acts only when the form is dirty, and goes through `ctx.confirm`. A case and Scoring show it only then; the Skill screen's header keeps it in place, disabled.
 - Adding or removing a repeated row moves focus with it: to the new row, or to the next row's remove button.
 - Fields in a repeated row start on the column's edge. Row numbers hang in the margin. Trailing icon actions end on the edge and use `ghost-muted`.
 

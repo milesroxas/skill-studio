@@ -103,7 +103,7 @@ Green, amber and red say how something stands and nothing else. A decorative use
 | `destructive` | broken, failed, or deletes | a failing score, an error, a failed job, a delete button |
 | none (`muted`) | not set, and nothing is wrong | an optional key left empty, a permission not asked yet |
 
- A verdict on a surface is a 10% tint under colored text (`bg-success/10 text-success`), 20% in the dark and ink scopes. `Badge` and `TableRow` already do this: use their variants, do not rebuild the tint.
+A verdict on a surface is a 10% tint under colored text (`bg-success/10 text-success`), 20% in the dark and ink scopes. `Badge` and `TableRow` already do this: use their variants, do not rebuild the tint.
 
 A diff (`.diff` and `.diff-lines` in `styles.css`) takes the same tints, but its text stays in text color, because colored running text on a tint is too faint to read. The color goes on a mark instead: a word diff underlines an added word and strikes through a removed one in the verdict color, and a line diff colors only the `+` or `-`. Unchanged lines in a line diff are `muted-foreground`, so the changed lines are the brightest text in the listing.
 
@@ -111,12 +111,12 @@ A diff (`.diff` and `.diff-lines` in `styles.css`) takes the same tints, but its
 
 - A region ends at a hairline: `border-b`, `border-r`, `divide-y`. The default border color is `--border`. Do not name it.
 - A control's edge is `border-input`. How focus shows is in [Focus](#focus) below.
-- One depth cue per surface. A floating sheet uses `shadow-popover`. A raised object uses `shadow-raised`. Never both, and never one of them on a bordered region. In the dark and ink scopes both collapse to a ring. A control is not a surface: a field (`FIELD_SURFACE`), an `outline` button or toggle, a checkbox and the slider's thumb carry Tailwind's `shadow-xs` under their `border-input` edge, set once in `ui/`. That hairline is part of the control's edge, not depth: never add it at a call site.
+- One depth cue per surface. A floating sheet uses `shadow-popover`. A raised object uses `shadow-raised`. Never both, and never one of them on a bordered region. In the dark and ink scopes both collapse to a ring. A control is not a surface: a field (`FIELD_SURFACE`), an `outline` button or toggle, and a checkbox carry Tailwind's `shadow-xs` under their `border-input` edge, and the slider's thumb `shadow-sm`, set once in `ui/`. That hairline is part of the control's edge, not depth: never add it at a call site.
 - Corners are a closed set, in `styles.css`:
   - `rounded-sm` 4px: a button, a field, a toggle, a checkbox, a chip, a list row or menu item.
   - `rounded-chin` 10px on top, 12.5px below: a container. A card, a popover, a menu, a dialog, an alert, the composer, a muted panel, a code block, a chat bubble, the welcome's picture sheet. Top and bottom stay 4 to 5.
-  - `rounded-xs` 2px: a mark inside running text (an inline link's focus ring, inline code, a diff mark), a part nested inside a control, and each segment of a stepped indicator (the walkthrough's progress, the file size meter). A segment is at least 6px tall, so its corners read as corners and not as a pill.
-  - `rounded-full`: dots, a single continuous bar and the slider's thumb only. A row of steps is never pills.
+  - `rounded-xs` 2px: a mark inside running text (an inline link's focus ring, inline code, a diff mark), a part nested inside a control, a part's bar in `Parts`, and each segment of a stepped indicator (the walkthrough's progress, the file size meter). A segment is at least 6px tall, so its corners read as corners and not as a pill.
+  - `rounded-full`: dots, the slider's track and thumb, and the remove button on a picture only. A row of steps is never pills.
 
 ## Focus
 
@@ -131,7 +131,7 @@ Focus answers one question, "where did I land?", and only a keyboard asks it. A 
 
 "From the keyboard only" is `data-input` on `<html>`, which `renderer/focus.ts` sets to `pointer` on a press and `keyboard` on a key. The browser's own `:focus-visible` is not enough: when a menu or dialog closes, its script hands the focus back to its trigger, and the browser lights the trigger up under the pointer that just closed it. Before the first input there is no attribute, so the line shows: a keyboard user is never left without it. A select's edge also turns ink while its list is open (`data-[state=open]:border-ring`). `focus-key:` is the same keyboard test as a variant, for a reveal: a `ghost-muted` icon turns to text color when focused (`focus-key:text-foreground`).
 
-- A component names one of the four. Never `outline-none` alone on something focusable, and never a `ring-*` for focus: a ring is a box shadow, it sits on top of the edge, and it is the heavy halo this replaces. The one bare `outline-none` is `Pane` (`tabIndex={-1}`), which only the skip link focuses: a reader lands in it, not on it.
+- A component names one of the four. Never `outline-none` alone on something focusable, and never a `ring-*` for focus: a ring is a box shadow, it sits on top of the edge, and it is a heavy halo. A bare `outline-none` is only on what a reader lands in, not on: `Pane` (`tabIndex={-1}`), which only the skip link focuses, and the `role="option"` rows of a list whose focus stays in its field (`tabIndex={-1}`: the field's `aria-activedescendant` marks the active row in `bg-accent`).
 - Anything focusable that names none of them still gets the line from the base layer: a link in prose, a `summary`.
 - The composer's `box` frame shows focus as its edge in `border-ring` (`focus-within`), because it holds the focus for a whole conversation.
 - A field in error keeps its red edge when focused: `focus-edge` does not paint over `aria-invalid`.

@@ -1,13 +1,13 @@
 # Grading
 
-Grading runs a skill's judge packs over each sample of a run and writes `report.json`. It follows a run started in the app (`st run --no-grade` skips it), and runs again on Regrade in the app or with `st grade`.
+Grading runs a skill's judge packs over each sample of a run and writes `report.json`. It follows each run, in the app and from `st run` (`--no-grade` skips it), and runs again on Regrade in the app or with `st grade`.
 
 This page uses the words of the files: a **pack** is a set of judge questions for one kind of work, and a **layer** is one part of a score. The app calls a pack the kind of work a skill is "graded as", and a layer a part of the score: Rules, Checks and so on.
 
-- A pack runs on a sample when it judges the kind of the sample's primary artifact: the first output of the case's `bench.artifact` kind, else the first Markdown file, else the first output of any kind.
+- A pack runs on a sample when it judges the kind of the sample's primary artifact: the first output of the case's `bench.artifact` kind, else the first Markdown file, else the first output of any kind. The workflow pack runs on every sample.
 - Jev's raw answers are stored. Points per layer, the threshold and pack settings are applied in code (`src/domain/scoring.ts` and each pack's `score.ts`), so Scoring, on Results, rescores without new judge calls.
 - Without a TypeSafe key, or with `--no-jev`, only code checks run and every judged layer is null. A null layer, or one given 0 points, is left out of the total and the rest rescale. A pack that throws leaves every one of its layers null and adds the flag `<pack> pack failed: ...`. In the app, a grading with that flag on every output fails, with the first reason in the job's log; one with it on some outputs says how many and goes on.
-- Regrade asks only about what changed. Each pack's raw answer is kept in `judge-cache.json` beside `report.json`, under a hash of the model, the pack, the output text, the case, the rules, the evidence and the pack's settings. Points per layer and `yes` are not in the hash, since they apply in scoring. On the next grading an output whose hash matches keeps its answer, and the log says `N of M outputs unchanged: kept their verdicts.`
+- Regrade asks only about what changed. Each pack's raw answer is kept in `judge-cache.json` beside `report.json`, under a hash of the model, the pack, the output text and transcript, the case, the rules, the evidence and the pack's settings. Points per layer and `yes` are not in the hash, since they apply in scoring. On the next grading an output whose hash matches keeps its answer, and the log says `N of M outputs unchanged: kept their verdicts.`
 - A check or lint command runs in the background, so the app keeps answering while it runs.
 - A case's word range counts prose and list text, not headings or code. An output outside it is flagged `length: N words, case asks a to b`; a sample with no output is flagged `no output to judge`.
 
@@ -54,7 +54,7 @@ A case's `bench.kind` (`article`, `linkedinPost`, `coverLetter`, `youtubeScript`
 { "packs": ["writing"], "lint": { "command": "node scripts/lint.mjs --kind {kind}" }, "writer": "Ada Lovelace" }
 ```
 
-The command prints `{ "findings": [...] }` or a bare array of `{ severity: "error" | "warning" | "info", rule, message, excerpt? }`. Its exit code is ignored. Any error scores lint 0, and each warning costs `warningCost` (0.2). A command that prints no findings, or runs past `lint.timeoutSeconds` (60), leaves the layer null with a flag.
+The command prints `{ "findings": [...] }` or a bare array of `{ severity: "error" | "warning" | "info", rule, message, excerpt? }`. Its exit code is ignored. Any error scores lint 0, and each warning costs `warningCost` (0.2). A command that prints no findings JSON, or runs past `lint.timeoutSeconds` (60), leaves the layer null with a flag.
 
 With no command, a fallback lint treats an em dash as an error (`em-dash`), and warns on exclamation marks (`exclamation`), emoji (`emoji`) and a word count outside the case's range (`length`). Its word count includes headings.
 
@@ -69,7 +69,7 @@ The pack needs a transcript; a run whose outputs sit flat at the run root (`RunM
 - Code counts tool calls, errors, identical repeated calls, time against the case's `timeout_seconds`, tool calls against `max_turns`, and absolute paths outside the sample directory. System folders are not counted: `/dev`, `/tmp`, `/private/tmp`, `/usr`, `/bin`, `/opt` and `/etc`.
 - Efficiency is the share of checks passed: no errors, repeated calls within `workflow.maxRetries` (1), tool calls within `max_turns` and seconds within `timeout_seconds`, the last two only when the case sets them. Scope is 0 when any path lands outside the sample, else 1.
 - Code checks that `SKILL.md` was read before the first write. A `without_skill` sample skips that check.
-- Jev reads a one-line-per-step summary and answers whether the task was done and, after an error, whether the agent changed course. Process is the share of those answers at or above `yes`.
+- Jev reads a one-line-per-step summary and answers whether the task was done and, after an error, whether the agent changed course. Process is the share of those answers at or above `yes`, with the read-first check counted beside them. Without Jev there is no process layer.
 
 ### Design
 
@@ -101,15 +101,14 @@ A score is counted from facts, and the scorers report each one (`Verdict` in `sr
 `evals/reviews.json` holds what the reader said. Both are written by Results.
 
 - **A correction** is the reader's own answer on one fact of one output: `reviews["<run>/<sample>"].corrections["<fact>"]` is `true` when the output meets it and `false` when it does not, whatever Jev said. It stands over Jev's answer wherever the app scores that output: the fact moves between Missed and Met, and the layer and the total follow. It stays the reader's answer when a moved `yes` threshold brings Jev's answer round to it; the row then says "your answer, agrees with Jev", and "Take back" still removes it. `report.json` keeps Jev's own answers, so `st report` prints the scores without corrections.
-- **A pick** is the reader's choice of the better of two outputs: an entry of `preferences` with the two output keys, `vote` (`a`, `b` or `tie`), `criterion: "overall"` and `by: "human"`. One pick is kept per pair. It changes no score. Results sets it beside the two totals, and says so when the output not picked scores higher.
-
+- **A pick** is the reader's choice of the better of two outputs: an entry of `preferences` with the two output keys, `vote` (`a`, `b` or `tie`), `criterion: "overall"`, `by: "human"` and `at`, when it was made. One pick is kept per pair. It changes no score. Results sets it beside the two totals, and says so when the output not picked scores higher.
 - Deleting a version moves the corrections and picks on its runs' outputs to the trash with it, and Undo brings them back.
 
-A `reviews.json` from an earlier version of the app may hold more: ratings, notes, votes by Jev. They are kept as they are when the file is written, and nothing reads them.
+Any other field in `reviews.json`, such as a rating, a note or a vote by Jev, is kept as it is when the file is written, and nothing reads it.
 
 ## Version scores and the lift
 
-A version's score is the mean of its cases, each case the mean of its graded outputs, so a case run three times counts once. Where one writer (an engine and model) ran two versions, a version's score counts that writer's outputs only, so one version reads against the next. The version lift on Results compares that writer's oldest run on the first version with its newest run on the latest over the cases both runs answered (`sharedCases`); when either run answered cases the other did not, `casesDiffer` is set and the page says over how many cases the means are read. The floor, the same writer's newest run without the skill, is read over the same cases. A run made against an older version's snapshot (`old_skill`) is that version's run here as on the comparison. `src/domain/lift.ts` holds this.
+A version's score is the mean of its cases, each case the mean of its graded outputs, so a case run three times counts once. Where one writer (an engine and model) ran two versions, a version's score counts that writer's outputs only, so one version reads against the next. When several writers did, the one whose newest run is newest is read. The version lift on Results compares that writer's oldest run on the first version it ran with its newest run on the latest it ran, over the cases both runs answered (`sharedCases`); when either run answered cases the other did not, `casesDiffer` is set and the page says over how many cases the means are read. The floor, the same writer's newest run without the skill, is read over the same cases. In the lift, a run made against an older version's snapshot (`old_skill`) is that version's run, as on the comparison. `src/domain/lift.ts` holds the lift, and `versionScore` in `src/renderer/model.ts` a version's score.
 
 ## Anchors
 

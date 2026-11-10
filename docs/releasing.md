@@ -12,7 +12,7 @@ A release is permanent. The repository refuses to move or delete a `v*` tag, and
 2. Bump, tag and push:
 
 ```
-pnpm version prerelease -m "Release %s"    # or patch, minor, major, or an exact version
+pnpm version minor -m "Release %s"    # or patch, major, prerelease, or an exact version
 git push --follow-tags
 ```
 
@@ -59,12 +59,12 @@ To watch a real update, package a copy under an older version and open it. It fi
 
 ```
 pnpm build
-pnpm exec electron-builder --mac zip --arm64 --publish never -c.extraMetadata.version=0.1.0-beta.1
+pnpm exec electron-builder --mac zip --arm64 --publish never -c.extraMetadata.version=0.3.0
 codesign --force --deep --sign - "dist/mac-arm64/Skill Studio.app"    # Apple silicon starts no unsigned app
 open "dist/mac-arm64/Skill Studio.app"
 ```
 
-Give the copy a prerelease version while every release is a prerelease. Everything up to **Restart to update** is real. The restart is the one step this does not prove: macOS installs an update only over a copy signed by the same Developer ID, so only a released copy can show it.
+Give the copy a stable version older than the latest release. Everything up to **Restart to update** is real. The restart is the one step this does not prove: macOS installs an update only over a copy signed by the same Developer ID, so only a released copy can show it.
 
 ## Start over
 

@@ -15,7 +15,7 @@ import { certainty, mean } from '@domain/stats.ts'
 import { codeVerdict } from '@domain/verdict.ts'
 import { checkVerdict, clip, metShare, type StatementAnswer, unmetFlag } from '../shared/score.ts'
 
-/** The config an active code pack sees: core/config.ts lays these defaults under bench.json. */
+/** The config an active code pack sees: domain/config.ts lays these defaults under bench.json. */
 export type CodeConfig = BenchConfig & { codeCheck: { timeoutSeconds: number; maxChars: number } }
 
 export interface CheckRaw {

@@ -143,7 +143,7 @@ const textVariants = cva('', {
       start: '',
       end: 'text-right',
     },
-    /** A label over a group that is not a heading: a sidebar section, a figure. Two words at most. */
+    /** A label over a group that is not a heading, such as a figure's. Keep it short. */
     caps: {
       true: 'text-2xs font-medium uppercase tracking-caps',
       false: '',

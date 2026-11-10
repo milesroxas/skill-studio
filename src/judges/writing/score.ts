@@ -12,7 +12,7 @@ import type { ShapeMeasures } from './shape.ts'
 
 type Band = [number, number]
 
-/** The config an active writing pack sees: core/config.ts lays the defaults below under bench.json. */
+/** The config an active writing pack sees: domain/config.ts lays the defaults below under bench.json. */
 export type WritingConfig = BenchConfig & {
   writingKind: string
   lint: { command: string | null; timeoutSeconds: number }

@@ -13,15 +13,15 @@ These exist. Nothing else does: an unlisted variant is a bug, not an option.
 | `ghost` | an action beside other buttons in a toolbar or header | any |
 | `signal` | the next step of the loop, in the top bar only: yellow fill. Either "Next: …" or Run, never both. | one per window |
 | `secondary` | not used by any screen. Do not start. | 0 |
-| `link` | a link in a sentence that leaves the screen | rare |
+| `link` | a name that opens its item: a skill's name in the Library's table | rare |
 | `link-muted` | navigation inside a table cell or under a form | any |
-| `ghost-muted` | an icon action a row repeats, such as "show in Finder" | any |
+| `ghost-muted` | an action a row repeats, such as "show in Finder", and the tools in the editor's toolbar | any |
 | `destructive` | the confirm button of a destructive dialog | one per dialog |
 | `destructive-outline` | a destructive action alone in its section | one per section |
 | `destructive-ghost` | a destructive action beside other buttons | rare |
 | `destructive-muted` | a delete icon a row repeats: quiet until pointed at | any |
 
-`default` is the cva default, so a bare `<Button>` is the filled one. Most call sites name `outline` or `ghost`, and a few pick one of the two in a ternary. If a screen has two filled buttons, it has no hierarchy: make one `outline`.
+`default` is the cva default, so a bare `<Button>` is the filled one. Most call sites name `outline` or `ghost`, and a few pick their variant in a ternary. If a screen has two filled buttons, it has no hierarchy: make one `outline`.
 
 `CornerButton` (`components/CornerButton.tsx`) is `ghost` at `icon-xs`, in `muted-foreground` at 80% until pointed at, with a 36px hit area around its 24px: the action in a field's corner. Where it goes is in [forms.md](forms.md).
 
@@ -37,7 +37,7 @@ Is it the next step of the loop, in the top bar?
       │    ├── It stands alone in a section → destructive-outline
       │    └── It sits beside other buttons → destructive-ghost
       ├── Is it navigation inside a table or under a form? → link-muted
-      ├── Is it an icon a row repeats? → ghost-muted
+      ├── Is it an action a row repeats, or a tool in the editor's toolbar? → ghost-muted
       ├── Is it the one action the screen exists for? → default
       ├── Does it sit in a toolbar or header beside others? → ghost
       └── Otherwise → outline
@@ -77,7 +77,7 @@ Is it the next step of the loop, in the top bar?
 | `inline`, `inline-sm` | none | a link in running text, or small under a form |
 | `cell` | 28px | a button filling a table cell |
 | `cell-inline` | none | a text link in a table cell |
-| `row` | grows | a full-width row in a list, left-aligned and wrapping, at the text's own weight: the questions to ask on the Assistant's empty state (`Chat.tsx`), with `ghost`. Nowhere else yet. |
+| `row` | grows | a full-width row in a list, left-aligned and wrapping, at the text's own weight: the questions to ask on the Assistant's empty state (`Chat.tsx`), with `ghost`. Nowhere else. |
 
 ```
 Is it in a table cell?
