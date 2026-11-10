@@ -6,18 +6,19 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-11-10
+
 ### Security
 
 - `st serve` needs a token. It prints an address that carries one, made new at every start; opening it signs the browser in with a cookie, and any other request is refused. Another account on the same machine can no longer drive the server, and with `--tailscale` the tailnet needs the token too, so faked Tailscale headers get nowhere. `--open` hands the browser a one-use address that works for a minute, never the token itself. A request body over 32 MB is refused.
 - A link inside a skill, such as a `references` folder that points elsewhere, is never read, written or deleted through, so opening someone else's skill and pressing Restore cannot write outside it. The same holds for links an agent leaves in its outputs.
 - A run name, a version label or a case file read from a skill's own files can no longer point outside the skill. Saving a case refuses a `files/`, `graders/` or `references/` folder that is a link leading out of the skill. File names with `< > : " | ? *`, and Windows device names such as `con` or `nul.md`, are refused, so a skill opens on every system.
 - A packaged app ignores `ELECTRON_RENDERER_URL` and quits when started with a remote debugging switch, so no other program can load its own page into the app with its keys.
-- Cursor's model list was read with the app's keys in the environment. It runs without them, like every agent.
+- A Cursor agent, and the read of Cursor's model list, ran with the app's keys in their environment: `TYPESAFE_API_KEY` and the stored Anthropic and OpenAI keys. Both run with the environment a Claude Code agent gets, with the keys left out.
 - On Windows, arguments to a `.cmd` CLI are escaped so a case's text or a model name cannot run a command, and a multi-line Cursor prompt is refused rather than cut. Not yet run on Windows.
 
 ### Fixed
 
-- A Cursor agent still saw the app's keys: `TYPESAFE_API_KEY` and the stored Anthropic and OpenAI keys. It now runs with the same environment as a Claude Code agent, with the keys left out.
 - A sample was graded against the wrong case when one case's name starts another's, such as `email` and `email-reply`.
 - Every sample of a run used the skill as it was when that sample started, so editing during a run mixed two texts under one version. A run now copies the skill and the cases' input files once, at the start.
 - A skill's version counts its scripts and other files, not only `SKILL.md` and `references/`, so a changed script makes a new version.
@@ -71,7 +72,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - A deleted reference file, made again, came back with its old undo history.
 - A version's changes flashed Loading whenever the files changed.
 - The assistant's proposed case says when a saved case has the same title, and its Save a version is no longer blocked by drafts that match the files on disk.
-- Back or Forward to another skill showed it with the open skill's data while the scoring question was open, and declining stepped back only one place.
+- Back or Forward to a place in another skill showed it with the open skill's data until that skill opened.
 - Picking another rule while Help me improve was still reading the last one was refused. It switches to the new rule.
 - The design pack's markup check failed a page for an attribute such as `online` or `only`, which runs no script. Only an event handler attribute fails it.
 - In the writing pack, a missing answer to an optional question took the whole pack down; it is left out.
