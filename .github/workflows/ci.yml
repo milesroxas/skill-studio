@@ -37,3 +37,38 @@ jobs:
       - run: pnpm fallow
       - run: pnpm test
       - run: pnpm build
+
+  # The process and path code branches by platform, so the tests run where the
+  # app ships too. `check` keeps its name: a required status check is named for it.
+  test-macos:
+    runs-on: macos-latest
+    timeout-minutes: 10
+    env:
+      ELECTRON_SKIP_BINARY_DOWNLOAD: 1
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: pnpm/setup@fa36a5ef7dcdefc3a7cb25655c122e00cf6e636e # v3.1.2
+        with:
+          cache: true
+          require-lockfile: true
+      - run: pnpm test
+
+  # The Windows paths have never been run. This job shows what they do without
+  # holding a merge or a release: its failure does not fail the workflow.
+  test-windows:
+    runs-on: windows-latest
+    timeout-minutes: 15
+    continue-on-error: true
+    env:
+      ELECTRON_SKIP_BINARY_DOWNLOAD: 1
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: pnpm/setup@fa36a5ef7dcdefc3a7cb25655c122e00cf6e636e # v3.1.2
+        with:
+          cache: true
+          require-lockfile: true
+      - run: pnpm test

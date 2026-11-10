@@ -30,6 +30,8 @@ The changelog entry becomes the release's notes in three places: the What's New 
 
 The Mac job reads its secrets from the `release` environment. A tag fails when `CSC_LINK`, `APPLE_API_KEY`, `APPLE_API_KEY_ID` or `APPLE_API_ISSUER` is missing; a rehearsal then builds unsigned.
 
+The environment must be limited to `v*` tags and the `main` branch. Without that limit, anyone who can push a branch can name the environment in a workflow of their own and read the certificate, or run a rehearsal on their branch and download a signed, notarized build of it. With it, GitHub refuses the Mac job of a run from any other branch, so a rehearsal is run from `main`.
+
 | Secret | Value |
 | --- | --- |
 | `CSC_LINK` | The Developer ID Application certificate with its key, exported from Keychain Access as a `.p12`, in base64 |
@@ -39,13 +41,21 @@ The Mac job reads its secrets from the `release` environment. A tag fails when `
 | `APPLE_API_ISSUER` | The issuer ID shown above the list of keys |
 
 ```
-gh api -X PUT repos/milesroxas/skill-studio/environments/release
+gh api -X PUT repos/milesroxas/skill-studio/environments/release --input - <<'JSON'
+{ "deployment_branch_policy": { "protected_branches": false, "custom_branch_policies": true } }
+JSON
+gh api -X POST repos/milesroxas/skill-studio/environments/release/deployment-branch-policies \
+  -f name='v*' -f type=tag
+gh api -X POST repos/milesroxas/skill-studio/environments/release/deployment-branch-policies \
+  -f name=main -f type=branch
 base64 -i DeveloperID.p12 | gh secret set CSC_LINK --env release
 gh secret set APPLE_API_KEY --env release < AuthKey_XXXXXXXXXX.p8
 gh secret set CSC_KEY_PASSWORD --env release     # each of these three asks for the value
 gh secret set APPLE_API_KEY_ID --env release
 gh secret set APPLE_API_ISSUER --env release
 ```
+
+To check the limit, `gh api repos/milesroxas/skill-studio/environments/release/deployment-branch-policies` lists two policies: `v*` of type `tag` and `main` of type `branch`. A required reviewer on the environment (Settings, Environments, release) holds it further: each Mac job then waits for that person's approval.
 
 [SECURITY.md](../SECURITY.md#checking-a-download) says what is signed and how a download is checked.
 

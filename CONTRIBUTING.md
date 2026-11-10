@@ -30,7 +30,7 @@ pnpm build      # the electron-vite build
 pnpm format     # apply Biome's formatting and safe fixes
 ```
 
-CI runs `pnpm check` and `pnpm build` on every pull request, and both must pass to merge.
+CI runs both on Linux for every pull request (the `check` job), and that job must pass to merge. It also runs the tests on macOS (`test-macos`) and on Windows (`test-windows`). The Windows job shows its result without failing the run: those paths are not yet known to pass.
 
 Fix warnings and findings; do not suppress them. A `biome-ignore` or `fallow-ignore` comment, or a rule turned off for a file, is accepted only when the pull request explains why the tool is wrong.
 
@@ -50,6 +50,7 @@ Tests sit beside the code: `src/domain/scoring.ts` is tested by `src/domain/scor
 [docs/architecture.md](docs/architecture.md) maps the folders and the import rules, which `pnpm fallow` enforces.
 
 - A shape two layers share belongs in the domain (`src/domain/views.ts` for what interfaces show).
+- A package goes under `dependencies` only when the main process, the preload or the backend imports it: those bundles leave their packages out, and electron-builder ships every `dependencies` entry. A package only the renderer imports is bundled into the page, so it goes under `devDependencies`.
 - An operation is added once, in `src/application/api/contract.ts` and `operations.ts`. The desktop app and `st serve` both get it.
 - A judge pack implements `JudgePack` (`src/judges/types.ts`) and is added to the lists in `src/judges/index.ts` and `src/judges/scorers.ts`. Its `index.ts` runs the code checks and asks Jev; its `score.ts` turns stored answers into layer scores. Keep thresholds and weights in `score.ts`, not in Jev prompts, so stored answers can be rescored without new calls.
 

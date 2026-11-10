@@ -172,6 +172,22 @@ importers:
       '@anthropic-ai/sdk':
         specifier: ^1.4.0
         version: 1.4.0
+      '@typesafe-ai/sdk':
+        specifier: 0.7.0
+        version: 0.7.0
+      electron-updater:
+        specifier: ^6.8.11
+        version: 6.8.11(supports-color@7.2.0)
+      openai:
+        specifier: ^7.50.0
+        version: 7.50.0(undici@7.30.1)
+      yaml:
+        specifier: ^2.9.1
+        version: 2.9.1
+    devDependencies:
+      '@biomejs/biome':
+        specifier: ^2.6.4
+        version: 2.6.4
       '@codemirror/commands':
         specifier: ^6.11.1
         version: 6.11.1
@@ -199,43 +215,6 @@ importers:
       '@lezer/markdown':
         specifier: ^1.8.1
         version: 1.8.1
-      '@typesafe-ai/sdk':
-        specifier: 0.7.0
-        version: 0.7.0
-      class-variance-authority:
-        specifier: ^0.7.1
-        version: 0.7.1
-      clsx:
-        specifier: ^2.1.1
-        version: 2.1.1
-      electron-updater:
-        specifier: ^6.8.11
-        version: 6.8.11(supports-color@7.2.0)
-      lucide-react:
-        specifier: ^1.67.0
-        version: 1.67.0(@types/react@19.3.0)(react@19.3.1)
-      openai:
-        specifier: ^7.50.0
-        version: 7.50.0(undici@7.30.1)
-      radix-ui:
-        specifier: ^1.8.1
-        version: 1.8.1(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
-      react:
-        specifier: ^19.3.1
-        version: 19.3.1
-      react-dom:
-        specifier: ^19.3.1
-        version: 19.3.1(react@19.3.1)
-      tailwind-merge:
-        specifier: ^3.7.0
-        version: 3.7.0
-      yaml:
-        specifier: ^2.9.1
-        version: 2.9.1
-    devDependencies:
-      '@biomejs/biome':
-        specifier: ^2.6.4
-        version: 2.6.4
       '@tailwindcss/vite':
         specifier: ^4.3.4
         version: 4.3.4(vite@8.3.5(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))
@@ -251,6 +230,12 @@ importers:
       '@vitejs/plugin-react':
         specifier: ^6.1.2
         version: 6.1.2(vite@8.3.5(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))
+      class-variance-authority:
+        specifier: ^0.7.1
+        version: 0.7.1
+      clsx:
+        specifier: ^2.1.1
+        version: 2.1.1
       electron:
         specifier: 45.2.2
         version: 45.2.2(supports-color@7.2.0)
@@ -263,6 +248,21 @@ importers:
       fallow:
         specifier: ^3.38.1
         version: 3.38.1
+      lucide-react:
+        specifier: ^1.67.0
+        version: 1.67.0(@types/react@19.3.0)(react@19.3.1)
+      radix-ui:
+        specifier: ^1.8.1
+        version: 1.8.1(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
+      react:
+        specifier: ^19.3.1
+        version: 19.3.1
+      react-dom:
+        specifier: ^19.3.1
+        version: 19.3.1(react@19.3.1)
+      tailwind-merge:
+        specifier: ^3.7.0
+        version: 3.7.0
       tailwindcss:
         specifier: ^4.3.4
         version: 4.3.4

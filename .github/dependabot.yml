@@ -1,5 +1,6 @@
 # Weekly grouped updates. The cooldown skips releases younger than 7 days,
-# which keeps most compromised or broken publishes out of PRs.
+# which keeps most compromised or broken publishes out of PRs. Electron is the
+# one exception.
 version: 2
 updates:
   - package-ecosystem: npm
@@ -8,6 +9,9 @@ updates:
       interval: weekly
     cooldown:
       default-days: 7
+      # Electron patch releases ship fixes for the embedded Chromium; take them at once,
+      # as `minimumReleaseAgeExclude` in pnpm-workspace.yaml does.
+      exclude: ["electron"]
     groups:
       dev-dependencies:
         dependency-type: development
