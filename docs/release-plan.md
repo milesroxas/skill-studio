@@ -23,7 +23,7 @@ The version follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html): 
 
 Everything merged since v0.5.0.
 
-Nothing yet.
+- [x] Download names carry no version, so `releases/latest/download/<name>` links stay put (3f7e1be).
 
 ## Planned
 
@@ -42,6 +42,7 @@ Checks that are not covered by `pnpm check`.
 - [ ] Run the assistant live on each provider that has only been typechecked: the Anthropic API, OpenAI and Codex. Claude Code has been run live; the other three have not.
 - [ ] Send a picture to the assistant on the Anthropic API, OpenAI and Codex paths. Jev and Claude Code have been run live with a picture.
 - [ ] Go through the welcome at 110% zoom. Its window grows with the zoom, so the page keeps its 760 x 600; this has not been seen at a real 110%.
+- [ ] Once the release is out, open each `releases/latest/download/` link in [releasing.md](releasing.md#updates) and check it fetches the new file.
 - [ ] Update an installed 0.5.0 to this release. It can only be seen once the release is out: the released 0.5.0, opened on a scratch home, shows **Restart to update**.
 
 ## Release checklist
