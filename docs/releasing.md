@@ -74,7 +74,19 @@ codesign --force --deep --sign - "dist/mac-arm64/Skill Studio.app"    # Apple si
 open "dist/mac-arm64/Skill Studio.app"
 ```
 
-Give the copy a stable version older than the latest release. Everything up to **Restart to update** is real. The restart is the one step this does not prove: macOS installs an update only over a copy signed by the same Developer ID, so only a released copy can show it.
+Give the copy a stable version older than the latest release. It finds and downloads the update, and the checksum is checked; then Squirrel.Mac refuses it, because macOS installs an update only over a copy signed by the same Developer ID. Such a copy never shows **Restart to update**.
+
+To see the whole path once a release is out, open the previous release's own download on a scratch home:
+
+```
+gh release download v0.4.0 -p 'skill-studio-0.4.0-mac-arm64.zip' && ditto -x -k skill-studio-0.4.0-mac-arm64.zip old
+SKILL_STUDIO_HOME="$PWD/home" "old/Skill Studio.app/Contents/MacOS/Skill Studio" --user-data-dir="$PWD/profile"
+```
+
+Put `{"welcomed": true}` in `home/.skill-studio/preferences.json` first, so it opens on the app window. Within a minute the sidebar's foot shows **Restart to update**.
+
+- Leave `HOME` as it is. With `HOME` moved, macOS cannot find the login keychain and asks to "Reset To Defaults"; press Cancel if it does.
+- Quitting a copy that holds a downloaded update installs the update over that copy, owned by root, so its folder then needs `sudo` to delete. A copy outside `/Applications` never touches the installed one.
 
 ## Start over
 
