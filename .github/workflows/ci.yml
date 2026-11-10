@@ -55,12 +55,11 @@ jobs:
           require-lockfile: true
       - run: pnpm test
 
-  # The Windows paths have never been run. This job shows what they do without
-  # holding a merge or a release: its failure does not fail the workflow.
+  # The tests that need a POSIX shell or POSIX links skip here; the rest run as on
+  # macOS, so a change that breaks a Windows path fails the run.
   test-windows:
     runs-on: windows-latest
     timeout-minutes: 15
-    continue-on-error: true
     env:
       ELECTRON_SKIP_BINARY_DOWNLOAD: 1
     steps:

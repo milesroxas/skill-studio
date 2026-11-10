@@ -31,7 +31,7 @@ pnpm format     # apply Biome's formatting and safe fixes
 pnpm health     # tests with coverage, then fallow's complexity report: see docs/complexity-plan.md
 ```
 
-CI runs both on Linux for every pull request (the `check` job), and that job must pass to merge. It also runs the tests on macOS (`test-macos`) and on Windows (`test-windows`). The Windows job shows its result without failing the run: those paths are not yet known to pass.
+CI runs both on Linux for every pull request (the `check` job), and the tests on macOS (`test-macos`) and on Windows (`test-windows`). All three must pass to merge. A test that needs a POSIX shell or POSIX links skips on Windows (`it.skipIf`); the app itself has not been run on Windows by hand.
 
 Fix warnings and findings; do not suppress them. A `biome-ignore` or `fallow-ignore` comment, or a rule turned off for a file, is accepted only when the pull request explains why the tool is wrong.
 
