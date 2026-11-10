@@ -1,7 +1,11 @@
 appId: com.milesroxas.skill-studio
 productName: Skill Studio
 # No spaces: GitHub renames an asset with a space, and the update files would then point at nothing.
-artifactName: skill-studio-${version}-${os}-${arch}.${ext}
+# No version: each file keeps one name in every release, so
+# https://github.com/milesroxas/skill-studio/releases/latest/download/<name> always
+# fetches the newest one, and the website links there. The update files name each
+# file and its SHA-512, so the updater never needs a version in the name.
+artifactName: skill-studio-${os}-${arch}.${ext}
 directories:
   output: dist
   buildResources: build

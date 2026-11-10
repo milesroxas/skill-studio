@@ -6,6 +6,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+### Changed
+
+- Download file names no longer carry the version, such as `skill-studio-mac-arm64.dmg`, so a link to the latest download stays the same from one release to the next. Updates work as before. On Linux, the first update from 0.5.0 writes `skill-studio-linux-x86_64.AppImage` beside the old file, which you can then delete.
+
 ## [0.5.0] - 2026-11-10
 
 ### Security

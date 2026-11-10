@@ -61,7 +61,15 @@ To check the limit, `gh api repos/milesroxas/skill-studio/environments/release/d
 
 ## Updates
 
-A packaged copy updates itself from these releases through [electron-updater](https://www.electron.build/auto-update). It reads the release's `latest*.yml`, so those files and the `.zip` (macOS), `.exe` (Windows) and `.AppImage` (Linux) must stay in every release under the names electron-builder gave them. A copy on a `beta` version follows prereleases and stable releases. A copy on a stable version follows stable releases only.
+A packaged copy updates itself from these releases through [electron-updater](https://www.electron.build/auto-update). It reads the release's `latest*.yml`, so those files and the `.zip` (macOS), `.exe` (Windows) and `.AppImage` (Linux) must stay in every release under the names electron-builder gave them. The update files name each download and its SHA-512; the updater never reads a version from a file name.
+
+A download's name carries no version (`artifactName` in `electron-builder.yml`), so it is the same in every release, and `releases/latest/download/<name>` always fetches the newest one. The website links there:
+
+- `skill-studio-mac-arm64.dmg` and `skill-studio-mac-x64.dmg`
+- `skill-studio-win-x64.exe`
+- `skill-studio-linux-x86_64.AppImage`
+
+Renaming one breaks those links. Releases up to 0.5.0 carry the version in each name (`skill-studio-0.5.0-mac-arm64.dmg`). A copy on a `beta` version follows prereleases and stable releases. A copy on a stable version follows stable releases only.
 
 The updater is `src/interfaces/electron/main/updater.ts`, and the state every window shows is worked out in `src/domain/update.ts`. Both are tested without Electron. A development build does not update itself.
 
@@ -79,7 +87,7 @@ Give the copy a stable version older than the latest release. It finds and downl
 To see the whole path once a release is out, open the previous release's own download on a scratch home:
 
 ```
-gh release download v0.4.0 -p 'skill-studio-0.4.0-mac-arm64.zip' && ditto -x -k skill-studio-0.4.0-mac-arm64.zip old
+gh release download v0.5.0 -p '*mac-arm64.zip' -O old.zip && ditto -x -k old.zip old
 SKILL_STUDIO_HOME="$PWD/home" "old/Skill Studio.app/Contents/MacOS/Skill Studio" --user-data-dir="$PWD/profile"
 ```
 
