@@ -120,18 +120,22 @@ export type Reporter = (message: string | Error, more?: Omit<Notice, 'message'>)
 /** With a button on offer, long enough to notice it and reach for it. */
 const OFFER_MS = 7000
 
-/** Long enough to read: a floor for short lines, then about 200 words a minute. */
-const noticeMs = ({ message, undo, action }: Notice): number =>
-  Math.max(undo || action ? OFFER_MS : 2600, message.split(/\s+/).length * 300 + 1000)
+/**
+ * How long a notice stands, or null while it waits for the reader. A failure
+ * or a warning asks something of the reader, so it stays until dismissed or
+ * replaced. A fact stays long enough to read: a floor for short lines, then
+ * about 200 words a minute.
+ */
+export const noticeMs = ({ message, tone, undo, action }: Notice): number | null =>
+  tone ? null : Math.max(undo || action ? OFFER_MS : 2600, message.split(/\s+/).length * 300 + 1000)
 
-/** The notice on the status line, a way to report one, and a way to clear it early. */
+/**
+ * The notice on the status line, a way to report one, and a way to clear it.
+ * The line that shows it keeps the time (`StatusLine`), so it can wait while
+ * the reader is on it.
+ */
 export function useNotice(): [Notice | null, Reporter, () => void] {
   const [notice, setNotice] = useState<Notice | null>(null)
-  useEffect(() => {
-    if (!notice) return
-    const timer = setTimeout(() => setNotice(null), noticeMs(notice))
-    return () => clearTimeout(timer)
-  }, [notice])
   const report = useCallback<Reporter>(
     (message, more) =>
       setNotice(

@@ -8,14 +8,19 @@
  * Undo, and the Undo shortcut takes the offer while it stands. A notice that
  * announces something can offer the one step that follows instead.
  *
+ * A fact leaves on its own once it can be read, and waits while the pointer or
+ * the keyboard is on the line. A failure or a warning stays until the reader
+ * dismisses it or the next notice takes its place.
+ *
  * `place`: `foot` is the 48px strip under the pane, the top bar's mirror, in
  * the app's and the changelog's window. `head` fills a cell of the welcome's
  * title strip, since its frame has no foot to give; it keeps the strip's own
  * surface and has no stroke.
  */
 import { cva, type VariantProps } from 'class-variance-authority'
+import { XIcon } from 'lucide-react'
 import { useEffect, useState } from 'react'
-import type { Notice } from '../hooks.ts'
+import { type Notice, noticeMs } from '../hooks.ts'
 import { shortcut } from '../keys.ts'
 import { Dot } from './Status.tsx'
 import { Text } from './text.tsx'
@@ -73,6 +78,17 @@ export function StatusLine({
     : shown?.action
       ? { ...shown.action, title: undefined }
       : null
+  const stays = shown ? noticeMs(shown) === null : false
+
+  // The reader is on the line: a fact waits for them, and gets its full time again after.
+  const [held, setHeld] = useState(false)
+  useEffect(() => {
+    if (!notice || held) return
+    const ms = noticeMs(notice)
+    if (ms === null) return
+    const timer = setTimeout(onDismiss, ms)
+    return () => clearTimeout(timer)
+  }, [notice, held, onDismiss])
 
   useEffect(() => {
     if (!undo) return
@@ -93,6 +109,12 @@ export function StatusLine({
       data-place={place ?? 'foot'}
       data-shown={notice ? '' : undefined}
       className={line({ place })}
+      onPointerEnter={() => setHeld(true)}
+      onPointerLeave={() => setHeld(false)}
+      onFocus={() => setHeld(true)}
+      onBlur={(e) => {
+        if (!e.currentTarget.contains(e.relatedTarget)) setHeld(false)
+      }}
     >
       <div
         inert={!notice}
@@ -118,6 +140,18 @@ export function StatusLine({
             }}
           >
             {offer.label}
+          </Button>
+        ) : null}
+        {stays ? (
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-sm"
+            aria-label="Dismiss"
+            title="Dismiss"
+            onClick={onDismiss}
+          >
+            <XIcon aria-hidden="true" />
           </Button>
         ) : null}
       </div>

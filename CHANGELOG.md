@@ -96,6 +96,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - Removing a stored key asks first and shows "Removing…" on its own button, and **Check again** reports its own result. Scoring's number fields stay inside each slider's range, and the sliders are named for screen readers.
 - Failed reads of an output, a transcript, a diff, usage or a version's files offer **Try again**.
 - The skill is read again when the window regains focus, so an edit made outside the app shows at once.
+- A failure or a warning on the status line stays until you dismiss it or the next message replaces it, instead of leaving after a few seconds. Other messages wait while the pointer or the keyboard is on the line.
 
 ## [0.4.0] - 2026-11-09
 

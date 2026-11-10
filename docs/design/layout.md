@@ -17,7 +17,7 @@ All in `src/renderer/components/Shell.tsx`, except `StatusLine`, which has its o
 | `AssistantPane` | the Assistant's panel: a 360px column beside `Workspace` on a wide window, over its right edge on a narrow one |
 | `TopBar` | `HistoryNav` (back and forward), `Heading level="page"`, then the "No Jev key" badge while there is none, the next step and Run (`App.tsx` only), then help and the assistant. Below `sm` a menu button leads it and opens the sidebar as `PopoverContent size="nav"`. |
 | `Pane` | `layout="page"` for a `Screen` (the default), `layout="flush"` for a `Workbench` |
-| `StatusLine` | under the pane: what just happened, read for a moment in a 48px strip kept for it, the top bar's mirror, ink while it speaks. Fed by `ctx.report`. See [data.md](data.md). |
+| `StatusLine` | under the pane: what just happened, in a 48px strip kept for it (a fact for a moment, a failure until dismissed), the top bar's mirror, ink while it speaks. Fed by `ctx.report`. See [data.md](data.md). |
 
 The sidebar lists every screen flat so a reader always sees where they are. Never a second level of navigation, tabs inside a screen, or a link in the top bar. Run is the one action the top bar holds beside the next step: it is a step of the loop that is not a place (`components/Run.tsx`, see [buttons.md](buttons.md)).
 
