@@ -4,12 +4,24 @@
  * fallback; shape is code; structure, substance, tone and grounding are Jev
  * questions whose thresholds and points live in score.ts.
  */
-import { round, type Unit } from '@domain/text.ts'
+import type { Unit } from '@domain/text.ts'
 import { choice, noul, score } from '@typesafe-ai/sdk'
 import { runCommand } from '../shared/exec.ts'
+import {
+  asksJev,
+  choiceOf,
+  confidenceOf,
+  noulOf,
+  optionalAnswer,
+  scoreOf,
+} from '../shared/questions.ts'
 import type { JudgeContext, JudgeInput, JudgePack } from '../types.ts'
 import {
+  ENDINGS,
+  ENDINGS_BEFORE,
+  GROUNDINGS,
   type LintRaw,
+  TITLES,
   type UnitAnswer,
   type WritingConfig,
   type WritingJev,
@@ -138,22 +150,8 @@ const CONFLICT_QUESTION = {
   ),
 }
 
-interface PieceAnswers {
-  opens_on_work: { noul: number }
-  point_early: { noul: number }
-  ending: { choice: string; probabilities: Record<string, number> }
-  ending_before?: { choice: string }
-  title?: { choice: string }
-}
-
-interface UnitAnswers {
-  specificity: { score: number }
-  selling: { score: number }
-  decision: { noul: number }
-  setback: { noul: number }
-  ai_did_work?: { noul: number }
-  ai_split?: { noul: number }
-}
+/** Jev's answers to one request, by question. The helpers in `shared/questions.ts` read them, and refuse a missing one. */
+type Answers = Readonly<Record<string, unknown>>
 
 /** bench.json `borrowed`: case-insensitive patterns for lines the copy must not lift from a source. */
 function borrowedIn(text: string, patterns: string[], ctx: JudgeContext): string[] {
@@ -208,7 +206,7 @@ async function lint(
   let failed: string | null = null
   const command = config.command ? config.command.replaceAll('{kind}', kind) : null
   if (command) {
-    const result = await runCommand(command, {
+    const result = await runCommand(ctx, command, {
       cwd: ctx.skillDir,
       input: input.text,
       timeoutMs: config.timeoutSeconds * 1000,
@@ -250,18 +248,18 @@ async function judgeGrounding(
       claim,
       evidence: nearestEvidence(`${before ?? ''} ${claim}`, chunks),
     }
-    const answer = await ctx.jev.ask(state, GROUNDING_QUESTION)
-    const verdict = answer.grounding.choice
+    const answer: Answers = await ctx.jev.ask(state, GROUNDING_QUESTION)
+    const verdict = choiceOf(answer, 'grounding', GROUNDINGS)
     const conflict =
       verdict === 'contradicted'
-        ? round((await ctx.jev.ask(state, CONFLICT_QUESTION)).conflict.noul, 3)
+        ? noulOf(await ctx.jev.ask(state, CONFLICT_QUESTION), 'conflict')
         : null
     return {
       claim,
       before,
       verdict,
       conflict,
-      confidence: round(answer.grounding.confidence, 3),
+      confidence: confidenceOf(answer, 'grounding'),
       evidence: state.evidence,
     }
   })
@@ -294,37 +292,41 @@ async function judgeJev(
     ...(beforeEnding ? ENDING_BEFORE : {}),
     ...(input.title ? TITLE_QUESTION : {}),
   }
-  const pieceAnswers: Promise<PieceAnswers> = ctx.jev.ask(pieceState, pieceQuestions)
-  const [piece, unitAnswers] = await Promise.all([
+  const pieceAnswers: Promise<Answers> = ctx.jev.ask(pieceState, pieceQuestions)
+  const [piece, perUnit] = await Promise.all([
     pieceAnswers,
-    ctx.jev.pool(units, async (unit): Promise<UnitAnswers> => {
+    ctx.jev.pool(units, async (unit): Promise<UnitAnswer> => {
       const state = { paragraph: unit.text }
-      if (!AI_MENTION.test(unit.text)) return ctx.jev.ask(state, UNIT_QUESTIONS)
-      return ctx.jev.ask(state, { ...UNIT_QUESTIONS, ...AI_QUESTIONS })
+      // The two AI questions are asked only of a paragraph that names one; one Jev left out is null.
+      const ai = AI_MENTION.test(unit.text)
+      const a: Answers = await ctx.jev.ask(
+        state,
+        ai ? { ...UNIT_QUESTIONS, ...AI_QUESTIONS } : UNIT_QUESTIONS,
+      )
+      return {
+        text: unit.text,
+        list: unit.list,
+        specificity: scoreOf(a, 'specificity') / 2,
+        selling: scoreOf(a, 'selling') / 2,
+        decision: noulOf(a, 'decision'),
+        setback: noulOf(a, 'setback'),
+        aiDidWork: ai ? optionalAnswer(() => noulOf(a, 'ai_did_work')) : null,
+        aiSplit: ai ? optionalAnswer(() => noulOf(a, 'ai_split')) : null,
+      }
     }),
   ])
-
-  const perUnit: UnitAnswer[] = units.map((unit, i) => {
-    const a = unitAnswers[i]
-    return {
-      text: unit.text,
-      list: unit.list,
-      specificity: round(a.specificity.score / 2, 3),
-      selling: round(a.selling.score / 2, 3),
-      decision: round(a.decision.noul, 3),
-      setback: round(a.setback.noul, 3),
-      aiDidWork: a.ai_did_work ? round(a.ai_did_work.noul, 3) : null,
-      aiSplit: a.ai_split ? round(a.ai_split.noul, 3) : null,
-    }
-  })
   const grounding = chunks.length ? await judgeGrounding(units, chunks, writer, ctx) : null
+  const picked = (piece.ending ?? {}) as { probabilities?: Record<string, number> }
   return {
-    opensOnWork: round(piece.opens_on_work.noul, 3),
-    pointEarly: round(piece.point_early.noul, 3),
-    ending: piece.ending.choice,
-    endingBefore: piece.ending_before?.choice ?? null,
-    endingProbabilities: piece.ending.probabilities,
-    title: piece.title?.choice ?? null,
+    opensOnWork: noulOf(piece, 'opens_on_work'),
+    pointEarly: noulOf(piece, 'point_early'),
+    ending: choiceOf(piece, 'ending', ENDINGS),
+    // Asked only of a piece with a paragraph before its last, and of one with a title.
+    endingBefore: beforeEnding
+      ? optionalAnswer(() => choiceOf(piece, 'ending_before', ENDINGS_BEFORE))
+      : null,
+    endingProbabilities: picked.probabilities ?? {},
+    title: input.title ? optionalAnswer(() => choiceOf(piece, 'title', TITLES)) : null,
     aiBuilt: Boolean(input.case?.bench.aiBuilt),
     aiMentioned: AI_MENTION.test(input.text),
     grounding,
@@ -334,6 +336,7 @@ async function judgeJev(
 
 export const writingPack: JudgePack<WritingRaw> = {
   ...writingScoring,
+  version: 1,
   label: 'Writing: lint, shape, structure, substance, tone, grounding',
   artifacts: ['markdown'],
   async judge(input, ctx) {
@@ -341,7 +344,7 @@ export const writingPack: JudgePack<WritingRaw> = {
     const config = ctx.config as WritingConfig
     const kind = input.case?.bench.kind ?? config.writingKind
     const chunks = evidenceChunks(Object.values(input.evidence))
-    const runJev = ctx.useJev && input.case?.bench.judge !== false && input.units.length > 0
+    const runJev = asksJev(input, ctx) && input.units.length > 0
     const writer = config.writer ?? 'the writer'
     return {
       kind,

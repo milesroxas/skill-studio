@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { commandName, commandQuery, isCommand, matchCommands, withCommand } from './commands.ts'
 
 describe('commandName and isCommand', () => {
@@ -75,5 +75,21 @@ describe('withCommand', () => {
       caret: 9,
     })
     expect(withCommand('/', 'caveman:caveman')).toEqual({ text: '/caveman:caveman ', caret: 17 })
+  })
+})
+
+describe('order', () => {
+  it('sorts names in one fixed locale, whatever the machine is set to', () => {
+    const compare = vi.spyOn(String.prototype, 'localeCompare')
+    matchCommands(
+      [
+        { name: 'b', description: '' },
+        { name: 'a', description: '' },
+      ],
+      '',
+    )
+    expect(compare).toHaveBeenCalled()
+    for (const call of compare.mock.calls) expect(call[1]).toBe('en')
+    compare.mockRestore()
   })
 })

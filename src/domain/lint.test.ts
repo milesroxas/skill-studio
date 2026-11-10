@@ -185,3 +185,33 @@ describe('worthChecking', () => {
     expect(worthChecking('1. one two three four')).toBe(true)
   })
 })
+
+describe('a word in the verb’s place', () => {
+  it('reads the word a rule opens with as its verb, not as a quality of the result', () => {
+    const rule = '- Clear the build cache before every run because stale files break the check.'
+    expect(lintScene(scene(rule))).toEqual([])
+    expect(
+      principles('- Clean up every temp file you made, so the next run starts fresh.'),
+    ).toEqual([])
+    // The same word further in is still a quality.
+    expect(principles('- Keep the summary clear, so a reader gets it in one pass.')).toEqual([
+      'process',
+    ])
+  })
+
+  it('reads an opening word that cannot be a verb as the quality it names', () => {
+    for (const rule of [
+      '- Concise answers only, under 50 words, so the reader sees the answer at once.',
+      '- Clearly state the change in the first line, so the reader sees it at once.',
+      '- Good names for every variable, never one letter, so a reader can follow it.',
+    ])
+      expect(principles(rule), rule).toEqual(['process'])
+    expect(principles('- Feel free to add one example, never two, so it stays short.')).toEqual([])
+  })
+
+  it('counts a nested bullet indented with a tab as nested', () => {
+    const rule =
+      '- Always write two sentences exactly, so it is read.\n\t- unless the case says one'
+    expect(lintScene(scene(rule)).map((f) => f.dimension)).toContain('complexity')
+  })
+})

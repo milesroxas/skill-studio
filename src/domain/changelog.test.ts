@@ -71,3 +71,21 @@ describe('releaseNotes', () => {
     expect(releaseNotes(FILE, 'Unreleased')).toBeNull()
   })
 })
+
+describe('headings a release may carry', () => {
+  it('reads a release whose heading says more after the date', () => {
+    const file = '## [1.1.0] - 2026-01-02 [YANKED]\n- bad\n\n## [1.0.0] - 2026-01-01\n- first\n'
+    expect(releasesOf(file)).toEqual([
+      { version: '1.1.0', date: '2026-01-02', notes: '- bad' },
+      { version: '1.0.0', date: '2026-01-01', notes: '- first' },
+    ])
+  })
+
+  it('keeps a second-level heading that names no version as text of its release', () => {
+    const file = '## [1.0.0] - 2026-01-01\n- first\n\n## Notes\nstuff\n\n## v0.9.0\n- older\n'
+    expect(releasesOf(file)).toEqual([
+      { version: '1.0.0', date: '2026-01-01', notes: '- first\n\n## Notes\nstuff' },
+      { version: 'v0.9.0', date: null, notes: '- older' },
+    ])
+  })
+})

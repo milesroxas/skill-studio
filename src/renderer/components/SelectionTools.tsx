@@ -29,6 +29,7 @@ export interface VirtualAnchor {
 }
 
 export function SelectionTools({
+  id,
   anchor,
   open,
   onOpenChange,
@@ -38,6 +39,8 @@ export function SelectionTools({
   onApply,
   onImprove,
 }: {
+  /** Names the popout, for the editor's key that moves the focus into it. */
+  id: string
   anchor: RefObject<VirtualAnchor | null>
   open: boolean
   onOpenChange: (open: boolean) => void
@@ -112,7 +115,9 @@ export function SelectionTools({
               ? 'compose'
               : 'compose-wide'
         }
+        id={id}
         aria-label={TITLES[mode]}
+        aria-keyshortcuts="F6"
         // A row of buttons takes no focus: the selection stays live in the editor.
         onOpenAutoFocus={(event) => event.preventDefault()}
         onCloseAutoFocus={(event) => {

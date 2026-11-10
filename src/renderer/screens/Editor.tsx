@@ -28,8 +28,8 @@ import {
   type Snippet,
 } from '@domain/templates.ts'
 import { metaText, readFrontMatter } from '@domain/text.ts'
-import { Fragment, useEffect, useRef, useState } from 'react'
-import { api } from '../api.ts'
+import { Fragment, memo, useEffect, useMemo, useRef, useState } from 'react'
+import { api, currentSkill } from '../api.ts'
 import { DiffLines } from '../components/DiffLines.tsx'
 import { DraftNote } from '../components/DraftNote.tsx'
 import {
@@ -46,6 +46,7 @@ import {
   Workbench,
 } from '../components/layout.tsx'
 import {
+  forgetEditor,
   MarkdownEditor,
   type MarkdownEditorHandle,
   useEditorMode,
@@ -60,7 +61,7 @@ import { Input } from '../components/ui/input.tsx'
 import { VersionDetail } from '../components/VersionDetail.tsx'
 import type { Ctx } from '../ctx.ts'
 import { lineDiff } from '../diff.ts'
-import { useFetch } from '../hooks.ts'
+import { useAction } from '../hooks.ts'
 import { shortcut } from '../keys.ts'
 import { shortDate, versionScore } from '../model.ts'
 import { editorFile } from '../route.ts'
@@ -112,18 +113,23 @@ const VIEWS = [
 
 type View = (typeof VIEWS)[number]['value']
 
-export function Editor({ ctx }: { ctx: Ctx }) {
+export const Editor = memo(function Editor({ ctx }: { ctx: Ctx }) {
   const { state, route, go, report, confirm, reload, config, drafts, outputs } = ctx
-  // Read again whenever the files change, here or from the assistant's panel.
-  const disk = useFetch(
-    () => api.skillFiles('current'),
-    [state.skill.path, state.versions.current.hash],
-  )
+  /** The files as saved: the shell's one copy, which a save here updates at once. */
+  const disk = ctx.files
   const edits = drafts.files
   const [showDiff, setShowDiff] = useState(false)
   const [newName, setNewName] = useState<string | null>(null)
-  const [busy, setBusy] = useState(false)
-  const [deleting, setDeleting] = useState(false)
+  const [busy, runSave] = useAction(report)
+  const [deleting, runDelete] = useAction(report)
+  /** Each version's score. It reads every output, so it is not worked out again on a keystroke. */
+  const scores = useMemo(
+    () =>
+      new Map(
+        state.versions.versions.map((v) => [v.version, versionScore(outputs, config, v.version)]),
+      ),
+    [state.versions.versions, outputs, config],
+  )
   const [mode, setMode] = useEditorMode((message) =>
     report(`Not saved: ${message}`, { tone: 'destructive' }),
   )
@@ -134,7 +140,7 @@ export function Editor({ ctx }: { ctx: Ctx }) {
     if (naming) nameField.current?.focus()
   }, [naming])
 
-  const files = disk.data?.files ?? {}
+  const files = disk.saved ?? {}
   const paths = [...new Set([...Object.keys(files), ...Object.keys(edits)])].sort(byFileOrder)
   const file = editorFile(route.params)
   /** A version opened from the list: the column shows it in place of the file. */
@@ -142,11 +148,14 @@ export function Editor({ ctx }: { ctx: Ctx }) {
   /** A rule someone was sent here to change, by its text: Results links a missed rule to it. */
   const wanted = route.arrival === 'step' ? route.params.get('rule') : null
   const saved = files[file] ?? null
-  const draft = edits[file]
+  /** The file's draft. One that says what the file on disk says is none: there is nothing in it to save. */
+  const draft = edits[file]?.text === saved ? undefined : edits[file]
   const text = draft?.text ?? saved ?? ''
   const isDirty = (path: string) => edits[path] !== undefined && edits[path].text !== files[path]
-  /** The file changed on disk after this draft began: saving would be refused. */
-  const stale = draft !== undefined && saved !== null && draft.previous !== saved
+  /** The file changed on disk after this draft began, or went from it: saving would be refused. */
+  const stale = draft !== undefined && draft.previous !== saved
+  /** The file the draft began on is no longer on disk. */
+  const gone = stale && saved === null
 
   const edit = (value: string) =>
     drafts.setFile(
@@ -176,19 +185,27 @@ export function Editor({ ctx }: { ctx: Ctx }) {
 
   const drop = (path: string) => drafts.setFile(path, null)
 
-  const save = async () => {
-    if (!draft || !isDirty(file) || busy) return
-    setBusy(true)
-    try {
-      await api.saveSkillFile(file, draft.text, draft.previous)
-      drop(file)
+  /** The skill these files belong to: a step that ends after another was opened leaves that one alone. */
+  const skill = state.skill.path
+
+  const save = () => {
+    if (!draft || !isDirty(file) || busy || deleting) return
+    const sent = draft
+    void runSave(async () => {
+      await api.saveSkillFile(file, sent.text, sent.previous)
+      // Cleared in the drafts of the skill it was saved in, open or not: left, it would read as a
+      // draft begun on the file from before the save.
+      if (currentSkill() !== skill) {
+        drafts.savedFile(file, sent.text, skill)
+        return
+      }
+      // The saved copy and the draft move together, so the text in the editor never steps back
+      // to the file from before the save. What was typed while it was written stays a draft.
+      disk.took(file, sent.text)
+      drafts.savedFile(file, sent.text)
       await reload()
       report(`Saved ${file}`)
-    } catch (e) {
-      report(e as Error)
-    } finally {
-      setBusy(false)
-    }
+    })
   }
 
   const create = () => {
@@ -225,18 +242,16 @@ export function Editor({ ctx }: { ctx: Ctx }) {
       destructive: true,
     })
     if (!ok) return
-    setDeleting(true)
-    try {
+    void runDelete(async () => {
       await api.deleteSkillFile(file)
+      if (currentSkill() !== skill) return
+      disk.took(file, null)
       drop(file)
+      forgetEditor(`${skill}:${file}`)
+      go('editor', {}, { replace: true })
       await reload()
       report(`Deleted ${file}`)
-      go('editor', {}, { replace: true })
-    } catch (e) {
-      report(e as Error)
-    } finally {
-      setDeleting(false)
-    }
+    })
   }
 
   const isSkill = file === 'SKILL.md'
@@ -253,7 +268,7 @@ export function Editor({ ctx }: { ctx: Ctx }) {
 
   // Select the rule the reader came for, once the file is in the editor. The
   // selection opens the popout on it, as a click on its number does.
-  const ready = Boolean(disk.data) && drafts.status !== 'loading' && !version && !showDiff
+  const ready = Boolean(disk.saved) && drafts.status !== 'loading' && !version && !showDiff
   const revealed = useRef<string | null>(null)
   useEffect(() => {
     const visit = `${route.index}:${wanted}`
@@ -265,7 +280,7 @@ export function Editor({ ctx }: { ctx: Ctx }) {
     if (span) editor.current?.selectLines(span.from, span.to)
   }, [wanted, ready, isSkill, text, route.index])
 
-  if (disk.error && !disk.data)
+  if (disk.error && !disk.saved)
     return (
       <EmptyState
         size="screen"
@@ -279,7 +294,7 @@ export function Editor({ ctx }: { ctx: Ctx }) {
         {disk.error}
       </EmptyState>
     )
-  if (!disk.data || drafts.status === 'loading') return <Loading size="screen" />
+  if (!disk.saved || drafts.status === 'loading') return <Loading size="screen" />
 
   const missing = isSkill ? ['name', 'description'].filter((k) => !metaText(meta, k)) : []
   const { current, versions } = state.versions
@@ -290,9 +305,15 @@ export function Editor({ ctx }: { ctx: Ctx }) {
       <>
         {stale ? (
           <Alert variant="warning" role="status">
-            <AlertTitle>{file} changed on disk since this draft began</AlertTitle>
+            <AlertTitle>
+              {file} {gone ? 'was deleted on disk' : 'changed on disk'} since this draft began
+            </AlertTitle>
             <AlertDescription>
-              <p>Keep your draft to save over the file, or take the file as it is now.</p>
+              <p>
+                {gone
+                  ? 'Keep your draft to save it as a new file, or let it go with the file.'
+                  : 'Keep your draft to save over the file, or take the file as it is now.'}
+              </p>
               <Toolbar>
                 <Button
                   type="button"
@@ -302,8 +323,16 @@ export function Editor({ ctx }: { ctx: Ctx }) {
                 >
                   Keep my draft
                 </Button>
-                <Button type="button" variant="ghost" size="sm" onClick={() => drop(file)}>
-                  Use the file on disk
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    drop(file)
+                    if (gone) go('editor', {}, { replace: true })
+                  }}
+                >
+                  {gone ? 'Discard my draft' : 'Use the file on disk'}
                 </Button>
               </Toolbar>
             </AlertDescription>
@@ -400,7 +429,7 @@ export function Editor({ ctx }: { ctx: Ctx }) {
             {versions.length ? (
               <PlainList gap="none" bleed>
                 {[...versions].reverse().map((v) => {
-                  const score = versionScore(outputs, config, v.version)
+                  const score = scores.get(v.version) ?? null
                   return (
                     <li key={v.version}>
                       <NavButton
@@ -514,7 +543,7 @@ export function Editor({ ctx }: { ctx: Ctx }) {
           </ColumnHeader>
           <MarkdownEditor
             key={file}
-            id={`${state.skill.path}:${file}`}
+            id={`${skill}:${file}`}
             ref={editor}
             mode={mode}
             instead={
@@ -606,4 +635,4 @@ export function Editor({ ctx }: { ctx: Ctx }) {
       )}
     </Workbench>
   )
-}
+})

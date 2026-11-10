@@ -7,13 +7,13 @@
  * Jev's raw answers are stored, so every score on Results follows a setting as
  * it moves and nothing is run again. Nothing is kept until Save.
  */
-import { DEFAULT_CONFIG } from '@domain/config.ts'
+import { DEFAULT_CONFIG, WEIGHT_RANGE, YES_RANGE } from '@domain/config.ts'
 import type { BenchConfig } from '@domain/schemas.ts'
 import { scorers } from '@judges/scorers.ts'
-import { useState } from 'react'
 import { api } from '../api.ts'
 import type { Ctx } from '../ctx.ts'
-import { capital, kindLabel, layersOf, mergedConfig, partLabel } from '../model.ts'
+import { useAction } from '../hooks.ts'
+import { capital, kindLabel, layersOf, mergedConfig, partLabel, scoringDirty } from '../model.ts'
 import { Disclosure } from './Disclosure.tsx'
 import { CheckRow, Knob } from './forms.tsx'
 import { FormActions, FormSection, List, Spacer, Stack } from './layout.tsx'
@@ -35,10 +35,10 @@ const KIND_SETTINGS: Array<{ pack: string; key: string; defaults: Setting }> = s
 
 export function ScoringForm({ ctx }: { ctx: Ctx }) {
   const { state, config, setConfig, report, confirm, reload } = ctx
-  const [busy, setBusy] = useState(false)
+  const [busy, run] = useAction(report)
   const saved = mergedConfig(state.savedConfig)
   const layers = layersOf(config)
-  const dirty = JSON.stringify(config) !== JSON.stringify(saved)
+  const dirty = scoringDirty(config, state.savedConfig)
   const set = (patch: Partial<BenchConfig>) => setConfig({ ...config, ...patch })
   const toggleKind = (id: string) => {
     const packs = config.packs.includes(id)
@@ -48,18 +48,12 @@ export function ScoringForm({ ctx }: { ctx: Ctx }) {
     // Merged again, so the kind's own settings come and go with it.
     setConfig(mergedConfig({ ...config, packs }))
   }
-  const save = async () => {
-    setBusy(true)
-    try {
+  const save = () =>
+    run(async () => {
       await api.config(config)
       report('Saved the scoring')
       await reload()
-    } catch (e) {
-      report(e as Error)
-    } finally {
-      setBusy(false)
-    }
-  }
+    })
   const discard = async () => {
     if (
       await confirm({
@@ -108,8 +102,7 @@ export function ScoringForm({ ctx }: { ctx: Ctx }) {
               key={layer}
               label={partLabel(layer)}
               value={config.weights[layer] ?? 0}
-              min={0}
-              max={60}
+              {...WEIGHT_RANGE}
               step={1}
               onChange={(v) => set({ weights: { ...config.weights, [layer]: v } })}
             />
@@ -122,8 +115,7 @@ export function ScoringForm({ ctx }: { ctx: Ctx }) {
           label="Met at"
           about="Jev answers each rule and each check with a probability. At this or above, it counts as met."
           value={config.yes}
-          min={0.3}
-          max={0.8}
+          {...YES_RANGE}
           step={0.05}
           onChange={(v) => set({ yes: v })}
         />
@@ -196,7 +188,13 @@ export function ScoringForm({ ctx }: { ctx: Ctx }) {
       </FormSection>
 
       <FormActions>
-        <Button type="button" disabled={!dirty} busy={busy} busyLabel="Saving…" onClick={save}>
+        <Button
+          type="button"
+          disabled={!dirty}
+          busy={busy}
+          busyLabel="Saving…"
+          onClick={() => void save()}
+        >
           Save scoring
         </Button>
         {dirty ? (

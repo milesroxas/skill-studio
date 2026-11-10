@@ -14,9 +14,10 @@
  * starts its sign-in, and never reads a token. Those are the person's, in
  * their own terminal.
  */
-import { CLAUDE_CODE_MODELS, type CliAccount } from '@domain/ai.ts'
+import { AI_PROVIDERS, CLAUDE_CODE_MODELS, type CliAccount } from '@domain/ai.ts'
 import { isCommand } from '@domain/commands.ts'
-import { hasCommand } from '../exec.ts'
+import { type ClaudeUsage, claudePrintArgs, claudeTokens } from '../claude-cli.ts'
+import { hasCommand, resolveCommand } from '../exec.ts'
 import { imageBase64 } from '../images.ts'
 import { cliStatus, commandPrompt, picturesOf, runJsonLines, transcriptPrompt } from './cli.ts'
 import { listClaudeCommands } from './commands.ts'
@@ -33,12 +34,7 @@ interface StreamEvent {
   is_error?: boolean
   result?: string
   structured_output?: unknown
-  usage?: {
-    input_tokens?: number
-    output_tokens?: number
-    cache_read_input_tokens?: number
-    cache_creation_input_tokens?: number
-  }
+  usage?: ClaudeUsage | null
 }
 
 /**
@@ -71,6 +67,27 @@ export function placeBrief(
   return { systemPrompt: BRIEF_IN_PROMPT, prompt: `<system>\n${brief}\n</system>\n\n${prompt}` }
 }
 
+const provider = AI_PROVIDERS['claude-code']
+/** Claude Code's install guide, as Settings links it on Windows, where its one-line installer does not run. */
+const SETUP_GUIDE =
+  provider.via === 'cli' ? provider.install : 'https://code.claude.com/docs/en/setup'
+
+/**
+ * Why a `/name` command cannot run here, or null when it can. Its brief rides
+ * as an argument, and has line breaks; an npm install of the CLI on Windows is
+ * a `.cmd` script, which cmd.exe starts, and a cmd.exe command line ends at the
+ * first line break. The native install is a program and takes the argument whole.
+ */
+export function commandProblem(
+  platform: NodeJS.Platform = process.platform,
+  env: NodeJS.ProcessEnv = process.env,
+): string | null {
+  if (platform !== 'win32') return null
+  const found = resolveCommand('claude', env, platform)
+  if (!found || !/\.(cmd|bat)$/i.test(found)) return null
+  return `On Windows, /name commands need the native Claude Code install: the npm one cannot take a command's instructions. Install it from ${SETUP_GUIDE}, then try again. Messages without a command work as they are.`
+}
+
 /** The prompt and its pictures as the one line of JSON `--input-format stream-json` reads. */
 const pictureMessage = (prompt: string, pictures: ReturnType<typeof picturesOf>): string =>
   `${JSON.stringify({
@@ -90,6 +107,8 @@ const pictureMessage = (prompt: string, pictures: ReturnType<typeof picturesOf>)
 async function run(request: AiRequest): Promise<AiReply> {
   const pictures = picturesOf(request.messages)
   const command = isCommand(request.messages.at(-1)?.text ?? '')
+  const problem = command ? commandProblem() : null
+  if (problem) throw new Error(problem)
   const { prompt: typed, context } = command
     ? commandPrompt(request.messages)
     : { prompt: transcriptPrompt(request.messages), context: null }
@@ -98,15 +117,9 @@ async function run(request: AiRequest): Promise<AiReply> {
     typed || (pictures.length ? 'See the attached pictures.' : ''),
     command,
   )
-  const args = [
-    '-p',
+  const args = claudePrintArgs(
     ...(pictures.length ? ['--input-format', 'stream-json'] : []),
-    '--output-format',
-    'stream-json',
-    '--verbose',
     '--include-partial-messages',
-    '--no-session-persistence',
-    '--strict-mcp-config',
     // A command needs the user's skills; anything else runs as a plain model.
     ...(command
       ? ['--setting-sources', 'user']
@@ -119,7 +132,7 @@ async function run(request: AiRequest): Promise<AiReply> {
     request.model,
     ...(request.effort ? ['--effort', request.effort] : []),
     ...(request.schema ? ['--json-schema', JSON.stringify(request.schema)] : []),
-  ]
+  )
   // With a schema the reply is the tool's JSON input; without one it is the text.
   const wanted = request.schema ? 'input_json_delta' : 'text_delta'
   let text = ''
@@ -146,13 +159,8 @@ async function run(request: AiRequest): Promise<AiReply> {
         reply.text = request.schema
           ? JSON.stringify(event.structured_output ?? null)
           : (event.result ?? text)
-        reply.usage = {
-          input:
-            (event.usage?.input_tokens ?? 0) +
-            (event.usage?.cache_read_input_tokens ?? 0) +
-            (event.usage?.cache_creation_input_tokens ?? 0),
-          output: event.usage?.output_tokens ?? 0,
-        }
+        // A result can carry `usage: null`: no tokens counted, not a failed reply.
+        reply.usage = claudeTokens(event.usage ?? undefined)
       }
     },
   )

@@ -6,9 +6,96 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+### Security
+
+- `st serve` needs a token. It prints an address that carries one, made new at every start; opening it signs the browser in with a cookie, and any other request is refused. Another account on the same machine can no longer drive the server, and with `--tailscale` the tailnet needs the token too, so faked Tailscale headers get nowhere. `--open` hands the browser a one-use address that works for a minute, never the token itself. A request body over 32 MB is refused.
+- A link inside a skill, such as a `references` folder that points elsewhere, is never read, written or deleted through, so opening someone else's skill and pressing Restore cannot write outside it. The same holds for links an agent leaves in its outputs.
+- A run name, a version label or a case file read from a skill's own files can no longer point outside the skill. Saving a case refuses a `files/`, `graders/` or `references/` folder that is a link leading out of the skill. File names with `< > : " | ? *`, and Windows device names such as `con` or `nul.md`, are refused, so a skill opens on every system.
+- A packaged app ignores `ELECTRON_RENDERER_URL` and quits when started with a remote debugging switch, so no other program can load its own page into the app with its keys.
+- Cursor's model list was read with the app's keys in the environment. It runs without them, like every agent.
+- On Windows, arguments to a `.cmd` CLI are escaped so a case's text or a model name cannot run a command, and a multi-line Cursor prompt is refused rather than cut. Not yet run on Windows.
+
 ### Fixed
 
 - A Cursor agent still saw the app's keys: `TYPESAFE_API_KEY` and the stored Anthropic and OpenAI keys. It now runs with the same environment as a Claude Code agent, with the keys left out.
+- A sample was graded against the wrong case when one case's name starts another's, such as `email` and `email-reply`.
+- Every sample of a run used the skill as it was when that sample started, so editing during a run mixed two texts under one version. A run now copies the skill and the cases' input files once, at the start.
+- A skill's version counts its scripts and other files, not only `SKILL.md` and `references/`, so a changed script makes a new version.
+- Restore corrupted pictures and other non-text files under `references/`, and could stop half way. It now restores every file byte for byte, or none; if a file cannot be put back, the error says where it is kept.
+- Deleting a version that stopped part way could lose runs. What could not be put back stays in the trash, the error says what to move where, and later deletes leave it alone.
+- A grading that was stopped or failed threw away the last report and Jev's answers. Both are kept, and going back to an earlier setting asks Jev nothing new.
+- A run cut off by quitting could never be graded. It can, and a sample stopped before it wrote anything is left out of the scores instead of counting as a failure.
+- An output with nothing in it, no file or only whitespace, was left out of the averages, so a version that often failed looked no worse. It scores 0 and is flagged. A file of punctuation only, such as `{}`, is judged as an output.
+- Changing a case's picture under the same name kept the old verdicts. It is judged again; a setting that belongs to another judge pack no longer re-asks Jev.
+- A check or lint command that hung kept the grading running for good, and Stop could not end it. It is ended with everything it started, at its timeout, on Stop and on quit. A check that leaves a background server running finishes with its own exit code instead of timing out, and stopping a grading no longer leaves a "check failed" answer for the next Regrade to reuse.
+- Quitting could leave an agent started in the last moment running. Nothing new starts once quitting begins.
+- Ctrl-C, or closing the terminal, on `st run`, `st grade` or `st serve` left the agents running. They are ended before the command exits, and the tailnet address goes with them. `st serve` keeps running when one request hits an unexpected error.
+- A second copy of the app, such as a dev build, ended the first copy's agents when it started.
+- A full disk or a deleted sample folder during a run took the backend down with every job. The job log says the transcript could not be written.
+- Saving a file put the old text back in the editor for a moment, and what was typed then could be lost. What you type while it saves is kept.
+- Opening another skill while the first was still loading could show, or save, the first skill's scoring in the second.
+- Back and Forward discarded unsaved scoring without asking.
+- One unreadable case, or an odd file an agent left behind, stopped the skill from opening.
+- Files and outputs with spaces or accents in their names could not be opened, saved or restored.
+- Saving a case that changed on disk since its draft began deleted its checks or wrote over the outside edit. Cases says it changed on disk, as the Skill screen does for files, and you choose which to keep, after a restart too.
+- Grading the same run twice at once was possible from the run's own grading step; it is refused, and Regrade shows busy while any job grades the run.
+- A running job could drop out of the job list behind newer ones, where it could not be stopped, and deleting a version did not wait for it.
+- Pressing send twice in the side panel started two paid replies.
+- An unsent message in the side panel was lost when the panel closed.
+- A picture added to a case landed in whichever case was open when it finished loading.
+- Word diff froze the window on long outputs. It compares texts of about 3,000 words a side word by word; past that it compares them line by line, and the card says so.
+- An output's text blanked and reloaded each time you marked a verdict, made a pick or a run moved on.
+- Undo for a correction or a deleted version ran against another skill if one had been opened since.
+- The assistant's case without an id could replace an unrelated case with the same title. It is added beside it.
+- The version lift's "without the skill" line could be read over different cases than the two runs beside it. It is read over the same cases, and says so when it cannot be.
+- A case marked `judge: false` was still sent to Jev, and billed, by the code, design and workflow packs.
+- The word count missed a paragraph placed directly under its heading, and counted code in tilde fences as prose; the shape checks read code blocks as prose too.
+- The scope check dropped to 0 for a search pattern such as `"/api/users"`, and missed `../` and `~/` paths. A relative path is read from the folder the agent's shell moved to, so `cd outputs && cat ../input.md` stays inside, and a climb out of the sample counts even when it lands in `/tmp`.
+- A hand-written `bench.json` with a wrong value could push a score above 100 or break scoring. A value of the wrong kind falls back to its default, points and settings below 0 are held at 0, a threshold or share to 0 to 1, and no layer scores past 100. Points and a threshold saved past Scoring's sliders score as saved.
+- `* * *` was reported as a short rule, tab-indented nested bullets were dropped, and a line starting with inline code hid every rule after it.
+- The selection tools flagged "Clear the cache…" as an outcome word.
+- The assistant's changes were not found in replies with Windows line endings.
+- Pictures too thin for Jev's limits were stretched.
+- Characters with accents or emoji could be garbled in transcripts.
+- A TypeSafe key missing at grading told the app to edit `.env`. The app says to add it in Settings, and `st` says `.env` or `--no-jev`.
+- An unknown address opened an endless spinner, or Results under the wrong heading. It opens the home screen.
+- The New skill form stayed on "Creating…" when opening the new skill was cancelled.
+- In a browser: a reply in progress stopped updating after a page reload, a failed read of the drafts let the next keystroke erase them, and the last keystrokes were lost when the tab closed, or refused for text outside ASCII.
+- A run cut off earlier can be graded while another run of the same skill is being written.
+- Grading judges a run's pictures as the agent got them, and a picture path that is a folder or a pipe no longer breaks it.
+- Regrading a run whose outputs were all stopped keeps the last report.
+- Results shows outputs as a run writes them even when reading the skill is slow, and text typed while a new case saves is kept.
+- Saving and then switching skill before the save finished left a stale draft: a false "changed on disk" alert, or a duplicate new case.
+- "Created …" vanished from the status line as soon as the new skill opened.
+- In the Library, a folder that could not be added lost its path from the field.
+- A deleted reference file, made again, came back with its old undo history.
+- A version's changes flashed Loading whenever the files changed.
+- The assistant's proposed case says when a saved case has the same title, and its Save a version is no longer blocked by drafts that match the files on disk.
+- Back or Forward to another skill showed it with the open skill's data while the scoring question was open, and declining stepped back only one place.
+- Picking another rule while Help me improve was still reading the last one was refused. It switches to the new rule.
+- The design pack's markup check failed a page for an attribute such as `online` or `only`, which runs no script. Only an event handler attribute fails it.
+- In the writing pack, a missing answer to an optional question took the whole pack down; it is left out.
+- A case with the id `constructor` broke the version lift and the side panel's reading of the skill.
+- A Claude Code reply that reports no usage no longer fails.
+- On Windows with the npm install of Claude Code, `/name` commands say they need the native install instead of failing with a line-break error. Not yet run on Windows.
+
+### Changed
+
+- Assistant requests start faster: the CLI's sign-in is checked at most every 30 seconds, and **Check again** in Settings always asks.
+- The slash menu picks up a skill added inside an existing plugin.
+- A model name with spaces or quotes is refused before a run starts; Bedrock and Vertex ids and aliases such as `opusplan` pass. Agents or cases left out of a run are named in its log.
+- Loading a skill no longer waits on Cursor when it lists no models: the list is read in the background.
+- An agent's copy of a skill, and its version, leave out `node_modules`, `venv` and `__pycache__` folders at any depth, hidden files, and links that leave the skill, so runs of skills with large dependency folders start faster and the app stays responsive while they run.
+- The first Regrade of a run graded before this release asks Jev again, once, since the judges' questions and readings changed. Later regrades reuse the answers.
+- For a skill with scripts or assets whose latest version came from 0.4.0, a script-only edit becomes a new version once that version has run once in this release.
+- `evals.json` cases whose names are not lowercase letters, digits and dashes are named in a warning instead of disappearing, and the Library no longer counts a case twice.
+- Samples per case are a whole number from 1 to 10, in the app and in `st run`; `st` refuses a bad `--samples`, `--parallel`, `--run` or `--baseline` with a line naming the flag.
+- The Library no longer scans `~/SITES` until you add it.
+- Long job logs keep their first and latest lines.
+- F6 moves the keyboard into the editor's selection popout, and Escape returns to the text.
+- Removing a stored key asks first and shows "Removing…" on its own button, and **Check again** reports its own result. Scoring's number fields stay inside each slider's range, and the sliders are named for screen readers.
+- Failed reads of an output, a transcript, a diff, usage or a version's files offer **Try again**.
+- The skill is read again when the window regains focus, so an edit made outside the app shows at once.
 
 ## [0.4.0] - 2026-11-09
 

@@ -8,6 +8,7 @@
 import { spawn } from 'node:child_process'
 import { readdirSync } from 'node:fs'
 import { delimiter, join } from 'node:path'
+import { agentEnv } from './env.ts'
 
 /** A version folder's number, for sorting: `v22.3.1` reads as [22, 3, 1]. */
 const versionOf = (name: string): number[] =>
@@ -80,19 +81,31 @@ export function loginShellPath(
   return new Promise((done) => {
     const child = spawn(shell, ['-ilc', `printf '${MARK}%s${MARK}' "$PATH"`], {
       stdio: ['ignore', 'pipe', 'ignore'],
+      // The shell runs the user's startup files, which have no use for the app's keys.
+      env: agentEnv(),
     })
     let out = ''
-    child.stdout.on('data', (chunk: Buffer) => {
-      out += chunk.toString()
-    })
-    const timer = setTimeout(() => child.kill('SIGKILL'), timeoutMs)
-    child.on('error', () => {
+    let settled = false
+    const finish = (path: string | null) => {
+      if (settled) return
+      settled = true
       clearTimeout(timer)
-      done(null)
+      done(path)
+    }
+    // A startup file can leave a process behind that holds the output open, so
+    // `close` may never come: the answer is taken as soon as it is whole, and
+    // the wait ends with the timer either way.
+    const timer = setTimeout(() => {
+      child.kill('SIGKILL')
+      child.stdout.destroy()
+      finish(markedPath(out))
+    }, timeoutMs)
+    child.stdout.setEncoding('utf8')
+    child.stdout.on('data', (chunk: string) => {
+      out += chunk
+      if (out.split(MARK).length > 2) finish(markedPath(out))
     })
-    child.on('close', () => {
-      clearTimeout(timer)
-      done(markedPath(out))
-    })
+    child.on('error', () => finish(null))
+    child.on('close', () => finish(markedPath(out)))
   })
 }

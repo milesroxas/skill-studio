@@ -1,7 +1,9 @@
+import type { Case } from '@domain/schemas.ts'
 import { describe, expect, it } from 'vitest'
 import {
   caseDetail,
   caseLabels,
+  caseTarget,
   fileDetail,
   fileDone,
   fileStanding,
@@ -9,6 +11,7 @@ import {
   losesEdits,
   replaceWarning,
   showsDiff,
+  unsavedFiles,
   versionDetail,
   versionSaved,
 } from './changes.ts'
@@ -83,7 +86,71 @@ describe('case standing', () => {
     expect(caseDetail({ saved: { ...saved, dir: null }, done: false, drafted: false }, 1)).toBe(
       'Kept in evals.json: change it there',
     )
+    expect(caseDetail({ saved: undefined, done: false, drafted: false, twin: 'shift' }, 2)).toBe(
+      'New case, 2 checks · shift has the same title',
+    )
     expect(legacyCase({ saved: { ...saved, dir: null }, done: false, drafted: false })).toBe(true)
+  })
+
+  describe('caseTarget', () => {
+    const shift = {
+      id: 'tone-check',
+      legacyId: null,
+      title: 'Tone check',
+      prompt: 'Check the tone.',
+      expectedOutcome: '',
+      files: [],
+      graders: [],
+      settings: {},
+      bench: {},
+      source: 'folder',
+      dir: 'evals/cases/tone-check',
+    } as unknown as Case
+    const change = {
+      kind: 'case' as const,
+      id: 'tone-check',
+      idGiven: false,
+      title: 'Tone check',
+      prompt: 'Rewrite the reply.',
+      expected: '',
+      checks: [],
+    }
+
+    it('adds an unnamed case beside a different case of the same title, and names it', () => {
+      expect(caseTarget(change, [shift])).toEqual({
+        saved: undefined,
+        id: 'tone-check-2',
+        twin: shift,
+      })
+    })
+
+    it('names the case it added before and the reader edited since', () => {
+      const edited = { ...shift, title: 'tone-check', prompt: 'Rewrite the reply, briefly.' }
+      const untitled = { ...change, title: '' }
+      expect(caseTarget({ ...untitled, prompt: 'Tone check' }, [edited]).twin).toBe(edited)
+      expect(caseTarget(change, [{ ...shift, id: 'other', title: 'TONE CHECK ' }]).twin?.id).toBe(
+        'other',
+      )
+    })
+
+    it('names no twin when no saved case has the title', () => {
+      expect(caseTarget(change, [{ ...shift, id: 'other', title: 'Other' }])).toEqual({
+        saved: undefined,
+        id: 'tone-check',
+      })
+    })
+
+    it('reads an unnamed case already added as done, under the id it was given', () => {
+      const added = { ...shift, id: 'tone-check-2', prompt: 'Rewrite the reply.' }
+      expect(caseTarget(change, [shift, added])).toEqual({ saved: added, id: 'tone-check-2' })
+    })
+
+    it('replaces the case a named change names', () => {
+      expect(caseTarget({ ...change, idGiven: true }, [shift])).toEqual({
+        saved: shift,
+        id: 'tone-check',
+      })
+    })
   })
 
   it('labels the button and the warning by what is saved', () => {
@@ -127,5 +194,20 @@ describe('version standing', () => {
     expect(versionDetail({ versions: [], current }, undefined)).toBe('Saves the files as v2')
     expect(versionDetail({ versions: [], current }, version('x', true))).toBe('Version v1')
     expect(versionDetail(undefined, undefined)).toBe('A version of the files')
+  })
+})
+
+describe('unsavedFiles', () => {
+  const drafts = { 'SKILL.md': { text: 'edited' }, 'references/a.md': { text: 'same' } }
+  it('counts a draft only when its text differs from the file as saved', () => {
+    expect(unsavedFiles({ 'SKILL.md': 'saved', 'references/a.md': 'same' }, drafts)).toEqual([
+      'SKILL.md',
+    ])
+  })
+  it('counts a draft of a file that is not on disk', () => {
+    expect(unsavedFiles({}, { 'references/new.md': { text: '' } })).toEqual(['references/new.md'])
+  })
+  it('counts every draft until the saved files are read', () => {
+    expect(unsavedFiles(null, drafts)).toEqual(['SKILL.md', 'references/a.md'])
   })
 })

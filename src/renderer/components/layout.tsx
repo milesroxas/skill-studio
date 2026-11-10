@@ -28,8 +28,6 @@ const screenVariants = cva('flex w-full flex-col gap-10', {
       wide: 'max-w-[1200px]',
       /** A form of sections, a heading column beside the fields. */
       form: 'max-w-[880px]',
-      /** One column of prose and small tables. */
-      reading: 'max-w-[760px]',
     },
   },
   defaultVariants: { width: 'wide' },
@@ -487,22 +485,16 @@ const stackVariants = cva('flex flex-col', {
       md: 'gap-2.5',
       lg: 'gap-5',
     },
-    align: {
-      stretch: '',
-      /** Items take their own width, such as a column of links. */
-      start: 'items-start',
-    },
   },
-  defaultVariants: { gap: 'sm', align: 'stretch' },
+  defaultVariants: { gap: 'sm' },
 })
 
 export function Stack({
   gap,
-  align,
   className,
   ...props
 }: ComponentProps<'div'> & VariantProps<typeof stackVariants>) {
-  return <div className={cn(stackVariants({ gap, align }), className)} {...props} />
+  return <div className={cn(stackVariants({ gap }), className)} {...props} />
 }
 
 /** A label, its control and a hint, stacked. */

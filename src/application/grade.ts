@@ -5,24 +5,27 @@
  */
 import { createHash } from 'node:crypto'
 import { readFileSync } from 'node:fs'
-import { join } from 'node:path'
+import { basename, join } from 'node:path'
 import { mergeConfig } from '@domain/config.ts'
 import { imageTypeOf } from '@domain/image.ts'
 import type { Rule } from '@domain/rules.ts'
+import { parseSampleDir } from '@domain/run-name.ts'
 import type { BenchConfig, Case, Report, ReportResult } from '@domain/schemas.ts'
 import { scoreResult } from '@domain/scoring.ts'
 import { copyOf, titleOf, unitsOf, words } from '@domain/text.ts'
 import type { Sample } from '@domain/views.ts'
 import { primaryArtifact } from '@infrastructure/artifacts.ts'
 import { benchPath, findCase, loadCases, loadRules, readSkillFile } from '@infrastructure/cases.ts'
-import { readJson, writeJson } from '@infrastructure/fs.ts'
-import { anchorsDir, readHead, runDir, runSamples } from '@infrastructure/runs.ts'
+import { commandRunner } from '@infrastructure/exec.ts'
+import { assertInside, isDir, isFile, readJson, writeJson } from '@infrastructure/fs.ts'
+import { anchorsDir, readHead, readRunMeta, runDir, runSamples } from '@infrastructure/runs.ts'
 import { readTranscript } from '@infrastructure/transcript.ts'
 import { requestImages } from '@judges/images.ts'
 import { packById } from '@judges/index.ts'
 import { Jev } from '@judges/jev.ts'
 import { scorers } from '@judges/scorers.ts'
 import type { JudgeContext, JudgeInput, JudgePack } from '@judges/types.ts'
+import { INPUTS_DIR, stagedInput } from './generate.ts'
 
 export interface GradeOptions {
   /** False grades with code checks only: no TypeSafe calls, Jev layers stay null. */
@@ -41,6 +44,8 @@ export interface GradeOptions {
 const CACHE_FILE = 'judge-cache.json'
 /** How a pack's failure reads in a sample's flags; `unjudged` counts these. */
 const PACK_FAILED = / pack failed: /
+/** What a grading that was stopped rejects with. */
+const STOPPED = 'Stopped.'
 
 interface Subject extends Sample {
   caseRef: string | null
@@ -61,6 +66,88 @@ interface GradeContext {
   packs: JudgePack[]
   judge: JudgeContext
   cache: JudgeCache
+  /** The hash of each picture read in this grading, by its path on disk. */
+  pictures: Map<string, string>
+  /**
+   * The run's copy of its cases' input files, taken as it started: what the
+   * agent was given. Null for anchors, and for a run made before runs kept one.
+   */
+  inputs: string | null
+  signal?: AbortSignal
+}
+
+/**
+ * The settings of `config` a pack's answer can depend on: every key but the
+ * points and the threshold, which apply after, and the settings that are
+ * another pack's alone, so moving one of those never has this pack asked again.
+ */
+function askedConfig(pack: JudgePack, config: BenchConfig): Record<string, unknown> {
+  const own = new Set(Object.keys(pack.defaults))
+  const others = new Set(
+    scorers.filter((other) => other.id !== pack.id).flatMap((other) => Object.keys(other.defaults)),
+  )
+  return Object.fromEntries(
+    Object.entries(config).filter(
+      ([key]) => key !== 'weights' && key !== 'yes' && (own.has(key) || !others.has(key)),
+    ),
+  )
+}
+
+/** `path` when it is a file inside `root`, links resolved; null for anything else (a folder, a pipe, a link out). */
+function fileInside(root: string, path: string): string | null {
+  try {
+    return isFile(assertInside(root, path)) ? path : null
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Where a picture the case's request came with is read: from the run's copy of
+ * the case's input files, so a picture changed or added since the run is not
+ * judged as what the agent saw, and from the case as it is now for a run that
+ * kept no copy. Null when there is no such file.
+ */
+function requestPicture(ctx: GradeContext, testCase: Case, rel: string): string | null {
+  return ctx.inputs
+    ? fileInside(ctx.inputs, stagedInput(ctx.inputs, testCase.id, rel))
+    : fileInside(ctx.judge.skillDir, join(ctx.judge.skillDir, rel))
+}
+
+/** Each picture the case's request came with, by its path in the skill: where it is read, or null when it is not there. */
+const requestPictures = (
+  ctx: GradeContext,
+  testCase: Case | null,
+): Array<[string, string | null]> =>
+  testCase
+    ? testCase.files.filter(imageTypeOf).map((rel) => [rel, requestPicture(ctx, testCase, rel)])
+    : []
+
+/**
+ * The pictures a case is judged with, each by a hash of the bytes the judge
+ * reads: the ones the agent got and the ones its checks are about. A picture
+ * replaced under the same name is a new picture, and the output is judged again.
+ */
+function casePictures(ctx: GradeContext, testCase: Case | null): Record<string, string> {
+  const paths: Array<[string, string | null]> = [
+    ...requestPictures(ctx, testCase),
+    ...(testCase?.graders ?? []).flatMap(
+      (grader): Array<[string, string | null]> =>
+        grader.image
+          ? [[grader.image, fileInside(ctx.judge.skillDir, join(ctx.judge.skillDir, grader.image))]]
+          : [],
+    ),
+  ]
+  const hashes: Record<string, string> = {}
+  for (const [rel, path] of paths) {
+    let hash = path === null ? 'missing' : ctx.pictures.get(path)
+    if (hash === undefined && path !== null) {
+      hash = createHash('sha256').update(readFileSync(path)).digest('hex')
+      ctx.pictures.set(path, hash)
+    }
+    hashes[rel] = hash ?? 'missing'
+  }
+  return hashes
 }
 
 /** The skill's `bench.json`, with the call's overrides and pack list laid over it. */
@@ -74,12 +161,12 @@ function benchFor(skillDir: string, options: GradeOptions): BenchConfig {
 
 /** One sample as the packs see it. */
 function judgeInput(
-  skillDir: string,
+  ctx: GradeContext,
   sample: Sample,
   testCase: Case | null,
-  rules: Rule[],
   log: (line: string) => void,
 ): JudgeInput {
+  const { skillDir } = ctx.judge
   const primary = primaryArtifact(sample.artifacts, testCase?.bench.artifact)
   const raw =
     primary && primary.kind !== 'image' ? readFileSync(join(sample.path, primary.file), 'utf8') : ''
@@ -97,10 +184,13 @@ function judgeInput(
     case: testCase,
     // Every picture the agent got: one Jev cannot read is left out, and the log says which and why.
     images: requestImages(
-      (testCase?.files ?? []).filter(imageTypeOf).map((rel) => join(skillDir, rel)),
+      requestPictures(ctx, testCase).flatMap(([rel, path]) => {
+        if (path === null) log(`${basename(rel)} is not shown to Jev: the file is missing.`)
+        return path === null ? [] : [path]
+      }),
       log,
     ),
-    rules,
+    rules: ctx.rules,
     evidence,
     artifacts: sample.artifacts,
     primary,
@@ -110,22 +200,30 @@ function judgeInput(
 }
 
 /**
- * The hash of everything a pack's answer depends on: the model, the pack, the
- * output and what it is judged against. Points per layer and the `yes`
- * threshold are left out, since they are applied after, in scoring. The same
- * hash on Regrade means the same questions over the same text, so the kept
- * answer stands and Jev is not asked again.
+ * The hash of everything a pack's answer depends on: the model, the pack and
+ * the version of its questions, the output and what it is judged against.
+ * Points per layer and the `yes` threshold are left out, since they are
+ * applied after, in scoring, and so are another pack's settings. The same hash
+ * on Regrade means the same questions over the same text and pictures, so the
+ * kept answer stands and Jev is not asked again.
  */
-function judgeKey(pack: JudgePack, input: JudgeInput, ctx: GradeContext): string {
-  const { weights: _weights, yes: _yes, ...config } = ctx.judge.config
+function judgeKey(
+  pack: JudgePack,
+  input: JudgeInput,
+  pictures: Record<string, string>,
+  ctx: GradeContext,
+): string {
   const asked = {
     model: ctx.judge.useJev ? ctx.judge.jev.model : null,
     pack: pack.id,
-    config,
+    // A pack raises its version when its questions or its reading of an answer change, so
+    // answers given to the old ones are not kept.
+    version: pack.version,
+    config: askedConfig(pack, ctx.judge.config),
     text: input.text,
     title: input.title,
     case: input.case,
-    images: input.images.map((image) => image.name),
+    pictures,
     rules: input.rules,
     evidence: input.evidence,
     artifacts: input.artifacts,
@@ -140,11 +238,14 @@ async function gradeSubject(
   ctx: GradeContext,
 ): Promise<{ result: ReportResult; unchanged: boolean }> {
   const testCase = findCase(ctx.cases, subject.caseRef)
-  const input = judgeInput(ctx.judge.skillDir, subject, testCase, ctx.rules, (line) =>
+  const input = judgeInput(ctx, subject, testCase, (line) =>
     ctx.judge.log(`${subject.name}: ${line}`),
   )
   const { primary } = input
+  const pictures = casePictures(ctx, testCase)
   const packs: Record<string, unknown> = {}
+  /** This sample's new answers: kept only once the whole sample was judged without a stop. */
+  const answers: Record<string, unknown> = {}
   const failures: string[] = []
   let applied = 0
   let kept = 0
@@ -156,7 +257,7 @@ async function gradeSubject(
       continue
     }
     applied += 1
-    const key = judgeKey(pack, input, ctx)
+    const key = judgeKey(pack, input, pictures, ctx)
     if (Object.hasOwn(ctx.cache.old, key)) {
       packs[pack.id] = ctx.cache.old[key]
       ctx.cache.fresh[key] = ctx.cache.old[key]
@@ -166,8 +267,10 @@ async function gradeSubject(
     try {
       const answer = await pack.judge(input, ctx.judge)
       packs[pack.id] = answer
-      ctx.cache.fresh[key] = answer
+      answers[key] = answer
     } catch (error) {
+      // A command ended by the stop is no answer, and no failure of the pack either.
+      if (ctx.signal?.aborted) throw new Error(STOPPED)
       // One pack failing leaves its layers out of the total, so the report says so.
       const failure = `${pack.id} pack failed: ${(error as Error).message}`
       ctx.judge.log(`${subject.name}: ${failure}`)
@@ -175,6 +278,9 @@ async function gradeSubject(
       packs[pack.id] = null
     }
   }
+  // Stopped while this sample was judged: a check may have been cut short, so nothing of it is kept.
+  if (ctx.signal?.aborted) throw new Error(STOPPED)
+  Object.assign(ctx.cache.fresh, answers)
   const base = {
     sample: subject.name,
     case: testCase?.id ?? subject.caseRef,
@@ -185,6 +291,8 @@ async function gradeSubject(
     // The case's word range is about the copy: prose and list units, not headings or code.
     words: words(input.units.length ? input.units.map((u) => u.text).join(' ') : input.text).length,
     range: testCase?.bench.words ?? null,
+    // A text output with nothing but whitespace in it is no output; a picture always is one.
+    blank: primary !== null && primary.kind !== 'image' && !input.text.trim(),
     packs,
   }
   const scored = scoreResult(base, ctx.judge.config, scorers)
@@ -200,17 +308,35 @@ async function gradeSubject(
 }
 
 /**
- * Grade `subjects` and write the report and the judge cache in `dir`. Stopped
- * part way, it writes neither: the report there stays as it was.
+ * The cache as it is written: this grading's answers, and before them the
+ * last ones it did not ask about again, so going back to a setting or a key
+ * finds its answers still there. The oldest go once the file holds several
+ * gradings' worth.
+ */
+function keptAnswers(cache: JudgeCache, perGrading: number): Record<string, unknown> {
+  const earlier = Object.entries(cache.old).filter(([key]) => !Object.hasOwn(cache.fresh, key))
+  const all = [...earlier, ...Object.entries(cache.fresh)]
+  return Object.fromEntries(all.slice(-Math.max(200, perGrading * 4)))
+}
+
+/**
+ * Grade `subjects` and write the report and the judge cache in `dir`. The
+ * report is written only when the grading ran to its end and judged something:
+ * stopped part way, with no output to grade, or with a pack failing on every
+ * output, the report there stays as it was. The cache is written either way,
+ * with every sample judged whole before the stop, so an answer already paid
+ * for is never asked for twice. `inputs` is the run's copy of its cases' input
+ * files, when it kept one.
  */
 async function gradeSubjects(
   skillDir: string,
   dir: string,
   subjects: Subject[],
   options: GradeOptions,
+  inputs: string | null = null,
 ): Promise<Report> {
   if (options.useJev && !Jev.available())
-    throw new Error('TYPESAFE_API_KEY is not set. Add it to .env or pass --no-jev.')
+    throw new Error('No TypeSafe key is set, so Jev cannot judge. Add the key in Settings.')
   const config = benchFor(skillDir, options)
   const packs = config.packs.map((id) => {
     const pack = packById(id)
@@ -223,18 +349,39 @@ async function gradeSubjects(
     cases: loadCases(skillDir),
     rules: loadRules(skillDir, config),
     packs,
-    judge: { jev, useJev: options.useJev, config, skillDir, log },
-    cache: { old: readJson<Record<string, unknown>>(join(dir, CACHE_FILE), {}), fresh: {} },
+    judge: {
+      jev,
+      useJev: options.useJev,
+      config,
+      skillDir,
+      log,
+      run: commandRunner(options.signal),
+    },
+    cache: { old: readCache(join(dir, CACHE_FILE)), fresh: {} },
+    pictures: new Map(),
+    inputs,
+    signal: options.signal,
   }
   const started = performance.now()
   const results: ReportResult[] = []
   let unchanged = 0
-  for (const subject of subjects) {
-    if (options.signal?.aborted) throw new Error('Stopped.')
-    const graded = await gradeSubject(subject, ctx)
-    results.push(graded.result)
-    if (graded.unchanged) unchanged += 1
-    log(`${subject.name}: total ${graded.result.scores.total ?? '-'}`)
+  try {
+    for (const subject of subjects) {
+      if (options.signal?.aborted) throw new Error(STOPPED)
+      const graded = await gradeSubject(subject, ctx)
+      results.push(graded.result)
+      if (graded.unchanged) unchanged += 1
+      log(`${subject.name}: total ${graded.result.scores.total ?? '-'}`)
+    }
+    // A stop that came with the last sample's answers: the grading did not run to its end.
+    if (options.signal?.aborted) throw new Error(STOPPED)
+  } finally {
+    // Nothing to keep and nothing kept before: no file is made for a grading that asked nothing.
+    if (
+      subjects.length &&
+      (Object.keys(ctx.cache.fresh).length || Object.keys(ctx.cache.old).length)
+    )
+      writeJson(join(dir, CACHE_FILE), keptAnswers(ctx.cache, subjects.length * packs.length))
   }
   if (unchanged) log(`${unchanged} of ${subjects.length} outputs unchanged: kept their verdicts.`)
   const report: Report = {
@@ -246,9 +393,25 @@ async function gradeSubjects(
     packs: config.packs,
     results,
   }
-  writeJson(join(dir, CACHE_FILE), ctx.cache.fresh)
-  writeJson(join(dir, 'report.json'), report)
+  // A report with no output in it, or none judged, holds no verdict: the one before it is worth more.
+  const { failed, total } = unjudged(report)
+  if (!total)
+    log('No output to grade, so no report was written. The last one, if any, still stands.')
+  else if (failed < total) writeJson(join(dir, 'report.json'), report)
   return report
+}
+
+/** The answers kept by the last grading; none when the file is absent or damaged. */
+function readCache(path: string): Record<string, unknown> {
+  try {
+    const kept = readJson<unknown>(path, {})
+    return kept && typeof kept === 'object' && !Array.isArray(kept)
+      ? (kept as Record<string, unknown>)
+      : {}
+  } catch (error) {
+    console.warn((error as Error).message)
+    return {}
+  }
 }
 
 /**
@@ -273,14 +436,31 @@ export async function gradeRun(
   options: GradeOptions,
 ): Promise<Report> {
   const dir = runDir(skillDir, run)
-  const subjects: Subject[] = runSamples(dir).map((sample) => {
+  if (!isDir(dir)) throw new Error(`There is no run called ${run}.`)
+  // A sample stopped before it wrote anything says nothing of the skill: it is not graded, so it scores nothing.
+  const stopped = new Set(
+    (readRunMeta(skillDir, run)?.samples ?? []).filter((s) => s.stopped).map((s) => s.dir),
+  )
+  const kept = runSamples(dir).filter((sample) => !stopped.has(sample.name))
+  if (stopped.size)
+    options.log?.(
+      `${stopped.size} output(s) stopped before they were written: left out of grading.`,
+    )
+  const subjects: Subject[] = kept.map((sample) => {
     if (sample.legacy) {
       const head = readHead(join(sample.path, sample.name))
       return { ...sample, caseRef: head.case ?? sample.name, label: head.label, tests: head.tests }
     }
-    return { ...sample, caseRef: sample.name, label: null, tests: [] }
+    // A sample folder is `<case>-s<n>`: the case is read from the name whole, never guessed by prefix.
+    return {
+      ...sample,
+      caseRef: parseSampleDir(sample.name)?.case ?? sample.name,
+      label: null,
+      tests: [],
+    }
   })
-  return gradeSubjects(skillDir, dir, subjects, options)
+  const inputs = join(dir, INPUTS_DIR)
+  return gradeSubjects(skillDir, dir, subjects, options, isDir(inputs) ? inputs : null)
 }
 
 /** Grade `evals/anchors/*.md` and write `evals/anchors/report.json`. */

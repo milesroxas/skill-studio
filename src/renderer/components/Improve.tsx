@@ -7,10 +7,11 @@
  */
 import { currentStep } from '@domain/improve.ts'
 import { useState } from 'react'
-import { clearImprove, sendImprove, stopRun, useAi, useImprove } from '../ai.ts'
+import { clearImprove, sendImprove, stopRun, useAi, useImprove, useImproveDraft } from '../ai.ts'
 import { useReplacer } from '../replace.ts'
 import { Conversation } from './Chat.tsx'
 import { Composer } from './Composer.tsx'
+import { useConfirm } from './confirm.tsx'
 import { PanelBody, PanelHeader, usePin } from './PanelFrame.tsx'
 import { Unjudged } from './Refine.tsx'
 import { Status } from './Status.tsx'
@@ -21,7 +22,9 @@ export function ImprovePanel({ onBack, onClose }: { onBack: () => void; onClose:
   const { thread, problem } = useImprove()
   const { choice } = useAi()
   const replacer = useReplacer()
-  const [reply, setReply] = useState('')
+  // Kept with the conversation, not in the panel: closing the panel does not lose what was typed.
+  const [reply, setReply] = useImproveDraft()
+  const [confirm, confirmDialog] = useConfirm()
   const [failure, setFailure] = useState<string | null>(null)
   const [sending, setSending] = useState(false)
   const [note, setNote] = useState<string | null>(null)
@@ -41,6 +44,7 @@ export function ImprovePanel({ onBack, onClose }: { onBack: () => void; onClose:
   const send = async (text: string) => {
     if (!text.trim() || running) return
     setFailure(null)
+    setNote(null)
     setSending(true)
     setReply('')
     pin.pinned.current = true
@@ -57,10 +61,29 @@ export function ImprovePanel({ onBack, onClose }: { onBack: () => void; onClose:
   const replace = () => {
     if (!replacer || thread.draft === null) return
     if (replacer(thread.scene.selection, thread.draft) === 'replaced') {
-      void clearImprove()
+      // The draft is in the file. A conversation that would not close says so and stays.
+      clearImprove().catch((e: Error) => setFailure(e.message))
       return
     }
-    setNote('The selection has changed in the file. Select it again and start over.')
+    setNote(
+      'The selection is not in the file as it was, or it is there more than once. Select it again and start over.',
+    )
+  }
+
+  /** Going back closes this conversation, and nothing brings it back: ask once there is something in it to lose. */
+  const back = async () => {
+    if (
+      (thread.at > 0 || thread.draft !== null) &&
+      !(await confirm({
+        title: 'Discard this draft?',
+        description:
+          'Going back to the chat closes this conversation. Your answers and the draft are not kept.',
+        action: 'Discard',
+        destructive: true,
+      }))
+    )
+      return
+    onBack()
   }
 
   const canReplace = thread.draft !== null && replacer !== null && !running
@@ -68,7 +91,7 @@ export function ImprovePanel({ onBack, onClose }: { onBack: () => void; onClose:
   return (
     <>
       <PanelHeader title="Improve a rule" onClose={onClose}>
-        <Button type="button" variant="ghost" size="sm" onClick={onBack}>
+        <Button type="button" variant="ghost" size="sm" onClick={() => void back()}>
           Back to chat
         </Button>
       </PanelHeader>
@@ -123,7 +146,8 @@ export function ImprovePanel({ onBack, onClose }: { onBack: () => void; onClose:
             onChange={setReply}
             onSubmit={() => void send(reply)}
             running={Boolean(running)}
-            onStop={() => run && stopRun(run.id)}
+            // Until the reply has an id there is nothing to stop: the button waits disabled.
+            onStop={run?.status === 'running' ? () => stopRun(run.id) : undefined}
           />
         </div>
       ) : null}
@@ -139,6 +163,7 @@ export function ImprovePanel({ onBack, onClose }: { onBack: () => void; onClose:
           <Hint>Open SKILL.md in the Editor to put the draft in place.</Hint>
         )}
       </footer>
+      {confirmDialog}
     </>
   )
 }

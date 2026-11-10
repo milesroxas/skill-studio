@@ -7,7 +7,18 @@ export interface ScoreSubject {
   artifacts: Artifact[]
   words: number
   range: [number, number] | null
+  /** The file judged holds nothing but whitespace (`ReportResult.blank`). */
+  blank?: boolean
 }
+
+/**
+ * The output has nothing in it to judge: the agent wrote no file, or the file
+ * it wrote holds no character but whitespace. A file with no word in it, such
+ * as `{}`, is an output, and so is a picture. Such an output scores 0,
+ * whatever a pack could still count about the run.
+ */
+export const noOutput = (subject: Pick<ScoreSubject, 'primary' | 'blank'>): boolean =>
+  !subject.primary || (subject.primary.kind !== 'image' && subject.blank === true)
 
 /** A rule of the skill, a check of the case, or anything else a pack measures. */
 export type VerdictKind = 'rule' | 'check' | 'other'
@@ -17,7 +28,7 @@ export type VerdictKind = 'rule' | 'check' | 'other'
  * misses, or another thing a pack measured. The facts are what a score is
  * counted from, so a reader can see which one cost the points.
  */
-export interface Verdict {
+interface VerdictBase {
   /** Names the fact by its kind and its words, so an edited rule or check is a new fact. */
   id: string
   kind: VerdictKind
@@ -25,12 +36,6 @@ export interface Verdict {
   text: string
   /** Whether the output meets it: the reader's own answer where they gave one, else the pack's. */
   met: boolean
-  /** Jev's own answer under the scoring in hand, for a fact Jev answered. */
-  jev?: boolean
-  /** Jev answered it, so the reader may answer it themselves. Code's measurements are not open. */
-  open: boolean
-  /** The reader answered it. Their answer stands whether or not it agrees with Jev's. */
-  corrected: boolean
   /** The layer of the score it counts in; null for a finding that counts in none. */
   layer: string | null
   /** A rule's section of SKILL.md. */
@@ -38,6 +43,24 @@ export interface Verdict {
   /** A check's weight, when it counts more than once. */
   weight?: number
 }
+
+/** A fact Jev answered, so the reader may answer it themselves. */
+export interface JudgedVerdict extends VerdictBase {
+  open: true
+  /** Jev's own answer under the scoring in hand. */
+  jev: boolean
+  /** The reader answered it. Their answer stands whether or not it agrees with Jev's. */
+  corrected: boolean
+}
+
+/** A fact code measured. It has no answer of Jev's, and nobody corrects a count. */
+export interface MeasuredVerdict extends VerdictBase {
+  open: false
+  jev?: undefined
+  corrected: false
+}
+
+export type Verdict = JudgedVerdict | MeasuredVerdict
 
 /** The reader's own answers on one output, by verdict id: true when the output meets it. */
 export type Corrections = Readonly<Record<string, boolean>>
@@ -72,6 +95,10 @@ export interface PackScoring<Raw = unknown> {
     config: BenchConfig,
     corrections?: Corrections,
   ): PackScore
-  /** Mean certainty of the pack's Nouls, 0 to 1; null when it asked none. */
-  confidence(raw: Raw | null): number | null
+  /**
+   * How sure Jev was of each answer the pack keeps, 0 to 1 each; empty when it
+   * asked none. Every pack's go into one mean, so a pack that asked two
+   * questions weighs as two answers, not as much as one that asked twenty.
+   */
+  certainties(raw: Raw | null): number[]
 }

@@ -15,7 +15,7 @@ import {
   jevImageProblem,
 } from '@domain/image.ts'
 import { isWithin } from '@domain/paths.ts'
-import { isFile, listFiles } from './fs.ts'
+import { assertInside, isFile, listFiles } from './fs.ts'
 import { STUDIO_DIR } from './library.ts'
 
 const UPLOADS = join(STUDIO_DIR, 'uploads')
@@ -79,7 +79,8 @@ export function findImage(skillDir: string | null, ref: ImageRef): StoredImage {
   const type = imageTypeOf(path)
   if (!skillDir || !type || !isWithin(path, skillDir) || !isFile(path))
     throw new Error(`No picture at ${ref.file ?? 'that path'}.`)
-  return { name: ref.name, path, type }
+  // A link inside the skill that leads out of it is not one of the skill's pictures.
+  return { name: ref.name, path: assertInside(skillDir, path), type }
 }
 
 export const readImage = (image: StoredImage): Uint8Array =>

@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { pngHeader } from './__fixtures__/image.ts'
 import {
   addImages,
   fitForJev,
@@ -10,7 +11,6 @@ import {
   jevImageProblem,
   MAX_IMAGES,
 } from './image.ts'
-import { pngHeader } from './image-fixtures.ts'
 
 /** A JPEG up to its frame header, with an application segment in front as cameras write one. */
 const jpegHeader = (width: number, height: number): Uint8Array =>
@@ -96,19 +96,42 @@ describe('fitForJev', () => {
     })
   })
 
-  it('always lands inside the limits', () => {
+  it('always lands inside the limits, and never stretches the picture', () => {
     for (const [w, h] of [
       [1, 1],
       [20, 9000],
       [9000, 20],
       [1569, 279],
       [5000, 5000],
-    ])
+      [100, 1000],
+      [1200, 200],
+    ]) {
       expect(problemAfter(w, h)).toBeNull()
+      const fit = fitForJev(w, h)
+      // The picture is drawn in its own shape, to within the pixel that rounding costs.
+      const scale = Math.max(fit.drawWidth, fit.drawHeight) / Math.max(w, h)
+      expect(Math.abs(fit.drawWidth - w * scale)).toBeLessThanOrEqual(1)
+      expect(Math.abs(fit.drawHeight - h * scale)).toBeLessThanOrEqual(1)
+    }
+  })
+
+  it('centres a strip that scaling up would push past the long limit, in its own shape', () => {
+    // 100 by 1000 scaled until the short side fits would be 280 by 2800: the long side wins.
+    expect(fitForJev(100, 1000)).toEqual({
+      width: 280,
+      height: 1568,
+      drawWidth: 157,
+      drawHeight: 1568,
+    })
   })
 })
 
 describe('names and lists', () => {
+  it('reads a name every object has as no picture at all', () => {
+    expect(imageTypeOf('files/x.constructor')).toBeNull()
+    expect(imageTypeOf('files/x.valueof')).toBeNull()
+  })
+
   it('tells pictures a model can read from other files, and the two Jev reads', () => {
     expect(imageTypeOf('files/Mock.PNG')).toBe('image/png')
     expect(imageTypeOf('files/photo.webp')).toBe('image/webp')

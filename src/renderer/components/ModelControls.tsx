@@ -80,7 +80,13 @@ export function ModelChip() {
   return (
     <Popover>
       <PopoverTrigger asChild>
-        <Button type="button" variant="ghost" size="xs" aria-label="Model and effort">
+        <Button
+          type="button"
+          variant="ghost"
+          size="xs"
+          // The name starts with the words on the button, so what is read out is what is seen.
+          aria-label={`${model?.label ?? choice.model}${choice.effort ? `, ${effortLabel(choice.effort)}` : ''}. Change the model and effort.`}
+        >
           <span className="max-w-40 truncate">{model?.label ?? choice.model}</span>
           {choice.effort ? (
             <span className="font-normal text-muted-foreground">{effortLabel(choice.effort)}</span>

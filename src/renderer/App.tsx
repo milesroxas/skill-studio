@@ -18,11 +18,21 @@
  */
 import { pickBetween } from '@domain/picks.ts'
 import { isLookStep, type LookStep } from '@domain/practice.ts'
-import type { BenchConfig } from '@domain/schemas.ts'
+import { NEW_CASE_KEY } from '@domain/schemas.ts'
 import { ArrowRightIcon, MenuIcon, MessageCircleIcon } from 'lucide-react'
-import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import {
+  lazy,
+  Suspense,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react'
 import { clearImprove, useImprove } from './ai.ts'
-import { api, currentSkill, type Job, type State, setSkill } from './api.ts'
+import { api, currentSkill } from './api.ts'
+import { unsavedFiles } from './changes.ts'
 import { ChatPanel } from './components/Chat.tsx'
 import { useConfirm } from './components/confirm.tsx'
 import { HelpButton, ScreenHint } from './components/Help.tsx'
@@ -53,28 +63,31 @@ import { Button } from './components/ui/button.tsx'
 import { Popover, PopoverContent, PopoverTrigger } from './components/ui/popover.tsx'
 import { Toggle } from './components/ui/toggle.tsx'
 import type { Ctx } from './ctx.ts'
+import { orphanCases, unsavedCases } from './draft-edits.ts'
 import { useDrafts } from './drafts.ts'
 import { SCREEN_HELP } from './help.ts'
-import { back, forward, navigate, usePaneScroll, useRoute } from './history.ts'
+import { back, forward, navigate, travel, usePaneScroll, useRoute } from './history.ts'
 import { useNotice } from './hooks.ts'
 import { shortcut } from './keys.ts'
-import { casePair, casesRun, mergedConfig, outputsOf, sideName, versionScore } from './model.ts'
+import { casePair, casesRun, outputsOf, scoringDirty, sideName, versionScore } from './model.ts'
+import { nextStep, screenFor } from './next-step.ts'
 import { APP_PLACES, isSkillScreen, placeFor, SKILL_PLACES, WORKBENCH } from './places.ts'
 import {
-  type PracticeTarget,
   practiceGuide,
   practiceHome,
   practiceWalk,
   useRestartPractice,
   useStartPractice,
 } from './practice.ts'
-import { setPreferences, usePreferences } from './preferences.ts'
+import { savePreference, setPreferences, usePreferences } from './preferences.ts'
 import { Cases } from './screens/Cases.tsx'
 import { LibraryScreen } from './screens/Library.tsx'
 import { Results } from './screens/Results.tsx'
 import { Welcome } from './screens/Welcome.tsx'
+import { useSkillState } from './skill-state.ts'
 import { watchFailures } from './transport.ts'
 import { useUpdateNotices, useUpdateStep } from './updates.ts'
+import { useJobs } from './use-jobs.ts'
 
 /** The guide, settings and the file editor (CodeMirror, about 110 KB gzipped) load only when opened. */
 const Docs = lazy(() => import('./screens/Docs.tsx').then((m) => ({ default: m.Docs })))
@@ -84,9 +97,6 @@ const SettingsScreen = lazy(() =>
 )
 
 const ASSISTANT_KEY = 'skill-studio.assistant'
-
-/** The least time between two reloads made for a run's progress: each output lands within this of being written. */
-const PROGRESS_RELOAD_MS = 2000
 
 /** Whether the assistant's panel is open, remembered across reloads, and ⌘J to toggle it. */
 function useAssistant(): [boolean, (open: boolean) => void] {
@@ -114,25 +124,23 @@ interface PlaceStatus {
   dot: Record<string, boolean>
 }
 
-/** The one step the top bar suggests: a place to go to, or the run to start. */
-type NextStep =
-  | { kind: 'go'; label: string; screen: string; params?: Record<string, string> }
-  | { kind: 'run' }
-
-/** A walkthrough step as the top bar's step: one with no screen is the Run button's. */
-const stepOf = (target: PracticeTarget): NextStep =>
-  target.screen === null
-    ? { kind: 'run' }
-    : { kind: 'go', label: target.label, screen: target.screen, params: target.params }
-
 export function App() {
   const [skillPath, setSkillPath] = useState(currentSkill)
-  const [state, setState] = useState<State | null>(null)
-  const [error, setError] = useState<string | null>(null)
-  const [config, setConfig] = useState<BenchConfig | null>(null)
-  const [jobs, setJobs] = useState<Job[]>([])
-  const [route, go] = useRoute()
+  const [asked, go] = useRoute()
   const [notice, report, dismissNotice] = useNotice()
+  /**
+   * The route in view. Back or Forward to a place seen in another skill waits
+   * on the place the reader is on until that skill is open, so no screen shows
+   * one skill's place with another's data, even while a question is asked.
+   */
+  const shown = useRef(asked)
+  const crossing = asked.arrival === 'return' && Boolean(asked.skill) && asked.skill !== skillPath
+  const route = crossing ? shown.current : asked
+  useLayoutEffect(() => {
+    shown.current = route
+  })
+  const { state, config, setConfig, error, reload, files } = useSkillState(skillPath, report)
+  const jobs = useJobs(reload)
   const [confirm, confirmDialog] = useConfirm()
   const [assistant, setAssistant] = useAssistant()
   /** Run, in the top bar, is open: what the next run will do, over the button that starts it. */
@@ -150,52 +158,52 @@ export function App() {
   // A failure no caller awaits, such as a window that would not open, lands on the status line.
   useEffect(() => watchFailures(report), [report])
 
-  const reload = useCallback(async () => {
-    if (!currentSkill()) return
-    try {
-      const next = await api.state()
-      setState(next)
-      setError(null)
-      setConfig((current) => {
-        const saved = mergedConfig(next.savedConfig)
-        return current && JSON.stringify(current) !== JSON.stringify(saved) ? current : saved
-      })
-    } catch (e) {
-      setError((e as Error).message)
-    }
-  }, [])
-
-  useEffect(() => {
-    setSkill(skillPath)
-    setState(null)
-    setConfig(null)
-    setError(null)
-    setRunOpen(false)
-    reload()
-  }, [skillPath, reload])
+  /**
+   * Open a skill. Another one closes Run, and the notice about the last one
+   * goes, with any Undo it offered, before the skill opens: a step that says
+   * what it did once the skill is open, such as making it, is said after.
+   */
+  const enter = useCallback(
+    (path: string) => {
+      if (path !== currentSkill()) {
+        setRunOpen(false)
+        dismissNotice()
+      }
+      setSkillPath(path)
+    },
+    [dismissNotice],
+  )
   const drafts = useDrafts(skillPath)
+  /** The files with unsaved text: a draft that differs from the file on disk. */
+  const unsaved = useMemo(
+    () => unsavedFiles(files.saved, drafts.files),
+    [files.saved, drafts.files],
+  )
 
   /** Scoring, on Results, has changes that are not saved. Read when a skill is opened, so it is a ref. */
-  const scoringDirty = useRef(false)
+  const unsavedScoring = useRef(false)
+  /** Scoring edits live in this window alone, and another skill's state replaces them: ask first. */
+  const leaveScoring = useCallback(
+    async (path: string): Promise<boolean> =>
+      path === currentSkill() ||
+      !unsavedScoring.current ||
+      confirm({
+        title: 'Discard your scoring changes?',
+        description: 'The scoring of the open skill has changes that are not saved.',
+        action: 'Discard',
+        destructive: true,
+      }),
+    [confirm],
+  )
   const openSkill = useCallback(
-    async (path: string, screen = 'home') => {
-      // Scoring edits live in this window alone: another skill's state would replace them.
-      if (
-        path !== currentSkill() &&
-        scoringDirty.current &&
-        !(await confirm({
-          title: 'Discard your scoring changes?',
-          description: 'The scoring of the open skill has changes that are not saved.',
-          action: 'Discard',
-          destructive: true,
-        }))
-      )
-        return
-      setSkillPath(path)
+    async (path: string, screen = 'home'): Promise<boolean> => {
+      if (!(await leaveScoring(path))) return false
+      enter(path)
       // The entry names its skill itself: the open one changes only once this renders.
       navigate(screen, {}, { skill: path })
+      return true
     },
-    [confirm],
+    [leaveScoring, enter],
   )
   const [starting, startPractice] = useStartPractice(openSkill, report)
   // Starting over lands on the guide's first step, as opening the practice skill does.
@@ -210,7 +218,7 @@ export function App() {
   )
   // The desktop app's Help menu opens the guide, and its welcome hands over the practice skill.
   useEffect(() => api.watchGo?.((screen) => navigate(screen)), [])
-  useEffect(() => api.watchOpen?.((path) => openSkill(path)), [openSkill])
+  useEffect(() => api.watchOpen?.((path) => void openSkill(path)), [openSkill])
   /** The welcome is shown in this page: the host has no window of its own to give it. */
   const inline = !api.openWelcome
   const openWelcome = () => (api.openWelcome ? api.openWelcome() : go('welcome'))
@@ -218,78 +226,24 @@ export function App() {
   const revealSkill = api.revealSkill
   const reveal = revealSkill ? (path: string) => void revealSkill(path).catch(report) : undefined
   // Back and Forward return to the skill a place was seen in. An entry made with
-  // no skill open keeps the one in hand.
+  // no skill open keeps the one in hand. Leaving unsaved scoring asks first, as
+  // opening a skill does; a no goes back to the entry the reader was on, however
+  // many entries the step crossed.
   useEffect(() => {
-    if (route.arrival === 'return' && route.skill) setSkillPath(route.skill)
-  }, [route])
-
-  // Follow the jobs: pushed by the desktop app, polled in a browser (quickly while one
-  // runs). Reload state when a job finishes, including one that started and ended
-  // between two polls (a Jev vote takes under a second), and as a run of the open
-  // skill writes each output, so Results shows them as they land.
-  useEffect(() => {
-    let finished: Set<number> | null = null
-    /** How far each running job had come when state was last read for it. */
-    const progressed = new Map<number, number>()
-    let progressReloadAt = 0
-    let progressTimer: ReturnType<typeof setTimeout> | undefined
-    /** Reload for progress at most once every two seconds; a reload for an end resets the wait. */
-    const reloadForProgress = () => {
-      const wait = progressReloadAt + PROGRESS_RELOAD_MS - Date.now()
-      if (wait <= 0) {
-        progressReloadAt = Date.now()
-        reload()
-      } else if (progressTimer === undefined)
-        progressTimer = setTimeout(() => {
-          progressTimer = undefined
-          progressReloadAt = Date.now()
-          reload()
-        }, wait)
-    }
-    const take = (list: Job[]) => {
-      setJobs(list)
-      const done = new Set(list.filter((j) => j.status !== 'running').map((j) => j.id))
-      if (finished && [...done].some((id) => !finished?.has(id))) {
-        progressReloadAt = Date.now()
-        reload()
-      }
-      finished = done
-      const skill = currentSkill()
-      let advanced = false
-      for (const job of list) {
-        if (job.status !== 'running' || job.kind !== 'generate' || job.skillPath !== skill) continue
-        const before = progressed.get(job.id) ?? 0
-        const now = job.progress?.done ?? 0
-        if (now > before) {
-          progressed.set(job.id, now)
-          advanced = true
-        }
-      }
-      if (advanced) reloadForProgress()
-    }
-    const stop = api.watchJobs ? api.watchJobs(take) : null
-    if (stop) api.jobs().then(take, () => {})
-    let timer: ReturnType<typeof setTimeout>
+    const skill = asked.skill
+    if (asked.arrival !== 'return' || !skill || skill === currentSkill()) return
     let live = true
-    const tick = async () => {
-      try {
-        const list = await api.jobs()
-        if (!live) return
-        take(list)
-        const running = list.some((j) => j.status === 'running')
-        timer = setTimeout(tick, running ? 1500 : 3000)
-      } catch {
-        if (live) timer = setTimeout(tick, 8000)
-      }
-    }
-    if (!stop) tick()
+    void leaveScoring(skill).then((leave) => {
+      if (!live) return
+      if (leave) return enter(skill)
+      // Never a step of nothing: going by 0 would load the page again.
+      const steps = shown.current.index - asked.index
+      if (steps) travel(steps)
+    })
     return () => {
       live = false
-      stop?.()
-      clearTimeout(timer)
-      clearTimeout(progressTimer)
     }
-  }, [reload])
+  }, [asked, leaveScoring, enter])
 
   const outputs = useMemo(() => (state ? outputsOf(state) : []), [state])
   // Scores every output, so it must not rerun on each keystroke of a draft.
@@ -335,7 +289,10 @@ export function App() {
           : 'editor'
   // The desktop app's welcome has its own window: here its route is only another name for home.
   const requested =
-    route.screen === 'home' || (route.screen === 'welcome' && !inline) ? home : route.screen
+    route.screen === 'home' || (route.screen === 'welcome' && !inline)
+      ? home
+      : // A name the app has no screen for, typed or from an old link, is home too.
+        screenFor(route.screen, home, (name) => placeFor(name) !== undefined)
   // A skill screen with no skill open falls back to the library.
   const screen = !skillPath && isSkillScreen(requested) ? 'library' : requested
   const place = placeFor(screen) ?? placeFor(home)
@@ -350,7 +307,7 @@ export function App() {
       ? practiceGuide(loaded.state, outputs, walk, {
           screen,
           reading: reading?.at === at ? reading.step : null,
-          unsaved: drafts.files['SKILL.md'] !== undefined,
+          unsaved: unsaved.includes('SKILL.md'),
           running,
         })
       : null
@@ -388,20 +345,34 @@ export function App() {
     if (!preferences.welcomed && movedOn) void setPreferences({ welcomed: true }).catch(() => {})
   }, [preferences.welcomed, movedOn])
 
+  // A draft of a case the skill no longer has is shown nowhere, so nothing could clear it: it goes.
+  const caseDrafts = drafts.cases
+  const dropCaseDraft = drafts.setCase
+  const draftsRead = drafts.status !== 'loading'
+  useEffect(() => {
+    if (!state || state.skill.path !== currentSkill() || !draftsRead) return
+    const ids = state.cases.map((c) => c.id)
+    for (const key of orphanCases(caseDrafts, ids, NEW_CASE_KEY)) dropCaseDraft(key, null)
+  }, [state, caseDrafts, draftsRead, dropCaseDraft])
+
+  /** The cases with unsaved work: a draft that says what the case on disk says is none. */
+  const draftedCases = useMemo(
+    () => (state ? unsavedCases(state.cases, drafts.cases) : []),
+    [state, drafts.cases],
+  )
   const status: PlaceStatus = { meta: {}, dot: {} }
-  scoringDirty.current = false
+  unsavedScoring.current = false
   if (loaded && current) {
-    const dirty =
-      JSON.stringify(loaded.config) !== JSON.stringify(mergedConfig(loaded.state.savedConfig))
-    scoringDirty.current = dirty
+    const dirty = scoringDirty(loaded.config, loaded.state.savedConfig)
+    unsavedScoring.current = dirty
     status.meta = {
       cases: String(loaded.state.cases.length),
       // How many cases wait for a pick between their two versions.
       results: toCompare.length ? String(toCompare.length) : null,
     }
     status.dot = {
-      editor: Object.keys(drafts.files).length > 0,
-      cases: Object.keys(drafts.cases).length > 0,
+      editor: unsaved.length > 0,
+      cases: draftedCases.length > 0,
       // Scoring, on Results, has changes that are not saved.
       results: dirty,
     }
@@ -409,23 +380,18 @@ export function App() {
 
   // The one suggested next step, in loop order: write, run, compare. None while a job runs.
   const first = toCompare[0]
-  const next: NextStep | null =
-    !loaded || !current || running
-      ? null
-      : practice
-        ? practice.next && stepOf(practice.next)
-        : !loaded.state.cases.length
-          ? { kind: 'go', label: 'Add a case', screen: 'cases', params: { new: '1' } }
-          : current.changed || !loaded.state.runs.length
-            ? { kind: 'run' }
-            : first
-              ? {
-                  kind: 'go',
-                  label: `Compare ${sideName(first.a)} and ${sideName(first.b)}`,
-                  screen: 'results',
-                  params: { case: first.id },
-                }
-              : null
+  const next = nextStep(
+    loaded && current
+      ? {
+          running,
+          practice: practice && { next: practice.next },
+          cases: loaded.state.cases.length,
+          runs: loaded.state.runs.length,
+          changed: current.changed,
+          compare: first ? { caseId: first.id, a: sideName(first.a), b: sideName(first.b) } : null,
+        }
+      : null,
+  )
 
   /** The open version, and how it scores: the line every screen shows under the skill's name. */
   const versionLine = current
@@ -450,8 +416,7 @@ export function App() {
           practice &&
           !running &&
           !restarting &&
-          (practice.steps.some((s) => s.done) ||
-            Object.keys(drafts.files).length + Object.keys(drafts.cases).length > 0)
+          (practice.steps.some((s) => s.done) || unsaved.length + draftedCases.length > 0)
             ? () => void restartPractice()
             : undefined
         }
@@ -503,23 +468,45 @@ export function App() {
     </>
   )
 
-  const ctx: Ctx | null = loaded
-    ? {
-        state: loaded.state,
-        config: loaded.config,
-        setConfig,
-        outputs,
-        route,
-        go,
-        report,
-        confirm,
-        reload,
-        jobs,
-        drafts,
-        openSkill,
-        openRun,
-      }
-    : null
+  // One object while nothing in it changes, so a screen that takes it renders again only when something did.
+  const ctx = useMemo<Ctx | null>(
+    () =>
+      skillPath && state && config
+        ? {
+            state,
+            config,
+            setConfig,
+            outputs,
+            route,
+            go,
+            report,
+            confirm,
+            reload,
+            jobs,
+            drafts,
+            files,
+            openSkill,
+            openRun,
+          }
+        : null,
+    [
+      skillPath,
+      state,
+      config,
+      setConfig,
+      outputs,
+      route,
+      go,
+      report,
+      confirm,
+      reload,
+      jobs,
+      drafts,
+      files,
+      openSkill,
+      openRun,
+    ],
+  )
 
   const body = (() => {
     if (screen === 'docs')
@@ -564,7 +551,7 @@ export function App() {
               <Button type="button" onClick={() => void openSkill('', 'library')}>
                 Go to the library
               </Button>
-              <Button type="button" variant="outline" onClick={reload}>
+              <Button type="button" variant="outline" onClick={() => void reload()}>
                 Try again
               </Button>
             </>
@@ -596,10 +583,7 @@ export function App() {
   const hinted = isSkillScreen(screen) && ctx !== null
   const hint =
     help && hinted && preferences.hints === 'show' && !seen.includes(screen) ? help.what : null
-  const keep = (patch: Parameters<typeof setPreferences>[0]) =>
-    void setPreferences(patch).catch((e: Error) =>
-      report(`Not saved: ${e.message}`, { tone: 'destructive' }),
-    )
+  const keep = (patch: Parameters<typeof setPreferences>[0]) => savePreference(patch, report)
 
   // The welcome stands alone, with none of the shell around it.
   if (screen === 'welcome')
@@ -685,7 +669,7 @@ export function App() {
               open={runOpen}
               onOpenChange={setRunOpen}
               next={next?.kind === 'run'}
-              unsaved={Object.keys(drafts.files).length}
+              unsaved={unsaved.length}
             />
           ) : null}
           <HelpButton
@@ -721,7 +705,10 @@ export function App() {
       {assistant ? (
         <AssistantPane>
           {improving ? (
-            <ImprovePanel onBack={() => void clearImprove()} onClose={() => setAssistant(false)} />
+            <ImprovePanel
+              onBack={() => void clearImprove().catch(report)}
+              onClose={() => setAssistant(false)}
+            />
           ) : (
             <ChatPanel
               screen={place?.label ?? ''}

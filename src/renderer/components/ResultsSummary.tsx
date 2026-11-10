@@ -6,9 +6,10 @@
  */
 import { pickBetween, pickStanding } from '@domain/picks.ts'
 import { mean } from '@domain/stats.ts'
-import { Fragment, useState } from 'react'
+import { Fragment } from 'react'
 import { api } from '../api.ts'
 import type { Ctx } from '../ctx.ts'
+import { gradingRun, useJobStart } from '../job-start.ts'
 import {
   casePair,
   casesRun,
@@ -17,13 +18,13 @@ import {
   countsOf,
   fmt,
   liftOf,
-  mergedConfig,
   money,
   type Output,
   plural,
   runLabel,
   runStamp,
   scoreOf,
+  scoringDirty,
   stamp,
   totalOf,
   versionName,
@@ -32,7 +33,6 @@ import {
   writerName,
 } from '../model.ts'
 import { Disclosure } from './Disclosure.tsx'
-import { runningJob } from './Jobs.tsx'
 import { VersionLift } from './Lift.tsx'
 import {
   ColumnBody,
@@ -75,7 +75,7 @@ export function ResultsSummary({ ctx }: { ctx: Ctx }) {
   const openRun = route.params.get('run')
   const setOpenRun = (run: string | null) =>
     go('results', run ? { view: 'all', run } : { view: 'all' }, { replace: true })
-  const [grading, setGrading] = useState<string | null>(null)
+  const grade = useJobStart(jobs, 'grade', report)
   const caseIds = casesRun(state, outputs)
   const runs = state.runs
   const byRun = new Map<string, Output[]>()
@@ -100,19 +100,13 @@ export function ResultsSummary({ ctx }: { ctx: Ctx }) {
     return standing ? [standing] : []
   })
   const differing = picked.filter((s) => s === 'differs').length
-  const scoringDirty = JSON.stringify(config) !== JSON.stringify(mergedConfig(state.savedConfig))
+  const unsavedScoring = scoringDirty(config, state.savedConfig)
 
-  const regrade = async (run: string) => {
-    setGrading(run)
-    try {
+  const regrade = (run: string) =>
+    void grade.start([`Grade ${run}`], async () => {
       await api.grade(run, state.jevKey)
       report(`Grading ${run}`)
-    } catch (e) {
-      report(e as Error)
-    } finally {
-      setGrading(null)
-    }
-  }
+    })
 
   return (
     <>
@@ -219,9 +213,10 @@ export function ResultsSummary({ ctx }: { ctx: Ctx }) {
                           ctx={ctx}
                           run={run.name}
                           grading={
-                            grading === run.name ||
-                            Boolean(runningJob(jobs, 'grade', `Grade ${run.name}`))
+                            grade.busy(`Grade ${run.name}`) ||
+                            gradingRun(jobs, state.skill.path, run.name)
                           }
+                          waiting={grade.starting()}
                           regrade={regrade}
                         />
                       </TableDetail>
@@ -233,8 +228,8 @@ export function ResultsSummary({ ctx }: { ctx: Ctx }) {
           </Table>
         </Section>
         <Disclosure
-          summary={scoringDirty ? 'Scoring, with unsaved changes' : 'Scoring'}
-          defaultOpen={scoringDirty}
+          summary={unsavedScoring ? 'Scoring, with unsaved changes' : 'Scoring'}
+          defaultOpen={unsavedScoring}
         >
           <ScoringForm ctx={ctx} />
         </Disclosure>
@@ -257,12 +252,15 @@ function RunDetail({
   ctx,
   run,
   grading,
+  waiting,
   regrade,
 }: {
   ctx: Ctx
   run: string
   /** A grade of this run is being started, or is still going. */
   grading: boolean
+  /** A grade of some run is being started: one start at a time. */
+  waiting: boolean
   regrade: (run: string) => void
 }) {
   const { state, config, outputs, go } = ctx
@@ -298,6 +296,7 @@ function RunDetail({
               type="button"
               variant="outline"
               size="sm"
+              disabled={waiting}
               busy={grading}
               busyLabel="Grading…"
               onClick={() => regrade(run)}

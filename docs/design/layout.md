@@ -49,11 +49,11 @@ Does the reader pick one item from a list and work on it?
  ├── Yes → Workbench layout="list": Column kind="list" + Column kind="main"
  └── No
       ├── Is it a form of settings? → Screen width="form" of FormSection
-      ├── Is it prose or a document? → Screen width="reading"
+      ├── Is it a document with its contents beside it? → GuideLayout (see Lists below)
       └── Tables and comparisons → Screen width="wide". This is the default.
 ```
 
-`Screen` widths: `wide` 1200px, `form` 880px, `reading` 760px. All are left-aligned. Never center a screen: content that jumps sideways between screens reads as a different app.
+`Screen` widths: `wide` 1200px, `form` 880px. All are left-aligned. Never center a screen: content that jumps sideways between screens reads as a different app.
 
 ## Regions are never cards
 
@@ -72,8 +72,8 @@ A region is a part of the page: a column, a section, a group of fields. It ends 
 
 // Incorrect: a region boxed as a card
 <Card>
-  <CardHeader><CardTitle>Appearance</CardTitle></CardHeader>
-  <CardContent>…</CardContent>
+  <Heading level={3}>Appearance</Heading>
+  …
 </Card>
 ```
 
@@ -171,7 +171,7 @@ Does the whole screen have nothing to show?
 
 Inside one: `PopoverSection` with `pad="rows"` (rows to pick from, the default) or `pad="text"`, and `scroll` for a list that may outgrow 320px; `PopoverAction` is a row that does something (an icon, what it does, its shortcut); `PopoverLabel` names a section. A `HoverCardContent` (`ui/hover-card.tsx`) is `default` (360px) or `note` (one word and what it means, `xs`), with `HoverCardSection part="head" | "body" | "foot"`.
 
-The selection popout (`SelectionTools.tsx`) opens over four or more selected words in SKILL.md, 150ms after the selection settles, anchored to the selection itself. It is `selection` while it is a row of buttons, `compose` when the writing checks found something in the selected rule (the findings in a `PopoverSection` over the row), and `compose` or `compose-wide` once a result is in it. Its buttons are `ghost` `sm`, in one fixed order: Auto refine, Suggest changes, Help me improve. Nothing in it is yellow.
+The selection popout (`SelectionTools.tsx`) opens over four or more selected words in SKILL.md, 150ms after the selection settles, anchored to the selection itself. It is `selection` while it is a row of buttons, `compose` when the writing checks found something in the selected rule (the findings in a `PopoverSection` over the row), and `compose` or `compose-wide` once a result is in it. Its buttons are `ghost` `sm`, in one fixed order: Auto refine, Suggest changes, Help me improve. Nothing in it is yellow. It takes no focus as it opens, and Tab indents in the editor, so F6 moves the focus from the text into it (the key that moves to the next part of a window, bound in `MarkdownEditor.tsx`) and Escape goes back to the text.
 
 Suggest changes (`Rewrites.tsx`) shows its three cards from the first frame, each with its label, what it does and its number key, and "Writing…" in place of the text, so the popout does not jump when the rewrites land. Each card is pickable unless it is the selection again; Jev's verdicts are lines on the card (`warning` for a dropped fact), never a lock. A footer section says what is happening on the left and holds Stop, or Try again, on the right. Once the rewrites are in, the first card that can be picked takes focus: 1 to 3 pick, the arrows walk the cards. A picked rewrite closes the popout, tints the new text in the editor for 1.4s (`editor/landed.ts`) and reports "Replaced the selection." with Undo on the status line; Auto refine's Replace and the side panel's Replace selection take the same path. Closing the popout stops a run still writing. The popout always works on whole lines: `sceneOf` widens any selection to its lines.
 
@@ -187,7 +187,7 @@ The groups in `layout.tsx`, with every variant they have:
 | `Columns` | `count` 1 or 2 side by side |
 | `Fieldset` | fields under one legend |
 | `Toolbar` | `gap` `xs` 4px, `sm` 8px, `md` 12px; `justify` `start`, `end`; `wrap`; `grow`; `line` keeps a text baseline when it holds only an icon |
-| `Stack` | `gap` `xs` 4px, `sm` 6px, `md` 10px, `lg` 20px; `align` `stretch`, `start` |
+| `Stack` | `gap` `xs` 4px, `sm` 6px, `md` 10px, `lg` 20px |
 | `PlainList` | `gap` `none`, `xs`, `sm`, `md`; `bleed` pulls it 8px past the column's inset |
 | `List` | `variant` `bullet`, or `number` with the "01" mono counter; `size` `inherit`, `xs`; `font` `sans`, `mono`; `gap` `none`, `sm` |
 | `FormActions` | the actions under the fields of a split form |

@@ -11,9 +11,9 @@ import {
   type ScoreSubject,
 } from '@domain/pack.ts'
 import type { BenchConfig } from '@domain/schemas.ts'
-import { certainty, mean } from '@domain/stats.ts'
+import { certainty } from '@domain/stats.ts'
 import { jevVerdict } from '@domain/verdict.ts'
-import { checkVerdict, clip, metShare, type StatementAnswer, unmetFlag } from '../shared/score.ts'
+import { clip, markChecks, type StatementAnswer } from '../shared/score.ts'
 
 export interface RuleAnswer {
   id: string
@@ -53,25 +53,17 @@ function scoreGeneric(
       if (!followed[i].met) flags.push(`rule not followed (${rule.section}): ${clip(rule.text)}`)
     })
   }
-  const statements = raw.rubric?.statements ?? []
-  const checked = statements.map((s) => checkVerdict(s, 'rubric', yes, corrections))
-  if (statements.length) {
-    layers.rubric = metShare(checked)
-    statements.forEach((s, i) => {
-      if (!checked[i].met) flags.push(unmetFlag(s))
-    })
-  }
-  return { layers, flags, verdicts: [...followed, ...checked] }
+  const checks = markChecks(raw.rubric?.statements ?? [], 'rubric', yes, corrections)
+  layers.rubric = checks.share
+  flags.push(...checks.flags)
+  return { layers, flags, verdicts: [...followed, ...checks.verdicts] }
 }
 
-function confidenceGeneric(raw: GenericRaw | null): number | null {
-  if (!raw) return null
-  const nouls = [
-    ...(raw.adherence?.rules.map((r) => r.noul) ?? []),
-    ...(raw.rubric?.statements.map((s) => s.noul) ?? []),
-  ]
-  return mean(nouls.map(certainty))
-}
+const certaintiesGeneric = (raw: GenericRaw | null): number[] =>
+  [
+    ...(raw?.adherence?.rules.map((r) => r.noul) ?? []),
+    ...(raw?.rubric?.statements.map((s) => s.noul) ?? []),
+  ].map(certainty)
 
 export const genericScoring: PackScoring<GenericRaw> = {
   id: 'generic',
@@ -79,5 +71,5 @@ export const genericScoring: PackScoring<GenericRaw> = {
   checks: 'rubric',
   defaults: { weights: { adherence: 50, rubric: 50 } },
   score: scoreGeneric,
-  confidence: confidenceGeneric,
+  certainties: certaintiesGeneric,
 }

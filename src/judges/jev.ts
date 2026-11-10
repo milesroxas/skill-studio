@@ -49,7 +49,7 @@ export class Jev {
     questions: Q,
   ): Promise<SystemOneResult<Q>['answers']> {
     const key = process.env.TYPESAFE_API_KEY
-    if (!key) throw new Error('TYPESAFE_API_KEY is not set.')
+    if (!key) throw new Error('No TypeSafe key is set, so Jev cannot judge.')
     if (!this.client || this.key !== key) {
       this.client = new TypeSafeClient({
         apiKey: key,
@@ -69,14 +69,25 @@ export class Jev {
     return result.answers
   }
 
-  /** Run `work` over `items` with a bounded number in flight, keeping order. */
+  /**
+   * Run `work` over `items` with a bounded number in flight, keeping order.
+   * When one fails, no further item is started, so a pack that has already
+   * failed asks Jev nothing more.
+   */
   async pool<T, R>(items: T[], work: (item: T, index: number) => Promise<R>): Promise<R[]> {
     const results = new Array<R>(items.length)
     let next = 0
+    // One failure fails the whole reading: the others finish the call they are in and start no more.
+    let failed = false
     const worker = async () => {
-      while (next < items.length) {
+      while (next < items.length && !failed) {
         const i = next++
-        results[i] = await work(items[i], i)
+        try {
+          results[i] = await work(items[i], i)
+        } catch (error) {
+          failed = true
+          throw error
+        }
       }
     }
     await Promise.all(Array.from({ length: Math.min(CONCURRENCY, items.length) }, worker))

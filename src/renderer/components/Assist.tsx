@@ -7,12 +7,7 @@
  * list it writes new items, which are added to the ones there.
  */
 import type { AiRun } from '@domain/ai.ts'
-import {
-  ASSIST_FIELDS,
-  type AssistContext,
-  type AssistFieldId,
-  type AssistInput,
-} from '@domain/assist.ts'
+import { ASSIST_FIELDS, type AssistContext, type AssistFieldId } from '@domain/assist.ts'
 import { addImages, type ImageRef } from '@domain/image.ts'
 import { PenLineIcon } from 'lucide-react'
 import {
@@ -25,10 +20,11 @@ import {
   useRef,
   useState,
 } from 'react'
-import { loadAi, startAssist, stopRun, useAi, useRun } from '../ai.ts'
+import { loadAi, startAssist, useAi } from '../ai.ts'
 import { lineDiff } from '../diff.ts'
 import { navigate } from '../history.ts'
 import { useAttached } from '../images.ts'
+import { useHeldRun } from '../started-run.ts'
 import { Composer } from './Composer.tsx'
 import { CornerButton } from './CornerButton.tsx'
 import { DiffLines } from './DiffLines.tsx'
@@ -91,72 +87,8 @@ interface AssistProps extends AssistSpec {
   children: ReactNode
 }
 
-/**
- * One request and its reply, for the popover that asked. The reply is that
- * popover's alone: discarding it or leaving the screen stops the writing.
- * Closing the popover does not: the reply goes on, and opening it again on
- * the same text finds it where it was, or finished.
- */
-function useAssistRun() {
-  const [runId, setRunId] = useState<string | null>(null)
-  const [failure, setFailure] = useState<string | null>(null)
-  const [starting, setStarting] = useState(false)
-  const run = useRun(runId)
-  /**
-   * Counts the requests made and the times one was let go. A request whose
-   * count has moved on by the time it starts has nobody waiting for it.
-   */
-  const asked = useRef(0)
-  const running = starting || run?.status === 'running'
-
-  useEffect(() => {
-    if (runId === null) return
-    return () => stopRun(runId)
-  }, [runId])
-  // A request still starting when the screen goes is stopped as it arrives.
-  useEffect(
-    () => () => {
-      asked.current += 1
-    },
-    [],
-  )
-
-  /** Let go of the request in hand and its reply. */
-  const discard = () => {
-    asked.current += 1
-    setStarting(false)
-    setRunId(null)
-    setFailure(null)
-  }
-
-  /** Make a request, built as it is sent so it is current. One at a time. */
-  const start = async (input: () => Promise<AssistInput>) => {
-    if (running) return
-    discard()
-    const mine = asked.current
-    setStarting(true)
-    try {
-      const started = await startAssist(await input())
-      if (asked.current !== mine) return stopRun(started.id)
-      setRunId(started.id)
-    } catch (e) {
-      if (asked.current !== mine) return
-      setFailure((e as Error).message)
-    }
-    setStarting(false)
-  }
-
-  return {
-    run,
-    starting,
-    running,
-    error: failure ?? (run?.status === 'failed' ? run.error : null),
-    start,
-    /** A reply being written stops where it is; a request still starting is let go. */
-    stop: () => (run ? stopRun(run.id) : discard()),
-    discard,
-  }
-}
+/** The reply a "write with AI" request starts is what the request answers. */
+const itself = (run: AiRun): AiRun => run
 
 /** In place of the composer until the providers are known: loading, or why they could not be read. */
 function Unread({ problem }: { problem: string | null }) {
@@ -284,7 +216,12 @@ export function Assist({
   const [own, setOpen] = useState(false)
   const open = controlled ?? own
   const [request, setRequest] = useState('')
-  const work = useAssistRun()
+  /**
+   * One request and its reply, for this popover. Discarding it or leaving the
+   * screen stops the writing. Closing the popover does not: the reply goes on,
+   * and opening it again on the same text finds it where it was, or finished.
+   */
+  const work = useHeldRun(itself)
   const attached = useAttached()
   const accept = useRef<HTMLButtonElement>(null)
 
@@ -329,15 +266,19 @@ export function Assist({
   }
 
   const ask = (instruction: string) => {
-    if (!instruction.trim()) return
+    // One at a time: a request made while a reply is on its way is not sent.
+    if (!instruction.trim() || work.running) return
     askedFor.current = { field, value }
-    void work.start(async () => ({
-      field,
-      instruction,
-      current: value,
-      context: (await context?.()) ?? [],
-      images: addImages(images?.() ?? [], attached.images),
-    }))
+    // Built as it is sent, so the texts beside the field are current.
+    void work.start(async () =>
+      startAssist({
+        field,
+        instruction,
+        current: value,
+        context: (await context?.()) ?? [],
+        images: addImages(images?.() ?? [], attached.images),
+      }),
+    )
   }
 
   const body = !providers ? (

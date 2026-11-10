@@ -4,7 +4,7 @@ import type { PackScoring } from './pack.ts'
 import type { BenchConfig } from './schemas.ts'
 import { checkReaders, layerOrder, scoreResult } from './scoring.ts'
 
-type Raw = { layers: Record<string, number | null>; confidence?: number }
+type Raw = { layers: Record<string, number | null>; certainties?: number[] }
 
 /** A fixture pack that returns whatever layer shares its stored answers hold. */
 const pack = (id: string, layers: string[], checks: string | null = null): PackScoring<Raw> => ({
@@ -21,13 +21,14 @@ const pack = (id: string, layers: string[], checks: string | null = null): PackS
           kind: 'rule' as const,
           text: layer,
           met: corrections[`rule:${layer}`] ?? (raw.layers[layer] ?? 0) >= 0.5,
-          open: true,
+          open: true as const,
+          jev: (raw.layers[layer] ?? 0) >= 0.5,
           corrected: corrections[`rule:${layer}`] !== undefined,
           layer,
         }))
       : [],
   }),
-  confidence: (raw) => raw?.confidence ?? null,
+  certainties: (raw) => raw?.certainties ?? [],
 })
 
 const voice = pack('voice', ['voice', 'clarity'])
@@ -102,13 +103,56 @@ describe('scoreResult', () => {
     expect(scores.total).toBe(100)
   })
 
-  it('averages pack confidences, ignoring packs that asked none', () => {
+  it('takes one mean over every answer, so a pack that asked more counts for more', () => {
     const { confidence } = scoreResult(
-      result({ voice: { layers: {}, confidence: 0.9 }, rules: { layers: {}, confidence: 0.5 } }),
+      result({
+        voice: { layers: {}, certainties: [0.9, 0.9, 0.9] },
+        rules: { layers: {}, certainties: [0.5] },
+      }),
       config(),
       scorers,
     )
-    expect(confidence).toBeCloseTo(0.7)
+    // Three answers at 0.9 and one at 0.5: 0.8. A mean of the two packs' means would say 0.7.
+    expect(confidence).toBeCloseTo(0.8)
+  })
+
+  it('holds every layer to 0 to 100 whatever a pack returns, and so the total', () => {
+    const { scores } = scoreResult(
+      result({
+        voice: { layers: { voice: 1.75, clarity: -1.2 } },
+        rules: { layers: { adherence: Number.NaN } },
+      }),
+      config(),
+      scorers,
+    )
+    expect(scores).toEqual({ total: 67, voice: 100, clarity: 0, adherence: null })
+  })
+
+  it('judges a file with no word in it, such as `{}`, as an output', () => {
+    const packs = { voice: { layers: { voice: 1, clarity: 1 } } }
+    const json = scoreResult(result(packs, { words: 0, blank: false }), config(), scorers)
+    expect(json.scores.total).toBe(100)
+    expect(json.flags).not.toContain('no output to judge')
+    // A report that does not say whether its file was blank reads only a missing file as none.
+    expect(scoreResult(result(packs, { words: 0 }), config(), scorers).scores.total).toBe(100)
+  })
+
+  it('scores an output with nothing in it 0, in total and on every layer a pack scored', () => {
+    const packs = { voice: { layers: { voice: 1, clarity: null } } }
+    // No file at all, and a file that says nothing: both are a failed sample, never left out of a mean.
+    for (const over of [{ primary: null }, { words: 0, blank: true }]) {
+      const { scores, flags } = scoreResult(result(packs, over), config(), scorers)
+      expect(scores.total).toBe(0)
+      expect(scores.voice).toBe(0)
+      expect(scores.clarity).toBeNull()
+      expect(flags).toContain('no output to judge')
+    }
+    expect(scoreResult(result({}, { primary: null }), config(), scorers).scores.total).toBe(0)
+    // A picture has no words and is still an output.
+    const picture = { primary: { file: 'shot.png', kind: 'image' as const }, words: 0, blank: true }
+    const seen = scoreResult(result(packs, picture), config(), scorers)
+    expect(seen.scores.total).toBe(100)
+    expect(seen.flags).not.toContain('no output to judge')
   })
 
   it('flags a missing output and a length outside the range', () => {
@@ -118,6 +162,10 @@ describe('scoreResult', () => {
     expect(scoreResult(result({}, { words: 40, range: [50, 120] }), config(), []).flags).toEqual([
       'length: 40 words, case asks 50 to 120',
     ])
+    // An empty file is no output, not a short one.
+    expect(
+      scoreResult(result({}, { words: 0, blank: true, range: [50, 120] }), config(), []).flags,
+    ).toEqual(['no output to judge'])
     expect(scoreResult(result({}, { words: 120, range: [50, 120] }), config(), []).flags).toEqual(
       [],
     )

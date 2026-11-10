@@ -11,6 +11,7 @@ import type { EngineRequest } from './types.ts'
 // The agent CLI is a child process: replay its stdout lines instead.
 const replay = vi.hoisted(() => ({
   lines: [] as string[],
+  calls: [] as Array<{ command: string; args: string[] }>,
   run: {
     code: 0,
     timedOut: false,
@@ -22,7 +23,8 @@ const replay = vi.hoisted(() => ({
 
 vi.mock('../exec.ts', () => ({
   hasCommand: () => true,
-  exec: async (_command: string, _args: string[], options: ExecOptions) => {
+  exec: async (command: string, args: string[], options: ExecOptions) => {
+    replay.calls.push({ command, args })
     for (const line of replay.lines) options.onLine?.(line)
     return { signal: null, ...replay.run }
   },
@@ -34,6 +36,7 @@ let request: EngineRequest
 beforeEach(() => {
   dir = mkdtempSync(join(tmpdir(), 'st-stream-'))
   replay.lines = []
+  replay.calls = []
   replay.run = { code: 0, timedOut: false, spawnError: null, stdout: '', stderr: '' }
   request = {
     cwd: dir,
@@ -43,7 +46,6 @@ beforeEach(() => {
     allowedTools: null,
     timeoutMs: 60_000,
     transcript: new TranscriptWriter(join(dir, 'transcript.jsonl')),
-    log: () => {},
   }
 })
 
@@ -59,6 +61,25 @@ describe('runStreamJson', () => {
     expect(seen).toEqual(['a', 'b'])
     expect(request.transcript.events).toMatchObject([{ kind: 'system', text: 'not json' }])
     expect(result.ok).toBe(true)
+  })
+
+  it('takes a line of JSON that is not an object as text, not as an event', async () => {
+    replay.lines = ['null', '42', '"word"', '[1]', json({ type: 'a' })]
+    const seen: unknown[] = []
+    await runStreamJson<{ type: string }>('x', [], request, (e) => seen.push(e.type))
+    expect(seen).toEqual(['a'])
+    expect(request.transcript.events.map((e) => e.text)).toEqual(['null', '42', '"word"', '[1]'])
+  })
+
+  it('says once, in the log, when the transcript could not be written', async () => {
+    replay.lines = ['one', 'two']
+    const logged: string[] = []
+    request.log = (line) => logged.push(line)
+    rmSync(dir, { recursive: true, force: true })
+    const result = await runStreamJson('x', [], request, () => {})
+    expect(result.ok).toBe(true)
+    expect(logged).toHaveLength(1)
+    expect(logged[0]).toMatch(/transcript could not be written: ENOENT/)
   })
 
   it('reports a nonzero exit with the stderr tail', async () => {
@@ -117,6 +138,62 @@ describe('claude stream-json', () => {
       'text',
     ])
     expect(request.transcript.events[3]).toMatchObject({ tool: 'Read', result: 'rules' })
+  })
+
+  it('passes the model and effort it knows, and its shared flags', async () => {
+    await claudeEngine.run({ ...request, model: 'opus', effort: 'high', allowedTools: ['Read'] })
+    expect(replay.calls.at(-1)?.args).toEqual([
+      '-p',
+      '--output-format',
+      'stream-json',
+      '--verbose',
+      '--no-session-persistence',
+      '--strict-mcp-config',
+      '--setting-sources',
+      'project',
+      '--permission-mode',
+      'acceptEdits',
+      '--allowedTools',
+      'Read',
+      '--model',
+      'opus',
+      '--effort',
+      'high',
+    ])
+    await claudeEngine.run({ ...request, model: 'claude-opus-5-5[1m]', effort: 'default' })
+    expect(replay.calls.at(-1)?.args.slice(-2)).toEqual(['--model', 'claude-opus-5-5[1m]'])
+  })
+
+  it('hands on any id the CLI may know, Bedrock, Vertex and its own aliases included', async () => {
+    for (const model of [
+      'opusplan',
+      'us.anthropic.claude-sonnet-4-5-20250929-v1:0',
+      'claude-opus-4-1@20250805',
+      'arn:aws:bedrock:us-east-1:123456789012:application-inference-profile/abc123',
+      'sonnet[1m]',
+    ]) {
+      await claudeEngine.run({ ...request, model })
+      expect(replay.calls.at(-1)?.args.slice(-2)).toEqual(['--model', model])
+    }
+  })
+
+  it('starts nothing for a model or an effort it does not have', async () => {
+    for (const bad of [
+      { model: '--dangerously-skip-permissions' },
+      { model: 'sonnet" & calc & "' },
+      { model: 'sonnet --add-dir /' },
+      { model: "son'net" },
+      { model: '$(id)' },
+      { model: `claude-${'x'.repeat(120)}` },
+      { effort: 'extreme' },
+      { effort: 'high --add-dir /' },
+    ]) {
+      const result = await claudeEngine.run({ ...request, ...bad })
+      expect(result.ok).toBe(false)
+      expect(result.error).toMatch(/^Claude Code has no (model|effort) named /)
+    }
+    expect(replay.calls).toEqual([])
+    expect(request.transcript.events.every((e) => e.kind === 'error')).toBe(true)
   })
 
   it('records a failed session as an error event', async () => {

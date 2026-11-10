@@ -23,8 +23,6 @@ const thumbVariants = cva(
       size: {
         /** Beside a line of text, such as a message being written. */
         sm: 'size-10',
-        /** The height of an input, to sit in a row of controls. */
-        control: 'size-9',
         /** In a form, where the picture is the field's value. */
         md: 'size-16',
       },
@@ -81,7 +79,6 @@ const stripVariants = cva('m-0 flex list-none flex-wrap items-center p-0', {
   variants: {
     size: {
       sm: 'gap-2',
-      control: 'gap-2',
       md: 'gap-3',
     },
   },

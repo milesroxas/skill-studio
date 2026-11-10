@@ -100,13 +100,9 @@ export async function serveOnTailnet(
   const stop = () => {
     if (child.exitCode === null) child.kill('SIGTERM')
   }
+  // The process's own exit takes the mapping down. A signal reaches that exit
+  // through the host's lifecycle, once the agents have ended.
   process.once('exit', stop)
-  const codes = { SIGHUP: 129, SIGINT: 130, SIGTERM: 143 } as const
-  for (const [signal, code] of Object.entries(codes))
-    process.once(signal, () => {
-      stop()
-      process.exit(code)
-    })
 
   for (let i = 0; i < 50; i++) {
     if (child.exitCode !== null)

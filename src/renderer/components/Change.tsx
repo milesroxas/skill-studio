@@ -7,6 +7,7 @@
  * line offers Undo. A reply's changes apply only to the skill it was written
  * about.
  */
+import { draftOf } from '@domain/case-draft.ts'
 import {
   caseHolds,
   changeDraft,
@@ -14,12 +15,13 @@ import {
   replyParts,
   type SkillChange,
 } from '@domain/changes.ts'
-import { type ReactNode, useMemo, useState } from 'react'
-import { api, currentSkill } from '../api.ts'
+import { type ReactNode, useMemo } from 'react'
+import { api } from '../api.ts'
 import {
   type CaseStanding,
   caseDetail,
   caseLabels,
+  caseTarget,
   fileDetail,
   fileDone,
   fileStanding,
@@ -28,12 +30,17 @@ import {
   replaceWarning,
   shownText,
   showsDiff,
+  unsavedFiles,
   versionDetail,
   versionSaved,
 } from '../changes.ts'
 import type { Ctx } from '../ctx.ts'
 import { lineDiff } from '../diff.ts'
+import { caseUnsaved } from '../draft-edits.ts'
+import { type Reporter, useAction } from '../hooks.ts'
+import { inSkill } from '../in-skill.ts'
 import { useArrived } from '../motion.ts'
+import { reportFailure } from '../transport.ts'
 import { DiffLines } from './DiffLines.tsx'
 import { Disclosure, DisclosureList } from './Disclosure.tsx'
 import { List, Stack, Toolbar } from './layout.tsx'
@@ -73,19 +80,6 @@ function blockedBy(host: ChangeHost, skill: string | undefined): string | null {
 }
 
 /**
- * Run `step` against the skill it was offered for. An Undo taken after
- * another skill was opened would land in that one, so it is refused instead.
- */
-const inSkill = (ctx: Ctx, step: () => Promise<unknown>) => () => {
-  if (currentSkill() !== ctx.state.skill.path)
-    return ctx.report('Open the skill again to undo this.', { tone: 'warning' })
-  step().then(
-    () => ctx.reload(),
-    (e: Error) => ctx.report(e),
-  )
-}
-
-/**
  * A file's name and the folder it sits in. The name is the row's title and the
  * folder rides on the detail line, so a long path never cuts off the name.
  */
@@ -113,6 +107,7 @@ function Summary({ title, detail, mono }: { title: string; detail: ReactNode; mo
  * skill, the word that says so. The word fades in when a click put it there.
  */
 function Action({
+  host,
   offer,
   label,
   busyLabel,
@@ -120,6 +115,7 @@ function Action({
   done,
   onApply,
 }: {
+  host: ChangeHost
   offer: Offer
   label: string
   busyLabel: string
@@ -127,7 +123,8 @@ function Action({
   done: boolean
   onApply: () => Promise<void>
 }) {
-  const [busy, setBusy] = useState(false)
+  // With no skill open the row is not on offer; a failure then has only the shell to say it.
+  const [busy, run] = useAction(host.ctx?.report ?? unawaited)
   const arrived = useArrived(String(done))
   if (offer.kind === 'writing') return null
   if (done)
@@ -138,14 +135,6 @@ function Action({
         </Status>
       </span>
     )
-  const apply = async () => {
-    setBusy(true)
-    try {
-      await onApply()
-    } finally {
-      setBusy(false)
-    }
-  }
   return (
     <Button
       type="button"
@@ -155,12 +144,16 @@ function Action({
       disabled={offer.kind === 'blocked'}
       busy={busy}
       busyLabel={busyLabel}
-      onClick={() => void apply()}
+      onClick={() => void run(onApply)}
     >
       {label}
     </Button>
   )
 }
+
+/** Say a failure where no skill's status line is in reach. */
+const unawaited: Reporter = (message) =>
+  reportFailure(typeof message === 'string' ? new Error(message) : message)
 
 const REPLACE_EDITS = (path: string) => ({
   title: `Replace your unsaved changes to ${path}?`,
@@ -200,6 +193,8 @@ function FileRow({
     if (losesEdits(standing) && !(await ctx.confirm(REPLACE_EDITS(path)))) return
     try {
       await api.saveSkillFile(path, text, before)
+      // The saved copy and the draft move together, so an open editor goes straight to the new text.
+      ctx.files.took(path, text)
       ctx.drafts.setFile(path, null)
       await ctx.reload()
       ctx.report(before === null ? `Created ${path}` : `Applied the change to ${path}`, {
@@ -227,6 +222,7 @@ function FileRow({
       }
       action={
         <Action
+          host={host}
           offer={before === undefined ? { kind: 'writing' } : offer}
           label={before === null ? 'Create' : 'Apply'}
           busyLabel={before === null ? 'Creating…' : 'Applying…'}
@@ -271,27 +267,28 @@ function CaseRow({
   offer: Offer
   className?: string
 }) {
-  const saved = host.ctx?.state.cases.find((c) => c.id === change.id)
+  const { saved, id, twin } = caseTarget(change, host.ctx?.state.cases ?? [])
   const standing = {
     saved,
     done: caseHolds(change, saved),
-    drafted: saved !== undefined && host.ctx?.drafts.cases[saved.id] !== undefined,
+    drafted: saved !== undefined && caseUnsaved(host.ctx?.drafts.cases[saved.id], draftOf(saved)),
+    twin: twin?.id,
   }
-  const name = change.title || change.id
+  const name = change.title || id
   const labels = caseLabels(standing)
   const apply = async () => {
     const { ctx } = host
     if (!ctx) return
     if (saved && !(await ctx.confirm(REPLACE_CASE(saved.title || saved.id, standing)))) return
     try {
-      await api.saveCase(changeDraft(change, saved), !saved)
+      await api.saveCase({ ...changeDraft(change, saved), id }, !saved)
       if (saved) ctx.drafts.setCase(saved.id, null)
       await ctx.reload()
       ctx.report(
         `${saved ? 'Replaced' : 'Added'} the case ${name}`,
         saved
-          ? { action: { label: 'Open', run: () => ctx.go('cases', { id: change.id }) } }
-          : { undo: inSkill(ctx, () => api.deleteCase(change.id)) },
+          ? { action: { label: 'Open', run: () => ctx.go('cases', { id }) } }
+          : { undo: inSkill(ctx, () => api.deleteCase(id)) },
       )
     } catch (e) {
       ctx.report(e as Error)
@@ -304,6 +301,7 @@ function CaseRow({
       summary={<Summary title={name} detail={caseDetail(standing, change.checks.length)} />}
       action={
         <Action
+          host={host}
           offer={legacyCase(standing) ? { kind: 'blocked', reason: '' } : offer}
           label={labels.label}
           busyLabel={labels.busy}
@@ -356,6 +354,9 @@ function VersionRow({
 }) {
   const versions = host.ctx?.state.versions
   const saved = versionSaved(versions, change.name)
+  // A version keeps the files as saved. Unsaved edits, which the assistant read, would not be in it.
+  // A draft that says what the file on disk says is none.
+  const unsaved = saved ? 0 : unsavedFiles(host.files, host.ctx?.drafts.files ?? {}).length
   const apply = async () => {
     const { ctx } = host
     if (!ctx || !versions) return
@@ -373,10 +374,20 @@ function VersionRow({
     <Disclosure
       variant="row"
       className={className}
-      summary={<Summary title={change.name} detail={versionDetail(versions, saved)} />}
+      summary={
+        <Summary
+          title={change.name}
+          detail={
+            unsaved
+              ? `Save your ${unsaved === 1 ? 'unsaved file' : `${unsaved} unsaved files`} on the Skill screen first`
+              : versionDetail(versions, saved)
+          }
+        />
+      }
       action={
         <Action
-          offer={offer}
+          host={host}
+          offer={unsaved ? { kind: 'blocked', reason: '' } : offer}
           label="Save"
           busyLabel="Saving…"
           doneLabel="Saved"

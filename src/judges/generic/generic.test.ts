@@ -4,7 +4,13 @@ import { describe, expect, it } from 'vitest'
 import { type GenericRaw, genericScoring } from './score.ts'
 
 const config = mergeConfig({ packs: ['generic'] }, [genericScoring])
-const subject: ScoreSubject = { case: null, primary: null, artifacts: [], words: 0, range: null }
+const subject: ScoreSubject = {
+  case: null,
+  primary: { file: 'outputs/output.md', kind: 'markdown' },
+  artifacts: [],
+  words: 40,
+  range: null,
+}
 
 const raw: GenericRaw = {
   adherence: {

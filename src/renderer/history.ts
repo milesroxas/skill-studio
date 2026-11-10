@@ -4,9 +4,10 @@
  * top bar, the View menu and its shortcuts in the desktop app, the browser's
  * own in a browser.
  */
-import { type RefObject, useEffect, useLayoutEffect, useRef, useSyncExternalStore } from 'react'
+import { type RefObject, useEffect, useLayoutEffect, useRef } from 'react'
 import { currentSkill } from './api.ts'
 import { type Entry, entryOf, hashOf, placeOf, type Route } from './route.ts'
+import { createStore, useStore } from './store.ts'
 
 /** Where the newest position is kept, so a reload still knows how far Forward reaches. */
 const LAST_KEY = 'skill-studio.history.last'
@@ -25,12 +26,8 @@ const read = (arrival: Route['arrival']): Route => ({
   arrival,
 })
 
-let route = read('step')
-const listeners = new Set<() => void>()
-const publish = (arrival: Route['arrival']) => {
-  route = read(arrival)
-  for (const listener of listeners) listener()
-}
+const route = createStore<Route>(read('step'))
+const publish = (arrival: Route['arrival']) => route.set(read(arrival))
 
 /** A new entry is now the newest: whatever lay ahead of it is gone. */
 const reach = (index: number) => {
@@ -83,16 +80,11 @@ export function navigate(
 
 export const back = (): void => window.history.back()
 export const forward = (): void => window.history.forward()
-
-const subscribe = (listener: () => void) => {
-  listeners.add(listener)
-  return () => {
-    listeners.delete(listener)
-  }
-}
+/** Step `delta` entries through the history at once: back when negative. */
+export const travel = (delta: number): void => window.history.go(delta)
 
 export function useRoute(): [Route, typeof navigate] {
-  return [useSyncExternalStore(subscribe, () => route), navigate]
+  return [useStore(route), navigate]
 }
 
 /** What the reader does to take the scroll back while a screen is still settling. */

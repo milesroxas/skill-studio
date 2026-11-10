@@ -11,9 +11,9 @@ import {
   type Verdict,
 } from '@domain/pack.ts'
 import type { BenchConfig } from '@domain/schemas.ts'
-import { certainty, mean } from '@domain/stats.ts'
+import { certainty } from '@domain/stats.ts'
 import { codeVerdict } from '@domain/verdict.ts'
-import { checkVerdict, clip, metShare, type StatementAnswer, unmetFlag } from '../shared/score.ts'
+import { clip, markChecks, type StatementAnswer } from '../shared/score.ts'
 
 /** The config an active code pack sees: domain/config.ts lays these defaults under bench.json. */
 export type CodeConfig = BenchConfig & { codeCheck: { timeoutSeconds: number; maxChars: number } }
@@ -61,19 +61,14 @@ function scoreCode(
       ),
     )
   }
-  const statements = raw.review?.statements ?? []
-  const reviewed = statements.map((s) => checkVerdict(s, 'review', config.yes, corrections))
-  if (statements.length) {
-    layers.review = metShare(reviewed)
-    statements.forEach((s, i) => {
-      if (!reviewed[i].met) flags.push(unmetFlag(s))
-    })
-  }
-  return { layers, flags, verdicts: [...verdicts, ...reviewed] }
+  const checks = markChecks(raw.review?.statements ?? [], 'review', config.yes, corrections)
+  layers.review = checks.share
+  flags.push(...checks.flags)
+  return { layers, flags, verdicts: [...verdicts, ...checks.verdicts] }
 }
 
-const confidenceCode = (raw: CodeRaw | null): number | null =>
-  raw?.review ? mean(raw.review.statements.map((s) => certainty(s.noul))) : null
+const certaintiesCode = (raw: CodeRaw | null): number[] =>
+  (raw?.review?.statements ?? []).map((s) => certainty(s.noul))
 
 export const codeScoring: PackScoring<CodeRaw> = {
   id: 'code',
@@ -85,5 +80,5 @@ export const codeScoring: PackScoring<CodeRaw> = {
     codeCheck: { timeoutSeconds: 120, maxChars: 24000 },
   },
   score: scoreCode,
-  confidence: confidenceCode,
+  certainties: certaintiesCode,
 }

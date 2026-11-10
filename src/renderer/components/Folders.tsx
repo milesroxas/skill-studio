@@ -8,7 +8,7 @@ import { AGENTS, STORE_DIR } from '@domain/library.ts'
 import { FolderPlusIcon, PlusIcon } from 'lucide-react'
 import { useState } from 'react'
 import { api } from '../api.ts'
-import type { Reporter } from '../hooks.ts'
+import { type Reporter, useAction } from '../hooks.ts'
 import { PlainList, Stack, Toolbar } from './layout.tsx'
 import { Hint, Text } from './text.tsx'
 import { Button } from './ui/button.tsx'
@@ -35,17 +35,20 @@ export function Folders({
   /** Say which folders are always read. Off where the words around the list already say it. */
   explain?: boolean
 }) {
-  /** A change to the list is on its way: every control of the list waits for it. */
-  const [busy, setBusy] = useState(false)
-  const store = async (list: string[], done: string) => {
-    setBusy(true)
-    try {
+  /** A change to the list is on its way: every control of the list waits for it. A failed one is said on the status line. */
+  const [busy, run] = useAction(report)
+  const store = (list: string[], done: string) =>
+    run(async () => {
       await save(list, done)
-    } finally {
-      setBusy(false)
+    })
+  /** Resolves true once the folder is in the list; false when it was there already, or the list could not be stored. */
+  const add = async (folder: string): Promise<boolean> => {
+    if (workspaces.includes(folder)) {
+      report(`Already looking in ${folder}`)
+      return false
     }
+    return store([...workspaces, folder], `Looking in ${folder}`)
   }
-  const add = (folder: string) => store([...workspaces, folder], `Looking in ${folder}`)
   const { chooseFolder } = api
   return (
     <Stack gap="md">
@@ -70,7 +73,7 @@ export function Folders({
                   aria-label={`Stop looking in ${w}`}
                   disabled={busy}
                   onClick={() =>
-                    store(
+                    void store(
                       workspaces.filter((x) => x !== w),
                       `Stopped looking in ${w}`,
                     )
@@ -115,7 +118,8 @@ function TypedFolder({
 }: {
   variant: 'default' | 'outline'
   busy: boolean
-  onAdd: (folder: string) => void
+  /** Resolves true once the folder is in the list. */
+  onAdd: (folder: string) => Promise<boolean>
 }) {
   const [adding, setAdding] = useState('')
   return (
@@ -125,8 +129,8 @@ function TypedFolder({
         e.preventDefault()
         const folder = adding.trim()
         if (!folder) return
-        onAdd(folder)
-        setAdding('')
+        // The path stays in the field until it is in the list: one that could not be stored is not typed twice.
+        void onAdd(folder).then((added) => added && setAdding(''))
       }}
     >
       <Toolbar>

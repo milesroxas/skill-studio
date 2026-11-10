@@ -66,6 +66,15 @@ describe('parsers', () => {
     }).drafts
     expect(drafts.files['SKILL.md']).toEqual({ text: 'x', previous: null })
     expect(drafts.cases['+new'].graders).toEqual([])
+    const based = parsers['skill.saveDrafts']({
+      skill: '/s',
+      drafts: {
+        cases: { intro: {} },
+        caseBases: { intro: '2026-11-09T10:00:00.000Z', gone: 'x', '+new': 3 },
+      },
+    }).drafts
+    // A base is kept only beside a draft it dates.
+    expect(based.caseBases).toEqual({ intro: '2026-11-09T10:00:00.000Z' })
     expect(() =>
       parsers['skill.saveDrafts']({ drafts: { files: { '../a': { text: 'x' } } } }),
     ).toThrow('Bad path.')
@@ -111,5 +120,54 @@ describe('parsers', () => {
       'Bad verdict.',
     )
     expect(() => parsers['skill.correct']({ key: '../x', verdict: 'rule:x' })).toThrow()
+  })
+})
+
+describe('parsers, on what names a folder or sizes a run', () => {
+  it('check the baseline run like every other run name', () => {
+    expect(() =>
+      parsers['skill.generate']({ configuration: 'old_skill', baselineRun: '../../elsewhere' }),
+    ).toThrow('Bad run.')
+    expect(parsers['skill.generate']({ baselineRun: 'run-1' }).baselineRun).toBe('run-1')
+    expect(parsers['skill.generate']({}).baselineRun).toBeNull()
+  })
+
+  it('hold samples to a whole number from 1 to 10', () => {
+    expect(parsers['skill.generate']({ samples: 2.7 }).samples).toBe(2)
+    expect(parsers['skill.generate']({ samples: 0 }).samples).toBe(1)
+    expect(parsers['skill.generate']({ samples: -3 }).samples).toBe(1)
+  })
+
+  it('read a config as a file written by hand would be', () => {
+    const { config } = parsers['skill.config']({
+      skill: '/s',
+      config: { packs: ['generic', 7], yes: 'high', weights: { rubric: 'lots', adherence: 40 } },
+    })
+    expect(config.packs).toEqual(['generic'])
+    expect(config.yes).toBe(0.5)
+    expect(config.weights).toEqual({ adherence: 40 })
+    expect(() => parsers['skill.config']({ skill: '/s', config: [] })).toThrow('Bad config.')
+  })
+
+  it('carry the time a case was last saved, and take none for no check', () => {
+    const base = { skill: '/s', case: { id: 'a', prompt: 'p' } }
+    expect(parsers['skill.saveCase'](base).savedAt).toBeNull()
+    expect(
+      parsers['skill.saveCase']({ ...base, savedAt: '2026-11-09T10:00:00.000Z' }).savedAt,
+    ).toBe('2026-11-09T10:00:00.000Z')
+  })
+
+  it('refuse a message longer than one request carries', () => {
+    expect(() => parsers['chat.send']({ text: 'x'.repeat(2_000_000) })).toThrow('longer than')
+  })
+
+  it('take an output named as people name files', () => {
+    const input = parsers['skill.artifact']({
+      skill: '/s',
+      run: 'r',
+      sample: 'a-s1',
+      file: 'outputs/Cover Letter.md',
+    })
+    expect(input.file).toBe('outputs/Cover Letter.md')
   })
 })

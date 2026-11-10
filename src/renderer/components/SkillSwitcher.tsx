@@ -14,8 +14,8 @@ import {
   RotateCcwIcon,
 } from 'lucide-react'
 import { type KeyboardEvent, useEffect, useMemo, useRef, useState } from 'react'
-import { api } from '../api.ts'
 import { REVEAL_LABEL, shortcut } from '../keys.ts'
+import { forgetScan, scanIsFresh, scanLibrary, scannedSkills } from '../library-scan.ts'
 import { plural } from '../model.ts'
 import { Text } from './text.tsx'
 import { Input } from './ui/input.tsx'
@@ -29,9 +29,6 @@ import {
 } from './ui/popover.tsx'
 
 const MAX_SHOWN = 40
-/** A scan walks every workspace folder; one this recent is reused when the switcher reopens. */
-const RESCAN_AFTER_MS = 30_000
-let lastScan: { at: number; skills: LibrarySkill[] } | null = null
 
 const rank = (skill: LibrarySkill): number => (skill.open ? 0 : skill.recent ? 1 : 2)
 
@@ -43,16 +40,19 @@ function matches(skill: LibrarySkill, query: string): boolean {
 
 /** Open with ⌘K (Ctrl+K off the Mac) from anywhere in the app. */
 function useShortcut(onPress: () => void) {
+  // The newest handler is called, and the window is listened to once.
+  const latest = useRef(onPress)
+  latest.current = onPress
   useEffect(() => {
     const handle = (e: globalThis.KeyboardEvent) => {
       if (e.key.toLowerCase() === 'k' && (e.metaKey || e.ctrlKey) && !e.altKey && !e.shiftKey) {
         e.preventDefault()
-        onPress()
+        latest.current()
       }
     }
     window.addEventListener('keydown', handle)
     return () => window.removeEventListener('keydown', handle)
-  }, [onPress])
+  }, [])
 }
 
 export function SkillSwitcher({
@@ -80,22 +80,33 @@ export function SkillSwitcher({
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState('')
   const [active, setActive] = useState(0)
-  const [skills, setSkills] = useState<LibrarySkill[] | null>(lastScan?.skills ?? null)
+  const [skills, setSkills] = useState<LibrarySkill[] | null>(scannedSkills)
   const [error, setError] = useState<string | null>(null)
   const field = useRef<HTMLInputElement>(null)
 
   useShortcut(() => setOpen((o) => !o))
+
+  // Another skill is open, so the list in hand is out of date: it marks the old one as open,
+  // and a skill just made is not in it. The next opening scans again.
+  const listedFor = useRef(name)
+  if (listedFor.current !== name) {
+    listedFor.current = name
+    forgetScan()
+  }
 
   // Scan when opened unless a recent scan is in hand; the last list stays on screen meanwhile.
   useEffect(() => {
     if (!open) return
     setQuery('')
     setActive(0)
-    if (lastScan && Date.now() - lastScan.at < RESCAN_AFTER_MS) return
+    if (scanIsFresh()) {
+      // The Library may have scanned since this list was last shown.
+      setSkills(scannedSkills())
+      return
+    }
     let live = true
-    api.library().then(
+    scanLibrary().then(
       (library) => {
-        lastScan = { at: Date.now(), skills: library.skills }
         if (!live) return
         setSkills(library.skills)
         setError(null)
@@ -151,6 +162,7 @@ export function SkillSwitcher({
       <PopoverTrigger asChild>
         <button
           type="button"
+          title={`${name ? 'Switch skill' : 'Open a skill'} (${shortcut('K')})`}
           className="mx-2 flex min-h-11 items-center gap-2 rounded-sm px-2 py-1.5 text-left focus-ring-inset transition-[background-color] duration-150 ease-out hover:bg-sidebar-accent data-[state=open]:bg-sidebar-accent [&>svg]:size-4 [&>svg]:shrink-0 [&>svg]:text-muted-foreground"
         >
           <span className="flex min-w-0 flex-1 flex-col">
@@ -239,7 +251,6 @@ export function SkillSwitcher({
           </PopoverAction>
           <PopoverAction
             icon={<LibraryIcon aria-hidden="true" />}
-            hint={shortcut('K')}
             onClick={() => {
               setOpen(false)
               onLibrary()

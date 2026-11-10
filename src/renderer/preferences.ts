@@ -9,11 +9,11 @@ import {
   type Preferences,
   type Theme,
 } from '@domain/preferences.ts'
-import { useSyncExternalStore } from 'react'
 import { api } from './api.ts'
+import type { Reporter } from './hooks.ts'
+import { createStore, useStore } from './store.ts'
 
-let current: Preferences = DEFAULT_PREFERENCES
-const listeners = new Set<() => void>()
+const preferences = createStore<Preferences>(DEFAULT_PREFERENCES)
 
 const darkQuery = window.matchMedia('(prefers-color-scheme: dark)')
 const reducedQuery = window.matchMedia('(prefers-reduced-motion: reduce)')
@@ -39,34 +39,37 @@ function apply({ theme, motion }: Preferences): void {
   root.dataset.motion = resolveMotion(motion)
 }
 
-darkQuery.addEventListener('change', () => apply(current))
-reducedQuery.addEventListener('change', () => apply(current))
+darkQuery.addEventListener('change', () => apply(preferences.get()))
+reducedQuery.addEventListener('change', () => apply(preferences.get()))
 
 /** Read the stored preferences and apply them. Call before the first render. */
 export async function loadPreferences(): Promise<void> {
   try {
-    current = await api.preferences()
+    preferences.set(await api.preferences())
   } catch {
     // A host that cannot answer leaves the defaults in place.
   }
-  apply(current)
+  apply(preferences.get())
 }
 
 /** Change some preferences: applied at once, then stored. */
 export function setPreferences(patch: Partial<Preferences>): Promise<void> {
-  current = { ...current, ...patch }
-  apply(current)
-  for (const listener of listeners) listener()
-  return api.savePreferences(current).then(() => undefined)
+  const next = { ...preferences.get(), ...patch }
+  preferences.set(next)
+  apply(next)
+  return api.savePreferences(next).then(() => undefined)
 }
 
-const subscribe = (listener: () => void) => {
-  listeners.add(listener)
-  return () => {
-    listeners.delete(listener)
-  }
+/**
+ * Change some preferences from a control. The change shows at once; a store
+ * that fails is said on the status line, and the change stays for this session.
+ */
+export function savePreference(patch: Partial<Preferences>, report: Reporter): void {
+  void setPreferences(patch).catch((e: Error) =>
+    report(`Not saved: ${e.message}`, { tone: 'destructive' }),
+  )
 }
 
 export function usePreferences(): Preferences {
-  return useSyncExternalStore(subscribe, () => current)
+  return useStore(preferences)
 }

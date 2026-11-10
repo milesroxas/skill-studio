@@ -121,6 +121,18 @@ function Ribbon({ lift }: { lift: Lift }) {
 }
 
 /**
+ * Which cases the lift is read over, when not every case: the ones both runs
+ * answered, and how many of them the run without the skill answered.
+ */
+function casesNote({ casesDiffer, sharedCases, baseline, baselineCases }: Lift): string {
+  if (!casesDiffer) return ''
+  const over = `, over the ${sharedCases} ${sharedCases === 1 ? 'case' : 'cases'} both runs answered`
+  return baseline && baselineCases < sharedCases
+    ? `${over}, ${baselineCases} of them without the skill`
+    : over
+}
+
+/**
  * The head of Results: the latest version's mean, large, what it gained since
  * the first, and the ribbon beside it. A screen reader reads it as one sentence.
  */
@@ -134,7 +146,7 @@ export function VersionLift({
 }) {
   const { first, latest, baseline } = lift
   const change = round(latest.mean) - round(first.mean)
-  const summary = `Version lift for ${writer}: ${first.version} scored ${round(first.mean)}, ${latest.version} scored ${round(latest.mean)}${baseline ? `, and without the skill ${round(baseline.mean)}` : ''}${lift.casesDiffer ? `, over the ${lift.sharedCases} cases both runs answered` : ''}.`
+  const summary = `Version lift for ${writer}: ${first.version} scored ${round(first.mean)}, ${latest.version} scored ${round(latest.mean)}${baseline ? `, and without the skill ${round(baseline.mean)}` : ''}${casesNote(lift)}.`
   return (
     <figure
       aria-label={summary}
@@ -153,9 +165,7 @@ export function VersionLift({
             {/* Delta keeps its own lead from the score; this line starts where it does. */}
             <Text size="ui" tone="muted" className={change ? 'pl-1.5' : undefined}>
               {writer}
-              {lift.casesDiffer
-                ? `, over the ${lift.sharedCases} ${lift.sharedCases === 1 ? 'case' : 'cases'} both runs answered`
-                : null}
+              {casesNote(lift)}
             </Text>
           </span>
         </div>

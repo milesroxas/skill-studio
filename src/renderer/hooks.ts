@@ -1,34 +1,45 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
+
+const sameDeps = (a: readonly unknown[], b: readonly unknown[]): boolean =>
+  a.length === b.length && a.every((value, i) => Object.is(value, b[i]))
 
 /**
- * A value fetched once per `deps`, with its error. The last value stays in
- * view while the next one loads, so a refresh never flashes; a success clears
- * an earlier error.
+ * A value fetched once per `deps`, with its error. While the same `deps` load
+ * again (`reload`), the last value stays in view, so a refresh never flashes.
+ * When `deps` change, the value and the error of the old ones are gone at
+ * once: nothing read for one thing is ever shown for another.
  */
 export function useFetch<T>(
   load: () => Promise<T>,
   deps: unknown[],
 ): { data: T | null; error: string | null; loading: boolean; reload: () => void } {
-  const [data, setData] = useState<T | null>(null)
-  const [error, setError] = useState<string | null>(null)
-  /** A load is on its way, from the first one to any reload: a Try again button stays busy meanwhile. */
-  const [loading, setLoading] = useState(true)
+  /** What the last load to land said, and the deps it was made for. */
+  const [held, setHeld] = useState<{
+    deps: unknown[]
+    data: T | null
+    error: string | null
+  } | null>(null)
+  /** The deps and the reload whose load has landed: until they are these ones, a load is on its way. */
+  const [landed, setLanded] = useState<{ deps: unknown[]; tick: number } | null>(null)
   const [tick, setTick] = useState(0)
   // biome-ignore lint/correctness/useExhaustiveDependencies: deps come from the caller
   useEffect(() => {
     let live = true
-    setLoading(true)
     load().then(
       (value) => {
         if (!live) return
-        setData(value)
-        setError(null)
-        setLoading(false)
+        setHeld({ deps, data: value, error: null })
+        setLanded({ deps, tick })
       },
       (e: Error) => {
         if (!live) return
-        setError(e.message)
-        setLoading(false)
+        // The value read for these same deps stays; one read for others does not.
+        setHeld((was) => ({
+          deps,
+          data: was && sameDeps(was.deps, deps) ? was.data : null,
+          error: e.message,
+        }))
+        setLanded({ deps, tick })
       },
     )
     return () => {
@@ -36,7 +47,43 @@ export function useFetch<T>(
     }
   }, [...deps, tick])
   const reload = useCallback(() => setTick((t) => t + 1), [])
-  return { data, error, loading, reload }
+  const mine = held && sameDeps(held.deps, deps) ? held : null
+  const loading = !(landed && landed.tick === tick && sameDeps(landed.deps, deps))
+  return { data: mine?.data ?? null, error: mine?.error ?? null, loading, reload }
+}
+
+/**
+ * One awaited step behind a button: `busy` while it runs, and a failure said
+ * on the status line. `run(work)` resolves true when the work finished; a
+ * second call while the first runs does nothing and resolves false. `failed`
+ * leads the failure's message, as in "Not saved: the disk is full".
+ */
+export function useAction(
+  report: Reporter,
+): [busy: boolean, run: (work: () => Promise<void>, failed?: string) => Promise<boolean>] {
+  const [busy, setBusy] = useState(false)
+  const running = useRef(false)
+  const run = useCallback(
+    async (work: () => Promise<void>, failed?: string): Promise<boolean> => {
+      if (running.current) return false
+      running.current = true
+      setBusy(true)
+      try {
+        await work()
+        return true
+      } catch (e) {
+        const error = e as Error
+        if (failed) report(`${failed}: ${error.message}`, { tone: 'destructive' })
+        else report(error)
+        return false
+      } finally {
+        running.current = false
+        setBusy(false)
+      }
+    },
+    [report],
+  )
+  return [busy, run]
 }
 
 /** A set and a toggle for one member, for checkbox and filter groups. */

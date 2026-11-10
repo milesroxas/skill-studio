@@ -99,3 +99,25 @@ describe('evidence retrieval', () => {
     expect(nearestEvidence('latency is 40 ms', chunks, 1)).toEqual([chunks[0]])
   })
 })
+
+describe('code in the copy', () => {
+  const prose = 'One sentence that is of a normal length for prose in an article like this.'
+
+  it('measures the prose alone, whichever fence the code is in and closed or not', () => {
+    const plain = shapeOf(`${prose}\n`)
+    expect(plain.measures).toMatchObject({ sentenceMedian: 15, paragraphMedian: 15 })
+    for (const code of [
+      '```js\nconst a = 1\nconst b = 2\n```',
+      '~~~\nconst a = 1\n~~~',
+      '```\nleft open',
+    ])
+      expect(shapeOf(`${prose}\n\n${code}\n`)).toEqual(plain)
+  })
+
+  it('lints nothing inside a tilde fence, and still names where a finding is', () => {
+    const text = 'Fine.\n\n~~~\nwow! \u2014 code\n~~~\n\nReally! Yes.'
+    const findings = fallbackLint(text, null)
+    expect(findings.map((f) => f.rule)).toEqual(['exclamation'])
+    expect(findings[0].excerpt).toContain('Really!')
+  })
+})

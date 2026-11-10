@@ -11,9 +11,9 @@ import {
   type Verdict,
 } from '@domain/pack.ts'
 import type { BenchConfig } from '@domain/schemas.ts'
-import { certainty, mean } from '@domain/stats.ts'
+import { certainty } from '@domain/stats.ts'
 import { codeVerdict, finding, jevVerdict } from '@domain/verdict.ts'
-import { checkVerdict, metShare, type StatementAnswer, unmetFlag } from '../shared/score.ts'
+import { markChecks, metShare, type StatementAnswer } from '../shared/score.ts'
 
 /** The config an active design pack sees: domain/config.ts lays these defaults under bench.json. */
 export type DesignConfig = BenchConfig & { design: { maxChars: number } }
@@ -97,27 +97,23 @@ function scoreDesign(
             yes,
             corrections,
           )
-    const checked = raw.jev.statements.map((s) => checkVerdict(s, 'visual', yes, corrections))
-    const visual = [hierarchy, ...(finished ? [finished] : []), ...checked]
+    const checks = markChecks(raw.jev.statements, 'visual', yes, corrections)
+    const visual = [hierarchy, ...(finished ? [finished] : []), ...checks.verdicts]
     layers.visual = metShare(visual)
     if (!hierarchy.met) flags.push('no clear visual hierarchy in the markup')
     if (finished && !finished.met) flags.push('screenshot does not look finished')
-    raw.jev.statements.forEach((s, i) => {
-      if (!checked[i].met) flags.push(unmetFlag(s))
-    })
+    flags.push(...checks.flags)
     verdicts.push(...visual)
   }
   return { layers, flags, verdicts }
 }
 
-const confidenceDesign = (raw: DesignRaw | null): number | null =>
+const certaintiesDesign = (raw: DesignRaw | null): number[] =>
   raw?.jev
-    ? mean(
-        [raw.jev.hierarchy, raw.jev.finished, ...raw.jev.statements.map((s) => s.noul)]
-          .filter((v): v is number => v !== null)
-          .map(certainty),
-      )
-    : null
+    ? [raw.jev.hierarchy, raw.jev.finished, ...raw.jev.statements.map((s) => s.noul)]
+        .filter((v): v is number => v !== null)
+        .map(certainty)
+    : []
 
 export const designScoring: PackScoring<DesignRaw> = {
   id: 'design',
@@ -129,5 +125,5 @@ export const designScoring: PackScoring<DesignRaw> = {
     design: { maxChars: 20000 },
   },
   score: scoreDesign,
-  confidence: confidenceDesign,
+  certainties: certaintiesDesign,
 }

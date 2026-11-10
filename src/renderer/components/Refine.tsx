@@ -6,9 +6,10 @@
  */
 import { drifts, type RefineResult } from '@domain/improve.ts'
 import type { Finding, RuleScene } from '@domain/lint.ts'
-import { useEffect, useMemo, useRef, useState } from 'react'
-import { startRefine, stopRun, useRun } from '../ai.ts'
+import { useEffect, useMemo, useRef } from 'react'
+import { startRefine, stopRun } from '../ai.ts'
 import { lineDiff } from '../diff.ts'
+import { useStartedRun } from '../started-run.ts'
 import { DiffLines } from './DiffLines.tsx'
 import { Loading, Toolbar } from './layout.tsx'
 import { Hint, Text } from './text.tsx'
@@ -47,6 +48,9 @@ export function Unjudged() {
   return <Hint>Word checks only. Add a TypeSafe key in Settings and Jev reads the rule too.</Hint>
 }
 
+/** The revision a check starts, when anything drifts. */
+const revisionOf = (result: RefineResult) => result.run
+
 export function RefineBody({
   scene,
   onApply,
@@ -58,35 +62,12 @@ export function RefineBody({
   onImprove: () => void
   onClose: () => void
 }) {
-  const [result, setResult] = useState<RefineResult | null>(null)
-  const [error, setError] = useState<string | null>(null)
-  const run = useRun(result?.run?.id ?? null)
+  // Asked as the popout opens on a rule; closing it on a revision still being written stops the writing.
+  const work = useStartedRun(() => startRefine(scene), revisionOf, [scene])
+  const { result, run } = work
+  // Once the checks have answered, a failure is the revision's, said in its place under them.
+  const error = result ? null : work.error
   const accept = useRef<HTMLButtonElement>(null)
-  /** The request this body made, so a result arriving after it unmounts is let go. */
-  const alive = useRef(true)
-
-  useEffect(() => {
-    alive.current = true
-    setResult(null)
-    setError(null)
-    let started: string | null = null
-    startRefine(scene).then(
-      (next) => {
-        if (alive.current) {
-          started = next.run?.id ?? null
-          setResult(next)
-        } else if (next.run) stopRun(next.run.id)
-      },
-      (e: Error) => {
-        if (alive.current) setError(e.message)
-      },
-    )
-    return () => {
-      alive.current = false
-      // The popout closed on a run still writing: nothing will read it.
-      if (started) stopRun(started)
-    }
-  }, [scene])
 
   // The reply is ready: Return now accepts it.
   useEffect(() => {

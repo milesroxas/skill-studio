@@ -6,18 +6,16 @@
 import { watchRuns } from '@application/ai.ts'
 import { createOperations, invoke, isOperation } from '@application/api/operations.ts'
 import { watchJobs } from '@application/jobs.ts'
-import { agentWatcher, endOrphans } from '@infrastructure/children.ts'
-import { stopAll, watchChildren } from '@infrastructure/exec.ts'
+import { agentLifecycle, keepRunning } from '../../lifecycle.ts'
 import type { FromBackend, ToBackend } from '../channels.ts'
 
 const port = process.parentPort
 const post = (message: FromBackend): void => port.postMessage(message)
 
-// A backend that died left its agents running: end them before starting any more.
-const orphans = endOrphans()
-if (orphans.length)
-  console.warn(`Ended ${orphans.length} agent process(es) left by an earlier session.`)
-watchChildren(agentWatcher)
+// One reply that throws with nothing to catch it must not end every job in flight.
+keepRunning((line) => console.error(line))
+// The app tells this process when to stop, so it listens for no signal itself.
+const agents = agentLifecycle({ log: (line) => console.warn(line) })
 
 const operations = createOperations({ skills: [] })
 
@@ -38,7 +36,11 @@ port.on('message', (event) => {
     for (const [key, value] of Object.entries(message.env))
       if (value === undefined) delete process.env[key]
       else process.env[key] = value
-  } else void stopAll().then(() => process.exit(0))
+  } else
+    void agents
+      .stop()
+      .catch((error: unknown) => console.error('Could not stop cleanly:', error))
+      .finally(() => process.exit(0))
 })
 
 watchJobs((jobs) => post({ type: 'push', topic: 'jobs', value: jobs }))

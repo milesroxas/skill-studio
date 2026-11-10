@@ -8,8 +8,10 @@
  * functions.
  */
 import type { AiRun, ChatMessage } from './ai.ts'
+import { APP_INTRO as APP, tag } from './assist.ts'
 import { type Finding, type RuleScene, wordCount } from './lint.ts'
 import { type Principle, principleGuide, RULE_GUIDE, RULE_SHAPE } from './templates.ts'
+import { LIST_MARK as MARK } from './text.ts'
 
 /** The principles the judge reads a rule for. Testing is a run, not a reading. */
 export const JUDGED = ['process', 'why', 'strict', 'earns', 'focused'] as const
@@ -95,10 +97,6 @@ export function mergeFindings(code: Finding[], judged: Finding[]): Finding[] {
 /** Whether the findings leave the model anything to fix: a maybe alone does not. */
 export const drifts = (findings: Finding[]): boolean => findings.some((f) => f.source !== 'maybe')
 
-const APP = `Skill Studio is a desktop app for writing agent skills and testing them. A skill is a folder with a SKILL.md an AI agent loads when its description matches the request.`
-
-const tag = (name: string, text: string): string => `<${name}>\n${text.trim()}\n</${name}>`
-
 /** The rule in its place, as every brief shows it. */
 function sceneText(scene: RuleScene): string {
   return [
@@ -163,7 +161,7 @@ const parse = (raw: string): Record<string, unknown> => {
 }
 
 /** The revision from a finished Auto refine reply. Throws when there is none. */
-const LIST_MARK = /^[ \t]*(?:[-*+]|\d+[.)])[ \t]+/
+const LIST_MARK = new RegExp(`^[ \\t]*${MARK}[ \\t]+`)
 
 /**
  * `text` with the list mark the selection starts with, when the model left it
@@ -404,7 +402,8 @@ export function planImprove(findings: Finding[], judgment: RuleJudgment | null):
     if (flagged.has(step.id)) return true
     if (step.when === 'flagged') return false
     const p = judgment?.[step.id as Judged]
-    return p === undefined || p < HOLDS
+    // Anything that is not a sure hold is asked about: a missing answer and one that is not a number too.
+    return !(p !== undefined && p >= HOLDS)
   }).map((step) => step.id)
 }
 

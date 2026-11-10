@@ -7,7 +7,7 @@
 import { rmSync } from 'node:fs'
 import { join } from 'node:path'
 import type { SkillVersion, SkillVersions } from '@domain/views.ts'
-import { isDir, isFile, listDirs, readJson, readTree, writeJson } from './fs.ts'
+import { isDir, isFile, listDirs, readJson, writeJson } from './fs.ts'
 import { snapshotSkillFiles } from './skill.ts'
 
 const versionsDir = (skillDir: string): string => join(skillDir, 'evals/versions')
@@ -49,7 +49,7 @@ export function savedVersions(skillDir: string): SkillVersion[] {
         name: file.name,
         hash: file.hash,
         note: file.note,
-        date: file.createdAt.slice(0, 10) || undefined,
+        date: String(file.createdAt ?? '').slice(0, 10) || undefined,
         saved: true,
       },
     ]
@@ -89,11 +89,8 @@ export function saveVersion(
   }
 }
 
-/** A saved version's files, or null when it was never saved by hand. */
-export function savedVersionFiles(
-  skillDir: string,
-  version: string,
-): Record<string, string> | null {
+/** The folder holding a saved version's files, or null when it was never saved by hand. */
+export function savedVersionSource(skillDir: string, version: string): string | null {
   const dir = versionDir(skillDir, version)
-  return isSaved(dir) && isDir(join(dir, 'files')) ? readTree(join(dir, 'files')) : null
+  return isSaved(dir) && isDir(join(dir, 'files')) ? join(dir, 'files') : null
 }

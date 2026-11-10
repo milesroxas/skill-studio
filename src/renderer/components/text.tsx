@@ -12,7 +12,6 @@ const headingVariants = cva('m-0 font-semibold text-balance', {
       display: 'text-display',
       /** A welcome step's title, beside its numeral: the welcome only. */
       step: 'text-2xl',
-      1: 'text-3xl',
       /** A screen's sections and its empty states. */
       2: 'text-base',
       /** A group of fields or a part of a column: a step above the labels inside it. */
@@ -45,7 +44,7 @@ export function Heading({
       ? 'h1'
       : level === 'step'
         ? 'h2'
-        : (`h${level ?? 2}` as 'h1' | 'h2' | 'h3'))
+        : (`h${level ?? 2}` as 'h2' | 'h3'))
   return <Comp className={cn(headingVariants({ level, tabular }), className)} {...props} />
 }
 
@@ -84,9 +83,7 @@ export function Hint({
   ...props
 }: HTMLAttributes<HTMLElement> &
   VariantProps<typeof hintVariants> & {
-    as?: 'p' | 'span' | 'label' | 'div'
-    /** When rendered as a label, the control it names. */
-    htmlFor?: string
+    as?: 'p' | 'span' | 'div'
   }) {
   return (
     <Comp className={cn(hintVariants({ tone, measure, inset, tabular }), className)} {...props} />

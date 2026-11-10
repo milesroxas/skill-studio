@@ -4,11 +4,8 @@ import {
   lstatSync,
   mkdirSync,
   readdirSync,
-  readFileSync,
-  realpathSync,
   rmSync,
   statSync,
-  symlinkSync,
   unlinkSync,
 } from 'node:fs'
 import { homedir } from 'node:os'
@@ -27,10 +24,10 @@ import {
 } from '@domain/library.ts'
 import { isLookStep, type LookStep, PRACTICE } from '@domain/practice.ts'
 import { templateById } from '@domain/templates.ts'
-import { isSlug, metaText, readFrontMatter, SLUG_RULE } from '@domain/text.ts'
-import { loadCases, saveCase } from './cases.ts'
-import { isDir, isFile, listDirs, readJson, writeJson } from './fs.ts'
-import { newSkill } from './skill.ts'
+import { isSlug, SLUG_RULE } from '@domain/text.ts'
+import { countCases, saveCase } from './cases.ts'
+import { isDir, isFile, linkDir, listDirs, readJson, realOf, realPath, writeJson } from './fs.ts'
+import { newSkill, skillHead } from './skill.ts'
 
 const HOLDERS: Array<{ holder: Holder; dir: string }> = [
   { holder: 'store', dir: STORE_DIR },
@@ -59,9 +56,8 @@ interface Settings {
 
 function loadSettings(): Settings {
   const saved = readJson<Partial<Settings>>(isFile(SETTINGS) ? SETTINGS : OLD_SETTINGS, {})
-  const sites = join(HOME, 'SITES')
   return {
-    workspaces: saved.workspaces ?? (isDir(sites) ? [sites] : []),
+    workspaces: saved.workspaces ?? [],
     others: saved.others ?? [],
     recent: saved.recent ?? [],
   }
@@ -77,14 +73,6 @@ function updateSettings(change: (settings: Settings) => void): Settings {
 const tilde = (path: string): string =>
   path === HOME || path.startsWith(`${HOME}/`) ? `~${path.slice(HOME.length)}` : path
 const untilde = (path: string): string => resolve(path.replace(/^~(?=$|\/)/, HOME))
-
-const realOf = (path: string): string | null => {
-  try {
-    return realpathSync(path)
-  } catch {
-    return null
-  }
-}
 
 const isLink = (path: string): boolean => {
   try {
@@ -264,7 +252,7 @@ function installOf(group: Entry[], agent: AgentId, primary: Entry): Install {
 
 function caseCount(dir: string): number {
   try {
-    return loadCases(dir).length
+    return countCases(dir)
   } catch {
     return 0
   }
@@ -276,12 +264,9 @@ function toSkill(
 ): LibrarySkill {
   const primary = group.reduce((best, e) => (rank(e) < rank(best) ? e : best))
   const { real, place } = primary
-  const md = join(real, 'SKILL.md')
-  const { meta } = readFrontMatter(readFileSync(md, 'utf8'))
   return {
     path: real,
-    name: metaText(meta, 'name') || basename(real),
-    description: metaText(meta, 'description') ?? '',
+    ...skillHead(real),
     scope: place.scope,
     scopeLabel: place.label,
     installs: Object.fromEntries(
@@ -293,7 +278,7 @@ function toSkill(
       (context.settings.others.includes(real) ? 'marked' : null),
     cases: caseCount(real),
     runs: listDirs(join(real, 'evals', 'runs')).length,
-    modified: statSync(md).mtime.toISOString(),
+    modified: statSync(join(real, 'SKILL.md')).mtime.toISOString(),
     recent: context.settings.recent.includes(real),
     open: context.open.has(real),
   }
@@ -339,7 +324,7 @@ function link(real: string, agent: string, place: Place): string {
   if (taken(target)) throw new Error(`${tilde(target)} already exists.`)
   mkdirSync(dirname(target), { recursive: true })
   // The OS resolves a relative link from the folder's real path (macOS /tmp is /private/tmp).
-  symlinkSync(relative(realpathSync(dirname(target)), real), target)
+  linkDir(relative(realPath(dirname(target)), real), target)
   return target
 }
 
@@ -381,7 +366,7 @@ export function createSkill(input: {
   const template = templateById(input.template ?? 'blank')
   newSkill(dir, input.name, input.description, template)
   if (input.samples) for (const sample of template.cases) saveCase(dir, sample, true)
-  for (const agent of input.agents) link(realpathSync(dir), agent, place)
+  for (const agent of input.agents) link(realPath(dir), agent, place)
   return dir
 }
 

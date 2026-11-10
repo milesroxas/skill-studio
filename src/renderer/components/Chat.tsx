@@ -20,13 +20,12 @@ import {
   stopRun,
   useAi,
   useChat,
+  useChatDraft,
   useCommands,
 } from '../ai.ts'
-import { api } from '../api.ts'
 import { APP_COMMANDS, appCommandOf } from '../commands.ts'
 import type { Ctx } from '../ctx.ts'
 import { navigate } from '../history.ts'
-import { useFetch } from '../hooks.ts'
 import { useAttached } from '../images.ts'
 import { openAt } from '../route.ts'
 import { type ChangeHost, Reply } from './Change.tsx'
@@ -51,6 +50,9 @@ interface ChatPanelProps {
   onClose: () => void
 }
 
+/** No skill is open: there are no files to read again. */
+const noRead = (): void => {}
+
 const starters = (skill: string | null): string[] =>
   skill
     ? [
@@ -68,7 +70,8 @@ export function ChatPanel({ screen, skill, ctx, confirm, onClose }: ChatPanelPro
   const { thread } = useChat()
   const { providers, choice } = useAi()
   const commands = useCommands()
-  const [draft, setDraft] = useState('')
+  // Kept with the conversation, not in the panel: closing the panel does not lose what was typed.
+  const [draft, setDraft] = useChatDraft()
   const [failure, setFailure] = useState<string | null>(null)
   const [sending, setSending] = useState(false)
   const [clearing, setClearing] = useState(false)
@@ -78,17 +81,13 @@ export function ChatPanel({ screen, skill, ctx, confirm, onClose }: ChatPanelPro
   const messages = thread?.messages ?? []
   const run = thread?.run ?? null
 
-  // The skill's files as saved, read again whenever they change: a file change shows against them.
-  const skillPath = ctx?.state.skill.path ?? null
-  const hash = ctx?.state.versions.current.hash ?? null
-  const disk = useFetch(
-    () => (skillPath ? api.skillFiles('current') : Promise.resolve(null)),
-    [skillPath, hash],
-  )
-  const files = disk.data?.files ?? null
+  // The skill's files as saved, the shell's one copy: a file change shows against them.
+  const disk = ctx?.files ?? null
+  const files = disk?.saved ?? null
   // A failed read is said once, in the reply, with the way to read again: a row cannot apply without it.
-  const filesProblem = files === null ? disk.error : null
-  const { reload: readFiles, loading: readingFiles } = disk
+  const filesProblem = files === null ? (disk?.error ?? null) : null
+  const readFiles = disk?.reload ?? noRead
+  const readingFiles = disk?.loading ?? false
   const host = useMemo<ChangeHost>(
     () => ({
       ctx,
@@ -155,6 +154,8 @@ export function ChatPanel({ screen, skill, ctx, confirm, onClose }: ChatPanelPro
       setClearing(true)
       try {
         await clearChat()
+      } catch (e) {
+        setFailure((e as Error).message)
       } finally {
         setClearing(false)
       }
@@ -214,9 +215,9 @@ export function ChatPanel({ screen, skill, ctx, confirm, onClose }: ChatPanelPro
           size="icon-sm"
           aria-label="New conversation"
           title="New conversation"
-          disabled={(!messages.length && !run) || clearing}
-          aria-busy={clearing || undefined}
-          onClick={startOver}
+          disabled={!messages.length && !run}
+          busy={clearing}
+          onClick={() => void startOver()}
         >
           <SquarePenIcon aria-hidden="true" />
         </Button>

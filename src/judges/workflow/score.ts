@@ -6,13 +6,14 @@
 import {
   type Corrections,
   NO_CORRECTIONS,
+  noOutput,
   type PackScore,
   type PackScoring,
   type ScoreSubject,
   type Verdict,
 } from '@domain/pack.ts'
 import type { BenchConfig } from '@domain/schemas.ts'
-import { certainty, mean } from '@domain/stats.ts'
+import { certainty } from '@domain/stats.ts'
 import { codeVerdict, finding, jevVerdict } from '@domain/verdict.ts'
 
 /** The config an active workflow pack sees: domain/config.ts lays these defaults under bench.json. */
@@ -53,7 +54,7 @@ export interface WorkflowRaw {
 
 function scoreWorkflow(
   raw: WorkflowRaw | null,
-  _subject: ScoreSubject,
+  subject: ScoreSubject,
   config: BenchConfig,
   corrections: Corrections = NO_CORRECTIONS,
 ): PackScore {
@@ -174,17 +175,18 @@ function scoreWorkflow(
     if (recovered && !recovered.met) flags.push('after an error the agent repeated itself')
     verdicts.push(followed, ...(recovered ? [recovered] : []))
   }
+  // How a run went is worth nothing when it produced nothing: a tidy transcript with no output is a failed sample.
+  if (!m.wroteOutput || noOutput(subject))
+    for (const layer of Object.keys(layers)) if (layers[layer] !== null) layers[layer] = 0
   return { layers, flags, verdicts }
 }
 
-const confidenceWorkflow = (raw: WorkflowRaw | null): number | null =>
+const certaintiesWorkflow = (raw: WorkflowRaw | null): number[] =>
   raw?.jev
-    ? mean(
-        [raw.jev.followedTask, raw.jev.recovered]
-          .filter((v): v is number => v !== null)
-          .map(certainty),
-      )
-    : null
+    ? [raw.jev.followedTask, raw.jev.recovered]
+        .filter((v): v is number => v !== null)
+        .map(certainty)
+    : []
 
 export const workflowScoring: PackScoring<WorkflowRaw> = {
   id: 'workflow',
@@ -199,5 +201,5 @@ export const workflowScoring: PackScoring<WorkflowRaw> = {
     workflow: { maxRetries: 1, summaryLines: 80 },
   },
   score: scoreWorkflow,
-  confidence: confidenceWorkflow,
+  certainties: certaintiesWorkflow,
 }

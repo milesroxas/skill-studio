@@ -1,12 +1,13 @@
-import { existsSync, mkdirSync, mkdtempSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { DEFAULT_PREFERENCES } from '@domain/preferences.ts'
-import { describe, expect, it } from 'vitest'
+import { afterAll, describe, expect, it } from 'vitest'
 
 // The library reads SKILL_STUDIO_HOME once, at import.
 const home = mkdtempSync(join(tmpdir(), 'st-reset-home-'))
 process.env.SKILL_STUDIO_HOME = home
+afterAll(() => rmSync(home, { recursive: true, force: true }))
 const { readPreferences, writePreferences } = await import('./preferences.ts')
 const { clearStudioData } = await import('./reset.ts')
 

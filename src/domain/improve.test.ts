@@ -141,6 +141,11 @@ describe('planImprove', () => {
     expect(planImprove(findings, { ...held, strict: 0.2 })).toEqual(['complexity', 'strict'])
   })
 
+  it('asks about a principle whose answer is not a number, as it does about a missing one', () => {
+    const lost = { ...held, strict: Number.NaN, why: Number.NaN }
+    expect(planImprove([], lost)).toEqual(['strict', 'why'])
+  })
+
   it('adds the file question when the file is long', () => {
     const findings = lintScene({ ...scene, selection: `- ${PRACTICE_EDIT.good}`, band: 'long' })
     expect(planImprove(findings, held)).toEqual(['length'])

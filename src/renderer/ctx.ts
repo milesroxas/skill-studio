@@ -6,6 +6,7 @@ import type { navigate } from './history.ts'
 import type { Reporter } from './hooks.ts'
 import type { Output } from './model.ts'
 import type { Route } from './route.ts'
+import type { SavedFiles } from './skill-state.ts'
 
 /** What every screen gets: the loaded state, the scoring in hand, the outputs and the shell's helpers. */
 export interface Ctx {
@@ -23,8 +24,10 @@ export interface Ctx {
   jobs: Job[]
   /** Unsaved file and case edits, stored on disk as they are typed. */
   drafts: Drafts
-  /** Switch to another skill (empty: none) and show `screen` in it. */
-  openSkill: (path: string, screen?: string) => void
+  /** The skill's files as saved, read once for every screen and the side panel; a save updates it at once. */
+  files: SavedFiles
+  /** Switch to another skill (empty: none) and show `screen` in it. False when the reader chose to stay. */
+  openSkill: (path: string, screen?: string) => Promise<boolean>
   /** Open Run, at the top of the window: what the next run will do, and the button that starts it. */
   openRun: () => void
 }

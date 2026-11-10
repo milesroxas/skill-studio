@@ -4,10 +4,9 @@
  * request. Counting happens in score.ts.
  */
 
-import { round } from '@domain/text.ts'
 import { noul } from '@typesafe-ai/sdk'
 import type { JevState } from '../jev.ts'
-import { answering, askStatements, withRequest } from '../shared/questions.ts'
+import { answering, askStatements, asksJev, noulOf, withRequest } from '../shared/questions.ts'
 import type { StatementAnswer } from '../shared/score.ts'
 import type { JudgeContext, JudgeInput, JudgePack } from '../types.ts'
 import { type GenericRaw, genericScoring, type RuleAnswer } from './score.ts'
@@ -33,7 +32,7 @@ async function adherence(
       id: r.id,
       text: r.text,
       section: r.section,
-      noul: round(answers[r.id].noul, 3),
+      noul: noulOf(answers, r.id),
     })),
   }
 }
@@ -57,11 +56,11 @@ async function rubric(
 
 export const genericPack: JudgePack<GenericRaw> = {
   ...genericScoring,
+  version: 1,
   label: 'Generic: rule adherence and rubric',
   artifacts: ['markdown'],
   async judge(input, ctx) {
-    if (!ctx.useJev || !input.text.trim()) return null
-    if (input.case?.bench.judge === false) return null
+    if (!asksJev(input, ctx) || !input.text.trim()) return null
     const [adh, rub] = await Promise.all([adherence(input, ctx), rubric(input, ctx)])
     if (!adh && !rub) return null
     return { adherence: adh, rubric: rub }

@@ -14,6 +14,7 @@ import {
 } from '@domain/ai.ts'
 import { secretOf } from '@domain/secrets.ts'
 import { imageBase64 } from '../images.ts'
+import { explain as explainFor } from './explain.ts'
 import { keyed } from './keyed.ts'
 import { type AiMessage, type AiProvider, type AiRequest, ProviderError } from './types.ts'
 
@@ -31,21 +32,19 @@ const client = keyed(key, (apiKey) => new Anthropic({ apiKey }))
 const FALLBACK_BETA = 'server-side-fallback-2026-07-01'
 const declines = (model: string): boolean => /^claude-(fable-5|opus-5|sonnet-5-5)/.test(model)
 
-/** An SDK error as a line the writer can act on. */
-function explain(error: unknown): Error {
-  if (error instanceof Anthropic.AuthenticationError)
-    return new Error('Anthropic refused the API key. Check it in Settings.')
-  if (error instanceof Anthropic.PermissionDeniedError)
-    return new Error('This Anthropic key may not use that model.')
-  if (error instanceof Anthropic.NotFoundError)
-    return new Error('Anthropic does not know that model. Pick another.')
-  if (error instanceof Anthropic.RateLimitError)
-    return new Error('Anthropic is rate limiting this key. Wait a moment and try again.')
-  if (error instanceof Anthropic.APIConnectionError)
-    return new Error('Could not reach Anthropic. Check the connection and try again.')
-  if (error instanceof Anthropic.APIError) return new Error(`Anthropic: ${error.message}`)
-  return error instanceof Error ? error : new Error(String(error))
-}
+const explain = (error: unknown): Error =>
+  explainFor('Anthropic', Anthropic, error, '. Wait a moment and try again.')
+
+/**
+ * The most each model may write in one reply, as the Models API lists it. A
+ * request that asks for more is refused, and older models allow less than
+ * `MAX_TOKENS`.
+ */
+const outputLimits = new Map<string, number>()
+
+/** What to ask for: `MAX_TOKENS`, or the model's own limit when it is known and lower. */
+export const maxTokensWithin = (limit: number | null | undefined): number =>
+  Math.min(MAX_TOKENS, limit || MAX_TOKENS)
 
 async function listModels(): Promise<AiModel[]> {
   const models: AiModel[] = []
@@ -54,6 +53,7 @@ async function listModels(): Promise<AiModel[]> {
     // The assistant fills fields through structured outputs; a model without them cannot.
     if (capabilities && !capabilities.structured_outputs.supported) continue
     const effort = capabilities?.effort
+    if (model.max_tokens) outputLimits.set(model.id, model.max_tokens)
     models.push({
       id: model.id,
       label: model.display_name,
@@ -89,7 +89,7 @@ async function run(request: AiRequest) {
   const stream = client().beta.messages.stream(
     {
       model: request.model,
-      max_tokens: MAX_TOKENS,
+      max_tokens: maxTokensWithin(outputLimits.get(request.model)),
       // The system prompt carries the whole skill and is the same from one turn
       // to the next, so it is cached: a turn reads it at the cached rate.
       ...(request.system

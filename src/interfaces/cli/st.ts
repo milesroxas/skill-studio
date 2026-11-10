@@ -12,6 +12,9 @@
  *   st versions [skill]
  *   st serve [skill...] [--port 4400] [--tailscale [--tailscale-port 8443]]
  *   st new <dir> [--name <id>] [--description <text>]
+ *
+ * `run`, `grade` and `serve` start agents, so each ends them before it goes:
+ * on Ctrl-C, and when it is asked to stop.
  */
 import { spawn } from 'node:child_process'
 import { existsSync, readFileSync } from 'node:fs'
@@ -19,8 +22,7 @@ import { basename, join, resolve } from 'node:path'
 import { parseArgs } from 'node:util'
 import { generateRun } from '@application/generate.ts'
 import { compareReports, gradeAnchors, gradeRun, selfTest } from '@application/grade.ts'
-import type { BenchConfig, Configuration, Report } from '@domain/schemas.ts'
-import { CONFIGURATIONS } from '@domain/schemas.ts'
+import type { BenchConfig, Report } from '@domain/schemas.ts'
 import { layerOrder } from '@domain/scoring.ts'
 import { TEMPLATE_IDS, type TemplateId, templateById } from '@domain/templates.ts'
 import { isSlug, SLUG_RULE } from '@domain/text.ts'
@@ -31,8 +33,11 @@ import { newSkill, skillInfo } from '@infrastructure/skill.ts'
 import { Jev } from '@judges/jev.ts'
 import { scorers } from '@judges/scorers.ts'
 import { loadEnv } from '../host.ts'
+import { TOKEN_PARAM } from '../http/guard.ts'
 import { DEFAULT_PORT, startServer } from '../http/server.ts'
 import { DEFAULT_TAILSCALE_PORT, serveOnTailnet, tailnetIdentity } from '../http/tailscale.ts'
+import { agentLifecycle, keepRunning } from '../lifecycle.ts'
+import { countOf, generateInputOf, openCommand, portOf, runNameOf, withHint } from './input.ts'
 
 const HELP = `Usage: st <command> [skill-dir] [options]
 
@@ -61,6 +66,7 @@ Commands
     --template <id>           blank (default), writing, code, workflow or design.
     --with-cases              Also write the template's sample cases.
   serve [skill...]            Start the app (--port ${DEFAULT_PORT}; --open opens a browser).
+                              It prints the address to open, which carries this start's token.
                               With no skill it opens on the library of skills on this machine.
                               --tailscale also serves it on this machine's tailnet name
                               (--tailscale-port ${DEFAULT_TAILSCALE_PORT}), for your own Tailscale login only.
@@ -107,15 +113,6 @@ const padEnd = (value: unknown, width: number): string =>
   String(value ?? '-')
     .slice(0, width - 1)
     .padEnd(width)
-
-/** A port flag's value, or undefined when it was not given. */
-function portOf(value: string | undefined, flag: string): number | undefined {
-  if (value === undefined) return undefined
-  const port = Number(value)
-  if (!Number.isInteger(port) || port < 1 || port > 65535)
-    throw new Error(`${flag} takes a port from 1 to 65535, not "${value}".`)
-  return port
-}
 
 /** The skill dir among the positionals: the first that has a SKILL.md, else cwd. */
 function pickSkill(positionals: string[]): { skill: string; rest: string[] } {
@@ -167,6 +164,10 @@ async function main(): Promise<number> {
   }
   if (!values['no-jev'] && !Jev.available() && ['run', 'grade', 'self-test'].includes(command))
     console.error('TYPESAFE_API_KEY is not set: grading without Jev.')
+  // These start agents: the ones an earlier copy left are ended first, and Ctrl-C ends this copy's.
+  if (['run', 'grade', 'serve'].includes(command)) agentLifecycle({ signals: true })
+  // A server outlives any one request: an error nothing caught is logged, not the end of every job.
+  if (command === 'serve') keepRunning()
 
   if (command === 'new') {
     const dir = args[0]
@@ -190,28 +191,44 @@ async function main(): Promise<number> {
     const httpsPort = portOf(values['tailscale-port'], '--tailscale-port')
     if (httpsPort && !values.tailscale) throw new Error('--tailscale-port needs --tailscale.')
     const remote = values.tailscale ? await tailnetIdentity() : null
-    const listening = await startServer({ skills, port, remote })
-    const url = `http://localhost:${listening}`
-    console.log(`Skill Studio: ${url}${skills.length ? `  (${skills.join(', ')})` : ''}`)
+    const server = await startServer({ skills, port, remote })
+    // The address carries the token every request needs, from this machine or the tailnet.
+    console.log(`Skill Studio: ${server.url}${skills.length ? `  (${skills.join(', ')})` : ''}`)
     if (remote) {
       try {
         const tailnet = await serveOnTailnet(
-          listening,
+          server.port,
           remote.host,
           httpsPort ?? DEFAULT_TAILSCALE_PORT,
         )
-        console.log(`tailnet:      ${tailnet.url}  (${remote.users.join(', ')} only)`)
+        // The tailnet asks for the token too: the login alone can be forged from this machine.
+        console.log(
+          `tailnet:      ${tailnet.url}/?${TOKEN_PARAM}=${server.token}  (${remote.users.join(', ')} only)`,
+        )
       } catch (error) {
         // The local server is already listening and would keep the process alive.
         console.error((error as Error).message)
         process.exit(2)
       }
     }
-    if (values.open)
-      spawn(process.platform === 'darwin' ? 'open' : 'xdg-open', [url], {
+    if (values.open) {
+      // The opener's command line is anyone's to list: it gets a ticket good for one load, never the token.
+      const {
+        command: opener,
+        args: openerArgs,
+        verbatim,
+      } = openCommand(process.platform, server.ticketUrl())
+      const child = spawn(opener, openerArgs, {
         stdio: 'ignore',
         detached: true,
-      }).unref()
+        windowsVerbatimArguments: verbatim,
+      })
+      // A system with no opener: the server is up all the same, and its address is printed.
+      child.on('error', (error) =>
+        console.error(`Could not open a browser (${error.message}). Open the address above.`),
+      )
+      child.unref()
+    }
     return 0
   }
 
@@ -248,17 +265,28 @@ async function main(): Promise<number> {
   }
 
   if (command === 'run') {
-    const engine = engineById(values.engine ?? 'claude')
+    // The same check the app's Run button goes through.
+    const input = generateInputOf(skill, {
+      engine: values.engine,
+      model: values.model,
+      effort: values.effort,
+      cases: values.cases,
+      samples: values.samples,
+      configuration: values.configuration,
+      baseline: values.baseline,
+      name: values.name,
+      note: values.note,
+    })
+    const [choice] = input.configs
+    const engine = engineById(choice.engine)
     if (!engine)
       throw new Error(
-        `Unknown engine ${values.engine}. Have: ${engines.map((e) => e.id).join(', ')}.`,
+        `Unknown engine ${choice.engine}. Have: ${engines.map((e) => e.id).join(', ')}.`,
       )
     if (!engine.available()) throw new Error(`${engine.label} is not available. ${engine.hint}`)
-    const configuration = (values.configuration ?? 'with_skill') as Configuration
-    if (!CONFIGURATIONS.includes(configuration))
-      throw new Error(`Bad configuration ${configuration}.`)
+    const parallel = countOf(values.parallel, '--parallel')
     const cases = loadCases(skill)
-    const wanted = values.cases ? values.cases.split(',').map((s) => s.trim()) : []
+    const wanted = input.cases
     const selected = wanted.length ? cases.filter((c) => wanted.includes(c.id)) : cases
     const missing = wanted.filter((id) => !cases.some((c) => c.id === id))
     if (missing.length) throw new Error(`No case named ${missing.join(', ')}.`)
@@ -267,14 +295,14 @@ async function main(): Promise<number> {
       skillDir: skill,
       cases: selected,
       engine,
-      model: values.model ?? null,
-      effort: values.effort ?? null,
-      samples: Number(values.samples ?? 1),
-      configuration,
-      baselineRun: values.baseline ?? null,
-      skillName: values.name ?? null,
-      note: values.note ?? '',
-      parallel: values.parallel ? Number(values.parallel) : undefined,
+      model: choice.model || null,
+      effort: choice.effort || null,
+      samples: input.samples,
+      configuration: input.configuration,
+      baselineRun: input.baselineRun,
+      skillName: input.skillName,
+      note: input.note,
+      parallel,
       log: (line) => console.error(line),
     })
     console.log(`Run: ${runDir(skill, name)}`)
@@ -286,7 +314,11 @@ async function main(): Promise<number> {
   }
 
   if (command === 'grade') {
-    const names = values.all ? listRuns(skill).map((r) => r.name) : values.run ? [values.run] : []
+    const names = values.all
+      ? listRuns(skill).map((r) => r.name)
+      : values.run
+        ? [runNameOf(values.run, '--run')]
+        : []
     if (!names.length) throw new Error('Pass --run <name> or --all.')
     for (const name of names) {
       const report = await gradeRun(skill, name, jevOptions)
@@ -299,7 +331,7 @@ async function main(): Promise<number> {
 
   if (command === 'report') {
     if (!values.run) throw new Error('Pass --run <name>.')
-    const view = readRun(skill, values.run)
+    const view = readRun(skill, runNameOf(values.run, '--run'))
     if (!view.report)
       throw new Error(`${values.run} is not graded. Run: st grade --run ${values.run}`)
     if (values.json) console.log(JSON.stringify(view.report, null, 2))
@@ -311,7 +343,7 @@ async function main(): Promise<number> {
     const [a, b] = rest
     if (!a || !b) throw new Error('Pass two run names.')
     const load = (name: string) => {
-      const { report } = readRun(skill, name)
+      const { report } = readRun(skill, runNameOf(name, '`st compare`'))
       if (!report) throw new Error(`${name} has no report.json.`)
       return report
     }
@@ -351,7 +383,8 @@ main().then(
     process.exitCode = code
   },
   (error: Error) => {
-    console.error(error.message)
+    // The flag that would fix it is the command line's to name.
+    console.error(withHint(error.message))
     process.exitCode = 2
   },
 )

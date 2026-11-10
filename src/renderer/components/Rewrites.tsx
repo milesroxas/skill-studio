@@ -6,6 +6,7 @@
  * stands. The cards hold their place while the rewrites are written, so the
  * popout does not jump when they land.
  */
+import type { AiRun } from '@domain/ai.ts'
 import {
   dropsFact,
   offerable,
@@ -18,8 +19,9 @@ import {
 import type { RuleScene } from '@domain/lint.ts'
 import { cva } from 'class-variance-authority'
 import { type KeyboardEvent, type Ref, useEffect, useMemo, useRef, useState } from 'react'
-import { startRewrites, stopRun, useRun } from '../ai.ts'
+import { startRewrites, stopRun } from '../ai.ts'
 import { after } from '../motion.ts'
+import { useStartedRun } from '../started-run.ts'
 import { Toolbar } from './layout.tsx'
 import { Unjudged } from './Refine.tsx'
 import { Hint, Text } from './text.tsx'
@@ -137,6 +139,9 @@ function RewriteCard({
   )
 }
 
+/** The run that writes the rewrites is what the request answers. */
+const itself = (run: AiRun): AiRun => run
+
 export function RewritesBody({
   scene,
   onApply,
@@ -144,37 +149,11 @@ export function RewritesBody({
   scene: RuleScene
   onApply: (text: string) => void
 }) {
-  const [runId, setRunId] = useState<string | null>(null)
-  const [error, setError] = useState<string | null>(null)
   /** Bumped by Try again: the same selection, asked once more. */
   const [attempt, setAttempt] = useState(0)
-  const run = useRun(runId)
-  const alive = useRef(true)
+  // Asked as the popout opens; closing it on rewrites still being written stops the writing.
+  const { run, error } = useStartedRun(() => startRewrites(scene), itself, [scene, attempt])
   const first = useRef<HTMLButtonElement>(null)
-
-  // biome-ignore lint/correctness/useExhaustiveDependencies: `attempt` asks again on purpose.
-  useEffect(() => {
-    alive.current = true
-    setRunId(null)
-    setError(null)
-    let started: string | null = null
-    startRewrites(scene).then(
-      (run) => {
-        if (alive.current) {
-          started = run.id
-          setRunId(run.id)
-        } else stopRun(run.id)
-      },
-      (e: Error) => {
-        if (alive.current) setError(e.message)
-      },
-    )
-    return () => {
-      alive.current = false
-      // The popout closed on a run still writing: nothing will read it.
-      if (started) stopRun(started)
-    }
-  }, [scene, attempt])
 
   const result = useMemo(() => {
     if (run?.status !== 'done') return null
@@ -191,10 +170,7 @@ export function RewritesBody({
     if (rewrites) first.current?.focus()
   }, [rewrites])
 
-  const problem =
-    error ??
-    (run?.status === 'failed' ? run.error : null) ??
-    (typeof result === 'string' ? result : null)
+  const problem = error ?? (typeof result === 'string' ? result : null)
   const stopped = run?.status === 'stopped'
   const running = !problem && !rewrites && !stopped
 

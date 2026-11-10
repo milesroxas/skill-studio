@@ -119,7 +119,50 @@ export function stopRun(id: string): AiRun {
   return findRun(id)
 }
 
-export const aiStatus = async (): Promise<AiStatus> => ({ providers: await aiProviderInfo() })
+/** Stop every reply still being written. For when the process is going away. */
+export function stopAllRuns(): void {
+  for (const controller of controllers.values()) controller.abort()
+}
+
+/**
+ * Keep what a request spent. The log is a record beside the reply, never part
+ * of it: a log that cannot be written must not turn a good reply into a failed one.
+ */
+function spent(entry: Parameters<typeof recordUsage>[0]): void {
+  try {
+    recordUsage(entry)
+  } catch (error) {
+    console.warn(`The usage log could not be written: ${(error as Error).message}`)
+  }
+}
+
+/** A prose reply as the run keeps it. An empty one is a failure the writer can retry. */
+const proseReply = (raw: string): string => {
+  if (!raw.trim()) throw new Error('The model returned nothing. Try again.')
+  return raw.trim()
+}
+
+/**
+ * Run `work` unless the same kind of work is already starting. The checks that
+ * refuse a second message while a reply is on its way read state that is only
+ * set after the first `await`, so two calls a moment apart would both pass
+ * them and both start a paid reply. This holds the place from the first line.
+ */
+const starting = new Set<string>()
+async function once<T>(what: string, work: () => Promise<T>): Promise<T> {
+  if (starting.has(what)) throw new Error('Wait for the reply, or stop it first.')
+  starting.add(what)
+  try {
+    return await work()
+  } finally {
+    starting.delete(what)
+  }
+}
+
+/** How every provider stands now, asked afresh: this is what Settings' "Check again" reads. */
+export const aiStatus = async (): Promise<AiStatus> => ({
+  providers: await aiProviderInfo({ fresh: true }),
+})
 
 export const aiUsage = (): UsageSummary => summarizeUsage(readUsage(), new Date())
 
@@ -187,7 +230,7 @@ function start(work: Work): AiRun {
     .then(async (reply) => {
       if (controller.signal.aborted) return
       run.usage = reply.usage
-      recordUsage({
+      spent({
         at: new Date().toISOString(),
         provider: choice.provider,
         model: reply.model,
@@ -201,7 +244,7 @@ function start(work: Work): AiRun {
       // A reply the provider billed and then refused still cost tokens; the log keeps them.
       if (isProviderError(error)) {
         run.usage = error.usage
-        recordUsage({
+        spent({
           at: new Date().toISOString(),
           provider: choice.provider,
           model: error.model,
@@ -214,7 +257,16 @@ function start(work: Work): AiRun {
     .finally(async () => {
       if (run.status === 'running') run.status = 'stopped'
       controllers.delete(run.id)
-      await work.ended?.(run)
+      try {
+        await work.ended?.(run)
+      } catch (error) {
+        // The reply itself stands; what could not be kept of it is said, and the end is still reported.
+        console.warn(`A reply's end could not be recorded: ${(error as Error).message}`)
+        if (run.status === 'done') {
+          run.status = 'failed'
+          run.error = `The reply could not be saved: ${(error as Error).message}`
+        }
+      }
       changed(run)
     })
   return { ...run }
@@ -279,7 +331,14 @@ function chatWindow(messages: ChatMessage[]): AiMessage[] {
  * the reply. `skill` is the open skill's path: the reply is marked with it, so
  * the changes it proposes are offered only while that skill is open.
  */
-export async function sendChat(
+export const sendChat = (
+  text: string,
+  images: ImageRef[],
+  scene: ChatScene,
+  skill: string | null,
+): Promise<ChatThread> => once('chat', () => sendChatNow(text, images, scene, skill))
+
+async function sendChatNow(
   text: string,
   images: ImageRef[],
   scene: ChatScene,
@@ -299,10 +358,7 @@ export async function sendChat(
     messages: chatWindow(messages),
     schema: null,
     preview: (raw) => raw,
-    finish: (raw) => {
-      if (!raw.trim()) throw new Error('The model returned nothing. Try again.')
-      return raw.trim()
-    },
+    finish: proseReply,
     ended: (run) => {
       // The conversation was started over while this reply was on its way.
       if (chatRun?.id !== run.id) return
@@ -442,10 +498,7 @@ async function improveReply(thread: ImproveThread): Promise<void> {
     messages: chatWindow(thread.messages),
     schema: null,
     preview: (raw) => raw,
-    finish: (raw) => {
-      if (!raw.trim()) throw new Error('The model returned nothing. Try again.')
-      return raw.trim()
-    },
+    finish: proseReply,
     ended: async (run) => {
       // The conversation was closed, or started over, while this reply was on its way.
       if (improve !== thread || thread.run?.id !== run.id) return
@@ -473,11 +526,44 @@ async function improveReply(thread: ImproveThread): Promise<void> {
   })
 }
 
-/** Open an improve conversation on a selected rule and ask its first question. */
-export async function startImprove(scene: RuleScene): Promise<ImproveThread> {
+/** How many improve conversations have been started: a start, or a reply, that a later start overtook gives way. */
+let improveStarts = 0
+/** The latest start, which one that gave way answers with. */
+let latestStart: Promise<ImproveThread> | null = null
+
+/**
+ * Open an improve conversation on a selected rule and ask its first question.
+ * A rule picked while the last one is still being read (Jev may take up to a
+ * minute) is the one the writer wants now: the earlier start gives way, stops
+ * any reply it began, and answers with this one's conversation.
+ */
+export function startImprove(scene: RuleScene): Promise<ImproveThread> {
+  const ticket = ++improveStarts
+  const started = startImproveNow(scene, ticket)
+  latestStart = started
+  return started
+}
+
+/** Whether a start later than `ticket` has begun. */
+const overtaken = (ticket: number): boolean => ticket !== improveStarts
+
+/** What a start or a reply that was overtaken answers with: the latest start's conversation. */
+const latest = (): Promise<ImproveThread> =>
+  latestStart ??
+  Promise.reject(new Error('No rule is being improved. Select one in the Editor first.'))
+
+/** Stop the reply `thread` began, when it began one. */
+const stopReply = (thread: ImproveThread): void => {
+  if (thread.run) controllers.get(thread.run.id)?.abort()
+}
+
+async function startImproveNow(scene: RuleScene, ticket: number): Promise<ImproveThread> {
   clearImprove()
   await currentChoice()
+  if (overtaken(ticket)) return latest()
   const { findings, judgment, judged } = await assess(scene, improveJev)
+  // Jev's reading of a rule no longer wanted is dropped, and no reply is paid for.
+  if (overtaken(ticket)) return latest()
   const thread: ImproveThread = {
     scene,
     steps: planImprove(findings, judgment),
@@ -496,10 +582,18 @@ export async function startImprove(scene: RuleScene): Promise<ImproveThread> {
   } catch (error) {
     // A conversation with no first question is nothing to come back to.
     if (improve === thread) improve = null
+    if (overtaken(ticket)) return latest()
     throw error
+  }
+  if (overtaken(ticket)) {
+    stopReply(thread)
+    return latest()
   }
   return snapshot(thread)
 }
+
+/** What a reply to a conversation closed while its answer was read is refused with. */
+const CLOSED = 'That conversation was closed.'
 
 /**
  * The writer's reply. Code decides where the walk goes: the judge says
@@ -507,10 +601,14 @@ export async function startImprove(scene: RuleScene): Promise<ImproveThread> {
  * once more and an answered one moves on; on the first question, a reply that
  * says the line does nothing sends the walk straight to a draft that deletes it.
  */
-export async function sendImprove(text: string): Promise<ImproveThread> {
+export const sendImprove = (text: string): Promise<ImproveThread> =>
+  once('improve', () => sendImproveNow(text))
+
+async function sendImproveNow(text: string): Promise<ImproveThread> {
   const thread = improve
   if (!thread) throw new Error('No rule is being improved. Select one in the Editor first.')
   if (thread.run?.status === 'running') throw new Error('Wait for the reply, or stop it first.')
+  const ticket = improveStarts
   thread.messages = [...thread.messages, message(thread.messages, 'user', text)]
   const step = currentStep(thread)
   if (step) {
@@ -532,7 +630,13 @@ export async function sendImprove(text: string): Promise<ImproveThread> {
       } else thread.asks += 1
     }
   }
+  // Another rule was picked, or the conversation closed, while the answer was read: no reply is paid for.
+  if (improve !== thread) return overtaken(ticket) ? latest() : Promise.reject(new Error(CLOSED))
   await improveReply(thread)
+  if (improve !== thread) {
+    stopReply(thread)
+    return overtaken(ticket) ? latest() : Promise.reject(new Error(CLOSED))
+  }
   return snapshot(thread)
 }
 

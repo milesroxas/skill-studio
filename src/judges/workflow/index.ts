@@ -6,11 +6,12 @@
  * transcript (a legacy run, an anchor) gets null.
  */
 import { existsSync, readFileSync } from 'node:fs'
-import { join } from 'node:path'
+import { homedir } from 'node:os'
+import { isAbsolute, join, resolve } from 'node:path'
 import { isWithin } from '@domain/paths.ts'
 import type { Timing, TranscriptEvent } from '@domain/schemas.ts'
-import { round } from '@domain/text.ts'
 import { noul } from '@typesafe-ai/sdk'
+import { asksJev, noulOf, optionalAnswer } from '../shared/questions.ts'
 import type { JudgeContext, JudgeInput, JudgePack } from '../types.ts'
 import {
   type WorkflowConfig,
@@ -31,6 +32,248 @@ const isWrite = (e: TranscriptEvent): boolean =>
 /** Shared system locations an agent touches without reaching into anyone's files. */
 const SYSTEM_DIRS = ['/dev', '/tmp', '/private/tmp', '/usr', '/bin', '/opt', '/etc']
 
+const SHELL_TOOLS = /^(?:bash|shell|run|exec)/i
+/** Tools that reach the web: a query or an address is no place on disk. */
+const WEB_TOOLS = /^web/i
+/**
+ * Tools that look for text. The transcript keeps the folder such a call names
+ * when it names one, else its pattern, so a word that could be either is read
+ * as a place only when it names something on disk, which a pattern seldom does.
+ */
+const GREP_TOOLS = /^(?:grep|search|find|rg)/i
+/** Programs whose first argument is a pattern or a script: `"/api/users"` after `grep` is text to find. */
+const PATTERN_PROGRAMS = new Set('grep egrep fgrep rg ag ack sed awk gawk perl jq'.split(' '))
+/** Options of those programs that give the pattern or the script, so every other word is a file. */
+const PATTERN_OPTIONS = new Set(['-e', '--regexp', '--expression', '--source'])
+/** Options of those programs that give a file of patterns or a script file, so every word is a file. */
+const PATTERN_FILE_OPTIONS = new Set(['-f', '--file', '--from-file'])
+/** Programs that read stdin only: every word they are given is text, and a redirection names their file. */
+const STDIN_PROGRAMS = new Set(['tr'])
+/** Words a command may open with before its program, as `if cd outputs; then …` does. */
+const COMMAND_PREFIXES = new Set(
+  '{ ! if then else elif do while until time command builtin'.split(' '),
+)
+
+/** A path as a tool's arguments name it, the place it resolves to, and whether the line was cut inside it. */
+interface NamedPath {
+  path: string
+  /** Null when code cannot tell: a relative path after a `cd` to a folder it could not follow. */
+  place: string | null
+  cut: boolean
+}
+
+type Found = Omit<NamedPath, 'cut'>
+
+/** A word that names a place: absolute, under the home folder, or reaching up with `..`. */
+const isPathLike = (word: string): boolean =>
+  /^(?:\/[\w@.~-]|~(?:\/|$)|\.\.(?:\/|$))/.test(word) || word.includes('/../')
+
+/** A path as a place on disk: `~` is the home folder, and a relative path starts at `from`; null when that is not known. */
+const placed = (path: string, from: string | null): string | null =>
+  path === '~' || path.startsWith('~/')
+    ? join(homedir(), path.slice(1))
+    : isAbsolute(path)
+      ? path
+      : from === null
+        ? null
+        : resolve(from, path)
+
+/**
+ * Where the agent's shell is as its commands run, from one tool call to the
+ * next. `cwd` is null once a `cd` went where code cannot follow (`cd "$DIR"`);
+ * `previous` is what `cd -` goes back to, undefined before any `cd`.
+ */
+interface ShellPlace {
+  cwd: string | null
+  previous: string | null | undefined
+  /** The folders `pushd` left, the newest last. */
+  stack: Array<string | null>
+}
+
+interface ShellWord {
+  text: string
+  quoted: boolean
+  /** The word follows `<` or `>`: a redirection's file. */
+  redirect: boolean
+}
+
+/** What divides one simple command from the next: `|`, `;` and `&` as `;`, and a bracket, which opens or closes a subshell. */
+type ShellMark = ';' | '(' | ')'
+
+/** A command line as words and the marks between commands, quotes kept together. */
+function shellTokens(line: string): Array<ShellWord | ShellMark> {
+  const tokens: Array<ShellWord | ShellMark> = []
+  let word = ''
+  let quoted = false
+  let quote: string | null = null
+  let redirect = false
+  const end = () => {
+    if (word || quoted) {
+      tokens.push({ text: word, quoted, redirect })
+      redirect = false
+    }
+    word = ''
+    quoted = false
+  }
+  for (const char of line) {
+    if (quote) {
+      if (char === quote) quote = null
+      else word += char
+    } else if (char === '"' || char === "'") {
+      quote = char
+      quoted = true
+    } else if (char === '<' || char === '>') {
+      end()
+      redirect = true
+    } else if (/\s/.test(char)) end()
+    else if ('|;&()'.includes(char)) {
+      end()
+      redirect = false
+      tokens.push(char === '(' || char === ')' ? char : ';')
+    } else word += char
+  }
+  end()
+  return tokens
+}
+
+/** A `cd` target code can follow: no variable, command or glob in it, and no other user's home. */
+const followable = (target: string): boolean => !/[$`*?[]|^~[^/]/.test(target)
+
+/** A `cd` or `pushd`: where it leaves the shell, and the path its target names. */
+function moved(program: string, args: ShellWord[], shell: ShellPlace): Found[] {
+  const target = args.find((w) => !w.redirect && (w.text === '-' || !w.text.startsWith('-')))
+  if (program === 'pushd' && !target) return []
+  const from = shell.cwd
+  let to: string | null
+  const found: Found[] = []
+  if (!target) to = homedir()
+  else if (target.text === '-') {
+    // `cd -` before any `cd` has nowhere to go back to, and leaves the shell where it is.
+    if (shell.previous === undefined) return []
+    to = shell.previous
+  } else if (!followable(target.text)) to = null
+  else {
+    to = placed(target.text, from)
+    if (isPathLike(target.text)) found.push({ path: target.text, place: to })
+  }
+  if (program === 'pushd') shell.stack.push(from)
+  shell.previous = from
+  shell.cwd = to
+  return found
+}
+
+/**
+ * The paths one simple command names, read from where the shell is. What a
+ * pattern program is given to look for is not one, nor is a word given to a
+ * program that reads stdin only; a redirection's file always is.
+ */
+function commandPaths(command: ShellWord[], shell: ShellPlace): Found[] {
+  // `VAR=value program …`: the program is the first word that is neither an assignment nor a keyword.
+  const at = command.findIndex((w) => !/^\w+=/.test(w.text) && !COMMAND_PREFIXES.has(w.text))
+  const program = (command[at]?.text ?? '').split('/').at(-1) ?? ''
+  if (program === 'cd' || program === 'pushd') return moved(program, command.slice(at + 1), shell)
+  if (program === 'popd') {
+    if (shell.stack.length) shell.cwd = shell.stack.pop() ?? null
+    return []
+  }
+  const pattern = PATTERN_PROGRAMS.has(program)
+  const textOnly = STDIN_PROGRAMS.has(program)
+  let patternSeen = false
+  // What the word after an option is: the pattern itself, or a file of patterns.
+  let given: 'pattern' | 'file' | null = null
+  const found: Found[] = []
+  command.forEach((word, i) => {
+    // `--out=/x`, and `VAR=/x` before the program, name a place after the `=`.
+    const text = /^[\w-]+=/.test(word.text) ? word.text.replace(/^[\w-]+=/, '') : word.text
+    if (i > at && !word.redirect) {
+      if (textOnly) return
+      if (pattern) {
+        const after = given
+        given = null
+        if (after === 'pattern') return
+        if (after === null) {
+          const [option, value] = word.text.split(/=(.*)/s)
+          if (PATTERN_OPTIONS.has(option)) {
+            patternSeen = true
+            if (value === undefined) given = 'pattern'
+            return
+          }
+          if (PATTERN_FILE_OPTIONS.has(option)) {
+            patternSeen = true
+            if (value === undefined) {
+              given = 'file'
+              return
+            }
+          } else if (!patternSeen && !word.text.startsWith('-')) {
+            // The first word that is no option is the pattern or the script, quoted or not.
+            patternSeen = true
+            return
+          }
+        }
+      }
+    }
+    if (isPathLike(text)) found.push({ path: text, place: placed(text, shell.cwd) })
+  })
+  return found
+}
+
+/**
+ * The paths a shell command line names, each read from the folder the shell
+ * is in when it runs: a `cd` moves it for the commands after, and a subshell's
+ * `cd` ends with the subshell.
+ */
+function shellPaths(line: string, shell: ShellPlace): Found[] {
+  const found: Found[] = []
+  const outer: ShellPlace[] = []
+  let command: ShellWord[] = []
+  const run = () => {
+    if (command.length) found.push(...commandPaths(command, shell))
+    command = []
+  }
+  for (const token of shellTokens(line)) {
+    if (typeof token !== 'string') {
+      command.push(token)
+      continue
+    }
+    run()
+    if (token === '(') outer.push({ ...shell, stack: [...shell.stack] })
+    else if (token === ')') {
+      const back = outer.pop()
+      if (back) Object.assign(shell, back)
+    }
+  }
+  run()
+  return found
+}
+
+/**
+ * The paths one tool call names. A shell command is read word by word, from
+ * where the shell is. A web tool's argument is no place. A search tool's
+ * argument is its folder when the call named one and its pattern when not,
+ * so it counts only when it names something on disk. Any other tool's
+ * argument is one path, as the transcript keeps it, or JSON in which every
+ * quoted path counts.
+ */
+function pathsIn(tool: string, args: string, dir: string, shell: ShellPlace): NamedPath[] {
+  const cutLine = args.endsWith('…')
+  const whole = cutLine ? args.slice(0, -1) : args
+  let found: Found[]
+  if (WEB_TOOLS.test(tool)) found = []
+  else if (SHELL_TOOLS.test(tool)) found = shellPaths(whole, shell)
+  else if (/^\s*[[{]/.test(whole))
+    found = [...whole.matchAll(/"((?:\/|~\/|\.\.\/)[^"]*)"/g)].map((match) => ({
+      path: match[1],
+      place: placed(match[1], dir),
+    }))
+  else {
+    // "path (120 chars)" and "path (edit)" are how a write and an edit are kept.
+    const path = whole.replace(/ \((?:\d+ chars|edit)\)$/, '').trim()
+    const place = isPathLike(path) ? placed(path, dir) : null
+    found = place !== null && (!GREP_TOOLS.test(tool) || existsSync(place)) ? [{ path, place }] : []
+  }
+  return found.map((f) => ({ ...f, cut: cutLine && whole.trimEnd().endsWith(f.path) }))
+}
+
 function metricsOf(events: TranscriptEvent[], input: JudgeInput): WorkflowMetrics {
   const tools = events.filter((e) => e.kind === 'tool')
   const seen = new Set<string>()
@@ -41,14 +284,17 @@ function metricsOf(events: TranscriptEvent[], input: JudgeInput): WorkflowMetric
     seen.add(key)
   }
   const outside = new Set<string>()
-  for (const { args = '' } of tools)
-    for (const match of args.matchAll(/(?:^|[\s"'=(])(\/[\w@./-]+)/g)) {
-      const path = match[1]
-      // Arguments are cut at one line, so a path that stops where the line stops is unknown.
-      const cut = args.endsWith('…') && match.index + match[0].length >= args.length - 1
+  // One shell runs the transcript's commands in order, from the sample directory.
+  const shell: ShellPlace = { cwd: input.dir, previous: undefined, stack: [] }
+  for (const { tool = '', args = '' } of tools)
+    for (const { path, place, cut } of pathsIn(tool, args, input.dir, shell)) {
+      if (place === null) continue
       // A cut path is a prefix of what the agent typed, so a plain string prefix is the right test.
-      if (cut && input.dir.startsWith(path)) continue
-      if (isWithin(path, input.dir) || SYSTEM_DIRS.some((root) => isWithin(path, root))) continue
+      if (cut && input.dir.startsWith(place)) continue
+      if (isWithin(place, input.dir)) continue
+      // A system folder named outright (`/tmp/scratch`, `/usr/share/dict`) is no reach. A
+      // path that climbs out of the sample with `..` is, wherever it lands, even in /tmp.
+      if (isAbsolute(path) && SYSTEM_DIRS.some((root) => isWithin(place, root))) continue
       outside.add(path)
     }
   const timingPath = join(input.dir, 'timing.json')
@@ -83,7 +329,7 @@ function metricsOf(events: TranscriptEvent[], input: JudgeInput): WorkflowMetric
 }
 
 /** One line per step, long values cut, so Jev reads the shape of the work and not its bulk. */
-function summarize(events: TranscriptEvent[], maxLines: number): string {
+export function summarize(events: TranscriptEvent[], maxLines: number): string {
   const lines = events
     .filter((e) => e.kind !== 'system')
     .map((e) => {
@@ -95,10 +341,12 @@ function summarize(events: TranscriptEvent[], maxLines: number): string {
             : (e.text ?? '')
       return `${e.step}. ${e.kind} ${body.replace(/\s+/g, ' ').slice(0, 160)}`
     })
-  if (lines.length <= maxLines) return lines.join('\n')
-  const head = lines.slice(0, Math.floor(maxLines / 2))
-  const tail = lines.slice(-Math.ceil(maxLines / 2))
-  return [...head, `… ${lines.length - maxLines} steps left out …`, ...tail].join('\n')
+  // At least a first and a last line: `slice(-0)` would be every line, the whole transcript.
+  const kept = Math.max(2, Number.isFinite(maxLines) ? Math.floor(maxLines) : 2)
+  if (lines.length <= kept) return lines.join('\n')
+  const head = lines.slice(0, Math.floor(kept / 2))
+  const tail = lines.slice(-Math.ceil(kept / 2))
+  return [...head, `… ${lines.length - kept} steps left out …`, ...tail].join('\n')
 }
 
 async function judgeJev(
@@ -127,13 +375,15 @@ async function judgeJev(
   }
   const answers = await ctx.jev.ask({ task, transcript: summary }, questions)
   return {
-    followedTask: round(answers.followed_task.noul, 3),
-    recovered: answers.recovered ? round(answers.recovered.noul, 3) : null,
+    followedTask: noulOf(answers, 'followed_task'),
+    // Asked only after an error; one Jev left out is null, and the counts stand.
+    recovered: hadErrors ? optionalAnswer(() => noulOf(answers, 'recovered')) : null,
   }
 }
 
 export const workflowPack: JudgePack<WorkflowRaw> = {
   ...workflowScoring,
+  version: 1,
   label: 'Workflow: how the agent worked, from its transcript',
   artifacts: [],
   async judge(input, ctx) {
@@ -141,7 +391,7 @@ export const workflowPack: JudgePack<WorkflowRaw> = {
     if (!events?.length) return null
     const metrics = metricsOf(events, input)
     const { summaryLines } = (ctx.config as WorkflowConfig).workflow
-    const jev = ctx.useJev
+    const jev = asksJev(input, ctx)
       ? await judgeJev(
           summarize(events, summaryLines),
           (input.case?.prompt ?? '').slice(0, 1500),

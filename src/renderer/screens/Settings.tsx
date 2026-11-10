@@ -31,7 +31,7 @@ import { Hint, Link } from '../components/text.tsx'
 import { Button } from '../components/ui/button.tsx'
 import { Label } from '../components/ui/label.tsx'
 import type { Reporter } from '../hooks.ts'
-import { setPreferences, usePreferences } from '../preferences.ts'
+import { savePreference, usePreferences } from '../preferences.ts'
 import { APP_VERSION, checkForUpdates } from '../updates.ts'
 
 interface Props {
@@ -104,10 +104,7 @@ export function SettingsScreen({ running, report, onSaved, onWelcome }: Props) {
     hints: useId(),
     updates: useId(),
   }
-  const choose = (patch: Partial<Preferences>) =>
-    setPreferences(patch).catch((e: Error) =>
-      report(`Not saved: ${e.message}`, { tone: 'destructive' }),
-    )
+  const choose = (patch: Partial<Preferences>) => savePreference(patch, report)
 
   return (
     <Screen width="form">

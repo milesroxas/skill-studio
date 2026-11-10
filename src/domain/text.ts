@@ -11,16 +11,47 @@ export interface Fence {
   length: number
 }
 
-/** The fence a line opens, or null for any other line. */
+/**
+ * The fence a line opens, or null for any other line. A run of backticks with
+ * another backtick after it on the line is inline code, as in CommonMark, so a
+ * line that starts with one opens nothing. A line of a CRLF text, split at
+ * `\n`, still ends in `\r`, and opens a fence all the same.
+ */
 export function fenceOf(line: string): Fence | null {
-  const match = /^\s*(`{3,}|~{3,})/.exec(line)
-  return match ? { char: match[1][0] as Fence['char'], length: match[1].length } : null
+  const match = /^\s*(`{3,}|~{3,})(.*)\r?$/.exec(line)
+  if (!match) return null
+  const char = match[1][0] as Fence['char']
+  if (char === '`' && match[2].includes('`')) return null
+  return { char, length: match[1].length }
 }
 
 /** Whether the line closes `fence`: the same character, at least as many, and nothing else. */
 export const closesFence = (line: string, fence: Fence): boolean => {
   const match = /^\s*(`{3,}|~{3,})\s*$/.exec(line)
   return match !== null && match[1][0] === fence.char && match[1].length >= fence.length
+}
+
+/**
+ * `text` with its fenced code taken out, line for line: every line of a fenced
+ * block, the fence lines included, comes back empty, so the lines around it
+ * keep their numbers. A fence left open runs to the end, as Markdown reads
+ * it. With `keepLength` each such line is spaces of the same length instead,
+ * for a caller that reports a position in the text.
+ */
+export function withoutCode(text: string, { keepLength = false } = {}): string {
+  let fence: Fence | null = null
+  const blank = (line: string): string => (keepLength ? line.replace(/[^\r]/g, ' ') : '')
+  return text
+    .split('\n')
+    .map((line) => {
+      if (fence) {
+        if (closesFence(line, fence)) fence = null
+        return blank(line)
+      }
+      fence = fenceOf(line)
+      return fence ? blank(line) : line
+    })
+    .join('\n')
 }
 
 const FRONT_MATTER = /^---\n(?:([\s\S]*?)\n)?---(?:\n|$)/
@@ -103,21 +134,37 @@ export interface Unit {
   list: boolean
 }
 
+/**
+ * A list marker as a line opens with one: a dash, star or plus, or a number
+ * with a dot or bracket. The source of every pattern that reads one, so a
+ * bullet is the same thing wherever it is looked for.
+ */
+export const LIST_MARK = '(?:[-*+]|\\d+[.)])'
+
+/** A list marker at the start of a line, with the space after it. */
+export const LIST_MARKER = new RegExp(`^\\s*${LIST_MARK}\\s+`)
+
+const LIST_LINE = new RegExp(`^\\s*${LIST_MARK}\\s`)
+const HEADING_LINE = /^#{1,6}\s/
+
 /** Prose paragraphs and list blocks, in order; headings, figures and code are left out. */
 export function unitsOf(text: string): Unit[] {
   const units: Unit[] = []
-  const blocks = normalizeNewlines(text)
-    .replace(/```[\s\S]*?```/g, '')
+  const blocks = withoutCode(normalizeNewlines(text))
     .split(/\n\s*\n/)
     .map((block) => block.trim())
     .filter(Boolean)
-  for (const block of blocks) {
-    if (/^#{1,6}\s/.test(block) || /^\[(?:figure|caption)\]/i.test(block)) continue
+  for (const whole of blocks) {
+    // A paragraph may follow its heading with no blank line between: the heading goes, the paragraph stays.
+    const body = whole.split('\n')
+    while (body.length && HEADING_LINE.test(body[0].trimStart())) body.shift()
+    const block = body.join('\n').trim()
+    if (!block || /^\[(?:figure|caption)\]/i.test(block)) continue
     if (/^<!--/.test(block) || /^!\[/.test(block)) continue
     const lines = block.split('\n')
-    const isList = lines.every((line) => /^\s*(?:[-*+]|\d+[.)])\s/.test(line))
+    const isList = lines.every((line) => LIST_LINE.test(line))
     const items = isList
-      ? lines.map((line) => line.replace(/^\s*(?:[-*+]|\d+[.)])\s+/, ''))
+      ? lines.map((line) => line.replace(LIST_MARKER, ''))
       : [block.replace(/\n/g, ' ')]
     units.push({ text: items.join(' ').replace(/^>\s?/, ''), items, list: isList })
   }
@@ -127,6 +174,24 @@ export function unitsOf(text: string): Unit[] {
 /** Runs of letters and digits; an apostrophe or hyphen joins two runs but is never a word alone. */
 export const words = (text: string): string[] =>
   text.match(/[\p{L}\p{M}\p{N}]+(?:['’-][\p{L}\p{M}\p{N}]+)*/gu) ?? []
+
+/** Whitespace-delimited tokens: the count a rule's length and the writing pack's shape are measured in. */
+export const tokens = (text: string): string[] => text.match(/\S+/g) ?? []
+
+/**
+ * The sentences of `text`. A sentence ends at a full stop, question mark or
+ * exclamation mark followed by space. With `capital` the next one must also
+ * open as a sentence does (a capital, a quote, a bracket or a digit), so
+ * "e.g. this" stays whole, and a piece with no letter in it is dropped: the
+ * reading the writing pack's measures were drawn with.
+ */
+export function sentencesOf(text: string, { capital = false } = {}): string[] {
+  const parts = capital
+    ? text.replace(/\s+/g, ' ').split(/(?<=[.?!])\s+(?=[A-Z"'“‘(\d[])/)
+    : text.split(/(?<=[.!?])\s+/)
+  const trimmed = parts.map((sentence) => sentence.trim())
+  return capital ? trimmed.filter((s) => /[A-Za-z]/.test(s)) : trimmed.filter(Boolean)
+}
 
 export const titleOf = (text: string): string | null =>
   /^#\s+(.+)$/m.exec(text)?.[1]?.trim() ?? null

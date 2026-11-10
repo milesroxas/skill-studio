@@ -50,6 +50,7 @@ describe('versionLift', () => {
       run({ name: 'old', configuration: 'old_skill', cases: { intro: 60 } }),
     ])
     expect(lift?.baseline).toBeNull()
+    expect(lift).toMatchObject({ baselineCases: 0, casesDiffer: false })
   })
 
   it("counts a run against an old skill's snapshot as that version, as the picks do", () => {
@@ -107,6 +108,78 @@ describe('versionLift', () => {
     // The floor is read over the same cases where it has them.
     expect(lift?.baseline?.mean).toBe(40)
     expect(lift).toMatchObject({ sharedCases: 2, casesDiffer: true, rises: true })
+  })
+
+  it('reads a case only from the runs that answered it, whatever its id', () => {
+    // `constructor` is a name every object answers to: only the first run answered that case.
+    const lift = versionLift([
+      run({ cases: { intro: 60, constructor: 20 } }),
+      run({ version: 'v1', cases: { intro: 90 } }),
+      run({
+        configuration: 'without_skill',
+        cases: { intro: 40 },
+        createdAt: '2026-11-02T10:31:00Z',
+      }),
+    ])
+    expect(lift).toMatchObject({ sharedCases: 1, casesDiffer: true, baselineCases: 1 })
+    expect(lift?.first.mean).toBe(60)
+    expect(lift?.latest.mean).toBe(90)
+    expect(lift?.baseline?.mean).toBe(40)
+  })
+
+  it('takes as the floor the newest run without the skill that answered every shared case', () => {
+    const lift = versionLift([
+      run({ cases: { a: 50, b: 50, c: 50 } }),
+      run({ version: 'v1', cases: { a: 60, b: 60, c: 60 }, createdAt: '2026-11-03T00:00:00Z' }),
+      run({ name: 'whole-old', configuration: 'without_skill', cases: { a: 30, b: 30, c: 30 } }),
+      run({
+        name: 'whole-new',
+        configuration: 'without_skill',
+        cases: { a: 40, b: 40, c: 40 },
+        createdAt: '2026-11-04T00:00:00Z',
+      }),
+      // Newest of all, and it answered one case of three: its 90 is no floor for the other two.
+      run({
+        name: 'part',
+        configuration: 'without_skill',
+        cases: { c: 90 },
+        createdAt: '2026-11-05T00:00:00Z',
+      }),
+    ])
+    expect(lift?.baseline).toMatchObject({ name: 'whole-new', mean: 40 })
+    expect(lift).toMatchObject({ baselineCases: 3, sharedCases: 3, casesDiffer: false })
+  })
+
+  it('says so when no floor answered every shared case, and over how many its mean is', () => {
+    const lift = versionLift([
+      run({ cases: { a: 50, b: 50, c: 50 } }),
+      run({ version: 'v1', cases: { a: 60, b: 60, c: 60 }, createdAt: '2026-11-03T00:00:00Z' }),
+      run({ name: 'one', configuration: 'without_skill', cases: { c: 90 } }),
+      run({
+        name: 'two',
+        configuration: 'without_skill',
+        cases: { a: 20, b: 40 },
+        createdAt: '2026-11-01T00:00:00Z',
+      }),
+    ])
+    // The run that answered the most of them, though it is the older one.
+    expect(lift?.baseline).toMatchObject({ name: 'two', mean: 30 })
+    expect(lift).toMatchObject({ baselineCases: 2, sharedCases: 3, casesDiffer: true })
+  })
+
+  it('reads an older floor when the newest answered none of the shared cases', () => {
+    const lift = versionLift([
+      run({ cases: { intro: 60 } }),
+      run({ version: 'v1', cases: { intro: 90 }, createdAt: '2026-11-03T00:00:00Z' }),
+      run({ name: 'old', configuration: 'without_skill', cases: { intro: 40 } }),
+      run({
+        name: 'new',
+        configuration: 'without_skill',
+        cases: { other: 90 },
+        createdAt: '2026-11-04T00:00:00Z',
+      }),
+    ])
+    expect(lift?.baseline).toMatchObject({ name: 'old', mean: 40 })
   })
 
   it('leaves the floor out when it answered none of the shared cases', () => {

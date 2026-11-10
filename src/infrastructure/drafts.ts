@@ -29,6 +29,7 @@ export function readDrafts(skillPath: string): SkillDrafts {
   return {
     files: (saved.files ?? {}) as Record<string, FileDraft>,
     cases: (saved.cases ?? {}) as Record<string, CaseDraft>,
+    caseBases: saved.caseBases ?? {},
     updatedAt: saved.updatedAt ?? null,
   }
 }

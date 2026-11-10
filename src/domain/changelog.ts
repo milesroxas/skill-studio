@@ -16,8 +16,14 @@ export interface Release {
   notes: string
 }
 
-/** `## [1.2.0] - 2026-11-05`, with or without the brackets and the date. */
-const HEADING = /^## \[?([^\]\s]+)\]?(?:\s+-\s+(\d{4}-\d{2}-\d{2}))?\s*$/
+/**
+ * `## [1.2.0] - 2026-11-05`, with or without the brackets and the date, and
+ * with anything after the date, such as `[YANKED]`. A version starts with a
+ * digit (after a `v`, if it has one), or is the word for work not yet released: any other `##` heading,
+ * such as `## Notes`, is text of the release it stands in.
+ */
+const HEADING =
+  /^## \[?(v?\d[^\]\s]*|unreleased)\]?(?:\s+[-–—]\s+(\d{4}-\d{2}-\d{2})(?:\s.*)?)?\s*$/i
 /** A link definition at the foot of the file, such as `[1.2.0]: https://…`. */
 const LINK_DEFINITION = /^\[[^\]]+\]:\s+\S+$/
 /** Work that is not in a release yet. It has no version, so it is no release. */

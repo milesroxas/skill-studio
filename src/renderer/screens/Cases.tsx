@@ -7,17 +7,8 @@
  * typing.
  */
 
-import { assistItems } from '@domain/assist.ts'
-import {
-  blankDraft,
-  DOUBLE,
-  draftOf,
-  newCaseId,
-  newCheck,
-  picturesOf,
-  weightMark,
-} from '@domain/case-draft.ts'
-import { addImages, type ImageRef, MAX_IMAGES } from '@domain/image.ts'
+import { blankDraft, draftOf, newCaseId, picturesOf } from '@domain/case-draft.ts'
+import { addImages, MAX_IMAGES } from '@domain/image.ts'
 import { type CaseDraft, NEW_CASE_KEY } from '@domain/schemas.ts'
 import {
   CASE_PROMPT_HINT,
@@ -26,11 +17,10 @@ import {
   templateById,
   templateForPacks,
 } from '@domain/templates.ts'
-import { PenLineIcon, PlusIcon, XIcon } from 'lucide-react'
-import { useEffect, useMemo, useRef, useState } from 'react'
-import { api } from '../api.ts'
+import { memo, useEffect, useMemo, useRef, useState } from 'react'
+import { api, currentSkill } from '../api.ts'
 import { caseContext, skillContext } from '../assist.ts'
-import { Assist, type AssistSpec, assistTitle } from '../components/Assist.tsx'
+import { CheckList } from '../components/CheckList.tsx'
 import { DraftNote } from '../components/DraftNote.tsx'
 import { CheckRow, InlineField, NumberInput } from '../components/forms.tsx'
 import {
@@ -42,8 +32,8 @@ import {
   FormSection,
   List,
   ListHeader,
+  Loading,
   PlainList,
-  Stack,
   Toolbar,
   Workbench,
 } from '../components/layout.tsx'
@@ -53,12 +43,13 @@ import { Segmented } from '../components/Segmented.tsx'
 import { ExampleList, GuideBox, PairList, Starter } from '../components/starters.tsx'
 import { TextArea } from '../components/TextArea.tsx'
 import { Heading, Hint, Text } from '../components/text.tsx'
-import { Alert, AlertDescription } from '../components/ui/alert.tsx'
+import { Alert, AlertDescription, AlertTitle } from '../components/ui/alert.tsx'
 import { Button } from '../components/ui/button.tsx'
 import { Input } from '../components/ui/input.tsx'
 import { Label } from '../components/ui/label.tsx'
-import { Toggle } from '../components/ui/toggle.tsx'
 import type { Ctx } from '../ctx.ts'
+import { caseUnsaved, formDraft, unsavedCases } from '../draft-edits.ts'
+import { useAction } from '../hooks.ts'
 import { useAddPictures } from '../images.ts'
 import { shortcut } from '../keys.ts'
 import { CHECK_READERS, checksGraded, kindLabel, plural } from '../model.ts'
@@ -72,21 +63,18 @@ const names = (ids: string[]): string => {
   return list.length > 1 ? `${list.slice(0, -1).join(', ')} and ${list.at(-1)}` : (list[0] ?? '')
 }
 
-/**
- * A draft stored before cases held pictures has none listed. It keeps the
- * pictures the saved case has, so saving it does not remove them.
- */
-const withPictures = (stored: CaseDraft, base: CaseDraft): CaseDraft => ({
-  ...stored,
-  images: stored.images ?? base.images,
-  graders: stored.graders.map((g) => ({
-    ...g,
-    image:
-      g.image === undefined ? (base.graders.find((b) => b.id === g.id)?.image ?? null) : g.image,
-  })),
-})
+/** The host's refusal of a save over a case that was written since the draft began. */
+const CHANGED_ON_DISK = /changed on disk/
 
-export function Cases({ ctx }: { ctx: Ctx }) {
+/**
+ * When a case was saved, where the host says. A draft keeps the stamp of the
+ * case it began on, and a save sends it back: the host refuses the save when
+ * the case on disk is newer.
+ */
+const savedAtOf = (saved: object | null | undefined): string | null =>
+  saved && 'savedAt' in saved && typeof saved.savedAt === 'string' ? saved.savedAt : null
+
+export const Cases = memo(function Cases({ ctx }: { ctx: Ctx }) {
   const { state, config, route, go, report, confirm, reload, drafts } = ctx
   const cases = state.cases
   /** Examples come from the kind of work the skill is graded as, until the user picks another. */
@@ -101,95 +89,39 @@ export function Cases({ ctx }: { ctx: Ctx }) {
   const selected = isNew ? null : (cases.find((c) => c.id === key) ?? null)
   const base = useMemo(() => (selected ? draftOf(selected) : blankDraft()), [selected])
   const baseJson = JSON.stringify(base)
-  const stored = drafts.cases[key]
-  const draft = useMemo(() => (stored ? withPictures(stored, base) : base), [stored, base])
-  const [busy, setBusy] = useState(false)
-  const [deleting, setDeleting] = useState(false)
-  const dirty = JSON.stringify(draft) !== baseJson
+  /** The case's draft. One that says what the case on disk says is none: there is nothing in it to save. */
+  const held = caseUnsaved(drafts.cases[key], base) ? drafts.cases[key] : undefined
+  const draft = useMemo(() => formDraft(held, base), [held, base])
+  const [busy, runSave] = useAction(report)
+  const [deleting, runDelete] = useAction(report)
+  /** The skill this case belongs to: a step that ends after another was opened leaves that one alone. */
+  const skill = state.skill.path
+  const dirty = held !== undefined
+  /** When the case was saved, as last read, and when it was as its draft began. */
+  const savedAt = savedAtOf(selected)
+  const began = drafts.caseBases[key]
+  /** The case changed on disk after its draft began: saving would write over what changed. */
+  const changedOnDisk = dirty && !isNew && began !== undefined && began !== savedAt
+  // A draft read back from disk began on a case this window never saw: it is taken as begun on the
+  // case as it is when first shown, so an edit made outside from then on is caught.
+  const unbased = dirty && began === undefined
+  useEffect(() => {
+    if (unbased) drafts.baseCase(key, savedAt)
+  }, [unbased, drafts, key, savedAt])
+  /** The cases with unsaved work, which the list marks. */
+  const unsaved = useMemo(() => new Set(unsavedCases(cases, drafts.cases)), [cases, drafts.cases])
 
   /** Another case. The one being left keeps its draft, so there is nothing to confirm. */
   const pick = (params: Record<string, string>) => go('cases', params)
 
-  /** Keep the edit as a draft, or drop the draft once the case matches what is saved again. */
+  /** Keep the edit as a draft, or drop the draft once the case matches what is saved again. A new draft keeps the case's stamp. */
   const setDraft = (next: CaseDraft) =>
-    drafts.setCase(key, JSON.stringify(next) === baseJson ? null : next)
+    drafts.setCase(key, JSON.stringify(next) === baseJson ? null : next, held ? undefined : savedAt)
   const set = (patch: Partial<CaseDraft>) => setDraft({ ...draft, ...patch })
-  const setGrader = (i: number, patch: Partial<CaseDraft['graders'][number]>) =>
-    set({ graders: draft.graders.map((g, k) => (k === i ? { ...g, ...patch } : g)) })
 
-  /** The form as it stands when an Undo is taken, which may be a few edits after it was offered. */
-  const live = useRef({ key, draft, setDraft })
-  live.current = { key, draft, setDraft }
-
-  /**
-   * Adding or removing a check moves the keyboard with it: to the new check's
-   * statement, or to the check that took the removed one's place. With no check
-   * left it goes to the button that adds one, so focus never falls off the list.
-   */
-  const statements = useRef<Array<HTMLTextAreaElement | null>>([])
-  const addCheckButton = useRef<HTMLButtonElement>(null)
-  const checkTools = useRef<HTMLDivElement>(null)
-  const [focusCheck, setFocusCheck] = useState<number | null>(null)
-  useEffect(() => {
-    if (focusCheck === null) return
-    const field = statements.current[focusCheck]
-    if (field) {
-      field.focus()
-      field.setSelectionRange(field.value.length, field.value.length)
-    } else addCheckButton.current?.focus()
-    setFocusCheck(null)
-  }, [focusCheck])
-  const addCheck = (at: number) => {
-    set({ graders: [...draft.graders.slice(0, at), newCheck(), ...draft.graders.slice(at)] })
-    setFocusCheck(at)
-  }
-  /** Checks the assistant wrote join the list, in place of any row left blank. */
-  const addChecks = (statements: string[]) =>
-    set({
-      graders: [
-        ...draft.graders.filter((g) => g.statement.trim() || g.image),
-        ...statements.map((statement) => ({ ...newCheck(), statement })),
-      ],
-    })
-  /** Take a check out. One with a statement can come back: a slip costs a sentence otherwise. */
-  const removeCheck = (i: number, focus: 'next' | 'previous') => {
-    const removed = draft.graders[i]
-    const graders = draft.graders.filter((_, k) => k !== i)
-    set({ graders })
-    setFocusCheck(focus === 'previous' ? Math.max(i - 1, 0) : Math.min(i, graders.length - 1))
-    if (!removed?.statement.trim()) return
-    report(`Removed check ${i + 1}`, {
-      undo: () => {
-        // Only into the case it came from; elsewhere the offer has passed.
-        const now = live.current
-        if (now.key !== key) return
-        const back = [...now.draft.graders]
-        back.splice(i, 0, removed)
-        now.setDraft({ ...now.draft, graders: back })
-      },
-    })
-  }
-  /**
-   * A check is one statement, so the list is typed like one: Enter starts the
-   * next check, and Backspace on an empty one takes it away. Shift+Enter still
-   * breaks the line.
-   */
-  const onCheckKey = (i: number) => (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    const check = draft.graders[i]
-    if (!check || e.nativeEvent.isComposing) return
-    if (e.key === 'Enter' && !e.shiftKey && !e.altKey && !e.metaKey && !e.ctrlKey) {
-      e.preventDefault()
-      if (check.statement.trim()) addCheck(i + 1)
-    } else if (
-      e.key === 'Backspace' &&
-      !check.statement &&
-      !check.image &&
-      draft.graders.length > 1
-    ) {
-      e.preventDefault()
-      removeCheck(i, 'previous')
-    }
-  }
+  /** The case in view, for a step that ends later: it goes on only where it began. */
+  const inView = useRef(key)
+  inView.current = key
 
   /** Fill the form from an example, with an id no existing case holds. */
   const fillFrom = async (example: CaseDraft) => {
@@ -207,8 +139,41 @@ export function Cases({ ctx }: { ctx: Ctx }) {
   const context = () => [skillContext(state), caseContext(draft)]
   const assist = { context, images: () => draft.images }
 
-  const pictures = useAddPictures(draft.images.length, (added) =>
-    set({ images: addImages(draft.images, added) }),
+  /**
+   * The form of the case under `at`, as it stands now, and the stamp a draft
+   * begun on it keeps (undefined when it has a draft already); null for a case
+   * that is gone.
+   */
+  const formOf = (
+    at: string,
+  ): { base: CaseDraft; draft: CaseDraft; stamp: string | null | undefined } | null => {
+    if (at === key) return { base, draft, stamp: held ? undefined : savedAt }
+    const saved = at === NEW_CASE_KEY ? null : cases.find((c) => c.id === at)
+    if (saved === undefined) return null
+    const savedBase = saved ? draftOf(saved) : blankDraft()
+    const kept = caseUnsaved(drafts.cases[at], savedBase) ? drafts.cases[at] : undefined
+    return {
+      base: savedBase,
+      draft: formDraft(kept, savedBase),
+      stamp: kept ? undefined : savedAtOf(saved),
+    }
+  }
+  // A picture takes a moment to read. It joins the case it was picked for, by then in view or not,
+  // and never another skill's.
+  const pictures = useAddPictures(
+    draft.images.length,
+    (added, scope) => {
+      const [forSkill = '', at = ''] = scope.split('\n')
+      const form = forSkill === currentSkill() ? formOf(at) : null
+      if (!form) return
+      const next = { ...form.draft, images: addImages(form.draft.images, added) }
+      drafts.setCase(
+        at,
+        JSON.stringify(next) === JSON.stringify(form.base) ? null : next,
+        form.stamp,
+      )
+    },
+    `${skill}\n${key}`,
   )
   /** A picture dropped anywhere on the case joins its pictures. */
   const drop = usePictureDrop(pictures.add)
@@ -217,48 +182,62 @@ export function Cases({ ctx }: { ctx: Ctx }) {
     draft.words && !(draft.words[0] >= 0 && draft.words[1] >= draft.words[0])
       ? 'The minimum must not be above the maximum.'
       : ''
-  const canSave = dirty && draft.prompt.trim() && !wordsError && !busy && !deleting
+  const canSave =
+    dirty && draft.prompt.trim() && !wordsError && !busy && !deleting && !changedOnDisk
 
-  const save = async () => {
+  const save = () => {
     if (!canSave) return
-    setBusy(true)
-    try {
+    const form = draft
+    /** The draft as it stands now: what is typed while the case is written is kept over it. */
+    const sent = held
+    /** The case the draft began on: the host refuses the save when the one on disk is newer. */
+    const over = began === undefined ? savedAt : began
+    void runSave(async () => {
       // A new case is named after its title, or its prompt: the id is its folder, never typed.
       const ids = cases.map((c) => c.id)
-      const id = isNew && (!draft.id || ids.includes(draft.id)) ? newCaseId(draft, ids) : draft.id
-      await api.saveCase({ ...draft, id }, isNew)
-      drafts.setCase(key, null)
-      await reload()
-      report(isNew ? `Added ${draft.title.trim() || id}` : `Saved ${id}`)
-      go('cases', { id }, { replace: true })
-    } catch (e) {
-      report(e as Error)
-    } finally {
-      setBusy(false)
-    }
+      const id = isNew && (!form.id || ids.includes(form.id)) ? newCaseId(form, ids) : form.id
+      let stamp: string | null
+      try {
+        stamp = (await api.saveCase({ ...form, id }, isNew, over)).savedAt
+      } catch (e) {
+        if (!CHANGED_ON_DISK.test((e as Error).message)) throw e
+        if (currentSkill() !== skill) return
+        // Read again, the case is newer than the one the draft began on: the form says so.
+        drafts.baseCase(key, over)
+        await reload()
+        return
+      }
+      // The draft goes once the saved case is read, so the form never steps back to the case
+      // from before the save.
+      if (currentSkill() === skill) await reload()
+      // Cleared in the drafts of the skill it was saved in, open or not: left, it would be saved twice.
+      const elsewhere = currentSkill() !== skill
+      drafts.savedCase(key, sent, id, stamp, elsewhere ? skill : undefined)
+      if (elsewhere) return
+      report(isNew ? `Added ${form.title.trim() || id}` : `Saved ${id}`)
+      // Only from the case that was saved: the reader may be on another by now.
+      if (inView.current === key) go('cases', { id }, { replace: true })
+    })
   }
 
   const remove = async () => {
     if (!selected) return
+    const gone = selected.id
     const ok = await confirm({
-      title: `Delete the case ${selected.id}?`,
+      title: `Delete the case ${gone}?`,
       description: 'Its folder goes too. Past runs keep their outputs.',
       action: 'Delete',
       destructive: true,
     })
     if (!ok) return
-    setDeleting(true)
-    try {
-      await api.deleteCase(selected.id)
-      drafts.setCase(selected.id, null)
+    void runDelete(async () => {
+      await api.deleteCase(gone)
+      if (currentSkill() !== skill) return
+      drafts.setCase(gone, null)
       await reload()
-      report(`Deleted ${selected.id}`)
-      go('cases', {}, { replace: true })
-    } catch (e) {
-      report(e as Error)
-    } finally {
-      setDeleting(false)
-    }
+      report(`Deleted ${gone}`)
+      if (inView.current === key) go('cases', {}, { replace: true })
+    })
   }
 
   const onKey = (e: React.KeyboardEvent) => {
@@ -286,6 +265,9 @@ export function Cases({ ctx }: { ctx: Ctx }) {
   /** The case's input files that are not its pictures, which the form shows above. */
   const otherFiles = selected ? selected.files.filter((f) => !picturesOf(selected).includes(f)) : []
 
+  // The stored drafts are still being read: the form waits, so nothing is typed over a draft not shown yet.
+  if (drafts.status === 'loading') return <Loading size="screen" />
+
   return (
     <Workbench layout={cases.length ? 'list' : 'single'}>
       {cases.length ? (
@@ -300,7 +282,7 @@ export function Cases({ ctx }: { ctx: Ctx }) {
             />
             <ColumnBody inset="list">
               <PlainList gap="none">
-                {drafts.cases[NEW_CASE_KEY] && !isNew ? (
+                {unsaved.has(NEW_CASE_KEY) && !isNew ? (
                   <li>
                     <NavButton onClick={() => pick({ new: '1' })}>
                       <Text size="ui">
@@ -317,7 +299,7 @@ export function Cases({ ctx }: { ctx: Ctx }) {
                     <NavButton current={selected?.id === c.id} onClick={() => pick({ id: c.id })}>
                       <Text size="ui" truncate block>
                         {c.title !== c.id ? c.title : c.id}
-                        {drafts.cases[c.id] ? <Text tone="warning"> •</Text> : null}
+                        {unsaved.has(c.id) ? <Text tone="warning"> •</Text> : null}
                       </Text>
                       <Text tone="muted" size="xs">
                         {c.title !== c.id ? <Text font="mono">{c.id}</Text> : null}
@@ -387,6 +369,32 @@ export function Cases({ ctx }: { ctx: Ctx }) {
                 would really ask: the prompt is enough to run it. A run writes an output for every
                 case, and reading it shows what to check.
               </Hint>
+            ) : null}
+            {changedOnDisk ? (
+              <Alert variant="warning" role="status">
+                <AlertTitle>{draft.id} changed on disk since this draft began</AlertTitle>
+                <AlertDescription>
+                  <p>Keep your draft to save over the case, or take the case as it is now.</p>
+                  <Toolbar>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => drafts.baseCase(key, savedAt)}
+                    >
+                      Keep my draft
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => drafts.setCase(key, null)}
+                    >
+                      Use the case on disk
+                    </Button>
+                  </Toolbar>
+                </AlertDescription>
+              </Alert>
             ) : null}
             {selected?.source === 'evals.json' ? (
               <Alert variant="muted">
@@ -501,78 +509,14 @@ export function Cases({ ctx }: { ctx: Ctx }) {
                 <GuideBox summary="What Jev can mark">
                   <PairList pairs={CHECK_EXAMPLES} />
                 </GuideBox>
-                <Stack gap="md">
-                  <PlainList as="ol" gap="md">
-                    {draft.graders.map((g, i) => (
-                      <CheckLine key={g.id ?? `new-${i}`} index={i + 1}>
-                        <CheckStatement
-                          index={i + 1}
-                          fieldRef={(el) => {
-                            statements.current[i] = el
-                          }}
-                          statement={g.statement}
-                          image={g.image}
-                          placeholder={
-                            kind.cases[0]?.graders[i]?.statement ??
-                            kind.cases[0]?.graders[0]?.statement
-                          }
-                          onKeyDown={onCheckKey(i)}
-                          onStatement={(statement) => setGrader(i, { statement })}
-                          onImage={(image) => setGrader(i, { image })}
-                          onError={report}
-                          assist={{ field: 'case.check', ...assist }}
-                        />
-                        <span className="flex h-9 items-center">
-                          <Toggle
-                            variant="outline"
-                            size="sm"
-                            pressed={g.weight > 1}
-                            aria-label={`Check ${i + 1} counts double`}
-                            title="Counts double"
-                            onPressedChange={(on) => setGrader(i, { weight: on ? DOUBLE : 1 })}
-                          >
-                            {weightMark(g.weight > 1 ? g.weight : DOUBLE)}
-                          </Toggle>
-                        </span>
-                        <Button
-                          type="button"
-                          variant="ghost-muted"
-                          size="icon"
-                          aria-label={`Remove check ${i + 1}`}
-                          title="Remove"
-                          onClick={() => removeCheck(i, 'next')}
-                        >
-                          <XIcon aria-hidden="true" />
-                        </Button>
-                      </CheckLine>
-                    ))}
-                  </PlainList>
-                  <Toolbar ref={checkTools}>
-                    <Button
-                      ref={addCheckButton}
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => addCheck(draft.graders.length)}
-                    >
-                      <PlusIcon aria-hidden="true" />
-                      Add a check
-                    </Button>
-                    <Assist
-                      field="case.checks"
-                      value=""
-                      // It opens under the row of buttons, never over the checks it adds to.
-                      anchor={checkTools}
-                      {...assist}
-                      onApply={(text) => addChecks(assistItems(text))}
-                    >
-                      <Button type="button" variant="ghost" size="sm">
-                        <PenLineIcon aria-hidden="true" />
-                        {assistTitle('case.checks')}
-                      </Button>
-                    </Assist>
-                  </Toolbar>
-                </Stack>
+                <CheckList
+                  key={`${skill}\n${key}`}
+                  graders={draft.graders}
+                  onChange={(graders) => set({ graders })}
+                  examples={kind.cases[0]?.graders.map((g) => g.statement) ?? []}
+                  assist={assist}
+                  report={report}
+                />
               </FormSection>
             ) : (
               <FormSection
@@ -670,104 +614,4 @@ export function Cases({ ctx }: { ctx: Ctx }) {
       </Column>
     </Workbench>
   )
-}
-
-/**
- * What a check is: its statement, and the picture it is about when it has one.
- * The field's corner adds the picture, beside "write with AI", because both
- * are about the statement's content; the ×2 mark and the remove button are the
- * row's and sit outside it. An added picture sits inside the field under the
- * statement, within its edge, and the corner button goes, since a check is
- * about one picture.
- */
-function CheckStatement({
-  index,
-  fieldRef,
-  statement,
-  image,
-  placeholder,
-  onKeyDown,
-  onStatement,
-  onImage,
-  onError,
-  assist,
-}: {
-  index: number
-  fieldRef: (el: HTMLTextAreaElement | null) => void
-  statement: string
-  image: ImageRef | null
-  placeholder: string | undefined
-  onKeyDown: (e: React.KeyboardEvent<HTMLTextAreaElement>) => void
-  onStatement: (statement: string) => void
-  onImage: (image: ImageRef | null) => void
-  onError: (message: string) => void
-  assist: AssistSpec
-}) {
-  const { adding, error, add } = useAddPictures(0, ([added]) => onImage(added))
-  // Told once per failure, whatever the caller's function is on a later render.
-  const report = useRef(onError)
-  report.current = onError
-  useEffect(() => {
-    if (error) report.current(error)
-  }, [error])
-  const has = Boolean(image) || adding > 0
-  return (
-    <TextArea
-      ref={fieldRef}
-      variant="line"
-      rows={1}
-      aria-label={`Check ${index}`}
-      onKeyDown={onKeyDown}
-      value={statement}
-      placeholder={placeholder}
-      onValueChange={onStatement}
-      assist={assist}
-      corner={
-        has ? null : (
-          <PicturePicker
-            variant="corner"
-            single
-            label={`Add a picture check ${index} is about`}
-            onFiles={(files) => add(files.slice(0, 1))}
-          />
-        )
-      }
-      foot={
-        has ? (
-          <PictureStrip
-            size="sm"
-            label={`Picture for check ${index}`}
-            images={image ? [image] : []}
-            adding={adding}
-            onRemove={() => onImage(null)}
-          />
-        ) : null
-      }
-    />
-  )
-}
-
-/**
- * Statement, ×2 mark and remove, in columns that line up from row to row. The
- * statement starts on the column's edge, with the check's number hung in the
- * margin before it; its picture, when it has one, sits inside the field under
- * the text. The row reaches 10px past the far edge, which puts the remove icon
- * on that edge, not its 36px box.
- */
-const checkLine = 'relative -mr-2.5 grid grid-cols-[minmax(0,1fr)_auto_36px] items-start gap-2'
-
-/** The check's number, in the margin, centred on the first line of its 36px controls. */
-const checkIndex = 'absolute top-0 right-full mr-2 flex h-9 items-center'
-
-function CheckLine({ index, children }: { index: number; children: React.ReactNode }) {
-  return (
-    <li className={checkLine}>
-      <span className={checkIndex}>
-        <Text tone="faint" font="mono" size="xs" weight="medium" tabular>
-          {index}
-        </Text>
-      </span>
-      {children}
-    </li>
-  )
-}
+})

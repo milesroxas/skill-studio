@@ -5,11 +5,17 @@
  */
 import { join } from 'node:path'
 import { isJevFormat } from '@domain/image.ts'
-import { round, stripComments } from '@domain/text.ts'
+import { stripComments } from '@domain/text.ts'
 import { noul } from '@typesafe-ai/sdk'
 import { type Readable, readForJev } from '../images.ts'
 import type { JevState } from '../jev.ts'
-import { askStatements, requestState } from '../shared/questions.ts'
+import {
+  askStatements,
+  asksJev,
+  noulOf,
+  optionalAnswer,
+  requestState,
+} from '../shared/questions.ts'
 import type { JudgeInput, JudgePack } from '../types.ts'
 import { type DesignConfig, type DesignRaw, designScoring, type MarkupCheck } from './score.ts'
 
@@ -43,6 +49,46 @@ const titleText = (html: string): string | null => {
   return match ? match[1].replace(/<[^>]*>/g, '').trim() : null
 }
 
+/**
+ * The events an inline handler attribute can name: every event handler
+ * content attribute of the HTML standard (on elements, `<body>` and the
+ * document), those the CSS, pointer, touch, fullscreen and selection specs
+ * add, SVG's animation events, and the ones browsers still run though no
+ * standard lists them. `webkit…` is a prefixed event of any name.
+ */
+const HANDLED_EVENTS = [
+  // HTML: elements, `<body>` and the document.
+  'abort|afterprint|auxclick|beforeinput|beforematch|beforeprint|beforetoggle|beforeunload',
+  'blur|cancel|canplay|canplaythrough|change|click|close|command|contextlost|contextmenu',
+  'contextrestored|copy|cuechange|cut|dblclick|drag|dragend|dragenter|dragleave|dragover',
+  'dragstart|drop|durationchange|emptied|ended|error|focus|formdata|hashchange|input|invalid',
+  'keydown|keypress|keyup|languagechange|load|loadeddata|loadedmetadata|loadstart|message',
+  'messageerror|mousedown|mouseenter|mouseleave|mousemove|mouseout|mouseover|mouseup|offline',
+  'online|pagehide|pagereveal|pageshow|pageswap|paste|pause|play|playing|popstate|progress',
+  'ratechange|readystatechange|rejectionhandled|reset|resize|scroll|scrollend',
+  'securitypolicyviolation|seeked|seeking|select|slotchange|stalled|storage|submit|suspend',
+  'timeupdate|toggle|unhandledrejection|unload|visibilitychange|volumechange|waiting|wheel',
+  // CSS animations and transitions, pointer, touch, focus, fullscreen, selection, scroll snap.
+  'animationcancel|animationend|animationiteration|animationstart|transitioncancel',
+  'transitionend|transitionrun|transitionstart|gotpointercapture|lostpointercapture',
+  'pointercancel|pointerdown|pointerenter|pointerleave|pointermove|pointerout|pointerover',
+  'pointerrawupdate|pointerup|pointerlockchange|pointerlockerror|touchcancel|touchend',
+  'touchmove|touchstart|focusin|focusout|fullscreenchange|fullscreenerror|selectionchange',
+  'selectstart|scrollsnapchange|scrollsnapchanging|contentvisibilityautostatechange',
+  'freeze|resume|prerenderingchange',
+  // SVG animation, and what browsers run past the standards.
+  'begin|end|repeat|beforecopy|beforecut|beforepaste|beforexrselect|search|show|mousewheel',
+  'dragexit|orientationchange|devicemotion|deviceorientation|deviceorientationabsolute',
+  'gesturestart|gesturechange|gestureend|start|finish|bounce',
+]
+
+/**
+ * An inline event handler by its attribute name: `on` and then an event's
+ * name. Events, not any word: `one`, `only`, `online` and `once` are
+ * attributes a page may carry, and `onboarding` is no event.
+ */
+const HANDLER = new RegExp(`^on(?:${HANDLED_EVENTS.join('|')}|webkit\\w+)$`)
+
 function markupChecks(html: string): MarkupCheck[] {
   const tags = tagsOf(html)
   const imgs = tags.filter((t) => t.name === 'img')
@@ -71,7 +117,7 @@ function markupChecks(html: string): MarkupCheck[] {
     { id: 'alt', ok: missingAlt === 0, note: `${missingAlt} <img> without alt` },
     {
       id: 'handlers',
-      ok: !tags.some((t) => [...t.attrs.keys()].some((key) => /^on[a-z]+$/.test(key))),
+      ok: !tags.some((t) => [...t.attrs.keys()].some((key) => HANDLER.test(key))),
       note: 'inline event handler attributes',
     },
   ]
@@ -89,6 +135,7 @@ function shotOf(input: JudgeInput): Readable | null {
 
 export const designPack: JudgePack<DesignRaw> = {
   ...designScoring,
+  version: 1,
   label: 'Design: markup checks and a visual read of the HTML or screenshot',
   artifacts: ['html', 'image'],
   async judge(input, ctx) {
@@ -100,7 +147,7 @@ export const designPack: JudgePack<DesignRaw> = {
     const shot = read?.image ?? null
     // A screenshot Jev would refuse is left out, so the questions about the HTML still get answers.
     const unread = read?.problem ? `screenshot not judged: ${read.problem}` : null
-    if (ctx.useJev && (html || shot)) {
+    if (asksJev(input, ctx) && (html || shot)) {
       const state: JevState = { ...requestState(input) }
       if (html) state.html = htmlOf(input, ctx.config as DesignConfig)
       if (shot) state.screenshot = shot
@@ -134,8 +181,9 @@ export const designPack: JudgePack<DesignRaw> = {
       ])
       const statements = graders.flatMap((g) => [...read, ...looked].filter((s) => s.id === g.id))
       jev = {
-        hierarchy: round(answers.hierarchy.noul, 3),
-        finished: answers.finished ? round(answers.finished.noul, 3) : null,
+        hierarchy: noulOf(answers, 'hierarchy'),
+        // Asked only with a screenshot; one Jev left out is null, and the markup checks stand.
+        finished: shot ? optionalAnswer(() => noulOf(answers, 'finished')) : null,
         statements,
       }
     }

@@ -52,7 +52,10 @@ const MEDIA_TYPES: Record<string, string> = {
 const extensionOf = (path: string): string => /\.([a-z0-9]+)$/i.exec(path)?.[1].toLowerCase() ?? ''
 
 /** The media type of a picture a model can read, by its file name; null for any other file. */
-export const imageTypeOf = (path: string): string | null => MEDIA_TYPES[extensionOf(path)] ?? null
+export const imageTypeOf = (path: string): string | null => {
+  const extension = extensionOf(path)
+  return Object.hasOwn(MEDIA_TYPES, extension) ? MEDIA_TYPES[extension] : null
+}
 
 /** A PNG or JPEG by name: the two formats Jev reads. */
 export const isJevFormat = (path: string): boolean => /^(png|jpe?g)$/.test(extensionOf(path))
@@ -131,7 +134,9 @@ export function fitForJev(
   const { minSide, maxSide } = JEV_IMAGE
   const long = Math.max(width, height)
   const short = Math.min(width, height)
-  const scale = long > maxSide ? maxSide / long : short < minSide ? minSide / short : 1
+  const wanted = long > maxSide ? maxSide / long : short < minSide ? minSide / short : 1
+  // Scaling the short side up may push the long side past its limit: the long side wins, so the shape is kept.
+  const scale = Math.min(wanted, maxSide / long)
   const drawWidth = Math.min(maxSide, Math.max(1, Math.round(width * scale)))
   const drawHeight = Math.min(maxSide, Math.max(1, Math.round(height * scale)))
   return {

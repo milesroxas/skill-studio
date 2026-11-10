@@ -15,6 +15,7 @@ import electronUpdater from 'electron-updater'
 import { APP_ORIGIN, CHANNELS } from '../channels.ts'
 import { Backend } from './backend.ts'
 import { registerIpc } from './ipc.ts'
+import { devUrlOf, opensToDebugger } from './launch.ts'
 import { installMenu } from './menu.ts'
 import { handleSchemes, registerSchemes } from './protocol.ts'
 import { createReset } from './reset.ts'
@@ -23,7 +24,8 @@ import { createUpdater } from './updater.ts'
 import { applyTheme, RESETTABLE, trustedOrigins } from './window.ts'
 import { createWindows } from './windows.ts'
 
-const devUrl = process.env.ELECTRON_RENDERER_URL
+/** The dev server's page, in a development copy only: a packaged app never loads one. */
+const devUrl = devUrlOf(app.isPackaged, process.env)
 
 /** How long a quit waits for the backend to end its agents before going ahead. */
 const STOP_WAIT_MS = 3000
@@ -43,7 +45,12 @@ if (!app.isPackaged && !app.commandLine.hasSwitch('user-data-dir')) {
   app.setPath('sessionData', profile)
 }
 
-if (!app.requestSingleInstanceLock()) app.quit()
+// A packaged app started with a remote debugging switch would hand its page, and the
+// bridge on it, to whatever connects: it goes before it opens a window or starts the backend.
+if (opensToDebugger(app.isPackaged, (name) => app.commandLine.hasSwitch(name))) {
+  console.error('Skill Studio does not start with a remote debugging switch.')
+  app.exit(1)
+} else if (!app.requestSingleInstanceLock()) app.quit()
 else {
   // A checkout's .env is a development convenience; a packaged app has none.
   if (!app.isPackaged) loadDotEnv(app.getAppPath())

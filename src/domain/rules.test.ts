@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { rulesFromList, rulesFromSkill, scanRules } from './rules.ts'
+import { bulletsOf, rulesFromList, rulesFromSkill, scanRules } from './rules.ts'
 
 const skill = `---
 name: tidy-writer
@@ -110,6 +110,12 @@ describe('rulesFromList', () => {
       { id: 'r1', text: 'Be brief.', section: 'bench.json rules' },
     ])
   })
+
+  it('leaves out a blank rule and one said twice, which would share one answer', () => {
+    expect(
+      rulesFromList(['', '  ', 'Same rule here.', ' Same rule here. ']).map((r) => r.text),
+    ).toEqual(['Same rule here.'])
+  })
 })
 
 describe('scanRules', () => {
@@ -138,5 +144,43 @@ describe('scanRules', () => {
     const crlf = scanRules(skill.replace(/\n/g, '\r\n'))
     expect(crlf.spans).toEqual(scanRules(skill).spans)
     expect(crlf.skipped).toEqual(scanRules(skill).skipped)
+  })
+})
+
+describe('what is and is not a bullet', () => {
+  it('reads a thematic break as a break, not a bullet too short to be a rule', () => {
+    const scan = scanRules('# S\n\n* * *\n\n- - -\n\n- Always write two sentences exactly.\n')
+    expect(scan.rules.map((r) => r.text)).toEqual(['Always write two sentences exactly.'])
+    expect(scan.skipped).toEqual([])
+  })
+
+  it('joins a nested bullet indented with a tab', () => {
+    const scan = scanRules('- Always write two sentences exactly.\n\t- unless the case says one\n')
+    expect(scan.rules[0].text).toBe('Always write two sentences exactly. unless the case says one')
+    expect(scan.spans).toEqual([{ from: 1, to: 2 }])
+  })
+
+  it('reads on past a line that opens with inline code in three backticks', () => {
+    const md = '```code``` is inline here\n\n- Always write two sentences exactly.\n'
+    expect(rulesFromSkill(md).map((r) => r.text)).toEqual(['Always write two sentences exactly.'])
+  })
+
+  it('gives each bullet its lines as written and the heading it stands under', () => {
+    const lines = [
+      'intro',
+      '- one',
+      '  more',
+      '',
+      '## Next',
+      '* two',
+      '1. a step',
+      '~~~',
+      '- code',
+      '~~~',
+    ]
+    expect(bulletsOf(lines)).toEqual([
+      { from: 1, to: 2, lines: ['- one', '  more'], section: null },
+      { from: 5, to: 5, lines: ['* two'], section: 'Next' },
+    ])
   })
 })

@@ -24,7 +24,6 @@ import { type Place, placeFor, RUN } from '../places.ts'
 import { List } from './layout.tsx'
 import { Slab } from './Mark.tsx'
 import { Text } from './text.tsx'
-import { Button } from './ui/button.tsx'
 import { STEP_BEAT, StepFrame } from './WelcomeStep.tsx'
 
 /** The first sentence of a rule or a check: the instruction, without its why. */
@@ -327,28 +326,17 @@ export function LoopTour({
       from={from}
       title={step.title}
       say={step.say}
-      back={
-        <Button
-          type="button"
-          variant="outline"
-          disabled={busy}
-          onClick={() => (index === 0 ? onBack() : onShow(index - 1))}
-        >
-          Back
-        </Button>
-      }
-      next={
-        // One button on every step, so it keeps the focus and its place from the first step to the last.
-        <Button
-          type="button"
-          autoFocus
-          disabled={busy}
-          onClick={() => (last ? onDone() : onShow(index + 1))}
-        >
-          Next
-          <ArrowRightIcon aria-hidden="true" />
-        </Button>
-      }
+      busy={busy}
+      onBack={() => (index === 0 ? onBack() : onShow(index - 1))}
+      next={{
+        label: (
+          <>
+            Next
+            <ArrowRightIcon aria-hidden="true" />
+          </>
+        ),
+        onClick: () => (last ? onDone() : onShow(index + 1)),
+      }}
     >
       {place ? <Sheet place={place}>{PICTURES[step.at]}</Sheet> : null}
     </StepFrame>

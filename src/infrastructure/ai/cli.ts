@@ -7,6 +7,7 @@ import { tmpdir } from 'node:os'
 import { agentEnv } from '../env.ts'
 import { type ExecResult, exec } from '../exec.ts'
 import type { StoredImage } from '../images.ts'
+import { jsonLine } from '../json-lines.ts'
 import type { AiMessage, AiRequest } from './types.ts'
 
 const TIMEOUT_MS = 5 * 60_000
@@ -92,16 +93,16 @@ export async function runJsonLines<E>(
     timeoutMs: TIMEOUT_MS,
     signal: request.signal,
     onLine: (line) => {
-      let event: E
-      try {
-        event = JSON.parse(line)
-      } catch {
-        return
-      }
-      onEvent(event)
+      const event = jsonLine(line)
+      if (event) onEvent(event as E)
     },
   })
   if (request.signal.aborted) return
+  // The system refuses a command line past its limit, and an argument is where a long brief rides.
+  if (result.spawnError && /E2BIG|ENAMETOOLONG/.test(result.spawnError))
+    throw new Error(
+      `This conversation is too long to send to ${command} as a command. Start a new one, or ask with less text.`,
+    )
   if (result.spawnError) throw new Error(`Could not start ${command}: ${result.spawnError}`)
   if (result.timedOut) throw new Error(`${command} took longer than five minutes and was stopped.`)
   if (result.code !== 0) {

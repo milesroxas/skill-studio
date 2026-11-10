@@ -1,4 +1,4 @@
-/** Pictures for tests: enough of a file for its size to be read, and no more. */
+/** Pictures for tests, and only for tests: enough of a file for its size to be read, and no more. */
 
 /** The first bytes of a PNG: its signature and the header chunk that holds its size. */
 export const pngHeader = (width: number, height: number): Uint8Array => {

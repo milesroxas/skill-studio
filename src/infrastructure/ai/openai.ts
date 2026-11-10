@@ -8,26 +8,15 @@ import { type AiModel, type Effort, isOpenAiChatModel, openAiEfforts } from '@do
 import { secretOf } from '@domain/secrets.ts'
 import OpenAI from 'openai'
 import { imageBase64 } from '../images.ts'
+import { explain as explainFor } from './explain.ts'
 import { keyed } from './keyed.ts'
 import { type AiMessage, type AiProvider, type AiRequest, ProviderError } from './types.ts'
 
 const key = (): string | undefined => secretOf('openai', process.env)
 const client = keyed(key, (apiKey) => new OpenAI({ apiKey }))
 
-function explain(error: unknown): Error {
-  if (error instanceof OpenAI.AuthenticationError)
-    return new Error('OpenAI refused the API key. Check it in Settings.')
-  if (error instanceof OpenAI.PermissionDeniedError)
-    return new Error('This OpenAI key may not use that model.')
-  if (error instanceof OpenAI.NotFoundError)
-    return new Error('OpenAI does not know that model. Pick another.')
-  if (error instanceof OpenAI.RateLimitError)
-    return new Error('OpenAI is rate limiting this key, or it is out of credit. Try again later.')
-  if (error instanceof OpenAI.APIConnectionError)
-    return new Error('Could not reach OpenAI. Check the connection and try again.')
-  if (error instanceof OpenAI.APIError) return new Error(`OpenAI: ${error.message}`)
-  return error instanceof Error ? error : new Error(String(error))
-}
+const explain = (error: unknown): Error =>
+  explainFor('OpenAI', OpenAI, error, ', or it is out of credit. Try again later.')
 
 /** A plain `gpt-5.5` before its `-mini` and dated forms: the flagship reads first. */
 const isBase = (id: string): boolean => /^gpt-[\d.]+$/.test(id)

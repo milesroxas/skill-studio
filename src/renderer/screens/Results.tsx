@@ -10,6 +10,7 @@
  * case opens with, and `view=all` the summary.
  */
 import { pickBetween, pickStanding } from '@domain/picks.ts'
+import { memo, useMemo } from 'react'
 import { Comparison } from '../components/Comparison.tsx'
 import {
   Column,
@@ -38,9 +39,34 @@ import {
   versionsRun,
 } from '../model.ts'
 
-export function Results({ ctx }: { ctx: Ctx }) {
+export const Results = memo(function Results({ ctx }: { ctx: Ctx }) {
   const { state, config, outputs, route, go, openRun } = ctx
   const current = state.versions.current
+  // These read every output, and the list is drawn again on each job's log line: worked out
+  // only when the outputs or the scoring change.
+  const caseIds = useMemo(() => casesRun(state, outputs), [state, outputs])
+  // The same figures All cases opens with: one writer's first version against its latest.
+  const lift = useMemo(() => liftOf(state, outputs, config), [state, outputs, config])
+  const latest = useMemo(() => versionsRun(outputs).at(-1), [outputs])
+  const latestScore = useMemo(
+    () => (latest ? versionScore(outputs, config, latest) : null),
+    [outputs, config, latest],
+  )
+  /** Each case's pair to read first, with both totals and the pick between them. */
+  const rows = useMemo(
+    () =>
+      caseIds.map((id) => {
+        const pair = casePair(outputs, id)
+        const vote =
+          pair.a && pair.b ? pickBetween(state.reviews.preferences, pair.a.key, pair.b.key) : null
+        const totals = {
+          a: pair.a ? totalOf(pair.a, config) : null,
+          b: pair.b ? totalOf(pair.b, config) : null,
+        }
+        return { id, pair, vote, totals }
+      }),
+    [caseIds, outputs, config, state.reviews.preferences],
+  )
 
   if (!state.runs.length)
     return (
@@ -74,7 +100,6 @@ export function Results({ ctx }: { ctx: Ctx }) {
       </EmptyState>
     )
 
-  const caseIds = casesRun(state, outputs)
   const params = route.params
   const all = params.get('view') === 'all'
   // An address may name the outputs and not their case: the first one named says which case it is.
@@ -87,9 +112,6 @@ export function Results({ ctx }: { ctx: Ctx }) {
     return output?.caseId === caseId ? output : null
   }
   const shown = pinned ? { a: inCase(params.get('a')), b: inCase(params.get('b')) } : null
-  // The same figures All cases opens with: one writer's first version against its latest.
-  const lift = liftOf(state, outputs, config)
-  const latest = versionsRun(outputs).at(-1)
 
   return (
     <Workbench>
@@ -117,7 +139,7 @@ export function Results({ ctx }: { ctx: Ctx }) {
                     </span>
                   ) : latest ? (
                     <span className="flex items-center gap-2">
-                      <ScoreMove from={null} to={versionScore(outputs, config, latest)} />
+                      <ScoreMove from={null} to={latestScore} />
                       <Text tone="muted" size="xs">
                         {latest}
                       </Text>
@@ -125,16 +147,7 @@ export function Results({ ctx }: { ctx: Ctx }) {
                   ) : null}
                 </NavButton>
               </li>
-              {caseIds.map((id) => {
-                const pair = casePair(outputs, id)
-                const vote =
-                  pair.a && pair.b
-                    ? pickBetween(state.reviews.preferences, pair.a.key, pair.b.key)
-                    : null
-                const totals = {
-                  a: pair.a ? totalOf(pair.a, config) : null,
-                  b: pair.b ? totalOf(pair.b, config) : null,
-                }
+              {rows.map(({ id, pair, vote, totals }) => {
                 const differs = pickStanding(vote, totals.a, totals.b) === 'differs'
                 const side = vote === 'a' ? pair.a : vote === 'b' ? pair.b : null
                 return (
@@ -170,10 +183,10 @@ export function Results({ ctx }: { ctx: Ctx }) {
             key={caseId}
             ctx={ctx}
             caseId={caseId}
-            {...(shown ?? casePair(outputs, caseId))}
+            {...(shown ?? rows.find((row) => row.id === caseId)?.pair ?? { a: null, b: null })}
           />
         )}
       </Column>
     </Workbench>
   )
-}
+})

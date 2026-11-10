@@ -3,17 +3,18 @@
  * retrieval and the fallback lint. Ported from the reference skill's
  * check-voice.mjs and bench.mjs so the measures match it exactly. Pure.
  */
-import { round, stripComments, type Unit } from '@domain/text.ts'
+import {
+  LIST_MARK,
+  round,
+  sentencesOf as sentences,
+  stripComments,
+  tokens,
+  type Unit,
+  withoutCode,
+} from '@domain/text.ts'
 
-/** Whitespace-delimited tokens, the count the reference's shape bands were drawn with. */
-const tokens = (text: string): string[] => text.match(/\S+/g) ?? []
-
-const sentencesOf = (text: string): string[] =>
-  text
-    .replace(/\s+/g, ' ')
-    .split(/(?<=[.?!])\s+(?=[A-Z"'“‘(\d[])/)
-    .map((sentence) => sentence.trim())
-    .filter((sentence) => /[A-Za-z]/.test(sentence))
+/** Sentences as the reference's shape bands were drawn with: the next one opens with a capital, and each holds a letter. */
+const sentencesOf = (text: string): string[] => sentences(text, { capital: true })
 
 const median = (values: number[]): number | null => {
   if (!values.length) return null
@@ -23,7 +24,8 @@ const median = (values: number[]): number | null => {
 }
 
 /** A list item, table row, heading or quote line is a paragraph of its own. */
-const standsAlone = (line: string): boolean => /^\s*(?:[-*+]\s|\d+[.)]\s|\||#{1,6}\s|>)/.test(line)
+const STANDS_ALONE = new RegExp(`^\\s*(?:${LIST_MARK}\\s|\\||#{1,6}\\s|>)`)
+const standsAlone = (line: string): boolean => STANDS_ALONE.test(line)
 
 interface Paragraph {
   text: string
@@ -76,7 +78,8 @@ export interface ShapeMeasures {
 }
 
 export function shapeOf(text: string): ShapeMeasures {
-  const { headings, prose } = articleParts(text)
+  // Code is not prose: a fenced block's lines would each count as a one-line paragraph.
+  const { headings, prose } = articleParts(withoutCode(text))
   const sentenceLengths = prose.flatMap((p) => sentencesOf(p).map((s) => tokens(s).length))
   const paragraphLengths = prose.map((p) => tokens(p).length)
   const single = prose.filter((p) => sentencesOf(p).length <= 1).length
@@ -206,7 +209,8 @@ const excerptOf = (text: string, index: number, length: number): string => {
 
 /** The lint for a skill with no lint command: em dashes, exclamation marks, emoji and the case's word range. */
 export function fallbackLint(text: string, range: [number, number] | null): LintFinding[] {
-  const copy = text.replace(/```[\s\S]*?```/g, (m) => m.replace(/[^\n]/g, ' '))
+  // Code is blanked, not cut, so a position in the copy is the same position in the text.
+  const copy = withoutCode(text, { keepLength: true })
   const findings: LintFinding[] = []
   for (const index of emDashesIn(copy))
     findings.push({

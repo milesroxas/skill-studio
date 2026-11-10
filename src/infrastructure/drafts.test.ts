@@ -1,12 +1,14 @@
-import { mkdtempSync, readdirSync } from 'node:fs'
+import { mkdtempSync, readdirSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { blankDraft } from '@domain/case-draft.ts'
 import { emptyDrafts } from '@domain/schemas.ts'
-import { describe, expect, it } from 'vitest'
+import { afterAll, describe, expect, it } from 'vitest'
 
 // The library reads SKILL_STUDIO_HOME once, at import.
 const home = mkdtempSync(join(tmpdir(), 'st-drafts-home-'))
 process.env.SKILL_STUDIO_HOME = home
+afterAll(() => rmSync(home, { recursive: true, force: true }))
 const { readDrafts, writeDrafts } = await import('./drafts.ts')
 
 const draftsDir = join(home, '.skill-studio', 'drafts')
@@ -26,6 +28,15 @@ describe('drafts', () => {
       previous: 'saved a',
     })
     expect(readDrafts('/skills/b').files).toEqual({})
+  })
+
+  it('keeps when each drafted case was saved as its draft began', () => {
+    writeDrafts('/skills/bases', {
+      ...emptyDrafts(),
+      cases: { intro: { ...blankDraft(), id: 'intro', prompt: 'p' } },
+      caseBases: { intro: '2026-11-09T10:00:00.000Z' },
+    })
+    expect(readDrafts('/skills/bases').caseBases).toEqual({ intro: '2026-11-09T10:00:00.000Z' })
   })
 
   it('stamps when the drafts were stored', () => {

@@ -15,9 +15,11 @@ import { homedir, tmpdir } from 'node:os'
 import { join } from 'node:path'
 import type { SlashCommand } from '@domain/commands.ts'
 import { metaText, readFrontMatter } from '@domain/text.ts'
+import { claudePrintArgs } from '../claude-cli.ts'
 import { agentEnv } from '../env.ts'
 import { exec } from '../exec.ts'
 import { readJson, writeJson } from '../fs.ts'
+import { jsonLine } from '../json-lines.ts'
 import { STUDIO_DIR } from '../library.ts'
 
 interface InitEvent {
@@ -48,19 +50,24 @@ interface StoredCommands {
 /** Where the CLI keeps the user's own skills and commands. */
 const configDir = (): string => process.env.CLAUDE_CONFIG_DIR || join(homedir(), '.claude')
 
-/** The folders and files whose change can change the list: the user's own, the plugins', and the settings that enable them. */
-const watched = (plugins: string[]): string[] => {
+/**
+ * The folders and files whose change can change the list: the user's own, the
+ * plugins', and the settings that enable them. A folder's time moves only when
+ * something is added to or removed from it directly, so each plugin's `skills`
+ * and `commands` folders are watched beside the plugin's own.
+ */
+export const watched = (plugins: string[]): string[] => {
   const home = configDir()
   return [
     join(home, 'skills'),
     join(home, 'commands'),
     join(home, 'plugins'),
     join(home, 'settings.json'),
-    ...plugins,
+    ...plugins.flatMap((plugin) => [plugin, join(plugin, 'skills'), join(plugin, 'commands')]),
   ]
 }
 
-const fingerprint = (paths: string[]): string =>
+export const fingerprint = (paths: string[]): string =>
   paths
     .map((path) => {
       try {
@@ -119,13 +126,7 @@ async function readCommands(): Promise<SlashCommand[]> {
   let init: InitEvent | null = null
   const result = await exec(
     'claude',
-    [
-      '-p',
-      '--output-format',
-      'stream-json',
-      '--verbose',
-      '--no-session-persistence',
-      '--strict-mcp-config',
+    claudePrintArgs(
       '--setting-sources',
       'user',
       '--tools',
@@ -134,7 +135,7 @@ async function readCommands(): Promise<SlashCommand[]> {
       'haiku',
       '--max-turns',
       '1',
-    ],
+    ),
     {
       cwd: tmpdir(),
       env: agentEnv(),
@@ -143,14 +144,9 @@ async function readCommands(): Promise<SlashCommand[]> {
       signal: controller.signal,
       onLine: (line) => {
         if (init) return
-        let event: InitEvent
-        try {
-          event = JSON.parse(line)
-        } catch {
-          return
-        }
-        if (event.type !== 'system' || event.subtype !== 'init') return
-        init = event
+        const event = jsonLine(line)
+        if (event?.type !== 'system' || event.subtype !== 'init') return
+        init = event as unknown as InitEvent
         // The list is in hand: the model is never asked.
         controller.abort()
       },

@@ -3,7 +3,7 @@
  * probability; the reader may answer it themselves, and their answer stands.
  * Pure functions, shared by every pack's scorer and the page.
  */
-import type { Corrections, Verdict, VerdictKind } from './pack.ts'
+import type { Corrections, JudgedVerdict, MeasuredVerdict, Verdict, VerdictKind } from './pack.ts'
 
 /** A fact's name within its output: its kind and its words. */
 export const verdictId = (kind: VerdictKind, text: string): string => `${kind}:${text.trim()}`
@@ -24,16 +24,16 @@ export function jevVerdict(
   noul: number,
   yes: number,
   corrections: Corrections,
-): Verdict {
+): JudgedVerdict {
   const id = fact.id ?? verdictId(fact.kind, fact.text)
   const jev = noul >= yes
-  const own = corrections[id]
+  const own = Object.hasOwn(corrections, id) ? corrections[id] : undefined
   // An answer the reader gave is theirs whatever Jev said: moving the threshold must not hide it.
   return { ...fact, id, met: own ?? jev, jev, open: true, corrected: own !== undefined }
 }
 
 /** A fact code measured. Nobody corrects a count. */
-export const codeVerdict = (fact: Fact, met: boolean): Verdict => ({
+export const codeVerdict = (fact: Fact, met: boolean): MeasuredVerdict => ({
   ...fact,
   id: fact.id ?? verdictId(fact.kind, fact.text),
   met,
@@ -42,7 +42,7 @@ export const codeVerdict = (fact: Fact, met: boolean): Verdict => ({
 })
 
 /** Something wrong that counts in no layer of its own, such as a length outside the case's range. */
-export const finding = (text: string): Verdict =>
+export const finding = (text: string): MeasuredVerdict =>
   codeVerdict({ kind: 'other', text, layer: null }, false)
 
 /**

@@ -5,11 +5,12 @@
  * there is always a copy to read and restore; one saved by hand keeps its own.
  */
 import type { SkillVersion } from '@domain/views.ts'
-import { useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { api } from '../api.ts'
 import type { Ctx } from '../ctx.ts'
 import { lineDiff } from '../diff.ts'
 import { useFetch } from '../hooks.ts'
+import { inSkill } from '../in-skill.ts'
 import { countsLine, countsOf, plural, shortDate, versionOutputs, versionScore } from '../model.ts'
 import { FileDiff } from './FileDiff.tsx'
 import {
@@ -18,6 +19,7 @@ import {
   ColumnTitle,
   EmptyState,
   Loading,
+  ReadFailed,
   Spacer,
   Stack,
   Toolbar,
@@ -39,11 +41,36 @@ export function VersionDetail({ ctx, version }: { ctx: Ctx; version: string }) {
   const [showAll, setShowAll] = useState(false)
   const [restoring, setRestoring] = useState(false)
   const [deleting, setDeleting] = useState(false)
-  // Read again whenever the files change, here or from the assistant's panel.
   const from = against === 'before' && before ? before.version : version
   const to = against === 'before' && before ? version : 'current'
-  const a = useFetch(() => api.skillFiles(from), [from, current.hash])
-  const b = useFetch(() => api.skillFiles(to), [to, current.hash])
+  const a = useFetch(() => api.skillFiles(from), [from])
+  const b = useFetch(() => api.skillFiles(to), [to])
+  // Read again whenever the files change, here or from the assistant's panel. A read again keeps
+  // the diff in view until it lands, where a new read would show Loading in its place.
+  const hash = current.hash
+  const readAt = useRef(hash)
+  const { reload: readFrom } = a
+  const { reload: readTo } = b
+  useEffect(() => {
+    if (readAt.current === hash) return
+    readAt.current = hash
+    readFrom()
+    readTo()
+  }, [hash, readFrom, readTo])
+  const filesFrom = a.data?.files
+  const filesTo = b.data?.files
+  // Every file is compared line by line: once per read, not on each render.
+  const diffs = useMemo(
+    () =>
+      filesFrom && filesTo
+        ? [...new Set([...Object.keys(filesFrom), ...Object.keys(filesTo)])].sort().map((file) => {
+            const was = filesFrom[file] ?? ''
+            const now = filesTo[file] ?? ''
+            return { file, was, now, lines: lineDiff(was, now) }
+          })
+        : null,
+    [filesFrom, filesTo],
+  )
 
   if (!found)
     return (
@@ -95,16 +122,6 @@ export function VersionDetail({ ctx, version }: { ctx: Ctx; version: string }) {
     }
   }
 
-  const undelete = async (undo: string) => {
-    try {
-      const { restored } = await api.undeleteVersion(undo)
-      await reload()
-      report(`${restored} is back`)
-    } catch (e) {
-      report(e as Error)
-    }
-  }
-
   const remove = async (v: SkillVersion) => {
     // A saved copy alone comes back with Undo. Runs hold results, so the reader agrees to lose them first.
     if (
@@ -126,7 +143,11 @@ export function VersionDetail({ ctx, version }: { ctx: Ctx; version: string }) {
       go('editor', {}, { replace: true })
       await reload()
       report(`Deleted ${v.version}${gone.runs ? ` and its ${plural(gone.runs, 'run')}` : ''}`, {
-        undo: () => undelete(gone.undo),
+        // Taken once another skill is open, it would look for the copy there.
+        undo: inSkill(ctx, async () => {
+          const { restored } = await api.undeleteVersion(gone.undo)
+          report(`${restored} is back`)
+        }),
       })
     } catch (e) {
       report(e as Error)
@@ -135,17 +156,10 @@ export function VersionDetail({ ctx, version }: { ctx: Ctx; version: string }) {
     }
   }
 
-  const filesFrom = a.data?.files
-  const filesTo = b.data?.files
-  const diffs =
-    filesFrom && filesTo
-      ? [...new Set([...Object.keys(filesFrom), ...Object.keys(filesTo)])].sort().map((file) => {
-          const was = filesFrom[file] ?? ''
-          const now = filesTo[file] ?? ''
-          return { file, was, now, lines: lineDiff(was, now) }
-        })
-      : null
-  const changed = diffs?.some((d) => d.lines.length) ?? false
+  /** A read that failed takes the place of the files: what was read before it is not what was asked for. */
+  const failed = a.error ?? b.error
+  const shown = failed ? null : diffs
+  const changed = shown?.some((d) => d.lines.length) ?? false
   const options: Array<{ value: Against; label: string }> = [
     { value: 'now', label: 'The files now' },
     ...(before
@@ -232,9 +246,22 @@ export function VersionDetail({ ctx, version }: { ctx: Ctx; version: string }) {
               Show unchanged files
             </Toggle>
           </Toolbar>
-          {a.error || b.error ? <Hint tone="destructive">{a.error ?? b.error}</Hint> : null}
-          {!diffs && !a.error && !b.error ? <Loading /> : null}
-          {diffs?.map(({ file, was, now, lines }) =>
+          {failed ? (
+            <ReadFailed
+              size="compact"
+              title="Could not read the files"
+              retrying={a.loading || b.loading}
+              onRetry={() => {
+                a.reload()
+                b.reload()
+              }}
+            >
+              {failed}
+            </ReadFailed>
+          ) : !diffs ? (
+            <Loading />
+          ) : null}
+          {shown?.map(({ file, was, now, lines }) =>
             lines.length || showAll ? (
               <FileDiff
                 key={`${from}-${to}-${file}`}
@@ -246,7 +273,7 @@ export function VersionDetail({ ctx, version }: { ctx: Ctx; version: string }) {
               />
             ) : null,
           )}
-          {diffs && !changed ? (
+          {shown && !changed ? (
             <Hint>
               {to === 'current'
                 ? `No differences: the files now are as ${found.version} had them.`

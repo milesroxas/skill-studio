@@ -135,7 +135,31 @@ async function errorOf(response: Response): Promise<string> {
   }
 }
 
+/**
+ * The page is being left. A request made now would be dropped with the page
+ * unless the browser is asked to keep it alive, which it does for a small body.
+ */
+let leaving = false
+/**
+ * The most a browser sends for a page that is gone: 64 KiB for all such
+ * requests together, counted in bytes, which a body outside ASCII has more of
+ * than characters. A larger body is refused outright, so it goes as an
+ * ordinary request instead.
+ */
+const KEPT_ALIVE_MAX = 60_000
+
+/** A body small enough to be kept alive. Counted only as the page is left, the one time it matters. */
+const keepsAlive = (body: string): boolean =>
+  body.length <= KEPT_ALIVE_MAX && new TextEncoder().encode(body).length <= KEPT_ALIVE_MAX
+
 function browser(): Transport {
+  // Listened to before any caller does, so a call made as the page hides already knows.
+  window.addEventListener('pagehide', () => {
+    leaving = true
+  })
+  window.addEventListener('pageshow', () => {
+    leaving = false
+  })
   return {
     call: async (name, input) => {
       // Bytes do not survive JSON: the page loads a picture by URL, never through a call.
@@ -150,10 +174,13 @@ function browser(): Transport {
         }
         return file as Output<typeof name>
       }
+      const body = JSON.stringify(input)
       const response = await fetch(`/api/${name}`, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify(input),
+        body,
+        // The drafts stored as the tab closes must outlive it.
+        keepalive: leaving && keepsAlive(body),
       })
       if (!response.ok) throw new Error(await errorOf(response))
       return response.json()

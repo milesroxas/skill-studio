@@ -81,8 +81,13 @@ const MOVED_SCREENS: Readonly<Record<string, string>> = {
 }
 
 /** The screen an address names today, whatever id it was written with. */
-export const currentScreen = (screen: string): string =>
-  RENAMED_SCREENS[screen] ?? MOVED_SCREENS[screen] ?? screen
+export const currentScreen = (screen: string): string => renamed(screen) ?? moved(screen) ?? screen
+
+/** A lookup in a table of ids: only the table's own keys, never one every object has, such as `constructor`. */
+const own = (table: Readonly<Record<string, string>>, key: string): string | undefined =>
+  Object.hasOwn(table, key) ? table[key] : undefined
+const renamed = (screen: string): string | undefined => own(RENAMED_SCREENS, screen)
+const moved = (screen: string): string | undefined => own(MOVED_SCREENS, screen)
 
 /** Screen names from untrusted input: short strings, each once. */
 const seenOf = (value: unknown): string[] =>
@@ -91,7 +96,7 @@ const seenOf = (value: unknown): string[] =>
         ...new Set(
           value
             .filter((v): v is string => typeof v === 'string' && v.length <= SEEN_MAX)
-            .map((screen) => RENAMED_SCREENS[screen] ?? screen),
+            .map((screen) => renamed(screen) ?? screen),
         ),
       ].slice(0, SEEN_MAX)
     : []

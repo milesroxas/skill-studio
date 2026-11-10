@@ -4,25 +4,31 @@
  * directory per sample. Runs from the reference tool keep flat `*.md` files
  * instead of sample dirs and are read as legacy.
  */
-import { readFileSync } from 'node:fs'
+import { readFileSync, statSync } from 'node:fs'
 import { join } from 'node:path'
 import { parseSampleDir } from '@domain/run-name.ts'
 import type { Report, RunMeta, SampleMeta } from '@domain/schemas.ts'
 import { metaList, metaText, readFrontMatter } from '@domain/text.ts'
 import type { FileHead, RunView, Sample } from '@domain/views.ts'
 import { detectArtifacts } from './artifacts.ts'
-import { isDir, isFile, listDirs, listFiles, readJson, readTree } from './fs.ts'
-import { skillVersions } from './skill.ts'
+import { assertInside, isDir, isFile, listDirs, listFiles, readJson } from './fs.ts'
+import { skillFiles, skillVersions } from './skill.ts'
 import { readTranscript } from './transcript.ts'
-import { savedVersionFiles, savedVersions } from './versions.ts'
+import { isVersionLabel, savedVersionSource, savedVersions } from './versions.ts'
 
 const runsDir = (skillDir: string): string => join(skillDir, 'evals/runs')
 export const anchorsDir = (skillDir: string): string => join(skillDir, 'evals/anchors')
 export const runDir = (skillDir: string, run: string): string => join(runsDir(skillDir), run)
 
-/** A file of a sample. A legacy sample is a flat file at the run root, so its name is the file. */
+/**
+ * A file of a sample. A legacy sample is a flat file at the run root, so its
+ * name is the file. A link the agent left that leads out of the skill is refused.
+ */
 export const sampleFile = (skillDir: string, run: string, sample: string, file: string): string =>
-  sample === file ? join(runDir(skillDir, run), file) : join(runDir(skillDir, run), sample, file)
+  assertInside(
+    skillDir,
+    sample === file ? join(runDir(skillDir, run), file) : join(runDir(skillDir, run), sample, file),
+  )
 
 export function readHead(path: string): FileHead {
   const { meta } = readFrontMatter(readFileSync(path, 'utf8'))
@@ -35,10 +41,39 @@ export function readHead(path: string): FileHead {
 
 const isLegacyOutput = (file: string): boolean => file.endsWith('.md') && !file.startsWith('_')
 
-/** A run's JSON file, or `fallback` when it is missing or cannot be read: one bad run must not hide the rest. */
+/** A file's size, times and inode: a file written again, or replaced, changes one of them. */
+type Print = { size: number; mtimeMs: number; ctimeMs: number; ino: number }
+const samePrint = (a: Print, b: Print): boolean =>
+  a.size === b.size && a.mtimeMs === b.mtimeMs && a.ctimeMs === b.ctimeMs && a.ino === b.ino
+
+/** What a run's JSON files last parsed to, by path, with the print they had then. */
+const parsed = new Map<string, { print: Print; value: unknown }>()
+/** More files than any one skill's runs hold; past it the oldest readings go. */
+const PARSED_KEPT = 2000
+
+/**
+ * A run's JSON file, or `fallback` when it is missing or cannot be read: one
+ * bad run must not hide the rest. A file that has not changed since it was
+ * last read is not parsed again, so listing a skill's runs costs a `stat` per
+ * file. What comes back is shared: callers read it and never change it.
+ */
 function readRunJson<T>(path: string, fallback: T): T {
+  let print: Print
   try {
-    return readJson<T>(path, fallback)
+    const { size, mtimeMs, ctimeMs, ino } = statSync(path)
+    print = { size, mtimeMs, ctimeMs, ino }
+  } catch {
+    parsed.delete(path)
+    return fallback
+  }
+  const held = parsed.get(path)
+  if (held && samePrint(held.print, print)) return held.value as T
+  try {
+    const value = readJson<T>(path, fallback)
+    if (parsed.size >= PARSED_KEPT)
+      for (const key of [...parsed.keys()].slice(0, 500)) parsed.delete(key)
+    parsed.set(path, { print, value })
+    return value
   } catch (error) {
     console.warn((error as Error).message)
     return fallback
@@ -72,21 +107,25 @@ export function runSamples(dir: string): Sample[] {
     })
 }
 
-/** `run.json` with the legacy shape brought up to `RunMeta`. */
+/**
+ * `run.json` with the legacy shape brought up to `RunMeta`. The version is a
+ * label (`v3`) or nothing: the file may have been written by anyone, and its
+ * version names a folder when the version is deleted.
+ */
 export function readRunMeta(skillDir: string, name: string): RunMeta | null {
   const dir = runDir(skillDir, name)
   type LegacySample = Partial<SampleMeta> & { file?: string }
   type RawMeta = Partial<Omit<RunMeta, 'samples'>> & { samples?: LegacySample[] }
   const raw = readRunJson<RawMeta | null>(join(dir, 'run.json'), null)
-  if (!raw) return null
+  if (!raw || typeof raw !== 'object') return null
   const legacy = isLegacy(dir)
-  const samples: SampleMeta[] = (raw.samples ?? []).map((s, i) => {
+  const samples: SampleMeta[] = (Array.isArray(raw.samples) ? raw.samples : []).map((s, i) => {
     const sampleName = s.dir ?? s.file ?? `s${i + 1}`
-    const parsed = parseSampleDir(sampleName)
+    const parsedName = parseSampleDir(sampleName)
     return {
       dir: sampleName,
-      case: s.case ?? parsed?.case ?? '',
-      index: s.index ?? parsed?.index ?? i + 1,
+      case: s.case ?? parsedName?.case ?? '',
+      index: s.index ?? parsedName?.index ?? i + 1,
       ok: s.ok ?? true,
       seconds: s.seconds ?? 0,
       costUsd: s.costUsd ?? null,
@@ -95,12 +134,14 @@ export function readRunMeta(skillDir: string, name: string): RunMeta | null {
       error: s.error ?? null,
       steps: s.steps ?? 0,
       toolCalls: s.toolCalls ?? 0,
+      ...(s.stopped === true ? { stopped: true } : {}),
     }
   })
+  const version = typeof raw.skillVersion === 'string' ? raw.skillVersion : ''
   return {
     name,
     skillPath: raw.skillPath ?? skillDir,
-    skillVersion: raw.skillVersion ?? '',
+    skillVersion: isVersionLabel(version) ? version : '',
     skillName: raw.skillName ?? '',
     skillHash: raw.skillHash ?? '',
     note: raw.note ?? '',
@@ -127,8 +168,16 @@ export function readRun(skillDir: string, name: string): RunView {
   }
 }
 
+/** Every run of the skill. One that cannot be read is left out, with a warning, and the rest are listed. */
 export const listRuns = (skillDir: string): RunView[] =>
-  listDirs(runsDir(skillDir)).map((name) => readRun(skillDir, name))
+  listDirs(runsDir(skillDir)).flatMap((name) => {
+    try {
+      return [readRun(skillDir, name)]
+    } catch (error) {
+      console.warn(`Run ${name} could not be read: ${(error as Error).message}`)
+      return []
+    }
+  })
 
 const runMetas = (skillDir: string): RunMeta[] =>
   listDirs(runsDir(skillDir)).flatMap((name) => {
@@ -145,16 +194,24 @@ export const runsOfVersion = (skillDir: string, version: string): string[] =>
 export const versionsOf = (skillDir: string) =>
   skillVersions(skillDir, runMetas(skillDir), savedVersions(skillDir))
 
-/** A version's files: its saved copy, or else the snapshot of the first run made with it. */
-export function versionFiles(skillDir: string, version: string): Record<string, string> {
-  const saved = savedVersionFiles(skillDir, version)
+/** The folder holding a version's files: its saved copy, or else the snapshot of the first run made with it. */
+export function versionSource(skillDir: string, version: string): string {
+  const saved = savedVersionSource(skillDir, version)
   if (saved) return saved
   const run = runMetas(skillDir).find(
     (meta) => meta.skillVersion === version && isDir(join(runDir(skillDir, meta.name), '_skill')),
   )
   if (!run) throw new Error(`No copy of ${version} is kept: it was neither saved nor run.`)
-  return readTree(join(runDir(skillDir, run.name), '_skill'))
+  return join(runDir(skillDir, run.name), '_skill')
 }
+
+/** A version's SKILL.md and references, as text. */
+export const versionFiles = (skillDir: string, version: string): Record<string, string> =>
+  skillFiles(versionSource(skillDir, version))
+
+/** The SKILL.md and references a run was made with, as text. */
+export const runSkillFiles = (skillDir: string, run: string): Record<string, string> =>
+  skillFiles(join(runDir(skillDir, run), '_skill'))
 
 export const sampleTranscript = (skillDir: string, run: string, sample: string) =>
   readTranscript(join(runDir(skillDir, run), sample, 'transcript.jsonl'))

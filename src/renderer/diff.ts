@@ -1,48 +1,153 @@
 /** Word and line diffs by longest common subsequence, as escaped HTML. */
 import { esc } from './markdown.ts'
 
-function lcs<T>(x: T[], y: T[]): Uint32Array {
-  const cols = y.length + 1
-  const table = new Uint32Array((x.length + 1) * cols)
-  for (let i = x.length - 1; i >= 0; i -= 1)
-    for (let j = y.length - 1; j >= 0; j -= 1)
-      table[i * cols + j] =
-        x[i] === y[j]
-          ? table[(i + 1) * cols + j + 1] + 1
-          : Math.max(table[(i + 1) * cols + j], table[i * cols + j + 1])
+/** Each token as a number, the same number for the same text: a table fills faster comparing numbers. */
+function numbered<T>(x: T[], y: T[]): [Int32Array, Int32Array] {
+  const ids = new Map<T, number>()
+  const id = (token: T): number => {
+    let n = ids.get(token)
+    if (n === undefined) {
+      n = ids.size
+      ids.set(token, n)
+    }
+    return n
+  }
+  return [Int32Array.from(x, id), Int32Array.from(y, id)]
+}
+
+/**
+ * The longest common subsequence of every pair of suffixes. A cell holds a
+ * length, which is never more than the shorter list, so two lists under 65,536
+ * tokens take half the memory a cell of 32 bits would.
+ */
+function lcs<T>(x: T[], y: T[]): Uint16Array | Uint32Array {
+  const [a, b] = numbered(x, y)
+  const cols = b.length + 1
+  const cells = (a.length + 1) * cols
+  const table =
+    Math.min(a.length, b.length) < 2 ** 16 ? new Uint16Array(cells) : new Uint32Array(cells)
+  for (let i = a.length - 1; i >= 0; i -= 1) {
+    const row = i * cols
+    const below = row + cols
+    for (let j = b.length - 1; j >= 0; j -= 1)
+      table[row + j] =
+        a[i] === b[j] ? table[below + j + 1] + 1 : Math.max(table[below + j], table[row + j + 1])
+  }
   return table
 }
 
 export type Op = 'same' | 'del' | 'ins'
 
+/**
+ * The most memory an LCS table may take: 20 MiB. The table is one cell per
+ * pair of tokens, so two long texts would otherwise ask for gigabytes and stall
+ * the window while they are filled. At two bytes a cell it holds two texts of
+ * about 3,200 words that differ all through.
+ */
+export const DIFF_BUDGET = 20 * 1024 * 1024
+
+/** The bytes the table for two token lists takes: two a cell while the shorter is under 65,536 tokens. */
+const tableBytes = (x: number, y: number): number =>
+  (x + 1) * (y + 1) * (Math.min(x, y) < 2 ** 16 ? 2 : 4)
+
+/** How many tokens two lists share at their start, and at their end past that. */
+function sharedEnds<T>(x: T[], y: T[]): { head: number; tail: number } {
+  const most = Math.min(x.length, y.length)
+  let head = 0
+  while (head < most && x[head] === y[head]) head += 1
+  let tail = 0
+  while (tail < most - head && x[x.length - 1 - tail] === y[y.length - 1 - tail]) tail += 1
+  return { head, tail }
+}
+
+/** Whether the parts of two token lists that differ fit one LCS table. */
+function fits<T>(x: T[], y: T[]): boolean {
+  const { head, tail } = sharedEnds(x, y)
+  return tableBytes(x.length - head - tail, y.length - head - tail) <= DIFF_BUDGET
+}
+
+/**
+ * The steps from `x` to `y`. What the two share at their start and end is set
+ * aside first, so the table is only as large as the part that differs. A part
+ * too large for the table is given whole: all of it removed, then all added.
+ */
 function diffTokens<T>(x: T[], y: T[]): Array<[Op, T]> {
-  const cols = y.length + 1
-  const table = lcs(x, y)
+  const { head, tail } = sharedEnds(x, y)
   const out: Array<[Op, T]> = []
-  let i = 0
-  let j = 0
-  while (i < x.length && j < y.length) {
-    if (x[i] === y[j]) {
-      out.push(['same', x[i]])
-      i += 1
-      j += 1
-    } else if (table[(i + 1) * cols + j] >= table[i * cols + j + 1]) {
-      out.push(['del', x[i]])
-      i += 1
-    } else {
-      out.push(['ins', y[j]])
-      j += 1
+  for (let k = 0; k < head; k += 1) out.push(['same', x[k]])
+  const mx = x.slice(head, x.length - tail)
+  const my = y.slice(head, y.length - tail)
+  if (tableBytes(mx.length, my.length) > DIFF_BUDGET) {
+    for (const token of mx) out.push(['del', token])
+    for (const token of my) out.push(['ins', token])
+  } else {
+    const cols = my.length + 1
+    const table = lcs(mx, my)
+    let i = 0
+    let j = 0
+    while (i < mx.length && j < my.length) {
+      if (mx[i] === my[j]) {
+        out.push(['same', mx[i]])
+        i += 1
+        j += 1
+      } else if (table[(i + 1) * cols + j] >= table[i * cols + j + 1]) {
+        out.push(['del', mx[i]])
+        i += 1
+      } else {
+        out.push(['ins', my[j]])
+        j += 1
+      }
     }
+    for (; i < mx.length; i += 1) out.push(['del', mx[i]])
+    for (; j < my.length; j += 1) out.push(['ins', my[j]])
   }
-  for (; i < x.length; i += 1) out.push(['del', x[i]])
-  for (; j < y.length; j += 1) out.push(['ins', y[j]])
+  for (let k = x.length - tail; k < x.length; k += 1) out.push(['same', x[k]])
   return out
 }
 
-/** Removed words struck through, added words marked, as HTML. */
-export function wordDiffHtml(before: string, after: string): string {
-  const tokenize = (text: string) => text.match(/\s+|[^\s]+/g) ?? []
-  return diffTokens(tokenize(before), tokenize(after))
+/** Words and the runs of space between them, each a token. */
+const tokens = (text: string): string[] => text.match(/\s+|[^\s]+/g) ?? []
+
+/** Each word with the space after it: half the tokens, so a table of them reaches twice as far. */
+const words = (text: string): string[] => text.match(/^\s+|[^\s]+\s*/g) ?? []
+
+/**
+ * The steps from one text to the other, word by word. The words are matched
+ * first, each with the space after it; each stretch where they differ is then
+ * matched again token by token, so the space the two sides share in it is not
+ * marked as changed.
+ */
+function diffWords(x: string[], y: string[]): Array<[Op, string]> {
+  const out: Array<[Op, string]> = []
+  let removed = ''
+  let added = ''
+  const settle = () => {
+    if (removed || added) out.push(...diffTokens(tokens(removed), tokens(added)))
+    removed = ''
+    added = ''
+  }
+  for (const [op, word] of diffTokens(x, y)) {
+    if (op === 'del') removed += word
+    else if (op === 'ins') added += word
+    else {
+      settle()
+      out.push(['same', word])
+    }
+  }
+  settle()
+  return out
+}
+
+/**
+ * Removed words struck through, added words marked, as HTML. Null when the
+ * two texts differ over too many words to compare one by one: the caller
+ * shows them line by line instead.
+ */
+export function wordDiffHtml(before: string, after: string): string | null {
+  const x = words(before)
+  const y = words(after)
+  if (!fits(x, y)) return null
+  return diffWords(x, y)
     .map(([op, token]) => (op === 'same' ? esc(token) : `<${op}>${esc(token)}</${op}>`))
     .join('')
     .replace(/<\/del><del>/g, '')

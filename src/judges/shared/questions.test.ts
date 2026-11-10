@@ -1,15 +1,24 @@
-import { mkdtempSync, writeFileSync } from 'node:fs'
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { pngHeader } from '@domain/__fixtures__/image.ts'
 import { DEFAULT_CONFIG } from '@domain/config.ts'
-import { pngHeader } from '@domain/image-fixtures.ts'
 import type { Case, Grader } from '@domain/schemas.ts'
 import { Image, image } from '@typesafe-ai/sdk'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { holdsImage } from '../images.ts'
 import type { Jev } from '../jev.ts'
 import type { JudgeContext, JudgeInput } from '../types.ts'
-import { askStatements, withRequest } from './questions.ts'
+import {
+  askStatements,
+  asksJev,
+  choiceOf,
+  confidenceOf,
+  MissingAnswerError,
+  noulOf,
+  scoreOf,
+  withRequest,
+} from './questions.ts'
 
 // Jev is a network call: answer every question with a fixed Noul.
 const ask = vi.fn(async (_state: unknown, questions: Record<string, unknown>) =>
@@ -52,9 +61,17 @@ describe('askStatements', () => {
     expect(ask).toHaveBeenCalledTimes(1)
     expect(Object.keys(ask.mock.calls[0][1])).toEqual(['g1', 'g2'])
     expect(answers).toEqual([
-      { id: 'g1', text: 'statement g1', weight: 1, noul: 0.123, units: null, best: null },
-      { id: 'g2', text: 'statement g2', weight: 3, noul: 0.123, units: null, best: null },
+      // As Jev said it: rounded to 0.123 here, an answer of 0.4996 would be kept as 0.5 and pass a threshold it missed.
+      { id: 'g1', text: 'statement g1', weight: 1, noul: 0.12345, units: null, best: null },
+      { id: 'g2', text: 'statement g2', weight: 3, noul: 0.12345, units: null, best: null },
     ])
+  })
+
+  it('fails the reading when Jev leaves a grader unanswered, and names which', async () => {
+    ask.mockResolvedValueOnce({ g1: { noul: 0.9 } })
+    await expect(
+      askStatements([grader('g1'), grader('g2')], { output: 'x' }, 'output', ctx),
+    ).rejects.toThrow(new MissingAnswerError('g2', 'noul'))
   })
 })
 
@@ -143,6 +160,7 @@ describe('pictures', () => {
       'output',
       { ...ctx, skillDir, log },
     )
+    rmSync(skillDir, { recursive: true, force: true })
     const questions = ask.mock.calls[0][1]
     expect(holdsImage(questions.g1)).toBe(true)
     // A picture Jev would refuse is left out and reported: it would fail every question with it.
@@ -155,5 +173,50 @@ describe('pictures', () => {
     expect(picture).toBeInstanceOf(Image)
     expect(holdsImage({ frames: [{ at: 1, frame: picture }] })).toBe(true)
     expect(holdsImage({ output: 'text', rules: ['a', 'b'] })).toBe(false)
+  })
+})
+
+describe('whether Jev is asked', () => {
+  const of = (judge: unknown) => ({ case: { bench: { judge } } as unknown as Case })
+
+  it('asks when grading has a key and the case does not say otherwise', () => {
+    expect(asksJev({ case: null }, { useJev: true })).toBe(true)
+    expect(asksJev(of(undefined), { useJev: true })).toBe(true)
+    expect(asksJev(of(true), { useJev: true })).toBe(true)
+  })
+
+  it('does not ask for a case with `judge: false`, nor without a key', () => {
+    expect(asksJev(of(false), { useJev: true })).toBe(false)
+    expect(asksJev(of(undefined), { useJev: false })).toBe(false)
+  })
+})
+
+describe('reading an answer', () => {
+  const answers = {
+    yes: { noul: 0.4996 },
+    level: { score: 1.5, confidence: 0.8 },
+    kind: { choice: 'claim' },
+    nan: { noul: Number.NaN },
+    empty: {},
+  }
+
+  it('hands back what Jev said, unrounded', () => {
+    expect(noulOf(answers, 'yes')).toBe(0.4996)
+    expect(scoreOf(answers, 'level')).toBe(1.5)
+    expect(confidenceOf(answers, 'level')).toBe(0.8)
+    expect(choiceOf(answers, 'kind', ['claim', 'hype'])).toBe('claim')
+  })
+
+  it('throws a named error for an answer that is missing, not a number, or not a label asked for', () => {
+    for (const read of [
+      () => noulOf(answers, 'gone'),
+      () => noulOf(answers, 'nan'),
+      () => noulOf(answers, 'empty'),
+      () => noulOf(answers, 'constructor'),
+      () => scoreOf(answers, 'yes'),
+      () => choiceOf(answers, 'kind', ['teaser', 'hype']),
+    ])
+      expect(read).toThrow(MissingAnswerError)
+    expect(() => noulOf(answers, 'gone')).toThrow('Jev gave no noul for "gone".')
   })
 })

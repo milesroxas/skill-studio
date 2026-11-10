@@ -5,10 +5,11 @@
  * read without it.
  */
 import type { SampleMeta, TranscriptKind } from '@domain/schemas.ts'
+import { useMemo } from 'react'
 import { api } from '../api.ts'
 import { useFetch, useToggleSet } from '../hooks.ts'
 import { capital, money } from '../model.ts'
-import { EmptyState, Loading, Rows } from './layout.tsx'
+import { EmptyState, Loading, ReadFailed, Rows } from './layout.tsx'
 import { FilterGroup } from './Segmented.tsx'
 import { TranscriptEvent } from './TranscriptEvent.tsx'
 import { Code, Hint, Text } from './text.tsx'
@@ -34,9 +35,18 @@ export function TranscriptList({
   const events = useFetch(() => api.transcript(run, sample).then((list) => ({ key, list })), [key])
   // The last transcript stays in hand while the next loads; never show it under the new name.
   const loaded = events.data?.key === key ? events.data.list : null
-  const list = (loaded ?? []).filter((e) => kinds.has(e.kind))
-  const short = (text: string | undefined) =>
-    root && text ? text.split(`${root}/`).join('./').split(root).join('.') : (text ?? '')
+  // Every path is shortened once per transcript, not on each render: a long one has hundreds of steps.
+  const steps = useMemo(() => {
+    const short = (text: string | undefined) =>
+      root && text ? text.split(`${root}/`).join('./').split(root).join('.') : (text ?? '')
+    return (loaded ?? []).map((e) => ({
+      ...e,
+      args: short(e.args),
+      result: short(e.result),
+      text: short(e.text),
+    }))
+  }, [loaded, root])
+  const list = steps.filter((e) => kinds.has(e.kind))
   const toolTime = (loaded ?? []).reduce((s, e) => s + (e.durationMs ?? 0), 0)
 
   return (
@@ -63,11 +73,19 @@ export function TranscriptList({
             .join(' · ')}
         </Hint>
       ) : null}
-      {events.error ? (
-        <Hint tone="destructive">{events.error}</Hint>
-      ) : !loaded ? (
+      {loaded ? null : events.error ? (
+        <ReadFailed
+          size="compact"
+          title="Could not read the transcript"
+          retrying={events.loading}
+          onRetry={events.reload}
+        >
+          {events.error}
+        </ReadFailed>
+      ) : (
         <Loading />
-      ) : list.length ? (
+      )}
+      {!loaded ? null : list.length ? (
         <Rows>
           {list.map((e) => (
             <TranscriptEvent
@@ -77,10 +95,10 @@ export function TranscriptList({
               at={seconds(e.at)}
             >
               {e.tool ? <b>{e.tool} </b> : null}
-              {e.kind === 'tool' ? <Code>{short(e.args)}</Code> : null}
+              {e.kind === 'tool' ? <Code>{e.args}</Code> : null}
               {e.kind === 'result' ? (
                 <>
-                  <Text tone="muted">{short(e.result)}</Text>
+                  <Text tone="muted">{e.result}</Text>
                   {e.durationMs !== undefined ? (
                     <Text tone="muted" size="xs">
                       {' '}
@@ -91,7 +109,7 @@ export function TranscriptList({
               ) : null}
               {e.text ? (
                 <Text wrap="pre" tone={e.kind === 'thinking' ? 'muted' : 'default'}>
-                  {short(e.text)}
+                  {e.text}
                 </Text>
               ) : null}
             </TranscriptEvent>

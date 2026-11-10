@@ -162,6 +162,14 @@ describe('summarizeUsage', () => {
 })
 
 describe('compactCount', () => {
+  it('picks the unit after rounding, so a count just under a million is never 1000k', () => {
+    expect(compactCount(999_950)).toBe('1M')
+    expect(compactCount(999_999)).toBe('1M')
+    expect(compactCount(999_499)).toBe('999k')
+    expect(compactCount(99_960)).toBe('100k')
+    expect(compactCount(999)).toBe('999')
+  })
+
   it('reads thousands and millions at a glance', () => {
     expect(compactCount(950)).toBe('950')
     expect(compactCount(1234)).toBe('1.2k')

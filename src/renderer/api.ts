@@ -149,7 +149,8 @@ export const api = {
   config: (config: BenchConfig) => call('skill.config', scoped({ config })),
   generate: (request: GenerateRequest) => call('skill.generate', scoped(request)),
   grade: (run: string, jev = true) => call('skill.grade', scoped({ run, jev })),
-  saveCase: (draft: CaseDraft, isNew: boolean) =>
-    call('skill.saveCase', scoped({ case: draft, isNew })),
+  /** `savedAt` is when the form's copy of the case was saved: a newer copy on disk refuses the save. */
+  saveCase: (draft: CaseDraft, isNew: boolean, savedAt: string | null = null) =>
+    call('skill.saveCase', scoped({ case: draft, isNew, savedAt })),
   deleteCase: (id: string) => call('skill.deleteCase', scoped({ id })),
 }

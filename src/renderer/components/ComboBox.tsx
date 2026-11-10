@@ -57,7 +57,10 @@ export function ComboBox({ value, onChange, options, id, placeholder, noun, ...a
       if (!open) return show()
       if (!shown.length) return
       const step = e.key === 'ArrowDown' ? 1 : -1
-      setActive((a) => (a + step + shown.length) % shown.length)
+      const next = (active + step + shown.length) % shown.length
+      setActive(next)
+      // Only the keyboard scrolls the list: following the pointer would move rows from under it.
+      document.getElementById(`${listId}-${next}`)?.scrollIntoView({ block: 'nearest' })
     } else if (e.key === 'Enter' && open) {
       e.preventDefault()
       const option = shown[active]
@@ -133,7 +136,13 @@ export function ComboBox({ value, onChange, options, id, placeholder, noun, ...a
         // A press anywhere on the list, a row or its scrollbar, leaves the focus in the field.
         onMouseDown={(e) => e.preventDefault()}
       >
-        <PopoverSection scroll id={listId} role="listbox" aria-label={aria['aria-label']}>
+        <PopoverSection
+          scroll
+          id={listId}
+          role="listbox"
+          // A field named by a label beside it gives the list no name to share: it is named for what it lists.
+          aria-label={aria['aria-label'] ?? `${noun}s`}
+        >
           {shown.map((option, i) => (
             <button
               key={option}

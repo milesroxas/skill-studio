@@ -9,6 +9,7 @@
  */
 import type { ReactNode } from 'react'
 import { Heading, Text } from './text.tsx'
+import { Button } from './ui/button.tsx'
 
 /** When a step's own parts start to move: it has slid in and the eye has reached them. */
 export const STEP_BEAT = 260
@@ -48,7 +49,8 @@ export function StepFrame({
   from,
   title,
   say,
-  back,
+  busy,
+  onBack,
   next,
   children,
 }: {
@@ -61,8 +63,20 @@ export function StepFrame({
   from: number
   title: string
   say: string
-  back: ReactNode
-  next: ReactNode
+  /** The welcome is on its way out, or onward: neither button can be pressed. */
+  busy: boolean
+  onBack: () => void
+  /**
+   * The way forward. Filled unless it says `outline`, as it does while the
+   * step's own control is the one to press. `busyLabel` is what it says while
+   * its own press is what the welcome is busy with.
+   */
+  next: {
+    label: ReactNode
+    onClick: () => void
+    variant?: 'default' | 'outline'
+    busyLabel?: string
+  }
   /** What the step shows or asks for, beside its words. */
   children: ReactNode
 }) {
@@ -91,8 +105,21 @@ export function StepFrame({
 
       {/* Two buttons and nothing between them: what a step has to say, it says above. */}
       <div className="flex h-21 shrink-0 items-center justify-between px-12">
-        {back}
-        {next}
+        <Button type="button" variant="outline" disabled={busy} onClick={onBack}>
+          Back
+        </Button>
+        {/* One button on every step, so it keeps the focus and its place from the first step to the last. */}
+        <Button
+          type="button"
+          variant={next.variant}
+          autoFocus
+          disabled={busy}
+          busy={busy && next.busyLabel !== undefined}
+          busyLabel={next.busyLabel}
+          onClick={next.onClick}
+        >
+          {next.label}
+        </Button>
       </div>
     </section>
   )

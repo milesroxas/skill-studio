@@ -1,5 +1,6 @@
 import { exec } from '../exec.ts'
-import type { EngineRequest, EngineResult } from './types.ts'
+import { jsonLine } from '../json-lines.ts'
+import type { Engine, EngineRequest, EngineResult } from './types.ts'
 
 /** The closing event both CLIs send. */
 export interface ResultEvent {
@@ -35,6 +36,32 @@ export function readResult(event: ResultEvent, request: EngineRequest, result: E
   }
 }
 
+/** A run that ended before it began, with the reason as its error and in the transcript. */
+function refused(request: EngineRequest, error: string): EngineResult {
+  request.transcript.push({ kind: 'error', text: error, error: true })
+  return { ok: false, error, costUsd: null, tokens: null, model: null, finalText: null }
+}
+
+/**
+ * The model and effort a request asks for, once the engine has said it takes
+ * them; `default` and nothing both read as null. They become arguments of a
+ * command, so a name the engine does not know never reaches one: `known` says
+ * whether a model is one of the engine's, and the efforts are its own list.
+ */
+export function chosen(
+  engine: Pick<Engine, 'label' | 'efforts'>,
+  request: EngineRequest,
+  known: (model: string) => boolean,
+): { model: string | null; effort: string | null } | { refusal: EngineResult } {
+  const model = request.model && request.model !== 'default' ? request.model : null
+  const effort = request.effort && request.effort !== 'default' ? request.effort : null
+  if (model && !known(model))
+    return { refusal: refused(request, `${engine.label} has no model named "${model}".`) }
+  if (effort && !engine.efforts.includes(effort))
+    return { refusal: refused(request, `${engine.label} has no effort named "${effort}".`) }
+  return { model, effort }
+}
+
 /**
  * Run an agent CLI that prints one JSON event per stdout line, passing each
  * event to `handle`. A line that is not JSON goes to the transcript as is.
@@ -60,16 +87,13 @@ export async function runStreamJson<E>(
     timeoutMs: request.timeoutMs,
     signal: request.signal,
     onLine: (line) => {
-      let event: E
-      try {
-        event = JSON.parse(line)
-      } catch {
-        request.transcript.push({ kind: 'system', text: line.slice(0, 200) })
-        return
-      }
-      handle(event, result)
+      const event = jsonLine(line)
+      if (event) handle(event as E, result)
+      else request.transcript.push({ kind: 'system', text: line.slice(0, 200) })
     },
   })
+  if (request.transcript.failure)
+    request.log?.(`the transcript could not be written: ${request.transcript.failure}`)
   if (run.spawnError) result.error = run.spawnError
   else if (request.signal?.aborted) result.error = 'stopped'
   else if (run.timedOut) result.error = `timed out after ${Math.round(request.timeoutMs / 1000)} s`

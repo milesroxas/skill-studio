@@ -26,7 +26,6 @@ import { Folders } from './Folders.tsx'
 import { Field, ReadFailed } from './layout.tsx'
 import { Segmented } from './Segmented.tsx'
 import { Status } from './Status.tsx'
-import { Button } from './ui/button.tsx'
 import { Label } from './ui/label.tsx'
 import { StepFrame, StepPanel } from './WelcomeStep.tsx'
 
@@ -69,10 +68,11 @@ export function Setup({
   const last = index === SETUP_STEPS.length - 1
   const set = done[step.id]
   const saveFolders = (list: string[], said: string) =>
+    // A failure is the list's to report: it knows which change did not land.
     api.setWorkspaces(list).then(() => {
       report(said)
       library.reload()
-    }, report)
+    })
 
   return (
     <StepFrame
@@ -82,39 +82,24 @@ export function Setup({
       from={from}
       title={step.title}
       say={step.say}
-      back={
-        <Button
-          type="button"
-          variant="outline"
-          disabled={busy}
-          onClick={() => (index === 0 ? onBack() : onShow(index - 1))}
-        >
-          Back
-        </Button>
-      }
-      next={
-        // One button on every step, so it keeps the focus and its place from the first step to the last.
-        <Button
-          type="button"
-          variant={set ? 'default' : 'outline'}
-          autoFocus
-          disabled={busy}
-          onClick={() => (last ? onStart() : onShow(index + 1))}
-        >
-          {!set ? (
-            'Configure later'
-          ) : !last ? (
-            <>
-              Continue
-              <ArrowRightIcon aria-hidden="true" />
-            </>
-          ) : busy ? (
-            'Starting…'
-          ) : (
-            'Start the walkthrough'
-          )}
-        </Button>
-      }
+      busy={busy}
+      onBack={() => (index === 0 ? onBack() : onShow(index - 1))}
+      next={{
+        variant: set ? 'default' : 'outline',
+        label: !set ? (
+          'Configure later'
+        ) : !last ? (
+          <>
+            Continue
+            <ArrowRightIcon aria-hidden="true" />
+          </>
+        ) : (
+          'Start the walkthrough'
+        ),
+        onClick: () => (last ? onStart() : onShow(index + 1)),
+        // Only the last step's press is waited on: it opens the practice skill.
+        busyLabel: set && last ? 'Starting…' : undefined,
+      }}
     >
       <StepPanel>
         {step.id === 'folders' ? (

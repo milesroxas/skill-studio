@@ -4,8 +4,9 @@
  * popover. It never moves the screen above it.
  */
 import { cva } from 'class-variance-authority'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { api, type Job, type JobProgress } from '../api.ts'
+import { reportFailure } from '../transport.ts'
 import { Rows } from './layout.tsx'
 import { Dot, type Tone } from './Status.tsx'
 import { Text } from './text.tsx'
@@ -13,21 +14,6 @@ import { Button } from './ui/button.tsx'
 import { Popover, PopoverContent, PopoverTrigger } from './ui/popover.tsx'
 
 const QUIET_AFTER_MS = 60_000
-
-/**
- * The job of `kind` still running, by its title when one is given: a screen
- * keeps the button that started it busy until the job is over, so a second
- * press cannot start it twice.
- */
-export function runningJob(
-  jobs: readonly Job[],
-  kind: Job['kind'],
-  title?: string,
-): Job | undefined {
-  return jobs.find(
-    (j) => j.status === 'running' && j.kind === kind && (title === undefined || j.title === title),
-  )
-}
 
 const indicator = cva(
   'flex min-h-8 w-full flex-col justify-center gap-1.5 rounded-sm px-2 py-1.5 text-left text-xs focus-ring-inset transition-[background-color] duration-150 ease-out hover:bg-sidebar-accent data-[state=open]:bg-sidebar-accent',
@@ -93,13 +79,23 @@ export function RunningTag({ jobs, skillPath }: { jobs: readonly Job[]; skillPat
 export function JobsIndicator({ jobs }: { jobs: Job[] }) {
   const running = jobs.filter((j) => j.status === 'running')
   const recent = jobs[0]
-  if (!recent) return null
-  const settled =
+  /** When the last result has been in view long enough; null while it stays, as a running or failed one does. */
+  const quietAt =
+    recent &&
     !running.length &&
     (recent.status === 'done' || recent.status === 'stopped') &&
-    recent.finishedAt !== null &&
-    Date.now() - recent.finishedAt > QUIET_AFTER_MS
-  if (settled) return null
+    recent.finishedAt !== null
+      ? recent.finishedAt + QUIET_AFTER_MS
+      : null
+  // Nothing else may render in that minute: the line takes itself away.
+  const [, setQuiet] = useState(0)
+  useEffect(() => {
+    if (quietAt === null || quietAt <= Date.now()) return
+    const timer = setTimeout(() => setQuiet(quietAt), quietAt - Date.now())
+    return () => clearTimeout(timer)
+  }, [quietAt])
+  if (!recent) return null
+  if (quietAt !== null && Date.now() >= quietAt) return null
   const status = running.length ? 'running' : recent.status
   const progress = progressOf(running)
   const label = running.length
@@ -152,8 +148,11 @@ function StopJob({ job }: { job: Job }) {
       busyLabel="Stopping…"
       onClick={() => {
         setStopping(true)
-        // The row leaves with the job's status, so a failed stop puts the button back.
-        api.stopJob(job.id).catch(() => setStopping(false))
+        // The row leaves with the job's status, so a failed stop puts the button back and says why.
+        api.stopJob(job.id).catch((e: Error) => {
+          setStopping(false)
+          reportFailure(e)
+        })
       }}
     >
       Stop

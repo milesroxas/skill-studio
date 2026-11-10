@@ -68,6 +68,9 @@
       }
     ]
   },
+  "rules": {
+    "dev-dependency-in-production": "off"
+  },
   "ignoreExports": [
     {
       "file": "src/renderer/components/ui/**",

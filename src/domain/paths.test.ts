@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest'
-import { isEditablePath, isWithin } from './paths.ts'
+import { describe, expect, it, vi } from 'vitest'
+import { byFileOrder, isEditablePath, isWithin } from './paths.ts'
 
 describe('isWithin', () => {
   it('accepts the root itself and anything below it', () => {
@@ -39,5 +39,19 @@ describe('isEditablePath', () => {
     expect(isEditablePath('references/../../x')).toBe(false)
     expect(isEditablePath('references/../SKILL.md')).toBe(false)
     expect(isEditablePath('references\\voice.md')).toBe(false)
+  })
+})
+
+describe('byFileOrder', () => {
+  it('puts SKILL.md first and sorts the rest in one fixed locale', () => {
+    const compare = vi.spyOn(String.prototype, 'localeCompare')
+    expect(['references/b.md', 'SKILL.md', 'references/a.md'].sort(byFileOrder)).toEqual([
+      'SKILL.md',
+      'references/a.md',
+      'references/b.md',
+    ])
+    expect(compare).toHaveBeenCalled()
+    for (const call of compare.mock.calls) expect(call[1]).toBe('en')
+    compare.mockRestore()
   })
 })

@@ -16,15 +16,15 @@
 import { practiceVersionName } from '@domain/practice.ts'
 import { CONFIGURATIONS, type Configuration } from '@domain/schemas.ts'
 import { PlayIcon } from 'lucide-react'
-import { useEffect, useRef, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { api, type Job, type State } from '../api.ts'
 import { type Reporter, useToggleSet } from '../hooks.ts'
+import { useJobStart } from '../job-start.ts'
 import { capital, plural, runStamp, shortDate, versionName } from '../model.ts'
 import { RUN } from '../places.ts'
 import { ComboBox } from './ComboBox.tsx'
 import { Disclosure } from './Disclosure.tsx'
 import { CheckRow, NumberInput } from './forms.tsx'
-import { runningJob } from './Jobs.tsx'
 import { Field, Stack } from './layout.tsx'
 import { SelectBox } from './SelectBox.tsx'
 import { Status } from './Status.tsx'
@@ -51,13 +51,6 @@ interface Writer {
   model: string
   effort: string
 }
-
-/**
- * How long Start stays busy after the call returns while the job has not shown
- * in the list yet. In a browser the list is polled every few seconds, so a
- * second press before the next poll would start a second run.
- */
-const SHOW_WITHIN_MS = 5000
 
 export function RunButton({
   state,
@@ -108,7 +101,6 @@ export function RunButton({
   const [configuration, setConfiguration] = useState<Configuration>('with_skill')
   const [baseline, setBaseline] = useState('')
   const [name, setName] = useState('')
-  const [starting, setStarting] = useState(false)
   /** No version yet: this run keeps the first one, and there is no change to name. */
   const firstVersion = !state.versions.versions.length
   // The practice skill's run needs no typing: its new version comes named.
@@ -119,29 +111,21 @@ export function RunButton({
       : `Edits of ${shortDate(new Date().toISOString())}`
   const count = cases.length * samples
   /**
-   * A run of this skill still going. The button stays busy until it is over:
-   * starting returns as soon as the job is queued, and a button that came
-   * straight back would ask to be pressed again.
+   * A run of this skill, from the press that starts it until it is over. The
+   * button stays busy all that time: starting returns as soon as the job is
+   * queued, and a button that came straight back would ask to be pressed again.
    */
-  const running = runningJob(
-    jobs.filter((j) => j.skillPath === state.skill.path),
-    'generate',
-  )
-  // Starting ends when the job is in the list, which keeps the button busy from then on.
-  const shown = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
-  useEffect(() => {
-    if (!running) return
-    clearTimeout(shown.current)
-    setStarting(false)
-  }, [running])
-  useEffect(() => () => clearTimeout(shown.current), [])
+  const skillPath = state.skill.path
+  const mine = useMemo(() => jobs.filter((j) => j.skillPath === skillPath), [jobs, skillPath])
+  const run = useJobStart(mine, 'generate', report)
+  const starting = run.starting()
+  const running = run.busy()
   const pastRun = withSkill.find((r) => r.name === baseline) ?? withSkill[0] ?? null
   const usable = Boolean(chosen && engine?.available)
 
-  const start = async () => {
-    if (!chosen || starting) return
-    setStarting(true)
-    try {
+  const start = () => {
+    if (!chosen) return
+    void run.start([], async () => {
       await api.generate({
         cases: cases.map((c) => c.id),
         configs: [chosen],
@@ -155,13 +139,7 @@ export function RunButton({
       report(`Run started: ${plural(count, 'output')}`)
       setName('')
       onOpenChange(false)
-      // The job is queued. Stay busy until it shows in the list, or for a while when it never does.
-      clearTimeout(shown.current)
-      shown.current = setTimeout(() => setStarting(false), SHOW_WITHIN_MS)
-    } catch (e) {
-      report(e as Error)
-      setStarting(false)
-    }
+    })
   }
 
   const lead =
@@ -197,7 +175,7 @@ export function RunButton({
           type="button"
           variant={next ? 'signal' : 'outline'}
           size="sm"
-          busy={Boolean(running) || starting}
+          busy={running}
           busyLabel="Running…"
         >
           <RUN.icon aria-hidden="true" />
@@ -240,15 +218,22 @@ export function RunButton({
         ) : null}
         <Stack gap="md">
           <Hint tabular>
-            {!usable
-              ? 'No agent is set up to write the outputs.'
-              : !cases.length
-                ? 'Tick at least one case under Options.'
-                : `${plural(count, 'output')}: ${plural(cases.length, 'case')} × ${plural(samples, 'sample')}, graded ${state.jevKey ? 'by Jev' : 'by code checks only: no Jev key'}. Each output is an agent session.`}
+            {running && !starting
+              ? 'A run of this skill is going. Start the next one when it is over.'
+              : !usable
+                ? 'No agent is set up to write the outputs.'
+                : !cases.length
+                  ? 'Tick at least one case under Options.'
+                  : `${plural(count, 'output')}: ${plural(cases.length, 'case')} × ${plural(samples, 'sample')}, graded ${state.jevKey ? 'by Jev' : 'by code checks only: no Jev key'}. Each output is an agent session.`}
           </Hint>
           <Button
             type="button"
-            disabled={!usable || !cases.length || (configuration === 'old_skill' && !pastRun)}
+            disabled={
+              (running && !starting) ||
+              !usable ||
+              !cases.length ||
+              (configuration === 'old_skill' && !pastRun)
+            }
             busy={starting}
             busyLabel="Starting…"
             onClick={start}

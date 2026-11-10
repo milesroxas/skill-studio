@@ -1,5 +1,5 @@
-import { readdirSync, statSync } from 'node:fs'
-import { extname, join, relative } from 'node:path'
+import { lstatSync, readdirSync, type Stats } from 'node:fs'
+import { extname, join } from 'node:path'
 import { OUTPUTS_DIR } from '@domain/prompt.ts'
 import type { Artifact, ArtifactKind } from '@domain/schemas.ts'
 import { isDir } from './fs.ts'
@@ -55,18 +55,33 @@ export function detectArtifacts(sampleDir: string): Artifact[] {
   const outputs = join(sampleDir, OUTPUTS_DIR)
   if (!isDir(outputs)) return []
   const found: Artifact[] = []
-  const walk = (dir: string) => {
-    for (const name of readdirSync(dir).sort()) {
+  // The agent wrote this folder, so nothing in it is trusted: a link is never
+  // followed (it may lead out of the sample, to nothing, or back on itself)
+  // and an entry that cannot be read is passed over.
+  const walk = (dir: string, prefix: string) => {
+    let names: string[]
+    try {
+      names = readdirSync(dir).sort()
+    } catch {
+      return
+    }
+    for (const name of names) {
       if (name.startsWith('.') || name === 'node_modules') continue
-      const full = join(dir, name)
-      if (statSync(full).isDirectory()) walk(full)
-      else {
+      let entry: Stats
+      try {
+        entry = lstatSync(join(dir, name))
+      } catch {
+        continue
+      }
+      const file = `${prefix}/${name}`
+      if (entry.isDirectory()) walk(join(dir, name), file)
+      else if (entry.isFile()) {
         const kind = artifactKind(name)
-        if (kind) found.push({ file: relative(sampleDir, full), kind })
+        if (kind) found.push({ file, kind })
       }
     }
   }
-  walk(outputs)
+  walk(outputs, OUTPUTS_DIR)
   return found
 }
 

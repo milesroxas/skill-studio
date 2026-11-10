@@ -3,7 +3,7 @@ import type { Artifact as ArtifactRef } from '@domain/schemas.ts'
 import { copyOf } from '@domain/text.ts'
 import { useEffect, useState } from 'react'
 import { api } from '../api.ts'
-import { Loading } from './layout.tsx'
+import { Loading, ReadFailed } from './layout.tsx'
 import { Prose } from './Prose.tsx'
 import { Hint } from './text.tsx'
 import { Button } from './ui/button.tsx'
@@ -16,22 +16,40 @@ interface Props {
 }
 
 export function ArtifactView({ run, sample, artifact }: Props) {
-  const [text, setText] = useState<string | null>(null)
-  const [error, setError] = useState<string | null>(null)
-  const textual = artifact && artifact.kind !== 'image' && artifact.kind !== 'html'
+  // The text read, with the file it was read from: text of another file is never shown under this one's name.
+  const [read, setRead] = useState<{ of: string; text: string } | null>(null)
+  const [failure, setFailure] = useState<{ of: string; message: string } | null>(null)
+  const [loading, setLoading] = useState(false)
+  /** Bumped by Try again: the same file, read once more. */
+  const [attempt, setAttempt] = useState(0)
+  // By its name and kind, not the object: every reload of the skill brings a new object for the same file.
+  const file = artifact?.file ?? null
+  const textual = artifact ? artifact.kind !== 'image' && artifact.kind !== 'html' : false
+  const of = `${run}/${sample}/${file}`
+  // biome-ignore lint/correctness/useExhaustiveDependencies: `attempt` reads again on purpose.
   useEffect(() => {
-    setText(null)
-    setError(null)
-    if (!artifact || !textual) return
+    if (file === null || !textual) return
     let live = true
-    api.artifactText(run, sample, artifact.file).then(
-      (value) => live && setText(value),
-      (e: Error) => live && setError(e.message),
+    setLoading(true)
+    api.artifactText(run, sample, file).then(
+      (text) => {
+        if (!live) return
+        setRead({ of: `${run}/${sample}/${file}`, text })
+        setFailure(null)
+        setLoading(false)
+      },
+      (e: Error) => {
+        if (!live) return
+        setFailure({ of: `${run}/${sample}/${file}`, message: e.message })
+        setLoading(false)
+      },
     )
     return () => {
       live = false
     }
-  }, [run, sample, artifact, textual])
+  }, [run, sample, file, textual, attempt])
+  const text = read?.of === of ? read.text : null
+  const error = failure?.of === of ? failure.message : null
   if (!artifact) return <Hint inset>The agent wrote no file for this output.</Hint>
   const url = api.artifactUrl(run, sample, artifact.file)
   if (artifact.kind === 'image')
@@ -58,13 +76,19 @@ export function ArtifactView({ run, sample, artifact }: Props) {
         />
       </div>
     )
-  if (error)
-    return (
-      <Hint inset tone="destructive">
+  if (text === null)
+    return error ? (
+      <ReadFailed
+        size="compact"
+        title="Could not read this file"
+        retrying={loading}
+        onRetry={() => setAttempt((n) => n + 1)}
+      >
         {error}
-      </Hint>
+      </ReadFailed>
+    ) : (
+      <Loading />
     )
-  if (text === null) return <Loading />
   if (artifact.kind === 'markdown') return <Prose text={copyOf(text)} />
   return (
     <pre className="m-0 overflow-x-auto bg-muted px-5 py-4 font-mono text-xs whitespace-pre-wrap break-words">

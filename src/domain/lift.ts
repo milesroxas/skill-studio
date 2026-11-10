@@ -33,18 +33,25 @@ export type LiftSide = LiftRun & { mean: number }
 export interface Lift {
   first: LiftSide
   latest: LiftSide
-  /** The same writer without the skill, when it ran so: its mean over the shared cases it answered. */
+  /**
+   * The same writer without the skill, when it ran so: its newest such run
+   * that answered every shared case, read over those cases. When none
+   * answered them all, the run that answered the most of them, the newest
+   * of those, read over the ones it answered. Null when none answered any.
+   */
   baseline: LiftSide | null
+  /** How many of the shared cases the floor's mean is over; 0 with no floor. */
+  baselineCases: number
   /** The latest version scores higher than the first. Only then is the lift drawn. */
   rises: boolean
   /** How many cases both runs answered: the ones the means are over. */
   sharedCases: number
-  /** One run answered cases the other did not, so the means leave some out. */
+  /**
+   * The means are not all over one set of cases: one run answered cases the
+   * other did not, or the floor answered fewer of the shared cases than they did.
+   */
   casesDiffer: boolean
 }
-
-/** A run with a graded case to its name. */
-type Scored = LiftRun
 
 /** One key per writer, whatever else a run recorded about it. */
 export const writerKey = (writer: Writer | null | undefined): string =>
@@ -54,22 +61,40 @@ export const writerKey = (writer: Writer | null | undefined): string =>
 export const versionNumber = (version: string): number | null =>
   /^v\d+$/.test(version) ? Number(version.slice(1)) : null
 
-const newest = (a: Scored, b: Scored): Scored => (b.createdAt > a.createdAt ? b : a)
-const oldest = (a: Scored, b: Scored): Scored => (b.createdAt < a.createdAt ? b : a)
+const newest = (a: LiftRun, b: LiftRun): LiftRun => (b.createdAt > a.createdAt ? b : a)
+const oldest = (a: LiftRun, b: LiftRun): LiftRun => (b.createdAt < a.createdAt ? b : a)
 
 const graded = (run: LiftRun): boolean => Object.keys(run.cases).length > 0
 
+/** The run answered case `id`. Its own key only: `constructor` is a name every object answers to. */
+const has = (run: LiftRun, id: string): boolean => Object.hasOwn(run.cases, id)
+
 /** The case ids both runs answered. */
-const shared = (a: LiftRun, b: LiftRun): string[] =>
-  Object.keys(a.cases).filter((id) => id in b.cases)
+const shared = (a: LiftRun, b: LiftRun): string[] => Object.keys(a.cases).filter((id) => has(b, id))
 
 /** The run's mean over `ids`, each case once; null when it answered none of them. */
 const meanOver = (run: LiftRun, ids: readonly string[]): number | null =>
-  mean(ids.filter((id) => id in run.cases).map((id) => run.cases[id]))
+  mean(ids.filter((id) => has(run, id)).map((id) => run.cases[id]))
 
 const over = (run: LiftRun, ids: readonly string[]): LiftSide | null => {
   const value = meanOver(run, ids)
   return value === null ? null : { ...run, mean: value }
+}
+
+/** How many of `ids` the run answered. */
+const answered = (run: LiftRun, ids: readonly string[]): number =>
+  ids.filter((id) => has(run, id)).length
+
+/** Of the runs without the skill, the one that answered the most of `ids`, the newest of those; null when none answered any. */
+function floorOf(floors: readonly LiftRun[], ids: readonly string[]): LiftRun | null {
+  let best: LiftRun | null = null
+  for (const run of floors) {
+    const count = answered(run, ids)
+    if (!count) continue
+    const most = best ? answered(best, ids) : 0
+    if (!best || count > most || (count === most && run.createdAt > best.createdAt)) best = run
+  }
+  return best
 }
 
 /**
@@ -77,13 +102,13 @@ const over = (run: LiftRun, ids: readonly string[]): LiftSide | null => {
  * and its newest run on its highest, for the writer whose newest run is the
  * newest of all. Null until a writer has run two versions with a case in common.
  */
-function liftPair(runs: readonly LiftRun[]): { first: Scored; latest: Scored } | null {
-  const writers = new Map<string, Scored[]>()
+function liftPair(runs: readonly LiftRun[]): { first: LiftRun; latest: LiftRun } | null {
+  const writers = new Map<string, LiftRun[]>()
   for (const run of runs)
     if (graded(run) && run.configuration !== 'without_skill' && versionNumber(run.version) !== null)
       writers.set(run.writer, [...(writers.get(run.writer) ?? []), run])
 
-  let pick: { first: Scored; latest: Scored } | null = null
+  let pick: { first: LiftRun; latest: LiftRun } | null = null
   for (const list of writers.values()) {
     const numbers = list.map((r) => versionNumber(r.version) as number)
     const low = Math.min(...numbers)
@@ -110,14 +135,18 @@ export function versionLift(runs: readonly LiftRun[]): Lift | null {
   const floors = runs.filter(
     (r) => graded(r) && r.configuration === 'without_skill' && r.writer === pick.latest.writer,
   )
+  const floor = floorOf(floors, ids)
+  const baselineCases = floor ? answered(floor, ids) : 0
   return {
     first,
     latest,
-    baseline: floors.length ? over(floors.reduce(newest), ids) : null,
+    baseline: floor ? over(floor, ids) : null,
+    baselineCases,
     rises: latest.mean > first.mean,
     sharedCases: ids.length,
     casesDiffer:
       ids.length < Object.keys(pick.first.cases).length ||
-      ids.length < Object.keys(pick.latest.cases).length,
+      ids.length < Object.keys(pick.latest.cases).length ||
+      (floor !== null && baselineCases < ids.length),
   }
 }

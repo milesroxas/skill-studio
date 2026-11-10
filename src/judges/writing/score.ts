@@ -67,7 +67,21 @@ export interface UnitAnswer {
   aiSplit: number | null
 }
 
-type GroundingVerdict = 'supported' | 'contradicted' | 'missing' | 'no_facts'
+/** How a claim stands against the evidence, as Jev picks it. */
+export const GROUNDINGS = ['supported', 'contradicted', 'missing', 'no_facts'] as const
+type GroundingVerdict = (typeof GROUNDINGS)[number]
+
+/** What a piece's last paragraph does, as Jev picks it. */
+export const ENDINGS = ['recap', 'implication', 'engagement', 'moral', 'pointer'] as const
+export type Ending = (typeof ENDINGS)[number]
+
+/** What the paragraph before the last does: it may carry the implication when the last only points on. */
+export const ENDINGS_BEFORE = ['recap', 'implication', 'engagement', 'moral', 'detail'] as const
+type EndingBefore = (typeof ENDINGS_BEFORE)[number]
+
+/** The kind of title a piece has, as Jev picks it. */
+export const TITLES = ['teaser', 'descriptive', 'claim', 'hype'] as const
+type Title = (typeof TITLES)[number]
 
 export interface ClaimVerdict {
   claim: string
@@ -82,10 +96,10 @@ export interface ClaimVerdict {
 export interface WritingJev {
   opensOnWork: number
   pointEarly: number
-  ending: string
-  endingBefore: string | null
+  ending: Ending
+  endingBefore: EndingBefore | null
   endingProbabilities: Record<string, number>
-  title: string | null
+  title: Title | null
   aiBuilt: boolean
   aiMentioned: boolean
   grounding: { verdicts: ClaimVerdict[] } | null
@@ -102,10 +116,10 @@ export interface WritingRaw {
 }
 
 interface WritingDerived {
-  ending: string
+  ending: Ending
   opensOnWork: boolean
   pointEarly: boolean
-  title: string | null
+  title: Title | null
   specificity: number | null
   selling: number | null
   decisions: number
@@ -139,6 +153,8 @@ function deriveWriting(jev: WritingJev | null, config: WritingConfig): WritingDe
   const { yes } = config
   const units = jev.perUnit
   const aiUnits = units.filter((u) => u.aiDidWork !== null && u.aiDidWork >= yes)
+  // A split Jev gave no answer on is left out of the share, never read as a no.
+  const splitAsked = aiUnits.filter((u) => u.aiSplit !== null)
   const ending =
     jev.ending === 'pointer' && jev.endingBefore === 'implication' ? 'implication' : jev.ending
   const verdicts: WritingDerived['verdicts'] = (jev.grounding?.verdicts ?? []).map((v) => ({
@@ -160,8 +176,8 @@ function deriveWriting(jev: WritingJev | null, config: WritingConfig): WritingDe
     decisions: units.filter((u) => u.decision >= yes).length,
     setbacks: units.filter((u) => u.setback >= yes).length,
     aiWork: aiUnits.length,
-    aiSplitShare: aiUnits.length
-      ? aiUnits.filter((u) => (u.aiSplit ?? 0) >= yes).length / aiUnits.length
+    aiSplitShare: splitAsked.length
+      ? splitAsked.filter((u) => (u.aiSplit ?? 0) >= yes).length / splitAsked.length
       : null,
     aiUnmentioned: jev.aiBuilt && aiUnits.length === 0 && !jev.aiMentioned,
     graded: Boolean(jev.grounding),
@@ -201,7 +217,8 @@ function scoreWriting(
     WRITING_LAYERS.map((l) => [l, null]),
   )
   if (!raw) return { layers, flags: [], verdicts: [] }
-  const active = KIND_LAYERS[raw.kind] ?? DEFAULT_KIND_LAYERS
+  // Only a kind the table names: `constructor` is a key every object has, and is no kind of writing.
+  const active = Object.hasOwn(KIND_LAYERS, raw.kind) ? KIND_LAYERS[raw.kind] : DEFAULT_KIND_LAYERS
   const d = deriveWriting(raw.jev, config)
   if (active.includes('lint') && raw.lint && !raw.lint.failed)
     layers.lint = raw.lint.errors
@@ -218,7 +235,8 @@ function scoreWriting(
         [d.pointEarly ? 1 : 0, structure.point],
         [ending, structure.ending],
       ]
-      if (d.title) parts.push([['descriptive', 'claim'].includes(d.title) ? 1 : 0, structure.title])
+      if (d.title)
+        parts.push([d.title === 'descriptive' || d.title === 'claim' ? 1 : 0, structure.title])
       layers.structure = weighted(parts)
     }
     if (active.includes('substance')) {
@@ -242,16 +260,20 @@ function scoreWriting(
   return { layers, flags, verdicts: flags.map(finding) }
 }
 
-function confidenceWriting(raw: WritingRaw | null): number | null {
+/**
+ * How sure Jev was of each yes/no the layers are counted from. A grounding
+ * verdict is a choice among four, and Jev's confidence in the label it picked
+ * is on another scale than a probability's distance from a half, so it is
+ * left out: one mean holds one measure.
+ */
+function certaintiesWriting(raw: WritingRaw | null): number[] {
   const jev = raw?.jev
-  if (!jev) return null
-  const nouls = [
+  if (!jev) return []
+  return [
     jev.opensOnWork,
     jev.pointEarly,
     ...jev.perUnit.flatMap((u) => [u.decision, u.setback]),
   ].map(certainty)
-  const grounding = (jev.grounding?.verdicts ?? []).map((v) => v.confidence)
-  return mean([...nouls, ...grounding])
 }
 
 export const writingScoring: PackScoring<WritingRaw> = {
@@ -284,5 +306,5 @@ export const writingScoring: PackScoring<WritingRaw> = {
     borrowed: [],
   },
   score: scoreWriting,
-  confidence: confidenceWriting,
+  certainties: certaintiesWriting,
 }

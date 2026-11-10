@@ -87,6 +87,10 @@ export interface Job {
   skillPath: string | null
   /** Set by a job that knows its size before it starts; null for one that does not. */
   progress: JobProgress | null
+  /** The runs of `skillPath` this job is grading now, so a Regrade of one can show it busy. */
+  grading: string[]
+  /** The runs of `skillPath` this job is writing now: those cannot be graded until it is done. */
+  writing: string[]
 }
 
 /** Everything a skill's workspace shows, loaded in one call. */

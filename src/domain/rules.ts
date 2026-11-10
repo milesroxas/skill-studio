@@ -1,4 +1,11 @@
-import { closesFence, type Fence, fenceOf, normalizeNewlines, stripFrontMatter } from './text.ts'
+import {
+  closesFence,
+  type Fence,
+  fenceOf,
+  LIST_MARK,
+  normalizeNewlines,
+  stripFrontMatter,
+} from './text.ts'
 
 export interface Rule {
   id: string
@@ -41,6 +48,78 @@ export interface RuleScan {
 const WORDS_MIN = 4
 const LINK_ONLY = /^\[[^\]]+\]\([^)]*\)$/
 
+/** One top-level bullet as it stands in the text: its own line and the indented lines under it. */
+export interface Bullet {
+  /** Index of its first and last line among the lines scanned, from 0. */
+  from: number
+  to: number
+  /** Its lines as written, the marker and the indentation kept. */
+  lines: string[]
+  /** The nearest heading above it; null before any heading. */
+  section: string | null
+}
+
+const BULLET = /^[-*]\s+(.+)$/
+/** A thematic break, `* * *` or `- - -`: it starts like a bullet and is none. */
+const THEMATIC_BREAK = /^([-*_])(?:[ \t]*\1){2,}[ \t]*$/
+/** A line that belongs to the bullet above: indented by a tab, or by two spaces or more. */
+const CONTINUES = /^(?:\t|\s{2,})\s*\S/
+const NESTED = new RegExp(`^\\s+${LIST_MARK}\\s+(.+)$`)
+
+/**
+ * Every top-level `-` and `*` bullet of `lines` outside code blocks, with the
+ * indented lines that belong to it. The one reading of what a bullet is: the
+ * judge's rules and the editor's checks both start here. A fence closes only
+ * on its own character, at least as long, so a ``` inside a ~~~ block is text.
+ */
+export function bulletsOf(lines: readonly string[]): Bullet[] {
+  const bullets: Bullet[] = []
+  let section: string | null = null
+  let fence: Fence | null = null
+  let open: Bullet | null = null
+  lines.forEach((line, i) => {
+    if (fence) {
+      if (closesFence(line, fence)) fence = null
+      return
+    }
+    const opened = fenceOf(line)
+    if (opened) {
+      open = null
+      fence = opened
+      return
+    }
+    const heading = /^#{1,6}\s+(.+)$/.exec(line)
+    if (heading) {
+      open = null
+      section = heading[1].trim()
+      return
+    }
+    if (BULLET.test(line) && !THEMATIC_BREAK.test(line)) {
+      open = { from: i, to: i, lines: [line], section }
+      bullets.push(open)
+      return
+    }
+    if (open && CONTINUES.test(line)) {
+      open.lines.push(line)
+      open.to = i
+      return
+    }
+    open = null
+  })
+  return bullets
+}
+
+/** A bullet as one line of text: a nested bullet joins after a `;` unless the text before it already ends in punctuation. */
+function bulletText(bullet: Bullet): string {
+  let text = BULLET.exec(bullet.lines[0])?.[1] ?? ''
+  for (const line of bullet.lines.slice(1)) {
+    const nested = NESTED.exec(line)
+    if (nested) text += `${/[.,;:!?]$/.test(text.trim()) ? '' : ';'} ${nested[1].trim()}`
+    else text += ` ${line.trim()}`
+  }
+  return text
+}
+
 /**
  * Top-level `-` and `*` bullets outside code blocks and outside the front
  * matter, each tagged with the section it sits under. Indented lines belong to
@@ -58,63 +137,32 @@ export function scanRules(skillMd: string): RuleScan {
   const rules: Rule[] = []
   const spans: RuleSpan[] = []
   const skipped: SkippedBullet[] = []
-  let section = 'SKILL.md'
-  let fence: Fence | null = null
-  let pending: { text: string; line: number; last: number } | null = null
-  const flush = () => {
-    if (pending === null) return
-    const { line, last } = pending
+  for (const bullet of bulletsOf(body.split('\n'))) {
+    const line = offset + bullet.from + 1
+    const raw = bulletText(bullet)
     // Read the link before `strip` turns it into its label.
-    const link = LINK_ONLY.test(pending.text.trim())
-    const text = strip(pending.text)
-    pending = null
-    if (link) return void skipped.push({ line, reason: 'link' })
-    if (text.split(' ').length < WORDS_MIN) return void skipped.push({ line, reason: 'short' })
-    rules.push({ id: `r${rules.length + 1}`, text, section })
-    spans.push({ from: line, to: last })
+    if (LINK_ONLY.test(raw.trim())) {
+      skipped.push({ line, reason: 'link' })
+      continue
+    }
+    const text = strip(raw)
+    if (text.split(' ').length < WORDS_MIN) {
+      skipped.push({ line, reason: 'short' })
+      continue
+    }
+    rules.push({ id: `r${rules.length + 1}`, text, section: bullet.section ?? 'SKILL.md' })
+    spans.push({ from: line, to: offset + bullet.to + 1 })
   }
-  body.split('\n').forEach((line, i) => {
-    const number = offset + i + 1
-    // A fence closes only on its own character, at least as long: a ``` inside a ~~~ block is text.
-    if (fence) {
-      if (closesFence(line, fence)) fence = null
-      return
-    }
-    const opened = fenceOf(line)
-    if (opened) {
-      flush()
-      fence = opened
-      return
-    }
-    const heading = /^#{1,6}\s+(.+)$/.exec(line)
-    if (heading) {
-      flush()
-      section = heading[1].trim()
-      return
-    }
-    const bullet = /^[-*]\s+(.+)$/.exec(line)
-    if (bullet) {
-      flush()
-      pending = { text: bullet[1], line: number, last: number }
-      return
-    }
-    if (pending !== null && /^\s{2,}\S/.test(line)) {
-      const nested = /^\s+(?:[-*+]|\d+[.)])\s+(.+)$/.exec(line)
-      if (nested)
-        pending.text += `${/[.,;:!?]$/.test(pending.text.trim()) ? '' : ';'} ${nested[1].trim()}`
-      else pending.text += ` ${line.trim()}`
-      pending.last = number
-      return
-    }
-    flush()
-  })
-  flush()
   return { rules, spans, skipped }
 }
 
 /** The rules alone, for the judge and the bench. */
 export const rulesFromSkill = (skillMd: string): Rule[] => scanRules(skillMd).rules
 
-/** Rules from an explicit list, as `bench.json` `rules` gives them. */
+/** Rules from an explicit list, as `bench.json` `rules` gives them: each once, a blank one left out. */
 export const rulesFromList = (list: string[]): Rule[] =>
-  list.map((text, i) => ({ id: `r${i + 1}`, text: text.trim(), section: 'bench.json rules' }))
+  [...new Set(list.map((text) => text.trim()).filter(Boolean))].map((text, i) => ({
+    id: `r${i + 1}`,
+    text,
+    section: 'bench.json rules',
+  }))

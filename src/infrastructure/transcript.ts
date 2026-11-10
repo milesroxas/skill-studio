@@ -66,6 +66,11 @@ export class TranscriptWriter {
   readonly path: string
   readonly startedAt = Date.now()
   readonly events: TranscriptEvent[] = []
+  /**
+   * Why the file stopped being written, once it has: the sample folder is
+   * gone, or the disk is full. Events are still kept in `events`.
+   */
+  failure: string | null = null
   private open = new Map<string, { step: number; at: number; tool: string }>()
 
   constructor(path: string) {
@@ -82,7 +87,13 @@ export class TranscriptWriter {
     if (full.text && full.text.length > MAX_TEXT)
       full.text = `${full.text.slice(0, MAX_TEXT)}… [${full.text.length} chars]`
     this.events.push(full)
-    appendFileSync(this.path, `${JSON.stringify(full)}\n`)
+    // Called as a child's output arrives: a throw here would be the backend's, not the run's.
+    if (this.failure === null)
+      try {
+        appendFileSync(this.path, `${JSON.stringify(full)}\n`)
+      } catch (error) {
+        this.failure = (error as Error).message
+      }
     return full
   }
 

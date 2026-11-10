@@ -108,7 +108,7 @@ A skill missing from the list?
 
 - **Write** the skill's rules in the editor. Save with **Save** or Cmd+S.
 - **An empty SKILL.md** has one line over it: write the first rule, take a template's rules, or draft rules with AI. It goes once you write.
-- **Rules are numbered.** Each bullet Jev will check shows its number in place of the bullet, 01, 02. A bullet that keeps its dot is skipped; point at it for why. An amber number means the writing checks found something: the words that set a check off are underlined (point at one to read why), and clicking the number selects the rule: the popout lists what the checks found over Auto refine, Suggest changes and Help me improve.
+- **Rules are numbered.** Each bullet Jev will check shows its number in place of the bullet, 01, 02. A bullet that keeps its dot is skipped; point at it for why. An amber number means the writing checks found something: the words that set a check off are underlined (point at one to read why), and clicking the number selects the rule: the popout lists what the checks found over Auto refine, Suggest changes and Help me improve. From the keyboard, F6 moves into the popout and Escape returns to the text.
 - **Insert** adds a ready-made rule, decision tree, process or reference link at the cursor.
 - **Formatted, Markdown, Changes:** read the page styled, as plain text, or as your unsaved changes.
 - **Five bars** (before Write with AI, at the end of the toolbar) show the file's size. Amber: getting long. Red: too long.
@@ -231,7 +231,7 @@ Results opens on a case with two outputs side by side: **A**, the version before
 - **Missed** lists each rule the output broke and each check it did not meet. This is what to fix. **Open rule** takes you to that rule on the Skill screen.
 - **Met** folds the rest away. Open it to read them.
 - **Transcript**, above the output, shows every step the agent took. Read it when a score surprises you. Did the agent read the skill at all?
-- **Word diff** marks what differs between the two. **Swap** trades their sides, and the **A** and **B** menus pick any other outputs of the case.
+- **Word diff** marks what differs between the two. Outputs too long to compare word by word are compared line by line, and the card says so. **Swap** trades their sides, and the **A** and **B** menus pick any other outputs of the case.
 - **Regrade** has Jev read an output's run again, for example after you add a check. An output not graded yet shows **Grade**.
 
 Then say **which is better**: A, B, or a tie. Picking the better of two outputs is easier, and more reliable, than scoring one.
@@ -290,7 +290,7 @@ Click **Save scoring**, or **Discard**. Opening another skill with scoring chang
 | "No Jev key" at the top right | Add the key in Settings |
 | An agent says "(not set up)" under Run, Options | Install that agent and sign in to it |
 | A skill is missing from the Library | Choose Every place, click the round arrow, or add its folder under "Where skills are found" |
-| Save is greyed and a notice says the file changed on disk | The file changed outside the app. "Keep my draft", then Save, writes yours over it; "Use the file on disk" keeps the other |
+| Save is greyed and a notice says the file or case changed on disk | It changed outside the app after your draft began. "Keep my draft", then Save, writes yours over it; "Use the file on disk" or "Use the case on disk" keeps the other |
 | A bullet keeps its dot and gets no number | Make it a bullet of four words or more, outside a numbered list, and not only a link |
 | A score looks wrong | Read the transcript, then mark the verdict that is wrong |
 | Results shows one output and no pick | The case has one version and no run without the skill. Edit the skill and run again, or run with "No skill" under Options |

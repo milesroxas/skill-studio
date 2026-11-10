@@ -59,6 +59,21 @@ describe('TranscriptWriter', () => {
   })
 })
 
+describe('TranscriptWriter, when its file cannot be written', () => {
+  it('keeps the events, says why once, and does not throw', () => {
+    const t = new TranscriptWriter(path)
+    t.text('text', 'written')
+    // The sample folder goes away mid-run.
+    rmSync(dir, { recursive: true, force: true })
+    expect(() => t.text('text', 'lost')).not.toThrow()
+    const failure = t.failure
+    expect(failure).toMatch(/ENOENT/)
+    t.toolStart('a', 'Read', { file_path: 'x' })
+    expect(t.failure).toBe(failure)
+    expect(t.events.map((e) => e.kind)).toEqual(['text', 'text', 'tool'])
+  })
+})
+
 describe('readTranscript', () => {
   it('returns null without a file', () => {
     expect(readTranscript(path)).toBeNull()

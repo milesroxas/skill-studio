@@ -17,9 +17,9 @@ import {
   type RuleJudgment,
 } from '@domain/improve.ts'
 import type { RuleScene } from '@domain/lint.ts'
-import { round } from '@domain/text.ts'
 import { noul, score } from '@typesafe-ai/sdk'
 import type { Jev } from '../jev.ts'
+import { noulOf, scoreOf } from '../shared/questions.ts'
 
 /** The rule as Jev reads it. The description says the one aspect the skill is about. */
 const stateOf = (scene: RuleScene) => ({
@@ -88,15 +88,13 @@ const ruleQuestions = (field: string, prefix: string) => ({
   [`${prefix}_complexity`]: complexityQuestion(field),
 })
 
-/** The six answers under `prefix` as one judgment. */
-const judgmentOf = (
-  answers: Record<string, { noul?: number; score?: number }>,
-  prefix: string,
-): RuleJudgment => {
-  const judgment = {
-    complexity: round(answers[`${prefix}_complexity`].score ?? 0, 2),
-  } as RuleJudgment
-  for (const p of JUDGED) judgment[p] = round(answers[`${prefix}_${p}`].noul ?? 0, 3)
+/**
+ * The six answers under `prefix` as one judgment. A question Jev left
+ * unanswered throws: read as 0 it would be a sure finding nobody made.
+ */
+const judgmentOf = (answers: Readonly<Record<string, unknown>>, prefix: string): RuleJudgment => {
+  const judgment = { complexity: scoreOf(answers, `${prefix}_complexity`) } as RuleJudgment
+  for (const p of JUDGED) judgment[p] = noulOf(answers, `${prefix}_${p}`)
   return judgment
 }
 
@@ -135,9 +133,9 @@ export async function verifyRewrites(
   })
   return {
     kept: {
-      practice: round(answers.kept_practice.noul, 3),
-      direct: round(answers.kept_direct.noul, 3),
-      shorter: round(answers.kept_shorter.noul, 3),
+      practice: noulOf(answers, 'kept_practice'),
+      direct: noulOf(answers, 'kept_direct'),
+      shorter: noulOf(answers, 'kept_shorter'),
     },
     practice: judgmentOf(answers, 'practice'),
   }
@@ -157,7 +155,7 @@ export async function judgeAnswer(
   })
   if (step.id !== 'earns') {
     const answers = await jev.ask(state, { answered })
-    return { answered: round(answers.answered.noul, 3), cut: null }
+    return { answered: noulOf(answers, 'answered'), cut: null }
   }
   const answers = await jev.ask(state, {
     answered,
@@ -166,7 +164,7 @@ export async function judgeAnswer(
       false: 'The writer names something the line does, or wants to keep it.',
     }),
   })
-  return { answered: round(answers.answered.noul, 3), cut: round(answers.cut.noul, 3) }
+  return { answered: noulOf(answers, 'answered'), cut: noulOf(answers, 'cut') }
 }
 
 /** Jev's reading of a draft, in the selection's place. */

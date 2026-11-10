@@ -1,8 +1,8 @@
-import { mkdirSync, mkdtempSync, rmSync } from 'node:fs'
+import { chmodSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { installDirs, markedPath, mergePath, nvmBinDirs } from './path.ts'
+import { installDirs, loginShellPath, markedPath, mergePath, nvmBinDirs } from './path.ts'
 
 describe('installDirs', () => {
   it("lists the installers' folders, each Node of nvm newest first among them", () => {
@@ -68,5 +68,45 @@ describe('markedPath', () => {
   it('finds none without the marks', () => {
     expect(markedPath('zsh: no such option')).toBeNull()
     expect(markedPath('__SKILL_STUDIO_PATH____SKILL_STUDIO_PATH__')).toBeNull()
+  })
+})
+
+describe.skipIf(process.platform === 'win32')('loginShellPath', () => {
+  /** A stand-in for a login shell: a script that does `body`, whatever it is asked. */
+  async function withShell<T>(body: string, use: (shell: string) => Promise<T>): Promise<T> {
+    const dir = mkdtempSync(join(tmpdir(), 'st-shell-'))
+    const shell = join(dir, 'shell')
+    writeFileSync(shell, `#!/bin/sh\n${body}\n`)
+    chmodSync(shell, 0o755)
+    try {
+      return await use(shell)
+    } finally {
+      rmSync(dir, { recursive: true, force: true })
+    }
+  }
+  // What a startup file can leave behind: a process that outlives the shell and holds its output.
+  const LEFT_BEHIND = 'sleep 4 &'
+
+  it('reads the PATH the shell prints', async () => {
+    const path = await withShell(
+      `printf '__SKILL_STUDIO_PATH__%s__SKILL_STUDIO_PATH__' /a:/b`,
+      (shell) => loginShellPath(shell, 10_000),
+    )
+    expect(path).toBe('/a:/b')
+  })
+
+  it('takes the PATH as soon as it is whole, though the output is still held open', async () => {
+    const started = Date.now()
+    const path = await withShell(
+      `${LEFT_BEHIND}\nprintf '__SKILL_STUDIO_PATH__%s__SKILL_STUDIO_PATH__' /a:/b`,
+      (shell) => loginShellPath(shell, 60_000),
+    )
+    expect(path).toBe('/a:/b')
+    expect(Date.now() - started).toBeLessThan(3000)
+  })
+
+  it('gives up when the time is over, though the output never closes', async () => {
+    const path = await withShell(LEFT_BEHIND, (shell) => loginShellPath(shell, 200))
+    expect(path).toBeNull()
   })
 })

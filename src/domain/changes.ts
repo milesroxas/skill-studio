@@ -6,9 +6,9 @@
  * writer's click does, and the backend checks every path and id as it does for
  * those screens. Pure data and functions.
  */
-import { blankDraft, checkWeight, draftOf, newCheck } from './case-draft.ts'
+import { blankDraft, checkWeight, draftOf, newCaseId, newCheck } from './case-draft.ts'
 import type { Case, CaseDraft } from './schemas.ts'
-import { isSlug, slug } from './text.ts'
+import { isSlug, normalizeNewlines } from './text.ts'
 
 /**
  * A change opens and closes with four tildes. Not backticks: a SKILL.md often
@@ -32,6 +32,12 @@ export type SkillChange =
   | {
       kind: 'case'
       id: string
+      /**
+       * The block named the id, so it means that case. When it did not, `id`
+       * is made from the title or the prompt as a new case's is, and whoever
+       * applies the change sets it clear of the ids the skill has (`newCaseId`).
+       */
+      idGiven: boolean
       title: string
       prompt: string
       expected: string
@@ -91,9 +97,20 @@ function caseChange(body: string): SkillChange | null {
   const checks = (Array.isArray(raw.checks) ? raw.checks : [])
     .map(checkOf)
     .filter((check): check is CaseCheck => check !== null)
-  const id = isSlug(text(raw.id)) ? text(raw.id) : slug(title, 40)
-  if (!prompt || !id) return null
-  return { kind: 'case', id, title, prompt, expected: text(raw.expected), checks }
+  if (!prompt) return null
+  const given = text(raw.id)
+  // An id that is not one names no case: guessing another from the title could replace the wrong one.
+  if (given && !isSlug(given)) return null
+  const id = given || newCaseId({ title, prompt }, [])
+  return {
+    kind: 'case',
+    id,
+    idGiven: Boolean(given),
+    title,
+    prompt,
+    expected: text(raw.expected),
+    checks,
+  }
 }
 
 function changeOf(kind: string, rest: string, body: string[]): SkillChange | null {
@@ -114,8 +131,8 @@ const writingLabel = (kind: string, rest: string): string =>
  * A reply split into prose and changes, in order. A block that does not hold
  * up, such as a case whose JSON is malformed, stays in the prose as code, so
  * nothing broken is offered. `partial` is for a reply still being written: an
- * open block at its end is a change on its way, where a finished reply's open
- * block was cut off and stays as code.
+ * open block at its end, or a file block with no block after it, is a change
+ * on its way, where a finished reply's open block was cut off and stays as code.
  */
 export function replyParts(reply: string, { partial = false } = {}): ReplyPart[] {
   const parts: ReplyPart[] = []
@@ -125,7 +142,8 @@ export function replyParts(reply: string, { partial = false } = {}): ReplyPart[]
     if (joined) parts.push({ kind: 'prose', text: joined })
     prose = []
   }
-  const lines = reply.split('\n')
+  // A reply may come with Windows line endings: a `\r` left on a line would hide every block.
+  const lines = normalizeNewlines(reply).split('\n')
   for (let i = 0; i < lines.length; i += 1) {
     const opening = OPENING.exec(lines[i])
     if (!opening) {
@@ -135,7 +153,10 @@ export function replyParts(reply: string, { partial = false } = {}): ReplyPart[]
     const [, kind, rest] = opening
     const end = closingOf(lines, i, kind)
     const body = lines.slice(i + 1, end < 0 ? undefined : end)
-    if (end < 0 && partial) {
+    // A file closes at its last line of tildes, and while the reply is arriving the last one so
+    // far may be a fence inside the file: the last file block is on its way until the reply ends.
+    const arriving = kind === 'file' && !lines.some((line, k) => k > i && OPENING.test(line))
+    if (partial && (end < 0 || arriving)) {
       flush()
       parts.push({ kind: 'writing', label: writingLabel(kind, rest) })
       return parts

@@ -179,9 +179,14 @@ export interface Contract {
     output: { saved: string }
   }
   'skill.deleteFile': { input: Scoped & { path: string }; output: { deleted: string } }
+  /**
+   * Save a case. `savedAt` is the time the form's copy was saved, as the last
+   * save answered it: when the case on disk is newer, the save is refused so it
+   * cannot delete checks and pictures the form never saw. Without it no check is made.
+   */
   'skill.saveCase': {
-    input: Scoped & { case: CaseDraft; isNew: boolean }
-    output: { saved: string }
+    input: Scoped & { case: CaseDraft; isNew: boolean; savedAt?: string | null }
+    output: { saved: string; savedAt: string | null }
   }
   'skill.deleteCase': { input: Scoped & { id: string }; output: { deleted: true } }
   'skill.config': {

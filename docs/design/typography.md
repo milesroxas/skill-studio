@@ -41,7 +41,7 @@ Is it a heading in the page's outline?
       └── Anything else → Text, with tone, size and weight named as props
 ```
 
-The guide's title is its Markdown `h1`, set to `3xl` (`2xl` on a small window) by `.guide-body` in `styles.css`. `Heading level={1}` exists at `3xl` and no screen uses it. A screen's title is `level="page"` in the top bar. A screen never repeats its own name in its body.
+The guide's title is its Markdown `h1`, set to `3xl` (`2xl` on a small window) by `.guide-body` in `styles.css`. A screen's title is `level="page"` in the top bar. A screen never repeats its own name in its body.
 
 Markdown the app renders itself (a reply, an output, the changelog) goes through `Prose` (`components/Prose.tsx`), which sets `.doc` in `styles.css`. Its `density` is `reading` (a column read at length), `compact` (a narrow column with no padding of its own) or `notes` (a release's changes, one to a line under small labels, bullets hung in the margin).
 
@@ -63,7 +63,7 @@ Markdown the app renders itself (a reply, an output, the changelog) goes through
 
 `Text` takes these and nothing else: `tone` (`default`, `muted`, `faint`, `destructive`, `success`, `warning`), `font` (`sans`, `mono`), `size` (`inherit`, `ui`, `xs`), `weight` (`normal`, `medium`, `semibold`), and the booleans `tabular`, `block`, `clamp`, `truncate`, `measure`, `caps`, plus `align` (`start`, `end`), `wrap` (`normal`, `pre`, `anywhere`) and the element it renders, `as` (`span`, `p`, `b`, `small`, `div`, `li`). The default is inherit everything.
 
-`Hint` takes `tone` (`default`, `destructive`), `measure` (`default`, `narrow`, `none`), `inset`, `tabular`, `as` and `htmlFor`. `Heading` takes `as` (`h1`, `h2`, `h3`, `span`, `legend`, `p`) and `tabular` (a heading that is a number, such as a version) beside its `level`.
+`Hint` takes `tone` (`default`, `destructive`), `measure` (`default`, `narrow`, `none`), `inset`, `tabular` and `as` (`p`, `span`, `div`). `Heading` takes `as` (`h1`, `h2`, `h3`, `span`, `legend`, `p`) and `tabular` (a heading that is a number, such as a version) beside its `level`.
 
 Weights are 400, 500 and 600. 700 belongs to the `display` and `numeral` steps, which carry it: never write `font-bold`. Body text is never bold for emphasis: use `weight="medium"`.
 

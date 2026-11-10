@@ -78,16 +78,6 @@ function TableBody({ className, ...props }: React.ComponentProps<'tbody'>) {
   )
 }
 
-function TableFooter({ className, ...props }: React.ComponentProps<'tfoot'>) {
-  return (
-    <tfoot
-      data-slot="table-footer"
-      className={cn('border-t bg-muted/50 font-medium [&>tr]:last:border-b-0', className)}
-      {...props}
-    />
-  )
-}
-
 const tableRowVariants = cva(
   'group border-b transition-[color,background-color,border-color,opacity] duration-150 ease-out has-aria-expanded:bg-muted/50 data-[state=selected]:bg-muted',
   {
@@ -253,11 +243,6 @@ const tableCellVariants = cva('', {
       true: 'min-w-[160px] lg:min-w-[260px]',
       false: '',
     },
-    /** A column the row reads fine without: hidden when the window is narrow, so the table fits. */
-    optional: {
-      true: 'max-lg:hidden',
-      false: '',
-    },
     /** An empty last column that takes the spare width, so the others sit together on the left. */
     filler: {
       true: 'w-full p-0',
@@ -298,7 +283,6 @@ const tableCellVariants = cva('', {
     trailing: false,
     wrap: false,
     wide: false,
-    optional: false,
     filler: false,
     col: 'auto',
     fold: 'never',
@@ -311,7 +295,6 @@ function TableHead({
   trailing,
   wrap,
   wide,
-  optional,
   filler,
   col,
   fold,
@@ -322,7 +305,7 @@ function TableHead({
       data-slot="table-head"
       className={cn(
         'h-10 px-2 text-left align-middle text-xs font-medium whitespace-nowrap text-muted-foreground first:pl-0 last:pr-0 [&:has([role=checkbox])]:pr-0 [&>[role=checkbox]]:translate-y-[2px]',
-        tableCellVariants({ numeric, trailing, wrap, wide, optional, filler, col, fold }),
+        tableCellVariants({ numeric, trailing, wrap, wide, filler, col, fold }),
         className,
       )}
       {...props}
@@ -336,7 +319,6 @@ function TableCell({
   trailing,
   wrap,
   wide,
-  optional,
   filler,
   col,
   fold,
@@ -347,7 +329,7 @@ function TableCell({
       data-slot="table-cell"
       className={cn(
         'p-2 align-middle whitespace-nowrap first:pl-0 last:pr-0 [&:has([role=checkbox])]:pr-0 [&>[role=checkbox]]:translate-y-[2px]',
-        tableCellVariants({ numeric, trailing, wrap, wide, optional, filler, col, fold }),
+        tableCellVariants({ numeric, trailing, wrap, wide, filler, col, fold }),
         // A measurement is set in mono; its head stays a word in sans.
         numeric && 'font-mono text-code',
         className,
@@ -357,24 +339,12 @@ function TableCell({
   )
 }
 
-function TableCaption({ className, ...props }: React.ComponentProps<'caption'>) {
-  return (
-    <caption
-      data-slot="table-caption"
-      className={cn('mt-4 text-sm text-muted-foreground', className)}
-      {...props}
-    />
-  )
-}
-
 export {
   rowAction,
   Table,
   TableBody,
-  TableCaption,
   TableCell,
   TableDetail,
-  TableFooter,
   TableHead,
   TableHeader,
   TableRow,

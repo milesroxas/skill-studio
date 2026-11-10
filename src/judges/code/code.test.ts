@@ -14,7 +14,13 @@ const runCommand = vi.hoisted(() =>
 vi.mock('../shared/exec.ts', () => ({ runCommand }))
 
 const config = mergeConfig({ packs: ['code'] }, [codeScoring])
-const subject: ScoreSubject = { case: null, primary: null, artifacts: [], words: 0, range: null }
+const subject: ScoreSubject = {
+  case: null,
+  primary: { file: 'outputs/a.ts', kind: 'code' },
+  artifacts: [],
+  words: 40,
+  range: null,
+}
 const check = (over: Partial<CheckRaw>): CheckRaw => ({
   command: 'node --test',
   exit: 0,
@@ -110,7 +116,10 @@ describe('code pack without Jev', () => {
 
   it("runs the case's check in the sample dir", async () => {
     const raw = await codePack.judge(input({ check: 'node --test' }), ctx)
-    expect(runCommand).toHaveBeenCalledWith('node --test', { cwd: '/sample', timeoutMs: 120_000 })
+    expect(runCommand).toHaveBeenCalledWith(ctx, 'node --test', {
+      cwd: '/sample',
+      timeoutMs: 120_000,
+    })
     expect(raw).toEqual({
       check: { command: 'node --test', exit: 1, timedOut: false, tail: 'expected 3, got 4' },
       review: null,

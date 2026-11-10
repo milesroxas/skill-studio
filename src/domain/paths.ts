@@ -39,4 +39,4 @@ export const isEditablePath = (path: string): boolean => {
 
 /** The order a skill's files are listed in: SKILL.md first, then by path. */
 export const byFileOrder = (a: string, b: string): number =>
-  a === 'SKILL.md' ? -1 : b === 'SKILL.md' ? 1 : a.localeCompare(b)
+  a === 'SKILL.md' ? -1 : b === 'SKILL.md' ? 1 : a.localeCompare(b, 'en')

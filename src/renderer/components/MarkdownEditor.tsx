@@ -21,7 +21,7 @@ import {
   undo,
   undoDepth,
 } from '@codemirror/commands'
-import { Compartment, EditorState, type StateCommand } from '@codemirror/state'
+import { Annotation, Compartment, EditorState, type StateCommand } from '@codemirror/state'
 import { drawSelection, EditorView, keymap, placeholder } from '@codemirror/view'
 import { type Finding, type RuleScene, sceneOf, worthChecking } from '@domain/lint.ts'
 import type { EditorMode } from '@domain/preferences.ts'
@@ -43,7 +43,15 @@ import {
   TextQuoteIcon,
   Undo2Icon,
 } from 'lucide-react'
-import { type ReactNode, type Ref, useEffect, useImperativeHandle, useRef, useState } from 'react'
+import {
+  type ReactNode,
+  type Ref,
+  useEffect,
+  useId,
+  useImperativeHandle,
+  useRef,
+  useState,
+} from 'react'
 import { startImprove } from '../ai.ts'
 import {
   formatKeymap,
@@ -145,6 +153,37 @@ interface Kept {
  * its old history would undo into a file that is no longer there.
  */
 const kept = new Map<string, Kept>()
+
+/** How many texts keep their history: the ones put away longest ago make room. */
+const KEPT_MAX = 24
+
+function keep(id: string, state: Kept): void {
+  // Set again, it moves to the end: the map stays oldest first.
+  kept.delete(id)
+  kept.set(id, state)
+  for (const oldest of kept.keys()) {
+    if (kept.size <= KEPT_MAX) break
+    kept.delete(oldest)
+  }
+}
+
+/** The editors open now, by `id`, and those of them forgotten while open: put away, they keep nothing. */
+const mounted = new Set<string>()
+const forgotten = new Set<string>()
+
+/** Forget a text's history: its file is gone, and nothing would open it again. */
+export function forgetEditor(id: string): void {
+  kept.delete(id)
+  // Still open, it is put away after this: that must not keep it again.
+  if (mounted.has(id)) forgotten.add(id)
+}
+
+/**
+ * Marks a change the screen made to the text: a saved file read again, a
+ * template, a discarded draft. The screen already has that text, so it is not
+ * told of it as an edit.
+ */
+const fromScreen = Annotation.define<boolean>()
 
 const surfaceVariants = cva('flex flex-1 flex-col', {
   variants: {
@@ -264,6 +303,11 @@ export function MarkdownEditor({
   const anchor = useRef<VirtualAnchor | null>(null)
   const dragging = useRef(false)
   const settle = useRef<ReturnType<typeof setTimeout>>(undefined)
+  /** Names the popout, so the key that moves into it can find it. */
+  const toolsId = useId()
+  const popout = useRef(toolsId)
+  /** The selection Help me improve was started on, and where it stood: its draft goes back there. */
+  const improving = useRef<{ selection: string; from: number; to: number } | null>(null)
   const refining = useRef(refine)
   refining.current = refine
   const [assistOpen, setAssistOpen] = useState(false)
@@ -326,6 +370,19 @@ export function MarkdownEditor({
       keymap.of([
         ...formatKeymap,
         {
+          // The popout takes no focus as it opens, and Tab indents: this is the keyboard's way into it.
+          // F6 is the key that moves to the next part of a window. Escape comes back to the text.
+          key: 'F6',
+          run: () => {
+            const first = document
+              .getElementById(popout.current)
+              ?.querySelector<HTMLElement>('button:not(:disabled)')
+            if (!first) return false
+            first.focus()
+            return true
+          },
+        },
+        {
           key: 'Mod-s',
           run: () => {
             latest.current.onSave?.()
@@ -359,7 +416,8 @@ export function MarkdownEditor({
       modes.current.of(mode === 'formatted' ? livePreview : []),
       grading.current.of(graded ? gradedRules(about, mode === 'markdown') : []),
       EditorView.updateListener.of((update) => {
-        if (update.docChanged) latest.current.onChange(update.state.doc.toString())
+        if (update.docChanged && !update.transactions.some((tr) => tr.annotation(fromScreen)))
+          latest.current.onChange(update.state.doc.toString())
         count(update.state)
         if (update.selectionSet || update.docChanged) settled(update.view)
       }),
@@ -374,6 +432,7 @@ export function MarkdownEditor({
     })
     count(view.state)
     editor.current = view
+    mounted.add(id)
     // A drag ends outside the editor as often as in it.
     const up = () => {
       if (!dragging.current) return
@@ -384,7 +443,8 @@ export function MarkdownEditor({
     return () => {
       window.removeEventListener('mouseup', up)
       clearTimeout(settle.current)
-      kept.set(id, view.state.toJSON({ history: historyField }))
+      mounted.delete(id)
+      if (!forgotten.delete(id)) keep(id, view.state.toJSON({ history: historyField }))
       view.destroy()
       editor.current = null
     }
@@ -417,7 +477,18 @@ export function MarkdownEditor({
   const refined = refine !== undefined
   useEffect(() => {
     if (!refined) return
-    registerReplacer((original, next) => applying.current(original, next))
+    registerReplacer((original, next) => {
+      // The draft goes where its selection was taken, while the text there is still that selection:
+      // the same words elsewhere in the file are not the ones that were asked about.
+      const at = improving.current
+      const here =
+        at &&
+        at.selection === original &&
+        editor.current?.state.sliceDoc(at.from, at.to) === original
+          ? { from: at.from, to: at.to }
+          : undefined
+      return applying.current(original, next, here)
+    })
     return () => registerReplacer(null)
   }, [refined])
 
@@ -435,7 +506,10 @@ export function MarkdownEditor({
       end--
       next--
     }
-    view.dispatch({ changes: { from: start, to: end, insert: value.slice(start, next) } })
+    view.dispatch({
+      changes: { from: start, to: end, insert: value.slice(start, next) },
+      annotations: fromScreen.of(true),
+    })
   }, [value])
 
   useEffect(() => {
@@ -578,6 +652,7 @@ export function MarkdownEditor({
       <div ref={host} hidden={covered} className={surfaceVariants({ mode })} />
       {refine && tools && !covered ? (
         <SelectionTools
+          id={toolsId}
           key={`${tools.from}:${tools.to}`}
           anchor={anchor}
           open={toolsOpen}
@@ -590,6 +665,7 @@ export function MarkdownEditor({
               refine.onError('The selection changed before the text could be replaced.')
           }}
           onImprove={() => {
+            improving.current = { selection: tools.selection, from: tools.from, to: tools.to }
             startImprove(tools).catch((e: Error) => refine.onError(e.message))
           }}
         />

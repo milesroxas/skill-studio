@@ -14,7 +14,7 @@ import type { ImageRef } from './image.ts'
 import { byFileOrder, isEditablePath } from './paths.ts'
 import { type CaseDraft, NEW_CASE_KEY, type SkillDrafts } from './schemas.ts'
 import { CASE_PROMPT_HINT, CHECK_EXAMPLES, RULE_GUIDE, RULE_SHAPE } from './templates.ts'
-import { frontMatterBlock } from './text.ts'
+import { closesFence, fenceOf, frontMatterBlock, LIST_MARK } from './text.ts'
 
 export const ASSIST_FIELD_IDS = [
   'skill.file',
@@ -167,9 +167,13 @@ export const ASSIST_SCHEMA = {
   additionalProperties: false,
 } as const
 
-const APP = `Skill Studio is a desktop app for writing agent skills and testing them. A skill is a folder with a SKILL.md an AI agent loads when its description matches the request. The app runs headless agents on the skill's cases, and Jev, a grading model, marks each output against the skill's rules and the case's checks. The author then reads the new version's output beside the last one's and picks the better. Where they disagree with Jev, their answer stands.`
+/** What Skill Studio and a skill are, in two sentences: how every brief to a model opens. */
+export const APP_INTRO = `Skill Studio is a desktop app for writing agent skills and testing them. A skill is a folder with a SKILL.md an AI agent loads when its description matches the request.`
 
-const tag = (name: string, text: string, label?: string): string =>
+const APP = `${APP_INTRO} The app runs headless agents on the skill's cases, and Jev, a grading model, marks each output against the skill's rules and the case's checks. The author then reads the new version's output beside the last one's and picks the better. Where they disagree with Jev, their answer stands.`
+
+/** `text` inside an XML-like tag, so a model tells what it is given from what it is asked. */
+export const tag = (name: string, text: string, label?: string): string =>
   `<${name}${label ? ` name="${label.replace(/"/g, "'")}"` : ''}>\n${text.trim()}\n</${name}>`
 
 const REPLACES = `Your reply is put in the field as it is, in place of what is there, so it holds the field's complete new text and nothing else: no greeting, no explanation, no code fence around it. When the field has text already, the request is an edit: change what it asks for and keep the rest word for word.`
@@ -252,13 +256,13 @@ export function partialText(raw: string, key = 'text'): string {
 }
 
 /** A list marker a model may lead an item with, though it is told not to. */
-const ITEM_MARKER = /^(?:[-*•]|\d+[.)])(?:\s+|$)/
+const ITEM_MARKER = new RegExp(`^(?:${LIST_MARK}|•)(?:\\s+|$)`)
 
 /** The items of a fitted `items` reply. */
 export const assistItems = (text: string): string[] => text.split('\n')
 
 /** A reply that is one code fence around the whole text, with any language after the opening. */
-const WRAPPED = /^\s*(`{3,}|~{3,})[^\n]*\n([\s\S]*?)\n[ \t]*\1[ \t]*$/
+const WRAPPED = /^(\s*(?:`{3,}|~{3,})[^\n]*)\n([\s\S]*?)\n[ \t]*(?:`{3,}|~{3,})[ \t]*$/
 
 /** Whether the text opens with a code fence. */
 const startsFenced = (text: string): boolean => /^\s*(?:`{3,}|~{3,})/.test(text)
@@ -266,7 +270,23 @@ const startsFenced = (text: string): boolean => /^\s*(?:`{3,}|~{3,})/.test(text)
 /** The text without the one fence a model may wrap a whole file in, though it is told not to. */
 const unwrapped = (text: string): string => {
   const match = WRAPPED.exec(text.trim())
-  return match ? match[2] : text
+  const fence = match && fenceOf(match[1])
+  if (!match || !fence) return text
+  const lines = text.trim().split('\n')
+  if (!closesFence(lines.at(-1) ?? '', fence)) return text
+  // Named as Markdown, the fence is a wrapper for sure. Any other may be the file's own first
+  // code block, which closes at the first bare fence: a file that opens and ends with code
+  // blocks of its own is then left as it is, not cut at both ends.
+  const wrapper = /^\s*(?:`+|~+)\s*(?:md|markdown)\s*$/i.test(match[1])
+  let inner = false
+  for (const line of lines.slice(1, -1)) {
+    if (inner) inner = !closesFence(line, fence)
+    else if (closesFence(line, fence)) {
+      if (!wrapper) return text
+      inner = true
+    } else inner = fenceOf(line)?.char === fence.char
+  }
+  return match[2]
 }
 
 const FIT: Record<AssistFieldDef['form'], (text: string) => string> = {
@@ -365,21 +385,24 @@ export function workingSkill(
   drafts: Pick<SkillDrafts, 'files' | 'cases'>,
 ): { files: SceneFile[]; cases: SceneCase[] } {
   const paths = new Set([...Object.keys(files), ...Object.keys(drafts.files)])
-  const fresh = drafts.cases[NEW_CASE_KEY]
+  // Own keys only: a case id such as `constructor` names something every object has.
+  const own = <T>(record: Readonly<Record<string, T>>, key: string): T | undefined =>
+    Object.hasOwn(record, key) ? record[key] : undefined
+  const fresh = own(drafts.cases, NEW_CASE_KEY)
   return {
     files: [...paths]
       .filter(isEditablePath)
       .sort(byFileOrder)
       .map((path) => {
-        const draft = drafts.files[path]
-        const saved = files[path]
+        const draft = own(drafts.files, path)
+        const saved = own(files, path)
         return draft && draft.text !== saved
           ? { path, text: draft.text, unsaved: true }
           : { path, text: saved ?? '', unsaved: false }
       }),
     cases: [
       ...cases.map((c) => {
-        const draft = drafts.cases[c.id]
+        const draft = own(drafts.cases, c.id)
         return draft ? sceneCase({ ...draft, id: c.id }, true) : sceneCase(c, false)
       }),
       ...(fresh ? [sceneCase({ ...fresh, id: NEW_CASE_KEY }, true)] : []),

@@ -5,9 +5,10 @@
  * the key rather than a fixed list.
  */
 
+import { tmpdir } from 'node:os'
 import { agentEnv } from '../env.ts'
-import { hasCommand, tryCommand } from '../exec.ts'
-import { type ResultEvent, readInit, readResult, runStreamJson } from './stream.ts'
+import { exec, hasCommand } from '../exec.ts'
+import { chosen, type ResultEvent, readInit, readResult, runStreamJson } from './stream.ts'
 import type { Engine, EngineRequest, EngineResult } from './types.ts'
 
 interface ToolCallBody {
@@ -66,7 +67,30 @@ function handle(
   if (event.type === 'result') readResult(event, request, result)
 }
 
+/** The shape of a model id as the CLI lists them, parameters in brackets included. */
+const MODEL_ID = /^\w[\w.[\]=,-]*$/
+
+/** The models the CLI listed, once it has listed any. */
 let models: string[] | null = null
+/** A read under way: at most one runs at a time. */
+let reading: Promise<void> | null = null
+/** When the CLI last listed none: signed out, or it failed. It is asked again after a while. */
+let emptyAt = 0
+const RETRY_MS = 30_000
+
+/** Ask the CLI for its models: none when it fails, is signed out or does not answer in time. */
+async function listModels(): Promise<string[]> {
+  const run = await exec('cursor-agent', ['--list-models'], {
+    cwd: tmpdir(),
+    env: agentEnv(),
+    timeoutMs: 8000,
+  }).catch(() => null)
+  if (run?.code !== 0) return []
+  return run.stdout
+    .split('\n')
+    .map((line) => line.trim().split(/\s+/)[0])
+    .filter((id) => MODEL_ID.test(id) && !/^(?:usage|error|available|models?)$/i.test(id))
+}
 
 export const cursorEngine: Engine = {
   id: 'cursor',
@@ -76,22 +100,39 @@ export const cursorEngine: Engine = {
   defaultModel: 'auto',
   hint: 'Install the Cursor CLI (cursor-agent) and run `cursor-agent login`, or set CURSOR_API_KEY in .env.',
   available: () => hasCommand('cursor-agent'),
-  async models() {
-    if (models) return models
-    const out = tryCommand('cursor-agent', ['--list-models'])
-    models = (out ?? '')
-      .split('\n')
-      .map((line) => line.trim().split(/\s+/)[0])
-      .filter((id) => /^[\w.[\]=,-]+$/.test(id) && !/^(?:usage|error|models?)$/i.test(id))
-    return models
+  /**
+   * What the CLI has listed, at once: asking it takes seconds, and every load
+   * of a skill's state asks. Until it has listed some, the list is read again
+   * in the background, one read at a time and at most every thirty seconds,
+   * and the models show from the next ask after it.
+   */
+  models() {
+    if (models) return Promise.resolve(models)
+    if (!reading && Date.now() - emptyAt >= RETRY_MS)
+      reading = listModels()
+        .then((found) => {
+          // Only a list with something in it is kept: an empty one may be a login away from full.
+          if (found.length) models = found
+          else emptyAt = Date.now()
+        })
+        .finally(() => {
+          reading = null
+        })
+    return Promise.resolve([])
   },
-  run(request) {
+  async run(request) {
+    // The CLI's own list decides when there is one; without it, the shape of an id does.
+    const listed = models
+    const choice = chosen(
+      cursorEngine,
+      request,
+      (model) =>
+        model === cursorEngine.defaultModel ||
+        (listed ? listed.includes(model) : MODEL_ID.test(model)),
+    )
+    if ('refusal' in choice) return choice.refusal
     const model =
-      request.model && request.model !== 'default'
-        ? request.effort && request.effort !== 'default'
-          ? `${request.model}[effort=${request.effort}]`
-          : request.model
-        : null
+      choice.model && choice.effort ? `${choice.model}[effort=${choice.effort}]` : choice.model
     const args = [
       '-p',
       '--output-format',

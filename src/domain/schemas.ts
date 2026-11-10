@@ -96,6 +96,11 @@ export interface FileDraft {
 export interface SkillDrafts {
   files: Record<string, FileDraft>
   cases: Record<string, CaseDraft>
+  /**
+   * When each drafted case was saved as its draft began, by draft key (null
+   * for a case not saved yet), so a save over a case changed since is refused.
+   */
+  caseBases?: Record<string, string | null>
   updatedAt: string | null
 }
 
@@ -169,6 +174,11 @@ export interface SampleMeta {
   error: string | null
   steps: number
   toolCalls: number
+  /**
+   * The run was stopped, or the app quit, while this sample ran, and it wrote
+   * nothing: it says nothing of the skill, so grading leaves it out.
+   */
+  stopped?: boolean
 }
 
 /** `run.json`. */
@@ -216,6 +226,12 @@ export interface ReportResult {
   /** The artifact the packs judged. */
   primary: Artifact | null
   words: number
+  /**
+   * The file judged holds no character but whitespace, so the output scores 0
+   * (`noOutput` in pack.ts). A report written before grading kept this has
+   * none, and there only a missing file reads as no output.
+   */
+  blank?: boolean
   range: [number, number] | null
   /** Raw pack answers keyed by pack id. Thresholds apply later, in core. */
   packs: Record<string, unknown>

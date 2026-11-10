@@ -166,6 +166,28 @@ describe('assistText', () => {
     )
   })
 
+  it('unwraps a fenced file whose lines end in CRLF', () => {
+    const crlf = '```markdown\r\n# Ref\r\n\r\nText.\r\n```'
+    expect(assistText({ field: 'skill.reference', current: '' }, reply(crlf))).toBe(
+      '# Ref\r\n\r\nText.\n',
+    )
+  })
+
+  it('never cuts a file that only opens and ends with code blocks of its own', () => {
+    // The first fence closes at the first bare fence: unwrapped, the file would lose both ends.
+    const file = '```js\ncode\n```\n\n# Title\n\ntext\n\n```\nmore\n```'
+    expect(() => assistText({ field: 'skill.reference', current: '' }, reply(file))).toThrow(
+      'wrapped the file in a code fence',
+    )
+    // A wrapper named as Markdown is one for sure, bare fences inside it and all.
+    expect(
+      assistText(
+        { field: 'skill.reference', current: '' },
+        reply('```markdown\n# Ref\n\n```\ncode\n```\n```'),
+      ),
+    ).toBe('# Ref\n\n```\ncode\n```\n')
+  })
+
   it('refuses a reply that is not the agreed object, or is empty', () => {
     expect(() => assistText({ field: 'case.check', current: '' }, '{"text": "cut of')).toThrow(
       'cut off',
@@ -223,6 +245,15 @@ describe('workingSkill', () => {
     ).toEqual([
       ['shift', 'Thank Priya warmly.', ['The note names Priya.'], true],
       [NEW_CASE_KEY, 'Thank Priya.', ['No em dash.'], true],
+    ])
+  })
+
+  it('reads only a draft of the case’s own, whatever its id', () => {
+    // `constructor` is a name every object answers to: no draft of that case was stored.
+    const own = { ...savedCase, id: 'constructor' }
+    const working = workingSkill({ 'SKILL.md': '# Notes\n' }, [own], { files: {}, cases: {} })
+    expect(working.cases.map((c) => [c.id, c.prompt, c.unsaved])).toEqual([
+      ['constructor', 'Thank Priya.', false],
     ])
   })
 })

@@ -101,6 +101,7 @@ describe('replyParts', () => {
         change: {
           kind: 'case',
           id: 'edit-a-draft',
+          idGiven: false,
           title: 'Edit a draft',
           prompt: 'Edit this.',
           expected: '',
@@ -134,11 +135,35 @@ describe('replyParts', () => {
     })
   })
 
-  it('keeps an id that names a case, and drops one that is not a slug', () => {
+  it('keeps an id that names a case, and offers no change for one that is not a slug', () => {
     const block = (id: string) =>
       `~~~~ case\n${JSON.stringify({ id, title: 'New title', prompt: 'P' })}\n~~~~`
-    expect(replyParts(block('shift'))[0]).toMatchObject({ change: { id: 'shift' } })
-    expect(replyParts(block('../etc'))[0]).toMatchObject({ change: { id: 'new-title' } })
+    expect(replyParts(block('shift'))[0]).toMatchObject({
+      change: { id: 'shift', idGiven: true },
+    })
+    // Guessing `new-title` from the title could replace a case the block never meant.
+    expect(replyParts(block('../etc'))[0]).toMatchObject({ kind: 'prose' })
+    expect(replyParts(block('Bad_Id'))[0]).toMatchObject({ kind: 'prose' })
+  })
+
+  it('names a case with no id as a new case is named, and says the id was not given', () => {
+    const block = (fields: object) => `~~~~ case\n${JSON.stringify(fields)}\n~~~~`
+    expect(replyParts(block({ title: 'Tone check', prompt: 'P' }))[0]).toMatchObject({
+      change: { id: 'tone-check', idGiven: false },
+    })
+    // A title with no letter a slug keeps is no reason to drop the case: the prompt names it.
+    expect(
+      replyParts(block({ title: '日本語', prompt: 'Thank Priya for Sunday.' }))[0],
+    ).toMatchObject({ change: { id: 'thank-priya-for-sunday', idGiven: false } })
+  })
+
+  it('reads a reply with Windows line endings', () => {
+    const reply = 'Here:\r\n~~~~ file SKILL.md\r\n# T\r\n~~~~\r\ndone'
+    expect(replyParts(reply)).toEqual([
+      { kind: 'prose', text: 'Here:' },
+      { kind: 'change', change: { kind: 'file', path: 'SKILL.md', text: '# T\n' } },
+      { kind: 'prose', text: 'done' },
+    ])
   })
 
   it('leaves a block that does not hold up as code, never as a change', () => {
@@ -157,12 +182,24 @@ describe('replyParts', () => {
     ])
     expect(replyParts(reply).some((p) => p.kind === 'change' || p.kind === 'writing')).toBe(false)
   })
+
+  it('offers no file while it arrives, since a line of tildes may be a fence inside it', () => {
+    // The outer block is still open: the two lines of tildes so far are a fence in the file.
+    const reply = '~~~~ file SKILL.md\n# T\n~~~~\ncode\n~~~~\nmore of the file'
+    expect(replyParts(reply, { partial: true })).toEqual([{ kind: 'writing', label: 'SKILL.md' }])
+    // A block after it settles where the file ended.
+    const settled = `${reply}\n~~~~\n~~~~ version\nNext\n~~~~`
+    expect(replyParts(settled, { partial: true })[0]).toMatchObject({
+      change: { kind: 'file', text: '# T\n~~~~\ncode\n~~~~\nmore of the file\n' },
+    })
+  })
 })
 
 describe('changeDraft', () => {
   const change: CaseChange = {
     kind: 'case',
     id: 'shift',
+    idGiven: true,
     title: 'A covered shift',
     prompt: 'Thank Priya for Sunday.',
     expected: '',
@@ -211,6 +248,7 @@ describe('caseHolds', () => {
   const same: CaseChange = {
     kind: 'case',
     id: 'shift',
+    idGiven: true,
     title: 'A covered shift',
     prompt: 'Thank Priya.',
     expected: 'Names Priya.',

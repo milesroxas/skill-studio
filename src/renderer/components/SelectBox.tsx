@@ -43,9 +43,8 @@ interface Props extends VariantProps<typeof triggerVariants> {
   onChange: (value: string) => void
   options?: SelectOption[]
   groups?: SelectOptionGroup[]
-  /** The label of the choice that means no value. Without it, '' shows the placeholder. */
+  /** The label of the choice that means no value. */
   none?: string
-  placeholder?: string
   id?: string
   'aria-label'?: string
   size?: 'sm' | 'default'
@@ -58,7 +57,6 @@ export function SelectBox({
   options = [],
   groups = [],
   none,
-  placeholder,
   id,
   size,
   width,
@@ -82,7 +80,7 @@ export function SelectBox({
         className={triggerVariants({ width })}
         aria-label={aria['aria-label']}
       >
-        <SelectValue placeholder={placeholder} />
+        <SelectValue />
       </SelectTrigger>
       <SelectContent>
         {none ? <SelectItem value={NONE}>{none}</SelectItem> : null}

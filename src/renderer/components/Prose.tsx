@@ -1,4 +1,5 @@
 /** Markdown shown as a document: an agent's answer, or a reply from the assistant. */
+import { useMemo } from 'react'
 import { markdownHtml } from '../markdown.ts'
 
 export function Prose({
@@ -13,12 +14,14 @@ export function Prose({
    */
   density?: 'reading' | 'compact' | 'notes'
 }) {
+  // Parsed once per text: a conversation renders on every key typed under it.
+  const html = useMemo(() => markdownHtml(text), [text])
   return (
     <div
       className="doc"
       data-density={density}
       // biome-ignore lint/security/noDangerouslySetInnerHtml: every string is escaped in markdown.ts
-      dangerouslySetInnerHTML={{ __html: markdownHtml(text) }}
+      dangerouslySetInnerHTML={{ __html: html }}
     />
   )
 }

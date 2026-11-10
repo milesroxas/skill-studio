@@ -82,3 +82,14 @@ describe('preferencesOf', () => {
     expect(currentScreen('cases')).toBe('cases')
   })
 })
+
+describe('names every object has', () => {
+  it('reads `constructor` and `toString` as plain screen names, never as a table entry', () => {
+    expect(currentScreen('constructor')).toBe('constructor')
+    expect(currentScreen('toString')).toBe('toString')
+    expect(preferencesOf({ hintsSeen: ['constructor', 'edit'] }).hintsSeen).toEqual([
+      'constructor',
+      'editor',
+    ])
+  })
+})

@@ -43,6 +43,8 @@ Tests sit beside the code: `src/domain/scoring.ts` is tested by `src/domain/scor
 - Test behaviour through the module's exports, with small inline inputs.
 - Never call Jev, an agent CLI or the network from a test. Mock the boundary (`ask`, the child process) instead.
 - Never write into `fixtures/`. Copy a fixture to a temp directory first, as `src/application/grade.test.ts` does.
+- Remove every temp directory a test makes, in `afterEach` or `afterAll`.
+- Wait for a condition, never for a fixed time: ask until it holds, with a deadline, as `until` in `src/infrastructure/children.test.ts` does.
 - A scoring change needs a test that pins the new number, and a note in the pull request on how scores on the fixtures moved.
 
 ## Where a change belongs

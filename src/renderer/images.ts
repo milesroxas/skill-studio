@@ -81,8 +81,17 @@ export interface AddPictures {
  * Add pictures to a list that holds `held` of them. Each is sent for keeping,
  * then handed to `onAdded`; one that cannot be read, or that would pass the
  * limit, is reported and the rest still arrive.
+ *
+ * `scope` names what the pictures are for when they are picked, such as a
+ * case. Reading one takes a moment, and the reader may have moved on by the
+ * time it lands: `onAdded` is told the scope the pictures were picked for, so
+ * they go where they were meant to and never to whatever is in view by then.
  */
-export function useAddPictures(held: number, onAdded: (images: ImageRef[]) => void): AddPictures {
+export function useAddPictures(
+  held: number,
+  onAdded: (images: ImageRef[], scope: string) => void,
+  scope = '',
+): AddPictures {
   const [adding, setAdding] = useState(0)
   const [error, setError] = useState<string | null>(null)
   // The list may change while a picture is on its way: the newest callback gets it.
@@ -100,7 +109,7 @@ export function useAddPictures(held: number, onAdded: (images: ImageRef[]) => vo
       const failed = results.find((r) => r.status === 'rejected')
       if (failed) setError((failed.reason as Error).message)
       const added = results.flatMap((r) => (r.status === 'fulfilled' ? [r.value] : []))
-      if (added.length) latest.current(added)
+      if (added.length) latest.current(added, scope)
     })
   }
   return { adding, error, add }

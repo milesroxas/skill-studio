@@ -170,6 +170,26 @@ export function versionScore(
 export const mergedConfig = (saved: Partial<BenchConfig> | null): BenchConfig =>
   mergeConfig(saved, scorers)
 
+const sameConfig = (a: BenchConfig, b: BenchConfig): boolean =>
+  JSON.stringify(a) === JSON.stringify(b)
+
+/** Whether the scoring in hand differs from the scoring saved with the skill. */
+export const scoringDirty = (config: BenchConfig, saved: Partial<BenchConfig> | null): boolean =>
+  !sameConfig(config, mergedConfig(saved))
+
+/**
+ * The scoring to hold once the skill has been read again. Edits not saved yet
+ * stay: `current` is kept when it differs from the scoring that was saved when
+ * it was last read (`before`). Otherwise the newly read `saved` takes its
+ * place, so a scoring changed on disk, or another skill's, is never taken for
+ * an edit made here.
+ */
+export const keptConfig = (
+  current: BenchConfig | null,
+  before: BenchConfig | null,
+  saved: BenchConfig,
+): BenchConfig => (current && before && !sameConfig(current, before) ? current : saved)
+
 /** The parts of a score under the scoring in hand, in the order they are shown, without the total. */
 export const layersOf = (config: BenchConfig): string[] =>
   layerOrder(config, scorers).filter((l) => l !== 'total')

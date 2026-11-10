@@ -73,12 +73,12 @@ class RuleNumber extends WidgetType {
   ) {
     super()
   }
-  eq(other: RuleNumber) {
+  override eq(other: RuleNumber) {
     return (
       other.label === this.label && other.flagged === this.flagged && other.hanging === this.hanging
     )
   }
-  toDOM() {
+  override toDOM() {
     const number = document.createElement('span')
     number.className = `cm-md-rulenum${this.flagged ? ' cm-md-flagged' : ''}${this.hanging ? ' cm-md-hanging' : ''}`
     number.textContent = this.label
@@ -87,7 +87,7 @@ class RuleNumber extends WidgetType {
       : `Rule ${this.label}. Click to select it.`
     return number
   }
-  ignoreEvent() {
+  override ignoreEvent() {
     return false
   }
 }

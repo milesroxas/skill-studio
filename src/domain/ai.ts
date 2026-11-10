@@ -374,8 +374,11 @@ export function summarizeUsage(entries: UsageEntry[], now: Date): UsageSummary {
 /** 1234 reads 1.2k and 1234567 reads 1.2M: a count of tokens at a glance. */
 export function compactCount(value: number): string {
   if (value < 1000) return String(value)
-  const [scaled, unit] = value < 1_000_000 ? [value / 1000, 'k'] : [value / 1_000_000, 'M']
-  return `${scaled < 100 ? scaled.toFixed(1).replace(/\.0$/, '') : Math.round(scaled)}${unit}`
+  const short = (scaled: number): string =>
+    scaled < 99.95 ? scaled.toFixed(1).replace(/\.0$/, '') : String(Math.round(scaled))
+  // The unit is picked after rounding: 999,950 is 1M, never 1000k.
+  const thousands = short(value / 1000)
+  return Number(thousands) < 1000 ? `${thousands}k` : `${short(value / 1_000_000)}M`
 }
 
 /**

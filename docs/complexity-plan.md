@@ -5,7 +5,9 @@ The plan for the one `fallow` gate that fails: `fallow health`, 199 functions ab
 | | |
 | --- | --- |
 | Status | Planned |
-| Baseline | 199 above threshold, 4234 functions analyzed, maintainability 89.5 |
+| Baseline | 199 above threshold, 4234 functions analyzed, maintainability 89.5, at `000e95c` |
+| Now | 207 above threshold, 5116 functions analyzed, maintainability 89.6 (2026-11-09): 155 in `src/renderer`, 48 in the rest of `src/`, 4 in `scripts/guide-shots/` |
+| Duplication | `pnpm exec fallow dupes` reports "No code duplication found" |
 | Gate | The full `fallow` run passes, then joins `pnpm check` |
 | Owner | Miles Roxas |
 
@@ -20,7 +22,9 @@ The gate has four rules, each `error` by default. A finding exists when a functi
 
 fallow also lists functions over 60 lines (`maxUnitSize`, the summary's `max_unit_size_threshold`) as large functions. That list informs the health score and does not fail the gate.
 
-fallow has no coverage data for this repo, so it estimates: every function in a file without a `.test.ts` beside it counts as untested, and any React component with five or more branches is reported. That is why 146 of the 199 sit in `src/renderer` components and screens that are simple to read. The other 53 are 49 in the rest of `src/` and 4 in `scripts/guide-shots/`, the script that takes the guide's pictures.
+fallow has no coverage data for this repo, so it estimates: every function in a file without a `.test.ts` beside it counts as untested, and any React component with five or more branches is reported. That is why, at the baseline, 146 of the 199 sit in `src/renderer` components and screens that are simple to read. The other 53 are 49 in the rest of `src/` and 4 in `scripts/guide-shots/`, the script that takes the guide's pictures.
+
+The counts in the phases below, and each function's cyclomatic and cognitive numbers, are the baseline's. Read the current ones from `pnpm exec fallow health` before starting a phase.
 
 So the plan has two kinds of work. Phase 1 gives fallow real coverage and removes the estimated findings that are not real. Phases 2 to 4 split the 51 functions that are too complex by any measure.
 
@@ -94,7 +98,7 @@ Highest churn in the repo (`App.tsx` 26 commits, `Editor.tsx` 22, `Library.tsx` 
 pnpm check                  # typecheck, lint, dead code, tests
 pnpm build
 pnpm exec fallow health     # the count goes down, never up
-pnpm exec fallow dupes      # stays at zero
+pnpm exec fallow dupes      # reports no duplication: it stays that way
 ```
 
 When the full `fallow` run passes, add it to `pnpm check` so it stays that way.

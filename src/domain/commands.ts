@@ -53,7 +53,7 @@ export function matchCommands(
   return commands
     .map((command) => ({ command, rank: rank(command, q) }))
     .filter((entry) => entry.rank < 4)
-    .sort((a, b) => a.rank - b.rank || a.command.name.localeCompare(b.command.name))
+    .sort((a, b) => a.rank - b.rank || a.command.name.localeCompare(b.command.name, 'en'))
     .slice(0, limit)
     .map((entry) => entry.command)
 }

@@ -5,11 +5,12 @@
  * for good, and nothing here reaches out.
  */
 import { stepFor, type UpdateState, type UpdateStep } from '@domain/update.ts'
-import { useCallback, useEffect, useRef, useSyncExternalStore } from 'react'
+import { useCallback, useEffect, useRef } from 'react'
 import { homepage } from '../../package.json'
 import { api } from './api.ts'
 import type { Confirm } from './components/confirm.tsx'
 import type { Reporter } from './hooks.ts'
+import { createStore, useStore } from './store.ts'
 
 const host = api.updates
 
@@ -19,13 +20,8 @@ export const RELEASES_URL = `${homepage}/releases`
 /** One release's page on GitHub, for notes the app cannot show itself. */
 export const releaseUrl = (release: string): string => `${RELEASES_URL}/tag/v${release}`
 
-let current: UpdateState = { status: 'unsupported' }
-const listeners = new Set<() => void>()
-
-const set = (next: UpdateState): void => {
-  current = next
-  for (const listener of listeners) listener()
-}
+const updates = createStore<UpdateState>({ status: 'unsupported' })
+const set = updates.set
 
 /**
  * Ask where the updates stand, and keep in step from then on. Call before the
@@ -41,15 +37,8 @@ export async function loadUpdates(): Promise<void> {
   }
 }
 
-const subscribe = (listener: () => void) => {
-  listeners.add(listener)
-  return () => {
-    listeners.delete(listener)
-  }
-}
-
 export function useUpdate(): UpdateState {
-  return useSyncExternalStore(subscribe, () => current)
+  return useStore(updates)
 }
 
 const STEP_LABELS: Record<UpdateStep, string> = {

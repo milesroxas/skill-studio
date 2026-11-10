@@ -6,43 +6,31 @@ import {
   isInProgress,
   isInstalled,
   isPractice,
-  type Library,
   type LibrarySkill,
 } from '@domain/library.ts'
-import { rulesFromSkill } from '@domain/rules.ts'
-import { DESCRIPTION_HINT, TEMPLATES, type TemplateId, templateById } from '@domain/templates.ts'
-import { isSlug, SLUG_RULE } from '@domain/text.ts'
 import { FolderOpenIcon, PlusIcon } from 'lucide-react'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { api, type Job } from '../api.ts'
 import type { Confirm } from '../components/confirm.tsx'
 import { Disclosure } from '../components/Disclosure.tsx'
 import { Folders } from '../components/Folders.tsx'
-import { CheckRow } from '../components/forms.tsx'
 import { RunningTag } from '../components/Jobs.tsx'
 import {
   EmptyState,
-  Field,
-  Fieldset,
-  FormActions,
-  FormSection,
   ListBar,
   Loading,
   RefreshButton,
   Screen,
   Section,
   SectionHead,
-  Stack,
   Toolbar,
 } from '../components/layout.tsx'
 import { Segmented } from '../components/Segmented.tsx'
 import { SelectBox } from '../components/SelectBox.tsx'
 import { Invitation } from '../components/starters.tsx'
-import { TextArea } from '../components/TextArea.tsx'
-import { Code, Heading, Hint, Text, VisuallyHidden } from '../components/text.tsx'
+import { Heading, Hint, Text, VisuallyHidden } from '../components/text.tsx'
 import { Button } from '../components/ui/button.tsx'
 import { Input } from '../components/ui/input.tsx'
-import { Label } from '../components/ui/label.tsx'
 import {
   rowAction,
   Table,
@@ -55,8 +43,10 @@ import {
 import { Toggle } from '../components/ui/toggle.tsx'
 import { type Reporter, useFetch } from '../hooks.ts'
 import { REVEAL_LABEL } from '../keys.ts'
+import { scanLibrary } from '../library-scan.ts'
 import { plural, shortDate } from '../model.ts'
 import { useStartPractice } from '../practice.ts'
+import { NewSkill } from './NewSkill.tsx'
 
 interface Props {
   /** The new-skill form is open: held in the route, so the sidebar can open it too. */
@@ -64,7 +54,8 @@ interface Props {
   /** A name to start the new skill with. */
   newName: string
   setCreating: (on: boolean) => void
-  openSkill: (path: string, screen?: string) => void
+  /** Open a skill; false when the reader chose to stay with the one in hand. */
+  openSkill: (path: string, screen?: string) => Promise<boolean>
   /** Show a skill's folder in the file manager. Undefined in a browser, which cannot reach one. */
   reveal?: (path: string) => void
   report: Reporter
@@ -105,13 +96,13 @@ export function LibraryScreen({
   confirm,
   jobs,
 }: Props) {
-  const lib = useFetch(() => api.library(), [])
+  const lib = useFetch(scanLibrary, [])
   const [query, setQuery] = useState('')
   const [place, setPlace] = useState('')
   const [view, setView] = useState<View>('yours')
-  /** The skill a change is on its way for, by path: its row's controls wait for it. */
-  const [pending, setPending] = useState<string | null>(null)
-  const [starting, startPractice] = useStartPractice(openSkill, report)
+  /** The skills a change is on its way for, by path: each one's row waits for its own. */
+  const [pending, setPending] = useState<ReadonlySet<string>>(() => new Set())
+  const [starting, startPractice] = useStartPractice((path) => void openSkill(path), report)
 
   // Skills are made and installed outside the app, so coming back to the window reads them again.
   const rescan = lib.reload
@@ -157,7 +148,7 @@ export function LibraryScreen({
   const inviting = !practised && !data.skills.some((s) => s.runs > 0)
 
   const act: Act = async (work, done, key) => {
-    if (key) setPending(key)
+    if (key) setPending((held) => new Set(held).add(key))
     try {
       await work
       report(done)
@@ -165,7 +156,12 @@ export function LibraryScreen({
     } catch (e) {
       report(e as Error)
     } finally {
-      if (key) setPending((p) => (p === key ? null : p))
+      if (key)
+        setPending((held) => {
+          const left = new Set(held)
+          left.delete(key)
+          return left
+        })
     }
   }
 
@@ -178,7 +174,12 @@ export function LibraryScreen({
         startPractice={practised ? null : startPractice}
         starting={starting}
         cancel={() => setCreating(false)}
-        created={(path) => openSkill(path, 'editor')}
+        created={async (path) => {
+          const opened = await openSkill(path, 'editor')
+          // Staying here, the list is shown again: it should hold the skill just made.
+          if (!opened) lib.reload()
+          return opened
+        }}
         report={report}
       />
     )
@@ -330,7 +331,17 @@ export function LibraryScreen({
         )}
       </Section>
 
-      <Places workspaces={data.workspaces} act={act} report={report} />
+      <Places
+        workspaces={data.workspaces}
+        save={(list, done) =>
+          // A failure is the list's to report, and its field keeps the path that did not land.
+          api.setWorkspaces(list).then(() => {
+            report(done)
+            lib.reload()
+          })
+        }
+        report={report}
+      />
     </Screen>
   )
 }
@@ -363,7 +374,7 @@ function SkillTable({
   reveal: Props['reveal']
   act: Act
   /** The skill whose change is on its way, by path: its row's controls are busy. */
-  pending: string | null
+  pending: ReadonlySet<string>
   confirm: Confirm
   jobs: Props['jobs']
 }) {
@@ -404,7 +415,7 @@ function SkillTable({
             key={s.path}
             align="baseline"
             interactive
-            onClick={rowAction(() => openSkill(s.path))}
+            onClick={rowAction(() => void openSkill(s.path))}
           >
             <TableCell wrap>
               <Button
@@ -412,7 +423,7 @@ function SkillTable({
                 variant="link"
                 size="inline"
                 title={s.path}
-                onClick={() => openSkill(s.path)}
+                onClick={() => void openSkill(s.path)}
               >
                 {s.name}
               </Button>
@@ -453,8 +464,8 @@ function SkillTable({
                         variant="outline"
                         size="sm"
                         pressed={state === 'here' || state === 'link'}
-                        disabled={pending === s.path}
-                        aria-busy={pending === s.path || undefined}
+                        disabled={pending.has(s.path)}
+                        aria-busy={pending.has(s.path) || undefined}
                         aria-disabled={fixed || undefined}
                         title={INSTALL_TITLE[state ?? 'none'](a.label)}
                         onPressedChange={() => fixed || toggle(s, a.id, a.label)}
@@ -493,8 +504,8 @@ function SkillTable({
                         ? 'List it with your own skills again'
                         : 'List it with the skills installed from elsewhere'
                     }
-                    disabled={pending === s.path}
-                    aria-busy={pending === s.path || undefined}
+                    disabled={pending.has(s.path)}
+                    aria-busy={pending.has(s.path) || undefined}
                     onClick={() =>
                       act(
                         api.mark(s.path, !s.source),
@@ -527,243 +538,19 @@ function SkillTable({
   )
 }
 
-/** A place's name in the form: the user's home is every project. */
-const placeName = (place: Library['places'][number]): string =>
-  place.scope === 'user' ? 'User (every project)' : place.label
-
-/**
- * The new-skill form, in the order the questions are usually answered: what it
- * is, what to start from, then where it goes. The name has focus on open, so
- * from the switcher a skill is a name and two Returns away. Where it lives is
- * one line until opened: the defaults suit most skills, and the Library can
- * change both later.
- */
-function NewSkill({
-  startName,
-  data,
-  startPractice,
-  starting,
-  cancel,
-  created,
+function Places({
+  workspaces,
+  save,
   report,
 }: {
-  startName: string
-  data: Library
-  /** Open the practice skill instead; null once it exists. */
-  startPractice: (() => void) | null
-  /** The walkthrough is being written, so its link waits. */
-  starting: boolean
-  cancel: () => void
-  created: (path: string) => void
-  report: Props['report']
+  workspaces: string[]
+  /** Store the new list; rejects when it could not be stored. */
+  save: (list: string[], done: string) => Promise<void>
+  report: Reporter
 }) {
-  const [name, setName] = useState(startName)
-  const [description, setDescription] = useState('')
-  const [scope, setScope] = useState('user')
-  const [agents, setAgents] = useState<Set<AgentId>>(() => new Set(['claude']))
-  const [templateId, setTemplateId] = useState<TemplateId>('blank')
-  const [samples, setSamples] = useState(true)
-  const [busy, setBusy] = useState(false)
-  const nameField = useRef<HTMLInputElement>(null)
-  useEffect(() => {
-    nameField.current?.focus()
-  }, [])
-  const nameError = name && !isSlug(name) ? SLUG_RULE : ''
-  const taken = data.skills.some((s) => s.scope === scope && s.path.endsWith(`/${name}`))
-  const place = data.places.find((p) => p.scope === scope)
-  const template = templateById(templateId)
-  const ruleCount = rulesFromSkill(template.body).length
-  const installed = AGENTS.filter((a) => agents.has(a.id)).map((a) => a.label)
-
-  const toggleAgent = (id: AgentId) =>
-    setAgents((prev) => {
-      const next = new Set(prev)
-      if (!next.delete(id)) next.add(id)
-      return next
-    })
-
-  const submit = async () => {
-    setBusy(true)
-    try {
-      const skill = await api.createSkill({
-        scope,
-        name,
-        description,
-        agents: [...agents],
-        template: templateId,
-        samples: samples && template.cases.length > 0,
-      })
-      report(`Created ${skill.name}`)
-      created(skill.path)
-    } catch (e) {
-      report(e as Error)
-      setBusy(false)
-    }
-  }
-
-  return (
-    <Screen width="form">
-      <SectionHead>
-        <Heading level={2}>New skill</Heading>
-        {startPractice ? (
-          <Hint>
-            New to the loop?{' '}
-            <Button
-              type="button"
-              variant="link-muted"
-              size="inline-sm"
-              disabled={starting}
-              onClick={startPractice}
-            >
-              Take the walkthrough
-            </Button>{' '}
-            on a finished skill with three cases.
-          </Hint>
-        ) : null}
-      </SectionHead>
-      <form
-        className="contents"
-        onSubmit={(e) => {
-          e.preventDefault()
-          submit()
-        }}
-      >
-        <FormSection
-          title="About it"
-          hint="Agents read the name and description to decide when to load the skill."
-        >
-          <Field>
-            <Label htmlFor="ns-name">Name</Label>
-            <Input
-              ref={nameField}
-              id="ns-name"
-              value={name}
-              autoComplete="off"
-              autoCapitalize="none"
-              autoCorrect="off"
-              spellCheck={false}
-              enterKeyHint="done"
-              font="mono"
-              aria-invalid={Boolean(nameError || taken) || undefined}
-              aria-describedby="ns-name-help"
-              onChange={(e) => setName(e.target.value)}
-            />
-            <Hint id="ns-name-help" tone={nameError || taken ? 'destructive' : 'default'}>
-              {nameError ||
-                (taken ? 'A skill with this name is already in that place.' : SLUG_RULE)}
-            </Hint>
-          </Field>
-          <Field>
-            <Label htmlFor="ns-desc">Description</Label>
-            <TextArea
-              id="ns-desc"
-              rows={3}
-              value={description}
-              placeholder={template.description || DESCRIPTION_HINT}
-              onValueChange={setDescription}
-              assist={{
-                field: 'skill.description',
-                context: () => [
-                  {
-                    label: 'The new skill',
-                    text: `Name: ${name || 'not named yet'}\nKind: ${template.label}. ${template.summary}`,
-                  },
-                ],
-              }}
-            />
-          </Field>
-        </FormSection>
-
-        <FormSection
-          title="Start from"
-          hint="A template is a small, finished skill of one kind: example rules to replace, each with its why, and sample cases to run it against."
-        >
-          <Field>
-            <Label id="ns-template">Template</Label>
-            <Segmented
-              aria-labelledby="ns-template"
-              fill
-              value={templateId}
-              onChange={(v) => v && setTemplateId(v)}
-              options={TEMPLATES.map((t) => ({ value: t.id, label: t.label }))}
-            />
-            <Hint>{template.summary}</Hint>
-          </Field>
-          {template.cases.length ? (
-            <CheckRow
-              checked={samples}
-              onCheckedChange={setSamples}
-              description={`The template starts with ${plural(ruleCount, 'example rule')} to replace.`}
-            >
-              Add {plural(template.cases.length, 'sample case')} to run against
-            </CheckRow>
-          ) : null}
-        </FormSection>
-
-        <FormSection title="Where it lives" hint="Both can be changed later from the Library.">
-          <Stack gap="md">
-            <Text as="p" size="ui">
-              Saved in <Code>.agents/skills/{name || 'name'}</Code>
-              {place ? ` in ${placeName(place)}` : ''}.{' '}
-              {installed.length
-                ? `Installed for ${installed.join(', ')}.`
-                : 'Installed for no agent yet.'}
-            </Text>
-            <Disclosure summary="Change the place or the agents">
-              <Stack gap="lg">
-                <Field>
-                  <Label htmlFor="ns-place">Place</Label>
-                  <SelectBox
-                    id="ns-place"
-                    value={scope}
-                    onChange={setScope}
-                    options={data.places.map((p) => ({ value: p.scope, label: placeName(p) }))}
-                  />
-                </Field>
-                <Fieldset legend="Install for">
-                  <Toolbar gap="md">
-                    {AGENTS.map((a) => (
-                      <CheckRow
-                        key={a.id}
-                        checked={agents.has(a.id)}
-                        onCheckedChange={() => toggleAgent(a.id)}
-                      >
-                        {a.label}
-                      </CheckRow>
-                    ))}
-                  </Toolbar>
-                </Fieldset>
-              </Stack>
-            </Disclosure>
-          </Stack>
-        </FormSection>
-
-        <FormActions>
-          <Button
-            type="submit"
-            disabled={!name || Boolean(nameError) || taken}
-            busy={busy}
-            busyLabel="Creating…"
-          >
-            Create skill
-          </Button>
-          <Button type="button" variant="ghost" disabled={busy} onClick={cancel}>
-            Cancel
-          </Button>
-        </FormActions>
-      </form>
-    </Screen>
-  )
-}
-
-function Places({ workspaces, act, report }: { workspaces: string[]; act: Act; report: Reporter }) {
   return (
     <Disclosure summary="Where skills are found">
-      <Folders
-        workspaces={workspaces}
-        save={(list, done) => act(api.setWorkspaces(list), done)}
-        report={report}
-      />
+      <Folders workspaces={workspaces} save={save} report={report} />
     </Disclosure>
   )
 }

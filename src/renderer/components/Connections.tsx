@@ -17,8 +17,9 @@ import { type ReactNode, useEffect, useId, useState } from 'react'
 import { loadAi, recheck, useAi } from '../ai.ts'
 import { api } from '../api.ts'
 import { copyText } from '../clipboard.ts'
-import { type Reporter, useFetch } from '../hooks.ts'
+import { type Reporter, useAction, useFetch } from '../hooks.ts'
 import { knownKeys, readKeys } from '../secrets.ts'
+import { useConfirm } from './confirm.tsx'
 import { Disclosure } from './Disclosure.tsx'
 import { Field, List, Loading, ReadFailed, Stack, Toolbar } from './layout.tsx'
 import { Status } from './Status.tsx'
@@ -142,7 +143,7 @@ function CliSetup({
   report: Reporter
   onSaved: () => Promise<void>
 }) {
-  const [checking, setChecking] = useState(false)
+  const [checking, run] = useAction(report)
   const field = useId()
   useEffect(() => {
     const look = () => void loadAi()
@@ -155,19 +156,16 @@ function CliSetup({
       ? report('Command copied. Paste it in Terminal and press Return.')
       : report('Could not copy. Select the command and copy it.', { tone: 'destructive' })
 
-  const check = async () => {
-    setChecking(true)
-    try {
-      const now = await recheck(info.id)
+  const check = () =>
+    run(async () => {
+      // This look's own answer: a look on focus landing meanwhile does not change it.
+      const { info: now, problem } = await recheck(info.id)
+      // A look that failed has nothing to say about the CLI: say why it failed instead.
+      if (problem) throw new Error(`Could not check: ${problem}`)
       // Unchanged: say so, or the click looks like it did nothing.
       if (!now?.connected || needsSignIn(now)) report(`${title} yet`)
       else await onSaved()
-    } catch (e) {
-      report(e as Error)
-    } finally {
-      setChecking(false)
-    }
-  }
+    })
 
   return (
     <>
@@ -259,23 +257,34 @@ function KeyField({
   onSaved,
 }: KeyFieldProps & { settings: Settings }) {
   const [value, setValue] = useState('')
-  const [busy, setBusy] = useState(false)
+  /** Saving and removing each wait on their own, so each button says its own step. */
+  const [saving, runSave] = useAction(report)
+  const [removing, runRemove] = useAction(report)
+  const [confirm, confirmDialog] = useConfirm()
   const field = useId()
   const { placeholder, launchEnv } = SECRETS[id]
   const { set, source } = settings.keys[id]
 
-  const save = async (next: string) => {
-    setBusy(true)
-    try {
-      await api.setKey(id, next)
-      setValue('')
-      report(next ? 'Key saved' : 'Key removed')
-      await onSaved()
-    } catch (e) {
-      report(e as Error)
-    } finally {
-      setBusy(false)
-    }
+  /** Store `next`, or remove the stored key when it is empty. */
+  const store = async (next: string) => {
+    await api.setKey(id, next)
+    setValue('')
+    report(next ? 'Key saved' : 'Key removed')
+    await onSaved()
+  }
+  const save = (next: string) => runSave(() => store(next))
+
+  /** A stored key cannot be brought back by Undo: it is pasted again or not at all. So it is asked first. */
+  const remove = async () => {
+    if (
+      await confirm({
+        title: 'Remove the stored key?',
+        description: 'The key is deleted from the keychain. To use it again, paste it here again.',
+        action: 'Remove',
+        destructive: true,
+      })
+    )
+      await runRemove(() => store(''))
   }
 
   const asking = replace || !set || Boolean(problem)
@@ -308,7 +317,7 @@ function KeyField({
           className="contents"
           onSubmit={(event) => {
             event.preventDefault()
-            if (value.trim()) void save(value.trim())
+            if (value.trim() && !removing) void save(value.trim())
           }}
         >
           <Field>
@@ -327,17 +336,24 @@ function KeyField({
             />
           </Field>
           <Toolbar>
-            <Button type="submit" disabled={!value.trim()} busy={busy} busyLabel="Saving…">
+            <Button
+              type="submit"
+              disabled={!value.trim() || removing}
+              busy={saving}
+              busyLabel="Saving…"
+            >
               Save key
             </Button>
             {replace && source === 'stored' ? (
               <Button
                 type="button"
                 variant="destructive-ghost"
-                disabled={busy}
-                onClick={() => void save('')}
+                disabled={saving}
+                busy={removing}
+                busyLabel="Removing…"
+                onClick={() => void remove()}
               >
-                Remove the stored key
+                Remove the stored key…
               </Button>
             ) : null}
           </Toolbar>
@@ -348,6 +364,7 @@ function KeyField({
           <Code>.env</Code> when running from a checkout) and start it again.
         </Hint>
       )}
+      {confirmDialog}
     </>
   )
 }

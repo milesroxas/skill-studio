@@ -1,6 +1,6 @@
 /** Form rows the screens share: a checkbox with its label, a slider with its number. */
 import { cva, type VariantProps } from 'class-variance-authority'
-import type { ComponentProps, ReactNode } from 'react'
+import { type ComponentProps, type ReactNode, useState } from 'react'
 import { cn } from '../lib/utils.ts'
 import { Text } from './text.tsx'
 import { Checkbox } from './ui/checkbox.tsx'
@@ -99,6 +99,9 @@ interface KnobProps {
  * width under them, and what it does under that.
  */
 export function Knob({ label, about, title, value, min, max, step, onChange }: KnobProps) {
+  /** The exact value as it is being typed; null while the field shows the setting. */
+  const [typed, setTyped] = useState<string | null>(null)
+  const inRange = (n: number) => !Number.isNaN(n) && n >= min && n <= max
   return (
     <div className="flex flex-col gap-2" title={title}>
       <div className="flex items-center justify-between gap-3">
@@ -106,18 +109,28 @@ export function Knob({ label, about, title, value, min, max, step, onChange }: K
         <NumberInput
           aria-label={`${label}, exact`}
           min={min}
+          max={max}
           step={step}
-          value={value}
+          value={typed ?? value}
           size="sm"
           width="value"
           onChange={(e) => {
+            // What is typed shows as typed, and counts once it is a number in the slider's range:
+            // "0" on the way to "0.5" is not a setting yet.
+            setTyped(e.target.value)
             const next = e.target.valueAsNumber
-            if (!Number.isNaN(next)) onChange(next)
+            if (inRange(next)) onChange(next)
+          }}
+          onBlur={(e) => {
+            // Left outside the range, it goes to the nearest end: the field never holds what the slider cannot reach.
+            const next = e.target.valueAsNumber
+            if (!Number.isNaN(next) && !inRange(next)) onChange(Math.min(max, Math.max(min, next)))
+            setTyped(null)
           }}
         />
       </div>
       <Slider
-        aria-label={label}
+        label={label}
         min={min}
         max={max}
         step={step}

@@ -59,7 +59,7 @@ export function placed(size: Size, anchor: Area, bounds: Area, rise = 0.5): Area
   }
 }
 
-/** The window bounds a saved file holds, or null when its text is damaged, as a quit mid-write leaves it. */
+/** The window bounds a saved file holds, or null when its text is damaged. */
 export function boundsOf(text: string): Area | null {
   try {
     const { x, y, width, height } = (JSON.parse(text) ?? {}) as Partial<Area>
@@ -68,3 +68,34 @@ export function boundsOf(text: string): Area | null {
     return null
   }
 }
+
+/**
+ * The dev server's address, for a development copy only. A packaged app loads
+ * its page from its own archive whatever its environment says: the variable
+ * would otherwise hand the preload's bridge to any page it names.
+ */
+export const devUrlOf = (
+  packaged: boolean,
+  env: Readonly<Record<string, string | undefined>>,
+): string | undefined => (packaged ? undefined : env.ELECTRON_RENDERER_URL || undefined)
+
+/**
+ * Chromium switches that open the page, and with it the preload's bridge, to
+ * a debugger outside the app. Node's own (`--inspect` and the like,
+ * `NODE_OPTIONS`) are turned off by the fuses in electron-builder.yml; these
+ * are Chromium's, which no fuse covers.
+ */
+const DEBUG_SWITCHES = [
+  'remote-debugging-port',
+  'remote-debugging-pipe',
+  'remote-debugging-address',
+  'remote-allow-origins',
+] as const
+
+/**
+ * True when a packaged app was started with a switch that opens it to a
+ * debugger: it then quits before it opens a window. A development copy is
+ * debugged from outside as a matter of course, so there every switch stands.
+ */
+export const opensToDebugger = (packaged: boolean, hasSwitch: (name: string) => boolean): boolean =>
+  packaged && DEBUG_SWITCHES.some((name) => hasSwitch(name))

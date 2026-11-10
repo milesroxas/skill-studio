@@ -7,9 +7,10 @@
  * such as whether a step is really a step, is left to the judge
  * (`improve.ts`). Pure data and functions.
  */
+import { bulletsOf } from './rules.ts'
 import { type SizeBand, sizeBand, textSize } from './size.ts'
 import { type Principle, principleGuide } from './templates.ts'
-import { closesFence, type Fence, fenceOf } from './text.ts'
+import { LIST_MARKER, sentencesOf, tokens } from './text.ts'
 
 export type Dimension = 'principle' | 'complexity' | 'length'
 
@@ -108,6 +109,13 @@ const OUTCOMES = [
   'looks',
 ] as const
 
+/**
+ * The words of `OUTCOMES` that are also verbs a rule can open with: "Clear the
+ * cache" and "Feel free to" are steps. Only these are passed over at the start
+ * of a rule; "Concise answers only" and "Clearly state" open on the quality.
+ */
+const OPENING_VERBS = new Set<string>(['clear', 'clean', 'smooth', 'feel'])
+
 /** A number, or a word that closes the boundary, an order among them: these make a rule checkable. */
 const ANCHOR =
   /\d|\b(?:always|never|exactly|only|every|each|none|no|all|must|at most|at least|or fewer|or more|or less|under|over|within|maximum|minimum|once|twice|first|last|before|whole|same)\b/i
@@ -136,26 +144,19 @@ const WORDS_OVER = 60
 /** Under this, a selection has nothing for the checks to read. */
 const WORDS_MIN = 4
 
-const count = (text: string): number => text.split(/\s+/).filter(Boolean).length
+const count = (text: string): number => tokens(text).length
 
 export const wordCount = count
 
-const sentences = (text: string): string[] =>
-  text
-    .split(/(?<=[.!?])\s+/)
-    .map((s) => s.trim())
-    .filter(Boolean)
+const sentences = (text: string): string[] => sentencesOf(text)
 
 const quoteOf = (text: string, re: RegExp): string | null => re.exec(text)?.[0] ?? null
-
-/** A list marker at the start of a line, with the space after it. */
-const MARKER = /^\s*(?:[-*+]|\d+[.)])\s+/
 
 /** A rule's text without its list marker, each line's own. */
 const unmarked = (text: string): string =>
   text
     .split('\n')
-    .map((line) => line.replace(MARKER, ''))
+    .map((line) => line.replace(LIST_MARKER, ''))
     .join('\n')
 
 const found = (
@@ -184,12 +185,8 @@ const found = (
  * find. `raw` keeps the indentation, `text` is one line.
  */
 export function rulesIn(selection: string): Array<{ raw: string; text: string }> {
-  const units: Array<{ raw: string; text: string }> = []
-  let pending: string[] = []
-  let fence: Fence | null = null
-  const flush = () => {
-    if (!pending.length) return
-    const raw = pending.join('\n')
+  return bulletsOf(selection.split('\n')).flatMap((bullet) => {
+    const raw = bullet.lines.join('\n')
     const text = raw
       .replace(/^[-*]\s+/, '')
       .replace(/\n\s*(?:[-*+]|\d+[.)])?\s*/g, ' ')
@@ -197,42 +194,23 @@ export function rulesIn(selection: string): Array<{ raw: string; text: string }>
       .replace(/`([^`]+)`/g, '$1')
       .replace(/\s+/g, ' ')
       .trim()
-    pending = []
-    if (text) units.push({ raw, text })
-  }
-  for (const line of selection.split('\n')) {
-    // A fence closes only on its own character, at least as long: a ``` inside a ~~~ block is text.
-    if (fence) {
-      if (closesFence(line, fence)) fence = null
-      continue
-    }
-    const opened = fenceOf(line)
-    if (opened) {
-      flush()
-      fence = opened
-      continue
-    }
-    if (/^[-*]\s+/.test(line)) {
-      flush()
-      pending = [line]
-      continue
-    }
-    if (pending.length && /^\s{2,}\S/.test(line)) {
-      pending.push(line)
-      continue
-    }
-    flush()
-  }
-  flush()
-  return units
+    return text ? [{ raw, text }] : []
+  })
 }
 
-/** The findings of one rule. */
-function checkUnit(unit: { raw: string; text: string }): Finding[] {
-  const { raw, text } = unit
+/** A word list as one pattern per entry, a space in an entry standing for any run of space. */
+const wordPatterns = (list: readonly string[]): Array<[string, RegExp]> =>
+  list.map((word) => [word, new RegExp(`\\b${word.replace(/ /g, '\\s+')}\\b`)])
+
+const HEDGE_PATTERNS = wordPatterns(HEDGES)
+const OUTCOME_PATTERNS = wordPatterns(OUTCOMES)
+
+const firstMatch = (patterns: Array<[string, RegExp]>, text: string): string | null =>
+  patterns.find(([, pattern]) => pattern.test(text))?.[0] ?? null
+
+/** What the principles say of one rule: a hedge, an outcome, a missing reason, a definition. */
+function principleFindings(text: string): Finding[] {
   const out: Finding[] = []
-  const words = count(text)
-  if (words < WORDS_MIN) return out
   // The rule is the first sentence; what follows is its why, which may name an outcome or a thing.
   const rule = sentences(text)[0] ?? text
   // A word in quotes is mentioned, not used: a rule that bans "reasonably" is not hedging.
@@ -240,7 +218,7 @@ function checkUnit(unit: { raw: string; text: string }): Finding[] {
 
   // A hedge with no number or absolute anywhere in the rule leaves the agent nothing to act on.
   // A bare rule with neither is left to the judge: code cannot tell a boundary from a habit.
-  const hedge = HEDGES.find((h) => new RegExp(`\\b${h.replace(/ /g, '\\s+')}\\b`).test(lower))
+  const hedge = firstMatch(HEDGE_PATTERNS, lower)
   if (hedge && !ANCHOR.test(text))
     out.push(
       found(
@@ -251,7 +229,10 @@ function checkUnit(unit: { raw: string; text: string }): Finding[] {
       ),
     )
 
-  const outcome = OUTCOMES.find((o) => new RegExp(`\\b${o.replace(/ /g, '\\s+')}\\b`).test(lower))
+  // A rule that opens on a verb names a step: "Clear the cache" is not a quality of the result.
+  const opening = /^\s*([a-z]+)/.exec(lower)?.[1] ?? ''
+  const read = OPENING_VERBS.has(opening) ? lower.replace(/^\s*[a-z]+/, ' ') : lower
+  const outcome = firstMatch(OUTCOME_PATTERNS, read)
   if (outcome)
     out.push(
       found(
@@ -280,8 +261,13 @@ function checkUnit(unit: { raw: string; text: string }): Finding[] {
         quoteOf(rule, /^[^.:]{0,48}/),
       ),
     )
+  return out
+}
 
-  if (/\n\s{2,}[-*+]\s/.test(raw))
+/** How much one rule asks the agent to hold, and how long it is. */
+function sizeFindings(raw: string, text: string, words: number): Finding[] {
+  const out: Finding[] = []
+  if (/\n(?:\t|\s{2,})\s*[-*+]\s/.test(raw))
     out.push(
       found(
         'complexity',
@@ -291,6 +277,7 @@ function checkUnit(unit: { raw: string; text: string }): Finding[] {
     )
 
   // The main clause and one more per condition word, so "or when" counts both.
+  const rule = sentences(text)[0] ?? text
   const clauses = (rule.match(CONDITION) ?? []).length + 1
   if (clauses > CLAUSES_MAX)
     out.push(
@@ -312,6 +299,13 @@ function checkUnit(unit: { raw: string; text: string }): Finding[] {
   else if (words > WORDS_LONG)
     out.push(found('length', null, `${words} words. Cut every word that changes nothing.`))
   return out
+}
+
+/** The findings of one rule. */
+function checkUnit(unit: { raw: string; text: string }): Finding[] {
+  const words = count(unit.text)
+  if (words < WORDS_MIN) return []
+  return [...principleFindings(unit.text), ...sizeFindings(unit.raw, unit.text, words)]
 }
 
 /** What a long or oversized file means for the selection. */

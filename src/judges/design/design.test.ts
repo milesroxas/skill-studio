@@ -1,7 +1,12 @@
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+import { pngHeader } from '@domain/__fixtures__/image.ts'
 import { mergeConfig } from '@domain/config.ts'
 import type { ScoreSubject } from '@domain/pack.ts'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { Jev } from '../jev.ts'
+import { MissingAnswerError } from '../shared/questions.ts'
 import type { JudgeContext, JudgeInput } from '../types.ts'
 import { designPack } from './index.ts'
 import { type DesignRaw, designScoring } from './score.ts'
@@ -14,7 +19,13 @@ const ctx: JudgeContext = {
   skillDir: '/none',
   log: () => {},
 }
-const subject: ScoreSubject = { case: null, primary: null, artifacts: [], words: 0, range: null }
+const subject: ScoreSubject = {
+  case: null,
+  primary: { file: 'outputs/index.html', kind: 'html' },
+  artifacts: [],
+  words: 40,
+  range: null,
+}
 
 const input = (html: string): JudgeInput => ({
   text: html,
@@ -93,6 +104,72 @@ describe('design markup checks', () => {
     expect(await failed(html)).toEqual([])
   })
 
+  it('reads only an event’s name after `on` as a handler', async () => {
+    // Attributes a page may carry: none of them runs script.
+    const plain = GOOD.replace('<main>', '<main one only once online onboarding="x">')
+    expect(await failed(plain)).toEqual([])
+    for (const handler of ['onclick', 'ONLOAD', 'onpointerdown', 'onanimationend'])
+      expect(await failed(GOOD.replace('<main>', `<main ${handler}="go()">`))).toEqual(['handlers'])
+  })
+
+  it('knows every handler a page can carry, the prefixed ones included', async () => {
+    for (const handler of [
+      'onunhandledrejection',
+      'onrejectionhandled',
+      'oncommand',
+      'onbeforematch',
+      'onbeforetoggle',
+      'oncontextlost',
+      'onsecuritypolicyviolation',
+      'onpointerrawupdate',
+      'onvisibilitychange',
+      'onreadystatechange',
+      'onpageswap',
+      'onscrollsnapchange',
+      'onbegin',
+      'onwebkitanimationend',
+      'onwebkittransitionend',
+      'onwebkitfullscreenchange',
+    ])
+      expect(await failed(GOOD.replace('<main>', `<main ${handler}="go()">`)), handler).toEqual([
+        'handlers',
+      ])
+  })
+
+  it('keeps Jev’s answer as it came, and fails the reading when one asked for is missing', async () => {
+    const ask = vi.fn(async () => ({ hierarchy: { noul: 0.4996 } }))
+    const asking = { ...ctx, jev: { ask } as unknown as Jev, useJev: true }
+    const raw = await designPack.judge(input(GOOD), asking)
+    // Rounded to three places this would be 0.5, and pass a threshold of 0.5 it did not reach.
+    expect(raw?.jev?.hierarchy).toBe(0.4996)
+    expect(raw && designScoring.score(raw, subject, config).layers.visual).toBe(0)
+    ask.mockResolvedValueOnce({} as never)
+    await expect(designPack.judge(input(GOOD), asking)).rejects.toThrow(MissingAnswerError)
+  })
+
+  it('stores no answer to the screenshot question Jev left out, and keeps the markup checks', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'st-design-'))
+    try {
+      mkdirSync(join(dir, 'outputs'))
+      writeFileSync(join(dir, 'outputs/shot.png'), pngHeader(800, 600))
+      const shot = { file: 'outputs/shot.png', kind: 'image' as const }
+      const page = { ...input(GOOD), dir, artifacts: [...input(GOOD).artifacts, shot] }
+      const ask = vi.fn(async (_state: unknown, _questions: Record<string, unknown>) => ({
+        hierarchy: { noul: 0.9 },
+      }))
+      const raw = await designPack.judge(page, {
+        ...ctx,
+        jev: { ask } as unknown as Jev,
+        useJev: true,
+      })
+      expect(Object.keys(ask.mock.calls[0][1])).toEqual(['hierarchy', 'finished'])
+      expect(raw?.jev).toMatchObject({ hierarchy: 0.9, finished: null })
+      expect(raw?.markup).toHaveLength(8)
+    } finally {
+      rmSync(dir, { recursive: true, force: true })
+    }
+  })
+
   it('has nothing to judge without html or a screenshot', async () => {
     const md = { ...input(''), primary: null, artifacts: [] }
     expect(await designPack.judge(md, ctx)).toBeNull()
@@ -118,7 +195,7 @@ describe('design scoring', () => {
       ['markup: a', true, false, 'markup'],
       ['markup: no <main> landmark', false, false, 'markup'],
     ])
-    expect(designScoring.confidence(raw)).toBeNull()
+    expect(designScoring.certainties(raw)).toEqual([])
   })
 
   it('counts the visual layer from Jev’s answers, with the reader’s own over them', () => {

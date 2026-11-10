@@ -26,10 +26,10 @@ const line = (cls: string) =>
   lines.get(cls) ?? lines.set(cls, Decoration.line({ class: cls })).get(cls)!
 
 class Bullet extends WidgetType {
-  eq() {
+  override eq() {
     return true
   }
-  toDOM() {
+  override toDOM() {
     const dot = document.createElement('span')
     dot.className = 'cm-md-bullet'
     dot.textContent = '•'
@@ -42,10 +42,10 @@ class Checkbox extends WidgetType {
   constructor(readonly checked: boolean) {
     super()
   }
-  eq(other: Checkbox) {
+  override eq(other: Checkbox) {
     return other.checked === this.checked
   }
-  toDOM(view: EditorView) {
+  override toDOM(view: EditorView) {
     const box = document.createElement('input')
     box.type = 'checkbox'
     box.checked = this.checked

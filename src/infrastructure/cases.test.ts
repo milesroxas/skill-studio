@@ -1,17 +1,20 @@
 import {
   existsSync,
+  lstatSync,
   mkdirSync,
   mkdtempSync,
+  readdirSync,
   readFileSync,
   rmSync,
+  symlinkSync,
   utimesSync,
   writeFileSync,
 } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { pngHeader } from '@domain/image-fixtures.ts'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { caseSavedAt, deleteCase, loadCases, saveCase } from './cases.ts'
+import { pngHeader } from '@domain/__fixtures__/image.ts'
+import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { caseSavedAt, countCases, deleteCase, findCase, loadCases, saveCase } from './cases.ts'
 
 let skill: string
 beforeEach(() => {
@@ -190,8 +193,13 @@ describe('saveCase and deleteCase', () => {
 
 describe('case pictures', () => {
   /** An upload on disk, as the app would hold one, and the function that finds it. */
+  const made: string[] = []
+  afterAll(() => {
+    for (const dir of made) rmSync(dir, { recursive: true, force: true })
+  })
   const uploads = () => {
     const dir = mkdtempSync(join(tmpdir(), 'st-uploads-'))
+    made.push(dir)
     writeFileSync(join(dir, 'aa.png'), pngHeader(800, 600))
     writeFileSync(join(dir, 'bb.png'), pngHeader(400, 300))
     return (id: string) => join(dir, id)
@@ -268,5 +276,192 @@ describe('case pictures', () => {
       'home-mock-2.png',
       'home-mock.png',
     ])
+  })
+})
+
+describe('findCase', () => {
+  it('never takes a case for another whose id it leads', () => {
+    writeCase('email', 'Write an email.')
+    writeCase('email-reply', 'Reply to an email.')
+    const cases = loadCases(skill)
+    expect(findCase(cases, 'email-reply')?.id).toBe('email-reply')
+    expect(findCase(cases, 'email')?.id).toBe('email')
+    // A legacy output file is `<case>-<n>.md`: the longer id that leads it is the case.
+    expect(findCase(cases, 'email-reply-2.md')?.id).toBe('email-reply')
+    expect(findCase(cases, 'email-2.md')?.id).toBe('email')
+    expect(findCase(cases, 'memo-1.md')).toBeNull()
+  })
+})
+
+describe('cases that cannot be read', () => {
+  it('leaves out a case whose case.yaml does not parse, and reads the rest', () => {
+    writeCase('good', 'Write it.')
+    writeCase('torn', 'Write it.')
+    writeFileSync(join(skill, 'evals/cases/torn/case.yaml'), 'title: [unclosed\n  bench: {')
+    expect(loadCases(skill).map((c) => c.id)).toEqual(['good'])
+  })
+
+  it('takes from evals.json only entries whose key is a slug, with files inside the skill', () => {
+    mkdirSync(join(skill, 'evals'), { recursive: true })
+    writeFileSync(
+      join(skill, 'evals/evals.json'),
+      JSON.stringify({
+        evals: [
+          { id: 1, name: 'First', prompt: 'One.', files: ['evals/files/a.md', '../../etc/passwd'] },
+          { id: '../up', prompt: 'Two.' },
+          { id: 3, name: 'No prompt' },
+          { id: 4, prompt: 'Four.', bench: { evidence: ['references/facts.md', '/etc/hosts'] } },
+        ],
+      }),
+    )
+    const cases = loadCases(skill)
+    expect(cases.map((c) => c.id)).toEqual(['1-first', '4'])
+    expect(cases[0].files).toEqual(['evals/files/a.md'])
+    expect(cases[1].bench.evidence).toEqual(['references/facts.md'])
+  })
+
+  it('counts cases without reading them', () => {
+    writeCase('a', 'One.')
+    writeCase('b', 'Two.')
+    writeFileSync(join(skill, 'evals/cases/b/case.yaml'), 'title: [unclosed')
+    mkdirSync(join(skill, 'evals/cases/empty'))
+    expect(countCases(skill)).toBe(2)
+  })
+
+  it('counts an evals.json case once when a folder has its id, and never one that is left out', () => {
+    writeCase('1-first', 'One, as a folder.')
+    writeFileSync(
+      join(skill, 'evals/evals.json'),
+      JSON.stringify({
+        evals: [
+          { id: 1, name: 'First', prompt: 'One.' },
+          { id: 2, prompt: 'Two.' },
+          { id: 'test_3', prompt: 'Three.' },
+          { id: 4, name: 'No prompt' },
+        ],
+      }),
+    )
+    expect(loadCases(skill).map((c) => c.id)).toEqual(['1-first', '2'])
+    expect(countCases(skill)).toBe(2)
+  })
+
+  it('warns, naming the entry, of an evals.json case it leaves out', () => {
+    mkdirSync(join(skill, 'evals'), { recursive: true })
+    writeFileSync(
+      join(skill, 'evals/evals.json'),
+      JSON.stringify({ evals: [{ id: 'test_1', prompt: 'One.' }, { id: 'nothing-asked' }] }),
+    )
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    try {
+      expect(loadCases(skill)).toEqual([])
+      loadCases(skill)
+      const said = warn.mock.calls.map(([line]) => String(line))
+      expect(said.filter((line) => line.includes('"test_1"'))).toHaveLength(1)
+      expect(said.find((line) => line.includes('"test_1"'))).toContain('evals.json')
+      expect(said.filter((line) => line.includes('"nothing-asked"'))).toHaveLength(1)
+    } finally {
+      warn.mockRestore()
+    }
+  })
+})
+
+describe.skipIf(process.platform === 'win32')('a case folder reached through a link', () => {
+  let outside: string
+  beforeEach(() => {
+    outside = mkdtempSync(join(tmpdir(), 'st-cases-outside-'))
+    writeFileSync(join(outside, 'shot.png'), pngHeader(10, 10))
+    writeFileSync(join(outside, 'theirs.md'), '---\ntype: llm\n---\n\nTheirs.\n')
+  })
+  afterEach(() => rmSync(outside, { recursive: true, force: true }))
+
+  const draft = {
+    id: 'linked',
+    title: 'Linked',
+    prompt: 'Do it.',
+    expectedOutcome: '',
+    words: null,
+    images: [],
+    graders: [],
+  }
+
+  it.each(['files', 'graders', 'references'])(
+    'is refused before anything is written when %s/ leads out of the skill',
+    (folder) => {
+      writeCase('linked', 'Old prompt.')
+      rmSync(join(skill, 'evals/cases/linked', folder), { recursive: true, force: true })
+      symlinkSync(outside, join(skill, 'evals/cases/linked', folder))
+      expect(() => saveCase(skill, draft, false)).toThrow('leads outside')
+      expect(readdirSync(outside).sort()).toEqual(['shot.png', 'theirs.md'])
+      expect(readFileSync(join(skill, 'evals/cases/linked/prompt.md'), 'utf8')).toBe('Old prompt.')
+    },
+  )
+
+  it("replaces a check's picture that is a link out of the skill, and leaves what it led to", () => {
+    const find = (id: string) => join(outside, id)
+    writeFileSync(join(outside, 'new.png'), pngHeader(20, 20))
+    saveCase(
+      skill,
+      {
+        ...draft,
+        graders: [{ id: null, statement: 'It matches.', weight: 1, image: null }],
+      },
+      true,
+    )
+    const [check] = loadCases(skill)[0].graders
+    mkdirSync(join(skill, 'evals/cases/linked/references'))
+    const picture = join(skill, 'evals/cases/linked/references', `${check.id}.png`)
+    symlinkSync(join(outside, 'shot.png'), picture)
+    saveCase(
+      skill,
+      {
+        ...draft,
+        graders: [
+          {
+            id: check.id,
+            statement: 'It matches.',
+            weight: 1,
+            image: { name: 'new.png', file: null, upload: 'new.png' },
+          },
+        ],
+      },
+      false,
+      find,
+    )
+    expect(readFileSync(join(outside, 'shot.png'))).toEqual(Buffer.from(pngHeader(10, 10)))
+    expect(readFileSync(picture)).toEqual(Buffer.from(pngHeader(20, 20)))
+  })
+
+  it('writes through a link to a prompt elsewhere in the skill, and keeps the link', () => {
+    writeCase('linked', 'Old prompt.')
+    mkdirSync(join(skill, 'shared'))
+    writeFileSync(join(skill, 'shared/prompt.md'), 'Shared prompt.')
+    const prompt = join(skill, 'evals/cases/linked/prompt.md')
+    rmSync(prompt)
+    symlinkSync(join(skill, 'shared/prompt.md'), prompt)
+    saveCase(skill, draft, false)
+    expect(lstatSync(prompt).isSymbolicLink()).toBe(true)
+    expect(readFileSync(join(skill, 'shared/prompt.md'), 'utf8')).toBe('Do it.\n')
+  })
+})
+
+describe('writing a case', () => {
+  it('leaves no temporary file beside the files it writes', () => {
+    saveCase(
+      skill,
+      {
+        id: 'note',
+        title: 'Note',
+        prompt: 'Write a note.',
+        expectedOutcome: '',
+        words: null,
+        images: [],
+        graders: [{ id: null, statement: 'It is short.', weight: 1, image: null }],
+      },
+      true,
+    )
+    const dir = join(skill, 'evals/cases/note')
+    expect(readFileSync(join(dir, 'prompt.md'), 'utf8')).toBe('Write a note.\n')
+    const names = [...readdirSync(dir), ...readdirSync(join(dir, 'graders'))]
+    expect(names.filter((name) => name.endsWith('.tmp'))).toEqual([])
   })
 })

@@ -10,8 +10,12 @@ function Slider({
   value,
   min = 0,
   max = 100,
+  label,
   ...props
-}: React.ComponentProps<typeof SliderPrimitive.Root>) {
+}: React.ComponentProps<typeof SliderPrimitive.Root> & {
+  /** What the slider sets, read to assistive technology: the name goes on the thumb, which is the slider. */
+  label: string
+}) {
   const _values = React.useMemo(
     () => (Array.isArray(value) ? value : Array.isArray(defaultValue) ? defaultValue : [min, max]),
     [value, defaultValue, min, max],
@@ -47,6 +51,7 @@ function Slider({
         <SliderPrimitive.Thumb
           data-slot="slider-thumb"
           key={index}
+          aria-label={label}
           className="block size-4 shrink-0 rounded-full border border-primary bg-card shadow-sm ring-foreground/10 transition-[color,box-shadow] hover:ring-4 focus-ring disabled:pointer-events-none disabled:opacity-50"
         />
       ))}

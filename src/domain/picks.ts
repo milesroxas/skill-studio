@@ -33,7 +33,7 @@ export interface Pair<T extends PickOutput = PickOutput> {
 }
 
 /** The newest run's first sample, among the outputs that were written when any was. */
-const first = <T extends PickOutput>(outputs: T[]): T | null =>
+const newestFirstSample = <T extends PickOutput>(outputs: T[]): T | null =>
   (outputs.some((o) => o.written) ? outputs.filter((o) => o.written) : outputs).reduce<T | null>(
     (best, o) =>
       !best ||
@@ -57,7 +57,8 @@ export function defaultPair<T extends PickOutput>(outputs: readonly T[]): Pair<T
     (o) => o.configuration !== 'without_skill' && versionNumber(o.version) !== null,
   )
   const bare = outputs.filter((o) => o.configuration === 'without_skill')
-  if (!skilled.length) return { a: null, b: first(bare) ?? first([...outputs]) }
+  if (!skilled.length)
+    return { a: null, b: newestFirstSample(bare) ?? newestFirstSample([...outputs]) }
   const numbers = skilled.map((o) => versionNumber(o.version) as number)
   const latest = Math.max(...numbers)
   const before = Math.max(...numbers.filter((n) => n < latest))
@@ -65,8 +66,13 @@ export function defaultPair<T extends PickOutput>(outputs: readonly T[]): Pair<T
   const earlier = Number.isFinite(before) ? of(before) : bare
   const later = of(latest)
   const matched = later.filter((o) => earlier.some((e) => e.writer === o.writer))
-  const b = first(matched.length ? matched : later)
-  return { a: first(earlier.filter((e) => e.writer === b?.writer)) ?? first(earlier), b }
+  const b = newestFirstSample(matched.length ? matched : later)
+  return {
+    a:
+      newestFirstSample(earlier.filter((e) => e.writer === b?.writer)) ??
+      newestFirstSample(earlier),
+    b,
+  }
 }
 
 const samePair = (p: Preference, x: string, y: string): boolean =>

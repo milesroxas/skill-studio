@@ -50,7 +50,7 @@ Every control sits in a `Field` with a `Label` above it. Never a placeholder as 
 
 - An `Input`, `TextArea` or `NumberInput`: `<Label htmlFor="case-title">` and the same `id` on the control.
 - A `Segmented`, `SelectBox` trigger, or a group of controls: `<Label id={…}>` and `aria-labelledby` on the control, or `role="group"` with `aria-labelledby` on the `Field`.
-- `Knob` is the one exception: it draws its own label, exact value and description. Use it bare, not in a `Field`.
+- `Knob` is the one exception: it draws its own label, exact value and description. Use it bare, not in a `Field`. Its `label` also names the slider's thumb for a screen reader. A number typed in its exact field counts once it is inside the slider's range, and one left outside it goes to the nearest end when the field is left.
 - Help goes under the control in a `Hint`. An error is `<Hint tone="destructive">` under the control, and the control gets `aria-invalid`.
 - A unit goes in the label: "Minimum run length, in minutes". Never as a suffix inside the field.
 - A row of buttons or toggles inside a `Field` sits in a `Toolbar`, so they keep their own width.
@@ -73,7 +73,7 @@ Every control sits in a `Field` with a `Label` above it. Never a placeholder as 
 
 ## Input
 
-`Input` props that change its look: `width` (`full`, `auto`, `grow`, `wide`, `search`), `font` (`sans`, `mono`), `size` (`default` 36px, `sm` 28px). Nothing else exists.
+`Input` props that change its look: `width` (`full`, `auto`, `wide`, `search`), `font` (`sans`, `mono`), `size` (`default` 36px, `sm` 28px). Nothing else exists.
 
 - `font="mono"` for a path, a name used as an id, a key, or a command to copy. A command to copy is `readOnly` under its own label ("Run in Terminal"), selects whole on focus, and has a **Copy command** button under it (`CliSetup` in `components/Connections.tsx`).
 - `width="search"` for a search field in a `ListBar`.
@@ -139,3 +139,7 @@ Does it lose something a person made?
 ```
 
 Never both a dialog and an Undo: two guards teach people to click through both. `VersionDetail.tsx` shows the split: a version with no runs comes back with Undo, and deleting runs asks first because their results cannot come back.
+
+One exception, in `Change.tsx`: applying a file the assistant proposes over unsaved edits. The dialog and the Undo guard two different things. Undo brings back the saved file; nothing brings back the unsaved edits, so those are asked about first, and the dialog says which of the two Undo covers. With no unsaved edits to lose there is no dialog, only the Undo.
+
+A stored key is the other side of the tree: removing it cannot be undone, so "Remove the stored key…" asks first (`KeyField` in `components/Connections.tsx`).

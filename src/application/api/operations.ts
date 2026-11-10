@@ -14,12 +14,14 @@ import {
   workingSkill,
 } from '@domain/assist.ts'
 import { checkWeight } from '@domain/case-draft.ts'
+import { benchOf } from '@domain/config.ts'
 import { type ImageRef, MAX_IMAGES } from '@domain/image.ts'
 import { type RuleScene, worthChecking } from '@domain/lint.ts'
 import { LOOK_STEPS } from '@domain/practice.ts'
 import { preferencesOf } from '@domain/preferences.ts'
 import {
   type BenchConfig,
+  type Case,
   type CaseDraft,
   CONFIGURATIONS,
   type Configuration,
@@ -41,6 +43,7 @@ import { TEMPLATE_IDS } from '@domain/templates.ts'
 import type { Job, SkillInfo } from '@domain/views.ts'
 import {
   benchPath,
+  caseSavedAt,
   deleteCase,
   loadBench,
   loadCases,
@@ -52,8 +55,8 @@ import { engineById, engineInfo } from '@infrastructure/engines/index.ts'
 import {
   assertSafe,
   assertSafePath,
+  isDir,
   readJson,
-  readTree,
   realPath,
   writeJson,
 } from '@infrastructure/fs.ts'
@@ -77,16 +80,17 @@ import { loadReviews, reviewsPath, saveCorrection, savePick } from '@infrastruct
 import {
   listRuns,
   readRun,
-  readRunMeta,
   runDir,
+  runSkillFiles,
   sampleFile,
   sampleTranscript,
   versionFiles,
+  versionSource,
   versionsOf,
 } from '@infrastructure/runs.ts'
 import {
   deleteSkillFile,
-  replaceSkillFiles,
+  restoreSkillFiles,
   skillFiles,
   skillInfo,
   writeSkillFile,
@@ -111,9 +115,20 @@ import {
   startRewrites,
   stopRun,
 } from '../ai.ts'
-import { generateRun, samplesPerCase } from '../generate.ts'
+import { generateRun, MAX_SAMPLES, samplesPerCase } from '../generate.ts'
 import { gradeRun, unjudged } from '../grade.ts'
-import { listJobs, runJob, runningJob, say, sizeJob, stepJob, stopJob } from '../jobs.ts'
+import {
+  anyRunning,
+  listJobs,
+  markGrading,
+  markWriting,
+  runJob,
+  runningJob,
+  say,
+  sizeJob,
+  stepJob,
+  stopJob,
+} from '../jobs.ts'
 import {
   type GenerateInput,
   type Input,
@@ -228,11 +243,14 @@ function draftsOf(value: unknown): SkillDrafts {
   const cases = Object.fromEntries(
     Object.entries(record(input.cases)).map(([key, raw]) => [key, caseDraftOf(raw)]),
   )
-  return { files, cases, updatedAt: null }
+  // A base is kept only beside the draft it dates, as a save time or null.
+  const caseBases = Object.fromEntries(
+    Object.entries(record(input.caseBases)).filter(
+      ([key, at]) => Object.hasOwn(cases, key) && (at === null || typeof at === 'string'),
+    ),
+  ) as Record<string, string | null>
+  return { files, cases, caseBases, updatedAt: null }
 }
-
-/** Outputs per case in one run, as the Run panel offers them. */
-const MAX_SAMPLES = 10
 
 function generateInputOf(raw: Raw): GenerateInput {
   const configs = (Array.isArray(raw.configs) ? raw.configs : []).slice(0, 4).map((c) => {
@@ -243,9 +261,11 @@ function generateInputOf(raw: Raw): GenerateInput {
     ...scoped(raw),
     cases: list(raw.cases),
     configs,
-    samples: Math.min(MAX_SAMPLES, num(raw.samples, 1)),
+    // A whole number from 1 to the most one run writes per case.
+    samples: samplesPerCase(Math.min(MAX_SAMPLES, num(raw.samples, 1))),
     configuration: oneOf(str(raw.configuration, 'with_skill'), CONFIGURATIONS, 'configuration'),
-    baselineRun: str(raw.baselineRun) || null,
+    // A run's name is a folder's name: checked like every other.
+    baselineRun: str(raw.baselineRun) ? assertSafe(str(raw.baselineRun), 'run') : null,
     skillName: str(raw.skillName) || null,
     note: str(raw.note),
     grade: raw.grade !== false,
@@ -266,7 +286,10 @@ function assistInputOf(raw: Raw): Scoped & AssistInput {
     images: imageRefsOf(raw.images),
   }
   if (!input.instruction) throw new Error('Say what to write or change.')
-  const size = input.current.length + context.reduce((sum, c) => sum + c.text.length, 0)
+  const size =
+    input.instruction.length +
+    input.current.length +
+    context.reduce((sum, c) => sum + c.text.length, 0)
   if (size > ASSIST_LIMIT) throw new Error('This is more text than one request can carry.')
   return input
 }
@@ -292,6 +315,13 @@ const sceneOf = (raw: Raw): RuleScene => {
     band: oneOf(raw.band, ['fine', 'long', 'over'], 'band'),
   }
 }
+
+/**
+ * A case as the Cases form loads it: with the time its folder was last saved,
+ * which the form gives back to `skill.saveCase` so a newer save on disk refuses it.
+ */
+const savedCase = (skillDir: string, c: Case): Case & { savedAt: string | null } =>
+  Object.assign({}, c, { savedAt: c.dir ? caseSavedAt(skillDir, c.dir) : null })
 
 /** Every operation's input check, keyed like the contract. Shared by every host of the table. */
 export const parsers: { [K in OperationName]: (raw: Raw) => Input<K> } = {
@@ -335,6 +365,8 @@ export const parsers: { [K in OperationName]: (raw: Raw) => Input<K> } = {
     // A conversation outlives the open skill, so it holds uploads only, never a skill's files.
     const images = imageRefsOf(raw.images).filter((image) => image.upload)
     if (!text && !images.length) throw new Error('Write a message first.')
+    if (text.length > ASSIST_LIMIT)
+      throw new Error('This message is longer than one request can carry.')
     return {
       ...scoped(raw),
       text,
@@ -351,6 +383,8 @@ export const parsers: { [K in OperationName]: (raw: Raw) => Input<K> } = {
   'improve.send': (raw) => {
     const text = str(raw.text).trim()
     if (!text) throw new Error('Write a reply first.')
+    if (text.length > ASSIST_LIMIT)
+      throw new Error('This reply is longer than one request can carry.')
     return { text }
   },
   'improve.clear': none,
@@ -429,11 +463,14 @@ export const parsers: { [K in OperationName]: (raw: Raw) => Input<K> } = {
     ...scoped(raw),
     case: caseDraftOf(raw.case),
     isNew: raw.isNew === true,
+    savedAt: typeof raw.savedAt === 'string' && raw.savedAt ? raw.savedAt : null,
   }),
   'skill.deleteCase': (raw) => ({ ...scoped(raw), id: assertSafe(str(raw.id), 'case') }),
   'skill.config': (raw) => {
-    if (!raw.config || typeof raw.config !== 'object') throw new Error('Bad config.')
-    return { ...scoped(raw), config: raw.config as BenchConfig }
+    if (!raw.config || typeof raw.config !== 'object' || Array.isArray(raw.config))
+      throw new Error('Bad config.')
+    // Read as a file written by hand would be: wrong kinds dropped, numbers held to their ranges.
+    return { ...scoped(raw), config: benchOf(raw.config) }
   },
   'skill.generate': generateInputOf,
   'skill.grade': (raw) => ({
@@ -478,9 +515,17 @@ export interface OperationsOptions {
  */
 function reportJudging(job: Job, report: Report): boolean {
   const { failed, total, reason } = unjudged(report)
+  // Nothing to grade: the grading's own log said so, and wrote no report.
+  if (!total) return false
   if (!failed) return true
   say(job, `${failed} of ${total} outputs were not judged: ${reason}`)
-  if (failed === total) return false
+  if (failed === total) {
+    say(
+      job,
+      'No report was written. The scores from the last grading, if there was one, still stand.',
+    )
+    return false
+  }
   say(job, 'The scores of those outputs count only the layers that were judged.')
   return true
 }
@@ -497,6 +542,43 @@ export function createOperations(options: OperationsOptions): Runners {
     skills.push(info)
     touchRecent(info.path)
     return info
+  }
+
+  /** The runs being graded now, as `<skill>/<run>`: by a grade job, or by the job that made the run. */
+  const grading = new Set<string>()
+  const gradeTarget = (skillPath: string, run: string): string => `${realPath(skillPath)}/${run}`
+
+  /**
+   * Grade a run inside `job` and say how it went, `done` when it was judged.
+   * One grading per run at a time, whichever job asks: two would pay Jev twice
+   * and write the same report over each other.
+   */
+  async function gradeInJob(
+    job: Job,
+    skillPath: string,
+    run: string,
+    useJev: boolean,
+    signal: AbortSignal,
+    done: string,
+  ): Promise<boolean> {
+    const target = gradeTarget(skillPath, run)
+    if (grading.has(target))
+      throw new Error('This run is already being graded. Wait for it to finish, or stop it.')
+    grading.add(target)
+    markGrading(job, run, true)
+    try {
+      const report = await gradeRun(skillPath, run, {
+        useJev,
+        log: (line) => say(job, line),
+        signal,
+      })
+      const judged = reportJudging(job, report)
+      if (judged) say(job, done)
+      return judged
+    } finally {
+      grading.delete(target)
+      markGrading(job, run, false)
+    }
   }
 
   /** The skill an input names by path, opened on first use; else the first served. */
@@ -518,8 +600,7 @@ export function createOperations(options: OperationsOptions): Runners {
     'library.practice': () => open(openPractice()),
     'library.restartPractice': () => {
       // A job may be writing a run of the practice skill.
-      if (listJobs().some((job) => job.status === 'running'))
-        throw new Error('Wait for running jobs to finish, then restart.')
+      if (anyRunning()) throw new Error('Wait for running jobs to finish, then restart.')
       const skill = open(restartPractice())
       writeDrafts(skill.path, emptyDrafts())
       return skill
@@ -591,7 +672,7 @@ export function createOperations(options: OperationsOptions): Runners {
         practice: isPracticeSkill(skill.path),
         practiceSeen: isPracticeSkill(skill.path) ? practiceSeen() : [],
         skills,
-        cases: loadCases(skill.path),
+        cases: loadCases(skill.path).map((c) => savedCase(skill.path, c)),
         runs: listRuns(skill.path),
         versions: versionsOf(skill.path),
         engines: await engineInfo(),
@@ -620,10 +701,7 @@ export function createOperations(options: OperationsOptions): Runners {
         return { files: skillFiles(skill.path), label: 'Working tree' }
       if (isVersionLabel(input.source))
         return { files: versionFiles(skill.path, input.source), label: input.source }
-      return {
-        files: readTree(join(runDir(skill.path, input.source), '_skill')),
-        label: input.source,
-      }
+      return { files: runSkillFiles(skill.path, input.source), label: input.source }
     },
     'skill.saveVersion': (input) => {
       const skill = skillOf(input)
@@ -636,13 +714,14 @@ export function createOperations(options: OperationsOptions): Runners {
         throw new Error(
           `The skill's files are not saved as a version. Save them as ${current.version} first, or restore anyway.`,
         )
-      replaceSkillFiles(skill.path, versionFiles(skill.path, input.version))
+      restoreSkillFiles(skill.path, versionSource(skill.path, input.version))
+      // The name and description come from SKILL.md's front matter.
+      Object.assign(skill, skillInfo(skill.path))
       return { restored: input.version }
     },
     'skill.deleteVersion': (input) => {
       // A job may be writing a run of this very version.
-      if (listJobs().some((job) => job.status === 'running'))
-        throw new Error('Wait for running jobs to finish, then delete.')
+      if (anyRunning()) throw new Error('Wait for running jobs to finish, then delete.')
       return deleteVersion(skillOf(input).path, input.version)
     },
     'skill.undeleteVersion': (input) => undeleteVersion(skillOf(input).path, input.undo),
@@ -671,9 +750,12 @@ export function createOperations(options: OperationsOptions): Runners {
       deleteSkillFile(skillOf(input).path, input.path)
       return { deleted: input.path }
     },
-    'skill.saveCase': (input) => ({
-      saved: saveCase(skillOf(input).path, input.case, input.isNew, uploadPath),
-    }),
+    'skill.saveCase': (input) => {
+      const skill = skillOf(input)
+      // `savedAt` is when the form's copy was saved: a newer save on disk refuses this one.
+      const saved = saveCase(skill.path, input.case, input.isNew, uploadPath, input.savedAt)
+      return { saved, savedAt: caseSavedAt(skill.path, saved) }
+    },
     'skill.deleteCase': (input) => {
       deleteCase(skillOf(input).path, input.id)
       return { deleted: true }
@@ -688,13 +770,19 @@ export function createOperations(options: OperationsOptions): Runners {
       const cases = loadCases(skill.path)
       const selected = input.cases.length ? cases.filter((c) => input.cases.includes(c.id)) : cases
       if (!selected.length) throw new Error('No cases selected.')
+      // What was asked for and cannot run is left out, and the job's log says so.
+      const left = input.cases
+        .filter((id) => !cases.some((c) => c.id === id))
+        .map((id) => `There is no case called ${id}: left out.`)
       const engines = input.configs.flatMap((c) => {
         const engine = engineById(c.engine)
-        return engine?.available()
-          ? [{ engine, model: c.model || null, effort: c.effort || null }]
-          : []
+        if (engine?.available())
+          return [{ engine, model: c.model || null, effort: c.effort || null }]
+        left.push(`${engine?.label ?? c.engine} is not installed: left out.`)
+        return []
       })
-      if (!engines.length) throw new Error('No available engine selected.')
+      if (!engines.length)
+        throw new Error('None of the agents picked is installed. Pick another, or install one.')
       const configuration: Configuration = input.configuration
       // As the Library lists it, so the skill's row can show the run.
       const skillPath = realPath(skill.path)
@@ -710,6 +798,7 @@ export function createOperations(options: OperationsOptions): Runners {
           // count only reaches the end when the job does.
           const perWriter = selected.length * samplesPerCase(input.samples) + (input.grade ? 1 : 0)
           sizeJob(job, perWriter * engines.length)
+          for (const line of left) say(job, line)
           const useJev = Jev.available()
           const results = await Promise.all(
             engines.map(async ({ engine, model, effort }) => {
@@ -718,6 +807,8 @@ export function createOperations(options: OperationsOptions): Runners {
                 left -= 1
                 stepJob(job)
               }
+              /** The run this writer makes, once it is named: it cannot be graded while it is written. */
+              let writing: string | null = null
               try {
                 const { name } = await generateRun({
                   skillDir: skill.path,
@@ -732,21 +823,29 @@ export function createOperations(options: OperationsOptions): Runners {
                   note: input.note,
                   log: (line) => say(job, line),
                   onSample: step,
+                  onNamed: (named) => {
+                    writing = named
+                    markWriting(job, named, true)
+                  },
                   signal,
                 })
+                markWriting(job, name, false)
+                writing = null
                 if (!input.grade || signal.aborted) return !signal.aborted
                 say(job, `${name}: grading`)
                 if (!useJev) say(job, 'No TypeSafe key: code checks only.')
-                const report = await gradeRun(skill.path, name, {
+                const judged = await gradeInJob(
+                  job,
+                  skill.path,
+                  name,
                   useJev,
-                  log: (line) => say(job, line),
                   signal,
-                })
-                const judged = reportJudging(job, report)
-                if (judged) say(job, `${name}: graded`)
+                  `${name}: graded`,
+                )
                 step()
                 return judged
               } catch (error) {
+                if (writing) markWriting(job, writing, false)
                 if (!signal.aborted) say(job, (error as Error).message)
                 // What this writer will never do still counts as settled.
                 while (left > 0) step()
@@ -762,24 +861,20 @@ export function createOperations(options: OperationsOptions): Runners {
     'skill.grade': (input) => {
       const skill = skillOf(input)
       const skillPath = realPath(skill.path)
-      const target = `${skillPath}/${input.run}`
-      // A report over a run still writing would miss the outputs still to come.
-      const meta = readRunMeta(skill.path, input.run)
-      if (meta && !meta.finishedAt)
+      const target = gradeTarget(skill.path, input.run)
+      if (!isDir(runDir(skill.path, input.run)))
+        throw new Error(`There is no run called ${input.run}.`)
+      // A report over a run still writing would miss the outputs still to come. A run
+      // with no end time and no job writing it was cut off, and is graded as it stands,
+      // whatever other run of the skill is being written.
+      if (runningJob('generate', skillPath)?.writing.includes(input.run))
         throw new Error('This run is still writing. Grade it when it finishes.')
-      if (runningJob('grade', target))
+      if (runningJob('grade', target) || grading.has(target))
         throw new Error('This run is already being graded. Wait for it to finish, or stop it.')
       const useJev = input.jev && Jev.available()
-      const job = runJob('grade', `Grade ${input.run}`, skillPath, target, async (job, signal) => {
+      const job = runJob('grade', `Grade ${input.run}`, skillPath, target, (job, signal) => {
         if (input.jev && !useJev) say(job, 'No TypeSafe key: code checks only.')
-        const report = await gradeRun(skill.path, input.run, {
-          useJev,
-          log: (line) => say(job, line),
-          signal,
-        })
-        const judged = reportJudging(job, report)
-        if (judged) say(job, 'Graded.')
-        return judged
+        return gradeInJob(job, skill.path, input.run, useJev, signal, 'Graded.')
       })
       return { started: true, job: job.id }
     },

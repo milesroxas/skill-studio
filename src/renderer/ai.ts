@@ -27,7 +27,8 @@ import type { RuleScene } from '@domain/lint.ts'
 import { aiChoiceOf, aiChoicePatch } from '@domain/preferences.ts'
 import { useSyncExternalStore } from 'react'
 import { api } from './api.ts'
-import { setPreferences, usePreferences } from './preferences.ts'
+import { savePreference, usePreferences } from './preferences.ts'
+import { createEmitter, createStore, useStore } from './store.ts'
 import { reportFailure } from './transport.ts'
 
 /**
@@ -40,6 +41,9 @@ const POLL_MS = api.watchAi ? 2000 : 400
 let providers: AiProviderInfo[] | null = null
 /** Why the providers could not be read; null once they have been. */
 let providersProblem: string | null = null
+/** The newest read of the providers asked for, and the newest taken: an older one landing later is dropped. */
+let providersAsked = 0
+let providersTaken = 0
 let thread: ChatThread | null = null
 /** The same for the conversation. */
 let threadProblem: string | null = null
@@ -51,18 +55,14 @@ let commands: SlashCommand[] | null = null
 let commandsProblem: string | null = null
 /** Which read of the commands is the latest: an older one landing later is dropped. */
 let commandsRead = 0
+/** The same for the conversation and the improve conversation: a send or a clear is newer than any read before it. */
+let chatRead = 0
+let improveRead = 0
 const runs = new Map<string, AiRun>()
-const listeners = new Set<() => void>()
-
-const emit = () => {
-  for (const listener of listeners) listener()
-}
-const subscribe = (listener: () => void) => {
-  listeners.add(listener)
-  return () => {
-    listeners.delete(listener)
-  }
-}
+/** The runs being asked after, so no run is asked after twice at once. */
+const polled = new Set<string>()
+/** One signal for every value above: any of them changed. */
+const { emit, subscribe } = createEmitter()
 
 /** A chat reply that ended without failing is part of the conversation now. */
 const joinedChat = (run: AiRun): boolean =>
@@ -110,33 +110,62 @@ function follow(run: AiRun): AiRun {
   // A push may have brought a newer state of it already.
   const known = runs.get(run.id) ?? run
   take(known)
-  poll(run.id).catch(lost(known))
+  if (!polled.has(run.id)) {
+    polled.add(run.id)
+    poll(run.id)
+      .catch(lost(known))
+      .finally(() => polled.delete(run.id))
+  }
   return known
+}
+
+/** Hold a run a read brought. One still being written is followed: in a browser nothing else would bring its end. */
+const keep = (run: AiRun): void => {
+  if (isSettled(run)) hold(run)
+  else follow(run)
 }
 
 api.watchAi?.(take)
 
-/**
- * Read which providers are connected and what they offer. Call at launch and
- * after a key changes. A failed read keeps what was known and says why.
- */
-export async function loadAi(): Promise<void> {
-  try {
-    providers = (await api.aiStatus()).providers
-    providersProblem = null
-  } catch (e) {
-    providersProblem = (e as Error).message
-  }
-  emit()
+/** What one read of the providers found: the list, or why it could not be read. */
+export interface ProvidersRead {
+  providers: AiProviderInfo[] | null
+  problem: string | null
 }
 
 /**
- * Read the providers again and return one of them as it stands now: after the
- * person has installed a CLI or signed it in themselves, in a terminal.
+ * Read which providers are connected and what they offer. Call at launch and
+ * after a key changes. A failed read keeps what was known and says why. A read
+ * that lands after a newer one leaves the mirror alone. Each read resolves to
+ * what it found itself, which another read landing meanwhile cannot change.
  */
-export async function recheck(provider: AiProviderId): Promise<AiProviderInfo | undefined> {
-  await loadAi()
-  return providers?.find((p) => p.id === provider)
+export async function loadAi(): Promise<ProvidersRead> {
+  const read = ++providersAsked
+  let found: ProvidersRead
+  try {
+    found = { providers: (await api.aiStatus()).providers, problem: null }
+  } catch (e) {
+    found = { providers: null, problem: (e as Error).message }
+  }
+  if (read > providersTaken) {
+    providersTaken = read
+    if (found.providers) providers = found.providers
+    providersProblem = found.problem
+    emit()
+  }
+  return found
+}
+
+/**
+ * Read the providers again and return one of them as it stands now, after the
+ * person has installed a CLI or signed it in themselves, in a terminal. The
+ * problem is this read's own: why it failed, or null.
+ */
+export async function recheck(
+  provider: AiProviderId,
+): Promise<{ info: AiProviderInfo | undefined; problem: string | null }> {
+  const found = await loadAi()
+  return { info: found.providers?.find((p) => p.id === provider), problem: found.problem }
 }
 
 /** Read the commands the model in use can run. Call when the side panel opens and when the provider changes. */
@@ -171,11 +200,16 @@ export function useCommands(): Commands {
 
 /** Read the conversation. A failed read keeps what was known and says why. */
 export async function loadChat(): Promise<void> {
+  const read = ++chatRead
   try {
-    thread = await api.chat()
+    const next = await api.chat()
+    // A message was sent, or the conversation cleared or read again, since: that is the newer word.
+    if (read !== chatRead) return
+    thread = next
     threadProblem = null
-    if (thread.run) hold(thread.run)
+    if (next.run) keep(next.run)
   } catch (e) {
+    if (read !== chatRead) return
     threadProblem = (e as Error).message
   }
   emit()
@@ -183,11 +217,15 @@ export async function loadChat(): Promise<void> {
 
 /** Read the improve conversation. A failed read keeps what was known and says why. */
 export async function loadImprove(): Promise<void> {
+  const read = ++improveRead
   try {
-    improve = await api.improve()
+    const next = await api.improve()
+    if (read !== improveRead) return
+    improve = next
     improveProblem = null
-    if (improve?.run) hold(improve.run)
+    if (next?.run) keep(next.run)
   } catch (e) {
+    if (read !== improveRead) return
     improveProblem = (e as Error).message
   }
   emit()
@@ -216,8 +254,8 @@ export function useAi(): Ai {
     choice,
     model: (choice && known && modelOf(choice, known)) ?? null,
     choose: (next) =>
-      void setPreferences(aiChoicePatch(next)).catch((e: Error) =>
-        reportFailure(new Error(`Not saved: ${e.message}`)),
+      savePreference(aiChoicePatch(next), (message) =>
+        reportFailure(typeof message === 'string' ? new Error(message) : message),
       ),
   }
 }
@@ -251,15 +289,42 @@ export async function sendChat(
   screen: string,
   open: ChatScene['open'],
 ): Promise<void> {
-  thread = await api.chatSend(text, images, screen, open)
-  if (thread.run) follow(thread.run)
-  else emit()
+  const next = await api.chatSend(text, images, screen, open)
+  chatRead += 1
+  thread = next
+  if (next.run) follow(next.run)
+  // A reply that ended before this returned was taken already, and `follow` then tells nobody.
+  emit()
 }
 
 export async function clearChat(): Promise<void> {
-  thread = await api.chatClear()
+  const next = await api.chatClear()
+  chatRead += 1
+  thread = next
   emit()
 }
+
+/**
+ * The message being typed in the side panel, and the answer being typed in an
+ * improve conversation. Kept here, not in the panel, so closing the panel or
+ * swapping one conversation for the other loses neither.
+ */
+const chatDraftStore = createStore('')
+const improveDraftStore = createStore('')
+
+const setImproveDraft = (text: string): void => improveDraftStore.set(text)
+
+/** The side panel's unsent message, and the way to change it. */
+export const useChatDraft = (): [string, (text: string) => void] => [
+  useStore(chatDraftStore),
+  chatDraftStore.set,
+]
+
+/** The improve conversation's unsent answer, and the way to change it. It empties when the conversation closes. */
+export const useImproveDraft = (): [string, (text: string) => void] => [
+  useStore(improveDraftStore),
+  setImproveDraft,
+]
 
 /** Auto refine: what is wrong with the rule, and the revision on its way when anything drifts. */
 export async function startRefine(scene: RuleScene): Promise<RefineResult> {
@@ -280,9 +345,10 @@ export function useImprove(): { thread: ImproveThread | null; problem: string | 
 }
 
 const tookImprove = (next: ImproveThread): void => {
+  improveRead += 1
   improve = next
   if (next.run) follow(next.run)
-  else emit()
+  emit()
 }
 
 /** Open an improve conversation on a selected rule. It opens the side panel. */
@@ -297,6 +363,8 @@ export async function sendImprove(text: string): Promise<void> {
 /** Close the improve conversation. The side panel goes back to the chat. */
 export async function clearImprove(): Promise<void> {
   await api.improveClear()
+  improveRead += 1
   improve = null
+  setImproveDraft('')
   emit()
 }

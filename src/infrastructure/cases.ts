@@ -1,11 +1,11 @@
 import {
+  constants,
   copyFileSync,
   existsSync,
   mkdirSync,
   readFileSync,
   rmSync,
   statSync,
-  writeFileSync,
 } from 'node:fs'
 import { basename, extname, join } from 'node:path'
 import { checkWeight } from '@domain/case-draft.ts'
@@ -32,7 +32,16 @@ import {
 } from '@domain/text.ts'
 import { scorers } from '@judges/scorers.ts'
 import { isMap, parseDocument, parse as parseYaml, stringify as toYaml } from 'yaml'
-import { isFile, listDirs, listFiles, readJson } from './fs.ts'
+import {
+  assertInside,
+  assertSafePath,
+  isFile,
+  listDirs,
+  listFiles,
+  present,
+  readJson,
+  writeText,
+} from './fs.ts'
 
 /** `evals/` entries that are never case folders. */
 const RESERVED = new Set([
@@ -65,6 +74,16 @@ function parseSettings(front: Record<string, unknown>): CaseSettings {
 /** Where a case keeps the pictures its checks are about, beside `graders/`. */
 const REFERENCES = 'references'
 
+/** True when a check's `image` names a file there is, by a path that stays in the case folder. */
+function isCasePicture(skillDir: string, rel: string, image: string): boolean {
+  try {
+    assertSafePath(image, 'picture')
+    return isFile(assertInside(skillDir, join(skillDir, rel, image)))
+  } catch {
+    return false
+  }
+}
+
 /** The graders of the case folder at `rel`, each with its reference picture when the file is there. */
 function readGraders(skillDir: string, rel: string): Grader[] {
   const dir = join(skillDir, rel, 'graders')
@@ -81,25 +100,51 @@ function readGraders(skillDir: string, rel: string): Grader[] {
         // Held to the range the form offers, so a file written by hand scores as it shows.
         weight: checkWeight(positive(meta, 'weight')) ?? 1,
         statement: text,
-        image: image && isFile(join(skillDir, rel, image)) ? `${rel}/${image}` : null,
+        image: image && isCasePicture(skillDir, rel, image) ? `${rel}/${image}` : null,
       },
     ]
   })
 }
 
-const benchOf = (value: unknown): CaseBench =>
-  value && typeof value === 'object' && !Array.isArray(value) ? (value as CaseBench) : {}
+/** Each warning once a session: the cases are read again every few seconds while a run goes on. */
+const warned = new Set<string>()
+const warnOnce = (message: string): void => {
+  if (warned.has(message)) return
+  warned.add(message)
+  console.warn(message)
+}
 
-/** One skill-creator case folder. */
+/** The entries of `value` that are paths inside the skill; one that could climb out of it is dropped. */
+function safePaths(value: unknown, what: string): string[] {
+  return (Array.isArray(value) ? value : []).flatMap((entry) => {
+    try {
+      return [assertSafePath(typeof entry === 'string' ? entry : null, what)]
+    } catch {
+      warnOnce(`A case names ${what} ${JSON.stringify(entry)}, which is not a path in the skill.`)
+      return []
+    }
+  })
+}
+
+/** A case's `bench` block. Its evidence files are held to paths inside the skill. */
+function benchOf(value: unknown): CaseBench {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return {}
+  const bench = value as CaseBench
+  return bench.evidence === undefined
+    ? bench
+    : { ...bench, evidence: safePaths(bench.evidence, 'the evidence file') }
+}
+
+/** One skill-creator case folder. Throws when its `case.yaml` cannot be read. */
 function loadFolderCase(skillDir: string, rel: string): Case | null {
   const dir = join(skillDir, rel)
   const promptPath = join(dir, 'prompt.md')
   if (!isFile(promptPath)) return null
   const { meta: settings, text: prompt } = readFrontMatter(readFileSync(promptPath, 'utf8'))
   const yamlPath = join(dir, 'case.yaml')
-  const spec = isFile(yamlPath)
-    ? ((parseYaml(readFileSync(yamlPath, 'utf8')) ?? {}) as Record<string, unknown>)
-    : {}
+  const read = isFile(yamlPath) ? parseYaml(readFileSync(yamlPath, 'utf8')) : null
+  const spec: Record<string, unknown> =
+    read && typeof read === 'object' && !Array.isArray(read) ? read : {}
   const name = basename(rel)
   const files = listFiles(join(dir, 'files')).map((f) => `${rel}/files/${f}`)
   return {
@@ -130,18 +175,42 @@ interface LegacyEval {
   bench?: CaseBench
 }
 
-/** A legacy `evals.json` entry. The key is `<id>-<name>`, the shape the reference's runs use. */
-function fromLegacy(entry: LegacyEval): Case {
-  const label = slug(entry.name ?? entry.eval_name ?? entry.title ?? '')
+/**
+ * The key of a legacy `evals.json` entry: `<id>-<name>`, the shape the
+ * reference's runs use. The key names a folder in every run, so an entry whose
+ * key is not a slug, or that has no prompt, is not a case: null, with a
+ * warning naming the entry.
+ */
+function legacyKey(skillDir: string, entry: LegacyEval): string | null {
+  if (!entry || typeof entry !== 'object') return null
+  const label = slug(String(entry.name ?? entry.eval_name ?? entry.title ?? ''))
   const id = label ? `${entry.id}-${label}` : String(entry.id)
-  const expectations = entry.expectations ?? entry.assertions ?? []
+  const where = `${join(skillDir, 'evals', 'evals.json')}: the case ${JSON.stringify(entry.id)}`
+  if (typeof entry.prompt !== 'string') {
+    warnOnce(`${where} has no prompt, so it is left out.`)
+    return null
+  }
+  if (!isSlug(id)) {
+    warnOnce(`${where} is left out: its name, ${id}, names a folder in every run. ${SLUG_RULE}`)
+    return null
+  }
+  return id
+}
+
+/** A legacy `evals.json` entry as a case; null when it is not one. Its files are held to paths inside the skill. */
+function fromLegacy(skillDir: string, entry: LegacyEval): Case | null {
+  const id = legacyKey(skillDir, entry)
+  if (!id) return null
+  const expectations = (entry.expectations ?? entry.assertions ?? []).filter(
+    (statement): statement is string => typeof statement === 'string',
+  )
   return {
     id,
     legacyId: entry.id,
-    title: entry.title ?? entry.eval_name ?? entry.name ?? id,
+    title: String(entry.title ?? entry.eval_name ?? entry.name ?? id),
     prompt: entry.prompt,
-    expectedOutcome: entry.expected_output ?? '',
-    files: entry.files ?? [],
+    expectedOutcome: typeof entry.expected_output === 'string' ? entry.expected_output : '',
+    files: safePaths(entry.files, 'the input file'),
     graders: expectations.map((statement, i) => ({
       id: `${String(i + 1).padStart(2, '0')}-${slug(statement, 32)}`,
       type: 'llm',
@@ -151,51 +220,92 @@ function fromLegacy(entry: LegacyEval): Case {
       image: null,
     })),
     settings: { tags: [], maxTurns: null, timeoutSeconds: null, allowedTools: null },
-    bench: entry.bench ?? {},
+    bench: benchOf(entry.bench),
     source: 'evals.json',
     dir: null,
   }
 }
 
-/**
- * Every case folder under `evals/cases/` or directly under `evals/`, plus
- * every `evals.json` entry whose key is not already a folder.
- */
-export function loadCases(skillDir: string): Case[] {
+/** The folders that may hold a case: under `evals/cases/`, then directly under `evals/`. */
+const caseFolders = (skillDir: string): string[] => {
   const evals = join(skillDir, 'evals')
-  const cases: Case[] = []
-  const seen = new Set<string>()
-  const candidates = [
+  return [
     ...listDirs(join(evals, 'cases')).map((d) => `evals/cases/${d}`),
     ...listDirs(evals)
       .filter((d) => !RESERVED.has(d))
       .map((d) => `evals/${d}`),
   ]
-  for (const rel of candidates) {
-    const loaded = loadFolderCase(skillDir, rel)
+}
+
+/** The entries of `evals.json`; none when the file is absent or holds no list. */
+function legacyEntries(skillDir: string): LegacyEval[] {
+  const legacy = readJson<{ evals?: unknown }>(join(skillDir, 'evals', 'evals.json'), {})
+  return Array.isArray(legacy?.evals) ? (legacy.evals as LegacyEval[]) : []
+}
+
+/**
+ * Every case folder under `evals/cases/` or directly under `evals/`, plus
+ * every `evals.json` entry whose key is not already a folder. A case that
+ * cannot be read is left out with a warning naming its file, so one bad
+ * `case.yaml` never hides the skill's other cases.
+ */
+export function loadCases(skillDir: string): Case[] {
+  const cases: Case[] = []
+  const seen = new Set<string>()
+  for (const rel of caseFolders(skillDir)) {
+    let loaded: Case | null
+    try {
+      loaded = loadFolderCase(skillDir, rel)
+    } catch (error) {
+      warnOnce(`${join(skillDir, rel)} could not be read as a case: ${(error as Error).message}`)
+      continue
+    }
     if (loaded && !seen.has(loaded.id)) {
       seen.add(loaded.id)
       cases.push(loaded)
     }
   }
-  const legacy = readJson<{ evals?: LegacyEval[] }>(join(evals, 'evals.json'), {})
-  for (const entry of legacy.evals ?? []) {
-    const loaded = fromLegacy(entry)
-    if (seen.has(loaded.id)) continue
+  for (const entry of legacyEntries(skillDir)) {
+    const loaded = fromLegacy(skillDir, entry)
+    if (!loaded || seen.has(loaded.id)) continue
     seen.add(loaded.id)
     cases.push(loaded)
   }
   return cases
 }
 
-/** A case by key, by legacy numeric id, or by the `<id>-...` prefix of a file name. */
+/**
+ * How many cases the skill has, without reading one: the folders that hold a
+ * prompt, and the `evals.json` entries that are cases and are not already a
+ * folder. For a list of many skills, where parsing every case of every skill
+ * would be the whole cost.
+ */
+export function countCases(skillDir: string): number {
+  const ids = new Set(
+    caseFolders(skillDir)
+      .filter((rel) => isFile(join(skillDir, rel, 'prompt.md')))
+      .map((rel) => basename(rel)),
+  )
+  for (const entry of legacyEntries(skillDir)) {
+    const key = legacyKey(skillDir, entry)
+    if (key) ids.add(key)
+  }
+  return ids.size
+}
+
+/**
+ * A case by key, by legacy numeric id, or by the `<id>-...` prefix of a legacy
+ * file name. Of two cases whose ids both lead the name (`email` and
+ * `email-reply` for `email-reply-2.md`), the longer id is the case.
+ */
 export function findCase(cases: Case[], ref: string | null): Case | null {
   if (!ref) return null
   return (
     cases.find((c) => c.id === ref) ??
     cases.find((c) => c.legacyId !== null && String(c.legacyId) === ref) ??
-    cases.find((c) => ref.startsWith(`${c.id}-`)) ??
-    null
+    cases
+      .filter((c) => ref.startsWith(`${c.id}-`))
+      .reduce<Case | null>((best, c) => (best && best.id.length >= c.id.length ? best : c), null)
   )
 }
 
@@ -215,7 +325,13 @@ export function loadRules(skillDir: string, config: BenchConfig): Rule[] {
 /** Text of an evidence or input file, by skill-relative path; null when missing. */
 export const readSkillFile = (skillDir: string, rel: string): string | null => {
   const full = join(skillDir, rel)
-  return isFile(full) ? readFileSync(full, 'utf8') : null
+  if (!isFile(full)) return null
+  try {
+    return readFileSync(assertInside(skillDir, full), 'utf8')
+  } catch {
+    // A path or a link that leads out of the skill is not one of its files.
+    return null
+  }
 }
 
 /** For a caller with no uploads to give, such as one writing a sample case. */
@@ -260,6 +376,10 @@ export function caseSavedAt(skillDir: string, rel: string): string | null {
  * check's reference picture in `references/`, named after its check. A picture
  * just added is copied from where `uploadPath` says its upload is; one the
  * draft no longer lists is removed.
+ *
+ * The save is refused before anything is written when the case folder, one
+ * of its folders, its prompt, its `case.yaml` or a check it holds is reached
+ * through a link that leads out of the skill.
  */
 export function saveCase(
   skillDir: string,
@@ -280,14 +400,25 @@ export function saveCase(
       throw new Error(`Case ${input.id} changed on disk since you opened it. Reload to see it.`)
   }
   const rel = existing?.dir ?? `evals/cases/${input.id}`
-  const dir = join(skillDir, rel)
-  mkdirSync(join(dir, 'graders'), { recursive: true })
+  // Every folder and file read, written or deleted below, checked before the first write: a link
+  // that leads out of the skill must not have a picture deleted, or a file written, somewhere else.
+  const inside = (path: string): string => assertInside(skillDir, path)
+  const dir = inside(join(skillDir, rel))
+  const promptPath = inside(join(dir, 'prompt.md'))
+  const yamlPath = inside(join(dir, 'case.yaml'))
+  const graderDir = inside(join(dir, 'graders'))
+  const filesDir = inside(join(dir, 'files'))
+  const referenceDir = inside(join(dir, REFERENCES))
+  const taken = new Set(
+    listFiles(graderDir, (f) => f.endsWith('.md')).map((f) => f.replace(/\.md$/, '')),
+  )
+  for (const id of taken) inside(join(graderDir, `${id}.md`))
+  const write = (path: string, text: string): void => writeText(path, text, { root: skillDir })
+  mkdirSync(graderDir, { recursive: true })
 
-  const promptPath = join(dir, 'prompt.md')
   const front = isFile(promptPath) ? frontMatterBlock(readFileSync(promptPath, 'utf8')) : ''
-  writeFileSync(promptPath, `${front ? `${front.trimEnd()}\n\n` : ''}${input.prompt.trim()}\n`)
+  write(promptPath, `${front ? `${front.trimEnd()}\n\n` : ''}${input.prompt.trim()}\n`)
 
-  const yamlPath = join(dir, 'case.yaml')
   const raw = isFile(yamlPath) ? readFileSync(yamlPath, 'utf8') : ''
   // Seeded so a new file is a block mapping, like hand-written ones.
   const doc = parseDocument(raw.trim() ? raw : 'title: untitled\n')
@@ -301,10 +432,10 @@ export function saveCase(
   } else if (doc.hasIn(['bench', 'words'])) doc.deleteIn(['bench', 'words'])
   const bench = doc.get('bench')
   if (isMap(bench) && !bench.items.length) doc.delete('bench')
-  writeFileSync(yamlPath, doc.toString())
+  write(yamlPath, doc.toString())
 
-  const filesDir = join(dir, 'files')
   const wanted = new Set(input.images.flatMap((i) => (i.file ? [basename(i.file)] : [])))
+  // Removing a link removes the link alone, never the file it leads to.
   for (const name of listFiles(filesDir))
     if (imageTypeOf(name) && !wanted.has(name)) rmSync(join(filesDir, name))
   for (const image of input.images) {
@@ -313,18 +444,14 @@ export function saveCase(
     mkdirSync(filesDir, { recursive: true })
     const base = imageFileName(image.name, formatOf(source))
     let name = base
-    for (let n = 2; existsSync(join(filesDir, name)); n += 1)
+    for (let n = 2; present(join(filesDir, name)); n += 1)
       name = base.replace(/(\.\w+)$/, `-${n}$1`)
-    copyFileSync(source, join(filesDir, name))
+    // A new file, never through a link that was there.
+    copyFileSync(source, join(filesDir, name), constants.COPYFILE_EXCL)
   }
 
-  const graderDir = join(dir, 'graders')
-  const referenceDir = join(dir, REFERENCES)
   const references = new Set<string>()
   const kept = new Set<string>()
-  const taken = new Set(
-    listFiles(graderDir, (f) => f.endsWith('.md')).map((f) => f.replace(/\.md$/, '')),
-  )
   input.graders.forEach((g, index) => {
     const statement = g.statement.trim()
     if (!statement) return
@@ -345,12 +472,14 @@ export function saveCase(
       const source = uploadPath(g.image.upload)
       mkdirSync(referenceDir, { recursive: true })
       const name = `${id}.${formatOf(source)}`
-      copyFileSync(source, join(referenceDir, name))
+      // The check's picture replaces whatever had its name, a link included, and writes through none.
+      rmSync(join(referenceDir, name), { force: true })
+      copyFileSync(source, join(referenceDir, name), constants.COPYFILE_EXCL)
       meta.image = `${REFERENCES}/${name}`
     } else if (!g.image) delete meta.image
     if (typeof meta.image === 'string') references.add(basename(meta.image))
     const fields = Object.keys(meta).length ? toYaml(meta) : ''
-    writeFileSync(path, `---\n${fields}---\n\n${statement}\n`)
+    write(path, `---\n${fields}---\n\n${statement}\n`)
     kept.add(id)
   })
   for (const id of taken) if (!kept.has(id)) rmSync(join(graderDir, `${id}.md`))
@@ -363,5 +492,5 @@ export function saveCase(
 export function deleteCase(skillDir: string, id: string): void {
   const found = loadCases(skillDir).find((c) => c.id === id)
   if (!found?.dir) throw new Error('Only folder cases can be deleted here.')
-  rmSync(join(skillDir, found.dir), { recursive: true })
+  rmSync(assertInside(skillDir, join(skillDir, found.dir)), { recursive: true })
 }

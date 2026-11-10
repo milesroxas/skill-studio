@@ -1,17 +1,22 @@
 import { describe, expect, it } from 'vitest'
 import {
+  closesFence,
   copyOf,
+  fenceOf,
   frontMatterBlock,
   isSlug,
   metaList,
   metaText,
   readFrontMatter,
   round,
+  sentencesOf,
   slug,
   stripComments,
   stripFrontMatter,
   titleOf,
+  tokens,
   unitsOf,
+  withoutCode,
   words,
 } from './text.ts'
 
@@ -190,5 +195,96 @@ describe('round', () => {
     expect(round(1.5, 0)).toBe(2)
     expect(round(null)).toBeNull()
     expect(round(Number.NaN)).toBeNull()
+  })
+})
+
+describe('unitsOf, where the old reading went wrong', () => {
+  it('keeps a paragraph that follows its heading with no blank line', () => {
+    expect(unitsOf('# Title\nOne two three four five.\n\nSecond para here.')).toEqual([
+      { text: 'One two three four five.', items: ['One two three four five.'], list: false },
+      { text: 'Second para here.', items: ['Second para here.'], list: false },
+    ])
+    // The words a case's range is checked against are the words of that paragraph.
+    const summary = unitsOf('## Summary\nOne two three four five six seven eight.')
+    expect(words(summary.map((u) => u.text).join(' '))).toHaveLength(8)
+    // A list under its heading is still a list, and a heading alone is still nothing.
+    expect(unitsOf('## Steps\n- one\n- two')).toEqual([
+      { text: 'one two', items: ['one', 'two'], list: true },
+    ])
+    expect(unitsOf('# Title\n## Sub')).toEqual([])
+  })
+
+  it('leaves out code in a tilde fence, and in a fence left open', () => {
+    expect(unitsOf('Intro line.\n\n~~~\nconst a = 1\n~~~\n').map((u) => u.text)).toEqual([
+      'Intro line.',
+    ])
+    expect(unitsOf('Intro.\n\n```js\nconst a = 1;\n\nmore code').map((u) => u.text)).toEqual([
+      'Intro.',
+    ])
+  })
+})
+
+describe('withoutCode', () => {
+  it('empties every line of a fenced block and keeps the line count', () => {
+    const text = 'a\n```js\ncode\n```\nb\n~~~\n``` is text here\n~~~\nc'
+    expect(withoutCode(text)).toBe('a\n\n\n\nb\n\n\n\nc')
+  })
+
+  it('keeps each position when asked, so an index in one is an index in the other', () => {
+    const text = 'a!\n```\nb!\n```\nc!'
+    const blanked = withoutCode(text, { keepLength: true })
+    expect(blanked).toHaveLength(text.length)
+    expect(blanked).toBe('a!\n   \n  \n   \nc!')
+  })
+
+  it('runs a fence left open to the end', () => {
+    expect(withoutCode('a\n```\nb\nc')).toBe('a\n\n\n')
+  })
+})
+
+describe('fenceOf', () => {
+  it('opens on three or more backticks or tildes, and tells which', () => {
+    expect(fenceOf('```js')).toEqual({ char: '`', length: 3 })
+    expect(fenceOf('  ~~~~')).toEqual({ char: '~', length: 4 })
+    expect(fenceOf('text')).toBeNull()
+    expect(closesFence('````', { char: '`', length: 3 })).toBe(true)
+    expect(closesFence('~~~', { char: '`', length: 3 })).toBe(false)
+  })
+
+  it('reads backticks with a backtick after them as inline code, not a fence', () => {
+    expect(fenceOf('```code``` is inline here')).toBeNull()
+    // A tilde fence may name anything after it.
+    expect(fenceOf('~~~ a `b`')).toEqual({ char: '~', length: 3 })
+  })
+
+  it('reads a fence line that ends in a carriage return, as a CRLF file has it', () => {
+    expect(fenceOf('```markdown\r')).toEqual({ char: '`', length: 3 })
+    expect(fenceOf('~~~~\r')).toEqual({ char: '~', length: 4 })
+    expect(fenceOf('```code``` inline\r')).toBeNull()
+  })
+})
+
+describe('tokens and sentencesOf', () => {
+  it('counts whitespace-delimited tokens', () => {
+    expect(tokens('  - Write   two sentences. ')).toEqual(['-', 'Write', 'two', 'sentences.'])
+    expect(tokens('')).toEqual([])
+  })
+
+  it('splits at every sentence end, or only where the next one opens as a sentence does', () => {
+    const text = 'Use tabs, e.g. four wide. it helps. Then stop!  Done'
+    expect(sentencesOf(text)).toEqual([
+      'Use tabs, e.g.',
+      'four wide.',
+      'it helps.',
+      'Then stop!',
+      'Done',
+    ])
+    expect(sentencesOf(text, { capital: true })).toEqual([
+      'Use tabs, e.g. four wide. it helps.',
+      'Then stop!',
+      'Done',
+    ])
+    // With `capital`, a piece with no letter in it is no sentence.
+    expect(sentencesOf('Fine. 42.', { capital: true })).toEqual(['Fine.'])
   })
 })

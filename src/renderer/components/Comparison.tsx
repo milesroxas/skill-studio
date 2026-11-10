@@ -15,13 +15,13 @@ import { draftOf, newCheck } from '@domain/case-draft.ts'
 import type { Verdict } from '@domain/pack.ts'
 import { pickBetween, pickStanding } from '@domain/picks.ts'
 import type { Case, Vote } from '@domain/schemas.ts'
-import { copyOf } from '@domain/text.ts'
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { api } from '../api.ts'
 import { caseContext, skillContext } from '../assist.ts'
 import type { Ctx } from '../ctx.ts'
-import { wordDiffHtml } from '../diff.ts'
-import { useFetch } from '../hooks.ts'
+import { caseUnsaved } from '../draft-edits.ts'
+import { inSkill } from '../in-skill.ts'
+import { gradingRun, useJobStart } from '../job-start.ts'
 import {
   caseTitle,
   checksGraded,
@@ -40,9 +40,9 @@ import {
   writerName,
 } from '../model.ts'
 import { ArtifactPicker, ArtifactView, type OutputView } from './Artifact.tsx'
+import { DiffCard } from './DiffCard.tsx'
 import { Disclosure } from './Disclosure.tsx'
 import { InlineField } from './forms.tsx'
-import { runningJob } from './Jobs.tsx'
 import {
   ColumnBody,
   ColumnFooter,
@@ -53,7 +53,6 @@ import {
   Field,
   FormSection,
   List,
-  Loading,
   Stack,
   Toolbar,
 } from './layout.tsx'
@@ -76,9 +75,6 @@ const VOTES = [
 ] as const satisfies ReadonlyArray<{ value: Vote; label: string }>
 
 const SLOT_LABEL = { a: 'A', b: 'B' } as const
-
-/** How long Regrade stays busy after the call returns while its job has not shown in the list, which a browser polls. */
-const ASKED_FOR_MS = 5000
 
 const VIEWS = [
   { value: 'side', label: 'Side by side' },
@@ -126,45 +122,29 @@ export function Comparison({
     }
   }
 
-  /**
-   * The runs whose grade was asked for and has not shown in the jobs yet: the
-   * button is busy from the press, not from the first poll that lists the job.
-   */
-  const [asked, setAsked] = useState<string[]>([])
-  const graded = (run: string) => Boolean(runningJob(jobs, 'grade', `Grade ${run}`))
-  useEffect(() => {
-    setAsked((list) => {
-      const left = list.filter((run) => !runningJob(jobs, 'grade', `Grade ${run}`))
-      return left.length === list.length ? list : left
-    })
-  }, [jobs])
-  useEffect(() => {
-    if (!asked.length) return
-    // A job that never shows, such as one refused before it was listed, does not hold the button for good.
-    const timer = setTimeout(() => setAsked([]), ASKED_FOR_MS)
-    return () => clearTimeout(timer)
-  }, [asked])
+  /** Grades of the runs these outputs came from: busy from the press, not from the first poll that lists the job. */
+  const grade = useJobStart(jobs, 'grade', report)
+  const titleOf = (run: string) => `Grade ${run}`
+  const grading = (run: string) =>
+    grade.busy(titleOf(run)) || gradingRun(jobs, state.skill.path, run)
 
   /** Grade the runs these outputs came from again: each run is graded whole. */
-  const regrade = async (runs: string[]) => {
+  const regrade = (runs: string[]) => {
     const names = [...new Set(runs)]
-    if (asked.length) return
-    setAsked(names)
-    try {
-      for (const run of names) await api.grade(run, state.jevKey)
+    // A run already being graded is left to finish: asking again would only be refused.
+    const idle = names.filter((run) => !grading(run))
+    if (!idle.length) return
+    void grade.start(idle.map(titleOf), async () => {
+      for (const run of idle) await api.grade(run, state.jevKey)
       report(
-        names.length > 1
+        idle.length > 1
           ? 'Grading both runs'
           : runs.length > 1
             ? 'Grading the run'
-            : `Grading ${names[0]}`,
+            : `Grading ${idle[0]}`,
       )
-    } catch (e) {
-      report(e as Error)
-      setAsked([])
-    }
+    })
   }
-  const grading = (run: string) => asked.includes(run) || graded(run)
 
   const sides = [a, b].filter((o): o is Output => o !== null)
 
@@ -251,6 +231,7 @@ export function Comparison({
                 slot="a"
                 layers={layers}
                 grading={grading(a.run.name)}
+                held={grade.starting()}
                 onRegrade={() => regrade([a.run.name])}
               />
             ) : null}
@@ -262,6 +243,7 @@ export function Comparison({
                 slot={a ? 'b' : null}
                 layers={layers}
                 grading={grading(b.run.name)}
+                held={grade.starting()}
                 onRegrade={() => regrade([b.run.name])}
               />
             ) : null}
@@ -367,6 +349,7 @@ function Side({
   slot,
   layers,
   grading,
+  held,
   onRegrade,
 }: {
   ctx: Ctx
@@ -378,6 +361,8 @@ function Side({
   layers: string[]
   /** A grade of this output's run is going. */
   grading: boolean
+  /** A grade is being started, of this run or the other: one start at a time. */
+  held: boolean
   onRegrade: () => void
 }) {
   const { state, config, go, report, reload } = ctx
@@ -406,7 +391,7 @@ function Side({
         met === null ? 'Jev’s answer stands again' : `Marked as ${met ? 'met' : 'missed'}`,
         met === null
           ? undefined
-          : { undo: () => void api.correct(output.key, verdict.id, null).then(reload, report) },
+          : { undo: inSkill(ctx, () => api.correct(output.key, verdict.id, null)) },
       )
     } catch (e) {
       report(e as Error)
@@ -442,6 +427,7 @@ function Side({
               type="button"
               variant="link-muted"
               size="inline-sm"
+              disabled={held}
               busy={grading}
               busyLabel="Grading…"
               onClick={onRegrade}
@@ -490,41 +476,6 @@ function Side({
   )
 }
 
-function DiffCard({ a, b }: { a: Output; b: Output }) {
-  const pa = primaryOf(a)
-  const pb = primaryOf(b)
-  const textual = pa && pb && pa.kind !== 'image' && pb.kind !== 'image'
-  const html = useFetch(async () => {
-    if (!textual) return null
-    const [x, y] = await Promise.all([
-      api.artifactText(a.run.name, a.sample.name, pa.file),
-      api.artifactText(b.run.name, b.sample.name, pb.file),
-    ])
-    return wordDiffHtml(copyOf(x), copyOf(y))
-  }, [a.key, b.key])
-  return (
-    <OutputCard>
-      <OutputCardHead
-        slot={<Slot>Diff</Slot>}
-        title={`${versionName(a.run)} to ${versionName(b.run)}`}
-        meta="Text only in A is struck through. Text only in B is marked."
-      />
-      {!textual ? (
-        <Hint inset>Word diff needs a text output on both sides.</Hint>
-      ) : html.error ? (
-        <Hint inset tone="destructive">
-          {html.error}
-        </Hint>
-      ) : html.data === null ? (
-        <Loading />
-      ) : (
-        // biome-ignore lint/security/noDangerouslySetInnerHtml: diff output is escaped
-        <div className="diff" dangerouslySetInnerHTML={{ __html: html.data }} />
-      )}
-    </OutputCard>
-  )
-}
-
 /**
  * What an output gets wrong that nothing names yet, turned into a check. A
  * check written after reading an output is about something that happened; one
@@ -550,7 +501,9 @@ function AddCheck({
     if (!statement || busy) return
     setBusy(true)
     try {
-      const unsaved = drafts.cases[testCase.id]
+      // A draft that says what the saved case says holds no edits: the check is saved at once.
+      const kept = drafts.cases[testCase.id]
+      const unsaved = caseUnsaved(kept, draftOf(testCase)) ? kept : undefined
       if (unsaved) {
         // The case has edits waiting on Cases: the check joins them, so saving there keeps both.
         drafts.setCase(testCase.id, {

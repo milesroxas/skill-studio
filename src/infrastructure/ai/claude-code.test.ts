@@ -1,5 +1,78 @@
-import { describe, expect, it } from 'vitest'
-import { claudeAccountOf, placeBrief } from './claude-code.ts'
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+import { describe, expect, it, vi } from 'vitest'
+import type { ExecOptions } from '../exec.ts'
+
+// The CLI is a child process: these lines are what it prints.
+const cli = vi.hoisted(() => ({ lines: [] as string[] }))
+vi.mock('../exec.ts', async (actual) => ({
+  ...(await actual<typeof import('../exec.ts')>()),
+  exec: async (_command: string, _args: string[], options: ExecOptions) => {
+    for (const line of cli.lines) options.onLine?.(line)
+    return { code: 0, signal: null, stdout: '', stderr: '', timedOut: false, spawnError: null }
+  },
+}))
+
+const { claudeAccountOf, claudeCodeProvider, commandProblem, placeBrief } = await import(
+  './claude-code.ts'
+)
+
+const ask = (text: string) =>
+  claudeCodeProvider.run({
+    model: 'sonnet',
+    effort: '',
+    system: 'Line one.\nLine two.',
+    messages: [{ role: 'user', text }],
+    schema: null,
+    signal: new AbortController().signal,
+    onText: () => {},
+  })
+
+describe('run', () => {
+  it('reads a result whose usage is null as no tokens counted', async () => {
+    cli.lines = [
+      JSON.stringify({ type: 'result', subtype: 'success', result: 'Hello.', usage: null }),
+    ]
+    expect(await ask('Hi')).toMatchObject({ text: 'Hello.', usage: { input: 0, output: 0 } })
+  })
+})
+
+describe('commandProblem', () => {
+  /** A Windows PATH with one folder holding `name`. */
+  function pathWith(name: string): { env: NodeJS.ProcessEnv; done: () => void } {
+    const dir = mkdtempSync(join(tmpdir(), 'st-claude-'))
+    writeFileSync(join(dir, name), '')
+    // Spelled as the files are, for a file system that minds the case.
+    const env = { PATH: dir, PATHEXT: '.exe;.cmd' }
+    return { env, done: () => rmSync(dir, { recursive: true, force: true }) }
+  }
+
+  it('says plainly that an npm install on Windows cannot run a command, and where the native one is', () => {
+    const { env, done } = pathWith('claude.cmd')
+    try {
+      const problem = commandProblem('win32', env)
+      expect(problem).toMatch('/name commands need the native Claude Code install')
+      expect(problem).toMatch('https://code.claude.com/docs/en/setup')
+      expect(problem).not.toMatch('one line')
+    } finally {
+      done()
+    }
+  })
+
+  it('has nothing to say of the native install, or anywhere but Windows', () => {
+    const native = pathWith('claude.exe')
+    const npm = pathWith('claude.cmd')
+    try {
+      expect(commandProblem('win32', native.env)).toBeNull()
+      expect(commandProblem('darwin', npm.env)).toBeNull()
+      expect(commandProblem('linux', npm.env)).toBeNull()
+    } finally {
+      native.done()
+      npm.done()
+    }
+  })
+})
 
 describe('placeBrief', () => {
   it('passes a small brief as the system prompt argument', () => {

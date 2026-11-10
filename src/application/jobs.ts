@@ -9,9 +9,14 @@ import type { Job, JobKind } from '@domain/views.ts'
 
 export type { Job } from '@domain/views.ts'
 
+/** How many finished jobs the list shows beside the running ones. */
 const LIST_LIMIT = 12
 /** Finished jobs kept, with their logs, for the list to show. Older ones go. */
 const KEEP_FINISHED = 50
+/** A log keeps its first lines and its latest; a long run's middle goes. */
+const LOG_HEAD = 100
+const LOG_KEPT = 500
+const LOG_GAP = '          … earlier lines are not kept'
 
 const jobs: Job[] = []
 const controllers = new Map<number, AbortController>()
@@ -21,7 +26,18 @@ const watchers = new Set<(jobs: Job[]) => void>()
 let pending = false
 let nextId = 1
 
-export const listJobs = (limit = LIST_LIMIT): Job[] => jobs.slice(0, limit)
+/**
+ * Every running job, and the newest `limit` finished ones, newest first. A
+ * running job is always listed, however many started after it, so it can be
+ * seen and stopped.
+ */
+export function listJobs(limit = LIST_LIMIT): Job[] {
+  let finished = 0
+  return jobs.filter((job) => job.status === 'running' || ++finished <= limit)
+}
+
+/** True while any job runs, listed or not. */
+export const anyRunning = (): boolean => jobs.some((job) => job.status === 'running')
 
 /** The running job of `kind` on `target`, if there is one. */
 export const runningJob = (kind: JobKind, target: string): Job | undefined =>
@@ -62,7 +78,13 @@ function trim(): void {
   }
 }
 
-function startJob(kind: JobKind, title: string, skillPath: string | null, target: string): Job {
+function startJob(
+  kind: JobKind,
+  title: string,
+  skillPath: string | null,
+  target: string,
+  controller: AbortController,
+): Job {
   const job: Job = {
     id: nextId++,
     kind,
@@ -73,8 +95,10 @@ function startJob(kind: JobKind, title: string, skillPath: string | null, target
     finishedAt: null,
     skillPath,
     progress: null,
+    grading: [],
+    writing: [],
   }
-  controllers.set(job.id, new AbortController())
+  controllers.set(job.id, controller)
   targets.set(job.id, target)
   jobs.unshift(job)
   trim()
@@ -84,6 +108,8 @@ function startJob(kind: JobKind, title: string, skillPath: string | null, target
 
 export const say = (job: Job, line: string): void => {
   job.log.push(`${new Date().toTimeString().slice(0, 8)}  ${line}`)
+  // The line after the head gives way to the gap mark, and then the mark's neighbour to each new line.
+  if (job.log.length > LOG_KEPT) job.log.splice(LOG_HEAD, job.log.length - LOG_KEPT + 1, LOG_GAP)
   changed()
 }
 
@@ -109,6 +135,18 @@ function finishJob(job: Job, ok: boolean): void {
   changed()
 }
 
+/** Say that `job` is grading `run` now, or has stopped grading it. */
+export function markGrading(job: Job, run: string, on: boolean): void {
+  job.grading = on ? [...new Set([...job.grading, run])] : job.grading.filter((r) => r !== run)
+  changed()
+}
+
+/** Say that `job` is writing `run` now, or has stopped writing it. */
+export function markWriting(job: Job, run: string, on: boolean): void {
+  job.writing = on ? [...new Set([...job.writing, run])] : job.writing.filter((r) => r !== run)
+  changed()
+}
+
 /**
  * Stop a running job. Its work sees the signal: agents in flight are ended,
  * no more samples start, and the job finishes as stopped with "Stopped." in
@@ -127,6 +165,19 @@ export function stopJob(id: number): Job {
 }
 
 /**
+ * Stop every running job, as `stopJob` does each. For when the process is
+ * going away: a job left running would start its next agent as the last one ends.
+ */
+export function stopAllJobs(): void {
+  for (const job of jobs) {
+    const controller = controllers.get(job.id)
+    if (job.status !== 'running' || !controller || controller.signal.aborted) continue
+    controller.abort()
+    say(job, 'Stopped.')
+  }
+}
+
+/**
  * Run `work` as a job on the skill at `skillPath`; its errors land in the log
  * instead of the caller. `target` names what it works on, for `runningJob`.
  */
@@ -137,8 +188,8 @@ export function runJob(
   target: string,
   work: (job: Job, signal: AbortSignal) => Promise<boolean>,
 ): Job {
-  const job = startJob(kind, title, skillPath, target)
-  const controller = controllers.get(job.id) as AbortController
+  const controller = new AbortController()
+  const job = startJob(kind, title, skillPath, target, controller)
   work(job, controller.signal).then(
     (ok) => finishJob(job, ok),
     (error: Error) => {

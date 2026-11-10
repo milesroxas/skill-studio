@@ -18,7 +18,6 @@ A table sits directly on the page. Never put it in a card or give it an outer bo
 | `numeric` | head, cell | boolean | a number: right-aligned and tabular. The cell is mono; the head stays a word in sans |
 | `trailing` | head, cell | boolean | not a number, at the row's end: actions, a date, a note. Right-aligned, narrow and tabular, in sans |
 | `wide`, `wrap`, `filler` | head, cell | boolean | the column that takes spare width; text that may wrap |
-| `optional` | head, cell | boolean | hidden below `lg`, so the table fits a 720px window |
 | `col` | head | `auto`, `xs`, `sm`, `md`, `lg`, `xl` | a fixed column's width |
 | `fold` | head, cell | `never`, `last`, `second`, `first` | the order columns drop out as the table narrows |
 

@@ -16,8 +16,8 @@ import { useAi } from '../ai.ts'
 import { api } from '../api.ts'
 import { useFetch } from '../hooks.ts'
 import { plural } from '../model.ts'
-import { Loading } from './layout.tsx'
-import { Hint, Text } from './text.tsx'
+import { Loading, ReadFailed } from './layout.tsx'
+import { Text } from './text.tsx'
 import { Button } from './ui/button.tsx'
 import {
   Popover,
@@ -98,12 +98,17 @@ function UsageReport({ summary }: { summary: UsageSummary }) {
 }
 
 function UsageLoader() {
-  const { data, error } = useFetch(() => api.aiUsage(), [])
+  const { data, error, loading, reload } = useFetch(() => api.aiUsage(), [])
   if (error && !data)
     return (
-      <Hint inset tone="destructive">
+      <ReadFailed
+        size="compact"
+        title="Could not read the usage"
+        retrying={loading}
+        onRetry={reload}
+      >
         {error}
-      </Hint>
+      </ReadFailed>
     )
   return data ? <UsageReport summary={data} /> : <Loading />
 }

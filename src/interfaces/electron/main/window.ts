@@ -5,10 +5,11 @@
  * and stands in the middle of the display, as a first-run window does. The
  * changelog is a reading column that stands over the app.
  */
-import { readFileSync, writeFileSync } from 'node:fs'
+import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import type { Theme } from '@domain/preferences.ts'
 import { canReset } from '@domain/reset.ts'
+import { writeJson } from '@infrastructure/fs.ts'
 import { app, BrowserWindow, nativeTheme, type Rectangle, screen, shell } from 'electron'
 import {
   APP_ORIGIN,
@@ -59,7 +60,7 @@ const isArtifactUrl = (url: string): boolean => {
   }
 }
 
-/** The saved bounds, or null when the file is missing or damaged, as a quit mid-write leaves it. */
+/** The saved bounds, or null when the file is missing or damaged. */
 function savedBounds(file: string): Rectangle | null {
   try {
     return boundsOf(readFileSync(file, 'utf8'))
@@ -135,7 +136,8 @@ export function createWindow({ url, boundsFile }: WindowOptions): BrowserWindow 
     webPreferences: PAGE_PREFERENCES,
   })
   window.once('ready-to-show', () => window.show())
-  window.on('close', () => writeFileSync(boundsFile, JSON.stringify(window.getNormalBounds())))
+  // Written whole, so a quit midway leaves the last place saved, never half a file.
+  window.on('close', () => writeJson(boundsFile, window.getNormalBounds()))
   confine(window, url)
   void window.loadURL(url)
   return window

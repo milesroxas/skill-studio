@@ -13,7 +13,8 @@ export interface EngineRequest {
   /** Ends the agent when aborted, as the timeout would; the job it belongs to was stopped. */
   signal?: AbortSignal
   transcript: TranscriptWriter
-  log: (line: string) => void
+  /** Told what went wrong beside the run itself, such as a transcript that could not be written. */
+  log?: (line: string) => void
 }
 
 export interface EngineResult {
