@@ -266,6 +266,111 @@ interface RunSpec {
 
 const config = () => mergeConfig(loadBench(dir), scorers)
 
+/** The transcript of one sample: read the skill when it has one, read the prompt, write. */
+function eventsOf(
+  path: string,
+  prompt: string,
+  modelId: string,
+  withSkill: boolean,
+  trouble: Trouble,
+): Array<Record<string, unknown>> {
+  const skillPath = join(path, '.agents/skills/release-notes/SKILL.md')
+  const readSkill = [
+    { kind: 'tool', tool: 'Read', args: skillPath },
+    {
+      kind: 'result',
+      tool: 'Read',
+      result: '1 --- 2 name: release-notes 3 description: Write a release note for…',
+      durationMs: 31,
+    },
+  ]
+  const failedCount = [
+    { kind: 'tool', tool: 'Bash', args: 'wc -w outputs/output.md' },
+    {
+      kind: 'error',
+      tool: 'Bash',
+      text: 'wc: outputs/output.md: No such file or directory',
+      error: true,
+    },
+  ]
+  return [
+    { kind: 'system', text: `claude ${modelId}` },
+    ...(withSkill ? readSkill : []),
+    { kind: 'tool', tool: 'Read', args: join(path, 'prompt.md') },
+    { kind: 'result', tool: 'Read', result: `1 ${prompt.slice(0, 70)}…`, durationMs: 12 },
+    ...(trouble.errors ? failedCount : []),
+    { kind: 'tool', tool: 'Write', args: join(path, 'outputs/output.md') },
+    { kind: 'result', tool: 'Write', result: 'File created', durationMs: 9 },
+    { kind: 'tool', tool: 'Write', args: join(path, 'notes.md') },
+    { kind: 'result', tool: 'Write', result: 'File created', durationMs: 7 },
+    {
+      kind: 'text',
+      text: 'Wrote the release note to `outputs/output.md` and my notes to `notes.md`.',
+    },
+  ]
+}
+
+/** Jev's answers and the measured workflow of one sample, as a grading would store them. */
+function packsOf({
+  rules,
+  found,
+  sample,
+  events,
+  toolCalls,
+  seconds,
+  costUsd,
+  withSkill,
+}: {
+  rules: ReturnType<typeof rulesFromSkill>
+  found: ReturnType<typeof loadCases>[number]
+  sample: SampleSpec
+  events: Array<Record<string, unknown>>
+  toolCalls: number
+  seconds: number
+  costUsd: number
+  withSkill: boolean
+}): ReportResult['packs'] {
+  const trouble = sample.trouble ?? {}
+  const ruleNoul = (text: string) =>
+    RULE_NOULS[sample.variant][RULE_KEYS.find(([test]) => test.test(text))?.[1] ?? ''] ?? 0.9
+  return {
+    generic: {
+      adherence: { rules: rules.map((r) => ({ ...r, noul: ruleNoul(r.text) })) },
+      rubric: {
+        statements: found.graders.map((g, k) => ({
+          id: g.id,
+          text: g.statement,
+          weight: g.weight,
+          noul: CHECK_NOULS[sample.case][sample.variant][k] ?? 0.9,
+          units: null,
+          best: null,
+        })),
+      },
+    },
+    workflow: {
+      metrics: {
+        steps: events.length,
+        toolCalls,
+        errors: trouble.errors ?? 0,
+        retries: trouble.retries ?? 0,
+        seconds,
+        costUsd,
+        outside: trouble.outside ?? [],
+        skillReadAt: withSkill ? 2 : null,
+        firstWriteAt: events.findIndex((e) => e.tool === 'Write') + 1,
+        skillPresent: withSkill,
+        wroteOutput: true,
+        maxTurns: null,
+        timeoutSeconds: 300,
+      },
+      jev: {
+        followedTask: trouble.followed ?? (sample.variant === 'hype' ? 0.58 : 0.91),
+        recovered: trouble.errors ? 0.83 : null,
+      },
+    },
+  }
+}
+
 function writeRun(spec: RunSpec): string {
   const name = runName({
     date: spec.date,
@@ -307,42 +412,7 @@ function writeRun(spec: RunSpec): string {
       '# Notes\n\n- Kept to the facts in the request.\n- The Settings path is copied from the request and was not checked against the app.\n',
     )
     if (withSkill) snapshotSkill(dir, join(path, '.agents', 'skills', 'release-notes'))
-    const skillPath = join(path, '.agents/skills/release-notes/SKILL.md')
-    const events = [
-      { kind: 'system', text: `claude ${spec.modelId}` },
-      ...(withSkill
-        ? [
-            { kind: 'tool', tool: 'Read', args: skillPath },
-            {
-              kind: 'result',
-              tool: 'Read',
-              result: '1 --- 2 name: release-notes 3 description: Write a release note for…',
-              durationMs: 31,
-            },
-          ]
-        : []),
-      { kind: 'tool', tool: 'Read', args: join(path, 'prompt.md') },
-      { kind: 'result', tool: 'Read', result: `1 ${found.prompt.slice(0, 70)}…`, durationMs: 12 },
-      ...(trouble.errors
-        ? [
-            { kind: 'tool', tool: 'Bash', args: 'wc -w outputs/output.md' },
-            {
-              kind: 'error',
-              tool: 'Bash',
-              text: 'wc: outputs/output.md: No such file or directory',
-              error: true,
-            },
-          ]
-        : []),
-      { kind: 'tool', tool: 'Write', args: join(path, 'outputs/output.md') },
-      { kind: 'result', tool: 'Write', result: 'File created', durationMs: 9 },
-      { kind: 'tool', tool: 'Write', args: join(path, 'notes.md') },
-      { kind: 'result', tool: 'Write', result: 'File created', durationMs: 7 },
-      {
-        kind: 'text',
-        text: 'Wrote the release note to `outputs/output.md` and my notes to `notes.md`.',
-      },
-    ]
+    const events = eventsOf(path, found.prompt, spec.modelId, withSkill, trouble)
     const stepMs = Math.floor((seconds * 1000) / (events.length + 1))
     writeFileSync(
       join(path, 'transcript.jsonl'),
@@ -377,7 +447,6 @@ function writeRun(spec: RunSpec): string {
     })
 
     const primary = { file: 'outputs/output.md', kind: 'markdown' as const }
-    const firstWrite = events.findIndex((e) => 'tool' in e && e.tool === 'Write') + 1
     const base: Omit<ReportResult, 'scores' | 'flags' | 'confidence'> = {
       sample,
       case: s.case,
@@ -387,49 +456,7 @@ function writeRun(spec: RunSpec): string {
       primary,
       words: words(copyOf(text)).length,
       range: found.bench.words ?? null,
-      packs: {
-        generic: {
-          adherence: {
-            rules: rules.map((r) => ({
-              ...r,
-              noul:
-                RULE_NOULS[s.variant][RULE_KEYS.find(([test]) => test.test(r.text))?.[1] ?? ''] ??
-                0.9,
-            })),
-          },
-          rubric: {
-            statements: found.graders.map((g, k) => ({
-              id: g.id,
-              text: g.statement,
-              weight: g.weight,
-              noul: CHECK_NOULS[s.case][s.variant][k] ?? 0.9,
-              units: null,
-              best: null,
-            })),
-          },
-        },
-        workflow: {
-          metrics: {
-            steps: events.length,
-            toolCalls,
-            errors: trouble.errors ?? 0,
-            retries: trouble.retries ?? 0,
-            seconds,
-            costUsd,
-            outside: trouble.outside ?? [],
-            skillReadAt: withSkill ? 2 : null,
-            firstWriteAt: firstWrite,
-            skillPresent: withSkill,
-            wroteOutput: true,
-            maxTurns: null,
-            timeoutSeconds: 300,
-          },
-          jev: {
-            followedTask: trouble.followed ?? (s.variant === 'hype' ? 0.58 : 0.91),
-            recovered: trouble.errors ? 0.83 : null,
-          },
-        },
-      },
+      packs: packsOf({ rules, found, sample: s, events, toolCalls, seconds, costUsd, withSkill }),
     }
     const scored = scoreResult(base, cfg, scorers)
     results.push({ ...base, ...scored })

@@ -34,6 +34,8 @@
     "fallow": "fallow dead-code --quiet",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "health": "pnpm test:coverage && fallow health",
     "check": "pnpm typecheck && pnpm lint && pnpm fallow && pnpm test"
   },
   "dependencies": {
@@ -59,6 +61,7 @@
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
     "@vitejs/plugin-react": "^6.1.2",
+    "@vitest/coverage-v8": "^5.0.5",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "electron": "45.2.2",

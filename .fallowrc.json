@@ -13,6 +13,9 @@
     "vitest.config.ts"
   ],
   "ignorePatterns": ["fixtures/**", ".claude/**"],
+  "health": {
+    "coverage": "coverage/coverage-final.json"
+  },
   "boundaries": {
     "zones": [
       {

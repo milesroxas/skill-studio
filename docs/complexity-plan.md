@@ -4,9 +4,9 @@ The plan for the one `fallow` gate that fails: `fallow health`, 199 functions ab
 
 | | |
 | --- | --- |
-| Status | Planned |
-| Baseline | 199 above threshold, 4234 functions analyzed, maintainability 89.5, at `000e95c` |
-| Now | 207 above threshold, 5116 functions analyzed, maintainability 89.6 (2026-11-09): 155 in `src/renderer`, 48 in the rest of `src/`, 4 in `scripts/guide-shots/` |
+| Status | Phase 1 done; phases 2 to 4 planned |
+| Baseline | 239 above threshold with real coverage at `f53950b`, the commit before the 2026-11-09 audit (199 under fallow's estimate at `000e95c`) |
+| Now | 238 above threshold with real coverage (2026-11-10): 165 in `src/renderer`, 69 in the rest of `src/`, 4 in `scripts/guide-shots/` |
 | Duplication | `pnpm exec fallow dupes` reports "No code duplication found" |
 | Gate | The full `fallow` run passes, then joins `pnpm check` |
 | Owner | Miles Roxas |
@@ -22,11 +22,11 @@ The gate has four rules, each `error` by default. A finding exists when a functi
 
 fallow also lists functions over 60 lines (`maxUnitSize`, the summary's `max_unit_size_threshold`) as large functions. That list informs the health score and does not fail the gate.
 
-fallow has no coverage data for this repo, so it estimates: every function in a file without a `.test.ts` beside it counts as untested, and any React component with five or more branches is reported. That is why, at the baseline, 146 of the 199 sit in `src/renderer` components and screens that are simple to read. The other 53 are 49 in the rest of `src/` and 4 in `scripts/guide-shots/`, the script that takes the guide's pictures.
+`pnpm health` runs the tests with coverage (`pnpm test:coverage`, which writes `coverage/coverage-final.json`) and then `fallow health`, which reads that file (`health.coverage` in `.fallowrc.json`). A function the tests run is scored on its real coverage. A function the tests never run counts as untested, so any function with cyclomatic 5 or more there reaches CRAP 30: that is most React components, the Electron main process and the assistant's provider adapters, none of which have tests. `scripts/` is outside the test run, so fallow estimates it. Run `pnpm exec fallow health` alone only right after `pnpm test:coverage`: it reads whatever coverage file is on disk.
 
-The counts in the phases below, and each function's cyclomatic and cognitive numbers, are the baseline's. Read the current ones from `pnpm exec fallow health` before starting a phase.
+The counts in the phases below, and each function's cyclomatic and cognitive numbers, are from fallow's estimate at `000e95c`. Read the current ones from `pnpm health` before starting a phase.
 
-So the plan has two kinds of work. Phase 1 gives fallow real coverage and removes the estimated findings that are not real. Phases 2 to 4 split the 51 functions that are too complex by any measure.
+So the plan has two kinds of work. Phase 1 gave fallow real coverage, so the count measures the code and the tests as they are. Phases 2 to 4 split the functions that are too complex by any measure; a test added for a function lowers its CRAP as well.
 
 ## Rules for every phase
 
@@ -43,13 +43,14 @@ So the plan has two kinds of work. Phase 1 gives fallow real coverage and remove
 
 ## Phase 1: real coverage for fallow
 
-Removes up to 147 findings without touching app code, the ones reported on the coverage estimate alone (113 in `src/renderer`, 31 in the rest of `src/`, 3 in `scripts/guide-shots/`), and makes every later number honest.
+Makes every later number honest without touching app code. It did not lower the count: the estimate had taken tested files as covered throughout, and real coverage shows the functions in them the tests never reach. At `f53950b` the count with coverage is 239, against 199 estimated.
 
-- [ ] Add `@vitest/coverage-v8` as a dev dependency and a `test:coverage` script that writes `coverage/coverage-final.json` (Istanbul format).
-- [ ] Set `health.coverage` in `.fallowrc.json` to that file. Run `pnpm test:coverage` before `fallow health` in CI, so the gate reads real numbers.
-- [ ] Re-read the list. What remains in `src/renderer` is real: components whose branching belongs in a `.ts` module with tests.
-- [ ] `scripts/guide-shots/seed.ts` has one arrow function at cyclomatic 18, cognitive 17, which coverage does not clear. Split it here: nothing in the app depends on it, and it sits in no later phase.
-- [ ] Use `health.ignore` only for generated files. Do not raise `maxCyclomatic`, `maxCognitive` or `maxCrap`: the defaults are the limits this plan is for.
+- [x] `@vitest/coverage-v8` is a dev dependency, and `pnpm test:coverage` writes `coverage/coverage-final.json` (Istanbul format).
+- [x] `health.coverage` in `.fallowrc.json` points at that file, and `pnpm health` runs the two in order. CI runs it once the gate joins `pnpm check`.
+- [x] Re-read the list. What remains in `src/renderer` is real: components whose branching belongs in a `.ts` module with tests.
+- [x] `scripts/guide-shots/seed.ts`: the arrow at cyclomatic 18, cognitive 17 is split into `eventsOf` and `packsOf`, and the seed writes the same runs. `packsOf` stays a CRAP finding on the estimate, since `scripts/` has no tests.
+
+Use `health.ignore` only for generated files. Do not raise `maxCyclomatic`, `maxCognitive` or `maxCrap`: the defaults are the limits this plan is for.
 
 ## Phase 2: pure logic first
 
@@ -97,7 +98,7 @@ Highest churn in the repo (`App.tsx` 26 commits, `Editor.tsx` 22, `Library.tsx` 
 ```sh
 pnpm check                  # typecheck, lint, dead code, tests
 pnpm build
-pnpm exec fallow health     # the count goes down, never up
+pnpm health                 # tests with coverage, then fallow health: the count goes down, never up
 pnpm exec fallow dupes      # reports no duplication: it stays that way
 ```
 

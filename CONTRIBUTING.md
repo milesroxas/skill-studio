@@ -28,6 +28,7 @@ A development copy keeps its data under `~/Library/Application Support/Skill Stu
 pnpm check      # typecheck, Biome, fallow, tests
 pnpm build      # the electron-vite build
 pnpm format     # apply Biome's formatting and safe fixes
+pnpm health     # tests with coverage, then fallow's complexity report: see docs/complexity-plan.md
 ```
 
 CI runs both on Linux for every pull request (the `check` job), and that job must pass to merge. It also runs the tests on macOS (`test-macos`) and on Windows (`test-windows`). The Windows job shows its result without failing the run: those paths are not yet known to pass.
