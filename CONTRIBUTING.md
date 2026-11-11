@@ -79,7 +79,7 @@ The guide is one text for two renderers: GitHub renders it, and the app shows it
 
 When a screen changes how it looks or reads:
 
-1. Retake the screenshots with `pnpm guide:shots`. It builds the app, starts it on a scratch home seeded with sample skills (`scripts/guide-shots/seed.ts`), and writes `docs/images/*.webp`. It never touches your own skills or settings.
+1. Retake the screenshots with `pnpm guide:shots`. It builds the app, starts it on a scratch home seeded with sample skills (`scripts/guide-shots/seed.ts`), and writes `docs/images/*.webp`. It never touches your own skills, settings or keychain.
 2. Read each step of the guide against its new picture, and fix any label, button or order that no longer matches.
 3. Check the diagram (`docs/images/loop.svg`). It is written by hand, and its steps must match the loop table at the top of the guide.
 

@@ -3,10 +3,11 @@
  *
  * It seeds a scratch home with sample skills, starts the built app against it
  * with its own profile, and saves one picture per screen to docs/images/.
- * Your own skills, settings and a running copy of the app are never touched:
- * SKILL_STUDIO_HOME stands in for the home folder and the profile is a temp
- * folder. Run it after a change to how a screen looks, then check the guide's
- * text against the new pictures.
+ * Your own skills, settings, keychain and a running copy of the app are never
+ * touched: SKILL_STUDIO_HOME stands in for the home folder, the profile is a
+ * temp folder and Chromium's mock keychain stands in for the login keychain.
+ * Run it after a change to how a screen looks, then check the guide's text
+ * against the new pictures.
  */
 import { type ChildProcess, spawn } from 'node:child_process'
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
@@ -171,7 +172,16 @@ async function take(page: Page, shot: Shot): Promise<void> {
 /** Start the built app on the scratch home; resolves with its DevTools port. */
 function launch(home: string, profile: string): Promise<{ app: ChildProcess; port: number }> {
   const electron: string = createRequire(import.meta.url)('electron')
-  const app = spawn(electron, [ROOT, `--user-data-dir=${profile}`, '--remote-debugging-port=0'], {
+  // The mock keychain encrypts with a fixed key and never asks for a password, so
+  // an unattended run cannot stop on a keychain dialog. Fine here: the profile is
+  // thrown away and the only key is a placeholder. Never for a copy with real keys.
+  const args = [
+    ROOT,
+    `--user-data-dir=${profile}`,
+    '--remote-debugging-port=0',
+    '--use-mock-keychain',
+  ]
+  const app = spawn(electron, args, {
     env: { ...process.env, SKILL_STUDIO_HOME: home, TYPESAFE_API_KEY: PLACEHOLDER_KEY },
     stdio: ['ignore', 'ignore', 'pipe'],
   })

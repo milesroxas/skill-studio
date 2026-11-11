@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { appNameOf, boundsOf, devUrlOf, opensToDebugger, pageUrl, placed } from './launch.ts'
+import { appNameOf, boundsOf, devUrlOf, pageUrl, placed, refusedSwitch } from './launch.ts'
 
 describe('pageUrl', () => {
   it('leaves the page as it is when no place is named', () => {
@@ -84,26 +84,30 @@ describe('devUrlOf', () => {
   })
 })
 
-describe('opensToDebugger', () => {
+describe('refusedSwitch', () => {
   const started =
     (...switches: string[]) =>
     (name: string) =>
       switches.includes(name)
 
-  it.each(['remote-debugging-port', 'remote-debugging-pipe', 'remote-debugging-address'])(
-    'is true for a packaged app started with --%s',
-    (name) => {
-      expect(opensToDebugger(true, started(name))).toBe(true)
-      expect(opensToDebugger(true, started('lang', name))).toBe(true)
-    },
-  )
-
-  it('is false for a packaged app started as usual', () => {
-    expect(opensToDebugger(true, started())).toBe(false)
-    expect(opensToDebugger(true, started('lang', 'user-data-dir'))).toBe(false)
+  it.each([
+    'remote-debugging-port',
+    'remote-debugging-pipe',
+    'remote-debugging-address',
+    'remote-allow-origins',
+    'use-mock-keychain',
+  ])('names --%s for a packaged app started with it', (name) => {
+    expect(refusedSwitch(true, started(name))).toBe(name)
+    expect(refusedSwitch(true, started('lang', name))).toBe(name)
   })
 
-  it('is false in development, where the page is debugged from outside', () => {
-    expect(opensToDebugger(false, started('remote-debugging-port'))).toBe(false)
+  it('is nothing for a packaged app started as usual', () => {
+    expect(refusedSwitch(true, started())).toBeUndefined()
+    expect(refusedSwitch(true, started('lang', 'user-data-dir'))).toBeUndefined()
+  })
+
+  it('is nothing in development, where the page is debugged from outside', () => {
+    expect(refusedSwitch(false, started('remote-debugging-port'))).toBeUndefined()
+    expect(refusedSwitch(false, started('use-mock-keychain'))).toBeUndefined()
   })
 })

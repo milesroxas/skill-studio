@@ -91,22 +91,28 @@ export const appNameOf = (packaged: boolean, name: string): string =>
   packaged ? name : `${name} Dev`
 
 /**
- * Chromium switches that open the page, and with it the preload's bridge, to
- * a debugger outside the app. Node's own (`--inspect` and the like,
- * `NODE_OPTIONS`) are turned off by the fuses in electron-builder.yml; these
- * are Chromium's, which no fuse covers.
+ * Chromium switches a packaged app refuses. The remote debugging ones open the
+ * page, and with it the preload's bridge, to a debugger outside the app. Node's
+ * own (`--inspect` and the like, `NODE_OPTIONS`) are turned off by the fuses in
+ * electron-builder.yml; these are Chromium's, which no fuse covers.
+ * `use-mock-keychain` has safeStorage encrypt with a fixed key anyone can read,
+ * so a key typed in would be kept in the open.
  */
-const DEBUG_SWITCHES = [
+const REFUSED_SWITCHES = [
   'remote-debugging-port',
   'remote-debugging-pipe',
   'remote-debugging-address',
   'remote-allow-origins',
+  'use-mock-keychain',
 ] as const
 
 /**
- * True when a packaged app was started with a switch that opens it to a
- * debugger: it then quits before it opens a window. A development copy is
- * debugged from outside as a matter of course, so there every switch stands.
+ * The refused switch a packaged app was started with, if any: it then quits
+ * before it opens a window. A development copy is debugged from outside as a
+ * matter of course, and the guide's screenshots run on the mock keychain, so
+ * there every switch stands.
  */
-export const opensToDebugger = (packaged: boolean, hasSwitch: (name: string) => boolean): boolean =>
-  packaged && DEBUG_SWITCHES.some((name) => hasSwitch(name))
+export const refusedSwitch = (
+  packaged: boolean,
+  hasSwitch: (name: string) => boolean,
+): string | undefined => (packaged ? REFUSED_SWITCHES.find((name) => hasSwitch(name)) : undefined)

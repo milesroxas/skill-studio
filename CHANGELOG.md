@@ -6,6 +6,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+### Security
+
+- The app quits when started with `--use-mock-keychain`, as it does with a remote debugging switch. Started that way, it would have stored a key you typed under a fixed key anyone can read, not the keychain's.
+
 ## [0.6.1] - 2026-11-11
 
 ### Changed

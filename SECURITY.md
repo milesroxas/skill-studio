@@ -49,7 +49,7 @@ Skill Studio runs coding agents and executes the code they write. Treat every sk
 
 - The renderer runs sandboxed, with context isolation and no Node. It reaches the main process only through the preload bridge, and every IPC message is checked against the sending frame's origin.
 - Pages load from the `studio://` scheme under a Content Security Policy that allows the app's own scripts only. Navigation away from the app, new windows and permission requests are refused; web links open in the default browser.
-- The packaged app runs only the code in its own archive. It cannot be started as plain Node, and it ignores `NODE_OPTIONS` and Node's `--inspect` flags. It loads its page from the archive whatever its environment names, and it quits at once when started with one of Chromium's remote debugging switches (`--remote-debugging-port` and the like). On macOS and Windows it refuses an archive changed after the build.
+- The packaged app runs only the code in its own archive. It cannot be started as plain Node, and it ignores `NODE_OPTIONS` and Node's `--inspect` flags. It loads its page from the archive whatever its environment names, and it quits at once when started with one of Chromium's remote debugging switches (`--remote-debugging-port` and the like) or with `--use-mock-keychain`, which would keep keys under a fixed key anyone can read. On macOS and Windows it refuses an archive changed after the build.
 - A way for a page, including an artifact, to reach Node, the file system or an operation it should not is in scope.
 
 ### Keys

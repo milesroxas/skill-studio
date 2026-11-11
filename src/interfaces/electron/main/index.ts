@@ -15,7 +15,7 @@ import electronUpdater from 'electron-updater'
 import { APP_ORIGIN, CHANNELS } from '../channels.ts'
 import { Backend } from './backend.ts'
 import { registerIpc } from './ipc.ts'
-import { appNameOf, devUrlOf, opensToDebugger } from './launch.ts'
+import { appNameOf, devUrlOf, refusedSwitch } from './launch.ts'
 import { installMenu } from './menu.ts'
 import { handleSchemes, registerSchemes } from './protocol.ts'
 import { pageRenderer } from './render.ts'
@@ -50,9 +50,11 @@ if (!app.isPackaged && !app.commandLine.hasSwitch('user-data-dir')) {
 }
 
 // A packaged app started with a remote debugging switch would hand its page, and the
-// bridge on it, to whatever connects: it goes before it opens a window or starts the backend.
-if (opensToDebugger(app.isPackaged, (name) => app.commandLine.hasSwitch(name))) {
-  console.error('Skill Studio does not start with a remote debugging switch.')
+// bridge on it, to whatever connects; with the mock keychain it would keep keys in the
+// open. It goes before it opens a window or starts the backend.
+const refused = refusedSwitch(app.isPackaged, (name) => app.commandLine.hasSwitch(name))
+if (refused) {
+  console.error(`Skill Studio does not start with --${refused}.`)
   app.exit(1)
 } else if (!app.requestSingleInstanceLock()) app.quit()
 else {
