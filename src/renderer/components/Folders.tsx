@@ -23,17 +23,11 @@ export function Folders({
   workspaces,
   save,
   report,
-  variant = 'outline',
-  explain = true,
 }: {
   workspaces: string[]
   /** Store the new list; `done` says what changed, for the status line. Settles when the list is stored. */
   save: (list: string[], done: string) => Promise<unknown>
   report: Reporter
-  /** The add button's weight: filled where adding a folder is the step to take. */
-  variant?: 'default' | 'outline'
-  /** Say which folders are always read. Off where the words around the list already say it. */
-  explain?: boolean
 }) {
   /** A change to the list is on its way: every control of the list waits for it. A failed one is said on the status line. */
   const [busy, run] = useAction(report)
@@ -52,12 +46,10 @@ export function Folders({
   const { chooseFolder } = api
   return (
     <Stack gap="md">
-      {explain ? (
-        <Hint>
-          Skill Studio always reads the skills in {USER_FOLDERS}. It also finds every project with a
-          skills folder up to three levels inside the folders below.
-        </Hint>
-      ) : null}
+      <Hint>
+        Skill Studio always reads the skills in {USER_FOLDERS}. It also finds every project with a
+        skills folder up to three levels inside the folders below.
+      </Hint>
       {workspaces.length ? (
         <PlainList>
           {workspaces.map((w) => (
@@ -90,7 +82,7 @@ export function Folders({
         <Toolbar>
           <Button
             type="button"
-            variant={variant}
+            variant="outline"
             busy={busy}
             busyLabel="Saving…"
             onClick={() =>
@@ -104,7 +96,7 @@ export function Folders({
           </Button>
         </Toolbar>
       ) : (
-        <TypedFolder variant={variant} busy={busy} onAdd={add} />
+        <TypedFolder busy={busy} onAdd={add} />
       )}
     </Stack>
   )
@@ -112,11 +104,9 @@ export function Folders({
 
 /** A folder typed by its path, where no dialog can pick one. */
 function TypedFolder({
-  variant,
   busy,
   onAdd,
 }: {
-  variant: 'default' | 'outline'
   busy: boolean
   /** Resolves true once the folder is in the list. */
   onAdd: (folder: string) => Promise<boolean>
@@ -148,7 +138,7 @@ function TypedFolder({
         />
         <Button
           type="submit"
-          variant={variant}
+          variant="outline"
           disabled={!adding.trim()}
           busy={busy}
           busyLabel="Saving…"

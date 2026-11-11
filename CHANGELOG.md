@@ -6,9 +6,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
-### Changed
-
-- In SKILL.md, resting the pointer on a word the writing checks underlined opens a note under it that says what the check found, the same lines the popout lists. Before, the reason was a system tooltip that took a second or more to show, when it showed at all. The word is tinted while its note is open.
+## [0.7.0] - 2026-11-11
 
 ### Added
 
@@ -27,6 +25,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - On a narrow window the top bar keeps the screen's name: the "No Jev key" badge gives way first, then "Next:" before the step's name. The Assistant button no longer shrinks.
 - The top bar's right end reads as three groups: the "No Jev key" warning, then the next step and Run, then Help and the Assistant. The warning is now a quiet amber dot and label at the height of the buttons beside it, not a smaller filled badge.
 - On a narrow window the Skill screen opens on the document: its files, versions and inserts follow it. The file's name keeps its own row above Save, and the formatting tools scroll with the text.
+- In SKILL.md, resting the pointer on a word the writing checks underlined opens a note under it that says what the check found, the same lines the popout lists. Before, the reason was a system tooltip that took a second or more to show, when it showed at all. The word is tinted while its note is open.
 
 ### Security
 
