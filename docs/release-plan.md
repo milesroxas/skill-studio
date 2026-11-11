@@ -4,9 +4,9 @@ The plan for the next release: what is in it, what is still to do, and the check
 
 | | |
 | --- | --- |
-| Version | 0.5.1 |
-| Status | Released 2026-11-10, [v0.5.1](https://github.com/milesroxas/skill-studio/releases/tag/v0.5.1) |
-| Previous release | [v0.5.0](https://github.com/milesroxas/skill-studio/releases/tag/v0.5.0), 2026-11-10 |
+| Version | 0.5.2 |
+| Status | Releasing 2026-11-10 |
+| Previous release | [v0.5.1](https://github.com/milesroxas/skill-studio/releases/tag/v0.5.1), 2026-11-10 |
 | Target date | 2026-11-10 |
 | Owner | Miles Roxas |
 
@@ -21,9 +21,11 @@ The version follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html): 
 
 ## Shipped to main
 
-Everything merged since v0.5.0.
+Everything merged since v0.5.1.
 
-- [x] Download names carry no version, so `releases/latest/download/<name>` links stay put (3f7e1be).
+- [x] The design check strips every tag from a page title (afff191).
+- [x] README download links for each platform (0ea8fa6).
+- [x] The rule guide reworded in Skill Studio's own terms, and the course it comes from credited (ef7c390).
 
 ## Planned
 
@@ -42,19 +44,19 @@ Checks that are not covered by `pnpm check`.
 - [ ] Run the assistant live on each provider that has only been typechecked: the Anthropic API, OpenAI and Codex. Claude Code has been run live; the other three have not.
 - [ ] Send a picture to the assistant on the Anthropic API, OpenAI and Codex paths. Jev and Claude Code have been run live with a picture.
 - [ ] Go through the welcome at 110% zoom. Its window grows with the zoom, so the page keeps its 760 x 600; this has not been seen at a real 110%.
-- [x] Once the release is out, open each `releases/latest/download/` link in [releasing.md](releasing.md#updates) and check it fetches the new file: all four fetch 0.5.1, and each `latest*.yml` names the new files. 2026-11-10.
-- [x] Update an installed 0.5.0 to this release: the released 0.5.0, on a scratch home, found 0.5.1, downloaded 7% of it as a differential download, passed Squirrel's check and showed **Restart to update**. 2026-11-10.
+- [ ] Once the release is out, open each `releases/latest/download/` link in [releasing.md](releasing.md#updates) and check it fetches the new file.
+- [ ] Update an installed 0.5.1 to this release and see **Restart to update**.
 
 ## Release checklist
 
 The steps in [releasing.md](releasing.md), in order.
 
 1. [x] Every item under "Planned" is shipped or moved to "Later".
-2. [ ] Every item under "Before the release" is done. Not for 0.5.1: a patch that only renames the downloads, so the four unchecked items carry to the next release.
+2. [ ] Every item under "Before the release" is done. Not for 0.5.2: a patch that rewords guide text and fixes one check, so the four unchecked items carry to the next release.
 3. [x] `pnpm check` and `pnpm build` pass on `main`.
-4. [ ] `gh workflow run release` builds every platform. Not run for 0.5.1; the tag's own run built every platform.
-5. [x] In the changelog, rename `## [Unreleased]` to `## [0.5.1] - 2026-11-10`, start a new `## [Unreleased]` above it, and commit.
-6. [x] `pnpm version patch -m "Release %s"`, then `git push --follow-tags`.
-7. [x] The release workflow publishes v0.5.1, with the changelog entry as its notes.
-8. [x] A running 0.5.0 finds the update and shows **Restart to update**.
+4. [ ] `gh workflow run release` builds every platform. Not run for 0.5.2; the tag's own run builds every platform.
+5. [x] In the changelog, rename `## [Unreleased]` to `## [0.5.2] - 2026-11-10`, start a new `## [Unreleased]` above it, and commit.
+6. [ ] `pnpm version patch -m "Release %s"`, then `git push --follow-tags`.
+7. [ ] The release workflow publishes v0.5.2, with the changelog entry as its notes.
+8. [ ] A running 0.5.1 finds the update and shows **Restart to update**.
 9. [ ] Start the plan for the next version.
