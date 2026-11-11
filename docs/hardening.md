@@ -48,8 +48,8 @@ Severity: **high** gives wrong scores or loses data. **med** misleads or breaks 
 
 ## Picks and corrections
 
-- [x] **V1** med. A pick is made with both scores, their difference and what each output missed on screen, so Jev's reading can sway the pick it is then set against. `src/renderer/components/Comparison.tsx` Fixed: Results asks for no pick. What the reader says is a correction to one verdict, or a check or rule they write.
-- [x] **V2** low. A case counts as compared once the pair it opens with has a pick. With two samples per version, the other samples are never asked about. `src/domain/pairs.ts` (`defaultPair`), `src/renderer/model.ts` (`casePair`), `src/renderer/App.tsx` Fixed with V1: no case waits on a pick.
+- [x] **V1** med. A pick is made with both scores, their difference and what each output missed on screen, so Jev's reading can sway the pick it is then set against. `src/renderer/components/Comparison.tsx` Fixed: Results asks for no pick. What the reader says is a correction to one verdict, or a check or rule they write. `03af4fc`
+- [x] **V2** low. A case counts as compared once the pair it opens with has a pick. With two samples per version, the other samples are never asked about. `src/domain/pairs.ts` (`defaultPair`), `src/renderer/model.ts` (`casePair`), `src/renderer/App.tsx` Fixed with V1: no case waits on a pick. `03af4fc`
 - [ ] **V3** low. `skill.correct` takes any text up to 4,000 characters as a verdict's name: an answer on a fact the output does not have is stored and never read. `src/application/api/operations.ts`, `src/infrastructure/reviews.ts` (`saveCorrection`)
 
 ## Anchors
