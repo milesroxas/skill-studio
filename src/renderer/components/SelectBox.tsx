@@ -50,6 +50,8 @@ interface Props extends VariantProps<typeof triggerVariants> {
   id?: string
   'aria-label'?: string
   size?: 'sm' | 'default'
+  /** `caption`: a value in a line of meta, changed where it is read. A field otherwise. */
+  variant?: 'field' | 'caption'
   disabled?: boolean
 }
 
@@ -61,12 +63,22 @@ export function SelectBox({
   none,
   id,
   size,
+  variant,
   width,
   disabled,
   ...aria
 }: Props) {
+  // A caption's list hangs from it, clear of the line it sits in, and is one line a row: laid
+  // over a control a quarter its size, a field's list hides what was picked and runs off the window.
+  const caption = variant === 'caption'
   const item = (o: SelectOption) => (
-    <SelectItem key={o.value} value={o.value} disabled={o.disabled} detail={o.detail}>
+    <SelectItem
+      key={o.value}
+      value={o.value}
+      disabled={o.disabled}
+      detail={o.detail}
+      detailPlace={caption ? 'end' : 'under'}
+    >
       {o.label}
     </SelectItem>
   )
@@ -81,13 +93,17 @@ export function SelectBox({
       <SelectTrigger
         id={id}
         size={size}
+        variant={variant}
         className={triggerVariants({ width })}
         aria-label={aria['aria-label']}
         title={chosen?.detail ? `${chosen.label} · ${chosen.detail}` : undefined}
       >
         <SelectValue />
       </SelectTrigger>
-      <SelectContent>
+      <SelectContent
+        position={caption ? 'popper' : 'item-aligned'}
+        align={caption ? 'start' : 'center'}
+      >
         {none ? <SelectItem value={NONE}>{none}</SelectItem> : null}
         {options.map(item)}
         {groups.map((g) => (

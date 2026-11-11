@@ -1,11 +1,12 @@
 /**
  * The stage: an output as a browser draws it, big enough to judge. A page is
- * drawn at the width the reader picks and scaled down to fit, never up; a
- * picture is fitted whole, or shown at its own size. Both outputs stand on the
- * stage at once with one in view, so flipping between them is instant, and a
- * page that scrolls tells the other to scroll with it: each flip lands on the
- * same part of both. Under it, a line says the size drawn and how it is
- * scaled, with one action on what is in view at its end.
+ * drawn at the width the reader picks and scaled down to fit, never up; given
+ * a height too, the size its case names, it is fitted whole, as a picture is.
+ * Both outputs stand on the stage at once with one in view, so flipping
+ * between them is instant, and a page that scrolls tells the other to scroll
+ * with it: each flip lands on the same part of both. Under it, a line says the
+ * size drawn and how it is scaled, led by what changes that size and ended by
+ * one action on what is in view.
  */
 import type { Artifact } from '@domain/schemas.ts'
 import {
@@ -18,7 +19,7 @@ import {
 } from 'react'
 import { api } from '../api.ts'
 import { cn } from '../lib/utils.ts'
-import { ArtifactView } from './Artifact.tsx'
+import { ArtifactView, pageCaption, scaleText } from './Artifact.tsx'
 import { Hint, Text } from './text.tsx'
 
 export type Side = 'a' | 'b'
@@ -32,6 +33,8 @@ export interface StageLayer {
   artifact: Artifact | null
   /** The output's name, for the frame's title. */
   name: string
+  /** Something to read in place of a file, such as the steps the agent took. */
+  reading?: ReactNode
 }
 
 interface Box {
@@ -47,13 +50,11 @@ interface Geometry {
   caption: string
 }
 
-const percent = (scale: number): string =>
-  scale >= 1 ? 'actual size' : `shown at ${Math.round(scale * 100)}%`
-
 function geometry(
   artifact: Artifact | null,
   box: Box,
   width: number | null,
+  height: number | null,
   natural: Box | undefined,
 ): Geometry {
   const whole: Geometry = {
@@ -62,13 +63,21 @@ function geometry(
   }
   if (artifact?.kind === 'html') {
     const drawn = width ?? Math.round(box.width)
-    const scale = Math.min(1, box.width / drawn)
+    // A page with a height is the whole of what its case asks for: all of it shows.
+    const tall = width === null ? null : height
+    const scale = Math.min(1, box.width / drawn, tall ? box.height / tall : 1)
     const shown = drawn * scale
+    const high = tall ? tall * scale : box.height
     return {
-      frame: { left: (box.width - shown) / 2, top: 0, width: shown, height: box.height },
-      page: { width: drawn, height: box.height / scale, transform: `scale(${scale})` },
-      caption:
-        width === null ? `${drawn} px · the stage’s width` : `${drawn} px · ${percent(scale)}`,
+      frame: {
+        left: (box.width - shown) / 2,
+        top: (box.height - high) / 2,
+        width: shown,
+        height: high,
+      },
+      page: { width: drawn, height: high / scale, transform: `scale(${scale})` },
+      // The size's name is in the control that leads the line; this is what the name leaves out.
+      caption: pageCaption({ width }, drawn, scale),
     }
   }
   if (artifact?.kind === 'image' && natural) {
@@ -77,7 +86,7 @@ function geometry(
     const h = natural.height * scale
     return {
       frame: { left: (box.width - w) / 2, top: (box.height - h) / 2, width: w, height: h },
-      caption: `${natural.width} × ${natural.height} · ${percent(scale)}`,
+      caption: `${natural.width} × ${natural.height} · ${scaleText(scale)}`,
     }
   }
   return whole
@@ -87,7 +96,9 @@ export function Stage({
   layers,
   shown,
   width,
+  height = null,
   onFlip,
+  lead,
   action,
 }: {
   layers: StageLayer[]
@@ -95,8 +106,16 @@ export function Stage({
   shown: Side
   /** The width a page is drawn at, in CSS pixels; null for the stage's own. */
   width: number | null
+  /** The height a page is drawn at with that width, fitted whole; null to fill the stage's height. */
+  height?: number | null
   /** A or B was pressed while a page had the focus. */
   onFlip: (side: Side) => void
+  /**
+   * What changes the size the line states, at its start: a `SelectBox
+   * variant="caption"`, which stands 8px before the stage's edge so its text,
+   * not the box that shows on hover, starts where the stage does.
+   */
+  lead?: ReactNode
   /**
    * One thing to do with the output in view, at the end of the size line: a
    * `ghost-muted` `xs` button, which stands 8px past the stage's edge so its
@@ -146,6 +165,7 @@ export function Stage({
           layer.artifact,
           size,
           width,
+          height,
           layer.artifact ? natural[urlOf(layer, layer.artifact)] : undefined,
         )
       : null,
@@ -158,9 +178,9 @@ export function Stage({
         <div ref={box} className="absolute inset-4">
           {placed.map(({ layer, geometry: g }) => {
             if (!g) return null
-            const { artifact } = layer
+            const { artifact, reading } = layer
             const on = layer.side === shown
-            const page = artifact?.kind === 'html' || artifact?.kind === 'image'
+            const page = !reading && (artifact?.kind === 'html' || artifact?.kind === 'image')
             return (
               <div
                 key={layer.side}
@@ -173,7 +193,9 @@ export function Stage({
                 )}
                 style={g.frame}
               >
-                {!artifact ? (
+                {reading ? (
+                  reading
+                ) : !artifact ? (
                   <Hint inset>This output wrote no file to show here.</Hint>
                 ) : artifact.kind === 'html' ? (
                   <iframe
@@ -206,8 +228,9 @@ export function Stage({
         </div>
       </div>
       {/* Kept from the first frame, so nothing moves when a picture loads and its size is known. */}
-      <div className="flex min-h-6 items-center gap-3">
-        <Text font="mono" size="xs" tone="muted" tabular>
+      <div className="flex min-h-6 items-center gap-1">
+        {lead ? <span className="-ml-2">{lead}</span> : null}
+        <Text size="xs" tone="muted" tabular>
           {caption}
         </Text>
         {action ? <span className="-mr-2 ml-auto">{action}</span> : null}

@@ -1,4 +1,5 @@
 import { cn } from '@renderer/lib/utils.ts'
+import { cva, type VariantProps } from 'class-variance-authority'
 import { CheckIcon, ChevronDownIcon, ChevronUpIcon } from 'lucide-react'
 import { Select as SelectPrimitive } from 'radix-ui'
 import type * as React from 'react'
@@ -16,27 +17,46 @@ function SelectValue({ ...props }: React.ComponentProps<typeof SelectPrimitive.V
   return <SelectPrimitive.Value data-slot="select-value" {...props} />
 }
 
+const selectTriggerVariants = cva(
+  'flex w-fit items-center justify-between whitespace-nowrap focus-ring disabled:cursor-not-allowed disabled:opacity-50 *:data-[slot=select-value]:block *:data-[slot=select-value]:min-w-0 *:data-[slot=select-value]:truncate [&_svg]:pointer-events-none [&_svg]:shrink-0',
+  {
+    variants: {
+      variant: {
+        /** A field: the edge and fill every field has. */
+        field: `${FIELD_SURFACE} gap-2 rounded-sm px-3 py-2 text-sm transition-[color,box-shadow] data-[state=open]:border-ring aria-invalid:border-destructive data-[placeholder]:text-muted-foreground data-[size=default]:h-9 data-[size=sm]:h-8 dark:hover:bg-input/50 [&_svg:not([class*='size-'])]:size-4 [&_svg:not([class*='text-'])]:text-muted-foreground`,
+        /**
+         * A value in a line of meta that can be changed where it is read: `xs`
+         * and muted, with no edge, lit as a `ghost-muted` button is when
+         * pointed at or open. 24px to look at, 44px under a finger.
+         */
+        caption:
+          "h-6 gap-1 rounded-sm px-2 text-xs text-muted-foreground transition-[color,background-color] duration-150 ease-out hover:bg-accent hover:text-foreground focus-key:text-foreground data-[state=open]:bg-accent data-[state=open]:text-foreground dark:hover:bg-accent/50 dark:data-[state=open]:bg-accent/50 pointer-coarse:relative pointer-coarse:before:absolute pointer-coarse:before:inset-x-0 pointer-coarse:before:-inset-y-2.5 [&_svg:not([class*='size-'])]:size-3",
+      },
+    },
+    defaultVariants: { variant: 'field' },
+  },
+)
+
 function SelectTrigger({
   className,
   size = 'default',
+  variant,
   children,
   ...props
-}: React.ComponentProps<typeof SelectPrimitive.Trigger> & {
-  size?: 'sm' | 'default'
-}) {
+}: React.ComponentProps<typeof SelectPrimitive.Trigger> &
+  VariantProps<typeof selectTriggerVariants> & {
+    size?: 'sm' | 'default'
+  }) {
   return (
     <SelectPrimitive.Trigger
       data-slot="select-trigger"
       data-size={size}
-      className={cn(
-        `${FIELD_SURFACE} flex w-fit items-center justify-between gap-2 rounded-sm px-3 py-2 text-sm whitespace-nowrap transition-[color,box-shadow] focus-ring data-[state=open]:border-ring disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive data-[placeholder]:text-muted-foreground data-[size=default]:h-9 data-[size=sm]:h-8 *:data-[slot=select-value]:block *:data-[slot=select-value]:min-w-0 *:data-[slot=select-value]:truncate dark:hover:bg-input/50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 [&_svg:not([class*='text-'])]:text-muted-foreground`,
-        className,
-      )}
+      className={cn(selectTriggerVariants({ variant }), className)}
       {...props}
     >
       {children}
       <SelectPrimitive.Icon asChild>
-        <ChevronDownIcon className="size-4 opacity-50" />
+        <ChevronDownIcon className="opacity-50" />
       </SelectPrimitive.Icon>
     </SelectPrimitive.Trigger>
   )
@@ -93,8 +113,15 @@ function SelectItem({
   className,
   children,
   detail,
+  detailPlace = 'under',
   ...props
 }: React.ComponentProps<typeof SelectPrimitive.Item> & {
+  /**
+   * Where the detail goes. `under`, the default: a second line, for a sentence
+   * about the item. `end`: on the item's own line at its far edge, for a short
+   * value such as a size, so a short list stays one line a row.
+   */
+  detailPlace?: 'under' | 'end'
   /**
    * A quieter line under the item's name, in the list only: the trigger shows
    * the name alone, so a long list can say more than its field has room for.
@@ -118,7 +145,12 @@ function SelectItem({
           <CheckIcon className="size-4" />
         </SelectPrimitive.ItemIndicator>
       </span>
-      {detail ? (
+      {detail && detailPlace === 'end' ? (
+        <>
+          <SelectPrimitive.ItemText>{children}</SelectPrimitive.ItemText>
+          <span className="ml-auto pl-6 text-xs text-muted-foreground tabular-nums">{detail}</span>
+        </>
+      ) : detail ? (
         <div className="flex min-w-0 flex-col">
           <SelectPrimitive.ItemText>{children}</SelectPrimitive.ItemText>
           <span className="text-xs text-muted-foreground">{detail}</span>

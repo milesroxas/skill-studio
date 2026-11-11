@@ -4,6 +4,7 @@
  * written once and drawn either way, so the two never drift apart. The width
  * of the table decides, not the window's (the `bleed` table is the container),
  * at the width a `fold="first"` column goes. Its head takes `fold="menu"`.
+ * `MoreActions` is the menu alone, outside a table.
  */
 
 import { EllipsisIcon } from 'lucide-react'
@@ -46,6 +47,55 @@ function walk(event: KeyboardEvent<HTMLDivElement>) {
   items[step(at, items.length)]?.focus()
 }
 
+/** The "More actions" button and the menu it opens, holding `RowAction`s. */
+function Menu({ subject, children }: { subject: string; children: ReactNode }) {
+  const [open, setOpen] = useState(false)
+  /** Opened by a pointer: the menu takes the focus, not its first item, as a native menu does. */
+  const pointed = useRef(false)
+  const menu = useRef<HTMLDivElement>(null)
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button
+          type="button"
+          variant="ghost-muted"
+          size="icon-sm"
+          aria-label={`More actions for ${subject}`}
+          aria-haspopup="menu"
+          title="More actions"
+          onPointerDown={() => {
+            pointed.current = true
+          }}
+          onKeyDown={() => {
+            pointed.current = false
+          }}
+        >
+          <EllipsisIcon aria-hidden="true" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent
+        size="actions"
+        align="end"
+        role="menu"
+        aria-label={`Actions for ${subject}`}
+        // A wider table puts the actions back in the row: the menu goes with its button.
+        hideWhenDetached
+        ref={menu}
+        onOpenAutoFocus={(event) => {
+          if (!pointed.current) return
+          event.preventDefault()
+          menu.current?.focus()
+        }}
+        onKeyDown={walk}
+      >
+        <PlaceContext.Provider value={{ in: 'menu', subject, close: () => setOpen(false) }}>
+          {children}
+        </PlaceContext.Provider>
+      </PopoverContent>
+    </Popover>
+  )
+}
+
 export function RowActions({
   subject,
   children,
@@ -55,12 +105,7 @@ export function RowActions({
   /** `RowAction`s; none, and nothing is drawn. */
   children: ReactNode
 }) {
-  const [open, setOpen] = useState(false)
-  /** Opened by a pointer: the menu takes the focus, not its first item, as a native menu does. */
-  const pointed = useRef(false)
-  const menu = useRef<HTMLDivElement>(null)
   if (!Children.toArray(children).length) return null
-  const label = `More actions for ${subject}`
   return (
     <>
       <div className="@max-2xl:hidden">
@@ -70,49 +115,28 @@ export function RowActions({
       </div>
       <div className="@2xl:hidden">
         <Toolbar justify="end" wrap={false} line>
-          <Popover open={open} onOpenChange={setOpen}>
-            <PopoverTrigger asChild>
-              <Button
-                type="button"
-                variant="ghost-muted"
-                size="icon-sm"
-                aria-label={label}
-                aria-haspopup="menu"
-                title="More actions"
-                onPointerDown={() => {
-                  pointed.current = true
-                }}
-                onKeyDown={() => {
-                  pointed.current = false
-                }}
-              >
-                <EllipsisIcon aria-hidden="true" />
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent
-              size="actions"
-              align="end"
-              role="menu"
-              aria-label={`Actions for ${subject}`}
-              // A wider table puts the actions back in the row: the menu goes with its button.
-              hideWhenDetached
-              ref={menu}
-              onOpenAutoFocus={(event) => {
-                if (!pointed.current) return
-                event.preventDefault()
-                menu.current?.focus()
-              }}
-              onKeyDown={walk}
-            >
-              <PlaceContext.Provider value={{ in: 'menu', subject, close: () => setOpen(false) }}>
-                {children}
-              </PlaceContext.Provider>
-            </PopoverContent>
-          </Popover>
+          <Menu subject={subject}>{children}</Menu>
         </Toolbar>
       </div>
     </>
   )
+}
+
+/**
+ * The same menu at every width, for what is done to a column's subject now and
+ * then: the actions a header would otherwise show beside the one its reader
+ * came for. It holds `RowAction`s; none, and nothing is drawn.
+ */
+export function MoreActions({
+  subject,
+  children,
+}: {
+  /** What the actions are done to, such as a case's name. */
+  subject: string
+  children: ReactNode
+}) {
+  if (!Children.toArray(children).length) return null
+  return <Menu subject={subject}>{children}</Menu>
 }
 
 export function RowAction({

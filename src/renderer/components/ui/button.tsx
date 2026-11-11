@@ -53,7 +53,8 @@ const buttonVariants = cva(
       size: {
         default:
           'h-9 px-4 py-2 data-[icon=lead]:pl-3.5 data-[icon=trail]:pr-3.5 data-[icon=both]:px-3.5',
-        xs: "h-6 gap-1 rounded-sm px-2 text-xs data-[icon=lead]:pl-1.5 data-[icon=trail]:pr-1.5 data-[icon=both]:px-1.5 [&_svg:not([class*='size-'])]:size-3",
+        /** 24px to look at. Under a finger its hit area reaches 10px past the box above and below (44px). */
+        xs: "h-6 gap-1 rounded-sm px-2 text-xs data-[icon=lead]:pl-1.5 data-[icon=trail]:pr-1.5 data-[icon=both]:px-1.5 pointer-coarse:relative pointer-coarse:before:absolute pointer-coarse:before:inset-x-0 pointer-coarse:before:-inset-y-2.5 [&_svg:not([class*='size-'])]:size-3",
         /**
          * 32px to look at. Under a finger its hit area reaches 6px past the box
          * above and below (44px); a row of them needs 12px between its lines.

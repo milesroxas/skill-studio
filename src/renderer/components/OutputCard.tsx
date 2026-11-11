@@ -16,7 +16,8 @@ export function OutputCardHead({
   action,
   meta,
 }: {
-  slot: ReactNode
+  /** Its letter beside another output; none for an output read alone. */
+  slot?: ReactNode
   title: ReactNode
   total?: ReactNode
   /**
@@ -28,12 +29,17 @@ export function OutputCardHead({
   meta?: ReactNode
 }) {
   return (
-    <header className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-x-2.5 gap-y-0.5 border-b px-4 py-3">
+    <header
+      className={cn(
+        'grid items-center gap-x-2.5 gap-y-0.5 border-b px-4 py-3',
+        slot ? 'grid-cols-[auto_minmax(0,1fr)_auto]' : 'grid-cols-[minmax(0,1fr)_auto]',
+      )}
+    >
       {slot}
       <span className="font-semibold">{title}</span>
       <span>{total}</span>
       {meta || action ? (
-        <span className="col-start-2 -col-end-1 flex flex-wrap items-baseline gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
+        <span className="-col-start-3 -col-end-1 flex flex-wrap items-baseline gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
           {meta}
           {action ? <span className="-mr-2 ml-auto">{action}</span> : null}
         </span>

@@ -8,6 +8,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Changed
 
+- Results shows fewer controls over an output, and each stands with what it changes. The pair is one line, **Comparing v0 with v1**, that opens to the **A** and **B** menus and **Swap**. **Edit case** and **Regrade this run** are under **More actions** (⋯) at the top right, and Regrade names the run, since it grades the whole run. An output with no score still shows **Grade** on its card.
+- A page's size is changed where it is read, in the line under the stage, and only a page shows it. **Phone**, **Tablet**, **Desktop** and **Full width** are in that menu, and a page starts at the stage's own width, not at Desktop. A case with a size opens at **Case size** and shows the whole page at it. Under **Side by side** a page has the same menu and is scaled down to fit its card. Before, a card showed only the corner of a page wider than it.
+- An output's files are one menu beside **A** and **B**, with **Transcript** in it, so the agent's steps can be read on the stage too. Before, the files were a row of names that ran into the widths.
+- **Flip** is **One at a time**. The views show only with two outputs to compare.
+- What an output is decides how its case opens: a page or a picture on the stage, two outputs of code as their diff, anything else as cards. A picture written beside a note no longer puts the note's case on the stage. A skill graded only as workflow opens on the transcript.
 - The Run panel says what it tests in plain words: **Test this skill**, **Test your edits**, **Test v2 again**, and one line on what comes of it. Its button names the run, **Run 3 cases** or **Run 3 cases, 2 attempts each**, in place of **Start a run** over a count of outputs, samples and agent sessions. The line under the button says which agent answers the cases and that Jev grades the results.
 - Under Options, **Write with** is now **Skill**, **Copy from** is **Version**, and **Samples per case** is **Attempts per case**. An agent that is not set up says how to set it up under **Agent**.
 - What stops a run, or makes it grade less, shows as a warning: no Jev key, files not saved, no agent set up. With no case ticked the button says **Tick a case to run**. Before, each was a grey line of help text.

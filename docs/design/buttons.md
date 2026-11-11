@@ -72,7 +72,7 @@ Is it the next step of the loop, in the top bar?
 | `default` | 36px | forms on a `Screen` |
 | `sm` | 32px | workbench chrome, the top bar, toolbars |
 | `lg` | 40px | the welcome only |
-| `xs` | 24px | inside a dense row |
+| `xs` | 24px, 44px under a finger | inside a dense row, or at the end of a line of meta |
 | `icon`, `icon-sm`, `icon-xs`, `icon-lg` | square | one icon and an `aria-label` |
 | `inline`, `inline-sm` | none | a link in running text, or small under a form |
 | `cell` | 28px | a button filling a table cell |
@@ -148,4 +148,5 @@ The loop is write, run, compare, and running is a button, not a place. So the ne
 - A dialog's confirm button is one verb: "Restart", "Restore", "Delete", "Discard", "Reset". The title above it names the object, so the button does not repeat it. The button that opens the dialog keeps its object: "Restart walkthrough…" opens a dialog whose button says "Restart".
 - Press feedback (`active:scale-[0.96]`) and the focus ring (`focus-ring`: keyboard only, see [color.md](color.md#focus)) are built in. Do not restyle them.
 - Never show an action only on hover. A row's actions are `ghost-muted` at rest, so touch and keyboard reach them.
-- Never hide a row's actions on a narrow window. `RowActions` folds them into a "More actions" menu instead ([data.md](data.md)). A `ghost-muted` button that opens something keeps its hover look while it is open (`data-state="open"`).
+- Never hide a row's actions on a narrow window. `RowActions` folds them into a "More actions" menu instead ([data.md](data.md)).
+- A column header shows the action its reader came for. What is done to the column's subject now and then goes in `MoreActions` (`components/RowActions.tsx`), the same menu at every width, last in the header: Edit case and Regrade on Results. Never put the header's one main action in it. A `ghost-muted` button that opens something keeps its hover look while it is open (`data-state="open"`).

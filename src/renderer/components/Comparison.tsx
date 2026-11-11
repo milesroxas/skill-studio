@@ -10,14 +10,20 @@
  * edit.
  *
  * An output a reader looks at rather than reads, a page or a picture, opens
- * on the stage (`Flip`): drawn as a browser draws it, at a width the reader
- * picks, with A and B in the same place so a flip between them shows what
- * changed. The cards under it keep the scores and what each missed.
+ * on the stage (`Flip`): drawn as a browser draws it, with A and B in the same
+ * place so a flip between them shows what changed. The cards under it keep the
+ * scores and what each missed.
+ *
+ * What an output is decides how it opens, and each file brings its own
+ * controls: only a page has a size to pick. What is done now and then, another
+ * pair, the case's own screen, a grade read again, is folded away, so what
+ * stands over an output is what picks the output.
  */
 
 import { draftOf, newCheck } from '@domain/case-draft.ts'
 import type { Verdict } from '@domain/pack.ts'
 import type { Case } from '@domain/schemas.ts'
+import { PencilIcon, RefreshCwIcon } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
 import { api } from '../api.ts'
 import { caseContext, skillContext } from '../assist.ts'
@@ -41,14 +47,14 @@ import {
   totalOf,
   versionName,
 } from '../model.ts'
+import { type PageSize, usePageSize } from '../stage.ts'
 import {
-  STAGE_WIDTHS,
-  type StageWidth,
-  setStageWidth,
-  stagePixels,
-  useStageWidth,
-} from '../stage.ts'
-import { ArtifactPicker, ArtifactView, OpenFullSize, type OutputView } from './Artifact.tsx'
+  ArtifactPicker,
+  ArtifactView,
+  OpenFullSize,
+  type OutputView,
+  PageSizeSelect,
+} from './Artifact.tsx'
 import { DiffCard } from './DiffCard.tsx'
 import { Disclosure } from './Disclosure.tsx'
 import {
@@ -64,6 +70,7 @@ import {
   Toolbar,
 } from './layout.tsx'
 import { OutputCard, OutputCardHead, Slot } from './OutputCard.tsx'
+import { MoreActions, RowAction } from './RowActions.tsx'
 import { CheckWeight, Delta, Parts, TotalChip } from './Scores.tsx'
 import { Segmented } from './Segmented.tsx'
 import { SelectBox } from './SelectBox.tsx'
@@ -80,7 +87,7 @@ const SLOT_LABEL = { a: 'A', b: 'B' } as const
 type View = 'flip' | 'side' | 'diff'
 
 const VIEWS = [
-  { value: 'flip', label: 'Flip' },
+  { value: 'flip', label: 'One at a time' },
   { value: 'side', label: 'Side by side' },
   { value: 'diff', label: 'Word diff' },
 ] as const satisfies ReadonlyArray<{ value: View; label: string }>
@@ -99,7 +106,7 @@ export function Comparison({
   b: Output | null
 }) {
   const { state, config, outputs, go, report, jobs } = ctx
-  /** The view the reader chose; until then a page or a picture opens on the stage, text side by side. */
+  /** The view the reader chose; until then what the outputs are decides: see `opening`. */
   const [chosen, setChosen] = useState<View | null>(null)
   const testCase = state.cases.find((c) => c.id === caseId) ?? null
   const candidates = outputs.filter((o) => o.caseId === caseId)
@@ -135,9 +142,25 @@ export function Comparison({
 
   const sides = [a, b].filter((o): o is Output => o !== null)
   const drawn = sides.some((o) => drawnOf(o) !== null)
-  // Flip needs something drawn, and a word diff two outputs.
-  const views = VIEWS.filter((v) => (v.value === 'flip' ? drawn : v.value === 'diff' ? both : true))
-  const view: View = views.find((v) => v.value === chosen)?.value ?? (drawn ? 'flip' : 'side')
+  const kinds = sides.map((o) => primaryOf(o)?.kind)
+  // A view is a way to set two outputs against each other: one output has none to choose from.
+  const views = both ? VIEWS.filter((v) => v.value !== 'flip' || drawn) : []
+  /**
+   * How the case opens, by the file that stands for each output: a page or a
+   * picture on the stage, two pieces of code as their diff, anything else as
+   * cards. A picture beside a note does not put the note on the stage.
+   */
+  const opening: View = kinds.some((k) => k === 'html' || k === 'image')
+    ? 'flip'
+    : both && kinds.every((k) => k === 'code')
+      ? 'diff'
+      : 'side'
+  const view: View = views.find((v) => v.value === chosen)?.value ?? opening
+  /** A skill graded only on how the agent worked: its steps are what there is to read. */
+  const stepsFirst = config.packs.length > 0 && config.packs.every((p) => p === 'workflow')
+  const runs = [...new Set(sides.map((o) => o.run.name))]
+  /** The size a page is drawn at: one for the case, on the stage and in both cards. */
+  const page = usePageSize(testCase?.bench.size ?? null)
 
   return (
     <>
@@ -151,16 +174,34 @@ export function Comparison({
         {views.length > 1 ? (
           <Segmented aria-label="View" options={views} value={view} onChange={setChosen} />
         ) : null}
-        {testCase ? (
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={() => go('cases', { id: caseId })}
-          >
-            Edit case
-          </Button>
-        ) : null}
+        <MoreActions subject={caseTitle(state, caseId)}>
+          {testCase ? (
+            <RowAction
+              icon={<PencilIcon aria-hidden="true" />}
+              onSelect={() => go('cases', { id: caseId })}
+            >
+              Edit case
+            </RowAction>
+          ) : null}
+          {runs.map((run) => {
+            const of = sides.filter((o) => o.run.name === run)
+            const verb = of.some((o) => scoreOf(o, config)) ? 'Regrade' : 'Grade'
+            // Grading reads a whole run, so the action names the run, not the output.
+            const whose = runs.length > 1 ? `${of[0] === a ? 'A' : 'B'}’s run` : 'this run'
+            return (
+              <RowAction
+                key={run}
+                icon={<RefreshCwIcon aria-hidden="true" />}
+                title="Jev grades the whole run again."
+                disabled={grade.starting()}
+                busy={grading(run)}
+                onSelect={() => regrade([run])}
+              >
+                {`${verb} ${whose}`}
+              </RowAction>
+            )
+          })}
+        </MoreActions>
       </ColumnHeader>
       <ColumnBody>
         {testCase || candidates.length > 1 || view === 'flip' ? (
@@ -168,37 +209,14 @@ export function Comparison({
           <Stack gap="md">
             {testCase ? <Asked testCase={testCase} /> : null}
             {candidates.length > 1 ? (
-              <div className="grid max-w-3xl grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] items-center gap-x-3">
-                <Picker
-                  slot="a"
-                  outputs={candidates}
-                  value={a}
-                  onChange={(o) => show({ a: o, b })}
-                />
-                <Picker
-                  slot="b"
-                  outputs={candidates}
-                  value={b}
-                  onChange={(o) => show({ a, b: o })}
-                />
-                {both ? (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => show({ a: b, b: a })}
-                  >
-                    Swap
-                  </Button>
-                ) : null}
-              </div>
+              <Pair candidates={candidates} a={a} b={b} show={show} keys={view === 'flip'} />
             ) : null}
             {view === 'flip' ? (
               <Flip
                 key={`${a?.key}|${b?.key}`}
                 a={a}
                 b={b}
-                caseWidth={testCase?.bench.size?.[0] ?? null}
+                page={page}
                 totals={{ a: a ? totalOf(a, config) : null, b: b ? totalOf(b, config) : null }}
               />
             ) : null}
@@ -223,6 +241,8 @@ export function Comparison({
                 held={grade.starting()}
                 onRegrade={() => regrade([a.run.name])}
                 reading={view !== 'flip'}
+                stepsFirst={stepsFirst}
+                page={page}
               />
             ) : null}
             {b ? (
@@ -236,6 +256,8 @@ export function Comparison({
                 held={grade.starting()}
                 onRegrade={() => regrade([b.run.name])}
                 reading={view !== 'flip'}
+                stepsFirst={stepsFirst}
+                page={page}
               />
             ) : null}
           </Columns>
@@ -249,6 +271,58 @@ export function Comparison({
         ) : null}
       </ColumnBody>
     </>
+  )
+}
+
+/**
+ * The pair being read, as one line: it opens on the right two, the version
+ * before and the latest, so the fields that pick another pair are folded
+ * under it with Swap. With neither side picked it stands open.
+ */
+function Pair({
+  candidates,
+  a,
+  b,
+  show,
+  keys,
+}: {
+  candidates: Output[]
+  a: Output | null
+  b: Output | null
+  show: (pair: { a: Output | null; b: Output | null }) => void
+  /** The stage is up, where the A and B keys flip it. */
+  keys: boolean
+}) {
+  const names = outputNames(candidates)
+  // The line says the two versions, which is what tells most pairs apart; two outputs of one
+  // version take the longer names the fields list them by.
+  const short = a && b && versionName(a.run) === versionName(b.run) ? null : versionName
+  const name = (o: Output) => short?.(o.run) ?? names.get(o.key) ?? o.key
+  const one = a ?? b
+  return (
+    <Disclosure
+      summary={
+        a && b
+          ? `Comparing ${name(a)} with ${name(b)}`
+          : one
+            ? `Reading ${name(one)} alone`
+            : 'No output picked'
+      }
+      defaultOpen={!one}
+    >
+      <Stack gap="md">
+        <div className="grid max-w-3xl grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] items-center gap-x-3">
+          <Picker slot="a" outputs={candidates} value={a} onChange={(o) => show({ a: o, b })} />
+          <Picker slot="b" outputs={candidates} value={b} onChange={(o) => show({ a, b: o })} />
+          {a && b ? (
+            <Button type="button" variant="outline" size="sm" onClick={() => show({ a: b, b: a })}>
+              Swap
+            </Button>
+          ) : null}
+        </div>
+        {keys && a && b ? <Hint>Press A or B to switch between them.</Hint> : null}
+      </Stack>
+    </Disclosure>
   )
 }
 
@@ -323,6 +397,8 @@ function Side({
   held,
   onRegrade,
   reading = true,
+  stepsFirst = false,
+  page,
 }: {
   ctx: Ctx
   output: Output
@@ -338,6 +414,10 @@ function Side({
   onRegrade: () => void
   /** The card shows what the output wrote; false when the stage above shows it. */
   reading?: boolean
+  /** The card opens on the agent's steps, where the output kept them. */
+  stepsFirst?: boolean
+  /** The size a page in this card is drawn at. */
+  page: PageSize
 }) {
   const { state, config, go, report, reload } = ctx
   const scored = scoreOf(output, config)
@@ -345,7 +425,9 @@ function Side({
   // The artifact in view, kept by the output's key: a reload after a correction
   // brings a new output object for the same output, and the view holds.
   const [picked, setPicked] = useState<{ key: string; view: OutputView | null } | null>(null)
-  const view = picked?.key === output.key ? picked.view : primaryOf(output)
+  const opening: OutputView | null =
+    stepsFirst && output.sample.hasTranscript ? 'transcript' : primaryOf(output)
+  const view = picked?.key === output.key ? picked.view : opening
   const setView = (next: OutputView | null) => setPicked({ key: output.key, view: next })
   const [pending, setPending] = useState<string | null>(null)
   const delta =
@@ -377,7 +459,7 @@ function Side({
   return (
     <OutputCard>
       <OutputCardHead
-        slot={slot ? <Slot variant="letter">{SLOT_LABEL[slot]}</Slot> : <Slot>Output</Slot>}
+        slot={slot ? <Slot variant="letter">{SLOT_LABEL[slot]}</Slot> : undefined}
         title={`${versionName(output.run)}${configurationTail(output.run)}`}
         total={
           <>
@@ -386,17 +468,21 @@ function Side({
           </>
         }
         action={
-          <Button
-            type="button"
-            variant="ghost-muted"
-            size="xs"
-            disabled={held}
-            busy={grading}
-            busyLabel="Grading…"
-            onClick={onRegrade}
-          >
-            {scored ? 'Regrade' : 'Grade'}
-          </Button>
+          // Grading is the next step for an output with no score. One with a score is graded
+          // again from the header's menu, and says so here while it is.
+          !scored || grading ? (
+            <Button
+              type="button"
+              variant="ghost-muted"
+              size="xs"
+              disabled={held}
+              busy={grading}
+              busyLabel="Grading…"
+              onClick={onRegrade}
+            >
+              Grade
+            </Button>
+          ) : undefined
         }
         meta={
           <>
@@ -443,7 +529,12 @@ function Side({
               meta={meta}
             />
           ) : (
-            <ArtifactView run={output.run.name} sample={output.sample.name} artifact={view} />
+            <ArtifactView
+              run={output.run.name}
+              sample={output.sample.name}
+              artifact={view}
+              page={page}
+            />
           )}
         </>
       ) : null}
@@ -458,38 +549,31 @@ const typingIn = (target: EventTarget | null): boolean =>
     /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName) ||
     target.closest('[role="dialog"],[role="menu"],[role="listbox"]') !== null)
 
+/** The choice that reads an output's steps in place of one of its files. */
+const STEPS = ':transcript'
+
 /**
- * The stage, the one bar over it and the size line under it. The bar, from
- * the start: which output is in view (A or B with each total, and the keys),
- * which file, and the width a page is drawn at. Under the stage: the size drawn,
- * how it is scaled, and at its end a way to open the file full size.
+ * The stage, the bar over it and the size line under it. The bar holds what
+ * picks the thing in view: which output (A or B with each total, and the
+ * keys), and which of its files, or its steps. What belongs to the file in
+ * view stands in the line under the stage: for a page, the size it is drawn
+ * at, which is also where that size is changed, then how it is scaled, and at
+ * the line's end a way to open the file full size.
  */
 function Flip({
   a,
   b,
   totals,
-  caseWidth,
+  page,
 }: {
   a: Output | null
   b: Output | null
   totals: { a: number | null; b: number | null }
-  /** The width the case says its page is made for (`bench.size`); null when it names none. */
-  caseWidth: number | null
+  /** The size a page is drawn at, shared with the cards. */
+  page: PageSize
 }) {
-  const kept = useStageWidth()
-  /** A width picked on this stage; until then a case with a size opens at its width, else at the last width picked. */
-  const [widthPicked, setWidthPicked] = useState<StageWidth | 'case' | null>(null)
-  const choice = widthPicked ?? (caseWidth ? 'case' : kept)
-  const width = choice === 'case' ? caseWidth : stagePixels(choice)
-  const widths = caseWidth
-    ? [{ value: 'case' as const, label: `Case, ${caseWidth}` }, ...STAGE_WIDTHS]
-    : STAGE_WIDTHS
-  const pickWidth = (next: StageWidth | 'case') => {
-    setWidthPicked(next)
-    if (next !== 'case') setStageWidth(next)
-  }
   const [shown, setShown] = useState<StageSide>(b ? 'b' : 'a')
-  /** A file the reader picked by name; until then each output shows its own page or picture. */
+  /** A file the reader picked by name, or the steps; until then each output shows its own page or picture. */
   const [picked, setPicked] = useState<string | null>(null)
   const both = a !== null && b !== null
   const sides = (
@@ -499,14 +583,26 @@ function Flip({
     ] as const
   ).filter((entry): entry is readonly [StageSide, Output] => entry[1] !== null)
   const [side, output] = sides.find(([s]) => s === shown) ?? sides[0]
+  const steps = picked === STEPS
   const fileOf = (o: Output) =>
-    picked === null ? drawnOf(o) : (o.sample.artifacts.find((f) => f.file === picked) ?? null)
+    steps
+      ? null
+      : picked === null
+        ? drawnOf(o)
+        : (o.sample.artifacts.find((f) => f.file === picked) ?? null)
   const files = [
     ...new Set(
       sides.flatMap(([, o]) =>
         o.sample.artifacts.filter((f) => f.kind !== 'transcript').map((f) => f.file),
       ),
     ),
+  ]
+  // A list, not segments: an agent writes as many files as it likes.
+  const reads = [
+    ...files.map((f) => ({ value: f, label: f.replace(/^outputs\//, '') })),
+    ...(sides.some(([, o]) => o.sample.hasTranscript)
+      ? [{ value: STEPS, label: 'Transcript' }]
+      : []),
   ]
   const file = fileOf(output)
   const flip = useCallback((to: StageSide) => setShown(to), [])
@@ -540,36 +636,27 @@ function Flip({
 
   return (
     <>
-      <Toolbar gap="md">
-        {a && b ? (
-          <Segmented
-            aria-label="Output in view"
-            value={side}
-            onChange={setShown}
-            options={[flipTo('a', a), flipTo('b', b)]}
-          />
-        ) : null}
-        {files.length > 1 ? (
-          <Segmented
-            aria-label="File"
-            tone="quiet"
-            font="mono"
-            text="xs"
-            value={file?.file ?? null}
-            onChange={setPicked}
-            options={files.map((f) => ({ value: f, label: f.replace(/^outputs\//, '') }))}
-          />
-        ) : null}
-        {file?.kind === 'html' ? (
-          <Segmented
-            aria-label="Width"
-            tone="quiet"
-            value={choice}
-            onChange={pickWidth}
-            options={widths}
-          />
-        ) : null}
-      </Toolbar>
+      {(a && b) || reads.length > 1 ? (
+        <Toolbar gap="md">
+          {a && b ? (
+            <Segmented
+              aria-label="Output in view"
+              value={side}
+              onChange={setShown}
+              options={[flipTo('a', a), flipTo('b', b)]}
+            />
+          ) : null}
+          {reads.length > 1 ? (
+            <SelectBox
+              aria-label="File in view"
+              size="sm"
+              value={steps ? STEPS : (file?.file ?? '')}
+              onChange={setPicked}
+              options={reads}
+            />
+          ) : null}
+        </Toolbar>
+      ) : null}
       <Stage
         layers={sides.map(([s, o]) => ({
           side: s,
@@ -577,10 +664,22 @@ function Flip({
           sample: o.sample.name,
           artifact: fileOf(o),
           name: `${SLOT_LABEL[s]}, ${versionName(o.run)}`,
+          reading: !steps ? undefined : o.sample.hasTranscript ? (
+            <TranscriptList
+              run={o.run.name}
+              sample={o.sample.name}
+              root={o.sample.path}
+              meta={o.run.meta?.samples.find((m) => m.dir === o.sample.name) ?? null}
+            />
+          ) : (
+            <Hint inset>This output kept no transcript.</Hint>
+          ),
         }))}
         shown={side}
-        width={width}
+        width={page.width}
+        height={page.height}
         onFlip={flip}
+        lead={file?.kind === 'html' ? <PageSizeSelect page={page} /> : null}
         action={
           file ? (
             <OpenFullSize run={output.run.name} sample={output.sample.name} file={file.file} />

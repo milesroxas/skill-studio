@@ -2,11 +2,13 @@
 import type { Artifact as ArtifactRef } from '@domain/schemas.ts'
 import { copyOf } from '@domain/text.ts'
 import { ArrowUpRightIcon } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { type ReactNode, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { api } from '../api.ts'
+import type { PageSize } from '../stage.ts'
 import { Loading, ReadFailed } from './layout.tsx'
 import { Prose } from './Prose.tsx'
-import { Hint } from './text.tsx'
+import { SelectBox } from './SelectBox.tsx'
+import { Hint, Text } from './text.tsx'
 import { Button } from './ui/button.tsx'
 import { ToggleGroup, ToggleGroupItem } from './ui/toggle-group.tsx'
 
@@ -14,9 +16,116 @@ interface Props {
   run: string
   sample: string
   artifact: ArtifactRef | null
+  /** The size a page is drawn at, and its control; without it a page takes the room's width. */
+  page?: PageSize
 }
 
-export function ArtifactView({ run, sample, artifact }: Props) {
+/** How far a picture is scaled down to fit: "shown at 59%", or "actual size". */
+export const scaleText = (scale: number): string =>
+  scale >= 1 ? 'actual size' : `shown at ${Math.round(scale * 100)}%`
+
+/**
+ * What a page's size control leaves unsaid, short enough for a card a third of
+ * the window wide: the scale it is drawn at, or under Full width the pixels it
+ * came to. The control names the size and its list gives the pixels.
+ */
+export const pageCaption = (page: { width: number | null }, drawn: number, scale: number) =>
+  page.width === null ? `${Math.round(drawn)} px` : `${Math.round(scale * 100)}%`
+
+/**
+ * The size a page is drawn at, changed where it is read: at the start of the
+ * line about the page, on the stage and in a card.
+ */
+export function PageSizeSelect({ page }: { page: PageSize }) {
+  return (
+    <SelectBox
+      aria-label="Size the page is drawn at"
+      variant="caption"
+      value={page.choice}
+      onChange={page.pick}
+      options={page.options}
+    />
+  )
+}
+
+/**
+ * A page in a card: drawn at its size and scaled down to the card's width,
+ * never up, so a page made for 1536 pixels shows whole in a column a third as
+ * wide. With a height it is fitted whole; without one it fills the frame's
+ * height and scrolls. The line over it says the size and the scale.
+ */
+function PageView({
+  url,
+  title,
+  page,
+  action,
+}: {
+  url: string
+  title: string
+  page: PageSize | undefined
+  action: ReactNode
+}) {
+  const box = useRef<HTMLDivElement>(null)
+  const [room, setRoom] = useState<{ width: number; height: number } | null>(null)
+  useLayoutEffect(() => {
+    const el = box.current
+    if (!el) return
+    const measure = () => setRoom({ width: el.clientWidth, height: el.clientHeight })
+    measure()
+    const observer = new ResizeObserver(measure)
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [])
+  const drawn = page?.width ?? room?.width ?? null
+  const scale = room && drawn ? Math.min(1, room.width / drawn) : 1
+  const tall = page?.width ? page.height : null
+  return (
+    <div className="relative isolate">
+      {/* One line at every width: a line that wraps in one card and not the other sets the two pages at different heights. */}
+      <p className="m-0 flex h-9 items-center gap-1 border-b px-4 *:shrink-0 *:whitespace-nowrap">
+        {page ? (
+          <span className="-ml-2">
+            <PageSizeSelect page={page} />
+          </span>
+        ) : null}
+        {page && drawn ? (
+          <Text size="xs" tone="muted" tabular title={`Drawn ${Math.round(drawn)} px wide`}>
+            {pageCaption(page, drawn, scale)}
+          </Text>
+        ) : null}
+        <span className="-mr-2 ml-auto">{action}</span>
+      </p>
+      {/* A frame that scrolls would trap the page swipe on touch: show it, open it to scroll. */}
+      <div
+        ref={box}
+        className={
+          tall
+            ? 'flex justify-center overflow-hidden bg-muted'
+            : 'flex h-[70svh] justify-center overflow-hidden bg-muted pointer-coarse:h-[60svh]'
+        }
+        style={tall ? { height: tall * scale } : undefined}
+      >
+        {room && drawn ? (
+          <div className="shrink-0 overflow-hidden" style={{ width: drawn * scale }}>
+            <iframe
+              className="block origin-top-left border-0 bg-artifact pointer-coarse:pointer-events-none"
+              style={{
+                width: drawn,
+                height: tall ?? room.height / scale,
+                transform: `scale(${scale})`,
+              }}
+              src={url}
+              title={title}
+              sandbox="allow-scripts"
+            />
+          </div>
+        ) : null}
+      </div>
+    </div>
+  )
+}
+
+export function ArtifactView({ run, sample, artifact, page }: Props) {
   // The text read, with the file it was read from: text of another file is never shown under this one's name.
   const [read, setRead] = useState<{ of: string; text: string } | null>(null)
   const [failure, setFailure] = useState<{ of: string; message: string } | null>(null)
@@ -57,20 +166,12 @@ export function ArtifactView({ run, sample, artifact }: Props) {
     return <img className="block max-w-full" src={url} alt={artifact.file} />
   if (artifact.kind === 'html')
     return (
-      <div className="relative isolate">
-        <p className="m-0 flex justify-end border-b px-4 py-1.5">
-          <span className="-mr-2">
-            <OpenFullSize run={run} sample={sample} file={artifact.file} />
-          </span>
-        </p>
-        {/* A frame that scrolls would trap the page swipe on touch: show it, open it to scroll. */}
-        <iframe
-          className="block min-h-[70svh] w-full border-0 bg-artifact pointer-coarse:pointer-events-none pointer-coarse:min-h-[60svh]"
-          src={url}
-          title={artifact.file}
-          sandbox="allow-scripts"
-        />
-      </div>
+      <PageView
+        url={url}
+        title={artifact.file}
+        page={page}
+        action={<OpenFullSize run={run} sample={sample} file={artifact.file} />}
+      />
     )
   if (text === null)
     return error ? (
