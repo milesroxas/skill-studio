@@ -2,6 +2,7 @@
 import { cva, type VariantProps } from 'class-variance-authority'
 import type { ReactNode } from 'react'
 import { cn } from '../lib/utils.ts'
+import type { toggleVariants } from './ui/toggle.tsx'
 import { ToggleGroup, ToggleGroupItem } from './ui/toggle-group.tsx'
 
 interface SegmentOption<T extends string> {
@@ -29,6 +30,16 @@ interface SegmentedProps<T extends string> extends VariantProps<typeof groupVari
   /** A change is being saved: no choice can be pressed until it lands. */
   disabled?: boolean
   size?: 'sm' | 'default'
+  /**
+   * `ink`, the default: joined segments, the pressed one ink fill. `quiet`:
+   * separate labels, the pressed one on `accent`, for a choice beside an ink
+   * one that it must not compete with, such as the file under an A or B.
+   */
+  tone?: 'ink' | 'quiet'
+  /** `mono` when the choices are literals, such as file names. */
+  font?: VariantProps<typeof toggleVariants>['font']
+  /** `xs` for a choice over an object, at the size of the meta around it. */
+  text?: VariantProps<typeof toggleVariants>['text']
   'aria-label'?: string
   'aria-labelledby'?: string
 }
@@ -40,23 +51,28 @@ export function Segmented<T extends string>({
   disabled,
   fill,
   size = 'sm',
+  tone = 'ink',
+  font,
+  text,
   ...aria
 }: SegmentedProps<T>) {
   return (
     <ToggleGroup
       type="single"
-      variant="outline"
+      variant={tone === 'quiet' ? 'default' : 'outline'}
+      spacing={tone === 'quiet' ? 1 : 0}
       size={size}
       disabled={disabled}
       value={value ?? ''}
       onValueChange={(v) => {
         if (v) onChange(v as T)
       }}
-      className={cn(groupVariants({ fill }))}
+      // Separate labels wrap onto a second line; joined segments scroll, as one piece.
+      className={cn(groupVariants({ fill }), tone === 'quiet' && 'flex-wrap')}
       {...aria}
     >
       {options.map((o) => (
-        <ToggleGroupItem key={o.value} value={o.value} title={o.title}>
+        <ToggleGroupItem key={o.value} value={o.value} title={o.title} font={font} text={text}>
           {o.label}
         </ToggleGroupItem>
       ))}

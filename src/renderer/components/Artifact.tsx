@@ -1,6 +1,7 @@
 /** One artifact as the reader sees it: Markdown rendered, HTML framed, images shown, code listed. */
 import type { Artifact as ArtifactRef } from '@domain/schemas.ts'
 import { copyOf } from '@domain/text.ts'
+import { ArrowUpRightIcon } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { api } from '../api.ts'
 import { Loading, ReadFailed } from './layout.tsx'
@@ -57,15 +58,10 @@ export function ArtifactView({ run, sample, artifact }: Props) {
   if (artifact.kind === 'html')
     return (
       <div className="relative isolate">
-        <p className="m-0 flex justify-end border-b px-4 py-2 text-xs">
-          <Button
-            type="button"
-            variant="link-muted"
-            size="inline-sm"
-            onClick={() => api.openArtifact(run, sample, artifact.file)}
-          >
-            Open full size
-          </Button>
+        <p className="m-0 flex justify-end border-b px-4 py-1.5">
+          <span className="-mr-2">
+            <OpenFullSize run={run} sample={sample} file={artifact.file} />
+          </span>
         </p>
         {/* A frame that scrolls would trap the page swipe on touch: show it, open it to scroll. */}
         <iframe
@@ -97,6 +93,25 @@ export function ArtifactView({ run, sample, artifact }: Props) {
   )
 }
 
+/**
+ * Open a file the agent wrote in a window of its own, at its own size. Quiet,
+ * with the arrow that says it opens elsewhere: an action on the file in view,
+ * at the end of the line about it, never a button beside the controls that pick.
+ */
+export function OpenFullSize({ run, sample, file }: { run: string; sample: string; file: string }) {
+  return (
+    <Button
+      type="button"
+      variant="ghost-muted"
+      size="xs"
+      onClick={() => api.openArtifact(run, sample, file)}
+    >
+      Open full size
+      <ArrowUpRightIcon aria-hidden="true" />
+    </Button>
+  )
+}
+
 /** What of an output is being read: one of the files the agent wrote, or the steps it took. */
 export type OutputView = ArtifactRef | 'transcript'
 
@@ -123,10 +138,11 @@ export function ArtifactPicker({
     <div className="border-b px-4 py-2">
       <ToggleGroup
         type="single"
-        variant="outline"
+        variant="default"
         size="sm"
         spacing={1}
         aria-label="Read"
+        className="flex-wrap"
         value={value === 'transcript' ? TRANSCRIPT : (value?.file ?? '')}
         onValueChange={(picked) => {
           if (picked === TRANSCRIPT) return onChange('transcript')

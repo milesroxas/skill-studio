@@ -31,17 +31,15 @@ import {
   configurationTail,
   drawnOf,
   layersOf,
-  money,
   type Output,
-  outputLine,
+  outputDetail,
+  outputNames,
   primaryOf,
-  runStamp,
   sampleTail,
   scoreOf,
   sizeLine,
   totalOf,
   versionName,
-  writerName,
 } from '../model.ts'
 import {
   STAGE_WIDTHS,
@@ -50,10 +48,9 @@ import {
   stagePixels,
   useStageWidth,
 } from '../stage.ts'
-import { ArtifactPicker, ArtifactView, type OutputView } from './Artifact.tsx'
+import { ArtifactPicker, ArtifactView, OpenFullSize, type OutputView } from './Artifact.tsx'
 import { DiffCard } from './DiffCard.tsx'
 import { Disclosure } from './Disclosure.tsx'
-import { InlineField } from './forms.tsx'
 import {
   ColumnBody,
   ColumnHeader,
@@ -63,7 +60,6 @@ import {
   Field,
   FormSection,
   List,
-  Spacer,
   Stack,
   Toolbar,
 } from './layout.tsx'
@@ -145,16 +141,12 @@ export function Comparison({
 
   return (
     <>
-      <ColumnHeader>
-        <ColumnTitle>
+      {/* Stacked under the list, the case's name takes the first row and the views the second. */}
+      <ColumnHeader className="max-lg:flex-wrap">
+        <ColumnTitle className="max-lg:basis-full">
           <Heading level={2} as="h2">
             {caseTitle(state, caseId)}
           </Heading>
-          {testCase && testCase.title !== caseId ? (
-            <Text font="mono" tone="muted" size="xs">
-              {caseId}
-            </Text>
-          ) : null}
         </ColumnTitle>
         {views.length > 1 ? (
           <Segmented aria-label="View" options={views} value={view} onChange={setChosen} />
@@ -162,7 +154,7 @@ export function Comparison({
         {testCase ? (
           <Button
             type="button"
-            variant="ghost"
+            variant="outline"
             size="sm"
             onClick={() => go('cases', { id: caseId })}
           >
@@ -171,48 +163,36 @@ export function Comparison({
         ) : null}
       </ColumnHeader>
       <ColumnBody>
-        {candidates.length > 1 || testCase ? (
+        {testCase || candidates.length > 1 || view === 'flip' ? (
+          // The case, the pair and the stage that shows it: one group, closer to each other than to the cards.
           <Stack gap="md">
+            {testCase ? <Asked testCase={testCase} /> : null}
             {candidates.length > 1 ? (
-              <Toolbar>
+              <div className="grid max-w-3xl grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] items-center gap-x-3">
                 <Picker
                   slot="a"
                   outputs={candidates}
                   value={a}
                   onChange={(o) => show({ a: o, b })}
                 />
-                {/* B and Swap wrap as one, so Swap never stands on a line of its own. */}
-                <Toolbar>
-                  <Picker
-                    slot="b"
-                    outputs={candidates}
-                    value={b}
-                    onChange={(o) => show({ a, b: o })}
-                  />
-                  {both ? (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => show({ a: b, b: a })}
-                    >
-                      Swap
-                    </Button>
-                  ) : null}
-                </Toolbar>
-              </Toolbar>
+                <Picker
+                  slot="b"
+                  outputs={candidates}
+                  value={b}
+                  onChange={(o) => show({ a, b: o })}
+                />
+                {both ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => show({ a: b, b: a })}
+                  >
+                    Swap
+                  </Button>
+                ) : null}
+              </div>
             ) : null}
-            {testCase ? <Asked testCase={testCase} /> : null}
-          </Stack>
-        ) : null}
-        {!sides.length ? (
-          <EmptyState title="Pick an output to read">
-            Pick one for A and one for B above to read them side by side.
-          </EmptyState>
-        ) : view === 'diff' && both ? (
-          <DiffCard a={both.a} b={both.b} />
-        ) : (
-          <>
             {view === 'flip' ? (
               <Flip
                 key={`${a?.key}|${b?.key}`}
@@ -222,35 +202,43 @@ export function Comparison({
                 totals={{ a: a ? totalOf(a, config) : null, b: b ? totalOf(b, config) : null }}
               />
             ) : null}
-            <Columns count={both ? 2 : 1}>
-              {a ? (
-                <Side
-                  ctx={ctx}
-                  output={a}
-                  other={null}
-                  slot="a"
-                  layers={layers}
-                  grading={grading(a.run.name)}
-                  held={grade.starting()}
-                  onRegrade={() => regrade([a.run.name])}
-                  reading={view !== 'flip'}
-                />
-              ) : null}
-              {b ? (
-                <Side
-                  ctx={ctx}
-                  output={b}
-                  other={a}
-                  slot={a ? 'b' : null}
-                  layers={layers}
-                  grading={grading(b.run.name)}
-                  held={grade.starting()}
-                  onRegrade={() => regrade([b.run.name])}
-                  reading={view !== 'flip'}
-                />
-              ) : null}
-            </Columns>
-          </>
+          </Stack>
+        ) : null}
+        {!sides.length ? (
+          <EmptyState title="Pick an output to read">
+            Pick one for A and one for B above to read them side by side.
+          </EmptyState>
+        ) : view === 'diff' && both ? (
+          <DiffCard a={both.a} b={both.b} />
+        ) : (
+          <Columns count={both ? 2 : 1}>
+            {a ? (
+              <Side
+                ctx={ctx}
+                output={a}
+                other={null}
+                slot="a"
+                layers={layers}
+                grading={grading(a.run.name)}
+                held={grade.starting()}
+                onRegrade={() => regrade([a.run.name])}
+                reading={view !== 'flip'}
+              />
+            ) : null}
+            {b ? (
+              <Side
+                ctx={ctx}
+                output={b}
+                other={a}
+                slot={a ? 'b' : null}
+                layers={layers}
+                grading={grading(b.run.name)}
+                held={grade.starting()}
+                onRegrade={() => regrade([b.run.name])}
+                reading={view !== 'flip'}
+              />
+            ) : null}
+          </Columns>
         )}
         {testCase && checksGraded(config) ? (
           <AddCheck
@@ -264,6 +252,11 @@ export function Comparison({
   )
 }
 
+/**
+ * One side of the pair: its letter, then the output in it. The field names the
+ * output by its version; who wrote it and when is a line under each name in
+ * the list, so the two fields stay short and the same width.
+ */
 function Picker({
   slot,
   outputs,
@@ -275,21 +268,24 @@ function Picker({
   value: Output | null
   onChange: (output: Output | null) => void
 }) {
+  const names = outputNames(outputs)
   return (
-    <InlineField label={<Slot variant={slot}>{SLOT_LABEL[slot]}</Slot>}>
+    <div className="flex min-w-0 items-center gap-2">
+      <Slot variant="letter">{SLOT_LABEL[slot]}</Slot>
       <SelectBox
         aria-label={`Output ${SLOT_LABEL[slot]}`}
-        width="wide"
+        width="fill"
         size="sm"
         value={value?.key ?? ''}
         onChange={(key) => onChange(outputs.find((o) => o.key === key) ?? null)}
         none="None"
         options={outputs.map((o) => ({
           value: o.key,
-          label: `${versionName(o.run)}${configurationTail(o.run)} · ${outputLine(o)} · ${runStamp(o.run)}`,
+          label: names.get(o.key) ?? o.key,
+          detail: outputDetail(o),
         }))}
       />
-    </InlineField>
+    </div>
   )
 }
 
@@ -381,7 +377,7 @@ function Side({
   return (
     <OutputCard>
       <OutputCardHead
-        slot={slot ? <Slot variant={slot}>{SLOT_LABEL[slot]}</Slot> : <Slot>Output</Slot>}
+        slot={slot ? <Slot variant="letter">{SLOT_LABEL[slot]}</Slot> : <Slot>Output</Slot>}
         title={`${versionName(output.run)}${configurationTail(output.run)}`}
         total={
           <>
@@ -389,29 +385,26 @@ function Side({
             <Delta value={delta} />
           </>
         }
+        action={
+          <Button
+            type="button"
+            variant="ghost-muted"
+            size="xs"
+            disabled={held}
+            busy={grading}
+            busyLabel="Grading…"
+            onClick={onRegrade}
+          >
+            {scored ? 'Regrade' : 'Grade'}
+          </Button>
+        }
         meta={
           <>
             <span>
-              {writerName(output.run.meta?.writer)} · {runStamp(output.run)}
+              {outputDetail(output)}
               {sampleTail(output)}
             </span>
             {size ? <span>{size}</span> : null}
-            {meta ? (
-              <span>
-                {meta.seconds}s{meta.costUsd === null ? '' : ` · ${money(meta.costUsd)}`}
-              </span>
-            ) : null}
-            <Button
-              type="button"
-              variant="link-muted"
-              size="inline-sm"
-              disabled={held}
-              busy={grading}
-              busyLabel="Grading…"
-              onClick={onRegrade}
-            >
-              {scored ? 'Regrade' : 'Grade'}
-            </Button>
           </>
         }
       />
@@ -458,27 +451,6 @@ function Side({
   )
 }
 
-/** What a letter in the bar over the stage stands for: its output's version and total. */
-function FlipLabel({
-  side,
-  output,
-  total,
-}: {
-  side: StageSide
-  output: Output
-  total: number | null
-}) {
-  return (
-    <>
-      <Text font="mono" weight="semibold">
-        {SLOT_LABEL[side]}
-      </Text>
-      {versionName(output.run)}
-      {total === null ? null : <Text tabular>{Math.round(total)}</Text>}
-    </>
-  )
-}
-
 /** True when a key goes to what has the focus: a field, an editor, a menu or a dialog. */
 const typingIn = (target: EventTarget | null): boolean =>
   target instanceof HTMLElement &&
@@ -487,9 +459,10 @@ const typingIn = (target: EventTarget | null): boolean =>
     target.closest('[role="dialog"],[role="menu"],[role="listbox"]') !== null)
 
 /**
- * The stage and the bar over it: which output is in view (A or B, and the
- * keys), which file, the width a page is drawn at and how it is scaled, and
- * a way to open the file full size.
+ * The stage, the one bar over it and the size line under it. The bar, from
+ * the start: which output is in view (A or B with each total, and the keys),
+ * which file, and the width a page is drawn at. At its end: a way to open the
+ * file full size. Under the stage: the size drawn and how it is scaled.
  */
 function Flip({
   a,
@@ -518,7 +491,6 @@ function Flip({
   const [shown, setShown] = useState<StageSide>(b ? 'b' : 'a')
   /** A file the reader picked by name; until then each output shows its own page or picture. */
   const [picked, setPicked] = useState<string | null>(null)
-  const [caption, setCaption] = useState('')
   const both = a !== null && b !== null
   const sides = (
     [
@@ -553,58 +525,49 @@ function Flip({
     return () => window.removeEventListener('keydown', handle)
   }, [both])
 
+  const flipTo = (to: StageSide, o: Output) => ({
+    value: to,
+    label: (
+      <>
+        <Text font="mono" weight="semibold">
+          {SLOT_LABEL[to]}
+        </Text>
+        {totals[to] === null ? null : <Text tabular>{Math.round(totals[to])}</Text>}
+      </>
+    ),
+    title: `${versionName(o.run)}. Press ${SLOT_LABEL[to]} to show it.`,
+  })
+
   return (
-    <Stack gap="md">
-      <Toolbar>
+    <>
+      <Toolbar gap="md">
         {a && b ? (
-          <>
-            <Segmented
-              aria-label="Output in view"
-              value={side}
-              onChange={setShown}
-              options={[
-                { value: 'a', label: <FlipLabel side="a" output={a} total={totals.a} /> },
-                { value: 'b', label: <FlipLabel side="b" output={b} total={totals.b} /> },
-              ]}
-            />
-            <Hint as="span">Press A or B to flip</Hint>
-          </>
+          <Segmented
+            aria-label="Output in view"
+            value={side}
+            onChange={setShown}
+            options={[flipTo('a', a), flipTo('b', b)]}
+          />
         ) : null}
-        <Spacer />
-        {file ? (
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            onClick={() => api.openArtifact(output.run.name, output.sample.name, file.file)}
-          >
-            Open full size
-          </Button>
-        ) : null}
-      </Toolbar>
-      <Toolbar>
         {files.length > 1 ? (
           <Segmented
             aria-label="File"
+            tone="quiet"
+            font="mono"
+            text="xs"
             value={file?.file ?? null}
             onChange={setPicked}
-            options={files.map((f) => ({
-              value: f,
-              label: (
-                <Text font="mono" size="xs">
-                  {f.replace(/^outputs\//, '')}
-                </Text>
-              ),
-            }))}
+            options={files.map((f) => ({ value: f, label: f.replace(/^outputs\//, '') }))}
           />
         ) : null}
         {file?.kind === 'html' ? (
-          <Segmented aria-label="Width" value={choice} onChange={pickWidth} options={widths} />
-        ) : null}
-        {caption ? (
-          <Text font="mono" size="xs" tone="muted" tabular>
-            {caption}
-          </Text>
+          <Segmented
+            aria-label="Width"
+            tone="quiet"
+            value={choice}
+            onChange={pickWidth}
+            options={widths}
+          />
         ) : null}
       </Toolbar>
       <Stage
@@ -618,9 +581,13 @@ function Flip({
         shown={side}
         width={width}
         onFlip={flip}
-        onCaption={setCaption}
+        action={
+          file ? (
+            <OpenFullSize run={output.run.name} sample={output.sample.name} file={file.file} />
+          ) : null
+        }
       />
-    </Stack>
+    </>
   )
 }
 

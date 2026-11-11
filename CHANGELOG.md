@@ -9,6 +9,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 ### Changed
 
 - A new case shows the task alone: the prompt, a title and pictures. The rest (a good answer, checks, length and size) folds under one line that names it, and opens and closes from there. It opens by itself when any of them holds something, as on a case started from an example, and saving a case never changes which parts show.
+- Results reads in one order: the case, the two outputs, then the output itself. "The prompt and its checks" comes first, and the **A** and **B** menus are the same width and name each output by its version alone. Who wrote an output and when is a line under each name in the menu.
+- Over a page or a picture there is one bar where there were two, and it only picks: **A** and **B** carry each output's score, the file and the page width are quieter beside them. Under the stage, the size line ends in **Open full size**, so it no longer looks like a second **Swap**. The stage no longer moves when a picture loads.
+- On an output's card, **Regrade** is a button at the end of its details, under the score. The time and cost of an output are in its transcript.
+- The letters A and B are drawn the same everywhere, so a filled control only ever means the one that is on.
+- On a narrow window the case's name keeps its own row above **Flip**, **Side by side** and **Word diff**.
 - **Start from an example** folds under the prompt, and its examples fit the kind of work the skill is graded as. Only a skill graded as generic asks for the kind first. Each example ends in **Use**, as picking one fills the form in place.
 - The Cases screen says less. Its notes are one or two sentences each, Title, Pictures and A good answer are marked optional, and Length and Size are one section.
 - A check row is lighter: its ×2 is muted text until it is on, and the pen in each check is gone. **Write checks with AI**, under the list, writes them.

@@ -16,6 +16,8 @@ import {
 interface SelectOption {
   value: string
   label: string
+  /** A quieter line under the label, in the list only, such as who wrote a run and when. */
+  detail?: string
   disabled?: boolean
 }
 
@@ -31,8 +33,8 @@ const triggerVariants = cva('', {
     width: {
       auto: 'max-w-full',
       full: 'w-full',
-      /** Long labels, such as a run with its writer and time. */
-      wide: 'max-w-[min(440px,calc(100vw-80px))]',
+      /** Takes the room its row has to spare and truncates, so two in a row are the same width. */
+      fill: 'min-w-0 flex-1',
     },
   },
   defaultVariants: { width: 'auto' },
@@ -64,10 +66,12 @@ export function SelectBox({
   ...aria
 }: Props) {
   const item = (o: SelectOption) => (
-    <SelectItem key={o.value} value={o.value} disabled={o.disabled}>
+    <SelectItem key={o.value} value={o.value} disabled={o.disabled} detail={o.detail}>
       {o.label}
     </SelectItem>
   )
+  // A name the field cuts short is whole in its title, with the line the list shows under it.
+  const chosen = [...options, ...groups.flatMap((g) => g.options)].find((o) => o.value === value)
   return (
     <Select
       value={value === '' && none ? NONE : value}
@@ -79,6 +83,7 @@ export function SelectBox({
         size={size}
         className={triggerVariants({ width })}
         aria-label={aria['aria-label']}
+        title={chosen?.detail ? `${chosen.label} · ${chosen.detail}` : undefined}
       >
         <SelectValue />
       </SelectTrigger>

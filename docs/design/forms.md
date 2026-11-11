@@ -92,15 +92,19 @@ An action about a field's own content sits in the field's corner as a `CornerBut
 
 ## Segmented and FilterGroup
 
+`SelectBox` (`components/SelectBox.tsx`) takes `width`: `auto` (as wide as its value, the default), `full`, or `fill` (the room its row has to spare, truncating: two in one row come out the same width, as the A and B pickers on Results do). An option may carry a `detail`: a quieter `xs` line under its label, in the list only. The trigger shows the label alone and holds both in its title, so a field stays short where the list has more to say.
+
 `Segmented` is one choice. Its `size` defaults to `sm`, and call sites leave it there, in forms too. The one exception is a `ListBar` beside a default-size search field: "Whose skills" in `Library.tsx` passes `size="default"` so the two match. Anywhere else a taller one stands out against every other in the app. `fill` spreads its segments over the row's width.
 
 The pressed segment is ink fill (`bg-primary`). A choice not yet made has no segment pressed.
+
+`tone="quiet"` is for a choice that stands beside an ink one and must not compete with it: the file and the page width beside the A and B switch over the stage on Results. Its labels stand apart, wrap onto a second line when they must, and the pressed one sits on `accent`, as a pressed `default` toggle does. `font="mono"` and `text="xs"` set every label, for literals such as file names. One ink `Segmented` per row of controls: a second choice in the same row is `quiet`.
 
 `FilterGroup` is several toggles that show or hide: what is shown reads plain, what is hidden fades. It never takes ink fill: a filter is not a commitment.
 
 ## Toggle
 
-`Toggle` variants: `default` (hovers as a ghost button, for a bar of them: the Assistant's toggle in the top bar), `outline` (one item's state in a row: an agent's install on Library), `quiet` (a setting of a row that most rows leave off: a check's ×2 on Cases, with no edge and muted text until it is on), `filter`. Sizes: `default`, `sm`, `icon-sm`, `lg`. Every `outline` and `quiet` toggle in the app is `size="sm"`. `place`: `alone` (the focus line outside the toggle, the default) or `group` (inside it, for a segment of a `Segmented` or `FilterGroup`; see [color.md](color.md)). Two more set the label: `font` (`sans`, the default, or `mono` for a literal such as a file's name) and `text` (`sm`, the default, or `xs`). `xs` is for a picker over an object, at the size of the meta around it: the files and the transcript over an output (`ArtifactPicker` in `components/Artifact.tsx`). A `ToggleGroup` sets `variant` and `size` for its items; `font` and `text` are each item's own.
+`Toggle` variants: `default` (hovers as a ghost button, for a bar of them: the Assistant's toggle in the top bar), `outline` (one item's state in a row: an agent's install on Library), `quiet` (a setting of a row that most rows leave off: a check's ×2 on Cases, with no edge and muted text until it is on), `filter`. Sizes: `default`, `sm`, `icon-sm`, `lg`. Every `outline` and `quiet` toggle in the app is `size="sm"`. `place`: `alone` (the focus line outside the toggle, the default) or `group` (inside it, for a segment of a `Segmented` or `FilterGroup`; see [color.md](color.md)). Two more set the label: `font` (`sans`, the default, or `mono` for a literal such as a file's name) and `text` (`sm`, the default, or `xs`). `xs` is for a picker over an object, at the size of the meta around it: the files and the transcript over an output (`ArtifactPicker` in `components/Artifact.tsx`, a `default` group with its items apart, the same look as a `Segmented tone="quiet"`). A `ToggleGroup` sets `variant` and `size` for its items; `font` and `text` are each item's own.
 
 The pressed `outline` or `quiet` toggle is ink fill, the same as `Segmented`, so "on" reads the same everywhere. A pressed `default` toggle stays `bg-accent`, as the Assistant's toggle does while its panel is open.
 

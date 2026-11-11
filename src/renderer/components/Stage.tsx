@@ -4,14 +4,22 @@
  * picture is fitted whole, or shown at its own size. Both outputs stand on the
  * stage at once with one in view, so flipping between them is instant, and a
  * page that scrolls tells the other to scroll with it: each flip lands on the
- * same part of both.
+ * same part of both. Under it, a line says the size drawn and how it is
+ * scaled, with one action on what is in view at its end.
  */
 import type { Artifact } from '@domain/schemas.ts'
-import { type CSSProperties, useEffect, useLayoutEffect, useRef, useState } from 'react'
+import {
+  type CSSProperties,
+  type ReactNode,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from 'react'
 import { api } from '../api.ts'
 import { cn } from '../lib/utils.ts'
 import { ArtifactView } from './Artifact.tsx'
-import { Hint } from './text.tsx'
+import { Hint, Text } from './text.tsx'
 
 export type Side = 'a' | 'b'
 
@@ -80,7 +88,7 @@ export function Stage({
   shown,
   width,
   onFlip,
-  onCaption,
+  action,
 }: {
   layers: StageLayer[]
   /** The side in view. */
@@ -89,8 +97,12 @@ export function Stage({
   width: number | null
   /** A or B was pressed while a page had the focus. */
   onFlip: (side: Side) => void
-  /** The size line for the side in view, for the bar above the stage. */
-  onCaption: (caption: string) => void
+  /**
+   * One thing to do with the output in view, at the end of the size line: a
+   * `ghost-muted` `xs` button, which stands 8px past the stage's edge so its
+   * label, not the box that shows on hover, ends where the stage does.
+   */
+  action?: ReactNode
 }) {
   const box = useRef<HTMLDivElement>(null)
   const [size, setSize] = useState<Box | null>(null)
@@ -139,59 +151,67 @@ export function Stage({
       : null,
   }))
   const caption = placed.find((p) => p.layer.side === shown)?.geometry?.caption ?? ''
-  useEffect(() => onCaption(caption), [caption, onCaption])
 
   return (
-    <div className="relative h-[60svh] min-h-64 rounded-chin bg-muted">
-      <div ref={box} className="absolute inset-4">
-        {placed.map(({ layer, geometry: g }) => {
-          if (!g) return null
-          const { artifact } = layer
-          const on = layer.side === shown
-          const page = artifact?.kind === 'html' || artifact?.kind === 'image'
-          return (
-            <div
-              key={layer.side}
-              aria-hidden={!on}
-              inert={!on}
-              className={cn(
-                'absolute overflow-hidden shadow-raised',
-                page ? 'bg-artifact' : 'overflow-y-auto rounded-sm bg-card',
-                !on && 'invisible',
-              )}
-              style={g.frame}
-            >
-              {!artifact ? (
-                <Hint inset>This output wrote no file to show here.</Hint>
-              ) : artifact.kind === 'html' ? (
-                <iframe
-                  className="block origin-top-left border-0 bg-artifact"
-                  style={g.page}
-                  src={urlOf(layer, artifact, true)}
-                  title={`${layer.name}: ${artifact.file}`}
-                  sandbox="allow-scripts"
-                />
-              ) : artifact.kind === 'image' ? (
-                <img
-                  className="block size-full"
-                  src={urlOf(layer, artifact)}
-                  alt={`${artifact.file} from ${layer.name}`}
-                  onLoad={(event) => {
-                    const { naturalWidth, naturalHeight } = event.currentTarget
-                    const url = urlOf(layer, artifact)
-                    setNatural((known) => ({
-                      ...known,
-                      [url]: { width: naturalWidth, height: naturalHeight },
-                    }))
-                  }}
-                />
-              ) : (
-                <ArtifactView run={layer.run} sample={layer.sample} artifact={artifact} />
-              )}
-            </div>
-          )
-        })}
+    <>
+      <div className="relative h-[60svh] min-h-64 rounded-chin bg-muted">
+        <div ref={box} className="absolute inset-4">
+          {placed.map(({ layer, geometry: g }) => {
+            if (!g) return null
+            const { artifact } = layer
+            const on = layer.side === shown
+            const page = artifact?.kind === 'html' || artifact?.kind === 'image'
+            return (
+              <div
+                key={layer.side}
+                aria-hidden={!on}
+                inert={!on}
+                className={cn(
+                  'absolute overflow-hidden shadow-raised',
+                  page ? 'bg-artifact' : 'overflow-y-auto rounded-sm bg-card',
+                  !on && 'invisible',
+                )}
+                style={g.frame}
+              >
+                {!artifact ? (
+                  <Hint inset>This output wrote no file to show here.</Hint>
+                ) : artifact.kind === 'html' ? (
+                  <iframe
+                    className="block origin-top-left border-0 bg-artifact"
+                    style={g.page}
+                    src={urlOf(layer, artifact, true)}
+                    title={`${layer.name}: ${artifact.file}`}
+                    sandbox="allow-scripts"
+                  />
+                ) : artifact.kind === 'image' ? (
+                  <img
+                    className="block size-full"
+                    src={urlOf(layer, artifact)}
+                    alt={`${artifact.file} from ${layer.name}`}
+                    onLoad={(event) => {
+                      const { naturalWidth, naturalHeight } = event.currentTarget
+                      const url = urlOf(layer, artifact)
+                      setNatural((known) => ({
+                        ...known,
+                        [url]: { width: naturalWidth, height: naturalHeight },
+                      }))
+                    }}
+                  />
+                ) : (
+                  <ArtifactView run={layer.run} sample={layer.sample} artifact={artifact} />
+                )}
+              </div>
+            )
+          })}
+        </div>
       </div>
-    </div>
+      {/* Kept from the first frame, so nothing moves when a picture loads and its size is known. */}
+      <div className="flex min-h-6 items-center gap-3">
+        <Text font="mono" size="xs" tone="muted" tabular>
+          {caption}
+        </Text>
+        {action ? <span className="-mr-2 ml-auto">{action}</span> : null}
+      </div>
+    </>
   )
 }

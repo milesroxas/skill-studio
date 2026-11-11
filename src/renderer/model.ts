@@ -415,9 +415,32 @@ export function deleteBlocked(jobs: { writing: boolean; grading: boolean }): str
 export const sampleTail = (output: Output): string =>
   output.samples > 1 ? ` · sample ${output.index} of ${output.samples}` : ''
 
-/** "Claude Opus 5.5 · sample 2 of 2" */
-export const outputLine = (output: Output): string =>
-  `${writerName(output.run.meta?.writer)}${sampleTail(output)}`
+/** "Claude Opus 5.5 · Nov 2, 10:12": who wrote an output, and when. */
+export const outputDetail = (output: Output): string =>
+  `${writerName(output.run.meta?.writer)} · ${runStamp(output.run)}`
+
+/**
+ * Each output's name in a list to pick from, by its key: its version, and its
+ * sample where the run wrote several. Two outputs that would read the same
+ * also say who wrote them, and when if that still leaves them alike, so the
+ * name stays short wherever the version alone tells them apart.
+ */
+export function outputNames(outputs: readonly Output[]): Map<string, string> {
+  const version = (o: Output) => `${versionName(o.run)}${configurationTail(o.run)}${sampleTail(o)}`
+  const forms = [
+    version,
+    (o: Output) => `${version(o)} · ${writerName(o.run.meta?.writer)}`,
+    (o: Output) => `${version(o)} · ${outputDetail(o)}`,
+  ]
+  const named = forms.map((form) => outputs.map(form))
+  const alone = (names: string[], name: string) => names.filter((n) => n === name).length === 1
+  return new Map(
+    outputs.map((o, i) => {
+      const names = named.find((list) => alone(list, list[i])) ?? named[named.length - 1]
+      return [o.key, names[i]]
+    }),
+  )
+}
 
 export function caseTitle(state: State, caseId: string): string {
   const found = state.cases.find((c) => c.id === caseId)

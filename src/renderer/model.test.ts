@@ -10,6 +10,7 @@ import {
   liftOf,
   listLine,
   mergedConfig,
+  outputNames,
   outputsOf,
   primaryOf,
   setByHand,
@@ -128,6 +129,40 @@ describe('outputsOf', () => {
     expect(pair.a?.run.name).toBe('r1')
     expect(pair.b?.run.name).toBe('r2')
     expect(casePair(outputs, 'none')).toEqual({ a: null, b: null })
+  })
+})
+
+describe('outputNames', () => {
+  const page = [html('index.html')]
+  const names = (runs: RunView[]) => {
+    const outputs = outputsOf(stateOf(runs, ['design']))
+    return outputs.map((o) => outputNames(outputs).get(o.key))
+  }
+
+  it('names an output by its version where that tells it apart', () => {
+    expect(names([runOf('r1', 'v1', page), runOf('r2', 'v2', page)])).toEqual(['v1', 'v2'])
+  })
+
+  it('adds the writer, then the time, only to outputs that would read the same', () => {
+    const other = runOf('r2', 'v1', page)
+    const sonnet = {
+      ...other,
+      meta: { ...other.meta, writer: { engine: 'claude-code', model: 'sonnet' } },
+    }
+    const [first, second, third] = names([
+      runOf('r1', 'v1', page),
+      sonnet as RunView,
+      runOf('r3', 'v2', page),
+    ])
+    expect(first).toMatch(/^v1 · opus$/)
+    expect(second).toMatch(/^v1 · sonnet$/)
+    expect(third).toBe('v2')
+
+    const later = { ...other, meta: { ...other.meta, createdAt: '2026-11-05T10:00:00Z' } }
+    const [a, b] = names([runOf('r1', 'v1', page), later as RunView])
+    expect(a).not.toBe(b)
+    expect(a).toMatch(/Nov 1/)
+    expect(b).toMatch(/Nov 5/)
   })
 })
 

@@ -13,11 +13,18 @@ export function OutputCardHead({
   slot,
   title,
   total,
+  action,
   meta,
 }: {
   slot: ReactNode
   title: ReactNode
   total?: ReactNode
+  /**
+   * One thing to do with the output, at the end of the meta's last line, under
+   * the total: a `ghost-muted` `xs` button. It stands 8px past the head's
+   * inset, so its label, not the box that shows on hover, ends on the card's edge.
+   */
+  action?: ReactNode
   meta?: ReactNode
 }) {
   return (
@@ -25,9 +32,10 @@ export function OutputCardHead({
       {slot}
       <span className="font-semibold">{title}</span>
       <span>{total}</span>
-      {meta ? (
-        <span className="col-start-2 -col-end-1 flex flex-wrap items-baseline gap-x-3 gap-y-1 text-xs text-muted-foreground">
+      {meta || action ? (
+        <span className="col-start-2 -col-end-1 flex flex-wrap items-baseline gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
           {meta}
+          {action ? <span className="-mr-2 ml-auto">{action}</span> : null}
         </span>
       ) : null}
     </header>
@@ -39,8 +47,8 @@ const slotVariants = cva(
   {
     variants: {
       variant: {
-        a: 'border-foreground bg-foreground text-background',
-        b: 'border-foreground text-foreground',
+        /** A side's letter, A or B, in the color of the text around it. Never filled: fill says "on". */
+        letter: 'border-current',
         plain: 'border-input font-sans text-muted-foreground',
       },
     },
