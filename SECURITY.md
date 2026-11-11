@@ -55,6 +55,7 @@ Skill Studio runs coding agents and executes the code they write. Treat every sk
 ### Keys
 
 - The keys the app stores (TypeSafe, Anthropic, OpenAI) are encrypted with Electron's `safeStorage`, whose key the OS keychain holds, and written whole to the app's user data folder, readable by your user only. A keys file that cannot be read counts as no keys: the app opens, says so once, and the keys can be set again.
+- A development copy (`pnpm dev`, or the built app run by the stock Electron binary) runs as Skill Studio Dev and keeps its own keychain item, `Skill Studio Dev Safe Storage`. The stock binary is signed ad hoc, so macOS knows it only by its hash; it is never on the installed app's item, whose key only the signed app reads.
 - On Linux with no keyring, `safeStorage` falls back to a fixed key anyone can read (`basic_text`). The app then refuses to store a key and says to set the environment variable instead.
 - The main process and the backend hold them, never the page.
 - A stored Anthropic or OpenAI key reaches the backend under a name of the app's own, so an agent the app starts does not find it in `ANTHROPIC_API_KEY` or `OPENAI_API_KEY`.

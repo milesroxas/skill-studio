@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { boundsOf, devUrlOf, opensToDebugger, pageUrl, placed } from './launch.ts'
+import { appNameOf, boundsOf, devUrlOf, opensToDebugger, pageUrl, placed } from './launch.ts'
 
 describe('pageUrl', () => {
   it('leaves the page as it is when no place is named', () => {
@@ -56,6 +56,16 @@ describe('boundsOf', () => {
     expect(boundsOf('{"x":10,"y":2')).toBeNull()
     expect(boundsOf('null')).toBeNull()
     expect(boundsOf('{"x":10,"y":20,"width":"wide","height":600}')).toBeNull()
+  })
+})
+
+describe('appNameOf', () => {
+  it('keeps the name in a packaged app', () => {
+    expect(appNameOf(true, 'Skill Studio')).toBe('Skill Studio')
+  })
+
+  it('names a development copy apart, so it has its own keychain item', () => {
+    expect(appNameOf(false, 'Skill Studio')).toBe('Skill Studio Dev')
   })
 })
 

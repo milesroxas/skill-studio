@@ -18,9 +18,9 @@ pnpm dev                # the desktop app, with hot reloading
 
 ### Worktrees
 
-In a worktree you have just made, `pnpm bootstrap` runs `pnpm install` and copies the main checkout's `.env` when the worktree has none (`scripts/bootstrap.ts`). Electron (45.2.2 in `package.json`) fetches no binary at install, so the root `postinstall` runs `install-electron`, the `electron` package's own installer; it returns at once when the binary is there.
+In a worktree you have just made, `pnpm bootstrap` runs `pnpm install` and copies the main checkout's `.env` when the worktree has none (`scripts/bootstrap.ts`). Electron (45.3.0 in `package.json`) fetches no binary at install, so the root `postinstall` runs `install-electron`, the `electron` package's own installer; it returns at once when the binary is there.
 
-A development copy keeps its data under `~/Library/Application Support/Skill Studio Dev/<checkout>`, one folder per checkout, so two worktrees and the installed app can be open at once. They share your skills and `~/.skill-studio`. `--user-data-dir` overrides it. Vite takes the first free port from 5173. Keys typed into a development copy's Settings belong to that checkout; `.env` is read by all of them.
+A development copy keeps its data under `~/Library/Application Support/Skill Studio Dev/<checkout>`, one folder per checkout, so two worktrees and the installed app can be open at once. They share your skills and `~/.skill-studio`. `--user-data-dir` overrides it. Vite takes the first free port from 5173. Keys typed into a development copy's Settings belong to that checkout; `.env` is read by all of them. A development copy runs as Skill Studio Dev, so its keys sit under their own keychain item, `Skill Studio Dev Safe Storage`, apart from the installed app's. macOS knows the stock Electron binary only by its hash, so after an Electron upgrade it asks once for your login password: press **Always Allow**. That grants the development item only.
 
 ## Before you open a pull request
 

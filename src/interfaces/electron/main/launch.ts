@@ -80,6 +80,17 @@ export const devUrlOf = (
 ): string | undefined => (packaged ? undefined : env.ELECTRON_RENDERER_URL || undefined)
 
 /**
+ * The app's name in this copy. A development copy runs as "<name> Dev", which
+ * names its data folder and, through safeStorage, its keychain item
+ * ("Skill Studio Dev Safe Storage"). The installed app's item then trusts only
+ * the signed app: a development copy runs the stock Electron binary, signed
+ * ad hoc, which macOS knows only by its hash, so sharing the item asked for
+ * the keychain password at every launch and every Electron upgrade.
+ */
+export const appNameOf = (packaged: boolean, name: string): string =>
+  packaged ? name : `${name} Dev`
+
+/**
  * Chromium switches that open the page, and with it the preload's bridge, to
  * a debugger outside the app. Node's own (`--inspect` and the like,
  * `NODE_OPTIONS`) are turned off by the fuses in electron-builder.yml; these

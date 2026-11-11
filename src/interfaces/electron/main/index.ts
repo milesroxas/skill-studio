@@ -15,7 +15,7 @@ import electronUpdater from 'electron-updater'
 import { APP_ORIGIN, CHANNELS } from '../channels.ts'
 import { Backend } from './backend.ts'
 import { registerIpc } from './ipc.ts'
-import { devUrlOf, opensToDebugger } from './launch.ts'
+import { appNameOf, devUrlOf, opensToDebugger } from './launch.ts'
 import { installMenu } from './menu.ts'
 import { handleSchemes, registerSchemes } from './protocol.ts'
 import { pageRenderer } from './render.ts'
@@ -31,6 +31,9 @@ const devUrl = devUrlOf(app.isPackaged, process.env)
 /** How long a quit waits for the backend to end its agents before going ahead. */
 const STOP_WAIT_MS = 3000
 
+// Before anything reads the keychain: safeStorage names its item after the app.
+app.setName(appNameOf(app.isPackaged, app.name))
+
 /**
  * A development copy keeps its data apart from the installed app, as Signal and
  * VS Code do, and here one folder per checkout, so two worktrees' `pnpm dev`
@@ -40,7 +43,7 @@ const STOP_WAIT_MS = 3000
  * any Chromium app. The folder is made first: the lock lives in it.
  */
 if (!app.isPackaged && !app.commandLine.hasSwitch('user-data-dir')) {
-  const profile = join(app.getPath('appData'), `${app.name} Dev`, basename(app.getAppPath()))
+  const profile = join(app.getPath('appData'), app.name, basename(app.getAppPath()))
   mkdirSync(profile, { recursive: true })
   app.setPath('userData', profile)
   app.setPath('sessionData', profile)
