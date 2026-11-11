@@ -26,7 +26,7 @@ const isWindows = (source: Env): boolean =>
     ([key, value]) => key.toUpperCase() === 'OS' && value === 'Windows_NT',
   )
 
-export function agentEnv(source: Env, windows: boolean = isWindows(source)): Env {
+export function agentEnvFrom(source: Env, windows: boolean = isWindows(source)): Env {
   const env: Env = {}
   for (const [key, value] of Object.entries(source))
     if (!isHiddenFromAgents(windows ? key.toUpperCase() : key)) env[key] = value

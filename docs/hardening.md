@@ -76,7 +76,7 @@ Severity: **high** gives wrong scores or loses data. **med** misleads or breaks 
 
 ## Security and isolation
 
-- [x] **S1** high. A Cursor agent gets the whole environment, including `TYPESAFE_API_KEY` and the stored Anthropic and OpenAI keys. `src/infrastructure/engines/cursor.ts`, `src/infrastructure/engines/claude.ts` Fixed: every agent, the `code` pack's check command and the assistant's CLIs run with `agentEnv` (`src/domain/env.ts`), which drops the keys. Bash stays allowed for Claude Code agents, so a skill can still run commands.
+- [x] **S1** high. A Cursor agent gets the whole environment, including `TYPESAFE_API_KEY` and the stored Anthropic and OpenAI keys. `src/infrastructure/engines/cursor.ts`, `src/infrastructure/engines/claude.ts` Fixed: every agent, the `code` pack's check command and the assistant's CLIs run with `agentEnv` (`src/infrastructure/env.ts`, rules in `src/domain/env.ts`), which drops the keys. Bash stays allowed for Claude Code agents, so a skill can still run commands.
 - [ ] **S2** med. Isolation relies on the prompt. The sample sits inside `evals/runs/`, so `../..` reaches the graders, and its folder name says whether the skill is installed. Relative paths outside the sample are not flagged. The run's `_skill/` copy sits at `../_skill` from each sample, so a without-skill sample can read the skill. Cursor ignores `allowed_tools`. `src/judges/workflow/index.ts:43`, `src/infrastructure/engines/cursor.ts:93-101`, `src/application/generate.ts` In part (`d9a79bc`): the workflow pack resolves `..`, `~` and the shell's `cd` before it judges a path, so a path outside the sample is flagged. The sample still sits inside `evals/runs/`, and Cursor still ignores `allowed_tools`.
 
 ## Refinement loop
