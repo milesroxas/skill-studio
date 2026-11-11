@@ -246,7 +246,7 @@ export const gradedLine = (packs: readonly string[]): string => {
   return kinds.length ? `Graded as ${kindsLine(kinds)}` : 'Graded on rules and checks'
 }
 
-/** Kinds of work as a spoken list, in the order given: "Generic, Code and Design". */
+/** Kinds of work as a spoken list, in the order given: "Code, Workflow and Design". */
 export const kindsLine = (ids: readonly string[], last = 'and'): string =>
   listLine(ids.map(kindLabel), last)
 

@@ -53,6 +53,7 @@ import {
 } from '../components/MarkdownEditor.tsx'
 import { NavButton } from '../components/NavButton.tsx'
 import { Segmented } from '../components/Segmented.tsx'
+import { Dot } from '../components/Status.tsx'
 import { GuideBox, GuideList, PairList, Starter } from '../components/starters.tsx'
 import { Code, Hint, Text } from '../components/text.tsx'
 import { Alert, AlertDescription, AlertTitle } from '../components/ui/alert.tsx'
@@ -389,10 +390,17 @@ export const Editor = memo(function Editor({ ctx }: { ctx: Ctx }) {
                   current={!version && path === file}
                   onClick={() => go('editor', { file: path })}
                 >
-                  <Text font="mono" size="xs" wrap="anywhere">
-                    {path}
-                    {isDirty(path) ? <Text tone="warning"> •</Text> : null}
-                  </Text>
+                  <span className="flex min-w-0 items-center gap-1.5">
+                    <Text font="mono" size="xs" wrap="anywhere" className="min-w-0">
+                      {path}
+                    </Text>
+                    {isDirty(path) ? (
+                      <>
+                        <Dot size="sm" tone="warning" />
+                        <span className="sr-only">, unsaved changes</span>
+                      </>
+                    ) : null}
+                  </span>
                 </NavButton>
               </li>
             ))}

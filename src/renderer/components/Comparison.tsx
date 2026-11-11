@@ -35,7 +35,6 @@ import {
   caseTitle,
   configurationTail,
   drawnOf,
-  extraKinds,
   layersOf,
   type Output,
   outputDetail,
@@ -156,9 +155,6 @@ export function Comparison({
       ? 'diff'
       : 'side'
   const view: View = views.find((v) => v.value === chosen)?.value ?? opening
-  /** A skill graded as Workflow and no other kind: how the agent worked is what it is about, so its steps are read first. */
-  const kindsGraded = extraKinds(config.packs)
-  const stepsFirst = kindsGraded.length > 0 && kindsGraded.every((p) => p === 'workflow')
   const runs = [...new Set(sides.map((o) => o.run.name))]
   /** The size a page is drawn at: one for the case, on the stage and in both cards. */
   const page = usePageSize(testCase?.bench.size ?? null)
@@ -242,7 +238,6 @@ export function Comparison({
                 held={grade.starting()}
                 onRegrade={() => regrade([a.run.name])}
                 reading={view !== 'flip'}
-                stepsFirst={stepsFirst}
                 page={page}
               />
             ) : null}
@@ -257,7 +252,6 @@ export function Comparison({
                 held={grade.starting()}
                 onRegrade={() => regrade([b.run.name])}
                 reading={view !== 'flip'}
-                stepsFirst={stepsFirst}
                 page={page}
               />
             ) : null}
@@ -398,7 +392,6 @@ function Side({
   held,
   onRegrade,
   reading = true,
-  stepsFirst = false,
   page,
 }: {
   ctx: Ctx
@@ -415,8 +408,6 @@ function Side({
   onRegrade: () => void
   /** The card shows what the output wrote; false when the stage above shows it. */
   reading?: boolean
-  /** The card opens on the agent's steps, where the output kept them. */
-  stepsFirst?: boolean
   /** The size a page in this card is drawn at. */
   page: PageSize
 }) {
@@ -426,8 +417,7 @@ function Side({
   // The artifact in view, kept by the output's key: a reload after a correction
   // brings a new output object for the same output, and the view holds.
   const [picked, setPicked] = useState<{ key: string; view: OutputView | null } | null>(null)
-  const opening: OutputView | null =
-    stepsFirst && output.sample.hasTranscript ? 'transcript' : primaryOf(output)
+  const opening: OutputView | null = primaryOf(output)
   const view = picked?.key === output.key ? picked.view : opening
   const setView = (next: OutputView | null) => setPicked({ key: output.key, view: next })
   const [pending, setPending] = useState<string | null>(null)

@@ -137,7 +137,7 @@ report(e.message)
 <div className="fixed bottom-4 …">Saved</div>
 ```
 
-- A string alone is a fact, with the plain dot: "Saved 1.2.0", "Run started: 3 outputs".
+- A string alone is a fact, with the plain dot: "Saved 1.2.0", "Run started: 3 cases".
 - An `Error`, or a string with `{ tone: 'destructive' }` when the caller words it ("Not saved: …"), is a step that failed. Red dot.
 - `{ tone: 'warning' }` is a step the reader must change something before taking ("1.2.0 already exists."). Amber dot.
 - `{ undo }` offers Undo, and the Undo shortcut takes it while the line stands. `{ action }` offers the one step that follows. One offer at most: a notice is one line, and the line truncates past the strip.

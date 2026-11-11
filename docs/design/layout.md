@@ -65,7 +65,7 @@ A region is a part of the page: a column, a section, a group of fields. It ends 
 
 ```tsx
 // Correct: screens/Settings.tsx
-<FormSection title="Appearance" hint="How Skill Studio looks and moves on this computer.">
+<FormSection title="Appearance">
   <Field>
     <Label id={ids.theme}>Theme</Label>
     <Segmented<Theme> aria-labelledby={ids.theme} value={preferences.theme} onChange={…} />
@@ -123,11 +123,11 @@ An output a reader looks at rather than reads, a page or a picture, is judged on
 - **Both outputs** are on the stage at once, one in view. Flipping is instant, with no transition: the change between A and B is what the reader is looking for. Two pages scroll together, so a flip lands on the same part of both.
 - **One at a time, full width.** Two frames side by side show a desktop page at about 38% on a 1280px window, too small to judge type and spacing, and a swipe line across one frame hides half of each output and fails when the two layouts differ. Text outputs stay side by side, where reading both at once is the point.
 
-What an output is decides how its case opens, by the file that stands for each output (`primaryOf` in `model.ts`): a page or a picture on the stage, two pieces of code as their diff, anything else as cards. A picture an agent wrote beside a note does not put the note on the stage. A skill graded as Workflow and no other kind opens each card on its transcript. The kind sets what opens first and nothing else: there is one Results screen, and every view stays a press away.
+What an output is decides how its case opens, by the file that stands for each output (`primaryOf` in `model.ts`): a page or a picture on the stage, two pieces of code as their diff, anything else as cards. A picture an agent wrote beside a note does not put the note on the stage. The kind sets what opens first and nothing else: there is one Results screen, and every view stays a press away.
 
 A control stands with what it changes, and shows only while that thing is in view. Three places hold them:
 
-- **The header** holds the views, a `Segmented`: **One at a time** (the stage), **Side by side**, **Word diff**. A view is a way to set two outputs against each other, so one output shows none. After it, `MoreActions` (`components/RowActions.tsx`) holds what is done now and then: **Edit case**, and **Regrade this run**, or one for A's run and one for B's when they differ. Grading reads a whole run, so the action names the run and never sits on one output's card. Below `lg` the header wraps as the Skill screen's does: the case's name takes the first row.
+- **The header** holds the views, a `Segmented`: **One at a time** (the stage), **Side by side**, **Word diff**. A view is a way to set two outputs against each other, so one output shows none. After it, `MoreActions` (`components/RowActions.tsx`) holds what is done now and then: **Edit case**, and **Regrade this run** (**Grade this run** before its outputs have a score), or one for A's run and one for B's when they differ. Grading reads a whole run, so the action names the run, and Regrade never sits on one output's card. Below `lg` the header wraps as the Skill screen's does: the case's name takes the first row.
 - **Above the stage**, in one `Stack gap="md"` with it, stand the case and the pair, so what picks an output sits closer to the stage than the cards do. Each is one line, a `Disclosure`. First "The prompt and its checks": it is about the case, so it comes before the pair. Then the pair, "Comparing v0 with v1": a case opens on the right two, so the fields that pick another pair are folded under the line. They are A and B, each a `Slot variant="letter"` before a `SelectBox width="fill"`, in two equal columns with **Swap** (outline) at the end, and under them a `Hint` naming the A and B keys. A field names its output by its version (`outputNames` in `model.ts` adds the writer, then the time, only where two would read the same); who wrote it and when is each option's `detail`, a line under the name in the list. With neither side picked the line stands open.
 - **The bar over the stage** holds what picks the thing in view: which output, a `Segmented` of A and B, each letter with its total and the key in its title; and which file, a `SelectBox size="sm"`, when there is more than one thing to show. The file is a list, never segments: an agent writes as many files as it likes. The transcript is the list's last choice.
 

@@ -1,6 +1,6 @@
 # Hardening checklist
 
-Known issues in the product's logic and workflow, from a QA review on 2026-11-06, checked against the code on 2026-11-09. Each line is one issue: its id, its severity, what is wrong, and where. Paths with line numbers are as of `ee7ae14`; a path with none names a file as it is now.
+Known issues in the product's logic and workflow, from a QA review on 2026-11-06, checked against the code on 2026-11-11. Each line is one issue: its id, its severity, what is wrong, and where. Paths with line numbers are as of `ee7ae14`; a path with none names a file as it is now.
 
 ## How to use this file
 
@@ -25,7 +25,7 @@ Severity: **high** gives wrong scores or loses data. **med** misleads or breaks 
 - [ ] **R4** high. A sample with no score is left out of the mean, so a version that fails often looks no worse. `src/renderer/model.ts` (`caseMeans`), `src/renderer/components/ResultsSummary.tsx` (`totalsOf`) In part (`d9a79bc`): an empty output now scores 0 and counts. A sample whose pack failed, or graded with no key, still has a null total and is left out.
 - [x] **R5** high. With the workflow pack on, an empty output can score 100. "nothing written to outputs/" is only a flag. `src/judges/workflow/score.ts:67`, `src/judges/workflow/index.ts:138` Fixed: an output with no file, or only whitespace, is flagged and scores 0 on every layer, the workflow pack's included. `d9a79bc`
 - [ ] **R6** med. A timed-out sample with partial output counts as complete. `src/application/generate.ts:239`
-- [ ] **R7** med. "Regrade without Jev" overwrites `report.json` and throws away stored Jev answers. `src/application/grade.ts`, `src/renderer/components/ResultsSummary.tsx` In part (`d9a79bc`): a stopped or failed grading keeps the last report and every Jev answer, and a regrade reuses answers for outputs that did not change. A regrade with code checks still writes a new `report.json`.
+- [ ] **R7** med. "Regrade without Jev" overwrites `report.json` and throws away stored Jev answers. `src/application/grade.ts`, `src/renderer/components/ResultsSummary.tsx` In part (`d9a79bc`): a stopped or failed grading keeps the last report and every Jev answer, `judge-cache.json` keeps Jev's answers through a grading without Jev, and a regrade reuses answers for outputs that did not change. A regrade with code checks still writes a new `report.json`, which shows no Jev verdict until the next grading with a key.
 
 - [ ] **R8** low. A correction names a fact by its kind and its words, so two rules of one skill that read the same share one answer. `src/domain/verdict.ts` (`verdictId`) In part (`d9a79bc`): duplicate rules in `bench.json` are dropped. Two identical bullets in SKILL.md still share one answer.
 - [ ] **R9** low. A report keeps what its grading asked. An output graded before rules and checks were marked on every kind of file shows no Rules or Checks part until its run is regraded. In part: the line under a run on All cases says so and points to Regrade; a case's own page does not. `src/renderer/model.ts` (`rulesUnmarked`), `src/renderer/components/Comparison.tsx`
@@ -36,7 +36,7 @@ Severity: **high** gives wrong scores or loses data. **med** misleads or breaks 
 
 - [ ] **C1** high. Cases are not versioned: `run.json` holds case ids only. An edited prompt or check, or an id reused after a delete, changes what old results mean. Results shows the current prompt and checks beside old outputs. `src/application/generate.ts:128`, `src/renderer/components/Comparison.tsx`
 - [ ] **C2** high. The version lift compares the cases both versions ran, but does not check sample counts or say when the baseline answered fewer of those cases. The baseline is the writer's newest without-skill run, of any age. `src/domain/lift.ts` In part (`d9a79bc`): the floor is the newest without-skill run that answered every shared case, and the lift says how many cases it answered when that is fewer. Sample counts and the floor's age are not checked.
-- [ ] **C3** high. Totals built from different layer sets are compared: a missing key, a failed pack, a pack added later or a crashed lint each drop layers and rescale the rest. `src/domain/scoring.ts:43-53`, `src/application/grade.ts:113-119`
+- [ ] **C3** high. Totals built from different layer sets are compared: a missing key, a failed pack or a pack added later each drop layers and rescale the rest. `src/domain/scoring.ts:43-53`, `src/application/grade.ts:113-119`
 - [ ] **C4** med. No spread is shown anywhere, so noise reads as lift. `stddev` has no caller outside its test. All cases shows each run's sample count; nothing else does. `src/domain/stats.ts`, `src/domain/lift.ts`
 - [ ] **C5** med. The lift ribbon draws a full rise for a change that rounds to zero. `src/renderer/components/Lift.tsx:76-77,136,151`
 - [ ] **C6** med. A version's score counts only the lift's writer, but a version that writer never ran averages every writer together. The sidebar, the versions list and a version's detail all show it. `src/renderer/model.ts` (`versionScore`)

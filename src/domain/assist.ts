@@ -455,7 +455,7 @@ export function workingSkill(
 export const CONTEXT_BUDGET = 40_000
 
 const SCREENS =
-  'Skill (edit SKILL.md and references/, with every version to compare and restore), Cases (the prompts a run is made of, each with checks; Add pictures gives a case a picture, and Add files or Add folder, under Files, gives it a copy of any other file or folder the prompt is about), Results (two outputs of a case side by side with what each missed, a pick between them, and every run under All cases), Library, Guide and Settings. Run, at the top of the window, has an agent do the cases and saves the skill as a version.'
+  'Skill (edit SKILL.md and references/, with every version to compare and restore), Cases (the prompts a run is made of, each with checks; Add files or Add folder, under Files, gives a case a copy of a picture or any other file or folder the prompt is about), Results (two outputs of a case compared, each with the rules and checks it missed, and every run under All cases, where Graded as adds Code, Workflow or Design to the rules and checks every skill is graded on), Library, Guide and Settings. Run, at the top of the window, has an agent do the cases and saves the skill as a version.'
 
 /** Where the reader is and what they have open, as the brief says it. */
 function whereText(scene: ChatScene): string {

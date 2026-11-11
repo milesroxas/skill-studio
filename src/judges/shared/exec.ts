@@ -1,5 +1,5 @@
 /**
- * Run a check or lint command for a pack. Judges import nothing but the
+ * Run a case's check command for the code pack. Judges import nothing but the
  * domain, so they start no process themselves: whoever grades puts a runner on
  * the context (`JudgeContext.run`), which runs the line in a shell for a
  * bounded time, in the background, and ends it when the grading is stopped.

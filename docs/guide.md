@@ -111,7 +111,7 @@ A skill missing from the list?
 - **Insert** adds a ready-made rule, decision tree, process or reference link at the cursor.
 - **Formatted, Markdown, Changes:** read the page styled, as plain text, or as your unsaved changes.
 - **Five bars** (before Write with AI, at the end of the toolbar) show the file's size. Amber: getting long. Red: too long.
-- **Long background material** goes in a file of its own: click the plus beside Files. **Delete file** under a saved reference file removes it.
+- **Long background material** goes in a file of its own: click the plus beside Files. **Delete file**, beside the name of a saved reference file, removes it.
 
 Unsaved text is kept, even if you close the app. **Discard** throws it away.
 
@@ -148,7 +148,7 @@ This approach to rules comes from Emil Kowalski's course [AI for Designers and E
 
 - **Connect a model** in Settings. Claude Code and Codex are the main way: they run on the account you already use, with no key. An API key works too, under **Use an API key**. Settings says whether Claude Code and Codex are installed and signed in. When one is not, it shows the command to run in Terminal (`claude auth login`, or `codex login`), with **Copy command**. Run it, come back, and Settings shows the account and the plan.
 - **Ask:** click the small button in any text box, or **Write with AI** in the editor toolbar. Say what you want.
-- **Nothing changes** until you click **Replace** or **Insert**.
+- **Nothing changes** until you click **Replace** or **Insert** (**Add**, for checks).
 - **Closing the box keeps the reply.** A reply being written goes on, and opening the box again on the same text finds it. Only **Discard** throws it away. Opening it on other text, or with another selection, starts afresh.
 - **Select text first** to rewrite only that part.
 - **Assistant** (top right, or Cmd+J): a chat beside every screen. It reads the open skill as you have it, unsaved edits and new files included, and knows the screen you are on and the file or case you have open. Ask it to change something and the reply shows each change under it: a file's changes, a new case, or a version to keep first. A case it adds or replaces can mark a check ×2: ask for it. Click the button at the end of a change's row to apply it. For a file change or a new case, Undo in the status line takes it back; a replaced case or a kept version offers **Open** instead. Nothing changes until you click. **New conversation** in the panel's header starts over.
@@ -172,7 +172,7 @@ With a TypeSafe key, Jev reads the rule and the answers, so the checks are exact
 A version is a copy of the skill as it was for a run, named v0, v1 and so on. You never save one by hand: when the files changed since the last run, the next run keeps them as the next version. Every score stays tied to the version that produced it.
 
 - **Versions**, under Files, lists them, newest first, each with its date and score. After a **Restore**, the version the files match says *in the files now*.
-- **Click one** to see what changed between it and the files now, file by file. **The version before** shows what that version itself changed.
+- **Click one** to see what changed between it and the files now, file by file. Pick the version before it instead, such as **v1, the version before**, to see what that version itself changed.
 - **Restore** puts a version's files back. If the files changed since the last run, they are kept nowhere else: run them first to keep them.
 - **Delete version** deletes it and its runs. **Undo** brings them back. To delete one run and keep the version, use **Delete run** on Results, All cases.
 
@@ -195,14 +195,14 @@ The line under the files folds the rest of the case and names what it holds, suc
 - **A good answer** (optional): one or two sentences on what it does.
 - **Checks** (optional): one fact per row that a good answer makes true. Return starts the next row; Backspace on an empty row removes it. The picture button in a check's corner attaches a mock-up or screenshot the check is about. **×2** makes a check count double. **Write checks with AI** adds checks from the prompt.
 - **Length** (optional): tick it to score the word count, then set the fewest and the most words.
-- **Size** (optional, in one section with Length, for a skill graded as design, or a case that already has one): tick it and set a width and a height in pixels. A picture must be exactly that size, and one that is not is listed under Missed, as a word count outside the range is. A page is drawn at that size when Jev looks at it, and opens at that width on Results. **Check that a page works on a phone too** has Jev also look at the page 390 px wide. Leave it off for a page made for a desktop window.
+- **Size** (optional, in one section with Length, for a skill graded as Design, or a case that already has one): tick it and set a width and a height in pixels. A picture must be exactly that size, and one that is not is listed under Missed, as a word count outside the range is. A page is drawn at that size when Jev looks at it, and opens at that size on Results. **Check that a page works on a phone too** has Jev also look at the page 390 px wide. Leave it off for a page made for a desktop window.
 
 ### What the agent sees
 
-A run does not happen in your project. Each case starts in a new, empty folder that holds a copy of the skill, the prompt and the case's pictures and files, and nothing else: the agent cannot read your project, use MCP tools or reach the network. So when a prompt is about something of yours, such as a screen's code, a design file or a document, give the case a copy:
+A run does not happen in your project. Each case starts in a new, empty folder that holds a copy of the skill, the prompt and the case's pictures and files, and nothing else. The agent is told not to read outside that folder, use MCP tools or reach the network. So when a prompt is about something of yours, such as a screen's code, a design file or a document, give the case a copy:
 
 - Add it under Files, with **Add files** or **Add folder**, or drop it on the case. What you add is copied into the case when you save it.
-- A picture added on its own, such as a screenshot or mock-up, shows in the list with its thumbnail. The judge sees it too. A case holds 6 of these at most. A picture inside a folder you add is a file like the rest of the folder.
+- A picture added on its own, such as a screenshot or mock-up, shows in the list with its thumbnail. Jev sees it too. A case holds 6 of these at most. A picture inside a folder you add is a file like the rest of the folder.
 - A folder keeps its layout and leaves out hidden files and `node_modules`. You can add 500 files and 16 MB at a time, so add only the folder the prompt is about, not the whole project.
 - To bring a copy up to date, add it again: one with the same name takes its place. **×** takes one off when you save.
 - **Reveal in Finder** (**Show in File Explorer** on Windows, **Open containing folder** on Linux), at the end of the Files label on a saved case, opens the case's `files` folder, to change what is there by hand. The form lists it when you come back to the window.
@@ -242,18 +242,18 @@ Runs cost money: each output is an agent session, and Jev is paid per call.
 
 ![Results: three cases on the left, each with its score before and after; on the right two outputs of one case side by side, A from v0 and B from v1, each with its score, the rules and checks it met as counts, and a list of what it missed.](images/results.webp)
 
-Results opens on a case with two outputs side by side: **A**, the version before, and **B**, the latest. With one version, A is the output written without the skill, if you ran one.
+Results opens on a case with two outputs to compare: **A**, the version before, and **B**, the latest. With one version, A is the output written without the skill, if you ran one.
 
 - **The list** on the left has every case that was run, with how its score moved. Click one to compare it.
 - **Each output** has its score out of 100, then what the score is counted from: "Rules 4 of 5", "Checks 2 of 3". A check marked ×2 counts two in both numbers, so the count matches the bar.
 - **Missed** lists each rule the output broke and each check it did not meet. This is what to fix. **Open rule** takes you to that rule on the Skill screen.
 - **Met** folds the rest away. Open it to read them.
 - **Transcript**, above the output, shows every step the agent took. Read it when a score surprises you. Did the agent read the skill at all?
-- **A page or a picture** opens on a stage above the scores, drawn as a browser draws it, scripts and all. **A** and **B** over the stage, each with its score, or the A and B keys, put either output in the same place, so flipping shows exactly what changed, and each page keeps its place as you scroll. When an output wrote more than one file, the menu beside A and B picks one by name, or the transcript. A component that does not open in a browser by itself, such as a React component, shows through `outputs/preview.html`, a page the run asks the agent to write beside it.
-- **The line under the stage** names the size a page is drawn at, then how far it is scaled down to fit. Click the name to change it: **Full width**, **Phone**, **Tablet** or **Desktop**. A case with a size adds **Case size**, opens at it, and shows the whole page at that size. **Open full size** opens the file in a window of its own. A page in a card, under Side by side, has the same line over it and is scaled down to fit the card.
-- **One at a time**, **Side by side** and **Word diff**, at the top right, show with two outputs. One at a time is the stage. Side by side shows the two as cards, with each file and the transcript. Word diff marks what differs between them, and two outputs of code open on it. Outputs too long to compare word by word are compared line by line, and the card says so.
+- **A page or a picture** opens on a stage above the scores, drawn as a browser draws it, scripts and all. **A** and **B** over the stage, each with its score, or the A and B keys, put either output in the same place, so flipping shows exactly what changed, and each page keeps its place as you scroll. The menu beside A and B picks another file the output wrote, by name, or **Transcript**. A component that does not open in a browser by itself, such as a React component, shows through `outputs/preview.html`, a page the run asks the agent to write beside it.
+- **The line under the stage** names the size a page is drawn at, then how far it is scaled down to fit, or under Full width how many pixels wide it is. Click the name to change it: **Full width**, **Phone**, **Tablet** or **Desktop**. A case with a size adds **Case size**, opens at it, and shows the whole page at that size. **Open full size** opens the file in a window of its own. A page in a card, under Side by side, has the same line over it and is scaled down to fit the card.
+- **One at a time**, **Side by side** and **Word diff**, at the top right, show with two outputs, One at a time only when one of them wrote a page or a picture. One at a time is the stage. Side by side shows the two as cards, with each file and the transcript. Word diff marks what differs between them, and two outputs of code open on it. Outputs too long to compare word by word are compared line by line, and the card says so.
 - **Comparing v0 with v1**, above the outputs, names the pair. Open it to pick any other outputs of the case from the **A** and **B** menus, each listed by its version with who wrote it and when under the name, or to **Swap** their sides.
-- **More actions** (⋯), at the top right, holds **Edit case** and **Regrade this run**: Jev reads the whole run again, for example after you add a check. An output not graded yet shows **Grade** on its card.
+- **More actions** (⋯), at the top right, holds **Edit case** and a regrade for each run the outputs came from: **Regrade A’s run** and **Regrade B’s run**, or **Regrade this run** when there is one. Jev reads that whole run again, for example after you add a check. An output not graded yet shows **Grade** on its card.
 
 ### When you and Jev disagree
 
@@ -287,13 +287,13 @@ To be sure an edit helped, run with **Attempts per case** at 2 or more. If two v
 
 ### Graded as
 
-Most skills never need this. Every skill is graded on its rules and its cases' checks, whatever it makes: text, a page, a picture or code. Nothing else is graded unless you ask. **Graded as**, folded at the foot of All cases, adds more for a kind of work:
+Most skills never need this. Every skill is graded on its rules and its cases' checks, whatever it makes: text, a page, a picture or code. Nothing else is graded unless you ask. The line folded at the foot of All cases, **Graded on rules and checks**, opens the kinds of work, each of which adds more to grade. Once one is ticked, the line names it, such as **Graded as Design**:
 
 - **Design** looks at a page or a picture: one clear main point, and nothing broken. It checks nothing a rule of yours did not ask for.
 - **Workflow** grades how the work was done: repeated steps, staying in its own folder, and what came after an error.
 - **Code** runs the check command a case names in its `case.yaml`.
 
-Click **Save**, and every score updates at once. Nothing runs again, so it costs nothing.
+Click **Save**, and every score updates at once. Nothing runs again, so it costs nothing. A kind ticked after a run counts on that run once you **Regrade** it.
 
 The points each part counts, the threshold at which Jev's answer counts as met, and a kind's own settings are set by hand in `evals/bench.json`. When the file sets any of them, Graded as names them, and saving keeps them as they are.
 

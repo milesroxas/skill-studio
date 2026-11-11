@@ -14,7 +14,7 @@ It is built for outputs that are a matter of judgement, such as writing, HTML an
 
 - Jev answers facts: was this rule followed, was this check met. A score is a count of those facts.
 - Where you disagree with a verdict, you mark it, and the score follows. What an output gets wrong that nothing checks yet becomes a check in one line.
-- Jev's answers are stored, so a change to how a skill is scored costs no new calls.
+- Jev's answers are stored, so a change to the points or the threshold costs no new calls.
 
 ![Skill Studio with a skill open on Results: the sidebar with Skill, Cases and Results, three cases with how each score moved, and two outputs of one case side by side with what each missed.](docs/images/app.webp)
 

@@ -46,7 +46,7 @@ export interface PageShot {
   read: Readable
 }
 
-/** How a check or lint command ended. */
+/** How a check command ended. */
 export interface CommandResult {
   exit: number | null
   /** What it printed, from the start; a command that prints without end is cut off. */
@@ -71,10 +71,10 @@ export interface JudgeContext {
   /** False when grading without TypeSafe: packs run their code checks and leave judged layers null. */
   useJev: boolean
   config: BenchConfig
-  /** Absolute path of the skill being graded; lint and check commands run from here. */
+  /** Absolute path of the skill being graded; a check's picture is read from here. */
   skillDir: string
   log: (line: string) => void
-  /** Runs a pack's check or lint command; a pack that needs one fails without it. */
+  /** Runs a case's check command; the code pack fails without it. */
   run?: CommandRunner
 }
 

@@ -451,7 +451,7 @@ export function exec(command: string, args: string[], options: ExecOptions): Pro
 }
 
 /**
- * A runner of check and lint commands for the judge packs: a shell command
+ * A runner of check commands for the judge packs: a shell command
  * line, run by `exec` so it is ended as a group, stopped by `signal` and by
  * `stopAll`, and kept from the app's own keys. A check command runs what the
  * skill's author wrote. Stopped before it starts or while it runs, it rejects

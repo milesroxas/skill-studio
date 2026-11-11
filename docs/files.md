@@ -32,7 +32,7 @@ Everything Skill Studio knows about a skill is plain files in the skill's `evals
 - Saving a case is refused, before anything is written, when its folder, its `files/`, `graders/` or `references/`, its `prompt.md`, its `case.yaml` or one of its checks is reached through a link that leads out of the skill.
 - A grader file must start with front matter (`---`), even an empty block. A file without it is skipped. Its `weight` is rounded and held to 1 to 5; a value that is not a positive number reads as 1. `type` and `focus` are kept when the case is saved.
 - `max_turns` is not passed to the agent. The workflow pack compares it with the number of tool calls.
-- `fixtures/` holds three small skills with generated runs: `demo-skill` (generic pack), `code-skill` (code pack) and `design-skill` (design pack). Each also runs the workflow pack.
+- `fixtures/` holds three small skills with generated runs: `demo-skill` (generic pack), `code-skill` (code pack) and `design-skill` (design pack). Each also runs the generic and workflow packs.
 
 ### The `bench` block of `case.yaml`
 
@@ -41,6 +41,8 @@ Everything Skill Studio knows about a skill is plain files in the skill's `evals
 | `artifact` | The kind of output to grade: `markdown`, `html`, `image`, `code` or `transcript` |
 | `words` | `[min, max]`, the word range the output should fall in |
 | `check` | The command the code pack runs; its exit code is the check layer |
+| `size` | `[width, height]` in pixels: a picture must be exactly this size, and a page is drawn at this size for grading |
+| `phone` | `true` also draws a page 390 by 1200 pixels, and the design pack asks whether it works on a phone |
 | `judge` | `false` asks Jev nothing about this case's outputs, in any pack: only code checks run, and every layer Jev judges is null |
 
 ## A run
@@ -57,6 +59,7 @@ evals/runs/<date>-skill-<vN>-<engine>-<model>[-<effort>][-<configuration>]/
     files/                        the case's input files
     .agents/skills/<name>/        the skill copy the agent saw, made from _skill/
     outputs/                      everything the agent produced; graded artifacts come from here
+    renders/                      the page as the desktop app drew it for grading, one PNG per size
     notes.md                      what the agent would have told the user
     transcript.jsonl              one event per line: system, text, thinking, tool, result, error
     timing.json                   start, end, duration, cost, tokens, model

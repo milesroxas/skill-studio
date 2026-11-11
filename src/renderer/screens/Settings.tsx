@@ -97,6 +97,8 @@ export function SettingsScreen({ running, report, onSaved, onWelcome }: Props) {
   const preferences = usePreferences()
   const { keys, changed } = useKeys(onSaved)
   const { providers, choice, problem } = useAi()
+  /** Claude Code and Codex are being read again after a failed read. */
+  const [checking, setChecking] = useState(false)
   const ids = {
     theme: useId(),
     motion: useId(),
@@ -199,7 +201,11 @@ export function SettingsScreen({ running, report, onSaved, onWelcome }: Props) {
           <ReadFailed
             size="compact"
             title="Could not check Claude Code and Codex"
-            onRetry={() => void loadAi()}
+            retrying={checking}
+            onRetry={() => {
+              setChecking(true)
+              void loadAi().finally(() => setChecking(false))
+            }}
           >
             {problem}
           </ReadFailed>

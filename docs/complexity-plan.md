@@ -6,8 +6,8 @@ The plan for the one `fallow` gate that fails: `fallow health`, 199 functions ab
 | --- | --- |
 | Status | Phase 1 done; phases 2 to 4 planned |
 | Baseline | 239 above threshold with real coverage at `f53950b`, the commit before the 2026-11-09 audit (199 under fallow's estimate at `000e95c`) |
-| Now | 224 above threshold with real coverage (2026-11-11, 0.7.1) |
-| Duplication | `pnpm exec fallow dupes` reports "No code duplication found" |
+| Now | 224 above threshold with real coverage (2026-11-11, `3ed6afb`) |
+| Duplication | `pnpm exec fallow dupes` passes with 3 clone groups, 36 lines (`renderer/images.ts` and `inputs.ts`, `components/Artifact.tsx` and `Stage.tsx`) |
 | Gate | The full `fallow` run passes, then joins `pnpm check` |
 | Owner | Miles Roxas |
 
@@ -22,7 +22,7 @@ The gate has four rules, each `error` by default. A finding exists when a functi
 
 fallow also lists functions over 60 lines (`maxUnitSize`, the summary's `max_unit_size_threshold`) as large functions. That list informs the health score and does not fail the gate.
 
-`pnpm health` runs the tests with coverage (`pnpm test:coverage`, which writes `coverage/coverage-final.json`) and then `fallow health`, which reads that file (`health.coverage` in `.fallowrc.json`). A function the tests run is scored on its real coverage. A function the tests never run counts as untested, so any function with cyclomatic 5 or more there reaches CRAP 30: that is most React components, the Electron main process and the assistant's provider adapters, none of which have tests. `scripts/` is outside the test run, so fallow estimates it. Run `pnpm exec fallow health` alone only right after `pnpm test:coverage`: it reads whatever coverage file is on disk.
+`pnpm health` runs the tests with coverage (`pnpm test:coverage`, which writes `coverage/coverage-final.json`) and then `fallow health`, which reads that file (`health.coverage` in `.fallowrc.json`). A function the tests run is scored on its real coverage. A function the tests never run counts as untested, so any function with cyclomatic 5 or more there reaches CRAP 30: that is most React components, which have no tests, and the parts of the Electron main process and the assistant's provider adapters the tests do not reach. `scripts/` is outside the test run, so fallow estimates it. Run `pnpm exec fallow health` alone only right after `pnpm test:coverage`: it reads whatever coverage file is on disk.
 
 The counts in the phases below, and each function's cyclomatic and cognitive numbers, are from fallow's estimate at `000e95c`. Read the current ones from `pnpm health` before starting a phase.
 
@@ -62,7 +62,6 @@ Use `health.ignore` only for generated files. Do not raise `maxCyclomatic`, `max
 | `infrastructure/cases.ts saveCase` | 35 | 40 | Pictures, graders and front matter each written by their own function; `saveCase` orders them. |
 | `engines/cursor.ts handle`, `engines/claude.ts handle` | 26 / 24 | 33 / 29 | One function per event type, chosen by a map. `readInit` in `stream.ts` is the pattern. |
 | `judges/workflow/index.ts metricsOf`, `score.ts scoreWorkflow` | 24 / 24 | 26 / 31 | One metric per function; a list of them drives the loop. |
-| `judges/design/index.ts judge`, `score.ts scoreDesign` | 21 / 14 | 21 / 21 | Same shape as writing: measure, then sum. |
 | `ai/claude-code.ts run`, the event callback it hands `runJsonLines` | 27 | 20 | Event parsing out of the stream loop, mirroring the engines. |
 | `domain/config.ts mergeConfig` | 17 | 22 | One nested loop to lift into a named helper. |
 | `application/ai.ts sendImproveNow` | 8 | 7 | A CRAP finding only (no tests reach it): a test of the step chooser, or the judge's reading of an answer as its own function. |
@@ -85,10 +84,10 @@ Highest churn in the repo (`App.tsx` 33 commits, `Editor.tsx` 29, `Cases.tsx` 28
 | Function | cyc | cog | Split |
 | --- | ---: | ---: | --- |
 | `App.tsx App` | 92 | 132 | `useSkillState` (`skill-state.ts`: path, state, config, reload, drafts) and `useJobs` (`use-jobs.ts`: the polling effect) are out already; `useGuide` (home, practice steps, first-visit hints) is next of the 39 hooks it holds, at 96 / 126 now. Then `Shell` as its own component holding the frame, so `App` wires and routes only. |
-| `screens/Editor.tsx Editor` | 64 | 85 | `useFileDraft` (text, stale, save, discard) and `useReferenceFiles` (naming, create, delete); the files column and the guide column as components. |
-| `screens/Cases.tsx Cases` | 42 | 49 | `useCaseDraft` (base, stored, dirty, set) and the save and delete actions; the pictures column and the checks list as components. `caseKey` in `route.ts` already holds the selection rule. At 76 / 80 now, second only to `App`. |
-| `components/Run.tsx RunButton`, `Comparison.tsx Comparison`, `VersionDetail.tsx`, `screens/Library.tsx` (`LibraryScreen`, `NewSkill`), `screens/Results.tsx` | 17–54 | 20–65 | Each is one function that both loads and renders; `RunButton` is the largest at 54 / 65. Each becomes a data hook plus a view. |
-| `components/Chat.tsx ChatPanel`, `Refine.tsx RefineBody`, `Setup.tsx`, `SkillSwitcher.tsx`, `Composer.tsx`, `Improve.tsx ImprovePanel`, `Assist.tsx`, `Connections.tsx KeyField`, `Update.tsx UpdateControl`, `MarkdownEditor.tsx`, `Rewrites.tsx`, and eleven at cognitive 16 to 20: `Comparison.tsx Side`, `TranscriptList.tsx`, `TextArea.tsx`, `Verdicts.tsx Row`, `SelectionTools.tsx`, `Jobs.tsx`, `ComboBox.tsx`, `Composer.tsx useCommandMenu`, `drafts.ts useDrafts`, `screens/Welcome.tsx`, `screens/Settings.tsx` | 1–32 | 16–60 | Same pattern at smaller scale. `ChatPanel` (32 / 42) and `ImprovePanel` (20 / 27) already share `PanelFrame.tsx`; the send flow can share a `useSend` hook next. `Assist` (20 / 60) and `MarkdownEditor` (11 / 40) are cognitive findings: deep nesting, not many paths. |
+| `screens/Editor.tsx Editor` | 64 | 85 | `useFileDraft` (text, stale, save, discard) and `useReferenceFiles` (naming, create, delete); the side column (files, versions, Insert and the rule guide) as a component. |
+| `screens/Cases.tsx Cases` | 42 | 49 | `useCaseDraft` (base, stored, dirty, set) and the save and delete actions. The files and the checks are components already (`CaseFiles`, `CheckList`), and `caseKey` in `route.ts` holds the selection rule. At 72 / 72 now, second only to `App`. |
+| `components/Run.tsx RunButton`, `Comparison.tsx Comparison`, `VersionDetail.tsx`, `screens/Library.tsx LibraryScreen`, `screens/NewSkill.tsx NewSkill`, `screens/Results.tsx` | 17–54 | 20–65 | Each is one function that both loads and renders; `RunButton` is the largest at 54 / 65. Each becomes a data hook plus a view. |
+| `components/Chat.tsx ChatPanel`, `Refine.tsx RefineBody`, `SkillSwitcher.tsx`, `Composer.tsx`, `Improve.tsx ImprovePanel`, `Assist.tsx`, `Connections.tsx KeyField`, `Update.tsx UpdateControl`, `MarkdownEditor.tsx`, `Rewrites.tsx`, and eleven at cognitive 16 to 20: `Comparison.tsx Side`, `TranscriptList.tsx`, `TextArea.tsx`, `Verdicts.tsx Row`, `SelectionTools.tsx`, `Jobs.tsx`, `ComboBox.tsx`, `Composer.tsx useCommandMenu`, `drafts.ts useDrafts`, `screens/Welcome.tsx`, `screens/Settings.tsx` | 1–32 | 16–60 | Same pattern at smaller scale. `ChatPanel` (32 / 42) and `ImprovePanel` (20 / 27) already share `PanelFrame.tsx`; the send flow can share a `useSend` hook next. `Assist` (20 / 60) and `MarkdownEditor` (11 / 40) are cognitive findings: deep nesting, not many paths. |
 
 - [ ] Phase 4 merged. Count after: _
 
@@ -98,7 +97,7 @@ Highest churn in the repo (`App.tsx` 33 commits, `Editor.tsx` 29, `Cases.tsx` 28
 pnpm check                  # typecheck, lint, dead code, tests
 pnpm build
 pnpm health                 # tests with coverage, then fallow health: the count goes down, never up
-pnpm exec fallow dupes      # reports no duplication: it stays that way
+pnpm exec fallow dupes      # passes: duplication goes down, never up
 ```
 
 When the full `fallow` run passes, add it to `pnpm check` so it stays that way.

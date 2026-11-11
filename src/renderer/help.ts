@@ -82,7 +82,7 @@ export const LOOP_STEPS: readonly LoopStep[] = [
 
 /**
  * What the welcome sets up before the walkthrough: only what its first run
- * needs. Jev grades the notes; without a key a run grades code checks only.
+ * needs. Jev grades the notes; without a key a run marks no rule or check.
  * Where skills are found and a model to write with are asked for where they
  * are first needed: the Library's empty state and Write with AI.
  */
