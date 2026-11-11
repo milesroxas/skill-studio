@@ -4,9 +4,9 @@ The plan for the next release: what is in it, what is still to do, and the check
 
 | | |
 | --- | --- |
-| Version | 0.7.1 |
-| Status | Released 2026-11-11, [v0.7.1](https://github.com/milesroxas/skill-studio/releases/tag/v0.7.1) |
-| Previous release | [v0.7.0](https://github.com/milesroxas/skill-studio/releases/tag/v0.7.0), 2026-11-11 |
+| Version | 0.7.2 |
+| Status | Tagged 2026-11-11 |
+| Previous release | [v0.7.1](https://github.com/milesroxas/skill-studio/releases/tag/v0.7.1), 2026-11-11 |
 | Target date | 2026-11-11 |
 | Owner | Miles Roxas |
 
@@ -21,14 +21,12 @@ The version follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html): 
 
 ## Shipped to main
 
-Everything merged since v0.7.0.
+Everything merged since v0.7.1.
 
-- [x] Cases: the task first, optional parts on request, shorter notes; examples fold under the prompt and fit how the skill is graded (329bbdc).
-- [x] Cases: the optional parts fold under one line that names what they hold, open while any holds something (3998982).
-- [x] Results: one reading order, one bar over the stage, Open full size under it, Regrade at the end of a card's details (2cb86d5).
+- [x] Cases: Add files and Add folder in the task, kept until the case is saved and copied into its `files/`; only images right in `files/` are the case's pictures (0ac361e).
 - [x] Docs checked against the code for this release.
 
-0.7.1 changes how the Cases and Results screens read and adds no feature, so it is a patch release. No skill or run file changes shape.
+0.7.2 lets a case take files before it is saved, which 0.7.0's Show folder already allowed by hand, and adds no new kind of file: a patch release. No skill or run file changes shape.
 
 ## Planned
 
@@ -47,17 +45,17 @@ Checks that are not covered by `pnpm check`.
 - [ ] Run the assistant live on each provider that has only been typechecked: the Anthropic API, OpenAI and Codex. Claude Code has been run live; the other three have not.
 - [ ] Send a picture to the assistant on the Anthropic API, OpenAI and Codex paths. Jev and Claude Code have been run live with a picture.
 - [ ] Go through the welcome at 110% zoom. Its window grows with the zoom, so the page keeps its 760 x 600; this has not been seen at a real 110%.
-- [x] Once the release is out, open each `releases/latest/download/` link in [releasing.md](releasing.md#updates) and check it fetches the new file: all four fetch, and `latest-mac.yml` names 0.7.1. 2026-11-11.
-- [ ] Update an installed 0.7.0 to this release and see **Restart to update**.
+- [ ] Once the release is out, open each `releases/latest/download/` link in [releasing.md](releasing.md#updates) and check it fetches the new file, and `latest-mac.yml` names 0.7.2.
+- [ ] Update an installed 0.7.1 to this release and see **Restart to update**.
 
 ## Release checklist
 
 The steps in [releasing.md](releasing.md), in order.
 
 1. [x] Every item under "Planned" is shipped or moved to "Later".
-2. [ ] Every item under "Before the release" is done. Not for 0.7.1: the unchecked items carry to the next release.
-3. [x] `pnpm check` and `pnpm build` pass on `main`, 1,207 tests.
-4. [ ] `gh workflow run release` builds every platform. Not run for 0.7.1; the tag's own run builds every platform.
-5. [x] In the changelog, rename `## [Unreleased]` to `## [0.7.1] - 2026-11-11`, start a new `## [Unreleased]` above it, and commit.
+2. [ ] Every item under "Before the release" is done. Not for 0.7.2: the unchecked items carry to the next release.
+3. [x] `pnpm check` and `pnpm build` pass on `main`, 1,218 tests.
+4. [ ] `gh workflow run release` builds every platform. Not run for 0.7.2; the tag's own run builds every platform.
+5. [x] In the changelog, rename `## [Unreleased]` to `## [0.7.2] - 2026-11-11`, start a new `## [Unreleased]` above it, and commit.
 6. [x] `pnpm version patch -m "Release %s"`, then push `main` and the tag.
-7. [x] The release workflow publishes v0.7.1, with the changelog entry as its notes.
+7. [ ] The release workflow publishes v0.7.2, with the changelog entry as its notes.

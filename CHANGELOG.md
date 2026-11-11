@@ -6,6 +6,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [0.7.2] - 2026-11-11
+
 ### Changed
 
 - A case takes files and folders while you write it: **Add files** and **Add folder** sit under Pictures, in the task, and what you add is copied into the case when you save it. Before, input files could only be added to a saved case, by hand, with **Show folder**. Adding a file or folder again under its name brings the copy up to date, and **×** takes one off. The note on what the agent sees is there from the first keystroke.
