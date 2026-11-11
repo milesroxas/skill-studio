@@ -3,8 +3,9 @@ import { mergeConfig } from '@domain/config.ts'
 import { type Lift, type LiftRun, liftWriter, versionLift, writerKey } from '@domain/lift.ts'
 import { type Corrections, NO_CORRECTIONS, type PackScoring } from '@domain/pack.ts'
 import { defaultPair, type PickOutput } from '@domain/picks.ts'
+import { drawnArtifact, primaryArtifact } from '@domain/primary.ts'
 import { parseSampleDir } from '@domain/run-name.ts'
-import type { BenchConfig, ReportResult, Writer } from '@domain/schemas.ts'
+import type { Artifact, ArtifactKind, BenchConfig, ReportResult, Writer } from '@domain/schemas.ts'
 import { checkReaders, layerOrder, pixelText, type Scored, scoreResult } from '@domain/scoring.ts'
 import { mean } from '@domain/stats.ts'
 import { type Count, countOf, finding, sumCounts } from '@domain/verdict.ts'
@@ -23,6 +24,8 @@ export interface Output {
   samples: number
   /** Your own answers on this output's verdicts, which stand over Jev's. */
   corrections: Corrections
+  /** The file that stands for the output: the one graded, else the one grading would judge. */
+  primary: Artifact | null
 }
 
 /** `v2` as 2. A run with no version sorts last; v0 is a version like any other. */
@@ -31,28 +34,43 @@ const versionNumber = (run: RunView): number => {
   return Number.isNaN(number) ? 999 : number
 }
 
+/** One sample of `run` as Results reads it. `judged` are the kinds the skill's packs judge. */
+function outputOf(
+  state: State,
+  run: RunView,
+  sample: Sample,
+  result: ReportResult | null,
+  judged: readonly ArtifactKind[],
+): Output {
+  const parsed = parseSampleDir(sample.name)
+  const caseId = result?.case ?? parsed?.case ?? sample.name
+  const key = `${run.name}/${sample.name}`
+  const preferred = state.cases.find((c) => c.id === caseId)?.bench.artifact
+  return {
+    key,
+    run,
+    sample,
+    result,
+    caseId,
+    index: parsed?.index ?? 1,
+    samples: run.samples.filter((s) => parseSampleDir(s.name)?.case === caseId).length,
+    corrections: state.reviews.reviews[key]?.corrections ?? NO_CORRECTIONS,
+    // The file graded, else the one grading would judge.
+    primary: result?.primary ?? primaryArtifact(sample.artifacts, preferred, judged),
+  }
+}
+
 /** Every output across runs: version, then writer, then run, then sample. */
 export function outputsOf(state: State): Output[] {
-  const list: Output[] = []
-  for (const run of state.runs) {
+  const judged = scorers
+    .filter((s) => state.config.packs.includes(s.id))
+    .flatMap((s) => s.artifacts)
+  const list = state.runs.flatMap((run) => {
     const results = new Map((run.report?.results ?? []).map((r) => [r.sample, r]))
-    for (const sample of run.samples) {
-      const result = results.get(sample.name) ?? null
-      const parsed = parseSampleDir(sample.name)
-      const caseId = result?.case ?? parsed?.case ?? sample.name
-      list.push({
-        key: `${run.name}/${sample.name}`,
-        run,
-        sample,
-        result,
-        caseId,
-        index: parsed?.index ?? 1,
-        samples: run.samples.filter((s) => parseSampleDir(s.name)?.case === caseId).length,
-        corrections:
-          state.reviews.reviews[`${run.name}/${sample.name}`]?.corrections ?? NO_CORRECTIONS,
-      })
-    }
-  }
+    return run.samples.map((sample) =>
+      outputOf(state, run, sample, results.get(sample.name) ?? null, judged),
+    )
+  })
   return list.sort(
     (x, y) =>
       versionNumber(x.run) - versionNumber(y.run) ||
@@ -363,25 +381,11 @@ export function caseTitle(state: State, caseId: string): string {
   return found ? found.title || found.id : caseId
 }
 
-export const primaryOf = (output: Output) =>
-  output.result?.primary ??
-  output.sample.artifacts.find((a) => a.kind === 'markdown') ??
-  output.sample.artifacts[0] ??
-  null
+export const primaryOf = (output: Output): Artifact | null => output.primary
 
-/** True for a file a browser draws: a page or a picture. */
-const isDrawn = (artifact: { kind: string }): boolean =>
-  artifact.kind === 'html' || artifact.kind === 'image'
-
-/**
- * The file of an output a reader looks at rather than reads: the one judged
- * when it is a page or a picture, else the first page or picture it wrote.
- * Null for an output of text alone.
- */
-export const drawnOf = (output: Output) => {
-  const primary = primaryOf(output)
-  return primary && isDrawn(primary) ? primary : (output.sample.artifacts.find(isDrawn) ?? null)
-}
+/** The file of an output a reader looks at rather than reads; null for an output of text alone. */
+export const drawnOf = (output: Output): Artifact | null =>
+  drawnArtifact(output.sample.artifacts, output.primary)
 
 /**
  * How big the output is, where size means something: "31 words · case asks 30

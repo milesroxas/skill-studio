@@ -10,6 +10,8 @@ import { ARTIFACT_HOST, ARTIFACT_SCHEME } from '../channels.ts'
 
 /** How long a page has to load, its scripts included. */
 const LOAD_MS = 20_000
+/** How long one drawing may take in all: a page that hangs after it loads must not hold the queue. */
+const DRAW_MS = 30_000
 /** Time after the load for a page's scripts, fonts and first transitions to settle. */
 const SETTLE_MS = 800
 
@@ -50,10 +52,20 @@ async function draw(url: string, width: number, height: number): Promise<Uint8Ar
   page.setAudioMuted(true)
   page.setWindowOpenHandler(() => ({ action: 'deny' }))
   page.on('will-navigate', (event) => event.preventDefault())
-  try {
-    await within(window.loadURL(url), LOAD_MS, 'The page')
+  // A page that crashes or runs out of memory never answers a capture.
+  const gone = new Promise<never>((_, reject) => {
+    page.once('render-process-gone', (_event, details) =>
+      reject(new Error(`The page stopped (${details.reason}).`)),
+    )
+  })
+  gone.catch(() => {})
+  const capture = async () => {
+    await Promise.race([within(window.loadURL(url), LOAD_MS, 'The page'), gone])
     await wait(SETTLE_MS)
-    const image = await page.capturePage()
+    return await Promise.race([page.capturePage(), gone])
+  }
+  try {
+    const image = await within(capture(), DRAW_MS, 'Drawing the page')
     // A display with more than one device pixel to a CSS pixel draws larger, and Jev reads no
     // side past 1568: the PNG is the size asked, scaled down whole when it is larger than that.
     const fit = Math.min(1, LARGEST / width, LARGEST / height)
@@ -75,6 +87,8 @@ export function pageRenderer(): PageRenderer {
   let queue: Promise<unknown> = Promise.resolve()
   return (page, size) => {
     // Asked by the backend: a size is held to a window this process can draw.
+    if (!Number.isFinite(size.width) || !Number.isFinite(size.height))
+      return Promise.reject(new Error('A page is drawn at a size in pixels.'))
     const width = Math.min(WINDOW_MAX, Math.max(1, Math.round(size.width)))
     const height = Math.min(WINDOW_MAX, Math.max(1, Math.round(size.height)))
     const url = `${ARTIFACT_SCHEME}://${ARTIFACT_HOST}${artifactPath(page)}`

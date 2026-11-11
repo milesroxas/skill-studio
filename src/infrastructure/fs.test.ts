@@ -17,6 +17,7 @@ import {
   assertSafe,
   assertSafePath,
   readJson,
+  readStart,
   readTree,
   writeJson,
   writeText,
@@ -39,6 +40,14 @@ describe('readJson', () => {
     const path = join(dir, 'torn.json')
     writeFileSync(path, '{"n": 1')
     expect(() => readJson(path, null)).toThrow(`${path} is malformed`)
+  })
+})
+
+describe('readStart', () => {
+  it('reads no more than asked, and all of a shorter file', () => {
+    writeFileSync(join(dir, 'a.bin'), 'abcdef')
+    expect(new TextDecoder().decode(readStart(join(dir, 'a.bin'), 4))).toBe('abcd')
+    expect(new TextDecoder().decode(readStart(join(dir, 'a.bin'), 100))).toBe('abcdef')
   })
 })
 

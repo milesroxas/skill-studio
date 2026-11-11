@@ -338,7 +338,6 @@ export const writingPack: JudgePack<WritingRaw> = {
   ...writingScoring,
   version: 1,
   label: 'Writing: lint, shape, structure, substance, tone, grounding',
-  artifacts: ['markdown'],
   async judge(input, ctx) {
     if (!input.text.trim()) return null
     const config = ctx.config as WritingConfig

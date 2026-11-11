@@ -218,7 +218,7 @@ A run tests the files as saved. When a file has unsaved edits, the panel says so
 The defaults suit most runs: every case, once, with the agent you used last. **Options** changes them:
 
 - **Cases:** untick the ones to leave out.
-- **Write with:** "This version", "No skill" (the baseline to beat), or "An earlier version" (to run an old copy of the skill again: pick it under **Copy from**).
+- **Write with:** "This version", "No skill" (the baseline to beat), or "An earlier version" (to run an old copy of the skill again: pick it under **Copy from**, which starts on the newest run's copy, the version before your edits).
 - **Agent, Model, Effort:** who writes the outputs. Pick a model from the list or type its name.
 - **Samples per case:** use 2 or more to see how steady the skill is. Agents answer a little differently each time.
 

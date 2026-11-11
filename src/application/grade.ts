@@ -8,17 +8,17 @@ import { mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs'
 import { basename, join } from 'node:path'
 import { type PageRenderer, RENDER_SIZES, type RenderSize } from '@domain/artifact-address.ts'
 import { mergeConfig } from '@domain/config.ts'
-import { imageTypeOf, pictureSize } from '@domain/image.ts'
+import { imageTypeOf, PICTURE_HEAD_BYTES, pictureSize } from '@domain/image.ts'
+import { primaryArtifact } from '@domain/primary.ts'
 import type { Rule } from '@domain/rules.ts'
 import { parseSampleDir } from '@domain/run-name.ts'
 import type { Artifact, BenchConfig, Case, Report, ReportResult } from '@domain/schemas.ts'
 import { scoreResult } from '@domain/scoring.ts'
 import { copyOf, titleOf, unitsOf, words } from '@domain/text.ts'
 import type { Sample } from '@domain/views.ts'
-import { primaryArtifact } from '@infrastructure/artifacts.ts'
 import { benchPath, findCase, loadCases, loadRules, readSkillFile } from '@infrastructure/cases.ts'
 import { commandRunner } from '@infrastructure/exec.ts'
-import { assertInside, isDir, isFile, readJson, writeJson } from '@infrastructure/fs.ts'
+import { assertInside, isDir, isFile, readJson, readStart, writeJson } from '@infrastructure/fs.ts'
 import { anchorsDir, readHead, readRunMeta, runDir, runSamples } from '@infrastructure/runs.ts'
 import { readTranscript } from '@infrastructure/transcript.ts'
 import { readForJev, requestImages } from '@judges/images.ts'
@@ -383,7 +383,7 @@ async function gradeSubject(
     range: testCase?.bench.words ?? null,
     pixels:
       primary?.kind === 'image'
-        ? pictureSize(readFileSync(join(subject.path, primary.file)), primary.file)
+        ? pictureSize(readStart(join(subject.path, primary.file), PICTURE_HEAD_BYTES), primary.file)
         : null,
     size: testCase?.bench.size ?? null,
     // A text output with nothing but whitespace in it is no output; a picture always is one.

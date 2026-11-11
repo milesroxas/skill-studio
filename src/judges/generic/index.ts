@@ -58,7 +58,6 @@ export const genericPack: JudgePack<GenericRaw> = {
   ...genericScoring,
   version: 1,
   label: 'Generic: rule adherence and rubric',
-  artifacts: ['markdown'],
   async judge(input, ctx) {
     if (!asksJev(input, ctx) || !input.text.trim()) return null
     const [adh, rub] = await Promise.all([adherence(input, ctx), rubric(input, ctx)])

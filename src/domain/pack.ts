@@ -1,4 +1,4 @@
-import type { Artifact, BenchConfig } from './schemas.ts'
+import type { Artifact, ArtifactKind, BenchConfig } from './schemas.ts'
 
 /** What a pack's scorer knows about the output besides its own raw answers. */
 export interface ScoreSubject {
@@ -87,6 +87,8 @@ export interface PackScore {
  */
 export interface PackScoring<Raw = unknown> {
   id: string
+  /** Artifact kinds this pack can judge; empty means any sample, with or without an artifact. */
+  artifacts: ArtifactKind[]
   /** Layers this pack scores, in display order. */
   layers: string[]
   /** The layer that marks the case's checks, one of `layers`; null when the pack reads none. */

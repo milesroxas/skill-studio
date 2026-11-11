@@ -278,6 +278,7 @@ function certaintiesWriting(raw: WritingRaw | null): number[] {
 
 export const writingScoring: PackScoring<WritingRaw> = {
   id: 'writing',
+  artifacts: ['markdown'],
   layers: WRITING_LAYERS,
   checks: null,
   defaults: {

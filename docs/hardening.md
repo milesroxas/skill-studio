@@ -43,7 +43,7 @@ Severity: **high** gives wrong scores or loses data. **med** misleads or breaks 
 - [ ] **C10** low. Baseline runs are stamped with the skill version and are deleted with it. `src/application/generate.ts:100`
 - [ ] **C11** low. The without-skill baseline skips the "read SKILL.md first" check, so process is harder for the skill to score on. `src/judges/workflow/score.ts:72-79`
 - [ ] **C12** med. Rule extraction grades non-rules: bullets under a "Bad example" heading, and pointers such as "Read references/x.md before you start". Only link-only bullets and bullets under four words are skipped. Rules in reference files are never graded. `src/domain/rules.ts`, `src/infrastructure/cases.ts` (`loadRules`)
-- [ ] **C13** low. The primary artifact is the first file in name order, and `.txt` counts as Markdown, so `notes.md` can beat `post.md`. `src/infrastructure/artifacts.ts:7-19,82`
+- [ ] **C13** low. The primary artifact is the first file in name order, and `.txt` counts as Markdown, so `notes.md` can beat `post.md`. `src/infrastructure/artifacts.ts:7-19,82` In part: one chooser for grading and Results (`src/domain/primary.ts`), and among files of one kind a `README` or a `.txt` file comes last. Two `.md` files with neither name, such as `notes.md` and `post.md`, still go by name order.
 - [ ] **C14** low. Unsaved Scoring changes rescore every screen. Grade-time-only settings (`workflow.summaryLines`, `codeCheck.*`, `design.maxChars`) look live but change nothing. The CLI reads stored scores, so it disagrees with the app after Save, and it never applies a correction. `src/renderer/App.tsx`, `src/interfaces/cli/st.ts:138`
 
 ## Picks and corrections

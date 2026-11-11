@@ -190,6 +190,7 @@ const certaintiesWorkflow = (raw: WorkflowRaw | null): number[] =>
 
 export const workflowScoring: PackScoring<WorkflowRaw> = {
   id: 'workflow',
+  artifacts: [],
   layers: ['efficiency', 'scope', 'process'],
   checks: null,
   defaults: {

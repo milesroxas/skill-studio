@@ -26,6 +26,8 @@ export const YES_RANGE = { min: 0.3, max: 0.8 } as const
 
 const AT_LEAST_NOTHING: Range = { min: 0, max: Number.POSITIVE_INFINITY }
 const PROBABILITY: Range = { min: 0, max: 1 }
+/** Seconds a check may run: up to six hours, the longest a case may run. */
+const CHECK_SECONDS: Range = { min: 0, max: 6 * 60 * 60 }
 
 /** Settings that are a share or a cost: outside these a layer would score below 0 or above 100. */
 const SETTING_RANGES: Readonly<Record<string, Range>> = {
@@ -35,12 +37,15 @@ const SETTING_RANGES: Readonly<Record<string, Range>> = {
 }
 
 /**
- * Numbers inside a pack's own setting that are a share of a part's points.
- * Every other number one level down (points, seconds, characters, counts) is
- * held at 0 or more.
+ * Numbers inside a pack's own setting that are a share of a part's points,
+ * or a check's time limit. Every other number one level down (points,
+ * characters, counts) is held at 0 or more.
  */
 const NESTED_RANGES: Readonly<Record<string, Range>> = {
   'structure.pointerCredit': PROBABILITY,
+  // A check's time limit, as long as a run may take: past about 24 days a timer fires at once.
+  'codeCheck.timeoutSeconds': CHECK_SECONDS,
+  'lint.timeoutSeconds': CHECK_SECONDS,
 }
 
 const isObject = (value: unknown): value is Record<string, unknown> =>

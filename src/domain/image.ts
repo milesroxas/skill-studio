@@ -27,11 +27,17 @@ export interface ImageUpload {
 export const MAX_IMAGES = 6
 
 /** What Jev accepts, from docs.typesafe.ai/images. Both ends are inclusive. */
-const JEV_IMAGE = {
+export const JEV_IMAGE = {
   minSide: 280,
   maxSide: 1568,
   maxBytes: 16 * 1024 * 1024,
 } as const
+
+/** Why Jev refuses a picture by its size in bytes alone. */
+export const JEV_TOO_LARGE = 'it is larger than 16 MB'
+
+/** How much of a picture holds its size, whatever its format: the header and the segments before it. */
+export const PICTURE_HEAD_BYTES = 1024 * 1024
 
 export type ImageFormat = 'png' | 'jpg'
 
@@ -113,7 +119,7 @@ export function jevImageProblem(bytes: Uint8Array): string | null {
   const size = imageSize(bytes)
   if (!size) return 'it is not a PNG or JPEG'
   const { minSide, maxSide, maxBytes } = JEV_IMAGE
-  if (bytes.length > maxBytes) return 'it is larger than 16 MB'
+  if (bytes.length > maxBytes) return JEV_TOO_LARGE
   const { width, height } = size
   if (Math.min(width, height) < minSide || Math.max(width, height) > maxSide)
     return `it is ${width} × ${height} px, and Jev reads ${minSide} to ${maxSide} px a side`

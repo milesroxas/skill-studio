@@ -1,10 +1,13 @@
 import {
+  closeSync,
   cpSync,
   existsSync,
   lstatSync,
   mkdirSync,
+  openSync,
   readdirSync,
   readFileSync,
+  readSync,
   realpathSync,
   renameSync,
   rmSync,
@@ -257,3 +260,20 @@ export const assertSafePath = (value: string | null | undefined, what: string): 
 }
 
 export const today = (): string => new Date().toISOString().slice(0, 10)
+
+/** The first `limit` bytes of a file, or all of it when it is shorter: for a header, read without loading the rest. */
+export function readStart(path: string, limit: number): Uint8Array {
+  const fd = openSync(path, 'r')
+  try {
+    const buffer = new Uint8Array(limit)
+    let read = 0
+    while (read < limit) {
+      const got = readSync(fd, buffer, read, limit - read, read)
+      if (got === 0) break
+      read += got
+    }
+    return buffer.subarray(0, read)
+  } finally {
+    closeSync(fd)
+  }
+}

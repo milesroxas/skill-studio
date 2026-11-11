@@ -26,7 +26,6 @@ export const codePack: JudgePack<CodeRaw> = {
   ...codeScoring,
   version: 1,
   label: 'Code: check command and review statements',
-  artifacts: ['code'],
   async judge(input, ctx) {
     const { codeCheck } = ctx.config as CodeConfig
     const command = input.case?.bench.check

@@ -4,9 +4,9 @@
  * file is checked first and one that would be refused is left out, with the
  * reason, in place of losing every answer asked with it.
  */
-import { existsSync, readFileSync } from 'node:fs'
+import { existsSync, readFileSync, statSync } from 'node:fs'
 import { basename } from 'node:path'
-import { jevImageProblem } from '@domain/image.ts'
+import { JEV_IMAGE, JEV_TOO_LARGE, jevImageProblem } from '@domain/image.ts'
 import { Image, image } from '@typesafe-ai/sdk'
 
 /** A picture Jev can read, or the reason this file is not one. */
@@ -14,6 +14,8 @@ export type Readable = { image: Image; problem: null } | { image: null; problem:
 
 export function readForJev(path: string): Readable {
   if (!existsSync(path)) return { image: null, problem: 'the file is missing' }
+  // An agent wrote it: one too large for Jev is refused before it is read.
+  if (statSync(path).size > JEV_IMAGE.maxBytes) return { image: null, problem: JEV_TOO_LARGE }
   const bytes = readFileSync(path)
   const problem = jevImageProblem(bytes)
   return problem ? { image: null, problem } : { image: image(bytes), problem: null }

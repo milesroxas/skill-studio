@@ -72,6 +72,7 @@ const certaintiesCode = (raw: CodeRaw | null): number[] =>
 
 export const codeScoring: PackScoring<CodeRaw> = {
   id: 'code',
+  artifacts: ['code'],
   layers: ['check', 'review'],
   checks: 'review',
   defaults: {

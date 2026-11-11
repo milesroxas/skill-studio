@@ -9,6 +9,7 @@ type Raw = { layers: Record<string, number | null>; certainties?: number[] }
 /** A fixture pack that returns whatever layer shares its stored answers hold. */
 const pack = (id: string, layers: string[], checks: string | null = null): PackScoring<Raw> => ({
   id,
+  artifacts: [],
   layers,
   checks,
   defaults: {},

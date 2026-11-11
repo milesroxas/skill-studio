@@ -20,7 +20,16 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - A page an agent wrote runs its own scripts when shown, so a page built by a script no longer shows blank. It still runs sandboxed, in an origin of its own and with no network. See `SECURITY.md`.
 - A sample's files are served by path, `artifact://sample/<skill>/<run>/<sample>/<file>` in the app and `/api/artifact/<key>/<skill>/<run>/<sample>/<file>` on `st serve`, so a page loads the styles, scripts and pictures beside it. On `st serve` the key in the path stands in for the cookie, which a sandboxed page does not send.
 - Asking for a sample's file no longer opens the skill it names: only a skill open already is served.
-- An output with no Markdown and no kind named by its case is judged by its first file of a kind the skill's packs judge, with `index.html` or `preview.html` first among pages. A page and the script beside it are judged as the page, where before the first file by name was taken and no pack ran.
+- Which file stands for an output: one of the kind its case names; else a page, a picture or code that one of the skill's packs judges, in that order; else Markdown. Among files of one kind, `index.html` or `preview.html` comes first and a `README` or a `.txt` file last. So a design skill's page is judged even beside a README, a page beside its script is judged as the page, and the order a skill lists its packs in no longer matters. Results opens the same file before an output is graded. Regrade a run to judge it this way.
+- **Copy from**, for a run of an earlier version, starts on the newest run's copy instead of the oldest.
+
+### Fixed
+
+- A page an agent wrote could open any skill on disk by loading a picture from it, and add it to the library's recent list. Only a skill open already serves its pictures now.
+- Drawing a page for grading has a time limit as a whole, and stops at once if the page crashes, so a page that hangs after it loads no longer holds up grading.
+- A size written into a case file by hand is checked when the case is read, as one typed on Cases is, and dropped when it is not a width and a height from 1 to 10,000 pixels.
+- A check's time limit in `bench.json` (`lint.timeoutSeconds`, `codeCheck.timeoutSeconds`) is held to six hours. A limit past about 24 days ended the check at once.
+- A picture is no longer read whole to learn its size, and one larger than Jev takes is refused before it is read.
 
 ## [0.5.4] - 2026-11-10
 

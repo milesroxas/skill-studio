@@ -4,6 +4,7 @@ import type { PackScoring } from './pack.ts'
 
 const pack = (id: string, defaults: PackScoring['defaults']): PackScoring => ({
   id,
+  artifacts: [],
   layers: [],
   checks: null,
   defaults,
@@ -117,6 +118,15 @@ describe('benchOf', () => {
     expect(read.workflow).toEqual({ maxRetries: 0 })
     expect(read.lint).toEqual({ command: 'lint', timeoutSeconds: 0 })
     expect(benchOf({ structure: { pointerCredit: -0.5 } }).structure).toEqual({ pointerCredit: 0 })
+  })
+
+  it('holds a check’s time limit to six hours, the longest a case runs', () => {
+    const read = benchOf({
+      lint: { timeoutSeconds: 100_000 },
+      codeCheck: { timeoutSeconds: 3_000_000, maxChars: 500 },
+    })
+    expect(read.lint).toEqual({ timeoutSeconds: 21_600 })
+    expect(read.codeCheck).toEqual({ timeoutSeconds: 21_600, maxChars: 500 })
   })
 
   it('drops blank and repeated rules, and has none for a list that says nothing', () => {

@@ -18,6 +18,8 @@ delete process.env.TYPESAFE_API_KEY
 const { createOperations, invoke } = await import('./operations.ts')
 const { listJobs, markWriting, runJob } = await import('../jobs.ts')
 const { realPath } = await import('@infrastructure/fs.ts')
+const { engines } = await import('@infrastructure/engines/index.ts')
+type Engine = (typeof engines)[number]
 
 const made: string[] = [home]
 afterAll(() => {
@@ -271,5 +273,105 @@ describe('skill.artifact', () => {
     const open = await invoke(operations, 'library.skills', {})
     expect(open.map((s) => s.path)).not.toContain(other)
     rmSync(other, { recursive: true, force: true })
+  })
+})
+
+describe('image.read', () => {
+  it('serves a picture of a skill open already, and asking opens none', async () => {
+    // A page an agent wrote can load a picture by any path: the skill it names is still not opened.
+    const other = realPath(mkdtempSync(join(tmpdir(), 'st-runners-other-')))
+    writeFileSync(join(other, 'SKILL.md'), '# Other\n')
+    writeFileSync(join(other, 'a.png'), 'png')
+    writeFileSync(join(skill, 'a.png'), 'png')
+    const own = await invoke(operations, 'image.read', { skill, file: 'a.png' })
+    expect(own.type).toBe('image/png')
+    await expect(invoke(operations, 'image.read', { skill: other, file: 'a.png' })).rejects.toThrow(
+      'No such picture.',
+    )
+    const open = await invoke(operations, 'library.skills', {})
+    expect(open.map((s) => s.path)).not.toContain(other)
+    rmSync(other, { recursive: true, force: true })
+  })
+})
+
+/** An agent that writes `text` as its note, or fails when told to, in place of a real one. */
+function fakeAgent(id: string, text: string | Error): Engine {
+  return {
+    id,
+    label: id,
+    harness: 'agent',
+    efforts: [],
+    defaultModel: 'small',
+    hint: '',
+    available: () => true,
+    models: async () => ['small'],
+    run: async (request) => {
+      if (text instanceof Error) throw text
+      mkdirSync(join(request.cwd, 'outputs'), { recursive: true })
+      writeFileSync(join(request.cwd, 'outputs/note.md'), text)
+      return { ok: true, error: null, costUsd: null, tokens: null, model: 'small', finalText: null }
+    },
+  }
+}
+
+describe('skill.generate', () => {
+  const generate = (
+    configs: { engine: string }[],
+    cases: string[] = [],
+    configuration: 'with_skill' | 'old_skill' = 'with_skill',
+  ) =>
+    invoke(operations, 'skill.generate', {
+      skill,
+      cases,
+      configs: configs.map((c) => ({ ...c, model: '', effort: '' })),
+      samples: 1,
+      configuration,
+      baselineRun: null,
+      skillName: 'First notes',
+      note: '',
+      grade: true,
+    })
+
+  afterAll(() => {
+    for (const id of ['writes', 'breaks']) {
+      const at = engines.findIndex((e) => e.id === id)
+      if (at >= 0) engines.splice(at, 1)
+    }
+  })
+  engines.push(
+    fakeAgent('writes', 'A short note about Friday.'),
+    fakeAgent('breaks', new Error('The agent broke.')),
+  )
+
+  it('writes a run per agent and grades it, leaving out what cannot run', async () => {
+    const { job } = await generate([{ engine: 'writes' }, { engine: 'nobody' }], ['note', 'gone'])
+    const ended = await finished(job)
+    const log = ended.log.join('\n')
+    expect(ended.status).toBe('done')
+    expect(log).toMatch('There is no case called gone: left out.')
+    expect(log).toMatch('nobody is not installed: left out.')
+    expect(log).toMatch(/: graded/)
+    const runs = await invoke(operations, 'skill.state', { skill })
+    expect(runs.runs.some((r) => r.report !== null)).toBe(true)
+  })
+
+  it('keeps a run whose agent failed, with its sample marked failed', async () => {
+    const { job } = await generate([{ engine: 'breaks' }])
+    await finished(job)
+    const { runs } = await invoke(operations, 'skill.state', { skill })
+    expect(runs.flatMap((r) => r.meta?.samples ?? []).some((sample) => !sample.ok)).toBe(true)
+  })
+
+  it('fails the job when a run cannot start, and still settles its share of the steps', async () => {
+    const { job } = await generate([{ engine: 'writes' }], [], 'old_skill')
+    const ended = await finished(job)
+    expect(ended.status).toBe('failed')
+    expect(ended.log.join('\n')).toMatch('old_skill needs the run')
+    expect(ended.progress?.done).toBe(ended.progress?.total)
+  })
+
+  it('refuses no case to run, and no agent installed', async () => {
+    await expect(generate([{ engine: 'writes' }], ['gone'])).rejects.toThrow('No cases selected.')
+    await expect(generate([{ engine: 'nobody' }])).rejects.toThrow('None of the agents picked')
   })
 })

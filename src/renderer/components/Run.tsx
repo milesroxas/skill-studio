@@ -120,7 +120,8 @@ export function RunButton({
   const run = useJobStart(mine, 'generate', report)
   const starting = run.starting()
   const running = run.busy()
-  const pastRun = withSkill.find((r) => r.name === baseline) ?? withSkill[0] ?? null
+  // Runs list oldest first: the copy to test an edit against is the newest run's, the version before the edit.
+  const pastRun = withSkill.find((r) => r.name === baseline) ?? withSkill.at(-1) ?? null
   const usable = Boolean(chosen && engine?.available)
 
   const start = () => {

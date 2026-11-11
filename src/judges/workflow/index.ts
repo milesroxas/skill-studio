@@ -394,7 +394,6 @@ export const workflowPack: JudgePack<WorkflowRaw> = {
   ...workflowScoring,
   version: 1,
   label: 'Workflow: how the agent worked, from its transcript',
-  artifacts: [],
   async judge(input, ctx) {
     const events = input.transcript
     if (!events?.length) return null

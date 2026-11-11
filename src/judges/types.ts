@@ -1,7 +1,7 @@
 import type { RenderSize } from '@domain/artifact-address.ts'
 import type { PackScoring } from '@domain/pack.ts'
 import type { Rule } from '@domain/rules.ts'
-import type { Artifact, ArtifactKind, BenchConfig, Case, TranscriptEvent } from '@domain/schemas.ts'
+import type { Artifact, BenchConfig, Case, TranscriptEvent } from '@domain/schemas.ts'
 import type { Unit } from '@domain/text.ts'
 import type { Readable, RequestImage } from './images.ts'
 import type { Jev } from './jev.ts'
@@ -85,8 +85,6 @@ export interface JudgePack<Raw = unknown> extends PackScoring<Raw> {
    */
   version: number
   label: string
-  /** Artifact kinds this pack can judge; empty means any sample, with or without an artifact. */
-  artifacts: ArtifactKind[]
   /** The pack looks at an HTML page as drawn: grading draws it first, when it can (`JudgeInput.renders`). */
   renders?: boolean
   judge(input: JudgeInput, ctx: JudgeContext): Promise<Raw | null>

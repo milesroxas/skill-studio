@@ -134,9 +134,12 @@ const htmlOf = (input: JudgeInput, config: DesignConfig): string =>
 const renderOf = (input: JudgeInput, id: 'desktop' | 'phone'): Readable | null =>
   input.renders.find((r) => r.size.id === id)?.read ?? null
 
-/** The first PNG or JPEG the agent left, read for Jev; null when it left none. */
+/** The picture judged when it is a PNG or JPEG, else the first the agent left, read for Jev; null when it left none. */
 function shotOf(input: JudgeInput): Readable | null {
-  const shot = input.artifacts.find((a) => a.kind === 'image' && isJevFormat(a.file))
+  const jevPicture = (a: { kind: string; file: string }) =>
+    a.kind === 'image' && isJevFormat(a.file)
+  const shot =
+    input.primary && jevPicture(input.primary) ? input.primary : input.artifacts.find(jevPicture)
   return shot ? readForJev(join(input.dir, shot.file)) : null
 }
 
@@ -144,7 +147,6 @@ export const designPack: JudgePack<DesignRaw> = {
   ...designScoring,
   version: 2,
   label: 'Design: markup checks and a visual read of the page as drawn',
-  artifacts: ['html', 'image'],
   renders: true,
   async judge(input, ctx) {
     const html = input.primary?.kind === 'html' ? input.text : ''

@@ -674,7 +674,10 @@ export function createOperations(options: OperationsOptions): Runners {
     },
     'image.upload': (input) => saveUpload(input),
     'image.read': ({ skill, file, upload }) => {
-      const dir = upload ? null : skillOf({ skill }).path
+      // Only a skill open already: a page an agent wrote can load a picture by any path, and asking must not open one.
+      const open = upload ? null : openSkill(skill)
+      if (!upload && !open) throw new Error('No such picture.')
+      const dir = open?.path ?? null
       const image = findImage(dir, { name: '', file: file || null, upload: upload || null })
       return { bytes: readImage(image), type: image.type }
     },

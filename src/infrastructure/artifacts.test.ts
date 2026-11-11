@@ -2,7 +2,7 @@ import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { detectArtifacts, primaryArtifact } from './artifacts.ts'
+import { detectArtifacts } from './artifacts.ts'
 import { listRuns } from './runs.ts'
 
 let skill: string
@@ -38,25 +38,4 @@ describe('detectArtifacts', () => {
       expect(listRuns(skill).map((run) => run.name)).toEqual(['run-1'])
     },
   )
-})
-
-describe('primaryArtifact', () => {
-  const page = { file: 'outputs/index.html', kind: 'html' as const }
-  const script = { file: 'outputs/app.js', kind: 'code' as const }
-  const notes = { file: 'outputs/notes.md', kind: 'markdown' as const }
-
-  it('takes the case’s kind, then Markdown, as before', () => {
-    expect(primaryArtifact([script, page], 'html')).toBe(page)
-    expect(primaryArtifact([script, notes, page], undefined, ['html'])).toBe(notes)
-    expect(primaryArtifact([script, page], undefined)).toBe(script)
-  })
-
-  it('takes a kind a pack judges over the first file, and a page by its main name', () => {
-    expect(primaryArtifact([script, page], undefined, ['html', 'image'])).toBe(page)
-    const component = { file: 'outputs/Pricing.tsx', kind: 'code' as const }
-    const about = { file: 'outputs/about.html', kind: 'html' as const }
-    const preview = { file: 'outputs/preview.html', kind: 'html' as const }
-    expect(primaryArtifact([component, about, preview], undefined, ['html'])).toBe(preview)
-    expect(primaryArtifact([component, preview], undefined, ['code', 'html'])).toBe(component)
-  })
 })

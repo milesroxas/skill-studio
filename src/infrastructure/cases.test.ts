@@ -138,6 +138,19 @@ describe('saveCase and deleteCase', () => {
     expect(() => saveCase(skill, { ...draft, size: [1600, 20_000] }, false)).toThrow('10,000')
   })
 
+  it('drops a size written by hand that a save would refuse', () => {
+    saveCase(skill, draft, true)
+    const yamlPath = join(skill, 'evals/cases/short-note/case.yaml')
+    for (const size of ['[ 1000000, 900 ]', '"1440x900"', '[ 1440 ]', '[ 1440.5, 900 ]']) {
+      writeFileSync(yamlPath, `title: A short note\nbench:\n  size: ${size}\n  phone: yes please\n`)
+      const { bench } = loadCases(skill)[0]
+      expect(bench.size).toBeUndefined()
+      expect(bench.phone).toBeUndefined()
+    }
+    writeFileSync(yamlPath, 'title: A short note\nbench:\n  size: [ 1440, 900 ]\n')
+    expect(loadCases(skill)[0].bench.size).toEqual([1440, 900])
+  })
+
   it('refuses a bad id, an empty prompt, a bad range and a duplicate', () => {
     expect(() => saveCase(skill, { ...draft, id: 'Short Note' }, true)).toThrow('lowercase')
     expect(() => saveCase(skill, { ...draft, prompt: ' ' }, true)).toThrow('prompt')

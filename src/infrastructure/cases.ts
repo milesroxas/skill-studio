@@ -126,13 +126,27 @@ function safePaths(value: unknown, what: string): string[] {
   })
 }
 
-/** A case's `bench` block. Its evidence files are held to paths inside the skill. */
+/**
+ * A case's `bench` block. Its evidence files are held to paths inside the
+ * skill, and a size to the one a save allows: a case file edited by hand or
+ * by an agent sizes a window too, so a size that could not be saved is dropped.
+ */
 function benchOf(value: unknown): CaseBench {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return {}
-  const bench = value as CaseBench
-  return bench.evidence === undefined
-    ? bench
-    : { ...bench, evidence: safePaths(bench.evidence, 'the evidence file') }
+  const { size, phone, ...bench } = value as CaseBench
+  const sized = Array.isArray(size) && size.length === 2 && !sizeProblem(size)
+  if (size !== undefined && !sized)
+    warnOnce(
+      `A case asks for the size ${JSON.stringify(size)}, which is not a width and a height in pixels.`,
+    )
+  return {
+    ...bench,
+    ...(sized ? { size } : {}),
+    ...(typeof phone === 'boolean' ? { phone } : {}),
+    ...(bench.evidence === undefined
+      ? {}
+      : { evidence: safePaths(bench.evidence, 'the evidence file') }),
+  }
 }
 
 /** One skill-creator case folder. Throws when its `case.yaml` cannot be read. */

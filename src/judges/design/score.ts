@@ -145,6 +145,7 @@ const certaintiesDesign = (raw: DesignRaw | null): number[] =>
 
 export const designScoring: PackScoring<DesignRaw> = {
   id: 'design',
+  artifacts: ['html', 'image'],
   layers: ['markup', 'visual'],
   checks: 'visual',
   defaults: {

@@ -67,6 +67,7 @@ const certaintiesGeneric = (raw: GenericRaw | null): number[] =>
 
 export const genericScoring: PackScoring<GenericRaw> = {
   id: 'generic',
+  artifacts: ['markdown'],
   layers: ['adherence', 'rubric'],
   checks: 'rubric',
   defaults: { weights: { adherence: 50, rubric: 50 } },
