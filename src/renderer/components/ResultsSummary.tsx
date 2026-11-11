@@ -8,7 +8,8 @@ import { mean } from '@domain/stats.ts'
 import { Fragment } from 'react'
 import { api } from '../api.ts'
 import type { Ctx } from '../ctx.ts'
-import { gradingRun, useJobStart } from '../job-start.ts'
+import { type DeleteRun, useDeleteRun } from '../delete-run.ts'
+import { gradingRun, useJobStart, writingRun } from '../job-start.ts'
 import {
   casePair,
   casesRun,
@@ -116,7 +117,7 @@ export function ResultsSummary({ ctx }: { ctx: Ctx }) {
           ) : null}
           <Hint>
             Each cell is a case’s mean score out of 100. Open a score to read that output beside the
-            one before it, or a run for its outputs.
+            one before it, or a run to see its outputs, grade it again or delete it.
           </Hint>
           <Table bleed>
             <TableHeader>
@@ -194,12 +195,15 @@ export function ResultsSummary({ ctx }: { ctx: Ctx }) {
                         <RunDetail
                           ctx={ctx}
                           run={run.name}
-                          grading={
-                            grade.busy(`Grade ${run.name}`) ||
-                            gradingRun(jobs, state.skill.path, run.name)
-                          }
-                          waiting={grade.starting()}
+                          busy={{
+                            grading:
+                              grade.busy(`Grade ${run.name}`) ||
+                              gradingRun(jobs, state.skill.path, run.name),
+                            writing: writingRun(jobs, state.skill.path, run.name),
+                            waiting: grade.starting(),
+                          }}
                           regrade={regrade}
+                          closed={() => setOpenRun(null)}
                         />
                       </TableDetail>
                     ) : null}
@@ -230,19 +234,26 @@ function readParams(outputs: Output[], caseId: string, output: Output): Record<s
 function RunDetail({
   ctx,
   run,
-  grading,
-  waiting,
+  busy,
   regrade,
+  closed,
 }: {
   ctx: Ctx
   run: string
-  /** A grade of this run is being started, or is still going. */
-  grading: boolean
-  /** A grade of some run is being started: one start at a time. */
-  waiting: boolean
+  busy: {
+    /** A grade of this run is being started, or is still going. */
+    grading: boolean
+    /** A job is still writing this run's outputs. */
+    writing: boolean
+    /** A grade of some run is being started: one start at a time. */
+    waiting: boolean
+  }
   regrade: (run: string) => void
+  /** The run is gone: close its row. */
+  closed: () => void
 }) {
   const { state, config, outputs, go } = ctx
+  const del = useDeleteRun(ctx, run, busy, closed)
   const view = state.runs.find((r) => r.name === run)
   if (!view) return null
   const mine = outputs.filter((o) => o.run.name === run)
@@ -275,8 +286,8 @@ function RunDetail({
               type="button"
               variant="outline"
               size="sm"
-              disabled={waiting}
-              busy={grading}
+              disabled={del.held}
+              busy={busy.grading}
               busyLabel="Grading…"
               onClick={() => regrade(run)}
             >
@@ -363,6 +374,27 @@ function RunDetail({
           })}
         </TableBody>
       </Table>
+      <DeleteRunFoot del={del} />
     </Stack>
+  )
+}
+
+/** Delete run, apart from Regrade and below what it deletes: alone in its section. */
+function DeleteRunFoot({ del }: { del: DeleteRun }) {
+  return (
+    <Toolbar>
+      <Button
+        type="button"
+        variant="destructive-outline"
+        size="sm"
+        disabled={del.blocked !== undefined}
+        title={del.blocked}
+        busy={del.deleting}
+        busyLabel="Deleting…"
+        onClick={del.remove}
+      >
+        Delete run
+      </Button>
+    </Toolbar>
   )
 }

@@ -20,7 +20,7 @@ Everything Skill Studio knows about a skill is plain files in the skill's `evals
     anchors/*.md                  labelled outputs for `st self-test`; front matter: case, label, tests
     anchors/report.json           what `st self-test` scored, written each time it runs, with judge-cache.json beside it
     reviews.json                  your corrections to Jev's verdicts (see grading.md)
-    versions/<vN>/                a version saved by the Assistant: version.json and files/
+    versions/<vN>/                a saved version (by the Assistant, or kept when its only run is deleted): version.json and files/
     runs/                         one directory per run, below
 ```
 
@@ -78,7 +78,7 @@ A skill's version is a hash of every file an agent's copy holds: `SKILL.md`, `re
 
 A version stamped from `SKILL.md` and `references/` alone, as one from Skill Studio 0.4.0 or earlier is, cannot say which other files it had. It stands for the skill as it is only while it is the newest version and no run has stamped it with the whole hash, and the next run of it does; from then on a change to a script is a new version.
 
-A run keeps the version it tested: its `_skill/` snapshot is the copy the app reads and restores. Restore puts back `SKILL.md` and `references/`, byte for byte, all of them or none; other files stay as they are. When a restore fails partway and a file cannot be moved back, your files are kept in a hidden `.restore-…` folder in the skill, and the error names each one and where it goes. A changed tree needs a name on its first run. The app names a skill's first version "First version" and a later one after the date, unless you type what changed; `st run` asks for `--name`. Later runs of the same files reuse the version. The Assistant can also save the files as a version before it changes them: that copy lands in `evals/versions/`. Saved and run versions share one numbering.
+A run keeps the version it tested: its `_skill/` snapshot is the copy the app reads and restores. Restore puts back `SKILL.md` and `references/`, byte for byte, all of them or none; other files stay as they are. When a restore fails partway and a file cannot be moved back, your files are kept in a hidden `.restore-…` folder in the skill, and the error names each one and where it goes. A changed tree needs a name on its first run. The app names a skill's first version "First version" and a later one after the date, unless you type what changed; `st run` asks for `--name`. Later runs of the same files reuse the version. The Assistant can also save the files as a version before it changes them: that copy lands in `evals/versions/`. Deleting a version's only run saves the version there too, from the run's `_skill/`, so the version stays. Saved and run versions share one numbering.
 
 A run's configuration says which skill the agent saw:
 
@@ -100,7 +100,7 @@ A run's configuration says which skill the agent saw:
 | `claude-commands.json` | The skills Claude Code can invoke, for the side panel's slash menu, with the modification times of the folders they were read from |
 | `agents.json` | The agents each running copy (the app's backend, `st`) has started, under the copy that started it, so a copy that starts after another crashed can end that copy's agents |
 | `uploads/` | Pictures added but not yet saved in a case. One nothing has read for 30 days is removed when the next picture is uploaded |
-| `trash/` | The last deleted version, until the next delete: `<uuid>/entry.json` (the skill, the version, its run names, and the corrections that went with them), `version/` and `runs/<run>/`. An entry marked `unfinished` belongs to a delete or an undo that stopped partway and could not put everything back, and no later delete empties it: the error said what to move where |
+| `trash/` | The last deleted version or run, until the next delete: `<uuid>/entry.json` (the skill, the version, its run names, and the corrections that went with them; `kind: "run"` for one run, with `kept` when the delete saved the run's version), `version/` and `runs/<run>/`. An entry marked `unfinished` belongs to a delete or an undo that stopped partway and could not put everything back, and no later delete empties it: the error said what to move where |
 
 When `library.json` is absent, `~/.skill-tester/library.json` is read in its place. With no saved workspaces, the Library scans none: it lists the user's own skills until a folder is added. An older file's `others` list, from the Mine and Not mine buttons, is ignored and dropped on the next save.
 

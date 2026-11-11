@@ -156,6 +156,17 @@ export interface Contract {
   }
   /** Take back the latest delete, named by the `undo` it returned. */
   'skill.undeleteVersion': { input: Scoped & { undo: string }; output: { restored: string } }
+  /**
+   * Delete one run: its outputs and the corrections on them. Its version stays,
+   * saved from the run (`kept`) when the run was its only copy. Refused while a
+   * job writes or grades the run. `undo` names the way back.
+   */
+  'skill.deleteRun': {
+    input: Scoped & { run: string }
+    output: { deleted: string; reviews: number; kept: string | null; undo: string }
+  }
+  /** Take back the latest run delete, named by the `undo` it returned. */
+  'skill.undeleteRun': { input: Scoped & { undo: string }; output: { restored: string } }
   'skill.drafts': { input: Scoped; output: SkillDrafts }
   'skill.saveDrafts': {
     input: Scoped & { drafts: SkillDrafts }

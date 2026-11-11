@@ -17,7 +17,7 @@ export const versionDir = (skillDir: string, version: string): string =>
 const VERSION_LABEL = /^v\d+$/
 export const isVersionLabel = (value: string): boolean => VERSION_LABEL.test(value)
 
-interface VersionFile {
+export interface VersionFile {
   version: string
   name: string
   note: string
@@ -86,6 +86,30 @@ export function saveVersion(
     note: note.trim(),
     date: createdAt.slice(0, 10),
     saved: true,
+  }
+}
+
+/**
+ * Save a version that was only ever run, from the copy of the skill its run
+ * took (`from`), so deleting that run leaves the version in the list. It keeps
+ * the run's name, note, hash and date.
+ */
+export function keepVersion(skillDir: string, from: string, file: VersionFile): void {
+  if (savedVersionSource(skillDir, file.version)) return
+  const dir = versionDir(skillDir, file.version)
+  // A folder without both parts is a save that did not finish: start it over.
+  if (isDir(dir)) rmSync(dir, { recursive: true, force: true })
+  snapshotSkillFiles(from, join(dir, 'files'))
+  writeJson(join(dir, 'version.json'), file)
+}
+
+/** A saved version's own record, or null when it is not saved. */
+export const savedVersionFile = (skillDir: string, version: string): VersionFile | null => {
+  const path = join(versionDir(skillDir, version), 'version.json')
+  try {
+    return readJson<VersionFile | null>(path, null)
+  } catch {
+    return null
   }
 }
 

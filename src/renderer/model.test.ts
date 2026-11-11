@@ -3,6 +3,8 @@ import { describe, expect, it } from 'vitest'
 import type { RunView, State } from './api.ts'
 import {
   casePair,
+  deleteBlocked,
+  deleteRunDialog,
   drawnOf,
   kindsLine,
   liftOf,
@@ -132,5 +134,48 @@ describe('liftOf and versionScore', () => {
     const outputs = outputsOf(state)
     expect(liftOf(state, outputs, saved)).toBeNull()
     expect(versionScore(outputs, saved, 'v2')).toBeNull()
+  })
+})
+
+describe('deleteRunDialog', () => {
+  const files = [md('README.md')]
+  const withVersions = (state: State, saved: string[] = []): State =>
+    ({
+      ...state,
+      versions: { versions: saved.map((version) => ({ version, saved: true })) },
+    }) as unknown as State
+
+  it('says in one plain sentence what goes, and that the skill stays', () => {
+    const run = runOf('r1', 'v1', files)
+    const state = withVersions(stateOf([run], ['generic']))
+    expect(deleteRunDialog(state, run, outputsOf(state))).toEqual({
+      title: 'Delete this run?',
+      description: "Its results will be deleted, but your skill won't change.",
+    })
+    state.reviews.reviews['r1/page-s1'] = { corrections: { a: true } } as never
+    expect(deleteRunDialog(state, run, outputsOf(state)).description).toBe(
+      "Its results and the scores you fixed will be deleted, but your skill won't change.",
+    )
+  })
+
+  it('says the skill it tested goes only when the run holds its one copy', () => {
+    const run = { ...runOf('r1', 'v1', files), hasSkill: false }
+    const state = withVersions(stateOf([run], ['generic']))
+    expect(deleteRunDialog(state, run, outputsOf(state)).description).toBe(
+      'Its results will be deleted, along with the only copy of the skill it tested.',
+    )
+    const saved = withVersions(stateOf([run], ['generic']), ['v1'])
+    expect(deleteRunDialog(saved, run, outputsOf(saved)).description).toContain("won't change")
+    const twin = runOf('r2', 'v1', files)
+    const two = withVersions(stateOf([run, twin], ['generic']))
+    expect(deleteRunDialog(two, run, outputsOf(two)).description).toContain("won't change")
+  })
+})
+
+describe('deleteBlocked', () => {
+  it('lets a run go only when no job is writing or grading it', () => {
+    expect(deleteBlocked({ writing: false, grading: false })).toBeUndefined()
+    expect(deleteBlocked({ writing: true, grading: false })).toContain('run to finish')
+    expect(deleteBlocked({ writing: false, grading: true })).toContain('grading to finish')
   })
 })

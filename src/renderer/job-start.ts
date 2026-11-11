@@ -22,6 +22,10 @@ function runningJob(jobs: readonly Job[], kind: Job['kind'], title?: string): Jo
 export const gradingRun = (jobs: readonly Job[], skillPath: string, run: string): boolean =>
   jobs.some((j) => j.status === 'running' && j.skillPath === skillPath && j.grading.includes(run))
 
+/** Whether a running job of the skill at `skillPath` is still writing `run`. */
+export const writingRun = (jobs: readonly Job[], skillPath: string, run: string): boolean =>
+  jobs.some((j) => j.status === 'running' && j.skillPath === skillPath && j.writing.includes(run))
+
 /** A start with no title of its own: any job of the kind answers it. */
 const ANY = ''
 

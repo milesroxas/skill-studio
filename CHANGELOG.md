@@ -6,6 +6,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+### Added
+
+- **Delete run**, under an open run on Results, All cases. It deletes the run's outputs and your corrections on them, and every score stops counting it. The version it was made with stays: when the run was its only copy, the version is saved from the run first. The dialog says what goes, and **Undo** on the status line brings the run back.
+
 ### Security
 
 - The app quits when started with `--use-mock-keychain`, as it does with a remote debugging switch. Started that way, it would have stored a key you typed under a fixed key anyone can read, not the keychain's.

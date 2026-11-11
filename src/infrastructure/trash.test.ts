@@ -6,6 +6,7 @@ import {
   readdirSync,
   readFileSync,
   rmSync,
+  symlinkSync,
   writeFileSync,
 } from 'node:fs'
 import { tmpdir } from 'node:os'
@@ -18,7 +19,7 @@ import { failRenames } from './__fixtures__/fs.ts'
 const home = mkdtempSync(join(tmpdir(), 'st-trash-home-'))
 process.env.SKILL_STUDIO_HOME = home
 afterAll(() => rmSync(home, { recursive: true, force: true }))
-const { deleteVersion, undeleteVersion } = await import('./trash.ts')
+const { deleteRun, deleteVersion, undeleteRun, undeleteVersion } = await import('./trash.ts')
 const { loadReviews, readStoredReviews, saveCorrection, writeStoredReviews } = await import(
   './reviews.ts'
 )
@@ -42,11 +43,17 @@ function writeVote(a: string, b: string) {
   writeStoredReviews(dir, { ...stored, preferences: [...(stored.preferences ?? []), vote] })
 }
 
-function writeRun(name: string, version: string) {
+function writeRun(name: string, version: string, skillHash = '') {
   const run = join(dir, 'evals/runs', name)
   mkdirSync(join(run, '_skill'), { recursive: true })
   writeFileSync(join(run, '_skill/SKILL.md'), 'first')
-  const meta: Partial<RunMeta> = { name, skillVersion: version, createdAt: '2026-11-01T10:00:00Z' }
+  const meta: Partial<RunMeta> = {
+    name,
+    skillVersion: version,
+    skillName: 'Brief',
+    skillHash,
+    createdAt: '2026-11-01T10:00:00Z',
+  }
   writeFileSync(join(run, 'run.json'), JSON.stringify(meta))
 }
 
@@ -143,6 +150,133 @@ describe('undeleteVersion', () => {
     saveVersion(dir, versionsOf(dir).current, 'One', '')
     const { undo } = deleteVersion(dir, 'v0')
     expect(() => undeleteVersion(join(dir, 'other'), undo)).toThrow('can no longer be undone')
+  })
+})
+
+const savedOf = () => versionsOf(dir).versions.map((v) => [v.version, v.saved])
+
+describe('deleteRun', () => {
+  it('takes the run and the corrections on it, and leaves the other runs of its version', () => {
+    writeRun('r-a', 'v0')
+    writeRun('r-b', 'v0')
+    saveCorrection(dir, 'r-a/case-s1', 'rule:Be brief.', true)
+    saveCorrection(dir, 'r-b/case-s1', 'rule:Be brief.', true)
+    writeVote('r-a/case-s1', 'r-b/case-s1')
+    expect(deleteRun(dir, 'r-a')).toMatchObject({ deleted: 'r-a', reviews: 1, kept: null })
+    expect(existsSync(join(dir, 'evals/runs/r-a'))).toBe(false)
+    expect(existsSync(join(dir, 'evals/runs/r-b'))).toBe(true)
+    expect(Object.keys(loadReviews(dir).reviews)).toEqual(['r-b/case-s1'])
+    expect(readStoredReviews(dir).preferences).toEqual([])
+    expect(savedOf()).toEqual([['v0', false]])
+  })
+
+  it('saves the version from the run when the run is its only copy, so the version stays', () => {
+    writeRun('r-a', 'v0', 'h0')
+    expect(deleteRun(dir, 'r-a')).toMatchObject({ kept: 'v0' })
+    expect(savedOf()).toEqual([['v0', true]])
+    expect(versionsOf(dir).versions[0]).toMatchObject({ name: 'Brief', hash: 'h0' })
+    expect(readFileSync(join(dir, 'evals/versions/v0/files/SKILL.md'), 'utf8')).toBe('first')
+  })
+
+  it('keeps nothing more for a version saved already', () => {
+    saveVersion(dir, versionsOf(dir).current, 'One', '')
+    writeRun('r-a', 'v0')
+    expect(deleteRun(dir, 'r-a')).toMatchObject({ kept: null })
+    expect(savedOf()).toEqual([['v0', true]])
+  })
+
+  it('refuses a run that is not there', () => {
+    expect(() => deleteRun(dir, 'r-none')).toThrow('There is no run called r-none.')
+  })
+
+  it.skipIf(process.platform === 'win32')(
+    'refuses to save a version from a snapshot whose SKILL.md leads out of it',
+    () => {
+      writeRun('r-a', 'v0', 'h0')
+      const outside = join(dir, 'secret.txt')
+      writeFileSync(outside, 'not the skill')
+      rmSync(join(dir, 'evals/runs/r-a/_skill/SKILL.md'))
+      symlinkSync(outside, join(dir, 'evals/runs/r-a/_skill/SKILL.md'))
+      expect(() => deleteRun(dir, 'r-a')).toThrow('leads outside its folder')
+      expect(existsSync(join(dir, 'evals/versions/v0'))).toBe(false)
+      expect(existsSync(join(dir, 'evals/runs/r-a/run.json'))).toBe(true)
+    },
+  )
+
+  it('refuses to save a version from a snapshot with no SKILL.md, and deletes nothing', () => {
+    writeRun('r-a', 'v0', 'h0')
+    rmSync(join(dir, 'evals/runs/r-a/_skill/SKILL.md'))
+    expect(() => deleteRun(dir, 'r-a')).toThrow('kept no SKILL.md')
+    expect(existsSync(join(dir, 'evals/versions/v0'))).toBe(false)
+    expect(existsSync(join(dir, 'evals/runs/r-a/run.json'))).toBe(true)
+  })
+
+  it('takes the version it saved back off when the run cannot move', () => {
+    writeRun('r-a', 'v0', 'h0')
+    const undo = failRenames(
+      (from, to) => from.endsWith(join('runs', 'r-a')) && to.startsWith(trash),
+    )
+    try {
+      expect(() => deleteRun(dir, 'r-a')).toThrow('nothing was changed')
+    } finally {
+      undo()
+    }
+    expect(existsSync(join(dir, 'evals/versions/v0'))).toBe(false)
+    expect(savedOf()).toEqual([['v0', false]])
+  })
+})
+
+describe('undeleteRun', () => {
+  it('puts the run and its corrections back, and the version it saved goes again', () => {
+    writeRun('r-a', 'v0', 'h0')
+    saveCorrection(dir, 'r-a/case-s1', 'rule:Be brief.', true)
+    const { undo } = deleteRun(dir, 'r-a')
+    expect(undeleteRun(dir, undo)).toEqual({ restored: 'r-a' })
+    expect(existsSync(join(dir, 'evals/runs/r-a/run.json'))).toBe(true)
+    expect(Object.keys(loadReviews(dir).reviews)).toEqual(['r-a/case-s1'])
+    expect(savedOf()).toEqual([['v0', false]])
+    expect(existsSync(join(trash, undo))).toBe(false)
+  })
+
+  it('can no longer be undone once a later delete empties the trash', () => {
+    writeRun('r-a', 'v0', 'h0')
+    writeRun('r-b', 'v0', 'h0')
+    const { undo } = deleteRun(dir, 'r-a')
+    deleteVersion(dir, 'v0')
+    writeRun('r-c', 'v0', 'h1')
+    expect(() => undeleteRun(dir, undo)).toThrow('can no longer be undone')
+  })
+
+  it('refuses when the delete took the version and its number was given out again', () => {
+    writeRun('r-a', 'v0', 'h0')
+    rmSync(join(dir, 'evals/runs/r-a/_skill'), { recursive: true })
+    const { undo } = deleteRun(dir, 'r-a')
+    expect(savedOf()).toEqual([])
+    writeRun('r-c', 'v0', 'h1')
+    expect(() => undeleteRun(dir, undo)).toThrow('a new v0 was made since')
+  })
+
+  it('brings a run back beside another run of its version that holds an older fingerprint', () => {
+    writeRun('r-a', 'v0', 'h0')
+    writeRun('r-b', 'v0', 'h0-files')
+    const { undo } = deleteRun(dir, 'r-a')
+    expect(undeleteRun(dir, undo)).toEqual({ restored: 'r-a' })
+  })
+
+  it('refuses when a run of that name is there again', () => {
+    writeRun('r-a', 'v0')
+    const { undo } = deleteRun(dir, 'r-a')
+    writeRun('r-a', 'v0')
+    expect(() => undeleteRun(dir, undo)).toThrow('a run called r-a exists')
+  })
+
+  it("never undoes a version's delete, nor a version's undo a run's", () => {
+    writeRun('r-a', 'v0')
+    writeRun('r-b', 'v1')
+    const run = deleteRun(dir, 'r-a')
+    expect(() => undeleteVersion(dir, run.undo)).toThrow('can no longer be undone')
+    const version = deleteVersion(dir, 'v1')
+    expect(() => undeleteRun(dir, version.undo)).toThrow('can no longer be undone')
   })
 })
 

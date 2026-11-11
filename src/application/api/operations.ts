@@ -89,7 +89,7 @@ import {
   skillInfo,
   writeSkillFile,
 } from '@infrastructure/skill.ts'
-import { deleteVersion, undeleteVersion } from '@infrastructure/trash.ts'
+import { deleteRun, deleteVersion, undeleteRun, undeleteVersion } from '@infrastructure/trash.ts'
 import { isVersionLabel, saveVersion } from '@infrastructure/versions.ts'
 import { Jev } from '@judges/jev.ts'
 import { scorers } from '@judges/scorers.ts'
@@ -433,6 +433,8 @@ export const parsers: { [K in OperationName]: (raw: Raw) => Input<K> } = {
     return { ...scoped(raw), version }
   },
   'skill.undeleteVersion': (raw) => ({ ...scoped(raw), undo: assertSafe(str(raw.undo), 'undo') }),
+  'skill.deleteRun': (raw) => ({ ...scoped(raw), run: assertSafe(str(raw.run), 'run') }),
+  'skill.undeleteRun': (raw) => ({ ...scoped(raw), undo: assertSafe(str(raw.undo), 'undo') }),
   'skill.drafts': scoped,
   'skill.saveDrafts': (raw) => ({ ...scoped(raw), drafts: draftsOf(raw.drafts) }),
   'skill.correct': (raw) => {
@@ -546,6 +548,13 @@ export function createOperations(options: OperationsOptions): Runners {
   /** The runs being graded now, as `<skill>/<run>`: by a grade job, or by the job that made the run. */
   const grading = new Set<string>()
   const gradeTarget = (skillPath: string, run: string): string => `${realPath(skillPath)}/${run}`
+
+  /** What a job is doing to `run` now, if anything: writing its outputs, or grading them. */
+  const runBusy = (skillPath: string, run: string): 'writing' | 'grading' | null => {
+    if (runningJob('generate', realPath(skillPath))?.writing.includes(run)) return 'writing'
+    const target = gradeTarget(skillPath, run)
+    return runningJob('grade', target) || grading.has(target) ? 'grading' : null
+  }
 
   /**
    * Grade a run inside `job` and say how it went, `done` when it was judged.
@@ -736,6 +745,19 @@ export function createOperations(options: OperationsOptions): Runners {
       return deleteVersion(skillOf(input).path, input.version)
     },
     'skill.undeleteVersion': (input) => undeleteVersion(skillOf(input).path, input.undo),
+    'skill.deleteRun': (input) => {
+      const skill = skillOf(input)
+      // A job still writing the run would make its folder again; a grading would write its report there.
+      const busy = runBusy(skill.path, input.run)
+      if (busy === 'writing')
+        throw new Error('This run is still writing. Stop it, or delete it when it finishes.')
+      if (busy === 'grading')
+        throw new Error(
+          'This run is being graded. Stop the grading, or delete it when it finishes.',
+        )
+      return deleteRun(skill.path, input.run)
+    },
+    'skill.undeleteRun': (input) => undeleteRun(skillOf(input).path, input.undo),
     'skill.drafts': (input) => readDrafts(skillOf(input).path),
     'skill.saveDrafts': (input) => ({
       updatedAt: writeDrafts(skillOf(input).path, input.drafts),
@@ -873,9 +895,10 @@ export function createOperations(options: OperationsOptions): Runners {
       // A report over a run still writing would miss the outputs still to come. A run
       // with no end time and no job writing it was cut off, and is graded as it stands,
       // whatever other run of the skill is being written.
-      if (runningJob('generate', skillPath)?.writing.includes(input.run))
+      const busy = runBusy(skill.path, input.run)
+      if (busy === 'writing')
         throw new Error('This run is still writing. Grade it when it finishes.')
-      if (runningJob('grade', target) || grading.has(target))
+      if (busy === 'grading')
         throw new Error('This run is already being graded. Wait for it to finish, or stop it.')
       const useJev = input.jev && Jev.available()
       const job = runJob('grade', `Grade ${input.run}`, skillPath, target, (job, signal) => {

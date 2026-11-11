@@ -177,7 +177,7 @@ A version is a copy of the skill as it was for a run, named v0, v1 and so on. Yo
 - **Versions**, under Files, lists them, newest first, each with its date and score.
 - **Click one** to see what changed between it and the files now, file by file. **The version before** shows what that version itself changed.
 - **Restore** puts a version's files back. If the files changed since the last run, they are kept nowhere else: run them first to keep them.
-- **Delete version** deletes it and its runs. **Undo** brings them back.
+- **Delete version** deletes it and its runs. **Undo** brings them back. To delete one run and keep the version, use **Delete run** on Results, All cases.
 
 ## 3. Write cases
 
@@ -267,6 +267,7 @@ Under the two outputs, **Add a check** takes one sentence: what a good answer do
 - **Each row:** one run, with a score per case and the average. Under its name: when it ran, how long it took and what it cost.
 - **Click a score** to read that output beside the one before it.
 - **Click a run** to see each output with what it missed. **Changes since this run** shows what changed in the skill after it. **Regrade** has Jev read the run again.
+- **Delete run** deletes that run's outputs and your corrections on them. Every score stops counting it, here, on each case and in the version list. Its version stays: when the run was the version's only copy, the version is saved from it first. **Undo** on the status line brings the run back. A run still writing or being graded can be deleted once that ends.
 
 To be sure an edit helped, run with **Samples per case** at 2 or more. If two versions' scores differ less than one version's samples do, the edit made no clear difference.
 

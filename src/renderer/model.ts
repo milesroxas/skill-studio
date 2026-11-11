@@ -4,6 +4,7 @@ import { type Lift, type LiftRun, liftWriter, versionLift, writerKey } from '@do
 import { type Corrections, NO_CORRECTIONS, type PackScoring } from '@domain/pack.ts'
 import { defaultPair, type PairOutput } from '@domain/pairs.ts'
 import { drawnArtifact, primaryArtifact } from '@domain/primary.ts'
+import { versionAfterRunDelete } from '@domain/run-delete.ts'
 import { parseSampleDir } from '@domain/run-name.ts'
 import type { Artifact, ArtifactKind, BenchConfig, ReportResult, Writer } from '@domain/schemas.ts'
 import { checkReaders, layerOrder, pixelText, type Scored, scoreResult } from '@domain/scoring.ts'
@@ -374,6 +375,44 @@ export function stamp(iso: string | null | undefined): string | null {
 
 /** When the run started, so two runs of one version and writer tell apart in a picker. */
 export const runStamp = (run: RunView): string => stamp(run.meta?.createdAt) ?? run.name
+
+/**
+ * What deleting `run` asks before it goes, in one sentence: what goes, and
+ * that the skill stays. `versionAfterRunDelete` says when the skill it tested
+ * goes too.
+ */
+export function deleteRunDialog(
+  state: Pick<State, 'runs' | 'versions'>,
+  run: RunView,
+  outputs: readonly Output[],
+): { title: string; description: string } {
+  const version = run.meta?.skillVersion ?? ''
+  const mine = outputs.filter((o) => o.run.name === run.name)
+  const corrections = mine.some((o) => Object.keys(o.corrections).length > 0)
+  const after = versionAfterRunDelete({
+    version,
+    saved: state.versions.versions.some((v) => v.version === version && v.saved),
+    otherRuns: state.runs.filter((r) => r.name !== run.name && r.meta?.skillVersion === version)
+      .length,
+    snapshot: run.hasSkill,
+  })
+  // Plain words for someone who has not learned the app's terms: no version labels, no counts.
+  const what = corrections ? 'Its results and the scores you fixed' : 'Its results'
+  return {
+    title: 'Delete this run?',
+    description:
+      after === 'goes'
+        ? `${what} will be deleted, along with the only copy of the skill it tested.`
+        : `${what} will be deleted, but your skill won't change.`,
+  }
+}
+
+/** Why a run cannot be deleted while these jobs work on it; undefined when it can. */
+export function deleteBlocked(jobs: { writing: boolean; grading: boolean }): string | undefined {
+  if (jobs.writing) return 'Wait for the run to finish, then delete.'
+  if (jobs.grading) return 'Wait for the grading to finish, then delete.'
+  return undefined
+}
 
 /** " · sample 2 of 3", or nothing when the case has one sample. */
 export const sampleTail = (output: Output): string =>
