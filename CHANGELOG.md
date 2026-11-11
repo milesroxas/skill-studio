@@ -6,6 +6,12 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [0.5.3] - 2026-11-10
+
+### Changed
+
+- The app runs on Electron 45.3.0.
+
 ## [0.5.2] - 2026-11-10
 
 ### Changed
