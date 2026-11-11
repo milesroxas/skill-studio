@@ -180,18 +180,17 @@ A version is a copy of the skill as it was for a run, named v0, v1 and so on. Yo
 
 A case is one task for the agent: a request, and what a good answer does.
 
-![Cases: the list of three cases on the left; on the right the form for one case, with its prompt, its title, an Add pictures button and what a good answer does. The checks start below.](images/cases.webp)
+![Cases: the list of three cases on the left; on the right the form for one case, with its prompt, its title and its files, with the Add files and Add folder buttons under them.](images/cases.webp)
 
 Start with the prompt alone. It is enough to run the case, and reading what the agent wrote shows you what to check.
 
-1. Click the plus above the list. A new case shows the task alone: the prompt, a title, pictures and files.
+1. Click the plus above the list. A new case shows the task alone: the prompt, a title and files.
 2. **Prompt:** what a user would ask. Do not mention the skill: the test is whether the agent uses it on its own. To start from a finished case instead, open **Start from an example** under the prompt and click **Use** on one. A skill graded as generic picks the kind of skill first.
 3. **Title** (optional): a short name for the lists. Left empty, the case is named after its prompt.
-4. **Pictures** (optional): a screenshot or mock-up the prompt is about. Drop one anywhere on the case, or click **Add pictures**.
-5. **Files** (optional): a copy of anything else the prompt is about, such as a screen's code or its design tokens. **Add files** picks files; **Add folder** picks a whole folder, which the agent gets as it is laid out. What the agent sees, below, says why.
-6. Click **Add case**. The rest can wait until you have read an output.
+4. **Files** (optional): any file your prompt refers to, such as a screenshot, a document or code. **Add files** picks files and **Add folder** picks a whole folder, or drop them anywhere on the case. A file that is not added cannot be read when the case runs: What the agent sees, below, says why.
+5. Click **Add case**. The rest can wait until you have read an output.
 
-The line under the pictures folds the rest of the case and names what it holds, such as **A good answer, checks and length**. Click it to open or close it. It is open whenever one of these holds something, as on a case started from an example, and closed while all are empty, before saving and after:
+The line under the files folds the rest of the case and names what it holds, such as **A good answer, checks and length**. Click it to open or close it. It is open whenever one of these holds something, as on a case started from an example, and closed while all are empty, before saving and after:
 
 - **A good answer** (optional): one or two sentences on what it does.
 - **Checks** (optional): one fact per row that a good answer makes true. Return starts the next row; Backspace on an empty row removes it. The picture button in a check's corner attaches a mock-up or screenshot the check is about. **×2** makes a check count double. **Write checks with AI** adds checks from the prompt.
@@ -202,10 +201,11 @@ The line under the pictures folds the rest of the case and names what it holds, 
 
 A run does not happen in your project. Each case starts in a new, empty folder that holds a copy of the skill, the prompt and the case's pictures and files, and nothing else: the agent cannot read your project, use MCP tools or reach the network. So when a prompt is about something of yours, such as a screen's code, a design file or a document, give the case a copy:
 
-- A screenshot or mock-up: **Add pictures**. The judge sees it too.
-- Any other file, or a whole folder: **Add files** or **Add folder**, under Files. A folder keeps its layout and leaves out hidden files and `node_modules`; one pick holds 500 files and 16 MB at most, so pick the folder the prompt is about, not the whole project. What you add is copied into the case when you save it.
+- Add it under Files, with **Add files** or **Add folder**, or drop it on the case. What you add is copied into the case when you save it.
+- A picture added on its own, such as a screenshot or mock-up, shows in the list with its thumbnail. The judge sees it too. A case holds 6 of these at most. A picture inside a folder you add is a file like the rest of the folder.
+- A folder keeps its layout and leaves out hidden files and `node_modules`. You can add 500 files and 16 MB at a time, so add only the folder the prompt is about, not the whole project.
 - To bring a copy up to date, add it again: one with the same name takes its place. **×** takes one off when you save.
-- **Show folder**, on a saved case, opens the case's `files` folder, to change what is there by hand. The form lists it when you come back to the window.
+- **Reveal in Finder** (**Show in File Explorer** on Windows, **Open containing folder** on Linux), at the end of the Files label on a saved case, opens the case's `files` folder, to change what is there by hand. The form lists it when you come back to the window.
 
 A check such as "the colors come from the project" can only pass when the project's colors are among the case's files.
 

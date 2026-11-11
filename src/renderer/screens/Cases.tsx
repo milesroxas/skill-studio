@@ -9,7 +9,7 @@
  */
 
 import { blankDraft, draftOf, inputEntries, newCaseId, sizeProblem } from '@domain/case-draft.ts'
-import { addImages, MAX_IMAGES } from '@domain/image.ts'
+import { addImages } from '@domain/image.ts'
 import type { InputEntry } from '@domain/inputs.ts'
 import { type CaseDraft, NEW_CASE_KEY } from '@domain/schemas.ts'
 import {
@@ -20,6 +20,7 @@ import {
   templateById,
   templateForPacks,
 } from '@domain/templates.ts'
+import { ArrowUpRightIcon } from 'lucide-react'
 import { memo, useEffect, useMemo, useRef, useState } from 'react'
 import { api, currentSkill } from '../api.ts'
 import { caseContext, skillContext } from '../assist.ts'
@@ -27,13 +28,14 @@ import { CheckList } from '../components/CheckList.tsx'
 import { Disclosure } from '../components/Disclosure.tsx'
 import { DraftNote } from '../components/DraftNote.tsx'
 import { CheckRow, InlineField, NumberInput } from '../components/forms.tsx'
-import { InputList, InputPicker } from '../components/InputFiles.tsx'
+import { CaseFiles } from '../components/InputFiles.tsx'
 import {
   Column,
   ColumnBody,
   ColumnHeader,
   ColumnTitle,
   Field,
+  FieldHead,
   FormSection,
   ListHeader,
   Loading,
@@ -43,7 +45,6 @@ import {
   Workbench,
 } from '../components/layout.tsx'
 import { NavButton, NavButtonTitle } from '../components/NavButton.tsx'
-import { PicturePicker, PictureStrip, usePictureDrop } from '../components/Pictures.tsx'
 import { Segmented } from '../components/Segmented.tsx'
 import { ExampleList, GuideBox, PairList } from '../components/starters.tsx'
 import { TextArea } from '../components/TextArea.tsx'
@@ -54,10 +55,11 @@ import { Input } from '../components/ui/input.tsx'
 import { Label } from '../components/ui/label.tsx'
 import type { Ctx } from '../ctx.ts'
 import { caseUnsaved, formDraft, unsavedCases } from '../draft-edits.ts'
+import { useFileDrop } from '../drop.ts'
 import { useAction } from '../hooks.ts'
 import { useAddPictures } from '../images.ts'
 import { useAddInputs } from '../inputs.ts'
-import { shortcut } from '../keys.ts'
+import { REVEAL_LABEL, shortcut } from '../keys.ts'
 import { checksGraded, kindsLine, listLine, plural } from '../model.ts'
 import { caseKey } from '../route.ts'
 
@@ -200,8 +202,8 @@ export const Cases = memo(function Cases({ ctx }: { ctx: Ctx }) {
     pictures.add,
     `${skill}\n${key}`,
   )
-  /** A picture dropped anywhere on the case joins its pictures. */
-  const drop = usePictureDrop(pictures.add)
+  /** A file or folder dropped anywhere on the case joins its files. */
+  const drop = useFileDrop(files.addDropped)
 
   /**
    * The reader's own open or close of the fold, and the case it was made on.
@@ -268,7 +270,7 @@ export const Cases = memo(function Cases({ ctx }: { ctx: Ctx }) {
     const gone = selected.id
     const ok = await confirm({
       title: `Delete the case ${gone}?`,
-      description: 'Its folder goes too. Past runs keep their outputs.',
+      description: 'Its files are deleted too. Results of past runs are kept.',
       action: 'Delete',
       destructive: true,
     })
@@ -325,9 +327,11 @@ export const Cases = memo(function Cases({ ctx }: { ctx: Ctx }) {
     'length',
     ...(drawn ? ['size'] : []),
   ])
-  /** The case's input files that are not its pictures, which the form shows above. */
-  /** The files and folders the agent gets beside the prompt, as the draft leaves them. */
+  /** The files and folders the case comes with beside its pictures, as the draft leaves them. */
   const inputs = inputEntries(selected ?? null, draft)
+  /** Pictures and files still being read: each holds a row in the list. */
+  const addingFiles = pictures.adding + files.adding
+  const hasFiles = draft.images.length + inputs.length + addingFiles > 0
   /** The saved case's own `files/` folder, in the skill: where another input file goes. */
   const caseDir = selected?.dir ?? null
   const { openCaseFiles } = api
@@ -476,7 +480,7 @@ export const Cases = memo(function Cases({ ctx }: { ctx: Ctx }) {
               hint={
                 cases.length
                   ? undefined
-                  : 'A case is one task you would give an agent. The prompt is enough to run it.'
+                  : 'A case is one request to test the skill with. The prompt alone is enough to run it.'
               }
             >
               <Field>
@@ -485,7 +489,7 @@ export const Cases = memo(function Cases({ ctx }: { ctx: Ctx }) {
                   id="case-prompt"
                   rows={6}
                   value={draft.prompt}
-                  placeholder="What would you ask the agent?"
+                  placeholder="What would you ask?"
                   aria-describedby="case-prompt-help"
                   onValueChange={(prompt) => set({ prompt })}
                   assist={{ field: 'case.prompt', ...assist }}
@@ -530,58 +534,52 @@ export const Cases = memo(function Cases({ ctx }: { ctx: Ctx }) {
                 />
               </Field>
 
-              <Field role="group" aria-labelledby="case-pictures">
-                <Label id="case-pictures" optional>
-                  Pictures
-                </Label>
-                <PictureStrip
-                  label="Pictures of this case"
-                  images={draft.images}
-                  adding={pictures.adding}
-                  onRemove={(image) => set({ images: draft.images.filter((i) => i !== image) })}
+              <Field role="group" aria-labelledby="case-files" className="max-w-xl">
+                <FieldHead
+                  action={
+                    caseDir && openCaseFiles ? (
+                      <Button
+                        type="button"
+                        variant="ghost-muted"
+                        size="xs"
+                        onClick={() => void openCaseFiles(skill, caseDir).catch(report)}
+                      >
+                        {REVEAL_LABEL}
+                        <ArrowUpRightIcon aria-hidden="true" />
+                      </Button>
+                    ) : null
+                  }
                 >
-                  <PicturePicker
-                    label="Add pictures"
-                    disabled={draft.images.length + pictures.adding >= MAX_IMAGES}
-                    onFiles={pictures.add}
-                  />
-                </PictureStrip>
+                  <Label id="case-files" optional>
+                    Files
+                  </Label>
+                </FieldHead>
+                <CaseFiles
+                  pictures={draft.images}
+                  entries={inputs}
+                  adding={addingFiles}
+                  onRemovePicture={(image) =>
+                    set({ images: draft.images.filter((i) => i !== image) })
+                  }
+                  onRemoveEntry={removeInput}
+                  onFiles={files.addFiles}
+                  onFolder={files.addFolder}
+                />
                 {pictures.error ? (
                   <Hint tone="destructive" role="alert">
                     {pictures.error}
                   </Hint>
-                ) : (
-                  <Hint>Screenshots or mock-ups the prompt is about. Drop them anywhere here.</Hint>
-                )}
-              </Field>
-
-              <Field role="group" aria-labelledby="case-files">
-                <Label id="case-files" optional>
-                  Files
-                </Label>
-                <InputList entries={inputs} adding={files.adding} onRemove={removeInput} />
-                <Toolbar>
-                  <InputPicker onFiles={files.addFiles} onFolder={files.addFolder} />
-                  {caseDir && openCaseFiles ? (
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => void openCaseFiles(skill, caseDir).catch(report)}
-                    >
-                      Show folder
-                    </Button>
-                  ) : null}
-                </Toolbar>
+                ) : null}
                 {files.error ? (
                   <Hint tone="destructive" role="alert">
                     {files.error}
                   </Hint>
-                ) : (
+                ) : null}
+                {/* Shown until a file is added: after that the rows say it. */}
+                {pictures.error || files.error || hasFiles ? null : (
                   <Hint>
-                    The agent works in an empty folder with the skill, this prompt and these files,
-                    never your project. Add a copy of what the prompt is about, such as a screen's
-                    code or its design tokens.
+                    Add any file your prompt refers to, such as a screenshot. It can’t be read
+                    otherwise.
                   </Hint>
                 )}
               </Field>
@@ -611,7 +609,7 @@ export const Cases = memo(function Cases({ ctx }: { ctx: Ctx }) {
                 <FormSection
                   layout="stacked"
                   title="Checks"
-                  hint="Statements a good answer makes true. Jev marks each one. Optional: easier to write after a first run."
+                  hint="Facts that must be true of a good answer. Jev, the grader, marks each one. Optional: easier to write after a first run."
                 >
                   <GuideBox summary="What Jev can mark">
                     <PairList pairs={CHECK_EXAMPLES} />
@@ -630,7 +628,7 @@ export const Cases = memo(function Cases({ ctx }: { ctx: Ctx }) {
                 <FormSection
                   layout="stacked"
                   title="Checks"
-                  hint={`A skill graded as ${kindsLine(config.packs)} is not scored on checks. Graded as, on Results, changes that.`}
+                  hint={`Checks are not used for a skill graded as ${kindsLine(config.packs)}. To use them, change Graded as on the Results screen.`}
                 >
                   <Toolbar>
                     <Button
@@ -650,7 +648,7 @@ export const Cases = memo(function Cases({ ctx }: { ctx: Ctx }) {
                   checked={Boolean(draft.words)}
                   onCheckedChange={(on) => set({ words: on ? [50, 300] : null })}
                 >
-                  Score the output’s length in words
+                  Score the answer’s length in words
                 </CheckRow>
                 {draft.words ? (
                   <Toolbar>
@@ -686,9 +684,9 @@ export const Cases = memo(function Cases({ ctx }: { ctx: Ctx }) {
                     <CheckRow
                       checked={Boolean(draft.size)}
                       onCheckedChange={(on) => set({ size: on ? [1280, 800] : null })}
-                      description="A picture must be exactly this size. A page is drawn at it."
+                      description="A picture must be exactly this size. A page is shown at this size when it is graded."
                     >
-                      Check the output’s size in pixels
+                      Check the size of the picture or page in pixels
                     </CheckRow>
                     {draft.size ? (
                       <Toolbar>

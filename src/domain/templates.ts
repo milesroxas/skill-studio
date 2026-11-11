@@ -109,8 +109,7 @@ export const DESCRIPTION_HINT =
   'What the skill does, then "Use when" and the requests it should load for.'
 
 /** What a case's prompt is, under its field and in the assistant's brief. */
-export const CASE_PROMPT_HINT =
-  'Exactly what the agent is asked, as a user would ask it. Do not mention the skill.'
+export const CASE_PROMPT_HINT = 'Ask the way you really would, without naming the skill.'
 
 export const TEMPLATES: readonly SkillTemplate[] = [
   {
@@ -557,7 +556,7 @@ export const CHECK_EXAMPLES: readonly CheckExample[] = [
   {
     bad: 'The answer follows the skill.',
     good: 'The answer quotes the output of the check command.',
-    why: 'One check, one fact. Rule adherence is already scored, one rule at a time.',
+    why: 'One check, one fact. Whether the answer follows the skill is already scored, one rule at a time.',
   },
 ]
 

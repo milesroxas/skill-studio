@@ -1,11 +1,11 @@
 /**
  * Files and folders on their way into a case. Each file picked, or each
  * folder, is read and sent for keeping as one pick; the case holds it until
- * it is saved, as it holds a picture. A picture picked here goes to the
- * case's pictures instead, which the judge sees too.
+ * it is saved, as it holds a picture. A picture picked here joins the case's
+ * pictures, which the judge sees too; the form lists both together.
  */
 import { imageTypeOf } from '@domain/image.ts'
-import { type InputUpload, inputLimitProblem, skippedInput } from '@domain/inputs.ts'
+import { INPUT_LIMITS, type InputUpload, inputLimitProblem, skippedInput } from '@domain/inputs.ts'
 import { useRef, useState } from 'react'
 import { api } from './api.ts'
 
@@ -18,11 +18,39 @@ async function base64Of(file: Blob): Promise<string> {
   return btoa(binary)
 }
 
+/** The files of one folder, each by its path from the folder's own name. */
+type Tree = Array<{ path: string; file: File }>
+
+/**
+ * The files of a dropped folder, less the ones a pick leaves out. It stops one
+ * file past the limit, so a whole project dropped by mistake is refused
+ * without being read through.
+ */
+async function treeOf(dir: FileSystemDirectoryEntry, into: Tree = []): Promise<Tree> {
+  const reader = dir.createReader()
+  for (;;) {
+    // A reader hands its entries over in batches, and an empty one ends them.
+    const batch = await new Promise<FileSystemEntry[]>((done, failed) =>
+      reader.readEntries(done, failed),
+    )
+    if (!batch.length) return into
+    for (const entry of batch) {
+      if (into.length > INPUT_LIMITS.files) return into
+      if (skippedInput(entry.name)) continue
+      if (entry.isDirectory) await treeOf(entry as FileSystemDirectoryEntry, into)
+      else
+        into.push({
+          path: entry.fullPath.replace(/^\//, ''),
+          file: await new Promise<File>((done, failed) =>
+            (entry as FileSystemFileEntry).file(done, failed),
+          ),
+        })
+    }
+  }
+}
+
 /** Send one pick: files by their path from its name. Throws, with what is wrong, when it is refused. */
-async function upload(
-  name: string,
-  files: Array<{ path: string; file: File }>,
-): Promise<InputUpload> {
+async function upload(name: string, files: Tree): Promise<InputUpload> {
   const problem = inputLimitProblem(
     files.length,
     files.reduce((sum, f) => sum + f.file.size, 0),
@@ -43,6 +71,8 @@ export interface AddInputs {
   addFiles: (files: File[]) => void
   /** The files of one folder, from a folder picker: one pick under the folder's name. */
   addFolder: (files: File[]) => void
+  /** What was dropped on the case: each file as `addFiles` takes it, each folder as one pick. */
+  addDropped: (data: DataTransfer) => void
 }
 
 /**
@@ -96,5 +126,22 @@ export function useAddInputs(
     send([() => upload(name, kept)])
   }
 
-  return { adding, error, addFiles, addFolder }
+  const addDropped = (data: DataTransfer) => {
+    // Both lists are read now: a transfer is empty once the drop has been handled.
+    const dropped = [...data.items].filter((item) => item.kind === 'file')
+    const entries = dropped.map((item) => item.webkitGetAsEntry())
+    const loose = [...data.files]
+    const folders = entries.filter((e): e is FileSystemDirectoryEntry => Boolean(e?.isDirectory))
+    // A folder comes as a file too, one with nothing to read: it is left to its entry.
+    addFiles(loose.filter((_, i) => !entries[i]?.isDirectory))
+    send(
+      folders.map((dir) => async () => {
+        const kept = await treeOf(dir)
+        if (!kept.length) throw new Error(`${dir.name} holds no files to add.`)
+        return upload(dir.name, kept)
+      }),
+    )
+  }
+
+  return { adding, error, addFiles, addFolder, addDropped }
 }

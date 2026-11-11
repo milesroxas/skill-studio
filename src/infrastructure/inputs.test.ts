@@ -59,12 +59,12 @@ describe('saveInputUpload', () => {
     expect(() => one('screens', 'screens/../../a.tsx')).toThrow('Bad file path')
     expect(() => one('screens', 'screens/.env')).toThrow('Bad file path')
     expect(() => one('../up', '../up')).toThrow('Bad file name')
-    expect(() => one('shot.png', 'shot.png')).toThrow('Add pictures')
+    expect(() => one('shot.png', 'shot.png')).toThrow('is a picture')
     const many = Array.from({ length: INPUT_LIMITS.files + 1 }, (_, i) => ({
       path: `big/${i}.txt`,
       data: b64('x'),
     }))
-    expect(() => saveInputUpload({ name: 'big', files: many })).toThrow('Pick the folder')
+    expect(() => saveInputUpload({ name: 'big', files: many })).toThrow('more than 500 files')
   })
 
   it('refuses an id that is not one', () => {

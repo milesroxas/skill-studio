@@ -155,7 +155,7 @@ const columnVariants = cva(
         side: 'border-t max-lg:order-last lg:border-t-0 lg:border-r',
         main: '',
       },
-      /** A picture is held over the column, and dropping it adds it to what the column edits. */
+      /** A file is held over the column, and dropping it adds it to what the column edits. */
       over: {
         true: 'bg-accent/60',
         false: '',
@@ -501,6 +501,21 @@ export function Stack({
 /** A label, its control and a hint, stacked. */
 export function Field({ className, ...props }: ComponentProps<'div'>) {
   return <div className={cn('flex flex-col gap-2', className)} {...props} />
+}
+
+/**
+ * A field's label with one quiet action about the field's content at the end
+ * of its row, such as showing a case's files where they are kept. The action
+ * is lifted out of the row's height, so the label sits where a bare one does,
+ * and its last mark ends on the field's edge.
+ */
+export function FieldHead({ action, children }: { action?: ReactNode; children: ReactNode }) {
+  return (
+    <div className="flex items-center justify-between gap-3">
+      {children}
+      {action ? <span className="-my-1.5 -mr-1.5 flex shrink-0">{action}</span> : null}
+    </div>
+  )
 }
 
 /** A group of controls under one legend. */

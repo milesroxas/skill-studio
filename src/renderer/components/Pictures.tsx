@@ -7,8 +7,9 @@
 import type { ImageRef } from '@domain/image.ts'
 import { cva, type VariantProps } from 'class-variance-authority'
 import { ImagePlusIcon, XIcon } from 'lucide-react'
-import { type DragEvent, type ReactNode, useRef, useState } from 'react'
+import { useRef } from 'react'
 import { api } from '../api.ts'
+import { useFileDrop } from '../drop.ts'
 import { picturesIn } from '../images.ts'
 import { CornerButton } from './CornerButton.tsx'
 import { Button } from './ui/button.tsx'
@@ -41,7 +42,7 @@ interface PictureProps {
 }
 
 /** One picture. Wrapped in a positioned box so the remove button can sit on its corner. */
-function Picture({ image, size, onRemove }: PictureProps) {
+export function Picture({ image, size, onRemove }: PictureProps) {
   return (
     <span className="relative inline-flex shrink-0">
       <button
@@ -94,8 +95,6 @@ interface PictureStripProps {
   onRemove?: (image: ImageRef) => void
   /** What the row is, read to assistive technology. */
   label: string
-  /** A control at the end of the row, such as the button that adds one. */
-  children?: ReactNode
   className?: string
 }
 
@@ -105,7 +104,6 @@ export function PictureStrip({
   adding = 0,
   onRemove,
   label,
-  children,
   className,
 }: PictureStripProps) {
   return (
@@ -121,7 +119,6 @@ export function PictureStrip({
           <span className={thumbVariants({ size, className: 'animate-pulse' })} />
         </li>
       ))}
-      {children ? <li className="flex">{children}</li> : null}
     </ul>
   )
 }
@@ -129,11 +126,11 @@ export function PictureStrip({
 interface PicturePickerProps {
   onFiles: (files: File[]) => void
   /**
-   * `button` names what it adds; `icon-sm` sits in a row of controls; `corner`
-   * is a `CornerButton` in a text field's corner, for the picture its text is about.
+   * `icon-sm` sits in a row of controls; `corner` is a `CornerButton` in a text
+   * field's corner, for the picture its text is about.
    */
-  variant?: 'icon-sm' | 'button' | 'corner'
-  /** What it adds to, read to assistive technology and shown on the button form. */
+  variant: 'icon-sm' | 'corner'
+  /** What it adds to, read to assistive technology and shown as its title. */
   label: string
   /** One picture at a time, for a field that holds one. */
   single?: boolean
@@ -141,13 +138,7 @@ interface PicturePickerProps {
 }
 
 /** The button that opens the file picker for pictures. */
-export function PicturePicker({
-  onFiles,
-  variant = 'button',
-  label,
-  single,
-  disabled,
-}: PicturePickerProps) {
+export function PicturePicker({ onFiles, variant, label, single, disabled }: PicturePickerProps) {
   const input = useRef<HTMLInputElement>(null)
   const open = () => input.current?.click()
   return (
@@ -165,12 +156,7 @@ export function PicturePicker({
           event.target.value = ''
         }}
       />
-      {variant === 'button' ? (
-        <Button type="button" variant="outline" size="sm" disabled={disabled} onClick={open}>
-          <ImagePlusIcon aria-hidden="true" />
-          {label}
-        </Button>
-      ) : variant === 'corner' ? (
+      {variant === 'corner' ? (
         <CornerButton aria-label={label} title={label} disabled={disabled} onClick={open}>
           <ImagePlusIcon aria-hidden="true" />
         </CornerButton>
@@ -191,34 +177,6 @@ export function PicturePicker({
   )
 }
 
-/**
- * Take pictures dropped on an element. `over` is true while one is held above
- * it, for the element to show where the drop will land. Where one such element
- * is inside another, the inner one takes the drop and the outer never hears of it.
- */
-export function usePictureDrop(onFiles: (files: File[]) => void) {
-  const [over, setOver] = useState(false)
-  const carriesFiles = (event: DragEvent) => event.dataTransfer.types.includes('Files')
-  return {
-    over,
-    handlers: {
-      onDragOver: (event: DragEvent) => {
-        if (!carriesFiles(event)) return
-        event.preventDefault()
-        event.stopPropagation()
-        setOver(true)
-      },
-      onDragLeave: (event: DragEvent) => {
-        // Moving onto a child is not leaving.
-        if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setOver(false)
-      },
-      onDrop: (event: DragEvent) => {
-        if (!carriesFiles(event)) return
-        event.preventDefault()
-        event.stopPropagation()
-        setOver(false)
-        onFiles(picturesIn(event.dataTransfer))
-      },
-    },
-  }
-}
+/** Take the pictures among what is dropped on an element: `useFileDrop`, for a place that holds pictures only. */
+export const usePictureDrop = (onFiles: (files: File[]) => void) =>
+  useFileDrop((data) => onFiles(picturesIn(data)))

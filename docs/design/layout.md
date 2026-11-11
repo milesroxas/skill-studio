@@ -88,7 +88,7 @@ A box around a region adds an edge the eye has to cross and takes 32px of width 
 | Part | Use |
 | --- | --- |
 | `Column kind` | `list` (260px), `side` (260px, a list beside an item that is the screen's point: after the item once the columns stack, as the Skill screen's files follow the document), `main` |
-| `Column over` | a picture is held over a column that takes a drop: the column takes `bg-accent` at 60% until it is dropped or leaves. The case's main column, where a picture dropped anywhere joins the case. A note that changes while a picture is dragged would move everything under it. |
+| `Column over` | a file is held over a column that takes a drop: the column takes `bg-accent` at 60% until it is dropped or leaves. The case's main column, where a picture, file or folder dropped anywhere joins the case's files (`useFileDrop` in `renderer/drop.ts`). A note that changes while a file is dragged would move everything under it. |
 | `ListHeader` | a list column's title, count and add button. A list nothing is added to (the cases on Results) is a `ColumnHeader inset="list"` with the title and count alone. |
 | `ColumnHeader`, `ColumnTitle` | the main column's name and its actions |
 | `ColumnToolbar`, `ToolbarGroup`, `ToolbarItem` | a row of tools under the header |
@@ -209,6 +209,7 @@ The groups in `layout.tsx`, with every variant they have:
 | `Section`, `SectionHead` | a titled part of a `Screen` or of a main column |
 | `Columns` | `count` 1 or 2 side by side |
 | `Fieldset` | fields under one legend |
+| `FieldHead` | a field's `Label` with one quiet `action` at the row's end ([forms.md](forms.md)) |
 | `Toolbar` | `gap` `xs` 4px, `sm` 8px, `md` 12px; `justify` `start`, `end`; `wrap`; `grow`; `line` keeps a text baseline when it holds only an icon |
 | `Stack` | `gap` `xs` 4px, `sm` 6px, `md` 10px, `lg` 20px |
 | `PlainList` | `gap` `none`, `xs`, `sm`, `md`; `bleed` pulls it 8px past the column's inset |

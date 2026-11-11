@@ -21,15 +21,15 @@ export interface InputPick {
   files: Array<{ path: string; data: string }>
 }
 
-/** The most one pick holds, so a folder picked by mistake, such as a whole project, is refused before it is read. */
+/** The most one pick holds, so a folder picked by mistake, such as a whole project, is refused before it is read. A folder that is dropped is walked no further than one file past `files`. */
 export const INPUT_LIMITS = { files: 500, bytes: 16 * 1024 * 1024 } as const
 
 /** Why a pick of `files` files and `bytes` bytes is refused, or null when it is not. */
 export function inputLimitProblem(files: number, bytes: number): string | null {
   if (files > INPUT_LIMITS.files)
-    return `That is ${files.toLocaleString('en-US')} files; one pick holds ${INPUT_LIMITS.files} at most. Pick the folder the prompt is about, not the whole project.`
+    return `That folder has more than ${INPUT_LIMITS.files} files. Add only the folder your prompt is about.`
   if (bytes > INPUT_LIMITS.bytes)
-    return `That is ${Math.ceil(bytes / 1024 / 1024)} MB; one pick holds ${INPUT_LIMITS.bytes / 1024 / 1024} MB at most. Pick the folder the prompt is about, not the whole project.`
+    return `That is ${Math.ceil(bytes / 1024 / 1024)} MB. The most you can add at once is ${INPUT_LIMITS.bytes / 1024 / 1024} MB.`
   return null
 }
 

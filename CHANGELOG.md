@@ -12,6 +12,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - Under Options, **Write with** is now **Skill**, **Copy from** is **Version**, and **Samples per case** is **Attempts per case**. An agent that is not set up says how to set it up under **Agent**.
 - What stops a run, or makes it grade less, shows as a warning: no Jev key, files not saved, no agent set up. With no case ticked the button says **Tick a case to run**. Before, each was a grey line of help text.
 - Ticking a case or changing the attempts no longer moves the button or the field under the pointer: only the button's words change.
+- A case's pictures and files are one list, under **Files**. Each row leads with a thumbnail or an icon and ends in its **×**, and a picture picked with **Add files** stays in the list it was added to. **Add pictures** is gone: **Add files** takes pictures too.
+- Files and folders can be dropped anywhere on a case, as pictures already could.
+- **Show folder** is **Reveal in Finder** (or your system's name for it), at the end of the Files label.
+- The case form says less and assumes less: the notes under the prompt, the files and the checks are shorter and no longer speak of "the agent".
 
 ## [0.7.2] - 2026-11-11
 

@@ -46,15 +46,16 @@ export function inputUploadPath(id: string): string {
 
 /**
  * Keep a pick the page sent. Its name is one file or folder name; each file's
- * path starts with it, and a picture alone goes to Add pictures, which makes
- * it one the judge can read.
+ * path starts with it, and a picture alone is sent as one of the case's
+ * pictures, which makes it one the judge can read.
  */
 export function saveInputUpload({ name, files }: InputPick): InputUpload {
   if (name.includes('/')) throw new Error('Bad file name.')
   assertSafePath(name, 'file name')
   if (!files.length) throw new Error(`${name} holds no files.`)
   const folder = files.some((f) => f.path !== name)
-  if (!folder && imageTypeOf(name)) throw new Error(`Add ${name} with Add pictures.`)
+  if (!folder && imageTypeOf(name))
+    throw new Error(`${name} is a picture. Add it as one of the case’s pictures.`)
   const decoded = files.map((f) => {
     const path = assertSafePath(f.path, 'file path')
     if ((path !== name && !path.startsWith(`${name}/`)) || skippedInput(path))
