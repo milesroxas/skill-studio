@@ -38,7 +38,7 @@ export const SCREEN_HELP: Record<string, ScreenHelp> = {
   },
   results: {
     short: 'Each version’s output, side by side',
-    what: 'What the agent wrote for each case, the latest version beside the one before. Read both and pick the better. Under each, what it missed names the rule or check to change.',
+    what: 'What the agent wrote for each case, the latest version beside the one before. Read both and pick the better: a page or a picture shows as a browser draws it, and A and B flip between them. Under each, what it missed names the rule or check to change.',
     terms: ['output', 'score', 'missed', 'pick', 'jev'],
     guide: '5-compare-the-results',
   },

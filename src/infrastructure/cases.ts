@@ -8,7 +8,7 @@ import {
   statSync,
 } from 'node:fs'
 import { basename, extname, join } from 'node:path'
-import { checkWeight } from '@domain/case-draft.ts'
+import { checkWeight, sizeProblem } from '@domain/case-draft.ts'
 import { mergeConfig } from '@domain/config.ts'
 import { type ImageFormat, imageFileName, imageTypeOf } from '@domain/image.ts'
 import type { Rule } from '@domain/rules.ts'
@@ -401,6 +401,8 @@ export function saveCase(
   if (!input.prompt.trim()) throw new Error('Write the prompt the agent gets.')
   if (input.words && !(input.words[0] >= 0 && input.words[1] >= input.words[0]))
     throw new Error('The word range needs a minimum below its maximum.')
+  const badSize = sizeProblem(input.size)
+  if (badSize) throw new Error(badSize)
   const existing = loadCases(skillDir).find((c) => c.id === input.id)
   if (isNew && existing) throw new Error(`A case called ${input.id} already exists.`)
   if (!isNew && expectedSavedAt != null) {
@@ -439,6 +441,13 @@ export function saveCase(
     words.flow = true
     doc.setIn(['bench', 'words'], words)
   } else if (doc.hasIn(['bench', 'words'])) doc.deleteIn(['bench', 'words'])
+  if (input.size) {
+    const size = doc.createNode(input.size)
+    size.flow = true
+    doc.setIn(['bench', 'size'], size)
+  } else if (doc.hasIn(['bench', 'size'])) doc.deleteIn(['bench', 'size'])
+  if (input.phone) doc.setIn(['bench', 'phone'], true)
+  else if (doc.hasIn(['bench', 'phone'])) doc.deleteIn(['bench', 'phone'])
   const bench = doc.get('bench')
   if (isMap(bench) && !bench.items.length) doc.delete('bench')
   write(yamlPath, doc.toString())

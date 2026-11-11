@@ -9,6 +9,10 @@ export interface ScoreSubject {
   range: [number, number] | null
   /** The file judged holds nothing but whitespace (`ReportResult.blank`). */
   blank?: boolean
+  /** The picture's pixel size (`ReportResult.pixels`). */
+  pixels?: [number, number] | null
+  /** The size the case asked for (`ReportResult.size`). */
+  size?: [number, number] | null
 }
 
 /**

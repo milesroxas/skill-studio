@@ -13,6 +13,7 @@ import type {
   StudioBridge,
 } from '@application/api/contract.ts'
 import type { AiRun } from '@domain/ai.ts'
+import { ARTIFACT_KEY_META, artifactPath, STAGE_PARAM } from '@domain/artifact-address.ts'
 import type { UpdateRequest, UpdateState } from '@domain/update.ts'
 import type { Job } from '@domain/views.ts'
 
@@ -37,8 +38,12 @@ export interface UpdateHost {
 
 export interface Transport {
   call<K extends OperationName>(name: K, input: Input<K>): Promise<Output<K>>
-  /** A URL an `<img>` or `<iframe>` can load the artifact from. */
-  artifactUrl(input: Input<typeof ARTIFACT_OPERATION>): string
+  /**
+   * A URL an `<img>` or `<iframe>` can load the artifact from, named by its
+   * path so a page finds the files beside it. `stage` asks for the page as
+   * Results' stage shows it, able to scroll with the frame beside it.
+   */
+  artifactUrl(input: Input<typeof ARTIFACT_OPERATION>, options?: { stage?: boolean }): string
   /** The same for a picture the writer added. */
   imageUrl(input: Input<typeof IMAGE_OPERATION>): string
   /** Show an artifact or a picture full size; the app opens a sandboxed window, the browser a tab. */
@@ -97,13 +102,17 @@ const openTab = (url: string): void => {
     reportFailure(new Error('The browser blocked the window. Allow pop-ups for this site.'))
 }
 
+/** A sample's file, by path: the same address the app's scheme and the web server read. */
+const samplePath = (input: Input<typeof ARTIFACT_OPERATION>, stage = false): string =>
+  `${artifactPath(input)}${stage ? `?${STAGE_PARAM}=1` : ''}`
+
 const encode = (params: object): string =>
   new URLSearchParams(Object.entries(params).map(([key, value]) => [key, String(value)])).toString()
 
 function desktop(bridge: StudioBridge): Transport {
   return {
     call: (name, input) => bridge.call(name, input).then(unwrap),
-    artifactUrl: (input) => `artifact://sample?${encode(input)}`,
+    artifactUrl: (input, options) => `artifact://sample${samplePath(input, options?.stage)}`,
     imageUrl: (input) => `artifact://image?${encode(input)}`,
     openArtifact: (url) => void bridge.openArtifact(url).then(unwrap).catch(reportFailure),
     openExternal: (url) => void bridge.openExternal(url).then(unwrap).catch(reportFailure),
@@ -160,13 +169,19 @@ function browser(): Transport {
   window.addEventListener('pageshow', () => {
     leaving = false
   })
+  // A sample's files are asked for under the key the server put in this page: see `ARTIFACT_KEY_META`.
+  const key =
+    document.querySelector<HTMLMetaElement>(`meta[name="${ARTIFACT_KEY_META}"]`)?.content ?? ''
+  const artifacts = `/api/artifact/${encodeURIComponent(key)}`
   return {
     call: async (name, input) => {
       // Bytes do not survive JSON: the page loads a picture by URL, never through a call.
       if (name === 'image.read') throw new Error('Load a picture by its URL.')
       // The artifact comes raw from its GET route instead.
       if (name === 'skill.artifact') {
-        const response = await fetch(`/api/artifact?${encode(input as Input<typeof name>)}`)
+        const response = await fetch(
+          `${artifacts}${samplePath(input as Input<typeof ARTIFACT_OPERATION>)}`,
+        )
         if (!response.ok) throw new Error(await errorOf(response))
         const file: Output<'skill.artifact'> = {
           bytes: new Uint8Array(await response.arrayBuffer()),
@@ -185,7 +200,7 @@ function browser(): Transport {
       if (!response.ok) throw new Error(await errorOf(response))
       return response.json()
     },
-    artifactUrl: (input) => `/api/artifact?${encode(input)}`,
+    artifactUrl: (input, options) => `${artifacts}${samplePath(input, options?.stage)}`,
     imageUrl: (input) => `/api/image?${encode(input)}`,
     openArtifact: openTab,
     openExternal: openTab,

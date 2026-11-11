@@ -1,15 +1,17 @@
 /**
  * The two schemes the window loads from: `studio://app/` serves the built
- * renderer, `artifact://sample?...` serves a sample's file through the backend
- * with a sandbox policy, so agent-written HTML can never script the app.
+ * renderer, `artifact://sample/<skill>/<run>/<sample>/<file>` serves a sample's
+ * file through the backend with a sandbox policy, so agent-written HTML runs
+ * its own scripts but can never script the app.
  */
 import { randomBytes } from 'node:crypto'
 import { pathToFileURL } from 'node:url'
+import { sampleRequest, servedFile } from '@application/api/artifact-page.ts'
 import {
   ARTIFACT_OPERATION,
-  ARTIFACT_POLICY,
   type ArtifactFile,
   IMAGE_OPERATION,
+  type OperationName,
 } from '@application/api/contract.ts'
 import { net, protocol } from 'electron'
 import { rendererFile } from '../../renderer-files.ts'
@@ -57,19 +59,22 @@ function serveApp(rendererDir: string): (request: Request) => Promise<Response> 
 function serveArtifacts(backend: Backend): (request: Request) => Promise<Response> {
   return async (request) => {
     const url = new URL(request.url)
-    const operation =
+    // A sample's file is named by its path, so a page loads the files beside it by their relative names.
+    const sample = url.host === ARTIFACT_HOST ? sampleRequest(url.pathname, url.searchParams) : null
+    const asked: { operation: OperationName; input: unknown } | null =
       url.host === ARTIFACT_HOST
-        ? ARTIFACT_OPERATION
+        ? sample && { operation: ARTIFACT_OPERATION, input: sample.address }
         : url.host === IMAGE_HOST
-          ? IMAGE_OPERATION
+          ? { operation: IMAGE_OPERATION, input: Object.fromEntries(url.searchParams) }
           : null
-    if (!operation) return notFound('artifact')
-    const reply = await backend.call(operation, Object.fromEntries(url.searchParams))
+    if (!asked) return notFound('artifact')
+    const reply = await backend.call(asked.operation, asked.input)
     if (!reply.ok) return notFound('artifact')
-    const { bytes, type } = reply.value as ArtifactFile
-    return new Response(bytes, {
-      headers: { 'content-type': type, 'content-security-policy': ARTIFACT_POLICY },
+    const file = servedFile(reply.value as ArtifactFile, {
+      stage: sample?.stage ?? false,
+      own: `${ARTIFACT_SCHEME}:`,
     })
+    return new Response(file.bytes, { headers: file.headers })
   }
 }
 

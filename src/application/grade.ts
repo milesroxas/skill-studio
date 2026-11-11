@@ -4,13 +4,14 @@
  * scores come from core so the app can rescore as a setting moves.
  */
 import { createHash } from 'node:crypto'
-import { readFileSync } from 'node:fs'
+import { mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs'
 import { basename, join } from 'node:path'
+import { type PageRenderer, RENDER_SIZES, type RenderSize } from '@domain/artifact-address.ts'
 import { mergeConfig } from '@domain/config.ts'
-import { imageTypeOf } from '@domain/image.ts'
+import { imageTypeOf, pictureSize } from '@domain/image.ts'
 import type { Rule } from '@domain/rules.ts'
 import { parseSampleDir } from '@domain/run-name.ts'
-import type { BenchConfig, Case, Report, ReportResult } from '@domain/schemas.ts'
+import type { Artifact, BenchConfig, Case, Report, ReportResult } from '@domain/schemas.ts'
 import { scoreResult } from '@domain/scoring.ts'
 import { copyOf, titleOf, unitsOf, words } from '@domain/text.ts'
 import type { Sample } from '@domain/views.ts'
@@ -20,11 +21,11 @@ import { commandRunner } from '@infrastructure/exec.ts'
 import { assertInside, isDir, isFile, readJson, writeJson } from '@infrastructure/fs.ts'
 import { anchorsDir, readHead, readRunMeta, runDir, runSamples } from '@infrastructure/runs.ts'
 import { readTranscript } from '@infrastructure/transcript.ts'
-import { requestImages } from '@judges/images.ts'
+import { readForJev, requestImages } from '@judges/images.ts'
 import { packById } from '@judges/index.ts'
 import { Jev } from '@judges/jev.ts'
 import { scorers } from '@judges/scorers.ts'
-import type { JudgeContext, JudgeInput, JudgePack } from '@judges/types.ts'
+import type { JudgeContext, JudgeInput, JudgePack, PageShot } from '@judges/types.ts'
 import { INPUTS_DIR, stagedInput } from './generate.ts'
 
 export interface GradeOptions {
@@ -38,7 +39,16 @@ export interface GradeOptions {
   log?: (line: string) => void
   /** The job was stopped: no further sample is judged, and no report is written. */
   signal?: AbortSignal
+  /**
+   * Draws an HTML page at a size, for a pack that looks at the page as drawn
+   * (`JudgePack.renders`). Only the desktop app has one; without it such a
+   * pack judges the markup and any screenshot the agent left.
+   */
+  render?: PageRenderer
 }
+
+/** The folder of a sample the pages drawn for grading are kept in: beside outputs/, never in it. */
+const RENDERS_DIR = 'renders'
 
 /** The file beside `report.json` that keeps each pack's raw answers by the hash of what it was asked. */
 const CACHE_FILE = 'judge-cache.json'
@@ -74,6 +84,69 @@ interface GradeContext {
    */
   inputs: string | null
   signal?: AbortSignal
+  /** Draws a sample's page at each of `RENDER_SIZES`; absent when the host cannot, or nothing looks. */
+  draw?: (sample: Sample, page: Artifact, sizes: RenderSize[]) => Promise<Drawn>
+}
+
+/** A page drawn at each size, with a hash of each picture so an answer about it is kept by what it saw. */
+interface Drawn {
+  shots: PageShot[]
+  hashes: Record<string, string>
+}
+
+const NOTHING_DRAWN: Drawn = { shots: [], hashes: {} }
+
+/**
+ * The sizes a case's page is drawn at: the case's own size when it names one,
+ * else a desktop window, and a phone only when the case asks for one, since
+ * most pages are made for a desktop.
+ */
+function renderSizes(testCase: Case | null): RenderSize[] {
+  const size = testCase?.bench.size
+  return RENDER_SIZES.flatMap((s) => {
+    if (s.id === 'phone') return testCase?.bench.phone === true ? [s] : []
+    return [size ? { ...s, width: size[0], height: size[1] } : s]
+  })
+}
+
+/**
+ * Draw the page at each of `RENDER_SIZES`, kept in the sample's `renders/`
+ * folder and drawn again only when the page is newer than the picture. A size
+ * that cannot be drawn is logged and left out: the pack judges without it.
+ */
+async function drawPage(
+  render: PageRenderer,
+  skillDir: string,
+  run: string,
+  sample: Sample,
+  page: Artifact,
+  sizes: RenderSize[],
+  log: (line: string) => void,
+): Promise<Drawn> {
+  const drawn: Drawn = { shots: [], hashes: {} }
+  const source = statSync(join(sample.path, page.file)).mtimeMs
+  for (const size of sizes) {
+    // Named by its size too, so a case asking for another size draws the page again.
+    const path = join(sample.path, RENDERS_DIR, `${size.id}-${size.width}x${size.height}.png`)
+    if (!isFile(path) || statSync(path).mtimeMs < source) {
+      try {
+        const png = await render(
+          { skill: skillDir, run, sample: sample.name, file: page.file },
+          { width: size.width, height: size.height },
+        )
+        mkdirSync(join(sample.path, RENDERS_DIR), { recursive: true })
+        writeFileSync(path, png)
+      } catch (error) {
+        log(`the page could not be drawn at ${size.id} width: ${(error as Error).message}`)
+        continue
+      }
+    }
+    drawn.shots.push({ size, read: readForJev(path) })
+    drawn.hashes[`render:${size.id}`] = createHash('sha256')
+      .update(readFileSync(path))
+      .digest('hex')
+  }
+  return drawn
 }
 
 /**
@@ -167,7 +240,11 @@ function judgeInput(
   log: (line: string) => void,
 ): JudgeInput {
   const { skillDir } = ctx.judge
-  const primary = primaryArtifact(sample.artifacts, testCase?.bench.artifact)
+  const primary = primaryArtifact(
+    sample.artifacts,
+    testCase?.bench.artifact,
+    ctx.packs.flatMap((pack) => pack.artifacts),
+  )
   const raw =
     primary && primary.kind !== 'image' ? readFileSync(join(sample.path, primary.file), 'utf8') : ''
   const markdown = primary?.kind === 'markdown'
@@ -196,6 +273,7 @@ function judgeInput(
     primary,
     transcript: readTranscript(join(sample.path, 'transcript.jsonl')),
     dir: sample.path,
+    renders: [],
   }
 }
 
@@ -243,6 +321,13 @@ async function gradeSubject(
   )
   const { primary } = input
   const pictures = casePictures(ctx, testCase)
+  // The page is drawn only when a pack will look at it, and a pack that does is asked again when it changes.
+  const looks = ctx.packs.some((pack) => pack.renders)
+  const drawn =
+    looks && ctx.draw && primary?.kind === 'html' && !subject.legacy
+      ? await ctx.draw(subject, primary, renderSizes(testCase))
+      : NOTHING_DRAWN
+  input.renders = drawn.shots
   const packs: Record<string, unknown> = {}
   /** This sample's new answers: kept only once the whole sample was judged without a stop. */
   const answers: Record<string, unknown> = {}
@@ -257,7 +342,12 @@ async function gradeSubject(
       continue
     }
     applied += 1
-    const key = judgeKey(pack, input, pictures, ctx)
+    const key = judgeKey(
+      pack,
+      input,
+      pack.renders ? { ...pictures, ...drawn.hashes } : pictures,
+      ctx,
+    )
     if (Object.hasOwn(ctx.cache.old, key)) {
       packs[pack.id] = ctx.cache.old[key]
       ctx.cache.fresh[key] = ctx.cache.old[key]
@@ -291,6 +381,11 @@ async function gradeSubject(
     // The case's word range is about the copy: prose and list units, not headings or code.
     words: words(input.units.length ? input.units.map((u) => u.text).join(' ') : input.text).length,
     range: testCase?.bench.words ?? null,
+    pixels:
+      primary?.kind === 'image'
+        ? pictureSize(readFileSync(join(subject.path, primary.file)), primary.file)
+        : null,
+    size: testCase?.bench.size ?? null,
     // A text output with nothing but whitespace in it is no output; a picture always is one.
     blank: primary !== null && primary.kind !== 'image' && !input.text.trim(),
     packs,
@@ -334,6 +429,7 @@ async function gradeSubjects(
   subjects: Subject[],
   options: GradeOptions,
   inputs: string | null = null,
+  run: string | null = null,
 ): Promise<Report> {
   if (options.useJev && !Jev.available())
     throw new Error('No TypeSafe key is set, so Jev cannot judge. Add the key in Settings.')
@@ -362,6 +458,11 @@ async function gradeSubjects(
     inputs,
     signal: options.signal,
   }
+  // Drawing a page is for Jev to look at: without Jev, or without a browser, nothing is drawn.
+  const { render } = options
+  if (render && run && options.useJev)
+    ctx.draw = (sample, page, sizes) =>
+      drawPage(render, skillDir, run, sample, page, sizes, (line) => log(`${sample.name}: ${line}`))
   const started = performance.now()
   const results: ReportResult[] = []
   let unchanged = 0
@@ -460,7 +561,7 @@ export async function gradeRun(
     }
   })
   const inputs = join(dir, INPUTS_DIR)
-  return gradeSubjects(skillDir, dir, subjects, options, isDir(inputs) ? inputs : null)
+  return gradeSubjects(skillDir, dir, subjects, options, isDir(inputs) ? inputs : null, run)
 }
 
 /** Grade `evals/anchors/*.md` and write `evals/anchors/report.json`. */

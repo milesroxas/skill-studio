@@ -321,6 +321,7 @@ describe('the questions asked of some pieces only', () => {
     primary,
     transcript: null,
     dir: '/none',
+    renders: [],
   }
   // Jev answers each question every piece is asked, and none of those asked of some only.
   const SOME = ['ending_before', 'title', 'ai_did_work', 'ai_split']

@@ -30,6 +30,13 @@ export interface CaseBench {
   check?: string
   /** Word range the primary output should fall in. */
   words?: [number, number]
+  /** The output is a page meant to work on a phone: the design pack also judges it drawn 390 px wide. */
+  phone?: boolean
+  /**
+   * Width and height in pixels. A picture must be exactly this size; a page
+   * is drawn at this size for the judge and opens at this width on Results.
+   */
+  size?: [number, number]
   /** Skill-relative paths of evidence files. */
   evidence?: string[]
   /** `false` skips Jev for this case. */
@@ -71,6 +78,10 @@ export interface CaseDraft {
   prompt: string
   expectedOutcome: string
   words: [number, number] | null
+  /** Judge the page at phone width too (`bench.phone`). Absent in a draft stored before it existed. */
+  phone?: boolean
+  /** Width and height in pixels (`bench.size`); null for none. Absent in a draft stored before it existed. */
+  size?: [number, number] | null
   /** Pictures the agent gets with the prompt, which the judge sees too. */
   images: ImageRef[]
   graders: Array<{
@@ -235,6 +246,10 @@ export interface ReportResult {
    */
   blank?: boolean
   range: [number, number] | null
+  /** The pixel size of the picture judged, when the output is a picture whose size could be read. */
+  pixels?: [number, number] | null
+  /** The size the case asked for (`bench.size`), as it stood at grading. */
+  size?: [number, number] | null
   /** Raw pack answers keyed by pack id. Thresholds apply later, in core. */
   packs: Record<string, unknown>
   scores: Scores

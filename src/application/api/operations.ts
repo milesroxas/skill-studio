@@ -6,6 +6,7 @@
  */
 import { existsSync, readFileSync, statSync } from 'node:fs'
 import { extname, join, relative, resolve } from 'node:path'
+import type { PageRenderer } from '@domain/artifact-address.ts'
 import {
   ASSIST_FIELD_IDS,
   ASSIST_LIMIT,
@@ -203,6 +204,11 @@ function caseDraftOf(value: unknown): CaseDraft {
     prompt: str(input.prompt),
     expectedOutcome: str(input.expectedOutcome),
     words: words.length === 2 ? [words[0], words[1]] : null,
+    phone: input.phone === true,
+    size:
+      Array.isArray(input.size) && input.size.length === 2
+        ? [Number(input.size[0]), Number(input.size[1])]
+        : null,
     images: imageRefsOf(input.images),
     graders: (Array.isArray(input.graders) ? input.graders : []).map((raw) => {
       const g = record(raw)
@@ -509,6 +515,8 @@ export interface OperationsOptions {
   /** Skill folders served from the start. */
   skills: string[]
   secrets?: SecretStore
+  /** Draws a sample's page for grading to look at; only the desktop app has a browser to. */
+  render?: PageRenderer
 }
 
 /**
@@ -574,6 +582,7 @@ export function createOperations(options: OperationsOptions): Runners {
         useJev,
         log: (line) => say(job, line),
         signal,
+        render: options.render,
       })
       const judged = reportJudging(job, report)
       if (judged) say(job, done)
@@ -585,13 +594,17 @@ export function createOperations(options: OperationsOptions): Runners {
   }
 
   /** The skill an input names by path, opened on first use; else the first served. */
+  /** A skill open already, by its path, the path it links to, or its name: the first one for none named. */
+  const openSkill = (wanted: string): SkillInfo | null => {
+    if (!wanted) return skills[0] ?? null
+    const paths = [resolve(wanted), realPath(resolve(wanted))]
+    return skills.find((s) => paths.includes(s.path) || s.name === wanted) ?? null
+  }
+
   const skillOf = ({ skill: wanted }: Scoped): SkillInfo => {
-    if (!wanted) {
-      if (!skills.length) throw new Error('Open a skill from the library first.')
-      return skills[0]
-    }
-    const match = skills.find((s) => s.path === resolve(wanted) || s.name === wanted)
+    const match = openSkill(wanted)
     if (match) return match
+    if (!wanted) throw new Error('Open a skill from the library first.')
     if (!existsSync(join(resolve(wanted), 'SKILL.md'))) throw new Error(`No skill at ${wanted}.`)
     return open(wanted)
   }
@@ -695,7 +708,10 @@ export function createOperations(options: OperationsOptions): Runners {
     'skill.transcript': (input) =>
       sampleTranscript(skillOf(input).path, input.run, input.sample) ?? [],
     'skill.artifact': (input) => {
-      const path = sampleFile(skillOf(input).path, input.run, input.sample, input.file)
+      // Only a skill open already: a page an agent wrote can name any path, and asking must not open one.
+      const skill = openSkill(input.skill)
+      if (!skill) throw new Error('No such file.')
+      const path = sampleFile(skill.path, input.run, input.sample, input.file)
       if (!existsSync(path) || statSync(path).isDirectory()) throw new Error('No such file.')
       return { bytes: new Uint8Array(readFileSync(path)), type: contentTypeOf(path) }
     },

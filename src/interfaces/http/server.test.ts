@@ -87,7 +87,7 @@ describe('st serve', () => {
       expect(call.status).toBe(401)
       expect(((await call.json()) as { error: string }).error).toMatch('address `st serve` printed')
       expect((await get('/assets/app-1a2b.js')).status).toBe(401)
-      expect((await get('/api/artifact?run=r&sample=s&file=f')).status).toBe(401)
+      expect((await get('/api/artifact/key/s/r/case-s1/outputs/f.html')).status).toBe(401)
       expect((await get('/api/image?upload=x')).status).toBe(401)
     })
 
@@ -179,6 +179,62 @@ describe('st serve', () => {
       } finally {
         await tailnet.close()
       }
+    })
+  })
+
+  describe('a file a sample wrote', () => {
+    // A skill with one run, whose output is a page and the script beside it.
+    const skill = join(root, 'skill')
+    const outputs = join(skill, 'evals/runs/run-1/case-s1/outputs')
+    mkdirSync(outputs, { recursive: true })
+    writeFileSync(join(skill, 'SKILL.md'), '# Skill\n')
+    writeFileSync(join(outputs, 'index.html'), '<body><script src="app.js"></script></body>')
+    writeFileSync(join(outputs, 'app.js'), 'document.title = "drawn"')
+    /** The key the app's page carries, read as the browser's page reads it. */
+    let key = ''
+    beforeAll(async () => {
+      // The app opens the skill before it shows a run of it.
+      expect((await post('/api/skill.drafts', { skill }, { cookie })).status).toBe(200)
+      const page = await (await get('/', { cookie })).text()
+      key = /<meta name="skill-studio-artifact-key" content="([^"]+)">/.exec(page)?.[1] ?? ''
+    })
+    const at = (file: string, under = key) =>
+      `/api/artifact/${under}/${encodeURIComponent(skill)}/run-1/case-s1/outputs/${file}`
+
+    it('is served by its path under the sandbox policy, and its neighbours by theirs', async () => {
+      expect(key).toMatch(/^[\w-]{43}$/)
+      const page = await get(at('index.html'), { cookie })
+      expect(page.status).toBe(200)
+      expect(page.headers.get('content-security-policy')).toMatch(/^sandbox allow-scripts; /)
+      expect(await page.text()).toBe('<body><script src="app.js"></script></body>')
+      const script = await get(at('app.js'), { cookie })
+      expect(script.headers.get('content-type')).toMatch('text/javascript')
+      expect(await script.text()).toBe('document.title = "drawn"')
+    })
+
+    it('is served to the page’s own requests, which carry no cookie and read as another site', async () => {
+      const own = { 'sec-fetch-site': 'cross-site', origin: 'null' }
+      expect((await get(at('app.js'), own)).status).toBe(200)
+    })
+
+    it('needs this start’s key', async () => {
+      expect((await get(at('app.js', 'wrong'))).status).toBe(401)
+      expect((await get(at('app.js', 'wrong'), { cookie })).status).not.toBe(200)
+    })
+
+    it('carries the stage’s script when the stage asks for it', async () => {
+      const page = await get(`${at('index.html')}?stage=1`, { cookie })
+      expect(await page.text()).toMatch(
+        /<script data-skill-studio-stage>[\s\S]*<\/script><\/body>$/,
+      )
+    })
+
+    it('finds nothing outside the sample', async () => {
+      const out = await get(
+        `/api/artifact/${encodeURIComponent(skill)}/run-1/case-s1/outputs/..%2F..%2F..%2F..%2FSKILL.md`,
+        { cookie },
+      )
+      expect(out.status).not.toBe(200)
     })
   })
 

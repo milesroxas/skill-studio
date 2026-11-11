@@ -1,7 +1,10 @@
 /**
- * The design judge pack. It reads the HTML as text and a PNG or JPEG the
- * agent left in outputs/, if any. It does not render the page, so layout,
- * color and responsive behaviour are judged only when a screenshot exists.
+ * The design judge pack. It reads the HTML as text, and looks at the page as
+ * drawn: as the desktop app draws it, in a window the case's size or a
+ * desktop's, which is what Results shows the reader. For a case that asks, the
+ * app also draws it at phone width, and Jev says whether it fits. The CLI and
+ * `st serve` have no browser to draw with, so there it looks at the first PNG
+ * or JPEG the agent left in outputs/, if any, and judges the markup.
  */
 import { join } from 'node:path'
 import { isJevFormat } from '@domain/image.ts'
@@ -127,6 +130,10 @@ function markupChecks(html: string): MarkupCheck[] {
 const htmlOf = (input: JudgeInput, config: DesignConfig): string =>
   input.primary?.kind === 'html' ? input.text.slice(0, config.design.maxChars) : ''
 
+/** The page drawn at one of `RENDER_SIZES`, when grading drew it. */
+const renderOf = (input: JudgeInput, id: 'desktop' | 'phone'): Readable | null =>
+  input.renders.find((r) => r.size.id === id)?.read ?? null
+
 /** The first PNG or JPEG the agent left, read for Jev; null when it left none. */
 function shotOf(input: JudgeInput): Readable | null {
   const shot = input.artifacts.find((a) => a.kind === 'image' && isJevFormat(a.file))
@@ -135,22 +142,33 @@ function shotOf(input: JudgeInput): Readable | null {
 
 export const designPack: JudgePack<DesignRaw> = {
   ...designScoring,
-  version: 1,
-  label: 'Design: markup checks and a visual read of the HTML or screenshot',
+  version: 2,
+  label: 'Design: markup checks and a visual read of the page as drawn',
   artifacts: ['html', 'image'],
+  renders: true,
   async judge(input, ctx) {
     const html = input.primary?.kind === 'html' ? input.text : ''
-    const read = shotOf(input)
+    // The page as drawn is what the reader sees; an agent's own screenshot may be of something else,
+    // or from before its last change, so it stands in only where no picture Jev reads was drawn.
+    const drawn = html ? renderOf(input, 'desktop') : null
+    const read = drawn?.image ? drawn : (shotOf(input) ?? drawn)
+    const phoneRead = html ? renderOf(input, 'phone') : null
     if (!html && !read) return null
     const markup = html ? markupChecks(html) : null
     let jev: DesignRaw['jev'] = null
     const shot = read?.image ?? null
-    // A screenshot Jev would refuse is left out, so the questions about the HTML still get answers.
-    const unread = read?.problem ? `screenshot not judged: ${read.problem}` : null
+    const phone = phoneRead?.image ?? null
+    // A picture Jev would refuse is left out, so the questions about the HTML still get answers.
+    const problems = [
+      read?.problem ? `screenshot not judged: ${read.problem}` : null,
+      phoneRead?.problem ? `phone screenshot not judged: ${phoneRead.problem}` : null,
+    ].filter((p): p is string => p !== null)
+    const unread = problems.length ? problems.join('; ') : null
     if (asksJev(input, ctx) && (html || shot)) {
       const state: JevState = { ...requestState(input) }
       if (html) state.html = htmlOf(input, ctx.config as DesignConfig)
       if (shot) state.screenshot = shot
+      if (phone) state.phone = phone
       const subject = html ? 'html' : 'screenshot'
       const questions = {
         hierarchy: noul(
@@ -169,6 +187,15 @@ export const designPack: JudgePack<DesignRaw> = {
               }),
             }
           : {}),
+        ...(phone
+          ? {
+              phone: noul('Does `phone` show the page working on a phone, drawn 390 px wide?', {
+                true: 'Everything fits the width and reads: nothing is cut off at the side, runs past the edge so the page scrolls sideways, or overlaps.',
+                false:
+                  'Something is cut off at the side, runs past the edge so the page scrolls sideways, overlaps, or is too small to read.',
+              }),
+            }
+          : {}),
       }
       const graders = input.case?.graders ?? []
       // A check about a picture, such as a mock-up to match, is asked of the screenshot when there is one.
@@ -184,6 +211,7 @@ export const designPack: JudgePack<DesignRaw> = {
         hierarchy: noulOf(answers, 'hierarchy'),
         // Asked only with a screenshot; one Jev left out is null, and the markup checks stand.
         finished: shot ? optionalAnswer(() => noulOf(answers, 'finished')) : null,
+        phone: phone ? optionalAnswer(() => noulOf(answers, 'phone')) : null,
         statements,
       }
     }

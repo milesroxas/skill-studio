@@ -72,7 +72,7 @@ export function ArtifactView({ run, sample, artifact }: Props) {
           className="block min-h-[70svh] w-full border-0 bg-artifact pointer-coarse:pointer-events-none pointer-coarse:min-h-[60svh]"
           src={url}
           title={artifact.file}
-          sandbox=""
+          sandbox="allow-scripts"
         />
       </div>
     )

@@ -63,8 +63,8 @@ Every operation is `POST /api/<name>` with its input as a JSON body, 32 MB at mo
 Two operations answer with a file and also take `GET`, so a page can load them by URL:
 
 ```
-/api/artifact?skill=&run=&sample=&file=
+/api/artifact/<key>/<skill>/<run>/<sample>/<file>
 /api/image?skill=&file=&upload=
 ```
 
-Both are served raw with `Content-Security-Policy: sandbox; script-src 'none'`. A `GET` that carries `?token=` answers with a redirect to the same address without it and sets the cookie, so a tool follows the redirect and sends the cookie back.
+A sample's file is named by its path, with the skill's path encoded as one segment (`%2F` for each slash), so a page an agent wrote loads the files beside it by their relative names. Such a page runs in an origin of its own, so the files it loads go out with no cookie. `<key>` stands in for it: a second random key each start makes, which the app's page carries in a `<meta name="skill-studio-artifact-key">` tag. It reads the files of a skill open already, nothing else. `?stage=1` on a page adds the small script Results' stage uses to scroll two pages together. Both routes are served raw under a sandbox policy (`artifactPolicy` in `src/application/api/artifact-page.ts`): a page runs its own scripts in an origin of its own and loads nothing from the network. A `GET` that carries `?token=` answers with a redirect to the same address without it and sets the cookie, so a tool follows the redirect and sends the cookie back.

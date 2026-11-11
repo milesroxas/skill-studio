@@ -4,6 +4,7 @@ import { join } from 'node:path'
 import { pngHeader } from '@domain/__fixtures__/image.ts'
 import { mergeConfig } from '@domain/config.ts'
 import type { ScoreSubject } from '@domain/pack.ts'
+import { image } from '@typesafe-ai/sdk'
 import { describe, expect, it, vi } from 'vitest'
 import { Jev } from '../jev.ts'
 import { MissingAnswerError } from '../shared/questions.ts'
@@ -39,6 +40,7 @@ const input = (html: string): JudgeInput => ({
   primary: { file: 'outputs/index.html', kind: 'html' },
   transcript: null,
   dir: '/none',
+  renders: [],
 })
 
 const failed = async (html: string): Promise<string[]> => {
@@ -165,6 +167,83 @@ describe('design markup checks', () => {
       expect(Object.keys(ask.mock.calls[0][1])).toEqual(['hierarchy', 'finished'])
       expect(raw?.jev).toMatchObject({ hierarchy: 0.9, finished: null })
       expect(raw?.markup).toHaveLength(8)
+    } finally {
+      rmSync(dir, { recursive: true, force: true })
+    }
+  })
+
+  it('looks at the page as the app drew it, and asks whether it fits a phone', async () => {
+    const drawn = (id: 'desktop' | 'phone', width: number, height: number) => ({
+      size: { id, width, height },
+      read: { image: image(pngHeader(width, height)), problem: null },
+    })
+    const page = {
+      ...input(GOOD),
+      renders: [drawn('desktop', 1280, 960), drawn('phone', 390, 1200)],
+    }
+    const ask = vi.fn(
+      async (_state: Record<string, unknown>, _questions: Record<string, unknown>) => ({
+        hierarchy: { noul: 0.9 },
+        finished: { noul: 0.8 },
+        phone: { noul: 0.1 },
+      }),
+    )
+    const raw = await designPack.judge(page, {
+      ...ctx,
+      jev: { ask } as unknown as Jev,
+      useJev: true,
+    })
+    const [state, questions] = ask.mock.calls[0]
+    expect(Object.keys(questions)).toEqual(['hierarchy', 'finished', 'phone'])
+    expect(Object.keys(state)).toEqual(expect.arrayContaining(['html', 'screenshot', 'phone']))
+    expect(raw?.jev).toMatchObject({ finished: 0.8, phone: 0.1 })
+    const scored = raw && designScoring.score(raw, subject, config)
+    expect(scored?.flags).toContain('page does not fit a phone screen')
+    expect(scored?.verdicts.find((v) => v.id === 'other:phone')).toMatchObject({
+      text: 'The page fits a phone screen',
+      met: false,
+    })
+  })
+
+  it('takes the page as drawn over the agent’s own screenshot, which stands in when none was', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'st-design-'))
+    try {
+      mkdirSync(join(dir, 'outputs'))
+      writeFileSync(join(dir, 'outputs/shot.png'), pngHeader(800, 600))
+      const shot = { file: 'outputs/shot.png', kind: 'image' as const }
+      const desktop = (read: { image: unknown; problem: string | null }) => ({
+        size: { id: 'desktop' as const, width: 1280, height: 960 },
+        read,
+      })
+      const drawnImage = image(pngHeader(1280, 960))
+      const page = (renders: ReturnType<typeof desktop>[]) => ({
+        ...input(GOOD),
+        dir,
+        artifacts: [...input(GOOD).artifacts, shot],
+        renders,
+      })
+      const ask = vi.fn(
+        async (_state: Record<string, unknown>, _questions: Record<string, unknown>) => ({
+          hierarchy: { noul: 0.9 },
+          finished: { noul: 0.8 },
+        }),
+      )
+      const judged = { ...ctx, jev: { ask } as unknown as Jev, useJev: true }
+      await designPack.judge(
+        page([desktop({ image: drawnImage, problem: null })]) as JudgeInput,
+        judged,
+      )
+      expect(ask.mock.calls[0][0].screenshot).toBe(drawnImage)
+      // A drawing Jev cannot read, or none: the agent's own screenshot stands in.
+      const unreadable = await designPack.judge(
+        page([desktop({ image: null, problem: 'too small' })]) as JudgeInput,
+        judged,
+      )
+      expect(ask.mock.calls[1][0].screenshot).not.toBe(drawnImage)
+      expect(ask.mock.calls[1][0].screenshot).toBeTruthy()
+      expect(unreadable?.unread).toBeUndefined()
+      await designPack.judge(page([]) as JudgeInput, judged)
+      expect(ask.mock.calls[2][0].screenshot).toBeTruthy()
     } finally {
       rmSync(dir, { recursive: true, force: true })
     }

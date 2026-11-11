@@ -20,6 +20,8 @@ export const draftOf = (c: Case): CaseDraft => ({
   prompt: c.prompt,
   expectedOutcome: c.expectedOutcome,
   words: c.bench.words ?? null,
+  phone: c.bench.phone === true,
+  size: c.bench.size ?? null,
   images: picturesOf(c).map(savedPicture),
   graders: c.graders.map((g) => ({
     id: g.id,
@@ -60,6 +62,8 @@ export const blankDraft = (): CaseDraft => ({
   prompt: '',
   expectedOutcome: '',
   words: null,
+  phone: false,
+  size: null,
   images: [],
   graders: [newCheck()],
 })
@@ -84,3 +88,12 @@ export function newCaseId(
   for (let n = 2; taken.includes(id); n += 1) id = `${base}-${n}`
   return id
 }
+
+/** The most pixels a case's size may give a side. */
+const MAX_SIDE = 10_000
+
+/** Why a case's size cannot be saved, or null when it can, or there is none. */
+export const sizeProblem = (size: [number, number] | null | undefined): string | null =>
+  size && !size.every((side) => Number.isInteger(side) && side > 0 && side <= MAX_SIDE)
+    ? `The width and the height must be whole pixels, from 1 to ${MAX_SIDE.toLocaleString('en-US')}.`
+    : null

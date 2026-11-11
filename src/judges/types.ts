@@ -1,8 +1,9 @@
+import type { RenderSize } from '@domain/artifact-address.ts'
 import type { PackScoring } from '@domain/pack.ts'
 import type { Rule } from '@domain/rules.ts'
 import type { Artifact, ArtifactKind, BenchConfig, Case, TranscriptEvent } from '@domain/schemas.ts'
 import type { Unit } from '@domain/text.ts'
-import type { RequestImage } from './images.ts'
+import type { Readable, RequestImage } from './images.ts'
 import type { Jev } from './jev.ts'
 
 /** One output as a pack sees it. */
@@ -22,6 +23,18 @@ export interface JudgeInput {
   transcript: TranscriptEvent[] | null
   /** Absolute path of the sample dir (or the run dir for a legacy file), for code checks. */
   dir: string
+  /**
+   * The primary page as a browser draws it, at each of `RENDER_SIZES`: given
+   * to a pack that asks for them (`JudgePack.renders`), when the primary
+   * artifact is HTML and the host has a browser to draw with. Empty otherwise.
+   */
+  renders: PageShot[]
+}
+
+/** The page drawn at one size, read for Jev, or why it could not be. */
+export interface PageShot {
+  size: RenderSize
+  read: Readable
 }
 
 /** How a check or lint command ended. */
@@ -74,6 +87,8 @@ export interface JudgePack<Raw = unknown> extends PackScoring<Raw> {
   label: string
   /** Artifact kinds this pack can judge; empty means any sample, with or without an artifact. */
   artifacts: ArtifactKind[]
+  /** The pack looks at an HTML page as drawn: grading draws it first, when it can (`JudgeInput.renders`). */
+  renders?: boolean
   judge(input: JudgeInput, ctx: JudgeContext): Promise<Raw | null>
   /** Front matter and body a new anchors file starts from. */
   anchorsTemplate?: string

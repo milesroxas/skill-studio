@@ -51,6 +51,7 @@ const inputOf = (events: TranscriptEvent[], settings = {}, sampleDir = dir): Jud
   primary: null,
   transcript: events,
   dir: sampleDir,
+  renders: [],
 })
 
 const metrics = async (

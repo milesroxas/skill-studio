@@ -18,6 +18,7 @@ import { registerIpc } from './ipc.ts'
 import { devUrlOf, opensToDebugger } from './launch.ts'
 import { installMenu } from './menu.ts'
 import { handleSchemes, registerSchemes } from './protocol.ts'
+import { pageRenderer } from './render.ts'
 import { createReset } from './reset.ts'
 import { KeychainSecrets } from './secrets.ts'
 import { createUpdater } from './updater.ts'
@@ -139,6 +140,8 @@ else {
       console.error('Could not read the stored keys:', keysProblem)
     }
     handleSchemes(backend, join(app.getAppPath(), 'out/renderer'))
+    // Grading looks at an agent's page as drawn, and only this process has a browser to draw it.
+    backend.drawWith(pageRenderer())
     registerIpc({
       backend,
       secrets,

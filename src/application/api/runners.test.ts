@@ -255,4 +255,21 @@ describe('skill.artifact', () => {
       }),
     ).rejects.toThrow('leads outside')
   })
+
+  it('serves only a skill open already, and asking opens none', async () => {
+    // A page an agent wrote can name any folder: one with a SKILL.md is still not opened by asking.
+    const other = realPath(mkdtempSync(join(tmpdir(), 'st-runners-other-')))
+    writeFileSync(join(other, 'SKILL.md'), '# Other\n')
+    await expect(
+      invoke(operations, 'skill.artifact', {
+        skill: other,
+        run: 'served',
+        sample: 'note-s1',
+        file: 'outputs/Cover Letter.md',
+      }),
+    ).rejects.toThrow('No such file.')
+    const open = await invoke(operations, 'library.skills', {})
+    expect(open.map((s) => s.path)).not.toContain(other)
+    rmSync(other, { recursive: true, force: true })
+  })
 })

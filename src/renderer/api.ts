@@ -39,8 +39,8 @@ const scoped = <T extends object>(input: T): T & { skill: string } => ({
   skill: skillParam,
 })
 
-const artifactUrl = (run: string, sample: string, file: string): string =>
-  transport.artifactUrl(scoped({ run, sample, file }))
+const artifactUrl = (run: string, sample: string, file: string, stage = false): string =>
+  transport.artifactUrl(scoped({ run, sample, file }), { stage })
 
 /** Where an `<img>` loads a picture from: an upload by its id, a saved one by its path in the open skill. */
 const imageUrl = (image: ImageRef): string =>

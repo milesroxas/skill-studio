@@ -2,15 +2,16 @@
  * `st serve`: the operations table over HTTP, bound to 127.0.0.1, with the
  * built renderer served beside it. Every operation is `POST /api/<name>` with
  * a JSON body; the two operations that answer with bytes are also `GET
- * /api/artifact` and `GET /api/image`, so images and frames can load them by
- * URL. Every request passes the guard first: it comes from this machine's own
+ * /api/artifact/<key>/<skill>/<run>/<sample>/<file>` and `GET /api/image`, so
+ * images and frames can load them by URL. Every request passes the guard first: it comes from this machine's own
  * pages, or from the tailnet with the owner's Tailscale login, and it carries
  * the token this start made.
  */
 import { randomBytes } from 'node:crypto'
 import { readFileSync } from 'node:fs'
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http'
-import { ARTIFACT_OPERATION, ARTIFACT_POLICY, IMAGE_OPERATION } from '@application/api/contract.ts'
+import { sampleRequest, servedFile } from '@application/api/artifact-page.ts'
+import { ARTIFACT_OPERATION, IMAGE_OPERATION } from '@application/api/contract.ts'
 import {
   CONTENT_TYPES,
   contentTypeOf,
@@ -18,6 +19,7 @@ import {
   invoke,
   isOperation,
 } from '@application/api/operations.ts'
+import { ARTIFACT_KEY_META } from '@domain/artifact-address.ts'
 import { isDir } from '@infrastructure/fs.ts'
 // The same policy the desktop app's scheme sends; the module imports nothing of Electron's.
 import { contentSecurityPolicy, withStyleNonce } from '../electron/main/csp.ts'
@@ -25,6 +27,7 @@ import { RENDERER_DIST } from '../host.ts'
 import { rendererFile } from '../renderer-files.ts'
 import {
   type Access,
+  artifactPathOf,
   decide,
   newToken,
   type Remote,
@@ -106,7 +109,12 @@ export function startServer(options: ServerOptions): Promise<Server> {
   const rendererDir = options.rendererDir ?? RENDERER_DIST
   const maxBody = options.maxBodyBytes ?? MAX_BODY_BYTES
   const tickets = ticketBook()
-  const access: Access = { token: newToken(), remote: options.remote, tickets }
+  const access: Access = {
+    token: newToken(),
+    artifactKey: newToken(),
+    remote: options.remote,
+    tickets,
+  }
   const operations = createOperations({ skills: options.skills })
   const server = createServer(async (req, res) => {
     const api = (req.url ?? '').startsWith('/api/')
@@ -124,17 +132,23 @@ export function startServer(options: ServerOptions): Promise<Server> {
     }
     const url = new URL(req.url ?? '/', `http://${req.headers.host}`)
     try {
-      const bytes =
-        req.method !== 'GET'
-          ? null
-          : url.pathname === '/api/artifact'
-            ? ARTIFACT_OPERATION
-            : url.pathname === '/api/image'
-              ? IMAGE_OPERATION
-              : null
-      if (bytes) {
-        const file = await invoke(operations, bytes, query(url))
-        return send(res, 200, file.bytes, file.type, { 'content-security-policy': ARTIFACT_POLICY })
+      // A sample's file is named by its path, so a page loads the files beside it by their relative names.
+      // Asked for under this start's artifact key, which the guard let stand in for the cookie.
+      const samplePath = req.method === 'GET' ? artifactPathOf(url.pathname, access) : null
+      const sample = samplePath ? sampleRequest(samplePath, url.searchParams) : null
+      if (sample) {
+        const file = servedFile(await invoke(operations, ARTIFACT_OPERATION, sample.address), {
+          stage: sample.stage,
+          own: "'self'",
+        })
+        return send(res, 200, file.bytes, file.headers['content-type'], file.headers)
+      }
+      if (req.method === 'GET' && url.pathname === '/api/image') {
+        const file = servedFile(await invoke(operations, IMAGE_OPERATION, query(url)), {
+          stage: false,
+          own: "'self'",
+        })
+        return send(res, 200, file.bytes, file.headers['content-type'], file.headers)
       }
       if (api) {
         const name = url.pathname.slice('/api/'.length)
@@ -153,15 +167,16 @@ export function startServer(options: ServerOptions): Promise<Server> {
       const file = rendererFile(rendererDir, url.pathname)
       if (!file) return sendError(res, 404, 'No such page.', false)
       if (file.html) {
-        // The page gets the app's policy, with a style nonce of its own for the editor's one style tag.
+        // The page gets the app's policy, with a style nonce of its own for the editor's one style tag,
+        // and the key it asks for a sample's files under.
         const styleNonce = randomBytes(16).toString('base64')
-        return send(
-          res,
-          200,
-          withStyleNonce(readFileSync(file.path, 'utf8'), styleNonce),
-          contentTypeOf(file.path),
-          { 'content-security-policy': contentSecurityPolicy({ styleNonce, web: true }) },
+        const page = withStyleNonce(readFileSync(file.path, 'utf8'), styleNonce).replace(
+          /<head>/i,
+          `<head><meta name="${ARTIFACT_KEY_META}" content="${access.artifactKey}">`,
         )
+        return send(res, 200, page, contentTypeOf(file.path), {
+          'content-security-policy': contentSecurityPolicy({ styleNonce, web: true }),
+        })
       }
       return send(
         res,

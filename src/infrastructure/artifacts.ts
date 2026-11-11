@@ -85,14 +85,29 @@ export function detectArtifacts(sampleDir: string): Artifact[] {
   return found
 }
 
-/** The artifact the packs judge: the case's kind when it names one, else the first markdown, else the first file. */
+/** A page that stands for the others beside it: `index.html`, or the preview a run asks for beside a component. */
+const MAIN_PAGE = /(^|\/)(index|preview)\.html?$/i
+
+/** The first artifact of `kind`, a main page first among pages; null when there is none. */
+function firstOf(artifacts: Artifact[], kind: ArtifactKind): Artifact | null {
+  const of = artifacts.filter((a) => a.kind === kind)
+  return (kind === 'html' ? of.find((a) => MAIN_PAGE.test(a.file)) : undefined) ?? of[0] ?? null
+}
+
+/**
+ * The artifact the packs judge: the case's kind when it names one, else the
+ * first markdown, else the first of a kind a pack judges (`judged`, in the
+ * packs' order), else the first file. A page and its script, `index.html`
+ * and `app.js`, are judged as the page.
+ */
 export function primaryArtifact(
   artifacts: Artifact[],
   preferred: ArtifactKind | undefined,
+  judged: readonly ArtifactKind[] = [],
 ): Artifact | null {
-  if (preferred) {
-    const match = artifacts.find((a) => a.kind === preferred)
+  for (const kind of [...(preferred ? [preferred] : []), 'markdown' as const, ...judged]) {
+    const match = firstOf(artifacts, kind)
     if (match) return match
   }
-  return artifacts.find((a) => a.kind === 'markdown') ?? artifacts[0] ?? null
+  return artifacts[0] ?? null
 }

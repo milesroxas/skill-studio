@@ -25,6 +25,9 @@ const NO_OUTPUT = 'no output to judge'
 const share = (value: number | null): number | null =>
   value === null || !Number.isFinite(value) ? null : Math.min(1, Math.max(0, value))
 
+/** "1600 × 900 px". */
+export const pixelText = ([width, height]: [number, number]): string => `${width} × ${height} px`
+
 /** Flags every pack shares: the output against the case's hard settings. */
 function commonFlags(subject: ScoreSubject): string[] {
   const flags: string[] = []
@@ -33,6 +36,14 @@ function commonFlags(subject: ScoreSubject): string[] {
   const range = subject.range
   if (range && !empty && (subject.words < range[0] || subject.words > range[1]))
     flags.push(`length: ${subject.words} words, case asks ${range[0]} to ${range[1]}`)
+  // A picture is held to the case's size exactly; a page is drawn at that size instead.
+  const { size, pixels } = subject
+  if (size && !empty && subject.primary?.kind === 'image') {
+    if (!pixels)
+      flags.push(`size: the picture's size could not be read, case asks ${pixelText(size)}`)
+    else if (pixels[0] !== size[0] || pixels[1] !== size[1])
+      flags.push(`size: ${pixelText(pixels)}, case asks ${pixelText(size)}`)
+  }
   return flags
 }
 
@@ -49,7 +60,7 @@ function commonFlags(subject: ScoreSubject): string[] {
 export function scoreResult(
   result: Pick<
     ReportResult,
-    'packs' | 'case' | 'primary' | 'artifacts' | 'words' | 'range' | 'blank'
+    'packs' | 'case' | 'primary' | 'artifacts' | 'words' | 'range' | 'blank' | 'pixels' | 'size'
   >,
   config: BenchConfig,
   scorers: PackScoring[],
@@ -62,6 +73,8 @@ export function scoreResult(
     words: result.words,
     range: result.range,
     blank: result.blank,
+    pixels: result.pixels,
+    size: result.size,
   }
   const raw: Record<string, number | null> = {}
   const flags = commonFlags(subject)

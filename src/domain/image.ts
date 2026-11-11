@@ -163,3 +163,59 @@ const sameImage = (a: ImageRef, b: ImageRef): boolean => a.file === b.file && a.
 /** `images` with `added` at the end, leaving out any already there and anything past the limit. */
 export const addImages = (images: ImageRef[], added: ImageRef[]): ImageRef[] =>
   [...images, ...added.filter((a) => !images.some((i) => sameImage(i, a)))].slice(0, MAX_IMAGES)
+
+/** A GIF's logical screen size, little-endian after the six-byte signature. */
+function gifSize(bytes: Uint8Array): [number, number] | null {
+  const head = String.fromCharCode(...bytes.subarray(0, 6))
+  if ((head !== 'GIF87a' && head !== 'GIF89a') || bytes.length < 10) return null
+  return [bytes[6] | (bytes[7] << 8), bytes[8] | (bytes[9] << 8)]
+}
+
+/** A WebP's size from its first chunk: lossy (VP8), lossless (VP8L) or extended (VP8X). */
+function webpSize(bytes: Uint8Array): [number, number] | null {
+  const text = (from: number, to: number) => String.fromCharCode(...bytes.subarray(from, to))
+  if (bytes.length < 30 || text(0, 4) !== 'RIFF' || text(8, 12) !== 'WEBP') return null
+  const chunk = text(12, 16)
+  const b = (i: number) => bytes[i]
+  if (chunk === 'VP8X')
+    return [1 + (b(24) | (b(25) << 8) | (b(26) << 16)), 1 + (b(27) | (b(28) << 8) | (b(29) << 16))]
+  if (chunk === 'VP8L') {
+    const bits = b(21) | (b(22) << 8) | (b(23) << 16) | (b(24) << 24)
+    return [1 + (bits & 0x3fff), 1 + ((bits >>> 14) & 0x3fff)]
+  }
+  if (chunk === 'VP8 ') return [(b(26) | (b(27) << 8)) & 0x3fff, (b(28) | (b(29) << 8)) & 0x3fff]
+  return null
+}
+
+/** An SVG's size: its root's `width` and `height` in pixels, else its `viewBox`. */
+function svgSize(bytes: Uint8Array): [number, number] | null {
+  const root = /<svg\b[^>]*>/i.exec(new TextDecoder().decode(bytes.subarray(0, 4096)))?.[0]
+  if (!root) return null
+  const attr = (name: string) =>
+    new RegExp(`\\s${name}\\s*=\\s*["']([^"']*)["']`, 'i').exec(root)?.[1]
+  const px = (value: string | undefined) => {
+    const match = value ? /^\s*([\d.]+)\s*(px)?\s*$/.exec(value) : null
+    return match ? Math.round(Number(match[1])) : null
+  }
+  const width = px(attr('width'))
+  const height = px(attr('height'))
+  if (width && height) return [width, height]
+  const box = attr('viewBox')
+    ?.trim()
+    .split(/[\s,]+/)
+    .map(Number)
+  return box?.length === 4 && box[2] > 0 && box[3] > 0
+    ? [Math.round(box[2]), Math.round(box[3])]
+    : null
+}
+
+/**
+ * A picture's width and height in pixels, read from the file itself: PNG,
+ * JPEG, GIF, WebP and SVG. Null for a file whose size cannot be read.
+ */
+export function pictureSize(bytes: Uint8Array, path: string): [number, number] | null {
+  const read = imageSize(bytes)
+  if (read) return [read.width, read.height]
+  if (extensionOf(path) === 'svg') return svgSize(bytes)
+  return gifSize(bytes) ?? webpSize(bytes)
+}

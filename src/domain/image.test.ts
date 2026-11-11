@@ -10,6 +10,7 @@ import {
   isJevFormat,
   jevImageProblem,
   MAX_IMAGES,
+  pictureSize,
 } from './image.ts'
 
 /** A JPEG up to its frame header, with an application segment in front as cameras write one. */
@@ -154,5 +155,53 @@ describe('names and lists', () => {
     expect(addImages(held, [upload('a'), upload('b')]).map((i) => i.upload)).toEqual(['a', 'b'])
     const many = Array.from({ length: 10 }, (_, i) => upload(`n${i}`))
     expect(addImages(held, many)).toHaveLength(MAX_IMAGES)
+  })
+})
+
+describe('pictureSize', () => {
+  const bytes = (...values: number[]) => new Uint8Array(values)
+  const text = (value: string) => new TextEncoder().encode(value)
+
+  it('reads a PNG, a GIF and an SVG by its width and height or its viewBox', () => {
+    expect(pictureSize(pngHeader(1600, 900), 'cover.png')).toEqual([1600, 900])
+    expect(
+      pictureSize(bytes(0x47, 0x49, 0x46, 0x38, 0x39, 0x61, 0x40, 0x06, 0x84, 0x03), 'a.gif'),
+    ).toEqual([1600, 900])
+    expect(pictureSize(text('<svg xmlns="x" width="1600" height="900px">'), 'a.svg')).toEqual([
+      1600, 900,
+    ])
+    expect(pictureSize(text('<svg viewBox="0 0 1200 630">'), 'a.svg')).toEqual([1200, 630])
+  })
+
+  it('reads a lossless and an extended WebP', () => {
+    const webp = (chunk: string, rest: number[]) =>
+      new Uint8Array([...text('RIFF'), 0, 0, 0, 0, ...text('WEBP'), ...text(chunk), ...rest])
+    // VP8X: 24-bit width and height, each less one, from byte 24.
+    const extended = webp('VP8X', [0, 0, 0, 0, 0, 0, 0, 0, 0x3f, 0x06, 0, 0x83, 0x03, 0])
+    expect(pictureSize(extended, 'a.webp')).toEqual([1600, 900])
+    // VP8L: 14 bits of width less one, then 14 of height less one, from byte 21.
+    const bits = (1600 - 1) | ((900 - 1) << 14)
+    const lossless = webp('VP8L', [
+      0,
+      0,
+      0,
+      0,
+      0x2f,
+      bits & 0xff,
+      (bits >> 8) & 0xff,
+      (bits >> 16) & 0xff,
+      (bits >>> 24) & 0xff,
+      0,
+      0,
+      0,
+      0,
+      0,
+    ])
+    expect(pictureSize(lossless, 'a.webp')).toEqual([1600, 900])
+  })
+
+  it('says nothing of a file it cannot read', () => {
+    expect(pictureSize(text('not a picture'), 'a.png')).toBeNull()
+    expect(pictureSize(text('<svg width="50%">'), 'a.svg')).toBeNull()
   })
 })

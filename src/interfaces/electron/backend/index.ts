@@ -4,8 +4,10 @@
  * over `process.parentPort` only.
  */
 import { watchRuns } from '@application/ai.ts'
+import type { Reply } from '@application/api/contract.ts'
 import { createOperations, invoke, isOperation } from '@application/api/operations.ts'
 import { watchJobs } from '@application/jobs.ts'
+import type { PageRenderer } from '@domain/artifact-address.ts'
 import { agentLifecycle, keepRunning } from '../../lifecycle.ts'
 import type { FromBackend, ToBackend } from '../channels.ts'
 
@@ -17,7 +19,19 @@ keepRunning((line) => console.error(line))
 // The app tells this process when to stop, so it listens for no signal itself.
 const agents = agentLifecycle({ log: (line) => console.warn(line) })
 
-const operations = createOperations({ skills: [] })
+/** Pages the main process is drawing, by the id they were asked under. */
+const drawing = new Map<number, (reply: Reply<Uint8Array>) => void>()
+let drawn = 0
+
+/** Ask the main process to draw a page: grading looks at it as a browser shows it. */
+const render: PageRenderer = (page, { width, height }) =>
+  new Promise((resolve, reject) => {
+    const id = ++drawn
+    drawing.set(id, (reply) => (reply.ok ? resolve(reply.value) : reject(new Error(reply.error))))
+    post({ type: 'render', id, page, width, height })
+  })
+
+const operations = createOperations({ skills: [], render })
 
 async function call(id: number, name: string, input: unknown): Promise<void> {
   try {
@@ -32,7 +46,10 @@ async function call(id: number, name: string, input: unknown): Promise<void> {
 port.on('message', (event) => {
   const message = event.data as ToBackend
   if (message.type === 'call') void call(message.id, message.name, message.input)
-  else if (message.type === 'env') {
+  else if (message.type === 'rendered') {
+    drawing.get(message.id)?.(message.reply)
+    drawing.delete(message.id)
+  } else if (message.type === 'env') {
     for (const [key, value] of Object.entries(message.env))
       if (value === undefined) delete process.env[key]
       else process.env[key] = value

@@ -125,6 +125,19 @@ describe('saveCase and deleteCase', () => {
     expect(saved.graders.map((g) => [g.id, g.weight])).toEqual([['01-the-note-says-friday', 2]])
   })
 
+  it('keeps a size and the phone check in the bench block, and takes them out again', () => {
+    saveCase(skill, { ...draft, size: [1600, 900], phone: true }, true)
+    const yamlPath = join(skill, 'evals/cases/short-note/case.yaml')
+    expect(readFileSync(yamlPath, 'utf8')).toBe(
+      'title: A short note\nexpected_outcome: Short, says the new day.\nbench:\n  words: [ 10, 80 ]\n  size: [ 1600, 900 ]\n  phone: true\n',
+    )
+    expect(loadCases(skill)[0].bench).toMatchObject({ size: [1600, 900], phone: true })
+    saveCase(skill, { ...draft, size: null, phone: false }, false)
+    expect(readFileSync(yamlPath, 'utf8')).not.toMatch(/size|phone/)
+    expect(() => saveCase(skill, { ...draft, size: [0, 900] }, false)).toThrow('whole pixels')
+    expect(() => saveCase(skill, { ...draft, size: [1600, 20_000] }, false)).toThrow('10,000')
+  })
+
   it('refuses a bad id, an empty prompt, a bad range and a duplicate', () => {
     expect(() => saveCase(skill, { ...draft, id: 'Short Note' }, true)).toThrow('lowercase')
     expect(() => saveCase(skill, { ...draft, prompt: ' ' }, true)).toThrow('prompt')

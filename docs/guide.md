@@ -194,7 +194,8 @@ Start with the prompt alone. It is enough to run the case, and reading what the 
 5. **A good answer** (optional): one or two sentences on what it does.
 6. **Checks** (optional): one fact per row that a good answer makes true. Return starts the next row; Backspace on an empty row removes it. The picture button in a check's corner attaches a mock-up or screenshot the check is about. **×2** makes a check count double. **Write checks with AI** adds checks from the prompt.
 7. **Length** (optional): tick it to score the word count, then set the fewest and the most words.
-8. Click **Add case**.
+8. **Size** (optional, shown for a skill graded as design, or a case that already has one): tick it and set a width and a height in pixels. A picture must be exactly that size, and one that is not is listed under Missed, as a word count outside the range is. A page is drawn at that size when Jev looks at it, and opens at that width on Results. **Check that a page works on a phone too** has Jev also look at the page 390 px wide. Leave it off for a page made for a desktop window.
+9. Click **Add case**.
 
 To change a case, click it in the list, edit it and click **Save case** (Cmd+S). **Delete case**, at the foot of the form, removes it. Past runs keep their outputs.
 
@@ -236,6 +237,7 @@ Results opens on a case with two outputs side by side: **A**, the version before
 - **Missed** lists each rule the output broke and each check it did not meet. This is what to fix. **Open rule** takes you to that rule on the Skill screen.
 - **Met** folds the rest away. Open it to read them.
 - **Transcript**, above the output, shows every step the agent took. Read it when a score surprises you. Did the agent read the skill at all?
+- **Flip** is how a page or a picture opens: drawn as a browser draws it, scripts and all, on a stage above the scores. **A** and **B**, or the A and B keys, put either output in the same place, so flipping shows exactly what changed, and each page keeps its place as you scroll. **Phone**, **Tablet**, **Desktop** and **Fit** set the width the page is drawn at, and a case with a size adds its own width and opens at it; the line beside them says the width and how far it is scaled down to fit. When an output wrote more than one file, pick one by name. **Open full size** opens the file in a window of its own. A component that does not open in a browser by itself, such as a React component, shows through `outputs/preview.html`, a page the run asks the agent to write beside it. **Side by side** shows the two outputs as cards instead, with each file and the transcript.
 - **Word diff** marks what differs between the two. Outputs too long to compare word by word are compared line by line, and the card says so. **Swap** trades their sides, and the **A** and **B** menus pick any other outputs of the case.
 - **Regrade** has Jev read an output's run again, for example after you add a check. An output not graded yet shows **Grade**.
 

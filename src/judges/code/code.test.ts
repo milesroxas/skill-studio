@@ -112,6 +112,7 @@ describe('code pack without Jev', () => {
       primary: null,
       transcript: null,
       dir: '/sample',
+      renders: [],
     }) satisfies JudgeInput
 
   it("runs the case's check in the sample dir", async () => {

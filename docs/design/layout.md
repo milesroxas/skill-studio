@@ -57,7 +57,7 @@ Does the reader pick one item from a list and work on it?
 
 ## Regions are never cards
 
-A region is a part of the page: a column, a section, a group of fields. It ends at a hairline and has no fill, radius or shadow of its own. `Card` (`components/ui/card.tsx`) is for an object a person compares or picks up. Two things use it: an output (`OutputCard`, two of them side by side on Results), and a rewrite to pick in the selection popout (`Rewrites.tsx`, a button with the card's surface, since the whole object is the action). The same surface (`rounded-chin border bg-card`) bounds a `Disclosure variant="card"`, a `DisclosureList`, an `Alert`, and a figure or a table in the guide: each is one object standing in a flow of text, never a region of the page.
+A region is a part of the page: a column, a section, a group of fields. It ends at a hairline and has no fill, radius or shadow of its own. `Card` (`components/ui/card.tsx`) is for an object a person compares or picks up. Two things use it: an output (`OutputCard`, two of them side by side on Results), and a rewrite to pick in the selection popout (`Rewrites.tsx`, a button with the card's surface, since the whole object is the action). The same surface (`rounded-chin border bg-card`) bounds a `Disclosure variant="card"`, a `DisclosureList`, an `Alert`, and a figure or a table in the guide: each is one object standing in a flow of text, never a region of the page. The stage on Results (see [The stage](#the-stage)) is the one ground with a fill of its own: it holds an output as a browser draws it, as a proof is laid on a light table.
 
 `Disclosure` (`components/Disclosure.tsx`) folds a block behind one line, in three variants. `plain` is a line of text that opens in place. `card` is one file of a diff, on its own bordered block (a version's changes on the Skill screen). `row` is one row of a `DisclosureList`: the changes an Assistant reply proposes, a title over a line of detail, with one control at the end in a slot of fixed width so the controls line up down the list. A row with nothing to open keeps the chevron's slot empty, so the titles line up too.
 
@@ -108,6 +108,18 @@ Copy `screens/Cases.tsx` for any screen that lists items and edits the one picke
 The list column may hold more than one list, each in a `ColumnSection`: the Skill screen lists the files, then the versions. An item of either opens in the main column, named in the route (`file`, `version`).
 
 Below `lg` the columns stack and the pane scrolls, and a `ColumnFooter` stands at its column's end, not over the window's foot. Check every workbench at 720px wide.
+
+## The stage
+
+An output a reader looks at rather than reads, a page or a picture, is judged on the stage (`components/Stage.tsx`), above the cards on Results (`Flip` in `components/Comparison.tsx`). The stage is a ground, not a card: `bg-muted` with a container's corners, 60% of the window high, the output standing on it on the artifact's own white with `shadow-raised`.
+
+- **A page** is drawn at the width the reader picks and scaled down to fit, never up: `STAGE_WIDTHS` in `src/renderer/stage.ts` is the closed set, Phone 390, Tablet 820, Desktop 1280 and Fit (the stage's own width). The choice is kept for the next case and the next launch. A case with a size (`bench.size`) adds one more, "Case, 1440", first, and its page opens at it. A page runs its own scripts, sandboxed (see `SECURITY.md`).
+- **A picture** is fitted whole, never enlarged.
+- **Any other file** (code, Markdown) stands on `bg-card` and scrolls, through `ArtifactView`.
+- **Both outputs** are on the stage at once, one in view. Flipping is instant, with no transition: the change between A and B is what the reader is looking for. Two pages scroll together, so a flip lands on the same part of both.
+- **One at a time, full width.** Two frames side by side show a desktop page at about 38% on a 1280px window, too small to judge type and spacing, and a swipe line across one frame hides half of each output and fails when the two layouts differ. Text outputs stay side by side, where reading both at once is the point.
+
+The bar over it is two `Toolbar`s. The first: which output is in view, a `Segmented` of A and B with each version and total, "Press A or B to flip" as a `Hint`, and **Open full size** at the end (ghost). The second: the file, when an output wrote more than one, the width for a page, and the size line in `Text font="mono" size="xs" tone="muted" tabular` ("1280 px · shown at 55%"). The A and B keys flip the stage anywhere on the screen unless a field, an editor, a menu or a dialog has the focus.
 
 ## Rows of actions
 

@@ -4,6 +4,7 @@
  */
 
 import type { OperationName, Reply } from '@application/api/contract.ts'
+import type { PageRenderer } from '@domain/artifact-address.ts'
 import { type UtilityProcess, utilityProcess } from 'electron'
 import backendPath from '../backend/index.ts?modulePath'
 import type { FromBackend, Pushes, PushTopic, ToBackend } from '../channels.ts'
@@ -22,9 +23,32 @@ export class Backend {
   }
   private env: Record<string, string | undefined>
   private seq = 0
+  /** Draws a page the backend asks for; set once the app is ready to open windows. */
+  private renderer: PageRenderer | null = null
 
   constructor(env: Record<string, string | undefined>) {
     this.env = env
+  }
+
+  /** Answer the backend's requests to draw a page with `render`. */
+  drawWith(render: PageRenderer): void {
+    this.renderer = render
+  }
+
+  /** Draw the page the backend asked for and send it back to the process that asked. */
+  private async draw(
+    child: UtilityProcess,
+    message: Extract<FromBackend, { type: 'render' }>,
+  ): Promise<void> {
+    let reply: Reply<Uint8Array>
+    try {
+      if (!this.renderer) throw new Error('The app cannot draw pages yet.')
+      reply = { ok: true, value: await this.renderer(message.page, message) }
+    } catch (error) {
+      reply = { ok: false, error: (error as Error).message }
+    }
+    // A backend that stopped meanwhile asked for nothing any more.
+    if (this.child === child) child.postMessage({ type: 'rendered', id: message.id, reply })
   }
 
   private spawn(): UtilityProcess {
@@ -38,6 +62,7 @@ export class Backend {
         this.pending.get(message.id)?.(message.reply)
         this.pending.delete(message.id)
       } else if (message.type === 'push') this.tell(message.topic, message.value)
+      else if (message.type === 'render') void this.draw(child, message)
     })
     child.on('exit', (code) => {
       if (this.child === child) this.child = null

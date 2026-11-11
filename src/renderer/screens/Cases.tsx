@@ -7,7 +7,7 @@
  * typing.
  */
 
-import { blankDraft, draftOf, newCaseId, picturesOf } from '@domain/case-draft.ts'
+import { blankDraft, draftOf, newCaseId, picturesOf, sizeProblem } from '@domain/case-draft.ts'
 import { addImages, MAX_IMAGES } from '@domain/image.ts'
 import { type CaseDraft, NEW_CASE_KEY } from '@domain/schemas.ts'
 import {
@@ -182,8 +182,17 @@ export const Cases = memo(function Cases({ ctx }: { ctx: Ctx }) {
     draft.words && !(draft.words[0] >= 0 && draft.words[1] >= draft.words[0])
       ? 'The minimum must not be above the maximum.'
       : ''
+  const sizeError = sizeProblem(draft.size) ?? ''
+  /** Size matters to a skill that makes pages or pictures, and to a case that already names one. */
+  const drawn = config.packs.includes('design') || Boolean(draft.size) || Boolean(draft.phone)
   const canSave =
-    dirty && draft.prompt.trim() && !wordsError && !busy && !deleting && !changedOnDisk
+    dirty &&
+    draft.prompt.trim() &&
+    !wordsError &&
+    !sizeError &&
+    !busy &&
+    !deleting &&
+    !changedOnDisk
 
   const save = () => {
     if (!canSave) return
@@ -573,6 +582,55 @@ export const Cases = memo(function Cases({ ctx }: { ctx: Ctx }) {
               ) : null}
               {wordsError ? <Hint tone="destructive">{wordsError}</Hint> : null}
             </FormSection>
+
+            {drawn ? (
+              <FormSection
+                layout="stacked"
+                title="Size"
+                hint="A picture must be exactly this size. A page is drawn at this size when Jev looks at it, and opens at this width on Results."
+              >
+                <CheckRow
+                  checked={Boolean(draft.size)}
+                  onCheckedChange={(on) => set({ size: on ? [1280, 800] : null })}
+                >
+                  Check the output’s size in pixels
+                </CheckRow>
+                {draft.size ? (
+                  <Toolbar>
+                    <InlineField label="Width">
+                      <NumberInput
+                        aria-label="Width in pixels"
+                        min={1}
+                        value={draft.size[0]}
+                        onChange={(e) =>
+                          set({ size: [Number(e.target.value), draft.size?.[1] ?? 0] })
+                        }
+                      />
+                    </InlineField>
+                    <InlineField label="by">
+                      <NumberInput
+                        aria-label="Height in pixels"
+                        min={1}
+                        value={draft.size[1]}
+                        onChange={(e) =>
+                          set({ size: [draft.size?.[0] ?? 0, Number(e.target.value)] })
+                        }
+                      />
+                    </InlineField>
+                    <Text tone="muted" size="ui">
+                      px
+                    </Text>
+                  </Toolbar>
+                ) : null}
+                {sizeError ? <Hint tone="destructive">{sizeError}</Hint> : null}
+                <CheckRow
+                  checked={draft.phone ?? false}
+                  onCheckedChange={(on) => set({ phone: on })}
+                >
+                  Check that a page works on a phone too, 390 px wide
+                </CheckRow>
+              </FormSection>
+            ) : null}
 
             {otherFiles.length ? (
               <FormSection

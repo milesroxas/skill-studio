@@ -6,10 +6,21 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+### Added
+
+- Results shows a page or a picture as a browser draws it. A case whose output is a page, a component or a picture opens on **Flip**: the output on a stage above the scores, with **A** and **B** (or the A and B keys) putting either one in the same place, so a flip shows exactly what changed. Pick the width a page is drawn at, Phone, Tablet, Desktop or Fit, and the line beside it says how far it is scaled to fit. Two pages scroll together. **Side by side** and **Word diff** are still there.
+- In the desktop app, the design pack looks at a page as drawn: in a desktop window, or at the case's own size. A case can also ask for a phone ("Check that a page works on a phone too"), and then Jev says whether the page fits one: "The page fits a phone screen". The pictures are kept in each sample's `renders/` folder. `st grade` draws nothing and judges as before.
+- A case can name a size in pixels, under Size on Cases. A picture of any other size is listed under Missed, as a word count outside the range is, and the output's card shows its size beside the one asked. A page opens on Results at the case's width.
+- A run asks the agent to write `outputs/preview.html` beside an interface that does not open in a browser by itself, such as a React component, so Results can show it working.
+
 ### Changed
 
 - An update ready to install now says so on the status line until you restart or dismiss it, and again each time the app's window opens while it waits. Before, the notice left after a few seconds.
 - When the app's own check for updates fails, it tries again after 10 minutes instead of at the next check, hours later.
+- A page an agent wrote runs its own scripts when shown, so a page built by a script no longer shows blank. It still runs sandboxed, in an origin of its own and with no network. See `SECURITY.md`.
+- A sample's files are served by path, `artifact://sample/<skill>/<run>/<sample>/<file>` in the app and `/api/artifact/<key>/<skill>/<run>/<sample>/<file>` on `st serve`, so a page loads the styles, scripts and pictures beside it. On `st serve` the key in the path stands in for the cookie, which a sandboxed page does not send.
+- Asking for a sample's file no longer opens the skill it names: only a skill open already is served.
+- An output with no Markdown and no kind named by its case is judged by its first file of a kind the skill's packs judge, with `index.html` or `preview.html` first among pages. A page and the script beside it are judged as the page, where before the first file by name was taken and no pack ran.
 
 ## [0.5.4] - 2026-11-10
 

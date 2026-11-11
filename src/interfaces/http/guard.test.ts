@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest'
-import { type Decision, decide, newToken, type Remote, ticketBook } from './guard.ts'
+import {
+  artifactPathOf,
+  type Decision,
+  decide,
+  newToken,
+  type Remote,
+  ticketBook,
+} from './guard.ts'
 
 const json = { 'content-type': 'application/json' }
 const token = newToken()
@@ -306,5 +313,39 @@ describe('refusal', () => {
       expect(Buffer.from(newToken(), 'base64url')).toHaveLength(32)
       expect(newToken()).toMatch(/^[\w-]+$/)
     })
+  })
+})
+
+describe('a sample’s file, by the artifact key', () => {
+  const artifactKey = newToken()
+  const access = { token, artifactKey }
+  const file = `/api/artifact/${artifactKey}/%2Fskill/run-1/case-s1/outputs/app.js`
+  // What a page an agent wrote sends for the file beside it: no cookie, and an origin of its own.
+  const ownRequest = { host: 'localhost:4400', 'sec-fetch-site': 'cross-site', origin: 'null' }
+
+  it('is served without the cookie, from the page’s own origin', () => {
+    expect(decide({ method: 'GET', url: file, headers: ownRequest }, access)).toEqual({
+      kind: 'serve',
+    })
+  })
+
+  it('still comes from this machine, and is only read', () => {
+    const rebound = { ...ownRequest, host: 'evil.example' }
+    expect(decide({ method: 'GET', url: file, headers: rebound }, access).kind).toBe('refuse')
+    expect(decide({ method: 'POST', url: file, headers: ownRequest }, access).kind).toBe('refuse')
+  })
+
+  it('needs this start’s key, which opens nothing else', () => {
+    const wrong = file.replace(artifactKey, newToken())
+    expect(decide({ method: 'GET', url: wrong, headers: ownRequest }, access).kind).toBe('refuse')
+    expect(decide({ method: 'GET', url: file, headers: ownRequest }, { token }).kind).toBe('refuse')
+    const api = `/api/${artifactKey}/skill.read`
+    expect(decide({ method: 'GET', url: api, headers: ownRequest }, access).kind).toBe('refuse')
+  })
+
+  it('names the file after the key', () => {
+    expect(artifactPathOf(file, access)).toBe('/%2Fskill/run-1/case-s1/outputs/app.js')
+    expect(artifactPathOf(`/api/artifact/${artifactKey}`, access)).toBeNull()
+    expect(artifactPathOf('/api/artifact//x/y/z/f', access)).toBeNull()
   })
 })

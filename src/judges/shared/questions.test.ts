@@ -94,6 +94,7 @@ const output = (text: string, over: Partial<JudgeInput> = {}): JudgeInput => ({
   primary: null,
   transcript: null,
   dir: '/sample',
+  renders: [],
   ...over,
 })
 

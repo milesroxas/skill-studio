@@ -10,9 +10,11 @@ import {
 } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
+import { pngHeader } from '@domain/__fixtures__/image.ts'
 import type { Report } from '@domain/schemas.ts'
 import { readJson } from '@infrastructure/fs.ts'
 import { packById } from '@judges/index.ts'
+import { Jev } from '@judges/jev.ts'
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { gradeRun } from './grade.ts'
 
@@ -353,5 +355,124 @@ describe('gradeRun, on the version of a pack', () => {
     expect(judge).toHaveBeenCalledTimes(1)
     expect(asked().some((value) => value?.version === 2)).toBe(true)
     version.mockRestore()
+  })
+})
+
+describe('gradeRun, on a page drawn for a pack that looks at it', () => {
+  /** A skill graded by the design pack, whose one output is a page; `phone` asks for it at phone width. */
+  function pageSkill(phone = true): { dir: string; run: string; sample: string } {
+    const { dir, run } = skillWith(['page'], ['page-s1'])
+    if (phone) writeFileSync(join(dir, 'evals/cases/page/case.yaml'), 'bench:\n  phone: true\n')
+    const outputs = join(dir, 'evals/runs', run, 'page-s1/outputs')
+    rmSync(join(outputs, 'note.md'))
+    writeFileSync(join(outputs, 'index.html'), '<!doctype html><title>Page</title><h1>Hi</h1>')
+    writeFileSync(join(dir, 'evals/bench.json'), JSON.stringify({ packs: ['design'] }))
+    return { dir, run, sample: join(dir, 'evals/runs', run, 'page-s1') }
+  }
+
+  const designJudge = () => {
+    const pack = packById('design')
+    if (!pack) throw new Error('no design pack')
+    return vi.spyOn(pack, 'judge').mockResolvedValue(null)
+  }
+
+  it('draws the page at each size once, keeps the pictures beside outputs/, and gives them to the pack', async () => {
+    const { dir, run, sample } = pageSkill()
+    vi.spyOn(Jev, 'available').mockReturnValue(true)
+    const judge = designJudge()
+    const render = vi.fn(async (_page: unknown, size: { width: number; height: number }) =>
+      pngHeader(size.width, size.height),
+    )
+    await gradeRun(dir, run, { useJev: true, render })
+    expect(render.mock.calls).toEqual([
+      [
+        { skill: dir, run, sample: 'page-s1', file: 'outputs/index.html' },
+        { width: 1280, height: 960 },
+      ],
+      [
+        { skill: dir, run, sample: 'page-s1', file: 'outputs/index.html' },
+        { width: 390, height: 1200 },
+      ],
+    ])
+    expect(existsSync(join(sample, 'renders/desktop-1280x960.png'))).toBe(true)
+    expect(existsSync(join(sample, 'renders/phone-390x1200.png'))).toBe(true)
+    const [input] = judge.mock.calls[0]
+    expect(input.renders.map((r) => [r.size.id, r.read.problem])).toEqual([
+      ['desktop', null],
+      ['phone', null],
+    ])
+
+    // The pictures kept stand for the page as it is: nothing is drawn or asked again.
+    render.mockClear()
+    judge.mockClear()
+    await gradeRun(dir, run, { useJev: true, render })
+    expect(render).not.toHaveBeenCalled()
+    expect(judge).not.toHaveBeenCalled()
+  })
+
+  it('logs a size it could not draw and judges without it', async () => {
+    const { dir, run } = pageSkill()
+    vi.spyOn(Jev, 'available').mockReturnValue(true)
+    const judge = designJudge()
+    const render = vi.fn(async (_page: unknown, size: { width: number; height: number }) => {
+      if (size.width === 390) throw new Error('The page took longer than 20s.')
+      return pngHeader(size.width, size.height)
+    })
+    const lines: string[] = []
+    await gradeRun(dir, run, { useJev: true, render, log: (line) => lines.push(line) })
+    expect(lines).toContain(
+      'page-s1: the page could not be drawn at phone width: The page took longer than 20s.',
+    )
+    expect(judge.mock.calls[0][0].renders.map((r) => r.size.id)).toEqual(['desktop'])
+  })
+
+  it('draws a page at phone width only for a case that asks for it', async () => {
+    const { dir, run, sample } = pageSkill(false)
+    vi.spyOn(Jev, 'available').mockReturnValue(true)
+    const judge = designJudge()
+    const render = vi.fn(async (_page: unknown, size: { width: number; height: number }) =>
+      pngHeader(size.width, size.height),
+    )
+    await gradeRun(dir, run, { useJev: true, render })
+    expect(render.mock.calls.map(([, size]) => size.width)).toEqual([1280])
+    expect(existsSync(join(sample, 'renders/phone-390x1200.png'))).toBe(false)
+    expect(judge.mock.calls[0][0].renders.map((r) => r.size.id)).toEqual(['desktop'])
+  })
+
+  it('draws a page at the case’s own size, in place of a desktop window', async () => {
+    const { dir, run } = pageSkill(false)
+    writeFileSync(join(dir, 'evals/cases/page/case.yaml'), 'bench:\n  size: [1440, 900]\n')
+    vi.spyOn(Jev, 'available').mockReturnValue(true)
+    designJudge()
+    const render = vi.fn(async (_page: unknown, size: { width: number; height: number }) =>
+      pngHeader(size.width, size.height),
+    )
+    await gradeRun(dir, run, { useJev: true, render })
+    expect(render.mock.calls.map(([, size]) => size)).toEqual([{ width: 1440, height: 900 }])
+  })
+
+  it('draws nothing without Jev to look', async () => {
+    const { dir, run } = pageSkill()
+    const render = vi.fn()
+    designJudge()
+    await gradeRun(dir, run, { useJev: false, render })
+    expect(render).not.toHaveBeenCalled()
+  })
+})
+
+describe('gradeRun, on a picture held to the case’s size', () => {
+  it('reads the picture’s size and flags one that is not the size asked', async () => {
+    const { dir, run } = skillWith(['cover'], ['cover-s1'])
+    const outputs = join(dir, 'evals/runs', run, 'cover-s1/outputs')
+    rmSync(join(outputs, 'note.md'))
+    writeFileSync(join(outputs, 'cover.png'), pngHeader(1200, 630))
+    writeFileSync(join(dir, 'evals/cases/cover/case.yaml'), 'bench:\n  size: [1600, 900]\n')
+    const [result] = (await gradeRun(dir, run, { useJev: false })).results
+    expect(result).toMatchObject({ pixels: [1200, 630], size: [1600, 900] })
+    expect(result.flags).toContain('size: 1200 × 630 px, case asks 1600 × 900 px')
+
+    writeFileSync(join(outputs, 'cover.png'), pngHeader(1600, 900))
+    const [right] = (await gradeRun(dir, run, { useJev: false })).results
+    expect(right.flags.filter((f) => f.startsWith('size:'))).toEqual([])
   })
 })

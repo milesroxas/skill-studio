@@ -19,6 +19,13 @@
  * one-use ticket, good for a minute, stands in for the token in the address
  * `--open` hands the browser, since that address is on a command line other
  * accounts can list.
+ *
+ * A file a sample wrote is the one exception. A page the agent wrote runs in
+ * an origin of its own, so the files it loads beside it go out with no cookie
+ * and read as another site's. Those are asked for under
+ * `/api/artifact/<key>/...`, with a second random key this start made, and
+ * the key in the path stands in for the cookie. It reads samples' files and
+ * nothing else; where the request comes from is checked as for any other.
  */
 import { createHash, randomBytes, timingSafeEqual } from 'node:crypto'
 import type { IncomingHttpHeaders } from 'node:http'
@@ -35,6 +42,8 @@ const PROXY_HEADERS = [
 
 /** The query parameter the printed address carries the token in. */
 export const TOKEN_PARAM = 'token'
+/** Where a sample's file is served: `/api/artifact/<key>/<skill>/<run>/<sample>/<file>`. */
+const ARTIFACT_PREFIX = '/api/artifact/'
 /** The query parameter a one-use address carries its ticket in. */
 export const TICKET_PARAM = 'ticket'
 /** How long a ticket can be traded for the cookie. */
@@ -62,6 +71,8 @@ export interface Tickets {
 /** What a request is checked against: this start's token, its tickets, and the tailnet name when one is served. */
 export interface Access {
   token: string
+  /** The key that stands in for the cookie on a sample's file (`ARTIFACT_PREFIX`). */
+  artifactKey?: string
   remote?: Remote | null
   tickets?: Tickets
 }
@@ -133,8 +144,8 @@ function cookieOf(header: string | undefined, name: string): string | null {
 }
 
 /** Compared by digest, so neither the length of a guess nor how much of it matched shows in the time taken. */
-function sameToken(given: string | null, token: string): boolean {
-  if (!given) return false
+function sameToken(given: string | null, token: string | undefined): boolean {
+  if (!given || !token) return false
   return timingSafeEqual(digestOf(given), digestOf(token))
 }
 
@@ -145,6 +156,8 @@ function origin(
   method: string | undefined,
   headers: IncomingHttpHeaders,
   remote: Remote | null | undefined,
+  /** False for a sample's file asked for by its key: a page's own files read as another site's. */
+  sameSiteOnly = true,
 ): { via: Via; host: URL } | { refused: string } {
   const host = hostOf(headers.host ?? '')
   if (!host) return { refused: 'Only localhost may call this server.' }
@@ -154,7 +167,7 @@ function origin(
   const tailnet = proxied || !LOCAL_HOSTS.has(host.hostname)
   const refused =
     (tailnet ? tailnetRefusal(host, headers, remote) : null) ??
-    crossSiteRefusal(method, headers, host)
+    (sameSiteOnly ? crossSiteRefusal(method, headers, host) : null)
   if (refused) return { refused }
   return { via: tailnet ? 'tailnet' : 'local', host }
 }
@@ -197,10 +210,12 @@ function crossSiteRefusal(
  * tailnet as on this machine.
  */
 export function decide({ method, url, headers }: Asked, access: Access): Decision {
-  const from = origin(method, headers, access.remote)
-  if ('refused' in from) return { kind: 'refuse', status: 403, error: from.refused }
-  const name = cookieName(from.host, from.via)
   const asked = new URL(url ?? '/', 'http://localhost')
+  const keyed = method === 'GET' && artifactPathOf(asked.pathname, access) !== null
+  const from = origin(method, headers, access.remote, !keyed)
+  if ('refused' in from) return { kind: 'refuse', status: 403, error: from.refused }
+  if (keyed) return { kind: 'serve' }
+  const name = cookieName(from.host, from.via)
   const signIn = (): Decision => {
     asked.searchParams.delete(TOKEN_PARAM)
     asked.searchParams.delete(TICKET_PARAM)
@@ -225,4 +240,20 @@ export function decide({ method, url, headers }: Asked, access: Access): Decisio
   }
   if (signedIn) return { kind: 'serve' }
   return { kind: 'refuse', status: 401, error: NO_TOKEN }
+}
+
+/**
+ * The path of a sample's file after the key, `/<skill>/<run>/<sample>/<file>`,
+ * when `pathname` asks for one under this start's artifact key; null for any
+ * other path, or another key.
+ */
+export function artifactPathOf(
+  pathname: string,
+  access: Pick<Access, 'artifactKey'>,
+): string | null {
+  if (!pathname.startsWith(ARTIFACT_PREFIX)) return null
+  const rest = pathname.slice(ARTIFACT_PREFIX.length)
+  const slash = rest.indexOf('/')
+  if (slash <= 0) return null
+  return sameToken(rest.slice(0, slash), access.artifactKey) ? rest.slice(slash) : null
 }

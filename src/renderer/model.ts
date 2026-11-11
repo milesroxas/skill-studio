@@ -5,7 +5,7 @@ import { type Corrections, NO_CORRECTIONS, type PackScoring } from '@domain/pack
 import { defaultPair, type PickOutput } from '@domain/picks.ts'
 import { parseSampleDir } from '@domain/run-name.ts'
 import type { BenchConfig, ReportResult, Writer } from '@domain/schemas.ts'
-import { checkReaders, layerOrder, type Scored, scoreResult } from '@domain/scoring.ts'
+import { checkReaders, layerOrder, pixelText, type Scored, scoreResult } from '@domain/scoring.ts'
 import { mean } from '@domain/stats.ts'
 import { type Count, countOf, finding, sumCounts } from '@domain/verdict.ts'
 import { scorers } from '@judges/scorers.ts'
@@ -369,10 +369,33 @@ export const primaryOf = (output: Output) =>
   output.sample.artifacts[0] ??
   null
 
-/** "31 words · case asks 30 to 120", only where words mean something: prose, or a case with a length. */
+/** True for a file a browser draws: a page or a picture. */
+const isDrawn = (artifact: { kind: string }): boolean =>
+  artifact.kind === 'html' || artifact.kind === 'image'
+
+/**
+ * The file of an output a reader looks at rather than reads: the one judged
+ * when it is a page or a picture, else the first page or picture it wrote.
+ * Null for an output of text alone.
+ */
+export const drawnOf = (output: Output) => {
+  const primary = primaryOf(output)
+  return primary && isDrawn(primary) ? primary : (output.sample.artifacts.find(isDrawn) ?? null)
+}
+
+/**
+ * How big the output is, where size means something: "31 words · case asks 30
+ * to 120" for prose or a case with a length, "1600 × 900 px · case asks
+ * 1600 × 900 px" for a picture.
+ */
 export function sizeLine(output: Output): string | null {
-  const words = output.result?.words
-  const range = output.result?.range
+  const result = output.result
+  if (primaryOf(output)?.kind === 'image' && (result?.pixels || result?.size)) {
+    const pixels = result.pixels ? pixelText(result.pixels) : 'size unread'
+    return result.size ? `${pixels} · case asks ${pixelText(result.size)}` : pixels
+  }
+  const words = result?.words
+  const range = result?.range
   if (range) return `${words ?? '?'} words · case asks ${range[0]} to ${range[1]}`
   return primaryOf(output)?.kind === 'markdown' && words ? `${words} words` : null
 }

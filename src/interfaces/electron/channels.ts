@@ -4,6 +4,7 @@
  */
 import type { Reply } from '@application/api/contract.ts'
 import type { AiRun } from '@domain/ai.ts'
+import type { ArtifactAddress } from '@domain/artifact-address.ts'
 import type { Job } from '@domain/views.ts'
 
 export const CHANNELS = {
@@ -55,6 +56,8 @@ export type ToBackend =
   | { type: 'env'; env: Record<string, string | undefined> }
   /** End the agent processes it started, then exit. */
   | { type: 'stop' }
+  /** The PNG of a page the backend asked to have drawn, or why it could not be. */
+  | { type: 'rendered'; id: number; reply: Reply<Uint8Array> }
 
 /** What the backend tells the page without being asked, by topic. */
 export interface Pushes {
@@ -71,4 +74,6 @@ type Push = { [K in PushTopic]: { type: 'push'; topic: K; value: Pushes[K] } }[P
 export type FromBackend =
   | { type: 'ready' }
   | { type: 'reply'; id: number; reply: Reply<unknown> }
+  /** Draw a sample's page at a size, for grading to look at: only the main process has a browser. */
+  | { type: 'render'; id: number; page: ArtifactAddress; width: number; height: number }
   | Push

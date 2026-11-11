@@ -9,13 +9,18 @@
  * Where the two point opposite ways, Jev's facts do not hold what the reader
  * saw, and each way out is something they already know how to change: a
  * verdict to correct, a check to add, a rule to edit.
+ *
+ * An output a reader looks at rather than reads, a page or a picture, opens
+ * on the stage (`Flip`): drawn as a browser draws it, at a width the reader
+ * picks, with A and B in the same place so a flip between them shows what
+ * changed. The cards under it keep the scores and what each missed.
  */
 
 import { draftOf, newCheck } from '@domain/case-draft.ts'
 import type { Verdict } from '@domain/pack.ts'
 import { pickBetween, pickStanding } from '@domain/picks.ts'
 import type { Case, Vote } from '@domain/schemas.ts'
-import { useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { api } from '../api.ts'
 import { caseContext, skillContext } from '../assist.ts'
 import type { Ctx } from '../ctx.ts'
@@ -26,6 +31,7 @@ import {
   caseTitle,
   checksGraded,
   configurationTail,
+  drawnOf,
   layersOf,
   money,
   type Output,
@@ -39,6 +45,13 @@ import {
   versionName,
   writerName,
 } from '../model.ts'
+import {
+  STAGE_WIDTHS,
+  type StageWidth,
+  setStageWidth,
+  stagePixels,
+  useStageWidth,
+} from '../stage.ts'
 import { ArtifactPicker, ArtifactView, type OutputView } from './Artifact.tsx'
 import { DiffCard } from './DiffCard.tsx'
 import { Disclosure } from './Disclosure.tsx'
@@ -53,6 +66,7 @@ import {
   Field,
   FormSection,
   List,
+  Spacer,
   Stack,
   Toolbar,
 } from './layout.tsx'
@@ -60,6 +74,7 @@ import { OutputCard, OutputCardHead, Slot } from './OutputCard.tsx'
 import { CheckWeight, Delta, Parts, TotalChip } from './Scores.tsx'
 import { Segmented } from './Segmented.tsx'
 import { SelectBox } from './SelectBox.tsx'
+import { Stage, type Side as StageSide } from './Stage.tsx'
 import { Status } from './Status.tsx'
 import { TextArea } from './TextArea.tsx'
 import { TranscriptList } from './TranscriptList.tsx'
@@ -76,10 +91,13 @@ const VOTES = [
 
 const SLOT_LABEL = { a: 'A', b: 'B' } as const
 
+type View = 'flip' | 'side' | 'diff'
+
 const VIEWS = [
+  { value: 'flip', label: 'Flip' },
   { value: 'side', label: 'Side by side' },
   { value: 'diff', label: 'Word diff' },
-] as const
+] as const satisfies ReadonlyArray<{ value: View; label: string }>
 
 export function Comparison({
   ctx,
@@ -95,7 +113,8 @@ export function Comparison({
   b: Output | null
 }) {
   const { state, config, outputs, go, report, reload, jobs } = ctx
-  const [diff, setDiff] = useState(false)
+  /** The view the reader chose; until then a page or a picture opens on the stage, text side by side. */
+  const [chosen, setChosen] = useState<View | null>(null)
   const [voting, setVoting] = useState(false)
   const testCase = state.cases.find((c) => c.id === caseId) ?? null
   const candidates = outputs.filter((o) => o.caseId === caseId)
@@ -147,6 +166,10 @@ export function Comparison({
   }
 
   const sides = [a, b].filter((o): o is Output => o !== null)
+  const drawn = sides.some((o) => drawnOf(o) !== null)
+  // Flip needs something drawn, and a word diff two outputs.
+  const views = VIEWS.filter((v) => (v.value === 'flip' ? drawn : v.value === 'diff' ? both : true))
+  const view: View = views.find((v) => v.value === chosen)?.value ?? (drawn ? 'flip' : 'side')
 
   return (
     <>
@@ -161,13 +184,8 @@ export function Comparison({
             </Text>
           ) : null}
         </ColumnTitle>
-        {both ? (
-          <Segmented
-            aria-label="View"
-            options={VIEWS}
-            value={diff ? 'diff' : 'side'}
-            onChange={(v) => setDiff(v === 'diff')}
-          />
+        {views.length > 1 ? (
+          <Segmented aria-label="View" options={views} value={view} onChange={setChosen} />
         ) : null}
         {testCase ? (
           <Button
@@ -219,35 +237,48 @@ export function Comparison({
           <EmptyState title="Pick an output to read">
             Pick one for A and one for B above to read them side by side.
           </EmptyState>
-        ) : diff && both ? (
+        ) : view === 'diff' && both ? (
           <DiffCard a={both.a} b={both.b} />
         ) : (
-          <Columns count={both ? 2 : 1}>
-            {a ? (
-              <Side
-                ctx={ctx}
-                output={a}
-                other={null}
-                slot="a"
-                layers={layers}
-                grading={grading(a.run.name)}
-                held={grade.starting()}
-                onRegrade={() => regrade([a.run.name])}
+          <>
+            {view === 'flip' ? (
+              <Flip
+                key={`${a?.key}|${b?.key}`}
+                a={a}
+                b={b}
+                caseWidth={testCase?.bench.size?.[0] ?? null}
+                totals={{ a: a ? totalOf(a, config) : null, b: b ? totalOf(b, config) : null }}
               />
             ) : null}
-            {b ? (
-              <Side
-                ctx={ctx}
-                output={b}
-                other={a}
-                slot={a ? 'b' : null}
-                layers={layers}
-                grading={grading(b.run.name)}
-                held={grade.starting()}
-                onRegrade={() => regrade([b.run.name])}
-              />
-            ) : null}
-          </Columns>
+            <Columns count={both ? 2 : 1}>
+              {a ? (
+                <Side
+                  ctx={ctx}
+                  output={a}
+                  other={null}
+                  slot="a"
+                  layers={layers}
+                  grading={grading(a.run.name)}
+                  held={grade.starting()}
+                  onRegrade={() => regrade([a.run.name])}
+                  reading={view !== 'flip'}
+                />
+              ) : null}
+              {b ? (
+                <Side
+                  ctx={ctx}
+                  output={b}
+                  other={a}
+                  slot={a ? 'b' : null}
+                  layers={layers}
+                  grading={grading(b.run.name)}
+                  held={grade.starting()}
+                  onRegrade={() => regrade([b.run.name])}
+                  reading={view !== 'flip'}
+                />
+              ) : null}
+            </Columns>
+          </>
         )}
         {testCase && checksGraded(config) ? (
           <AddCheck
@@ -351,6 +382,7 @@ function Side({
   grading,
   held,
   onRegrade,
+  reading = true,
 }: {
   ctx: Ctx
   output: Output
@@ -364,6 +396,8 @@ function Side({
   /** A grade is being started, of this run or the other: one start at a time. */
   held: boolean
   onRegrade: () => void
+  /** The card shows what the output wrote; false when the stage above shows it. */
+  reading?: boolean
 }) {
   const { state, config, go, report, reload } = ctx
   const scored = scoreOf(output, config)
@@ -456,23 +490,193 @@ function Side({
       ) : (
         <Hint inset>Not graded yet.</Hint>
       )}
-      <ArtifactPicker
-        artifacts={output.sample.artifacts}
-        value={view}
-        onChange={setView}
-        transcript={output.sample.hasTranscript}
-      />
-      {view === 'transcript' ? (
-        <TranscriptList
-          run={output.run.name}
-          sample={output.sample.name}
-          root={output.sample.path}
-          meta={meta}
-        />
-      ) : (
-        <ArtifactView run={output.run.name} sample={output.sample.name} artifact={view} />
-      )}
+      {reading ? (
+        <>
+          <ArtifactPicker
+            artifacts={output.sample.artifacts}
+            value={view}
+            onChange={setView}
+            transcript={output.sample.hasTranscript}
+          />
+          {view === 'transcript' ? (
+            <TranscriptList
+              run={output.run.name}
+              sample={output.sample.name}
+              root={output.sample.path}
+              meta={meta}
+            />
+          ) : (
+            <ArtifactView run={output.run.name} sample={output.sample.name} artifact={view} />
+          )}
+        </>
+      ) : null}
     </OutputCard>
+  )
+}
+
+/** What a letter in the bar over the stage stands for: its output's version and total. */
+function FlipLabel({
+  side,
+  output,
+  total,
+}: {
+  side: StageSide
+  output: Output
+  total: number | null
+}) {
+  return (
+    <>
+      <Text font="mono" weight="semibold">
+        {SLOT_LABEL[side]}
+      </Text>
+      {versionName(output.run)}
+      {total === null ? null : <Text tabular>{Math.round(total)}</Text>}
+    </>
+  )
+}
+
+/** True when a key goes to what has the focus: a field, an editor, a menu or a dialog. */
+const typingIn = (target: EventTarget | null): boolean =>
+  target instanceof HTMLElement &&
+  (target.isContentEditable ||
+    /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName) ||
+    target.closest('[role="dialog"],[role="menu"],[role="listbox"]') !== null)
+
+/**
+ * The stage and the bar over it: which output is in view (A or B, and the
+ * keys), which file, the width a page is drawn at and how it is scaled, and
+ * a way to open the file full size.
+ */
+function Flip({
+  a,
+  b,
+  totals,
+  caseWidth,
+}: {
+  a: Output | null
+  b: Output | null
+  totals: { a: number | null; b: number | null }
+  /** The width the case says its page is made for (`bench.size`); null when it names none. */
+  caseWidth: number | null
+}) {
+  const kept = useStageWidth()
+  /** A width picked on this stage; until then a case with a size opens at its width, else at the last width picked. */
+  const [widthPicked, setWidthPicked] = useState<StageWidth | 'case' | null>(null)
+  const choice = widthPicked ?? (caseWidth ? 'case' : kept)
+  const width = choice === 'case' ? caseWidth : stagePixels(choice)
+  const widths = caseWidth
+    ? [{ value: 'case' as const, label: `Case, ${caseWidth}` }, ...STAGE_WIDTHS]
+    : STAGE_WIDTHS
+  const pickWidth = (next: StageWidth | 'case') => {
+    setWidthPicked(next)
+    if (next !== 'case') setStageWidth(next)
+  }
+  const [shown, setShown] = useState<StageSide>(b ? 'b' : 'a')
+  /** A file the reader picked by name; until then each output shows its own page or picture. */
+  const [picked, setPicked] = useState<string | null>(null)
+  const [caption, setCaption] = useState('')
+  const both = a !== null && b !== null
+  const sides = (
+    [
+      ['a', a],
+      ['b', b],
+    ] as const
+  ).filter((entry): entry is readonly [StageSide, Output] => entry[1] !== null)
+  const [side, output] = sides.find(([s]) => s === shown) ?? sides[0]
+  const fileOf = (o: Output) =>
+    picked === null ? drawnOf(o) : (o.sample.artifacts.find((f) => f.file === picked) ?? null)
+  const files = [
+    ...new Set(
+      sides.flatMap(([, o]) =>
+        o.sample.artifacts.filter((f) => f.kind !== 'transcript').map((f) => f.file),
+      ),
+    ),
+  ]
+  const file = fileOf(output)
+  const flip = useCallback((to: StageSide) => setShown(to), [])
+
+  // A and B flip the stage, unless the key is being typed somewhere.
+  useEffect(() => {
+    if (!both) return
+    const handle = (event: KeyboardEvent) => {
+      const key = event.key.toLowerCase()
+      if (key !== 'a' && key !== 'b') return
+      if (event.metaKey || event.ctrlKey || event.altKey || event.defaultPrevented) return
+      if (typingIn(event.target)) return
+      setShown(key)
+    }
+    window.addEventListener('keydown', handle)
+    return () => window.removeEventListener('keydown', handle)
+  }, [both])
+
+  return (
+    <Stack gap="md">
+      <Toolbar>
+        {a && b ? (
+          <>
+            <Segmented
+              aria-label="Output in view"
+              value={side}
+              onChange={setShown}
+              options={[
+                { value: 'a', label: <FlipLabel side="a" output={a} total={totals.a} /> },
+                { value: 'b', label: <FlipLabel side="b" output={b} total={totals.b} /> },
+              ]}
+            />
+            <Hint as="span">Press A or B to flip</Hint>
+          </>
+        ) : null}
+        <Spacer />
+        {file ? (
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={() => api.openArtifact(output.run.name, output.sample.name, file.file)}
+          >
+            Open full size
+          </Button>
+        ) : null}
+      </Toolbar>
+      <Toolbar>
+        {files.length > 1 ? (
+          <Segmented
+            aria-label="File"
+            value={file?.file ?? null}
+            onChange={setPicked}
+            options={files.map((f) => ({
+              value: f,
+              label: (
+                <Text font="mono" size="xs">
+                  {f.replace(/^outputs\//, '')}
+                </Text>
+              ),
+            }))}
+          />
+        ) : null}
+        {file?.kind === 'html' ? (
+          <Segmented aria-label="Width" value={choice} onChange={pickWidth} options={widths} />
+        ) : null}
+        {caption ? (
+          <Text font="mono" size="xs" tone="muted" tabular>
+            {caption}
+          </Text>
+        ) : null}
+      </Toolbar>
+      <Stage
+        layers={sides.map(([s, o]) => ({
+          side: s,
+          run: o.run.name,
+          sample: o.sample.name,
+          artifact: fileOf(o),
+          name: `${SLOT_LABEL[s]}, ${versionName(o.run)}`,
+        }))}
+        shown={side}
+        width={width}
+        onFlip={flip}
+        onCaption={setCaption}
+      />
+    </Stack>
   )
 }
 

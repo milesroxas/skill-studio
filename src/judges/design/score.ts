@@ -1,6 +1,7 @@
 /**
  * The design pack's pure half. Markup is code over the HTML; visual is Jev
- * over the HTML text and, when the agent left one, a screenshot.
+ * over the HTML text and the page as drawn: the agent's own screenshot, or the
+ * page the app drew at desktop and phone width.
  */
 import {
   type Corrections,
@@ -28,6 +29,8 @@ export interface DesignJev {
   hierarchy: number
   /** Null without a screenshot. */
   finished: number | null
+  /** Whether the page fits a phone; null when it was not drawn at phone width, absent in a reading from before. */
+  phone?: number | null
   statements: StatementAnswer[]
 }
 
@@ -97,11 +100,31 @@ function scoreDesign(
             yes,
             corrections,
           )
+    const phone =
+      raw.jev.phone == null
+        ? null
+        : jevVerdict(
+            {
+              kind: 'other',
+              id: 'other:phone',
+              text: 'The page fits a phone screen',
+              layer: 'visual',
+            },
+            raw.jev.phone,
+            yes,
+            corrections,
+          )
     const checks = markChecks(raw.jev.statements, 'visual', yes, corrections)
-    const visual = [hierarchy, ...(finished ? [finished] : []), ...checks.verdicts]
+    const visual = [
+      hierarchy,
+      ...(finished ? [finished] : []),
+      ...(phone ? [phone] : []),
+      ...checks.verdicts,
+    ]
     layers.visual = metShare(visual)
     if (!hierarchy.met) flags.push('no clear visual hierarchy in the markup')
     if (finished && !finished.met) flags.push('screenshot does not look finished')
+    if (phone && !phone.met) flags.push('page does not fit a phone screen')
     flags.push(...checks.flags)
     verdicts.push(...visual)
   }
@@ -110,7 +133,12 @@ function scoreDesign(
 
 const certaintiesDesign = (raw: DesignRaw | null): number[] =>
   raw?.jev
-    ? [raw.jev.hierarchy, raw.jev.finished, ...raw.jev.statements.map((s) => s.noul)]
+    ? [
+        raw.jev.hierarchy,
+        raw.jev.finished,
+        raw.jev.phone ?? null,
+        ...raw.jev.statements.map((s) => s.noul),
+      ]
         .filter((v): v is number => v !== null)
         .map(certainty)
     : []

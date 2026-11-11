@@ -208,8 +208,6 @@ export type Output<K extends OperationName> = Contract[K]['output']
  */
 export const ARTIFACT_OPERATION = 'skill.artifact' satisfies OperationName
 export const IMAGE_OPERATION = 'image.read' satisfies OperationName
-/** Every artifact response carries this policy: agent-written HTML must never script the app. */
-export const ARTIFACT_POLICY = "sandbox; script-src 'none'"
 
 /** Operations the desktop shell answers itself: they touch the keychain, which lives in the main process. */
 export const SHELL_OPERATIONS = [
