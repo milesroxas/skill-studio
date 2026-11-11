@@ -6,15 +6,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
-### Fixed
-
-- A skill is graded on its own rules and its cases' checks whatever it makes. Before, rules were only marked on text: a skill that made a page, a picture or code had none of its rules graded, and Results showed no Rules part for it. A past run says so under its name on All cases: **Regrade** it to see them.
-- Design grading no longer fails a page for what no rule asked of it. It used to check every page for a `lang`, a `<title>`, a viewport, a `<main>` and heading order, so a mockup or a slide lost points on every run, with and without the skill. A skill that wants those says so in a rule or a check, as the Design template does.
-- "Nothing in the output looks broken" no longer counts grey blocks or empty space as unfinished, so a wireframe or a mockup is not failed for being one. It asks only about what is broken: text that overlaps or is cut off, a missing picture, a blank page.
-- Whether a page has one clear main point is read off the page as drawn. Before, it was read off the HTML when there was any.
-- Rules and checks are marked on everything a run made: the file, how a page or picture looks, the other files beside it, and what was said about it. A rule such as "say which size you used" could never pass before, since what a run says about its work was not read. A page with a script, or code with its test, was read as one file.
-- A page beside a script is graded as the page for every skill. Before, a skill not graded as Design was graded on whichever file came first by name.
-- Workflow grading takes nothing off for an error by itself. A test that fails before the fix is the work going right; what happened after the error is still graded.
+## [0.8.0] - 2026-11-11
 
 ### Changed
 
@@ -22,7 +14,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - A page's size is changed where it is read, in the line under the stage, and only a page shows it. **Phone**, **Tablet**, **Desktop** and **Full width** are in that menu, and a page starts at the stage's own width, not at Desktop. A case with a size opens at **Case size** and shows the whole page at it. Under **Side by side** a page has the same menu and is scaled down to fit its card. Before, a card showed only the corner of a page wider than it.
 - An output's files are one menu beside **A** and **B**, with **Transcript** in it, so the agent's steps can be read on the stage too. Before, the files were a row of names that ran into the widths.
 - **Flip** is **One at a time**. The views show only with two outputs to compare.
-- What an output is decides how its case opens: a page or a picture on the stage, two outputs of code as their diff, anything else as cards. A picture written beside a note no longer puts the note's case on the stage. A skill graded as Workflow and no other kind opens on the transcript.
+- What an output is decides how its case opens: a page or a picture on the stage, two outputs of code as their diff, anything else as cards. A picture written beside a note no longer puts the note's case on the stage.
 - **Graded as** lists what to grade beside rules and checks, which are always graded: **Code**, **Workflow** and **Design**, each with a line on what it adds. **Generic** is gone from the list, and a skill can have none of the three ticked.
 - A case always shows its **Checks**: every skill is graded on them.
 - Under Graded as, **Code** adds only the check command a case names: a case's checks are marked once, as Checks, and no longer a second time as part of Code or Design.
@@ -41,6 +33,17 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 ### Removed
 
 - **Writing** under Graded as. It held every piece to one way of writing about your own work: an opening inside the work, a decision, a setback, an ending that says what it adds up to, no selling, and no em dash. A release note or a thank-you owes none of that, and lost points for it. A skill that wants any of it says so in a rule. A skill graded as Writing is now graded on its rules and checks, and the `writing` settings in `bench.json` (`lint`, `writingKind`, `writer`, `borrowed` and the rest) and `kind`, `evidence` and `aiBuilt` in a `case.yaml` are no longer read.
+
+### Fixed
+
+- A skill is graded on its own rules and its cases' checks whatever it makes. Before, rules were only marked on text: a skill that made a page, a picture or code had none of its rules graded, and Results showed no Rules part for it. A past run says so under its name on All cases: **Regrade** it to see them.
+- Design grading no longer fails a page for what no rule asked of it. It used to check every page for a `lang`, a `<title>`, a viewport, a `<main>` and heading order, so a mockup or a slide lost points on every run, with and without the skill. A skill that wants those says so in a rule or a check, as the Design template does.
+- "Nothing in the output looks broken" no longer counts grey blocks or empty space as unfinished, so a wireframe or a mockup is not failed for being one. It asks only about what is broken: text that overlaps or is cut off, a missing picture, a blank page.
+- Whether a page has one clear main point is read off the page as drawn. Before, it was read off the HTML when there was any.
+- Rules and checks are marked on everything a run made: the file, how a page or picture looks, the other files beside it, and what was said about it. A rule such as "say which size you used" could never pass before, since what a run says about its work was not read. A page with a script, or code with its test, was read as one file.
+- A page beside a script is graded as the page for every skill. Before, a skill not graded as Design was graded on whichever file came first by name.
+- Workflow grading takes nothing off for an error by itself. A test that fails before the fix is the work going right; what happened after the error is still graded.
+- The Skill screen's file list marks a file with unsaved changes with the same dot as every other list, and **Try again** under Assistant in Settings reads **Trying again…** while it checks.
 
 ## [0.7.2] - 2026-11-11
 
