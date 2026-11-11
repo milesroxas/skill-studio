@@ -117,9 +117,9 @@ function Connect({ onSettings }: { onSettings: () => void }) {
   return (
     <PopoverSection pad="text">
       <Text size="ui" weight="medium">
-        Connect a provider to write with AI
+        Writing with AI is not set up
       </Text>
-      <Hint>Set up Claude Code or Codex, or add an Anthropic or OpenAI API key.</Hint>
+      <Hint>Set up Claude Code or Codex, or add an API key, in Settings.</Hint>
       <Toolbar>
         <Button type="button" size="sm" onClick={onSettings}>
           Open Settings

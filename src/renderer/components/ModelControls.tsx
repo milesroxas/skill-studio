@@ -65,7 +65,7 @@ export function ModelControls({ size }: { size?: 'sm' | 'default' }) {
         />
         <Hint>
           {efforts.length
-            ? 'Higher effort thinks longer: better on hard requests, slower and dearer on all of them.'
+            ? 'Higher effort thinks longer: better on hard requests, slower and more costly.'
             : 'This model takes no effort setting.'}
         </Hint>
       </Field>

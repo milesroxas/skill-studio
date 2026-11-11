@@ -80,8 +80,8 @@ export const Results = memo(function Results({ ctx }: { ctx: Ctx }) {
           )
         }
       >
-        A run has an agent do each case with {state.skill.name} installed, then Jev marks what it
-        wrote against your rules and each case’s checks.{' '}
+        A run answers each case using {state.skill.name}, then grades the answers against your rules
+        and checks.{' '}
         {state.cases.length
           ? `${state.cases.length === 1 ? 'One case is' : `${state.cases.length} cases are`} ready.`
           : 'Write a case first.'}
@@ -90,8 +90,7 @@ export const Results = memo(function Results({ ctx }: { ctx: Ctx }) {
   if (!outputs.length)
     return (
       <EmptyState size="screen" title="Nothing written yet">
-        The first outputs show here as the run writes them. Its progress is at the foot of the
-        sidebar.
+        Outputs show here as they are written. Progress is at the foot of the sidebar.
       </EmptyState>
     )
 

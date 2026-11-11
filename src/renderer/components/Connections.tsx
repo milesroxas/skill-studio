@@ -72,7 +72,7 @@ function CliStatus({
       <CliSetup
         info={info}
         title={`${def.label} is not installed`}
-        detail="Install it to write on your own account, with no key."
+        detail="Install it to use your own account, with no key."
         command={command}
         report={report}
         onSaved={onSaved}
@@ -209,7 +209,7 @@ function CliSetup({
 }
 
 /** What having no Jev key means, said one way wherever the key is asked for. */
-export const NO_JEV_KEY = 'Grading uses code checks only.'
+export const NO_JEV_KEY = 'Without it, no rule or check is marked.'
 
 interface KeyFieldProps {
   id: SecretId
@@ -279,7 +279,7 @@ function KeyField({
     if (
       await confirm({
         title: 'Remove the stored key?',
-        description: 'The key is deleted from the keychain. To use it again, paste it here again.',
+        description: 'To use it again, paste it here again.',
         action: 'Remove',
         destructive: true,
       })

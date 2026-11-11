@@ -168,14 +168,14 @@ export function ChatPanel({ screen, skill, ctx, confirm, onClose }: ChatPanelPro
     ) : !choice ? (
       <EmptyState
         size="screen"
-        title="Connect a provider"
+        title="The assistant is not set up"
         actions={
           <Button type="button" onClick={() => navigate('settings')}>
             Open Settings
           </Button>
         }
       >
-        Set up Claude Code or Codex, or add an Anthropic or OpenAI API key.
+        Set up Claude Code or Codex, or add an API key, in Settings.
       </EmptyState>
     ) : !messages.length && !run ? (
       <EmptyState
@@ -198,8 +198,7 @@ export function ChatPanel({ screen, skill, ctx, confirm, onClose }: ChatPanelPro
           </PlainList>
         }
       >
-        Rules, cases, checks and scores. It reads the open skill, and changes it only when you apply
-        a change it proposes.
+        It reads the open skill, and changes nothing until you apply a change.
       </EmptyState>
     ) : (
       <Conversation messages={messages} run={run} error={error} reply={reply} />

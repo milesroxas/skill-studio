@@ -97,15 +97,15 @@ export function VersionDetail({ ctx, version }: { ctx: Ctx; version: string }) {
     const ok = await confirm(
       lose
         ? {
-            title: `Restore ${found.version} over files that are no version?`,
+            title: `Restore ${found.version} and lose your latest edits?`,
             description:
-              'The files now were changed since the last run and are kept nowhere else, so restoring loses them. Run them first to keep them as a version.',
+              'Your edits since the last run are kept nowhere else. Run them first to keep them as a version.',
             action: 'Restore',
             destructive: true,
           }
         : {
             title: `Restore ${found.version}?`,
-            description: `SKILL.md and references/ go back to ${found.version}. ${current.version} stays in the list, so you can return to it.`,
+            description: `The skill’s files go back to ${found.version}. ${current.version} stays in the list, so you can return to it.`,
             action: 'Restore',
           },
     )
@@ -276,7 +276,7 @@ export function VersionDetail({ ctx, version }: { ctx: Ctx; version: string }) {
           {shown && !changed ? (
             <Hint>
               {to === 'current'
-                ? `No differences: the files now are as ${found.version} had them.`
+                ? `No differences: your files match ${found.version}.`
                 : `No differences between ${from} and ${to}.`}
             </Hint>
           ) : null}

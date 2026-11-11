@@ -655,7 +655,7 @@ function AddCheck({
     <FormSection
       layout="stacked"
       title="Add a check"
-      hint="Something an output gets wrong that nothing above names. Say what a good answer does. Jev marks it on every run from now on, and on these outputs once you regrade."
+      hint="Say what a good answer does. It is checked on every run from now on, and on these outputs when you regrade."
     >
       <Field>
         <Label htmlFor="new-check">A good answer makes this true</Label>

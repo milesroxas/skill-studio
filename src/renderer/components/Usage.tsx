@@ -74,7 +74,7 @@ function UsageReport({ summary }: { summary: UsageSummary }) {
       ) : null}
       {connected.length ? (
         <PopoverSection>
-          <PopoverLabel>Bills and plan limits, at the provider</PopoverLabel>
+          <PopoverLabel>Bills and plan limits</PopoverLabel>
           <div className="flex flex-wrap gap-x-3 gap-y-1 px-2 pb-1.5">
             {connected.map((p) => {
               const { label, usageUrl } = AI_PROVIDERS[p.id]

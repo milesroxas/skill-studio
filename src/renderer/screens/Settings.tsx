@@ -108,7 +108,7 @@ export function SettingsScreen({ running, report, onSaved, onWelcome }: Props) {
 
   return (
     <Screen width="form">
-      <FormSection title="Appearance" hint="How Skill Studio looks and moves on this computer.">
+      <FormSection title="Appearance">
         <Field>
           <Label id={ids.theme}>Theme</Label>
           <Segmented<Theme>
@@ -117,7 +117,7 @@ export function SettingsScreen({ running, report, onSaved, onWelcome }: Props) {
             onChange={(theme) => theme && choose({ theme })}
             options={THEMES}
           />
-          <Hint>System follows your computer’s light or dark setting as it changes.</Hint>
+          <Hint>System follows your computer’s setting.</Hint>
         </Field>
         <Field>
           <Label id={ids.motion}>Motion</Label>
@@ -127,11 +127,11 @@ export function SettingsScreen({ running, report, onSaved, onWelcome }: Props) {
             onChange={(motion) => motion && choose({ motion })}
             options={MOTIONS}
           />
-          <Hint>Reduce turns off transitions and animations, whatever the system asks for.</Hint>
+          <Hint>Reduce turns off animations.</Hint>
         </Field>
       </FormSection>
 
-      <FormSection title="Editor" hint="How the Editor opens a skill’s Markdown files.">
+      <FormSection title="Editor">
         <Field>
           <Label id={ids.editor}>Open Markdown as</Label>
           <Segmented<EditorMode>
@@ -140,17 +140,11 @@ export function SettingsScreen({ running, report, onSaved, onWelcome }: Props) {
             onChange={(editorMode) => editorMode && choose({ editorMode })}
             options={EDITOR_MODES}
           />
-          <Hint>
-            Formatted styles headings, lists and emphasis in place. Markdown shows the source. The
-            switch above the editor changes this too.
-          </Hint>
+          <Hint>Formatted shows headings and lists styled. Markdown shows the plain text.</Hint>
         </Field>
       </FormSection>
 
-      <FormSection
-        title="Help"
-        hint="The help button at the top right of every screen stays, whatever you choose here."
-      >
+      <FormSection title="Help">
         <Field>
           <Label id={ids.hints}>Screen hints</Label>
           <Segmented<Hints>
@@ -159,10 +153,7 @@ export function SettingsScreen({ running, report, onSaved, onWelcome }: Props) {
             onChange={(hints) => hints && choose({ hints })}
             options={HINTS}
           />
-          <Hint>
-            A hint says what a screen is for, in one line under the top bar, the first time you open
-            it.
-          </Hint>
+          <Hint>A hint is one line under the top bar that says what a screen is for.</Hint>
         </Field>
         <Toolbar>
           <Button
@@ -191,9 +182,8 @@ export function SettingsScreen({ running, report, onSaved, onWelcome }: Props) {
               options={UPDATE_MODES}
             />
             <Hint>
-              Automatically asks GitHub for the newest release when the app opens and every few
-              hours, and downloads it in the background. You choose when to restart. Nothing about
-              you or your skills is sent.
+              Automatically checks when the app opens and every few hours, and downloads in the
+              background. You choose when to restart. Nothing about you or your skills is sent.
             </Hint>
           </Field>
           <Toolbar>
@@ -204,10 +194,7 @@ export function SettingsScreen({ running, report, onSaved, onWelcome }: Props) {
         </FormSection>
       ) : null}
 
-      <FormSection
-        title="Assistant"
-        hint="The model that writes with you, in the side panel and beside every text area. Both change it too."
-      >
+      <FormSection title="Assistant" hint="The AI model that writes with you.">
         {problem ? (
           <ReadFailed
             size="compact"
@@ -241,9 +228,8 @@ export function SettingsScreen({ running, report, onSaved, onWelcome }: Props) {
         title="Jev key"
         hint={
           <>
-            Jev, the model that grades every output, is a{' '}
-            <Link href="https://typesafe.ai">TypeSafe</Link> model. Without a key, grading uses code
-            checks only: no rule and no check is marked.
+            Jev grades every output against your rules and checks. It needs a{' '}
+            <Link href="https://typesafe.ai">TypeSafe</Link> key.
           </>
         }
       >

@@ -51,7 +51,7 @@ export function ArtifactView({ run, sample, artifact }: Props) {
   }, [run, sample, file, textual, attempt])
   const text = read?.of === of ? read.text : null
   const error = failure?.of === of ? failure.message : null
-  if (!artifact) return <Hint inset>The agent wrote no file for this output.</Hint>
+  if (!artifact) return <Hint inset>This output has no file to show.</Hint>
   const url = api.artifactUrl(run, sample, artifact.file)
   if (artifact.kind === 'image')
     return <img className="block max-w-full" src={url} alt={artifact.file} />

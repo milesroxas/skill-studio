@@ -302,7 +302,7 @@ The points each part counts, the threshold at which Jev's answer counts as met, 
 | "No Jev key" at the top right | Add the key in Settings |
 | An agent says "(not set up)" under Run, Options | Install that agent and sign in to it |
 | A skill is missing from the Library | Choose Every place, click the round arrow, or add its folder under "Where skills are found" |
-| Save is greyed and a notice says the file or case changed on disk | It changed outside the app after your draft began. "Keep my draft", then Save, writes yours over it; "Use the file on disk" or "Use the case on disk" keeps the other |
+| Save is greyed and a notice says the file or case was changed outside the app | It changed outside the app after your draft began. "Keep my edits", then Save, writes yours over it; "Take the changed file" or "Take the changed case" keeps the other |
 | A bullet keeps its dot and gets no number | Make it a bullet of four words or more, outside a numbered list, and not only a link |
 | The agent says it cannot find your project, a screen or a file the prompt names | A run sees only the skill, the prompt and the case's input files. Open the case and add what it needs with **Add files** or **Add folder**, under Files |
 | A score looks wrong | Read the transcript, then mark the verdict that is wrong |

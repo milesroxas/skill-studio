@@ -2,7 +2,6 @@
  * The new-skill form, opened from the Library and from the skill switcher.
  */
 import { AGENTS, type AgentId, type Library } from '@domain/library.ts'
-import { rulesFromSkill } from '@domain/rules.ts'
 import { DESCRIPTION_HINT, TEMPLATES, type TemplateId, templateById } from '@domain/templates.ts'
 import { isSlug, SLUG_RULE } from '@domain/text.ts'
 import { useEffect, useRef, useState } from 'react'
@@ -75,7 +74,6 @@ export function NewSkill({
   const taken = data.skills.some((s) => s.scope === scope && s.path.endsWith(`/${name}`))
   const place = data.places.find((p) => p.scope === scope)
   const template = templateById(templateId)
-  const ruleCount = rulesFromSkill(template.body).length
   const installed = AGENTS.filter((a) => agents.has(a.id)).map((a) => a.label)
 
   const toggleAgent = (id: AgentId) =>
@@ -131,7 +129,7 @@ export function NewSkill({
       >
         <FormSection
           title="About it"
-          hint="Agents read the name and description to decide when to load the skill."
+          hint="The name and description decide when the skill gets used."
         >
           <Field>
             <Label htmlFor="ns-name">Name</Label>
@@ -177,7 +175,7 @@ export function NewSkill({
 
         <FormSection
           title="Start from"
-          hint="A template is a small, finished skill of one kind: example rules to replace, each with its why, and sample cases to run it against."
+          hint="A template gives you example rules to replace and sample cases to test with."
         >
           <Field>
             <Label id="ns-template">Template</Label>
@@ -191,11 +189,7 @@ export function NewSkill({
             <Hint>{template.summary}</Hint>
           </Field>
           {template.cases.length ? (
-            <CheckRow
-              checked={samples}
-              onCheckedChange={setSamples}
-              description={`The template starts with ${plural(ruleCount, 'example rule')} to replace.`}
-            >
+            <CheckRow checked={samples} onCheckedChange={setSamples}>
               Add {plural(template.cases.length, 'sample case')} to run against
             </CheckRow>
           ) : null}

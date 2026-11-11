@@ -16,6 +16,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - Files and folders can be dropped anywhere on a case, as pictures already could.
 - **Show folder** is **Reveal in Finder** (or your system's name for it), at the end of the Files label.
 - The case form says less and assumes less: the notes under the prompt, the files and the checks are shorter and no longer speak of "the agent".
+- The rest of the app says less too. Hints that repeated their heading are gone from Settings, New skill and the Library, and notes no longer speak of files "on disk", "code checks", providers or tokens. A file or case changed outside the app now offers **Keep my edits** and **Take the changed file** (or **case**). Without a Jev key, **Regrade** reads **Regrade without Jev**.
 
 ## [0.7.2] - 2026-11-11
 

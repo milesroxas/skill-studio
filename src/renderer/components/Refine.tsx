@@ -45,7 +45,7 @@ export function FindingList({ findings }: { findings: Finding[] }) {
 
 /** Jev did not read this: only code's checks ran. */
 export function Unjudged() {
-  return <Hint>Word checks only. Add a TypeSafe key in Settings and Jev reads the rule too.</Hint>
+  return <Hint>Wording checks only. Add a Jev key in Settings for a fuller check.</Hint>
 }
 
 /** The revision a check starts, when anything drifts. */

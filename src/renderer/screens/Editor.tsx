@@ -236,8 +236,8 @@ export const Editor = memo(function Editor({ ctx }: { ctx: Ctx }) {
 
   const remove = async () => {
     const ok = await confirm({
-      title: `Delete ${file} from disk?`,
-      description: 'Run snapshots keep their copy.',
+      title: `Delete ${file}?`,
+      description: 'Past runs keep their copy.',
       action: 'Delete',
       destructive: true,
     })
@@ -314,13 +314,13 @@ export const Editor = memo(function Editor({ ctx }: { ctx: Ctx }) {
         {stale ? (
           <Alert variant="warning" role="status">
             <AlertTitle>
-              {file} {gone ? 'was deleted on disk' : 'changed on disk'} since this draft began
+              {file} was {gone ? 'deleted' : 'changed'} outside the app while you were editing
             </AlertTitle>
             <AlertDescription>
               <p>
                 {gone
-                  ? 'Keep your draft to save it as a new file, or let it go with the file.'
-                  : 'Keep your draft to save over the file, or take the file as it is now.'}
+                  ? 'Keep your edits to save them as a new file, or discard them.'
+                  : 'Keep your edits to save over that change, or take the changed file.'}
               </p>
               <Toolbar>
                 <Button
@@ -329,7 +329,7 @@ export const Editor = memo(function Editor({ ctx }: { ctx: Ctx }) {
                   size="sm"
                   onClick={() => draft && drafts.setFile(file, { ...draft, previous: saved })}
                 >
-                  Keep my draft
+                  Keep my edits
                 </Button>
                 <Button
                   type="button"
@@ -340,7 +340,7 @@ export const Editor = memo(function Editor({ ctx }: { ctx: Ctx }) {
                     if (gone) go('editor', {}, { replace: true })
                   }}
                 >
-                  {gone ? 'Discard my draft' : 'Use the file on disk'}
+                  {gone ? 'Discard my edits' : 'Take the changed file'}
                 </Button>
               </Toolbar>
             </AlertDescription>
@@ -514,7 +514,7 @@ export const Editor = memo(function Editor({ ctx }: { ctx: Ctx }) {
               <DraftNote
                 drafts={drafts}
                 dirty={isDirty(file)}
-                saved={saved === null ? 'New, not on disk yet' : 'Saved'}
+                saved={saved === null ? 'New, not saved yet' : 'Saved'}
               />
             </ColumnTitle>
             <Segmented<View>
@@ -571,7 +571,7 @@ export const Editor = memo(function Editor({ ctx }: { ctx: Ctx }) {
                   {diff.length ? (
                     <DiffLines lines={diff} />
                   ) : (
-                    <Hint>No changes from the file on disk.</Hint>
+                    <Hint>No changes since the last save.</Hint>
                   )}
                 </ColumnBody>
               ) : undefined
@@ -579,8 +579,8 @@ export const Editor = memo(function Editor({ ctx }: { ctx: Ctx }) {
             aria-label={`Contents of ${file}`}
             placeholder={
               isSkill
-                ? 'Write for the agent that loads this skill. One rule per bullet, with its why.'
-                : 'Longer material SKILL.md points to. Say first when the agent should read it.'
+                ? 'One rule per bullet, with its why.'
+                : 'Longer material SKILL.md points to. Say first when to read it.'
             }
             value={text}
             onChange={edit}

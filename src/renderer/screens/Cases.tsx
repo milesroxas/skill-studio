@@ -442,9 +442,11 @@ export const Cases = memo(function Cases({ ctx }: { ctx: Ctx }) {
           <ColumnBody width="form">
             {changedOnDisk ? (
               <Alert variant="warning" role="status">
-                <AlertTitle>{draft.id} changed on disk since this draft began</AlertTitle>
+                <AlertTitle>
+                  {draft.id} was changed outside the app while you were editing
+                </AlertTitle>
                 <AlertDescription>
-                  <p>Keep your draft to save over the case, or take the case as it is now.</p>
+                  <p>Keep your edits to save over that change, or take the changed case.</p>
                   <Toolbar>
                     <Button
                       type="button"
@@ -452,7 +454,7 @@ export const Cases = memo(function Cases({ ctx }: { ctx: Ctx }) {
                       size="sm"
                       onClick={() => drafts.baseCase(key, savedAt)}
                     >
-                      Keep my draft
+                      Keep my edits
                     </Button>
                     <Button
                       type="button"
@@ -460,7 +462,7 @@ export const Cases = memo(function Cases({ ctx }: { ctx: Ctx }) {
                       size="sm"
                       onClick={() => drafts.setCase(key, null)}
                     >
-                      Use the case on disk
+                      Take the changed case
                     </Button>
                   </Toolbar>
                 </AlertDescription>
@@ -609,7 +611,7 @@ export const Cases = memo(function Cases({ ctx }: { ctx: Ctx }) {
                 <FormSection
                   layout="stacked"
                   title="Checks"
-                  hint="Facts that must be true of a good answer. Jev, the grader, marks each one. Optional: easier to write after a first run."
+                  hint="Facts that must be true of a good answer, each marked met or missed. Easier to write after a first run."
                 >
                   <GuideBox summary="What Jev can mark">
                     <PairList pairs={CHECK_EXAMPLES} />

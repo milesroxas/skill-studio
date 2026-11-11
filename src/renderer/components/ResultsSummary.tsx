@@ -116,8 +116,7 @@ export function ResultsSummary({ ctx }: { ctx: Ctx }) {
             </Text>
           ) : null}
           <Hint>
-            Each cell is a case’s mean score out of 100. Open a score to read that output beside the
-            one before it, or a run to see its outputs, grade it again or delete it.
+            Scores are out of 100. Open one to read that output, or a run to see all of its outputs.
           </Hint>
           <Table bleed>
             <TableHeader>
@@ -291,13 +290,13 @@ function RunDetail({
               busyLabel="Grading…"
               onClick={() => regrade(run)}
             >
-              {state.jevKey ? 'Regrade' : 'Regrade with code checks'}
+              {state.jevKey ? 'Regrade' : 'Regrade without Jev'}
             </Button>
           </Toolbar>
         </SectionHead>
         <Hint>
           {view.report
-            ? `Graded ${stamp(view.report.createdAt) ?? view.report.createdAt} ${view.report.model ? `by Jev (${view.report.model})` : 'by code checks only'}, ${view.report.inputTokens.toLocaleString()} input tokens.`
+            ? `Graded ${stamp(view.report.createdAt) ?? view.report.createdAt}${view.report.model ? ' by Jev.' : ' without Jev: no rule or check is marked.'}`
             : 'Not graded yet.'}
         </Hint>
       </Stack>

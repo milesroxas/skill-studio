@@ -222,9 +222,8 @@ export function LibraryScreen({
             </Button>
           }
         >
-          Thank-you note is a finished skill with three cases. The walkthrough takes it round the
-          loop: read it, run it, read what the notes missed, tighten one rule, run it again and
-          compare. Nothing to type, and it is installed for no agent.
+          It runs a finished sample skill, shows what its answers missed and has you fix one rule.
+          Nothing to type.
         </Invitation>
       ) : null}
       <ListBar
@@ -267,10 +266,7 @@ export function LibraryScreen({
         <Section>
           <SectionHead>
             <Heading level={2}>In progress</Heading>
-            <Hint>
-              Skills you opened, or gave cases or runs. Mark one done to move it below until you
-              work on it again.
-            </Hint>
+            <Hint>Skills you have worked on. Mark one done to move it below.</Hint>
           </SectionHead>
           <SkillTable
             jobs={jobs}
@@ -331,8 +327,8 @@ export function LibraryScreen({
                 </Button>
               }
             >
-              A skill is a SKILL.md an agent loads when a task calls for it. Start one here, or add
-              a folder below where your skills already live.
+              A skill is a page of instructions an AI agent follows for one kind of task. Start one
+              here, or add a folder below where your skills already are.
             </EmptyState>
           )}
         </Section>
@@ -362,7 +358,7 @@ const shortPlace = (label: string): string => {
 
 const INSTALL_TITLE = {
   here: (agent: string) => `${agent}’s skills folder holds these files`,
-  link: (agent: string) => `Installed for ${agent} by a link. Click to uninstall.`,
+  link: (agent: string) => `Installed for ${agent}. Click to uninstall.`,
   copy: (agent: string) => `${agent} has its own copy. Edits here do not reach it.`,
   none: (agent: string) => `Install for ${agent}`,
 }
@@ -402,7 +398,7 @@ function SkillTable({
     }
     const ok = await confirm({
       title: `Uninstall ${s.name} from ${label}?`,
-      description: 'Only the link is removed.',
+      description: 'Your skill is not deleted.',
       action: 'Uninstall',
     })
     if (ok) await act(api.unlink(s.path, agent, s.scope), `Removed from ${label}`, s.path)
@@ -473,11 +469,7 @@ function SkillTable({
             </TableCell>
             <TableCell>
               {isPractice(s) ? (
-                <Text
-                  tone="muted"
-                  size="xs"
-                  title="Kept in Skill Studio’s own folder, so no agent loads it."
-                >
+                <Text tone="muted" size="xs" title="Kept inside Skill Studio, so no agent uses it.">
                   Stays in the app
                 </Text>
               ) : (

@@ -76,8 +76,7 @@ export function ImprovePanel({ onBack, onClose }: { onBack: () => void; onClose:
       (thread.at > 0 || thread.draft !== null) &&
       !(await confirm({
         title: 'Discard this draft?',
-        description:
-          'Going back to the chat closes this conversation. Your answers and the draft are not kept.',
+        description: 'Your answers and the draft are not kept.',
         action: 'Discard',
         destructive: true,
       }))
@@ -158,7 +157,7 @@ export function ImprovePanel({ onBack, onClose }: { onBack: () => void; onClose:
             {note}
           </Hint>
         ) : replacer ? null : (
-          <Hint>Open SKILL.md in the Editor to put the draft in place.</Hint>
+          <Hint>Open SKILL.md on the Skill screen to put the draft in place.</Hint>
         )}
       </footer>
       {confirmDialog}

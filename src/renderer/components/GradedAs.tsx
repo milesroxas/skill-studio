@@ -60,7 +60,7 @@ export function GradedAs({ ctx }: { ctx: Ctx }) {
     <Stack gap="lg">
       <FormSection
         title="Kinds of work"
-        hint="What this skill does. Each kind is scored on its own parts: tick one or more."
+        hint="What this skill does. Tick one or more: each is scored differently."
       >
         <Stack gap="md">
           {scorers.map((pack) => (
@@ -106,7 +106,7 @@ export function GradedAs({ ctx }: { ctx: Ctx }) {
         ) : null}
         <Spacer />
         <Text tone="muted" size="xs" title={state.paths.bench}>
-          {dirty ? 'Unsaved change' : `Saved in ${state.paths.bench}`}
+          {dirty ? 'Unsaved change' : 'Saved'}
         </Text>
       </FormActions>
     </Stack>
