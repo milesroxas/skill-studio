@@ -171,7 +171,7 @@ With a TypeSafe key, Jev reads the rule and the answers, so the checks are exact
 
 A version is a copy of the skill as it was for a run, named v0, v1 and so on. You never save one by hand: when the files changed since the last run, the next run keeps them as the next version. Every score stays tied to the version that produced it.
 
-- **Versions**, under Files, lists them, newest first, each with its date and score.
+- **Versions**, under Files, lists them, newest first, each with its date and score. After a **Restore**, the version the files match says *in the files now*.
 - **Click one** to see what changed between it and the files now, file by file. **The version before** shows what that version itself changed.
 - **Restore** puts a version's files back. If the files changed since the last run, they are kept nowhere else: run them first to keep them.
 - **Delete version** deletes it and its runs. **Undo** brings them back. To delete one run and keep the version, use **Delete run** on Results, All cases.

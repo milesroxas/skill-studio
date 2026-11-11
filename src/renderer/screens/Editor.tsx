@@ -303,6 +303,7 @@ export const Editor = memo(function Editor({ ctx }: { ctx: Ctx }) {
 
   const missing = isSkill ? ['name', 'description'].filter((k) => !metaText(meta, k)) : []
   const { current, versions } = state.versions
+  const newest = versions.at(-1)
 
   /**
    * What to know about the file before editing it: a newer copy on disk,
@@ -373,76 +374,79 @@ export const Editor = memo(function Editor({ ctx }: { ctx: Ctx }) {
     <Workbench>
       {/* The document is the screen's point: once the columns stack, its files follow it. */}
       <Column kind="side">
-        <nav aria-label="Skill files" className="contents">
-          <ListHeader
-            title="Files"
-            count={paths.length}
-            addLabel="Add a reference file"
-            addDisabled={naming}
-            onAdd={() => setNewName('')}
-          />
-          <ColumnSection inset="list">
-            <PlainList gap="none" bleed>
-              {paths.map((path) => (
-                <li key={path}>
-                  <NavButton
-                    current={!version && path === file}
-                    onClick={() => go('editor', { file: path })}
-                  >
-                    <Text font="mono" size="xs" wrap="anywhere">
-                      {path}
-                      {isDirty(path) ? <Text tone="warning"> •</Text> : null}
-                    </Text>
-                  </NavButton>
-                </li>
-              ))}
-            </PlainList>
-            {naming ? (
-              <form
-                className="contents"
-                onSubmit={(e) => {
-                  e.preventDefault()
-                  create()
-                }}
-                onKeyDown={(e) => {
-                  if (e.key === 'Escape') setNewName(null)
-                }}
-              >
-                <Input
-                  ref={nameField}
-                  aria-label="Name of the new reference file"
-                  placeholder="references/name.md"
-                  autoCapitalize="none"
-                  autoCorrect="off"
-                  spellCheck={false}
-                  enterKeyHint="done"
-                  value={newName}
-                  size="sm"
-                  font="mono"
-                  onChange={(e) => setNewName(e.target.value)}
-                />
-                <Toolbar>
-                  <Button type="submit" size="sm" disabled={!newName.trim()}>
-                    Add file
-                  </Button>
-                  <Button type="button" variant="ghost" size="sm" onClick={() => setNewName(null)}>
-                    Cancel
-                  </Button>
-                </Toolbar>
-              </form>
-            ) : null}
-          </ColumnSection>
-        </nav>
+        <ListHeader
+          title="Files"
+          count={paths.length}
+          addLabel="Add a reference file"
+          addDisabled={naming}
+          onAdd={() => setNewName('')}
+        />
+        <ColumnSection inset="list" as="nav" label="Skill files">
+          <PlainList gap="none" bleed>
+            {paths.map((path) => (
+              <li key={path}>
+                <NavButton
+                  current={!version && path === file}
+                  onClick={() => go('editor', { file: path })}
+                >
+                  <Text font="mono" size="xs" wrap="anywhere">
+                    {path}
+                    {isDirty(path) ? <Text tone="warning"> •</Text> : null}
+                  </Text>
+                </NavButton>
+              </li>
+            ))}
+          </PlainList>
+          {naming ? (
+            <form
+              className="contents"
+              onSubmit={(e) => {
+                e.preventDefault()
+                create()
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'Escape') setNewName(null)
+              }}
+            >
+              <Input
+                ref={nameField}
+                aria-label="Name of the new reference file"
+                placeholder="references/name.md"
+                autoCapitalize="none"
+                autoCorrect="off"
+                spellCheck={false}
+                enterKeyHint="done"
+                value={newName}
+                size="sm"
+                font="mono"
+                onChange={(e) => setNewName(e.target.value)}
+              />
+              <Toolbar>
+                <Button type="submit" size="sm" disabled={!newName.trim()}>
+                  Add file
+                </Button>
+                <Button type="button" variant="ghost" size="sm" onClick={() => setNewName(null)}>
+                  Cancel
+                </Button>
+              </Toolbar>
+            </form>
+          ) : null}
+        </ColumnSection>
 
         {blank && !versions.length ? null : (
-          <ColumnSection inset="list" title="Versions">
-            <Hint>
-              {current.changed
-                ? versions.length
-                  ? `The files changed since ${versions.at(-1)?.version}. The next run keeps them as ${current.version}.`
-                  : `No version yet. The first run keeps the files as ${current.version}.`
-                : `The files are ${current.version}${current.name ? `, ${current.name}` : ''}.`}
-            </Hint>
+          <ColumnSection
+            inset="list"
+            title="Versions"
+            // Only edits no version holds need a word: unchanged files are a version in the list.
+            // It names no version they came from: after a restore that is not the newest.
+            hint={
+              current.changed
+                ? newest
+                  ? `The next run keeps your edits as ${current.version}.`
+                  : `The first run keeps the files as ${current.version}.`
+                : null
+            }
+          >
             {versions.length ? (
               <PlainList gap="none" bleed>
                 {[...versions].reverse().map((v) => {
@@ -461,6 +465,10 @@ export const Editor = memo(function Editor({ ctx }: { ctx: Ctx }) {
                           {[
                             v.date ? shortDate(v.date) : null,
                             score === null ? null : `scored ${Math.round(score)}`,
+                            // The newest is the files unless they changed; a restored one says so.
+                            v !== newest && !current.changed && v.version === current.version
+                              ? 'in the files now'
+                              : null,
                           ]
                             .filter(Boolean)
                             .join(' · ') || 'Not run yet'}

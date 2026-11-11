@@ -329,34 +329,46 @@ export function ColumnBody({
   return <div className={cn(columnBodyVariants({ inset, width }), className)} {...props} />
 }
 
-/** A titled part of a list column, divided from the next by a rule. */
+/**
+ * A titled part of a list column, divided from the next by a rule. Its title
+ * is a column's heading, as a `ListHeader`'s is, so both are `h2`. A section
+ * that is a landmark of its own, such as the files, is `as="nav"` with a
+ * `label`: a wrapper round it would hide that it is the column's last part.
+ */
 export function ColumnSection({
   title,
   hint,
   action,
   inset,
+  as: Comp = 'section',
+  label,
   children,
 }: VariantProps<typeof insetVariants> & {
   title?: ReactNode
   hint?: ReactNode
   action?: ReactNode
+  as?: 'section' | 'nav'
+  label?: string
   children: ReactNode
 }) {
   return (
-    <section
+    <Comp
+      aria-label={label}
       className={cn('flex flex-col gap-3 border-b py-5 last:border-b-0', insetVariants({ inset }))}
     >
       {title ? (
         <div className="flex flex-col gap-1">
           <div className="flex min-h-6 items-center gap-3">
-            <Heading level={3}>{title}</Heading>
+            <Heading level={3} as="h2">
+              {title}
+            </Heading>
             {action ? <span className="ml-auto">{action}</span> : null}
           </div>
           {hint ? <Hint>{hint}</Hint> : null}
         </div>
       ) : null}
       {children}
-    </section>
+    </Comp>
   )
 }
 

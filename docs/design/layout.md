@@ -109,7 +109,7 @@ Copy `screens/Cases.tsx` for any screen that lists items and edits the one picke
 - After a delete, the next item is selected. When the last one goes, the screen shows the new-item form.
 - With no items yet, the screen is `Workbench layout="single"` with the new-item form: making the first item is the next step, and an empty state would only point at it.
 
-The list column may hold more than one list, each in a `ColumnSection`: the Skill screen lists the files, then the versions. An item of either opens in the main column, named in the route (`file`, `version`).
+The list column may hold more than one list, each in a `ColumnSection`: the Skill screen lists the files, then the versions. Sections are divided by a rule, and the last has none, so a section is a direct child of its column: one that is a landmark is `as="nav"` with a `label`, never wrapped in one. A section's `hint` is only for what the list cannot show, such as edits no version holds yet. An item of either opens in the main column, named in the route (`file`, `version`).
 
 Below `lg` the columns stack and the pane scrolls, a `side` column after the main one. A `ColumnToolbar` sticks under its header only from `lg`: stacked, it scrolls with the document. A header whose actions leave its title no room wraps instead (the Skill screen's: `max-lg:flex-wrap` on the header, `max-lg:basis-full` on its `ColumnTitle`), so the file's name takes the first row. Check every workbench at 720px wide.
 
