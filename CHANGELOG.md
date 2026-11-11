@@ -6,6 +6,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+### Changed
+
+- In SKILL.md, resting the pointer on a word the writing checks underlined opens a note under it that says what the check found, the same lines the popout lists. Before, the reason was a system tooltip that took a second or more to show, when it showed at all. The word is tinted while its note is open.
+
 ### Added
 
 - **Delete run**, under an open run on Results, All cases. It deletes the run's outputs and your corrections on them, and every score stops counting it. The version it was made with stays: when the run was its only copy, the version is saved from the run first. The dialog says what goes, and **Undo** on the status line brings the run back.

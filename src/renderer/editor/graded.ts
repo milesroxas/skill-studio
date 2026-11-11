@@ -4,14 +4,21 @@
  * they stand in the file, hanging in the margin so the text keeps its edge; a
  * bullet Jev skips keeps its dot and says why to the pointer that rests
  * on it. The number turns amber when the writing checks find something in
- * the rule, the words that set a check off are underlined and say why when
- * pointed at, and while the cursor is in the rule its findings stand under it. A click on the number
- * selects the rule, so the popout opens with nothing to select by hand.
+ * the rule, and the words that set a check off are underlined: the pointer
+ * resting on them opens a note that says why (`FindingNote`). A click on the
+ * number selects the rule, so the popout opens with nothing to select by hand.
  * Nothing is drawn for bench.json rules, which do not come from the bullets.
  */
 
-import { type EditorState, type Extension, Facet, type Range, StateField } from '@codemirror/state'
-import { Decoration, EditorView, WidgetType } from '@codemirror/view'
+import {
+  type EditorState,
+  type Extension,
+  Facet,
+  type Range,
+  StateEffect,
+  StateField,
+} from '@codemirror/state'
+import { Decoration, EditorView, ViewPlugin, WidgetType } from '@codemirror/view'
 import { type Finding, lintScene, sceneOf } from '@domain/lint.ts'
 import { type SkippedBullet, scanRules } from '@domain/rules.ts'
 
@@ -94,16 +101,128 @@ class RuleNumber extends WidgetType {
 
 const skippedLine = (reason: SkippedBullet['reason']) =>
   Decoration.line({ class: 'cm-md-skipped', attributes: { title: SKIPPED[reason] } })
-/** The words that set a check off, underlined, with the finding for the pointer that rests on them. */
-const flagWord = (finding: Finding) =>
-  Decoration.mark({
-    class: 'cm-md-flag',
-    attributes: { title: `${finding.lead} ${finding.message}` },
-  })
 
-const decorations = EditorView.decorations.compute([field, hanging], (state) => {
+/** Words in a rule that set a check off, and the findings they set off. */
+export interface Flag {
+  from: number
+  to: number
+  findings: Finding[]
+}
+
+/** Where each finding's quote stands in its rule. Findings that quote the same words share a flag. */
+function flagsOf(state: EditorState, rule: GradedRule): Flag[] {
+  const text = state.doc.sliceString(rule.from, rule.to).toLowerCase()
+  const flags: Flag[] = []
+  for (const finding of rule.findings) {
+    if (!finding.quote) continue
+    const at = text.indexOf(finding.quote.toLowerCase())
+    if (at < 0) continue
+    const from = rule.from + at
+    const to = from + finding.quote.length
+    const same = flags.find((f) => f.from === from && f.to === to)
+    if (same) same.findings.push(finding)
+    else flags.push({ from, to, findings: [finding] })
+  }
+  return flags
+}
+
+/** The flag that holds `pos`, or null when no flagged word stands there. */
+function flagAt(state: EditorState, pos: number): Flag | null {
+  const rule = ruleAt(state, pos)
+  return rule ? (flagsOf(state, rule).find((f) => pos >= f.from && pos < f.to) ?? null) : null
+}
+
+/** The flag whose note is open: the pointer rests on its words or on the note. */
+const point = StateEffect.define<Flag | null>()
+const pointed = StateField.define<Flag | null>({
+  create: () => null,
+  update: (flag, tr) => {
+    for (const effect of tr.effects) if (effect.is(point)) return effect.value
+    // The words under it changed: what the note says may no longer hold.
+    return tr.docChanged ? null : flag
+  },
+})
+
+/** The flag whose note is open, for the editor to draw the note beside. */
+export const pointedFlag = (state: EditorState): Flag | null => state.field(pointed, false) ?? null
+
+/** The beat a passing pointer gets before a note opens, and before one goes: `HoverCard`'s delays. */
+const OPEN_MS = 150
+const CLOSE_MS = 120
+
+/**
+ * Opens a flag's note once the pointer rests on its words, and puts it away
+ * once the pointer has left both the words and the note. With one note open,
+ * the next word's opens at once: the reader is already reading notes.
+ */
+class Pointing {
+  private timer: ReturnType<typeof setTimeout> | undefined
+  /** The pointer is on the note. Leaving the text does not close it then, whichever event comes first. */
+  private held = false
+  constructor(private readonly view: EditorView) {
+    window.addEventListener('scroll', this.away, { capture: true, passive: true })
+  }
+  aim(flag: Flag | null) {
+    if (this.held && !flag) return
+    clearTimeout(this.timer)
+    const now = pointedFlag(this.view.state)
+    if (now?.from === flag?.from && now?.to === flag?.to) return
+    const wait = flag ? (now ? 0 : OPEN_MS) : CLOSE_MS
+    this.timer = setTimeout(() => this.view.dispatch({ effects: point.of(flag) }), wait)
+  }
+  hold() {
+    // A note already fading out is not held open again.
+    if (!pointedFlag(this.view.state)) return
+    this.held = true
+    clearTimeout(this.timer)
+  }
+  release() {
+    this.held = false
+    this.aim(null)
+  }
+  update() {
+    // A note gone by any way leaves nothing to hold.
+    if (!pointedFlag(this.view.state)) this.held = false
+  }
+  /** Gone now: the page moved under the note, or the reader dismissed it. */
+  readonly away = () => {
+    clearTimeout(this.timer)
+    this.held = false
+    if (pointedFlag(this.view.state)) this.view.dispatch({ effects: point.of(null) })
+  }
+  destroy() {
+    clearTimeout(this.timer)
+    window.removeEventListener('scroll', this.away, { capture: true })
+  }
+}
+
+const pointing = ViewPlugin.fromClass(Pointing, {
+  eventHandlers: {
+    mousemove(event, view) {
+      const words = (event.target as HTMLElement).closest?.('.cm-md-flag')
+      this.aim(words ? flagAt(view.state, view.posAtDOM(words)) : null)
+    },
+    mouseleave() {
+      this.aim(null)
+    },
+  },
+})
+
+/** The pointer is on the note: keep it open. */
+export const holdNote = (view: EditorView) => view.plugin(pointing)?.hold()
+/** The pointer left the note: put it away after the beat. */
+export const releaseNote = (view: EditorView) => view.plugin(pointing)?.release()
+/** Put the note away now: Escape, or a press elsewhere. */
+export const dismissNote = (view: EditorView) => view.plugin(pointing)?.away()
+
+/** The words that set a check off, underlined; lit while their note is open. */
+const flagWords = Decoration.mark({ class: 'cm-md-flag' })
+const flagWordsPointed = Decoration.mark({ class: 'cm-md-flag cm-md-pointed' })
+
+const decorations = EditorView.decorations.compute([field, hanging, pointed], (state) => {
   const { rules, skipped } = state.field(field)
   const hang = state.facet(hanging)
+  const open = state.field(pointed)
   const out: Range<Decoration>[] = []
   for (const bullet of skipped)
     out.push(skippedLine(bullet.reason).range(state.doc.line(bullet.line).from))
@@ -115,12 +234,9 @@ const decorations = EditorView.decorations.compute([field, hanging], (state) => 
           rule.from,
         ),
       )
-    const text = state.doc.sliceString(rule.from, rule.to).toLowerCase()
-    for (const finding of rule.findings) {
-      if (!finding.quote) continue
-      const at = text.indexOf(finding.quote.toLowerCase())
-      if (at >= 0)
-        out.push(flagWord(finding).range(rule.from + at, rule.from + at + finding.quote.length))
+    for (const flag of flagsOf(state, rule)) {
+      const lit = open?.from === flag.from && open.to === flag.to
+      out.push((lit ? flagWordsPointed : flagWords).range(flag.from, flag.to))
     }
   }
   return Decoration.set(out, true)
@@ -148,6 +264,8 @@ export function ruleBulletAt(state: EditorState, lineFrom: number): Decoration |
 /** Number and mark the graded rules of a SKILL.md described by `about`. */
 export const gradedRules = (about: string, hang: boolean): Extension => [
   field,
+  pointed,
+  pointing,
   decorations,
   description.of(about),
   hanging.of(hang),

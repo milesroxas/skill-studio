@@ -54,8 +54,7 @@ export const editorTheme = EditorView.theme({
   '.cm-line': { padding: `0 ${GUTTER}` },
   // A graded rule's number stands where its bullet was, in the same slot, so rules and plain
   // bullets share one text edge. In the Markdown view it hangs before the source mark instead.
-  // Amber when the checks found something; the words that set a check off are underlined, and
-  // the findings stand under the rule while the cursor is in it.
+  // Amber when the checks found something; the words that set a check off are underlined.
   '.cm-md-rulenum': {
     display: 'inline-block',
     width: `${MARK_SLOT / 0.8}em`,
@@ -74,10 +73,20 @@ export const editorTheme = EditorView.theme({
     textAlign: 'right',
   },
   '.cm-md-rulenum.cm-md-flagged': { color: 'var(--warning)' },
+  // While their note is open the words take the verdict's tint, as a word in a diff does, so the
+  // note reads as being about them. It fades in and out with the note.
   '.cm-md-flag': {
     textDecoration: 'underline dotted',
     textDecorationColor: 'var(--warning)',
     textUnderlineOffset: '3px',
+    borderRadius: '2px',
+    transition: 'background-color 150ms ease-out',
+  },
+  '.cm-md-flag.cm-md-pointed': {
+    backgroundColor: 'color-mix(in oklch, var(--warning) 10%, transparent)',
+  },
+  ':root[data-theme="dark"] & .cm-md-flag.cm-md-pointed': {
+    backgroundColor: 'color-mix(in oklch, var(--warning) 20%, transparent)',
   },
   '.cm-cursor, .cm-dropCursor': { borderLeftColor: 'var(--foreground)', borderLeftWidth: '1.5px' },
   '&.cm-focused > .cm-scroller > .cm-selectionLayer .cm-selectionBackground, .cm-selectionBackground, .cm-content ::selection':

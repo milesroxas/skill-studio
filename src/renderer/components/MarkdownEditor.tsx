@@ -61,7 +61,16 @@ import {
   toggleList,
   toggleQuote,
 } from '../editor/format.ts'
-import { findingsWithin, gradedRules, ruleAt } from '../editor/graded.ts'
+import {
+  dismissNote,
+  type Flag,
+  findingsWithin,
+  gradedRules,
+  holdNote,
+  pointedFlag,
+  releaseNote,
+  ruleAt,
+} from '../editor/graded.ts'
 import { landed, landedField } from '../editor/landed.ts'
 import { skillMarkdown } from '../editor/language.ts'
 import { livePreview } from '../editor/live-preview.ts'
@@ -70,6 +79,7 @@ import { shortcut } from '../keys.ts'
 import { setPreferences, usePreferences } from '../preferences.ts'
 import { registerReplacer } from '../replace.ts'
 import { Assist, type AssistSpec } from './Assist.tsx'
+import { FindingNote } from './FindingNote.tsx'
 import { ColumnToolbar, ToolbarGroup, ToolbarItem } from './layout.tsx'
 import { SelectionTools, type VirtualAnchor } from './SelectionTools.tsx'
 import { TextSizeIndicator } from './TextSize.tsx'
@@ -277,6 +287,21 @@ interface MarkdownEditorProps {
   graded?: boolean
 }
 
+/** A rectangle over `from`..`to`, for a popover to stand by; the editor's box when the range is out of view. */
+function anchorOver(view: EditorView, from: number, to: number): VirtualAnchor {
+  const start = view.coordsAtPos(from)
+  const end = view.coordsAtPos(to, -1)
+  const box = view.dom.getBoundingClientRect()
+  return {
+    getBoundingClientRect: () => {
+      if (!start || !end) return box
+      const left = Math.min(start.left, end.left)
+      const right = Math.max(start.right, end.right)
+      return new DOMRect(left, start.top, Math.max(right - left, 1), end.bottom - start.top)
+    },
+  }
+}
+
 /** Mount once per file: give each file its own `key`, so undo history never crosses files. */
 export function MarkdownEditor({
   ref,
@@ -301,6 +326,9 @@ export function MarkdownEditor({
   >(null)
   const [toolsOpen, setToolsOpen] = useState(false)
   const anchor = useRef<VirtualAnchor | null>(null)
+  /** The underlined words the pointer rests on, with what they set off; kept while the note fades. */
+  const [note, setNote] = useState<{ flag: Flag; open: boolean } | null>(null)
+  const noteAnchor = useRef<VirtualAnchor | null>(null)
   const dragging = useRef(false)
   const settle = useRef<ReturnType<typeof setTimeout>>(undefined)
   /** Names the popout, so the key that moves into it can find it. */
@@ -335,17 +363,7 @@ export function MarkdownEditor({
         return
       }
       const scene = sceneOf(doc, range, refining.current.description)
-      const start = view.coordsAtPos(scene.from)
-      const end = view.coordsAtPos(scene.to, -1)
-      const box = host.current?.getBoundingClientRect()
-      anchor.current = {
-        getBoundingClientRect: () => {
-          if (!start || !end) return box ?? new DOMRect()
-          const left = Math.min(start.left, end.left)
-          const right = Math.max(start.right, end.right)
-          return new DOMRect(left, start.top, Math.max(right - left, 1), end.bottom - start.top)
-        },
-      }
+      anchor.current = anchorOver(view, scene.from, scene.to)
       setTools({ ...scene, findings: findingsWithin(view.state, scene.from, scene.to) })
       setToolsOpen(true)
     }
@@ -419,6 +437,11 @@ export function MarkdownEditor({
         if (update.docChanged && !update.transactions.some((tr) => tr.annotation(fromScreen)))
           latest.current.onChange(update.state.doc.toString())
         count(update.state)
+        const flag = pointedFlag(update.state)
+        if (flag !== pointedFlag(update.startState)) {
+          if (flag) noteAnchor.current = anchorOver(update.view, flag.from, flag.to)
+          setNote((now) => (flag ? { flag, open: true } : now && { ...now, open: false }))
+        }
         if (update.selectionSet || update.docChanged) settled(update.view)
       }),
     ]
@@ -650,6 +673,16 @@ export function MarkdownEditor({
       </ColumnToolbar>
       {instead ?? (banner ? <div className={BANNER}>{banner}</div> : null)}
       <div ref={host} hidden={covered} className={surfaceVariants({ mode })} />
+      {note && !covered ? (
+        <FindingNote
+          anchor={noteAnchor}
+          findings={note.flag.findings}
+          open={note.open}
+          onPointerEnter={() => editor.current && holdNote(editor.current)}
+          onPointerLeave={() => editor.current && releaseNote(editor.current)}
+          onDismiss={() => editor.current && dismissNote(editor.current)}
+        />
+      ) : null}
       {refine && tools && !covered ? (
         <SelectionTools
           id={toolsId}
