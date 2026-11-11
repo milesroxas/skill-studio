@@ -3,6 +3,7 @@
  * sending frame's origin first: only the app's own top frame may call.
  */
 
+import { mkdirSync } from 'node:fs'
 import { isAbsolute, join } from 'node:path'
 import type { Reply, ShellOperation } from '@application/api/contract.ts'
 import {
@@ -15,7 +16,7 @@ import {
 import { preferencesOf } from '@domain/preferences.ts'
 import type { Settings } from '@domain/secrets.ts'
 import { isUpdateRequest, type UpdateRequest } from '@domain/update.ts'
-import { isFile } from '@infrastructure/fs.ts'
+import { assertInside, isFile } from '@infrastructure/fs.ts'
 import { BrowserWindow, dialog, type IpcMainInvokeEvent, ipcMain, shell } from 'electron'
 import { CHANNELS } from '../channels.ts'
 import type { Backend } from './backend.ts'
@@ -145,6 +146,19 @@ export function registerIpc({ backend, secrets, windows, updater, reset, trusted
     if (typeof path !== 'string' || !isAbsolute(path) || !isFile(join(path, 'SKILL.md')))
       throw new Error(`No skill at ${String(path)}.`)
     shell.showItemInFolder(path)
+    return ok(null)
+  })
+
+  handle(CHANNELS.openCaseFiles, async (_event, skill, dir) => {
+    // The page names both, so both are checked here: only a case's own folder, inside its skill.
+    if (typeof skill !== 'string' || !isAbsolute(skill) || !isFile(join(skill, 'SKILL.md')))
+      throw new Error(`No skill at ${String(skill)}.`)
+    if (typeof dir !== 'string' || !isFile(assertInside(skill, join(skill, dir, 'prompt.md'))))
+      throw new Error(`No case at ${String(dir)}.`)
+    const files = assertInside(skill, join(skill, dir, 'files'))
+    mkdirSync(files, { recursive: true })
+    const problem = await shell.openPath(files)
+    if (problem) throw new Error(problem)
     return ok(null)
   })
 

@@ -13,6 +13,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 ### Added
 
 - **Delete run**, under an open run on Results, All cases. It deletes the run's outputs and your corrections on them, and every score stops counting it. The version it was made with stays: when the run was its only copy, the version is saved from the run first. The dialog says what goes, and **Undo** on the status line brings the run back.
+- **Input files** on a saved case, with **Show folder**: it opens the case's `files` folder, where you copy in whatever the prompt is about, such as a screen's code. A run starts in an empty folder and never sees your project, and the case now says so. A folder copied in reaches the agent as you laid it out; before, only the files right in `files` did.
+- The Assistant knows what a run can see and which input files each case has, so it no longer writes a prompt or a check that counts on your project.
 
 ### Changed
 

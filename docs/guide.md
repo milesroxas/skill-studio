@@ -194,6 +194,13 @@ Start with the prompt alone. It is enough to run the case, and reading what the 
 8. **Size** (optional, shown for a skill graded as design, or a case that already has one): tick it and set a width and a height in pixels. A picture must be exactly that size, and one that is not is listed under Missed, as a word count outside the range is. A page is drawn at that size when Jev looks at it, and opens at that width on Results. **Check that a page works on a phone too** has Jev also look at the page 390 px wide. Leave it off for a page made for a desktop window.
 9. Click **Add case**.
 
+**What the agent sees.** A run does not happen in your project. Each case starts in a new, empty folder that holds a copy of the skill, the prompt and the case's input files, and nothing else: the agent cannot read your project, use MCP tools or reach the network. So when a prompt is about something of yours, such as a screen's code, a design file or a document, give the case a copy:
+
+- A screenshot or mock-up: **Add pictures**.
+- Any other file, or a whole folder: open a saved case, click **Show folder** under **Input files**, and copy it in. The form lists what is there when you come back to the window, and the agent finds each file under `files/`, folders as you laid them out.
+
+A check such as "the colors come from the project" can only pass when the project's colors are among the input files.
+
 To change a case, click it in the list, edit it and click **Save case** (Cmd+S). **Delete case**, at the foot of the form, removes it. Past runs keep their outputs.
 
 Checks can come later: on Results, **Add a check** turns what an output got wrong into one.
@@ -289,6 +296,7 @@ The points each part counts, the threshold at which Jev's answer counts as met, 
 | A skill is missing from the Library | Choose Every place, click the round arrow, or add its folder under "Where skills are found" |
 | Save is greyed and a notice says the file or case changed on disk | It changed outside the app after your draft began. "Keep my draft", then Save, writes yours over it; "Use the file on disk" or "Use the case on disk" keeps the other |
 | A bullet keeps its dot and gets no number | Make it a bullet of four words or more, outside a numbered list, and not only a link |
+| The agent says it cannot find your project, a screen or a file the prompt names | A run sees only the skill, the prompt and the case's input files. Open the case and copy what it needs in with **Show folder**, under Input files |
 | A score looks wrong | Read the transcript, then mark the verdict that is wrong |
 | Results shows one output, not two | The case has one version and no run without the skill. Edit the skill and run again, or run with "No skill" under Options |
 

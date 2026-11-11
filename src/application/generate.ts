@@ -25,8 +25,8 @@ import {
   copyTree,
   isFile,
   linkDir,
-  listFiles,
   today,
+  treeFiles,
   writeJson,
 } from '@infrastructure/fs.ts'
 import { readRunMeta, runDir, versionsOf } from '@infrastructure/runs.ts'
@@ -47,9 +47,23 @@ export const MAX_SAMPLES = 10
  */
 export const INPUTS_DIR = '_inputs'
 
-/** The run's copy of one of a case's input files, `rel` being its path in the skill, under the run's `inputs` folder. */
-export const stagedInput = (inputs: string, caseId: string, rel: string): string =>
-  join(inputs, caseId, basename(rel))
+/**
+ * The run's copy of one of a case's input files, `rel` being its path in the
+ * skill, under the run's `inputs` folder. A file under the case's own `files/`
+ * keeps its path inside it; one from elsewhere in the skill goes by its name.
+ */
+export function stagedInput(
+  inputs: string,
+  testCase: Pick<Case, 'id' | 'dir'>,
+  rel: string,
+): string {
+  const own = testCase.dir ? `${testCase.dir}/files/` : null
+  return join(
+    inputs,
+    testCase.id,
+    own && rel.startsWith(own) ? rel.slice(own.length) : basename(rel),
+  )
+}
 const SKILL_DIR = '_skill'
 /** What `exec` rejects with once the process has begun to end everything it started. */
 const STOPPING = 'Stopping.'
@@ -140,7 +154,7 @@ function stageInputs(
         log(`${testCase.id}: input file missing, ${rel}`)
         continue
       }
-      const dest = stagedInput(inputs, testCase.id, rel)
+      const dest = stagedInput(inputs, testCase, rel)
       mkdirSync(dirname(dest), { recursive: true })
       copyFileSync(source, dest)
     }
@@ -340,10 +354,11 @@ async function generateSample(
   mkdirSync(join(dir, OUTPUTS_DIR), { recursive: true })
   const staged = join(options.runDir, INPUTS_DIR, testCase.id)
   const files: string[] = []
-  for (const file of listFiles(staged)) {
-    mkdirSync(join(dir, 'files'), { recursive: true })
-    copyFileSync(join(staged, file), join(dir, 'files', file))
-    files.push(`files/${file}`)
+  for (const { rel, real } of treeFiles(staged)) {
+    const dest = join(dir, 'files', rel)
+    mkdirSync(dirname(dest), { recursive: true })
+    copyFileSync(real, dest)
+    files.push(`files/${rel}`)
   }
   const skillRel = options.skillSource
     ? placeSkill(dir, options.skillSource, options.skillFolder)

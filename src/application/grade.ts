@@ -183,7 +183,7 @@ function fileInside(root: string, path: string): string | null {
  */
 function requestPicture(ctx: GradeContext, testCase: Case, rel: string): string | null {
   return ctx.inputs
-    ? fileInside(ctx.inputs, stagedInput(ctx.inputs, testCase.id, rel))
+    ? fileInside(ctx.inputs, stagedInput(ctx.inputs, testCase, rel))
     : fileInside(ctx.judge.skillDir, join(ctx.judge.skillDir, rel))
 }
 

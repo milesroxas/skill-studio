@@ -207,6 +207,8 @@ const savedCase = {
   prompt: 'Thank Priya.',
   expectedOutcome: '',
   graders: graders('The note names Priya.'),
+  files: [] as string[],
+  dir: 'evals/cases/shift' as string | null,
 }
 
 describe('workingSkill', () => {
@@ -248,6 +250,22 @@ describe('workingSkill', () => {
     ])
   })
 
+  it('names each case’s input files as the agent finds them', () => {
+    const dir = 'evals/cases/shift'
+    const saved = {
+      ...savedCase,
+      files: [`${dir}/files/rota.png`, `${dir}/files/screen/Bookings.tsx`],
+    }
+    const shot = { name: 'new.png', file: null, upload: 'u1' }
+    const inputs = (drafts: Parameters<typeof workingSkill>[2]['cases']) =>
+      workingSkill({}, [saved], { files: {}, cases: drafts }).cases.map((c) => c.inputs)
+    expect(inputs({})).toEqual([['rota.png', 'screen/Bookings.tsx']])
+    // A draft says which pictures the case has; the other files are the saved case's.
+    expect(inputs({ shift: { ...savedCase, words: null, images: [shot] } })).toEqual([
+      ['screen/Bookings.tsx', 'new.png'],
+    ])
+  })
+
   it('reads only a draft of the case’s own, whatever its id', () => {
     // `constructor` is a name every object answers to: no draft of that case was stored.
     const own = { ...savedCase, id: 'constructor' }
@@ -277,8 +295,10 @@ describe('chatSystem', () => {
   it('carries the skill as the reader has it, unsaved work included', () => {
     const system = chatSystem({ screen: 'Cases', open: { file: null, case: 'shift' }, skill })
     expect(system).toContain(
-      '<case name="A covered shift, id shift">\nPrompt: Thank Priya.\nCheck 1: The note names Priya.\n</case>',
+      '<case name="A covered shift, id shift">\nPrompt: Thank Priya.\nInput files: none\nCheck 1: The note names Priya.\n</case>',
     )
+    // Every brief says what a run can see, so no prompt or check counts on the author's project.
+    expect(system).toContain("cannot read the author's project")
     expect(system).toContain(
       'The reader is on the Cases screen. They have the case "A covered shift" open.',
     )

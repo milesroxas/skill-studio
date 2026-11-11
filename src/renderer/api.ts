@@ -122,6 +122,8 @@ export const api = {
   openExternal: transport.openExternal,
   /** Show a skill's folder in the file manager; undefined in a browser. */
   revealSkill: transport.revealSkill,
+  /** Open a case's `files` folder in the file manager; undefined in a browser. */
+  openCaseFiles: transport.openCaseFiles,
   /** Pick a folder in the system's dialog; undefined in a browser, where one is typed. */
   chooseFolder: transport.chooseFolder,
   artifactText: async (run: string, sample: string, file: string): Promise<string> => {

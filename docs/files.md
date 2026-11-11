@@ -12,7 +12,7 @@ Everything Skill Studio knows about a skill is plain files in the skill's `evals
     cases/<case>/prompt.md        the task; front matter: tags, max_turns, timeout_seconds, allowed_tools
     cases/<case>/case.yaml        title, expected_outcome, bench
     cases/<case>/graders/*.md     one check each; front matter: type (llm when absent), focus, weight (1 to 5, 1 when absent), image
-    cases/<case>/files/           input files and pictures the agent gets
+    cases/<case>/files/           input files, folders and pictures the agent gets, laid out as they are here
     cases/<case>/references/      pictures a check is about
     <case>/                       a case folder may also sit here, below
     evals.json                    cases in skill-creator's `evals.json` shape, read when no folder has the same id

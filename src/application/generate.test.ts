@@ -19,6 +19,8 @@ beforeEach(() => {
   mkdirSync(join(skill, 'evals/cases/note/files'), { recursive: true })
   writeFileSync(join(skill, 'evals/cases/note/prompt.md'), 'Write a note.')
   writeFileSync(join(skill, 'evals/cases/note/files/input.txt'), 'first input')
+  mkdirSync(join(skill, 'evals/cases/note/files/screen'))
+  writeFileSync(join(skill, 'evals/cases/note/files/screen/Bookings.tsx'), 'a screen')
 })
 afterEach(() => rmSync(skill, { recursive: true, force: true }))
 
@@ -65,6 +67,19 @@ describe('samplesPerCase', () => {
 })
 
 describe('generateRun', () => {
+  it('gives the agent a folder among the input files as it is laid out, and names its files', async () => {
+    let seen = ''
+    let prompt = ''
+    const engine = engineThat((cwd) => {
+      seen = readFileSync(join(cwd, 'files/screen/Bookings.tsx'), 'utf8')
+      prompt = readFileSync(join(cwd, 'prompt.md'), 'utf8')
+      writeFileSync(join(cwd, 'outputs/note.md'), 'A note.')
+    })
+    await generateRun(options(engine, 1))
+    expect(seen).toBe('a screen')
+    expect(prompt).toContain('files/input.txt, files/screen/Bookings.tsx')
+  })
+
   it('makes every sample from the skill and the inputs as they were when the run started', async () => {
     const seen: string[][] = []
     const engine = engineThat((cwd, call) => {

@@ -9,10 +9,11 @@
  * functions.
  */
 
+import { picturesOf } from './case-draft.ts'
 import { CHANGES_GUIDE } from './changes.ts'
 import type { ImageRef } from './image.ts'
 import { byFileOrder, isEditablePath } from './paths.ts'
-import { type CaseDraft, NEW_CASE_KEY, type SkillDrafts } from './schemas.ts'
+import { type Case, type CaseDraft, NEW_CASE_KEY, type SkillDrafts } from './schemas.ts'
 import { CASE_PROMPT_HINT, CHECK_EXAMPLES, RULE_GUIDE, RULE_SHAPE } from './templates.ts'
 import { closesFence, fenceOf, frontMatterBlock, LIST_MARK } from './text.ts'
 
@@ -170,7 +171,13 @@ export const ASSIST_SCHEMA = {
 /** What Skill Studio and a skill are, in two sentences: how every brief to a model opens. */
 export const APP_INTRO = `Skill Studio is a desktop app for writing agent skills and testing them. A skill is a folder with a SKILL.md an AI agent loads when its description matches the request.`
 
-const APP = `${APP_INTRO} The app runs headless agents on the skill's cases, and Jev, a grading model, marks each output against the skill's rules and the case's checks. The author then reads the new version's output beside the last one's. Where they read a verdict differently from Jev, their answer stands, and what Jev missed becomes a check or a rule.`
+/**
+ * What an agent has in a run. Said in every brief, so a prompt or a check is
+ * never written as if the agent could read the author's project.
+ */
+const RUN_FOLDER = `Each case runs in a new, empty folder that holds only a copy of the skill, the case's prompt and the case's input files. The agent there cannot read the author's project or any other folder, use MCP tools or reach the network, and nobody answers a question it asks. So whatever a prompt is about, such as a screen's code, a design file or a document, has to be in the prompt itself or among the case's input files, and a check can only ask for what the agent could get from those.`
+
+const APP = `${APP_INTRO} The app runs headless agents on the skill's cases, and Jev, a grading model, marks each output against the skill's rules and the case's checks. The author then reads the new version's output beside the last one's. Where they read a verdict differently from Jev, their answer stands, and what Jev missed becomes a check or a rule. ${RUN_FOLDER}`
 
 /** `text` inside an XML-like tag, so a model tells what it is given from what it is asked. */
 export const tag = (name: string, text: string, label?: string): string =>
@@ -344,6 +351,8 @@ export interface SceneCase {
   expected: string
   /** Each check's statement and weight; 1 is usual. */
   checks: Array<{ statement: string; weight: number }>
+  /** The case's input files as the agent finds them in `files/`, pictures among them. */
+  inputs: string[]
   unsaved: boolean
 }
 
@@ -362,8 +371,28 @@ type CaseText = Pick<CaseDraft, 'id' | 'title' | 'prompt' | 'expectedOutcome'> &
   graders: Array<{ statement: string; weight: number }>
 }
 
-const sceneCase = (c: CaseText, unsaved: boolean): SceneCase => ({
+/** A saved case, with where its input files are. */
+type SavedCase = CaseText & Pick<Case, 'files' | 'dir'>
+
+/**
+ * A case's input files by the names the agent finds them under. A draft lists
+ * the case's pictures itself, one just added among them; the other files are
+ * the saved case's.
+ */
+function inputsOf(saved: SavedCase | null, draft: Pick<CaseDraft, 'images'> | null): string[] {
+  const own = saved?.dir ? `${saved.dir}/files/` : null
+  const files = (saved?.files ?? []).map((f) => ({
+    name: own && f.startsWith(own) ? f.slice(own.length) : (f.split('/').at(-1) ?? f),
+    picture: saved !== null && picturesOf(saved).includes(f),
+  }))
+  return draft
+    ? [...files.filter((f) => !f.picture).map((f) => f.name), ...draft.images.map((i) => i.name)]
+    : files.map((f) => f.name)
+}
+
+const sceneCase = (c: CaseText, inputs: string[], unsaved: boolean): SceneCase => ({
   id: c.id,
+  inputs,
   title: c.title,
   prompt: c.prompt,
   expected: c.expectedOutcome,
@@ -381,7 +410,7 @@ const sceneCase = (c: CaseText, unsaved: boolean): SceneCase => ({
  */
 export function workingSkill(
   files: Record<string, string>,
-  cases: CaseText[],
+  cases: SavedCase[],
   drafts: Pick<SkillDrafts, 'files' | 'cases'>,
 ): { files: SceneFile[]; cases: SceneCase[] } {
   const paths = new Set([...Object.keys(files), ...Object.keys(drafts.files)])
@@ -403,9 +432,11 @@ export function workingSkill(
     cases: [
       ...cases.map((c) => {
         const draft = own(drafts.cases, c.id)
-        return draft ? sceneCase({ ...draft, id: c.id }, true) : sceneCase(c, false)
+        return draft
+          ? sceneCase({ ...draft, id: c.id }, inputsOf(c, draft), true)
+          : sceneCase(c, inputsOf(c, null), false)
       }),
-      ...(fresh ? [sceneCase({ ...fresh, id: NEW_CASE_KEY }, true)] : []),
+      ...(fresh ? [sceneCase({ ...fresh, id: NEW_CASE_KEY }, inputsOf(null, fresh), true)] : []),
     ],
   }
 }
@@ -420,7 +451,7 @@ export function workingSkill(
 export const CONTEXT_BUDGET = 40_000
 
 const SCREENS =
-  'Skill (edit SKILL.md and references/, with every version to compare and restore), Cases (the prompts a run is made of, each with checks), Results (two outputs of a case side by side with what each missed, a pick between them, and every run under All cases), Library, Guide and Settings. Run, at the top of the window, has an agent do the cases and saves the skill as a version.'
+  'Skill (edit SKILL.md and references/, with every version to compare and restore), Cases (the prompts a run is made of, each with checks; Add pictures gives a case a picture, and Show folder under Input files opens the folder where the reader puts a copy of any other file or folder the prompt is about), Results (two outputs of a case side by side with what each missed, a pick between them, and every run under All cases), Library, Guide and Settings. Run, at the top of the window, has an agent do the cases and saves the skill as a version.'
 
 /** Where the reader is and what they have open, as the brief says it. */
 function whereText(scene: ChatScene): string {
@@ -485,6 +516,7 @@ const caseText = (c: SceneCase): string =>
     'case',
     [
       `Prompt: ${c.prompt}`,
+      `Input files: ${c.inputs.length ? c.inputs.join(', ') : 'none'}`,
       c.expected ? `A good answer: ${c.expected}` : '',
       ...c.checks.map(
         (check, i) => `Check ${i + 1}${weightNote(check.weight)}: ${check.statement}`,

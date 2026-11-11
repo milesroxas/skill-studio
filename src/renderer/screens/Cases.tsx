@@ -56,6 +56,9 @@ import { CHECK_READERS, checksGraded, kindsLine, plural } from '../model.ts'
 import { caseKey } from '../route.ts'
 
 const nameOf = (path: string): string => path.split('/').at(-1) ?? path
+/** An input file as the agent finds it: by its path inside the case's `files/`, or its name when it is kept elsewhere. */
+const inputName = (path: string, filesDir: string | null): string =>
+  filesDir && path.startsWith(filesDir) ? path.slice(filesDir.length) : nameOf(path)
 
 /** The host's refusal of a save over a case that was written since the draft began. */
 const CHANGED_ON_DISK = /changed on disk/
@@ -267,6 +270,10 @@ export const Cases = memo(function Cases({ ctx }: { ctx: Ctx }) {
   const checksRead = checksGraded(config)
   /** The case's input files that are not its pictures, which the form shows above. */
   const otherFiles = selected ? selected.files.filter((f) => !picturesOf(selected).includes(f)) : []
+  /** The saved case's own `files/` folder, in the skill: where another input file goes. */
+  const caseDir = selected?.dir ?? null
+  const filesDir = caseDir ? `${caseDir}/files/` : null
+  const { openCaseFiles } = api
 
   // The stored drafts are still being read: the form waits, so nothing is typed over a draft not shown yet.
   if (drafts.status === 'loading') return <Loading size="screen" />
@@ -629,17 +636,33 @@ export const Cases = memo(function Cases({ ctx }: { ctx: Ctx }) {
               </FormSection>
             ) : null}
 
-            {otherFiles.length ? (
+            {filesDir || otherFiles.length ? (
               <FormSection
                 layout="stacked"
                 title="Input files"
-                hint="The agent finds these in files/ next to the prompt."
+                hint="A run starts in an empty folder: the agent sees the skill, this prompt and these files, never your project. When the prompt is about something of yours, such as a screen's code, put a copy in this case's files folder."
               >
-                <List size="xs" font="mono">
-                  {otherFiles.map((f) => (
-                    <li key={f}>{nameOf(f)}</li>
-                  ))}
-                </List>
+                {otherFiles.length ? (
+                  <List size="xs" font="mono">
+                    {otherFiles.map((f) => (
+                      <li key={f}>{inputName(f, filesDir)}</li>
+                    ))}
+                  </List>
+                ) : null}
+                {caseDir && openCaseFiles ? (
+                  <Toolbar>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => void openCaseFiles(skill, caseDir).catch(report)}
+                    >
+                      Show folder
+                    </Button>
+                  </Toolbar>
+                ) : filesDir ? (
+                  <Hint>The folder is {filesDir.slice(0, -1)}, in the skill.</Hint>
+                ) : null}
               </FormSection>
             ) : null}
 

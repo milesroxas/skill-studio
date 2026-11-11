@@ -19,6 +19,7 @@ export const CHANNELS = {
   openExternal: 'studio:open-external',
   /** A window asks for a skill's folder in the file manager. */
   revealSkill: 'studio:reveal-skill',
+  openCaseFiles: 'studio:open-case-files',
   /** A window asks for a folder, picked in the system's own dialog. */
   chooseFolder: 'studio:choose-folder',
   /** A window asks the updater for its state or its next step. */

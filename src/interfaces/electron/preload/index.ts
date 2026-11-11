@@ -39,6 +39,7 @@ const bridge: StudioBridge = {
   openArtifact: (url) => ipcRenderer.invoke(CHANNELS.openArtifact, url),
   openExternal: (url) => ipcRenderer.invoke(CHANNELS.openExternal, url),
   revealSkill: (path) => ipcRenderer.invoke(CHANNELS.revealSkill, path),
+  openCaseFiles: (skill, dir) => ipcRenderer.invoke(CHANNELS.openCaseFiles, skill, dir),
   chooseFolder: () => ipcRenderer.invoke(CHANNELS.chooseFolder),
   update: (request) => ipcRenderer.invoke(CHANNELS.update, request),
   onUpdate: subscribe<UpdateState>(CHANNELS.updateState),

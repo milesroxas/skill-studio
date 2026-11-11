@@ -40,6 +40,7 @@ import {
   listFiles,
   present,
   readJson,
+  treeFiles,
   writeJson,
   writeText,
 } from './fs.ts'
@@ -161,7 +162,10 @@ function loadFolderCase(skillDir: string, rel: string): Case | null {
   const spec: Record<string, unknown> =
     read && typeof read === 'object' && !Array.isArray(read) ? read : {}
   const name = basename(rel)
-  const files = listFiles(join(dir, 'files')).map((f) => `${rel}/files/${f}`)
+  // Folders too: a screen's code often comes as a folder, and the agent gets it as it is laid out.
+  const files = treeFiles(join(dir, 'files'), { root: skillDir }).map(
+    (f) => `${rel}/files/${f.rel}`,
+  )
   return {
     id: name,
     legacyId: null,
@@ -409,7 +413,8 @@ export function caseSavedAt(skillDir: string, rel: string): string | null {
  * a newer save; left out, no check is made. A legacy `evals.json` case has no
  * folder to check.
  *
- * Pictures the agent gets go in `files/`, beside any other input file, and a
+ * Pictures the agent gets go right in `files/`, beside any other input file or
+ * folder, which the writer puts there and the form leaves alone, and a
  * check's reference picture in `references/`, named after its check. A picture
  * just added is copied from where `uploadPath` says its upload is; one the
  * draft no longer lists is removed.

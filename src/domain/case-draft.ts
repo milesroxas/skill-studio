@@ -3,9 +3,19 @@ import { type ImageRef, imageTypeOf } from './image.ts'
 import type { Case, CaseDraft } from './schemas.ts'
 import { slug } from './text.ts'
 
-/** A case's own pictures: the images in its `files/`. A legacy case's files stay where they are. */
-export const picturesOf = (c: Case): string[] =>
-  c.dir ? c.files.filter((f) => f.startsWith(`${c.dir}/files/`) && imageTypeOf(f)) : []
+/**
+ * A case's own pictures: the images right in its `files/`. One in a folder
+ * there is an input file like the rest of the folder. A legacy case's files
+ * stay where they are.
+ */
+export function picturesOf(c: Pick<Case, 'files' | 'dir'>): string[] {
+  const own = `${c.dir}/files/`
+  return c.dir
+    ? c.files.filter(
+        (f) => f.startsWith(own) && !f.slice(own.length).includes('/') && imageTypeOf(f),
+      )
+    : []
+}
 
 const savedPicture = (file: string): ImageRef => ({
   name: file.split('/').at(-1) ?? file,

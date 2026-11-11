@@ -250,6 +250,8 @@ export interface StudioBridge {
   openExternal(url: string): Promise<Reply<null>>
   /** Show a skill's folder in the file manager: Finder, File Explorer or the desktop's own. */
   revealSkill(path: string): Promise<Reply<null>>
+  /** Open a case's `files` folder in the file manager, made first when the case has none. `dir` is the case's folder in the skill. */
+  openCaseFiles(skill: string, dir: string): Promise<Reply<null>>
   /** Ask for a folder in the system's own dialog; null when it is cancelled. */
   chooseFolder(): Promise<Reply<string | null>>
   /** Ask where the app's own updates stand, or for their next step; answered with the state after. */
