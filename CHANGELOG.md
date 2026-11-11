@@ -6,6 +6,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-11-10
+
 ### Added
 
 - Results shows a page or a picture as a browser draws it. A case whose output is a page, a component or a picture opens on **Flip**: the output on a stage above the scores, with **A** and **B** (or the A and B keys) putting either one in the same place, so a flip shows exactly what changed. Pick the width a page is drawn at, Phone, Tablet, Desktop or Fit, and the line beside it says how far it is scaled to fit. Two pages scroll together. **Side by side** and **Word diff** are still there.
