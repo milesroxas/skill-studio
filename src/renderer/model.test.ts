@@ -8,6 +8,7 @@ import {
   drawnOf,
   kindsLine,
   liftOf,
+  listLine,
   mergedConfig,
   outputsOf,
   primaryOf,
@@ -23,6 +24,14 @@ describe('kindsLine', () => {
     expect(kindsLine(['generic', 'writing'])).toBe('Generic and Writing')
     expect(kindsLine(['generic', 'code', 'design'], 'or')).toBe('Generic, Code or Design')
     expect(kindsLine([])).toBe('')
+  })
+})
+
+describe('listLine', () => {
+  it('joins words with no comma before the last', () => {
+    expect(listLine(['A good answer', 'checks', 'length'])).toBe('A good answer, checks and length')
+    expect(listLine(['A good answer', 'length', 'size'])).toBe('A good answer, length and size')
+    expect(listLine(['one'])).toBe('one')
   })
 })
 

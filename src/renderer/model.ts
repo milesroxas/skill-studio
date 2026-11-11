@@ -209,12 +209,12 @@ export const partLabel = (layer: string): string => PART_LABEL[layer] ?? capital
 export const kindLabel = (pack: string): string => capital(pack)
 
 /** Kinds of work as a spoken list, in the order given: "Generic, Code and Design". */
-export const kindsLine = (ids: readonly string[], last = 'and'): string => {
-  const list = ids.map(kindLabel)
-  return list.length > 1
-    ? `${list.slice(0, -1).join(', ')} ${last} ${list.at(-1)}`
-    : (list[0] ?? '')
-}
+export const kindsLine = (ids: readonly string[], last = 'and'): string =>
+  listLine(ids.map(kindLabel), last)
+
+/** Words in a line, the last after `last` with no comma before it: "a, b and c". */
+export const listLine = (items: readonly string[], last = 'and'): string =>
+  items.length > 1 ? `${items.slice(0, -1).join(', ')} ${last} ${items.at(-1)}` : (items[0] ?? '')
 
 /** A value as JSON with its keys in order, so two settings that say the same compare equal. */
 const canonical = (value: unknown): string =>

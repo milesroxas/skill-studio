@@ -190,7 +190,7 @@ Start with the prompt alone. It is enough to run the case, and reading what the 
 4. **Pictures** (optional): a screenshot or mock-up the prompt is about. Drop one anywhere on the case, or click **Add pictures**.
 5. Click **Add case**. The rest can wait until you have read an output.
 
-**Describe a good answer**, under the pictures, opens the rest of the case. A saved case, or one started from an example, shows it already:
+The line under the pictures, **A good answer, checks and length**, folds the rest of the case. Click it to open or close it. It is open whenever one of these holds something, as on a case started from an example, and closed while all are empty, before saving and after:
 
 - **A good answer** (optional): one or two sentences on what it does.
 - **Checks** (optional): one fact per row that a good answer makes true. Return starts the next row; Backspace on an empty row removes it. The picture button in a check's corner attaches a mock-up or screenshot the check is about. **×2** makes a check count double. **Write checks with AI** adds checks from the prompt.

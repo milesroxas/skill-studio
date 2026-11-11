@@ -14,6 +14,8 @@ const disclosureVariants = cva('', {
       card: 'rounded-chin border bg-card px-3 py-1',
       /** One row of a `DisclosureList`: the list draws the edges. */
       row: 'px-3 py-2',
+      /** Parts of a form folded under one line between its sections, such as a case's optional parts. */
+      section: '',
     },
   },
   defaultVariants: { variant: 'plain' },
@@ -30,6 +32,9 @@ const triggerVariants = cva(
         card: 'w-full',
         // A title over a line of detail: the chevron sits on the title's line, not between the two.
         row: 'min-w-0 flex-1 items-start [&>svg]:mt-0.75 [&>svg]:text-muted-foreground hover:[&>svg]:text-foreground',
+        // The same line as `plain`: only what it opens differs.
+        section:
+          'text-ui text-muted-foreground hover:text-foreground data-[state=open]:text-foreground [&>svg]:-ml-1',
       },
       /** A row with nothing to open: the chevron's slot stays empty, so titles line up. */
       still: {
@@ -48,6 +53,7 @@ const actionVariants = cva('shrink-0', {
       plain: '',
       card: '',
       row: 'flex w-20 justify-end',
+      section: '',
     },
   },
   defaultVariants: { variant: 'plain' },
@@ -60,6 +66,8 @@ const contentVariants = cva('', {
       card: 'pb-2',
       // Indented past the chevron, under the title it opens.
       row: 'pt-2 pb-1 pl-5 data-[state=open]:animate-ink',
+      // Spaced as the column's own sections are, and faded in: a whole part of the form arrives at once.
+      section: 'flex flex-col gap-8 pt-4 data-[state=open]:animate-ink',
     },
   },
   defaultVariants: { variant: 'plain' },
@@ -91,6 +99,8 @@ export function Disclosure({
   children,
   action,
   defaultOpen,
+  open,
+  onOpenChange,
   variant,
   className,
 }: VariantProps<typeof disclosureVariants> & {
@@ -100,12 +110,17 @@ export function Disclosure({
   /** One control at the end of the line, outside the part that opens and closes. */
   action?: ReactNode
   defaultOpen?: boolean
+  /** Open or closed as the caller holds it, for a block that opens by itself when what it holds is filled in. */
+  open?: boolean
+  onOpenChange?: (open: boolean) => void
   className?: string
 }) {
   const head = <Head variant={variant} summary={summary} still={children === undefined} />
   const block = (
     <Collapsible
       defaultOpen={defaultOpen}
+      open={open}
+      onOpenChange={onOpenChange}
       className={cn(disclosureVariants({ variant }), className)}
     >
       {action ? (

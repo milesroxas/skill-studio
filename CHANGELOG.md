@@ -8,7 +8,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Changed
 
-- A new case shows the task alone: the prompt, a title and pictures. **Describe a good answer** opens the rest (a good answer, checks, length and size); a saved case, or one started from an example, shows it all.
+- A new case shows the task alone: the prompt, a title and pictures. The rest (a good answer, checks, length and size) folds under one line that names it, and opens and closes from there. It opens by itself when any of them holds something, as on a case started from an example, and saving a case never changes which parts show.
 - **Start from an example** folds under the prompt, and its examples fit the kind of work the skill is graded as. Only a skill graded as generic asks for the kind first. Each example ends in **Use**, as picking one fills the form in place.
 - The Cases screen says less. Its notes are one or two sentences each, Title, Pictures and A good answer are marked optional, and Length and Size are one section.
 - A check row is lighter: its ×2 is muted text until it is on, and the pen in each check is gone. **Write checks with AI**, under the list, writes them.

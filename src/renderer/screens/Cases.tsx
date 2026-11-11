@@ -2,10 +2,10 @@
  * Write the cases a run is made of. A case starts as a prompt: what you would
  * really ask the agent. That is enough to run it. What a good answer does, and
  * the checks Jev marks, are easier to write once an output is in front of you,
- * so they are optional here and can be added from Results. A new case shows
- * the task alone, with one button that opens the rest; a saved case, or one
- * filled from an example, shows it all. Edits are kept as drafts per case, so
- * moving between cases, screens or skills never loses typing.
+ * so they are optional here and can be added from Results. They fold under
+ * one line after the task, open whenever one of them holds something, so the
+ * form keeps its shape when a case is saved. Edits are kept as drafts per
+ * case, so moving between cases, screens or skills never loses typing.
  */
 
 import { blankDraft, draftOf, newCaseId, picturesOf, sizeProblem } from '@domain/case-draft.ts'
@@ -56,7 +56,7 @@ import { caseUnsaved, formDraft, unsavedCases } from '../draft-edits.ts'
 import { useAction } from '../hooks.ts'
 import { useAddPictures } from '../images.ts'
 import { shortcut } from '../keys.ts'
-import { checksGraded, kindsLine, plural } from '../model.ts'
+import { checksGraded, kindsLine, listLine, plural } from '../model.ts'
 import { caseKey } from '../route.ts'
 
 const nameOf = (path: string): string => path.split('/').at(-1) ?? path
@@ -138,6 +138,8 @@ export const Cases = memo(function Cases({ ctx }: { ctx: Ctx }) {
     let id = example.id
     for (let n = 2; cases.some((c) => c.id === id); n += 1) id = `${example.id}-${n}`
     setDraft({ ...example, id, graders: example.graders.map((g) => ({ ...g })) })
+    // The example's checks and length open the fold, even one the reader closed.
+    setFolded(null)
   }
 
   /** What the assistant reads beside any field of this case: the skill, the case as typed, its pictures. */
@@ -184,25 +186,13 @@ export const Cases = memo(function Cases({ ctx }: { ctx: Ctx }) {
   const drop = usePictureDrop(pictures.add)
 
   /**
-   * The case whose good answer, checks and length were opened by their button.
-   * Leaving it closes them again: a new case come back to starts as new.
+   * The reader's own open or close of the fold, and the case it was made on.
+   * Leaving the case drops it: a case come back to opens by what it holds.
    */
-  const [moreFor, setMoreFor] = useState<string | null>(null)
+  const [folded, setFolded] = useState<{ key: string; open: boolean } | null>(null)
   useEffect(() => {
-    if (moreFor !== null && moreFor !== key) setMoreFor(null)
-  }, [moreFor, key])
-  const expectedField = useRef<HTMLTextAreaElement>(null)
-  /** The button goes as the parts it opens arrive, so the keyboard moves on to the first of them. */
-  const [focusMore, setFocusMore] = useState(false)
-  useEffect(() => {
-    if (!focusMore) return
-    expectedField.current?.focus()
-    setFocusMore(false)
-  }, [focusMore])
-  const showMore = () => {
-    setMoreFor(key)
-    setFocusMore(true)
-  }
+    if (folded && folded.key !== key) setFolded(null)
+  }, [folded, key])
 
   const wordsError =
     draft.words && !(draft.words[0] >= 0 && draft.words[1] >= draft.words[0])
@@ -298,18 +288,25 @@ export const Cases = memo(function Cases({ ctx }: { ctx: Ctx }) {
   /** Whether checks are graded for this skill at all: writing and workflow are scored on other things. */
   const checksRead = checksGraded(config)
   /**
-   * The parts past the task: a good answer, checks, length and size. A new case
-   * keeps them behind one button until it is pressed or something fills them,
-   * such as an example; a saved case always shows them.
+   * The parts past the task, folded under one line: a good answer, checks,
+   * length and size. The fold is open while any of them holds something, new
+   * case or saved alike, so saving never changes the form's shape; the reader's
+   * own open or close wins until they leave the case.
    */
-  const extras =
-    !isNew ||
-    moreFor === key ||
+  const filled =
     Boolean(draft.expectedOutcome.trim()) ||
     draft.graders.some((g) => g.statement.trim() || g.image) ||
     Boolean(draft.words) ||
     Boolean(draft.size) ||
     Boolean(draft.phone)
+  const extrasOpen = folded?.key === key ? folded.open : filled
+  /** The fold's line names everything it holds. */
+  const extrasLine = listLine([
+    'A good answer',
+    ...(checksRead ? ['checks'] : []),
+    'length',
+    ...(drawn ? ['size'] : []),
+  ])
   /** The case's input files that are not its pictures, which the form shows above. */
   const otherFiles = selected ? selected.files.filter((f) => !picturesOf(selected).includes(f)) : []
   /** The saved case's own `files/` folder, in the skill: where another input file goes. */
@@ -532,70 +529,66 @@ export const Cases = memo(function Cases({ ctx }: { ctx: Ctx }) {
                   <Hint>Screenshots or mock-ups the prompt is about. Drop them anywhere here.</Hint>
                 )}
               </Field>
-
-              {extras ? (
-                <Field>
-                  <Label htmlFor="case-expected" optional>
-                    A good answer
-                  </Label>
-                  <TextArea
-                    ref={expectedField}
-                    id="case-expected"
-                    rows={2}
-                    value={draft.expectedOutcome}
-                    placeholder="What it says first and what it must include"
-                    onValueChange={(expectedOutcome) => set({ expectedOutcome })}
-                    assist={{ field: 'case.expected', ...assist }}
-                  />
-                </Field>
-              ) : (
-                <Toolbar>
-                  <Button type="button" variant="outline" size="sm" onClick={showMore}>
-                    Describe a good answer
-                  </Button>
-                </Toolbar>
-              )}
             </FormSection>
 
-            {extras && checksRead ? (
-              <FormSection
-                layout="stacked"
-                title="Checks"
-                hint="Statements a good answer makes true. Jev marks each one. Optional: easier to write after a first run."
-              >
-                <GuideBox summary="What Jev can mark">
-                  <PairList pairs={CHECK_EXAMPLES} />
-                </GuideBox>
-                <CheckList
-                  key={`${skill}\n${key}`}
-                  graders={draft.graders}
-                  onChange={(graders) => set({ graders })}
-                  examples={kind.cases[0]?.graders.map((g) => g.statement) ?? []}
-                  assist={assist}
-                  report={report}
+            <Disclosure
+              variant="section"
+              summary={extrasLine}
+              open={extrasOpen}
+              onOpenChange={(open) => setFolded({ key, open })}
+            >
+              <Field>
+                <Label htmlFor="case-expected" optional>
+                  A good answer
+                </Label>
+                <TextArea
+                  id="case-expected"
+                  rows={2}
+                  value={draft.expectedOutcome}
+                  placeholder="What it says first and what it must include"
+                  onValueChange={(expectedOutcome) => set({ expectedOutcome })}
+                  assist={{ field: 'case.expected', ...assist }}
                 />
-              </FormSection>
-            ) : null}
-            {extras && !checksRead ? (
-              <FormSection
-                layout="stacked"
-                title="Checks"
-                hint={`A skill graded as ${kindsLine(config.packs)} is not scored on checks. Graded as, on Results, changes that.`}
-              >
-                <Toolbar>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => go('results', { view: 'all' })}
-                  >
-                    Open Results
-                  </Button>
-                </Toolbar>
-              </FormSection>
-            ) : null}
+              </Field>
 
-            {extras ? (
+              {checksRead ? (
+                <FormSection
+                  layout="stacked"
+                  title="Checks"
+                  hint="Statements a good answer makes true. Jev marks each one. Optional: easier to write after a first run."
+                >
+                  <GuideBox summary="What Jev can mark">
+                    <PairList pairs={CHECK_EXAMPLES} />
+                  </GuideBox>
+                  <CheckList
+                    key={`${skill}\n${key}`}
+                    graders={draft.graders}
+                    onChange={(graders) => set({ graders })}
+                    examples={kind.cases[0]?.graders.map((g) => g.statement) ?? []}
+                    assist={assist}
+                    report={report}
+                  />
+                </FormSection>
+              ) : null}
+              {!checksRead ? (
+                <FormSection
+                  layout="stacked"
+                  title="Checks"
+                  hint={`A skill graded as ${kindsLine(config.packs)} is not scored on checks. Graded as, on Results, changes that.`}
+                >
+                  <Toolbar>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => go('results', { view: 'all' })}
+                    >
+                      Open Results
+                    </Button>
+                  </Toolbar>
+                </FormSection>
+              ) : null}
+
               <FormSection layout="stacked" title={drawn ? 'Length and size' : 'Length'}>
                 <CheckRow
                   checked={Boolean(draft.words)}
@@ -678,7 +671,7 @@ export const Cases = memo(function Cases({ ctx }: { ctx: Ctx }) {
                   </>
                 ) : null}
               </FormSection>
-            ) : null}
+            </Disclosure>
 
             {filesDir || otherFiles.length ? (
               <FormSection
