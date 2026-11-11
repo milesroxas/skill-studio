@@ -6,6 +6,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [0.6.1] - 2026-11-11
+
 ### Changed
 
 - Results no longer asks which of two outputs is better. A pick changed no score, and the scores on screen could sway it. What you say now always moves a score: mark the verdict Jev got wrong, or turn what it missed into a check or a rule. Picks already in `evals/reviews.json` stay in the file, and deleting a version still takes the ones on its runs.
