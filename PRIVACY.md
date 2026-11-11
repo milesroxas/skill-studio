@@ -20,7 +20,7 @@ No content is sent to TypeSafe, Anthropic or OpenAI until you start a run, a gra
 
 ## What stays on your computer
 
-- Everything about a skill (cases, runs, reports, your ratings) is plain files in the skill's `evals/` folder ([docs/files.md](docs/files.md)).
+- Everything about a skill (cases, runs, reports, your corrections) is plain files in the skill's `evals/` folder ([docs/files.md](docs/files.md)).
 - The app's own files are in `~/.skill-studio/`: your workspace folders, preferences, drafts, pictures you add, the last version you deleted with its runs (kept so you can undo it), the walkthrough's skill, the assistant's conversation and a log of its token usage.
 - API keys you store are encrypted with your operating system's keychain and kept in the app's user data folder. They are sent only to the service they belong to.
 

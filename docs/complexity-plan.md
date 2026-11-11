@@ -6,7 +6,7 @@ The plan for the one `fallow` gate that fails: `fallow health`, 199 functions ab
 | --- | --- |
 | Status | Phase 1 done; phases 2 to 4 planned |
 | Baseline | 239 above threshold with real coverage at `f53950b`, the commit before the 2026-11-09 audit (199 under fallow's estimate at `000e95c`) |
-| Now | 233 above threshold with real coverage (2026-11-10, 0.5.4): the Library's Mark done and `RowActions` added four in `src/renderer`, functions with branches and no tests |
+| Now | 224 above threshold with real coverage (2026-11-11, 0.7.1) |
 | Duplication | `pnpm exec fallow dupes` reports "No code duplication found" |
 | Gate | The full `fallow` run passes, then joins `pnpm check` |
 | Owner | Miles Roxas |
@@ -66,8 +66,8 @@ Use `health.ignore` only for generated files. Do not raise `maxCyclomatic`, `max
 | `judges/design/index.ts judge`, `score.ts scoreDesign` | 21 / 14 | 21 / 21 | Same shape as writing: measure, then sum. |
 | `ai/claude-code.ts run`, the event callback it hands `runJsonLines` | 27 | 20 | Event parsing out of the stream loop, mirroring the engines. |
 | `domain/config.ts mergeConfig` | 17 | 22 | One nested loop to lift into a named helper. |
-| `application/ai.ts sendImprove` | 13 | 20 | The judge's reading of an answer and the step chooser as two functions. |
-| `http/server.ts server`, `guard.ts refusal`, `ai/anthropic.ts run`, a callback in `infrastructure/cases.ts`, `writing/shape.ts paragraphsOf` | ≤ 19 | 16–22 | Small: one early return or one helper each. |
+| `application/ai.ts sendImproveNow` | 8 | 7 | A CRAP finding only (no tests reach it): a test of the step chooser, or the judge's reading of an answer as its own function. |
+| `http/server.ts server`, `ai/anthropic.ts run`, a callback in `infrastructure/cases.ts`, `writing/shape.ts paragraphsOf` | ≤ 19 | 16–22 | Small: one early return or one helper each. |
 
 - [ ] Phase 2 merged. Count after: _
 
@@ -81,13 +81,13 @@ Two functions carry most of the project's cognitive load. Both are in files nobo
 
 ## Phase 4: the shell and the screens
 
-Highest churn in the repo (`App.tsx` 26 commits, `Editor.tsx` 22, `Library.tsx` 21, `Cases.tsx` 20), so every split here pays back on the next feature. Also the riskiest, since there are no component tests: one pull request per file, and the built app clicked through on a scratch home after each. `App.tsx` first: the hooks it gives up are the ones the screens need.
+Highest churn in the repo (`App.tsx` 33 commits, `Editor.tsx` 29, `Cases.tsx` 28, `Library.tsx` 25), so every split here pays back on the next feature. Also the riskiest, since there are no component tests: one pull request per file, and the built app clicked through on a scratch home after each. `App.tsx` first: the hooks it gives up are the ones the screens need.
 
 | Function | cyc | cog | Split |
 | --- | ---: | ---: | --- |
-| `App.tsx App` | 92 | 132 | Three hooks out of the 37 it holds: `useOpenSkill` (path, state, config, reload, drafts), `useJobs` (the polling effect), `useGuide` (home, practice steps, first-visit hints). Then `Shell` as its own component holding the frame, so `App` wires and routes only. |
+| `App.tsx App` | 92 | 132 | `useSkillState` (`skill-state.ts`: path, state, config, reload, drafts) and `useJobs` (`use-jobs.ts`: the polling effect) are out already; `useGuide` (home, practice steps, first-visit hints) is next of the 39 hooks it holds, at 96 / 126 now. Then `Shell` as its own component holding the frame, so `App` wires and routes only. |
 | `screens/Editor.tsx Editor` | 64 | 85 | `useFileDraft` (text, stale, save, discard) and `useReferenceFiles` (naming, create, delete); the files column and the guide column as components. |
-| `screens/Cases.tsx Cases` | 42 | 49 | `useCaseDraft` (base, stored, dirty, set) and the save and delete actions; the pictures column and the checks list as components. `caseKey` in `route.ts` already holds the selection rule. |
+| `screens/Cases.tsx Cases` | 42 | 49 | `useCaseDraft` (base, stored, dirty, set) and the save and delete actions; the pictures column and the checks list as components. `caseKey` in `route.ts` already holds the selection rule. At 76 / 80 now, second only to `App`. |
 | `components/Run.tsx RunButton`, `Comparison.tsx Comparison`, `VersionDetail.tsx`, `screens/Library.tsx` (`LibraryScreen`, `NewSkill`), `screens/Results.tsx` | 17–54 | 20–65 | Each is one function that both loads and renders; `RunButton` is the largest at 54 / 65. Each becomes a data hook plus a view. |
 | `components/Chat.tsx ChatPanel`, `Refine.tsx RefineBody`, `Setup.tsx`, `SkillSwitcher.tsx`, `Composer.tsx`, `Improve.tsx ImprovePanel`, `Assist.tsx`, `Connections.tsx KeyField`, `Update.tsx UpdateControl`, `MarkdownEditor.tsx`, `Rewrites.tsx`, and eleven at cognitive 16 to 20: `Comparison.tsx Side`, `TranscriptList.tsx`, `TextArea.tsx`, `Verdicts.tsx Row`, `SelectionTools.tsx`, `Jobs.tsx`, `ComboBox.tsx`, `Composer.tsx useCommandMenu`, `drafts.ts useDrafts`, `screens/Welcome.tsx`, `screens/Settings.tsx` | 1–32 | 16–60 | Same pattern at smaller scale. `ChatPanel` (32 / 42) and `ImprovePanel` (20 / 27) already share `PanelFrame.tsx`; the send flow can share a `useSend` hook next. `Assist` (20 / 60) and `MarkdownEditor` (11 / 40) are cognitive findings: deep nesting, not many paths. |
 

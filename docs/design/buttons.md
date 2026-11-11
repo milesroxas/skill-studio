@@ -111,12 +111,12 @@ The loop is write, run, compare, and running is a button, not a place. So the ne
   variant="signal"
   size="sm"
   className="min-w-0 shrink"
-  title={`Next: ${next.label}`}
-  onClick={() => go(next.screen, next.params)}
+  title={`Next: ${goNext.label}`}
+  onClick={() => go(goNext.screen, goNext.params)}
 >
   <span className="truncate">
     <span className="max-lg:sr-only">Next: </span>
-    {next.label}
+    {goNext.label}
   </span>
   <ArrowRightIcon aria-hidden="true" />
 </Button>
@@ -136,7 +136,7 @@ The loop is write, run, compare, and running is a button, not a place. So the ne
 
 - `type="button"` unless it submits a form. A bare button inside a form submits it.
 - An icon-only button has `aria-label` and `title` with the same words.
-- An icon inside a button is `aria-hidden="true"` and takes its size from the button. Do not add `size-*`. The `aria-hidden` is also how `Button` knows which side the icon is on: that side gives up 2px of padding (`data-icon="lead"` or `"trail"`), because a 16px icon holds about 2px of air inside its box and its ink would otherwise sit further from the edge than the text's. Text is centred on its cap height already, so never nudge a label with a margin.
+- An icon inside a button is `aria-hidden="true"` and takes its size from the button. Do not add `size-*`. The `aria-hidden` is also how `Button` knows which side the icon is on: that side gives up 2px of padding (`data-icon="lead"` or `"trail"`, or `"both"` with one on each side), because a 16px icon holds about 2px of air inside its box and its ink would otherwise sit further from the edge than the text's. Text is centred on its cap height already, so never nudge a label with a margin.
 - A label ends in an ellipsis in two cases only: it is busy ("Saving…", "Starting…"), or it opens a dialog that asks more before acting ("Reset Skill Studio…"). A button that acts at once has none.
 - A button is `disabled` when pressing it would change nothing: "Show every hint again" is disabled when no hint has been seen.
 - Every button whose press awaits something is busy until it lands: `busy={saving} busyLabel="Saving…"`. `busy` disables the button and sets `aria-busy`; `busyLabel` is what it says meanwhile, laid over the label in the same cell so the button is as wide as the wider of the two from the start and nothing beside it moves. Never write the swap as a ternary in the label, and never leave an `await` behind a button that stays enabled: a button that comes straight back asks to be pressed again.

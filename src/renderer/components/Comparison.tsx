@@ -461,8 +461,8 @@ const typingIn = (target: EventTarget | null): boolean =>
 /**
  * The stage, the one bar over it and the size line under it. The bar, from
  * the start: which output is in view (A or B with each total, and the keys),
- * which file, and the width a page is drawn at. At its end: a way to open the
- * file full size. Under the stage: the size drawn and how it is scaled.
+ * which file, and the width a page is drawn at. Under the stage: the size drawn,
+ * how it is scaled, and at its end a way to open the file full size.
  */
 function Flip({
   a,

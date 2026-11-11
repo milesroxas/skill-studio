@@ -6,6 +6,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [0.7.1] - 2026-11-11
+
 ### Changed
 
 - A new case shows the task alone: the prompt, a title and pictures. The rest (a good answer, checks, length and size) folds under one line that names it, and opens and closes from there. It opens by itself when any of them holds something, as on a case started from an example, and saving a case never changes which parts show.

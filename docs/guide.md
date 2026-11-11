@@ -21,7 +21,7 @@ The pictures show a sample skill, release-notes. Its scores are made up.
 ### Finding your way
 
 - **Sidebar:** the three screens of the open skill. The number beside Cases counts them. A dot means unsaved work.
-- **Run** (top right): has an agent do the cases. It shows once the skill has a case, and is yellow when running is the step to do now.
+- **Run** (top right, with the version it tests, such as **Run v1**): has an agent do the cases. It shows once the skill has a case, and is yellow when running is the step to do now.
 - **Next** (top right, yellow): the step to do now, when it is on another screen. After a run, it is **Read the results** until you open Results.
 - **Switch skill:** click the skill's name at the top of the sidebar, or press Cmd+K.
 - **Library, Guide and Settings:** at the foot of the sidebar. A run's progress shows there too.
@@ -60,7 +60,7 @@ To add the Jev key later, open **Settings** at the foot of the sidebar. Until yo
 
 ## Take the walkthrough first
 
-Take a finished skill once round the loop. Click **Try it on a sample skill** in the welcome, or **Start the walkthrough** in the Library before your first run. After that, the New skill form has a **Take the walkthrough** link.
+Take a finished skill once round the loop. Click **Try it on a sample skill** in the welcome, or **Start the walkthrough** in the Library before your first run. Until you take it, the New skill form also has a **Take the walkthrough** link.
 
 The walkthrough's skill, Thank-you note, writes short thank-you notes, so a run takes a minute or two. Nothing needs typing. It opens on the Skill screen, with its rules in view. The Walkthrough box in the sidebar shows your step, and clicking it takes you there. The yellow button at the top right is the way on:
 
@@ -88,7 +88,7 @@ The walkthrough never changes what your agents do. To start over, open the skill
 
 To make a new skill:
 
-1. Click **New skill**, or press Cmd+K and type the name. Return creates it when no skill of that name exists; otherwise it opens the one that matches.
+1. Click **New skill**, or press Cmd+K, type the name and press Return. When no skill matches, the New skill form opens with that name filled in; otherwise Return opens the skill that matches.
 2. Type a name in lowercase, with dashes, like release-notes.
 3. Write one line on what it is for. Agents read this to decide when to use it. Left empty, the Skill screen asks for it.
 4. Pick a template: Blank, or a kind of skill with example rules to replace. For a kind of skill, leave "Add 3 sample cases to run against" ticked.
@@ -190,12 +190,12 @@ Start with the prompt alone. It is enough to run the case, and reading what the 
 4. **Pictures** (optional): a screenshot or mock-up the prompt is about. Drop one anywhere on the case, or click **Add pictures**.
 5. Click **Add case**. The rest can wait until you have read an output.
 
-The line under the pictures, **A good answer, checks and length**, folds the rest of the case. Click it to open or close it. It is open whenever one of these holds something, as on a case started from an example, and closed while all are empty, before saving and after:
+The line under the pictures folds the rest of the case and names what it holds, such as **A good answer, checks and length**. Click it to open or close it. It is open whenever one of these holds something, as on a case started from an example, and closed while all are empty, before saving and after:
 
 - **A good answer** (optional): one or two sentences on what it does.
 - **Checks** (optional): one fact per row that a good answer makes true. Return starts the next row; Backspace on an empty row removes it. The picture button in a check's corner attaches a mock-up or screenshot the check is about. **×2** makes a check count double. **Write checks with AI** adds checks from the prompt.
 - **Length** (optional): tick it to score the word count, then set the fewest and the most words.
-- **Size** (optional, beside Length for a skill graded as design, or a case that already has one): tick it and set a width and a height in pixels. A picture must be exactly that size, and one that is not is listed under Missed, as a word count outside the range is. A page is drawn at that size when Jev looks at it, and opens at that width on Results. **Check that a page works on a phone too** has Jev also look at the page 390 px wide. Leave it off for a page made for a desktop window.
+- **Size** (optional, in one section with Length, for a skill graded as design, or a case that already has one): tick it and set a width and a height in pixels. A picture must be exactly that size, and one that is not is listed under Missed, as a word count outside the range is. A page is drawn at that size when Jev looks at it, and opens at that width on Results. **Check that a page works on a phone too** has Jev also look at the page 390 px wide. Leave it off for a page made for a desktop window.
 
 **What the agent sees.** A run does not happen in your project. Each case starts in a new, empty folder that holds a copy of the skill, the prompt and the case's input files, and nothing else: the agent cannot read your project, use MCP tools or reach the network. So when a prompt is about something of yours, such as a screen's code, a design file or a document, give the case a copy:
 
@@ -208,7 +208,7 @@ To change a case, click it in the list, edit it and click **Save case** (Cmd+S).
 
 Checks can come later: on Results, **Add a check** turns what an output got wrong into one.
 
-Some kinds of skill are not scored on checks. A skill graded as Writing or Workflow says so in place of the Checks section, with **Open Results**. **Graded as**, at the foot of All cases on Results, changes how a skill is graded.
+Some kinds of skill are not scored on checks. A skill graded as Writing or Workflow says so in place of the Checks section, inside that fold, with **Open Results**. **Graded as**, at the foot of All cases on Results, changes how a skill is graded.
 
 Write at least three different cases before you trust a score.
 
