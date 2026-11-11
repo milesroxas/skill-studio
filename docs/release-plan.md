@@ -5,7 +5,7 @@ The plan for the next release: what is in it, what is still to do, and the check
 | | |
 | --- | --- |
 | Version | 0.5.2 |
-| Status | Releasing 2026-11-10 |
+| Status | Released 2026-11-10, [v0.5.2](https://github.com/milesroxas/skill-studio/releases/tag/v0.5.2) |
 | Previous release | [v0.5.1](https://github.com/milesroxas/skill-studio/releases/tag/v0.5.1), 2026-11-10 |
 | Target date | 2026-11-10 |
 | Owner | Miles Roxas |
@@ -44,7 +44,7 @@ Checks that are not covered by `pnpm check`.
 - [ ] Run the assistant live on each provider that has only been typechecked: the Anthropic API, OpenAI and Codex. Claude Code has been run live; the other three have not.
 - [ ] Send a picture to the assistant on the Anthropic API, OpenAI and Codex paths. Jev and Claude Code have been run live with a picture.
 - [ ] Go through the welcome at 110% zoom. Its window grows with the zoom, so the page keeps its 760 x 600; this has not been seen at a real 110%.
-- [ ] Once the release is out, open each `releases/latest/download/` link in [releasing.md](releasing.md#updates) and check it fetches the new file.
+- [x] Once the release is out, open each `releases/latest/download/` link in [releasing.md](releasing.md#updates) and check it fetches the new file: all four fetch 0.5.2, and `latest-mac.yml` names 0.5.2. 2026-11-10.
 - [ ] Update an installed 0.5.1 to this release and see **Restart to update**.
 
 ## Release checklist
@@ -56,7 +56,7 @@ The steps in [releasing.md](releasing.md), in order.
 3. [x] `pnpm check` and `pnpm build` pass on `main`.
 4. [ ] `gh workflow run release` builds every platform. Not run for 0.5.2; the tag's own run builds every platform.
 5. [x] In the changelog, rename `## [Unreleased]` to `## [0.5.2] - 2026-11-10`, start a new `## [Unreleased]` above it, and commit.
-6. [ ] `pnpm version patch -m "Release %s"`, then `git push --follow-tags`.
-7. [ ] The release workflow publishes v0.5.2, with the changelog entry as its notes.
+6. [x] `pnpm version patch -m "Release %s"`, then `git push --follow-tags`.
+7. [x] The release workflow publishes v0.5.2, with the changelog entry as its notes.
 8. [ ] A running 0.5.1 finds the update and shows **Restart to update**.
 9. [ ] Start the plan for the next version.
