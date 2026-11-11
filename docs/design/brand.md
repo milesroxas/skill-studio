@@ -52,21 +52,22 @@ The welcome runs in its own 760 x 600 window, laid out for exactly that size and
 
 | Frame | Ground | Holds |
 | --- | --- | --- |
-| Opening | ink (`data-surface="ink"`) | the name, the version in mono, headline with one slab, one sentence, one button, Skip |
-| Tour, steps 01 to 03 | porcelain | step numeral, title, one sentence, one picture, Back and Next |
-| Setup, steps 01 to 03 | porcelain | step numeral, title, one sentence, the step's controls, Back and the way forward |
+| Opening | ink (`data-surface="ink"`) | the name, the version in mono, headline with one slab, one sentence, two ways in: **Try it on a sample skill** (`default`) and **See how it works** (`ghost`) |
+| Tour, steps 01 to 03, on request | porcelain | step numeral, title, one sentence, one picture, Back and Next; the last step's way forward is **Try it on a sample skill** |
+| Setup, one step, only while Jev's key is missing | porcelain | title, one sentence, the key's controls, Back and the way forward |
 
 - **One idea and one action per frame.** Anything more comes one step later, on request. The reader is new and the words are new: three facts in a row are easy, three at once are a wall.
 - The headline is `Heading level="display"` (`text-display`). The step numeral is `text-numeral`, moved 6px left so its stroke sits on the column's edge. Both are in the scale in [typography.md](typography.md).
 - The picture is a sheet with a 1px `border-foreground` edge, `rounded-chin` corners and no shadow.
-- Progress is the step numbers of the part in view in mono: three through the tour, three through the setup. The current one is yellow on ink.
-- The tour and the setup share one step frame (`StepFrame` in `components/WelcomeStep.tsx`): numeral, title and sentence on the left, the step beside them, Back and the way forward at the foot, with nothing between them.
-- The setup comes after the tour: where skills are found (`Folders`), a model to write with, the Jev key. Each step checks first what the app can already reach and asks only for what is missing. Its controls are the same components Settings and the Library use (`components/Connections.tsx`, `components/Folders.tsx`), never copies. They sit in a `StepPanel`, not a sheet: a region is never a card.
-- A setup step's way forward is one button. While the step has something to set up, the step's own control is `default` and the way forward is `outline`, reading "Configure later". Once it is set, the way forward is `default` and reads "Continue", or "Start the walkthrough" on the last step.
+- Progress is the step numbers of the tour in mono, the current one yellow on ink. The setup is one step and shows no progress and no numeral: "01" of one counts nothing.
+- Doing teaches more than watching: the sample skill's walkthrough is the way in, and the tour is the second way, for a reader who wants to see first. Both end at the sample skill.
+- The tour and the setup share one step frame (`StepFrame` in `components/WelcomeStep.tsx`): numeral (left out for a lone step), title and sentence on the left, the step beside them, Back and the way forward at the foot, with nothing between them.
+- The setup asks only for what the walkthrough's first run needs: Jev's key. With the key set, the way in skips it. Where skills are found waits for the Library, a model to write with for Write with AI, and Settings holds both. Its controls are the same components Settings uses (`components/Connections.tsx`), never copies. They sit in a `StepPanel`, not a sheet: a region is never a card.
+- The setup's way forward is one button. While the key is missing, the key's own control is `default` and the way forward is `outline`, reading "Configure later". Once it is set, the way forward is `default` and reads "Start the walkthrough".
 - A frame says each thing once. The sentence under the title says what the step is for, the status says how it stands, and the button says what happens next. No status detail, hint or footnote repeats one of them, and no line explains the screen that comes after: that screen explains itself when it opens. So the setup's `Folders` takes `explain={false}`: the step's sentence already says what is read.
 - A key the app walks someone through (`account` on its entry in `domain/secrets.ts`, today only Jev's) shows a sign-up link and, under it, a `Disclosure` reading "Show me". A quiet line, never a boxed button: it must not outweigh the key's field. It opens the steps, each a mono number, a verb in medium and a few muted words.
 - Every small label is true: the version, the step number, the screen's name. Never a decorative code, a fake serial, a ™ or text in a language the reader is not using. A label a reader cannot use is noise, and a reader who finds one fake label doubts the rest.
-- The way out stays in one corner on every step. It reads "Skip" on a first visit and "Close" after.
+- The way out stays in the title strip's right corner on every frame, the opening included. It reads "Skip" on a first visit and "Close" after.
 
 ## Motion
 

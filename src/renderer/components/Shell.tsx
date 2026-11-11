@@ -171,13 +171,70 @@ export function TopBar({ className, children, ...props }: ComponentProps<'header
     <header
       data-drag
       className={cn(
-        'flex h-12 shrink-0 items-center gap-3 border-b px-4 sm:px-6 in-data-[platform=darwin]:max-sm:pl-21',
+        'flex h-12 shrink-0 items-center gap-2 border-b px-4 sm:px-6 lg:gap-3 in-data-[platform=darwin]:max-sm:pl-21',
         className,
       )}
       {...props}
     >
       {children}
     </header>
+  )
+}
+
+/**
+ * The top bar's right end: how the skill stands, the loop's actions, then the
+ * app's tools, each a group, with more room between the groups than inside
+ * them, so the eye reads three things and not five. It gives way from its
+ * start: on a narrow window the gaps close and the next step's name truncates.
+ */
+export function TopBarEnd({ className, ...props }: ComponentProps<'div'>) {
+  return (
+    <div
+      className={cn('flex min-w-0 items-center justify-end gap-3 lg:gap-5', className)}
+      {...props}
+    />
+  )
+}
+
+const topBarGroupVariants = cva('flex min-w-0 items-center', {
+  variants: {
+    kind: {
+      /** The next step and Run: two buttons that are one decision. */
+      actions: 'gap-2',
+      /**
+       * Help and the Assistant: two icons read as a pair. Under a finger each
+       * reaches 6px past its box, so they stand 12px apart there.
+       */
+      tools: 'gap-1 pointer-coarse:gap-3',
+    },
+  },
+})
+
+/** One group of the top bar's right end. */
+export function TopBarGroup({
+  kind,
+  className,
+  ...props
+}: ComponentProps<'div'> & Required<VariantProps<typeof topBarGroupVariants>>) {
+  return <div className={cn(topBarGroupVariants({ kind }), className)} {...props} />
+}
+
+/**
+ * The skill lacks something its runs need, such as Jev's key: a ghost button
+ * the height of the bar's others, the warning dot before a state in a word or
+ * two, as `Status` says one anywhere else. It names the state and opens where
+ * it is fixed. It is quieter than the actions beside it: a fill here would
+ * read as one more button to press next.
+ */
+export function TopBarWarning({
+  children,
+  ...props
+}: Omit<ComponentProps<typeof Button>, 'variant' | 'size'>) {
+  return (
+    <Button type="button" variant="ghost" size="sm" {...props}>
+      <Dot tone="warning" />
+      {children}
+    </Button>
   )
 }
 

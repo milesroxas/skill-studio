@@ -261,10 +261,15 @@ export const Editor = memo(function Editor({ ctx }: { ctx: Ctx }) {
   const diff = showDiff ? lineDiff(saved ?? '', text) : []
   /** SKILL.md says nothing yet: the sidebar shows how to write a rule and keeps the rest for later. */
   const blank = isSkill && isScaffold(text)
-  /** The practice skill, run once and still holding its vague rule: offer the exact one. */
-  const tightened = isSkill && state.practice && state.runs.length ? applyPracticeEdit(text) : null
-  /** The practice skill before its first run: say which skill this is and what the walkthrough does with it. */
-  const introduced = isSkill && state.practice && !state.runs.length
+  /**
+   * The practice skill, run and its results read, still holding its vague
+   * rule: offer the exact one. Not before the results: the walkthrough has the
+   * reader find what the notes missed first, and the offer would answer it.
+   */
+  const tightened =
+    isSkill && state.practice && state.runs.length && state.practiceSeen.includes('results')
+      ? applyPracticeEdit(text)
+      : null
 
   // Select the rule the reader came for, once the file is in the editor. The
   // selection opens the popout on it, as a click on its number does.
@@ -366,7 +371,8 @@ export const Editor = memo(function Editor({ ctx }: { ctx: Ctx }) {
 
   return (
     <Workbench>
-      <Column kind="list">
+      {/* The document is the screen's point: once the columns stack, its files follow it. */}
+      <Column kind="side">
         <nav aria-label="Skill files" className="contents">
           <ListHeader
             title="Files"
@@ -499,8 +505,9 @@ export const Editor = memo(function Editor({ ctx }: { ctx: Ctx }) {
         </Column>
       ) : (
         <Column>
-          <ColumnHeader>
-            <ColumnTitle>
+          {/* On a narrow window the file's name takes the first row and its actions the second, so the name is never squeezed out. */}
+          <ColumnHeader className="max-lg:flex-wrap">
+            <ColumnTitle className="max-lg:basis-full">
               <Text font="mono" size="ui" weight="medium">
                 {file}
               </Text>
@@ -603,21 +610,15 @@ export const Editor = memo(function Editor({ ctx }: { ctx: Ctx }) {
                     ],
             }}
             banner={
-              notes || blank || tightened || introduced ? (
+              // The practice skill needs no introduction here: the walkthrough in the sidebar says what it is.
+              notes || blank || tightened ? (
                 <>
                   {notes}
-                  {introduced ? (
-                    <Starter
-                      aria-label="The walkthrough’s skill"
-                      title="This is Thank-you note"
-                      hint="The walkthrough’s skill: a finished one that writes a two-sentence thank-you, with three cases to test it. Read its rules below. The walkthrough at the foot of the sidebar then takes it round the loop: run it, read what the notes missed, fix one rule, run it again and compare. No agent of yours uses it."
-                    />
-                  ) : null}
                   {tightened ? (
                     <Starter
                       aria-label="Tighten this rule"
                       title="Tighten this rule"
-                      hint="One rule in this skill is vague on purpose, which is why the notes came back long. Swap it for an exact one, or write your own, then save and run again to see what the edit did."
+                      hint="Swap the vague rule for the exact one, or write your own. Then save."
                     >
                       <PairList pairs={[PRACTICE_EDIT]} marks={['vague', 'exact']} />
                       <Toolbar>

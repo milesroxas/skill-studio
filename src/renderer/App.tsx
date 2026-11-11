@@ -51,13 +51,15 @@ import {
   SidebarFooter,
   SidebarSection,
   TopBar,
+  TopBarEnd,
+  TopBarGroup,
+  TopBarWarning,
   Workspace,
 } from './components/Shell.tsx'
 import { SkillSwitcher } from './components/SkillSwitcher.tsx'
 import { StatusLine } from './components/StatusLine.tsx'
 import { Heading } from './components/text.tsx'
 import { UpdateControl } from './components/Update.tsx'
-import { Badge } from './components/ui/badge.tsx'
 import { Button } from './components/ui/button.tsx'
 import { Popover, PopoverContent, PopoverTrigger } from './components/ui/popover.tsx'
 import { Toggle } from './components/ui/toggle.tsx'
@@ -348,6 +350,8 @@ export function App() {
         }
       : null,
   )
+  /** The next step when it is a place, and the reader is not there yet: the top bar's yellow button. */
+  const goNext = next?.kind === 'go' && !atTarget(next, screen, route.params) ? next : null
 
   /** The open version, and how it scores: the line every screen shows under the skill's name. */
   const versionLine = current
@@ -533,8 +537,10 @@ export function App() {
   const seen = preferences.hintsSeen
   // Each screen of the loop says what it is for on a first visit, once its skill
   // has loaded and not over a spinner or an error. The library needs no line:
-  // on a first visit it already offers the practice skill.
-  const hinted = isSkillScreen(screen) && ctx !== null
+  // on a first visit it already offers the practice skill. Nor does the
+  // practice skill: its walkthrough is the one voice that teaches there, and
+  // the line waits for the reader's own skill.
+  const hinted = isSkillScreen(screen) && ctx !== null && !practice
   const hint =
     help && hinted && preferences.hints === 'show' && !seen.includes(screen) ? help.what : null
   const keep = (patch: Parameters<typeof setPreferences>[0]) => savePreference(patch, report)
@@ -587,66 +593,81 @@ export function App() {
               onForward={forward}
             />
           )}
-          <Heading level="page" className="truncate">
+          {/* A place's name is one short word: it keeps its width, and the bar's right end gives way. */}
+          <Heading level="page" className="shrink-0">
             {place?.label ?? ''}
           </Heading>
           <Spacer />
-          {loaded && !loaded.state.jevKey ? (
-            <Badge variant="warning" asChild>
-              <button
-                type="button"
+          <TopBarEnd>
+            {/* On a narrow window the warning gives way first: Run's panel says the same before a run. */}
+            {loaded && !loaded.state.jevKey ? (
+              <TopBarWarning
+                className="max-lg:hidden"
                 title="Add a TypeSafe key in Settings to grade with Jev"
                 onClick={() => go('settings')}
               >
                 No Jev key
-              </button>
-            </Badge>
-          ) : null}
-          {next?.kind === 'go' && !atTarget(next, screen, route.params) ? (
-            <Button
-              type="button"
-              variant="signal"
-              size="sm"
-              onClick={() => go(next.screen, next.params)}
-            >
-              Next: {next.label}
-              <ArrowRightIcon aria-hidden="true" />
-            </Button>
-          ) : null}
-          {/* Run is the step between writing and comparing. It is yellow when it is the next one. */}
-          {loaded?.state.cases.length ? (
-            <RunButton
-              key={loaded.state.skill.path}
-              state={loaded.state}
-              jobs={jobs}
-              report={report}
-              open={runOpen}
-              onOpenChange={setRunOpen}
-              next={next?.kind === 'run'}
-              unsaved={unsaved.length}
-            />
-          ) : null}
-          <HelpButton
-            label={place?.label ?? ''}
-            help={help}
-            hintsOff={preferences.hints === 'hide' || seen.length > 0}
-            onGuide={(section) => go('docs', section ? { section } : {})}
-            onWelcome={openWelcome}
-            onAsk={() => setAssistant(true)}
-            onShowHints={() => {
-              keep({ hints: 'show', hintsSeen: [] })
-              report('Each screen shows its hint again')
-            }}
-          />
-          <Toggle
-            size="icon-sm"
-            aria-label="Assistant"
-            title={`Assistant (${shortcut('J')})`}
-            pressed={assistant}
-            onPressedChange={setAssistant}
-          >
-            <MessageCircleIcon aria-hidden="true" />
-          </Toggle>
+              </TopBarWarning>
+            ) : null}
+            {goNext || loaded?.state.cases.length ? (
+              <TopBarGroup kind="actions">
+                {goNext ? (
+                  // On a narrow window "Next:" is left to the yellow and a screen reader, and the
+                  // step's name is the last thing to give way: it truncates, the full name in its title.
+                  <Button
+                    type="button"
+                    variant="signal"
+                    size="sm"
+                    className="min-w-0 shrink"
+                    title={`Next: ${goNext.label}`}
+                    onClick={() => go(goNext.screen, goNext.params)}
+                  >
+                    <span className="truncate">
+                      <span className="max-lg:sr-only">Next: </span>
+                      {goNext.label}
+                    </span>
+                    <ArrowRightIcon aria-hidden="true" />
+                  </Button>
+                ) : null}
+                {/* Run is the step between writing and comparing. It is yellow when it is the next one. */}
+                {loaded?.state.cases.length ? (
+                  <RunButton
+                    key={loaded.state.skill.path}
+                    state={loaded.state}
+                    jobs={jobs}
+                    report={report}
+                    open={runOpen}
+                    onOpenChange={setRunOpen}
+                    next={next?.kind === 'run'}
+                    unsaved={unsaved.length}
+                  />
+                ) : null}
+              </TopBarGroup>
+            ) : null}
+            <TopBarGroup kind="tools">
+              <HelpButton
+                label={place?.label ?? ''}
+                help={help}
+                hintsOff={preferences.hints === 'hide' || seen.length > 0}
+                onGuide={(section) => go('docs', section ? { section } : {})}
+                onWelcome={openWelcome}
+                onAsk={() => setAssistant(true)}
+                onShowHints={() => {
+                  keep({ hints: 'show', hintsSeen: [] })
+                  report('Each screen shows its hint again')
+                }}
+              />
+              <Toggle
+                size="icon-sm"
+                aria-label="Assistant"
+                title={`Assistant (${shortcut('J')})`}
+                pressed={assistant}
+                onPressedChange={setAssistant}
+              >
+                <MessageCircleIcon aria-hidden="true" />
+              </Toggle>
+            </TopBarGroup>
+          </TopBarEnd>
         </TopBar>
         {hint ? (
           <ScreenHint onDismiss={() => keep({ hintsSeen: [...seen, screen] })}>{hint}</ScreenHint>

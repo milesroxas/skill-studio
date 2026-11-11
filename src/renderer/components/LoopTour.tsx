@@ -2,6 +2,8 @@
  * The loop, told one step at a time in the welcome: write, run, compare. One
  * step is in view and nothing else: its name, one sentence, a picture, and the
  * button to the next. Three facts in a row are easy; three at once are a wall.
+ * It is the welcome's second way in, for a reader who wants to see before
+ * doing: its last step leads to the same sample skill the opening offers.
  *
  * Every picture is the same example carried forward: the practice skill, one
  * of its cases and one note an agent might write for it. So the tour previews
@@ -24,7 +26,7 @@ import { type Place, placeFor, RUN } from '../places.ts'
 import { List } from './layout.tsx'
 import { Slab } from './Mark.tsx'
 import { Text } from './text.tsx'
-import { STEP_BEAT, StepFrame } from './WelcomeStep.tsx'
+import { STEP_BEAT, StepFrame, TRY_SAMPLE } from './WelcomeStep.tsx'
 
 /** The first sentence of a rule or a check: the instruction, without its why. */
 const lead = (text: string): string => text.split(/(?<=[.!?])\s/)[0]
@@ -232,7 +234,7 @@ const PICTURES: Record<LoopStep['at'], ReactNode> = {
   ),
   results: (
     <>
-      <Part caption="What it missed names the rule to change">
+      <Part caption="The edit">
         <p className="m-0 flex flex-col gap-1 text-ui">
           <del
             className="animate-rise rounded-xs bg-destructive/10 px-1.5 py-0.5 text-destructive"
@@ -272,7 +274,7 @@ export function LoopTour({
   onShow: (index: number) => void
   /** Back from the first step. */
   onBack: () => void
-  /** On from the last step, to the setup. */
+  /** On from the last step, to the sample skill. */
   onDone: () => void
 }) {
   const step = LOOP_STEPS[index]
@@ -292,11 +294,13 @@ export function LoopTour({
       next={{
         label: (
           <>
-            Next
+            {last ? TRY_SAMPLE : 'Next'}
             <ArrowRightIcon aria-hidden="true" />
           </>
         ),
         onClick: () => (last ? onDone() : onShow(index + 1)),
+        // The last press may open the sample skill straight away.
+        busyLabel: last ? 'Starting…' : undefined,
       }}
     >
       {place ? <Sheet place={place}>{PICTURES[step.at]}</Sheet> : null}

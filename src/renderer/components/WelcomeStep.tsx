@@ -1,7 +1,8 @@
 /**
  * One step of the welcome, the frame the tour and the setup share: the step's
  * number large, its title and one sentence in a column, what it shows or asks
- * beside them, and Back and the way forward at the foot.
+ * beside them, and Back and the way forward at the foot. A step that stands
+ * alone, as the setup does, has no number: "01" of one counts nothing.
  *
  * The frame holds still from step to step, so the way forward stays under the
  * pointer and only the step itself changes. The step comes in from the side
@@ -10,6 +11,9 @@
 import type { ReactNode } from 'react'
 import { Heading, Text } from './text.tsx'
 import { Button } from './ui/button.tsx'
+
+/** The welcome's way in, on the opening and at the end of the tour: the walkthrough's sample skill. */
+export const TRY_SAMPLE = 'Try it on a sample skill'
 
 /** When a step's own parts start to move: it has slid in and the eye has reached them. */
 export const STEP_BEAT = 260
@@ -58,9 +62,10 @@ export function StepFrame({
   label: string
   /** The step's own name, so a new step mounts and plays its entrance. */
   id: string
-  index: number
+  /** Where the step stands among its own; left out for a step that stands alone. */
+  index?: number
   /** The step before it, which says which side this one arrives from. */
-  from: number
+  from?: number
   title: string
   say: string
   /** The welcome is on its way out, or onward: neither button can be pressed. */
@@ -85,17 +90,17 @@ export function StepFrame({
       <div
         key={id}
         aria-live="polite"
-        data-from={from > index ? 'before' : 'after'}
+        data-from={from !== undefined && index !== undefined && from > index ? 'before' : 'after'}
         className="flex min-h-0 flex-1 items-start gap-10 overflow-y-auto px-12 pt-9"
       >
         <div className="flex w-58 shrink-0 animate-in flex-col duration-300 ease-out-strong fade-in-0 in-data-[from=after]:slide-in-from-right-3 in-data-[from=before]:slide-in-from-left-3">
-          {/* The number's stroke, not its box, stands on the column's edge. */}
-          <span aria-hidden="true" className="-ml-1.5 text-numeral tabular-nums">
-            {numeral(index)}
-          </span>
-          <Heading level="step" className="pt-7">
-            {title}
-          </Heading>
+          {index === undefined ? null : (
+            // The number's stroke, not its box, stands on the column's edge.
+            <span aria-hidden="true" className="-ml-1.5 pb-7 text-numeral tabular-nums">
+              {numeral(index)}
+            </span>
+          )}
+          <Heading level="step">{title}</Heading>
           <Text as="p" tone="muted" className="m-0 pt-2.5 text-pretty">
             {say}
           </Text>

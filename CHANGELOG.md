@@ -10,6 +10,18 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 - **Delete run**, under an open run on Results, All cases. It deletes the run's outputs and your corrections on them, and every score stops counting it. The version it was made with stays: when the run was its only copy, the version is saved from the run first. The dialog says what goes, and **Undo** on the status line brings the run back.
 
+### Changed
+
+- The welcome asks less before you start. Its main button, **Try it on a sample skill**, opens the walkthrough at once; **See how it works** shows the three-step tour first, for anyone who wants to see before doing. Setup is one step, the Jev key, and only when the key is missing. Where your skills live is added in the Library, and a model for Write with AI in Settings, when you first need them.
+- The walkthrough is four steps instead of seven: run the skill, read what the notes missed, tighten one rule, run it again and compare. It opens on the Skill screen with the rules in view, so reading the skill and its cases are no longer steps of their own.
+- While the walkthrough runs, its box in the sidebar is the only guide on screen: the Skill screen's "This is Thank-you note" note and each screen's first-visit line are gone from the sample skill. The first-visit lines still show on a skill of your own.
+- The walkthrough no longer offers the exact rule before you have read what the notes missed, and without a Jev key it no longer promises a score it cannot give.
+- A run's line in the status strip reads "Run 3 cases with Claude Code", not "Generate 3 case(s): claude".
+- The tour's last step is **Fix, then compare**, in the order you do them.
+- On a narrow window the top bar keeps the screen's name: the "No Jev key" badge gives way first, then "Next:" before the step's name. The Assistant button no longer shrinks.
+- The top bar's right end reads as three groups: the "No Jev key" warning, then the next step and Run, then Help and the Assistant. The warning is now a quiet amber dot and label at the height of the buttons beside it, not a smaller filled badge.
+- On a narrow window the Skill screen opens on the document: its files, versions and inserts follow it. The file's name keeps its own row above Save, and the formatting tools scroll with the text.
+
 ### Security
 
 - The app quits when started with `--use-mock-keychain`, as it does with a remote debugging switch. Started that way, it would have stored a key you typed under a fixed key anyone can read, not the keychain's.

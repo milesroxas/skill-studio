@@ -1,13 +1,15 @@
 /**
  * The welcome: what a first visit sees, and one click from the help ever
  * after. It asks one thing of the reader at a time. First the ink cover: the
- * mark, what the app gives you in a headline and one sentence, one button and,
- * beside it, the way out.
- * Then, only if asked for, the loop in three steps, each alone in view, and the
- * setup in three: where your skills are, a model, Jev's key. The last
- * step leads into the walkthrough. Through both the way out keeps to one
- * corner, and nothing here has to be remembered: every screen explains itself
- * again when it is opened, and Settings keeps every connection for later.
+ * mark, what the app gives you in a headline and one sentence, and two ways
+ * in. The first opens the sample skill, whose walkthrough teaches the loop by
+ * doing it. The second, for a reader who wants to see before doing, tells the
+ * loop in three steps, each alone in view, and ends at the same sample skill.
+ * If Jev's key is missing, one setup step asks for it on the way: the
+ * walkthrough's first run is graded by Jev. The way out keeps to one corner
+ * throughout, and nothing here has to be remembered: every screen explains
+ * itself again when it is opened, and Settings keeps every connection for
+ * later.
  *
  * It is never part of the app's own frame. The desktop app gives it a small
  * window of its own, laid out for exactly this size; a browser shows the same
@@ -17,14 +19,15 @@
 import { ArrowRightIcon } from 'lucide-react'
 import { type ReactNode, useEffect, useState } from 'react'
 import { api } from '../api.ts'
+import { useKeys } from '../components/Connections.tsx'
 import { LoopTour } from '../components/LoopTour.tsx'
 import { Mark, Slab } from '../components/Mark.tsx'
 import { Setup } from '../components/Setup.tsx'
 import { StatusLine } from '../components/StatusLine.tsx'
 import { Heading, Text } from '../components/text.tsx'
 import { Button } from '../components/ui/button.tsx'
-import { StepProgress } from '../components/WelcomeStep.tsx'
-import { LOOP_STEPS, SETUP_STEPS } from '../help.ts'
+import { StepProgress, TRY_SAMPLE } from '../components/WelcomeStep.tsx'
+import { LOOP_STEPS } from '../help.ts'
 import type { Notice, Reporter } from '../hooks.ts'
 import { after, useSwap } from '../motion.ts'
 import { APP_VERSION } from '../updates.ts'
@@ -58,8 +61,10 @@ const to =
 /**
  * The welcome's frame, the size of its window. The top strip moves the window
  * on macOS, where the window buttons sit at its left. Through the tour it holds
- * how far the reader has come and, at its right end, the way out, over a rule.
- * The opening is ink: the strip is bare and the frame is the cover.
+ * how far the reader has come over a rule, and on every frame, at its right
+ * end, the way out. The opening is ink: the strip has no rule and the frame is
+ * the cover. Its 36px sides plus the way out's own 12px put that word's last
+ * letter on the 48px column edge the steps and their buttons keep.
  */
 function Frame({
   ink,
@@ -87,7 +92,7 @@ function Frame({
         <header
           data-drag
           data-rule={!ink || undefined}
-          className="relative z-10 grid h-12 shrink-0 grid-cols-[1fr_auto_1fr] items-center px-5 data-rule:border-b"
+          className="relative z-10 grid h-12 shrink-0 grid-cols-[1fr_auto_1fr] items-center px-9 data-rule:border-b"
         >
           {status}
           {progress}
@@ -105,13 +110,24 @@ function Frame({
 }
 
 /**
- * What the app is for, and the one step to take, on the ink cover. It arrives
- * in the order it is read: the mark draws, the headline, its one sentence, the
- * button and the way out beside it. Then the slab crosses the one word the app
- * is about. The words say what the reader gets, not what a skill is: the tour's
- * first step says that, where the word is first needed.
+ * What the app is for, and the way in, on the ink cover. It arrives in the
+ * order it is read: the mark draws, the headline, its one sentence, then the
+ * two ways in. Then the slab crosses the one word the app is about. The words
+ * say what the reader gets, not what a skill is: the walkthrough and the tour
+ * each say that where the word is first needed.
  */
-function Opening({ onTour, exit }: { onTour: () => void; exit: ReactNode }) {
+function Opening({
+  starting,
+  busy,
+  onTry,
+  onTour,
+}: {
+  /** Its own press is opening the sample skill. */
+  starting: boolean
+  busy: boolean
+  onTry: () => void
+  onTour: () => void
+}) {
   return (
     <div className="relative flex min-h-0 flex-1 flex-col px-12 pb-14">
       <Mark size="cover" />
@@ -143,11 +159,21 @@ function Opening({ onTour, exit }: { onTour: () => void; exit: ReactNode }) {
           Run it on real tasks, compare each version’s results, and see what a change improves.
         </Text>
         <div className="flex animate-rise items-center gap-3 pt-1.5" style={after(280)}>
-          <Button type="button" size="lg" onClick={onTour}>
-            See how it works
+          {/* Doing teaches more than watching: the sample skill is the way in, the tour the second. */}
+          <Button
+            type="button"
+            size="lg"
+            disabled={busy}
+            busy={starting}
+            busyLabel="Starting…"
+            onClick={onTry}
+          >
+            {TRY_SAMPLE}
             <ArrowRightIcon aria-hidden="true" />
           </Button>
-          {exit}
+          <Button type="button" variant="ghost" size="lg" disabled={busy} onClick={onTour}>
+            See how it works
+          </Button>
         </div>
       </div>
     </div>
@@ -166,7 +192,9 @@ export function Welcome({
 }: Props) {
   const { view, leaving: swapping, swap } = useSwap<'opening' | 'tour' | 'setup'>('opening')
   const [step, setStep] = useState<At>({ index: 0, from: 0 })
-  const [setupStep, setSetupStep] = useState<At>({ index: 0, from: 0 })
+  /** Where the setup was reached from, which its Back returns to. */
+  const [setupFrom, setSetupFrom] = useState<'opening' | 'tour'>('opening')
+  const jev = useKeys()
   const touring = view === 'tour'
   const busy = starting || leaving
 
@@ -186,28 +214,25 @@ export function Welcome({
     return () => window.removeEventListener('keydown', handle)
   }, [touring, busy])
 
-  const exit = (size: 'sm' | 'lg') => (
-    <Button type="button" variant="ghost" size={size} disabled={busy} onClick={onLeave}>
-      {first ? 'Skip' : 'Close'}
-    </Button>
-  )
+  /** On to the sample skill, by way of Jev's key while it is missing. */
+  const begin = (from: 'opening' | 'tour') => {
+    if (jev.keys.data?.keys.jev.set) return onStart()
+    setSetupFrom(from)
+    swap('setup')
+  }
 
   return (
     <Frame
       ink={view === 'opening'}
       status={<StatusLine place="head" notice={notice} onDismiss={onDismiss} />}
       leaving={leaving || swapping}
-      progress={
-        view === 'tour' ? (
-          <StepProgress count={LOOP_STEPS.length} index={step.index} />
-        ) : view === 'setup' ? (
-          <StepProgress count={SETUP_STEPS.length} index={setupStep.index} />
-        ) : (
-          <span />
-        )
+      progress={touring ? <StepProgress count={LOOP_STEPS.length} index={step.index} /> : <span />}
+      // The quiet way out keeps to this corner on every frame.
+      exit={
+        <Button type="button" variant="ghost" size="sm" disabled={busy} onClick={onLeave}>
+          {first ? 'Skip' : 'Close'}
+        </Button>
       }
-      // The quiet way out keeps to this corner on every step. The opening holds it beside its button.
-      exit={view === 'opening' ? null : exit('sm')}
     >
       {view === 'tour' ? (
         <LoopTour
@@ -216,24 +241,21 @@ export function Welcome({
           busy={busy}
           onShow={(index) => setStep(to(index))}
           onBack={() => swap('opening')}
-          onDone={() => {
-            setSetupStep({ index: 0, from: 0 })
-            swap('setup')
-          }}
+          onDone={() => begin('tour')}
         />
       ) : view === 'setup' ? (
         <Setup
-          index={setupStep.index}
-          from={setupStep.from}
+          {...jev}
           busy={busy}
           report={report}
-          onShow={(index) => setSetupStep(to(index))}
-          onBack={() => swap('tour')}
+          onBack={() => swap(setupFrom)}
           onStart={onStart}
         />
       ) : (
         <Opening
-          exit={exit('lg')}
+          starting={starting}
+          busy={busy}
+          onTry={() => begin('opening')}
           onTour={() => {
             setStep({ index: 0, from: 0 })
             swap('tour')

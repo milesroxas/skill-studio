@@ -71,42 +71,22 @@ export const LOOP_STEPS: readonly LoopStep[] = [
   {
     at: 'run',
     title: 'Run it on a real task',
-    say: 'A case is a request you might really make. An agent does it with your skill installed, and Jev marks what it wrote against your rules and the case’s checks.',
+    say: 'An AI agent answers a real request with your skill installed. Then Jev, the grader, marks each check.',
   },
   {
     at: 'results',
-    title: 'Compare, then fix',
+    title: 'Fix, then compare',
     say: 'What the note missed names the rule to tighten. Run again and read both notes side by side. That is the loop.',
   },
 ]
 
-export type SetupId = 'folders' | 'assistant' | 'jev'
-
-export interface SetupStep {
-  id: SetupId
-  title: string
-  /** What the step is for, in one or two plain sentences. Its controls say the rest. */
-  say: string
-}
-
 /**
- * What the welcome sets up after the tour, one thing per step. Each checks
- * what the app can already reach before it asks for anything.
+ * What the welcome sets up before the walkthrough: only what its first run
+ * needs. Jev grades the notes; without a key a run grades code checks only.
+ * Where skills are found and a model to write with are asked for where they
+ * are first needed: the Library's empty state and Write with AI.
  */
-export const SETUP_STEPS: readonly SetupStep[] = [
-  {
-    id: 'folders',
-    title: 'Find your skills',
-    say: 'Skill Studio reads the skills you already have. Add the folders your projects live in to find theirs too.',
-  },
-  {
-    id: 'assistant',
-    title: 'Connect a model',
-    say: 'A model writes rules and checks with you.',
-  },
-  {
-    id: 'jev',
-    title: 'Add Jev',
-    say: 'Jev grades every output the same way each time. It needs a TypeSafe key.',
-  },
-]
+export const SETUP_STEP = {
+  title: 'Add Jev',
+  say: 'Jev grades every output the same way each time. It needs a TypeSafe key.',
+} as const

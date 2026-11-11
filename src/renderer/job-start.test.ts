@@ -5,7 +5,7 @@ import { gradingRun } from './job-start.ts'
 const job = (patch: Partial<Job>): Job => ({
   id: 1,
   kind: 'generate',
-  title: 'Generate 2 case(s): claude',
+  title: 'Run 2 cases with Claude Code',
   status: 'running',
   log: [],
   startedAt: 0,

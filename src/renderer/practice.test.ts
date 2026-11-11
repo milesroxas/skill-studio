@@ -81,3 +81,24 @@ describe('practiceGuide, at the comparison', () => {
     })
   })
 })
+
+describe('practiceGuide, at the first results', () => {
+  const ranOnce: PracticeWalk = {
+    versions: ['v0'],
+    progress: practiceProgress({ versions: ['v0'], current: 'v0', seen: [] }),
+  }
+  const hintWith = (jevKey: boolean) =>
+    practiceGuide({ ...state, jevKey } as State, outputs, ranOnce, {
+      screen: 'editor',
+      params: new URLSearchParams(),
+      reading: null,
+      unsaved: false,
+      running: false,
+    }).hint
+
+  it('promises a score only when Jev can give one', () => {
+    expect(hintWith(true)).toContain('its score')
+    expect(hintWith(false)).not.toContain('score')
+    expect(hintWith(false)).toContain('only its length is checked')
+  })
+})

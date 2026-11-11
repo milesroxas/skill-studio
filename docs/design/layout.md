@@ -15,7 +15,9 @@ All in `src/renderer/components/Shell.tsx`, except `StatusLine`, which has its o
 | `SidebarFooter` | Library, Guide, Settings, with a running job above them. `lead` holds the update. |
 | `Workspace` | the column beside the sidebar: the top bar over the pane |
 | `AssistantPane` | the Assistant's panel: a 360px column beside `Workspace` on a wide window, over its right edge on a narrow one |
-| `TopBar` | `HistoryNav` (back and forward), `Heading level="page"`, then the "No Jev key" badge while there is none, the next step and Run (`App.tsx` only), then help and the assistant. Below `sm` a menu button leads it and opens the sidebar as `PopoverContent size="nav"`. |
+| `TopBar` | `HistoryNav` (back and forward), `Heading level="page"`, then `TopBarEnd` (`App.tsx` only). Below `sm` a menu button leads it and opens the sidebar as `PopoverContent size="nav"`. The place's name never shrinks. Below `lg` the bar gives way from its right end in this order: the warning hides (Run's panel says the same before a run), the next step drops "Next:" (a screen reader still hears it), the gaps close, and last the step's name truncates, with the whole name in its title. |
+| `TopBarEnd` | the bar's right end, in three groups, 20px apart (12px below `lg`): `TopBarWarning` while the skill lacks Jev's key, then `TopBarGroup kind="actions"` (the next step and Run, 8px apart), then `TopBarGroup kind="tools"` (help and the Assistant, 4px apart, 12px under a finger). More room between the groups than inside them, so the eye reads three things. Every control in it is 32px high. |
+| `TopBarWarning` | "No Jev key": a `ghost` `sm` button with the warning `Dot` before the state, as `Status` says one. It opens where it is fixed. Never a filled badge: next to the yellow step a fill reads as one more thing to press. |
 | `Pane` | `layout="page"` for a `Screen` (the default), `layout="flush"` for a `Workbench` |
 | `StatusLine` | under the pane: what just happened, in a 48px strip kept for it (a fact for a moment, a failure until dismissed), the top bar's mirror, ink while it speaks. Fed by `ctx.report`. See [data.md](data.md). |
 
@@ -85,7 +87,7 @@ A box around a region adds an edge the eye has to cross and takes 32px of width 
 
 | Part | Use |
 | --- | --- |
-| `Column kind` | `list` (260px), `main` |
+| `Column kind` | `list` (260px), `side` (260px, a list beside an item that is the screen's point: after the item once the columns stack, as the Skill screen's files follow the document), `main` |
 | `ListHeader` | a list column's title, count and add button. A list nothing is added to (the cases on Results) is a `ColumnHeader inset="list"` with the title and count alone. |
 | `ColumnHeader`, `ColumnTitle` | the main column's name and its actions |
 | `ColumnToolbar`, `ToolbarGroup`, `ToolbarItem` | a row of tools under the header |
@@ -106,7 +108,7 @@ Copy `screens/Cases.tsx` for any screen that lists items and edits the one picke
 
 The list column may hold more than one list, each in a `ColumnSection`: the Skill screen lists the files, then the versions. An item of either opens in the main column, named in the route (`file`, `version`).
 
-Below `lg` the columns stack and the pane scrolls. Check every workbench at 720px wide.
+Below `lg` the columns stack and the pane scrolls, a `side` column after the main one. A `ColumnToolbar` sticks under its header only from `lg`: stacked, it scrolls with the document. A header whose actions leave its title no room wraps instead (the Skill screen's: `max-lg:flex-wrap` on the header, `max-lg:basis-full` on its `ColumnTitle`), so the file's name takes the first row. Check every workbench at 720px wide.
 
 ## The stage
 

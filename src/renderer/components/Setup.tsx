@@ -1,198 +1,62 @@
 /**
- * The welcome's setup, after the tour: where your skills are, a model to
- * write with, and Jev's key. One thing per step, each in the welcome's
- * own window, with no trip to Settings.
+ * The welcome's one setup step, before the walkthrough: Jev's key, which
+ * grades the practice skill's notes. The welcome shows it only while the key
+ * is missing. Everything else the app can connect waits for where it is first
+ * needed: where skills are found in the Library, a model in Write with AI, and
+ * all of it in Settings.
  *
- * Every step checks first what Skill Studio can already reach, and asks only
- * for what is missing. All three checks start when the setup opens, so each
- * step has its answer by the time it is reached.
- *
- * The way forward is one button. While a step still has something to set up,
- * the step's own control is the filled one and the way forward reads
- * "Configure later". Once it is set, the way forward fills and reads
- * "Continue", or "Start the walkthrough" on the last step.
+ * The way forward is one button. While the key is missing, the key's own
+ * control is the filled one and the way forward reads "Configure later". Once
+ * it is set, the way forward fills and reads "Start the walkthrough".
  */
-import { AI_PROVIDERS, AI_VENDORS, type AiVendor, accountLine, readyProviders } from '@domain/ai.ts'
-import { isPractice } from '@domain/library.ts'
-import { ArrowRightIcon } from 'lucide-react'
-import { useEffect, useId, useState } from 'react'
-import { loadAi, useAi } from '../ai.ts'
-import { api } from '../api.ts'
-import { SETUP_STEPS, type SetupId } from '../help.ts'
-import { type Reporter, useFetch } from '../hooks.ts'
-import { plural } from '../model.ts'
-import { KeySlot, NO_JEV_KEY, useKeys, VendorRoutes } from './Connections.tsx'
-import { Folders } from './Folders.tsx'
-import { Field, ReadFailed } from './layout.tsx'
-import { Segmented } from './Segmented.tsx'
-import { Status } from './Status.tsx'
-import { Label } from './ui/label.tsx'
+import { SETUP_STEP } from '../help.ts'
+import type { Reporter } from '../hooks.ts'
+import { KeySlot, NO_JEV_KEY, type useKeys } from './Connections.tsx'
 import { StepFrame, StepPanel } from './WelcomeStep.tsx'
 
-const VENDORS = AI_VENDORS.map((vendor) => ({ value: vendor, label: vendor }))
-
 export function Setup({
-  index,
-  from,
+  keys,
+  changed,
   busy,
   report,
-  onShow,
   onBack,
   onStart,
-}: {
-  index: number
-  from: number
+}: ReturnType<typeof useKeys> & {
   /** The practice skill is being opened, or the welcome is on its way out. */
   busy: boolean
   report: Reporter
-  onShow: (index: number) => void
-  /** Back from the first step, to the tour. */
+  /** Back to where the reader came from: the opening or the tour. */
   onBack: () => void
-  /** On from the last step: open the walkthrough. */
+  /** On: open the walkthrough. */
   onStart: () => void
 }) {
-  const library = useFetch(() => api.library(), [])
-  const { keys, changed } = useKeys()
-  const { providers } = useAi()
-  // This window may be the only one open: nothing else has asked the providers yet.
-  useEffect(() => void loadAi(), [])
-
-  const found = library.data?.skills.filter((s) => !isPractice(s)).length ?? 0
-  const done: Record<SetupId, boolean> = {
-    folders: Boolean(library.data && (found > 0 || library.data.workspaces.length > 0)),
-    assistant: Boolean(providers && readyProviders(providers).length > 0),
-    jev: Boolean(keys.data?.keys.jev.set),
-  }
-
-  const step = SETUP_STEPS[index]
-  const last = index === SETUP_STEPS.length - 1
-  const set = done[step.id]
-  const saveFolders = (list: string[], said: string) =>
-    // A failure is the list's to report: it knows which change did not land.
-    api.setWorkspaces(list).then(() => {
-      report(said)
-      library.reload()
-    })
-
+  const set = Boolean(keys.data?.keys.jev.set)
   return (
     <StepFrame
       label="Set up"
-      id={step.id}
-      index={index}
-      from={from}
-      title={step.title}
-      say={step.say}
+      id="jev"
+      title={SETUP_STEP.title}
+      say={SETUP_STEP.say}
       busy={busy}
-      onBack={() => (index === 0 ? onBack() : onShow(index - 1))}
+      onBack={onBack}
       next={{
         variant: set ? 'default' : 'outline',
-        label: !set ? (
-          'Configure later'
-        ) : !last ? (
-          <>
-            Continue
-            <ArrowRightIcon aria-hidden="true" />
-          </>
-        ) : (
-          'Start the walkthrough'
-        ),
-        onClick: () => (last ? onStart() : onShow(index + 1)),
-        // Only the last step's press is waited on: it opens the practice skill.
-        busyLabel: set && last ? 'Starting…' : undefined,
+        label: set ? 'Start the walkthrough' : 'Configure later',
+        onClick: onStart,
+        busyLabel: 'Starting…',
       }}
     >
       <StepPanel>
-        {step.id === 'folders' ? (
-          library.error && !library.data ? (
-            <ReadFailed
-              size="compact"
-              title="Could not look for skills"
-              retrying={library.loading}
-              onRetry={library.reload}
-            >
-              {library.error}
-            </ReadFailed>
-          ) : !library.data ? (
-            <Status tone="muted">Looking for skills…</Status>
-          ) : (
-            <>
-              <Status tone={found ? 'success' : 'muted'}>
-                {found ? `${plural(found, 'skill')} found` : 'No skills found yet'}
-              </Status>
-              {/* The step's own sentence says what is read: the list does not say it again. */}
-              <Folders
-                workspaces={library.data.workspaces}
-                save={saveFolders}
-                report={report}
-                variant={set ? 'outline' : 'default'}
-                explain={false}
-              />
-            </>
-          )
-        ) : step.id === 'assistant' ? (
-          <Assistant keys={keys} report={report} onSaved={changed} />
-        ) : (
-          <KeySlot
-            id="jev"
-            keys={keys}
-            missing={NO_JEV_KEY}
-            optional={false}
-            replace={false}
-            report={report}
-            onSaved={changed}
-          />
-        )}
+        <KeySlot
+          id="jev"
+          keys={keys}
+          missing={NO_JEV_KEY}
+          optional={false}
+          replace={false}
+          report={report}
+          onSaved={changed}
+        />
       </StepPanel>
     </StepFrame>
-  )
-}
-
-/**
- * A model to write with: the ones ready now, or, when there is none, both
- * ways to reach one vendor's models, one vendor at a time.
- */
-function Assistant({
-  keys,
-  report,
-  onSaved,
-}: {
-  keys: ReturnType<typeof useKeys>['keys']
-  report: Reporter
-  onSaved: () => Promise<void>
-}) {
-  const { providers, problem } = useAi()
-  const [vendor, setVendor] = useState<AiVendor>(AI_VENDORS[0])
-  const label = useId()
-
-  if (problem && !providers)
-    return (
-      <ReadFailed size="compact" title="Could not check for a model" onRetry={() => void loadAi()}>
-        {problem}
-      </ReadFailed>
-    )
-  if (!providers) return <Status tone="muted">Checking for a model…</Status>
-
-  const ready = readyProviders(providers)
-  if (ready.length)
-    return ready.map((p) => (
-      <Status key={p.id} tone="success" detail={accountLine(p.id, p.account)}>
-        {AI_PROVIDERS[p.id].label} is ready
-      </Status>
-    ))
-
-  return (
-    <>
-      <Status tone="warning">No model connected</Status>
-      <Field>
-        <Label id={label}>Connect</Label>
-        <Segmented<AiVendor>
-          aria-labelledby={label}
-          value={vendor}
-          onChange={(next) => next && setVendor(next)}
-          options={VENDORS}
-        />
-      </Field>
-      <VendorRoutes vendor={vendor} keys={keys} replace={false} report={report} onSaved={onSaved} />
-    </>
   )
 }

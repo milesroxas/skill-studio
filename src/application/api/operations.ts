@@ -818,7 +818,7 @@ export function createOperations(options: OperationsOptions): Runners {
         throw new Error('This skill is already running. Wait for it to finish, or stop it.')
       const job = runJob(
         'generate',
-        `Generate ${selected.length} case(s): ${engines.map((e) => e.engine.id).join(', ')}`,
+        `Run ${selected.length} ${selected.length === 1 ? 'case' : 'cases'} with ${engines.map((e) => e.engine.label).join(' and ')}`,
         skillPath,
         skillPath,
         async (job, signal) => {

@@ -89,7 +89,8 @@ Does it state how good something is?
  └── No
       ├── A neutral count or state → secondary
       ├── A state that needs an edge on a filled row → outline
-      └── A state that must be acted on now → warning, as a button (asChild)
+      └── A state that must be acted on now → not a badge: a button that opens where it is fixed.
+            In the top bar that is `TopBarWarning` (layout.md).
 ```
 
 `default` (ink fill) and `destructive` (solid red) are not used by any screen. A solid badge outweighs the row it labels. Do not start.

@@ -50,16 +50,21 @@ export interface PracticeGuide {
   next: PracticeTarget | null
 }
 
-/** Where each step happens: a screen, or null for a step that is the Run button's. */
+/**
+ * Where each step happens: a screen, or null for a step that is the Run
+ * button's. The last step is the Run button's until the second run is in,
+ * and Results' after: `screenOf`.
+ */
 const SCREEN: Record<PracticeStep, string | null> = {
-  read: 'editor',
-  cases: 'cases',
   run: null,
   results: 'results',
   edit: 'editor',
-  rerun: null,
   compare: 'results',
 }
+
+/** Where `step` happens now: the comparison waits on a second run, which is the Run button's. */
+const screenOf = (step: PracticeStep, versions: string[]): string | null =>
+  step === 'compare' && versions.length < 2 ? null : SCREEN[step]
 
 /** How far the walkthrough has come, as the skill's own files say. */
 export interface PracticeWalk {
@@ -85,10 +90,11 @@ export function practiceWalk(state: State, outputs: Output[]): PracticeWalk {
 /**
  * The screen the practice skill opens on: where its next step happens, so the
  * first thing in view is the one thing to do. A step that is the Run button's
- * has no screen of its own, and opens on Results.
+ * has no screen of its own, and opens on the Skill screen: what is about to
+ * run is in view, and the Run button beside it.
  */
-export const practiceHome = ({ progress }: PracticeWalk): string =>
-  progress.step ? (SCREEN[progress.step] ?? 'results') : 'editor'
+export const practiceHome = ({ versions, progress }: PracticeWalk): string =>
+  (progress.step && screenOf(progress.step, versions)) ?? 'editor'
 
 export function practiceGuide(
   state: State,
@@ -116,48 +122,43 @@ export function practiceGuide(
     [first, last].every((v) => outputs.some((o) => o.caseId === c.id && versionOf(o) === v)),
   )
 
+  const reran = versions.length > 1
   const copy: Record<PracticeStep, { title: string; hint: string; target: PracticeTarget }> = {
-    read: {
-      title: 'Read the skill',
-      hint: 'Read its rules. The yellow button at the top right is the way on.',
-      target: { label: 'Read the skill', screen: SCREEN.read },
-    },
-    cases: {
-      title: 'Read the cases',
-      hint: 'Three tasks the agent gets. Each says what a good note does, and checks it.',
-      target: { label: 'Read the cases', screen: SCREEN.cases },
-    },
     run: {
       title: 'Run the skill',
-      hint: 'An agent writes a note for each case, then Jev grades it. Click Run at the top right.',
-      target: { label: `Run ${current.version}`, screen: SCREEN.run },
+      hint: 'Its three cases are thank-you requests. An agent writes a note for each, then each note is graded.',
+      target: { label: `Run ${current.version}`, screen: screenOf('run', versions) },
     },
     results: {
       title: 'Read what the notes missed',
-      hint: 'Each note with its score, and under it the rules and checks it missed.',
-      target: { label: 'Read the results', screen: SCREEN.results },
+      // Without Jev a note has no score: only its length is checked, by code.
+      hint: state.jevKey
+        ? 'Each note with its score, and under it the rules and checks it missed.'
+        : 'Each note, and under it what it missed. Without Jev’s key only its length is checked.',
+      target: { label: 'Read the results', screen: screenOf('results', versions) },
     },
     edit: {
       title: 'Tighten one rule',
       hint: now.unsaved
         ? 'Save SKILL.md, so the next run tests your edit.'
         : `“${PRACTICE_EDIT.phrase}” measures nothing. Give it a number.`,
-      target: { label: 'Tighten a rule', screen: SCREEN.edit },
+      target: { label: 'Tighten a rule', screen: screenOf('edit', versions) },
     },
-    rerun: {
-      title: 'Run it again',
-      hint: 'Same cases, new rule: any difference is your edit. Click Run at the top right.',
-      target: { label: `Run ${current.version}`, screen: SCREEN.run },
-    },
-    compare: {
-      title: 'Compare the two notes',
-      hint: `Read ${first} beside ${last}, and see what your one edit changed.`,
-      target: {
-        label: `Compare ${first} and ${last}`,
-        screen: SCREEN.compare,
-        params: compared ? { case: compared.id } : undefined,
-      },
-    },
+    compare: reran
+      ? {
+          title: 'Compare the two notes',
+          hint: `Read ${first} beside ${last}, and see what your one edit changed.`,
+          target: {
+            label: `Compare ${first} and ${last}`,
+            screen: screenOf('compare', versions),
+            params: compared ? { case: compared.id } : undefined,
+          },
+        }
+      : {
+          title: 'Run it again',
+          hint: 'Same requests, new rule: any difference is your edit.',
+          target: { label: `Run ${current.version}`, screen: screenOf('compare', versions) },
+        },
   }
 
   /** The reader is where `target` happens: a step that opens one case is not there on another. */

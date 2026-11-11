@@ -100,14 +100,24 @@ Otherwise → default
 
 ## The next step
 
-The top bar shows where the loop goes next. It is the app's one yellow control. Only `App.tsx` renders it: a screen never adds its own.
+The top bar shows where the loop goes next. It is the app's one yellow control. Only `App.tsx` renders it: a screen never adds its own. Below `lg` it reads the step's name alone ("Read the results"), "Next:" kept for a screen reader, and it is the last part of the bar to give way (see `TopBar` in [layout.md](layout.md)).
 
 The loop is write, run, compare, and running is a button, not a place. So the next step is one of two things: a place to go ("Next: Add a case", "Next: Read the results"), drawn as below, or the run itself. `RunButton` (`components/Run.tsx`) stands in the top bar whenever the skill has a case. It is `signal` when running is the next step and `outline` otherwise, and its label is the same either way ("Run v2"), so it keeps its place. It opens a `form` popover that says what the run will do before the button that starts it, because a run costs money.
 
 ```tsx
 // Correct: App.tsx
-<Button type="button" variant="signal" size="sm" onClick={() => go(next.screen, next.params)}>
-  Next: {next.label}
+<Button
+  type="button"
+  variant="signal"
+  size="sm"
+  className="min-w-0 shrink"
+  title={`Next: ${next.label}`}
+  onClick={() => go(next.screen, next.params)}
+>
+  <span className="truncate">
+    <span className="max-lg:sr-only">Next: </span>
+    {next.label}
+  </span>
   <ArrowRightIcon aria-hidden="true" />
 </Button>
 

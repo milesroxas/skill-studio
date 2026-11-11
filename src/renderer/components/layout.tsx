@@ -138,6 +138,12 @@ const columnVariants = cva(
     variants: {
       kind: {
         list: 'border-b lg:border-r lg:border-b-0',
+        /**
+         * A list beside an item that is the screen's point, such as the Skill
+         * screen's files and versions beside the document: on the left on a wide
+         * window, after the item once the columns stack.
+         */
+        side: 'border-t max-lg:order-last lg:border-t-0 lg:border-r',
         main: '',
       },
     },
@@ -242,8 +248,10 @@ export function ColumnHeader({
 
 /**
  * Tools that act on the column's body, such as formatting, in a row under the
- * header. It sticks just below the header (48px) and covers the header's rule,
- * so the two read as one bar with one rule under it. The bar is one Tab stop:
+ * header. It covers the header's rule, so the two read as one bar with one
+ * rule under it, and from the large breakpoint it sticks just below the header
+ * (48px). Once the columns stack it scrolls with the document: a short window
+ * keeps the room for the text, and a header that wraps is taller than 48px. The bar is one Tab stop:
  * the arrow keys, Home and End move between its `ToolbarItem`s.
  *
  * Its tools are ghost icons, so it starts 8px left of the header's text and
@@ -257,7 +265,7 @@ export function ColumnToolbar({
   return (
     <ToolbarPrimitive.Root
       className={cn(
-        'sticky top-12 z-10 -mt-px flex shrink-0 flex-wrap items-center gap-x-3 gap-y-1 border-b bg-background py-1 pr-6 pl-4 pointer-coarse:gap-y-3',
+        'top-12 z-10 -mt-px flex shrink-0 flex-wrap lg:sticky items-center gap-x-3 gap-y-1 border-b bg-background py-1 pr-6 pl-4 pointer-coarse:gap-y-3',
         className,
       )}
       {...props}

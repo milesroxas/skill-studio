@@ -47,12 +47,12 @@ You need:
 2. **Claude Code or Cursor**, installed and signed in. These agents write the outputs.
 3. **A TypeSafe key** from [typesafe.ai](https://typesafe.ai), for Jev. Without it, outputs get basic automatic checks only: no rule and no check is marked.
 
-The first time you open the app, a welcome walks you through:
+The first time you open the app, a welcome offers two ways in:
 
-1. **See how it works:** the loop in three steps.
-2. **Setup:** where your skills are, a model for the Assistant, and the Jev key. Already set? Click **Continue**. Not now? Click **Configure later**.
+- **Try it on a sample skill** opens the walkthrough below. It teaches the loop by doing it.
+- **See how it works** shows the loop in three steps first, then leads to the same sample skill.
 
-The last setup step's button opens the walkthrough. It reads **Start the walkthrough** once the Jev key is set, and **Configure later** before that.
+If the Jev key is missing, one step asks for it on the way. Not now? Click **Configure later**. The folders your skills live in are added in the Library, and a model for **Write with AI** in Settings, when you first need them.
 
 To see the welcome again, click the question mark, then "How Skill Studio works".
 
@@ -60,19 +60,16 @@ To add the Jev key later, open **Settings** at the foot of the sidebar. Until yo
 
 ## Take the walkthrough first
 
-Take a finished skill once round the loop. Click **Start the walkthrough** in the welcome, or in the Library before your first run. After that, the New skill form has a **Take the walkthrough** link.
+Take a finished skill once round the loop. Click **Try it on a sample skill** in the welcome, or **Start the walkthrough** in the Library before your first run. After that, the New skill form has a **Take the walkthrough** link.
 
-The walkthrough's skill, Thank-you note, writes short thank-you notes, so a run takes a minute or two. Nothing needs typing. The Walkthrough box in the sidebar shows your step, and clicking it takes you there. The yellow button at the top right is the way on:
+The walkthrough's skill, Thank-you note, writes short thank-you notes, so a run takes a minute or two. Nothing needs typing. It opens on the Skill screen, with its rules in view. The Walkthrough box in the sidebar shows your step, and clicking it takes you there. The yellow button at the top right is the way on:
 
-1. **Read the skill.** The Skill screen shows the rules the agent reads.
-2. **Read the cases.** The three tasks, and the checks a good note passes.
-3. **Run the skill.** Click **Run** at the top right, then "Start a run".
-4. **Read what the notes missed.** Results shows each note with its score, and under it the rules and checks it missed.
-5. **Tighten one rule.** "Keep the note to a reasonable length" is vague on purpose, so the notes come back too long. Click "Use the exact rule", then Save.
-6. **Run it again.** Only the rule changed, so any difference is your edit.
-7. **Compare the two notes.** Read a note from each version side by side, and see what your one edit changed.
+1. **Run the skill.** Click **Run** at the top right, then "Start a run". An agent writes a note for each of the three cases.
+2. **Read what the notes missed.** Results shows each note with its score, and under it the rules and checks it missed. Without a Jev key a note has no score, and only its length is checked.
+3. **Tighten one rule.** "Keep the note to a reasonable length" is vague on purpose, so the notes come back too long. Once you have read the results, the Skill screen offers the exact rule: click "Use the exact rule", then Save.
+4. **Run it again, then compare.** Only the rule changed, so any difference is your edit. Once the run is in, read a note from each version side by side.
 
-A step that only asks you to look is done once you open its screen. The box keeps to that step while you read, and the yellow button leads to the one after it.
+Reading what the notes missed and comparing are done once you open Results for them. The box keeps to that step while you read, and the yellow button leads to the one after it. While the walkthrough runs, its box is the only guide on screen: each screen's own first-visit line waits for a skill of your own.
 
 The walkthrough never changes what your agents do. To start over, open the skill menu at the top of the sidebar (Cmd+K) and choose **Restart walkthrough…**.
 

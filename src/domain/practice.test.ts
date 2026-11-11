@@ -86,38 +86,32 @@ describe('practiceProgress', () => {
   })
   const at = (patch: Partial<PracticeFacts>) => practiceProgress(facts(patch)).step
 
-  it('walks the loop in order: write, run, compare', () => {
-    expect(at({})).toBe('read')
-    expect(at({ seen: ['read'] })).toBe('cases')
-    expect(at({ seen: ['read', 'cases'] })).toBe('run')
-    const ran = { versions: ['v0'], seen: ['read', 'cases'] }
+  it('walks the loop in order: run, read, edit, run again and compare', () => {
+    expect(at({})).toBe('run')
+    const ran = { versions: ['v0'] }
     expect(at(ran)).toBe('results')
-    expect(at({ ...ran, seen: ['read', 'cases', 'results'] })).toBe('edit')
+    expect(at({ ...ran, seen: ['results'] })).toBe('edit')
     const edited = { ...ran, current: 'v1', seen: ['results'] }
-    expect(at(edited)).toBe('rerun')
+    expect(at(edited)).toBe('compare')
     const reran = { ...edited, versions: ['v0', 'v1'] }
     expect(at(reran)).toBe('compare')
     expect(at({ ...reran, seen: ['results', 'compare'] })).toBe(null)
   })
 
-  it('counts a run as having read the skill and its cases', () => {
-    const { done } = practiceProgress(facts({ versions: ['v0'] }))
-    expect(done.read).toBe(true)
-    expect(done.cases).toBe(true)
-    expect(done.run).toBe(true)
+  it('starts at the run: the skill and its cases are read on the way, not as steps', () => {
+    expect(at({ seen: ['results'] })).toBe('run')
   })
 
   it('counts an edit as having read what the first run missed', () => {
     const { done, step } = practiceProgress(facts({ versions: ['v0'], current: 'v1' }))
     expect(done.results).toBe(true)
     expect(done.edit).toBe(true)
-    expect(step).toBe('rerun')
+    expect(step).toBe('compare')
   })
 
   it('keeps an edit that was run, even when the files went back to the first version', () => {
     const { done } = practiceProgress(facts({ versions: ['v0', 'v1'], current: 'v0' }))
     expect(done.edit).toBe(true)
-    expect(done.rerun).toBe(true)
   })
 
   it('does not count the comparison before there are two versions to compare', () => {
@@ -139,31 +133,26 @@ describe('practiceProgress', () => {
 describe('practiceView', () => {
   const view = (patch: Partial<PracticeFacts>, looking: LookStep | null) =>
     practiceView(practiceProgress({ versions: [], current: 'v0', seen: [], ...patch }), looking)
-  const ran = { versions: ['v0'], seen: ['read', 'cases'] }
+  const ran = { versions: ['v0'] }
 
   it('keeps to a look step while its screen is in view, and points to the step after it', () => {
     // The screen has just opened, then the mark lands: the guide says the same both times.
-    expect(view({}, 'read')).toEqual({ shown: 'read', next: 'cases' })
-    expect(view({ seen: ['read'] }, 'read')).toEqual({ shown: 'read', next: 'cases' })
-    expect(view({ seen: ['read', 'cases'] }, 'cases')).toEqual({ shown: 'cases', next: 'run' })
-    expect(view({ ...ran, seen: ['read', 'cases', 'results'] }, 'results')).toEqual({
+    expect(view(ran, 'results')).toEqual({ shown: 'results', next: 'edit' })
+    expect(view({ ...ran, seen: ['results'] }, 'results')).toEqual({
       shown: 'results',
       next: 'edit',
     })
   })
 
   it('shows the step in hand, and points to it, from any other screen', () => {
-    expect(view({}, null)).toEqual({ shown: 'read', next: 'read' })
-    expect(view({ seen: ['read', 'cases'] }, 'read')).toEqual({ shown: 'run', next: 'run' })
-    expect(view(ran, 'cases')).toEqual({ shown: 'results', next: 'results' })
+    expect(view({}, null)).toEqual({ shown: 'run', next: 'run' })
+    expect(view(ran, null)).toEqual({ shown: 'results', next: 'results' })
   })
 
   it('does not go back to a look step passed long ago', () => {
-    // Tightening a rule on the Skill screen is not reading the skill again.
-    expect(view({ ...ran, seen: ['read', 'cases', 'results'] }, 'read')).toEqual({
-      shown: 'edit',
-      next: 'edit',
-    })
+    // Back on Results after the edit, before the second run: the step in hand is still the run.
+    const edited = { ...ran, current: 'v1', seen: ['results'] }
+    expect(view(edited, 'results')).toEqual({ shown: 'compare', next: 'compare' })
   })
 
   it('keeps to the comparison while it is read, with nothing after it', () => {

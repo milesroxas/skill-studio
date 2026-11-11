@@ -92,18 +92,13 @@ export const practiceVersionName = (versionsRun: number): string =>
   versionsRun ? 'My edit' : 'As written'
 
 /**
- * Once round the loop, twice past its run: read the skill and its cases, run,
- * read what the notes missed, change one rule, run again, compare.
+ * Once round the loop, twice past its run: run, read what the notes missed,
+ * change one rule, then run again and compare. Four steps, each one thing to
+ * do: the skill and its cases are read on the way, not as steps of their own.
+ * The last step is two moves in one: the second run, then reading it beside
+ * the first.
  */
-export const PRACTICE_STEPS = [
-  'read',
-  'cases',
-  'run',
-  'results',
-  'edit',
-  'rerun',
-  'compare',
-] as const
+export const PRACTICE_STEPS = ['run', 'results', 'edit', 'compare'] as const
 export type PracticeStep = (typeof PRACTICE_STEPS)[number]
 
 /**
@@ -111,7 +106,7 @@ export type PracticeStep = (typeof PRACTICE_STEPS)[number]
  * that they looked, so opening the screen while the step is in hand marks it.
  * The guide still shows the step while that screen is in view: `practiceView`.
  */
-export const LOOK_STEPS = ['read', 'cases', 'results', 'compare'] as const
+export const LOOK_STEPS = ['results', 'compare'] as const
 export type LookStep = (typeof LOOK_STEPS)[number]
 export const isLookStep = (step: string): step is LookStep =>
   (LOOK_STEPS as readonly string[]).includes(step)
@@ -137,16 +132,12 @@ export function practiceProgress(facts: PracticeFacts): PracticeProgress {
   const reran = facts.versions.length > 1
   // Running a second version proves an edit was made, even if it was undone since.
   const edited = reran || (ran && facts.current !== facts.versions[0])
-  // A later step done means the reader went past the look steps before it.
-  const seen = (step: LookStep, past: boolean) => past || facts.seen.includes(step)
   const done: Record<PracticeStep, boolean> = {
-    read: seen('read', ran),
-    cases: seen('cases', ran),
     run: ran,
-    results: seen('results', edited),
+    // An edit means the reader went past what the first run missed.
+    results: edited || facts.seen.includes('results'),
     edit: edited,
-    rerun: reran,
-    // A look step like the others, with two versions to compare.
+    // A look step like the other, once there are two versions to compare.
     compare: reran && facts.seen.includes('compare'),
   }
   return { done, step: PRACTICE_STEPS.find((step) => !done[step]) ?? null }

@@ -40,7 +40,7 @@ const line = cva('relative flex min-w-0 items-center text-ui', {
        * opacity only.
        */
       foot: 'isolate h-12 shrink-0 border-t bg-background px-4 before:absolute before:inset-0 before:-z-10 before:origin-left before:scale-x-0 before:bg-sidebar before:opacity-0 before:transition-[transform,opacity] before:duration-150 before:ease-in data-shown:before:scale-x-100 data-shown:before:opacity-100 data-shown:before:duration-300 data-shown:before:ease-stroke sm:px-6',
-      head: 'h-full in-data-[platform=darwin]:pl-16',
+      head: 'h-full in-data-[platform=darwin]:pl-12',
     },
   },
   defaultVariants: { place: 'foot' },

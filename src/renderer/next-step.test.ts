@@ -48,11 +48,11 @@ describe('nextStep', () => {
   })
 
   it('follows the walkthrough on the practice skill, whatever the skill itself would ask', () => {
-    const target = { label: 'Read the cases', screen: 'cases' }
+    const target = { label: 'Read the results', screen: 'results' }
     expect(nextStep(standing({ cases: 0, practice: { next: target } }))).toEqual({
       kind: 'go',
-      label: 'Read the cases',
-      screen: 'cases',
+      label: 'Read the results',
+      screen: 'results',
       params: undefined,
     })
     expect(nextStep(standing({ changed: true, practice: { next: null } }))).toBeNull()
