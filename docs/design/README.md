@@ -23,6 +23,7 @@ Read this file before any change to `src/renderer`. Then read only the topic fil
 | [forms.md](forms.md) | an input, a choice, a toggle, a form section |
 | [data.md](data.md) | a table, a score, a status, a count |
 | [brand.md](brand.md) | the mark, the ribbon, the welcome, the app icon |
+| [copy.md](copy.md) | any word the app shows: a label, a hint, a placeholder, a dialog, an error |
 
 ## Before you say a UI change is done
 
@@ -34,3 +35,4 @@ Run each check. Each one is a command or a look, not a judgment.
 4. The screen has at most one `signal` element besides a running job's dot and the composer's Stop button.
 5. You looked at the screen in the light theme and the dark theme, at 1280 x 860 and at the 720 x 480 minimum. A component in the sidebar also needs the light theme's ink sidebar, where the page around it is paper.
 6. Every text pair you added meets 4.5:1. [color.md](color.md) lists the pairs already checked.
+7. Every line of text you added passes the checks at the end of [copy.md](copy.md).

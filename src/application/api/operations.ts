@@ -887,7 +887,7 @@ export function createOperations(options: OperationsOptions): Runners {
                 writing = null
                 if (!input.grade || signal.aborted) return !signal.aborted
                 say(job, `${name}: grading`)
-                if (!useJev) say(job, 'No TypeSafe key: code checks only.')
+                if (!useJev) say(job, 'No Jev key: no rule or check is marked.')
                 const judged = await gradeInJob(
                   job,
                   skill.path,
@@ -928,7 +928,7 @@ export function createOperations(options: OperationsOptions): Runners {
         throw new Error('This run is already being graded. Wait for it to finish, or stop it.')
       const useJev = input.jev && Jev.available()
       const job = runJob('grade', `Grade ${input.run}`, skillPath, target, (job, signal) => {
-        if (input.jev && !useJev) say(job, 'No TypeSafe key: code checks only.')
+        if (input.jev && !useJev) say(job, 'No Jev key: no rule or check is marked.')
         return gradeInJob(job, skill.path, input.run, useJev, signal, 'Graded.')
       })
       return { started: true, job: job.id }

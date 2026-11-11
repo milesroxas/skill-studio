@@ -18,6 +18,7 @@ Read [docs/design/README.md](docs/design/README.md) first, then the one topic fi
 3. **Closed sets.** A variant the design docs do not list does not exist. Do not invent one.
 4. **Yellow means next or running.** One `signal` element per window. Never decoration, never success.
 5. **Regions are never cards.** `Screen`, `Workbench` columns or `FormSection`, divided by hairlines.
+6. **Words assume nothing.** The reader is new and does not write code. Say what they do or see, never how the app works, in one sentence, and write no hint that only repeats its heading. Read [docs/design/copy.md](docs/design/copy.md) before you write or change any text the app shows.
 
 If the design docs and the code disagree, the code is what runs: say so in your report and fix the doc in the same change. Do not follow a doc into a variant that is not there.
 

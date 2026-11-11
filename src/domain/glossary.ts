@@ -48,9 +48,9 @@ export const GLOSSARY = {
     means: 'What the agent wrote for one case in one run. Its answer.',
   },
   sample: {
-    term: 'Sample',
+    term: 'Attempt',
     means:
-      'One attempt at a case. Agents vary from one attempt to the next, so two or more samples show whether a result was luck.',
+      'One try at a case. Answers vary from one try to the next, so two or more attempts show whether a result was luck.',
   },
   jev: {
     term: 'Jev',

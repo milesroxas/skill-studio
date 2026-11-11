@@ -34,7 +34,7 @@ The app updates itself after that. Every version is on [Releases](https://github
 You also need:
 
 - The `claude` or `cursor-agent` CLI, installed and signed in. These agents write the outputs.
-- A [TypeSafe](https://typesafe.ai) API key, added under Settings. Without it, grading runs code checks only.
+- A [TypeSafe](https://typesafe.ai) API key, added under Settings. Without it, no rule or check is marked.
 - Optional, to write with AI: the `claude` or `codex` CLI signed in, or an Anthropic or OpenAI API key.
 
 ## Run from source

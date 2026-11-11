@@ -305,7 +305,7 @@ function KeyField({
           {source === 'environment'
             ? 'From the environment'
             : source === 'stored'
-              ? 'In the keychain'
+              ? 'Stored on this computer'
               : 'No key'}
         </Status>
         {set && problem ? <Hint tone="destructive">{problem}</Hint> : null}

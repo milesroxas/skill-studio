@@ -413,7 +413,7 @@ export function deleteBlocked(jobs: { writing: boolean; grading: boolean }): str
 
 /** " · sample 2 of 3", or nothing when the case has one sample. */
 export const sampleTail = (output: Output): string =>
-  output.samples > 1 ? ` · sample ${output.index} of ${output.samples}` : ''
+  output.samples > 1 ? ` · attempt ${output.index} of ${output.samples}` : ''
 
 /** "Claude Opus 5.5 · Nov 2, 10:12": who wrote an output, and when. */
 export const outputDetail = (output: Output): string =>

@@ -173,7 +173,7 @@ const choiceNow = async (): Promise<AiChoice | null> =>
 /** The model in use, or why there is none. */
 async function currentChoice(): Promise<AiChoice> {
   const choice = await choiceNow()
-  if (!choice) throw new Error('Connect a provider in Settings first.')
+  if (!choice) throw new Error('Set up the assistant in Settings first.')
   return choice
 }
 
@@ -550,7 +550,7 @@ const overtaken = (ticket: number): boolean => ticket !== improveStarts
 /** What a start or a reply that was overtaken answers with: the latest start's conversation. */
 const latest = (): Promise<ImproveThread> =>
   latestStart ??
-  Promise.reject(new Error('No rule is being improved. Select one in the Editor first.'))
+  Promise.reject(new Error('No rule is being improved. Select one on the Skill screen first.'))
 
 /** Stop the reply `thread` began, when it began one. */
 const stopReply = (thread: ImproveThread): void => {
@@ -606,7 +606,7 @@ export const sendImprove = (text: string): Promise<ImproveThread> =>
 
 async function sendImproveNow(text: string): Promise<ImproveThread> {
   const thread = improve
-  if (!thread) throw new Error('No rule is being improved. Select one in the Editor first.')
+  if (!thread) throw new Error('No rule is being improved. Select one on the Skill screen first.')
   if (thread.run?.status === 'running') throw new Error('Wait for the reply, or stop it first.')
   const ticket = improveStarts
   thread.messages = [...thread.messages, message(thread.messages, 'user', text)]

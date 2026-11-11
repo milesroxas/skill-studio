@@ -446,7 +446,7 @@ export function saveCase(
   expectedSavedAt?: string | null,
 ): string {
   if (!isSlug(input.id)) throw new Error(SLUG_RULE)
-  if (!input.prompt.trim()) throw new Error('Write the prompt the agent gets.')
+  if (!input.prompt.trim()) throw new Error('Write a prompt first.')
   if (input.words && !(input.words[0] >= 0 && input.words[1] >= input.words[0]))
     throw new Error('The word range needs a minimum below its maximum.')
   const badSize = sizeProblem(input.size)

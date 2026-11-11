@@ -348,12 +348,12 @@ export const Editor = memo(function Editor({ ctx }: { ctx: Ctx }) {
         ) : null}
         {missing.length ? (
           <Alert variant="warning">
-            <AlertTitle>Front matter needs {missing.join(' and ')}</AlertTitle>
+            <AlertTitle>The skill needs a {missing.join(' and a ')}</AlertTitle>
             <AlertDescription>
               {/* One paragraph: the description is a grid, and a bare code span would be a row of its own. */}
               <p>
-                Agents find a skill by its name and description, between the <Code>---</Code> lines
-                at the top.
+                Add it between the <Code>---</Code> lines at the top. It decides when the skill gets
+                used.
               </p>
             </AlertDescription>
           </Alert>

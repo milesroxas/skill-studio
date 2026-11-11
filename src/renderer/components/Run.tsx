@@ -239,7 +239,7 @@ export function RunButton({
               <Status
                 tone="warning"
                 size="ui"
-                detail="Only code checks will grade this run. Add a key in Settings."
+                detail="No rule or check will be marked in this run. Add a key in Settings."
               >
                 No Jev key
               </Status>

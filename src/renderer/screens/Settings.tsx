@@ -198,7 +198,7 @@ export function SettingsScreen({ running, report, onSaved, onWelcome }: Props) {
         {problem ? (
           <ReadFailed
             size="compact"
-            title="Could not read the providers"
+            title="Could not check Claude Code and Codex"
             onRetry={() => void loadAi()}
           >
             {problem}
