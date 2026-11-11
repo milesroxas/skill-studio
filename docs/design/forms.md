@@ -23,7 +23,6 @@ Is it one of 2 to 5 fixed values, all worth seeing? → Segmented
 One value from a longer or changing list? → SelectBox
 Usually one of a few known names, but any other may be typed (a model)? → ComboBox
 Several of a set to show or hide? → FilterGroup
-A number on a continuous range, tuned by feel? → Knob
 Any other number (a bound, minutes)? → NumberInput
 One line of text? → Input
 More than one line? → TextArea
@@ -50,7 +49,6 @@ Every control sits in a `Field` with a `Label` above it. Never a placeholder as 
 
 - An `Input`, `TextArea` or `NumberInput`: `<Label htmlFor="case-title">` and the same `id` on the control.
 - A `Segmented`, `SelectBox` trigger, or a group of controls: `<Label id={…}>` and `aria-labelledby` on the control, or `role="group"` with `aria-labelledby` on the `Field`.
-- `Knob` is the one exception: it draws its own label, exact value and description. Use it bare, not in a `Field`. Its `label` also names the slider's thumb for a screen reader. A number typed in its exact field counts once it is inside the slider's range, and one left outside it goes to the nearest end when the field is left.
 - Help goes under the control in a `Hint`. An error is `<Hint tone="destructive">` under the control, and the control gets `aria-invalid`.
 - A unit goes in the label: "Minimum run length, in minutes". Never as a suffix inside the field.
 - A row of buttons or toggles inside a `Field` sits in a `Toolbar`, so they keep their own width.
@@ -69,7 +67,7 @@ Every control sits in a `Field` with a `Label` above it. Never a placeholder as 
 
 ## Disabling
 
-`Knob` and `FilterGroup` have no `disabled` prop. `Segmented` takes one, for a choice whose change is being saved. Do not fake one with opacity at the call site. If a control truly cannot apply, add `disabled` to the component first. Otherwise leave it enabled and say why it has no effect in a `Hint` under it.
+`FilterGroup` has no `disabled` prop. `Segmented` takes one, for a choice whose change is being saved. Do not fake one with opacity at the call site. If a control truly cannot apply, add `disabled` to the component first. Otherwise leave it enabled and say why it has no effect in a `Hint` under it.
 
 ## Input
 
@@ -77,10 +75,10 @@ Every control sits in a `Field` with a `Label` above it. Never a placeholder as 
 
 - `font="mono"` for a path, a name used as an id, a key, or a command to copy. A command to copy is `readOnly` under its own label ("Run in Terminal"), selects whole on focus, and has a **Copy command** button under it (`CliSetup` in `components/Connections.tsx`).
 - `width="search"` for a search field in a `ListBar`.
-- `size="sm"` only for the value beside a slider, in `Knob`.
+- `size="sm"` only for a field in a narrow list column: a new file's name on the Skill screen.
 - An input's fill is `bg-card`. On porcelain its 1.5:1 edge is not enough to find it. Every field (`Input`, `TextArea`, the `Select` trigger) takes its edge and fill from `FIELD_SURFACE` in `ui/input.tsx`: change it there, once.
 
-`TextArea` variants: `default` (84px minimum, grows), `line` (one line that grows as it wraps, 36px to start: a check reads as an input until it needs more). Under it, `Textarea` in `ui/textarea.tsx` takes `variant`: `default`, the field's edge and fill from `FIELD_SURFACE`, or `bare`: no edge, no fill and no shadow in any theme, and no resize grip. `bare` is for a field inside a frame that draws the edge and shows the focus, and is used only by the composer: its `box` frame turns its edge to `--ring` while the field has focus ([color.md](color.md)), and in a popover the composer is the popover's one field. A `bare` field on its own would show neither where it is nor that it has focus. `CheckRow` takes `size` (`default`, `sm`) and a `description` line under its label. `NumberInput` takes `width` (`default`, `value` for a number beside a slider, `full`). `SelectBox` takes `width` (`auto`, `full`, `wide` for an output with its version, writer and time), `size` (`default`, `sm` 32px), `none` (the label of the choice that means no value) and `groups`. Nothing else on these changes their look.
+`TextArea` variants: `default` (84px minimum, grows), `line` (one line that grows as it wraps, 36px to start: a check reads as an input until it needs more). Under it, `Textarea` in `ui/textarea.tsx` takes `variant`: `default`, the field's edge and fill from `FIELD_SURFACE`, or `bare`: no edge, no fill and no shadow in any theme, and no resize grip. `bare` is for a field inside a frame that draws the edge and shows the focus, and is used only by the composer: its `box` frame turns its edge to `--ring` while the field has focus ([color.md](color.md)), and in a popover the composer is the popover's one field. A `bare` field on its own would show neither where it is nor that it has focus. `CheckRow` takes `size` (`default`, `sm`) and a `description` line under its label. `NumberInput` takes `width` (`default`, `full`). `SelectBox` takes `width` (`auto`, `full`, `wide` for an output with its version, writer and time), `size` (`default`, `sm` 32px), `none` (the label of the choice that means no value) and `groups`. Nothing else on these changes their look.
 
 ## Corner actions
 
@@ -94,7 +92,7 @@ An action about a field's own content sits in the field's corner as a `CornerBut
 
 `Segmented` is one choice. Its `size` defaults to `sm`, and call sites leave it there, in forms too. The one exception is a `ListBar` beside a default-size search field: "Whose skills" in `Library.tsx` passes `size="default"` so the two match. Anywhere else a taller one stands out against every other in the app. `fill` spreads its segments over the row's width.
 
-The pressed segment is ink fill (`bg-primary`). A choice not yet made (a pick between two outputs) has no segment pressed.
+The pressed segment is ink fill (`bg-primary`). A choice not yet made has no segment pressed.
 
 `FilterGroup` is several toggles that show or hide: what is shown reads plain, what is hidden fades. It never takes ink fill: a filter is not a commitment.
 
@@ -124,7 +122,7 @@ The pressed `outline` toggle is ink fill, the same as `Segmented`, so "on" reads
 - `FormActions` at the foot of a saved form: primary first, destructive last after `Spacer`.
 - A form whose one action costs something says what it will do before the action: Run states the output count and how it adds up in a `Hint` over "Start a run" (`components/Run.tsx`).
 - An action that is the only control of its section ("Reset Skill Studio…") sits in a `Toolbar` inside a `FormSection` of its own, as in `Settings.tsx`.
-- "Discard" acts only when the form is dirty, and goes through `ctx.confirm`. A case and Scoring show it only then; the Skill screen's header keeps it in place, disabled.
+- "Discard" acts only when the form is dirty, and goes through `ctx.confirm`. A case and Graded as show it only then; the Skill screen's header keeps it in place, disabled.
 - Adding or removing a repeated row moves focus with it: to the new row, or to the next row's remove button.
 - Fields in a repeated row start on the column's edge. Row numbers hang in the margin. Trailing icon actions end on the edge and use `ghost-muted`.
 

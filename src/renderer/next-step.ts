@@ -1,7 +1,7 @@
 /**
  * The one step the top bar suggests, worked out without React so it can be
- * tested. In loop order: write a case, run, compare. The practice skill's
- * walkthrough names its own step, and a running job has none.
+ * tested. In loop order: write a case, run, read what the run wrote. The
+ * practice skill's walkthrough names its own step, and a running job has none.
  */
 
 /** Where a step happens: a screen, or null for a step that is the Run button's. */
@@ -33,8 +33,8 @@ export interface Standing {
   runs: number
   /** The files changed since the last run. */
   changed: boolean
-  /** The first case whose two outputs have no pick between them, with each side's name. */
-  compare: { caseId: string; a: string; b: string } | null
+  /** A run finished since Results was last open. */
+  unread: boolean
 }
 
 /** The step to suggest; null when the skill is not loaded, a job runs, or nothing is left to do. */
@@ -44,16 +44,24 @@ export function nextStep(standing: Standing | null): NextStep | null {
   if (!standing.cases)
     return { kind: 'go', label: 'Add a case', screen: 'cases', params: { new: '1' } }
   if (standing.changed || !standing.runs) return { kind: 'run' }
-  const { compare } = standing
-  return compare
-    ? {
-        kind: 'go',
-        label: `Compare ${compare.a} and ${compare.b}`,
-        screen: 'results',
-        params: { case: compare.caseId },
-      }
-    : null
+  return standing.unread ? { kind: 'go', label: 'Read the results', screen: 'results' } : null
 }
+
+/**
+ * The reader is where `target` happens: on its screen, with no value in the
+ * address that differs from one the target names. A value the address leaves
+ * out is the screen's own choice, such as the case Results opens on, so it
+ * does not count against.
+ */
+export const atTarget = (
+  target: { screen: string | null; params?: Record<string, string> },
+  screen: string,
+  params: URLSearchParams,
+): boolean =>
+  target.screen === screen &&
+  Object.entries(target.params ?? {}).every(
+    ([key, value]) => !params.has(key) || params.get(key) === value,
+  )
 
 /** The screen to show for the one an address asks for: an unknown name is home, not a blank pane. */
 export const screenFor = (requested: string, home: string, known: (screen: string) => boolean) =>

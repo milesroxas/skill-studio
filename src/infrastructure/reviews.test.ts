@@ -2,7 +2,7 @@ import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'nod
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { loadReviews, reviewsPath, saveCorrection, savePick } from './reviews.ts'
+import { loadReviews, reviewsPath, saveCorrection } from './reviews.ts'
 
 let dir: string
 
@@ -30,23 +30,7 @@ describe('corrections', () => {
   })
 
   it('reads an output nobody corrected as having no corrections', () => {
-    expect(loadReviews(dir)).toEqual({ reviews: {}, preferences: [] })
-  })
-})
-
-describe('picks', () => {
-  it('keeps one pick per pair, whichever way round it is said', () => {
-    savePick(dir, { a: 'r0/intro-s1', b: 'r1/intro-s1', vote: 'a' })
-    savePick(dir, { a: 'r1/intro-s1', b: 'r0/intro-s1', vote: 'a' })
-    const { preferences } = loadReviews(dir)
-    expect(preferences).toHaveLength(1)
-    expect(preferences[0]).toMatchObject({
-      a: 'r1/intro-s1',
-      b: 'r0/intro-s1',
-      vote: 'a',
-      criterion: 'overall',
-      by: 'human',
-    })
+    expect(loadReviews(dir)).toEqual({ reviews: {} })
   })
 })
 
@@ -69,15 +53,14 @@ describe('a file written by an earlier version', () => {
 
   beforeEach(() => writeFileSync(reviewsPath(dir), JSON.stringify(earlier)))
 
-  it('is read for the reader’s own picks, and no corrections', () => {
-    const read = loadReviews(dir)
-    expect(read.reviews['run/intro-s1']).toEqual({ corrections: {}, updatedAt: 'then' })
-    expect(read.preferences).toEqual([earlier.preferences[2]])
+  it('is read for corrections only: its votes and other fields are not', () => {
+    expect(loadReviews(dir)).toEqual({
+      reviews: { 'run/intro-s1': { corrections: {}, updatedAt: 'then' } },
+    })
   })
 
-  it('keeps everything it held when a correction or a pick is written', () => {
+  it('keeps everything it held when a correction is written', () => {
     saveCorrection(dir, 'run/intro-s1', 'rule:Be brief.', true)
-    savePick(dir, { a: 'p', b: 'q', vote: 'tie' })
     const stored = onDisk()
     expect(stored.reviews['run/intro-s1']).toMatchObject({
       rating: 4,
@@ -85,7 +68,6 @@ describe('a file written by an earlier version', () => {
       note: 'Kind.',
       corrections: { 'rule:Be brief.': true },
     })
-    expect(stored.preferences.slice(0, 3)).toEqual(earlier.preferences)
-    expect(stored.preferences).toHaveLength(4)
+    expect(stored.preferences).toEqual(earlier.preferences)
   })
 })

@@ -39,12 +39,18 @@ describe('drafts', () => {
     expect(readDrafts('/skills/bases').caseBases).toEqual({ intro: '2026-11-09T10:00:00.000Z' })
   })
 
-  it('keeps unsaved scoring, on its own too', () => {
+  it('passes over the scoring an earlier version kept with the drafts', () => {
+    const file = { text: 'draft', previous: 'saved' }
     const scoring = { packs: ['generic'], rules: null, weights: { adherence: 50 }, yes: 0.6 }
-    writeDrafts('/skills/scoring', { ...emptyDrafts(), scoring })
-    expect(readDrafts('/skills/scoring').scoring).toEqual(scoring)
-    writeDrafts('/skills/scoring', { ...emptyDrafts(), scoring: null })
-    expect(readDrafts('/skills/scoring')).toEqual(emptyDrafts())
+    // As an earlier version wrote it: the scoring edited on Results, beside a file's draft.
+    writeDrafts('/skills/scoring', {
+      ...emptyDrafts(),
+      files: { 'SKILL.md': file },
+      scoring,
+    } as never)
+    const read = readDrafts('/skills/scoring')
+    expect(read.files).toEqual({ 'SKILL.md': file })
+    expect(read).not.toHaveProperty('scoring')
   })
 
   it('stamps when the drafts were stored', () => {

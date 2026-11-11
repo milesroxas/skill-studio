@@ -102,7 +102,7 @@ Otherwise → default
 
 The top bar shows where the loop goes next. It is the app's one yellow control. Only `App.tsx` renders it: a screen never adds its own.
 
-The loop is write, run, compare, and running is a button, not a place. So the next step is one of two things: a place to go ("Next: Add a case", "Next: Compare v0 and v1"), drawn as below, or the run itself. `RunButton` (`components/Run.tsx`) stands in the top bar whenever the skill has a case. It is `signal` when running is the next step and `outline` otherwise, and its label is the same either way ("Run v2"), so it keeps its place. It opens a `form` popover that says what the run will do before the button that starts it, because a run costs money.
+The loop is write, run, compare, and running is a button, not a place. So the next step is one of two things: a place to go ("Next: Add a case", "Next: Read the results"), drawn as below, or the run itself. `RunButton` (`components/Run.tsx`) stands in the top bar whenever the skill has a case. It is `signal` when running is the next step and `outline` otherwise, and its label is the same either way ("Run v2"), so it keeps its place. It opens a `form` popover that says what the run will do before the button that starts it, because a run costs money.
 
 ```tsx
 // Correct: App.tsx

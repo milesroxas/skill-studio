@@ -1,10 +1,9 @@
 /**
  * Every case at once: how much the latest version gained, every run with a
- * score per case, and the scoring behind the numbers. The comparison of one
- * case answers "which is better"; this answers "did the edit help overall",
+ * score per case, and the kind of work the skill is graded as. The comparison
+ * of one case shows what changed; this answers "did the edit help overall",
  * and is where a run is graded again or its cost read.
  */
-import { pickBetween, pickStanding } from '@domain/picks.ts'
 import { mean } from '@domain/stats.ts'
 import { Fragment } from 'react'
 import { api } from '../api.ts'
@@ -17,6 +16,7 @@ import {
   countsLine,
   countsOf,
   fmt,
+  kindsLine,
   liftOf,
   money,
   type Output,
@@ -24,7 +24,6 @@ import {
   runLabel,
   runStamp,
   scoreOf,
-  scoringDirty,
   stamp,
   totalOf,
   versionName,
@@ -33,6 +32,7 @@ import {
   writerName,
 } from '../model.ts'
 import { Disclosure } from './Disclosure.tsx'
+import { GradedAs } from './GradedAs.tsx'
 import { VersionLift } from './Lift.tsx'
 import {
   ColumnBody,
@@ -46,8 +46,6 @@ import {
   Toolbar,
 } from './layout.tsx'
 import { SampleCount, TotalChip } from './Scores.tsx'
-import { ScoringForm } from './Scoring.tsx'
-import { Status } from './Status.tsx'
 import { Heading, Hint, Text, VisuallyHidden } from './text.tsx'
 import { Button } from './ui/button.tsx'
 import {
@@ -91,16 +89,6 @@ export function ResultsSummary({ ctx }: { ctx: Ctx }) {
   // The latest version's facts, added up: the score said as what it is counted from.
   const latest = versionsRun(outputs).at(-1) ?? null
   const counts = latest ? countsLine(countsOf(versionOutputs(outputs, latest), config)) : null
-  // Picks on the pair each case opens with, set against the scores of that pair.
-  const picked = caseIds.flatMap((id) => {
-    const { a, b } = casePair(outputs, id)
-    if (!a || !b) return []
-    const vote = pickBetween(state.reviews.preferences, a.key, b.key)
-    const standing = pickStanding(vote, totalOf(a, config), totalOf(b, config))
-    return standing ? [standing] : []
-  })
-  const differing = picked.filter((s) => s === 'differs').length
-  const unsavedScoring = scoringDirty(config, state.savedConfig)
 
   const regrade = (run: string) =>
     void grade.start([`Grade ${run}`], async () => {
@@ -125,12 +113,6 @@ export function ResultsSummary({ ctx }: { ctx: Ctx }) {
             <Text as="p" size="ui" tabular>
               <Text weight="medium">{latest}</Text> <Text tone="muted">· {counts}</Text>
             </Text>
-          ) : null}
-          {differing ? (
-            <Status tone="warning" detail="Open a case marked in the list to see what Jev misses.">
-              Jev scores the other side higher on {differing} of your{' '}
-              {plural(picked.length, 'pick')}
-            </Status>
           ) : null}
           <Hint>
             Each cell is a case’s mean score out of 100. Open a score to read that output beside the
@@ -227,11 +209,8 @@ export function ResultsSummary({ ctx }: { ctx: Ctx }) {
             </TableBody>
           </Table>
         </Section>
-        <Disclosure
-          summary={unsavedScoring ? 'Scoring, with unsaved changes' : 'Scoring'}
-          defaultOpen={unsavedScoring}
-        >
-          <ScoringForm ctx={ctx} />
+        <Disclosure summary={`Graded as ${kindsLine(config.packs)}`}>
+          <GradedAs ctx={ctx} />
         </Disclosure>
       </ColumnBody>
     </>

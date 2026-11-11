@@ -1,15 +1,13 @@
 /**
  * Results: what the agent wrote, compared. The cases a run answered are listed
  * on the left, each with how its score moved from the version before to the
- * latest. Picking one puts those two outputs side by side, with what each
- * missed and the pick between them. "All cases" is every run at once, and the
- * scoring behind the numbers.
+ * latest. Opening one puts those two outputs side by side, with what each
+ * missed. "All cases" is every run at once.
  *
  * The selection lives in the address, so Back and Forward follow it: `case`
  * names the case, `a` and `b` the two outputs when they are not the pair the
  * case opens with, and `view=all` the summary.
  */
-import { pickBetween, pickStanding } from '@domain/picks.ts'
 import { memo, useMemo } from 'react'
 import { Comparison } from '../components/Comparison.tsx'
 import {
@@ -33,7 +31,6 @@ import {
   liftOf,
   type Output,
   outputByKey,
-  sideName,
   totalOf,
   versionScore,
   versionsRun,
@@ -52,20 +49,18 @@ export const Results = memo(function Results({ ctx }: { ctx: Ctx }) {
     () => (latest ? versionScore(outputs, config, latest) : null),
     [outputs, config, latest],
   )
-  /** Each case's pair to read first, with both totals and the pick between them. */
+  /** Each case's pair to read first, with both totals. */
   const rows = useMemo(
     () =>
       caseIds.map((id) => {
         const pair = casePair(outputs, id)
-        const vote =
-          pair.a && pair.b ? pickBetween(state.reviews.preferences, pair.a.key, pair.b.key) : null
         const totals = {
           a: pair.a ? totalOf(pair.a, config) : null,
           b: pair.b ? totalOf(pair.b, config) : null,
         }
-        return { id, pair, vote, totals }
+        return { id, pair, totals }
       }),
-    [caseIds, outputs, config, state.reviews.preferences],
+    [caseIds, outputs, config],
   )
 
   if (!state.runs.length)
@@ -147,30 +142,19 @@ export const Results = memo(function Results({ ctx }: { ctx: Ctx }) {
                   ) : null}
                 </NavButton>
               </li>
-              {rows.map(({ id, pair, vote, totals }) => {
-                const differs = pickStanding(vote, totals.a, totals.b) === 'differs'
-                const side = vote === 'a' ? pair.a : vote === 'b' ? pair.b : null
-                return (
-                  <li key={id}>
-                    <NavButton
-                      current={!all && id === caseId}
-                      onClick={() => go('results', { case: id })}
-                    >
-                      <Text size="ui" truncate block>
-                        {caseTitle(state, id)}
-                      </Text>
-                      <span className="flex items-center gap-2">
-                        <ScoreMove from={totals.a} to={totals.b} />
-                        {vote ? (
-                          <Text tone={differs ? 'warning' : 'muted'} size="xs">
-                            {side ? `you picked ${sideName(side)}` : 'you called a tie'}
-                          </Text>
-                        ) : null}
-                      </span>
-                    </NavButton>
-                  </li>
-                )
-              })}
+              {rows.map(({ id, totals }) => (
+                <li key={id}>
+                  <NavButton
+                    current={!all && id === caseId}
+                    onClick={() => go('results', { case: id })}
+                  >
+                    <Text size="ui" truncate block>
+                      {caseTitle(state, id)}
+                    </Text>
+                    <ScoreMove from={totals.a} to={totals.b} />
+                  </NavButton>
+                </li>
+              ))}
             </PlainList>
           </ColumnBody>
         </nav>

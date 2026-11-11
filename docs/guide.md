@@ -10,7 +10,7 @@ Skill Studio helps you write a skill for an AI agent, and shows you whether your
 | --- | --- | --- |
 | 1. Write | Skill | Write the skill's rules, or change one |
 | 2. Run | The Run button | Have an agent do the skill's cases |
-| 3. Compare | Results | Read the new output beside the last one, and pick the better |
+| 3. Compare | Results | Read the new output beside the last one, and see what it missed |
 
 Then you go round again. Cases are the tasks a run is made of. You write them once on the Cases screen and add to them as you learn what to check.
 
@@ -20,9 +20,9 @@ The pictures show a sample skill, release-notes. Its scores are made up.
 
 ### Finding your way
 
-- **Sidebar:** the three screens of the open skill. A number counts what is there: the cases, and on Results the cases that wait for your pick. A dot means unsaved work.
+- **Sidebar:** the three screens of the open skill. The number beside Cases counts them. A dot means unsaved work.
 - **Run** (top right): has an agent do the cases. It shows once the skill has a case, and is yellow when running is the step to do now.
-- **Next** (top right, yellow): the step to do now, when it is on another screen.
+- **Next** (top right, yellow): the step to do now, when it is on another screen. After a run, it is **Read the results** until you open Results.
 - **Switch skill:** click the skill's name at the top of the sidebar, or press Cmd+K.
 - **Library, Guide and Settings:** at the foot of the sidebar. A run's progress shows there too.
 - **Back and forward:** the arrows at the top left.
@@ -37,7 +37,7 @@ You do. You say what good is in writing: the **rules** of the skill and the **ch
 
 **Jev** is an AI model that reads every output against those rules and checks, the same way each time. It answers facts: was this rule followed, was this check met. A score is a count of those facts.
 
-You answer the one question Jev cannot: which of two outputs is better. That is your **pick**, and it is the last word. "When you and Jev disagree", under step 5, says what to do then.
+When you read an output differently, you change the facts, not the score: mark the one verdict Jev got wrong, or write down what it did not check. "When you and Jev disagree", under step 5, says how.
 
 ## Start the app
 
@@ -70,7 +70,7 @@ The walkthrough's skill, Thank-you note, writes short thank-you notes, so a run 
 4. **Read what the notes missed.** Results shows each note with its score, and under it the rules and checks it missed.
 5. **Tighten one rule.** "Keep the note to a reasonable length" is vague on purpose, so the notes come back too long. Click "Use the exact rule", then Save.
 6. **Run it again.** Only the rule changed, so any difference is your edit.
-7. **Pick the better note.** Read a note from each version side by side, and say which is better.
+7. **Compare the two notes.** Read a note from each version side by side, and see what your one edit changed.
 
 A step that only asks you to look is done once you open its screen. The box keeps to that step while you read, and the yellow button leads to the one after it.
 
@@ -201,7 +201,7 @@ To change a case, click it in the list, edit it and click **Save case** (Cmd+S).
 
 Checks can come later: on Results, **Add a check** turns what an output got wrong into one.
 
-Some kinds of skill are not scored on checks. A skill graded as Writing or Workflow says so in place of the Checks section. Scoring, on Results, changes how a skill is graded.
+Some kinds of skill are not scored on checks. A skill graded as Writing or Workflow says so in place of the Checks section. **Graded as**, at the foot of All cases on Results, changes how a skill is graded.
 
 Write at least three different cases before you trust a score.
 
@@ -228,7 +228,7 @@ Runs cost money: each output is an agent session, and Jev is paid per call.
 
 ## 5. Compare the results
 
-![Results: three cases on the left, each with its score before and after; on the right two outputs of one case side by side, A from v0 and B from v1, each with its score, the rules and checks it met as counts, and a list of what it missed. A bar at the foot asks which is better.](images/results.webp)
+![Results: three cases on the left, each with its score before and after; on the right two outputs of one case side by side, A from v0 and B from v1, each with its score, the rules and checks it met as counts, and a list of what it missed.](images/results.webp)
 
 Results opens on a case with two outputs side by side: **A**, the version before, and **B**, the latest. With one version, A is the output written without the skill, if you ran one.
 
@@ -241,11 +241,9 @@ Results opens on a case with two outputs side by side: **A**, the version before
 - **Word diff** marks what differs between the two. Outputs too long to compare word by word are compared line by line, and the card says so. **Swap** trades their sides, and the **A** and **B** menus pick any other outputs of the case.
 - **Regrade** has Jev read an output's run again, for example after you add a check. An output not graded yet shows **Grade**.
 
-Then say **which is better**: A, B, or a tie. Picking the better of two outputs is easier, and more reliable, than scoring one.
-
 ### When you and Jev disagree
 
-Your pick is the last word. When Jev scores the other side higher, the bar at the foot says so, and the case is marked in the list. A disagreement means one of three things, and each has a fix:
+You may read an output differently from Jev: prefer the side that scores lower, or see a miss Jev did not. Each disagreement means one of three things, and each has a fix that changes the score:
 
 | You see | It means | Do |
 | --- | --- | --- |
@@ -253,7 +251,7 @@ Your pick is the last word. When Jev scores the other side higher, the bar at th
 | Jev fails an output you like | A rule or a check asks for the wrong thing | Edit or delete it |
 | Jev misread one rule or check | That verdict is wrong | Click **Mark as met** or **Mark as missed** beside it |
 
-A verdict you mark is yours from then on. It moves to the other list with "your answer" beside it, the score follows, and **Take back** lets Jev's answer stand again. If a change to Scoring later brings Jev round to your answer, the row says so and stays yours.
+A verdict you mark is yours from then on. It moves to the other list with "your answer" beside it, the score follows, and **Take back** lets Jev's answer stand again. If a threshold set in `bench.json` later brings Jev round to your answer, the row says so and stays yours.
 
 ### Add a check
 
@@ -272,17 +270,11 @@ Under the two outputs, **Add a check** takes one sentence: what a good answer do
 
 To be sure an edit helped, run with **Samples per case** at 2 or more. If two versions' scores differ less than one version's samples do, the edit made no clear difference.
 
-### Scoring
+### Graded as
 
-Most skills never need this. **Scoring**, folded at the foot of All cases, sets how Jev's answers become a score. Move a setting and every score updates at once. Nothing runs again, so it costs nothing.
+Most skills never need this. **Graded as**, folded at the foot of All cases, is the kind of work the skill does. Tick one or more: Generic counts rules and checks; Writing, Code, Workflow and Design score their own parts. Click **Save**, and every score updates at once. Nothing runs again, so it costs nothing.
 
-- **Graded as:** the kind of work the skill does. Tick one or more. Generic counts rules and checks. Writing, Code, Workflow and Design score their own parts.
-- **Points:** how much each part counts.
-- **Threshold:** how sure Jev must be before a rule or check counts as met.
-- **Settings of its kind:** the numbers a kind of skill scores by, when it has any.
-- **Rules:** the bullets read from SKILL.md, in the order the Skill screen numbers them. A `rules` list in `bench.json` replaces them.
-
-Click **Save scoring**, or **Discard**. Until then your changes are kept as unsaved text is: a reload, a quit or another skill loses nothing.
+The points each part counts, the threshold at which Jev's answer counts as met, and a kind's own settings are set by hand in `evals/bench.json`. When the file sets any of them, Graded as names them, and saving keeps them as they are.
 
 ### Then change the skill
 
@@ -300,6 +292,6 @@ Click **Save scoring**, or **Discard**. Until then your changes are kept as unsa
 | Save is greyed and a notice says the file or case changed on disk | It changed outside the app after your draft began. "Keep my draft", then Save, writes yours over it; "Use the file on disk" or "Use the case on disk" keeps the other |
 | A bullet keeps its dot and gets no number | Make it a bullet of four words or more, outside a numbered list, and not only a link |
 | A score looks wrong | Read the transcript, then mark the verdict that is wrong |
-| Results shows one output and no pick | The case has one version and no run without the skill. Edit the skill and run again, or run with "No skill" under Options |
+| Results shows one output, not two | The case has one version and no run without the skill. Edit the skill and run again, or run with "No skill" under Options |
 
 Only test skills you trust. A skill can make the agent run code on your computer.

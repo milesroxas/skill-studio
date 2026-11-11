@@ -5,7 +5,7 @@ Grading runs a skill's judge packs over each sample of a run and writes `report.
 This page uses the words of the files: a **pack** is a set of judge questions for one kind of work, and a **layer** is one part of a score. The app calls a pack the kind of work a skill is "graded as", and a layer a part of the score: Rules, Checks and so on.
 
 - A pack runs on a sample when it judges the kind of the sample's primary artifact (`primaryArtifact` in `src/domain/primary.ts`): an output of the case's `bench.artifact` kind; else a page, a picture or code, in that order, when one of the skill's packs judges that kind; else Markdown; else the first output of any kind. The order the skill lists its packs in does not matter. Among files of one kind, `index.html` or `preview.html` comes first, and a `README` or a `.txt` file last, so a page and the script beside it are judged as the page, and a post beside its notes as the post. Results opens the same file on an output not graded yet. The workflow pack runs on every sample.
-- Jev's raw answers are stored. Points per layer, the threshold and pack settings are applied in code (`src/domain/scoring.ts` and each pack's `score.ts`), so Scoring, on Results, rescores without new judge calls.
+- Jev's raw answers are stored. Points per layer, the threshold and pack settings are applied in code (`src/domain/scoring.ts` and each pack's `score.ts`), so a change to `bench.json`, or to Graded as on Results, rescores without new judge calls.
 - Without a TypeSafe key, or with `--no-jev`, only code checks run and every judged layer is null. A case with `bench.judge: false` is graded the same way, in every pack: Jev is asked nothing about its outputs (`asksJev` in `src/judges/shared/questions.ts`). A null layer, or one given 0 points, is left out of the total and the rest rescale. A pack that throws leaves every one of its layers null and adds the flag `<pack> pack failed: ...`. A grading with that flag on every output writes no `report.json`, so the last report stands; in the app the job fails, with the first reason in its log. One with the flag on some outputs says how many and goes on.
 - Regrade asks only about what changed. Each pack's raw answer is kept in `judge-cache.json` beside `report.json`, under a hash of the model, the pack and the version of its questions, the output text and transcript, the case, the bytes of the case's pictures as the run kept them in `_inputs/` and of its checks' pictures, the rules, the evidence and the settings. Points per layer and `yes` are not in the hash, since they apply in scoring, and neither is a setting that is another pack's alone. On the next grading an output whose hash matches keeps its answer, and the log says `N of M outputs unchanged: kept their verdicts.`
 - The file keeps this grading's answers and, before them, the earlier ones it did not ask about again, up to four gradings' worth. So a grading without a TypeSafe key, or with a setting changed and then put back, does not cost the answers Jev already gave. It is written when a grading is stopped or fails too, with what had been answered by then.
@@ -18,14 +18,14 @@ This page uses the words of the files: a **pack** is a set of judge questions fo
 
 ## `bench.json`
 
-`evals/bench.json` is optional. Scoring, at the foot of All cases on Results, writes it, and so does `st new` for a template whose packs go beyond `generic` (`{ "packs": [...] }`); `blank` writes none.
+`evals/bench.json` is optional. Graded as, at the foot of All cases on Results, writes its `packs`, and every other setting the file holds stays as it was. `st new` writes it for a template whose packs go beyond `generic` (`{ "packs": [...] }`); `blank` writes none.
 
 | Key | Default | Does |
 | --- | --- | --- |
 | `packs` | `["generic"]` | The judge packs that apply, in order |
 | `rules` | `null` | The rules adherence is judged on; `null` or an empty list reads the bullets of `SKILL.md`, below. A blank rule is left out, and one written twice counts once |
-| `weights` | `{}` | Points per layer, over each pack's defaults. Each is held at 0 or more. Scoring's sliders offer 0 to 60; points saved past that score as saved |
-| `yes` | `0.5` | A judge answer at or above this counts as yes: the rule is followed, the check is met. Held to 0 to 1. Scoring's slider offers 0.3 to 0.8; a threshold saved outside that stands |
+| `weights` | `{}` | Points per layer, over each pack's defaults. Each is held at 0 or more |
+| `yes` | `0.5` | A judge answer at or above this counts as yes: the rule is followed, the check is met. Held to 0 to 1 |
 
 The file is read through `benchOf` (`src/domain/config.ts`), so one written by hand cannot break a score: a value of the wrong kind falls back to its default, `packs` names each pack once, `warningCost` is held at 0 or more, and `groundingPrior` and `contradictionCap` to 0 to 1. A number inside a pack's own setting (`structure`, `substance`, `lint`, `codeCheck`, `workflow`, `design`) is held at 0 or more, and `structure.pointerCredit` to 0 to 1. Whatever the settings, each layer is held to 0 to 100, so no total passes 100. Each pack adds its own keys, below. `--packs a,b` and `--bench <file>` override the file for one grading, so a skill in another repository can be graded without writing config into it.
 
@@ -111,15 +111,14 @@ A score is counted from facts, and the scorers report each one (`Verdict` in `sr
 - A fact Jev answered is open to the reader's own answer. A fact code measured is not: the exit code of a check command, a markup check, a count of tool calls, a word range.
 - The writing pack's layers are measures, not counts of facts. It reports what it found wrong, and none of it is open to an answer.
 
-## Corrections and picks
+## Corrections
 
-`evals/reviews.json` holds what the reader said. Both are written by Results.
+`evals/reviews.json` holds what the reader said, written by Results.
 
-- **A correction** is the reader's own answer on one fact of one output: `reviews["<run>/<sample>"].corrections["<fact>"]` is `true` when the output meets it and `false` when it does not, whatever Jev said. It stands over Jev's answer wherever the app scores that output: the fact moves between Missed and Met, and the layer and the total follow. It stays the reader's answer when a moved `yes` threshold brings Jev's answer round to it; the row then says "your answer, agrees with Jev", and "Take back" still removes it. `report.json` keeps Jev's own answers, so `st report` prints the scores without corrections.
-- **A pick** is the reader's choice of the better of two outputs: an entry of `preferences` with the two output keys, `vote` (`a`, `b` or `tie`), `criterion: "overall"`, `by: "human"` and `at`, when it was made. One pick is kept per pair. It changes no score. Results sets it beside the two totals, and says so when the output not picked scores higher.
-- Deleting a version moves the corrections and picks on its runs' outputs to the trash with it, and Undo brings them back. A delete that cannot move everything moves nothing. Undo is refused once the skill holds a version of that number again, so two different texts never share one.
+- **A correction** is the reader's own answer on one fact of one output: `reviews["<run>/<sample>"].corrections["<fact>"]` is `true` when the output meets it and `false` when it does not, whatever Jev said. It stands over Jev's answer wherever the app scores that output: the fact moves between Missed and Met, and the layer and the total follow. It stays the reader's answer when a `yes` threshold changed in `bench.json` brings Jev's answer round to it; the row then says "your answer, agrees with Jev", and "Take back" still removes it. `report.json` keeps Jev's own answers, so `st report` prints the scores without corrections.
+- Deleting a version moves the corrections on its runs' outputs to the trash with it, and Undo brings them back. So do the entries of `preferences` that name one of its outputs: votes between two outputs, which the app neither writes nor reads. A delete that cannot move everything moves nothing. Undo is refused once the skill holds a version of that number again, so two different texts never share one.
 
-Any other field in `reviews.json`, such as a rating, a note or a vote by Jev, is kept as it is when the file is written, and nothing reads it.
+Any other field in `reviews.json`, such as a rating, a note or a vote, is kept as it is when the file is written, and nothing reads it.
 
 ## Version scores and the lift
 

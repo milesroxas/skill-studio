@@ -1,8 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import { defaultPair, type PickOutput, pickBetween, pickStanding } from './picks.ts'
-import type { Preference } from './schemas.ts'
+import { defaultPair, type PairOutput } from './pairs.ts'
 
-const output = (key: string, over: Partial<PickOutput> = {}): PickOutput => ({
+const output = (key: string, over: Partial<PairOutput> = {}): PairOutput => ({
   key,
   caseId: 'intro',
   version: 'v0',
@@ -11,16 +10,6 @@ const output = (key: string, over: Partial<PickOutput> = {}): PickOutput => ({
   createdAt: '2026-11-01T10:00:00.000Z',
   index: 1,
   written: true,
-  ...over,
-})
-
-const pick = (a: string, b: string, vote: Preference['vote'], over = {}): Preference => ({
-  a,
-  b,
-  criterion: 'overall',
-  vote,
-  by: 'human',
-  at: '2026-11-01T12:00:00.000Z',
   ...over,
 })
 
@@ -124,46 +113,5 @@ describe('defaultPair', () => {
   it('reads a run that recorded no version only when nothing else is there', () => {
     expect(defaultPair([output('legacy/a.md', { version: '' })]).b?.key).toBe('legacy/a.md')
     expect(defaultPair([])).toEqual({ a: null, b: null })
-  })
-})
-
-describe('pickBetween', () => {
-  it('says the pick from the order asked for', () => {
-    const picks = [pick('x', 'y', 'a')]
-    expect(pickBetween(picks, 'x', 'y')).toBe('a')
-    expect(pickBetween(picks, 'y', 'x')).toBe('b')
-    expect(pickBetween([pick('x', 'y', 'tie')], 'y', 'x')).toBe('tie')
-  })
-
-  it('is null for a pair not picked, and for a vote on another criterion', () => {
-    expect(pickBetween([pick('x', 'y', 'a')], 'x', 'z')).toBeNull()
-    expect(pickBetween([pick('x', 'y', 'a', { criterion: 'tone' })], 'x', 'y')).toBeNull()
-  })
-
-  it('reads only the reader’s own picks', () => {
-    const stored = { ...pick('x', 'y', 'b'), by: 'jev' } as unknown as Preference
-    expect(pickBetween([stored], 'x', 'y')).toBeNull()
-  })
-})
-
-describe('pickStanding', () => {
-  it('agrees when the pick and the higher score name the same side', () => {
-    expect(pickStanding('b', 70, 90)).toBe('agrees')
-    expect(pickStanding('a', 90, 70)).toBe('agrees')
-  })
-
-  it('differs when the other side scores higher', () => {
-    expect(pickStanding('a', 70, 90)).toBe('differs')
-    expect(pickStanding('b', 90, 70)).toBe('differs')
-  })
-
-  it('never differs on a tie, picked or scored', () => {
-    expect(pickStanding('tie', 70, 90)).toBe('agrees')
-    expect(pickStanding('a', 80, 80)).toBe('agrees')
-  })
-
-  it('has no standing without a pick or a score', () => {
-    expect(pickStanding(null, 70, 90)).toBeNull()
-    expect(pickStanding('a', null, 90)).toBeNull()
   })
 })

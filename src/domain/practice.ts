@@ -111,7 +111,7 @@ export type PracticeStep = (typeof PRACTICE_STEPS)[number]
  * that they looked, so opening the screen while the step is in hand marks it.
  * The guide still shows the step while that screen is in view: `practiceView`.
  */
-export const LOOK_STEPS = ['read', 'cases', 'results'] as const
+export const LOOK_STEPS = ['read', 'cases', 'results', 'compare'] as const
 export type LookStep = (typeof LOOK_STEPS)[number]
 export const isLookStep = (step: string): step is LookStep =>
   (LOOK_STEPS as readonly string[]).includes(step)
@@ -122,8 +122,6 @@ export interface PracticeFacts {
   versions: string[]
   /** The version the files are now. */
   current: string
-  /** Picks made between two outputs. */
-  picks: number
   /** Look steps marked as seen. */
   seen: readonly string[]
 }
@@ -148,7 +146,8 @@ export function practiceProgress(facts: PracticeFacts): PracticeProgress {
     results: seen('results', edited),
     edit: edited,
     rerun: reran,
-    compare: reran && facts.picks > 0,
+    // A look step like the others, with two versions to compare.
+    compare: reran && facts.seen.includes('compare'),
   }
   return { done, step: PRACTICE_STEPS.find((step) => !done[step]) ?? null }
 }
@@ -163,6 +162,8 @@ export interface PracticeView {
   next: PracticeStep | null
 }
 
+const NONE: PracticeView = { shown: null, next: null }
+
 /**
  * What the guide shows of the progress. Opening a look step's screen marks the
  * step done at once, so the progress runs a step ahead of a reader who is
@@ -173,7 +174,8 @@ export interface PracticeView {
  */
 export function practiceView(progress: PracticeProgress, looking: LookStep | null): PracticeView {
   const { step } = progress
-  if (!step) return { shown: null, next: null }
+  // The last step is a look step too: still being read, though the loop closed when its screen opened.
+  if (!step) return looking === PRACTICE_STEPS.at(-1) ? { shown: looking, next: null } : NONE
   const at = PRACTICE_STEPS.indexOf(step)
   // Still being read: the step was marked done when its screen opened.
   if (looking && PRACTICE_STEPS[at - 1] === looking) return { shown: looking, next: step }

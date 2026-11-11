@@ -11,7 +11,7 @@ All in `src/renderer/components/Shell.tsx`, except `StatusLine`, which has its o
 | `AppFrame` | the window-sized grid: the sidebar, then `Workspace`, then `AssistantPane` when the Assistant is open |
 | `Sidebar` | ink in both themes: it carries `data-surface="ink"`. 208px, 232px from the `lg` breakpoint. `SidebarBody` is its middle, scrolling on its own when the window is short. Its `foot` (the Walkthrough box) stands at its end and scrolls with it, so a short window hides the foot and never the places. |
 | `SidebarSection` | the open skill's three places, one `NavItem` each: Skill, Cases, Results |
-| `NavItem` | one place. `meta` is its count, `xs` sans at 55%, tabular: the cases, and on Results the cases that wait for a pick. `dot` is unsaved work, in `warning`. |
+| `NavItem` | one place. `meta` is its count, `xs` sans at 55%, tabular: the cases. `dot` is unsaved work, in `warning`. |
 | `SidebarFooter` | Library, Guide, Settings, with a running job above them. `lead` holds the update. |
 | `Workspace` | the column beside the sidebar: the top bar over the pane |
 | `AssistantPane` | the Assistant's panel: a 360px column beside `Workspace` on a wide window, over its right edge on a narrow one |
@@ -90,7 +90,6 @@ A box around a region adds an edge the eye has to cross and takes 32px of width 
 | `ColumnHeader`, `ColumnTitle` | the main column's name and its actions |
 | `ColumnToolbar`, `ToolbarGroup`, `ToolbarItem` | a row of tools under the header |
 | `ColumnBody`, `ColumnSection` | the scrolling content, split by hairlines |
-| `ColumnFooter` | what stays in view at the column's foot: the pick between two outputs on Results |
 
 Insets are fixed: 16px in a list, 24px in main (`inset="list" | "main"`). A list's `ColumnBody` is inset 8px and its rows bring the other 8px. `ColumnBody inset="none"` fills the column edge to edge, for an editor. A `ColumnBody` is a column's whole content, and in main it ends in 64px of room, so there is one per column: notes over an editor go in the editor's `banner`, which spaces them itself (`components/MarkdownEditor.tsx`). Its `width` is `full` or `form` (808px). A header and the body of one column share one inset, so their left edges line up. A `ColumnToolbar` starts 8px short of it, so its first icon lands on that edge. Never pad a column by hand.
 
@@ -107,7 +106,7 @@ Copy `screens/Cases.tsx` for any screen that lists items and edits the one picke
 
 The list column may hold more than one list, each in a `ColumnSection`: the Skill screen lists the files, then the versions. An item of either opens in the main column, named in the route (`file`, `version`).
 
-Below `lg` the columns stack and the pane scrolls, and a `ColumnFooter` stands at its column's end, not over the window's foot. Check every workbench at 720px wide.
+Below `lg` the columns stack and the pane scrolls. Check every workbench at 720px wide.
 
 ## The stage
 
@@ -124,7 +123,7 @@ The bar over it is two `Toolbar`s. The first: which output is in view, a `Segmen
 ## Rows of actions
 
 - A header or a trailing row puts the primary action last.
-- A left-aligned footer (`FormActions`, `ColumnFooter`) puts the primary first and a destructive action last, after `Spacer`.
+- A left-aligned footer (`FormActions`) puts the primary first and a destructive action last, after `Spacer`.
 - Workbench chrome uses `size="sm"` controls. A `Screen` form uses the default size.
 
 ## Lists

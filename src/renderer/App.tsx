@@ -16,7 +16,6 @@
  * window of its own before this one opens; a browser, which has one page and
  * no windows to give, shows it in place of the shell.
  */
-import { pickBetween } from '@domain/picks.ts'
 import { isLookStep, type LookStep } from '@domain/practice.ts'
 import { NEW_CASE_KEY } from '@domain/schemas.ts'
 import { ArrowRightIcon, MenuIcon, MessageCircleIcon } from 'lucide-react'
@@ -69,8 +68,8 @@ import { SCREEN_HELP } from './help.ts'
 import { back, forward, navigate, usePaneScroll, useRoute } from './history.ts'
 import { useNotice } from './hooks.ts'
 import { shortcut } from './keys.ts'
-import { casePair, casesRun, outputsOf, scoringDirty, sideName, versionScore } from './model.ts'
-import { nextStep, screenFor } from './next-step.ts'
+import { outputsOf, versionScore } from './model.ts'
+import { atTarget, nextStep, screenFor } from './next-step.ts'
 import { APP_PLACES, isSkillScreen, placeFor, SKILL_PLACES, WORKBENCH } from './places.ts'
 import {
   practiceGuide,
@@ -80,7 +79,7 @@ import {
   useStartPractice,
 } from './practice.ts'
 import { savePreference, setPreferences, usePreferences } from './preferences.ts'
-import { useScoringDraft } from './scoring-draft.ts'
+import { markResultsSeen, newestRun, resultsUnread, useResultsSeen } from './results-seen.ts'
 import { Cases } from './screens/Cases.tsx'
 import { LibraryScreen } from './screens/Library.tsx'
 import { Results } from './screens/Results.tsx'
@@ -140,7 +139,7 @@ export function App() {
   useLayoutEffect(() => {
     shown.current = route
   })
-  const { state, config, setConfig, error, reload, files } = useSkillState(skillPath, report)
+  const { state, config, error, reload, files } = useSkillState(skillPath, report)
   const jobs = useJobs(reload)
   const [confirm, confirmDialog] = useConfirm()
   const [assistant, setAssistant] = useAssistant()
@@ -181,8 +180,6 @@ export function App() {
     [files.saved, drafts.files],
   )
 
-  // Unsaved scoring is a draft like a file's: stored as it changes, and given back when the skill opens.
-  useScoringDraft({ skillPath, state, config, setConfig, drafts })
   const openSkill = useCallback(
     async (path: string, screen = 'home'): Promise<boolean> => {
       enter(path)
@@ -229,19 +226,6 @@ export function App() {
 
   const loaded = skillPath && state && config ? { state, config } : null
   const current = loaded?.state.versions.current
-  // The cases whose latest output stands beside an earlier one, and has no pick between them yet.
-  const toCompare = useMemo(
-    () =>
-      state
-        ? casesRun(state, outputs).flatMap((id) => {
-            const { a, b } = casePair(outputs, id)
-            return a && b && pickBetween(state.reviews.preferences, a.key, b.key) === null
-              ? [{ id, a, b }]
-              : []
-          })
-        : [],
-    [state, outputs],
-  )
   /** A job of the open skill is running: its next step waits, and so does its walkthrough. */
   const running = jobs.some((j) => j.status === 'running' && j.skillPath === state?.skill.path)
   /** A job of any skill is running: resetting the app would end it. */
@@ -280,6 +264,7 @@ export function App() {
     loaded && walk
       ? practiceGuide(loaded.state, outputs, walk, {
           screen,
+          params: route.params,
           reading: reading?.at === at ? reading.step : null,
           unsaved: unsaved.includes('SKILL.md'),
           running,
@@ -336,22 +321,21 @@ export function App() {
   )
   const status: PlaceStatus = { meta: {}, dot: {} }
   if (loaded && current) {
-    const dirty = scoringDirty(loaded.config, loaded.state.savedConfig)
-    status.meta = {
-      cases: String(loaded.state.cases.length),
-      // How many cases wait for a pick between their two versions.
-      results: toCompare.length ? String(toCompare.length) : null,
-    }
-    status.dot = {
-      editor: unsaved.length > 0,
-      cases: draftedCases.length > 0,
-      // Scoring, on Results, has changes that are not saved.
-      results: dirty,
-    }
+    status.meta = { cases: String(loaded.state.cases.length) }
+    status.dot = { editor: unsaved.length > 0, cases: draftedCases.length > 0 }
   }
 
-  // The one suggested next step, in loop order: write, run, compare. None while a job runs.
-  const first = toCompare[0]
+  // A run is read once Results has been open since it finished, though not while a job still
+  // writes or grades it: what it says is not settled until then.
+  const newest = state ? newestRun(state.runs) : null
+  const seenAt = useResultsSeen(loaded ? loaded.state.skill.path : null)
+  const unread = resultsUnread(newest, seenAt)
+  const readingResults = Boolean(loaded) && screen === 'results' && !running && unread
+  useEffect(() => {
+    if (readingResults && state && newest) markResultsSeen(state.skill.path, newest)
+  }, [readingResults, state, newest])
+
+  // The one suggested next step, in loop order: write, run, read the results. None while a job runs.
   const next = nextStep(
     loaded && current
       ? {
@@ -360,7 +344,7 @@ export function App() {
           cases: loaded.state.cases.length,
           runs: loaded.state.runs.length,
           changed: current.changed,
-          compare: first ? { caseId: first.id, a: sideName(first.a), b: sideName(first.b) } : null,
+          unread,
         }
       : null,
   )
@@ -447,7 +431,6 @@ export function App() {
         ? {
             state,
             config,
-            setConfig,
             outputs,
             route,
             go,
@@ -465,7 +448,6 @@ export function App() {
       skillPath,
       state,
       config,
-      setConfig,
       outputs,
       route,
       go,
@@ -620,7 +602,7 @@ export function App() {
               </button>
             </Badge>
           ) : null}
-          {next?.kind === 'go' && next.screen !== screen ? (
+          {next?.kind === 'go' && !atTarget(next, screen, route.params) ? (
             <Button
               type="button"
               variant="signal"

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { nextStep, type Standing, screenFor, stepOf } from './next-step.ts'
+import { atTarget, nextStep, type Standing, screenFor, stepOf } from './next-step.ts'
 
 const standing = (patch: Partial<Standing> = {}): Standing => ({
   running: false,
@@ -7,7 +7,7 @@ const standing = (patch: Partial<Standing> = {}): Standing => ({
   cases: 2,
   runs: 1,
   changed: false,
-  compare: null,
+  unread: false,
   ...patch,
 })
 
@@ -31,16 +31,19 @@ describe('nextStep', () => {
     expect(nextStep(standing({ changed: true }))).toEqual({ kind: 'run' })
   })
 
-  it('then the first case with no pick between its two outputs', () => {
-    expect(nextStep(standing({ compare: { caseId: 'note', a: 'v1', b: 'v2' } }))).toEqual({
+  it('then the results of a run that finished since Results was open', () => {
+    expect(nextStep(standing({ unread: true }))).toEqual({
       kind: 'go',
-      label: 'Compare v1 and v2',
+      label: 'Read the results',
       screen: 'results',
-      params: { case: 'note' },
     })
   })
 
-  it('and nothing once every case is picked', () => {
+  it('runs first when the files changed, though the last run is unread', () => {
+    expect(nextStep(standing({ unread: true, changed: true }))).toEqual({ kind: 'run' })
+  })
+
+  it('and nothing once the results are read: the next step is an edit', () => {
     expect(nextStep(standing())).toBeNull()
   })
 
@@ -59,6 +62,28 @@ describe('nextStep', () => {
 describe('stepOf', () => {
   it('reads a step with no screen as the Run button’s', () => {
     expect(stepOf({ label: 'Run v1', screen: null })).toEqual({ kind: 'run' })
+  })
+})
+
+describe('atTarget', () => {
+  const target = { screen: 'results', params: { case: 'note' } }
+  const at = (screen: string, params: Record<string, string>) =>
+    atTarget(target, screen, new URLSearchParams(params))
+
+  it('is there on the screen with the values the target names', () => {
+    expect(at('results', { case: 'note' })).toBe(true)
+    expect(at('results', { case: 'note', a: 'r0/note-s1' })).toBe(true)
+  })
+
+  it('counts a value the address leaves out as the screen’s own choice', () => {
+    expect(at('results', {})).toBe(true)
+    expect(atTarget({ screen: 'editor' }, 'editor', new URLSearchParams({ file: 'x' }))).toBe(true)
+  })
+
+  it('is not there on another screen, or with another value', () => {
+    expect(at('cases', { case: 'note' })).toBe(false)
+    expect(at('results', { case: 'other' })).toBe(false)
+    expect(atTarget({ screen: null }, 'results', new URLSearchParams())).toBe(false)
   })
 })
 

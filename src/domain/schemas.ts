@@ -112,8 +112,6 @@ export interface SkillDrafts {
    * for a case not saved yet), so a save over a case changed since is refused.
    */
   caseBases?: Record<string, string | null>
-  /** The scoring edited on Results and not saved yet: the whole scoring in hand. */
-  scoring?: BenchConfig | null
   updatedAt: string | null
 }
 
@@ -268,22 +266,6 @@ export interface Report {
   results: ReportResult[]
 }
 
-export type Vote = 'a' | 'b' | 'tie'
-
-/** What a pick is about: which of two outputs is the better answer, all told. */
-export const OVERALL = 'overall'
-
-/** The reader's pick between two outputs. */
-export interface Preference {
-  /** Output keys, `<run>/<sample>`. */
-  a: string
-  b: string
-  criterion: string
-  vote: Vote
-  by: 'human'
-  at: string
-}
-
 /** What the reader said about one output: their own answers where Jev's verdict was wrong. */
 export interface Review {
   /** By verdict id: true when the output meets the rule or check, false when it does not. */
@@ -294,5 +276,4 @@ export interface Review {
 /** `evals/reviews.json`, as the app reads it. */
 export interface Reviews {
   reviews: Record<string, Review>
-  preferences: Preference[]
 }

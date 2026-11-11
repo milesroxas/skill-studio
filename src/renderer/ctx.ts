@@ -8,12 +8,11 @@ import type { Output } from './model.ts'
 import type { Route } from './route.ts'
 import type { SavedFiles } from './skill-state.ts'
 
-/** What every screen gets: the loaded state, the scoring in hand, the outputs and the shell's helpers. */
+/** What every screen gets: the loaded state, its scoring, the outputs and the shell's helpers. */
 export interface Ctx {
   state: State
-  /** The scoring as edited; equal to the saved config until Scoring, on Results, changes it. */
+  /** The skill's scoring: what `bench.json` says, over the defaults. */
   config: BenchConfig
-  setConfig: (config: BenchConfig) => void
   outputs: Output[]
   route: Route
   go: typeof navigate

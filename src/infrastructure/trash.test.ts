@@ -19,7 +19,9 @@ const home = mkdtempSync(join(tmpdir(), 'st-trash-home-'))
 process.env.SKILL_STUDIO_HOME = home
 afterAll(() => rmSync(home, { recursive: true, force: true }))
 const { deleteVersion, undeleteVersion } = await import('./trash.ts')
-const { loadReviews, saveCorrection, savePick } = await import('./reviews.ts')
+const { loadReviews, readStoredReviews, saveCorrection, writeStoredReviews } = await import(
+  './reviews.ts'
+)
 const { versionsOf } = await import('./runs.ts')
 const { saveVersion } = await import('./versions.ts')
 
@@ -32,6 +34,13 @@ beforeEach(() => {
 })
 
 afterEach(() => rmSync(dir, { recursive: true, force: true }))
+
+/** A vote between two outputs, as an earlier version of the app wrote one. */
+function writeVote(a: string, b: string) {
+  const stored = readStoredReviews(dir)
+  const vote = { a, b, criterion: 'overall', vote: 'a', by: 'human', at: 'then' }
+  writeStoredReviews(dir, { ...stored, preferences: [...(stored.preferences ?? []), vote] })
+}
 
 function writeRun(name: string, version: string) {
   const run = join(dir, 'evals/runs', name)
@@ -52,19 +61,45 @@ describe('deleteVersion', () => {
     expect(versionsOf(dir).current).toMatchObject({ version: 'v0', changed: true })
   })
 
-  it('takes the runs of the version and the corrections and picks on them', () => {
+  it('takes the runs of the version, the corrections on them and any old votes', () => {
     saveVersion(dir, versionsOf(dir).current, 'One', '')
     writeRun('r-v0', 'v0')
     writeRun('r-v1', 'v1')
     saveCorrection(dir, 'r-v0/case-s1', 'rule:Be brief.', true)
     saveCorrection(dir, 'r-v1/case-s1', 'rule:Be brief.', true)
-    savePick(dir, { a: 'r-v0/case-s1', b: 'r-v1/case-s1', vote: 'a' })
+    writeVote('r-v0/case-s1', 'r-v1/case-s1')
+    writeVote('r-v1/case-s1', 'r-v1/case-s2')
     expect(deleteVersion(dir, 'v0')).toMatchObject({ runs: 1, reviews: 1 })
     expect(existsSync(join(dir, 'evals/runs/r-v0'))).toBe(false)
     expect(existsSync(join(dir, 'evals/runs/r-v1'))).toBe(true)
     const left = loadReviews(dir)
     expect(Object.keys(left.reviews)).toEqual(['r-v1/case-s1'])
-    expect(left.preferences).toEqual([])
+    expect(readStoredReviews(dir).preferences).toMatchObject([
+      { a: 'r-v1/case-s1', b: 'r-v1/case-s2' },
+    ])
+  })
+
+  it('reads a vote list edited by hand as it stands', () => {
+    saveVersion(dir, versionsOf(dir).current, 'One', '')
+    writeRun('r-v0', 'v0')
+    saveCorrection(dir, 'r-v0/case-s1', 'rule:Be brief.', true)
+    const stored = readStoredReviews(dir)
+    const odd = [null, 'a note', { a: 7 }, { a: 'r-v0/case-s1', b: 'r-v1/case-s1' }]
+    writeStoredReviews(dir, { ...stored, preferences: odd as never })
+    expect(deleteVersion(dir, 'v0')).toMatchObject({ runs: 1, reviews: 1 })
+    expect(readStoredReviews(dir).preferences).toEqual(odd.slice(0, 3))
+  })
+
+  it('leaves a preferences that holds no list as it is, on delete and on undo', () => {
+    saveVersion(dir, versionsOf(dir).current, 'One', '')
+    writeRun('r-v0', 'v0')
+    saveCorrection(dir, 'r-v0/case-s1', 'rule:Be brief.', true)
+    writeStoredReviews(dir, { ...readStoredReviews(dir), preferences: 'by hand' as never })
+    const { undo } = deleteVersion(dir, 'v0')
+    expect(readStoredReviews(dir).preferences).toBe('by hand')
+    undeleteVersion(dir, undo)
+    expect(readStoredReviews(dir).preferences).toBe('by hand')
+    expect(Object.keys(loadReviews(dir).reviews)).toEqual(['r-v0/case-s1'])
   })
 
   it('refuses a version that is not there', () => {
@@ -83,17 +118,17 @@ describe('deleteVersion', () => {
 })
 
 describe('undeleteVersion', () => {
-  it('puts the version, its runs, its corrections and its picks back', () => {
+  it('puts the version, its runs, its corrections and its old votes back', () => {
     saveVersion(dir, versionsOf(dir).current, 'One', '')
     writeRun('r-v0', 'v0')
     saveCorrection(dir, 'r-v0/case-s1', 'rule:Be brief.', true)
-    savePick(dir, { a: 'r-v0/case-s1', b: 'r-v0/case-s2', vote: 'a' })
+    writeVote('r-v0/case-s1', 'r-v0/case-s2')
     const { undo } = deleteVersion(dir, 'v0')
     expect(undeleteVersion(dir, undo)).toEqual({ restored: 'v0' })
     expect(versionsOf(dir).versions.map((v) => [v.version, v.saved])).toEqual([['v0', true]])
     expect(existsSync(join(dir, 'evals/runs/r-v0/_skill/SKILL.md'))).toBe(true)
     expect(Object.keys(loadReviews(dir).reviews)).toEqual(['r-v0/case-s1'])
-    expect(loadReviews(dir).preferences).toHaveLength(1)
+    expect(readStoredReviews(dir).preferences).toHaveLength(1)
     expect(existsSync(join(trash, undo))).toBe(false)
   })
 

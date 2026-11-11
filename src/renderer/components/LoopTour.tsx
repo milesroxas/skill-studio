@@ -10,7 +10,7 @@
  * Each step sits in the welcome's step frame (`WelcomeStep.tsx`). Seen once or
  * twice, so the step may move: its picture plays what the sentence says, in
  * the order it happens. Rules are written, the note is written, its checks are
- * stamped, the score counts up, the better note is picked. Nothing waits on
+ * stamped, the rule is tightened, the score counts up. Nothing waits on
  * the movement: Next works from the first frame.
  */
 import { PRACTICE, PRACTICE_EDIT } from '@domain/practice.ts'
@@ -39,9 +39,6 @@ const NOTE =
 const PASSED = [true, true, false]
 const FAILED_WHY = 'It has four.'
 const SCORE = { before: 58, after: 96 }
-/** The two versions the last step sets side by side, and the one picked. */
-const VERSIONS = ['v0', 'v1'] as const
-const PICKED = 'v1'
 /** The note a word at a time, each with its place in the line. */
 const WORDS = NOTE.split(' ').map((word, at) => ({ word, at }))
 
@@ -175,25 +172,6 @@ function Written() {
   )
 }
 
-/** The reader's pick: the two versions to choose from, and the better one a moment after they appear. */
-function Pick({ at }: { at: number }) {
-  return (
-    <span className="flex gap-1.5">
-      {VERSIONS.map((version) => (
-        <span key={version} className={choiceVariants()}>
-          {version}
-          {version === PICKED ? (
-            <span className={choiceVariants({ picked: true })} style={after(at)}>
-              {version}
-              <span className="sr-only"> (picked)</span>
-            </span>
-          ) : null}
-        </span>
-      ))}
-    </span>
-  )
-}
-
 /** The loop closing: the same case run again, its score counting up to the new one. */
 function Rerun({ at }: { at: number }) {
   const shown = useCountUp(SCORE.after, { from: SCORE.before, delay: at, duration: 900 })
@@ -214,20 +192,6 @@ function Rerun({ at }: { at: number }) {
     </span>
   )
 }
-
-const choiceVariants = cva(
-  'flex items-center justify-center rounded-sm text-ui font-medium tabular-nums',
-  {
-    variants: {
-      picked: {
-        /** Lands over the version it picks, covering its border. */
-        true: 'absolute -inset-px animate-pop bg-primary text-primary-foreground',
-        false: 'relative h-7 w-9 border text-muted-foreground',
-      },
-    },
-    defaultVariants: { picked: false },
-  },
-)
 
 /** One picture per step, by where the step happens. */
 const PICTURES: Record<LoopStep['at'], ReactNode> = {
@@ -286,9 +250,6 @@ const PICTURES: Record<LoopStep['at'], ReactNode> = {
       </Part>
       <Part caption="Run again">
         <Rerun at={BEAT.start + 900} />
-      </Part>
-      <Part caption="Read both notes, and pick the better">
-        <Pick at={BEAT.start + 2100} />
       </Part>
     </>
   ),

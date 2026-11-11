@@ -121,7 +121,7 @@ const NAV_ITEM =
 
 /**
  * One place in the sidebar. `meta` is its status, right-aligned and tabular;
- * `dot` marks something waiting (an unsaved draft, unsaved scoring).
+ * `dot` marks something waiting: an unsaved draft.
  */
 export function NavItem({
   icon,

@@ -1,6 +1,7 @@
 /**
  * Deleting a version, with a way back. The version's saved copy, the runs made
- * with it, and the corrections and picks on their outputs move to
+ * with it, and the corrections on their outputs (with any votes on them an
+ * earlier version of the app wrote) move to
  * `~/.skill-studio/trash/<id>/`, outside the skill so they never show in its
  * git status. Only the latest delete can be undone: each delete empties the
  * trash first, so it never holds more than one version, apart from an entry
@@ -14,6 +15,7 @@ import { STUDIO_DIR } from './library.ts'
 import {
   readStoredReviews,
   type StoredReview,
+  type StoredReviews,
   type StoredVote,
   writeStoredReviews,
 } from './reviews.ts'
@@ -140,6 +142,16 @@ function markUnfinished(entry: string, file: TrashEntry): void {
 /** The run an output key (`<run>/<sample>`) belongs to. */
 const runOf = (key: string): string => key.split('/')[0]
 
+/** The file's votes. Nothing writes them now, so a list edited by hand is read as it stands. */
+const votesOf = (stored: StoredReviews): StoredVote[] =>
+  Array.isArray(stored.preferences) ? stored.preferences : []
+
+/** A vote names an output of one of `runs`. An entry with no output keys names none. */
+const onRuns = (vote: StoredVote, runs: ReadonlySet<string>): boolean =>
+  vote !== null &&
+  typeof vote === 'object' &&
+  [vote.a, vote.b].some((key) => typeof key === 'string' && runs.has(runOf(key)))
+
 export function deleteVersion(skillDir: string, version: string): DeletedVersion {
   if (!versionsOf(skillDir).versions.some((v) => v.version === version))
     throw new Error(`There is no ${version}.`)
@@ -147,9 +159,9 @@ export function deleteVersion(skillDir: string, version: string): DeletedVersion
   const gone = new Set(runs)
   const stored = readStoredReviews(skillDir)
   const kept = stored.reviews ?? {}
-  const votes = stored.preferences ?? []
+  const votes = votesOf(stored)
   const reviews = Object.fromEntries(Object.entries(kept).filter(([key]) => gone.has(runOf(key))))
-  const preferences = votes.filter((p) => gone.has(runOf(p.a)) || gone.has(runOf(p.b)))
+  const preferences = votes.filter((p) => onRuns(p, gone))
 
   emptyTrash()
   const id = randomUUID()
@@ -188,7 +200,10 @@ export function deleteVersion(skillDir: string, version: string): DeletedVersion
     writeStoredReviews(skillDir, {
       ...stored,
       reviews: kept,
-      preferences: votes.filter((p) => !preferences.includes(p)),
+      // A `preferences` that holds no list is left as the file has it.
+      ...(Array.isArray(stored.preferences)
+        ? { preferences: votes.filter((p) => !preferences.includes(p)) }
+        : {}),
     })
   }
   return {
@@ -238,7 +253,9 @@ export function undeleteVersion(skillDir: string, undo: string): { restored: str
     writeStoredReviews(skillDir, {
       ...stored,
       reviews: { ...file.reviews, ...stored.reviews },
-      preferences: [...(stored.preferences ?? []), ...file.preferences],
+      ...(file.preferences.length
+        ? { preferences: [...votesOf(stored), ...file.preferences] }
+        : {}),
     })
   }
   rmSync(entry, { recursive: true, force: true })

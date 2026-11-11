@@ -34,7 +34,7 @@ Every grading command takes `--no-jev`, `--packs a,b`, `--bench <file>` and `--j
 
 The exit code is 0 on success. `self-test` exits 1 when any check fails. An error, an unknown command or no command (which prints the help) exits 2; `--help` exits 0.
 
-The CLI covers scaffolding, runs, grading and reports. Picks, corrections, restoring a version and tuning the scoring are in the app only.
+The CLI covers scaffolding, runs, grading and reports. Corrections, restoring a version and choosing what a skill is graded as are in the app only; the rest of the scoring is `bench.json`, which either reads.
 
 ## The web server
 

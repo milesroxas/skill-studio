@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 184" width="760" height="184" role="img" aria-labelledby="loop-title loop-desc" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif">
   <title id="loop-title">The Skill Studio loop</title>
-  <desc id="loop-desc">Write the skill's rules, run an agent on its cases, then compare the new answers with the last and pick the better. What an answer missed names the rule to change, and you go round again.</desc>
+  <desc id="loop-desc">Write the skill's rules, run an agent on its cases, then compare the new answers with the last. What an answer missed names the rule to change, and you go round again.</desc>
   <defs>
     <marker id="head" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
       <path d="M1 1 9 5 1 9" fill="none" stroke="#5B605A" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
@@ -30,7 +30,7 @@
   <g fill="#5B605A" font-size="13">
     <text x="32" y="85">the skill's rules</text>
     <text x="292" y="85">an agent does the cases</text>
-    <text x="552" y="85">pick the better answer</text>
+    <text x="552" y="85">read what each missed</text>
   </g>
 
   <g fill="none" stroke="#5B605A" stroke-width="1.5" stroke-linecap="round" marker-end="url(#head)">

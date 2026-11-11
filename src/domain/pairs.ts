@@ -1,14 +1,13 @@
 /**
- * Picks: the reader's choice of the better of two outputs of one case. A pick
- * is the last word on which is better. Jev's scores stand beside it, and where
- * the two point opposite ways the pick says Jev is missing something. Pure
- * functions over plain facts about outputs, so they are tested without a page.
+ * Pairs: the two outputs of one case that Results sets side by side first.
+ * Pure functions over plain facts about outputs, so they are tested without a
+ * page.
  */
 import { versionNumber } from './lift.ts'
-import { type Configuration, OVERALL, type Preference, type Vote } from './schemas.ts'
+import type { Configuration } from './schemas.ts'
 
-/** One output as picking reads it. */
-export interface PickOutput {
+/** One output as pairing reads it. */
+export interface PairOutput {
   /** `<run>/<sample>` */
   key: string
   caseId: string
@@ -25,7 +24,7 @@ export interface PickOutput {
   written: boolean
 }
 
-export interface Pair<T extends PickOutput = PickOutput> {
+export interface Pair<T extends PairOutput = PairOutput> {
   /** The older side: the version before, or the answer written without the skill. */
   a: T | null
   /** The newer side: the latest version's answer. */
@@ -33,7 +32,7 @@ export interface Pair<T extends PickOutput = PickOutput> {
 }
 
 /** The newest run's first sample, among the outputs that were written when any was. */
-const newestFirstSample = <T extends PickOutput>(outputs: T[]): T | null =>
+const newestFirstSample = <T extends PairOutput>(outputs: T[]): T | null =>
   (outputs.some((o) => o.written) ? outputs.filter((o) => o.written) : outputs).reduce<T | null>(
     (best, o) =>
       !best ||
@@ -52,7 +51,7 @@ const newestFirstSample = <T extends PickOutput>(outputs: T[]): T | null =>
  * that pair is the one, so the difference read is the skill's and not the
  * model's. With one version and no baseline there is only the one answer.
  */
-export function defaultPair<T extends PickOutput>(outputs: readonly T[]): Pair<T> {
+export function defaultPair<T extends PairOutput>(outputs: readonly T[]): Pair<T> {
   const skilled = outputs.filter(
     (o) => o.configuration !== 'without_skill' && versionNumber(o.version) !== null,
   )
@@ -73,34 +72,4 @@ export function defaultPair<T extends PickOutput>(outputs: readonly T[]): Pair<T
       newestFirstSample(earlier),
     b,
   }
-}
-
-const samePair = (p: Preference, x: string, y: string): boolean =>
-  (p.a === x && p.b === y) || (p.a === y && p.b === x)
-
-const flipped = (vote: Vote): Vote => (vote === 'a' ? 'b' : vote === 'b' ? 'a' : 'tie')
-
-/** The reader's pick between `a` and `b`, said from that order; null when they have not picked. */
-export function pickBetween(preferences: readonly Preference[], a: string, b: string): Vote | null {
-  const found = preferences.find(
-    (p) => p.by === 'human' && p.criterion === OVERALL && samePair(p, a, b),
-  )
-  if (!found) return null
-  return found.a === a ? found.vote : flipped(found.vote)
-}
-
-/**
- * How a pick stands against the scores. `differs` when the reader picked one
- * side and the other scores higher: Jev's facts do not hold what the reader
- * saw. A tie picked, or a score missing, is never a difference.
- */
-export function pickStanding(
-  vote: Vote | null,
-  totalA: number | null,
-  totalB: number | null,
-): 'agrees' | 'differs' | null {
-  if (vote === null || totalA === null || totalB === null) return null
-  const higher = totalA === totalB ? 'tie' : totalA > totalB ? 'a' : 'b'
-  if (vote === 'tie' || higher === 'tie') return 'agrees'
-  return vote === higher ? 'agrees' : 'differs'
 }

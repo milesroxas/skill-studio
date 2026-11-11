@@ -67,11 +67,6 @@ export const GLOSSARY = {
     means:
       'A rule the output breaks or a check it does not meet, as Jev read it. Each one names what to change.',
   },
-  pick: {
-    term: 'Pick',
-    means:
-      'Your choice of the better of two outputs. It is the last word on which version is better.',
-  },
   version: {
     term: 'Version',
     means:

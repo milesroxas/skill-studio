@@ -1,6 +1,6 @@
 export * from './config.ts'
 export * from './pack.ts'
-export * from './picks.ts'
+export * from './pairs.ts'
 export * from './rules.ts'
 export * from './run-name.ts'
 export * from './schemas.ts'

@@ -19,7 +19,7 @@ import { loadBench, loadCases, saveCase } from '@infrastructure/cases.ts'
 import { writeJson } from '@infrastructure/fs.ts'
 import { createSkill, touchRecent } from '@infrastructure/library.ts'
 import { writePreferences } from '@infrastructure/preferences.ts'
-import { saveCorrection, savePick } from '@infrastructure/reviews.ts'
+import { saveCorrection } from '@infrastructure/reviews.ts'
 import { runDir, versionsOf } from '@infrastructure/runs.ts'
 import { skillFiles, skillHash, snapshotSkill, snapshotSkillFiles } from '@infrastructure/skill.ts'
 import { saveVersion } from '@infrastructure/versions.ts'
@@ -576,7 +576,7 @@ const v1 = saveAs(
   'Added the order rule and a voice reference: v0 notes buried what changed under the announcement.',
   '2026-11-03',
 )
-const r1 = writeRun({
+writeRun({
   date: '2026-11-03',
   time: '10:26',
   version: v1,
@@ -613,9 +613,6 @@ writeRun({
   ),
 })
 
-// Picks on two of the three cases, so the third still waits to be compared.
-savePick(dir, { a: `${r0}/export-folder-s1`, b: `${r1}/export-folder-s1`, vote: 'b' })
-savePick(dir, { a: `${r0}/sync-fix-s1`, b: `${r1}/sync-fix-s1`, vote: 'b' })
 // One verdict the reader read differently: the v0 note does end by saying where the fix is.
 saveCorrection(
   dir,

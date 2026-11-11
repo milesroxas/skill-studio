@@ -15,7 +15,6 @@ import {
   workingSkill,
 } from '@domain/assist.ts'
 import { checkWeight } from '@domain/case-draft.ts'
-import { benchOf } from '@domain/config.ts'
 import { type ImageRef, MAX_IMAGES } from '@domain/image.ts'
 import { type RuleScene, worthChecking } from '@domain/lint.ts'
 import { LOOK_STEPS } from '@domain/practice.ts'
@@ -31,7 +30,6 @@ import {
   NEW_CASE_KEY,
   type Report,
   type SkillDrafts,
-  type Vote,
 } from '@domain/schemas.ts'
 import {
   SECRET_IDS,
@@ -50,17 +48,11 @@ import {
   loadCases,
   loadRules,
   saveCase,
+  savePacks,
 } from '@infrastructure/cases.ts'
 import { readDrafts, writeDrafts } from '@infrastructure/drafts.ts'
 import { engineById, engineInfo } from '@infrastructure/engines/index.ts'
-import {
-  assertSafe,
-  assertSafePath,
-  isDir,
-  readJson,
-  realPath,
-  writeJson,
-} from '@infrastructure/fs.ts'
+import { assertSafe, assertSafePath, isDir, readJson, realPath } from '@infrastructure/fs.ts'
 import { findImage, readImage, saveUpload, uploadPath } from '@infrastructure/images.ts'
 import {
   createSkill,
@@ -78,7 +70,7 @@ import {
   unlinkSkill,
 } from '@infrastructure/library.ts'
 import { readPreferences, writePreferences } from '@infrastructure/preferences.ts'
-import { loadReviews, reviewsPath, saveCorrection, savePick } from '@infrastructure/reviews.ts'
+import { loadReviews, reviewsPath, saveCorrection } from '@infrastructure/reviews.ts'
 import {
   listRuns,
   readRun,
@@ -100,6 +92,7 @@ import {
 import { deleteVersion, undeleteVersion } from '@infrastructure/trash.ts'
 import { isVersionLabel, saveVersion } from '@infrastructure/versions.ts'
 import { Jev } from '@judges/jev.ts'
+import { scorers } from '@judges/scorers.ts'
 import {
   aiCommands,
   aiStatus,
@@ -170,6 +163,8 @@ const num = (value: unknown, fallback: number): number =>
 const list = (value: unknown): string[] => (Array.isArray(value) ? value.map(String) : [])
 export const record = (value: unknown): Raw =>
   value && typeof value === 'object' && !Array.isArray(value) ? (value as Raw) : {}
+/** The packs a skill can be graded as. */
+const PACK_IDS = scorers.map((pack) => pack.id)
 const oneOf = <T extends string>(value: unknown, options: readonly T[], what: string): T => {
   if (typeof value !== 'string' || !options.includes(value as T)) throw new Error(`Bad ${what}.`)
   return value as T
@@ -256,9 +251,7 @@ function draftsOf(value: unknown): SkillDrafts {
       ([key, at]) => Object.hasOwn(cases, key) && (at === null || typeof at === 'string'),
     ),
   ) as Record<string, string | null>
-  // Scoring is checked as bench.json is: a value of the wrong kind takes its default.
-  const scoring = input.scoring == null ? null : benchOf(input.scoring)
-  return { files, cases, caseBases, scoring, updatedAt: null }
+  return { files, cases, caseBases, updatedAt: null }
 }
 
 function generateInputOf(raw: Raw): GenerateInput {
@@ -452,12 +445,6 @@ export const parsers: { [K in OperationName]: (raw: Raw) => Input<K> } = {
       met: typeof raw.met === 'boolean' ? raw.met : null,
     }
   },
-  'skill.pick': (raw) => ({
-    ...scoped(raw),
-    a: assertSafePath(str(raw.a), 'a'),
-    b: assertSafePath(str(raw.b), 'b'),
-    vote: oneOf<Vote>(raw.vote, ['a', 'b', 'tie'], 'vote'),
-  }),
   'skill.saveFile': (raw) => {
     if (typeof raw.text !== 'string') throw new Error('Bad text.')
     return {
@@ -475,11 +462,12 @@ export const parsers: { [K in OperationName]: (raw: Raw) => Input<K> } = {
     savedAt: typeof raw.savedAt === 'string' && raw.savedAt ? raw.savedAt : null,
   }),
   'skill.deleteCase': (raw) => ({ ...scoped(raw), id: assertSafe(str(raw.id), 'case') }),
-  'skill.config': (raw) => {
-    if (!raw.config || typeof raw.config !== 'object' || Array.isArray(raw.config))
-      throw new Error('Bad config.')
-    // Read as a file written by hand would be: wrong kinds dropped, numbers held to their ranges.
-    return { ...scoped(raw), config: benchOf(raw.config) }
+  'skill.gradedAs': (raw) => {
+    const packs = Array.isArray(raw.packs) ? raw.packs : []
+    // Named once each, every one a pack the app has: a skill is always graded as something.
+    if (!packs.length || new Set(packs).size !== packs.length) throw new Error('Bad packs.')
+    for (const pack of packs) oneOf(pack, PACK_IDS, 'pack')
+    return { ...scoped(raw), packs: packs as string[] }
   },
   'skill.generate': generateInputOf,
   'skill.grade': (raw) => ({
@@ -757,11 +745,6 @@ export function createOperations(options: OperationsOptions): Runners {
       saveCorrection(skill.path, input.key, input.verdict, input.met)
       return { saved: reviewsPath(skill.path) }
     },
-    'skill.pick': (input) => {
-      const skill = skillOf(input)
-      savePick(skill.path, { a: input.a, b: input.b, vote: input.vote })
-      return { saved: reviewsPath(skill.path) }
-    },
     'skill.saveFile': (input) => {
       const skill = skillOf(input)
       writeSkillFile(skill.path, input.path, input.text, input.previous)
@@ -783,9 +766,9 @@ export function createOperations(options: OperationsOptions): Runners {
       deleteCase(skillOf(input).path, input.id)
       return { deleted: true }
     },
-    'skill.config': (input) => {
+    'skill.gradedAs': (input) => {
       const skill = skillOf(input)
-      writeJson(benchPath(skill.path), input.config)
+      savePacks(skill.path, input.packs)
       return { saved: benchPath(skill.path), config: loadBench(skill.path) }
     },
     'skill.generate': (input) => {

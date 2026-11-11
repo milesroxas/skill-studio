@@ -215,22 +215,33 @@ describe('skill.saveCase', () => {
   })
 })
 
-describe('skill.config', () => {
-  it('writes only what a scorer can read', async () => {
-    await invoke(operations, 'skill.config', {
+describe('skill.gradedAs', () => {
+  it('sets the packs, and keeps every other key of bench.json as the file holds it', async () => {
+    const bench = join(skill, 'evals/bench.json')
+    // Written by hand: a threshold out of range, a key nothing reads, a pack's own setting.
+    const byHand = { packs: ['generic'], yes: 7, sure: 0.9, writer: 'Ada', weights: { rubric: 5 } }
+    writeFileSync(bench, JSON.stringify(byHand))
+    const { config } = await invoke(operations, 'skill.gradedAs', {
       skill,
-      config: {
-        packs: ['generic', 3],
-        yes: 7,
-        weights: { rubric: 'many', adherence: 60 },
-        writer: 'Ada',
-      },
+      packs: ['generic', 'writing'],
     })
-    const saved = JSON.parse(readFileSync(join(skill, 'evals/bench.json'), 'utf8'))
-    expect(saved.packs).toEqual(['generic'])
-    expect(saved.weights).toEqual({ adherence: 60 })
-    expect(saved.yes).toBeLessThanOrEqual(1)
-    expect(saved.writer).toBe('Ada')
+    expect(JSON.parse(readFileSync(bench, 'utf8'))).toEqual({
+      ...byHand,
+      packs: ['generic', 'writing'],
+    })
+    // Scored as the file reads, as ever: the threshold held to 1.
+    expect(config.packs).toEqual(['generic', 'writing'])
+    expect(config.yes).toBe(1)
+  })
+
+  it('writes the packs alone where there is no file, or one that holds no object', async () => {
+    const bench = join(skill, 'evals/bench.json')
+    rmSync(bench, { force: true })
+    await invoke(operations, 'skill.gradedAs', { skill, packs: ['design'] })
+    expect(JSON.parse(readFileSync(bench, 'utf8'))).toEqual({ packs: ['design'] })
+    writeFileSync(bench, '[1, 2]')
+    await invoke(operations, 'skill.gradedAs', { skill, packs: ['code'] })
+    expect(JSON.parse(readFileSync(bench, 'utf8'))).toEqual({ packs: ['code'] })
   })
 })
 

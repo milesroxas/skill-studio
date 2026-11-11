@@ -9,7 +9,7 @@ import type { AgentId } from '@domain/library.ts'
 import type { RuleScene } from '@domain/lint.ts'
 import type { LookStep } from '@domain/practice.ts'
 import type { Preferences } from '@domain/preferences.ts'
-import type { BenchConfig, CaseDraft, SkillDrafts, Vote } from '@domain/schemas.ts'
+import type { CaseDraft, SkillDrafts } from '@domain/schemas.ts'
 import type { SecretId } from '@domain/secrets.ts'
 import { transport } from './transport.ts'
 
@@ -57,7 +57,7 @@ export const api = {
   createSkill: (input: CreateSkillInput) => call('library.create', input),
   /** The practice skill, written the first time it is asked for. */
   practice: () => call('library.practice', {}),
-  /** The practice skill as first written, with its runs, picks, edits and drafts gone. */
+  /** The practice skill as first written, with its runs, corrections, edits and drafts gone. */
   restartPractice: () => call('library.restartPractice', {}),
   /** Mark a walkthrough step that only asks to look at its screen. */
   practiceSeen: (step: LookStep) => call('library.practiceSeen', { step }),
@@ -144,9 +144,8 @@ export const api = {
   /** Your own answer on one verdict of an output; null takes it back, so Jev's stands again. */
   correct: (key: string, verdict: string, met: boolean | null) =>
     call('skill.correct', scoped({ key, verdict, met })),
-  /** Your pick of the better of two outputs. */
-  pick: (a: string, b: string, vote: Vote) => call('skill.pick', scoped({ a, b, vote })),
-  config: (config: BenchConfig) => call('skill.config', scoped({ config })),
+  /** Set the packs the skill is graded as; the rest of `bench.json` stays as it is. */
+  gradedAs: (packs: string[]) => call('skill.gradedAs', scoped({ packs })),
   generate: (request: GenerateRequest) => call('skill.generate', scoped(request)),
   grade: (run: string, jev = true) => call('skill.grade', scoped({ run, jev })),
   /** `savedAt` is when the form's copy of the case was saved: a newer copy on disk refuses the save. */

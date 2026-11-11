@@ -4,46 +4,46 @@ import type { RunView, State } from './api.ts'
 import {
   casePair,
   drawnOf,
-  keptConfig,
+  kindsLine,
   liftOf,
   mergedConfig,
   outputsOf,
   primaryOf,
-  scoringDirty,
+  setByHand,
   versionScore,
 } from './model.ts'
 
 const saved = mergedConfig(null)
-const edited = { ...saved, yes: saved.yes / 2 }
 
-describe('scoringDirty', () => {
-  it('is false for the scoring as saved', () => {
-    expect(scoringDirty(saved, null)).toBe(false)
-    expect(scoringDirty(mergedConfig({ packs: saved.packs }), { packs: saved.packs })).toBe(false)
-  })
-
-  it('is true once the scoring in hand differs', () => {
-    expect(scoringDirty(edited, null)).toBe(true)
+describe('kindsLine', () => {
+  it('says the kinds as a spoken list', () => {
+    expect(kindsLine(['generic'])).toBe('Generic')
+    expect(kindsLine(['generic', 'writing'])).toBe('Generic and Writing')
+    expect(kindsLine(['generic', 'code', 'design'], 'or')).toBe('Generic, Code or Design')
+    expect(kindsLine([])).toBe('')
   })
 })
 
-describe('keptConfig', () => {
-  it('takes the saved scoring on a first read', () => {
-    expect(keptConfig(null, null, saved)).toBe(saved)
+describe('setByHand', () => {
+  it('names nothing for a file that holds only defaults, or no object at all', () => {
+    expect(setByHand({})).toEqual([])
+    expect(setByHand(null)).toEqual([])
+    expect(setByHand([] as never)).toEqual([])
+    expect(setByHand({ packs: ['generic'] })).toEqual([])
+    // An earlier version saved every setting a kind has, at its default, in its own key order.
+    const writing = mergedConfig({ packs: ['writing'] })
+    const reordered = Object.fromEntries(Object.entries(writing).reverse())
+    expect(setByHand(reordered)).toEqual([])
   })
 
-  it('keeps an edit that is not saved yet', () => {
-    expect(keptConfig(edited, saved, saved)).toBe(edited)
-  })
-
-  it('takes a scoring that changed on disk when nothing was edited here', () => {
-    const onDisk = { ...saved, yes: 0.9 }
-    expect(keptConfig(saved, saved, onDisk)).toBe(onDisk)
-  })
-
-  it('never keeps a scoring read for another skill: with no read before it, the new one stands', () => {
-    const other = { ...saved, yes: 0.1 }
-    expect(keptConfig(other, null, saved)).toBe(saved)
+  it('names the settings that differ from their defaults', () => {
+    expect(setByHand({ packs: ['generic'], yes: 0.7, weights: { adherence: 30 } })).toEqual([
+      'yes',
+      'weights',
+    ])
+    const writing = mergedConfig({ packs: ['writing'] })
+    const structure = { ...(writing.structure as Record<string, number>), pointerCredit: 0.1 }
+    expect(setByHand({ ...writing, structure })).toEqual(['structure'])
   })
 })
 

@@ -1,7 +1,7 @@
 /**
  * The practice skill's guide: which step of the loop the reader is on, what it
- * asks of them and where it happens. Worked out from the skill's own runs,
- * picks and versions every time, so it never disagrees with what is on disk
+ * asks of them and where it happens. Worked out from the skill's own runs and
+ * versions, and the screens the reader opened, every time, so it never disagrees with what is on disk
  * and there is no progress to store or reset.
  */
 import {
@@ -19,6 +19,7 @@ import { api, type State } from './api.ts'
 import type { Confirm } from './components/confirm.tsx'
 import type { Reporter } from './hooks.ts'
 import type { Output } from './model.ts'
+import { atTarget } from './next-step.ts'
 
 export interface PracticeTarget {
   /** The top bar's name for the step. */
@@ -76,7 +77,6 @@ export function practiceWalk(state: State, outputs: Output[]): PracticeWalk {
   const progress = practiceProgress({
     versions,
     current: state.versions.current.version,
-    picks: state.reviews.preferences.length,
     seen: state.practiceSeen,
   })
   return { versions, progress }
@@ -97,6 +97,8 @@ export function practiceGuide(
   now: {
     /** The screen in view. */
     screen: string
+    /** Its address, such as the case Results has open. */
+    params: URLSearchParams
     /** The look step this visit to the screen marked done, which the reader is still reading. */
     reading: LookStep | null
     /** SKILL.md has an edit that is not saved yet. */
@@ -109,15 +111,6 @@ export function practiceGuide(
   const last = versions.at(-1)
   const current = state.versions.current
   const { done } = progress
-  const inHand = progress.step
-  // A run in progress is the step in hand, whatever screen it is watched from.
-  const looking = now.running
-    ? null
-    : inHand && isLookStep(inHand) && SCREEN[inHand] === now.screen
-      ? inHand
-      : now.reading
-  const view = practiceView(progress, looking)
-  const step = view.shown
   // The case to open on: the first one both versions answered.
   const compared = state.cases.find((c) =>
     [first, last].every((v) => outputs.some((o) => o.caseId === c.id && versionOf(o) === v)),
@@ -157,8 +150,8 @@ export function practiceGuide(
       target: { label: `Run ${current.version}`, screen: SCREEN.run },
     },
     compare: {
-      title: 'Pick the better note',
-      hint: `Read ${first} beside ${last}, then say which is better.`,
+      title: 'Compare the two notes',
+      hint: `Read ${first} beside ${last}, and see what your one edit changed.`,
       target: {
         label: `Compare ${first} and ${last}`,
         screen: SCREEN.compare,
@@ -166,6 +159,21 @@ export function practiceGuide(
       },
     },
   }
+
+  /** The reader is where `target` happens: a step that opens one case is not there on another. */
+  const at = (target: PracticeTarget) => atTarget(target, now.screen, now.params)
+  const inHand = progress.step
+  // A run in progress is the step in hand, whatever screen it is watched from. A look step
+  // marked on this visit is read until the reader leaves where it happens.
+  const looking = now.running
+    ? null
+    : inHand && isLookStep(inHand) && at(copy[inHand].target)
+      ? inHand
+      : now.reading && at(copy[now.reading].target)
+        ? now.reading
+        : null
+  const view = practiceView(progress, looking)
+  const step = view.shown
 
   // The step in hand is still to do, though opening its screen has marked it.
   const steps = PRACTICE_STEPS.map((id) => ({ id, done: done[id] && id !== step }))
@@ -188,8 +196,7 @@ export function practiceGuide(
     title: copy[step].title,
     hint: now.running ? 'A run is in progress. It takes a minute or two.' : copy[step].hint,
     target,
-    // A step that opens one case still has somewhere to go from the same screen.
-    here: target.screen === now.screen && !target.params,
+    here: at(target),
     next: view.next ? copy[view.next].target : null,
   }
 }
@@ -218,7 +225,7 @@ export function useStartPractice(
 
 /**
  * Put the practice skill back as it was first written, once the reader agrees:
- * its runs, corrections, picks, versions and drafts go, so the guide is back at its
+ * its runs, corrections, versions and drafts go, so the guide is back at its
  * first step. `done` reloads the skill and goes to that step.
  */
 export function useRestartPractice(
@@ -232,7 +239,7 @@ export function useRestartPractice(
     const ok = await confirm({
       title: 'Restart the walkthrough?',
       description:
-        'Thank-you note goes back to how it was written, and the walkthrough to its first step. Its runs, picks, versions and unsaved edits are deleted. Your own skills are not touched.',
+        'Thank-you note goes back to how it was written, and the walkthrough to its first step. Its runs, corrections, versions and unsaved edits are deleted. Your own skills are not touched.',
       action: 'Restart',
       destructive: true,
     })

@@ -1,8 +1,8 @@
-/** Outputs across runs, their scores under the scoring in hand, the pair to compare per case, and display names. */
+/** Outputs across runs, their scores under the skill's scoring, the pair to compare per case, and display names. */
 import { mergeConfig } from '@domain/config.ts'
 import { type Lift, type LiftRun, liftWriter, versionLift, writerKey } from '@domain/lift.ts'
 import { type Corrections, NO_CORRECTIONS, type PackScoring } from '@domain/pack.ts'
-import { defaultPair, type PickOutput } from '@domain/picks.ts'
+import { defaultPair, type PairOutput } from '@domain/pairs.ts'
 import { drawnArtifact, primaryArtifact } from '@domain/primary.ts'
 import { parseSampleDir } from '@domain/run-name.ts'
 import type { Artifact, ArtifactKind, BenchConfig, ReportResult, Writer } from '@domain/schemas.ts'
@@ -157,10 +157,6 @@ export function versionsRun(outputs: Output[]): string[] {
   return [...seen].sort((x, y) => Number(x.slice(1)) - Number(y.slice(1)))
 }
 
-/** A side of a comparison by what it was written with: "v2", or "no skill". */
-export const sideName = (output: Output): string =>
-  output.run.meta?.configuration === 'without_skill' ? 'no skill' : runVersion(output.run)
-
 /** A version's outputs written with the skill as it was then. */
 export const versionOutputs = (outputs: Output[], version: string): Output[] =>
   outputs.filter(
@@ -188,27 +184,7 @@ export function versionScore(
 export const mergedConfig = (saved: Partial<BenchConfig> | null): BenchConfig =>
   mergeConfig(saved, scorers)
 
-const sameConfig = (a: BenchConfig, b: BenchConfig): boolean =>
-  JSON.stringify(a) === JSON.stringify(b)
-
-/** Whether the scoring in hand differs from the scoring saved with the skill. */
-export const scoringDirty = (config: BenchConfig, saved: Partial<BenchConfig> | null): boolean =>
-  !sameConfig(config, mergedConfig(saved))
-
-/**
- * The scoring to hold once the skill has been read again. Edits not saved yet
- * stay: `current` is kept when it differs from the scoring that was saved when
- * it was last read (`before`). Otherwise the newly read `saved` takes its
- * place, so a scoring changed on disk, or another skill's, is never taken for
- * an edit made here.
- */
-export const keptConfig = (
-  current: BenchConfig | null,
-  before: BenchConfig | null,
-  saved: BenchConfig,
-): BenchConfig => (current && before && !sameConfig(current, before) ? current : saved)
-
-/** The parts of a score under the scoring in hand, in the order they are shown, without the total. */
+/** The parts of a score under `config`, in the order they are shown, without the total. */
 export const layersOf = (config: BenchConfig): string[] =>
   layerOrder(config, scorers).filter((l) => l !== 'total')
 
@@ -234,6 +210,37 @@ export const partLabel = (layer: string): string => PART_LABEL[layer] ?? capital
 /** A kind of work Jev can grade, by its name: "Writing". */
 export const kindLabel = (pack: string): string => capital(pack)
 
+/** Kinds of work as a spoken list, in the order given: "Generic, Code and Design". */
+export const kindsLine = (ids: readonly string[], last = 'and'): string => {
+  const list = ids.map(kindLabel)
+  return list.length > 1
+    ? `${list.slice(0, -1).join(', ')} ${last} ${list.at(-1)}`
+    : (list[0] ?? '')
+}
+
+/** A value as JSON with its keys in order, so two settings that say the same compare equal. */
+const canonical = (value: unknown): string =>
+  JSON.stringify(value, (_, v: unknown) =>
+    v && typeof v === 'object' && !Array.isArray(v)
+      ? Object.fromEntries(Object.entries(v).sort(([a], [b]) => a.localeCompare(b)))
+      : v,
+  )
+
+/**
+ * The keys `bench.json` sets besides the kinds to something other than their
+ * default: the points per part, the threshold, a kind's own settings. Only the
+ * file changes them.
+ */
+export function setByHand(saved: Partial<BenchConfig> | null): string[] {
+  // A file that holds no object sets nothing: it reads as the defaults.
+  if (!saved || typeof saved !== 'object' || Array.isArray(saved)) return []
+  const config = mergedConfig(saved)
+  const defaults = mergedConfig({ packs: config.packs })
+  return Object.keys(saved).filter(
+    (key) => key !== 'packs' && canonical(config[key]) !== canonical(defaults[key]),
+  )
+}
+
 /** Rules followed and checks met, added up over `outputs` under `config`; null where none has any. */
 export function countsOf(
   outputs: Output[],
@@ -255,8 +262,8 @@ export function countsLine(counts: { rules: Count | null; checks: Count | null }
   return parts.length ? parts.join(' · ') : null
 }
 
-/** An output as picking reads it, with the output it stands for. */
-interface Candidate extends PickOutput {
+/** An output as pairing reads it, with the output it stands for. */
+interface Candidate extends PairOutput {
   output: Output
 }
 

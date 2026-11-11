@@ -38,8 +38,8 @@ export const SCREEN_HELP: Record<string, ScreenHelp> = {
   },
   results: {
     short: 'Each version’s output, side by side',
-    what: 'What the agent wrote for each case, the latest version beside the one before. Read both and pick the better: a page or a picture shows as a browser draws it, and A and B flip between them. Under each, what it missed names the rule or check to change.',
-    terms: ['output', 'score', 'missed', 'pick', 'jev'],
+    what: 'What the agent wrote for each case, the latest version beside the one before. A page or a picture shows as a browser draws it, and A and B flip between them. Under each, what it missed names the rule or check to change, and a verdict Jev got wrong is yours to mark.',
+    terms: ['output', 'score', 'missed', 'jev'],
     guide: '5-compare-the-results',
   },
   settings: {
@@ -76,7 +76,7 @@ export const LOOP_STEPS: readonly LoopStep[] = [
   {
     at: 'results',
     title: 'Compare, then fix',
-    say: 'What the note missed names the rule to tighten. Run again, read both notes side by side and pick the better. That is the loop.',
+    say: 'What the note missed names the rule to tighten. Run again and read both notes side by side. That is the loop.',
   },
 ]
 

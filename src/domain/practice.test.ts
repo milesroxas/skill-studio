@@ -81,7 +81,6 @@ describe('practiceProgress', () => {
   const facts = (patch: Partial<PracticeFacts> = {}): PracticeFacts => ({
     versions: [],
     current: 'v0',
-    picks: 0,
     seen: [],
     ...patch,
   })
@@ -98,7 +97,7 @@ describe('practiceProgress', () => {
     expect(at(edited)).toBe('rerun')
     const reran = { ...edited, versions: ['v0', 'v1'] }
     expect(at(reran)).toBe('compare')
-    expect(at({ ...reran, picks: 1 })).toBe(null)
+    expect(at({ ...reran, seen: ['results', 'compare'] })).toBe(null)
   })
 
   it('counts a run as having read the skill and its cases', () => {
@@ -121,8 +120,8 @@ describe('practiceProgress', () => {
     expect(done.rerun).toBe(true)
   })
 
-  it('does not count a pick made before there are two versions to compare', () => {
-    const { done } = practiceProgress(facts({ versions: ['v0'], picks: 2 }))
+  it('does not count the comparison before there are two versions to compare', () => {
+    const { done } = practiceProgress(facts({ versions: ['v0'], seen: ['compare'] }))
     expect(done.compare).toBe(false)
   })
 
@@ -139,10 +138,7 @@ describe('practiceProgress', () => {
 
 describe('practiceView', () => {
   const view = (patch: Partial<PracticeFacts>, looking: LookStep | null) =>
-    practiceView(
-      practiceProgress({ versions: [], current: 'v0', picks: 0, seen: [], ...patch }),
-      looking,
-    )
+    practiceView(practiceProgress({ versions: [], current: 'v0', seen: [], ...patch }), looking)
   const ran = { versions: ['v0'], seen: ['read', 'cases'] }
 
   it('keeps to a look step while its screen is in view, and points to the step after it', () => {
@@ -170,8 +166,17 @@ describe('practiceView', () => {
     })
   })
 
+  it('keeps to the comparison while it is read, with nothing after it', () => {
+    const reran = { versions: ['v0', 'v1'], current: 'v1', seen: ['results'] }
+    expect(view(reran, 'compare')).toEqual({ shown: 'compare', next: null })
+    expect(view({ ...reran, seen: ['results', 'compare'] }, 'compare')).toEqual({
+      shown: 'compare',
+      next: null,
+    })
+  })
+
   it('shows no step once the loop is closed', () => {
-    const closed = { versions: ['v0', 'v1'], current: 'v1', picks: 1 }
-    expect(view(closed, 'results')).toEqual({ shown: null, next: null })
+    const closed = { versions: ['v0', 'v1'], current: 'v1', seen: ['compare'] }
+    expect(view(closed, null)).toEqual({ shown: null, next: null })
   })
 })

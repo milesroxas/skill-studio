@@ -130,8 +130,8 @@ export function VersionDetail({ ctx, version }: { ctx: Ctx; version: string }) {
         title: `Delete ${v.version} and its ${plural(runs, 'run')}?`,
         description:
           runs === 1
-            ? `The run made with ${v.version} is deleted too, with its outputs and your picks on them. Your skill files don't change.`
-            : `The ${runs} runs made with ${v.version} are deleted too, with their outputs and your picks on them. Your skill files don't change.`,
+            ? `The run made with ${v.version} is deleted too, with its outputs and your corrections on them. Your skill files don't change.`
+            : `The ${runs} runs made with ${v.version} are deleted too, with their outputs and your corrections on them. Your skill files don't change.`,
         action: 'Delete',
         destructive: true,
       }))

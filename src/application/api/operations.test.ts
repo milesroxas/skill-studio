@@ -75,14 +75,12 @@ describe('parsers', () => {
     }).drafts
     // A base is kept only beside a draft it dates.
     expect(based.caseBases).toEqual({ intro: '2026-11-09T10:00:00.000Z' })
-    expect(drafts.scoring).toBeNull()
-    // Unsaved scoring is read as bench.json is: a value of the wrong kind takes its default.
+    // Scoring an earlier version kept with the drafts is not carried on.
     const scored = parsers['skill.saveDrafts']({
       skill: '/s',
-      drafts: { scoring: { packs: ['generic'], yes: 'high', weights: { adherence: 40 } } },
+      drafts: { files: {}, scoring: { packs: ['generic'], yes: 0.6 } },
     }).drafts
-    expect(scored.scoring?.weights).toEqual({ adherence: 40 })
-    expect(typeof scored.scoring?.yes).not.toBe('string')
+    expect(scored).not.toHaveProperty('scoring')
     expect(() =>
       parsers['skill.saveDrafts']({ drafts: { files: { '../a': { text: 'x' } } } }),
     ).toThrow('Bad path.')
@@ -112,8 +110,7 @@ describe('parsers', () => {
     )
   })
 
-  it('accept only known votes and agents', () => {
-    expect(() => parsers['skill.pick']({ a: 'r/s', b: 'r/t', vote: 'maybe' })).toThrow('Bad vote.')
+  it('accept only known agents', () => {
     expect(() => parsers['library.link']({ path: '/p', agent: 'emacs' })).toThrow('Bad agent.')
     expect(parsers['library.link']({ path: '/p', agent: 'codex' }).scope).toBe('user')
   })
@@ -146,15 +143,14 @@ describe('parsers, on what names a folder or sizes a run', () => {
     expect(parsers['skill.generate']({ samples: -3 }).samples).toBe(1)
   })
 
-  it('read a config as a file written by hand would be', () => {
-    const { config } = parsers['skill.config']({
-      skill: '/s',
-      config: { packs: ['generic', 7], yes: 'high', weights: { rubric: 'lots', adherence: 40 } },
-    })
-    expect(config.packs).toEqual(['generic'])
-    expect(config.yes).toBe(0.5)
-    expect(config.weights).toEqual({ adherence: 40 })
-    expect(() => parsers['skill.config']({ skill: '/s', config: [] })).toThrow('Bad config.')
+  it('take the packs a skill is graded as: known ones, each once, at least one', () => {
+    const packs = (value: unknown) => parsers['skill.gradedAs']({ skill: '/s', packs: value })
+    expect(packs(['generic', 'writing']).packs).toEqual(['generic', 'writing'])
+    expect(() => packs([])).toThrow('Bad packs.')
+    expect(() => packs('generic')).toThrow('Bad packs.')
+    expect(() => packs(['generic', 'generic'])).toThrow('Bad packs.')
+    expect(() => packs(['generic', 7])).toThrow('Bad pack.')
+    expect(() => packs(['poetry'])).toThrow('Bad pack.')
   })
 
   it('carry the time a case was last saved, and take none for no check', () => {

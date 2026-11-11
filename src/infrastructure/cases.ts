@@ -40,6 +40,7 @@ import {
   listFiles,
   present,
   readJson,
+  writeJson,
   writeText,
 } from './fs.ts'
 
@@ -337,6 +338,19 @@ export const benchPath = (skillDir: string): string => join(skillDir, 'evals/ben
 /** `evals/bench.json` over the defaults of the active packs. */
 export const loadBench = (skillDir: string): BenchConfig =>
   mergeConfig(readJson<Partial<BenchConfig>>(benchPath(skillDir), {}), scorers)
+
+/**
+ * Set the packs a skill is graded as. Every other key of `bench.json` is
+ * written back as the file holds it now, values out of range and keys nothing
+ * reads included: the file is the reader's, and only `packs` is the app's to
+ * change. A file that holds no object is replaced.
+ */
+export function savePacks(skillDir: string, packs: string[]): void {
+  const file = benchPath(skillDir)
+  const held = readJson<unknown>(file, {})
+  const kept = held && typeof held === 'object' && !Array.isArray(held) ? held : {}
+  writeJson(file, { ...kept, packs })
+}
 
 /** Adherence rules: `bench.json` `rules` when set, else SKILL.md's bullets. */
 export function loadRules(skillDir: string, config: BenchConfig): Rule[] {

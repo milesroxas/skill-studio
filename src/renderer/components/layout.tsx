@@ -337,28 +337,6 @@ export function ColumnSection({
   )
 }
 
-/**
- * What stays at a column's foot while it scrolls. On a narrow window the
- * columns stack and the pane scrolls: there it stands at the column's end, so
- * it never lies over a column the reader has not reached yet.
- */
-export function ColumnFooter({
-  inset,
-  className,
-  ...props
-}: ComponentProps<'footer'> & VariantProps<typeof insetVariants>) {
-  return (
-    <footer
-      className={cn(
-        'z-10 mt-auto flex flex-wrap items-center gap-2 border-t bg-background py-3 lg:sticky lg:bottom-0',
-        insetVariants({ inset }),
-        className,
-      )}
-      {...props}
-    />
-  )
-}
-
 /** Equal columns, one per item. */
 const columnsVariants = cva('grid grid-cols-1 items-start gap-4', {
   variants: {

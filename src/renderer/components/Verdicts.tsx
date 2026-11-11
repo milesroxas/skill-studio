@@ -18,7 +18,7 @@ import { Button } from './ui/button.tsx'
 
 const KIND = { rule: 'Rule', check: 'Check', other: null } as const
 
-/** How the reader's answer stands: it is theirs even where Jev, under the scoring in hand, now says the same. */
+/** How the reader's answer stands: it is theirs even where Jev, under the skill's threshold, now says the same. */
 const answerNote = (verdict: Verdict): string =>
   verdict.corrected
     ? verdict.jev === verdict.met

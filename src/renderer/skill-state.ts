@@ -1,6 +1,6 @@
 /**
- * The open skill as the window holds it: its state, the scoring in hand and
- * its files as saved, each read from the host and read again when it changes.
+ * The open skill as the window holds it: its state, its scoring and its
+ * files as saved, each read from the host and read again when it changes.
  *
  * Every call addresses the skill open when it is made, and a reply can land
  * after another skill was opened. Such a reply is dropped: one skill's state,
@@ -12,7 +12,7 @@ import type { BenchConfig } from '@domain/schemas.ts'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { api, currentSkill, type State, setSkill } from './api.ts'
 import type { Reporter } from './hooks.ts'
-import { keptConfig, mergedConfig } from './model.ts'
+import { mergedConfig } from './model.ts'
 import { createReads } from './reads.ts'
 
 /** The open skill's files as saved: one copy, which the Editor and the side panel both read. */
@@ -35,9 +35,8 @@ export interface SavedFiles {
 export interface SkillState {
   /** Null until the skill is read, and while another is being opened. */
   state: State | null
-  /** The scoring as edited; the saved scoring until it is changed. */
+  /** The skill's scoring, `bench.json` over the defaults; null until the skill is read. */
   config: BenchConfig | null
-  setConfig: (config: BenchConfig) => void
   /** Why the skill could not be read. */
   error: string | null
   /**
@@ -50,25 +49,28 @@ export interface SkillState {
 }
 
 export function useSkillState(skillPath: string, report: Reporter): SkillState {
-  const { state, config, setConfig, error, reload } = useSkillRead(skillPath, report)
+  const { state, error, reload } = useSkillRead(skillPath, report)
+  // Worked out once per read of the skill, not on every render. A file that holds no
+  // settings, `null` included, reads as the defaults.
+  const config = useMemo(() => (state ? mergedConfig(state.savedConfig) : null), [state])
   const files = useSavedFiles(
     skillPath,
     state?.skill.path ?? null,
     state?.versions.current.hash ?? null,
   )
-  return { state, config, setConfig, error, reload, files }
+  return { state, config, error, reload, files }
 }
 
 /**
- * The open skill's state and the scoring in hand, read when the skill opens,
- * when the window comes back into focus, and on `reload`.
+ * The open skill's state, read when the skill opens, when the window comes
+ * back into focus, and on `reload`.
  */
-function useSkillRead(skillPath: string, report: Reporter): Omit<SkillState, 'files'> {
+function useSkillRead(
+  skillPath: string,
+  report: Reporter,
+): Pick<SkillState, 'state' | 'error' | 'reload'> {
   const [state, setState] = useState<State | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const [config, setConfig] = useState<BenchConfig | null>(null)
-  /** The scoring that was saved when the skill was last read: an edit is whatever differs from it. */
-  const savedBefore = useRef<BenchConfig | null>(null)
   /** Whether the open skill has been read at all: a later read that fails is said, not shown. */
   const wasRead = useRef(false)
   /** Counts the skills opened: a read asked for under one is dropped once the next is open. */
@@ -85,13 +87,9 @@ function useSkillRead(skillPath: string, report: Reporter): Omit<SkillState, 'fi
       () => api.state(),
       (next) => {
         if (elsewhere()) return
-        const saved = mergedConfig(next.savedConfig)
-        const before = savedBefore.current
-        savedBefore.current = saved
         wasRead.current = true
         setState(next)
         setError(null)
-        setConfig((current) => keptConfig(current, before, saved))
       },
       (e) => {
         if (elsewhere()) return
@@ -105,11 +103,9 @@ function useSkillRead(skillPath: string, report: Reporter): Omit<SkillState, 'fi
 
   useEffect(() => {
     setSkill(skillPath)
-    savedBefore.current = null
     wasRead.current = false
     opened.current += 1
     setState(null)
-    setConfig(null)
     setError(null)
     void reload()
   }, [skillPath, reload])
@@ -122,7 +118,7 @@ function useSkillRead(skillPath: string, report: Reporter): Omit<SkillState, 'fi
     return () => window.removeEventListener('focus', look)
   }, [reload])
 
-  return { state, config, setConfig, error, reload }
+  return { state, error, reload }
 }
 
 /**

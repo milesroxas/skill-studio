@@ -52,16 +52,10 @@ import { caseUnsaved, formDraft, unsavedCases } from '../draft-edits.ts'
 import { useAction } from '../hooks.ts'
 import { useAddPictures } from '../images.ts'
 import { shortcut } from '../keys.ts'
-import { CHECK_READERS, checksGraded, kindLabel, plural } from '../model.ts'
+import { CHECK_READERS, checksGraded, kindsLine, plural } from '../model.ts'
 import { caseKey } from '../route.ts'
 
 const nameOf = (path: string): string => path.split('/').at(-1) ?? path
-
-/** Kinds of work as a spoken list: "Generic, Code and Design". */
-const names = (ids: string[]): string => {
-  const list = ids.map(kindLabel)
-  return list.length > 1 ? `${list.slice(0, -1).join(', ')} and ${list.at(-1)}` : (list[0] ?? '')
-}
 
 /** The host's refusal of a save over a case that was written since the draft began. */
 const CHANGED_ON_DISK = /changed on disk/
@@ -531,7 +525,10 @@ export const Cases = memo(function Cases({ ctx }: { ctx: Ctx }) {
               <FormSection
                 layout="stacked"
                 title="Checks"
-                hint={`This skill is graded as ${names(config.packs)}, which is scored on other things than checks. A skill graded as ${names(CHECK_READERS.map((p) => p.id)).replace(/ and /, ' or ')} has its checks marked: change it under Scoring, on Results.`}
+                hint={`This skill is graded as ${kindsLine(config.packs)}, which is scored on other things than checks. A skill graded as ${kindsLine(
+                  CHECK_READERS.map((p) => p.id),
+                  'or',
+                )} has its checks marked: change it under Graded as, at the foot of All cases on Results.`}
               >
                 <Toolbar>
                   <Button

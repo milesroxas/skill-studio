@@ -30,14 +30,13 @@ export function readDrafts(skillPath: string): SkillDrafts {
     files: (saved.files ?? {}) as Record<string, FileDraft>,
     cases: (saved.cases ?? {}) as Record<string, CaseDraft>,
     caseBases: saved.caseBases ?? {},
-    scoring: saved.scoring ?? null,
     updatedAt: saved.updatedAt ?? null,
   }
 }
 
 export function writeDrafts(skillPath: string, drafts: SkillDrafts): string | null {
   const file = draftsFile(skillPath)
-  if (!Object.keys(drafts.files).length && !Object.keys(drafts.cases).length && !drafts.scoring) {
+  if (!Object.keys(drafts.files).length && !Object.keys(drafts.cases).length) {
     if (isFile(file)) rmSync(file)
     return null
   }

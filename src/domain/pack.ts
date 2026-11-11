@@ -51,7 +51,7 @@ interface VerdictBase {
 /** A fact Jev answered, so the reader may answer it themselves. */
 export interface JudgedVerdict extends VerdictBase {
   open: true
-  /** Jev's own answer under the scoring in hand. */
+  /** Jev's own answer under the skill's scoring. */
   jev: boolean
   /** The reader answered it. Their answer stands whether or not it agrees with Jev's. */
   corrected: boolean

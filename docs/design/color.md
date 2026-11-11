@@ -116,12 +116,12 @@ A diff (`.diff` and `.diff-lines` in `styles.css`) takes the same tints, but its
 
 - A region ends at a hairline: `border-b`, `border-r`, `divide-y`. The default border color is `--border`. Do not name it.
 - A control's edge is `border-input`. How focus shows is in [Focus](#focus) below.
-- A surface gets one kind of depth, never two. A floating sheet uses `shadow-popover`. A raised object uses `shadow-raised`. Never both, and never one of them on a bordered region. In the dark and ink scopes both collapse to a ring. A control is not a surface: a field (`FIELD_SURFACE`), an `outline` button or toggle, and a checkbox carry Tailwind's `shadow-xs` under their `border-input` edge, and the slider's thumb `shadow-sm`, set once in `ui/`. That hairline is part of the control's edge, not depth: never add it at a call site.
+- A surface gets one kind of depth, never two. A floating sheet uses `shadow-popover`. A raised object uses `shadow-raised`. Never both, and never one of them on a bordered region. In the dark and ink scopes both collapse to a ring. A control is not a surface: a field (`FIELD_SURFACE`), an `outline` button or toggle, and a checkbox carry Tailwind's `shadow-xs` under their `border-input` edge, set once in `ui/`. That hairline is part of the control's edge, not depth: never add it at a call site.
 - Corners are a closed set, in `styles.css`:
   - `rounded-sm` 4px: a button, a field, a toggle, a checkbox, a chip, a list row or menu item.
   - `rounded-chin` 10px on top, 12.5px below: a container. A card, a popover, a menu, a dialog, an alert, the composer, a muted panel, a code block, a chat bubble, the welcome's picture sheet. Top and bottom stay 4 to 5.
   - `rounded-xs` 2px: a mark inside running text (an inline link's focus ring, inline code, a diff mark), a part nested inside a control, a part's bar in `Parts`, and each segment of a stepped indicator (the walkthrough's progress, the file size meter). A segment is at least 6px tall, so its corners read as corners and not as a pill.
-  - `rounded-full`: dots, the slider's track and thumb, and the remove button on a picture only. A row of steps is never pills.
+  - `rounded-full`: dots and the remove button on a picture only. A row of steps is never pills.
 
 ## Focus
 

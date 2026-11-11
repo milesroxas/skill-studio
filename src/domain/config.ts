@@ -16,14 +16,6 @@ interface Range {
   max: number
 }
 
-/**
- * The points the Scoring screen's slider offers one layer. A new edit is held
- * to it; a saved file is not, so points saved past it score as they were saved.
- */
-export const WEIGHT_RANGE = { min: 0, max: 60 } as const
-/** Where the Scoring screen's slider lets "Met at" sit, for a new edit. A saved threshold may sit anywhere from 0 to 1. */
-export const YES_RANGE = { min: 0.3, max: 0.8 } as const
-
 const AT_LEAST_NOTHING: Range = { min: 0, max: Number.POSITIVE_INFINITY }
 const PROBABILITY: Range = { min: 0, max: 1 }
 /** Seconds a check may run: up to six hours, the longest a case may run. */
@@ -98,7 +90,7 @@ const strings = (value: unknown): string[] =>
  *   reads as the default list.
  * - `rules`: the rules that say something, each once; null when there are none.
  * - `weights`: a number per layer, held at 0 or more. Anything else is dropped.
- *   No top: points saved past the Scoring screen's slider score as saved.
+ *   No top: a layer's points are a share of the total, so any number counts.
  * - `yes`: held to 0 to 1; the default when it is not a number.
  * - A share or a cost (`warningCost`, `groundingPrior`, `contradictionCap`) is
  *   held to its range, and dropped when it is not a number.

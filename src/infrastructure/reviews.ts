@@ -1,19 +1,23 @@
 /**
  * What the reader said lives in `<skill>/evals/reviews.json`: for each output
- * key (`<run>/<sample>`) their own answers where Jev's verdict was wrong, and
- * their picks between two outputs. A file written by an earlier version may
- * hold more beside these; whatever it holds is kept when the file is written.
+ * key (`<run>/<sample>`) their own answers where Jev's verdict was wrong. A
+ * file written by an earlier version may hold more beside these, such as the
+ * votes between two outputs in `preferences`. Nothing reads them, and whatever
+ * the file holds is kept when it is written.
  */
 import { join } from 'node:path'
-import { OVERALL, type Preference, type Review, type Reviews } from '@domain/schemas.ts'
+import type { Review, Reviews } from '@domain/schemas.ts'
 import { readJson, writeJson } from './fs.ts'
 
 export const reviewsPath = (skillDir: string): string => join(skillDir, 'evals/reviews.json')
 
 /** One stored entry about an output: the app's own fields, and any others left as they are. */
 export type StoredReview = Partial<Review> & Record<string, unknown>
-/** One stored vote between two outputs, whoever cast it. */
-export type StoredVote = Omit<Preference, 'by'> & { by: string }
+/**
+ * One vote between two outputs, as an earlier version wrote it. Only the two
+ * output keys are read, so a deleted version takes the votes on its runs along.
+ */
+export type StoredVote = { a: string; b: string } & Record<string, unknown>
 
 /** The file as it is on disk. Deleting a version moves entries out of it and back whole. */
 export interface StoredReviews {
@@ -39,7 +43,7 @@ const correctionsOf = (value: unknown): Record<string, boolean> =>
       )
     : {}
 
-/** The reader's corrections and picks. A vote that is not the reader's own is not a pick. */
+/** The reader's corrections. */
 export function loadReviews(skillDir: string): Reviews {
   const stored = readStored(skillDir)
   return {
@@ -51,9 +55,6 @@ export function loadReviews(skillDir: string): Reviews {
           updatedAt: typeof review.updatedAt === 'string' ? review.updatedAt : '',
         },
       ]),
-    ),
-    preferences: (stored.preferences ?? []).filter(
-      (p): p is Preference => p.by === 'human' && p.criterion === OVERALL,
     ),
   }
 }
@@ -76,16 +77,4 @@ export function saveCorrection(
   else corrections[verdict] = met
   reviews[key] = { ...review, corrections, updatedAt: new Date().toISOString() }
   writeStoredReviews(skillDir, { ...stored, reviews })
-}
-
-/** One pick per unordered pair; a new pick replaces the old. */
-export function savePick(skillDir: string, pick: Pick<Preference, 'a' | 'b' | 'vote'>): void {
-  const stored = readStored(skillDir)
-  const same = (p: { a: string; b: string; by: string; criterion: string }) =>
-    p.by === 'human' &&
-    p.criterion === OVERALL &&
-    ((p.a === pick.a && p.b === pick.b) || (p.a === pick.b && p.b === pick.a))
-  const preferences = (stored.preferences ?? []).filter((p) => !same(p))
-  preferences.push({ ...pick, criterion: OVERALL, by: 'human', at: new Date().toISOString() })
-  writeStoredReviews(skillDir, { ...stored, preferences })
 }

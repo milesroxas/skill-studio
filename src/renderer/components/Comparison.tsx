@@ -4,11 +4,10 @@
  * score, the parts it is counted from and what it missed, so a difference in
  * the number is read as a difference in the text.
  *
- * Jev answers facts: whether a rule was followed, whether a check was met. The
- * reader answers which output is better, and that pick is the last word.
- * Where the two point opposite ways, Jev's facts do not hold what the reader
- * saw, and each way out is something they already know how to change: a
- * verdict to correct, a check to add, a rule to edit.
+ * Jev answers facts: whether a rule was followed, whether a check was met.
+ * Where the reader sees it otherwise, each way out changes the score at once
+ * or from the next grading: a verdict to correct, a check to add, a rule to
+ * edit.
  *
  * An output a reader looks at rather than reads, a page or a picture, opens
  * on the stage (`Flip`): drawn as a browser draws it, at a width the reader
@@ -18,8 +17,7 @@
 
 import { draftOf, newCheck } from '@domain/case-draft.ts'
 import type { Verdict } from '@domain/pack.ts'
-import { pickBetween, pickStanding } from '@domain/picks.ts'
-import type { Case, Vote } from '@domain/schemas.ts'
+import type { Case } from '@domain/schemas.ts'
 import { useCallback, useEffect, useState } from 'react'
 import { api } from '../api.ts'
 import { caseContext, skillContext } from '../assist.ts'
@@ -58,7 +56,6 @@ import { Disclosure } from './Disclosure.tsx'
 import { InlineField } from './forms.tsx'
 import {
   ColumnBody,
-  ColumnFooter,
   ColumnHeader,
   Columns,
   ColumnTitle,
@@ -75,19 +72,12 @@ import { CheckWeight, Delta, Parts, TotalChip } from './Scores.tsx'
 import { Segmented } from './Segmented.tsx'
 import { SelectBox } from './SelectBox.tsx'
 import { Stage, type Side as StageSide } from './Stage.tsx'
-import { Status } from './Status.tsx'
 import { TextArea } from './TextArea.tsx'
 import { TranscriptList } from './TranscriptList.tsx'
 import { Heading, Hint, Text } from './text.tsx'
 import { Button } from './ui/button.tsx'
 import { Label } from './ui/label.tsx'
 import { Verdicts } from './Verdicts.tsx'
-
-const VOTES = [
-  { value: 'a', label: 'A is better' },
-  { value: 'tie', label: 'Tie' },
-  { value: 'b', label: 'B is better' },
-] as const satisfies ReadonlyArray<{ value: Vote; label: string }>
 
 const SLOT_LABEL = { a: 'A', b: 'B' } as const
 
@@ -112,10 +102,9 @@ export function Comparison({
   /** The later side. */
   b: Output | null
 }) {
-  const { state, config, outputs, go, report, reload, jobs } = ctx
+  const { state, config, outputs, go, report, jobs } = ctx
   /** The view the reader chose; until then a page or a picture opens on the stage, text side by side. */
   const [chosen, setChosen] = useState<View | null>(null)
-  const [voting, setVoting] = useState(false)
   const testCase = state.cases.find((c) => c.id === caseId) ?? null
   const candidates = outputs.filter((o) => o.caseId === caseId)
   const layers = layersOf(config)
@@ -123,23 +112,6 @@ export function Comparison({
   const show = (pair: { a: Output | null; b: Output | null }) =>
     go('results', { case: caseId, a: pair.a?.key ?? '', b: pair.b?.key ?? '' })
   const both = a && b ? { a, b } : null
-  const vote = both ? pickBetween(state.reviews.preferences, both.a.key, both.b.key) : null
-  const totals = both ? { a: totalOf(both.a, config), b: totalOf(both.b, config) } : null
-  const standing = totals ? pickStanding(vote, totals.a, totals.b) : null
-
-  const pick = async (v: Vote) => {
-    if (!both || voting) return
-    setVoting(true)
-    try {
-      await api.pick(both.a.key, both.b.key, v)
-      report('Pick saved')
-      await reload()
-    } catch (e) {
-      report(`Not saved: ${(e as Error).message}`, { tone: 'destructive' })
-    } finally {
-      setVoting(false)
-    }
-  }
 
   /** Grades of the runs these outputs came from: busy from the press, not from the first poll that lists the job. */
   const grade = useJobStart(jobs, 'grade', report)
@@ -288,34 +260,6 @@ export function Comparison({
           />
         ) : null}
       </ColumnBody>
-      {both && totals ? (
-        <ColumnFooter aria-label="Your pick">
-          <Heading level={3} as="h2">
-            Which is better?
-          </Heading>
-          <Segmented
-            aria-label="Your pick"
-            options={VOTES}
-            value={vote}
-            disabled={voting}
-            onChange={(v) => v && pick(v)}
-          />
-          {standing === 'differs' ? (
-            <Status
-              tone="warning"
-              size="ui"
-              detail="Mark the verdict Jev got wrong, or add what it missed as a check."
-            >
-              Jev scores {totals.a !== null && totals.b !== null && totals.a > totals.b ? 'A' : 'B'}{' '}
-              higher
-            </Status>
-          ) : totals.a !== null && totals.b !== null ? (
-            <Hint as="span" tabular>
-              Jev scores A {totals.a} and B {totals.b}. Your pick is the last word.
-            </Hint>
-          ) : null}
-        </ColumnFooter>
-      ) : null}
     </>
   )
 }
@@ -403,7 +347,7 @@ function Side({
   const scored = scoreOf(output, config)
   const otherScored = other ? scoreOf(other, config) : null
   // The artifact in view, kept by the output's key: a reload after a correction
-  // or a pick brings a new output object for the same output, and the view holds.
+  // brings a new output object for the same output, and the view holds.
   const [picked, setPicked] = useState<{ key: string; view: OutputView | null } | null>(null)
   const view = picked?.key === output.key ? picked.view : primaryOf(output)
   const setView = (next: OutputView | null) => setPicked({ key: output.key, view: next })

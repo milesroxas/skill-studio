@@ -30,7 +30,7 @@ const inputVariants = cva(
       },
       size: {
         default: 'h-9',
-        /** A value beside a slider or in a dense row. */
+        /** A field in a dense row or a narrow list column. */
         sm: 'h-7 px-2 md:text-ui',
       },
     },

@@ -6,6 +6,13 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+### Changed
+
+- Results no longer asks which of two outputs is better. A pick changed no score, and the scores on screen could sway it. What you say now always moves a score: mark the verdict Jev got wrong, or turn what it missed into a check or a rule. Picks already in `evals/reviews.json` stay in the file, and deleting a version still takes the ones on its runs.
+- After a run, the yellow step at the top right is **Read the results** until you open Results, in place of one "Compare" step per case. The Results count in the sidebar, of cases waiting for a pick, is gone. A skill that already has runs asks once, the first time you open it.
+- Scoring, at the foot of All cases, is now **Graded as**: tick the kinds of work the skill does, then Save. Points per part, the threshold and each kind's own settings are set in `evals/bench.json`, and Graded as names any the file sets. Saving changes `packs` alone and writes every other key back as the file holds it; before, Save wrote out every setting. Scoring changed on Results and not saved is no longer kept as a draft.
+- The walkthrough's last step is **Compare the two notes**: open Results and read v0 beside v1. A walkthrough finished with a pick shows this step once more.
+
 ## [0.6.0] - 2026-11-10
 
 ### Added

@@ -170,7 +170,7 @@ export const ASSIST_SCHEMA = {
 /** What Skill Studio and a skill are, in two sentences: how every brief to a model opens. */
 export const APP_INTRO = `Skill Studio is a desktop app for writing agent skills and testing them. A skill is a folder with a SKILL.md an AI agent loads when its description matches the request.`
 
-const APP = `${APP_INTRO} The app runs headless agents on the skill's cases, and Jev, a grading model, marks each output against the skill's rules and the case's checks. The author then reads the new version's output beside the last one's and picks the better. Where they disagree with Jev, their answer stands.`
+const APP = `${APP_INTRO} The app runs headless agents on the skill's cases, and Jev, a grading model, marks each output against the skill's rules and the case's checks. The author then reads the new version's output beside the last one's. Where they read a verdict differently from Jev, their answer stands, and what Jev missed becomes a check or a rule.`
 
 /** `text` inside an XML-like tag, so a model tells what it is given from what it is asked. */
 export const tag = (name: string, text: string, label?: string): string =>

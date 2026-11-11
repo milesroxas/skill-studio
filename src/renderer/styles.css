@@ -206,7 +206,7 @@
  *   xs     2  a mark inside running text, a part nested in a control, a step of a stepped indicator
  *   sm     4  buttons, fields, toggles, chips, list rows
  *   chin  10 over 12.5  a container: a card, a popover, a dialog, a panel
- *   full      dots, one continuous bar and the slider's thumb only
+ *   full      dots and the remove button on a picture only
  */
 @theme {
   --radius-*: initial;
