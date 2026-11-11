@@ -115,10 +115,6 @@ function scoresOf(
   return scores
 }
 
-/** The active packs that mark the case's checks; empty when no pack reads them. */
-export const checkReaders = (config: BenchConfig, scorers: PackScoring[]): PackScoring[] =>
-  scorers.filter((p) => config.packs.includes(p.id) && p.checks !== null)
-
 /** Layers in display order across the active packs, then total. */
 export const layerOrder = (config: BenchConfig, scorers: PackScoring[]): string[] => [
   ...scorers.filter((p) => config.packs.includes(p.id)).flatMap((p) => p.layers),

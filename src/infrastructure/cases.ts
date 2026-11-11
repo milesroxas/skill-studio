@@ -130,9 +130,9 @@ function safePaths(value: unknown, what: string): string[] {
 }
 
 /**
- * A case's `bench` block. Its evidence files are held to paths inside the
- * skill, and a size to the one a save allows: a case file edited by hand or
- * by an agent sizes a window too, so a size that could not be saved is dropped.
+ * A case's `bench` block, a size held to the one a save allows: a case file
+ * edited by hand or by an agent sizes a window too, so a size that could not
+ * be saved is dropped.
  */
 function benchOf(value: unknown): CaseBench {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return {}
@@ -146,9 +146,6 @@ function benchOf(value: unknown): CaseBench {
     ...bench,
     ...(sized ? { size } : {}),
     ...(typeof phone === 'boolean' ? { phone } : {}),
-    ...(bench.evidence === undefined
-      ? {}
-      : { evidence: safePaths(bench.evidence, 'the evidence file') }),
   }
 }
 
@@ -362,18 +359,6 @@ export function loadRules(skillDir: string, config: BenchConfig): Rule[] {
   if (config.rules?.length) return rulesFromList(config.rules)
   const md = join(skillDir, 'SKILL.md')
   return existsSync(md) ? rulesFromSkill(readFileSync(md, 'utf8')) : []
-}
-
-/** Text of an evidence or input file, by skill-relative path; null when missing. */
-export const readSkillFile = (skillDir: string, rel: string): string | null => {
-  const full = join(skillDir, rel)
-  if (!isFile(full)) return null
-  try {
-    return readFileSync(assertInside(skillDir, full), 'utf8')
-  } catch {
-    // A path or a link that leads out of the skill is not one of its files.
-    return null
-  }
 }
 
 /** Where a save finds what was added to a case and is kept until then: pictures, and picked files and folders. */

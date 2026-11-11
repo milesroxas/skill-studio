@@ -1,222 +1,73 @@
 /**
- * The design judge pack. It reads the HTML as text, and looks at the page as
- * drawn: as the desktop app draws it, in a window the case's size or a
- * desktop's, which is what Results shows the reader. For a case that asks, the
- * app also draws it at phone width, and Jev says whether it fits. The CLI and
- * `st serve` have no browser to draw with, so there it looks at the first PNG
- * or JPEG the agent left in outputs/, if any, and judges the markup.
+ * The design judge pack: Jev looks at the output as a picture. A page is the
+ * page as the desktop app draws it, in a window the case's size or a
+ * desktop's, which is what Results shows the reader; for a case that asks,
+ * the app also draws it at phone width, and Jev says whether it fits. The CLI
+ * and `st serve` have no browser to draw with, so there it looks at the first
+ * PNG or JPEG the agent left in outputs/, and says nothing when there is none.
+ *
+ * It asks only what any visual must be: one clear main point and nothing
+ * broken. Anything else is the skill's rule or the case's check to
+ * state, which the generic pack marks: a page is not always a web page, and a
+ * mockup or a slide owes the web no lang, landmark or heading order.
  */
-import { join } from 'node:path'
-import { isJevFormat } from '@domain/image.ts'
-import { stripComments, stripTags } from '@domain/text.ts'
 import { noul } from '@typesafe-ai/sdk'
-import { type Readable, readForJev } from '../images.ts'
 import type { JevState } from '../jev.ts'
-import {
-  askStatements,
-  asksJev,
-  noulOf,
-  optionalAnswer,
-  requestState,
-} from '../shared/questions.ts'
-import type { JudgeInput, JudgePack } from '../types.ts'
-import { type DesignConfig, type DesignRaw, designScoring, type MarkupCheck } from './score.ts'
-
-interface Tag {
-  name: string
-  /** Attribute names lowercased; a valueless attribute maps to ''. */
-  attrs: Map<string, string>
-}
-
-/** Start tags, attribute values unquoted. Comments and script and style bodies are not markup. */
-function tagsOf(html: string): Tag[] {
-  const markup = stripComments(html).replace(/<(script|style)\b[^>]*>[\s\S]*?<\/\1\s*>/gi, '<$1>')
-  const tags: Tag[] = []
-  const tag =
-    /<([a-z][a-z0-9-]*)((?:\s+[^\s"'>/=]+(?:\s*=\s*(?:"[^"]*"|'[^']*'|[^\s"'=<>`]+))?)*)\s*\/?>/gi
-  const attr = /([^\s"'>/=]+)(?:\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'=<>`]+)))?/g
-  for (const [, name, rest] of markup.matchAll(tag)) {
-    const attrs = new Map<string, string>()
-    for (const [, key, double, single, bare] of rest.matchAll(attr)) {
-      const lower = key.toLowerCase()
-      if (!attrs.has(lower)) attrs.set(lower, double ?? single ?? bare ?? '')
-    }
-    tags.push({ name: name.toLowerCase(), attrs })
-  }
-  return tags
-}
-
-/** Text of the first `<title>`, tags and surrounding space removed; null without one. */
-const titleText = (html: string): string | null => {
-  const match = /<title\b[^>]*>([\s\S]*?)<\/title\s*>/i.exec(stripComments(html))
-  return match ? stripTags(match[1]).trim() : null
-}
-
-/**
- * The events an inline handler attribute can name: every event handler
- * content attribute of the HTML standard (on elements, `<body>` and the
- * document), those the CSS, pointer, touch, fullscreen and selection specs
- * add, SVG's animation events, and the ones browsers still run though no
- * standard lists them. `webkit…` is a prefixed event of any name.
- */
-const HANDLED_EVENTS = [
-  // HTML: elements, `<body>` and the document.
-  'abort|afterprint|auxclick|beforeinput|beforematch|beforeprint|beforetoggle|beforeunload',
-  'blur|cancel|canplay|canplaythrough|change|click|close|command|contextlost|contextmenu',
-  'contextrestored|copy|cuechange|cut|dblclick|drag|dragend|dragenter|dragleave|dragover',
-  'dragstart|drop|durationchange|emptied|ended|error|focus|formdata|hashchange|input|invalid',
-  'keydown|keypress|keyup|languagechange|load|loadeddata|loadedmetadata|loadstart|message',
-  'messageerror|mousedown|mouseenter|mouseleave|mousemove|mouseout|mouseover|mouseup|offline',
-  'online|pagehide|pagereveal|pageshow|pageswap|paste|pause|play|playing|popstate|progress',
-  'ratechange|readystatechange|rejectionhandled|reset|resize|scroll|scrollend',
-  'securitypolicyviolation|seeked|seeking|select|slotchange|stalled|storage|submit|suspend',
-  'timeupdate|toggle|unhandledrejection|unload|visibilitychange|volumechange|waiting|wheel',
-  // CSS animations and transitions, pointer, touch, focus, fullscreen, selection, scroll snap.
-  'animationcancel|animationend|animationiteration|animationstart|transitioncancel',
-  'transitionend|transitionrun|transitionstart|gotpointercapture|lostpointercapture',
-  'pointercancel|pointerdown|pointerenter|pointerleave|pointermove|pointerout|pointerover',
-  'pointerrawupdate|pointerup|pointerlockchange|pointerlockerror|touchcancel|touchend',
-  'touchmove|touchstart|focusin|focusout|fullscreenchange|fullscreenerror|selectionchange',
-  'selectstart|scrollsnapchange|scrollsnapchanging|contentvisibilityautostatechange',
-  'freeze|resume|prerenderingchange',
-  // SVG animation, and what browsers run past the standards.
-  'begin|end|repeat|beforecopy|beforecut|beforepaste|beforexrselect|search|show|mousewheel',
-  'dragexit|orientationchange|devicemotion|deviceorientation|deviceorientationabsolute',
-  'gesturestart|gesturechange|gestureend|start|finish|bounce',
-]
-
-/**
- * An inline event handler by its attribute name: `on` and then an event's
- * name. Events, not any word: `one`, `only`, `online` and `once` are
- * attributes a page may carry, and `onboarding` is no event.
- */
-const HANDLER = new RegExp(`^on(?:${HANDLED_EVENTS.join('|')}|webkit\\w+)$`)
-
-function markupChecks(html: string): MarkupCheck[] {
-  const tags = tagsOf(html)
-  const imgs = tags.filter((t) => t.name === 'img')
-  const headings = tags.filter((t) => /^h[1-6]$/.test(t.name)).map((t) => Number(t.name[1]))
-  let orderly = headings.length > 0 && headings[0] === 1
-  for (let i = 1; i < headings.length; i += 1)
-    if (headings[i] > headings[i - 1] + 1) orderly = false
-  const root = tags.find((t) => t.name === 'html')
-  // alt="" is valid: it marks a decorative image. Only a missing alt fails.
-  const missingAlt = imgs.filter((t) => !t.attrs.has('alt')).length
-  return [
-    { id: 'doctype', ok: /^\uFEFF?\s*<!doctype html\s*>/i.test(html), note: 'no <!doctype html>' },
-    { id: 'lang', ok: Boolean(root?.attrs.get('lang')?.trim()), note: 'no lang on <html>' },
-    { id: 'title', ok: Boolean(titleText(html)), note: 'no <title>' },
-    {
-      id: 'viewport',
-      ok: tags.some((t) => t.name === 'meta' && t.attrs.get('name')?.toLowerCase() === 'viewport'),
-      note: 'no viewport meta',
-    },
-    { id: 'main', ok: tags.some((t) => t.name === 'main'), note: 'no <main> landmark' },
-    {
-      id: 'headings',
-      ok: orderly,
-      note: headings.length ? 'headings skip a level or do not start at h1' : 'no headings',
-    },
-    { id: 'alt', ok: missingAlt === 0, note: `${missingAlt} <img> without alt` },
-    {
-      id: 'handlers',
-      ok: !tags.some((t) => [...t.attrs.keys()].some((key) => HANDLER.test(key))),
-      note: 'inline event handler attributes',
-    },
-  ]
-}
-
-/** The HTML the visual questions read: the start of the page, up to the configured length. */
-const htmlOf = (input: JudgeInput, config: DesignConfig): string =>
-  input.primary?.kind === 'html' ? input.text.slice(0, config.design.maxChars) : ''
-
-/** The page drawn at one of `RENDER_SIZES`, when grading drew it. */
-const renderOf = (input: JudgeInput, id: 'desktop' | 'phone'): Readable | null =>
-  input.renders.find((r) => r.size.id === id)?.read ?? null
-
-/** The picture judged when it is a PNG or JPEG, else the first the agent left, read for Jev; null when it left none. */
-function shotOf(input: JudgeInput): Readable | null {
-  const jevPicture = (a: { kind: string; file: string }) =>
-    a.kind === 'image' && isJevFormat(a.file)
-  const shot =
-    input.primary && jevPicture(input.primary) ? input.primary : input.artifacts.find(jevPicture)
-  return shot ? readForJev(join(input.dir, shot.file)) : null
-}
+import { pictureOf, renderOf } from '../shared/picture.ts'
+import { asksJev, noulOf, optionalAnswer, requestState } from '../shared/questions.ts'
+import type { JudgePack } from '../types.ts'
+import { type DesignRaw, designScoring } from './score.ts'
 
 export const designPack: JudgePack<DesignRaw> = {
   ...designScoring,
-  version: 2,
-  label: 'Design: markup checks and a visual read of the page as drawn',
+  version: 3,
+  label: 'Design: a look at the output as a picture',
   renders: true,
   async judge(input, ctx) {
-    const html = input.primary?.kind === 'html' ? input.text : ''
-    // The page as drawn is what the reader sees; an agent's own screenshot may be of something else,
-    // or from before its last change, so it stands in only where no picture Jev reads was drawn.
-    const drawn = html ? renderOf(input, 'desktop') : null
-    const read = drawn?.image ? drawn : (shotOf(input) ?? drawn)
-    const phoneRead = html ? renderOf(input, 'phone') : null
-    if (!html && !read) return null
-    const markup = html ? markupChecks(html) : null
-    let jev: DesignRaw['jev'] = null
+    const read = pictureOf(input)
+    const phoneRead = input.primary?.kind === 'html' ? renderOf(input, 'phone') : null
     const shot = read?.image ?? null
     const phone = phoneRead?.image ?? null
-    // A picture Jev would refuse is left out, so the questions about the HTML still get answers.
+    // A picture Jev would refuse is left out and said, so a missing look is never read as a pass.
     const problems = [
       read?.problem ? `screenshot not judged: ${read.problem}` : null,
       phoneRead?.problem ? `phone screenshot not judged: ${phoneRead.problem}` : null,
     ].filter((p): p is string => p !== null)
     const unread = problems.length ? problems.join('; ') : null
-    if (asksJev(input, ctx) && (html || shot)) {
-      const state: JevState = { ...requestState(input) }
-      if (html) state.html = htmlOf(input, ctx.config as DesignConfig)
-      if (shot) state.screenshot = shot
-      if (phone) state.phone = phone
-      const subject = html ? 'html' : 'screenshot'
-      const questions = {
-        hierarchy: noul(
-          `Does \`${subject}\` give the page one clear primary heading or message, with the rest subordinate to it?`,
-          {
-            true: 'One element reads as the main point by size, position or heading level, and the other parts support it.',
-            false: 'Several parts compete to be the main point, or there is no main point at all.',
-          },
-        ),
-        ...(shot
-          ? {
-              finished: noul('Does `screenshot` show a finished page, with nothing broken?', {
-                true: 'Text is readable, nothing overlaps or overflows, and there is no placeholder text or empty box.',
-                false:
-                  'Something overlaps, overflows or is cut off, or placeholder text, lorem ipsum or an empty region shows.',
-              }),
-            }
-          : {}),
-        ...(phone
-          ? {
-              phone: noul('Does `phone` show the page working on a phone, drawn 390 px wide?', {
-                true: 'Everything fits the width and reads: nothing is cut off at the side, runs past the edge so the page scrolls sideways, or overlaps.',
-                false:
-                  'Something is cut off at the side, runs past the edge so the page scrolls sideways, overlaps, or is too small to read.',
-              }),
-            }
-          : {}),
-      }
-      const graders = input.case?.graders ?? []
-      // A check about a picture, such as a mock-up to match, is asked of the screenshot when there is one.
-      const seen = (pictured: boolean) =>
-        graders.filter((g) => Boolean(g.image && shot) === pictured)
-      const [answers, read, looked] = await Promise.all([
-        ctx.jev.ask(state, questions),
-        askStatements(seen(false), state, subject, ctx),
-        askStatements(seen(true), state, 'screenshot', ctx),
-      ])
-      const statements = graders.flatMap((g) => [...read, ...looked].filter((s) => s.id === g.id))
-      jev = {
-        hierarchy: noulOf(answers, 'hierarchy'),
-        // Asked only with a screenshot; one Jev left out is null, and the markup checks stand.
-        finished: shot ? optionalAnswer(() => noulOf(answers, 'finished')) : null,
-        phone: phone ? optionalAnswer(() => noulOf(answers, 'phone')) : null,
-        statements,
-      }
+    if (!shot || !asksJev(input, ctx)) return unread ? { jev: null, unread } : null
+    const state: JevState = { ...requestState(input), screenshot: shot }
+    if (phone) state.phone = phone
+    const questions = {
+      hierarchy: noul(
+        'Does `screenshot` have one clear main point, with the rest subordinate to it?',
+        {
+          true: 'One element reads as the main point by size, position or contrast, and the other parts support it.',
+          false: 'Several parts compete to be the main point, or there is no main point at all.',
+        },
+      ),
+      // Broken, not bare: a wireframe's grey blocks and a mockup's empty margins are made that way.
+      finished: noul('Is `screenshot` free of anything broken?', {
+        true: 'Text is readable, and nothing overlaps another thing by accident, runs out of its box or is cut off by the edge. Plain blocks standing in for content are not broken.',
+        false:
+          'Text overlaps or cannot be read, something runs out of its box or is cut off by the edge, a picture is missing, or the whole thing is blank or unstyled.',
+      }),
+      ...(phone
+        ? {
+            phone: noul('Does `phone` show the page working on a phone, drawn 390 px wide?', {
+              true: 'Everything fits the width and reads: nothing is cut off at the side, runs past the edge so the page scrolls sideways, or overlaps.',
+              false:
+                'Something is cut off at the side, runs past the edge so the page scrolls sideways, overlaps, or is too small to read.',
+            }),
+          }
+        : {}),
     }
-    return unread ? { markup, jev, unread } : { markup, jev }
+    const answers = await ctx.jev.ask(state, questions)
+    const jev: DesignRaw['jev'] = {
+      hierarchy: noulOf(answers, 'hierarchy'),
+      finished: noulOf(answers, 'finished'),
+      // Asked only of a page drawn at phone width; one Jev left out is null, and the other answers stand.
+      phone: phone ? optionalAnswer(() => noulOf(answers, 'phone')) : null,
+    }
+    return unread ? { jev, unread } : { jev }
   },
 }

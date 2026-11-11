@@ -1,22 +1,14 @@
 /**
- * The code pack's pure half: a hard check layer from the case's command and a
- * review layer from the grader statements over the primary code file.
+ * The code pack's pure half: one hard layer, whether the case's check command
+ * passed.
  */
-import {
-  type Corrections,
-  NO_CORRECTIONS,
-  type PackScore,
-  type PackScoring,
-  type ScoreSubject,
-  type Verdict,
-} from '@domain/pack.ts'
+import type { PackScore, PackScoring, Verdict } from '@domain/pack.ts'
 import type { BenchConfig } from '@domain/schemas.ts'
-import { certainty } from '@domain/stats.ts'
 import { codeVerdict } from '@domain/verdict.ts'
-import { clip, markChecks, type StatementAnswer } from '../shared/score.ts'
+import { clip } from '../shared/score.ts'
 
 /** The config an active code pack sees: domain/config.ts lays these defaults under bench.json. */
-export type CodeConfig = BenchConfig & { codeCheck: { timeoutSeconds: number; maxChars: number } }
+export type CodeConfig = BenchConfig & { codeCheck: { timeoutSeconds: number } }
 
 export interface CheckRaw {
   command: string
@@ -26,19 +18,12 @@ export interface CheckRaw {
 }
 
 export interface CodeRaw {
-  /** Null when the case names no `bench.check`. */
+  /** Null in a reading of a case that names no `bench.check`. */
   check: CheckRaw | null
-  /** Null when Jev was off or the case has no graders. */
-  review: { statements: StatementAnswer[] } | null
 }
 
-function scoreCode(
-  raw: CodeRaw | null,
-  _subject: ScoreSubject,
-  config: BenchConfig,
-  corrections: Corrections = NO_CORRECTIONS,
-): PackScore {
-  const layers: Record<string, number | null> = { check: null, review: null }
+function scoreCode(raw: CodeRaw | null): PackScore {
+  const layers: Record<string, number | null> = { check: null }
   const flags: string[] = []
   const verdicts: Verdict[] = []
   if (!raw) return { layers, flags, verdicts }
@@ -61,25 +46,19 @@ function scoreCode(
       ),
     )
   }
-  const checks = markChecks(raw.review?.statements ?? [], 'review', config.yes, corrections)
-  layers.review = checks.share
-  flags.push(...checks.flags)
-  return { layers, flags, verdicts: [...verdicts, ...checks.verdicts] }
+  return { layers, flags, verdicts }
 }
-
-const certaintiesCode = (raw: CodeRaw | null): number[] =>
-  (raw?.review?.statements ?? []).map((s) => certainty(s.noul))
 
 export const codeScoring: PackScoring<CodeRaw> = {
   id: 'code',
   artifacts: ['code'],
-  layers: ['check', 'review'],
-  checks: 'review',
+  layers: ['check'],
   defaults: {
-    weights: { check: 60, review: 40 },
-    /** Seconds the check command may run, and how many characters of code the review question reads. */
-    codeCheck: { timeoutSeconds: 120, maxChars: 24000 },
+    weights: { check: 60 },
+    /** Seconds the check command may run. */
+    codeCheck: { timeoutSeconds: 120 },
   },
   score: scoreCode,
-  certainties: certaintiesCode,
+  // Code measured it: there is no answer of Jev's to be sure or unsure of.
+  certainties: () => [],
 }

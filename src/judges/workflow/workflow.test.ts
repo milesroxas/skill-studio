@@ -39,16 +39,16 @@ const tool = (name: string, args: string) => ev('tool', { tool: name, args })
 const inputOf = (events: TranscriptEvent[], settings = {}, sampleDir = dir): JudgeInput => ({
   text: '',
   units: [],
-  title: null,
   case: {
     settings: { maxTurns: null, timeoutSeconds: null, ...settings },
     bench: {},
   } as unknown as Case,
   images: [],
   rules: [],
-  evidence: {},
   artifacts: [{ file: 'outputs/note.md', kind: 'markdown' }],
   primary: null,
+  others: [],
+  notes: null,
   transcript: events,
   dir: sampleDir,
   renders: [],
@@ -276,7 +276,6 @@ describe('workflow scoring', () => {
     const scored = score({})
     expect(scored).toMatchObject({ layers: { efficiency: 1, scope: 1, process: null }, flags: [] })
     expect(scored.verdicts.map((v) => [v.text, v.met, v.layer])).toEqual([
-      ['no tool errors', true, 'efficiency'],
       ['no repeated tool calls beyond the allowance', true, 'efficiency'],
       ['stayed inside the sample', true, 'scope'],
       // Without Jev there is no process layer for it to count in.
@@ -298,14 +297,16 @@ describe('workflow scoring', () => {
     ])
   })
 
-  it('loses efficiency checks for errors, repeats and the case limits', () => {
-    const { layers, flags } = score({ errors: 1, retries: 2, maxTurns: 2, timeoutSeconds: 20 })
-    expect(layers.efficiency).toBe(1 / 4)
-    expect(flags).toEqual([
-      '1 tool error(s)',
-      '2 repeated tool call(s)',
-      '3 tool calls, case allows 2',
-    ])
+  it('loses efficiency checks for repeats and the case limits', () => {
+    const { layers, flags } = score({ retries: 2, maxTurns: 2, timeoutSeconds: 20 })
+    expect(layers.efficiency).toBe(1 / 3)
+    expect(flags).toEqual(['2 repeated tool call(s)', '3 tool calls, case allows 2'])
+  })
+
+  it('takes nothing off for an error: a check that fails before the fix is the work going right', () => {
+    const scored = score({ errors: 3 })
+    expect(scored.layers.efficiency).toBe(1)
+    expect(scored.flags).toEqual([])
   })
 
   it('zeroes scope for a path outside and flags a write before the skill read', () => {

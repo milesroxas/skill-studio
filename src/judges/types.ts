@@ -10,16 +10,25 @@ import type { Jev } from './jev.ts'
 export interface JudgeInput {
   /** The copy judged: front matter and comments removed. Empty for a non-text artifact. */
   text: string
+  /** The copy's prose and list units, for a Markdown output: what a word range counts. */
   units: Unit[]
-  title: string | null
   case: Case | null
   /** The pictures the case's request came with, which Jev sees beside it. */
   images: RequestImage[]
   rules: Rule[]
-  /** Evidence file texts by skill-relative path. */
-  evidence: Record<string, string>
   artifacts: Artifact[]
   primary: Artifact | null
+  /**
+   * The start of every other text file the agent wrote, by its path: a test
+   * beside the code, a script beside a page. A rule or a check may be about
+   * any of them. A file that says what the primary one says is left out.
+   */
+  others: Array<{ file: string; text: string }>
+  /**
+   * What the agent told the user beside its files (`notes.md`): the choices it
+   * made, what needs checking, what it could not do. Null when it wrote none.
+   */
+  notes: string | null
   transcript: TranscriptEvent[] | null
   /** Absolute path of the sample dir (or the run dir for a legacy file), for code checks. */
   dir: string
@@ -79,7 +88,7 @@ export interface JudgePack<Raw = unknown> extends PackScoring<Raw> {
    * Which reading of the output this is. The judge cache keeps the whole of
    * what `judge` returns under it, Jev's answers and what code measured alike.
    * Raise it when a question's wording, the pack's reading of an answer, or
-   * any code-measured part the cache stores changes (a markup check, a count,
+   * any code-measured part the cache stores changes (a check's exit code, a count,
    * a path read from a transcript), so a reading kept from before is not taken
    * for one of this.
    */

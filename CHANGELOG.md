@@ -6,13 +6,26 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+### Fixed
+
+- A skill is graded on its own rules and its cases' checks whatever it makes. Before, rules were only marked on text: a skill that made a page, a picture or code had none of its rules graded, and Results showed no Rules part for it. A past run says so under its name on All cases: **Regrade** it to see them.
+- Design grading no longer fails a page for what no rule asked of it. It used to check every page for a `lang`, a `<title>`, a viewport, a `<main>` and heading order, so a mockup or a slide lost points on every run, with and without the skill. A skill that wants those says so in a rule or a check, as the Design template does.
+- "Nothing in the output looks broken" no longer counts grey blocks or empty space as unfinished, so a wireframe or a mockup is not failed for being one. It asks only about what is broken: text that overlaps or is cut off, a missing picture, a blank page.
+- Whether a page has one clear main point is read off the page as drawn. Before, it was read off the HTML when there was any.
+- Rules and checks are marked on everything a run made: the file, how a page or picture looks, the other files beside it, and what was said about it. A rule such as "say which size you used" could never pass before, since what a run says about its work was not read. A page with a script, or code with its test, was read as one file.
+- A page beside a script is graded as the page for every skill. Before, a skill not graded as Design was graded on whichever file came first by name.
+- Workflow grading takes nothing off for an error by itself. A test that fails before the fix is the work going right; what happened after the error is still graded.
+
 ### Changed
 
 - Results shows fewer controls over an output, and each stands with what it changes. The pair is one line, **Comparing v0 with v1**, that opens to the **A** and **B** menus and **Swap**. **Edit case** and **Regrade this run** are under **More actions** (⋯) at the top right, and Regrade names the run, since it grades the whole run. An output with no score still shows **Grade** on its card.
 - A page's size is changed where it is read, in the line under the stage, and only a page shows it. **Phone**, **Tablet**, **Desktop** and **Full width** are in that menu, and a page starts at the stage's own width, not at Desktop. A case with a size opens at **Case size** and shows the whole page at it. Under **Side by side** a page has the same menu and is scaled down to fit its card. Before, a card showed only the corner of a page wider than it.
 - An output's files are one menu beside **A** and **B**, with **Transcript** in it, so the agent's steps can be read on the stage too. Before, the files were a row of names that ran into the widths.
 - **Flip** is **One at a time**. The views show only with two outputs to compare.
-- What an output is decides how its case opens: a page or a picture on the stage, two outputs of code as their diff, anything else as cards. A picture written beside a note no longer puts the note's case on the stage. A skill graded only as workflow opens on the transcript.
+- What an output is decides how its case opens: a page or a picture on the stage, two outputs of code as their diff, anything else as cards. A picture written beside a note no longer puts the note's case on the stage. A skill graded as Workflow and no other kind opens on the transcript.
+- **Graded as** lists what to grade beside rules and checks, which are always graded: **Code**, **Workflow** and **Design**, each with a line on what it adds. **Generic** is gone from the list, and a skill can have none of the three ticked.
+- A case always shows its **Checks**: every skill is graded on them.
+- Under Graded as, **Code** adds only the check command a case names: a case's checks are marked once, as Checks, and no longer a second time as part of Code or Design.
 - The Run panel says what it tests in plain words: **Test this skill**, **Test your edits**, **Test v2 again**, and one line on what comes of it. Its button names the run, **Run 3 cases** or **Run 3 cases, 2 attempts each**, in place of **Start a run** over a count of outputs, samples and agent sessions. The line under the button says which agent answers the cases and that Jev grades the results.
 - Under Options, **Write with** is now **Skill**, **Copy from** is **Version**, and **Samples per case** is **Attempts per case**. An agent that is not set up says how to set it up under **Agent**.
 - What stops a run, or makes it grade less, shows as a warning: no Jev key, files not saved, no agent set up. With no case ticked the button says **Tick a case to run**. Before, each was a grey line of help text.
@@ -24,6 +37,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - The rest of the app says less too. Hints that repeated their heading are gone from Settings, New skill and the Library, and notes no longer speak of files "on disk", "code checks" or providers. A file or case changed outside the app now offers **Keep my edits** and **Take the changed file** (or **case**). Without a Jev key, **Regrade** reads **Regrade without Jev**.
 - **Versions** on the Skill screen says less: the line that repeated the newest version is gone, and after **Restore** the version the files match reads *in the files now*. Edits since the last run read "The next run keeps your edits as v2", and no longer name the wrong version after a restore. A rule divides Versions from Files again.
 - A result made on a second or third attempt reads "attempt 2 of 3", as the Run panel names it. A skill with no name or description says so in those words, and a stored key reads **Stored on this computer**.
+
+### Removed
+
+- **Writing** under Graded as. It held every piece to one way of writing about your own work: an opening inside the work, a decision, a setback, an ending that says what it adds up to, no selling, and no em dash. A release note or a thank-you owes none of that, and lost points for it. A skill that wants any of it says so in a rule. A skill graded as Writing is now graded on its rules and checks, and the `writing` settings in `bench.json` (`lint`, `writingKind`, `writer`, `borrowed` and the rest) and `kind`, `evidence` and `aiBuilt` in a `case.yaml` are no longer read.
 
 ## [0.7.2] - 2026-11-11
 

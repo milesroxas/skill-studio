@@ -28,6 +28,9 @@ Severity: **high** gives wrong scores or loses data. **med** misleads or breaks 
 - [ ] **R7** med. "Regrade without Jev" overwrites `report.json` and throws away stored Jev answers. `src/application/grade.ts`, `src/renderer/components/ResultsSummary.tsx` In part (`d9a79bc`): a stopped or failed grading keeps the last report and every Jev answer, and a regrade reuses answers for outputs that did not change. A regrade with code checks still writes a new `report.json`.
 
 - [ ] **R8** low. A correction names a fact by its kind and its words, so two rules of one skill that read the same share one answer. `src/domain/verdict.ts` (`verdictId`) In part (`d9a79bc`): duplicate rules in `bench.json` are dropped. Two identical bullets in SKILL.md still share one answer.
+- [ ] **R9** low. A report keeps what its grading asked. An output graded before rules and checks were marked on every kind of file shows no Rules or Checks part until its run is regraded. In part: the line under a run on All cases says so and points to Regrade; a case's own page does not. `src/renderer/model.ts` (`rulesUnmarked`), `src/renderer/components/Comparison.tsx`
+- [ ] **R10** low. A case's check command runs only when the output judged is code. A case that names one whose agent wrote no code file gets no Check command part, not a failed one. `src/application/grade.ts` (`gradeSubject`), `src/judges/code/score.ts`
+- [ ] **R11** low. Jev reads the first 24,000 characters of an output and 6,000 of each file beside it. A rule broken past that is marked followed, and nothing says the file was cut. `src/judges/generic/index.ts`, `src/application/grade.ts` (`othersOf`)
 
 ## Comparability
 
@@ -44,7 +47,7 @@ Severity: **high** gives wrong scores or loses data. **med** misleads or breaks 
 - [ ] **C11** low. The without-skill baseline skips the "read SKILL.md first" check, so process is harder for the skill to score on. `src/judges/workflow/score.ts:72-79`
 - [ ] **C12** med. Rule extraction grades non-rules: bullets under a "Bad example" heading, and pointers such as "Read references/x.md before you start". Only link-only bullets and bullets under four words are skipped. Rules in reference files are never graded. `src/domain/rules.ts`, `src/infrastructure/cases.ts` (`loadRules`)
 - [ ] **C13** low. The primary artifact is the first file in name order, and `.txt` counts as Markdown, so `notes.md` can beat `post.md`. `src/infrastructure/artifacts.ts:7-19,82` In part: one chooser for grading and Results (`src/domain/primary.ts`), and among files of one kind a `README` or a `.txt` file comes last. Two `.md` files with neither name, such as `notes.md` and `post.md`, still go by name order.
-- [ ] **C14** low. Unsaved Scoring changes rescore every screen. Grade-time-only settings (`workflow.summaryLines`, `codeCheck.*`, `design.maxChars`) look live but change nothing. The CLI reads stored scores, so it disagrees with the app after Save, and it never applies a correction. `src/renderer/App.tsx`, `src/interfaces/cli/st.ts:138` In part: the app scores by `bench.json` as saved, and its one scoring control, Graded as, rescores only once saved. The CLI still reads stored scores and applies no correction.
+- [ ] **C14** low. Unsaved Scoring changes rescore every screen. Grade-time-only settings (`workflow.summaryLines`, `codeCheck.*`) look live but change nothing. The CLI reads stored scores, so it disagrees with the app after Save, and it never applies a correction. `src/renderer/App.tsx`, `src/interfaces/cli/st.ts:138` In part: the app scores by `bench.json` as saved, and its one scoring control, Graded as, rescores only once saved. The CLI still reads stored scores and applies no correction.
 
 ## Picks and corrections
 

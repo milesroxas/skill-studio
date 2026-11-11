@@ -31,27 +31,27 @@ const check = (over: Partial<CheckRaw>): CheckRaw => ({
 
 describe('code check layer', () => {
   it('passes on exit 0', () => {
-    const { layers, flags } = codeScoring.score({ check: check({}), review: null }, subject, config)
-    expect(layers).toEqual({ check: 1, review: null })
+    const { layers, flags } = codeScoring.score({ check: check({}) }, subject, config)
+    expect(layers).toEqual({ check: 1 })
     expect(flags).toEqual([])
   })
 
   it('fails on a nonzero exit with the output tail', () => {
-    const raw = { check: check({ exit: 1, tail: 'AssertionError:\n  1 !== 2' }), review: null }
+    const raw = { check: check({ exit: 1, tail: 'AssertionError:\n  1 !== 2' }) }
     const { layers, flags } = codeScoring.score(raw, subject, config)
     expect(layers.check).toBe(0)
     expect(flags).toEqual(['check failed (exit 1): AssertionError: 1 !== 2'])
   })
 
   it('fails on a timeout even with exit 0', () => {
-    const raw = { check: check({ timedOut: true }), review: null }
+    const raw = { check: check({ timedOut: true }) }
     const { layers, flags } = codeScoring.score(raw, subject, config)
     expect(layers.check).toBe(0)
     expect(flags).toEqual(['check timed out: node --test'])
   })
 
   it('reports the command as one fact code measured, which no correction changes', () => {
-    const raw = { check: check({ exit: 1, tail: 'boom' }), review: null }
+    const raw = { check: check({ exit: 1, tail: 'boom' }) }
     const { layers, verdicts } = codeScoring.score(raw, subject, config, {
       'other:check command': true,
     })
@@ -67,27 +67,16 @@ describe('code check layer', () => {
   })
 })
 
-describe('code review layer', () => {
-  const statement = (id: string, noul: number, weight = 1) => ({
-    id,
-    text: `statement ${id}`,
-    weight,
-    noul,
-    units: null,
-    best: null,
-  })
-
-  it('weighs the checks met, and takes the reader’s answer over Jev’s', () => {
-    const raw = {
-      check: null,
-      review: { statements: [statement('a', 0.9), statement('b', 0.1, 2)] },
-    }
-    const jev = codeScoring.score(raw, subject, config)
-    expect(jev.layers.review).toBe(1 / 3)
-    expect(jev.flags).toEqual(['grader b (×2) not met: statement b'])
-    const own = codeScoring.score(raw, subject, config, { 'check:statement b': true })
-    expect(own.layers.review).toBe(1)
-    expect(own.flags).toEqual([])
+describe('code scoring of a reading from before', () => {
+  it('counts no checks: the case’s checks are the generic pack’s to mark', () => {
+    const statement = { id: 'a', text: 'x', weight: 1, noul: 0.1, units: null, best: null }
+    const old = { check: null, review: { statements: [statement] } }
+    expect(codeScoring.score(old, subject, config)).toEqual({
+      layers: { check: null },
+      flags: [],
+      verdicts: [],
+    })
+    expect(codeScoring.certainties(old)).toEqual([])
   })
 })
 
@@ -103,13 +92,13 @@ describe('code pack without Jev', () => {
     ({
       text: 'export const sum = (a, b) => a + b',
       units: [],
-      title: null,
       case: { bench, graders: [] } as unknown as Case,
       images: [],
       rules: [],
-      evidence: {},
       artifacts: [],
       primary: null,
+      others: [],
+      notes: null,
       transcript: null,
       dir: '/sample',
       renders: [],
@@ -123,11 +112,11 @@ describe('code pack without Jev', () => {
     })
     expect(raw).toEqual({
       check: { command: 'node --test', exit: 1, timedOut: false, tail: 'expected 3, got 4' },
-      review: null,
     })
   })
 
-  it('has nothing to say without a check command', async () => {
+  it('has nothing to say without a check command, with Jev or without', async () => {
     expect(await codePack.judge(input({}), ctx)).toBeNull()
+    expect(await codePack.judge(input({}), { ...ctx, useJev: true })).toBeNull()
   })
 })

@@ -38,12 +38,8 @@ export interface CaseBench {
    * is drawn at this size for the judge and opens at this width on Results.
    */
   size?: [number, number]
-  /** Skill-relative paths of evidence files. */
-  evidence?: string[]
   /** `false` skips Jev for this case. */
   judge?: boolean
-  /** Pack-specific kind (writing: article, linkedinPost ...). */
-  kind?: string
   [key: string]: unknown
 }
 

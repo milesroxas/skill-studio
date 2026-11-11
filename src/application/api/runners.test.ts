@@ -223,14 +223,14 @@ describe('skill.gradedAs', () => {
     writeFileSync(bench, JSON.stringify(byHand))
     const { config } = await invoke(operations, 'skill.gradedAs', {
       skill,
-      packs: ['generic', 'writing'],
+      packs: ['generic', 'design'],
     })
     expect(JSON.parse(readFileSync(bench, 'utf8'))).toEqual({
       ...byHand,
-      packs: ['generic', 'writing'],
+      packs: ['generic', 'design'],
     })
     // Scored as the file reads, as ever: the threshold held to 1.
-    expect(config.packs).toEqual(['generic', 'writing'])
+    expect(config.packs).toEqual(['generic', 'design'])
     expect(config.yes).toBe(1)
   })
 

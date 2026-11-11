@@ -8,7 +8,7 @@ import { image } from '@typesafe-ai/sdk'
 import { describe, expect, it, vi } from 'vitest'
 import { Jev } from '../jev.ts'
 import { MissingAnswerError } from '../shared/questions.ts'
-import type { JudgeContext, JudgeInput } from '../types.ts'
+import type { JudgeContext, JudgeInput, PageShot } from '../types.ts'
 import { designPack } from './index.ts'
 import { type DesignRaw, designScoring } from './score.ts'
 
@@ -28,181 +28,98 @@ const subject: ScoreSubject = {
   range: null,
 }
 
-const input = (html: string): JudgeInput => ({
+/** A mockup's artboard: a page, and no web page. It has no lang, viewport, landmark or heading. */
+const ARTBOARD =
+  '<!doctype html><html><head><meta charset="utf-8"></head><body><div id="art"></div></body></html>'
+
+const input = (html: string, renders: PageShot[] = []): JudgeInput => ({
   text: html,
   units: [],
-  title: null,
   case: null,
   images: [],
   rules: [],
-  evidence: {},
   artifacts: [{ file: 'outputs/index.html', kind: 'html' }],
   primary: { file: 'outputs/index.html', kind: 'html' },
+  others: [],
+  notes: null,
   transcript: null,
   dir: '/none',
-  renders: [],
+  renders,
 })
 
-const failed = async (html: string): Promise<string[]> => {
-  const raw = await designPack.judge(input(html), ctx)
-  return raw?.markup?.filter((c) => !c.ok).map((c) => c.id) ?? []
-}
+const drawn = (id: 'desktop' | 'phone', width: number, height: number): PageShot => ({
+  size: { id, width, height },
+  read: { image: image(pngHeader(width, height)), problem: null },
+})
 
-const GOOD = `<!doctype html>
-<html lang="en"><head><title>Home</title>
-<meta name="viewport" content="width=device-width"></head>
-<body><main><h1>Hi</h1><h2>Sub</h2><h3>Deep</h3><h2>Next</h2>
-<img src="a.png" alt=""></main></body></html>`
+type Ask = (state: Record<string, unknown>, questions: Record<string, unknown>) => Promise<unknown>
+const asking = (ask: Ask): JudgeContext => ({
+  ...ctx,
+  jev: { ask } as unknown as Jev,
+  useJev: true,
+})
 
-describe('design markup checks', () => {
-  it('passes a complete page with no Jev layer', async () => {
-    const raw = await designPack.judge(input(GOOD), ctx)
-    expect(raw?.markup?.every((c) => c.ok)).toBe(true)
-    expect(raw?.jev).toBeNull()
+describe('design pack', () => {
+  it('says nothing of a page nobody drew: it looks, and code holds a page to no rule of its own', async () => {
+    const ask = vi.fn<Ask>(async () => ({}))
+    // Without Jev, and with Jev but no picture: a page with no lang or landmark is failed for neither.
+    expect(await designPack.judge(input(ARTBOARD, [drawn('desktop', 1280, 960)]), ctx)).toBeNull()
+    expect(await designPack.judge(input(ARTBOARD), asking(ask))).toBeNull()
+    expect(ask).not.toHaveBeenCalled()
   })
 
-  it('flags a bare fragment on every shell check', async () => {
-    expect(await failed('<div>hi</div>')).toEqual([
-      'doctype',
-      'lang',
-      'title',
-      'viewport',
-      'main',
-      'headings',
-    ])
+  it('asks of the picture alone: one main point, nothing broken', async () => {
+    const ask = vi.fn<Ask>(async () => ({ hierarchy: { noul: 0.9 }, finished: { noul: 0.8 } }))
+    const raw = await designPack.judge(input(ARTBOARD, [drawn('desktop', 1280, 960)]), asking(ask))
+    const [state, questions] = ask.mock.calls[0]
+    expect(Object.keys(questions)).toEqual(['hierarchy', 'finished'])
+    // The HTML is the generic pack's to read against the skill's rules, not this pack's.
+    expect(Object.keys(state)).toEqual(['screenshot'])
+    const scored = raw && designScoring.score(raw, subject, config)
+    expect(scored?.layers).toEqual({ visual: 1 })
+    expect(scored?.flags).toEqual([])
   })
 
-  it('flags skipped heading levels and a page that starts below h1', async () => {
-    expect(await failed(GOOD.replace('<h3>', '<h4>').replace('</h3>', '</h4>'))).toEqual([
-      'headings',
-    ])
-    expect(await failed(GOOD.replace('<h1>Hi</h1>', ''))).toEqual(['headings'])
-  })
-
-  it('flags images without alt and inline handlers', async () => {
-    const html = GOOD.replace('alt=""', '').replace('<main>', '<main onclick="go()">')
-    expect(await failed(html)).toEqual(['alt', 'handlers'])
-  })
-
-  it('fails an empty title, an empty lang and look-alike attributes', async () => {
-    const html = GOOD.replace('<title>Home</title>', '<title> </title>')
-      .replace('lang="en"', 'lang=""')
-      .replace('alt=""', 'data-alt="x"')
-    expect(await failed(html)).toEqual(['lang', 'title', 'alt'])
-  })
-
-  it('reads attributes in any case, quoting and order', async () => {
-    const html = GOOD.replace('<html lang="en">', "<HTML data-x='1' LANG=en>")
-      .replace('name="viewport"', "content='x' NAME='Viewport'")
-      .replace('<title>Home</title>', '<title data-x="a > b">Home</title>')
-    expect(await failed(html)).toEqual([])
-  })
-
-  it('ignores markup inside comments and scripts, and handler-like text', async () => {
-    const html = GOOD.replace(
-      '</main>',
-      '<!-- <img src="x.png"> --><script>const tag = "<img src=y onclick=z>"</script><p>Turn on=off</p></main>',
-    )
-    expect(await failed(html)).toEqual([])
-  })
-
-  it('reads only an event’s name after `on` as a handler', async () => {
-    // Attributes a page may carry: none of them runs script.
-    const plain = GOOD.replace('<main>', '<main one only once online onboarding="x">')
-    expect(await failed(plain)).toEqual([])
-    for (const handler of ['onclick', 'ONLOAD', 'onpointerdown', 'onanimationend'])
-      expect(await failed(GOOD.replace('<main>', `<main ${handler}="go()">`))).toEqual(['handlers'])
-  })
-
-  it('knows every handler a page can carry, the prefixed ones included', async () => {
-    for (const handler of [
-      'onunhandledrejection',
-      'onrejectionhandled',
-      'oncommand',
-      'onbeforematch',
-      'onbeforetoggle',
-      'oncontextlost',
-      'onsecuritypolicyviolation',
-      'onpointerrawupdate',
-      'onvisibilitychange',
-      'onreadystatechange',
-      'onpageswap',
-      'onscrollsnapchange',
-      'onbegin',
-      'onwebkitanimationend',
-      'onwebkittransitionend',
-      'onwebkitfullscreenchange',
-    ])
-      expect(await failed(GOOD.replace('<main>', `<main ${handler}="go()">`)), handler).toEqual([
-        'handlers',
-      ])
+  it('does not call plain blocks broken, so a wireframe is not failed for being one', async () => {
+    const ask = vi.fn<Ask>(async () => ({ hierarchy: { noul: 0.9 }, finished: { noul: 0.8 } }))
+    await designPack.judge(input(ARTBOARD, [drawn('desktop', 1280, 960)]), asking(ask))
+    const finished = ask.mock.calls[0][1].finished as { criteria: { true: string; false: string } }
+    expect(finished.criteria.true).toContain('Plain blocks standing in for content are not broken')
+    expect(finished.criteria.false).not.toMatch(/placeholder|lorem|empty/i)
   })
 
   it('keeps Jev’s answer as it came, and fails the reading when one asked for is missing', async () => {
-    const ask = vi.fn(async () => ({ hierarchy: { noul: 0.4996 } }))
-    const asking = { ...ctx, jev: { ask } as unknown as Jev, useJev: true }
-    const raw = await designPack.judge(input(GOOD), asking)
+    const ask = vi.fn<Ask>(async () => ({ hierarchy: { noul: 0.4996 }, finished: { noul: 0.9 } }))
+    const page = input(ARTBOARD, [drawn('desktop', 1280, 960)])
+    const raw = await designPack.judge(page, asking(ask))
     // Rounded to three places this would be 0.5, and pass a threshold of 0.5 it did not reach.
     expect(raw?.jev?.hierarchy).toBe(0.4996)
-    expect(raw && designScoring.score(raw, subject, config).layers.visual).toBe(0)
-    ask.mockResolvedValueOnce({} as never)
-    await expect(designPack.judge(input(GOOD), asking)).rejects.toThrow(MissingAnswerError)
+    expect(raw && designScoring.score(raw, subject, config).layers.visual).toBe(0.5)
+    ask.mockResolvedValueOnce({ hierarchy: { noul: 0.9 } })
+    await expect(designPack.judge(page, asking(ask))).rejects.toThrow(MissingAnswerError)
   })
 
-  it('stores no answer to the screenshot question Jev left out, and keeps the markup checks', async () => {
-    const dir = mkdtempSync(join(tmpdir(), 'st-design-'))
-    try {
-      mkdirSync(join(dir, 'outputs'))
-      writeFileSync(join(dir, 'outputs/shot.png'), pngHeader(800, 600))
-      const shot = { file: 'outputs/shot.png', kind: 'image' as const }
-      const page = { ...input(GOOD), dir, artifacts: [...input(GOOD).artifacts, shot] }
-      const ask = vi.fn(async (_state: unknown, _questions: Record<string, unknown>) => ({
-        hierarchy: { noul: 0.9 },
-      }))
-      const raw = await designPack.judge(page, {
-        ...ctx,
-        jev: { ask } as unknown as Jev,
-        useJev: true,
-      })
-      expect(Object.keys(ask.mock.calls[0][1])).toEqual(['hierarchy', 'finished'])
-      expect(raw?.jev).toMatchObject({ hierarchy: 0.9, finished: null })
-      expect(raw?.markup).toHaveLength(8)
-    } finally {
-      rmSync(dir, { recursive: true, force: true })
-    }
-  })
-
-  it('looks at the page as the app drew it, and asks whether it fits a phone', async () => {
-    const drawn = (id: 'desktop' | 'phone', width: number, height: number) => ({
-      size: { id, width, height },
-      read: { image: image(pngHeader(width, height)), problem: null },
-    })
-    const page = {
-      ...input(GOOD),
-      renders: [drawn('desktop', 1280, 960), drawn('phone', 390, 1200)],
-    }
-    const ask = vi.fn(
-      async (_state: Record<string, unknown>, _questions: Record<string, unknown>) => ({
-        hierarchy: { noul: 0.9 },
-        finished: { noul: 0.8 },
-        phone: { noul: 0.1 },
-      }),
-    )
-    const raw = await designPack.judge(page, {
-      ...ctx,
-      jev: { ask } as unknown as Jev,
-      useJev: true,
-    })
+  it('asks whether a page drawn at phone width fits, and stores no answer to that one when Jev leaves it out', async () => {
+    const page = input(ARTBOARD, [drawn('desktop', 1280, 960), drawn('phone', 390, 1200)])
+    const ask = vi.fn<Ask>(async () => ({
+      hierarchy: { noul: 0.9 },
+      finished: { noul: 0.8 },
+      phone: { noul: 0.1 },
+    }))
+    const raw = await designPack.judge(page, asking(ask))
     const [state, questions] = ask.mock.calls[0]
     expect(Object.keys(questions)).toEqual(['hierarchy', 'finished', 'phone'])
-    expect(Object.keys(state)).toEqual(expect.arrayContaining(['html', 'screenshot', 'phone']))
+    expect(Object.keys(state)).toEqual(['screenshot', 'phone'])
     expect(raw?.jev).toMatchObject({ finished: 0.8, phone: 0.1 })
     const scored = raw && designScoring.score(raw, subject, config)
-    expect(scored?.flags).toContain('page does not fit a phone screen')
+    expect(scored?.flags).toEqual(['page does not fit a phone screen'])
     expect(scored?.verdicts.find((v) => v.id === 'other:phone')).toMatchObject({
       text: 'The page fits a phone screen',
       met: false,
     })
+    ask.mockResolvedValueOnce({ hierarchy: { noul: 0.9 }, finished: { noul: 0.8 } })
+    const left = await designPack.judge(page, asking(ask))
+    expect(left?.jev).toEqual({ hierarchy: 0.9, finished: 0.8, phone: null })
   })
 
   it('takes the page as drawn over the agent’s own screenshot, which stands in when none was', async () => {
@@ -211,113 +128,84 @@ describe('design markup checks', () => {
       mkdirSync(join(dir, 'outputs'))
       writeFileSync(join(dir, 'outputs/shot.png'), pngHeader(800, 600))
       const shot = { file: 'outputs/shot.png', kind: 'image' as const }
-      const desktop = (read: { image: unknown; problem: string | null }) => ({
-        size: { id: 'desktop' as const, width: 1280, height: 960 },
-        read,
-      })
-      const drawnImage = image(pngHeader(1280, 960))
-      const page = (renders: ReturnType<typeof desktop>[]) => ({
-        ...input(GOOD),
+      const desktop = drawn('desktop', 1280, 960)
+      const page = (renders: PageShot[]): JudgeInput => ({
+        ...input(ARTBOARD, renders),
         dir,
-        artifacts: [...input(GOOD).artifacts, shot],
-        renders,
+        artifacts: [...input(ARTBOARD).artifacts, shot],
       })
-      const ask = vi.fn(
-        async (_state: Record<string, unknown>, _questions: Record<string, unknown>) => ({
-          hierarchy: { noul: 0.9 },
-          finished: { noul: 0.8 },
-        }),
-      )
-      const judged = { ...ctx, jev: { ask } as unknown as Jev, useJev: true }
-      await designPack.judge(
-        page([desktop({ image: drawnImage, problem: null })]) as JudgeInput,
-        judged,
-      )
-      expect(ask.mock.calls[0][0].screenshot).toBe(drawnImage)
+      const ask = vi.fn<Ask>(async () => ({ hierarchy: { noul: 0.9 }, finished: { noul: 0.8 } }))
+      await designPack.judge(page([desktop]), asking(ask))
+      expect(ask.mock.calls[0][0].screenshot).toBe(desktop.read.image)
       // A drawing Jev cannot read, or none: the agent's own screenshot stands in.
       const unreadable = await designPack.judge(
-        page([desktop({ image: null, problem: 'too small' })]) as JudgeInput,
-        judged,
+        page([{ size: desktop.size, read: { image: null, problem: 'too small' } }]),
+        asking(ask),
       )
-      expect(ask.mock.calls[1][0].screenshot).not.toBe(drawnImage)
+      expect(ask.mock.calls[1][0].screenshot).not.toBe(desktop.read.image)
       expect(ask.mock.calls[1][0].screenshot).toBeTruthy()
       expect(unreadable?.unread).toBeUndefined()
-      await designPack.judge(page([]) as JudgeInput, judged)
+      await designPack.judge(page([]), asking(ask))
       expect(ask.mock.calls[2][0].screenshot).toBeTruthy()
     } finally {
       rmSync(dir, { recursive: true, force: true })
     }
   })
 
-  it('has nothing to judge without html or a screenshot', async () => {
+  it('says so when the only picture is one Jev cannot read, and asks nothing', async () => {
+    const ask = vi.fn<Ask>(async () => ({}))
+    const unreadable: PageShot = {
+      size: { id: 'desktop', width: 100, height: 100 },
+      read: { image: null, problem: 'too small' },
+    }
+    const raw = await designPack.judge(input(ARTBOARD, [unreadable]), asking(ask))
+    expect(raw).toEqual({ jev: null, unread: 'screenshot not judged: too small' })
+    expect(ask).not.toHaveBeenCalled()
+    expect(raw && designScoring.score(raw, subject, config)).toMatchObject({
+      layers: { visual: null },
+      flags: ['screenshot not judged: too small'],
+    })
+  })
+
+  it('has nothing to judge without a page or a picture', async () => {
     const md = { ...input(''), primary: null, artifacts: [] }
-    expect(await designPack.judge(md, ctx)).toBeNull()
+    expect(await designPack.judge(md, asking(vi.fn<Ask>(async () => ({}))))).toBeNull()
   })
 })
 
 describe('design scoring', () => {
-  it('scores markup as the share of checks passed, with a flag per failure', () => {
-    const raw: DesignRaw = {
-      markup: [
-        { id: 'a', ok: true, note: 'a' },
-        { id: 'b', ok: false, note: 'no <main> landmark' },
-      ],
-      jev: null,
-    }
-    const scored = designScoring.score(raw, subject, config)
-    expect(scored).toMatchObject({
-      layers: { markup: 0.5, visual: null },
-      flags: ['markup: no <main> landmark'],
-    })
-    // Code measured these, so neither is open to a correction.
-    expect(scored.verdicts.map((v) => [v.text, v.met, v.open, v.layer])).toEqual([
-      ['markup: a', true, false, 'markup'],
-      ['markup: no <main> landmark', false, false, 'markup'],
-    ])
-    expect(designScoring.certainties(raw)).toEqual([])
-  })
-
-  it('counts the visual layer from Jev’s answers, with the reader’s own over them', () => {
-    const raw: DesignRaw = {
-      markup: null,
-      jev: {
-        hierarchy: 0.9,
-        finished: 0.2,
-        statements: [
-          {
-            id: 'g1',
-            text: 'The form has a submit button.',
-            weight: 2,
-            noul: 0.1,
-            units: null,
-            best: null,
-          },
-        ],
-      },
-    }
+  it('counts the look from Jev’s answers, with the reader’s own over them', () => {
+    const raw: DesignRaw = { jev: { hierarchy: 0.9, finished: 0.2 } }
     const jev = designScoring.score(raw, subject, config)
-    // hierarchy met (1), finished missed (1), the check missed (×2)
-    expect(jev.layers.visual).toBe(1 / 4)
-    expect(jev.flags).toEqual([
-      'screenshot does not look finished',
-      'grader g1 (×2) not met: The form has a submit button.',
-    ])
-    const own = designScoring.score(raw, subject, config, {
-      'check:The form has a submit button.': true,
-    })
-    expect(own.layers.visual).toBe(3 / 4)
-    expect(own.flags).toEqual(['screenshot does not look finished'])
-    expect(own.verdicts.find((v) => v.kind === 'check')).toMatchObject({
+    expect(jev.layers.visual).toBe(1 / 2)
+    expect(jev.flags).toEqual(['something looks broken'])
+    const own = designScoring.score(raw, subject, config, { 'other:finished': true })
+    expect(own.layers.visual).toBe(1)
+    expect(own.flags).toEqual([])
+    expect(own.verdicts.find((v) => v.id === 'other:finished')).toMatchObject({
       met: true,
       corrected: true,
-      weight: 2,
     })
+    expect(designScoring.certainties(raw)).toHaveLength(2)
   })
 
-  it('leaves every layer null without raw answers', () => {
-    expect(designScoring.score(null, subject, config).layers).toEqual({
-      markup: null,
-      visual: null,
-    })
+  it('counts neither the shell checks nor the checks a reading from before holds', () => {
+    // What `report.json` kept when the pack held a page to a web page's shell and marked the case's checks.
+    const old = {
+      markup: [{ id: 'lang', ok: false, note: 'no lang on <html>' }],
+      jev: {
+        hierarchy: 0.9,
+        finished: null,
+        statements: [{ id: 'g1', text: 'x', weight: 2, noul: 0.1, units: null, best: null }],
+      },
+    } as DesignRaw
+    const scored = designScoring.score(old, subject, config)
+    expect(scored.layers).toEqual({ visual: 1 })
+    expect(scored.flags).toEqual([])
+    expect(scored.verdicts.map((v) => v.id)).toEqual(['other:hierarchy'])
+  })
+
+  it('leaves the layer null without raw answers', () => {
+    expect(designScoring.score(null, subject, config).layers).toEqual({ visual: null })
   })
 })

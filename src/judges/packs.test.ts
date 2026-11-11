@@ -1,7 +1,9 @@
 /** What every pack must do alike: carry a version, and ask Jev only when the case allows it. */
+import { pngHeader } from '@domain/__fixtures__/image.ts'
 import { mergeConfig } from '@domain/config.ts'
 import type { Case, Grader } from '@domain/schemas.ts'
 import { unitsOf } from '@domain/text.ts'
+import { image } from '@typesafe-ai/sdk'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { packById } from './index.ts'
 import type { Jev } from './jev.ts'
@@ -9,7 +11,9 @@ import { scorers } from './scorers.ts'
 import { MissingAnswerError } from './shared/questions.ts'
 import type { JudgeContext, JudgeInput } from './types.ts'
 
-const IDS = ['generic', 'writing', 'code', 'workflow', 'design']
+const IDS = ['generic', 'code', 'workflow', 'design']
+/** The packs with a question for Jev. Code has none: an exit code is not an opinion. */
+const ASKING = IDS.filter((id) => id !== 'code')
 
 // Jev is a network call: every yes/no is answered 0.9, every choice with its first label.
 const ask = vi.fn(async (_state: unknown, questions: Record<string, unknown>) =>
@@ -61,16 +65,25 @@ const inputFor = (id: string, testCase: Case): JudgeInput => {
   return {
     text,
     units: kind === 'markdown' ? unitsOf(text) : [],
-    title: null,
     case: testCase,
     images: [],
     rules: [{ id: 'r1', text: 'Open with the first name.', section: 'Rules' }],
-    evidence: {},
     artifacts: primary ? [primary] : [],
     primary,
+    others: [],
+    notes: null,
     transcript: [{ step: 1, at: 0, kind: 'tool', tool: 'Read', args: 'SKILL.md' }],
     dir: '/none',
-    renders: [],
+    // The page as the app drew it: the design pack looks at nothing else.
+    renders:
+      kind === 'html'
+        ? [
+            {
+              size: { id: 'desktop', width: 1280, height: 960 },
+              read: { image: image(pngHeader(1280, 960)), problem: null },
+            },
+          ]
+        : [],
   }
 }
 
@@ -83,7 +96,7 @@ describe('every pack', () => {
     }
   })
 
-  it.each(IDS)('%s asks Jev about a case that allows it', async (id) => {
+  it.each(ASKING)('%s asks Jev about a case that allows it', async (id) => {
     // A reply with no label for a choice fails the writing pack's reading: that it asked is the point.
     await packById(id)
       ?.judge(inputFor(id, kase()), ctx)

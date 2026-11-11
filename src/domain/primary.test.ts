@@ -36,11 +36,14 @@ describe('primaryArtifact', () => {
     expect(primaryArtifact(files, undefined, ['html', 'image', 'code'])).toEqual(page('index.html'))
   })
 
-  it('takes Markdown when no pack judges the other kinds, and the first file when there is none', () => {
+  it('takes Markdown when no pack judges the other kinds, then a page, a picture or code', () => {
     expect(primaryArtifact([code('app.js'), md('post.md')], undefined, ['markdown'])).toEqual(
       md('post.md'),
     )
-    expect(primaryArtifact([code('app.js'), page('index.html')], undefined)).toEqual(code('app.js'))
+    // A skill graded on its rules alone that made a page: the page is judged, not the script beside it.
+    expect(primaryArtifact([code('app.js'), page('index.html')], undefined)).toEqual(
+      page('index.html'),
+    )
     expect(primaryArtifact([], undefined)).toBeNull()
   })
 

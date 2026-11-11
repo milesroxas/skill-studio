@@ -152,9 +152,8 @@ describe('createSkill', () => {
       templateById('writing').description,
     )
     expect(rulesFromSkill(md).length).toBeGreaterThanOrEqual(4)
-    expect(JSON.parse(readFileSync(join(dir, 'evals/bench.json'), 'utf8'))).toEqual({
-      packs: ['generic', 'writing'],
-    })
+    // Graded on its rules and checks alone, which needs no file to say.
+    expect(existsSync(join(dir, 'evals/bench.json'))).toBe(false)
     expect(loadCases(dir).map((c) => c.id)).toEqual(
       templateById('writing')
         .cases.map((c) => c.id)

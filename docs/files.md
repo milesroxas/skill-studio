@@ -39,12 +39,9 @@ Everything Skill Studio knows about a skill is plain files in the skill's `evals
 | Key | Does |
 | --- | --- |
 | `artifact` | The kind of output to grade: `markdown`, `html`, `image`, `code` or `transcript` |
-| `kind` | The writing pack's kind: `article`, `linkedinPost`, `coverLetter` or `youtubeScript` |
 | `words` | `[min, max]`, the word range the output should fall in |
-| `evidence` | Skill-relative files the writing pack checks claims against |
 | `check` | The command the code pack runs; its exit code is the check layer |
 | `judge` | `false` asks Jev nothing about this case's outputs, in any pack: only code checks run, and every layer Jev judges is null |
-| `aiBuilt` | `true` when AI helped build the work described; the writing pack flags copy that does not say so |
 
 ## A run
 

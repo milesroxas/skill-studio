@@ -485,7 +485,7 @@ export const parsers: { [K in OperationName]: (raw: Raw) => Input<K> } = {
   'skill.deleteCase': (raw) => ({ ...scoped(raw), id: assertSafe(str(raw.id), 'case') }),
   'skill.gradedAs': (raw) => {
     const packs = Array.isArray(raw.packs) ? raw.packs : []
-    // Named once each, every one a pack the app has: a skill is always graded as something.
+    // Named once each, every one a pack the app has. Rules and checks are graded whatever the list says.
     if (!packs.length || new Set(packs).size !== packs.length) throw new Error('Bad packs.')
     for (const pack of packs) oneOf(pack, PACK_IDS, 'pack')
     return { ...scoped(raw), packs: packs as string[] }

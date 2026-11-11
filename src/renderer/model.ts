@@ -1,13 +1,20 @@
 /** Outputs across runs, their scores under the skill's scoring, the pair to compare per case, and display names. */
-import { mergeConfig } from '@domain/config.ts'
+import { BASE_PACK, mergeConfig } from '@domain/config.ts'
 import { type Lift, type LiftRun, liftWriter, versionLift, writerKey } from '@domain/lift.ts'
 import { type Corrections, NO_CORRECTIONS } from '@domain/pack.ts'
 import { defaultPair, type PairOutput } from '@domain/pairs.ts'
 import { drawnArtifact, primaryArtifact } from '@domain/primary.ts'
 import { versionAfterRunDelete } from '@domain/run-delete.ts'
 import { parseSampleDir } from '@domain/run-name.ts'
-import type { Artifact, ArtifactKind, BenchConfig, ReportResult, Writer } from '@domain/schemas.ts'
-import { checkReaders, layerOrder, pixelText, type Scored, scoreResult } from '@domain/scoring.ts'
+import type {
+  Artifact,
+  ArtifactKind,
+  BenchConfig,
+  Report,
+  ReportResult,
+  Writer,
+} from '@domain/schemas.ts'
+import { layerOrder, pixelText, type Scored, scoreResult } from '@domain/scoring.ts'
 import { mean } from '@domain/stats.ts'
 import { type Count, countOf, finding, sumCounts } from '@domain/verdict.ts'
 import { scorers } from '@judges/scorers.ts'
@@ -189,15 +196,26 @@ export const mergedConfig = (saved: Partial<BenchConfig> | null): BenchConfig =>
 export const layersOf = (config: BenchConfig): string[] =>
   layerOrder(config, scorers).filter((l) => l !== 'total')
 
-/** Whether a case's checks are graded at all under `config`: some kinds of work are scored on other things. */
-export const checksGraded = (config: BenchConfig): boolean =>
-  checkReaders(config, scorers).length > 0
+/**
+ * True for a report Jev graded that marked no rule or check on some output
+ * with something in it: one from before rules and checks were marked on every
+ * kind of file, when a page, a picture or code got none. Regrading marks them.
+ */
+export const rulesUnmarked = (report: Pick<Report, 'model' | 'results'>): boolean =>
+  report.model !== null &&
+  report.results.some(
+    (result) =>
+      result.primary !== null &&
+      // Text always had its rules marked: one with none has no rules or was not asked about.
+      result.primary.kind !== 'markdown' &&
+      !result.blank &&
+      (result.packs.generic ?? null) === null,
+  )
 
 /** What each part of a score is called where a reader meets it. */
 const PART_LABEL: Record<string, string> = {
   adherence: 'Rules',
   rubric: 'Checks',
-  review: 'Checks',
   check: 'Check command',
   visual: 'Look',
 }
@@ -207,6 +225,26 @@ export const partLabel = (layer: string): string => PART_LABEL[layer] ?? capital
 
 /** A kind of work Jev can grade, by its name: "Writing". */
 export const kindLabel = (pack: string): string => capital(pack)
+
+/** The kinds a skill can be graded as beyond its rules and checks, which every skill is graded on. */
+export const extraKinds = (packs: readonly string[]): string[] =>
+  packs.filter((id) => id !== BASE_PACK)
+
+/** What ticking a kind adds to the grade, under its name. */
+const KIND_HINT: Record<string, string> = {
+  code: 'Whether the check command a case names in its case.yaml passes.',
+  workflow:
+    'How the work was done: repeated steps, staying in its own folder, and what came after an error.',
+  design: 'How a page or a picture looks: one clear main point, and nothing broken.',
+}
+
+export const kindHint = (pack: string): string => KIND_HINT[pack] ?? ''
+
+/** How a skill is graded, in a line: its rules and checks, and the kinds ticked beside them. */
+export const gradedLine = (packs: readonly string[]): string => {
+  const kinds = extraKinds(packs)
+  return kinds.length ? `Graded as ${kindsLine(kinds)}` : 'Graded on rules and checks'
+}
 
 /** Kinds of work as a spoken list, in the order given: "Generic, Code and Design". */
 export const kindsLine = (ids: readonly string[], last = 'and'): string =>

@@ -1,8 +1,15 @@
 import type { PackScoring } from './pack.ts'
 import type { BenchConfig } from './schemas.ts'
 
+/**
+ * The pack every skill is graded by: the rules it states and the checks its
+ * cases state. A list that leaves it out still has it, so no choice of kinds
+ * leaves a skill's own rules ungraded.
+ */
+export const BASE_PACK = 'generic'
+
 export const DEFAULT_CONFIG: BenchConfig = {
-  packs: ['generic'],
+  packs: [BASE_PACK],
   rules: null,
   weights: {},
   yes: 0.5,
@@ -21,23 +28,13 @@ const PROBABILITY: Range = { min: 0, max: 1 }
 /** Seconds a check may run: up to six hours, the longest a case may run. */
 const CHECK_SECONDS: Range = { min: 0, max: 6 * 60 * 60 }
 
-/** Settings that are a share or a cost: outside these a layer would score below 0 or above 100. */
-const SETTING_RANGES: Readonly<Record<string, Range>> = {
-  warningCost: AT_LEAST_NOTHING,
-  groundingPrior: PROBABILITY,
-  contradictionCap: PROBABILITY,
-}
-
 /**
- * Numbers inside a pack's own setting that are a share of a part's points,
- * or a check's time limit. Every other number one level down (points,
- * characters, counts) is held at 0 or more.
+ * Numbers inside a pack's own setting with a top of their own. Every other
+ * number one level down (counts, lines) is held at 0 or more.
  */
 const NESTED_RANGES: Readonly<Record<string, Range>> = {
-  'structure.pointerCredit': PROBABILITY,
   // A check's time limit, as long as a run may take: past about 24 days a timer fires at once.
   'codeCheck.timeoutSeconds': CHECK_SECONDS,
-  'lint.timeoutSeconds': CHECK_SECONDS,
 }
 
 const isObject = (value: unknown): value is Record<string, unknown> =>
@@ -92,10 +89,8 @@ const strings = (value: unknown): string[] =>
  * - `weights`: a number per layer, held at 0 or more. Anything else is dropped.
  *   No top: a layer's points are a share of the total, so any number counts.
  * - `yes`: held to 0 to 1; the default when it is not a number.
- * - A share or a cost (`warningCost`, `groundingPrior`, `contradictionCap`) is
- *   held to its range, and dropped when it is not a number.
- * - A number inside a pack's own setting is held at 0 or more, and a share
- *   there (`structure.pointerCredit`) to 0 to 1.
+ * - A number inside a pack's own setting is held at 0 or more, and a check's
+ *   time limit to the longest a case may run.
  *
  * Every other key is a pack's own setting and passes through as it is, for
  * `mergeConfig` to lay over that pack's default.
@@ -111,8 +106,7 @@ export function benchOf(raw: unknown): BenchConfig {
   }
   for (const [key, value] of Object.entries(source)) {
     if (Object.hasOwn(config, key) || UNREAD.has(key) || value === undefined) continue
-    const setting = settingOf(key, value)
-    if (setting !== undefined) config[key] = setting
+    config[key] = settingOf(key, value)
   }
   return config
 }
@@ -126,16 +120,9 @@ function weightsOf(value: unknown): Record<string, number> {
   return weights
 }
 
-/**
- * A pack's own setting as `benchOf` keeps it: a share or a cost held to its
- * range, an object with its numbers brought into range, anything else as it
- * is. Undefined for a share or a cost that is not a number, which is dropped.
- */
-function settingOf(key: string, value: unknown): unknown {
-  const range = Object.hasOwn(SETTING_RANGES, key) ? SETTING_RANGES[key] : null
-  if (range) return isNumber(value) ? clamp(value, range) : undefined
-  return isObject(value) ? nestedOf(key, value) : value
-}
+/** A pack's own setting as `benchOf` keeps it: an object with its numbers brought into range, anything else as it is. */
+const settingOf = (key: string, value: unknown): unknown =>
+  isObject(value) ? nestedOf(key, value) : value
 
 /** What kind of value a setting is, so a saved one of another kind does not take a default's place. */
 const kindOf = (value: unknown): string =>
@@ -163,7 +150,7 @@ function laid(current: unknown, saved: unknown): unknown {
 /**
  * Defaults, then each active pack's defaults, then the saved `bench.json`
  * laid over them one level of nesting deep, read through `benchOf` first. The
- * active packs are the saved list when it has one, else the default.
+ * active packs are `BASE_PACK` and then the saved list.
  */
 export function mergeConfig(
   saved: Partial<BenchConfig> | null | undefined,
@@ -171,8 +158,10 @@ export function mergeConfig(
 ): BenchConfig {
   const read = benchOf(saved)
   const merged: BenchConfig = structuredClone(DEFAULT_CONFIG)
-  const packs = read.packs.length ? read.packs : merged.packs
-  merged.packs = [...packs]
+  // A pack no scorer has, such as one an earlier version had, grades nothing and is not named.
+  const known = new Set(scorers.map((pack) => pack.id))
+  const packs = [BASE_PACK, ...read.packs.filter((id) => id !== BASE_PACK && known.has(id))]
+  merged.packs = packs
   for (const pack of scorers) {
     if (!packs.includes(pack.id)) continue
     for (const [key, value] of Object.entries(pack.defaults)) {

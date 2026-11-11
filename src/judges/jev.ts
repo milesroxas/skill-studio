@@ -12,7 +12,6 @@ import {
 import { holdsImage } from './images.ts'
 
 const DEFAULT_MODEL = 'jev-1.14.0'
-const CONCURRENCY = 6
 
 /**
  * Pictures are a preview feature of the API: a request that holds one is
@@ -67,30 +66,5 @@ export class Jev {
     this.calls += 1
     this.modelSeen = result.model
     return result.answers
-  }
-
-  /**
-   * Run `work` over `items` with a bounded number in flight, keeping order.
-   * When one fails, no further item is started, so a pack that has already
-   * failed asks Jev nothing more.
-   */
-  async pool<T, R>(items: T[], work: (item: T, index: number) => Promise<R>): Promise<R[]> {
-    const results = new Array<R>(items.length)
-    let next = 0
-    // One failure fails the whole reading: the others finish the call they are in and start no more.
-    let failed = false
-    const worker = async () => {
-      while (next < items.length && !failed) {
-        const i = next++
-        try {
-          results[i] = await work(items[i], i)
-        } catch (error) {
-          failed = true
-          throw error
-        }
-      }
-    }
-    await Promise.all(Array.from({ length: Math.min(CONCURRENCY, items.length) }, worker))
-    return results
   }
 }

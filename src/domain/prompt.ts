@@ -12,7 +12,8 @@ export interface PromptParts {
 }
 
 export const OUTPUTS_DIR = 'outputs'
-const NOTES_FILE = 'notes.md'
+/** Where an agent writes what it would tell the user: its choices, what needs checking, what it could not do. */
+export const NOTES_FILE = 'notes.md'
 /** The page an agent writes beside an interface that does not open in a browser by itself, so Results can draw it. */
 const PREVIEW_FILE = 'preview.html'
 

@@ -6,6 +6,8 @@ import {
   deleteBlocked,
   deleteRunDialog,
   drawnOf,
+  extraKinds,
+  gradedLine,
   kindsLine,
   liftOf,
   listLine,
@@ -13,11 +15,35 @@ import {
   outputNames,
   outputsOf,
   primaryOf,
+  rulesUnmarked,
   setByHand,
   versionScore,
 } from './model.ts'
 
 const saved = mergedConfig(null)
+
+describe('rulesUnmarked', () => {
+  const result = (kind: 'html' | 'markdown', generic: unknown) =>
+    ({ primary: { file: 'outputs/a', kind }, blank: false, packs: { generic } }) as never
+  it('is true for a page Jev graded with no rule or check marked, and for nothing else', () => {
+    expect(rulesUnmarked({ model: 'jev', results: [result('html', null)] })).toBe(true)
+    expect(rulesUnmarked({ model: 'jev', results: [result('html', { adherence: null })] })).toBe(
+      false,
+    )
+    expect(rulesUnmarked({ model: 'jev', results: [result('markdown', null)] })).toBe(false)
+    // Graded without Jev: the line under the run says so already.
+    expect(rulesUnmarked({ model: null, results: [result('html', null)] })).toBe(false)
+  })
+})
+
+describe('gradedLine', () => {
+  it('names the kinds ticked beside rules and checks, which every skill is graded on', () => {
+    expect(gradedLine(['generic'])).toBe('Graded on rules and checks')
+    expect(gradedLine(['generic', 'design'])).toBe('Graded as Design')
+    expect(gradedLine(['generic', 'code', 'workflow'])).toBe('Graded as Code and Workflow')
+    expect(extraKinds(['generic', 'writing', 'design'])).toEqual(['writing', 'design'])
+  })
+})
 
 describe('kindsLine', () => {
   it('says the kinds as a spoken list', () => {

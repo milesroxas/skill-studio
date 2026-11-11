@@ -60,7 +60,7 @@ import { useAction } from '../hooks.ts'
 import { useAddPictures } from '../images.ts'
 import { useAddInputs } from '../inputs.ts'
 import { REVEAL_LABEL, shortcut } from '../keys.ts'
-import { checksGraded, kindsLine, listLine, plural } from '../model.ts'
+import { listLine, plural } from '../model.ts'
 import { caseKey } from '../route.ts'
 
 /** The host's refusal of a save over a case that was written since the draft began. */
@@ -79,7 +79,7 @@ export const Cases = memo(function Cases({ ctx }: { ctx: Ctx }) {
   const cases = state.cases
   /**
    * Examples come from the kind of work the skill is graded as. A skill graded
-   * as generic fits no kind, so only then does the reader pick one.
+   * on its rules and checks alone fits no kind, so only then does the reader pick one.
    */
   const fitting = fittingTemplate(config.packs)
   const [kindId, setKindId] = useState(() => templateForPacks(config.packs).id)
@@ -305,8 +305,6 @@ export const Cases = memo(function Cases({ ctx }: { ctx: Ctx }) {
   }
 
   const heading = isNew ? draft.title.trim() || 'New case' : draft.title.trim() || draft.id
-  /** Whether checks are graded for this skill at all: writing and workflow are scored on other things. */
-  const checksRead = checksGraded(config)
   /**
    * The parts past the task, folded under one line: a good answer, checks,
    * length and size. The fold is open while any of them holds something, new
@@ -321,12 +319,7 @@ export const Cases = memo(function Cases({ ctx }: { ctx: Ctx }) {
     Boolean(draft.phone)
   const extrasOpen = folded?.key === key ? folded.open : filled
   /** The fold's line names everything it holds. */
-  const extrasLine = listLine([
-    'A good answer',
-    ...(checksRead ? ['checks'] : []),
-    'length',
-    ...(drawn ? ['size'] : []),
-  ])
+  const extrasLine = listLine(['A good answer', 'checks', 'length', ...(drawn ? ['size'] : [])])
   /** The files and folders the case comes with beside its pictures, as the draft leaves them. */
   const inputs = inputEntries(selected ?? null, draft)
   /** Pictures and files still being read: each holds a row in the list. */
@@ -607,43 +600,23 @@ export const Cases = memo(function Cases({ ctx }: { ctx: Ctx }) {
                 />
               </Field>
 
-              {checksRead ? (
-                <FormSection
-                  layout="stacked"
-                  title="Checks"
-                  hint="Facts that must be true of a good answer, each marked met or missed. Easier to write after a first run."
-                >
-                  <GuideBox summary="What Jev can mark">
-                    <PairList pairs={CHECK_EXAMPLES} />
-                  </GuideBox>
-                  <CheckList
-                    key={`${skill}\n${key}`}
-                    graders={draft.graders}
-                    onChange={(graders) => set({ graders })}
-                    examples={kind.cases[0]?.graders.map((g) => g.statement) ?? []}
-                    assist={assist}
-                    report={report}
-                  />
-                </FormSection>
-              ) : null}
-              {!checksRead ? (
-                <FormSection
-                  layout="stacked"
-                  title="Checks"
-                  hint={`Checks are not used for a skill graded as ${kindsLine(config.packs)}. To use them, change Graded as on the Results screen.`}
-                >
-                  <Toolbar>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => go('results', { view: 'all' })}
-                    >
-                      Open Results
-                    </Button>
-                  </Toolbar>
-                </FormSection>
-              ) : null}
+              <FormSection
+                layout="stacked"
+                title="Checks"
+                hint="Facts that must be true of a good answer, each marked met or missed. Easier to write after a first run."
+              >
+                <GuideBox summary="What Jev can mark">
+                  <PairList pairs={CHECK_EXAMPLES} />
+                </GuideBox>
+                <CheckList
+                  key={`${skill}\n${key}`}
+                  graders={draft.graders}
+                  onChange={(graders) => set({ graders })}
+                  examples={kind.cases[0]?.graders.map((g) => g.statement) ?? []}
+                  assist={assist}
+                  report={report}
+                />
+              </FormSection>
 
               <FormSection layout="stacked" title={drawn ? 'Length and size' : 'Length'}>
                 <CheckRow

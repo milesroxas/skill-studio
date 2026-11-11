@@ -134,7 +134,8 @@ export const TEMPLATES: readonly SkillTemplate[] = [
     summary: 'Prose others will read: release notes, docs, announcements, summaries.',
     description:
       'Writes release notes and short docs that lead with the change for the reader. Use when asked to announce, document or summarise a change.',
-    packs: ['generic', 'writing'],
+    // Rules and checks alone: the writing pack grades one way of writing about your own work, not a release note.
+    packs: ['generic'],
     body: `# {{title}}
 
 ${GUIDE}

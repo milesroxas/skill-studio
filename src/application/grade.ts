@@ -11,13 +11,14 @@ import { isPicture } from '@domain/case-draft.ts'
 import { mergeConfig } from '@domain/config.ts'
 import { PICTURE_HEAD_BYTES, pictureSize } from '@domain/image.ts'
 import { primaryArtifact } from '@domain/primary.ts'
+import { NOTES_FILE } from '@domain/prompt.ts'
 import type { Rule } from '@domain/rules.ts'
 import { parseSampleDir } from '@domain/run-name.ts'
 import type { Artifact, BenchConfig, Case, Report, ReportResult } from '@domain/schemas.ts'
 import { scoreResult } from '@domain/scoring.ts'
-import { copyOf, titleOf, unitsOf, words } from '@domain/text.ts'
+import { copyOf, unitsOf, words } from '@domain/text.ts'
 import type { Sample } from '@domain/views.ts'
-import { benchPath, findCase, loadCases, loadRules, readSkillFile } from '@infrastructure/cases.ts'
+import { benchPath, findCase, loadCases, loadRules } from '@infrastructure/cases.ts'
 import { commandRunner } from '@infrastructure/exec.ts'
 import { assertInside, isDir, isFile, readJson, readStart, writeJson } from '@infrastructure/fs.ts'
 import { anchorsDir, readHead, readRunMeta, runDir, runSamples } from '@infrastructure/runs.ts'
@@ -43,7 +44,7 @@ export interface GradeOptions {
   /**
    * Draws an HTML page at a size, for a pack that looks at the page as drawn
    * (`JudgePack.renders`). Only the desktop app has one; without it such a
-   * pack judges the markup and any screenshot the agent left.
+   * pack looks at any screenshot the agent left.
    */
   render?: PageRenderer
 }
@@ -235,6 +236,48 @@ function benchFor(skillDir: string, options: GradeOptions): BenchConfig {
   )
 }
 
+/** How much of each file beside the primary one a pack is given, and of all of them together. */
+const OTHER_FILE_CHARS = 6000
+const OTHER_FILES_CHARS = 18_000
+const READ_AS_TEXT = new Set(['markdown', 'html', 'code'])
+
+/**
+ * The start of each text file the agent wrote beside the primary one, in the
+ * order they are listed, until the room for them is used. A copy of the
+ * primary file, such as a preview that is the page itself, is left out.
+ */
+function othersOf(
+  sample: Sample,
+  primary: Artifact | null,
+  primaryText: string,
+): JudgeInput['others'] {
+  const others: JudgeInput['others'] = []
+  let room = OTHER_FILES_CHARS
+  for (const artifact of sample.artifacts) {
+    if (room <= 0) break
+    if (artifact.file === primary?.file || !READ_AS_TEXT.has(artifact.kind)) continue
+    const path = fileInside(sample.path, join(sample.path, artifact.file))
+    if (path === null) continue
+    // Read by bytes so a file of any size costs no more than its start.
+    const start = new TextDecoder().decode(readStart(path, OTHER_FILE_CHARS * 4))
+    if (!start.trim() || start === primaryText.slice(0, start.length)) continue
+    const text = start.slice(0, Math.min(OTHER_FILE_CHARS, room))
+    others.push({ file: artifact.file, text })
+    room -= text.length
+  }
+  return others
+}
+
+/**
+ * What the agent told the user beside its files; null when it wrote none. The
+ * file is the agent's, so a link out of the sample or anything that is not a
+ * file is not read.
+ */
+function notesOf(sampleDir: string): string | null {
+  const path = fileInside(sampleDir, join(sampleDir, NOTES_FILE))
+  return path === null ? null : readFileSync(path, 'utf8')
+}
+
 /** One sample as the packs see it. */
 function judgeInput(
   ctx: GradeContext,
@@ -242,7 +285,6 @@ function judgeInput(
   testCase: Case | null,
   log: (line: string) => void,
 ): JudgeInput {
-  const { skillDir } = ctx.judge
   const primary = primaryArtifact(
     sample.artifacts,
     testCase?.bench.artifact,
@@ -252,15 +294,9 @@ function judgeInput(
     primary && primary.kind !== 'image' ? readFileSync(join(sample.path, primary.file), 'utf8') : ''
   const markdown = primary?.kind === 'markdown'
   const text = markdown ? copyOf(raw) : raw
-  const evidence: Record<string, string> = {}
-  for (const rel of testCase?.bench.evidence ?? []) {
-    const content = readSkillFile(skillDir, rel)
-    if (content !== null) evidence[rel] = content
-  }
   return {
     text,
     units: markdown ? unitsOf(text) : [],
-    title: markdown ? titleOf(text) : null,
     case: testCase,
     // Every picture the agent got: one Jev cannot read is left out, and the log says which and why.
     images: requestImages(
@@ -271,9 +307,10 @@ function judgeInput(
       log,
     ),
     rules: ctx.rules,
-    evidence,
     artifacts: sample.artifacts,
     primary,
+    others: sample.legacy ? [] : othersOf(sample, primary, raw),
+    notes: sample.legacy ? null : notesOf(sample.path),
     transcript: readTranscript(join(sample.path, 'transcript.jsonl')),
     dir: sample.path,
     renders: [],
@@ -302,13 +339,13 @@ function judgeKey(
     version: pack.version,
     config: askedConfig(pack, ctx.judge.config),
     text: input.text,
-    title: input.title,
     case: input.case,
     pictures,
     rules: input.rules,
-    evidence: input.evidence,
     artifacts: input.artifacts,
     primary: input.primary,
+    others: input.others,
+    notes: input.notes,
     transcript: input.transcript,
   }
   return createHash('sha256').update(JSON.stringify(asked)).digest('hex')

@@ -17,11 +17,12 @@ import {
   countsLine,
   countsOf,
   fmt,
-  kindsLine,
+  gradedLine,
   liftOf,
   money,
   type Output,
   plural,
+  rulesUnmarked,
   runLabel,
   runStamp,
   scoreOf,
@@ -212,7 +213,7 @@ export function ResultsSummary({ ctx }: { ctx: Ctx }) {
             </TableBody>
           </Table>
         </Section>
-        <Disclosure summary={`Graded as ${kindsLine(config.packs)}`}>
+        <Disclosure summary={gradedLine(config.packs)}>
           <GradedAs ctx={ctx} />
         </Disclosure>
       </ColumnBody>
@@ -296,7 +297,7 @@ function RunDetail({
         </SectionHead>
         <Hint>
           {view.report
-            ? `Graded ${stamp(view.report.createdAt) ?? view.report.createdAt}${view.report.model ? ' by Jev.' : ' without Jev: no rule or check is marked.'}`
+            ? `Graded ${stamp(view.report.createdAt) ?? view.report.createdAt}${view.report.model ? (rulesUnmarked(view.report) ? ' by Jev, before rules and checks were marked on this kind of output. Regrade to see them.' : ' by Jev.') : ' without Jev: no rule or check is marked.'}`
             : 'Not graded yet.'}
         </Hint>
       </Stack>

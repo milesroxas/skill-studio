@@ -58,7 +58,6 @@ Use `health.ignore` only for generated files. Do not raise `maxCyclomatic`, `max
 
 | Function | cyc | cog | Split |
 | --- | ---: | ---: | --- |
-| `judges/writing/score.ts scoreWriting` | 30 | 55 | One scorer per measure (shape, clarity, flags), each returning its part; `scoreWriting` only sums. |
 | `domain/update.ts nextUpdateState` | 32 | 36 | A table of event kind to handler, one small function each; the reducer dispatches. |
 | `infrastructure/cases.ts saveCase` | 35 | 40 | Pictures, graders and front matter each written by their own function; `saveCase` orders them. |
 | `engines/cursor.ts handle`, `engines/claude.ts handle` | 26 / 24 | 33 / 29 | One function per event type, chosen by a map. `readInit` in `stream.ts` is the pattern. |
@@ -67,7 +66,7 @@ Use `health.ignore` only for generated files. Do not raise `maxCyclomatic`, `max
 | `ai/claude-code.ts run`, the event callback it hands `runJsonLines` | 27 | 20 | Event parsing out of the stream loop, mirroring the engines. |
 | `domain/config.ts mergeConfig` | 17 | 22 | One nested loop to lift into a named helper. |
 | `application/ai.ts sendImproveNow` | 8 | 7 | A CRAP finding only (no tests reach it): a test of the step chooser, or the judge's reading of an answer as its own function. |
-| `http/server.ts server`, `ai/anthropic.ts run`, a callback in `infrastructure/cases.ts`, `writing/shape.ts paragraphsOf` | ≤ 19 | 16–22 | Small: one early return or one helper each. |
+| `http/server.ts server`, `ai/anthropic.ts run`, a callback in `infrastructure/cases.ts` | ≤ 19 | 16–22 | Small: one early return or one helper each. |
 
 - [ ] Phase 2 merged. Count after: _
 

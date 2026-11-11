@@ -24,6 +24,7 @@ export type WorkflowConfig = BenchConfig & {
 export interface WorkflowMetrics {
   steps: number
   toolCalls: number
+  /** Steps that ended in an error. Counted so Jev is asked what came after one; no score is taken off for it. */
   errors: number
   /** Tool calls that repeat an earlier call's tool and arguments exactly. */
   retries: number
@@ -75,8 +76,9 @@ function scoreWorkflow(
     )
     return ok
   }
+  // An error is not waste: a test run that fails before the fix is the work going right. What the
+  // agent did after one is what counts, and Jev answers that in the process layer.
   const checks: boolean[] = [
-    measure('errors', m.errors === 0, 'no tool errors', `${m.errors} tool error(s)`),
     measure(
       'retries',
       m.retries <= maxRetries,
@@ -192,7 +194,6 @@ export const workflowScoring: PackScoring<WorkflowRaw> = {
   id: 'workflow',
   artifacts: [],
   layers: ['efficiency', 'scope', 'process'],
-  checks: null,
   defaults: {
     weights: { efficiency: 40, scope: 20, process: 40 },
     /**

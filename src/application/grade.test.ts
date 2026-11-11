@@ -6,6 +6,7 @@ import {
   mkdtempSync,
   readFileSync,
   rmSync,
+  symlinkSync,
   writeFileSync,
 } from 'node:fs'
 import { tmpdir } from 'node:os'
@@ -203,10 +204,10 @@ describe('gradeRun, on what makes an output worth asking about again', () => {
     const { dir, run } = skillWith(['email'], ['email-s1'])
     await gradeRun(dir, run, { useJev: false })
     const judge = genericJudge()
-    // `warningCost` is the writing pack's; `weights` and `yes` apply in scoring.
+    // `workflow` is the workflow pack's; `weights` and `yes` apply in scoring.
     await gradeRun(dir, run, {
       useJev: false,
-      config: { warningCost: 0.9, yes: 0.7, weights: { rubric: 10 } },
+      config: { workflow: { maxRetries: 3 }, yes: 0.7, weights: { rubric: 10 } },
     })
     expect(judge).not.toHaveBeenCalled()
   })
@@ -307,11 +308,13 @@ describe('gradeRun, on a stop', () => {
       await expect(graded).rejects.toThrow('Stopped.')
       expect(readFileSync(join(runDir, 'report.json'), 'utf8')).toBe('"the last report"')
       // The first sample's answer is kept; the stopped one's "check failed" is not.
-      const cache = readJson<Record<string, { check: { exit: number } }>>(
+      const cache = readJson<Record<string, { check: { exit: number } } | null>>(
         join(runDir, 'judge-cache.json'),
         {},
       )
-      expect(Object.values(cache).map((answer) => answer.check.exit)).toEqual([0])
+      // Rules and checks are graded beside the check command, and without Jev that reading holds nothing.
+      const checks = Object.values(cache).filter((answer) => answer !== null)
+      expect(checks.map((answer) => answer.check.exit)).toEqual([0])
     },
   )
 
@@ -343,17 +346,17 @@ describe('gradeRun, on the version of a pack', () => {
         .map(([value]) => value as Record<string, unknown> | null)
         .filter((value) => value && typeof value === 'object' && value.pack === 'generic')
     const stringify = vi.spyOn(JSON, 'stringify')
-    expect(pack.version).toBe(1)
+    const now = pack.version
     await gradeRun(dir, run, { useJev: false })
     expect(asked().length).toBeGreaterThan(0)
-    expect(asked().every((value) => value?.version === 1)).toBe(true)
+    expect(asked().every((value) => value?.version === now)).toBe(true)
     stringify.mockClear()
 
     const judge = genericJudge()
-    const version = vi.spyOn(pack, 'version', 'get').mockReturnValue(2)
+    const version = vi.spyOn(pack, 'version', 'get').mockReturnValue(now + 1)
     await gradeRun(dir, run, { useJev: false })
     expect(judge).toHaveBeenCalledTimes(1)
-    expect(asked().some((value) => value?.version === 2)).toBe(true)
+    expect(asked().some((value) => value?.version === now + 1)).toBe(true)
     version.mockRestore()
   })
 })
@@ -373,6 +376,8 @@ describe('gradeRun, on a page drawn for a pack that looks at it', () => {
   const designJudge = () => {
     const pack = packById('design')
     if (!pack) throw new Error('no design pack')
+    // The generic pack grades the page too, and would ask Jev over the network.
+    genericJudge().mockResolvedValue(null)
     return vi.spyOn(pack, 'judge').mockResolvedValue(null)
   }
 
@@ -458,6 +463,69 @@ describe('gradeRun, on a page drawn for a pack that looks at it', () => {
     await gradeRun(dir, run, { useJev: false, render })
     expect(render).not.toHaveBeenCalled()
   })
+})
+
+describe('gradeRun, on what a skill’s rules are judged on', () => {
+  it('grades a page on the skill’s rules, whatever else the skill is graded as', async () => {
+    const { dir, run } = skillWith(['page'], ['page-s1'])
+    const outputs = join(dir, 'evals/runs', run, 'page-s1/outputs')
+    rmSync(join(outputs, 'note.md'))
+    writeFileSync(join(outputs, 'index.html'), '<!doctype html><h1>Hi</h1>')
+    // A list that leaves the generic pack out: the rules are graded all the same.
+    writeFileSync(join(dir, 'evals/bench.json'), JSON.stringify({ packs: ['design'] }))
+    vi.spyOn(Jev, 'available').mockReturnValue(true)
+    const judge = genericJudge().mockResolvedValue({
+      adherence: {
+        rules: [{ id: 'r1', text: 'Keep every note under forty words.', section: '', noul: 0.9 }],
+      },
+      rubric: null,
+    })
+    const report = await gradeRun(dir, run, { useJev: true })
+    expect(report.packs).toEqual(['generic', 'design'])
+    const [input] = judge.mock.calls[0]
+    expect(input.primary).toEqual({ file: 'outputs/index.html', kind: 'html' })
+    expect(input.rules.map((r) => r.text)).toEqual(['Keep every note under forty words.'])
+    expect(report.results[0].scores).toMatchObject({ adherence: 100, total: 100 })
+  })
+
+  it('gives a pack what the agent told the user and the other files it wrote, a copy of the page left out', async () => {
+    const { dir, run } = skillWith(['page'], ['page-s1'])
+    const sample = join(dir, 'evals/runs', run, 'page-s1')
+    rmSync(join(sample, 'outputs/note.md'))
+    const html = '<!doctype html><h1>Hi</h1>'
+    writeFileSync(join(sample, 'outputs/index.html'), html)
+    writeFileSync(join(sample, 'outputs/copy.html'), html)
+    writeFileSync(join(sample, 'outputs/app.js'), 'x'.repeat(7000))
+    writeFileSync(join(sample, 'outputs/shot.png'), pngHeader(800, 600))
+    writeFileSync(join(sample, 'notes.md'), 'Size: 1536 by 864, as asked.')
+    const judge = genericJudge().mockResolvedValue(null)
+    await gradeRun(dir, run, { useJev: false })
+    const [input] = judge.mock.calls[0]
+    expect(input.notes).toBe('Size: 1536 by 864, as asked.')
+    // The start of each text file beside the page: no picture, and no file that says what the page says.
+    expect(input.others.map((o) => [o.file, o.text.length])).toEqual([['outputs/app.js', 6000]])
+
+    // What it said is part of what was judged: a change to it has the output judged again.
+    judge.mockClear()
+    await gradeRun(dir, run, { useJev: false })
+    expect(judge).not.toHaveBeenCalled()
+    writeFileSync(join(sample, 'notes.md'), 'Size: 1600 by 1200.')
+    await gradeRun(dir, run, { useJev: false })
+    expect(judge).toHaveBeenCalledTimes(1)
+  })
+
+  it.skipIf(process.platform === 'win32')(
+    'reads no notes through a link out of the output’s folder',
+    async () => {
+      const { dir, run } = skillWith(['email'], ['email-s1'])
+      const sample = join(dir, 'evals/runs', run, 'email-s1')
+      writeFileSync(join(dir, 'secret.md'), 'not the agent’s to show')
+      symlinkSync(join(dir, 'secret.md'), join(sample, 'notes.md'))
+      const judge = genericJudge().mockResolvedValue(null)
+      await gradeRun(dir, run, { useJev: false })
+      expect(judge.mock.calls[0][0].notes).toBeNull()
+    },
+  )
 })
 
 describe('gradeRun, on a picture held to the case’s size', () => {

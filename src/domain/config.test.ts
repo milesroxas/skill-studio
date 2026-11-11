@@ -6,7 +6,6 @@ const pack = (id: string, defaults: PackScoring['defaults']): PackScoring => ({
   id,
   artifacts: [],
   layers: [],
-  checks: null,
   defaults,
   score: () => ({ layers: {}, flags: [], verdicts: [] }),
   certainties: () => [],
@@ -72,11 +71,15 @@ describe('mergeConfig', () => {
     expect(partly.workflow).toEqual({ maxRetries: 1, summaryLines: 40 })
   })
 
-  it('names each pack once', () => {
+  it('names each pack once, the one that grades rules and checks first', () => {
     expect(mergeConfig({ packs: ['rules', 'rules', 'generic'] }, scorers).packs).toEqual([
-      'rules',
       'generic',
+      'rules',
     ])
+  })
+
+  it('grades rules and checks whatever the list says, so no choice of kinds leaves a skill’s rules out', () => {
+    expect(mergeConfig({ packs: ['rules'] }, scorers).packs).toEqual(['generic', 'rules'])
   })
 })
 
@@ -108,25 +111,18 @@ describe('benchOf', () => {
     expect(benchOf({ yes: 0.2 }).yes).toBe(0.2)
   })
 
-  it('holds a number inside a pack’s setting at 0 or more, and a credit within one', () => {
+  it('holds a number inside a pack’s setting at 0 or more, and keeps what is not a number', () => {
     const read = benchOf({
-      structure: { pointerCredit: 3, opening: -9, point: 4 },
-      workflow: { maxRetries: -2, summaryLines: Number.POSITIVE_INFINITY },
-      lint: { command: 'lint', timeoutSeconds: -1 },
+      workflow: { maxRetries: -2, summaryLines: Number.POSITIVE_INFINITY, note: 'mine' },
+      codeCheck: { timeoutSeconds: -1 },
     })
-    expect(read.structure).toEqual({ pointerCredit: 1, opening: 0, point: 4 })
-    expect(read.workflow).toEqual({ maxRetries: 0 })
-    expect(read.lint).toEqual({ command: 'lint', timeoutSeconds: 0 })
-    expect(benchOf({ structure: { pointerCredit: -0.5 } }).structure).toEqual({ pointerCredit: 0 })
+    expect(read.workflow).toEqual({ maxRetries: 0, note: 'mine' })
+    expect(read.codeCheck).toEqual({ timeoutSeconds: 0 })
   })
 
   it('holds a check’s time limit to six hours, the longest a case runs', () => {
-    const read = benchOf({
-      lint: { timeoutSeconds: 100_000 },
-      codeCheck: { timeoutSeconds: 3_000_000, maxChars: 500 },
-    })
-    expect(read.lint).toEqual({ timeoutSeconds: 21_600 })
-    expect(read.codeCheck).toEqual({ timeoutSeconds: 21_600, maxChars: 500 })
+    const read = benchOf({ codeCheck: { timeoutSeconds: 3_000_000 } })
+    expect(read.codeCheck).toEqual({ timeoutSeconds: 21_600 })
   })
 
   it('drops blank and repeated rules, and has none for a list that says nothing', () => {
@@ -135,12 +131,6 @@ describe('benchOf', () => {
     )
     expect(benchOf({ rules: ['', ' '] }).rules).toBeNull()
     expect(benchOf({ rules: 'one rule' }).rules).toBeNull()
-  })
-
-  it('keeps a cost at or above nothing and a share within one', () => {
-    const read = benchOf({ warningCost: -1, groundingPrior: 3, contradictionCap: -0.2 })
-    expect(read).toMatchObject({ warningCost: 0, groundingPrior: 1, contradictionCap: 0 })
-    expect(benchOf({ groundingPrior: 'most' })).not.toHaveProperty('groundingPrior')
   })
 
   it('passes a pack’s own settings through, and leaves out keys nothing reads', () => {

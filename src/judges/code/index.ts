@@ -1,11 +1,11 @@
 /**
- * The code judge pack. `bench.check` is a shell command run in the sample
- * dir; exit 0 passes. The review layer asks each grader statement over the
- * primary code file. It does not read the diff against the case's input
- * files, build the project or judge files beyond the primary one.
+ * The code judge pack: the case's check command (`bench.check`), a shell
+ * command run in the sample dir, where exit 0 passes. It is the one thing
+ * about code that code can say for sure. Whether the code follows the skill's
+ * rules and meets the case's checks is the generic pack's to mark, as for any
+ * other kind of output.
  */
 import { runCommand } from '../shared/exec.ts'
-import { askStatements, asksJev, withRequest } from '../shared/questions.ts'
 import type { JudgeContext, JudgePack } from '../types.ts'
 import { type CheckRaw, type CodeConfig, type CodeRaw, codeScoring } from './score.ts'
 
@@ -24,19 +24,12 @@ async function runCheck(
 
 export const codePack: JudgePack<CodeRaw> = {
   ...codeScoring,
-  version: 1,
-  label: 'Code: check command and review statements',
+  version: 2,
+  label: 'Code: the case’s check command',
   async judge(input, ctx) {
     const { codeCheck } = ctx.config as CodeConfig
     const command = input.case?.bench.check
-    const check = command ? await runCheck(ctx, command, input.dir, codeCheck.timeoutSeconds) : null
-    const graders = input.case?.graders ?? []
-    const code = input.text.slice(0, codeCheck.maxChars)
-    const review =
-      asksJev(input, ctx) && graders.length && code.trim()
-        ? { statements: await askStatements(graders, withRequest(input, { code }), 'code', ctx) }
-        : null
-    if (!check && !review) return null
-    return { check, review }
+    if (!command) return null
+    return { check: await runCheck(ctx, command, input.dir, codeCheck.timeoutSeconds) }
   },
 }

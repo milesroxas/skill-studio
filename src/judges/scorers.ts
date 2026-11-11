@@ -7,12 +7,5 @@ import { codeScoring } from './code/score.ts'
 import { designScoring } from './design/score.ts'
 import { genericScoring } from './generic/score.ts'
 import { workflowScoring } from './workflow/score.ts'
-import { writingScoring } from './writing/score.ts'
 
-export const scorers: PackScoring[] = [
-  genericScoring,
-  writingScoring,
-  codeScoring,
-  workflowScoring,
-  designScoring,
-]
+export const scorers: PackScoring[] = [genericScoring, codeScoring, workflowScoring, designScoring]

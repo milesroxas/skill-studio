@@ -91,8 +91,6 @@ export interface PackScoring<Raw = unknown> {
   artifacts: ArtifactKind[]
   /** Layers this pack scores, in display order. */
   layers: string[]
-  /** The layer that marks the case's checks, one of `layers`; null when the pack reads none. */
-  checks: string | null
   /** Points for its layers and its own settings, laid under `bench.json`. */
   defaults: Partial<BenchConfig>
   score(

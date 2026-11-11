@@ -38,9 +38,10 @@ function firstOf(artifacts: readonly Artifact[], kind: ArtifactKind): Artifact |
 /**
  * The artifact the packs judge: the case's kind when it names one; else a
  * page, a picture or code when a pack of the skill judges that kind; else
- * Markdown; else the first file. The order of the skill's packs does not
- * matter. A page and its script, `index.html` and `app.js`, are judged as
- * the page.
+ * Markdown; else a page, a picture or code, in that order; else the first
+ * file. The order of the skill's packs does not matter. A page and its
+ * script, `index.html` and `app.js`, are judged as the page, whatever the
+ * skill is graded as.
  */
 export function primaryArtifact(
   artifacts: readonly Artifact[],
@@ -51,6 +52,7 @@ export function primaryArtifact(
     ...(preferred ? [preferred] : []),
     ...PARTICULAR.filter((kind) => judged.includes(kind)),
     'markdown' as const,
+    ...PARTICULAR,
   ]
   for (const kind of kinds) {
     const match = firstOf(artifacts, kind)

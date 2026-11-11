@@ -337,14 +337,13 @@ describe('cases that cannot be read', () => {
           { id: 1, name: 'First', prompt: 'One.', files: ['evals/files/a.md', '../../etc/passwd'] },
           { id: '../up', prompt: 'Two.' },
           { id: 3, name: 'No prompt' },
-          { id: 4, prompt: 'Four.', bench: { evidence: ['references/facts.md', '/etc/hosts'] } },
+          { id: 4, prompt: 'Four.' },
         ],
       }),
     )
     const cases = loadCases(skill)
     expect(cases.map((c) => c.id)).toEqual(['1-first', '4'])
     expect(cases[0].files).toEqual(['evals/files/a.md'])
-    expect(cases[1].bench.evidence).toEqual(['references/facts.md'])
   })
 
   it('counts cases without reading them', () => {

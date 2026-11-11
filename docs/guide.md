@@ -185,7 +185,7 @@ A case is one task for the agent: a request, and what a good answer does.
 Start with the prompt alone. It is enough to run the case, and reading what the agent wrote shows you what to check.
 
 1. Click the plus above the list. A new case shows the task alone: the prompt, a title and files.
-2. **Prompt:** what a user would ask. Do not mention the skill: the test is whether the agent uses it on its own. To start from a finished case instead, open **Start from an example** under the prompt and click **Use** on one. A skill graded as generic picks the kind of skill first.
+2. **Prompt:** what a user would ask. Do not mention the skill: the test is whether the agent uses it on its own. To start from a finished case instead, open **Start from an example** under the prompt and click **Use** on one. A skill graded on its rules and checks alone picks the kind of skill first.
 3. **Title** (optional): a short name for the lists. Left empty, the case is named after its prompt.
 4. **Files** (optional): any file your prompt refers to, such as a screenshot, a document or code. **Add files** picks files and **Add folder** picks a whole folder, or drop them anywhere on the case. A file that is not added cannot be read when the case runs: What the agent sees, below, says why.
 5. Click **Add case**. The rest can wait until you have read an output.
@@ -213,7 +213,7 @@ To change a case, click it in the list, edit it and click **Save case** (Cmd+S).
 
 Checks can come later: on Results, **Add a check** turns what an output got wrong into one.
 
-Some kinds of skill are not scored on checks. A skill graded as Writing or Workflow says so in place of the Checks section, inside that fold, with **Open Results**. **Graded as**, at the foot of All cases on Results, changes how a skill is graded.
+A check is marked on everything the run made: the file, how a page or a picture looks, any other files beside it, and what was said about it. So "The answer says which size it used" can pass on what was said, and "The page has one button" on the page.
 
 Write at least three different cases before you trust a score.
 
@@ -287,7 +287,13 @@ To be sure an edit helped, run with **Attempts per case** at 2 or more. If two v
 
 ### Graded as
 
-Most skills never need this. **Graded as**, folded at the foot of All cases, is the kind of work the skill does. Tick one or more: Generic counts rules and checks; Writing, Code, Workflow and Design score their own parts. Click **Save**, and every score updates at once. Nothing runs again, so it costs nothing.
+Most skills never need this. Every skill is graded on its rules and its cases' checks, whatever it makes: text, a page, a picture or code. Nothing else is graded unless you ask. **Graded as**, folded at the foot of All cases, adds more for a kind of work:
+
+- **Design** looks at a page or a picture: one clear main point, and nothing broken. It checks nothing a rule of yours did not ask for.
+- **Workflow** grades how the work was done: repeated steps, staying in its own folder, and what came after an error.
+- **Code** runs the check command a case names in its `case.yaml`.
+
+Click **Save**, and every score updates at once. Nothing runs again, so it costs nothing.
 
 The points each part counts, the threshold at which Jev's answer counts as met, and a kind's own settings are set by hand in `evals/bench.json`. When the file sets any of them, Graded as names them, and saving keeps them as they are.
 

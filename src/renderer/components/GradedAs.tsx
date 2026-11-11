@@ -1,8 +1,8 @@
 /**
- * Graded as: the kinds of work a skill's outputs are judged as. Most skills
- * never change it. The default counts the rules followed and the checks met;
- * a skill whose work is of another kind (writing, code, a design, the way an
- * agent works) is graded on that kind's own parts.
+ * Graded as: what a skill's outputs are judged on beyond its rules and its
+ * cases' checks, which every skill is graded on whatever it makes. Most skills
+ * never change it. A kind of work adds parts of its own: how a page looks,
+ * whether a check command passes, how the work was done.
  *
  * Jev's raw answers are stored, so a saved change rescores every output on
  * Results and nothing is run again. Whatever else `bench.json` sets, such as
@@ -14,7 +14,7 @@ import { useState } from 'react'
 import { api } from '../api.ts'
 import type { Ctx } from '../ctx.ts'
 import { useAction } from '../hooks.ts'
-import { kindLabel, kindsLine, partLabel, setByHand } from '../model.ts'
+import { extraKinds, gradedLine, kindHint, kindLabel, setByHand } from '../model.ts'
 import { CheckRow } from './forms.tsx'
 import { FormActions, FormSection, Spacer, Stack } from './layout.tsx'
 import { Code, Hint, Text } from './text.tsx'
@@ -32,27 +32,17 @@ export function GradedAs({ ctx }: { ctx: Ctx }) {
   const dirty = edited !== null && !sameKinds(edited, config.packs)
   const others = setByHand(state.savedConfig)
 
-  const toggle = (id: string) => {
-    const next = packs.includes(id) ? packs.filter((p) => p !== id) : [...packs, id]
-    // A skill is always graded as something.
-    if (next.length) setEdited(next)
-  }
+  const toggle = (id: string) =>
+    setEdited(packs.includes(id) ? packs.filter((p) => p !== id) : [...packs, id])
   const save = () =>
     run(async () => {
       await api.gradedAs(packs)
       await reload()
       setEdited(null)
-      report(`Graded as ${kindsLine(packs)}`)
+      report(gradedLine(packs))
     })
   const discard = async () => {
-    if (
-      await confirm({
-        title: 'Discard your change?',
-        description: `The skill stays graded as ${kindsLine(config.packs)}.`,
-        action: 'Discard',
-        destructive: true,
-      })
-    )
+    if (await confirm({ title: 'Discard your change?', action: 'Discard', destructive: true }))
       setEdited(null)
   }
 
@@ -60,18 +50,18 @@ export function GradedAs({ ctx }: { ctx: Ctx }) {
     <Stack gap="lg">
       <FormSection
         title="Kinds of work"
-        hint="What this skill does. Tick one or more: each is scored differently."
+        hint="Every skill is graded on its rules and checks. Tick a kind of work to grade more."
       >
         <Stack gap="md">
-          {scorers.map((pack) => (
+          {extraKinds(scorers.map((pack) => pack.id)).map((id) => (
             <CheckRow
-              key={pack.id}
-              checked={packs.includes(pack.id)}
-              disabled={busy || (packs.length === 1 && packs.includes(pack.id))}
-              onCheckedChange={() => toggle(pack.id)}
-              description={pack.layers.map(partLabel).join(', ')}
+              key={id}
+              checked={packs.includes(id)}
+              disabled={busy}
+              onCheckedChange={() => toggle(id)}
+              description={kindHint(id)}
             >
-              {kindLabel(pack.id)}
+              {kindLabel(id)}
             </CheckRow>
           ))}
           {others.length ? (

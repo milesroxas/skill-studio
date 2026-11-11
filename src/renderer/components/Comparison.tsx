@@ -33,9 +33,9 @@ import { inSkill } from '../in-skill.ts'
 import { gradingRun, useJobStart } from '../job-start.ts'
 import {
   caseTitle,
-  checksGraded,
   configurationTail,
   drawnOf,
+  extraKinds,
   layersOf,
   type Output,
   outputDetail,
@@ -156,8 +156,9 @@ export function Comparison({
       ? 'diff'
       : 'side'
   const view: View = views.find((v) => v.value === chosen)?.value ?? opening
-  /** A skill graded only on how the agent worked: its steps are what there is to read. */
-  const stepsFirst = config.packs.length > 0 && config.packs.every((p) => p === 'workflow')
+  /** A skill graded as Workflow and no other kind: how the agent worked is what it is about, so its steps are read first. */
+  const kindsGraded = extraKinds(config.packs)
+  const stepsFirst = kindsGraded.length > 0 && kindsGraded.every((p) => p === 'workflow')
   const runs = [...new Set(sides.map((o) => o.run.name))]
   /** The size a page is drawn at: one for the case, on the stage and in both cards. */
   const page = usePageSize(testCase?.bench.size ?? null)
@@ -262,7 +263,7 @@ export function Comparison({
             ) : null}
           </Columns>
         )}
-        {testCase && checksGraded(config) ? (
+        {testCase ? (
           <AddCheck
             ctx={ctx}
             testCase={testCase}

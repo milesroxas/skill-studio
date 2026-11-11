@@ -56,12 +56,11 @@ describe('templates', () => {
     }
   })
 
-  it('pairs each kind with a judge pack beyond generic, and finds it from the bench', () => {
-    for (const t of EXAMPLE_KINDS)
-      expect(
-        t.packs.some((p) => p !== 'generic'),
-        t.id,
-      ).toBe(true)
+  it('finds a kind from the bench by its judge pack beyond generic', () => {
+    // Writing is graded on its rules and checks alone, as a blank skill is: no pack says what prose owes.
+    expect(
+      EXAMPLE_KINDS.filter((t) => t.packs.every((p) => p === 'generic')).map((t) => t.id),
+    ).toEqual(['writing'])
     expect(templateForPacks(['generic', 'code']).id).toBe('code')
     expect(templateForPacks(['generic']).id).toBe(EXAMPLE_KINDS[0].id)
     expect(fittingTemplate(['generic', 'code'])?.id).toBe('code')

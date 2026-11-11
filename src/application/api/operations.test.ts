@@ -145,7 +145,7 @@ describe('parsers, on what names a folder or sizes a run', () => {
 
   it('take the packs a skill is graded as: known ones, each once, at least one', () => {
     const packs = (value: unknown) => parsers['skill.gradedAs']({ skill: '/s', packs: value })
-    expect(packs(['generic', 'writing']).packs).toEqual(['generic', 'writing'])
+    expect(packs(['generic', 'design']).packs).toEqual(['generic', 'design'])
     expect(() => packs([])).toThrow('Bad packs.')
     expect(() => packs('generic')).toThrow('Bad packs.')
     expect(() => packs(['generic', 'generic'])).toThrow('Bad packs.')
