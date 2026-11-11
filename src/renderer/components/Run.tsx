@@ -1,10 +1,12 @@
 /**
  * Run: the button in the top bar that has an agent do the skill's cases. It is
  * a button and not a place, because a run is one step between writing and
- * comparing. Pressing it opens what the run will do, said first because a run
- * costs money, with the one button that starts it under that. What rarely
- * changes (which cases, which agent, how many samples) waits under Options,
- * below the button, so opening it never moves the button away.
+ * comparing. Pressing it opens what the run will test, in words a first-time
+ * reader knows, and one button that names what it will do ("Run 3 cases"),
+ * because a run costs money. Under the button, one line says who does the
+ * work. What rarely changes (which cases, which agent, how many attempts)
+ * waits under Options, below the button, so opening it never moves the button
+ * away, and ticking a case or changing a count changes only the button's words.
  *
  * A run tests the skill as its files are saved. When they changed since the
  * last run, the run keeps a copy of them as the next version, so every score
@@ -16,7 +18,7 @@
 import { practiceVersionName } from '@domain/practice.ts'
 import { CONFIGURATIONS, type Configuration } from '@domain/schemas.ts'
 import { PlayIcon } from 'lucide-react'
-import { useMemo, useState } from 'react'
+import { useId, useMemo, useState } from 'react'
 import { api, type Job, type State } from '../api.ts'
 import { type Reporter, useToggleSet } from '../hooks.ts'
 import { useJobStart } from '../job-start.ts'
@@ -41,10 +43,14 @@ const CONFIG_LABEL: Record<Configuration, string> = {
 }
 
 const CONFIG_HELP: Record<Configuration, string> = {
-  with_skill: 'The agent has the skill as its files are saved now.',
-  without_skill: 'No skill installed. Run this once to see whether the skill helps at all.',
-  old_skill: 'A past run’s copy of the skill, to test an edit against the version before it.',
+  with_skill: 'The skill as its files are saved now.',
+  without_skill: 'No skill at all. Run this once to see whether the skill helps.',
+  old_skill: 'A copy an earlier run kept, to test an edit against the version before it.',
 }
+
+/** "3 cases", or "3 cases, 2 attempts each": what the run does, said once on its button. */
+const runSize = (cases: number, attempts: number): string =>
+  attempts > 1 ? `${plural(cases, 'case')}, ${attempts} attempts each` : plural(cases, 'case')
 
 interface Writer {
   engine: string
@@ -71,6 +77,8 @@ export function RunButton({
   /** Skill files with edits not saved yet: a run tests the files as saved, so it says so. */
   unsaved: number
 }) {
+  const titleId = useId()
+  const reasonId = useId()
   const engines = state.engines
   const current = state.versions.current
   const withSkill = state.runs.filter((r) => r.hasSkill)
@@ -109,7 +117,7 @@ export function RunButton({
     : firstVersion
       ? 'First version'
       : `Edits of ${shortDate(new Date().toISOString())}`
-  const count = cases.length * samples
+  const size = runSize(cases.length, samples)
   /**
    * A run of this skill, from the press that starts it until it is over. The
    * button stays busy all that time: starting returns as soon as the job is
@@ -137,37 +145,45 @@ export function RunButton({
         note: '',
         grade: true,
       })
-      report(`Run started: ${plural(count, 'output')}`)
+      report(`Run started: ${size}`)
       setName('')
       onOpenChange(false)
     })
   }
 
+  // What the run tests and what comes of it, in the reader's words: no file, copy or folder.
   const lead =
     configuration === 'without_skill'
       ? {
-          title: 'Run without the skill',
-          hint: `The same cases with no skill installed, filed under ${current.version}. It is the score the skill has to beat.`,
+          title: 'Test without the skill',
+          hint: 'The same cases with no skill at all. It sets the score your skill has to beat.',
         }
       : configuration === 'old_skill'
         ? {
-            title: pastRun ? `Run ${versionName(pastRun)}` : 'Run an earlier version',
+            title: 'Test an earlier version',
             hint: pastRun
-              ? `The copy of the skill from the run of ${runStamp(pastRun)}, to test the latest edit against.`
+              ? `${versionName(pastRun)}, as it was on ${runStamp(pastRun)}. Compare your latest edits against it.`
               : 'No earlier run kept a copy of the skill.',
           }
-        : {
-            title: `Run ${current.version}`,
-            hint: !current.changed
-              ? `Unchanged since its last run, so new outputs join ${current.version}’s.`
-              : firstVersion
-                ? `The first run keeps the skill as ${current.version}, so every score stays tied to the text behind it.`
-                : `The skill changed since its last run, so this run keeps it as ${current.version}.`,
-          }
+        : firstVersion
+          ? {
+              title: 'Test this skill',
+              hint: `Saves it as ${current.version}, so you can compare later edits with it.`,
+            }
+          : current.changed
+            ? {
+                title: 'Test your edits',
+                hint: `Saves the skill as ${current.version}, so you can compare it with the version before.`,
+              }
+            : {
+                title: `Test ${current.version} again`,
+                hint: `Nothing changed since its last run. The new results add to ${current.version}’s.`,
+              }
   const configurations = withSkill.length
     ? CONFIGURATIONS
     : CONFIGURATIONS.filter((c) => c !== 'old_skill')
   const missing = engines.filter((e) => !e.available)
+  const who = engine?.label ?? 'The agent'
 
   return (
     <Popover open={open} onOpenChange={onOpenChange}>
@@ -186,11 +202,11 @@ export function RunButton({
       <PopoverContent
         align="end"
         size="form"
-        aria-label="Run"
+        aria-labelledby={titleId}
         className="max-h-(--radix-popover-content-available-height) overflow-y-auto overscroll-contain"
       >
         <Stack gap="xs">
-          <Heading level={3} as="h2">
+          <Heading level={3} as="h2" id={titleId}>
             {lead.title}
           </Heading>
           <Hint>{lead.hint}</Hint>
@@ -208,42 +224,53 @@ export function RunButton({
             <Hint>Names {current.version}, so you can tell versions apart later.</Hint>
           </Field>
         ) : null}
-        {unsaved && configuration === 'with_skill' ? (
-          <Status
-            tone="warning"
-            size="ui"
-            detail="A run tests the files as saved. Save them on the Skill screen first."
-          >
-            {plural(unsaved, 'file')} with unsaved edits
-          </Status>
+        {(unsaved && configuration === 'with_skill') || !state.jevKey ? (
+          <Stack gap="sm">
+            {unsaved && configuration === 'with_skill' ? (
+              <Status
+                tone="warning"
+                size="ui"
+                detail="The run tests the files as saved. Save them on the Skill screen first."
+              >
+                {plural(unsaved, 'file')} not saved
+              </Status>
+            ) : null}
+            {state.jevKey ? null : (
+              <Status
+                tone="warning"
+                size="ui"
+                detail="Only code checks will grade this run. Add a key in Settings."
+              >
+                No Jev key
+              </Status>
+            )}
+          </Stack>
         ) : null}
         <Stack gap="md">
-          <Hint tabular>
-            {running && !starting
-              ? 'A run of this skill is going. Start the next one when it is over.'
-              : !usable
-                ? 'No agent is set up to write the outputs.'
-                : !cases.length
-                  ? 'Tick at least one case under Options.'
-                  : `${plural(count, 'output')}: ${plural(cases.length, 'case')} × ${plural(samples, 'sample')}, graded ${state.jevKey ? 'by Jev' : 'by code checks only: no Jev key'}. Each output is an agent session.`}
-          </Hint>
           <Button
             type="button"
-            disabled={
-              (running && !starting) ||
-              !usable ||
-              !cases.length ||
-              (configuration === 'old_skill' && !pastRun)
-            }
-            busy={starting}
-            busyLabel="Starting…"
+            disabled={!usable || !cases.length || (configuration === 'old_skill' && !pastRun)}
+            busy={running}
+            busyLabel={starting ? 'Starting…' : 'Running…'}
+            aria-describedby={usable ? undefined : reasonId}
             onClick={start}
           >
             <PlayIcon aria-hidden="true" />
-            Start a run
+            {cases.length ? `Run ${size}` : 'Tick a case to run'}
           </Button>
+          {usable ? (
+            <Hint>
+              {state.jevKey
+                ? `${who} answers each case, and Jev grades the results.`
+                : `${who} answers each case.`}
+            </Hint>
+          ) : (
+            <Status tone="warning" size="ui" id={reasonId} detail="See Agent under Options.">
+              No agent is set up
+            </Status>
+          )}
         </Stack>
-        <Disclosure summary="Options">
+        <Disclosure summary="Options" defaultOpen={!usable}>
           <Stack gap="lg">
             <Field role="group" aria-labelledby="run-cases">
               <Label id="run-cases">Cases</Label>
@@ -261,7 +288,7 @@ export function RunButton({
               </Stack>
             </Field>
             <Field>
-              <Label htmlFor="run-with">Write with</Label>
+              <Label htmlFor="run-with">Skill</Label>
               <SelectBox
                 id="run-with"
                 width="full"
@@ -273,7 +300,7 @@ export function RunButton({
             </Field>
             {configuration === 'old_skill' ? (
               <Field>
-                <Label htmlFor="run-baseline">Copy from</Label>
+                <Label htmlFor="run-baseline">Version</Label>
                 <SelectBox
                   id="run-baseline"
                   width="full"
@@ -302,6 +329,11 @@ export function RunButton({
                   disabled: !e.available,
                 }))}
               />
+              {missing.map((e) => (
+                <Hint key={e.id}>
+                  {e.label} is not set up. {e.hint}
+                </Hint>
+              ))}
             </Field>
             <Field>
               <Label htmlFor="run-model">Model</Label>
@@ -331,7 +363,7 @@ export function RunButton({
               />
             </Field>
             <Field>
-              <Label htmlFor="run-samples">Samples per case</Label>
+              <Label htmlFor="run-samples">Attempts per case</Label>
               <NumberInput
                 id="run-samples"
                 min={1}
@@ -340,17 +372,12 @@ export function RunButton({
                 onChange={(e) => setSamples(Math.min(10, Math.max(1, Number(e.target.value) || 1)))}
               />
               <Hint>
-                An agent answers a little differently each time. Two or more show how steady the
-                skill is.
+                An agent answers a little differently each time. Two or more attempts show whether a
+                result was luck.
               </Hint>
             </Field>
           </Stack>
         </Disclosure>
-        {missing.map((e) => (
-          <Hint key={e.id}>
-            {e.label} is not set up. {e.hint}
-          </Hint>
-        ))}
       </PopoverContent>
     </Popover>
   )

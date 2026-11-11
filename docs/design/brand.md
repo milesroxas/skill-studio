@@ -91,6 +91,6 @@ The welcome runs in its own 760 x 600 window, laid out for exactly that size and
 ## Words
 
 - Sentence case everywhere. No title case, no trailing period on a label.
-- A button is a verb and its object, except a dialog's confirm button, which is one verb ([buttons.md](buttons.md)). The button that starts a run is always "Start a run". The thing graded is an "output", and the model that grades it is "Jev", never "the judge": a judge's verdict is final, and here the reader's is. What an output fails is "missed", what it passes is "met", and the reader's own answer on one verdict is a "correction", shown as "your answer".
+- A button is a verb and its object, except a dialog's confirm button, which is one verb ([buttons.md](buttons.md)). The button that starts a run names what it runs: "Run 3 cases", or "Run 3 cases, 2 attempts each". The thing graded is an "output", and the model that grades it is "Jev", never "the judge": a judge's verdict is final, and here the reader's is. What an output fails is "missed", what it passes is "met", and the reader's own answer on one verdict is a "correction", shown as "your answer".
 - Plain and specific. No "powerful", "seamless", "simply". Say what happens.
 - An error says what failed and the next step. Never "Something went wrong".

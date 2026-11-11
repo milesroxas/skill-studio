@@ -48,11 +48,17 @@ export function Status({
   tone,
   size,
   detail,
+  id,
   children,
 }: Pick<VariantProps<typeof dotVariants>, 'tone'> &
-  VariantProps<typeof statusVariants> & { detail?: ReactNode; children: ReactNode }) {
+  VariantProps<typeof statusVariants> & {
+    detail?: ReactNode
+    /** For a control the state explains, through its `aria-describedby`. */
+    id?: string
+    children: ReactNode
+  }) {
   return (
-    <p className={statusVariants({ size })}>
+    <p id={id} className={statusVariants({ size })}>
       <Dot tone={tone} />
       <Text weight="medium">{children}</Text>
       {detail ? <Text tone="muted">{detail}</Text> : null}

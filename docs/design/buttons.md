@@ -102,7 +102,7 @@ Otherwise → default
 
 The top bar shows where the loop goes next. It is the app's one yellow control. Only `App.tsx` renders it: a screen never adds its own. Below `lg` it reads the step's name alone ("Read the results"), "Next:" kept for a screen reader, and it is the last part of the bar to give way (see `TopBar` in [layout.md](layout.md)).
 
-The loop is write, run, compare, and running is a button, not a place. So the next step is one of two things: a place to go ("Next: Add a case", "Next: Read the results"), drawn as below, or the run itself. `RunButton` (`components/Run.tsx`) stands in the top bar whenever the skill has a case. It is `signal` when running is the next step and `outline` otherwise, and its label is the same either way ("Run v2"), so it keeps its place. It opens a `form` popover that says what the run will do before the button that starts it, because a run costs money.
+The loop is write, run, compare, and running is a button, not a place. So the next step is one of two things: a place to go ("Next: Add a case", "Next: Read the results"), drawn as below, or the run itself. `RunButton` (`components/Run.tsx`) stands in the top bar whenever the skill has a case. It is `signal` when running is the next step and `outline` otherwise, and its label is the same either way ("Run v2"), so it keeps its place. It opens a `form` popover that says what the run will test, then the button that starts it, which names what the run does ("Run 3 cases"), because a run costs money.
 
 ```tsx
 // Correct: App.tsx
@@ -129,7 +129,7 @@ The loop is write, run, compare, and running is a button, not a place. So the ne
 </Button>
 
 // Incorrect: signal on the action inside Run's own panel. It is the panel's primary: default.
-<Button variant="signal" onClick={start}>Start a run</Button>
+<Button variant="signal" onClick={start}>Run 3 cases</Button>
 ```
 
 ## Every button
@@ -144,7 +144,7 @@ The loop is write, run, compare, and running is a button, not a place. So the ne
 - The composer's Stop is `disabled` until there is a reply to stop: a request still being sent has no id yet (`Composer` takes no `onStop` then).
 - The other buttons of the same form or row are `disabled` while one of them is busy, so Save and Delete, or Restore on two rows, cannot run at once. A row's controls in a list wait on the row's own key (`pending` in `Library.tsx`), not on every row.
 - "Try again" after a failed read is busy while the read runs again: `useFetch` returns `loading`, and `ReadFailed` takes it as `retrying`.
-- A label is a verb and its object: "Start a run", "Delete case", "Save case", and "Add case" for an item's first save. Never "OK", "Submit" or "Click here". "Save" alone is right where what it saves is plain: the Skill screen's `ColumnHeader`, where it saves the open file.
+- A label is a verb and its object: "Run 3 cases", "Delete case", "Save case", and "Add case" for an item's first save. Never "OK", "Submit" or "Click here". "Save" alone is right where what it saves is plain: the Skill screen's `ColumnHeader`, where it saves the open file.
 - A dialog's confirm button is one verb: "Restart", "Restore", "Delete", "Discard", "Reset". The title above it names the object, so the button does not repeat it. The button that opens the dialog keeps its object: "Restart walkthrough…" opens a dialog whose button says "Restart".
 - Press feedback (`active:scale-[0.96]`) and the focus ring (`focus-ring`: keyboard only, see [color.md](color.md#focus)) are built in. Do not restyle them.
 - Never show an action only on hover. A row's actions are `ghost-muted` at rest, so touch and keyboard reach them.

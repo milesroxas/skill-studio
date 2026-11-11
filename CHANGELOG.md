@@ -6,6 +6,13 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+### Changed
+
+- The Run panel says what it tests in plain words: **Test this skill**, **Test your edits**, **Test v2 again**, and one line on what comes of it. Its button names the run, **Run 3 cases** or **Run 3 cases, 2 attempts each**, in place of **Start a run** over a count of outputs, samples and agent sessions. The line under the button says which agent answers the cases and that Jev grades the results.
+- Under Options, **Write with** is now **Skill**, **Copy from** is **Version**, and **Samples per case** is **Attempts per case**. An agent that is not set up says how to set it up under **Agent**.
+- What stops a run, or makes it grade less, shows as a warning: no Jev key, files not saved, no agent set up. With no case ticked the button says **Tick a case to run**. Before, each was a grey line of help text.
+- Ticking a case or changing the attempts no longer moves the button or the field under the pointer: only the button's words change.
+
 ## [0.7.2] - 2026-11-11
 
 ### Changed

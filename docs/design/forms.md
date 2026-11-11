@@ -126,7 +126,8 @@ The pressed `outline` or `quiet` toggle is ink fill, the same as `Segmented`, so
 ## Actions
 
 - `FormActions` at the foot of a saved form: primary first, destructive last after `Spacer`.
-- A form whose one action costs something says what it will do before the action: Run states the output count and how it adds up in a `Hint` over "Start a run" (`components/Run.tsx`).
+- A form whose one action costs something says what it will do on the action itself: Run's button reads "Run 3 cases" or "Run 3 cases, 2 attempts each", so the size of the run is the strongest line in the panel, and a `Hint` under it says who does the work (`components/Run.tsx`). Ticking a case or changing a count changes only the button's words, so nothing under the pointer moves.
+- A warning that holds before the action (unsaved files, no Jev key) is a `Status` with `tone="warning"` above it. A reason the action cannot run at all is a `Status` in place of the line under it, tied to the disabled button by `aria-describedby`; when the button's own words can say it, they do ("Tick a case to run").
 - An action that is the only control of its section ("Reset Skill Studio…") sits in a `Toolbar` inside a `FormSection` of its own, as in `Settings.tsx`.
 - "Discard" acts only when the form is dirty, and goes through `ctx.confirm`. A case and Graded as show it only then; the Skill screen's header keeps it in place, disabled.
 - Adding or removing a repeated row moves focus with it: to the new row, or to the next row's remove button.

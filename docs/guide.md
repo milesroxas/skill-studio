@@ -64,7 +64,7 @@ Take a finished skill once round the loop. Click **Try it on a sample skill** in
 
 The walkthrough's skill, Thank-you note, writes short thank-you notes, so a run takes a minute or two. Nothing needs typing. It opens on the Skill screen, with its rules in view. The Walkthrough box in the sidebar shows your step, and clicking it takes you there. The yellow button at the top right is the way on:
 
-1. **Run the skill.** Click **Run** at the top right, then "Start a run". An agent writes a note for each of the three cases.
+1. **Run the skill.** Click **Run** at the top right, then **Run 3 cases**. An agent writes a note for each of the three cases.
 2. **Read what the notes missed.** Results shows each note with its score, and under it the rules and checks it missed. Without a Jev key a note has no score, and only its length is checked.
 3. **Tighten one rule.** "Keep the note to a reasonable length" is vague on purpose, so the notes come back too long. Once you have read the results, the Skill screen offers the exact rule: click "Use the exact rule", then Save.
 4. **Run it again, then compare.** Only the rule changed, so any difference is your edit. Once the run is in, read a note from each version side by side.
@@ -219,20 +219,20 @@ Write at least three different cases before you trust a score.
 
 ## 4. Run it
 
-![The Run panel, opened from the Run button at the top right: what this run will do, how many outputs it writes, and Start a run, with Options folded under it.](images/run.webp)
+![The Run panel, opened from the Run button at the top right: what this run tests, the button that runs the cases, who does the work, and Options folded under it.](images/run.webp)
 
-1. Click **Run** at the top right. A panel opens and says what the run will do: the version it tests and how many outputs it writes.
+1. Click **Run** at the top right. A panel opens and says what the run tests, and whether it saves the skill as a new version.
 2. If the skill changed since its last run, the run keeps it as a new version. Type what changed under **What changed**, or leave it: the version is then named after the date.
-3. Click **Start a run**.
+3. Click the button that names the run: **Run 3 cases**, or **Run 3 cases, 2 attempts each**. The line under it says which agent answers the cases and that Jev grades the results.
 
-A run tests the files as saved. When a file has unsaved edits, the panel says so: save it on the Skill screen first.
+A run tests the files as saved. When a file has unsaved edits, the panel says so: save it on the Skill screen first. Without a Jev key it says that too: only code checks grade the run.
 
 The defaults suit most runs: every case, once, with the agent you used last. **Options** changes them:
 
 - **Cases:** untick the ones to leave out.
-- **Write with:** "This version", "No skill" (the baseline to beat), or "An earlier version" (to run an old copy of the skill again: pick it under **Copy from**, which starts on the newest run's copy, the version before your edits).
-- **Agent, Model, Effort:** who writes the outputs. Pick a model from the list or type its name.
-- **Samples per case:** use 2 or more to see how steady the skill is. Agents answer a little differently each time.
+- **Skill:** "This version", "No skill" (the baseline to beat), or "An earlier version" (to run an old copy of the skill again: pick it under **Version**, which starts on the newest run's copy, the version before your edits).
+- **Agent, Model, Effort:** who writes the outputs. Pick a model from the list or type its name. An agent that is not set up says how to set it up under **Agent**.
+- **Attempts per case:** use 2 or more to see how steady the skill is. Agents answer a little differently each time, and each attempt is a sample on Results.
 
 The run works in the background. Its progress shows at the foot of the sidebar: click it for the log, where **Stop** ends the run. Jev grades the outputs when they are written.
 
@@ -281,7 +281,7 @@ Under the two outputs, **Add a check** takes one sentence: what a good answer do
 - **Click a run** to see each output with what it missed. **Changes since this run** shows what changed in the skill after it. **Regrade** has Jev read the run again.
 - **Delete run** deletes that run's outputs and your corrections on them. Every score stops counting it, here, on each case and in the version list. Its version stays: when the run was the version's only copy, the version is saved from it first. **Undo** on the status line brings the run back. A run still writing or being graded can be deleted once that ends.
 
-To be sure an edit helped, run with **Samples per case** at 2 or more. If two versions' scores differ less than one version's samples do, the edit made no clear difference.
+To be sure an edit helped, run with **Attempts per case** at 2 or more. If two versions' scores differ less than one version's samples do, the edit made no clear difference.
 
 ### Graded as
 
