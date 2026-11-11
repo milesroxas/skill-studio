@@ -4,9 +4,9 @@ The plan for the next release: what is in it, what is still to do, and the check
 
 | | |
 | --- | --- |
-| Version | 0.5.3 |
-| Status | Released 2026-11-10, [v0.5.3](https://github.com/milesroxas/skill-studio/releases/tag/v0.5.3) |
-| Previous release | [v0.5.2](https://github.com/milesroxas/skill-studio/releases/tag/v0.5.2), 2026-11-10 |
+| Version | 0.5.4 |
+| Status | Tagged 2026-11-10 |
+| Previous release | [v0.5.3](https://github.com/milesroxas/skill-studio/releases/tag/v0.5.3), 2026-11-10 |
 | Target date | 2026-11-10 |
 | Owner | Miles Roxas |
 
@@ -21,10 +21,11 @@ The version follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html): 
 
 ## Shipped to main
 
-Everything merged since v0.5.2.
+Everything merged since v0.5.3.
 
-- [x] Development tools updated: `@vitejs/plugin-react` 6.2.1, `vitest` and `@vitest/coverage-v8` 5.1.0, `fallow` 3.39.0, and Electron 45.3.0, which ships in the app (4cd5edf).
-- [x] The pure `agentEnv` in `src/domain/env.ts` renamed `agentEnvFrom`, so `fallow` 3.39 finds no duplicate export (8500e8b).
+- [x] Library: Mark done takes a skill out of In progress until it is worked on again, and replaces the Mine and Not mine buttons and the Yours, Installed and All switch; the Skill screen names a lock file's source; a narrow table folds a row's actions into a More actions menu (`RowActions`) (f1c4508).
+
+0.5.4 adds a feature, which the rule above makes a minor bump. It is a patch at Miles's call (2026-11-10).
 
 ## Planned
 
@@ -43,17 +44,19 @@ Checks that are not covered by `pnpm check`.
 - [ ] Run the assistant live on each provider that has only been typechecked: the Anthropic API, OpenAI and Codex. Claude Code has been run live; the other three have not.
 - [ ] Send a picture to the assistant on the Anthropic API, OpenAI and Codex paths. Jev and Claude Code have been run live with a picture.
 - [ ] Go through the welcome at 110% zoom. Its window grows with the zoom, so the page keeps its 760 x 600; this has not been seen at a real 110%.
-- [x] Once the release is out, open each `releases/latest/download/` link in [releasing.md](releasing.md#updates) and check it fetches the new file: all four fetch, and `latest-mac.yml` names 0.5.3. 2026-11-10.
-- [ ] Update an installed 0.5.2 to this release and see **Restart to update**.
+- [ ] Once the release is out, open each `releases/latest/download/` link in [releasing.md](releasing.md#updates) and check it fetches the new file.
+- [ ] Update an installed 0.5.3 to this release and see **Restart to update**.
 
 ## Release checklist
 
 The steps in [releasing.md](releasing.md), in order.
 
 1. [x] Every item under "Planned" is shipped or moved to "Later".
-2. [ ] Every item under "Before the release" is done. Not for 0.5.3: a patch that updates the development tools and Electron, so the unchecked items carry to the next release. The built app was started on Electron 45.3.0 from `out/` with a scratch profile.
-3. [x] `pnpm check` and `pnpm build` pass on `main`.
-4. [ ] `gh workflow run release` builds every platform. Not run for 0.5.3; the tag's own run builds every platform.
-5. [x] In the changelog, rename `## [Unreleased]` to `## [0.5.3] - 2026-11-10`, start a new `## [Unreleased]` above it, and commit.
-6. [x] `pnpm version patch -m "Release %s"`, then `git push --follow-tags`.
-7. [x] The release workflow publishes v0.5.3, with the changelog entry as its notes.
+2. [ ] Every item under "Before the release" is done. Not for 0.5.4: the unchecked items carry to the next release. The built app was started on Electron 45.3.0 from `out/` with a scratch home, and the Library was driven at 720 and 1120 px in both themes.
+3. [x] `pnpm check` and `pnpm build` pass on `main`. Biome and `fallow dead-code` are clean; `fallow health` reports 233 above threshold, the known debt in [complexity-plan.md](complexity-plan.md).
+4. [ ] `gh workflow run release` builds every platform. Not run for 0.5.4; the tag's own run builds every platform.
+5. [x] In the changelog, rename `## [Unreleased]` to `## [0.5.4] - 2026-11-10`, start a new `## [Unreleased]` above it, and commit.
+6. [ ] `pnpm version patch -m "Release %s"`, then `git push --follow-tags`.
+7. [ ] The release workflow publishes v0.5.4, with the changelog entry as its notes.
+8. [ ] A running 0.5.3 finds the update and shows **Restart to update**.
+9. [ ] Start the plan for the next version.
