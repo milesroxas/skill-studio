@@ -6,6 +6,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+### Changed
+
+- An update ready to install now says so on the status line until you restart or dismiss it, and again each time the app's window opens while it waits. Before, the notice left after a few seconds.
+- When the app's own check for updates fails, it tries again after 10 minutes instead of at the next check, hours later.
+
 ## [0.5.4] - 2026-11-10
 
 ### Added

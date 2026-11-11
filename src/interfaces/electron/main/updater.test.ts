@@ -131,6 +131,50 @@ describe('createUpdater', () => {
     expect(states.at(-1)).toEqual({ status: 'idle', checkedAt: null })
   })
 
+  it('tries again soon after a look of its own fails, in auto only', () => {
+    const { source, updater } = setup()
+    updater.follow('auto')
+    vi.advanceTimersByTime(15_000)
+    expect(source.checks).toBe(1)
+    source.emit('checking-for-update')
+    source.emit('error', new Error('net::ERR_INTERNET_DISCONNECTED'))
+    vi.advanceTimersByTime(10 * 60 * 1000)
+    expect(source.checks).toBe(2)
+
+    const manual = setup()
+    manual.updater.follow('manual')
+    manual.updater.check(false)
+    manual.source.emit('checking-for-update')
+    manual.source.emit('error', new Error('net::ERR_INTERNET_DISCONNECTED'))
+    vi.advanceTimersByTime(60 * 60 * 1000)
+    expect(manual.source.checks).toBe(1)
+  })
+
+  it('leaves a failure someone saw to them, and drops the retry when a look starts', () => {
+    const { source, updater } = setup()
+    updater.follow('auto')
+    vi.advanceTimersByTime(15_000)
+    source.emit('checking-for-update')
+    source.emit('update-not-available', RELEASE)
+    expect(source.checks).toBe(1)
+
+    updater.check(true)
+    source.emit('checking-for-update')
+    source.emit('error', new Error('net::ERR_INTERNET_DISCONNECTED'))
+    vi.advanceTimersByTime(10 * 60 * 1000)
+    expect(source.checks).toBe(2)
+
+    updater.check(false)
+    source.emit('checking-for-update')
+    source.emit('error', new Error('net::ERR_INTERNET_DISCONNECTED'))
+    // A look someone asks for before the retry is due takes its place.
+    updater.check(true)
+    source.emit('checking-for-update')
+    source.emit('update-not-available', RELEASE)
+    vi.advanceTimersByTime(10 * 60 * 1000)
+    expect(source.checks).toBe(4)
+  })
+
   it('shows a failure to whoever asked, even when the step began on its own', () => {
     const { source, updater } = setup()
     updater.check(false)

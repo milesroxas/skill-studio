@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   isUpdateRequest,
+  newlyReady,
   nextUpdateState,
   releasedAgo,
   stepFor,
@@ -224,5 +225,21 @@ describe('releasedAgo', () => {
     expect(releasedAgo(null, at)).toBeNull()
     expect(releasedAgo('soon', at)).toBeNull()
     expect(since(-MINUTE)).toBeNull()
+  })
+})
+
+describe('newlyReady', () => {
+  const ready: UpdateState = { status: 'ready', update }
+
+  it('announces a release once it is ready, and to a window that opens on one', () => {
+    expect(newlyReady('downloading', ready)).toEqual(update)
+    expect(newlyReady('available', ready)).toEqual(update)
+    expect(newlyReady(null, ready)).toEqual(update)
+  })
+
+  it('says it once, and nothing for a state that is not ready', () => {
+    expect(newlyReady('ready', ready)).toBeNull()
+    expect(newlyReady(null, idle)).toBeNull()
+    expect(newlyReady('ready', { status: 'installing', update })).toBeNull()
   })
 })

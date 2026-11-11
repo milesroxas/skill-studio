@@ -7,6 +7,13 @@ describe('noticeMs', () => {
     expect(noticeMs({ message: '1.2.0 already exists.', tone: 'warning' })).toBeNull()
   })
 
+  it('keeps a fact marked to stay until the reader dismisses it', () => {
+    const restart = { label: 'Restart', run: () => {} }
+    expect(
+      noticeMs({ message: '1.3.0 is ready to install', action: restart, stays: true }),
+    ).toBeNull()
+  })
+
   it('gives a short fact a floor, and a long one time to read', () => {
     expect(noticeMs({ message: 'Saved' })).toBe(2600)
     const long = Array.from({ length: 30 }, () => 'word').join(' ')

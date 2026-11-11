@@ -9,8 +9,8 @@
  * announces something can offer the one step that follows instead.
  *
  * A fact leaves on its own once it can be read, and waits while the pointer or
- * the keyboard is on the line. A failure or a warning stays until the reader
- * dismisses it or the next notice takes its place.
+ * the keyboard is on the line. A failure, a warning or a fact marked `stays`
+ * stays until the reader dismisses it or the next notice takes its place.
  *
  * `place`: `foot` is the 48px strip under the pane, the top bar's mirror, in
  * the app's and the changelog's window. `head` fills a cell of the welcome's

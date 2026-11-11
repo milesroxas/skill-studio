@@ -75,6 +75,19 @@ export function stepFor(state: UpdateState): UpdateStep | null {
   }
 }
 
+/**
+ * The release a window should announce as ready to install, or null. A window
+ * says so when the state becomes `ready`, and when it opens on a state that
+ * already is (`before` null): a release that finished downloading while no
+ * window was open, or before this one loaded, is still news to the reader.
+ */
+export function newlyReady(
+  before: UpdateState['status'] | null,
+  state: UpdateState,
+): Update | null {
+  return state.status === 'ready' && before !== 'ready' ? state.update : null
+}
+
 /** The release a state has in hand, if it has one. */
 export const updateIn = (state: UpdateState): Update | null =>
   'update' in state ? state.update : null

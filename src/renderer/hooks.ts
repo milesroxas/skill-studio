@@ -112,6 +112,12 @@ export interface Notice {
   undo?: () => void
   /** One step that follows from the message, such as opening what it announces. */
   action?: { label: string; run: () => void }
+  /**
+   * The fact waits for the reader, as a failure does: it stays until dismissed
+   * or replaced. For news that is easy to miss and still true later, such as
+   * an update ready to install.
+   */
+  stays?: boolean
 }
 
 /** Say what just happened. An Error reports as a failure; a string takes the tone it is given. */
@@ -123,11 +129,13 @@ const OFFER_MS = 7000
 /**
  * How long a notice stands, or null while it waits for the reader. A failure
  * or a warning asks something of the reader, so it stays until dismissed or
- * replaced. A fact stays long enough to read: a floor for short lines, then
- * about 200 words a minute.
+ * replaced, and so does a fact marked `stays`. Any other fact stays long
+ * enough to read: a floor for short lines, then about 200 words a minute.
  */
-export const noticeMs = ({ message, tone, undo, action }: Notice): number | null =>
-  tone ? null : Math.max(undo || action ? OFFER_MS : 2600, message.split(/\s+/).length * 300 + 1000)
+export const noticeMs = ({ message, tone, undo, action, stays }: Notice): number | null =>
+  tone || stays
+    ? null
+    : Math.max(undo || action ? OFFER_MS : 2600, message.split(/\s+/).length * 300 + 1000)
 
 /**
  * The notice on the status line, a way to report one, and a way to clear it.

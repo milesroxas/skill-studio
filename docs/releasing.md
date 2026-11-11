@@ -73,6 +73,8 @@ Renaming one breaks those links. Releases up to 0.5.0 carry the version in each 
 
 The updater is `src/interfaces/electron/main/updater.ts`, and the state every window shows is worked out in `src/domain/update.ts`. Both are tested without Electron. A development build does not update itself.
 
+With updates set to Automatically, a copy looks 15 seconds after it opens and every 4 hours after that, and downloads what it finds. A look of its own that fails says nothing and tries again after 10 minutes. A downloaded update stays on the app window's status line until the restart or a dismiss, and is announced again whenever the window opens while it waits. Quitting with one downloaded installs it on macOS, without opening the app again.
+
 To watch a real update, package a copy under an older version and open it. It finds the newest release on GitHub and downloads it.
 
 ```

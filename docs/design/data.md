@@ -141,7 +141,9 @@ report(e.message)
 - `{ tone: 'warning' }` is a step the reader must change something before taking ("1.2.0 already exists."). Amber dot.
 - `{ undo }` offers Undo, and the Undo shortcut takes it while the line stands. `{ action }` offers the one step that follows. One offer at most: a notice is one line, and the line truncates past the strip.
 - Never `success`. A notice that something worked is the fact itself.
-- A fact leaves on its own once it can be read: 2.6s at least, about 200 words a minute past that, 7s with an offer. It waits while the pointer or the keyboard is on the line. A failure or a warning stays until the reader presses its Dismiss (`ghost` at `icon-sm`, after any offer) or the next notice takes its place. A long message truncates; its whole text is the line's `title`.
+- A fact leaves on its own once it can be read: 2.6s at least, about 200 words a minute past that, 7s with an offer. It waits while the pointer or the keyboard is on the line. A failure or a warning stays until the reader presses its Dismiss (`ghost` at `icon-sm`, after any offer) or the next notice takes its place.
+- `{ stays: true }` keeps a fact on the line the same way, with the plain dot and Dismiss. It is for news that ends on its own time and is easy to miss: the one use is an update ready to install (`updates.ts`).
+- A long message truncates; its whole text is the line's `title`.
 
 The dot is `Dot` from `components/Status.tsx`, the one dot in the app. `Status`, the jobs line and a `NavItem`'s unsaved mark use it too, so a color means the same thing wherever it is read: `signal` runs, `success` works, `warning` needs the reader, `destructive` failed, `muted` is a fact.
 

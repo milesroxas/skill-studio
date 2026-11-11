@@ -23,6 +23,12 @@ import {
 const FIRST_CHECK_MS = 15_000
 /** Often enough that a copy left open for days still hears of a release the day it lands. */
 const CHECK_EVERY_MS = 4 * 60 * 60 * 1000
+/**
+ * A look of its own that failed tries again this soon, not at the next
+ * scheduled look: a launch on a connection still waking up would otherwise
+ * miss a release for hours.
+ */
+const RETRY_MS = 10 * 60 * 1000
 
 /** The part of electron-updater's `autoUpdater` this module uses. */
 export interface UpdateSource {
@@ -70,6 +76,7 @@ export function createUpdater({ source, onState, now = Date.now }: UpdaterOption
   let following: UpdateMode | null = null
   let first: ReturnType<typeof setTimeout> | undefined
   let every: ReturnType<typeof setInterval> | undefined
+  let retry: ReturnType<typeof setTimeout> | undefined
 
   /** Several events land as one change, so no window paints a state that lasts no time. */
   const report = (...events: UpdateEvent[]): void => {
@@ -88,9 +95,15 @@ export function createUpdater({ source, onState, now = Date.now }: UpdaterOption
   source.on('update-not-available', () => report({ type: 'none', at: now() }))
   source.on('download-progress', ({ percent }) => report({ type: 'progress', percent }))
   source.on('update-downloaded', (info) => report({ type: 'downloaded', update: updateOf(info) }))
-  source.on('error', (error) =>
-    report({ type: 'failed', message: updateProblem(error), quiet: !attended }),
-  )
+  source.on('error', (error) => {
+    const quiet = !attended
+    report({ type: 'failed', message: updateProblem(error), quiet })
+    // Nobody saw it fail, so nobody will ask again: in auto, the app does.
+    if (quiet && following === 'auto') {
+      clearTimeout(retry)
+      retry = setTimeout(() => check(false), RETRY_MS)
+    }
+  })
 
   /** The source reports every failure as an `error` event as well; the event is what moves the state. */
   const settled = (step: Promise<unknown>): void => void step.catch(() => {})
@@ -106,6 +119,7 @@ export function createUpdater({ source, onState, now = Date.now }: UpdaterOption
     }
     // A downloaded release is installed first; the copy it starts looks again.
     if (state.status === 'ready') return
+    clearTimeout(retry)
     attended = byRequest
     settled(source.checkForUpdates())
   }
@@ -135,6 +149,7 @@ export function createUpdater({ source, onState, now = Date.now }: UpdaterOption
       following = mode
       clearTimeout(first)
       clearInterval(every)
+      clearTimeout(retry)
       source.autoDownload = mode === 'auto'
       if (mode !== 'auto' || state.status === 'unsupported') return
       first = setTimeout(() => check(false), FIRST_CHECK_MS)

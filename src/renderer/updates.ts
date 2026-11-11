@@ -4,7 +4,7 @@
  * offers. A browser has no app to update. There the state is `unsupported`
  * for good, and nothing here reaches out.
  */
-import { stepFor, type UpdateState, type UpdateStep } from '@domain/update.ts'
+import { newlyReady, stepFor, type UpdateState, type UpdateStep } from '@domain/update.ts'
 import { useCallback, useEffect, useRef } from 'react'
 import { homepage } from '../../package.json'
 import { api } from './api.ts'
@@ -113,13 +113,16 @@ function takeUpdatedNotice(): boolean {
 }
 
 /**
- * The two moments worth a notice in the app's window. A download that finishes
- * while the window is open: the update is ready, and one click restarts into
- * it. And the first launch of a new version: it worked, and here is what changed.
+ * The two moments worth a notice in the app's window. An update ready to
+ * install, when its download finishes and whenever the window opens on one: it
+ * stays on the status line until dismissed, since the download ends on its own
+ * time and a passing notice is easy to miss. And the first launch of a new
+ * version: it worked, and here is what changed.
  */
 export function useUpdateNotices(report: Reporter, take: (step: UpdateStep) => void): void {
   const state = useUpdate()
-  const before = useRef(state.status)
+  // Null until the first look, so a window that opens on a ready update says so.
+  const before = useRef<UpdateState['status'] | null>(null)
 
   useEffect(() => {
     if (takeUpdatedNotice())
@@ -129,11 +132,12 @@ export function useUpdateNotices(report: Reporter, take: (step: UpdateStep) => v
   }, [report])
 
   useEffect(() => {
-    const was = before.current
+    const ready = newlyReady(before.current, state)
     before.current = state.status
-    if (state.status === 'ready' && was === 'downloading')
-      report(`Skill Studio ${state.update.version} is ready to install`, {
+    if (ready)
+      report(`Skill Studio ${ready.version} is ready to install`, {
         action: { label: 'Restart', run: () => take('install') },
+        stays: true,
       })
   }, [state, report, take])
 }
