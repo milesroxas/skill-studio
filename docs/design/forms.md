@@ -51,7 +51,7 @@ Every control sits in a `Field` with a `Label` above it. Never a placeholder as 
 - A `Segmented`, `SelectBox` trigger, or a group of controls: `<Label id={…}>` and `aria-labelledby` on the control, or `role="group"` with `aria-labelledby` on the `Field`.
 - Help goes under the control in a `Hint`. An error is `<Hint tone="destructive">` under the control, and the control gets `aria-invalid`.
 - A hint says what the reader cannot see from the control: one sentence, two at most. It never names the control's parts ("Pick the kind, then a case") or repeats what a confirm dialog will say.
-- In a form with one required field, the others say so: `<Label optional>` puts "optional" after the name in muted text (the case's Title, Pictures and A good answer). A checkbox is optional by being one, so it takes no mark.
+- In a form with one required field, the others say so: `<Label optional>` puts "optional" after the name in muted text (the case's Title, Pictures, Files and A good answer). A checkbox is optional by being one, so it takes no mark.
 - A unit goes in the label: "Minimum run length, in minutes". Never as a suffix inside the field.
 - A row of buttons or toggles inside a `Field` sits in a `Toolbar`, so they keep their own width.
 - A short label before a control on one line ("From" before a select) is `InlineField`.

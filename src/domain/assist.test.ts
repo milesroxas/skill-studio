@@ -259,11 +259,14 @@ describe('workingSkill', () => {
     const shot = { name: 'new.png', file: null, upload: 'u1' }
     const inputs = (drafts: Parameters<typeof workingSkill>[2]['cases']) =>
       workingSkill({}, [saved], { files: {}, cases: drafts }).cases.map((c) => c.inputs)
-    expect(inputs({})).toEqual([['rota.png', 'screen/Bookings.tsx']])
-    // A draft says which pictures the case has; the other files are the saved case's.
-    expect(inputs({ shift: { ...savedCase, words: null, images: [shot] } })).toEqual([
-      ['screen/Bookings.tsx', 'new.png'],
-    ])
+    expect(inputs({})).toEqual([['screen/ (1 file)', 'rota.png']])
+    // A draft says which pictures the case has, and which files it adds and takes out.
+    const tokens = { name: 'tokens.css', upload: 'a'.repeat(24), files: 1, folder: false }
+    expect(
+      inputs({
+        shift: { ...savedCase, words: null, images: [shot], added: [tokens], removed: ['screen'] },
+      }),
+    ).toEqual([['tokens.css', 'new.png']])
   })
 
   it('reads only a draft of the case’s own, whatever its id', () => {

@@ -5,6 +5,7 @@
 import type { CreateSkillInput, GenerateInput } from '@application/api/contract.ts'
 import type { AssistInput, ChatScene } from '@domain/assist.ts'
 import type { ImageRef, ImageUpload } from '@domain/image.ts'
+import type { InputPick } from '@domain/inputs.ts'
 import type { AgentId } from '@domain/library.ts'
 import type { RuleScene } from '@domain/lint.ts'
 import type { LookStep } from '@domain/practice.ts'
@@ -109,6 +110,7 @@ export const api = {
   improveSend: (text: string) => call('improve.send', { text }),
   improveClear: () => call('improve.clear', {}),
   uploadImage: (upload: ImageUpload) => call('image.upload', upload),
+  uploadInput: (pick: InputPick) => call('input.upload', pick),
   imageUrl,
   openImage: (image: ImageRef) => transport.openArtifact(imageUrl(image)),
   preferences: () => call('preferences.read', {}),

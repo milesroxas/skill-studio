@@ -4,6 +4,7 @@
  */
 
 import type { ImageRef } from './image.ts'
+import type { InputUpload } from './inputs.ts'
 
 const ARTIFACT_KINDS = ['markdown', 'html', 'image', 'code', 'transcript'] as const
 export type ArtifactKind = (typeof ARTIFACT_KINDS)[number]
@@ -84,6 +85,10 @@ export interface CaseDraft {
   size?: [number, number] | null
   /** Pictures the agent gets with the prompt, which the judge sees too. */
   images: ImageRef[]
+  /** Files and folders picked for the agent, copied into the case's `files/` on save. Absent in a draft stored before it existed. */
+  added?: InputUpload[]
+  /** Names right in the case's `files/` that the save takes out. Absent in a draft stored before it existed. */
+  removed?: string[]
   graders: Array<{
     id: string | null
     statement: string

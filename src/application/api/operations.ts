@@ -54,6 +54,7 @@ import { readDrafts, writeDrafts } from '@infrastructure/drafts.ts'
 import { engineById, engineInfo } from '@infrastructure/engines/index.ts'
 import { assertSafe, assertSafePath, isDir, readJson, realPath } from '@infrastructure/fs.ts'
 import { findImage, readImage, saveUpload, uploadPath } from '@infrastructure/images.ts'
+import { inputUploadPath, saveInputUpload } from '@infrastructure/inputs.ts'
 import {
   createSkill,
   isPracticeSkill,
@@ -205,6 +206,16 @@ function caseDraftOf(value: unknown): CaseDraft {
         ? [Number(input.size[0]), Number(input.size[1])]
         : null,
     images: imageRefsOf(input.images),
+    added: (Array.isArray(input.added) ? input.added : []).map((raw) => {
+      const pick = record(raw)
+      return {
+        name: str(pick.name),
+        upload: str(pick.upload),
+        files: num(pick.files, 1),
+        folder: pick.folder === true,
+      }
+    }),
+    removed: list(input.removed),
     graders: (Array.isArray(input.graders) ? input.graders : []).map((raw) => {
       const g = record(raw)
       return {
@@ -394,6 +405,14 @@ export const parsers: { [K in OperationName]: (raw: Raw) => Input<K> } = {
     if (typeof raw.data !== 'string' || !raw.data) throw new Error('No picture was sent.')
     return { name: str(raw.name).slice(0, 200), data: raw.data }
   },
+  'input.upload': (raw) => ({
+    name: str(raw.name),
+    files: (Array.isArray(raw.files) ? raw.files : []).map((f) => {
+      const file = record(f)
+      if (typeof file.data !== 'string') throw new Error('No file was sent.')
+      return { path: str(file.path), data: file.data }
+    }),
+  }),
   'image.read': (raw) => {
     const ref = imageRefOf(raw)
     if (!ref) throw new Error('Bad picture.')
@@ -670,6 +689,7 @@ export function createOperations(options: OperationsOptions): Runners {
       return { cleared: true as const }
     },
     'image.upload': (input) => saveUpload(input),
+    'input.upload': (input) => saveInputUpload(input),
     'image.read': ({ skill, file, upload }) => {
       // Only a skill open already: a page an agent wrote can load a picture by any path, and asking must not open one.
       const open = upload ? null : openSkill(skill)
@@ -781,7 +801,13 @@ export function createOperations(options: OperationsOptions): Runners {
     'skill.saveCase': (input) => {
       const skill = skillOf(input)
       // `savedAt` is when the form's copy was saved: a newer save on disk refuses this one.
-      const saved = saveCase(skill.path, input.case, input.isNew, uploadPath, input.savedAt)
+      const saved = saveCase(
+        skill.path,
+        input.case,
+        input.isNew,
+        { picture: uploadPath, input: inputUploadPath },
+        input.savedAt,
+      )
       return { saved, savedAt: caseSavedAt(skill.path, saved) }
     },
     'skill.deleteCase': (input) => {

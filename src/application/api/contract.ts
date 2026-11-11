@@ -9,6 +9,7 @@ import type { AssistInput, ChatScene } from '@domain/assist.ts'
 import type { SlashCommand } from '@domain/commands.ts'
 import type { ImageRef, ImageUpload } from '@domain/image.ts'
 import type { ImproveThread, RefineResult } from '@domain/improve.ts'
+import type { InputPick, InputUpload } from '@domain/inputs.ts'
 import type { AgentId, Library } from '@domain/library.ts'
 import type { RuleScene } from '@domain/lint.ts'
 import type { LookStep } from '@domain/practice.ts'
@@ -124,6 +125,8 @@ export interface Contract {
   'improve.clear': { input: Record<string, never>; output: { cleared: true } }
   /** Keep a picture until a case or a message saves it. The reference it returns names the upload. */
   'image.upload': { input: ImageUpload; output: ImageRef }
+  /** Keep a file or folder picked for a case until the case is saved. */
+  'input.upload': { input: InputPick; output: InputUpload }
   /** A picture's bytes: an upload, or a file in the skill. An empty `file` or `upload` means the other. */
   'image.read': { input: Scoped & { file: string; upload: string }; output: ArtifactFile }
   'preferences.read': { input: Record<string, never>; output: Preferences }

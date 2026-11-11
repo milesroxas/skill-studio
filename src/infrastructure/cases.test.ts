@@ -228,7 +228,8 @@ describe('case pictures', () => {
     made.push(dir)
     writeFileSync(join(dir, 'aa.png'), pngHeader(800, 600))
     writeFileSync(join(dir, 'bb.png'), pngHeader(400, 300))
-    return (id: string) => join(dir, id)
+    const at = (id: string) => join(dir, id)
+    return { picture: at, input: at }
   }
   const draft = {
     id: 'landing',
@@ -423,7 +424,8 @@ describe.skipIf(process.platform === 'win32')('a case folder reached through a l
   )
 
   it("replaces a check's picture that is a link out of the skill, and leaves what it led to", () => {
-    const find = (id: string) => join(outside, id)
+    const at = (id: string) => join(outside, id)
+    const find = { picture: at, input: at }
     writeFileSync(join(outside, 'new.png'), pngHeader(20, 20))
     saveCase(
       skill,

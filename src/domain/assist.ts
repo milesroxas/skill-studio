@@ -9,7 +9,7 @@
  * functions.
  */
 
-import { picturesOf } from './case-draft.ts'
+import { inputEntries, inputName, picturesOf } from './case-draft.ts'
 import { CHANGES_GUIDE } from './changes.ts'
 import type { ImageRef } from './image.ts'
 import { byFileOrder, isEditablePath } from './paths.ts'
@@ -375,19 +375,23 @@ type CaseText = Pick<CaseDraft, 'id' | 'title' | 'prompt' | 'expectedOutcome'> &
 type SavedCase = CaseText & Pick<Case, 'files' | 'dir'>
 
 /**
- * A case's input files by the names the agent finds them under. A draft lists
- * the case's pictures itself, one just added among them; the other files are
- * the saved case's.
+ * A case's input files as the agent finds them in `files/`: each file or
+ * folder, the ones a draft adds or takes out counted as done, then the
+ * pictures. A draft lists its pictures itself, one just added among them.
  */
-function inputsOf(saved: SavedCase | null, draft: Pick<CaseDraft, 'images'> | null): string[] {
-  const own = saved?.dir ? `${saved.dir}/files/` : null
-  const files = (saved?.files ?? []).map((f) => ({
-    name: own && f.startsWith(own) ? f.slice(own.length) : (f.split('/').at(-1) ?? f),
-    picture: saved !== null && picturesOf(saved).includes(f),
-  }))
-  return draft
-    ? [...files.filter((f) => !f.picture).map((f) => f.name), ...draft.images.map((i) => i.name)]
-    : files.map((f) => f.name)
+function inputsOf(
+  saved: SavedCase | null,
+  draft: Pick<CaseDraft, 'images' | 'added' | 'removed'> | null,
+): string[] {
+  const entries = inputEntries(saved, draft ?? {}).map((e) =>
+    e.folder ? `${e.name}/ (${e.files} ${e.files === 1 ? 'file' : 'files'})` : e.name,
+  )
+  const pictures = draft
+    ? draft.images.map((i) => i.name)
+    : saved
+      ? picturesOf(saved).map((f) => inputName(saved, f))
+      : []
+  return [...entries, ...pictures]
 }
 
 const sceneCase = (c: CaseText, inputs: string[], unsaved: boolean): SceneCase => ({
@@ -451,7 +455,7 @@ export function workingSkill(
 export const CONTEXT_BUDGET = 40_000
 
 const SCREENS =
-  'Skill (edit SKILL.md and references/, with every version to compare and restore), Cases (the prompts a run is made of, each with checks; Add pictures gives a case a picture, and Show folder under Input files opens the folder where the reader puts a copy of any other file or folder the prompt is about), Results (two outputs of a case side by side with what each missed, a pick between them, and every run under All cases), Library, Guide and Settings. Run, at the top of the window, has an agent do the cases and saves the skill as a version.'
+  'Skill (edit SKILL.md and references/, with every version to compare and restore), Cases (the prompts a run is made of, each with checks; Add pictures gives a case a picture, and Add files or Add folder, under Files, gives it a copy of any other file or folder the prompt is about), Results (two outputs of a case side by side with what each missed, a pick between them, and every run under All cases), Library, Guide and Settings. Run, at the top of the window, has an agent do the cases and saves the skill as a version.'
 
 /** Where the reader is and what they have open, as the brief says it. */
 function whereText(scene: ChatScene): string {

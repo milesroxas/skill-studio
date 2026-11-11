@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { newCaseId } from './case-draft.ts'
+import { inputEntries, isPicture, newCaseId } from './case-draft.ts'
 import { isSlug } from './text.ts'
 
 describe('newCaseId', () => {
@@ -27,5 +27,34 @@ describe('newCaseId', () => {
   it('still names a case whose words hold no letter or digit', () => {
     expect(newCaseId({ title: '', prompt: '¿¡…!?' }, [])).toBe('case')
     expect(newCaseId({ title: '', prompt: '' }, ['case'])).toBe('case-2')
+  })
+})
+
+describe('input files', () => {
+  const dir = 'evals/cases/results'
+  const c = {
+    dir,
+    files: [
+      `${dir}/files/shot.png`,
+      `${dir}/files/notes.md`,
+      `${dir}/files/screens/a.tsx`,
+      `${dir}/files/screens/logo.png`,
+    ],
+  }
+
+  it('counts only an image right in files/ as a picture', () => {
+    expect(c.files.filter((f) => isPicture(c, f))).toEqual([`${dir}/files/shot.png`])
+    expect(isPicture({ dir: null }, 'evals/legacy.png')).toBe(true)
+  })
+
+  it('lists each file or folder, less the removed, with the added taking a name’s place', () => {
+    const screens = { name: 'screens', upload: 'a'.repeat(24), files: 3, folder: true }
+    expect(inputEntries(c, {})).toEqual([
+      { name: 'notes.md', files: 1, folder: false, added: false },
+      { name: 'screens', files: 2, folder: true, added: false },
+    ])
+    expect(inputEntries(c, { removed: ['notes.md'], added: [screens] })).toEqual([
+      { name: 'screens', files: 3, folder: true, added: true },
+    ])
   })
 })

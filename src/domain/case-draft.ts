@@ -1,20 +1,55 @@
 /** A case as the Cases form edits it: the draft that `skill.saveCase` takes. Pure functions. */
 import { type ImageRef, imageTypeOf } from './image.ts'
+import type { InputEntry } from './inputs.ts'
 import type { Case, CaseDraft } from './schemas.ts'
 import { slug } from './text.ts'
 
-/**
- * A case's own pictures: the images right in its `files/`. One in a folder
- * there is an input file like the rest of the folder. A legacy case's files
- * stay where they are.
- */
-export function picturesOf(c: Pick<Case, 'files' | 'dir'>): string[] {
+/** A case's input file by its path inside the case's `files/`; a legacy case's by its name. */
+export function inputName(c: Pick<Case, 'dir'>, file: string): string {
   const own = `${c.dir}/files/`
-  return c.dir
-    ? c.files.filter(
-        (f) => f.startsWith(own) && !f.slice(own.length).includes('/') && imageTypeOf(f),
-      )
-    : []
+  return c.dir && file.startsWith(own) ? file.slice(own.length) : (file.split('/').at(-1) ?? file)
+}
+
+/**
+ * Whether one of a case's input files is a picture the request comes with,
+ * which the judge sees too: an image right in its `files/`. One in a folder
+ * there is an input file like the rest of the folder. Every image a legacy
+ * case names is a picture.
+ */
+export const isPicture = (c: Pick<Case, 'dir'>, file: string): boolean =>
+  imageTypeOf(file) !== null &&
+  (c.dir ? file.startsWith(`${c.dir}/files/`) && !inputName(c, file).includes('/') : true)
+
+/** A case's own pictures, the ones the form edits. A legacy case's files stay where they are. */
+export const picturesOf = (c: Pick<Case, 'files' | 'dir'>): string[] =>
+  c.dir ? c.files.filter((f) => isPicture(c, f)) : []
+
+/**
+ * A case's input files that are not its pictures, as the form lists them: one
+ * entry for each file or folder right in its `files/`, less the ones the draft
+ * takes out, with the ones it adds. One added under a name already there
+ * takes its place.
+ */
+export function inputEntries(
+  c: Pick<Case, 'files' | 'dir'> | null,
+  draft: Pick<CaseDraft, 'added' | 'removed'>,
+): InputEntry[] {
+  const added = draft.added ?? []
+  const gone = new Set([...(draft.removed ?? []), ...added.map((a) => a.name)])
+  const saved = new Map<string, InputEntry>()
+  for (const file of c?.files ?? []) {
+    if (isPicture(c ?? { dir: null }, file)) continue
+    const path = inputName(c ?? { dir: null }, file)
+    const [name] = path.split('/')
+    if (gone.has(name)) continue
+    const entry = saved.get(name) ?? { name, files: 0, folder: path !== name, added: false }
+    entry.files += 1
+    saved.set(name, entry)
+  }
+  return [
+    ...saved.values(),
+    ...added.map((a) => ({ name: a.name, files: a.files, folder: a.folder, added: true })),
+  ]
 }
 
 const savedPicture = (file: string): ImageRef => ({
@@ -33,6 +68,8 @@ export const draftOf = (c: Case): CaseDraft => ({
   phone: c.bench.phone === true,
   size: c.bench.size ?? null,
   images: picturesOf(c).map(savedPicture),
+  added: [],
+  removed: [],
   graders: c.graders.map((g) => ({
     id: g.id,
     statement: g.statement,
@@ -75,6 +112,8 @@ export const blankDraft = (): CaseDraft => ({
   phone: false,
   size: null,
   images: [],
+  added: [],
+  removed: [],
   graders: [newCheck()],
 })
 

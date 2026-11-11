@@ -8,8 +8,9 @@
  * case, so moving between cases, screens or skills never loses typing.
  */
 
-import { blankDraft, draftOf, newCaseId, picturesOf, sizeProblem } from '@domain/case-draft.ts'
+import { blankDraft, draftOf, inputEntries, newCaseId, sizeProblem } from '@domain/case-draft.ts'
 import { addImages, MAX_IMAGES } from '@domain/image.ts'
+import type { InputEntry } from '@domain/inputs.ts'
 import { type CaseDraft, NEW_CASE_KEY } from '@domain/schemas.ts'
 import {
   CASE_PROMPT_HINT,
@@ -26,6 +27,7 @@ import { CheckList } from '../components/CheckList.tsx'
 import { Disclosure } from '../components/Disclosure.tsx'
 import { DraftNote } from '../components/DraftNote.tsx'
 import { CheckRow, InlineField, NumberInput } from '../components/forms.tsx'
+import { InputList, InputPicker } from '../components/InputFiles.tsx'
 import {
   Column,
   ColumnBody,
@@ -33,7 +35,6 @@ import {
   ColumnTitle,
   Field,
   FormSection,
-  List,
   ListHeader,
   Loading,
   PlainList,
@@ -55,14 +56,10 @@ import type { Ctx } from '../ctx.ts'
 import { caseUnsaved, formDraft, unsavedCases } from '../draft-edits.ts'
 import { useAction } from '../hooks.ts'
 import { useAddPictures } from '../images.ts'
+import { useAddInputs } from '../inputs.ts'
 import { shortcut } from '../keys.ts'
 import { checksGraded, kindsLine, listLine, plural } from '../model.ts'
 import { caseKey } from '../route.ts'
-
-const nameOf = (path: string): string => path.split('/').at(-1) ?? path
-/** An input file as the agent finds it: by its path inside the case's `files/`, or its name when it is kept elsewhere. */
-const inputName = (path: string, filesDir: string | null): string =>
-  filesDir && path.startsWith(filesDir) ? path.slice(filesDir.length) : nameOf(path)
 
 /** The host's refusal of a save over a case that was written since the draft began. */
 const CHANGED_ON_DISK = /changed on disk/
@@ -180,6 +177,27 @@ export const Cases = memo(function Cases({ ctx }: { ctx: Ctx }) {
         form.stamp,
       )
     },
+    `${skill}\n${key}`,
+  )
+  // A file or folder takes a moment to read, too, and joins the case it was picked for the same way.
+  // One under a name the case has already takes its place.
+  const files = useAddInputs(
+    (added, scope) => {
+      const [forSkill = '', at = ''] = scope.split('\n')
+      const form = forSkill === currentSkill() ? formOf(at) : null
+      if (!form) return
+      const names = new Set(added.map((a) => a.name))
+      const next = {
+        ...form.draft,
+        added: [...(form.draft.added ?? []).filter((a) => !names.has(a.name)), ...added],
+      }
+      drafts.setCase(
+        at,
+        JSON.stringify(next) === JSON.stringify(form.base) ? null : next,
+        form.stamp,
+      )
+    },
+    pictures.add,
     `${skill}\n${key}`,
   )
   /** A picture dropped anywhere on the case joins its pictures. */
@@ -308,11 +326,18 @@ export const Cases = memo(function Cases({ ctx }: { ctx: Ctx }) {
     ...(drawn ? ['size'] : []),
   ])
   /** The case's input files that are not its pictures, which the form shows above. */
-  const otherFiles = selected ? selected.files.filter((f) => !picturesOf(selected).includes(f)) : []
+  /** The files and folders the agent gets beside the prompt, as the draft leaves them. */
+  const inputs = inputEntries(selected ?? null, draft)
   /** The saved case's own `files/` folder, in the skill: where another input file goes. */
   const caseDir = selected?.dir ?? null
-  const filesDir = caseDir ? `${caseDir}/files/` : null
   const { openCaseFiles } = api
+  /** Take a file or folder off: one not saved yet goes from the draft, a saved one on the next save. */
+  const removeInput = (entry: InputEntry) =>
+    set(
+      entry.added
+        ? { added: (draft.added ?? []).filter((a) => a.name !== entry.name) }
+        : { removed: [...(draft.removed ?? []), entry.name] },
+    )
 
   // The stored drafts are still being read: the form waits, so nothing is typed over a draft not shown yet.
   if (drafts.status === 'loading') return <Loading size="screen" />
@@ -529,6 +554,37 @@ export const Cases = memo(function Cases({ ctx }: { ctx: Ctx }) {
                   <Hint>Screenshots or mock-ups the prompt is about. Drop them anywhere here.</Hint>
                 )}
               </Field>
+
+              <Field role="group" aria-labelledby="case-files">
+                <Label id="case-files" optional>
+                  Files
+                </Label>
+                <InputList entries={inputs} adding={files.adding} onRemove={removeInput} />
+                <Toolbar>
+                  <InputPicker onFiles={files.addFiles} onFolder={files.addFolder} />
+                  {caseDir && openCaseFiles ? (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => void openCaseFiles(skill, caseDir).catch(report)}
+                    >
+                      Show folder
+                    </Button>
+                  ) : null}
+                </Toolbar>
+                {files.error ? (
+                  <Hint tone="destructive" role="alert">
+                    {files.error}
+                  </Hint>
+                ) : (
+                  <Hint>
+                    The agent works in an empty folder with the skill, this prompt and these files,
+                    never your project. Add a copy of what the prompt is about, such as a screen's
+                    code or its design tokens.
+                  </Hint>
+                )}
+              </Field>
             </FormSection>
 
             <Disclosure
@@ -672,36 +728,6 @@ export const Cases = memo(function Cases({ ctx }: { ctx: Ctx }) {
                 ) : null}
               </FormSection>
             </Disclosure>
-
-            {filesDir || otherFiles.length ? (
-              <FormSection
-                layout="stacked"
-                title="Input files"
-                hint="The agent sees only the skill, the prompt and these files, never your project. Copy in anything the prompt is about."
-              >
-                {otherFiles.length ? (
-                  <List size="xs" font="mono">
-                    {otherFiles.map((f) => (
-                      <li key={f}>{inputName(f, filesDir)}</li>
-                    ))}
-                  </List>
-                ) : null}
-                {caseDir && openCaseFiles ? (
-                  <Toolbar>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => void openCaseFiles(skill, caseDir).catch(report)}
-                    >
-                      Show folder
-                    </Button>
-                  </Toolbar>
-                ) : filesDir ? (
-                  <Hint>The folder is {filesDir.slice(0, -1)}, in the skill.</Hint>
-                ) : null}
-              </FormSection>
-            ) : null}
 
             {selected?.dir ? (
               <FormSection layout="stacked" title="Delete this case">

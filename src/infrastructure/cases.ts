@@ -1,6 +1,7 @@
 import {
   constants,
   copyFileSync,
+  cpSync,
   existsSync,
   mkdirSync,
   readFileSync,
@@ -375,9 +376,21 @@ export const readSkillFile = (skillDir: string, rel: string): string | null => {
   }
 }
 
+/** Where a save finds what was added to a case and is kept until then: pictures, and picked files and folders. */
+export interface Uploads {
+  picture: (id: string) => string
+  /** The folder that holds the pick under its own name. */
+  input: (id: string) => string
+}
+
 /** For a caller with no uploads to give, such as one writing a sample case. */
-const noUploads = (): never => {
-  throw new Error('This case names a picture that was never added.')
+const NO_UPLOADS: Uploads = {
+  picture: () => {
+    throw new Error('This case names a picture that was never added.')
+  },
+  input: () => {
+    throw new Error('This case names a file that was never added.')
+  },
 }
 
 /** The format of a kept picture, from its file name. */
@@ -413,11 +426,13 @@ export function caseSavedAt(skillDir: string, rel: string): string | null {
  * a newer save; left out, no check is made. A legacy `evals.json` case has no
  * folder to check.
  *
- * Pictures the agent gets go right in `files/`, beside any other input file or
- * folder, which the writer puts there and the form leaves alone, and a
- * check's reference picture in `references/`, named after its check. A picture
- * just added is copied from where `uploadPath` says its upload is; one the
- * draft no longer lists is removed.
+ * Pictures the agent gets go right in `files/`, beside its other input files
+ * and folders, and a check's reference picture in `references/`, named after
+ * its check. A picture just added is copied from where `uploads` says it is
+ * kept; one the draft no longer lists is removed. A file or folder the draft
+ * adds is copied in the same way, in place of one with its name, and one it
+ * removes goes. Any other file in `files/`, such as one put there by hand, is
+ * left alone.
  *
  * The save is refused before anything is written when the case folder, one
  * of its folders, its prompt, its `case.yaml` or a check it holds is reached
@@ -427,7 +442,7 @@ export function saveCase(
   skillDir: string,
   input: CaseDraft,
   isNew: boolean,
-  uploadPath: (id: string) => string = noUploads,
+  uploads: Uploads = NO_UPLOADS,
   expectedSavedAt?: string | null,
 ): string {
   if (!isSlug(input.id)) throw new Error(SLUG_RULE)
@@ -457,6 +472,17 @@ export function saveCase(
     listFiles(graderDir, (f) => f.endsWith('.md')).map((f) => f.replace(/\.md$/, '')),
   )
   for (const id of taken) inside(join(graderDir, `${id}.md`))
+  /** A file or folder right in `files/`, by a name the draft gave: one part, and inside the skill. */
+  const entry = (name: string): string => {
+    if (name.includes('/')) throw new Error(`Bad input file ${name}.`)
+    return inside(join(filesDir, assertSafePath(name, 'input file')))
+  }
+  const removed = (input.removed ?? []).map(entry)
+  const added = (input.added ?? []).map((pick) => {
+    const source = join(uploads.input(pick.upload), pick.name)
+    if (!present(source)) throw new Error(`${pick.name} is no longer kept. Add it again.`)
+    return { source, dest: entry(pick.name) }
+  })
   const write = (path: string, text: string): void => writeText(path, text, { root: skillDir })
   mkdirSync(graderDir, { recursive: true })
 
@@ -491,7 +517,7 @@ export function saveCase(
     if (imageTypeOf(name) && !wanted.has(name)) rmSync(join(filesDir, name))
   for (const image of input.images) {
     if (!image.upload) continue
-    const source = uploadPath(image.upload)
+    const source = uploads.picture(image.upload)
     mkdirSync(filesDir, { recursive: true })
     const base = imageFileName(image.name, formatOf(source))
     let name = base
@@ -499,6 +525,14 @@ export function saveCase(
       name = base.replace(/(\.\w+)$/, `-${n}$1`)
     // A new file, never through a link that was there.
     copyFileSync(source, join(filesDir, name), constants.COPYFILE_EXCL)
+  }
+  // A file or folder added under a name already there takes its place: picking a screen's folder
+  // again brings its copy up to date. Removing a link removes the link alone.
+  for (const path of removed) rmSync(path, { recursive: true, force: true })
+  for (const { source, dest } of added) {
+    rmSync(dest, { recursive: true, force: true })
+    mkdirSync(filesDir, { recursive: true })
+    cpSync(source, dest, { recursive: true })
   }
 
   const references = new Set<string>()
@@ -520,7 +554,7 @@ export function saveCase(
     if (weight === 1) delete meta.weight
     else meta.weight = weight
     if (g.image?.upload) {
-      const source = uploadPath(g.image.upload)
+      const source = uploads.picture(g.image.upload)
       mkdirSync(referenceDir, { recursive: true })
       const name = `${id}.${formatOf(source)}`
       // The check's picture replaces whatever had its name, a link included, and writes through none.

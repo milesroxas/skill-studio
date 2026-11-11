@@ -12,7 +12,7 @@ Everything Skill Studio knows about a skill is plain files in the skill's `evals
     cases/<case>/prompt.md        the task; front matter: tags, max_turns, timeout_seconds, allowed_tools
     cases/<case>/case.yaml        title, expected_outcome, bench
     cases/<case>/graders/*.md     one check each; front matter: type (llm when absent), focus, weight (1 to 5, 1 when absent), image
-    cases/<case>/files/           input files, folders and pictures the agent gets, laid out as they are here
+    cases/<case>/files/           input files, folders and pictures the agent gets, laid out as they are here; only the images right in it are the case's pictures
     cases/<case>/references/      pictures a check is about
     <case>/                       a case folder may also sit here, below
     evals.json                    cases in skill-creator's `evals.json` shape, read when no folder has the same id
@@ -100,6 +100,7 @@ A run's configuration says which skill the agent saw:
 | `claude-commands.json` | The skills Claude Code can invoke, for the side panel's slash menu, with the modification times of the folders they were read from |
 | `agents.json` | The agents each running copy (the app's backend, `st`) has started, under the copy that started it, so a copy that starts after another crashed can end that copy's agents |
 | `uploads/` | Pictures added but not yet saved in a case. One nothing has read for 30 days is removed when the next picture is uploaded |
+| `uploads/inputs/` | Files and folders added to a case and not saved yet, one folder for each pick. One nothing has used for 30 days is removed when the next is added |
 | `trash/` | The last deleted version or run, until the next delete: `<uuid>/entry.json` (the skill, the version, its run names, and the corrections that went with them; `kind: "run"` for one run, with `kept` when the delete saved the run's version), `version/` and `runs/<run>/`. An entry marked `unfinished` belongs to a delete or an undo that stopped partway and could not put everything back, and no later delete empties it: the error said what to move where |
 
 When `library.json` is absent, `~/.skill-tester/library.json` is read in its place. With no saved workspaces, the Library scans none: it lists the user's own skills until a folder is added. Any other key in the file, such as an older `others` list, is ignored and dropped on the next save.

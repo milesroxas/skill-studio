@@ -7,8 +7,9 @@ import { createHash } from 'node:crypto'
 import { mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs'
 import { basename, join } from 'node:path'
 import { type PageRenderer, RENDER_SIZES, type RenderSize } from '@domain/artifact-address.ts'
+import { isPicture } from '@domain/case-draft.ts'
 import { mergeConfig } from '@domain/config.ts'
-import { imageTypeOf, PICTURE_HEAD_BYTES, pictureSize } from '@domain/image.ts'
+import { PICTURE_HEAD_BYTES, pictureSize } from '@domain/image.ts'
 import { primaryArtifact } from '@domain/primary.ts'
 import type { Rule } from '@domain/rules.ts'
 import { parseSampleDir } from '@domain/run-name.ts'
@@ -193,7 +194,9 @@ const requestPictures = (
   testCase: Case | null,
 ): Array<[string, string | null]> =>
   testCase
-    ? testCase.files.filter(imageTypeOf).map((rel) => [rel, requestPicture(ctx, testCase, rel)])
+    ? testCase.files
+        .filter((rel) => isPicture(testCase, rel))
+        .map((rel) => [rel, requestPicture(ctx, testCase, rel)])
     : []
 
 /**
