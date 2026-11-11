@@ -4,12 +4,11 @@ import {
   AGENTS,
   type AgentId,
   isInProgress,
-  isInstalled,
   isPractice,
   type LibrarySkill,
 } from '@domain/library.ts'
-import { FolderOpenIcon, PlusIcon } from 'lucide-react'
-import { useEffect, useMemo, useState } from 'react'
+import { CheckIcon, FolderOpenIcon, PlusIcon } from 'lucide-react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { api, type Job } from '../api.ts'
 import type { Confirm } from '../components/confirm.tsx'
 import { Disclosure } from '../components/Disclosure.tsx'
@@ -25,7 +24,7 @@ import {
   SectionHead,
   Toolbar,
 } from '../components/layout.tsx'
-import { Segmented } from '../components/Segmented.tsx'
+import { RowAction, RowActions } from '../components/RowActions.tsx'
 import { SelectBox } from '../components/SelectBox.tsx'
 import { Invitation } from '../components/starters.tsx'
 import { Heading, Hint, Text, VisuallyHidden } from '../components/text.tsx'
@@ -67,23 +66,23 @@ interface Props {
 /**
  * Run one change to the library and say what it did. `key` names what the
  * change is about, such as a skill's path: its controls stay busy until the
- * work lands, so nothing can be pressed twice.
+ * work lands, so nothing can be pressed twice. True when it landed.
  */
-type Act = (work: Promise<unknown>, done: string, key?: string) => Promise<void>
+type Act = (
+  work: Promise<unknown>,
+  done: string,
+  key?: string,
+  undo?: () => void,
+) => Promise<boolean>
 
-/** Whose skills the list shows: written here, installed from elsewhere, or both. */
-type View = 'yours' | 'installed' | 'all'
+/** Take a skill out of In progress (`done`), or put it back. */
+type MarkDone = (skill: LibrarySkill, done: boolean) => Promise<void>
 
-const VIEWS: ReadonlyArray<{ value: View; label: string; title: string }> = [
-  { value: 'yours', label: 'Yours', title: 'Skills you wrote' },
-  { value: 'installed', label: 'Installed', title: 'Skills installed from elsewhere' },
-  { value: 'all', label: 'All', title: 'Every skill' },
-]
-
-const VIEW_HEADING: Record<View, string> = {
-  yours: 'Your skills',
-  installed: 'Installed skills',
-  all: 'All skills',
+/** The set without `path`. */
+const without = (held: ReadonlySet<string>, path: string): ReadonlySet<string> => {
+  const left = new Set(held)
+  left.delete(path)
+  return left
 }
 
 export function LibraryScreen({
@@ -99,9 +98,12 @@ export function LibraryScreen({
   const lib = useFetch(scanLibrary, [])
   const [query, setQuery] = useState('')
   const [place, setPlace] = useState('')
-  const [view, setView] = useState<View>('yours')
   /** The skills a change is on its way for, by path: each one's row waits for its own. */
   const [pending, setPending] = useState<ReadonlySet<string>>(() => new Set())
+  /** Rows fading out of In progress while their change is saved. */
+  const [leaving, setLeaving] = useState<ReadonlySet<string>>(() => new Set())
+  /** The row that just moved between lists, written in where it lands. */
+  const [arrived, setArrived] = useState<string | null>(null)
   const [starting, startPractice] = useStartPractice((path) => void openSkill(path), report)
 
   // Skills are made and installed outside the app, so coming back to the window reads them again.
@@ -111,7 +113,15 @@ export function LibraryScreen({
     return () => window.removeEventListener('focus', rescan)
   }, [rescan])
 
+  /** Read when a scan lands, so a row still being saved keeps its fade. */
+  const saving = useRef(pending)
+  saving.current = pending
+
   const data = lib.data
+  // A row leaves its list once the scan without it lands: until then it stays faded.
+  useEffect(() => {
+    if (data) setLeaving((held) => new Set([...held].filter((path) => saving.current.has(path))))
+  }, [data])
   const matches = useMemo(() => {
     const q = query.trim().toLowerCase()
     return (data?.skills ?? []).filter(
@@ -138,31 +148,47 @@ export function LibraryScreen({
   if (!data) return <Loading size="screen" />
 
   const filtering = Boolean(query.trim() || place)
-  const working = data.skills.filter(isInProgress)
-  const anyInstalled = data.skills.some(isInstalled)
-  const listed =
-    view === 'all' ? matches : matches.filter((s) => isInstalled(s) === (view === 'installed'))
+  /** Split into In progress and the rest, so each skill is listed once. A search lists every match. */
+  const working = filtering ? [] : data.skills.filter(isInProgress)
+  const listed = filtering ? matches : data.skills.filter((s) => !isInProgress(s))
   const placeCount = new Set(listed.map((s) => s.scope)).size
   const practised = data.skills.some(isPractice)
   /** Nobody has run anything here yet: lead with the practice skill, and let New skill step back. */
   const inviting = !practised && !data.skills.some((s) => s.runs > 0)
 
-  const act: Act = async (work, done, key) => {
+  const act: Act = async (work, done, key, undo) => {
     if (key) setPending((held) => new Set(held).add(key))
     try {
       await work
-      report(done)
+      report(done, undo ? { undo } : undefined)
       lib.reload()
+      return true
     } catch (e) {
       report(e as Error)
+      return false
     } finally {
-      if (key)
-        setPending((held) => {
-          const left = new Set(held)
-          left.delete(key)
-          return left
-        })
+      if (key) setPending((held) => without(held, key))
     }
+  }
+
+  const markDone: MarkDone = async (skill, done) => {
+    if (done) setLeaving((held) => new Set(held).add(skill.path))
+    const landed = await act(
+      api.markDone(skill.path, done),
+      done ? `Marked ${skill.name} done` : `${skill.name} is back in progress`,
+      skill.path,
+      done ? () => void markDone(skill, false) : undefined,
+    )
+    if (landed) setArrived(skill.path)
+    // A failed save brings the row back: its fade is a transition, so it turns round.
+    else setLeaving((held) => without(held, skill.path))
+  }
+
+  /** What each table needs to draw a row moving between lists. */
+  const motion = {
+    leaving,
+    arrived,
+    settle: (path: string) => setArrived((now) => (now === path ? null : now)),
   }
 
   if (creating)
@@ -220,15 +246,6 @@ export function LibraryScreen({
               none="Every place"
               options={data.places.map((p) => ({ value: p.scope, label: p.label }))}
             />
-            {anyInstalled ? (
-              <Segmented
-                aria-label="Whose skills"
-                size="default"
-                value={view}
-                onChange={(v) => v && setView(v)}
-                options={VIEWS}
-              />
-            ) : null}
           </>
         }
         actions={
@@ -246,14 +263,14 @@ export function LibraryScreen({
         }
       />
 
-      {working.length &&
-      working.length < data.skills.length &&
-      !filtering &&
-      view !== 'installed' ? (
+      {working.length ? (
         <Section>
           <SectionHead>
             <Heading level={2}>In progress</Heading>
-            <Hint>Skills with cases or runs, and ones you opened here.</Hint>
+            <Hint>
+              Skills you opened, or gave cases or runs. Mark one done to move it below until you
+              work on it again.
+            </Hint>
           </SectionHead>
           <SkillTable
             jobs={jobs}
@@ -263,73 +280,63 @@ export function LibraryScreen({
             act={act}
             pending={pending}
             confirm={confirm}
+            motion={motion}
+            markDone={markDone}
           />
         </Section>
       ) : null}
 
-      <Section>
-        {/* An empty library has one thing to say, and the empty state under here says it. */}
-        {data.skills.length ? (
-          <SectionHead>
-            <Heading level={2}>{filtering ? 'Matches' : VIEW_HEADING[view]}</Heading>
-            {listed.length ? (
-              <Text tone="muted" size="xs" tabular>
-                {filtering ? listed.length : `${listed.length} in ${plural(placeCount, 'place')}`}
-              </Text>
-            ) : null}
-          </SectionHead>
-        ) : null}
-        {listed.length ? (
-          <SkillTable
-            jobs={jobs}
-            skills={listed}
-            openSkill={openSkill}
-            reveal={reveal}
-            act={act}
-            pending={pending}
-            confirm={confirm}
-          />
-        ) : filtering ? (
-          <EmptyState size="compact" title="No matches">
-            Try another word, or every place.
-          </EmptyState>
-        ) : data.skills.length ? (
-          <EmptyState
-            size="compact"
-            title={
-              view === 'yours' ? 'No skills of your own yet' : 'Nothing installed from elsewhere'
-            }
-            actions={
-              view === 'yours' ? (
-                <Button type="button" onClick={() => setCreating(true)}>
+      {/* Every skill is in progress: the list above holds them all. */}
+      {listed.length || filtering || !data.skills.length ? (
+        <Section>
+          {/* An empty library has one thing to say, and the empty state under here says it. */}
+          {data.skills.length ? (
+            <SectionHead>
+              <Heading level={2}>
+                {filtering ? 'Matches' : working.length ? 'Other skills' : 'All skills'}
+              </Heading>
+              {listed.length ? (
+                <Text tone="muted" size="xs" tabular>
+                  {filtering ? listed.length : `${listed.length} in ${plural(placeCount, 'place')}`}
+                </Text>
+              ) : null}
+            </SectionHead>
+          ) : null}
+          {listed.length ? (
+            <SkillTable
+              jobs={jobs}
+              skills={listed}
+              openSkill={openSkill}
+              reveal={reveal}
+              act={act}
+              pending={pending}
+              confirm={confirm}
+              motion={motion}
+            />
+          ) : filtering ? (
+            <EmptyState size="compact" title="No matches">
+              Try another word, or every place.
+            </EmptyState>
+          ) : (
+            <EmptyState
+              size="compact"
+              title="No skills yet"
+              actions={
+                <Button
+                  type="button"
+                  variant={inviting ? 'outline' : 'default'}
+                  onClick={() => setCreating(true)}
+                >
                   New skill
                 </Button>
-              ) : null
-            }
-          >
-            {view === 'yours'
-              ? 'Every skill found here was installed from elsewhere. Those are under Installed.'
-              : 'Skills from a lock file, and ones you mark as not yours, are listed here.'}
-          </EmptyState>
-        ) : (
-          <EmptyState
-            size="compact"
-            title="No skills yet"
-            actions={
-              <Button
-                type="button"
-                variant={inviting ? 'outline' : 'default'}
-                onClick={() => setCreating(true)}
-              >
-                New skill
-              </Button>
-            }
-          >
-            A skill is a SKILL.md an agent loads when a task calls for it. Start one here, or add a
-            folder below where your skills already live.
-          </EmptyState>
-        )}
-      </Section>
+              }
+            >
+              A skill is a SKILL.md an agent loads when a task calls for it. Start one here, or add
+              a folder below where your skills already live.
+            </EmptyState>
+          )}
+        </Section>
+      ) : null}
 
       <Places
         workspaces={data.workspaces}
@@ -368,6 +375,8 @@ function SkillTable({
   pending,
   confirm,
   jobs,
+  motion,
+  markDone,
 }: {
   skills: LibrarySkill[]
   openSkill: Props['openSkill']
@@ -377,16 +386,26 @@ function SkillTable({
   pending: ReadonlySet<string>
   confirm: Confirm
   jobs: Props['jobs']
+  motion: {
+    leaving: ReadonlySet<string>
+    arrived: string | null
+    /** The arrived row has finished writing itself in. */
+    settle: (path: string) => void
+  }
+  /** In progress only: each row can be marked done. */
+  markDone?: MarkDone
 }) {
-  const toggle = async (s: LibrarySkill, agent: AgentId, label: string) => {
-    if (s.installs[agent] === null)
-      return act(api.link(s.path, agent, s.scope), `Installed for ${label}`, s.path)
+  const toggle = async (s: LibrarySkill, agent: AgentId, label: string): Promise<void> => {
+    if (s.installs[agent] === null) {
+      await act(api.link(s.path, agent, s.scope), `Installed for ${label}`, s.path)
+      return
+    }
     const ok = await confirm({
       title: `Uninstall ${s.name} from ${label}?`,
       description: 'Only the link is removed.',
       action: 'Uninstall',
     })
-    if (ok) act(api.unlink(s.path, agent, s.scope), `Removed from ${label}`, s.path)
+    if (ok) await act(api.unlink(s.path, agent, s.scope), `Removed from ${label}`, s.path)
   }
 
   return (
@@ -404,7 +423,7 @@ function SkillTable({
           <TableHead trailing col="xs" fold="last">
             Edited
           </TableHead>
-          <TableHead trailing col={reveal ? 'lg' : 'sm'} fold="first">
+          <TableHead trailing col={reveal ? 'lg' : 'sm'} fold="menu">
             <VisuallyHidden>Actions</VisuallyHidden>
           </TableHead>
         </TableRow>
@@ -415,6 +434,14 @@ function SkillTable({
             key={s.path}
             align="baseline"
             interactive
+            motion={
+              markDone && motion.leaving.has(s.path)
+                ? 'leaving'
+                : motion.arrived === s.path
+                  ? 'arrived'
+                  : 'none'
+            }
+            onAnimationEnd={(e) => e.target === e.currentTarget && motion.settle(s.path)}
             onClick={rowAction(() => void openSkill(s.path))}
           >
             <TableCell wrap>
@@ -438,7 +465,7 @@ function SkillTable({
               <Text block truncate size="xs" title={s.scopeLabel}>
                 {shortPlace(s.scopeLabel)}
               </Text>
-              {s.source && s.source !== 'marked' ? (
+              {s.source ? (
                 <Text block truncate tone="muted" size="xs" title={s.source}>
                   {s.source}
                 </Text>
@@ -492,44 +519,28 @@ function SkillTable({
                 {shortDate(s.modified)}
               </Text>
             </TableCell>
-            <TableCell trailing fold="first">
-              <Toolbar gap="xs" justify="end" wrap={false} line>
-                {isPractice(s) || (s.source !== null && s.source !== 'marked') ? null : (
-                  <Button
-                    type="button"
-                    variant="ghost-muted"
-                    size="sm"
-                    title={
-                      s.source
-                        ? 'List it with your own skills again'
-                        : 'List it with the skills installed from elsewhere'
-                    }
-                    disabled={pending.has(s.path)}
-                    aria-busy={pending.has(s.path) || undefined}
-                    onClick={() =>
-                      act(
-                        api.mark(s.path, !s.source),
-                        s.source ? 'Listed with your skills' : 'Listed with installed skills',
-                        s.path,
-                      )
-                    }
+            <TableCell trailing fold="menu">
+              <RowActions subject={s.name}>
+                {markDone ? (
+                  <RowAction
+                    icon={<CheckIcon aria-hidden="true" />}
+                    title="Move it out of In progress. Editing or running it brings it back."
+                    busy={pending.has(s.path)}
+                    onSelect={() => void markDone(s, true)}
                   >
-                    {s.source ? 'Mine' : 'Not mine'}
-                  </Button>
-                )}
-                {reveal ? (
-                  <Button
-                    type="button"
-                    variant="ghost-muted"
-                    size="icon-sm"
-                    aria-label={`${REVEAL_LABEL}: ${s.name}`}
-                    title={REVEAL_LABEL}
-                    onClick={() => reveal(s.path)}
-                  >
-                    <FolderOpenIcon aria-hidden="true" />
-                  </Button>
+                    Mark done
+                  </RowAction>
                 ) : null}
-              </Toolbar>
+                {reveal ? (
+                  <RowAction
+                    icon={<FolderOpenIcon aria-hidden="true" />}
+                    show="icon"
+                    onSelect={() => reveal(s.path)}
+                  >
+                    {REVEAL_LABEL}
+                  </RowAction>
+                ) : null}
+              </RowActions>
             </TableCell>
           </TableRow>
         ))}

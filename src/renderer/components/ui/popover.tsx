@@ -39,6 +39,8 @@ const popoverContentVariants = cva(
         note: 'flex w-64 flex-col gap-1 px-3 py-2.5',
         /** The list under a field (`ComboBox`): as wide as the field it opens from. */
         field: 'flex w-(--radix-popover-trigger-width) min-w-40 flex-col p-0',
+        /** The actions a narrow table's row folds away (`RowActions`): as wide as its longest. */
+        actions: 'flex w-max min-w-44 flex-col gap-px p-1',
         /** A row of actions over a selection in the editor: as wide as its buttons. */
         selection: 'flex w-auto flex-row items-center gap-0.5 p-1',
       },
@@ -122,7 +124,7 @@ function PopoverAction({
     <button
       type="button"
       className={cn(
-        'flex min-h-8 items-center gap-2 rounded-sm px-2 text-left text-ui focus-ring-inset transition-[background-color] duration-150 ease-out hover:bg-accent pointer-coarse:min-h-11 [&_svg]:size-4 [&_svg]:shrink-0 [&_svg]:text-muted-foreground',
+        'flex min-h-8 items-center gap-2 rounded-sm px-2 text-left text-ui focus-ring-inset transition-[background-color] duration-150 ease-out hover:bg-accent disabled:pointer-events-none disabled:opacity-50 pointer-coarse:min-h-11 [&_svg]:size-4 [&_svg]:shrink-0 [&_svg]:text-muted-foreground',
         className,
       )}
       {...props}

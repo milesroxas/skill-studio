@@ -33,7 +33,6 @@ const project = join(HOME, 'work', 'acme-app')
 mkdirSync(join(project, '.agents', 'skills'), { recursive: true })
 writeJson(join(HOME, '.skill-studio', 'library.json'), {
   workspaces: [join(HOME, 'work')],
-  others: [],
   recent: [],
 })
 // The pictures show the screens as they are in daily use: past the welcome, with no first-visit hints.

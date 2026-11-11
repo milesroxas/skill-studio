@@ -25,7 +25,7 @@ import {
 import { isLookStep, type LookStep, PRACTICE } from '@domain/practice.ts'
 import { templateById } from '@domain/templates.ts'
 import { isSlug, SLUG_RULE } from '@domain/text.ts'
-import { countCases, saveCase } from './cases.ts'
+import { casesChanged, countCases, saveCase } from './cases.ts'
 import { isDir, isFile, linkDir, listDirs, readJson, realOf, realPath, writeJson } from './fs.ts'
 import { newSkill, skillHead } from './skill.ts'
 
@@ -48,18 +48,18 @@ export const OLD_SETTINGS = join(HOME, '.skill-tester', 'library.json')
 interface Settings {
   /** Folders whose projects are scanned. */
   workspaces: string[]
-  /** Skills without a lock entry that are someone else's all the same. */
-  others: string[]
   /** Skills opened here, newest first. */
   recent: string[]
+  /** When each skill was marked done, by its real path. Work after that time brings it back. */
+  done: Record<string, string>
 }
 
 function loadSettings(): Settings {
   const saved = readJson<Partial<Settings>>(isFile(SETTINGS) ? SETTINGS : OLD_SETTINGS, {})
   return {
     workspaces: saved.workspaces ?? [],
-    others: saved.others ?? [],
     recent: saved.recent ?? [],
+    done: saved.done ?? {},
   }
 }
 
@@ -250,6 +250,28 @@ function installOf(group: Entry[], agent: AgentId, primary: Entry): Install {
   return entry.link ? 'link' : 'here'
 }
 
+const mtime = (path: string): number => {
+  try {
+    return statSync(path).mtimeMs
+  } catch {
+    return 0
+  }
+}
+
+/**
+ * When the skill was last worked on: SKILL.md saved, a run made, a case added
+ * or changed. Read from the files themselves, so work done outside the app
+ * counts too.
+ */
+const lastWorked = (real: string): number =>
+  Math.max(mtime(join(real, 'SKILL.md')), mtime(join(real, 'evals', 'runs')), casesChanged(real))
+
+/** Marked done, and not worked on since. */
+const isDone = (real: string, settings: Settings): boolean => {
+  const at = settings.done[real]
+  return at !== undefined && lastWorked(real) <= Date.parse(at)
+}
+
 function caseCount(dir: string): number {
   try {
     return countCases(dir)
@@ -273,9 +295,8 @@ function toSkill(
       AGENTS.map((a) => [a.id, installOf(group, a.id, primary)]),
     ) as Record<AgentId, Install>,
     copies: [...new Set(group.filter((e) => e.real !== real).map((e) => e.real))],
-    source:
-      context.locks.get(place.scope)?.[primary.name] ??
-      (context.settings.others.includes(real) ? 'marked' : null),
+    source: context.locks.get(place.scope)?.[primary.name] ?? null,
+    done: isDone(real, context.settings),
     cases: caseCount(real),
     runs: listDirs(join(real, 'evals', 'runs')).length,
     modified: statSync(join(real, 'SKILL.md')).mtime.toISOString(),
@@ -379,10 +400,24 @@ export function setWorkspaces(list: string[]): string[] {
   }).workspaces.map(tilde)
 }
 
-/** List a skill with installed ones (`theirs`), or with yours again. */
-export function markOthers(path: string, theirs: boolean): void {
+/** Take a skill out of In progress (`done`), or put it back. */
+export function markDone(path: string, done: boolean): void {
   const real = skillReal(path)
   updateSettings((s) => {
-    s.others = s.others.filter((p) => p !== real).concat(theirs ? [real] : [])
+    s.done = Object.fromEntries(Object.entries(s.done).filter(([p]) => p !== real))
+    if (done) s.done[real] = new Date().toISOString()
   })
+}
+
+/**
+ * The lock file's source for the skill at `path`, or null when no lock file
+ * names it: the source a tool reinstalls it from, replacing the folder.
+ */
+export function lockSource(path: string): string | null {
+  const real = realOf(path)
+  if (!real) return null
+  const place = placesOf(loadSettings()).find((p) =>
+    HOLDERS.some(({ dir }) => realOf(join(p.root, dir)) === dirname(real)),
+  )
+  return place ? (lockOf(place)[basename(real)] ?? null) : null
 }

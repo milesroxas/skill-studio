@@ -92,7 +92,7 @@ A run's configuration says which skill the agent saw:
 
 | Path | Holds |
 | --- | --- |
-| `library.json` | The workspace folders the Library scans, skills marked as someone else's, and skills opened recently |
+| `library.json` | The workspace folders the Library scans, skills opened recently, and when each skill was marked done (`done`, by path): a skill leaves In progress until its SKILL.md, a case or its runs change after that time |
 | `preferences.json` | `theme`, `motion`, `editorMode`, `welcomed`, `hints`, `hintsSeen`, `aiProvider`, `aiModel`, `aiEffort`, `updates` |
 | `drafts/` | Unsaved edits to files, cases and scoring, with when each drafted case was saved as its draft began, so a save over a case changed since is refused |
 | `practice/` | The walkthrough's skill, and `seen.json`: the walkthrough steps that only ask you to look at a screen, once you have |
@@ -102,6 +102,6 @@ A run's configuration says which skill the agent saw:
 | `uploads/` | Pictures added but not yet saved in a case. One nothing has read for 30 days is removed when the next picture is uploaded |
 | `trash/` | The last deleted version, until the next delete: `<uuid>/entry.json` (the skill, the version, its run names, and the corrections and picks that went with them), `version/` and `runs/<run>/`. An entry marked `unfinished` belongs to a delete or an undo that stopped partway and could not put everything back, and no later delete empties it: the error said what to move where |
 
-When `library.json` is absent, `~/.skill-tester/library.json` is read in its place. With no saved workspaces, the Library scans none: it lists the user's own skills until a folder is added.
+When `library.json` is absent, `~/.skill-tester/library.json` is read in its place. With no saved workspaces, the Library scans none: it lists the user's own skills until a folder is added. An older file's `others` list, from the Mine and Not mine buttons, is ignored and dropped on the next save.
 
 Stored API keys are not here: the desktop app keeps them encrypted in its own user data folder ([SECURITY.md](../SECURITY.md)).

@@ -6,6 +6,16 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+### Added
+
+- **Mark done** on a skill in In progress moves it down to Other skills, with Undo on the status line. Saving SKILL.md, adding or changing a case, or a new run brings it back, even when the change is made outside the app. Opening it does not.
+- On a narrow window, a Library row's actions fold into a **…** menu instead of disappearing.
+- The Skill screen says when a tool installed the skill from a lock file, and that updating it from there replaces the folder and your edits.
+
+### Removed
+
+- The Mine and Not mine buttons and the Yours, Installed and All switch in the Library. A skill is listed once: in In progress while you work on it, otherwise under Other skills. A skill a tool installed still shows its source under its place.
+
 ## [0.5.3] - 2026-11-10
 
 ### Changed

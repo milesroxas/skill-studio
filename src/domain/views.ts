@@ -100,6 +100,8 @@ export interface State {
   practice: boolean
   /** The walkthrough's look steps the reader has opened; empty for any other skill. */
   practiceSeen: string[]
+  /** The lock file's source when a tool installed this skill: an update from there replaces its folder. */
+  source: string | null
   skills: SkillInfo[]
   cases: Case[]
   runs: RunView[]

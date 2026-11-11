@@ -280,6 +280,15 @@ export function loadCases(skillDir: string): Case[] {
  * folder. For a list of many skills, where parsing every case of every skill
  * would be the whole cost.
  */
+/** The newest change to any case's prompt, or to `evals.json`, in ms; 0 with no cases. */
+export function casesChanged(skillDir: string): number {
+  const files = [
+    ...caseFolders(skillDir).map((rel) => join(skillDir, rel, 'prompt.md')),
+    join(skillDir, 'evals', 'evals.json'),
+  ]
+  return Math.max(0, ...files.map((file) => (isFile(file) ? statSync(file).mtimeMs : 0)))
+}
+
 export function countCases(skillDir: string): number {
   const ids = new Set(
     caseFolders(skillDir)

@@ -28,7 +28,7 @@ const buttonVariants = cva(
         signal: 'bg-signal text-signal-foreground hover:bg-signal/85',
         /** An action a row repeats, such as its remove: quieter than the row's text until pointed at. */
         'ghost-muted':
-          'text-muted-foreground hover:bg-accent hover:text-foreground focus-key:text-foreground dark:hover:bg-accent/50',
+          'text-muted-foreground hover:bg-accent hover:text-foreground focus-key:text-foreground data-[state=open]:bg-accent data-[state=open]:text-foreground dark:hover:bg-accent/50 dark:data-[state=open]:bg-accent/50',
         /**
          * A destructive action a row repeats, such as its delete: as quiet as the
          * row's other icons at rest, and red once pointed at or focused, so the

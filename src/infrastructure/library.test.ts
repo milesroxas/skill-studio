@@ -8,11 +8,12 @@ import {
   realpathSync,
   rmSync,
   symlinkSync,
+  utimesSync,
   writeFileSync,
 } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { PRACTICE_SCOPE } from '@domain/library.ts'
+import { isInProgress, PRACTICE_SCOPE } from '@domain/library.ts'
 import { PRACTICE, PRACTICE_EDIT } from '@domain/practice.ts'
 import { rulesFromSkill } from '@domain/rules.ts'
 import { templateById } from '@domain/templates.ts'
@@ -27,7 +28,8 @@ const {
   createSkill,
   isPracticeSkill,
   linkSkill,
-  markOthers,
+  lockSource,
+  markDone,
   markPracticeSeen,
   openPractice,
   practiceSeen,
@@ -95,6 +97,12 @@ describe('scanLibrary', () => {
       JSON.stringify({ skills: { caveman: { source: 'someone/caveman' } } }),
     )
     expect(rowOf('caveman').source).toBe('someone/caveman')
+    // The editor reads the same source for the open skill, through any agent's link to it.
+    mkdirSync(join(home, '.claude/skills'), { recursive: true })
+    symlinkSync(join(home, '.agents/skills/caveman'), join(home, '.claude/skills/caveman'))
+    expect(lockSource(join(home, '.claude/skills/caveman'))).toBe('someone/caveman')
+    writeSkill(join(home, '.agents/skills/mine'), 'mine')
+    expect(lockSource(join(home, '.agents/skills/mine'))).toBeNull()
   })
 
   it('keeps an open skill that lives outside every place', () => {
@@ -265,16 +273,59 @@ describe('linkSkill and unlinkSkill', () => {
 })
 
 describe('settings', () => {
-  it('remembers opened skills newest first, and marks skills as someone else’s', () => {
+  it('remembers opened skills newest first', () => {
     writeSkill(join(home, '.agents/skills/a'), 'a')
     writeSkill(join(home, '.agents/skills/b'), 'b')
     touchRecent(join(home, '.agents/skills/a'))
     touchRecent(join(home, '.agents/skills/b'))
     expect(rowOf('a').recent && rowOf('b').recent).toBe(true)
-    markOthers(rowOf('a').path, true)
-    expect(rowOf('a').source).toBe('marked')
-    markOthers(rowOf('a').path, false)
-    expect(rowOf('a').source).toBeNull()
+  })
+
+  it('takes a skill marked done out of In progress until it is worked on again', () => {
+    const dir = join(home, '.agents/skills/done')
+    writeSkill(dir, 'done')
+    // Written a minute ago, so the mark lands after it.
+    const before = new Date(Date.now() - 60_000)
+    utimesSync(join(dir, 'SKILL.md'), before, before)
+    touchRecent(dir)
+    expect(isInProgress(rowOf('done'))).toBe(true)
+
+    markDone(dir, true)
+    expect(rowOf('done').done).toBe(true)
+    expect(isInProgress(rowOf('done'))).toBe(false)
+    // Opening it again is not work on it.
+    touchRecent(dir)
+    expect(isInProgress(rowOf('done'))).toBe(false)
+
+    markDone(dir, false)
+    expect(isInProgress(rowOf('done'))).toBe(true)
+
+    markDone(dir, true)
+    const later = new Date(Date.now() + 60_000)
+    utimesSync(join(dir, 'SKILL.md'), later, later)
+    expect(isInProgress(rowOf('done'))).toBe(true)
+  })
+
+  it('counts a new run or case as work on a skill marked done', () => {
+    const dir = join(home, '.agents/skills/later')
+    writeSkill(dir, 'later')
+    const before = new Date(Date.now() - 60_000)
+    utimesSync(join(dir, 'SKILL.md'), before, before)
+    touchRecent(dir)
+    markDone(dir, true)
+    expect(rowOf('later').done).toBe(true)
+
+    const later = new Date(Date.now() + 60_000)
+    mkdirSync(join(dir, 'evals/runs/1'), { recursive: true })
+    utimesSync(join(dir, 'evals/runs'), later, later)
+    expect(rowOf('later').done).toBe(false)
+
+    rmSync(join(dir, 'evals'), { recursive: true })
+    markDone(dir, true)
+    mkdirSync(join(dir, 'evals/cases/first'), { recursive: true })
+    writeFileSync(join(dir, 'evals/cases/first/prompt.md'), 'Write one.')
+    utimesSync(join(dir, 'evals/cases/first/prompt.md'), later, later)
+    expect(rowOf('later').done).toBe(false)
   })
 
   it('refuses a workspace that is not a folder', () => {

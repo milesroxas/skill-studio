@@ -41,8 +41,10 @@ export interface LibrarySkill {
   installs: Record<AgentId, Install>
   /** Other folders in the same place holding a skill of this name. */
   copies: string[]
-  /** A lock file's source for an installed skill, `marked` when set by hand, else null. */
+  /** The lock file's source for a skill a tool installed, else null. An update from there replaces its folder. */
   source: string | null
+  /** Marked done and not worked on since: it leaves In progress until the next edit, case or run. */
+  done: boolean
   cases: number
   runs: number
   modified: string
@@ -65,9 +67,6 @@ export const PRACTICE_SCOPE = 'practice'
 
 export const isPractice = (skill: LibrarySkill): boolean => skill.scope === PRACTICE_SCOPE
 
-/** True for a skill someone else wrote, as far as the library can tell. */
-export const isInstalled = (skill: LibrarySkill): boolean => skill.source !== null
-
-/** True for a skill being worked on: it has evals, or was opened here. */
+/** True for a skill being worked on: it has evals, or was opened here, and is not marked done. */
 export const isInProgress = (skill: LibrarySkill): boolean =>
-  skill.cases > 0 || skill.runs > 0 || skill.recent
+  !skill.done && (skill.cases > 0 || skill.runs > 0 || skill.recent)

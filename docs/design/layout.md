@@ -167,6 +167,7 @@ Does the whole screen have nothing to show?
 | `help` | what a screen is for |
 | `note` | one word and what it means |
 | `field` | the list under a `ComboBox`: as wide as its field |
+| `actions` | a narrow table row's actions (`RowActions`): `role="menu"`, as wide as its longest label, arrows, Home and End move between items, opened from a `ghost-muted` button that stays lit while it is open |
 | `selection` | the row of actions over a selection in the editor: as wide as its buttons, no focus of its own |
 
 Inside one: `PopoverSection` with `pad="rows"` (rows to pick from, the default) or `pad="text"`, and `scroll` for a list that may outgrow 320px; `PopoverAction` is a row that does something (an icon, what it does, its shortcut); `PopoverLabel` names a section. A `HoverCardContent` (`ui/hover-card.tsx`) is `default` (360px) or `note` (one word and what it means, `xs`), with `HoverCardSection part="head" | "body" | "foot"`.

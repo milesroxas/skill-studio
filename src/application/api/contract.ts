@@ -89,7 +89,8 @@ export interface Contract {
   'library.link': { input: LinkInput; output: { linked: string } }
   'library.unlink': { input: LinkInput; output: { unlinked: true } }
   'library.workspaces': { input: { workspaces: string[] }; output: { workspaces: string[] } }
-  'library.mark': { input: { path: string; theirs: boolean }; output: { marked: true } }
+  /** Take a skill out of In progress, or put it back. Its next edit, case or run puts it back too. */
+  'library.done': { input: { path: string; done: boolean }; output: { done: boolean } }
   'jobs.list': { input: Record<string, never>; output: Job[] }
   /** Stop a running job: its agents are ended and it finishes with "Stopped." in its log. */
   'jobs.stop': { input: { id: number }; output: Job }

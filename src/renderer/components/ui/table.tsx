@@ -79,7 +79,7 @@ function TableBody({ className, ...props }: React.ComponentProps<'tbody'>) {
 }
 
 const tableRowVariants = cva(
-  'group border-b transition-[color,background-color,border-color,opacity] duration-150 ease-out has-aria-expanded:bg-muted/50 data-[state=selected]:bg-muted',
+  'group border-b transition-[color,background-color,border-color,opacity,translate] duration-150 ease-out has-aria-expanded:bg-muted/50 data-[state=selected]:bg-muted',
   {
     variants: {
       /** A row that opens something: it lights under the pointer. Plain rows stay still. */
@@ -101,8 +101,18 @@ const tableRowVariants = cva(
         default: '',
         destructive: 'bg-destructive/10 dark:bg-destructive/20',
       },
+      /**
+       * A row moving to another list: `leaving` fades and drops 4px while the
+       * change is saved, and comes back if it fails, since it is a transition;
+       * `arrived` writes itself in where it lands. Never on a list's first draw.
+       */
+      motion: {
+        none: '',
+        leaving: 'pointer-events-none translate-y-1 opacity-0 ease-in',
+        arrived: 'animate-ink',
+      },
     },
-    defaultVariants: { variant: 'default', align: 'middle', interactive: false },
+    defaultVariants: { variant: 'default', align: 'middle', interactive: false, motion: 'none' },
   },
 )
 
@@ -111,6 +121,7 @@ function TableRow({
   variant,
   align,
   interactive,
+  motion,
   ...props
 }: React.ComponentProps<'tr'> & VariantProps<typeof tableRowVariants>) {
   return (
@@ -118,7 +129,7 @@ function TableRow({
       data-slot="table-row"
       data-variant={variant}
       className={cn(
-        tableRowVariants({ variant, align, interactive }),
+        tableRowVariants({ variant, align, interactive, motion }),
         // A row that answers a click anywhere says so. An open row and its detail are one surface, with no rule between.
         props.onClick ? 'cursor-pointer' : '',
         'has-[[data-slot=table-row-toggle][aria-expanded=true]]:border-transparent',
@@ -188,6 +199,8 @@ function TableRowToggle({
 function rowAction(action: () => void): React.MouseEventHandler<HTMLTableRowElement> {
   return (event) => {
     const target = event.target as HTMLElement
+    // A click in a menu the row opened reaches the row through React, though the menu is elsewhere on the page.
+    if (!event.currentTarget.contains(target)) return
     if (target.closest('button, a, input, select, textarea, label')) return
     if (window.getSelection()?.isCollapsed === false) return
     action()
@@ -276,6 +289,8 @@ const tableCellVariants = cva('', {
       last: '@max-5xl:hidden',
       second: '@max-[50rem]:hidden',
       first: '@max-2xl:hidden',
+      /** Stays, one icon wide, where `first` goes: its row's actions fold into a menu (`RowActions`). */
+      menu: '@max-2xl:w-12',
     },
   },
   defaultVariants: {

@@ -65,7 +65,8 @@ import {
   createSkill,
   isPracticeSkill,
   linkSkill,
-  markOthers,
+  lockSource,
+  markDone,
   markPracticeSeen,
   openPractice,
   practiceSeen,
@@ -347,7 +348,7 @@ export const parsers: { [K in OperationName]: (raw: Raw) => Input<K> } = {
   }),
   'library.unlink': (raw) => parsers['library.link'](raw),
   'library.workspaces': (raw) => ({ workspaces: list(raw.workspaces) }),
-  'library.mark': (raw) => ({ path: str(raw.path), theirs: raw.theirs === true }),
+  'library.done': (raw) => ({ path: str(raw.path), done: raw.done === true }),
   'jobs.list': none,
   'jobs.stop': (raw) => ({ id: num(raw.id, 0) }),
   'settings.read': none,
@@ -614,9 +615,9 @@ export function createOperations(options: OperationsOptions): Runners {
       return { unlinked: true }
     },
     'library.workspaces': ({ workspaces }) => ({ workspaces: setWorkspaces(workspaces) }),
-    'library.mark': ({ path, theirs }) => {
-      markOthers(path, theirs)
-      return { marked: true }
+    'library.done': ({ path, done }) => {
+      markDone(path, done)
+      return { done }
     },
     'jobs.list': () => listJobs(),
     'jobs.stop': ({ id }) => stopJob(id),
@@ -673,6 +674,7 @@ export function createOperations(options: OperationsOptions): Runners {
         skill,
         practice: isPracticeSkill(skill.path),
         practiceSeen: isPracticeSkill(skill.path) ? practiceSeen() : [],
+        source: lockSource(skill.path),
         skills,
         cases: loadCases(skill.path).map((c) => savedCase(skill.path, c)),
         runs: listRuns(skill.path),

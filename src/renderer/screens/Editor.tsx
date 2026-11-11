@@ -299,9 +299,12 @@ export const Editor = memo(function Editor({ ctx }: { ctx: Ctx }) {
   const missing = isSkill ? ['name', 'description'].filter((k) => !metaText(meta, k)) : []
   const { current, versions } = state.versions
 
-  /** What to know about the file before editing it: a newer copy on disk, missing front matter. */
+  /**
+   * What to know about the file before editing it: a newer copy on disk,
+   * missing front matter, a tool that reinstalls the skill over these edits.
+   */
   const notes =
-    stale || missing.length ? (
+    stale || missing.length || state.source ? (
       <>
         {stale ? (
           <Alert variant="warning" role="status">
@@ -347,6 +350,14 @@ export const Editor = memo(function Editor({ ctx }: { ctx: Ctx }) {
                 Agents find a skill by its name and description, between the <Code>---</Code> lines
                 at the top.
               </p>
+            </AlertDescription>
+          </Alert>
+        ) : null}
+        {state.source ? (
+          <Alert variant="muted">
+            <AlertTitle>Installed from {state.source}</AlertTitle>
+            <AlertDescription>
+              <p>Updating it from there replaces this folder, and your edits with it.</p>
             </AlertDescription>
           </Alert>
         ) : null}

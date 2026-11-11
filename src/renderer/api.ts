@@ -66,7 +66,7 @@ export const api = {
   unlink: (path: string, agent: AgentId, scope: string) =>
     call('library.unlink', { path, agent, scope }),
   setWorkspaces: (workspaces: string[]) => call('library.workspaces', { workspaces }),
-  mark: (path: string, theirs: boolean) => call('library.mark', { path, theirs }),
+  markDone: (path: string, done: boolean) => call('library.done', { path, done }),
   jobs: () => call('jobs.list', {}),
   stopJob: (id: number) => call('jobs.stop', { id }),
   /** Push job changes when the host can; the shell polls otherwise. */

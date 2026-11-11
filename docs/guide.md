@@ -78,14 +78,16 @@ The walkthrough never changes what your agents do. To start over, open the skill
 
 ## 1. Open or create a skill
 
-![The Library: a search box, a place filter, a round arrow and a New skill button above two tables, In progress and Your skills. Each row has the skill and its description, its place, Claude, Cursor and Codex buttons, and at its end a Not mine button and a folder icon.](images/library.webp)
+![The Library: a search box, a place filter, a round arrow and a New skill button above two tables, In progress and Other skills. Each row has the skill and its description, its place, Claude, Cursor and Codex buttons, and at its end a folder icon; rows in In progress also have Mark done.](images/library.webp)
 
 - **Open a skill:** click its name. Type in the search box to find one.
-- **In progress:** the skills you have worked on.
+- **In progress:** the skills you opened here, or gave cases or runs. Every other skill is under **Other skills**, so each one is listed once.
+- **Mark done:** moves a skill from In progress to Other skills. Undo on the status line takes it back. Saving SKILL.md, adding or changing a case, or running it puts it back in In progress; opening it does not.
 - **Claude, Cursor, Codex:** install the skill for that agent, or remove it. Removing never deletes the skill.
 - **"copy" on a button:** that agent has its own copy. Your edits here do not reach it.
-- **Not mine:** moves a skill you did not write to the Installed list. Once a skill is there, a **Yours / Installed / All** switch appears beside the place filter, and **Mine** on an installed skill brings it back.
+- **A source under the place,** such as `someone/skills`: a tool installed the skill from there. Updating it with that tool replaces the folder, and your edits with it. The Skill screen says so too.
 - **Folder icon:** shows the skill's files on your computer.
+- **The … button** stands in for a row's actions when the window is narrow: Mark done and the folder action are in its menu.
 
 To make a new skill:
 
@@ -98,7 +100,7 @@ To make a new skill:
 
 A skill missing from the list?
 
-- Choose **Every place** in the place filter, and **All** on the Yours / Installed / All switch if it shows.
+- Choose **Every place** in the place filter, and clear the search box.
 - Click the round arrow beside New skill to look again.
 - Open "Where skills are found" at the bottom, and add the folder its project is in.
 

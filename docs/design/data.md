@@ -15,11 +15,12 @@ A table sits directly on the page. Never put it in a card or give it an outer bo
 | `interactive` | `TableRow` | `false` (default), `true` | the row opens something |
 | `align` | `TableRow` | `middle` (default), `baseline` | `baseline` when one cell wraps to several lines |
 | `variant` | `TableRow` | `default`, `destructive` | a failed sample |
+| `motion` | `TableRow` | `none` (default), `leaving`, `arrived` | a row moving to another list at the reader's word: `leaving` while the change is saved, `arrived` where it lands (Mark done in `Library.tsx`). Never on a list's first draw |
 | `numeric` | head, cell | boolean | a number: right-aligned and tabular. The cell is mono; the head stays a word in sans |
 | `trailing` | head, cell | boolean | not a number, at the row's end: actions, a date, a note. Right-aligned, narrow and tabular, in sans |
 | `wide`, `wrap`, `filler` | head, cell | boolean | the column that takes spare width; text that may wrap |
 | `col` | head | `auto`, `xs`, `sm`, `md`, `lg`, `xl` | a fixed column's width |
-| `fold` | head, cell | `never`, `last`, `second`, `first` | the order columns drop out as the table narrows |
+| `fold` | head, cell | `never`, `last`, `second`, `first`, `menu` | the order columns drop out as the table narrows. `menu` is a row's actions: the column stays, one icon wide, where `first` goes, and `RowActions` folds them into a menu |
 
 A row that opens a detail uses `TableRowToggle` and `TableDetail`. Do not build a disclosure row by hand: the toggle carries `aria-expanded`, and the open row's `bg-muted` fill comes from it.
 
@@ -38,6 +39,7 @@ Rules:
 - Text columns align left. Number columns align right. Never center a column.
 - A head cell is a noun of one or two words in sentence case. No caps, no bold.
 - An action in a cell is `Button size="cell-inline" variant="link-muted"` for navigation and `variant="ghost-muted"` or `destructive-muted` for a mutation. It is visible at rest. See [buttons.md](buttons.md).
+- A row's actions at its end are `RowActions` (`components/RowActions.tsx`), one `RowAction` each, in a column with `fold="menu"`. While the table has room they are `ghost-muted` buttons (`show="icon"` for one drawn as its icon alone); when it is narrow they fold into one "More actions" button whose menu holds each as an icon and its label. Never let a row's actions fold away: a narrow window must still reach them (`Library.tsx`).
 - No zebra stripes. Hairlines separate rows, and a fill means hovered, open or failed.
 - An empty cell shows an en dash "–" in `tone="faint"`, never a blank and never "N/A".
 

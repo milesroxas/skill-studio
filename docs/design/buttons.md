@@ -138,3 +138,4 @@ The loop is write, run, compare, and running is a button, not a place. So the ne
 - A dialog's confirm button is one verb: "Restart", "Restore", "Delete", "Discard", "Reset". The title above it names the object, so the button does not repeat it. The button that opens the dialog keeps its object: "Restart walkthrough…" opens a dialog whose button says "Restart".
 - Press feedback (`active:scale-[0.96]`) and the focus ring (`focus-ring`: keyboard only, see [color.md](color.md#focus)) are built in. Do not restyle them.
 - Never show an action only on hover. A row's actions are `ghost-muted` at rest, so touch and keyboard reach them.
+- Never hide a row's actions on a narrow window. `RowActions` folds them into a "More actions" menu instead ([data.md](data.md)). A `ghost-muted` button that opens something keeps its hover look while it is open (`data-state="open"`).
