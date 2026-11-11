@@ -50,6 +50,8 @@ Every control sits in a `Field` with a `Label` above it. Never a placeholder as 
 - An `Input`, `TextArea` or `NumberInput`: `<Label htmlFor="case-title">` and the same `id` on the control.
 - A `Segmented`, `SelectBox` trigger, or a group of controls: `<Label id={…}>` and `aria-labelledby` on the control, or `role="group"` with `aria-labelledby` on the `Field`.
 - Help goes under the control in a `Hint`. An error is `<Hint tone="destructive">` under the control, and the control gets `aria-invalid`.
+- A hint says what the reader cannot see from the control: one sentence, two at most. It never names the control's parts ("Pick the kind, then a case") or repeats what a confirm dialog will say.
+- In a form with one required field, the others say so: `<Label optional>` puts "optional" after the name in muted text (the case's Title, Pictures and A good answer). A checkbox is optional by being one, so it takes no mark.
 - A unit goes in the label: "Minimum run length, in minutes". Never as a suffix inside the field.
 - A row of buttons or toggles inside a `Field` sits in a `Toolbar`, so they keep their own width.
 - A short label before a control on one line ("From" before a select) is `InlineField`.
@@ -82,7 +84,7 @@ Every control sits in a `Field` with a `Label` above it. Never a placeholder as 
 
 ## Corner actions
 
-An action about a field's own content sits in the field's corner as a `CornerButton` (`components/CornerButton.tsx`): "write with AI" on every field that takes `assist`, and on a check the picture it is about (`PicturePicker variant="corner"`, passed as the `TextArea`'s `corner`). The pen is last; one more corner action stands before it, 12px away, so their hit areas meet without overlapping. A setting of the row the field is in, and the row's removal, sit outside the field, after it: a check row in `Cases.tsx` reads statement, ×2, remove. Once added, the check's picture sits inside the field under the text (`TextArea`'s `foot`, a `PictureStrip size="sm"`), within the field's edge as the composer holds its pictures, and the corner button goes. A picture outside the field reads as a thing beside the check, not part of it. Nothing else goes in a corner.
+An action about a field's own content sits in the field's corner as a `CornerButton` (`components/CornerButton.tsx`): "write with AI" on every field that takes `assist`, and on a check the picture it is about (`PicturePicker variant="corner"`, passed as the `TextArea`'s `corner`). The pen is last; one more corner action stands before it, 12px away, so their hit areas meet without overlapping. A field a list repeats takes no pen of its own: the list's one button writes for all of it, so a check's corner holds the picture alone and **Write checks with AI** sits under the list. A setting of the row the field is in, and the row's removal, sit outside the field, after it: a check row in `Cases.tsx` reads statement, ×2, remove. Once added, the check's picture sits inside the field under the text (`TextArea`'s `foot`, a `PictureStrip size="sm"`), within the field's edge as the composer holds its pictures, and the corner button goes. A picture outside the field reads as a thing beside the check, not part of it. Nothing else goes in a corner.
 
 ## ComboBox
 
@@ -98,9 +100,9 @@ The pressed segment is ink fill (`bg-primary`). A choice not yet made has no seg
 
 ## Toggle
 
-`Toggle` variants: `default` (hovers as a ghost button, for a bar of them: the Assistant's toggle in the top bar), `outline` (one item's state in a row: an agent's install on Library, a check's ×2 on Cases), `filter`. Sizes: `default`, `sm`, `icon-sm`, `lg`. Every `outline` toggle in the app is `size="sm"`. `place`: `alone` (the focus line outside the toggle, the default) or `group` (inside it, for a segment of a `Segmented` or `FilterGroup`; see [color.md](color.md)). Two more set the label: `font` (`sans`, the default, or `mono` for a literal such as a file's name) and `text` (`sm`, the default, or `xs`). `xs` is for a picker over an object, at the size of the meta around it: the files and the transcript over an output (`ArtifactPicker` in `components/Artifact.tsx`). A `ToggleGroup` sets `variant` and `size` for its items; `font` and `text` are each item's own.
+`Toggle` variants: `default` (hovers as a ghost button, for a bar of them: the Assistant's toggle in the top bar), `outline` (one item's state in a row: an agent's install on Library), `quiet` (a setting of a row that most rows leave off: a check's ×2 on Cases, with no edge and muted text until it is on), `filter`. Sizes: `default`, `sm`, `icon-sm`, `lg`. Every `outline` and `quiet` toggle in the app is `size="sm"`. `place`: `alone` (the focus line outside the toggle, the default) or `group` (inside it, for a segment of a `Segmented` or `FilterGroup`; see [color.md](color.md)). Two more set the label: `font` (`sans`, the default, or `mono` for a literal such as a file's name) and `text` (`sm`, the default, or `xs`). `xs` is for a picker over an object, at the size of the meta around it: the files and the transcript over an output (`ArtifactPicker` in `components/Artifact.tsx`). A `ToggleGroup` sets `variant` and `size` for its items; `font` and `text` are each item's own.
 
-The pressed `outline` toggle is ink fill, the same as `Segmented`, so "on" reads the same everywhere. A pressed `default` toggle stays `bg-accent`, as the Assistant's toggle does while its panel is open.
+The pressed `outline` or `quiet` toggle is ink fill, the same as `Segmented`, so "on" reads the same everywhere. A pressed `default` toggle stays `bg-accent`, as the Assistant's toggle does while its panel is open.
 
 ```tsx
 // Correct: screens/Library.tsx. One agent's install state for one skill, applied at once.

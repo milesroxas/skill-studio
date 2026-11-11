@@ -61,9 +61,10 @@ function Picture({ image, size, onRemove }: PictureProps) {
       {onRemove ? (
         <button
           type="button"
-          // 16px to look at, 32px to hit: the pseudo-element reaches past the corner. The ring
-          // cuts it out of the picture, so it reads on a white screenshot and a dark photo alike.
-          className="absolute -top-1.5 -right-1.5 flex size-4 items-center justify-center rounded-full bg-foreground text-background ring-2 ring-background focus-ring transition-[scale,box-shadow] duration-150 ease-out before:absolute before:-inset-2 active:scale-[0.96]"
+          // 16px to look at, 32px to hit (44px under a finger): the pseudo-element reaches past the
+          // corner. The ring cuts it out of the picture, so it reads on a white screenshot and a dark
+          // photo alike.
+          className="absolute -top-1.5 -right-1.5 flex size-4 items-center justify-center rounded-full bg-foreground text-background ring-2 ring-background focus-ring transition-[scale,box-shadow] duration-150 ease-out before:absolute before:-inset-2 pointer-coarse:before:-inset-3.5 active:scale-[0.96]"
           aria-label={`Remove ${image.name}`}
           title="Remove"
           onClick={onRemove}

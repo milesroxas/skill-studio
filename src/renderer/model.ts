@@ -1,7 +1,7 @@
 /** Outputs across runs, their scores under the skill's scoring, the pair to compare per case, and display names. */
 import { mergeConfig } from '@domain/config.ts'
 import { type Lift, type LiftRun, liftWriter, versionLift, writerKey } from '@domain/lift.ts'
-import { type Corrections, NO_CORRECTIONS, type PackScoring } from '@domain/pack.ts'
+import { type Corrections, NO_CORRECTIONS } from '@domain/pack.ts'
 import { defaultPair, type PairOutput } from '@domain/pairs.ts'
 import { drawnArtifact, primaryArtifact } from '@domain/primary.ts'
 import { versionAfterRunDelete } from '@domain/run-delete.ts'
@@ -192,9 +192,6 @@ export const layersOf = (config: BenchConfig): string[] =>
 /** Whether a case's checks are graded at all under `config`: some kinds of work are scored on other things. */
 export const checksGraded = (config: BenchConfig): boolean =>
   checkReaders(config, scorers).length > 0
-
-/** The kinds of work that grade a case's checks. */
-export const CHECK_READERS: PackScoring[] = scorers.filter((p) => p.checks !== null)
 
 /** What each part of a score is called where a reader meets it. */
 const PART_LABEL: Record<string, string> = {

@@ -14,6 +14,12 @@ const toggleVariants = cva(
         /** One item's state, or a segment of a choice. Pressed is ink fill: see `compoundVariants`. */
         outline:
           'border border-input bg-transparent shadow-xs hover:bg-accent hover:text-accent-foreground',
+        /**
+         * A setting of a row that most rows leave off, such as a check's ×2: no
+         * edge and muted at rest, so ten rows of it say nothing until one is on.
+         * Pressed is ink fill, as `outline`.
+         */
+        quiet: 'bg-transparent text-muted-foreground hover:bg-accent hover:text-accent-foreground',
         /** A filter: what is shown reads plain, what is hidden fades. */
         filter:
           'bg-transparent text-muted-foreground/70 hover:bg-transparent hover:text-muted-foreground data-[state=on]:bg-transparent data-[state=on]:text-foreground',
@@ -52,7 +58,7 @@ const toggleVariants = cva(
     compoundVariants: [
       {
         /** "On" reads the same everywhere: ink fill. */
-        variant: 'outline',
+        variant: ['outline', 'quiet'],
         class:
           'data-[state=on]:bg-primary data-[state=on]:text-primary-foreground data-[state=on]:hover:bg-primary/90 data-[state=on]:hover:text-primary-foreground',
       },

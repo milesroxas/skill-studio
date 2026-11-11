@@ -184,15 +184,18 @@ A case is one task for the agent: a request, and what a good answer does.
 
 Start with the prompt alone. It is enough to run the case, and reading what the agent wrote shows you what to check.
 
-1. Click the plus above the list. A new case can start empty or from one of the examples under "Start from an example".
-2. **Prompt:** what a user would ask. Do not mention the skill: the test is whether the agent uses it on its own.
+1. Click the plus above the list. A new case shows the task alone: the prompt, a title and pictures.
+2. **Prompt:** what a user would ask. Do not mention the skill: the test is whether the agent uses it on its own. To start from a finished case instead, open **Start from an example** under the prompt and click **Use** on one. A skill graded as generic picks the kind of skill first.
 3. **Title** (optional): a short name for the lists. Left empty, the case is named after its prompt.
-4. **Pictures** (optional): a screenshot or mock-up the prompt is about.
-5. **A good answer** (optional): one or two sentences on what it does.
-6. **Checks** (optional): one fact per row that a good answer makes true. Return starts the next row; Backspace on an empty row removes it. The picture button in a check's corner attaches a mock-up or screenshot the check is about. **×2** makes a check count double. **Write checks with AI** adds checks from the prompt.
-7. **Length** (optional): tick it to score the word count, then set the fewest and the most words.
-8. **Size** (optional, shown for a skill graded as design, or a case that already has one): tick it and set a width and a height in pixels. A picture must be exactly that size, and one that is not is listed under Missed, as a word count outside the range is. A page is drawn at that size when Jev looks at it, and opens at that width on Results. **Check that a page works on a phone too** has Jev also look at the page 390 px wide. Leave it off for a page made for a desktop window.
-9. Click **Add case**.
+4. **Pictures** (optional): a screenshot or mock-up the prompt is about. Drop one anywhere on the case, or click **Add pictures**.
+5. Click **Add case**. The rest can wait until you have read an output.
+
+**Describe a good answer**, under the pictures, opens the rest of the case. A saved case, or one started from an example, shows it already:
+
+- **A good answer** (optional): one or two sentences on what it does.
+- **Checks** (optional): one fact per row that a good answer makes true. Return starts the next row; Backspace on an empty row removes it. The picture button in a check's corner attaches a mock-up or screenshot the check is about. **×2** makes a check count double. **Write checks with AI** adds checks from the prompt.
+- **Length** (optional): tick it to score the word count, then set the fewest and the most words.
+- **Size** (optional, beside Length for a skill graded as design, or a case that already has one): tick it and set a width and a height in pixels. A picture must be exactly that size, and one that is not is listed under Missed, as a word count outside the range is. A page is drawn at that size when Jev looks at it, and opens at that width on Results. **Check that a page works on a phone too** has Jev also look at the page 390 px wide. Leave it off for a page made for a desktop window.
 
 **What the agent sees.** A run does not happen in your project. Each case starts in a new, empty folder that holds a copy of the skill, the prompt and the case's input files, and nothing else: the agent cannot read your project, use MCP tools or reach the network. So when a prompt is about something of yours, such as a screen's code, a design file or a document, give the case a copy:
 
@@ -205,7 +208,7 @@ To change a case, click it in the list, edit it and click **Save case** (Cmd+S).
 
 Checks can come later: on Results, **Add a check** turns what an output got wrong into one.
 
-Some kinds of skill are not scored on checks. A skill graded as Writing or Workflow says so in place of the Checks section. **Graded as**, at the foot of All cases on Results, changes how a skill is graded.
+Some kinds of skill are not scored on checks. A skill graded as Writing or Workflow says so in place of the Checks section, with **Open Results**. **Graded as**, at the foot of All cases on Results, changes how a skill is graded.
 
 Write at least three different cases before you trust a score.
 

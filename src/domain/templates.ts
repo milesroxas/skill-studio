@@ -427,10 +427,14 @@ export const templateById = (id: string): SkillTemplate =>
 /** Templates with sample cases: the kinds the Cases screen offers examples from. */
 export const EXAMPLE_KINDS: readonly SkillTemplate[] = TEMPLATES.filter((t) => t.cases.length)
 
-/** The template whose judge packs the bench uses, for picking examples that fit. */
+/** The template whose judge packs the bench uses, when one does: a generic bench fits none. */
+export function fittingTemplate(packs: readonly string[]): SkillTemplate | undefined {
+  return EXAMPLE_KINDS.find((t) => t.packs.some((p) => p !== 'generic' && packs.includes(p)))
+}
+
+/** The template whose judge packs the bench uses, for picking examples that fit; the first kind when none does. */
 export function templateForPacks(packs: readonly string[]): SkillTemplate {
-  const match = EXAMPLE_KINDS.find((t) => t.packs.some((p) => p !== 'generic' && packs.includes(p)))
-  return match ?? EXAMPLE_KINDS[0]
+  return fittingTemplate(packs) ?? EXAMPLE_KINDS[0]
 }
 
 /** A skill title from its name: `release-notes` reads as `Release notes`. */

@@ -3,7 +3,6 @@
  * folded guide beside a form. They sit on the page like any other section;
  * only an opened guide sinks onto the muted surface, so it reads as help.
  */
-import { ChevronRightIcon } from 'lucide-react'
 import type { ComponentProps, ReactNode } from 'react'
 import { cn } from '../lib/utils.ts'
 import { Disclosure } from './Disclosure.tsx'
@@ -68,7 +67,11 @@ export interface Example {
   onPick: () => void
 }
 
-/** Finished examples to start from: a row per example, divided by hairlines. */
+/**
+ * Finished examples to start from: a row per example, divided by hairlines.
+ * Picking one fills the form in place, so the row ends in "Use", not in a
+ * chevron that would promise another page.
+ */
 export function ExampleList({ items }: { items: Example[] }) {
   return (
     <Rows as="ul">
@@ -87,10 +90,12 @@ export function ExampleList({ items }: { items: Example[] }) {
                 </Text>
               ) : null}
             </span>
-            <ChevronRightIcon
+            <span
               aria-hidden="true"
-              className="size-4 shrink-0 text-muted-foreground/60 transition-colors duration-150 ease-out group-hover/example:text-foreground group-focus-visible/example:not-in-data-[input=pointer]:text-foreground"
-            />
+              className="shrink-0 text-ui text-muted-foreground transition-colors duration-150 ease-out group-hover/example:text-foreground group-focus-visible/example:not-in-data-[input=pointer]:text-foreground"
+            >
+              Use
+            </span>
           </button>
         </li>
       ))}

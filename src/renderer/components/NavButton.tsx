@@ -1,6 +1,8 @@
 /** One item in a list of things to open: a case, a queued output, a file. */
-import type { ComponentProps } from 'react'
+import type { ComponentProps, ReactNode } from 'react'
 import { cn } from '../lib/utils.ts'
+import { Dot } from './Status.tsx'
+import { Text } from './text.tsx'
 
 export function NavButton({
   current = false,
@@ -18,5 +20,26 @@ export function NavButton({
       )}
       {...props}
     />
+  )
+}
+
+/**
+ * A `NavButton`'s first line: the item's name, cut short when it is long, and
+ * the unsaved dot after it, as a `NavItem` marks a draft. The dot is the
+ * `warning` one from `Status`; a screen reader hears "unsaved changes".
+ */
+export function NavButtonTitle({ children, unsaved }: { children: ReactNode; unsaved?: boolean }) {
+  return (
+    <span className="flex w-full min-w-0 items-center gap-1.5">
+      <Text size="ui" truncate className="min-w-0">
+        {children}
+      </Text>
+      {unsaved ? (
+        <>
+          <Dot size="sm" tone="warning" />
+          <span className="sr-only">, unsaved changes</span>
+        </>
+      ) : null}
+    </span>
   )
 }

@@ -2,9 +2,10 @@
  * Write the cases a run is made of. A case starts as a prompt: what you would
  * really ask the agent. That is enough to run it. What a good answer does, and
  * the checks Jev marks, are easier to write once an output is in front of you,
- * so they are optional here and can be added from Results. Edits are kept as
- * drafts per case, so moving between cases, screens or skills never loses
- * typing.
+ * so they are optional here and can be added from Results. A new case shows
+ * the task alone, with one button that opens the rest; a saved case, or one
+ * filled from an example, shows it all. Edits are kept as drafts per case, so
+ * moving between cases, screens or skills never loses typing.
  */
 
 import { blankDraft, draftOf, newCaseId, picturesOf, sizeProblem } from '@domain/case-draft.ts'
@@ -14,6 +15,7 @@ import {
   CASE_PROMPT_HINT,
   CHECK_EXAMPLES,
   EXAMPLE_KINDS,
+  fittingTemplate,
   templateById,
   templateForPacks,
 } from '@domain/templates.ts'
@@ -21,6 +23,7 @@ import { memo, useEffect, useMemo, useRef, useState } from 'react'
 import { api, currentSkill } from '../api.ts'
 import { caseContext, skillContext } from '../assist.ts'
 import { CheckList } from '../components/CheckList.tsx'
+import { Disclosure } from '../components/Disclosure.tsx'
 import { DraftNote } from '../components/DraftNote.tsx'
 import { CheckRow, InlineField, NumberInput } from '../components/forms.tsx'
 import {
@@ -34,13 +37,14 @@ import {
   ListHeader,
   Loading,
   PlainList,
+  Stack,
   Toolbar,
   Workbench,
 } from '../components/layout.tsx'
-import { NavButton } from '../components/NavButton.tsx'
+import { NavButton, NavButtonTitle } from '../components/NavButton.tsx'
 import { PicturePicker, PictureStrip, usePictureDrop } from '../components/Pictures.tsx'
 import { Segmented } from '../components/Segmented.tsx'
-import { ExampleList, GuideBox, PairList, Starter } from '../components/starters.tsx'
+import { ExampleList, GuideBox, PairList } from '../components/starters.tsx'
 import { TextArea } from '../components/TextArea.tsx'
 import { Heading, Hint, Text } from '../components/text.tsx'
 import { Alert, AlertDescription, AlertTitle } from '../components/ui/alert.tsx'
@@ -52,7 +56,7 @@ import { caseUnsaved, formDraft, unsavedCases } from '../draft-edits.ts'
 import { useAction } from '../hooks.ts'
 import { useAddPictures } from '../images.ts'
 import { shortcut } from '../keys.ts'
-import { CHECK_READERS, checksGraded, kindsLine, plural } from '../model.ts'
+import { checksGraded, kindsLine, plural } from '../model.ts'
 import { caseKey } from '../route.ts'
 
 const nameOf = (path: string): string => path.split('/').at(-1) ?? path
@@ -74,9 +78,13 @@ const savedAtOf = (saved: object | null | undefined): string | null =>
 export const Cases = memo(function Cases({ ctx }: { ctx: Ctx }) {
   const { state, config, route, go, report, confirm, reload, drafts } = ctx
   const cases = state.cases
-  /** Examples come from the kind of work the skill is graded as, until the user picks another. */
+  /**
+   * Examples come from the kind of work the skill is graded as. A skill graded
+   * as generic fits no kind, so only then does the reader pick one.
+   */
+  const fitting = fittingTemplate(config.packs)
   const [kindId, setKindId] = useState(() => templateForPacks(config.packs).id)
-  const kind = templateById(kindId)
+  const kind = fitting ?? templateById(kindId)
   /** Where this case's draft is kept: its id, or one slot for the case not saved yet. */
   const key = caseKey(
     route.params,
@@ -175,6 +183,27 @@ export const Cases = memo(function Cases({ ctx }: { ctx: Ctx }) {
   /** A picture dropped anywhere on the case joins its pictures. */
   const drop = usePictureDrop(pictures.add)
 
+  /**
+   * The case whose good answer, checks and length were opened by their button.
+   * Leaving it closes them again: a new case come back to starts as new.
+   */
+  const [moreFor, setMoreFor] = useState<string | null>(null)
+  useEffect(() => {
+    if (moreFor !== null && moreFor !== key) setMoreFor(null)
+  }, [moreFor, key])
+  const expectedField = useRef<HTMLTextAreaElement>(null)
+  /** The button goes as the parts it opens arrive, so the keyboard moves on to the first of them. */
+  const [focusMore, setFocusMore] = useState(false)
+  useEffect(() => {
+    if (!focusMore) return
+    expectedField.current?.focus()
+    setFocusMore(false)
+  }, [focusMore])
+  const showMore = () => {
+    setMoreFor(key)
+    setFocusMore(true)
+  }
+
   const wordsError =
     draft.words && !(draft.words[0] >= 0 && draft.words[1] >= draft.words[0])
       ? 'The minimum must not be above the maximum.'
@@ -268,6 +297,19 @@ export const Cases = memo(function Cases({ ctx }: { ctx: Ctx }) {
   const heading = isNew ? draft.title.trim() || 'New case' : draft.title.trim() || draft.id
   /** Whether checks are graded for this skill at all: writing and workflow are scored on other things. */
   const checksRead = checksGraded(config)
+  /**
+   * The parts past the task: a good answer, checks, length and size. A new case
+   * keeps them behind one button until it is pressed or something fills them,
+   * such as an example; a saved case always shows them.
+   */
+  const extras =
+    !isNew ||
+    moreFor === key ||
+    Boolean(draft.expectedOutcome.trim()) ||
+    draft.graders.some((g) => g.statement.trim() || g.image) ||
+    Boolean(draft.words) ||
+    Boolean(draft.size) ||
+    Boolean(draft.phone)
   /** The case's input files that are not its pictures, which the form shows above. */
   const otherFiles = selected ? selected.files.filter((f) => !picturesOf(selected).includes(f)) : []
   /** The saved case's own `files/` folder, in the skill: where another input file goes. */
@@ -295,9 +337,7 @@ export const Cases = memo(function Cases({ ctx }: { ctx: Ctx }) {
                 {unsaved.has(NEW_CASE_KEY) && !isNew ? (
                   <li>
                     <NavButton onClick={() => pick({ new: '1' })}>
-                      <Text size="ui">
-                        New case <Text tone="warning">•</Text>
-                      </Text>
+                      <NavButtonTitle unsaved>New case</NavButtonTitle>
                       <Text tone="muted" size="xs">
                         Not added yet
                       </Text>
@@ -307,10 +347,9 @@ export const Cases = memo(function Cases({ ctx }: { ctx: Ctx }) {
                 {cases.map((c) => (
                   <li key={c.id}>
                     <NavButton current={selected?.id === c.id} onClick={() => pick({ id: c.id })}>
-                      <Text size="ui" truncate block>
+                      <NavButtonTitle unsaved={unsaved.has(c.id)}>
                         {c.title !== c.id ? c.title : c.id}
-                        {unsaved.has(c.id) ? <Text tone="warning"> •</Text> : null}
-                      </Text>
+                      </NavButtonTitle>
                       <Text tone="muted" size="xs">
                         {c.title !== c.id ? <Text font="mono">{c.id}</Text> : null}
                         {c.title !== c.id ? ' · ' : ''}
@@ -324,7 +363,7 @@ export const Cases = memo(function Cases({ ctx }: { ctx: Ctx }) {
           </nav>
         </Column>
       ) : null}
-      <Column>
+      <Column over={drop.over}>
         <form
           className="contents"
           {...drop.handlers}
@@ -361,8 +400,10 @@ export const Cases = memo(function Cases({ ctx }: { ctx: Ctx }) {
                 Cancel
               </Button>
             ) : null}
+            {/* Filled only when pressing it saves something, as Save on the Skill screen. */}
             <Button
               type="submit"
+              variant={canSave || busy ? 'default' : 'ghost'}
               size="sm"
               disabled={!canSave}
               busy={busy}
@@ -373,13 +414,6 @@ export const Cases = memo(function Cases({ ctx }: { ctx: Ctx }) {
             </Button>
           </ColumnHeader>
           <ColumnBody width="form">
-            {!cases.length ? (
-              <Hint>
-                A case is one task an agent gets with {state.skill.name} installed. Write what you
-                would really ask: the prompt is enough to run it. A run writes an output for every
-                case, and reading it shows what to check.
-              </Hint>
-            ) : null}
             {changedOnDisk ? (
               <Alert variant="warning" role="status">
                 <AlertTitle>{draft.id} changed on disk since this draft began</AlertTitle>
@@ -409,44 +443,27 @@ export const Cases = memo(function Cases({ ctx }: { ctx: Ctx }) {
             {selected?.source === 'evals.json' ? (
               <Alert variant="muted">
                 <AlertDescription>
-                  This case comes from evals.json. Saving writes it as a case folder, which then
-                  takes its place.
+                  This case comes from evals.json. Saving writes a case folder in its place.
                 </AlertDescription>
               </Alert>
             ) : null}
-            {isNew ? (
-              <Starter
-                aria-label="Start from an example"
-                title="Start from an example"
-                hint="A finished case to edit. Pick the kind of skill, then a case."
-              >
-                <Segmented
-                  aria-label="Kind of skill"
-                  value={kindId}
-                  onChange={(v) => v && setKindId(v)}
-                  options={EXAMPLE_KINDS.map((t) => ({ value: t.id, label: t.label }))}
-                />
-                <ExampleList
-                  items={kind.cases.map((c) => ({
-                    key: c.id,
-                    title: c.title,
-                    sub: `${plural(c.graders.length, 'check')}${
-                      c.words ? ` · ${c.words[0]} to ${c.words[1]} words` : ''
-                    }`,
-                    onPick: () => fillFrom(c),
-                  }))}
-                />
-              </Starter>
-            ) : null}
 
-            <FormSection layout="stacked" title="Task">
+            <FormSection
+              layout="stacked"
+              title="Task"
+              hint={
+                cases.length
+                  ? undefined
+                  : 'A case is one task you would give an agent. The prompt is enough to run it.'
+              }
+            >
               <Field>
                 <Label htmlFor="case-prompt">Prompt</Label>
                 <TextArea
                   id="case-prompt"
                   rows={6}
                   value={draft.prompt}
-                  placeholder={kind.cases[0]?.prompt}
+                  placeholder="What would you ask the agent?"
                   aria-describedby="case-prompt-help"
                   onValueChange={(prompt) => set({ prompt })}
                   assist={{ field: 'case.prompt', ...assist }}
@@ -454,24 +471,47 @@ export const Cases = memo(function Cases({ ctx }: { ctx: Ctx }) {
                 <Hint id="case-prompt-help">{CASE_PROMPT_HINT}</Hint>
               </Field>
 
+              {isNew ? (
+                <Disclosure summary="Start from an example">
+                  <Stack gap="md">
+                    {fitting ? null : (
+                      <Segmented
+                        aria-label="Kind of skill"
+                        value={kindId}
+                        onChange={(v) => v && setKindId(v)}
+                        options={EXAMPLE_KINDS.map((t) => ({ value: t.id, label: t.label }))}
+                      />
+                    )}
+                    <ExampleList
+                      items={kind.cases.map((c) => ({
+                        key: c.id,
+                        title: c.title,
+                        sub: `${plural(c.graders.length, 'check')}${
+                          c.words ? ` · ${c.words[0]} to ${c.words[1]} words` : ''
+                        }`,
+                        onPick: () => fillFrom(c),
+                      }))}
+                    />
+                  </Stack>
+                </Disclosure>
+              ) : null}
+
               <Field>
-                <Label htmlFor="case-title">Title</Label>
+                <Label htmlFor="case-title" optional>
+                  Title
+                </Label>
                 <Input
                   id="case-title"
                   value={draft.title}
-                  placeholder="Release note for the export change"
-                  aria-describedby={isNew ? 'case-title-help' : undefined}
+                  placeholder="Named after the prompt"
                   onChange={(e) => set({ title: e.target.value })}
                 />
-                {isNew ? (
-                  <Hint id="case-title-help">
-                    A short name for the lists. Left empty, the case is named after its prompt.
-                  </Hint>
-                ) : null}
               </Field>
 
               <Field role="group" aria-labelledby="case-pictures">
-                <Label id="case-pictures">Pictures</Label>
+                <Label id="case-pictures" optional>
+                  Pictures
+                </Label>
                 <PictureStrip
                   label="Pictures of this case"
                   images={draft.images}
@@ -489,32 +529,39 @@ export const Cases = memo(function Cases({ ctx }: { ctx: Ctx }) {
                     {pictures.error}
                   </Hint>
                 ) : (
-                  <Hint>
-                    {drop.over
-                      ? 'Drop to add it to this case.'
-                      : 'A screenshot, a mock-up or a photo the prompt is about. The agent gets each one as a file, and Jev sees them beside the prompt.'}
-                  </Hint>
+                  <Hint>Screenshots or mock-ups the prompt is about. Drop them anywhere here.</Hint>
                 )}
               </Field>
 
-              <Field>
-                <Label htmlFor="case-expected">A good answer</Label>
-                <TextArea
-                  id="case-expected"
-                  rows={2}
-                  value={draft.expectedOutcome}
-                  placeholder={kind.cases[0]?.expectedOutcome}
-                  onValueChange={(expectedOutcome) => set({ expectedOutcome })}
-                  assist={{ field: 'case.expected', ...assist }}
-                />
-              </Field>
+              {extras ? (
+                <Field>
+                  <Label htmlFor="case-expected" optional>
+                    A good answer
+                  </Label>
+                  <TextArea
+                    ref={expectedField}
+                    id="case-expected"
+                    rows={2}
+                    value={draft.expectedOutcome}
+                    placeholder="What it says first and what it must include"
+                    onValueChange={(expectedOutcome) => set({ expectedOutcome })}
+                    assist={{ field: 'case.expected', ...assist }}
+                  />
+                </Field>
+              ) : (
+                <Toolbar>
+                  <Button type="button" variant="outline" size="sm" onClick={showMore}>
+                    Describe a good answer
+                  </Button>
+                </Toolbar>
+              )}
             </FormSection>
 
-            {checksRead ? (
+            {extras && checksRead ? (
               <FormSection
                 layout="stacked"
                 title="Checks"
-                hint="Statements a good answer makes true. Jev marks each one. They can wait: run the case first, and what an output gets wrong becomes a check, here or on Results. A check can be about a picture, such as a mock-up the output should match."
+                hint="Statements a good answer makes true. Jev marks each one. Optional: easier to write after a first run."
               >
                 <GuideBox summary="What Jev can mark">
                   <PairList pairs={CHECK_EXAMPLES} />
@@ -528,14 +575,12 @@ export const Cases = memo(function Cases({ ctx }: { ctx: Ctx }) {
                   report={report}
                 />
               </FormSection>
-            ) : (
+            ) : null}
+            {extras && !checksRead ? (
               <FormSection
                 layout="stacked"
                 title="Checks"
-                hint={`This skill is graded as ${kindsLine(config.packs)}, which is scored on other things than checks. A skill graded as ${kindsLine(
-                  CHECK_READERS.map((p) => p.id),
-                  'or',
-                )} has its checks marked: change it under Graded as, at the foot of All cases on Results.`}
+                hint={`A skill graded as ${kindsLine(config.packs)} is not scored on checks. Graded as, on Results, changes that.`}
               >
                 <Toolbar>
                   <Button
@@ -548,91 +593,90 @@ export const Cases = memo(function Cases({ ctx }: { ctx: Ctx }) {
                   </Button>
                 </Toolbar>
               </FormSection>
-            )}
+            ) : null}
 
-            <FormSection layout="stacked" title="Length">
-              <CheckRow
-                checked={Boolean(draft.words)}
-                onCheckedChange={(on) => set({ words: on ? [50, 300] : null })}
-              >
-                Score the output’s length in words
-              </CheckRow>
-              {draft.words ? (
-                <Toolbar>
-                  <InlineField label="From">
-                    <NumberInput
-                      aria-label="Fewest words"
-                      min={0}
-                      value={draft.words[0]}
-                      onChange={(e) =>
-                        set({ words: [Number(e.target.value), draft.words?.[1] ?? 0] })
-                      }
-                    />
-                  </InlineField>
-                  <InlineField label="to">
-                    <NumberInput
-                      aria-label="Most words"
-                      min={0}
-                      value={draft.words[1]}
-                      onChange={(e) =>
-                        set({ words: [draft.words?.[0] ?? 0, Number(e.target.value)] })
-                      }
-                    />
-                  </InlineField>
-                  <Text tone="muted" size="ui">
-                    words
-                  </Text>
-                </Toolbar>
-              ) : null}
-              {wordsError ? <Hint tone="destructive">{wordsError}</Hint> : null}
-            </FormSection>
-
-            {drawn ? (
-              <FormSection
-                layout="stacked"
-                title="Size"
-                hint="A picture must be exactly this size. A page is drawn at this size when Jev looks at it, and opens at this width on Results."
-              >
+            {extras ? (
+              <FormSection layout="stacked" title={drawn ? 'Length and size' : 'Length'}>
                 <CheckRow
-                  checked={Boolean(draft.size)}
-                  onCheckedChange={(on) => set({ size: on ? [1280, 800] : null })}
+                  checked={Boolean(draft.words)}
+                  onCheckedChange={(on) => set({ words: on ? [50, 300] : null })}
                 >
-                  Check the output’s size in pixels
+                  Score the output’s length in words
                 </CheckRow>
-                {draft.size ? (
+                {draft.words ? (
                   <Toolbar>
-                    <InlineField label="Width">
+                    <InlineField label="From">
                       <NumberInput
-                        aria-label="Width in pixels"
-                        min={1}
-                        value={draft.size[0]}
+                        aria-label="Fewest words"
+                        min={0}
+                        value={draft.words[0]}
                         onChange={(e) =>
-                          set({ size: [Number(e.target.value), draft.size?.[1] ?? 0] })
+                          set({ words: [Number(e.target.value), draft.words?.[1] ?? 0] })
                         }
                       />
                     </InlineField>
-                    <InlineField label="by">
+                    <InlineField label="to">
                       <NumberInput
-                        aria-label="Height in pixels"
-                        min={1}
-                        value={draft.size[1]}
+                        aria-label="Most words"
+                        min={0}
+                        value={draft.words[1]}
                         onChange={(e) =>
-                          set({ size: [draft.size?.[0] ?? 0, Number(e.target.value)] })
+                          set({ words: [draft.words?.[0] ?? 0, Number(e.target.value)] })
                         }
                       />
                     </InlineField>
                     <Text tone="muted" size="ui">
-                      px
+                      words
                     </Text>
                   </Toolbar>
                 ) : null}
-                {sizeError ? <Hint tone="destructive">{sizeError}</Hint> : null}
-                <CheckRow
-                  checked={draft.phone ?? false}
-                  onCheckedChange={(on) => set({ phone: on })}
-                >
-                  Check that a page works on a phone too, 390 px wide
-                </CheckRow>
+                {wordsError ? <Hint tone="destructive">{wordsError}</Hint> : null}
+
+                {drawn ? (
+                  <>
+                    <CheckRow
+                      checked={Boolean(draft.size)}
+                      onCheckedChange={(on) => set({ size: on ? [1280, 800] : null })}
+                      description="A picture must be exactly this size. A page is drawn at it."
+                    >
+                      Check the output’s size in pixels
+                    </CheckRow>
+                    {draft.size ? (
+                      <Toolbar>
+                        <InlineField label="Width">
+                          <NumberInput
+                            aria-label="Width in pixels"
+                            min={1}
+                            value={draft.size[0]}
+                            onChange={(e) =>
+                              set({ size: [Number(e.target.value), draft.size?.[1] ?? 0] })
+                            }
+                          />
+                        </InlineField>
+                        <InlineField label="by">
+                          <NumberInput
+                            aria-label="Height in pixels"
+                            min={1}
+                            value={draft.size[1]}
+                            onChange={(e) =>
+                              set({ size: [draft.size?.[0] ?? 0, Number(e.target.value)] })
+                            }
+                          />
+                        </InlineField>
+                        <Text tone="muted" size="ui">
+                          px
+                        </Text>
+                      </Toolbar>
+                    ) : null}
+                    {sizeError ? <Hint tone="destructive">{sizeError}</Hint> : null}
+                    <CheckRow
+                      checked={draft.phone ?? false}
+                      onCheckedChange={(on) => set({ phone: on })}
+                    >
+                      Check that a page works on a phone too, 390 px wide
+                    </CheckRow>
+                  </>
+                ) : null}
               </FormSection>
             ) : null}
 
@@ -640,7 +684,7 @@ export const Cases = memo(function Cases({ ctx }: { ctx: Ctx }) {
               <FormSection
                 layout="stacked"
                 title="Input files"
-                hint="A run starts in an empty folder: the agent sees the skill, this prompt and these files, never your project. When the prompt is about something of yours, such as a screen's code, put a copy in this case's files folder."
+                hint="The agent sees only the skill, the prompt and these files, never your project. Copy in anything the prompt is about."
               >
                 {otherFiles.length ? (
                   <List size="xs" font="mono">
@@ -667,11 +711,7 @@ export const Cases = memo(function Cases({ ctx }: { ctx: Ctx }) {
             ) : null}
 
             {selected?.dir ? (
-              <FormSection
-                layout="stacked"
-                title="Delete this case"
-                hint="Its folder goes too. Past runs keep their outputs."
-              >
+              <FormSection layout="stacked" title="Delete this case">
                 <Toolbar>
                   <Button
                     type="button"

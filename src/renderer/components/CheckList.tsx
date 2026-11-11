@@ -55,9 +55,9 @@ export function CheckList({
 }: {
   graders: Check[]
   onChange: (graders: Check[]) => void
-  /** Statements to show in empty rows, as examples of what a check says. */
+  /** Statements to show in empty rows, as examples of what a check says: one per row, the rest left empty. */
   examples: readonly string[]
-  /** What the assistant reads beside a check: the skill, the case as typed, its pictures. */
+  /** What the assistant reads when it writes checks for the list: the skill, the case as typed, its pictures. */
   assist: Omit<AssistSpec, 'field'>
   report: Reporter
 }) {
@@ -151,16 +151,15 @@ export function CheckList({
               }}
               statement={g.statement}
               image={g.image}
-              placeholder={examples[i] ?? examples[0]}
+              placeholder={examples[i]}
               onKeyDown={onKey(i)}
               onStatement={(statement) => patch(i, { statement })}
               onImage={(image) => patch(i, { image })}
               onError={report}
-              assist={{ field: 'case.check', ...assist }}
             />
             <span className="flex h-9 items-center">
               <Toggle
-                variant="outline"
+                variant="quiet"
                 size="sm"
                 pressed={g.weight > 1}
                 aria-label={`Check ${i + 1} counts double`}
@@ -239,11 +238,12 @@ function useCheckPicture(onImage: (image: ImageRef) => void, onError: (message: 
 
 /**
  * What a check is: its statement, and the picture it is about when it has one.
- * The field's corner adds the picture, beside "write with AI", because both
- * are about the statement's content; the ×2 mark and the remove button are the
- * row's and sit outside it. An added picture sits inside the field under the
- * statement, within its edge, and the corner button goes, since a check is
- * about one picture.
+ * The field's corner adds the picture, because it is about the statement's
+ * content; the ×2 mark and the remove button are the row's and sit outside it.
+ * An added picture sits inside the field under the statement, within its edge,
+ * and the corner button goes, since a check is about one picture. A check has
+ * no "write with AI" of its own: the list's one button writes checks, so a row
+ * carries one icon, not two.
  */
 function CheckStatement({
   index,
@@ -255,7 +255,6 @@ function CheckStatement({
   onStatement,
   onImage,
   onError,
-  assist,
 }: {
   index: number
   fieldRef: (el: HTMLTextAreaElement | null) => void
@@ -266,7 +265,6 @@ function CheckStatement({
   onStatement: (statement: string) => void
   onImage: (image: ImageRef | null) => void
   onError: (message: string) => void
-  assist: AssistSpec
 }) {
   const { adding, add } = useCheckPicture(onImage, onError)
   const has = Boolean(image) || adding > 0
@@ -280,7 +278,6 @@ function CheckStatement({
       value={statement}
       placeholder={placeholder}
       onValueChange={onStatement}
-      assist={assist}
       corner={
         has ? null : (
           <PicturePicker

@@ -53,17 +53,25 @@ export function SectionHead({ className, ...props }: ComponentProps<'div'>) {
   )
 }
 
-const formSectionVariants = cva('grid gap-x-10 gap-y-4 border-t pt-7 first:border-t-0 first:pt-0', {
-  variants: {
-    layout: {
-      /** The heading and its note in a 200px column, the fields beside it. */
-      split: 'md:grid-cols-[200px_minmax(0,1fr)] md:items-baseline',
-      /** The heading over the fields, for wide fields such as a prompt. */
-      stacked: '',
+/**
+ * A rule above every section but the first. A section right after an `Alert`
+ * takes none either: the alert's own edge already divides, and a rule under it
+ * would read as a second one.
+ */
+const formSectionVariants = cva(
+  'grid gap-x-10 gap-y-4 border-t pt-7 first:border-t-0 first:pt-0 [[data-slot=alert]+&]:border-t-0 [[data-slot=alert]+&]:pt-0',
+  {
+    variants: {
+      layout: {
+        /** The heading and its note in a 200px column, the fields beside it. */
+        split: 'md:grid-cols-[200px_minmax(0,1fr)] md:items-baseline',
+        /** The heading over the fields, for wide fields such as a prompt. */
+        stacked: '',
+      },
     },
+    defaultVariants: { layout: 'split' },
   },
-  defaultVariants: { layout: 'split' },
-})
+)
 
 /** One part of a form: what it is about, then its fields. Sections are divided by a rule. */
 export function FormSection({
@@ -88,7 +96,8 @@ export function FormSection({
           <Heading level={3}>{title}</Heading>
           {action ? <span className="ml-auto">{action}</span> : null}
         </div>
-        {hint ? <Hint measure="narrow">{hint}</Hint> : null}
+        {/* Beside the fields a note keeps to the narrow column; over them it takes the fields' width. */}
+        {hint ? <Hint measure={layout === 'stacked' ? 'default' : 'narrow'}>{hint}</Hint> : null}
       </div>
       <div className="flex min-w-0 flex-col gap-5">{children}</div>
     </section>
@@ -146,18 +155,24 @@ const columnVariants = cva(
         side: 'border-t max-lg:order-last lg:border-t-0 lg:border-r',
         main: '',
       },
+      /** A picture is held over the column, and dropping it adds it to what the column edits. */
+      over: {
+        true: 'bg-accent/60',
+        false: '',
+      },
     },
-    defaultVariants: { kind: 'main' },
+    defaultVariants: { kind: 'main', over: false },
   },
 )
 
 /** One column of a workbench. */
 export function Column({
   kind,
+  over,
   className,
   ...props
 }: ComponentProps<'div'> & VariantProps<typeof columnVariants>) {
-  return <div className={cn(columnVariants({ kind }), className)} {...props} />
+  return <div className={cn(columnVariants({ kind, over }), className)} {...props} />
 }
 
 const insetVariants = cva('', {

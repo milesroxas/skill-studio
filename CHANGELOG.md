@@ -6,6 +6,22 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+### Changed
+
+- A new case shows the task alone: the prompt, a title and pictures. **Describe a good answer** opens the rest (a good answer, checks, length and size); a saved case, or one started from an example, shows it all.
+- **Start from an example** folds under the prompt, and its examples fit the kind of work the skill is graded as. Only a skill graded as generic asks for the kind first. Each example ends in **Use**, as picking one fills the form in place.
+- The Cases screen says less. Its notes are one or two sentences each, Title, Pictures and A good answer are marked optional, and Length and Size are one section.
+- A check row is lighter: its ×2 is muted text until it is on, and the pen in each check is gone. **Write checks with AI**, under the list, writes them.
+- An empty check row no longer repeats the first example: each example shows once.
+- Save case and Add case are filled only when pressing them saves something.
+- A case with unsaved changes is marked in the list with the same amber dot as the sidebar, which a screen reader reads as "unsaved changes".
+- While a picture is dragged over a case, the whole case is tinted, and the note under Pictures no longer changes and moves the form.
+- The remove button on a picture is 44 px to hit under a finger.
+
+### Fixed
+
+- The Cases screen no longer draws two rules in a row under the examples or under a note at its top.
+
 ## [0.7.0] - 2026-11-11
 
 ### Added

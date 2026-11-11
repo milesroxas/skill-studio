@@ -146,7 +146,7 @@ report(e.message)
 - `{ stays: true }` keeps a fact on the line the same way, with the plain dot and Dismiss. It is for news that ends on its own time and is easy to miss: the one use is an update ready to install (`updates.ts`).
 - A long message truncates; its whole text is the line's `title`.
 
-The dot is `Dot` from `components/Status.tsx`, the one dot in the app. `Status`, the jobs line and a `NavItem`'s unsaved mark use it too, so a color means the same thing wherever it is read: `signal` runs, `success` works, `warning` needs the reader, `destructive` failed, `muted` is a fact.
+The dot is `Dot` from `components/Status.tsx`, the one dot in the app. `Status`, the jobs line, and the unsaved mark of a `NavItem` and a `NavButtonTitle` use it too, so a color means the same thing wherever it is read: `signal` runs, `success` works, `warning` needs the reader, `destructive` failed, `muted` is a fact.
 
 ## Alert
 

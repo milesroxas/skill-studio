@@ -4,6 +4,7 @@ import {
   applyTemplate,
   CHECK_EXAMPLES,
   EXAMPLE_KINDS,
+  fittingTemplate,
   insertAt,
   isScaffold,
   referenceTemplate,
@@ -63,6 +64,8 @@ describe('templates', () => {
       ).toBe(true)
     expect(templateForPacks(['generic', 'code']).id).toBe('code')
     expect(templateForPacks(['generic']).id).toBe(EXAMPLE_KINDS[0].id)
+    expect(fittingTemplate(['generic', 'code'])?.id).toBe('code')
+    expect(fittingTemplate(['generic'])).toBeUndefined()
   })
 })
 

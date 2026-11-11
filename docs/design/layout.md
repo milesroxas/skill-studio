@@ -88,6 +88,7 @@ A box around a region adds an edge the eye has to cross and takes 32px of width 
 | Part | Use |
 | --- | --- |
 | `Column kind` | `list` (260px), `side` (260px, a list beside an item that is the screen's point: after the item once the columns stack, as the Skill screen's files follow the document), `main` |
+| `Column over` | a picture is held over a column that takes a drop: the column takes `bg-accent` at 60% until it is dropped or leaves. The case's main column, where a picture dropped anywhere joins the case. A note that changes while a picture is dragged would move everything under it. |
 | `ListHeader` | a list column's title, count and add button. A list nothing is added to (the cases on Results) is a `ColumnHeader inset="list"` with the title and count alone. |
 | `ColumnHeader`, `ColumnTitle` | the main column's name and its actions |
 | `ColumnToolbar`, `ToolbarGroup`, `ToolbarItem` | a row of tools under the header |
@@ -100,7 +101,9 @@ Insets are fixed: 16px in a list, 24px in main (`inset="list" | "main"`). A list
 Copy `screens/Cases.tsx` for any screen that lists items and edits the one picked. `screens/Results.tsx` is the same pattern read-only: it lists the cases and compares the one picked.
 
 - The selection lives in the route: read `route.params`, change it with `go(screen, params)`. Back and Forward then follow it. Never hold it in `useState`.
-- The main column is `ColumnHeader` (the item's name, then Save, primary last) over `ColumnBody width="form"`, which holds `FormSection layout="stacked"` sections.
+- The main column is `ColumnHeader` (the item's name, then Save, primary last) over `ColumnBody width="form"`, which holds `FormSection layout="stacked"` sections. Save is `default` only while pressing it saves something, and `ghost` and disabled otherwise, so a saved item's header has no filled slab in it (the Skill screen's Save does the same).
+- A new item shows the fields it cannot do without, and its optional parts behind one `outline` button that names the first of them ("Describe a good answer"). Pressed, the button goes, the parts take its place and the focus moves to the first. An item filled from an example, and every saved item, shows them all.
+- Examples to start from sit under the first field in a `Disclosure` ("Start from an example"), as an `ExampleList`: each row fills the form in place and ends in "Use". The kind of example comes from how the skill is graded; only a skill graded as generic shows the `Segmented` that picks one.
 - Edits are kept with `ctx.drafts` while unsaved. Add new keys there if a new kind of item needs them.
 - The add button opens an unsaved item (`new=1` in the route) that becomes real on its first save ("Add case"). It does not create one at once.
 - After a delete, the next item is selected. When the last one goes, the screen shows the new-item form.
@@ -132,7 +135,7 @@ The bar over it is two `Toolbar`s. The first: which output is in view, a `Segmen
 
 | Need | Use |
 | --- | --- |
-| Items to open in a list column | `NavButton` inside `PlainList` |
+| Items to open in a list column | `NavButton` inside `PlainList`. Its first line is `NavButtonTitle`: the name, truncated, and the `warning` dot after it while the item has unsaved changes. |
 | A list to pick from while typing (the skill switcher, the composer's slash menu) | `PopoverContent size="menu" still` holding `role="option"` rows in a `role="listbox"`: one `PopoverSection` in the skill switcher, the whole popover in the slash menu, with a `role="group"` section each |
 | Records with several fields | `Table`. See [data.md](data.md). |
 | Records of one or two lines, not tabular | `Rows` (hairlines, never boxed) |
@@ -193,7 +196,7 @@ Suggest changes (`Rewrites.tsx`) shows its three cards from the first frame, eac
 
 ## Spacing
 
-Spacing comes from Tailwind's 4px scale. `Screen` sets 40px between sections, `Section` 12px inside one, `FormSection` 28px above its rule. Use `Stack` for a vertical group and `Toolbar` for a horizontal one rather than a bare `flex gap-*` when one fits. Related things sit closer than unrelated ones: if two gaps are equal, the grouping is not showing.
+Spacing comes from Tailwind's 4px scale. `Screen` sets 40px between sections, `Section` 12px inside one, `FormSection` 28px above its rule. The first `FormSection` has no rule, and neither has one right after an `Alert`: the alert's edge already divides. A `FormSection`'s hint keeps to 48ch beside the fields (`split`) and 72ch over them (`stacked`). Use `Stack` for a vertical group and `Toolbar` for a horizontal one rather than a bare `flex gap-*` when one fits. Related things sit closer than unrelated ones: if two gaps are equal, the grouping is not showing.
 
 The groups in `layout.tsx`, with every variant they have:
 

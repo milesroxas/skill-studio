@@ -2,7 +2,17 @@ import { cn } from '@renderer/lib/utils.ts'
 import { Label as LabelPrimitive } from 'radix-ui'
 import type * as React from 'react'
 
-function Label({ className, ...props }: React.ComponentProps<typeof LabelPrimitive.Root>) {
+/**
+ * A field's name. `optional` says after it, in muted text, that the field may
+ * be left empty: a form with one required field marks the others, so the
+ * reader knows which one the form cannot do without.
+ */
+function Label({
+  className,
+  optional,
+  children,
+  ...props
+}: React.ComponentProps<typeof LabelPrimitive.Root> & { optional?: boolean }) {
   return (
     <LabelPrimitive.Root
       data-slot="label"
@@ -11,7 +21,10 @@ function Label({ className, ...props }: React.ComponentProps<typeof LabelPrimiti
         className,
       )}
       {...props}
-    />
+    >
+      {children}
+      {optional ? <span className="font-normal text-muted-foreground">optional</span> : null}
+    </LabelPrimitive.Root>
   )
 }
 
