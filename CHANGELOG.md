@@ -6,6 +6,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+### Changed
+
+- Resting the pointer on an underlined word in SKILL.md opens the same popout as clicking the rule's number: what the word set off, over **Auto refine**, **Suggest changes** and **Help me improve**. Before, it showed only what the word set off.
+
 ### Added
 
 - The app carries the license of each open-source package it includes, in `THIRD-PARTY-LICENSES.txt` in its resources folder, and its own MIT license as `LICENSE.txt` beside it.

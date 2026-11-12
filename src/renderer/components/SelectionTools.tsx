@@ -1,7 +1,8 @@
 /**
- * The popout over a selection in SKILL.md: what the writing checks found in
- * the rule, when they found anything, over three ways to improve it, in one
- * fixed order. Auto refine checks it and rewrites it only when something
+ * The popout over a selection in SKILL.md, or over words the writing checks
+ * underlined while the pointer rests on them: what the checks found in the
+ * rule, when they found anything, over three ways to improve it, in one fixed
+ * order. Auto refine checks it and rewrites it only when something
  * drifts; Suggest changes offers three labelled rewrites; Help me improve
  * moves to the side panel for a few questions and a draft. The popout takes
  * no focus while it is a row of buttons, so typing goes on in the editor; it
@@ -38,6 +39,9 @@ export function SelectionTools({
   findings,
   onApply,
   onImprove,
+  onPointerEnter,
+  onPointerLeave,
+  onTaken,
 }: {
   /** Names the popout, for the editor's key that moves the focus into it. */
   id: string
@@ -52,9 +56,19 @@ export function SelectionTools({
   /** Put `text` in place of the selection. */
   onApply: (text: string) => void
   onImprove: () => void
+  onPointerEnter?: () => void
+  onPointerLeave?: () => void
+  /**
+   * The reader took the popout up: picked an action or moved the focus into
+   * it. One the pointer opened stays from then on, wherever the pointer goes.
+   */
+  onTaken?: () => void
 }) {
   const [mode, setMode] = useState<Mode>('menu')
-  const pick = (next: Mode) => setMode(next)
+  const pick = (next: Mode) => {
+    onTaken?.()
+    setMode(next)
+  }
   const close = () => onOpenChange(false)
   const noted = mode === 'menu' && findings.length > 0
 
@@ -126,6 +140,9 @@ export function SelectionTools({
         }}
         // Its own surface, though React nests it in the screen: a shortcut typed here is not the screen's.
         onKeyDown={(event) => event.stopPropagation()}
+        onFocus={onTaken}
+        onPointerEnter={onPointerEnter}
+        onPointerLeave={onPointerLeave}
       >
         {noted ? (
           <>

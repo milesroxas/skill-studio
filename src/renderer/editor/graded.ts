@@ -5,8 +5,9 @@
  * bullet Jev skips keeps its dot and says why to the pointer that rests
  * on it. The number turns amber when the writing checks find something in
  * the rule, and the words that set a check off are underlined: the pointer
- * resting on them opens a note that says why (`FindingNote`). A click on the
- * number selects the rule, so the popout opens with nothing to select by hand.
+ * resting on them opens the popout on the rule, with what they set off. A
+ * click on the number selects the rule, so the popout opens with nothing to
+ * select by hand.
  * Nothing is drawn for bench.json rules, which do not come from the bullets.
  */
 
@@ -132,32 +133,32 @@ function flagAt(state: EditorState, pos: number): Flag | null {
   return rule ? (flagsOf(state, rule).find((f) => pos >= f.from && pos < f.to) ?? null) : null
 }
 
-/** The flag whose note is open: the pointer rests on its words or on the note. */
+/** The flag whose popout is open: the pointer rests on its words or on the popout. */
 const point = StateEffect.define<Flag | null>()
 const pointed = StateField.define<Flag | null>({
   create: () => null,
   update: (flag, tr) => {
     for (const effect of tr.effects) if (effect.is(point)) return effect.value
-    // The words under it changed: what the note says may no longer hold.
+    // The words under it changed: what the popout says may no longer hold.
     return tr.docChanged ? null : flag
   },
 })
 
-/** The flag whose note is open, for the editor to draw the note beside. */
+/** The flag whose popout is open, for the editor to draw the popout beside. */
 export const pointedFlag = (state: EditorState): Flag | null => state.field(pointed, false) ?? null
 
-/** The beat a passing pointer gets before a note opens, and before one goes: `HoverCard`'s delays. */
+/** The beat a passing pointer gets before a popout opens, and before one goes: `HoverCard`'s delays. */
 const OPEN_MS = 150
 const CLOSE_MS = 120
 
 /**
- * Opens a flag's note once the pointer rests on its words, and puts it away
- * once the pointer has left both the words and the note. With one note open,
- * the next word's opens at once: the reader is already reading notes.
+ * Opens a flag's popout once the pointer rests on its words, and puts it away
+ * once the pointer has left both the words and the popout. With one open, the
+ * next word's opens at once: the reader is already reading them.
  */
 class Pointing {
   private timer: ReturnType<typeof setTimeout> | undefined
-  /** The pointer is on the note. Leaving the text does not close it then, whichever event comes first. */
+  /** The pointer is on the popout. Leaving the text does not close it then, whichever event comes first. */
   private held = false
   constructor(private readonly view: EditorView) {
     window.addEventListener('scroll', this.away, { capture: true, passive: true })
@@ -171,7 +172,7 @@ class Pointing {
     this.timer = setTimeout(() => this.view.dispatch({ effects: point.of(flag) }), wait)
   }
   hold() {
-    // A note already fading out is not held open again.
+    // A popout already fading out is not held open again.
     if (!pointedFlag(this.view.state)) return
     this.held = true
     clearTimeout(this.timer)
@@ -181,10 +182,10 @@ class Pointing {
     this.aim(null)
   }
   update() {
-    // A note gone by any way leaves nothing to hold.
+    // A popout gone by any way leaves nothing to hold.
     if (!pointedFlag(this.view.state)) this.held = false
   }
-  /** Gone now: the page moved under the note, or the reader dismissed it. */
+  /** Gone now: the page moved under the popout, or the reader dismissed it. */
   readonly away = () => {
     clearTimeout(this.timer)
     this.held = false
@@ -208,14 +209,14 @@ const pointing = ViewPlugin.fromClass(Pointing, {
   },
 })
 
-/** The pointer is on the note: keep it open. */
-export const holdNote = (view: EditorView) => view.plugin(pointing)?.hold()
-/** The pointer left the note: put it away after the beat. */
-export const releaseNote = (view: EditorView) => view.plugin(pointing)?.release()
-/** Put the note away now: Escape, or a press elsewhere. */
-export const dismissNote = (view: EditorView) => view.plugin(pointing)?.away()
+/** The pointer is on the popout: keep it open. */
+export const holdFlag = (view: EditorView) => view.plugin(pointing)?.hold()
+/** The pointer left the popout: put it away after the beat. */
+export const releaseFlag = (view: EditorView) => view.plugin(pointing)?.release()
+/** Put the popout away now: Escape, or a press elsewhere. */
+export const dismissFlag = (view: EditorView) => view.plugin(pointing)?.away()
 
-/** The words that set a check off, underlined; lit while their note is open. */
+/** The words that set a check off, underlined; lit while their popout is open. */
 const flagWords = Decoration.mark({ class: 'cm-md-flag' })
 const flagWordsPointed = Decoration.mark({ class: 'cm-md-flag cm-md-pointed' })
 

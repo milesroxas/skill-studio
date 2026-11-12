@@ -62,13 +62,13 @@ import {
   toggleQuote,
 } from '../editor/format.ts'
 import {
-  dismissNote,
+  dismissFlag,
   type Flag,
   findingsWithin,
   gradedRules,
-  holdNote,
+  holdFlag,
   pointedFlag,
-  releaseNote,
+  releaseFlag,
   ruleAt,
 } from '../editor/graded.ts'
 import { landed, landedField } from '../editor/landed.ts'
@@ -79,7 +79,6 @@ import { shortcut } from '../keys.ts'
 import { setPreferences, usePreferences } from '../preferences.ts'
 import { registerReplacer } from '../replace.ts'
 import { Assist, type AssistSpec } from './Assist.tsx'
-import { FindingNote } from './FindingNote.tsx'
 import { ColumnToolbar, ToolbarGroup, ToolbarItem } from './layout.tsx'
 import { SelectionTools, type VirtualAnchor } from './SelectionTools.tsx'
 import { TextSizeIndicator } from './TextSize.tsx'
@@ -274,7 +273,8 @@ interface MarkdownEditorProps {
   assist?: AssistSpec
   /**
    * This is a SKILL.md: a selection of four words or more gets the popout with
-   * Auto refine, Suggest changes and Help me improve. The description says
+   * Auto refine, Suggest changes and Help me improve, and so does a rule's
+   * underlined word the pointer rests on. The description says
    * what the skill is about, which the checks read; errors go to the screen.
    */
   refine?: {
@@ -325,10 +325,11 @@ export function MarkdownEditor({
     (RuleScene & { from: number; to: number; findings: Finding[] }) | null
   >(null)
   const [toolsOpen, setToolsOpen] = useState(false)
+  const shown = useRef(toolsOpen)
+  shown.current = toolsOpen
+  /** The pointer opened the popout on underlined words and nobody has taken it up: it follows the pointer. */
+  const pointer = useRef(false)
   const anchor = useRef<VirtualAnchor | null>(null)
-  /** The underlined words the pointer rests on, with what they set off; kept while the note fades. */
-  const [note, setNote] = useState<{ flag: Flag; open: boolean } | null>(null)
-  const noteAnchor = useRef<VirtualAnchor | null>(null)
   const dragging = useRef(false)
   const settle = useRef<ReturnType<typeof setTimeout>>(undefined)
   /** Names the popout, so the key that moves into it can find it. */
@@ -355,6 +356,7 @@ export function MarkdownEditor({
     /** Put the popout over the selection, or take it away, once the selection has settled. */
     const place = (view: EditorView) => {
       if (dragging.current || !refining.current) return
+      pointer.current = false
       const range = view.state.selection.main
       const doc = view.state.doc.toString()
       if (range.empty || !worthChecking(doc.slice(range.from, range.to))) {
@@ -365,6 +367,27 @@ export function MarkdownEditor({
       const scene = sceneOf(doc, range, refining.current.description)
       anchor.current = anchorOver(view, scene.from, scene.to)
       setTools({ ...scene, findings: findingsWithin(view.state, scene.from, scene.to) })
+      setToolsOpen(true)
+    }
+    /**
+     * Put the popout over the underlined words the pointer rests on, or take
+     * it away once the pointer has gone. A popout a selection opened, or one
+     * the reader took up, stays where it is.
+     */
+    const pointedAt = (view: EditorView, flag: Flag | null) => {
+      const spec = refining.current
+      if (!spec || (shown.current && !pointer.current)) return
+      const rule = flag && ruleAt(view.state, flag.from)
+      if (!flag || !rule) {
+        setToolsOpen(false)
+        return
+      }
+      anchor.current = anchorOver(view, flag.from, flag.to)
+      pointer.current = true
+      setTools({
+        ...sceneOf(view.state.doc.toString(), rule, spec.description),
+        findings: flag.findings,
+      })
       setToolsOpen(true)
     }
     const settled = (view: EditorView) => {
@@ -438,10 +461,7 @@ export function MarkdownEditor({
           latest.current.onChange(update.state.doc.toString())
         count(update.state)
         const flag = pointedFlag(update.state)
-        if (flag !== pointedFlag(update.startState)) {
-          if (flag) noteAnchor.current = anchorOver(update.view, flag.from, flag.to)
-          setNote((now) => (flag ? { flag, open: true } : now && { ...now, open: false }))
-        }
+        if (flag !== pointedFlag(update.startState)) pointedAt(update.view, flag)
         if (update.selectionSet || update.docChanged) settled(update.view)
       }),
     ]
@@ -673,24 +693,24 @@ export function MarkdownEditor({
       </ColumnToolbar>
       {instead ?? (banner ? <div className={BANNER}>{banner}</div> : null)}
       <div ref={host} hidden={covered} className={surfaceVariants({ mode })} />
-      {note && !covered ? (
-        <FindingNote
-          anchor={noteAnchor}
-          findings={note.flag.findings}
-          open={note.open}
-          onPointerEnter={() => editor.current && holdNote(editor.current)}
-          onPointerLeave={() => editor.current && releaseNote(editor.current)}
-          onDismiss={() => editor.current && dismissNote(editor.current)}
-        />
-      ) : null}
       {refine && tools && !covered ? (
         <SelectionTools
           id={toolsId}
           key={`${tools.from}:${tools.to}`}
           anchor={anchor}
           open={toolsOpen}
-          onOpenChange={setToolsOpen}
-          onClosed={() => editor.current?.focus()}
+          onOpenChange={(open) => {
+            setToolsOpen(open)
+            // Put away, the words let go too: resting on them again opens it again.
+            if (!open && editor.current) dismissFlag(editor.current)
+          }}
+          // A popout the pointer opened and let go of had no focus to give back.
+          onClosed={() => pointer.current || editor.current?.focus()}
+          onPointerEnter={() => pointer.current && editor.current && holdFlag(editor.current)}
+          onPointerLeave={() => pointer.current && editor.current && releaseFlag(editor.current)}
+          onTaken={() => {
+            pointer.current = false
+          }}
           scene={tools}
           findings={tools.findings}
           onApply={(text) => {

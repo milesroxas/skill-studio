@@ -73,8 +73,8 @@ export const editorTheme = EditorView.theme({
     textAlign: 'right',
   },
   '.cm-md-rulenum.cm-md-flagged': { color: 'var(--warning)' },
-  // While their note is open the words take the verdict's tint, as a word in a diff does, so the
-  // note reads as being about them. It fades in and out with the note.
+  // While their popout is open the words take the verdict's tint, as a word in a diff does, so
+  // the popout reads as being about them. It fades in and out with the popout.
   '.cm-md-flag': {
     textDecoration: 'underline dotted',
     textDecorationColor: 'var(--warning)',
