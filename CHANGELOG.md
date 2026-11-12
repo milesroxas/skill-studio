@@ -6,6 +6,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [0.9.1] - 2026-11-12
+
 ### Changed
 
 - On Results, the list on the left is headed **Scores**, so it no longer reads like the Cases screen. It lists the same cases, each with how its score moved, under a line that sets **All cases** apart from them.
