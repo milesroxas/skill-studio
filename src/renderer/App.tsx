@@ -345,6 +345,8 @@ export function App() {
           practice: practice && { next: practice.next },
           cases: loaded.state.cases.length,
           runs: loaded.state.runs.length,
+          skillRuns: loaded.state.runs.filter((r) => r.meta?.configuration !== 'without_skill')
+            .length,
           changed: current.changed,
           unread,
         }
@@ -639,6 +641,7 @@ export function App() {
                     open={runOpen}
                     onOpenChange={setRunOpen}
                     next={next?.kind === 'run'}
+                    withoutSkill={next?.kind === 'run' && next.withoutSkill === true}
                     unsaved={unsaved.length}
                   />
                 ) : null}

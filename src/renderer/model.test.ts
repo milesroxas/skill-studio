@@ -240,6 +240,16 @@ describe('deleteRunDialog', () => {
     const two = withVersions(stateOf([run, twin], ['generic']))
     expect(deleteRunDialog(two, run, outputsOf(two)).description).toContain("won't change")
   })
+
+  it('says it goes from every case when the run answered more than one', () => {
+    const one = runOf('r1', 'v1', files)
+    const run = { ...one, samples: [...one.samples, { ...one.samples[0], name: 'note-s1' }] }
+    const base = withVersions(stateOf([run], ['generic']))
+    const state = { ...base, cases: [...base.cases, { id: 'note', bench: {} }] } as State
+    expect(deleteRunDialog(state, run, outputsOf(state)).description).toBe(
+      "Its results will be deleted from every case, but your skill won't change.",
+    )
+  })
 })
 
 describe('deleteBlocked', () => {

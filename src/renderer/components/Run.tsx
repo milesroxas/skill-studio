@@ -13,7 +13,11 @@
  * stays tied to the text behind it and nothing has to be saved by hand.
  *
  * The button is yellow when running is the next step of the loop, and plain
- * otherwise. While a run of this skill goes on, it says so and waits.
+ * otherwise. Its label names what pressing it tests: "Run v2", or "Run without
+ * skill" before the first run, when the app suggests a run with no skill at all
+ * to set the score to beat. That run is a suggestion: the panel offers to test
+ * the skill instead, in one press. While a run of this skill goes on, the
+ * button says so and waits.
  */
 import { practiceVersionName } from '@domain/practice.ts'
 import { CONFIGURATIONS, type Configuration } from '@domain/schemas.ts'
@@ -65,6 +69,7 @@ export function RunButton({
   open,
   onOpenChange,
   next,
+  withoutSkill,
   unsaved,
 }: {
   state: State
@@ -74,6 +79,8 @@ export function RunButton({
   onOpenChange: (open: boolean) => void
   /** Running is the next step of the loop: the button is the window's one yellow control. */
   next: boolean
+  /** No run yet: the run to suggest is one without the skill, the score the skill has to beat. */
+  withoutSkill: boolean
   /** Skill files with edits not saved yet: a run tests the files as saved, so it says so. */
   unsaved: number
 }) {
@@ -106,7 +113,9 @@ export function RunButton({
   const [skipped, toggleCase] = useToggleSet<string>([])
   const cases = state.cases.filter((c) => !skipped.has(c.id))
   const [samples, setSamples] = useState(1)
-  const [configuration, setConfiguration] = useState<Configuration>('with_skill')
+  // Null until the reader picks: the suggested run, which is without the skill before any run.
+  const [picked, setConfiguration] = useState<Configuration | null>(null)
+  const configuration: Configuration = picked ?? (withoutSkill ? 'without_skill' : 'with_skill')
   const [baseline, setBaseline] = useState('')
   const [name, setName] = useState('')
   /** No version yet: this run keeps the first one, and there is no change to name. */
@@ -147,6 +156,8 @@ export function RunButton({
       })
       report(`Run started: ${size}`)
       setName('')
+      // The next press runs what is suggested then: the skill, once the run without it is done.
+      setConfiguration(null)
       onOpenChange(false)
     })
   }
@@ -155,7 +166,7 @@ export function RunButton({
   const lead =
     configuration === 'without_skill'
       ? {
-          title: 'Test without the skill',
+          title: withoutSkill ? 'First, test without the skill' : 'Test without the skill',
           hint: 'The same cases with no skill at all. It sets the score your skill has to beat.',
         }
       : configuration === 'old_skill'
@@ -196,7 +207,9 @@ export function RunButton({
           busyLabel="Running…"
         >
           <RUN.icon aria-hidden="true" />
-          {RUN.label} {current.version}
+          {configuration === 'without_skill'
+            ? `${RUN.label} without skill`
+            : `${RUN.label} ${current.version}`}
         </Button>
       </PopoverTrigger>
       <PopoverContent
@@ -269,6 +282,19 @@ export function RunButton({
               No agent is set up
             </Status>
           )}
+          {withoutSkill && configuration === 'without_skill' ? (
+            // The run without the skill is suggested, never required: one press goes straight to the skill.
+            <Button
+              type="button"
+              variant="link-muted"
+              size="inline-sm"
+              className="self-start"
+              disabled={running}
+              onClick={() => setConfiguration('with_skill')}
+            >
+              Test the skill instead
+            </Button>
+          ) : null}
         </Stack>
         <Disclosure summary="Options" defaultOpen={!usable}>
           <Stack gap="lg">

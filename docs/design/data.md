@@ -39,7 +39,7 @@ Rules:
 - Text columns align left. Number columns align right. Never center a column.
 - A head cell is a noun of one or two words in sentence case. No caps, no bold.
 - An action in a cell is `Button size="cell-inline" variant="link-muted"` for navigation and `variant="ghost-muted"` or `destructive-muted` for a mutation. It is visible at rest. See [buttons.md](buttons.md).
-- A row's actions at its end are `RowActions` (`components/RowActions.tsx`), one `RowAction` each, in a column with `fold="menu"`. While the table has room they are `ghost-muted` buttons (`show="icon"` for one drawn as its icon alone); when it is narrow they fold into one "More actions" button whose menu holds each as an icon and its label. Never let a row's actions fold away: a narrow window must still reach them (`Library.tsx`).
+- A row's actions at its end are `RowActions` (`components/RowActions.tsx`), one `RowAction` each, in a column with `fold="menu"`. While the table has room they are `ghost-muted` buttons (`show="icon"` for one drawn as its icon alone); when it is narrow they fold into one "More actions" button whose menu holds each as an icon and its label. Never let a row's actions fold away: a narrow window must still reach them (`Library.tsx`). A `RowAction` with `tone="destructive"` is `destructive-muted` in the row and red under a hairline in the menu; put it last.
 - No zebra stripes. Hairlines separate rows, and a fill means hovered, open or failed.
 - An empty cell shows an en dash "–" in `tone="faint"`, never a blank and never "N/A".
 

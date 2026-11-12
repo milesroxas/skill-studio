@@ -18,19 +18,24 @@
  * controls: only a page has a size to pick. What is done now and then, another
  * pair, the case's own screen, a grade read again, is folded away, so what
  * stands over an output is what picks the output.
+ *
+ * Deleting a run is in the same menu, last and set apart: a run spans every
+ * case and every attempt, so its delete belongs with the other actions named
+ * by the run, not on one output's card or under one case's form.
  */
 
 import { draftOf, newCheck } from '@domain/case-draft.ts'
 import type { Verdict } from '@domain/pack.ts'
 import type { Case } from '@domain/schemas.ts'
-import { PencilIcon, RefreshCwIcon } from 'lucide-react'
+import { PencilIcon, RefreshCwIcon, Trash2Icon } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
 import { api } from '../api.ts'
 import { caseContext, skillContext } from '../assist.ts'
 import type { Ctx } from '../ctx.ts'
+import { useDeleteRun } from '../delete-run.ts'
 import { caseUnsaved } from '../draft-edits.ts'
 import { inSkill } from '../in-skill.ts'
-import { gradingRun, useJobStart } from '../job-start.ts'
+import { gradingRun, useJobStart, writingRun } from '../job-start.ts'
 import {
   caseTitle,
   configurationTail,
@@ -156,6 +161,11 @@ export function Comparison({
       : 'side'
   const view: View = views.find((v) => v.value === chosen)?.value ?? opening
   const runs = [...new Set(sides.map((o) => o.run.name))]
+  /** What the menu calls a run: "this run", or A's or B's when the two sides come from two. */
+  const whoseRun = (run: string) =>
+    runs.length > 1
+      ? `${sides.find((o) => o.run.name === run) === a ? 'A' : 'B'}’s run`
+      : 'this run'
   /** The size a page is drawn at: one for the case, on the stage and in both cards. */
   const page = usePageSize(testCase?.bench.size ?? null)
 
@@ -184,7 +194,7 @@ export function Comparison({
             const of = sides.filter((o) => o.run.name === run)
             const verb = of.some((o) => scoreOf(o, config)) ? 'Regrade' : 'Grade'
             // Grading reads a whole run, so the action names the run, not the output.
-            const whose = runs.length > 1 ? `${of[0] === a ? 'A' : 'B'}’s run` : 'this run'
+            const whose = whoseRun(run)
             return (
               <RowAction
                 key={run}
@@ -198,6 +208,18 @@ export function Comparison({
               </RowAction>
             )
           })}
+          {runs.map((run) => (
+            <DeleteRunAction
+              key={run}
+              ctx={ctx}
+              run={run}
+              label={`Delete ${whoseRun(run)}`}
+              grading={grading(run)}
+              waiting={grade.starting()}
+              // The address named an output of the run: the case opens on the pair it has left.
+              closed={() => go('results', { case: caseId })}
+            />
+          ))}
         </MoreActions>
       </ColumnHeader>
       <ColumnBody>
@@ -266,6 +288,42 @@ export function Comparison({
         ) : null}
       </ColumnBody>
     </>
+  )
+}
+
+/**
+ * Delete run as the menu's last item: red, under a rule. It waits while a job
+ * still writes or grades the run, and is busy until the delete lands.
+ */
+function DeleteRunAction({
+  ctx,
+  run,
+  label,
+  grading,
+  waiting,
+  closed,
+}: {
+  ctx: Ctx
+  run: string
+  label: string
+  grading: boolean
+  /** A grade is being started: the run may be the one it grades. */
+  waiting: boolean
+  closed: () => void
+}) {
+  const writing = writingRun(ctx.jobs, ctx.state.skill.path, run)
+  const del = useDeleteRun(ctx, run, { writing, grading, waiting }, closed)
+  return (
+    <RowAction
+      icon={<Trash2Icon aria-hidden="true" />}
+      tone="destructive"
+      title={del.blocked}
+      disabled={del.blocked !== undefined || waiting}
+      busy={del.deleting}
+      onSelect={() => void del.remove()}
+    >
+      {label}
+    </RowAction>
   )
 }
 

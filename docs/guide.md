@@ -21,7 +21,7 @@ The pictures show a sample skill, release-notes. Its scores are made up.
 ### Finding your way
 
 - **Sidebar:** the three screens of the open skill. The number beside Cases counts them. A dot means unsaved work.
-- **Run** (top right, with the version it tests, such as **Run v1**): has an agent do the cases. It shows once the skill has a case, and is yellow when running is the step to do now.
+- **Run** (top right, with the version it tests, such as **Run v1**): has an agent do the cases. It shows once the skill has a case, and is yellow when running is the step to do now. Before the first run it reads **Run without skill**: a run with no skill at all, the score your skill has to beat. To skip it, open it and click **Test the skill instead**.
 - **Next** (top right, yellow): the step to do now, when it is on another screen. After a run, it is **Read the results** until you open Results.
 - **Switch skill:** click the skill's name at the top of the sidebar, or press Cmd+K.
 - **Library, Guide and Settings:** at the foot of the sidebar. A run's progress shows there too.
@@ -174,7 +174,7 @@ A version is a copy of the skill as it was for a run, named v0, v1 and so on. Yo
 - **Versions**, under Files, lists them, newest first, each with its date and score. After a **Restore**, the version the files match says *in the files now*.
 - **Click one** to see what changed between it and the files now, file by file. Pick the version before it instead, such as **v1, the version before**, to see what that version itself changed.
 - **Restore** puts a version's files back. If the files changed since the last run, they are kept nowhere else: run them first to keep them.
-- **Delete version** deletes it and its runs. **Undo** brings them back. To delete one run and keep the version, use **Delete run** on Results, All cases.
+- **Delete version** deletes it and its runs. **Undo** brings them back. To delete one run and keep the version, use **Delete run** on Results: under the run on All cases, or under **More actions** (⋯) on a case.
 
 ## 3. Write cases
 
@@ -253,7 +253,7 @@ Results opens on a case with two outputs to compare: **A**, the version before, 
 - **The line under the stage** names the size a page is drawn at, then how far it is scaled down to fit, or under Full width how many pixels wide it is. Click the name to change it: **Full width**, **Phone**, **Tablet** or **Desktop**. A case with a size adds **Case size**, opens at it, and shows the whole page at that size. **Open full size** opens the file in a window of its own. A page in a card, under Side by side, has the same line over it and is scaled down to fit the card.
 - **One at a time**, **Side by side** and **Word diff**, at the top right, show with two outputs, One at a time only when one of them wrote a page or a picture. One at a time is the stage. Side by side shows the two as cards, with each file and the transcript. Word diff marks what differs between them, and two outputs of code open on it. Outputs too long to compare word by word are compared line by line, and the card says so.
 - **Comparing v0 with v1**, above the outputs, names the pair. Open it to pick any other outputs of the case from the **A** and **B** menus, each listed by its version with who wrote it and when under the name, or to **Swap** their sides.
-- **More actions** (⋯), at the top right, holds **Edit case** and a regrade for each run the outputs came from: **Regrade A’s run** and **Regrade B’s run**, or **Regrade this run** when there is one. Jev reads that whole run again, for example after you add a check. An output not graded yet shows **Grade** on its card.
+- **More actions** (⋯), at the top right, holds **Edit case** and a regrade for each run the outputs came from: **Regrade A’s run** and **Regrade B’s run**, or **Regrade this run** when there is one. Jev reads that whole run again, for example after you add a check. An output not graded yet shows **Grade** on its card. Last in the menu, in red, **Delete this run** (or **Delete A’s run**, **Delete B’s run**) deletes the whole run, on every case, not only the output you are reading.
 
 ### When you and Jev disagree
 
@@ -281,7 +281,7 @@ Under the two outputs, **Add a check** takes one sentence: what a good answer do
 - **Each row:** one run, with a score per case and the average. Under its name: when it ran, how long it took and what it cost.
 - **Click a score** to read that output beside the one before it.
 - **Click a run** to see each output with what it missed. **Changes since this run** shows what changed in the skill after it. **Regrade** has Jev read the run again.
-- **Delete run** deletes that run's outputs and your corrections on them. Every score stops counting it, here, on each case and in the version list. Its version stays: when the run was the version's only copy, the version is saved from it first. **Undo** on the status line brings the run back. A run still writing or being graded can be deleted once that ends.
+- **Delete run**, under the run, deletes that run's outputs and your corrections on them. Every score stops counting it, here, on each case and in the version list. Its version stays: when the run was the version's only copy, the version is saved from it first. **Undo** on the status line brings the run back. A run still writing or being graded can be deleted once that ends.
 
 To be sure an edit helped, run with **Attempts per case** at 2 or more. If two versions' scores differ less than one version's attempts do, the edit made no clear difference.
 

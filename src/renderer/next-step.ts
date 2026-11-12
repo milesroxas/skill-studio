@@ -1,7 +1,9 @@
 /**
  * The one step the top bar suggests, worked out without React so it can be
  * tested. In loop order: write a case, run, read what the run wrote. The
- * practice skill's walkthrough names its own step, and a running job has none.
+ * first run is one without the skill, the score the skill has to beat; it is
+ * suggested, never required, and a run with the skill comes next either way.
+ * The practice skill's walkthrough names its own step, and a running job has none.
  */
 
 /** Where a step happens: a screen, or null for a step that is the Run button's. */
@@ -15,7 +17,11 @@ export interface StepTarget {
 /** The one step the top bar suggests: a place to go to, or the run to start. */
 export type NextStep =
   | { kind: 'go'; label: string; screen: string; params?: Record<string, string> }
-  | { kind: 'run' }
+  | {
+      kind: 'run'
+      /** No run yet: the run to suggest is one without the skill, to set the score to beat. */
+      withoutSkill?: true
+    }
 
 /** A walkthrough step as the top bar's step: one with no screen is the Run button's. */
 export const stepOf = (target: StepTarget): NextStep =>
@@ -31,6 +37,8 @@ export interface Standing {
   practice: { next: StepTarget | null } | null
   cases: number
   runs: number
+  /** Runs that tested the skill: a run without it does not count. */
+  skillRuns: number
   /** The files changed since the last run. */
   changed: boolean
   /** A run finished since Results was last open. */
@@ -43,7 +51,8 @@ export function nextStep(standing: Standing | null): NextStep | null {
   if (standing.practice) return standing.practice.next && stepOf(standing.practice.next)
   if (!standing.cases)
     return { kind: 'go', label: 'Add a case', screen: 'cases', params: { new: '1' } }
-  if (standing.changed || !standing.runs) return { kind: 'run' }
+  if (!standing.runs) return { kind: 'run', withoutSkill: true }
+  if (standing.changed || !standing.skillRuns) return { kind: 'run' }
   return standing.unread ? { kind: 'go', label: 'Read the results', screen: 'results' } : null
 }
 

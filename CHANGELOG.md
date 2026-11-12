@@ -8,10 +8,13 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Changed
 
+- Before a skill's first run, the yellow **Run** button reads **Run without skill** and opens on **First, test without the skill**: the same cases with no skill, the score your skill has to beat. **Test the skill instead**, under its button, skips it in one press. Once the run without the skill is done, Run suggests testing the skill. Before, the first run always tested the skill, and nothing suggested a run without it.
+
 - Resting the pointer on an underlined word in SKILL.md opens the same popout as clicking the rule's number: what the word set off, over **Auto refine**, **Suggest changes** and **Help me improve**. Before, it showed only what the word set off.
 
 ### Added
 
+- A case on Results can delete the run it shows: **More actions** (⋯), last and in red, **Delete this run**, or **Delete A’s run** and **Delete B’s run** when the two outputs come from two runs. It asks first, says the run goes from every case, and **Undo** brings it back. Before, a run could be deleted only from All cases.
 - The app carries the license of each open-source package it includes, in `THIRD-PARTY-LICENSES.txt` in its resources folder, and its own MIT license as `LICENSE.txt` beside it.
 
 ## [0.8.0] - 2026-11-11

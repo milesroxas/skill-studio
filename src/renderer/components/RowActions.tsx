@@ -19,7 +19,13 @@ import {
 } from 'react'
 import { Toolbar } from './layout.tsx'
 import { Button } from './ui/button.tsx'
-import { Popover, PopoverAction, PopoverContent, PopoverTrigger } from './ui/popover.tsx'
+import {
+  Popover,
+  PopoverAction,
+  PopoverContent,
+  PopoverRule,
+  PopoverTrigger,
+} from './ui/popover.tsx'
 
 /** Where an action is drawn: in the row, or in the menu (`close` shuts it), for the row's `subject`. */
 type Place = { in: 'row'; subject: string } | { in: 'menu'; subject: string; close: () => void }
@@ -142,6 +148,7 @@ export function MoreActions({
 export function RowAction({
   icon,
   show = 'label',
+  tone = 'default',
   disabled,
   busy,
   title,
@@ -151,6 +158,12 @@ export function RowAction({
   icon: ReactNode
   /** How it shows in the row: its label, or its icon alone. The menu always shows both. */
   show?: 'label' | 'icon'
+  /**
+   * `destructive` deletes something the reader made. In the menu it is red and
+   * stands under a rule, apart from the rest, so put it last; in a row it is
+   * `destructive-muted`.
+   */
+  tone?: 'default' | 'destructive'
   disabled?: boolean
   /** Its work is on the way: disabled, and `aria-busy`. */
   busy?: boolean
@@ -162,11 +175,12 @@ export function RowAction({
 }) {
   const place = useContext(PlaceContext)
   const off = disabled || busy
-  if (place.in === 'menu')
-    return (
+  if (place.in === 'menu') {
+    const item = (
       <PopoverAction
         role="menuitem"
         icon={icon}
+        tone={tone}
         title={title}
         disabled={off}
         aria-busy={busy || undefined}
@@ -179,10 +193,20 @@ export function RowAction({
         {children}
       </PopoverAction>
     )
+    return tone === 'destructive' ? (
+      <>
+        <PopoverRule />
+        {item}
+      </>
+    ) : (
+      item
+    )
+  }
+  const variant = tone === 'destructive' ? 'destructive-muted' : 'ghost-muted'
   return show === 'icon' ? (
     <Button
       type="button"
-      variant="ghost-muted"
+      variant={variant}
       size="icon-sm"
       aria-label={`${children}: ${place.subject}`}
       title={title ?? children}
@@ -195,7 +219,7 @@ export function RowAction({
   ) : (
     <Button
       type="button"
-      variant="ghost-muted"
+      variant={variant}
       size="sm"
       title={title}
       disabled={off}

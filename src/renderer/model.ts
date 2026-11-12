@@ -433,12 +433,14 @@ export function deleteRunDialog(
   })
   // Plain words for someone who has not learned the app's terms: no version labels, no counts.
   const what = corrections ? 'Its results and the scores you fixed' : 'Its results'
+  // Asked from one case, a run reads as that case's output: say it goes from the others too.
+  const where = new Set(mine.map((o) => o.caseId)).size > 1 ? ' from every case' : ''
   return {
     title: 'Delete this run?',
     description:
       after === 'goes'
-        ? `${what} will be deleted, along with the only copy of the skill it tested.`
-        : `${what} will be deleted, but your skill won't change.`,
+        ? `${what} will be deleted${where}, along with the only copy of the skill it tested.`
+        : `${what} will be deleted${where}, but your skill won't change.`,
   }
 }
 

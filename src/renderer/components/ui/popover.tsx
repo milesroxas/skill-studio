@@ -108,32 +108,47 @@ function PopoverSection({
   return <div className={cn(popoverSectionVariants({ pad, scroll }), className)} {...props} />
 }
 
+const popoverActionVariants = cva(
+  'flex min-h-8 items-center gap-2 rounded-sm px-2 text-left text-ui focus-ring-inset transition-[background-color] duration-150 ease-out disabled:pointer-events-none disabled:opacity-50 pointer-coarse:min-h-11 [&_svg]:size-4 [&_svg]:shrink-0',
+  {
+    variants: {
+      tone: {
+        default: 'hover:bg-accent [&_svg]:text-muted-foreground',
+        /** It deletes something the reader made: red, its icon too, as `destructive-ghost`. */
+        destructive:
+          'text-destructive hover:bg-destructive/10 dark:hover:bg-destructive/20 [&_svg]:text-destructive',
+      },
+    },
+    defaultVariants: { tone: 'default' },
+  },
+)
+
 /** A row that does something, in a section of rows: an icon, what it does, and its shortcut. */
 function PopoverAction({
   icon,
   hint,
+  tone,
   className,
   children,
   ...props
-}: React.ComponentProps<'button'> & {
-  icon?: React.ReactNode
-  /** A shortcut, at the far edge. */
-  hint?: string
-}) {
+}: React.ComponentProps<'button'> &
+  VariantProps<typeof popoverActionVariants> & {
+    icon?: React.ReactNode
+    /** A shortcut, at the far edge. */
+    hint?: string
+  }) {
   return (
-    <button
-      type="button"
-      className={cn(
-        'flex min-h-8 items-center gap-2 rounded-sm px-2 text-left text-ui focus-ring-inset transition-[background-color] duration-150 ease-out hover:bg-accent disabled:pointer-events-none disabled:opacity-50 pointer-coarse:min-h-11 [&_svg]:size-4 [&_svg]:shrink-0 [&_svg]:text-muted-foreground',
-        className,
-      )}
-      {...props}
-    >
+    <button type="button" className={cn(popoverActionVariants({ tone }), className)} {...props}>
       {icon}
       <span className="min-w-0 flex-1 truncate">{children}</span>
       {hint ? <kbd className="font-sans text-xs text-muted-foreground">{hint}</kbd> : null}
     </button>
   )
+}
+
+/** A hairline across a menu, edge to edge, that sets the actions after it apart. Arrows skip it. */
+function PopoverRule({ className, ...props }: React.ComponentProps<'div'>) {
+  return <div role="separator" className={cn('-mx-1 my-1 h-px bg-border', className)} {...props} />
 }
 
 /** The name of a list inside a popover, or a line in place of an empty one. */
@@ -152,6 +167,7 @@ export {
   PopoverAnchor,
   PopoverContent,
   PopoverLabel,
+  PopoverRule,
   PopoverSection,
   PopoverTrigger,
 }

@@ -6,6 +6,7 @@ const standing = (patch: Partial<Standing> = {}): Standing => ({
   practice: null,
   cases: 2,
   runs: 1,
+  skillRuns: 1,
   changed: false,
   unread: false,
   ...patch,
@@ -26,9 +27,21 @@ describe('nextStep', () => {
     })
   })
 
-  it('then a run, when there is none or the files changed since the last', () => {
-    expect(nextStep(standing({ runs: 0 }))).toEqual({ kind: 'run' })
+  it('then a first run without the skill, to set the score to beat', () => {
+    expect(nextStep(standing({ runs: 0, skillRuns: 0 }))).toEqual({
+      kind: 'run',
+      withoutSkill: true,
+    })
+  })
+
+  it('then a run with the skill, after the run without it or when the files changed', () => {
+    expect(nextStep(standing({ skillRuns: 0 }))).toEqual({ kind: 'run' })
+    expect(nextStep(standing({ skillRuns: 0, unread: true }))).toEqual({ kind: 'run' })
     expect(nextStep(standing({ changed: true }))).toEqual({ kind: 'run' })
+  })
+
+  it('never asks for a run without the skill once the skill has run', () => {
+    expect(nextStep(standing({ runs: 1, skillRuns: 1 }))).toBeNull()
   })
 
   it('then the results of a run that finished since Results was open', () => {
