@@ -6,6 +6,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-11-12
+
 ### Changed
 
 - On Results, each output's card says only what tells it from the other side or what went wrong. Its head is one line: the version, which you click to read another output of the case on that side, and the score. Click the score to see what it is counted from and how the output was made: who wrote it, when, which attempt and its length. A line under the version names the agent when A and B were written by different ones, or the attempt when both are one version. **Read the transcript** is under the output, and the file tabs show only when the output wrote two files or more. **Swap A and B** is under **More actions** (⋯), and **Comparing v0 with v1** shows only under Word diff or with one side empty. Before, every card listed who wrote it, when, the attempt and the length, and a bar for each part of its score.
