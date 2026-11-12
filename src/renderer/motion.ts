@@ -58,6 +58,17 @@ export function useLanded(waiting: boolean): boolean {
   return waited && !waiting
 }
 
+/**
+ * How many items of a growing list were there before the reader could watch
+ * it grow: those rest, and the ones after arrive. Null while the list is not
+ * read yet. A list that shrinks, such as one cleared, starts again from what is left.
+ */
+export function useRested(count: number | null): number {
+  const rested = useRef<number | null>(null)
+  if (count !== null && (rested.current === null || count < rested.current)) rested.current = count
+  return rested.current ?? 0
+}
+
 /** How long a view takes to leave before the next one comes in: quicker than any arrival. */
 const LEAVE_MS = 140
 

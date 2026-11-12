@@ -334,6 +334,10 @@
   --animate-draw: draw 520ms var(--ease-stroke) var(--delay) both;
   /* A word written. */
   --animate-ink: ink 260ms ease-out var(--delay) both;
+  /* A message sent: up from the corner it was typed under, nearly its own size. */
+  --animate-send: send 220ms var(--ease-out-strong) var(--delay) both;
+  /* A short label that changed in place, such as a count: the new one comes up a few pixels. */
+  --animate-tick: tick 200ms var(--ease-out-strong) var(--delay) both;
   /* What a stamp or a choice replaces, gone as it lands. */
   --animate-vanish: vanish 120ms ease-out var(--delay) both;
   /* One full turn of a refresh icon, in answer to its press. */
@@ -369,6 +373,18 @@
   @keyframes ink {
     from {
       opacity: 0;
+    }
+  }
+  @keyframes send {
+    from {
+      opacity: 0;
+      transform: translateY(6px) scale(0.97);
+    }
+  }
+  @keyframes tick {
+    from {
+      opacity: 0;
+      transform: translateY(4px);
     }
   }
   @keyframes vanish {
@@ -623,6 +639,14 @@
   }
   .diff ins {
     @apply bg-success/10 text-foreground underline decoration-success underline-offset-3 dark:bg-success/20;
+  }
+  /* One rule in a proposed change's row: the row's own inset and text size, no measure of its own. */
+  .diff[data-size="row"] {
+    @apply max-w-none p-0 text-ui leading-normal;
+  }
+  /* A draft just written: the struck words are read first, the new ones are written in after them. */
+  .diff[data-arrive] ins {
+    animation: ink 260ms ease-out 140ms both;
   }
 
   /*

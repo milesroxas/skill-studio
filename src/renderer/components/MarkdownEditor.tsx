@@ -52,7 +52,7 @@ import {
   useRef,
   useState,
 } from 'react'
-import { startImprove } from '../ai.ts'
+import { improveNow, startImprove } from '../ai.ts'
 import {
   formatKeymap,
   insertLink,
@@ -67,18 +67,21 @@ import {
   findingsWithin,
   gradedRules,
   holdFlag,
+  ruleNumberOf as numberOf,
   pointedFlag,
   releaseFlag,
   ruleAt,
 } from '../editor/graded.ts'
+import { follow, improvingField, improvingRange } from '../editor/improving.ts'
 import { landed, landedField } from '../editor/landed.ts'
 import { skillMarkdown } from '../editor/language.ts'
 import { livePreview } from '../editor/live-preview.ts'
 import { editorTheme, markdownHighlighting } from '../editor/theme.ts'
 import { shortcut } from '../keys.ts'
 import { setPreferences, usePreferences } from '../preferences.ts'
-import { registerReplacer } from '../replace.ts'
+import { passageNow, registerReplacer, setPassage, watchPassage, watchShow } from '../replace.ts'
 import { Assist, type AssistSpec } from './Assist.tsx'
+import type { Confirm } from './confirm.tsx'
 import { ColumnToolbar, ToolbarGroup, ToolbarItem } from './layout.tsx'
 import { SelectionTools, type VirtualAnchor } from './SelectionTools.tsx'
 import { TextSizeIndicator } from './TextSize.tsx'
@@ -213,6 +216,13 @@ const surfaceVariants = cva('flex flex-1 flex-col', {
  */
 const BANNER = 'flex flex-col gap-8 px-6 pt-6 pb-3'
 
+/** Asked before Help me improve opens on a new rule while a conversation about another is under way. */
+const START_OVER = {
+  title: 'Start over on this selection?',
+  description: 'The conversation about the last rule is not kept.',
+  action: 'Start over',
+}
+
 /** The popout waits this long after the selection settles, so it does not flicker through a drag. */
 const SETTLE_MS = 150
 
@@ -226,6 +236,7 @@ function replaceIn(
   original: string,
   next: string,
   hint?: { from: number; to: number },
+  focus = true,
 ): 'replaced' | 'missing' {
   const doc = view.state.doc.toString()
   let from = hint && doc.slice(hint.from, hint.to) === original ? hint.from : doc.indexOf(original)
@@ -240,7 +251,7 @@ function replaceIn(
     scrollIntoView: true,
     userEvent: 'input',
   })
-  view.focus()
+  if (focus) view.focus()
   return 'replaced'
 }
 
@@ -280,8 +291,11 @@ interface MarkdownEditorProps {
   refine?: {
     description: string
     onError: (message: string) => void
-    /** The popout put text in place of the selection; `undo` takes it back. */
-    onReplaced: (undo: () => void) => void
+    /** The popout put text in place of the selection, or the side panel put a draft in place of its rule; `undo` takes it back. */
+    /** `rule` names the rule a draft from the side panel went into, such as `03`; undefined for the selection. */
+    onReplaced: (undo: () => void, from: { panel: boolean; rule?: string }) => void
+    /** Asks before Help me improve takes the place of a conversation already under way. */
+    confirm: Confirm
   }
   /** This SKILL.md's bullets are the rules Jev grades: mark and number them in the margin. */
   graded?: boolean
@@ -335,8 +349,8 @@ export function MarkdownEditor({
   /** Names the popout, so the key that moves into it can find it. */
   const toolsId = useId()
   const popout = useRef(toolsId)
-  /** The selection Help me improve was started on, and where it stood: its draft goes back there. */
-  const improving = useRef<{ selection: string; from: number; to: number } | null>(null)
+  /** Help me improve took the popout away to the side panel: the focus goes there, not back to the text. */
+  const handedOff = useRef(false)
   const refining = useRef(refine)
   refining.current = refine
   const [assistOpen, setAssistOpen] = useState(false)
@@ -394,6 +408,16 @@ export function MarkdownEditor({
       clearTimeout(settle.current)
       settle.current = setTimeout(() => place(view), SETTLE_MS)
     }
+    /** Tell the side panel what the rule being improved reads now, after any edit. */
+    const followed = (state: EditorState) => {
+      const range = improvingRange(state)
+      const rule = passageNow()
+      if (!range || rule?.file !== latest.current.id) return
+      const text = state.sliceDoc(range.from, range.to)
+      const number = numberOf(state, range)
+      if (text !== rule.text || number !== rule.number)
+        setPassage({ file: rule.file, text, number })
+    }
 
     /** Tell the toolbar when the first step appears or the last one goes, and not on every key. */
     const count = (state: EditorState) => {
@@ -404,6 +428,7 @@ export function MarkdownEditor({
       history(),
       drawSelection(),
       landedField,
+      improvingField,
       EditorView.lineWrapping,
       skillMarkdown(),
       markdownHighlighting,
@@ -459,6 +484,7 @@ export function MarkdownEditor({
       EditorView.updateListener.of((update) => {
         if (update.docChanged && !update.transactions.some((tr) => tr.annotation(fromScreen)))
           latest.current.onChange(update.state.doc.toString())
+        if (update.docChanged) followed(update.state)
         count(update.state)
         const flag = pointedFlag(update.state)
         if (flag !== pointedFlag(update.startState)) pointedAt(update.view, flag)
@@ -476,6 +502,31 @@ export function MarkdownEditor({
     count(view.state)
     editor.current = view
     mounted.add(id)
+    // The rule being improved, in this file opened again: found by its text, when it is there once.
+    const rule = passageNow()
+    if (rule?.file === id && rule.text) {
+      const doc = view.state.doc.toString()
+      const at = doc.indexOf(rule.text)
+      if (at !== -1 && doc.indexOf(rule.text, at + 1) === -1)
+        view.dispatch({ effects: follow.of({ from: at, to: at + rule.text.length }) })
+    }
+    // The conversation closed, or moved to another file: the rule here lets go of its tint.
+    const unwatch = watchPassage(() => {
+      const now = passageNow()
+      if (now?.file !== id && improvingRange(view.state))
+        view.dispatch({ effects: follow.of(null) })
+    })
+    // The panel asked to see the rule: it scrolls into view and takes the landed flash.
+    const unshow = watchShow(() => {
+      const range = improvingRange(view.state)
+      if (!range || passageNow()?.file !== id) return
+      view.dispatch({
+        effects: [
+          EditorView.scrollIntoView(range.from, { y: 'center' }),
+          landed(view, range.from, range.to),
+        ],
+      })
+    })
     // A drag ends outside the editor as often as in it.
     const up = () => {
       if (!dragging.current) return
@@ -484,6 +535,8 @@ export function MarkdownEditor({
     }
     window.addEventListener('mouseup', up)
     return () => {
+      unwatch()
+      unshow()
       window.removeEventListener('mouseup', up)
       clearTimeout(settle.current)
       mounted.delete(id)
@@ -497,40 +550,72 @@ export function MarkdownEditor({
    * Put `next` where `original` is, and report it on the status line with
    * Undo. Every replace from the popout or the side panel comes through here.
    */
-  const apply = (original: string, next: string, hint?: { from: number; to: number }) => {
+  const apply = (
+    original: string,
+    next: string,
+    hint?: { from: number; to: number },
+    focus = true,
+  ) => {
     const view = editor.current
     const spec = refining.current
     if (!view || !spec) return 'missing' as const
-    if (replaceIn(view, original, next, hint) === 'missing') return 'missing' as const
+    if (replaceIn(view, original, next, hint, focus) === 'missing') return 'missing' as const
     const after = view.state.doc
-    spec.onReplaced(() => {
-      const now = editor.current
-      if (!now) return
-      // Nothing typed since: the history step is exactly the replace.
-      if (now.state.doc === after) undo(now)
-      else if (replaceIn(now, next, original) === 'missing')
-        spec.onError('The new text has changed since. Undo it in the editor.')
-    })
+    spec.onReplaced(
+      () => {
+        const now = editor.current
+        if (!now) return
+        // Nothing typed since: the history step is exactly the replace.
+        if (now.state.doc === after) undo(now)
+        else if (replaceIn(now, next, original) === 'missing')
+          spec.onError('The new text has changed since. Undo it in the editor.')
+      },
+      { panel: !focus, rule: passageNow()?.number ?? undefined },
+    )
     return 'replaced' as const
   }
   const applying = useRef(apply)
   applying.current = apply
+
+  /**
+   * Open Help me improve on `scene`: the rule takes its tint and the side panel
+   * opens on it. A conversation already under way is not kept, so ask first.
+   */
+  const improveOn = async (scene: RuleScene & { from: number; to: number }) => {
+    const spec = refining.current
+    const view = editor.current
+    if (!spec || !view) return
+    if (improveNow()?.messages.length && !(await spec.confirm(START_OVER))) return
+    // The rule takes its tint in place of the selection: one mark for it, not two.
+    view.dispatch({
+      selection: { anchor: scene.to },
+      effects: follow.of({ from: scene.from, to: scene.to }),
+    })
+    setPassage({
+      file: latest.current.id,
+      text: scene.selection,
+      number: numberOf(view.state, scene),
+    })
+    try {
+      await startImprove(scene)
+    } catch (e) {
+      setPassage(null)
+      spec.onError((e as Error).message)
+    }
+  }
 
   // While a SKILL.md is open here, the side panel's draft has somewhere to land.
   const refined = refine !== undefined
   useEffect(() => {
     if (!refined) return
     registerReplacer((original, next) => {
-      // The draft goes where its selection was taken, while the text there is still that selection:
+      // The draft goes where the rule being improved stands, while the text there is still that rule:
       // the same words elsewhere in the file are not the ones that were asked about.
-      const at = improving.current
-      const here =
-        at &&
-        at.selection === original &&
-        editor.current?.state.sliceDoc(at.from, at.to) === original
-          ? { from: at.from, to: at.to }
-          : undefined
-      return applying.current(original, next, here)
+      const state = editor.current?.state
+      const range = state && improvingRange(state)
+      const here = range && state.sliceDoc(range.from, range.to) === original ? range : undefined
+      // The writer is in the conversation: the text takes the change, the focus stays in the panel.
+      return applying.current(original, next, here, false)
     })
     return () => registerReplacer(null)
   }, [refined])
@@ -705,7 +790,10 @@ export function MarkdownEditor({
             if (!open && editor.current) dismissFlag(editor.current)
           }}
           // A popout the pointer opened and let go of had no focus to give back.
-          onClosed={() => pointer.current || editor.current?.focus()}
+          onClosed={() => {
+            if (handedOff.current) handedOff.current = false
+            else if (!pointer.current) editor.current?.focus()
+          }}
           onPointerEnter={() => pointer.current && editor.current && holdFlag(editor.current)}
           onPointerLeave={() => pointer.current && editor.current && releaseFlag(editor.current)}
           onTaken={() => {
@@ -718,8 +806,8 @@ export function MarkdownEditor({
               refine.onError('The selection changed before the text could be replaced.')
           }}
           onImprove={() => {
-            improving.current = { selection: tools.selection, from: tools.from, to: tools.to }
-            startImprove(tools).catch((e: Error) => refine.onError(e.message))
+            handedOff.current = true
+            void improveOn(tools)
           }}
         />
       ) : null}

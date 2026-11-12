@@ -607,7 +607,14 @@ export const Editor = memo(function Editor({ ctx }: { ctx: Ctx }) {
                 ? {
                     description: metaText(meta, 'description') ?? state.skill.description,
                     onError: (message) => report(message, { tone: 'destructive' }),
-                    onReplaced: (undo) => report('Replaced the selection.', { undo }),
+                    onReplaced: (undo, from) =>
+                      report(
+                        from.panel
+                          ? `Applied the draft${from.rule ? ` to rule ${from.rule}` : ''}.`
+                          : 'Replaced the selection.',
+                        { undo },
+                      ),
+                    confirm,
                   }
                 : undefined
             }

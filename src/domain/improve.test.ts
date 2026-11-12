@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest'
+import { VOICE } from './assist.ts'
 import {
   checklistOf,
   codeVerdicts,
   draftOf,
+  draftReply,
   drifts,
   dropsFact,
   type ImproveThread,
@@ -156,6 +158,9 @@ describe('planImprove', () => {
 describe('improveSystem', () => {
   const thread: ImproveThread = {
     scene,
+    opened: '2026-11-12T00:00:00.000Z',
+    walked: true,
+    findings: [],
     steps: ['strict', 'why'],
     at: 0,
     asks: 0,
@@ -172,6 +177,45 @@ describe('improveSystem', () => {
     expect(system).toContain('Where is the line')
     expect(system).toContain('Do not write the draft yet')
     expect(improveSystem({ ...thread, asks: 1 })).toContain('ask once more')
+  })
+
+  it('writes from what the writer asked when they asked for no questions, and fixes what the checks found', () => {
+    const asked = improveSystem({
+      ...thread,
+      walked: false,
+      at: 2,
+      findings: [
+        {
+          dimension: 'principle',
+          principle: 'why',
+          lead: 'Say why.',
+          message: 'No reason given.',
+          quote: null,
+          source: 'judge',
+        },
+      ],
+    })
+    expect(asked).toContain('Write the draft now from what the writer asked')
+    expect(asked).toContain('Say why. No reason given.')
+  })
+
+  it('once a draft stands, answers a question without a new draft and talks a deletion over', () => {
+    const standing = improveSystem({ ...thread, at: 2, draft: '- Two sentences.' })
+    expect(standing).toContain('if it is a question, answer it')
+    expect(standing).toContain('as it stands in the file now')
+    expect(standing).not.toContain('What the checks found')
+    expect(improveSystem({ ...thread, at: 2, cut: true, draft: '' })).not.toContain(
+      'Propose deleting it',
+    )
+  })
+
+  it('offers a draft rather than reporting a change, and leaves the next step open', () => {
+    const drafting = improveSystem({ ...thread, at: 2 })
+    expect(drafting).toContain(VOICE)
+    expect(drafting).toContain('as an offer')
+    expect(drafting).toContain('never say you changed, replaced')
+    expect(drafting).toContain('After the block, write nothing, unless')
+    expect(drafting).toContain('Never ask whether the draft says what they meant')
   })
 
   it('asks for the draft once the steps are walked, and for a deletion when the line does nothing', () => {
@@ -207,6 +251,31 @@ describe('walkAfter', () => {
   it('goes straight to the draft when the reply says the line does nothing', () => {
     expect(walkAfter(walk, { answered: 0.1, cut: 0.9 })).toEqual({ at: 3, asks: 0, cut: true })
     expect(walkAfter(walk, { answered: 0.9, cut: 0.5 })).toEqual({ at: 1, asks: 0, cut: false })
+  })
+})
+
+describe('draftReply', () => {
+  it('splits a reply around its draft, and holds the place of a draft still arriving', () => {
+    expect(draftReply('Changed the limit.\n\n```\n- Two sentences.\n```\n\nDoes it?')).toEqual({
+      before: 'Changed the limit.',
+      draft: '- Two sentences.',
+      writing: false,
+      after: 'Does it?',
+    })
+    expect(draftReply('Changed the limit.\n\n```\n- Two sen')).toEqual({
+      before: 'Changed the limit.',
+      draft: null,
+      writing: true,
+      after: '',
+    })
+    expect(draftReply('Only an answer.')).toEqual({
+      before: 'Only an answer.',
+      draft: null,
+      writing: false,
+      after: '',
+    })
+    // A deletion is an empty block.
+    expect(draftReply('It goes.\n\n```\n```')).toMatchObject({ draft: '', writing: false })
   })
 })
 

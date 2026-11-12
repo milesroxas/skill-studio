@@ -18,6 +18,7 @@ import { PlusIcon, RotateCwIcon } from 'lucide-react'
 import { Toolbar as ToolbarPrimitive } from 'radix-ui'
 import { type ComponentProps, type HTMLAttributes, type ReactNode, useState } from 'react'
 import { cn } from '../lib/utils.ts'
+import { after } from '../motion.ts'
 import { Heading, Hint, Text } from './text.tsx'
 import { Button } from './ui/button.tsx'
 
@@ -570,11 +571,15 @@ const emptyVariants = cva('flex flex-col items-center px-4 text-center', {
  * Nothing here yet: say why, and offer the step that fills it. The step that
  * fills it is the default button; a second way out is outline.
  */
+/** Between the parts of an empty state that arrives: title, words, actions, then the rest. */
+const ARRIVE_STEP_MS = 50
+
 export function EmptyState({
   size,
   title,
   actions,
   more,
+  arrive = false,
   children,
   className,
   ...props
@@ -584,17 +589,45 @@ export function EmptyState({
     actions?: ReactNode
     /** Anything under the actions, such as a list of what was already done. */
     more?: ReactNode
+    /**
+     * It opened in answer to the reader, such as a conversation they just
+     * started: its parts come up in turn, the whole within 300ms.
+     */
+    arrive?: boolean
   }) {
+  const step = (turn: number) =>
+    arrive ? { className: 'animate-tick', style: after(turn * ARRIVE_STEP_MS) } : {}
   return (
     <div className={cn(emptyVariants({ size }), className)} {...props}>
-      {title ? <Heading level={2}>{title}</Heading> : null}
+      {title ? (
+        <Heading level={2} {...step(0)}>
+          {title}
+        </Heading>
+      ) : null}
       {children ? (
-        <Text as="p" size="ui" tone="muted" className="max-w-[46ch] text-pretty">
+        <Text
+          as="p"
+          size="ui"
+          tone="muted"
+          style={step(1).style}
+          className={cn('max-w-[46ch] text-pretty', step(1).className)}
+        >
           {children}
         </Text>
       ) : null}
-      {actions ? <Toolbar className="mt-3 justify-center">{actions}</Toolbar> : null}
-      {more ? <div className="mt-6 w-full max-w-sm text-left">{more}</div> : null}
+      {actions ? (
+        <Toolbar className={cn('mt-3 justify-center', step(2).className)} style={step(2).style}>
+          {actions}
+        </Toolbar>
+      ) : null}
+      {more ? (
+        <div
+          className={cn('mt-6 w-full max-w-sm text-left', step(2).className)}
+          style={step(2).style}
+        >
+          {more}
+        </div>
+      ) : null}
     </div>
   )
 }

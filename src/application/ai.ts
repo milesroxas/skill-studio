@@ -530,12 +530,15 @@ async function improveReply(thread: ImproveThread): Promise<void> {
 let improveStarts = 0
 /** The latest start, which one that gave way answers with. */
 let latestStart: Promise<ImproveThread> | null = null
+/** Jev's reading of each conversation's rule, begun as it opens, so the writer's first message seldom waits on it. */
+const plans = new WeakMap<ImproveThread, Promise<Assessment>>()
 
 /**
- * Open an improve conversation on a selected rule and ask its first question.
- * A rule picked while the last one is still being read (Jev may take up to a
- * minute) is the one the writer wants now: the earlier start gives way, stops
- * any reply it began, and answers with this one's conversation.
+ * Open an improve conversation on a selected rule. Nothing is asked of the
+ * model yet: the writer says what they want first. Jev starts reading the rule
+ * at once, so the plan is ready by the time they have. A rule picked while the
+ * last one is opening is the one the writer wants now: the earlier start gives
+ * way and answers with this one's conversation.
  */
 export function startImprove(scene: RuleScene): Promise<ImproveThread> {
   const ticket = ++improveStarts
@@ -559,61 +562,83 @@ const stopReply = (thread: ImproveThread): void => {
 
 async function startImproveNow(scene: RuleScene, ticket: number): Promise<ImproveThread> {
   clearImprove()
+  // No model to write with means nothing to open: say so before Jev is paid.
   await currentChoice()
-  if (overtaken(ticket)) return latest()
-  const { findings, judgment, judged } = await assess(scene, improveJev)
-  // Jev's reading of a rule no longer wanted is dropped, and no reply is paid for.
   if (overtaken(ticket)) return latest()
   const thread: ImproveThread = {
     scene,
-    steps: planImprove(findings, judgment),
+    opened: new Date().toISOString(),
+    walked: null,
+    findings: [],
+    steps: [],
     at: 0,
     asks: 0,
     cut: false,
-    messages: [message([], 'user', scene.selection)],
+    messages: [],
     run: null,
     draft: null,
     checklist: null,
-    judged,
+    judged: false,
   }
+  const plan = assess(scene, improveJev)
+  // Read when the writer first sends; a failure is said then, not as the panel opens.
+  plan.catch(() => {})
+  plans.set(thread, plan)
   improve = thread
-  try {
-    await improveReply(thread)
-  } catch (error) {
-    // A conversation with no first question is nothing to come back to.
-    if (improve === thread) improve = null
-    if (overtaken(ticket)) return latest()
-    throw error
-  }
-  if (overtaken(ticket)) {
-    stopReply(thread)
-    return latest()
-  }
   return snapshot(thread)
 }
 
 /** What a reply to a conversation closed while its answer was read is refused with. */
 const CLOSED = 'That conversation was closed.'
 
-/**
- * The writer's reply. Code decides where the walk goes: the judge says
- * whether the reply answered the question in hand, so an unanswered one is put
- * once more and an answered one moves on; on the first question, a reply that
- * says the line does nothing sends the walk straight to a draft that deletes it.
- */
-export const sendImprove = (text: string): Promise<ImproveThread> =>
-  once('improve', () => sendImproveNow(text))
+/** How the writer's message goes: as the way into the questions, and with the rule as it stands in the file now. */
+export interface ImproveSend {
+  /** The first message asks to be walked through the questions, not for a draft. */
+  walk?: boolean
+  /** The rule's text in the file now, when the writer put a draft in place or edited it since. */
+  current?: string
+}
 
-async function sendImproveNow(text: string): Promise<ImproveThread> {
+/**
+ * The writer's message. The first one sets the course: a request for a draft,
+ * or the way into the questions. Code decides where the walk goes from there:
+ * the judge says whether a reply answered the question in hand, so an
+ * unanswered one is put once more and an answered one moves on; on the first
+ * question, a reply that says the line does nothing sends the walk straight to
+ * a draft that deletes it.
+ */
+export const sendImprove = (text: string, how: ImproveSend = {}): Promise<ImproveThread> =>
+  once('improve', () => sendImproveNow(text, how))
+
+async function sendImproveNow(text: string, how: ImproveSend): Promise<ImproveThread> {
   const thread = improve
   if (!thread) throw new Error('No rule is being improved. Select one on the Skill screen first.')
   if (thread.run?.status === 'running') throw new Error('Wait for the reply, or stop it first.')
   const ticket = improveStarts
+  if (how.current !== undefined && how.current !== thread.scene.selection)
+    thread.scene = { ...thread.scene, selection: how.current }
   thread.messages = [...thread.messages, message(thread.messages, 'user', text)]
-  const step = currentStep(thread)
-  if (step) {
-    const reading = thread.judged ? await readAnswer(thread.scene, step, text) : null
-    Object.assign(thread, walkAfter(thread, reading))
+  if (thread.walked === null) {
+    let assessment: Assessment
+    try {
+      assessment = await (plans.get(thread) ?? assess(thread.scene, improveJev))
+    } catch (error) {
+      // The message is not lost: the writer sends it again once the key is fixed.
+      thread.messages = thread.messages.slice(0, -1)
+      throw error
+    }
+    if (improve !== thread) return gone(ticket)
+    thread.findings = assessment.findings
+    thread.judged = assessment.judged
+    thread.steps = planImprove(assessment.findings, assessment.judgment)
+    thread.walked = how.walk === true
+    thread.at = thread.walked ? 0 : thread.steps.length
+  } else {
+    const step = currentStep(thread)
+    if (step) {
+      const reading = thread.judged ? await readAnswer(thread.scene, step, text) : null
+      Object.assign(thread, walkAfter(thread, reading))
+    }
   }
   // Another rule was picked, or the conversation closed, while the answer was read: no reply is paid for.
   if (improve !== thread) return gone(ticket)

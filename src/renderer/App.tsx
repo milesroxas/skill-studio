@@ -38,6 +38,7 @@ import { HelpButton, ScreenHint } from './components/Help.tsx'
 import { ImprovePanel } from './components/Improve.tsx'
 import { JobsIndicator } from './components/Jobs.tsx'
 import { EmptyState, Loading, Spacer } from './components/layout.tsx'
+import { PanelView } from './components/PanelFrame.tsx'
 import { PracticeGuide } from './components/PracticeGuide.tsx'
 import { RunButton } from './components/Run.tsx'
 import {
@@ -150,7 +151,7 @@ export function App() {
   const openRun = useCallback(() => setRunOpen(true), [])
   const { thread: improving } = useImprove()
   // A rule sent from the Editor opens the panel on its conversation.
-  const improveStarted = improving?.messages[0]?.at ?? null
+  const improveStarted = improving?.opened ?? null
   useEffect(() => {
     if (improveStarted) setAssistant(true)
   }, [improveStarted, setAssistant])
@@ -682,20 +683,22 @@ export function App() {
       </Workspace>
       {assistant ? (
         <AssistantPane>
-          {improving ? (
-            <ImprovePanel
-              onBack={() => void clearImprove().catch(report)}
-              onClose={() => setAssistant(false)}
-            />
-          ) : (
-            <ChatPanel
-              screen={place?.label ?? ''}
-              skill={skillPath ? (state?.skill.name ?? null) : null}
-              ctx={ctx}
-              confirm={confirm}
-              onClose={() => setAssistant(false)}
-            />
-          )}
+          <PanelView view={improving ? 'opened' : 'chat'}>
+            {improving ? (
+              <ImprovePanel
+                onBack={() => void clearImprove().catch(report)}
+                onClose={() => setAssistant(false)}
+              />
+            ) : (
+              <ChatPanel
+                screen={place?.label ?? ''}
+                skill={skillPath ? (state?.skill.name ?? null) : null}
+                ctx={ctx}
+                confirm={confirm}
+                onClose={() => setAssistant(false)}
+              />
+            )}
+          </PanelView>
         </AssistantPane>
       ) : null}
       {confirmDialog}

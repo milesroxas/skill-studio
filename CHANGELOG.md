@@ -13,6 +13,12 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - A run without the skill is named **Without skill** wherever runs are listed, with no version, since it tested none. Before, it read like "v0 · Claude Sonnet · without skill".
 - The lists that pick an output on Results put runs without the skill in a group of their own, **Without the skill**, after the versions, and the runs table on **All cases** lists them last. They are the score to beat, not one more version.
 - A run without the skill no longer offers **Changes since this run**, since it used no skill.
+- **Help me improve** waits for you. It opens the Assistant on the rule, with the rule at the top of the message box and the cursor in it: say what should change and you get a draft, or press **Ask me a few questions** to answer a short set first. Before, it asked its first question before you could say what you wanted.
+- A draft from Help me improve shows in the conversation as a change to SKILL.md, the same row the Assistant's changes use, with **Apply** at its end. Its line says how it stands against the guide and how many words it is, and it opens to the rule with the old phrases struck through and the new ones marked. Applying it keeps the conversation open, so you can ask why, ask for another change and apply again; any earlier draft can be applied again to go back to it. Before, **Replace selection** sat under the conversation, and replacing closed it.
+- A draft from Help me improve reads as a suggestion: its reply says what the draft would change, never that something was changed, and no longer ends every draft by asking whether it says what you meant. It points out a next step only when there is one worth taking, such as a guess only you can confirm.
+- The Assistant and Help me improve answer in one to three short sentences unless you ask for more, in your words: they no longer explain how the app works inside, such as how rules are graded, unless you ask.
+- The top of the message box in Help me improve names the rule, such as Rule 04, before its first words; click it to bring the rule into view in the editor.
+- While Help me improve is open, the rule in the editor keeps a bar down its left edge and a light tint, and the arrow at the top goes back to the chat. It asks first when there is a conversation to lose, and so does starting on another rule.
 
 ### Fixed
 

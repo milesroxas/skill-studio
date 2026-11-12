@@ -293,7 +293,7 @@ export function AssistantPane({ className, ...props }: ComponentProps<'aside'>) 
     <aside
       aria-label="Assistant"
       className={cn(
-        'flex min-h-0 min-w-0 animate-in flex-col border-l bg-background duration-200 ease-out-strong fade-in-0 slide-in-from-right-3 max-lg:fixed max-lg:inset-y-0 max-lg:right-0 max-lg:z-popover max-lg:w-[min(380px,100vw)] max-lg:shadow-popover',
+        'flex min-h-0 min-w-0 animate-in flex-col overflow-hidden border-l bg-background duration-200 ease-out-strong fade-in-0 slide-in-from-right-3 max-lg:fixed max-lg:inset-y-0 max-lg:right-0 max-lg:z-popover max-lg:w-[min(380px,100vw)] max-lg:shadow-popover',
         className,
       )}
       {...props}

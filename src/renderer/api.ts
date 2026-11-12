@@ -107,7 +107,8 @@ export const api = {
   rewrites: (scene: RuleScene) => call('ai.rewrites', scene),
   improve: () => call('improve.read', {}),
   improveStart: (scene: RuleScene) => call('improve.start', scene),
-  improveSend: (text: string) => call('improve.send', { text }),
+  improveSend: (text: string, how: { walk?: boolean; current?: string } = {}) =>
+    call('improve.send', { text, ...how }),
   improveClear: () => call('improve.clear', {}),
   uploadImage: (upload: ImageUpload) => call('image.upload', upload),
   uploadInput: (pick: InputPick) => call('input.upload', pick),

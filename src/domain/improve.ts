@@ -8,7 +8,7 @@
  * functions.
  */
 import type { AiRun, ChatMessage } from './ai.ts'
-import { APP_INTRO as APP, tag } from './assist.ts'
+import { APP_INTRO as APP, tag, VOICE } from './assist.ts'
 import { type Finding, type RuleScene, wordCount } from './lint.ts'
 import { type Principle, principleGuide, RULE_GUIDE, RULE_SHAPE } from './templates.ts'
 import { LIST_MARK as MARK } from './text.ts'
@@ -167,6 +167,9 @@ const LIST_MARK = new RegExp(`^[ \\t]*${MARK}[ \\t]+`)
  * `text` with the list mark the selection starts with, when the model left it
  * off: a rule replaced without its dash stops being a rule.
  */
+/** `text` without the list mark it opens with, as a reader sees the rule in the editor. */
+export const withoutListMark = (text: string): string => text.replace(LIST_MARK, '')
+
 export function keepListMark(selection: string, text: string): string {
   const mark = LIST_MARK.exec(selection)?.[0]
   return mark && !LIST_MARK.test(text) ? `${mark}${text}` : text
@@ -409,8 +412,18 @@ export function planImprove(findings: Finding[], judgment: RuleJudgment | null):
 
 /** The side panel's improve conversation, scoped to one selection. */
 export interface ImproveThread {
+  /** The rule as it stands in the file now: a draft put in place becomes the selection the next reply works on. */
   scene: RuleScene
-  /** The steps planned for this rule, in order. */
+  /** ISO time the conversation was opened. */
+  opened: string
+  /**
+   * Whether the writer asked to be walked through the questions; null until
+   * their first message. Nothing is asked of the model before that message.
+   */
+  walked: boolean | null
+  /** What the checks found in the rule, once read; drafts fix these where the writer did not ask otherwise. */
+  findings: Finding[]
+  /** The steps planned for this rule, in order. Empty until the writer's first message. */
   steps: ImproveStepId[]
   /** Index of the step in hand; `steps.length` once the draft is due. */
   at: number
@@ -418,7 +431,7 @@ export interface ImproveThread {
   asks: number
   /** The writer said the line does nothing: the draft deletes it. */
   cut: boolean
-  /** The conversation. The first message is the writer's selection and is not shown as a message. */
+  /** The conversation, starting with the writer's first message. */
   messages: ChatMessage[]
   run: AiRun | null
   /** The latest draft the model wrote, as text that replaces the selection. */
@@ -463,23 +476,73 @@ export function walkAfter(
   return again ? { at, asks: asks + 1, cut } : { at: at + 1, asks: 0, cut }
 }
 
+const FENCED = /```[a-z]*\n([\s\S]*?)```/g
+
 /** The draft in a reply: the last fenced block. */
 export function draftOf(text: string): string | null {
-  const blocks = [...text.matchAll(/```[a-z]*\n([\s\S]*?)```/g)]
+  const blocks = [...text.matchAll(FENCED)]
   const last = blocks.at(-1)?.[1]?.trim()
   return last || null
 }
 
-const DRAFT_FORMAT = `Put the draft in one fenced code block (three backticks, no language) holding only the text that replaces the selection, with the same list markers as the lines around it. Before the block, one sentence on what changed. After it, ask in one sentence whether it says what they meant. Nothing else.`
+/**
+ * A reply as the panel shows it: the prose before the draft, the draft, and
+ * the prose after. `writing` is a draft whose block is still arriving, so the
+ * panel holds its place without showing half a rule. A reply with no draft is
+ * all `before`.
+ */
+export interface DraftReply {
+  before: string
+  draft: string | null
+  writing: boolean
+  after: string
+}
+
+export function draftReply(text: string): DraftReply {
+  const last = [...text.matchAll(FENCED)].at(-1)
+  const end = last ? (last.index ?? 0) + last[0].length : 0
+  const open = text.slice(end).search(/(^|\n)```/)
+  if (open !== -1)
+    return { before: text.slice(0, end + open).trim(), draft: null, writing: true, after: '' }
+  if (!last) return { before: text.trim(), draft: null, writing: false, after: '' }
+  return {
+    before: text.slice(0, last.index).trim(),
+    draft: last[1].trim(),
+    writing: false,
+    after: text.slice(end).trim(),
+  }
+}
+
+/**
+ * How a draft is laid out. A draft is an offer: nothing in the file changes
+ * until the writer applies it, so the reply never says it changed anything.
+ * The conversation is a workshop, so a reply does not close it with a
+ * question; it offers one next step only when it has one worth taking.
+ */
+const DRAFT_FORMAT = `Put the draft in one fenced code block (three backticks, no language) holding only the text that replaces the selection, with the same list markers as the lines around it. Before the block, one sentence on what this draft would change, as an offer: the file changes only if the writer applies it, so never say you changed, replaced, rewrote or added anything. After the block, write nothing, unless there is one thing worth the writer's next move: a guess the draft made that only they can confirm, or one further change worth trying. Then say it in one sentence. Never ask whether the draft says what they meant, and never ask them to approve it.`
+
+/** What a reply does once a draft stands: answer a question, or write the whole draft again. */
+const AFTER_DRAFT =
+  'A draft stands. Read what the writer said last: if it is a question, answer it in one to three sentences and write no draft; if it asks for a change, write the whole draft again with it.'
 
 /** The brief for the next reply in an improve conversation: the rule, the walk so far, and the one thing to do now. */
-export function improveSystem(thread: ImproveThread): string {
+export function improveSystem(
+  thread: Pick<
+    ImproveThread,
+    'scene' | 'steps' | 'at' | 'asks' | 'cut' | 'walked' | 'findings' | 'draft'
+  >,
+): string {
   const step = currentStep(thread)
   const parts = [
-    `You are helping a writer improve one rule of a SKILL.md in Skill Studio. ${APP} You ask one question at a time, in one or two plain sentences, then write a draft. You never lecture: the writer knows their craft, you know how a rule has to be shaped for an agent.`,
+    `You are helping a writer improve one rule of a SKILL.md in Skill Studio. ${APP} You put a question only when told to, in one or two plain sentences, and otherwise write drafts of the rule. You never lecture: the writer knows their craft, you know how a rule has to be shaped for an agent.`,
     HOW,
+    VOICE,
     sceneText(thread.scene),
   ]
+  if (thread.draft !== null)
+    parts.push(
+      'The selection above is the rule as it stands in the file now. If the writer put a draft in place, it is that draft.',
+    )
   if (step)
     parts.push(
       `Ask now, in your own words and in one or two sentences, with no preamble: ${step.ask}${
@@ -488,14 +551,23 @@ export function improveSystem(thread: ImproveThread): string {
           : ''
       } Do not write the draft yet.`,
     )
-  else if (thread.cut)
+  else if (thread.cut && thread.draft === null)
     parts.push(
       `The writer said this line changes nothing. Propose deleting it: say so in one sentence, and ${DRAFT_FORMAT.replace('holding only the text that replaces the selection', 'that is empty, since the selection goes')}`,
     )
-  else
-    parts.push(
-      `Every question is answered. Write the draft now from the answers: ${RULE_SHAPE} ${DRAFT_FORMAT} If the writer replies with a change, write the whole draft again with it.`,
-    )
+  else {
+    const from =
+      thread.draft !== null
+        ? `${AFTER_DRAFT} A new draft:`
+        : thread.walked && thread.steps.length
+          ? 'Every question is answered. Write the draft now from the answers:'
+          : 'Write the draft now from what the writer asked:'
+    parts.push(`${from} ${RULE_SHAPE} ${DRAFT_FORMAT}`)
+    if (thread.findings.length && thread.draft === null)
+      parts.push(
+        `What the checks found in the selection, for you alone: fix these too, unless the writer asked otherwise, and never quote them or say where they came from:\n${findingsText(thread.findings)}`,
+      )
+  }
   if (thread.scene.band !== 'fine') parts.push(BUDGET[thread.scene.band])
   return parts.join('\n\n')
 }

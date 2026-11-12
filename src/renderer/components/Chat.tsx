@@ -9,6 +9,7 @@
  * model, its effort and what has been spent are in reach from here.
  */
 import type { AiRun, ChatMessage } from '@domain/ai.ts'
+import { cva } from 'class-variance-authority'
 import { SquarePenIcon } from 'lucide-react'
 import { type ReactNode, useEffect, useMemo, useState } from 'react'
 import {
@@ -27,6 +28,7 @@ import { APP_COMMANDS, appCommandOf } from '../commands.ts'
 import type { Ctx } from '../ctx.ts'
 import { navigate } from '../history.ts'
 import { useAttached } from '../images.ts'
+import { useRested } from '../motion.ts'
 import { openAt } from '../route.ts'
 import { type ChangeHost, Reply } from './Change.tsx'
 import { Composer } from './Composer.tsx'
@@ -80,6 +82,7 @@ export function ChatPanel({ screen, skill, ctx, confirm, onClose }: ChatPanelPro
 
   const messages = thread?.messages ?? []
   const run = thread?.run ?? null
+  const rested = useRested(thread ? messages.length : null)
 
   // The skill's files as saved, the shell's one copy: a file change shows against them.
   const disk = ctx?.files ?? null
@@ -201,7 +204,7 @@ export function ChatPanel({ screen, skill, ctx, confirm, onClose }: ChatPanelPro
         It reads the open skill, and changes nothing until you apply a change.
       </EmptyState>
     ) : (
-      <Conversation messages={messages} run={run} error={error} reply={reply} />
+      <Conversation messages={messages} run={run} error={error} rested={rested} reply={reply} />
     )
 
   return (
@@ -252,6 +255,13 @@ export function ChatPanel({ screen, skill, ctx, confirm, onClose }: ChatPanelPro
   )
 }
 
+/** A message the reader sent: on the right. One sent while they watch rises from its corner. */
+const sentVariants = cva('ml-8 flex max-w-full flex-col items-end gap-2 self-end', {
+  variants: {
+    arrived: { true: 'origin-bottom-right animate-send', false: '' },
+  },
+})
+
 /** A reply as prose, by default: a conversation that proposes changes shows them too. */
 const prose = (text: string): ReactNode => <Prose text={text} density="compact" />
 
@@ -260,19 +270,35 @@ export function Conversation({
   messages,
   run,
   error,
+  waiting = false,
+  rested = messages.length,
   reply = prose,
 }: {
   messages: ChatMessage[]
+  /** How many messages were there when the reader opened the conversation: those rest, later ones arrive. */
+  rested?: number
   run: AiRun | null
   error: string | null
-  /** How a reply reads: its text, the skill it was written about, and whether it is still arriving. */
-  reply?: (text: string, skill: string | undefined, writing: boolean) => ReactNode
+  /** A message is on its way and its reply not started yet: the reply's place says so already. */
+  waiting?: boolean
+  /**
+   * How a reply reads: its text, the skill it was written about, whether it is
+   * still arriving, and the message's id once it has (null while it arrives).
+   */
+  reply?: (
+    text: string,
+    skill: string | undefined,
+    writing: boolean,
+    id: number | null,
+  ) => ReactNode
 }) {
   return (
     <ol className="m-0 flex flex-col gap-4 px-4 py-4">
-      {messages.map((message) =>
+      {messages.map((message, i) =>
         message.role === 'user' ? (
-          <li key={message.id} className="ml-8 flex max-w-full flex-col items-end gap-2 self-end">
+          // By place, not id: a message shown while it is sent keeps its element once it has an id.
+          // biome-ignore lint/suspicious/noArrayIndexKey: a conversation only grows at its end
+          <li key={i} className={sentVariants({ arrived: i >= rested })}>
             {message.images?.length ? (
               <PictureStrip
                 size="md"
@@ -288,13 +314,14 @@ export function Conversation({
             ) : null}
           </li>
         ) : (
-          <li key={message.id}>{reply(message.text, message.skill, false)}</li>
+          // biome-ignore lint/suspicious/noArrayIndexKey: as above
+          <li key={i}>{reply(message.text, message.skill, false, message.id)}</li>
         ),
       )}
-      {run?.status === 'running' ? (
+      {run?.status === 'running' || (waiting && !error) ? (
         <li aria-live="polite">
-          {run.text ? (
-            reply(run.text, undefined, true)
+          {run?.status === 'running' && run.text ? (
+            reply(run.text, undefined, true, null)
           ) : (
             <Text tone="muted" className="animate-pulse">
               Thinking…

@@ -9,7 +9,7 @@ import { api } from '../api.ts'
 import { type Compared, compareTexts, diffShown } from '../diff.ts'
 import { useFetch } from '../hooks.ts'
 import { type Output, primaryOf, runInSentence } from '../model.ts'
-import { DiffLines } from './DiffLines.tsx'
+import { DiffLines, WordDiff } from './DiffLines.tsx'
 import { Loading, ReadFailed } from './layout.tsx'
 import { OutputCard, OutputCardHead, Slot } from './OutputCard.tsx'
 import { Hint } from './text.tsx'
@@ -56,10 +56,7 @@ export function DiffCard({ a, b }: { a: Output; b: Output }) {
         </ReadFailed>
       )}
       {shown.kind === 'loading' && <Loading />}
-      {shown.kind === 'words' && (
-        // biome-ignore lint/security/noDangerouslySetInnerHtml: diff output is escaped
-        <div className="diff" dangerouslySetInnerHTML={{ __html: shown.html }} />
-      )}
+      {shown.kind === 'words' && <WordDiff html={shown.html} />}
       {shown.kind === 'lines' && (
         <>
           <Hint inset>

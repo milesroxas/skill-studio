@@ -119,9 +119,13 @@ export interface Contract {
   'ai.rewrites': { input: RuleScene; output: AiRun }
   /** The side panel's improve conversation; null when none is open. */
   'improve.read': { input: Record<string, never>; output: ImproveThread | null }
-  /** Open an improve conversation on a selected rule and ask its first question. */
+  /** Open an improve conversation on a selected rule. Nothing is asked until the writer's first message. */
   'improve.start': { input: RuleScene; output: ImproveThread }
-  'improve.send': { input: { text: string }; output: ImproveThread }
+  /** The writer's message: `walk` on the first asks for the questions, `current` is the rule as it stands in the file now. */
+  'improve.send': {
+    input: { text: string; walk?: boolean; current?: string }
+    output: ImproveThread
+  }
   'improve.clear': { input: Record<string, never>; output: { cleared: true } }
   /** Keep a picture until a case or a message saves it. The reference it returns names the upload. */
   'image.upload': { input: ImageUpload; output: ImageRef }

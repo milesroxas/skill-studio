@@ -105,6 +105,23 @@ export const editorTheme = EditorView.theme({
   },
   // Less movement asked for: the tint holds plain until the mark clears. It is a color, not motion.
   ':root[data-motion="reduced"] & .cm-landed': { animation: 'none' },
+  // The rule the side panel is improving (`improving.ts`), held while the conversation is open: a
+  // bar in the gutter beside each of its lines, which no selection has, over a tint on its words
+  // lighter than the selection's. Never yellow: the rule is not running, it is being talked about.
+  '.cm-improving': {
+    backgroundColor: 'color-mix(in oklch, var(--foreground) 9%, transparent)',
+    borderRadius: '2px',
+  },
+  '.cm-line.cm-improving-line': { position: 'relative' },
+  '.cm-line.cm-improving-line::before': {
+    content: '""',
+    position: 'absolute',
+    left: '8px',
+    top: '0',
+    bottom: '0',
+    width: '2px',
+    backgroundColor: 'color-mix(in oklch, var(--foreground) 55%, transparent)',
+  },
 
   '.tok-heading, .tok-strong': { fontWeight: '600' },
   // Geist ships no italic and the app turns font synthesis off, so emphasis would not show.

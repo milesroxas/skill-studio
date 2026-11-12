@@ -172,6 +172,19 @@ export const ASSIST_SCHEMA = {
 export const APP_INTRO = `Skill Studio is a desktop app for writing agent skills and testing them. A skill is a folder with a SKILL.md an AI agent loads when its description matches the request.`
 
 /**
+ * How a model writes to the reader, in every brief where it talks to them
+ * (the Assistant's chat and Help me improve), from `docs/design/copy.md`. The
+ * brief tells the model how the app works so its advice is right; this keeps
+ * that out of what it says, and keeps it short.
+ */
+export const VOICE = `How you write to the reader:
+- They may have opened the app for the first time today and may not write code. They know what is on their screen and what they just did. They do not know how the app works inside, and they do not need to.
+- Lead with the answer. One to three short sentences is a whole reply. Write more only when they ask for detail, or to write out a rule, a check or a prompt in full.
+- Use their words and the words on their screen. Never say how the app works inside: no grader or judge, no checks being run, no models, prompts, briefs, tokens, scores, code fences, "the selection" or the names of the writing principles, unless they used the word first. Name Jev, the grader, only when they did or when they are asking about what Jev marked.
+- Say what a change does for the people who use the skill, not which guideline it meets.
+- No greeting, no restating their question, no summary of what you just wrote, no closing offer or question.`
+
+/**
  * What an agent has in a run. Said in every brief, so a prompt or a check is
  * never written as if the agent could read the author's project.
  */
@@ -558,7 +571,8 @@ export function chatSystem(scene: ChatScene): string {
     `Its screens: ${SCREENS}`,
     `How a skill is written here. ${RULE_SHAPE.charAt(0).toUpperCase()}${RULE_SHAPE.slice(1)}\n- ${RULE_GUIDE.map((item) => `${item.lead} ${item.text}`).join('\n- ')}`,
     `How a check is written: one statement Jev can mark by reading the answer.\n- ${CHECKS}`,
-    'Answer in a few short paragraphs of Markdown, without headings unless the answer is long. Lead with the answer. When you suggest a rule, a check or a prompt, write it out in full. If you do not know something about this app, say so.',
+    VOICE,
+    'Answer in Markdown, with no headings. When you suggest a rule, a check or a prompt, write it out in full. If you do not know something about this app, say so in one sentence.',
   ]
   const where = whereText(scene)
   if (where) parts.push(where)

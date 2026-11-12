@@ -152,16 +152,78 @@ function diffWords(x: string[], y: string[]): Array<[Op, string]> {
   return out
 }
 
+/** A stretch of steps: unchanged text, or what was removed and what was added in its place. */
+interface Stretch {
+  same: boolean
+  text: string
+  del: string
+  ins: string
+  /** Words in unchanged text, spaces not counted. */
+  words: number
+}
+
+/**
+ * Steps read as phrases: changes that only a word or two kept apart become one
+ * change, the old phrase struck through and then the new one. A rewritten
+ * sentence otherwise reads as a word struck, a word added, by turns. Changes
+ * on two lines stay two changes.
+ */
+function phrases(steps: Array<[Op, string]>, apart = 3): Array<[Op, string]> {
+  const stretches: Stretch[] = []
+  for (const [op, token] of steps) {
+    const same = op === 'same'
+    let last = stretches.at(-1)
+    if (!last || last.same !== same) {
+      last = { same, text: '', del: '', ins: '', words: 0 }
+      stretches.push(last)
+    }
+    if (op === 'same') {
+      last.text += token
+      if (/\S/.test(token)) last.words += 1
+    } else if (op === 'del') last.del += token
+    else last.ins += token
+  }
+  const joined: Stretch[] = []
+  stretches.forEach((stretch, i) => {
+    const before = joined.at(-1)
+    // A line break is never bridged: a phrase stays on its line, so a list's items keep their own changes.
+    const between =
+      stretch.same &&
+      i < stretches.length - 1 &&
+      stretch.words < apart &&
+      !stretch.text.includes('\n')
+    if (before && !before.same && (between || !stretch.same)) {
+      before.del += between ? stretch.text : stretch.del
+      before.ins += between ? stretch.text : stretch.ins
+    } else joined.push({ ...stretch })
+  })
+  return joined.flatMap(
+    (s): Array<[Op, string]> =>
+      s.same
+        ? [['same', s.text]]
+        : [
+            ...(s.del ? [['del', s.del] as [Op, string]] : []),
+            ...(s.ins ? [['ins', s.ins] as [Op, string]] : []),
+          ],
+  )
+}
+
 /**
  * Removed words struck through, added words marked, as HTML. Null when the
  * two texts differ over too many words to compare one by one: the caller
- * shows them line by line instead.
+ * shows them line by line instead. `byPhrase` joins changes a word or two
+ * apart, for a rewrite read as a whole, such as one rule.
  */
-export function wordDiffHtml(before: string, after: string): string | null {
+export function wordDiffHtml(
+  before: string,
+  after: string,
+  { byPhrase = false }: { byPhrase?: boolean } = {},
+): string | null {
   const x = words(before)
   const y = words(after)
   if (!fits(x, y)) return null
-  return diffWords(x, y)
+  const steps = diffWords(x, y)
+  return (byPhrase ? phrases(steps) : steps)
     .map(([op, token]) => (op === 'same' ? esc(token) : `<${op}>${esc(token)}</${op}>`))
     .join('')
     .replace(/<\/del><del>/g, '')
@@ -171,8 +233,12 @@ export function wordDiffHtml(before: string, after: string): string | null {
 /** Two texts compared word by word, as HTML, or, when they differ over too many words, line by line. */
 export type Compared = { kind: 'words'; html: string } | { kind: 'lines'; lines: DiffLine[] }
 
-export const compareTexts = (before: string, after: string): Compared => {
-  const html = wordDiffHtml(before, after)
+export const compareTexts = (
+  before: string,
+  after: string,
+  options?: { byPhrase?: boolean },
+): Compared => {
+  const html = wordDiffHtml(before, after, options)
   return html === null ? { kind: 'lines', lines: lineDiff(before, after) } : { kind: 'words', html }
 }
 

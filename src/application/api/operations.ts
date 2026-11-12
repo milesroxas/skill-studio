@@ -398,7 +398,10 @@ export const parsers: { [K in OperationName]: (raw: Raw) => Input<K> } = {
     if (!text) throw new Error('Write a reply first.')
     if (text.length > ASSIST_LIMIT)
       throw new Error('This reply is longer than one request can carry.')
-    return { text }
+    const current = typeof raw.current === 'string' ? raw.current : undefined
+    if (current !== undefined && current.length > ASSIST_LIMIT)
+      throw new Error('This rule is longer than one request can carry.')
+    return { text, walk: raw.walk === true, current }
   },
   'improve.clear': none,
   'image.upload': (raw) => {
@@ -683,7 +686,7 @@ export function createOperations(options: OperationsOptions): Runners {
     'ai.rewrites': (scene) => startRewrites(scene),
     'improve.read': () => improveThread(),
     'improve.start': (scene) => startImprove(scene),
-    'improve.send': ({ text }) => sendImprove(text),
+    'improve.send': ({ text, walk, current }) => sendImprove(text, { walk, current }),
     'improve.clear': () => {
       clearImprove()
       return { cleared: true as const }

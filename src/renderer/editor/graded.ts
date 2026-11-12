@@ -255,6 +255,15 @@ export function ruleAt(state: EditorState, pos: number): GradedRule | null {
   return graded?.rules.find((r) => pos >= r.from && pos <= r.to) ?? null
 }
 
+/** The number of the rule that holds all of `from`..`to`, such as `04`; null for prose or a range across rules. */
+export function ruleNumberOf(
+  state: EditorState,
+  range: { from: number; to: number },
+): string | null {
+  const rule = ruleAt(state, range.from)
+  return rule && range.to <= rule.to ? rule.label : null
+}
+
 /** The number to draw in place of the bullet on the line at `lineFrom`, or null when it is not a rule. */
 export function ruleBulletAt(state: EditorState, lineFrom: number): Decoration | null {
   const rule = state.field(field, false)?.rules.find((r) => r.from === lineFrom)

@@ -69,7 +69,7 @@ const unreadDetail = (host: ChangeHost): string | null =>
 type Change<K extends SkillChange['kind']> = Extract<SkillChange, { kind: K }>
 
 /** How every row of a reply stands: still arriving, offered, or not on offer and why. */
-type Offer = { kind: 'writing' } | { kind: 'open' } | { kind: 'blocked'; reason: string }
+export type Offer = { kind: 'writing' } | { kind: 'open' } | { kind: 'blocked'; reason: string }
 
 /** Why a reply's changes cannot be applied now; null when they can. */
 function blockedBy(host: ChangeHost, skill: string | undefined): string | null {
@@ -89,7 +89,15 @@ const splitPath = (path: string): { name: string; folder: string } => {
 }
 
 /** A row's title over a line of detail. */
-function Summary({ title, detail, mono }: { title: string; detail: ReactNode; mono?: boolean }) {
+export function Summary({
+  title,
+  detail,
+  mono,
+}: {
+  title: string
+  detail: ReactNode
+  mono?: boolean
+}) {
   return (
     <span className="flex min-w-0 flex-col">
       <Text font={mono ? 'mono' : 'sans'} size="ui" truncate>
@@ -125,12 +133,47 @@ function Action({
 }) {
   // With no skill open the row is not on offer; a failure then has only the shell to say it.
   const [busy, run] = useAction(host.ctx?.report ?? unawaited)
+  return (
+    <RowAction
+      offer={offer}
+      label={label}
+      busy={busy}
+      busyLabel={busyLabel}
+      doneLabel={doneLabel}
+      done={done}
+      onApply={() => void run(onApply)}
+    />
+  )
+}
+
+/**
+ * The end of a proposed change's row, wherever a reply proposes one: nothing
+ * while it is written, then one outline button, then once the change stands
+ * where it goes, the word that says so, fading in when a click put it there.
+ */
+export function RowAction({
+  offer,
+  label,
+  busy = false,
+  busyLabel,
+  doneLabel,
+  done,
+  onApply,
+}: {
+  offer: Offer
+  label: string
+  busy?: boolean
+  busyLabel?: string
+  doneLabel: string
+  done: boolean
+  onApply: () => void
+}) {
   const arrived = useArrived(String(done))
   if (offer.kind === 'writing') return null
   if (done)
     return (
       <span className={arrived ? 'animate-ink' : undefined}>
-        <Status tone="success" size="ui">
+        <Status tone="success" size="ui" stamp={arrived}>
           {doneLabel}
         </Status>
       </span>
@@ -144,7 +187,7 @@ function Action({
       disabled={offer.kind === 'blocked'}
       busy={busy}
       busyLabel={busyLabel}
-      onClick={() => void run(onApply)}
+      onClick={onApply}
     >
       {label}
     </Button>
@@ -400,7 +443,7 @@ function VersionRow({
 }
 
 /** A change still arriving: its label, which is a path when the model has written one. */
-function WritingRow({ label, className }: { label: string; className?: string }) {
+export function WritingRow({ label, className }: { label: string; className?: string }) {
   const file = label.includes('.') ? splitPath(label) : null
   return (
     <Disclosure

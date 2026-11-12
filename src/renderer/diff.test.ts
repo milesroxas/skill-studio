@@ -13,6 +13,22 @@ describe('wordDiffHtml', () => {
     expect(wordDiffHtml('a quick fox', 'a slow fox')).toBe('a <del>quick</del><ins>slow</ins> fox')
   })
 
+  it('reads a rewrite as phrases when asked: changes a word or two apart become one', () => {
+    expect(
+      wordDiffHtml('Keep the note under 120 words.', 'Never write more than 120 words.', {
+        byPhrase: true,
+      }),
+    ).toBe('<del>Keep the note under</del><ins>Never write more than</ins> 120 words.')
+    // Three unchanged words keep two changes apart.
+    expect(wordDiffHtml('a b c d e f', 'x b c d e y', { byPhrase: true })).toBe(
+      '<del>a</del><ins>x</ins> b c d e <del>f</del><ins>y</ins>',
+    )
+    // A line break keeps the changes on each line apart.
+    expect(wordDiffHtml('cut it all:\n1. Remove one', 'cut it:\n1. One', { byPhrase: true })).toBe(
+      'cut <del>it all:</del><ins>it:</ins>\n1. <del>Remove one</del><ins>One</ins>',
+    )
+  })
+
   it('escapes the text it shows', () => {
     expect(wordDiffHtml('<b>', '<i>')).toBe('<del>&lt;b&gt;</del><ins>&lt;i&gt;</ins>')
   })

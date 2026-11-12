@@ -22,15 +22,17 @@ const dotVariants = cva('shrink-0 rounded-full', {
       sm: 'size-1.5',
       default: 'size-2',
     },
+    /** The state was just reached by the reader's own click: the dot stamps in, a little past its size. */
+    stamp: { true: 'animate-pop', false: '' },
   },
-  defaultVariants: { tone: 'muted', size: 'default' },
+  defaultVariants: { tone: 'muted', size: 'default', stamp: false },
 })
 
 export type Tone = NonNullable<VariantProps<typeof dotVariants>['tone']>
 
 /** The dot alone. The words beside it carry the state: the dot repeats it. */
-export function Dot({ tone, size }: VariantProps<typeof dotVariants>) {
-  return <span className={dotVariants({ tone, size })} aria-hidden="true" />
+export function Dot({ tone, size, stamp }: VariantProps<typeof dotVariants>) {
+  return <span className={dotVariants({ tone, size, stamp })} aria-hidden="true" />
 }
 
 /**
@@ -65,8 +67,9 @@ export function Status({
   size,
   detail,
   id,
+  stamp,
   children,
-}: Pick<VariantProps<typeof dotVariants>, 'tone'> &
+}: Pick<VariantProps<typeof dotVariants>, 'tone' | 'stamp'> &
   VariantProps<typeof statusVariants> & {
     detail?: ReactNode
     /** For a control the state explains, through its `aria-describedby`. */
@@ -75,7 +78,7 @@ export function Status({
   }) {
   return (
     <p id={id} className={statusVariants({ size })}>
-      <Dot tone={tone} />
+      <Dot tone={tone} stamp={stamp} />
       <Text weight="medium">{children}</Text>
       {detail ? <Text tone="muted">{detail}</Text> : null}
     </p>

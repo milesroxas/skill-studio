@@ -8,6 +8,7 @@ import {
   CONTEXT_BUDGET,
   chatSystem,
   partialText,
+  VOICE,
   weightNote,
   workingSkill,
 } from './assist.ts'
@@ -294,6 +295,13 @@ describe('chatSystem', () => {
       cases: {},
     }),
   }
+
+  it('talks to a new reader: short, in their words, with how the app works kept out', () => {
+    const system = chatSystem({ screen: 'Cases', open: { file: null, case: 'shift' }, skill })
+    expect(system).toContain(VOICE)
+    expect(VOICE).toContain('One to three short sentences')
+    expect(VOICE).toContain('Never say how the app works inside')
+  })
 
   it('carries the skill as the reader has it, unsaved work included', () => {
     const system = chatSystem({ screen: 'Cases', open: { file: null, case: 'shift' }, skill })

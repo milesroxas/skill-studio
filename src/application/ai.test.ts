@@ -59,7 +59,7 @@ vi.mock('@judges/rule/index.ts', () => ({
   verifyRewrites: async () => null,
 }))
 
-const { clearImprove, improveThread, startImprove } = await import('./ai.ts')
+const { clearImprove, improveThread, sendImprove, startImprove } = await import('./ai.ts')
 
 const scene = (selection: string): RuleScene => ({
   selection,
@@ -83,32 +83,53 @@ beforeEach(() => {
 })
 
 describe('startImprove', () => {
-  it('takes a new rule while the last one is still being read, and pays for one reply only', async () => {
-    const first = startImprove(scene('- Keep every note short.'))
+  it('opens on a rule without asking the model anything, while Jev reads the rule', async () => {
+    const thread = await startImprove(scene('- Keep every note short.'))
+    expect(thread.messages).toEqual([])
+    expect(thread.run).toBeNull()
+    expect(thread.walked).toBeNull()
     await asked(1)
-    // Picked before Jev has read the first rule: not refused.
-    const second = startImprove(scene('- Sign every note with a name.'))
-    await asked(2)
-    world.readings[1].answer(false)
-    const now = await second
-    expect(now.scene.selection).toBe('- Sign every note with a name.')
-
-    // The first reading comes back late: it starts nothing, and answers with the newer conversation.
-    world.readings[0].answer(false)
-    expect((await first).scene.selection).toBe('- Sign every note with a name.')
-    expect(world.replies).toBe(1)
-    expect(improveThread()?.scene.selection).toBe('- Sign every note with a name.')
+    expect(world.replies).toBe(0)
   })
 
-  it('answers each of several quick picks with the last, and has Jev read that one only', async () => {
+  it('answers each of several quick picks with the last, and pays for no reply', async () => {
     const picks = ['- One rule here.', '- Two rules here.', '- Three rules here.'].map((rule) =>
       startImprove(scene(rule)),
     )
-    await asked(1)
-    expect(world.readings[0].selection).toBe('- Three rules here.')
-    world.readings[0].answer(false)
     const threads = await Promise.all(picks)
     expect(threads.map((t) => t.scene.selection)).toEqual(Array(3).fill('- Three rules here.'))
+    expect(improveThread()?.scene.selection).toBe('- Three rules here.')
+    expect(world.replies).toBe(0)
+  })
+})
+
+describe('sendImprove', () => {
+  it('waits on Jev for the first message, then asks for a draft of what the writer asked', async () => {
+    await startImprove(scene('- Keep every note short.'))
+    await asked(1)
+    const sent = sendImprove('Say how short.')
+    // Jev has not answered: nothing is paid for yet.
+    await new Promise((next) => setImmediate(next))
+    expect(world.replies).toBe(0)
+    world.readings[0].answer(false)
+    const thread = await sent
+    expect(thread.walked).toBe(false)
+    expect(thread.at).toBe(thread.steps.length)
+    expect(thread.messages.map((m) => m.text)).toEqual(['Say how short.'])
     expect(world.replies).toBe(1)
+  })
+
+  it('walks the questions when the first message asks for them, on the rule as it reads now', async () => {
+    await startImprove(scene('- Keep every note short.'))
+    await asked(1)
+    world.readings[0].answer(false)
+    const thread = await sendImprove('Ask me a few questions', {
+      walk: true,
+      current: '- Keep every note under 50 words.',
+    })
+    expect(thread.walked).toBe(true)
+    expect(thread.at).toBe(0)
+    expect(thread.steps.length).toBeGreaterThan(0)
+    expect(thread.scene.selection).toBe('- Keep every note under 50 words.')
   })
 })

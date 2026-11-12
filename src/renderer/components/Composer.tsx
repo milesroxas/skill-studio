@@ -27,10 +27,12 @@ import {
   useState,
 } from 'react'
 import { type Attached, picturesIn } from '../images.ts'
+import { cn } from '../lib/utils.ts'
+import { useArrived } from '../motion.ts'
 import { Spacer } from './layout.tsx'
 import { ModelChip } from './ModelControls.tsx'
 import { PicturePicker, PictureStrip, usePictureDrop } from './Pictures.tsx'
-import { Hint, Text } from './text.tsx'
+import { Hint, Text, VisuallyHidden } from './text.tsx'
 import { Button } from './ui/button.tsx'
 import {
   Popover,
@@ -97,6 +99,8 @@ interface ComposerProps extends Pick<VariantProps<typeof composerVariants>, 'fra
   label: string
   placeholder: string
   autoFocus?: boolean
+  /** What the request is about, over the text, such as the rule being improved. */
+  context?: ReactNode
   /** Shown between the text and the controls, such as the reply to a request. */
   children?: ReactNode
   /** In place of the send button, such as what to do with a finished reply. */
@@ -107,6 +111,80 @@ interface ComposerProps extends Pick<VariantProps<typeof composerVariants>, 'fra
   picturesSuffice?: boolean
   /** The commands a request may start with. Leave out where a request takes none. */
   commands?: CommandSections
+}
+
+interface ComposerTopicProps {
+  /** What the passage is, such as `Rule 04`: the name the editor shows beside it. */
+  name: string
+  /** The passage as it reads now; only its first line shows. */
+  text: string
+  /** Bring the passage into view where it is written. Leave out where it is not on screen to find. */
+  onShow?: () => void
+  /** Where the request stands, at the line's end, such as `Question 2 of 4`. */
+  progress?: string | null
+  /** Counts the times the passage was changed from here: the line ticks on each, never as it is typed. */
+  changes?: number
+}
+
+/**
+ * What a request is about, on one line at the top of the composer: its name,
+ * then its first words, cut off at the end. Pressed, it shows the passage in
+ * the editor; a reader who wants it whole reads it there.
+ */
+export function ComposerTopic({ name, text, onShow, progress, changes = 0 }: ComposerTopicProps) {
+  const first = text
+    .split('\n')
+    .find((line) => line.trim())
+    ?.trim()
+  const ticks = useArrived(String(changes))
+  const counted = useArrived(progress ?? '')
+  const words = (
+    <>
+      <Text size="xs" weight="medium" className="shrink-0">
+        {name}
+      </Text>
+      <Text
+        key={changes}
+        size="xs"
+        tone="muted"
+        truncate
+        className={cn(
+          'min-w-0 transition-colors duration-150 ease-out group-hover/topic:text-foreground',
+          ticks && 'animate-tick',
+        )}
+      >
+        {first ?? 'Deleted from the file'}
+      </Text>
+    </>
+  )
+  return (
+    <div className="flex min-w-0 items-center gap-3 px-3 pt-2">
+      {onShow && first ? (
+        <button
+          type="button"
+          onClick={onShow}
+          title="Show it in the editor"
+          className="group/topic flex min-h-8 min-w-0 flex-1 cursor-pointer items-center gap-2 rounded-xs text-left focus-ring pointer-coarse:min-h-11"
+        >
+          {words}
+          <VisuallyHidden>, show it in the editor</VisuallyHidden>
+        </button>
+      ) : (
+        <div className="flex min-h-8 min-w-0 flex-1 items-center gap-2">{words}</div>
+      )}
+      {progress ? (
+        <Text
+          key={progress}
+          size="xs"
+          tone="muted"
+          tabular
+          className={cn('shrink-0', counted && 'inline-block animate-tick')}
+        >
+          {progress}
+        </Text>
+      ) : null}
+    </div>
+  )
 }
 
 /** One part of the slash menu: the panel's own commands, or the skills a CLI runs. */
@@ -135,6 +213,7 @@ export function Composer({
   label,
   placeholder,
   autoFocus,
+  context,
   children,
   actions,
   frame,
@@ -156,6 +235,7 @@ export function Composer({
       className={composerVariants({ frame, over: Boolean(pictures) && drop.over })}
       {...(pictures ? drop.handlers : {})}
     >
+      {context}
       {pictures && held ? (
         <PictureStrip
           size="sm"

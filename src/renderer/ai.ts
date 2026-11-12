@@ -28,6 +28,7 @@ import { aiChoiceOf, aiChoicePatch } from '@domain/preferences.ts'
 import { useSyncExternalStore } from 'react'
 import { api } from './api.ts'
 import { savePreference, usePreferences } from './preferences.ts'
+import { setPassage } from './replace.ts'
 import { createEmitter, createStore, useStore } from './store.ts'
 import { reportFailure } from './transport.ts'
 
@@ -344,6 +345,9 @@ export function useImprove(): { thread: ImproveThread | null; problem: string | 
   }
 }
 
+/** The improve conversation as the page holds it now, for a check made outside React. */
+export const improveNow = (): ImproveThread | null => improve
+
 const tookImprove = (next: ImproveThread): void => {
   improveRead += 1
   improve = next
@@ -351,13 +355,21 @@ const tookImprove = (next: ImproveThread): void => {
   emit()
 }
 
-/** Open an improve conversation on a selected rule. It opens the side panel. */
+/** Open an improve conversation on a selected rule. It opens the side panel, and asks nothing yet. */
 export async function startImprove(scene: RuleScene): Promise<void> {
+  setImproveDraft('')
   tookImprove(await api.improveStart(scene))
 }
 
-export async function sendImprove(text: string): Promise<void> {
-  tookImprove(await api.improveSend(text))
+/**
+ * Send the writer's message. `walk` on the first asks for the questions;
+ * `current` is the rule as it reads in the file now.
+ */
+export async function sendImprove(
+  text: string,
+  how: { walk?: boolean; current?: string } = {},
+): Promise<void> {
+  tookImprove(await api.improveSend(text, how))
 }
 
 /** Close the improve conversation. The side panel goes back to the chat. */
@@ -366,5 +378,6 @@ export async function clearImprove(): Promise<void> {
   improveRead += 1
   improve = null
   setImproveDraft('')
+  setPassage(null)
   emit()
 }
