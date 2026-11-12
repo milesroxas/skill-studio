@@ -65,9 +65,18 @@ function scoreWorkflow(
   if (!raw) return { layers, flags, verdicts }
   const m = raw.metrics
   const { maxRetries } = (config as WorkflowConfig).workflow
-  /** One of the efficiency checks: what it says when it passes, and when it does not. */
-  const measure = (id: string, ok: boolean, passed: string, failed: string): boolean => {
-    if (!ok) flags.push(failed)
+  /**
+   * One of the efficiency checks: what Results says when it passes and when it
+   * does not, and the flag the command line prints, in its own exact terms.
+   */
+  const measure = (
+    id: string,
+    ok: boolean,
+    passed: string,
+    failed: string,
+    flag: string,
+  ): boolean => {
+    if (!ok) flags.push(flag)
     verdicts.push(
       codeVerdict(
         { kind: 'other', id: `other:${id}`, text: ok ? passed : failed, layer: 'efficiency' },
@@ -76,13 +85,15 @@ function scoreWorkflow(
     )
     return ok
   }
+  const steps = (n: number) => `${n} ${n === 1 ? 'step' : 'steps'}`
   // An error is not waste: a test run that fails before the fix is the work going right. What the
   // agent did after one is what counts, and Jev answers that in the process layer.
   const checks: boolean[] = [
     measure(
       'retries',
       m.retries <= maxRetries,
-      'no repeated tool calls beyond the allowance',
+      'No step repeated more than allowed',
+      `${steps(m.retries)} repeated`,
       `${m.retries} repeated tool call(s)`,
     ),
   ]
@@ -91,7 +102,8 @@ function scoreWorkflow(
       measure(
         'turns',
         m.toolCalls <= m.maxTurns,
-        `${m.toolCalls} tool calls, within the case's ${m.maxTurns}`,
+        `${steps(m.toolCalls)}, within the case's ${m.maxTurns}`,
+        `${steps(m.toolCalls)}, the case allows ${m.maxTurns}`,
         `${m.toolCalls} tool calls, case allows ${m.maxTurns}`,
       ),
     )
@@ -100,13 +112,14 @@ function scoreWorkflow(
       measure(
         'time',
         m.seconds <= m.timeoutSeconds,
-        `${m.seconds} s, within the case's ${m.timeoutSeconds}`,
+        `${m.seconds} s, within the case's ${m.timeoutSeconds} s`,
+        `${m.seconds} s, the case allows ${m.timeoutSeconds} s`,
         `${m.seconds} s, case allows ${m.timeoutSeconds}`,
       ),
     )
   if (!m.wroteOutput) {
     flags.push('nothing written to outputs/')
-    verdicts.push(finding('nothing written to outputs/'))
+    verdicts.push(finding('Wrote no file'))
   }
   layers.efficiency = checks.filter(Boolean).length / checks.length
   layers.scope = m.outside.length ? 0 : 1
@@ -117,8 +130,8 @@ function scoreWorkflow(
         kind: 'other',
         id: 'other:scope',
         text: m.outside.length
-          ? `reached outside the sample: ${m.outside.slice(0, 3).join(', ')}`
-          : 'stayed inside the sample',
+          ? `Reached outside its own folder: ${m.outside.slice(0, 3).join(', ')}`
+          : 'Stayed inside its own folder',
         layer: 'scope',
       },
       m.outside.length === 0,
@@ -135,7 +148,9 @@ function scoreWorkflow(
         {
           kind: 'other',
           id: 'other:read first',
-          text: readFirst ? 'skill read before writing' : 'skill not read before writing',
+          text: readFirst
+            ? 'Read the skill before writing'
+            : 'Did not read the skill before writing',
           // Without Jev there is no process layer for it to count in.
           layer: raw.jev ? 'process' : null,
         },

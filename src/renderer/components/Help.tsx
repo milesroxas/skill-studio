@@ -44,29 +44,71 @@ function TermList({ terms }: { terms: readonly TermId[] }) {
 }
 
 /**
- * One of the app's own words where it is used, such as a section's title. A
- * dotted line under it says it can be asked about; a click opens what it means.
+ * A word the reader may ask about where it is used, such as a section's title
+ * or a part of a score. A dotted line under it says it can be asked about; a
+ * click opens what it means and, where the reader may want to change it, one
+ * action that goes there. A click, not a hover, so the action can be reached.
  */
-export function Term({ id, children }: { id: TermId; children?: ReactNode }) {
-  const { term, means } = GLOSSARY[id]
+export function Explained({
+  label,
+  title,
+  means,
+  action,
+}: {
+  /** The word as it stands in the text. */
+  label: ReactNode
+  /** The word as the note's heading, capitalised. */
+  title: string
+  /** What it means, in one or two short sentences. */
+  means: string
+  /** The one thing to do about it, as a verb and its object. */
+  action?: { label: string; onClick: () => void }
+}) {
+  /** Opened by a pointer: the note keeps the focus off its action, so no ring shows unasked. */
+  const pointed = useRef(false)
   return (
     <Popover>
       <PopoverTrigger
-        title={`What “${term.toLowerCase()}” means`}
+        onPointerDown={() => {
+          pointed.current = true
+        }}
+        onKeyDown={() => {
+          pointed.current = false
+        }}
+        title={`What “${title.toLowerCase()}” means`}
         className="cursor-help rounded-xs text-left underline decoration-muted-foreground/50 decoration-dotted underline-offset-4 focus-ring transition-[text-decoration-color] duration-150 ease-out hover:decoration-current data-[state=open]:decoration-current"
       >
-        {children ?? term}
+        {label}
       </PopoverTrigger>
-      <PopoverContent size="note" align="start">
+      <PopoverContent
+        size="note"
+        align="start"
+        onOpenAutoFocus={(event) => {
+          if (pointed.current) event.preventDefault()
+        }}
+      >
         <Text size="ui" weight="medium">
-          {term}
+          {title}
         </Text>
         <Text as="p" size="xs" tone="muted" className="text-pretty">
           {means}
         </Text>
+        {action ? (
+          <div className="flex pt-1.5">
+            <Button type="button" variant="outline" size="sm" onClick={action.onClick}>
+              {action.label}
+            </Button>
+          </div>
+        ) : null}
       </PopoverContent>
     </Popover>
   )
+}
+
+/** One of the app's own words, from the glossary, where it is used. */
+export function Term({ id, children }: { id: TermId; children?: ReactNode }) {
+  const { term, means } = GLOSSARY[id]
+  return <Explained label={children ?? term} title={term} means={means} />
 }
 
 /**

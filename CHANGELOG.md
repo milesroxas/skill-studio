@@ -9,7 +9,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 ### Changed
 
 - Before a skill's first run, the yellow **Run** button reads **Run without skill** and opens on **First, test without the skill**: the same cases with no skill, the score your skill has to beat. **Test the skill instead**, under its button, skips it in one press. Once the run without the skill is done, Run suggests testing the skill. Before, the first run always tested the skill, and nothing suggested a run without it.
-
+- On Results, each rule or check under **Missed** and **Met** keeps its actions at the end of its line. **Open rule** shows beside every rule, and **Mark as met**, **Mark as missed** and **Take back** are under **More actions** (⋯) on each row. A row names its kind, "Rule" or "Check", only when the list holds both. **Missed** explains that the rules come from your skill.
+- A part of a score that a kind of work adds, such as **Look** or **Process**, says where it comes from: click it to read what it grades, and **Change what is graded** opens **Graded as** on All cases. Each fact it counts says its part under it, such as "Look".
+- Workflow's facts on Results read as sentences: "Stayed inside its own folder", "Read the skill before writing", "No step repeated more than allowed".
 - Resting the pointer on an underlined word in SKILL.md opens the same popout as clicking the rule's number: what the word set off, over **Auto refine**, **Suggest changes** and **Help me improve**. Before, it showed only what the word set off.
 - Number fields, such as **Attempts per case** and a case's word count, have a minus and a plus at their ends. Hold one to keep stepping, or hold Shift to step by ten. A number typed past a limit is set to the limit when you leave the field.
 

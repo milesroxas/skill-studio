@@ -4,7 +4,8 @@ import type { Scored } from '@domain/scoring.ts'
 import { layerCount } from '@domain/verdict.ts'
 import { cva } from 'class-variance-authority'
 import { ArrowRightIcon } from 'lucide-react'
-import { partLabel, type ScoreBand, scoreBand } from '../model.ts'
+import { kindHint, kindLabel, kindOfPart, partLabel, type ScoreBand, scoreBand } from '../model.ts'
+import { Explained } from './Help.tsx'
 import { Text } from './text.tsx'
 import { Badge } from './ui/badge.tsx'
 
@@ -119,14 +120,38 @@ export function ScoreMove({
  * the count agrees with the bar; any other says its score. Bars stay grey
  * until a part is weak, so the eye lands on problems.
  */
+/**
+ * A part's name. A part a kind of work adds, such as Look, opens what grades
+ * it and the way to change that: the reader meets the setting where its
+ * score shows, not only where it is kept.
+ */
+function PartName({ layer, onChangeKinds }: { layer: string; onChangeKinds?: () => void }) {
+  const name = partLabel(layer)
+  const kind = kindOfPart(layer)
+  if (!kind) return name
+  return (
+    <Explained
+      label={name}
+      title={name}
+      means={`${kindLabel(kind)} grading adds this part. ${kindHint(kind)}`}
+      action={
+        onChangeKinds ? { label: 'Change what is graded', onClick: onChangeKinds } : undefined
+      }
+    />
+  )
+}
+
 export function Parts({
   scored,
   layers,
   other,
+  onChangeKinds,
 }: {
   scored: Scored
   layers: string[]
   other?: Scored | null
+  /** Go to where the kinds of work are ticked. */
+  onChangeKinds?: () => void
 }) {
   // Every part on one row, or two even rows when there are many: never a lone part on a row of its own.
   const perRow = layers.length > 6 ? Math.ceil(layers.length / 2) : layers.length
@@ -143,7 +168,7 @@ export function Parts({
         const count = value === null ? null : layerCount(scored.verdicts, layer)
         return (
           <div key={layer} className={band === 'na' ? 'text-muted-foreground/70' : undefined}>
-            {partLabel(layer)}
+            <PartName layer={layer} onChangeKinds={onChangeKinds} />
             <b className={layerValue({ band })}>
               {/* A count beside the other side's count already says the change. */}
               {count ? (

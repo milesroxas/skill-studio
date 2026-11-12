@@ -230,6 +230,12 @@ export const kindLabel = (pack: string): string => capital(pack)
 export const extraKinds = (packs: readonly string[]): string[] =>
   packs.filter((id) => id !== BASE_PACK)
 
+/** The kind of work a part of the score comes from, such as design for Look; null for rules and checks, which every skill is graded on. */
+export const kindOfPart = (layer: string): string | null => {
+  const pack = scorers.find((p) => p.layers.includes(layer))
+  return pack && pack.id !== BASE_PACK ? pack.id : null
+}
+
 /** What ticking a kind adds to the grade, under its name. */
 const KIND_HINT: Record<string, string> = {
   code: 'Whether the check command a case names in its case.yaml passes.',

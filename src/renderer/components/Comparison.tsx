@@ -550,7 +550,12 @@ function Side({
       ) : null}
       {scored ? (
         <>
-          <Parts scored={scored} layers={layers} other={otherScored} />
+          <Parts
+            scored={scored}
+            layers={layers}
+            other={otherScored}
+            onChangeKinds={() => go('results', { view: 'all', graded: '1' })}
+          />
           <Verdicts
             verdicts={scored.verdicts}
             pending={pending}

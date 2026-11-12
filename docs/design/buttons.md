@@ -73,7 +73,7 @@ Is it the next step of the loop, in the top bar?
 | `sm` | 32px | workbench chrome, the top bar, toolbars |
 | `lg` | 40px | the welcome only |
 | `xs` | 24px, 44px under a finger | inside a dense row, or at the end of a line of meta |
-| `icon`, `icon-sm`, `icon-xs`, `icon-lg` | square | one icon and an `aria-label` |
+| `icon`, `icon-sm`, `icon-xs`, `icon-lg` | square | one icon and an `aria-label`. `icon-sm` and `icon-xs` reach 44px under a finger |
 | `inline`, `inline-sm` | none | a link in running text, or small under a form |
 | `cell` | 28px | a button filling a table cell |
 | `cell-inline` | none | a text link in a table cell |
@@ -149,4 +149,4 @@ The loop is write, run, compare, and running is a button, not a place. So the ne
 - Press feedback (`active:scale-[0.96]`) and the focus ring (`focus-ring`: keyboard only, see [color.md](color.md#focus)) are built in. Do not restyle them.
 - Never show an action only on hover. A row's actions are `ghost-muted` at rest, so touch and keyboard reach them.
 - Never hide a row's actions on a narrow window. `RowActions` folds them into a "More actions" menu instead ([data.md](data.md)).
-- A column header shows the action its reader came for. What is done to the column's subject now and then goes in `MoreActions` (`components/RowActions.tsx`), the same menu at every width, last in the header: Edit case and Regrade on Results. Never put the header's one main action in it. A destructive action may go in it when it acts on more than the column shows, so a button in the column would read as deleting less than it does: Delete run on a case of Results, since a run spans every case. It is a `RowAction` with `tone="destructive"`, last in the menu: red, under a hairline (`PopoverRule`). One destructive action per subject; two runs give two, named by side ("Delete A’s run"). A `ghost-muted` button that opens something keeps its hover look while it is open (`data-state="open"`).
+- A column header shows the action its reader came for. What is done to the column's subject now and then goes in `MoreActions` (`components/RowActions.tsx`), the same menu at every width, last in the header: Edit case and Regrade on Results. Never put the header's one main action in it. A destructive action may go in it when it acts on more than the column shows, so a button in the column would read as deleting less than it does: Delete run on a case of Results, since a run spans every case. It is a `RowAction` with `tone="destructive"`, last in the menu: red, under a hairline (`PopoverRule`). One destructive action per subject; two runs give two, named by side ("Delete A’s run"). Its button is `icon-sm`; `size="xs"` makes it `icon-xs` for a row of a dense list, such as a verdict's answer on Results (`Verdicts.tsx`). A `ghost-muted` button that opens something keeps its hover look while it is open (`data-state="open"`).

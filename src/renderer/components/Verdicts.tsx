@@ -1,30 +1,47 @@
 /**
  * What one output missed, and what it met: the facts its score is counted
- * from, a line each. Missed comes first and stays open, because each miss
- * names the rule or the check to change. Met folds away under its count.
+ * from, a line each. Missed comes first and stays open: each miss is a rule
+ * of the skill or a check of the case that the output did not follow. Met
+ * folds away under its count.
  *
  * Jev read each fact, and a reader may read it differently. Their answer
  * stands: it moves the fact to the other list and the score follows. A fact
- * code measured, such as a word count, has no answer to give.
+ * code measured, such as a word count, has no answer to give. Each action
+ * has one place on every row, whatever the row says: Open rule is a button
+ * on every rule SKILL.md still holds, and the answer, which is rare, waits
+ * alone in the row's menu.
  */
 import { weightMark } from '@domain/case-draft.ts'
 import type { Verdict } from '@domain/pack.ts'
-import { CheckIcon, XIcon } from 'lucide-react'
+import { CheckIcon, Undo2Icon, XIcon } from 'lucide-react'
 import type { ReactNode } from 'react'
+import { kindOfPart, partLabel } from '../model.ts'
 import { Disclosure } from './Disclosure.tsx'
 import { Term } from './Help.tsx'
+import { MoreActions, RowAction } from './RowActions.tsx'
 import { Text } from './text.tsx'
 import { Button } from './ui/button.tsx'
 
 const KIND = { rule: 'Rule', check: 'Check', other: null } as const
 
-/** How the reader's answer stands: it is theirs even where Jev, under the skill's threshold, now says the same. */
-const answerNote = (verdict: Verdict): string =>
-  verdict.corrected
-    ? verdict.jev === verdict.met
-      ? ' · your answer, agrees with Jev'
-      : ' · your answer'
-    : ''
+/** The line under a fact: its kind where the list mixes kinds or it counts more than once, the part a kind of work adds, the reader's answer, a save on the way. */
+function noteOf(verdict: Verdict, mixed: boolean, saving: boolean): string {
+  const kind = KIND[verdict.kind]
+  const parts: string[] = []
+  if (kind && (mixed || verdict.weight))
+    parts.push(verdict.weight ? `${kind} ${weightMark(verdict.weight)}` : kind)
+  // A fact a kind of work adds, such as Look, always names its part: it is no rule or check of the reader's.
+  if (!kind && verdict.layer && kindOfPart(verdict.layer)) parts.push(partLabel(verdict.layer))
+  // The answer is the reader's even where Jev, under the skill's threshold, now says the same.
+  if (verdict.corrected)
+    parts.push(verdict.jev === verdict.met ? 'your answer, agrees with Jev' : 'your answer')
+  if (saving) parts.push('Saving…')
+  return parts.join(' · ')
+}
+
+/** A fact by the first words of its text, so a screen reader hears which row a menu is for. */
+const subjectOf = (text: string): string =>
+  text.length > 48 ? `${text.slice(0, 47).trimEnd()}…` : text
 
 interface Actions {
   /** A rule that still stands in SKILL.md as it is written here: open it in the editor. */
@@ -33,56 +50,64 @@ interface Actions {
   ruleStands?: (text: string) => boolean
   /** Say the fact is met, or missed, whatever Jev said; null takes the answer back. */
   onCorrect?: (verdict: Verdict, met: boolean | null) => void
-  /** The id of the fact whose answer is being saved: its buttons wait. */
+  /** The id of the fact whose answer is being saved: every answer waits. */
   pending?: string | null
 }
 
-function Row({ verdict, actions }: { verdict: Verdict; actions: Actions }) {
+function Row({
+  verdict,
+  mixed,
+  actions,
+}: {
+  verdict: Verdict
+  /** The list holds both rules and checks, so each row names its kind. */
+  mixed: boolean
+  actions: Actions
+}) {
   const { onOpenRule, ruleStands, onCorrect, pending } = actions
-  const kind = KIND[verdict.kind]
   const waiting = pending !== null && pending !== undefined
-  const stands = verdict.kind === 'rule' && (ruleStands?.(verdict.text) ?? false)
+  const note = noteOf(verdict, mixed, pending === verdict.id)
+  const openable = verdict.kind === 'rule' && onOpenRule && (ruleStands?.(verdict.text) ?? false)
+  const answer = verdict.corrected
+    ? { label: 'Take back', icon: <Undo2Icon aria-hidden="true" />, met: null }
+    : verdict.met
+      ? { label: 'Mark as missed', icon: <XIcon aria-hidden="true" />, met: false }
+      : { label: 'Mark as met', icon: <CheckIcon aria-hidden="true" />, met: true }
   return (
-    <li className="grid grid-cols-[14px_minmax(0,1fr)] gap-x-2 gap-y-0.5 py-1.5">
+    <li className="grid grid-cols-[14px_minmax(0,1fr)_auto] items-start gap-x-2 py-1">
       {verdict.met ? (
-        <CheckIcon aria-hidden="true" className="mt-0.5 size-3.5 text-success" />
+        <CheckIcon aria-hidden="true" className="mt-1.5 size-3.5 text-success" />
       ) : (
-        <XIcon aria-hidden="true" className="mt-0.5 size-3.5 text-destructive" />
+        <XIcon aria-hidden="true" className="mt-1.5 size-3.5 text-destructive" />
       )}
-      <span className="min-w-0 text-pretty text-foreground">
-        <span className="sr-only">{verdict.met ? 'Met: ' : 'Missed: '}</span>
-        {verdict.text}
+      <span className="flex min-w-0 flex-col gap-0.5 py-1">
+        <span className="text-pretty text-foreground">
+          <span className="sr-only">{verdict.met ? 'Met: ' : 'Missed: '}</span>
+          {verdict.text}
+        </span>
+        {note ? <Text tone="faint">{note}</Text> : null}
       </span>
-      <span className="col-start-2 flex flex-wrap items-baseline gap-x-3 gap-y-0.5">
-        {kind ? (
-          <Text tone="faint">
-            {kind}
-            {verdict.weight ? ` ${weightMark(verdict.weight)}` : ''}
-            {answerNote(verdict)}
-          </Text>
-        ) : null}
-        {stands && onOpenRule ? (
+      <span className="flex items-center gap-1">
+        {openable ? (
           <Button
             type="button"
-            variant="link-muted"
-            size="inline-sm"
+            variant="ghost-muted"
+            size="xs"
             onClick={() => onOpenRule(verdict.text)}
           >
             Open rule
           </Button>
         ) : null}
         {verdict.open && onCorrect ? (
-          <Button
-            type="button"
-            variant="link-muted"
-            size="inline-sm"
-            disabled={waiting}
-            busy={pending === verdict.id}
-            busyLabel="Saving…"
-            onClick={() => onCorrect(verdict, verdict.corrected ? null : !verdict.met)}
-          >
-            {verdict.corrected ? 'Take back' : verdict.met ? 'Mark as missed' : 'Mark as met'}
-          </Button>
+          <MoreActions subject={subjectOf(verdict.text)} size="xs">
+            <RowAction
+              icon={answer.icon}
+              disabled={waiting}
+              onSelect={() => onCorrect(verdict, answer.met)}
+            >
+              {answer.label}
+            </RowAction>
+          </MoreActions>
         ) : null}
       </span>
     </li>
@@ -100,10 +125,16 @@ export function Verdicts({ verdicts, ...actions }: { verdicts: Verdict[] } & Act
   // folded away with the rest, their own correction would be the one thing they could not find.
   const marked = verdicts.filter((v) => v.met && v.corrected)
   const met = verdicts.filter((v) => v.met && !v.corrected)
+  const mixed = new Set(verdicts.map((v) => KIND[v.kind]).filter(Boolean)).size > 1
   // Two rules of one skill may read the same, so a fact's place in the list is part of its key.
   const rows = (list: Verdict[]) =>
     list.map((verdict) => (
-      <Row key={`${verdict.id}#${verdicts.indexOf(verdict)}`} verdict={verdict} actions={actions} />
+      <Row
+        key={`${verdict.id}#${verdicts.indexOf(verdict)}`}
+        verdict={verdict}
+        mixed={mixed}
+        actions={actions}
+      />
     ))
   return (
     <div className="flex flex-col gap-2 border-b px-4 py-2.5 text-xs">

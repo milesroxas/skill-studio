@@ -53,8 +53,19 @@ function walk(event: KeyboardEvent<HTMLDivElement>) {
   items[step(at, items.length)]?.focus()
 }
 
+/** How big the "More actions" button is: `sm` in a table or a header, `xs` in a dense list. */
+type MenuSize = 'sm' | 'xs'
+
 /** The "More actions" button and the menu it opens, holding `RowAction`s. */
-function Menu({ subject, children }: { subject: string; children: ReactNode }) {
+function Menu({
+  subject,
+  size = 'sm',
+  children,
+}: {
+  subject: string
+  size?: MenuSize
+  children: ReactNode
+}) {
   const [open, setOpen] = useState(false)
   /** Opened by a pointer: the menu takes the focus, not its first item, as a native menu does. */
   const pointed = useRef(false)
@@ -65,7 +76,7 @@ function Menu({ subject, children }: { subject: string; children: ReactNode }) {
         <Button
           type="button"
           variant="ghost-muted"
-          size="icon-sm"
+          size={size === 'xs' ? 'icon-xs' : 'icon-sm'}
           aria-label={`More actions for ${subject}`}
           aria-haspopup="menu"
           title="More actions"
@@ -135,14 +146,21 @@ export function RowActions({
  */
 export function MoreActions({
   subject,
+  size,
   children,
 }: {
   /** What the actions are done to, such as a case's name. */
   subject: string
+  /** `xs` for a row of a dense list, such as a verdict; `sm` otherwise. */
+  size?: MenuSize
   children: ReactNode
 }) {
   if (!Children.toArray(children).length) return null
-  return <Menu subject={subject}>{children}</Menu>
+  return (
+    <Menu subject={subject} size={size}>
+      {children}
+    </Menu>
+  )
 }
 
 export function RowAction({

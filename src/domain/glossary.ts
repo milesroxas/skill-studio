@@ -65,7 +65,7 @@ export const GLOSSARY = {
   missed: {
     term: 'Missed',
     means:
-      'A rule the output breaks or a check it does not meet, as Jev read it. Each one names what to change.',
+      'A rule from your skill that the output breaks, a check it fails, or a flaw in how it looks. Jev, the grader, decides each one, and you can overrule it.',
   },
   version: {
     term: 'Version',

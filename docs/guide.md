@@ -245,8 +245,8 @@ Runs cost money: each output is an agent session, and Jev is paid per call.
 Results opens on a case with two outputs to compare: **A**, the version before, and **B**, the latest. With one version, A is the output written without the skill, if you ran one.
 
 - **The list** on the left has every case that was run, with how its score moved. Click one to compare it.
-- **Each output** has its score out of 100, then what the score is counted from: "Rules 4 of 5", "Checks 2 of 3". A check marked ×2 counts two in both numbers, so the count matches the bar.
-- **Missed** lists each rule the output broke and each check it did not meet. This is what to fix. **Open rule** takes you to that rule on the Skill screen.
+- **Each output** has its score out of 100, then what the score is counted from: "Rules 4 of 5", "Checks 2 of 3". A check marked ×2 counts two in both numbers, so the count matches the bar. A part with a dotted line, such as **Look** or **Process**, comes from a kind of work under **Graded as**, below: click it to read what it grades, and **Change what is graded** to turn it off.
+- **Missed** lists each rule from your skill that the output broke, each check it did not meet and, for a page or a picture, each flaw in how it looks. Every output is graded on the skill's rules, the one written without the skill too: there, a miss shows what the skill adds. **Open rule**, beside each rule, takes you to that rule on the Skill screen.
 - **Met** folds the rest away. Open it to read them.
 - **Transcript**, above the output, shows every step the agent took. Read it when a score surprises you. Did the agent read the skill at all?
 - **A page or a picture** opens on a stage above the scores, drawn as a browser draws it, scripts and all. **A** and **B** over the stage, each with its score, or the A and B keys, put either output in the same place, so flipping shows exactly what changed, and each page keeps its place as you scroll. The menu beside A and B picks another file the output wrote, by name, or **Transcript**. A component that does not open in a browser by itself, such as a React component, shows through `outputs/preview.html`, a page the run asks the agent to write beside it.
@@ -263,9 +263,9 @@ You may read an output differently from Jev: prefer the side that scores lower, 
 | --- | --- | --- |
 | Jev passes an output you do not like | Something you care about is not written down | Add a check, below, or add a rule to the skill |
 | Jev fails an output you like | A rule or a check asks for the wrong thing | Edit or delete it |
-| Jev misread one rule or check | That verdict is wrong | Click **Mark as met** or **Mark as missed** beside it |
+| Jev misread one rule or check | That verdict is wrong | Open **More actions** (⋯) beside it and click **Mark as met** or **Mark as missed** |
 
-A verdict you mark is yours from then on. It moves to the other list with "your answer" beside it, the score follows, and **Take back** lets Jev's answer stand again. If a threshold set in `bench.json` later brings Jev round to your answer, the row says so and stays yours.
+A verdict you mark is yours from then on. It moves to the other list with "your answer" beside it, the score follows, and **Take back**, in the same menu, lets Jev's answer stand again. If a threshold set in `bench.json` later brings Jev round to your answer, the row says so and stays yours.
 
 ### Add a check
 

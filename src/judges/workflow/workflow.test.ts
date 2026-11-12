@@ -276,10 +276,10 @@ describe('workflow scoring', () => {
     const scored = score({})
     expect(scored).toMatchObject({ layers: { efficiency: 1, scope: 1, process: null }, flags: [] })
     expect(scored.verdicts.map((v) => [v.text, v.met, v.layer])).toEqual([
-      ['no repeated tool calls beyond the allowance', true, 'efficiency'],
-      ['stayed inside the sample', true, 'scope'],
+      ['No step repeated more than allowed', true, 'efficiency'],
+      ['Stayed inside its own folder', true, 'scope'],
       // Without Jev there is no process layer for it to count in.
-      ['skill read before writing', true, null],
+      ['Read the skill before writing', true, null],
     ])
   })
 

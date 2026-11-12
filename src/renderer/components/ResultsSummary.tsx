@@ -5,7 +5,7 @@
  * and is where a run is graded again or its cost read.
  */
 import { mean } from '@domain/stats.ts'
-import { Fragment } from 'react'
+import { Fragment, useEffect, useRef } from 'react'
 import { api } from '../api.ts'
 import type { Ctx } from '../ctx.ts'
 import { type DeleteRun, useDeleteRun } from '../delete-run.ts'
@@ -76,6 +76,12 @@ export function ResultsSummary({ ctx }: { ctx: Ctx }) {
   const setOpenRun = (run: string | null) =>
     go('results', run ? { view: 'all', run } : { view: 'all' }, { replace: true })
   const grade = useJobStart(jobs, 'grade', report)
+  // Asked for from a part of a score, such as Look: Graded as opens and comes into view.
+  const askedGraded = route.params.get('graded') === '1'
+  const graded = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (askedGraded) graded.current?.scrollIntoView({ block: 'start' })
+  }, [askedGraded])
   const caseIds = casesRun(state, outputs)
   const runs = state.runs
   const byRun = new Map<string, Output[]>()
@@ -213,9 +219,11 @@ export function ResultsSummary({ ctx }: { ctx: Ctx }) {
             </TableBody>
           </Table>
         </Section>
-        <Disclosure summary={gradedLine(config.packs)}>
-          <GradedAs ctx={ctx} />
-        </Disclosure>
+        <div ref={graded}>
+          <Disclosure summary={gradedLine(config.packs)} defaultOpen={askedGraded}>
+            <GradedAs ctx={ctx} />
+          </Disclosure>
+        </div>
       </ColumnBody>
     </>
   )
