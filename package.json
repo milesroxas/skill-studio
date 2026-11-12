@@ -24,7 +24,7 @@
     "bootstrap": "node scripts/bootstrap.ts",
     "start": "electron-vite preview",
     "dev": "electron-vite dev",
-    "build": "electron-vite build",
+    "build": "electron-vite build && node scripts/third-party-licenses.ts",
     "dist": "pnpm build && electron-builder",
     "st": "tsx src/interfaces/cli/st.ts",
     "guide:shots": "pnpm build && tsx scripts/guide-shots/index.ts",

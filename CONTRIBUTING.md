@@ -54,6 +54,7 @@ Tests sit beside the code: `src/domain/scoring.ts` is tested by `src/domain/scor
 
 - A shape two layers share belongs in the domain (`src/domain/views.ts` for what interfaces show).
 - A package goes under `dependencies` only when the main process, the preload or the backend imports it: those bundles leave their packages out, and electron-builder ships every `dependencies` entry. A package only the renderer imports is bundled into the page, so it goes under `devDependencies`.
+- `pnpm build` writes the license text of every package the app ships to `out/licenses/THIRD-PARTY-LICENSES.txt` (`scripts/third-party-licenses.ts`), and fails on a package with no license. It finds the packages on its own: what Vite bundled, what a stylesheet in `src/renderer` imports, and the `dependencies`.
 - An operation is added once, in `src/application/api/contract.ts` and `operations.ts`. The desktop app and `st serve` both get it.
 - A judge pack implements `JudgePack` (`src/judges/types.ts`) and is added to the lists in `src/judges/index.ts` and `src/judges/scorers.ts`. Its `index.ts` runs the code checks and asks Jev; its `score.ts` turns stored answers into layer scores. Keep thresholds and weights in `score.ts`, not in Jev prompts, so stored answers can be rescored without new calls.
 

@@ -85,3 +85,7 @@ Skill Studio was made possible by Emil Kowalski's course [AI for Designers and E
 ## License
 
 [MIT](LICENSE). The license is the only terms for using Skill Studio. The services it calls (Anthropic, OpenAI, Cursor, TypeSafe, GitHub) apply their own terms to what you send them.
+
+The MIT license covers the code. It does not cover the Skill Studio name or icon: a fork or a product built on this code must use a name and an icon of its own.
+
+The app ships the licenses of the open-source code it includes in its resources folder, as `THIRD-PARTY-LICENSES.txt`.

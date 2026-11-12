@@ -8,6 +8,7 @@
     "scripts/bootstrap.ts",
     "scripts/guide-shots/index.ts",
     "scripts/release-notes.ts",
+    "scripts/third-party-licenses.ts",
     "src/renderer/index.html",
     "electron.vite.config.ts",
     "vitest.config.ts"

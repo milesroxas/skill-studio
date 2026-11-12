@@ -24,6 +24,12 @@ const alias = {
  * nonce. The built page gets the strict policy as a header from the app scheme.
  */
 const DEV_NONCE = 'skill-studio-dev'
+
+/**
+ * Each build lists the packages it bundled, with their license text, for
+ * scripts/third-party-licenses.ts to gather into the notices the app ships.
+ */
+const license = { fileName: '.vite/licenses.json' }
 const cspMeta = (serve: boolean): Plugin => ({
   name: 'skill-studio:csp',
   apply: () => serve,
@@ -44,6 +50,7 @@ export default defineConfig(({ command }) => ({
     resolve: { alias },
     build: {
       externalizeDeps: true,
+      license,
       rollupOptions: { input: `${src}/interfaces/electron/main/index.ts` },
     },
   },
@@ -51,6 +58,7 @@ export default defineConfig(({ command }) => ({
     resolve: { alias },
     build: {
       externalizeDeps: true,
+      license,
       // Sandboxed preloads run as plain scripts, so the bundle must be CommonJS.
       rollupOptions: {
         input: `${src}/interfaces/electron/preload/index.ts`,
@@ -65,6 +73,7 @@ export default defineConfig(({ command }) => ({
     html: command === 'serve' ? { cspNonce: DEV_NONCE } : {},
     build: {
       minify: true,
+      license,
       rollupOptions: { input: `${src}/renderer/index.html` },
     },
   },

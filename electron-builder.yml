@@ -13,6 +13,16 @@ files:
   - out/**
   - package.json
   - "!**/*.map"
+  - "!out/licenses/**"
+  - "!out/*/.vite/**"
+# The licenses of the open-source code the app ships, written by `pnpm build`
+# (scripts/third-party-licenses.ts), and the app's own. They go in the resources
+# folder, outside the archive, so anyone can read them.
+extraResources:
+  - from: out/licenses/THIRD-PARTY-LICENSES.txt
+    to: THIRD-PARTY-LICENSES.txt
+  - from: LICENSE
+    to: LICENSE.txt
 asar: true
 npmRebuild: false
 # Fuses are flipped in the Electron binary before it is signed. The app then runs

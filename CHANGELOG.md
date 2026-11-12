@@ -6,6 +6,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+### Added
+
+- The app carries the license of each open-source package it includes, in `THIRD-PARTY-LICENSES.txt` in its resources folder, and its own MIT license as `LICENSE.txt` beside it.
+
 ## [0.8.0] - 2026-11-11
 
 ### Changed
