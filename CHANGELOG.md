@@ -11,6 +11,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - Before a skill's first run, the yellow **Run** button reads **Run without skill** and opens on **First, test without the skill**: the same cases with no skill, the score your skill has to beat. **Test the skill instead**, under its button, skips it in one press. Once the run without the skill is done, Run suggests testing the skill. Before, the first run always tested the skill, and nothing suggested a run without it.
 
 - Resting the pointer on an underlined word in SKILL.md opens the same popout as clicking the rule's number: what the word set off, over **Auto refine**, **Suggest changes** and **Help me improve**. Before, it showed only what the word set off.
+- Number fields, such as **Attempts per case** and a case's word count, have a minus and a plus at their ends. Hold one to keep stepping, or hold Shift to step by ten. A number typed past a limit is set to the limit when you leave the field.
 
 ### Added
 

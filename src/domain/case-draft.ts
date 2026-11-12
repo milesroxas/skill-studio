@@ -139,7 +139,7 @@ export function newCaseId(
 }
 
 /** The most pixels a case's size may give a side. */
-const MAX_SIDE = 10_000
+export const MAX_SIDE = 10_000
 
 /** Why a case's size cannot be saved, or null when it can, or there is none. */
 export const sizeProblem = (size: [number, number] | null | undefined): string | null =>

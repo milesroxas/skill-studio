@@ -8,7 +8,14 @@
  * case, so moving between cases, screens or skills never loses typing.
  */
 
-import { blankDraft, draftOf, inputEntries, newCaseId, sizeProblem } from '@domain/case-draft.ts'
+import {
+  blankDraft,
+  draftOf,
+  inputEntries,
+  MAX_SIDE,
+  newCaseId,
+  sizeProblem,
+} from '@domain/case-draft.ts'
 import { addImages } from '@domain/image.ts'
 import type { InputEntry } from '@domain/inputs.ts'
 import { type CaseDraft, NEW_CASE_KEY } from '@domain/schemas.ts'
@@ -630,21 +637,21 @@ export const Cases = memo(function Cases({ ctx }: { ctx: Ctx }) {
                     <InlineField label="From">
                       <NumberInput
                         aria-label="Fewest words"
+                        aria-invalid={Boolean(wordsError)}
+                        aria-describedby={wordsError ? 'case-words-error' : undefined}
                         min={0}
                         value={draft.words[0]}
-                        onChange={(e) =>
-                          set({ words: [Number(e.target.value), draft.words?.[1] ?? 0] })
-                        }
+                        onValueChange={(n) => set({ words: [n, draft.words?.[1] ?? 0] })}
                       />
                     </InlineField>
                     <InlineField label="to">
                       <NumberInput
                         aria-label="Most words"
+                        aria-invalid={Boolean(wordsError)}
+                        aria-describedby={wordsError ? 'case-words-error' : undefined}
                         min={0}
                         value={draft.words[1]}
-                        onChange={(e) =>
-                          set({ words: [draft.words?.[0] ?? 0, Number(e.target.value)] })
-                        }
+                        onValueChange={(n) => set({ words: [draft.words?.[0] ?? 0, n] })}
                       />
                     </InlineField>
                     <Text tone="muted" size="ui">
@@ -652,7 +659,11 @@ export const Cases = memo(function Cases({ ctx }: { ctx: Ctx }) {
                     </Text>
                   </Toolbar>
                 ) : null}
-                {wordsError ? <Hint tone="destructive">{wordsError}</Hint> : null}
+                {wordsError ? (
+                  <Hint id="case-words-error" tone="destructive">
+                    {wordsError}
+                  </Hint>
+                ) : null}
 
                 {drawn ? (
                   <>
@@ -668,21 +679,23 @@ export const Cases = memo(function Cases({ ctx }: { ctx: Ctx }) {
                         <InlineField label="Width">
                           <NumberInput
                             aria-label="Width in pixels"
+                            aria-invalid={Boolean(sizeError)}
+                            aria-describedby={sizeError ? 'case-size-error' : undefined}
                             min={1}
+                            max={MAX_SIDE}
                             value={draft.size[0]}
-                            onChange={(e) =>
-                              set({ size: [Number(e.target.value), draft.size?.[1] ?? 0] })
-                            }
+                            onValueChange={(n) => set({ size: [n, draft.size?.[1] ?? 0] })}
                           />
                         </InlineField>
                         <InlineField label="by">
                           <NumberInput
                             aria-label="Height in pixels"
+                            aria-invalid={Boolean(sizeError)}
+                            aria-describedby={sizeError ? 'case-size-error' : undefined}
                             min={1}
+                            max={MAX_SIDE}
                             value={draft.size[1]}
-                            onChange={(e) =>
-                              set({ size: [draft.size?.[0] ?? 0, Number(e.target.value)] })
-                            }
+                            onValueChange={(n) => set({ size: [draft.size?.[0] ?? 0, n] })}
                           />
                         </InlineField>
                         <Text tone="muted" size="ui">
@@ -690,7 +703,11 @@ export const Cases = memo(function Cases({ ctx }: { ctx: Ctx }) {
                         </Text>
                       </Toolbar>
                     ) : null}
-                    {sizeError ? <Hint tone="destructive">{sizeError}</Hint> : null}
+                    {sizeError ? (
+                      <Hint id="case-size-error" tone="destructive">
+                        {sizeError}
+                      </Hint>
+                    ) : null}
                     <CheckRow
                       checked={draft.phone ?? false}
                       onCheckedChange={(on) => set({ phone: on })}

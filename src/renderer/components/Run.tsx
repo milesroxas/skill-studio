@@ -395,7 +395,7 @@ export function RunButton({
                 min={1}
                 max={10}
                 value={samples}
-                onChange={(e) => setSamples(Math.min(10, Math.max(1, Number(e.target.value) || 1)))}
+                onValueChange={setSamples}
               />
               <Hint>
                 An agent answers a little differently each time. Two or more attempts show whether a

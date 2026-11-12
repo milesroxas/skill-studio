@@ -232,7 +232,8 @@
  *                     (ink) segment, ink on the others.
  *   focus-edge        a field's own edge turns ink, on any focus: the caret
  *                     already says where typing goes, so a halo would only
- *                     repeat it. Inputs, text areas, the stepper.
+ *                     repeat it. Inputs, text areas, and the frame of
+ *                     NumberInput, whose field is inside it.
  *
  * The ring answers "where did I land?", which only a keyboard asks: after a
  * click it stays off (`data-input`, set by focus.ts). With no input yet, it
@@ -269,7 +270,7 @@
   outline: none;
   &:not([aria-invalid="true"]):where(input, textarea):focus,
   &:not([aria-invalid="true"]):focus-visible:not(:where([data-input="pointer"] *)),
-  &:not([aria-invalid="true"]):has(input:focus-visible):not(:where([data-input="pointer"] *)) {
+  &:has(input:focus):not(:has(input[aria-invalid="true"])) {
     border-color: var(--color-ring);
   }
 }
