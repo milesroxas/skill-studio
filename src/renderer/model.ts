@@ -483,10 +483,15 @@ export const outputDetail = (output: Output): string =>
  * Each output's name in a list to pick from, by its key: its version, and its
  * sample where the run wrote several. Two outputs that would read the same
  * also say who wrote them, and when if that still leaves them alike, so the
- * name stays short wherever the version alone tells them apart.
+ * name stays short wherever the version alone tells them apart. `short` names
+ * the version by its number alone ("v2"), for a place as narrow as a toggle.
  */
-export function outputNames(outputs: readonly Output[]): Map<string, string> {
-  const version = (o: Output) => `${versionName(o.run)}${configurationTail(o.run)}${sampleTail(o)}`
+export function outputNames(
+  outputs: readonly Output[],
+  { short = false }: { short?: boolean } = {},
+): Map<string, string> {
+  const head = short ? runVersion : versionName
+  const version = (o: Output) => `${head(o.run)}${configurationTail(o.run)}${sampleTail(o)}`
   const forms = [
     version,
     (o: Output) => `${version(o)} · ${writerName(o.run.meta?.writer)}`,

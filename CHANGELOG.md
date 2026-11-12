@@ -14,6 +14,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 ### Fixed
 
 - On Results, an output a run is still writing says **Writing…** where it will show, on the stage or in its card, and fades in when it is done. Before, it read "This output wrote no file to show here" and offered **Grade**, which could not grade a run still being written. Grading a run from **More actions** (⋯) waits for it the same way.
+- On Results, **A** and **B** over a page or a picture name their version again, such as "A v1 72" and "B v2 88". Before, they showed the score alone, and the version was only on the cards under the stage.
 - An output a run has started shows on Results within two seconds of the start. Before, it showed only once the screen was read again.
 
 ## [0.9.0] - 2026-11-12

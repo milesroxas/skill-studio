@@ -695,8 +695,8 @@ const STEPS = ':transcript'
 
 /**
  * The stage, the bar over it and the size line under it. The bar holds what
- * picks the thing in view: which output (A or B with each total, and the
- * keys), and which of its files, or its steps. What belongs to the file in
+ * picks the thing in view: which output (A or B with each version and total,
+ * and the keys), and which of its files, or its steps. What belongs to the file in
  * view stands in the line under the stage: for a page, the size it is drawn
  * at, which is also where that size is changed, then how it is scaled, and at
  * the line's end a way to open the file full size.
@@ -766,6 +766,11 @@ function Flip({
     return () => window.removeEventListener('keydown', handle)
   }, [both])
 
+  // Each letter says which version it is, so the reader need not find the cards under the stage.
+  const pairNames = outputNames(
+    sides.map(([, o]) => o),
+    { short: true },
+  )
   const flipTo = (to: StageSide, o: Output) => ({
     value: to,
     label: (
@@ -773,6 +778,7 @@ function Flip({
         <Text font="mono" weight="semibold">
           {SLOT_LABEL[to]}
         </Text>
+        {pairNames.get(o.key) ?? versionName(o.run)}
         {totals[to] === null ? null : <Text tabular>{Math.round(totals[to])}</Text>}
       </>
     ),

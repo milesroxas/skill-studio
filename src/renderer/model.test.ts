@@ -194,6 +194,23 @@ describe('outputNames', () => {
     expect(a).toMatch(/Nov 1/)
     expect(b).toMatch(/Nov 5/)
   })
+
+  it('names the version by its number alone when asked for short names', () => {
+    const named = (run: RunView) => ({
+      ...run,
+      meta: { ...run.meta, skillName: 'Claims need a source' },
+    })
+    const runs = [named(runOf('r1', 'v1', page)), named(runOf('r2', 'v2', page))] as RunView[]
+    const outputs = outputsOf(stateOf(runs, ['design']))
+    expect(outputs.map((o) => outputNames(outputs).get(o.key))).toEqual([
+      'v1 · Claims need a source',
+      'v2 · Claims need a source',
+    ])
+    expect(outputs.map((o) => outputNames(outputs, { short: true }).get(o.key))).toEqual([
+      'v1',
+      'v2',
+    ])
+  })
 })
 
 describe('liftOf and versionScore', () => {
