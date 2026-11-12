@@ -1,4 +1,4 @@
-/** The card one output is read in: a head with its slot, title, total and meta, then the sections. */
+/** The card one output is read in: a head with its slot, title, total and meta, the sections, and a foot. */
 import { cva, type VariantProps } from 'class-variance-authority'
 import type { ComponentProps, ReactNode } from 'react'
 import { cn } from '../lib/utils.ts'
@@ -45,6 +45,25 @@ export function OutputCardHead({
         </span>
       ) : null}
     </header>
+  )
+}
+
+/** The card's last row: one quiet action at its end, such as reading the transcript in place of the output. */
+export function OutputCardFoot({ children }: { children: ReactNode }) {
+  return <footer className="flex justify-end border-t px-2 py-1.5">{children}</footer>
+}
+
+/** Facts about an output, a label and its value a row, such as who wrote it and when. */
+export function FactList({ facts }: { facts: ReadonlyArray<{ label: string; value: ReactNode }> }) {
+  return (
+    <dl className="m-0 grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-1.5 text-xs">
+      {facts.map((fact) => (
+        <div key={fact.label} className="contents">
+          <dt className="text-muted-foreground">{fact.label}</dt>
+          <dd className="m-0 text-pretty">{fact.value}</dd>
+        </div>
+      ))}
+    </dl>
   )
 }
 

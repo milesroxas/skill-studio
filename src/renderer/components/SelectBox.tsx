@@ -18,6 +18,8 @@ interface SelectOption {
   label: string
   /** A quieter line under the label, in the list only, such as who wrote a run and when. */
   detail?: string
+  /** What the field shows while this is picked, where the label is longer than the field needs. */
+  short?: string
   disabled?: boolean
 }
 
@@ -50,8 +52,11 @@ interface Props extends VariantProps<typeof triggerVariants> {
   id?: string
   'aria-label'?: string
   size?: 'sm' | 'default'
-  /** `caption`: a value in a line of meta, changed where it is read. A field otherwise. */
-  variant?: 'field' | 'caption'
+  /**
+   * `caption`: a value in a line of meta, changed where it is read. `title`: a
+   * card's title that picks what the card shows. A field otherwise.
+   */
+  variant?: 'field' | 'caption' | 'title'
   disabled?: boolean
 }
 
@@ -71,6 +76,8 @@ export function SelectBox({
   // A caption's list hangs from it, clear of the line it sits in, and is one line a row: laid
   // over a control a quarter its size, a field's list hides what was picked and runs off the window.
   const caption = variant === 'caption'
+  // A caption's or a title's list hangs from it, so what it picks for stays in view.
+  const hangs = caption || variant === 'title'
   const item = (o: SelectOption) => (
     <SelectItem
       key={o.value}
@@ -98,11 +105,11 @@ export function SelectBox({
         aria-label={aria['aria-label']}
         title={chosen?.detail ? `${chosen.label} · ${chosen.detail}` : undefined}
       >
-        <SelectValue />
+        <SelectValue>{chosen?.short}</SelectValue>
       </SelectTrigger>
       <SelectContent
-        position={caption ? 'popper' : 'item-aligned'}
-        align={caption ? 'start' : 'center'}
+        position={hangs ? 'popper' : 'item-aligned'}
+        align={hangs ? 'start' : 'center'}
       >
         {none ? <SelectItem value={NONE}>{none}</SelectItem> : null}
         {options.map(item)}

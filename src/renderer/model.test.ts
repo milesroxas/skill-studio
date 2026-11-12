@@ -1,7 +1,9 @@
 import type { Artifact, Report, RunMeta } from '@domain/schemas.ts'
 import { describe, expect, it } from 'vitest'
 import type { RunView, State } from './api.ts'
+import type { Output } from './model.ts'
 import {
+  apartLine,
   casePair,
   deleteBlocked,
   deleteRunDialog,
@@ -12,6 +14,7 @@ import {
   liftOf,
   listLine,
   mergedConfig,
+  outputFacts,
   outputNames,
   outputsOf,
   primaryOf,
@@ -257,5 +260,62 @@ describe('deleteBlocked', () => {
     expect(deleteBlocked({ writing: false, grading: false })).toBeUndefined()
     expect(deleteBlocked({ writing: true, grading: false })).toContain('run to finish')
     expect(deleteBlocked({ writing: false, grading: true })).toContain('grading to finish')
+  })
+})
+
+/** An output of `run`: attempt `index` of `samples`, written by `model`. */
+function attemptOf(run: RunView, index = 1, samples = 1, model = 'opus'): Output {
+  const meta = { ...run.meta, writer: { engine: 'claude-code', model } } as RunMeta
+  return {
+    key: `${run.name}/page-s${index}`,
+    run: { ...run, meta },
+    sample: run.samples[0],
+    result: null,
+    caseId: 'page',
+    index,
+    samples,
+    corrections: {},
+    primary: null,
+  }
+}
+
+describe('apartLine', () => {
+  const v0 = runOf('r0', 'v0', [md('a.md')])
+  const v1 = runOf('r1', 'v1', [md('a.md')])
+  const v1again = runOf('r2', 'v1', [md('a.md')])
+
+  it('says nothing when the versions tell the two apart', () => {
+    expect(apartLine(attemptOf(v0, 1, 2), attemptOf(v1, 1, 2))).toBeNull()
+    expect(apartLine(attemptOf(v1), null)).toBeNull()
+  })
+
+  it('names the writer whenever the two differ', () => {
+    const line = apartLine(attemptOf(v0, 1, 1, 'haiku'), attemptOf(v1, 1, 1, 'opus'))
+    expect(line).toMatch(/haiku/i)
+  })
+
+  it('names the attempt, and the time across two runs, for two outputs of one version', () => {
+    expect(apartLine(attemptOf(v1, 2, 2), attemptOf(v1, 1, 2))).toBe('attempt 2 of 2')
+    const across = apartLine(attemptOf(v1, 1, 2), attemptOf(v1again, 1, 2))
+    expect(across?.startsWith('attempt 1 of 2 · ')).toBe(true)
+  })
+})
+
+describe('outputFacts', () => {
+  it('says who wrote it and when, and the attempt only when there were several', () => {
+    const run = runOf('r1', 'v1', [md('a.md')])
+    expect(outputFacts(attemptOf(run)).map((f) => f.label)).toEqual(['Written by', 'When'])
+    expect(outputFacts(attemptOf(run, 2, 3))).toContainEqual({ label: 'Attempt', value: '2 of 3' })
+  })
+
+  it('says the length against what the case asks', () => {
+    const output = {
+      ...attemptOf(runOf('r1', 'v1', [md('a.md')])),
+      result: { words: 32, range: [30, 120] },
+    } as unknown as Output
+    expect(outputFacts(output)).toContainEqual({
+      label: 'Length',
+      value: '32 words, the case asks 30 to 120',
+    })
   })
 })

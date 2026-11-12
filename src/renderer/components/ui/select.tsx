@@ -31,6 +31,14 @@ const selectTriggerVariants = cva(
          */
         caption:
           "h-6 gap-1 rounded-sm px-2 text-xs text-muted-foreground transition-[color,background-color] duration-150 ease-out hover:bg-accent hover:text-foreground focus-key:text-foreground data-[state=open]:bg-accent data-[state=open]:text-foreground dark:hover:bg-accent/50 dark:data-[state=open]:bg-accent/50 pointer-coarse:relative pointer-coarse:before:absolute pointer-coarse:before:inset-x-0 pointer-coarse:before:-inset-y-2.5 [&_svg:not([class*='size-'])]:size-3",
+        /**
+         * A card's title that picks what the card shows: the title's own size
+         * and weight, no edge, lit as a `ghost-muted` button is when pointed at
+         * or open. It stands 8px before the title's edge, so its text, not its
+         * hover box, starts there.
+         */
+        title:
+          "-ml-2 h-7 max-w-full gap-1 rounded-sm px-2 text-ui font-semibold text-foreground transition-[background-color] duration-150 ease-out hover:bg-accent data-[state=open]:bg-accent dark:hover:bg-accent/50 dark:data-[state=open]:bg-accent/50 pointer-coarse:relative pointer-coarse:before:absolute pointer-coarse:before:inset-x-0 pointer-coarse:before:-inset-y-2 [&_svg:not([class*='size-'])]:size-3.5",
       },
     },
     defaultVariants: { variant: 'field' },

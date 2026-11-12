@@ -120,7 +120,7 @@ A diff (`.diff` and `.diff-lines` in `styles.css`) takes the same tints, but its
 - Corners are a closed set, in `styles.css`:
   - `rounded-sm` 4px: a button, a field, a toggle, a checkbox, a chip, a list row or menu item.
   - `rounded-chin` 10px on top, 12.5px below: a container. A card, a popover, a menu, a dialog, an alert, the composer, a muted panel, a code block, a chat bubble, the welcome's picture sheet. Top and bottom stay 4 to 5.
-  - `rounded-xs` 2px: a mark inside running text (an inline link's focus ring, inline code, a diff mark), a part nested inside a control, a part's bar in `Parts`, and each segment of a stepped indicator (the walkthrough's progress, the file size meter). A segment is at least 6px tall, so its corners read as corners and not as a pill.
+  - `rounded-xs` 2px: a mark inside running text (an inline link's focus ring, inline code, a diff mark), a part nested inside a control, and each segment of a stepped indicator (the walkthrough's progress, the file size meter). A segment is at least 6px tall, so its corners read as corners and not as a pill.
   - `rounded-full`: dots and the remove button on a picture only. A row of steps is never pills.
 
 ## Focus

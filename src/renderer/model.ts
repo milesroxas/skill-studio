@@ -457,8 +457,8 @@ export function deleteBlocked(jobs: { writing: boolean; grading: boolean }): str
   return undefined
 }
 
-/** " · sample 2 of 3", or nothing when the case has one sample. */
-export const sampleTail = (output: Output): string =>
+/** " · attempt 2 of 3", or nothing when the case has one attempt. */
+const sampleTail = (output: Output): string =>
   output.samples > 1 ? ` · attempt ${output.index} of ${output.samples}` : ''
 
 /** "Claude Opus 5.5 · Nov 2, 10:12": who wrote an output, and when. */
@@ -500,20 +500,56 @@ export const drawnOf = (output: Output): Artifact | null =>
   drawnArtifact(output.sample.artifacts, output.primary)
 
 /**
- * How big the output is, where size means something: "31 words · case asks 30
- * to 120" for prose or a case with a length, "1600 × 900 px · case asks
+ * How big the output is, where size means something: "31 words, the case asks
+ * 30 to 120" for prose or a case with a length, "1600 × 900 px, the case asks
  * 1600 × 900 px" for a picture.
  */
-export function sizeLine(output: Output): string | null {
+function sizeLine(output: Output): string | null {
   const result = output.result
   if (primaryOf(output)?.kind === 'image' && (result?.pixels || result?.size)) {
     const pixels = result.pixels ? pixelText(result.pixels) : 'size unread'
-    return result.size ? `${pixels} · case asks ${pixelText(result.size)}` : pixels
+    return result.size ? `${pixels}, the case asks ${pixelText(result.size)}` : pixels
   }
   const words = result?.words
   const range = result?.range
-  if (range) return `${words ?? '?'} words · case asks ${range[0]} to ${range[1]}`
+  if (range) return `${words ?? '?'} words, the case asks ${range[0]} to ${range[1]}`
   return primaryOf(output)?.kind === 'markdown' && words ? `${words} words` : null
+}
+
+/**
+ * How an output was made, a row each, for the note behind its score: who
+ * wrote it, when, which attempt, and its size where size means something.
+ */
+export function outputFacts(output: Output): Array<{ label: string; value: string }> {
+  const facts = [
+    { label: 'Written by', value: writerName(output.run.meta?.writer) },
+    { label: 'When', value: runStamp(output.run) },
+  ]
+  if (output.samples > 1)
+    facts.push({ label: 'Attempt', value: `${output.index} of ${output.samples}` })
+  const size = sizeLine(output)
+  if (size)
+    facts.push({ label: primaryOf(output)?.kind === 'image' ? 'Size' : 'Length', value: size })
+  return facts
+}
+
+/**
+ * What tells an output from the one beside it besides its version, for the
+ * line under its card's title: the writer when the two differ, since that is
+ * what is being compared; and for two outputs of one version, the attempt, or
+ * the time when they come from two runs. Null when the version says it all.
+ */
+export function apartLine(output: Output, other: Output | null): string | null {
+  if (!other) return null
+  const writer = writerName(output.run.meta?.writer)
+  const sameWriter = writer === writerName(other.run.meta?.writer)
+  const title = (o: Output) => `${versionName(o.run)}${configurationTail(o.run)}`
+  const bits: string[] = sameWriter ? [] : [writer]
+  if (title(output) === title(other)) {
+    if (output.samples > 1) bits.push(`attempt ${output.index} of ${output.samples}`)
+    if (output.run.name !== other.run.name && sameWriter) bits.push(runStamp(output.run))
+  }
+  return bits.length ? bits.join(' · ') : null
 }
 
 /** Cents, or four places for an amount under ten cents. */

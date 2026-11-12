@@ -1,8 +1,10 @@
 /**
  * One case, two outputs side by side: the version before on the left, the
  * latest on the right. It is what the whole loop is for. Each side carries its
- * score, the parts it is counted from and what it missed, so a difference in
- * the number is read as a difference in the text.
+ * score and what it missed, so a difference in the number is read as a
+ * difference in the text. A card says only what tells it from the other side
+ * or what went wrong: the parts a score is counted from, and who wrote the
+ * output, when and in which attempt, are behind its score, a click away.
  *
  * Jev answers facts: whether a rule was followed, whether a check was met.
  * Where the reader sees it otherwise, each way out changes the score at once
@@ -15,9 +17,9 @@
  * scores and what each missed.
  *
  * What an output is decides how it opens, and each file brings its own
- * controls: only a page has a size to pick. What is done now and then, another
- * pair, the case's own screen, a grade read again, is folded away, so what
- * stands over an output is what picks the output.
+ * controls: only a page has a size to pick. Each card's title picks its
+ * output. What is done now and then, a swap, the case's own screen, a grade
+ * read again, is folded away, so what stands over an output is what picks it.
  *
  * Deleting a run is in the same menu, last and set apart: a run spans every
  * case and every attempt, so its delete belongs with the other actions named
@@ -27,7 +29,7 @@
 import { draftOf, newCheck } from '@domain/case-draft.ts'
 import type { Verdict } from '@domain/pack.ts'
 import type { Case } from '@domain/schemas.ts'
-import { PencilIcon, RefreshCwIcon, Trash2Icon } from 'lucide-react'
+import { ArrowLeftRightIcon, PencilIcon, RefreshCwIcon, Trash2Icon } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
 import { api } from '../api.ts'
 import { caseContext, skillContext } from '../assist.ts'
@@ -37,17 +39,17 @@ import { caseUnsaved } from '../draft-edits.ts'
 import { inSkill } from '../in-skill.ts'
 import { gradingRun, useJobStart, writingRun } from '../job-start.ts'
 import {
+  apartLine,
   caseTitle,
   configurationTail,
   drawnOf,
   layersOf,
   type Output,
   outputDetail,
+  outputFacts,
   outputNames,
   primaryOf,
-  sampleTail,
   scoreOf,
-  sizeLine,
   totalOf,
   versionName,
 } from '../model.ts'
@@ -73,9 +75,9 @@ import {
   Stack,
   Toolbar,
 } from './layout.tsx'
-import { OutputCard, OutputCardHead, Slot } from './OutputCard.tsx'
+import { FactList, OutputCard, OutputCardFoot, OutputCardHead, Slot } from './OutputCard.tsx'
 import { MoreActions, RowAction } from './RowActions.tsx'
-import { CheckWeight, Delta, Parts, TotalChip } from './Scores.tsx'
+import { CheckWeight, Delta, PartList, TotalDetail, TotalDetailSection } from './Scores.tsx'
 import { Segmented } from './Segmented.tsx'
 import { SelectBox } from './SelectBox.tsx'
 import { Stage, type Side as StageSide } from './Stage.tsx'
@@ -166,6 +168,11 @@ export function Comparison({
     runs.length > 1
       ? `${sides.find((o) => o.run.name === run) === a ? 'A' : 'B'}’s run`
       : 'this run'
+  /**
+   * The line that picks the pair, only where the cards cannot: each card's title
+   * picks its own output, so the line shows with one side empty or under Word diff.
+   */
+  const picking = candidates.length > 1 && (!both || view === 'diff')
   /** The size a page is drawn at: one for the case, on the stage and in both cards. */
   const page = usePageSize(testCase?.bench.size ?? null)
 
@@ -188,6 +195,14 @@ export function Comparison({
               onSelect={() => go('cases', { id: caseId })}
             >
               Edit case
+            </RowAction>
+          ) : null}
+          {a && b ? (
+            <RowAction
+              icon={<ArrowLeftRightIcon aria-hidden="true" />}
+              onSelect={() => show({ a: b, b: a })}
+            >
+              Swap A and B
             </RowAction>
           ) : null}
           {runs.map((run) => {
@@ -223,13 +238,11 @@ export function Comparison({
         </MoreActions>
       </ColumnHeader>
       <ColumnBody>
-        {testCase || candidates.length > 1 || view === 'flip' ? (
+        {testCase || picking || view === 'flip' ? (
           // The case, the pair and the stage that shows it: one group, closer to each other than to the cards.
           <Stack gap="md">
             {testCase ? <Asked testCase={testCase} /> : null}
-            {candidates.length > 1 ? (
-              <Pair candidates={candidates} a={a} b={b} show={show} keys={view === 'flip'} />
-            ) : null}
+            {picking ? <Pair candidates={candidates} a={a} b={b} show={show} /> : null}
             {view === 'flip' ? (
               <Flip
                 key={`${a?.key}|${b?.key}`}
@@ -255,6 +268,9 @@ export function Comparison({
                 output={a}
                 other={null}
                 slot="a"
+                apart={apartLine(a, b)}
+                candidates={candidates}
+                onPick={(o) => show({ a: o, b })}
                 layers={layers}
                 grading={grading(a.run.name)}
                 held={grade.starting()}
@@ -269,6 +285,9 @@ export function Comparison({
                 output={b}
                 other={a}
                 slot={a ? 'b' : null}
+                apart={apartLine(b, a)}
+                candidates={candidates}
+                onPick={(o) => show({ a, b: o })}
                 layers={layers}
                 grading={grading(b.run.name)}
                 held={grade.starting()}
@@ -328,23 +347,21 @@ function DeleteRunAction({
 }
 
 /**
- * The pair being read, as one line: it opens on the right two, the version
- * before and the latest, so the fields that pick another pair are folded
- * under it with Swap. With neither side picked it stands open.
+ * The pair being read, as one line, where the cards cannot pick it: with one
+ * side empty, or under Word diff, which has one card for both. The fields that
+ * pick another pair are folded under it with Swap. With neither side picked it
+ * stands open.
  */
 function Pair({
   candidates,
   a,
   b,
   show,
-  keys,
 }: {
   candidates: Output[]
   a: Output | null
   b: Output | null
   show: (pair: { a: Output | null; b: Output | null }) => void
-  /** The stage is up, where the A and B keys flip it. */
-  keys: boolean
 }) {
   const names = outputNames(candidates)
   // The line says the two versions, which is what tells most pairs apart; two outputs of one
@@ -363,18 +380,15 @@ function Pair({
       }
       defaultOpen={!one}
     >
-      <Stack gap="md">
-        <div className="grid max-w-3xl grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] items-center gap-x-3">
-          <Picker slot="a" outputs={candidates} value={a} onChange={(o) => show({ a: o, b })} />
-          <Picker slot="b" outputs={candidates} value={b} onChange={(o) => show({ a, b: o })} />
-          {a && b ? (
-            <Button type="button" variant="outline" size="sm" onClick={() => show({ a: b, b: a })}>
-              Swap
-            </Button>
-          ) : null}
-        </div>
-        {keys && a && b ? <Hint>Press A or B to switch between them.</Hint> : null}
-      </Stack>
+      <div className="grid max-w-3xl grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] items-center gap-x-3">
+        <Picker slot="a" outputs={candidates} value={a} onChange={(o) => show({ a: o, b })} />
+        <Picker slot="b" outputs={candidates} value={b} onChange={(o) => show({ a, b: o })} />
+        {a && b ? (
+          <Button type="button" variant="outline" size="sm" onClick={() => show({ a: b, b: a })}>
+            Swap
+          </Button>
+        ) : null}
+      </div>
     </Disclosure>
   )
 }
@@ -440,11 +454,49 @@ function Asked({ testCase }: { testCase: Case }) {
   )
 }
 
+/**
+ * A card's title: its version, and where the case has other outputs, the
+ * field that picks another for this side. The field shows the version alone;
+ * its list names each output in full, with who wrote it and when under it.
+ */
+function OutputTitle({
+  output,
+  slot,
+  candidates,
+  onPick,
+}: {
+  output: Output
+  slot: 'a' | 'b' | null
+  candidates: Output[]
+  onPick: (output: Output | null) => void
+}) {
+  const title = `${versionName(output.run)}${configurationTail(output.run)}`
+  if (candidates.length < 2) return title
+  const names = outputNames(candidates)
+  return (
+    <SelectBox
+      aria-label={`Output ${SLOT_LABEL[slot ?? 'b']}`}
+      variant="title"
+      value={output.key}
+      onChange={(key) => onPick(candidates.find((o) => o.key === key) ?? null)}
+      options={candidates.map((o) => ({
+        value: o.key,
+        label: names.get(o.key) ?? o.key,
+        short: o.key === output.key ? title : undefined,
+        detail: outputDetail(o),
+      }))}
+    />
+  )
+}
+
 function Side({
   ctx,
   output,
   other,
   slot,
+  apart,
+  candidates,
+  onPick,
   layers,
   grading,
   held,
@@ -458,6 +510,11 @@ function Side({
   other: Output | null
   /** Its letter; null when it is the only output shown. */
   slot: 'a' | 'b' | null
+  /** What tells it from the output beside it besides its version (`apartLine`). */
+  apart: string | null
+  /** Every output of the case, which its title picks from. */
+  candidates: Output[]
+  onPick: (output: Output | null) => void
   layers: string[]
   /** A grade of this output's run is going. */
   grading: boolean
@@ -483,7 +540,6 @@ function Side({
     scored?.scores.total != null && otherScored?.scores.total != null
       ? scored.scores.total - otherScored.scores.total
       : null
-  const size = sizeLine(output)
   const meta = output.run.meta?.samples.find((s) => s.dir === output.sample.name) ?? null
   const rules = new Set(state.rules.map((r) => r.text))
 
@@ -509,10 +565,24 @@ function Side({
     <OutputCard>
       <OutputCardHead
         slot={slot ? <Slot variant="letter">{SLOT_LABEL[slot]}</Slot> : undefined}
-        title={`${versionName(output.run)}${configurationTail(output.run)}`}
+        title={<OutputTitle output={output} slot={slot} candidates={candidates} onPick={onPick} />}
         total={
           <>
-            <TotalChip total={scored?.scores.total} />
+            <TotalDetail total={scored?.scores.total}>
+              {scored ? (
+                <TotalDetailSection title="What the score is counted from">
+                  <PartList
+                    scored={scored}
+                    layers={layers}
+                    other={otherScored}
+                    onChangeKinds={() => go('results', { view: 'all', graded: '1' })}
+                  />
+                </TotalDetailSection>
+              ) : null}
+              <TotalDetailSection title="How it was made">
+                <FactList facts={outputFacts(output)} />
+              </TotalDetailSection>
+            </TotalDetail>
             <Delta value={delta} />
           </>
         }
@@ -533,15 +603,7 @@ function Side({
             </Button>
           ) : undefined
         }
-        meta={
-          <>
-            <span>
-              {outputDetail(output)}
-              {sampleTail(output)}
-            </span>
-            {size ? <span>{size}</span> : null}
-          </>
-        }
+        meta={apart ?? undefined}
       />
       {meta?.error ? (
         <Hint inset tone="destructive">
@@ -549,32 +611,19 @@ function Side({
         </Hint>
       ) : null}
       {scored ? (
-        <>
-          <Parts
-            scored={scored}
-            layers={layers}
-            other={otherScored}
-            onChangeKinds={() => go('results', { view: 'all', graded: '1' })}
-          />
-          <Verdicts
-            verdicts={scored.verdicts}
-            pending={pending}
-            ruleStands={(text) => rules.has(text)}
-            onOpenRule={(text) => go('editor', { file: 'SKILL.md', rule: text })}
-            onCorrect={correct}
-          />
-        </>
+        <Verdicts
+          verdicts={scored.verdicts}
+          pending={pending}
+          ruleStands={(text) => rules.has(text)}
+          onOpenRule={(text) => go('editor', { file: 'SKILL.md', rule: text })}
+          onCorrect={correct}
+        />
       ) : (
         <Hint inset>Not graded yet.</Hint>
       )}
       {reading ? (
         <>
-          <ArtifactPicker
-            artifacts={output.sample.artifacts}
-            value={view}
-            onChange={setView}
-            transcript={output.sample.hasTranscript}
-          />
+          <ArtifactPicker artifacts={output.sample.artifacts} value={view} onChange={setView} />
           {view === 'transcript' ? (
             <TranscriptList
               run={output.run.name}
@@ -590,6 +639,18 @@ function Side({
               page={page}
             />
           )}
+          {output.sample.hasTranscript ? (
+            <OutputCardFoot>
+              <Button
+                type="button"
+                variant="ghost-muted"
+                size="xs"
+                onClick={() => setView(view === 'transcript' ? opening : 'transcript')}
+              >
+                {view === 'transcript' ? 'Back to the output' : 'Read the transcript'}
+              </Button>
+            </OutputCardFoot>
+          ) : null}
         </>
       ) : null}
     </OutputCard>

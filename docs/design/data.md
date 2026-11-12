@@ -50,10 +50,11 @@ A score is out of 100 and always shows through one of these, from `components/Sc
 | Component | Shows |
 | --- | --- |
 | `TotalChip` | a score as a chip whose color is its band. Every chip is 40px wide (`Badge numeric`), so a column keeps one edge. |
+| `TotalDetail` | an output's `TotalChip` as a button that opens what is behind the number: a `help` popover of `TotalDetailSection`s, each a heading and what it holds. On Results it holds "What the score is counted from" (`PartList`) and "How it was made" (`FactList` in `components/OutputCard.tsx`: who wrote it, when, the attempt, the length or size). Pointed at or open, the chip takes a 2px ring in `border`. A click, never a hover, so a part's own note opens inside it. |
 | `SampleCount` | how many outputs a mean stands for: "×2". Its slot keeps its width when empty. Hidden below `lg`, so a table of cases fits 720px: the score's `aria-label` still says it. |
 | `Delta` | a change between two scores: "+15" in `success`, "−4" in `destructive` |
 | `ScoreMove` | a score's move from one version to the next: the earlier chip, an arrow, the later chip and the `Delta`. With no earlier score it is the later chip alone, so a list keeps one edge. |
-| `Parts` | the parts one score is made of, each with a bar: "Rules 4 of 5", "Checks 2 of 3". A part counted from facts says the count, each fact by its weight so a ×2 check counts two and the count agrees with the bar; any other says its score. Bars stay grey until a part is weak. A part a kind of work adds (Look, Efficiency, Scope, Process, Check command) names itself through `Explained`, below; Rules and Checks, which every skill is graded on, are plain text. |
+| `PartList` | the parts one score is made of, a row each: the name, then "4 of 5" at the row's end. A part counted from facts says the count, each fact by its weight so a ×2 check counts two; any other says its score and its `Delta` from the other side. A count stays in `foreground` until its part is weak. A part a kind of work adds (Look, Efficiency, Scope, Process, Check command) names itself through `Explained`, below; Rules and Checks, which every skill is graded on, are plain text. |
 | `CheckWeight` | a check's ×2 mark after its statement, only when it counts more than 1 |
 
 `Explained` (`components/Help.tsx`) is a word a reader may ask about where it stands: a dotted underline, and a click, never a hover, opens a `note` popover with its name, what it means in one or two sentences, and at most one `outline` `sm` action that goes where it is changed. Opened by a pointer, the action does not take the focus; opened from the keyboard, it does. `Term` is `Explained` for a glossary word, such as **Missed**, and has no action. A part of a score that a kind of work adds opens what grades it and **Change what is graded**, which opens All cases with **Graded as** unfolded and in view (`graded=1` in the address). A setting is met where its effect shows, once per card: never as an action on every row it touches. A fact such as "The output has one clear main point" names its part ("Look") in the line under it, so it reads back to that heading.
@@ -77,7 +78,7 @@ Bands come from `scoreBand()` in `model.ts`. Never compare a score to a number i
 <Badge variant={mean > 90 ? 'success' : 'warning'}>{mean}</Badge>
 ```
 
-Only weak things are colored in `Parts`. If every bar is green, the eye has nowhere to land: grey is the resting state and color is the exception.
+Only weak things are colored in `PartList`. If every count is green, the eye has nowhere to land: the plain color is the resting state and color is the exception.
 
 ## Badge
 

@@ -1,13 +1,15 @@
-/** The total chip, a score's move from one version to the next, and the parts one score is made of. */
+/** The total chip and what is behind it, a score's move from one version to the next, and the parts one score is made of. */
 import { weightMark } from '@domain/case-draft.ts'
 import type { Scored } from '@domain/scoring.ts'
 import { layerCount } from '@domain/verdict.ts'
 import { cva } from 'class-variance-authority'
 import { ArrowRightIcon } from 'lucide-react'
+import { type ReactNode, useRef } from 'react'
 import { kindHint, kindLabel, kindOfPart, partLabel, type ScoreBand, scoreBand } from '../model.ts'
 import { Explained } from './Help.tsx'
 import { Text } from './text.tsx'
 import { Badge } from './ui/badge.tsx'
+import { Popover, PopoverContent, PopoverSection, PopoverTrigger } from './ui/popover.tsx'
 
 const BADGE_TONE = {
   hi: 'success',
@@ -27,6 +29,60 @@ export function TotalChip({ total }: { total: number | null | undefined }) {
     <Badge variant={BADGE_TONE[scoreBand(total)]} numeric>
       {total === null || total === undefined ? '–' : Math.round(total)}
     </Badge>
+  )
+}
+
+/**
+ * The total chip as a button: a click opens what lies behind the number, in
+ * `TotalDetailSection`s. A click, never a hover, so a part's own note opens
+ * inside it. Opened by a pointer, it keeps the focus off what it holds, so no
+ * ring shows unasked; opened from the keyboard, the focus goes in.
+ */
+export function TotalDetail({
+  total,
+  children,
+}: {
+  total: number | null | undefined
+  children: ReactNode
+}) {
+  const pointed = useRef(false)
+  const shown = total === null || total === undefined ? 'not graded yet' : Math.round(total)
+  return (
+    <Popover>
+      <PopoverTrigger
+        aria-label={`Score ${shown}: what it is counted from`}
+        onPointerDown={() => {
+          pointed.current = true
+        }}
+        onKeyDown={() => {
+          pointed.current = false
+        }}
+        className="rounded-sm focus-ring transition-[box-shadow] duration-150 ease-out hover:ring-2 hover:ring-border data-[state=open]:ring-2 data-[state=open]:ring-border"
+      >
+        <TotalChip total={total} />
+      </PopoverTrigger>
+      <PopoverContent
+        size="help"
+        align="end"
+        onOpenAutoFocus={(event) => {
+          if (pointed.current) event.preventDefault()
+        }}
+      >
+        {children}
+      </PopoverContent>
+    </Popover>
+  )
+}
+
+/** One part of what is behind a total: its heading, then what it holds. */
+export function TotalDetailSection({ title, children }: { title: string; children: ReactNode }) {
+  return (
+    <PopoverSection pad="text">
+      <Text size="ui" weight="medium">
+        {title}
+      </Text>
+      {children}
+    </PopoverSection>
   )
 }
 
@@ -60,29 +116,15 @@ export function Delta({ value }: { value: number | null }) {
   )
 }
 
-const layerValue = cva(
-  'block text-md font-semibold whitespace-nowrap tabular-nums text-foreground',
-  {
-    variants: {
-      band: {
-        hi: '',
-        mid: '',
-        lo: 'text-warning',
-        vlo: 'text-destructive',
-        na: 'text-muted-foreground/70',
-      },
-    },
-  },
-)
-
-const layerBar = cva('block h-full bg-input', {
+/** A part's count or score: plain while it holds, amber or red once it is weak. */
+const partValue = cva('font-semibold whitespace-nowrap tabular-nums text-foreground', {
   variants: {
     band: {
       hi: '',
       mid: '',
-      lo: 'bg-warning',
-      vlo: 'bg-destructive',
-      na: '',
+      lo: 'text-warning',
+      vlo: 'text-destructive',
+      na: 'text-muted-foreground/70',
     },
   },
 })
@@ -114,13 +156,6 @@ export function ScoreMove({
 }
 
 /**
- * The parts one score is made of, each with a bar: the rules followed, the
- * checks met, and whatever else was measured. A part counted from facts says
- * the count, "3 of 4", each fact by its weight so a ×2 check counts two and
- * the count agrees with the bar; any other says its score. Bars stay grey
- * until a part is weak, so the eye lands on problems.
- */
-/**
  * A part's name. A part a kind of work adds, such as Look, opens what grades
  * it and the way to change that: the reader meets the setting where its
  * score shows, not only where it is kept.
@@ -141,7 +176,14 @@ function PartName({ layer, onChangeKinds }: { layer: string; onChangeKinds?: () 
   )
 }
 
-export function Parts({
+/**
+ * The parts one score is made of, a row each: the rules followed, the checks
+ * met, and whatever else was measured. A part counted from facts says the
+ * count, "3 of 4", each fact by its weight so a ×2 check counts two; any other
+ * says its score and its move from the other side. Only a weak part is colored,
+ * so the eye lands on it.
+ */
+export function PartList({
   scored,
   layers,
   other,
@@ -153,13 +195,8 @@ export function Parts({
   /** Go to where the kinds of work are ticked. */
   onChangeKinds?: () => void
 }) {
-  // Every part on one row, or two even rows when there are many: never a lone part on a row of its own.
-  const perRow = layers.length > 6 ? Math.ceil(layers.length / 2) : layers.length
   return (
-    <div
-      className="grid gap-x-4 gap-y-3 border-b px-4 py-3 text-xs text-muted-foreground"
-      style={{ gridTemplateColumns: `repeat(${perRow}, minmax(0, 1fr))` }}
-    >
+    <dl className="m-0 grid grid-cols-[minmax(0,1fr)_auto] items-baseline gap-x-4 gap-y-1.5 text-xs">
       {layers.map((layer) => {
         const value = scored.scores[layer] ?? null
         const o = other?.scores[layer] ?? null
@@ -167,26 +204,20 @@ export function Parts({
         const band: ScoreBand = scoreBand(value)
         const count = value === null ? null : layerCount(scored.verdicts, layer)
         return (
-          <div key={layer} className={band === 'na' ? 'text-muted-foreground/70' : undefined}>
-            <PartName layer={layer} onChangeKinds={onChangeKinds} />
-            <b className={layerValue({ band })}>
-              {/* A count beside the other side's count already says the change. */}
-              {count ? (
-                `${count.met} of ${count.total}`
-              ) : (
-                <>
-                  {value ?? '–'}
-                  <Delta value={delta} />
-                </>
-              )}
-            </b>
-            <div className="mt-1 h-0.75 overflow-hidden rounded-xs bg-muted">
-              <span className={layerBar({ band })} style={{ width: `${value ?? 0}%` }} />
-            </div>
+          <div key={layer} className="contents">
+            <dt className="text-muted-foreground">
+              <PartName layer={layer} onChangeKinds={onChangeKinds} />
+            </dt>
+            <dd className="m-0 text-right">
+              <span className={partValue({ band })}>
+                {count ? `${count.met} of ${count.total}` : (value ?? '–')}
+              </span>
+              {count ? null : <Delta value={delta} />}
+            </dd>
           </div>
         )
       })}
-    </div>
+    </dl>
   )
 }
 

@@ -216,25 +216,20 @@ export function OpenFullSize({ run, sample, file }: { run: string; sample: strin
 /** What of an output is being read: one of the files the agent wrote, or the steps it took. */
 export type OutputView = ArtifactRef | 'transcript'
 
-const TRANSCRIPT = ':transcript'
-
 /**
- * Pick what of an output to read: one of its files, or its transcript when it
- * has one. Hidden when there is one thing to read and nothing to pick.
+ * Pick which file of an output to read, when it wrote more than one. Its
+ * transcript is not one of them: the card's foot opens it.
  */
 export function ArtifactPicker({
   artifacts,
   value,
   onChange,
-  transcript = false,
 }: {
   artifacts: ArtifactRef[]
   value: OutputView | null
   onChange: (view: OutputView) => void
-  /** The run kept the agent's steps for this output. */
-  transcript?: boolean
 }) {
-  if (artifacts.length + (transcript ? 1 : 0) < 2) return null
+  if (artifacts.length < 2) return null
   return (
     <div className="border-b px-4 py-2">
       <ToggleGroup
@@ -244,9 +239,8 @@ export function ArtifactPicker({
         spacing={1}
         aria-label="Read"
         className="flex-wrap"
-        value={value === 'transcript' ? TRANSCRIPT : (value?.file ?? '')}
+        value={value === 'transcript' ? '' : (value?.file ?? '')}
         onValueChange={(picked) => {
-          if (picked === TRANSCRIPT) return onChange('transcript')
           const next = artifacts.find((a) => a.file === picked)
           if (next) onChange(next)
         }}
@@ -256,11 +250,6 @@ export function ArtifactPicker({
             {a.file.replace(/^outputs\//, '')}
           </ToggleGroupItem>
         ))}
-        {transcript ? (
-          <ToggleGroupItem value={TRANSCRIPT} text="xs">
-            Transcript
-          </ToggleGroupItem>
-        ) : null}
       </ToggleGroup>
     </div>
   )
