@@ -47,6 +47,17 @@ export function useArrived(key: string): boolean {
   return seen.arrived
 }
 
+/**
+ * Whether something the reader waited on in view has come: true once
+ * `waiting` has been true and is false again. What was already there when the
+ * view opened plays no entrance.
+ */
+export function useLanded(waiting: boolean): boolean {
+  const [waited, setWaited] = useState(waiting)
+  if (waiting && !waited) setWaited(true)
+  return waited && !waiting
+}
+
 /** How long a view takes to leave before the next one comes in: quicker than any arrival. */
 const LEAVE_MS = 140
 

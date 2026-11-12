@@ -6,9 +6,11 @@
  * between them is instant, and a page that scrolls tells the other to scroll
  * with it: each flip lands on the same part of both. Under it, a line says the
  * size drawn and how it is scaled, led by what changes that size and ended by
- * one action on what is in view.
+ * one action on what is in view. An output still being written holds the
+ * frame its page will be drawn in, so nothing moves when it lands, and it
+ * fades in when it does.
  */
-import type { Artifact } from '@domain/schemas.ts'
+import type { Artifact, ArtifactKind } from '@domain/schemas.ts'
 import {
   type CSSProperties,
   type ReactNode,
@@ -19,7 +21,9 @@ import {
 } from 'react'
 import { api } from '../api.ts'
 import { cn } from '../lib/utils.ts'
+import { useLanded } from '../motion.ts'
 import { ArtifactView, pageCaption, scaleText } from './Artifact.tsx'
+import { OutputWriting } from './OutputCard.tsx'
 import { Hint, Text } from './text.tsx'
 
 export type Side = 'a' | 'b'
@@ -35,6 +39,8 @@ export interface StageLayer {
   name: string
   /** Something to read in place of a file, such as the steps the agent took. */
   reading?: ReactNode
+  /** The output is still being written: its frame waits for it. */
+  writing?: boolean
 }
 
 interface Box {
@@ -51,7 +57,7 @@ interface Geometry {
 }
 
 function geometry(
-  artifact: Artifact | null,
+  kind: ArtifactKind | null,
   box: Box,
   width: number | null,
   height: number | null,
@@ -61,7 +67,7 @@ function geometry(
     frame: { left: 0, top: 0, width: box.width, height: box.height },
     caption: '',
   }
-  if (artifact?.kind === 'html') {
+  if (kind === 'html') {
     const drawn = width ?? Math.round(box.width)
     // A page with a height is the whole of what its case asks for: all of it shows.
     const tall = width === null ? null : height
@@ -80,7 +86,7 @@ function geometry(
       caption: pageCaption({ width }, drawn, scale),
     }
   }
-  if (artifact?.kind === 'image' && natural) {
+  if (kind === 'image' && natural) {
     const scale = Math.min(1, box.width / natural.width, box.height / natural.height)
     const w = natural.width * scale
     const h = natural.height * scale
@@ -158,17 +164,22 @@ export function Stage({
 
   const urlOf = (layer: StageLayer, artifact: Artifact, stage = false) =>
     api.artifactUrl(layer.run, layer.sample, artifact.file, stage)
+  // An output being written waits in the frame of the page beside it, if that is a page: it will
+  // most likely be one too. It states no size, since nothing is drawn at one yet.
+  const waitsAsPage = layers.some((l) => !l.writing && l.artifact?.kind === 'html')
   const placed = layers.map((layer) => ({
     layer,
-    geometry: size
-      ? geometry(
-          layer.artifact,
-          size,
-          width,
-          height,
-          layer.artifact ? natural[urlOf(layer, layer.artifact)] : undefined,
-        )
-      : null,
+    geometry: !size
+      ? null
+      : layer.writing
+        ? { ...geometry(waitsAsPage ? 'html' : null, size, width, height, undefined), caption: '' }
+        : geometry(
+            layer.artifact?.kind ?? null,
+            size,
+            width,
+            height,
+            layer.artifact ? natural[urlOf(layer, layer.artifact)] : undefined,
+          ),
   }))
   const caption = placed.find((p) => p.layer.side === shown)?.geometry?.caption ?? ''
 
@@ -176,55 +187,18 @@ export function Stage({
     <>
       <div className="relative h-[60svh] min-h-64 rounded-chin bg-muted">
         <div ref={box} className="absolute inset-4">
-          {placed.map(({ layer, geometry: g }) => {
-            if (!g) return null
-            const { artifact, reading } = layer
-            const on = layer.side === shown
-            const page = !reading && (artifact?.kind === 'html' || artifact?.kind === 'image')
-            return (
-              <div
+          {placed.map(({ layer, geometry: g }) =>
+            g ? (
+              <StageFrame
                 key={layer.side}
-                aria-hidden={!on}
-                inert={!on}
-                className={cn(
-                  'absolute overflow-hidden shadow-raised',
-                  page ? 'bg-artifact' : 'overflow-y-auto rounded-sm bg-card',
-                  !on && 'invisible',
-                )}
-                style={g.frame}
-              >
-                {reading ? (
-                  reading
-                ) : !artifact ? (
-                  <Hint inset>This output wrote no file to show here.</Hint>
-                ) : artifact.kind === 'html' ? (
-                  <iframe
-                    className="block origin-top-left border-0 bg-artifact"
-                    style={g.page}
-                    src={urlOf(layer, artifact, true)}
-                    title={`${layer.name}: ${artifact.file}`}
-                    sandbox="allow-scripts"
-                  />
-                ) : artifact.kind === 'image' ? (
-                  <img
-                    className="block size-full"
-                    src={urlOf(layer, artifact)}
-                    alt={`${artifact.file} from ${layer.name}`}
-                    onLoad={(event) => {
-                      const { naturalWidth, naturalHeight } = event.currentTarget
-                      const url = urlOf(layer, artifact)
-                      setNatural((known) => ({
-                        ...known,
-                        [url]: { width: naturalWidth, height: naturalHeight },
-                      }))
-                    }}
-                  />
-                ) : (
-                  <ArtifactView run={layer.run} sample={layer.sample} artifact={artifact} />
-                )}
-              </div>
-            )
-          })}
+                layer={layer}
+                geometry={g}
+                on={layer.side === shown}
+                urlOf={urlOf}
+                onNatural={(url, box) => setNatural((known) => ({ ...known, [url]: box }))}
+              />
+            ) : null,
+          )}
         </div>
       </div>
       {/* Kept from the first frame, so nothing moves when a picture loads and its size is known. */}
@@ -236,5 +210,67 @@ export function Stage({
         {action ? <span className="-mr-2 ml-auto">{action}</span> : null}
       </div>
     </>
+  )
+}
+
+/** One output's frame on the stage: its page, picture, file or steps, or the wait for it. */
+function StageFrame({
+  layer,
+  geometry: g,
+  on,
+  urlOf,
+  onNatural,
+}: {
+  layer: StageLayer
+  geometry: Geometry
+  /** In view; the other frame stays drawn under it, hidden, so a flip is instant. */
+  on: boolean
+  urlOf: (layer: StageLayer, artifact: Artifact, stage?: boolean) => string
+  /** A picture loaded, and this is its own size. */
+  onNatural: (url: string, box: Box) => void
+}) {
+  const { artifact, reading, writing = false } = layer
+  const landed = useLanded(writing)
+  const page = !writing && !reading && (artifact?.kind === 'html' || artifact?.kind === 'image')
+  return (
+    <div
+      aria-hidden={!on}
+      inert={!on}
+      className={cn(
+        'absolute overflow-hidden shadow-raised',
+        page ? 'bg-artifact' : 'overflow-y-auto rounded-sm bg-card',
+        !on && 'invisible',
+        landed && 'animate-ink',
+      )}
+      style={g.frame}
+    >
+      {writing ? (
+        <OutputWriting place="stage" />
+      ) : reading ? (
+        reading
+      ) : !artifact ? (
+        <Hint inset>This output wrote no file to show here.</Hint>
+      ) : artifact.kind === 'html' ? (
+        <iframe
+          className="block origin-top-left border-0 bg-artifact"
+          style={g.page}
+          src={urlOf(layer, artifact, true)}
+          title={`${layer.name}: ${artifact.file}`}
+          sandbox="allow-scripts"
+        />
+      ) : artifact.kind === 'image' ? (
+        <img
+          className="block size-full"
+          src={urlOf(layer, artifact)}
+          alt={`${artifact.file} from ${layer.name}`}
+          onLoad={(event) => {
+            const { naturalWidth, naturalHeight } = event.currentTarget
+            onNatural(urlOf(layer, artifact), { width: naturalWidth, height: naturalHeight })
+          }}
+        />
+      ) : (
+        <ArtifactView run={layer.run} sample={layer.sample} artifact={artifact} />
+      )}
+    </div>
   )
 }

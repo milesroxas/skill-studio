@@ -2,8 +2,9 @@
  * The app's jobs, followed for as long as the window is open: pushed by the
  * desktop app, polled in a browser (quickly while one runs). The open skill is
  * read again when a job finishes, including one that started and ended between
- * two polls (a Jev vote takes under a second), and as a run of the open skill
- * writes each output, so Results shows them as they land.
+ * two polls (a Jev vote takes under a second), as a run of the open skill
+ * starts, so Results shows its outputs waiting to be written, and as it
+ * writes each one, so Results shows them as they land.
  */
 import { useEffect, useState } from 'react'
 import { api, currentSkill, type Job } from './api.ts'
@@ -17,10 +18,17 @@ export function useJobs(reload: () => Promise<void>): Job[] {
     let finished: Set<number> | null = null
     /** How far each running job had come when state was last read for it. */
     const progressed = new Map<number, number>()
+    /** The runs each running job has been seen writing, as `<job>:<run>`. */
+    const begun = new Set<string>()
     let progressReloadAt = 0
     let progressTimer: ReturnType<typeof setTimeout> | undefined
-    /** Reload for progress at most once every two seconds; a reload for an end resets the wait. */
-    const reloadForProgress = () => {
+    /**
+     * Reload for progress at most once every two seconds; a reload for an end
+     * resets the wait. `settling` waits the two seconds even when none has
+     * passed: a run just begun makes its first output folders in that time.
+     */
+    const reloadForProgress = (settling = false) => {
+      if (settling) progressReloadAt = Date.now()
       const wait = progressReloadAt + PROGRESS_RELOAD_MS - Date.now()
       if (wait <= 0) {
         progressReloadAt = Date.now()
@@ -46,9 +54,13 @@ export function useJobs(reload: () => Promise<void>): Job[] {
         if (job.status !== 'running') {
           // Its count is no use once it is over: the map holds running jobs only.
           progressed.delete(job.id)
+          for (const key of begun) if (key.startsWith(`${job.id}:`)) begun.delete(key)
           continue
         }
         if (job.kind !== 'generate' || job.skillPath !== skill) continue
+        const fresh = job.writing.filter((run) => !begun.has(`${job.id}:${run}`))
+        for (const run of fresh) begun.add(`${job.id}:${run}`)
+        if (fresh.length) reloadForProgress(true)
         const before = progressed.get(job.id) ?? 0
         const now = job.progress?.done ?? 0
         if (now > before) {

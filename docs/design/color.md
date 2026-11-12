@@ -12,7 +12,7 @@ A token has one value per scope. The page picks the scope; a component never che
 | --- | --- | --- |
 | Light | `:root` | the page in the light theme |
 | Dark | `data-theme="dark"` on `<html>` | every surface in the dark theme |
-| Ink | `data-surface="ink"` on an element | the sidebar, the welcome's opening and the status line while it speaks, in both themes; and a chip that carries yellow: the welcome's current step, a running skill's `RunningTag` |
+| Ink | `data-surface="ink"` on an element | the sidebar, the welcome's opening and the status line while it speaks, in both themes; and a chip that carries yellow: the welcome's current step, a `RunningChip` (`components/Status.tsx`) |
 
 Ink uses the dark scope's values, with `--background` set to `--sidebar` and the sidebar tokens taken from the theme around it. So a component inside the sidebar uses `text-muted-foreground` and `bg-accent` as it would anywhere, and gets values that work on ink. A popover opened from the sidebar renders in `<body>`, outside the scope, and is a paper sheet. That is intended. The one exception is the sidebar itself opened as a popover on a narrow window (`PopoverContent size="nav"`), which carries the scope.
 
@@ -83,7 +83,7 @@ Does the color state a verdict (pass, weak, fail)?
 Yellow marks exactly these:
 
 - the next step: `Button variant="signal"` in the top bar, which is either "Next: …" or Run. See [buttons.md](buttons.md).
-- a running job: the dot in `JobsIndicator` on the ink sidebar, and in `RunningTag` on its skill's row in the Library. It is the one yellow that may sit beside the next step. A job's progress bar is foreground, not yellow.
+- a running job: the dot in `JobsIndicator` on the ink sidebar, and on a `RunningChip`: `RunningTag` on its skill's row in the Library, and `OutputWriting` where an output still being written will show on Results. It is the one yellow that may sit beside the next step. A job's progress bar is foreground, not yellow.
 - a reply being written: the composer's Stop button, yellow hairlines on ink moving left under the square (`hazard` and `animate-hazard`). It is that reply's running dot, so it too may sit beside the next step, and the yellow is there only while the reply is written. The square stays porcelain: red would say failed, not stop.
 - in the welcome: the current step in the progress row, and one `Slab` per frame. See [brand.md](brand.md).
 

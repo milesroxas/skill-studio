@@ -1,7 +1,12 @@
-/** The card one output is read in: a head with its slot, title, total and meta, the sections, and a foot. */
+/**
+ * The card one output is read in: a head with its slot, title, total and meta,
+ * the sections, and a foot. An output still being written holds its place.
+ */
 import { cva, type VariantProps } from 'class-variance-authority'
 import type { ComponentProps, ReactNode } from 'react'
 import { cn } from '../lib/utils.ts'
+import { RunningChip } from './Status.tsx'
+import { Text } from './text.tsx'
 import { Card } from './ui/card.tsx'
 
 /** One output: an object a reader sets beside another, so it stands on its own card. */
@@ -64,6 +69,32 @@ export function FactList({ facts }: { facts: ReadonlyArray<{ label: string; valu
         </div>
       ))}
     </dl>
+  )
+}
+
+const writingVariants = cva('m-0 flex flex-col items-center gap-2 text-center', {
+  variants: {
+    /** `stage`: fills the frame the output will be drawn in. `card`: the card's body, as tall as an empty section. */
+    place: {
+      stage: 'size-full justify-center p-6',
+      card: 'px-4 py-14',
+    },
+  },
+})
+
+/**
+ * An output still being written, in the place it will show. The running chip
+ * says it is under way, and the line under it that the reader has nothing to
+ * do: it comes by itself.
+ */
+export function OutputWriting({ place }: Required<VariantProps<typeof writingVariants>>) {
+  return (
+    <div role="status" className={writingVariants({ place })}>
+      <RunningChip>Writing…</RunningChip>
+      <Text size="xs" tone="muted">
+        It shows here when it is done.
+      </Text>
+    </div>
   )
 }
 

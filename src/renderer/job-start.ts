@@ -5,7 +5,7 @@
  * back and ask to be pressed again. This holds it over that gap.
  */
 import { useCallback, useEffect, useState } from 'react'
-import type { Job } from './api.ts'
+import type { Job, RunView, Sample } from './api.ts'
 import type { Reporter } from './hooks.ts'
 
 /** How long a start is held after its call returns while its job has not shown in the list. */
@@ -25,6 +25,30 @@ export const gradingRun = (jobs: readonly Job[], skillPath: string, run: string)
 /** Whether a running job of the skill at `skillPath` is still writing `run`. */
 export const writingRun = (jobs: readonly Job[], skillPath: string, run: string): boolean =>
   jobs.some((j) => j.status === 'running' && j.skillPath === skillPath && j.writing.includes(run))
+
+/**
+ * Whether one output of a run is still being written: a run of the skill at
+ * `skillPath` is working on its run, and the run has not recorded the output
+ * as done. The run's own grading step counts too: the output is recorded as
+ * done just before it starts, and the outputs read last may be from before
+ * that. A run cut off with no job on it is not being written: what it left is
+ * all there is.
+ */
+export function outputWriting(
+  jobs: readonly Job[],
+  skillPath: string,
+  output: { run: Pick<RunView, 'name' | 'meta'>; sample: Pick<Sample, 'name'> },
+): boolean {
+  const { run, sample } = output
+  if (run.meta?.finishedAt || run.meta?.samples.some((s) => s.dir === sample.name)) return false
+  return jobs.some(
+    (j) =>
+      j.status === 'running' &&
+      j.kind === 'generate' &&
+      j.skillPath === skillPath &&
+      (j.writing.includes(run.name) || j.grading.includes(run.name)),
+  )
+}
 
 /** A start with no title of its own: any job of the kind answers it. */
 const ANY = ''

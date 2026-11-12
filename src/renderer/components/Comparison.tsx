@@ -37,7 +37,7 @@ import type { Ctx } from '../ctx.ts'
 import { useDeleteRun } from '../delete-run.ts'
 import { caseUnsaved } from '../draft-edits.ts'
 import { inSkill } from '../in-skill.ts'
-import { gradingRun, useJobStart, writingRun } from '../job-start.ts'
+import { gradingRun, outputWriting, useJobStart, writingRun } from '../job-start.ts'
 import {
   apartLine,
   caseTitle,
@@ -53,6 +53,7 @@ import {
   totalOf,
   versionName,
 } from '../model.ts'
+import { useLanded } from '../motion.ts'
 import { type PageSize, usePageSize } from '../stage.ts'
 import {
   ArtifactPicker,
@@ -75,7 +76,14 @@ import {
   Stack,
   Toolbar,
 } from './layout.tsx'
-import { FactList, OutputCard, OutputCardFoot, OutputCardHead, Slot } from './OutputCard.tsx'
+import {
+  FactList,
+  OutputCard,
+  OutputCardFoot,
+  OutputCardHead,
+  OutputWriting,
+  Slot,
+} from './OutputCard.tsx'
 import { MoreActions, RowAction } from './RowActions.tsx'
 import { CheckWeight, Delta, PartList, TotalDetail, TotalDetailSection } from './Scores.tsx'
 import { Segmented } from './Segmented.tsx'
@@ -127,12 +135,16 @@ export function Comparison({
   const titleOf = (run: string) => `Grade ${run}`
   const grading = (run: string) =>
     grade.busy(titleOf(run)) || gradingRun(jobs, state.skill.path, run)
+  /** A run still being written is graded by itself when it is done, and cannot be before. */
+  const writing = (run: string) => writingRun(jobs, state.skill.path, run)
+  const unwritten = (o: Output | null) => o !== null && outputWriting(jobs, state.skill.path, o)
 
   /** Grade the runs these outputs came from again: each run is graded whole. */
   const regrade = (runs: string[]) => {
     const names = [...new Set(runs)]
-    // A run already being graded is left to finish: asking again would only be refused.
-    const idle = names.filter((run) => !grading(run))
+    // A run already being graded is left to finish, and one still written waits for its own
+    // grading: asking now would only be refused.
+    const idle = names.filter((run) => !grading(run) && !writing(run))
     if (!idle.length) return
     void grade.start(idle.map(titleOf), async () => {
       for (const run of idle) await api.grade(run, state.jevKey)
@@ -214,8 +226,12 @@ export function Comparison({
               <RowAction
                 key={run}
                 icon={<RefreshCwIcon aria-hidden="true" />}
-                title="Jev grades the whole run again."
-                disabled={grade.starting()}
+                title={
+                  writing(run)
+                    ? 'Wait for the run to finish. It is graded then.'
+                    : 'Jev grades the whole run again.'
+                }
+                disabled={grade.starting() || writing(run)}
                 busy={grading(run)}
                 onSelect={() => regrade([run])}
               >
@@ -250,6 +266,7 @@ export function Comparison({
                 b={b}
                 page={page}
                 totals={{ a: a ? totalOf(a, config) : null, b: b ? totalOf(b, config) : null }}
+                writing={{ a: unwritten(a), b: unwritten(b) }}
               />
             ) : null}
           </Stack>
@@ -273,6 +290,7 @@ export function Comparison({
                 onPick={(o) => show({ a: o, b })}
                 layers={layers}
                 grading={grading(a.run.name)}
+                writing={unwritten(a)}
                 held={grade.starting()}
                 onRegrade={() => regrade([a.run.name])}
                 reading={view !== 'flip'}
@@ -290,6 +308,7 @@ export function Comparison({
                 onPick={(o) => show({ a, b: o })}
                 layers={layers}
                 grading={grading(b.run.name)}
+                writing={unwritten(b)}
                 held={grade.starting()}
                 onRegrade={() => regrade([b.run.name])}
                 reading={view !== 'flip'}
@@ -499,6 +518,7 @@ function Side({
   onPick,
   layers,
   grading,
+  writing,
   held,
   onRegrade,
   reading = true,
@@ -518,6 +538,8 @@ function Side({
   layers: string[]
   /** A grade of this output's run is going. */
   grading: boolean
+  /** The output is still being written: it holds its place, and its run is graded when it is done. */
+  writing: boolean
   /** A grade is being started, of this run or the other: one start at a time. */
   held: boolean
   onRegrade: () => void
@@ -536,6 +558,7 @@ function Side({
   const view = picked?.key === output.key ? picked.view : opening
   const setView = (next: OutputView | null) => setPicked({ key: output.key, view: next })
   const [pending, setPending] = useState<string | null>(null)
+  const landed = useLanded(writing)
   const delta =
     scored?.scores.total != null && otherScored?.scores.total != null
       ? scored.scores.total - otherScored.scores.total
@@ -588,8 +611,9 @@ function Side({
         }
         action={
           // Grading is the next step for an output with no score. One with a score is graded
-          // again from the header's menu, and says so here while it is.
-          !scored || grading ? (
+          // again from the header's menu, and says so here while it is. One still being written
+          // is graded by its run when it is done.
+          !writing && (!scored || grading) ? (
             <Button
               type="button"
               variant="ghost-muted"
@@ -619,10 +643,12 @@ function Side({
           onCorrect={correct}
         />
       ) : (
-        <Hint inset>Not graded yet.</Hint>
+        <Hint inset>{writing ? 'Graded when it is done.' : 'Not graded yet.'}</Hint>
       )}
-      {reading ? (
-        <>
+      {reading && writing ? <OutputWriting place="card" /> : null}
+      {reading && !writing ? (
+        // An output that lands while it is read fades in where it was waited on.
+        <div className={landed ? 'animate-ink' : undefined}>
           <ArtifactPicker artifacts={output.sample.artifacts} value={view} onChange={setView} />
           {view === 'transcript' ? (
             <TranscriptList
@@ -651,7 +677,7 @@ function Side({
               </Button>
             </OutputCardFoot>
           ) : null}
-        </>
+        </div>
       ) : null}
     </OutputCard>
   )
@@ -679,11 +705,14 @@ function Flip({
   a,
   b,
   totals,
+  writing,
   page,
 }: {
   a: Output | null
   b: Output | null
   totals: { a: number | null; b: number | null }
+  /** Which sides are still being written: they wait on the stage, with no file to pick or open. */
+  writing: { a: boolean; b: boolean }
   /** The size a page is drawn at, shared with the cards. */
   page: PageSize
 }) {
@@ -699,15 +728,16 @@ function Flip({
   ).filter((entry): entry is readonly [StageSide, Output] => entry[1] !== null)
   const [side, output] = sides.find(([s]) => s === shown) ?? sides[0]
   const steps = picked === STEPS
-  const fileOf = (o: Output) =>
-    steps
+  const ready = sides.filter(([s]) => !writing[s])
+  const fileOf = (s: StageSide, o: Output) =>
+    steps || writing[s]
       ? null
       : picked === null
         ? drawnOf(o)
         : (o.sample.artifacts.find((f) => f.file === picked) ?? null)
   const files = [
     ...new Set(
-      sides.flatMap(([, o]) =>
+      ready.flatMap(([, o]) =>
         o.sample.artifacts.filter((f) => f.kind !== 'transcript').map((f) => f.file),
       ),
     ),
@@ -715,11 +745,11 @@ function Flip({
   // A list, not segments: an agent writes as many files as it likes.
   const reads = [
     ...files.map((f) => ({ value: f, label: f.replace(/^outputs\//, '') })),
-    ...(sides.some(([, o]) => o.sample.hasTranscript)
+    ...(ready.some(([, o]) => o.sample.hasTranscript)
       ? [{ value: STEPS, label: 'Transcript' }]
       : []),
   ]
-  const file = fileOf(output)
+  const file = fileOf(side, output)
   const flip = useCallback((to: StageSide) => setShown(to), [])
 
   // A and B flip the stage, unless the key is being typed somewhere.
@@ -777,8 +807,9 @@ function Flip({
           side: s,
           run: o.run.name,
           sample: o.sample.name,
-          artifact: fileOf(o),
+          artifact: fileOf(s, o),
           name: `${SLOT_LABEL[s]}, ${versionName(o.run)}`,
+          writing: writing[s],
           reading: !steps ? undefined : o.sample.hasTranscript ? (
             <TranscriptList
               run={o.run.name}

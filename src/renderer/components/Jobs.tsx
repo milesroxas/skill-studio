@@ -8,7 +8,7 @@ import { useEffect, useState } from 'react'
 import { api, type Job, type JobProgress } from '../api.ts'
 import { reportFailure } from '../transport.ts'
 import { Rows } from './layout.tsx'
-import { Dot, type Tone } from './Status.tsx'
+import { Dot, RunningChip, type Tone } from './Status.tsx'
 import { Text } from './text.tsx'
 import { Button } from './ui/button.tsx'
 import { Popover, PopoverContent, PopoverTrigger } from './ui/popover.tsx'
@@ -66,12 +66,8 @@ export function RunningTag({ jobs, skillPath }: { jobs: readonly Job[]; skillPat
   if (!mine.length) return null
   const progress = progressOf(mine)
   return (
-    <span
-      data-surface="ink"
-      className="ml-2 inline-flex h-5 items-center gap-1.5 rounded-sm px-1.5 align-middle font-mono text-2xs font-medium tabular-nums"
-    >
-      <Dot size="sm" tone={TONE.running} />
-      Running{progress ? ` ${progress.done}/${progress.total}` : null}
+    <span className="ml-2">
+      <RunningChip>Running{progress ? ` ${progress.done}/${progress.total}` : null}</RunningChip>
     </span>
   )
 }

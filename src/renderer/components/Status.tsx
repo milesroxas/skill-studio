@@ -33,6 +33,22 @@ export function Dot({ tone, size }: VariantProps<typeof dotVariants>) {
   return <span className={dotVariants({ tone, size })} aria-hidden="true" />
 }
 
+/**
+ * Something running, named in a word or two on an ink chip: the running dot
+ * needs ink under it, since yellow cannot be seen on paper.
+ */
+export function RunningChip({ children }: { children: ReactNode }) {
+  return (
+    <span
+      data-surface="ink"
+      className="inline-flex h-5 items-center gap-1.5 rounded-sm px-1.5 align-middle font-mono text-2xs font-medium tabular-nums"
+    >
+      <Dot size="sm" tone="signal" />
+      {children}
+    </span>
+  )
+}
+
 const statusVariants = cva('m-0 flex flex-wrap items-center gap-x-2 gap-y-0.5', {
   variants: {
     /** `default` in a section's text; `ui` at the end of a row whose title is `text-ui`. */
