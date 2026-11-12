@@ -405,15 +405,37 @@ export const versionName = (run: RunView): string => {
   return v.name ? `${v.id} · ${v.name}` : v.id
 }
 
-/** " · without skill", or nothing for a run with the skill. */
-export function configurationTail(run: RunView): string {
-  const config = run.meta?.configuration
-  return config && config !== 'with_skill' ? ` · ${config.replace('_', ' ')}` : ''
-}
+/** The name of a run made with no skill at all: it tested no version, so it names none. */
+export const WITHOUT_SKILL = 'Without skill'
 
-/** "v2 · Claude Opus 5.5 · without skill" */
+/** Whether a run was made with no skill at all, the score the skill has to beat. */
+export const isWithoutSkill = (run: RunView): boolean => run.meta?.configuration === 'without_skill'
+
+/** " · old skill" for a run made on an earlier version's copy, or nothing. */
+const configurationTail = (run: RunView): string =>
+  run.meta?.configuration === 'old_skill' ? ' · old skill' : ''
+
+/**
+ * What a run is named by wherever runs are listed or picked: its version
+ * ("v2 · Claims need a source", or "v2" when `short`), or "Without skill" for
+ * a run that used none.
+ */
+export const runTitle = (run: RunView, { short = false }: { short?: boolean } = {}): string =>
+  isWithoutSkill(run)
+    ? WITHOUT_SKILL
+    : `${short ? runVersion(run) : versionName(run)}${configurationTail(run)}`
+
+/**
+ * A run named inside a sentence: its title, or "the run without the skill",
+ * capitalised only to open the sentence, so the name never reads as a label
+ * dropped mid-line.
+ */
+export const runInSentence = (run: RunView, { start = false } = {}): string =>
+  isWithoutSkill(run) ? `${start ? 'The' : 'the'} run without the skill` : runTitle(run)
+
+/** "v2 · Claude Opus 5.5", or "Without skill · Claude Opus 5.5" */
 export const runLabel = (run: RunView): string =>
-  `${versionOf(run).id} · ${writerName(run.meta?.writer)}${configurationTail(run)}`
+  `${runTitle(run, { short: true })} · ${writerName(run.meta?.writer)}`
 
 /** A moment in the reader's own time zone, "Oct 30, 18:45"; null when the text is no date. */
 export function stamp(iso: string | null | undefined): string | null {
@@ -475,6 +497,10 @@ export function deleteBlocked(jobs: { writing: boolean; grading: boolean }): str
 const sampleTail = (output: Output): string =>
   output.samples > 1 ? ` · attempt ${output.index} of ${output.samples}` : ''
 
+/** "Claude Opus 5.5", or "Claude Opus 5.5 · attempt 2 of 3": who wrote an output, and which attempt. */
+export const outputWriter = (output: Output): string =>
+  `${writerName(output.run.meta?.writer)}${sampleTail(output)}`
+
 /** "Claude Opus 5.5 · Nov 2, 10:12": who wrote an output, and when. */
 export const outputDetail = (output: Output): string =>
   `${writerName(output.run.meta?.writer)} · ${runStamp(output.run)}`
@@ -490,8 +516,7 @@ export function outputNames(
   outputs: readonly Output[],
   { short = false }: { short?: boolean } = {},
 ): Map<string, string> {
-  const head = short ? runVersion : versionName
-  const version = (o: Output) => `${head(o.run)}${configurationTail(o.run)}${sampleTail(o)}`
+  const version = (o: Output) => `${runTitle(o.run, { short })}${sampleTail(o)}`
   const forms = [
     version,
     (o: Output) => `${version(o)} · ${writerName(o.run.meta?.writer)}`,
@@ -562,7 +587,7 @@ export function apartLine(output: Output, other: Output | null): string | null {
   if (!other) return null
   const writer = writerName(output.run.meta?.writer)
   const sameWriter = writer === writerName(other.run.meta?.writer)
-  const title = (o: Output) => `${versionName(o.run)}${configurationTail(o.run)}`
+  const title = (o: Output) => runTitle(o.run)
   const bits: string[] = sameWriter ? [] : [writer]
   if (title(output) === title(other)) {
     if (output.samples > 1) bits.push(`attempt ${output.index} of ${output.samples}`)

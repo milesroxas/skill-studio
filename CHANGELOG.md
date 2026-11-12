@@ -10,6 +10,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 - On Results, the list on the left is headed **Scores**, so it no longer reads like the Cases screen. It lists the same cases, each with how its score moved, under a line that sets **All cases** apart from them.
 - After a run without the skill, **All cases** shows that run's score, marked "Without skill". Before, it showed no score until the skill itself was run.
+- A run without the skill is named **Without skill** wherever runs are listed, with no version, since it tested none. Before, it read like "v0 · Claude Sonnet · without skill".
+- The lists that pick an output on Results put runs without the skill in a group of their own, **Without the skill**, after the versions, and the runs table on **All cases** lists them last. They are the score to beat, not one more version.
+- A run without the skill no longer offers **Changes since this run**, since it used no skill.
 
 ### Fixed
 

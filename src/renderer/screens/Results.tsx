@@ -35,6 +35,7 @@ import {
   totalOf,
   versionScore,
   versionsRun,
+  WITHOUT_SKILL,
 } from '../model.ts'
 
 export const Results = memo(function Results({ ctx }: { ctx: Ctx }) {
@@ -147,7 +148,7 @@ export const Results = memo(function Results({ ctx }: { ctx: Ctx }) {
                     <span className="flex items-center gap-2">
                       <ScoreMove from={null} to={floor} />
                       <Text tone="muted" size="xs">
-                        Without skill
+                        {WITHOUT_SKILL}
                       </Text>
                     </span>
                   ) : null}

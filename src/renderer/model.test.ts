@@ -20,6 +20,8 @@ import {
   outputsOf,
   primaryOf,
   rulesUnmarked,
+  runLabel,
+  runTitle,
   setByHand,
   versionScore,
 } from './model.ts'
@@ -210,6 +212,28 @@ describe('outputNames', () => {
       'v1',
       'v2',
     ])
+  })
+})
+
+describe('runTitle', () => {
+  const page = [html('index.html')]
+  const bare = (run: RunView): RunView =>
+    ({ ...run, meta: { ...run.meta, configuration: 'without_skill' } }) as RunView
+
+  it('names a run without the skill by that alone, never by the version it was stamped on', () => {
+    const run = bare(runOf('r1', 'v1', page))
+    expect(runTitle(run)).toBe('Without skill')
+    expect(runTitle(run, { short: true })).toBe('Without skill')
+    expect(runLabel(run)).toBe('Without skill · opus')
+    expect(runLabel(runOf('r2', 'v2', page))).toBe('v2 · opus')
+  })
+
+  it('tells a run without the skill from the version it shares a stamp with', () => {
+    const outputs = outputsOf(
+      stateOf([bare(runOf('r1', 'v1', page)), runOf('r2', 'v1', page)], ['design']),
+    )
+    expect(outputs.map((o) => outputNames(outputs).get(o.key))).toEqual(['Without skill', 'v1'])
+    expect(apartLine(outputs[0], outputs[1])).toBeNull()
   })
 })
 

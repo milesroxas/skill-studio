@@ -18,6 +18,7 @@ import {
   countsOf,
   fmt,
   gradedLine,
+  isWithoutSkill,
   liftOf,
   money,
   type Output,
@@ -25,10 +26,10 @@ import {
   rulesUnmarked,
   runLabel,
   runStamp,
+  runTitle,
   scoreOf,
   stamp,
   totalOf,
-  versionName,
   versionOutputs,
   versionsRun,
   writerName,
@@ -83,7 +84,12 @@ export function ResultsSummary({ ctx }: { ctx: Ctx }) {
     if (askedGraded) graded.current?.scrollIntoView({ block: 'start' })
   }, [askedGraded])
   const caseIds = casesRun(state, outputs)
-  const runs = state.runs
+  // A run without the skill is the score to beat, not one more version: it closes the table,
+  // as it closes the lists that pick an output.
+  const runs = [
+    ...state.runs.filter((r) => !isWithoutSkill(r)),
+    ...state.runs.filter(isWithoutSkill),
+  ]
   const byRun = new Map<string, Output[]>()
   for (const o of outputs) byRun.set(o.run.name, [...(byRun.get(o.run.name) ?? []), o])
   const totalsOf = (list: Output[]) => list.map((o) => totalOf(o, config)).filter((t) => t !== null)
@@ -270,26 +276,29 @@ function RunDetail({
     <Stack gap="md">
       <Stack gap="xs">
         <SectionHead>
-          <Heading level={3}>{versionName(view)}</Heading>
+          <Heading level={3}>{runTitle(view)}</Heading>
           <Text font="mono" tone="muted" size="xs">
             {view.name}
           </Text>
           <Spacer />
           <Toolbar>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              disabled={!view.meta?.skillVersion}
-              title={
-                view.meta?.skillVersion
-                  ? undefined
-                  : 'This run did not record which version of the skill it used.'
-              }
-              onClick={() => go('editor', { version: view.meta?.skillVersion ?? '' })}
-            >
-              Changes since this run
-            </Button>
+            {/* A run without the skill used none, so no change to the skill came after it. */}
+            {isWithoutSkill(view) ? null : (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={!view.meta?.skillVersion}
+                title={
+                  view.meta?.skillVersion
+                    ? undefined
+                    : 'This run did not record which version of the skill it used.'
+                }
+                onClick={() => go('editor', { version: view.meta?.skillVersion ?? '' })}
+              >
+                Changes since this run
+              </Button>
+            )}
             <Button
               type="button"
               variant="outline"

@@ -8,7 +8,7 @@ import { copyOf } from '@domain/text.ts'
 import { api } from '../api.ts'
 import { type Compared, compareTexts, diffShown } from '../diff.ts'
 import { useFetch } from '../hooks.ts'
-import { type Output, primaryOf, versionName } from '../model.ts'
+import { type Output, primaryOf, runInSentence } from '../model.ts'
 import { DiffLines } from './DiffLines.tsx'
 import { Loading, ReadFailed } from './layout.tsx'
 import { OutputCard, OutputCardHead, Slot } from './OutputCard.tsx'
@@ -37,7 +37,7 @@ export function DiffCard({ a, b }: { a: Output; b: Output }) {
     <OutputCard>
       <OutputCardHead
         slot={<Slot>Diff</Slot>}
-        title={`${versionName(a.run)} to ${versionName(b.run)}`}
+        title={`${runInSentence(a.run, { start: true })} to ${runInSentence(b.run)}`}
         meta={
           shown.kind === 'lines'
             ? 'Lines only in A are marked −. Lines only in B are marked +.'

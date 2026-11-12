@@ -41,17 +41,20 @@ import { gradingRun, outputWriting, useJobStart, writingRun } from '../job-start
 import {
   apartLine,
   caseTitle,
-  configurationTail,
   drawnOf,
+  isWithoutSkill,
   layersOf,
   type Output,
   outputDetail,
   outputFacts,
   outputNames,
+  outputWriter,
   primaryOf,
+  runInSentence,
+  runStamp,
+  runTitle,
   scoreOf,
   totalOf,
-  versionName,
 } from '../model.ts'
 import { useLanded } from '../motion.ts'
 import { type PageSize, usePageSize } from '../stage.ts'
@@ -87,7 +90,7 @@ import {
 import { MoreActions, RowAction } from './RowActions.tsx'
 import { CheckWeight, Delta, PartList, TotalDetail, TotalDetailSection } from './Scores.tsx'
 import { Segmented } from './Segmented.tsx'
-import { SelectBox } from './SelectBox.tsx'
+import { SelectBox, type SelectOption, type SelectOptionGroup } from './SelectBox.tsx'
 import { Stage, type Side as StageSide } from './Stage.tsx'
 import { TextArea } from './TextArea.tsx'
 import { TranscriptList } from './TranscriptList.tsx'
@@ -385,8 +388,9 @@ function Pair({
   const names = outputNames(candidates)
   // The line says the two versions, which is what tells most pairs apart; two outputs of one
   // version take the longer names the fields list them by.
-  const short = a && b && versionName(a.run) === versionName(b.run) ? null : versionName
-  const name = (o: Output) => short?.(o.run) ?? names.get(o.key) ?? o.key
+  const short = !(a && b && runTitle(a.run) === runTitle(b.run))
+  // Mid-sentence, a run without the skill reads as what it is, not as a name in capitals.
+  const name = (o: Output) => (short ? runInSentence(o.run) : (names.get(o.key) ?? o.key))
   const one = a ?? b
   return (
     <Disclosure
@@ -410,6 +414,39 @@ function Pair({
       </div>
     </Disclosure>
   )
+}
+
+/**
+ * A list of outputs to pick from. Outputs written without the skill serve
+ * another purpose, the score the skill has to beat, so they stand in a group
+ * of their own after the versions; with none of them the list stays flat.
+ * Under that group's heading a row names who wrote it, not "Without skill"
+ * again; the field still says "Without skill" once one is picked.
+ */
+function outputChoices(
+  outputs: readonly Output[],
+  choice: (output: Output) => SelectOption,
+): { options?: SelectOption[]; groups?: SelectOptionGroup[] } {
+  const without = outputs.filter((o) => isWithoutSkill(o.run))
+  if (!without.length) return { options: outputs.map(choice) }
+  const withSkill = outputs.filter((o) => !isWithoutSkill(o.run))
+  return {
+    groups: [
+      ...(withSkill.length ? [{ label: 'With the skill', options: withSkill.map(choice) }] : []),
+      {
+        label: 'Without the skill',
+        options: without.map((o) => {
+          const c = choice(o)
+          return {
+            ...c,
+            label: outputWriter(o),
+            detail: runStamp(o.run),
+            short: c.short ?? c.label,
+          }
+        }),
+      },
+    ],
+  }
 }
 
 /**
@@ -439,7 +476,7 @@ function Picker({
         value={value?.key ?? ''}
         onChange={(key) => onChange(outputs.find((o) => o.key === key) ?? null)}
         none="None"
-        options={outputs.map((o) => ({
+        {...outputChoices(outputs, (o) => ({
           value: o.key,
           label: names.get(o.key) ?? o.key,
           detail: outputDetail(o),
@@ -489,7 +526,7 @@ function OutputTitle({
   candidates: Output[]
   onPick: (output: Output | null) => void
 }) {
-  const title = `${versionName(output.run)}${configurationTail(output.run)}`
+  const title = runTitle(output.run)
   if (candidates.length < 2) return title
   const names = outputNames(candidates)
   return (
@@ -498,7 +535,7 @@ function OutputTitle({
       variant="title"
       value={output.key}
       onChange={(key) => onPick(candidates.find((o) => o.key === key) ?? null)}
-      options={candidates.map((o) => ({
+      {...outputChoices(candidates, (o) => ({
         value: o.key,
         label: names.get(o.key) ?? o.key,
         short: o.key === output.key ? title : undefined,
@@ -778,11 +815,11 @@ function Flip({
         <Text font="mono" weight="semibold">
           {SLOT_LABEL[to]}
         </Text>
-        {pairNames.get(o.key) ?? versionName(o.run)}
+        {pairNames.get(o.key) ?? runTitle(o.run, { short: true })}
         {totals[to] === null ? null : <Text tabular>{Math.round(totals[to])}</Text>}
       </>
     ),
-    title: `${versionName(o.run)}. Press ${SLOT_LABEL[to]} to show it.`,
+    title: `${runTitle(o.run)}. Press ${SLOT_LABEL[to]} to show it.`,
   })
 
   return (
@@ -814,7 +851,7 @@ function Flip({
           run: o.run.name,
           sample: o.sample.name,
           artifact: fileOf(s, o),
-          name: `${SLOT_LABEL[s]}, ${versionName(o.run)}`,
+          name: `${SLOT_LABEL[s]}, ${runTitle(o.run)}`,
           writing: writing[s],
           reading: !steps ? undefined : o.sample.hasTranscript ? (
             <TranscriptList

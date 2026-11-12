@@ -13,7 +13,7 @@ import {
   SelectValue,
 } from './ui/select.tsx'
 
-interface SelectOption {
+export interface SelectOption {
   value: string
   label: string
   /** A quieter line under the label, in the list only, such as who wrote a run and when. */
@@ -23,7 +23,7 @@ interface SelectOption {
   disabled?: boolean
 }
 
-interface SelectOptionGroup {
+export interface SelectOptionGroup {
   label: string
   options: SelectOption[]
 }
@@ -59,6 +59,12 @@ interface Props extends VariantProps<typeof triggerVariants> {
   variant?: 'field' | 'caption' | 'title'
   disabled?: boolean
 }
+
+/** The whole name in the field's title: what the field shows, when the list's label leaves it out, then the label and its line. */
+const hoverText = (o: SelectOption): string =>
+  [o.short && !o.label.startsWith(o.short) ? o.short : null, o.label, o.detail]
+    .filter(Boolean)
+    .join(' · ')
 
 export function SelectBox({
   value,
@@ -103,7 +109,7 @@ export function SelectBox({
         variant={variant}
         className={triggerVariants({ width })}
         aria-label={aria['aria-label']}
-        title={chosen?.detail ? `${chosen.label} · ${chosen.detail}` : undefined}
+        title={chosen?.detail ? hoverText(chosen) : undefined}
       >
         <SelectValue>{chosen?.short}</SelectValue>
       </SelectTrigger>

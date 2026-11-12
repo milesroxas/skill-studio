@@ -279,9 +279,9 @@ Under the two outputs, **Add a check** takes one sentence: what a good answer do
 **All cases**, at the top of the list, shows every run at once.
 
 - **Top:** how much your latest version gained since the first, and against no skill at all. Under it, the latest version's rules followed and checks met, added up.
-- **Each row:** one run, with a score per case and the average. Under its name: when it ran, how long it took and what it cost.
+- **Each row:** one run, with a score per case and the average. Under its name: when it ran, how long it took and what it cost. A run without the skill is named **Without skill**, not by a version, and comes last: it is the score to beat. The lists that pick an output on a case set it apart the same way, under **Without the skill**.
 - **Click a score** to read that output beside the one before it.
-- **Click a run** to see each output with what it missed. **Changes since this run** shows what changed in the skill after it. **Regrade** has Jev read the run again.
+- **Click a run** to see each output with what it missed. **Changes since this run** shows what changed in the skill after it. A run without the skill has none, since it used no skill. **Regrade** has Jev read the run again.
 - **Delete run**, under the run, deletes that run's outputs and your corrections on them. Every score stops counting it, here, on each case and in the version list. Its version stays: when the run was the version's only copy, the version is saved from it first. **Undo** on the status line brings the run back. A run still writing or being graded can be deleted once that ends.
 
 To be sure an edit helped, run with **Attempts per case** at 2 or more. If two versions' scores differ less than one version's attempts do, the edit made no clear difference.
