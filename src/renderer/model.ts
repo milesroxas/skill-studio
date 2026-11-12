@@ -189,6 +189,20 @@ export function versionScore(
   return mean(Object.values(caseMeans(pinned.length ? pinned : mine, config)))
 }
 
+/**
+ * The score of the outputs written without the skill, counted as a version's
+ * is: each case's mean, then the mean of those cases. Null when none is graded.
+ */
+export const noSkillScore = (outputs: Output[], config: BenchConfig): number | null =>
+  mean(
+    Object.values(
+      caseMeans(
+        outputs.filter((o) => o.run.meta?.configuration === 'without_skill'),
+        config,
+      ),
+    ),
+  )
+
 export const mergedConfig = (saved: Partial<BenchConfig> | null): BenchConfig =>
   mergeConfig(saved, scorers)
 

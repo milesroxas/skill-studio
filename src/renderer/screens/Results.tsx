@@ -12,8 +12,8 @@ import { memo, useMemo } from 'react'
 import { Comparison } from '../components/Comparison.tsx'
 import {
   Column,
-  ColumnBody,
   ColumnHeader,
+  ColumnSection,
   EmptyState,
   PlainList,
   Workbench,
@@ -29,6 +29,7 @@ import {
   casesRun,
   caseTitle,
   liftOf,
+  noSkillScore,
   type Output,
   outputByKey,
   totalOf,
@@ -47,6 +48,11 @@ export const Results = memo(function Results({ ctx }: { ctx: Ctx }) {
   const latest = useMemo(() => versionsRun(outputs).at(-1), [outputs])
   const latestScore = useMemo(
     () => (latest ? versionScore(outputs, config, latest) : null),
+    [outputs, config, latest],
+  )
+  // Before the skill's first run, the only score is the one written without it.
+  const floor = useMemo(
+    () => (latest ? null : noSkillScore(outputs, config)),
     [outputs, config, latest],
   )
   /** Each case's pair to read first, with both totals. */
@@ -112,15 +118,14 @@ export const Results = memo(function Results({ ctx }: { ctx: Ctx }) {
       <Column kind="list">
         <nav aria-label="Results" className="contents">
           <ColumnHeader inset="list">
+            {/* Scores, not Cases: the Cases screen's list is headed Cases, and the two must not read alike. */}
             <Heading level={3} as="h2">
-              Cases
+              Scores
             </Heading>
-            <Text tone="muted" size="xs" tabular>
-              {caseIds.length}
-            </Text>
           </ColumnHeader>
-          <ColumnBody inset="list">
-            <PlainList gap="none">
+          {/* All cases is the run as a whole, not one more case: a rule sets it apart from them. */}
+          <ColumnSection inset="list">
+            <PlainList gap="none" bleed>
               <li>
                 <NavButton current={all} onClick={() => go('results', { view: 'all' })}>
                   <Text size="ui">All cases</Text>
@@ -138,9 +143,20 @@ export const Results = memo(function Results({ ctx }: { ctx: Ctx }) {
                         {latest}
                       </Text>
                     </span>
+                  ) : floor !== null ? (
+                    <span className="flex items-center gap-2">
+                      <ScoreMove from={null} to={floor} />
+                      <Text tone="muted" size="xs">
+                        Without skill
+                      </Text>
+                    </span>
                   ) : null}
                 </NavButton>
               </li>
+            </PlainList>
+          </ColumnSection>
+          <ColumnSection inset="list">
+            <PlainList gap="none" bleed>
               {rows.map(({ id, totals }) => (
                 <li key={id}>
                   <NavButton
@@ -155,7 +171,7 @@ export const Results = memo(function Results({ ctx }: { ctx: Ctx }) {
                 </li>
               ))}
             </PlainList>
-          </ColumnBody>
+          </ColumnSection>
         </nav>
       </Column>
       <Column>

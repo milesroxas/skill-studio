@@ -89,7 +89,7 @@ A box around a region adds an edge the eye has to cross and takes 32px of width 
 | --- | --- |
 | `Column kind` | `list` (260px), `side` (260px, a list beside an item that is the screen's point: after the item once the columns stack, as the Skill screen's files follow the document), `main` |
 | `Column over` | a file is held over a column that takes a drop: the column takes `bg-accent` at 60% until it is dropped or leaves. The case's main column, where a picture, file or folder dropped anywhere joins the case's files (`useFileDrop` in `renderer/drop.ts`). A note that changes while a file is dragged would move everything under it. |
-| `ListHeader` | a list column's title, count and add button. A list nothing is added to (the cases on Results) is a `ColumnHeader inset="list"` with the title and count alone. |
+| `ListHeader` | a list column's title, count and add button. A list nothing is added to (the scores on Results) is a `ColumnHeader inset="list"` with the title alone, named for what it shows that the Cases list does not: "Scores". |
 | `ColumnHeader`, `ColumnTitle` | the main column's name and its actions |
 | `ColumnToolbar`, `ToolbarGroup`, `ToolbarItem` | a row of tools under the header |
 | `ColumnBody`, `ColumnSection` | the scrolling content, split by hairlines |
@@ -98,7 +98,7 @@ Insets are fixed: 16px in a list, 24px in main (`inset="list" | "main"`). A list
 
 ### A list workbench, the Cases pattern
 
-Copy `screens/Cases.tsx` for any screen that lists items and edits the one picked. `screens/Results.tsx` is the same pattern read-only: it lists the cases and compares the one picked.
+Copy `screens/Cases.tsx` for any screen that lists items and edits the one picked. `screens/Results.tsx` is the same pattern read-only: it lists the cases and compares the one picked. Its list is two `ColumnSection`s: **All cases**, the run as a whole, then the cases, so a rule sets the summary apart from the items.
 
 - The selection lives in the route: read `route.params`, change it with `go(screen, params)`. Back and Forward then follow it. Never hold it in `useState`.
 - The main column is `ColumnHeader` (the item's name, then Save, primary last) over `ColumnBody width="form"`, which holds `FormSection layout="stacked"` sections. Save is `default` only while pressing it saves something, and `ghost` and disabled otherwise, so a saved item's header has no filled slab in it (the Skill screen's Save does the same).

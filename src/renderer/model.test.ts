@@ -14,6 +14,7 @@ import {
   liftOf,
   listLine,
   mergedConfig,
+  noSkillScore,
   outputFacts,
   outputNames,
   outputsOf,
@@ -207,6 +208,7 @@ describe('liftOf and versionScore', () => {
     const outputs = outputsOf(state)
     expect(liftOf(state, outputs, saved)).toBeNull()
     expect(versionScore(outputs, saved, 'v2')).toBeNull()
+    expect(noSkillScore(outputs, saved)).toBeNull()
   })
 })
 

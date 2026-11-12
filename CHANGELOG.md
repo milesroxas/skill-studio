@@ -6,6 +6,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+### Changed
+
+- On Results, the list on the left is headed **Scores**, so it no longer reads like the Cases screen. It lists the same cases, each with how its score moved, under a line that sets **All cases** apart from them.
+- After a run without the skill, **All cases** shows that run's score, marked "Without skill". Before, it showed no score until the skill itself was run.
+
 ## [0.9.0] - 2026-11-12
 
 ### Changed

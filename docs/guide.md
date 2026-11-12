@@ -244,7 +244,7 @@ Runs cost money: each output is an agent session, and Jev is paid per call.
 
 Results opens on a case with two outputs to compare: **A**, the version before, and **B**, the latest. With one version, A is the output written without the skill, if you ran one.
 
-- **The list** on the left has every case that was run, with how its score moved. Click one to compare it.
+- **Scores**, the list on the left, has every case that was run, with how its score moved. Click one to compare it.
 - **Each output** has its version and its score out of 100. Click the version to read another output of the case on that side: each is listed with who wrote it and when. Under the version, a line names what tells the two outputs apart besides their version, such as the agent that wrote each when they differ.
 - **Click the score** to see what it is counted from, "Rules 4 of 5", "Checks 2 of 3", and how the output was made: who wrote it, when, which attempt, and its length against what the case asks. A check marked ×2 counts two. A part with a dotted line, such as **Look** or **Process**, comes from a kind of work under **Graded as**, below: click it to read what it grades, and **Change what is graded** to turn it off.
 - **Missed** lists each rule from your skill that the output broke, each check it did not meet and, for a page or a picture, each flaw in how it looks. Every output is graded on the skill's rules, the one written without the skill too: there, a miss shows what the skill adds. **Open rule**, beside each rule, takes you to that rule on the Skill screen.
