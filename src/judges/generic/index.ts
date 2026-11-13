@@ -244,6 +244,35 @@ const ruleQuestion = (rule: Rule, work: Work) => {
 }
 
 /**
+ * What a heading is judged on. With a request, that is the request and the
+ * skill alone: which rules are for this work is settled by what was asked for,
+ * and an output in view pulls the answer to the kind of work that was made, so
+ * a screen asked for and a detail made would have the rules for a screen set
+ * aside. With no request there is only the work to go by.
+ */
+const headingState = (work: Work): JevState => {
+  const { state } = work
+  if (!has(state, 'request')) return state
+  const { request, request_images, skill, headings } = state as Record<string, unknown>
+  return {
+    request,
+    ...(request_images === undefined ? {} : { request_images }),
+    skill,
+    headings,
+  } as JevState
+}
+
+/** What each field a heading is judged on is. */
+const headingLead = (work: Work): string =>
+  has(work.state, 'request')
+    ? `\`skill\` holds the instructions an answer to \`request\` is held to${
+        has(work.state, 'request_images')
+          ? ', and `request` came with the pictures in `request_images`'
+          : ''
+      }. `
+    : lead(work)
+
+/**
  * Whether the rules under one heading are for this work at all. One narrow
  * question a heading, which Jev answers far more surely than it answers the
  * same thing folded into each rule: a skill that has "Rules for a screen" and
@@ -251,7 +280,7 @@ const ruleQuestion = (rule: Rule, work: Work) => {
  */
 const headingQuestion = (heading: string, work: Work) =>
   noul(
-    `${lead(work)}\`skill\` groups its rules under the headings in \`headings\`. Are the rules under the heading "${plain(heading)}" for the kind of work ${saidBy(work)}?`,
+    `${headingLead(work)}\`skill\` groups its rules under the headings in \`headings\`. Are the rules under the heading "${plain(heading)}" for the kind of work ${saidBy(work)}?`,
     {
       true: `The heading names no one kind of work, so its rules are for all of it, or it names the kind of work ${saidBy(work)}.`,
       false: `The heading names a kind of work, a mode or a situation other than the one ${saidBy(work)}.`,
@@ -276,7 +305,7 @@ function statementQuestion(statement: string, work: Work, reference: Image | nul
 const referenceOf = (grader: Grader, ctx: JudgeContext): Readable | null =>
   grader.image ? readForJev(join(ctx.skillDir, grader.image)) : null
 
-/** The names a request's questions go under: one request holds rules, headings and checks. */
+/** The names the questions go under: rules, headings and checks. */
 const RULE = 'rule:'
 const HEADING = 'heading:'
 const CHECK = 'check:'
@@ -301,10 +330,12 @@ function askedChecks(input: JudgeInput, ctx: JudgeContext) {
 }
 
 /**
- * Every rule of the skill, every heading the rules stand under and every check
- * of the case, in one request: they are independent questions over one state,
- * so the output and its pictures are sent, and paid for, once. A skill with
- * more questions than one request holds has them asked in several.
+ * Every rule of the skill and every check of the case, in one request: they
+ * are independent questions over one state, so the output and its pictures are
+ * sent, and paid for, once. A skill with more questions than one request holds
+ * has them asked in several. The headings the rules stand under are asked of
+ * the request alone, in a request of their own, and with the rest where there
+ * is no request.
  */
 async function ask(
   input: JudgeInput,
@@ -313,11 +344,14 @@ async function ask(
 ): Promise<Pick<GenericRaw, 'adherence' | 'rubric'>> {
   const graders = input.case?.graders ?? []
   const { asked, unasked } = askedChecks(input, ctx)
+  const headings = Object.fromEntries(
+    work.headings.map((heading, i) => [`${HEADING}${i}`, headingQuestion(heading, work)]),
+  )
+  // With a request, the headings are asked of it alone, in a request of their own.
+  const apart = work.headings.length > 0 && has(work.state, 'request')
   const questions = {
     ...Object.fromEntries(input.rules.map((r) => [`${RULE}${r.id}`, ruleQuestion(r, work)])),
-    ...Object.fromEntries(
-      work.headings.map((heading, i) => [`${HEADING}${i}`, headingQuestion(heading, work)]),
-    ),
+    ...(apart ? {} : headings),
     ...Object.fromEntries(
       asked.map(({ grader, picture }) => [
         `${CHECK}${grader.id}`,
@@ -331,7 +365,10 @@ async function ask(
   )
   const answers: Record<string, unknown> = Object.assign(
     {},
-    ...(await Promise.all(requests.map((part) => ctx.jev.ask(work.state, part, ctx.signal)))),
+    ...(await Promise.all([
+      ...requests.map((part) => ctx.jev.ask(work.state, part, ctx.signal)),
+      ...(apart ? [ctx.jev.ask(headingState(work), headings, ctx.signal)] : []),
+    ])),
   )
   const applies = new Map(
     work.headings.map((heading, i) => [heading, noulOf(answers, `${HEADING}${i}`)]),
@@ -369,7 +406,7 @@ async function ask(
 
 export const genericPack: JudgePack<GenericRaw> = {
   ...genericScoring,
-  version: 4,
+  version: 5,
   label: 'Generic: the skill’s rules and the case’s checks',
   renders: true,
   async judge(input, ctx) {

@@ -124,7 +124,7 @@ Within a layer, an answer at or above `yes` counts as met and one at or below `n
 
 ### Generic
 
-The pack asks one question per rule, one per heading the rules stand under and one per check, about the work as a whole, in one request: they are independent questions over one state, so the output and its pictures are sent once. Jev is given every part of the work there is:
+The pack asks one question per rule and one per check, about the work as a whole, in one request: they are independent questions over one state, so the output and its pictures are sent once. It asks one more per heading the rules stand under, in a request of their own (see below). Jev is given every part of the work there is:
 
 - `output`: the text of the primary artifact, its first 24,000 characters. A page is its HTML and code is its source. A picture has no text.
 - `picture`: the output as a picture. A page is the page as the desktop app drew it (see Design, below, for how and at what size); an output that is a PNG or JPEG is that picture; anything else, and a page nothing drew, is the first PNG or JPEG the agent left in `outputs/`. So a rule about how a page looks is judged on how it looks.
@@ -134,6 +134,8 @@ The pack asks one question per rule, one per heading the rules stand under and o
 - `skill` and `headings`: the `SKILL.md` the rules were read from, its first 12,000 characters, and the headings they stand under. Both are left out when `bench.json` lists the rules.
 
 A rule is asked where it stands. The question names its heading, and the skill beside it says what the rule's words mean. Each heading is also asked once: are its rules for the kind of work the request asks for?
+
+A heading is asked of the request and the skill alone: `request`, `request_images`, `skill` and `headings`, with nothing of the output. What was asked for settles which rules count. With the output in view, Jev answers for the kind of work that was made, so an output of the wrong kind has the rules it broke set aside. A sample with no request has its headings asked with its rules, of the output.
 
 - A heading that names no one kind of work ("Rules", "Tone") is for all of it. One that names another kind, mode or situation ("Rules for a screen mockup", when a focus mockup was asked for) is not.
 - A rule under a heading answered at or below `no` **does not apply**: it is set aside and counts in no layer, whatever was answered of the rule itself. The flag says how many: `2 rules not counted: for another kind of work than this`.

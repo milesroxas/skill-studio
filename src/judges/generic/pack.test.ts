@@ -135,7 +135,7 @@ describe('generic pack', () => {
     )
   })
 
-  it('asks a rule under its heading with the skill beside it, and each heading whether it is for this work', async () => {
+  it('asks a rule under its heading with the skill beside it, and each heading of the request alone', async () => {
     const skill = '# Mockups\n\n## For a screen\n\n- rule r1\n\n## For a detail\n\n- rule r2\n'
     const rules = [
       { id: 'r1', text: 'rule r1', section: 'For a screen' },
@@ -143,28 +143,23 @@ describe('generic pack', () => {
       // Above every heading: asked as it is, and of no heading.
       { id: 'r3', text: 'rule r3', section: 'SKILL.md' },
     ]
-    ask.mockResolvedValueOnce({
-      'rule:r1': { noul: 0.1 },
-      'rule:r2': { noul: 0.9 },
-      'rule:r3': { noul: 0.8 },
-      'heading:0': { noul: 0.02 },
-      'heading:1': { noul: 0.98 },
-    })
+    ask
+      .mockResolvedValueOnce({
+        'rule:r1': { noul: 0.1 },
+        'rule:r2': { noul: 0.9 },
+        'rule:r3': { noul: 0.8 },
+      })
+      .mockResolvedValueOnce({ 'heading:0': { noul: 0.02 }, 'heading:1': { noul: 0.98 } })
     const raw = await genericPack.judge(output({ rules, skill, case: testCase() }), ctx)
-    const { state, questions } = asked()
+    expect(ask).toHaveBeenCalledTimes(2)
+    const { state, questions } = asked(0)
     expect(state).toEqual({
       request: 'Thank Elena.',
       output: 'note',
       skill: skill.trim(),
       headings: ['For a screen', 'For a detail'],
     })
-    expect(Object.keys(questions)).toEqual([
-      'rule:r1',
-      'rule:r2',
-      'rule:r3',
-      'heading:0',
-      'heading:1',
-    ])
+    expect(Object.keys(questions)).toEqual(['rule:r1', 'rule:r2', 'rule:r3'])
     const lead =
       '`output` was produced to answer `request`. `skill` holds the instructions `output` is held to: it is not part of `output`. '
     expect(questions['rule:r1'].instructions).toBe(
@@ -176,8 +171,16 @@ describe('generic pack', () => {
     expect(questions['rule:r3'].instructions).toBe(
       `${lead}Does \`output\` follow this rule: "rule r3"`,
     )
-    expect(questions['heading:0'].instructions).toBe(
-      `${lead}\`skill\` groups its rules under the headings in \`headings\`. Are the rules under the heading "For a screen" for the kind of work \`request\` asks for?`,
+    // Which rules are for this work is what was asked for: the output that was made is not in view.
+    const headings = asked(1)
+    expect(headings.state).toEqual({
+      request: 'Thank Elena.',
+      skill: skill.trim(),
+      headings: ['For a screen', 'For a detail'],
+    })
+    expect(Object.keys(headings.questions)).toEqual(['heading:0', 'heading:1'])
+    expect(headings.questions['heading:0'].instructions).toBe(
+      '`skill` holds the instructions an answer to `request` is held to. `skill` groups its rules under the headings in `headings`. Are the rules under the heading "For a screen" for the kind of work `request` asks for?',
     )
     expect(raw?.adherence?.rules).toEqual([
       { id: 'r1', text: 'rule r1', section: 'For a screen', noul: 0.1, applies: 0.02 },
@@ -189,6 +192,41 @@ describe('generic pack', () => {
     expect(scored.layers.adherence).toBe(1)
     expect(scored.verdicts.map((v) => v.aside)).toEqual(['inapplicable', undefined, undefined])
     expect(scored.flags).toEqual(['1 rule not counted: for another kind of work than this'])
+  })
+
+  it('asks the headings with the rules, of the output, where there is no request', async () => {
+    const skill = '# Mockups\n\n## For a screen\n\n- rule r1\n'
+    const rules = [{ id: 'r1', text: 'rule r1', section: 'For a screen' }]
+    await genericPack.judge(output({ rules, skill }), ctx)
+    expect(ask).toHaveBeenCalledTimes(1)
+    expect(asked().state).toEqual({
+      output: 'note',
+      skill: skill.trim(),
+      headings: ['For a screen'],
+    })
+    expect(Object.keys(asked().questions)).toEqual(['rule:r1', 'heading:0'])
+    expect(asked().questions['heading:0'].instructions).toBe(
+      '`skill` holds the instructions `output` is held to: it is not part of `output`. `skill` groups its rules under the headings in `headings`. Are the rules under the heading "For a screen" for the kind of work `output` is?',
+    )
+  })
+
+  it('shows a heading the pictures the request came with, and nothing of the output', async () => {
+    const skill = '# Mockups\n\n## For a screen\n\n- rule r1\n'
+    const rules = [{ id: 'r1', text: 'rule r1', section: 'For a screen' }]
+    const shot = image(pngHeader(800, 600))
+    await genericPack.judge(
+      output({ rules, skill, case: testCase(), images: [{ image: shot } as never] }),
+      ctx,
+    )
+    expect(asked(1).state).toEqual({
+      request: 'Thank Elena.',
+      request_images: [shot],
+      skill: skill.trim(),
+      headings: ['For a screen'],
+    })
+    expect(asked(1).questions['heading:0'].instructions).toContain(
+      '`skill` holds the instructions an answer to `request` is held to, and `request` came with the pictures in `request_images`. ',
+    )
   })
 
   it('asks no heading of rules listed in bench.json, which stand under none', async () => {
