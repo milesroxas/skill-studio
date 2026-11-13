@@ -6,6 +6,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [0.11.0] - 2026-11-13
+
 ### Changed
 
 - A run is graded on the rules its own version of the skill had. Before, **Regrade** on an older run judged it on the rules as they are now, and editing the skill while a run was going changed what that run was judged on.

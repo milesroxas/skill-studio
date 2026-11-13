@@ -4,9 +4,9 @@ The plan for the next release: what is in it, what is still to do, and the check
 
 | | |
 | --- | --- |
-| Version | 0.10.1 |
+| Version | 0.11.0 |
 | Status | Releasing 2026-11-13 |
-| Previous release | [v0.10.0](https://github.com/milesroxas/skill-studio/releases/tag/v0.10.0), 2026-11-12 |
+| Previous release | [v0.10.0](https://github.com/milesroxas/skill-studio/releases/tag/v0.10.0), 2026-11-12. v0.10.1 is tagged and not published: its Mac job was refused notarization, since an Apple developer agreement is waiting to be signed |
 | Target date | 2026-11-13 |
 | Owner | Miles Roxas |
 
@@ -23,10 +23,11 @@ The version follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html): 
 
 Everything merged since v0.10.0.
 
-- [x] An earlier version under Run lists every kept version, not only past runs (a35c7cb).
-- [x] Docs updated in the same commit as the change.
+- [x] An earlier version under Run lists every kept version, not only past runs (a35c7cb), tagged as v0.10.1.
+- [x] A run is graded on its own rules, and grading, versions and scores are hardened: the review of 2026-11-13 and its fixes (eece4df).
+- [x] Docs updated in the same commit as each change.
 
-0.10.1 only fixes, so it is a patch release.
+0.11.0 changes what `run.json` and a transcript hold and how a run is graded, so it is a minor release.
 
 ## Planned
 
@@ -35,7 +36,7 @@ Nothing is planned and not shipped. Add an item here before work on it starts.
 ## Later
 
 - [ ] Bring `fallow health` to zero and add the full `fallow` run to `pnpm check`. [complexity-plan.md](complexity-plan.md) holds the phases and tracks them. It changes nothing the app does, so it does not hold a release.
-- [ ] The open lines of [hardening.md](hardening.md), R3 and S2 first.
+- [ ] The open lines of [hardening.md](hardening.md), S2 and the rest of R3 first.
 
 ## Before the release
 
@@ -45,8 +46,10 @@ Checks that are not covered by `pnpm check`.
 - [ ] Run the assistant live on each provider that has only been typechecked: the Anthropic API, OpenAI and Codex. Claude Code has been run live; the other three have not.
 - [ ] Send a picture to the assistant on the Anthropic API, OpenAI and Codex paths. Jev and Claude Code have been run live with a picture.
 - [ ] Go through the welcome at 110% zoom. Its window grows with the zoom, so the page keeps its 760 x 600; this has not been seen at a real 110%.
-- [ ] Once the release is out, open each `releases/latest/download/` link in [releasing.md](releasing.md#updates) and check it fetches the new file, and `latest-mac.yml` names 0.10.1.
+- [ ] Once the release is out, open each `releases/latest/download/` link in [releasing.md](releasing.md#updates) and check it fetches the new file, and `latest-mac.yml` names 0.11.0.
 - [ ] Update an installed 0.10.0 to this release and see **Restart to update**.
+- [ ] Sign the Apple developer agreement the notary service asks for: until then the Mac job fails with `403. A required agreement is missing or has expired`, as v0.10.1's did. Then run the failed jobs again.
+- [ ] Open Results on a stopped run, a run cut off by quitting the app and an output whose grading failed, and see **Stopped**, **Not finished** and **Grade**: these are covered by tests and have not been looked at in the app.
 - [ ] Regrade a past run of a page skill with a Jev key and see its Rules and Checks parts appear.
 
 ## Release checklist
@@ -54,9 +57,9 @@ Checks that are not covered by `pnpm check`.
 The steps in [releasing.md](releasing.md), in order.
 
 1. [x] Every item under "Planned" is shipped or moved to "Later".
-2. [ ] Every item under "Before the release" is done. Not for 0.10.1: the unchecked items carry to the next release.
-3. [x] `pnpm check` and `pnpm build` pass on `main`, 1,224 tests.
-4. [ ] `gh workflow run release` builds every platform. Not run for 0.10.1; the tag's own run builds every platform.
-5. [x] In the changelog, rename `## [Unreleased]` to `## [0.10.1] - 2026-11-13`, start a new `## [Unreleased]` above it, and commit.
-6. [ ] `pnpm version patch -m "Release %s"`, then push `main` and the tag.
-7. [ ] The release workflow publishes v0.10.1, with the changelog entry as its notes.
+2. [ ] Every item under "Before the release" is done. Not for 0.11.0: the unchecked items carry to the next release.
+3. [x] `pnpm check` and `pnpm build` pass on `main`, 1,323 tests.
+4. [ ] `gh workflow run release` builds every platform. Not run for 0.11.0; the tag's own run builds every platform.
+5. [x] In the changelog, rename `## [Unreleased]` to `## [0.11.0] - 2026-11-13`, start a new `## [Unreleased]` above it, and commit.
+6. [ ] `pnpm version minor -m "Release %s"`, then push `main` and the tag.
+7. [ ] The release workflow publishes v0.11.0, with the changelog entry as its notes.
