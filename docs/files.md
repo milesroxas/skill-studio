@@ -64,7 +64,7 @@ evals/runs/<date>-skill-<vN>-<engine>-<model>[-<effort>][-<configuration>]/
     files/                        the case's input files
     .agents/skills/<name>/        the skill copy the agent saw, made from _skill/
     outputs/                      everything the agent produced; graded artifacts come from here
-    renders/                      the page as the desktop app drew it for grading: one PNG per size, and beside each a `.json` of what was measured
+    renders/                      the page as the desktop app drew it for grading: one PNG per size, beside each a `.json` of what was measured, and a `.match.json` where a picture the agent made was compared with it
     notes.md                      what the agent would have told the user
     transcript.jsonl              one event per line: system, text, thinking, tool, result, error;
                                   a tool event holds a hash of its whole input (`call`)

@@ -173,6 +173,8 @@ A list of outputs or runs names a run made without the skill "Without skill", ne
 
 The pressed segment is ink fill (`bg-primary`). A choice not yet made has no segment pressed.
 
+A segment may name a file the reader has seen, in `Code`, where the choice is between files: a case's **File to grade** reads `mockup.html` and `mockup.png`, the names its last answer gave them, and "The page" and "The picture" before there is an answer to name. Its hint says what picking does, not what the files are.
+
 One `Segmented` per row of controls. A second choice in the same row is a `SelectBox`, and so is any choice whose values are not a fixed few, such as the files an output wrote: two rows of segments side by side read as one row with two things pressed.
 
 `FilterGroup` is several toggles that show or hide: what is shown reads plain, what is hidden fades. It never takes ink fill: a filter is not a commitment.

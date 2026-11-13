@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest'
 import type { RunView, State } from './api.ts'
 import type { Output } from './model.ts'
 import {
+  answerFiles,
   apartLine,
   casePair,
   cutOf,
@@ -557,5 +558,32 @@ describe('outputFacts', () => {
       label: 'Length',
       value: '32 words, the case asks 30 to 120',
     })
+  })
+})
+
+describe('answerFiles', () => {
+  const picture: Artifact = { file: 'outputs/mockup.png', kind: 'image' }
+
+  it('names the page and the picture of the newest answer that came as both, and which is graded', () => {
+    const runs = [
+      runOf('r1', 'v1', [html('old.html'), { file: 'outputs/old.png', kind: 'image' }]),
+      runOf('r2', 'v2', [html('mockup.html'), picture, md('notes.md')]),
+    ]
+    expect(answerFiles(outputsOf(stateOf(runs, ['generic', 'design'])), 'page')).toEqual({
+      page: 'mockup.html',
+      picture: 'mockup.png',
+      graded: 'html',
+    })
+    // Graded as nothing that draws: the note is the file, so neither of the two is pressed.
+    expect(answerFiles(outputsOf(stateOf(runs, ['generic'])), 'page')?.graded).toBeNull()
+  })
+
+  it('is null for a case whose answers came as one of the two, or that has none', () => {
+    const page = outputsOf(stateOf([runOf('r1', 'v1', [html('index.html')])], ['generic']))
+    expect(answerFiles(page, 'page')).toBeNull()
+    expect(
+      answerFiles(outputsOf(stateOf([runOf('r1', 'v1', [picture])], ['generic'])), 'page'),
+    ).toBeNull()
+    expect(answerFiles(page, 'another')).toBeNull()
   })
 })

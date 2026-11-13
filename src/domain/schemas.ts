@@ -81,6 +81,12 @@ export interface CaseDraft {
   phone?: boolean
   /** Width and height in pixels (`bench.size`); null for none. Absent in a draft stored before it existed. */
   size?: [number, number] | null
+  /**
+   * The kind of file graded when an answer has more than one (`bench.artifact`);
+   * null for none, which leaves the choice to the app. Absent in a draft stored
+   * before it existed.
+   */
+  artifact?: ArtifactKind | null
   /** Pictures the agent gets with the prompt, which the judge sees too. */
   images: ImageRef[]
   /** Files and folders picked for the agent, copied into the case's `files/` on save. Absent in a draft stored before it existed. */

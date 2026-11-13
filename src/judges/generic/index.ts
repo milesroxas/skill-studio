@@ -21,7 +21,7 @@ import { isTooLarge, type JevState } from '../jev.ts'
 import { pictureOf, renderOf } from '../shared/picture.ts'
 import { asksJev, noulOf, requestState } from '../shared/questions.ts'
 import { clip } from '../shared/score.ts'
-import type { JudgeContext, JudgeInput, JudgePack } from '../types.ts'
+import type { JudgeContext, JudgeInput, JudgePack, SourcePage } from '../types.ts'
 import { type GenericRaw, genericScoring, type RuleAnswer } from './score.ts'
 
 /**
@@ -89,6 +89,8 @@ interface Work {
   headings: string[]
   /** The elements of the page as the window measured them are in `layout`. */
   layout: boolean
+  /** The page `picture` was made from, when `layout` is that page's and not `output`'s own; else null. */
+  source: SourcePage | null
 }
 
 /** Why the output's picture is not shown to Jev, as a flag; null when it was read or there is none. */
@@ -129,7 +131,14 @@ function workOf(input: JudgeInput, room: Room): Work | null {
     window && room.layout && asksOfLayout(input)
       ? (input.renders.find((r) => r.size.id === 'desktop')?.layout ?? null)
       : null
+  // A picture that is the work has no elements of its own: the page that draws it was measured for it.
+  const source =
+    !window && read?.image && input.primary?.kind === 'image' && input.source?.layout
+      ? input.source
+      : null
+  const borrowed = source?.layout && room.layout && asksOfLayout(input) ? source.layout : null
   if (measured) state.layout = layoutText(measured, room.layout)
+  else if (borrowed) state.layout = layoutText(borrowed, room.layout)
   return {
     state,
     text: Boolean(text),
@@ -143,7 +152,8 @@ function workOf(input: JudgeInput, room: Room): Work | null {
     others: others.length > 0,
     skill: Boolean(skill),
     headings,
-    layout: measured !== null,
+    layout: measured !== null || borrowed !== null,
+    source: borrowed ? source : null,
   }
 }
 
@@ -176,6 +186,20 @@ function drawnLine(window: { width: number; height: number }): string {
   return `\`picture\` shows \`output\` as it looks when it is opened in a window ${window.width} px wide and ${window.height} px tall${scaled}. Anything of the page below that window is not in \`picture\`.`
 }
 
+/**
+ * What `layout` is for a picture that is the work: the measures of the page
+ * that draws it. The page's name is quoted and not in backticks, which
+ * TypeSafe reads as a path into the state.
+ */
+function sourceLine(source: SourcePage): string {
+  const [width, height] = source.window
+  const larger =
+    source.times > 1
+      ? ` \`picture\` is ${source.times} times that size, so a length in \`picture\` is ${source.times} times its length in \`layout\`.`
+      : ''
+  return `\`picture\` is what the page "${plain(source.file)}" draws in a window ${width} px wide and ${height} px tall, and \`layout\` lists that page's elements as measured there: the place and the size of each in px, from the top left of the page, and where it sits inside the elements that hold it.${larger} A size, a distance or a position is read from \`layout\`, where it was measured, and not judged by eye on \`picture\`.`
+}
+
 /** What each field of the state is, said once before the question, so Jev knows what it is reading. */
 function lead(work: Work): string {
   const made = work.text ? '`output`' : '`picture`'
@@ -193,7 +217,9 @@ function lead(work: Work): string {
         : '`picture` is a picture made with `output`.'
       : null,
     work.layout
-      ? `\`layout\` lists the elements of ${made} as that window measured them: the place and the size of each in px, from the top left of the page, and where it sits inside the elements that hold it. A size, a distance or a position is read from \`layout\`, where it was measured, and not judged by eye on \`picture\`.`
+      ? work.source
+        ? sourceLine(work.source)
+        : `\`layout\` lists the elements of ${made} as that window measured them: the place and the size of each in px, from the top left of the page, and where it sits inside the elements that hold it. A size, a distance or a position is read from \`layout\`, where it was measured, and not judged by eye on \`picture\`.`
       : null,
     work.fitted
       ? `\`picture\` is shown at another size than the file it is, which is ${work.fitted[0]} by ${work.fitted[1]} px, so a length measured on \`picture\` is not its length in the file.`
@@ -422,7 +448,7 @@ async function ask(
 
 export const genericPack: JudgePack<GenericRaw> = {
   ...genericScoring,
-  version: 7,
+  version: 8,
   label: 'Generic: the skill’s rules and the case’s checks',
   renders: true,
   asks: (input) => input.rules.length > 0 || (input.case?.graders ?? []).length > 0,

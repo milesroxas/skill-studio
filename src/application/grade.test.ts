@@ -13,8 +13,9 @@ import {
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { pngHeader } from '@domain/__fixtures__/image.ts'
-import type { PageLayout } from '@domain/layout.ts'
+import { type PageLayout, readLayout } from '@domain/layout.ts'
 import type { Report, ReportResult } from '@domain/schemas.ts'
+import { pngOf } from '@infrastructure/__fixtures__/png.ts'
 import { readJson } from '@infrastructure/fs.ts'
 import { packById } from '@judges/index.ts'
 import { Jev } from '@judges/jev.ts'
@@ -686,6 +687,110 @@ describe('gradeRun, on a picture too large or too small for Jev', () => {
     writeFileSync(join(sample, 'outputs/cover.png'), pngHeader(width, height))
     return { dir, run, sample }
   }
+
+  /** A case graded on its picture, whose answer is a page and the picture exported from it. */
+  function madeSkill(picture: Uint8Array, bench = 'artifact: image') {
+    const { dir, run } = skillWith(['card'], ['card-s1'])
+    writeFileSync(join(dir, 'evals/cases/card/case.yaml'), `bench:\n  ${bench}\n`)
+    const sample = join(dir, 'evals/runs', run, 'card-s1')
+    rmSync(join(sample, 'outputs/note.md'))
+    writeFileSync(join(sample, 'outputs/card.html'), '<!doctype html><main id="card"></main>')
+    writeFileSync(join(sample, 'outputs/card.png'), picture)
+    return { dir, run, sample }
+  }
+  type Colour = [number, number, number, number]
+  const INK: Colour = [10, 12, 17, 255]
+  const PAPER: Colour = [244, 242, 235, 255]
+  /** A picture with ink over its left `share` and paper over the rest. */
+  const blocks = (width: number, height: number, share = 0.5) =>
+    pngOf(width, height, (x) => (x < width * share ? INK : PAPER))
+  const cardLayout = readLayout({
+    window: [320, 300],
+    page: [320, 300],
+    elements: [{ parent: 0, name: 'main#card', text: '', x: 0, y: 0, width: 320, height: 300 }],
+  }) as PageLayout
+
+  it('measures a picture on the page beside it, when that page draws the same picture', async () => {
+    const { dir, run, sample } = madeSkill(blocks(320, 300))
+    vi.spyOn(Jev, 'available').mockReturnValue(true)
+    const judge = genericJudge().mockResolvedValue(null)
+    const render = vi.fn(async (_page: unknown, size: { width: number; height: number }) => ({
+      png: blocks(size.width, size.height),
+      layout: cardLayout,
+    }))
+    const lines: string[] = []
+    await gradeRun(dir, run, { useJev: true, render, log: (line) => lines.push(line) })
+    // The page is drawn in a window the picture's size, and the picture stays the file graded.
+    expect(render.mock.calls).toEqual([
+      [
+        { skill: dir, run, sample: 'card-s1', file: 'outputs/card.html' },
+        { width: 320, height: 300 },
+      ],
+    ])
+    const [input] = judge.mock.calls[0]
+    expect(input.primary).toEqual({ file: 'outputs/card.png', kind: 'image' })
+    expect(input.source).toEqual({
+      file: 'outputs/card.html',
+      window: [320, 300],
+      times: 1,
+      layout: cardLayout,
+    })
+    expect(readdirSync(join(sample, 'renders')).sort()).toEqual([
+      'desktop-320x300.json',
+      'desktop-320x300.match.json',
+      'desktop-320x300.png',
+    ])
+    expect(lines.join('\n')).not.toContain('is not what')
+
+    // Kept: nothing is drawn, compared or asked again while the files stay as they are.
+    render.mockClear()
+    judge.mockClear()
+    await gradeRun(dir, run, { useJev: true, render })
+    expect(render).not.toHaveBeenCalled()
+    expect(judge).not.toHaveBeenCalled()
+  })
+
+  it('takes a picture exported at twice the case’s size for the same picture', async () => {
+    const { dir, run } = madeSkill(blocks(640, 600), 'artifact: image\n  size: [320, 300]')
+    vi.spyOn(Jev, 'available').mockReturnValue(true)
+    const judge = genericJudge().mockResolvedValue(null)
+    const render = vi.fn(async (_page: unknown, size: { width: number; height: number }) => ({
+      png: blocks(size.width, size.height),
+      layout: cardLayout,
+    }))
+    await gradeRun(dir, run, { useJev: true, render })
+    expect(render.mock.calls.map(([, size]) => size)).toEqual([{ width: 320, height: 300 }])
+    expect(judge.mock.calls[0][0].source).toMatchObject({ window: [320, 300], times: 2 })
+  })
+
+  it('measures nothing for a picture the page beside it does not draw, and says so', async () => {
+    // The page was changed after the export: its block is wider than the picture's.
+    const { dir, run } = madeSkill(blocks(320, 300))
+    vi.spyOn(Jev, 'available').mockReturnValue(true)
+    const judge = genericJudge().mockResolvedValue(null)
+    const render = vi.fn(async (_page: unknown, size: { width: number; height: number }) => ({
+      png: blocks(size.width, size.height, 0.6),
+      layout: cardLayout,
+    }))
+    const lines: string[] = []
+    await gradeRun(dir, run, { useJev: true, render, log: (line) => lines.push(line) })
+    expect(judge.mock.calls[0][0].source).toBeUndefined()
+    expect(lines).toContain(
+      'card-s1: card.png is not what card.html draws, so nothing is measured for it',
+    )
+  })
+
+  it('looks for no page behind a picture that is not a PNG it reads', async () => {
+    const { dir, run } = madeSkill(pngHeader(320, 300))
+    vi.spyOn(Jev, 'available').mockReturnValue(true)
+    const judge = genericJudge().mockResolvedValue(null)
+    const render = vi.fn(async (_page: unknown, size: { width: number; height: number }) => ({
+      png: blocks(size.width, size.height),
+      layout: cardLayout,
+    }))
+    await gradeRun(dir, run, { useJev: true, render })
+    expect(judge.mock.calls[0][0].source).toBeUndefined()
+  })
 
   it('draws a copy inside the sizes Jev reads, and gives the pack that copy with the file’s own size', async () => {
     const { dir, run, sample } = pictureSkill(1920, 1080)

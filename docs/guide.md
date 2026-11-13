@@ -151,6 +151,8 @@ When you know what a good answer looks like, open the case again and add:
 - **A good answer:** a sentence or two describing it.
 - **Length:** the fewest and most words an answer may have.
 
+Some answers come as two files: a page, and a picture made from it. After a first run of such a case, **File to grade** appears at the top of these, with the two files by name. Pick the one you would use: only that file is graded.
+
 **Duplicate**, at the top of a case, copies it so you can try a variation. Write at least three different cases before you trust a score.
 
 ## 4. Run it

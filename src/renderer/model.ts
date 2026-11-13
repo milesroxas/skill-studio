@@ -115,6 +115,35 @@ export function outputsOf(state: State): Output[] {
   )
 }
 
+/** A page and a picture one answer came as, by the names its writer gave them. */
+export interface AnswerFiles {
+  page: string
+  picture: string
+  /** Which of the two is the file graded, or would be; null when it is neither, such as a note beside them. */
+  graded: 'html' | 'image' | null
+}
+
+/**
+ * The page and the picture of the newest answer to a case that came as both,
+ * or null when none did. Only such a case has a file to choose between: an
+ * agent often writes a page to make a picture, and either may be the work.
+ */
+export function answerFiles(outputs: Output[], caseId: string): AnswerFiles | null {
+  const named = (file: string): string => file.replace(/^outputs\//, '')
+  for (const output of outputs.filter((o) => o.caseId === caseId).reverse()) {
+    const page = output.sample.artifacts.find((a) => a.kind === 'html')
+    const picture = output.sample.artifacts.find((a) => a.kind === 'image')
+    if (!page || !picture) continue
+    const kind = output.primary?.kind
+    return {
+      page: named(page.file),
+      picture: named(picture.file),
+      graded: kind === 'html' || kind === 'image' ? kind : null,
+    }
+  }
+  return null
+}
+
 export const outputByKey = (outputs: Output[], key: string | null): Output | null =>
   key ? (outputs.find((o) => o.key === key) ?? null) : null
 

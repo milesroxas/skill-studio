@@ -6,6 +6,15 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+### Added
+
+- **File to grade** on a case, for an answer that comes as both a page and a picture: pick the one you would use, and only that file is graded. It shows once a run of the case has written both, at the top of the case's good answer, checks and size.
+- A picture made from a page is measured through that page. When the picture is the file graded and the page beside it draws the same picture, a rule or check about a size, a distance or a position is marked from the page's real numbers. A picture the page does not draw is still judged by eye.
+
+### Changed
+
+- With **File to grade** set, the size check on a case says which file it is about: "Check the picture’s size in pixels" or "Set the page’s size in pixels".
+
 ## [0.12.0] - 2026-11-13
 
 ### Changed

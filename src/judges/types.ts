@@ -51,6 +51,24 @@ export interface JudgeInput {
    * fits as it is, or the host has no browser to draw with.
    */
   fitted?: FittedPicture
+  /**
+   * The page beside a picture that is the work, when the page draws that same
+   * picture: what was measured on the page then holds for the picture. Absent
+   * when there is no such page, the two differ, or the host has no browser.
+   */
+  source?: SourcePage
+}
+
+/** The page a picture was made from, as the app drew and measured it. */
+export interface SourcePage {
+  /** The sample-relative path of the page. */
+  file: string
+  /** The window the page was drawn in to make the same picture. */
+  window: [number, number]
+  /** How many times larger the picture is than that window: 2 for an export at 2x. */
+  times: number
+  /** The elements the page drew there; null when it could not be measured. */
+  layout: PageLayout | null
 }
 
 /** A picture drawn again at a size Jev reads. */

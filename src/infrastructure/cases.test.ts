@@ -146,6 +146,22 @@ describe('saveCase and deleteCase', () => {
     expect(() => saveCase(skill, { ...draft, size: [1600, 20_000] }, false)).toThrow('10,000')
   })
 
+  it('keeps the file to grade in the bench block, and leaves it alone when a save says nothing of it', () => {
+    saveCase(skill, { ...draft, artifact: 'image' }, true)
+    const yamlPath = join(skill, 'evals/cases/short-note/case.yaml')
+    expect(readFileSync(yamlPath, 'utf8')).toBe(
+      'title: A short note\nexpected_outcome: Short, says the new day.\nbench:\n  words: [ 10, 80 ]\n  artifact: image\n',
+    )
+    expect(loadCases(skill)[0].bench.artifact).toBe('image')
+    // The assistant's save, and a draft stored before the form held the choice, name no file.
+    saveCase(skill, draft, false)
+    expect(loadCases(skill)[0].bench.artifact).toBe('image')
+    saveCase(skill, { ...draft, artifact: 'html' }, false)
+    expect(loadCases(skill)[0].bench.artifact).toBe('html')
+    saveCase(skill, { ...draft, artifact: null }, false)
+    expect(readFileSync(yamlPath, 'utf8')).not.toMatch(/artifact/)
+  })
+
   it('drops a size written by hand that a save would refuse', () => {
     saveCase(skill, draft, true)
     const yamlPath = join(skill, 'evals/cases/short-note/case.yaml')

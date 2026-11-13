@@ -12,6 +12,7 @@ import { mergeConfig } from '@domain/config.ts'
 import { fitForJev, PICTURE_HEAD_BYTES, pictureSize } from '@domain/image.ts'
 import { type PageLayout, readLayout } from '@domain/layout.ts'
 import { packFailedFlag, packFailure } from '@domain/pack.ts'
+import { differing, SAME_PICTURE, scaleOf } from '@domain/picture-match.ts'
 import { primaryArtifact } from '@domain/primary.ts'
 import { NOTES_FILE } from '@domain/prompt.ts'
 import type { Rule } from '@domain/rules.ts'
@@ -31,6 +32,7 @@ import {
   writeJson,
   writeText,
 } from '@infrastructure/fs.ts'
+import { readPng } from '@infrastructure/png.ts'
 import {
   anchorsDir,
   finishedSamples,
@@ -46,7 +48,14 @@ import { Jev } from '@judges/jev.ts'
 import { scorers } from '@judges/scorers.ts'
 import { agentPicture } from '@judges/shared/picture.ts'
 import { asksJev } from '@judges/shared/questions.ts'
-import type { FittedPicture, JudgeContext, JudgeInput, JudgePack, PageShot } from '@judges/types.ts'
+import type {
+  FittedPicture,
+  JudgeContext,
+  JudgeInput,
+  JudgePack,
+  PageShot,
+  SourcePage,
+} from '@judges/types.ts'
 import { INPUTS_DIR, stagedInputs } from './generate.ts'
 
 export interface GradeOptions {
@@ -111,6 +120,18 @@ interface GradeContext {
   draw?: (sample: Sample, page: Artifact, sizes: RenderSize[]) => Promise<Drawn>
   /** Draws a picture the agent made at a size Jev reads; absent when the host cannot. */
   fit?: (sample: Sample, picture: string) => Promise<Fitted | null>
+  /** Finds the page a picture was made from, by drawing it; absent when the host cannot. */
+  source?: (
+    sample: Sample,
+    picture: string,
+    size: [number, number] | null,
+  ) => Promise<Sourced | null>
+}
+
+/** The page a picture was made from, with a hash so an answer that read its measures is kept by them. */
+interface Sourced {
+  page: SourcePage
+  hash: string
 }
 
 /** A picture drawn again to fit, with a hash of the copy so an answer about it is kept by what it saw. */
@@ -252,6 +273,94 @@ async function fitPicture(
     picture: { file, pixels, read: readForJev(path) },
     hash: createHash('sha256').update(readFileSync(path)).digest('hex'),
   }
+}
+
+/** The longest side a page is drawn at without its picture being scaled down after. */
+const UNSCALED_SIDE = 1568
+
+/**
+ * The windows a page may have been drawn in to make a picture of `pixels`:
+ * the case's size when it names one, else the picture's own size, then a half
+ * and a third of it, for an export at 2x or 3x.
+ */
+function sourceWindows(
+  pixels: [number, number],
+  size: [number, number] | null,
+): [number, number][] {
+  const candidates: [number, number][] = size
+    ? [size]
+    : [1, 2, 3].map((times): [number, number] => [pixels[0] / times, pixels[1] / times])
+  return candidates.filter(
+    ([width, height]) =>
+      Number.isInteger(width) &&
+      Number.isInteger(height) &&
+      Math.max(width, height) <= UNSCALED_SIDE &&
+      scaleOf({ width: pixels[0], height: pixels[1] }, { width, height }) !== null,
+  )
+}
+
+/** A comparison kept beside a drawing: the picture it was of, and the share of pixels that differed. */
+function keptVerdict(path: string): { file: string; differs: number | null } | null {
+  const kept = readJson<unknown>(path, null)
+  if (typeof kept !== 'object' || kept === null) return null
+  const { file, differs } = kept as { file?: unknown; differs?: unknown }
+  return typeof file === 'string'
+    ? { file, differs: typeof differs === 'number' && Number.isFinite(differs) ? differs : null }
+    : null
+}
+
+/**
+ * The page beside a picture that is the work, when it draws that picture. An
+ * agent often writes a page to make a picture: the picture is what is used,
+ * and the page is where a size or a place can be measured. The page is drawn
+ * in the window the picture's size points to and the two are compared, pixel
+ * by pixel. Only a page that draws the same picture is its source: one
+ * changed since the export would give the picture measures that are not its
+ * own. The verdict is kept beside the drawing, and read again only when the
+ * picture or the page changes. Null when there is no page, the picture is not
+ * a PNG that is read, or the two differ.
+ */
+async function sourcePage(
+  render: PageRenderer,
+  skillDir: string,
+  run: string,
+  sample: Sample,
+  file: string,
+  size: [number, number] | null,
+  log: (line: string) => void,
+): Promise<Sourced | null> {
+  const page = primaryArtifact(sample.artifacts, 'html')
+  const picture = fileInside(sample.path, join(sample.path, file))
+  if (page?.kind !== 'html' || picture === null) return null
+  const pixels = pictureSize(readStart(picture, PICTURE_HEAD_BYTES), file)
+  if (!pixels) return null
+  for (const [width, height] of sourceWindows(pixels, size)) {
+    const window: RenderSize = { id: 'desktop', width, height }
+    const { shots } = await drawPage(render, skillDir, run, sample, page, [window], log)
+    const drawing = join(sample.path, RENDERS_DIR, `desktop-${width}x${height}.png`)
+    if (!shots.length || !isFile(drawing)) continue
+    const verdict = join(sample.path, RENDERS_DIR, `desktop-${width}x${height}.match.json`)
+    const kept = isFile(verdict) ? keptVerdict(verdict) : null
+    const fresh =
+      kept?.file === file &&
+      statSync(verdict).mtimeMs >= Math.max(statSync(picture).mtimeMs, statSync(drawing).mtimeMs)
+    let differs = fresh ? kept.differs : null
+    if (!fresh) {
+      const [a, b] = [picture, drawing].map((path) => readPng(new Uint8Array(readFileSync(path))))
+      differs = a && b ? differing(a, b) : null
+      writeText(verdict, JSON.stringify({ file, differs }))
+    }
+    if (differs === null || differs > SAME_PICTURE) continue
+    const layout = shots[0].layout
+    return {
+      page: { file: page.file, window: [width, height], times: pixels[0] / width, layout },
+      hash: createHash('sha256')
+        .update(JSON.stringify([page.file, width, height, layout]))
+        .digest('hex'),
+    }
+  }
+  log(`${basename(file)} is not what ${basename(page.file)} draws, so nothing is measured for it`)
+  return null
 }
 
 /** The keys of `bench.json` no pack's answer rests on: they apply after, in scoring, or choose what is judged. */
@@ -537,7 +646,20 @@ async function gradeSubject(
       ? await untilStopped(ctx.fit(subject, shot.file), ctx.signal)
       : null
   if (fitted) input.fitted = fitted.picture
-  const seen = fitted ? { ...drawn.hashes, 'fitted:picture': fitted.hash } : drawn.hashes
+  // A picture that is the work may have the page it was made from beside it: measured there, if so.
+  const sourced =
+    looks && ctx.source && primary?.kind === 'image' && !subject.legacy
+      ? await untilStopped(
+          ctx.source(subject, primary.file, testCase?.bench.size ?? null),
+          ctx.signal,
+        )
+      : null
+  if (sourced) input.source = sourced.page
+  const seen = {
+    ...drawn.hashes,
+    ...(fitted ? { 'fitted:picture': fitted.hash } : {}),
+    ...(sourced ? { 'source:page': sourced.hash } : {}),
+  }
   const packs: Record<string, unknown> = {}
   /** This sample's new answers: kept only once the whole sample was judged without a stop. */
   const answers: Record<string, unknown> = {}
@@ -678,6 +800,10 @@ async function gradeSubjects(
       )
     ctx.fit = (sample, picture) =>
       fitPicture(render, skillDir, run.name, sample, picture, (line) =>
+        log(`${sample.name}: ${line}`),
+      )
+    ctx.source = (sample, picture, size) =>
+      sourcePage(render, skillDir, run.name, sample, picture, size, (line) =>
         log(`${sample.name}: ${line}`),
       )
   }

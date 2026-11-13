@@ -27,6 +27,7 @@ import {
   type Configuration,
   emptyDrafts,
   type FileDraft,
+  isArtifactKind,
   NEW_CASE_KEY,
   type Report,
   type SkillDrafts,
@@ -206,6 +207,10 @@ function caseDraftOf(value: unknown): CaseDraft {
       Array.isArray(input.size) && input.size.length === 2
         ? [Number(input.size[0]), Number(input.size[1])]
         : null,
+    // Left out by a caller that does not set it, such as the assistant: the case keeps its own.
+    ...(input.artifact === undefined
+      ? {}
+      : { artifact: isArtifactKind(input.artifact) ? input.artifact : null }),
     images: imageRefsOf(input.images),
     added: (Array.isArray(input.added) ? input.added : []).map((raw) => {
       const pick = record(raw)

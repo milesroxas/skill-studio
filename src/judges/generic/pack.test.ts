@@ -363,6 +363,47 @@ describe('generic pack', () => {
     }
   })
 
+  it('reads a picture’s measures from the page that draws it, and says whose they are', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'st-generic-'))
+    try {
+      mkdirSync(join(dir, 'outputs'))
+      writeFileSync(join(dir, 'outputs/card.png'), pngHeader(1200, 900))
+      const card: Artifact = { file: 'outputs/card.png', kind: 'image' }
+      const layout = readLayout({
+        window: [600, 450],
+        page: [600, 450],
+        elements: [{ parent: 0, name: 'main#card', text: '', x: 0, y: 0, width: 600, height: 450 }],
+      })
+      if (!layout) throw new Error('the fixture is a layout')
+      const made = output({
+        text: '',
+        dir,
+        primary: card,
+        artifacts: [card, page],
+        others: [{ file: 'outputs/index.html', text: '<main id="card"></main>' }],
+        rules: [{ id: 'r1', text: 'Inset the card 40px from every edge.', section: 'Rules' }],
+        source: { file: 'outputs/index.html', window: [600, 450], times: 2, layout },
+      })
+      await genericPack.judge(made, ctx)
+      expect(Object.keys(asked().state)).toEqual(['picture', 'other_files', 'layout'])
+      expect(asked().state.layout).toBe(layoutText(layout, 14_000))
+      expect(asked().questions['rule:r1'].instructions).toContain(
+        '`picture` is what the page "outputs/index.html" draws in a window 600 px wide and 450 px tall, and `layout` lists that page\'s elements as measured there: the place and the size of each in px, from the top left of the page, and where it sits inside the elements that hold it. `picture` is 2 times that size, so a length in `picture` is 2 times its length in `layout`. A size, a distance or a position is read from `layout`',
+      )
+
+      // No rule or check about a size or a place: the measures are not sent.
+      ask.mockClear()
+      await genericPack.judge({ ...made, rules: [rule('r1')] }, ctx)
+      expect(asked().state).not.toHaveProperty('layout')
+      // A page judged as the work has measures of its own: the source is for a picture.
+      ask.mockClear()
+      await genericPack.judge({ ...made, text: '<main></main>', primary: page }, ctx)
+      expect(asked().questions['rule:r1'].instructions).not.toContain('is what the page')
+    } finally {
+      rmSync(dir, { recursive: true, force: true })
+    }
+  })
+
   it('reads what the agent told the user, and holds only what must be said to it', async () => {
     await genericPack.judge(
       output({ rules: [rule('r1')], notes: '  Size: 1536 by 864, as asked.  ' }),

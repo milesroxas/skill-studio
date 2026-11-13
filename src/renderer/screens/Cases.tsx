@@ -60,7 +60,7 @@ import { ContextActions, RowAction } from '../components/RowActions.tsx'
 import { Segmented } from '../components/Segmented.tsx'
 import { ExampleList, GuideBox, PairList } from '../components/starters.tsx'
 import { TextArea } from '../components/TextArea.tsx'
-import { Heading, Hint, Text } from '../components/text.tsx'
+import { Code, Heading, Hint, Text } from '../components/text.tsx'
 import { Alert, AlertDescription, AlertTitle } from '../components/ui/alert.tsx'
 import { Button } from '../components/ui/button.tsx'
 import { Input } from '../components/ui/input.tsx'
@@ -72,7 +72,7 @@ import { useAction } from '../hooks.ts'
 import { useAddPictures } from '../images.ts'
 import { useAddInputs } from '../inputs.ts'
 import { REVEAL_LABEL, shortcut } from '../keys.ts'
-import { listLine, plural } from '../model.ts'
+import { answerFiles, listLine, outputsOf, plural } from '../model.ts'
 import { useArrivals } from '../motion.ts'
 import { caseKey } from '../route.ts'
 
@@ -250,8 +250,22 @@ export const Cases = memo(function Cases({ ctx }: { ctx: Ctx }) {
     !sameTitle(draft.title, base.title) && titleTaken(cases, draft.title, selected?.id)
       ? 'Another case has this title.'
       : ''
+  /**
+   * The page and the picture this case's last answer came as, when it came as
+   * both. Only then is there a file to choose, or when the case already names
+   * one: a case whose answers are one file never shows the choice.
+   */
+  const outputs = useMemo(() => outputsOf(state), [state])
+  const answer = useMemo(
+    () => (selected ? answerFiles(outputs, selected.id) : null),
+    [outputs, selected],
+  )
+  /** The file the case says to grade, when it is the page or the picture. */
+  const work = draft.artifact === 'html' || draft.artifact === 'image' ? draft.artifact : null
+  const choosesFile = answer !== null || work !== null
   /** Size matters to a skill that makes pages or pictures, and to a case that already names one. */
-  const drawn = config.packs.includes('design') || Boolean(draft.size) || Boolean(draft.phone)
+  const drawn =
+    config.packs.includes('design') || Boolean(draft.size) || Boolean(draft.phone) || choosesFile
   const canSave =
     dirty &&
     draft.prompt.trim() &&
@@ -378,10 +392,16 @@ export const Cases = memo(function Cases({ ctx }: { ctx: Ctx }) {
     draft.graders.some((g) => g.statement.trim() || g.image) ||
     Boolean(draft.words) ||
     Boolean(draft.size) ||
-    Boolean(draft.phone)
+    Boolean(draft.phone) ||
+    work !== null
   const extrasOpen = folded?.key === key ? folded.open : filled
   /** The fold's line names everything it holds. */
-  const extrasLine = listLine(['A good answer', 'checks', 'length', ...(drawn ? ['size'] : [])])
+  const extrasLine = listLine([
+    ...(choosesFile ? ['The file to grade', 'a good answer'] : ['A good answer']),
+    'checks',
+    'length',
+    ...(drawn ? ['size'] : []),
+  ])
   /** The files and folders the case comes with beside its pictures, as the draft leaves them. */
   const inputs = inputEntries(selected ?? null, draft)
   /** Pictures and files still being read: each holds a row in the list. */
@@ -692,6 +712,34 @@ export const Cases = memo(function Cases({ ctx }: { ctx: Ctx }) {
               open={extrasOpen}
               onOpenChange={(open) => setFolded({ key, open })}
             >
+              {choosesFile ? (
+                // First in the fold: a good answer, the checks and the size are all about this file.
+                <Field>
+                  <Label id="case-file">File to grade</Label>
+                  <Segmented<'html' | 'image'>
+                    aria-labelledby="case-file"
+                    value={work ?? answer?.graded ?? null}
+                    onChange={(artifact) => set({ artifact })}
+                    options={[
+                      {
+                        value: 'html',
+                        label: answer ? <Code>{answer.page}</Code> : 'The page',
+                        title: 'The page',
+                      },
+                      {
+                        value: 'image',
+                        label: answer ? <Code>{answer.picture}</Code> : 'The picture',
+                        title: 'The picture',
+                      },
+                    ]}
+                  />
+                  <Hint>
+                    {answer
+                      ? 'The last answer to this case came as a page and a picture. Only the one you pick is graded.'
+                      : 'When an answer comes as a page and a picture, only the one you pick is graded.'}
+                  </Hint>
+                </Field>
+              ) : null}
               <Field>
                 <Label htmlFor="case-expected" optional>
                   A good answer
@@ -769,9 +817,19 @@ export const Cases = memo(function Cases({ ctx }: { ctx: Ctx }) {
                     <CheckRow
                       checked={Boolean(draft.size)}
                       onCheckedChange={(on) => set({ size: on ? [1280, 800] : null })}
-                      description="A picture must be exactly this size. A page is shown at this size when it is graded."
+                      description={
+                        work === 'image'
+                          ? 'The picture must be exactly this size.'
+                          : work === 'html'
+                            ? 'The page is shown at this size when it is graded.'
+                            : 'A picture must be exactly this size. A page is shown at this size when it is graded.'
+                      }
                     >
-                      Check the size of the picture or page in pixels
+                      {work === 'image'
+                        ? 'Check the picture’s size in pixels'
+                        : work === 'html'
+                          ? 'Set the page’s size in pixels'
+                          : 'Check the size of the picture or page in pixels'}
                     </CheckRow>
                     {draft.size ? (
                       <Toolbar>
@@ -807,12 +865,15 @@ export const Cases = memo(function Cases({ ctx }: { ctx: Ctx }) {
                         {sizeError}
                       </Hint>
                     ) : null}
-                    <CheckRow
-                      checked={draft.phone ?? false}
-                      onCheckedChange={(on) => set({ phone: on })}
-                    >
-                      Check that a page works on a phone too, 390 px wide
-                    </CheckRow>
+                    {/* A picture has no phone width: the row stays only for a case that ticked it. */}
+                    {work === 'image' && !draft.phone ? null : (
+                      <CheckRow
+                        checked={draft.phone ?? false}
+                        onCheckedChange={(on) => set({ phone: on })}
+                      >
+                        Check that a page works on a phone too, 390 px wide
+                      </CheckRow>
+                    )}
                   </>
                 ) : null}
               </FormSection>

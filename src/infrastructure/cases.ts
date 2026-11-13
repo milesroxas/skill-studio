@@ -580,6 +580,10 @@ export function saveCase(
   } else if (doc.hasIn(['bench', 'size'])) doc.deleteIn(['bench', 'size'])
   if (input.phone) doc.setIn(['bench', 'phone'], true)
   else if (doc.hasIn(['bench', 'phone'])) doc.deleteIn(['bench', 'phone'])
+  // A draft stored before the form held it says nothing of it: the file keeps what it has.
+  if (input.artifact) doc.setIn(['bench', 'artifact'], input.artifact)
+  else if (input.artifact === null && doc.hasIn(['bench', 'artifact']))
+    doc.deleteIn(['bench', 'artifact'])
   const bench = doc.get('bench')
   if (isMap(bench) && !bench.items.length) doc.delete('bench')
   write(yamlPath, doc.toString())

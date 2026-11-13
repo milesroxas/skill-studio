@@ -90,7 +90,7 @@ export const basesAfterCaseSave = (
  * The form of a case as the screen shows it: its stored draft, or the case as
  * saved. A draft stored before cases held pictures has none listed: it keeps
  * the pictures the saved case has, so saving it does not remove them. One
- * stored before the phone setting keeps the saved case's.
+ * stored before the phone setting, or the file to grade, keeps the saved case's.
  */
 export const formDraft = (stored: CaseDraft | undefined, base: CaseDraft): CaseDraft =>
   stored
@@ -100,6 +100,7 @@ export const formDraft = (stored: CaseDraft | undefined, base: CaseDraft): CaseD
         ...stored,
         phone: stored.phone ?? base.phone,
         size: stored.size === undefined ? base.size : stored.size,
+        artifact: stored.artifact === undefined ? base.artifact : stored.artifact,
         images: stored.images ?? base.images,
         graders: stored.graders.map((g) => ({
           ...g,
