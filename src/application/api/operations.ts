@@ -44,6 +44,7 @@ import {
   benchPath,
   caseSavedAt,
   deleteCase,
+  duplicateCase,
   loadBench,
   loadCases,
   loadRules,
@@ -486,6 +487,7 @@ export const parsers: { [K in OperationName]: (raw: Raw) => Input<K> } = {
     savedAt: typeof raw.savedAt === 'string' && raw.savedAt ? raw.savedAt : null,
   }),
   'skill.deleteCase': (raw) => ({ ...scoped(raw), id: assertSafe(str(raw.id), 'case') }),
+  'skill.duplicateCase': (raw) => ({ ...scoped(raw), id: assertSafe(str(raw.id), 'case') }),
   'skill.gradedAs': (raw) => {
     const packs = Array.isArray(raw.packs) ? raw.packs : []
     // Named once each, every one a pack the app has. Rules and checks are graded whatever the list says.
@@ -817,6 +819,7 @@ export function createOperations(options: OperationsOptions): Runners {
       deleteCase(skillOf(input).path, input.id)
       return { deleted: true }
     },
+    'skill.duplicateCase': (input) => ({ id: duplicateCase(skillOf(input).path, input.id) }),
     'skill.gradedAs': (input) => {
       const skill = skillOf(input)
       savePacks(skill.path, input.packs)

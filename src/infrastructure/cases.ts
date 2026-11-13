@@ -5,11 +5,21 @@ import {
   existsSync,
   mkdirSync,
   readFileSync,
+  renameSync,
   rmSync,
   statSync,
 } from 'node:fs'
 import { basename, extname, join } from 'node:path'
-import { checkWeight, sizeProblem } from '@domain/case-draft.ts'
+import {
+  checkWeight,
+  hasTitle,
+  newCaseId,
+  promptStart,
+  sameTitle,
+  sizeProblem,
+  titleTaken,
+  unusedTitle,
+} from '@domain/case-draft.ts'
 import { mergeConfig } from '@domain/config.ts'
 import { type ImageFormat, imageFileName, imageTypeOf } from '@domain/image.ts'
 import type { Rule } from '@domain/rules.ts'
@@ -401,6 +411,12 @@ export function caseSavedAt(skillDir: string, rel: string): string | null {
   return Number.isFinite(latest) ? new Date(latest).toISOString() : null
 }
 
+/** A case's `case.yaml` to edit, seeded when absent or empty so a new file is a block mapping, like hand-written ones. */
+function caseYaml(path: string) {
+  const raw = isFile(path) ? readFileSync(path, 'utf8') : ''
+  return parseDocument(raw.trim() ? raw : 'title: untitled\n')
+}
+
 /**
  * Write a case folder under `evals/cases/<id>/`. Front matter, other
  * `case.yaml` keys and grader settings the editor does not show are kept. A
@@ -436,8 +452,13 @@ export function saveCase(
     throw new Error('The word range needs a minimum below its maximum.')
   const badSize = sizeProblem(input.size)
   if (badSize) throw new Error(badSize)
-  const existing = loadCases(skillDir).find((c) => c.id === input.id)
+  const cases = loadCases(skillDir)
+  const existing = cases.find((c) => c.id === input.id)
   if (isNew && existing) throw new Error(`A case called ${input.id} already exists.`)
+  // Cases are told apart by title. One kept as it was saves even if another took it by hand since.
+  const title = input.title.trim()
+  if (!(existing && sameTitle(existing.title, title)) && titleTaken(cases, title, input.id))
+    throw new Error(`Another case is called ${title}. Give this one a title of its own.`)
   if (!isNew && expectedSavedAt != null) {
     if (!existing) throw new Error(`Case ${input.id} was deleted on disk. Reload to see it.`)
     if (existing.dir && caseSavedAt(skillDir, existing.dir) !== expectedSavedAt)
@@ -474,9 +495,7 @@ export function saveCase(
   const front = isFile(promptPath) ? frontMatterBlock(readFileSync(promptPath, 'utf8')) : ''
   write(promptPath, `${front ? `${front.trimEnd()}\n\n` : ''}${input.prompt.trim()}\n`)
 
-  const raw = isFile(yamlPath) ? readFileSync(yamlPath, 'utf8') : ''
-  // Seeded so a new file is a block mapping, like hand-written ones.
-  const doc = parseDocument(raw.trim() ? raw : 'title: untitled\n')
+  const doc = caseYaml(yamlPath)
   doc.set('title', input.title.trim() || input.id)
   if (input.expectedOutcome.trim()) doc.set('expected_outcome', input.expectedOutcome.trim())
   else doc.delete('expected_outcome')
@@ -563,4 +582,63 @@ export function deleteCase(skillDir: string, id: string): void {
   const found = loadCases(skillDir).find((c) => c.id === id)
   if (!found?.dir) throw new Error('Only folder cases can be deleted here.')
   rmSync(assertInside(skillDir, join(skillDir, found.dir)), { recursive: true })
+}
+
+/**
+ * Copy a folder case whole, prompt, checks, pictures and files, to a new
+ * folder under `evals/cases/`, and return its id. The copy is titled after the
+ * case with "copy" after it, and a number after that when a case has that title.
+ *
+ * The copy is made in a hidden folder beside the others and moved into place
+ * in one step, so a half-made copy is never read as a case, and a name taken
+ * meanwhile, here or by another program, is passed over for the next. A link
+ * is copied as the file or folder it leads to, so editing the copy never
+ * changes the case it came from; one that leads out of the skill is left out.
+ */
+export function duplicateCase(skillDir: string, id: string): string {
+  const cases = loadCases(skillDir)
+  const found = cases.find((c) => c.id === id)
+  if (!found?.dir) throw new Error('Only folder cases can be duplicated here.')
+  const source = assertInside(skillDir, join(skillDir, found.dir))
+  const parent = assertInside(skillDir, join(skillDir, 'evals', 'cases'))
+  mkdirSync(parent, { recursive: true })
+  const staging = join(parent, `.${id}.copy-${process.pid}-${Date.now()}`)
+  const inside = (path: string): boolean => {
+    try {
+      assertInside(skillDir, path)
+      return true
+    } catch {
+      return false
+    }
+  }
+  // An untitled case is named by its prompt: the copy takes that as its title, so the two differ.
+  const named = hasTitle(found) ? found.title.trim() : promptStart(found.prompt) || id
+  const title = unusedTitle(cases, `${named} copy`)
+  const taken = cases.map((c) => c.id)
+  try {
+    cpSync(source, staging, { recursive: true, dereference: true, filter: inside })
+    const yamlPath = join(staging, 'case.yaml')
+    const doc = caseYaml(yamlPath)
+    doc.set('title', title)
+    writeText(yamlPath, doc.toString())
+    for (;;) {
+      const copy = newCaseId({ title, prompt: '' }, taken)
+      const dest = join(parent, copy)
+      if (present(dest)) {
+        taken.push(copy)
+        continue
+      }
+      try {
+        renameSync(staging, dest)
+      } catch (error) {
+        const code = (error as NodeJS.ErrnoException).code
+        if (code !== 'EEXIST' && code !== 'ENOTEMPTY') throw error
+        taken.push(copy)
+        continue
+      }
+      return copy
+    }
+  } finally {
+    rmSync(staging, { recursive: true, force: true })
+  }
 }

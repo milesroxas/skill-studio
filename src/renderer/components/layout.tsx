@@ -218,17 +218,21 @@ export function ListHeader({
 }) {
   return (
     <ColumnHeader inset="list">
-      <Heading level={3} as="h2">
-        {title}
-      </Heading>
-      <Text tone="muted" size="xs" tabular>
-        {count}
-      </Text>
-      <Spacer />
+      {/* On one baseline: the smaller count, centered, would float above the title's. */}
+      <ColumnTitle>
+        <Heading level={3} as="h2">
+          {title}
+        </Heading>
+        <Text tone="muted" size="xs" tabular>
+          {count}
+        </Text>
+      </ColumnTitle>
+      {/* Hung by its own padding, so the plus, not its box, ends where the rows' text does. */}
       <Button
         type="button"
         variant="ghost"
         size="icon-sm"
+        className="-mr-2"
         aria-label={addLabel}
         title={addLabel}
         disabled={addDisabled}

@@ -3,7 +3,7 @@
  * out without React so it can be tested: what its row says, whether it is
  * done, and whether applying it would lose the reader's unsaved work.
  */
-import { newCaseId } from '@domain/case-draft.ts'
+import { newCaseId, sameTitle, unusedTitle } from '@domain/case-draft.ts'
 import { caseHolds, type SkillChange } from '@domain/changes.ts'
 import type { Case } from '@domain/schemas.ts'
 import type { SkillVersion, SkillVersions } from '@domain/views.ts'
@@ -81,14 +81,11 @@ export interface CaseStanding {
   /** The reader has unsaved edits to the saved case. */
   drafted: boolean
   /**
-   * A new case only: the id of a saved case with the same title, such as this
-   * one added before and edited since. Adding makes a second.
+   * A new case only: the name of a saved case with the same title, such as
+   * this one added before and edited since. Adding makes a second, numbered.
    */
   twin?: string
 }
-
-const sameTitle = (a: string, b: string): boolean =>
-  a.trim().toLowerCase() === b.trim().toLowerCase()
 
 /**
  * The saved case a proposed one lands on, and the id it is written under. A
@@ -97,15 +94,20 @@ const sameTitle = (a: string, b: string): boolean =>
  * match an unrelated case, so it is added under an id clear of the skill's,
  * unless a case of that id already says exactly what it says. A saved case
  * with its title, or with the id its title makes, is its twin: the row says
- * so, since it may be this one, added and edited since.
+ * so, since it may be this one, added and edited since. `title` is the one it
+ * is saved under: a new case takes a number after a title a case has.
  */
 export function caseTarget(
   change: CaseChange,
   cases: readonly Case[],
-): { saved: Case | undefined; id: string; twin?: Case } {
-  if (change.idGiven) return { saved: cases.find((c) => c.id === change.id), id: change.id }
+): { saved: Case | undefined; id: string; title: string; twin?: Case } {
+  const { title } = change
+  if (change.idGiven) {
+    const saved = cases.find((c) => c.id === change.id)
+    return { saved, id: change.id, title: saved ? title : unusedTitle(cases, title) }
+  }
   const held = cases.find((c) => caseHolds(change, c))
-  if (held) return { saved: held, id: held.id }
+  if (held) return { saved: held, id: held.id, title }
   const named = { title: change.title, prompt: change.prompt }
   const first = newCaseId(named, [])
   const twin = cases.find(
@@ -115,7 +117,8 @@ export function caseTarget(
     named,
     cases.map((c) => c.id),
   )
-  return twin ? { saved: undefined, id, twin } : { saved: undefined, id }
+  const added = { saved: undefined, id, title: unusedTitle(cases, title) }
+  return twin ? { ...added, twin } : added
 }
 
 /** A case kept in `evals.json`, which the app does not write. */

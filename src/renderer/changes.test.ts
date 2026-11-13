@@ -86,9 +86,9 @@ describe('case standing', () => {
     expect(caseDetail({ saved: { ...saved, dir: null }, done: false, drafted: false }, 1)).toBe(
       'Kept in evals.json: change it there',
     )
-    expect(caseDetail({ saved: undefined, done: false, drafted: false, twin: 'shift' }, 2)).toBe(
-      'New case, 2 checks · shift has the same title',
-    )
+    expect(
+      caseDetail({ saved: undefined, done: false, drafted: false, twin: 'Tone check' }, 2),
+    ).toBe('New case, 2 checks · Tone check has the same title')
     expect(legacyCase({ saved: { ...saved, dir: null }, done: false, drafted: false })).toBe(true)
   })
 
@@ -120,6 +120,7 @@ describe('case standing', () => {
       expect(caseTarget(change, [shift])).toEqual({
         saved: undefined,
         id: 'tone-check-2',
+        title: 'Tone check 2',
         twin: shift,
       })
     })
@@ -137,18 +138,24 @@ describe('case standing', () => {
       expect(caseTarget(change, [{ ...shift, id: 'other', title: 'Other' }])).toEqual({
         saved: undefined,
         id: 'tone-check',
+        title: 'Tone check',
       })
     })
 
     it('reads an unnamed case already added as done, under the id it was given', () => {
       const added = { ...shift, id: 'tone-check-2', prompt: 'Rewrite the reply.' }
-      expect(caseTarget(change, [shift, added])).toEqual({ saved: added, id: 'tone-check-2' })
+      expect(caseTarget(change, [shift, added])).toEqual({
+        saved: added,
+        id: 'tone-check-2',
+        title: 'Tone check',
+      })
     })
 
     it('replaces the case a named change names', () => {
       expect(caseTarget({ ...change, idGiven: true }, [shift])).toEqual({
         saved: shift,
         id: 'tone-check',
+        title: 'Tone check',
       })
     })
   })

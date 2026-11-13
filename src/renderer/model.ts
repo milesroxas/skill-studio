@@ -1,4 +1,5 @@
 /** Outputs across runs, their scores under the skill's scoring, the pair to compare per case, and display names. */
+import { caseName } from '@domain/case-draft.ts'
 import { BASE_PACK, mergeConfig } from '@domain/config.ts'
 import { type Lift, type LiftRun, liftWriter, versionLift, writerKey } from '@domain/lift.ts'
 import { type Corrections, NO_CORRECTIONS } from '@domain/pack.ts'
@@ -534,7 +535,7 @@ export function outputNames(
 
 export function caseTitle(state: State, caseId: string): string {
   const found = state.cases.find((c) => c.id === caseId)
-  return found ? found.title || found.id : caseId
+  return found ? caseName(found) : caseId
 }
 
 export const primaryOf = (output: Output): Artifact | null => output.primary

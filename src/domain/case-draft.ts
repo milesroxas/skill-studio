@@ -121,6 +121,48 @@ export const blankDraft = (): CaseDraft => ({
 const ID_WORDS = 6
 const ID_MAX = 40
 
+const words = (prompt: string): string[] => prompt.trim().split(/\s+/).filter(Boolean)
+
+/** The first words of a prompt, enough to name a case after when it has no title. */
+export const promptStart = (prompt: string): string => words(prompt).slice(0, ID_WORDS).join(' ')
+
+/** Whether a case has a title of its own. One without is read with its id in the title's place. */
+export const hasTitle = (c: Pick<Case, 'id' | 'title'>): boolean =>
+  c.title.trim() !== '' && c.title !== c.id
+
+/**
+ * How a case is named wherever it shows: its title, or the start of its
+ * prompt when it has none. Never its id, which only names its folder.
+ */
+export function caseName(c: Pick<Case, 'id' | 'title' | 'prompt'>): string {
+  if (hasTitle(c)) return c.title.trim()
+  const start = promptStart(c.prompt)
+  return words(c.prompt).length > ID_WORDS ? `${start}…` : start || c.id
+}
+
+/** Two titles that read as one: the same words, whatever their capitals or the spaces at their ends. */
+export const sameTitle = (a: string, b: string): boolean =>
+  a.trim().toLowerCase() === b.trim().toLowerCase()
+
+/**
+ * Whether a case other than `own` has the title. Cases are told apart by
+ * title alone, so no two may share one.
+ */
+export const titleTaken = (
+  cases: readonly Pick<Case, 'id' | 'title'>[],
+  title: string,
+  own: string | null = null,
+): boolean =>
+  title.trim() !== '' && cases.some((c) => c.id !== own && hasTitle(c) && sameTitle(c.title, title))
+
+/** The title, or with the first number after it that no case's title has: "Tone check 2". */
+export function unusedTitle(cases: readonly Pick<Case, 'id' | 'title'>[], title: string): string {
+  const base = title.trim()
+  let free = base
+  for (let n = 2; titleTaken(cases, free); n += 1) free = `${base} ${n}`
+  return free
+}
+
 /**
  * The id a new case is saved under, which is its folder's name: its title as a
  * slug, or the first words of its prompt when it has none, with a number after
@@ -131,8 +173,7 @@ export function newCaseId(
   draft: Pick<CaseDraft, 'title' | 'prompt'>,
   taken: readonly string[],
 ): string {
-  const words = draft.prompt.trim().split(/\s+/).slice(0, ID_WORDS).join(' ')
-  const base = slug(draft.title, ID_MAX) || slug(words, ID_MAX) || 'case'
+  const base = slug(draft.title, ID_MAX) || slug(promptStart(draft.prompt), ID_MAX) || 'case'
   let id = base
   for (let n = 2; taken.includes(id); n += 1) id = `${base}-${n}`
   return id

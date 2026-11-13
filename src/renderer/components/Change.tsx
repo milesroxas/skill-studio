@@ -7,7 +7,7 @@
  * line offers Undo. A reply's changes apply only to the skill it was written
  * about.
  */
-import { draftOf } from '@domain/case-draft.ts'
+import { caseName, draftOf } from '@domain/case-draft.ts'
 import {
   caseHolds,
   changeDraft,
@@ -310,21 +310,21 @@ function CaseRow({
   offer: Offer
   className?: string
 }) {
-  const { saved, id, twin } = caseTarget(change, host.ctx?.state.cases ?? [])
+  const { saved, id, title, twin } = caseTarget(change, host.ctx?.state.cases ?? [])
   const standing = {
     saved,
     done: caseHolds(change, saved),
     drafted: saved !== undefined && caseUnsaved(host.ctx?.drafts.cases[saved.id], draftOf(saved)),
-    twin: twin?.id,
+    twin: twin ? caseName(twin) : undefined,
   }
-  const name = change.title || id
+  const name = caseName({ id, title, prompt: change.prompt })
   const labels = caseLabels(standing)
   const apply = async () => {
     const { ctx } = host
     if (!ctx) return
-    if (saved && !(await ctx.confirm(REPLACE_CASE(saved.title || saved.id, standing)))) return
+    if (saved && !(await ctx.confirm(REPLACE_CASE(caseName(saved), standing)))) return
     try {
-      await api.saveCase({ ...changeDraft(change, saved), id }, !saved)
+      await api.saveCase({ ...changeDraft(change, saved), id, title }, !saved)
       if (saved) ctx.drafts.setCase(saved.id, null)
       await ctx.reload()
       ctx.report(

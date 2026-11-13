@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest'
-import { inputEntries, isPicture, newCaseId } from './case-draft.ts'
+import {
+  caseName,
+  inputEntries,
+  isPicture,
+  newCaseId,
+  titleTaken,
+  unusedTitle,
+} from './case-draft.ts'
 import { isSlug } from './text.ts'
 
 describe('newCaseId', () => {
@@ -27,6 +34,40 @@ describe('newCaseId', () => {
   it('still names a case whose words hold no letter or digit', () => {
     expect(newCaseId({ title: '', prompt: '¿¡…!?' }, [])).toBe('case')
     expect(newCaseId({ title: '', prompt: '' }, ['case'])).toBe('case-2')
+  })
+})
+
+describe('case names', () => {
+  const cases = [
+    { id: 'tone-check', title: 'Tone check' },
+    { id: 'untitled', title: 'untitled' },
+  ]
+
+  it('names a case by its title, or the start of its prompt, never its id', () => {
+    expect(caseName({ id: 'tone-check', title: 'Tone check', prompt: 'Hi.' })).toBe('Tone check')
+    expect(caseName({ id: 'write-a-note', title: 'write-a-note', prompt: 'Write a note.' })).toBe(
+      'Write a note.',
+    )
+    expect(caseName({ id: 'x', title: '', prompt: 'Write a note about the move to Friday.' })).toBe(
+      'Write a note about the move…',
+    )
+    expect(caseName({ id: 'x', title: '', prompt: ' ' })).toBe('x')
+  })
+
+  it('finds a title another case has, whatever its capitals', () => {
+    expect(titleTaken(cases, ' TONE check ')).toBe(true)
+    expect(titleTaken(cases, 'Tone check', 'tone-check')).toBe(false)
+    // A case with no title of its own holds none.
+    expect(titleTaken(cases, 'untitled')).toBe(false)
+    expect(titleTaken(cases, ' ')).toBe(false)
+  })
+
+  it('numbers a title another case has', () => {
+    expect(unusedTitle(cases, 'Tone check')).toBe('Tone check 2')
+    expect(
+      unusedTitle([...cases, { id: 'tone-check-2', title: 'Tone check 2' }], 'Tone check'),
+    ).toBe('Tone check 3')
+    expect(unusedTitle(cases, 'Other ')).toBe('Other')
   })
 })
 

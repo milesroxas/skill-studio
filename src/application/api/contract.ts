@@ -202,6 +202,8 @@ export interface Contract {
     output: { saved: string; savedAt: string | null }
   }
   'skill.deleteCase': { input: Scoped & { id: string }; output: { deleted: true } }
+  /** Copy a folder case whole under a new id, which it returns. */
+  'skill.duplicateCase': { input: Scoped & { id: string }; output: { id: string } }
   /** Set the packs the skill is graded as, in `bench.json`. Every other key of the file stays as it is. */
   'skill.gradedAs': {
     input: Scoped & { packs: string[] }

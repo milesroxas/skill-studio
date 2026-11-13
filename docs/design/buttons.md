@@ -45,12 +45,12 @@ Is it the next step of the loop, in the top bar?
 
 ```tsx
 // Correct: screens/Cases.tsx. Alone in its section, so its edge sits on the column's edge.
-// Busy while the delete runs, and disabled while the case is being saved.
+// Busy while the delete runs, and disabled while the case is being saved or copied.
 <Button
   type="button"
   variant="destructive-outline"
   size="sm"
-  disabled={busy}
+  disabled={busy || duplicating}
   busy={deleting}
   busyLabel="Deleting…"
   onClick={remove}

@@ -10,11 +10,15 @@
 
 import {
   blankDraft,
+  caseName,
   draftOf,
   inputEntries,
   MAX_SIDE,
   newCaseId,
+  sameTitle,
   sizeProblem,
+  titleTaken,
+  unusedTitle,
 } from '@domain/case-draft.ts'
 import { addImages } from '@domain/image.ts'
 import type { InputEntry } from '@domain/inputs.ts'
@@ -105,6 +109,7 @@ export const Cases = memo(function Cases({ ctx }: { ctx: Ctx }) {
   const draft = useMemo(() => formDraft(held, base), [held, base])
   const [busy, runSave] = useAction(report)
   const [deleting, runDelete] = useAction(report)
+  const [duplicating, runDuplicate] = useAction(report)
   /** The skill this case belongs to: a step that ends after another was opened leaves that one alone. */
   const skill = state.skill.path
   const dirty = held !== undefined
@@ -143,7 +148,12 @@ export const Cases = memo(function Cases({ ctx }: { ctx: Ctx }) {
       return
     let id = example.id
     for (let n = 2; cases.some((c) => c.id === id); n += 1) id = `${example.id}-${n}`
-    setDraft({ ...example, id, graders: example.graders.map((g) => ({ ...g })) })
+    setDraft({
+      ...example,
+      id,
+      title: unusedTitle(cases, example.title),
+      graders: example.graders.map((g) => ({ ...g })),
+    })
     // The example's checks and length open the fold, even one the reader closed.
     setFolded(null)
   }
@@ -226,6 +236,11 @@ export const Cases = memo(function Cases({ ctx }: { ctx: Ctx }) {
       ? 'The minimum must not be above the maximum.'
       : ''
   const sizeError = sizeProblem(draft.size) ?? ''
+  /** Cases are told apart by title. A title kept as it was saved is never flagged. */
+  const titleError =
+    !sameTitle(draft.title, base.title) && titleTaken(cases, draft.title, selected?.id)
+      ? 'Another case has this title.'
+      : ''
   /** Size matters to a skill that makes pages or pictures, and to a case that already names one. */
   const drawn = config.packs.includes('design') || Boolean(draft.size) || Boolean(draft.phone)
   const canSave =
@@ -233,6 +248,7 @@ export const Cases = memo(function Cases({ ctx }: { ctx: Ctx }) {
     draft.prompt.trim() &&
     !wordsError &&
     !sizeError &&
+    !titleError &&
     !busy &&
     !deleting &&
     !changedOnDisk
@@ -266,7 +282,7 @@ export const Cases = memo(function Cases({ ctx }: { ctx: Ctx }) {
       const elsewhere = currentSkill() !== skill
       drafts.savedCase(key, sent, id, stamp, elsewhere ? skill : undefined)
       if (elsewhere) return
-      report(isNew ? `Added ${form.title.trim() || id}` : `Saved ${id}`)
+      report(`${isNew ? 'Added' : 'Saved'} ${caseName({ ...form, id })}`)
       // Only from the case that was saved: the reader may be on another by now.
       if (inView.current === key) go('cases', { id }, { replace: true })
     })
@@ -275,8 +291,9 @@ export const Cases = memo(function Cases({ ctx }: { ctx: Ctx }) {
   const remove = async () => {
     if (!selected) return
     const gone = selected.id
+    const name = caseName(selected)
     const ok = await confirm({
-      title: `Delete the case ${gone}?`,
+      title: `Delete ${name}?`,
       description: 'Its files are deleted too. Results of past runs are kept.',
       action: 'Delete',
       destructive: true,
@@ -287,8 +304,24 @@ export const Cases = memo(function Cases({ ctx }: { ctx: Ctx }) {
       if (currentSkill() !== skill) return
       drafts.setCase(gone, null)
       await reload()
-      report(`Deleted ${gone}`)
+      report(`Deleted ${name}`)
       if (inView.current === key) go('cases', {}, { replace: true })
+    })
+  }
+
+  /** Copy the saved case and open the copy. Offered only while nothing is unsaved, so the copy is what the form shows. */
+  const duplicate = () => {
+    if (!selected || dirty) return
+    const from = selected.id
+    const name = caseName(selected)
+    void runDuplicate(async () => {
+      const { id } = await api.duplicateCase(from)
+      if (currentSkill() !== skill) return
+      // A draft left under the copy's name, from a case of that name deleted outside the app, is not the copy's.
+      drafts.setCase(id, null)
+      await reload()
+      report(`Duplicated ${name}`)
+      if (inView.current === key) go('cases', { id })
     })
   }
 
@@ -299,10 +332,13 @@ export const Cases = memo(function Cases({ ctx }: { ctx: Ctx }) {
     }
   }
 
+  /** The case as last saved, for what is said about it rather than what is typed. */
+  const savedName = selected ? caseName(selected) : 'New case'
+
   const discard = async () => {
     if (
       await confirm({
-        title: isNew ? 'Discard this new case?' : `Discard your changes to ${selected?.id}?`,
+        title: isNew ? 'Discard this new case?' : `Discard your changes to ${savedName}?`,
         description: isNew ? 'What you typed goes.' : 'The case stays as it was last saved.',
         action: 'Discard',
         destructive: true,
@@ -311,7 +347,7 @@ export const Cases = memo(function Cases({ ctx }: { ctx: Ctx }) {
       drafts.setCase(key, null)
   }
 
-  const heading = isNew ? draft.title.trim() || 'New case' : draft.title.trim() || draft.id
+  const heading = isNew ? draft.title.trim() || 'New case' : caseName(draft)
   /**
    * The parts past the task, folded under one line: a good answer, checks,
    * length and size. The fold is open while any of them holds something, new
@@ -373,12 +409,8 @@ export const Cases = memo(function Cases({ ctx }: { ctx: Ctx }) {
                 {cases.map((c) => (
                   <li key={c.id}>
                     <NavButton current={selected?.id === c.id} onClick={() => pick({ id: c.id })}>
-                      <NavButtonTitle unsaved={unsaved.has(c.id)}>
-                        {c.title !== c.id ? c.title : c.id}
-                      </NavButtonTitle>
+                      <NavButtonTitle unsaved={unsaved.has(c.id)}>{caseName(c)}</NavButtonTitle>
                       <Text tone="muted" size="xs">
-                        {c.title !== c.id ? <Text font="mono">{c.id}</Text> : null}
-                        {c.title !== c.id ? ' · ' : ''}
                         {plural(c.graders.length, 'check')}
                       </Text>
                     </NavButton>
@@ -404,11 +436,7 @@ export const Cases = memo(function Cases({ ctx }: { ctx: Ctx }) {
               <Heading level={2} as="h2">
                 {heading}
               </Heading>
-              {!isNew && heading !== draft.id ? (
-                <Text font="mono" tone="muted" size="xs">
-                  {draft.id}
-                </Text>
-              ) : null}
+
               <DraftNote drafts={drafts} dirty={dirty} saved={isNew ? '' : 'Saved'} />
             </ColumnTitle>
             {dirty ? (
@@ -424,6 +452,18 @@ export const Cases = memo(function Cases({ ctx }: { ctx: Ctx }) {
             ) : isNew && cases.length ? (
               <Button type="button" variant="ghost" size="sm" onClick={() => pick({})}>
                 Cancel
+              </Button>
+            ) : selected?.dir ? (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                disabled={deleting}
+                busy={duplicating}
+                busyLabel="Duplicating…"
+                onClick={duplicate}
+              >
+                Duplicate
               </Button>
             ) : null}
             {/* Filled only when pressing it saves something, as Save on the Skill screen. */}
@@ -443,7 +483,7 @@ export const Cases = memo(function Cases({ ctx }: { ctx: Ctx }) {
             {changedOnDisk ? (
               <Alert variant="warning" role="status">
                 <AlertTitle>
-                  {draft.id} was changed outside the app while you were editing
+                  {savedName} was changed outside the app while you were editing
                 </AlertTitle>
                 <AlertDescription>
                   <p>Keep your edits to save over that change, or take the changed case.</p>
@@ -486,6 +526,25 @@ export const Cases = memo(function Cases({ ctx }: { ctx: Ctx }) {
               }
             >
               <Field>
+                <Label htmlFor="case-title" optional>
+                  Title
+                </Label>
+                <Input
+                  id="case-title"
+                  value={draft.title}
+                  placeholder="Named after the prompt"
+                  aria-invalid={Boolean(titleError)}
+                  aria-describedby={titleError ? 'case-title-error' : undefined}
+                  onChange={(e) => set({ title: e.target.value })}
+                />
+                {titleError ? (
+                  <Hint id="case-title-error" tone="destructive">
+                    {titleError}
+                  </Hint>
+                ) : null}
+              </Field>
+
+              <Field>
                 <Label htmlFor="case-prompt">Prompt</Label>
                 <TextArea
                   id="case-prompt"
@@ -523,18 +582,6 @@ export const Cases = memo(function Cases({ ctx }: { ctx: Ctx }) {
                   </Stack>
                 </Disclosure>
               ) : null}
-
-              <Field>
-                <Label htmlFor="case-title" optional>
-                  Title
-                </Label>
-                <Input
-                  id="case-title"
-                  value={draft.title}
-                  placeholder="Named after the prompt"
-                  onChange={(e) => set({ title: e.target.value })}
-                />
-              </Field>
 
               <Field role="group" aria-labelledby="case-files" className="max-w-xl">
                 <FieldHead
@@ -726,7 +773,7 @@ export const Cases = memo(function Cases({ ctx }: { ctx: Ctx }) {
                     type="button"
                     variant="destructive-outline"
                     size="sm"
-                    disabled={busy}
+                    disabled={busy || duplicating}
                     busy={deleting}
                     busyLabel="Deleting…"
                     onClick={remove}

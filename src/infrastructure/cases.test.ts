@@ -14,7 +14,15 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { pngHeader } from '@domain/__fixtures__/image.ts'
 import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { caseSavedAt, countCases, deleteCase, findCase, loadCases, saveCase } from './cases.ts'
+import {
+  caseSavedAt,
+  countCases,
+  deleteCase,
+  duplicateCase,
+  findCase,
+  loadCases,
+  saveCase,
+} from './cases.ts'
 
 let skill: string
 beforeEach(() => {
@@ -151,6 +159,19 @@ describe('saveCase and deleteCase', () => {
     expect(loadCases(skill)[0].bench.size).toEqual([1440, 900])
   })
 
+  it('refuses a title another case has, and keeps one saved before the rule', () => {
+    saveCase(skill, draft, true)
+    const other = { ...draft, id: 'other', title: 'Other' }
+    saveCase(skill, other, true)
+    expect(() => saveCase(skill, { ...other, title: ' a SHORT note' }, false)).toThrow(
+      'Another case is called a SHORT note.',
+    )
+    expect(() => saveCase(skill, { ...draft, id: 'third' }, true)).toThrow('Another case is called')
+    // Two cases that share a title already, from before or by hand, still save as they are.
+    writeFileSync(join(skill, 'evals/cases/other/case.yaml'), 'title: A short note\n')
+    expect(() => saveCase(skill, { ...other, title: 'A short note' }, false)).not.toThrow()
+  })
+
   it('refuses a bad id, an empty prompt, a bad range and a duplicate', () => {
     expect(() => saveCase(skill, { ...draft, id: 'Short Note' }, true)).toThrow('lowercase')
     expect(() => saveCase(skill, { ...draft, prompt: ' ' }, true)).toThrow('prompt')
@@ -214,6 +235,96 @@ describe('saveCase and deleteCase', () => {
     deleteCase(skill, 'short-note')
     expect(() => saveCase(skill, draft, false, undefined, loadedAt)).toThrow('was deleted on disk')
     expect(caseSavedAt(skill, rel)).toBeNull()
+  })
+})
+
+describe('duplicateCase', () => {
+  const draft = {
+    id: 'short-note',
+    title: 'A short note',
+    prompt: 'Write a note about the move to Friday.',
+    expectedOutcome: 'Short, says the new day.',
+    words: [10, 80] as [number, number],
+    images: [],
+    graders: [{ id: null, statement: 'The note says Friday.', weight: 2, image: null }],
+  }
+  const byId = (id: string) => loadCases(skill).find((c) => c.id === id)
+
+  it('copies the case whole under a new name, titled as a copy', () => {
+    saveCase(skill, draft, true)
+    const files = join(skill, 'evals/cases/short-note/files')
+    mkdirSync(join(files, 'screen'), { recursive: true })
+    writeFileSync(join(files, 'screen/index.html'), '<p>hi</p>')
+    expect(duplicateCase(skill, 'short-note')).toBe('a-short-note-copy')
+    const [source, copy] = [byId('short-note'), byId('a-short-note-copy')]
+    expect(copy).toMatchObject({
+      title: 'A short note copy',
+      prompt: source?.prompt,
+      expectedOutcome: source?.expectedOutcome,
+      bench: source?.bench,
+      graders: source?.graders,
+      files: ['evals/cases/a-short-note-copy/files/screen/index.html'],
+      dir: 'evals/cases/a-short-note-copy',
+    })
+    // Nothing is left behind from the copy being made.
+    expect(readdirSync(join(skill, 'evals/cases')).sort()).toEqual([
+      'a-short-note-copy',
+      'short-note',
+    ])
+  })
+
+  it('numbers a second copy, so no two cases share a title', () => {
+    saveCase(skill, draft, true)
+    duplicateCase(skill, 'short-note')
+    expect(duplicateCase(skill, 'short-note')).toBe('a-short-note-copy-2')
+    expect(byId('a-short-note-copy-2')?.title).toBe('A short note copy 2')
+  })
+
+  it('titles the copy of an untitled case after its prompt', () => {
+    saveCase(skill, { ...draft, title: '' }, true)
+    expect(duplicateCase(skill, 'short-note')).toBe('write-a-note-about-the-move-copy')
+    expect(byId('write-a-note-about-the-move-copy')?.title).toBe('Write a note about the move copy')
+  })
+
+  it('passes over a folder that holds the name but is not a case', () => {
+    saveCase(skill, draft, true)
+    mkdirSync(join(skill, 'evals/cases/a-short-note-copy'))
+    writeFileSync(join(skill, 'evals/cases/a-short-note-copy/notes.txt'), 'mine')
+    expect(duplicateCase(skill, 'short-note')).toBe('a-short-note-copy-2')
+    expect(byId('a-short-note-copy-2')?.title).toBe('A short note copy')
+    expect(readFileSync(join(skill, 'evals/cases/a-short-note-copy/notes.txt'), 'utf8')).toBe(
+      'mine',
+    )
+  })
+
+  it('copies a link as its file, so editing the copy leaves the case alone, and drops one that leads out', () => {
+    const outside = mkdtempSync(join(tmpdir(), 'st-outside-'))
+    try {
+      writeFileSync(join(outside, 'secret.txt'), 'no')
+      writeFileSync(join(skill, 'shared.md'), 'Shared prompt.\n')
+      const dir = join(skill, 'evals/cases/linked')
+      mkdirSync(join(dir, 'files'), { recursive: true })
+      symlinkSync(join(skill, 'shared.md'), join(dir, 'prompt.md'))
+      symlinkSync(join(outside, 'secret.txt'), join(dir, 'files/secret.txt'))
+      const copy = duplicateCase(skill, 'linked')
+      const copyDir = join(skill, 'evals/cases', copy)
+      expect(lstatSync(join(copyDir, 'prompt.md')).isSymbolicLink()).toBe(false)
+      expect(existsSync(join(copyDir, 'files/secret.txt'))).toBe(false)
+      saveCase(skill, { ...draft, id: copy, title: '', prompt: 'Changed.' }, false)
+      expect(readFileSync(join(skill, 'shared.md'), 'utf8')).toBe('Shared prompt.\n')
+    } finally {
+      rmSync(outside, { recursive: true, force: true })
+    }
+  })
+
+  it('refuses a case from evals.json and one that is not there', () => {
+    mkdirSync(join(skill, 'evals'), { recursive: true })
+    writeFileSync(
+      join(skill, 'evals/evals.json'),
+      JSON.stringify({ evals: [{ id: 1, name: 'legacy', prompt: 'Hi.' }] }),
+    )
+    expect(() => duplicateCase(skill, '1-legacy')).toThrow('Only folder cases')
+    expect(() => duplicateCase(skill, 'missing')).toThrow('Only folder cases')
   })
 })
 

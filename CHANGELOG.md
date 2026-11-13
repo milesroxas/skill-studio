@@ -6,6 +6,16 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+### Added
+
+- **Duplicate**, at the top of a saved case, copies the case with its checks, pictures and files and opens the copy, titled with "copy" after the name. It shows while the case has no unsaved changes.
+
+### Changed
+
+- On Cases, **Title** comes first, above the prompt, so the prompt and the files it refers to sit together.
+- Cases are named by their title everywhere, or by the first words of the prompt when they have none. The short name under each title on Cases, such as `feature-mockup`, is gone, and messages such as "Deleted Feature mockup" use the title too.
+- No two cases can have the same title: the form says so under **Title**. A case added from an example, or by the Assistant, beside one with its title gets a number after it, such as "Tone check 2".
+
 ## [0.9.1] - 2026-11-12
 
 ### Changed

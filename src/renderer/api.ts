@@ -159,4 +159,6 @@ export const api = {
   saveCase: (draft: CaseDraft, isNew: boolean, savedAt: string | null = null) =>
     call('skill.saveCase', scoped({ case: draft, isNew, savedAt })),
   deleteCase: (id: string) => call('skill.deleteCase', scoped({ id })),
+  /** Copy a saved case whole; the copy's id comes back. */
+  duplicateCase: (id: string) => call('skill.duplicateCase', scoped({ id })),
 }

@@ -180,13 +180,13 @@ A version is a copy of the skill as it was for a run, named v0, v1 and so on. Yo
 
 A case is one task for the agent: a request, and what a good answer does.
 
-![Cases: the list of three cases on the left; on the right the form for one case, with its prompt, its title and its files, with the Add files and Add folder buttons under them.](images/cases.webp)
+![Cases: the list of three cases on the left; on the right the form for one case, with its title, its prompt and its files, with the Add files and Add folder buttons under them.](images/cases.webp)
 
 Start with the prompt alone. It is enough to run the case, and reading what the agent wrote shows you what to check.
 
-1. Click the plus above the list. A new case shows the task alone: the prompt, a title and files.
-2. **Prompt:** what a user would ask. Do not mention the skill: the test is whether the agent uses it on its own. To start from a finished case instead, open **Start from an example** under the prompt and click **Use** on one. A skill graded on its rules and checks alone picks the kind of skill first.
-3. **Title** (optional): a short name for the lists. Left empty, the case is named after its prompt.
+1. Click the plus above the list. A new case shows the task alone: a title, the prompt and files.
+2. **Title** (optional): a short name for the lists. Left empty, the case is named after the first words of its prompt. No two cases can have the same title.
+3. **Prompt:** what a user would ask. Do not mention the skill: the test is whether the agent uses it on its own. To start from a finished case instead, open **Start from an example** under the prompt and click **Use** on one. A skill graded on its rules and checks alone picks the kind of skill first.
 4. **Files** (optional): any file your prompt refers to, such as a screenshot, a document or code. **Add files** picks files and **Add folder** picks a whole folder, or drop them anywhere on the case. A file that is not added cannot be read when the case runs: What the agent sees, below, says why.
 5. Click **Add case**. The rest can wait until you have read an output.
 
@@ -210,6 +210,8 @@ A run does not happen in your project. Each case starts in a new, empty folder t
 A check such as "the colors come from the project" can only pass when the project's colors are among the case's files.
 
 To change a case, click it in the list, edit it and click **Save case** (Cmd+S). **Delete case**, at the foot of the form, removes it. Past runs keep their outputs.
+
+To try a variation on a case, click **Duplicate** at the top of a saved case. The copy has everything the case has, its checks, pictures and files too, and opens under the case's title with "copy" after it, and a number after that when another case has that title. Duplicate shows while the case has no unsaved changes: save or discard them first.
 
 Checks can come later: on Results, **Add a check** turns what an output got wrong into one.
 
