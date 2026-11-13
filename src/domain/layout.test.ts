@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import { LAYOUT_ELEMENTS_MAX, type LayoutElement, layoutText, readLayout } from './layout.ts'
+import {
+  aboutLayout,
+  LAYOUT_ELEMENTS_MAX,
+  type LayoutElement,
+  layoutText,
+  readLayout,
+} from './layout.ts'
 
 /** An element as the page's window reports it, before it is read. */
 const raw = (over: Record<string, unknown> = {}): Record<string, unknown> => ({
@@ -189,5 +195,39 @@ describe('layoutText', () => {
         .split('\n')
         .at(-1),
     ).toBe('1 smaller element is on the page and not listed.')
+  })
+})
+
+describe('aboutLayout', () => {
+  it('is yes of a rule or a check that states a measure or names a size, a place or a colour', () => {
+    for (const words of [
+      'Inset all content by at least 4% of the artboard.',
+      'The card sits 24px above the middle.',
+      'Keep rotation under 20°.',
+      'Make the image 1536x864.',
+      'Make the image 1080 × 1350.',
+      'Use #F0F059 for the button.',
+      'Centre the focal element on the window.',
+      'The popover is centered.',
+      'Use one spacing scale.',
+      'Lift the card with one shadow.',
+      'The artboard’s background is a dark neutral.',
+      'Use only colours taken from the project.',
+      'Set body text in a 16 pt face.',
+    ])
+      expect(aboutLayout(words), words).toBe(true)
+  })
+
+  it('is no of a rule or a check about what the output says', () => {
+    for (const words of [
+      'Keep the reply under 120 words.',
+      'The first sentence says what changed for the user.',
+      'Never use lorem ipsum.',
+      'Add no headline, caption or logo.',
+      'Thank the reader by name, in 2 sentences at most.',
+      'List the 3 steps in order.',
+      'The page has exactly one h1.',
+    ])
+      expect(aboutLayout(words), words).toBe(false)
   })
 })

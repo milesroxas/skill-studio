@@ -12,7 +12,7 @@
  * score.ts.
  */
 import { join } from 'node:path'
-import { layoutText } from '@domain/layout.ts'
+import { aboutLayout, layoutText } from '@domain/layout.ts'
 import { headingOf, plain, type Rule } from '@domain/rules.ts'
 import type { Grader } from '@domain/schemas.ts'
 import { type Image, noul, withAssets } from '@typesafe-ai/sdk'
@@ -124,8 +124,9 @@ function workOf(input: JudgeInput, room: Room): Work | null {
   const page = input.primary?.kind === 'html' ? renderOf(input, 'desktop') : null
   const window = page?.image && page.image === read?.image
   // What the window measured goes with the picture it drew: a length is read there, not off the picture.
+  // It is the largest part of a request, so it is sent only where a rule or a check is about what it holds.
   const measured =
-    window && room.layout
+    window && room.layout && asksOfLayout(input)
       ? (input.renders.find((r) => r.size.id === 'desktop')?.layout ?? null)
       : null
   if (measured) state.layout = layoutText(measured, room.layout)
@@ -145,6 +146,11 @@ function workOf(input: JudgeInput, room: Room): Work | null {
     layout: measured !== null,
   }
 }
+
+/** Whether a rule or a check of this output is about a size, a place or a colour: what a layout holds. */
+const asksOfLayout = (input: JudgeInput): boolean =>
+  input.rules.some((rule) => aboutLayout(rule.text)) ||
+  (input.case?.graders ?? []).some((grader) => aboutLayout(grader.statement))
 
 /** The window the page was drawn in. */
 const windowOf = (input: JudgeInput): { width: number; height: number } | null => {
@@ -261,32 +267,25 @@ const ruleQuestion = (rule: Rule, work: Work) => {
 }
 
 /**
- * What a heading is judged on. With a request, that is the request and the
- * skill alone: which rules are for this work is settled by what was asked for,
- * and an output in view pulls the answer to the kind of work that was made, so
- * a screen asked for and a detail made would have the rules for a screen set
- * aside. With no request there is only the work to go by.
+ * What a heading is judged on. With a request, that is the request's words and
+ * the skill alone: which rules are for this work is settled by what was asked
+ * for, and an output in view pulls the answer to the kind of work that was
+ * made, so a screen asked for and a detail made would have the rules for a
+ * screen set aside. The request's pictures are left out too: its words say
+ * which kind of work it asks for, and a picture costs more than the rest of
+ * this request together. With no request there is only the work to go by.
  */
 const headingState = (work: Work): JevState => {
   const { state } = work
   if (!has(state, 'request')) return state
-  const { request, request_images, skill, headings } = state as Record<string, unknown>
-  return {
-    request,
-    ...(request_images === undefined ? {} : { request_images }),
-    skill,
-    headings,
-  } as JevState
+  const { request, skill, headings } = state as Record<string, unknown>
+  return { request, skill, headings } as JevState
 }
 
 /** What each field a heading is judged on is. */
 const headingLead = (work: Work): string =>
   has(work.state, 'request')
-    ? `\`skill\` holds the instructions an answer to \`request\` is held to${
-        has(work.state, 'request_images')
-          ? ', and `request` came with the pictures in `request_images`'
-          : ''
-      }. `
+    ? '`skill` holds the instructions an answer to `request` is held to. '
     : lead(work)
 
 /**
@@ -423,9 +422,10 @@ async function ask(
 
 export const genericPack: JudgePack<GenericRaw> = {
   ...genericScoring,
-  version: 6,
+  version: 7,
   label: 'Generic: the skill’s rules and the case’s checks',
   renders: true,
+  asks: (input) => input.rules.length > 0 || (input.case?.graders ?? []).length > 0,
   async judge(input, ctx) {
     if (!asksJev(input, ctx)) return null
     // A picture Jev would refuse is said, so rules nobody marked are never read as followed.

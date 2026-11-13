@@ -212,7 +212,7 @@ describe('generic pack', () => {
     )
   })
 
-  it('shows a heading the pictures the request came with, and nothing of the output', async () => {
+  it('asks a heading of the request’s words alone: neither its pictures nor the output', async () => {
     const skill = '# Mockups\n\n## For a screen\n\n- rule r1\n'
     const rules = [{ id: 'r1', text: 'rule r1', section: 'For a screen' }]
     const shot = image(pngHeader(800, 600))
@@ -220,15 +220,14 @@ describe('generic pack', () => {
       output({ rules, skill, case: testCase(), images: [{ image: shot } as never] }),
       ctx,
     )
+    // The rules are asked with the request's pictures, which a rule may be about.
+    expect(asked(0).state.request_images).toEqual([shot])
     expect(asked(1).state).toEqual({
       request: 'Thank Elena.',
-      request_images: [shot],
       skill: skill.trim(),
       headings: ['For a screen'],
     })
-    expect(asked(1).questions['heading:0'].instructions).toContain(
-      '`skill` holds the instructions an answer to `request` is held to, and `request` came with the pictures in `request_images`. ',
-    )
+    expect(holdsImage(asked(1).state)).toBe(false)
   })
 
   it('asks no heading of rules listed in bench.json, which stand under none', async () => {
@@ -302,7 +301,7 @@ describe('generic pack', () => {
       text: '<h1>Hi</h1>',
       primary: page,
       artifacts: [page],
-      rules: [rule('r1')],
+      rules: [{ id: 'r1', text: 'Set the heading 40px from the top.', section: 'Rules' }],
       renders: [{ ...drawn, layout }],
     })
     await genericPack.judge(measured, ctx)
@@ -310,6 +309,23 @@ describe('generic pack', () => {
     expect(asked().questions['rule:r1'].instructions).toContain(
       '`layout` lists the elements of `output` as that window measured them: the place and the size of each in px, from the top left of the page, and where it sits inside the elements that hold it. A size, a distance or a position is read from `layout`, where it was measured, and not judged by eye on `picture`.',
     )
+
+    // A layout is the largest part of a request: it is sent only where a rule or a check is about what it holds.
+    ask.mockClear()
+    await genericPack.judge({ ...measured, rules: [rule('r1')] }, ctx)
+    expect(asked().state).not.toHaveProperty('layout')
+    expect(asked().state).toHaveProperty('picture')
+    expect(asked().questions['rule:r1'].instructions).not.toContain('`layout`')
+    ask.mockClear()
+    await genericPack.judge(
+      {
+        ...measured,
+        rules: [rule('r1')],
+        case: testCase([{ ...grader('g1'), statement: 'The heading is centred.' }]),
+      },
+      ctx,
+    )
+    expect(asked().state).toHaveProperty('layout')
 
     // The layout goes with the picture the window drew: a drawing Jev cannot read is told of no window.
     ask.mockClear()

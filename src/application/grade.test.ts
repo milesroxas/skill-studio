@@ -569,6 +569,25 @@ describe('gradeRun, on a page drawn for a pack that looks at it', () => {
     expect(render.mock.calls.map(([, size]) => size)).toEqual([{ width: 1440, height: 900 }])
   })
 
+  it('draws no page when no pack has a question for it', async () => {
+    // Only the generic pack, and neither a rule nor a check for it to ask.
+    const { dir, run } = pageSkill(false)
+    writeFileSync(join(dir, 'SKILL.md'), '---\nname: page\ndescription: A page.\n---\n\n# Page\n')
+    writeFileSync(join(dir, 'evals/bench.json'), JSON.stringify({ packs: ['generic'] }))
+    vi.spyOn(Jev, 'available').mockReturnValue(true)
+    genericJudge().mockResolvedValue(null)
+    const render = vi.fn()
+    await gradeRun(dir, run, { useJev: true, render })
+    expect(render).not.toHaveBeenCalled()
+
+    // A case that turns Jev off has nothing looked at, whatever the packs.
+    writeFileSync(join(dir, 'evals/bench.json'), JSON.stringify({ packs: ['design'] }))
+    writeFileSync(join(dir, 'evals/cases/page/case.yaml'), 'bench:\n  judge: false\n')
+    designJudge()
+    await gradeRun(dir, run, { useJev: true, render })
+    expect(render).not.toHaveBeenCalled()
+  })
+
   it('draws nothing without Jev to look', async () => {
     const { dir, run } = pageSkill()
     const render = vi.fn()

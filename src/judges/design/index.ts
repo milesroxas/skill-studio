@@ -36,6 +36,7 @@ export const designPack: JudgePack<DesignRaw> = {
     ].filter((p): p is string => p !== null)
     const unread = problems.length ? problems.join('; ') : null
     if (!shot || !asksJev(input, ctx)) return unread ? { jev: null, unread } : null
+    // The request and its pictures say what the picture is meant to show: without them Jev is not sure of its main point.
     const state: JevState = { ...requestState(input), screenshot: shot }
     // Said only of a page the app drew: a picture the agent made is the whole of itself.
     const below =

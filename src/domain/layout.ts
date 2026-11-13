@@ -51,6 +51,26 @@ export interface PageLayout {
   leftOut: number
 }
 
+/**
+ * A length, a share, an angle or a size stated in a rule or a check: "24px",
+ * "4%", "1.5 rem", "20°", "1536×864", and a colour written as a hex.
+ */
+const MEASURE = /\d\s?(px|%|pt|r?em|vh|vw|°|deg)(?![a-z])|\d\s?[x×]\s?\d|#[0-9a-f]{3,8}\b/i
+
+/** The words a rule or a check about a size, a place or a colour uses. */
+const LAYOUT_WORDS =
+  /\b(pixels?|cent(re|er)(s|d|ed)?|align(s|ed|ment)?|widths?|wider?|heights?|tall(er)?|sizes?|sized|margins?|padding|insets?|gaps?|spacing|radius|radii|corners?|grids?|offsets?|overlap(s|ping)?|colou?rs?|lightness|hue|saturation|contrast|shadows?|scaled?|fonts?|borders?|backgrounds?|layout)\b/i
+
+/**
+ * Whether a rule or a check is about what a layout holds: a size, a distance,
+ * a position or a colour of what is drawn. A layout is the largest part of a
+ * request, so it is sent only for an output some rule or check asks this of.
+ * It errs towards yes: a layout sent for nothing costs tokens, and one held
+ * back has a measure judged by eye.
+ */
+export const aboutLayout = (words: string): boolean =>
+  MEASURE.test(words) || LAYOUT_WORDS.test(words)
+
 /** The most elements a layout holds: a page has no end of them, and the smallest say least. */
 export const LAYOUT_ELEMENTS_MAX = 300
 

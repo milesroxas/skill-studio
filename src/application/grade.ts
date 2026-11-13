@@ -45,6 +45,7 @@ import { packById } from '@judges/index.ts'
 import { Jev } from '@judges/jev.ts'
 import { scorers } from '@judges/scorers.ts'
 import { agentPicture } from '@judges/shared/picture.ts'
+import { asksJev } from '@judges/shared/questions.ts'
 import type { FittedPicture, JudgeContext, JudgeInput, JudgePack, PageShot } from '@judges/types.ts'
 import { INPUTS_DIR, stagedInputs } from './generate.ts'
 
@@ -518,7 +519,12 @@ async function gradeSubject(
   const { primary } = input
   const pictures = casePictures(ctx, testCase)
   // The page is drawn only when a pack will look at it, and a pack that does is asked again when it changes.
-  const looks = ctx.packs.some((pack) => pack.renders)
+  // A pack looks when it judges this output, Jev is asked of this case and the pack has a question for it.
+  const looks =
+    asksJev(input, ctx.judge) &&
+    ctx.packs.some(
+      (pack) => pack.renders && applies(pack, subject, primary) && (pack.asks?.(input) ?? true),
+    )
   const drawn =
     looks && ctx.draw && primary?.kind === 'html' && !subject.legacy
       ? await untilStopped(ctx.draw(subject, primary, renderSizes(testCase)), ctx.signal)

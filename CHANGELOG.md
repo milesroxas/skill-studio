@@ -11,12 +11,13 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - A rule or check Jev could not tell is listed under **Not sure** and left out of the score until you mark it. Before, an answer just short of a yes was counted as **Missed**, the same as a clear miss.
 - A rule under a heading for another kind of work than the request asks for is listed under **Does not apply** and left out of the score. Before, a skill with rules for two kinds of work, such as "Rules for a screen mockup" and "Rules for a focus mockup", had the rules for one kind marked missed on an answer of the other.
 - A page is measured when it is drawn, so a rule or check about a size, a distance or a position on a page is marked from real numbers. Before, Jev judged it by eye on a picture. A picture has nothing to measure, so a measure on one is still **Not sure**.
+- Grading sends Jev a page's measures only when a rule or check is about a size, a place or a colour, and draws no page that nothing will be asked about, so a skill about what a page says is not charged for them.
 - **What Jev can mark** on Cases shows a check with one measure, in place of saying no measure can be marked.
 - Scores of past runs move with this change, and the next **Regrade** of a run asks Jev about each output once more, since what is asked changed.
 - Jev reads each rule under its heading, with the skill beside it, so a rule that uses the skill's own words is read as the skill means them.
 - A count of rules or checks says how many Jev was not sure of: "9 of 11, 2 not sure".
 - `bench.json` takes a `no` beside `yes`: an answer at or above `yes` (0.7) is met, one at or below `no` (0.3) is missed, and one between is not sure. A file that sets `yes` alone scores as it did.
-- Grading sends an output's rules and checks to Jev in one request, so the output and its pictures are sent once. The skill's headings go in a second, small request with the request alone.
+- Grading sends an output's rules and checks to Jev in one request, so the output and its pictures are sent once. The skill's headings go in a second, small request with the request's words alone.
 
 ### Fixed
 

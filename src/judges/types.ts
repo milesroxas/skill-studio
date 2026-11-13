@@ -123,6 +123,11 @@ export interface JudgePack<Raw = unknown> extends PackScoring<Raw> {
   /** The pack looks at an HTML page as drawn: grading draws it first, when it can (`JudgeInput.renders`). */
   renders?: boolean
   /**
+   * Whether the pack has a question for this output. Without it the pack
+   * always has. Grading draws no page for a pack that has none.
+   */
+  asks?(input: JudgeInput): boolean
+  /**
    * The pack reads its answer off the machine: a command's exit code, which
    * rests on tools and files no hash of the output covers and costs nothing to
    * read again. Every grading runs such a pack, and the judge cache keeps none
