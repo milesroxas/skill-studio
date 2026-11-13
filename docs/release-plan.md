@@ -4,9 +4,9 @@ The plan for the next release: what is in it, what is still to do, and the check
 
 | | |
 | --- | --- |
-| Version | 0.9.1 |
-| Status | Released 2026-11-12 |
-| Previous release | [v0.9.0](https://github.com/milesroxas/skill-studio/releases/tag/v0.9.0), 2026-11-12 |
+| Version | 0.10.0 |
+| Status | Releasing 2026-11-12 |
+| Previous release | [v0.9.1](https://github.com/milesroxas/skill-studio/releases/tag/v0.9.1), 2026-11-12 |
 | Target date | 2026-11-12 |
 | Owner | Miles Roxas |
 
@@ -21,16 +21,17 @@ The version follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html): 
 
 ## Shipped to main
 
-Everything merged since v0.9.0.
+Everything merged since v0.9.1.
 
-- [x] Results: the list on the left is headed Scores, set apart from the Cases screen (3c5eb6f).
-- [x] Results: an output still being written says Writing…, and grading waits for it (c5e6ecb).
-- [x] Results: A and B over the stage name their version again (6911b8a).
-- [x] A run without the skill is named Without skill and set apart from versions (9f5b565).
-- [x] Help me improve waits for the writer and works as a workshop in the Assistant (687297a).
+- [x] Duplicate a case, and name cases by their title alone (b3a84a4).
+- [x] All cases lists cases down the side, empty cells say why, models go by their own name (43ebf66).
+- [x] One row design for the lists on the left of Cases, Results and Skill (9c67486).
+- [x] Right-click menus, and one 6px corner for every container (09746d4).
+- [x] Welcome tour pictures match the app (e81c642).
+- [x] A shorter guide for someone new, and tighter developer docs (a78b221).
 - [x] Docs updated in the same commit as each change.
 
-0.9.1 changes and fixes what 0.9.0 shipped and adds no feature, so it is a patch.
+0.10.0 adds features (Duplicate, right-click menus), so it is a minor release.
 
 ## Planned
 
@@ -49,8 +50,8 @@ Checks that are not covered by `pnpm check`.
 - [ ] Run the assistant live on each provider that has only been typechecked: the Anthropic API, OpenAI and Codex. Claude Code has been run live; the other three have not.
 - [ ] Send a picture to the assistant on the Anthropic API, OpenAI and Codex paths. Jev and Claude Code have been run live with a picture.
 - [ ] Go through the welcome at 110% zoom. Its window grows with the zoom, so the page keeps its 760 x 600; this has not been seen at a real 110%.
-- [x] Once the release is out, open each `releases/latest/download/` link in [releasing.md](releasing.md#updates) and check it fetches the new file, and `latest-mac.yml` names 0.9.1.
-- [ ] Update an installed 0.9.0 to this release and see **Restart to update**.
+- [ ] Once the release is out, open each `releases/latest/download/` link in [releasing.md](releasing.md#updates) and check it fetches the new file, and `latest-mac.yml` names 0.10.0.
+- [ ] Update an installed 0.9.1 to this release and see **Restart to update**.
 - [ ] Regrade a past run of a page skill with a Jev key and see its Rules and Checks parts appear.
 
 ## Release checklist
@@ -58,9 +59,9 @@ Checks that are not covered by `pnpm check`.
 The steps in [releasing.md](releasing.md), in order.
 
 1. [x] Every item under "Planned" is shipped or moved to "Later".
-2. [ ] Every item under "Before the release" is done. Not for 0.9.1: the unchecked items carry to the next release.
-3. [x] `pnpm check` and `pnpm build` pass on `main`, 1,205 tests.
-4. [ ] `gh workflow run release` builds every platform. Not run for 0.9.1; the tag's own run builds every platform.
-5. [x] In the changelog, rename `## [Unreleased]` to `## [0.9.1] - 2026-11-12`, start a new `## [Unreleased]` above it, and commit.
-6. [x] `pnpm version patch -m "Release %s"`, then push `main` and the tag.
-7. [x] The release workflow publishes v0.9.1, with the changelog entry as its notes.
+2. [ ] Every item under "Before the release" is done. Not for 0.10.0: the unchecked items carry to the next release.
+3. [x] `pnpm check` and `pnpm build` pass on `main`, 1,222 tests.
+4. [ ] `gh workflow run release` builds every platform. Not run for 0.10.0; the tag's own run builds every platform.
+5. [x] In the changelog, rename `## [Unreleased]` to `## [0.10.0] - 2026-11-12`, start a new `## [Unreleased]` above it, and commit.
+6. [ ] `pnpm version minor -m "Release %s"`, then push `main` and the tag.
+7. [ ] The release workflow publishes v0.10.0, with the changelog entry as its notes.

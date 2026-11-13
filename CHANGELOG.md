@@ -6,6 +6,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-11-12
+
 ### Added
 
 - **Duplicate**, at the top of a saved case, copies the case with its checks, pictures and files and opens the copy, titled with "copy" after the name. It shows while the case has no unsaved changes.
