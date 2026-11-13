@@ -6,6 +6,12 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [0.13.1] - 2026-11-13
+
+### Fixed
+
+- Each answer in a run keeps its working files in its own folder, `scratch`, beside its outputs. Before, they went to a temporary folder that every run shared, so one answer could pick up files another had left.
+
 ## [0.13.0] - 2026-11-13
 
 ### Added

@@ -4,9 +4,9 @@ The plan for the next release: what is in it, what is still to do, and the check
 
 | | |
 | --- | --- |
-| Version | 0.13.0 |
-| Status | Released 2026-11-13 |
-| Previous release | [v0.12.0](https://github.com/milesroxas/skill-studio/releases/tag/v0.12.0), 2026-11-13 |
+| Version | 0.13.1 |
+| Status | In release |
+| Previous release | [v0.13.0](https://github.com/milesroxas/skill-studio/releases/tag/v0.13.0), 2026-11-13 |
 | Target date | 2026-11-13 |
 | Owner | Miles Roxas |
 
@@ -21,12 +21,12 @@ The version follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html): 
 
 ## Shipped to main
 
-Everything merged since v0.12.0.
+Everything merged since v0.13.0.
 
-- [x] A case says which file is the work, **File to grade**, for an answer that comes as a page and a picture; a picture that is the file graded is measured through the page that draws it (a6e4452).
+- [x] Each sample has a `scratch/` folder of its own for working files, and the run's prompt sends them there, never to `/tmp` (aefec69).
 - [x] Docs updated in the same commit as the change.
 
-0.13.0 adds a field to a case and a new way a picture is measured, so it is a minor release.
+0.13.1 only fixes: samples no longer share a working folder. It adds a folder to a sample and a line to the run's prompt, and breaks no skill or run file, so it is a patch release.
 
 ## Planned
 
@@ -45,19 +45,19 @@ Checks that are not covered by `pnpm check`.
 - [ ] Run the assistant live on each provider that has only been typechecked: the Anthropic API, OpenAI and Codex. Claude Code has been run live; the other three have not.
 - [ ] Send a picture to the assistant on the Anthropic API, OpenAI and Codex paths. Jev and Claude Code have been run live with a picture.
 - [ ] Go through the welcome at 110% zoom. Its window grows with the zoom, so the page keeps its 760 x 600; this has not been seen at a real 110%.
-- [x] Once the release is out, open each `releases/latest/download/` link in [releasing.md](releasing.md#updates) and check it fetches the new file, and `latest-mac.yml` names 0.13.0.
-- [ ] Update an installed 0.12.0 to this release and see **Restart to update**.
+- [ ] Once the release is out, open each `releases/latest/download/` link in [releasing.md](releasing.md#updates) and check it fetches the new file, and `latest-mac.yml` names 0.13.1.
+- [ ] Update an installed 0.13.0 to this release and see **Restart to update**.
 - [ ] Open Results on a stopped run, a run cut off by quitting the app and an output whose grading failed, and see **Stopped**, **Not finished** and **Grade**: these are covered by tests and have not been looked at in the app.
-- [x] Regrade a past run of a page skill with a Jev key and see its Rules and Checks parts appear. Done in the built app on a scratch home, with both cases graded on their picture: each picture matched its page, its size was checked, and the measured checks stayed met. **File to grade** was picked, saved and duplicated there too.
+- [x] Run a case of a skill and see the agent keep its working files in the sample's `scratch/`. Done with `st run` on a copy of a mockup skill, one case on Claude Code with Sonnet: the measurements, a build script and a trial page were in `scratch/`, the page and its picture in `outputs/`, and the transcript named no path in `/tmp`.
 
 ## Release checklist
 
 The steps in [releasing.md](releasing.md), in order.
 
 1. [x] Every item under "Planned" is shipped or moved to "Later".
-2. [ ] Every item under "Before the release" is done. Not for 0.13.0: the unchecked items carry to the next release.
-3. [x] `pnpm check` and `pnpm build` pass on `main`, 1,379 tests, and main's own run passes on Windows and macOS before the tag.
-4. [ ] `gh workflow run release` builds every platform. Not run for 0.13.0; the tag's own run builds every platform.
-5. [x] In the changelog, add `## [0.13.0] - 2026-11-13` under a new `## [Unreleased]`, and commit.
-6. [x] `pnpm version minor -m "Release %s"`, then push `main` and the tag.
-7. [x] The release workflow publishes v0.13.0, with the changelog entry as its notes.
+2. [ ] Every item under "Before the release" is done. Not for 0.13.1: the unchecked items carry to the next release.
+3. [x] `pnpm check` and `pnpm build` pass on `main`, 1,380 tests, and main's own run passes on Windows and macOS before the tag.
+4. [ ] `gh workflow run release` builds every platform. Not run for 0.13.1; the tag's own run builds every platform.
+5. [x] In the changelog, add `## [0.13.1] - 2026-11-13` under a new `## [Unreleased]`, and commit.
+6. [ ] `pnpm version patch -m "Release %s"`, then push `main` and the tag.
+7. [ ] The release workflow publishes v0.13.1, with the changelog entry as its notes.
