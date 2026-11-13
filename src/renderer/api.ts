@@ -14,7 +14,7 @@ import type { CaseDraft, SkillDrafts } from '@domain/schemas.ts'
 import type { SecretId } from '@domain/secrets.ts'
 import { transport } from './transport.ts'
 
-export type { Job, JobProgress, RunView, Sample, State } from '@domain/views.ts'
+export type { Job, JobProgress, RunView, Sample, SkillVersion, State } from '@domain/views.ts'
 
 type GenerateRequest = Omit<GenerateInput, 'skill'>
 

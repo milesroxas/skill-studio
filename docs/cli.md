@@ -37,7 +37,7 @@ pnpm st report skills/release-notes --run <run-name>
 - `--model` and `--effort`: default per engine.
 - `--cases a,b`: default every case.
 - `--samples n`: a whole number from 1 (the default) to 10.
-- `--configuration`: `with_skill` (the default), `without_skill`, or `old_skill` with `--baseline <run>` ([versions](files.md#versions)).
+- `--configuration`: `with_skill` (the default), `without_skill`, or `old_skill` with `--baseline <version>` (such as `v1`) or `--baseline <run>` ([versions](files.md#versions)).
 - `--name` and `--note`: name the skill version and note on it, when the files changed.
 - `--parallel n`: samples in flight (3).
 - `--no-grade`: skip grading.

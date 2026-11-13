@@ -59,7 +59,8 @@ export interface GenerateInput extends Scoped {
   configs: EngineChoice[]
   samples: number
   configuration: Configuration
-  baselineRun: string | null
+  /** For `old_skill`: a version (`vN`), or a run whose copy of the skill to use. */
+  baseline: string | null
   skillName: string | null
   note: string
   grade: boolean

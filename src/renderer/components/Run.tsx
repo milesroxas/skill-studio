@@ -23,10 +23,10 @@ import { practiceVersionName } from '@domain/practice.ts'
 import { CONFIGURATIONS, type Configuration } from '@domain/schemas.ts'
 import { PlayIcon } from 'lucide-react'
 import { useId, useMemo, useState } from 'react'
-import { api, type Job, type State } from '../api.ts'
+import { api, type Job, type SkillVersion, type State } from '../api.ts'
 import { type Reporter, useToggleSet } from '../hooks.ts'
 import { useJobStart } from '../job-start.ts'
-import { capital, plural, runStamp, shortDate, versionName } from '../model.ts'
+import { capital, plural, shortDate } from '../model.ts'
 import { RUN } from '../places.ts'
 import { ComboBox } from './ComboBox.tsx'
 import { Disclosure } from './Disclosure.tsx'
@@ -49,8 +49,11 @@ const CONFIG_LABEL: Record<Configuration, string> = {
 const CONFIG_HELP: Record<Configuration, string> = {
   with_skill: 'The skill as its files are saved now.',
   without_skill: 'No skill at all. Run this once to see whether the skill helps.',
-  old_skill: 'A copy an earlier run kept, to test an edit against the version before it.',
+  old_skill: 'A version from before, to compare your latest edits against it.',
 }
+
+/** "v2 · Edits of Nov 13", as the Versions list on Skill names it. */
+const versionLabel = (v: SkillVersion): string => (v.name ? `${v.version} · ${v.name}` : v.version)
 
 /** "3 cases", or "3 cases, 2 attempts each": what the run does, said once on its button. */
 const runSize = (cases: number, attempts: number): string =>
@@ -137,8 +140,15 @@ export function RunButton({
   const run = useJobStart(mine, 'generate', report)
   const starting = run.starting()
   const running = run.busy()
-  // Runs list oldest first: the copy to test an edit against is the newest run's, the version before the edit.
-  const pastRun = withSkill.find((r) => r.name === baseline) ?? withSkill.at(-1) ?? null
+  // Every version with a copy kept: saved, or run with the skill. The files as they are now are
+  // "This version", so they are not offered again. Versions list oldest first: the one to test an
+  // edit against is the newest, the version before the edit.
+  const earlier = state.versions.versions.filter(
+    (v) =>
+      (current.changed || v.version !== current.version) &&
+      (v.saved || withSkill.some((r) => r.meta?.skillVersion === v.version)),
+  )
+  const pastVersion = earlier.find((v) => v.version === baseline) ?? earlier.at(-1) ?? null
   const usable = Boolean(chosen && engine?.available)
 
   const start = () => {
@@ -149,7 +159,7 @@ export function RunButton({
         configs: [chosen],
         samples,
         configuration,
-        baselineRun: configuration === 'old_skill' ? (pastRun?.name ?? null) : null,
+        baseline: configuration === 'old_skill' ? (pastVersion?.version ?? null) : null,
         skillName: name.trim() || (current.changed ? fallbackName : null),
         note: '',
         grade: true,
@@ -172,9 +182,9 @@ export function RunButton({
       : configuration === 'old_skill'
         ? {
             title: 'Test an earlier version',
-            hint: pastRun
-              ? `${versionName(pastRun)}, as it was on ${runStamp(pastRun)}. Compare your latest edits against it.`
-              : 'No earlier run kept a copy of the skill.',
+            hint: pastVersion
+              ? `${versionLabel(pastVersion)}${pastVersion.date ? `, as it was on ${shortDate(pastVersion.date)}` : ''}. Compare your latest edits against it.`
+              : 'No earlier version is kept.',
           }
         : firstVersion
           ? {
@@ -190,7 +200,7 @@ export function RunButton({
                 title: `Test ${current.version} again`,
                 hint: `Nothing changed since its last run. The new results add to ${current.version}’s.`,
               }
-  const configurations = withSkill.length
+  const configurations = earlier.length
     ? CONFIGURATIONS
     : CONFIGURATIONS.filter((c) => c !== 'old_skill')
   const missing = engines.filter((e) => !e.available)
@@ -262,7 +272,7 @@ export function RunButton({
         <Stack gap="md">
           <Button
             type="button"
-            disabled={!usable || !cases.length || (configuration === 'old_skill' && !pastRun)}
+            disabled={!usable || !cases.length || (configuration === 'old_skill' && !pastVersion)}
             busy={running}
             busyLabel={starting ? 'Starting…' : 'Running…'}
             aria-describedby={usable ? undefined : reasonId}
@@ -330,11 +340,11 @@ export function RunButton({
                 <SelectBox
                   id="run-baseline"
                   width="full"
-                  value={pastRun?.name ?? ''}
+                  value={pastVersion?.version ?? ''}
                   onChange={setBaseline}
-                  options={withSkill.map((r) => ({
-                    value: r.name,
-                    label: `${versionName(r)} · ${runStamp(r)}`,
+                  options={[...earlier].reverse().map((v) => ({
+                    value: v.version,
+                    label: v.date ? `${versionLabel(v)} · ${shortDate(v.date)}` : versionLabel(v),
                   }))}
                 />
               </Field>

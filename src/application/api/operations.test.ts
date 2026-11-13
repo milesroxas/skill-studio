@@ -131,10 +131,10 @@ describe('parsers', () => {
 describe('parsers, on what names a folder or sizes a run', () => {
   it('check the baseline run like every other run name', () => {
     expect(() =>
-      parsers['skill.generate']({ configuration: 'old_skill', baselineRun: '../../elsewhere' }),
+      parsers['skill.generate']({ configuration: 'old_skill', baseline: '../../elsewhere' }),
     ).toThrow('Bad run.')
-    expect(parsers['skill.generate']({ baselineRun: 'run-1' }).baselineRun).toBe('run-1')
-    expect(parsers['skill.generate']({}).baselineRun).toBeNull()
+    expect(parsers['skill.generate']({ baseline: 'run-1' }).baseline).toBe('run-1')
+    expect(parsers['skill.generate']({}).baseline).toBeNull()
   })
 
   it('hold samples to a whole number from 1 to 10', () => {

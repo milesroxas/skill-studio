@@ -337,7 +337,7 @@ describe('skill.generate', () => {
       configs: configs.map((c) => ({ ...c, model: '', effort: '' })),
       samples: 1,
       configuration,
-      baselineRun: null,
+      baseline: null,
       skillName: 'First notes',
       note: '',
       grade: true,
@@ -377,7 +377,7 @@ describe('skill.generate', () => {
     const { job } = await generate([{ engine: 'writes' }], [], 'old_skill')
     const ended = await finished(job)
     expect(ended.status).toBe('failed')
-    expect(ended.log.join('\n')).toMatch('old_skill needs the run')
+    expect(ended.log.join('\n')).toMatch('old_skill needs the version')
     expect(ended.progress?.done).toBe(ended.progress?.total)
   })
 

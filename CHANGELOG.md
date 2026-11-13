@@ -6,6 +6,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+### Fixed
+
+- **An earlier version** under **Run** now lists every version on Skill's **Versions** list, including ones that have not been run. Before, it listed only past runs, so a version saved but not run could not be picked.
+
 ## [0.10.0] - 2026-11-12
 
 ### Added

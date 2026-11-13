@@ -278,8 +278,8 @@ function generateInputOf(raw: Raw): GenerateInput {
     // A whole number from 1 to the most one run writes per case.
     samples: samplesPerCase(Math.min(MAX_SAMPLES, num(raw.samples, 1))),
     configuration: oneOf(str(raw.configuration, 'with_skill'), CONFIGURATIONS, 'configuration'),
-    // A run's name is a folder's name: checked like every other.
-    baselineRun: str(raw.baselineRun) ? assertSafe(str(raw.baselineRun), 'run') : null,
+    // A version label or a run's name, both folder names: checked like every other.
+    baseline: str(raw.baseline) ? assertSafe(str(raw.baseline), 'run') : null,
     skillName: str(raw.skillName) || null,
     note: str(raw.note),
     grade: raw.grade !== false,
@@ -878,7 +878,7 @@ export function createOperations(options: OperationsOptions): Runners {
                   effort,
                   samples: input.samples,
                   configuration,
-                  baselineRun: input.baselineRun,
+                  baseline: input.baseline,
                   skillName: input.skillName,
                   note: input.note,
                   log: (line) => say(job, line),

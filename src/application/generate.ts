@@ -29,9 +29,10 @@ import {
   treeFiles,
   writeJson,
 } from '@infrastructure/fs.ts'
-import { readRunMeta, runDir, versionsOf } from '@infrastructure/runs.ts'
+import { readRunMeta, runDir, versionSource, versionsOf } from '@infrastructure/runs.ts'
 import { skillInfo, snapshotSkill } from '@infrastructure/skill.ts'
 import { TranscriptWriter } from '@infrastructure/transcript.ts'
+import { isVersionLabel } from '@infrastructure/versions.ts'
 
 /** One sample of a long task; longer means the session is stuck. */
 const SAMPLE_TIMEOUT_MS = 20 * 60 * 1000
@@ -80,8 +81,8 @@ export interface GenerateOptions {
   effort: string | null
   samples: number
   configuration: Configuration
-  /** Run whose `_skill/` an `old_skill` run generates against. */
-  baselineRun: string | null
+  /** What an `old_skill` run generates against: a version (`vN`), or a run whose `_skill/` to use. */
+  baseline: string | null
   /** Name for the skill version when the working tree is new. */
   skillName: string | null
   note: string
@@ -161,21 +162,32 @@ function stageInputs(
 }
 
 /**
- * The copy of the skill an `old_skill` run is made against, the baseline
- * run's own, and the version that run was stamped with. Throws when no run is
- * named, or the run kept no copy or no record of its version.
+ * The copy of the skill an `old_skill` run is made against, and the version it
+ * is stamped with. `baseline` names a version, whose saved copy or first run's
+ * copy is used, or a run, whose own copy is. Throws when nothing is named, or
+ * no copy or no record of the version is kept.
  */
-function baselineOf(
-  skillDir: string,
-  baselineRun: string | null,
-): { dir: string; stamp: SkillStamp } {
-  if (!baselineRun) throw new Error('old_skill needs the run whose copy of the skill to use.')
-  const baseline = assertSafe(baselineRun, 'run')
-  const dir = join(runDir(skillDir, baseline), SKILL_DIR)
+function baselineOf(skillDir: string, baseline: string | null): { dir: string; stamp: SkillStamp } {
+  if (!baseline) throw new Error('old_skill needs the version to run against.')
+  if (isVersionLabel(baseline)) {
+    const version = versionsOf(skillDir).versions.find((v) => v.version === baseline)
+    if (!version) throw new Error(`No version ${baseline} is kept.`)
+    return {
+      dir: versionSource(skillDir, baseline),
+      stamp: {
+        version: version.version,
+        name: version.name,
+        hash: version.hash,
+        note: version.note,
+      },
+    }
+  }
+  const run = assertSafe(baseline, 'run')
+  const dir = join(runDir(skillDir, run), SKILL_DIR)
   if (!existsSync(join(dir, 'SKILL.md')))
-    throw new Error(`${baseline} keeps no copy of its skill, so no run can be made against it.`)
-  const old = readRunMeta(skillDir, baseline)
-  if (!old) throw new Error(`${baseline} has no record of the version it ran.`)
+    throw new Error(`${run} keeps no copy of its skill, so no run can be made against it.`)
+  const old = readRunMeta(skillDir, run)
+  if (!old) throw new Error(`${run} has no record of the version it ran.`)
   return {
     dir,
     stamp: { version: old.skillVersion, name: old.skillName, hash: old.skillHash, note: old.note },
@@ -188,7 +200,7 @@ export async function generateRun(
   const { skillDir, engine, log } = options
   const info = skillInfo(skillDir)
   const configuration = options.configuration
-  const baseline = configuration === 'old_skill' ? baselineOf(skillDir, options.baselineRun) : null
+  const baseline = configuration === 'old_skill' ? baselineOf(skillDir, options.baseline) : null
   const stamp = baseline ? baseline.stamp : stampSkill(skillDir, options.skillName, options.note)
   const model = options.model?.trim() || engine.defaultModel
   const effort = options.effort || 'default'

@@ -102,6 +102,7 @@ A run's configuration says which skill the agent saw:
 
 - `with_skill` (the default): the skill as it is now.
 - `without_skill`: no skill in the workspace, and no line in the prompt pointing at one.
+- `old_skill --baseline <version>`: that version's files, from `evals/versions/` or else the `_skill/` of its first run.
 - `old_skill --baseline <run>`: that run's `_skill/` snapshot, which holds what the run's agents got.
 
 ## The app's own files

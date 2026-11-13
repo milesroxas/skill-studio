@@ -50,7 +50,7 @@ Commands
     --cases <a,b>             Case ids; default every case.
     --samples <n>             Samples per case (default 1).
     --configuration <c>       with_skill (default), without_skill, old_skill.
-    --baseline <run>          For old_skill: the run whose _skill/ to use.
+    --baseline <v|run>        For old_skill: the version (v1) or run to test.
     --name <text>             Name the skill version when the tree changed.
     --note <text>             Note on the version.
     --parallel <n>            Samples in flight (default 3).
@@ -299,7 +299,7 @@ async function main(): Promise<number> {
       effort: choice.effort || null,
       samples: input.samples,
       configuration: input.configuration,
-      baselineRun: input.baselineRun,
+      baseline: input.baseline,
       skillName: input.skillName,
       note: input.note,
       parallel,

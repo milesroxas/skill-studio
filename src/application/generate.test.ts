@@ -4,6 +4,8 @@ import { join } from 'node:path'
 import { loadCases } from '@infrastructure/cases.ts'
 import type { Engine } from '@infrastructure/engines/index.ts'
 import { readJson } from '@infrastructure/fs.ts'
+import { versionsOf } from '@infrastructure/runs.ts'
+import { saveVersion } from '@infrastructure/versions.ts'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { generateRun, samplesPerCase } from './generate.ts'
 
@@ -53,7 +55,7 @@ const options = (engine: Engine, samples: number) => ({
   effort: null,
   samples,
   configuration: 'with_skill' as const,
-  baselineRun: null,
+  baseline: null,
   skillName: 'First version',
   note: '',
   parallel: 1,
@@ -168,13 +170,42 @@ describe('generateRun', () => {
     expect(meta.finishedAt).not.toBeNull()
   })
 
+  it('runs against a version saved by hand and never run, stamped with that version', async () => {
+    saveVersion(skill, versionsOf(skill).current, 'Short notes', '')
+    writeFileSync(join(skill, 'SKILL.md'), '---\nname: Notes Skill\n---\n\n- Keep it long.\n')
+    const { dir, meta } = await generateRun({
+      ...options(
+        engineThat(() => {}),
+        1,
+      ),
+      configuration: 'old_skill',
+      baseline: 'v0',
+    })
+    expect(readFileSync(join(dir, '_skill/SKILL.md'), 'utf8')).toContain('Keep it short')
+    expect(meta.skillVersion).toBe('v0')
+    expect(meta.skillName).toBe('Short notes')
+  })
+
+  it('refuses a version that is not kept', async () => {
+    await expect(
+      generateRun({
+        ...options(
+          engineThat(() => {}),
+          1,
+        ),
+        configuration: 'old_skill',
+        baseline: 'v4',
+      }),
+    ).rejects.toThrow('No version v4 is kept.')
+  })
+
   it('refuses a baseline that is not a run name', async () => {
     const engine = engineThat(() => {})
     await expect(
       generateRun({
         ...options(engine, 1),
         configuration: 'old_skill',
-        baselineRun: '../../elsewhere',
+        baseline: '../../elsewhere',
       }),
     ).rejects.toThrow('Bad run.')
     expect(engine.calls).toBe(0)

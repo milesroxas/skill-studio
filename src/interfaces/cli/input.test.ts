@@ -43,7 +43,7 @@ describe('generateInputOf', () => {
       configs: [{ engine: 'claude', model: '', effort: '' }],
       samples: 1,
       configuration: 'with_skill',
-      baselineRun: null,
+      baseline: null,
       skillName: null,
       note: '',
       grade: true,
@@ -68,7 +68,7 @@ describe('generateInputOf', () => {
       configs: [{ engine: 'cursor', model: 'gpt-5', effort: 'high' }],
       samples: 2,
       configuration: 'old_skill',
-      baselineRun: '2026-11-01-skill-v1-claude-sonnet',
+      baseline: '2026-11-01-skill-v1-claude-sonnet',
       skillName: 'Shorter rules',
       note: 'cut the preamble',
     })
@@ -134,8 +134,10 @@ describe('withHint', () => {
     )
   })
 
-  it('names --baseline when an old_skill run has no run to take the skill from', () => {
-    expect(withHint('old_skill needs a baseline run.')).toMatch('Pass --baseline <run>.')
+  it('names --baseline when an old_skill run has no version to run against', () => {
+    expect(withHint('old_skill needs the version to run against.')).toMatch(
+      'Pass --baseline <version>, such as v1.',
+    )
   })
 
   it('says nothing twice when the failure already names the flag', () => {

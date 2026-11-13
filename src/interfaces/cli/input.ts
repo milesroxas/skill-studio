@@ -71,7 +71,8 @@ export function generateInputOf(skill: string, flags: RunFlags): GenerateInput {
     ],
     samples,
     configuration: flags.configuration ?? 'with_skill',
-    baselineRun: flags.baseline === undefined ? null : runNameOf(flags.baseline, '--baseline'),
+    // A version label is a safe folder name too, so one check takes either.
+    baseline: flags.baseline === undefined ? null : runNameOf(flags.baseline, '--baseline'),
     skillName: flags.name ?? null,
     note: flags.note ?? '',
     grade: true,
@@ -107,7 +108,7 @@ const HINTS: ReadonlyArray<{ when: RegExp; flag: string; hint: string; drop?: Re
     flag: '--name',
     hint: 'Pass --name "<a name for this version>".',
   },
-  { when: /old_skill needs/i, flag: '--baseline', hint: 'Pass --baseline <run>.' },
+  { when: /old_skill needs/i, flag: '--baseline', hint: 'Pass --baseline <version>, such as v1.' },
 ]
 
 /**
