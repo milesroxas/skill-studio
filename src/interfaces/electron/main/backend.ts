@@ -4,7 +4,7 @@
  */
 
 import type { OperationName, Reply } from '@application/api/contract.ts'
-import type { PageRenderer } from '@domain/artifact-address.ts'
+import type { DrawnPage, PageRenderer } from '@domain/artifact-address.ts'
 import { type UtilityProcess, utilityProcess } from 'electron'
 import backendPath from '../backend/index.ts?modulePath'
 import type { FromBackend, Pushes, PushTopic, ToBackend } from '../channels.ts'
@@ -40,7 +40,7 @@ export class Backend {
     child: UtilityProcess,
     message: Extract<FromBackend, { type: 'render' }>,
   ): Promise<void> {
-    let reply: Reply<Uint8Array>
+    let reply: Reply<DrawnPage>
     try {
       if (!this.renderer) throw new Error('The app cannot draw pages yet.')
       reply = { ok: true, value: await this.renderer(message.page, message) }

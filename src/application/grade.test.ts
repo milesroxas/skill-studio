@@ -13,6 +13,7 @@ import {
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { pngHeader } from '@domain/__fixtures__/image.ts'
+import type { PageLayout } from '@domain/layout.ts'
 import type { Report, ReportResult } from '@domain/schemas.ts'
 import { readJson } from '@infrastructure/fs.ts'
 import { packById } from '@judges/index.ts'
@@ -426,13 +427,42 @@ describe('gradeRun, on a page drawn for a pack that looks at it', () => {
     return vi.spyOn(pack, 'judge').mockResolvedValue(null)
   }
 
+  const layout: PageLayout = {
+    window: [1280, 960],
+    page: [1280, 960],
+    elements: [
+      {
+        id: 1,
+        parent: 0,
+        name: 'main#app',
+        text: '',
+        x: 0,
+        y: 0,
+        width: 1280,
+        height: 960,
+        scale: 1,
+        unscaled: null,
+        background: '#ffffff (hsl 0 0% 100%)',
+        color: null,
+        font: null,
+        radius: null,
+        padding: null,
+        border: null,
+        gap: null,
+        shadows: 0,
+      },
+    ],
+    leftOut: 0,
+  }
+
   it('draws the page at each size once, keeps the pictures beside outputs/, and gives them to the pack', async () => {
     const { dir, run, sample } = pageSkill()
     vi.spyOn(Jev, 'available').mockReturnValue(true)
     const judge = designJudge()
-    const render = vi.fn(async (_page: unknown, size: { width: number; height: number }) =>
-      pngHeader(size.width, size.height),
-    )
+    const render = vi.fn(async (_page: unknown, size: { width: number; height: number }) => ({
+      png: pngHeader(size.width, size.height),
+      layout: size.width === 1280 ? layout : null,
+    }))
     await gradeRun(dir, run, { useJev: true, render })
     expect(render.mock.calls).toEqual([
       [
@@ -444,9 +474,11 @@ describe('gradeRun, on a page drawn for a pack that looks at it', () => {
         { width: 390, height: 1200 },
       ],
     ])
-    // Each picture is written whole, under its own name: nothing half-written is left beside them.
+    // Each picture is written whole, under its own name, with what the window measured beside it.
     expect(readdirSync(join(sample, 'renders')).sort()).toEqual([
+      'desktop-1280x960.json',
       'desktop-1280x960.png',
+      'phone-390x1200.json',
       'phone-390x1200.png',
     ])
     const [input] = judge.mock.calls[0]
@@ -454,6 +486,8 @@ describe('gradeRun, on a page drawn for a pack that looks at it', () => {
       ['desktop', null],
       ['phone', null],
     ])
+    // The pack gets the layout the window measured, and none for a page that could not be measured.
+    expect(input.renders.map((r) => r.layout)).toEqual([layout, null])
 
     // The pictures kept stand for the page as it is: nothing is drawn or asked again.
     render.mockClear()
@@ -463,13 +497,42 @@ describe('gradeRun, on a page drawn for a pack that looks at it', () => {
     expect(judge).not.toHaveBeenCalled()
   })
 
+  it('draws a page once more when its picture was kept before pages were measured', async () => {
+    const { dir, run, sample } = pageSkill(false)
+    vi.spyOn(Jev, 'available').mockReturnValue(true)
+    const judge = designJudge()
+    mkdirSync(join(sample, 'renders'), { recursive: true })
+    writeFileSync(join(sample, 'renders/desktop-1280x960.png'), pngHeader(1280, 960))
+    const render = vi.fn(async (_page: unknown, size: { width: number; height: number }) => ({
+      png: pngHeader(size.width, size.height),
+      layout,
+    }))
+    await gradeRun(dir, run, { useJev: true, render })
+    expect(render).toHaveBeenCalledTimes(1)
+    expect(judge.mock.calls[0][0].renders[0].layout).toEqual(layout)
+  })
+
+  it('reads a layout kept on disk as any file is: one that is no layout is none', async () => {
+    const { dir, run, sample } = pageSkill(false)
+    vi.spyOn(Jev, 'available').mockReturnValue(true)
+    const judge = designJudge()
+    mkdirSync(join(sample, 'renders'), { recursive: true })
+    writeFileSync(join(sample, 'renders/desktop-1280x960.png'), pngHeader(1280, 960))
+    writeFileSync(join(sample, 'renders/desktop-1280x960.json'), '{"elements":"all of them"}')
+    const render = vi.fn()
+    await gradeRun(dir, run, { useJev: true, render })
+    // The picture has a file beside it, so the page is not drawn again.
+    expect(render).not.toHaveBeenCalled()
+    expect(judge.mock.calls[0][0].renders[0].layout).toBeNull()
+  })
+
   it('logs a size it could not draw and judges without it', async () => {
     const { dir, run } = pageSkill()
     vi.spyOn(Jev, 'available').mockReturnValue(true)
     const judge = designJudge()
     const render = vi.fn(async (_page: unknown, size: { width: number; height: number }) => {
       if (size.width === 390) throw new Error('The page took longer than 20s.')
-      return pngHeader(size.width, size.height)
+      return { png: pngHeader(size.width, size.height), layout: null }
     })
     const lines: string[] = []
     await gradeRun(dir, run, { useJev: true, render, log: (line) => lines.push(line) })
@@ -483,9 +546,10 @@ describe('gradeRun, on a page drawn for a pack that looks at it', () => {
     const { dir, run, sample } = pageSkill(false)
     vi.spyOn(Jev, 'available').mockReturnValue(true)
     const judge = designJudge()
-    const render = vi.fn(async (_page: unknown, size: { width: number; height: number }) =>
-      pngHeader(size.width, size.height),
-    )
+    const render = vi.fn(async (_page: unknown, size: { width: number; height: number }) => ({
+      png: pngHeader(size.width, size.height),
+      layout: null,
+    }))
     await gradeRun(dir, run, { useJev: true, render })
     expect(render.mock.calls.map(([, size]) => size.width)).toEqual([1280])
     expect(existsSync(join(sample, 'renders/phone-390x1200.png'))).toBe(false)
@@ -497,9 +561,10 @@ describe('gradeRun, on a page drawn for a pack that looks at it', () => {
     writeFileSync(join(dir, 'evals/cases/page/case.yaml'), 'bench:\n  size: [1440, 900]\n')
     vi.spyOn(Jev, 'available').mockReturnValue(true)
     designJudge()
-    const render = vi.fn(async (_page: unknown, size: { width: number; height: number }) =>
-      pngHeader(size.width, size.height),
-    )
+    const render = vi.fn(async (_page: unknown, size: { width: number; height: number }) => ({
+      png: pngHeader(size.width, size.height),
+      layout: null,
+    }))
     await gradeRun(dir, run, { useJev: true, render })
     expect(render.mock.calls.map(([, size]) => size)).toEqual([{ width: 1440, height: 900 }])
   })
@@ -607,9 +672,10 @@ describe('gradeRun, on a picture too large or too small for Jev', () => {
     const { dir, run, sample } = pictureSkill(1920, 1080)
     vi.spyOn(Jev, 'available').mockReturnValue(true)
     const judge = genericJudge().mockResolvedValue(null)
-    const render = vi.fn(async (_page: unknown, size: { width: number; height: number }) =>
-      pngHeader(size.width, size.height),
-    )
+    const render = vi.fn(async (_page: unknown, size: { width: number; height: number }) => ({
+      png: pngHeader(size.width, size.height),
+      layout: null,
+    }))
     const [result] = (await gradeRun(dir, run, { useJev: true, render })).results
     // The window has the picture's own shape, so the whole of it is drawn.
     expect(render.mock.calls).toEqual([

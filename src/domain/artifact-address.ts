@@ -8,6 +8,7 @@
  * from disk: `app.js` beside `outputs/index.html` is
  * `/<skill>/<run>/<sample>/outputs/app.js`.
  */
+import type { PageLayout } from './layout.ts'
 
 /** One file of one sample. `skill` is the skill's path, or empty for the first one served. */
 export interface ArtifactAddress {
@@ -64,13 +65,20 @@ export const RENDER_SIZES: readonly RenderSize[] = [
   { id: 'phone', width: 390, height: 1200 },
 ]
 
+/** A page as one window drew it. */
+export interface DrawnPage {
+  /** A PNG of exactly the window's pixels, scaled down whole when a side is past the 1568 Jev reads. */
+  png: Uint8Array
+  /** The elements the window drew, as it measured them; null when the page could not be measured. */
+  layout: PageLayout | null
+}
+
 /**
- * Draws a page a sample wrote in a window of one size and answers a PNG of
- * exactly that many pixels, scaled down whole when a side is past the 1568
- * Jev reads. Only the desktop app has a browser to draw with; the CLI and
+ * Draws a page a sample wrote in a window of one size, and measures what it
+ * drew. Only the desktop app has a browser to draw with; the CLI and
  * `st serve` grade without one.
  */
 export type PageRenderer = (
   page: ArtifactAddress,
   size: { width: number; height: number },
-) => Promise<Uint8Array>
+) => Promise<DrawnPage>

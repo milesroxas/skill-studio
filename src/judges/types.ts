@@ -1,4 +1,5 @@
 import type { RenderSize } from '@domain/artifact-address.ts'
+import type { PageLayout } from '@domain/layout.ts'
 import type { PackScoring } from '@domain/pack.ts'
 import type { Rule } from '@domain/rules.ts'
 import type { Artifact, BenchConfig, Case, TranscriptEvent } from '@domain/schemas.ts'
@@ -65,6 +66,8 @@ export interface FittedPicture {
 export interface PageShot {
   size: RenderSize
   read: Readable
+  /** The elements the page drew at this size, as the window measured them; null when it was not measured. */
+  layout: PageLayout | null
 }
 
 /** How a check command ended. */

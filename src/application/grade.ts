@@ -10,6 +10,7 @@ import { type PageRenderer, RENDER_SIZES, type RenderSize } from '@domain/artifa
 import { isPicture } from '@domain/case-draft.ts'
 import { mergeConfig } from '@domain/config.ts'
 import { fitForJev, PICTURE_HEAD_BYTES, pictureSize } from '@domain/image.ts'
+import { type PageLayout, readLayout } from '@domain/layout.ts'
 import { packFailedFlag, packFailure } from '@domain/pack.ts'
 import { primaryArtifact } from '@domain/primary.ts'
 import { NOTES_FILE } from '@domain/prompt.ts'
@@ -147,10 +148,21 @@ function renderSizes(testCase: Case | null): RenderSize[] {
   })
 }
 
+/** The layout kept beside a page's picture, or null when there is none or it does not read. */
+function keptLayout(path: string): PageLayout | null {
+  if (!isFile(path)) return null
+  try {
+    return readLayout(JSON.parse(readFileSync(path, 'utf8')))
+  } catch {
+    return null
+  }
+}
+
 /**
  * Draw the page at each of `RENDER_SIZES`, kept in the sample's `renders/`
- * folder and drawn again only when the page is newer than the picture. A size
- * that cannot be drawn is logged and left out: the pack judges without it.
+ * folder with the layout the window measured, and drawn again only when the
+ * page is newer than the picture or the picture has no layout beside it. A
+ * size that cannot be drawn is logged and left out: the pack judges without it.
  */
 async function drawPage(
   render: PageRenderer,
@@ -165,24 +177,36 @@ async function drawPage(
   const source = statSync(join(sample.path, page.file)).mtimeMs
   for (const size of sizes) {
     // Named by its size too, so a case asking for another size draws the page again.
-    const path = join(sample.path, RENDERS_DIR, `${size.id}-${size.width}x${size.height}.png`)
-    if (!isFile(path) || statSync(path).mtimeMs < source) {
+    const name = `${size.id}-${size.width}x${size.height}`
+    const path = join(sample.path, RENDERS_DIR, `${name}.png`)
+    // What the window measured, beside the picture it drew. A picture drawn before pages
+    // were measured has none, and is drawn once more for it.
+    const measured = join(sample.path, RENDERS_DIR, `${name}.json`)
+    if (!isFile(path) || statSync(path).mtimeMs < source || !isFile(measured)) {
       try {
-        const png = await render(
+        const shot = await render(
           { skill: skillDir, run, sample: sample.name, file: page.file },
           { width: size.width, height: size.height },
         )
         // Whole or not at all: half a picture would be newer than the page, and never drawn again.
-        writeText(path, png)
+        writeText(path, shot.png)
+        // A page that could not be measured keeps a file that says so, and is not drawn on every grading.
+        writeText(measured, JSON.stringify(shot.layout))
       } catch (error) {
         log(`the page could not be drawn at ${size.id} width: ${(error as Error).message}`)
         continue
       }
     }
-    drawn.shots.push({ size, read: readForJev(path) })
+    const layout = keptLayout(measured)
+    drawn.shots.push({ size, read: readForJev(path), layout })
     drawn.hashes[`render:${size.id}`] = createHash('sha256')
       .update(readFileSync(path))
       .digest('hex')
+    // An answer rests on the layout too: a page measured since is asked about again.
+    if (layout)
+      drawn.hashes[`layout:${size.id}`] = createHash('sha256')
+        .update(JSON.stringify(layout))
+        .digest('hex')
   }
   return drawn
 }
@@ -213,7 +237,7 @@ async function fitPicture(
   if (!isFile(path) || statSync(path).mtimeMs < statSync(source).mtimeMs) {
     try {
       // A window of the picture's own shape shows the whole of it, scaled down to the window.
-      const png = await render(
+      const { png } = await render(
         { skill: skillDir, run, sample: sample.name, file },
         { width: fit.width, height: fit.height },
       )

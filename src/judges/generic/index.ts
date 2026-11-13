@@ -12,6 +12,7 @@
  * score.ts.
  */
 import { join } from 'node:path'
+import { layoutText } from '@domain/layout.ts'
 import { headingOf, plain, type Rule } from '@domain/rules.ts'
 import type { Grader } from '@domain/schemas.ts'
 import { type Image, noul, withAssets } from '@typesafe-ai/sdk'
@@ -37,16 +38,19 @@ interface Room {
   skill: number
   /** Whether the other files the agent wrote are read. */
   others: boolean
+  /** Characters of the page's measured layout: its largest elements first. */
+  layout: number
   said?: string
 }
 
 const ROOMS: readonly Room[] = [
-  { output: 24_000, notes: 6000, skill: 12_000, others: true },
+  { output: 24_000, notes: 6000, skill: 12_000, others: true, layout: 14_000 },
   {
     output: 12_000,
     notes: 3000,
     skill: 6000,
     others: false,
+    layout: 8000,
     said: 'judged on the first 12,000 characters of the output and none of the files beside it: the whole is more than Jev reads at once',
   },
   {
@@ -54,6 +58,7 @@ const ROOMS: readonly Room[] = [
     notes: 1500,
     skill: 0,
     others: false,
+    layout: 0,
     said: 'judged on the first 6,000 characters of the output and none of the files beside it: the whole is more than Jev reads at once',
   },
 ]
@@ -82,6 +87,8 @@ interface Work {
   skill: boolean
   /** The headings its rules stand under are in `headings`. */
   headings: string[]
+  /** The elements of the page as the window measured them are in `layout`. */
+  layout: boolean
 }
 
 /** Why the output's picture is not shown to Jev, as a flag; null when it was read or there is none. */
@@ -116,6 +123,12 @@ function workOf(input: JudgeInput, room: Room): Work | null {
   // The page is in the picture only when the picture judged is the one the app drew.
   const page = input.primary?.kind === 'html' ? renderOf(input, 'desktop') : null
   const window = page?.image && page.image === read?.image
+  // What the window measured goes with the picture it drew: a length is read there, not off the picture.
+  const measured =
+    window && room.layout
+      ? (input.renders.find((r) => r.size.id === 'desktop')?.layout ?? null)
+      : null
+  if (measured) state.layout = layoutText(measured, room.layout)
   return {
     state,
     text: Boolean(text),
@@ -129,6 +142,7 @@ function workOf(input: JudgeInput, room: Room): Work | null {
     others: others.length > 0,
     skill: Boolean(skill),
     headings,
+    layout: measured !== null,
   }
 }
 
@@ -171,6 +185,9 @@ function lead(work: Work): string {
       ? work.drawn
         ? drawnLine(work.drawn)
         : '`picture` is a picture made with `output`.'
+      : null,
+    work.layout
+      ? `\`layout\` lists the elements of ${made} as that window measured them: the place and the size of each in px, from the top left of the page, and where it sits inside the elements that hold it. A size, a distance or a position is read from \`layout\`, where it was measured, and not judged by eye on \`picture\`.`
       : null,
     work.fitted
       ? `\`picture\` is shown at another size than the file it is, which is ${work.fitted[0]} by ${work.fitted[1]} px, so a length measured on \`picture\` is not its length in the file.`
@@ -406,7 +423,7 @@ async function ask(
 
 export const genericPack: JudgePack<GenericRaw> = {
   ...genericScoring,
-  version: 5,
+  version: 6,
   label: 'Generic: the skill’s rules and the case’s checks',
   renders: true,
   async judge(input, ctx) {

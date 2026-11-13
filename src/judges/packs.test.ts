@@ -82,6 +82,7 @@ const inputFor = (id: string, testCase: Case): JudgeInput => {
             {
               size: { id: 'desktop', width: 1280, height: 960 },
               read: { image: image(pngHeader(1280, 960)), problem: null },
+              layout: null,
             },
           ]
         : [],

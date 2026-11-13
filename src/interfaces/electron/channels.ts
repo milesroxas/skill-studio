@@ -4,7 +4,7 @@
  */
 import type { Reply } from '@application/api/contract.ts'
 import type { AiRun } from '@domain/ai.ts'
-import type { ArtifactAddress } from '@domain/artifact-address.ts'
+import type { ArtifactAddress, DrawnPage } from '@domain/artifact-address.ts'
 import type { Job } from '@domain/views.ts'
 
 export const CHANNELS = {
@@ -58,7 +58,7 @@ export type ToBackend =
   /** End the agent processes it started, then exit. */
   | { type: 'stop' }
   /** The PNG of a page the backend asked to have drawn, or why it could not be. */
-  | { type: 'rendered'; id: number; reply: Reply<Uint8Array> }
+  | { type: 'rendered'; id: number; reply: Reply<DrawnPage> }
 
 /** What the backend tells the page without being asked, by topic. */
 export interface Pushes {

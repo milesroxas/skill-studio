@@ -3,6 +3,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { pngHeader } from '@domain/__fixtures__/image.ts'
 import { mergeConfig } from '@domain/config.ts'
+import { layoutText, readLayout } from '@domain/layout.ts'
 import type { Artifact, Case, Grader } from '@domain/schemas.ts'
 import { image } from '@typesafe-ai/sdk'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -75,6 +76,7 @@ const asked = (n = 0) => {
 const drawn = {
   size: { id: 'desktop' as const, width: 1280, height: 960 },
   read: { image: image(pngHeader(1280, 960)), problem: null },
+  layout: null,
 }
 
 describe('generic pack', () => {
@@ -269,6 +271,7 @@ describe('generic pack', () => {
     const wide = {
       size: { id: 'desktop' as const, width: 1600, height: 1200 },
       read: { image: image(pngHeader(1568, 1176)), problem: null },
+      layout: null,
     }
     await genericPack.judge(
       output({
@@ -283,6 +286,38 @@ describe('generic pack', () => {
     expect(asked().questions['rule:r1'].instructions).toContain(
       'in a window 1600 px wide and 1200 px tall, scaled to 1568 by 1176 px, so a length measured on `picture` is not its length in `output`.',
     )
+  })
+
+  it('gives Jev what the window measured, and says a length is read there', async () => {
+    const layout = readLayout({
+      window: [1280, 960],
+      page: [1280, 2000],
+      elements: [
+        { parent: 0, name: 'main#app', text: '', x: 0, y: 0, width: 1280, height: 2000 },
+        { parent: 1, name: 'h1', text: 'Hi', x: 40, y: 40, width: 600, height: 48, font: '40px' },
+      ],
+    })
+    if (!layout) throw new Error('the fixture is a layout')
+    const measured = output({
+      text: '<h1>Hi</h1>',
+      primary: page,
+      artifacts: [page],
+      rules: [rule('r1')],
+      renders: [{ ...drawn, layout }],
+    })
+    await genericPack.judge(measured, ctx)
+    expect(asked().state.layout).toBe(layoutText(layout, 14_000))
+    expect(asked().questions['rule:r1'].instructions).toContain(
+      '`layout` lists the elements of `output` as that window measured them: the place and the size of each in px, from the top left of the page, and where it sits inside the elements that hold it. A size, a distance or a position is read from `layout`, where it was measured, and not judged by eye on `picture`.',
+    )
+
+    // The layout goes with the picture the window drew: a drawing Jev cannot read is told of no window.
+    ask.mockClear()
+    await genericPack.judge(
+      { ...measured, renders: [{ ...drawn, read: { image: null, problem: 'too small' }, layout }] },
+      ctx,
+    )
+    expect(asked().state).not.toHaveProperty('layout')
   })
 
   it('judges a picture as the work when the output is one', async () => {

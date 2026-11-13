@@ -51,6 +51,7 @@ const input = (html: string, renders: PageShot[] = []): JudgeInput => ({
 const drawn = (id: 'desktop' | 'phone', width: number, height: number): PageShot => ({
   size: { id, width, height },
   read: { image: image(pngHeader(width, height)), problem: null },
+  layout: null,
 })
 
 type Ask = (state: Record<string, unknown>, questions: Record<string, unknown>) => Promise<unknown>
@@ -146,7 +147,7 @@ describe('design pack', () => {
       expect(ask.mock.calls[0][0].screenshot).toBe(desktop.read.image)
       // A drawing Jev cannot read, or none: the agent's own screenshot stands in.
       const unreadable = await designPack.judge(
-        page([{ size: desktop.size, read: { image: null, problem: 'too small' } }]),
+        page([{ size: desktop.size, read: { image: null, problem: 'too small' }, layout: null }]),
         asking(ask),
       )
       expect(ask.mock.calls[1][0].screenshot).not.toBe(desktop.read.image)
@@ -164,6 +165,7 @@ describe('design pack', () => {
     const unreadable: PageShot = {
       size: { id: 'desktop', width: 100, height: 100 },
       read: { image: null, problem: 'too small' },
+      layout: null,
     }
     const raw = await designPack.judge(input(ARTBOARD, [unreadable]), asking(ask))
     expect(raw).toEqual({ jev: null, unread: 'screenshot not judged: too small' })

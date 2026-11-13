@@ -128,6 +128,7 @@ The pack asks one question per rule and one per check, about the work as a whole
 
 - `output`: the text of the primary artifact, its first 24,000 characters. A page is its HTML and code is its source. A picture has no text.
 - `picture`: the output as a picture. A page is the page as the desktop app drew it (see Design, below, for how and at what size); an output that is a PNG or JPEG is that picture; anything else, and a page nothing drew, is the first PNG or JPEG the agent left in `outputs/`. So a rule about how a page looks is judged on how it looks.
+- `layout`: for a page the desktop app drew, the elements it drew as the window measured them (see Measuring a page, below).
 - `other_files`: the start of every other text file the agent wrote, 6,000 characters of each and 18,000 in all, by its path. A test beside the code, or a script beside a page, is part of the work. A file that says what the primary one says, such as a preview that is the page, is left out.
 - `notes`: what the agent told the user (`notes.md` in the sample, which the run's prompt has it write in place of a reply), its first 6,000 characters. A rule or check that asks for something to be said, named, listed or reported is met when the notes say it. Nothing else is judged on the notes: a rule about the piece's length or wording is not failed for how the notes read.
 - `request` and `request_images`: the case's prompt and the pictures it came with.
@@ -151,6 +152,17 @@ A picture the agent made with a side outside the 280 to 1568 pixels Jev reads is
 A picture Jev cannot read is left out with the flag `picture not judged: ...`, and the text is still judged. An output with neither text nor a picture Jev can read gets no adherence or rubric.
 
 A check about a picture (`image:` in its front matter) that Jev cannot read is not asked: without the picture its answer would be a guess. It is left out of the rubric, which is counted from the case's other checks, with the flag `grader <id> not judged, its picture is not shown to Jev (<why>): <the check>`.
+
+### Measuring a page
+
+Jev looks at a picture and reads source, and does neither a sum nor a ruler's work well. So a size, a distance or a position is measured where the page is drawn, and the sums are done in code.
+
+- **What is measured.** When the desktop app draws a page, a script in the page's window reads each element it shows (`MEASURE_PAGE` in `src/interfaces/electron/main/measure.ts`): its box in CSS px from the top left of the page, the scale its transform gives it, its background and text colour as sRGB and HSL, its font size, corner radius, padding, border, gap and how many shadows it casts. The 300 largest elements are kept.
+- **Where it runs.** In a world of its own in that window, so the page's scripts cannot change what the browser answers. What comes back is read as an untrusted file is (`readLayout` in `src/domain/layout.ts`): every number finite, every string one short line, or it is no layout.
+- **Where it is kept.** Beside the page's picture in the sample's `renders/` folder, under the same name with `.json`. A picture with no layout beside it is drawn once more. The layout is part of what an answer is kept by, so a page measured since is asked about again.
+- **What Jev reads.** `layoutText` writes one line an element, largest first when the page has more than 14,000 characters of them. Under each region (3% of the window or more) and each scaled or shadowed element, it writes where the element sits inside the two nearest elements that hold it: how far each edge is from the holder's, in px and as a share of the holder's width, its size as a share of the holder's, how far its centre is from the holder's centre, and how its background's lightness, saturation and hue differ from the holder's. The question says a size, a distance or a position is read from `layout` and not judged by eye on `picture`.
+- **What it settles.** A check that states one measure. On the run this was built on, 21 of 22 single measures, true and false, came back right and sure with the layout, and 14 without. A rule that packs several measures into one sentence is still often Not sure: one answer cannot be yes to three parts and no to a fourth.
+- **What it does not cover.** A picture the agent made has no elements to measure, and neither the CLI nor `st serve` has a browser to draw with: there, a measure is still judged by eye.
 
 ### Code
 

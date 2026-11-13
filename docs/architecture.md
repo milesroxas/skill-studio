@@ -116,8 +116,8 @@ Imports point inward only. `pnpm fallow` fails on one that does not (`boundaries
 - `?stage=1` asks for a page as Results' stage shows it. It adds a short script that lets two pages scroll together and passes A and B up (`withStageBridge` in `src/application/api/artifact-page.ts`).
 - Grading draws a page for Jev to look at (the generic and design packs both do). Only the main process has a browser to draw with:
   - The backend posts `render` with the page and a size (`PageRenderer` in `src/domain/artifact-address.ts`).
-  - The main process loads it in an offscreen window (`src/interfaces/electron/main/render.ts`), one page at a time, and answers `rendered` with a PNG of that size, scaled down whole when a side is past 1568 pixels.
-  - `gradeRun` draws at the case's size, or 1280 by 960, and also at 390 by 1200 for a case that asks for a phone. The PNGs go in the sample's `renders/` folder, named by size, and are drawn again only when the page is newer.
+  - The main process loads it in an offscreen window (`src/interfaces/electron/main/render.ts`), one page at a time, and answers `rendered` with a PNG of that size, scaled down whole when a side is past 1568 pixels, and the layout it measured: the box and the look of each element the page drew (`measure.ts`, read by `readLayout` in `src/domain/layout.ts`).
+  - `gradeRun` draws at the case's size, or 1280 by 960, and also at 390 by 1200 for a case that asks for a phone. The PNGs go in the sample's `renders/` folder, named by size, each with its layout beside it as `.json`, and are drawn again only when the page is newer or a picture has no layout.
   - The CLI and `st serve` have no renderer, so there a page is judged by its HTML and any screenshot the agent left.
 
 ### Keys

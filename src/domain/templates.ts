@@ -560,9 +560,9 @@ export const CHECK_EXAMPLES: readonly CheckExample[] = [
     why: 'One check, one fact. Whether the answer follows the skill is already scored, one rule at a time.',
   },
   {
-    bad: 'The card sits 24px above the centre of the window.',
-    good: 'The card sits above the centre of the window.',
-    why: 'Jev looks at the answer and cannot measure it. A check that needs a ruler comes back as Not sure.',
+    bad: 'The card is centred, 320px wide and 24px above the centre of the window.',
+    good: 'The centre of the card is 24px to 40px above the centre of the window.',
+    why: 'One measure a check. Jev reads real sizes on a page, but on a picture it can only look, so the check comes back as Not sure.',
   },
 ]
 

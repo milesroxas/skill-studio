@@ -7,7 +7,7 @@ import { watchRuns } from '@application/ai.ts'
 import type { Reply } from '@application/api/contract.ts'
 import { createOperations, invoke, isOperation } from '@application/api/operations.ts'
 import { watchJobs } from '@application/jobs.ts'
-import type { PageRenderer } from '@domain/artifact-address.ts'
+import type { DrawnPage, PageRenderer } from '@domain/artifact-address.ts'
 import { agentLifecycle, keepRunning } from '../../lifecycle.ts'
 import type { FromBackend, ToBackend } from '../channels.ts'
 
@@ -20,7 +20,7 @@ keepRunning((line) => console.error(line))
 const agents = agentLifecycle({ log: (line) => console.warn(line) })
 
 /** Pages the main process is drawing, by the id they were asked under. */
-const drawing = new Map<number, (reply: Reply<Uint8Array>) => void>()
+const drawing = new Map<number, (reply: Reply<DrawnPage>) => void>()
 let drawn = 0
 
 /** Ask the main process to draw a page: grading looks at it as a browser shows it. */
