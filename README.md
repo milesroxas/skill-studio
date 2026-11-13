@@ -2,19 +2,15 @@
 
 [![ci](https://github.com/milesroxas/skill-studio/actions/workflows/ci.yml/badge.svg)](https://github.com/milesroxas/skill-studio/actions/workflows/ci.yml)
 
-A desktop app for writing agent skills and seeing whether an edit made them better. The loop has three steps:
+A desktop app for writing agent skills and seeing whether an edit made them better. You go round three steps:
 
 1. **Write** the skill's rules.
-2. **Run** headless coding agents (Claude Code, Cursor's agent) on the skill's cases.
-3. **Compare** what each version wrote, side by side, and see what each missed.
+2. **Run** an agent (Claude Code or Cursor) on a few test tasks, called cases, with the skill installed.
+3. **Compare** each version's answers side by side, with what each one missed.
 
-[TypeSafe](https://typesafe.ai)'s Jev reads every output against your rules and each case's checks, so each output shows what it missed and a missed rule links back to the editor. Runs, reports and your corrections are plain files beside the skill, in its `evals/` folder.
+[TypeSafe](https://typesafe.ai)'s Jev grades every answer against your rules and each case's checks. A score counts the rules and checks met. Where you disagree with Jev, you mark the verdict and the score follows. Runs, scores and your corrections are plain files in the skill's `evals/` folder.
 
-It is built for outputs that are a matter of judgement, such as writing, HTML and agent process:
-
-- Jev answers facts: was this rule followed, was this check met. A score is a count of those facts.
-- Where you disagree with a verdict, you mark it, and the score follows. What an output gets wrong that nothing checks yet becomes a check in one line.
-- Jev's answers are stored, so a change to the points or the threshold costs no new calls.
+It suits work that is a matter of judgement, such as writing, web pages and agent process.
 
 ![Skill Studio with a skill open on Results: the sidebar with Skill, Cases and Results, three cases with how each score moved, and two outputs of one case side by side with what each missed.](docs/images/app.webp)
 
@@ -50,7 +46,7 @@ Keys can also come from the environment or a `.env` in the checkout ([.env.examp
 
 ## Get started
 
-A first launch opens a welcome that offers a walkthrough: a finished skill to take through the whole workflow once. The [guide](docs/guide.md) then walks a skill of your own through each step. It also opens from Guide in the app's sidebar.
+The first launch offers a walkthrough: a sample skill taken once round the loop. The [guide](docs/guide.md), also under Guide in the app, then covers each step for a skill of your own.
 
 ## Documentation
 

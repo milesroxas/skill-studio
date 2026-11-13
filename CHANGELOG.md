@@ -25,6 +25,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - The lists on the left of Cases, Results and Skill share one look: each row is the name, then one line about it, with any score at the row's end. Long names take two lines instead of being cut short.
 - On Results, each case shows its latest score and how it moved in words, such as "Up 11 from v0", in place of two scores and an arrow. A drop is in red.
 - Versions on Skill show their score as the same chip Results uses.
+- The welcome's **See how it works** pictures match the app: Jev's marks look like the rows on Results, and the last step shows the two versions side by side with their score chips, named as the walkthrough names them.
+- The guide is shorter and written for someone new to skills: each step says what to click and what you will see, and the technical detail moved to the developer docs.
 
 ## [0.9.1] - 2026-11-12
 

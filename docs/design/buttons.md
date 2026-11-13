@@ -102,7 +102,14 @@ Otherwise → default
 
 The top bar shows where the loop goes next. It is the app's one yellow control. Only `App.tsx` renders it: a screen never adds its own. Below `lg` it reads the step's name alone ("Read the results"), "Next:" kept for a screen reader, and it is the last part of the bar to give way (see `TopBar` in [layout.md](layout.md)).
 
-The loop is write, run, compare, and running is a button, not a place. So the next step is one of two things: a place to go ("Next: Add a case", "Next: Read the results"), drawn as below, or the run itself. `RunButton` (`components/Run.tsx`) stands in the top bar whenever the skill has a case. It is `signal` when running is the next step and `outline` otherwise. Its label names what pressing it tests: the version ("Run v2"), or "Run without skill" before the skill's first run, when the next step is the run with no skill that sets the score to beat. That run is suggested, never required: its panel is titled "First, test without the skill" and offers "Test the skill instead" (`link-muted`, `inline-sm`) under its button, which switches the panel to the skill in one press. After the run without the skill, the next step is a run with it. It opens a `form` popover that says what the run will test, then the button that starts it, which names what the run does ("Run 3 cases"), because a run costs money.
+The loop is write, run, compare, and running is a button, not a place. So the next step is one of two things: a place to go ("Next: Add a case", "Next: Read the results"), drawn as below, or the run itself.
+
+`RunButton` (`components/Run.tsx`) stands in the top bar whenever the skill has a case.
+
+- It is `signal` when running is the next step, and `outline` otherwise.
+- Its label names what pressing it tests: the version ("Run v2"), or "Run without skill" before the skill's first run, when the next step is the run with no skill that sets the score to beat.
+- That run is suggested, never required. Its panel is titled "First, test without the skill" and offers "Test the skill instead" (`link-muted`, `inline-sm`) under its button, which switches the panel to the skill in one press. After the run without the skill, the next step is a run with it.
+- It opens a `form` popover that says what the run will test, then the button that starts it. That button names what the run does ("Run 3 cases"), because a run costs money.
 
 ```tsx
 // Correct: App.tsx
@@ -149,7 +156,10 @@ The loop is write, run, compare, and running is a button, not a place. So the ne
 - Press feedback (`active:scale-[0.96]`) and the focus ring (`focus-ring`: keyboard only, see [color.md](color.md#focus)) are built in. Do not restyle them.
 - Never show an action only on hover. A row's actions are `ghost-muted` at rest, so touch and keyboard reach them.
 - Never hide a row's actions on a narrow window. `RowActions` folds them into a "More actions" menu instead ([data.md](data.md)).
-- A column header shows the action its reader came for. What is done to the column's subject now and then goes in `MoreActions` (`components/RowActions.tsx`), the same menu at every width, last in the header: Edit case and Regrade on Results. Never put the header's one main action in it. A destructive action may go in it when it acts on more than the column shows, so a button in the column would read as deleting less than it does: Delete run on a case of Results, since a run spans every case. It is a `RowAction` with `tone="destructive"`, last in the menu: red, under a hairline (`MenuSeparator`). One destructive action per subject; two runs give two, named by side ("Delete A’s run"), under one hairline. Its button is `icon-sm`; `size="xs"` makes it `icon-xs` for a row of a dense list, such as a verdict's answer on Results (`Verdicts.tsx`). A `ghost-muted` button that opens something keeps its hover look while it is open (`data-state="open"`).
+- A column header shows the action its reader came for. What is done to the column's subject now and then goes in `MoreActions` (`components/RowActions.tsx`), the same menu at every width, last in the header: Edit case and Regrade on Results. Never put the header's one main action in it.
+- A destructive action may go in `MoreActions` when it acts on more than the column shows, so a button in the column would read as deleting less than it does: Delete run on a case of Results, since a run spans every case. It is a `RowAction` with `tone="destructive"`, last in the menu: red, under a hairline (`MenuSeparator`). One destructive action per subject; two runs give two, named by side ("Delete A’s run"), under one hairline.
+- `MoreActions`' button is `icon-sm`. `size="xs"` makes it `icon-xs`, for a row of a dense list such as a verdict's answer on Results (`Verdicts.tsx`).
+- A `ghost-muted` button that opens something keeps its hover look while it is open (`data-state="open"`).
 
 ## Menus and right-click
 

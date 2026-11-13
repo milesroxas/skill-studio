@@ -61,7 +61,20 @@ Does the reader pick one item from a list and work on it?
 
 A region is a part of the page: a column, a section, a group of fields. It ends at a hairline and has no fill, radius or shadow of its own. `Card` (`components/ui/card.tsx`, `rounded-md bg-card shadow-raised`) is for an object a person compares or picks up. Two things use it: an output (`OutputCard`, two of them side by side on Results), and a rewrite to pick in the selection popout (`Rewrites.tsx`, a button with the card's surface, since the whole object is the action). The same corners and fill with a border in place of the shadow (`rounded-md border bg-card`) bound a `Disclosure variant="card"`, a `DisclosureList`, an `Alert`, and a figure or a table in the guide: each is one object standing in a flow of text, never a region of the page. The stage on Results (see [The stage](#the-stage)) is the one ground with a fill of its own: it holds an output as a browser draws it, as a proof is laid on a light table.
 
-`Disclosure` (`components/Disclosure.tsx`) folds a block behind one line, in four variants. `plain` is a line of text that opens in place. `section` is the same line between a form's sections, folding parts of the form: what it opens is spaced as the column's sections are (32px apart, 16px under the line) and fades in with `animate-ink`, since a whole part of the form arrives at once. A case's optional parts use it. `card` is one file of a diff, on its own bordered block (a version's changes on the Skill screen). `row` is one row of a `DisclosureList`: the changes an Assistant reply proposes, a title over a line of detail, with one control at the end in a slot of fixed width so the controls line up down the list. A row with nothing to open keeps the chevron's slot empty, so the titles line up too. A draft from Help me improve is the same row (`RowAction` in `Change.tsx`): SKILL.md, how it stands against the guide and its length in words, Apply; it opens to a `WordDiff size="row"` against the rule as it reads now, by phrase (changes a word or two apart on one line join, so a rewrite does not read word by word; a line break keeps them apart), then Applied once the rule reads as the draft; the newest opens on arrival and an earlier one folds.
+`Disclosure` (`components/Disclosure.tsx`) folds a block behind one line, in four variants:
+
+| Variant | Use |
+| --- | --- |
+| `plain` | a line of text that opens in place |
+| `section` | the same line between a form's sections, folding parts of the form, such as a case's optional parts. What it opens is spaced as the column's sections are (32px apart, 16px under the line) and fades in with `animate-ink`, since a whole part of the form arrives at once |
+| `card` | one file of a diff, on its own bordered block: a version's changes on the Skill screen |
+| `row` | one row of a `DisclosureList`: a title over a line of detail, with one control at the end in a slot of fixed width, so the controls line up down the list. A row with nothing to open keeps the chevron's slot empty, so the titles line up too |
+
+The changes an Assistant reply proposes are `row`s. A draft from Help me improve is the same row (`RowAction` in `Change.tsx`):
+
+- It reads SKILL.md, how the draft stands against the guide, its length in words, and Apply. Once the rule reads as the draft, Apply becomes Applied.
+- It opens to a `WordDiff size="row"` against the rule as it reads now, by phrase. Changes a word or two apart on one line join, so a rewrite does not read word by word. A line break keeps them apart.
+- The newest opens on arrival, and an earlier one folds.
 
 ```tsx
 // Correct: screens/Settings.tsx
@@ -136,7 +149,7 @@ A row that joins the list while the reader watches (a case saved for the first t
 
 An output a reader looks at rather than reads, a page or a picture, is judged on the stage (`components/Stage.tsx`), above the cards on Results (`Flip` in `components/Comparison.tsx`). The stage is a ground, not a card: `bg-muted` with a container's corners, 60% of the window high, the output standing on it on the artifact's own white with `shadow-raised`.
 
-- **A page** is drawn at the size the reader picks and scaled down to fit, never up: `STAGE_WIDTHS` in `src/renderer/stage.ts` is the closed set, Full width (the stage's own width, where a page starts), Phone 390, Tablet 820 and Desktop 1280. The choice is kept for the next case and the next launch. A case with a size (`bench.size`) adds one more, Case size, first, and its page opens at it, fitted whole as a picture is: that size is all the case asks for. A page runs its own scripts, sandboxed (see `SECURITY.md`).
+- **A page** is drawn at the size the reader picks and scaled down to fit, never up. `STAGE_WIDTHS` in `src/renderer/stage.ts` is the closed set: Full width (the stage's own width, where a page starts), Phone 390, Tablet 820 and Desktop 1280. The choice is kept for the next case and the next launch. A case with a size (`bench.size`) adds Case size, first, and its page opens at it, fitted whole as a picture is. A page runs its own scripts, sandboxed (see `SECURITY.md`).
 - **A picture** is fitted whole, never enlarged.
 - **Any other file** (code, Markdown) and the transcript stand on `bg-card` and scroll.
 - **Both outputs** are on the stage at once, one in view. Flipping is instant, with no transition: the change between A and B is what the reader is looking for. Two pages scroll together, so a flip lands on the same part of both.
@@ -144,17 +157,56 @@ An output a reader looks at rather than reads, a page or a picture, is judged on
 
 What an output is decides how its case opens, by the file that stands for each output (`primaryOf` in `model.ts`): a page or a picture on the stage, two pieces of code as their diff, anything else as cards. A picture an agent wrote beside a note does not put the note on the stage. The kind sets what opens first and nothing else: there is one Results screen, and every view stays a press away.
 
-A control stands with what it changes, and shows only while that thing is in view. Three places hold them:
+A control stands with what it changes, and shows only while that thing is in view. Five places hold them.
 
-- **The header** holds the views, a `Segmented`: **One at a time** (the stage), **Side by side**, **Word diff**. A view is a way to set two outputs against each other, so one output shows none. After it, `MoreActions` (`components/RowActions.tsx`) holds what is done now and then: **Edit case**, **Swap A and B** with two outputs in view, and **Regrade this run** (**Grade this run** before its outputs have a score), or one for A's run and one for B's when they differ. Grading reads a whole run, so the action names the run, and Regrade never sits on one output's card. Below `lg` the header wraps as the Skill screen's does: the case's name takes the first row.
-- **Above the stage**, in one `Stack gap="md"` with it, stand the case and the pair, so what picks an output sits closer to the stage than the cards do. Each is one line, a `Disclosure`. First "The prompt and its checks": it is about the case, so it comes before the pair. Then the pair, "Reading v1 alone" or "Comparing v0 with v1", only where the cards cannot pick it: with one side empty, or under Word diff, which has one card for both. Elsewhere each card's title picks its own output. The fields that pick another pair are folded under the line. They are A and B, each a `Slot variant="letter"` before a `SelectBox width="fill"`, in two equal columns with **Swap** (outline) at the end. A field names its output by its version (`outputNames` in `model.ts` adds the writer, then the time, only where two would read the same); who wrote it and when is each option's `detail`, a line under the name in the list. With neither side picked the line stands open.
-- **The bar over the stage** holds what picks the thing in view: which output, a `Segmented` of A and B, each letter with its version and its total, and the key in its title. The version is its number alone, "v2" (`outputNames` with `short`), with the writer or the time added only where the two would read the same, so the reader knows which is which without the cards under the stage; and which file, a `SelectBox size="sm"`, when there is more than one thing to show. The file is a list, never segments: an agent writes as many files as it likes. The transcript is the list's last choice.
+### The header
 
-Under the stage, `Stage` draws the size line, kept from the first frame so nothing moves when a picture loads and its size is known. What belongs to the file in view stands here, not in the bar. For a page the line starts with its `lead`, the size it is drawn at as a `SelectBox variant="caption"` (`PageSizeSelect`): the size is changed where it is read, and no other file shows the control. The control shows the size's name alone, "Case size" or "Phone"; the pixels are in its list. Then the rest in `Text size="xs" tone="muted" tabular`: for a page the scale ("45%"), or under Full width the pixels it came to ("697 px"); for a picture, its own size and its scale. The line is one line at every width: nothing in it is long enough to wrap in a card a third of the window wide, and a line that wraps in one card and not the other sets two pages at different heights. The line's `action` ends it: **Open full size** (`OpenFullSize` in `components/Artifact.tsx`, `ghost-muted` at `xs` with an arrow that says it opens elsewhere). A page read in a card, under Side by side, carries the same line over its frame (`PageView` in `components/Artifact.tsx`): the size, the scale and **Open full size**, 36px high. The page is drawn at that size and scaled down to the card's width, never up, and fitted whole when its case names a height. One size holds for the case (`usePageSize` in `src/renderer/stage.ts`): picked on the stage or in either card, it changes all three. The A and B keys flip the stage anywhere on the screen unless a field, an editor, a menu or a dialog has the focus.
+- The views, a `Segmented`: **One at a time** (the stage), **Side by side**, **Word diff**. A view sets two outputs against each other, so one output shows none.
+- After it, `MoreActions` (`components/RowActions.tsx`) holds what is done now and then: **Edit case**, **Swap A and B** with two outputs in view, and **Regrade this run** (**Grade this run** before its outputs have a score). When A and B come from different runs, it holds one for each.
+- Grading reads a whole run, so the action names the run, and Regrade never sits on one output's card.
+- Below `lg` the header wraps as the Skill screen's does: the case's name takes the first row.
 
-An `OutputCard`'s head (`OutputCardHead`) is one line: its letter (`Slot variant="letter"`, an outline in the text's color: never filled, since fill says "on"), its version, and its `TotalDetail` with the `Delta`. Where the case has other outputs, the version is a `SelectBox variant="title"` that picks this side's output: it shows the version alone, and its list names each output in full with who wrote it and when under the name. An output read alone has no letter and no slot; `Slot`'s default, `plain`, is the muted "Diff" on the diff's card. The card says only what tells it from the other side or what went wrong. Under the head, the meta, `xs` and muted, shows only what tells the two apart besides their version (`apartLine` in `model.ts`): the writer when the two differ, and for two outputs of one version, the attempt, or the time when they come from two runs. Everything else about how the output was made, and the parts its score is counted from, is behind the total. A length outside the case's range is a fact under **Missed**, so the meta never repeats it. One `action` ends the meta's line, under the total, or stands beside the total when there is no meta, so it never takes a line of its own, only when it is the next step: **Grade** on an output with no score, `ghost-muted` at `xs`, which reads "Grading…" on any card while its run is graded.
+### Above the stage
 
-Under the output, the card's foot (`OutputCardFoot`) holds **Read the transcript**, `ghost-muted` at `xs` at its end, which reads **Back to the output** while the transcript is in its place. The seconds and the cost of an output are in its transcript. The file tabs over the output (`ArtifactPicker`) show only when the output wrote two files or more.
+The case and the pair stand in one `Stack gap="md"` with the stage, so what picks an output sits closer to the stage than the cards do. Each is one line, a `Disclosure`.
+
+- First "The prompt and its checks": it is about the case, so it comes before the pair.
+- Then the pair, "Reading v1 alone" or "Comparing v0 with v1", only where the cards cannot pick it: with one side empty, or under Word diff, which has one card for both. Elsewhere each card's title picks its own output.
+- The fields that pick another pair fold under the pair's line. They are A and B, each a `Slot variant="letter"` before a `SelectBox width="fill"`, in two equal columns with **Swap** (outline) at the end. With neither side picked, the line stands open.
+- A field names its output by its version. `outputNames` in `model.ts` adds the writer, then the time, only where two would read the same. Who wrote it and when is each option's `detail`.
+
+### The bar over the stage
+
+It holds what picks the thing in view:
+
+- Which output: a `Segmented` of A and B, each letter with its version and its total, and the key in its title. The version is its number alone, "v2" (`outputNames` with `short`), with the writer or the time only where the two would read the same. So the reader knows which is which without the cards.
+- Which file: a `SelectBox size="sm"`, when there is more than one thing to show. Never segments: an agent writes as many files as it likes. The transcript is the list's last choice.
+
+### The size line under the stage
+
+`Stage` draws it from the first frame, so nothing moves when a picture loads. What belongs to the file in view stands here, not in the bar.
+
+- For a page it starts with its `lead`: the size it is drawn at, as a `SelectBox variant="caption"` (`PageSizeSelect`). The size is changed where it is read, and no other file shows the control. It shows the size's name alone, "Case size" or "Phone"; the pixels are in its list.
+- Then the rest, in `Text size="xs" tone="muted" tabular`: for a page the scale ("45%"), or under Full width the pixels it came to ("697 px"); for a picture its own size and its scale.
+- It is one line at every width. Nothing in it is long enough to wrap in a card a third of the window wide, and a line that wraps in one card and not the other sets two pages at different heights.
+- Its `action` ends it: **Open full size** (`OpenFullSize` in `components/Artifact.tsx`, `ghost-muted` at `xs`, with an arrow that says it opens elsewhere).
+- A page read in a card, under Side by side, carries the same line over its frame, 36px high (`PageView` in `components/Artifact.tsx`). The page is drawn at that size and scaled down to the card's width, never up, and fitted whole when its case names a height.
+- One size holds for the case (`usePageSize` in `src/renderer/stage.ts`): picked on the stage or in either card, it changes all three.
+
+The A and B keys flip the stage anywhere on the screen, unless a field, an editor, a menu or a dialog has the focus.
+
+### The output card
+
+An `OutputCard` says only what tells it from the other side, or what went wrong.
+
+- Its head (`OutputCardHead`) is one line: its letter, its version, and its `TotalDetail` with the `Delta`.
+  - The letter is `Slot variant="letter"`, an outline in the text's color. Never filled, since fill says "on". An output read alone has no letter and no slot. `Slot`'s default, `plain`, is the muted "Diff" on the diff's card.
+  - Where the case has other outputs, the version is a `SelectBox variant="title"` that picks this side's output. It shows the version alone, and its list names each output in full, with who wrote it and when under the name.
+- Under the head, the meta (`xs`, muted) shows only what tells the two apart besides their version (`apartLine` in `model.ts`): the writer when the two differ, and for two outputs of one version, the attempt, or the time when they come from two runs.
+- Everything else about how the output was made, and the parts its score is counted from, is behind the total. A length outside the case's range is a fact under **Missed**, so the meta never repeats it.
+- One `action` ends the meta's line, or stands beside the total when there is no meta, only when it is the next step: **Grade** on an output with no score, `ghost-muted` at `xs`. It reads "Grading…" on any card while its run is graded.
+- The card's foot (`OutputCardFoot`) holds **Read the transcript**, `ghost-muted` at `xs` at its end. It reads **Back to the output** while the transcript is in its place. An output's seconds and cost are in its transcript.
+- The file tabs over the output (`ArtifactPicker`) show only when the output wrote two files or more.
 
 ## Rows of actions
 
@@ -221,11 +273,32 @@ A menu of actions is not a popover: it is `MenuContent` (`components/ui/menu.tsx
 
 Inside one: `PopoverSection` with `pad="rows"` (rows to pick from, the default) or `pad="text"`, and `scroll` for a list that may outgrow 320px; `PopoverAction` is a row that does something (an icon, what it does, its shortcut); `PopoverLabel` names a section. A `HoverCardContent` (`ui/hover-card.tsx`) is `default` (360px) or `note` (one word and what it means, `xs`), with `HoverCardSection part="head" | "body" | "foot"`.
 
-The selection popout (`SelectionTools.tsx`) opens over four or more selected words in SKILL.md, 150ms after the selection settles, anchored to the selection itself. It also opens over a word the writing checks underlined, below. It is `selection` while it is a row of buttons, `compose` when the writing checks found something in the selected rule (the findings in a `PopoverSection` over the row), and `compose` or `compose-wide` once a result is in it. Its buttons are `ghost` `sm`, in one fixed order: Auto refine, Suggest changes, Help me improve. Nothing in it is yellow. It takes no focus as it opens, and Tab indents in the editor, so F6 moves the focus from the text into it (the key that moves to the next part of a window, bound in `MarkdownEditor.tsx`) and Escape goes back to the text.
+### The selection popout
 
-A word the writing checks underlined opens the same popout over it once the pointer has rested on it for 150ms, and the popout goes 120ms after the pointer leaves both: the same beats as `HoverCard`. With one open, the next word's opens at once. It shows what that word set off over the three actions, and they work on the word's whole rule, as a click on the rule's number does. It does not move the cursor or the selection. Once an action is picked, or the focus moves into it, it stays wherever the pointer goes. Until then it closes on typing, scrolling, Escape or a press elsewhere. A popout a selection opened stays, and the pointer on a word does not replace it. While it is open the words take the warning tint, 10% (20% in the dark), fading in and out over 150ms. The editor decides when it opens (`editor/graded.ts` and `MarkdownEditor.tsx`).
+The selection popout (`SelectionTools.tsx`) works on SKILL.md. The editor decides when it opens (`editor/graded.ts` and `MarkdownEditor.tsx`).
 
-Suggest changes (`Rewrites.tsx`) shows its three cards from the first frame, each with its label, what it does and its number key, and "Writing…" in place of the text, so the popout does not jump when the rewrites land. Each card is pickable unless it is the selection again; Jev's verdicts are lines on the card (`warning` for a dropped fact), never a lock. A footer section says what is happening on the left and holds Stop, or Try again, on the right. Once the rewrites are in, the first card that can be picked takes focus: 1 to 3 pick, the arrows walk the cards. A picked rewrite closes the popout, tints the new text in the editor for 1.4s (`editor/landed.ts`) and reports "Replaced the selection." with Undo on the status line; Auto refine's Replace and Help me improve's Apply take the same path, except that Apply leaves the focus in the panel and reports "Applied the draft to rule 03." (or "Applied the draft." when the text is not one whole rule). Closing the popout stops a run still writing. The popout always works on whole lines: `sceneOf` widens any selection to its lines.
+- It opens over four or more selected words, 150ms after the selection settles, anchored to the selection. It always works on whole lines: `sceneOf` widens any selection to its lines.
+- Its size is `selection` while it is a row of buttons, and `compose` when the writing checks found something in the selected rule (the findings in a `PopoverSection` over the row). It is `compose` or `compose-wide` once a result is in it.
+- Its buttons are `ghost` `sm`, in one fixed order: Auto refine, Suggest changes, Help me improve. Nothing in it is yellow.
+- It takes no focus as it opens, and Tab indents in the editor. So F6 moves the focus from the text into it (the key that moves to the next part of a window, bound in `MarkdownEditor.tsx`), and Escape goes back to the text.
+
+It also opens over a word the writing checks underlined:
+
+- It opens once the pointer has rested on the word for 150ms, and goes 120ms after the pointer leaves both: the same beats as `HoverCard`. With one open, the next word's opens at once.
+- It shows what that word set off, over the three actions. They work on the word's whole rule, as a click on the rule's number does. It does not move the cursor or the selection.
+- Once an action is picked, or the focus moves into it, it stays wherever the pointer goes. Until then it closes on typing, scrolling, Escape or a press elsewhere.
+- A popout a selection opened stays, and the pointer on a word does not replace it.
+- While it is open, the words take the warning tint, 10% (20% in the dark), fading in and out over 150ms.
+
+Suggest changes (`Rewrites.tsx`):
+
+- Its three cards show from the first frame, each with its label, what it does and its number key, and "Writing…" in place of the text, so the popout does not jump when the rewrites land.
+- Each card is pickable unless it is the selection again. Jev's verdicts are lines on the card (`warning` for a dropped fact), never a lock.
+- A footer says what is happening on the left, and holds Stop, or Try again, on the right.
+- Once the rewrites are in, the first pickable card takes focus: 1 to 3 pick, the arrows walk the cards.
+- Closing the popout stops a run still writing.
+
+A picked rewrite closes the popout, tints the new text in the editor for 1.4s (`editor/landed.ts`), and reports "Replaced the selection." with Undo on the status line. Auto refine's Replace and Help me improve's Apply take the same path. Apply leaves the focus in the panel and reports "Applied the draft to rule 03." (or "Applied the draft." when the text is not one whole rule).
 
 ## Spacing
 

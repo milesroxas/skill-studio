@@ -38,7 +38,7 @@ Is it a heading in the page's outline?
       ├── Help under a control, or a note at the top of a section? → Hint
       ├── A path, a file name, a command, a version, an id? → Code or Text font="mono"
       ├── A label over a group that is not in the outline? → Text caps
-      ├── A passage of the skill's own text set apart, such as the selection a tool works on? → Excerpt
+      ├── A passage set apart, such as a rewrite as it is written? → Excerpt
       └── Anything else → Text, with tone, size and weight named as props
 ```
 
@@ -64,7 +64,16 @@ Markdown the app renders itself (a reply, an output, the changelog) goes through
 
 `Text` takes these and nothing else: `tone` (`default`, `muted`, `faint`, `destructive`, `success`, `warning`), `font` (`sans`, `mono`), `size` (`inherit`, `ui`, `xs`), `weight` (`normal`, `medium`, `semibold`), and the booleans `tabular`, `block`, `clamp`, `truncate`, `measure`, `caps`, plus `align` (`start`, `end`), `wrap` (`normal`, `pre`, `anywhere`) and the element it renders, `as` (`span`, `p`, `b`, `small`, `div`, `li`). The default is inherit everything.
 
-`Hint` takes `tone` (`default`, `destructive`), `measure` (`default`, `narrow`, `none`), `inset`, `tabular` and `as` (`p`, `span`, `div`). `Excerpt` is `ui` text on the muted panel (`bg-muted`). It takes `edge`: `inset`, the default, with a container's corners (`rounded-md`), or `bleed`, across a side panel's full width between hairlines. And `holds`: `text`, the default, a paragraph with its line breaks kept, or `writing`, a block held to 18rem and scrolled, for a rewrite as it is written. "The selection" in Help me improve (`Improve.tsx`) is `text`; Auto refine's Revision (`Refine.tsx`) and the reply under a field in the assist panel (`Assist.tsx`, `bleed`) are `writing`. `Heading` takes `as` (`h1`, `h2`, `h3`, `span`, `legend`, `p`) and `tabular` (a heading that is a number, such as a version) beside its `level`.
+`Hint` takes `tone` (`default`, `destructive`), `measure` (`default`, `narrow`, `none`), `inset`, `tabular` and `as` (`p`, `span`, `div`).
+
+`Heading` takes `level`, `as` (`h1`, `h2`, `h3`, `span`, `legend`, `p`) and `tabular`, for a heading that is a number such as a version.
+
+`Excerpt` is `ui` text on the muted panel (`bg-muted`). It takes:
+
+- `edge`: `inset` (the default), with a container's corners (`rounded-md`), or `bleed`, across a side panel's full width between hairlines.
+- `holds`: `text` (the default), a paragraph with its line breaks kept, or `writing`, a block held to 18rem and scrolled, for a rewrite as it is written.
+
+Both call sites hold `writing`: Auto refine's Revision (`Refine.tsx`) and the reply under a field in the assist panel (`Assist.tsx`, `bleed`).
 
 Weights are 400, 500 and 600. 700 belongs to the `display` and `numeral` steps, which carry it: never write `font-bold`. Body text is never bold for emphasis: use `weight="medium"`.
 
@@ -87,7 +96,16 @@ A number in a sentence stays in sans, and so does a live count under a field ("4
 
 ## Caps labels
 
-`Text caps` is 11px, weight 500, uppercase, tracked `--tracking-caps` (0.08em). It names a group without being a heading. Use it for exactly these: a section of the composer's slash menu ("Assistant", "Skills"), a caption over a part of a picture in the welcome, the label of a figure, the tag before each line of a rule pair (`PairList` in `starters.tsx`: "vague" and "check" by default, "vague" and "exact" on the Skill screen), the part labels of a case change in the Assistant ("Prompt", "A good answer", "Checks"), a rewrite's kind ("Best practice", "More direct", "Shorter"), the section labels of Auto refine and Help me improve ("What drifts", "Worth a look", "Revision", "The selection", "The draft against the guide"), and the guide line over each writing-check finding in the selection popout (`FindingList` in `Refine.tsx`). Keep it short. Never for a button, a table head or a heading: caps slow reading, so they stay where a reader only glances.
+`Text caps` is 11px, weight 500, uppercase, tracked `--tracking-caps` (0.08em). It names a group without being a heading. Caps slow reading, so they stay where a reader only glances: never on a button, a table head or a heading. Keep it short. It is used for exactly these:
+
+- a section of the composer's slash menu ("Assistant", "Skills")
+- a caption over a part of a picture in the welcome
+- the label of a figure
+- the tag before each line of a rule pair (`PairList` in `starters.tsx`): "vague" and "check" by default, "vague" and "exact" on the Skill screen
+- the part labels of a case change in the Assistant ("Prompt", "A good answer", "Checks")
+- a rewrite's kind ("Best practice", "More direct", "Shorter")
+- the section labels of Auto refine ("What drifts", "Worth a look", "Revision")
+- the guide line over each writing-check finding in the selection popout (`FindingList` in `Refine.tsx`)
 
 ## Display type
 

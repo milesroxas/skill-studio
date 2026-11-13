@@ -59,9 +59,39 @@ A score is out of 100 and always shows through one of these, from `components/Sc
 | `PartList` | the parts one score is made of, a row each: the name, then "4 of 5" at the row's end. A part counted from facts says the count, each fact by its weight so a ×2 check counts two; any other says its score and its `Delta` from the other side. A count stays in `foreground` until its part is weak. A part a kind of work adds (Look, Efficiency, Scope, Process, Check command) names itself through `Explained`, below; Rules and Checks, which every skill is graded on, are plain text. |
 | `CheckWeight` | a check's ×2 mark after its statement, only when it counts more than 1 |
 
-`Explained` (`components/Help.tsx`) is a word a reader may ask about where it stands: a dotted underline, and a click, never a hover, opens a `note` popover with its name, what it means in one or two sentences, and at most one `outline` `sm` action that goes where it is changed. Opened by a pointer, the action does not take the focus; opened from the keyboard, it does. `Term` is `Explained` for a glossary word, such as **Missed**, and has no action. A part of a score that a kind of work adds opens what grades it and **Change what is graded**, which opens All cases with **Graded as** unfolded and in view (`graded=1` in the address). A setting is met where its effect shows, once per card: never as an action on every row it touches. A fact such as "The output has one clear main point" names its part ("Look") in the line under it, so it reads back to that heading.
+`Explained` (`components/Help.tsx`) is a word a reader may ask about, where it stands.
 
-What a score is counted from shows under it as `Verdicts` (`components/Verdicts.tsx`), on an `OutputCard`: **Missed** first and open, one row per rule broken or check not met, then **Marked as met by you**, open, so the reader's own answers stay in view, then **Met** folded under its count. A row is three columns: a mark (a red cross or a green tick, which repeat the words "Missed" and "Met"), the rule or check in full, and its actions at the end, top-aligned so they line up from row to row. Under the text, in `faint`, a line shows only when it says something: the kind when the list holds both rules and checks, or the check counts more than once ("Rule", "Check ×2"), the reader's own answer, and "Saving…" while it is saved. The actions are `ghost-muted` at `xs`: "Open rule" on every rule SKILL.md still holds, missed or met, then `MoreActions` at `size="xs"` holding only the answer, "Mark as met" or "Mark as missed", for a fact Jev answered. Each action has one place on every row, whatever the row says, so a reader finds it where they found it last. Answering is rare, so it never sits in the row itself. Never make the whole row the button: its text is copied, and a check has no rule to open. A fact code measured, such as a word count, has no answer to give and no menu. A fact the reader answered says "your answer", or "your answer, agrees with Jev" when the skill's threshold gives Jev the same answer, and its menu holds "Take back" either way.
+- It is a dotted underline. A click, never a hover, opens a `note` popover with its name, what it means in one or two sentences, and at most one `outline` `sm` action that goes where it is changed.
+- Opened by a pointer, the action does not take the focus. Opened from the keyboard, it does.
+- `Term` is `Explained` for a glossary word, such as **Missed**, and has no action.
+- A score part that a kind of work adds opens what grades it and **Change what is graded**. That opens All cases with **Graded as** unfolded and in view (`graded=1` in the address).
+- A setting is met where its effect shows, once per card: never as an action on every row it touches.
+- A fact such as "The output has one clear main point" names its part ("Look") in the line under it, so it reads back to that heading.
+
+### Verdicts
+
+What a score is counted from shows under it as `Verdicts` (`components/Verdicts.tsx`), on an `OutputCard`:
+
+1. **Missed**, open: one row per rule broken or check not met.
+2. **Marked as met by you**, open, so the reader's own answers stay in view.
+3. **Met**, folded under its count.
+
+A row is three columns:
+
+- A mark: a red cross or a green tick, which repeat the words "Missed" and "Met".
+- The rule or check in full. Under it, in `faint`, a line shows only when it says something: the kind when the list holds both rules and checks, or when the check counts more than once ("Rule", "Check ×2"); the reader's own answer; and "Saving…" while it is saved.
+- Its actions at the end, top-aligned so they line up from row to row.
+
+The actions are `ghost-muted` at `xs`:
+
+- "Open rule" on every rule SKILL.md still holds, missed or met.
+- Then `MoreActions` at `size="xs"`, holding only the answer, "Mark as met" or "Mark as missed", for a fact Jev answered. Answering is rare, so it never sits in the row itself.
+- Each action has one place on every row, whatever the row says, so a reader finds it where they found it last.
+- Never make the whole row the button: its text is copied, and a check has no rule to open.
+- A fact code measured, such as a word count, has no answer to give and no menu.
+- A fact the reader answered says "your answer", or "your answer, agrees with Jev" when the skill's threshold gives Jev the same answer. Its menu holds "Take back" either way.
+
+### Bands
 
 Bands come from `scoreBand()` in `model.ts`. Never compare a score to a number in a component: the bands are tuned in one place.
 

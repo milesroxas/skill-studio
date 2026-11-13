@@ -18,9 +18,19 @@ pnpm dev                # the desktop app, with hot reloading
 
 ### Worktrees
 
-In a worktree you have just made, `pnpm bootstrap` runs `pnpm install` and copies the main checkout's `.env` when the worktree has none (`scripts/bootstrap.ts`). Electron (45.3.0 in `package.json`) fetches no binary at install, so the root `postinstall` runs `install-electron`, the `electron` package's own installer; it returns at once when the binary is there.
+In a new worktree, `pnpm bootstrap` runs `pnpm install` and copies the main checkout's `.env` when the worktree has none (`scripts/bootstrap.ts`).
 
-A development copy keeps its data under `~/Library/Application Support/Skill Studio Dev/<checkout>`, one folder per checkout, so two worktrees and the installed app can be open at once. They share your skills and `~/.skill-studio`. `--user-data-dir` overrides it. Vite takes the first free port from 5173. Keys typed into a development copy's Settings belong to that checkout; `.env` is read by all of them. A development copy runs as Skill Studio Dev, so its keys sit under their own keychain item, `Skill Studio Dev Safe Storage`, apart from the installed app's. macOS knows the stock Electron binary only by its hash, so after an Electron upgrade it asks once for your login password: press **Always Allow**. That grants the development item only.
+Electron (45.3.0 in `package.json`) fetches no binary at install. The root `postinstall` runs `install-electron`, the `electron` package's own installer, which returns at once when the binary is there.
+
+A development copy:
+
+- keeps its data under `~/Library/Application Support/Skill Studio Dev/<checkout>`, one folder per checkout, so two worktrees and the installed app can be open at once. `--user-data-dir` overrides it.
+- shares your skills and `~/.skill-studio` with every other copy.
+- runs Vite on the first free port from 5173.
+- keeps keys typed into Settings for that checkout only. `.env` is read by all of them.
+- runs as Skill Studio Dev, so its keys sit under their own keychain item, `Skill Studio Dev Safe Storage`, apart from the installed app's.
+
+macOS knows the stock Electron binary only by its hash, so after an Electron upgrade it asks once for your login password. Press **Always Allow**. That grants the development item only.
 
 ## Before you open a pull request
 
@@ -31,7 +41,7 @@ pnpm format     # apply Biome's formatting and safe fixes
 pnpm health     # tests with coverage, then fallow's complexity report: see docs/complexity-plan.md
 ```
 
-CI runs both on Linux for every pull request (the `check` job), and the tests on macOS (`test-macos`) and on Windows (`test-windows`). All three must pass to merge. A test that needs a POSIX shell or POSIX links skips on Windows (`it.skipIf`); the app itself has not been run on Windows by hand.
+CI runs `pnpm check` and `pnpm build` on Linux for every pull request (the `check` job), and the tests on macOS (`test-macos`) and Windows (`test-windows`). All three must pass to merge. A test that needs a POSIX shell or POSIX links skips on Windows (`it.skipIf`). The app itself has not been run on Windows by hand.
 
 Fix warnings and findings; do not suppress them. A `biome-ignore` or `fallow-ignore` comment, or a rule turned off for a file, is accepted only when the pull request explains why the tool is wrong.
 
@@ -82,7 +92,7 @@ When a screen changes how it looks or reads:
 
 1. Retake the screenshots with `pnpm guide:shots`. It builds the app, starts it on a scratch home seeded with sample skills (`scripts/guide-shots/seed.ts`), and writes `docs/images/*.webp`. It never touches your own skills, settings or keychain.
 2. Read each step of the guide against its new picture, and fix any label, button or order that no longer matches.
-3. Check the diagram (`docs/images/loop.svg`). It is written by hand, and its steps must match the loop table at the top of the guide.
+3. Check the diagram (`docs/images/loop.svg`). It is written by hand, and its steps must match the loop steps under "How it works" in the guide.
 
 ## Releasing
 

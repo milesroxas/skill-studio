@@ -2,8 +2,6 @@
 
 All color lives in `src/renderer/styles.css` as semantic tokens, written in `oklch()`. Components use the Tailwind class of a token. Nothing else names a color.
 
-The values below are in `styles.css`.
-
 ## The three scopes
 
 A token has one value per scope. The page picks the scope; a component never checks which one it is in.
@@ -170,4 +168,8 @@ Two known gaps. `border-input` on porcelain is 1.5:1, so an input is found by it
 
 ## Changing a token
 
-Change the value in `styles.css` in all three scopes, re-measure every pair in the table that uses it, and update this file in the same pull request. The three verdict colors are set the same way: in the light scope, as light as 4.9:1 on their own 10% tint over a card allows; in the dark scope, as light as the hue stays itself (red turns pink above L 0.76); and in both, at 94% of the chroma sRGB can show for that hue at that lightness. So no one of them reads duller or darker than the others. A new verdict value follows the same two steps: lightness from the contrast floor, then chroma from the ceiling. `paint.test.ts` (main process) fails when a hex copy outside CSS drifts: the window's first paint, `index.html`'s theme colors, and the guide's diagrams in `docs/images/*.svg`, which may use only the light scope's tokens and their tints. To fix a failing pair, move L only: chroma and hue do not change contrast.
+Change the value in `styles.css` in all three scopes, re-measure every pair in the table that uses it, and update this file in the same pull request.
+
+- To fix a failing pair, move L only: chroma and hue do not change contrast.
+- The three verdict colors are set in two steps, so none reads duller or darker than the others. First lightness: in the light scope, as light as 4.9:1 on their own 10% tint over a card allows; in the dark scope, as light as the hue stays itself (red turns pink above L 0.76). Then chroma: in both, 94% of what sRGB can show for that hue at that lightness. A new verdict value follows the same two steps.
+- `paint.test.ts` (main process) fails when a hex copy outside CSS drifts: the window's first paint, `index.html`'s theme colors, and the guide's diagrams in `docs/images/*.svg`. The diagrams may use only the light scope's tokens and their tints.

@@ -82,11 +82,27 @@ Every control sits in a `Field` with a `Label` above it. Never a placeholder as 
 - `size="sm"` only for a field in a narrow list column: a new file's name on the Skill screen.
 - An input's fill is `bg-card`. On porcelain its 1.5:1 edge is not enough to find it. Every field (`Input`, `TextArea`, the `Select` trigger) takes its edge and fill from `FIELD_SURFACE` in `ui/input.tsx`: change it there, once.
 
-`TextArea` variants: `default` (84px minimum, grows), `line` (one line that grows as it wraps, 36px to start: a check reads as an input until it needs more). Under it, `Textarea` in `ui/textarea.tsx` takes `variant`: `default`, the field's edge and fill from `FIELD_SURFACE`, or `bare`: no edge, no fill and no shadow in any theme, and no resize grip. `bare` is for a field inside a frame that draws the edge and shows the focus, and is used only by the composer. `Composer` takes `frame`: `box`, an edge that turns to `--ring` while the field has focus ([color.md](color.md)), in the side panel (the Assistant and Help me improve); or `bare` (the default), no frame at all, in a popover, where the composer is the popover's one field. `context` stands over the text: what the request is about, as a `ComposerTopic`. That is one line: the passage's name as the editor shows it (`Rule 04`, or `Selected text` when the passage is not one whole rule), then its first words, muted and cut off at the end, and at the very end where the request stands while questions are walked (`Question 2 of 4`). Pressed, it scrolls the editor to the passage and flashes it; the whole passage is read there, so the line does not open. It ticks (`animate-tick`) when the passage changes from the panel, never as it is typed. A picture held over it rings the `box` edge, or tints a `bare` composer with `accent`. A `bare` field on its own would show neither where it is nor that it has focus. `CheckRow` takes `size` (`default`, `sm`) and a `description` line under its label. `NumberInput` takes `width` (`default`, 120px, or `full`). `SelectBox` takes `width` (`auto`, `full`, `fill`: see [Segmented and FilterGroup](#segmented-and-filtergroup)), `size` (`default`, `sm` 32px), `variant` (`field`, the default, `title` or `caption`: see the same section), `none` (the label of the choice that means no value) and `groups`. Nothing else on these changes their look.
+## TextArea and the composer
+
+- `TextArea` variants: `default` (84px minimum, grows) and `line` (one line that grows as it wraps, 36px to start: a check reads as an input until it needs more).
+- Under it, `Textarea` in `ui/textarea.tsx` takes `variant`: `default`, the field's edge and fill from `FIELD_SURFACE`, or `bare`: no edge, no fill, no shadow in any theme, and no resize grip. `bare` is for a field inside a frame that draws the edge and shows the focus. Only the composer uses it.
+- `Composer` takes `frame`:
+  - `box`: an edge that turns to `--ring` while the field has focus ([color.md](color.md#focus)). In the side panel (the Assistant and Help me improve).
+  - `bare` (the default): no frame at all. In a popover, where the composer is the one field.
+- A `bare` field on its own would show neither where it is nor that it has focus.
+- A picture held over the composer rings the `box` edge, or tints a `bare` composer with `accent`.
+- `context` stands over the composer's text: what the request is about, as a `ComposerTopic`.
+  - It is one line: the passage's name as the editor shows it (`Rule 04`, or `Selected text` when the passage is not one whole rule), then its first words, muted and cut off at the end. While questions are walked, it ends with where the request stands (`Question 2 of 4`).
+  - Pressed, it scrolls the editor to the passage and flashes it. The passage is read whole there, so the line does not open.
+  - It ticks (`animate-tick`) when the passage changes from the panel, never as it is typed.
+
+## CheckRow
+
+`CheckRow` takes `size` (`default`, `sm`) and a `description` line under its label. Nothing else changes its look.
 
 ## NumberInput
 
-`NumberInput` (`components/forms.tsx`) is one field with a minus at its start and a plus at its end, the number centered between them in tabular figures. It takes `value` and `onValueChange`, which only ever hears a number within `min` and `max`.
+`NumberInput` (`components/forms.tsx`) is one field with a minus at its start and a plus at its end, the number centered between them in tabular figures. It takes `value` and `onValueChange`, which only ever hears a number within `min` and `max`. Its one look prop is `width`: `default` (120px) or `full`.
 
 - Typing is free: a half-typed number, or one past a bound, stays on screen and is held to the bound when the field is left. Commas and spaces in a pasted number are dropped.
 - The minus and plus are muted until pointed at, never take the focus, and go faint at a bound. Held, one steps again after 400ms, then faster. Shift steps by ten.
@@ -98,15 +114,60 @@ Every control sits in a `Field` with a `Label` above it. Never a placeholder as 
 
 ## Corner actions
 
-An action about a field's own content sits in the field's corner as a `CornerButton` (`components/CornerButton.tsx`): "write with AI" on every field that takes `assist`, and on a check the picture it is about (`PicturePicker variant="corner"`, passed as the `TextArea`'s `corner`; its other variant is `icon-sm`, in a row of controls such as the composer's). The pen is last; one more corner action stands before it, 12px away, so their hit areas meet without overlapping. A field a list repeats takes no pen of its own: the list's one button writes for all of it, so a check's corner holds the picture alone and **Write checks with AI** sits under the list. A setting of the row the field is in, and the row's removal, sit outside the field, after it: a check row in `Cases.tsx` reads statement, ×2, remove. Once added, the check's picture sits inside the field under the text (`TextArea`'s `foot`, a `PictureStrip size="sm"`, 8px between pictures; `md`, the default, has 12px), within the field's edge as the composer holds its pictures, and the corner button goes. A picture outside the field reads as a thing beside the check, not part of it. Nothing else goes in a corner.
+An action about a field's own content sits in the field's corner as a `CornerButton` (`components/CornerButton.tsx`). Nothing else goes in a corner.
+
+- "Write with AI" (the pen) sits on every field that takes `assist`. It is last. One more corner action may stand before it, 12px away, so their hit areas meet without overlapping.
+- On a check, the corner holds the picture it is about (`PicturePicker variant="corner"`, passed as the `TextArea`'s `corner`). `PicturePicker`'s other variant, `icon-sm`, is for a row of controls such as the composer's.
+- A field a list repeats takes no pen of its own: the list's one button writes for all of it. So a check's corner holds the picture alone, and **Write checks with AI** sits under the list.
+- A setting of the field's row, and the row's removal, sit outside the field, after it: a check row in `Cases.tsx` reads statement, ×2, remove.
+- Once added, the check's picture sits inside the field under the text (`TextArea`'s `foot`, a `PictureStrip size="sm"`, 8px between pictures; `md`, the default, has 12px), and the corner button goes. A picture outside the field reads as a thing beside the check, not part of it.
 
 ## ComboBox
 
-`ComboBox` (`components/ComboBox.tsx`) is a text field that opens a list under it, for a value that is usually one of a few known names but may be any other: the model under Run's Options. It looks like a `SelectBox` trigger, chevron included, so a row of the two reads as one row. Opening shows the whole list with the current value ticked; a key typed narrows it, and a value the list does not have is used as typed, which the list says. The focus stays in the field: arrows move through the list, Enter picks, Escape closes. Its list is `PopoverContent size="field"`. Never a native `<datalist>`: its popup is the system's, unstyled and outside the theme.
+`ComboBox` (`components/ComboBox.tsx`) is a text field that opens a list under it, for a value that is usually one of a few known names but may be any other: the model under Run's Options.
+
+- It looks like a `SelectBox` trigger, chevron included, so a row of the two reads as one row.
+- Opening shows the whole list with the current value ticked. Typing narrows it. A value the list does not have is used as typed, and the list says so.
+- The focus stays in the field: arrows move through the list, Enter picks, Escape closes.
+- Its list is `PopoverContent size="field"`. Never a native `<datalist>`: its popup is the system's, unstyled and outside the theme.
+
+## SelectBox
+
+`SelectBox` (`components/SelectBox.tsx`) takes:
+
+- `width`: `auto` (as wide as its value, the default), `full`, or `fill` (the room its row has to spare, truncating, so two in one row come out the same width, as the A and B pickers on Results do).
+- `size`: `default`, or `sm` (32px).
+- `variant`: `field` (the default), `caption` or `title`, below.
+- `none`: the label of the choice that means no value.
+- `groups`: the list's groups.
+
+An option may carry:
+
+- a `detail`: a quieter `xs` line under its label, in the list only. The trigger shows the label alone and holds both in its title, so a field stays short where the list says more.
+- a `short`: what the trigger shows while it is picked, where the list's label is longer than the field needs.
+
+A choice from a grouped list shows its group after it in `muted-foreground`, since two groups may hold the same name: the assistant's model reads "Sonnet  Claude Code". `ModelChip` names the provider the same way.
+
+`caption` is a value in a line of meta, changed where it is read: `xs` and muted, no edge, lit as a `ghost-muted` button is when pointed at or open.
+
+- It shows a short name ("Case size", "Phone") and never the value's figures. Those are each option's `detail`, at the end of its row, so the list is one line a row.
+- Its list hangs from the caption, under it or over it as the window allows, and never covers it.
+- It stands 8px before the line's edge, so its text, not its hover box, starts there.
+- One use: the size a page is drawn at, at the start of the line under the stage on Results ([layout.md](layout.md#the-stage)).
+
+`title` is a card's title that picks what the card shows: the title's own size and weight, no edge, lit as a caption is.
+
+- Its list hangs from it, as a caption's does, with each option's `detail` as a line under the name.
+- It stands 8px before the title's edge.
+- One use: the version on each output card on Results, which picks that side's output ([layout.md](layout.md#the-stage)).
+
+A list of outputs or runs names a run made without the skill "Without skill", never by a version, since it tested none.
+
+- Where such outputs are among the choices, the list takes two `groups`, "With the skill" then "Without the skill": that run is the score to beat, not one more version. With none of them, the list stays flat.
+- A row under "Without the skill" names who wrote it, with its time as the `detail`. Its `short` keeps "Without skill" in the field once picked. The field's hover text holds both.
+- On Results, a run without the skill has no "Changes since this run".
 
 ## Segmented and FilterGroup
-
-`SelectBox` (`components/SelectBox.tsx`) takes `width`: `auto` (as wide as its value, the default), `full`, or `fill` (the room its row has to spare, truncating: two in one row come out the same width, as the A and B pickers on Results do). An option may carry a `detail`: a quieter `xs` line under its label, in the list only. The trigger shows the label alone and holds both in its title, so a field stays short where the list has more to say. An option may also carry a `short`: what the trigger shows while it is picked, where the list's label is longer than the field needs. A choice from a grouped list shows its group after it in `muted-foreground`, since two groups may hold the same name: the assistant's model reads "Sonnet  Claude Code". `ModelChip` names the provider the same way. `variant` is `field`, the default, `title`, or `caption`: a value in a line of meta that is changed where it is read, `xs` and muted with no edge, lit as a `ghost-muted` button is when pointed at or open. A caption shows a short name ("Case size", "Phone") and never the value's figures: those are each option's `detail`, set at the end of its row, so the list is one line a row. Its list hangs from the caption, under it or over it as the window allows, and never covers it. One use: the size a page is drawn at, at the start of the line under the stage on Results ([layout.md](layout.md#the-stage)). It stands 8px before the line's edge, so its text, not its hover box, starts there. A `title` is a card's title that picks what the card shows: the title's own size and weight, no edge, lit as a caption is. Its list hangs from it, as a caption's does, with each option's `detail` as a line under the name. It stands 8px before the title's edge. One use: the version on each output card on Results, which picks that side's output ([layout.md](layout.md#the-stage)). A list of outputs or runs names a run made without the skill "Without skill", never by a version, since it tested none. Where such outputs are among the choices, the list takes two `groups`, "With the skill" then "Without the skill", because that run is the score to beat, not one more version; with none of them the list stays flat. A row under "Without the skill" names who wrote it, with its time as the `detail`, and its `short` keeps "Without skill" in the field once picked. The field's hover text holds both. On Results, a run without the skill has no "Changes since this run".
 
 `Segmented` is one choice. Its `size` defaults to `sm`, and every call site leaves it there, in forms too. `size="default"` is only for one beside a default-size field, where the two must match: anywhere else a taller one stands out against every other in the app. `fill` spreads its segments over the row's width.
 
@@ -139,7 +200,7 @@ The pressed `outline` or `quiet` toggle is ink fill, the same as `Segmented`, so
 
 ## Actions
 
-- `FormActions` at the foot of a saved form: primary first, destructive last after `Spacer`.
+- `FormActions` at the foot of a saved form orders its buttons as [Rows of actions](layout.md#rows-of-actions) says.
 - A form whose one action costs something says what it will do on the action itself: Run's button reads "Run 3 cases" or "Run 3 cases, 2 attempts each", so the size of the run is the strongest line in the panel, and a `Hint` under it says who does the work (`components/Run.tsx`). Ticking a case or changing a count changes only the button's words, so nothing under the pointer moves.
 - A warning that holds before the action (unsaved files, no Jev key) is a `Status` with `tone="warning"` above it. A reason the action cannot run at all is a `Status` in place of the line under it, tied to the disabled button by `aria-describedby`; when the button's own words can say it, they do ("Tick a case to run").
 - An action that is the only control of its section ("Reset Skill Studio…") sits in a `Toolbar` inside a `FormSection` of its own, as in `Settings.tsx`.

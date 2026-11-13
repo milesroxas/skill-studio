@@ -24,7 +24,25 @@ A hint under a section heading that says what the section is ("How Skill Studio 
 3. **Use the words on the control.** Under an **Add files** button the hint says "add", not "attach" or "give it a copy".
 4. **Name the thing.** "a file, such as a screenshot", not "a copy of what the prompt is about".
 5. **Reason before rule, or consequence after it.** A bare rule reads as a restriction.
-6. **One name per thing.** An attempt is an attempt on every screen. Jev is Jev: the grader has one name, and "Jev, the grader" where it is first met on a screen.
+6. **One name per thing.** An attempt is an attempt on every screen. Jev is Jev: the grader has one name, and "Jev, the grader" where it is first met on a screen. Never "the judge": a judge's verdict is final, and here the reader's is.
+7. **Plain and specific.** No "powerful", "seamless", "simply". Say what happens.
+8. **An error says what failed and the next step.** Never "Something went wrong".
+
+## The app's own words
+
+| Thing | Word |
+| --- | --- |
+| what is graded | "output" |
+| the model that grades it | "Jev" |
+| what an output passes | "met" |
+| what an output fails | "missed" |
+| the reader's own answer on one verdict | a "correction", shown as "your answer" |
+
+## Form
+
+- Sentence case everywhere. No title case, and no trailing period on a label.
+- A button is a verb and its object, except a dialog's confirm button, which is one verb ([buttons.md](buttons.md#every-button)).
+- The button that starts a run names what it runs: "Run 3 cases", or "Run 3 cases, 2 attempts each".
 
 ## Words that are not written
 
