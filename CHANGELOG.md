@@ -6,6 +6,14 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [0.11.1] - 2026-11-13
+
+This release also brings everything listed under 0.11.0, which was not published.
+
+### Fixed
+
+- On Windows, a skill moved or copied since a run, or a run made on another computer, no longer has every output of that run marked as reaching outside its folder.
+
 ## [0.11.0] - 2026-11-13
 
 ### Changed
