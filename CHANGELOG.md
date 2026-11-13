@@ -14,6 +14,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 - On Cases, **Title** comes first, above the prompt, so the prompt and the files it refers to sit together.
 - Cases are named by their title everywhere, or by the first words of the prompt when they have none. The short name under each title on Cases, such as `feature-mockup`, is gone, and messages such as "Deleted Feature mockup" use the title too.
+- On Results, **All cases** lists cases down the side, each by its whole title, and runs across, headed by version and model, oldest first. Before, a column per case was headed by a short name such as `breaking-api`. The runs, with when they ran, what they cost and their average, are listed under the scores, and open as before.
+- A cell on All cases with no score says why: **Not graded**, which opens the output, or **Not run**, **Writing…** or **Grading…**, which open nothing. Before, a dash that opened an output sat beside a dash that did not.
+- A score that comes in while All cases is open rises into its cell.
+- Models are named by their own name wherever a run or output is listed, such as "Sonnet" or "gpt-5", without the company that makes them. Where a model is picked, it shows its provider beside it, such as "Sonnet  Claude Code", and the list groups models under their provider.
 - No two cases can have the same title: the form says so under **Title**. A case added from an example, or by the Assistant, beside one with its title gets a number after it, such as "Tone check 2".
 
 ## [0.9.1] - 2026-11-12

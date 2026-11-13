@@ -77,6 +77,8 @@ export function ModelControls({ size }: { size?: 'sm' | 'default' }) {
 export function ModelChip() {
   const { choice, model } = useAi()
   if (!choice) return null
+  /** Who runs the model, such as Claude Code. */
+  const runner = AI_PROVIDERS[choice.provider].label
   return (
     <Popover>
       <PopoverTrigger asChild>
@@ -85,9 +87,11 @@ export function ModelChip() {
           variant="ghost"
           size="xs"
           // The name starts with the words on the button, so what is read out is what is seen.
-          aria-label={`${model?.label ?? choice.model}${choice.effort ? `, ${effortLabel(choice.effort)}` : ''}. Change the model and effort.`}
+          aria-label={`${model?.label ?? choice.model}, ${runner}${choice.effort ? `, ${effortLabel(choice.effort)}` : ''}. Change the model and effort.`}
         >
           <span className="max-w-40 truncate">{model?.label ?? choice.model}</span>
+          {/* The model's own name may be another provider's too: the provider says which. */}
+          <span className="font-normal text-muted-foreground">{runner}</span>
           {choice.effort ? (
             <span className="font-normal text-muted-foreground">{effortLabel(choice.effort)}</span>
           ) : null}

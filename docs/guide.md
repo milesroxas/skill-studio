@@ -147,6 +147,7 @@ This approach to rules comes from Emil Kowalski's course [AI for Designers and E
 ### Write with AI
 
 - **Connect a model** in Settings. Claude Code and Codex are the main way: they run on the account you already use, with no key. An API key works too, under **Use an API key**. Settings says whether Claude Code and Codex are installed and signed in. When one is not, it shows the command to run in Terminal (`claude auth login`, or `codex login`), with **Copy command**. Run it, come back, and Settings shows the account and the plan.
+- **Pick the model** in Settings, or from the model's name in the Assistant. Models are listed under who runs them, such as Claude Code or Codex, and the model you picked always shows its provider beside its name.
 - **Ask:** click the small button in any text box, or **Write with AI** in the editor toolbar. Say what you want.
 - **Nothing changes** until you click **Replace** or **Insert** (**Add**, for checks).
 - **Closing the box keeps the reply.** A reply being written goes on, and opening the box again on the same text finds it. Only **Discard** throws it away. Opening it on other text, or with another selection, starts afresh.
@@ -276,13 +277,15 @@ Under the two outputs, **Add a check** takes one sentence: what a good answer do
 
 ### All cases
 
-![All cases: the version lift, a ribbon from v0's score to v1's over the score without the skill; under it the latest version's rules and checks added up, and each run with a score per case.](images/all-cases.webp)
+![All cases: the version lift, a ribbon from v0's score to v1's over the score without the skill; under it the latest version's rules and checks added up, and each case with a score from every run.](images/all-cases.webp)
 
-**All cases**, at the top of the list, shows every run at once.
+**All cases**, at the top of the list, shows every case and every run at once.
 
 - **Top:** how much your latest version gained since the first, and against no skill at all. Under it, the latest version's rules followed and checks met, added up.
-- **Each row:** one run, with a score per case and the average. Under its name: when it ran, how long it took and what it cost. A run without the skill is named **Without skill**, not by a version, and comes last: it is the score to beat. The lists that pick an output on a case set it apart the same way, under **Without the skill**.
+- **Scores:** one row per case, by its title, and one column per run, headed by its version and model, oldest first. A run without the skill is headed **Without skill** and comes last: it is the score to beat. The lists that pick an output on a case set it apart the same way, under **Without the skill**.
+- **A cell with no score says why.** **Not graded** opens the output, which has no score yet. **Not run** means the run left the case out, and **Writing…** and **Grading…** mean it is still being done; those open nothing. A score that comes in while you watch rises into its cell.
 - **Click a score** to read that output beside the one before it.
+- **Runs**, under the scores: one row per run, with its average. Under its name: when it ran, how long it took and what it cost.
 - **Click a run** to see each output with what it missed. **Changes since this run** shows what changed in the skill after it. A run without the skill has none, since it used no skill. **Regrade** has Jev read the run again.
 - **Delete run**, under the run, deletes that run's outputs and your corrections on them. Every score stops counting it, here, on each case and in the version list. Its version stays: when the run was the version's only copy, the version is saved from it first. **Undo** on the status line brings the run back. A run still writing or being graded can be deleted once that ends.
 

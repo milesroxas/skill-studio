@@ -14,6 +14,7 @@ import {
   liftOf,
   listLine,
   mergedConfig,
+  modelShort,
   noSkillScore,
   outputFacts,
   outputNames,
@@ -24,9 +25,24 @@ import {
   runTitle,
   setByHand,
   versionScore,
+  writerName,
 } from './model.ts'
 
 const saved = mergedConfig(null)
+
+describe('modelShort', () => {
+  const writer = (engine: string, model: string | null) =>
+    ({ engine, model, effort: 'high', harness: 'agent' }) as const
+
+  it('names the model alone, for a narrow column', () => {
+    expect(modelShort(writer('claude', 'sonnet'))).toBe('Sonnet')
+    expect(modelShort(writer('claude', 'claude-opus-5-5'))).toBe('Opus 5.5')
+    expect(modelShort(writer('cursor', 'gpt-5'))).toBe('gpt-5')
+    expect(modelShort(writer('claude', null))).toBe('Default model')
+    expect(writerName(writer('cursor', 'gpt-5'))).toBe('gpt-5, high effort via Cursor')
+    expect(modelShort(null)).toBe('Unknown')
+  })
+})
 
 describe('rulesUnmarked', () => {
   const result = (kind: 'html' | 'markdown', generic: unknown) =>

@@ -374,23 +374,29 @@ const CLAUDE_ALIASES: Record<string, string> = {
 }
 export const capital = (word: string): string => word.charAt(0).toUpperCase() + word.slice(1)
 
+/**
+ * A model by its own name, never its maker's: "Sonnet", "Opus 5.5", "gpt-5",
+ * or "Default model" when the app chose it.
+ */
 function modelName(engine: string, model: string | null): string {
-  if (!model || model === 'default') return `${capital(engine)}, default model`
-  if (engine === 'claude') {
-    if (CLAUDE_ALIASES[model]) return `Claude ${CLAUDE_ALIASES[model]}`
-    const id = /^claude-([a-z]+)-(\d+)-(\d+)/.exec(model)
-    return id ? `Claude ${capital(id[1])} ${id[2]}.${id[3]}` : model
-  }
-  return model
+  if (!model || model === 'default') return 'Default model'
+  if (engine !== 'claude') return model
+  if (CLAUDE_ALIASES[model]) return CLAUDE_ALIASES[model]
+  const id = /^claude-([a-z]+)-(\d+)-(\d+)/.exec(model)
+  return id ? `${capital(id[1])} ${id[2]}.${id[3]}` : model
 }
 
-/** "Claude Opus 5.5", "Cursor, gpt-5 high effort". */
+/** "Opus 5.5", "gpt-5, high effort via Cursor": the model, and how it was asked to work. */
 export function writerName(writer: Writer | undefined | null): string {
   if (!writer) return 'Unknown writer'
   const effort = writer.effort && writer.effort !== 'default' ? `, ${writer.effort} effort` : ''
   const via = writer.engine === 'cursor' ? ' via Cursor' : ''
   return `${modelName(writer.engine, writer.model)}${effort}${via}`
 }
+
+/** The model alone, for a column too narrow for `writerName`: "Sonnet", "gpt-5". */
+export const modelShort = (writer: Writer | undefined | null): string =>
+  writer ? modelName(writer.engine, writer.model) : 'Unknown'
 
 const versionOf = (run: RunView): { id: string; name: string } =>
   run.meta?.skillVersion
@@ -434,7 +440,7 @@ export const runTitle = (run: RunView, { short = false }: { short?: boolean } = 
 export const runInSentence = (run: RunView, { start = false } = {}): string =>
   isWithoutSkill(run) ? `${start ? 'The' : 'the'} run without the skill` : runTitle(run)
 
-/** "v2 · Claude Opus 5.5", or "Without skill · Claude Opus 5.5" */
+/** "v2 · Opus 5.5", or "Without skill · Opus 5.5" */
 export const runLabel = (run: RunView): string =>
   `${runTitle(run, { short: true })} · ${writerName(run.meta?.writer)}`
 
@@ -498,11 +504,11 @@ export function deleteBlocked(jobs: { writing: boolean; grading: boolean }): str
 const sampleTail = (output: Output): string =>
   output.samples > 1 ? ` · attempt ${output.index} of ${output.samples}` : ''
 
-/** "Claude Opus 5.5", or "Claude Opus 5.5 · attempt 2 of 3": who wrote an output, and which attempt. */
+/** "Opus 5.5", or "Opus 5.5 · attempt 2 of 3": who wrote an output, and which attempt. */
 export const outputWriter = (output: Output): string =>
   `${writerName(output.run.meta?.writer)}${sampleTail(output)}`
 
-/** "Claude Opus 5.5 · Nov 2, 10:12": who wrote an output, and when. */
+/** "Opus 5.5 · Nov 2, 10:12": who wrote an output, and when. */
 export const outputDetail = (output: Output): string =>
   `${writerName(output.run.meta?.writer)} · ${runStamp(output.run)}`
 

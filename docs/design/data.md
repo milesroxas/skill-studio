@@ -41,7 +41,8 @@ Rules:
 - An action in a cell is `Button size="cell-inline" variant="link-muted"` for navigation and `variant="ghost-muted"` or `destructive-muted` for a mutation. It is visible at rest. See [buttons.md](buttons.md).
 - A row's actions at its end are `RowActions` (`components/RowActions.tsx`), one `RowAction` each, in a column with `fold="menu"`. While the table has room they are `ghost-muted` buttons (`show="icon"` for one drawn as its icon alone); when it is narrow they fold into one "More actions" button whose menu holds each as an icon and its label. Never let a row's actions fold away: a narrow window must still reach them (`Library.tsx`). A `RowAction` with `tone="destructive"` is `destructive-muted` in the row and red under a hairline in the menu; put it last.
 - No zebra stripes. Hairlines separate rows, and a fill means hovered, open or failed.
-- An empty cell shows an en dash "–" in `tone="faint"`, never a blank and never "N/A".
+- An empty cell says why it is empty in one or two words in `tone="faint"`, such as "Not run" or "Writing…": never a blank, a bare dash or "N/A". Only a cell that opens something looks like it does: a score not graded yet is "Not graded" as a `link-muted` `cell-inline` button that opens the output, never a dash in a chip beside a dash that opens nothing.
+- All cases (`ResultsSummary.tsx`) has cases down the side, by their whole title, and runs across, headed by version and model (`modelShort`), the run without the skill last. Two columns that would read the same add the run's date. The runs, with their time, cost and average, are a second table under it, whose rows open the run.
 
 ## Scores
 

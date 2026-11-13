@@ -26,9 +26,10 @@ export function OutputCardHead({
   title: ReactNode
   total?: ReactNode
   /**
-   * One thing to do with the output, at the end of the meta's last line, under
-   * the total: a `ghost-muted` `xs` button. It stands 8px past the head's
-   * inset, so its label, not the box that shows on hover, ends on the card's edge.
+   * One thing to do with the output: a `ghost-muted` `xs` button at the end of
+   * the meta's last line, under the total, or beside the total when there is no
+   * meta, so it never stands on a line of its own. It stands 8px past the
+   * head's inset, so its label, not the box that shows on hover, ends on the card's edge.
    */
   action?: ReactNode
   meta?: ReactNode
@@ -42,8 +43,11 @@ export function OutputCardHead({
     >
       {slot}
       <span className="font-semibold">{title}</span>
-      <span>{total}</span>
-      {meta || action ? (
+      <span className="flex items-center gap-2">
+        {total}
+        {action && !meta ? <span className="-mr-2">{action}</span> : null}
+      </span>
+      {meta ? (
         <span className="-col-start-3 -col-end-1 flex flex-wrap items-baseline gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
           {meta}
           {action ? <span className="-mr-2 ml-auto">{action}</span> : null}

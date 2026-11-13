@@ -399,10 +399,10 @@ export const openAiEfforts = (id: string): Effort[] =>
  * list is the source of truth for anything newer.
  */
 export const ANTHROPIC_MODELS: readonly AiModel[] = [
-  { id: 'claude-opus-5-5', label: 'Claude Opus 5.5', efforts: [...EFFORTS] },
-  { id: 'claude-fable-5-1', label: 'Claude Fable 5.1', efforts: [...EFFORTS] },
-  { id: 'claude-sonnet-5-5', label: 'Claude Sonnet 5.5', efforts: [...EFFORTS] },
-  { id: 'claude-haiku-5-5', label: 'Claude Haiku 5.5', efforts: [...EFFORTS] },
+  { id: 'claude-opus-5-5', label: 'Opus 5.5', efforts: [...EFFORTS] },
+  { id: 'claude-fable-5-1', label: 'Fable 5.1', efforts: [...EFFORTS] },
+  { id: 'claude-sonnet-5-5', label: 'Sonnet 5.5', efforts: [...EFFORTS] },
+  { id: 'claude-haiku-5-5', label: 'Haiku 5.5', efforts: [...EFFORTS] },
 ]
 
 /** The model a new connection starts on, when the provider offers it. */
@@ -419,7 +419,7 @@ export const CLAUDE_CODE_MODELS: readonly AiModel[] = [
 /** Codex names no models to pick from: it runs the one its own settings choose. */
 export const CODEX_DEFAULT_MODEL = 'default'
 export const CODEX_MODELS: readonly AiModel[] = [
-  { id: CODEX_DEFAULT_MODEL, label: 'Codex default', efforts: ['low', 'medium', 'high'] },
+  { id: CODEX_DEFAULT_MODEL, label: 'Default model', efforts: ['low', 'medium', 'high'] },
 ]
 
 /** `models` with `first` moved to the front, when it is among them. */

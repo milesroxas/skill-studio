@@ -97,6 +97,8 @@ export function SelectBox({
   )
   // A name the field cuts short is whole in its title, with the line the list shows under it.
   const chosen = [...options, ...groups.flatMap((g) => g.options)].find((o) => o.value === value)
+  // A grouped choice names its group after it, since two groups may hold the same name.
+  const group = groups.find((g) => g.options.some((o) => o.value === value))
   return (
     <Select
       value={value === '' && none ? NONE : value}
@@ -111,7 +113,16 @@ export function SelectBox({
         aria-label={aria['aria-label']}
         title={chosen?.detail ? hoverText(chosen) : undefined}
       >
-        <SelectValue>{chosen?.short}</SelectValue>
+        <SelectValue>
+          {group && chosen ? (
+            <>
+              {chosen.short ?? chosen.label}{' '}
+              <span className="font-normal text-muted-foreground">{group.label}</span>
+            </>
+          ) : (
+            chosen?.short
+          )}
+        </SelectValue>
       </SelectTrigger>
       <SelectContent
         position={hangs ? 'popper' : 'item-aligned'}
