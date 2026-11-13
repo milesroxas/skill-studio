@@ -69,6 +69,19 @@ export function useRested(count: number | null): number {
   return rested.current ?? 0
 }
 
+/**
+ * Which items of a list came after the reader could watch it: those arrive,
+ * and the ones there when the list was first read rest. By key, not by place,
+ * so an item added at the top arrives as surely as one added at the end. A
+ * list read empty rests until it first holds something.
+ */
+export function useArrivals(keys: readonly string[]): (key: string) => boolean {
+  const rested = useRef<Set<string> | null>(null)
+  if (rested.current === null && keys.length) rested.current = new Set(keys)
+  const seen = rested.current
+  return (key) => seen !== null && !seen.has(key)
+}
+
 /** How long a view takes to leave before the next one comes in: quicker than any arrival. */
 const LEAVE_MS = 140
 

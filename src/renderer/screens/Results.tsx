@@ -18,25 +18,29 @@ import {
   PlainList,
   Workbench,
 } from '../components/layout.tsx'
-import { NavButton } from '../components/NavButton.tsx'
+import { NavButton, NavButtonMeta, NavButtonTitle } from '../components/NavButton.tsx'
 import { ResultsSummary } from '../components/ResultsSummary.tsx'
-import { ScoreMove } from '../components/Scores.tsx'
-import { Heading, Text } from '../components/text.tsx'
+import { ListScore, ScoreChange } from '../components/Scores.tsx'
+import { Heading } from '../components/text.tsx'
 import { Button } from '../components/ui/button.tsx'
 import type { Ctx } from '../ctx.ts'
 import {
   casePair,
   casesRun,
   caseTitle,
+  isWithoutSkill,
   liftOf,
   noSkillScore,
   type Output,
+  type OutputPair,
   outputByKey,
+  runTitle,
   totalOf,
   versionScore,
   versionsRun,
   WITHOUT_SKILL,
 } from '../model.ts'
+import { useArrivals } from '../motion.ts'
 
 export const Results = memo(function Results({ ctx }: { ctx: Ctx }) {
   const { state, config, outputs, route, go, openRun } = ctx
@@ -69,6 +73,8 @@ export const Results = memo(function Results({ ctx }: { ctx: Ctx }) {
       }),
     [caseIds, outputs, config],
   )
+  // A case whose first output lands while the list is open fades in; the ones there when it opened rest.
+  const arrivedCase = useArrivals(caseIds)
 
   if (!state.runs.length)
     return (
@@ -126,48 +132,53 @@ export const Results = memo(function Results({ ctx }: { ctx: Ctx }) {
           </ColumnHeader>
           {/* All cases is the run as a whole, not one more case: a rule sets it apart from them. */}
           <ColumnSection inset="list">
-            <PlainList gap="none" bleed>
+            <PlainList gap="xs" bleed>
               <li>
-                <NavButton current={all} onClick={() => go('results', { view: 'all' })}>
-                  <Text size="ui">All cases</Text>
+                <NavButton
+                  current={all}
+                  onClick={() => go('results', { view: 'all' })}
+                  end={
+                    lift ? (
+                      <ListScore total={lift.latest.mean} />
+                    ) : latest ? (
+                      <ListScore total={latestScore} />
+                    ) : floor !== null ? (
+                      <ListScore total={floor} />
+                    ) : null
+                  }
+                >
+                  <NavButtonTitle>All cases</NavButtonTitle>
                   {lift ? (
-                    <span className="flex items-center gap-2">
-                      <ScoreMove from={lift.first.mean} to={lift.latest.mean} />
-                      <Text tone="muted" size="xs">
-                        {lift.first.version} to {lift.latest.version}
-                      </Text>
-                    </span>
+                    <NavButtonMeta>
+                      <ScoreChange
+                        from={lift.first.mean}
+                        to={lift.latest.mean}
+                        against={lift.first.version}
+                      />
+                    </NavButtonMeta>
                   ) : latest ? (
-                    <span className="flex items-center gap-2">
-                      <ScoreMove from={null} to={latestScore} />
-                      <Text tone="muted" size="xs">
-                        {latest}
-                      </Text>
-                    </span>
+                    <NavButtonMeta>Only {latest} so far</NavButtonMeta>
                   ) : floor !== null ? (
-                    <span className="flex items-center gap-2">
-                      <ScoreMove from={null} to={floor} />
-                      <Text tone="muted" size="xs">
-                        {WITHOUT_SKILL}
-                      </Text>
-                    </span>
+                    <NavButtonMeta>{WITHOUT_SKILL}</NavButtonMeta>
                   ) : null}
                 </NavButton>
               </li>
             </PlainList>
           </ColumnSection>
           <ColumnSection inset="list">
-            <PlainList gap="none" bleed>
-              {rows.map(({ id, totals }) => (
+            <PlainList gap="xs" bleed>
+              {rows.map(({ id, pair, totals }) => (
                 <li key={id}>
                   <NavButton
                     current={!all && id === caseId}
+                    arrived={arrivedCase(id)}
                     onClick={() => go('results', { case: id })}
+                    end={<ListScore total={totals.b ?? totals.a} />}
                   >
-                    <Text size="ui" truncate block>
-                      {caseTitle(state, id)}
-                    </Text>
-                    <ScoreMove from={totals.a} to={totals.b} />
+                    <NavButtonTitle>{caseTitle(state, id)}</NavButtonTitle>
+                    <NavButtonMeta>
+                      <CaseMove pair={pair} totals={totals} />
+                    </NavButtonMeta>
                   </NavButton>
                 </li>
               ))}
@@ -190,3 +201,30 @@ export const Results = memo(function Results({ ctx }: { ctx: Ctx }) {
     </Workbench>
   )
 })
+
+/**
+ * The line under a case on the list: how its score moved between the two
+ * outputs it opens with, or, with one output, that only one version has run it.
+ */
+function CaseMove({
+  pair,
+  totals,
+}: {
+  pair: OutputPair
+  totals: { a: number | null; b: number | null }
+}) {
+  if (pair.a && pair.b && totals.a !== null && totals.b !== null)
+    return (
+      <ScoreChange
+        from={totals.a}
+        to={totals.b}
+        against={isWithoutSkill(pair.a.run) ? null : runTitle(pair.a.run, { short: true })}
+      />
+    )
+  const only = pair.b ?? pair.a
+  if (!only) return null
+  // One output has nothing to move from: the line says so, rather than a bare "v0".
+  return isWithoutSkill(only.run)
+    ? WITHOUT_SKILL
+    : `Only ${runTitle(only.run, { short: true })} so far`
+}

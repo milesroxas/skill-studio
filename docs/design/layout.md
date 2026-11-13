@@ -94,7 +94,7 @@ A box around a region adds an edge the eye has to cross and takes 32px of width 
 | `ColumnToolbar`, `ToolbarGroup`, `ToolbarItem` | a row of tools under the header |
 | `ColumnBody`, `ColumnSection` | the scrolling content, split by hairlines |
 
-Insets are fixed: 16px in a list, 24px in main (`inset="list" | "main"`). A list's `ColumnBody` is inset 8px and its rows bring the other 8px. `ColumnBody inset="none"` fills the column edge to edge, for an editor. A `ColumnBody` is a column's whole content, and in main it ends in 64px of room, so there is one per column: notes over an editor go in the editor's `banner`, which spaces them itself (`components/MarkdownEditor.tsx`). Its `width` is `full` or `form` (808px). A header and the body of one column share one inset, so their left edges line up. A `ColumnToolbar` starts 8px short of it, so its first icon lands on that edge. Never pad a column by hand.
+Insets are fixed: 16px in a list, 24px in main (`inset="list" | "main"`). A list's `ColumnBody` is inset 8px and its rows bring the other 8px. The first row of every list column starts 8px under its header: a `ColumnSection` with no title sits 8px inside its rules, a titled one 20px, so its title stands apart from the rows above. `ColumnBody inset="none"` fills the column edge to edge, for an editor. A `ColumnBody` is a column's whole content, and in main it ends in 64px of room, so there is one per column: notes over an editor go in the editor's `banner`, which spaces them itself (`components/MarkdownEditor.tsx`). Its `width` is `full` or `form` (808px). A header and the body of one column share one inset, so their left edges line up. A `ColumnToolbar` starts 8px short of it, so its first icon lands on that edge. Never pad a column by hand.
 
 ### A list workbench, the Cases pattern
 
@@ -112,6 +112,25 @@ Copy `screens/Cases.tsx` for any screen that lists items and edits the one picke
 The list column may hold more than one list, each in a `ColumnSection`: the Skill screen lists the files, then the versions. Sections are divided by a rule, and the last has none, so a section is a direct child of its column: one that is a landmark is `as="nav"` with a `label`, never wrapped in one. A section's `hint` is only for what the list cannot show, such as edits no version holds yet. An item of either opens in the main column, named in the route (`file`, `version`).
 
 Below `lg` the columns stack and the pane scrolls, a `side` column after the main one. A `ColumnToolbar` sticks under its header only from `lg`: stacked, it scrolls with the document. A header whose actions leave its title no room wraps instead (the Skill screen's: `max-lg:flex-wrap` on the header, `max-lg:basis-full` on its `ColumnTitle`), so the file's name takes the first row. Check every workbench at 720px wide.
+
+### A row in a list column
+
+Every item listed on the left of a screen is one `NavButton` (`components/NavButton.tsx`), whatever it is: a case on Cases, a score on Results, a file or a version on Skill. Its parts, in this order:
+
+```
+Title, two lines at most ......... end
+One quiet line about it
+```
+
+| Part | Rule |
+| --- | --- |
+| `NavButtonTitle` | the item's name, `ui`, on two lines at most, so names that start alike still show the words that tell them apart, wrapped so the second line never holds one word alone. Opening the item shows the rest of a longer name in its column's header. `font="mono"` for a name that is a literal, a file's path. The `warning` dot follows it while the item has unsaved changes. |
+| `NavButtonMeta` | one fact the reader needs before opening it, `xs` muted, one line, cut short: "3 checks", "Nov 3", "Up 11 from v0". Leave it out when there is none (a file). |
+| `end` | at most one value, on the title's first line at the row's end: a score, as `ListScore`. Never two numbers, never an action. A case on Cases has none: the list is for writing, and a case changed since its run would show a score for words it no longer holds. |
+
+Rows are 36px at the least, 6px above and below their text, 2px apart. Pointing at a row tints it at half the open row's fill, so pointing never reads as opening, and the tint fades in over 150ms. The open row takes the full `accent` fill at once: a click or an arrow key moves it, and it must keep up. A score chip on the open row takes a hairline edge, since a grey chip on the grey fill would vanish.
+
+A row that joins the list while the reader watches (a case saved for the first time or duplicated, a new version, a case's first output) fades in with `animate-ink`, by `useArrivals` in `motion.ts`. The rows there when the list opens rest. An unsaved dot that comes while the reader types stamps in (`Dot stamp`), and a score that changes in view, as a run is graded, comes up a few pixels (`animate-tick`). With movement reduced, none of it moves.
 
 ## The stage
 
@@ -147,7 +166,7 @@ Under the output, the card's foot (`OutputCardFoot`) holds **Read the transcript
 
 | Need | Use |
 | --- | --- |
-| Items to open in a list column | `NavButton` inside `PlainList`. Its first line is `NavButtonTitle`: the name, truncated, and the `warning` dot after it while the item has unsaved changes. |
+| Items to open in a list column | `NavButton` rows inside `PlainList gap="xs"`. See [A row in a list column](#a-row-in-a-list-column). |
 | A list to pick from while typing (the skill switcher, the composer's slash menu) | `PopoverContent size="menu" still` holding `role="option"` rows in a `role="listbox"`: one `PopoverSection` in the skill switcher, the whole popover in the slash menu, with a `role="group"` section each |
 | Records with several fields | `Table`. See [data.md](data.md). |
 | Records of one or two lines, not tabular | `Rows` (hairlines, never boxed) |

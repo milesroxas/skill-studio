@@ -335,7 +335,9 @@ export function ColumnBody({
 }
 
 /**
- * A titled part of a list column, divided from the next by a rule. Its title
+ * A part of a list column, divided from the next by a rule. Untitled, it is a
+ * list of rows and sits 8px inside its rules, as a list column's body does;
+ * titled, 20px, so the title stands apart from the rows above. Its title
  * is a column's heading, as a `ListHeader`'s is, so both are `h2`. A section
  * that is a landmark of its own, such as the files, is `as="nav"` with a
  * `label`: a wrapper round it would hide that it is the column's last part.
@@ -359,7 +361,12 @@ export function ColumnSection({
   return (
     <Comp
       aria-label={label}
-      className={cn('flex flex-col gap-3 border-b py-5 last:border-b-0', insetVariants({ inset }))}
+      className={cn(
+        'flex flex-col gap-3 border-b last:border-b-0',
+        // A list with no title starts as close under the rule above as a list column's body does.
+        title ? 'py-5' : 'py-2',
+        insetVariants({ inset }),
+      )}
     >
       {title ? (
         <div className="flex flex-col gap-1">

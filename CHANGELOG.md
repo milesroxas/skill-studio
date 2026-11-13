@@ -19,6 +19,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - A score that comes in while All cases is open rises into its cell.
 - Models are named by their own name wherever a run or output is listed, such as "Sonnet" or "gpt-5", without the company that makes them. Where a model is picked, it shows its provider beside it, such as "Sonnet  Claude Code", and the list groups models under their provider.
 - No two cases can have the same title: the form says so under **Title**. A case added from an example, or by the Assistant, beside one with its title gets a number after it, such as "Tone check 2".
+- The lists on the left of Cases, Results and Skill share one look: each row is the name, then one line about it, with any score at the row's end. Long names take two lines instead of being cut short.
+- On Results, each case shows its latest score and how it moved in words, such as "Up 11 from v0", in place of two scores and an arrow. A drop is in red.
+- Versions on Skill show their score as the same chip Results uses.
 
 ## [0.9.1] - 2026-11-12
 

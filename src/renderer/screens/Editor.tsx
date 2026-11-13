@@ -51,9 +51,9 @@ import {
   type MarkdownEditorHandle,
   useEditorMode,
 } from '../components/MarkdownEditor.tsx'
-import { NavButton } from '../components/NavButton.tsx'
+import { NavButton, NavButtonMeta, NavButtonTitle } from '../components/NavButton.tsx'
+import { ListScore } from '../components/Scores.tsx'
 import { Segmented } from '../components/Segmented.tsx'
-import { Dot } from '../components/Status.tsx'
 import { GuideBox, GuideList, PairList, Starter } from '../components/starters.tsx'
 import { Code, Hint, Text } from '../components/text.tsx'
 import { Alert, AlertDescription, AlertTitle } from '../components/ui/alert.tsx'
@@ -64,7 +64,8 @@ import type { Ctx } from '../ctx.ts'
 import { lineDiff } from '../diff.ts'
 import { useAction } from '../hooks.ts'
 import { shortcut } from '../keys.ts'
-import { shortDate, versionScore } from '../model.ts'
+import { capital, shortDate, versionScore } from '../model.ts'
+import { useArrivals } from '../motion.ts'
 import { editorFile } from '../route.ts'
 
 const referencePath = (name: string): string | null => {
@@ -153,6 +154,10 @@ export const Editor = memo(function Editor({ ctx }: { ctx: Ctx }) {
   const draft = edits[file]?.text === saved ? undefined : edits[file]
   const text = draft?.text ?? saved ?? ''
   const isDirty = (path: string) => edits[path] !== undefined && edits[path].text !== files[path]
+  // A file or a version added while the list is open fades in; what the list opened with rests.
+  // The files count only once read, so the ones a draft names first do not rest alone.
+  const arrivedFile = useArrivals(disk.saved && drafts.status !== 'loading' ? paths : [])
+  const arrivedVersion = useArrivals(state.versions.versions.map((v) => v.version))
   /** The file changed on disk after this draft began, or went from it: saving would be refused. */
   const stale = draft !== undefined && draft.previous !== saved
   /** The file the draft began on is no longer on disk. */
@@ -383,24 +388,18 @@ export const Editor = memo(function Editor({ ctx }: { ctx: Ctx }) {
           onAdd={() => setNewName('')}
         />
         <ColumnSection inset="list" as="nav" label="Skill files">
-          <PlainList gap="none" bleed>
+          <PlainList gap="xs" bleed>
             {paths.map((path) => (
               <li key={path}>
                 <NavButton
                   current={!version && path === file}
+                  arrived={arrivedFile(path)}
+                  title={path}
                   onClick={() => go('editor', { file: path })}
                 >
-                  <span className="flex min-w-0 items-center gap-1.5">
-                    <Text font="mono" size="xs" wrap="anywhere" className="min-w-0">
-                      {path}
-                    </Text>
-                    {isDirty(path) ? (
-                      <>
-                        <Dot size="sm" tone="warning" />
-                        <span className="sr-only">, unsaved changes</span>
-                      </>
-                    ) : null}
-                  </span>
+                  <NavButtonTitle font="mono" unsaved={isDirty(path)}>
+                    {path}
+                  </NavButtonTitle>
                 </NavButton>
               </li>
             ))}
@@ -456,31 +455,36 @@ export const Editor = memo(function Editor({ ctx }: { ctx: Ctx }) {
             }
           >
             {versions.length ? (
-              <PlainList gap="none" bleed>
+              <PlainList gap="xs" bleed>
                 {[...versions].reverse().map((v) => {
                   const score = scores.get(v.version) ?? null
                   return (
                     <li key={v.version}>
                       <NavButton
                         current={v.version === version}
+                        arrived={arrivedVersion(v.version)}
                         onClick={() => go('editor', { version: v.version })}
+                        end={score === null ? null : <ListScore total={score} />}
                       >
-                        <Text size="ui" truncate block tabular>
+                        <NavButtonTitle>
                           {v.version}
                           {v.name ? ` · ${v.name}` : ''}
-                        </Text>
-                        <Text tone="muted" size="xs" tabular>
-                          {[
-                            v.date ? shortDate(v.date) : null,
-                            score === null ? null : `scored ${Math.round(score)}`,
-                            // The newest is the files unless they changed; a restored one says so.
-                            v !== newest && !current.changed && v.version === current.version
-                              ? 'in the files now'
-                              : null,
-                          ]
-                            .filter(Boolean)
-                            .join(' · ') || 'Not run yet'}
-                        </Text>
+                        </NavButtonTitle>
+                        <NavButtonMeta>
+                          {capital(
+                            [
+                              v.date ? shortDate(v.date) : null,
+                              // The score is the chip at the row's end; without one, the line says why.
+                              score === null ? 'not run yet' : null,
+                              // The newest is the files unless they changed; a restored one says so.
+                              v !== newest && !current.changed && v.version === current.version
+                                ? 'in the files now'
+                                : null,
+                            ]
+                              .filter(Boolean)
+                              .join(' · '),
+                          )}
+                        </NavButtonMeta>
                       </NavButton>
                     </li>
                   )

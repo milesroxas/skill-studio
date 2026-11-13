@@ -55,7 +55,7 @@ import {
   Toolbar,
   Workbench,
 } from '../components/layout.tsx'
-import { NavButton, NavButtonTitle } from '../components/NavButton.tsx'
+import { NavButton, NavButtonMeta, NavButtonTitle } from '../components/NavButton.tsx'
 import { Segmented } from '../components/Segmented.tsx'
 import { ExampleList, GuideBox, PairList } from '../components/starters.tsx'
 import { TextArea } from '../components/TextArea.tsx'
@@ -72,6 +72,7 @@ import { useAddPictures } from '../images.ts'
 import { useAddInputs } from '../inputs.ts'
 import { REVEAL_LABEL, shortcut } from '../keys.ts'
 import { listLine, plural } from '../model.ts'
+import { useArrivals } from '../motion.ts'
 import { caseKey } from '../route.ts'
 
 /** The host's refusal of a save over a case that was written since the draft began. */
@@ -88,6 +89,8 @@ const savedAtOf = (saved: object | null | undefined): string | null =>
 export const Cases = memo(function Cases({ ctx }: { ctx: Ctx }) {
   const { state, config, route, go, report, confirm, reload, drafts } = ctx
   const cases = state.cases
+  // A case added while the list is open, as on its first save or by Duplicate, fades in.
+  const arrivedCase = useArrivals(cases.map((c) => c.id))
   /**
    * Examples come from the kind of work the skill is graded as. A skill graded
    * on its rules and checks alone fits no kind, so only then does the reader pick one.
@@ -395,24 +398,24 @@ export const Cases = memo(function Cases({ ctx }: { ctx: Ctx }) {
               onAdd={() => pick({ new: '1' })}
             />
             <ColumnBody inset="list">
-              <PlainList gap="none">
+              <PlainList gap="xs">
                 {unsaved.has(NEW_CASE_KEY) && !isNew ? (
                   <li>
                     <NavButton onClick={() => pick({ new: '1' })}>
                       <NavButtonTitle unsaved>New case</NavButtonTitle>
-                      <Text tone="muted" size="xs">
-                        Not added yet
-                      </Text>
+                      <NavButtonMeta>Not added yet</NavButtonMeta>
                     </NavButton>
                   </li>
                 ) : null}
                 {cases.map((c) => (
                   <li key={c.id}>
-                    <NavButton current={selected?.id === c.id} onClick={() => pick({ id: c.id })}>
+                    <NavButton
+                      current={selected?.id === c.id}
+                      arrived={arrivedCase(c.id)}
+                      onClick={() => pick({ id: c.id })}
+                    >
                       <NavButtonTitle unsaved={unsaved.has(c.id)}>{caseName(c)}</NavButtonTitle>
-                      <Text tone="muted" size="xs">
-                        {plural(c.graders.length, 'check')}
-                      </Text>
+                      <NavButtonMeta>{plural(c.graders.length, 'check')}</NavButtonMeta>
                     </NavButton>
                   </li>
                 ))}

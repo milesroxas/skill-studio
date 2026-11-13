@@ -3,9 +3,10 @@ import { weightMark } from '@domain/case-draft.ts'
 import type { Scored } from '@domain/scoring.ts'
 import { layerCount } from '@domain/verdict.ts'
 import { cva } from 'class-variance-authority'
-import { ArrowRightIcon } from 'lucide-react'
 import { type ReactNode, useRef } from 'react'
+import { cn } from '../lib/utils.ts'
 import { kindHint, kindLabel, kindOfPart, partLabel, type ScoreBand, scoreBand } from '../model.ts'
+import { useArrived } from '../motion.ts'
 import { Explained } from './Help.tsx'
 import { Text } from './text.tsx'
 import { Badge } from './ui/badge.tsx'
@@ -130,28 +131,51 @@ const partValue = cva('font-semibold whitespace-nowrap tabular-nums text-foregro
 })
 
 /**
- * A score's move between two outputs or two versions: the earlier chip, an
- * arrow, the later chip and the change. With no earlier score it is the later
- * chip alone, so a list of cases keeps one edge whether or not each was run before.
+ * A score at the end of a `NavButton` in a list column: the chip alone. When the
+ * score changes while the list is in view, as a run is graded, the new one
+ * comes up a few pixels; a score there when the list opens rests.
  */
-export function ScoreMove({
+export function ListScore({ total }: { total: number | null | undefined }) {
+  const shown = total === null || total === undefined ? '' : String(Math.round(total))
+  const changed = useArrived(shown)
+  return (
+    // On the open row the chip takes an edge: a grey chip on the row's grey fill would vanish.
+    <span
+      key={shown}
+      className={cn(
+        'inline-flex group-data-[current]/row:*:border-border',
+        changed && 'animate-tick',
+      )}
+    >
+      <TotalChip total={total} />
+    </span>
+  )
+}
+
+/**
+ * How a score moved, in words, for the line under a row's title: "Up 11 from
+ * v0", "Down 4 from v0", "Same as v0". `against` names the earlier version;
+ * null means the earlier score was written without the skill, so the line says
+ * what the skill did: "Up 20 with the skill". Only a drop is colored: a rise
+ * is the resting state, and the eye should land on what got worse.
+ */
+export function ScoreChange({
   from,
   to,
+  against,
 }: {
-  from: number | null | undefined
-  to: number | null | undefined
+  from: number
+  to: number
+  against: string | null
 }) {
-  const before = from ?? null
-  const after = to ?? null
-  if (before === null) return <TotalChip total={after} />
+  const change = Math.round(to) - Math.round(from)
+  const tail = against === null ? 'with the skill' : `from ${against}`
+  if (change === 0) return against === null ? 'Same as without the skill' : `Same as ${against}`
+  if (change > 0) return `Up ${change} ${tail}`
   return (
-    <span className="inline-flex items-center gap-1">
-      <TotalChip total={before} />
-      <ArrowRightIcon aria-hidden="true" className="size-3 shrink-0 text-muted-foreground" />
-      <span className="sr-only">then</span>
-      <TotalChip total={after} />
-      <Delta value={after === null ? null : Math.round(after) - Math.round(before)} />
-    </span>
+    <>
+      <Text tone="destructive">Down {-change}</Text> {tail}
+    </>
   )
 }
 
