@@ -149,4 +149,50 @@ The loop is write, run, compare, and running is a button, not a place. So the ne
 - Press feedback (`active:scale-[0.96]`) and the focus ring (`focus-ring`: keyboard only, see [color.md](color.md#focus)) are built in. Do not restyle them.
 - Never show an action only on hover. A row's actions are `ghost-muted` at rest, so touch and keyboard reach them.
 - Never hide a row's actions on a narrow window. `RowActions` folds them into a "More actions" menu instead ([data.md](data.md)).
-- A column header shows the action its reader came for. What is done to the column's subject now and then goes in `MoreActions` (`components/RowActions.tsx`), the same menu at every width, last in the header: Edit case and Regrade on Results. Never put the header's one main action in it. A destructive action may go in it when it acts on more than the column shows, so a button in the column would read as deleting less than it does: Delete run on a case of Results, since a run spans every case. It is a `RowAction` with `tone="destructive"`, last in the menu: red, under a hairline (`PopoverRule`). One destructive action per subject; two runs give two, named by side ("Delete A’s run"). Its button is `icon-sm`; `size="xs"` makes it `icon-xs` for a row of a dense list, such as a verdict's answer on Results (`Verdicts.tsx`). A `ghost-muted` button that opens something keeps its hover look while it is open (`data-state="open"`).
+- A column header shows the action its reader came for. What is done to the column's subject now and then goes in `MoreActions` (`components/RowActions.tsx`), the same menu at every width, last in the header: Edit case and Regrade on Results. Never put the header's one main action in it. A destructive action may go in it when it acts on more than the column shows, so a button in the column would read as deleting less than it does: Delete run on a case of Results, since a run spans every case. It is a `RowAction` with `tone="destructive"`, last in the menu: red, under a hairline (`MenuSeparator`). One destructive action per subject; two runs give two, named by side ("Delete A’s run"), under one hairline. Its button is `icon-sm`; `size="xs"` makes it `icon-xs` for a row of a dense list, such as a verdict's answer on Results (`Verdicts.tsx`). A `ghost-muted` button that opens something keeps its hover look while it is open (`data-state="open"`).
+
+## Menus and right-click
+
+Actions on one thing are written once, as `RowAction`s, and drawn wherever that thing offers them (`components/RowActions.tsx`). Write the set once in a variable and hand the same variable to each place, so a place can never offer what another does not:
+
+| Place | Draws the actions as |
+| --- | --- |
+| `RowActions` | `ghost-muted` buttons at a table row's end, folded into "More actions" on a narrow table |
+| `MoreActions` | the "More actions" (⋯) menu, at every width |
+| `ContextActions` | a menu at the pointer, on a right-click anywhere on the thing, or a long press under a finger |
+
+```tsx
+// Correct: screens/Library.tsx. One set, three places.
+const actions = (
+  <>
+    {markDone ? <RowAction icon={<CheckIcon aria-hidden="true" />} onSelect={…}>Mark done</RowAction> : null}
+    {reveal ? <RowAction icon={<FolderOpenIcon aria-hidden="true" />} show="icon" onSelect={…}>{REVEAL_LABEL}</RowAction> : null}
+  </>
+)
+<ContextActions subject={s.name} actions={actions}>
+  <TableRow …>
+    …
+    <TableCell trailing fold="menu"><RowActions subject={s.name}>{actions}</RowActions></TableCell>
+  </TableRow>
+</ContextActions>
+
+// Incorrect: the right-click menu written a second time. The next action added to the row misses it.
+<ContextActions subject={s.name} actions={<RowAction …>Mark done</RowAction>}>
+```
+
+Where a right-click goes:
+
+- **On a thing a reader acts on often enough to want it under the pointer:** a skill in the Library, a case in the Cases list, a fact in Verdicts, the outputs of a case on Results. Every action in its menu is also a button or in a "More actions" menu somewhere, since a right-click is never the only way: a reader who does not know it exists must lose nothing.
+- **Never on a field or on text the reader selected.** `ContextActions` lets those through to the system's own menu: Undo, Redo, Cut, Copy, Paste and Select All in a field, Copy over selected text (`interfaces/electron/main/text-menu.ts`).
+- **Never "Open".** A menu holds what a click on the thing does not already do.
+- Inside another `ContextActions`, the nearer one opens: a fact in Verdicts opens its own menu, not the outputs'.
+- `ContextActions` wraps one element that spreads its props, such as `TableRow`, `NavButton` or an `li`. The thing stays marked while its menu is open: `TableRow` and `NavButton` carry the `held` utility already; give a bare element `held`.
+
+How a menu moves (`ui/menu.tsx`), each for a reason:
+
+- It scales in from where it opened, the button or the pointer, in 150ms, and fades out in 100ms.
+- One highlight glides from row to row under the pointer in 150ms, so the eye follows one thing. Moved by a key, it jumps.
+- On a choice, the other rows fade first in 80ms and the chosen row leaves last, so the reader sees which one acted. The action runs at once and does not wait for it.
+- With movement reduced, all of it is immediate.
+
+Menus are not modal: a modal menu locks scrolling with a style tag, which the app's policy refuses.

@@ -2,6 +2,7 @@ import { cn } from '@renderer/lib/utils.ts'
 import { cva, type VariantProps } from 'class-variance-authority'
 import { Popover as PopoverPrimitive } from 'radix-ui'
 import type * as React from 'react'
+import { floatingMotion, floatingRow, floatingRowTone, floatingSheet } from './floating.ts'
 
 function Popover({ ...props }: React.ComponentProps<typeof PopoverPrimitive.Root>) {
   return <PopoverPrimitive.Root data-slot="popover" {...props} />
@@ -16,7 +17,7 @@ function PopoverAnchor({ ...props }: React.ComponentProps<typeof PopoverPrimitiv
 }
 
 const popoverContentVariants = cva(
-  'z-popover origin-(--radix-popover-content-transform-origin) rounded-chin bg-popover text-popover-foreground shadow-popover outline-hidden duration-150 ease-out-strong data-[state=closed]:duration-100 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-[0.97]',
+  [floatingSheet, floatingMotion, 'origin-(--radix-popover-content-transform-origin)'],
   {
     variants: {
       size: {
@@ -39,8 +40,6 @@ const popoverContentVariants = cva(
         note: 'flex w-64 flex-col gap-1 px-3 py-2.5',
         /** The list under a field (`ComboBox`): as wide as the field it opens from. */
         field: 'flex w-(--radix-popover-trigger-width) min-w-40 flex-col p-0',
-        /** The actions a narrow table's row folds away (`RowActions`): as wide as its longest. */
-        actions: 'flex w-max min-w-44 flex-col gap-px p-1',
         /** A row of actions over a selection in the editor: as wide as its buttons. */
         selection: 'flex w-auto flex-row items-center gap-0.5 p-1',
       },
@@ -109,14 +108,19 @@ function PopoverSection({
 }
 
 const popoverActionVariants = cva(
-  'flex min-h-8 items-center gap-2 rounded-sm px-2 text-left text-ui focus-ring-inset transition-[background-color] duration-150 ease-out disabled:pointer-events-none disabled:opacity-50 pointer-coarse:min-h-11 [&_svg]:size-4 [&_svg]:shrink-0',
+  [
+    floatingRow,
+    'focus-ring-inset transition-[background-color] duration-150 ease-out disabled:pointer-events-none disabled:opacity-50',
+  ],
   {
     variants: {
       tone: {
-        default: 'hover:bg-accent [&_svg]:text-muted-foreground',
-        /** It deletes something the reader made: red, its icon too, as `destructive-ghost`. */
-        destructive:
-          'text-destructive hover:bg-destructive/10 dark:hover:bg-destructive/20 [&_svg]:text-destructive',
+        default: [floatingRowTone.default, 'hover:bg-accent'],
+        /** It deletes something the reader made, as `destructive-ghost`. */
+        destructive: [
+          floatingRowTone.destructive,
+          'hover:bg-destructive/10 dark:hover:bg-destructive/20',
+        ],
       },
     },
     defaultVariants: { tone: 'default' },
@@ -146,11 +150,6 @@ function PopoverAction({
   )
 }
 
-/** A hairline across a menu, edge to edge, that sets the actions after it apart. Arrows skip it. */
-function PopoverRule({ className, ...props }: React.ComponentProps<'div'>) {
-  return <div role="separator" className={cn('-mx-1 my-1 h-px bg-border', className)} {...props} />
-}
-
 /** The name of a list inside a popover, or a line in place of an empty one. */
 function PopoverLabel({ className, ...props }: React.ComponentProps<'p'>) {
   return (
@@ -167,7 +166,6 @@ export {
   PopoverAnchor,
   PopoverContent,
   PopoverLabel,
-  PopoverRule,
   PopoverSection,
   PopoverTrigger,
 }

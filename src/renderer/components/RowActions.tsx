@@ -1,57 +1,41 @@
 /**
- * A row's actions in a table: buttons at its end while the table has room,
- * folded into one "More actions" menu when it is narrow. Each action is
- * written once and drawn either way, so the two never drift apart. The width
- * of the table decides, not the window's (the `bleed` table is the container),
- * at the width a `fold="first"` column goes. Its head takes `fold="menu"`.
- * `MoreActions` is the menu alone, outside a table.
+ * Actions on one thing, written once as `RowAction`s and drawn in three places
+ * so the places never drift apart:
+ *
+ *  - `RowActions`: buttons at a table row's end while the table has room,
+ *    folded into one "More actions" menu when it is narrow. The width of the
+ *    table decides, not the window's (the `bleed` table is the container), at
+ *    the width a `fold="first"` column goes. Its head takes `fold="menu"`.
+ *  - `MoreActions`: the "More actions" menu alone, at every width.
+ *  - `ContextActions`: the same actions in a menu at the pointer, on a
+ *    right-click (or a long press) anywhere on the thing.
  */
 
 import { EllipsisIcon } from 'lucide-react'
 import {
-  Children,
   createContext,
-  type KeyboardEvent,
+  type MouseEvent,
+  type ReactElement,
   type ReactNode,
   useContext,
-  useRef,
-  useState,
 } from 'react'
+import { hasActions, keepsTextMenu } from '../actions.ts'
 import { Toolbar } from './layout.tsx'
 import { Button } from './ui/button.tsx'
 import {
-  Popover,
-  PopoverAction,
-  PopoverContent,
-  PopoverRule,
-  PopoverTrigger,
-} from './ui/popover.tsx'
+  ContextMenu,
+  ContextMenuTrigger,
+  DropdownMenu,
+  DropdownMenuTrigger,
+  MenuContent,
+  MenuItem,
+  MenuSeparator,
+} from './ui/menu.tsx'
 
-/** Where an action is drawn: in the row, or in the menu (`close` shuts it), for the row's `subject`. */
-type Place = { in: 'row'; subject: string } | { in: 'menu'; subject: string; close: () => void }
+/** Where an action is drawn: in the row as a button, or in a menu, for the row's `subject`. */
+type Place = { in: 'row' | 'menu'; subject: string }
 
 const PlaceContext = createContext<Place>({ in: 'row', subject: '' })
-
-/** The keys that walk a menu, as steps from the item in focus: -1 when the menu itself has it. */
-const STEPS: Record<string, (at: number, count: number) => number> = {
-  ArrowDown: (at, count) => (at + 1) % count,
-  ArrowUp: (at, count) => (at < 0 ? count - 1 : (at - 1 + count) % count),
-  Home: () => 0,
-  End: (_, count) => count - 1,
-}
-
-/** Arrows, Home and End move between the menu's items, as in any menu. */
-function walk(event: KeyboardEvent<HTMLDivElement>) {
-  const step = STEPS[event.key]
-  if (!step) return
-  const items = [
-    ...event.currentTarget.querySelectorAll<HTMLButtonElement>('[role=menuitem]:not(:disabled)'),
-  ]
-  if (!items.length) return
-  event.preventDefault()
-  const at = items.indexOf(document.activeElement as HTMLButtonElement)
-  items[step(at, items.length)]?.focus()
-}
 
 /** How big the "More actions" button is: `sm` in a table or a header, `xs` in a dense list. */
 type MenuSize = 'sm' | 'xs'
@@ -66,50 +50,24 @@ function Menu({
   size?: MenuSize
   children: ReactNode
 }) {
-  const [open, setOpen] = useState(false)
-  /** Opened by a pointer: the menu takes the focus, not its first item, as a native menu does. */
-  const pointed = useRef(false)
-  const menu = useRef<HTMLDivElement>(null)
   return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
         <Button
           type="button"
           variant="ghost-muted"
           size={size === 'xs' ? 'icon-xs' : 'icon-sm'}
           aria-label={`More actions for ${subject}`}
-          aria-haspopup="menu"
           title="More actions"
-          onPointerDown={() => {
-            pointed.current = true
-          }}
-          onKeyDown={() => {
-            pointed.current = false
-          }}
         >
           <EllipsisIcon aria-hidden="true" />
         </Button>
-      </PopoverTrigger>
-      <PopoverContent
-        size="actions"
-        align="end"
-        role="menu"
-        aria-label={`Actions for ${subject}`}
-        // A wider table puts the actions back in the row: the menu goes with its button.
-        hideWhenDetached
-        ref={menu}
-        onOpenAutoFocus={(event) => {
-          if (!pointed.current) return
-          event.preventDefault()
-          menu.current?.focus()
-        }}
-        onKeyDown={walk}
-      >
-        <PlaceContext.Provider value={{ in: 'menu', subject, close: () => setOpen(false) }}>
-          {children}
-        </PlaceContext.Provider>
-      </PopoverContent>
-    </Popover>
+      </DropdownMenuTrigger>
+      {/* A wider table puts the actions back in the row: the menu goes with its button. */}
+      <MenuContent kind="dropdown" label={`Actions for ${subject}`} align="end" hideWhenDetached>
+        <PlaceContext.Provider value={{ in: 'menu', subject }}>{children}</PlaceContext.Provider>
+      </MenuContent>
+    </DropdownMenu>
   )
 }
 
@@ -122,7 +80,7 @@ export function RowActions({
   /** `RowAction`s; none, and nothing is drawn. */
   children: ReactNode
 }) {
-  if (!Children.toArray(children).length) return null
+  if (!hasActions(children)) return null
   return (
     <>
       <div className="@max-2xl:hidden">
@@ -155,11 +113,67 @@ export function MoreActions({
   size?: MenuSize
   children: ReactNode
 }) {
-  if (!Children.toArray(children).length) return null
+  if (!hasActions(children)) return null
   return (
     <Menu subject={subject} size={size}>
       {children}
     </Menu>
+  )
+}
+
+/** A field, or a frame with a page of its own: its own right-click menu is the one wanted. */
+const TYPING = 'input, textarea, select, iframe, [contenteditable]:not([contenteditable="false"])'
+
+/**
+ * Let the system's menu through where the reader came for the text: a field,
+ * or text they selected inside the thing. Stopped here, in the capture phase,
+ * the right-click never reaches this menu, nor one round it, and the default
+ * is left alone.
+ */
+function letTextMenuThrough(event: MouseEvent<HTMLElement>) {
+  const selection = window.getSelection()
+  const clicked = {
+    typing: event.target instanceof Element && event.target.closest(TYPING) !== null,
+    selected:
+      selection !== null &&
+      !selection.isCollapsed &&
+      event.currentTarget.contains(selection.anchorNode),
+  }
+  if (keepsTextMenu(clicked)) event.stopPropagation()
+}
+
+/**
+ * The same `RowAction`s in a menu that opens at the pointer on a right-click
+ * anywhere on `children`, or a long press under a finger. The thing stays
+ * marked while the menu is open (`held`), so the reader sees what it acts on.
+ * A field or selected text inside keeps the system's Cut, Copy and Paste.
+ * Inside another `ContextActions`, the nearer one opens.
+ *
+ * It holds only what a click on the thing does not already do: opening the
+ * thing is its click, so "Open" is never in it.
+ */
+export function ContextActions({
+  subject,
+  actions,
+  children,
+}: {
+  /** What the actions are done to, such as a case's name. */
+  subject: string
+  /** `RowAction`s, often the very ones its row or header draws; none, and the right-click does nothing here. */
+  actions: ReactNode
+  /** The thing: one element that takes a ref and spreads its props, such as a `TableRow` or a `NavButton`. */
+  children: ReactElement
+}) {
+  if (!hasActions(actions)) return children
+  return (
+    <ContextMenu>
+      <ContextMenuTrigger asChild onContextMenuCapture={letTextMenuThrough}>
+        {children}
+      </ContextMenuTrigger>
+      <MenuContent kind="context" label={`Actions for ${subject}`}>
+        <PlaceContext.Provider value={{ in: 'menu', subject }}>{actions}</PlaceContext.Provider>
+      </MenuContent>
+    </ContextMenu>
   )
 }
 
@@ -174,10 +188,10 @@ export function RowAction({
   children,
 }: {
   icon: ReactNode
-  /** How it shows in the row: its label, or its icon alone. The menu always shows both. */
+  /** How it shows in the row: its label, or its icon alone. A menu always shows both. */
   show?: 'label' | 'icon'
   /**
-   * `destructive` deletes something the reader made. In the menu it is red and
+   * `destructive` deletes something the reader made. In a menu it is red and
    * stands under a rule, apart from the rest, so put it last; in a row it is
    * `destructive-muted`.
    */
@@ -194,26 +208,22 @@ export function RowAction({
   const place = useContext(PlaceContext)
   const off = disabled || busy
   if (place.in === 'menu') {
+    // The menu closes as it is chosen, so whatever the action moves is seen moving.
     const item = (
-      <PopoverAction
-        role="menuitem"
+      <MenuItem
         icon={icon}
         tone={tone}
         title={title}
         disabled={off}
         aria-busy={busy || undefined}
-        onClick={() => {
-          // The menu leaves first, so whatever the action moves is seen moving.
-          place.close()
-          onSelect()
-        }}
+        onSelect={onSelect}
       >
         {children}
-      </PopoverAction>
+      </MenuItem>
     )
     return tone === 'destructive' ? (
       <>
-        <PopoverRule />
+        <MenuSeparator />
         {item}
       </>
     ) : (

@@ -30,7 +30,7 @@ import { PopoverSection } from './ui/popover.tsx'
 
 /** A rewrite as an object to pick: a card that is a button. */
 const rewriteCard = cva(
-  'group flex w-full flex-col gap-1.5 rounded-chin bg-card px-3.5 py-3 text-left text-card-foreground shadow-raised focus-ring transition-[background-color,box-shadow,scale] duration-150 ease-out',
+  'group flex w-full flex-col gap-1.5 rounded-md bg-card px-3.5 py-3 text-left text-card-foreground shadow-raised focus-ring transition-[background-color,box-shadow,scale] duration-150 ease-out',
   {
     variants: {
       state: {

@@ -31,7 +31,7 @@ import {
   templateById,
   templateForPacks,
 } from '@domain/templates.ts'
-import { ArrowUpRightIcon } from 'lucide-react'
+import { ArrowUpRightIcon, CopyIcon, Trash2Icon } from 'lucide-react'
 import { memo, useEffect, useMemo, useRef, useState } from 'react'
 import { api, currentSkill } from '../api.ts'
 import { caseContext, skillContext } from '../assist.ts'
@@ -56,6 +56,7 @@ import {
   Workbench,
 } from '../components/layout.tsx'
 import { NavButton, NavButtonMeta, NavButtonTitle } from '../components/NavButton.tsx'
+import { ContextActions, RowAction } from '../components/RowActions.tsx'
 import { Segmented } from '../components/Segmented.tsx'
 import { ExampleList, GuideBox, PairList } from '../components/starters.tsx'
 import { TextArea } from '../components/TextArea.tsx'
@@ -86,6 +87,9 @@ const CHANGED_ON_DISK = /changed on disk/
 const savedAtOf = (saved: object | null | undefined): string | null =>
   saved && 'savedAt' in saved && typeof saved.savedAt === 'string' ? saved.savedAt : null
 
+/** A case as the skill holds it. */
+type SavedCase = Ctx['state']['cases'][number]
+
 export const Cases = memo(function Cases({ ctx }: { ctx: Ctx }) {
   const { state, config, route, go, report, confirm, reload, drafts } = ctx
   const cases = state.cases
@@ -113,6 +117,8 @@ export const Cases = memo(function Cases({ ctx }: { ctx: Ctx }) {
   const [busy, runSave] = useAction(report)
   const [deleting, runDelete] = useAction(report)
   const [duplicating, runDuplicate] = useAction(report)
+  /** The case a delete or a copy is working on: the open one, or one picked from the list's right-click. */
+  const [actingOn, setActingOn] = useState<string | null>(null)
   /** The skill this case belongs to: a step that ends after another was opened leaves that one alone. */
   const skill = state.skill.path
   const dirty = held !== undefined
@@ -291,10 +297,10 @@ export const Cases = memo(function Cases({ ctx }: { ctx: Ctx }) {
     })
   }
 
-  const remove = async () => {
-    if (!selected) return
-    const gone = selected.id
-    const name = caseName(selected)
+  /** Delete a saved case: the open one, or one right-clicked in the list. */
+  const remove = async (target: SavedCase) => {
+    const gone = target.id
+    const name = caseName(target)
     const ok = await confirm({
       title: `Delete ${name}?`,
       description: 'Its files are deleted too. Results of past runs are kept.',
@@ -302,21 +308,28 @@ export const Cases = memo(function Cases({ ctx }: { ctx: Ctx }) {
       destructive: true,
     })
     if (!ok) return
+    setActingOn(gone)
     void runDelete(async () => {
       await api.deleteCase(gone)
       if (currentSkill() !== skill) return
       drafts.setCase(gone, null)
       await reload()
       report(`Deleted ${name}`)
-      if (inView.current === key) go('cases', {}, { replace: true })
+      // Only off the case deleted: deleting another from the list leaves the reader where they are.
+      if (inView.current === gone) go('cases', {}, { replace: true })
     })
   }
 
-  /** Copy the saved case and open the copy. Offered only while nothing is unsaved, so the copy is what the form shows. */
-  const duplicate = () => {
-    if (!selected || dirty) return
-    const from = selected.id
-    const name = caseName(selected)
+  /**
+   * Copy a saved case and open the copy, unless the reader moved on meanwhile.
+   * Offered only while the case has nothing unsaved, so the copy is what its form shows.
+   */
+  const duplicate = (target: SavedCase) => {
+    if (unsaved.has(target.id)) return
+    const from = target.id
+    const name = caseName(target)
+    const at = inView.current
+    setActingOn(from)
     void runDuplicate(async () => {
       const { id } = await api.duplicateCase(from)
       if (currentSkill() !== skill) return
@@ -324,9 +337,12 @@ export const Cases = memo(function Cases({ ctx }: { ctx: Ctx }) {
       drafts.setCase(id, null)
       await reload()
       report(`Duplicated ${name}`)
-      if (inView.current === key) go('cases', { id })
+      if (inView.current === at) go('cases', { id })
     })
   }
+  /** The open case's own buttons are busy only for work on the open case. */
+  const deletingThis = deleting && actingOn === selected?.id
+  const duplicatingThis = duplicating && actingOn === selected?.id
 
   const onKey = (e: React.KeyboardEvent) => {
     if ((e.metaKey || e.ctrlKey) && e.key === 's') {
@@ -409,14 +425,47 @@ export const Cases = memo(function Cases({ ctx }: { ctx: Ctx }) {
                 ) : null}
                 {cases.map((c) => (
                   <li key={c.id}>
-                    <NavButton
-                      current={selected?.id === c.id}
-                      arrived={arrivedCase(c.id)}
-                      onClick={() => pick({ id: c.id })}
+                    <ContextActions
+                      subject={caseName(c)}
+                      actions={
+                        c.dir ? (
+                          <>
+                            <RowAction
+                              icon={<CopyIcon aria-hidden="true" />}
+                              title={
+                                unsaved.has(c.id)
+                                  ? 'Save or discard its changes first, so the copy matches.'
+                                  : undefined
+                              }
+                              // One delete or copy at a time, as the open case's buttons wait on each other.
+                              disabled={unsaved.has(c.id) || deleting || duplicating}
+                              busy={duplicating && actingOn === c.id}
+                              onSelect={() => duplicate(c)}
+                            >
+                              Duplicate
+                            </RowAction>
+                            <RowAction
+                              icon={<Trash2Icon aria-hidden="true" />}
+                              tone="destructive"
+                              disabled={deleting || duplicating || (busy && selected?.id === c.id)}
+                              busy={deleting && actingOn === c.id}
+                              onSelect={() => void remove(c)}
+                            >
+                              Delete case
+                            </RowAction>
+                          </>
+                        ) : null
+                      }
                     >
-                      <NavButtonTitle unsaved={unsaved.has(c.id)}>{caseName(c)}</NavButtonTitle>
-                      <NavButtonMeta>{plural(c.graders.length, 'check')}</NavButtonMeta>
-                    </NavButton>
+                      <NavButton
+                        current={selected?.id === c.id}
+                        arrived={arrivedCase(c.id)}
+                        onClick={() => pick({ id: c.id })}
+                      >
+                        <NavButtonTitle unsaved={unsaved.has(c.id)}>{caseName(c)}</NavButtonTitle>
+                        <NavButtonMeta>{plural(c.graders.length, 'check')}</NavButtonMeta>
+                      </NavButton>
+                    </ContextActions>
                   </li>
                 ))}
               </PlainList>
@@ -462,9 +511,9 @@ export const Cases = memo(function Cases({ ctx }: { ctx: Ctx }) {
                 variant="ghost"
                 size="sm"
                 disabled={deleting}
-                busy={duplicating}
+                busy={duplicatingThis}
                 busyLabel="Duplicating…"
-                onClick={duplicate}
+                onClick={() => duplicate(selected)}
               >
                 Duplicate
               </Button>
@@ -777,9 +826,9 @@ export const Cases = memo(function Cases({ ctx }: { ctx: Ctx }) {
                     variant="destructive-outline"
                     size="sm"
                     disabled={busy || duplicating}
-                    busy={deleting}
+                    busy={deletingThis}
                     busyLabel="Deleting…"
-                    onClick={remove}
+                    onClick={() => void remove(selected)}
                   >
                     Delete case
                   </Button>

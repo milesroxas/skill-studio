@@ -58,7 +58,7 @@ The welcome runs in its own 760 x 600 window, laid out for exactly that size and
 
 - **One idea and one action per frame.** Anything more comes one step later, on request. The reader is new and the words are new: three facts in a row are easy, three at once are a wall.
 - The headline is `Heading level="display"` (`text-display`). The step numeral is `text-numeral`, moved 6px left so its stroke sits on the column's edge. Both are in the scale in [typography.md](typography.md).
-- The picture is a sheet with a 1px `border-foreground` edge, `rounded-chin` corners and no shadow.
+- The picture is a sheet with a 1px `border-foreground` edge, `rounded-md` corners and no shadow.
 - Progress is the step numbers of the tour in mono, the current one yellow on ink. The setup is one step and shows no progress and no numeral: "01" of one counts nothing.
 - Doing teaches more than watching: the sample skill's walkthrough is the way in, and the tour is the second way, for a reader who wants to see first. Both end at the sample skill.
 - The tour and the setup share one step frame (`StepFrame` in `components/WelcomeStep.tsx`): numeral (left out for a lone step), title and sentence on the left, the step beside them, Back and the way forward at the foot, with nothing between them.

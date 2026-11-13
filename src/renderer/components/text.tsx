@@ -218,7 +218,7 @@ const excerptVariants = cva('m-0 bg-muted px-3 py-2.5 text-ui', {
      * `inset`: a panel inside a section or a popout, its corners a container's.
      * `bleed`: across a side panel's full width, between hairlines.
      */
-    edge: { inset: 'rounded-chin', bleed: 'border-y' },
+    edge: { inset: 'rounded-md', bleed: 'border-y' },
     /**
      * `text`: a passage, its line breaks kept. `writing`: a rewrite as it is
      * written, held to 18rem and scrolled, holding whatever shows it (a diff,

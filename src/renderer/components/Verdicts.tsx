@@ -9,16 +9,16 @@
  * code measured, such as a word count, has no answer to give. Each action
  * has one place on every row, whatever the row says: Open rule is a button
  * on every rule SKILL.md still holds, and the answer, which is rare, waits
- * alone in the row's menu.
+ * alone in the row's menu. A right-click on a row offers both.
  */
 import { weightMark } from '@domain/case-draft.ts'
 import type { Verdict } from '@domain/pack.ts'
-import { CheckIcon, Undo2Icon, XIcon } from 'lucide-react'
+import { CheckIcon, FileTextIcon, Undo2Icon, XIcon } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { kindOfPart, partLabel } from '../model.ts'
 import { Disclosure } from './Disclosure.tsx'
 import { Term } from './Help.tsx'
-import { MoreActions, RowAction } from './RowActions.tsx'
+import { ContextActions, MoreActions, RowAction } from './RowActions.tsx'
 import { Text } from './text.tsx'
 import { Button } from './ui/button.tsx'
 
@@ -73,44 +73,64 @@ function Row({
     : verdict.met
       ? { label: 'Mark as missed', icon: <XIcon aria-hidden="true" />, met: false }
       : { label: 'Mark as met', icon: <CheckIcon aria-hidden="true" />, met: true }
+  const answerAction =
+    verdict.open && onCorrect ? (
+      <RowAction
+        icon={answer.icon}
+        disabled={waiting}
+        onSelect={() => onCorrect(verdict, answer.met)}
+      >
+        {answer.label}
+      </RowAction>
+    ) : null
   return (
-    <li className="grid grid-cols-[14px_minmax(0,1fr)_auto] items-start gap-x-2 py-1">
-      {verdict.met ? (
-        <CheckIcon aria-hidden="true" className="mt-1.5 size-3.5 text-success" />
-      ) : (
-        <XIcon aria-hidden="true" className="mt-1.5 size-3.5 text-destructive" />
-      )}
-      <span className="flex min-w-0 flex-col gap-0.5 py-1">
-        <span className="text-pretty text-foreground">
-          <span className="sr-only">{verdict.met ? 'Met: ' : 'Missed: '}</span>
-          {verdict.text}
-        </span>
-        {note ? <Text tone="faint">{note}</Text> : null}
-      </span>
-      <span className="flex items-center gap-1">
-        {openable ? (
-          <Button
-            type="button"
-            variant="ghost-muted"
-            size="xs"
-            onClick={() => onOpenRule(verdict.text)}
-          >
-            Open rule
-          </Button>
-        ) : null}
-        {verdict.open && onCorrect ? (
-          <MoreActions subject={subjectOf(verdict.text)} size="xs">
+    // A right-click on the row offers both of its actions, Open rule first, as the row shows them.
+    <ContextActions
+      subject={subjectOf(verdict.text)}
+      actions={
+        <>
+          {openable ? (
             <RowAction
-              icon={answer.icon}
-              disabled={waiting}
-              onSelect={() => onCorrect(verdict, answer.met)}
+              icon={<FileTextIcon aria-hidden="true" />}
+              onSelect={() => onOpenRule(verdict.text)}
             >
-              {answer.label}
+              Open rule
             </RowAction>
+          ) : null}
+          {answerAction}
+        </>
+      }
+    >
+      <li className="held grid grid-cols-[14px_minmax(0,1fr)_auto] items-start gap-x-2 py-1">
+        {verdict.met ? (
+          <CheckIcon aria-hidden="true" className="mt-1.5 size-3.5 text-success" />
+        ) : (
+          <XIcon aria-hidden="true" className="mt-1.5 size-3.5 text-destructive" />
+        )}
+        <span className="flex min-w-0 flex-col gap-0.5 py-1">
+          <span className="text-pretty text-foreground">
+            <span className="sr-only">{verdict.met ? 'Met: ' : 'Missed: '}</span>
+            {verdict.text}
+          </span>
+          {note ? <Text tone="faint">{note}</Text> : null}
+        </span>
+        <span className="flex items-center gap-1">
+          {openable ? (
+            <Button
+              type="button"
+              variant="ghost-muted"
+              size="xs"
+              onClick={() => onOpenRule(verdict.text)}
+            >
+              Open rule
+            </Button>
+          ) : null}
+          <MoreActions subject={subjectOf(verdict.text)} size="xs">
+            {answerAction}
           </MoreActions>
-        ) : null}
-      </span>
-    </li>
+        </span>
+      </li>
+    </ContextActions>
   )
 }
 

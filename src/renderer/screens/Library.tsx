@@ -24,7 +24,7 @@ import {
   SectionHead,
   Toolbar,
 } from '../components/layout.tsx'
-import { RowAction, RowActions } from '../components/RowActions.tsx'
+import { ContextActions, RowAction, RowActions } from '../components/RowActions.tsx'
 import { SelectBox } from '../components/SelectBox.tsx'
 import { Invitation } from '../components/starters.tsx'
 import { Heading, Hint, Text, VisuallyHidden } from '../components/text.tsx'
@@ -425,117 +425,128 @@ function SkillTable({
         </TableRow>
       </TableHeader>
       <TableBody>
-        {skills.map((s) => (
-          <TableRow
-            key={s.path}
-            align="baseline"
-            interactive
-            motion={
-              markDone && motion.leaving.has(s.path)
-                ? 'leaving'
-                : motion.arrived === s.path
-                  ? 'arrived'
-                  : 'none'
-            }
-            onAnimationEnd={(e) => e.target === e.currentTarget && motion.settle(s.path)}
-            onClick={rowAction(() => void openSkill(s.path))}
-          >
-            <TableCell wrap>
-              <Button
-                type="button"
-                variant="link"
-                size="inline"
-                title={s.path}
-                onClick={() => void openSkill(s.path)}
+        {skills.map((s) => {
+          // Written once: the row's buttons, its "More actions" menu and its right-click all draw these.
+          const actions = (
+            <>
+              {markDone ? (
+                <RowAction
+                  icon={<CheckIcon aria-hidden="true" />}
+                  title="Move it out of In progress. Editing or running it brings it back."
+                  busy={pending.has(s.path)}
+                  onSelect={() => void markDone(s, true)}
+                >
+                  Mark done
+                </RowAction>
+              ) : null}
+              {reveal ? (
+                <RowAction
+                  icon={<FolderOpenIcon aria-hidden="true" />}
+                  show="icon"
+                  onSelect={() => reveal(s.path)}
+                >
+                  {REVEAL_LABEL}
+                </RowAction>
+              ) : null}
+            </>
+          )
+          return (
+            <ContextActions key={s.path} subject={s.name} actions={actions}>
+              <TableRow
+                align="baseline"
+                interactive
+                motion={
+                  markDone && motion.leaving.has(s.path)
+                    ? 'leaving'
+                    : motion.arrived === s.path
+                      ? 'arrived'
+                      : 'none'
+                }
+                onAnimationEnd={(e) => e.target === e.currentTarget && motion.settle(s.path)}
+                onClick={rowAction(() => void openSkill(s.path))}
               >
-                {s.name}
-              </Button>
-              <RunningTag jobs={jobs} skillPath={s.path} />
-              {s.description ? (
-                <Text block tone="muted" size="xs" clamp>
-                  {s.description}
-                </Text>
-              ) : null}
-            </TableCell>
-            <TableCell fold="second">
-              <Text block truncate size="xs" title={s.scopeLabel}>
-                {shortPlace(s.scopeLabel)}
-              </Text>
-              {s.source ? (
-                <Text block truncate tone="muted" size="xs" title={s.source}>
-                  {s.source}
-                </Text>
-              ) : null}
-            </TableCell>
-            <TableCell>
-              {isPractice(s) ? (
-                <Text tone="muted" size="xs" title="Kept inside Skill Studio, so no agent uses it.">
-                  Stays in the app
-                </Text>
-              ) : (
-                <Toolbar gap="xs" wrap={false}>
-                  {AGENTS.map((a) => {
-                    const state = s.installs[a.id]
-                    const fixed = state === 'here' || state === 'copy' || s.scope === 'other'
-                    return (
-                      <Toggle
-                        key={a.id}
-                        variant="outline"
-                        size="sm"
-                        pressed={state === 'here' || state === 'link'}
-                        disabled={pending.has(s.path)}
-                        aria-busy={pending.has(s.path) || undefined}
-                        aria-disabled={fixed || undefined}
-                        title={INSTALL_TITLE[state ?? 'none'](a.label)}
-                        onPressedChange={() => fixed || toggle(s, a.id, a.label)}
-                      >
-                        {a.label.replace(' Code', '')}
-                        {state === 'copy' ? (
-                          <Text tone="faint" size="xs">
-                            copy
-                          </Text>
-                        ) : null}
-                      </Toggle>
-                    )
-                  })}
-                </Toolbar>
-              )}
-            </TableCell>
-            <TableCell trailing fold="last">
-              {s.cases || s.runs ? (
-                <Text size="xs">{`${plural(s.cases, 'case')} · ${plural(s.runs, 'run')}`}</Text>
-              ) : null}
-            </TableCell>
-            <TableCell trailing fold="last">
-              <Text tone="muted" size="xs">
-                {shortDate(s.modified)}
-              </Text>
-            </TableCell>
-            <TableCell trailing fold="menu">
-              <RowActions subject={s.name}>
-                {markDone ? (
-                  <RowAction
-                    icon={<CheckIcon aria-hidden="true" />}
-                    title="Move it out of In progress. Editing or running it brings it back."
-                    busy={pending.has(s.path)}
-                    onSelect={() => void markDone(s, true)}
+                <TableCell wrap>
+                  <Button
+                    type="button"
+                    variant="link"
+                    size="inline"
+                    title={s.path}
+                    onClick={() => void openSkill(s.path)}
                   >
-                    Mark done
-                  </RowAction>
-                ) : null}
-                {reveal ? (
-                  <RowAction
-                    icon={<FolderOpenIcon aria-hidden="true" />}
-                    show="icon"
-                    onSelect={() => reveal(s.path)}
-                  >
-                    {REVEAL_LABEL}
-                  </RowAction>
-                ) : null}
-              </RowActions>
-            </TableCell>
-          </TableRow>
-        ))}
+                    {s.name}
+                  </Button>
+                  <RunningTag jobs={jobs} skillPath={s.path} />
+                  {s.description ? (
+                    <Text block tone="muted" size="xs" clamp>
+                      {s.description}
+                    </Text>
+                  ) : null}
+                </TableCell>
+                <TableCell fold="second">
+                  <Text block truncate size="xs" title={s.scopeLabel}>
+                    {shortPlace(s.scopeLabel)}
+                  </Text>
+                  {s.source ? (
+                    <Text block truncate tone="muted" size="xs" title={s.source}>
+                      {s.source}
+                    </Text>
+                  ) : null}
+                </TableCell>
+                <TableCell>
+                  {isPractice(s) ? (
+                    <Text
+                      tone="muted"
+                      size="xs"
+                      title="Kept inside Skill Studio, so no agent uses it."
+                    >
+                      Stays in the app
+                    </Text>
+                  ) : (
+                    <Toolbar gap="xs" wrap={false}>
+                      {AGENTS.map((a) => {
+                        const state = s.installs[a.id]
+                        const fixed = state === 'here' || state === 'copy' || s.scope === 'other'
+                        return (
+                          <Toggle
+                            key={a.id}
+                            variant="outline"
+                            size="sm"
+                            pressed={state === 'here' || state === 'link'}
+                            disabled={pending.has(s.path)}
+                            aria-busy={pending.has(s.path) || undefined}
+                            aria-disabled={fixed || undefined}
+                            title={INSTALL_TITLE[state ?? 'none'](a.label)}
+                            onPressedChange={() => fixed || toggle(s, a.id, a.label)}
+                          >
+                            {a.label.replace(' Code', '')}
+                            {state === 'copy' ? (
+                              <Text tone="faint" size="xs">
+                                copy
+                              </Text>
+                            ) : null}
+                          </Toggle>
+                        )
+                      })}
+                    </Toolbar>
+                  )}
+                </TableCell>
+                <TableCell trailing fold="last">
+                  {s.cases || s.runs ? (
+                    <Text size="xs">{`${plural(s.cases, 'case')} · ${plural(s.runs, 'run')}`}</Text>
+                  ) : null}
+                </TableCell>
+                <TableCell trailing fold="last">
+                  <Text tone="muted" size="xs">
+                    {shortDate(s.modified)}
+                  </Text>
+                </TableCell>
+                <TableCell trailing fold="menu">
+                  <RowActions subject={s.name}>{actions}</RowActions>
+                </TableCell>
+              </TableRow>
+            </ContextActions>
+          )
+        })}
       </TableBody>
     </Table>
   )

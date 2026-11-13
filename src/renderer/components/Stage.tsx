@@ -185,7 +185,7 @@ export function Stage({
 
   return (
     <>
-      <div className="relative h-[60svh] min-h-64 rounded-chin bg-muted">
+      <div className="relative h-[60svh] min-h-64 rounded-md bg-muted">
         <div ref={box} className="absolute inset-4">
           {placed.map(({ layer, geometry: g }) =>
             g ? (

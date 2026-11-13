@@ -28,6 +28,7 @@ The pictures show a sample skill, release-notes. Its scores are made up.
 - **Back and forward:** the arrows at the top left.
 - **Help:** the question mark at the top right explains the screen you are on.
 - **Dotted underline:** click the word to see what it means.
+- **Right-click:** a skill in the Library, a case in the Cases list, an output on Results or a rule or check under it shows what you can do to it, such as **Duplicate** or **Mark as met**. Each of these is also a button or under **More actions** (⋯). In a field, a right-click offers **Cut**, **Copy** and **Paste**.
 
 On Windows and Linux, press Ctrl where this guide says Cmd.
 

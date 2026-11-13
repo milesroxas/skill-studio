@@ -153,7 +153,7 @@ export function ComboBox({ value, onChange, options, id, placeholder, noun, ...a
               tabIndex={-1}
               onMouseMove={() => setActive(i)}
               onClick={() => pick(option)}
-              className="relative flex min-h-8 w-full items-center rounded-sm py-1.5 pr-8 pl-2 text-left text-sm outline-none aria-selected:bg-accent pointer-coarse:min-h-11"
+              className="relative flex min-h-8 w-full items-center rounded-xs py-1.5 pr-8 pl-2 text-left text-sm outline-none aria-selected:bg-accent pointer-coarse:min-h-11"
             >
               <span className="min-w-0 truncate">{option}</span>
               {option === value ? (

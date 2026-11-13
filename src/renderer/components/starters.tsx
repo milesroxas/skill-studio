@@ -44,7 +44,7 @@ export function Invitation({
   return (
     <section
       className={cn(
-        'flex flex-wrap items-center gap-x-8 gap-y-3 rounded-chin bg-muted px-5 py-4',
+        'flex flex-wrap items-center gap-x-8 gap-y-3 rounded-md bg-muted px-5 py-4',
         className,
       )}
       {...props}
@@ -115,7 +115,7 @@ export function GuideBox({
 }) {
   return (
     <Disclosure summary={summary} defaultOpen={defaultOpen}>
-      <div className="rounded-chin bg-muted px-3.5 py-3 text-xs">{children}</div>
+      <div className="rounded-md bg-muted px-3.5 py-3 text-xs">{children}</div>
     </Disclosure>
   )
 }

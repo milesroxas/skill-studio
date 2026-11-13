@@ -79,7 +79,7 @@ function TableBody({ className, ...props }: React.ComponentProps<'tbody'>) {
 }
 
 const tableRowVariants = cva(
-  'group border-b transition-[color,background-color,border-color,opacity,translate] duration-150 ease-out has-aria-expanded:bg-muted/50 data-[state=selected]:bg-muted',
+  'group held border-b transition-[color,background-color,border-color,opacity,translate] duration-150 ease-out has-aria-expanded:bg-muted/50 data-[state=selected]:bg-muted',
   {
     variants: {
       /** A row that opens something: it lights under the pointer. Plain rows stay still. */

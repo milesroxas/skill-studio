@@ -43,7 +43,7 @@ Ink uses the dark scope's values, with `--background` set to `--sidebar` and the
 
 `--signal`, `--scrim` and `--artifact` are the same in every scope. `--signal` is the brand's highlighter yellow `#F0F059`.
 
-Each surface token has a `-foreground` partner (`--card-foreground`, `--popover-foreground`, `--accent-foreground`, `--secondary-foreground`) for text on it. So does `--destructive`, for a solid red fill: `--destructive-foreground` turns from porcelain to ink with the red, as `--primary-foreground` does with the filled button. The depth and corner values are tokens too: `--elevation-raised` and `--elevation-popover` behind `shadow-raised` and `shadow-popover`, `--radius-chin-top` (0.625rem) and `--radius-chin-bottom` (0.78125rem) behind `rounded-chin`.
+Each surface token has a `-foreground` partner (`--card-foreground`, `--popover-foreground`, `--accent-foreground`, `--secondary-foreground`) for text on it. So does `--destructive`, for a solid red fill: `--destructive-foreground` turns from porcelain to ink with the red, as `--primary-foreground` does with the filled button. The depth and corner values are tokens too: `--elevation-raised` and `--elevation-popover` behind `shadow-raised` and `shadow-popover`, `--radius-xs`, `--radius-sm` and `--radius-md` (2, 4 and 6px) behind `rounded-xs`, `rounded-sm` and `rounded-md`.
 
 Ink is a blue-black, `#0A1020`: the light theme's text, its filled button and its sidebar. The dark theme's surfaces are near-black on the same hue, 267.3, at chroma 0.01, so they read as black with a cool cast. Only porcelain, the verdicts and yellow sit off that hue. The scrim's black and the artifact's white have no hue at all: neither is a surface of the app's own.
 
@@ -118,9 +118,9 @@ A diff (`.diff` and `.diff-lines` in `styles.css`) takes the same tints, but its
 - A control's edge is `border-input`. How focus shows is in [Focus](#focus) below.
 - A surface gets one kind of depth, never two. A floating sheet uses `shadow-popover`. A raised object uses `shadow-raised`. Never both, and never one of them on a bordered region. In the dark and ink scopes both collapse to a ring. A control is not a surface: a field (`FIELD_SURFACE`), an `outline` button or toggle, and a checkbox carry Tailwind's `shadow-xs` under their `border-input` edge, set once in `ui/`. That hairline is part of the control's edge, not depth: never add it at a call site.
 - Corners are a closed set, in `styles.css`:
-  - `rounded-sm` 4px: a button, a field, a toggle, a checkbox, a chip, a list row or menu item.
-  - `rounded-chin` 10px on top, 12.5px below: a container. A card, a popover, a menu, a dialog, an alert, the composer, a muted panel, a code block, a chat bubble, the welcome's picture sheet. Top and bottom stay 4 to 5.
-  - `rounded-xs` 2px: a mark inside running text (an inline link's focus ring, inline code, a diff mark), a part nested inside a control, and each segment of a stepped indicator (the walkthrough's progress, the file size meter). A segment is at least 6px tall, so its corners read as corners and not as a pill.
+  - `rounded-sm` 4px: a button, a field, a toggle, a checkbox, a chip, a list row.
+  - `rounded-md` 6px, every corner alike: a container. A card, a popover, a menu, a dialog, an alert, the composer, a muted panel, a code block, a chat bubble, the welcome's picture sheet.
+  - `rounded-xs` 2px: a mark inside running text (an inline link's focus ring, inline code, a diff mark), a part nested inside a control, a row 4px inside a container (a menu item, a popover's row, an option in a list: 6px less the 4px between them, so the corners keep an even gap), and each segment of a stepped indicator (the walkthrough's progress, the file size meter). A segment is at least 6px tall, so its corners read as corners and not as a pill.
   - `rounded-full`: dots and the remove button on a picture only. A row of steps is never pills.
 
 ## Focus

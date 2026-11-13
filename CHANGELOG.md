@@ -9,9 +9,12 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 ### Added
 
 - **Duplicate**, at the top of a saved case, copies the case with its checks, pictures and files and opens the copy, titled with "copy" after the name. It shows while the case has no unsaved changes.
+- **Right-click** a skill in the Library, a case in the Cases list, the outputs on Results, or a rule or check under an output, for what you can do to it: **Mark done**, **Duplicate**, **Delete case**, **Regrade**, **Mark as met** and the rest. The menu opens where you click, and the item you pick stays in view as the menu closes. Hold a finger still to open it on a touch screen.
+- **Cut**, **Copy** and **Paste** on a right-click in any field, and **Copy** on a right-click over selected text. A right-click there did nothing before.
 
 ### Changed
 
+- Corners are tighter: cards, menus, popovers, dialogs and panels round every corner alike at 6px, where they were 10px on top and 12.5px below.
 - On Cases, **Title** comes first, above the prompt, so the prompt and the files it refers to sit together.
 - Cases are named by their title everywhere, or by the first words of the prompt when they have none. The short name under each title on Cases, such as `feature-mockup`, is gone, and messages such as "Deleted Feature mockup" use the title too.
 - On Results, **All cases** lists cases down the side, each by its whole title, and runs across, headed by version and model, oldest first. Before, a column per case was headed by a short name such as `breaking-api`. The runs, with when they ran, what they cost and their average, are listed under the scores, and open as before.

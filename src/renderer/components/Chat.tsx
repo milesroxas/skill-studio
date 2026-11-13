@@ -308,7 +308,7 @@ export function Conversation({
               />
             ) : null}
             {message.text ? (
-              <p className="m-0 max-w-full rounded-chin bg-secondary px-3 py-2 text-sm break-words whitespace-pre-wrap">
+              <p className="m-0 max-w-full rounded-md bg-secondary px-3 py-2 text-sm break-words whitespace-pre-wrap">
                 {message.text}
               </p>
             ) : null}

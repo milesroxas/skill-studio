@@ -11,7 +11,7 @@ const disclosureVariants = cva('', {
       /** A line of text that opens in place. */
       plain: '',
       /** On its own bordered block, such as one file of a diff. */
-      card: 'rounded-chin border bg-card px-3 py-1',
+      card: 'rounded-md border bg-card px-3 py-1',
       /** One row of a `DisclosureList`: the list draws the edges. */
       row: 'px-3 py-2',
       /** Parts of a form folded under one line between its sections, such as a case's optional parts. */
@@ -142,7 +142,7 @@ export function Disclosure({
 /** Rows of `Disclosure variant="row"` as one object, divided by hairlines. */
 export function DisclosureList({ label, children }: { label: string; children: ReactNode }) {
   return (
-    <ul aria-label={label} className="m-0 list-none divide-y rounded-chin border bg-card p-0">
+    <ul aria-label={label} className="m-0 list-none divide-y rounded-md border bg-card p-0">
       {children}
     </ul>
   )

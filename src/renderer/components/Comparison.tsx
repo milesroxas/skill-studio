@@ -87,7 +87,7 @@ import {
   OutputWriting,
   Slot,
 } from './OutputCard.tsx'
-import { MoreActions, RowAction } from './RowActions.tsx'
+import { ContextActions, MoreActions, RowAction } from './RowActions.tsx'
 import { CheckWeight, Delta, PartList, TotalDetail, TotalDetailSection } from './Scores.tsx'
 import { Segmented } from './Segmented.tsx'
 import { SelectBox, type SelectOption, type SelectOptionGroup } from './SelectBox.tsx'
@@ -191,6 +191,62 @@ export function Comparison({
   /** The size a page is drawn at: one for the case, on the stage and in both cards. */
   const page = usePageSize(testCase?.bench.size ?? null)
 
+  /** Written once: the header's "More actions" menu and a right-click on the outputs draw these. */
+  const actions = (
+    <>
+      {testCase ? (
+        <RowAction
+          icon={<PencilIcon aria-hidden="true" />}
+          onSelect={() => go('cases', { id: caseId })}
+        >
+          Edit case
+        </RowAction>
+      ) : null}
+      {a && b ? (
+        <RowAction
+          icon={<ArrowLeftRightIcon aria-hidden="true" />}
+          onSelect={() => show({ a: b, b: a })}
+        >
+          Swap A and B
+        </RowAction>
+      ) : null}
+      {runs.map((run) => {
+        const of = sides.filter((o) => o.run.name === run)
+        const verb = of.some((o) => scoreOf(o, config)) ? 'Regrade' : 'Grade'
+        // Grading reads a whole run, so the action names the run, not the output.
+        const whose = whoseRun(run)
+        return (
+          <RowAction
+            key={run}
+            icon={<RefreshCwIcon aria-hidden="true" />}
+            title={
+              writing(run)
+                ? 'Wait for the run to finish. It is graded then.'
+                : 'Jev grades the whole run again.'
+            }
+            disabled={grade.starting() || writing(run)}
+            busy={grading(run)}
+            onSelect={() => regrade([run])}
+          >
+            {`${verb} ${whose}`}
+          </RowAction>
+        )
+      })}
+      {runs.map((run) => (
+        <DeleteRunAction
+          key={run}
+          ctx={ctx}
+          run={run}
+          label={`Delete ${whoseRun(run)}`}
+          grading={grading(run)}
+          waiting={grade.starting()}
+          // The address named an output of the run: the case opens on the pair it has left.
+          closed={() => go('results', { case: caseId })}
+        />
+      ))}
+    </>
+  )
+
   return (
     <>
       {/* Stacked under the list, the case's name takes the first row and the views the second. */}
@@ -203,131 +259,82 @@ export function Comparison({
         {views.length > 1 ? (
           <Segmented aria-label="View" options={views} value={view} onChange={setChosen} />
         ) : null}
-        <MoreActions subject={caseTitle(state, caseId)}>
-          {testCase ? (
-            <RowAction
-              icon={<PencilIcon aria-hidden="true" />}
-              onSelect={() => go('cases', { id: caseId })}
-            >
-              Edit case
-            </RowAction>
-          ) : null}
-          {a && b ? (
-            <RowAction
-              icon={<ArrowLeftRightIcon aria-hidden="true" />}
-              onSelect={() => show({ a: b, b: a })}
-            >
-              Swap A and B
-            </RowAction>
-          ) : null}
-          {runs.map((run) => {
-            const of = sides.filter((o) => o.run.name === run)
-            const verb = of.some((o) => scoreOf(o, config)) ? 'Regrade' : 'Grade'
-            // Grading reads a whole run, so the action names the run, not the output.
-            const whose = whoseRun(run)
-            return (
-              <RowAction
-                key={run}
-                icon={<RefreshCwIcon aria-hidden="true" />}
-                title={
-                  writing(run)
-                    ? 'Wait for the run to finish. It is graded then.'
-                    : 'Jev grades the whole run again.'
-                }
-                disabled={grade.starting() || writing(run)}
-                busy={grading(run)}
-                onSelect={() => regrade([run])}
-              >
-                {`${verb} ${whose}`}
-              </RowAction>
-            )
-          })}
-          {runs.map((run) => (
-            <DeleteRunAction
-              key={run}
-              ctx={ctx}
-              run={run}
-              label={`Delete ${whoseRun(run)}`}
-              grading={grading(run)}
-              waiting={grade.starting()}
-              // The address named an output of the run: the case opens on the pair it has left.
-              closed={() => go('results', { case: caseId })}
-            />
-          ))}
-        </MoreActions>
+        <MoreActions subject={caseTitle(state, caseId)}>{actions}</MoreActions>
       </ColumnHeader>
-      <ColumnBody>
-        {testCase || picking || view === 'flip' ? (
-          // The case, the pair and the stage that shows it: one group, closer to each other than to the cards.
-          <Stack gap="md">
-            {testCase ? <Asked testCase={testCase} /> : null}
-            {picking ? <Pair candidates={candidates} a={a} b={b} show={show} /> : null}
-            {view === 'flip' ? (
-              <Flip
-                key={`${a?.key}|${b?.key}`}
-                a={a}
-                b={b}
-                page={page}
-                totals={{ a: a ? totalOf(a, config) : null, b: b ? totalOf(b, config) : null }}
-                writing={{ a: unwritten(a), b: unwritten(b) }}
-              />
-            ) : null}
-          </Stack>
-        ) : null}
-        {!sides.length ? (
-          <EmptyState title="Pick an output to read">
-            Pick one for A and one for B above to read them side by side.
-          </EmptyState>
-        ) : view === 'diff' && both ? (
-          <DiffCard a={both.a} b={both.b} />
-        ) : (
-          <Columns count={both ? 2 : 1}>
-            {a ? (
-              <Side
-                ctx={ctx}
-                output={a}
-                other={null}
-                slot="a"
-                apart={apartLine(a, b)}
-                candidates={candidates}
-                onPick={(o) => show({ a: o, b })}
-                layers={layers}
-                grading={grading(a.run.name)}
-                writing={unwritten(a)}
-                held={grade.starting()}
-                onRegrade={() => regrade([a.run.name])}
-                reading={view !== 'flip'}
-                page={page}
-              />
-            ) : null}
-            {b ? (
-              <Side
-                ctx={ctx}
-                output={b}
-                other={a}
-                slot={a ? 'b' : null}
-                apart={apartLine(b, a)}
-                candidates={candidates}
-                onPick={(o) => show({ a, b: o })}
-                layers={layers}
-                grading={grading(b.run.name)}
-                writing={unwritten(b)}
-                held={grade.starting()}
-                onRegrade={() => regrade([b.run.name])}
-                reading={view !== 'flip'}
-                page={page}
-              />
-            ) : null}
-          </Columns>
-        )}
-        {testCase ? (
-          <AddCheck
-            ctx={ctx}
-            testCase={testCase}
-            onRegrade={() => regrade(sides.map((o) => o.run.name))}
-          />
-        ) : null}
-      </ColumnBody>
+      <ContextActions subject={caseTitle(state, caseId)} actions={actions}>
+        <ColumnBody>
+          {testCase || picking || view === 'flip' ? (
+            // The case, the pair and the stage that shows it: one group, closer to each other than to the cards.
+            <Stack gap="md">
+              {testCase ? <Asked testCase={testCase} /> : null}
+              {picking ? <Pair candidates={candidates} a={a} b={b} show={show} /> : null}
+              {view === 'flip' ? (
+                <Flip
+                  key={`${a?.key}|${b?.key}`}
+                  a={a}
+                  b={b}
+                  page={page}
+                  totals={{ a: a ? totalOf(a, config) : null, b: b ? totalOf(b, config) : null }}
+                  writing={{ a: unwritten(a), b: unwritten(b) }}
+                />
+              ) : null}
+            </Stack>
+          ) : null}
+          {!sides.length ? (
+            <EmptyState title="Pick an output to read">
+              Pick one for A and one for B above to read them side by side.
+            </EmptyState>
+          ) : view === 'diff' && both ? (
+            <DiffCard a={both.a} b={both.b} />
+          ) : (
+            <Columns count={both ? 2 : 1}>
+              {a ? (
+                <Side
+                  ctx={ctx}
+                  output={a}
+                  other={null}
+                  slot="a"
+                  apart={apartLine(a, b)}
+                  candidates={candidates}
+                  onPick={(o) => show({ a: o, b })}
+                  layers={layers}
+                  grading={grading(a.run.name)}
+                  writing={unwritten(a)}
+                  held={grade.starting()}
+                  onRegrade={() => regrade([a.run.name])}
+                  reading={view !== 'flip'}
+                  page={page}
+                />
+              ) : null}
+              {b ? (
+                <Side
+                  ctx={ctx}
+                  output={b}
+                  other={a}
+                  slot={a ? 'b' : null}
+                  apart={apartLine(b, a)}
+                  candidates={candidates}
+                  onPick={(o) => show({ a, b: o })}
+                  layers={layers}
+                  grading={grading(b.run.name)}
+                  writing={unwritten(b)}
+                  held={grade.starting()}
+                  onRegrade={() => regrade([b.run.name])}
+                  reading={view !== 'flip'}
+                  page={page}
+                />
+              ) : null}
+            </Columns>
+          )}
+          {testCase ? (
+            <AddCheck
+              ctx={ctx}
+              testCase={testCase}
+              onRegrade={() => regrade(sides.map((o) => o.run.name))}
+            />
+          ) : null}
+        </ColumnBody>
+      </ContextActions>
     </>
   )
 }

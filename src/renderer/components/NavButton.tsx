@@ -9,6 +9,7 @@
  * The title names the item. The meta line under it says one thing the reader
  * needs before opening it. `end` holds at most one value at the row's end,
  * such as the score chip, in a slot that keeps its edge down the list.
+ * A row stays marked (`held`) while a right-click menu is open on it.
  */
 import type { ComponentProps, ReactNode } from 'react'
 import { cn } from '../lib/utils.ts'
@@ -38,7 +39,7 @@ export function NavButton({
       className={cn(
         // Hover is a lighter tint than the open item, so pointing at a row never reads as opening it.
         // The fill fades on hover only: the open item changes at once, as a click or an arrow key asks.
-        'group/row grid min-h-9 w-full grid-cols-[minmax(0,1fr)_auto] content-center items-center gap-x-3 gap-y-0.5 rounded-sm px-2 py-1.5 text-left whitespace-normal focus-ring-inset transition-[background-color] duration-150 ease-out hover:bg-accent/50 data-[current]:bg-accent data-[current]:text-foreground data-[current]:transition-none pointer-coarse:min-h-11',
+        'held group/row grid min-h-9 w-full grid-cols-[minmax(0,1fr)_auto] content-center items-center gap-x-3 gap-y-0.5 rounded-sm px-2 py-1.5 text-left whitespace-normal focus-ring-inset transition-[background-color] duration-150 ease-out hover:bg-accent/50 data-[current]:bg-accent data-[current]:text-foreground data-[current]:transition-none pointer-coarse:min-h-11',
         arrived && 'animate-ink',
         className,
       )}

@@ -35,7 +35,7 @@ function HoverCardTrigger({ ...props }: React.ComponentProps<typeof HoverCardPri
  * faster than it came.
  */
 const hoverCardContentVariants = cva(
-  'z-popover flex max-h-[min(30rem,var(--radix-hover-card-content-available-height))] origin-(--radix-hover-card-content-transform-origin) flex-col rounded-chin bg-popover text-popover-foreground shadow-popover outline-hidden duration-150 ease-out-strong data-[state=closed]:animate-out data-[state=closed]:duration-100 data-[state=closed]:fade-out-0 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-[0.97]',
+  'z-popover flex max-h-[min(30rem,var(--radix-hover-card-content-available-height))] origin-(--radix-hover-card-content-transform-origin) flex-col rounded-md bg-popover text-popover-foreground shadow-popover outline-hidden duration-150 ease-out-strong data-[state=closed]:animate-out data-[state=closed]:duration-100 data-[state=closed]:fade-out-0 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-[0.97]',
   {
     variants: {
       size: {

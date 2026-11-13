@@ -60,7 +60,7 @@ const WRITTEN = BEAT.start + WORDS.length * BEAT.word + 240
  */
 function Sheet({ place, children }: { place: Pick<Place, 'label' | 'icon'>; children: ReactNode }) {
   return (
-    <div className="pointer-events-none flex h-105 max-h-full min-w-0 flex-1 animate-in flex-col overflow-hidden rounded-chin border border-foreground bg-card delay-75 duration-300 ease-out-strong fill-mode-backwards select-none fade-in-0 in-data-[from=after]:slide-in-from-right-4 in-data-[from=before]:slide-in-from-left-4">
+    <div className="pointer-events-none flex h-105 max-h-full min-w-0 flex-1 animate-in flex-col overflow-hidden rounded-md border border-foreground bg-card delay-75 duration-300 ease-out-strong fill-mode-backwards select-none fade-in-0 in-data-[from=after]:slide-in-from-right-4 in-data-[from=before]:slide-in-from-left-4">
       <div className="flex h-9.5 shrink-0 items-center gap-2 border-b px-4 text-ui font-medium">
         <place.icon aria-hidden="true" className="size-3.5 text-muted-foreground" />
         {place.label}
@@ -223,7 +223,7 @@ const PICTURES: Record<LoopStep['at'], ReactNode> = {
         <Quote>{KASE.prompt}</Quote>
       </Part>
       <Part caption="What the agent wrote, with the skill installed">
-        <p className="m-0 rounded-chin bg-muted px-3 py-2.5 text-ui text-pretty">
+        <p className="m-0 rounded-md bg-muted px-3 py-2.5 text-ui text-pretty">
           <Written />
         </p>
       </Part>

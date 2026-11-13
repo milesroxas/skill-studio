@@ -50,7 +50,7 @@ const composerVariants = cva('flex flex-col', {
        * Focus shows on the edge alone, with no ring: the box holds the focus for a
        * whole conversation, and a halo that never leaves is noise.
        */
-      box: 'rounded-chin border border-input bg-background shadow-xs transition-[border-color,box-shadow] duration-150 ease-out focus-within:border-ring dark:bg-input/30',
+      box: 'rounded-md border border-input bg-background shadow-xs transition-[border-color,box-shadow] duration-150 ease-out focus-within:border-ring dark:bg-input/30',
       bare: '',
     },
     /** A picture is held over it: the drop lands here. */

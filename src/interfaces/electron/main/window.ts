@@ -10,7 +10,7 @@ import { join } from 'node:path'
 import type { Theme } from '@domain/preferences.ts'
 import { canReset } from '@domain/reset.ts'
 import { writeJson } from '@infrastructure/fs.ts'
-import { app, BrowserWindow, nativeTheme, type Rectangle, screen, shell } from 'electron'
+import { app, BrowserWindow, Menu, nativeTheme, type Rectangle, screen, shell } from 'electron'
 import {
   APP_ORIGIN,
   ARTIFACT_HOST,
@@ -21,6 +21,7 @@ import {
 } from '../channels.ts'
 import { boundsOf, placed } from './launch.ts'
 import { BACKGROUND } from './paint.ts'
+import { textMenu } from './text-menu.ts'
 
 const DEFAULT_BOUNDS = { width: 1280, height: 860 }
 const MIN = { width: 720, height: 480 }
@@ -108,7 +109,7 @@ const PAGE_PREFERENCES = {
   spellcheck: false,
 }
 
-/** Keep a window on the app's own page: outside links go to the browser, and nothing else opens. */
+/** Keep a window on the app's own page: outside links go to the browser, and nothing else opens. A right-click on text gets the system's text menu. */
 function confine(window: BrowserWindow, url: string): void {
   const appOrigin = new URL(url).origin
   const { webContents } = window
@@ -123,6 +124,11 @@ function confine(window: BrowserWindow, url: string): void {
   webContents.session.setPermissionRequestHandler((_contents, _permission, callback) =>
     callback(false),
   )
+  // A right-click the page did not take for its own menu: the system's menu for text, if any.
+  webContents.on('context-menu', (_event, params) => {
+    const items = textMenu(params)
+    if (items.length) Menu.buildFromTemplate(items).popup({ window })
+  })
 }
 
 export function createWindow({ url, boundsFile }: WindowOptions): BrowserWindow {

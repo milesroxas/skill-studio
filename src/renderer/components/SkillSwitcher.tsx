@@ -225,7 +225,7 @@ export function SkillSwitcher({
               title={skill.path}
               onMouseMove={() => setActive(i)}
               onClick={() => choose(skill)}
-              className="flex min-h-10 flex-col items-start justify-center gap-0.5 rounded-sm px-2 py-1.5 text-left outline-none aria-selected:bg-accent"
+              className="flex min-h-10 flex-col items-start justify-center gap-0.5 rounded-xs px-2 py-1.5 text-left outline-none aria-selected:bg-accent"
             >
               <span className="flex w-full items-baseline gap-2">
                 <Text size="ui" weight="medium" truncate className="min-w-0 flex-1">
