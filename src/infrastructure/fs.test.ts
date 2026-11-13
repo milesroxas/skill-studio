@@ -16,6 +16,7 @@ import {
   assertInside,
   assertSafe,
   assertSafePath,
+  dayOf,
   readJson,
   readStart,
   readTree,
@@ -64,6 +65,24 @@ describe('writeJson', () => {
     writeJson(path, 1)
     writeJson(path, 2)
     expect(readJson(path, null)).toBe(2)
+  })
+})
+
+describe('dayOf', () => {
+  it('is the day where the reader is, not the day in UTC', () => {
+    // Built from local parts, so the test holds in any time zone.
+    const lateEvening = new Date(2026, 10, 12, 23, 30)
+    const earlyMorning = new Date(2026, 10, 13, 0, 30)
+    expect(dayOf(lateEvening)).toBe('2026-11-12')
+    expect(dayOf(lateEvening.toISOString())).toBe('2026-11-12')
+    expect(dayOf(earlyMorning.toISOString())).toBe('2026-11-13')
+    expect(dayOf(new Date(2026, 0, 5, 12))).toBe('2026-01-05')
+  })
+
+  it('keeps a date with no time as that day, and has none for what is no time', () => {
+    expect(dayOf('2026-11-01')).toBe('2026-11-01')
+    expect(dayOf('')).toBeUndefined()
+    expect(dayOf('soon')).toBeUndefined()
   })
 })
 
@@ -171,6 +190,13 @@ describe('writeText', () => {
     writeText(join(dir, 'deep/note.md'), 'two')
     expect(readFileSync(join(dir, 'deep/note.md'), 'utf8')).toBe('two')
     expect(readdirSync(join(dir, 'deep'))).toEqual(['note.md'])
+  })
+
+  it('writes bytes the same way, as a picture is', () => {
+    const bytes = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x00, 0xff])
+    writeText(join(dir, 'renders/page.png'), bytes)
+    expect(new Uint8Array(readFileSync(join(dir, 'renders/page.png')))).toEqual(bytes)
+    expect(readdirSync(join(dir, 'renders'))).toEqual(['page.png'])
   })
 
   it('takes its temporary file away when the file cannot be replaced', () => {

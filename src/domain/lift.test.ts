@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest'
-import { type LiftRun, liftWriter, versionLift, writerKey } from './lift.ts'
+import {
+  type LiftRun,
+  liftWriter,
+  pointsMoved,
+  testedVersion,
+  versionLift,
+  writerKey,
+} from './lift.ts'
 
 const run = (over: Partial<LiftRun>): LiftRun => ({
   name: 'r',
@@ -85,6 +92,21 @@ describe('versionLift', () => {
       versionLift([run({ cases: { intro: 90 } }), run({ version: 'v1', cases: { intro: 85 } })])
         ?.rises,
     ).toBe(false)
+  })
+
+  it('does not rise when the two scores are shown as the same whole number', () => {
+    const lift = versionLift([
+      run({ cases: { a: 66, b: 67, c: 67 } }),
+      run({ version: 'v1', cases: { a: 67, b: 67, c: 67 } }),
+    ])
+    // 66.67 and 67 both read 67: a ribbon from 67 to 67 would show a rise the numbers deny.
+    expect(lift?.latest.mean).toBeGreaterThan(lift?.first.mean ?? 100)
+    expect(lift?.rises).toBe(false)
+    const up = versionLift([
+      run({ cases: { intro: 66.4 } }),
+      run({ version: 'v1', cases: { intro: 66.6 } }),
+    ])
+    expect(up?.rises).toBe(true)
   })
 
   it('reads v10 as later than v9', () => {
@@ -203,6 +225,24 @@ describe('versionLift', () => {
       run({ name: 'h1', writer: 'claude:haiku', version: 'v1', cases: { intro: 70 } }),
     ])
     expect(lift?.latest.name).toBe('h1')
+  })
+})
+
+describe('testedVersion', () => {
+  it('counts a run with the skill and one on an earlier version’s copy, never one without it', () => {
+    expect(testedVersion(run({}))).toBe(true)
+    expect(testedVersion(run({ configuration: 'old_skill' }))).toBe(true)
+    expect(testedVersion(run({ configuration: 'without_skill' }))).toBe(false)
+    // A run that recorded no version tested none that can be named.
+    expect(testedVersion(run({ version: '' }))).toBe(false)
+  })
+})
+
+describe('pointsMoved', () => {
+  it('counts the move in the whole points the scores are shown in', () => {
+    expect(pointsMoved(66.67, 67)).toBe(0)
+    expect(pointsMoved(66.4, 66.6)).toBe(1)
+    expect(pointsMoved(90, 85.2)).toBe(-5)
   })
 })
 

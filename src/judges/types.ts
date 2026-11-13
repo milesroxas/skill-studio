@@ -88,14 +88,28 @@ export interface JudgePack<Raw = unknown> extends PackScoring<Raw> {
    * Which reading of the output this is. The judge cache keeps the whole of
    * what `judge` returns under it, Jev's answers and what code measured alike.
    * Raise it when a question's wording, the pack's reading of an answer, or
-   * any code-measured part the cache stores changes (a check's exit code, a count,
-   * a path read from a transcript), so a reading kept from before is not taken
-   * for one of this.
+   * any code-measured part the cache stores changes (a count, a path read
+   * from a transcript), so a reading kept from before is not taken for one of
+   * this.
    */
   version: number
   label: string
   /** The pack looks at an HTML page as drawn: grading draws it first, when it can (`JudgeInput.renders`). */
   renders?: boolean
+  /**
+   * The pack reads its answer off the machine: a command's exit code, which
+   * rests on tools and files no hash of the output covers and costs nothing to
+   * read again. Every grading runs such a pack, and the judge cache keeps none
+   * of its answers.
+   */
+  live?: boolean
+  /**
+   * The pack judges the sample's folder, not one file of it. It runs on every
+   * sample that has a folder, whatever its primary artifact, and its
+   * `artifacts` say only which file is the work. Without this, a pack with
+   * `artifacts` runs when the primary artifact is one of them.
+   */
+  wholeSample?: boolean
   judge(input: JudgeInput, ctx: JudgeContext): Promise<Raw | null>
   /** Front matter and body a new anchors file starts from. */
   anchorsTemplate?: string

@@ -8,6 +8,8 @@ import type { InputUpload } from './inputs.ts'
 
 const ARTIFACT_KINDS = ['markdown', 'html', 'image', 'code', 'transcript'] as const
 export type ArtifactKind = (typeof ARTIFACT_KINDS)[number]
+export const isArtifactKind = (value: unknown): value is ArtifactKind =>
+  (ARTIFACT_KINDS as readonly unknown[]).includes(value)
 
 export const CONFIGURATIONS = ['with_skill', 'without_skill', 'old_skill'] as const
 /** Which skill the generating agent saw. `old_skill` points at a snapshot directory. */
@@ -144,6 +146,12 @@ export interface TranscriptEvent {
   tool?: string
   /** One-line summary of the tool's arguments. */
   args?: string
+  /**
+   * A short hash of the tool's whole input. The one-line summary leaves out an
+   * edit's text and a read's offset, so this is what tells two calls apart.
+   * Absent from a transcript written before it was kept.
+   */
+  call?: string
   /** One-line summary of the tool's result. */
   result?: string
   durationMs?: number
@@ -178,6 +186,7 @@ export interface SampleMeta {
   dir: string
   case: string
   index: number
+  /** It left at least one output file. */
   ok: boolean
   seconds: number
   costUsd: number | null
@@ -187,10 +196,17 @@ export interface SampleMeta {
   steps: number
   toolCalls: number
   /**
-   * The run was stopped, or the app quit, while this sample ran, and it wrote
-   * nothing: it says nothing of the skill, so grading leaves it out.
+   * The run was stopped, or the app quit, while this sample ran, and that
+   * ended its agent before it finished. What it left, nothing or half a file,
+   * says nothing of the skill, so grading leaves it out.
    */
   stopped?: boolean
+  /**
+   * The files under `outputs/` when the agent ended, by sample-relative path:
+   * what it wrote. A file put there later, such as one a check command builds,
+   * is not an output. Absent for a sample of a run that kept no list.
+   */
+  outputs?: string[]
 }
 
 /** `run.json`. */

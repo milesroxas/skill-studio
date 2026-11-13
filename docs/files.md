@@ -28,6 +28,7 @@ Everything Skill Studio knows about a skill is plain files in the skill's `evals
 - A name the app is given for a file, such as a reference to save or an output to open, may hold spaces and letters of any alphabet, but not `<`, `>`, `:`, `"`, `|`, `?`, `*` or a backslash, and on Windows not a device name (`con`, `nul.md`, `com1`) or a final dot or space.
 - The app saves a text file by writing a hidden `.<name>.<pid>.tmp` beside it and renaming that over the file, so a crash leaves the old file whole; a leftover one can be deleted. A file that is a link to another file in the skill stays a link, and the file it leads to is written.
 - Any folder directly under `evals/` is read as a case too, except `runs`, `anchors`, `files`, `results`, `mocks`, `cases`, `node_modules`, `reviews` and `benchmarks`. When a folder under `evals/cases/` has the same id, that one is read.
+- A case folder's name is the case's id, and names a folder in every run. A folder whose name holds anything but letters, digits, `_`, `.` and `-`, or starts with a dot, is left out with a warning that names it. The app makes ids of lowercase letters, digits and single dashes.
 - An `evals.json` case is named `<id>-<name>`, and a name that is not lowercase letters, digits and single dashes, or an entry with no prompt, is left out with a warning that names the entry.
 - Saving a case is refused, before anything is written, when its folder, its `files/`, `graders/` or `references/`, its `prompt.md`, its `case.yaml` or one of its checks is reached through a link that leads out of the skill.
 - A grader file must start with front matter (`---`), even an empty block. A file without it is skipped. Its `weight` is rounded and held to 1 to 5; a value that is not a positive number reads as 1. `type` and `focus` are kept when the case is saved.
@@ -39,17 +40,21 @@ Everything Skill Studio knows about a skill is plain files in the skill's `evals
 | Key | Does |
 | --- | --- |
 | `artifact` | The kind of output to grade: `markdown`, `html`, `image`, `code` or `transcript` |
-| `words` | `[min, max]`, the word range the output should fall in |
-| `check` | The command the code pack runs; its exit code is the check layer |
-| `size` | `[width, height]` in pixels: a picture must be exactly this size, and a page is drawn at this size for grading |
+| `words` | `[min, max]`, the word range the output should fall in: two numbers, the first 0 or more and the second no less |
+| `check` | The command the code pack runs, as one line of text; its exit code is the check layer |
+| `size` | `[width, height]` in whole pixels, each from 1 to 10,000: a picture must be exactly this size, and a page is drawn at this size for grading |
 | `phone` | `true` also draws a page 390 by 1200 pixels, and the design pack asks whether it works on a phone |
 | `judge` | `false` asks Jev nothing about this case's outputs, in any pack: only code checks run, and every layer Jev judges is null |
+
+- `phone` and `judge` are read as true or false. `yes`, `on`, `no` and `off` are read too, in any case, quoted or not.
+- A value of another kind (`words: 100-200`, a `check` that is a list, `judge: sometimes`) is left out, so the case is graded as if the key were not there, with a warning that names the case and the key.
+- Any other key in the block is kept as it is.
 
 ## A run
 
 ```
 evals/runs/<date>-skill-<vN>-<engine>-<model>[-<effort>][-<configuration>]/
-  run.json                        skill version and hash, writer, cases, per-sample cost and tokens
+  run.json                        skill version and hash, writer, cases, and each sample as its agent ended: cost, tokens, the files it wrote (`outputs`), `stopped`
   report.json                     raw judge answers and scores per sample, written by grading
   judge-cache.json                each pack's raw answer by a hash of what it was asked, so Regrade asks only about what changed
   _skill/                         the skill as it was when the run started, as an agent's copy holds it (see Versions): every sample is made from it
@@ -61,14 +66,18 @@ evals/runs/<date>-skill-<vN>-<engine>-<model>[-<effort>][-<configuration>]/
     outputs/                      everything the agent produced; graded artifacts come from here
     renders/                      the page as the desktop app drew it for grading, one PNG per size
     notes.md                      what the agent would have told the user
-    transcript.jsonl              one event per line: system, text, thinking, tool, result, error
+    transcript.jsonl              one event per line: system, text, thinking, tool, result, error;
+                                  a tool event holds a hash of its whole input (`call`)
     timing.json                   start, end, duration, cost, tokens, model
     agent.json                    exit state, error, the agent's last message
 ```
 
-- A second run that would take the same name gets `-2`, then `-3`.
+- The date in a run's name is the day where you are, not the day in UTC. A second run that would take the same name gets `-2`, then `-3`.
+- An input file of an `evals.json` case goes into `_inputs/<case>/` and a sample's `files/` by its name alone. Two of one case's files with the same name both keep their whole path in the skill (`files/evals/files/a/data.csv`), so the agent gets both.
+- `run.json` lists a sample once its agent has ended. One the run was stopped on, or the app quit on, is marked `stopped`, whether it had written nothing or half a file. Grading reads the samples listed and not stopped: a folder the run never listed was made for an agent that was cut off. A run whose `run.json` has no `samples` list, or one of flat files, is graded whole.
 - A sample's skill folder is named by a slug of the skill's name. `.claude/skills` and `.cursor/skills` in a sample link to `.agents/skills`. A `without_skill` sample has none of the three.
 - Graded artifacts are read under `outputs/` only. Dotfiles, `node_modules` and every link are skipped: the agent wrote the folder, and a link may lead out of it.
+- A sample's outputs are the files `run.json` lists for it (`outputs`), those of them still there. A file put under `outputs/` after the agent ended, such as one a check command builds, is not an output: grading and Results pass over it. A sample with no list, one still being written or from a run made before the list was kept, is read from the folder as it is.
 
 An artifact's kind comes from its extension:
 
@@ -86,7 +95,8 @@ A skill's version is a hash of every file an agent's copy holds: `SKILL.md`, `re
 
 - The copy, and so the hash, leaves out `evals/`, hidden files and folders (`.git` and `.venv` among them), every `node_modules`, `venv` and `__pycache__` folder at any depth, and whatever a link out of the skill points at.
 - A link that stays inside the skill is copied as the file it leads to.
-- A version stamped from `SKILL.md` and `references/` alone (Skill Studio 0.4.0 and earlier) cannot say which other files it had. It stands for the skill as it is while it is the newest version, until a run stamps it with the whole hash. From then on a change to a script is a new version.
+- A skill with nothing beside `SKILL.md` and `references/` is stamped with the hash of those alone, so the first script or asset added to it is a new version.
+- A version stamped from `SKILL.md` and `references/` alone while the skill had other files (Skill Studio 0.4.0 and earlier) cannot say which they were, but the `_skill/` copy a run of it took can. It stands for the skill as it is when one of its runs holds a copy with the same files, until a run stamps it with the whole hash. With no such copy, the skill as it is now is a new version.
 
 A run keeps the version it tested. Its `_skill/` snapshot is the copy the app reads and restores.
 
@@ -102,7 +112,7 @@ A run's configuration says which skill the agent saw:
 
 - `with_skill` (the default): the skill as it is now.
 - `without_skill`: no skill in the workspace, and no line in the prompt pointing at one.
-- `old_skill --baseline <version>`: that version's files, from `evals/versions/` or else the `_skill/` of its first run.
+- `old_skill --baseline <version>`: that version's files, from `evals/versions/` or else the `_skill/` of its first run. The agent is told the skill by the name that copy gives it, whatever the skill is called now.
 - `old_skill --baseline <run>`: that run's `_skill/` snapshot, which holds what the run's agents got.
 
 ## The app's own files

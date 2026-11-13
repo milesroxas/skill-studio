@@ -8,11 +8,27 @@ import type { Corrections, JudgedVerdict, MeasuredVerdict, Verdict, VerdictKind 
 /** A fact's name within its output: its kind and its words. */
 export const verdictId = (kind: VerdictKind, text: string): string => `${kind}:${text.trim()}`
 
+/**
+ * A name for each of a case's checks, in the order given. A check is named by
+ * its words, so the name outlives its file's. Where two checks of one case say
+ * the same thing, each after the first carries its own id too, so the reader's
+ * answer on one is not an answer on the other.
+ */
+export function checkIds(checks: ReadonlyArray<{ id: string; text: string }>): string[] {
+  const taken = new Set<string>()
+  return checks.map((check) => {
+    const byWords = verdictId('check', check.text)
+    const id = taken.has(byWords) ? `${byWords} #${check.id}` : byWords
+    taken.add(id)
+    return id
+  })
+}
+
 interface Fact {
   kind: VerdictKind
   text: string
   layer: string | null
-  /** A name of its own, for a fixed question whose words may change. */
+  /** A name of its own: for a fixed question whose words may change, or a check told from one that says the same. */
   id?: string
   section?: string
   weight?: number

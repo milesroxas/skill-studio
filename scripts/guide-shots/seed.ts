@@ -457,7 +457,7 @@ function writeRun(spec: RunSpec): string {
       range: found.bench.words ?? null,
       packs: packsOf({ rules, found, sample: s, events, toolCalls, seconds, costUsd, withSkill }),
     }
-    const scored = scoreResult(base, cfg, scorers)
+    const scored = scoreResult({ ...base, flags: [] }, cfg, scorers)
     results.push({ ...base, ...scored })
   })
 

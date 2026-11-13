@@ -26,11 +26,11 @@ export interface WorkflowMetrics {
   toolCalls: number
   /** Steps that ended in an error. Counted so Jev is asked what came after one; no score is taken off for it. */
   errors: number
-  /** Tool calls that repeat an earlier call's tool and arguments exactly. */
+  /** Tool calls that make an earlier call again, same tool and same input, with nothing written in between. */
   retries: number
   seconds: number | null
   costUsd: number | null
-  /** Absolute paths the agent touched outside its sample directory. */
+  /** Paths the agent named outside its sample directory, as it named them. */
   outside: string[]
   /** Step of the first read of SKILL.md and of the first write; null when absent. */
   skillReadAt: number | null
@@ -43,7 +43,8 @@ export interface WorkflowMetrics {
 }
 
 export interface WorkflowJev {
-  followedTask: number
+  /** Only asked when the output has a case, and so a task. */
+  followedTask: number | null
   /** Only asked when the transcript has an error. */
   recovered: number | null
 }
@@ -137,6 +138,22 @@ function scoreWorkflow(
       m.outside.length === 0,
     ),
   )
+  /** One of Jev's answers as a fact of the process layer; null for a question that was not asked or got no answer. */
+  const answered = (id: string, text: string, noul: number | null | undefined) =>
+    noul === null || noul === undefined
+      ? null
+      : jevVerdict({ kind: 'other', id, text, layer: 'process' }, noul, config.yes, corrections)
+  const followed = answered(
+    'other:followed task',
+    'The transcript shows the task being done as asked',
+    raw.jev?.followedTask,
+  )
+  const recovered = answered(
+    'other:recovered',
+    'After an error the agent changed course',
+    raw.jev?.recovered,
+  )
+  const judged = [followed, recovered].filter((v) => v !== null)
   // Code, not Jev: the transcript says exactly when SKILL.md was read and when writing began.
   const readFirst = m.skillPresent
     ? m.skillReadAt !== null && (m.firstWriteAt === null || m.skillReadAt < m.firstWriteAt)
@@ -151,46 +168,19 @@ function scoreWorkflow(
           text: readFirst
             ? 'Read the skill before writing'
             : 'Did not read the skill before writing',
-          // Without Jev there is no process layer for it to count in.
-          layer: raw.jev ? 'process' : null,
+          // Without an answer of Jev's there is no process layer for it to count in.
+          layer: judged.length ? 'process' : null,
         },
         readFirst,
       ),
     )
-  if (raw.jev) {
-    const yes = config.yes
-    const followed = jevVerdict(
-      {
-        kind: 'other',
-        id: 'other:followed task',
-        text: 'The transcript shows the task being done as asked',
-        layer: 'process',
-      },
-      raw.jev.followedTask,
-      yes,
-      corrections,
-    )
-    const recovered =
-      raw.jev.recovered === null
-        ? null
-        : jevVerdict(
-            {
-              kind: 'other',
-              id: 'other:recovered',
-              text: 'After an error the agent changed course',
-              layer: 'process',
-            },
-            raw.jev.recovered,
-            yes,
-            corrections,
-          )
-    const parts = [followed.met]
+  if (judged.length) {
+    const parts = judged.map((v) => v.met)
     if (readFirst !== null) parts.push(readFirst)
-    if (recovered) parts.push(recovered.met)
     layers.process = parts.filter(Boolean).length / parts.length
-    if (!followed.met) flags.push('transcript does not show the task being done as asked')
-    if (recovered && !recovered.met) flags.push('after an error the agent repeated itself')
-    verdicts.push(followed, ...(recovered ? [recovered] : []))
+    if (followed?.met === false) flags.push('transcript does not show the task being done as asked')
+    if (recovered?.met === false) flags.push('after an error the agent repeated itself')
+    verdicts.push(...judged)
   }
   // How a run went is worth nothing when it produced nothing: a tidy transcript with no output is a failed sample.
   if (!m.wroteOutput || noOutput(subject))

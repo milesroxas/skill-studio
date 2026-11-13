@@ -6,6 +6,46 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+### Changed
+
+- A run is graded on the rules its own version of the skill had. Before, **Regrade** on an older run judged it on the rules as they are now, and editing the skill while a run was going changed what that run was judged on.
+- The next **Regrade** of a run asks Jev about each output once more, since what is asked and what is counted changed. After that, only what changed is asked again, as before.
+- A case's check command runs at every grading. Before, **Regrade** kept its last result, so a check that failed for a missing tool, or was cut off, stayed failed.
+- A check command runs whichever file is judged: for a page beside its script, and when a note was written where the code should have been.
+- An output Jev could not finish judging has no score, says "Grading failed" and offers **Grade**. Before, it showed a score counted from the parts that were left, and that score went into every average.
+- **Regrade** with no TypeSafe key is refused on a run Jev scored, and says to add the key. Before, it replaced the scores with a report that had none.
+- An output stopped before it finished says so, on its card and as **Stopped** on **All cases**, and has no **Grade** button. One left by a run that was cut off when the app quit says **Not finished**. An output stopped after it had written part of a file is left out of grading, as one stopped before it wrote anything already was.
+- Adding the first script or other file to a skill that had only its `SKILL.md` and references makes a new version.
+- The file a run is asked to write, `outputs/output.md`, is the one judged when other files of its kind sit beside it.
+- A rule written twice in `SKILL.md` counts once, and the editor says so. A bullet inside an HTML comment is no rule, and a bullet indented by up to three spaces is one.
+- A case's word range counts what a reader sees of a page, not its tags, and counts no words in a piece that is only headings and code.
+- Runs are named, and versions dated, by the day where you are, not the day in UTC.
+- In a `case.yaml`, `yes`, `no`, `on` and `off` are read as true and false for `judge` and `phone`. A setting of the wrong kind is left out with a warning that names the case.
+- `st run` and `st grade` exit with 1 when nothing was judged, and Ctrl-C stops them as **Stop** does in the app, with no report written from part of a grading. `st report` and `st compare` print scores under the scoring as it is now, as Results does. `st self-test` fails a bad anchor that has no score, and exits with 1 when there was nothing to check. `--packs` refuses a name that is no pack.
+
+### Fixed
+
+- An output whose case was deleted is no longer graded as another case whose name starts the same way, such as an `email-reply` output judged as `email`.
+- Several different edits to one file, or a test run again after an edit, no longer count as repeated steps and cost the efficiency part of a score.
+- Text written into a file from the command line, a commit message, and `2>/dev/null` are no longer read as files the agent reached outside its folder, or as writing before the skill was read.
+- A skill moved, renamed or copied since a run no longer has every output of that run marked as reaching outside its folder.
+- An output left by a run that was cut off when the app quit is left out of grading. Before, it was graded as an empty output and scored 0.
+- A file a check command builds beside the outputs is not taken for an output.
+- A version's score counts runs made on **An earlier version** as that version's, as the version lift already did.
+- A case on Results no longer shows an earlier version's score while the latest has none, and says which version has no score yet.
+- A part of a score that is 0 because nothing was written no longer reads "1 of 1".
+- **Mean** on **All cases** is the mean of the cases, as every other mean is. Before, a case answered three times counted three times. The count beside a score, such as ×2, is of the outputs that have a score.
+- The version lift draws no rise when the score is the same in whole points.
+- Two checks of one case with the same words no longer share one answer when you mark one.
+- A check whose picture Jev cannot read is left out and flagged. Before, it was asked without the picture and counted as missed.
+- A case folder whose name could not be opened from Results, such as one with a space, is left out with a warning.
+- Two input files with the same name no longer overwrite each other when a run copies them.
+- A run on **An earlier version** names the skill as that version did.
+- A check's time limit of 0 no longer ends every check at once.
+- Markdown that opens with a `---` line keeps its first section.
+- A picture of a page cut short by a crash is drawn again.
+- **Stop**, and Ctrl-C on `st grade`, end a grading at once and keep the answers Jev had already given. Before, a stop waited for the answer on its way, and Ctrl-C could lose the ones kept so far.
+
 ## [0.10.1] - 2026-11-13
 
 ### Fixed

@@ -20,7 +20,7 @@ import {
   type StoredVote,
   writeStoredReviews,
 } from './reviews.ts'
-import { readRunMeta, runDir, runsOfVersion, versionsOf } from './runs.ts'
+import { readRunMeta, runDir, runsOfVersion, skillCopy, versionsOf } from './runs.ts'
 import {
   keepVersion,
   savedVersionFile,
@@ -279,8 +279,6 @@ export function deleteRun(skillDir: string, run: string): DeletedRun {
   }
 }
 
-const snapshotOf = (skillDir: string, run: string): string => join(runDir(skillDir, run), '_skill')
-
 /** What deleting `run` does to its version, and the record to save it with when it saves it. */
 function versionPlan(
   skillDir: string,
@@ -292,7 +290,7 @@ function versionPlan(
     version,
     saved: version !== '' && savedVersionSource(skillDir, version) !== null,
     otherRuns: version ? runsOfVersion(skillDir, version).filter((r) => r !== run).length : 0,
-    snapshot: isDir(snapshotOf(skillDir, run)),
+    snapshot: isDir(skillCopy(skillDir, run)),
   })
   if (after !== 'saved' || !meta) return { version, after }
   const { skillName: name, note, skillHash: hash, createdAt } = meta
@@ -309,7 +307,7 @@ function versionPlan(
  * from it would restore something other than the skill that ran.
  */
 function saveFromSnapshot(skillDir: string, run: string, kept: VersionFile): void {
-  const snapshot = snapshotOf(skillDir, run)
+  const snapshot = skillCopy(skillDir, run)
   if (!isFile(assertInside(snapshot, join(snapshot, 'SKILL.md'))))
     throw new Error(`${run} kept no SKILL.md, so its version cannot be saved. Nothing was deleted.`)
   keepVersion(skillDir, snapshot, kept)

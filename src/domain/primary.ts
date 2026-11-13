@@ -3,6 +3,7 @@
  * and Results opens first. Grading and Results both choose here, so the two
  * never disagree on an output nobody has graded yet.
  */
+import { DELIVERABLE, OUTPUTS_DIR } from './prompt.ts'
 import type { Artifact, ArtifactKind } from './schemas.ts'
 
 /**
@@ -15,16 +16,21 @@ const PARTICULAR: readonly ArtifactKind[] = ['html', 'image', 'code']
 /** A page that stands for the others beside it: `index.html`, or the preview a run asks for beside a component. */
 const MAIN_PAGE = /(^|\/)(index|preview)\.html?$/i
 
+/** The file the run's prompt names for the deliverable, in whatever format the request asked for: `outputs/output.md`. */
+const NAMED_FILE = new RegExp(`^${OUTPUTS_DIR}/${DELIVERABLE}\\.[^/]+$`, 'i')
+
 /** A file about the others beside it, read last among its kind. */
 const ABOUT_FILE = /(^|\/)readme(\.[^/]*)?$/i
 
 /** Lower is read first among files of one kind; name order breaks a tie. */
 function rank(artifact: Artifact): number {
   if (MAIN_PAGE.test(artifact.file)) return 0
-  if (ABOUT_FILE.test(artifact.file)) return 3
+  // What the agent was told to write the piece to stands before a file it named itself.
+  if (NAMED_FILE.test(artifact.file)) return 1
+  if (ABOUT_FILE.test(artifact.file)) return 4
   // `.txt` counts as Markdown, but a note in plain text is seldom the piece itself.
-  if (/\.txt$/i.test(artifact.file)) return 2
-  return 1
+  if (/\.txt$/i.test(artifact.file)) return 3
+  return 2
 }
 
 /** The first artifact of `kind` by rank, then by the order given; null when there is none. */

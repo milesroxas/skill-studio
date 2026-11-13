@@ -5,11 +5,13 @@ import type { Output } from './model.ts'
 import {
   apartLine,
   casePair,
+  cutOf,
   deleteBlocked,
   deleteRunDialog,
   drawnOf,
   extraKinds,
   gradedLine,
+  gradingFailed,
   kindsLine,
   liftOf,
   listLine,
@@ -23,8 +25,14 @@ import {
   rulesUnmarked,
   runLabel,
   runTitle,
+  scoreOf,
+  scoreOver,
   setByHand,
+  totalOf,
+  unscoredLine,
+  versionOutputs,
   versionScore,
+  versionsRun,
   writerName,
 } from './model.ts'
 
@@ -123,6 +131,7 @@ function runOf(
     writer: { engine: 'claude-code', model: 'opus' },
     configuration: 'with_skill',
     createdAt: `2026-11-0${version.slice(1)}T10:00:00Z`,
+    samples: [],
   } as unknown as RunMeta
   const sample = {
     name: 'page-s1',
@@ -269,6 +278,177 @@ describe('liftOf and versionScore', () => {
   })
 })
 
+/** One sample's result: its one rule followed (100) or broken (0), with the flags its grading left. */
+const resultOf = (sample: string, total: 0 | 100, flags: string[] = []) => ({
+  sample,
+  case: sample.replace(/-s\d+$/, ''),
+  primary: md('a.md'),
+  artifacts: [md('a.md')],
+  words: 10,
+  range: null,
+  flags,
+  packs: {
+    generic: {
+      adherence: { rules: [{ id: 'r1', text: 'Be brief.', section: 'S', noul: total / 100 }] },
+      rubric: null,
+    },
+  },
+})
+
+/** A report that scores the one sample of a `runOf` run. */
+const graded = (total: 0 | 100, flags: string[] = []): Report =>
+  ({ results: [resultOf('page-s1', total, flags)] }) as unknown as Report
+
+/** `run` as another writer or configuration made it. */
+const madeBy = (run: RunView, over: Record<string, unknown>): RunView =>
+  ({ ...run, meta: { ...run.meta, ...over } }) as RunView
+
+describe('a version’s outputs', () => {
+  const sonnet = { engine: 'claude-code', model: 'sonnet' }
+  const files = [md('a.md')]
+
+  it('count a run on the copy kept of an earlier version as that version’s, as the lift does', () => {
+    const runs = [
+      madeBy(runOf('r1', 'v1', files, graded(100)), { writer: sonnet }),
+      runOf('r2', 'v2', files, graded(100)),
+      // Opus never ran v1 as it stood: it ran the copy kept of it, after v2.
+      madeBy(runOf('r3', 'v1', files, graded(0)), {
+        configuration: 'old_skill',
+        createdAt: '2026-11-03T10:00:00Z',
+      }),
+    ]
+    const state = stateOf(runs, ['generic'])
+    const outputs = outputsOf(state)
+    const lift = liftOf(state, outputs, saved)
+    expect([lift?.first.mean, lift?.latest.mean]).toEqual([0, 100])
+    // The version list reads the same writer the lift does: Opus on v1, not Sonnet's 100.
+    expect(versionScore(outputs, saved, 'v1')).toBe(0)
+    expect(versionScore(outputs, saved, 'v2')).toBe(100)
+    expect(
+      versionOutputs(outputs, 'v1')
+        .map((o) => o.run.name)
+        .sort(),
+    ).toEqual(['r1', 'r3'])
+  })
+
+  it('name a version run only on its kept copy, and never one run without the skill', () => {
+    const outputs = outputsOf(
+      stateOf(
+        [
+          madeBy(runOf('r1', 'v1', files, graded(0)), { configuration: 'old_skill' }),
+          runOf('r2', 'v2', files, graded(100)),
+          madeBy(runOf('r3', 'v3', files, graded(100)), { configuration: 'without_skill' }),
+        ],
+        ['generic'],
+      ),
+    )
+    expect(versionsRun(outputs)).toEqual(['v1', 'v2'])
+    expect(versionScore(outputs, saved, 'v1')).toBe(0)
+    expect(versionOutputs(outputs, 'v3')).toEqual([])
+    expect(noSkillScore(outputs, saved)).toBe(100)
+  })
+})
+
+describe('scoreOver', () => {
+  it('counts each case once, however many times it was answered', () => {
+    const one = runOf('r1', 'v1', [md('a.md')])
+    const names = ['page-s1', 'page-s2', 'page-s3', 'note-s1']
+    const run = {
+      ...one,
+      samples: names.map((name) => ({ ...one.samples[0], name })),
+      report: {
+        results: names.map((name) => resultOf(name, name.startsWith('page') ? 100 : 0)),
+      } as unknown as Report,
+    }
+    const outputs = outputsOf(stateOf([run], ['generic']))
+    // Three outputs at 100 and one at 0 are two cases, at 100 and at 0.
+    expect(scoreOver(outputs, saved)).toBe(50)
+    expect(scoreOver([], saved)).toBeNull()
+  })
+})
+
+describe('an output a part of whose grading failed', () => {
+  const failed = runOf('r1', 'v1', [md('a.md')], graded(100, ['generic pack failed: no network']))
+  const whole = runOf('r2', 'v1', [md('a.md')], graded(0))
+
+  it('has no total, so it is left out of every mean, and says why', () => {
+    const outputs = outputsOf(stateOf([failed, whole], ['generic']))
+    const [broken, fine] = outputs
+    expect(totalOf(broken, saved)).toBeNull()
+    expect(scoreOf(broken, saved)?.scores.adherence).toBe(100)
+    expect(scoreOf(broken, saved)?.verdicts[0].text).toBe('Grading failed: no network')
+    expect(gradingFailed(scoreOf(broken, saved))).toBe(true)
+    expect(gradingFailed(scoreOf(fine, saved))).toBe(false)
+    expect(gradingFailed(null)).toBe(false)
+    // Counted in, its 100 from the rules alone would lift the version to 50.
+    expect(versionScore(outputs, saved, 'v1')).toBe(0)
+  })
+})
+
+describe('an output the run’s stop cut short', () => {
+  const page = [md('a.md')]
+  /** A run whose one sample is marked as the run's folder reads it (`Sample.cut`). */
+  const cutRun = (name: string, version: string, cut: 'stopped' | 'unlisted'): RunView => {
+    const run = runOf(name, version, page)
+    return { ...run, samples: run.samples.map((sample) => ({ ...sample, cut })) }
+  }
+  const stoppedRun = (name: string, version: string): RunView => cutRun(name, version, 'stopped')
+
+  it('is marked from the run’s record, and says so where a score would stand', () => {
+    const outputs = outputsOf(
+      stateOf([runOf('r1', 'v1', page), stoppedRun('r2', 'v2')], ['generic']),
+    )
+    expect(outputs.map((o) => o.cut)).toEqual([null, 'stopped'])
+    expect(unscoredLine(outputs[1])).toBe('v2 was stopped before it finished')
+    expect(unscoredLine(outputs[0])).toBe('v1 has no score yet')
+    const bare = outputsOf(
+      stateOf([madeBy(runOf('r0', 'v1', page), { configuration: 'without_skill' })], ['generic']),
+    )
+    expect(unscoredLine(bare[0])).toBe('The run without the skill has no score yet')
+  })
+
+  it('is not finished, for all the run says, when the run never recorded it and has no end', () => {
+    const unlisted = cutRun('r2', 'v2', 'unlisted')
+    const [open] = outputsOf(stateOf([unlisted], ['generic']))
+    expect(open.cut).toBe('unfinished')
+    expect(unscoredLine(open)).toBe('v2 is not finished')
+    // Once the run has ended, a folder it never recorded was cut off.
+    const [done] = outputsOf(
+      stateOf([madeBy(unlisted, { finishedAt: '2026-11-02T10:05:00Z' })], ['generic']),
+    )
+    expect(done.cut).toBe('stopped')
+  })
+
+  it('has no score, whatever an earlier grading gave it', () => {
+    const scored = runOf('r2', 'v2', page, graded(100))
+    const state = stateOf([scored], ['generic'])
+    expect(totalOf(outputsOf(state)[0], state.config)).toBe(100)
+    const cut = {
+      ...scored,
+      samples: scored.samples.map((s) => ({ ...s, cut: 'unlisted' as const })),
+    }
+    const [output] = outputsOf(stateOf([cut], ['generic']))
+    expect(output.result).toBeNull()
+    expect(totalOf(output, state.config)).toBeNull()
+  })
+
+  it('says for several outputs what they have in place of a score', () => {
+    const of = (...runs: RunView[]) => cutOf(outputsOf(stateOf(runs, ['generic'])))
+    expect(of()).toBeNull()
+    expect(of(stoppedRun('r1', 'v1'), stoppedRun('r2', 'v1'))).toBe('stopped')
+    expect(of(stoppedRun('r1', 'v1'), cutRun('r2', 'v1', 'unlisted'))).toBe('unfinished')
+    expect(of(stoppedRun('r1', 'v1'), runOf('r2', 'v1', page))).toBeNull()
+  })
+
+  it('is not the output a case opens with while a finished one of its version is there', () => {
+    const finished = madeBy(runOf('r3', 'v2', page), { createdAt: '2026-11-01T09:00:00Z' })
+    const outputs = outputsOf(
+      stateOf([runOf('r1', 'v1', page), stoppedRun('r2', 'v2'), finished], ['generic']),
+    )
+    expect(casePair(outputs, 'page').b?.run.name).toBe('r3')
+  })
+})
+
 describe('deleteRunDialog', () => {
   const files = [md('README.md')]
   const withVersions = (state: State, saved: string[] = []): State =>
@@ -333,6 +513,7 @@ function attemptOf(run: RunView, index = 1, samples = 1, model = 'opus'): Output
     caseId: 'page',
     index,
     samples,
+    cut: null,
     corrections: {},
     primary: null,
   }

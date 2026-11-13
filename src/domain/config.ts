@@ -21,12 +21,17 @@ const UNREAD = new Set(['sure', 'agreeAt', 'defaultCase'])
 interface Range {
   min: number
   max: number
+  /** A number at or below `min` is no value at all, so the default stands in its place. */
+  above?: true
 }
 
 const AT_LEAST_NOTHING: Range = { min: 0, max: Number.POSITIVE_INFINITY }
 const PROBABILITY: Range = { min: 0, max: 1 }
-/** Seconds a check may run: up to six hours, the longest a case may run. */
-const CHECK_SECONDS: Range = { min: 0, max: 6 * 60 * 60 }
+/**
+ * Seconds a check may run: up to six hours, the longest a case may run. No
+ * check ends in no time, so 0 or less is not a limit and the default stands.
+ */
+const CHECK_SECONDS: Range = { min: 0, max: 6 * 60 * 60, above: true }
 
 /**
  * Numbers inside a pack's own setting with a top of their own. Every other
@@ -47,8 +52,9 @@ const clamp = (value: number, { min, max }: Range): number => Math.min(max, Math
 
 /**
  * A pack's own setting that is an object, its numbers brought into range: a
- * share to 0 to 1, any other number to 0 or more, and one that is not finite
- * dropped. What is not a number passes through, for `laid` to check its kind.
+ * share to 0 to 1, any other number to 0 or more, and one that is not finite,
+ * or not above the least its range allows, dropped. What is not a number
+ * passes through, for `laid` to check its kind.
  */
 function nestedOf(key: string, value: Record<string, unknown>): Record<string, unknown> {
   const out: Record<string, unknown> = {}
@@ -56,10 +62,8 @@ function nestedOf(key: string, value: Record<string, unknown>): Record<string, u
     if (typeof v !== 'number') out[inner] = v
     else if (Number.isFinite(v)) {
       const path = `${key}.${inner}`
-      out[inner] = clamp(
-        v,
-        Object.hasOwn(NESTED_RANGES, path) ? NESTED_RANGES[path] : AT_LEAST_NOTHING,
-      )
+      const range = Object.hasOwn(NESTED_RANGES, path) ? NESTED_RANGES[path] : AT_LEAST_NOTHING
+      if (!range.above || v > range.min) out[inner] = clamp(v, range)
     }
   }
   return out
@@ -90,7 +94,8 @@ const strings = (value: unknown): string[] =>
  *   No top: a layer's points are a share of the total, so any number counts.
  * - `yes`: held to 0 to 1; the default when it is not a number.
  * - A number inside a pack's own setting is held at 0 or more, and a check's
- *   time limit to the longest a case may run.
+ *   time limit to the longest a case may run. A limit of 0 or less is dropped,
+ *   so the pack's default stands.
  *
  * Every other key is a pack's own setting and passes through as it is, for
  * `mergeConfig` to lay over that pack's default.

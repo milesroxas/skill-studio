@@ -1,5 +1,6 @@
 /** The total chip and what is behind it, a score's move from one version to the next, and the parts one score is made of. */
 import { weightMark } from '@domain/case-draft.ts'
+import { pointsMoved } from '@domain/lift.ts'
 import type { Scored } from '@domain/scoring.ts'
 import { layerCount } from '@domain/verdict.ts'
 import { cva } from 'class-variance-authority'
@@ -168,7 +169,7 @@ export function ScoreChange({
   to: number
   against: string | null
 }) {
-  const change = Math.round(to) - Math.round(from)
+  const change = pointsMoved(from, to)
   const tail = against === null ? 'with the skill' : `from ${against}`
   if (change === 0) return against === null ? 'Same as without the skill' : `Same as ${against}`
   if (change > 0) return `Up ${change} ${tail}`

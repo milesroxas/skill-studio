@@ -113,7 +113,7 @@ import {
   stopRun,
 } from '../ai.ts'
 import { generateRun, MAX_SAMPLES, samplesPerCase } from '../generate.ts'
-import { gradeRun, unjudged } from '../grade.ts'
+import { gradeRun, jevForRun, unjudged } from '../grade.ts'
 import {
   anyRunning,
   listJobs,
@@ -551,7 +551,7 @@ function reportJudging(job: Job, report: Report): boolean {
     )
     return false
   }
-  say(job, 'The scores of those outputs count only the layers that were judged.')
+  say(job, 'Those outputs have no score until they are graded again.')
   return true
 }
 
@@ -932,7 +932,8 @@ export function createOperations(options: OperationsOptions): Runners {
         throw new Error('This run is still writing. Grade it when it finishes.')
       if (busy === 'grading')
         throw new Error('This run is already being graded. Wait for it to finish, or stop it.')
-      const useJev = input.jev && Jev.available()
+      // With no key the run is graded by code alone, unless that would take Jev's scores from it.
+      const useJev = input.jev && jevForRun(skill.path, input.run)
       const job = runJob('grade', `Grade ${input.run}`, skillPath, target, (job, signal) => {
         if (input.jev && !useJev) say(job, 'No Jev key: no rule or check is marked.')
         return gradeInJob(job, skill.path, input.run, useJev, signal, 'Graded.')

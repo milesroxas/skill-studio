@@ -148,6 +148,103 @@ describe('scanRules', () => {
 })
 
 describe('what is and is not a bullet', () => {
+  it('reads nothing inside an HTML comment, on one line or over several', () => {
+    const md = [
+      '- Always lead with the answer here.',
+      '<!-- - A rule on one commented line. -->',
+      '<!--',
+      '- A rule set aside for now.',
+      '- Another one set aside too. -->',
+      '- Never end with a question here.',
+    ].join('\n')
+    expect(rulesFromSkill(md).map((r) => r.text)).toEqual([
+      'Always lead with the answer here.',
+      'Never end with a question here.',
+    ])
+  })
+
+  it('leaves a comment out of the bullet it sits in, and reads on', () => {
+    const md = '- Always lead with the answer\n  <!-- todo: say why -->\n  in the first line.\n'
+    expect(rulesFromSkill(md).map((r) => r.text)).toEqual([
+      'Always lead with the answer in the first line.',
+    ])
+  })
+
+  it('reads a bullet up to three spaces in as top-level, as Markdown does', () => {
+    const scan = scanRules(
+      [
+        ' - One space in is a rule.',
+        '  - Two spaces in is a rule.',
+        '   * Three spaces in is a rule.',
+        '    - Four spaces in is code.',
+      ].join('\n'),
+    )
+    expect(scan.rules.map((r) => r.text)).toEqual([
+      'One space in is a rule.',
+      'Two spaces in is a rule.',
+      'Three spaces in is a rule.',
+    ])
+    expect(scan.spans).toEqual([
+      { from: 1, to: 1 },
+      { from: 2, to: 2 },
+      { from: 3, to: 3 },
+    ])
+  })
+
+  it('reads a bullet one space in, under a bullet at the margin, as a rule of its own', () => {
+    const md = '- Always lead with the answer.\n - Never end with a question.\n'
+    expect(rulesFromSkill(md).map((r) => r.text)).toEqual([
+      'Always lead with the answer.',
+      'Never end with a question.',
+    ])
+  })
+
+  it('reads an indented list under a line of prose, with its own nested bullets as clauses', () => {
+    const md =
+      'When you write:\n  - Name every file you touch\n    - and lock files\n  - Keep the note under forty words.\n'
+    expect(rulesFromSkill(md).map((r) => r.text)).toEqual([
+      'Name every file you touch; and lock files',
+      'Keep the note under forty words.',
+    ])
+  })
+
+  it('never reads a bullet under a numbered step, or under a bullet a blank line closed', () => {
+    const md = [
+      '1. Read the request first.',
+      '   - A detail of the first step.',
+      '',
+      '   - Another detail of that step.',
+      '+ A plus item is no rule.',
+      '  - Nor is a detail under it.',
+      '- Always lead with the answer.',
+      '',
+      '  - A detail after a blank line.',
+      '',
+      'A paragraph ends the list.',
+      '  - Now an indented bullet stands alone.',
+    ].join('\n')
+    expect(rulesFromSkill(md).map((r) => r.text)).toEqual([
+      'Always lead with the answer.',
+      'Now an indented bullet stands alone.',
+    ])
+  })
+
+  it('counts a bullet written twice once, and says the second is not checked again', () => {
+    const scan = scanRules(
+      '- Always lead with the answer.\n- Keep it short and plain.\n- Always lead with the **answer**.\n',
+    )
+    expect(scan.rules.map((r) => [r.id, r.text])).toEqual([
+      ['r1', 'Always lead with the answer.'],
+      ['r2', 'Keep it short and plain.'],
+    ])
+    expect(scan.spans).toHaveLength(2)
+    expect(scan.skipped).toEqual([{ line: 3, reason: 'repeat' }])
+  })
+
+  it('reads an indented thematic break as a break', () => {
+    expect(scanRules('  - - -\n\n- Always write two sentences exactly.\n').skipped).toEqual([])
+  })
+
   it('reads a thematic break as a break, not a bullet too short to be a rule', () => {
     const scan = scanRules('# S\n\n* * *\n\n- - -\n\n- Always write two sentences exactly.\n')
     expect(scan.rules.map((r) => r.text)).toEqual(['Always write two sentences exactly.'])

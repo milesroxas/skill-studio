@@ -5,14 +5,14 @@
  * top edge of the band stands for the mean. The rise is held at 1.75 times the
  * band, as in the mark, so the vertical axis is scaled to fit and both ends
  * carry their real numbers. Without the skill is a dashed hairline on the same
- * scale. When the latest version is no higher, no ribbon is drawn: the mean
- * and its change say it. See docs/design/brand.md.
+ * scale. When the latest version is no higher in the whole points shown, no
+ * ribbon is drawn: the mean and its change say it. See docs/design/brand.md.
  *
  * The figure is a fixed height and stretches only sideways, so the band keeps
  * its thickness at any width; its labels are text over it, at the type scale's
  * own sizes.
  */
-import type { Lift } from '@domain/lift.ts'
+import { type Lift, pointsMoved } from '@domain/lift.ts'
 import type { CSSProperties, ReactNode } from 'react'
 import { Delta } from './Scores.tsx'
 import { Text } from './text.tsx'
@@ -145,7 +145,7 @@ export function VersionLift({
   writer: string
 }) {
   const { first, latest, baseline } = lift
-  const change = round(latest.mean) - round(first.mean)
+  const change = pointsMoved(first.mean, latest.mean)
   const summary = `Version lift for ${writer}: ${first.version} scored ${round(first.mean)}, ${latest.version} scored ${round(latest.mean)}${baseline ? `, and without the skill ${round(baseline.mean)}` : ''}${casesNote(lift)}.`
   return (
     <figure

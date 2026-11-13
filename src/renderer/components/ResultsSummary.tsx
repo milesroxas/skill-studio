@@ -4,7 +4,6 @@
  * as. The comparison of one case shows what changed; this answers "did the
  * edit help overall", and is where a run is graded again or its cost read.
  */
-import { mean } from '@domain/stats.ts'
 import { Fragment, useEffect, useRef } from 'react'
 import { api } from '../api.ts'
 import type { Ctx } from '../ctx.ts'
@@ -16,6 +15,7 @@ import {
   caseTitle,
   countsLine,
   countsOf,
+  cutOf,
   fmt,
   gradedLine,
   isWithoutSkill,
@@ -29,6 +29,7 @@ import {
   runStamp,
   runTitle,
   scoreOf,
+  scoreOver,
   stamp,
   totalOf,
   versionOutputs,
@@ -94,7 +95,6 @@ export function ResultsSummary({ ctx }: { ctx: Ctx }) {
   ]
   const byRun = new Map<string, Output[]>()
   for (const o of outputs) byRun.set(o.run.name, [...(byRun.get(o.run.name) ?? []), o])
-  const totalsOf = (list: Output[]) => list.map((o) => totalOf(o, config)).filter((t) => t !== null)
   const showMean = caseIds.length > 1
   // Runs that answered a case more than once: their column holds room for the count in every row.
   const repeated = new Set(outputs.filter((o) => o.samples > 1).map((o) => o.run.name))
@@ -114,7 +114,7 @@ export function ResultsSummary({ ctx }: { ctx: Ctx }) {
 
   const regrade = (run: string) =>
     void grade.start([`Grade ${run}`], async () => {
-      await api.grade(run, state.jevKey)
+      await api.grade(run)
       report(`Grading ${run}`)
     })
 
@@ -170,7 +170,9 @@ export function ResultsSummary({ ctx }: { ctx: Ctx }) {
                         <ScoreCell
                           name={`${caseTitle(state, c)}, ${runLabel(run)}`}
                           outputs={cell.length}
-                          total={cell.length ? mean(totalsOf(cell)) : null}
+                          scored={cell.filter((o) => totalOf(o, config) !== null).length}
+                          cut={cutOf(cell)}
+                          total={scoreOver(cell, config)}
                           writing={writingRun(jobs, state.skill.path, run.name)}
                           grading={gradingRun(jobs, state.skill.path, run.name)}
                           repeated={repeated.has(run.name)}
@@ -226,7 +228,7 @@ export function ResultsSummary({ ctx }: { ctx: Ctx }) {
                       </TableCell>
                       {showMean ? (
                         <TableCell numeric>
-                          <Text weight="medium">{fmt(mean(totalsOf(mine)), 0)}</Text>
+                          <Text weight="medium">{fmt(scoreOver(mine, config), 0)}</Text>
                         </TableCell>
                       ) : null}
                       <TableCell filler />
@@ -267,17 +269,27 @@ export function ResultsSummary({ ctx }: { ctx: Ctx }) {
 /** How far apart, down a column, the scores of one grading tick in. */
 const LAND_STEP_MS = 40
 
+/** A cell with outputs and no score: the word it shows, and what it says of them aloud. */
+const UNSCORED = {
+  ungraded: { word: 'Not graded', says: 'not graded yet' },
+  stopped: { word: 'Stopped', says: 'stopped before it finished' },
+  unfinished: { word: 'Not finished', says: 'not finished' },
+} as const
+
 /**
  * One case's score in one run. Only a cell that opens something looks like it
- * does: a score, or "Not graded" for an output with none yet, opens the
- * output. A cell with nothing to open says why in faint words, "Not run",
- * "Writing…" or "Grading…", and is no button. A score that comes while the
- * table is in view ticks in, down its column in turn; one there when the view
- * opened is at rest.
+ * does: a score, "Not graded" for an output with none yet, or "Stopped" for
+ * one cut short ("Not finished" when the run does not say it was stopped), opens the output. A
+ * cell with nothing to open says why in faint words, "Not run", "Writing…" or
+ * "Grading…", and is no button. A score that comes while the table is in view
+ * ticks in, down its column in turn; one there when the view opened is at
+ * rest.
  */
 function ScoreCell({
   name,
   outputs,
+  scored,
+  cut,
   total,
   writing,
   grading,
@@ -289,6 +301,10 @@ function ScoreCell({
   name: string
   /** How many outputs the run made for the case. */
   outputs: number
+  /** How many of them have a score: the ones the mean is over. */
+  scored: number
+  /** What they have in place of a score when grading leaves out every one of them. */
+  cut: Output['cut']
   /** Their mean score; null when none is graded. */
   total: number | null
   writing: boolean
@@ -298,10 +314,10 @@ function ScoreCell({
   row: number
   onRead: () => void
 }) {
-  const waiting = (outputs === 0 && writing) || (outputs > 0 && total === null)
+  const waiting = (outputs === 0 && writing) || (outputs > 0 && total === null && !cut)
   const landed = useLanded(waiting)
   const slot = repeated ? <SampleCount count={0} /> : null
-  if (outputs === 0 || (total === null && grading))
+  if (outputs === 0 || (total === null && grading && !cut))
     return (
       <span className="inline-flex items-center gap-1">
         <Text tone="faint" size="xs">
@@ -317,10 +333,10 @@ function ScoreCell({
           type="button"
           variant="link-muted"
           size="cell-inline"
-          aria-label={`${name}: not graded yet. Read it.`}
+          aria-label={`${name}: ${UNSCORED[cut ?? 'ungraded'].says}. Read it.`}
           onClick={onRead}
         >
-          Not graded
+          {UNSCORED[cut ?? 'ungraded'].word}
         </Button>
         {slot}
       </span>
@@ -333,11 +349,11 @@ function ScoreCell({
       size="cell"
       className={landed ? 'animate-tick' : undefined}
       style={landed ? after(row * LAND_STEP_MS) : undefined}
-      aria-label={`${name}: ${shown}${outputs > 1 ? `, the mean of ${outputs} outputs` : ''}. Read it.`}
+      aria-label={`${name}: ${shown}${scored > 1 ? `, the mean of ${scored} outputs` : ''}. Read it.`}
       onClick={onRead}
     >
       <TotalChip total={shown} />
-      {repeated ? <SampleCount count={outputs} /> : null}
+      {repeated ? <SampleCount count={scored} /> : null}
     </Button>
   )
 }
@@ -415,7 +431,7 @@ function RunDetail({
               busyLabel="Grading…"
               onClick={() => regrade(run)}
             >
-              {state.jevKey ? 'Regrade' : 'Regrade without Jev'}
+              {state.jevKey || view.report?.model ? 'Regrade' : 'Regrade without Jev'}
             </Button>
           </Toolbar>
         </SectionHead>

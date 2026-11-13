@@ -7,7 +7,7 @@
 import { rmSync } from 'node:fs'
 import { join } from 'node:path'
 import type { SkillVersion, SkillVersions } from '@domain/views.ts'
-import { isDir, isFile, listDirs, readJson, writeJson } from './fs.ts'
+import { dayOf, isDir, isFile, listDirs, readJson, writeJson } from './fs.ts'
 import { snapshotSkillFiles } from './skill.ts'
 
 const versionsDir = (skillDir: string): string => join(skillDir, 'evals/versions')
@@ -49,7 +49,7 @@ export function savedVersions(skillDir: string): SkillVersion[] {
         name: file.name,
         hash: file.hash,
         note: file.note,
-        date: String(file.createdAt ?? '').slice(0, 10) || undefined,
+        date: dayOf(String(file.createdAt ?? '')),
         saved: true,
       },
     ]
@@ -84,7 +84,7 @@ export function saveVersion(
     name: title,
     hash: current.hash,
     note: note.trim(),
-    date: createdAt.slice(0, 10),
+    date: dayOf(createdAt),
     saved: true,
   }
 }

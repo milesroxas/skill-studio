@@ -42,7 +42,7 @@ export interface Lift {
   baseline: LiftSide | null
   /** How many of the shared cases the floor's mean is over; 0 with no floor. */
   baselineCases: number
-  /** The latest version scores higher than the first. Only then is the lift drawn. */
+  /** The latest version scores higher than the first, by a whole point or more as the scores are shown. Only then is the lift drawn. */
   rises: boolean
   /** How many cases both runs answered: the ones the means are over. */
   sharedCases: number
@@ -60,6 +60,18 @@ export const writerKey = (writer: Writer | null | undefined): string =>
 /** "v3" is 3; anything else is no version. */
 export const versionNumber = (version: string): number | null =>
   /^v\d+$/.test(version) ? Number(version.slice(1)) : null
+
+/**
+ * The run tested a version of the skill: made with the skill as it stood, or
+ * against an earlier version's copy (`old_skill`), which counts as a run of
+ * the version it copied. A run without the skill tested none. The one reading
+ * of it for a version's score, the lift and the pair a case opens with.
+ */
+export const testedVersion = (run: { configuration: Configuration; version: string }): boolean =>
+  run.configuration !== 'without_skill' && versionNumber(run.version) !== null
+
+/** How far a score moved, in the whole points it is shown in: 66.7 to 67.0 is no move. */
+export const pointsMoved = (from: number, to: number): number => Math.round(to) - Math.round(from)
 
 const newest = (a: LiftRun, b: LiftRun): LiftRun => (b.createdAt > a.createdAt ? b : a)
 const oldest = (a: LiftRun, b: LiftRun): LiftRun => (b.createdAt < a.createdAt ? b : a)
@@ -105,7 +117,7 @@ function floorOf(floors: readonly LiftRun[], ids: readonly string[]): LiftRun | 
 function liftPair(runs: readonly LiftRun[]): { first: LiftRun; latest: LiftRun } | null {
   const writers = new Map<string, LiftRun[]>()
   for (const run of runs)
-    if (graded(run) && run.configuration !== 'without_skill' && versionNumber(run.version) !== null)
+    if (graded(run) && testedVersion(run))
       writers.set(run.writer, [...(writers.get(run.writer) ?? []), run])
 
   let pick: { first: LiftRun; latest: LiftRun } | null = null
@@ -142,7 +154,7 @@ export function versionLift(runs: readonly LiftRun[]): Lift | null {
     latest,
     baseline: floor ? over(floor, ids) : null,
     baselineCases,
-    rises: latest.mean > first.mean,
+    rises: pointsMoved(first.mean, latest.mean) > 0,
     sharedCases: ids.length,
     casesDiffer:
       ids.length < Object.keys(pick.first.cases).length ||

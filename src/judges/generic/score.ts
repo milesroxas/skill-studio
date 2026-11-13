@@ -9,7 +9,6 @@ import {
   type PackScore,
   type PackScoring,
   type ScoreSubject,
-  type Verdict,
 } from '@domain/pack.ts'
 import type { BenchConfig } from '@domain/schemas.ts'
 import { certainty } from '@domain/stats.ts'
@@ -26,7 +25,8 @@ export interface RuleAnswer {
 
 export interface GenericRaw {
   adherence: { rules: RuleAnswer[] } | null
-  rubric: { statements: StatementAnswer[] } | null
+  /** `unasked` says why each check that was not asked was left out: its picture is one Jev cannot read. */
+  rubric: { statements: StatementAnswer[]; unasked?: string[] } | null
   /** Why the output's picture was left out, when it was. */
   unread?: string
 }
@@ -40,8 +40,9 @@ function scoreGeneric(
   const layers: Record<string, number | null> = { adherence: null, rubric: null }
   const flags: string[] = []
   if (!raw) return { layers, flags, verdicts: [] }
-  const unread: Verdict[] = raw.unread ? [finding(raw.unread)] : []
-  if (raw.unread) flags.push(raw.unread)
+  // What was not judged counts in no layer, and is said.
+  const unjudged = [...(raw.unread ? [raw.unread] : []), ...(raw.rubric?.unasked ?? [])]
+  flags.push(...unjudged)
   const yes = config.yes
   const rules = raw.adherence?.rules ?? []
   const followed = rules.map((rule) =>
@@ -61,7 +62,11 @@ function scoreGeneric(
   const checks = markChecks(raw.rubric?.statements ?? [], 'rubric', yes, corrections)
   layers.rubric = checks.share
   flags.push(...checks.flags)
-  return { layers, flags, verdicts: [...unread, ...followed, ...checks.verdicts] }
+  return {
+    layers,
+    flags,
+    verdicts: [...unjudged.map(finding), ...followed, ...checks.verdicts],
+  }
 }
 
 const certaintiesGeneric = (raw: GenericRaw | null): number[] =>

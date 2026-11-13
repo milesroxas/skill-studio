@@ -24,13 +24,14 @@ import { mergeConfig } from '@domain/config.ts'
 import { type ImageFormat, imageFileName, imageTypeOf } from '@domain/image.ts'
 import type { Rule } from '@domain/rules.ts'
 import { rulesFromList, rulesFromSkill } from '@domain/rules.ts'
-import type {
-  BenchConfig,
-  Case,
-  CaseBench,
-  CaseDraft,
-  CaseSettings,
-  Grader,
+import {
+  type BenchConfig,
+  type Case,
+  type CaseBench,
+  type CaseDraft,
+  type CaseSettings,
+  type Grader,
+  isArtifactKind,
 } from '@domain/schemas.ts'
 import {
   frontMatterBlock,
@@ -47,6 +48,7 @@ import {
   assertInside,
   assertSafePath,
   isFile,
+  isSafeName,
   listDirs,
   listFiles,
   present,
@@ -139,31 +141,87 @@ function safePaths(value: unknown, what: string): string[] {
   })
 }
 
+/** A yes or no as a case file may say it: YAML reads `no` and `off` as words, and whoever wrote one meant no. */
+const SAID: Readonly<Record<string, boolean>> = {
+  true: true,
+  yes: true,
+  on: true,
+  false: false,
+  no: false,
+  off: false,
+}
+const yesOrNo = (value: unknown): boolean | undefined => {
+  if (typeof value === 'boolean') return value
+  const word = typeof value === 'string' ? value.trim().toLowerCase() : ''
+  return Object.hasOwn(SAID, word) ? SAID[word] : undefined
+}
+
+const isPair = (value: unknown): value is [number, number] =>
+  Array.isArray(value) && value.length === 2 && value.every((n) => Number.isFinite(n))
+
+/** What each key of a case's `bench` block must be, in words, and its value read as that; undefined when it is not one. */
+const BENCH_KEYS: Readonly<Record<string, { is: string; read: (value: unknown) => unknown }>> = {
+  artifact: {
+    is: 'markdown, html, image, code or transcript',
+    read: (v) => (isArtifactKind(v) ? v : undefined),
+  },
+  check: {
+    is: 'a command line',
+    read: (v) => (typeof v === 'string' && v.trim() ? v : undefined),
+  },
+  // The range a save allows: a least that is not below nothing, and a most not below it.
+  words: {
+    is: 'a least and a most number of words',
+    read: (v) => (isPair(v) && v[0] >= 0 && v[1] >= v[0] ? v : undefined),
+  },
+  // The size a save allows: a case file edited by hand or by an agent sizes a window too.
+  size: {
+    is: 'a width and a height in pixels',
+    read: (v) => (isPair(v) && !sizeProblem(v) ? v : undefined),
+  },
+  phone: { is: 'true or false', read: yesOrNo },
+  judge: { is: 'true or false', read: yesOrNo },
+}
+
 /**
- * A case's `bench` block, a size held to the one a save allows: a case file
- * edited by hand or by an agent sizes a window too, so a size that could not
- * be saved is dropped.
+ * A case's `bench` block as every pack can read it with no check of its own.
+ * A value of the wrong kind is left out, so its default stands, with a warning
+ * naming the case at `where`. A key nothing here knows passes through.
  */
-function benchOf(value: unknown): CaseBench {
+function benchOf(value: unknown, where: string): CaseBench {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return {}
-  const { size, phone, ...bench } = value as CaseBench
-  const sized = Array.isArray(size) && size.length === 2 && !sizeProblem(size)
-  if (size !== undefined && !sized)
-    warnOnce(
-      `A case asks for the size ${JSON.stringify(size)}, which is not a width and a height in pixels.`,
-    )
-  return {
-    ...bench,
-    ...(sized ? { size } : {}),
-    ...(typeof phone === 'boolean' ? { phone } : {}),
+  const bench: CaseBench = {}
+  for (const [key, raw] of Object.entries(value)) {
+    const known = Object.hasOwn(BENCH_KEYS, key) ? BENCH_KEYS[key] : null
+    const read = known ? known.read(raw) : raw
+    if (read !== undefined) bench[key] = read
+    else if (raw !== undefined && raw !== null)
+      warnOnce(
+        `${where}: bench.${key} is ${JSON.stringify(raw)}, which is not ${known?.is}, so it is left out.`,
+      )
   }
+  return bench
+}
+
+/**
+ * Whether a folder's name can be a case's id. The id names a folder in every
+ * run and is sent back in requests, which take a name of letters, digits,
+ * `_`, `.` and `-`; a folder of any other name, one with a space say, is no
+ * case, and the warning names it.
+ */
+function namesCase(skillDir: string, rel: string): boolean {
+  if (isSafeName(basename(rel))) return true
+  warnOnce(
+    `${join(skillDir, rel)} is left out: a case's folder names a folder in every run, so its name may hold only letters, digits, dots, dashes and underscores.`,
+  )
+  return false
 }
 
 /** One skill-creator case folder. Throws when its `case.yaml` cannot be read. */
 function loadFolderCase(skillDir: string, rel: string): Case | null {
   const dir = join(skillDir, rel)
   const promptPath = join(dir, 'prompt.md')
-  if (!isFile(promptPath)) return null
+  if (!isFile(promptPath) || !namesCase(skillDir, rel)) return null
   const { meta: settings, text: prompt } = readFrontMatter(readFileSync(promptPath, 'utf8'))
   const yamlPath = join(dir, 'case.yaml')
   const read = isFile(yamlPath) ? parseYaml(readFileSync(yamlPath, 'utf8')) : null
@@ -183,11 +241,13 @@ function loadFolderCase(skillDir: string, rel: string): Case | null {
     files,
     graders: readGraders(skillDir, rel),
     settings: parseSettings(settings),
-    bench: benchOf(spec.bench),
+    bench: benchOf(spec.bench, yamlPath),
     source: 'folder',
     dir: rel,
   }
 }
+
+const legacyFile = (skillDir: string): string => join(skillDir, 'evals', 'evals.json')
 
 interface LegacyEval {
   id: number | string
@@ -212,7 +272,7 @@ function legacyKey(skillDir: string, entry: LegacyEval): string | null {
   if (!entry || typeof entry !== 'object') return null
   const label = slug(String(entry.name ?? entry.eval_name ?? entry.title ?? ''))
   const id = label ? `${entry.id}-${label}` : String(entry.id)
-  const where = `${join(skillDir, 'evals', 'evals.json')}: the case ${JSON.stringify(entry.id)}`
+  const where = `${legacyFile(skillDir)}: the case ${JSON.stringify(entry.id)}`
   if (typeof entry.prompt !== 'string') {
     warnOnce(`${where} has no prompt, so it is left out.`)
     return null
@@ -247,7 +307,7 @@ function fromLegacy(skillDir: string, entry: LegacyEval): Case | null {
       image: null,
     })),
     settings: { tags: [], maxTurns: null, timeoutSeconds: null, allowedTools: null },
-    bench: benchOf(entry.bench),
+    bench: benchOf(entry.bench, `${legacyFile(skillDir)}: the case ${JSON.stringify(entry.id)}`),
     source: 'evals.json',
     dir: null,
   }
@@ -266,7 +326,7 @@ const caseFolders = (skillDir: string): string[] => {
 
 /** The entries of `evals.json`; none when the file is absent or holds no list. */
 function legacyEntries(skillDir: string): LegacyEval[] {
-  const legacy = readJson<{ evals?: unknown }>(join(skillDir, 'evals', 'evals.json'), {})
+  const legacy = readJson<{ evals?: unknown }>(legacyFile(skillDir), {})
   return Array.isArray(legacy?.evals) ? (legacy.evals as LegacyEval[]) : []
 }
 
@@ -311,7 +371,7 @@ export function loadCases(skillDir: string): Case[] {
 export function casesChanged(skillDir: string): number {
   const files = [
     ...caseFolders(skillDir).map((rel) => join(skillDir, rel, 'prompt.md')),
-    join(skillDir, 'evals', 'evals.json'),
+    legacyFile(skillDir),
   ]
   return Math.max(0, ...files.map((file) => (isFile(file) ? statSync(file).mtimeMs : 0)))
 }
@@ -319,7 +379,7 @@ export function casesChanged(skillDir: string): number {
 export function countCases(skillDir: string): number {
   const ids = new Set(
     caseFolders(skillDir)
-      .filter((rel) => isFile(join(skillDir, rel, 'prompt.md')))
+      .filter((rel) => isFile(join(skillDir, rel, 'prompt.md')) && namesCase(skillDir, rel))
       .map((rel) => basename(rel)),
   )
   for (const entry of legacyEntries(skillDir)) {
@@ -330,19 +390,25 @@ export function countCases(skillDir: string): number {
 }
 
 /**
- * A case by key, by legacy numeric id, or by the `<id>-...` prefix of a legacy
- * file name. Of two cases whose ids both lead the name (`email` and
- * `email-reply` for `email-reply-2.md`), the longer id is the case.
+ * A case by key or by legacy numeric id. With `fileName`, `ref` is the name of
+ * a legacy flat file, which starts with its case's id (`email-reply-2.md`):
+ * of two cases whose ids both lead the name (`email` and `email-reply`), the
+ * longer id is the case. Any other name is a case's own or none, so the output
+ * of a case since deleted is never taken for a case whose id starts its name.
  */
-export function findCase(cases: Case[], ref: string | null): Case | null {
+export function findCase(
+  cases: Case[],
+  ref: string | null,
+  { fileName = false }: { fileName?: boolean } = {},
+): Case | null {
   if (!ref) return null
-  return (
+  const named =
     cases.find((c) => c.id === ref) ??
-    cases.find((c) => c.legacyId !== null && String(c.legacyId) === ref) ??
-    cases
-      .filter((c) => ref.startsWith(`${c.id}-`))
-      .reduce<Case | null>((best, c) => (best && best.id.length >= c.id.length ? best : c), null)
-  )
+    cases.find((c) => c.legacyId !== null && String(c.legacyId) === ref)
+  if (named || !fileName) return named ?? null
+  return cases
+    .filter((c) => ref.startsWith(`${c.id}-`))
+    .reduce<Case | null>((best, c) => (best && best.id.length >= c.id.length ? best : c), null)
 }
 
 export const benchPath = (skillDir: string): string => join(skillDir, 'evals/bench.json')
@@ -364,10 +430,13 @@ export function savePacks(skillDir: string, packs: string[]): void {
   writeJson(file, { ...kept, packs })
 }
 
-/** Adherence rules: `bench.json` `rules` when set, else SKILL.md's bullets. */
-export function loadRules(skillDir: string, config: BenchConfig): Rule[] {
+/**
+ * Adherence rules: `bench.json` `rules` when set, else the bullets of the
+ * SKILL.md in `dir`, which is the skill's folder or a copy of it a run kept.
+ */
+export function loadRules(dir: string, config: BenchConfig): Rule[] {
   if (config.rules?.length) return rulesFromList(config.rules)
-  const md = join(skillDir, 'SKILL.md')
+  const md = join(dir, 'SKILL.md')
   return existsSync(md) ? rulesFromSkill(readFileSync(md, 'utf8')) : []
 }
 

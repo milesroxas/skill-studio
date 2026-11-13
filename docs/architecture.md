@@ -67,7 +67,7 @@ Imports point inward only. `pnpm fallow` fails on one that does not (`boundaries
 
 - Stopping everything is `shutdown` in `src/application/shutdown.ts`: it stops every job (`stopAllJobs`) and every assistant reply (`stopAllRuns`), then ends the processes still running (`stopAll`).
 - Quitting the app calls it. Quitting holds `will-quit` until `stopAll` is done, three seconds at most. An update's restart quits the same way.
-- The CLI calls it on SIGINT (Ctrl-C), SIGTERM and SIGHUP (the terminal closing), through `agentLifecycle` in `src/interfaces/lifecycle.ts`, then exits with 130, 143 or 129.
+- The CLI calls it on SIGINT (Ctrl-C), SIGTERM and SIGHUP (the terminal closing), through `agentLifecycle` in `src/interfaces/lifecycle.ts`, then exits with 130, 143 or 129. `st run` and `st grade` work outside a job, so the lifecycle hands them a signal that fires before any process is ended (`Lifecycle.signal`): they stop as a stopped job does.
 - From the moment `stopAll` is called, `exec` starts nothing more and rejects with "Stopping.", so a job between two agents cannot start the next.
 - `st serve`, like the desktop backend, keeps running through an error nothing caught (`keepRunning`): the error is logged and every job goes on.
 - The backend records the agents it starts in `~/.skill-studio/agents.json` (`src/infrastructure/children.ts`), each with the pid and start time of the backend that owns it. Every running copy of the app shares the file.
@@ -90,19 +90,22 @@ Imports point inward only. `pnpm fallow` fails on one that does not (`boundaries
 ### Jobs and runs
 
 - A job (`src/application/jobs.ts`) has an abort controller, kept out of the job the window reads. `jobs.stop` fires it:
-  - Generation stops taking samples and ends the agents in flight. The signal reaches `exec` through `EngineRequest.signal`.
-  - Grading stops before its next sample, keeps no answer from the sample the stop came in, and writes no report.
+  - Generation stops taking samples and ends the agents in flight. The signal reaches `exec` through `EngineRequest.signal`. A sample whose agent did not end cleanly on its own while the stop was in force is recorded as `stopped`, with whatever it had written.
+  - Grading stops at once: an answer still on its way is not waited for (`untilStopped` in `src/application/grade.ts`). It keeps no answer from the sample the stop came in, and writes no report.
   - The job ends as stopped, with "Stopped." in its log.
 - A job names what it works on: the skill path or the run. While it runs, a second run of the same skill, or a second grading of the same run, is refused. A run job's own grading of the run it made counts as a grading of that run.
 - A run job lists the runs it is writing (`Job.writing`, set once `generateRun` names each run). Only those are refused a grading or a delete, so a run cut off earlier can be graded or deleted while another run of the skill is written. A run being graded is refused a delete too.
-- A grading with no output to grade (every one stopped before it was written) writes no report, says so in its log and ends as failed.
+- A grading with no output to grade (every one stopped before it finished) writes no report, says so in its log and ends as failed.
 - The window's list holds every running job and the newest 12 finished ones (`listJobs`). "Is anything running" asks every job, listed or not (`anyRunning`): deleting a version and restarting the walkthrough wait on it.
 - The last 50 finished jobs are kept. A job's log keeps its first 100 lines and its latest, 500 in all.
 - A run is made from copies taken as it starts (`src/application/generate.ts`), and every sample is built from those:
   - The skill, as an agent's copy holds it, goes to the run's `_skill/`. That copy leaves out `evals/`, hidden files, `node_modules`, `venv` and `__pycache__` folders at any depth, and links that leave the skill. It is exactly what the version's hash covers.
   - Each case's input files go to `_inputs/`, made even when no case has a file.
+  - An `old_skill` run names the skill to its agents as the copy it is made against does.
   - Saving, restoring or editing the skill during the run changes nothing the run reads.
 - Grading reads a case's pictures from `_inputs/`, as the agent got them, each only when it is a file inside that folder. A run with no `_inputs/` has its pictures read from the case as it is now.
+- Grading reads the skill's rules from `_skill/SKILL.md`, the skill the run was made from. A run with no `_skill/` is graded on `SKILL.md` as it is now.
+- `run.json` is written again as each sample ends, with the files the agent left under `outputs/` (`SampleMeta.outputs`). Grading reads the samples it lists that are not `stopped` (`finishedSamples` in `src/infrastructure/runs.ts`), and both grading and Results read a listed sample's outputs from that list (`runSamples`), so a file a check command adds later is no output. Results still shows a folder not yet listed, so a run being written shows its outputs as they come.
 - When the run's folder can no longer be written to, every worker stops and the agents in flight are ended.
 - A case's `timeout_seconds` is held to six hours.
 

@@ -36,7 +36,7 @@ The version lift on Results (`VersionLift` in `components/Lift.tsx`, fed by `ver
 - The curve is the mark's own: both control points sit at the horizontal midpoint. `C mx y0, mx y1, x1 y1`.
 - The band keeps one thickness. Rise divided by thickness stays between 1.5 and 2 (the mark's is 1.75). Scale the vertical axis to hold that, and label both ends with their real numbers.
 - It is ink on porcelain. The baseline without the skill is a dashed hairline in `muted-foreground`.
-- If the latest mean is not higher than the first, draw no ribbon: the latest mean and its `Delta` since the first say it. A ribbon that falls or lies flat would misstate the brand's one motif.
+- If the latest mean is not higher than the first in the whole points shown (`Lift.rises`), draw no ribbon: the latest mean and its `Delta` since the first say it. A ribbon that falls or lies flat would misstate the brand's one motif.
 
 Never use a ribbon as a divider, a background, a progress bar or a loading animation.
 

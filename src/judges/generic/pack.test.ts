@@ -235,13 +235,30 @@ describe('generic pack', () => {
         { ...grader('g2'), image: 'huge.png' },
         grader('g3'),
       ]
-      await genericPack.judge(output({ case: testCase(graders) }), { ...ctx, skillDir, log })
+      const raw = await genericPack.judge(output({ case: testCase(graders) }), {
+        ...ctx,
+        skillDir,
+        log,
+      })
       const { questions } = asked()
       expect(holdsImage(questions.g1)).toBe(true)
-      // A picture Jev would refuse is left out and reported: it would fail every question with it.
-      expect(holdsImage(questions.g2)).toBe(false)
-      expect(log).toHaveBeenCalledWith(expect.stringContaining('4000 × 3000 px'))
       expect(holdsImage(questions.g3)).toBe(false)
+      // A check about a picture Jev would refuse is not asked without it: it is left out and said.
+      expect(Object.keys(questions)).toEqual(['g1', 'g3'])
+      expect(raw?.rubric?.statements.map((s) => s.id)).toEqual(['g1', 'g3'])
+      expect(raw?.rubric?.unasked).toEqual([
+        expect.stringMatching(/^grader g2 not judged, .*4000 × 3000 px.*: statement g2$/),
+      ])
+      expect(log).toHaveBeenCalledWith(expect.stringContaining('4000 × 3000 px'))
+      // With every check left out, nothing is asked and the rubric counts none.
+      ask.mockClear()
+      const none = await genericPack.judge(output({ case: testCase([graders[1]]) }), {
+        ...ctx,
+        skillDir,
+        log,
+      })
+      expect(ask).not.toHaveBeenCalled()
+      expect(none?.rubric).toEqual({ statements: [], unasked: [expect.any(String)] })
     } finally {
       rmSync(skillDir, { recursive: true, force: true })
     }

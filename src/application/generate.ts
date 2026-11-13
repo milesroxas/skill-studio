@@ -29,8 +29,8 @@ import {
   treeFiles,
   writeJson,
 } from '@infrastructure/fs.ts'
-import { readRunMeta, runDir, versionSource, versionsOf } from '@infrastructure/runs.ts'
-import { skillInfo, snapshotSkill } from '@infrastructure/skill.ts'
+import { readRunMeta, runDir, skillCopy, versionSource, versionsOf } from '@infrastructure/runs.ts'
+import { skillHead, skillInfo, snapshotSkill } from '@infrastructure/skill.ts'
 import { TranscriptWriter } from '@infrastructure/transcript.ts'
 import { isVersionLabel } from '@infrastructure/versions.ts'
 
@@ -49,23 +49,31 @@ export const MAX_SAMPLES = 10
 export const INPUTS_DIR = '_inputs'
 
 /**
- * The run's copy of one of a case's input files, `rel` being its path in the
- * skill, under the run's `inputs` folder. A file under the case's own `files/`
- * keeps its path inside it; one from elsewhere in the skill goes by its name.
+ * Where a run may hold its copy of one of a case's input files, `rel` being
+ * the file's path in the skill, under the run's `inputs` folder. The first is
+ * where the case as it is now stages it: a file under the case's own `files/`
+ * keeps its path inside it, and one from elsewhere in the skill goes by its
+ * name, unless another of the case's files has that name too, when both keep
+ * their whole path in the skill so neither takes the other's place. The second,
+ * for a file from elsewhere, is where it went if the case had, or lacked, such
+ * a namesake when the run was made.
  */
-export function stagedInput(
+export function stagedInputs(
   inputs: string,
-  testCase: Pick<Case, 'id' | 'dir'>,
+  testCase: Pick<Case, 'id' | 'dir' | 'files'>,
   rel: string,
-): string {
+): string[] {
+  const at = (path: string): string => join(inputs, testCase.id, path)
   const own = testCase.dir ? `${testCase.dir}/files/` : null
-  return join(
-    inputs,
-    testCase.id,
-    own && rel.startsWith(own) ? rel.slice(own.length) : basename(rel),
-  )
+  if (own && rel.startsWith(own)) return [at(rel.slice(own.length))]
+  const name = basename(rel)
+  const shared = testCase.files.some((other) => other !== rel && basename(other) === name)
+  return shared ? [at(rel), at(name)] : [at(name), at(rel)]
 }
-const SKILL_DIR = '_skill'
+
+/** The run's copy of one of a case's input files, as the case stages it now. */
+export const stagedInput = (...where: Parameters<typeof stagedInputs>): string =>
+  stagedInputs(...where)[0]
 /** What `exec` rejects with once the process has begun to end everything it started. */
 const STOPPING = 'Stopping.'
 
@@ -183,7 +191,7 @@ function baselineOf(skillDir: string, baseline: string | null): { dir: string; s
     }
   }
   const run = assertSafe(baseline, 'run')
-  const dir = join(runDir(skillDir, run), SKILL_DIR)
+  const dir = skillCopy(skillDir, run)
   if (!existsSync(join(dir, 'SKILL.md')))
     throw new Error(`${run} keeps no copy of its skill, so no run can be made against it.`)
   const old = readRunMeta(skillDir, run)
@@ -202,6 +210,8 @@ export async function generateRun(
   const configuration = options.configuration
   const baseline = configuration === 'old_skill' ? baselineOf(skillDir, options.baseline) : null
   const stamp = baseline ? baseline.stamp : stampSkill(skillDir, options.skillName, options.note)
+  // The skill as the run's copy names it: a run against an older version uses the name it had then.
+  const skillName = baseline ? skillHead(baseline.dir, basename(info.path)).name : info.name
   const model = options.model?.trim() || engine.defaultModel
   const effort = options.effort || 'default'
   const name = freshRunName(
@@ -218,7 +228,7 @@ export async function generateRun(
   const dir = runDir(skillDir, name)
   mkdirSync(dir, { recursive: true })
   // The one copy of the skill every sample of this run is made from.
-  const snapshot = join(dir, SKILL_DIR)
+  const snapshot = skillCopy(skillDir, name)
   if (baseline) copyTree(baseline.dir, snapshot)
   else snapshotSkill(skillDir, snapshot)
   stageInputs(skillDir, dir, options.cases, log)
@@ -258,9 +268,9 @@ export async function generateRun(
     model,
     effort,
     skillSource: configuration === 'without_skill' ? null : snapshot,
-    skillName: info.name,
+    skillName,
     // The name is the writer's own text: only a slug of it names a folder.
-    skillFolder: slug(info.name) || slug(basename(skillDir)) || 'skill',
+    skillFolder: slug(skillName) || slug(basename(info.path)) || 'skill',
     log,
     signal: stop.signal,
   }
@@ -297,7 +307,7 @@ export async function generateRun(
     )
   meta.finishedAt = new Date().toISOString()
   writeJson(join(dir, 'run.json'), meta)
-  const wrote = meta.samples.filter((s) => s.ok).length
+  const wrote = meta.samples.filter((s) => s.ok && !s.stopped).length
   log(
     options.signal?.aborted
       ? `${name}: stopped, ${wrote}/${jobs.length} wrote output`
@@ -323,24 +333,25 @@ async function sampleOrFailure(
     if (message === STOPPING) return null
     const name = sampleDir(testCase.id, index)
     options.log(`${name}: failed, ${message}`)
-    return failedSample(name, testCase.id, index, message)
+    return {
+      dir: name,
+      case: testCase.id,
+      index,
+      ok: false,
+      seconds: 0,
+      costUsd: null,
+      tokens: null,
+      model: null,
+      error: message,
+      steps: 0,
+      toolCalls: 0,
+      outputs: outputsIn(join(options.runDir, name)),
+    }
   }
 }
 
-/** A sample that never ran to the end, as the run records it. */
-const failedSample = (dir: string, caseId: string, index: number, error: string): SampleMeta => ({
-  dir,
-  case: caseId,
-  index,
-  ok: false,
-  seconds: 0,
-  costUsd: null,
-  tokens: null,
-  model: null,
-  error,
-  steps: 0,
-  toolCalls: 0,
-})
+/** What an agent has written in its sample folder, fixed as it ends: a file put under outputs/ later is not its output. */
+const outputsIn = (dir: string): string[] => detectArtifacts(dir).map((artifact) => artifact.file)
 
 interface SampleOptions {
   runDir: string
@@ -419,9 +430,11 @@ async function generateSample(
     finalText: result.finalText,
   })
   const counts = transcript.counts()
-  const ok = detectArtifacts(dir).length > 0
-  // Ended by a stop or a quit before it wrote anything: not the skill's failure.
-  const stopped = !ok && (options.signal.aborted || isStopping())
+  const outputs = outputsIn(dir)
+  const ok = outputs.length > 0
+  // Its agent was still going when the stop or the quit came, so that is what ended it:
+  // what it left, nothing or half a file, is not the skill's doing.
+  const stopped = options.signal.aborted || isStopping()
   const seconds = Math.round(timing.durationMs / 1000)
   const spend =
     result.costUsd !== null
@@ -431,7 +444,7 @@ async function generateSample(
         : ''
   options.log(
     stopped
-      ? `${label}: stopped before it wrote anything`
+      ? `${label}: stopped before it ${ok ? 'finished' : 'wrote anything'}`
       : ok
         ? `${label}: done in ${seconds} s, ${counts.toolCalls} tool calls${spend}${result.error ? ` (${result.error})` : ''}`
         : `${label}: no output written in ${seconds} s. ${result.error ?? ''}`.trim(),
@@ -448,6 +461,7 @@ async function generateSample(
     error: result.error,
     steps: counts.steps,
     toolCalls: counts.toolCalls,
+    outputs,
     ...(stopped ? { stopped: true } : {}),
   }
 }

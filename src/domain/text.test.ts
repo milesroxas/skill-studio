@@ -7,6 +7,7 @@ import {
   isSlug,
   metaList,
   metaText,
+  pageText,
   readFrontMatter,
   round,
   sentencesOf,
@@ -91,6 +92,42 @@ describe('front matter helpers', () => {
 describe('copyOf', () => {
   it('drops front matter and HTML comments', () => {
     expect(copyOf('---\na: 1\n---\n<!-- note -->\nKept copy.')).toBe('Kept copy.')
+  })
+  it('keeps the section between two rules: only a block of fields is front matter', () => {
+    const piece = '---\n\nThe first section.\n\n---\n\nThe second.'
+    expect(copyOf(piece)).toBe(piece)
+    expect(copyOf('---\r\nOne line of prose\r\n---\r\nMore.')).toContain('One line of prose')
+  })
+  it('tells front matter by its shape, so fields that do not parse as YAML are front matter still', () => {
+    expect(
+      copyOf(
+        '---\ntitle: Shipping fast: what we learned\ndate: 2026-11-01\n---\n\nBody text here.',
+      ),
+    ).toBe('Body text here.')
+    expect(copyOf('---\na: [1\ntags:\n  - one\n- two\n# a note\n---\nBody.')).toBe('Body.')
+    // A field among lines of prose does not make the section front matter.
+    expect(copyOf('---\nNote: read this first.\nThen the rest.\n---\nBody.')).toContain(
+      'Then the rest.',
+    )
+  })
+})
+
+describe('pageText', () => {
+  it('keeps what a reader sees of a page, and nothing of its markup', () => {
+    const page =
+      '<!doctype html><html lang="en"><head><title>Not seen</title><style>p { color: red }</style></head>' +
+      '<body class="wide"><!-- hidden --><h1>Two&nbsp;words</h1><p>and<b>three</b>more</p>' +
+      '<script>const hidden = 1</script><template><p>later</p></template></body></html>'
+    expect(words(pageText(page))).toEqual(['Two', 'words', 'and', 'three', 'more'])
+  })
+  it('ends a head left open where the body begins', () => {
+    const page = '<html><head><title>T</title><body><p>Hello world</p></body></html>'
+    expect(words(pageText(page))).toEqual(['Hello', 'world'])
+    expect(words(pageText('<head><title>Only a head'))).toEqual([])
+    expect(words(pageText('<header>Kept</header>'))).toEqual(['Kept'])
+  })
+  it('reads a script or style left open to the end of the page as that, not as text', () => {
+    expect(words(pageText('<p>Seen</p><script>let never = "closed"'))).toEqual(['Seen'])
   })
 })
 

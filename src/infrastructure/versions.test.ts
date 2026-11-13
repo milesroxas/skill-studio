@@ -120,39 +120,61 @@ describe("versions and the skill's other files", () => {
     expect(versionsOf(dir).current).toMatchObject({ version: 'v1', changed: true })
   })
 
-  it('still reads a version stamped from SKILL.md and references alone', () => {
-    const run = join(dir, 'evals/runs/old-run')
-    mkdirSync(join(run, '_skill'), { recursive: true })
-    writeFileSync(join(run, '_skill/SKILL.md'), 'first')
+  /** A run of v0 stamped from SKILL.md and references alone, its copy holding `script` when given. */
+  function stampedFromFiles(name: string, script?: string) {
+    writeRun(name, 'v0', 'first')
+    const run = join(dir, 'evals/runs', name)
+    if (script !== undefined) {
+      mkdirSync(join(run, '_skill/scripts'))
+      writeFileSync(join(run, '_skill/scripts/run.sh'), script)
+    }
     writeFileSync(
       join(run, 'run.json'),
-      JSON.stringify({
-        name: 'old-run',
-        skillVersion: 'v0',
-        skillHash: skillHash(skillFiles(dir)),
-      }),
+      JSON.stringify({ name, skillVersion: 'v0', skillHash: skillHash(skillFiles(dir)) }),
     )
+  }
+
+  it('still reads a version stamped from SKILL.md and references alone, by the copy its run took', () => {
     mkdirSync(join(dir, 'scripts'))
-    writeFileSync(join(dir, 'scripts/lint.mjs'), 'one')
+    writeFileSync(join(dir, 'scripts/run.sh'), 'echo one')
+    stampedFromFiles('old-run', 'echo one')
     expect(versionsOf(dir).current).toMatchObject({ version: 'v0', changed: false })
+    // The copy says which script the version had: another one is another skill.
+    writeFileSync(join(dir, 'scripts/run.sh'), 'echo two, and longer')
+    expect(versionsOf(dir).current).toMatchObject({ version: 'v1', changed: true })
+  })
+
+  it('takes the first script added to a skill for a new version', () => {
+    // A skill with nothing but SKILL.md is stamped with the hash of that file, as a whole.
+    stampedFromFiles('only-run')
+    expect(versionsOf(dir).current).toMatchObject({ version: 'v0', changed: false })
+    mkdirSync(join(dir, 'scripts'))
+    writeFileSync(join(dir, 'scripts/run.sh'), 'echo one')
+    expect(versionsOf(dir).current).toMatchObject({ version: 'v1', changed: true })
+    rmSync(join(dir, 'scripts'), { recursive: true })
+    expect(versionsOf(dir).current).toMatchObject({ version: 'v0', changed: false })
+  })
+
+  it('takes the first script for a new version when the version was saved by hand and never run', () => {
+    saveVersion(dir, versionsOf(dir).current, 'Only the file', '')
+    mkdirSync(join(dir, 'scripts'))
+    writeFileSync(join(dir, 'scripts/run.sh'), 'echo one')
+    expect(versionsOf(dir).current).toMatchObject({ version: 'v1', changed: true })
   })
 
   it('hands back the whole hash for a version stamped from SKILL.md and references, so a later script edit is a new version', () => {
     mkdirSync(join(dir, 'scripts'))
     writeFileSync(join(dir, 'scripts/run.sh'), 'echo one')
-    writeRun('old-run', 'v0', 'first')
-    const stamped = (name: string, hash: string) =>
-      writeFileSync(
-        join(dir, 'evals/runs', name, 'run.json'),
-        JSON.stringify({ name, skillVersion: 'v0', skillHash: hash, createdAt: '2026-11-01' }),
-      )
-    stamped('old-run', skillHash(skillFiles(dir)))
+    stampedFromFiles('old-run', 'echo one')
     const current = versionsOf(dir).current
     expect(current).toMatchObject({ version: 'v0', changed: false })
     expect(current.hash).toBe(skillIdentity(dir).hash)
     // A run of it stamps that whole hash; the next script edit is then a change.
     writeRun('new-run', 'v0', 'first')
-    stamped('new-run', current.hash)
+    writeFileSync(
+      join(dir, 'evals/runs/new-run/run.json'),
+      JSON.stringify({ name: 'new-run', skillVersion: 'v0', skillHash: current.hash }),
+    )
     expect(versionsOf(dir).current).toMatchObject({ version: 'v0', changed: false })
     writeFileSync(join(dir, 'scripts/run.sh'), 'echo two, and longer')
     expect(versionsOf(dir).current).toMatchObject({ version: 'v1', changed: true })

@@ -21,6 +21,14 @@ export interface Sample {
   artifacts: Artifact[]
   hasTranscript: boolean
   legacy: boolean
+  /**
+   * The sample's agent did not run to its end, in a run that lists its
+   * samples: the run recorded that a stop ended it (`stopped`), or never
+   * recorded it at all (`unlisted`), which is a sample still being written or
+   * one whose agent was cut off when the app quit or crashed. Grading leaves
+   * out both. Absent for a sample whose agent ended by itself.
+   */
+  cut?: 'stopped' | 'unlisted'
 }
 
 export interface RunView {

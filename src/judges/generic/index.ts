@@ -12,11 +12,11 @@
 import { join } from 'node:path'
 import type { Grader } from '@domain/schemas.ts'
 import { type Image, noul, withAssets } from '@typesafe-ai/sdk'
-import { readForJev } from '../images.ts'
+import { type Readable, readForJev } from '../images.ts'
 import type { JevState } from '../jev.ts'
 import { pictureOf } from '../shared/picture.ts'
 import { asksJev, noulOf, requestState } from '../shared/questions.ts'
-import type { StatementAnswer } from '../shared/score.ts'
+import { clip } from '../shared/score.ts'
 import type { JudgeContext, JudgeInput, JudgePack } from '../types.ts'
 import { type GenericRaw, genericScoring, type RuleAnswer } from './score.ts'
 
@@ -143,13 +143,9 @@ function statementQuestion(statement: string, work: Work, reference: Image | nul
   )
 }
 
-/** A check's reference picture, ready for Jev; null when it has none or Jev cannot read the file. */
-function referenceOf(grader: Grader, ctx: JudgeContext): Image | null {
-  if (!grader.image) return null
-  const read = readForJev(join(ctx.skillDir, grader.image))
-  if (read.problem) ctx.log(`${grader.id}: its picture is not shown to Jev, ${read.problem}.`)
-  return read.image
-}
+/** A check's reference picture as Jev reads it, or why it cannot; null for a check with none. */
+const referenceOf = (grader: Grader, ctx: JudgeContext): Readable | null =>
+  grader.image ? readForJev(join(ctx.skillDir, grader.image)) : null
 
 async function adherence(
   input: JudgeInput,
@@ -169,33 +165,55 @@ async function adherence(
   }
 }
 
-/** Each of the case's checks once, over the whole work. */
+/**
+ * Each of the case's checks once, over the whole work. A check about a picture
+ * Jev cannot read is not asked: without the picture its answer would be a
+ * guess, counted as a miss. It is left out of the rubric and said.
+ */
 async function rubric(
   input: JudgeInput,
   work: Work,
   ctx: JudgeContext,
-): Promise<{ statements: StatementAnswer[] } | null> {
+): Promise<GenericRaw['rubric']> {
   const graders = input.case?.graders ?? []
   if (!graders.length) return null
-  const questions = Object.fromEntries(
-    graders.map((g) => [g.id, statementQuestion(g.statement, work, referenceOf(g, ctx))]),
-  )
-  const answers = await ctx.jev.ask(work.state, questions)
+  const unasked: string[] = []
+  const asked = graders.flatMap((grader) => {
+    const reference = referenceOf(grader, ctx)
+    if (!reference?.problem) return [{ grader, picture: reference?.image ?? null }]
+    unasked.push(
+      `grader ${grader.id} not judged, its picture is not shown to Jev (${reference.problem}): ${clip(grader.statement)}`,
+    )
+    return []
+  })
+  for (const line of unasked) ctx.log(line)
+  const answers = asked.length
+    ? await ctx.jev.ask(
+        work.state,
+        Object.fromEntries(
+          asked.map(({ grader, picture }) => [
+            grader.id,
+            statementQuestion(grader.statement, work, picture),
+          ]),
+        ),
+      )
+    : {}
   return {
-    statements: graders.map((g) => ({
-      id: g.id,
-      text: g.statement,
-      weight: g.weight,
-      noul: noulOf(answers, g.id),
+    statements: asked.map(({ grader }) => ({
+      id: grader.id,
+      text: grader.statement,
+      weight: grader.weight,
+      noul: noulOf(answers, grader.id),
       units: null,
       best: null,
     })),
+    ...(unasked.length ? { unasked } : {}),
   }
 }
 
 export const genericPack: JudgePack<GenericRaw> = {
   ...genericScoring,
-  version: 2,
+  version: 3,
   label: 'Generic: the skill’s rules and the case’s checks',
   renders: true,
   async judge(input, ctx) {

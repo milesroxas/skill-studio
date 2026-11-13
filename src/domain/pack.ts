@@ -24,6 +24,23 @@ export interface ScoreSubject {
 export const noOutput = (subject: Pick<ScoreSubject, 'primary' | 'blank'>): boolean =>
   !subject.primary || (subject.primary.kind !== 'image' && subject.blank === true)
 
+/** How a pack that threw while grading is noted among an output's flags: "<pack> pack failed: <why>". */
+const PACK_FAILED = /^(\w+) pack failed: ([\s\S]*)$/
+
+/** The flag a grading leaves on an output for a pack that threw; `packFailure` reads it back. */
+export const packFailedFlag = (pack: string, reason: string): string =>
+  `${pack} pack failed: ${reason}`
+
+/**
+ * The pack that failed on an output and why, read from the flag it left; null
+ * for any other flag. The pack's layers are null for that reason, so the
+ * output has no total until it is graded again.
+ */
+export function packFailure(flag: string): { pack: string; reason: string } | null {
+  const failed = PACK_FAILED.exec(flag)
+  return failed ? { pack: failed[1], reason: failed[2] } : null
+}
+
 /** A rule of the skill, a check of the case, or anything else a pack measures. */
 export type VerdictKind = 'rule' | 'check' | 'other'
 
@@ -87,7 +104,12 @@ export interface PackScore {
  */
 export interface PackScoring<Raw = unknown> {
   id: string
-  /** Artifact kinds this pack can judge; empty means any sample, with or without an artifact. */
+  /**
+   * Artifact kinds this pack judges; empty means any sample, with or without
+   * an artifact. A file of one of these kinds is the work when an output holds
+   * several, and the pack runs on the outputs whose primary artifact is one,
+   * unless its judge half says it runs on every sample (`JudgePack.wholeSample`).
+   */
   artifacts: ArtifactKind[]
   /** Layers this pack scores, in display order. */
   layers: string[]

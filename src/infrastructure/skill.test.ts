@@ -22,6 +22,7 @@ import {
   editablePath,
   skillFiles,
   skillHash,
+  skillHead,
   skillIdentity,
   skillInfo,
   snapshotSkill,
@@ -304,5 +305,13 @@ describe('skillInfo', () => {
     writeFileSync(join(dir, 'SKILL.md'), '---\nname: ""\ndescription: Does a thing.\n---\nBody')
     expect(skillInfo(dir)).toMatchObject({ description: 'Does a thing.' })
     expect(skillInfo(dir).name).toBe(basename(skillInfo(dir).path))
+  })
+
+  it('names a copy of the skill that gives no name by the folder its caller says it is', () => {
+    writeFileSync(join(dir, 'SKILL.md'), 'Body')
+    expect(skillHead(dir).name).toBe(basename(dir))
+    expect(skillHead(dir, 'notes').name).toBe('notes')
+    writeFileSync(join(dir, 'SKILL.md'), '---\nname: Notes\n---\nBody')
+    expect(skillHead(dir, 'notes').name).toBe('Notes')
   })
 })

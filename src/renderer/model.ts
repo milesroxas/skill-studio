@@ -1,8 +1,15 @@
 /** Outputs across runs, their scores under the skill's scoring, the pair to compare per case, and display names. */
 import { caseName } from '@domain/case-draft.ts'
 import { BASE_PACK, mergeConfig } from '@domain/config.ts'
-import { type Lift, type LiftRun, liftWriter, versionLift, writerKey } from '@domain/lift.ts'
-import { type Corrections, NO_CORRECTIONS } from '@domain/pack.ts'
+import {
+  type Lift,
+  type LiftRun,
+  liftWriter,
+  testedVersion,
+  versionLift,
+  writerKey,
+} from '@domain/lift.ts'
+import { type Corrections, NO_CORRECTIONS, packFailure } from '@domain/pack.ts'
 import { defaultPair, type PairOutput } from '@domain/pairs.ts'
 import { drawnArtifact, primaryArtifact } from '@domain/primary.ts'
 import { versionAfterRunDelete } from '@domain/run-delete.ts'
@@ -17,7 +24,7 @@ import type {
 } from '@domain/schemas.ts'
 import { layerOrder, pixelText, type Scored, scoreResult } from '@domain/scoring.ts'
 import { mean } from '@domain/stats.ts'
-import { type Count, countOf, finding, sumCounts } from '@domain/verdict.ts'
+import { type Count, countOf, sumCounts } from '@domain/verdict.ts'
 import { scorers } from '@judges/scorers.ts'
 import type { RunView, Sample, State } from './api.ts'
 
@@ -31,6 +38,15 @@ export interface Output {
   index: number
   /** Samples of the same case in the same run. */
   samples: number
+  /**
+   * Why grading leaves the output out, when it does, so that it has no score.
+   * `stopped`: the run says its agent was cut short, by a stop or by ending
+   * without ever recording it. `unfinished`: the run has not recorded it and
+   * has no end of its own, so it is still being written, here or by another
+   * copy of the app, or the run was cut off with the app. Null for an output
+   * whose agent ran to its end.
+   */
+  cut: 'stopped' | 'unfinished' | null
   /** Your own answers on this output's verdicts, which stand over Jev's. */
   corrections: Corrections
   /** The file that stands for the output: the one graded, else the one grading would judge. */
@@ -48,9 +64,17 @@ function outputOf(
   state: State,
   run: RunView,
   sample: Sample,
-  result: ReportResult | null,
+  graded: ReportResult | null,
   judged: readonly ArtifactKind[],
 ): Output {
+  const cut =
+    sample.cut === 'stopped' || (sample.cut === 'unlisted' && run.meta?.finishedAt)
+      ? 'stopped'
+      : sample.cut === 'unlisted'
+        ? 'unfinished'
+        : null
+  // A score an earlier grading gave an output grading now leaves out is no score of it.
+  const result = cut ? null : graded
   const parsed = parseSampleDir(sample.name)
   const caseId = result?.case ?? parsed?.case ?? sample.name
   const key = `${run.name}/${sample.name}`
@@ -63,6 +87,7 @@ function outputOf(
     caseId,
     index: parsed?.index ?? 1,
     samples: run.samples.filter((s) => parseSampleDir(s.name)?.case === caseId).length,
+    cut,
     corrections: state.reviews.reviews[key]?.corrections ?? NO_CORRECTIONS,
     // The file graded, else the one grading would judge.
     primary: result?.primary ?? primaryArtifact(sample.artifacts, preferred, judged),
@@ -93,9 +118,6 @@ export function outputsOf(state: State): Output[] {
 export const outputByKey = (outputs: Output[], key: string | null): Output | null =>
   key ? (outputs.find((o) => o.key === key) ?? null) : null
 
-/** A pack that threw while grading, as the report notes it: its layers are missing for that reason. */
-const FAILED = /^\w+ pack failed: (.*)$/
-
 /** The last score worked out for an output, and the scoring it was worked out under. */
 const scoredBy = new WeakMap<Output, { config: BenchConfig; scored: Scored }>()
 
@@ -108,19 +130,30 @@ export function scoreOf(output: Output, config: BenchConfig): Scored | null {
   if (!output.result) return null
   const kept = scoredBy.get(output)
   if (kept?.config === config) return kept.scored
-  const base = scoreResult(output.result, config, scorers, output.corrections)
-  const failures = output.result.flags.flatMap((flag) => {
-    const failed = FAILED.exec(flag)
-    return failed ? [finding(`Grading failed: ${failed[1]}`)] : []
-  })
-  const scored = failures.length ? { ...base, verdicts: [...failures, ...base.verdicts] } : base
+  const scored = scoreResult(output.result, config, scorers, output.corrections)
   scoredBy.set(output, { config, scored })
   return scored
 }
 
-/** Total under `config`; null when ungraded or no weighted layer scored. */
+/** Total under `config`; null when ungraded, when no weighted layer scored, or when a part of its grading failed. */
 export const totalOf = (output: Output, config: BenchConfig): number | null =>
   scoreOf(output, config)?.scores.total ?? null
+
+/**
+ * What a set of outputs has in place of a score when grading leaves out every
+ * one of them: `stopped` when each was, `unfinished` when any may still be
+ * written. Null when one of them ran to its end, or there is none.
+ */
+export const cutOf = (outputs: Output[]): Output['cut'] =>
+  outputs.length === 0 || outputs.some((o) => o.cut === null)
+    ? null
+    : outputs.every((o) => o.cut === 'stopped')
+      ? 'stopped'
+      : 'unfinished'
+
+/** A part of the output's grading failed, so it has no total until its run is graded again. */
+export const gradingFailed = (scored: Scored | null): boolean =>
+  scored?.flags.some((flag) => packFailure(flag) !== null) ?? false
 
 /** Each case's mean total over its graded outputs among `outputs`, by case id; a case with none graded is absent. */
 function caseMeans(outputs: Output[], config: BenchConfig): Record<string, number> {
@@ -132,14 +165,27 @@ function caseMeans(outputs: Output[], config: BenchConfig): Record<string, numbe
   return Object.fromEntries([...totals].map(([id, list]) => [id, mean(list) as number]))
 }
 
+/**
+ * A score over `outputs`: each case's mean over its graded outputs, then the
+ * mean of those cases, so a case answered three times counts once. Null when
+ * none is graded. Every mean the app shows is counted here.
+ */
+export const scoreOver = (outputs: Output[], config: BenchConfig): number | null =>
+  mean(Object.values(caseMeans(outputs, config)))
+
+/** What a run tested and who wrote it, as the lift and the pairs read it. A run that recorded no version has none. */
+const testOf = (run: RunView) => ({
+  version: run.meta?.skillVersion ?? '',
+  configuration: run.meta?.configuration ?? 'with_skill',
+  writer: writerKey(run.meta?.writer),
+  createdAt: run.meta?.createdAt ?? '',
+})
+
 /** The runs as the lift reads them: each with its writer, version and a mean per case. */
 const liftRuns = (runs: RunView[], outputs: Output[], config: BenchConfig): LiftRun[] =>
   runs.map((run) => ({
     name: run.name,
-    version: runVersion(run),
-    writer: writerKey(run.meta?.writer),
-    configuration: run.meta?.configuration ?? 'with_skill',
-    createdAt: run.meta?.createdAt ?? '',
+    ...testOf(run),
     cases: caseMeans(
       outputs.filter((o) => o.run.name === run.name),
       config,
@@ -155,27 +201,27 @@ const liftRuns = (runs: RunView[], outputs: Output[], config: BenchConfig): Lift
 export const liftOf = (state: State, outputs: Output[], config: BenchConfig): Lift | null =>
   versionLift(liftRuns(state.runs, outputs, config))
 
-/** The versions that have outputs written with the skill, oldest first: "v0", "v1". */
+/** The versions outputs were written on, oldest first: "v0", "v1". */
 export function versionsRun(outputs: Output[]): string[] {
   const seen = new Set(
     outputs
-      .filter((o) => o.run.meta?.configuration === 'with_skill')
-      .map((o) => o.run.meta?.skillVersion ?? '')
-      .filter((v) => /^v\d+$/.test(v)),
+      .map((o) => testOf(o.run))
+      .filter(testedVersion)
+      .map((test) => test.version),
   )
   return [...seen].sort((x, y) => Number(x.slice(1)) - Number(y.slice(1)))
 }
 
-/** A version's outputs written with the skill as it was then. */
+/** The outputs written on a version: with the skill as it stood, or on the copy kept of it. */
 export const versionOutputs = (outputs: Output[], version: string): Output[] =>
-  outputs.filter(
-    (o) => o.run.meta?.skillVersion === version && o.run.meta.configuration === 'with_skill',
-  )
+  outputs.filter((o) => {
+    const test = testOf(o.run)
+    return test.version === version && testedVersion(test)
+  })
 
 /**
- * A version's score under `config`: each case's mean over its graded outputs,
- * then the mean of those cases, so a case run three times counts once. Where
- * the writer the lift compares ran this version, only that writer's outputs
+ * A version's score under `config`, counted as `scoreOver` counts. Where the
+ * writer the lift compares ran this version, only that writer's outputs
  * count, so one version's score is read against the next. Null when none is graded.
  */
 export function versionScore(
@@ -187,21 +233,14 @@ export function versionScore(
   const runs = [...new Map(outputs.map((o) => [o.run.name, o.run])).values()]
   const writer = liftWriter(liftRuns(runs, outputs, config))
   const pinned = writer ? mine.filter((o) => writerKey(o.run.meta?.writer) === writer) : []
-  return mean(Object.values(caseMeans(pinned.length ? pinned : mine, config)))
+  return scoreOver(pinned.length ? pinned : mine, config)
 }
 
-/**
- * The score of the outputs written without the skill, counted as a version's
- * is: each case's mean, then the mean of those cases. Null when none is graded.
- */
+/** The score of the outputs written without the skill, counted as a version's is. */
 export const noSkillScore = (outputs: Output[], config: BenchConfig): number | null =>
-  mean(
-    Object.values(
-      caseMeans(
-        outputs.filter((o) => o.run.meta?.configuration === 'without_skill'),
-        config,
-      ),
-    ),
+  scoreOver(
+    outputs.filter((o) => o.run.meta?.configuration === 'without_skill'),
+    config,
   )
 
 export const mergedConfig = (saved: Partial<BenchConfig> | null): BenchConfig =>
@@ -327,12 +366,9 @@ interface Candidate extends PairOutput {
 const candidate = (output: Output): Candidate => ({
   key: output.key,
   caseId: output.caseId,
-  version: output.run.meta?.skillVersion ?? '',
-  configuration: output.run.meta?.configuration ?? 'with_skill',
-  writer: writerKey(output.run.meta?.writer),
-  createdAt: output.run.meta?.createdAt ?? '',
+  ...testOf(output.run),
   index: output.index,
-  written: output.sample.artifacts.length > 0,
+  written: output.sample.artifacts.length > 0 && output.cut === null,
   output,
 })
 
@@ -433,12 +469,24 @@ export const runTitle = (run: RunView, { short = false }: { short?: boolean } = 
     : `${short ? runVersion(run) : versionName(run)}${configurationTail(run)}`
 
 /**
- * A run named inside a sentence: its title, or "the run without the skill",
- * capitalised only to open the sentence, so the name never reads as a label
- * dropped mid-line.
+ * A run named inside a sentence: its title ("v2" alone when `short`), or "the
+ * run without the skill", capitalised only to open the sentence, so the name
+ * never reads as a label dropped mid-line.
  */
-export const runInSentence = (run: RunView, { start = false } = {}): string =>
-  isWithoutSkill(run) ? `${start ? 'The' : 'the'} run without the skill` : runTitle(run)
+export const runInSentence = (run: RunView, { start = false, short = false } = {}): string =>
+  isWithoutSkill(run) ? `${start ? 'The' : 'the'} run without the skill` : runTitle(run, { short })
+
+/** Why something has no score, as the end of a line that opens with its name: "v2 was stopped before it finished". */
+export const unscoredWords = (cut: Output['cut']): string =>
+  cut === 'stopped'
+    ? 'was stopped before it finished'
+    : cut === 'unfinished'
+      ? 'is not finished'
+      : 'has no score yet'
+
+/** That an output has no score, as a line that opens with its run. */
+export const unscoredLine = (output: Output): string =>
+  `${runInSentence(output.run, { start: true, short: true })} ${unscoredWords(output.cut)}`
 
 /** "v2 · Opus 5.5", or "Without skill · Opus 5.5" */
 export const runLabel = (run: RunView): string =>

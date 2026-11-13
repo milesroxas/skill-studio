@@ -70,6 +70,21 @@ describe('markChecks', () => {
     expect(marked.flags).toEqual(['grader g1 (×2) not met: Names Priya.'])
   })
 
+  it('takes an answer on one of two checks with the same words as an answer on that one alone', () => {
+    const twins = [
+      answer(1, { id: 'g1', text: 'Names Priya.', noul: 0.1 }),
+      answer(1, { id: 'g2', text: 'Names Priya.', noul: 0.1 }),
+    ]
+    const first = markChecks(twins, 'review', 0.5, { 'check:Names Priya.': true })
+    expect(first.verdicts.map((v) => [v.id, v.met, v.corrected])).toEqual([
+      ['check:Names Priya.', true, true],
+      ['check:Names Priya. #g2', false, false],
+    ])
+    expect(first.share).toBe(1 / 2)
+    const second = markChecks(twins, 'review', 0.5, { 'check:Names Priya. #g2': true })
+    expect(second.verdicts.map((v) => v.met)).toEqual([false, true])
+  })
+
   it('leaves the layer out for a case with no checks', () => {
     expect(markChecks([], 'review', 0.5, {})).toEqual({ verdicts: [], share: null, flags: [] })
   })

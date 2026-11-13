@@ -159,6 +159,51 @@ describe('saveCase and deleteCase', () => {
     expect(loadCases(skill)[0].bench.size).toEqual([1440, 900])
   })
 
+  it('reads each bench value as its kind, and leaves out one of another kind with a warning naming the case', () => {
+    saveCase(skill, draft, true)
+    const yamlPath = join(skill, 'evals/cases/short-note/case.yaml')
+    const benchOf = (lines: string[]) => {
+      writeFileSync(
+        yamlPath,
+        `title: A short note\nbench:\n${lines.map((l) => `  ${l}\n`).join('')}`,
+      )
+      return loadCases(skill)[0].bench
+    }
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    try {
+      // YAML reads `no` and `off` as words: whoever wrote one meant Jev is not asked.
+      for (const no of ['false', 'no', 'off', 'No', '"false"'])
+        expect(benchOf([`judge: ${no}`]).judge).toBe(false)
+      expect(benchOf(['judge: yes', 'phone: on']).judge).toBe(true)
+      expect(benchOf(['judge: yes', 'phone: on']).phone).toBe(true)
+      expect(warn).not.toHaveBeenCalled()
+      expect(
+        benchOf([
+          'judge: sometimes',
+          'words: 100-200',
+          'check: [ npm, test ]',
+          'artifact: pdf',
+          'mine: [ kept ]',
+        ]),
+      ).toEqual({ mine: ['kept'] })
+      const said = warn.mock.calls.map(([line]) => String(line))
+      expect(said).toHaveLength(4)
+      expect(said.every((line) => line.startsWith(yamlPath))).toBe(true)
+      expect(said.find((line) => line.includes('bench.words'))).toContain('"100-200"')
+      expect(benchOf(['words: [ 200, 100 ]']).words).toBeUndefined()
+      expect(benchOf(['words: [ 100, "200" ]']).words).toBeUndefined()
+      expect(
+        benchOf(['words: [ 100, 200 ]', 'check: npm test', 'artifact: html', 'judge: false']),
+      ).toEqual({ words: [100, 200], check: 'npm test', artifact: 'html', judge: false })
+      // A key left empty is none, and no mistake.
+      warn.mockClear()
+      expect(benchOf(['check:', 'words: ~'])).toEqual({})
+      expect(warn).not.toHaveBeenCalled()
+    } finally {
+      warn.mockRestore()
+    }
+  })
+
   it('refuses a title another case has, and keeps one saved before the rule', () => {
     saveCase(skill, draft, true)
     const other = { ...draft, id: 'other', title: 'Other' }
@@ -425,9 +470,19 @@ describe('findCase', () => {
     expect(findCase(cases, 'email-reply')?.id).toBe('email-reply')
     expect(findCase(cases, 'email')?.id).toBe('email')
     // A legacy output file is `<case>-<n>.md`: the longer id that leads it is the case.
-    expect(findCase(cases, 'email-reply-2.md')?.id).toBe('email-reply')
-    expect(findCase(cases, 'email-2.md')?.id).toBe('email')
-    expect(findCase(cases, 'memo-1.md')).toBeNull()
+    const file = { fileName: true }
+    expect(findCase(cases, 'email-reply-2.md', file)?.id).toBe('email-reply')
+    expect(findCase(cases, 'email-2.md', file)?.id).toBe('email')
+    expect(findCase(cases, 'memo-1.md', file)).toBeNull()
+  })
+
+  it('gives a name that is no case of its own no case, unless it is a legacy file name', () => {
+    writeCase('email', 'Write an email.')
+    const cases = loadCases(skill)
+    // `email-reply` and `email-2` were cases once: their outputs are not `email`'s.
+    expect(findCase(cases, 'email-reply')).toBeNull()
+    expect(findCase(cases, 'email-2')).toBeNull()
+    expect(findCase(cases, 'email-2', { fileName: true })?.id).toBe('email')
   })
 })
 
@@ -455,6 +510,23 @@ describe('cases that cannot be read', () => {
     const cases = loadCases(skill)
     expect(cases.map((c) => c.id)).toEqual(['1-first', '4'])
     expect(cases[0].files).toEqual(['evals/files/a.md'])
+  })
+
+  it('leaves out a folder whose name cannot name a sample, with a warning, and counts it as none', () => {
+    writeCase('good', 'Write it.')
+    writeCase('My Case', 'Write it.')
+    writeCase('under_score.v2', 'Write it.')
+    // A folder that is no case at all is passed over in silence.
+    mkdirSync(join(skill, 'evals/cases/some notes'))
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    try {
+      expect(loadCases(skill).map((c) => c.id)).toEqual(['good', 'under_score.v2'])
+      expect(countCases(skill)).toBe(2)
+      const said = warn.mock.calls.map(([line]) => String(line))
+      expect(said).toEqual([expect.stringContaining(join(skill, 'evals/cases/My Case'))])
+    } finally {
+      warn.mockRestore()
+    }
   })
 
   it('counts cases without reading them', () => {

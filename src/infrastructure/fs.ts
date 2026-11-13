@@ -35,15 +35,15 @@ export function readJson<T>(path: string, fallback: T): T {
 }
 
 /**
- * Write a text file whole: the text goes to a hidden temporary file beside it,
- * which then takes its name. A crash midway leaves the old file, never half a
+ * Write a file whole, its text or its bytes: they go to a hidden temporary file
+ * beside it, which then takes its name. A crash midway leaves the old file, never half a
  * new one, and what it leaves behind is hidden, so no list, copy or hash of a
  * skill holds it. Given `root`, a link at `path` to a file inside `root` is
  * written through and stays a link; any other link is replaced by the file.
  */
 export function writeText(
   path: string,
-  text: string,
+  text: string | Uint8Array,
   options: { mode?: number; root?: string } = {},
 ): void {
   const target = options.root ? linkedInside(options.root, path) : path
@@ -220,8 +220,10 @@ export function linkDir(target: string, path: string): void {
 }
 
 const SAFE_NAME = /^[\w][\w.-]*$/
+/** A name a request may give for a run, a sample or a case: letters, digits, `_`, `.` and `-`, and no dot first. */
+export const isSafeName = (value: string): boolean => SAFE_NAME.test(value)
 export const assertSafe = (value: string | null | undefined, what: string): string => {
-  if (!value || !SAFE_NAME.test(value)) throw new Error(`Bad ${what}.`)
+  if (!value || !isSafeName(value)) throw new Error(`Bad ${what}.`)
   return value
 }
 
@@ -259,7 +261,20 @@ export const assertSafePath = (value: string | null | undefined, what: string): 
   return value
 }
 
-export const today = (): string => new Date().toISOString().slice(0, 10)
+/**
+ * The day a time falls on where the reader is, as `YYYY-MM-DD`: a run made in
+ * the evening is named for that evening, not for the day it already is in UTC.
+ * A date with no time is that day. Undefined for what is no time at all.
+ */
+export function dayOf(at: Date | string): string | undefined {
+  if (typeof at === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(at)) return at
+  const time = new Date(at)
+  if (Number.isNaN(time.getTime())) return undefined
+  const two = (n: number): string => String(n).padStart(2, '0')
+  return `${time.getFullYear()}-${two(time.getMonth() + 1)}-${two(time.getDate())}`
+}
+
+export const today = (): string => dayOf(new Date()) as string
 
 /** The first `limit` bytes of a file, or all of it when it is shorter: for a header, read without loading the rest. */
 export function readStart(path: string, limit: number): Uint8Array {

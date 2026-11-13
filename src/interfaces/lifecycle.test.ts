@@ -62,6 +62,49 @@ describe('agentLifecycle', () => {
     expect(steps.shutdown).toHaveBeenCalledTimes(1)
   })
 
+  it('fires its signal before any process is ended, so work outside a job knows it was stopped', async () => {
+    const { stop, signal } = agentLifecycle({ log: () => {}, host: fakeHost() })
+    let firedFirst: boolean | null = null
+    steps.shutdown.mockImplementation(async () => {
+      firedFirst = signal.aborted
+    })
+    expect(signal.aborted).toBe(false)
+    await stop()
+    expect(firedFirst).toBe(true)
+  })
+
+  it('waits for the work it holds before it exits, so what that work writes as it stops is written', async () => {
+    const host = fakeHost()
+    const { signal, during } = agentLifecycle({ signals: true, log: () => {}, host })
+    let wrote = false
+    // Work that ends a moment after its signal fires, as a grading does once its answer is dropped.
+    const work = during(
+      new Promise<void>((done) => {
+        signal.addEventListener('abort', () =>
+          setImmediate(() => {
+            wrote = true
+            done()
+          }),
+        )
+      }),
+    )
+    host.emit('SIGINT')
+    await work
+    await settled()
+    expect(wrote).toBe(true)
+    expect(host.exits).toEqual([130])
+  })
+
+  it('exits all the same when the work it holds fails', async () => {
+    const host = fakeHost()
+    const { during } = agentLifecycle({ signals: true, log: () => {}, host })
+    await expect(during(Promise.reject(new Error('Stopped.')))).rejects.toThrow('Stopped.')
+    host.emit('SIGINT')
+    await settled()
+    await settled()
+    expect(host.exits).toEqual([130])
+  })
+
   it('starts all the same when the agents an earlier copy left cannot be ended, and says why', () => {
     const lines: string[] = []
     steps.orphans = new Error('EACCES: permission denied')

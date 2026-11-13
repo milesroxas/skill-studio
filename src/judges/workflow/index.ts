@@ -7,7 +7,7 @@
  */
 import { existsSync, readFileSync } from 'node:fs'
 import { homedir } from 'node:os'
-import { isAbsolute, join, resolve } from 'node:path'
+import { isAbsolute, join, resolve, sep } from 'node:path'
 import { isWithin } from '@domain/paths.ts'
 import type { Timing, TranscriptEvent } from '@domain/schemas.ts'
 import { noul } from '@typesafe-ai/sdk'
@@ -22,17 +22,15 @@ import {
 } from './score.ts'
 
 const WRITE_TOOLS = /^(?:write|edit|multiedit|notebookedit|create_file|str_replace|apply_patch)/i
-
-const isWrite = (e: TranscriptEvent): boolean =>
-  e.kind === 'tool' &&
-  (WRITE_TOOLS.test(e.tool ?? '') ||
-    (/^(?:bash|shell|run|exec)/i.test(e.tool ?? '') &&
-      /(?:>|>>|\btee\b|\bcp\b|\bmv\b|\bmkdir\b|\btouch\b|cat\s*<<)/.test(e.args ?? '')))
+const SHELL_TOOLS = /^(?:bash|shell|run|exec)/i
+/** Programs that make or change a file, whatever else they are given. */
+const WRITE_PROGRAMS = new Set(['tee', 'cp', 'mv', 'mkdir', 'touch'])
+/** Programs that run another they are given among their words: `find . -exec cp {} out \;`. */
+const RUNNER_PROGRAMS = new Set(['find', 'xargs'])
 
 /** Shared system locations an agent touches without reaching into anyone's files. */
 const SYSTEM_DIRS = ['/dev', '/tmp', '/private/tmp', '/usr', '/bin', '/opt', '/etc']
 
-const SHELL_TOOLS = /^(?:bash|shell|run|exec)/i
 /** Tools that reach the web: a query or an address is no place on disk. */
 const WEB_TOOLS = /^web/i
 /**
@@ -47,11 +45,19 @@ const PATTERN_PROGRAMS = new Set('grep egrep fgrep rg ag ack sed awk gawk perl j
 const PATTERN_OPTIONS = new Set(['-e', '--regexp', '--expression', '--source'])
 /** Options of those programs that give a file of patterns or a script file, so every word is a file. */
 const PATTERN_FILE_OPTIONS = new Set(['-f', '--file', '--from-file'])
-/** Programs that read stdin only: every word they are given is text, and a redirection names their file. */
-const STDIN_PROGRAMS = new Set(['tr'])
-/** Words a command may open with before its program, as `if cd outputs; then …` does. */
+/** Programs that open no file they are given: every word is text, and a redirection names their file. */
+const TEXT_PROGRAMS = new Set(['tr', 'echo', 'printf'])
+/** Search programs' options that take a count, so the word after one is no pattern: `grep -m 5 "/api" notes.md`. */
+const COUNT_PROGRAMS = new Set('grep egrep fgrep rg ag ack'.split(' '))
+const COUNT_OPTIONS = new Set(
+  '-m -A -B -C --max-count --after-context --before-context --context'.split(' '),
+)
+/** Programs that take a message for a person, and the options that give it: `git commit -m "/fix typo"`. */
+const MESSAGE_PROGRAMS = new Set(['git', 'gh', 'hg', 'svn', 'jj'])
+const MESSAGE_OPTIONS = new Set(['-m', '-am', '--message'])
+/** Words a command may open with before its program, as `if cd outputs; then …` and `sudo cp a b` do. */
 const COMMAND_PREFIXES = new Set(
-  '{ ! if then else elif do while until time command builtin'.split(' '),
+  '{ ! if then else elif do while until time command builtin exec sudo env nohup'.split(' '),
 )
 
 /** A path as a tool's arguments name it, the place it resolves to, and whether the line was cut inside it. */
@@ -93,51 +99,145 @@ interface ShellPlace {
 interface ShellWord {
   text: string
   quoted: boolean
-  /** The word follows `<` or `>`: a redirection's file. */
-  redirect: boolean
+  /** The word is a redirection's file: read `from` after `<`, written `to` after `>`. */
+  redirect: 'from' | 'to' | null
 }
 
-/** What divides one simple command from the next: `|`, `;` and `&` as `;`, and a bracket, which opens or closes a subshell. */
-type ShellMark = ';' | '(' | ')'
+/** One simple command's words, or a bracket that opens or closes a subshell. */
+type ShellPart = ShellWord[] | '(' | ')'
 
-/** The mark a dividing character stands for: a bracket is itself, and `|`, `;` and `&` all end a command. */
-const markOf = (char: string): ShellMark => (char === '(' || char === ')' ? char : ';')
+/** Where a heredoc's text ends in `line`, read from `from`: past its closing word, or the line's end when the line was cut before it. */
+function heredocEnd(line: string, from: number, closing: string): number {
+  let at = from
+  for (const piece of line.slice(from).split(/(\s+)/)) {
+    at += piece.length
+    if (piece === closing) return at
+  }
+  return line.length
+}
 
-/** A command line as words and the marks between commands, quotes kept together. */
-function shellTokens(line: string): Array<ShellWord | ShellMark> {
-  const tokens: Array<ShellWord | ShellMark> = []
+/**
+ * A command line as its simple commands, each a list of words with quotes kept
+ * together, and the brackets between them. `|`, `;` and `&` end a command.
+ *
+ * A redirection is read for what it is: `> file` and `< file` name a file, and
+ * `2>&1` and `>&2` send one stream to another and name none. A heredoc's text
+ * is no command: it is left out as far as its closing word. The transcript
+ * keeps a command on one line, so where that text begins is read from the
+ * line's shape: after the heredoc's own word, past any `> file` that follows it.
+ * A command piped on from there (`<<EOF | tee x`) cannot be told from the text
+ * and is left out with it. The word a here-string (`<<<`) gives is text too.
+ * A pair of backticks holds a command of its own, as `$( )` does.
+ */
+function shellCommands(line: string): ShellPart[] {
+  const parts: ShellPart[] = []
+  let command: ShellWord[] = []
   let word = ''
   let quoted = false
   let quote: string | null = null
-  let redirect = false
-  const end = () => {
+  /** What the next word is, when it is not a plain one: a redirection's file, a heredoc's closing word, or text. */
+  let next: ShellWord['redirect'] | 'closing' | 'text' = null
+  /** The closing word of a heredoc whose text has not begun yet. */
+  let closing: string | null = null
+  /** Inside a pair of backticks, which run a command of their own as `$( )` does. */
+  let ticked = false
+  const endWord = () => {
     if (word || quoted) {
-      tokens.push({ text: word, quoted, redirect })
-      redirect = false
+      if (next === 'closing') closing = word
+      else if (next !== 'text') command.push({ text: word, quoted, redirect: next })
+      next = null
     }
     word = ''
     quoted = false
   }
-  for (const char of line) {
+  const endCommand = () => {
+    endWord()
+    next = null
+    if (command.length) parts.push(command)
+    command = []
+  }
+  for (let i = 0; i < line.length; i++) {
+    const char = line[i]
+    const after = line[i + 1] ?? ''
     if (quote) {
       if (char === quote) quote = null
+      // Inside double quotes a backslash escapes only what would end or open something.
+      else if (char === '\\' && quote === '"' && '"\\$`'.includes(after) && after) word += line[++i]
       else word += char
-    } else if ('"\''.includes(char)) {
+      continue
+    }
+    const opensWord = !word && !quoted && next === null && !/\s/.test(char)
+    // A heredoc's text begins at the first word that is not a redirection of its command.
+    if (closing !== null && opensWord && !/^(?:\d*|&)>/.test(line.slice(i))) {
+      i = heredocEnd(line, i, closing) - 1
+      closing = null
+      // The text ended a line, so what follows is another command.
+      endCommand()
+    } else if (char === '\\') {
+      // Before a space it joined two lines of the command; before anything else it makes that character plain.
+      if (after && !/\s/.test(after)) word += line[++i]
+    } else if (char === '"' || char === "'") {
       quote = char
       quoted = true
-    } else if ('<>'.includes(char)) {
-      end()
-      redirect = true
-    } else if (/\s/.test(char)) end()
+    } else if (char === '`') {
+      endCommand()
+      parts.push(ticked ? ')' : '(')
+      ticked = !ticked
+    } else if (char === '<' || char === '>') {
+      // A number right before the sign names a stream, not a word of the command.
+      if (!quoted && /^\d+$/.test(word)) word = ''
+      endWord()
+      const stream = /^&(?:\d+|-)(?![\w./~-])/.exec(line.slice(i + 1))
+      if (char === '<' && after === '<') {
+        const hereString = line[i + 2] === '<'
+        // `<<-` strips tabs from the text; the word after is the closing word all the same.
+        i += hereString || line[i + 2] === '-' ? 2 : 1
+        next = hereString ? 'text' : 'closing'
+      } else if (stream) i += stream[0].length
+      else {
+        // `>&file` and `>|file` write to the file as `>file` does.
+        if (after === '&' || (char === '>' && after === '|')) i += 1
+        next = char === '<' ? 'from' : 'to'
+      }
+    } else if (/\s/.test(char)) endWord()
+    // `&>file`: the `>` that follows reads the file.
+    else if (char === '&' && after === '>') endWord()
     else if ('|;&()'.includes(char)) {
-      end()
-      redirect = false
-      tokens.push(markOf(char))
+      endCommand()
+      if (char === '(' || char === ')') parts.push(char)
     } else word += char
   }
-  end()
-  return tokens
+  endCommand()
+  return parts
 }
+
+/** Where a simple command's program stands among its words, and its name without its folder. */
+function programOf(command: ShellWord[]): { at: number; name: string } {
+  // `VAR=value program …`: the program is the first word that is neither an assignment nor a keyword.
+  const at = command.findIndex(
+    (w) => !w.redirect && !/^\w+=/.test(w.text) && !COMMAND_PREFIXES.has(w.text),
+  )
+  return { at, name: (command[at]?.text ?? '').split('/').at(-1) ?? '' }
+}
+
+/**
+ * Whether a tool call writes: a tool that writes or edits, or a shell command
+ * with a program that makes a file or with output sent to one. A stream sent to
+ * another (`2>&1`) or to a device (`> /dev/null`) writes nothing, and neither
+ * does a `>` inside quotes.
+ */
+const isWrite = ({ tool = '', args = '' }: TranscriptEvent): boolean =>
+  WRITE_TOOLS.test(tool) ||
+  (SHELL_TOOLS.test(tool) &&
+    shellCommands(args).some((part) => {
+      if (typeof part === 'string') return false
+      const { name } = programOf(part)
+      return (
+        WRITE_PROGRAMS.has(name) ||
+        (RUNNER_PROGRAMS.has(name) && part.some((w) => !w.quoted && WRITE_PROGRAMS.has(w.text))) ||
+        part.some((w) => w.redirect === 'to' && !w.text.startsWith('/dev/'))
+      )
+    }))
 
 /** A `cd` target code can follow: no variable, command or glob in it, and no other user's home. */
 const followable = (target: string): boolean => !/[$`*?[]|^~[^/]/.test(target)
@@ -167,13 +267,11 @@ function moved(program: string, args: ShellWord[], shell: ShellPlace): Found[] {
 
 /**
  * The paths one simple command names, read from where the shell is. What a
- * pattern program is given to look for is not one, nor is a word given to a
- * program that reads stdin only; a redirection's file always is.
+ * pattern program is given to look for is not one, nor is a message, nor a
+ * word given to a program that opens no file; a redirection's file always is.
  */
 function commandPaths(command: ShellWord[], shell: ShellPlace): Found[] {
-  // `VAR=value program …`: the program is the first word that is neither an assignment nor a keyword.
-  const at = command.findIndex((w) => !/^\w+=/.test(w.text) && !COMMAND_PREFIXES.has(w.text))
-  const program = (command[at]?.text ?? '').split('/').at(-1) ?? ''
+  const { at, name: program } = programOf(command)
   if (program === 'cd' || program === 'pushd') return moved(program, command.slice(at + 1), shell)
   if (program === 'popd') {
     if (shell.stack.length) shell.cwd = shell.stack.pop() ?? null
@@ -193,25 +291,37 @@ function commandPaths(command: ShellWord[], shell: ShellPlace): Found[] {
 
 /**
  * Which of a program's arguments are text rather than files, asked of each in
- * order. Every word given to a program that reads stdin only is text. For a
- * pattern program the pattern or script is: the first word that is no option,
+ * order. Every word given to a program that opens no file is text, and so is
+ * the word a message option gives a program that takes a message. For a pattern
+ * program the pattern or script is too: the first word that is no option,
  * quoted or not, or the word an option such as `-e` gives. A file of patterns
  * given with `-f` is a file, and so is every word after the pattern.
  */
 function textArguments(program: string): (word: string) => boolean {
-  if (STDIN_PROGRAMS.has(program)) return () => true
-  if (!PATTERN_PROGRAMS.has(program)) return () => false
+  if (TEXT_PROGRAMS.has(program)) return () => true
+  const takesPattern = PATTERN_PROGRAMS.has(program)
+  const takesMessage = MESSAGE_PROGRAMS.has(program)
+  const takesCount = COUNT_PROGRAMS.has(program)
   let patternSeen = false
-  // What the word after an option is: the pattern itself, or a file of patterns.
-  let given: 'pattern' | 'file' | null = null
+  // What the word after an option is: text (a message, a count or the pattern itself), or a file of patterns.
+  let given: 'text' | 'file' | null = null
   return (word) => {
     const after = given
     given = null
-    if (after !== null) return after === 'pattern'
+    if (after !== null) return after === 'text'
     const [option, value] = word.split(/=(.*)/s)
+    if (takesMessage && MESSAGE_OPTIONS.has(option)) {
+      if (value === undefined) given = 'text'
+      return true
+    }
+    if (!takesPattern) return false
+    if (takesCount && COUNT_OPTIONS.has(option)) {
+      if (value === undefined) given = 'text'
+      return true
+    }
     if (PATTERN_OPTIONS.has(option)) {
       patternSeen = true
-      if (value === undefined) given = 'pattern'
+      if (value === undefined) given = 'text'
       return true
     }
     if (PATTERN_FILE_OPTIONS.has(option)) {
@@ -234,24 +344,14 @@ function textArguments(program: string): (word: string) => boolean {
 function shellPaths(line: string, shell: ShellPlace): Found[] {
   const found: Found[] = []
   const outer: ShellPlace[] = []
-  let command: ShellWord[] = []
-  const run = () => {
-    if (command.length) found.push(...commandPaths(command, shell))
-    command = []
-  }
-  for (const token of shellTokens(line)) {
-    if (typeof token !== 'string') {
-      command.push(token)
-      continue
-    }
-    run()
-    if (token === '(') outer.push({ ...shell, stack: [...shell.stack] })
-    else if (token === ')') {
+  for (const part of shellCommands(line)) {
+    if (typeof part !== 'string') found.push(...commandPaths(part, shell))
+    else if (part === '(') outer.push({ ...shell, stack: [...shell.stack] })
+    else {
       const back = outer.pop()
       if (back) Object.assign(shell, back)
     }
   }
-  run()
   return found
 }
 
@@ -283,29 +383,67 @@ function pathsIn(tool: string, args: string, dir: string, shell: ShellPlace): Na
   return found.map((f) => ({ ...f, cut: cutLine && whole.trimEnd().endsWith(f.path) }))
 }
 
+/**
+ * What tells one call from another: the hash of its whole input, which the
+ * transcript keeps. A transcript written before it did has the one-line
+ * summary alone, which is the whole call only for a shell command that was not
+ * cut: an edit's text and a read's offset are not in it. Null for a call that
+ * cannot be told from another, which never counts as a repeat.
+ */
+function identityOf({ tool = '', args, call }: TranscriptEvent): string | null {
+  const what = call ?? (SHELL_TOOLS.test(tool) && !args?.endsWith('…') ? args : undefined)
+  return what === undefined ? null : `${tool}\u0000${what}`
+}
+
+/**
+ * Every folder the sample is named by: where it is, and each place the
+ * transcript names that runs through its run's folder and its own, one inside
+ * the other. A skill moved, copied or reached through a link since the run
+ * keeps both names, so what the agent did at the other address was still done
+ * in its own folder.
+ */
+function sampleHomes(dir: string, places: string[]): string[] {
+  const [run, sample] = dir.split(sep).slice(-2)
+  const homes = new Set([dir])
+  for (const place of places) {
+    // Resolved first, so a path that climbs back out of the sample does not run through it.
+    const parts = resolve(place).split(sep)
+    const at = parts.findIndex((part, i) => part === run && parts[i + 1] === sample)
+    if (at !== -1) homes.add(parts.slice(0, at + 2).join(sep))
+  }
+  return [...homes]
+}
+
 function metricsOf(events: TranscriptEvent[], input: JudgeInput): WorkflowMetrics {
   const tools = events.filter((e) => e.kind === 'tool')
+  const writes = new Set(tools.filter(isWrite))
   const seen = new Set<string>()
   let retries = 0
   for (const e of tools) {
-    const key = `${e.tool}\u0000${e.args ?? ''}`
-    if (seen.has(key)) retries += 1
-    seen.add(key)
+    const identity = identityOf(e)
+    if (identity !== null && seen.has(identity)) retries += 1
+    // A write may change what the same call answers: a test run again after an edit is no repeat.
+    if (writes.has(e)) seen.clear()
+    if (identity !== null) seen.add(identity)
   }
-  const outside = new Set<string>()
   // One shell runs the transcript's commands in order, from the sample directory.
   const shell: ShellPlace = { cwd: input.dir, previous: undefined, stack: [] }
-  for (const { tool = '', args = '' } of tools)
-    for (const { path, place, cut } of pathsIn(tool, args, input.dir, shell)) {
-      if (place === null) continue
-      // A cut path is a prefix of what the agent typed, so a plain string prefix is the right test.
-      if (cut && input.dir.startsWith(place)) continue
-      if (isWithin(place, input.dir)) continue
-      // A system folder named outright (`/tmp/scratch`, `/usr/share/dict`) is no reach. A
-      // path that climbs out of the sample with `..` is, wherever it lands, even in /tmp.
-      if (isAbsolute(path) && SYSTEM_DIRS.some((root) => isWithin(place, root))) continue
-      outside.add(path)
-    }
+  const named = tools.flatMap(({ tool = '', args = '' }) => pathsIn(tool, args, input.dir, shell))
+  const homes = sampleHomes(
+    input.dir,
+    named.flatMap(({ place }) => (place === null ? [] : [place])),
+  )
+  const outside = new Set<string>()
+  for (const { path, place, cut } of named) {
+    if (place === null) continue
+    // A cut path is a prefix of what the agent typed, so a plain string prefix is the right test.
+    if (cut && homes.some((home) => home.startsWith(place))) continue
+    if (homes.some((home) => isWithin(place, home))) continue
+    // A system folder named outright (`/tmp/scratch`, `/usr/share/dict`) is no reach. A
+    // path that climbs out of the sample with `..` is, wherever it lands, even in /tmp.
+    if (isAbsolute(path) && SYSTEM_DIRS.some((root) => isWithin(place, root))) continue
+    outside.add(path)
+  }
   const timingPath = join(input.dir, 'timing.json')
   // Missing when the engine threw before the run finished.
   const timing: Timing | null = existsSync(timingPath)
@@ -315,7 +453,7 @@ function metricsOf(events: TranscriptEvent[], input: JudgeInput): WorkflowMetric
   const skillRead = tools.find(
     (e) => /^skill$/i.test(e.tool ?? '') || /SKILL\.md/.test(e.args ?? ''),
   )
-  const firstWrite = tools.find(isWrite)
+  const firstWrite = tools.find((e) => writes.has(e))
   return {
     steps: events.filter((e) => e.kind === 'text' || e.kind === 'tool').length,
     toolCalls: tools.length,
@@ -358,18 +496,27 @@ export function summarize(events: TranscriptEvent[], maxLines: number): string {
   return [...head, `… ${lines.length - kept} steps left out …`, ...tail].join('\n')
 }
 
+/**
+ * What Jev says of the summary. Each question is asked only where it has
+ * something to be about: whether the task was done needs the case's task, and
+ * what came after an error needs an error.
+ */
 async function judgeJev(
   summary: string,
-  task: string,
+  task: string | null,
   hadErrors: boolean,
   ctx: JudgeContext,
 ): Promise<WorkflowJev> {
   const questions = {
-    followed_task: noul('Does `transcript` show the agent doing what `task` asks?', {
-      true: 'The steps read the inputs the task names, produce what it asks for, and end with it done.',
-      false:
-        'The steps work on something else, stop before the output is produced, or produce something the task did not ask for.',
-    }),
+    ...(task !== null
+      ? {
+          followed_task: noul('Does `transcript` show the agent doing what `task` asks?', {
+            true: 'The steps read the inputs the task names, produce what it asks for, and end with it done.',
+            false:
+              'The steps work on something else, stop before the output is produced, or produce something the task did not ask for.',
+          }),
+        }
+      : {}),
     ...(hadErrors
       ? {
           recovered: noul(
@@ -382,9 +529,12 @@ async function judgeJev(
         }
       : {}),
   }
-  const answers = await ctx.jev.ask({ task, transcript: summary }, questions)
+  const answers = await ctx.jev.ask(
+    { ...(task !== null ? { task } : {}), transcript: summary },
+    questions,
+  )
   return {
-    followedTask: noulOf(answers, 'followed_task'),
+    followedTask: task !== null ? noulOf(answers, 'followed_task') : null,
     // Asked only after an error; one Jev left out is null, and the counts stand.
     recovered: hadErrors ? optionalAnswer(() => noulOf(answers, 'recovered')) : null,
   }
@@ -392,21 +542,20 @@ async function judgeJev(
 
 export const workflowPack: JudgePack<WorkflowRaw> = {
   ...workflowScoring,
-  version: 1,
+  version: 2,
   label: 'Workflow: how the agent worked, from its transcript',
   async judge(input, ctx) {
     const events = input.transcript
     if (!events?.length) return null
     const metrics = metricsOf(events, input)
     const { summaryLines } = (ctx.config as WorkflowConfig).workflow
-    const jev = asksJev(input, ctx)
-      ? await judgeJev(
-          summarize(events, summaryLines),
-          (input.case?.prompt ?? '').slice(0, 1500),
-          metrics.errors > 0,
-          ctx,
-        )
-      : null
+    // An output whose case is gone has no task to hold the transcript to.
+    const task = input.case?.prompt.trim().slice(0, 1500) || null
+    const hadErrors = metrics.errors > 0
+    const jev =
+      asksJev(input, ctx) && (task !== null || hadErrors)
+        ? await judgeJev(summarize(events, summaryLines), task, hadErrors, ctx)
+        : null
     return { metrics, jev }
   },
 }

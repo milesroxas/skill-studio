@@ -14,20 +14,30 @@
  *   st new <dir> [--name <id>] [--description <text>]
  *
  * `run`, `grade` and `serve` start agents, so each ends them before it goes:
- * on Ctrl-C, and when it is asked to stop.
+ * on Ctrl-C, and when it is asked to stop. A run or a grading cut off that way
+ * stops as one stopped in the app does: no report is written from part of it.
  */
 import { spawn } from 'node:child_process'
 import { existsSync, readFileSync } from 'node:fs'
 import { basename, join, resolve } from 'node:path'
 import { parseArgs } from 'node:util'
 import { generateRun } from '@application/generate.ts'
-import { compareReports, gradeAnchors, gradeRun, selfTest } from '@application/grade.ts'
+import {
+  compareReports,
+  gradeAnchors,
+  gradeRun,
+  jevForRun,
+  scoredReport,
+  selfTest,
+  unjudged,
+} from '@application/grade.ts'
 import type { BenchConfig, Report } from '@domain/schemas.ts'
 import { layerOrder } from '@domain/scoring.ts'
 import { TEMPLATE_IDS, type TemplateId, templateById } from '@domain/templates.ts'
 import { isSlug, SLUG_RULE } from '@domain/text.ts'
 import { loadCases, saveCase } from '@infrastructure/cases.ts'
 import { engineById, engines } from '@infrastructure/engines/index.ts'
+import { realPath } from '@infrastructure/fs.ts'
 import { listRuns, readRun, runDir, versionsOf } from '@infrastructure/runs.ts'
 import { newSkill, skillInfo } from '@infrastructure/skill.ts'
 import { Jev } from '@judges/jev.ts'
@@ -114,15 +124,22 @@ const padEnd = (value: unknown, width: number): string =>
     .slice(0, width - 1)
     .padEnd(width)
 
-/** The skill dir among the positionals: the first that has a SKILL.md, else cwd. */
+/**
+ * The skill dir among the positionals: the first that has a SKILL.md, else
+ * cwd. Links on the way are resolved, as the app resolves them, so the folder
+ * a sample is in is the one its agent named in its transcript.
+ */
 function pickSkill(positionals: string[]): { skill: string; rest: string[] } {
   const index = positionals.findIndex((p) => existsSync(join(resolve(p), 'SKILL.md')))
   if (index < 0) {
     if (!existsSync(join(process.cwd(), 'SKILL.md')))
       throw new Error('No SKILL.md here. Pass the skill directory.')
-    return { skill: process.cwd(), rest: positionals }
+    return { skill: realPath(process.cwd()), rest: positionals }
   }
-  return { skill: resolve(positionals[index]), rest: positionals.filter((_, i) => i !== index) }
+  return {
+    skill: realPath(resolve(positionals[index])),
+    rest: positionals.filter((_, i) => i !== index),
+  }
 }
 
 function printReport(report: Report): void {
@@ -144,6 +161,21 @@ function printReport(report: Report): void {
   )
 }
 
+/**
+ * Print what a grading made of a run. False when it judged no output, so it
+ * wrote no report and the command has not done what it was asked: the grading
+ * said so itself when there was no output, and the reason is printed here when
+ * a pack failed on every one.
+ */
+function printGraded(report: Report, json: boolean | undefined): boolean {
+  if (json) console.log(JSON.stringify(report, null, 2))
+  else printReport(report)
+  const { failed, total, reason } = unjudged(report)
+  if (total && failed === total)
+    console.error(`No output was judged, so no report was written: ${reason}`)
+  return total > 0 && failed < total
+}
+
 async function main(): Promise<number> {
   loadEnv()
   const { values, positionals } = parseArgs({ allowPositionals: true, options: OPTIONS })
@@ -153,19 +185,34 @@ async function main(): Promise<number> {
     // Asking for the help succeeds; running with no command is a usage error.
     return values.help ? 0 : 2
   }
-  const jevOptions = {
-    useJev: !values['no-jev'] && Jev.available(),
-    model: values['jev-model'],
+  // These start agents: the ones an earlier copy left are ended first, and Ctrl-C ends this copy's.
+  const lifecycle = ['run', 'grade', 'serve'].includes(command)
+    ? agentLifecycle({ signals: true })
+    : null
+  /** The command's own run or grading, held so a Ctrl-C lets it write what it has as it stops. */
+  const held = <T>(work: Promise<T>): Promise<T> => lifecycle?.during(work) ?? work
+  /** The scoring the flags ask for, laid over the skill's `bench.json`. */
+  const scoring = {
     packs: values.packs ? values.packs.split(',').map((p) => p.trim()) : undefined,
     config: values.bench
       ? (JSON.parse(readFileSync(resolve(values.bench), 'utf8')) as Partial<BenchConfig>)
       : undefined,
-    log: (line: string) => console.error(line),
   }
-  if (!values['no-jev'] && !Jev.available() && ['run', 'grade', 'self-test'].includes(command))
-    console.error('TYPESAFE_API_KEY is not set: grading without Jev.')
-  // These start agents: the ones an earlier copy left are ended first, and Ctrl-C ends this copy's.
-  if (['run', 'grade', 'serve'].includes(command)) agentLifecycle({ signals: true })
+  const wantsJev = !values['no-jev']
+  const jevOptions = {
+    ...scoring,
+    useJev: wantsJev && Jev.available(),
+    model: values['jev-model'],
+    log: (line: string) => console.error(line),
+    // Ctrl-C stops a grading as Stop does in the app: a check it cut short is no answer.
+    signal: lifecycle?.signal,
+  }
+  /** Say that a grading goes on without Jev, when it does for want of a key. */
+  const noteNoKey = (): void => {
+    if (wantsJev && !Jev.available())
+      console.error('TYPESAFE_API_KEY is not set: grading without Jev.')
+  }
+  if (['run', 'self-test'].includes(command)) noteNoKey()
   // A server outlives any one request: an error nothing caught is logged, not the end of every job.
   if (command === 'serve') keepRunning()
 
@@ -291,26 +338,26 @@ async function main(): Promise<number> {
     const missing = wanted.filter((id) => !cases.some((c) => c.id === id))
     if (missing.length) throw new Error(`No case named ${missing.join(', ')}.`)
     if (!selected.length) throw new Error('No cases to run.')
-    const { name } = await generateRun({
-      skillDir: skill,
-      cases: selected,
-      engine,
-      model: choice.model || null,
-      effort: choice.effort || null,
-      samples: input.samples,
-      configuration: input.configuration,
-      baseline: input.baseline,
-      skillName: input.skillName,
-      note: input.note,
-      parallel,
-      log: (line) => console.error(line),
-    })
+    const { name } = await held(
+      generateRun({
+        skillDir: skill,
+        cases: selected,
+        engine,
+        model: choice.model || null,
+        effort: choice.effort || null,
+        samples: input.samples,
+        configuration: input.configuration,
+        baseline: input.baseline,
+        skillName: input.skillName,
+        note: input.note,
+        parallel,
+        log: (line) => console.error(line),
+        signal: lifecycle?.signal,
+      }),
+    )
     console.log(`Run: ${runDir(skill, name)}`)
     if (values['no-grade']) return 0
-    const report = await gradeRun(skill, name, jevOptions)
-    if (values.json) console.log(JSON.stringify(report, null, 2))
-    else printReport(report)
-    return 0
+    return printGraded(await held(gradeRun(skill, name, jevOptions)), values.json) ? 0 : 1
   }
 
   if (command === 'grade') {
@@ -320,13 +367,16 @@ async function main(): Promise<number> {
         ? [runNameOf(values.run, '--run')]
         : []
     if (!names.length) throw new Error('Pass --run <name> or --all.')
-    for (const name of names) {
-      const report = await gradeRun(skill, name, jevOptions)
+    // Asked of every run before any is graded: with no key, a run Jev scored is refused, not written over.
+    const runs = names.map((name) => ({ name, useJev: wantsJev && jevForRun(skill, name) }))
+    noteNoKey()
+    let judged = true
+    for (const { name, useJev } of runs) {
+      const report = await held(gradeRun(skill, name, { ...jevOptions, useJev }))
       console.log(`\n${name}`)
-      if (values.json) console.log(JSON.stringify(report, null, 2))
-      else printReport(report)
+      judged = printGraded(report, values.json) && judged
     }
-    return 0
+    return judged ? 0 : 1
   }
 
   if (command === 'report') {
@@ -334,8 +384,10 @@ async function main(): Promise<number> {
     const view = readRun(skill, runNameOf(values.run, '--run'))
     if (!view.report)
       throw new Error(`${values.run} is not graded. Run: st grade --run ${values.run}`)
-    if (values.json) console.log(JSON.stringify(view.report, null, 2))
-    else printReport(view.report)
+    // Scored as the app scores it, under the scoring as it is now.
+    const report = scoredReport(skill, view.report, scoring)
+    if (values.json) console.log(JSON.stringify(report, null, 2))
+    else printReport(report)
     return 0
   }
 
@@ -345,7 +397,8 @@ async function main(): Promise<number> {
     const load = (name: string) => {
       const { report } = readRun(skill, runNameOf(name, '`st compare`'))
       if (!report) throw new Error(`${name} has no report.json.`)
-      return report
+      // Both under one scoring, so a difference is the outputs' and not a setting's.
+      return scoredReport(skill, report, scoring)
     }
     const rows = compareReports(load(a), load(b))
     const layers = rows.length ? Object.keys(rows[0].deltas) : []
@@ -371,6 +424,11 @@ async function main(): Promise<number> {
       console.log(
         `  ${l.ok ? 'ok  ' : 'FAIL'} ${padEnd(l.bad, 40)} ${padEnd(l.layer, 12)} good ${pad(l.good, 4)}  bad ${pad(l.badScore, 4)}`,
       )
+    // A bad anchor is checked against the good anchor of its case: with no such pair, nothing was.
+    if (!lines.length) {
+      console.log('\nNothing was checked: no bad anchor has a good anchor of its case.')
+      return 1
+    }
     console.log(failures ? `\n${failures} check(s) failed.` : '\nAll checks passed.')
     return failures ? 1 : 0
   }

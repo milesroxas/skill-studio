@@ -80,6 +80,24 @@ describe('generic scoring', () => {
     expect(verdicts[0]).toMatchObject({ met: true, corrected: true })
   })
 
+  it('leaves a check that was not asked out of the rubric, and flags it', () => {
+    const unasked =
+      'grader g3 not judged, its picture is not shown to Jev (it is larger than 16 MB): Matches the mock-up.'
+    const rubric = { statements: raw.rubric?.statements ?? [], unasked: [unasked] }
+    const { layers, flags, verdicts } = genericScoring.score({ ...raw, rubric }, subject, config)
+    expect(layers.rubric).toBe(1 / 3)
+    expect(flags).toContain(unasked)
+    expect(verdicts.find((v) => v.text === unasked)).toMatchObject({ layer: null, met: false })
+    // With none asked, the layer is left out of the total.
+    const none = genericScoring.score(
+      { adherence: null, rubric: { statements: [], unasked: [unasked] } },
+      subject,
+      config,
+    )
+    expect(none.layers.rubric).toBeNull()
+    expect(none.flags).toEqual([unasked])
+  })
+
   it('leaves every layer out without raw answers', () => {
     expect(genericScoring.score(null, subject, config)).toEqual({
       layers: { adherence: null, rubric: null },

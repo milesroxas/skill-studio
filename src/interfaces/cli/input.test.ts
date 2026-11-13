@@ -126,6 +126,14 @@ describe('withHint', () => {
     expect(withHint('No TypeSafe key is set, so Jev cannot judge. Add the key in Settings.')).toBe(
       'No TypeSafe key is set, so Jev cannot judge. Add TYPESAFE_API_KEY to .env, or pass --no-jev to grade with code checks only.',
     )
+    // What `st grade` stops with on a run Jev scored: `--no-jev` is the way to grade it all the same.
+    expect(
+      withHint(
+        'Jev scored this run, and no TypeSafe key is set to grade it again. Add the key in Settings.',
+      ),
+    ).toBe(
+      'Jev scored this run, and no TypeSafe key is set to grade it again. Add TYPESAFE_API_KEY to .env, or pass --no-jev to grade with code checks only.',
+    )
   })
 
   it('names --name when a changed skill needs its version named', () => {

@@ -4,6 +4,7 @@ import {
   existsSync,
   mkdirSync,
   mkdtempSync,
+  readdirSync,
   readFileSync,
   rmSync,
   symlinkSync,
@@ -12,12 +13,12 @@ import {
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { pngHeader } from '@domain/__fixtures__/image.ts'
-import type { Report } from '@domain/schemas.ts'
+import type { Report, ReportResult } from '@domain/schemas.ts'
 import { readJson } from '@infrastructure/fs.ts'
 import { packById } from '@judges/index.ts'
 import { Jev } from '@judges/jev.ts'
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
-import { gradeRun } from './grade.ts'
+import { compareReports, gradeRun, jevForRun, scoredReport, selfTest, unjudged } from './grade.ts'
 
 const FIXTURE = resolve(import.meta.dirname, '../../fixtures/demo-skill')
 const RUN = '2026-10-30-skill-v0-claude-haiku'
@@ -101,8 +102,9 @@ describe('gradeRun, on which case a sample answers', () => {
     expect(braces.flags).not.toContain('no output to judge')
   })
 
-  it('leaves out a sample stopped before it wrote anything, and grades the rest', async () => {
-    const { dir, run } = skillWith(['email'], ['email-s1'])
+  it('leaves out a sample the stop ended or the run never recorded, and grades the rest', async () => {
+    // s2 was stopped with nothing written, s3 with half a file, and s4 was cut off unrecorded.
+    const { dir, run } = skillWith(['email'], ['email-s1', 'email-s3', 'email-s4'])
     mkdirSync(join(dir, 'evals/runs', run, 'email-s2/outputs'), { recursive: true })
     const sample = (index: number, patch: object) => ({
       dir: `email-s${index}`,
@@ -114,13 +116,20 @@ describe('gradeRun, on which case a sample answers', () => {
       join(dir, 'evals/runs', run, 'run.json'),
       JSON.stringify({
         name: run,
-        samples: [sample(1, { ok: true }), sample(2, { ok: false, stopped: true })],
+        samples: [
+          sample(1, { ok: true, outputs: ['outputs/note.md'] }),
+          sample(2, { ok: false, stopped: true }),
+          sample(3, { ok: true, stopped: true }),
+        ],
       }),
     )
+    // Put beside the output after the agent ended, as a check command's build is.
+    writeFileSync(join(dir, 'evals/runs', run, 'email-s1/outputs/index.html'), '<p>Built.</p>')
     const lines: string[] = []
     const report = await gradeRun(dir, run, { useJev: false, log: (line) => lines.push(line) })
     expect(report.results.map((r) => r.sample)).toEqual(['email-s1'])
-    expect(lines).toContain('1 output(s) stopped before they were written: left out of grading.')
+    expect(report.results[0].artifacts).toEqual([{ file: 'outputs/note.md', kind: 'markdown' }])
+    expect(lines).toContain('3 output(s) stopped before they were finished: left out of grading.')
   })
 
   it('refuses a run that is not there, and makes no folder for it', async () => {
@@ -151,6 +160,24 @@ describe('gradeRun, on what a grading that fails leaves behind', () => {
     expect(Object.keys(readJson<Record<string, unknown>>(cachePath, {}))).toEqual(kept)
   })
 
+  it('gives an output one pack failed on no total, though another pack scored its layers', async () => {
+    const dir = join(mkdtempSync(join(tmpdir(), 'st-grade-made-')), 'demo-skill')
+    made.push(join(dir, '..'))
+    cpSync(FIXTURE, dir, { recursive: true, verbatimSymlinks: true })
+    genericJudge().mockRejectedValue(new Error('no network'))
+    const report = await gradeRun(dir, RUN, { useJev: false })
+    const [result] = report.results
+    expect(result.flags[0]).toBe('generic pack failed: no network')
+    // The workflow pack's layers alone would total a number, a score of the whole it is not.
+    expect(result.scores.efficiency).toBeTypeOf('number')
+    expect(result.scores.total).toBeNull()
+    expect(unjudged(report)).toEqual({
+      failed: 1,
+      total: 1,
+      reason: 'generic pack failed: no network',
+    })
+  })
+
   it('finds its answers again after a setting went away and came back', async () => {
     const { dir, run } = skillWith(['email'], ['email-s1'])
     const first = '# Notes\n\n- Keep every note under forty words.\n'
@@ -177,6 +204,28 @@ describe('gradeRun, on what a grading that fails leaves behind', () => {
       'Stopped.',
     )
     expect(existsSync(join(dir, 'evals/runs', run, 'report.json'))).toBe(false)
+    const cache = readJson<Record<string, unknown>>(
+      join(dir, 'evals/runs', run, 'judge-cache.json'),
+      {},
+    )
+    expect(Object.keys(cache)).toHaveLength(1)
+  })
+
+  it('stops at once, without waiting for an answer still on its way', async () => {
+    const { dir, run } = skillWith(['email'], ['email-s1', 'email-s2'])
+    const stop = new AbortController()
+    // The second output's answer never comes: only the stop ends the wait for it.
+    genericJudge()
+      .mockImplementationOnce(async () => null)
+      .mockImplementationOnce(() => {
+        setImmediate(() => stop.abort())
+        return new Promise(() => {})
+      })
+    await expect(gradeRun(dir, run, { useJev: false, signal: stop.signal })).rejects.toThrow(
+      'Stopped.',
+    )
+    expect(existsSync(join(dir, 'evals/runs', run, 'report.json'))).toBe(false)
+    // What the first output was answered is kept all the same.
     const cache = readJson<Record<string, unknown>>(
       join(dir, 'evals/runs', run, 'judge-cache.json'),
       {},
@@ -307,14 +356,10 @@ describe('gradeRun, on a stop', () => {
       stop.abort()
       await expect(graded).rejects.toThrow('Stopped.')
       expect(readFileSync(join(runDir, 'report.json'), 'utf8')).toBe('"the last report"')
-      // The first sample's answer is kept; the stopped one's "check failed" is not.
-      const cache = readJson<Record<string, { check: { exit: number } } | null>>(
-        join(runDir, 'judge-cache.json'),
-        {},
-      )
-      // Rules and checks are graded beside the check command, and without Jev that reading holds nothing.
-      const checks = Object.values(cache).filter((answer) => answer !== null)
-      expect(checks.map((answer) => answer.check.exit)).toEqual([0])
+      // The first sample's reading of its rules and checks is kept, which without Jev holds
+      // nothing. No check's answer is, the stopped one's "check failed" least of all.
+      const cache = readJson<Record<string, unknown>>(join(runDir, 'judge-cache.json'), {})
+      expect(Object.values(cache)).toEqual([null])
     },
   )
 
@@ -399,8 +444,11 @@ describe('gradeRun, on a page drawn for a pack that looks at it', () => {
         { width: 390, height: 1200 },
       ],
     ])
-    expect(existsSync(join(sample, 'renders/desktop-1280x960.png'))).toBe(true)
-    expect(existsSync(join(sample, 'renders/phone-390x1200.png'))).toBe(true)
+    // Each picture is written whole, under its own name: nothing half-written is left beside them.
+    expect(readdirSync(join(sample, 'renders')).sort()).toEqual([
+      'desktop-1280x960.png',
+      'phone-390x1200.png',
+    ])
     const [input] = judge.mock.calls[0]
     expect(input.renders.map((r) => [r.size.id, r.read.problem])).toEqual([
       ['desktop', null],
@@ -542,5 +590,320 @@ describe('gradeRun, on a picture held to the case’s size', () => {
     writeFileSync(join(outputs, 'cover.png'), pngHeader(1600, 900))
     const [right] = (await gradeRun(dir, run, { useJev: false })).results
     expect(right.flags.filter((f) => f.startsWith('size:'))).toEqual([])
+  })
+})
+
+describe('gradeRun, on an output whose case is gone', () => {
+  it('gives it no case, never the case whose id starts its name', async () => {
+    const { dir, run } = skillWith(['email'], ['email-s1', 'email-reply-s1', 'email-2-s1'])
+    writeFileSync(join(dir, 'evals/cases/email/case.yaml'), 'bench:\n  words: [500, 600]\n')
+    const report = await gradeRun(dir, run, { useJev: false })
+    // The name the folder gives stays in the report, so the output is no other case's.
+    expect(report.results.map((r) => [r.sample, r.case, r.range])).toEqual([
+      ['email-2-s1', 'email-2', null],
+      ['email-reply-s1', 'email-reply', null],
+      ['email-s1', 'email', [500, 600]],
+    ])
+  })
+
+  it('reads a legacy flat file’s case from the start of its name, and a case it names whole', async () => {
+    const { dir, run } = skillWith(['email', 'email-reply'], [])
+    const flat = join(dir, 'evals/runs', run)
+    mkdirSync(flat, { recursive: true })
+    writeFileSync(join(flat, 'email-reply-2.md'), 'A reply.')
+    writeFileSync(join(flat, 'named.md'), '---\ncase: email\n---\nAn email.')
+    writeFileSync(join(flat, 'gone.md'), '---\ncase: email-reply-old\n---\nA reply, once.')
+    const report = await gradeRun(dir, run, { useJev: false })
+    expect(report.results.map((r) => [r.sample, r.case])).toEqual([
+      ['email-reply-2.md', 'email-reply'],
+      ['gone.md', 'email-reply-old'],
+      ['named.md', 'email'],
+    ])
+  })
+})
+
+describe('gradeRun, on the rules a run is graded on', () => {
+  const FORTY = 'Keep every note under forty words.'
+
+  /** A run that kept the skill as it ran, whose one rule is `FORTY`, in a skill that says otherwise now. */
+  function ranOnForty() {
+    const { dir, run } = skillWith(['email'], ['email-s1'])
+    mkdirSync(join(dir, 'evals/runs', run, '_skill'))
+    writeFileSync(join(dir, 'evals/runs', run, '_skill/SKILL.md'), `# Notes\n\n- ${FORTY}\n`)
+    writeFileSync(join(dir, 'SKILL.md'), '# Notes\n\n- Write every note in French.\n')
+    return { dir, run }
+  }
+
+  const rulesAsked = (judge: ReturnType<typeof genericJudge>) =>
+    judge.mock.calls.map(([input]) => input.rules.map((rule) => rule.text))
+
+  it('grades a run on the rules of the skill it ran, whatever the skill says since', async () => {
+    const { dir, run } = ranOnForty()
+    const judge = genericJudge().mockResolvedValue(null)
+    await gradeRun(dir, run, { useJev: false })
+    expect(rulesAsked(judge)).toEqual([[FORTY]])
+
+    // The skill moves on again: nothing the run is judged on changed, so nothing is asked.
+    writeFileSync(join(dir, 'SKILL.md'), '# Notes\n\n- Sign every note with a name.\n')
+    judge.mockClear()
+    await gradeRun(dir, run, { useJev: false })
+    expect(judge).not.toHaveBeenCalled()
+  })
+
+  it('takes the rules `bench.json` lists over the bullets of either file', async () => {
+    const { dir, run } = ranOnForty()
+    writeFileSync(
+      join(dir, 'evals/bench.json'),
+      JSON.stringify({ rules: ['Open every note with a greeting.'] }),
+    )
+    const judge = genericJudge().mockResolvedValue(null)
+    await gradeRun(dir, run, { useJev: false })
+    expect(rulesAsked(judge)).toEqual([['Open every note with a greeting.']])
+  })
+})
+
+describe.skipIf(process.platform === 'win32')('gradeRun, on a case’s check command', () => {
+  /** A skill graded as code too, whose one case has `check`, and a sample of it holding `files`. */
+  function checked(check: string, files: Record<string, string>) {
+    const { dir, run } = skillWith([], ['add-s1'])
+    mkdirSync(join(dir, 'evals/cases/add'), { recursive: true })
+    writeFileSync(join(dir, 'evals/cases/add/prompt.md'), 'Write add.')
+    writeFileSync(join(dir, 'evals/cases/add/case.yaml'), `bench:\n  check: ${check}\n`)
+    writeFileSync(join(dir, 'evals/bench.json'), JSON.stringify({ packs: ['code', 'design'] }))
+    const sample = join(dir, 'evals/runs', run, 'add-s1')
+    rmSync(join(sample, 'outputs/note.md'))
+    for (const [file, text] of Object.entries(files)) writeFileSync(join(sample, file), text)
+    return { dir, run, sample }
+  }
+
+  it('runs the check again at every grading, and keeps no answer of it', async () => {
+    const { dir, run, sample } = checked('test -f fixed', { 'outputs/add.js': 'export {}' })
+    const [failed] = (await gradeRun(dir, run, { useJev: false })).results
+    expect(failed.scores.check).toBe(0)
+    expect(failed.flags.join('\n')).toMatch('check failed (exit 1)')
+
+    // What the check rests on is put right: no hash of the output sees it, and the check does.
+    writeFileSync(join(sample, 'fixed'), '')
+    const lines: string[] = []
+    const again = await gradeRun(dir, run, { useJev: false, log: (line) => lines.push(line) })
+    expect(again.results[0].scores.check).toBe(100)
+    // The answers that are kept were kept: the output itself did not change.
+    expect(lines).toContain('1 of 1 outputs unchanged: kept their verdicts.')
+    const cache = readJson<Record<string, unknown>>(
+      join(dir, 'evals/runs', run, 'judge-cache.json'),
+      {},
+    )
+    expect(Object.values(cache)).toEqual([null])
+  })
+
+  it('runs the check whichever file is judged: a page beside its script, or a note alone', async () => {
+    const page = checked('test -f outputs/app.js', {
+      'outputs/index.html': '<!doctype html><h1>Hi</h1>',
+      'outputs/app.js': 'export {}',
+    })
+    const [beside] = (await gradeRun(page.dir, page.run, { useJev: false })).results
+    expect(beside.primary).toEqual({ file: 'outputs/index.html', kind: 'html' })
+    expect(beside.scores.check).toBe(100)
+
+    const note = checked('test -f outputs/add.js', { 'outputs/note.md': 'I could not write it.' })
+    const [alone] = (await gradeRun(note.dir, note.run, { useJev: false })).results
+    expect(alone.primary).toEqual({ file: 'outputs/note.md', kind: 'markdown' })
+    expect(alone.scores.check).toBe(0)
+  })
+
+  it('scores an output with no file 0, whatever its check says', async () => {
+    const { dir, run } = checked('exit 0', {})
+    const [result] = (await gradeRun(dir, run, { useJev: false })).results
+    expect(result.primary).toBeNull()
+    expect(result.scores).toMatchObject({ check: 0, total: 0 })
+  })
+
+  it('runs no check for a legacy flat file, which has no folder of its own', async () => {
+    const { dir, run } = checked('exit 0', {})
+    rmSync(join(dir, 'evals/runs', run, 'add-s1'), { recursive: true })
+    writeFileSync(join(dir, 'evals/runs', run, 'add-1.md'), 'A note about add.')
+    const [result] = (await gradeRun(dir, run, { useJev: false })).results
+    expect(result.case).toBe('add')
+    expect(result.packs.code).toBeNull()
+  })
+})
+
+describe('gradeRun, on the packs it is asked to run', () => {
+  it('does not ask a pack again when another pack is ticked', async () => {
+    const { dir, run } = skillWith(['email'], ['email-s1'])
+    await gradeRun(dir, run, { useJev: false })
+    const judge = genericJudge()
+    await gradeRun(dir, run, { useJev: false, packs: ['workflow'] })
+    expect(judge).not.toHaveBeenCalled()
+  })
+
+  it('refuses a pack named for this grading that the app does not have', async () => {
+    const { dir, run } = skillWith(['email'], ['email-s1'])
+    await expect(gradeRun(dir, run, { useJev: false, packs: ['wrokflow'] })).rejects.toThrow(
+      'No judge pack named wrokflow.',
+    )
+    // A `bench.json` may outlive a pack: the name is left out, and the rest is graded.
+    writeFileSync(join(dir, 'evals/bench.json'), JSON.stringify({ packs: ['wrokflow'] }))
+    expect((await gradeRun(dir, run, { useJev: false })).packs).toEqual(['generic'])
+  })
+})
+
+describe('gradeRun, on the words a case’s range counts', () => {
+  it('counts what a reader reads: no markup of a page, no heading or code of Markdown', async () => {
+    const { dir, run } = skillWith(['note', 'page'], ['note-s1', 'page-s1'])
+    const runDir = join(dir, 'evals/runs', run)
+    writeFileSync(
+      join(runDir, 'note-s1/outputs/note.md'),
+      '# One two three\n\n```\nfour five\n```\n',
+    )
+    rmSync(join(runDir, 'page-s1/outputs/note.md'))
+    writeFileSync(
+      join(runDir, 'page-s1/outputs/index.html'),
+      '<!doctype html><html lang="en"><head><title>Not counted</title><style>p { margin: 0 }</style></head>' +
+        '<body><p class="lead">Two words</p><script>const never = "counted"</script></body></html>',
+    )
+    writeFileSync(join(dir, 'evals/cases/note/case.yaml'), 'bench:\n  words: [0, 3]\n')
+    const [note, page] = (await gradeRun(dir, run, { useJev: false })).results
+    expect(note.words).toBe(0)
+    expect(note.flags.filter((flag) => flag.startsWith('length:'))).toEqual([])
+    expect(page.words).toBe(2)
+  })
+})
+
+describe('jevForRun', () => {
+  it('grades by code alone with no key, but never over a report Jev scored', () => {
+    const { dir, run } = skillWith(['email'], ['email-s1'])
+    const report = join(dir, 'evals/runs', run, 'report.json')
+    const key = vi.spyOn(Jev, 'available').mockReturnValue(false)
+    expect(jevForRun(dir, run)).toBe(false)
+    writeFileSync(report, JSON.stringify({ model: null, results: [] }))
+    expect(jevForRun(dir, run)).toBe(false)
+    // A report that cannot be read holds no score to lose.
+    writeFileSync(report, '{ "model": ')
+    expect(jevForRun(dir, run)).toBe(false)
+    writeFileSync(report, JSON.stringify({ model: 'jev-1.14.0', results: [] }))
+    expect(() => jevForRun(dir, run)).toThrow(
+      'Jev scored this run, and no TypeSafe key is set to grade it again.',
+    )
+    key.mockReturnValue(true)
+    expect(jevForRun(dir, run)).toBe(true)
+  })
+})
+
+/** A report holding `results`, each given only what the test reads. */
+const reportOf = (results: Array<Partial<ReportResult>>): Report => ({
+  createdAt: '',
+  model: null,
+  inputTokens: 0,
+  seconds: 0,
+  config: { packs: ['generic'], rules: null, weights: {}, yes: 0.5 },
+  packs: ['generic'],
+  results: results.map((result) => ({
+    sample: '',
+    case: null,
+    label: null,
+    tests: [],
+    artifacts: [],
+    primary: { file: 'outputs/note.md', kind: 'markdown' },
+    words: 0,
+    range: null,
+    packs: {},
+    scores: { total: null },
+    flags: [],
+    confidence: null,
+    ...result,
+  })),
+})
+
+describe('selfTest', () => {
+  const anchor = (label: string, total: number | null, tests: string[] = []) => ({
+    sample: `${label}.md`,
+    case: 'email',
+    label,
+    tests,
+    scores: { total, rubric: total },
+  })
+
+  it('passes a bad anchor only when both are scored and the good one scores more', () => {
+    const lines = (good: number | null, bad: number | null) =>
+      selfTest(reportOf([anchor('good', good), anchor('bad', bad)])).lines.map((line) => line.ok)
+    expect(lines(80, 40)).toEqual([true])
+    expect(lines(40, 40)).toEqual([false])
+    // An anchor no pack scored says nothing: it is no pass, whichever side it is on.
+    expect(lines(80, null)).toEqual([false])
+    expect(lines(null, 40)).toEqual([false])
+    expect(lines(0, null)).toEqual([false])
+  })
+
+  it('fails a layer no pack scores, and checks nothing without a good anchor of the case', () => {
+    const typo = selfTest(reportOf([anchor('good', 80), anchor('bad', 40, ['rubrik'])]))
+    expect(typo).toMatchObject({ failures: 1, lines: [{ layer: 'rubrik', good: null }] })
+    expect(selfTest(reportOf([anchor('bad', 40)]))).toEqual({ lines: [], failures: 0 })
+  })
+})
+
+describe('compareReports', () => {
+  const scored = (sample: string, total: number, caseId: string | null = 'email') => ({
+    sample,
+    case: caseId,
+    scores: { total },
+  })
+
+  it('reads a sample against the one of its name, however many either run has', () => {
+    const before = reportOf([
+      scored('email-s1', 10),
+      scored('email-s10', 20),
+      scored('email-s2', 30),
+    ])
+    const after = reportOf([scored('email-s10', 25), scored('email-s2', 90), scored('email-s3', 1)])
+    expect(compareReports(before, after)).toEqual([
+      { key: 'email email-s10', deltas: { total: 5 } },
+      { key: 'email email-s2', deltas: { total: 60 } },
+    ])
+  })
+
+  it('reads a legacy flat file against the next of its case', () => {
+    const before = reportOf([scored('email-1.md', 10), scored('email-2.md', 20)])
+    const after = reportOf([scored('email-a.md', 15), scored('email-b.md', 40)])
+    expect(compareReports(before, after).map((row) => row.deltas.total)).toEqual([5, 20])
+  })
+
+  it('reads a run of flat files against a run of folders by case, since no name is shared', () => {
+    const before = reportOf([scored('email-1.md', 10), scored('email-2.md', 20)])
+    const after = reportOf([scored('email-s1', 15), scored('email-s2', 40)])
+    expect(compareReports(before, after)).toEqual([
+      { key: 'email email-s1', deltas: { total: 5 } },
+      { key: 'email email-s2', deltas: { total: 20 } },
+    ])
+  })
+})
+
+describe('scoredReport', () => {
+  const check = (exit: number) => ({
+    check: { command: 'npm test', exit, timedOut: false, tail: '' },
+  })
+
+  it('scores a report under the skill’s scoring as it is now, with the call’s own laid over', () => {
+    const { dir } = skillWith(['add'], [])
+    const report = reportOf([
+      { sample: 'add-s1', case: 'add', packs: { code: check(0) } },
+      { sample: 'add-s2', case: 'add', packs: { code: check(1) } },
+    ])
+    // The skill is graded on its rules and checks alone: the check command counts for nothing.
+    expect(scoredReport(dir, report).results.map((r) => r.scores)).toEqual([
+      { total: null, adherence: null, rubric: null },
+      { total: null, adherence: null, rubric: null },
+    ])
+
+    writeFileSync(join(dir, 'evals/bench.json'), JSON.stringify({ packs: ['code'] }))
+    const now = scoredReport(dir, report)
+    expect(now.packs).toEqual(['generic', 'code'])
+    expect(now.results.map((r) => r.scores.total)).toEqual([100, 0])
+    expect(now.results[1].flags.join('\n')).toMatch('check failed (exit 1)')
+    // The report it was given is left as it was.
+    expect(report.results.map((r) => r.scores.total)).toEqual([null, null])
+
+    expect(scoredReport(dir, report, { packs: ['generic'] }).packs).toEqual(['generic'])
+    expect(() => scoredReport(dir, report, { packs: ['cod'] })).toThrow('No judge pack named cod.')
   })
 })

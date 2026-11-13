@@ -117,7 +117,18 @@ describe('benchOf', () => {
       codeCheck: { timeoutSeconds: -1 },
     })
     expect(read.workflow).toEqual({ maxRetries: 0, note: 'mine' })
-    expect(read.codeCheck).toEqual({ timeoutSeconds: 0 })
+    // No check ends in no time: a limit of 0 or less is dropped, and the pack's own stands.
+    expect(read.codeCheck).toEqual({})
+  })
+
+  it('keeps the pack’s own time limit for a check when the saved one is 0 or less', () => {
+    const code = pack('code', { codeCheck: { timeoutSeconds: 120 } })
+    const limit = (timeoutSeconds: number) =>
+      mergeConfig({ packs: ['code'], codeCheck: { timeoutSeconds } }, [generic, code]).codeCheck
+    expect(limit(0)).toEqual({ timeoutSeconds: 120 })
+    expect(limit(-5)).toEqual({ timeoutSeconds: 120 })
+    expect(limit(0.5)).toEqual({ timeoutSeconds: 0.5 })
+    expect(limit(30)).toEqual({ timeoutSeconds: 30 })
   })
 
   it('holds a check’s time limit to six hours, the longest a case runs', () => {

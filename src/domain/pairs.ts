@@ -3,7 +3,7 @@
  * Pure functions over plain facts about outputs, so they are tested without a
  * page.
  */
-import { versionNumber } from './lift.ts'
+import { testedVersion, versionNumber } from './lift.ts'
 import type { Configuration } from './schemas.ts'
 
 /** One output as pairing reads it. */
@@ -20,7 +20,7 @@ export interface PairOutput {
   createdAt: string
   /** Which sample of its case it is, from 1. */
   index: number
-  /** The agent wrote an output. A run stopped or failed before it did leaves nothing to read. */
+  /** The agent wrote an output and was not stopped on the way. One stopped or failed leaves nothing whole to read. */
   written: boolean
 }
 
@@ -52,9 +52,7 @@ const newestFirstSample = <T extends PairOutput>(outputs: T[]): T | null =>
  * model's. With one version and no baseline there is only the one answer.
  */
 export function defaultPair<T extends PairOutput>(outputs: readonly T[]): Pair<T> {
-  const skilled = outputs.filter(
-    (o) => o.configuration !== 'without_skill' && versionNumber(o.version) !== null,
-  )
+  const skilled = outputs.filter(testedVersion)
   const bare = outputs.filter((o) => o.configuration === 'without_skill')
   if (!skilled.length)
     return { a: null, b: newestFirstSample(bare) ?? newestFirstSample([...outputs]) }

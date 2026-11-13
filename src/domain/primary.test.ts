@@ -61,6 +61,37 @@ describe('primaryArtifact', () => {
   })
 })
 
+describe('the file the run’s prompt names', () => {
+  it('reads outputs/output.* before a file the agent named itself, whatever the name order', () => {
+    expect(primaryArtifact([md('analysis.md'), md('output.md')], undefined)).toEqual(
+      md('output.md'),
+    )
+    expect(primaryArtifact([code('helper.py'), code('output.py')], undefined, ['code'])).toEqual(
+      code('output.py'),
+    )
+    // The deliverable in plain text still stands before a note in Markdown.
+    expect(primaryArtifact([md('notes.md'), md('output.txt')], undefined)).toEqual(md('output.txt'))
+  })
+
+  it('keeps a main page first among pages', () => {
+    expect(primaryArtifact([page('index.html'), page('output.html')], undefined, ['html'])).toEqual(
+      page('index.html'),
+    )
+    expect(primaryArtifact([page('about.html'), page('output.html')], undefined, ['html'])).toEqual(
+      page('output.html'),
+    )
+  })
+
+  it('means the file right under outputs/, not one of that name in a folder or a flat run', () => {
+    expect(primaryArtifact([md('essay.md'), md('z/output.md')], undefined)).toEqual(md('essay.md'))
+    const flat: Artifact[] = [
+      { file: 'a.md', kind: 'markdown' },
+      { file: 'output.md', kind: 'markdown' },
+    ]
+    expect(primaryArtifact(flat, undefined)).toEqual(flat[0])
+  })
+})
+
 describe('drawnArtifact', () => {
   it('takes the primary when it is drawn, else the main page, else a picture', () => {
     expect(drawnArtifact([picture('hero.png')], picture('hero.png'))).toEqual(picture('hero.png'))

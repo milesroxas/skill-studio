@@ -21,6 +21,7 @@ import { stringify as toYaml } from 'yaml'
 import {
   assertInside,
   assertSafePath,
+  dayOf,
   isDir,
   isFile,
   readTree,
@@ -44,11 +45,18 @@ const SKILL_FILES = ['SKILL.md', 'references']
 const NEVER_COPIED = new Set(['node_modules', 'venv', '__pycache__'])
 const passedOver = (name: string): boolean => NEVER_COPIED.has(name)
 
-/** A skill's name and description from its SKILL.md; the folder's name when it gives none. */
-export function skillHead(skillDir: string): { name: string; description: string } {
+/**
+ * A skill's name and description from its SKILL.md; the folder's name when it
+ * gives none. A copy of the skill sits in a folder of another name, so its
+ * caller says which `folder` the skill is.
+ */
+export function skillHead(
+  skillDir: string,
+  folder = basename(skillDir),
+): { name: string; description: string } {
   const { meta } = readFrontMatter(readFileSync(join(skillDir, 'SKILL.md'), 'utf8'))
   return {
-    name: metaText(meta, 'name') || basename(skillDir),
+    name: metaText(meta, 'name') || folder,
     description: metaText(meta, 'description') ?? '',
   }
 }
@@ -304,15 +312,18 @@ export function skillIdentity(skillDir: string): { hash: string; files: string }
  * or by any run, or else the next number, marked changed.
  *
  * A version stamped from SKILL.md and references/ alone, before the other
- * files were counted, cannot say which scripts and assets it had. It is taken
- * for the working tree only while it is the newest version and nothing has
- * stamped it whole, and the hash handed back is the whole one, so the next
- * run stamps it and a later change to a script is a new version.
+ * files were counted, cannot say which scripts and assets it had; the copy a
+ * run of it took can. So a tree with other files is such a version only when
+ * it is the same as a copy one of the version's runs holds (`copyOf` says
+ * where a run keeps its copy). The hash handed back is the whole one, so the
+ * next run stamps it. A version with nothing but that stamp and no such copy
+ * is not the tree: adding the first script to a skill is a new version.
  */
 export function skillVersions(
   skillDir: string,
   runMetas: RunMeta[],
   saved: SkillVersion[] = [],
+  copyOf?: (run: string) => string,
 ): SkillVersions {
   const versions = new Map<string, SkillVersion>(saved.map((v) => [v.version, v]))
   const stamps = new Map<string, Set<string>>()
@@ -331,21 +342,26 @@ export function skillVersions(
       name: meta.skillName,
       hash: meta.skillHash,
       note: meta.note,
-      date: meta.createdAt.slice(0, 10) || undefined,
+      date: dayOf(meta.createdAt),
       saved: false,
     })
   }
   const list = [...versions.values()].sort(
     (a, b) => Number(a.version.slice(1)) - Number(b.version.slice(1)),
   )
-  const stampsOf = (v: SkillVersion | undefined): Set<string> =>
-    (v && stamps.get(v.version)) || new Set()
   const { hash, files } = skillIdentity(skillDir)
-  const newest = list.at(-1)
-  const filesOnly = stampsOf(newest)
+  const stamped = (v: SkillVersion, mark: string): boolean =>
+    stamps.get(v.version)?.has(mark) ?? false
+  /** A run of `v` kept a copy of the skill that is the working tree, other files and all. */
+  const ranAsIs = (v: SkillVersion): boolean =>
+    runMetas.some((meta) => {
+      if (!copyOf || meta.skillVersion !== v.version) return false
+      const copy = copyOf(meta.name)
+      return isDir(copy) && skillIdentity(copy).hash === hash
+    })
   const match =
-    list.find((v) => stampsOf(v).has(hash)) ??
-    (filesOnly.size === 1 && filesOnly.has(files) ? newest : undefined)
+    list.find((v) => stamped(v, hash)) ??
+    (hash === files ? undefined : list.find((v) => stamped(v, files) && ranAsIs(v)))
   const next = `v${list.reduce((max, v) => Math.max(max, Number(v.version.slice(1))), -1) + 1}`
   return {
     versions: list,

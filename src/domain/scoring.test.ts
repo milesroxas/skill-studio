@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { DEFAULT_CONFIG } from './config.ts'
-import type { PackScoring } from './pack.ts'
+import { type PackScoring, packFailure } from './pack.ts'
 import type { BenchConfig } from './schemas.ts'
 import { layerOrder, scoreResult } from './scoring.ts'
 
@@ -49,6 +49,7 @@ const result = (packs: Record<string, unknown>, over = {}) => ({
   artifacts: [],
   words: 100,
   range: null,
+  flags: [] as string[],
   ...over,
 })
 
@@ -199,6 +200,75 @@ describe('verdicts', () => {
       { 'rule:adherence': true },
     )
     expect(verdicts).toEqual([expect.objectContaining({ met: true, corrected: true })])
+  })
+})
+
+describe('an output a pack failed on', () => {
+  const packs = { rules: { layers: { adherence: 1 } } }
+  const flags = ['voice pack failed: no network']
+
+  it('has no total, keeps the layers that were scored, and opens with why', () => {
+    const scored = scoreResult(result(packs, { flags }), config(), scorers)
+    // Counted from adherence alone the total would read 100, a score of the whole it is not.
+    expect(scored.scores).toEqual({ total: null, voice: null, clarity: null, adherence: 100 })
+    expect(scored.flags[0]).toBe('voice pack failed: no network')
+    expect(scored.verdicts[0]).toMatchObject({
+      text: 'Grading failed: no network',
+      met: false,
+      layer: null,
+    })
+  })
+
+  it('scores as before once the pack that failed is no longer one the skill is graded as', () => {
+    const scored = scoreResult(result(packs, { flags }), config({ packs: ['rules'] }), scorers)
+    expect(scored.scores.total).toBe(100)
+    expect(scored.flags).toEqual([])
+    expect(scored.verdicts.map((v) => v.text)).toEqual(['adherence'])
+  })
+
+  it('reads only a failure from the flags it is given: the rest are counted again', () => {
+    const stale = ['length: 3 words, case asks 50 to 120', 'rule not followed (S): be brief']
+    const scored = scoreResult(result(packs, { flags: stale }), config(), scorers)
+    expect(scored.scores.total).toBe(100)
+    expect(scored.flags).toEqual(['voice: not judged'])
+  })
+
+  it('still scores 0 when the output has nothing in it', () => {
+    const scored = scoreResult(result(packs, { flags, primary: null }), config(), scorers)
+    expect(scored.scores.total).toBe(0)
+  })
+})
+
+describe('packFailure', () => {
+  it('reads the pack and the reason from the flag a failed pack leaves, and from no other flag', () => {
+    expect(packFailure('generic pack failed: no network')).toEqual({
+      pack: 'generic',
+      reason: 'no network',
+    })
+    // An error may run over several lines, or say nothing at all.
+    expect(packFailure('code pack failed: spawn sh ENOENT\n  at exec')?.reason).toBe(
+      'spawn sh ENOENT\n  at exec',
+    )
+    expect(packFailure('code pack failed: ')).toEqual({ pack: 'code', reason: '' })
+    expect(packFailure('rule not followed (S): say when a pack failed: plainly')).toBeNull()
+    expect(packFailure('no output to judge')).toBeNull()
+  })
+})
+
+describe('an output with nothing in it', () => {
+  it('is scored from that one fact: no part reads as met beside its 0', () => {
+    const scored = scoreResult(
+      result(
+        { voice: { layers: { voice: 1, clarity: 1 } }, rules: { layers: { adherence: 1 } } },
+        { primary: null },
+      ),
+      config(),
+      scorers,
+    )
+    expect(scored.scores).toEqual({ total: 0, voice: 0, clarity: 0, adherence: 0 })
+    expect(scored.verdicts.map((v) => [v.text, v.met, v.layer])).toEqual([
+      ['no output to judge', false, null],
+    ])
   })
 })
 

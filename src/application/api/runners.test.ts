@@ -147,6 +147,17 @@ describe('skill.grade', () => {
     )
     await finished(first.job)
   })
+
+  it('refuses, with no key, a run Jev scored: grading it would take those scores away', async () => {
+    const run = cutOffRun('scored')
+    const scored = JSON.stringify({ model: 'jev-1.14.0', results: [] })
+    writeFileSync(join(run, 'report.json'), scored)
+    await expect(invoke(operations, 'skill.grade', { skill, run: 'scored' })).rejects.toThrow(
+      'Jev scored this run, and no TypeSafe key is set to grade it again.',
+    )
+    expect(readFileSync(join(run, 'report.json'), 'utf8')).toBe(scored)
+    expect(listJobs(1000).some((job) => job.title === 'Grade scored')).toBe(false)
+  })
 })
 
 describe('guards on a running job', () => {

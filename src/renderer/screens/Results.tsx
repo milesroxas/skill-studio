@@ -28,6 +28,7 @@ import {
   casePair,
   casesRun,
   caseTitle,
+  cutOf,
   isWithoutSkill,
   liftOf,
   noSkillScore,
@@ -36,6 +37,9 @@ import {
   outputByKey,
   runTitle,
   totalOf,
+  unscoredLine,
+  unscoredWords,
+  versionOutputs,
   versionScore,
   versionsRun,
   WITHOUT_SKILL,
@@ -50,7 +54,8 @@ export const Results = memo(function Results({ ctx }: { ctx: Ctx }) {
   const caseIds = useMemo(() => casesRun(state, outputs), [state, outputs])
   // The same figures All cases opens with: one writer's first version against its latest.
   const lift = useMemo(() => liftOf(state, outputs, config), [state, outputs, config])
-  const latest = useMemo(() => versionsRun(outputs).at(-1), [outputs])
+  const versions = useMemo(() => versionsRun(outputs), [outputs])
+  const latest = versions.at(-1)
   const latestScore = useMemo(
     () => (latest ? versionScore(outputs, config, latest) : null),
     [outputs, config, latest],
@@ -157,7 +162,14 @@ export const Results = memo(function Results({ ctx }: { ctx: Ctx }) {
                       />
                     </NavButtonMeta>
                   ) : latest ? (
-                    <NavButtonMeta>Only {latest} so far</NavButtonMeta>
+                    // With no lift to show, the line says only what is sure: one version ran, or the latest has no score.
+                    versions.length === 1 ? (
+                      <NavButtonMeta>Only {latest} so far</NavButtonMeta>
+                    ) : latestScore === null ? (
+                      <NavButtonMeta>
+                        {latest} {unscoredWords(cutOf(versionOutputs(outputs, latest)))}
+                      </NavButtonMeta>
+                    ) : null
                   ) : floor !== null ? (
                     <NavButtonMeta>{WITHOUT_SKILL}</NavButtonMeta>
                   ) : null}
@@ -173,7 +185,8 @@ export const Results = memo(function Results({ ctx }: { ctx: Ctx }) {
                     current={!all && id === caseId}
                     arrived={arrivedCase(id)}
                     onClick={() => go('results', { case: id })}
-                    end={<ListScore total={totals.b ?? totals.a} />}
+                    // The later output's score, or none: an earlier version's never stands under its name.
+                    end={<ListScore total={pair.b ? totals.b : totals.a} />}
                   >
                     <NavButtonTitle>{caseTitle(state, id)}</NavButtonTitle>
                     <NavButtonMeta>
@@ -204,7 +217,8 @@ export const Results = memo(function Results({ ctx }: { ctx: Ctx }) {
 
 /**
  * The line under a case on the list: how its score moved between the two
- * outputs it opens with, or, with one output, that only one version has run it.
+ * outputs it opens with. Where one of them has no score the line says which
+ * and why, and with one output, that only one version has run the case.
  */
 function CaseMove({
   pair,
@@ -213,7 +227,9 @@ function CaseMove({
   pair: OutputPair
   totals: { a: number | null; b: number | null }
 }) {
-  if (pair.a && pair.b && totals.a !== null && totals.b !== null)
+  if (pair.a && pair.b) {
+    if (totals.b === null) return unscoredLine(pair.b)
+    if (totals.a === null) return unscoredLine(pair.a)
     return (
       <ScoreChange
         from={totals.a}
@@ -221,6 +237,7 @@ function CaseMove({
         against={isWithoutSkill(pair.a.run) ? null : runTitle(pair.a.run, { short: true })}
       />
     )
+  }
   const only = pair.b ?? pair.a
   if (!only) return null
   // One output has nothing to move from: the line says so, rather than a bare "v0".

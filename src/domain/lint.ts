@@ -188,7 +188,7 @@ export function rulesIn(selection: string): Array<{ raw: string; text: string }>
   return bulletsOf(selection.split('\n')).flatMap((bullet) => {
     const raw = bullet.lines.join('\n')
     const text = raw
-      .replace(/^[-*]\s+/, '')
+      .replace(/^\s*[-*]\s+/, '')
       .replace(/\n\s*(?:[-*+]|\d+[.)])?\s*/g, ' ')
       .replace(/\*\*([^*]+)\*\*/g, '$1')
       .replace(/`([^`]+)`/g, '$1')

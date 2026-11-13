@@ -216,7 +216,7 @@ Two versions only a few points apart may not really differ. Run with two or more
 | An agent says "not set up" in the Run panel | Install that agent and sign in to it |
 | A skill is missing from the Library | Choose **Every place**, or add its folder under **Where skills are found** |
 | The agent says it cannot find a file | Add the file to the case under **Files** |
-| A bullet gets no number | Make it four words or more, and not part of a numbered list |
+| A bullet gets no number | Make it four words or more, not part of a numbered list, and not the same as a bullet above it |
 | A score looks wrong | Read the transcript, then mark the rule or check Jev got wrong |
 | Results shows one answer, not two | Change the skill and run again, so there are two versions to compare |
 

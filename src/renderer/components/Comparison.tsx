@@ -42,6 +42,7 @@ import {
   apartLine,
   caseTitle,
   drawnOf,
+  gradingFailed,
   isWithoutSkill,
   layersOf,
   type Output,
@@ -150,7 +151,7 @@ export function Comparison({
     const idle = names.filter((run) => !grading(run) && !writing(run))
     if (!idle.length) return
     void grade.start(idle.map(titleOf), async () => {
-      for (const run of idle) await api.grade(run, state.jevKey)
+      for (const run of idle) await api.grade(run)
       report(
         idle.length > 1
           ? 'Grading both runs'
@@ -595,6 +596,7 @@ function Side({
   const { state, config, go, report, reload } = ctx
   const scored = scoreOf(output, config)
   const otherScored = other ? scoreOf(other, config) : null
+  const ungraded = !scored || gradingFailed(scored)
   // The artifact in view, kept by the output's key: a reload after a correction
   // brings a new output object for the same output, and the view holds.
   const [picked, setPicked] = useState<{ key: string; view: OutputView | null } | null>(null)
@@ -654,10 +656,11 @@ function Side({
           </>
         }
         action={
-          // Grading is the next step for an output with no score. One with a score is graded
-          // again from the header's menu, and says so here while it is. One still being written
-          // is graded by its run when it is done.
-          !writing && (!scored || grading) ? (
+          // Grading is the next step for an output with no score, one whose grading failed part
+          // way among them. One with a score is graded again from the header's menu, and says so
+          // here while it is. One still being written is graded by its run when it is done, and
+          // one cut short, or not finished for all the run says, is not graded.
+          !writing && (grading || (ungraded && !output.cut)) ? (
             <Button
               type="button"
               variant="ghost-muted"
@@ -687,7 +690,15 @@ function Side({
           onCorrect={correct}
         />
       ) : (
-        <Hint inset>{writing ? 'Graded when it is done.' : 'Not graded yet.'}</Hint>
+        <Hint inset>
+          {writing
+            ? 'Graded when it is done.'
+            : output.cut === 'stopped'
+              ? 'Stopped before it finished, so it has no score.'
+              : output.cut === 'unfinished'
+                ? 'Not finished, so it has no score.'
+                : 'Not graded yet.'}
+        </Hint>
       )}
       {reading && writing ? <OutputWriting place="card" /> : null}
       {reading && !writing ? (

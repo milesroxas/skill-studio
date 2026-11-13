@@ -7,7 +7,7 @@
 import { readFileSync, statSync } from 'node:fs'
 import { join } from 'node:path'
 import { parseSampleDir } from '@domain/run-name.ts'
-import type { Report, RunMeta, SampleMeta } from '@domain/schemas.ts'
+import type { Artifact, Report, RunMeta, SampleMeta } from '@domain/schemas.ts'
 import { metaList, metaText, readFrontMatter } from '@domain/text.ts'
 import type { FileHead, RunView, Sample } from '@domain/views.ts'
 import { detectArtifacts } from './artifacts.ts'
@@ -19,6 +19,9 @@ import { isVersionLabel, savedVersionSource, savedVersions } from './versions.ts
 const runsDir = (skillDir: string): string => join(skillDir, 'evals/runs')
 export const anchorsDir = (skillDir: string): string => join(skillDir, 'evals/anchors')
 export const runDir = (skillDir: string, run: string): string => join(runsDir(skillDir), run)
+/** Where a run keeps the copy of the skill its samples were made from: what the run is graded on. */
+export const skillCopy = (skillDir: string, run: string): string =>
+  join(runDir(skillDir, run), '_skill')
 
 /**
  * A file of a sample. A legacy sample is a flat file at the run root, so its
@@ -83,30 +86,6 @@ function readRunJson<T>(path: string, fallback: T): T {
 const isLegacy = (dir: string): boolean =>
   !listDirs(dir).some((d) => parseSampleDir(d)) && listFiles(dir, isLegacyOutput).length > 0
 
-/** The samples of a run directory, in name order. */
-export function runSamples(dir: string): Sample[] {
-  if (isLegacy(dir))
-    return listFiles(dir, isLegacyOutput).map((file) => ({
-      name: file,
-      path: dir,
-      artifacts: [{ file, kind: 'markdown' as const }],
-      hasTranscript: false,
-      legacy: true,
-    }))
-  return listDirs(dir)
-    .filter((d) => parseSampleDir(d))
-    .map((name) => {
-      const path = join(dir, name)
-      return {
-        name,
-        path,
-        artifacts: detectArtifacts(path),
-        hasTranscript: isFile(join(path, 'transcript.jsonl')),
-        legacy: false,
-      }
-    })
-}
-
 type LegacySample = Partial<SampleMeta> & { file?: string }
 type RawMeta = Partial<Omit<RunMeta, 'samples'>> & { samples?: LegacySample[] }
 
@@ -127,7 +106,83 @@ function sampleMetaOf(s: LegacySample, i: number): SampleMeta {
     steps: s.steps ?? 0,
     toolCalls: s.toolCalls ?? 0,
     ...(s.stopped === true ? { stopped: true } : {}),
+    ...(Array.isArray(s.outputs)
+      ? { outputs: s.outputs.filter((file) => typeof file === 'string') }
+      : {}),
   }
+}
+
+/** The samples a `run.json` lists; null when it holds no list of them. An entry that is no record is passed over. */
+const listedSamples = (raw: RawMeta | null): SampleMeta[] | null =>
+  raw && typeof raw === 'object' && Array.isArray(raw.samples)
+    ? raw.samples.filter((s) => s && typeof s === 'object').map(sampleMetaOf)
+    : null
+
+const readRaw = (dir: string): RawMeta | null =>
+  readRunJson<RawMeta | null>(join(dir, 'run.json'), null)
+
+/**
+ * A sample's outputs: the files under `outputs/` the run recorded when its
+ * agent ended, those of them still there. A file put there since, such as one
+ * a check command builds, is not something the agent wrote. A sample with no
+ * record, one still being written or from a run that kept none, is every file
+ * under `outputs/`.
+ */
+function outputsOf(path: string, recorded: string[] | undefined): Artifact[] {
+  const found = detectArtifacts(path)
+  if (!recorded) return found
+  const wrote = new Set(recorded)
+  return found.filter((artifact) => wrote.has(artifact.file))
+}
+
+/**
+ * The samples of a run directory, in name order. In a run that lists its
+ * samples, each is marked with how its agent ended when that was not at its
+ * own end (`Sample.cut`): this is the one place that says so, for grading and
+ * for Results alike.
+ */
+export function runSamples(dir: string): Sample[] {
+  if (isLegacy(dir))
+    return listFiles(dir, isLegacyOutput).map((file) => ({
+      name: file,
+      path: dir,
+      artifacts: [{ file, kind: 'markdown' as const }],
+      hasTranscript: false,
+      legacy: true,
+    }))
+  const listed = listedSamples(readRaw(dir))
+  const recorded = new Map((listed ?? []).map((s) => [s.dir, s]))
+  return listDirs(dir)
+    .filter((d) => parseSampleDir(d))
+    .map((name) => {
+      const path = join(dir, name)
+      const record = recorded.get(name)
+      const cut = !listed ? null : !record ? 'unlisted' : record.stopped ? 'stopped' : null
+      return {
+        name,
+        path,
+        artifacts: outputsOf(path, record?.outputs),
+        hasTranscript: isFile(join(path, 'transcript.jsonl')),
+        legacy: false,
+        ...(cut ? { cut } : {}),
+      }
+    })
+}
+
+/**
+ * The samples of a run whose agents ran to their end, which are the ones
+ * grading reads, and how many folders were left out: those a stop ended, and
+ * those the run never recorded, each made for an agent that was cut off (the
+ * app quit or crashed). Neither says anything of the skill. A run with no
+ * list of its samples, and one of flat files, is graded whole.
+ */
+export function finishedSamples(
+  skillDir: string,
+  run: string,
+): { samples: Sample[]; unfinished: number } {
+  const all = runSamples(runDir(skillDir, run))
+  const samples = all.filter((sample) => !sample.cut)
+  return { samples, unfinished: all.length - samples.length }
 }
 
 /**
@@ -148,10 +203,10 @@ function stampOf(raw: RawMeta): Pick<RunMeta, 'skillVersion' | 'skillName' | 'sk
 /** `run.json` with the legacy shape brought up to `RunMeta`. */
 export function readRunMeta(skillDir: string, name: string): RunMeta | null {
   const dir = runDir(skillDir, name)
-  const raw = readRunJson<RawMeta | null>(join(dir, 'run.json'), null)
+  const raw = readRaw(dir)
   if (!raw || typeof raw !== 'object') return null
   const legacy = isLegacy(dir)
-  const samples = (Array.isArray(raw.samples) ? raw.samples : []).map(sampleMetaOf)
+  const samples = listedSamples(raw) ?? []
   return {
     name,
     skillPath: raw.skillPath ?? skillDir,
@@ -175,7 +230,7 @@ export function readRun(skillDir: string, name: string): RunView {
     meta: readRunMeta(skillDir, name),
     report: readRunJson<Report | null>(join(dir, 'report.json'), null),
     samples: runSamples(dir),
-    hasSkill: isDir(join(dir, '_skill')),
+    hasSkill: isDir(skillCopy(skillDir, name)),
   }
 }
 
@@ -203,17 +258,19 @@ export const runsOfVersion = (skillDir: string, version: string): string[] =>
     .map((meta) => meta.name)
 
 export const versionsOf = (skillDir: string) =>
-  skillVersions(skillDir, runMetas(skillDir), savedVersions(skillDir))
+  skillVersions(skillDir, runMetas(skillDir), savedVersions(skillDir), (run) =>
+    skillCopy(skillDir, run),
+  )
 
 /** The folder holding a version's files: its saved copy, or else the snapshot of the first run made with it. */
 export function versionSource(skillDir: string, version: string): string {
   const saved = savedVersionSource(skillDir, version)
   if (saved) return saved
   const run = runMetas(skillDir).find(
-    (meta) => meta.skillVersion === version && isDir(join(runDir(skillDir, meta.name), '_skill')),
+    (meta) => meta.skillVersion === version && isDir(skillCopy(skillDir, meta.name)),
   )
   if (!run) throw new Error(`No copy of ${version} is kept: it was neither saved nor run.`)
-  return join(runDir(skillDir, run.name), '_skill')
+  return skillCopy(skillDir, run.name)
 }
 
 /** A version's SKILL.md and references, as text. */
@@ -222,7 +279,7 @@ export const versionFiles = (skillDir: string, version: string): Record<string, 
 
 /** The SKILL.md and references a run was made with, as text. */
 export const runSkillFiles = (skillDir: string, run: string): Record<string, string> =>
-  skillFiles(join(runDir(skillDir, run), '_skill'))
+  skillFiles(skillCopy(skillDir, run))
 
 export const sampleTranscript = (skillDir: string, run: string, sample: string) =>
   readTranscript(join(runDir(skillDir, run), sample, 'transcript.jsonl'))

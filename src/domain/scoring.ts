@@ -3,6 +3,7 @@ import {
   NO_CORRECTIONS,
   noOutput,
   type PackScoring,
+  packFailure,
   type ScoreSubject,
   type Verdict,
 } from './pack.ts'
@@ -50,17 +51,34 @@ function commonFlags(subject: ScoreSubject): string[] {
 /**
  * Layer scores (0 to 100), the total, the flags, the verdicts and Jev's
  * confidence for one graded output, from every active pack's stored answers.
- * An output with nothing in it scores 0, in total and on every layer a pack
- * scored, so a failed sample counts as a failure wherever scores are averaged.
  * Each layer is held to 0 to 100 whatever a pack returns, so no setting can
  * take the total past either end. `corrections` are the reader's own answers,
  * which stand over Jev's. Pure, so the page rescores as a setting moves or a
  * verdict is corrected.
+ *
+ * An output with nothing in it scores 0, in total and on every layer a pack
+ * scored, so a failed sample counts as a failure wherever scores are averaged.
+ * It is scored from that one fact: what a pack counted about the run is no
+ * verdict of it.
+ *
+ * An output one of the active packs failed on (`packFailure` among the flags
+ * its grading left) has no total: one counted from the layers that were left
+ * would read as a score of the whole. Its other layers stand, and its flags
+ * and verdicts open with the failure.
  */
 export function scoreResult(
   result: Pick<
     ReportResult,
-    'packs' | 'case' | 'primary' | 'artifacts' | 'words' | 'range' | 'blank' | 'pixels' | 'size'
+    | 'packs'
+    | 'case'
+    | 'primary'
+    | 'artifacts'
+    | 'words'
+    | 'range'
+    | 'blank'
+    | 'pixels'
+    | 'size'
+    | 'flags'
   >,
   config: BenchConfig,
   scorers: PackScoring[],
@@ -77,8 +95,17 @@ export function scoreResult(
     size: result.size,
   }
   const raw: Record<string, number | null> = {}
-  const flags = commonFlags(subject)
-  const verdicts: Verdict[] = flags.map(finding)
+  // A pack since unticked is not counted, so its failure takes nothing away.
+  const failed = result.flags.flatMap((flag) => {
+    const failure = packFailure(flag)
+    return failure && config.packs.includes(failure.pack) ? [{ flag, ...failure }] : []
+  })
+  const common = commonFlags(subject)
+  const flags = [...failed.map((f) => f.flag), ...common]
+  const verdicts: Verdict[] = [
+    ...failed.map((f) => finding(`Grading failed: ${f.reason}`)),
+    ...common.map(finding),
+  ]
   const certainties: number[] = []
   const empty = noOutput(subject)
   for (const pack of scorers) {
@@ -90,26 +117,25 @@ export function scoreResult(
       raw[layer] = empty && held !== null ? 0 : held
     }
     flags.push(...scored.flags)
-    verdicts.push(...scored.verdicts)
+    if (!empty) verdicts.push(...scored.verdicts)
     certainties.push(...pack.certainties(answers))
   }
-  return { scores: scoresOf(raw, config, empty), flags, verdicts, confidence: mean(certainties) }
+  const total = empty ? 0 : failed.length ? null : totalOf(raw, config)
+  return { scores: scoresOf(raw, total), flags, verdicts, confidence: mean(certainties) }
 }
 
-/**
- * Each layer's share as a score out of 100, and the total: the layers with
- * points, weighted by them. An output with nothing in it totals 0.
- */
-function scoresOf(
-  shares: Record<string, number | null>,
-  config: BenchConfig,
-  empty: boolean,
-): Scores {
+/** The total out of 100: the layers with points, weighted by them; null when none of those was scored. */
+function totalOf(shares: Record<string, number | null>, config: BenchConfig): number | null {
   const present = Object.entries(shares).filter(
     ([layer, v]) => v !== null && (config.weights[layer] ?? 0) > 0,
   ) as Array<[string, number]>
   const total = weighted(present.map(([layer, v]) => [v, config.weights[layer]]))
-  const scores: Scores = { total: empty ? 0 : total === null ? null : Math.round(total * 100) }
+  return total === null ? null : Math.round(total * 100)
+}
+
+/** Each layer's share as a score out of 100, under the total. */
+function scoresOf(shares: Record<string, number | null>, total: number | null): Scores {
+  const scores: Scores = { total }
   for (const [layer, v] of Object.entries(shares))
     scores[layer] = v === null ? null : Math.round(v * 100)
   return scores

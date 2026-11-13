@@ -3,11 +3,12 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { loadCases } from '@infrastructure/cases.ts'
 import type { Engine } from '@infrastructure/engines/index.ts'
+import type { EngineResult } from '@infrastructure/engines/types.ts'
 import { readJson } from '@infrastructure/fs.ts'
-import { versionsOf } from '@infrastructure/runs.ts'
+import { finishedSamples, readRun, versionsOf } from '@infrastructure/runs.ts'
 import { saveVersion } from '@infrastructure/versions.ts'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { generateRun, samplesPerCase } from './generate.ts'
+import { generateRun, INPUTS_DIR, samplesPerCase, stagedInput, stagedInputs } from './generate.ts'
 
 let skill: string
 beforeEach(() => {
@@ -26,8 +27,21 @@ beforeEach(() => {
 })
 afterEach(() => rmSync(skill, { recursive: true, force: true }))
 
-/** An engine that does `act` in each sample folder in place of an agent, and counts its sessions. */
-function engineThat(act: (cwd: string, call: number) => void): Engine & { calls: number } {
+const ENDED: EngineResult = {
+  ok: true,
+  error: null,
+  costUsd: null,
+  tokens: null,
+  model: 'small',
+  finalText: null,
+}
+
+/**
+ * An engine that does `act` in each sample folder in place of an agent, and
+ * counts its sessions. What `act` returns is laid over a session that ended
+ * well by itself.
+ */
+function engineThat(act: (cwd: string, call: number) => unknown): Engine & { calls: number } {
   const engine: Engine & { calls: number } = {
     calls: 0,
     id: 'fake',
@@ -40,8 +54,8 @@ function engineThat(act: (cwd: string, call: number) => void): Engine & { calls:
     models: async () => ['small'],
     run: async (request) => {
       engine.calls += 1
-      act(request.cwd, engine.calls)
-      return { ok: true, error: null, costUsd: null, tokens: null, model: 'small', finalText: null }
+      const how = act(request.cwd, engine.calls)
+      return { ...ENDED, ...(how && typeof how === 'object' ? how : {}) }
     },
   }
   return engine
@@ -168,6 +182,100 @@ describe('generateRun', () => {
     )
     expect(meta.samples).toHaveLength(1)
     expect(meta.finishedAt).not.toBeNull()
+  })
+
+  it('marks a sample the stop ended as stopped, half a file written or none, and grading leaves it out', async () => {
+    const stop = new AbortController()
+    const engine = engineThat((cwd) => {
+      writeFileSync(join(cwd, 'outputs/note.md'), 'Half a no')
+      stop.abort()
+      // As an engine reports an agent the stop ended.
+      return { ok: false, error: 'stopped' }
+    })
+    const { name, meta } = await generateRun({ ...options(engine, 2), signal: stop.signal })
+    expect(meta.samples).toEqual([
+      expect.objectContaining({ dir: 'note-s1', ok: true, stopped: true }),
+    ])
+    expect(finishedSamples(skill, name)).toEqual({ samples: [], unfinished: 1 })
+  })
+
+  it('records no sample for an agent the process could not start, and grading leaves its folder out', async () => {
+    const engine = engineThat((cwd, call) => {
+      writeFileSync(join(cwd, 'outputs/note.md'), 'A note.')
+      // What `exec` rejects with once the app has begun to quit.
+      if (call === 2) throw new Error('Stopping.')
+    })
+    const { name, dir, meta } = await generateRun(options(engine, 3))
+    expect(meta.samples.map((s) => s.dir)).toEqual(['note-s1'])
+    expect(existsSync(join(dir, 'note-s2'))).toBe(true)
+    expect(finishedSamples(skill, name)).toMatchObject({ unfinished: 1 })
+    expect(finishedSamples(skill, name).samples.map((s) => s.name)).toEqual(['note-s1'])
+  })
+
+  it('records what each agent wrote, so a file put under outputs/ later is no output', async () => {
+    const engine = engineThat((cwd) => {
+      mkdirSync(join(cwd, 'outputs/src'))
+      writeFileSync(join(cwd, 'outputs/src/main.ts'), 'export {}')
+      writeFileSync(join(cwd, 'outputs/README.md'), 'How to run it.')
+    })
+    const { name, dir, meta } = await generateRun(options(engine, 1))
+    expect(meta.samples[0].outputs).toEqual(['outputs/README.md', 'outputs/src/main.ts'])
+    // A check command builds the script: it is not something the agent wrote.
+    writeFileSync(join(dir, 'note-s1/outputs/src/main.js'), 'export {}')
+    expect(readRun(skill, name).samples[0].artifacts.map((a) => a.file)).toEqual([
+      'outputs/README.md',
+      'outputs/src/main.ts',
+    ])
+  })
+
+  it('keeps two input files of one name apart, so the agent gets both', async () => {
+    for (const from of ['a', 'b']) {
+      mkdirSync(join(skill, 'evals/files', from), { recursive: true })
+      writeFileSync(join(skill, 'evals/files', from, 'data.csv'), `from ${from}`)
+    }
+    writeFileSync(join(skill, 'evals/files/only.txt'), 'one of a kind')
+    const files = ['evals/files/a/data.csv', 'evals/files/b/data.csv', 'evals/files/only.txt']
+    writeFileSync(
+      join(skill, 'evals/evals.json'),
+      JSON.stringify({ evals: [{ id: 7, name: 'Tables', prompt: 'Compare them.', files }] }),
+    )
+    const tables = loadCases(skill).filter((c) => c.id === '7-tables')
+    let prompt = ''
+    const seen: string[] = []
+    const engine = engineThat((cwd) => {
+      prompt = readFileSync(join(cwd, 'prompt.md'), 'utf8')
+      for (const from of ['a', 'b'])
+        seen.push(readFileSync(join(cwd, 'files/evals/files', from, 'data.csv'), 'utf8'))
+      seen.push(readFileSync(join(cwd, 'files/only.txt'), 'utf8'))
+    })
+    const { dir } = await generateRun({ ...options(engine, 1), cases: tables })
+    expect(seen).toEqual(['from a', 'from b', 'one of a kind'])
+    expect(prompt).toContain(
+      'files/evals/files/a/data.csv, files/evals/files/b/data.csv, files/only.txt',
+    )
+    // Grading finds each where the run put it.
+    const inputs = join(dir, INPUTS_DIR)
+    expect(readFileSync(stagedInput(inputs, tables[0], files[1]), 'utf8')).toBe('from b')
+    expect(stagedInput(inputs, tables[0], files[2])).toBe(join(inputs, '7-tables/only.txt'))
+    // A case that has lost one of the two since still names where the run kept the other.
+    const alone = { ...tables[0], files: [files[1], files[2]] }
+    expect(stagedInputs(inputs, alone, files[1])).toEqual([
+      join(inputs, '7-tables/data.csv'),
+      join(inputs, '7-tables', files[1]),
+    ])
+  })
+
+  it('names the skill to a run against an older version as that version named it', async () => {
+    saveVersion(skill, versionsOf(skill).current, 'Short notes', '')
+    writeFileSync(join(skill, 'SKILL.md'), '---\nname: Memo Skill\n---\n\n- Keep it long.\n')
+    const seen: Record<string, string> = {}
+    const engine = engineThat((cwd) => {
+      seen.prompt = readFileSync(join(cwd, 'prompt.md'), 'utf8')
+      seen.skill = readFileSync(join(cwd, '.agents/skills/notes-skill/SKILL.md'), 'utf8')
+    })
+    await generateRun({ ...options(engine, 1), configuration: 'old_skill', baseline: 'v0' })
+    expect(seen.prompt).toContain('Use the Notes Skill skill: read .agents/skills/notes-skill/')
+    expect(seen.skill).toContain('Keep it short')
   })
 
   it('runs against a version saved by hand and never run, stamped with that version', async () => {

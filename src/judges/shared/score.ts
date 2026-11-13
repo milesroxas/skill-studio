@@ -2,7 +2,7 @@
 import { weightMark } from '@domain/case-draft.ts'
 import type { Corrections, JudgedVerdict, Verdict } from '@domain/pack.ts'
 import { weighted } from '@domain/stats.ts'
-import { jevVerdict } from '@domain/verdict.ts'
+import { checkIds, jevVerdict } from '@domain/verdict.ts'
 
 export interface StatementAnswer {
   id: string
@@ -23,15 +23,16 @@ export const clip = (text: string, max = 110): string =>
 export const unmetFlag = (s: StatementAnswer): string =>
   `grader ${s.id}${s.weight === 1 ? '' : ` (${weightMark(s.weight)})`} not met: ${clip(s.text)}`
 
-/** One of a case's checks as a verdict of `layer`. */
+/** One of a case's checks as a verdict of `layer`, under the name `checkIds` gave it. */
 const checkVerdict = (
   s: StatementAnswer,
+  id: string,
   layer: string,
   yes: number,
   corrections: Corrections,
 ): JudgedVerdict =>
   jevVerdict(
-    { kind: 'check', text: s.text, layer, ...(s.weight === 1 ? {} : { weight: s.weight }) },
+    { kind: 'check', id, text: s.text, layer, ...(s.weight === 1 ? {} : { weight: s.weight }) },
     s.noul,
     yes,
     corrections,
@@ -56,7 +57,8 @@ export function markChecks(
   yes: number,
   corrections: Corrections,
 ): ChecksMarked {
-  const verdicts = statements.map((s) => checkVerdict(s, layer, yes, corrections))
+  const ids = checkIds(statements)
+  const verdicts = statements.map((s, i) => checkVerdict(s, ids[i], layer, yes, corrections))
   return {
     verdicts,
     share: metShare(verdicts),

@@ -9,7 +9,7 @@ This page uses the words of the files. A **pack** is a set of judge questions fo
 - Every skill is graded by the `generic` pack: the rules the skill states and the checks its cases state, on any kind of output. A skill is graded on what it and its cases say, and on nothing it did not ask for.
 - The other packs add parts of their own. None of them marks a rule or a check.
 - A `packs` list that leaves `generic` out still has it (`BASE_PACK` in `src/domain/config.ts`).
-- The generic and workflow packs run on every sample. Any other pack runs when it judges the kind of the sample's primary artifact.
+- The generic and workflow packs run on every sample. The code pack runs on every sample that has a folder of its own, whichever file is judged, and says something only where the case names a check command. The design pack runs when the sample's primary artifact is a page or a picture (`applies` in `src/application/grade.ts`).
 - The primary artifact (`primaryArtifact` in `src/domain/primary.ts`) is the first match of:
   1. an output of the case's `bench.artifact` kind;
   2. a page, a picture or code, in that order, when one of the skill's packs judges that kind;
@@ -17,31 +17,40 @@ This page uses the words of the files. A **pack** is a set of judge questions fo
   4. a page, a picture or code, in that order;
   5. the first output of any kind.
 - The order the skill lists its packs in does not matter.
-- Among files of one kind, `index.html` or `preview.html` comes first, and a `README` or a `.txt` file last. So a page beside its script is judged as the page, and a post beside its notes as the post.
+- Among files of one kind, `index.html` or `preview.html` comes first, then `outputs/output.*`, the file the run's prompt names for the piece, then the rest by name, and a `.txt` file and a `README` last. So a page beside its script is judged as the page, and a post beside its notes as the post.
 - Results opens the same file on an output not graded yet.
 
 ## Answers and scores
 
 - Jev's raw answers are stored, unrounded. Points per layer, the threshold and pack settings are applied in code (`src/domain/scoring.ts` and each pack's `score.ts`). So a change to `bench.json`, or to Graded as on Results, rescores without new judge calls.
 - A question that was asked and came back with no answer fails that pack's reading (`<pack> pack failed: Jev gave no ...`). It is never read as a no, and never skipped.
-- Two questions are asked of some outputs only: whether the page fits a phone (design), and whether the agent changed course after an error (workflow). One of those Jev left out is stored as no answer and left out of its layer. The pack's other layers stand (`optionalAnswer` in `src/judges/shared/questions.ts`).
+- Three questions are asked of some outputs only: whether the page fits a phone (design), whether the transcript shows the task being done (workflow, for an output whose case is still there), and whether the agent changed course after an error (workflow). One that was not asked, and the phone or the error question when Jev left it out, is stored as no answer and left out of its layer. The pack's other layers stand (`optionalAnswer` in `src/judges/shared/questions.ts`).
 - A null layer, or one given 0 points, is left out of the total, and the rest rescale.
 - A sample folder is `<case>-s<n>`, and its case is read from that name whole. A case whose id starts another's (`email`, `email-reply`) is never taken for it.
+- An output whose case is no longer there has no case. It is graded on the skill's rules alone, and `report.json` keeps the name its folder gives, so it counts under no other case.
 - A check command runs in the background, so the app keeps answering while it runs.
 - A case's word range counts prose and list text, not headings or code in either kind of fence. A paragraph right under its heading, with no blank line, is counted. An output outside the range is flagged `length: N words, case asks a to b`.
+  - Markdown with headings or code and nothing else counts 0 words.
+  - On a page the range counts the text a reader sees: no tag, no comment, and nothing of its `<head>`, scripts, styles or templates (`pageText` in `src/domain/text.ts`).
+  - Front matter is not part of the copy: a block of `key: value` lines between two `---` lines at the top. A piece that opens with a `---` rule keeps the section under it.
 
 ### Without Jev
 
 - Without a TypeSafe key, or with `--no-jev`, only code checks run and every judged layer is null.
+- A run Jev scored is not graded again without a key: the grading would write Jev's scores out of `report.json`. Regrade and `st grade` refuse it with `Jev scored this run, and no TypeSafe key is set to grade it again.` (`jevForRun` in `src/application/grade.ts`).
+- `st grade --no-jev` asks for exactly that, so it is done: the report then holds code checks only. The cache keeps Jev's answers, and the next grading with a key finds them.
 - A case with `bench.judge: false` is graded the same way, in every pack: Jev is asked nothing about its outputs (`asksJev` in `src/judges/shared/questions.ts`).
 
 ### Failures and empty outputs
 
 - A pack that throws leaves every one of its layers null and adds the flag `<pack> pack failed: ...`.
+- An output with that flag has no total: one counted from the layers that were left would read as a score of the whole. Its other layers stand, it is left out of every mean, and Results offers to grade it again. The rule is `scoreResult`'s (`src/domain/scoring.ts`), so `report.json` and the app agree. Once the pack is no longer one the skill is graded as, its failure takes nothing away.
 - A grading with that flag on every output writes no `report.json`, so the last report stands. In the app the job fails, with the first reason in its log. A grading with the flag on some outputs says how many and goes on.
 - An output with nothing in it scores 0: a sample with no output file, or one whose file holds only whitespace, which `report.json` marks `blank`. A file with no word in it, such as `{}`, is an output, and so is a picture. A report with no `blank` mark reads only a missing file as no output.
-- Such an output is flagged `no output to judge`. Its total and every layer a pack scored are 0, the workflow pack's included (`noOutput` in `src/domain/pack.ts`). So a failed sample counts as a failure wherever scores are averaged.
-- A sample stopped before it wrote anything (by Stop, quitting the app or Ctrl-C) says nothing of the skill. `run.json` marks it `stopped`, and grading leaves it out.
+- Such an output is flagged `no output to judge`. Its total and every layer a pack scored are 0, the workflow pack's included (`noOutput` in `src/domain/pack.ts`). So a failed sample counts as a failure wherever scores are averaged. That flag is its one verdict: what a pack counted about the run is listed under no part of the score.
+- A sample whose agent was ended before it finished (by Stop, quitting the app or Ctrl-C) says nothing of the skill, whether it had written nothing or half a file. `run.json` marks it `stopped`, and grading leaves it out.
+- A sample folder `run.json` does not list was made for an agent that was cut off before the run recorded it, as when the app is killed. Grading leaves it out too. A run whose `run.json` has no `samples` list is graded whole.
+- A sample's outputs are the files it held under `outputs/` when its agent ended, which `run.json` lists. A file put there later, such as one a check command builds, is not graded and is never the primary artifact. A check command should leave the files the agent wrote as they are: one it rewrites is judged as rewritten.
 
 ### Regrade and the cache
 
@@ -50,8 +59,9 @@ This page uses the words of the files. A **pack** is a set of judge questions fo
   - the output text, the other files and the notes beside it, and the transcript;
   - the case, the rules and the settings;
   - the bytes of the case's pictures as the run kept them in `_inputs/`, of its checks' pictures and of the page as drawn.
-- Points per layer and `yes` are not in the hash, since they apply in scoring. Nor is a setting that belongs to another pack alone.
+- Points per layer and `yes` are not in the hash, since they apply in scoring. Nor is a setting that belongs to another pack alone, nor the list of packs: ticking a pack on Graded as has no other pack asked again.
 - An output whose hash matches keeps its answer, and the log says `N of M outputs unchanged: kept their verdicts.`
+- A check command's result is never kept (`JudgePack.live`). It rests on tools and files no hash of the output covers, and costs nothing to read again, so every grading runs the command. An output whose other answers were all kept still counts as unchanged.
 - The cache keeps this grading's answers and, before them, earlier ones not asked again, up to four gradings' worth. So a grading without a TypeSafe key, or with a setting changed and put back, does not lose answers Jev already gave.
 - The cache is written when a grading is stopped or fails too, with what had been answered by then.
 
@@ -61,7 +71,7 @@ This page uses the words of the files. A **pack** is a set of judge questions fo
 
 - Graded as, at the foot of All cases on Results, writes its `packs`. Every other setting in the file stays as it was.
 - `st new` writes it for a template whose packs go beyond `generic` (`{ "packs": [...] }`). `blank` and `writing` write none: writing is graded on its rules and checks, as any skill is.
-- `--packs a,b` and `--bench <file>` override the file for one grading, so a skill in another repository can be graded without writing config into it.
+- `--packs a,b` and `--bench <file>` override the file for one grading, so a skill in another repository can be graded without writing config into it. A name `--packs` gives that is no pack stops the command with `No judge pack named ...`.
 
 | Key | Default | Does |
 | --- | --- | --- |
@@ -74,26 +84,30 @@ The file is read through `benchOf` (`src/domain/config.ts`), so one written by h
 
 - A value of the wrong kind falls back to its default.
 - `packs` names each pack once, and a pack the app does not have is left out.
-- A number inside a pack's own setting (`codeCheck`, `workflow`) is held at 0 or more, and `codeCheck.timeoutSeconds` to six hours.
+- A number inside a pack's own setting (`codeCheck`, `workflow`) is held at 0 or more, and `codeCheck.timeoutSeconds` to six hours. A `codeCheck.timeoutSeconds` of 0 or less is no time limit a check could meet, so the default of 120 stands.
 - Each layer is held to 0 to 100, so no total passes 100.
 
 Each pack adds its own keys, [below](#packs).
 
 ### Rules
 
-With no `rules`, the rules are the top-level `-` and `*` bullets of `SKILL.md`, outside code blocks and the front matter.
+With no `rules`, the rules are the top-level `-` and `*` bullets of `SKILL.md`, outside code blocks, HTML comments and the front matter.
 
-- Lines under a bullet indented by a tab or two spaces join it as a clause of the same rule.
+A run is graded on the rules of the skill it ran: the bullets are read from the copy the run kept, `_skill/SKILL.md`, so an edit to the skill during the run or since changes nothing an old run is judged on. A run that kept no copy, and an anchor, are read from `SKILL.md` as it is now. A `rules` list in `bench.json` is the same for every run.
+
+- A bullet is top-level at the margin or up to three spaces in, as Markdown reads it.
+- Lines indented by a tab, or by two spaces or more past the bullet above, join it as a clause of the same rule.
 - A thematic break (`* * *`, `- - -`) is not a bullet.
-- A bullet under four words, or made only of a link, is not a rule, and the editor says so.
-- Numbered lists are never rules.
+- A comment opens on a line that starts with `<!--` and runs to the line that holds `-->`. Nothing in it is read.
+- A bullet under four words, made only of a link, or the same as a rule above it is not a rule, and the editor says so. A rule written twice counts once.
+- Numbered lists are never rules, and neither is a bullet indented under a numbered step.
 
 ## Packs
 
 | Pack | Judges | Layers (default points) | Keys in `bench.json` |
 | --- | --- | --- | --- |
 | `generic` | any output | adherence 50 (one question per skill rule), rubric 50 (one per check, over the whole output) | `rules` |
-| `code` | code | check 60 (the exit code of the case's `bench.check`) | `codeCheck.timeoutSeconds` |
+| `code` | a sample's folder | check 60 (the exit code of the case's `bench.check`) | `codeCheck.timeoutSeconds` |
 | `workflow` | the transcript | efficiency 40, scope 20, process 40 | `workflow.maxRetries`, `workflow.summaryLines` |
 | `design` | HTML or an image | visual 30 (Jev, looking at the output as a picture) | |
 
@@ -116,9 +130,17 @@ The pack asks one question per rule and one per check, about the work as a whole
 
 A picture Jev cannot read is left out with the flag `picture not judged: ...`, and the text is still judged. An output with neither text nor a picture Jev can read gets no adherence or rubric.
 
+A check about a picture (`image:` in its front matter) that Jev cannot read is not asked: without the picture its answer would be a guess. It is left out of the rubric, which is counted from the case's other checks, with the flag `grader <id> not judged, its picture is not shown to Jev (<why>): <the check>`.
+
 ### Code
 
-The check command runs in the sample directory, so it executes code the agent wrote. Run untrusted skills in a container or VM. A case that names no `bench.check` gets nothing from this pack. Whether the code follows the skill's rules and meets the case's checks is the generic pack's to mark, over the primary code file and the other files beside it, not a diff against the case's input files.
+The check command runs in the sample directory, so it executes code the agent wrote. Run untrusted skills in a container or VM. A case that names no `bench.check` gets nothing from this pack.
+
+- A case that names one has it run on every sample, whichever file is judged: a page beside its script, or a note where the code should have been. An output with no file scores 0 whatever the command says.
+- It runs at every grading, Regrade included, and its result is never kept from one to the next.
+- A legacy flat file and an anchor have no folder of their own, so no command runs for them.
+
+Whether the code follows the skill's rules and meets the case's checks is the generic pack's to mark, over the primary code file and the other files beside it, not a diff against the case's input files.
 
 Ticking Code also says the code is the work: among an output's files the code is judged, not a Markdown note beside it.
 
@@ -126,13 +148,17 @@ Ticking Code also says the code is the work: among an output's files the code is
 
 The pack needs a transcript; a run whose outputs sit flat at the run root (`RunMeta.legacy`) and an anchor have none and get no workflow layers.
 
-- Code counts tool calls, errors, identical repeated calls, time against the case's `timeout_seconds`, tool calls against `max_turns`, and paths outside the sample directory. A path is read where a tool names a place: the file a read, write or edit names, what a glob or a listing names, and each word of a shell command that is absolute, starts with `~` or reaches up with `..`. A path that resolves inside the sample is never counted. A system folder named by an absolute path is not counted either: `/dev`, `/tmp`, `/private/tmp`, `/usr`, `/bin`, `/opt` and `/etc`. A path that climbs out of the sample with `..` counts wherever it lands, a system folder included.
+- Code counts tool calls, errors, repeated calls, time against the case's `timeout_seconds`, tool calls against `max_turns`, and paths outside the sample directory. A path is read where a tool names a place: the file a read, write or edit names, what a glob or a listing names, and each word of a shell command that is absolute, starts with `~` or reaches up with `..`. A path that resolves inside the sample is never counted. A system folder named by an absolute path is not counted either: `/dev`, `/tmp`, `/private/tmp`, `/usr`, `/bin`, `/opt` and `/etc`. A path that climbs out of the sample with `..` counts wherever it lands, a system folder included.
+- A path that names the sample at another address is inside it too: one that runs through the run's folder and the sample's own, one inside the other (`<run>/<sample>`). A transcript keeps the paths the agent used where the run was made, so a skill moved, copied, cloned or reached through a link since then is graded as it was there.
+- A repeated call is the same tool given the same input as a call before it, with nothing written in between. Three different edits to one file are not repeats, and neither is a test run again after an edit. The transcript keeps a short hash of each call's whole input (`call`), without the `description` an agent words anew each time. A transcript with no hashes counts a repeat only for a shell command kept whole on its line: an edit's text and a read's offset are not on the line, so two calls that read the same there are never taken for one.
 - A shell's relative path is resolved against the folder the shell is in. The transcript's commands run in order from the sample directory, and a `cd` or `pushd` moves the folder for what follows, in the same command and the next ones; a subshell's `cd` ends with the subshell. After a `cd` code cannot follow, such as `cd "$DIR"`, a relative path is not read until the next `cd` it can.
-- What a pattern program is given to look for (`grep`, `rg`, `sed`, `awk`, `perl`, `jq`) is not a path: the first word that is not an option, quoted or not, or the value of `-e`. The words after it are, and so is a `-f` file. No word given to `tr` is a path, since it reads stdin only; a redirection's file always is. A search tool (`Grep`) is kept in the transcript as the folder the call names, or as its pattern when it names none, so its argument counts only when it names a file or folder that is on disk. A web tool's argument is never a path.
+- What a pattern program is given to look for (`grep`, `rg`, `sed`, `awk`, `perl`, `jq`) is not a path: the first word that is not an option, quoted or not, or the value of `-e`. The words after it are, and so is a `-f` file. No word given to `tr`, `echo` or `printf` is a path, since they open no file, and neither is the message `git`, `gh`, `hg`, `svn` or `jj` is given after `-m`, `-am` or `--message`, nor the count a search program is given after `-m`, `-A`, `-B` or `-C`; a redirection's file always is. A command inside backticks or `$( )` is read as a command of its own, whatever program it is given to.
+- A heredoc's text is not read: nothing between `<<EOF` and its closing word is a path or a write, and the file the heredoc is sent to (`cat > outputs/page.html <<'EOF'`) is. The transcript keeps a command on one line, so a command piped on after the heredoc's word (`<<EOF | tee x`) is left out with the text. The word after `<<<` is text. A stream sent to another (`2>&1`, `>&2`) names no file.
+- A search tool (`Grep`) is kept in the transcript as the folder the call names, or as its pattern when it names none, so its argument counts only when it names a file or folder that is on disk. A web tool's argument is never a path.
 - Efficiency is the share of checks passed: repeated calls within `workflow.maxRetries` (1), tool calls within `max_turns` and seconds within `timeout_seconds`, the last two only when the case sets them. An error takes nothing off: a test that fails before the fix is the work going right, and what the agent did after an error is asked in process. Scope is 0 when any path lands outside the sample, else 1.
 - A run that wrote nothing scores 0 on every workflow layer: a tidy transcript with no output is a failed sample.
-- Code checks that `SKILL.md` was read before the first write. A `without_skill` sample skips that check.
-- Jev reads a one-line-per-step summary, `workflow.summaryLines` lines of it (80, and never fewer than 2), and answers whether the task was done and, after an error, whether the agent changed course. Process is the share of those answers at or above `yes`, with the read-first check counted beside them. Without Jev there is no process layer.
+- Code checks that `SKILL.md` was read before the first write. A write is a tool that writes or edits, or a shell command that runs `tee`, `cp`, `mv`, `mkdir` or `touch` or sends output to a file. Output sent to another stream or to a device (`2>&1`, `> /dev/null`) is not one, and neither is a `>` inside quotes. A `without_skill` sample skips that check.
+- Jev reads a one-line-per-step summary, `workflow.summaryLines` lines of it (80, and never fewer than 2), and answers whether the task was done and, after an error, whether the agent changed course. Whether the task was done is asked only of an output whose case is still there: without the case there is no task to hold the transcript to. Process is the share of those answers at or above `yes`, with the read-first check counted beside them. Without Jev, or with neither question to ask, there is no process layer.
 
 ### Design
 
@@ -156,28 +182,30 @@ Jev's image input is a preview. A request that holds a picture is sent with the 
 
 - A case's pictures (the PNG and JPEG files in its `files/`) go to Jev once as `request_images`, beside the prompt.
 - A check with `image: references/<file>` in its front matter is asked with that picture.
-- Each picture is checked against Jev's limits first, because Jev fails the whole request for one it refuses.
+- Each picture is checked against Jev's limits first, because Jev fails the whole request for one it refuses. A case's picture that fails is left out of the request; a check whose picture fails is not asked ([Generic](#generic)).
 
 ## Verdicts
 
 A score is counted from facts, and the scorers report each one (`Verdict` in `src/domain/pack.ts`): a rule of the skill followed or broken, a check of the case met or missed, or another thing a pack measured. Results lists them under each output, missed first.
 
 - A fact is named by its kind and its words, such as `rule:Keep the note under 120 words.` or `check:The note names Priya.`, so a rule or check that is edited is a new fact. The fixed questions of a pack have names of their own (`other:hierarchy`, `other:finished`, `other:followed task`).
+- Two checks of one case that say the same thing are two facts: each after the first also carries its own id, as in `check:The note names Priya. #03-names-priya` (`checkIds` in `src/domain/verdict.ts`).
 - A fact Jev answered is open to the reader's own answer. A fact code measured is not: the exit code of a check command, a count of tool calls, a word range.
 
 ## Corrections
 
 `evals/reviews.json` holds what the reader said, written by Results.
 
-- **A correction** is the reader's own answer on one fact of one output: `reviews["<run>/<sample>"].corrections["<fact>"]` is `true` when the output meets it and `false` when it does not, whatever Jev said. It stands over Jev's answer wherever the app scores that output: the fact moves between Missed and Met, and the layer and the total follow. It stays the reader's answer when a `yes` threshold changed in `bench.json` brings Jev's answer round to it; the row then says "your answer, agrees with Jev", and "Take back" still removes it. `report.json` keeps Jev's own answers, so `st report` prints the scores without corrections.
+- **A correction** is the reader's own answer on one fact of one output: `reviews["<run>/<sample>"].corrections["<fact>"]` is `true` when the output meets it and `false` when it does not, whatever Jev said. It stands over Jev's answer wherever the app scores that output: the fact moves between Missed and Met, and the layer and the total follow. It stays the reader's answer when a `yes` threshold changed in `bench.json` brings Jev's answer round to it; the row then says "your answer, agrees with Jev", and "Take back" still removes it. `report.json` keeps Jev's own answers, so `st report` and `st compare` print the scores without corrections. They count them as the app does, from the stored answers under `bench.json` as it is now (`scoredReport` in `src/application/grade.ts`).
 - Deleting a version, or one run, moves the corrections on the runs' outputs to the trash with it, and Undo brings them back. So do the entries of `preferences` that name one of its outputs: votes between two outputs, which the app neither writes nor reads. A delete that cannot move everything moves nothing. Undo is refused once the skill holds a version of that number again, so two different texts never share one.
 
 Any other field in `reviews.json`, such as a rating, a note or a vote, is kept as it is when the file is written, and nothing reads it.
 
 ## Version scores and the lift
 
-A version's score is the mean of its cases, each case the mean of its graded outputs, so a case run three times counts once. `versionScore` in `src/renderer/model.ts` computes it.
+A version's score is the mean of its cases, each case the mean of its graded outputs, so a case run three times counts once. `versionScore` in `src/renderer/model.ts` computes it. Every mean the app shows is counted this way (`scoreOver`), a run's Mean on All cases included.
 
+- A version's outputs are those written with the skill as it stood and those written on the copy kept of it (`old_skill`), never one written without the skill (`testedVersion` in `src/domain/lift.ts`). The score, the lift and the comparison all read it so.
 - Where one writer (an engine and model) ran two versions, a version's score counts that writer's outputs only, so one version reads against the next.
 - When several writers did, the writer whose newest run is newest is read.
 
@@ -188,6 +216,7 @@ The version lift on Results (`src/domain/lift.ts`) compares that writer's oldest
 - When no such run answered them all, the floor is the one that answered the most, the newest of those, read over the ones it answered. `baselineCases` says how many, and `casesDiffer` is set.
 - A run without the skill that answered none of them is no floor.
 - A run made against an older version's snapshot (`old_skill`) counts as that version's run, as on the comparison.
+- The ribbon is drawn only when the latest mean is higher in the whole points shown (`rises`): 66.7 to 67.0 reads 67 and 67, and is no rise.
 
 ## Anchors
 
@@ -195,4 +224,6 @@ An anchor is an output labelled good or bad, written by hand in `evals/anchors/`
 
 - `st self-test` grades every anchor and writes `evals/anchors/report.json`.
 - It checks that each bad anchor scores below the good anchor of its case, on each layer named in its `tests` front matter, else on `total`.
+- An anchor with no score on a layer it is checked on fails that check: a layer no pack scored says nothing of either anchor.
 - A case has one good anchor: a later one replaces an earlier one. A bad anchor whose case has no good anchor is not checked.
+- With no bad anchor to check, `st self-test` says nothing was checked and exits 1.

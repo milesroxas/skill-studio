@@ -154,7 +154,8 @@ export const api = {
   /** Set the packs the skill is graded as; the rest of `bench.json` stays as it is. */
   gradedAs: (packs: string[]) => call('skill.gradedAs', scoped({ packs })),
   generate: (request: GenerateRequest) => call('skill.generate', scoped(request)),
-  grade: (run: string, jev = true) => call('skill.grade', scoped({ run, jev })),
+  /** Grade a run, with Jev. With no key the backend grades by code alone, or refuses when that would lose Jev's scores. */
+  grade: (run: string) => call('skill.grade', scoped({ run, jev: true })),
   /** `savedAt` is when the form's copy of the case was saved: a newer copy on disk refuses the save. */
   saveCase: (draft: CaseDraft, isNew: boolean, savedAt: string | null = null) =>
     call('skill.saveCase', scoped({ case: draft, isNew, savedAt })),

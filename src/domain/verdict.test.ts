@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { Verdict } from './pack.ts'
 import {
+  checkIds,
   codeVerdict,
   countOf,
   finding,
@@ -47,6 +48,33 @@ describe('jevVerdict', () => {
       id: 'other:hierarchy',
       met: true,
     })
+  })
+})
+
+describe('checkIds', () => {
+  it('names a check by its words, so a name kept in reviews.json still finds it', () => {
+    expect(
+      checkIds([
+        { id: '01-names-priya', text: ' The note names Priya. ' },
+        { id: '02-says-sunday', text: 'The note says Sunday.' },
+      ]),
+    ).toEqual(['check:The note names Priya.', 'check:The note says Sunday.'])
+  })
+
+  it('tells two checks with the same words apart by their own ids, the first keeping its name', () => {
+    expect(
+      checkIds([
+        { id: '01-a', text: 'Names Priya.' },
+        { id: '02-b', text: 'Says Sunday.' },
+        { id: '03-c', text: 'Names Priya.' },
+        { id: '04-d', text: 'Names Priya. ' },
+      ]),
+    ).toEqual([
+      'check:Names Priya.',
+      'check:Says Sunday.',
+      'check:Names Priya. #03-c',
+      'check:Names Priya. #04-d',
+    ])
   })
 })
 

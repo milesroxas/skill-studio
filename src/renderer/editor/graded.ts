@@ -45,6 +45,7 @@ interface Graded {
 const SKIPPED: Record<SkippedBullet['reason'], string> = {
   short: 'Not checked: under four words. A rule is a top-level bullet of four words or more.',
   link: 'Not checked: a link only. Say what to do with it in the same bullet.',
+  repeat: 'Not checked: the same as a rule above. A rule written twice counts once.',
 }
 
 const label = (index: number): string => String(index + 1).padStart(2, '0')

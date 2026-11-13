@@ -3,6 +3,7 @@
  * (`TranscriptEvent` in core). Engines push events as their stream arrives;
  * the file is appended line by line so a killed run still leaves a record.
  */
+import { createHash } from 'node:crypto'
 import { appendFileSync, existsSync, readFileSync, writeFileSync } from 'node:fs'
 import type { TranscriptEvent, TranscriptKind } from '@domain/schemas.ts'
 
@@ -47,6 +48,23 @@ function summarizeArgs(input: unknown): string {
         ? ' (edit)'
         : ''
   return `${oneLine(record[key])}${extra}`
+}
+
+/**
+ * What a call does, as a short hash of its whole input, so two calls whose
+ * summaries read the same can be told apart. What a call says of itself
+ * (`description`) is left out when it has anything else: an agent words that
+ * anew each time it makes the same call.
+ */
+function callOf(input: unknown): string {
+  const does =
+    input && typeof input === 'object' && !Array.isArray(input)
+      ? Object.entries(input).filter(([key]) => key !== 'description')
+      : []
+  return createHash('sha256')
+    .update(JSON.stringify(does.length ? Object.fromEntries(does) : (input ?? null)))
+    .digest('hex')
+    .slice(0, 12)
 }
 
 /** A tool's result as one line. Content blocks are flattened to their text. */
@@ -103,7 +121,7 @@ export class TranscriptWriter {
 
   /** A tool call starts; `id` ties its result back to it. */
   toolStart(id: string, tool: string, args: unknown): void {
-    const event = this.push({ kind: 'tool', tool, args: summarizeArgs(args) })
+    const event = this.push({ kind: 'tool', tool, args: summarizeArgs(args), call: callOf(args) })
     this.open.set(id, { step: event.step, at: Date.now(), tool })
   }
 

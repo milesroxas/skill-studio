@@ -42,7 +42,23 @@ export interface LifecycleOptions {
 export interface Lifecycle {
   /** Stop every job and assistant reply and end their agents. Resolves when they are gone. */
   stop(): Promise<void>
+  /**
+   * Fires as the stop begins, for work a host runs outside a job: `st run` and
+   * `st grade` hand it on as a job hands on its own, so Ctrl-C stops them the
+   * way Stop does in the app.
+   */
+  signal: AbortSignal
+  /**
+   * Run `work` that is handed `signal`, and resolve as it does. A stop that
+   * comes while it runs waits for it before the process exits, `HELD_MS` at
+   * most, so what the work writes as it stops (a run's record, the answers a
+   * grading already has) is written.
+   */
+  during<T>(work: Promise<T>): Promise<T>
 }
+
+/** How long a stop waits for the host's own work to end once its agents are gone. */
+const HELD_MS = 3000
 
 export function agentLifecycle({
   signals = false,
@@ -59,9 +75,26 @@ export function agentLifecycle({
   }
   watchChildren(agentWatcher)
 
+  const stopped = new AbortController()
+  /** The host's own work still running, each as a promise that never rejects. */
+  const held = new Set<Promise<unknown>>()
+  const during = <T>(work: Promise<T>): Promise<T> => {
+    const ended = work.then(
+      () => {},
+      () => {},
+    )
+    held.add(ended)
+    void ended.then(() => held.delete(ended))
+    return work
+  }
+  /** Every piece of held work has ended, or `HELD_MS` has passed. */
+  const heldEnded = (): Promise<unknown> =>
+    Promise.race([Promise.all(held), new Promise((done) => setTimeout(done, HELD_MS).unref())])
   let stopping: Promise<void> | null = null
   /** A second request joins the first: the agents are ended once. */
   const stop = (): Promise<void> => {
+    // Before any process is ended, so what that process was working for knows it was stopped.
+    stopped.abort()
     const going = stopping ?? shutdown()
     stopping = going
     return going
@@ -74,9 +107,10 @@ export function agentLifecycle({
         log('Stopping: ending the agents still running.')
         void stop()
           .catch((error: unknown) => log(`Could not stop cleanly: ${messageOf(error)}`))
+          .then(heldEnded)
           .finally(() => host.exit(code))
       })
-  return { stop }
+  return { stop, signal: stopped.signal, during }
 }
 
 const messageOf = (error: unknown): string =>

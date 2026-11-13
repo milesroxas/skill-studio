@@ -127,9 +127,42 @@ export const stripComments = (text: string): string => without(text, /<!--[\s\S]
 /** `text` with its HTML tags removed, `<b>` and `</b>` alike. */
 export const stripTags = (text: string): string => without(text, /<[^>]*>/g)
 
-/** The copy a piece is judged on: front matter and HTML comments removed. */
-export const copyOf = (raw: string): string =>
-  without(readFrontMatter(raw).text, /<!--[\s\S]*?-->\s*/g).trim()
+/** A line of front matter: blank, a comment, `key:` with or without a value, or a line indented under one. */
+const FIELD_LINE = /^(?:\s*$|#|[\w.-]+:(?:\s|$)|\s+\S|- )/
+
+/**
+ * Whether a piece opens with front matter: a block between two `---` lines
+ * that holds a field and nothing but fields. It is told by its shape, not by
+ * whether it parses, so a title with a colon in it is front matter still, and
+ * a section of prose between two rules (`---`) is not.
+ */
+function hasFrontMatter(source: string): boolean {
+  const lines = FRONT_MATTER.exec(source)?.[1]?.split('\n') ?? []
+  return lines.some((line) => /^[\w.-]+:/.test(line)) && lines.every((l) => FIELD_LINE.test(l))
+}
+
+/**
+ * The copy a piece is judged on: front matter and HTML comments removed. A
+ * piece that opens with a rule (`---`) and has another further down keeps the
+ * section between them (`hasFrontMatter`).
+ */
+export function copyOf(raw: string): string {
+  const source = normalizeNewlines(raw)
+  const body = hasFrontMatter(source) ? source.replace(FRONT_MATTER, '') : source
+  return without(body, /<!--[\s\S]*?-->\s*/g).trim()
+}
+
+/**
+ * The text a reader sees on a page: no comment, nothing of its `<head>`,
+ * scripts, styles or templates, no tag and no entity. A tag or an entity
+ * leaves a space, so the words on either side of it stay two words.
+ */
+export const pageText = (html: string): string =>
+  stripComments(html)
+    // A head may be left open: it ends where the body begins.
+    .replace(/<head\b[\s\S]*?(?:<\/head\s*>|(?=<body\b)|$)/gi, ' ')
+    .replace(/<(script|style|template)\b[\s\S]*?(?:<\/\1\s*>|$)/gi, ' ')
+    .replace(/<[^>]*>|&#?\w+;/g, ' ')
 
 export interface Unit {
   text: string
