@@ -14,6 +14,12 @@ export interface PromptParts {
 export const OUTPUTS_DIR = 'outputs'
 /** The name, before its extension, of the file the deliverable goes in: `outputs/output.md`, or the format the request names. */
 export const DELIVERABLE = 'output'
+/**
+ * Where an agent keeps what it makes on the way to its answer: scripts, crops,
+ * trial renders. Each sample has its own, inside its directory, so one sample
+ * never finds what another left in a folder they share, such as `/tmp`.
+ */
+export const SCRATCH_DIR = 'scratch'
 /** Where an agent writes what it would tell the user: its choices, what needs checking, what it could not do. */
 export const NOTES_FILE = 'notes.md'
 /** The page an agent writes beside an interface that does not open in a browser by itself, so Results can draw it. */
@@ -33,6 +39,7 @@ export function agentPrompt(parts: PromptParts): string {
   lines.push('', 'Request:', parts.request, '')
   lines.push(
     `Write every file you produce under ${OUTPUTS_DIR}/. A text deliverable goes in ${OUTPUTS_DIR}/${DELIVERABLE}.md as Markdown unless the request names another file or format.`,
+    `Working files that are not part of the answer (scripts, crops, trial renders) go under ${SCRATCH_DIR}/ in this directory, never under ${OUTPUTS_DIR}/ and never in /tmp or any other folder outside this directory.`,
     `When the request is for an interface and what you write does not open in a browser by itself (a React component, for one), also write ${OUTPUTS_DIR}/${PREVIEW_FILE}: one page that shows it working in a browser with no network, its scripts and styles inline or in files beside it under ${OUTPUTS_DIR}/.`,
     `Write everything else you would tell the user (what needs checking, choices you made, caveats) to ${NOTES_FILE} in this directory, not under ${OUTPUTS_DIR}/.`,
     'Reply with one line when the files are written.',

@@ -1,4 +1,12 @@
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { loadCases } from '@infrastructure/cases.ts'
@@ -94,6 +102,27 @@ describe('generateRun', () => {
     await generateRun(options(engine, 1))
     expect(seen).toBe('a screen')
     expect(prompt).toContain('files/input.txt, files/screen/Bookings.tsx')
+  })
+
+  it('gives each sample its own folder for working files, and has the prompt name it', async () => {
+    const seen: string[] = []
+    let prompt = ''
+    const engine = engineThat((cwd) => {
+      seen.push(...readdirSync(join(cwd, 'scratch')))
+      writeFileSync(join(cwd, 'scratch/probe.py'), 'print(1)')
+      prompt = readFileSync(join(cwd, 'prompt.md'), 'utf8')
+      writeFileSync(join(cwd, 'outputs/note.md'), 'A note.')
+    })
+    const { meta } = await generateRun(options(engine, 2))
+    // The second sample starts with an empty folder: it never sees the first one's probe.
+    expect(engine.calls).toBe(2)
+    expect(seen).toEqual([])
+    expect(prompt).toContain('go under scratch/ in this directory')
+    // A working file is not an output.
+    expect(meta.samples.map((sample) => sample.outputs)).toEqual([
+      ['outputs/note.md'],
+      ['outputs/note.md'],
+    ])
   })
 
   it('makes every sample from the skill and the inputs as they were when the run started', async () => {

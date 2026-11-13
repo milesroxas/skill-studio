@@ -12,7 +12,7 @@
  */
 import { copyFileSync, existsSync, mkdirSync, writeFileSync } from 'node:fs'
 import { basename, dirname, join, relative } from 'node:path'
-import { agentPrompt, OUTPUTS_DIR } from '@domain/prompt.ts'
+import { agentPrompt, OUTPUTS_DIR, SCRATCH_DIR } from '@domain/prompt.ts'
 import { runName, sampleDir } from '@domain/run-name.ts'
 import type { Case, Configuration, RunMeta, SampleMeta, Timing } from '@domain/schemas.ts'
 import { slug } from '@domain/text.ts'
@@ -375,6 +375,7 @@ async function generateSample(
   const name = sampleDir(testCase.id, index)
   const dir = join(options.runDir, name)
   mkdirSync(join(dir, OUTPUTS_DIR), { recursive: true })
+  mkdirSync(join(dir, SCRATCH_DIR), { recursive: true })
   const staged = join(options.runDir, INPUTS_DIR, testCase.id)
   const files: string[] = []
   for (const { rel, real } of treeFiles(staged)) {
