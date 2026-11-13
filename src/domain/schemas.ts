@@ -132,6 +132,8 @@ export interface BenchConfig {
   weights: Record<string, number>
   /** A Noul at or above this reads as yes. */
   yes: number
+  /** A Noul at or below this reads as no. One between the two is no answer, and counts in no layer. */
+  no: number
   [key: string]: unknown
 }
 

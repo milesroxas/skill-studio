@@ -39,7 +39,7 @@ export const SCREEN_HELP: Record<string, ScreenHelp> = {
   results: {
     short: 'Each version’s output, side by side',
     what: 'The answer to each case, the latest version beside the one before. Under each is what it missed. Where the grading is wrong, mark it yourself.',
-    terms: ['output', 'score', 'missed', 'jev'],
+    terms: ['output', 'score', 'missed', 'unsure', 'jev'],
     guide: '5-compare-the-results',
   },
   settings: {

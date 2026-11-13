@@ -9,7 +9,7 @@ import { basename, join } from 'node:path'
 import { type PageRenderer, RENDER_SIZES, type RenderSize } from '@domain/artifact-address.ts'
 import { isPicture } from '@domain/case-draft.ts'
 import { mergeConfig } from '@domain/config.ts'
-import { PICTURE_HEAD_BYTES, pictureSize } from '@domain/image.ts'
+import { fitForJev, PICTURE_HEAD_BYTES, pictureSize } from '@domain/image.ts'
 import { packFailedFlag, packFailure } from '@domain/pack.ts'
 import { primaryArtifact } from '@domain/primary.ts'
 import { NOTES_FILE } from '@domain/prompt.ts'
@@ -43,7 +43,8 @@ import { readForJev, requestImages } from '@judges/images.ts'
 import { packById } from '@judges/index.ts'
 import { Jev } from '@judges/jev.ts'
 import { scorers } from '@judges/scorers.ts'
-import type { JudgeContext, JudgeInput, JudgePack, PageShot } from '@judges/types.ts'
+import { agentPicture } from '@judges/shared/picture.ts'
+import type { FittedPicture, JudgeContext, JudgeInput, JudgePack, PageShot } from '@judges/types.ts'
 import { INPUTS_DIR, stagedInputs } from './generate.ts'
 
 export interface GradeOptions {
@@ -91,6 +92,8 @@ interface JudgeCache {
 interface GradeContext {
   cases: Case[]
   rules: Rule[]
+  /** The SKILL.md the rules were read from; null when `bench.json` lists them or there is none. */
+  skill: string | null
   packs: JudgePack[]
   judge: JudgeContext
   cache: JudgeCache
@@ -104,6 +107,14 @@ interface GradeContext {
   signal?: AbortSignal
   /** Draws a sample's page at each of `RENDER_SIZES`; absent when the host cannot, or nothing looks. */
   draw?: (sample: Sample, page: Artifact, sizes: RenderSize[]) => Promise<Drawn>
+  /** Draws a picture the agent made at a size Jev reads; absent when the host cannot. */
+  fit?: (sample: Sample, picture: string) => Promise<Fitted | null>
+}
+
+/** A picture drawn again to fit, with a hash of the copy so an answer about it is kept by what it saw. */
+interface Fitted {
+  picture: FittedPicture
+  hash: string
 }
 
 /** The run a grading reads, and the copies it kept of the moment it started. */
@@ -176,8 +187,50 @@ async function drawPage(
   return drawn
 }
 
+/**
+ * A picture the agent made, drawn again inside the sizes Jev reads when one
+ * of its sides is outside them: Jev refuses such a picture whole, and an
+ * output that is one would get no rule, no check and no score. Kept in the
+ * sample's `renders/` folder like a page, named by the picture and the size.
+ * Null when the picture fits as it is, cannot be read, or cannot be drawn.
+ */
+async function fitPicture(
+  render: PageRenderer,
+  skillDir: string,
+  run: string,
+  sample: Sample,
+  file: string,
+  log: (line: string) => void,
+): Promise<Fitted | null> {
+  const source = fileInside(sample.path, join(sample.path, file))
+  if (source === null) return null
+  const pixels = pictureSize(readStart(source, PICTURE_HEAD_BYTES), file)
+  if (!pixels) return null
+  const fit = fitForJev(pixels[0], pixels[1])
+  if (fit.width === pixels[0] && fit.height === pixels[1]) return null
+  const name = basename(file).replace(/\.[a-z0-9]+$/i, '')
+  const path = join(sample.path, RENDERS_DIR, `${name}-${fit.width}x${fit.height}.png`)
+  if (!isFile(path) || statSync(path).mtimeMs < statSync(source).mtimeMs) {
+    try {
+      // A window of the picture's own shape shows the whole of it, scaled down to the window.
+      const png = await render(
+        { skill: skillDir, run, sample: sample.name, file },
+        { width: fit.width, height: fit.height },
+      )
+      writeText(path, png)
+    } catch (error) {
+      log(`${basename(file)} could not be drawn at a size Jev reads: ${(error as Error).message}`)
+      return null
+    }
+  }
+  return {
+    picture: { file, pixels, read: readForJev(path) },
+    hash: createHash('sha256').update(readFileSync(path)).digest('hex'),
+  }
+}
+
 /** The keys of `bench.json` no pack's answer rests on: they apply after, in scoring, or choose what is judged. */
-const SCORING_KEYS = new Set(['weights', 'yes', 'packs'])
+const SCORING_KEYS = new Set(['weights', 'yes', 'no', 'packs'])
 
 /**
  * The settings of `config` a pack's answer can depend on: every key but the
@@ -348,6 +401,7 @@ function judgeInput(
       log,
     ),
     rules: ctx.rules,
+    skill: ctx.skill,
     artifacts: sample.artifacts,
     primary,
     others: sample.legacy ? [] : othersOf(sample, primary, raw),
@@ -361,7 +415,7 @@ function judgeInput(
 /**
  * The hash of everything a pack's answer depends on: the model, the pack and
  * the version of its questions, the output and what it is judged against.
- * Points per layer and the `yes` threshold are left out, since they are
+ * Points per layer and the `yes` and `no` thresholds are left out, since they are
  * applied after, in scoring, and so are another pack's settings. The same hash
  * on Regrade means the same questions over the same text and pictures, so the
  * kept answer stands and Jev is not asked again.
@@ -383,6 +437,7 @@ function judgeKey(
     case: input.case,
     pictures,
     rules: input.rules,
+    skill: input.skill,
     artifacts: input.artifacts,
     primary: input.primary,
     others: input.others,
@@ -445,6 +500,14 @@ async function gradeSubject(
       ? await untilStopped(ctx.draw(subject, primary, renderSizes(testCase)), ctx.signal)
       : NOTHING_DRAWN
   input.renders = drawn.shots
+  // A picture is fitted only where it is what Jev looks at: no page was drawn in its place.
+  const shot = looks && !drawn.shots.some((s) => s.read.image) ? agentPicture(input) : null
+  const fitted =
+    shot && ctx.fit && !subject.legacy
+      ? await untilStopped(ctx.fit(subject, shot.file), ctx.signal)
+      : null
+  if (fitted) input.fitted = fitted.picture
+  const seen = fitted ? { ...drawn.hashes, 'fitted:picture': fitted.hash } : drawn.hashes
   const packs: Record<string, unknown> = {}
   /** This sample's new answers: kept only once the whole sample was judged without a stop. */
   const answers: Record<string, unknown> = {}
@@ -460,7 +523,7 @@ async function gradeSubject(
     // A pack that reads its answer off the machine has no key: it is run at every grading.
     const key = pack.live
       ? null
-      : judgeKey(pack, input, pack.renders ? { ...pictures, ...drawn.hashes } : pictures, ctx)
+      : judgeKey(pack, input, pack.renders ? { ...pictures, ...seen } : pictures, ctx)
     if (key !== null) {
       keepable += 1
       if (Object.hasOwn(ctx.cache.old, key)) {
@@ -555,10 +618,12 @@ async function gradeSubjects(
   const packs = config.packs.flatMap((id) => packById(id) ?? [])
   const jev = new Jev(options.model)
   const log = options.log ?? (() => {})
+  // A run is graded on the rules of the skill it ran, whatever the skill says since.
+  const ruled = run?.skill ?? skillDir
   const ctx: GradeContext = {
     cases: loadCases(skillDir),
-    // A run is graded on the rules of the skill it ran, whatever the skill says since.
-    rules: loadRules(run?.skill ?? skillDir, config),
+    rules: loadRules(ruled, config),
+    skill: config.rules?.length ? null : skillText(ruled),
     packs,
     judge: {
       jev,
@@ -566,6 +631,7 @@ async function gradeSubjects(
       config,
       skillDir,
       log,
+      signal: options.signal,
       run: commandRunner(options.signal),
     },
     cache: { old: readCache(join(dir, CACHE_FILE)), fresh: {} },
@@ -575,11 +641,16 @@ async function gradeSubjects(
   }
   // Drawing a page is for Jev to look at: without Jev, or without a browser, nothing is drawn.
   const { render } = options
-  if (render && run && options.useJev)
+  if (render && run && options.useJev) {
     ctx.draw = (sample, page, sizes) =>
       drawPage(render, skillDir, run.name, sample, page, sizes, (line) =>
         log(`${sample.name}: ${line}`),
       )
+    ctx.fit = (sample, picture) =>
+      fitPicture(render, skillDir, run.name, sample, picture, (line) =>
+        log(`${sample.name}: ${line}`),
+      )
+  }
   const started = performance.now()
   const results: ReportResult[] = []
   let unchanged = 0
@@ -617,6 +688,12 @@ async function gradeSubjects(
     log('No output to grade, so no report was written. The last one, if any, still stands.')
   else if (failed < total) writeJson(join(dir, 'report.json'), report)
   return report
+}
+
+/** The SKILL.md in `dir`, as it is written; null when there is none. */
+function skillText(dir: string): string | null {
+  const path = join(dir, 'SKILL.md')
+  return isFile(path) ? readFileSync(path, 'utf8') : null
 }
 
 /** The answers kept by the last grading; none when the file is absent or damaged. */

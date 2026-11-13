@@ -349,11 +349,21 @@ export function countsOf(
   }
 }
 
+/**
+ * A count as it reads: "9 of 11", "9 of 11, 2 not sure" where Jev left some
+ * for the reader, and "2 not sure" where it was sure of none.
+ */
+export function countText(count: Count): string {
+  const unsure = count.unsure ? `${count.unsure} not sure` : null
+  const marked = count.total ? `${count.met} of ${count.total}` : null
+  return [marked, unsure].filter(Boolean).join(', ')
+}
+
 /** "rules 9 of 11 · checks 7 of 9", to follow other parts of a line; null when nothing was counted. */
 export function countsLine(counts: { rules: Count | null; checks: Count | null }): string | null {
   const parts = [
-    counts.rules ? `rules ${counts.rules.met} of ${counts.rules.total}` : null,
-    counts.checks ? `checks ${counts.checks.met} of ${counts.checks.total}` : null,
+    counts.rules ? `rules ${countText(counts.rules)}` : null,
+    counts.checks ? `checks ${countText(counts.checks)}` : null,
   ].filter(Boolean)
   return parts.length ? parts.join(' · ') : null
 }

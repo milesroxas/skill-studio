@@ -220,11 +220,15 @@ We have made sync more reliable. Some users reported problems with notes after e
   },
 }
 
-/** Jev's made-up probability per rule, by what the rule is about. */
+/**
+ * Jev's made-up probability per rule, by what the rule is about. Every answer
+ * in this file stays clear of the two thresholds (0.3 and 0.7), so a picture
+ * shows it met or missed and never under Not sure.
+ */
 const RULE_NOULS: Record<Variant, Record<string, number>> = {
   good: { title: 0.95, order: 0.92, under: 0.99, never: 0.99, where: 0.93, only: 0.88 },
-  ok: { title: 0.9, order: 0.84, under: 0.99, never: 0.98, where: 0.34, only: 0.81 },
-  hype: { title: 0.21, order: 0.38, under: 0.97, never: 0.02, where: 0.08, only: 0.27 },
+  ok: { title: 0.9, order: 0.84, under: 0.99, never: 0.98, where: 0.24, only: 0.81 },
+  hype: { title: 0.21, order: 0.28, under: 0.97, never: 0.02, where: 0.08, only: 0.27 },
 }
 const RULE_KEYS: Array<[RegExp, string]> = [
   [/^Start with/, 'title'],
@@ -236,7 +240,7 @@ const RULE_KEYS: Array<[RegExp, string]> = [
 ]
 const CHECK_NOULS: Record<CaseId, Record<Variant, number[]>> = {
   'export-folder': { good: [0.97, 0.95], ok: [0.96, 0.06], hype: [0.9, 0.04] },
-  'breaking-api': { good: [0.98, 0.96, 0.93], ok: [0.97, 0.95, 0.12], hype: [0.05, 0.31, 0.1] },
+  'breaking-api': { good: [0.98, 0.96, 0.93], ok: [0.97, 0.95, 0.12], hype: [0.05, 0.21, 0.1] },
   'sync-fix': { good: [0.97, 0.98], ok: [0.95, 0.07], hype: [0.18, 0.03] },
 }
 
@@ -363,7 +367,7 @@ function packsOf({
         timeoutSeconds: 300,
       },
       jev: {
-        followedTask: trouble.followed ?? (sample.variant === 'hype' ? 0.58 : 0.91),
+        followedTask: trouble.followed ?? (sample.variant === 'hype' ? 0.78 : 0.91),
         recovered: trouble.errors ? 0.83 : null,
       },
     },
@@ -608,7 +612,7 @@ writeRun({
     },
     {
       'sync-fix-s2': { outside: ['/Users/dana/work/acme-app/CHANGELOG.md'], retries: 2 },
-      'breaking-api-s1': { followed: 0.54 },
+      'breaking-api-s1': { followed: 0.74 },
     },
   ),
 })

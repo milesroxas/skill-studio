@@ -22,7 +22,7 @@ This page uses the words of the files. A **pack** is a set of judge questions fo
 
 ## Answers and scores
 
-- Jev's raw answers are stored, unrounded. Points per layer, the threshold and pack settings are applied in code (`src/domain/scoring.ts` and each pack's `score.ts`). So a change to `bench.json`, or to Graded as on Results, rescores without new judge calls.
+- Jev's raw answers are stored, unrounded. Points per layer, the two thresholds and pack settings are applied in code (`src/domain/scoring.ts` and each pack's `score.ts`). So a change to `bench.json`, or to Graded as on Results, rescores without new judge calls.
 - A question that was asked and came back with no answer fails that pack's reading (`<pack> pack failed: Jev gave no ...`). It is never read as a no, and never skipped.
 - Three questions are asked of some outputs only: whether the page fits a phone (design), whether the transcript shows the task being done (workflow, for an output whose case is still there), and whether the agent changed course after an error (workflow). One that was not asked, and the phone or the error question when Jev left it out, is stored as no answer and left out of its layer. The pack's other layers stand (`optionalAnswer` in `src/judges/shared/questions.ts`).
 - A null layer, or one given 0 points, is left out of the total, and the rest rescale.
@@ -57,9 +57,9 @@ This page uses the words of the files. A **pack** is a set of judge questions fo
 - Regrade asks only about what changed. Each pack's raw answer is kept in `judge-cache.json` beside `report.json`, under a hash of:
   - the model, the pack and the version of its questions;
   - the output text, the other files and the notes beside it, and the transcript;
-  - the case, the rules and the settings;
-  - the bytes of the case's pictures as the run kept them in `_inputs/`, of its checks' pictures and of the page as drawn.
-- Points per layer and `yes` are not in the hash, since they apply in scoring. Nor is a setting that belongs to another pack alone, nor the list of packs: ticking a pack on Graded as has no other pack asked again.
+  - the case, the rules, the `SKILL.md` they were read from and the settings;
+  - the bytes of the case's pictures as the run kept them in `_inputs/`, of its checks' pictures, of the page as drawn and of a picture drawn again to fit.
+- Points per layer, `yes` and `no` are not in the hash, since they apply in scoring. Nor is a setting that belongs to another pack alone, nor the list of packs: ticking a pack on Graded as has no other pack asked again.
 - An output whose hash matches keeps its answer, and the log says `N of M outputs unchanged: kept their verdicts.`
 - A check command's result is never kept (`JudgePack.live`). It rests on tools and files no hash of the output covers, and costs nothing to read again, so every grading runs the command. An output whose other answers were all kept still counts as unchanged.
 - The cache keeps this grading's answers and, before them, earlier ones not asked again, up to four gradings' worth. So a grading without a TypeSafe key, or with a setting changed and put back, does not lose answers Jev already gave.
@@ -78,7 +78,8 @@ This page uses the words of the files. A **pack** is a set of judge questions fo
 | `packs` | `["generic"]` | The judge packs that apply. `generic` always does, first, whether the list names it or not |
 | `rules` | `null` | The rules adherence is judged on; `null` or an empty list reads the bullets of `SKILL.md`, below. A blank rule is left out, and one written twice counts once |
 | `weights` | `{}` | Points per layer, over each pack's defaults. Each is held at 0 or more |
-| `yes` | `0.5` | A judge answer at or above this counts as yes: the rule is followed, the check is met. Held to 0 to 1 |
+| `yes` | `0.7` | A judge answer at or above this counts as yes: the rule is followed, the check is met. Held to 0 to 1 |
+| `no` | `0.3` | A judge answer at or below this counts as no: the rule is broken, the check is missed. Held to 0 to `yes`. A file that names `yes` and no `no` gets a `no` equal to it, so every answer is a yes or a no |
 
 The file is read through `benchOf` (`src/domain/config.ts`), so one written by hand cannot break a score:
 
@@ -111,22 +112,39 @@ A run is graded on the rules of the skill it ran: the bullets are read from the 
 | `workflow` | the transcript | efficiency 40, scope 20, process 40 | `workflow.maxRetries`, `workflow.summaryLines` |
 | `design` | HTML or an image | visual 30 (Jev, looking at the output as a picture) | |
 
-Within a layer, an answer at or above `yes` counts as met. Adherence is the share of rules met. Rubric is the share of checks met, each counted by its weight.
+Within a layer, an answer at or above `yes` counts as met and one at or below `no` as missed (`readingOf` in `src/domain/verdict.ts`). An answer between the two is **not sure**: Jev holds a yes about as likely as a no, so it is set aside and counts in no layer until the reader answers it. Adherence is the share met of the rules that count. Rubric is the share met of the checks that count, each by its weight. A layer whose every fact was set aside has no score, and is left out of the total like any null layer.
+
+- The two defaults are where TypeSafe's docs say to start, and the editor reads Jev by the same two (`HOLDS`, `DRIFTS` in `src/domain/improve.ts`).
+- A fact set aside leaves a flag, so `st grade` and `st report` print it: `rule not counted, Jev was not sure (<section>): ...` or `grader <id> not counted, Jev was not sure: ...`.
 
 - A check marked ×2 on Cases is `weight: 2` in the grader file's front matter. A file written by hand, or by the Assistant, may say up to 5, and the screen shows that number.
 - An unmet check's flag carries the mark: `(×2)`.
-- The count Results shows counts the same way. A ×2 check is two of the total and, when met, two of the met, so "3 of 4" and a bar at 75 agree.
+- The count Results shows counts the same way. A ×2 check is two of the total and, when met, two of the met, so "3 of 4" and a bar at 75 agree. Facts Jev was not sure of are in neither number, and follow it: "3 of 4, 2 not sure".
 - Check weights are not points per layer: those are `weights` in `bench.json`.
 
 ### Generic
 
-The pack asks one question per rule and one per check, about the work as a whole. Jev is given every part of it there is:
+The pack asks one question per rule, one per heading the rules stand under and one per check, about the work as a whole, in one request: they are independent questions over one state, so the output and its pictures are sent once. Jev is given every part of the work there is:
 
 - `output`: the text of the primary artifact, its first 24,000 characters. A page is its HTML and code is its source. A picture has no text.
 - `picture`: the output as a picture. A page is the page as the desktop app drew it (see Design, below, for how and at what size); an output that is a PNG or JPEG is that picture; anything else, and a page nothing drew, is the first PNG or JPEG the agent left in `outputs/`. So a rule about how a page looks is judged on how it looks.
 - `other_files`: the start of every other text file the agent wrote, 6,000 characters of each and 18,000 in all, by its path. A test beside the code, or a script beside a page, is part of the work. A file that says what the primary one says, such as a preview that is the page, is left out.
 - `notes`: what the agent told the user (`notes.md` in the sample, which the run's prompt has it write in place of a reply), its first 6,000 characters. A rule or check that asks for something to be said, named, listed or reported is met when the notes say it. Nothing else is judged on the notes: a rule about the piece's length or wording is not failed for how the notes read.
 - `request` and `request_images`: the case's prompt and the pictures it came with.
+- `skill` and `headings`: the `SKILL.md` the rules were read from, its first 12,000 characters, and the headings they stand under. Both are left out when `bench.json` lists the rules.
+
+A rule is asked where it stands. The question names its heading, and the skill beside it says what the rule's words mean. Each heading is also asked once: are its rules for the kind of work the request asks for?
+
+- A heading that names no one kind of work ("Rules", "Tone") is for all of it. One that names another kind, mode or situation ("Rules for a screen mockup", when a focus mockup was asked for) is not.
+- A rule under a heading answered at or below `no` **does not apply**: it is set aside and counts in no layer, whatever was answered of the rule itself. The flag says how many: `2 rules not counted: for another kind of work than this`.
+- A rule above every heading, and one `bench.json` lists, is asked of no heading.
+- The reader's own answer on a rule set aside, met or missed, makes it count.
+
+A rule or a check is quoted without Markdown's marks. TypeSafe reads a backticked word in a question as a path into the state, and a word a writer put in backticks names none.
+
+The question says what `picture` is, so nothing is read off it that it does not hold: the window a page was drawn in, that a page drawn in a window past 1568 pixels a side is scaled down, so a length measured on the picture is not its length in the page, and that anything of the page below the window is not in it. Jev looks and reads. It does not measure: a rule or check that states pixels is often answered between the thresholds, and comes back as not sure.
+
+A picture the agent made with a side outside the 280 to 1568 pixels Jev reads is drawn again by the desktop app inside them, in a window of the picture's own shape, and Jev looks at that copy (`fitPicture` in `src/application/grade.ts`). It is kept in the sample's `renders/` folder, named by the picture and the size. The size a case holds a picture to is still the file's own. `st run`, `st grade` and `st serve` draw nothing, so there such a picture is left out.
 
 A picture Jev cannot read is left out with the flag `picture not judged: ...`, and the text is still judged. An output with neither text nor a picture Jev can read gets no adherence or rubric.
 
@@ -164,11 +182,11 @@ The pack needs a transcript; a run whose outputs sit flat at the run root (`RunM
 
 The pack runs only when the primary artifact is HTML or an image (`.png`, `.jpg`, `.jpeg`, `.webp`, `.gif` or `.svg`). A page or a picture beside Markdown is the primary artifact already; set `bench.artifact: markdown` on a case whose Markdown is the piece to judge.
 
-- It asks only what any visual must be, of the output as a picture: whether it has one clear main point (the verdict "The output has one clear main point") and whether anything in it is broken ("Nothing in the output looks broken": text that overlaps or cannot be read, something cut off or run out of its box, a missing picture, a blank or unstyled page). Plain blocks standing in for content are not broken, so a wireframe or a mockup is not failed for being one. Each counts once.
+- It asks only what any visual must be, of the output as a picture: whether it has one clear main point (the verdict "The output has one clear main point") and whether anything in it is broken ("Nothing in the output looks broken": text that overlaps or cannot be read, something cut off at a side or run out of its box, a missing picture, a blank or unstyled page). Plain blocks standing in for content are not broken, so a wireframe or a mockup is not failed for being one. The picture of a page is its first window, and the question says so: content that goes on past the bottom edge is not cut off. Each counts once.
 - It checks nothing about the HTML. What a page must have, such as a `lang`, a viewport or a `<main>`, is for the skill to state as a rule or the case as a check, which the generic pack marks: a page is not always a web page, and a mockup or a slide owes the web none of it.
 - The picture is the page as the desktop app draws it, its scripts run: in a window the case's size (`bench.size: [width, height]`), else 1280 by 960 pixels, scaled down whole when a side is past 1568. That is what Results shows the reader. Where nothing was drawn, it is the first PNG or JPEG the agent left in `outputs/`: an agent's own screenshot may show something else, or the page before its last change, so a drawn page comes first. An image in another format is not read. With no picture the pack says nothing.
 - For a case with `bench.phone: true` ("Check that a page works on a phone too, 390 px wide" on Cases), the desktop app also draws the page 390 by 1200 pixels, and Jev is asked whether it works on a phone: nothing cut off at the side, running past the edge or overlapping (the verdict "The page fits a phone screen"). Off by default: most pages are made for a desktop window. The pictures are kept in the sample's `renders/` folder, named by their size, and drawn again only when the page changes. `st run`, `st grade` and `st serve` draw nothing, so there a page is looked at only through a screenshot the agent left. A page that does not load in 20 seconds, or is not drawn in 30, or whose page stops, is logged and judged without its picture.
-- A picture outside the sizes Jev reads (280 to 1568 px a side) is left out with the flag `screenshot not judged: ...` or `phone screenshot not judged: ...`.
+- A picture the agent made outside the sizes Jev reads (280 to 1568 px a side) is drawn again to fit by the desktop app, as for the generic pack. One nothing could draw is left out with the flag `screenshot not judged: ...` or `phone screenshot not judged: ...`.
 
 Ticking Design also says the page or picture is the work: among an output's files it is judged, not a Markdown note beside it.
 
@@ -188,6 +206,17 @@ Jev's image input is a preview. A request that holds a picture is sent with the 
 
 A score is counted from facts, and the scorers report each one (`Verdict` in `src/domain/pack.ts`): a rule of the skill followed or broken, a check of the case met or missed, or another thing a pack measured. Results lists them under each output, missed first.
 
+A fact Jev answered stands one of four ways:
+
+| Stands | When | Counts |
+| --- | --- | --- |
+| met | the answer is `yes` or more | in its layer |
+| missed | the answer is `no` or less | in its layer |
+| not sure (`aside: 'unsure'`) | the answer is between the two | in no layer |
+| does not apply (`aside: 'inapplicable'`) | a rule whose heading is for another kind of work | in no layer |
+
+Results shows the two set aside as groups of their own, **Not sure** open and **Does not apply** folded.
+
 - A fact is named by its kind and its words, such as `rule:Keep the note under 120 words.` or `check:The note names Priya.`, so a rule or check that is edited is a new fact. The fixed questions of a pack have names of their own (`other:hierarchy`, `other:finished`, `other:followed task`).
 - Two checks of one case that say the same thing are two facts: each after the first also carries its own id, as in `check:The note names Priya. #03-names-priya` (`checkIds` in `src/domain/verdict.ts`).
 - A fact Jev answered is open to the reader's own answer. A fact code measured is not: the exit code of a check command, a count of tool calls, a word range.
@@ -196,7 +225,7 @@ A score is counted from facts, and the scorers report each one (`Verdict` in `sr
 
 `evals/reviews.json` holds what the reader said, written by Results.
 
-- **A correction** is the reader's own answer on one fact of one output: `reviews["<run>/<sample>"].corrections["<fact>"]` is `true` when the output meets it and `false` when it does not, whatever Jev said. It stands over Jev's answer wherever the app scores that output: the fact moves between Missed and Met, and the layer and the total follow. It stays the reader's answer when a `yes` threshold changed in `bench.json` brings Jev's answer round to it; the row then says "your answer, agrees with Jev", and "Take back" still removes it. `report.json` keeps Jev's own answers, so `st report` and `st compare` print the scores without corrections. They count them as the app does, from the stored answers under `bench.json` as it is now (`scoredReport` in `src/application/grade.ts`).
+- **A correction** is the reader's own answer on one fact of one output: `reviews["<run>/<sample>"].corrections["<fact>"]` is `true` when the output meets it and `false` when it does not, whatever Jev said. It stands over Jev's answer wherever the app scores that output: the fact moves between Missed and Met, and the layer and the total follow. On a fact set aside the reader may give either answer, and it then counts. It stays the reader's answer when a `yes` threshold changed in `bench.json` brings Jev's answer round to it; the row then says "your answer, agrees with Jev", and "Take back" still removes it. `report.json` keeps Jev's own answers, so `st report` and `st compare` print the scores without corrections. They count them as the app does, from the stored answers under `bench.json` as it is now (`scoredReport` in `src/application/grade.ts`).
 - Deleting a version, or one run, moves the corrections on the runs' outputs to the trash with it, and Undo brings them back. So do the entries of `preferences` that name one of its outputs: votes between two outputs, which the app neither writes nor reads. A delete that cannot move everything moves nothing. Undo is refused once the skill holds a version of that number again, so two different texts never share one.
 
 Any other field in `reviews.json`, such as a rating, a note or a vote, is kept as it is when the file is written, and nothing reads it.

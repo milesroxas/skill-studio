@@ -45,6 +45,14 @@ export function packFailure(flag: string): { pack: string; reason: string } | nu
 export type VerdictKind = 'rule' | 'check' | 'other'
 
 /**
+ * Why a fact Jev was asked about counts in no part of the score. `unsure`: Jev's
+ * answer sits between the two thresholds, so it is as likely yes as no.
+ * `inapplicable`: the rule stands under a heading for another kind of work than
+ * this output is. The reader's own answer on either makes it count.
+ */
+export type Aside = 'unsure' | 'inapplicable'
+
+/**
  * One fact about an output: a rule it follows or breaks, a check it meets or
  * misses, or another thing a pack measured. The facts are what a score is
  * counted from, so a reader can see which one cost the points.
@@ -55,8 +63,13 @@ interface VerdictBase {
   kind: VerdictKind
   /** The rule, the check, or the finding, as a reader reads it. */
   text: string
-  /** Whether the output meets it: the reader's own answer where they gave one, else the pack's. */
+  /**
+   * Whether the output meets it: the reader's own answer where they gave one,
+   * else the pack's. False for a fact set aside, which is neither met nor missed.
+   */
   met: boolean
+  /** Why the fact counts in no layer; absent for one that is met or missed. */
+  aside?: Aside
   /** The layer of the score it counts in; null for a finding that counts in none. */
   layer: string | null
   /** A rule's section of SKILL.md. */
@@ -68,8 +81,8 @@ interface VerdictBase {
 /** A fact Jev answered, so the reader may answer it themselves. */
 export interface JudgedVerdict extends VerdictBase {
   open: true
-  /** Jev's own answer under the skill's scoring. */
-  jev: boolean
+  /** Jev's own answer under the skill's scoring; null when Jev's answer set the fact aside. */
+  jev: boolean | null
   /** The reader answered it. Their answer stands whether or not it agrees with Jev's. */
   corrected: boolean
 }
@@ -128,3 +141,6 @@ export interface PackScoring<Raw = unknown> {
    */
   certainties(raw: Raw | null): number[]
 }
+
+/** A fact the output misses: not met, and not set aside. */
+export const isMissed = (verdict: Verdict): boolean => !verdict.met && !verdict.aside

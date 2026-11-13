@@ -16,6 +16,12 @@ export interface JudgeInput {
   /** The pictures the case's request came with, which Jev sees beside it. */
   images: RequestImage[]
   rules: Rule[]
+  /**
+   * The SKILL.md the rules were read from, whole: a rule is asked under its
+   * heading, beside the skill that says what its words mean. Null when the
+   * rules are a list in `bench.json`, or there is no SKILL.md.
+   */
+  skill: string | null
   artifacts: Artifact[]
   primary: Artifact | null
   /**
@@ -38,6 +44,21 @@ export interface JudgeInput {
    * artifact is HTML and the host has a browser to draw with. Empty otherwise.
    */
   renders: PageShot[]
+  /**
+   * A picture the agent made whose sides Jev does not read, drawn again inside
+   * them: the copy Jev looks at in place of `file`. Absent when the picture
+   * fits as it is, or the host has no browser to draw with.
+   */
+  fitted?: FittedPicture
+}
+
+/** A picture drawn again at a size Jev reads. */
+export interface FittedPicture {
+  /** The sample-relative path of the picture it is a copy of. */
+  file: string
+  /** The size of the picture itself, which the copy does not have. */
+  pixels: [number, number]
+  read: Readable
 }
 
 /** The page drawn at one size, read for Jev, or why it could not be. */
@@ -74,6 +95,8 @@ export interface JudgeContext {
   /** Absolute path of the skill being graded; a check's picture is read from here. */
   skillDir: string
   log: (line: string) => void
+  /** The grading was stopped: a request on its way to Jev is ended, so it is not waited for or paid for. */
+  signal?: AbortSignal
   /** Runs a case's check command; the code pack fails without it. */
   run?: CommandRunner
 }

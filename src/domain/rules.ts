@@ -14,7 +14,17 @@ export interface Rule {
   section: string
 }
 
-const strip = (markdown: string): string =>
+/** The section of a rule that stands above every heading of its file. */
+const NO_HEADING = 'SKILL.md'
+/** The section of a rule that `bench.json` lists. */
+const LISTED = 'bench.json rules'
+
+/** The heading a rule stands under in SKILL.md; null for one above every heading, and for one `bench.json` lists. */
+export const headingOf = (rule: Rule): string | null =>
+  rule.section === NO_HEADING || rule.section === LISTED ? null : rule.section
+
+/** Markdown's own marks taken out of a line, so it reads as the sentence it is. */
+export const plain = (markdown: string): string =>
   markdown
     .replace(/\*\*([^*]+)\*\*/g, '$1')
     .replace(/`([^`]+)`/g, '$1')
@@ -186,12 +196,12 @@ export function scanRules(skillMd: string): RuleScan {
   for (const bullet of bulletsOf(body.split('\n'))) {
     const line = offset + bullet.from + 1
     const raw = bulletText(bullet)
-    // Read the link before `strip` turns it into its label.
+    // Read the link before `plain` turns it into its label.
     if (LINK_ONLY.test(raw.trim())) {
       skipped.push({ line, reason: 'link' })
       continue
     }
-    const text = strip(raw)
+    const text = plain(raw)
     if (text.split(' ').length < WORDS_MIN) {
       skipped.push({ line, reason: 'short' })
       continue
@@ -200,7 +210,7 @@ export function scanRules(skillMd: string): RuleScan {
       skipped.push({ line, reason: 'repeat' })
       continue
     }
-    rules.push({ id: `r${rules.length + 1}`, text, section: bullet.section ?? 'SKILL.md' })
+    rules.push({ id: `r${rules.length + 1}`, text, section: bullet.section ?? NO_HEADING })
     spans.push({ from: line, to: offset + bullet.to + 1 })
   }
   return { rules, spans, skipped }
@@ -214,5 +224,5 @@ export const rulesFromList = (list: string[]): Rule[] =>
   [...new Set(list.map((text) => text.trim()).filter(Boolean))].map((text, i) => ({
     id: `r${i + 1}`,
     text,
-    section: 'bench.json rules',
+    section: LISTED,
   }))

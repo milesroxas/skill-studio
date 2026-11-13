@@ -532,6 +532,7 @@ async function judgeJev(
   const answers = await ctx.jev.ask(
     { ...(task !== null ? { task } : {}), transcript: summary },
     questions,
+    ctx.signal,
   )
   return {
     followedTask: task !== null ? noulOf(answers, 'followed_task') : null,

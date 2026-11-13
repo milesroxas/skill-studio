@@ -3,7 +3,14 @@
  * probability; the reader may answer it themselves, and their answer stands.
  * Pure functions, shared by every pack's scorer and the page.
  */
-import type { Corrections, JudgedVerdict, MeasuredVerdict, Verdict, VerdictKind } from './pack.ts'
+import type {
+  Aside,
+  Corrections,
+  JudgedVerdict,
+  MeasuredVerdict,
+  Verdict,
+  VerdictKind,
+} from './pack.ts'
 
 /** A fact's name within its output: its kind and its words. */
 export const verdictId = (kind: VerdictKind, text: string): string => `${kind}:${text.trim()}`
@@ -34,18 +41,46 @@ interface Fact {
   weight?: number
 }
 
-/** A fact Jev answered: met when its probability reaches `yes`, unless the reader says otherwise. */
+/** The two thresholds an answer of Jev's is read by (`BenchConfig.yes`, `BenchConfig.no`). */
+export interface Cuts {
+  yes: number
+  no: number
+}
+
+/**
+ * How one answer of Jev's reads: met at `yes` and above, missed at `no` and
+ * below, and unsure between the two, where a yes is about as likely as a no.
+ * `applies` is the probability the fact is for this kind of work at all: at
+ * `no` and below the fact is inapplicable, whatever was answered of it.
+ */
+export function readingOf(noul: number, cuts: Cuts, applies = 1): 'met' | 'missed' | Aside {
+  // A config that names no `no`, such as one a report kept from before, reads every answer as yes or no.
+  const no = Number.isFinite(cuts.no) ? Math.min(cuts.no, cuts.yes) : cuts.yes
+  if (applies < cuts.yes && applies <= no) return 'inapplicable'
+  if (noul >= cuts.yes) return 'met'
+  return noul > no ? 'unsure' : 'missed'
+}
+
+/**
+ * A fact Jev answered, read by `cuts` (`readingOf`), unless the reader says
+ * otherwise: their answer is met or missed, and it counts.
+ */
 export function jevVerdict(
   fact: Fact,
   noul: number,
-  yes: number,
+  cuts: Cuts,
   corrections: Corrections,
+  applies = 1,
 ): JudgedVerdict {
   const id = fact.id ?? verdictId(fact.kind, fact.text)
-  const jev = noul >= yes
+  const reading = readingOf(noul, cuts, applies)
+  const jev = reading === 'met' ? true : reading === 'missed' ? false : null
   const own = Object.hasOwn(corrections, id) ? corrections[id] : undefined
   // An answer the reader gave is theirs whatever Jev said: moving the threshold must not hide it.
-  return { ...fact, id, met: own ?? jev, jev, open: true, corrected: own !== undefined }
+  if (own !== undefined) return { ...fact, id, met: own, jev, open: true, corrected: true }
+  return jev === null
+    ? { ...fact, id, met: false, aside: reading as Aside, jev, open: true, corrected: false }
+    : { ...fact, id, met: jev, jev, open: true, corrected: false }
 }
 
 /** A fact code measured. Nobody corrects a count. */
@@ -68,18 +103,29 @@ export const finding = (text: string): MeasuredVerdict =>
  */
 export interface Count {
   met: number
+  /** The facts counted: met and missed. One set aside is in neither number. */
   total: number
+  /** How many facts Jev was not sure of, each counted once: they are in no score until the reader answers them. */
+  unsure: number
 }
 
 const weightOf = (v: Verdict): number => v.weight ?? 1
 
-const countFacts = (facts: readonly Verdict[]): Count | null =>
-  facts.length
-    ? {
-        met: facts.reduce((sum, v) => sum + (v.met ? weightOf(v) : 0), 0),
-        total: facts.reduce((sum, v) => sum + weightOf(v), 0),
-      }
-    : null
+/** The facts that count: every one but those set aside. */
+export const counted = <V extends Verdict>(facts: readonly V[]): V[] =>
+  facts.filter((v) => !v.aside)
+
+function countFacts(facts: readonly Verdict[]): Count | null {
+  const unsure = facts.filter((v) => v.aside === 'unsure').length
+  const marked = counted(facts)
+  // Facts that do not apply to this output are no count of it at all.
+  if (!marked.length && !unsure) return null
+  return {
+    met: marked.reduce((sum, v) => sum + (v.met ? weightOf(v) : 0), 0),
+    total: marked.reduce((sum, v) => sum + weightOf(v), 0),
+    unsure,
+  }
+}
 
 /** How many of the facts of one kind an output meets, by weight; null when it has none of that kind. */
 export const countOf = (verdicts: readonly Verdict[], kind: VerdictKind): Count | null =>
@@ -93,6 +139,10 @@ export const layerCount = (verdicts: readonly Verdict[], layer: string): Count |
 export function sumCounts(counts: ReadonlyArray<Count | null>): Count | null {
   const present = counts.filter((c): c is Count => c !== null)
   return present.length
-    ? present.reduce((sum, c) => ({ met: sum.met + c.met, total: sum.total + c.total }))
+    ? present.reduce((sum, c) => ({
+        met: sum.met + c.met,
+        total: sum.total + c.total,
+        unsure: sum.unsure + c.unsure,
+      }))
     : null
 }

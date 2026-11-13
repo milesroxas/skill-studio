@@ -105,7 +105,7 @@ describe('setByHand', () => {
   })
 
   it('names the settings that differ from their defaults', () => {
-    expect(setByHand({ packs: ['generic'], yes: 0.7, weights: { adherence: 30 } })).toEqual([
+    expect(setByHand({ packs: ['generic'], yes: 0.6, weights: { adherence: 30 } })).toEqual([
       'yes',
       'weights',
     ])

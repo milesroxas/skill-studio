@@ -4,6 +4,7 @@
  * as. The comparison of one case shows what changed; this answers "did the
  * edit help overall", and is where a run is graded again or its cost read.
  */
+import { isMissed } from '@domain/pack.ts'
 import { Fragment, useEffect, useRef } from 'react'
 import { api } from '../api.ts'
 import type { Ctx } from '../ctx.ts'
@@ -456,7 +457,7 @@ function RunDetail({
           {mine.map((o) => {
             const s = scoreOf(o, config)
             const meta = metaOf(o)
-            const missed = s?.verdicts.filter((v) => !v.met) ?? []
+            const missed = s?.verdicts.filter(isMissed) ?? []
             return (
               <TableRow
                 key={o.key}

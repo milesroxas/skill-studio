@@ -559,6 +559,11 @@ export const CHECK_EXAMPLES: readonly CheckExample[] = [
     good: 'The answer quotes the output of the check command.',
     why: 'One check, one fact. Whether the answer follows the skill is already scored, one rule at a time.',
   },
+  {
+    bad: 'The card sits 24px above the centre of the window.',
+    good: 'The card sits above the centre of the window.',
+    why: 'Jev looks at the answer and cannot measure it. A check that needs a ruler comes back as Not sure.',
+  },
 ]
 
 /** The first text of a new reference file, so it opens with a shape rather than a blank. */

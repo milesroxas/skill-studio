@@ -5,6 +5,7 @@
  */
 import {
   type Corrections,
+  isMissed,
   NO_CORRECTIONS,
   noOutput,
   type PackScore,
@@ -14,7 +15,7 @@ import {
 } from '@domain/pack.ts'
 import type { BenchConfig } from '@domain/schemas.ts'
 import { certainty } from '@domain/stats.ts'
-import { codeVerdict, finding, jevVerdict } from '@domain/verdict.ts'
+import { codeVerdict, counted, finding, jevVerdict } from '@domain/verdict.ts'
 
 /** The config an active workflow pack sees: domain/config.ts lays these defaults under bench.json. */
 export type WorkflowConfig = BenchConfig & {
@@ -142,7 +143,7 @@ function scoreWorkflow(
   const answered = (id: string, text: string, noul: number | null | undefined) =>
     noul === null || noul === undefined
       ? null
-      : jevVerdict({ kind: 'other', id, text, layer: 'process' }, noul, config.yes, corrections)
+      : jevVerdict({ kind: 'other', id, text, layer: 'process' }, noul, config, corrections)
   const followed = answered(
     'other:followed task',
     'The transcript shows the task being done as asked',
@@ -175,11 +176,13 @@ function scoreWorkflow(
       ),
     )
   if (judged.length) {
-    const parts = judged.map((v) => v.met)
+    // An answer Jev was not sure of is no part of the layer; what code read of the transcript still is.
+    const parts = counted(judged).map((v) => v.met)
     if (readFirst !== null) parts.push(readFirst)
-    layers.process = parts.filter(Boolean).length / parts.length
-    if (followed?.met === false) flags.push('transcript does not show the task being done as asked')
-    if (recovered?.met === false) flags.push('after an error the agent repeated itself')
+    layers.process = parts.length ? parts.filter(Boolean).length / parts.length : null
+    if (followed && isMissed(followed))
+      flags.push('transcript does not show the task being done as asked')
+    if (recovered && isMissed(recovered)) flags.push('after an error the agent repeated itself')
     verdicts.push(...judged)
   }
   // How a run went is worth nothing when it produced nothing: a tidy transcript with no output is a failed sample.

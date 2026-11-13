@@ -41,6 +41,7 @@ const input = (html: string, renders: PageShot[] = []): JudgeInput => ({
   artifacts: [{ file: 'outputs/index.html', kind: 'html' }],
   primary: { file: 'outputs/index.html', kind: 'html' },
   others: [],
+  skill: null,
   notes: null,
   transcript: null,
   dir: '/none',
@@ -94,7 +95,13 @@ describe('design pack', () => {
     const raw = await designPack.judge(page, asking(ask))
     // Rounded to three places this would be 0.5, and pass a threshold of 0.5 it did not reach.
     expect(raw?.jev?.hierarchy).toBe(0.4996)
-    expect(raw && designScoring.score(raw, subject, config).layers.visual).toBe(0.5)
+    const one = { ...config, yes: 0.5, no: 0.5 }
+    expect(raw && designScoring.score(raw, subject, one).layers.visual).toBe(0.5)
+    // Between the two thresholds every skill starts with, it is no answer: the layer counts the other.
+    const scored = raw && designScoring.score(raw, subject, config)
+    expect(scored?.layers.visual).toBe(1)
+    expect(scored?.flags).toEqual([])
+    expect(scored?.verdicts.find((v) => v.id === 'other:hierarchy')?.aside).toBe('unsure')
     ask.mockResolvedValueOnce({ hierarchy: { noul: 0.9 } })
     await expect(designPack.judge(page, asking(ask))).rejects.toThrow(MissingAnswerError)
   })

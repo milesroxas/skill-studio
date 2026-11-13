@@ -36,6 +36,8 @@ A hint under a section heading that says what the section is ("How Skill Studio 
 | the model that grades it | "Jev" |
 | what an output passes | "met" |
 | what an output fails | "missed" |
+| what Jev could not tell, so it is in no score | "not sure" |
+| a rule for another kind of work than the output | "does not apply" |
 | the reader's own answer on one verdict | a "correction", shown as "your answer" |
 
 ## Form

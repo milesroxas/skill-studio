@@ -5,6 +5,7 @@
  */
 import {
   type Corrections,
+  isMissed,
   NO_CORRECTIONS,
   type PackScore,
   type PackScoring,
@@ -13,7 +14,7 @@ import {
 import type { BenchConfig } from '@domain/schemas.ts'
 import { certainty } from '@domain/stats.ts'
 import { finding, jevVerdict } from '@domain/verdict.ts'
-import { clip, markChecks, type StatementAnswer } from '../shared/score.ts'
+import { clip, markChecks, metShare, type StatementAnswer } from '../shared/score.ts'
 
 export interface RuleAnswer {
   id: string
@@ -21,6 +22,11 @@ export interface RuleAnswer {
   section: string
   /** Probability the output follows the rule. */
   noul: number
+  /**
+   * Probability the rules under its heading are for this kind of work. Absent
+   * for a rule with no heading, and in a reading from before headings were asked.
+   */
+  applies?: number
 }
 
 export interface GenericRaw {
@@ -29,6 +35,8 @@ export interface GenericRaw {
   rubric: { statements: StatementAnswer[]; unasked?: string[] } | null
   /** Why the output's picture was left out, when it was. */
   unread?: string
+  /** What Jev read less of, when the whole work was more than one request holds. */
+  short?: string
 }
 
 function scoreGeneric(
@@ -41,25 +49,36 @@ function scoreGeneric(
   const flags: string[] = []
   if (!raw) return { layers, flags, verdicts: [] }
   // What was not judged counts in no layer, and is said.
-  const unjudged = [...(raw.unread ? [raw.unread] : []), ...(raw.rubric?.unasked ?? [])]
+  const unjudged = [
+    ...(raw.unread ? [raw.unread] : []),
+    ...(raw.short ? [raw.short] : []),
+    ...(raw.rubric?.unasked ?? []),
+  ]
   flags.push(...unjudged)
-  const yes = config.yes
   const rules = raw.adherence?.rules ?? []
   const followed = rules.map((rule) =>
     jevVerdict(
       { kind: 'rule', text: rule.text, layer: 'adherence', section: rule.section },
       rule.noul,
-      yes,
+      config,
       corrections,
+      rule.applies,
     ),
   )
-  if (rules.length) {
-    layers.adherence = followed.filter((v) => v.met).length / rules.length
-    rules.forEach((rule, i) => {
-      if (!followed[i].met) flags.push(`rule not followed (${rule.section}): ${clip(rule.text)}`)
-    })
-  }
-  const checks = markChecks(raw.rubric?.statements ?? [], 'rubric', yes, corrections)
+  // The share of the rules that count: one Jev was not sure of, or that is for other work, is in neither number.
+  layers.adherence = metShare(followed)
+  rules.forEach((rule, i) => {
+    const verdict = followed[i]
+    if (isMissed(verdict)) flags.push(`rule not followed (${rule.section}): ${clip(rule.text)}`)
+    else if (verdict.aside === 'unsure')
+      flags.push(`rule not counted, Jev was not sure (${rule.section}): ${clip(rule.text)}`)
+  })
+  const elsewhere = followed.filter((v) => v.aside === 'inapplicable').length
+  if (elsewhere)
+    flags.push(
+      `${elsewhere} ${elsewhere === 1 ? 'rule' : 'rules'} not counted: for another kind of work than this`,
+    )
+  const checks = markChecks(raw.rubric?.statements ?? [], 'rubric', config, corrections)
   layers.rubric = checks.share
   flags.push(...checks.flags)
   return {

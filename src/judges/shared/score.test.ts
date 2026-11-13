@@ -12,6 +12,10 @@ const answer = (weight: number, over: Partial<StatementAnswer> = {}): StatementA
   ...over,
 })
 
+/** One threshold: every answer is a yes or a no. */
+const BINARY = { yes: 0.5, no: 0.5 }
+const CUTS = { yes: 0.7, no: 0.3 }
+
 describe('unmetFlag', () => {
   it('names the weight only when it is not 1', () => {
     expect(unmetFlag(answer(1))).toBe('grader 01-names not met: The note names Priya.')
@@ -41,6 +45,12 @@ describe('metShare', () => {
   it('has no share where there are no facts', () => {
     expect(metShare([])).toBeNull()
   })
+
+  it('counts no fact that was set aside, and has no share when every one was', () => {
+    const aside: Verdict = { ...fact(false), open: true, jev: null, aside: 'unsure' }
+    expect(metShare([fact(true), fact(false), aside])).toBe(0.5)
+    expect(metShare([aside])).toBeNull()
+  })
 })
 
 describe('markChecks', () => {
@@ -51,7 +61,7 @@ describe('markChecks', () => {
   ]
 
   it('marks each check for its layer, the share by weight, and a flag per miss', () => {
-    const marked = markChecks(statements, 'review', 0.5, {})
+    const marked = markChecks(statements, 'review', BINARY, {})
     expect(marked.verdicts.map((v) => [v.id, v.met, v.layer, v.weight])).toEqual([
       ['check:Names Priya.', true, 'review', 2],
       ['check:Says Sunday.', false, 'review', undefined],
@@ -62,7 +72,7 @@ describe('markChecks', () => {
   })
 
   it('lets the reader’s answer stand over Jev’s, in the share and the flags alike', () => {
-    const marked = markChecks(statements, 'review', 0.5, {
+    const marked = markChecks(statements, 'review', BINARY, {
       'check:Names Priya.': false,
       'check:Says Sunday.': true,
     })
@@ -75,17 +85,36 @@ describe('markChecks', () => {
       answer(1, { id: 'g1', text: 'Names Priya.', noul: 0.1 }),
       answer(1, { id: 'g2', text: 'Names Priya.', noul: 0.1 }),
     ]
-    const first = markChecks(twins, 'review', 0.5, { 'check:Names Priya.': true })
+    const first = markChecks(twins, 'review', BINARY, { 'check:Names Priya.': true })
     expect(first.verdicts.map((v) => [v.id, v.met, v.corrected])).toEqual([
       ['check:Names Priya.', true, true],
       ['check:Names Priya. #g2', false, false],
     ])
     expect(first.share).toBe(1 / 2)
-    const second = markChecks(twins, 'review', 0.5, { 'check:Names Priya. #g2': true })
+    const second = markChecks(twins, 'review', BINARY, { 'check:Names Priya. #g2': true })
     expect(second.verdicts.map((v) => v.met)).toEqual([false, true])
   })
 
+  it('sets a check Jev was not sure of aside: out of the share, and flagged as not counted', () => {
+    const marked = markChecks(statements, 'review', CUTS, {})
+    expect(marked.verdicts.map((v) => [v.met, v.aside])).toEqual([
+      [true, undefined],
+      [false, undefined],
+      [false, 'unsure'],
+    ])
+    // Two counted: the ×2 check met, the plain one missed.
+    expect(marked.share).toBe(2 / 3)
+    expect(marked.flags).toEqual([
+      'grader g2 not met: Says Sunday.',
+      'grader g3 not counted, Jev was not sure: Two sentences.',
+    ])
+    // The reader's answer counts it.
+    expect(markChecks(statements, 'review', CUTS, { 'check:Two sentences.': true }).share).toBe(
+      3 / 4,
+    )
+  })
+
   it('leaves the layer out for a case with no checks', () => {
-    expect(markChecks([], 'review', 0.5, {})).toEqual({ verdicts: [], share: null, flags: [] })
+    expect(markChecks([], 'review', BINARY, {})).toEqual({ verdicts: [], share: null, flags: [] })
   })
 })

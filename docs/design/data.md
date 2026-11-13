@@ -56,7 +56,7 @@ A score is out of 100 and always shows through one of these, from `components/Sc
 | `Delta` | a change between two scores: "+15" in `success`, "−4" in `destructive` |
 | `ListScore` | a `TotalChip` at the end of a row in a list column (a `NavButton`'s `end`): the latest score alone. On the open row it takes a hairline edge. |
 | `ScoreChange` | how a score moved, in words, for the line under a row's title: "Up 11 from v0", "Down 4 from v0", "Same as v0", or "Up 20 with the skill" or "Same as without the skill" against the run without it. A case with one output says "Only v0 so far": with nothing to move from, a bare version would explain nothing. Where one of the two outputs has no score the line names it, "v2 has no score yet" or "v2 was stopped before it finished", and the chip beside it shows the later output's score or none, never the earlier one's. Only "Down" is colored, `destructive`: a rise is the resting state, and the eye lands on what got worse. |
-| `PartList` | the parts one score is made of, a row each: the name, then "4 of 5" at the row's end. A part counted from facts says the count, each fact by its weight so a ×2 check counts two; any other says its score and its `Delta` from the other side. A count stays in `foreground` until its part is weak. A part a kind of work adds (Look, Efficiency, Scope, Process, Check command) names itself through `Explained`, below; Rules and Checks, which every skill is graded on, are plain text. |
+| `PartList` | the parts one score is made of, a row each: the name, then "4 of 5" at the row's end, or "4 of 5, 2 not sure" where Jev left facts for the reader (`countText` in `model.ts`). A part counted from facts says the count, each fact by its weight so a ×2 check counts two; any other says its score and its `Delta` from the other side. A count stays in `foreground` until its part is weak. A part a kind of work adds (Look, Efficiency, Scope, Process, Check command) names itself through `Explained`, below; Rules and Checks, which every skill is graded on, are plain text. |
 | `CheckWeight` | a check's ×2 mark after its statement, only when it counts more than 1 |
 
 `Explained` (`components/Help.tsx`) is a word a reader may ask about, where it stands.
@@ -73,19 +73,21 @@ A score is out of 100 and always shows through one of these, from `components/Sc
 What a score is counted from shows under it as `Verdicts` (`components/Verdicts.tsx`), on an `OutputCard`:
 
 1. **Missed**, open: one row per rule broken or check not met.
-2. **Marked as met by you**, open, so the reader's own answers stay in view.
-3. **Met**, folded under its count.
+2. **Not sure**, open: one row per fact Jev could not tell, which is in no score until the reader answers it. The heading is a `Term`.
+3. **Marked as met by you**, open, so the reader's own answers stay in view.
+4. **Met**, folded under its count.
+5. **Does not apply**, folded under its count: a rule under a heading for another kind of work than this output.
 
 A row is three columns:
 
-- A mark: a red cross or a green tick, which repeat the words "Missed" and "Met".
+- A mark: a red cross or a green tick, which repeat the words "Missed" and "Met". A fact in Not sure or Does not apply is no verdict, so its mark is a `muted-foreground` dash and never a verdict color.
 - The rule or check in full. Under it, in `faint`, a line shows only when it says something: the kind when the list holds both rules and checks, or when the check counts more than once ("Rule", "Check ×2"); the reader's own answer; and "Saving…" while it is saved.
 - Its actions at the end, top-aligned so they line up from row to row.
 
 The actions are `ghost-muted` at `xs`:
 
 - "Open rule" on every rule SKILL.md still holds, missed or met.
-- Then `MoreActions` at `size="xs"`, holding only the answer, "Mark as met" or "Mark as missed", for a fact Jev answered. Answering is rare, so it never sits in the row itself.
+- Then `MoreActions` at `size="xs"`, holding only the answer, "Mark as met" or "Mark as missed", for a fact Jev answered. Answering is rare, so it never sits in the row itself. A fact in Not sure or Does not apply is neither, so its menu holds both.
 - Each action has one place on every row, whatever the row says, so a reader finds it where they found it last.
 - Never make the whole row the button: its text is copied, and a check has no rule to open.
 - A fact code measured, such as a word count, has no answer to give and no menu.

@@ -12,7 +12,8 @@ export const DEFAULT_CONFIG: BenchConfig = {
   packs: [BASE_PACK],
   rules: null,
   weights: {},
-  yes: 0.5,
+  yes: 0.7,
+  no: 0.3,
 }
 
 /** Keys a `bench.json` written by an earlier version may hold. Nothing reads them, so they are not carried on. */
@@ -93,6 +94,8 @@ const strings = (value: unknown): string[] =>
  * - `weights`: a number per layer, held at 0 or more. Anything else is dropped.
  *   No top: a layer's points are a share of the total, so any number counts.
  * - `yes`: held to 0 to 1; the default when it is not a number.
+ * - `no`: held to 0 to `yes`. A file that gives `yes` alone gets a `no` equal
+ *   to it, so every answer is a yes or a no, as that file was written to read.
  * - A number inside a pack's own setting is held at 0 or more, and a check's
  *   time limit to the longest a case may run. A limit of 0 or less is dropped,
  *   so the pack's default stands.
@@ -103,17 +106,28 @@ const strings = (value: unknown): string[] =>
 export function benchOf(raw: unknown): BenchConfig {
   const source = isObject(raw) ? raw : {}
   const rules = strings(source.rules)
+  const yes = isNumber(source.yes) ? clamp(source.yes, PROBABILITY) : DEFAULT_CONFIG.yes
   const config: BenchConfig = {
     packs: strings(source.packs),
     rules: rules.length ? rules : null,
     weights: weightsOf(source.weights),
-    yes: isNumber(source.yes) ? clamp(source.yes, PROBABILITY) : DEFAULT_CONFIG.yes,
+    yes,
+    no: noOf(source, yes),
   }
   for (const [key, value] of Object.entries(source)) {
     if (Object.hasOwn(config, key) || UNREAD.has(key) || value === undefined) continue
     config[key] = settingOf(key, value)
   }
   return config
+}
+
+/**
+ * The `no` threshold beside `yes`: the file's own, never above `yes`. A file
+ * that names `yes` and no `no` reads every answer as one or the other.
+ */
+function noOf(source: Record<string, unknown>, yes: number): number {
+  if (isNumber(source.no)) return Math.min(yes, clamp(source.no, PROBABILITY))
+  return isNumber(source.yes) ? yes : Math.min(yes, DEFAULT_CONFIG.no)
 }
 
 /** Points per layer from untrusted input, each held at 0 or more; a layer whose points are not a number is dropped. */
@@ -177,8 +191,9 @@ export function mergeConfig(
   }
   // `benchOf` fills in a threshold the file did not give: only one it gave stands over a pack's own.
   const gaveYes = isObject(saved) && isNumber(saved.yes)
+  const gaveNo = gaveYes || (isObject(saved) && isNumber(saved.no))
   for (const [key, value] of Object.entries(read)) {
-    if (key === 'packs' || (key === 'yes' && !gaveYes)) continue
+    if (key === 'packs' || (key === 'yes' && !gaveYes) || (key === 'no' && !gaveNo)) continue
     merged[key] = key === 'rules' ? value : laid(merged[key], value)
   }
   return merged

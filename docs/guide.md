@@ -176,7 +176,9 @@ Results shows one case at a time: **A**, the answer from your previous version, 
 
 - **The list on the left** has every case with its score and how much it moved. Click one to open it.
 - **Missed** lists each rule and check the answer did not meet. **Open rule** takes you to that rule in the editor.
+- **Not sure** lists what Jev could not tell. These are left out of the score until you mark them yourself.
 - **Met** folds away everything it got right.
+- **Does not apply** folds away rules written for another kind of work than this answer, such as rules under "For a bug report" when the request was for a summary. They are left out of the score.
 - **Click a score** to see how it was counted.
 - **Read the transcript** shows every step the agent took. Read it when a score surprises you.
 - **Click a version name** to read a different answer on that side.
@@ -189,6 +191,7 @@ Results shows one case at a time: **A**, the answer from your previous version, 
 | Jev passed an answer you do not like | Write down what is missing: **Add a check** under the answers, or add a rule to the skill |
 | Jev failed an answer you like | Edit or delete the rule or check that asked for the wrong thing |
 | Jev got one rule or check wrong | Click **⋯** beside it, then **Mark as met** or **Mark as missed** |
+| Jev was not sure of one | Click **⋯** beside it under **Not sure**, then **Mark as met** or **Mark as missed** |
 
 Your mark replaces Jev's and the score updates. **Take back**, in the same menu, undoes it.
 

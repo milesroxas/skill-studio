@@ -6,6 +6,23 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+### Changed
+
+- A rule or check Jev could not tell is listed under **Not sure** and left out of the score until you mark it. Before, an answer just short of a yes was counted as **Missed**, the same as a clear miss.
+- A rule under a heading for another kind of work is listed under **Does not apply** and left out of the score. Before, a skill with rules for two kinds of work, such as "Rules for a screen mockup" and "Rules for a focus mockup", had the rules for one kind marked missed on an answer of the other.
+- Scores of past runs move with this change, and the next **Regrade** of a run asks Jev about each output once more, since what is asked changed.
+- Jev reads each rule under its heading, with the skill beside it, so a rule that uses the skill's own words is read as the skill means them.
+- A count of rules or checks says how many Jev was not sure of: "9 of 11, 2 not sure".
+- `bench.json` takes a `no` beside `yes`: an answer at or above `yes` (0.7) is met, one at or below `no` (0.3) is missed, and one between is not sure. A file that sets `yes` alone scores as it did.
+- Grading sends an output's rules and checks to Jev in one request, so the output and its pictures are sent once.
+
+### Fixed
+
+- A picture larger than 1568 px a side, or smaller than 280, is graded: Jev looks at a copy drawn to fit. Before, it got no rule, no check and no score.
+- A page that goes on below its first window is not marked as cut off.
+- Jev is told when a page was drawn smaller than its window, so a size in pixels is not read off the picture.
+- **Stop** ends a question already on its way to Jev.
+
 ## [0.11.1] - 2026-11-13
 
 This release also brings everything listed under 0.11.0, which was not published.

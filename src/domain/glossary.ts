@@ -67,6 +67,11 @@ export const GLOSSARY = {
     means:
       'A rule from your skill that the output breaks, a check it fails, or a flaw in how it looks. Jev, the grader, decides each one, and you can overrule it.',
   },
+  unsure: {
+    term: 'Not sure',
+    means:
+      'Jev, the grader, could not tell whether the output meets it, so it is left out of the score. Mark it yourself and it counts.',
+  },
   version: {
     term: 'Version',
     means:

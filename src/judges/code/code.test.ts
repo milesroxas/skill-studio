@@ -98,6 +98,7 @@ describe('code pack without Jev', () => {
       artifacts: [],
       primary: null,
       others: [],
+      skill: null,
       notes: null,
       transcript: null,
       dir: '/sample',

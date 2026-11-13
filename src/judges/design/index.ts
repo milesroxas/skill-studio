@@ -20,11 +20,12 @@ import { type DesignRaw, designScoring } from './score.ts'
 
 export const designPack: JudgePack<DesignRaw> = {
   ...designScoring,
-  version: 3,
+  version: 4,
   label: 'Design: a look at the output as a picture',
   renders: true,
   async judge(input, ctx) {
     const read = pictureOf(input)
+    const drawn = input.primary?.kind === 'html' ? renderOf(input, 'desktop') : null
     const phoneRead = input.primary?.kind === 'html' ? renderOf(input, 'phone') : null
     const shot = read?.image ?? null
     const phone = phoneRead?.image ?? null
@@ -36,6 +37,11 @@ export const designPack: JudgePack<DesignRaw> = {
     const unread = problems.length ? problems.join('; ') : null
     if (!shot || !asksJev(input, ctx)) return unread ? { jev: null, unread } : null
     const state: JevState = { ...requestState(input), screenshot: shot }
+    // Said only of a page the app drew: a picture the agent made is the whole of itself.
+    const below =
+      read === drawn && drawn?.image
+        ? ' `screenshot` is the first window of a page that may go on below it: content that goes on past the bottom edge is not cut off or broken.'
+        : ''
     if (phone) state.phone = phone
     const questions = {
       hierarchy: noul(
@@ -46,10 +52,10 @@ export const designPack: JudgePack<DesignRaw> = {
         },
       ),
       // Broken, not bare: a wireframe's grey blocks and a mockup's empty margins are made that way.
+      // The picture of a page is its first window: what goes on below the bottom edge is not cut off.
       finished: noul('Is `screenshot` free of anything broken?', {
-        true: 'Text is readable, and nothing overlaps another thing by accident, runs out of its box or is cut off by the edge. Plain blocks standing in for content are not broken.',
-        false:
-          'Text overlaps or cannot be read, something runs out of its box or is cut off by the edge, a picture is missing, or the whole thing is blank or unstyled.',
+        true: `Text is readable, and nothing overlaps another thing by accident, runs out of its box or is cut off at a side. Plain blocks standing in for content are not broken.${below}`,
+        false: `Text overlaps or cannot be read, something runs out of its box or is cut off at a side, a picture is missing, or the whole thing is blank or unstyled.${below}`,
       }),
       ...(phone
         ? {
@@ -61,7 +67,7 @@ export const designPack: JudgePack<DesignRaw> = {
           }
         : {}),
     }
-    const answers = await ctx.jev.ask(state, questions)
+    const answers = await ctx.jev.ask(state, questions, ctx.signal)
     const jev: DesignRaw['jev'] = {
       hierarchy: noulOf(answers, 'hierarchy'),
       finished: noulOf(answers, 'finished'),

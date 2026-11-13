@@ -12,13 +12,26 @@ import type { JudgeInput } from '../types.ts'
 export const renderOf = (input: JudgeInput, id: 'desktop' | 'phone'): Readable | null =>
   input.renders.find((r) => r.size.id === id)?.read ?? null
 
-/** The picture judged when it is a PNG or JPEG, else the first the agent left, read for Jev; null when it left none. */
-function shotOf(input: JudgeInput): Readable | null {
+/** The picture judged when it is a PNG or JPEG, else the first the agent left; null when it left none. */
+export function agentPicture(
+  input: Pick<JudgeInput, 'primary' | 'artifacts'>,
+): { kind: string; file: string } | null {
   const jevPicture = (a: { kind: string; file: string }) =>
     a.kind === 'image' && isJevFormat(a.file)
-  const shot =
-    input.primary && jevPicture(input.primary) ? input.primary : input.artifacts.find(jevPicture)
-  return shot ? readForJev(join(input.dir, shot.file)) : null
+  return (
+    (input.primary && jevPicture(input.primary) ? input.primary : null) ??
+    input.artifacts.find(jevPicture) ??
+    null
+  )
+}
+
+/** The agent's picture read for Jev: the copy drawn to fit where there is one, else the file itself. */
+function shotOf(input: JudgeInput): Readable | null {
+  const shot = agentPicture(input)
+  if (!shot) return null
+  return input.fitted?.file === shot.file
+    ? input.fitted.read
+    : readForJev(join(input.dir, shot.file))
 }
 
 /**

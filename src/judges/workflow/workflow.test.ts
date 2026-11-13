@@ -50,6 +50,7 @@ const inputOf = (events: TranscriptEvent[], settings = {}, sampleDir = dir): Jud
   artifacts: [{ file: 'outputs/note.md', kind: 'markdown' }],
   primary: null,
   others: [],
+  skill: null,
   notes: null,
   transcript: events,
   dir: sampleDir,

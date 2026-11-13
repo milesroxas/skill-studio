@@ -71,6 +71,7 @@ const inputFor = (id: string, testCase: Case): JudgeInput => {
     artifacts: primary ? [primary] : [],
     primary,
     others: [],
+    skill: null,
     notes: null,
     transcript: [{ step: 1, at: 0, kind: 'tool', tool: 'Read', args: 'SKILL.md' }],
     dir: '/none',

@@ -17,6 +17,7 @@ const output = (over: Partial<JudgeInput> = {}): JudgeInput => ({
   artifacts: [],
   primary: null,
   others: [],
+  skill: null,
   notes: null,
   transcript: null,
   dir: '/sample',

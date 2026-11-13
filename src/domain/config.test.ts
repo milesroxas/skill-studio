@@ -37,6 +37,12 @@ describe('mergeConfig', () => {
     expect(merged.yes).toBe(0.8)
   })
 
+  it('gives a saved `yes` its own `no`, and leaves the default `no` under a pack’s own `yes`', () => {
+    expect(mergeConfig({ yes: 0.5 }, scorers)).toMatchObject({ yes: 0.5, no: 0.5 })
+    expect(mergeConfig({ no: 0.1 }, scorers)).toMatchObject({ yes: 0.6, no: 0.1 })
+    expect(mergeConfig(null, scorers).no).toBe(DEFAULT_CONFIG.no)
+  })
+
   it('does not carry on keys nothing reads any more', () => {
     const merged = mergeConfig({ sure: 0.8, agreeAt: 70, defaultCase: 'intro' }, scorers)
     expect(merged).not.toHaveProperty('sure')
@@ -86,7 +92,7 @@ describe('mergeConfig', () => {
 describe('benchOf', () => {
   it('reads anything that is not an object as an empty config', () => {
     for (const raw of [null, undefined, 'x', 3, []])
-      expect(benchOf(raw)).toEqual({ packs: [], rules: null, weights: {}, yes: 0.5 })
+      expect(benchOf(raw)).toEqual({ packs: [], rules: null, weights: {}, yes: 0.7, no: 0.3 })
   })
 
   it('holds the threshold to a probability and the points at 0 or more', () => {
@@ -94,13 +100,25 @@ describe('benchOf', () => {
     expect(benchOf({ yes: -0.2 }).yes).toBe(0)
     expect(benchOf({ yes: 0.45 }).yes).toBe(0.45)
     // Not a number: a null here once read every answer as met.
-    expect(benchOf({ yes: null }).yes).toBe(0.5)
-    expect(benchOf({ yes: 'high' }).yes).toBe(0.5)
+    expect(benchOf({ yes: null }).yes).toBe(0.7)
+    expect(benchOf({ yes: 'high' }).yes).toBe(0.7)
     expect(benchOf({ weights: { a: 200, b: -5, c: 40, d: 'x', e: Number.NaN } }).weights).toEqual({
       a: 200,
       b: 0,
       c: 40,
     })
+  })
+
+  it('reads a file that names `yes` alone as one threshold, so it scores as it was written to', () => {
+    expect(benchOf({ yes: 0.5 })).toMatchObject({ yes: 0.5, no: 0.5 })
+    expect(benchOf({ yes: 0.9 }).no).toBe(0.9)
+    // Both named: an answer between them is no answer.
+    expect(benchOf({ yes: 0.8, no: 0.4 })).toMatchObject({ yes: 0.8, no: 0.4 })
+    // `no` is never above `yes`, and is held to a probability.
+    expect(benchOf({ yes: 0.6, no: 0.9 }).no).toBe(0.6)
+    expect(benchOf({ no: 0.9 })).toMatchObject({ yes: 0.7, no: 0.7 })
+    expect(benchOf({ no: -1 }).no).toBe(0)
+    expect(benchOf({ no: 'low' }).no).toBe(0.3)
   })
 
   it('keeps saved scoring the Scoring screen’s sliders would not reach', () => {

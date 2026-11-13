@@ -593,6 +593,80 @@ describe('gradeRun, on a picture held to the case’s size', () => {
   })
 })
 
+describe('gradeRun, on a picture too large or too small for Jev', () => {
+  /** A skill whose one output is a picture of the size given. */
+  function pictureSkill(width: number, height: number) {
+    const { dir, run } = skillWith(['cover'], ['cover-s1'])
+    const sample = join(dir, 'evals/runs', run, 'cover-s1')
+    rmSync(join(sample, 'outputs/note.md'))
+    writeFileSync(join(sample, 'outputs/cover.png'), pngHeader(width, height))
+    return { dir, run, sample }
+  }
+
+  it('draws a copy inside the sizes Jev reads, and gives the pack that copy with the file’s own size', async () => {
+    const { dir, run, sample } = pictureSkill(1920, 1080)
+    vi.spyOn(Jev, 'available').mockReturnValue(true)
+    const judge = genericJudge().mockResolvedValue(null)
+    const render = vi.fn(async (_page: unknown, size: { width: number; height: number }) =>
+      pngHeader(size.width, size.height),
+    )
+    const [result] = (await gradeRun(dir, run, { useJev: true, render })).results
+    // The window has the picture's own shape, so the whole of it is drawn.
+    expect(render.mock.calls).toEqual([
+      [
+        { skill: dir, run, sample: 'cover-s1', file: 'outputs/cover.png' },
+        { width: 1568, height: 882 },
+      ],
+    ])
+    expect(readdirSync(join(sample, 'renders'))).toEqual(['cover-1568x882.png'])
+    const [input] = judge.mock.calls[0]
+    expect(input.fitted).toMatchObject({
+      file: 'outputs/cover.png',
+      pixels: [1920, 1080],
+      read: { problem: null },
+    })
+    // The size a case is held to is still the file's own.
+    expect(result.pixels).toEqual([1920, 1080])
+
+    // The copy kept stands for the picture: nothing is drawn or asked again.
+    render.mockClear()
+    judge.mockClear()
+    await gradeRun(dir, run, { useJev: true, render })
+    expect(render).not.toHaveBeenCalled()
+    expect(judge).not.toHaveBeenCalled()
+  })
+
+  it('draws no copy of a picture Jev reads as it is, and none without a browser to draw with', async () => {
+    vi.spyOn(Jev, 'available').mockReturnValue(true)
+    const fits = pictureSkill(1200, 630)
+    const judge = genericJudge().mockResolvedValue(null)
+    const render = vi.fn()
+    await gradeRun(fits.dir, fits.run, { useJev: true, render })
+    expect(render).not.toHaveBeenCalled()
+    expect(judge.mock.calls[0][0].fitted).toBeUndefined()
+
+    const large = pictureSkill(1920, 1080)
+    judge.mockClear()
+    await gradeRun(large.dir, large.run, { useJev: true })
+    expect(judge.mock.calls[0][0].fitted).toBeUndefined()
+  })
+
+  it('judges without a copy it could not draw, and says so', async () => {
+    const { dir, run } = pictureSkill(1920, 1080)
+    vi.spyOn(Jev, 'available').mockReturnValue(true)
+    const judge = genericJudge().mockResolvedValue(null)
+    const lines: string[] = []
+    const render = vi.fn(async () => {
+      throw new Error('The page stopped.')
+    })
+    await gradeRun(dir, run, { useJev: true, render, log: (line) => lines.push(line) })
+    expect(judge.mock.calls[0][0].fitted).toBeUndefined()
+    expect(lines).toContain(
+      'cover-s1: cover.png could not be drawn at a size Jev reads: The page stopped.',
+    )
+  })
+})
+
 describe('gradeRun, on an output whose case is gone', () => {
   it('gives it no case, never the case whose id starts its name', async () => {
     const { dir, run } = skillWith(['email'], ['email-s1', 'email-reply-s1', 'email-2-s1'])
@@ -642,6 +716,8 @@ describe('gradeRun, on the rules a run is graded on', () => {
     const judge = genericJudge().mockResolvedValue(null)
     await gradeRun(dir, run, { useJev: false })
     expect(rulesAsked(judge)).toEqual([[FORTY]])
+    // The skill a rule is read beside is the one it was read from: the run's own.
+    expect(judge.mock.calls[0][0].skill).toBe(`# Notes\n\n- ${FORTY}\n`)
 
     // The skill moves on again: nothing the run is judged on changed, so nothing is asked.
     writeFileSync(join(dir, 'SKILL.md'), '# Notes\n\n- Sign every note with a name.\n')
@@ -659,6 +735,8 @@ describe('gradeRun, on the rules a run is graded on', () => {
     const judge = genericJudge().mockResolvedValue(null)
     await gradeRun(dir, run, { useJev: false })
     expect(rulesAsked(judge)).toEqual([['Open every note with a greeting.']])
+    // Listed rules stand under no heading of SKILL.md, so the file is not read beside them.
+    expect(judge.mock.calls[0][0].skill).toBeNull()
   })
 })
 
@@ -796,7 +874,7 @@ const reportOf = (results: Array<Partial<ReportResult>>): Report => ({
   model: null,
   inputTokens: 0,
   seconds: 0,
-  config: { packs: ['generic'], rules: null, weights: {}, yes: 0.5 },
+  config: { packs: ['generic'], rules: null, weights: {}, yes: 0.5, no: 0.5 },
   packs: ['generic'],
   results: results.map((result) => ({
     sample: '',

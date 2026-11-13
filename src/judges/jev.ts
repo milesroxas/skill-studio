@@ -26,6 +26,14 @@ export type JevState = NonNullable<Parameters<TypeSafeClient['systemOne']>[0]['s
 export const isAuthError = (error: unknown): boolean =>
   error instanceof AuthenticationError || error instanceof PermissionDeniedError
 
+/**
+ * TypeSafe refused the request for its size: the state and the questions
+ * together are more than Jev reads at once. Asking the same again fails the
+ * same way, so whoever asked must ask for less.
+ */
+export const isTooLarge = (error: unknown): boolean =>
+  error instanceof Error && error.message.includes('max_tokens_exceeded')
+
 export class Jev {
   readonly model: string
   private client: TypeSafeClient | null = null
@@ -43,9 +51,11 @@ export class Jev {
     return Boolean(process.env.TYPESAFE_API_KEY)
   }
 
+  /** Ask `questions` of `state`. `signal` ends the request, and any retry of it, when the grading is stopped. */
   async ask<const Q extends Questions>(
     state: JevState,
     questions: Q,
+    signal?: AbortSignal,
   ): Promise<SystemOneResult<Q>['answers']> {
     const key = process.env.TYPESAFE_API_KEY
     if (!key) throw new Error('No TypeSafe key is set, so Jev cannot judge.')
@@ -60,7 +70,10 @@ export class Jev {
     }
     const result = await this.client.systemOne(
       { state, questions },
-      holdsImage(state) || holdsImage(questions) ? { headers: IMAGES_HEADER } : undefined,
+      {
+        ...(signal ? { signal } : {}),
+        ...(holdsImage(state) || holdsImage(questions) ? { headers: IMAGES_HEADER } : {}),
+      },
     )
     this.inputTokens += result.usage.input_tokens ?? 0
     this.calls += 1

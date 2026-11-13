@@ -6,7 +6,15 @@ import { layerCount } from '@domain/verdict.ts'
 import { cva } from 'class-variance-authority'
 import { type ReactNode, useRef } from 'react'
 import { cn } from '../lib/utils.ts'
-import { kindHint, kindLabel, kindOfPart, partLabel, type ScoreBand, scoreBand } from '../model.ts'
+import {
+  countText,
+  kindHint,
+  kindLabel,
+  kindOfPart,
+  partLabel,
+  type ScoreBand,
+  scoreBand,
+} from '../model.ts'
 import { useArrived } from '../motion.ts'
 import { Explained } from './Help.tsx'
 import { Text } from './text.tsx'
@@ -227,7 +235,8 @@ export function PartList({
         const o = other?.scores[layer] ?? null
         const delta = value !== null && o !== null ? value - o : null
         const band: ScoreBand = scoreBand(value)
-        const count = value === null ? null : layerCount(scored.verdicts, layer)
+        // A part whose every fact waits for the reader has no score, and still says how many wait.
+        const count = layerCount(scored.verdicts, layer)
         return (
           <div key={layer} className="contents">
             <dt className="text-muted-foreground">
@@ -235,7 +244,7 @@ export function PartList({
             </dt>
             <dd className="m-0 text-right">
               <span className={partValue({ band })}>
-                {count ? `${count.met} of ${count.total}` : (value ?? '–')}
+                {count ? countText(count) : (value ?? '–')}
               </span>
               {count ? null : <Delta value={delta} />}
             </dd>

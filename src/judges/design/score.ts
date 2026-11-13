@@ -5,6 +5,7 @@
  */
 import {
   type Corrections,
+  isMissed,
   NO_CORRECTIONS,
   type PackScore,
   type PackScoring,
@@ -68,10 +69,10 @@ function scoreDesign(
       const verdict = jevVerdict(
         { kind: 'other', id: `other:${q.key}`, text: q.text, layer: 'visual' },
         answer,
-        config.yes,
+        config,
         corrections,
       )
-      if (!verdict.met) flags.push(q.flag)
+      if (isMissed(verdict)) flags.push(q.flag)
       return [verdict]
     })
     layers.visual = metShare(asked)
