@@ -6,6 +6,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [0.12.0] - 2026-11-13
+
 ### Changed
 
 - A rule or check Jev could not tell is listed under **Not sure** and left out of the score until you mark it. Before, an answer just short of a yes was counted as **Missed**, the same as a clear miss.
