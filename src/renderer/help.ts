@@ -71,12 +71,12 @@ export const LOOP_STEPS: readonly LoopStep[] = [
   {
     at: 'run',
     title: 'Run it on a real task',
-    say: 'An AI agent answers a real request with your skill installed. Then Jev, the grader, marks each check.',
+    say: 'An AI agent answers a real request using your skill. Then Jev, the grader, marks each check.',
   },
   {
     at: 'results',
     title: 'Fix, then compare',
-    say: 'What the note missed names the rule to tighten. Run again and read both notes side by side. That is the loop.',
+    say: 'The note came out too long, so make the length rule exact. Run again and compare. That is the loop.',
   },
 ]
 

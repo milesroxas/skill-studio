@@ -44,7 +44,7 @@ Never use a ribbon as a divider, a background, a progress bar or a loading anima
 
 A `Slab` is a yellow rectangle under ink display type. Its edges are square to the page: no rotation, no rounding. It hangs 8px left of the text column, so the letters inside stay on the column's edge. It is drawn across from the left (`animate-draw`), carrying an ink copy of the word, so the word reads in its own color before the slab lands and in ink after.
 
-One slab per frame, and only in the welcome: on "works" in the opening and on the final score in the last step.
+One slab, only in the welcome: on "works" in the opening.
 
 ## The welcome
 
@@ -91,7 +91,4 @@ The welcome runs in its own 760 x 600 window, laid out for exactly that size and
 
 ## Words
 
-- Sentence case everywhere. No title case, no trailing period on a label.
-- A button is a verb and its object, except a dialog's confirm button, which is one verb ([buttons.md](buttons.md)). The button that starts a run names what it runs: "Run 3 cases", or "Run 3 cases, 2 attempts each". The thing graded is an "output", and the model that grades it is "Jev", never "the judge": a judge's verdict is final, and here the reader's is. What an output fails is "missed", what it passes is "met", and the reader's own answer on one verdict is a "correction", shown as "your answer".
-- Plain and specific. No "powerful", "seamless", "simply". Say what happens.
-- An error says what failed and the next step. Never "Something went wrong".
+The brand's voice is in [copy.md](copy.md).

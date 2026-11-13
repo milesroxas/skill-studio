@@ -106,7 +106,7 @@ export function NewSkill({
         <Heading level={2}>New skill</Heading>
         {startPractice ? (
           <Hint>
-            New to the loop?{' '}
+            New here?{' '}
             <Button
               type="button"
               variant="link-muted"
@@ -116,7 +116,7 @@ export function NewSkill({
             >
               Take the walkthrough
             </Button>{' '}
-            on a finished skill with three cases.
+            on a sample skill first.
           </Hint>
         ) : null}
       </SectionHead>

@@ -215,7 +215,7 @@ export function LibraryScreen({
       {inviting ? (
         <Invitation
           aria-label="Walkthrough"
-          title="Learn the workflow with a walkthrough"
+          title="Learn how it works on a sample skill"
           action={
             <Button type="button" busy={starting} busyLabel="Starting…" onClick={startPractice}>
               Start the walkthrough

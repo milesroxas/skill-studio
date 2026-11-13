@@ -26,7 +26,7 @@ export const GLOSSARY = {
   agent: {
     term: 'Agent',
     means:
-      'The AI that does the task, such as Claude Code or Cursor. It is the one being tested, with your skill installed.',
+      'The AI that does the task, such as Claude Code or Cursor. It reads your skill and follows it.',
   },
   case: {
     term: 'Case',
@@ -60,7 +60,7 @@ export const GLOSSARY = {
   score: {
     term: 'Score',
     means:
-      'A number from 0 to 100 for one output, counted from the rules it follows and the checks it meets. A version’s score averages its cases, each case averaged over its outputs, so two versions are compared on the cases both ran.',
+      'A number from 0 to 100, counted from the rules an output follows and the checks it meets. A version’s score is the average over its cases.',
   },
   missed: {
     term: 'Missed',
