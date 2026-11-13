@@ -421,6 +421,27 @@ describe('workflow metrics', () => {
     ])
   })
 
+  it('knows the sample at another address whichever system wrote either path', async () => {
+    // A run made on a Mac, graded from a Windows folder, and the other way round.
+    const mac = '/Users/someone/skill/evals/runs/r1/case-s1'
+    const windows = 'C:\\Users\\someone\\skill\\evals\\runs\\r1\\case-s1'
+    const there = await metrics(
+      [tool('Write', `${mac}/outputs/a.md (40 chars)`), tool('Read', '/Users/someone/notes.md')],
+      {},
+      windows,
+    )
+    expect(there.outside).toEqual(['/Users/someone/notes.md'])
+    const back = await metrics(
+      [
+        tool('Write', `${windows}\\outputs\\a.md (40 chars)`),
+        tool('Read', `${mac}/../case-s2/b.md`),
+      ],
+      {},
+      mac,
+    )
+    expect(back.outside).toEqual([`${mac}/../case-s2/b.md`])
+  })
+
   it('reads a run kept in the repository as it was graded where it was made', async () => {
     const sample = resolve(
       import.meta.dirname,

@@ -7,8 +7,8 @@
  */
 import { existsSync, readFileSync } from 'node:fs'
 import { homedir } from 'node:os'
-import { isAbsolute, join, resolve, sep } from 'node:path'
-import { isWithin } from '@domain/paths.ts'
+import { isAbsolute, join, resolve } from 'node:path'
+import { folderEnding, isWithin, segments } from '@domain/paths.ts'
 import type { Timing, TranscriptEvent } from '@domain/schemas.ts'
 import { noul } from '@typesafe-ai/sdk'
 import { asksJev, noulOf, optionalAnswer } from '../shared/questions.ts'
@@ -403,13 +403,13 @@ function identityOf({ tool = '', args, call }: TranscriptEvent): string | null {
  * in its own folder.
  */
 function sampleHomes(dir: string, places: string[]): string[] {
-  const [run, sample] = dir.split(sep).slice(-2)
+  const own = segments(dir).slice(-2)
   const homes = new Set([dir])
+  // A folder with no run above it has no pair to be known by.
+  if (own.length < 2) return [dir]
   for (const place of places) {
-    // Resolved first, so a path that climbs back out of the sample does not run through it.
-    const parts = resolve(place).split(sep)
-    const at = parts.findIndex((part, i) => part === run && parts[i + 1] === sample)
-    if (at !== -1) homes.add(parts.slice(0, at + 2).join(sep))
+    const home = folderEnding(place, own)
+    if (home !== null) homes.add(home)
   }
   return [...homes]
 }

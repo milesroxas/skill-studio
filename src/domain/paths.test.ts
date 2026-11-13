@@ -1,5 +1,30 @@
 import { describe, expect, it, vi } from 'vitest'
-import { byFileOrder, isEditablePath, isWithin } from './paths.ts'
+import { byFileOrder, folderEnding, isEditablePath, isWithin } from './paths.ts'
+
+describe('folderEnding', () => {
+  const pair = ['r1', 'case-s1']
+
+  it('gives the folder a path runs through, in the path’s own spelling', () => {
+    expect(folderEnding('/old/skill/runs/r1/case-s1/outputs/a.md', pair)).toBe(
+      '/old/skill/runs/r1/case-s1',
+    )
+    expect(folderEnding('/old/skill/runs/r1/case-s1', pair)).toBe('/old/skill/runs/r1/case-s1')
+    expect(folderEnding('C:\\old\\runs\\r1\\case-s1\\outputs\\a.md', pair)).toBe(
+      'C:\\old\\runs\\r1\\case-s1',
+    )
+    expect(folderEnding('\\\\host\\share\\r1\\case-s1\\a.md', pair)).toBe(
+      '\\\\host\\share\\r1\\case-s1',
+    )
+  })
+
+  it('gives none for a path that runs through no such folder, or climbs back out of it', () => {
+    expect(folderEnding('/old/skill/runs/r1/case-s2/a.md', pair)).toBeNull()
+    expect(folderEnding('/old/skill/runs/r2/case-s1/a.md', pair)).toBeNull()
+    expect(folderEnding('/old/skill/runs/r1/case-s1/../case-s2/b.md', pair)).toBeNull()
+    expect(folderEnding('/old/skill/runs/r1', pair)).toBeNull()
+    expect(folderEnding('/anything/at/all', [])).toBeNull()
+  })
+})
 
 describe('isWithin', () => {
   it('accepts the root itself and anything below it', () => {
