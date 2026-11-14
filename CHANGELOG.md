@@ -6,6 +6,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [0.13.2] - 2026-11-14
+
 ### Added
 
 - **Cost to run** on a case: five bars, from light to very heavy, that move as you write it. Pictures, files and an answer that is a page or a picture add the most; checks and a good answer add almost nothing. Point at the bars to see what adds to the cost and what an attempt cost in the last run.
