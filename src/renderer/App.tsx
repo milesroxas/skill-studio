@@ -18,6 +18,7 @@
  */
 import { isLookStep, type LookStep } from '@domain/practice.ts'
 import { NEW_CASE_KEY } from '@domain/schemas.ts'
+import { resolveKeys } from '@domain/shortcuts.ts'
 import { ArrowRightIcon, MenuIcon, MessageCircleIcon } from 'lucide-react'
 import {
   lazy,
@@ -57,6 +58,7 @@ import {
   TopBarWarning,
   Workspace,
 } from './components/Shell.tsx'
+import { ShortcutsDialog } from './components/Shortcuts.tsx'
 import { SkillSwitcher } from './components/SkillSwitcher.tsx'
 import { StatusLine } from './components/StatusLine.tsx'
 import { Heading } from './components/text.tsx'
@@ -70,7 +72,6 @@ import { useDrafts } from './drafts.ts'
 import { SCREEN_HELP } from './help.ts'
 import { back, forward, navigate, usePaneScroll, useRoute } from './history.ts'
 import { useNotice } from './hooks.ts'
-import { shortcut } from './keys.ts'
 import { outputsOf, versionScore } from './model.ts'
 import { atTarget, nextStep, screenFor } from './next-step.ts'
 import { APP_PLACES, isSkillScreen, placeFor, SKILL_PLACES, WORKBENCH } from './places.ts'
@@ -93,6 +94,13 @@ import { Cases } from './screens/Cases.tsx'
 import { LibraryScreen } from './screens/Library.tsx'
 import { Results } from './screens/Results.tsx'
 import { Welcome } from './screens/Welcome.tsx'
+import {
+  hintOf,
+  installShortcuts,
+  PLACE_SHORTCUTS,
+  useShortcut,
+  useShortcutHint,
+} from './shortcuts.ts'
 import { useSkillState } from './skill-state.ts'
 import { watchFailures } from './transport.ts'
 import { useUpdateNotices, useUpdateStep } from './updates.ts'
@@ -107,7 +115,7 @@ const SettingsScreen = lazy(() =>
 
 const ASSISTANT_KEY = 'skill-studio.assistant'
 
-/** Whether the assistant's panel is open, remembered across reloads, and ⌘J to toggle it. */
+/** Whether the assistant's panel is open, remembered across reloads, and its shortcut (⌘J) to toggle it. */
 function useAssistant(): [boolean, (open: boolean) => void] {
   const [open, setOpen] = useState(() => localStorage.getItem(ASSISTANT_KEY) === 'open')
   const set = useCallback((next: boolean) => {
@@ -115,15 +123,7 @@ function useAssistant(): [boolean, (open: boolean) => void] {
     if (next) localStorage.setItem(ASSISTANT_KEY, 'open')
     else localStorage.removeItem(ASSISTANT_KEY)
   }, [])
-  useEffect(() => {
-    const handle = (e: KeyboardEvent) => {
-      if (e.key.toLowerCase() !== 'j' || !(e.metaKey || e.ctrlKey) || e.altKey || e.shiftKey) return
-      e.preventDefault()
-      set(!open)
-    }
-    window.addEventListener('keydown', handle)
-    return () => window.removeEventListener('keydown', handle)
-  }, [open, set])
+  useShortcut('assistant.toggle', () => set(!open))
   return [open, set]
 }
 
@@ -155,6 +155,10 @@ export function App() {
   /** Run, in the top bar, is open: what the next run will do, over the button that starts it. */
   const [runOpen, setRunOpen] = useState(false)
   const openRun = useCallback(() => setRunOpen(true), [])
+  /** The keyboard shortcuts, listed: opened with ? from anywhere, and from the help. */
+  const [shortcutsOpen, setShortcutsOpen] = useState(false)
+  // One listener for every shortcut, for as long as the shell is up.
+  useEffect(() => installShortcuts(), [])
   const { thread: improving } = useImprove()
   // A rule sent from the Editor opens the panel on its conversation.
   const improveStarted = improving?.opened ?? null
@@ -364,6 +368,26 @@ export function App() {
   /** The next step when it is a place, and the reader is not there yet: the top bar's yellow button. */
   const goNext = next?.kind === 'go' && !atTarget(next, screen, route.params) ? next : null
 
+  // Shortcuts to the places, and to Run while the skill has a case to run. The welcome stands
+  // alone, so none of them reach past it.
+  const shell = screen !== 'welcome'
+  const inSkill = shell && Boolean(skillPath)
+  useShortcut('go.editor', () => go('editor'), inSkill)
+  useShortcut('go.cases', () => go('cases'), inSkill)
+  useShortcut('go.results', () => go('results'), inSkill)
+  useShortcut('go.library', () => go('library'), shell)
+  useShortcut('go.docs', () => go('docs'), shell)
+  useShortcut('go.settings', () => go('settings'), shell)
+  useShortcut('run.open', openRun, inSkill && Boolean(loaded?.state.cases.length))
+  useShortcut('shortcuts.open', () => setShortcutsOpen((o) => !o), shell)
+  const assistantHint = useShortcutHint('assistant.toggle', 'Assistant')
+  /** A place's hover text: what is there, and the keys that go to it. */
+  const keys = resolveKeys(preferences.shortcuts)
+  const placeHint = (place: string) => {
+    const id = PLACE_SHORTCUTS[place]
+    return hintOf(id ? keys[id] : '', SCREEN_HELP[place]?.short ?? '')
+  }
+
   /** The open version, and how it scores: the line every screen shows under the skill's name. */
   const versionLine = current
     ? current.changed
@@ -413,7 +437,7 @@ export function App() {
                 key={p.screen}
                 icon={<p.icon aria-hidden="true" />}
                 label={p.label}
-                title={SCREEN_HELP[p.screen]?.short}
+                {...placeHint(p.screen)}
                 meta={status.meta[p.screen]}
                 dot={status.dot[p.screen]}
                 current={screen === p.screen}
@@ -430,7 +454,7 @@ export function App() {
             key={p.screen}
             icon={<p.icon aria-hidden="true" />}
             label={p.label}
-            title={SCREEN_HELP[p.screen]?.short}
+            {...placeHint(p.screen)}
             current={screen === p.screen}
             onClick={() => go(p.screen)}
           />
@@ -489,6 +513,7 @@ export function App() {
       return (
         <Suspense fallback={<Loading size="screen" />}>
           <SettingsScreen
+            section={route.arrival === 'step' ? route.params.get('section') : null}
             running={anyRunning}
             report={report}
             onSaved={reload}
@@ -664,6 +689,7 @@ export function App() {
                 onGuide={(section) => go('docs', section ? { section } : {})}
                 onWelcome={openWelcome}
                 onAsk={() => setAssistant(true)}
+                onShortcuts={() => setShortcutsOpen(true)}
                 onShowHints={() => {
                   keep({ hints: 'show', hintsSeen: [] })
                   report('Each screen shows its hint again')
@@ -672,7 +698,7 @@ export function App() {
               <Toggle
                 size="icon-sm"
                 aria-label="Assistant"
-                title={`Assistant (${shortcut('J')})`}
+                {...assistantHint}
                 pressed={assistant}
                 onPressedChange={setAssistant}
               >
@@ -709,6 +735,11 @@ export function App() {
           </PanelView>
         </AssistantPane>
       ) : null}
+      <ShortcutsDialog
+        open={shortcutsOpen}
+        onOpenChange={setShortcutsOpen}
+        onChange={() => go('settings', { section: 'shortcuts' })}
+      />
       {confirmDialog}
     </AppFrame>
   )

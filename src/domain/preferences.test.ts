@@ -25,6 +25,7 @@ describe('preferencesOf', () => {
       aiModel: 'opus',
       aiEffort: 'high',
       updates: 'manual',
+      shortcuts: { 'run.open': 'shift+r' },
     }
     expect(preferencesOf(stored)).toEqual(stored)
   })

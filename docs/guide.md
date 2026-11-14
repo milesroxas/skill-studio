@@ -31,8 +31,15 @@ You do, in writing. The skill's **rules** say what the agent should always do. E
 - **A word with a dotted underline:** click it to see what it means.
 - **Right-click** a skill, a case, an answer or a rule to see what you can do with it.
 - **Switch skill:** click the skill's name at the top of the sidebar, or press Cmd+K.
+- **Keyboard shortcuts:** press **?** to see them all. **1**, **2** and **3** go to Skill, Cases and Results, and **R** opens Run.
 
 On Windows and Linux, press Ctrl where this guide says Cmd.
+
+### Keyboard shortcuts
+
+Press **?** anywhere, or choose **Keyboard shortcuts** under the **?** at the top right, to see every shortcut. A shortcut without Cmd does nothing while you type in a field: click outside the field first, or use one with Cmd.
+
+To change one, open **Settings**, find **Keyboard shortcuts**, click the shortcut and press the new keys. Esc cancels, and Delete turns the shortcut off. If another shortcut already used those keys, it moves to the one you changed, and **Undo** at the foot of the window puts it back. Keys your computer uses, such as Cmd+C for Copy, cannot be picked. **Use the original shortcuts** puts every one back.
 
 ## Start the app
 

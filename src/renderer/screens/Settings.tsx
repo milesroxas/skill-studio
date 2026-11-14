@@ -1,7 +1,7 @@
 /**
  * Settings. Yours first: how the app looks and moves, how the editor opens
- * Markdown, how much the app explains itself, whether it looks for its own
- * updates, and the model the assistant writes with, stored with your
+ * Markdown, how much the app explains itself, the keyboard shortcuts, whether
+ * it looks for its own updates, and the model the assistant writes with, stored with your
  * preferences and applied at once. Then the app's connections: Anthropic and
  * OpenAI, each by its CLI first and by an API key as well, and the TypeSafe
  * key Jev grades with. The desktop app keeps keys in the system keychain; a
@@ -18,7 +18,7 @@ import type {
   UpdateMode,
 } from '@domain/preferences.ts'
 import { MonitorIcon, MoonIcon, SunIcon } from 'lucide-react'
-import { type ReactNode, useId, useState } from 'react'
+import { type ReactNode, useEffect, useId, useRef, useState } from 'react'
 import { loadAi, useAi } from '../ai.ts'
 import { api } from '../api.ts'
 import { KeySlot, NO_JEV_KEY, useKeys, VendorRoutes } from '../components/Connections.tsx'
@@ -26,6 +26,7 @@ import { Field, FormSection, Loading, ReadFailed, Screen, Toolbar } from '../com
 import { ModelControls } from '../components/ModelControls.tsx'
 import { ResetDialog } from '../components/ResetDialog.tsx'
 import { Segmented } from '../components/Segmented.tsx'
+import { ShortcutSettings, WHILE_TYPING } from '../components/Shortcuts.tsx'
 import { Status } from '../components/Status.tsx'
 import { Hint, Link } from '../components/text.tsx'
 import { Button } from '../components/ui/button.tsx'
@@ -35,6 +36,8 @@ import { savePreference, usePreferences } from '../preferences.ts'
 import { APP_VERSION, checkForUpdates } from '../updates.ts'
 
 interface Props {
+  /** A section to bring into view on arrival, by its id: `shortcuts`. */
+  section: string | null
   /** A run is going: starting over would stop it, and the question says so. */
   running: boolean
   report: Reporter
@@ -93,7 +96,7 @@ const UPDATE_MODES = [
   { value: 'manual', label: 'When I ask' },
 ] as const satisfies ReadonlyArray<{ value: UpdateMode; label: string }>
 
-export function SettingsScreen({ running, report, onSaved, onWelcome }: Props) {
+export function SettingsScreen({ section, running, report, onSaved, onWelcome }: Props) {
   const preferences = usePreferences()
   const { keys, changed } = useKeys(onSaved)
   const { providers, choice, problem } = useAi()
@@ -107,6 +110,11 @@ export function SettingsScreen({ running, report, onSaved, onWelcome }: Props) {
     updates: useId(),
   }
   const choose = (patch: Partial<Preferences>) => savePreference(patch, report)
+  // Opened from the list of shortcuts, the page lands on where they are changed.
+  const shortcuts = useRef<HTMLElement>(null)
+  useEffect(() => {
+    if (section === 'shortcuts') shortcuts.current?.scrollIntoView({ block: 'start' })
+  }, [section])
 
   return (
     <Screen width="form">
@@ -170,6 +178,14 @@ export function SettingsScreen({ running, report, onSaved, onWelcome }: Props) {
             Open the welcome
           </Button>
         </Toolbar>
+      </FormSection>
+
+      <FormSection
+        ref={shortcuts}
+        title="Keyboard shortcuts"
+        hint={`Click a shortcut, then press the new keys. ${WHILE_TYPING}`}
+      >
+        <ShortcutSettings report={report} />
       </FormSection>
 
       {/* A browser has no app to update: `st serve` moves with the checkout it runs from. */}

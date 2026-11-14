@@ -29,8 +29,9 @@
 import { draftOf, newCheck } from '@domain/case-draft.ts'
 import type { Verdict } from '@domain/pack.ts'
 import type { Case } from '@domain/schemas.ts'
+import { comboText } from '@domain/shortcuts.ts'
 import { ArrowLeftRightIcon, PencilIcon, RefreshCwIcon, Trash2Icon } from 'lucide-react'
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useState } from 'react'
 import { api } from '../api.ts'
 import { caseContext, skillContext } from '../assist.ts'
 import type { Ctx } from '../ctx.ts'
@@ -38,6 +39,7 @@ import { useDeleteRun } from '../delete-run.ts'
 import { caseUnsaved } from '../draft-edits.ts'
 import { inSkill } from '../in-skill.ts'
 import { gradingRun, outputWriting, useJobStart, writingRun } from '../job-start.ts'
+import { isMac } from '../keys.ts'
 import {
   apartLine,
   caseTitle,
@@ -60,6 +62,7 @@ import {
   totalOf,
 } from '../model.ts'
 import { useLanded } from '../motion.ts'
+import { useShortcut, useShortcutKeys } from '../shortcuts.ts'
 import { type PageSize, usePageSize } from '../stage.ts'
 import {
   ArtifactPicker,
@@ -741,13 +744,6 @@ function Side({
   )
 }
 
-/** True when a key goes to what has the focus: a field, an editor, a menu or a dialog. */
-const typingIn = (target: EventTarget | null): boolean =>
-  target instanceof HTMLElement &&
-  (target.isContentEditable ||
-    /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName) ||
-    target.closest('[role="dialog"],[role="menu"],[role="listbox"]') !== null)
-
 /** The choice that reads an output's steps in place of one of its files. */
 const STEPS = ':transcript'
 
@@ -810,19 +806,10 @@ function Flip({
   const file = fileOf(side, output)
   const flip = useCallback((to: StageSide) => setShown(to), [])
 
-  // A and B flip the stage, unless the key is being typed somewhere.
-  useEffect(() => {
-    if (!both) return
-    const handle = (event: KeyboardEvent) => {
-      const key = event.key.toLowerCase()
-      if (key !== 'a' && key !== 'b') return
-      if (event.metaKey || event.ctrlKey || event.altKey || event.defaultPrevented) return
-      if (typingIn(event.target)) return
-      setShown(key)
-    }
-    window.addEventListener('keydown', handle)
-    return () => window.removeEventListener('keydown', handle)
-  }, [both])
+  // A and B (their shortcuts) flip the stage, unless the key is being typed somewhere.
+  useShortcut('results.a', () => setShown('a'), both)
+  useShortcut('results.b', () => setShown('b'), both)
+  const flipKeys = { a: useShortcutKeys('results.a'), b: useShortcutKeys('results.b') }
 
   // Each letter says which version it is, so the reader need not find the cards under the stage.
   const pairNames = outputNames(
@@ -840,7 +827,9 @@ function Flip({
         {totals[to] === null ? null : <Text tabular>{Math.round(totals[to])}</Text>}
       </>
     ),
-    title: `${runTitle(o.run)}. Press ${SLOT_LABEL[to]} to show it.`,
+    title: flipKeys[to]
+      ? `${runTitle(o.run)}. Press ${comboText(flipKeys[to], isMac)} to show it.`
+      : runTitle(o.run),
   })
 
   return (

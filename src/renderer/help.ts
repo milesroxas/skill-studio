@@ -43,8 +43,8 @@ export const SCREEN_HELP: Record<string, ScreenHelp> = {
     guide: '5-compare-the-results',
   },
   settings: {
-    short: 'Appearance, the assistant and keys',
-    what: 'How the app looks, which AI model writes with you, and the key that turns on grading.',
+    short: 'Appearance, shortcuts, the assistant and keys',
+    what: 'How the app looks, your keyboard shortcuts, which AI model writes with you, and the key that turns on grading.',
     terms: ['jev'],
     guide: 'start-the-app',
   },

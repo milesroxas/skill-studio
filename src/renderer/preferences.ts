@@ -70,6 +70,9 @@ export function savePreference(patch: Partial<Preferences>, report: Reporter): v
   )
 }
 
+/** The preferences as they stand, for code outside React such as a key handler. */
+export const readPreferences = (): Preferences => preferences.get()
+
 export function usePreferences(): Preferences {
   return useStore(preferences)
 }

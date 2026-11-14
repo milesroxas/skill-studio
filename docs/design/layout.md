@@ -223,7 +223,7 @@ It holds what picks the thing in view:
 - A page read in a card, under Side by side, carries the same line over its frame, 36px high (`PageView` in `components/Artifact.tsx`). The page is drawn at that size and scaled down to the card's width, never up, and fitted whole when its case names a height.
 - One size holds for the case (`usePageSize` in `src/renderer/stage.ts`): picked on the stage or in either card, it changes all three.
 
-The A and B keys flip the stage anywhere on the screen, unless a field, an editor, a menu or a dialog has the focus.
+Their shortcuts, A and B unless changed in Settings, flip the stage anywhere on the screen, unless a field, an editor, a menu or a dialog has the focus.
 
 ### The output card
 

@@ -1,12 +1,13 @@
 /**
  * How one person likes the app: its theme, its motion, how the editor opens
  * Markdown, the model the assistant writes with, how much of the app's
- * first-visit help they have seen, and whether the desktop app looks for its
- * own updates. Every host keeps them in one file; anything
- * missing or unknown in it falls back to the default, so an old or hand-edited
- * file always reads.
+ * first-visit help they have seen, whether the desktop app looks for its own
+ * updates, and the keyboard shortcuts they changed. Every host keeps them in
+ * one file; anything missing or unknown in it falls back to the default, so an
+ * old or hand-edited file always reads.
  */
 import { AI_PROVIDER_IDS, type AiChoice, type AiProviderId, EFFORTS } from './ai.ts'
+import { type ShortcutKeys, shortcutKeysOf } from './shortcuts.ts'
 
 const THEMES = ['system', 'light', 'dark'] as const
 export type Theme = (typeof THEMES)[number]
@@ -42,6 +43,8 @@ export interface Preferences {
   /** Empty for the model's own default. */
   aiEffort: string
   updates: UpdateMode
+  /** The keyboard shortcuts changed from their defaults; every other command keeps its own. */
+  shortcuts: ShortcutKeys
 }
 
 export const DEFAULT_PREFERENCES: Preferences = {
@@ -55,6 +58,7 @@ export const DEFAULT_PREFERENCES: Preferences = {
   aiModel: '',
   aiEffort: '',
   updates: 'auto',
+  shortcuts: {},
 }
 
 const MODEL_ID_MAX = 200
@@ -121,6 +125,7 @@ export function preferencesOf(raw: unknown): Preferences {
     aiModel: typeof value.aiModel === 'string' ? value.aiModel.slice(0, MODEL_ID_MAX) : '',
     aiEffort: pick(value.aiEffort, EFFORTS, DEFAULT_PREFERENCES.aiEffort),
     updates: pick(value.updates, UPDATE_MODES, DEFAULT_PREFERENCES.updates),
+    shortcuts: shortcutKeysOf(value.shortcuts),
   }
 }
 

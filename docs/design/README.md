@@ -20,7 +20,7 @@ Read this file before any change to `src/renderer`. Then read only the topic fil
 | [typography.md](typography.md) | text size, weight, mono, numbers, headings, labels |
 | [layout.md](layout.md) | a screen's structure, the shell, columns, empty and loading states |
 | [buttons.md](buttons.md) | a button, a link, an action in a row or a table |
-| [forms.md](forms.md) | an input, a choice, a toggle, a form section |
+| [forms.md](forms.md) | an input, a choice, a toggle, a form section, a keyboard shortcut |
 | [data.md](data.md) | a table, a score, a status, a count |
 | [brand.md](brand.md) | the mark, the ribbon, the welcome, the app icon |
 | [copy.md](copy.md) | any word the app shows: a label, a hint, a placeholder, a dialog, an error |

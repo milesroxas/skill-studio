@@ -8,16 +8,19 @@
  * same help and the same glossary.
  */
 import { GLOSSARY, type TermId } from '@domain/glossary.ts'
+import { comboText } from '@domain/shortcuts.ts'
 import {
   BookOpenIcon,
   CircleQuestionMarkIcon,
+  KeyboardIcon,
   MessageCircleQuestionIcon,
   RotateCcwIcon,
 } from 'lucide-react'
 import { type ReactNode, useRef, useState } from 'react'
 import type { ScreenHelp } from '../help.ts'
-import { shortcut } from '../keys.ts'
+import { isMac } from '../keys.ts'
 import { WELCOME } from '../places.ts'
+import { useShortcutKeys } from '../shortcuts.ts'
 import { Heading, Text } from './text.tsx'
 import { Button } from './ui/button.tsx'
 import {
@@ -123,6 +126,7 @@ export function HelpButton({
   onGuide,
   onWelcome,
   onAsk,
+  onShortcuts,
   onShowHints,
 }: {
   /** The name of the screen in view. */
@@ -135,9 +139,17 @@ export function HelpButton({
   onGuide: (section?: string) => void
   onWelcome: () => void
   onAsk: () => void
+  /** Open the list of keyboard shortcuts. */
+  onShortcuts: () => void
   onShowHints: () => void
 }) {
   const [open, setOpen] = useState(false)
+  const keys = {
+    ask: useShortcutKeys('assistant.toggle'),
+    shortcuts: useShortcutKeys('shortcuts.open'),
+  }
+  /** A shortcut at the end of its row, as a menu shows one; none when it has no keys. */
+  const hint = (combo: string) => (combo ? comboText(combo, isMac) : undefined)
   const panel = useRef<HTMLDivElement>(null)
   const then = (step: () => void) => () => {
     setOpen(false)
@@ -195,10 +207,17 @@ export function HelpButton({
           </PopoverAction>
           <PopoverAction
             icon={<MessageCircleQuestionIcon aria-hidden="true" />}
-            hint={shortcut('J')}
+            hint={hint(keys.ask)}
             onClick={then(onAsk)}
           >
             Ask the assistant
+          </PopoverAction>
+          <PopoverAction
+            icon={<KeyboardIcon aria-hidden="true" />}
+            hint={hint(keys.shortcuts)}
+            onClick={then(onShortcuts)}
+          >
+            Keyboard shortcuts
           </PopoverAction>
           {hintsOff ? (
             <PopoverAction icon={<RotateCcwIcon aria-hidden="true" />} onClick={then(onShowHints)}>

@@ -200,6 +200,18 @@ The pressed `outline` or `quiet` toggle is ink fill, the same as `Segmented`, so
 <Button variant={installed ? 'default' : 'outline'} size="sm">Claude</Button>
 ```
 
+## Keyboard shortcuts
+
+All in `components/Shortcuts.tsx`. What each command is and its default keys are in `src/domain/shortcuts.ts` ([architecture.md](../architecture.md#keyboard-shortcuts)).
+
+- **A key is a keycap** (`KeyCombo`): one `kbd` a key, 24px high and at least as wide, `rounded-sm`, `bg-card` (`input` at 30% in the dark), a `border-input` edge 2px at its foot, so it stands up as a key does. A letter is `xs` medium; the Mac's symbols (⌘ ⇧ ⌥ ⌃ and the arrows) are `base`, since they draw small beside a letter at one size. Caps are 4px apart. A screen reader hears the keys in words ("Command K"), never the symbols. The Mac shows its symbols in its own order (⌃ ⌥ ⇧ ⌘); Windows and Linux show names (Ctrl, Alt, Shift).
+- **A shortcut in a line of text**, such as a hover text or the end of a row in a menu, is plain text: "Switch skill (⌘K)", `PopoverAction`'s `hint`. Never keycaps inside a menu or a hover text.
+- **The reference** (`ShortcutsDialog`, opened by its shortcut, ? by default, and from Help) is a `Dialog` (`ui/dialog.tsx`): a head, a body that scrolls, and a foot, divided by hairlines, two columns of groups from `sm`. It lists what a key does now: a command with no keys is left out. The foot holds **Change shortcuts** (`outline`) and **Done** (`default`). The focus lands on the sheet, not a button. Its own key closes it again.
+- **In Settings** (`ShortcutSettings`) each command a reader can change is one row: its label, the field holding its keys, and `MoreActions` with **Reset to …** and **Turn off**. Groups are `Text caps` over hairline rows. **Use the original shortcuts** (`outline`) ends the section and is `disabled` while nothing is changed.
+- **The field** looks like an `Input` (`FIELD_SURFACE`, 36px, 144px wide, so the keys line up down the list) and is a button. Pressed, it listens: its edge turns `--ring`, it reads "Press the new keys", and shows the modifiers as they are held. The first whole shortcut is kept at once, as every setting is. Esc cancels, Delete turns the shortcut off, Tab and leaving the field stop listening.
+- **New keys are stamped in** (`animate-pop`, a cap at a time), only when they change in view. What moves and what does not is in [brand.md](brand.md#motion).
+- **Refused keys** (Copy, Save, Tab alone) are a `Hint tone="destructive"` with `role="alert"` under the row, and the field goes on listening. Keys another command had move, and the status line says so with Undo ([Confirming](#confirming)).
+
 ## Actions
 
 - `FormActions` at the foot of a saved form orders its buttons as [Rows of actions](layout.md#rows-of-actions) says.

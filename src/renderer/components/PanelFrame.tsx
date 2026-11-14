@@ -6,8 +6,8 @@
 import { cva } from 'class-variance-authority'
 import { ArrowLeftIcon, XIcon } from 'lucide-react'
 import { type ReactNode, type RefObject, useLayoutEffect, useRef } from 'react'
-import { shortcut } from '../keys.ts'
 import { useArrived } from '../motion.ts'
+import { useShortcutHint } from '../shortcuts.ts'
 import { Spacer } from './layout.tsx'
 import { Heading } from './text.tsx'
 import { Button } from './ui/button.tsx'
@@ -55,6 +55,7 @@ export function PanelHeader({
   back?: { label: string; onBack: () => void }
   onClose: () => void
 }) {
+  const closeHint = useShortcutHint('assistant.toggle', 'Close')
   return (
     <header data-drag className={headerVariants({ back: Boolean(back) })}>
       {back ? (
@@ -79,7 +80,7 @@ export function PanelHeader({
         variant="ghost"
         size="icon-sm"
         aria-label="Close the assistant"
-        title={`Close (${shortcut('J')})`}
+        {...closeHint}
         onClick={onClose}
       >
         <XIcon aria-hidden="true" />

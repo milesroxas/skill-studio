@@ -14,9 +14,10 @@ import {
   RotateCcwIcon,
 } from 'lucide-react'
 import { type KeyboardEvent, useEffect, useMemo, useRef, useState } from 'react'
-import { REVEAL_LABEL, shortcut } from '../keys.ts'
+import { REVEAL_LABEL } from '../keys.ts'
 import { forgetScan, scanIsFresh, scanLibrary, scannedSkills } from '../library-scan.ts'
 import { plural } from '../model.ts'
+import { useShortcut, useShortcutHint } from '../shortcuts.ts'
 import { Text } from './text.tsx'
 import { Input } from './ui/input.tsx'
 import {
@@ -36,23 +37,6 @@ function matches(skill: LibrarySkill, query: string): boolean {
   const q = query.trim().toLowerCase()
   if (!q) return true
   return `${skill.name} ${skill.description} ${skill.path}`.toLowerCase().includes(q)
-}
-
-/** Open with ⌘K (Ctrl+K off the Mac) from anywhere in the app. */
-function useShortcut(onPress: () => void) {
-  // The newest handler is called, and the window is listened to once.
-  const latest = useRef(onPress)
-  latest.current = onPress
-  useEffect(() => {
-    const handle = (e: globalThis.KeyboardEvent) => {
-      if (e.key.toLowerCase() === 'k' && (e.metaKey || e.ctrlKey) && !e.altKey && !e.shiftKey) {
-        e.preventDefault()
-        latest.current()
-      }
-    }
-    window.addEventListener('keydown', handle)
-    return () => window.removeEventListener('keydown', handle)
-  }, [])
 }
 
 export function SkillSwitcher({
@@ -84,7 +68,9 @@ export function SkillSwitcher({
   const [error, setError] = useState<string | null>(null)
   const field = useRef<HTMLInputElement>(null)
 
-  useShortcut(() => setOpen((o) => !o))
+  // Its shortcut (⌘K) opens it from anywhere in the app, and closes it again.
+  useShortcut('skill.switch', () => setOpen((o) => !o))
+  const hint = useShortcutHint('skill.switch', name ? 'Switch skill' : 'Open a skill')
 
   // Another skill is open, so the list in hand is out of date: it marks the old one as open,
   // and a skill just made is not in it. The next opening scans again.
@@ -162,7 +148,7 @@ export function SkillSwitcher({
       <PopoverTrigger asChild>
         <button
           type="button"
-          title={`${name ? 'Switch skill' : 'Open a skill'} (${shortcut('K')})`}
+          {...hint}
           className="mx-2 flex min-h-11 items-center gap-2 rounded-sm px-2 py-1.5 text-left focus-ring-inset transition-[background-color] duration-150 ease-out hover:bg-sidebar-accent data-[state=open]:bg-sidebar-accent [&>svg]:size-4 [&>svg]:shrink-0 [&>svg]:text-muted-foreground"
         >
           <span className="flex min-w-0 flex-1 flex-col">

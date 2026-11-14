@@ -28,6 +28,7 @@ import { type Reporter, useToggleSet } from '../hooks.ts'
 import { useJobStart } from '../job-start.ts'
 import { capital, plural, shortDate } from '../model.ts'
 import { RUN } from '../places.ts'
+import { useShortcutHint } from '../shortcuts.ts'
 import { ComboBox } from './ComboBox.tsx'
 import { Disclosure } from './Disclosure.tsx'
 import { CheckRow, NumberInput } from './forms.tsx'
@@ -89,6 +90,7 @@ export function RunButton({
 }) {
   const titleId = useId()
   const reasonId = useId()
+  const hint = useShortcutHint('run.open', RUN.label)
   const engines = state.engines
   const current = state.versions.current
   const withSkill = state.runs.filter((r) => r.hasSkill)
@@ -215,6 +217,7 @@ export function RunButton({
           size="sm"
           busy={running}
           busyLabel="Running…"
+          {...hint}
         >
           <RUN.icon aria-hidden="true" />
           {configuration === 'without_skill'

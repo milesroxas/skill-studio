@@ -166,6 +166,16 @@ The shell (`App.tsx`) hands every screen one object, `Ctx` in `src/renderer/ctx.
 - Opening another skill clears the status line before the skill opens, so a step that reports once its skill is open (such as making a skill) reports after the open.
 - Back and Forward return to the skill a place was seen in. Until that skill is open, the shell keeps the current place in view, so no screen shows one skill's place with another's data.
 
+### Keyboard shortcuts
+
+- Every shortcut a reader can change is a command in `SHORTCUT_COMMANDS` (`src/domain/shortcuts.ts`): its id, its group, its label and the keys it starts on. A command marked `fixed` (Save, Undo, Back) is listed in the reference and handled where it always was: the editor, the status line, the menu.
+- A shortcut is one string the same on every computer, such as `mod+k` or `?`: `mod` is Cmd on a Mac and Ctrl elsewhere. A letter follows the layout's letters; a number is read from its key's place; a symbol carries its own Shift.
+- Only the keys a reader changed are stored, in the preferences (`shortcuts`), with `''` for turned off. `shortcutKeysOf` drops unknown commands, keys that do not parse and refused keys, so a hand-edited file always reads, and a new default reaches everyone who left that command alone.
+- `src/renderer/shortcuts.ts` listens to the window once. A component says what a command does with `useShortcut(id, run, enabled)`; the newest handler mounted runs. A key a component already handled (`defaultPrevented`), a key held down and a key that composes a character start nothing.
+- Where the focus is decides what may start (`firesIn`): anything on the page; only a shortcut with Cmd or Control in a field, a menu, a list or a popover; nothing while a dialog stops the page or while Settings listens for new keys (`pauseShortcuts`).
+- One key starts one thing: giving a command keys another has takes them from it (`assignKeys`), and Settings reports the move with Undo. Keys the computer or the app keep are refused (`refusalOf`).
+- A control a shortcut also presses takes its keys in its hover text and in `aria-keyshortcuts` (`useShortcutHint`).
+
 ## Engines
 
 An engine runs one agent CLI in a sample directory (`src/infrastructure/engines/`). A model or effort outside what an engine takes is refused before anything starts (`chosen` in `engines/stream.ts`).

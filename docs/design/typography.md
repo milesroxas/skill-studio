@@ -107,6 +107,7 @@ A number in a sentence stays in sans, and so does a live count under a field ("4
 - the section labels of Auto refine ("What drifts", "Worth a look", "Revision")
 - the guide line over each writing-check finding in the selection popout (`FindingList` in `Refine.tsx`)
 - the labels of the facts beside a case's form: "Run size", "Last run", "Last answer"
+- the groups of keyboard shortcuts in Settings ("Go to", "Anywhere", "On Results")
 
 ## Display type
 
