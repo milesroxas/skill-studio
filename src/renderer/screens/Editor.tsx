@@ -31,6 +31,7 @@ import { metaText, readFrontMatter } from '@domain/text.ts'
 import { Fragment, memo, useEffect, useMemo, useRef, useState } from 'react'
 import { api, currentSkill } from '../api.ts'
 import { DiffLines } from '../components/DiffLines.tsx'
+import { Disclosure } from '../components/Disclosure.tsx'
 import { DraftNote } from '../components/DraftNote.tsx'
 import {
   Column,
@@ -115,6 +116,11 @@ const VIEWS = [
 
 type View = (typeof VIEWS)[number]['value']
 
+/** How many of the newest versions the list shows before the rest fold away. */
+const SHOWN_VERSIONS = 5
+/** A fold holding one version saves no room, so fewer than this stay in the list. */
+const MIN_FOLDED_VERSIONS = 2
+
 export const Editor = memo(function Editor({ ctx }: { ctx: Ctx }) {
   const { state, route, go, report, confirm, reload, config, drafts, outputs } = ctx
   /** The files as saved: the shell's one copy, which a save here updates at once. */
@@ -158,6 +164,19 @@ export const Editor = memo(function Editor({ ctx }: { ctx: Ctx }) {
   // The files count only once read, so the ones a draft names first do not rest alone.
   const arrivedFile = useArrivals(disk.saved && drafts.status !== 'loading' ? paths : [])
   const arrivedVersion = useArrivals(state.versions.versions.map((v) => v.version))
+  // A long list keeps its newest versions in view and folds the rest under one line.
+  const newestFirst = [...state.versions.versions].reverse()
+  const folds = newestFirst.length - SHOWN_VERSIONS >= MIN_FOLDED_VERSIONS
+  const shownVersions = folds ? newestFirst.slice(0, SHOWN_VERSIONS) : newestFirst
+  const olderVersions = folds ? newestFirst.slice(SHOWN_VERSIONS) : []
+  const openIsOlder = olderVersions.some((v) => v.version === version)
+  // The fold opens when the version open in the column is in it, however that version was reached.
+  const [olderOpen, setOlderOpen] = useState(openIsOlder)
+  const [openedVersion, setOpenedVersion] = useState(version)
+  if (openedVersion !== version) {
+    setOpenedVersion(version)
+    if (openIsOlder) setOlderOpen(true)
+  }
   /** The file changed on disk after this draft began, or went from it: saving would be refused. */
   const stale = draft !== undefined && draft.previous !== saved
   /** The file the draft began on is no longer on disk. */
@@ -310,6 +329,39 @@ export const Editor = memo(function Editor({ ctx }: { ctx: Ctx }) {
   const missing = isSkill ? ['name', 'description'].filter((k) => !metaText(meta, k)) : []
   const { current, versions } = state.versions
   const newest = versions.at(-1)
+  const versionRow = (v: (typeof versions)[number]) => {
+    const score = scores.get(v.version) ?? null
+    return (
+      <li key={v.version}>
+        <NavButton
+          current={v.version === version}
+          arrived={arrivedVersion(v.version)}
+          onClick={() => go('editor', { version: v.version })}
+          end={score === null ? null : <ListScore total={score} />}
+        >
+          <NavButtonTitle>
+            {v.version}
+            {v.name ? ` · ${v.name}` : ''}
+          </NavButtonTitle>
+          <NavButtonMeta>
+            {capital(
+              [
+                v.date ? shortDate(v.date) : null,
+                // The score is the chip at the row's end; without one, the line says why.
+                score === null ? 'not run yet' : null,
+                // The newest is the files unless they changed; a restored one says so.
+                v !== newest && !current.changed && v.version === current.version
+                  ? 'in the files now'
+                  : null,
+              ]
+                .filter(Boolean)
+                .join(' · '),
+            )}
+          </NavButtonMeta>
+        </NavButton>
+      </li>
+    )
+  }
 
   /**
    * What to know about the file before editing it: a newer copy on disk,
@@ -456,40 +508,19 @@ export const Editor = memo(function Editor({ ctx }: { ctx: Ctx }) {
           >
             {versions.length ? (
               <PlainList gap="xs" bleed>
-                {[...versions].reverse().map((v) => {
-                  const score = scores.get(v.version) ?? null
-                  return (
-                    <li key={v.version}>
-                      <NavButton
-                        current={v.version === version}
-                        arrived={arrivedVersion(v.version)}
-                        onClick={() => go('editor', { version: v.version })}
-                        end={score === null ? null : <ListScore total={score} />}
-                      >
-                        <NavButtonTitle>
-                          {v.version}
-                          {v.name ? ` · ${v.name}` : ''}
-                        </NavButtonTitle>
-                        <NavButtonMeta>
-                          {capital(
-                            [
-                              v.date ? shortDate(v.date) : null,
-                              // The score is the chip at the row's end; without one, the line says why.
-                              score === null ? 'not run yet' : null,
-                              // The newest is the files unless they changed; a restored one says so.
-                              v !== newest && !current.changed && v.version === current.version
-                                ? 'in the files now'
-                                : null,
-                            ]
-                              .filter(Boolean)
-                              .join(' · '),
-                          )}
-                        </NavButtonMeta>
-                      </NavButton>
-                    </li>
-                  )
-                })}
+                {shownVersions.map(versionRow)}
               </PlainList>
+            ) : null}
+            {olderVersions.length ? (
+              <Disclosure
+                summary={`${olderVersions.length} older versions`}
+                open={olderOpen}
+                onOpenChange={setOlderOpen}
+              >
+                <PlainList gap="xs" bleed>
+                  {olderVersions.map(versionRow)}
+                </PlainList>
+              </Disclosure>
             ) : null}
           </ColumnSection>
         )}
