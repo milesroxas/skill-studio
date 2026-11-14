@@ -230,10 +230,15 @@ const liftRuns = (runs: RunView[], outputs: Output[], config: BenchConfig): Lift
 export const liftOf = (state: State, outputs: Output[], config: BenchConfig): Lift | null =>
   versionLift(liftRuns(state.runs, outputs, config))
 
-/** The versions outputs were written on, oldest first: "v0", "v1". */
+/**
+ * The versions outputs were written on, oldest first: "v0", "v1". A version
+ * whose every output was stopped has nothing to read or score, so it is not
+ * one of them.
+ */
 export function versionsRun(outputs: Output[]): string[] {
   const seen = new Set(
     outputs
+      .filter((o) => o.cut !== 'stopped')
       .map((o) => testOf(o.run))
       .filter(testedVersion)
       .map((test) => test.version),
@@ -408,6 +413,7 @@ const candidate = (output: Output): Candidate => ({
   ...testOf(output.run),
   index: output.index,
   written: output.sample.artifacts.length > 0 && output.cut === null,
+  stopped: output.cut === 'stopped',
   output,
 })
 
@@ -522,6 +528,31 @@ export const unscoredWords = (cut: Output['cut']): string =>
     : cut === 'unfinished'
       ? 'is not finished'
       : 'has no score yet'
+
+/**
+ * Why an output's agent failed, in the agent's own words; null when it did
+ * not, and for one that was stopped. A stop is the reader's own doing, never
+ * a failure: its output says so in plain words.
+ */
+export function failureOf(output: Output): string | null {
+  const meta = output.run.meta?.samples.find((s) => s.dir === output.sample.name)
+  return output.cut === 'stopped' || meta?.stopped ? null : (meta?.error ?? null)
+}
+
+/**
+ * The outputs of a case one side of a comparison picks from: each that ran to
+ * its end or is still being written, and `shown`, the ones in view. A stopped
+ * output has no score to compare, so it is not offered; it is still read from
+ * its run, under Runs on All cases.
+ */
+export const outputsToPick = (
+  outputs: readonly Output[],
+  caseId: string,
+  shown: ReadonlyArray<Output | null>,
+): Output[] =>
+  outputs.filter(
+    (o) => o.caseId === caseId && (o.cut !== 'stopped' || shown.some((s) => s?.key === o.key)),
+  )
 
 /** That an output has no score, as a line that opens with its run. */
 export const unscoredLine = (output: Output): string =>

@@ -11,9 +11,11 @@ import {
   deleteRunDialog,
   drawnOf,
   extraKinds,
+  failureOf,
   gradedLine,
   gradingFailed,
   kindsLine,
+  lastAnswer,
   liftOf,
   listLine,
   mergedConfig,
@@ -22,6 +24,7 @@ import {
   outputFacts,
   outputNames,
   outputsOf,
+  outputsToPick,
   primaryOf,
   rulesUnmarked,
   runLabel,
@@ -447,6 +450,49 @@ describe('an output the run’s stop cut short', () => {
       stateOf([runOf('r1', 'v1', page), stoppedRun('r2', 'v2'), finished], ['generic']),
     )
     expect(casePair(outputs, 'page').b?.run.name).toBe('r3')
+  })
+
+  it('does not make its version the latest: the case stays on the answers there are', () => {
+    const outputs = outputsOf(
+      stateOf(
+        [runOf('r1', 'v1', page), runOf('r2', 'v2', page), stoppedRun('r3', 'v3')],
+        ['generic'],
+      ),
+    )
+    expect(versionsRun(outputs)).toEqual(['v1', 'v2'])
+    const pair = casePair(outputs, 'page')
+    expect([pair.a?.run.name, pair.b?.run.name]).toEqual(['r1', 'r2'])
+    expect(lastAnswer(outputs, 'page')?.run.name).toBe('r2')
+    // With nothing else to read, the stopped output is what the case has.
+    const alone = outputsOf(stateOf([stoppedRun('r3', 'v3')], ['generic']))
+    expect(versionsRun(alone)).toEqual([])
+    expect(lastAnswer(alone, 'page')?.run.name).toBe('r3')
+  })
+
+  it('is not offered to compare, unless it is the one in view', () => {
+    const outputs = outputsOf(
+      stateOf([runOf('r1', 'v1', page), stoppedRun('r2', 'v2')], ['generic']),
+    )
+    const [read, stopped] = outputs
+    expect(outputsToPick(outputs, 'page', [read, null])).toEqual([read])
+    expect(outputsToPick(outputs, 'page', [read, stopped])).toEqual([read, stopped])
+    expect(outputsToPick(outputs, 'other', [read])).toEqual([])
+  })
+
+  it('is no failure, whatever its agent said as it was ended', () => {
+    const said = (run: RunView, sample: object): RunView =>
+      madeBy(run, {
+        samples: run.samples.map((s) => ({ dir: s.name, error: 'stopped', ...sample })),
+      } as never)
+    const [stopped] = outputsOf(
+      stateOf([said(stoppedRun('r1', 'v1'), { stopped: true })], ['generic']),
+    )
+    expect(failureOf(stopped)).toBeNull()
+    const [failed] = outputsOf(
+      stateOf([said(runOf('r2', 'v1', page), { error: 'exit 1' })], ['generic']),
+    )
+    expect(failureOf(failed)).toBe('exit 1')
+    expect(failureOf(outputsOf(stateOf([runOf('r3', 'v1', page)], ['generic']))[0])).toBeNull()
   })
 })
 

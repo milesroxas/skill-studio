@@ -22,6 +22,8 @@ export interface PairOutput {
   index: number
   /** The agent wrote an output and was not stopped on the way. One stopped or failed leaves nothing whole to read. */
   written: boolean
+  /** Its agent was stopped before it finished. A stop says nothing of the skill, so it is no answer to compare while the case has another. */
+  stopped: boolean
 }
 
 export interface Pair<T extends PairOutput = PairOutput> {
@@ -50,8 +52,13 @@ const newestFirstSample = <T extends PairOutput>(outputs: T[]): T | null =>
  * like with like where it can: when one agent and model wrote on both sides,
  * that pair is the one, so the difference read is the skill's and not the
  * model's. With one version and no baseline there is only the one answer.
+ * A stopped output is passed over while the case has any other, so a version
+ * whose run was stopped is not the latest: the pair stays on the answers
+ * there are.
  */
-export function defaultPair<T extends PairOutput>(outputs: readonly T[]): Pair<T> {
+export function defaultPair<T extends PairOutput>(all: readonly T[]): Pair<T> {
+  const ended = all.filter((o) => !o.stopped)
+  const outputs = ended.length ? ended : all
   const skilled = outputs.filter(testedVersion)
   const bare = outputs.filter((o) => o.configuration === 'without_skill')
   if (!skilled.length)

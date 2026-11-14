@@ -2,8 +2,11 @@ import type { RunView } from '@domain/views.ts'
 import { describe, expect, it } from 'vitest'
 import { newestRun, resultsUnread, withSeen } from './results-seen.ts'
 
-const run = (createdAt: string, finishedAt: string | null): RunView =>
-  ({ name: createdAt, meta: { createdAt, finishedAt } }) as unknown as RunView
+const run = (
+  createdAt: string,
+  finishedAt: string | null,
+  samples: Array<{ cut?: 'stopped' | 'unlisted' }> = [{}],
+): RunView => ({ name: createdAt, meta: { createdAt, finishedAt }, samples }) as unknown as RunView
 
 describe('newestRun', () => {
   it('is when the newest finished run started', () => {
@@ -26,6 +29,22 @@ describe('newestRun', () => {
     // A run.json with no start time is never the one to read, or Results could never mark it.
     expect(newestRun([run('', '2026-11-02T10:05:00.000Z')])).toBeNull()
     expect(newestRun([])).toBeNull()
+  })
+
+  it('passes over a run stopped before any answer was finished', () => {
+    const read = run('2026-11-01T10:00:00.000Z', '2026-11-01T10:05:00.000Z')
+    const stopped = run('2026-11-02T10:00:00.000Z', '2026-11-02T10:01:00.000Z', [
+      { cut: 'stopped' },
+      { cut: 'unlisted' },
+    ])
+    const stoppedAtOnce = run('2026-11-03T10:00:00.000Z', '2026-11-03T10:00:05.000Z', [])
+    expect(newestRun([read, stopped, stoppedAtOnce])).toBe('2026-11-01T10:00:00.000Z')
+    // One answer finished before the stop: there is something to read.
+    const partly = run('2026-11-04T10:00:00.000Z', '2026-11-04T10:02:00.000Z', [
+      {},
+      { cut: 'stopped' },
+    ])
+    expect(newestRun([read, partly])).toBe('2026-11-04T10:00:00.000Z')
   })
 })
 

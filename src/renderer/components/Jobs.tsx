@@ -38,6 +38,14 @@ const TONE = {
   stopped: 'muted',
 } as const satisfies Record<string, Tone>
 
+/** A job's status as the log's row says it, after its title. */
+const STATUS_WORD = {
+  running: 'Running',
+  done: 'Done',
+  failed: 'Failed',
+  stopped: 'Stopped',
+} as const satisfies Record<Job['status'], string>
+
 /** What the running jobs that know their size add up to; null when none does. */
 function progressOf(jobs: readonly Job[]): JobProgress | null {
   const sized = jobs.flatMap((j) => (j.status === 'running' && j.progress ? [j.progress] : []))
@@ -167,7 +175,7 @@ function JobLogs({ jobs }: { jobs: Job[] }) {
               <Text weight="semibold" tone={job.status === 'failed' ? 'destructive' : 'default'}>
                 {job.title}
               </Text>{' '}
-              <Text tone="muted">{job.status}</Text>
+              <Text tone="muted">{STATUS_WORD[job.status]}</Text>
             </Text>
             {job.status === 'running' ? <StopJob job={job} /> : null}
           </span>

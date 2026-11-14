@@ -18,6 +18,7 @@ import {
   countsOf,
   cutOf,
   duration,
+  failureOf,
   fmt,
   gradedLine,
   isWithoutSkill,
@@ -455,11 +456,13 @@ function RunDetail({
             const s = scoreOf(o, config)
             const meta = metaOf(o)
             const missed = s?.verdicts.filter(isMissed) ?? []
+            const failure = failureOf(o)
+            const stopped = o.cut === 'stopped'
             return (
               <TableRow
                 key={o.key}
                 align="baseline"
-                variant={meta && !meta.ok ? 'destructive' : 'default'}
+                variant={meta && !meta.ok && !stopped ? 'destructive' : 'default'}
               >
                 <TableCell>
                   <Text font="mono">{o.sample.name}</Text>
@@ -480,11 +483,16 @@ function RunDetail({
                   <TotalChip total={s?.scores.total} />
                 </TableCell>
                 <TableCell wrap wide>
-                  {meta?.error || missed.length ? (
+                  {failure || stopped || missed.length ? (
                     <PlainList gap="md">
-                      {meta?.error ? (
+                      {failure ? (
                         <Text as="li" size="xs" tone="destructive" measure>
-                          {meta.error}
+                          {failure}
+                        </Text>
+                      ) : null}
+                      {stopped ? (
+                        <Text as="li" size="xs" tone="muted" measure>
+                          Stopped before it finished.
                         </Text>
                       ) : null}
                       {missed.map((v, i) => (

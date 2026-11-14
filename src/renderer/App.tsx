@@ -82,7 +82,13 @@ import {
   useStartPractice,
 } from './practice.ts'
 import { savePreference, setPreferences, usePreferences } from './preferences.ts'
-import { markResultsSeen, newestRun, resultsUnread, useResultsSeen } from './results-seen.ts'
+import {
+  answered,
+  markResultsSeen,
+  newestRun,
+  resultsUnread,
+  useResultsSeen,
+} from './results-seen.ts'
 import { Cases } from './screens/Cases.tsx'
 import { LibraryScreen } from './screens/Library.tsx'
 import { Results } from './screens/Results.tsx'
@@ -345,9 +351,11 @@ export function App() {
           running,
           practice: practice && { next: practice.next },
           cases: loaded.state.cases.length,
-          runs: loaded.state.runs.length,
-          skillRuns: loaded.state.runs.filter((r) => r.meta?.configuration !== 'without_skill')
-            .length,
+          // A run stopped before any answer was finished is not a run of the skill yet.
+          runs: loaded.state.runs.filter(answered).length,
+          skillRuns: loaded.state.runs.filter(
+            (r) => answered(r) && r.meta?.configuration !== 'without_skill',
+          ).length,
           changed: current.changed,
           unread,
         }

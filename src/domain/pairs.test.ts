@@ -10,6 +10,7 @@ const output = (key: string, over: Partial<PairOutput> = {}): PairOutput => ({
   createdAt: '2026-11-01T10:00:00.000Z',
   index: 1,
   written: true,
+  stopped: false,
   ...over,
 })
 
@@ -24,6 +25,29 @@ describe('defaultPair', () => {
       }),
     ])
     expect(pair.b?.key).toBe('v1-a/intro-s1')
+  })
+
+  it('keeps to the versions that ran when a later one was stopped', () => {
+    const pair = defaultPair([
+      output('r0/intro-s1', { version: 'v0' }),
+      output('r1/intro-s1', { version: 'v1' }),
+      output('r2/intro-s1', { version: 'v2', written: false, stopped: true }),
+    ])
+    expect(pair.a?.key).toBe('r0/intro-s1')
+    expect(pair.b?.key).toBe('r1/intro-s1')
+  })
+
+  it('passes over a stopped output that left half a file', () => {
+    const pair = defaultPair([
+      output('r1/intro-s1', { version: 'v1' }),
+      output('r2/intro-s1', { version: 'v2', stopped: true }),
+    ])
+    expect(pair).toMatchObject({ a: null, b: { key: 'r1/intro-s1' } })
+  })
+
+  it('opens on a stopped output when the case has no other', () => {
+    const pair = defaultPair([output('r1/intro-s1', { version: 'v1', stopped: true })])
+    expect(pair.b?.key).toBe('r1/intro-s1')
   })
 
   it('sets the latest version beside the version before it', () => {

@@ -29,8 +29,16 @@ function stored(): Seen {
 const seen = createStore<Seen>(stored())
 
 /**
+ * Whether a run holds an answer whose agent ran to its end. One stopped
+ * before any did left nothing to read or score, so it does not count as a run
+ * of the skill where the next step is worked out.
+ */
+export const answered = (run: RunView): boolean => run.samples.some((sample) => !sample.cut)
+
+/**
  * When the newest finished run started; null when none has finished. A run
- * still writing is not there to read yet. Runs are told apart by when they
+ * still writing is not there to read yet, and one stopped before any answer
+ * was finished never is. Runs are told apart by when they
  * started, as ISO times, so a later run always reads as newer.
  */
 export function newestRun(runs: readonly RunView[]): string | null {
@@ -38,7 +46,7 @@ export function newestRun(runs: readonly RunView[]): string | null {
   for (const run of runs) {
     const meta = run.meta
     // A run with no start time cannot be told from another, and is never newer.
-    if (!meta?.finishedAt || !meta.createdAt) continue
+    if (!meta?.finishedAt || !meta.createdAt || !answered(run)) continue
     if (newest === null || meta.createdAt > newest) newest = meta.createdAt
   }
   return newest

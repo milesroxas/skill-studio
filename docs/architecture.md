@@ -136,7 +136,7 @@ A skill has three screens (`SKILL_PLACES` in `src/renderer/places.ts`):
 
 Running is a button in the top bar (`components/Run.tsx`). It calls `skill.generate`, which keeps the files as the next version when they changed since the last run.
 
-- `src/domain/pairs.ts` chooses the pair a case opens with: the latest version beside the one before it, by the same writer where it can.
+- `src/domain/pairs.ts` chooses the pair a case opens with: the latest version beside the one before it, by the same writer where it can. A stopped output is passed over while the case has any other, so a version whose run was stopped is not the latest (`versionsRun` in `src/renderer/model.ts` reads versions the same way).
 - A reader's answer on one verdict is a **correction** (`skill.correct`), kept in `evals/reviews.json` and written from Results. Every pack's scorer reports the facts it counted (`Verdict` in `src/domain/pack.ts`) and takes the corrections, so a score follows a correction with no new call to Jev. See [grading.md](grading.md#verdicts).
 - An address that names a screen folded into another opens that screen (`MOVED_SCREENS` in `src/domain/preferences.ts`). A name the app has no screen for opens home (`screenFor` in `src/renderer/next-step.ts`).
 
@@ -156,7 +156,7 @@ The shell (`App.tsx`) hands every screen one object, `Ctx` in `src/renderer/ctx.
   - A draft equal to what is saved is not unsaved work. An unsaved file is one whose draft differs from the file on disk (`unsavedFiles` in `src/renderer/changes.ts`). An unsaved case is one whose draft differs from the case (`unsavedCases` in `src/renderer/draft-edits.ts`).
   - In a browser, drafts stored as the tab closes go as a keep-alive request when the body is at most 60,000 bytes. A write under way as the tab hides is sent again that way.
 - **When a case draft began** (`caseBases` in the drafts): the case's `savedAt` as the draft began, stored with the drafts so it survives a restart. A save sends it, and the host refuses the save when the case on disk is newer. Cases says the case changed on disk as soon as a read shows it newer, as the Editor does for a file (`FileDraft.previous`). A draft stored with no base counts as begun on the case as first shown.
-- **The next step** in the top bar (`nextStep` in `src/renderer/next-step.ts`): add a case, run, read the results of a run that finished since Results was last open, or the walkthrough's own step. When Results was last open is kept per skill in the window's storage (`src/renderer/results-seen.ts`), so a cleared store asks once more.
+- **The next step** in the top bar (`nextStep` in `src/renderer/next-step.ts`): add a case, run, read the results of a run that finished since Results was last open, or the walkthrough's own step. When Results was last open is kept per skill in the window's storage (`src/renderer/results-seen.ts`), so a cleared store asks once more. A run stopped before any answer was finished (`answered`, in the same file) is nothing to read and does not count as a run of the skill.
 
 ### Stores, actions and navigation
 

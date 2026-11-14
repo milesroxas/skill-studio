@@ -42,6 +42,7 @@ import {
   apartLine,
   caseTitle,
   drawnOf,
+  failureOf,
   gradingFailed,
   isWithoutSkill,
   layersOf,
@@ -49,6 +50,7 @@ import {
   outputDetail,
   outputFacts,
   outputNames,
+  outputsToPick,
   outputWriter,
   primaryOf,
   runInSentence,
@@ -127,7 +129,7 @@ export function Comparison({
   /** The view the reader chose; until then what the outputs are decides: see `opening`. */
   const [chosen, setChosen] = useState<View | null>(null)
   const testCase = state.cases.find((c) => c.id === caseId) ?? null
-  const candidates = outputs.filter((o) => o.caseId === caseId)
+  const candidates = outputsToPick(outputs, caseId, [a, b])
   const layers = layersOf(config)
   // Both keys always go in the address, so a side left empty stays empty.
   const show = (pair: { a: Output | null; b: Output | null }) =>
@@ -610,6 +612,7 @@ function Side({
       ? scored.scores.total - otherScored.scores.total
       : null
   const meta = output.run.meta?.samples.find((s) => s.dir === output.sample.name) ?? null
+  const failure = failureOf(output)
   const rules = new Set(state.rules.map((r) => r.text))
 
   const correct = async (verdict: Verdict, met: boolean | null) => {
@@ -676,9 +679,9 @@ function Side({
         }
         meta={apart ?? undefined}
       />
-      {meta?.error ? (
+      {failure ? (
         <Hint inset tone="destructive">
-          {meta.error}
+          {failure}
         </Hint>
       ) : null}
       {scored ? (

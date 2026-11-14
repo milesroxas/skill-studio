@@ -6,6 +6,18 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [0.13.4] - 2026-11-14
+
+### Changed
+
+- Stopping a run no longer takes over Results. A case keeps showing its last finished answers and their scores, and a version whose run you stopped is not counted as the latest.
+- A stopped answer is left out of the lists that pick which answers to compare. You can still read it by opening its run under **Runs** on **All cases**.
+- After you stop a run before any answer is finished, the top bar no longer asks you to read its results.
+
+### Fixed
+
+- A stopped answer is no longer shown in red as if it had failed. It says once, in plain words, that it was stopped before it finished.
+
 ## [0.13.3] - 2026-11-14
 
 ### Changed
