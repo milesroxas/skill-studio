@@ -5,7 +5,7 @@ The plan for the next release: what is in it, what is still to do, and the check
 | | |
 | --- | --- |
 | Version | 0.13.4 |
-| Status | In progress |
+| Status | Released 2026-11-14 |
 | Previous release | [v0.13.3](https://github.com/milesroxas/skill-studio/releases/tag/v0.13.3), 2026-11-14 |
 | Target date | 2026-11-14 |
 | Owner | Miles Roxas |
@@ -59,5 +59,5 @@ The steps in [releasing.md](releasing.md), in order.
 3. [x] `pnpm check` and `pnpm build` pass on `main`, 1,394 tests, and main's own run passes on Windows and macOS before the tag.
 4. [ ] `gh workflow run release` builds every platform. Not run for 0.13.4; the tag's own run builds every platform.
 5. [x] In the changelog, add `## [0.13.4] - 2026-11-14` under a new `## [Unreleased]`, and commit.
-6. [ ] `pnpm version patch -m "Release %s"`, then push `main` and the tag.
-7. [ ] The release workflow publishes v0.13.4, with the changelog entry as its notes.
+6. [x] `pnpm version patch -m "Release %s"`, then push `main` and the tag.
+7. [x] The release workflow publishes v0.13.4, with the changelog entry as its notes.
