@@ -6,6 +6,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [0.13.3] - 2026-11-14
+
 ### Changed
 
 - **Cost to run** on a case is now **Run size**, from small to very large. The bars are the same; the name no longer reads as a price, since what a run costs also turns on the model you pick. What the last run cost still shows beside it.
