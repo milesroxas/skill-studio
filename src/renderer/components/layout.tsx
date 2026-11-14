@@ -275,7 +275,7 @@ export function SplitSection({
 
 /**
  * A form with a still column of facts about it at its side, such as what a
- * case costs to run. The form keeps its 808px; the rail is 200px, 48px off,
+ * case's run comes to. The form keeps its 808px; the rail is 200px, 48px off,
  * and stays in view while the form scrolls. With no `rail` the form stands
  * alone, at the same left edge.
  */

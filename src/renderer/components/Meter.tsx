@@ -1,7 +1,7 @@
 /**
  * A stepped scale: five bars in a row that fill as a measure grows, so it
  * reads at a glance without a number to parse. The file size meter and a
- * case's cost to run both show through it.
+ * case's run size both show through it.
  */
 import { cva } from 'class-variance-authority'
 

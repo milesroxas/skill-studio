@@ -8,8 +8,8 @@
  * case, so moving between cases, screens or skills never loses typing.
  *
  * The case's column is laid out by its own width. Narrow, it is the folded
- * form with the cost to run as a meter in the header. With room beside the
- * form the cost stands there as a rail. Wider, the last answer to the case
+ * form with the run's size as a meter in the header. With room beside the
+ * form the size stands there as a rail. Wider, the last answer to the case
  * shows beside the form, and wider still the form splits in two: what is
  * asked, how the answer is judged, then the answer.
  */
@@ -42,7 +42,6 @@ import { memo, useEffect, useMemo, useRef, useState } from 'react'
 import { api, currentSkill } from '../api.ts'
 import { caseContext, skillContext } from '../assist.ts'
 import { LastAnswer } from '../components/CaseAnswer.tsx'
-import { CostMeter, CostRail, CostStrip, caseCost } from '../components/CaseCost.tsx'
 import { CheckList } from '../components/CheckList.tsx'
 import { Disclosure } from '../components/Disclosure.tsx'
 import { DraftNote } from '../components/DraftNote.tsx'
@@ -69,6 +68,7 @@ import {
 } from '../components/layout.tsx'
 import { NavButton, NavButtonMeta, NavButtonTitle } from '../components/NavButton.tsx'
 import { ContextActions, RowAction } from '../components/RowActions.tsx'
+import { RunSizeMeter, RunSizeRail, RunSizeStrip, runSize } from '../components/RunSize.tsx'
 import { Segmented } from '../components/Segmented.tsx'
 import { ExampleList, GuideBox, PairList } from '../components/starters.tsx'
 import { TextArea } from '../components/TextArea.tsx'
@@ -107,10 +107,10 @@ type Fold = 'judged' | 'limits'
 
 /**
  * How wide the case's own column must be, in px, for each layout. Below the
- * first the cost is the header's meter.
+ * first the run's size is the header's meter.
  */
 const ROOM = {
-  /** The cost stands beside the folded form. */
+  /** The run's size stands beside the folded form. */
   rail: 880,
   /** The last answer fits beside the folded form. */
   pair: 1080,
@@ -453,8 +453,8 @@ export const Cases = memo(function Cases({ ctx }: { ctx: Ctx }) {
   const [room, width] = useWidth<HTMLDivElement>()
   const layout = width >= ROOM.trio ? 'trio' : width >= ROOM.pair ? 'pair' : 'one'
   const railed = layout === 'one' && width >= ROOM.rail
-  /** What the case costs to run as it is typed, and what its last answer cost. */
-  const cost = caseCost(draft, inputs, { drawn, work })
+  /** How big a run of the case is as it is typed, and what its last answer cost. */
+  const size = runSize(draft, inputs, { drawn, work })
   const shown = useMemo(
     () => (selected ? lastAnswer(outputs, selected.id) : null),
     [outputs, selected],
@@ -848,10 +848,10 @@ export const Cases = memo(function Cases({ ctx }: { ctx: Ctx }) {
     </>
   )
 
-  /** The last answer, with the cost to run over it: the answer's own line says what its run cost. */
+  /** The last answer, with the run's size over it: the answer's own line says what its run cost. */
   const answerPane = (
     <SplitPane kind="bare">
-      <CostStrip cost={cost} />
+      <RunSizeStrip size={size} />
       <LastAnswer
         output={shown}
         cost={ran}
@@ -953,8 +953,8 @@ export const Cases = memo(function Cases({ ctx }: { ctx: Ctx }) {
 
               <DraftNote drafts={drafts} dirty={dirty} saved={isNew ? '' : 'Saved'} />
             </ColumnTitle>
-            {/* Only where nothing beside the form says the cost. Not before the column is measured. */}
-            {width && layout === 'one' && !railed ? <CostMeter cost={cost} last={ran} /> : null}
+            {/* Only where nothing beside the form says the size. Not before the column is measured. */}
+            {width && layout === 'one' && !railed ? <RunSizeMeter size={size} last={ran} /> : null}
             {dirty ? (
               <Button
                 type="button"
@@ -1001,7 +1001,7 @@ export const Cases = memo(function Cases({ ctx }: { ctx: Ctx }) {
                 <SplitPane kind="page">
                   <Railed
                     label="About this case"
-                    rail={railed ? <CostRail cost={cost} last={ran} /> : undefined}
+                    rail={railed ? <RunSizeRail size={size} last={ran} /> : undefined}
                   >
                     {folded}
                   </Railed>

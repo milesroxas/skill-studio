@@ -147,9 +147,9 @@ Cases is the one screen that uses one. Its case column has four layouts, by the 
 
 | Column | Layout |
 | --- | --- |
-| under 880px | `one`: the folded form, with the cost to run as a meter in the header (`CostMeter`) |
-| from 880px | `one`, `Railed`: the folded form with the cost to run and the last run beside it (`CostRail`) |
-| from 1080px | `pair`: the folded form, then the last answer to the case under the cost to run (`CostStrip` over `LastAnswer`) |
+| under 880px | `one`: the folded form, with the run's size as a meter in the header (`RunSizeMeter`) |
+| from 880px | `one`, `Railed`: the folded form with the run's size and the last run beside it (`RunSizeRail`) |
+| from 1080px | `pair`: the folded form, then the last answer to the case under the run's size (`RunSizeStrip` over `LastAnswer`) |
 | from 1560px | `trio`: the task, then how the answer is judged with nothing folded (A good answer, Checks, Length and size as sections), then the last answer |
 
 - The rail and the strip hold facts about the whole case that nobody types: the form is what is typed. Anything new in them starts as one line or folded.

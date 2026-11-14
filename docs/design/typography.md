@@ -106,7 +106,7 @@ A number in a sentence stays in sans, and so does a live count under a field ("4
 - a rewrite's kind ("Best practice", "More direct", "Shorter")
 - the section labels of Auto refine ("What drifts", "Worth a look", "Revision")
 - the guide line over each writing-check finding in the selection popout (`FindingList` in `Refine.tsx`)
-- the labels of the facts beside a case's form: "Cost to run", "Last run", "Last answer"
+- the labels of the facts beside a case's form: "Run size", "Last run", "Last answer"
 
 ## Display type
 
