@@ -25,18 +25,19 @@ M 0 120 H 64 C 104 120 104 64 144 64 H 184 V 96 H 144 C 104 96 104 152 64 152 H 
 | The app icon | the mark on an ink tile | the kit's own |
 | The sidebar's drag strip, macOS only | the mark, 23px wide, porcelain | the strip is 48px tall and empty there. Other platforms have a title bar that names the app. |
 | The welcome's opening | the mark, cropped by the frame | the one expressive moment |
-| Results | one ribbon as the version lift figure | the ribbon's rise is the score's rise |
+| Results | one ribbon as the lift figure | the ribbon's rise is the score's rise |
 
 Nowhere else. No mark in an empty state, a dialog, a loading state or the top bar. A logo the reader meets on every screen stops being seen and starts being in the way.
 
 ## The ribbon as a figure
 
-The version lift on Results (`VersionLift` in `components/Lift.tsx`, fed by `versionLift` in `domain/lift.ts`) is the only data figure drawn as a ribbon: flat at the first version's mean, one S-curve, flat at the latest version's mean. It compares one writer with itself, on the first version and on the latest. The band's top edge stands for the mean. The figure is a fixed height and stretches only sideways, so the band keeps its thickness; its labels are HTML text over it, so they stay on the type scale.
+The lift on Results (`LiftFigure` in `components/Lift.tsx`, fed by `caseLift` in `domain/standing.ts`) is the only data figure drawn as a ribbon: flat at the mean of the cases' first scores, one S-curve, flat at the mean of their latest. It compares each case with itself, so it holds whatever order the cases were run in. The band's top edge stands for the mean. The figure is a fixed height and stretches only sideways, so the band keeps its thickness; its labels are HTML text over it, so they stay on the type scale.
 
 - The curve is the mark's own: both control points sit at the horizontal midpoint. `C mx y0, mx y1, x1 y1`.
 - The band keeps one thickness. Rise divided by thickness stays between 1.5 and 2 (the mark's is 1.75). Scale the vertical axis to hold that, and label both ends with their real numbers.
-- It is ink on porcelain. The baseline without the skill is a dashed hairline in `muted-foreground`.
-- If the latest mean is not higher than the first in the whole points shown (`Lift.rises`), draw no ribbon: the latest mean and its `Delta` since the first say it. A ribbon that falls or lies flat would misstate the brand's one motif.
+- It is ink on porcelain. The baseline without the skill is a dashed hairline in `muted-foreground`, in room the figure keeps under the band only when the line is drawn.
+- The figure ends where its lower band ends, and that foot stands on the baseline of the mean beside it, with the last line of the words. Its label and the ribbon's upper label share one line.
+- If the latest mean is not higher than the first in the whole points shown (`CaseLift.rises`), draw no ribbon: the latest mean and its `Delta` since the first say it. A ribbon that falls or lies flat would misstate the brand's one motif.
 
 Never use a ribbon as a divider, a background, a progress bar or a loading animation.
 
@@ -72,7 +73,7 @@ The welcome runs in its own 760 x 600 window, laid out for exactly that size and
 ## Motion
 
 - State changes in the app: 150ms, `ease-out`. Movement that travels: `ease-out-strong`. Only `transform`, `opacity` and color move, with two exceptions in the welcome: the mark and the slab reveal through `clip-path` (`animate-draw`), and text rising in (`animate-rise`) comes out of a 4px blur.
-- The small arrivals have their own utilities, in `styles.css`: `animate-pop` (a mark stamped or a choice made, on `ease-out-back`, so it may overshoot: the status line's dot, a mark stamped in the tour), `animate-ink` (a word written: a change's title, an opened disclosure), `animate-vanish` (what a stamp replaces, gone as it lands), `animate-turn` (one turn of a refresh icon in answer to its press), `animate-send` (a message sent in the side panel, up 6px from 97% out of its bottom-right corner, 220ms) and `animate-tick` (a short label changed in place, up 4px, 200ms; also a score that lands in All cases while the table is in view, 40ms apart down its column, never one there when the view opened). Each waits for `--delay`, set where it is used.
+- The small arrivals have their own utilities, in `styles.css`: `animate-pop` (a mark stamped or a choice made, on `ease-out-back`, so it may overshoot: the status line's dot, a mark stamped in the tour), `animate-ink` (a word written: a change's title, an opened disclosure), `animate-vanish` (what a stamp replaces, gone as it lands), `animate-turn` (one turn of a refresh icon in answer to its press), `animate-send` (a message sent in the side panel, up 6px from 97% out of its bottom-right corner, 220ms) and `animate-tick` (a short label changed in place, up 4px, 200ms; also a score that changes in a list of cases while it is in view, never one there when the view opened). Each waits for `--delay`, set where it is used.
 - The side panel's arrivals, each in answer to the reader and never on what was there when it opened (`useRested`, `useArrived` in `renderer/motion.ts`): a message sent rises in (`animate-send`), never a reply, which writes itself in as it streams. A change marked Applied by a click stamps its dot (`Status stamp`, `animate-pop`). A draft's added words are written in 140ms after its struck words show (`WordDiff arrive`), so old reads before new. The rule line over the composer ticks when a draft is applied from the panel and never as the reader types, and the question count ticks as it moves on. `EmptyState arrive` brings up its title, words and actions 50ms apart, all within 300ms: Help me improve's opening, which the reader just asked for. Nothing here plays on a keyboard step.
 - A row the reader moves to another list (Mark done in the Library) fades out and drops 4px in 150ms on `ease-in` while the change is saved, a transition, so a failed save turns it round, and writes itself in where it lands with `animate-ink`. The rows below it close up at once: height never animates. `TableRow motion` in [data.md](data.md).
 - Text the app puts in the editor, such as a picked rewrite, keeps the selection's tint for a moment and fades out in 1.4s (`cm-landed` in `editor/theme.ts`). Color only: it marks where the change is, it does not move.

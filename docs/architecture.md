@@ -132,10 +132,11 @@ A skill has three screens (`SKILL_PLACES` in `src/renderer/places.ts`):
 
 - **Skill** (`screens/Editor.tsx`) edits `SKILL.md` and `references/`, and lists the versions. A version opens in the main column (`components/VersionDetail.tsx`) with its changes and Restore.
 - **Cases** (`screens/Cases.tsx`) edits the cases a run is made of. A case needs a prompt only.
-- **Results** (`screens/Results.tsx`) lists the cases a run answered and compares two outputs of the one picked (`components/Comparison.tsx`). "All cases" shows every run at once (`components/ResultsSummary.tsx`), with Graded as folded at its foot (`components/GradedAs.tsx`).
+- **Results** (`screens/Results.tsx`) lists the cases a run answered and compares two outputs of the one picked (`components/Comparison.tsx`). "All cases" (`components/ResultsSummary.tsx`) shows the lift (`components/Lift.tsx`), how many cases are checked on the skill as it is now (`components/Coverage.tsx`), where each case stands (`components/CaseStandings.tsx`) and the runs, with Graded as folded at its foot (`components/GradedAs.tsx`).
 
 Running is a button in the top bar (`components/Run.tsx`). It calls `skill.generate`, which keeps the files as the next version when they changed since the last run.
 
+- `src/domain/standing.ts` reads where one case stands from its own runs, and the lift over the cases. A case is run when its writer chooses, so no case is read from a run that did not answer it.
 - `src/domain/pairs.ts` chooses the pair a case opens with: the latest version beside the one before it, by the same writer where it can. A stopped output is passed over while the case has any other, so a version whose run was stopped is not the latest (`versionsRun` in `src/renderer/model.ts` reads versions the same way).
 - A reader's answer on one verdict is a **correction** (`skill.correct`), kept in `evals/reviews.json` and written from Results. Every pack's scorer reports the facts it counted (`Verdict` in `src/domain/pack.ts`) and takes the corrections, so a score follows a correction with no new call to Jev. See [grading.md](grading.md#verdicts).
 - An address that names a screen folded into another opens that screen (`MOVED_SCREENS` in `src/domain/preferences.ts`). A name the app has no screen for opens home (`screenFor` in `src/renderer/next-step.ts`).

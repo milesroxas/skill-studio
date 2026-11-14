@@ -12,6 +12,7 @@ These are all the variants there are. A variant missing from this table is missi
 | `outline` | every other action. **This is the one to reach for first.** | any |
 | `ghost` | an action beside other buttons in a toolbar or header | any |
 | `signal` | the next step of the loop, in the top bar only: yellow fill. Either "Next: …" or Run, never both. | one per window |
+| `inverse` | the one action on the band of All cases (`bg-primary`): the page's ground under the page's text, so it flips with the band in the dark | one, on the band |
 | `secondary` | not used by any screen. Do not start. | 0 |
 | `link` | a name that opens its item: a skill's name in the Library's table | rare |
 | `link-muted` | navigation inside a table cell or under a form | any |
@@ -36,6 +37,7 @@ Is it the next step of the loop, in the top bar?
       │    ├── A row repeats it as an icon → destructive-muted
       │    ├── It stands alone in a section → destructive-outline
       │    └── It sits beside other buttons → destructive-ghost
+      ├── Is it the action on the band of All cases? → inverse
       ├── Is it navigation inside a table or under a form? → link-muted
       ├── Is it an action a row repeats, or a tool in the editor's toolbar? → ghost-muted
       ├── Is it the one action the screen exists for? → default
@@ -110,6 +112,7 @@ The loop is write, run, compare, and running is a button, not a place. So the ne
 - Its label names what pressing it tests: the version ("Run v2"), or "Run without skill" before the skill's first run, when the next step is the run with no skill that sets the score to beat.
 - That run is suggested, never required. Its panel is titled "First, test without the skill" and offers "Test the skill instead" (`link-muted`, `inline-sm`) under its button, which switches the panel to the skill in one press. After the run without the skill, the next step is a run with it.
 - It opens a `form` popover that says what the run will test, then the button that starts it. That button names what the run does ("Run 3 cases"), because a run costs money.
+- Results can open it on a run of some cases (`ctx.openRun(cases)`): the band's "Run the other 4 on v3" and an opened case's "Run it on v3". The panel opens with only those cases ticked, on the skill, and its button says how many. They open the panel and never start a run themselves. Closing the panel or starting the run ticks every case again.
 
 ```tsx
 // Correct: App.tsx

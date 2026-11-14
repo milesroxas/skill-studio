@@ -248,18 +248,25 @@ Results shows the two set aside as groups of their own, **Not sure** open and **
 
 Any other field in `reviews.json`, such as a rating, a note or a vote, is kept as it is when the file is written, and nothing reads it.
 
-## Version scores and the lift
+## Version scores, where a case stands and the lift
 
 A version's score is the mean of its cases, each case the mean of its graded outputs, so a case run three times counts once. `versionScore` in `src/renderer/model.ts` computes it. Every mean the app shows is counted this way (`scoreOver`), a run's Mean on All cases included.
 
-- A version's outputs are those written with the skill as it stood and those written on the copy kept of it (`old_skill`), never one written without the skill (`testedVersion` in `src/domain/lift.ts`). The score, the lift and the comparison all read it so.
+- A version's outputs are those written with the skill as it stood and those written on the copy kept of it (`old_skill`), never one written without the skill (`testedVersion` in `src/domain/lift.ts`). The score, a case's standing and the comparison all read it so.
 - Where one writer (an engine and model) ran two versions, a version's score counts that writer's outputs only, so one version reads against the next.
 - When several writers did, the writer whose newest run is newest is read.
 
-The version lift on Results (`src/domain/lift.ts`) compares that writer's oldest run on the first version it ran with its newest run on the latest version it ran.
+A case is run when its writer chooses, on whatever version and model, so All cases on Results reads each case against its own runs (`standingOf` in `src/domain/standing.ts`, `standingsOf` in `src/renderer/model.ts`).
 
-- It reads the cases both runs answered (`sharedCases`). When either run answered cases the other did not, `casesDiffer` is set and the page says over how many cases the means are read.
-- The floor is the same writer's newest run without the skill that answered every one of those cases, read over them.
+- A case's runs are ordered by version, then by when they ran, so a run on the copy kept of v1 stands with v1 whenever it was made.
+- A case stands on its newest score on the version a run would test now (`versions.current`), else on its newest score on the latest version it ran. It is checked when that score is on the version a run would test now. Saving an edit to the skill makes that a new version, which no case has run on yet.
+- Its change is read against the scored run before by the same writer, so the move is the skill's and not the model's; with none, against the scored run before by anyone.
+- A run with no score, such as one that was stopped, is no standing.
+
+The lift (`caseLift`) is the mean of the cases' first scores against the mean of their latest, over the cases with two scored runs. Each case counts once.
+
+- The floor is the mean of those cases' newest scores without the skill, over the ones that have one (`floorCases`).
+- `mixed` is set when a case's first and latest runs had different writers, and the page says "on more than one model".
 - When no such run answered them all, the floor is the one that answered the most, the newest of those, read over the ones it answered. `baselineCases` says how many, and `casesDiffer` is set.
 - A run without the skill that answered none of them is no floor.
 - A run made against an older version's snapshot (`old_skill`) counts as that version's run, as on the comparison.

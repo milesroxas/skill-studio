@@ -24,6 +24,11 @@ const buttonVariants = cva(
         secondary: 'bg-secondary text-secondary-foreground hover:bg-secondary/80',
         ghost: 'hover:bg-accent hover:text-accent-foreground dark:hover:bg-accent/50',
         link: 'text-primary underline-offset-4 hover:underline',
+        /**
+         * The one action on a band of the filled button's ink (`bg-primary`): the
+         * page's ground under the page's text, so it flips with the band in the dark.
+         */
+        inverse: 'bg-background text-foreground hover:bg-background/90',
         /** The next step of the loop, in the top bar only: the window's one yellow control. */
         signal: 'bg-signal text-signal-foreground hover:bg-signal/85',
         /** An action a row repeats, such as its remove: quieter than the row's text until pointed at. */

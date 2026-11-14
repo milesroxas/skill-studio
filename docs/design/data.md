@@ -12,6 +12,7 @@ A table sits directly on the page. Never put it in a card or give it an outer bo
 | --- | --- | --- | --- |
 | `layout` | `Table` | `auto` (default), `fixed` | `fixed` when the list is filtered or two tables must line up |
 | `bleed` | `Table` | `false` (default), `true` | `true` when rows fill on hover, open a detail or mark a failure |
+| `stick` | `Table` | `false` (default), `true` | a long list in a workbench column: the head stays in view under the column's header. The table no longer scrolls sideways in its own box, so its columns must fit at 720px |
 | `interactive` | `TableRow` | `false` (default), `true` | the row opens something |
 | `align` | `TableRow` | `middle` (default), `baseline` | `baseline` when one cell wraps to several lines |
 | `variant` | `TableRow` | `default`, `destructive` | a failed sample |
@@ -19,10 +20,13 @@ A table sits directly on the page. Never put it in a card or give it an outer bo
 | `numeric` | head, cell | boolean | a number: right-aligned and tabular. The cell is mono; the head stays a word in sans |
 | `trailing` | head, cell | boolean | not a number, at the row's end: actions, a date, a note. Right-aligned, narrow and tabular, in sans |
 | `wide`, `wrap`, `filler` | head, cell | boolean | the column that takes spare width; text that may wrap |
+| `clip` | head, cell | boolean | the column the row is named in, on one line: it takes the spare width and cuts a name that does not fit. For a long list of names, where a wrapped one breaks the rows' rhythm. Its `TableRowToggle` takes `clip` too, and the whole name is its `title` |
 | `col` | head | `auto`, `xs`, `sm`, `md`, `lg`, `xl` | a fixed column's width |
 | `fold` | head, cell | `never`, `last`, `second`, `first`, `menu` | the order columns drop out as the table narrows. `menu` is a row's actions: the column stays, one icon wide, where `first` goes, and `RowActions` folds them into a menu |
 
 A row that opens a detail uses `TableRowToggle` and `TableDetail`. Do not build a disclosure row by hand: the toggle carries `aria-expanded`, and the open row's `bg-muted` fill comes from it.
+
+Rows in groups, such as the cases checked on a version and the ones that are not, are one `TableBody` per group, each opened by a `TableGroupHead`: the group's name in `ui` medium and its count in `muted`, across the table. A table with one group that needs no name has no head.
 
 ```tsx
 // Correct: components/ResultsSummary.tsx
@@ -44,7 +48,12 @@ Rules:
 - An empty cell says why it is empty in one or two words in `tone="faint"`, such as "Not run" or "Writing…": never a blank, a bare dash or "N/A". Only a cell that opens something looks like it does: a score not graded yet is "Not graded" as a `link-muted` `cell-inline` button that opens the output, never a dash in a chip beside a dash that opens nothing. An output the run's stop cut short is never graded, so the same button says "Stopped". One its run never recorded, in a run with no end of its own, says "Not finished": it is still being written, or the run was cut off with the app.
 - A stop is the reader's own doing, never a failure. A stopped output says so once, in plain words in `muted`: "Stopped before it finished, so it has no score." under its card's head, "Stopped before it finished." in its row of an opened run. It is never red, and what its agent said as it was ended is not shown as an error (`failureOf` in `model.ts`).
 - A stopped output is not offered where an output is picked to compare (`outputsToPick` in `model.ts`): it has no score to set against another. It is read from its run, under Runs.
-- All cases (`ResultsSummary.tsx`) has cases down the side, by their whole title, and runs across, headed by version and model (`modelShort`), the run without the skill last. Two columns that would read the same add the run's date. The runs, with their time, cost and average, are a second table under it, whose rows open the run.
+- All cases (`ResultsSummary.tsx`) is read by case, never by run: a case is run when its writer chooses, so a grid of runs by cases is mostly empty. Its table (`CaseStandings.tsx`) has one row per case and four columns however many runs there are: the case on one line (`clip`), its last run as version and model (`modelShort`), its score, and its change from the run before. A case before its first run with the skill stands on its score without it. A case with no score says why once, across the three columns a score would fill.
+- Its rows are in groups (`TableGroupHead`): "Checked on v3", then "Not checked on v3 yet", then "No longer in Cases" for a case deleted since it ran. Within a group what needs a look comes first: the biggest drop, then the lowest score. With every case checked there is one group and no head.
+- A long list stays short: a group shows its first 8 rows and "Show 6 more cases" (`ghost-muted` at `xs`), and past 8 cases a "Find a case" field stands over the table. The open case shows even when it lies past the first rows.
+- The change column says "First run" or "Same" in `faint` where there is no move, and names a newer run that has no score yet: "Grading v3…", "v3 not graded". A stopped run waits on nothing, so it is left to the case's list of runs.
+- An opened case reads in this order: one sentence on where it stands, the first three things its answer missed (a red cross each, then "and 2 more, in the output"), and its actions, the next step first: **Run it on v3** (`outline`) while the case is behind, else **Read the output**, then **Compare with v2** (`ghost`). Its other runs stand beside it, the newest four, each ending in its score as a `cell` button that opens that output. Never a table of every part of every run: what is not the next thing to read is one press away.
+- The runs, with what they answered, their time, cost and average, are a second table under it, the newest first and the runs without the skill last, whose rows open the run. It shows the newest 5 and "Show all 30 runs".
 
 ## Scores
 
@@ -52,11 +61,11 @@ A score is out of 100 and always shows through one of these, from `components/Sc
 
 | Component | Shows |
 | --- | --- |
-| `TotalChip` | a score as a chip whose color is its band. Every chip is 40px wide (`Badge numeric`), so a column keeps one edge. |
+| `TotalChip` | a score as a chip whose color is its band. Every chip is 40px wide (`Badge numeric`), so a column keeps one edge. `stale` is a score from an earlier version than the skill as it is now: the chip stands open, a hairline edge and no fill (`Badge variant="outline"`), until the case runs again. Its number is `muted-foreground`, and stays amber or red when the score is weak, so a low one still stands out. A screen reader hears "from an earlier version". |
 | `TotalDetail` | an output's `TotalChip` as a button that opens what is behind the number: a `help` popover of `TotalDetailSection`s, each a heading and what it holds. On Results it holds "What the score is counted from" (`PartList`) and "How it was made" (`FactList` in `components/OutputCard.tsx`: who wrote it, when, the attempt, the length or size). Pointed at or open, the chip takes a 2px ring in `border`. A click, never a hover, so a part's own note opens inside it. |
-| `SampleCount` | how many outputs a mean stands for, which are the ones with a score: "×2". Its slot keeps its width when empty. Hidden below `lg`, so a table of cases fits 720px: the score's `aria-label` still says it. |
-| `Delta` | a change between two scores: "+15" in `success`, "−4" in `destructive` |
-| `ListScore` | a `TotalChip` at the end of a row in a list column (a `NavButton`'s `end`): the latest score alone. On the open row it takes a hairline edge. |
+| `SampleCount` | how many outputs a mean stands for, which are the ones with a score: "×2". Its slot keeps its width when empty. Hidden below `lg`, so a table of cases fits 720px. |
+| `Delta` | a change between two scores: "+15" in `success`, "−4" in `destructive`. It brings its own space after the score it follows; `lead={false}` where it opens a line or stands alone in a cell |
+| `ListScore` | a `TotalChip` at the end of a row that lists a case: a `NavButton`'s `end` in a list column, a row of All cases. The latest score alone, `stale` when the case has not run on the skill as it is now. On a list column's open row it takes a hairline edge. A score that changes in view comes up a few pixels (`animate-tick`). |
 | `ScoreChange` | how a score moved, in words, for the line under a row's title: "Up 11 from v0", "Down 4 from v0", "Same as v0", or "Up 20 with the skill" or "Same as without the skill" against the run without it. A case with one output says "Only v0 so far": with nothing to move from, a bare version would explain nothing. Where one of the two outputs has no score the line names it, "v2 has no score yet", or "v2 was stopped before it finished" for a case whose every output was stopped, and the chip beside it shows the later output's score or none, never the earlier one's. Only "Down" is colored, `destructive`: a rise is the resting state, and the eye lands on what got worse. |
 | `PartList` | the parts one score is made of, a row each: the name, then "4 of 5" at the row's end, or "4 of 5, 2 not sure" where Jev left facts for the reader (`countText` in `model.ts`). A part counted from facts says the count, each fact by its weight so a ×2 check counts two; any other says its score and its `Delta` from the other side. A count stays in `foreground` until its part is weak. A part a kind of work adds (Look, Efficiency, Scope, Process, Check command) names itself through `Explained`, below; Rules and Checks, which every skill is graded on, are plain text. |
 | `CheckWeight` | a check's ×2 mark after its statement, only when it counts more than 1 |
@@ -227,4 +236,4 @@ It is a size and never a price. A larger run takes longer and costs more, and ho
 
 ## Figures
 
-A chart or a diagram labels its values directly, in mono `2xs`. It uses `foreground` for the thing measured and `muted-foreground` for references, with axes in `input`. It never uses yellow, and it uses a verdict color only for a verdict. Every figure is a component. The app has one: the version lift on Results, the one figure that uses the ribbon. See [brand.md](brand.md).
+A chart or a diagram labels its values directly, in mono `2xs`. It uses `foreground` for the thing measured and `muted-foreground` for references, with axes in `input`. It never uses yellow, and it uses a verdict color only for a verdict. Every figure is a component. The app has one: the lift on Results, the one figure that uses the ribbon. See [brand.md](brand.md).

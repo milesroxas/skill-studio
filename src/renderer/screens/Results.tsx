@@ -2,7 +2,9 @@
  * Results: what the agent wrote, compared. The cases a run answered are listed
  * on the left, each with how its score moved from the version before to the
  * latest. Opening one puts those two outputs side by side, with what each
- * missed. "All cases" is every run at once.
+ * missed. "All cases" is every case at once: how far they have come, and
+ * where each stands on the skill as it is now. A score from an earlier version
+ * than that stands open in the list, an edge and no fill.
  *
  * The selection lives in the address, so Back and Forward follow it: `case`
  * names the case, `a` and `b` the two outputs when they are not the pair the
@@ -36,6 +38,7 @@ import {
   type OutputPair,
   outputByKey,
   runTitle,
+  standingsOf,
   totalOf,
   unscoredLine,
   unscoredWords,
@@ -52,8 +55,14 @@ export const Results = memo(function Results({ ctx }: { ctx: Ctx }) {
   // These read every output, and the list is drawn again on each job's log line: worked out
   // only when the outputs or the scoring change.
   const caseIds = useMemo(() => casesRun(state, outputs), [state, outputs])
-  // The same figures All cases opens with: one writer's first version against its latest.
-  const lift = useMemo(() => liftOf(state, outputs, config), [state, outputs, config])
+  // Where each case stands on the skill as it is now, and the figure All cases opens with:
+  // each case's first score against its latest.
+  const standings = useMemo(() => standingsOf(state, outputs, config), [state, outputs, config])
+  const lift = useMemo(() => liftOf(standings), [standings])
+  const behind = useMemo(
+    () => new Set(standings.filter((s) => !s.current).map((s) => s.id)),
+    [standings],
+  )
   const versions = useMemo(() => versionsRun(outputs), [outputs])
   const latest = versions.at(-1)
   const latestScore = useMemo(
@@ -88,7 +97,7 @@ export const Results = memo(function Results({ ctx }: { ctx: Ctx }) {
         title="No runs yet"
         actions={
           state.cases.length ? (
-            <Button type="button" onClick={openRun}>
+            <Button type="button" onClick={() => openRun()}>
               Run {current.version}
             </Button>
           ) : (
@@ -144,7 +153,7 @@ export const Results = memo(function Results({ ctx }: { ctx: Ctx }) {
                   onClick={() => go('results', { view: 'all' })}
                   end={
                     lift ? (
-                      <ListScore total={lift.latest.mean} />
+                      <ListScore total={lift.latest} />
                     ) : latest ? (
                       <ListScore total={latestScore} />
                     ) : floor !== null ? (
@@ -155,11 +164,7 @@ export const Results = memo(function Results({ ctx }: { ctx: Ctx }) {
                   <NavButtonTitle>All cases</NavButtonTitle>
                   {lift ? (
                     <NavButtonMeta>
-                      <ScoreChange
-                        from={lift.first.mean}
-                        to={lift.latest.mean}
-                        against={lift.first.version}
-                      />
+                      <ScoreChange from={lift.first} to={lift.latest} against="first runs" />
                     </NavButtonMeta>
                   ) : latest ? (
                     // With no lift to show, the line says only what is sure: one version ran, or the latest has no score.
@@ -186,7 +191,7 @@ export const Results = memo(function Results({ ctx }: { ctx: Ctx }) {
                     arrived={arrivedCase(id)}
                     onClick={() => go('results', { case: id })}
                     // The later output's score, or none: an earlier version's never stands under its name.
-                    end={<ListScore total={pair.b ? totals.b : totals.a} />}
+                    end={<ListScore total={pair.b ? totals.b : totals.a} stale={behind.has(id)} />}
                   >
                     <NavButtonTitle>{caseTitle(state, id)}</NavButtonTitle>
                     <NavButtonMeta>
@@ -201,7 +206,7 @@ export const Results = memo(function Results({ ctx }: { ctx: Ctx }) {
       </Column>
       <Column>
         {all ? (
-          <ResultsSummary ctx={ctx} />
+          <ResultsSummary ctx={ctx} standings={standings} />
         ) : (
           <Comparison
             key={caseId}

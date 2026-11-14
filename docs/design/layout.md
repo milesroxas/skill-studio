@@ -108,6 +108,7 @@ A box around a region adds an edge the eye has to cross and takes 32px of width 
 | `ListHeader` | a list column's title, count and add button. A list nothing is added to (the scores on Results) is a `ColumnHeader inset="list"` with the title alone, named for what it shows that the Cases list does not: "Scores". |
 | `ColumnHeader`, `ColumnTitle` | the main column's name and its actions |
 | `ColumnToolbar`, `ToolbarGroup`, `ToolbarItem` | a row of tools under the header |
+| `ColumnLead` | the head of a main column that opens with a figure: what the column comes to, on `bg-muted`, between `ColumnHeader` and `ColumnBody`. It ends at a hairline, or at the band that closes it. One per column, and only All cases has one: see [The head of All cases](#the-head-of-all-cases) |
 | `ColumnBody`, `ColumnSection` | the scrolling content, split by hairlines |
 | `ColumnRoom`, `Split`, `SplitPane`, `SplitSection`, `Railed` | the content of a `Column scroll="parts"`: see [A split column](#a-split-column) |
 
@@ -115,7 +116,7 @@ Insets are fixed: 16px in a list, 24px in main (`inset="list" | "main"`). A list
 
 ### A list workbench, the Cases pattern
 
-Copy `screens/Cases.tsx` for any screen that lists items and edits the one picked. `screens/Results.tsx` is the same pattern read-only: it lists the cases and compares the one picked. Its list is two `ColumnSection`s: **All cases**, the run as a whole, then the cases, so a rule sets the summary apart from the items.
+Copy `screens/Cases.tsx` for any screen that lists items and edits the one picked. `screens/Results.tsx` is the same pattern read-only: it lists the cases and compares the one picked. Its list is two `ColumnSection`s: **All cases**, every case at once, then the cases, so a rule sets the summary apart from the items.
 
 - The selection lives in the route: read `route.params`, change it with `go(screen, params)`. Back and Forward then follow it. Never hold it in `useState`.
 - The main column is `ColumnHeader` (the item's name, then Save, primary last) over `ColumnBody width="form"`, which holds `FormSection layout="stacked"` sections. Cases itself lays its column out by the room it has: see [A split column](#a-split-column). Save is `default` only while pressing it saves something, and `ghost` and disabled otherwise, so a saved item's header has no filled slab in it (the Skill screen's Save does the same).
@@ -129,6 +130,18 @@ Copy `screens/Cases.tsx` for any screen that lists items and edits the one picke
 The list column may hold more than one list, each in a `ColumnSection`: the Skill screen lists the files, then the versions. Sections are divided by a rule, and the last has none, so a section is a direct child of its column: one that is a landmark is `as="nav"` with a `label`, never wrapped in one. A section's `hint` is only for what the list cannot show, such as edits no version holds yet. An item of either opens in the main column, named in the route (`file`, `version`). The versions show the newest five; once three or more are older, those fold under one `Disclosure` line, "8 older versions". It opens by itself when the version open in the main column is one of them.
 
 Below `lg` the columns stack and the pane scrolls, a `side` column after the main one. A `ColumnToolbar` sticks under its header only from `lg`: stacked, it scrolls with the document. A header whose actions leave its title no room wraps instead (the Skill screen's: `max-lg:flex-wrap` on the header, `max-lg:basis-full` on its `ColumnTitle`), so the file's name takes the first row. Check every workbench at 720px wide.
+
+### The head of All cases
+
+All cases opens with a `ColumnLead`: the lift (`LiftFigure`, [brand.md](brand.md)), then `Coverage` (`components/Coverage.tsx`), which says how much of that lift is checked on the version a run would test now.
+
+- The head has a ground of its own, `bg-muted`, so the page reads in three steps: the head, the band that closes it, the list on the page's ground. The working area stays the lightest surface.
+- While a case is behind, `Coverage` is a band across the column: `bg-primary` under `text-primary-foreground`, square to the column, never a boxed alert. It is the page's inverse, ink in the light theme and porcelain in the dark, so it stands as far from the page in both. It holds one sentence at `ui`, its count in medium and the rest at 70%, and one `inverse` `sm` button that opens Run on the cases behind ([buttons.md](buttons.md)).
+- The band has no large type, no meter and no yellow. The lift over it holds the head's one display number, the table under it shows the same split in its groups, and yellow is the top bar's.
+- Once every case is checked the band is gone and one plain line stands in its place, so the band is seen when it comes.
+- It scrolls with the page. Run, in the top bar, never leaves view.
+
+Under the cases, the runs are a `Section rule`: a hairline across the column, since a gap alone would read as more of the table above.
 
 ### A split column
 
@@ -338,7 +351,7 @@ The groups in `layout.tsx`, with every variant they have:
 
 | Group | Variants |
 | --- | --- |
-| `Section`, `SectionHead` | a titled part of a `Screen` or of a main column |
+| `Section`, `SectionHead` | a titled part of a `Screen` or of a main column. `Section rule` is a part of a main column's body that is a region of its own: a hairline across the column over it |
 | `Columns` | `count` 1 or 2 side by side |
 | `Fieldset` | fields under one legend |
 | `FieldHead` | a field's `Label` with one quiet `action` at the row's end ([forms.md](forms.md)) |

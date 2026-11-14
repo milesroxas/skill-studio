@@ -18,7 +18,7 @@ Every size is one of these steps. `--text-*: initial` removes Tailwind's own sca
 | `xl` | 21px | document headings |
 | `2xl` | 26px | a welcome step's title (`Heading level="step"`), and the guide's title on a small window |
 | `3xl` | 30px | the guide's title, and the tour's two scores, before the edit and after |
-| `display` | 64px | the welcome's headline, `Heading level="display"`, and the version lift's latest mean (`Lift.tsx`). Weight 700 and tracking -0.045em come with the step. |
+| `display` | 64px | the welcome's headline, `Heading level="display"`, and the lift's latest mean (`Lift.tsx`). Weight 700 and tracking -0.045em come with the step. |
 | `numeral` | 136px | the welcome's step number. Weight 700 and tracking -0.055em come with the step. |
 | `code` | 0.9em | mono inside running text, sized to its sans neighbours. `Text font="mono"` and `Code` apply it. |
 

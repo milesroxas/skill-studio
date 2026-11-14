@@ -213,9 +213,15 @@ After you add a check, click **⋯** at the top right and choose **Regrade**, so
 
 ### All cases
 
-![All cases: the version lift, a ribbon from v0's score to v1's over the score without the skill; under it the latest version's rules and checks added up, and each case with a score from every run.](images/all-cases.webp)
+![All cases: the lift, a ribbon from the cases' first scores to their latest over the score without the skill; under it how many cases are checked on the version a run would test, and each case with its last run, its score and how it changed.](images/all-cases.webp)
 
-**All cases**, at the top of the list, shows how much your latest version gained, and a table of every case's score in every run. Click a score to open that answer. Under the table, each run shows when it ran, how long it took and what it cost, with **Delete run**.
+**All cases**, at the top of the list, shows how far your cases have come since their first runs, and where each case stands now. You do not have to run every case each time: each case is read against its own runs.
+
+- **Lift** is the average of the cases' latest scores, against the average of their first.
+- Under it, a line says how many cases have run on the version a run would test now. After you edit the skill, a score from before the edit may no longer hold. Such a score is drawn as an outline with no fill, here and in the list on the left. **Run the other 4 on v3** opens Run with only those cases ticked.
+- Each row is a case: its last run, its score, and how the score changed. Cases that dropped come first. Click a case to see what its answer missed, read the output, and see its other runs.
+
+Under the cases, each run shows what it answered, when it ran, how long it took and what it cost, with **Delete run**.
 
 Two versions only a few points apart may not really differ. Run with two or more attempts to be sure.
 

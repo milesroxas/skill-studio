@@ -3,8 +3,17 @@ import { cva, type VariantProps } from 'class-variance-authority'
 import { ChevronRightIcon } from 'lucide-react'
 import type * as React from 'react'
 
-const tableContainerVariants = cva('relative overflow-x-auto', {
+const tableContainerVariants = cva('relative', {
   variants: {
+    /**
+     * A table scrolls sideways in its own box when it is wider than its room.
+     * One whose head stays in view (`stick`) cannot: a box that scrolls would
+     * hold the head inside it, so its columns must fit the room they have.
+     */
+    stick: {
+      true: '',
+      false: 'overflow-x-auto',
+    },
     bleed: {
       /* A size container, so a row's note can ask for a share of the table's width and a column can `fold` by it. */
       true: '@container -mx-3',
@@ -15,7 +24,7 @@ const tableContainerVariants = cva('relative overflow-x-auto', {
       false: '-mx-1 px-1',
     },
   },
-  defaultVariants: { bleed: false },
+  defaultVariants: { bleed: false, stick: false },
 })
 
 /** Cells are the dense step of the type scale (13px), a step under the page's body text. */
@@ -42,21 +51,31 @@ const tableVariants = cva('w-full caption-bottom text-ui', {
        */
       fixed: 'table-fixed',
     },
+    /**
+     * For a long list in a workbench column: the head stays in view under the
+     * column's header (48px) while the rows scroll. Its rule is drawn inside
+     * the head cells, since a row's own border stays behind when its cells stick.
+     */
+    stick: {
+      true: '[&>thead>tr]:border-b-0 [&>thead>tr>th]:sticky [&>thead>tr>th]:top-12 [&>thead>tr>th]:z-1 [&>thead>tr>th]:bg-background [&>thead>tr>th]:shadow-[inset_0_-1px_0_var(--color-border)]',
+      false: '',
+    },
   },
-  defaultVariants: { bleed: false, layout: 'auto' },
+  defaultVariants: { bleed: false, layout: 'auto', stick: false },
 })
 
 function Table({
   className,
   bleed,
   layout,
+  stick,
   ...props
 }: React.ComponentProps<'table'> & VariantProps<typeof tableVariants>) {
   return (
-    <div data-slot="table-container" className={tableContainerVariants({ bleed })}>
+    <div data-slot="table-container" className={tableContainerVariants({ bleed, stick })}>
       <table
         data-slot="table"
-        className={cn(tableVariants({ bleed, layout }), className)}
+        className={cn(tableVariants({ bleed, layout, stick }), className)}
         {...props}
       />
     </div>
@@ -141,15 +160,47 @@ function TableRow({
 }
 
 /**
+ * The head of a group of rows, such as the cases checked on a version: the
+ * group's name and how many it holds, across the table. It opens a `TableBody`
+ * of its own, so each group's last row drops its rule and the next head's
+ * space sets the groups apart.
+ */
+function TableGroupHead({
+  colSpan,
+  count,
+  children,
+}: {
+  colSpan: number
+  count: number
+  children: React.ReactNode
+}) {
+  return (
+    <tr data-slot="table-group-head" className="border-b">
+      <th
+        colSpan={colSpan}
+        scope="rowgroup"
+        className="pt-6 pb-2 text-left text-ui font-medium whitespace-nowrap"
+      >
+        {children}
+        <span className="ml-1.5 font-normal text-muted-foreground tabular-nums">{count}</span>
+      </th>
+    </tr>
+  )
+}
+
+/**
  * Opens and closes a row's detail: a chevron, the row's name, and a quieter
  * line under it. The chevron's box has air on its left, so it is pulled 4px
  * out to sit on the column's edge, and the line under starts where the name
  * does (16 - 4 + 8). Keyboard and screen readers use the button; a pointer can
- * also take the whole row, through `rowAction`.
+ * also take the whole row, through `rowAction`. `clip` keeps the name on one
+ * line, in a `clip` cell: for a long list of names, where a wrapped one would
+ * break the rows' rhythm. The whole name is the button's `title`.
  */
 function TableRowToggle({
   open,
   meta,
+  clip = false,
   className,
   children,
   ...props
@@ -157,6 +208,7 @@ function TableRowToggle({
   open: boolean
   /** What tells this row from the next, such as when it was made. */
   meta?: React.ReactNode
+  clip?: boolean
 }) {
   return (
     <>
@@ -166,7 +218,8 @@ function TableRowToggle({
         aria-expanded={open}
         className={cn(
           // A block, not inline: an inline button would sit on a text line and add 4px of slop under it.
-          'flex w-fit items-start gap-2 rounded-xs text-left font-medium focus-ring',
+          'flex items-start gap-2 rounded-xs text-left font-medium focus-ring',
+          clip ? 'w-full min-w-0' : 'w-fit',
           className,
         )}
         {...props}
@@ -175,7 +228,7 @@ function TableRowToggle({
           aria-hidden="true"
           className="mt-0.5 -ml-1 size-4 shrink-0 text-muted-foreground transition-[rotate,color] duration-150 ease-out-strong group-hover:text-foreground in-aria-expanded:rotate-90 in-aria-expanded:text-foreground"
         />
-        {children}
+        {clip ? <span className="min-w-0 truncate">{children}</span> : children}
       </button>
       {/*
        * As wide as its text, up to 48ch or 36% of the table: the column grows to hold a short
@@ -256,6 +309,15 @@ const tableCellVariants = cva('', {
       true: 'min-w-[160px] lg:min-w-[260px]',
       false: '',
     },
+    /**
+     * The column the row is named in, on one line: it takes the spare width and
+     * cuts a name that does not fit, where `wide` would let it wrap. Its
+     * `TableRowToggle` takes `clip` too.
+     */
+    clip: {
+      true: 'w-full max-w-0',
+      false: '',
+    },
     /** An empty last column that takes the spare width, so the others sit together on the left. */
     filler: {
       true: 'w-full p-0',
@@ -298,6 +360,7 @@ const tableCellVariants = cva('', {
     trailing: false,
     wrap: false,
     wide: false,
+    clip: false,
     filler: false,
     col: 'auto',
     fold: 'never',
@@ -310,6 +373,7 @@ function TableHead({
   trailing,
   wrap,
   wide,
+  clip,
   filler,
   col,
   fold,
@@ -320,7 +384,7 @@ function TableHead({
       data-slot="table-head"
       className={cn(
         'h-10 px-2 text-left align-middle text-xs font-medium whitespace-nowrap text-muted-foreground first:pl-0 last:pr-0 [&:has([role=checkbox])]:pr-0 [&>[role=checkbox]]:translate-y-[2px]',
-        tableCellVariants({ numeric, trailing, wrap, wide, filler, col, fold }),
+        tableCellVariants({ numeric, trailing, wrap, wide, clip, filler, col, fold }),
         className,
       )}
       {...props}
@@ -334,6 +398,7 @@ function TableCell({
   trailing,
   wrap,
   wide,
+  clip,
   filler,
   col,
   fold,
@@ -344,7 +409,7 @@ function TableCell({
       data-slot="table-cell"
       className={cn(
         'p-2 align-middle whitespace-nowrap first:pl-0 last:pr-0 [&:has([role=checkbox])]:pr-0 [&>[role=checkbox]]:translate-y-[2px]',
-        tableCellVariants({ numeric, trailing, wrap, wide, filler, col, fold }),
+        tableCellVariants({ numeric, trailing, wrap, wide, clip, filler, col, fold }),
         // A measurement is set in mono; its head stays a word in sans.
         numeric && 'font-mono text-code',
         className,
@@ -360,6 +425,7 @@ export {
   TableBody,
   TableCell,
   TableDetail,
+  TableGroupHead,
   TableHead,
   TableHeader,
   TableRow,

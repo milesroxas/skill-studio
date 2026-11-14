@@ -29,15 +29,44 @@ const BADGE_TONE = {
   na: 'secondary',
 } as const
 
+/** A stale score's number: muted while it holds, amber or red once it is weak, so a low one still stands out. */
+const staleTone = cva('', {
+  variants: {
+    band: {
+      hi: 'text-muted-foreground',
+      mid: 'text-muted-foreground',
+      lo: 'text-warning',
+      vlo: 'text-destructive',
+      na: 'text-muted-foreground',
+    },
+  },
+})
+
 /**
  * The total out of 100 as a chip whose color says how good it is. Every chip
  * is as wide as "100" (40px), so a column of them keeps one edge. A mean
- * shows as a whole number.
+ * shows as a whole number. `stale` is a score from an earlier version than the
+ * skill as it is now: the chip stands open, an edge and no fill, until the
+ * case runs again. A screen reader hears "from an earlier version".
  */
-export function TotalChip({ total }: { total: number | null | undefined }) {
+export function TotalChip({
+  total,
+  stale = false,
+}: {
+  total: number | null | undefined
+  stale?: boolean
+}) {
+  const shown = total === null || total === undefined ? '–' : Math.round(total)
+  if (stale)
+    return (
+      <Badge variant="outline" numeric className={staleTone({ band: scoreBand(total) })}>
+        {shown}
+        <span className="sr-only">, from an earlier version</span>
+      </Badge>
+    )
   return (
     <Badge variant={BADGE_TONE[scoreBand(total)]} numeric>
-      {total === null || total === undefined ? '–' : Math.round(total)}
+      {shown}
     </Badge>
   )
 }
@@ -100,7 +129,7 @@ export function TotalDetailSection({ title, children }: { title: string; childre
  * How many outputs a mean stands for, "×2". The slot keeps its width when
  * there is one output, so chips beside it line up down a column where only
  * some rows repeat a case. Below `lg` it folds away, so a table of cases fits
- * a 720px window; the score's label says it.
+ * a 720px window.
  */
 export function SampleCount({ count }: { count: number }) {
   return (
@@ -110,7 +139,8 @@ export function SampleCount({ count }: { count: number }) {
   )
 }
 
-export function Delta({ value }: { value: number | null }) {
+/** A change between two scores. `lead` is its own space after a score it follows; without one it opens a line or stands alone in a cell. */
+export function Delta({ value, lead = true }: { value: number | null; lead?: boolean }) {
   if (!value) return null
   return (
     <Text
@@ -118,7 +148,7 @@ export function Delta({ value }: { value: number | null }) {
       size="xs"
       weight="semibold"
       tabular
-      className="ml-1.5"
+      className={lead ? 'ml-1.5' : undefined}
     >
       {value > 0 ? '+' : '−'}
       {Math.abs(value)}
@@ -140,11 +170,18 @@ const partValue = cva('font-semibold whitespace-nowrap tabular-nums text-foregro
 })
 
 /**
- * A score at the end of a `NavButton` in a list column: the chip alone. When the
- * score changes while the list is in view, as a run is graded, the new one
- * comes up a few pixels; a score there when the list opens rests.
+ * A score at the end of a row that lists a case: a `NavButton` in a list
+ * column, a row of All cases. The chip alone. When the score changes while the
+ * list is in view, as a run is graded, the new one comes up a few pixels; a
+ * score there when the list opens rests. `stale` is `TotalChip`'s.
  */
-export function ListScore({ total }: { total: number | null | undefined }) {
+export function ListScore({
+  total,
+  stale = false,
+}: {
+  total: number | null | undefined
+  stale?: boolean
+}) {
   const shown = total === null || total === undefined ? '' : String(Math.round(total))
   const changed = useArrived(shown)
   return (
@@ -156,7 +193,7 @@ export function ListScore({ total }: { total: number | null | undefined }) {
         changed && 'animate-tick',
       )}
     >
-      <TotalChip total={total} />
+      <TotalChip total={total} stale={stale} />
     </span>
   )
 }

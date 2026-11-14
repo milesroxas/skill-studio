@@ -154,7 +154,12 @@ export function App() {
   const [assistant, setAssistant] = useAssistant()
   /** Run, in the top bar, is open: what the next run will do, over the button that starts it. */
   const [runOpen, setRunOpen] = useState(false)
-  const openRun = useCallback(() => setRunOpen(true), [])
+  /** The cases Run was last asked to open on, and a count that tells one asking from the next. */
+  const [runAsk, setRunAsk] = useState<{ id: number; cases: string[] } | null>(null)
+  const openRun = useCallback((cases?: string[]) => {
+    if (cases) setRunAsk((last) => ({ id: (last?.id ?? 0) + 1, cases }))
+    setRunOpen(true)
+  }, [])
   /** The keyboard shortcuts, listed: opened with ? from anywhere, and from the help. */
   const [shortcutsOpen, setShortcutsOpen] = useState(false)
   // One listener for every shortcut, for as long as the shell is up.
@@ -674,6 +679,7 @@ export function App() {
                     report={report}
                     open={runOpen}
                     onOpenChange={setRunOpen}
+                    ask={runAsk}
                     next={next?.kind === 'run'}
                     withoutSkill={next?.kind === 'run' && next.withoutSkill === true}
                     unsaved={unsaved.length}

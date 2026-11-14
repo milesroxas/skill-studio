@@ -27,6 +27,10 @@ export interface Ctx {
   files: SavedFiles
   /** Switch to another skill (empty: none) and show `screen` in it. False when the reader chose to stay. */
   openSkill: (path: string, screen?: string) => Promise<boolean>
-  /** Open Run, at the top of the window: what the next run will do, and the button that starts it. */
-  openRun: () => void
+  /**
+   * Open Run, at the top of the window: what the next run will do, and the
+   * button that starts it. With `cases`, it opens on a run of the skill on
+   * those cases alone; without, on the run it would suggest.
+   */
+  openRun: (cases?: string[]) => void
 }

@@ -18,6 +18,11 @@
  * to set the score to beat. That run is a suggestion: the panel offers to test
  * the skill instead, in one press. While a run of this skill goes on, the
  * button says so and waits.
+ *
+ * Results can ask for a run of the cases a version has not answered yet
+ * (`ask`): the panel opens with only those ticked, on the skill itself, and
+ * the button says how many. Closing the panel, or starting the run, puts every
+ * case back, so the next plain press runs them all.
  */
 import { practiceVersionName } from '@domain/practice.ts'
 import { CONFIGURATIONS, type Configuration } from '@domain/schemas.ts'
@@ -72,6 +77,7 @@ export function RunButton({
   report,
   open,
   onOpenChange,
+  ask,
   next,
   withoutSkill,
   unsaved,
@@ -81,6 +87,8 @@ export function RunButton({
   report: Reporter
   open: boolean
   onOpenChange: (open: boolean) => void
+  /** A run asked for from elsewhere: only these cases, with the skill. A new `id` is a new asking. */
+  ask: { id: number; cases: string[] } | null
   /** Running is the next step of the loop: the button is the window's one yellow control. */
   next: boolean
   /** No run yet: the run to suggest is one without the skill, the score the skill has to beat. */
@@ -115,11 +123,25 @@ export function RunButton({
       : null)
   const engine = engines.find((e) => e.id === chosen?.engine)
   // Every case runs unless it is left out: a version is compared case by case.
-  const [skipped, toggleCase] = useToggleSet<string>([])
+  const [skipped, toggleCase, setSkipped] = useToggleSet<string>([])
   const cases = state.cases.filter((c) => !skipped.has(c.id))
   const [samples, setSamples] = useState(1)
   // Null until the reader picks: the suggested run, which is without the skill before any run.
   const [picked, setConfiguration] = useState<Configuration | null>(null)
+  // The asking the panel last opened on. A new one ticks its cases alone and tests the skill.
+  const [asked, setAsked] = useState<number | null>(null)
+  if (ask && ask.id !== asked && open) {
+    setAsked(ask.id)
+    setSkipped(state.cases.filter((c) => !ask.cases.includes(c.id)).map((c) => c.id))
+    setConfiguration('with_skill')
+  }
+  /** Back to every case and the suggested run, once a run that was asked for is started or let go. */
+  const [narrowed, setNarrowed] = useState<number | null>(null)
+  if (asked !== narrowed && !open) {
+    setNarrowed(asked)
+    setSkipped([])
+    setConfiguration(null)
+  }
   const configuration: Configuration = picked ?? (withoutSkill ? 'without_skill' : 'with_skill')
   const [baseline, setBaseline] = useState('')
   const [name, setName] = useState('')

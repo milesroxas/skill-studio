@@ -1,14 +1,7 @@
 /** Outputs across runs, their scores under the skill's scoring, the pair to compare per case, and display names. */
 import { caseName } from '@domain/case-draft.ts'
 import { BASE_PACK, mergeConfig } from '@domain/config.ts'
-import {
-  type Lift,
-  type LiftRun,
-  liftWriter,
-  testedVersion,
-  versionLift,
-  writerKey,
-} from '@domain/lift.ts'
+import { testedVersion, type VersionRun, versionWriter, writerKey } from '@domain/lift.ts'
 import { type Corrections, NO_CORRECTIONS, packFailure } from '@domain/pack.ts'
 import { defaultPair, type PairOutput } from '@domain/pairs.ts'
 import { drawnArtifact, primaryArtifact } from '@domain/primary.ts'
@@ -23,6 +16,7 @@ import type {
   Writer,
 } from '@domain/schemas.ts'
 import { layerOrder, pixelText, type Scored, scoreResult } from '@domain/scoring.ts'
+import { type CaseLift, caseLift, type Standing, standingOf, type Try } from '@domain/standing.ts'
 import { mean } from '@domain/stats.ts'
 import { type Count, countOf, sumCounts } from '@domain/verdict.ts'
 import { scorers } from '@judges/scorers.ts'
@@ -202,7 +196,7 @@ function caseMeans(outputs: Output[], config: BenchConfig): Record<string, numbe
 export const scoreOver = (outputs: Output[], config: BenchConfig): number | null =>
   mean(Object.values(caseMeans(outputs, config)))
 
-/** What a run tested and who wrote it, as the lift and the pairs read it. A run that recorded no version has none. */
+/** What a run tested and who wrote it, as a version's score, a case's standing and the pairs read it. A run that recorded no version has none. */
 const testOf = (run: RunView) => ({
   version: run.meta?.skillVersion ?? '',
   configuration: run.meta?.configuration ?? 'with_skill',
@@ -210,8 +204,8 @@ const testOf = (run: RunView) => ({
   createdAt: run.meta?.createdAt ?? '',
 })
 
-/** The runs as the lift reads them: each with its writer, version and a mean per case. */
-const liftRuns = (runs: RunView[], outputs: Output[], config: BenchConfig): LiftRun[] =>
+/** The runs as a version's score reads them: each with its writer, version and a mean per case. */
+const versionRuns = (runs: RunView[], outputs: Output[], config: BenchConfig): VersionRun[] =>
   runs.map((run) => ({
     name: run.name,
     ...testOf(run),
@@ -221,14 +215,64 @@ const liftRuns = (runs: RunView[], outputs: Output[], config: BenchConfig): Lift
     ),
   }))
 
+/** One run's answer to a case: its outputs for it, and the score they come to. */
+export interface CaseTry extends Try {
+  run: RunView
+  outputs: Output[]
+  /** How many of the outputs have a score: the ones `score` is the mean of. */
+  scored: number
+  /** What the outputs have in place of a score when grading leaves out every one of them. */
+  cut: Output['cut']
+}
+
+/** Where one case stands on the skill as it is now, with every run that answered it. */
+export interface CaseStand extends Standing<CaseTry> {
+  id: string
+  /** Still one of the skill's cases, so it can be run again; false for one deleted since it ran. */
+  known: boolean
+  /** Every run that answered the case, the newest first, a run without the skill among them. */
+  history: CaseTry[]
+}
+
 /**
- * How much the skill's edits raised its score: one writer's first version
- * against the same writer's latest, with its run without the skill as the
- * floor, over the cases both runs answered. Null until one writer has run
- * two versions with a case in common.
+ * Every case and where it stands on the version a run would test now
+ * (`state.versions.current`): the skill's cases in their own order, one never
+ * run among them, then any case deleted since it ran. Each case is read against
+ * its own runs, so a run of one case says nothing about the others.
  */
-export const liftOf = (state: State, outputs: Output[], config: BenchConfig): Lift | null =>
-  versionLift(liftRuns(state.runs, outputs, config))
+export function standingsOf(state: State, outputs: Output[], config: BenchConfig): CaseStand[] {
+  const byCase = new Map<string, Map<string, Output[]>>()
+  for (const o of outputs) {
+    const runs = byCase.get(o.caseId) ?? new Map<string, Output[]>()
+    runs.set(o.run.name, [...(runs.get(o.run.name) ?? []), o])
+    byCase.set(o.caseId, runs)
+  }
+  const known = state.cases.map((c) => c.id)
+  const gone = [...byCase.keys()].filter((id) => !known.includes(id)).sort()
+  return [...known, ...gone].map((id) => {
+    const tries: CaseTry[] = [...(byCase.get(id)?.values() ?? [])].map((mine) => ({
+      ...testOf(mine[0].run),
+      run: mine[0].run,
+      outputs: mine,
+      score: scoreOver(mine, config),
+      scored: mine.filter((o) => totalOf(o, config) !== null).length,
+      cut: cutOf(mine),
+    }))
+    return {
+      id,
+      known: known.includes(id),
+      history: [...tries].sort((a, b) => b.createdAt.localeCompare(a.createdAt)),
+      ...standingOf(tries, state.versions.current.version),
+    }
+  })
+}
+
+/**
+ * How far the cases have come: each case's first score against its latest,
+ * with its score without the skill as the floor, over the cases that ran more
+ * than once. Null until one has.
+ */
+export const liftOf = (standings: readonly CaseStand[]): CaseLift | null => caseLift(standings)
 
 /**
  * The versions outputs were written on, oldest first: "v0", "v1". A version
@@ -255,7 +299,7 @@ export const versionOutputs = (outputs: Output[], version: string): Output[] =>
 
 /**
  * A version's score under `config`, counted as `scoreOver` counts. Where the
- * writer the lift compares ran this version, only that writer's outputs
+ * writer that ran two versions ran this one, only that writer's outputs
  * count, so one version's score is read against the next. Null when none is graded.
  */
 export function versionScore(
@@ -265,7 +309,7 @@ export function versionScore(
 ): number | null {
   const mine = versionOutputs(outputs, version)
   const runs = [...new Map(outputs.map((o) => [o.run.name, o.run])).values()]
-  const writer = liftWriter(liftRuns(runs, outputs, config))
+  const writer = versionWriter(versionRuns(runs, outputs, config))
   const pinned = writer ? mine.filter((o) => writerKey(o.run.meta?.writer) === writer) : []
   return scoreOver(pinned.length ? pinned : mine, config)
 }
@@ -427,6 +471,20 @@ export interface OutputPair {
 export function casePair(outputs: Output[], caseId: string): OutputPair {
   const pair = defaultPair(outputs.filter((o) => o.caseId === caseId).map(candidate))
   return { a: pair.a?.output ?? null, b: pair.b?.output ?? null }
+}
+
+/**
+ * The address that reads `output` on the right: beside the output its case
+ * opens with on the left, unless it is that one itself.
+ */
+export function readParams(
+  outputs: Output[],
+  caseId: string,
+  output: Output,
+): Record<string, string> {
+  const { a, b } = casePair(outputs, caseId)
+  const beside = [a, b].find((o) => o && o.key !== output.key) ?? null
+  return { case: caseId, a: beside?.key ?? '', b: output.key }
 }
 
 /** Every case with an output, in the order Cases lists them; a case since deleted comes last. */

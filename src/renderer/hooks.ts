@@ -87,7 +87,9 @@ export function useAction(
 }
 
 /** A set and a toggle for one member, for checkbox and filter groups. */
-export function useToggleSet<T>(initial: Iterable<T>): [Set<T>, (value: T) => void] {
+export function useToggleSet<T>(
+  initial: Iterable<T>,
+): [Set<T>, (value: T) => void, (values: Iterable<T>) => void] {
   const [set, setSet] = useState(() => new Set(initial))
   const toggle = (value: T) =>
     setSet((prev) => {
@@ -96,7 +98,8 @@ export function useToggleSet<T>(initial: Iterable<T>): [Set<T>, (value: T) => vo
       else next.add(value)
       return next
     })
-  return [set, toggle]
+  const replace = (values: Iterable<T>) => setSet(new Set(values))
+  return [set, toggle, replace]
 }
 
 /** What the status line says about a step that just finished or failed, and what it offers beside it. */

@@ -43,8 +43,27 @@ export function Screen({
   return <div className={cn(screenVariants({ width }), className)} {...props} />
 }
 
-export function Section({ className, ...props }: ComponentProps<'section'>) {
-  return <section className={cn('flex flex-col gap-3', className)} {...props} />
+const sectionVariants = cva('flex flex-col gap-3', {
+  variants: {
+    /**
+     * A part of a main column that is a region of its own, such as the runs
+     * under the cases: a hairline across the column over it, where a gap alone
+     * would read as more of the part above. In a `ColumnBody` only.
+     */
+    rule: {
+      true: '-mx-6 border-t px-6 pt-6',
+      false: '',
+    },
+  },
+  defaultVariants: { rule: false },
+})
+
+export function Section({
+  rule,
+  className,
+  ...props
+}: ComponentProps<'section'> & VariantProps<typeof sectionVariants>) {
+  return <section className={cn(sectionVariants({ rule }), className)} {...props} />
 }
 
 /** A heading with what sits beside it: a count, a hint, an action at the far end. */
@@ -437,6 +456,24 @@ export function ToolbarItem(
 export function ToolbarGroup({ className, ...props }: ComponentProps<'div'>) {
   return (
     <div className={cn('flex items-center gap-0.5 pointer-coarse:gap-3', className)} {...props} />
+  )
+}
+
+/**
+ * The head of a main column that opens with a figure: what the column comes
+ * to, on a ground of its own (`muted`), between the column's header and its
+ * body. It ends at a hairline, or at the band that closes it (`data-slot="band"`),
+ * which is its own edge. A column has one at most.
+ */
+export function ColumnLead({ className, ...props }: ComponentProps<'div'>) {
+  return (
+    <div
+      className={cn(
+        'flex shrink-0 flex-col border-b bg-muted px-6 pt-6 has-[[data-slot=band]]:border-b-0',
+        className,
+      )}
+      {...props}
+    />
   )
 }
 

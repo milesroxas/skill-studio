@@ -26,12 +26,14 @@ import {
   outputsOf,
   outputsToPick,
   primaryOf,
+  readParams,
   rulesUnmarked,
   runLabel,
   runTitle,
   scoreOf,
   scoreOver,
   setByHand,
+  standingsOf,
   totalOf,
   unscoredLine,
   versionOutputs,
@@ -153,6 +155,7 @@ const stateOf = (runs: RunView[], packs: string[], artifact?: 'markdown'): State
     cases: [{ id: 'page', bench: artifact ? { artifact } : {} }],
     config: { ...saved, packs },
     reviews: { reviews: {} },
+    versions: { versions: [], current: { version: 'v2', changed: false } },
   }) as unknown as State
 
 describe('outputsOf', () => {
@@ -276,7 +279,7 @@ describe('liftOf and versionScore', () => {
     ]
     const state = stateOf(runs, ['design'])
     const outputs = outputsOf(state)
-    expect(liftOf(state, outputs, saved)).toBeNull()
+    expect(liftOf(standingsOf(state, outputs, saved))).toBeNull()
     expect(versionScore(outputs, saved, 'v2')).toBeNull()
     expect(noSkillScore(outputs, saved)).toBeNull()
   })
@@ -311,7 +314,7 @@ describe('a version’s outputs', () => {
   const sonnet = { engine: 'claude-code', model: 'sonnet' }
   const files = [md('a.md')]
 
-  it('count a run on the copy kept of an earlier version as that version’s, as the lift does', () => {
+  it('count a run on the copy kept of an earlier version as that version’s, as a case’s standing does', () => {
     const runs = [
       madeBy(runOf('r1', 'v1', files, graded(100)), { writer: sonnet }),
       runOf('r2', 'v2', files, graded(100)),
@@ -323,9 +326,11 @@ describe('a version’s outputs', () => {
     ]
     const state = stateOf(runs, ['generic'])
     const outputs = outputsOf(state)
-    const lift = liftOf(state, outputs, saved)
-    expect([lift?.first.mean, lift?.latest.mean]).toEqual([0, 100])
-    // The version list reads the same writer the lift does: Opus on v1, not Sonnet's 100.
+    // The case started on v1, whenever those runs were made, and stands on v2.
+    const [standing] = standingsOf(state, outputs, saved)
+    expect(standing.tries.map((t) => t.run.name)).toEqual(['r1', 'r3', 'r2'])
+    expect(liftOf([standing])).toMatchObject({ first: 100, latest: 100, cases: 1, rises: false })
+    // The version list reads the writer that ran both versions: Opus on v1, not Sonnet's 100.
     expect(versionScore(outputs, saved, 'v1')).toBe(0)
     expect(versionScore(outputs, saved, 'v2')).toBe(100)
     expect(
@@ -350,6 +355,80 @@ describe('a version’s outputs', () => {
     expect(versionScore(outputs, saved, 'v1')).toBe(0)
     expect(versionOutputs(outputs, 'v3')).toEqual([])
     expect(noSkillScore(outputs, saved)).toBe(100)
+  })
+})
+
+describe('standingsOf', () => {
+  const files = [md('a.md')]
+  /** The state with the skill's files as `version` holds them, and its cases by id. */
+  const on = (state: State, version: string, cases: string[] = ['page']): State =>
+    ({
+      ...state,
+      cases: cases.map((id) => ({ id, bench: {} })),
+      versions: { versions: [], current: { version, changed: false } },
+    }) as unknown as State
+
+  it('reads each case against its own runs, on the version a run would test now', () => {
+    const runs = [
+      runOf('r1', 'v1', files, graded(0)),
+      runOf('r2', 'v2', files, graded(100)),
+      madeBy(runOf('r0', 'v1', files, graded(0)), {
+        configuration: 'without_skill',
+        createdAt: '2026-11-01T09:00:00Z',
+      }),
+    ]
+    const state = on(stateOf(runs, ['generic']), 'v2', ['page', 'never'])
+    const [page, never] = standingsOf(state, outputsOf(state), saved)
+    expect(page).toMatchObject({ id: 'page', known: true, current: true, change: 100 })
+    expect(page.latest).toMatchObject({ score: 100, scored: 1, cut: null })
+    expect(page.latest?.run.name).toBe('r2')
+    expect(page.floor?.run.name).toBe('r0')
+    // Every run that answered it, the newest first, the one without the skill among them.
+    expect(page.history.map((t) => t.run.name)).toEqual(['r2', 'r1', 'r0'])
+    // A case never run is listed all the same: it is the first to check.
+    expect(never).toMatchObject({ id: 'never', known: true, current: false, latest: null })
+    expect(never.history).toEqual([])
+  })
+
+  it('is behind once the skill has moved on from the version a case last ran', () => {
+    const runs = [runOf('r1', 'v1', files, graded(100))]
+    const state = on(stateOf(runs, ['generic']), 'v2')
+    const [page] = standingsOf(state, outputsOf(state), saved)
+    expect(page).toMatchObject({ current: false })
+    expect(page.latest?.score).toBe(100)
+  })
+
+  it('lists a case deleted since it ran last, as one that cannot be run again', () => {
+    const state = on(stateOf([runOf('r1', 'v1', files, graded(100))], ['generic']), 'v1', ['other'])
+    expect(standingsOf(state, outputsOf(state), saved).map((s) => [s.id, s.known])).toEqual([
+      ['other', true],
+      ['page', false],
+    ])
+  })
+
+  it('has no score from a run whose output is not graded', () => {
+    const state = on(stateOf([runOf('r1', 'v1', files)], ['generic']), 'v1')
+    const [page] = standingsOf(state, outputsOf(state), saved)
+    expect(page).toMatchObject({ latest: null, current: false })
+    expect(page.tries[0]).toMatchObject({ score: null, scored: 0 })
+  })
+})
+
+describe('readParams', () => {
+  it('reads an output beside the one its case opens with, unless it is that one', () => {
+    const runs = [runOf('r1', 'v1', [md('a.md')]), runOf('r2', 'v2', [md('a.md')])]
+    const outputs = outputsOf(stateOf(runs, ['generic']))
+    const [first, second] = outputs
+    expect(readParams(outputs, 'page', second)).toEqual({
+      case: 'page',
+      a: first.key,
+      b: second.key,
+    })
+    expect(readParams(outputs, 'page', first)).toEqual({
+      case: 'page',
+      a: second.key,
+      b: first.key,
+    })
   })
 })
 

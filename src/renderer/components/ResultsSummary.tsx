@@ -1,32 +1,29 @@
 /**
- * Every case at once: how much the latest version gained, each case's score
- * in every run, the runs themselves, and the kind of work the skill is graded
- * as. The comparison of one case shows what changed; this answers "did the
- * edit help overall", and is where a run is graded again or its cost read.
+ * Every case at once: how far the cases have come since their first runs, how
+ * many of them are checked on the skill as it is now, where each case stands,
+ * the runs themselves, and the kind of work the skill is graded as. The
+ * comparison of one case shows what changed; this answers "did my edits help,
+ * and what is left to check", and is where a run is graded again or its cost read.
  */
 import { isMissed } from '@domain/pack.ts'
-import { Fragment, useEffect, useRef } from 'react'
+import { Fragment, useEffect, useRef, useState } from 'react'
 import { api } from '../api.ts'
 import type { Ctx } from '../ctx.ts'
 import { type DeleteRun, useDeleteRun } from '../delete-run.ts'
 import { gradingRun, useJobStart, writingRun } from '../job-start.ts'
 import {
-  casePair,
-  casesRun,
+  type CaseStand,
   caseTitle,
-  countsLine,
-  countsOf,
-  cutOf,
   duration,
   failureOf,
   fmt,
   gradedLine,
   isWithoutSkill,
   liftOf,
-  modelShort,
   money,
   type Output,
   plural,
+  readParams,
   rulesUnmarked,
   runLabel,
   runStamp,
@@ -34,18 +31,16 @@ import {
   scoreOf,
   scoreOver,
   stamp,
-  totalOf,
-  versionOutputs,
-  versionsRun,
-  writerName,
 } from '../model.ts'
-import { after, useLanded } from '../motion.ts'
+import { CaseStandings } from './CaseStandings.tsx'
+import { Coverage } from './Coverage.tsx'
 import { Disclosure } from './Disclosure.tsx'
 import { GradedAs } from './GradedAs.tsx'
-import { VersionLift } from './Lift.tsx'
+import { LiftFigure } from './Lift.tsx'
 import {
   ColumnBody,
   ColumnHeader,
+  ColumnLead,
   ColumnTitle,
   PlainList,
   Section,
@@ -54,7 +49,7 @@ import {
   Stack,
   Toolbar,
 } from './layout.tsx'
-import { SampleCount, TotalChip } from './Scores.tsx'
+import { TotalChip } from './Scores.tsx'
 import { Heading, Hint, Text, VisuallyHidden } from './text.tsx'
 import { Button } from './ui/button.tsx'
 import {
@@ -72,12 +67,23 @@ import {
 const costOf = (run: Ctx['state']['runs'][number]): number | null =>
   run.meta?.samples.reduce((s, x) => s + (x.costUsd ?? 0), 0) ?? null
 
-export function ResultsSummary({ ctx }: { ctx: Ctx }) {
-  const { state, config, outputs, route, go, report, jobs } = ctx
-  /** In the address, so Back from a case finds the run still open. */
+/** How many runs show before the rest wait under a button: the newest. */
+const RUNS_CAP = 5
+
+/** Newest first; a run that recorded no time comes last. */
+const byNewest = (a: Ctx['state']['runs'][number], b: Ctx['state']['runs'][number]): number =>
+  (b.meta?.createdAt ?? '').localeCompare(a.meta?.createdAt ?? '')
+
+export function ResultsSummary({ ctx, standings }: { ctx: Ctx; standings: CaseStand[] }) {
+  const { state, config, outputs, route, go, report, jobs, openRun: runCases } = ctx
+  /** In the address, so Back from a case finds the same row still open: a case's (`open`) or a run's (`run`). */
+  const openCase = route.params.get('open')
   const openRun = route.params.get('run')
-  const setOpenRun = (run: string | null) =>
-    go('results', run ? { view: 'all', run } : { view: 'all' }, { replace: true })
+  const show = (params: Record<string, string>) =>
+    go('results', { view: 'all', ...params }, { replace: true })
+  const setOpenCase = (id: string | null) => show(id ? { open: id } : {})
+  const setOpenRun = (run: string | null) => show(run ? { run } : {})
+  const [everyRun, setEveryRun] = useState(false)
   const grade = useJobStart(jobs, 'grade', report)
   // Asked for from a part of a score, such as Look: Graded as opens and comes into view.
   const askedGraded = route.params.get('graded') === '1'
@@ -85,37 +91,41 @@ export function ResultsSummary({ ctx }: { ctx: Ctx }) {
   useEffect(() => {
     if (askedGraded) graded.current?.scrollIntoView({ block: 'start' })
   }, [askedGraded])
-  const caseIds = casesRun(state, outputs)
-  // A run without the skill is the score to beat, not one more version: it closes the table,
-  // as it closes the lists that pick an output.
+  // The newest run first: it is the one just made. A run without the skill is the score to
+  // beat, not one more version: it closes the table, as it closes the lists that pick an output.
   const runs = [
-    ...state.runs.filter((r) => !isWithoutSkill(r)),
-    ...state.runs.filter(isWithoutSkill),
+    ...state.runs.filter((r) => !isWithoutSkill(r)).sort(byNewest),
+    ...state.runs.filter(isWithoutSkill).sort(byNewest),
   ]
+  // The open run shows even when it lies past the newest few.
+  const folded =
+    !everyRun && runs.length > RUNS_CAP && runs.findIndex((r) => r.name === openRun) < RUNS_CAP
   const byRun = new Map<string, Output[]>()
   for (const o of outputs) byRun.set(o.run.name, [...(byRun.get(o.run.name) ?? []), o])
-  const showMean = caseIds.length > 1
-  // Runs that answered a case more than once: their column holds room for the count in every row.
-  const repeated = new Set(outputs.filter((o) => o.samples > 1).map((o) => o.run.name))
-  // A column is headed by the run's version and model; two that read the same also say when they ran.
-  const headOf = (run: (typeof runs)[number]) =>
-    `${runTitle(run, { short: true })}\n${modelShort(run.meta?.writer)}`
-  const heads = runs.map(headOf)
-  const twin = (run: (typeof runs)[number]) =>
-    heads.filter((head) => head === headOf(run)).length > 1
+  const showMean = standings.length > 1
   // Run, mean and the spare-width column: what an opened run spans.
   const columns = showMean ? 3 : 2
-  const lift = liftOf(state, outputs, config)
-  const liftWriter = (name: string) => writerName(runs.find((r) => r.name === name)?.meta?.writer)
-  // The latest version's facts, added up: the score said as what it is counted from.
-  const latest = versionsRun(outputs).at(-1) ?? null
-  const counts = latest ? countsLine(countsOf(versionOutputs(outputs, latest), config)) : null
+  const lift = liftOf(standings)
+  // The version a run would test now, and the skill's cases that have a score on it.
+  const version = state.versions.current.version
+  const cases = standings.filter((s) => s.known)
+  const behind = cases.filter((s) => !s.current)
 
   const regrade = (run: string) =>
     void grade.start([`Grade ${run}`], async () => {
       await api.grade(run)
       report(`Grading ${run}`)
     })
+
+  /** What a run answered, for the line under its name: the one case by its title, or how many. */
+  const answered = (mine: Output[]): string | null => {
+    const ids = [...new Set(mine.map((o) => o.caseId))]
+    return ids.length === 1
+      ? caseTitle(state, ids[0])
+      : ids.length
+        ? plural(ids.length, 'case')
+        : null
+  }
 
   return (
     <>
@@ -127,66 +137,32 @@ export function ResultsSummary({ ctx }: { ctx: Ctx }) {
           <Hint as="span">{plural(runs.length, 'run')}</Hint>
         </ColumnTitle>
       </ColumnHeader>
-      <ColumnBody>
-        {lift ? <VersionLift lift={lift} writer={liftWriter(lift.latest.name)} /> : null}
-        <Section>
-          {counts ? (
-            <Text as="p" size="ui" tabular>
-              <Text weight="medium">{latest}</Text> <Text tone="muted">· {counts}</Text>
-            </Text>
+      {lift || cases.length ? (
+        <ColumnLead>
+          {lift ? <LiftFigure lift={lift} /> : null}
+          {cases.length ? (
+            <Coverage
+              checked={cases.length - behind.length}
+              total={cases.length}
+              version={version}
+              scored={behind.some((s) => s.latest !== null)}
+              onRun={() => runCases(behind.map((s) => s.id))}
+            />
           ) : null}
-          <Hint>Scores are out of 100. Open one to read that output.</Hint>
-          {/* Cases down the side, so each is read by its whole title, in the room the runs leave; runs across, oldest first. */}
-          <Table bleed>
-            <TableHeader>
-              <TableRow>
-                <TableHead wrap>Case</TableHead>
-                {runs.map((run) => (
-                  <TableHead key={run.name} numeric>
-                    <Text block weight="medium" tone="default">
-                      {runTitle(run, { short: true })}
-                    </Text>
-                    <Text block weight="normal" title={writerName(run.meta?.writer)}>
-                      {modelShort(run.meta?.writer)}
-                    </Text>
-                    {twin(run) ? (
-                      <Text block weight="normal">
-                        {runStamp(run)}
-                      </Text>
-                    ) : null}
-                  </TableHead>
-                ))}
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {caseIds.map((c, row) => (
-                <TableRow key={c}>
-                  <TableCell wrap>{caseTitle(state, c)}</TableCell>
-                  {runs.map((run) => {
-                    const cell = (byRun.get(run.name) ?? []).filter((o) => o.caseId === c)
-                    return (
-                      <TableCell key={run.name} trailing>
-                        <ScoreCell
-                          name={`${caseTitle(state, c)}, ${runLabel(run)}`}
-                          outputs={cell.length}
-                          scored={cell.filter((o) => totalOf(o, config) !== null).length}
-                          cut={cutOf(cell)}
-                          total={scoreOver(cell, config)}
-                          writing={writingRun(jobs, state.skill.path, run.name)}
-                          grading={gradingRun(jobs, state.skill.path, run.name)}
-                          repeated={repeated.has(run.name)}
-                          row={row}
-                          onRead={() => cell[0] && go('results', readParams(outputs, c, cell[0]))}
-                        />
-                      </TableCell>
-                    )
-                  })}
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </Section>
+        </ColumnLead>
+      ) : null}
+      <ColumnBody>
         <Section>
+          <Hint>Scores are out of 100. Open a case to see what its answer missed.</Hint>
+          <CaseStandings
+            ctx={ctx}
+            standings={standings}
+            open={openCase}
+            onOpen={setOpenCase}
+            onRun={runCases}
+          />
+        </Section>
+        <Section rule>
           <SectionHead>
             <Heading level={3}>Runs</Heading>
           </SectionHead>
@@ -200,7 +176,7 @@ export function ResultsSummary({ ctx }: { ctx: Ctx }) {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {runs.map((run) => {
+              {(folded ? runs.slice(0, RUNS_CAP) : runs).map((run) => {
                 const mine = byRun.get(run.name) ?? []
                 const seconds = run.meta?.samples.reduce((s, x) => s + x.seconds, 0) ?? 0
                 const cost = costOf(run)
@@ -214,6 +190,7 @@ export function ResultsSummary({ ctx }: { ctx: Ctx }) {
                           open={open}
                           title={`${run.name}: ${open ? 'hide' : 'show'} its outputs`}
                           meta={[
+                            answered(mine),
                             runStamp(run),
                             seconds ? duration(seconds) : null,
                             cost ? money(cost) : null,
@@ -254,6 +231,19 @@ export function ResultsSummary({ ctx }: { ctx: Ctx }) {
               })}
             </TableBody>
           </Table>
+          {runs.length > RUNS_CAP ? (
+            <Toolbar>
+              <Button
+                type="button"
+                variant="ghost-muted"
+                size="xs"
+                className="-ml-2"
+                onClick={() => setEveryRun(folded)}
+              >
+                {folded ? `Show all ${runs.length} runs` : `Show the latest ${RUNS_CAP}`}
+              </Button>
+            </Toolbar>
+          ) : null}
         </Section>
         <div ref={graded}>
           <Disclosure summary={gradedLine(config.packs)} defaultOpen={askedGraded}>
@@ -263,108 +253,6 @@ export function ResultsSummary({ ctx }: { ctx: Ctx }) {
       </ColumnBody>
     </>
   )
-}
-
-/** How far apart, down a column, the scores of one grading tick in. */
-const LAND_STEP_MS = 40
-
-/** A cell with outputs and no score: the word it shows, and what it says of them aloud. */
-const UNSCORED = {
-  ungraded: { word: 'Not graded', says: 'not graded yet' },
-  stopped: { word: 'Stopped', says: 'stopped before it finished' },
-  unfinished: { word: 'Not finished', says: 'not finished' },
-} as const
-
-/**
- * One case's score in one run. Only a cell that opens something looks like it
- * does: a score, "Not graded" for an output with none yet, or "Stopped" for
- * one cut short ("Not finished" when the run does not say it was stopped), opens the output. A
- * cell with nothing to open says why in faint words, "Not run", "Writing…" or
- * "Grading…", and is no button. A score that comes while the table is in view
- * ticks in, down its column in turn; one there when the view opened is at
- * rest.
- */
-function ScoreCell({
-  name,
-  outputs,
-  scored,
-  cut,
-  total,
-  writing,
-  grading,
-  repeated,
-  row,
-  onRead,
-}: {
-  /** The case and the run, for a screen reader. */
-  name: string
-  /** How many outputs the run made for the case. */
-  outputs: number
-  /** How many of them have a score: the ones the mean is over. */
-  scored: number
-  /** What they have in place of a score when grading leaves out every one of them. */
-  cut: Output['cut']
-  /** Their mean score; null when none is graded. */
-  total: number | null
-  writing: boolean
-  grading: boolean
-  /** The column holds room for a count of outputs. */
-  repeated: boolean
-  row: number
-  onRead: () => void
-}) {
-  const waiting = (outputs === 0 && writing) || (outputs > 0 && total === null && !cut)
-  const landed = useLanded(waiting)
-  const slot = repeated ? <SampleCount count={0} /> : null
-  if (outputs === 0 || (total === null && grading && !cut))
-    return (
-      <span className="inline-flex items-center gap-1">
-        <Text tone="faint" size="xs">
-          {outputs === 0 ? (writing ? 'Writing…' : 'Not run') : 'Grading…'}
-        </Text>
-        {slot}
-      </span>
-    )
-  if (total === null)
-    return (
-      <span className="inline-flex items-center gap-1">
-        <Button
-          type="button"
-          variant="link-muted"
-          size="cell-inline"
-          aria-label={`${name}: ${UNSCORED[cut ?? 'ungraded'].says}. Read it.`}
-          onClick={onRead}
-        >
-          {UNSCORED[cut ?? 'ungraded'].word}
-        </Button>
-        {slot}
-      </span>
-    )
-  const shown = Math.round(total)
-  return (
-    <Button
-      type="button"
-      variant="ghost"
-      size="cell"
-      className={landed ? 'animate-tick' : undefined}
-      style={landed ? after(row * LAND_STEP_MS) : undefined}
-      aria-label={`${name}: ${shown}${scored > 1 ? `, the mean of ${scored} outputs` : ''}. Read it.`}
-      onClick={onRead}
-    >
-      <TotalChip total={shown} />
-      {repeated ? <SampleCount count={scored} /> : null}
-    </Button>
-  )
-}
-
-/**
- * The address that reads `output` on the right: beside the output its case
- * opens with on the left, unless it is that one itself.
- */
-function readParams(outputs: Output[], caseId: string, output: Output): Record<string, string> {
-  const { a, b } = casePair(outputs, caseId)
-  const beside = [a, b].find((o) => o && o.key !== output.key) ?? null
-  return { case: caseId, a: beside?.key ?? '', b: output.key }
 }
 
 function RunDetail({
