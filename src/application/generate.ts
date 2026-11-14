@@ -5,10 +5,11 @@
  * it writes under `outputs/` and the harness records the transcript, timing
  * and cost beside them.
  *
- * The skill and the cases' input files are copied into the run once, as it
- * starts, and every sample is made from those copies. An edit, a save or a
+ * The skill, the cases and their input files are copied into the run once, as
+ * it starts, and every sample is made from those copies. An edit, a save or a
  * restore while the run is going changes nothing the run reads, so all of its
- * samples answer to the one skill text its version names.
+ * samples answer to the one skill text its version names, and each case's
+ * outputs to the one prompt the run kept.
  */
 import { copyFileSync, existsSync, mkdirSync, writeFileSync } from 'node:fs'
 import { basename, dirname, join, relative } from 'node:path'
@@ -29,6 +30,7 @@ import {
   treeFiles,
   writeJson,
 } from '@infrastructure/fs.ts'
+import { keepCases } from '@infrastructure/run-cases.ts'
 import { readRunMeta, runDir, skillCopy, versionSource, versionsOf } from '@infrastructure/runs.ts'
 import { skillHead, skillInfo, snapshotSkill } from '@infrastructure/skill.ts'
 import { TranscriptWriter } from '@infrastructure/transcript.ts'
@@ -232,6 +234,8 @@ export async function generateRun(
   if (baseline) copyTree(baseline.dir, snapshot)
   else snapshotSkill(skillDir, snapshot)
   stageInputs(skillDir, dir, options.cases, log)
+  // The cases as they are asked now: what the run is read against, whatever is edited since.
+  keepCases(skillDir, dir, options.cases)
 
   const meta: RunMeta = {
     name,

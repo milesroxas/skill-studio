@@ -2,7 +2,7 @@
 import { caseName } from '@domain/case-draft.ts'
 import { BASE_PACK, mergeConfig } from '@domain/config.ts'
 import { testedVersion, type VersionRun, versionWriter, writerKey } from '@domain/lift.ts'
-import { type Corrections, NO_CORRECTIONS, packFailure } from '@domain/pack.ts'
+import { type Corrections, NO_CORRECTIONS } from '@domain/pack.ts'
 import { defaultPair, type PairOutput } from '@domain/pairs.ts'
 import { drawnArtifact, primaryArtifact } from '@domain/primary.ts'
 import { versionAfterRunDelete } from '@domain/run-delete.ts'
@@ -11,11 +11,12 @@ import type {
   Artifact,
   ArtifactKind,
   BenchConfig,
+  Case,
   Report,
   ReportResult,
   Writer,
 } from '@domain/schemas.ts'
-import { layerOrder, pixelText, type Scored, scoreResult } from '@domain/scoring.ts'
+import { behindOf, layerOrder, pixelText, type Scored, scoreResult } from '@domain/scoring.ts'
 import { type CaseLift, caseLift, type Standing, standingOf, type Try } from '@domain/standing.ts'
 import { mean } from '@domain/stats.ts'
 import { type Count, countOf, sumCounts } from '@domain/verdict.ts'
@@ -45,6 +46,22 @@ export interface Output {
   corrections: Corrections
   /** The file that stands for the output: the one graded, else the one grading would judge. */
   primary: Artifact | null
+  /**
+   * What its agent was asked, as a fingerprint (`RunCase.ask`): two outputs of
+   * one case with the same one answered the same prompt and files. Empty for
+   * an output whose case is gone and whose run kept no copy of it.
+   */
+  ask: string
+  /**
+   * The case as its agent was asked it, when the skill no longer asks that:
+   * the prompt or its files changed since, or the case was deleted. Null while
+   * the output answers the case as it stands.
+   */
+  earlier: Case | null
+  /** Jev graded it. A grading without Jev counts a total from other parts, so the two are never set against each other. */
+  judged: boolean
+  /** Why its grading is behind what one made now would be (`behindOf`), so that it has no total; null when it is not. */
+  behind: string | null
 }
 
 /** `v2` as 2. A run with no version sorts last; v0 is a version like any other. */
@@ -72,7 +89,9 @@ function outputOf(
   const parsed = parseSampleDir(sample.name)
   const caseId = result?.case ?? parsed?.case ?? sample.name
   const key = `${run.name}/${sample.name}`
-  const preferred = state.cases.find((c) => c.id === caseId)?.bench.artifact
+  const taken = Object.hasOwn(run.cases, caseId) ? run.cases[caseId] : null
+  const asked = taken?.earlier ?? state.cases.find((c) => c.id === caseId)
+  const preferred = asked?.bench.artifact
   return {
     key,
     run,
@@ -85,6 +104,16 @@ function outputOf(
     corrections: state.reviews.reviews[key]?.corrections ?? NO_CORRECTIONS,
     // The file graded, else the one grading would judge.
     primary: result?.primary ?? primaryArtifact(sample.artifacts, preferred, judged),
+    ask: taken?.ask ?? '',
+    earlier: taken?.earlier ?? null,
+    judged: Boolean(run.report?.model),
+    behind:
+      result && run.report
+        ? behindOf(
+            { yardstick: result.yardstick, model: run.report.model },
+            { yardstick: taken?.yardstick ?? null, jev: state.jevKey },
+          )
+        : null,
   }
 }
 
@@ -153,12 +182,12 @@ export function scoreOf(output: Output, config: BenchConfig): Scored | null {
   if (!output.result) return null
   const kept = scoredBy.get(output)
   if (kept?.config === config) return kept.scored
-  const scored = scoreResult(output.result, config, scorers, output.corrections)
+  const scored = scoreResult(output.result, config, scorers, output.corrections, output.behind)
   scoredBy.set(output, { config, scored })
   return scored
 }
 
-/** Total under `config`; null when ungraded, when no weighted layer scored, or when a part of its grading failed. */
+/** Total under `config`; null when ungraded, when no weighted layer scored, or when its run is to be graded again (`Scored.regrade`). */
 export const totalOf = (output: Output, config: BenchConfig): number | null =>
   scoreOf(output, config)?.scores.total ?? null
 
@@ -174,27 +203,69 @@ export const cutOf = (outputs: Output[]): Output['cut'] =>
       ? 'stopped'
       : 'unfinished'
 
-/** A part of the output's grading failed, so it has no total until its run is graded again. */
-export const gradingFailed = (scored: Scored | null): boolean =>
-  scored?.flags.some((flag) => packFailure(flag) !== null) ?? false
+/**
+ * The output was graded and still has no total until its run is graded again:
+ * a part of its grading failed, the skill is graded as a kind the grading did
+ * not cover, or its case changed since (`Scored.regrade`).
+ */
+export const regradeOwed = (scored: Scored | null): boolean => (scored?.regrade.length ?? 0) > 0
 
-/** Each case's mean total over its graded outputs among `outputs`, by case id; a case with none graded is absent. */
-function caseMeans(outputs: Output[], config: BenchConfig): Record<string, number> {
-  const totals = new Map<string, number[]>()
+/**
+ * A case as one output answered it: its id and what the agent was asked. Two
+ * outputs with the same one are answers to the same prompt and files, so they
+ * stand in one row of All cases (`standingsOf`).
+ */
+const askedKey = (output: Pick<Output, 'caseId' | 'ask'>): string =>
+  `${output.caseId}\n${output.ask}`
+
+/**
+ * Two outputs whose scores can be set against each other: answers to the same
+ * case as it was asked, both graded with Jev or both without.
+ */
+export const comparable = (a: Output, b: Output): boolean =>
+  askedKey(a) === askedKey(b) && a.judged === b.judged
+
+/** What `comparable` compares, as one key. */
+const comparedKey = (output: Output): string => `${askedKey(output)}\n${output.judged}`
+
+/**
+ * Each case's mean total among `outputs`, by `comparedKey`. Only a case whose
+ * every output has a total is counted: a mean over the ones that happen to be
+ * graded would be set beside means over all of theirs. `whole` is false when a
+ * case was left out for that. An output cut short says nothing of the skill,
+ * and is no part of either.
+ */
+function caseMeans(
+  outputs: Output[],
+  config: BenchConfig,
+): { means: Record<string, number>; whole: boolean } {
+  const totals = new Map<string, Array<number | null>>()
   for (const o of outputs) {
-    const total = totalOf(o, config)
-    if (total !== null) totals.set(o.caseId, [...(totals.get(o.caseId) ?? []), total])
+    if (o.cut) continue
+    const key = comparedKey(o)
+    totals.set(key, [...(totals.get(key) ?? []), totalOf(o, config)])
   }
-  return Object.fromEntries([...totals].map(([id, list]) => [id, mean(list) as number]))
+  const means: Record<string, number> = {}
+  let whole = true
+  for (const [key, list] of totals) {
+    const scored = list.filter((total): total is number => total !== null)
+    if (scored.length === list.length) means[key] = mean(scored) as number
+    else whole = false
+  }
+  return { means, whole }
 }
 
 /**
- * A score over `outputs`: each case's mean over its graded outputs, then the
- * mean of those cases, so a case answered three times counts once. Null when
- * none is graded. Every mean the app shows is counted here.
+ * A score over `outputs`: each case's mean over its outputs, then the mean of
+ * those cases, so a case answered three times counts once. Null when none is
+ * graded, and when any output that ran to its end has no total: a score that
+ * left it out would read as a score of them all. Every mean the app shows is
+ * counted here.
  */
-export const scoreOver = (outputs: Output[], config: BenchConfig): number | null =>
-  mean(Object.values(caseMeans(outputs, config)))
+export function scoreOver(outputs: Output[], config: BenchConfig): number | null {
+  const { means, whole } = caseMeans(outputs, config)
+  return whole ? mean(Object.values(means)) : null
+}
 
 /** What a run tested and who wrote it, as a version's score, a case's standing and the pairs read it. A run that recorded no version has none. */
 const testOf = (run: RunView) => ({
@@ -212,46 +283,65 @@ const versionRuns = (runs: RunView[], outputs: Output[], config: BenchConfig): V
     cases: caseMeans(
       outputs.filter((o) => o.run.name === run.name),
       config,
-    ),
+    ).means,
   }))
 
 /** One run's answer to a case: its outputs for it, and the score they come to. */
 export interface CaseTry extends Try {
   run: RunView
   outputs: Output[]
-  /** How many of the outputs have a score: the ones `score` is the mean of. */
+  /** How many of the outputs have a score: all of them that ran to their end when `score` is not null, since it is their mean. */
   scored: number
   /** What the outputs have in place of a score when grading leaves out every one of them. */
   cut: Output['cut']
 }
 
-/** Where one case stands on the skill as it is now, with every run that answered it. */
+/**
+ * Where one case stands on the skill as it is now, with every run that
+ * answered it. A row holds answers to one request, so a case some run answered
+ * before its prompt or files changed has a second one for those answers.
+ */
 export interface CaseStand extends Standing<CaseTry> {
+  /** One key per row: the case's id for the case as it stands, else its id and what its runs were asked. */
+  key: string
   id: string
-  /** Still one of the skill's cases, so it can be run again; false for one deleted since it ran. */
+  /** The case's name; for answers to an earlier request, the name it had then. */
+  title: string
+  /**
+   * The case as the skill asks it now, so it can be run again. False for one
+   * deleted since it ran, and for answers to an earlier request: a new run
+   * would answer another.
+   */
   known: boolean
-  /** Every run that answered the case, the newest first, a run without the skill among them. */
+  /** Answers to a case the skill still has, written before its prompt or files changed. */
+  earlier: boolean
+  /** Every run that answered the case so, the newest first, a run without the skill among them. */
   history: CaseTry[]
 }
 
 /**
  * Every case and where it stands on the version a run would test now
  * (`state.versions.current`): the skill's cases in their own order, one never
- * run among them, then any case deleted since it ran. Each case is read against
- * its own runs, so a run of one case says nothing about the others.
+ * run among them, then the answers to a case before it changed, and any case
+ * deleted since it ran. Each case is read against its own runs, so a run of one
+ * case says nothing about the others.
  */
 export function standingsOf(state: State, outputs: Output[], config: BenchConfig): CaseStand[] {
-  const byCase = new Map<string, Map<string, Output[]>>()
+  const known = new Map(state.cases.map((c) => [c.id, c]))
+  /** The output answers one of the skill's cases as it stands. */
+  const stands = (o: Output) => o.earlier === null && known.has(o.caseId)
+  const rows = new Map<string, Output[]>()
   for (const o of outputs) {
-    const runs = byCase.get(o.caseId) ?? new Map<string, Output[]>()
-    runs.set(o.run.name, [...(runs.get(o.run.name) ?? []), o])
-    byCase.set(o.caseId, runs)
+    const key = stands(o) ? o.caseId : askedKey(o)
+    rows.set(key, [...(rows.get(key) ?? []), o])
   }
-  const known = state.cases.map((c) => c.id)
-  const gone = [...byCase.keys()].filter((id) => !known.includes(id)).sort()
-  return [...known, ...gone].map((id) => {
-    const tries: CaseTry[] = [...(byCase.get(id)?.values() ?? [])].map((mine) => ({
+  const standing = (key: string, id: string, title: string, live: boolean): CaseStand => {
+    const byRun = new Map<string, Output[]>()
+    for (const o of rows.get(key) ?? [])
+      byRun.set(o.run.name, [...(byRun.get(o.run.name) ?? []), o])
+    const tries: CaseTry[] = [...byRun.values()].map((mine) => ({
       ...testOf(mine[0].run),
+      graded: String(mine[0].judged),
       run: mine[0].run,
       outputs: mine,
       score: scoreOver(mine, config),
@@ -259,20 +349,50 @@ export function standingsOf(state: State, outputs: Output[], config: BenchConfig
       cut: cutOf(mine),
     }))
     return {
+      key,
       id,
-      known: known.includes(id),
+      title,
+      known: live,
+      earlier: !live && known.has(id),
       history: [...tries].sort((a, b) => b.createdAt.localeCompare(a.createdAt)),
       ...standingOf(tries, state.versions.current.version),
     }
-  })
+  }
+  const order = [...known.keys()]
+  const place = (id: string) => (known.has(id) ? order.indexOf(id) : order.length)
+  const apart = [...rows]
+    .filter(([key]) => !known.has(key))
+    .map(([key, [first]]) => ({
+      key,
+      id: first.caseId,
+      title: first.earlier ? caseName(first.earlier) : first.caseId,
+    }))
+    .sort((x, y) => place(x.id) - place(y.id) || x.key.localeCompare(y.key))
+  return [
+    ...state.cases.map((c) => standing(c.id, c.id, caseName(c), true)),
+    ...apart.map((row) => standing(row.key, row.id, row.title, false)),
+  ]
+}
+
+/**
+ * The run of a case that only a grading keeps from a score: its newest run
+ * with the skill after the score the case stands on, when every one of its
+ * outputs ran to its end. Null when the case waits on no grading.
+ */
+export function toGrade(standing: Pick<CaseStand, 'latest' | 'tries'>): CaseTry | null {
+  const { latest, tries } = standing
+  const newer = latest ? tries.slice(tries.indexOf(latest) + 1) : tries
+  return newer.findLast((t) => t.score === null && t.cut === null) ?? null
 }
 
 /**
  * How far the cases have come: each case's first score against its latest,
  * with its score without the skill as the floor, over the cases that ran more
- * than once. Null until one has.
+ * than once. Answers to a case before it changed are left out: the case counts
+ * once, as it stands. Null until one has.
  */
-export const liftOf = (standings: readonly CaseStand[]): CaseLift | null => caseLift(standings)
+export const liftOf = (standings: readonly CaseStand[]): CaseLift | null =>
+  caseLift(standings.filter((s) => !s.earlier))
 
 /**
  * The versions outputs were written on, oldest first: "v0", "v1". A version
@@ -467,9 +587,16 @@ export interface OutputPair {
   b: Output | null
 }
 
-/** The two outputs of a case to read side by side first: the version before, or no skill, beside the latest. */
+/**
+ * The two outputs of a case to read side by side first: the version before, or
+ * no skill, beside the latest. Where any output answers the case as it stands,
+ * the pair is picked among those: one written for an earlier prompt is no
+ * measure of the latest.
+ */
 export function casePair(outputs: Output[], caseId: string): OutputPair {
-  const pair = defaultPair(outputs.filter((o) => o.caseId === caseId).map(candidate))
+  const mine = outputs.filter((o) => o.caseId === caseId)
+  const current = mine.filter((o) => o.earlier === null)
+  const pair = defaultPair((current.length ? current : mine).map(candidate))
   return { a: pair.a?.output ?? null, b: pair.b?.output ?? null }
 }
 
@@ -715,8 +842,13 @@ export function outputNames(
   )
 }
 
+/** A case's name: the skill's own, or for a case since deleted the name a run kept of it, else its id. */
 export function caseTitle(state: State, caseId: string): string {
-  const found = state.cases.find((c) => c.id === caseId)
+  const found =
+    state.cases.find((c) => c.id === caseId) ??
+    state.runs.flatMap((run) =>
+      Object.hasOwn(run.cases, caseId) ? run.cases[caseId].earlier : [],
+    )[0]
   return found ? caseName(found) : caseId
 }
 

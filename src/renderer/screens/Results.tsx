@@ -30,6 +30,7 @@ import {
   casePair,
   casesRun,
   caseTitle,
+  comparable,
   cutOf,
   isWithoutSkill,
   liftOf,
@@ -59,8 +60,9 @@ export const Results = memo(function Results({ ctx }: { ctx: Ctx }) {
   // each case's first score against its latest.
   const standings = useMemo(() => standingsOf(state, outputs, config), [state, outputs, config])
   const lift = useMemo(() => liftOf(standings), [standings])
+  // Answers to a case before it changed are in a row of their own: they say nothing of where the case stands.
   const behind = useMemo(
-    () => new Set(standings.filter((s) => !s.current).map((s) => s.id)),
+    () => new Set(standings.filter((s) => !s.earlier && !s.current).map((s) => s.id)),
     [standings],
   )
   const versions = useMemo(() => versionsRun(outputs), [outputs])
@@ -235,6 +237,8 @@ function CaseMove({
   if (pair.a && pair.b) {
     if (totals.b === null) return unscoredLine(pair.b)
     if (totals.a === null) return unscoredLine(pair.a)
+    // Two answers to different requests, or graded two ways, have no change to read between them.
+    if (!comparable(pair.a, pair.b)) return null
     return (
       <ScoreChange
         from={totals.a}

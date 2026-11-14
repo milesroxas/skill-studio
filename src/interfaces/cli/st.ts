@@ -385,7 +385,7 @@ async function main(): Promise<number> {
     if (!view.report)
       throw new Error(`${values.run} is not graded. Run: st grade --run ${values.run}`)
     // Scored as the app scores it, under the scoring as it is now.
-    const report = scoredReport(skill, view.report, scoring)
+    const report = scoredReport(skill, view.report, scoring, view.cases)
     if (values.json) console.log(JSON.stringify(report, null, 2))
     else printReport(report)
     return 0
@@ -395,10 +395,10 @@ async function main(): Promise<number> {
     const [a, b] = rest
     if (!a || !b) throw new Error('Pass two run names.')
     const load = (name: string) => {
-      const { report } = readRun(skill, runNameOf(name, '`st compare`'))
+      const { report, cases } = readRun(skill, runNameOf(name, '`st compare`'))
       if (!report) throw new Error(`${name} has no report.json.`)
       // Both under one scoring, so a difference is the outputs' and not a setting's.
-      return scoredReport(skill, report, scoring)
+      return scoredReport(skill, report, scoring, cases)
     }
     const rows = compareReports(load(a), load(b))
     const layers = rows.length ? Object.keys(rows[0].deltas) : []

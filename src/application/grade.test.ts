@@ -16,7 +16,10 @@ import { pngHeader } from '@domain/__fixtures__/image.ts'
 import { type PageLayout, readLayout } from '@domain/layout.ts'
 import type { Report, ReportResult } from '@domain/schemas.ts'
 import { pngOf } from '@infrastructure/__fixtures__/png.ts'
+import { loadCases } from '@infrastructure/cases.ts'
 import { readJson } from '@infrastructure/fs.ts'
+import { keepCases } from '@infrastructure/run-cases.ts'
+import { readRun } from '@infrastructure/runs.ts'
 import { packById } from '@judges/index.ts'
 import { Jev } from '@judges/jev.ts'
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
@@ -80,6 +83,67 @@ const genericJudge = () => {
   if (!pack) throw new Error('no generic pack')
   return vi.spyOn(pack, 'judge')
 }
+
+describe('gradeRun, on the case a run was asked', () => {
+  /** Keep the skill's cases with the run, as a run does when it starts. */
+  const keep = (dir: string, run: string) =>
+    keepCases(dir, join(dir, 'evals/runs', run), loadCases(dir))
+  const check = (dir: string, id: string, name: string, statement: string) => {
+    mkdirSync(join(dir, 'evals/cases', id, 'graders'), { recursive: true })
+    writeFileSync(
+      join(dir, 'evals/cases', id, 'graders', `${name}.md`),
+      `---\ntype: llm\n---\n${statement}\n`,
+    )
+  }
+  /** What the generic pack was given to judge the one output on. */
+  const judgedOn = async (dir: string, run: string) => {
+    const judge = genericJudge().mockResolvedValue(null)
+    const report = await gradeRun(dir, run, { useJev: false })
+    const testCase = judge.mock.calls[0][0].case
+    judge.mockRestore()
+    return { testCase, result: report.results[0] }
+  }
+
+  it('reads a check added since the run, while the case asks what the run was asked', async () => {
+    const { dir, run } = skillWith(['email'], ['email-s1'])
+    keep(dir, run)
+    const first = await judgedOn(dir, run)
+    check(dir, 'email', '01-short', 'It is under 50 words.')
+    const second = await judgedOn(dir, run)
+    expect(second.testCase?.graders.map((g) => g.statement)).toEqual(['It is under 50 words.'])
+    // The two gradings were held to different checks, and each says which.
+    expect(first.result.yardstick).toBeTypeOf('string')
+    expect(second.result.yardstick).not.toBe(first.result.yardstick)
+    expect(readRun(dir, run).cases.email.yardstick).toBe(second.result.yardstick)
+  })
+
+  it('holds an output to the prompt its agent got, and the checks of then, once the prompt changed', async () => {
+    const { dir, run } = skillWith(['email'], ['email-s1'])
+    check(dir, 'email', '01-short', 'It is under 50 words.')
+    keep(dir, run)
+    writeFileSync(join(dir, 'evals/cases/email/prompt.md'), 'Write a letter.')
+    check(dir, 'email', '02-letter', 'It is a letter.')
+    const { testCase, result } = await judgedOn(dir, run)
+    expect(testCase?.prompt).toBe('Write the email.')
+    expect(testCase?.graders.map((g) => g.statement)).toEqual(['It is under 50 words.'])
+    expect(result.case).toBe('email')
+  })
+
+  it('grades the output of a case since deleted on the run’s copy of it', async () => {
+    const { dir, run } = skillWith(['email'], ['email-s1'])
+    keep(dir, run)
+    rmSync(join(dir, 'evals/cases/email'), { recursive: true })
+    const { testCase, result } = await judgedOn(dir, run)
+    expect(testCase?.prompt).toBe('Write the email.')
+    expect(result.case).toBe('email')
+  })
+
+  it('reads a run that kept no cases against the case as it is now', async () => {
+    const { dir, run } = skillWith(['email'], ['email-s1'])
+    writeFileSync(join(dir, 'evals/cases/email/prompt.md'), 'Write a letter.')
+    expect((await judgedOn(dir, run)).testCase?.prompt).toBe('Write a letter.')
+  })
+})
 
 describe('gradeRun, on which case a sample answers', () => {
   it('reads the case from the sample folder whole, never by a shared start', async () => {
@@ -1154,8 +1218,8 @@ describe('scoredReport', () => {
   it('scores a report under the skill’s scoring as it is now, with the call’s own laid over', () => {
     const { dir } = skillWith(['add'], [])
     const report = reportOf([
-      { sample: 'add-s1', case: 'add', packs: { code: check(0) } },
-      { sample: 'add-s2', case: 'add', packs: { code: check(1) } },
+      { sample: 'add-s1', case: 'add', packs: { generic: null, code: check(0) } },
+      { sample: 'add-s2', case: 'add', packs: { generic: null, code: check(1) } },
     ])
     // The skill is graded on its rules and checks alone: the check command counts for nothing.
     expect(scoredReport(dir, report).results.map((r) => r.scores)).toEqual([
@@ -1170,6 +1234,11 @@ describe('scoredReport', () => {
     expect(now.results[1].flags.join('\n')).toMatch('check failed (exit 1)')
     // The report it was given is left as it was.
     expect(report.results.map((r) => r.scores.total)).toEqual([null, null])
+
+    // A kind the grading never ran leaves no total: one from the other parts would read as the whole.
+    const later = scoredReport(dir, report, { packs: ['code', 'design'] })
+    expect(later.results.map((r) => r.scores.total)).toEqual([null, null])
+    expect(later.results[0].flags).toContain('design pack not graded')
 
     expect(scoredReport(dir, report, { packs: ['generic'] }).packs).toEqual(['generic'])
     expect(() => scoredReport(dir, report, { packs: ['cod'] })).toThrow('No judge pack named cod.')

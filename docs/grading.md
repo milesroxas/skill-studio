@@ -27,12 +27,34 @@ This page uses the words of the files. A **pack** is a set of judge questions fo
 - Three questions are asked of some outputs only: whether the page fits a phone (design), whether the transcript shows the task being done (workflow, for an output whose case is still there), and whether the agent changed course after an error (workflow). One that was not asked, and the phone or the error question when Jev left it out, is stored as no answer and left out of its layer. The pack's other layers stand (`optionalAnswer` in `src/judges/shared/questions.ts`).
 - A null layer, or one given 0 points, is left out of the total, and the rest rescale.
 - A sample folder is `<case>-s<n>`, and its case is read from that name whole. A case whose id starts another's (`email`, `email-reply`) is never taken for it.
-- An output whose case is no longer there has no case. It is graded on the skill's rules alone, and `report.json` keeps the name its folder gives, so it counts under no other case.
+- An output whose case is gone, in a run that kept no copy of its cases, has no case. It is graded on the skill's rules alone, and `report.json` keeps the name its folder gives, so it counts under no other case.
 - A check command runs in the background, so the app keeps answering while it runs.
 - A case's word range counts prose and list text, not headings or code in either kind of fence. A paragraph right under its heading, with no blank line, is counted. An output outside the range is flagged `length: N words, case asks a to b`.
   - Markdown with headings or code and nothing else counts 0 words.
   - On a page the range counts the text a reader sees: no tag, no comment, and nothing of its `<head>`, scripts, styles or templates (`pageText` in `src/domain/text.ts`).
   - Front matter is not part of the copy: a block of `key: value` lines between two `---` lines at the top. A piece that opens with a `---` rule keeps the section under it.
+
+### The case a run is graded on
+
+A run keeps its cases as it starts, in `_cases.json`, each with a fingerprint of what the agents were asked: the prompt, and each input file by name and bytes (`askOf` in `src/infrastructure/run-cases.ts`). Grading reads the case through `takenCase` there:
+
+- While the skill's case asks what the run was asked, the output is graded on the skill's case, so its checks and settings are read as they are now. A check added since the run is marked on the next grading.
+- Once the case's prompt or files have changed, or the case is gone, the output is graded on the run's own copy, whole: the prompt its agent got and the checks of then. An output is never held to a request its agent did not get, and an id used again for another case is another case.
+- A run made before runs kept their cases is graded on the cases as they are now.
+- `bench.json` is how every run is scored, so it is read as it is now for every run.
+
+Each graded output keeps a fingerprint of what it was held to, `yardstick` in `report.json`: its case's checks, each by its words, its weight and the bytes of its picture, and the case's settings (`yardstickOf`). The names of the check files and their order are no part of it.
+
+### When a total does not stand
+
+A total counted from other parts than the totals beside it would be compared with them as if it were not. So `scoreResult` gives an output no total, with its layers and verdicts as they are, until its run is graded again, when:
+
+- one of the skill's packs failed on it (below);
+- the skill is graded as a pack its grading never ran, which is one ticked since: `packs` has no entry for it, where a pack that ran and had nothing to say left `null`. The flag is `<pack> pack not graded`;
+- its case's checks or settings changed after it was graded: its `yardstick` is no longer the case's (`behindOf` in `src/domain/scoring.ts`). A report with no `yardstick` stands;
+- in the app, it was graded without Jev and a TypeSafe key is now set. `st report` and `st compare` let such a grading stand, since `--no-jev` asks for it by name.
+
+An output with nothing in it scores 0 however it was graded. Results says which of these holds beside the score, and offers to grade the run. On All cases **Grade N runs** grades every run that has such an output, a case whose newest run waits on it says "Needs grading" and grades that run when opened, and the band grades the runs it waits on once no case is left to run.
 
 ### Without Jev
 
@@ -44,7 +66,7 @@ This page uses the words of the files. A **pack** is a set of judge questions fo
 ### Failures and empty outputs
 
 - A pack that throws leaves every one of its layers null and adds the flag `<pack> pack failed: ...`.
-- An output with that flag has no total: one counted from the layers that were left would read as a score of the whole. Its other layers stand, it is left out of every mean, and Results offers to grade it again. The rule is `scoreResult`'s (`src/domain/scoring.ts`), so `report.json` and the app agree. Once the pack is no longer one the skill is graded as, its failure takes nothing away.
+- An output with that flag has no total: one counted from the layers that were left would read as a score of the whole. Its other layers stand, and Results offers to grade it again. The rule is `scoreResult`'s (`src/domain/scoring.ts`), so `report.json` and the app agree. Once the pack is no longer one the skill is graded as, its failure takes nothing away.
 - A grading with that flag on every output writes no `report.json`, so the last report stands. In the app the job fails, with the first reason in its log. A grading with the flag on some outputs says how many and goes on.
 - An output with nothing in it scores 0: a sample with no output file, or one whose file holds only whitespace, which `report.json` marks `blank`. A file with no word in it, such as `{}`, is an output, and so is a picture. A report with no `blank` mark reads only a missing file as no output.
 - Such an output is flagged `no output to judge`. Its total and every layer a pack scored are 0, the workflow pack's included (`noOutput` in `src/domain/pack.ts`). So a failed sample counts as a failure wherever scores are averaged. That flag is its one verdict: what a pack counted about the run is listed under no part of the score.
@@ -250,25 +272,30 @@ Any other field in `reviews.json`, such as a rating, a note or a vote, is kept a
 
 ## Version scores, where a case stands and the lift
 
-A version's score is the mean of its cases, each case the mean of its graded outputs, so a case run three times counts once. `versionScore` in `src/renderer/model.ts` computes it. Every mean the app shows is counted this way (`scoreOver`), a run's Mean on All cases included.
+A version's score is the mean of its cases, each case the mean of its outputs, so a case run three times counts once. `versionScore` in `src/renderer/model.ts` computes it. Every mean the app shows is counted this way (`scoreOver`), a run's Mean on All cases included.
+
+- A mean is shown only when every output it is over has a total. With one that has none, such as an output a pack failed on, there is no mean until its run is graded again: a mean over the rest would read as a score of them all. An output whose agent was stopped is no part of a mean.
+- A case counts as it was asked. Outputs written for a case before its prompt or files changed are another case to every mean, and stand in a row of their own on All cases, under "Answered before the case changed" or "No longer in Cases".
+- Two outputs are set against each other only when they answer the same request and were both graded with Jev, or both without (`comparable`). Results shows no change in score between two that are not.
 
 - A version's outputs are those written with the skill as it stood and those written on the copy kept of it (`old_skill`), never one written without the skill (`testedVersion` in `src/domain/lift.ts`). The score, a case's standing and the comparison all read it so.
 - Where one writer (an engine and model) ran two versions, a version's score counts that writer's outputs only, so one version reads against the next.
 - When several writers did, the writer whose newest run is newest is read.
+- A writer ran two versions when its run on its latest version shares a case with a run of its own on an earlier one: the same case, asked the same way, graded the same way, with a total on every output (`versionWriter` in `src/domain/lift.ts`). A run on an earlier version that shares none is passed over, and does not stand in the way of one that does.
 
 A case is run when its writer chooses, on whatever version and model, so All cases on Results reads each case against its own runs (`standingOf` in `src/domain/standing.ts`, `standingsOf` in `src/renderer/model.ts`).
 
+- A standing holds answers to one request. Outputs written for a case before its prompt or files changed, or for a case since deleted, are a standing of their own (`CaseStand.earlier`), which no run can check again.
 - A case's runs are ordered by version, then by when they ran, so a run on the copy kept of v1 stands with v1 whenever it was made.
 - A case stands on its newest score on the version a run would test now (`versions.current`), else on its newest score on the latest version it ran. It is checked when that score is on the version a run would test now. Saving an edit to the skill makes that a new version, which no case has run on yet.
-- Its change is read against the scored run before by the same writer, so the move is the skill's and not the model's; with none, against the scored run before by anyone.
-- A run with no score, such as one that was stopped, is no standing.
+- A run has a score on a case only when every output it made for it has a total, an output whose agent was stopped apart.
+- Its change is read against the scored run before by the same writer, so the move is the skill's and not the model's; with none, against the scored run before by anyone. Only runs graded as the latest was count: with Jev, or without (`Try.graded`). With a scored run before and none graded so, there is no change, and the case does not say "first run" (`apart`).
+- A run with no score, such as one that was stopped, is no standing. The newest such run after the score a case stands on, when it ran to its end, is the one a grading would give a score (`toGrade` in `model.ts`).
 
-The lift (`caseLift`) is the mean of the cases' first scores against the mean of their latest, over the cases with two scored runs. Each case counts once.
+The lift (`caseLift`) is the mean of the cases' first scores against the mean of their latest, over the cases with two scored runs graded the same way. Each case counts once: answers to a case before it changed are no part of it.
 
-- The floor is the mean of those cases' newest scores without the skill, over the ones that have one (`floorCases`).
+- The floor is the mean of those cases' newest scores without the skill, graded as their latest was, over the ones that have one (`floorCases`).
 - `mixed` is set when a case's first and latest runs had different writers, and the page says "on more than one model".
-- When no such run answered them all, the floor is the one that answered the most, the newest of those, read over the ones it answered. `baselineCases` says how many, and `casesDiffer` is set.
-- A run without the skill that answered none of them is no floor.
 - A run made against an older version's snapshot (`old_skill`) counts as that version's run, as on the comparison.
 - The ribbon is drawn only when the latest mean is higher in the whole points shown (`rises`): 66.7 to 67.0 reads 67 and 67, and is no rise.
 

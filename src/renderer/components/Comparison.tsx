@@ -43,9 +43,9 @@ import { isMac } from '../keys.ts'
 import {
   apartLine,
   caseTitle,
+  comparable,
   drawnOf,
   failureOf,
-  gradingFailed,
   isWithoutSkill,
   layersOf,
   type Output,
@@ -55,6 +55,7 @@ import {
   outputsToPick,
   outputWriter,
   primaryOf,
+  regradeOwed,
   runInSentence,
   runStamp,
   runTitle,
@@ -269,10 +270,12 @@ export function Comparison({
       </ColumnHeader>
       <ContextActions subject={caseTitle(state, caseId)} actions={actions}>
         <ColumnBody>
-          {testCase || picking || view === 'flip' ? (
+          {testCase || sides.some((o) => o.earlier) || picking || view === 'flip' ? (
             // The case, the pair and the stage that shows it: one group, closer to each other than to the cards.
             <Stack gap="md">
-              {testCase ? <Asked testCase={testCase} /> : null}
+              {askedBy(testCase, a, b).map((asked) => (
+                <Asked key={asked.key} testCase={asked.testCase} summary={asked.summary} />
+              ))}
               {picking ? <Pair candidates={candidates} a={a} b={b} show={show} /> : null}
               {view === 'flip' ? (
                 <Flip
@@ -499,10 +502,55 @@ function Picker({
   )
 }
 
+/** A case to show above the outputs: the one both answer, or one a side answered before it changed. */
+interface AskedCase {
+  key: string
+  testCase: Case
+  summary: string
+}
+
+/**
+ * The cases the outputs in view answered. The case as it stands comes first.
+ * An output written before its prompt or files changed, or for a case since
+ * deleted, answered the copy its run kept: that one is listed too, and says
+ * whose it is, so a prompt is never read beside an answer to another.
+ */
+function askedBy(testCase: Case | null, a: Output | null, b: Output | null): AskedCase[] {
+  const named = (c: Case, lead = 'The prompt') =>
+    `${lead}${c.graders.length ? ' and its checks' : ''}`
+  // B has a letter only beside A, as on its card.
+  const sides: Array<[Output | null, string | null]> = [
+    [a, SLOT_LABEL.a],
+    [b, a ? SLOT_LABEL.b : null],
+  ]
+  const earlier = new Map<string, { testCase: Case; who: Array<string | null> }>()
+  for (const [output, letter] of sides) {
+    if (!output?.earlier) continue
+    const group = earlier.get(output.ask) ?? { testCase: output.earlier, who: [] }
+    group.who.push(letter)
+    earlier.set(output.ask, group)
+  }
+  const shown = sides.filter(([output]) => output !== null).length
+  const listed: AskedCase[] = testCase ? [{ key: 'now', testCase, summary: named(testCase) }] : []
+  for (const [ask, group] of earlier) {
+    // With the case gone and every output an answer to the one copy, it is the prompt, and needs no more said.
+    const only = !testCase && earlier.size === 1 && group.who.length === shown
+    const who = group.who.map((letter) => letter ?? 'this output').join(' and ')
+    listed.push({
+      key: ask,
+      testCase: group.testCase,
+      summary: only
+        ? named(group.testCase)
+        : `${named(group.testCase, testCase ? 'The earlier prompt' : 'The prompt')}, which ${who} answered`,
+    })
+  }
+  return listed
+}
+
 /** What the agent was asked, and what a good answer does: folded, since both sides answer the same case. */
-function Asked({ testCase }: { testCase: Case }) {
+function Asked({ testCase, summary }: { testCase: Case; summary: string }) {
   return (
-    <Disclosure summary={`The prompt${testCase.graders.length ? ' and its checks' : ''}`}>
+    <Disclosure summary={summary}>
       <Stack gap="md">
         <Text as="p" font="mono" size="xs" wrap="pre">
           {testCase.prompt}
@@ -601,7 +649,7 @@ function Side({
   const { state, config, go, report, reload } = ctx
   const scored = scoreOf(output, config)
   const otherScored = other ? scoreOf(other, config) : null
-  const ungraded = !scored || gradingFailed(scored)
+  const ungraded = !scored || regradeOwed(scored)
   // The artifact in view, kept by the output's key: a reload after a correction
   // brings a new output object for the same output, and the view holds.
   const [picked, setPicked] = useState<{ key: string; view: OutputView | null } | null>(null)
@@ -610,10 +658,16 @@ function Side({
   const setView = (next: OutputView | null) => setPicked({ key: output.key, view: next })
   const [pending, setPending] = useState<string | null>(null)
   const landed = useLanded(writing)
+  // A change is read only between two answers to the same request, graded the same way.
   const delta =
-    scored?.scores.total != null && otherScored?.scores.total != null
+    other &&
+    comparable(output, other) &&
+    scored?.scores.total != null &&
+    otherScored?.scores.total != null
       ? scored.scores.total - otherScored.scores.total
       : null
+  /** The skill still has the case, and this output answers an earlier wording of it. */
+  const before = output.earlier !== null && state.cases.some((c) => c.id === output.caseId)
   const meta = output.run.meta?.samples.find((s) => s.dir === output.sample.name) ?? null
   const failure = failureOf(output)
   const rules = new Set(state.rules.map((r) => r.text))
@@ -687,6 +741,12 @@ function Side({
           {failure}
         </Hint>
       ) : null}
+      {before ? <Hint inset>Written for this case before its prompt or files changed.</Hint> : null}
+      {scored?.stale.map((why) => (
+        <Hint inset key={why}>
+          {why}, so it has no score.
+        </Hint>
+      ))}
       {scored ? (
         <Verdicts
           verdicts={scored.verdicts}

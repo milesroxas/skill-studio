@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { DEFAULT_CONFIG } from './config.ts'
 import { type PackScoring, packFailure } from './pack.ts'
 import type { BenchConfig } from './schemas.ts'
-import { layerOrder, scoreResult } from './scoring.ts'
+import { behindOf, layerOrder, scoreResult } from './scoring.ts'
 
 type Raw = { layers: Record<string, number | null>; certainties?: number[] }
 
@@ -42,8 +42,9 @@ const config = (over: Partial<BenchConfig> = {}): BenchConfig => ({
   ...over,
 })
 
+/** One graded output. A pack with no answers here ran and had nothing to say of it, as grading records it. */
 const result = (packs: Record<string, unknown>, over = {}) => ({
-  packs,
+  packs: { voice: null, rules: null, ...packs },
   case: 'intro',
   primary: { file: 'out.md', kind: 'markdown' as const },
   artifacts: [],
@@ -236,6 +237,79 @@ describe('an output a pack failed on', () => {
   it('still scores 0 when the output has nothing in it', () => {
     const scored = scoreResult(result(packs, { flags, primary: null }), config(), scorers)
     expect(scored.scores.total).toBe(0)
+  })
+})
+
+describe('an output graded before the skill was graded as another kind', () => {
+  const graded = { voice: { layers: { voice: 1, clarity: 1 } } }
+  /** As a grading that ran `voice` alone records it: `rules` has no entry at all. */
+  const before = { ...result({}), packs: graded }
+
+  it('has no total until it is graded as that kind too, and says which', () => {
+    const scored = scoreResult(before, config(), scorers)
+    expect(scored.scores).toEqual({ total: null, voice: 100, clarity: 100, adherence: null })
+    expect(scored.flags[0]).toBe('rules pack not graded')
+    // The grading did not fail, so nothing is listed as missed: the reason stands beside the score.
+    expect(scored.verdicts.map((v) => v.text)).toEqual(['voice', 'clarity'])
+    expect(scored.regrade).toEqual(['Not graded as Rules yet'])
+    expect(scored.stale).toEqual(['Not graded as Rules yet'])
+  })
+
+  it('stands when that kind ran and had nothing to say, and when it is not ticked', () => {
+    const silent = scoreResult(result(graded), config(), scorers)
+    expect(silent.scores.total).toBe(100)
+    expect(silent.regrade).toEqual([])
+    expect(scoreResult(before, config({ packs: ['voice'] }), scorers).scores.total).toBe(100)
+  })
+
+  it('names the pack every skill is graded by as its rules and checks', () => {
+    const base = { ...voice, id: 'generic' } as PackScoring
+    const scored = scoreResult(before, config({ packs: ['voice', 'generic'] }), [
+      voice,
+      base,
+    ] as PackScoring[])
+    expect(scored.regrade).toEqual(['Rules and checks are not marked yet'])
+  })
+
+  it('still scores 0 when the output has nothing in it, with nothing owed', () => {
+    const scored = scoreResult({ ...before, primary: null }, config(), scorers)
+    expect(scored.scores.total).toBe(0)
+    expect(scored.regrade).toEqual([])
+  })
+})
+
+describe('a grading that is behind', () => {
+  const packs = { voice: { layers: { voice: 1, clarity: 1 } }, rules: { layers: { adherence: 1 } } }
+
+  it('is one made without Jev once a key is set, and one made before its case changed', () => {
+    const now = { yardstick: 'b', jev: true }
+    expect(behindOf({ yardstick: 'b', model: 'jev' }, now)).toBeNull()
+    expect(behindOf({ yardstick: 'b', model: null }, now)).toBe('Graded without Jev')
+    // With no key, a grading without Jev is all a grading now would be.
+    expect(behindOf({ yardstick: 'b', model: null }, { yardstick: 'b', jev: false })).toBeNull()
+    expect(behindOf({ yardstick: 'a', model: 'jev' }, now)).toBe('Graded before its case changed')
+  })
+
+  it('is not one that kept no record of what it was held to, nor one whose case is unknown', () => {
+    expect(behindOf({ model: 'jev' }, { yardstick: 'b', jev: true })).toBeNull()
+    expect(behindOf({ yardstick: 'a', model: 'jev' }, { yardstick: null, jev: true })).toBeNull()
+  })
+
+  it('has no total, keeps its layers and its verdicts, and opens with why', () => {
+    const why = 'Graded before its case changed'
+    const scored = scoreResult(result(packs), config(), scorers, undefined, why)
+    expect(scored.scores).toEqual({ total: null, voice: 100, clarity: 100, adherence: 100 })
+    expect(scored.verdicts).toHaveLength(3)
+    expect(scored.flags).toContain(why)
+    expect(scored.regrade).toEqual([why])
+    expect(scored.stale).toEqual([why])
+    expect(scoreResult(result(packs), config(), scorers).regrade).toEqual([])
+  })
+
+  it('still scores 0 when the output has nothing in it', () => {
+    const scored = scoreResult(result(packs, { primary: null }), config(), scorers, undefined, 'x')
+    expect(scored.scores.total).toBe(0)
+    expect(scored.regrade).toEqual([])
   })
 })
 

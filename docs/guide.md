@@ -209,7 +209,9 @@ Results shows one case at a time: **A**, the answer from your previous version, 
 
 Your mark replaces Jev's and the score updates. **Take back**, in the same menu, undoes it.
 
-After you add a check, click **⋯** at the top right and choose **Regrade**, so Jev reads the answers again.
+After you add a check, click **⋯** at the top right and choose **Regrade**, so Jev reads the answers again. Until then an answer graded before the change has no score, and says so. On **All cases** its case says **Needs grading**, and **Grade N runs** grades every run that needs it.
+
+Changing a case's prompt or its files makes it a new request. Answers written before the change keep their scores and are shown apart from the new ones, since the two were asked different things. On **All cases** they are listed under **Answered before the case changed**.
 
 ### All cases
 
@@ -218,7 +220,7 @@ After you add a check, click **⋯** at the top right and choose **Regrade**, so
 **All cases**, at the top of the list, shows how far your cases have come since their first runs, and where each case stands now. You do not have to run every case each time: each case is read against its own runs.
 
 - **Lift** is the average of the cases' latest scores, against the average of their first.
-- Under it, a line says how many cases have run on the version a run would test now. After you edit the skill, a score from before the edit may no longer hold. Such a score is drawn as an outline with no fill, here and in the list on the left. **Run the other 4 on v3** opens Run with only those cases ticked.
+- Under it, a line says how many cases have run on the version a run would test now. After you edit the skill, a score from before the edit may no longer hold. Such a score is drawn as an outline with no fill, here and in the list on the left. **Run the other 4 on v3** opens Run with only those cases ticked. A case that has run on that version and only waits to be graded is not run again: the line says how many wait, and the button grades them once no other case is left.
 - Each row is a case: its last run, its score, and how the score changed. Cases that dropped come first. Click a case to see what its answer missed, read the output, and see its other runs.
 
 Under the cases, each run shows what it answered, when it ran, how long it took and what it cost, with **Delete run**.

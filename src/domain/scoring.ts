@@ -1,3 +1,4 @@
+import { BASE_PACK } from './config.ts'
 import {
   type Corrections,
   NO_CORRECTIONS,
@@ -7,7 +8,7 @@ import {
   type ScoreSubject,
   type Verdict,
 } from './pack.ts'
-import type { BenchConfig, ReportResult, Scores } from './schemas.ts'
+import type { BenchConfig, Report, ReportResult, Scores } from './schemas.ts'
 import { mean, weighted } from './stats.ts'
 import { finding } from './verdict.ts'
 
@@ -17,10 +18,63 @@ export interface Scored {
   /** Every fact the scores were counted from, the reader's corrections applied. */
   verdicts: Verdict[]
   confidence: number | null
+  /**
+   * Why the output has no total until its run is graded again, each reason as
+   * a reader reads it: a part of its grading failed, the skill is graded as a
+   * kind this grading did not cover, or the grading is behind (`behindOf`).
+   * Empty when the total stands, and for an output with nothing in it, which
+   * scores 0 however it is graded.
+   */
+  regrade: string[]
+  /**
+   * Those of `regrade` that are no failure: the grading is whole, and is of
+   * something other than what the output is held to now. A failure is listed
+   * among the verdicts; these are said beside the score they withhold.
+   */
+  stale: string[]
 }
 
 /** What an output with nothing in it is flagged with: no file, or a file that says nothing. */
 const NO_OUTPUT = 'no output to judge'
+
+/** What a grading of an output would be held to if it were made now. */
+export interface GradedNow {
+  /** The case's checks and settings as they are (`RunCase.yardstick`); null when the run has no such case. */
+  yardstick: string | null
+  /** Jev would be asked: a key is set. */
+  jev: boolean
+}
+
+/**
+ * Why a grading is behind what one made now would be, as the start of a line
+ * a reader reads ("…, so it has no score"); null when it is not. A grading without Jev marked no rule or check,
+ * so with a key it is behind. One made before its case's checks or settings
+ * changed counted a total from other facts than the case states now. Either
+ * way its total would be set beside totals counted from something else.
+ */
+export function behindOf(
+  graded: { yardstick?: string; model: Report['model'] },
+  now: GradedNow,
+): string | null {
+  if (now.jev && graded.model === null) return 'Graded without Jev'
+  if (
+    now.yardstick !== null &&
+    graded.yardstick !== undefined &&
+    graded.yardstick !== now.yardstick
+  )
+    return 'Graded before its case changed'
+  return null
+}
+
+/** A pack's kind of work by its name, as Graded as lists it: "Design". */
+const kindName = (pack: string): string => pack.charAt(0).toUpperCase() + pack.slice(1)
+
+/** The flag an output carries for an active pack its grading did not run. */
+const packUngradedFlag = (pack: string): string => `${pack} pack not graded`
+
+/** What a reader reads of an output whose grading did not cover a kind the skill is graded as. */
+const ungradedText = (pack: string): string =>
+  pack === BASE_PACK ? 'Rules and checks are not marked yet' : `Not graded as ${kindName(pack)} yet`
 
 /** A layer's share held to 0 to 1 whatever a pack returned; null when it is not a number at all. */
 const share = (value: number | null): number | null =>
@@ -65,6 +119,13 @@ function commonFlags(subject: ScoreSubject): string[] {
  * its grading left) has no total: one counted from the layers that were left
  * would read as a score of the whole. Its other layers stand, and its flags
  * and verdicts open with the failure.
+ *
+ * The same holds for an active pack the grading never ran, which is one ticked
+ * since: `packs` has no entry for it, where a pack that ran and had nothing to
+ * say of the output left a null. And it holds for a grading that is `behind`
+ * what one made now would be (`behindOf`). In each case the total would be
+ * counted from other parts than the totals beside it, so there is none until
+ * the run is graded again (`Scored.regrade`).
  */
 export function scoreResult(
   result: Pick<
@@ -83,6 +144,7 @@ export function scoreResult(
   config: BenchConfig,
   scorers: PackScoring[],
   corrections: Corrections = NO_CORRECTIONS,
+  behind: string | null = null,
 ): Scored {
   const subject: ScoreSubject = {
     case: result.case,
@@ -101,13 +163,20 @@ export function scoreResult(
     return failure && config.packs.includes(failure.pack) ? [{ flag, ...failure }] : []
   })
   const common = commonFlags(subject)
-  const flags = [...failed.map((f) => f.flag), ...common]
-  const verdicts: Verdict[] = [
-    ...failed.map((f) => finding(`Grading failed: ${f.reason}`)),
-    ...common.map(finding),
-  ]
-  const certainties: number[] = []
   const empty = noOutput(subject)
+  // An empty output scores 0 whatever it is graded on, so nothing is owed to it.
+  const stale = empty
+    ? []
+    : [
+        ...scorers
+          .filter((p) => config.packs.includes(p.id) && !Object.hasOwn(result.packs, p.id))
+          .map((p) => ({ flag: packUngradedFlag(p.id), text: ungradedText(p.id) })),
+        ...(behind ? [{ flag: behind, text: behind }] : []),
+      ]
+  const failures = failed.map((f) => `Grading failed: ${f.reason}`)
+  const flags = [...failed.map((f) => f.flag), ...stale.map((s) => s.flag), ...common]
+  const verdicts: Verdict[] = [...failures.map(finding), ...common.map(finding)]
+  const certainties: number[] = []
   for (const pack of scorers) {
     if (!config.packs.includes(pack.id)) continue
     const answers = result.packs[pack.id] ?? null
@@ -120,8 +189,16 @@ export function scoreResult(
     if (!empty) verdicts.push(...scored.verdicts)
     certainties.push(...pack.certainties(answers))
   }
-  const total = empty ? 0 : failed.length ? null : totalOf(raw, config)
-  return { scores: scoresOf(raw, total), flags, verdicts, confidence: mean(certainties) }
+  const owed = empty ? [] : [...failures, ...stale.map((s) => s.text)]
+  const total = empty ? 0 : owed.length ? null : totalOf(raw, config)
+  return {
+    scores: scoresOf(raw, total),
+    flags,
+    verdicts,
+    confidence: mean(certainties),
+    regrade: owed,
+    stale: stale.map((s) => s.text),
+  }
 }
 
 /** The total out of 100: the layers with points, weighted by them; null when none of those was scored. */

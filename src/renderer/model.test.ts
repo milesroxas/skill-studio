@@ -6,6 +6,8 @@ import {
   answerFiles,
   apartLine,
   casePair,
+  caseTitle,
+  comparable,
   cutOf,
   deleteBlocked,
   deleteRunDialog,
@@ -13,7 +15,6 @@ import {
   extraKinds,
   failureOf,
   gradedLine,
-  gradingFailed,
   kindsLine,
   lastAnswer,
   liftOf,
@@ -27,6 +28,7 @@ import {
   outputsToPick,
   primaryOf,
   readParams,
+  regradeOwed,
   rulesUnmarked,
   runLabel,
   runTitle,
@@ -34,6 +36,7 @@ import {
   scoreOver,
   setByHand,
   standingsOf,
+  toGrade,
   totalOf,
   unscoredLine,
   versionOutputs,
@@ -146,13 +149,13 @@ function runOf(
     hasTranscript: false,
     legacy: false,
   }
-  return { name, meta, report, samples: [sample], hasSkill: true }
+  return { name, meta, report, samples: [sample], hasSkill: true, cases: {} }
 }
 
 const stateOf = (runs: RunView[], packs: string[], artifact?: 'markdown'): State =>
   ({
     runs,
-    cases: [{ id: 'page', bench: artifact ? { artifact } : {} }],
+    cases: [{ id: 'page', title: '', prompt: '', bench: artifact ? { artifact } : {} }],
     config: { ...saved, packs },
     reviews: { reviews: {} },
     versions: { versions: [], current: { version: 'v2', changed: false } },
@@ -364,7 +367,7 @@ describe('standingsOf', () => {
   const on = (state: State, version: string, cases: string[] = ['page']): State =>
     ({
       ...state,
-      cases: cases.map((id) => ({ id, bench: {} })),
+      cases: cases.map((id) => ({ id, title: '', prompt: '', bench: {} })),
       versions: { versions: [], current: { version, changed: false } },
     }) as unknown as State
 
@@ -450,6 +453,214 @@ describe('scoreOver', () => {
   })
 })
 
+/** `run` with the case `page` as the run took it. */
+const taking = (
+  run: RunView,
+  taken: { ask?: string; yardstick?: string; earlier?: { title: string } | null },
+): RunView => ({
+  ...run,
+  cases: {
+    page: {
+      ask: taken.ask ?? 'now',
+      yardstick: taken.yardstick ?? 'held',
+      earlier: taken.earlier
+        ? ({ id: 'page', prompt: '', bench: {}, ...taken.earlier } as never)
+        : null,
+    },
+  },
+})
+
+/** `report` as Jev graded it, each output held to `yardstick`. */
+const heldTo = (report: Report, yardstick: string, model: string | null = 'jev'): Report =>
+  ({ model, results: report.results.map((r) => ({ ...r, yardstick })) }) as unknown as Report
+
+describe('an output whose case changed after it was graded', () => {
+  const files = [md('a.md')]
+
+  it('has no total until its run is graded again, and keeps its verdicts', () => {
+    const run = taking(runOf('r1', 'v1', files, heldTo(graded(100), 'old')), { yardstick: 'new' })
+    const [output] = outputsOf(stateOf([run], ['generic']))
+    expect(output.behind).toBe('Graded before its case changed')
+    expect(totalOf(output, saved)).toBeNull()
+    expect(scoreOf(output, saved)?.scores.adherence).toBe(100)
+    expect(regradeOwed(scoreOf(output, saved))).toBe(true)
+    expect(scoreOver([output], saved)).toBeNull()
+  })
+
+  it('stands while the case is as it was graded, and for a report that kept no record', () => {
+    const same = taking(runOf('r1', 'v1', files, heldTo(graded(100), 'held')), {})
+    const older = taking(runOf('r2', 'v1', files, graded(100)), {})
+    const outputs = outputsOf(stateOf([same, older], ['generic']))
+    expect(outputs.map((o) => totalOf(o, saved))).toEqual([100, 100])
+  })
+
+  it('is behind when graded without Jev and a key is set, and stands when none is', () => {
+    const run = taking(runOf('r1', 'v1', files, heldTo(graded(100), 'held', null)), {})
+    const state = stateOf([run], ['generic'])
+    expect(totalOf(outputsOf(state)[0], saved)).toBe(100)
+    const [keyed] = outputsOf({ ...state, jevKey: true })
+    expect(keyed.behind).toBe('Graded without Jev')
+    expect(totalOf(keyed, saved)).toBeNull()
+  })
+})
+
+/** The versions of a state whose skill stands on `version`. */
+const at = (version: string): State['versions'] =>
+  ({ versions: [], current: { version, changed: false } }) as unknown as State['versions']
+
+describe('outputs that answered different requests', () => {
+  const files = [md('a.md')]
+  const before = { title: 'Page' }
+  const old = taking(runOf('r1', 'v1', files, heldTo(graded(0), 'held')), {
+    ask: 'then',
+    earlier: before,
+  })
+  const next = taking(runOf('r2', 'v2', files, heldTo(graded(100), 'held')), {})
+  const last = taking(runOf('r3', 'v3', files, heldTo(graded(100), 'held')), {})
+
+  it('are not set against each other: no lift, and no change between them', () => {
+    const state = stateOf([old, next], ['generic'])
+    const outputs = outputsOf(state)
+    const [a, b] = outputs
+    expect(a.earlier).toMatchObject(before)
+    expect(comparable(a, b)).toBe(false)
+    const standings = standingsOf(state, outputs, saved)
+    expect(liftOf(standings)).toBeNull()
+    // The case as it stands ran once: the earlier answer is nothing it moved from.
+    expect(standings[0]).toMatchObject({ known: true, previous: null, change: null, apart: false })
+    // Each still has its own score: a run is read against the test it took.
+    expect(outputs.map((o) => totalOf(o, saved))).toEqual([0, 100])
+  })
+
+  it('are compared once two versions answered the case as it stands', () => {
+    const state = { ...stateOf([old, next, last], ['generic']), versions: at('v3') }
+    const outputs = outputsOf(state)
+    const [page] = standingsOf(state, outputs, saved)
+    expect([page.first?.version, page.latest?.version]).toEqual(['v2', 'v3'])
+    // The 0 the earlier request scored is in neither mean.
+    expect(liftOf([page])).toMatchObject({ first: 100, latest: 100, cases: 1 })
+    expect(comparable(outputs[1], outputs[2])).toBe(true)
+    // The pair a case opens with is picked among the answers to it as it stands.
+    expect(casePair(outputs, 'page')).toMatchObject({
+      a: { run: { name: 'r2' } },
+      b: { run: { name: 'r3' } },
+    })
+  })
+
+  it('opens on the earlier answers when no run has answered the case as it stands', () => {
+    const outputs = outputsOf(stateOf([old], ['generic']))
+    expect(casePair(outputs, 'page').b?.run.name).toBe('r1')
+  })
+
+  it('never compares an output Jev graded with one graded without', () => {
+    const coded = taking(runOf('r4', 'v3', files, heldTo(graded(100), 'held', null)), {})
+    const state = stateOf([next, coded], ['generic'])
+    const [a, b] = outputsOf(state)
+    expect([a.judged, b.judged]).toEqual([true, false])
+    expect(comparable(a, b)).toBe(false)
+    // The case stands on the later run, with no move read from the other, which is still not its first.
+    const [page] = standingsOf({ ...state, versions: at('v3') }, [a, b], saved)
+    expect(page.latest?.run.name).toBe('r4')
+    expect(page).toMatchObject({ previous: null, change: null, apart: true })
+    expect(liftOf([page])).toBeNull()
+  })
+
+  it('stand in rows of their own on All cases, the case as it stands first', () => {
+    const state = {
+      ...stateOf([old, next], ['generic']),
+      cases: [{ id: 'page', title: 'Page now', prompt: '', bench: {} }],
+    } as unknown as State
+    const rows = standingsOf(state, outputsOf(state), saved)
+    expect(
+      rows.map((row) => [row.title, row.known, row.earlier, row.history.map((t) => t.run.name)]),
+    ).toEqual([
+      ['Page now', true, false, ['r2']],
+      // Under the name it had when it was asked, and not one a new run can check.
+      ['Page', false, true, ['r1']],
+    ])
+    expect(new Set(rows.map((row) => row.key)).size).toBe(2)
+    // Two runs of the earlier request are a move of their own, and no part of the lift: the case counts once.
+    const again = taking(runOf('r0', 'v0', files, heldTo(graded(100), 'held')), {
+      ask: 'then',
+      earlier: before,
+    })
+    const more = { ...state, runs: [again, ...state.runs] } as State
+    const [, earlier] = standingsOf(more, outputsOf(more), saved)
+    expect(earlier).toMatchObject({ earlier: true, change: -100 })
+    expect(liftOf(standingsOf(more, outputsOf(more), saved))).toBeNull()
+  })
+
+  it('name a case since deleted by the name its run kept', () => {
+    const state = { ...stateOf([old], ['generic']), cases: [] } as unknown as State
+    const outputs = outputsOf(state)
+    expect(standingsOf(state, outputs, saved)).toMatchObject([
+      { id: 'page', title: 'Page', known: false, earlier: false },
+    ])
+    expect(caseTitle(state, 'page')).toBe('Page')
+    expect(caseTitle(state, 'gone')).toBe('gone')
+  })
+})
+
+describe('a case whose run only waits to be graded', () => {
+  const files = [md('a.md')]
+
+  it('is the newest run after the score the case stands on', () => {
+    const scored = taking(runOf('r1', 'v1', files, heldTo(graded(0), 'new')), { yardstick: 'new' })
+    // Graded before a check of the case changed: it has no score until it is graded again.
+    const stale = taking(runOf('r2', 'v2', files, heldTo(graded(100), 'old')), {
+      yardstick: 'new',
+    })
+    const state = stateOf([scored, stale], ['generic'])
+    const [page] = standingsOf(state, outputsOf(state), saved)
+    expect(page).toMatchObject({ current: false })
+    expect(page.latest?.run.name).toBe('r1')
+    expect(toGrade(page)?.run.name).toBe('r2')
+  })
+
+  it('is none for a case that stands on its newest run, and for a run that was stopped', () => {
+    const run = taking(runOf('r1', 'v2', files, heldTo(graded(100), 'held')), {})
+    const state = stateOf([run], ['generic'])
+    expect(toGrade(standingsOf(state, outputsOf(state), saved)[0])).toBeNull()
+    const cut = runOf('r2', 'v2', files)
+    const stopped = { ...cut, samples: [{ ...cut.samples[0], cut: 'stopped' as const }] }
+    const after = stateOf([stopped], ['generic'])
+    expect(toGrade(standingsOf(after, outputsOf(after), saved)[0])).toBeNull()
+  })
+})
+
+describe('a score over outputs', () => {
+  it('is none while any output that ran to its end has no total', () => {
+    const one = runOf('r1', 'v1', [md('a.md')])
+    const names = ['page-s1', 'page-s2', 'note-s1']
+    const run = {
+      ...one,
+      samples: names.map((name) => ({ ...one.samples[0], name })),
+      report: {
+        results: [resultOf('page-s1', 100), resultOf('note-s1', 0)],
+      } as unknown as Report,
+    }
+    const outputs = outputsOf(stateOf([run], ['generic']))
+    // page-s2 is not graded: a mean of the other two would pass for the run's.
+    expect(scoreOver(outputs, saved)).toBeNull()
+    expect(
+      scoreOver(
+        outputs.filter((o) => o.caseId === 'note'),
+        saved,
+      ),
+    ).toBe(0)
+  })
+
+  it('leaves out an output that was stopped: it says nothing of the skill', () => {
+    const one = runOf('r1', 'v1', [md('a.md')])
+    const run = {
+      ...one,
+      samples: [one.samples[0], { ...one.samples[0], name: 'page-s2', cut: 'stopped' as const }],
+      report: { results: [resultOf('page-s1', 100)] } as unknown as Report,
+    }
+    expect(scoreOver(outputsOf(stateOf([run], ['generic'])), saved)).toBe(100)
+  })
+})
+
 describe('an output a part of whose grading failed', () => {
   const failed = runOf('r1', 'v1', [md('a.md')], graded(100, ['generic pack failed: no network']))
   const whole = runOf('r2', 'v1', [md('a.md')], graded(0))
@@ -460,11 +671,13 @@ describe('an output a part of whose grading failed', () => {
     expect(totalOf(broken, saved)).toBeNull()
     expect(scoreOf(broken, saved)?.scores.adherence).toBe(100)
     expect(scoreOf(broken, saved)?.verdicts[0].text).toBe('Grading failed: no network')
-    expect(gradingFailed(scoreOf(broken, saved))).toBe(true)
-    expect(gradingFailed(scoreOf(fine, saved))).toBe(false)
-    expect(gradingFailed(null)).toBe(false)
-    // Counted in, its 100 from the rules alone would lift the version to 50.
-    expect(versionScore(outputs, saved, 'v1')).toBe(0)
+    expect(regradeOwed(scoreOf(broken, saved))).toBe(true)
+    expect(regradeOwed(scoreOf(fine, saved))).toBe(false)
+    expect(regradeOwed(null)).toBe(false)
+    // Counted in, its 100 from the rules alone would lift the version to 50. Left out, the
+    // version would read 0 from one answer of two: it has no score until both are graded.
+    expect(versionScore(outputs, saved, 'v1')).toBeNull()
+    expect(scoreOver([fine], saved)).toBe(0)
   })
 })
 
@@ -642,6 +855,10 @@ function attemptOf(run: RunView, index = 1, samples = 1, model = 'opus'): Output
     cut: null,
     corrections: {},
     primary: null,
+    ask: '',
+    earlier: null,
+    judged: true,
+    behind: null,
   }
 }
 

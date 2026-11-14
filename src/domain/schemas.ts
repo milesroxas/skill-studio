@@ -273,6 +273,13 @@ export interface ReportResult {
   pixels?: [number, number] | null
   /** The size the case asked for (`bench.size`), as it stood at grading. */
   size?: [number, number] | null
+  /**
+   * A fingerprint of what the output was held to: its case's checks and
+   * settings as they stood at grading (`RunCase.yardstick`). A grading whose
+   * fingerprint is no longer the case's is behind it, and its total does not
+   * stand. A report written before gradings kept one has none.
+   */
+  yardstick?: string
   /** Raw pack answers keyed by pack id. Thresholds apply later, in core. */
   packs: Record<string, unknown>
   scores: Scores

@@ -9,6 +9,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 ### Added
 
 - **Keyboard shortcuts** you can change. **1**, **2** and **3** go to Skill, Cases and Results, **R** opens Run, and **?** shows every shortcut. Change any of them in **Settings**, under **Keyboard shortcuts**: click one and press the new keys. A shortcut without Cmd (Ctrl on Windows) waits while you type in a field.
+- **Grade N runs** on **All cases**, when some answers have no score they could have. One click grades every run that needs it. A case whose newest run only waits to be graded says **Needs grading**, and offers to grade that run when you click it.
 
 ### Changed
 
@@ -16,16 +17,25 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - **All cases** on Results is read by case, not by run. Each case is one row: its last run, its score, and how the score changed from the run before. Before, every run was a column, so a skill with many runs scrolled sideways and a run of one case left **Not run** in every other row.
 - You no longer have to run every case each time. A case is compared with its own earlier runs, whatever versions and models they used.
 - **Lift**, at the top of All cases, sets the average of the cases' first scores against the average of their latest. Before, it compared two whole runs, and a run of one case stood for the whole skill.
-- Under the lift, a line says how many cases have run on the version a run would test now. While some have not, it is a dark band with a button, such as **Run the other 4 on v3**, that opens Run with only those cases ticked.
+- Under the lift, a line says how many cases have run on the version a run would test now. While some have not, it is a dark band with a button, such as **Run the other 4 on v3**, that opens Run with only those cases ticked. A case that has run on that version and only waits to be graded is not run again: the band says how many wait, and grades them once no other case is left.
 - A score from before your last edit to the skill is drawn as an outline with no fill, on All cases and in the list on the left, until that case runs again.
 - Cases are grouped: the ones checked on the current version, then the ones that are not. In each group the cases that dropped come first.
 - Click a case on All cases to see where it stands in one sentence, the first things its answer missed, the next step, and its other runs.
 - A long list of cases shows the first 8 of each group, with **Show more** and a **Find a case** field. The column heads stay in view as you scroll. **Runs** shows the newest 5, and each run says which case it answered.
 - A case's change is read against its last run by the same model where there is one, so a switch of model is not read as a change in the skill.
+- A run remembers the cases it answered. When you change a case's prompt or its files, the answers written before keep their scores and are shown apart, under **Answered before the case changed** on **All cases**. They are no longer compared with answers to the new prompt, and each shows the prompt it was given. The same holds for a case you delete.
+- An answer has no score while its grading is out of date: after you add or change a check, after you change what the skill is graded as, or when it was graded without Jev and you have since added a key. It says which, and **Grade** brings the score back. Before, old and new scores were shown side by side as if they measured the same thing.
+- A score over several answers shows only once every one of them is graded. Before, an answer whose grading had failed was left out without a word, so a score could cover fewer answers than it seemed to.
 
 ### Removed
 
 - The line of rules and checks added up for the latest version, at the top of All cases. A version's detail on the Skill screen still shows it.
+
+### Fixed
+
+- Grading a run again no longer holds an old answer to a prompt you edited after it was written.
+- **Lift** and a case's change are read only between answers to the same prompt, graded the same way: both by Jev, or both without.
+- A version's score is read from one model across versions whenever that model ran two of them on a case in common. Before, an early run that shared no case with the latest stood in the way.
 
 ## [0.13.4] - 2026-11-14
 

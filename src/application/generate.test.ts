@@ -162,6 +162,23 @@ describe('generateRun', () => {
     expect(meta.finishedAt).not.toBeNull()
   })
 
+  it('keeps its cases, so a prompt or a file changed since is told from what it was asked', async () => {
+    const engine = engineThat((cwd) => writeFileSync(join(cwd, 'outputs/note.md'), 'A note.'))
+    const { name, dir } = await generateRun(options(engine, 1))
+    expect(
+      readJson<Array<{ case: { prompt: string } }>>(join(dir, '_cases.json'), []),
+    ).toMatchObject([{ case: { id: 'note', prompt: 'Write a note.' } }])
+    // Nothing changed: the run answered the case as the skill asks it.
+    expect(readRun(skill, name).cases.note.earlier).toBeNull()
+    writeFileSync(join(skill, 'evals/cases/note/files/input.txt'), 'second input')
+    expect(readRun(skill, name).cases.note.earlier?.prompt).toBe('Write a note.')
+    writeFileSync(join(skill, 'evals/cases/note/files/input.txt'), 'first input')
+    writeFileSync(join(skill, 'evals/cases/note/prompt.md'), 'Write a longer note.')
+    expect(readRun(skill, name).cases.note.earlier?.prompt).toBe('Write a note.')
+    rmSync(join(skill, 'evals/cases/note'), { recursive: true })
+    expect(readRun(skill, name).cases.note.earlier?.prompt).toBe('Write a note.')
+  })
+
   it('names the run before any agent starts, and keeps a folder of inputs even with none', async () => {
     rmSync(join(skill, 'evals/cases/note/files'), { recursive: true })
     const order: string[] = []

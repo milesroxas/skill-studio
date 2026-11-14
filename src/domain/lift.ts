@@ -18,7 +18,13 @@ export interface VersionRun {
   writer: string
   configuration: Configuration
   createdAt: string
-  /** The mean total of each case's graded outputs, out of 100, by case id. A case with none graded is absent. */
+  /**
+   * The mean total of each case's outputs, out of 100, by the case as it was
+   * asked and graded: the caller keys each by its id, what the agent was asked
+   * and whether Jev graded it, so a run that answered an earlier prompt, or
+   * was graded another way, shares no case with one that did not. A case is
+   * absent when any of its outputs has no total.
+   */
   cases: Readonly<Record<string, number>>
 }
 
@@ -47,17 +53,21 @@ const oldest = (a: VersionRun, b: VersionRun): VersionRun => (b.createdAt < a.cr
 
 const graded = (run: VersionRun): boolean => Object.keys(run.cases).length > 0
 
-/** The run answered case `id`. Its own key only: `constructor` is a name every object answers to. */
+/** The run has a score on case `id`. Its own key only: `constructor` is a name every object answers to. */
 const has = (run: VersionRun, id: string): boolean => Object.hasOwn(run.cases, id)
 
-/** The case ids both runs answered. */
+/** The cases both runs have a score on. */
 const shared = (a: VersionRun, b: VersionRun): string[] =>
   Object.keys(a.cases).filter((id) => has(b, id))
 
 /**
- * One writer's oldest run on its lowest version and its newest run on its
- * highest, for the writer whose newest run is the newest of all. Null until a
- * writer has run two versions with a case in common.
+ * One writer's newest run on its highest version, and its oldest run on the
+ * lowest version that has a case in common with that one, for the writer whose
+ * newest run is the newest of all. A run on an earlier version that shares no
+ * case with the latest, because it answered other cases or the same ones
+ * before they changed, is no measure of it, and does not stand in the way of a
+ * later one that is. Null until a writer has run two versions with a case in
+ * common.
  */
 function versionPair(
   runs: readonly VersionRun[],
@@ -69,13 +79,13 @@ function versionPair(
 
   let pick: { first: VersionRun; latest: VersionRun } | null = null
   for (const list of writers.values()) {
-    const numbers = list.map((r) => versionNumber(r.version) as number)
-    const low = Math.min(...numbers)
-    const high = Math.max(...numbers)
-    if (low === high) continue
-    const first = list.filter((r) => versionNumber(r.version) === low).reduce(oldest)
-    const latest = list.filter((r) => versionNumber(r.version) === high).reduce(newest)
-    if (!shared(first, latest).length) continue
+    const number = (run: VersionRun) => versionNumber(run.version) as number
+    const high = Math.max(...list.map(number))
+    const latest = list.filter((r) => number(r) === high).reduce(newest)
+    const before = list.filter((r) => number(r) < high && shared(r, latest).length)
+    if (!before.length) continue
+    const low = Math.min(...before.map(number))
+    const first = before.filter((r) => number(r) === low).reduce(oldest)
     if (!pick || latest.createdAt > pick.latest.createdAt) pick = { first, latest }
   }
   return pick

@@ -18,9 +18,9 @@ import { NOTES_FILE } from '@domain/prompt.ts'
 import type { Rule } from '@domain/rules.ts'
 import { parseSampleDir } from '@domain/run-name.ts'
 import type { Artifact, BenchConfig, Case, Report, ReportResult } from '@domain/schemas.ts'
-import { scoreResult } from '@domain/scoring.ts'
+import { behindOf, scoreResult } from '@domain/scoring.ts'
 import { copyOf, pageText, unitsOf, words } from '@domain/text.ts'
-import type { Sample } from '@domain/views.ts'
+import type { RunCase, Sample } from '@domain/views.ts'
 import { benchPath, findCase, loadCases, loadRules } from '@infrastructure/cases.ts'
 import { commandRunner } from '@infrastructure/exec.ts'
 import {
@@ -33,6 +33,7 @@ import {
   writeText,
 } from '@infrastructure/fs.ts'
 import { readPng } from '@infrastructure/png.ts'
+import { type KeptCase, keptCases, takenCase } from '@infrastructure/run-cases.ts'
 import {
   anchorsDir,
   finishedSamples,
@@ -101,7 +102,13 @@ interface JudgeCache {
 }
 
 interface GradeContext {
+  /** The skill's cases as they are now. */
   cases: Case[]
+  /**
+   * The cases the run kept as it started: what its agents were asked. Null for
+   * anchors, and for a run made before runs kept them.
+   */
+  kept: KeptCase[] | null
   rules: Rule[]
   /** The SKILL.md the rules were read from; null when `bench.json` lists them or there is none. */
   skill: string | null
@@ -147,6 +154,8 @@ interface RunCopies {
   inputs: string | null
   /** The skill as the agents got it, whose rules the run is graded on; null for a run that kept none. */
   skill: string | null
+  /** Its cases as the agents were asked them; null for a run that kept none. */
+  cases: KeptCase[] | null
 }
 
 /** A page drawn at each size, with a hash of each picture so an answer about it is kept by what it saw. */
@@ -617,11 +626,25 @@ function untilStopped<T>(work: Promise<T>, signal: AbortSignal | undefined): Pro
   })
 }
 
+/**
+ * The case an output is graded on. While the skill's case asks what the run
+ * was asked, it is the skill's, so its checks are read as they are now. Once
+ * its prompt or files have changed, or the case is gone, it is the run's own
+ * copy: an output is never held to a request its agent did not get.
+ */
+function caseOf(subject: Subject, ctx: GradeContext) {
+  const live = findCase(ctx.cases, subject.caseRef, { fileName: subject.caseFromFileName })
+  const id = live?.id ?? subject.caseRef
+  const kept = ctx.kept?.find((entry) => entry.case.id === id) ?? null
+  return takenCase(ctx.judge.skillDir, kept, live)
+}
+
 async function gradeSubject(
   subject: Subject,
   ctx: GradeContext,
 ): Promise<{ result: ReportResult; unchanged: boolean }> {
-  const testCase = findCase(ctx.cases, subject.caseRef, { fileName: subject.caseFromFileName })
+  const taken = caseOf(subject, ctx)
+  const testCase = taken?.case ?? null
   const input = judgeInput(ctx, subject, testCase, (line) =>
     ctx.judge.log(`${subject.name}: ${line}`),
   )
@@ -718,6 +741,8 @@ async function gradeSubject(
     size: testCase?.bench.size ?? null,
     // A text output with nothing but whitespace in it is no output; a picture always is one.
     blank: primary !== null && primary.kind !== 'image' && !input.text.trim(),
+    // What the output was held to, so a grading made before its case changed is told from one made since.
+    ...(taken ? { yardstick: taken.yardstick } : {}),
     packs,
   }
   // The failures go in with the output: one a pack failed on has no total, and its flags open with why.
@@ -753,8 +778,8 @@ function keptAnswers(cache: JudgeCache, perGrading: number): Record<string, unkn
  * output, the report there stays as it was. The cache is written either way,
  * with every sample judged whole before the stop, so an answer already paid
  * for is never asked for twice. `run` is the run graded and what it kept of
- * the moment it started; anchors have none, and are graded on the skill as it
- * is now.
+ * the moment it started; anchors have none, and are graded on the skill and
+ * the cases as they are now.
  */
 async function gradeSubjects(
   skillDir: string,
@@ -774,6 +799,7 @@ async function gradeSubjects(
   const ruled = run?.skill ?? skillDir
   const ctx: GradeContext = {
     cases: loadCases(skillDir),
+    kept: run?.cases ?? null,
     rules: loadRules(ruled, config),
     skill: config.rules?.length ? null : skillText(ruled),
     packs,
@@ -938,6 +964,7 @@ export async function gradeRun(
     name: run,
     inputs: isDir(inputs) ? inputs : null,
     skill: isFile(join(skill, 'SKILL.md')) ? skill : null,
+    cases: keptCases(dir),
   })
 }
 
@@ -1013,12 +1040,16 @@ export function compareReports(before: Report, after: Report): CompareRow[] {
  * A report as the app shows it: each output's stored answers scored under the
  * skill's `bench.json` as it is now, with the call's overrides laid over it,
  * and without the reader's corrections. So what `st report` and `st compare`
- * print follows a setting changed since the grading, as Results does.
+ * print follows a setting changed since the grading, as Results does. Given
+ * the run's `cases` (`RunView.cases`), an output graded before its case's
+ * checks or settings changed has no total, as in the app. A grading without
+ * Jev is one the command line asks for by name, so here it stands.
  */
 export function scoredReport(
   skillDir: string,
   report: Report,
   options: Pick<GradeOptions, 'packs' | 'config'> = {},
+  cases: Readonly<Record<string, RunCase>> = {},
 ): Report {
   const config = benchFor(skillDir, options)
   return {
@@ -1026,7 +1057,12 @@ export function scoredReport(
     config,
     packs: config.packs,
     results: report.results.map((result) => {
-      const { scores, flags, confidence } = scoreResult(result, config, scorers)
+      const taken = result.case !== null && Object.hasOwn(cases, result.case)
+      const behind = behindOf(
+        { yardstick: result.yardstick, model: report.model },
+        { yardstick: taken ? cases[result.case as string].yardstick : null, jev: false },
+      )
+      const { scores, flags, confidence } = scoreResult(result, config, scorers, undefined, behind)
       return { ...result, scores, flags, confidence }
     }),
   }

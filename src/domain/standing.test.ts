@@ -6,6 +6,7 @@ const at = (version: string, score: number | null, over: Partial<Try> = {}): Try
   configuration: 'with_skill',
   writer: 'claude:sonnet',
   createdAt: `2026-11-${String(Number(version.slice(1)) + 1).padStart(2, '0')}T10:00:00Z`,
+  graded: 'jev',
   score,
   ...over,
 })
@@ -80,6 +81,26 @@ describe('standingOf', () => {
     expect(only.floor?.score).toBe(55)
   })
 
+  it('reads a move only between runs graded the same way', () => {
+    const plain = at('v0', 40, { graded: 'plain' })
+    const standing = standingOf([plain, at('v1', 70), at('v2', 90)], 'v2')
+    expect(standing.first?.version).toBe('v1')
+    expect(standing.change).toBe(20)
+    // With nothing graded as the latest was, it has no move, and is still not the first run.
+    const alone = standingOf([plain, at('v1', 70)], 'v1')
+    expect(alone).toMatchObject({ previous: null, change: null, apart: true })
+    expect(alone.first).toBe(alone.latest)
+    expect(standingOf([at('v1', 70)], 'v1').apart).toBe(false)
+  })
+
+  it('takes the floor from a run without the skill graded as the latest was', () => {
+    const plain = { ...bare(30, '2026-11-09T09:00:00Z'), graded: 'plain' }
+    expect(standingOf([bare(55), plain, at('v1', 80)], 'v1').floor?.score).toBe(55)
+    expect(standingOf([plain, at('v1', 80)], 'v1').floor).toBeNull()
+    // With no run of the skill to be set against, any floor stands.
+    expect(standingOf([plain], 'v1').floor?.score).toBe(30)
+  })
+
   it('has no standing for a case never run', () => {
     expect(standingOf([], 'v1')).toMatchObject({ tries: [], latest: null, floor: null })
   })
@@ -125,6 +146,12 @@ describe('caseLift', () => {
       floor: null,
       floorCases: 0,
     })
+  })
+
+  it('leaves out a case whose two runs were graded two ways', () => {
+    expect(
+      caseLift([standingOf([at('v0', 60, { graded: 'plain' }), at('v1', 80)], 'v1')]),
+    ).toBeNull()
   })
 
   it('says when a case’s first and latest runs had different writers', () => {

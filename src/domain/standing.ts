@@ -18,7 +18,17 @@ export interface Try {
   writer: string
   /** When its run started. */
   createdAt: string
-  /** The mean total of the case's graded outputs in the run, out of 100; null when none is graded. */
+  /**
+   * How its run was graded, as one key: with Jev, or without. A grading without
+   * Jev counts a score from other parts, so two scores are set against each
+   * other only when their runs were graded the same way.
+   */
+  graded: string
+  /**
+   * The mean total of the case's outputs in the run, out of 100. Null when
+   * none is graded, and when any that ran to its end has no total: a mean over
+   * the rest is not the run's score on the case.
+   */
   score: number | null
 }
 
@@ -32,17 +42,26 @@ export interface Standing<T extends Try = Try> {
    */
   latest: T | null
   /**
-   * The scored run `latest` moved from: the one before it by the same writer,
-   * so the move read is the skill's and not the model's; with none, the one
-   * before it by anyone.
+   * The scored run `latest` moved from, among the ones graded as it was: the
+   * one before it by the same writer, so the move read is the skill's and not
+   * the model's; with none, the one before it by anyone.
    */
   previous: T | null
-  /** The first scored run with the skill: where the case started. */
+  /** The first scored run with the skill that was graded as `latest` was: where the case started. */
   first: T | null
-  /** The newest scored run without the skill: the score the skill has to beat on this case. */
+  /**
+   * The newest scored run without the skill, graded as `latest` was: the score
+   * the skill has to beat on this case. Before any run with the skill has a
+   * score, the newest scored run without it.
+   */
   floor: T | null
   /** How far `latest` moved from `previous`, in the whole points shown; null with nothing to move from. */
   change: number | null
+  /**
+   * A run before `latest` has a score, and none of them was graded as it was:
+   * `latest` is not the case's first run, and there is still no move to read.
+   */
+  apart: boolean
   /** `latest` is on the version asked about: the case is checked on the skill as it is now. */
   current: boolean
 }
@@ -54,26 +73,34 @@ const inOrder = <T extends Try>(a: T, b: T): number =>
   (versionNumber(a.version) as number) - (versionNumber(b.version) as number) ||
   a.createdAt.localeCompare(b.createdAt)
 
-/** Where one case stands on `version`, from every run that answered it. */
+/**
+ * Where one case stands on `version`, from every run that answered it. The
+ * runs are answers to one request: the caller hands in only the ones asked
+ * the same prompt with the same files.
+ */
 export function standingOf<T extends Try>(all: readonly T[], version: string): Standing<T> {
   const tries = all.filter(testedVersion).sort(inOrder)
   const marks = scored(tries)
   const here = marks.filter((t) => t.version === version)
   const latest = here.at(-1) ?? marks.at(-1) ?? null
-  const before = latest ? marks.slice(0, marks.indexOf(latest)) : []
+  /** Graded as `latest` was; every run while there is no `latest`. */
+  const alike = (t: T): boolean => latest === null || t.graded === latest.graded
+  const earlier = latest ? marks.slice(0, marks.indexOf(latest)) : []
+  const before = earlier.filter(alike)
   const previous = before.findLast((t) => t.writer === latest?.writer) ?? before.at(-1) ?? null
   const floor =
-    scored(all.filter((t) => t.configuration === 'without_skill'))
+    scored(all.filter((t) => t.configuration === 'without_skill' && alike(t)))
       .sort((a, b) => a.createdAt.localeCompare(b.createdAt))
       .at(-1) ?? null
   return {
     tries,
     latest,
     previous,
-    first: marks[0] ?? null,
+    first: before[0] ?? latest,
     floor,
     change:
       latest && previous ? pointsMoved(previous.score as number, latest.score as number) : null,
+    apart: earlier.length > 0 && before.length === 0,
     current: latest !== null && latest.version === version,
   }
 }

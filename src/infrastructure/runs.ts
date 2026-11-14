@@ -7,11 +7,13 @@
 import { readFileSync, statSync } from 'node:fs'
 import { join } from 'node:path'
 import { parseSampleDir } from '@domain/run-name.ts'
-import type { Artifact, Report, RunMeta, SampleMeta } from '@domain/schemas.ts'
+import type { Artifact, Case, Report, RunMeta, SampleMeta } from '@domain/schemas.ts'
 import { metaList, metaText, readFrontMatter } from '@domain/text.ts'
 import type { FileHead, RunView, Sample } from '@domain/views.ts'
 import { detectArtifacts } from './artifacts.ts'
+import { loadCases } from './cases.ts'
 import { assertInside, isDir, isFile, listDirs, listFiles, readJson } from './fs.ts'
+import { runCases } from './run-cases.ts'
 import { skillFiles, skillVersions } from './skill.ts'
 import { readTranscript } from './transcript.ts'
 import { isVersionLabel, savedVersionSource, savedVersions } from './versions.ts'
@@ -223,7 +225,12 @@ export function readRunMeta(skillDir: string, name: string): RunMeta | null {
   }
 }
 
-export function readRun(skillDir: string, name: string): RunView {
+/** A run as every interface reads it. `live` is the skill's cases as they are now, read once for a list of runs. */
+export function readRun(
+  skillDir: string,
+  name: string,
+  live: readonly Case[] = loadCases(skillDir),
+): RunView {
   const dir = runDir(skillDir, name)
   return {
     name,
@@ -231,19 +238,21 @@ export function readRun(skillDir: string, name: string): RunView {
     report: readRunJson<Report | null>(join(dir, 'report.json'), null),
     samples: runSamples(dir),
     hasSkill: isDir(skillCopy(skillDir, name)),
+    cases: runCases(skillDir, dir, live),
   }
 }
 
 /** Every run of the skill. One that cannot be read is left out, with a warning, and the rest are listed. */
-export const listRuns = (skillDir: string): RunView[] =>
-  listDirs(runsDir(skillDir)).flatMap((name) => {
+export function listRuns(skillDir: string, live: readonly Case[] = loadCases(skillDir)): RunView[] {
+  return listDirs(runsDir(skillDir)).flatMap((name) => {
     try {
-      return [readRun(skillDir, name)]
+      return [readRun(skillDir, name, live)]
     } catch (error) {
       console.warn(`Run ${name} could not be read: ${(error as Error).message}`)
       return []
     }
   })
+}
 
 const runMetas = (skillDir: string): RunMeta[] =>
   listDirs(runsDir(skillDir)).flatMap((name) => {

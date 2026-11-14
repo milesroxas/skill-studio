@@ -31,12 +31,39 @@ export interface Sample {
   cut?: 'stopped' | 'unlisted'
 }
 
+/**
+ * A case as one run takes it: what its agents were asked, and what a grading
+ * of the run now holds their outputs to.
+ */
+export interface RunCase {
+  /**
+   * A fingerprint of what the run's agents were asked: the prompt and the
+   * files that came with it. Two runs with the same one answered the same
+   * thing, so only their scores are set against each other.
+   */
+  ask: string
+  /** A fingerprint of what a grading now holds an output to: the case's checks and its settings. */
+  yardstick: string
+  /**
+   * The run's own copy of the case, when the skill no longer asks what the run
+   * was asked: its prompt or its files changed since, or the case is gone.
+   * The run is graded on this copy. Null while the skill's case is the one
+   * the run answered.
+   */
+  earlier: Case | null
+}
+
 export interface RunView {
   name: string
   meta: RunMeta | null
   report: Report | null
   samples: Sample[]
   hasSkill: boolean
+  /**
+   * Each case the run takes, by id (`RunCase`). A case since deleted is absent
+   * for a run that kept no copy of its cases.
+   */
+  cases: Record<string, RunCase>
 }
 
 export interface SkillVersion {

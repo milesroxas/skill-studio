@@ -1,0 +1,213 @@
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { loadCases } from './cases.ts'
+import { readJson } from './fs.ts'
+import {
+  askOf,
+  CASES_FILE,
+  keepCases,
+  keptCases,
+  runCases,
+  takenCase,
+  yardstickOf,
+} from './run-cases.ts'
+
+let dir: string
+let run: string
+beforeEach(() => {
+  dir = mkdtempSync(join(tmpdir(), 'st-run-cases-'))
+  run = join(dir, 'evals/runs/r1')
+  mkdirSync(run, { recursive: true })
+  writeCase('email', 'Write the email.')
+})
+afterEach(() => rmSync(dir, { recursive: true, force: true }))
+
+const caseDir = (id: string) => join(dir, 'evals/cases', id)
+
+function writeCase(id: string, prompt: string): void {
+  mkdirSync(caseDir(id), { recursive: true })
+  writeFileSync(join(caseDir(id), 'prompt.md'), prompt)
+}
+
+function writeFile(id: string, name: string, text: string): void {
+  mkdirSync(join(caseDir(id), 'files'), { recursive: true })
+  writeFileSync(join(caseDir(id), 'files', name), text)
+}
+
+function writeCheck(id: string, name: string, statement: string, weight = 1): void {
+  mkdirSync(join(caseDir(id), 'graders'), { recursive: true })
+  writeFileSync(
+    join(caseDir(id), 'graders', `${name}.md`),
+    `---\ntype: llm\nweight: ${weight}\n---\n${statement}\n`,
+  )
+}
+
+const email = () => {
+  const found = loadCases(dir).find((c) => c.id === 'email')
+  if (!found) throw new Error('no email case')
+  return found
+}
+
+describe('askOf', () => {
+  it('changes with the prompt and with a file’s bytes, and with nothing else of the case', () => {
+    writeFile('email', 'brief.md', 'One line.')
+    const asked = askOf(dir, email())
+    writeCheck('email', '01-short', 'It is under 50 words.')
+    writeFileSync(
+      join(caseDir('email'), 'case.yaml'),
+      'title: A new name\nbench:\n  words: [1, 50]\n',
+    )
+    expect(askOf(dir, email())).toBe(asked)
+
+    writeFile('email', 'brief.md', 'Two lines.')
+    const edited = askOf(dir, email())
+    expect(edited).not.toBe(asked)
+    writeCase('email', 'Write the email, briefly.')
+    expect(askOf(dir, email())).not.toBe(edited)
+  })
+
+  it('reads a file that is gone as missing, and a prompt by its text whatever space is around it', () => {
+    const asked = askOf(dir, email())
+    expect(askOf(dir, { ...email(), prompt: '  Write the email.\n' })).toBe(asked)
+    expect(askOf(dir, { ...email(), files: ['evals/cases/email/files/gone.md'] })).not.toBe(asked)
+  })
+})
+
+describe('yardstickOf', () => {
+  it('changes with a check’s words or weight and with the case’s settings, not with the prompt', () => {
+    writeCheck('email', '01-short', 'It is under 50 words.')
+    const held = yardstickOf(dir, email())
+    writeCase('email', 'Write another email.')
+    expect(yardstickOf(dir, email())).toBe(held)
+
+    writeCheck('email', '01-short', 'It is under 50 words.', 2)
+    const doubled = yardstickOf(dir, email())
+    expect(doubled).not.toBe(held)
+    writeCheck('email', '02-greets', 'It greets the reader by name.')
+    const added = yardstickOf(dir, email())
+    expect(added).not.toBe(doubled)
+    writeFileSync(join(caseDir('email'), 'case.yaml'), 'bench:\n  words: [1, 50]\n')
+    expect(yardstickOf(dir, email())).not.toBe(added)
+  })
+
+  it('is the same whatever a check’s file is called and whatever order the checks come in', () => {
+    writeCheck('email', '01-short', 'It is under 50 words.')
+    writeCheck('email', '02-greets', 'It greets the reader by name.')
+    const held = yardstickOf(dir, email())
+    rmSync(join(caseDir('email'), 'graders'), { recursive: true })
+    writeCheck('email', '01-hello', 'It greets the reader by name.')
+    writeCheck('email', '02-brief', 'It is under 50 words.')
+    expect(yardstickOf(dir, email())).toBe(held)
+  })
+})
+
+describe('the cases a run keeps', () => {
+  it('are the cases as the run started, each with what it asked', () => {
+    keepCases(dir, run, loadCases(dir))
+    const kept = keptCases(run)
+    expect(kept?.map((entry) => entry.case.id)).toEqual(['email'])
+    expect(kept?.[0].case.prompt).toBe('Write the email.')
+    expect(kept?.[0].ask).toBe(askOf(dir, email()))
+  })
+
+  it('is none for a run that kept no file, and passes over an entry that names no case', () => {
+    expect(keptCases(run)).toBeNull()
+    keepCases(dir, run, loadCases(dir))
+    const file = join(run, CASES_FILE)
+    const held = readJson<unknown[]>(file, [])
+    writeFileSync(
+      file,
+      JSON.stringify([
+        ...held,
+        null,
+        { ask: 'x' },
+        { ask: 'x', case: { id: '../up', prompt: 'p' } },
+      ]),
+    )
+    expect(keptCases(run)?.map((entry) => entry.case.id)).toEqual(['email'])
+    writeFileSync(file, '{ torn')
+    expect(keptCases(run)).toBeNull()
+  })
+
+  it('reads a case written by hand into shapes every reader can use', () => {
+    writeFileSync(
+      join(run, CASES_FILE),
+      JSON.stringify([
+        {
+          ask: 'a',
+          case: {
+            id: 'note',
+            prompt: 'Write it.',
+            graders: [{ statement: 'Short.', weight: 99 }, 'x'],
+            bench: { size: 'big' },
+          },
+        },
+      ]),
+    )
+    const [entry] = keptCases(run) ?? []
+    expect(entry.case).toMatchObject({
+      title: 'note',
+      files: [],
+      bench: {},
+      settings: { tags: [], allowedTools: null },
+    })
+    expect(entry.case.graders).toHaveLength(1)
+    expect(entry.case.graders[0]).toMatchObject({ statement: 'Short.', image: null, type: 'llm' })
+    expect(entry.case.graders[0].weight).toBeLessThan(99)
+  })
+})
+
+describe('takenCase', () => {
+  it('is the skill’s case, checks as they are now, while it asks what the run was asked', () => {
+    keepCases(dir, run, loadCases(dir))
+    const [kept] = keptCases(run) ?? []
+    writeCheck('email', '01-short', 'It is under 50 words.')
+    const taken = takenCase(dir, kept, email())
+    expect(taken?.earlier).toBeNull()
+    expect(taken?.case.graders).toHaveLength(1)
+    expect(taken?.yardstick).toBe(yardstickOf(dir, email()))
+  })
+
+  it('is the run’s own copy, whole, once the prompt changed or the case is gone', () => {
+    writeCheck('email', '01-short', 'It is under 50 words.')
+    keepCases(dir, run, loadCases(dir))
+    const [kept] = keptCases(run) ?? []
+    writeCase('email', 'Write a letter.')
+    writeCheck('email', '02-letter', 'It is a letter.')
+    const edited = takenCase(dir, kept, email())
+    expect(edited?.earlier?.prompt).toBe('Write the email.')
+    expect(edited?.case.graders.map((g) => g.statement)).toEqual(['It is under 50 words.'])
+    expect(edited?.ask).toBe(kept.ask)
+    expect(takenCase(dir, kept, null)?.earlier?.prompt).toBe('Write the email.')
+  })
+
+  it('is the skill’s case as it is for a run that kept none, and nothing with neither', () => {
+    expect(takenCase(dir, null, email())).toMatchObject({ earlier: null, ask: askOf(dir, email()) })
+    expect(takenCase(dir, null, null)).toBeNull()
+  })
+})
+
+describe('runCases', () => {
+  it('lists each case a run kept, and marks the ones the skill no longer asks', () => {
+    writeCase('note', 'Write the note.')
+    keepCases(dir, run, loadCases(dir))
+    writeCase('email', 'Write a letter.')
+    rmSync(caseDir('note'), { recursive: true })
+    writeCase('later', 'Added after the run.')
+    const cases = runCases(dir, run, loadCases(dir))
+    expect(Object.keys(cases).sort()).toEqual(['email', 'note'])
+    expect(cases.email.earlier?.prompt).toBe('Write the email.')
+    expect(cases.note.earlier?.prompt).toBe('Write the note.')
+  })
+
+  it('reads a run that kept no cases against the skill’s cases as they are', () => {
+    const cases = runCases(dir, run, loadCases(dir))
+    expect(cases.email).toEqual({
+      ask: askOf(dir, email()),
+      yardstick: yardstickOf(dir, email()),
+      earlier: null,
+    })
+  })
+})

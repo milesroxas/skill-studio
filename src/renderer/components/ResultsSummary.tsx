@@ -4,6 +4,10 @@
  * the runs themselves, and the kind of work the skill is graded as. The
  * comparison of one case shows what changed; this answers "did my edits help,
  * and what is left to check", and is where a run is graded again or its cost read.
+ *
+ * A run with an output that has no score a grading would give it is graded
+ * from here: one button over Runs grades every such run, an opened case
+ * grades its own, and the band asks for it once nothing is left to run.
  */
 import { isMissed } from '@domain/pack.ts'
 import { Fragment, useEffect, useRef, useState } from 'react'
@@ -31,6 +35,8 @@ import {
   scoreOf,
   scoreOver,
   stamp,
+  toGrade,
+  totalOf,
 } from '../model.ts'
 import { CaseStandings } from './CaseStandings.tsx'
 import { Coverage } from './Coverage.tsx'
@@ -111,11 +117,43 @@ export function ResultsSummary({ ctx, standings }: { ctx: Ctx; standings: CaseSt
   const cases = standings.filter((s) => s.known)
   const behind = cases.filter((s) => !s.current)
 
+  const titleOf = (run: string) => `Grade ${run}`
+  const grading = (run: string) =>
+    grade.busy(titleOf(run)) || gradingRun(jobs, state.skill.path, run)
   const regrade = (run: string) =>
-    void grade.start([`Grade ${run}`], async () => {
+    void grade.start([titleOf(run)], async () => {
       await api.grade(run)
       report(`Grading ${run}`)
     })
+  // Runs with an output that has no score a grading would give it: one never graded, one whose
+  // grading failed part way, or one graded before its case or the kinds the skill is graded as changed.
+  // Without a key a grading would drop what Jev marked, so a run he graded is left to its own Regrade.
+  const owed = runs
+    .filter((run) => state.jevKey || !run.report?.model)
+    .filter((run) => (byRun.get(run.name) ?? []).some((o) => !o.cut && totalOf(o, config) === null))
+    .map((run) => run.name)
+    .filter((run) => !writingRun(jobs, state.skill.path, run))
+  const gradeRuns = (names: string[]) => {
+    const idle = names.filter((run) => !grading(run))
+    if (!idle.length) return
+    void grade.start(idle.map(titleOf), async () => {
+      for (const run of idle) await api.grade(run)
+      report(`Grading ${plural(idle.length, 'run')}`)
+    })
+  }
+  const gradeFrom = {
+    owed: new Set(owed),
+    busy: grading,
+    waiting: grade.starting(),
+    start: regrade,
+  }
+  // The cases behind whose run on this version only waits to be graded: grading checks them, a run would repeat it.
+  const waiting = behind.filter((s) => {
+    const run = toGrade(s)
+    return run?.version === version && gradeFrom.owed.has(run.run.name)
+  })
+  const waitingRuns = [...new Set(waiting.map((s) => toGrade(s)?.run.name as string))]
+  const unrun = behind.filter((s) => !waiting.includes(s))
 
   /** What a run answered, for the line under its name: the one case by its title, or how many. */
   const answered = (mine: Output[]): string | null => {
@@ -146,7 +184,14 @@ export function ResultsSummary({ ctx, standings }: { ctx: Ctx; standings: CaseSt
               total={cases.length}
               version={version}
               scored={behind.some((s) => s.latest !== null)}
-              onRun={() => runCases(behind.map((s) => s.id))}
+              onRun={() => runCases(unrun.map((s) => s.id))}
+              ungraded={{
+                cases: waiting.length,
+                runs: waitingRuns.length,
+                busy: waitingRuns.every(grading),
+                waiting: grade.starting(),
+                start: () => gradeRuns(waitingRuns),
+              }}
             />
           ) : null}
         </ColumnLead>
@@ -160,11 +205,30 @@ export function ResultsSummary({ ctx, standings }: { ctx: Ctx; standings: CaseSt
             open={openCase}
             onOpen={setOpenCase}
             onRun={runCases}
+            grade={gradeFrom}
           />
         </Section>
         <Section rule>
           <SectionHead>
             <Heading level={3}>Runs</Heading>
+            {owed.length ? (
+              <>
+                <Spacer />
+                <Toolbar>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    disabled={grade.starting()}
+                    busy={owed.every(grading)}
+                    busyLabel="Grading…"
+                    onClick={() => gradeRuns(owed)}
+                  >
+                    {`Grade ${plural(owed.length, 'run')}`}
+                  </Button>
+                </Toolbar>
+              </>
+            ) : null}
           </SectionHead>
           <Hint>Open one to see all of its outputs, grade it again or delete it.</Hint>
           <Table bleed>
@@ -215,9 +279,7 @@ export function ResultsSummary({ ctx, standings }: { ctx: Ctx; standings: CaseSt
                           ctx={ctx}
                           run={run.name}
                           busy={{
-                            grading:
-                              grade.busy(`Grade ${run.name}`) ||
-                              gradingRun(jobs, state.skill.path, run.name),
+                            grading: grading(run.name),
                             writing: writingRun(jobs, state.skill.path, run.name),
                             waiting: grade.starting(),
                           }}
@@ -371,7 +433,7 @@ function RunDetail({
                   <TotalChip total={s?.scores.total} />
                 </TableCell>
                 <TableCell wrap wide>
-                  {failure || stopped || missed.length ? (
+                  {failure || stopped || s?.stale.length || missed.length ? (
                     <PlainList gap="md">
                       {failure ? (
                         <Text as="li" size="xs" tone="destructive" measure>
@@ -383,6 +445,11 @@ function RunDetail({
                           Stopped before it finished.
                         </Text>
                       ) : null}
+                      {s?.stale.map((why) => (
+                        <Text as="li" key={why} size="xs" tone="muted" measure>
+                          {why}, so it has no score.
+                        </Text>
+                      ))}
                       {missed.map((v, i) => (
                         // biome-ignore lint/suspicious/noArrayIndexKey: two rules may read the same
                         <Text as="li" key={`${v.id}#${i}`} size="xs" measure>

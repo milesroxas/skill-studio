@@ -713,14 +713,15 @@ export function createOperations(options: OperationsOptions): Runners {
     'skill.state': async (input) => {
       const skill = skillOf(input)
       const config = loadBench(skill.path)
+      const cases = loadCases(skill.path)
       return {
         skill,
         practice: isPracticeSkill(skill.path),
         practiceSeen: isPracticeSkill(skill.path) ? practiceSeen() : [],
         source: lockSource(skill.path),
         skills,
-        cases: loadCases(skill.path).map((c) => savedCase(skill.path, c)),
-        runs: listRuns(skill.path),
+        cases: cases.map((c) => savedCase(skill.path, c)),
+        runs: listRuns(skill.path, cases),
         versions: versionsOf(skill.path),
         engines: await engineInfo(),
         reviews: loadReviews(skill.path),

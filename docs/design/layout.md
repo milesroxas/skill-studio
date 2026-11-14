@@ -137,6 +137,7 @@ All cases opens with a `ColumnLead`: the lift (`LiftFigure`, [brand.md](brand.md
 
 - The head has a ground of its own, `bg-muted`, so the page reads in three steps: the head, the band that closes it, the list on the page's ground. The working area stays the lightest surface.
 - While a case is behind, `Coverage` is a band across the column: `bg-primary` under `text-primary-foreground`, square to the column, never a boxed alert. It is the page's inverse, ink in the light theme and porcelain in the dark, so it stands as far from the page in both. It holds one sentence at `ui`, its count in medium and the rest at 70%, and one `inverse` `sm` button that opens Run on the cases behind ([buttons.md](buttons.md)).
+- A case behind whose run on that version only waits to be graded needs no run. The band's second sentence then says how many wait, "1 is waiting to be graded.", in place of the one on earlier scores, and its button runs the others. Once only such cases are behind, the button reads **Grade N runs**.
 - The band has no large type, no meter and no yellow. The lift over it holds the head's one display number, the table under it shows the same split in its groups, and yellow is the top bar's.
 - Once every case is checked the band is gone and one plain line stands in its place, so the band is seen when it comes.
 - It scrolls with the page. Run, in the top bar, never leaves view.
@@ -214,6 +215,7 @@ A control stands with what it changes, and shows only while that thing is in vie
 The case and the pair stand in one `Stack gap="md"` with the stage, so what picks an output sits closer to the stage than the cards do. Each is one line, a `Disclosure`.
 
 - First "The prompt and its checks": it is about the case, so it comes before the pair.
+- An output written before its case's prompt or files changed answered another prompt. That one is listed under the first, with whose it is: "The earlier prompt and its checks, which A answered" (`askedBy` in `Comparison.tsx`). For a case since deleted, the prompt its run kept is the one shown.
 - Then the pair, "Reading v1 alone" or "Comparing v0 with v1", only where the cards cannot pick it: with one side empty, or under Word diff, which has one card for both. Elsewhere each card's title picks its own output.
 - The fields that pick another pair fold under the pair's line. They are A and B, each a `Slot variant="letter"` before a `SelectBox width="fill"`, in two equal columns with **Swap** (outline) at the end. With neither side picked, the line stands open.
 - A field names its output by its version. `outputNames` in `model.ts` adds the writer, then the time, only where two would read the same. Who wrote it and when is each option's `detail`.
@@ -248,6 +250,8 @@ An `OutputCard` says only what tells it from the other side, or what went wrong.
 - Under the head, the meta (`xs`, muted) shows only what tells the two apart besides their version (`apartLine` in `model.ts`): the writer when the two differ, and for two outputs of one version, the attempt, or the time when they come from two runs.
 - Everything else about how the output was made, and the parts its score is counted from, is behind the total. A length outside the case's range is a fact under **Missed**, so the meta never repeats it.
 - One `action` ends the meta's line, or stands beside the total when there is no meta, only when it is the next step: **Grade** on an output with no score, `ghost-muted` at `xs`. It reads "Grading…" on any card while its run is graded.
+- A `Hint inset` under the head says why a graded output has no score, one line each: "Graded before its case changed, so it has no score." A grading that failed is listed under **Missed** as before.
+- The same `Hint inset` says when an output answers an earlier wording of its case: "Written for this case before its prompt or files changed." The `Delta` shows only between two outputs that answer the same request and were graded the same way (`comparable` in `model.ts`).
 - The card's foot (`OutputCardFoot`) holds **Read the transcript**, `ghost-muted` at `xs` at its end. It reads **Back to the output** while the transcript is in its place. An output's seconds and cost are in its transcript.
 - The file tabs over the output (`ArtifactPicker`) show only when the output wrote two files or more.
 

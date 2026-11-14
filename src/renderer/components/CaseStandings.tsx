@@ -7,8 +7,13 @@
  * top. The columns stay four however many runs there are; a long list shows
  * its first rows and a field that finds a case by name.
  *
+ * A row holds answers to one request. Answers written before a case's prompt
+ * or files changed stand in a row of their own, in a group after the skill's
+ * cases, and so do the answers to a case since deleted.
+ *
  * Opening a row says what happened in one sentence, what the answer missed,
- * and the one step to take next, with the case's other runs beside it.
+ * and the one step to take next, with the case's other runs beside it. Where
+ * a run only waits to be graded, that step is to grade it.
  */
 import { isMissed } from '@domain/pack.ts'
 import { byNeed } from '@domain/standing.ts'
@@ -20,15 +25,16 @@ import { gradingRun, writingRun } from '../job-start.ts'
 import {
   type CaseStand,
   type CaseTry,
-  caseTitle,
   isWithoutSkill,
   modelShort,
   type Output,
   plural,
   readParams,
+  regradeOwed,
   runStamp,
   runTitle,
   scoreOf,
+  toGrade,
   totalOf,
   writerName,
 } from '../model.ts'
@@ -71,10 +77,22 @@ const versionOf = (t: CaseTry): string => runTitle(t.run, { short: true })
 const outputOf = (t: CaseTry, ctx: Ctx): Output =>
   t.outputs.find((o) => totalOf(o, ctx.config) !== null) ?? t.outputs[0]
 
+/** Grading a run from a case's row: the runs a grading would give a score, and the step that starts one. */
+export interface GradeRuns {
+  /** The runs with an output that has no score a grading would give it. */
+  owed: ReadonlySet<string>
+  /** A grade of this run is being started, or is still going. */
+  busy: (run: string) => boolean
+  /** A grade of some run is being started: one start at a time. */
+  waiting: boolean
+  start: (run: string) => void
+}
+
 /**
  * Why a run of a case has no score, in a word or two: it is being written or
- * graded now, or it was cut short, or nothing has graded it. `opens` is false
- * while a job is still at work on it, when there is nothing whole to read.
+ * graded now, or it was cut short, or its grading no longer holds, or nothing
+ * has graded it. `opens` is false while a job is still at work on it, when
+ * there is nothing whole to read.
  */
 function unscored(t: CaseTry, ctx: Ctx): { word: string; says: string; opens: boolean } {
   const { jobs, state } = ctx
@@ -85,6 +103,9 @@ function unscored(t: CaseTry, ctx: Ctx): { word: string; says: string; opens: bo
   if (t.cut === 'stopped')
     return { word: 'Stopped', says: 'stopped before it finished', opens: true }
   if (t.cut === 'unfinished') return { word: 'Not finished', says: 'not finished', opens: true }
+  // Graded, and held to something else since: its output says what.
+  if (t.outputs.some((o) => regradeOwed(scoreOf(o, ctx.config))))
+    return { word: 'Needs grading', says: 'to be graded again', opens: true }
   return { word: 'Not graded', says: 'not graded yet', opens: true }
 }
 
@@ -110,14 +131,16 @@ export function CaseStandings({
   open,
   onOpen,
   onRun,
+  grade,
 }: {
   ctx: Ctx
   standings: CaseStand[]
-  /** The case whose row is open, by id. */
+  /** The row that is open, by its key. */
   open: string | null
-  onOpen: (id: string | null) => void
+  onOpen: (key: string | null) => void
   /** Open Run on these cases. */
   onRun: (cases: string[]) => void
+  grade: GradeRuns
 }) {
   const { state } = ctx
   const version = state.versions.current.version
@@ -135,7 +158,16 @@ export function CaseStandings({
       title: `Not checked on ${version} yet`,
       rows: standings.filter((s) => s.known && !s.current),
     },
-    { id: 'gone', title: 'No longer in Cases', rows: standings.filter((s) => !s.known) },
+    {
+      id: 'earlier',
+      title: 'Answered before the case changed',
+      rows: standings.filter((s) => s.earlier),
+    },
+    {
+      id: 'gone',
+      title: 'No longer in Cases',
+      rows: standings.filter((s) => !s.known && !s.earlier),
+    },
   ]
     .filter((group) => group.rows.length)
     .map((group) => ({ ...group, rows: group.rows.sort(byNeed) }))
@@ -146,9 +178,7 @@ export function CaseStandings({
   const found = groups
     .map((group) => ({
       ...group,
-      hits: query
-        ? group.rows.filter((s) => caseTitle(state, s.id).toLowerCase().includes(query))
-        : group.rows,
+      hits: query ? group.rows.filter((s) => s.title.toLowerCase().includes(query)) : group.rows,
     }))
     .filter((group) => group.hits.length)
 
@@ -185,7 +215,7 @@ export function CaseStandings({
             const folded =
               !query &&
               !whole.has(group.id) &&
-              group.hits.findIndex((s) => s.id === open) < CAP &&
+              group.hits.findIndex((s) => s.key === open) < CAP &&
               group.hits.length > CAP
             const rows = folded ? group.hits.slice(0, CAP) : group.hits
             return (
@@ -197,14 +227,15 @@ export function CaseStandings({
                 ) : null}
                 {rows.map((standing) => (
                   <CaseRow
-                    key={standing.id}
+                    key={standing.key}
                     ctx={ctx}
                     standing={standing}
                     version={version}
                     repeated={repeated}
-                    open={open === standing.id}
-                    onToggle={() => onOpen(open === standing.id ? null : standing.id)}
+                    open={open === standing.key}
+                    onToggle={() => onOpen(open === standing.key ? null : standing.key)}
                     onRun={onRun}
+                    grade={grade}
                   />
                 ))}
                 {!query && group.hits.length > CAP ? (
@@ -243,6 +274,7 @@ function CaseRow({
   open,
   onToggle,
   onRun,
+  grade,
 }: {
   ctx: Ctx
   standing: CaseStand
@@ -251,10 +283,10 @@ function CaseRow({
   open: boolean
   onToggle: () => void
   onRun: (cases: string[]) => void
+  grade: GradeRuns
 }) {
-  const { state } = ctx
-  const name = caseTitle(state, standing.id)
-  const { latest, floor, change, current, history } = standing
+  const name = standing.title
+  const { latest, floor, change, apart, current, history } = standing
   // Before its first run with the skill, a case stands on its score without it.
   const stands = latest ?? floor
   const waiting = waitingOn(standing, ctx)
@@ -291,7 +323,7 @@ function CaseRow({
                 <Delta value={change} lead={false} />
               ) : (
                 <Text tone="faint" size="xs">
-                  {change === 0 ? 'Same' : latest ? 'First run' : ''}
+                  {change === 0 ? 'Same' : latest && !apart ? 'First run' : ''}
                 </Text>
               )}
             </TableCell>
@@ -307,41 +339,65 @@ function CaseRow({
       </TableRow>
       {open ? (
         <TableDetail colSpan={COLUMNS}>
-          <CaseDetail ctx={ctx} standing={standing} version={version} onRun={onRun} />
+          <CaseDetail ctx={ctx} standing={standing} version={version} onRun={onRun} grade={grade} />
         </TableDetail>
       ) : null}
     </Fragment>
   )
 }
 
-/** Where an opened case stands, in one sentence. */
+/**
+ * Where an opened case stands, in one sentence. Answers to an earlier request,
+ * and to a case since deleted, say so after it: no run can check them again.
+ */
 function StandingLine({ standing, version }: { standing: CaseStand; version: string }) {
-  const { latest, previous, floor, change, current, history } = standing
+  const { latest, previous, floor, change, apart, current, known, earlier, history } = standing
+  const since = known
+    ? ''
+    : earlier
+      ? ' Its prompt or files have changed since.'
+      : ' It is no longer in Cases.'
   if (!latest) {
     if (floor)
       return (
         <>
           Scored <Text weight="semibold">{Math.round(floor.score as number)}</Text> without the
-          skill. It has not run with the skill yet.
+          skill. It has not run with the skill yet.{since}
         </>
       )
     if (!history.length) return 'This case has not run yet.'
-    return history[0].cut === 'stopped'
-      ? 'This case has no score yet. Its last run was stopped before it finished.'
-      : 'This case has no score yet.'
+    return `${
+      history[0].cut === 'stopped'
+        ? 'This case has no score yet. Its last run was stopped before it finished.'
+        : 'This case has no score yet.'
+    }${since}`
   }
   const score = <Text weight="semibold">{Math.round(latest.score as number)}</Text>
+  if (!known && !current)
+    return (
+      <>
+        Last scored {score} on {versionOf(latest)}.{since}
+      </>
+    )
   if (!current)
     return (
       <>
-        Last scored {score} on {versionOf(latest)}. It has not run on {version}, so this score may
-        no longer hold.
+        Last scored {score} on {versionOf(latest)}.{' '}
+        {toGrade(standing)?.version === version
+          ? `Its run on ${version} has no score yet.`
+          : `It has not run on ${version}, so this score may no longer hold.`}
       </>
     )
   if (!previous || change === null)
-    return (
+    return apart ? (
       <>
-        Scored {score} on {version}, its first run.
+        Scored {score} on {version}. Its runs before were graded{' '}
+        {latest.run.report?.model ? 'without Jev' : 'by Jev'}, so there is no change to read.
+        {since}
+      </>
+    ) : (
+      <>
+        Scored {score} on {version}, its first run.{since}
       </>
     )
   const from =
@@ -360,7 +416,7 @@ function StandingLine({ standing, version }: { standing: CaseStand; version: str
           <Text tone="destructive">down {-change}</Text> from {from}
         </>
       )}
-      .
+      .{since}
     </>
   )
 }
@@ -408,17 +464,22 @@ function CaseDetail({
   standing,
   version,
   onRun,
+  grade,
 }: {
   ctx: Ctx
   standing: CaseStand
   version: string
   onRun: (cases: string[]) => void
+  grade: GradeRuns
 }) {
-  const { state, outputs, go } = ctx
+  const { outputs, go } = ctx
   const [whole, setWhole] = useState(false)
-  const { id, latest, previous, floor, current, known, history } = standing
-  const name = caseTitle(state, id)
+  const { id, title: name, latest, previous, floor, current, known, history } = standing
   const stands = latest ?? floor
+  // A run that only waits to be graded: grading it is a step, and the next one when it is the run on this version.
+  const waits = toGrade(standing)
+  const ungraded = waits && grade.owed.has(waits.run.name) ? waits : null
+  const toRun = known && !current && ungraded?.version !== version
   const read = (t: CaseTry) => go('results', readParams(outputs, id, outputOf(t, ctx)))
   const runs = whole ? history : history.slice(0, HISTORY_CAP)
   return (
@@ -436,17 +497,30 @@ function CaseDetail({
           </Text>
         </Stack>
         {stands ? <MissedList ctx={ctx} stands={stands} /> : null}
-        {/* The next step first: the run that checks the case, or with it checked, its output. */}
+        {/* The next step first: the run that checks the case, or the grading its run waits on; with it checked, its output. */}
         <Toolbar>
-          {known && !current ? (
+          {toRun ? (
             <Button type="button" variant="outline" size="sm" onClick={() => onRun([id])}>
               Run it on {version}
+            </Button>
+          ) : null}
+          {ungraded ? (
+            <Button
+              type="button"
+              variant={toRun ? 'ghost' : 'outline'}
+              size="sm"
+              disabled={grade.waiting}
+              busy={grade.busy(ungraded.run.name)}
+              busyLabel="Grading…"
+              onClick={() => grade.start(ungraded.run.name)}
+            >
+              Grade its {versionOf(ungraded)} run
             </Button>
           ) : null}
           {stands ? (
             <Button
               type="button"
-              variant={known && !current ? 'ghost' : 'outline'}
+              variant={toRun || ungraded ? 'ghost' : 'outline'}
               size="sm"
               onClick={() => read(stands)}
             >

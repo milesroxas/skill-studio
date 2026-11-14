@@ -64,6 +64,17 @@ describe('versionWriter', () => {
     ).toBe('claude:haiku')
   })
 
+  it('is not kept from a writer by an early run that shares no case with its latest', () => {
+    // v0 answered a case since changed: v1 and v2 still share one, so the writer ran two versions.
+    expect(
+      versionWriter([
+        run({ cases: { old: 60 } }),
+        run({ version: 'v1', cases: { intro: 70 } }),
+        run({ version: 'v2', cases: { intro: 90 } }),
+      ]),
+    ).toBe('claude:sonnet')
+  })
+
   it('takes the writer whose latest run is newest', () => {
     expect(
       versionWriter([

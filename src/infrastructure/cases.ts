@@ -188,7 +188,7 @@ const BENCH_KEYS: Readonly<Record<string, { is: string; read: (value: unknown) =
  * A value of the wrong kind is left out, so its default stands, with a warning
  * naming the case at `where`. A key nothing here knows passes through.
  */
-function benchOf(value: unknown, where: string): CaseBench {
+export function caseBench(value: unknown, where: string): CaseBench {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return {}
   const bench: CaseBench = {}
   for (const [key, raw] of Object.entries(value)) {
@@ -241,7 +241,7 @@ function loadFolderCase(skillDir: string, rel: string): Case | null {
     files,
     graders: readGraders(skillDir, rel),
     settings: parseSettings(settings),
-    bench: benchOf(spec.bench, yamlPath),
+    bench: caseBench(spec.bench, yamlPath),
     source: 'folder',
     dir: rel,
   }
@@ -307,7 +307,7 @@ function fromLegacy(skillDir: string, entry: LegacyEval): Case | null {
       image: null,
     })),
     settings: { tags: [], maxTurns: null, timeoutSeconds: null, allowedTools: null },
-    bench: benchOf(entry.bench, `${legacyFile(skillDir)}: the case ${JSON.stringify(entry.id)}`),
+    bench: caseBench(entry.bench, `${legacyFile(skillDir)}: the case ${JSON.stringify(entry.id)}`),
     source: 'evals.json',
     dir: null,
   }
