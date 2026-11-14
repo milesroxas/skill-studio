@@ -142,38 +142,171 @@ export function Workbench({
   return <div className={cn(workbenchVariants({ layout }), className)} {...props} />
 }
 
-const columnVariants = cva(
-  'flex min-w-0 flex-col bg-background lg:min-h-0 lg:overflow-y-auto lg:overscroll-contain',
-  {
-    variants: {
-      kind: {
-        list: 'border-b lg:border-r lg:border-b-0',
-        /**
-         * A list beside an item that is the screen's point, such as the Skill
-         * screen's files and versions beside the document: on the left on a wide
-         * window, after the item once the columns stack.
-         */
-        side: 'border-t max-lg:order-last lg:border-t-0 lg:border-r',
-        main: '',
-      },
-      /** A file is held over the column, and dropping it adds it to what the column edits. */
-      over: {
-        true: 'bg-accent/60',
-        false: '',
-      },
+const columnVariants = cva('flex min-w-0 flex-col bg-background lg:min-h-0', {
+  variants: {
+    /**
+     * What scrolls from the large breakpoint: the column (`self`), or the
+     * `SplitPane`s under its header, each on its own (`parts`).
+     */
+    scroll: {
+      self: 'lg:overflow-y-auto lg:overscroll-contain',
+      parts: 'lg:overflow-hidden',
     },
-    defaultVariants: { kind: 'main', over: false },
+    kind: {
+      list: 'border-b lg:border-r lg:border-b-0',
+      /**
+       * A list beside an item that is the screen's point, such as the Skill
+       * screen's files and versions beside the document: on the left on a wide
+       * window, after the item once the columns stack.
+       */
+      side: 'border-t max-lg:order-last lg:border-t-0 lg:border-r',
+      main: '',
+    },
+    /** A file is held over the column, and dropping it adds it to what the column edits. */
+    over: {
+      true: 'bg-accent/60',
+      false: '',
+    },
   },
-)
+  defaultVariants: { scroll: 'self', kind: 'main', over: false },
+})
 
 /** One column of a workbench. */
 export function Column({
+  scroll,
   kind,
   over,
   className,
   ...props
 }: ComponentProps<'div'> & VariantProps<typeof columnVariants>) {
-  return <div className={cn(columnVariants({ kind, over }), className)} {...props} />
+  return <div className={cn(columnVariants({ scroll, kind, over }), className)} {...props} />
+}
+
+/**
+ * The room under the header of a `Column scroll="parts"`: it takes the rest of
+ * the column's height and holds its `Split`. Its `ref` is the box to measure
+ * (`useWidth` in `hooks.ts`) when the layout depends on how wide the column is.
+ */
+export function ColumnRoom({ className, ...props }: ComponentProps<'div'>) {
+  return <div className={cn('flex min-h-0 min-w-0 flex-1 flex-col', className)} {...props} />
+}
+
+const splitVariants = cva('grid min-h-0 flex-1 grid-rows-[minmax(0,1fr)]', {
+  variants: {
+    layout: {
+      /** The whole item in one pane. */
+      one: 'grid-cols-1',
+      /** The form, then something to read beside it that takes the spare width. */
+      pair: 'grid-cols-[minmax(0,688px)_minmax(0,1fr)]',
+      /** The form in two halves, then something to read that takes the spare width. */
+      trio: 'grid-cols-[minmax(400px,560px)_minmax(440px,640px)_minmax(0,1fr)]',
+    },
+  },
+  defaultVariants: { layout: 'one' },
+})
+
+/**
+ * The panes of one column, side by side, divided by hairlines. Each scrolls on
+ * its own, so what is read stays in view while what is written moves.
+ */
+export function Split({
+  layout,
+  className,
+  ...props
+}: ComponentProps<'div'> & VariantProps<typeof splitVariants>) {
+  return <div className={cn(splitVariants({ layout }), className)} {...props} />
+}
+
+const splitPaneVariants = cva(
+  'min-h-0 min-w-0 border-l first:border-l-0 lg:overflow-y-auto lg:overscroll-contain',
+  {
+    variants: {
+      kind: {
+        /** A column of form sections, never wider than reads well (640px). */
+        form: 'px-6 pt-6 pb-16',
+        /** The whole item, which sets its own width: a `Railed` form. */
+        page: 'px-6 pt-6 pb-16',
+        /** Sections that bring their own inset, such as a `SplitSection`. */
+        bare: '',
+      },
+    },
+    defaultVariants: { kind: 'form' },
+  },
+)
+
+/** One pane of `Split`. */
+export function SplitPane({
+  kind = 'form',
+  className,
+  children,
+  ...props
+}: ComponentProps<'div'> & VariantProps<typeof splitPaneVariants>) {
+  return (
+    <div className={cn(splitPaneVariants({ kind }), className)} {...props}>
+      {kind === 'form' ? (
+        <div className="flex max-w-[640px] flex-col gap-8">{children}</div>
+      ) : (
+        children
+      )}
+    </div>
+  )
+}
+
+const splitSectionVariants = cva('flex flex-col px-6', {
+  variants: {
+    part: {
+      /** A short strip over the pane's content, ruled off from it. */
+      lead: 'gap-2 border-b pt-6 pb-5',
+      /** The pane's content, held to 960px: a page is read, not stretched. */
+      body: 'max-w-[960px] gap-3 pt-5 pb-16',
+    },
+  },
+  defaultVariants: { part: 'body' },
+})
+
+/** A part of a `SplitPane kind="bare"`, with the pane's inset. */
+export function SplitSection({
+  part,
+  className,
+  ...props
+}: ComponentProps<'section'> & VariantProps<typeof splitSectionVariants>) {
+  return <section className={cn(splitSectionVariants({ part }), className)} {...props} />
+}
+
+/**
+ * A form with a still column of facts about it at its side, such as what a
+ * case costs to run. The form keeps its 808px; the rail is 200px, 48px off,
+ * and stays in view while the form scrolls. With no `rail` the form stands
+ * alone, at the same left edge.
+ */
+export function Railed({
+  rail,
+  label,
+  children,
+}: {
+  rail?: ReactNode
+  /** What the rail is about, for a screen reader. */
+  label: string
+  children: ReactNode
+}) {
+  return (
+    <div
+      className={cn(
+        'grid max-w-[1056px] grid-cols-1 items-start gap-x-12',
+        rail ? 'grid-cols-[minmax(0,1fr)_200px]' : '',
+      )}
+    >
+      <div className="flex max-w-[808px] min-w-0 flex-col gap-8">{children}</div>
+      {rail ? (
+        <aside
+          aria-label={label}
+          className="sticky top-6 flex max-h-[calc(100dvh-220px)] flex-col gap-5 overflow-y-auto"
+        >
+          {rail}
+        </aside>
+      ) : null}
+    </div>
+  )
 }
 
 const insetVariants = cva('', {

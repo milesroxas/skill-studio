@@ -66,9 +66,11 @@ A region is a part of the page: a column, a section, a group of fields. It ends 
 | Variant | Use |
 | --- | --- |
 | `plain` | a line of text that opens in place |
-| `section` | the same line between a form's sections, folding parts of the form, such as a case's optional parts. What it opens is spaced as the column's sections are (32px apart, 16px under the line) and fades in with `animate-ink`, since a whole part of the form arrives at once |
+| `section` | the same line between a form's sections, folding a part of the form, such as how a case's answer is judged. What it opens is spaced as the column's sections are (32px apart, 16px under the line and 16px after its last part) and fades in with `animate-ink`, since a whole part of the form arrives at once |
 | `card` | one file of a diff, on its own bordered block: a version's changes on the Skill screen |
 | `row` | one row of a `DisclosureList`: a title over a line of detail, with one control at the end in a slot of fixed width, so the controls line up down the list. A row with nothing to open keeps the chevron's slot empty, so the titles line up too |
+
+A `Disclosure` takes `detail`: what the block holds, said after its line in `xs` `faint` while it is closed ("7 checks"), and gone once it is open and shows them.
 
 The changes an Assistant reply proposes are `row`s. A draft from Help me improve is the same row (`RowAction` in `Change.tsx`):
 
@@ -101,11 +103,13 @@ A box around a region adds an edge the eye has to cross and takes 32px of width 
 | Part | Use |
 | --- | --- |
 | `Column kind` | `list` (260px), `side` (260px, a list beside an item that is the screen's point: after the item once the columns stack, as the Skill screen's files follow the document), `main` |
+| `Column scroll` | `self` (the default): the column scrolls. `parts`: the `SplitPane`s under its header scroll, each on its own |
 | `Column over` | a file is held over a column that takes a drop: the column takes `bg-accent` at 60% until it is dropped or leaves. The case's main column, where a picture, file or folder dropped anywhere joins the case's files (`useFileDrop` in `renderer/drop.ts`). A note that changes while a file is dragged would move everything under it. |
 | `ListHeader` | a list column's title, count and add button. A list nothing is added to (the scores on Results) is a `ColumnHeader inset="list"` with the title alone, named for what it shows that the Cases list does not: "Scores". |
 | `ColumnHeader`, `ColumnTitle` | the main column's name and its actions |
 | `ColumnToolbar`, `ToolbarGroup`, `ToolbarItem` | a row of tools under the header |
 | `ColumnBody`, `ColumnSection` | the scrolling content, split by hairlines |
+| `ColumnRoom`, `Split`, `SplitPane`, `SplitSection`, `Railed` | the content of a `Column scroll="parts"`: see [A split column](#a-split-column) |
 
 Insets are fixed: 16px in a list, 24px in main (`inset="list" | "main"`). A list's `ColumnBody` is inset 8px and its rows bring the other 8px. The first row of every list column starts 8px under its header: a `ColumnSection` with no title sits 8px inside its rules, a titled one 20px, so its title stands apart from the rows above. `ColumnBody inset="none"` fills the column edge to edge, for an editor. A `ColumnBody` is a column's whole content, and in main it ends in 64px of room, so there is one per column: notes over an editor go in the editor's `banner`, which spaces them itself (`components/MarkdownEditor.tsx`). Its `width` is `full` or `form` (808px). A header and the body of one column share one inset, so their left edges line up. A `ColumnToolbar` starts 8px short of it, so its first icon lands on that edge. Never pad a column by hand.
 
@@ -114,8 +118,8 @@ Insets are fixed: 16px in a list, 24px in main (`inset="list" | "main"`). A list
 Copy `screens/Cases.tsx` for any screen that lists items and edits the one picked. `screens/Results.tsx` is the same pattern read-only: it lists the cases and compares the one picked. Its list is two `ColumnSection`s: **All cases**, the run as a whole, then the cases, so a rule sets the summary apart from the items.
 
 - The selection lives in the route: read `route.params`, change it with `go(screen, params)`. Back and Forward then follow it. Never hold it in `useState`.
-- The main column is `ColumnHeader` (the item's name, then Save, primary last) over `ColumnBody width="form"`, which holds `FormSection layout="stacked"` sections. Save is `default` only while pressing it saves something, and `ghost` and disabled otherwise, so a saved item's header has no filled slab in it (the Skill screen's Save does the same).
-- An item's optional parts fold under one `Disclosure variant="section"` line after the fields it cannot do without. The line names every part it holds ("A good answer, checks and length", and size where it shows). A part that decides what the others are about comes first in the fold and first in the line: a case's **File to grade**, which shows only for a case whose answers came as both a page and a picture, stands before A good answer, the checks and the size, since each of those is about that file. It is open while any part holds something and closed while all are empty, on a new item and a saved one alike, so saving never changes the form's shape. The reader's own open or close wins until they leave the item; filling it from an example opens it again (`open`/`onOpenChange` on `Disclosure`).
+- The main column is `ColumnHeader` (the item's name, then Save, primary last) over `ColumnBody width="form"`, which holds `FormSection layout="stacked"` sections. Cases itself lays its column out by the room it has: see [A split column](#a-split-column). Save is `default` only while pressing it saves something, and `ghost` and disabled otherwise, so a saved item's header has no filled slab in it (the Skill screen's Save does the same).
+- An item's optional parts fold under `Disclosure variant="section"` lines after the fields it cannot do without, one line per part, 6px apart: on a case, "A good answer and checks", then "Length and size". A new kind of part is one more line. A line names what its fold holds, and closed it says how much in its `detail` ("7 checks", "30 to 120 words, 1280 × 800 px"). A part that decides what the others are about comes first in its fold and first in the line: a case's **File to grade**, which shows only for a case whose answers came as both a page and a picture, stands before A good answer and the checks, since each of those is about that file. A fold is open while its part holds something and closed while it is empty, on a new item and a saved one alike, so saving never changes the form's shape. The reader's own open or close wins until they leave the item; filling it from an example opens it again (`open`/`onOpenChange` on `Disclosure`).
 - Examples to start from sit under the first field in a `Disclosure` ("Start from an example"), as an `ExampleList`: each row fills the form in place and ends in "Use". The kind of example comes from how the skill is graded; only a skill graded on its rules and checks alone shows the `Segmented` that picks one.
 - Edits are kept with `ctx.drafts` while unsaved. Add new keys there if a new kind of item needs them.
 - The add button opens an unsaved item (`new=1` in the route) that becomes real on its first save ("Add case"). It does not create one at once.
@@ -125,6 +129,32 @@ Copy `screens/Cases.tsx` for any screen that lists items and edits the one picke
 The list column may hold more than one list, each in a `ColumnSection`: the Skill screen lists the files, then the versions. Sections are divided by a rule, and the last has none, so a section is a direct child of its column: one that is a landmark is `as="nav"` with a `label`, never wrapped in one. A section's `hint` is only for what the list cannot show, such as edits no version holds yet. An item of either opens in the main column, named in the route (`file`, `version`).
 
 Below `lg` the columns stack and the pane scrolls, a `side` column after the main one. A `ColumnToolbar` sticks under its header only from `lg`: stacked, it scrolls with the document. A header whose actions leave its title no room wraps instead (the Skill screen's: `max-lg:flex-wrap` on the header, `max-lg:basis-full` on its `ColumnTitle`), so the file's name takes the first row. Check every workbench at 720px wide.
+
+### A split column
+
+A main column whose content is laid out by the column's own width is `Column scroll="parts"`: `ColumnHeader`, then `ColumnRoom` holding a `Split`. The layout is picked from the width of `ColumnRoom` (`useWidth` in `hooks.ts`), never from the window's: the sidebar, the list and the Assistant all take from the column, so opening the Assistant steps the layout down. A layout that changes what is on the page cannot be a CSS breakpoint, since each field is drawn once.
+
+| Part | Use |
+| --- | --- |
+| `Split layout` | `one`: the whole item in one pane. `pair`: the form (688px at most), then something to read that takes the spare width. `trio`: the form in two halves (400 to 560px, 440 to 640px), then something to read |
+| `SplitPane kind` | `form` (the default): form sections, 640px at most. `page`: the whole item, which sets its own width, as a `Railed` form does. `bare`: `SplitSection`s, which bring the inset |
+| `SplitSection part` | `lead`: a short strip over the pane's content, ruled off from it. `body`: the content, 960px at most |
+| `Railed` | a form (808px) with a still column of facts about it at its side (200px, 48px off) that stays in view while the form scrolls. Its `label` names the rail for a screen reader |
+
+Split are divided by hairlines and each scrolls on its own, so what is read holds still while what is written moves. A pane is never wider than reads well: spare width goes to the last pane, and past its 960px it stays empty. Everything is left-aligned.
+
+Cases is the one screen that uses one. Its case column has four layouts, by the column's width:
+
+| Column | Layout |
+| --- | --- |
+| under 880px | `one`: the folded form, with the cost to run as a meter in the header (`CostMeter`) |
+| from 880px | `one`, `Railed`: the folded form with the cost to run and the last run beside it (`CostRail`) |
+| from 1080px | `pair`: the folded form, then the last answer to the case under the cost to run (`CostStrip` over `LastAnswer`) |
+| from 1560px | `trio`: the task, then how the answer is judged with nothing folded (A good answer, Checks, Length and size as sections), then the last answer |
+
+- The rail and the strip hold facts about the whole case that nobody types: the form is what is typed. Anything new in them starts as one line or folded.
+- The last answer is the one Results opens the case on (`lastAnswer` in `model.ts`), with its score, its version, and what an attempt cost. Its page or picture is a figure (`rounded-md border bg-card`). Before a first run the pane holds one line.
+- Below `lg` the columns stack and the pane scrolls, as in every workbench: only `one` fits there.
 
 ### A row in a list column
 

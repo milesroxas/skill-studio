@@ -191,7 +191,7 @@ The dot is `Dot` from `components/Status.tsx`, the one dot in the app. `Status`,
 
 ## File size
 
-`components/TextSize.tsx`: `TextSizeIndicator`, at the far end of the editor's toolbar. It is five segments in a row, 14 by 6px with 2px corners (`rounded-xs`) and 2px between, filled up to the file's level from `textSize()` in `domain/size.ts`. The color comes from `sizeBand()` there. Never set a level or a band by hand: the steps are tuned in one place.
+`components/TextSize.tsx`: `TextSizeIndicator`, at the far end of the editor's toolbar. It is five segments in a row (`LevelBars` in `components/Meter.tsx`), 14 by 6px with 2px corners (`rounded-xs`) and 2px between, filled up to the file's level from `textSize()` in `domain/size.ts`. The color comes from `sizeBand()` there. Never set a level or a band by hand: the steps are tuned in one place.
 
 | Band | Levels | Filled bars |
 | --- | --- | --- |
@@ -202,6 +202,24 @@ The dot is `Dot` from `components/Status.tsx`, the one dot in the app. `Status`,
 - Empty bars are `bg-input`. They are never yellow.
 - `long` and `over` also say so in words, in the hover card and the button's label, so color is never the only sign. The counts take the same tone.
 - Pointing at it opens `HoverCardContent size="note"` with the lines and tokens. Clicking puts the counts in place of the bars, in mono `xs`, and the button is `aria-pressed`. The choice holds across files until the window closes.
+
+## Cost to run
+
+`components/CaseCost.tsx`. How taxing a case is to run, shown on Cases while the case is written: the same five bars (`LevelBars`), a word for the level, and what adds to it. The level and its parts come from `caseWeight()` in `domain/case-weight.ts`, which weighs the prompt, the pictures, the files and an answer that is a page or a picture. Never set a level by hand: the points are set against recorded costs in that one file. Checks, a good answer and the model are not in it: grading costs about a hundredth of the writing, and the model is picked when a run starts.
+
+| Level | Word | Bars and word |
+| --- | --- | --- |
+| 1, 2 | Light | `bg-current`, the muted text |
+| 3 | Medium | the same |
+| 4 | Heavy | `warning` |
+| 5 | Very heavy | `warning` |
+
+- A heavy case is worth a look, never broken, so the top of the scale is amber where the file size meter's is red.
+- It shows in one of three places, by the room the case's column has ([layout.md](layout.md#a-split-column)): `CostMeter` in the header, `CostRail` beside the form, `CostStrip` over the last answer. Never two at once.
+- `CostMeter` is the file size meter's control: a `ghost-muted` `sm` button of bars alone. Pointing at it opens a `HoverCardContent` with the level, what adds to it and the last run. Clicking puts the word in place of the bars ("Heavy to run"), and the button is `aria-pressed`. The choice holds across cases until the window closes.
+- From Medium up one line names the two heaviest things the writer added: "Mostly 2 pictures and a folder of 14 files."
+- **What adds to it** (a `Disclosure` in the rail and the strip, the body of the meter's card) lists every part, heaviest first, each with a 64px bar for its share of the heaviest. Why a part costs is its `title`, and is read out with its name.
+- **Last run** is what an attempt at the case cost in the run its last answer came from, with the time and the model (`attemptCost` in `model.ts`). It shows only once the case has run.
 
 ## Figures
 

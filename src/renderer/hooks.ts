@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 
 const sameDeps = (a: readonly unknown[], b: readonly unknown[]): boolean =>
   a.length === b.length && a.every((value, i) => Object.is(value, b[i]))
@@ -155,4 +155,23 @@ export function useNotice(): [Notice | null, Reporter, () => void] {
   )
   const dismiss = useCallback(() => setNotice(null), [])
   return [notice, report, dismiss]
+}
+
+/**
+ * The width of a box, kept as it changes: hand `ref` to the box. 0 until it is
+ * measured, which is before its first paint. A layout that asks how much room
+ * its own column has reads this, never the window: the sidebar, a list and the
+ * Assistant all take from the column.
+ */
+export function useWidth<T extends HTMLElement>(): [(el: T | null) => void, number] {
+  const [el, setEl] = useState<T | null>(null)
+  const [width, setWidth] = useState(0)
+  useLayoutEffect(() => {
+    if (!el) return
+    setWidth(el.clientWidth)
+    const seen = new ResizeObserver(() => setWidth(el.clientWidth))
+    seen.observe(el)
+    return () => seen.disconnect()
+  }, [el])
+  return [setEl, width]
 }

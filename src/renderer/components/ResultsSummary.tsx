@@ -17,6 +17,7 @@ import {
   countsLine,
   countsOf,
   cutOf,
+  duration,
   fmt,
   gradedLine,
   isWithoutSkill,
@@ -69,10 +70,6 @@ import {
 
 const costOf = (run: Ctx['state']['runs'][number]): number | null =>
   run.meta?.samples.reduce((s, x) => s + (x.costUsd ?? 0), 0) ?? null
-
-/** "2m 14s", or "38s" under a minute. */
-const duration = (seconds: number): string =>
-  seconds >= 60 ? `${Math.floor(seconds / 60)}m ${seconds % 60}s` : `${seconds}s`
 
 export function ResultsSummary({ ctx }: { ctx: Ctx }) {
   const { state, config, outputs, route, go, report, jobs } = ctx

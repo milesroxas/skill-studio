@@ -136,7 +136,7 @@ Each run saves the skill as it was, as a **version**: v0, v1 and so on. You neve
 
 A **case** is one test task: what a person would ask the agent, and what a good answer contains.
 
-![Cases: the list of three cases on the left; on the right the form for one case, with its title, its prompt and its files, with the Add files and Add folder buttons under them.](images/cases.webp)
+![Cases: the list of three cases on the left; on the right the form for one case, with the bars of its cost to run beside Duplicate and Save case at the top, then its title, its prompt and its files, with the Add files and Add folder buttons under them.](images/cases.webp)
 
 Start with the request alone. Reading the first answer shows you what to check.
 
@@ -152,6 +152,10 @@ When you know what a good answer looks like, open the case again and add:
 - **Length:** the fewest and most words an answer may have.
 
 Some answers come as two files: a page, and a picture made from it. After a first run of such a case, **File to grade** appears at the top of these, with the two files by name. Pick the one you would use: only that file is graded.
+
+The bars at the top of a case show its **cost to run**, from light to very heavy. Pictures, files and an answer that is a page or a picture add the most. Checks add almost nothing, so write as many as the answer needs. Point at the bars to see what adds to the cost. Each attempt in a run costs it again.
+
+In a wide window the cost stands beside the form, and wider still the last answer to the case shows next to it, so you can write its checks with the answer in view.
 
 **Duplicate**, at the top of a case, copies it so you can try a variation. Write at least three different cases before you trust a score.
 

@@ -6,6 +6,15 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+### Added
+
+- **Cost to run** on a case: five bars, from light to very heavy, that move as you write it. Pictures, files and an answer that is a page or a picture add the most; checks and a good answer add almost nothing. Point at the bars to see what adds to the cost and what an attempt cost in the last run.
+- In a wide window, Cases shows the last answer to a case beside its form, with its score and what its run cost, so checks can be written with the answer in view. Wider still, the form splits in two: the task, then a good answer, the checks and the length.
+
+### Changed
+
+- A case's optional parts fold under two lines, **A good answer and checks** and **Length and size**. A closed line says what it holds, such as "7 checks".
+
 ## [0.13.1] - 2026-11-13
 
 ### Fixed

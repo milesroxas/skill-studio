@@ -11,9 +11,9 @@
  * words say so too, so the color is never the only sign.
  */
 import { SIZE_LEVELS, type SizeBand, sizeBand, textSize } from '@domain/size.ts'
-import { cva } from 'class-variance-authority'
 import { useDeferredValue, useMemo, useState } from 'react'
 import { ToolbarItem } from './layout.tsx'
+import { LevelBars } from './Meter.tsx'
 import { Text } from './text.tsx'
 import { Button } from './ui/button.tsx'
 import { HoverCard, HoverCardContent, HoverCardTrigger } from './ui/hover-card.tsx'
@@ -38,19 +38,7 @@ const VERDICT: Record<SizeBand, string | null> = {
 
 const TONE = { fine: undefined, long: 'warning', over: 'destructive' } as const
 
-/** A step of the scale, 14 by 6 with 2px corners: tall enough for the corners to read as corners, so a printed scale and not a row of beads. */
-const segment = cva('h-1.5 w-3.5 rounded-xs transition-colors duration-150 ease-out', {
-  variants: {
-    fill: {
-      empty: 'bg-input',
-      fine: 'bg-current',
-      long: 'bg-warning',
-      over: 'bg-destructive',
-    },
-  },
-})
-
-const STEPS = [1, 2, 3, 4, 5] as const
+const FILL = { fine: 'fine', long: 'warning', over: 'destructive' } as const
 
 export function TextSizeIndicator({ text }: { text: string }) {
   // Typing stays first; the count catches up a beat later on a long file.
@@ -96,17 +84,8 @@ export function TextSizeIndicator({ text }: { text: string }) {
                 {lines} · ~{shortTokens(size.tokens)} tokens
               </Text>
             ) : (
-              <span
-                key="bars"
-                aria-hidden="true"
-                className="flex animate-in items-center gap-0.5 duration-150 ease-out fade-in-0"
-              >
-                {STEPS.map((step) => (
-                  <span
-                    key={step}
-                    className={segment({ fill: step <= size.level ? band : 'empty' })}
-                  />
-                ))}
+              <span key="bars" className="flex animate-in duration-150 ease-out fade-in-0">
+                <LevelBars level={size.level} fill={FILL[band]} />
               </span>
             )}
           </Button>

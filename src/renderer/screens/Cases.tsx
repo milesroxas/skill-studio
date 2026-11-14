@@ -3,9 +3,15 @@
  * really ask the agent. That is enough to run it. What a good answer does, and
  * the checks Jev marks, are easier to write once an output is in front of you,
  * so they are optional here and can be added from Results. They fold under
- * one line after the task, open whenever one of them holds something, so the
- * form keeps its shape when a case is saved. Edits are kept as drafts per
+ * their own lines after the task, each open whenever it holds something, so
+ * the form keeps its shape when a case is saved. Edits are kept as drafts per
  * case, so moving between cases, screens or skills never loses typing.
+ *
+ * The case's column is laid out by its own width. Narrow, it is the folded
+ * form with the cost to run as a meter in the header. With room beside the
+ * form the cost stands there as a rail. Wider, the last answer to the case
+ * shows beside the form, and wider still the form splits in two: what is
+ * asked, how the answer is judged, then the answer.
  */
 
 import {
@@ -35,6 +41,8 @@ import { ArrowUpRightIcon, CopyIcon, Trash2Icon } from 'lucide-react'
 import { memo, useEffect, useMemo, useRef, useState } from 'react'
 import { api, currentSkill } from '../api.ts'
 import { caseContext, skillContext } from '../assist.ts'
+import { LastAnswer } from '../components/CaseAnswer.tsx'
+import { CostMeter, CostRail, CostStrip, caseCost } from '../components/CaseCost.tsx'
 import { CheckList } from '../components/CheckList.tsx'
 import { Disclosure } from '../components/Disclosure.tsx'
 import { DraftNote } from '../components/DraftNote.tsx'
@@ -44,6 +52,7 @@ import {
   Column,
   ColumnBody,
   ColumnHeader,
+  ColumnRoom,
   ColumnTitle,
   Field,
   FieldHead,
@@ -51,6 +60,9 @@ import {
   ListHeader,
   Loading,
   PlainList,
+  Railed,
+  Split,
+  SplitPane,
   Stack,
   Toolbar,
   Workbench,
@@ -68,11 +80,11 @@ import { Label } from '../components/ui/label.tsx'
 import type { Ctx } from '../ctx.ts'
 import { caseUnsaved, formDraft, unsavedCases } from '../draft-edits.ts'
 import { useFileDrop } from '../drop.ts'
-import { useAction } from '../hooks.ts'
+import { useAction, useWidth } from '../hooks.ts'
 import { useAddPictures } from '../images.ts'
 import { useAddInputs } from '../inputs.ts'
 import { REVEAL_LABEL, shortcut } from '../keys.ts'
-import { answerFiles, listLine, outputsOf, plural } from '../model.ts'
+import { answerFiles, attemptCost, lastAnswer, outputsOf, plural } from '../model.ts'
 import { useArrivals } from '../motion.ts'
 import { caseKey } from '../route.ts'
 
@@ -89,6 +101,25 @@ const savedAtOf = (saved: object | null | undefined): string | null =>
 
 /** A case as the skill holds it. */
 type SavedCase = Ctx['state']['cases'][number]
+
+/** The parts of a case past its task, each folded under a line of its own. */
+type Fold = 'judged' | 'limits'
+
+/**
+ * How wide the case's own column must be, in px, for each layout. Below the
+ * first the cost is the header's meter.
+ */
+const ROOM = {
+  /** The cost stands beside the folded form. */
+  rail: 880,
+  /** The last answer fits beside the folded form. */
+  pair: 1080,
+  /** The form's two halves and the answer fit side by side. */
+  trio: 1560,
+} as const
+
+const CHECKS_HINT =
+  'Facts that must be true of a good answer, each marked met or missed. Easier to write after a first run.'
 
 export const Cases = memo(function Cases({ ctx }: { ctx: Ctx }) {
   const { state, config, route, go, report, confirm, reload, drafts } = ctx
@@ -163,8 +194,8 @@ export const Cases = memo(function Cases({ ctx }: { ctx: Ctx }) {
       title: unusedTitle(cases, example.title),
       graders: example.graders.map((g) => ({ ...g })),
     })
-    // The example's checks and length open the fold, even one the reader closed.
-    setFolded(null)
+    // The example's checks and length open their folds, even one the reader closed.
+    setFolds(null)
   }
 
   /** What the assistant reads beside any field of this case: the skill, the case as typed, its pictures. */
@@ -232,13 +263,21 @@ export const Cases = memo(function Cases({ ctx }: { ctx: Ctx }) {
   const drop = useFileDrop(files.addDropped)
 
   /**
-   * The reader's own open or close of the fold, and the case it was made on.
+   * The reader's own open or close of a fold, and the case it was made on.
    * Leaving the case drops it: a case come back to opens by what it holds.
    */
-  const [folded, setFolded] = useState<{ key: string; open: boolean } | null>(null)
+  const [folds, setFolds] = useState<{
+    key: string
+    open: Partial<Record<Fold, boolean>>
+  } | null>(null)
   useEffect(() => {
-    if (folded && folded.key !== key) setFolded(null)
-  }, [folded, key])
+    if (folds && folds.key !== key) setFolds(null)
+  }, [folds, key])
+  /** A fold is open while its part holds something, until the reader says otherwise. */
+  const foldOpen = (fold: Fold, filled: boolean) =>
+    (folds?.key === key ? folds.open[fold] : undefined) ?? filled
+  const setFold = (fold: Fold) => (open: boolean) =>
+    setFolds((held) => ({ key, open: { ...(held?.key === key ? held.open : {}), [fold]: open } }))
 
   const wordsError =
     draft.words && !(draft.words[0] >= 0 && draft.words[1] >= draft.words[0])
@@ -382,26 +421,18 @@ export const Cases = memo(function Cases({ ctx }: { ctx: Ctx }) {
 
   const heading = isNew ? draft.title.trim() || 'New case' : caseName(draft)
   /**
-   * The parts past the task, folded under one line: a good answer, checks,
-   * length and size. The fold is open while any of them holds something, new
-   * case or saved alike, so saving never changes the form's shape; the reader's
-   * own open or close wins until they leave the case.
+   * The parts past the task, each folded under its own line: how the answer is
+   * judged, then its length and size. A fold is open while its part holds
+   * something, new case or saved alike, so saving never changes the form's
+   * shape. Closed, its line says what it holds.
    */
-  const filled =
-    Boolean(draft.expectedOutcome.trim()) ||
-    draft.graders.some((g) => g.statement.trim() || g.image) ||
-    Boolean(draft.words) ||
-    Boolean(draft.size) ||
-    Boolean(draft.phone) ||
-    work !== null
-  const extrasOpen = folded?.key === key ? folded.open : filled
-  /** The fold's line names everything it holds. */
-  const extrasLine = listLine([
-    ...(choosesFile ? ['The file to grade', 'a good answer'] : ['A good answer']),
-    'checks',
-    'length',
-    ...(drawn ? ['size'] : []),
-  ])
+  const checkCount = draft.graders.filter((g) => g.statement.trim() || g.image).length
+  const judged = Boolean(draft.expectedOutcome.trim()) || checkCount > 0 || work !== null
+  const limits = [
+    draft.words ? `${draft.words[0]} to ${draft.words[1]} words` : null,
+    draft.size ? `${draft.size[0]} × ${draft.size[1]} px` : null,
+    draft.phone ? 'phone width' : null,
+  ].filter((line) => line !== null)
   /** The files and folders the case comes with beside its pictures, as the draft leaves them. */
   const inputs = inputEntries(selected ?? null, draft)
   /** Pictures and files still being read: each holds a row in the list. */
@@ -418,8 +449,419 @@ export const Cases = memo(function Cases({ ctx }: { ctx: Ctx }) {
         : { removed: [...(draft.removed ?? []), entry.name] },
     )
 
+  /** The room the case's own column has, which picks its layout: the sidebar, the list and the Assistant all take from it. */
+  const [room, width] = useWidth<HTMLDivElement>()
+  const layout = width >= ROOM.trio ? 'trio' : width >= ROOM.pair ? 'pair' : 'one'
+  const railed = layout === 'one' && width >= ROOM.rail
+  /** What the case costs to run as it is typed, and what its last answer cost. */
+  const cost = caseCost(draft, inputs, { drawn, work })
+  const shown = useMemo(
+    () => (selected ? lastAnswer(outputs, selected.id) : null),
+    [outputs, selected],
+  )
+  const ran = shown ? attemptCost(shown) : null
+  /** The answer in view was written before an unsaved change to what the case asks. */
+  const stale =
+    shown !== null &&
+    (draft.prompt !== base.prompt ||
+      draft.images.length !== base.images.length ||
+      draft.images.some((image, i) => image !== base.images[i]) ||
+      Boolean(draft.added?.length) ||
+      Boolean(draft.removed?.length))
+
   // The stored drafts are still being read: the form waits, so nothing is typed over a draft not shown yet.
   if (drafts.status === 'loading') return <Loading size="screen" />
+
+  const alerts = (
+    <>
+      {changedOnDisk ? (
+        <Alert variant="warning" role="status">
+          <AlertTitle>{savedName} was changed outside the app while you were editing</AlertTitle>
+          <AlertDescription>
+            <p>Keep your edits to save over that change, or take the changed case.</p>
+            <Toolbar>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => drafts.baseCase(key, savedAt)}
+              >
+                Keep my edits
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => drafts.setCase(key, null)}
+              >
+                Take the changed case
+              </Button>
+            </Toolbar>
+          </AlertDescription>
+        </Alert>
+      ) : null}
+      {selected?.source === 'evals.json' ? (
+        <Alert variant="muted">
+          <AlertDescription>
+            This case comes from evals.json. Saving writes a case folder in its place.
+          </AlertDescription>
+        </Alert>
+      ) : null}
+    </>
+  )
+
+  const task = (
+    <FormSection
+      layout="stacked"
+      title="Task"
+      hint={
+        cases.length
+          ? undefined
+          : 'A case is one request to test the skill with. The prompt alone is enough to run it.'
+      }
+    >
+      <Field>
+        <Label htmlFor="case-title" optional>
+          Title
+        </Label>
+        <Input
+          id="case-title"
+          value={draft.title}
+          placeholder="Named after the prompt"
+          aria-invalid={Boolean(titleError)}
+          aria-describedby={titleError ? 'case-title-error' : undefined}
+          onChange={(e) => set({ title: e.target.value })}
+        />
+        {titleError ? (
+          <Hint id="case-title-error" tone="destructive">
+            {titleError}
+          </Hint>
+        ) : null}
+      </Field>
+
+      <Field>
+        <Label htmlFor="case-prompt">Prompt</Label>
+        <TextArea
+          id="case-prompt"
+          rows={6}
+          value={draft.prompt}
+          placeholder="What would you ask?"
+          aria-describedby="case-prompt-help"
+          onValueChange={(prompt) => set({ prompt })}
+          assist={{ field: 'case.prompt', ...assist }}
+        />
+        <Hint id="case-prompt-help">{CASE_PROMPT_HINT}</Hint>
+      </Field>
+
+      {isNew ? (
+        <Disclosure summary="Start from an example">
+          <Stack gap="md">
+            {fitting ? null : (
+              <Segmented
+                aria-label="Kind of skill"
+                value={kindId}
+                onChange={(v) => v && setKindId(v)}
+                options={EXAMPLE_KINDS.map((t) => ({ value: t.id, label: t.label }))}
+              />
+            )}
+            <ExampleList
+              items={kind.cases.map((c) => ({
+                key: c.id,
+                title: c.title,
+                sub: `${plural(c.graders.length, 'check')}${
+                  c.words ? ` · ${c.words[0]} to ${c.words[1]} words` : ''
+                }`,
+                onPick: () => fillFrom(c),
+              }))}
+            />
+          </Stack>
+        </Disclosure>
+      ) : null}
+
+      <Field role="group" aria-labelledby="case-files" className="max-w-xl">
+        <FieldHead
+          action={
+            caseDir && openCaseFiles ? (
+              <Button
+                type="button"
+                variant="ghost-muted"
+                size="xs"
+                onClick={() => void openCaseFiles(skill, caseDir).catch(report)}
+              >
+                {REVEAL_LABEL}
+                <ArrowUpRightIcon aria-hidden="true" />
+              </Button>
+            ) : null
+          }
+        >
+          <Label id="case-files" optional>
+            Files
+          </Label>
+        </FieldHead>
+        <CaseFiles
+          pictures={draft.images}
+          entries={inputs}
+          adding={addingFiles}
+          onRemovePicture={(image) => set({ images: draft.images.filter((i) => i !== image) })}
+          onRemoveEntry={removeInput}
+          onFiles={files.addFiles}
+          onFolder={files.addFolder}
+        />
+        {pictures.error ? (
+          <Hint tone="destructive" role="alert">
+            {pictures.error}
+          </Hint>
+        ) : null}
+        {files.error ? (
+          <Hint tone="destructive" role="alert">
+            {files.error}
+          </Hint>
+        ) : null}
+        {/* Shown until a file is added: after that the rows say it. */}
+        {pictures.error || files.error || hasFiles ? null : (
+          <Hint>
+            Add any file your prompt refers to, such as a screenshot. It can’t be read otherwise.
+          </Hint>
+        )}
+      </Field>
+    </FormSection>
+  )
+
+  // First of how the answer is judged: a good answer, the checks and the size are all about this file.
+  const fileToGrade = choosesFile ? (
+    <Field>
+      <Label id="case-file">File to grade</Label>
+      <Segmented<'html' | 'image'>
+        aria-labelledby="case-file"
+        value={work ?? answer?.graded ?? null}
+        onChange={(artifact) => set({ artifact })}
+        options={[
+          {
+            value: 'html',
+            label: answer ? <Code>{answer.page}</Code> : 'The page',
+            title: 'The page',
+          },
+          {
+            value: 'image',
+            label: answer ? <Code>{answer.picture}</Code> : 'The picture',
+            title: 'The picture',
+          },
+        ]}
+      />
+      <Hint>
+        {answer
+          ? 'The last answer to this case came as a page and a picture. Only the one you pick is graded.'
+          : 'When an answer comes as a page and a picture, only the one you pick is graded.'}
+      </Hint>
+    </Field>
+  ) : null
+
+  /** `titled`: it stands under a section of its own name, so it needs no label over it. */
+  const goodAnswer = (titled: boolean) => (
+    <Field>
+      {titled ? null : (
+        <Label htmlFor="case-expected" optional>
+          A good answer
+        </Label>
+      )}
+      <TextArea
+        id="case-expected"
+        aria-label={titled ? 'A good answer' : undefined}
+        rows={titled ? 3 : 2}
+        value={draft.expectedOutcome}
+        placeholder="What it says first and what it must include"
+        onValueChange={(expectedOutcome) => set({ expectedOutcome })}
+        assist={{ field: 'case.expected', ...assist }}
+      />
+    </Field>
+  )
+
+  const checks = (
+    <FormSection layout="stacked" title="Checks" hint={CHECKS_HINT}>
+      <GuideBox summary="What Jev can mark">
+        <PairList pairs={CHECK_EXAMPLES} />
+      </GuideBox>
+      <CheckList
+        key={`${skill}\n${key}`}
+        graders={draft.graders}
+        onChange={(graders) => set({ graders })}
+        examples={kind.cases[0]?.graders.map((g) => g.statement) ?? []}
+        assist={assist}
+        report={report}
+      />
+    </FormSection>
+  )
+
+  const lengthAndSize = (
+    <>
+      <CheckRow
+        checked={Boolean(draft.words)}
+        onCheckedChange={(on) => set({ words: on ? [50, 300] : null })}
+      >
+        Score the answer’s length in words
+      </CheckRow>
+      {draft.words ? (
+        <Toolbar>
+          <InlineField label="From">
+            <NumberInput
+              aria-label="Fewest words"
+              aria-invalid={Boolean(wordsError)}
+              aria-describedby={wordsError ? 'case-words-error' : undefined}
+              min={0}
+              value={draft.words[0]}
+              onValueChange={(n) => set({ words: [n, draft.words?.[1] ?? 0] })}
+            />
+          </InlineField>
+          <InlineField label="to">
+            <NumberInput
+              aria-label="Most words"
+              aria-invalid={Boolean(wordsError)}
+              aria-describedby={wordsError ? 'case-words-error' : undefined}
+              min={0}
+              value={draft.words[1]}
+              onValueChange={(n) => set({ words: [draft.words?.[0] ?? 0, n] })}
+            />
+          </InlineField>
+          <Text tone="muted" size="ui">
+            words
+          </Text>
+        </Toolbar>
+      ) : null}
+      {wordsError ? (
+        <Hint id="case-words-error" tone="destructive">
+          {wordsError}
+        </Hint>
+      ) : null}
+
+      {drawn ? (
+        <>
+          <CheckRow
+            checked={Boolean(draft.size)}
+            onCheckedChange={(on) => set({ size: on ? [1280, 800] : null })}
+            description={
+              work === 'image'
+                ? 'The picture must be exactly this size.'
+                : work === 'html'
+                  ? 'The page is shown at this size when it is graded.'
+                  : 'A picture must be exactly this size. A page is shown at this size when it is graded.'
+            }
+          >
+            {work === 'image'
+              ? 'Check the picture’s size in pixels'
+              : work === 'html'
+                ? 'Set the page’s size in pixels'
+                : 'Check the size of the picture or page in pixels'}
+          </CheckRow>
+          {draft.size ? (
+            <Toolbar>
+              <InlineField label="Width">
+                <NumberInput
+                  aria-label="Width in pixels"
+                  aria-invalid={Boolean(sizeError)}
+                  aria-describedby={sizeError ? 'case-size-error' : undefined}
+                  min={1}
+                  max={MAX_SIDE}
+                  value={draft.size[0]}
+                  onValueChange={(n) => set({ size: [n, draft.size?.[1] ?? 0] })}
+                />
+              </InlineField>
+              <InlineField label="by">
+                <NumberInput
+                  aria-label="Height in pixels"
+                  aria-invalid={Boolean(sizeError)}
+                  aria-describedby={sizeError ? 'case-size-error' : undefined}
+                  min={1}
+                  max={MAX_SIDE}
+                  value={draft.size[1]}
+                  onValueChange={(n) => set({ size: [draft.size?.[0] ?? 0, n] })}
+                />
+              </InlineField>
+              <Text tone="muted" size="ui">
+                px
+              </Text>
+            </Toolbar>
+          ) : null}
+          {sizeError ? (
+            <Hint id="case-size-error" tone="destructive">
+              {sizeError}
+            </Hint>
+          ) : null}
+          {/* A picture has no phone width: the row stays only for a case that ticked it. */}
+          {work === 'image' && !draft.phone ? null : (
+            <CheckRow checked={draft.phone ?? false} onCheckedChange={(on) => set({ phone: on })}>
+              Check that a page works on a phone too, 390 px wide
+            </CheckRow>
+          )}
+        </>
+      ) : null}
+    </>
+  )
+
+  const deleteCase = selected?.dir ? (
+    <FormSection layout="stacked" title="Delete this case">
+      <Toolbar>
+        <Button
+          type="button"
+          variant="destructive-outline"
+          size="sm"
+          disabled={busy || duplicating}
+          busy={deletingThis}
+          busyLabel="Deleting…"
+          onClick={() => void remove(selected)}
+        >
+          Delete case
+        </Button>
+      </Toolbar>
+    </FormSection>
+  ) : null
+
+  /** The whole case in one column: the task, then the rest folded, each part under its own line. */
+  const folded = (
+    <>
+      {alerts}
+      {task}
+      <Stack gap="sm">
+        <Disclosure
+          variant="section"
+          summary={
+            choosesFile ? 'The file to grade, a good answer and checks' : 'A good answer and checks'
+          }
+          detail={checkCount ? plural(checkCount, 'check') : undefined}
+          open={foldOpen('judged', judged)}
+          onOpenChange={setFold('judged')}
+        >
+          {fileToGrade}
+          {goodAnswer(false)}
+          {checks}
+        </Disclosure>
+        <Disclosure
+          variant="section"
+          summary={drawn ? 'Length and size' : 'Length'}
+          detail={limits.length ? limits.join(', ') : undefined}
+          open={foldOpen('limits', limits.length > 0)}
+          onOpenChange={setFold('limits')}
+        >
+          <Stack gap="lg">{lengthAndSize}</Stack>
+        </Disclosure>
+      </Stack>
+      {deleteCase}
+    </>
+  )
+
+  /** The last answer, with the cost to run over it: the answer's own line says what its run cost. */
+  const answerPane = (
+    <SplitPane kind="bare">
+      <CostStrip cost={cost} />
+      <LastAnswer
+        output={shown}
+        cost={ran}
+        config={config}
+        size={draft.size ?? null}
+        stale={stale}
+        onCompare={() => shown && go('results', { case: shown.caseId })}
+      />
+    </SplitPane>
+  )
 
   return (
     <Workbench layout={cases.length ? 'list' : 'single'}>
@@ -493,7 +935,7 @@ export const Cases = memo(function Cases({ ctx }: { ctx: Ctx }) {
           </nav>
         </Column>
       ) : null}
-      <Column over={drop.over}>
+      <Column scroll="parts" over={drop.over}>
         <form
           className="contents"
           {...drop.handlers}
@@ -511,6 +953,8 @@ export const Cases = memo(function Cases({ ctx }: { ctx: Ctx }) {
 
               <DraftNote drafts={drafts} dirty={dirty} saved={isNew ? '' : 'Saved'} />
             </ColumnTitle>
+            {/* Only where nothing beside the form says the cost. Not before the column is measured. */}
+            {width && layout === 'one' && !railed ? <CostMeter cost={cost} last={ran} /> : null}
             {dirty ? (
               <Button
                 type="button"
@@ -551,352 +995,56 @@ export const Cases = memo(function Cases({ ctx }: { ctx: Ctx }) {
               {isNew ? 'Add case' : 'Save case'}
             </Button>
           </ColumnHeader>
-          <ColumnBody width="form">
-            {changedOnDisk ? (
-              <Alert variant="warning" role="status">
-                <AlertTitle>
-                  {savedName} was changed outside the app while you were editing
-                </AlertTitle>
-                <AlertDescription>
-                  <p>Keep your edits to save over that change, or take the changed case.</p>
-                  <Toolbar>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => drafts.baseCase(key, savedAt)}
-                    >
-                      Keep my edits
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => drafts.setCase(key, null)}
-                    >
-                      Take the changed case
-                    </Button>
-                  </Toolbar>
-                </AlertDescription>
-              </Alert>
-            ) : null}
-            {selected?.source === 'evals.json' ? (
-              <Alert variant="muted">
-                <AlertDescription>
-                  This case comes from evals.json. Saving writes a case folder in its place.
-                </AlertDescription>
-              </Alert>
-            ) : null}
-
-            <FormSection
-              layout="stacked"
-              title="Task"
-              hint={
-                cases.length
-                  ? undefined
-                  : 'A case is one request to test the skill with. The prompt alone is enough to run it.'
-              }
-            >
-              <Field>
-                <Label htmlFor="case-title" optional>
-                  Title
-                </Label>
-                <Input
-                  id="case-title"
-                  value={draft.title}
-                  placeholder="Named after the prompt"
-                  aria-invalid={Boolean(titleError)}
-                  aria-describedby={titleError ? 'case-title-error' : undefined}
-                  onChange={(e) => set({ title: e.target.value })}
-                />
-                {titleError ? (
-                  <Hint id="case-title-error" tone="destructive">
-                    {titleError}
-                  </Hint>
-                ) : null}
-              </Field>
-
-              <Field>
-                <Label htmlFor="case-prompt">Prompt</Label>
-                <TextArea
-                  id="case-prompt"
-                  rows={6}
-                  value={draft.prompt}
-                  placeholder="What would you ask?"
-                  aria-describedby="case-prompt-help"
-                  onValueChange={(prompt) => set({ prompt })}
-                  assist={{ field: 'case.prompt', ...assist }}
-                />
-                <Hint id="case-prompt-help">{CASE_PROMPT_HINT}</Hint>
-              </Field>
-
-              {isNew ? (
-                <Disclosure summary="Start from an example">
-                  <Stack gap="md">
-                    {fitting ? null : (
-                      <Segmented
-                        aria-label="Kind of skill"
-                        value={kindId}
-                        onChange={(v) => v && setKindId(v)}
-                        options={EXAMPLE_KINDS.map((t) => ({ value: t.id, label: t.label }))}
-                      />
-                    )}
-                    <ExampleList
-                      items={kind.cases.map((c) => ({
-                        key: c.id,
-                        title: c.title,
-                        sub: `${plural(c.graders.length, 'check')}${
-                          c.words ? ` · ${c.words[0]} to ${c.words[1]} words` : ''
-                        }`,
-                        onPick: () => fillFrom(c),
-                      }))}
-                    />
-                  </Stack>
-                </Disclosure>
+          <ColumnRoom ref={room}>
+            <Split layout={layout}>
+              {layout === 'one' ? (
+                <SplitPane kind="page">
+                  <Railed
+                    label="About this case"
+                    rail={railed ? <CostRail cost={cost} last={ran} /> : undefined}
+                  >
+                    {folded}
+                  </Railed>
+                </SplitPane>
               ) : null}
-
-              <Field role="group" aria-labelledby="case-files" className="max-w-xl">
-                <FieldHead
-                  action={
-                    caseDir && openCaseFiles ? (
-                      <Button
-                        type="button"
-                        variant="ghost-muted"
-                        size="xs"
-                        onClick={() => void openCaseFiles(skill, caseDir).catch(report)}
-                      >
-                        {REVEAL_LABEL}
-                        <ArrowUpRightIcon aria-hidden="true" />
-                      </Button>
-                    ) : null
-                  }
-                >
-                  <Label id="case-files" optional>
-                    Files
-                  </Label>
-                </FieldHead>
-                <CaseFiles
-                  pictures={draft.images}
-                  entries={inputs}
-                  adding={addingFiles}
-                  onRemovePicture={(image) =>
-                    set({ images: draft.images.filter((i) => i !== image) })
-                  }
-                  onRemoveEntry={removeInput}
-                  onFiles={files.addFiles}
-                  onFolder={files.addFolder}
-                />
-                {pictures.error ? (
-                  <Hint tone="destructive" role="alert">
-                    {pictures.error}
-                  </Hint>
-                ) : null}
-                {files.error ? (
-                  <Hint tone="destructive" role="alert">
-                    {files.error}
-                  </Hint>
-                ) : null}
-                {/* Shown until a file is added: after that the rows say it. */}
-                {pictures.error || files.error || hasFiles ? null : (
-                  <Hint>
-                    Add any file your prompt refers to, such as a screenshot. It can’t be read
-                    otherwise.
-                  </Hint>
-                )}
-              </Field>
-            </FormSection>
-
-            <Disclosure
-              variant="section"
-              summary={extrasLine}
-              open={extrasOpen}
-              onOpenChange={(open) => setFolded({ key, open })}
-            >
-              {choosesFile ? (
-                // First in the fold: a good answer, the checks and the size are all about this file.
-                <Field>
-                  <Label id="case-file">File to grade</Label>
-                  <Segmented<'html' | 'image'>
-                    aria-labelledby="case-file"
-                    value={work ?? answer?.graded ?? null}
-                    onChange={(artifact) => set({ artifact })}
-                    options={[
-                      {
-                        value: 'html',
-                        label: answer ? <Code>{answer.page}</Code> : 'The page',
-                        title: 'The page',
-                      },
-                      {
-                        value: 'image',
-                        label: answer ? <Code>{answer.picture}</Code> : 'The picture',
-                        title: 'The picture',
-                      },
-                    ]}
-                  />
-                  <Hint>
-                    {answer
-                      ? 'The last answer to this case came as a page and a picture. Only the one you pick is graded.'
-                      : 'When an answer comes as a page and a picture, only the one you pick is graded.'}
-                  </Hint>
-                </Field>
+              {layout === 'pair' ? (
+                <>
+                  <SplitPane>{folded}</SplitPane>
+                  {answerPane}
+                </>
               ) : null}
-              <Field>
-                <Label htmlFor="case-expected" optional>
-                  A good answer
-                </Label>
-                <TextArea
-                  id="case-expected"
-                  rows={2}
-                  value={draft.expectedOutcome}
-                  placeholder="What it says first and what it must include"
-                  onValueChange={(expectedOutcome) => set({ expectedOutcome })}
-                  assist={{ field: 'case.expected', ...assist }}
-                />
-              </Field>
-
-              <FormSection
-                layout="stacked"
-                title="Checks"
-                hint="Facts that must be true of a good answer, each marked met or missed. Easier to write after a first run."
-              >
-                <GuideBox summary="What Jev can mark">
-                  <PairList pairs={CHECK_EXAMPLES} />
-                </GuideBox>
-                <CheckList
-                  key={`${skill}\n${key}`}
-                  graders={draft.graders}
-                  onChange={(graders) => set({ graders })}
-                  examples={kind.cases[0]?.graders.map((g) => g.statement) ?? []}
-                  assist={assist}
-                  report={report}
-                />
-              </FormSection>
-
-              <FormSection layout="stacked" title={drawn ? 'Length and size' : 'Length'}>
-                <CheckRow
-                  checked={Boolean(draft.words)}
-                  onCheckedChange={(on) => set({ words: on ? [50, 300] : null })}
-                >
-                  Score the answer’s length in words
-                </CheckRow>
-                {draft.words ? (
-                  <Toolbar>
-                    <InlineField label="From">
-                      <NumberInput
-                        aria-label="Fewest words"
-                        aria-invalid={Boolean(wordsError)}
-                        aria-describedby={wordsError ? 'case-words-error' : undefined}
-                        min={0}
-                        value={draft.words[0]}
-                        onValueChange={(n) => set({ words: [n, draft.words?.[1] ?? 0] })}
-                      />
-                    </InlineField>
-                    <InlineField label="to">
-                      <NumberInput
-                        aria-label="Most words"
-                        aria-invalid={Boolean(wordsError)}
-                        aria-describedby={wordsError ? 'case-words-error' : undefined}
-                        min={0}
-                        value={draft.words[1]}
-                        onValueChange={(n) => set({ words: [draft.words?.[0] ?? 0, n] })}
-                      />
-                    </InlineField>
-                    <Text tone="muted" size="ui">
-                      words
-                    </Text>
-                  </Toolbar>
-                ) : null}
-                {wordsError ? (
-                  <Hint id="case-words-error" tone="destructive">
-                    {wordsError}
-                  </Hint>
-                ) : null}
-
-                {drawn ? (
-                  <>
-                    <CheckRow
-                      checked={Boolean(draft.size)}
-                      onCheckedChange={(on) => set({ size: on ? [1280, 800] : null })}
-                      description={
-                        work === 'image'
-                          ? 'The picture must be exactly this size.'
-                          : work === 'html'
-                            ? 'The page is shown at this size when it is graded.'
-                            : 'A picture must be exactly this size. A page is shown at this size when it is graded.'
+              {layout === 'trio' ? (
+                <>
+                  {/* What is asked. */}
+                  <SplitPane>
+                    {alerts}
+                    {task}
+                    {deleteCase}
+                  </SplitPane>
+                  {/* How the answer is judged. Nothing folds: the pane is its room. */}
+                  <SplitPane>
+                    <FormSection
+                      layout="stacked"
+                      title="A good answer"
+                      hint={
+                        draft.expectedOutcome.trim()
+                          ? undefined
+                          : 'Easier to write after a first run.'
                       }
                     >
-                      {work === 'image'
-                        ? 'Check the picture’s size in pixels'
-                        : work === 'html'
-                          ? 'Set the page’s size in pixels'
-                          : 'Check the size of the picture or page in pixels'}
-                    </CheckRow>
-                    {draft.size ? (
-                      <Toolbar>
-                        <InlineField label="Width">
-                          <NumberInput
-                            aria-label="Width in pixels"
-                            aria-invalid={Boolean(sizeError)}
-                            aria-describedby={sizeError ? 'case-size-error' : undefined}
-                            min={1}
-                            max={MAX_SIDE}
-                            value={draft.size[0]}
-                            onValueChange={(n) => set({ size: [n, draft.size?.[1] ?? 0] })}
-                          />
-                        </InlineField>
-                        <InlineField label="by">
-                          <NumberInput
-                            aria-label="Height in pixels"
-                            aria-invalid={Boolean(sizeError)}
-                            aria-describedby={sizeError ? 'case-size-error' : undefined}
-                            min={1}
-                            max={MAX_SIDE}
-                            value={draft.size[1]}
-                            onValueChange={(n) => set({ size: [draft.size?.[0] ?? 0, n] })}
-                          />
-                        </InlineField>
-                        <Text tone="muted" size="ui">
-                          px
-                        </Text>
-                      </Toolbar>
-                    ) : null}
-                    {sizeError ? (
-                      <Hint id="case-size-error" tone="destructive">
-                        {sizeError}
-                      </Hint>
-                    ) : null}
-                    {/* A picture has no phone width: the row stays only for a case that ticked it. */}
-                    {work === 'image' && !draft.phone ? null : (
-                      <CheckRow
-                        checked={draft.phone ?? false}
-                        onCheckedChange={(on) => set({ phone: on })}
-                      >
-                        Check that a page works on a phone too, 390 px wide
-                      </CheckRow>
-                    )}
-                  </>
-                ) : null}
-              </FormSection>
-            </Disclosure>
-
-            {selected?.dir ? (
-              <FormSection layout="stacked" title="Delete this case">
-                <Toolbar>
-                  <Button
-                    type="button"
-                    variant="destructive-outline"
-                    size="sm"
-                    disabled={busy || duplicating}
-                    busy={deletingThis}
-                    busyLabel="Deleting…"
-                    onClick={() => void remove(selected)}
-                  >
-                    Delete case
-                  </Button>
-                </Toolbar>
-              </FormSection>
-            ) : null}
-          </ColumnBody>
+                      {fileToGrade}
+                      {goodAnswer(true)}
+                    </FormSection>
+                    {checks}
+                    <FormSection layout="stacked" title={drawn ? 'Length and size' : 'Length'}>
+                      {lengthAndSize}
+                    </FormSection>
+                  </SplitPane>
+                  {answerPane}
+                </>
+              ) : null}
+            </Split>
+          </ColumnRoom>
         </form>
       </Column>
     </Workbench>

@@ -3,6 +3,7 @@ import { cva, type VariantProps } from 'class-variance-authority'
 import { ChevronRightIcon } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { cn } from '../lib/utils.ts'
+import { Text } from './text.tsx'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from './ui/collapsible.tsx'
 
 const disclosureVariants = cva('', {
@@ -67,7 +68,7 @@ const contentVariants = cva('', {
       // Indented past the chevron, under the title it opens.
       row: 'pt-2 pb-1 pl-5 data-[state=open]:animate-ink',
       // Spaced as the column's own sections are, and faded in: a whole part of the form arrives at once.
-      section: 'flex flex-col gap-8 pt-4 data-[state=open]:animate-ink',
+      section: 'flex flex-col gap-8 pt-4 pb-4 data-[state=open]:animate-ink',
     },
   },
   defaultVariants: { variant: 'plain' },
@@ -77,8 +78,13 @@ const contentVariants = cva('', {
 function Head({
   variant,
   summary,
+  detail,
   still,
-}: VariantProps<typeof disclosureVariants> & { summary: ReactNode; still: boolean }) {
+}: VariantProps<typeof disclosureVariants> & {
+  summary: ReactNode
+  detail?: ReactNode
+  still: boolean
+}) {
   if (still)
     return (
       <div className={triggerVariants({ variant, still: true })}>
@@ -89,13 +95,29 @@ function Head({
   return (
     <CollapsibleTrigger className={triggerVariants({ variant })}>
       <ChevronRightIcon aria-hidden="true" />
-      {summary}
+      {detail ? (
+        <span className="flex min-w-0 items-baseline gap-2">
+          <span>{summary}</span>
+          <Text
+            size="xs"
+            tone="faint"
+            tabular
+            truncate
+            className="group-data-[state=open]/disclosure:hidden"
+          >
+            {detail}
+          </Text>
+        </span>
+      ) : (
+        summary
+      )}
     </CollapsibleTrigger>
   )
 }
 
 export function Disclosure({
   summary,
+  detail,
   children,
   action,
   defaultOpen,
@@ -105,6 +127,8 @@ export function Disclosure({
   className,
 }: VariantProps<typeof disclosureVariants> & {
   summary: ReactNode
+  /** What the block holds, said after its line while it is closed: "7 checks". Gone once it is open and shows them. */
+  detail?: ReactNode
   /** What opens. Without it the row has nothing to open and shows no chevron. */
   children?: ReactNode
   /** One control at the end of the line, outside the part that opens and closes. */
@@ -115,7 +139,9 @@ export function Disclosure({
   onOpenChange?: (open: boolean) => void
   className?: string
 }) {
-  const head = <Head variant={variant} summary={summary} still={children === undefined} />
+  const head = (
+    <Head variant={variant} summary={summary} detail={detail} still={children === undefined} />
+  )
   const block = (
     <Collapsible
       defaultOpen={defaultOpen}

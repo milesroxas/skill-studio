@@ -690,6 +690,35 @@ export function apartLine(output: Output, other: Output | null): string | null {
   return bits.length ? bits.join(' · ') : null
 }
 
+/** "2m 14s", or "38s" under a minute. */
+export const duration = (seconds: number): string =>
+  seconds >= 60 ? `${Math.floor(seconds / 60)}m ${seconds % 60}s` : `${seconds}s`
+
+/** The answer to a case that Results opens on: the latest version's, or the only one. Null for a case not run. */
+export function lastAnswer(outputs: Output[], caseId: string): Output | null {
+  const pair = casePair(outputs, caseId)
+  return pair.b ?? pair.a
+}
+
+/** What one attempt at a case cost in a run, on average over the attempts that ran to their end. */
+export interface AttemptCost {
+  usd: number
+  seconds: number
+  /** "Sonnet": the model counts for more of the cost than the case does. */
+  model: string
+}
+
+/** What an attempt at `output`'s case cost in its run; null for a run that kept no cost. */
+export function attemptCost(output: Output): AttemptCost | null {
+  const samples = (output.run.meta?.samples ?? []).filter(
+    (s) => s.case === output.caseId && s.costUsd !== null && !s.stopped,
+  )
+  const usd = mean(samples.map((s) => s.costUsd ?? 0))
+  const seconds = mean(samples.map((s) => s.seconds))
+  if (usd === null || seconds === null) return null
+  return { usd, seconds: Math.round(seconds), model: modelShort(output.run.meta?.writer) }
+}
+
 /** Cents, or four places for an amount under ten cents. */
 export const money = (value: number | null | undefined): string =>
   value === null || value === undefined ? '–' : `$${value.toFixed(value < 0.1 ? 4 : 2)}`
