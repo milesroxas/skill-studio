@@ -485,14 +485,9 @@ function copyFiles(files: SkillFile[], dest: string): void {
   }
 }
 
-/** Copy SKILL.md and references into `dest` (a saved version's `files/`), as `skillFiles` reads them. */
-export function snapshotSkillFiles(skillDir: string, dest: string): void {
-  copyFiles(skillFilePaths(skillDir), dest)
-}
-
 /**
- * Copy what an agent gets of the skill into `dest`: a run's `_skill/`, or an
- * agent's workspace. Its files are read as the version's hash reads them, so
+ * Copy what an agent gets of the skill into `dest`: a run's `_skill/`, a
+ * saved version's `files/`, or an agent's workspace. Its files are read as the version's hash reads them, so
  * the copy holds exactly what the version names: SKILL.md, and beside it
  * every file but those under `evals/` or a folder in `NEVER_COPIED`, hidden
  * ones and those a link out of the skill leads to.

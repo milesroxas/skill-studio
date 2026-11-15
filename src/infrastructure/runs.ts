@@ -9,14 +9,14 @@ import { join } from 'node:path'
 import { parseSampleDir } from '@domain/run-name.ts'
 import type { Artifact, Case, Report, RunMeta, SampleFailure, SampleMeta } from '@domain/schemas.ts'
 import { metaList, metaText, readFrontMatter } from '@domain/text.ts'
-import type { FileHead, RunView, Sample } from '@domain/views.ts'
+import type { FileHead, RunView, Sample, SkillVersions } from '@domain/views.ts'
 import { detectArtifacts } from './artifacts.ts'
 import { loadCases } from './cases.ts'
 import { assertInside, isDir, isFile, listDirs, listFiles, readJson } from './fs.ts'
 import { readKept, runCases } from './run-cases.ts'
-import { skillFiles, skillVersions } from './skill.ts'
+import { skillFiles, skillIdentity, skillVersions } from './skill.ts'
 import { readTranscript } from './transcript.ts'
-import { isVersionLabel, savedVersionSource, savedVersions } from './versions.ts'
+import { isVersionLabel, savedVersionFile, savedVersionSource, savedVersions } from './versions.ts'
 
 const runsDir = (skillDir: string): string => join(skillDir, 'evals/runs')
 export const anchorsDir = (skillDir: string): string => join(skillDir, 'evals/anchors')
@@ -291,25 +291,78 @@ export const runsOfVersion = (skillDir: string, version: string): string[] =>
     .filter((meta) => meta.skillVersion === version)
     .map((meta) => meta.name)
 
-export const versionsOf = (skillDir: string) =>
-  skillVersions(skillDir, runMetas(skillDir), savedVersions(skillDir), (run) =>
+/**
+ * The skill's versions (`skillVersions`), each marked `partial` when no copy
+ * kept of it holds all it was stamped with.
+ */
+export function versionsOf(skillDir: string): SkillVersions {
+  const metas = runMetas(skillDir)
+  const versions = skillVersions(skillDir, metas, savedVersions(skillDir), (run) =>
     skillCopy(skillDir, run),
   )
+  return {
+    ...versions,
+    versions: versions.versions.map((v) =>
+      copyOf(skillDir, v.version, metas)?.whole === false ? { ...v, partial: true } : v,
+    ),
+  }
+}
 
-/** The folder holding a version's files: its saved copy, or else the snapshot of the first run made with it. */
-export function versionSource(skillDir: string, version: string): string {
+/**
+ * Whether the copy in `dir` holds all a version stamped `hash` holds. A
+ * version stamped from SKILL.md and references alone is held whole by a copy
+ * of those, whatever else it holds.
+ */
+function holdsWhole(dir: string, hash: string): boolean {
+  try {
+    const identity = skillIdentity(dir)
+    return identity.hash === hash || identity.files === hash
+  } catch {
+    return false
+  }
+}
+
+/**
+ * The copy of `version` a run of it is made from, and whether it holds all
+ * the version was stamped with: the first of its saved copy and its runs'
+ * copies, oldest run first, that holds the whole of it. A saved copy that
+ * holds SKILL.md and references only, as one saved by Skill Studio 0.14.0 or
+ * earlier does, gives way to a run's copy that holds the rest. With none whole,
+ * the saved copy, else the first run's. Null when no copy is kept.
+ */
+function copyOf(
+  skillDir: string,
+  version: string,
+  metas: RunMeta[] = runMetas(skillDir),
+): { dir: string; whole: boolean } | null {
   const saved = savedVersionSource(skillDir, version)
-  if (saved) return saved
   // A run without the skill tested no version: its copy is of whatever the files were then.
-  const run = runMetas(skillDir).find(
+  const runs = metas.filter(
     (meta) =>
       meta.skillVersion === version &&
       meta.configuration !== 'without_skill' &&
       isDir(skillCopy(skillDir, meta.name)),
   )
-  if (!run) throw new Error(`No copy of ${version} is kept: it was neither saved nor run.`)
-  return skillCopy(skillDir, run.name)
+  const copies = [...(saved ? [saved] : []), ...runs.map((meta) => skillCopy(skillDir, meta.name))]
+  if (!copies.length) return null
+  const hash = (saved ? savedVersionFile(skillDir, version)?.hash : null) ?? runs[0]?.skillHash
+  const whole = hash ? copies.find((dir) => holdsWhole(dir, hash)) : undefined
+  return whole ? { dir: whole, whole: true } : { dir: copies[0], whole: false }
 }
+
+/**
+ * The folder holding a version's files, and whether it holds all the version
+ * was stamped with (`copyOf`).
+ */
+export function versionCopy(skillDir: string, version: string): { dir: string; whole: boolean } {
+  const copy = copyOf(skillDir, version)
+  if (!copy) throw new Error(`No copy of ${version} is kept: it was neither saved nor run.`)
+  return copy
+}
+
+/** The folder holding a version's files: the first copy kept of it that holds the whole of it. */
+export const versionSource = (skillDir: string, version: string): string =>
+  versionCopy(skillDir, version).dir
 
 /** A version's SKILL.md and references, as text. */
 export const versionFiles = (skillDir: string, version: string): Record<string, string> =>

@@ -21,7 +21,7 @@ import { createSkill, touchRecent } from '@infrastructure/library.ts'
 import { writePreferences } from '@infrastructure/preferences.ts'
 import { saveCorrection } from '@infrastructure/reviews.ts'
 import { runDir, versionsOf } from '@infrastructure/runs.ts'
-import { skillFiles, skillHash, snapshotSkill, snapshotSkillFiles } from '@infrastructure/skill.ts'
+import { skillFiles, skillHash, snapshotSkill } from '@infrastructure/skill.ts'
 import { saveVersion } from '@infrastructure/versions.ts'
 import { scorers } from '@judges/scorers.ts'
 
@@ -385,7 +385,7 @@ function writeRun(spec: RunSpec): string {
   })
   const root = runDir(dir, name)
   const withSkill = spec.configuration !== 'without_skill'
-  snapshotSkillFiles(dir, join(root, '_skill'))
+  snapshotSkill(dir, join(root, '_skill'))
   const rules = rulesFromSkill(readFileSync(join(dir, 'SKILL.md'), 'utf8'))
   const cases = loadCases(dir)
   const started = new Date(`${spec.date}T${spec.time}:00Z`).getTime()

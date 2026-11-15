@@ -182,7 +182,7 @@ The first time, the button reads **Run without skill**. That run shows how the a
 
 The run's progress shows at the bottom of the sidebar. Click it to watch, or to **Stop**. Each run costs a little money: the agent and Jev are both paid services.
 
-**Options**, in the Run panel, lets you leave out cases, run an older version, pick another agent or model, and set **Attempts per case**. Two or more attempts show whether a result was luck, since the agent answers a little differently each time.
+**Options**, in the Run panel, lets you leave out cases, run an older version, pick another agent or model, and set **Attempts per case**. An older version kept without its scripts and other files says so under **Version**: a run of it gets SKILL.md and references only. Two or more attempts show whether a result was luck, since the agent answers a little differently each time.
 
 ## 5. Compare the results
 

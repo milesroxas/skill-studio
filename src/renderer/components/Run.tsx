@@ -372,6 +372,12 @@ export function RunButton({
                     label: v.date ? `${versionLabel(v)} · ${shortDate(v.date)}` : versionLabel(v),
                   }))}
                 />
+                {pastVersion?.partial ? (
+                  <Hint>
+                    Only SKILL.md and references were kept of this version, so a run of it gets no
+                    scripts or other files.
+                  </Hint>
+                ) : null}
               </Field>
             ) : null}
             <Field>

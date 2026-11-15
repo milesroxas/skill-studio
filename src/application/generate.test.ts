@@ -437,6 +437,42 @@ describe('generateRun', () => {
     expect(meta.skillName).toBe('Short notes')
   })
 
+  it('gives a run against a saved version its scripts, and says when a copy kept none', async () => {
+    mkdirSync(join(skill, 'scripts'), { recursive: true })
+    writeFileSync(join(skill, 'scripts/count.sh'), 'wc -w')
+    saveVersion(skill, versionsOf(skill).current, 'Short notes', '')
+    rmSync(join(skill, 'scripts'), { recursive: true })
+    const seen: string[] = []
+    const engine = engineThat((cwd) => {
+      seen.push(readFileSync(join(cwd, '.agents/skills/notes-skill/scripts/count.sh'), 'utf8'))
+    })
+    const log: string[] = []
+    await generateRun({
+      ...options(engine, 1),
+      configuration: 'old_skill',
+      baseline: 'v0',
+      log: (line) => log.push(line),
+    })
+    expect(seen).toEqual(['wc -w'])
+    expect(log.join('\n')).not.toMatch('references/ only')
+
+    // A copy saved with SKILL.md and references alone, as an older app saved one.
+    rmSync(join(skill, 'evals/versions/v0/files/scripts'), { recursive: true })
+    rmSync(join(skill, 'evals/runs'), { recursive: true })
+    await generateRun({
+      ...options(
+        engineThat(() => {}),
+        1,
+      ),
+      configuration: 'old_skill',
+      baseline: 'v0',
+      log: (line) => log.push(line),
+    })
+    expect(log.join('\n')).toMatch(
+      'v0 was kept with SKILL.md and references/ only: this run gets none of its scripts',
+    )
+  })
+
   it('refuses a version that is not kept', async () => {
     await expect(
       generateRun({

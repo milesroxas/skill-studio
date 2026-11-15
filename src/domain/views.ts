@@ -89,6 +89,12 @@ export interface SkillVersion {
   date: string | undefined
   /** Saved by hand with its files, so it can be restored; otherwise known only from its runs. */
   saved: boolean
+  /**
+   * No copy kept of it holds all it was stamped with: SKILL.md and references
+   * are kept, its scripts and other files are not, so a run of it gets none.
+   * Absent for a version kept whole.
+   */
+  partial?: boolean
 }
 
 export interface SkillVersions {

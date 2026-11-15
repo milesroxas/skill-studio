@@ -20,7 +20,7 @@ Everything Skill Studio knows about a skill is plain files in the skill's `evals
     anchors/*.md                  labelled outputs for `st self-test`; front matter: case, label, tests
     anchors/report.json           what `st self-test` scored, written each time it runs, with judge-cache.json beside it
     reviews.json                  your corrections to Jev's verdicts (see grading.md#corrections)
-    versions/<vN>/                a saved version (by the Assistant, or kept when its only run is deleted): version.json and files/
+    versions/<vN>/                a saved version (by the Assistant, or kept when its only run is deleted): version.json and files/, the skill as an agent's copy holds it
     runs/                         one directory per run, below
 ```
 
@@ -121,7 +121,8 @@ A run's configuration says which skill the agent saw:
 
 - `with_skill` (the default): the skill as it is now.
 - `without_skill`: no skill in the workspace, and no line in the prompt pointing at one.
-- `old_skill --baseline <version>`: that version's files, from `evals/versions/` or else the `_skill/` of its first run. The agent is told the skill by the name that copy gives it, whatever the skill is called now.
+- `old_skill --baseline <version>`: that version's files, from the first copy kept of it that holds all its hash covers: its saved copy in `evals/versions/`, then the `_skill/` of each of its runs, oldest first (`versionCopy` in `src/infrastructure/runs.ts`). The agent is told the skill by the name that copy gives it, whatever the skill is called now.
+- A saved copy holds what a run's `_skill/` holds: SKILL.md, `references/`, scripts, assets and every other file the hash covers. One saved by Skill Studio 0.14.0 or earlier holds SKILL.md and `references/` only, and gives way to a run's copy that holds the rest. With no copy whole, a run of the version gets SKILL.md and `references/` alone: the log says so, and the Run panel says so under **Version**.
 - `old_skill --baseline <run>`: that run's `_skill/` snapshot, which holds what the run's agents got.
 
 ## The app's own files

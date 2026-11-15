@@ -39,7 +39,7 @@ import {
   writeJson,
 } from '@infrastructure/fs.ts'
 import { keepCases } from '@infrastructure/run-cases.ts'
-import { readRunMeta, runDir, skillCopy, versionSource, versionsOf } from '@infrastructure/runs.ts'
+import { readRunMeta, runDir, skillCopy, versionCopy, versionsOf } from '@infrastructure/runs.ts'
 import { skillHead, skillInfo, snapshotSkill } from '@infrastructure/skill.ts'
 import { TranscriptWriter } from '@infrastructure/transcript.ts'
 import { isVersionLabel } from '@infrastructure/versions.ts'
@@ -197,13 +197,18 @@ function stageInputs(
  * copy is used, or a run, whose own copy is. Throws when nothing is named, or
  * no copy or no record of the version is kept.
  */
-function baselineOf(skillDir: string, baseline: string | null): { dir: string; stamp: SkillStamp } {
+function baselineOf(
+  skillDir: string,
+  baseline: string | null,
+): { dir: string; stamp: SkillStamp; partial?: boolean } {
   if (!baseline) throw new Error('old_skill needs the version to run against.')
   if (isVersionLabel(baseline)) {
     const version = versionsOf(skillDir).versions.find((v) => v.version === baseline)
     if (!version) throw new Error(`No version ${baseline} is kept.`)
+    const copy = versionCopy(skillDir, baseline)
     return {
-      dir: versionSource(skillDir, baseline),
+      dir: copy.dir,
+      ...(copy.whole ? {} : { partial: true }),
       stamp: {
         version: version.version,
         name: version.name,
@@ -231,6 +236,10 @@ export async function generateRun(
   const info = skillInfo(skillDir)
   const configuration = options.configuration
   const baseline = configuration === 'old_skill' ? baselineOf(skillDir, options.baseline) : null
+  if (baseline?.partial)
+    log(
+      `${baseline.stamp.version} was kept with SKILL.md and references/ only: this run gets none of its scripts or other files.`,
+    )
   const stamp = baseline
     ? baseline.stamp
     : stampSkill(skillDir, options.skillName, options.note, configuration)

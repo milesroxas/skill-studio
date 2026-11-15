@@ -14,7 +14,7 @@ import { dirname, join } from 'node:path'
 import type { RunMeta } from '@domain/schemas.ts'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { failRenames } from './__fixtures__/fs.ts'
-import { versionFiles, versionsOf } from './runs.ts'
+import { versionCopy, versionFiles, versionsOf } from './runs.ts'
 import { restoreSkillFiles, skillFiles, skillHash, skillIdentity, skillVersions } from './skill.ts'
 import { savedVersions, saveVersion } from './versions.ts'
 
@@ -42,6 +42,46 @@ function writeRun(name: string, version: string, text: string) {
   }
   writeFileSync(join(run, 'run.json'), JSON.stringify(meta))
 }
+
+describe('a version’s kept copy', () => {
+  const script = (root: string, text: string) => {
+    mkdirSync(join(root, 'scripts'), { recursive: true })
+    writeFileSync(join(root, 'scripts/build.sh'), text)
+  }
+
+  it('holds the scripts and other files a run’s copy holds, under the same hash', () => {
+    script(dir, 'echo one')
+    const { hash } = versionsOf(dir).current
+    saveVersion(dir, versionsOf(dir).current, 'One', '')
+    const files = join(dir, 'evals/versions/v0/files')
+    expect(readFileSync(join(files, 'scripts/build.sh'), 'utf8')).toBe('echo one')
+    expect(skillIdentity(files).hash).toBe(hash)
+    expect(versionCopy(dir, 'v0')).toEqual({ dir: files, whole: true })
+    expect(versionsOf(dir).versions[0].partial).toBeUndefined()
+  })
+
+  it('reads a copy saved with SKILL.md alone from a run that kept the rest, and says when none did', () => {
+    script(dir, 'echo one')
+    const { hash } = versionsOf(dir).current
+    saveVersion(dir, versionsOf(dir).current, 'One', '')
+    // As a version saved before saved copies held the scripts.
+    rmSync(join(dir, 'evals/versions/v0/files/scripts'), { recursive: true })
+    expect(versionCopy(dir, 'v0').whole).toBe(false)
+    expect(versionsOf(dir).versions[0].partial).toBe(true)
+
+    writeRun('2026-11-01-skill-v0-a', 'v0', 'first')
+    script(join(dir, 'evals/runs/2026-11-01-skill-v0-a/_skill'), 'echo one')
+    writeFileSync(
+      join(dir, 'evals/runs/2026-11-01-skill-v0-a/run.json'),
+      JSON.stringify({ name: '2026-11-01-skill-v0-a', skillVersion: 'v0', skillHash: hash }),
+    )
+    expect(versionCopy(dir, 'v0')).toEqual({
+      dir: join(dir, 'evals/runs/2026-11-01-skill-v0-a/_skill'),
+      whole: true,
+    })
+    expect(versionsOf(dir).versions[0].partial).toBeUndefined()
+  })
+})
 
 describe('saveVersion', () => {
   it('saves the working tree as v0 with a copy of its files', () => {
