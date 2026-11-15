@@ -834,6 +834,14 @@ export const outputsToPick = (
 export const unscoredLine = (output: Output): string =>
   `${runInSentence(output.run, { start: true, short: true })} ${unscoredWords(output.cut)}`
 
+/**
+ * A run with no end of its own that no job is writing: the app quit or crashed
+ * while it ran, so it stopped where it was. `writing` says whether a job is
+ * writing it now. False for a run of flat files, which records no end.
+ */
+export const cutOff = (run: RunView, writing: boolean): boolean =>
+  Boolean(run.meta && !run.meta.legacy && !run.meta.finishedAt && !writing)
+
 /** "v2 · Opus 5.5", or "Without skill · Opus 5.5" */
 export const runLabel = (run: RunView): string =>
   `${runTitle(run, { short: true })} · ${writerName(run.meta?.writer)}`

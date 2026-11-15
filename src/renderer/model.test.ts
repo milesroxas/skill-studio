@@ -9,6 +9,7 @@ import {
   caseTitle,
   comparable,
   cutOf,
+  cutOff,
   deleteBlocked,
   deleteRunDialog,
   drawnOf,
@@ -1029,5 +1030,17 @@ describe('answerFiles', () => {
       answerFiles(outputsOf(stateOf([runOf('r1', 'v1', [picture])], ['generic'])), 'page'),
     ).toBeNull()
     expect(answerFiles(page, 'another')).toBeNull()
+  })
+})
+
+describe('cutOff', () => {
+  const run = (over: Partial<RunMeta>) =>
+    ({ ...runOf('r1', 'v1', []), meta: { finishedAt: null, ...over } }) as unknown as RunView
+  it('is a run with no end of its own that no job is writing', () => {
+    expect(cutOff(run({}), false)).toBe(true)
+    expect(cutOff(run({}), true)).toBe(false)
+    expect(cutOff(run({ finishedAt: '2026-11-01T10:00:00Z' }), false)).toBe(false)
+    expect(cutOff(run({ legacy: true }), false)).toBe(false)
+    expect(cutOff({ ...run({}), meta: null }, false)).toBe(false)
   })
 })

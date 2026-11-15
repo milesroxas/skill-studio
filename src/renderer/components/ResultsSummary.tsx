@@ -18,6 +18,7 @@ import { gradingRun, useJobStart, writingRun } from '../job-start.ts'
 import {
   type CaseStand,
   caseTitle,
+  cutOff,
   duration,
   failedLine,
   failureOf,
@@ -257,6 +258,9 @@ export function ResultsSummary({ ctx, standings }: { ctx: Ctx; standings: CaseSt
                           meta={[
                             answered(mine),
                             runStamp(run),
+                            cutOff(run, writingRun(jobs, state.skill.path, run.name))
+                              ? 'not finished'
+                              : null,
                             seconds ? duration(seconds) : null,
                             cost ? money(cost) : null,
                           ]

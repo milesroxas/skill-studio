@@ -198,6 +198,10 @@ describe('gradeRun, on which case a sample answers', () => {
     expect(report.results.map((r) => r.sample)).toEqual(['email-s1'])
     expect(report.results[0].artifacts).toEqual([{ file: 'outputs/note.md', kind: 'markdown' }])
     expect(lines).toContain('4 output(s) did not run to their end: left out of grading.')
+    // The run has no end of its own: still being written, or cut off with the app.
+    expect(lines).toContain(
+      `${run} has not finished: only the outputs it has recorded so far are graded.`,
+    )
   })
 
   it('refuses a run that is not there, and makes no folder for it', async () => {

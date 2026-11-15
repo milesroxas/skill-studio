@@ -38,6 +38,7 @@ import {
   anchorsDir,
   finishedSamples,
   readHead,
+  readRunMeta,
   runDir,
   runSamples,
   skillCopy,
@@ -938,6 +939,10 @@ export async function gradeRun(
   const { samples, unfinished } = finishedSamples(skillDir, run)
   if (unfinished)
     options.log?.(`${unfinished} output(s) did not run to their end: left out of grading.`)
+  // A run with no end of its own is still being written, here or by another copy, or was cut off.
+  const meta = readRunMeta(skillDir, run)
+  if (meta && !meta.legacy && !meta.finishedAt)
+    options.log?.(`${run} has not finished: only the outputs it has recorded so far are graded.`)
   const subjects: Subject[] = samples.map((sample) => {
     if (sample.legacy) {
       const head = readHead(join(sample.path, sample.name))

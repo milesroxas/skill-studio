@@ -225,7 +225,7 @@ Changing a case's prompt or its files makes it a new request. Answers written be
 - Under it, a line says how many cases have run on the version a run would test now. After you edit the skill, a score from before the edit may no longer hold. Such a score is drawn as an outline with no fill, here and in the list on the left. **Run the other 4 on v3** opens Run with only those cases ticked. A case that has run on that version and only waits to be graded is not run again: the line says how many wait, and the button grades them once no other case is left.
 - Each row is a case: its last run, its score, and how the score changed. Cases that dropped come first. Click a case to see what its answer missed, read the output, and see its other runs.
 
-Under the cases, each run shows what it answered, when it ran, how long it took and what it cost, with **Delete run**.
+Under the cases, each run shows what it answered, when it ran, how long it took and what it cost, with **Delete run**. A run that ended when the app quit or crashed says **not finished**: grade it to score the attempts it finished.
 
 Two versions only a few points apart may not really differ. Run with two or more attempts to be sure.
 
@@ -245,6 +245,7 @@ Two versions only a few points apart may not really differ. Run with two or more
 | The agent says it cannot find a file | Add the file to the case under **Files** |
 | A bullet gets no number | Make it four words or more, not part of a numbered list, and not the same as a bullet above it |
 | A score looks wrong | Read the transcript, then mark the rule or check Jev got wrong |
+| An answer says it could not finish | Read the reason under it, such as a sign-in or a usage limit, fix that, and run the case again |
 | Results shows one answer, not two | Change the skill and run again, so there are two versions to compare |
 
 Only test skills you trust. A skill can make the agent run programs on your computer.
