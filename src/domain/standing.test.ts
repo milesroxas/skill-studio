@@ -123,10 +123,18 @@ describe('standingOf with a reading of the change', () => {
     expect(caseLift([standing])).toMatchObject({ first: 50, latest: 60, unshared: true })
   })
 
-  it('has no change when the reading has none to read', () => {
+  it('has no change when the reading has none to read, and says it has a run to move from', () => {
     const standing = standingOf([at('v0', 50), at('v1', 55)], 'v1', () => null)
-    expect(standing).toMatchObject({ change: null, moved: null, since: null })
+    expect(standing).toMatchObject({ change: null, moved: null, since: null, uncounted: true })
+    expect(standing.previous?.score).toBe(50)
     expect(caseLift([standing])).toBeNull()
+    expect(standingOf([at('v1', 55)], 'v1', () => null).uncounted).toBe(false)
+  })
+
+  it('leaves out of the lift a case whose first and latest runs have no change to read, and counts it', () => {
+    const apart = standingOf([at('v0', 10), at('v1', 90)], 'v1', () => null)
+    const read = standingOf([at('v0', 50), at('v1', 60)], 'v1')
+    expect(caseLift([apart, read])).toMatchObject({ first: 50, latest: 60, cases: 1, uncounted: 1 })
   })
 
   it('reads the scores as shown without one', () => {

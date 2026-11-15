@@ -86,6 +86,11 @@ export interface Standing<T extends Try = Try> {
    * `latest` is not the case's first run, and there is still no move to read.
    */
   apart: boolean
+  /**
+   * `latest` has a scored run to move from, and no change can be read from it:
+   * the two counted different facts (`countedApart` in `change.ts`).
+   */
+  uncounted: boolean
   /** `latest` is on the version asked about: the case is checked on the skill as it is now. */
   current: boolean
 }
@@ -133,6 +138,7 @@ export function standingOf<T extends Try>(
     moved,
     since: latest && first && previous ? read(first, latest) : null,
     apart: earlier.length > 0 && before.length === 0,
+    uncounted: previous !== null && moved === null,
     current: latest !== null && latest.version === version,
   }
 }
@@ -149,6 +155,12 @@ export interface CaseLift {
   floorCases: number
   /** How many cases ran more than once with a score: the ones the means are over. */
   cases: number
+  /**
+   * How many more cases ran more than once with a score, and are left out:
+   * their first and latest runs have no change to read between them, since
+   * they counted different facts.
+   */
+  uncounted: number
   /**
    * The cases' scores as shown count an answer of the reader's that only one
    * of a case's two runs holds, so the means above, read without it, are not
@@ -169,9 +181,10 @@ export interface CaseLift {
 
 /** The lift over `standings`; null until one case has two scored runs with the skill. */
 export function caseLift(standings: readonly Standing[]): CaseLift | null {
-  const twice = standings.filter(
-    (s) => s.first !== null && s.latest !== null && s.previous !== null && s.since !== null,
+  const again = standings.filter(
+    (s) => s.first !== null && s.latest !== null && s.previous !== null,
   )
+  const twice = again.filter((s) => s.since !== null)
   if (!twice.length) return null
   // Read from Jev's answers, with the reader's only where both runs hold one (`ReadMove`).
   const first = mean(twice.map((s) => s.since?.from as number)) as number
@@ -187,6 +200,7 @@ export function caseLift(standings: readonly Standing[]): CaseLift | null {
     floor: mean(floors),
     floorCases: floors.length,
     cases: twice.length,
+    uncounted: again.length - twice.length,
     unshared:
       Math.round(shown.first) !== Math.round(first) ||
       Math.round(shown.latest) !== Math.round(latest),

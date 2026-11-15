@@ -135,7 +135,13 @@ function Ribbon({ lift, floor }: { lift: CaseLift; floor: number | null }) {
 
 /** Which cases the lift is read over, as the line under its change. */
 const overLine = (lift: CaseLift): string =>
-  `Over ${plural(lift.cases, 'case')} that ran more than once${lift.mixed ? ', on more than one model' : ''}${floorRules(lift)}${answersOnly(lift)}`
+  `Over ${plural(lift.cases, 'case')} that ran more than once${lift.mixed ? ', on more than one model' : ''}${uncountedPart(lift)}${floorRules(lift)}${answersOnly(lift)}`
+
+/** What the line under the change says of the cases left out, whose runs counted different facts. */
+const uncountedPart = (lift: CaseLift): string =>
+  lift.uncounted
+    ? `; ${lift.uncounted} more left out, as Jev was not sure of other rules or checks on their runs`
+    : ''
 
 /** What the line under the change says when the cases' scores count an answer of yours only one of their runs holds. */
 const answersOnly = (lift: CaseLift): string =>
@@ -159,10 +165,17 @@ function floorNote(lift: CaseLift): string {
  * they gained since their first runs, and the ribbon beside it. A screen
  * reader reads it as one sentence.
  */
-export function LiftFigure({ lift }: { lift: CaseLift }) {
+export function LiftFigure({
+  lift,
+  aside = null,
+}: {
+  lift: CaseLift
+  /** How much of the latest scores was counted, where Jev left some to the reader (`liftAsideLine`). */
+  aside?: string | null
+}) {
   const change = pointsMoved(lift.first, lift.latest)
   const floor = floorAt(lift)
-  const summary = `Lift: ${overLine(lift).toLowerCase()}, from ${round(lift.first)} on their first runs to ${round(lift.latest)} on their latest.${floorNote(lift)}`
+  const summary = `Lift: ${overLine(lift).toLowerCase()}, from ${round(lift.first)} on their first runs to ${round(lift.latest)} on their latest.${floorNote(lift)}${aside ? ` ${aside}` : ''}`
   return (
     <figure
       aria-label={summary}
@@ -187,6 +200,11 @@ export function LiftFigure({ lift }: { lift: CaseLift }) {
             <Text size="ui" tone="muted">
               {overLine(lift)}
             </Text>
+            {aside ? (
+              <Text size="ui" tone="muted">
+                {aside}
+              </Text>
+            ) : null}
           </span>
         </div>
       </div>

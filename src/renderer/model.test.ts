@@ -5,6 +5,7 @@ import type { Output } from './model.ts'
 import {
   answerFiles,
   apartLine,
+  asideLine,
   casePair,
   caseTitle,
   changeBetween,
@@ -20,6 +21,7 @@ import {
   gradedLine,
   kindsLine,
   lastAnswer,
+  liftAsideLine,
   liftOf,
   listLine,
   mergedConfig,
@@ -361,6 +363,77 @@ describe('a change in score', () => {
     expect(standing.change).toBe(100)
     expect(standingUnshared(standing)).toBe(false)
     expect(liftOf([standing])).toMatchObject({ first: 0, latest: 100, unshared: false })
+  })
+})
+
+describe('a change between runs that counted different facts', () => {
+  const files = [md('a.md')]
+  /** A report of one sample answered on two rules, each by Jev's probability. */
+  const answered = (brief: number, plain: number): Report =>
+    ({
+      results: [
+        {
+          ...resultOf('page-s1', 100),
+          packs: {
+            generic: {
+              adherence: {
+                rules: [
+                  { id: 'r1', text: 'Be brief.', section: 'S', noul: brief },
+                  { id: 'r2', text: 'Use plain words.', section: 'S', noul: plain },
+                ],
+              },
+              rubric: null,
+            },
+          },
+        },
+      ],
+    }) as unknown as Report
+  const caseOf = (before: Report, after: Report) => {
+    const state = stateOf(
+      [runOf('r1', 'v1', files, before), runOf('r2', 'v2', files, after)],
+      ['generic'],
+    )
+    const outputs = outputsOf(state)
+    return { state, outputs, standing: standingsOf(state, outputs, saved)[0] }
+  }
+
+  it('has no change when a rule counted on one run was not sure on the other', () => {
+    // v1 met both rules: 100. v2 met one and Jev was not sure of the other: 100 of what counted.
+    const { outputs, standing } = caseOf(answered(0.9, 0.9), answered(0.9, 0.5))
+    expect([standing.previous?.score, standing.latest?.score]).toEqual([100, 100])
+    expect(standing).toMatchObject({ change: null, uncounted: true })
+    expect(liftOf([standing])).toBeNull()
+    expect(changeBetween(outputs[0], outputs[1], saved)).toBeNull()
+  })
+
+  it('reads the change once the reader answers the fact on both runs', () => {
+    const { state } = caseOf(answered(0.9, 0.9), answered(0.9, 0.5))
+    for (const run of ['r1', 'r2'])
+      state.reviews.reviews[`${run}/page-s1`] = {
+        corrections: { 'rule:Use plain words.': run === 'r2' },
+      } as never
+    const [standing] = standingsOf(state, outputsOf(state), saved)
+    expect(standing).toMatchObject({ change: 50, uncounted: false })
+  })
+
+  it('reads the change when both runs were not sure of the same rule', () => {
+    const { standing } = caseOf(answered(0.1, 0.5), answered(0.9, 0.5))
+    expect(standing).toMatchObject({ change: 100, uncounted: false })
+  })
+
+  it('says how much of a score was counted where Jev was not sure of some of it', () => {
+    const { state, outputs } = caseOf(answered(0.1, 0.5), answered(0.9, 0.5))
+    expect(asideLine([outputs[1]], saved)).toBe(
+      'Jev was not sure of 1 of the 2 rules, left out of the score until you mark it.',
+    )
+    expect(asideLine(outputs, saved)).toBe(
+      'Jev was not sure of 2 of the 4 rules over 2 outputs, left out of the score until you mark them.',
+    )
+    expect(liftAsideLine(standingsOf(state, outputs, saved), saved)).toBe(
+      'Jev was not sure of 1 of the 2 rules on their latest runs, left out of the score until you mark it.',
+    )
+    const sure = caseOf(answered(0.1, 0.9), answered(0.9, 0.9))
+    expect(asideLine(sure.outputs, saved)).toBeNull()
   })
 })
 

@@ -16,6 +16,7 @@ import type { Ctx } from '../ctx.ts'
 import { type DeleteRun, useDeleteRun } from '../delete-run.ts'
 import { gradingRun, useJobStart, writingRun } from '../job-start.ts'
 import {
+  asideLine,
   type CaseStand,
   caseTitle,
   cutOff,
@@ -25,6 +26,7 @@ import {
   fmt,
   gradedLine,
   isWithoutSkill,
+  liftAsideLine,
   liftOf,
   money,
   type Output,
@@ -184,7 +186,7 @@ export function ResultsSummary({ ctx, standings }: { ctx: Ctx; standings: CaseSt
       </ColumnHeader>
       {lift || cases.length ? (
         <ColumnLead>
-          {lift ? <LiftFigure lift={lift} /> : null}
+          {lift ? <LiftFigure lift={lift} aside={liftAsideLine(standings, config)} /> : null}
           {cases.length ? (
             <Coverage
               checked={cases.length - behind.length}
@@ -353,6 +355,7 @@ function RunDetail({
   const view = state.runs.find((r) => r.name === run)
   if (!view) return null
   const mine = outputs.filter((o) => o.run.name === run)
+  const aside = asideLine(mine, config)
   const metaOf = (o: Output) => view.meta?.samples.find((x) => x.dir === o.sample.name)
   return (
     <Stack gap="md">
@@ -399,6 +402,8 @@ function RunDetail({
             ? `Graded ${stamp(view.report.createdAt) ?? view.report.createdAt}${view.report.model ? (rulesUnmarked(view.report) ? ' by Jev, before rules and checks were marked on this kind of output. Regrade to see them.' : ' by Jev.') : ' without Jev: no rule or check is marked.'}`
             : 'Not graded yet.'}
         </Hint>
+        {/* How much of its scores was counted, where Jev left some to the reader. */}
+        {aside ? <Hint>{aside}</Hint> : null}
         {view.casesDamaged ? (
           <Hint tone="destructive">
             What this run's cases asked could not be read, so its outputs are judged on the cases as

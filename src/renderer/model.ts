@@ -1,6 +1,6 @@
 /** Outputs across runs, their scores under the skill's scoring, the pair to compare per case, and display names. */
 import { caseName } from '@domain/case-draft.ts'
-import { changeAnswers } from '@domain/change.ts'
+import { changeAnswers, countedApart } from '@domain/change.ts'
 import { BASE_PACK, mergeConfig } from '@domain/config.ts'
 import {
   pointsMoved,
@@ -396,14 +396,21 @@ function forChange(from: Output[], to: Output[]): { from: Output[]; to: Output[]
   return { from: as(from, kept.a), to: as(to, kept.b) }
 }
 
+/** The verdicts of each output a score over `outputs` counts: none cut short or on a file Jev cannot read. */
+const countedVerdicts = (outputs: Output[], config: BenchConfig) =>
+  outputs.filter((o) => !o.cut && !unreadOutput(o)).map((o) => scoreOf(o, config)?.verdicts ?? [])
+
 /**
  * The two scores a change from `from` to `to` is read between: each a score
  * over its outputs as `scoreOver` counts it, from Jev's answers, with the
  * reader's only where both sides hold one on the same fact. Null when either
- * side has no score so.
+ * side has no score so, and when the two counted different facts
+ * (`countedApart`): there is no change to read between them.
  */
 function moveBetween(from: Output[], to: Output[], config: BenchConfig): Move | null {
   const read = forChange(from, to)
+  if (countedApart(countedVerdicts(read.from, config), countedVerdicts(read.to, config)))
+    return null
   const a = scoreOver(read.from, config)
   const b = scoreOver(read.to, config)
   return a === null || b === null ? null : { from: a, to: b }
@@ -433,6 +440,45 @@ export const standingUnshared = (
   standing: Pick<Standing, 'change' | 'previous' | 'latest'>,
 ): boolean =>
   unshared(standing.change, standing.previous?.score ?? null, standing.latest?.score ?? null)
+
+/**
+ * How much of a score was counted, where Jev left some of it to the reader:
+ * "Jev was not sure of 8 of the 17 rules, left out of the score until you
+ * mark them." Counted over the rules and checks of every output with a score
+ * among `outputs`, each once, the ones that do not apply left out; `over`
+ * says where they were when the outputs are more than one ("on their latest
+ * runs"). Null when Jev was sure of every one.
+ */
+export function asideLine(outputs: Output[], config: BenchConfig, over?: string): string | null {
+  const graded = countedVerdicts(outputs, config).filter((verdicts) => verdicts.length)
+  const facts = graded
+    .flat()
+    .filter((v) => (v.kind === 'rule' || v.kind === 'check') && v.aside !== 'inapplicable')
+  const unsure = facts.filter((v) => v.aside === 'unsure').length
+  if (!unsure) return null
+  const kinds = new Set(facts.map((v) => v.kind))
+  const many = facts.length > 1
+  const noun =
+    kinds.size > 1
+      ? 'rules and checks'
+      : `${kinds.has('rule') ? 'rule' : 'check'}${many ? 's' : ''}`
+  const where = over ?? (graded.length > 1 ? `over ${graded.length} outputs` : null)
+  const of = many ? `${unsure} of the ${facts.length} ${noun}` : `the one ${noun}`
+  return `Jev was not sure of ${of}${where ? ` ${where}` : ''}, left out of the score until you mark ${unsure > 1 ? 'them' : 'it'}.`
+}
+
+/** `asideLine` for the outputs the lift's latest means are over. */
+export const liftAsideLine = (
+  standings: readonly CaseStand[],
+  config: BenchConfig,
+): string | null =>
+  asideLine(
+    standings
+      .filter((s) => !s.earlier && s.previous && s.since && s.latest)
+      .flatMap((s) => s.latest?.outputs ?? []),
+    config,
+    'on their latest runs',
+  )
 
 /** What the page says where a change is not the difference of the scores beside it (`unshared`). */
 export const unsharedLine = (sides: string): string =>

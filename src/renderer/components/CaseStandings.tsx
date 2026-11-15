@@ -23,6 +23,7 @@ import type { Ctx } from '../ctx.ts'
 import { useToggleSet } from '../hooks.ts'
 import { gradingRun, writingRun } from '../job-start.ts'
 import {
+  asideLine,
   type CaseStand,
   type CaseTry,
   isWithoutSkill,
@@ -298,7 +299,7 @@ function CaseRow({
   grade: GradeRuns
 }) {
   const name = standing.title
-  const { latest, floor, change, apart, current, history } = standing
+  const { latest, floor, change, apart, uncounted, current, history } = standing
   // Before its first run with the skill, a case stands on its score without it.
   const stands = latest ?? floor
   const waiting = waitingOn(standing, ctx)
@@ -335,7 +336,7 @@ function CaseRow({
                 <Delta value={change} lead={false} />
               ) : (
                 <Text tone="faint" size="xs">
-                  {change === 0 ? 'Same' : latest && !apart ? 'First run' : ''}
+                  {change === 0 ? 'Same' : latest && !apart && !uncounted ? 'First run' : ''}
                 </Text>
               )}
             </TableCell>
@@ -398,6 +399,13 @@ function StandingLine({ standing, version }: { standing: CaseStand; version: str
         {toGrade(standing)?.version === version
           ? `Its run on ${version} has no score yet.`
           : `It has not run on ${version}, so this score may no longer hold.`}
+      </>
+    )
+  if (standing.uncounted)
+    return (
+      <>
+        Scored {score} on {version}. Jev was not sure of other rules or checks on its run before, so
+        there is no change to read.{since}
       </>
     )
   if (!previous || change === null)
@@ -491,6 +499,8 @@ function CaseDetail({
   const [whole, setWhole] = useState(false)
   const { id, title: name, latest, previous, floor, current, known, history } = standing
   const stands = latest ?? floor
+  // How much of the score it stands on was counted, where Jev left some of it to the reader.
+  const aside = stands ? asideLine(stands.outputs, ctx.config) : null
   // A run that only waits to be graded: grading it is a step, and the next one when it is the run on this version.
   const waits = toGrade(standing)
   const ungraded = waits && grade.owed.has(waits.run.name) ? waits : null
@@ -510,6 +520,11 @@ function CaseDetail({
           <Text as="p" measure>
             <StandingLine standing={standing} version={version} />
           </Text>
+          {aside ? (
+            <Text as="p" size="ui" tone="muted" measure>
+              {aside}
+            </Text>
+          ) : null}
         </Stack>
         {stands ? <MissedList ctx={ctx} stands={stands} /> : null}
         {/* The next step first: the run that checks the case, or the grading its run waits on; with it checked, its output. */}
