@@ -185,6 +185,7 @@ describe('compareRuns, as `st compare` compares', () => {
       left: [
         `release-note ${SAMPLE}: its agent was asked another prompt or other files in the other run`,
       ],
+      notes: [],
     })
     // Graded without Jev at one end.
     const noJev = { ...other, report: { ...other.report, model: null } }
@@ -195,6 +196,7 @@ describe('compareRuns, as `st compare` compares', () => {
     expect(compareRuns(dir, side(dir, RUN), { ...other, samples: [] })).toEqual({
       rows: [],
       left: [],
+      notes: [],
     })
   })
 
@@ -211,7 +213,7 @@ describe('compareRuns, as `st compare` compares', () => {
     expect(own.results[0].scores.total).toBeGreaterThan(plain.results[0].scores.total ?? 100)
   })
 
-  it('reads no change between two that counted different facts', async () => {
+  it('reads a change over what both counted, and says how much it left out', async () => {
     const dir = await twoRuns()
     const other = side(dir, OTHER)
     // One rule is not sure at one end: set aside there, counted at the other.
@@ -221,9 +223,11 @@ describe('compareRuns, as `st compare` compares', () => {
     }
     generic.adherence.rules[1].noul = 0.5
     const compared = compareRuns(dir, side(dir, RUN), { ...other, report: unsure })
-    expect(compared.rows).toEqual([])
-    expect(compared.left).toEqual([
-      `release-note ${SAMPLE}: the two counted different facts, so no change is read between them`,
+    // The rule is left out at both ends, so the two, alike in every other answer, read alike.
+    expect(compared.rows.map((row) => row.deltas.total)).toEqual([0])
+    expect(compared.left).toEqual([])
+    expect(compared.notes).toEqual([
+      `release-note ${SAMPLE}: 1 rule or check marked in only one of the two is left out of its change`,
     ])
   })
 })

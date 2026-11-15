@@ -433,7 +433,7 @@ async function main(): Promise<number> {
       }
     }
     // Both under one scoring, so a difference is the outputs' and not a setting's, read as the app reads a change.
-    const { rows, left } = compareRuns(skill, load(a), load(b), scoring)
+    const { rows, left, notes } = compareRuns(skill, load(a), load(b), scoring)
     const layers = rows.length ? Object.keys(rows[0].deltas) : []
     console.log(`\n${padEnd('sample', 44)}${layers.map((l) => pad(l, 11)).join('')}`)
     for (const row of rows)
@@ -445,6 +445,10 @@ async function main(): Promise<number> {
           })
           .join('')}`,
       )
+    if (notes.length) {
+      console.log('\nA change counts only what was marked in both runs, as in the app:')
+      for (const line of notes) console.log(`  ${line}`)
+    }
     if (left.length) {
       console.log('\nLeft out, as the app leaves them out:')
       for (const line of left) console.log(`  ${line}`)

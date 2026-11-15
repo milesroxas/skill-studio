@@ -1311,6 +1311,8 @@ export function scoredReport(
 export interface Compared {
   rows: CompareRow[]
   left: string[]
+  /** Each row whose change left out rules or checks only one of the two counted, with how many. */
+  notes: string[]
 }
 
 /**
@@ -1349,6 +1351,7 @@ export function compareRuns(
   const left: string[] = unmatched.map(
     (r) => `${rowKey(r)}: the other run has no answer to read it against`,
   )
+  const notes: string[] = []
   for (const [from, to] of pairs) {
     const a = answered(from, before)
     const b = answered(to, after)
@@ -1379,7 +1382,12 @@ export function compareRuns(
       left.push(`${rowKey(to)}: nothing was marked in both runs, so no change is read between them`)
       continue
     }
+    const aside = reading.left.length
+    if (aside)
+      notes.push(
+        `${rowKey(to)}: ${aside} ${aside === 1 ? 'rule or check' : 'rules and checks'} marked in only one of the two ${aside === 1 ? 'is' : 'are'} left out of its change`,
+      )
     rows.push(rowOf(was.scores, { ...to, scores: is.scores }, rowKey(to)))
   }
-  return { rows, left }
+  return { rows, left, notes }
 }
