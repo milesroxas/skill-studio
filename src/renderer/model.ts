@@ -464,6 +464,11 @@ export const rulesUnmarked = (report: Pick<Report, 'model' | 'results'>): boolea
       (result.packs.generic ?? null) === null,
   )
 
+/** `rulesUnmarked` for one output: its run's report marked no rule or check on it. */
+export const outputRulesUnmarked = (output: Pick<Output, 'run' | 'result'>): boolean =>
+  output.result !== null &&
+  rulesUnmarked({ model: output.run.report?.model ?? null, results: [output.result] })
+
 /** What each part of a score is called where a reader meets it. */
 const PART_LABEL: Record<string, string> = {
   adherence: 'Rules',

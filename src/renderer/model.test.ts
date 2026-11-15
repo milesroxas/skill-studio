@@ -29,6 +29,7 @@ import {
   primaryOf,
   readParams,
   regradeOwed,
+  outputRulesUnmarked,
   rulesUnmarked,
   runLabel,
   runTitle,
@@ -72,6 +73,14 @@ describe('rulesUnmarked', () => {
     expect(rulesUnmarked({ model: 'jev', results: [result('markdown', null)] })).toBe(false)
     // Graded without Jev: the line under the run says so already.
     expect(rulesUnmarked({ model: null, results: [result('html', null)] })).toBe(false)
+  })
+
+  it('reads one output on its own, so a case’s page can say it too', () => {
+    const run = (model: string | null) => ({ report: { model } }) as never
+    expect(outputRulesUnmarked({ run: run('jev'), result: result('html', null) })).toBe(true)
+    expect(outputRulesUnmarked({ run: run('jev'), result: result('markdown', null) })).toBe(false)
+    expect(outputRulesUnmarked({ run: run(null), result: result('html', null) })).toBe(false)
+    expect(outputRulesUnmarked({ run: run('jev'), result: null })).toBe(false)
   })
 })
 

@@ -86,6 +86,7 @@ An output with nothing in it scores 0 however it was graded. Results says which 
 - A check command's result is never kept (`JudgePack.live`). It rests on tools and files no hash of the output covers, and costs nothing to read again, so every grading runs the command. An output whose other answers were all kept still counts as unchanged.
 - The cache keeps this grading's answers and, before them, earlier ones not asked again, up to four gradings' worth. So a grading without a TypeSafe key, or with a setting changed and put back, does not lose answers Jev already gave.
 - The cache is written when a grading is stopped or fails too, with what had been answered by then.
+- A report Jev wrote before rules and checks were marked on every kind of output has none on a page, a picture or code. The line under its run on All cases, and each such output on its case's page, say so and point to Regrade (`rulesUnmarked`, `outputRulesUnmarked` in `src/renderer/model.ts`).
 
 ## `bench.json`
 

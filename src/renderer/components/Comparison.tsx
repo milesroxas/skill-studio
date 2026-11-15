@@ -52,6 +52,7 @@ import {
   outputDetail,
   outputFacts,
   outputNames,
+  outputRulesUnmarked,
   outputsToPick,
   outputWriter,
   primaryOf,
@@ -742,6 +743,11 @@ function Side({
         </Hint>
       ) : null}
       {before ? <Hint inset>Written for this case before its prompt or files changed.</Hint> : null}
+      {scored && outputRulesUnmarked(output) ? (
+        <Hint inset>
+          Graded before rules and checks were marked on this kind of output. Regrade to see them.
+        </Hint>
+      ) : null}
       {scored?.stale.map((why) => (
         <Hint inset key={why}>
           {why}, so it has no score.
