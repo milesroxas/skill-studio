@@ -25,6 +25,7 @@ import { Annotation, Compartment, EditorState, type StateCommand } from '@codemi
 import { drawSelection, EditorView, keymap, placeholder } from '@codemirror/view'
 import { type Finding, type RuleScene, sceneOf, worthChecking } from '@domain/lint.ts'
 import type { EditorMode } from '@domain/preferences.ts'
+import type { RuleRate } from '@domain/rule-rate.ts'
 import { insertAt, type Snippet } from '@domain/templates.ts'
 import { cva } from 'class-variance-authority'
 import {
@@ -299,6 +300,8 @@ interface MarkdownEditorProps {
   }
   /** This SKILL.md's bullets are the rules Jev grades: mark and number them in the margin. */
   graded?: boolean
+  /** How often graded outputs followed and broke each rule, by its words (`ruleRatesOf`). */
+  rates?: ReadonlyMap<string, RuleRate>
 }
 
 /** A rectangle over `from`..`to`, for a popover to stand by; the editor's box when the range is out of view. */
@@ -316,6 +319,8 @@ function anchorOver(view: EditorView, from: number, to: number): VirtualAnchor {
   }
 }
 
+const NO_RATES: ReadonlyMap<string, RuleRate> = new Map()
+
 /** Mount once per file: give each file its own `key`, so undo history never crosses files. */
 export function MarkdownEditor({
   ref,
@@ -331,6 +336,7 @@ export function MarkdownEditor({
   assist,
   refine,
   graded = false,
+  rates = NO_RATES,
 }: MarkdownEditorProps) {
   const host = useRef<HTMLDivElement>(null)
   const editor = useRef<EditorView | null>(null)
@@ -361,11 +367,11 @@ export function MarkdownEditor({
   const modes = useRef(new Compartment())
   const grading = useRef(new Compartment())
   const about = refine?.description ?? ''
-  const latest = useRef({ id, value, mode, hint, label, graded, about, onChange, onSave })
-  latest.current = { id, value, mode, hint, label, graded, about, onChange, onSave }
+  const latest = useRef({ id, value, mode, hint, label, graded, about, rates, onChange, onSave })
+  latest.current = { id, value, mode, hint, label, graded, about, rates, onChange, onSave }
 
   useEffect(() => {
-    const { id, value, mode, hint, label, graded, about } = latest.current
+    const { id, value, mode, hint, label, graded, about, rates } = latest.current
     const nonce = styleNonce()
     /** Put the popout over the selection, or take it away, once the selection has settled. */
     const place = (view: EditorView) => {
@@ -480,7 +486,7 @@ export function MarkdownEditor({
       }),
       nonce ? EditorView.cspNonce.of(nonce) : [],
       modes.current.of(mode === 'formatted' ? livePreview : []),
-      grading.current.of(graded ? gradedRules(about, mode === 'markdown') : []),
+      grading.current.of(graded ? gradedRules(about, mode === 'markdown', rates) : []),
       EditorView.updateListener.of((update) => {
         if (update.docChanged && !update.transactions.some((tr) => tr.annotation(fromScreen)))
           latest.current.onChange(update.state.doc.toString())
@@ -648,9 +654,11 @@ export function MarkdownEditor({
 
   useEffect(() => {
     editor.current?.dispatch({
-      effects: grading.current.reconfigure(graded ? gradedRules(about, mode === 'markdown') : []),
+      effects: grading.current.reconfigure(
+        graded ? gradedRules(about, mode === 'markdown', rates) : [],
+      ),
     })
-  }, [graded, about, mode])
+  }, [graded, about, mode, rates])
 
   useImperativeHandle(
     ref,

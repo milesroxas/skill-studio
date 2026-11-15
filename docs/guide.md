@@ -100,6 +100,7 @@ Write the skill in the editor, then click **Save** (Cmd+S). Your unsaved text is
 
 - **Rules are bullets.** Each bullet of four words or more gets a number, such as 01, and Jev grades it. A bullet that keeps its dot is not graded: point at it to see why. A skill written only as numbered steps has its steps graded instead.
 - **An amber number** means the rule could be clearer. Click it to see why and to get help.
+- **A red number** means most answers broke the rule. Point at any number to see how many answers broke it.
 - **Insert**, on the left, adds a ready-made rule, decision tree, step list or link.
 - **The five bars** in the toolbar show how long the file is. Amber means getting long, red means too long.
 

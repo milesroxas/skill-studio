@@ -203,6 +203,22 @@ The dot is `Dot` from `components/Status.tsx`, the one dot in the app. `Status`,
 
 `components/ui/alert.tsx`. A message about the whole screen or section, above its content. Variants: `default`, `destructive`, `success`, `warning`, `muted`. The heading carries the color and the body stays `card-foreground`. A remark that is not a verdict is `muted`. A message about one field is a `Hint` under it, not an alert.
 
+## Rule numbers
+
+In SKILL.md, each graded rule gets a number, `01`, `02`, in the order the rules stand in the file (`RuleNumber` in `editor/graded.ts`, styled in `editor/theme.ts`). In the formatted view it stands in the bullet's place; in the Markdown view it hangs in the margin before the source mark, so the text keeps its edge. It is mono at 0.8em with tabular figures. A click selects the whole rule, which opens the selection popout on it. A bullet Jev does not grade keeps its dot, and says why to the pointer that rests on it. A skill whose `bench.json` lists its own rules gets no numbers.
+
+A number is in one of three states, and only these:
+
+| State | Color | When | Its tooltip |
+| --- | --- | --- | --- |
+| plain | `muted-foreground` | nothing below holds | "Rule 04. Click to select it." |
+| `flagged` | `warning` | the writing checks found something in the rule; the words that set a check off are underlined, dotted, in `warning` | "Rule 04: the writing checks found something. Click to select it." |
+| `broken` | `destructive` | more graded outputs broke the rule than followed it (`mostlyBroken` over `ruleRatesOf` in `model.ts`) | "Rule 04: broken by 5 of 7 answers. Click to select it." |
+
+- `broken` wins over `flagged` (`numberTone`): the outputs show the rule failing, where a writing check only says it might. The underlined words stay, and the tooltip says both: "Rule 04: broken by 5 of 7 answers. The writing checks found something. Click to select it."
+- Every rule that graded outputs counted says how many broke it, red or not: "Rule 01: broken by 0 of 4 answers." A rule is counted by its words, so a rule edited since its last run has no count until it runs again.
+- Color is never the only signal. The tooltip carries the words, and the number reads them to a screen reader too: it is `role="img"`, named by its tooltip, so a screen reader hears "Rule 06: broken by 11 of 11 answers. Click to select it." once.
+
 ## File size
 
 `components/TextSize.tsx`: `TextSizeIndicator`, at the far end of the editor's toolbar. It is five segments in a row (`LevelBars` in `components/Meter.tsx`), 14 by 6px with 2px corners (`rounded-xs`) and 2px between, filled up to the file's level from `textSize()` in `domain/size.ts`. The color comes from `sizeBand()` there. Never set a level or a band by hand: the steps are tuned in one place.

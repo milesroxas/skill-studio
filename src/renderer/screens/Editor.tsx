@@ -65,7 +65,7 @@ import type { Ctx } from '../ctx.ts'
 import { lineDiff } from '../diff.ts'
 import { useAction } from '../hooks.ts'
 import { shortcut } from '../keys.ts'
-import { capital, shortDate, versionReading } from '../model.ts'
+import { capital, ruleRatesOf, shortDate, versionReading } from '../model.ts'
 import { useArrivals } from '../motion.ts'
 import { editorFile } from '../route.ts'
 
@@ -138,6 +138,8 @@ export const Editor = memo(function Editor({ ctx }: { ctx: Ctx }) {
       ),
     [state.versions.versions, outputs, config],
   )
+  /** How often each rule was followed and broken, for its number in the margin. */
+  const rates = useMemo(() => ruleRatesOf(outputs, config), [outputs, config])
   const [mode, setMode] = useEditorMode((message) =>
     report(`Not saved: ${message}`, { tone: 'destructive' }),
   )
@@ -649,6 +651,7 @@ export const Editor = memo(function Editor({ ctx }: { ctx: Ctx }) {
             onChange={edit}
             onSave={save}
             graded={graded}
+            rates={rates}
             refine={
               isSkill
                 ? {

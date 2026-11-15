@@ -54,7 +54,8 @@ export const editorTheme = EditorView.theme({
   '.cm-line': { padding: `0 ${GUTTER}` },
   // A graded rule's number stands where its bullet was, in the same slot, so rules and plain
   // bullets share one text edge. In the Markdown view it hangs before the source mark instead.
-  // Amber when the checks found something; the words that set a check off are underlined.
+  // Amber when the checks found something; red when graded outputs mostly break the rule, which
+  // wins over amber. The words that set a check off are underlined either way.
   '.cm-md-rulenum': {
     display: 'inline-block',
     width: `${MARK_SLOT / 0.8}em`,
@@ -73,6 +74,7 @@ export const editorTheme = EditorView.theme({
     textAlign: 'right',
   },
   '.cm-md-rulenum.cm-md-flagged': { color: 'var(--warning)' },
+  '.cm-md-rulenum.cm-md-broken': { color: 'var(--destructive)' },
   // While their popout is open the words take the verdict's tint, as a word in a diff does, so
   // the popout reads as being about them. It fades in and out with the popout.
   '.cm-md-flag': {

@@ -15,7 +15,7 @@ import {
   type ViewUpdate,
   WidgetType,
 } from '@codemirror/view'
-import { ruleBulletAt } from './graded.ts'
+import { ruleBulletAt, ruleNumbersChanged } from './graded.ts'
 
 const hide = Decoration.replace({})
 const marks = new Map<string, Decoration>()
@@ -232,6 +232,7 @@ class LivePreview {
       update.viewportChanged ||
       update.selectionSet ||
       update.focusChanged ||
+      ruleNumbersChanged(update.startState, update.state) ||
       syntaxTree(update.startState) !== syntaxTree(update.state)
     )
       this.decorations = decorate(update.view)

@@ -4,7 +4,11 @@
  * they stand in the file, hanging in the margin so the text keeps its edge; a
  * bullet Jev skips keeps its dot and says why to the pointer that rests
  * on it. The number turns amber when the writing checks find something in
- * the rule, and the words that set a check off are underlined: the pointer
+ * the rule, and red when more graded outputs broke the rule than followed it
+ * (`mostlyBroken`), which wins over amber: the outputs show the rule failing,
+ * where a check only suggests it might. Its tooltip gives how many outputs
+ * broke it, for every rule that has any. The words that set a check off are
+ * underlined either way: the pointer
  * resting on them opens the popout on the rule, with what they set off. A
  * click on the number selects the rule, so the popout opens with nothing to
  * select by hand.
@@ -21,18 +25,26 @@ import {
 } from '@codemirror/state'
 import { Decoration, EditorView, ViewPlugin, WidgetType } from '@codemirror/view'
 import { type Finding, lintScene, sceneOf } from '@domain/lint.ts'
+import { mostlyBroken, type RuleRate } from '@domain/rule-rate.ts'
 import { type SkippedBullet, scanRules } from '@domain/rules.ts'
 
 /** The skill's description, which the checks read a rule against. */
 const description = Facet.define<string, string>({ combine: (values) => values[0] ?? '' })
 /** Markdown view: the source mark stays, so the number hangs before it. Formatted: the live preview puts the number in the mark's place. */
 const hanging = Facet.define<boolean, boolean>({ combine: (values) => values[0] ?? false })
+const NO_RATES: ReadonlyMap<string, RuleRate> = new Map()
+/** How often graded outputs followed and broke each rule, by its words (`ruleRatesOf`). */
+const rates = Facet.define<ReadonlyMap<string, RuleRate>, ReadonlyMap<string, RuleRate>>({
+  combine: (values) => values[0] ?? NO_RATES,
+})
 
 /** One rule's place in the document and what the checks made of it. */
 export interface GradedRule {
   from: number
   to: number
   label: string
+  /** The rule's words, as Jev is asked it. */
+  text: string
   findings: Finding[]
 }
 
@@ -64,7 +76,7 @@ function read(state: EditorState): Graded {
     const to = doc.line(span.to).to
     // The file's own length is a finding about the file, not about this rule.
     const scene = { ...sceneOf(text, { from, to }, about), band: 'fine' as const }
-    return { from, to, label: label(i), findings: lintScene(scene) }
+    return { from, to, label: label(i), text: scan.rules[i].text, findings: lintScene(scene) }
   })
   return { rules, skipped: scan.skipped }
 }
@@ -77,27 +89,65 @@ const field = StateField.define<Graded>({
       : graded,
 })
 
+/** "Rule 04: broken by 5 of 7 answers." for a rule graded outputs counted; null for one they did not. */
+export function rateLine(label: string, rate: RuleRate | null): string | null {
+  if (!rate) return null
+  const answers = rate.followed + rate.broken
+  if (!answers) return null
+  return `Rule ${label}: broken by ${rate.broken} of ${answers} ${answers === 1 ? 'answer' : 'answers'}.`
+}
+
+/**
+ * What a rule's number says to the pointer and to a screen reader: its rate
+ * where it has one, then what the writing checks found, then what a click does.
+ */
+export function numberTitle(label: string, flagged: boolean, rate: RuleRate | null): string {
+  const counted = rateLine(label, rate)
+  if (!counted)
+    return flagged
+      ? `Rule ${label}: the writing checks found something. Click to select it.`
+      : `Rule ${label}. Click to select it.`
+  return `${counted}${flagged ? ' The writing checks found something.' : ''} Click to select it.`
+}
+
+/**
+ * The state a rule's number is drawn in: `broken` (red) where more outputs
+ * broke the rule than followed it, else `flagged` (amber) where the writing
+ * checks found something, else none. Red wins: the outputs show the rule
+ * failing, where a check only suggests it might.
+ */
+export const numberTone = (flagged: boolean, rate: RuleRate | null): 'broken' | 'flagged' | null =>
+  rate && mostlyBroken(rate) ? 'broken' : flagged ? 'flagged' : null
+
 /** The rule's number, standing in for its bullet or hanging before the source mark. */
 class RuleNumber extends WidgetType {
   constructor(
     readonly label: string,
     readonly flagged: boolean,
     readonly hanging: boolean,
+    readonly rate: RuleRate | null,
   ) {
     super()
   }
   override eq(other: RuleNumber) {
     return (
-      other.label === this.label && other.flagged === this.flagged && other.hanging === this.hanging
+      other.label === this.label &&
+      other.flagged === this.flagged &&
+      other.hanging === this.hanging &&
+      other.rate?.followed === this.rate?.followed &&
+      other.rate?.broken === this.rate?.broken
     )
   }
   override toDOM() {
     const number = document.createElement('span')
-    number.className = `cm-md-rulenum${this.flagged ? ' cm-md-flagged' : ''}${this.hanging ? ' cm-md-hanging' : ''}`
+    const tone = numberTone(this.flagged, this.rate)
+    number.className = `cm-md-rulenum${tone ? ` cm-md-${tone}` : ''}${this.hanging ? ' cm-md-hanging' : ''}`
     number.textContent = this.label
-    number.title = this.flagged
-      ? `Rule ${this.label}: the writing checks found something. Click to select it.`
-      : `Rule ${this.label}. Click to select it.`
+    const title = numberTitle(this.label, this.flagged, this.rate)
+    number.title = title
+    // The number alone says nothing to a screen reader: as an image it is named by its
+    // tooltip, so it reads what the pointer is told, once.
+    number.setAttribute('role', 'img')
     return number
   }
   override ignoreEvent() {
@@ -225,9 +275,10 @@ export const dismissFlag = (view: EditorView) => view.plugin(pointing)?.away()
 const flagWords = Decoration.mark({ class: 'cm-md-flag' })
 const flagWordsPointed = Decoration.mark({ class: 'cm-md-flag cm-md-pointed' })
 
-const decorations = EditorView.decorations.compute([field, hanging, pointed], (state) => {
+const decorations = EditorView.decorations.compute([field, hanging, pointed, rates], (state) => {
   const { rules, skipped } = state.field(field)
   const hang = state.facet(hanging)
+  const rated = state.facet(rates)
   const open = state.field(pointed)
   const out: Range<Decoration>[] = []
   for (const bullet of skipped)
@@ -236,9 +287,10 @@ const decorations = EditorView.decorations.compute([field, hanging, pointed], (s
     const flagged = rule.findings.length > 0
     if (hang)
       out.push(
-        Decoration.widget({ widget: new RuleNumber(rule.label, flagged, true), side: -1 }).range(
-          rule.from,
-        ),
+        Decoration.widget({
+          widget: new RuleNumber(rule.label, flagged, true, rated.get(rule.text) ?? null),
+          side: -1,
+        }).range(rule.from),
       )
     for (const flag of flagsOf(state, rule)) {
       const lit = open?.from === flag.from && open.to === flag.to
@@ -273,15 +325,27 @@ export function ruleNumberOf(
 export function ruleBulletAt(state: EditorState, lineFrom: number): Decoration | null {
   const rule = state.field(field, false)?.rules.find((r) => r.from === lineFrom)
   if (!rule) return null
-  return Decoration.replace({ widget: new RuleNumber(rule.label, rule.findings.length > 0, false) })
+  const rate = state.facet(rates).get(rule.text) ?? null
+  return Decoration.replace({
+    widget: new RuleNumber(rule.label, rule.findings.length > 0, false, rate),
+  })
 }
 
-/** Number and mark the graded rules of a SKILL.md described by `about`. */
-export const gradedRules = (about: string, hang: boolean): Extension => [
+/** The rules' numbers would read otherwise in `next` than in `prev`: their rates or the rules changed. */
+export const ruleNumbersChanged = (prev: EditorState, next: EditorState): boolean =>
+  prev.facet(rates) !== next.facet(rates) || prev.field(field, false) !== next.field(field, false)
+
+/** Number and mark the graded rules of a SKILL.md described by `about`, each with its rate among `rated`. */
+export const gradedRules = (
+  about: string,
+  hang: boolean,
+  rated: ReadonlyMap<string, RuleRate> = NO_RATES,
+): Extension => [
   field,
   pointed,
   pointing,
   decorations,
   description.of(about),
   hanging.of(hang),
+  rates.of(rated),
 ]
