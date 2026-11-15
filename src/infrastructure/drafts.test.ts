@@ -14,6 +14,28 @@ const { readDrafts, writeDrafts } = await import('./drafts.ts')
 const draftsDir = join(home, '.skill-studio', 'drafts')
 
 describe('drafts', () => {
+  it('keeps the drafts another writer stored, storing only those this one changed', () => {
+    writeDrafts('/skills/two', {
+      ...emptyDrafts(),
+      files: { 'SKILL.md': { text: 'from the app', previous: 'saved' } },
+    })
+    // `st serve` loaded the skill before the app stored its draft, and drafts another file.
+    writeDrafts(
+      '/skills/two',
+      { ...emptyDrafts(), files: { 'references/a.md': { text: 'from serve', previous: null } } },
+      { files: ['references/a.md'], cases: [], bases: [] },
+    )
+    expect(Object.keys(readDrafts('/skills/two').files).sort()).toEqual([
+      'SKILL.md',
+      'references/a.md',
+    ])
+    // Clearing its own draft leaves the other's, and the file stays.
+    writeDrafts('/skills/two', emptyDrafts(), { files: ['references/a.md'], cases: [], bases: [] })
+    expect(readDrafts('/skills/two').files).toEqual({
+      'SKILL.md': { text: 'from the app', previous: 'saved' },
+    })
+  })
+
   it('reads nothing for a skill with no drafts', () => {
     expect(readDrafts('/skills/none')).toEqual(emptyDrafts())
   })

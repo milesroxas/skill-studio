@@ -7,6 +7,7 @@
 import { createHash } from 'node:crypto'
 import { rmSync } from 'node:fs'
 import { join } from 'node:path'
+import { mergeDrafts, type TouchedDrafts } from '@domain/drafts.ts'
 import { type CaseDraft, emptyDrafts, type FileDraft, type SkillDrafts } from '@domain/schemas.ts'
 import { isFile, readJson, writeJson } from './fs.ts'
 import { STUDIO_DIR } from './library.ts'
@@ -34,8 +35,19 @@ export function readDrafts(skillPath: string): SkillDrafts {
   }
 }
 
-export function writeDrafts(skillPath: string, drafts: SkillDrafts): string | null {
+/**
+ * Store a skill's drafts. With `touched`, the drafts the writer changed are
+ * merged over the file as it is now, so the desktop app and `st serve` each
+ * keep the other's (`mergeDrafts`); without it, `drafts` replace the file's.
+ * The file is written whole to a temporary one that takes its name.
+ */
+export function writeDrafts(
+  skillPath: string,
+  mine: SkillDrafts,
+  touched?: TouchedDrafts,
+): string | null {
   const file = draftsFile(skillPath)
+  const drafts = touched ? mergeDrafts(readDrafts(skillPath), mine, touched) : mine
   if (!Object.keys(drafts.files).length && !Object.keys(drafts.cases).length) {
     if (isFile(file)) rmSync(file)
     return null

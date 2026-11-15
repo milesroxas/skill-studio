@@ -4,9 +4,11 @@
  * input and an output. The table in operations.ts implements each; the
  * renderer's client types each call from here, so a change lands in both.
  */
+
 import type { AiRun, AiStatus, ChatThread, UsageSummary } from '@domain/ai.ts'
 import type { AssistInput, ChatScene } from '@domain/assist.ts'
 import type { SlashCommand } from '@domain/commands.ts'
+import type { TouchedDrafts } from '@domain/drafts.ts'
 import type { ImageRef, ImageUpload } from '@domain/image.ts'
 import type { ImproveThread, RefineResult } from '@domain/improve.ts'
 import type { InputPick, InputUpload } from '@domain/inputs.ts'
@@ -182,7 +184,8 @@ export interface Contract {
   'skill.trashed': { input: Scoped; output: { deletes: TrashedDelete[] } }
   'skill.drafts': { input: Scoped; output: SkillDrafts }
   'skill.saveDrafts': {
-    input: Scoped & { drafts: SkillDrafts }
+    /** `touched` names the drafts this writer changed: only those are stored, so another writer's stay. Without it the drafts replace the file's. */
+    input: Scoped & { drafts: SkillDrafts; touched?: TouchedDrafts }
     output: { updatedAt: string | null }
   }
   /**

@@ -4,6 +4,7 @@
  */
 import type { CreateSkillInput, GenerateInput } from '@application/api/contract.ts'
 import type { AssistInput, ChatScene } from '@domain/assist.ts'
+import type { TouchedDrafts } from '@domain/drafts.ts'
 import type { ImageRef, ImageUpload } from '@domain/image.ts'
 import type { InputPick } from '@domain/inputs.ts'
 import type { AgentId } from '@domain/library.ts'
@@ -144,7 +145,8 @@ export const api = {
   undeleteRun: (undo: string) => call('skill.undeleteRun', scoped({ undo })),
   /** Drafts name their skill outright: a store can land after another skill is opened. */
   drafts: (skill: string) => call('skill.drafts', { skill }),
-  saveDrafts: (skill: string, drafts: SkillDrafts) => call('skill.saveDrafts', { skill, drafts }),
+  saveDrafts: (skill: string, drafts: SkillDrafts, touched: TouchedDrafts) =>
+    call('skill.saveDrafts', { skill, drafts, touched }),
   saveSkillFile: (path: string, text: string, previous: string | null) =>
     call('skill.saveFile', scoped({ path, text, previous })),
   deleteSkillFile: (path: string) => call('skill.deleteFile', scoped({ path })),

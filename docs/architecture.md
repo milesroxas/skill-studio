@@ -153,6 +153,7 @@ The shell (`App.tsx`) hands every screen one object, `Ctx` in `src/renderer/ctx.
 - **The drafts** (`useDrafts` in `src/renderer/drafts.ts`): unsaved files and cases, stored on disk half a second after the last keystroke.
   - A save clears its draft unless more was typed while it was written. That text stays, as a draft begun on what was saved (`src/renderer/draft-edits.ts`). A save that ends after another skill was opened clears the draft in that skill's stored drafts.
   - A failed read of the stored drafts is tried three more times before an edit may be stored over them. A read waits for any write under way.
+  - A store names the drafts the page set or cleared since the last one (`TouchedDrafts` in `src/domain/drafts.ts`). The host lays only those over the file as it is then and keeps every other (`mergeDrafts`), so the desktop app and `st serve` open on one skill each keep the other's drafts. A draft both change is the last one stored.
   - A draft of a case the skill no longer has is dropped.
   - A draft equal to what is saved is not unsaved work. An unsaved file is one whose draft differs from the file on disk (`unsavedFiles` in `src/renderer/changes.ts`). An unsaved case is one whose draft differs from the case (`unsavedCases` in `src/renderer/draft-edits.ts`).
   - In a browser, drafts stored as the tab closes go as a keep-alive request when the body is at most 60,000 bytes. A write under way as the tab hides is sent again that way.

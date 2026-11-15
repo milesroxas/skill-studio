@@ -14,6 +14,7 @@
  * draft began, which the save sends so an edit made outside is never written
  * over unseen.
  */
+import { type TouchedDrafts, touchedBetween, touchedBoth } from '@domain/drafts.ts'
 import { type CaseDraft, emptyDrafts, type FileDraft, type SkillDrafts } from '@domain/schemas.ts'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { api } from './api.ts'
@@ -37,6 +38,12 @@ const STORE_AFTER_MS = 500
 const READ_AGAIN_MS = [600, 2000, 5000]
 
 const NO_BASES: CaseBases = {}
+
+interface Waiting {
+  skill: string
+  drafts: SkillDrafts
+  touched: TouchedDrafts
+}
 
 export type DraftStatus = 'loading' | 'idle' | 'pending' | 'stored' | 'failed'
 
@@ -88,10 +95,14 @@ export function useDrafts(skillPath: string): Drafts {
   const [drafts, setDrafts] = useState<SkillDrafts>(emptyDrafts)
   const [status, setStatus] = useState<DraftStatus>('loading')
   const [storedAt, setStoredAt] = useState<Date | null>(null)
-  /** The drafts not yet on disk, with their skill; null when nothing waits. */
-  const waiting = useRef<{ skill: string; drafts: SkillDrafts } | null>(null)
+  /**
+   * The drafts not yet on disk, with their skill and the ones changed since
+   * the last store: only those are stored, so drafts another window stored
+   * meanwhile stay. Null when nothing waits.
+   */
+  const waiting = useRef<Waiting | null>(null)
   /** The drafts a write is carrying now: leaving the page sends them again, kept alive. */
-  const carrying = useRef<{ skill: string; drafts: SkillDrafts } | null>(null)
+  const carrying = useRef<Waiting | null>(null)
   const skill = useRef(skillPath)
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
 
@@ -116,7 +127,7 @@ export function useDrafts(skillPath: string): Drafts {
     const done = () => {
       if (carrying.current === next) carrying.current = null
     }
-    writing.current = api.saveDrafts(next.skill, next.drafts).then(
+    writing.current = api.saveDrafts(next.skill, next.drafts, next.touched).then(
       ({ updatedAt }) => {
         done()
         // Another skill is open by now: its own read says where its drafts stand.
@@ -126,8 +137,13 @@ export function useDrafts(skillPath: string): Drafts {
       },
       () => {
         done()
-        // The drafts wait for the next change or flush, unless a newer set is waiting already.
+        // The drafts wait for the next change or flush; a newer set waiting already takes these changes too.
         if (!waiting.current) waiting.current = next
+        else if (waiting.current.skill === next.skill)
+          waiting.current = {
+            ...waiting.current,
+            touched: touchedBoth(next.touched, waiting.current.touched),
+          }
         if (next.skill === skill.current) setStatus('failed')
       },
     )
@@ -139,7 +155,13 @@ export function useDrafts(skillPath: string): Drafts {
     (update: (all: SkillDrafts) => SkillDrafts) => {
       setDrafts((all) => {
         const next = update(all)
-        waiting.current = { skill: skill.current, drafts: next }
+        const touched = touchedBetween(all, next)
+        const before = waiting.current?.skill === skill.current ? waiting.current.touched : null
+        waiting.current = {
+          skill: skill.current,
+          drafts: next,
+          touched: before ? touchedBoth(before, touched) : touched,
+        }
         return next
       })
       setStatus('pending')
@@ -233,7 +255,10 @@ export function useDrafts(skillPath: string): Drafts {
     (forSkill: string, update: (all: SkillDrafts) => SkillDrafts) => {
       elsewhere.current = Promise.all([writing.current, elsewhere.current])
         .then(() => api.drafts(forSkill))
-        .then((all) => api.saveDrafts(forSkill, update(all)))
+        .then((all) => {
+          const next = update(all)
+          return api.saveDrafts(forSkill, next, touchedBetween(all, next))
+        })
         .then(
           () => {},
           () => {},

@@ -115,6 +115,12 @@ describe('parsers', () => {
     expect(parsers['library.link']({ path: '/p', agent: 'codex' }).scope).toBe('user')
   })
 
+  it('read which drafts a writer changed, when it says', () => {
+    const saved = parsers['skill.saveDrafts']({ drafts: {}, touched: { files: ['SKILL.md'] } })
+    expect(saved.touched).toEqual({ files: ['SKILL.md'], cases: [], bases: [] })
+    expect(parsers['skill.saveDrafts']({ drafts: {} }).touched).toBeUndefined()
+  })
+
   it('read a correction as met, missed, or taken back', () => {
     const read = (met: unknown) =>
       parsers['skill.correct']({ key: 'run/sample', verdict: 'rule:Be brief.', met }).met

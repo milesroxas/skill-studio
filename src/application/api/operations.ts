@@ -15,6 +15,7 @@ import {
   workingSkill,
 } from '@domain/assist.ts'
 import { checkWeight } from '@domain/case-draft.ts'
+import type { TouchedDrafts } from '@domain/drafts.ts'
 import { type ImageRef, MAX_IMAGES } from '@domain/image.ts'
 import { type RuleScene, worthChecking } from '@domain/lint.ts'
 import { LOOK_STEPS } from '@domain/practice.ts'
@@ -279,6 +280,12 @@ function draftsOf(value: unknown): SkillDrafts {
   return { files, cases, caseBases, updatedAt: null }
 }
 
+/** Which drafts a writer changed, as keys; anything that is not a list is none. */
+function touchedOf(value: unknown): TouchedDrafts {
+  const input = record(value)
+  return { files: list(input.files), cases: list(input.cases), bases: list(input.bases) }
+}
+
 function generateInputOf(raw: Raw): GenerateInput {
   const configs = (Array.isArray(raw.configs) ? raw.configs : []).slice(0, 4).map((c) => {
     const choice = record(c)
@@ -473,7 +480,11 @@ export const parsers: { [K in OperationName]: (raw: Raw) => Input<K> } = {
   'skill.undeleteRun': (raw) => ({ ...scoped(raw), undo: assertSafe(str(raw.undo), 'undo') }),
   'skill.trashed': scoped,
   'skill.drafts': scoped,
-  'skill.saveDrafts': (raw) => ({ ...scoped(raw), drafts: draftsOf(raw.drafts) }),
+  'skill.saveDrafts': (raw) => ({
+    ...scoped(raw),
+    drafts: draftsOf(raw.drafts),
+    ...(raw.touched === undefined ? {} : { touched: touchedOf(raw.touched) }),
+  }),
   'skill.correct': (raw) => {
     const verdict = str(raw.verdict)
     if (!verdict || verdict.length > VERDICT_MAX) throw new Error('Bad verdict.')
@@ -821,7 +832,7 @@ export function createOperations(options: OperationsOptions): Runners {
     'skill.trashed': (input) => ({ deletes: trashedDeletes(skillOf(input).path) }),
     'skill.drafts': (input) => readDrafts(skillOf(input).path),
     'skill.saveDrafts': (input) => ({
-      updatedAt: writeDrafts(skillOf(input).path, input.drafts),
+      updatedAt: writeDrafts(skillOf(input).path, input.drafts, input.touched),
     }),
     'skill.correct': (input) => {
       const skill = skillOf(input)
