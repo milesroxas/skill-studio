@@ -3,8 +3,11 @@
  * tested. In loop order: write a case, run, read what the run wrote. The
  * first run is one without the skill, the score the skill has to beat; it is
  * suggested, never required, and a run with the skill comes next either way.
+ * A run tests the skill's files as saved, so an unsaved edit is saved first.
  * The practice skill's walkthrough names its own step, and a running job has none.
  */
+
+import { byFileOrder } from '@domain/paths.ts'
 
 /** Where a step happens: a screen, or null for a step that is the Run button's. */
 export interface StepTarget {
@@ -41,6 +44,8 @@ export interface Standing {
   skillRuns: number
   /** The files changed since the last run. */
   changed: boolean
+  /** The skill's files with edits not saved yet. */
+  unsaved: string[]
   /** A run finished since Results was last open. */
   unread: boolean
 }
@@ -52,6 +57,14 @@ export function nextStep(standing: Standing | null): NextStep | null {
   if (!standing.cases)
     return { kind: 'go', label: 'Add a case', screen: 'cases', params: { new: '1' } }
   if (!standing.runs) return { kind: 'run', withoutSkill: true }
+  const [first, ...more] = [...standing.unsaved].sort(byFileOrder)
+  if (first)
+    return {
+      kind: 'go',
+      label: more.length ? 'Save your edits' : `Save ${first}`,
+      screen: 'editor',
+      params: { file: first },
+    }
   if (standing.changed || !standing.skillRuns) return { kind: 'run' }
   return standing.unread ? { kind: 'go', label: 'Read the results', screen: 'results' } : null
 }

@@ -8,6 +8,7 @@ const standing = (patch: Partial<Standing> = {}): Standing => ({
   runs: 1,
   skillRuns: 1,
   changed: false,
+  unsaved: [],
   unread: false,
   ...patch,
 })
@@ -38,6 +39,26 @@ describe('nextStep', () => {
     expect(nextStep(standing({ skillRuns: 0 }))).toEqual({ kind: 'run' })
     expect(nextStep(standing({ skillRuns: 0, unread: true }))).toEqual({ kind: 'run' })
     expect(nextStep(standing({ changed: true }))).toEqual({ kind: 'run' })
+  })
+
+  it('saves an unsaved edit before a run, since a run tests the files as saved', () => {
+    expect(nextStep(standing({ changed: true, unsaved: ['SKILL.md'] }))).toEqual({
+      kind: 'go',
+      label: 'Save SKILL.md',
+      screen: 'editor',
+      params: { file: 'SKILL.md' },
+    })
+    expect(nextStep(standing({ unread: true, unsaved: ['references/a.md', 'SKILL.md'] }))).toEqual({
+      kind: 'go',
+      label: 'Save your edits',
+      screen: 'editor',
+      params: { file: 'SKILL.md' },
+    })
+    // The first run is without the skill, which reads none of its files.
+    expect(nextStep(standing({ runs: 0, skillRuns: 0, unsaved: ['SKILL.md'] }))).toEqual({
+      kind: 'run',
+      withoutSkill: true,
+    })
   })
 
   it('never asks for a run without the skill once the skill has run', () => {

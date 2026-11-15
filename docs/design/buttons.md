@@ -104,7 +104,7 @@ Otherwise → default
 
 The top bar shows where the loop goes next. It is the app's one yellow control. Only `App.tsx` renders it: a screen never adds its own. Below `lg` it reads the step's name alone ("Read the results"), "Next:" kept for a screen reader, and it is the last part of the bar to give way (see `TopBar` in [layout.md](layout.md)).
 
-The loop is write, run, compare, and running is a button, not a place. So the next step is one of two things: a place to go ("Next: Add a case", "Next: Read the results"), drawn as below, or the run itself.
+The loop is write, run, compare, and running is a button, not a place. So the next step is one of two things: a place to go ("Next: Add a case", "Next: Save SKILL.md", "Next: Read the results"), drawn as below, or the run itself. A run tests the files as saved, so while a skill's file holds unsaved edits the next step is to save it ("Save your edits" for several), and Run is not yellow; only before the first run, which is without the skill, does Run stay the next step (`nextStep` in `next-step.ts`).
 
 `RunButton` (`components/Run.tsx`) stands in the top bar whenever the skill has a case.
 

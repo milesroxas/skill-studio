@@ -366,6 +366,7 @@ export function App() {
             (r) => answered(r) && r.meta?.configuration !== 'without_skill',
           ).length,
           changed: current.changed,
+          unsaved,
           unread,
         }
       : null,
