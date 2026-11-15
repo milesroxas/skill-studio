@@ -223,13 +223,13 @@ Changing a case's prompt or its files makes it a new request. Answers written be
 
 **All cases**, at the top of the list, shows how far your cases have come since their first runs, and where each case stands now. You do not have to run every case each time: each case is read against its own runs.
 
-- **Lift** is the average of the cases' latest scores, against the average of their first.
+- **Lift** is the average of the cases' latest scores, against the average of their first. Under the number is how far it moved and how many cases it is over. Click the number of cases to see how it is counted: which cases, the score without the skill, and anything that makes the change less sure.
 - Under it, a line says how many cases have run on the version a run would test now. After you edit the skill, a score from before the edit may no longer hold. Such a score is drawn as an outline with no fill, here and in the list on the left. **Run the other 4 on v3** opens Run with only those cases ticked. A case that has run on that version and only waits to be graded is not run again: the line says how many wait, and the button grades them once no other case is left.
 - Each row is a case: its last run, its score, and how the score changed. Cases that dropped come first. Click a case to see what its answer missed, read the output, and see its other runs.
 
 Under the cases, each run shows what it answered, when it ran, how long it took and what it cost, with **Delete run**. A run that ended when the app quit or crashed says **not finished**: grade it to score the attempts it finished.
 
-Two versions only a few points apart may not really differ. Run with two or more attempts to be sure. The lift says how many attempts each side is over and how far one case's attempts were apart, and an opened case says the same of its score.
+Two versions only a few points apart may not really differ. Run with two or more attempts to be sure. Click the number of cases under the lift to see how many attempts each side is over and how far one case's attempts were apart. An opened case says the same of its score.
 
 ### Then change the skill
 

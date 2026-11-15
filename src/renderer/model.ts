@@ -520,6 +520,58 @@ export function liftAttemptsLine(lift: CaseLift): string {
   return `${capital(counts)}${gap}.`
 }
 
+/** One thing behind the lift, in the note its count of cases opens: what it is about, and what it says. */
+export interface LiftNote {
+  title: string
+  text: string
+}
+
+/**
+ * What stands behind the lift, a note each, for the reader who asks: which
+ * cases it is over, what sets them apart, the score without the skill, what
+ * the change counts when it is not the difference of the two means, how many
+ * attempts each side is over when some case had several, and how much Jev left to the reader (`aside`,
+ * from `liftAsideLine`). The head of All cases shows none of it: its count
+ * of cases opens it.
+ */
+export function liftNotes(lift: CaseLift, aside: string | null): LiftNote[] {
+  const one = lift.cases === 1
+  const some = lift.floorCases < lift.cases ? `, over ${lift.floorCases} of them` : ''
+  const change = lift.unshared ? changeLine('runs', lift) : null
+  // One attempt a case on both sides, as most lifts are, sets nothing against anything.
+  const several = lift.gap !== null || lift.attempts.first[1] > 1 || lift.attempts.latest[1] > 1
+  const notes: Array<LiftNote | null> = [
+    {
+      title: 'Which cases',
+      text: one
+        ? 'The 1 case that ran more than once, from its first run to its latest.'
+        : `The ${lift.cases} cases that ran more than once, each from its first run to its latest.`,
+    },
+    lift.mixed
+      ? {
+          title: 'More than one model',
+          text: 'Some cases ran on one model first and another last, so part of the change may be the model’s.',
+        }
+      : null,
+    lift.uncounted
+      ? {
+          title: 'Cases left out',
+          text: `${plural(lift.uncounted, 'more case')} ${lift.uncounted > 1 ? 'are' : 'is'} left out: nothing was marked on both of ${lift.uncounted > 1 ? 'their' : 'its'} runs.`,
+        }
+      : null,
+    lift.floor !== null
+      ? {
+          title: 'Without the skill',
+          text: `Without the skill ${one ? 'it' : 'they'} scored ${Math.round(lift.floor)}${some}${lift.floorApart ? ', graded on another version’s rules' : ''}.`,
+        }
+      : null,
+    change ? { title: 'What the change counts', text: change } : null,
+    several ? { title: 'Attempts', text: liftAttemptsLine(lift) } : null,
+    aside ? { title: 'Not sure', text: aside } : null,
+  ]
+  return notes.filter((note): note is LiftNote => note !== null)
+}
+
 /**
  * How many attempts the score a case stands on is the mean of, and the one it
  * moved from, with how far each one's attempts were apart: "Its score is the
@@ -574,7 +626,7 @@ function factCount(left: readonly VerdictKind[]): string {
  * both runs, so 3 rules are left out of it". `sides` names the two ("runs",
  * "outputs"). Null when the move left nothing out and read every answer.
  */
-export function changeWhy(sides: string, move: Pick<Move, 'left' | 'oneSided'>): string | null {
+function changeWhy(sides: string, move: Pick<Move, 'left' | 'oneSided'>): string | null {
   const left = move.left ?? []
   const answers = `your answers only where you gave one on both`
   if (!left.length) return move.oneSided ? `counts ${answers} ${sides}` : null

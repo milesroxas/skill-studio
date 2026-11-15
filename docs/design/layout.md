@@ -312,7 +312,7 @@ Does the whole screen have nothing to show?
 | `form` | a few fields under their labels: Run, opened from the top bar |
 | `compose` | a request to write and its reply (`Assist`, Auto refine) |
 | `compose-wide` | the same for a reply as long as a file, or three rewrites side by side in a column |
-| `help` | what a screen is for |
+| `help` | what a screen is for, and what stands behind a number: a score's parts (`TotalDetail`), the lift's note |
 | `note` | one word and what it means |
 | `field` | the list under a `ComboBox`: as wide as its field |
 | `selection` | the row of actions over a selection in the editor: as wide as its buttons, no focus of its own |

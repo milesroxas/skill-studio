@@ -12,14 +12,19 @@
  * its thickness at any width; its labels are text over it, at the type scale's
  * own sizes. It ends where its lower band ends, and that foot stands on the
  * baseline of the mean beside it.
+ *
+ * The head holds no sentence: an eyebrow, the mean, and one line under it with
+ * the change and the count of cases. What stands behind the number is a note
+ * the count opens (`liftNotes`).
  */
 import { pointsMoved } from '@domain/lift.ts'
 import type { CaseLift } from '@domain/standing.ts'
-import type { CSSProperties, ReactNode } from 'react'
-import { cn } from '../lib/utils.ts'
-import { changeWhy, liftAttemptsLine, plural } from '../model.ts'
-import { Delta } from './Scores.tsx'
+import { type CSSProperties, type ReactNode, useRef } from 'react'
+import { type LiftNote, liftNotes, plural } from '../model.ts'
+import { EXPLAINED } from './Help.tsx'
+import { Delta, TotalDetailSection } from './Scores.tsx'
 import { Text } from './text.tsx'
+import { Popover, PopoverContent, PopoverTrigger } from './ui/popover.tsx'
 
 /** The band's thickness and its rise (the mark's 1.75), in px. */
 const BAND = 20
@@ -93,7 +98,7 @@ function Ribbon({ lift, floor }: { lift: CaseLift; floor: number | null }) {
     // The digits beside it stand 7px above their line's foot: the band's foot is set on that line.
     <div
       aria-hidden="true"
-      className="relative mb-[7px] h-[77px] w-full max-w-[520px] flex-[1_1_240px]"
+      className="relative mb-[7px] h-[77px] w-full max-w-[520px] justify-self-end"
     >
       <svg
         aria-hidden="true"
@@ -133,33 +138,7 @@ function Ribbon({ lift, floor }: { lift: CaseLift; floor: number | null }) {
   )
 }
 
-/**
- * Which cases the lift is read over, as the line under its change. `floor`
- * says whether the score without the skill is said beside it: drawn on the
- * ribbon, or read out. What is said of that score is left out where it is not.
- */
-const overLine = (lift: CaseLift, floor: boolean): string =>
-  `Over ${plural(lift.cases, 'case')} that ran more than once${lift.mixed ? ', on more than one model' : ''}${uncountedPart(lift)}${floor ? floorRules(lift) : ''}${answersOnly(lift)}`
-
-/** What the line under the change says of the cases left out, which have nothing both their runs counted. */
-const uncountedPart = (lift: CaseLift): string =>
-  lift.uncounted
-    ? `; ${lift.uncounted} more left out, as nothing was marked on both ${lift.uncounted > 1 ? 'of their runs' : 'of its runs'}`
-    : ''
-
-/** What the line under the change says when its means are not those of the scores shown (`changeWhy`). */
-function answersOnly(lift: CaseLift): string {
-  const why = lift.unshared ? changeWhy('runs', lift) : null
-  return why ? `; it ${why}` : ''
-}
-
-/** What the line under the change says when a score without the skill was graded on another version's rules. */
-const floorRules = (lift: CaseLift): string =>
-  lift.floor !== null && lift.floorApart
-    ? '; without the skill, graded on another version’s rules'
-    : ''
-
-/** The same, for a screen reader, with the score without the skill and how many cases it is over. */
+/** The score without the skill and how many cases it is over, for a screen reader. */
 function floorNote(lift: CaseLift): string {
   if (lift.floor === null) return ''
   const some = lift.floorCases < lift.cases ? `, over ${lift.floorCases} of them` : ''
@@ -167,9 +146,55 @@ function floorNote(lift: CaseLift): string {
 }
 
 /**
- * The head of All cases: the mean of the cases' latest scores, large, what
- * they gained since their first runs, and the ribbon beside it. A screen
- * reader reads it as one sentence.
+ * The count of cases under the mean, as the way in to what stands behind the
+ * lift: a click opens the notes, each under its heading. Opened by a pointer,
+ * it keeps the focus off what it holds, so no ring shows unasked; opened from
+ * the keyboard, the focus goes in.
+ */
+function Cases({ count, notes }: { count: number; notes: readonly LiftNote[] }) {
+  const pointed = useRef(false)
+  const cases = plural(count, 'case')
+  return (
+    <Popover>
+      <PopoverTrigger
+        aria-label={`${cases}: how the lift is counted`}
+        onPointerDown={() => {
+          pointed.current = true
+        }}
+        onKeyDown={() => {
+          pointed.current = false
+        }}
+        className={EXPLAINED}
+      >
+        <Text size="xs" tone="muted" tabular>
+          {cases}
+        </Text>
+      </PopoverTrigger>
+      <PopoverContent
+        size="help"
+        align="start"
+        onOpenAutoFocus={(event) => {
+          if (pointed.current) event.preventDefault()
+        }}
+      >
+        {notes.map((note) => (
+          <TotalDetailSection key={note.title} title={note.title}>
+            <Text as="p" size="xs" tone="muted" className="m-0 text-pretty">
+              {note.text}
+            </Text>
+          </TotalDetailSection>
+        ))}
+      </PopoverContent>
+    </Popover>
+  )
+}
+
+/**
+ * The head of All cases: an eyebrow, the mean of the cases' latest scores,
+ * large, with the ribbon beside it, and under the mean one small line: what
+ * the cases gained since their first runs, and how many they are. The count
+ * opens what stands behind the number (`liftNotes`). A screen reader reads
+ * the figure as one sentence.
  */
 export function LiftFigure({
   lift,
@@ -181,44 +206,40 @@ export function LiftFigure({
 }) {
   const change = pointsMoved(lift.first, lift.latest)
   const floor = floorAt(lift)
-  const attempts = liftAttemptsLine(lift)
-  const summary = `Lift: ${overLine(lift, true).toLowerCase()}, from ${round(lift.first)} on their first runs to ${round(lift.latest)} on their latest.${floorNote(lift)} ${attempts}${aside ? ` ${aside}` : ''}`
+  const moved = change ? `${change > 0 ? 'up' : 'down'} ${Math.abs(change)}` : 'no change'
+  const summary = `Lift: ${round(lift.latest)}, ${moved} since each case’s first run, over ${plural(lift.cases, 'case')}, from ${round(lift.first)} on their first runs to ${round(lift.latest)} on their latest.${floorNote(lift)}`
   return (
-    <figure
-      aria-label={summary}
-      // With the line without the skill, the figure keeps the room it falls in under the band.
-      className={cn(
-        'm-0 flex flex-wrap items-end justify-between gap-x-10 gap-y-4',
-        floor === null ? 'pb-5' : 'pb-12',
-      )}
-    >
-      <div aria-hidden="true" className="flex flex-col gap-1.5">
-        <Text caps tone="muted">
-          Lift
-        </Text>
-        <div className="flex items-end gap-3">
-          {/* A round digit overhangs a straight edge to look flush with the label over it. */}
+    // Under the band's foot: the line of words, and with it the room the line without the skill falls in.
+    <div className="flex flex-col gap-1.5 pb-4">
+      <figure
+        aria-label={summary}
+        className="m-0 grid grid-cols-[auto_minmax(0,1fr)] items-end gap-x-10"
+      >
+        {/* The eyebrow shares its line with the ribbon's upper label, and the mean's foot the band's. */}
+        <div aria-hidden="true" className="flex flex-col gap-1.5">
+          <Text caps tone="muted">
+            Lift
+          </Text>
+          {/* A round digit overhangs a straight edge to look flush with the eyebrow over it. */}
           <span className="-ml-0.5 text-display tabular-nums">{round(lift.latest)}</span>
-          <span className="flex max-w-[30ch] flex-col pb-px text-pretty">
-            <Text size="ui" tone="muted">
-              {change ? <Delta value={change} lead={false} /> : 'No change'} since each case’s first
-              run
-            </Text>
-            <Text size="ui" tone="muted">
-              {overLine(lift, floor !== null)}
-            </Text>
-            <Text size="ui" tone="muted">
-              {attempts}
-            </Text>
-            {aside ? (
-              <Text size="ui" tone="muted">
-                {aside}
-              </Text>
-            ) : null}
-          </span>
         </div>
+        {lift.rises ? <Ribbon lift={lift} floor={floor} /> : null}
+      </figure>
+      <div className="flex items-baseline gap-1.5">
+        <span aria-hidden="true" className="flex items-baseline gap-1.5">
+          {change ? (
+            <Delta value={change} lead={false} />
+          ) : (
+            <Text size="xs" tone="muted">
+              No change
+            </Text>
+          )}
+          <Text size="xs" tone="faint">
+            ·
+          </Text>
+        </span>
+        <Cases count={lift.cases} notes={liftNotes(lift, aside)} />
       </div>
-      {lift.rises ? <Ribbon lift={lift} floor={floor} /> : null}
-    </figure>
+    </div>
   )
 }

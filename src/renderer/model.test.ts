@@ -28,6 +28,7 @@ import {
   lastAnswer,
   liftAsideLine,
   liftAttemptsLine,
+  liftNotes,
   liftOf,
   listLine,
   mergedConfig,
@@ -499,6 +500,85 @@ describe('ruleRatesOf', () => {
       followed: 2,
       broken: 1,
     })
+  })
+})
+
+describe('liftNotes', () => {
+  const plain = {
+    first: 70,
+    latest: 93,
+    floor: null,
+    floorCases: 0,
+    attempts: { first: [1, 1], latest: [1, 1] },
+    gap: null,
+    cases: 2,
+    uncounted: 0,
+    unshared: false,
+    left: [],
+    oneSided: false,
+    rises: true,
+    mixed: false,
+    floorApart: false,
+  } as unknown as Parameters<typeof liftNotes>[0]
+
+  it('always says which cases the lift is over, and nothing that is not so', () => {
+    expect(liftNotes(plain, null)).toEqual([
+      {
+        title: 'Which cases',
+        text: 'The 2 cases that ran more than once, each from its first run to its latest.',
+      },
+    ])
+    expect(liftNotes({ ...plain, cases: 1 }, null)[0].text).toBe(
+      'The 1 case that ran more than once, from its first run to its latest.',
+    )
+  })
+
+  it('says each thing that sets the lift apart under a heading of its own, in one order', () => {
+    const notes = liftNotes(
+      {
+        ...plain,
+        mixed: true,
+        uncounted: 1,
+        floor: 54.4,
+        floorCases: 1,
+        floorApart: true,
+        unshared: true,
+        left: ['rule', 'check'],
+        attempts: { first: [1, 1], latest: [3, 3] },
+        gap: 26,
+      } as Parameters<typeof liftNotes>[0],
+      'Jev was not sure of 8 of the 17 rules on their latest runs, left out of the score until you mark them.',
+    )
+    expect(notes.map((note) => note.title)).toEqual([
+      'Which cases',
+      'More than one model',
+      'Cases left out',
+      'Without the skill',
+      'What the change counts',
+      'Attempts',
+      'Not sure',
+    ])
+    const text = (title: string) => notes.find((note) => note.title === title)?.text
+    expect(text('Cases left out')).toBe(
+      '1 more case is left out: nothing was marked on both of its runs.',
+    )
+    // The score without the skill is said here in words, whether or not the ribbon draws its line.
+    expect(text('Without the skill')).toBe(
+      'Without the skill they scored 54, over 1 of them, graded on another version’s rules.',
+    )
+    expect(text('What the change counts')).toBe(
+      'The change counts only what was marked on both runs, so 2 rules and checks are left out of it.',
+    )
+    expect(text('Attempts')).toBe(
+      '1 attempt a case on the first runs, 3 attempts on the latest. Attempts at one case scored up to 26 points apart.',
+    )
+  })
+
+  it('says the score without the skill plainly when it was graded on the same rules', () => {
+    const notes = liftNotes({ ...plain, floor: 60, floorCases: 2 }, null)
+    expect(notes.find((note) => note.title === 'Without the skill')?.text).toBe(
+      'Without the skill they scored 60.',
+    )
   })
 })
 

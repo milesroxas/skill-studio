@@ -47,6 +47,13 @@ function TermList({ terms }: { terms: readonly TermId[] }) {
 }
 
 /**
+ * How words that open a note about themselves are drawn: a dotted underline
+ * that firms up once pointed at or open. A click opens the note, never a hover.
+ */
+export const EXPLAINED =
+  'cursor-help rounded-xs text-left underline decoration-muted-foreground/50 decoration-dotted underline-offset-4 focus-ring transition-[text-decoration-color] duration-150 ease-out hover:decoration-current data-[state=open]:decoration-current'
+
+/**
  * A word the reader may ask about where it is used, such as a section's title
  * or a part of a score. A dotted line under it says it can be asked about; a
  * click opens what it means and, where the reader may want to change it, one
@@ -79,7 +86,7 @@ export function Explained({
           pointed.current = false
         }}
         title={`What “${title.toLowerCase()}” means`}
-        className="cursor-help rounded-xs text-left underline decoration-muted-foreground/50 decoration-dotted underline-offset-4 focus-ring transition-[text-decoration-color] duration-150 ease-out hover:decoration-current data-[state=open]:decoration-current"
+        className={EXPLAINED}
       >
         {label}
       </PopoverTrigger>

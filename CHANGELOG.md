@@ -13,18 +13,18 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - **Recently deleted**, under the versions on the Skill screen. It lists the versions and runs you deleted in the last 30 days, each with **Undo**, so you can bring one back after the notice is gone or the app restarts.
 - A rule most answers break shows a red number in the editor, and pointing at any rule's number says how many answers broke it.
 - The editor says when a rule asks for so many things that one answer cannot say which was missed.
-- **Lift** says how many attempts each side is over and how far one case's attempts were apart, and an opened case says the same of its score.
+- Click the number of cases under **Lift** to see how it is counted: which cases, the score without the skill, how many attempts each side is over, and how many rules Jev was not sure of. An opened case says how many attempts its own score is over.
 
 ### Changed
 
 - **Delete version** always asks first, even for a version with no runs. **Undo** on the status line still brings it back.
 - A change in score now counts only the rules and checks marked on both runs, and says how many it left out. Before, a rule Jev was unsure of on one run and not the other could read as the skill getting better or worse.
-- **All cases** says how many rules and checks Jev was not sure of behind a score. They stay out of the score until you mark them.
+- An opened case, an opened run and the lift's note say how many rules and checks Jev was not sure of behind a score. They stay out of the score until you mark them.
 - A case's change, the lift and the change between two outputs count your own marks only on the rules and checks you marked on both runs, so a case no longer rises just because you checked its newest run more closely. Each score shown on its own still counts every mark you made.
 - Jev now reads the text files a case gives the agent, such as a design system's notes, when it checks rules like "use only colours from the project".
 - Grading again asks Jev only the questions whose answer could have changed: add a check and only that check is asked, change a check's weight or a case's title and nothing is. The first grading after this update asks every question once more.
 - Reading the skill before writing is still shown and flagged, but no longer counts in **Process**, so a run with the skill and one without are scored on the same things.
-- **Lift** says when the score without the skill was graded on another version's rules.
+- **Lift** is now the number, how far it moved and how many cases it is over, beside its ribbon. The sentences that stood beside the number are in the note the number of cases opens, which also says when the score without the skill was graded on another version's rules.
 - The Run panel says when the Cursor agent will use every tool in a case that allows only some, and when an older version was kept without its scripts.
 
 ### Fixed

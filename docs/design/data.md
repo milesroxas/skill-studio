@@ -78,6 +78,7 @@ A score is out of 100 and always shows through one of these, from `components/Sc
 - It is a dotted underline. A click, never a hover, opens a `note` popover with its name, what it means in one or two sentences, and at most one `outline` `sm` action that goes where it is changed.
 - Opened by a pointer, the action does not take the focus. Opened from the keyboard, it does.
 - `Term` is `Explained` for a glossary word, such as **Missed**, and has no action.
+- The same underline (`EXPLAINED`) marks the count of cases under the lift, which opens what stands behind that number in a `help` popover ([brand.md](brand.md#the-ribbon-as-a-figure)). A dotted underline always means the same thing: a click here explains this.
 - A score part that a kind of work adds opens what grades it and **Change what is graded**. That opens All cases with **Graded as** unfolded and in view (`graded=1` in the address).
 - A setting is met where its effect shows, once per card: never as an action on every row it touches.
 - A fact such as "The output has one clear main point" names its part ("Look") in the line under it, so it reads back to that heading.
