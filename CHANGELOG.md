@@ -6,6 +6,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+### Changed
+
+- **Delete version** always asks first, even for a version with no runs. **Undo** on the status line still brings it back.
+
 ## [0.14.0] - 2026-11-14
 
 ### Added

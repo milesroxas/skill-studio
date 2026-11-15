@@ -228,11 +228,12 @@ All in `components/Shortcuts.tsx`. What each command is and its default keys are
 Does it lose something a person made?
  ├── No (preferences back to defaults) → act at once. No dialog, no Undo.
  └── Yes
+      ├── Is it a version or a run? → ctx.confirm first, then act, and report with `{ undo }`
       ├── Can the status line's Undo take it back? → act at once, report with `{ undo }`. No dialog.
       └── No → ctx.confirm first, then act
 ```
 
-Never both a dialog and an Undo: two guards teach people to click through both. `VersionDetail.tsx` shows the split: a version with no runs comes back with Undo, and deleting runs asks first because their results cannot come back.
+A version or a run holds work that took a run to make, and its Undo lives only until the next notice, so deleting one asks first and still offers Undo (`VersionDetail.tsx`, `delete-run.ts`). Anything smaller that Undo takes back acts at once: two guards on every step teach people to click through both.
 
 One exception, in `Change.tsx`: applying a file the assistant proposes over unsaved edits. The dialog and the Undo guard two different things. Undo brings back the saved file; nothing brings back the unsaved edits, so those are asked about first, and the dialog says which of the two Undo covers. With no unsaved edits to lose there is no dialog, only the Undo.
 

@@ -123,20 +123,19 @@ export function VersionDetail({ ctx, version }: { ctx: Ctx; version: string }) {
   }
 
   const remove = async (v: SkillVersion) => {
-    // A saved copy alone comes back with Undo. Runs hold results, so the reader agrees to lose them first.
-    if (
-      runs &&
-      !(await confirm({
-        title: `Delete ${v.version} and its ${plural(runs, 'run')}?`,
-        description:
-          runs === 1
+    // Asked every time, runs or not: a version is a whole copy of the skill, too much to lose to a stray click.
+    const ok = await confirm({
+      title: runs ? `Delete ${v.version} and its ${plural(runs, 'run')}?` : `Delete ${v.version}?`,
+      description:
+        runs === 0
+          ? `This saved copy of your skill is deleted. Your skill files don't change.`
+          : runs === 1
             ? `The run made with ${v.version} is deleted too, with its outputs and your corrections on them. Your skill files don't change.`
             : `The ${runs} runs made with ${v.version} are deleted too, with their outputs and your corrections on them. Your skill files don't change.`,
-        action: 'Delete',
-        destructive: true,
-      }))
-    )
-      return
+      action: 'Delete',
+      destructive: true,
+    })
+    if (!ok) return
     setDeleting(true)
     try {
       const gone = await api.deleteVersion(v.version)
