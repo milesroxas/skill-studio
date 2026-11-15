@@ -1082,26 +1082,45 @@ export async function gradeAnchors(skillDir: string, options: GradeOptions): Pro
 
 export interface SelfTestLine {
   bad: string
+  /** The good anchor it is checked against; null when its case has none, which fails the line. */
+  against: string | null
   layer: string
   good: number | null
   badScore: number | null
   ok: boolean
 }
 
-/** Each bad anchor must score below its case's good anchor on every layer it tests. */
+/**
+ * Each bad anchor must score below every good anchor of its case on every
+ * layer it tests. A bad anchor whose case has no good anchor fails: it was
+ * written to be checked, and nothing checks it.
+ */
 export function selfTest(report: Report): { lines: SelfTestLine[]; failures: number } {
-  const goods = new Map(report.results.filter((r) => r.label === 'good').map((r) => [r.case, r]))
+  const goods = new Map<string | null, ReportResult[]>()
+  for (const good of report.results.filter((r) => r.label === 'good'))
+    goods.set(good.case, [...(goods.get(good.case) ?? []), good])
   const lines: SelfTestLine[] = []
   for (const bad of report.results.filter((r) => r.label === 'bad')) {
-    const good = goods.get(bad.case)
-    if (!good) continue
-    for (const layer of bad.tests.length ? bad.tests : ['total']) {
-      const g = good.scores[layer] ?? null
-      const b = bad.scores[layer] ?? null
-      // A layer with no score on either side says nothing, so it is no pass.
-      const ok = g !== null && b !== null && g > b
-      lines.push({ bad: bad.sample, layer, good: g, badScore: b, ok })
-    }
+    const layers = bad.tests.length ? bad.tests : ['total']
+    const against = goods.get(bad.case) ?? []
+    if (!against.length)
+      for (const layer of layers)
+        lines.push({
+          bad: bad.sample,
+          against: null,
+          layer,
+          good: null,
+          badScore: bad.scores[layer] ?? null,
+          ok: false,
+        })
+    for (const good of against)
+      for (const layer of layers) {
+        const g = good.scores[layer] ?? null
+        const b = bad.scores[layer] ?? null
+        // A layer with no score on either side says nothing, so it is no pass.
+        const ok = g !== null && b !== null && g > b
+        lines.push({ bad: bad.sample, against: good.sample, layer, good: g, badScore: b, ok })
+      }
   }
   return { lines, failures: lines.filter((l) => !l.ok).length }
 }

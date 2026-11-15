@@ -424,14 +424,16 @@ async function main(): Promise<number> {
     const report = await gradeAnchors(skill, jevOptions)
     printReport(report)
     const { lines, failures } = selfTest(report)
-    console.log('\nSelf-test: each bad anchor must score below its good anchor on what it tests.')
+    console.log(
+      '\nSelf-test: each bad anchor must score below every good anchor of its case on what it tests.',
+    )
     for (const l of lines)
       console.log(
-        `  ${l.ok ? 'ok  ' : 'FAIL'} ${padEnd(l.bad, 40)} ${padEnd(l.layer, 12)} good ${pad(l.good, 4)}  bad ${pad(l.badScore, 4)}`,
+        `  ${l.ok ? 'ok  ' : 'FAIL'} ${padEnd(l.bad, 40)} ${padEnd(l.layer, 12)} good ${pad(l.good, 4)}  bad ${pad(l.badScore, 4)}  ${l.against ? `against ${l.against}` : 'no good anchor of its case'}`,
       )
-    // A bad anchor is checked against the good anchor of its case: with no such pair, nothing was.
+    // With no bad anchor at all, nothing was checked.
     if (!lines.length) {
-      console.log('\nNothing was checked: no bad anchor has a good anchor of its case.')
+      console.log('\nNothing was checked: there is no bad anchor.')
       return 1
     }
     console.log(failures ? `\n${failures} check(s) failed.` : '\nAll checks passed.')

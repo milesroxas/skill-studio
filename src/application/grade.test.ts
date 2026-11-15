@@ -1329,10 +1329,26 @@ describe('selfTest', () => {
     expect(lines(0, null)).toEqual([false])
   })
 
-  it('fails a layer no pack scores, and checks nothing without a good anchor of the case', () => {
+  it('fails a layer no pack scores, and a bad anchor with no good anchor of its case', () => {
     const typo = selfTest(reportOf([anchor('good', 80), anchor('bad', 40, ['rubrik'])]))
     expect(typo).toMatchObject({ failures: 1, lines: [{ layer: 'rubrik', good: null }] })
-    expect(selfTest(reportOf([anchor('bad', 40)]))).toEqual({ lines: [], failures: 0 })
+    expect(selfTest(reportOf([anchor('bad', 40)]))).toEqual({
+      lines: [
+        { bad: 'bad.md', against: null, layer: 'total', good: null, badScore: 40, ok: false },
+      ],
+      failures: 1,
+    })
+    expect(selfTest(reportOf([anchor('good', 80)]))).toEqual({ lines: [], failures: 0 })
+  })
+
+  it('checks a bad anchor against every good anchor of its case', () => {
+    const second = { ...anchor('good', 30), sample: 'good-2.md' }
+    const { lines, failures } = selfTest(reportOf([anchor('good', 80), second, anchor('bad', 40)]))
+    expect(lines.map((l) => [l.against, l.ok])).toEqual([
+      ['good.md', true],
+      ['good-2.md', false],
+    ])
+    expect(failures).toBe(1)
   })
 })
 

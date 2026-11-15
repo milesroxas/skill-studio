@@ -55,7 +55,7 @@ Every grading command takes `--no-jev`, `--packs a,b`, `--bench <file>` and `--j
 Exit codes:
 
 - 0 on success. `--help` exits 0.
-- 1 when the command ran and did not do what it is for. `run` and `grade` exit 1 when a grading judged no output, so wrote no report: the run had none, or a pack failed on every one, and the reason is printed. `run` also exits 1 when an attempt failed (the time limit, an error, or it never started), with a `Failed:` line for each. `self-test` exits 1 when any check fails, and when there was nothing to check: no bad anchor with a good anchor of its case.
+- 1 when the command ran and did not do what it is for. `run` and `grade` exit 1 when a grading judged no output, so wrote no report: the run had none, or a pack failed on every one, and the reason is printed. `run` also exits 1 when an attempt failed (the time limit, an error, or it never started), with a `Failed:` line for each. `self-test` exits 1 when any check fails, a bad anchor with no good anchor of its case among them, and when there was nothing to check: no bad anchor.
 - 2 on an error, an unknown command or no command (which prints the help).
 - 130, 143 or 129 when it was stopped by Ctrl-C, a request to end or the terminal closing.
 

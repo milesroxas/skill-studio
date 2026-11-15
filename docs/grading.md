@@ -341,7 +341,7 @@ The lift (`caseLift`) is the mean of the cases' first scores against the mean of
 An anchor is an output labelled good or bad, written by hand in `evals/anchors/` ([files.md](files.md#a-skill) has the front matter). Trust a pack on a skill only once its anchors pass.
 
 - `st self-test` grades every anchor and writes `evals/anchors/report.json`.
-- It checks that each bad anchor scores below the good anchor of its case, on each layer named in its `tests` front matter, else on `total`.
+- It checks that each bad anchor scores below every good anchor of its case, on each layer named in its `tests` front matter, else on `total`. Each line names the good anchor it was checked against.
 - An anchor with no score on a layer it is checked on fails that check: a layer no pack scored says nothing of either anchor.
-- A case has one good anchor: a later one replaces an earlier one. A bad anchor whose case has no good anchor is not checked.
-- With no bad anchor to check, `st self-test` says nothing was checked and exits 1.
+- A bad anchor whose case has no good anchor fails, on each layer it tests: nothing checks it.
+- With no bad anchor, `st self-test` says nothing was checked and exits 1.
