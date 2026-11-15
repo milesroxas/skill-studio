@@ -48,6 +48,7 @@ Every grading command takes `--no-jev`, `--packs a,b`, `--bench <file>` and `--j
 - Without `TYPESAFE_API_KEY`, `run`, `grade` and `self-test` print `TYPESAFE_API_KEY is not set: grading without Jev.` to stderr and go on with the code checks.
 - `grade` stops instead when a run it was asked to grade has Jev's scores, before it grades any: without a key it would write them out of the report. `--no-jev` asks for that outright, and is done.
 - `report` and `compare` print no total for an output graded before its case's checks or settings changed, or on a pack's questions since changed, as the app does ([when a total does not stand](grading.md#when-a-total-does-not-stand)). One graded by another Jev model, or without the page drawn, stands.
+- `grade` and `run` refuse to grade a run the app, `st serve` or another `st` is grading, and say which one is ([architecture.md](architecture.md#jobs-and-runs)).
 - Ctrl-C stops `run` and `grade` as Stop does in the app: the agents and any check command are ended, and no report is written from what was graded by then.
 
 `--json` prints JSON instead of a table for `cases`, `versions`, `run`, `grade` and `report`. `compare` and `self-test` print tables only. `pnpm st --help` lists every command and flag.

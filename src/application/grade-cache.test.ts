@@ -5,6 +5,7 @@
 import {
   appendFileSync,
   cpSync,
+  existsSync,
   mkdirSync,
   mkdtempSync,
   readFileSync,
@@ -18,6 +19,7 @@ import { packById } from '@judges/index.ts'
 import { Jev, type Usage } from '@judges/jev.ts'
 import { afterAll, afterEach, describe, expect, it, vi } from 'vitest'
 import { gradeRun } from './grade.ts'
+import { JudgeCache } from './judge-cache.ts'
 
 const FIXTURE = resolve(import.meta.dirname, '../../fixtures/demo-skill')
 const RUN = '2026-10-30-skill-v0-claude-haiku'
@@ -318,5 +320,68 @@ describe('gradeRun, on a judge-cache.json it did not write', () => {
     const again = await grade(dir)
     expect(ask).not.toHaveBeenCalled()
     expect(again.results[0].scores).toEqual(first.results[0].scores)
+  })
+})
+
+describe('gradeRun, on another grading of the same run', () => {
+  const runOf = (dir: string) => join(dir, 'evals/runs', RUN)
+
+  it('refuses while another copy grades the run, and writes nothing over it', async () => {
+    const { dir } = demo()
+    const report = readFileSync(join(runOf(dir), 'report.json'), 'utf8')
+    writeFileSync(
+      join(runOf(dir), '.grading.lock'),
+      JSON.stringify({
+        pid: process.ppid,
+        at: new Date().toISOString(),
+        by: 'the Skill Studio app',
+      }),
+    )
+    const { ask } = answering()
+    await expect(grade(dir)).rejects.toThrow(
+      'This run is already being graded by the Skill Studio app',
+    )
+    expect(ask).not.toHaveBeenCalled()
+    expect(readFileSync(join(runOf(dir), 'report.json'), 'utf8')).toBe(report)
+  })
+
+  it('gives the lock back when it is done, and when it fails', async () => {
+    const { dir } = demo()
+    answering()
+    await grade(dir)
+    expect(existsSync(join(runOf(dir), '.grading.lock'))).toBe(false)
+    vi.spyOn(
+      packById('generic') as NonNullable<ReturnType<typeof packById>>,
+      'judge',
+    ).mockImplementation(() => {
+      throw new Error('no network')
+    })
+    await grade(dir)
+    expect(existsSync(join(runOf(dir), '.grading.lock'))).toBe(false)
+    vi.spyOn(Jev, 'available').mockReturnValue(false)
+    await expect(grade(dir)).rejects.toThrow('No TypeSafe key')
+    expect(existsSync(join(runOf(dir), '.grading.lock'))).toBe(false)
+  })
+
+  it('keeps the answers another copy wrote to judge-cache.json while it graded', async () => {
+    const { dir } = demo()
+    const path = join(runOf(dir), 'judge-cache.json')
+    const { ask } = answering()
+    await grade(dir)
+    // Two gradings read the file; the other writes first, with an answer of its own.
+    const mine = new JudgeCache(path)
+    const theirs = new JudgeCache(path)
+    theirs.keepAnswer('theirs', { noul: 0.4 }, 10)
+    theirs.write(path)
+    mine.keepAnswer('mine', { noul: 0.6 }, 10)
+    mine.write(path)
+    const written = JSON.parse(readFileSync(path, 'utf8'))
+    expect(Object.keys(written.answers)).toEqual(expect.arrayContaining(['theirs', 'mine']))
+    // And every answer the first grading kept is there still.
+    const again = new JudgeCache(path)
+    expect(again.answer('theirs')).toEqual({ noul: 0.4 })
+    ask.mockClear()
+    await grade(dir)
+    expect(ask).not.toHaveBeenCalled()
   })
 })

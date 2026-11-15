@@ -13,7 +13,8 @@
  *   running the pack.
  *
  * Each entry keeps the grading that last used it, and the file keeps four
- * gradings' worth.
+ * gradings' worth. It is merged with what is on disk as it is written, so a
+ * write from another copy of the app loses no answer.
  */
 import { createHash } from 'node:crypto'
 import { readJson, writeJson } from '@infrastructure/fs.ts'
@@ -112,6 +113,9 @@ function usable(answer: unknown): boolean {
   })
 }
 
+/** The newer of two entries of one key: the one a later grading used. */
+const newer = <E extends { g: number }>(a: E | undefined, b: E): E => (a && a.g > b.g ? a : b)
+
 /** One grading's view of the cache: what was kept, and what this grading keeps. */
 export class JudgeCache {
   private readonly old: CacheFile
@@ -187,14 +191,24 @@ export class JudgeCache {
   }
 
   /**
-   * Write the file: the entries kept with this grading's over them, and
-   * nothing older than four gradings. A grading that used nothing, as one
-   * without Jev may, changes no entry's age, so it costs no answer.
+   * Write the file: what is on disk now, which another copy of the app may have
+   * added to since this grading read it, with this grading's entries over it,
+   * and nothing older than four gradings. It goes to a temporary file that
+   * then takes its name, so a reader finds the old file or the new one whole.
+   * A grading that used nothing, as one without Jev may, changes no entry's
+   * age, so it costs no answer.
    */
   write(path: string): void {
-    const generation = this.touched ? this.generation : this.old.generation
+    const disk = readFile(path)
+    // A grading another copy finished meanwhile counts as one before this.
+    const generation = this.touched
+      ? Math.max(this.generation, disk.generation + 1)
+      : Math.max(disk.generation, this.old.generation)
     const packs: Record<string, PackEntry> = { ...this.old.packs }
     const answers: Record<string, AnswerEntry> = { ...this.old.answers }
+    for (const [key, entry] of Object.entries(disk.packs)) packs[key] = newer(packs[key], entry)
+    for (const [key, entry] of Object.entries(disk.answers))
+      answers[key] = newer(answers[key], entry)
     for (const [key, entry] of this.packs) packs[key] = { ...entry, g: generation }
     for (const [key, entry] of this.answers) answers[key] = { ...entry, g: generation }
     const recent = <E extends { g: number }>(entries: Record<string, E>) =>

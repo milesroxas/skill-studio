@@ -40,6 +40,7 @@ import {
   writeJson,
   writeText,
 } from '@infrastructure/fs.ts'
+import { takeGradingLock } from '@infrastructure/grading-lock.ts'
 import { readPng } from '@infrastructure/png.ts'
 import { CASES_FILE, type KeptCase, readKept, takenCase } from '@infrastructure/run-cases.ts'
 import {
@@ -1003,6 +1004,20 @@ export function jevForRun(skillDir: string, run: string): boolean {
   return false
 }
 
+/**
+ * `work`, holding the lock of `dir` throughout: one grading of a folder at a
+ * time, whichever copy of the app or `st` asks (`takeGradingLock`). A folder
+ * not there yet has nothing to grade and takes none.
+ */
+async function locked<T>(dir: string, work: () => Promise<T>): Promise<T> {
+  const release = isDir(dir) ? takeGradingLock(dir) : () => {}
+  try {
+    return await work()
+  } finally {
+    release()
+  }
+}
+
 /** Grade every sample of a run and write its `report.json`. */
 export async function gradeRun(
   skillDir: string,
@@ -1047,12 +1062,14 @@ export async function gradeRun(
     options.log?.(
       `${CASES_FILE} does not read whole: a case it lost is graded on the case as it is now.`,
     )
-  return gradeSubjects(skillDir, dir, subjects, options, {
-    name: run,
-    inputs: isDir(inputs) ? inputs : null,
-    skill: isFile(join(skill, 'SKILL.md')) ? skill : null,
-    cases: kept,
-  })
+  return locked(dir, () =>
+    gradeSubjects(skillDir, dir, subjects, options, {
+      name: run,
+      inputs: isDir(inputs) ? inputs : null,
+      skill: isFile(join(skill, 'SKILL.md')) ? skill : null,
+      cases: kept,
+    }),
+  )
 }
 
 /** Grade `evals/anchors/*.md` and write `evals/anchors/report.json`. */
@@ -1062,7 +1079,7 @@ export async function gradeAnchors(skillDir: string, options: GradeOptions): Pro
     const head = readHead(join(dir, sample.name))
     return { ...sample, caseRef: head.case, label: head.label, tests: head.tests }
   })
-  return gradeSubjects(skillDir, dir, subjects, options)
+  return locked(dir, () => gradeSubjects(skillDir, dir, subjects, options))
 }
 
 export interface SelfTestLine {
