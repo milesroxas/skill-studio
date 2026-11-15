@@ -4,9 +4,9 @@ The plan for the next release: what is in it, what is still to do, and the check
 
 | | |
 | --- | --- |
-| Version | 0.13.4 |
+| Version | 0.14.0 |
 | Status | Released 2026-11-14 |
-| Previous release | [v0.13.3](https://github.com/milesroxas/skill-studio/releases/tag/v0.13.3), 2026-11-14 |
+| Previous release | [v0.13.4](https://github.com/milesroxas/skill-studio/releases/tag/v0.13.4), 2026-11-14 |
 | Target date | 2026-11-14 |
 | Owner | Miles Roxas |
 
@@ -21,13 +21,16 @@ The version follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html): 
 
 ## Shipped to main
 
-Everything merged since v0.13.3.
+Everything merged since v0.13.4.
 
-- [x] A stopped run is quiet on Results: a case opens on its last finished answers, a version whose run was stopped is not the latest, a stopped answer is not offered to compare and is never drawn as a failure, and a run stopped before any answer finished is not a run to read.
-- [x] The log's row for a job says its status in sentence case.
+- [x] Keyboard shortcuts a reader can change, in Settings (51b2582).
+- [x] The Skill screen folds older versions under one line (444e7e5).
+- [x] All cases on Results is read by case, not by run: one row per case, lift from first to latest score, the band that runs the cases not yet run on the current version, and **Grade N runs** (08b3da4).
+- [x] Scores are compared only when they measure the same thing: an answer to an edited prompt or an out-of-date grading is shown apart and has no score until it is graded again (94dc712).
+- [x] Hardening: J4 ticked and its rest moved to J19 (5fc9d5c); R3, R4, C1, C2 and C3 ticked (5d8458f).
 - [x] Docs updated in the same commit as the change.
 
-0.13.4 changes how Results reads a stopped run and changes no skill or run file, so it is a patch release.
+0.14.0 adds keyboard shortcuts and Grade N runs and changes how All cases reads a skill's runs, so it is a minor release.
 
 ## Planned
 
@@ -46,8 +49,8 @@ Checks that are not covered by `pnpm check`.
 - [ ] Run the assistant live on each provider that has only been typechecked: the Anthropic API, OpenAI and Codex. Claude Code has been run live; the other three have not.
 - [ ] Send a picture to the assistant on the Anthropic API, OpenAI and Codex paths. Jev and Claude Code have been run live with a picture.
 - [ ] Go through the welcome at 110% zoom. Its window grows with the zoom, so the page keeps its 760 x 600; this has not been seen at a real 110%.
-- [ ] Once the release is out, open each `releases/latest/download/` link in [releasing.md](releasing.md#updates) and check it fetches the new file, and `latest-mac.yml` names 0.13.4.
-- [ ] Update an installed 0.13.3 to this release and see **Restart to update**.
+- [ ] Once the release is out, open each `releases/latest/download/` link in [releasing.md](releasing.md#updates) and check it fetches the new file, and `latest-mac.yml` names 0.14.0.
+- [ ] Update an installed 0.13.4 to this release and see **Restart to update**.
 - [ ] Open Results on a stopped run, a run cut off by quitting the app and an output whose grading failed, and see the case open on its last finished answers, **Stopped** and **Not finished** on All cases, and **Grade**: these are covered by tests and have not been looked at in the app.
 
 ## Release checklist
@@ -55,9 +58,9 @@ Checks that are not covered by `pnpm check`.
 The steps in [releasing.md](releasing.md), in order.
 
 1. [x] Every item under "Planned" is shipped or moved to "Later".
-2. [ ] Every item under "Before the release" is done. Not for 0.13.4: the unchecked items carry to the next release.
-3. [x] `pnpm check` and `pnpm build` pass on `main`, 1,394 tests, and main's own run passes on Windows and macOS before the tag.
-4. [ ] `gh workflow run release` builds every platform. Not run for 0.13.4; the tag's own run builds every platform.
-5. [x] In the changelog, add `## [0.13.4] - 2026-11-14` under a new `## [Unreleased]`, and commit.
-6. [x] `pnpm version patch -m "Release %s"`, then push `main` and the tag.
-7. [x] The release workflow publishes v0.13.4, with the changelog entry as its notes.
+2. [ ] Every item under "Before the release" is done. Not for 0.14.0: the unchecked items carry to the next release.
+3. [x] `pnpm check` and `pnpm build` pass on `main`, 1,480 tests, and main's own run passes on Windows and macOS before the tag.
+4. [ ] `gh workflow run release` builds every platform. Not run for 0.14.0; the tag's own run builds every platform.
+5. [x] In the changelog, add `## [0.14.0] - 2026-11-14` under a new `## [Unreleased]`, and commit.
+6. [x] `pnpm version minor -m "Release %s"`, then push `main` and the tag.
+7. [ ] The release workflow publishes v0.14.0, with the changelog entry as its notes.

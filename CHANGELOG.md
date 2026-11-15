@@ -6,6 +6,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [0.14.0] - 2026-11-14
+
 ### Added
 
 - **Keyboard shortcuts** you can change. **1**, **2** and **3** go to Skill, Cases and Results, **R** opens Run, and **?** shows every shortcut. Change any of them in **Settings**, under **Keyboard shortcuts**: click one and press the new keys. A shortcut without Cmd (Ctrl on Windows) waits while you type in a field.
