@@ -12,7 +12,7 @@ import {
 } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
-import { pngHeader } from '@domain/__fixtures__/image.ts'
+import { exifOrientation, jpegWith, pngHeader, pngWith } from '@domain/__fixtures__/image.ts'
 import { type PageLayout, readLayout } from '@domain/layout.ts'
 import type { Report, ReportResult } from '@domain/schemas.ts'
 import { pngOf } from '@infrastructure/__fixtures__/png.ts'
@@ -994,6 +994,55 @@ describe('gradeRun, on a picture too large or too small for Jev', () => {
     judge.mockClear()
     await gradeRun(large.dir, large.run, { useJev: true })
     expect(judge.mock.calls[0][0].fitted).toBeUndefined()
+  })
+
+  it('draws a still, upright copy of a picture Jev would show otherwise, inside the sizes or not', async () => {
+    vi.spyOn(Jev, 'available').mockReturnValue(true)
+    const render = vi.fn(async (_page: unknown, size: { width: number; height: number }) => ({
+      png: pngHeader(size.width, size.height),
+      layout: null,
+    }))
+    const judge = genericJudge().mockResolvedValue(null)
+    // An animated PNG inside the sizes: drawn at its own size, as a still PNG.
+    const moving = pictureSkill(1200, 630)
+    writeFileSync(
+      join(moving.sample, 'outputs/cover.png'),
+      pngWith(1200, 630, [['acTL', new Uint8Array(8)]]),
+    )
+    await gradeRun(moving.dir, moving.run, { useJev: true, render })
+    expect(render.mock.calls[0][1]).toEqual({ width: 1200, height: 630 })
+    expect(judge.mock.calls[0][0].fitted).toMatchObject({
+      pixels: [1200, 630],
+      read: { problem: null },
+    })
+    // A photo its note turns a quarter: drawn upright, its sides the other way round.
+    const turned = pictureSkill(800, 600)
+    rmSync(join(turned.sample, 'outputs/cover.png'))
+    writeFileSync(
+      join(turned.sample, 'outputs/cover.jpg'),
+      jpegWith(800, 600, { exif: exifOrientation(6) }),
+    )
+    render.mockClear()
+    judge.mockClear()
+    await gradeRun(turned.dir, turned.run, { useJev: true, render })
+    expect(render.mock.calls[0][1]).toEqual({ width: 600, height: 800 })
+    expect(judge.mock.calls[0][0].fitted).toMatchObject({ pixels: [600, 800] })
+  })
+
+  it('leaves out a picture Jev would show otherwise where there is no browser, and says why', async () => {
+    vi.spyOn(Jev, 'available').mockReturnValue(true)
+    const { dir, run, sample } = pictureSkill(1200, 630)
+    writeFileSync(
+      join(sample, 'outputs/cover.png'),
+      pngWith(1200, 630, [['acTL', new Uint8Array(8)]]),
+    )
+    const ask = vi.spyOn(Jev.prototype, 'ask')
+    const [result] = (await gradeRun(dir, run, { useJev: true })).results
+    // Said, and not sent: one refused picture would fail every answer asked with it.
+    expect(result.flags).toContain(
+      'picture not judged: it is an animated picture, and Jev reads only still ones',
+    )
+    expect(ask).not.toHaveBeenCalled()
   })
 
   it('judges without a copy it could not draw, and says so', async () => {

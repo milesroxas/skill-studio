@@ -111,9 +111,12 @@ export function imageSize(bytes: Uint8Array): ImageSize | null {
 }
 
 /**
- * Why Jev would refuse this picture, as a line the writer can act on; null
- * when it fits. Jev never resizes: one picture outside the limits fails every
- * question asked with it.
+ * Why Jev would refuse this picture, or show it otherwise than it looks, as a
+ * line the writer can act on; null when it fits. Jev never resizes: one
+ * picture outside the limits fails every question asked with it. It refuses
+ * an animated PNG, asks for a JPEG saved in one pass, and shows a photo the
+ * way its pixels are stored, not the way its camera note turns it. The start
+ * of a file is enough: all of that is said before the picture's pixels.
  */
 export function jevImageProblem(bytes: Uint8Array): string | null {
   const size = imageSize(bytes)
@@ -123,6 +126,94 @@ export function jevImageProblem(bytes: Uint8Array): string | null {
   const { width, height } = size
   if (Math.min(width, height) < minSide || Math.max(width, height) > maxSide)
     return `it is ${width} × ${height} px, and Jev reads ${minSide} to ${maxSide} px a side`
+  if (size.format === 'png' && pngChunks(bytes).some((c) => c.type === 'acTL'))
+    return 'it is an animated picture, and Jev reads only still ones'
+  if (size.format === 'jpg' && jpegProgressive(bytes))
+    return 'it is a JPEG saved to load in passes, and Jev reads only one saved in a single pass'
+  if ((orientationOf(bytes) ?? 1) !== 1)
+    return 'it is saved turned or mirrored, with a note to show it upright that Jev does not read'
+  return null
+}
+
+/** Each chunk of a PNG before its pixels, in order: its type and its data. */
+function pngChunks(bytes: Uint8Array): Array<{ type: string; data: Uint8Array }> {
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength)
+  const chunks: Array<{ type: string; data: Uint8Array }> = []
+  for (let at = 8; at + 8 <= bytes.length; ) {
+    const length = view.getUint32(at)
+    const type = String.fromCharCode(...bytes.subarray(at + 4, at + 8))
+    if (type === 'IDAT') break
+    chunks.push({ type, data: bytes.subarray(at + 8, at + 8 + length) })
+    at += 12 + length
+  }
+  return chunks
+}
+
+/** The data of each JPEG segment before the picture's pixels, with its marker. */
+function jpegSegments(bytes: Uint8Array): Array<{ marker: number; data: Uint8Array }> {
+  const segments: Array<{ marker: number; data: Uint8Array }> = []
+  let at = 2
+  while (at + 3 < bytes.length && bytes[at] === 0xff) {
+    const marker = bytes[at + 1]
+    // Fill bytes before a marker, and markers that stand alone, carry no length.
+    if (marker === 0xff) {
+      at += 1
+      continue
+    }
+    if (marker === 0x01 || (marker >= 0xd0 && marker <= 0xd8)) {
+      at += 2
+      continue
+    }
+    // The pixels start, or the picture ends.
+    if (marker === 0xda || marker === 0xd9) break
+    const length = (bytes[at + 2] << 8) | bytes[at + 3]
+    segments.push({ marker, data: bytes.subarray(at + 4, at + 2 + length) })
+    at += 2 + length
+  }
+  return segments
+}
+
+/** Frame headers of a JPEG saved to load in passes: progressive, by Huffman or by arithmetic coding. */
+const PROGRESSIVE = new Set([0xc2, 0xc6, 0xca, 0xce])
+
+const jpegProgressive = (bytes: Uint8Array): boolean =>
+  jpegSegments(bytes).some((s) => isFrameStart(s.marker) && PROGRESSIVE.has(s.marker))
+
+/** The orientation a TIFF block's first directory names (Exif tag 0x0112); null when it names none. */
+function tiffOrientation(tiff: Uint8Array): number | null {
+  if (tiff.length < 8) return null
+  const view = new DataView(tiff.buffer, tiff.byteOffset, tiff.byteLength)
+  const order = String.fromCharCode(tiff[0], tiff[1])
+  if (order !== 'II' && order !== 'MM') return null
+  const little = order === 'II'
+  const directory = view.getUint32(4, little)
+  if (directory + 2 > tiff.length) return null
+  const entries = view.getUint16(directory, little)
+  for (let i = 0; i < entries; i += 1) {
+    const at = directory + 2 + i * 12
+    if (at + 12 > tiff.length) return null
+    if (view.getUint16(at, little) === 0x0112) return view.getUint16(at + 8, little)
+  }
+  return null
+}
+
+/**
+ * The orientation a picture's Exif note gives it: 1 is upright as stored, 2 to
+ * 8 turn or mirror it, and 5 to 8 swap its sides. Read from a JPEG's Exif
+ * segment or a PNG's `eXIf` chunk; null when the picture has none.
+ */
+export function orientationOf(bytes: Uint8Array): number | null {
+  const size = imageSize(bytes)
+  if (size?.format === 'jpg') {
+    const exif = jpegSegments(bytes).find(
+      (s) => s.marker === 0xe1 && String.fromCharCode(...s.data.subarray(0, 6)) === 'Exif\0\0',
+    )
+    return exif ? tiffOrientation(exif.data.subarray(6)) : null
+  }
+  if (size?.format === 'png') {
+    const exif = pngChunks(bytes).find((c) => c.type === 'eXIf')
+    return exif ? tiffOrientation(exif.data) : null
+  }
   return null
 }
 

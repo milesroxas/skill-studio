@@ -12,6 +12,7 @@
  * score.ts.
  */
 import { join } from 'node:path'
+import { fitForJev } from '@domain/image.ts'
 import { aboutLayout, layoutText } from '@domain/layout.ts'
 import { NOTES_FILE } from '@domain/prompt.ts'
 import { headingOf, plain, type Rule } from '@domain/rules.ts'
@@ -29,7 +30,14 @@ import {
   requestState,
 } from '../shared/questions.ts'
 import { clip } from '../shared/score.ts'
-import type { FileStart, JudgeContext, JudgeInput, JudgePack, SourcePage } from '../types.ts'
+import type {
+  FileStart,
+  FittedPicture,
+  JudgeContext,
+  JudgeInput,
+  JudgePack,
+  SourcePage,
+} from '../types.ts'
 import { type GenericRaw, genericScoring, type RuleAnswer } from './score.ts'
 
 /**
@@ -153,7 +161,7 @@ function workOf(input: JudgeInput, room: Room): Work | null {
     notes: Boolean(notes),
     drawn: window ? windowOf(input) : null,
     fitted:
-      !window && input.fitted && input.fitted.read.image === read?.image
+      !window && input.fitted && input.fitted.read.image === read?.image && resized(input.fitted)
         ? input.fitted.pixels
         : null,
     others: others.length > 0,
@@ -175,6 +183,12 @@ function workOf(input: JudgeInput, room: Room): Work | null {
       ...(has(state, 'request') ? filesCut(given, "the case's ") : []),
     ].filter((line): line is string => line !== null),
   }
+}
+
+/** Whether the copy drawn of a picture is another size than the picture: one drawn only to be a plain, upright PNG is not. */
+const resized = ({ pixels: [width, height] }: FittedPicture): boolean => {
+  const fit = fitForJev(width, height)
+  return fit.width !== width || fit.height !== height
 }
 
 /** What is said of a part Jev read the first `n` characters of. */

@@ -9,7 +9,15 @@ import { basename, join } from 'node:path'
 import { type PageRenderer, RENDER_SIZES, type RenderSize } from '@domain/artifact-address.ts'
 import { inputName, isPicture } from '@domain/case-draft.ts'
 import { mergeConfig } from '@domain/config.ts'
-import { fitForJev, imageTypeOf, PICTURE_HEAD_BYTES, pictureSize } from '@domain/image.ts'
+import {
+  fitForJev,
+  imageTypeOf,
+  JEV_IMAGE,
+  jevImageProblem,
+  orientationOf,
+  PICTURE_HEAD_BYTES,
+  pictureSize,
+} from '@domain/image.ts'
 import { type PageLayout, readLayout } from '@domain/layout.ts'
 import { packFailedFlag, packFailure } from '@domain/pack.ts'
 import { differing, SAME_PICTURE, scaleOf } from '@domain/picture-match.ts'
@@ -245,11 +253,14 @@ async function drawPage(
 }
 
 /**
- * A picture the agent made, drawn again inside the sizes Jev reads when one
- * of its sides is outside them: Jev refuses such a picture whole, and an
- * output that is one would get no rule, no check and no score. Kept in the
- * sample's `renders/` folder like a page, named by the picture and the size.
- * Null when the picture fits as it is, cannot be read, or cannot be drawn.
+ * A picture the agent made, drawn again by the app when Jev would refuse it or
+ * show it otherwise than it looks (`jevImageProblem`): a side outside the sizes
+ * Jev reads, an animated PNG, a JPEG saved to load in passes, a photo turned
+ * by its camera note. Jev refuses such a picture whole, and an output that is
+ * one would get no rule, no check and no score. The copy is a still PNG,
+ * upright, inside the sizes, kept in the sample's `renders/` folder like a
+ * page, named by the picture and the size. Null when Jev reads the picture as
+ * it is, or it cannot be read or drawn.
  */
 async function fitPicture(
   render: PageRenderer,
@@ -261,10 +272,14 @@ async function fitPicture(
 ): Promise<Fitted | null> {
   const source = fileInside(sample.path, join(sample.path, file))
   if (source === null) return null
-  const pixels = pictureSize(readStart(source, PICTURE_HEAD_BYTES), file)
-  if (!pixels) return null
+  const head = readStart(source, PICTURE_HEAD_BYTES)
+  const stored = pictureSize(head, file)
+  if (!stored) return null
+  // A photo its note turns a quarter is upright with its sides the other way round.
+  const pixels: [number, number] = (orientationOf(head) ?? 1) >= 5 ? [stored[1], stored[0]] : stored
+  // A picture Jev reads as it is goes as it is.
+  if (statSync(source).size <= JEV_IMAGE.maxBytes && jevImageProblem(head) === null) return null
   const fit = fitForJev(pixels[0], pixels[1])
-  if (fit.width === pixels[0] && fit.height === pixels[1]) return null
   const name = basename(file).replace(/\.[a-z0-9]+$/i, '')
   const path = join(sample.path, RENDERS_DIR, `${name}-${fit.width}x${fit.height}.png`)
   if (!isFile(path) || statSync(path).mtimeMs < statSync(source).mtimeMs) {

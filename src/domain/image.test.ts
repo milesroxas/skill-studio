@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { pngHeader } from './__fixtures__/image.ts'
+import { exifOrientation, jpegWith, pngHeader, pngWith } from './__fixtures__/image.ts'
 import {
   addImages,
   fitForJev,
@@ -10,6 +10,7 @@ import {
   isJevFormat,
   jevImageProblem,
   MAX_IMAGES,
+  orientationOf,
   pictureSize,
 } from './image.ts'
 
@@ -65,6 +66,38 @@ describe('jevImageProblem', () => {
     )
     expect(jevImageProblem(jpegHeader(4032, 3024))).toContain('4032 × 3024 px')
     expect(jevImageProblem(new Uint8Array(40))).toBe('it is not a PNG or JPEG')
+  })
+})
+
+describe('a picture Jev would show otherwise than it looks', () => {
+  it('passes a still PNG and a JPEG saved in one pass, upright', () => {
+    expect(jevImageProblem(pngWith(800, 600, [['tEXt', new Uint8Array(4)]]))).toBeNull()
+    expect(jevImageProblem(jpegWith(800, 600))).toBeNull()
+    expect(jevImageProblem(jpegWith(800, 600, { exif: exifOrientation(1) }))).toBeNull()
+  })
+
+  it('says so of an animated PNG, a JPEG saved in passes and a photo its note turns', () => {
+    expect(jevImageProblem(pngWith(800, 600, [['acTL', new Uint8Array(8)]]))).toBe(
+      'it is an animated picture, and Jev reads only still ones',
+    )
+    expect(jevImageProblem(jpegWith(800, 600, { frame: 0xc2 }))).toContain('load in passes')
+    expect(jevImageProblem(jpegWith(800, 600, { exif: exifOrientation(6) }))).toContain(
+      'turned or mirrored',
+    )
+    expect(jevImageProblem(pngWith(800, 600, [['eXIf', exifOrientation(3)]]))).toContain(
+      'turned or mirrored',
+    )
+  })
+
+  it('reads the orientation a note gives, and none from a picture without one', () => {
+    expect(orientationOf(jpegWith(800, 600, { exif: exifOrientation(8) }))).toBe(8)
+    expect(orientationOf(pngWith(800, 600, [['eXIf', exifOrientation(6)]]))).toBe(6)
+    expect(orientationOf(jpegWith(800, 600))).toBeNull()
+    expect(orientationOf(pngHeader(800, 600))).toBeNull()
+    // A note cut short names nothing, and is no reason to refuse the picture.
+    expect(
+      orientationOf(jpegWith(800, 600, { exif: exifOrientation(6).subarray(0, 12) })),
+    ).toBeNull()
   })
 })
 

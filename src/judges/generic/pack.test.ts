@@ -363,6 +363,26 @@ describe('generic pack', () => {
     }
   })
 
+  it('says a picture is shown at another size only when the copy drawn of it is one', async () => {
+    const card: Artifact = { file: 'outputs/card.png', kind: 'image' }
+    const copy = image(pngHeader(1568, 882))
+    const picture = output({
+      text: '',
+      primary: card,
+      artifacts: [card],
+      case: testCase([grader('g1')]),
+    })
+    const lead = async (pixels: [number, number]) => {
+      ask.mockClear()
+      const fitted = { file: card.file, pixels, read: { image: copy, problem: null } }
+      await genericPack.judge({ ...picture, fitted }, ctx)
+      return asked().questions['check:g1'].instructions
+    }
+    expect(await lead([1920, 1080])).toContain('which is 1920 by 1080 px')
+    // A copy drawn only to be still and upright is the picture's own size: nothing to say of it.
+    expect(await lead([1568, 882])).not.toContain('another size')
+  })
+
   it('reads a picture’s measures from the page that draws it, and says whose they are', async () => {
     const dir = mkdtempSync(join(tmpdir(), 'st-generic-'))
     try {
