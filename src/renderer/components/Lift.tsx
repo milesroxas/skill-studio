@@ -133,9 +133,13 @@ function Ribbon({ lift, floor }: { lift: CaseLift; floor: number | null }) {
   )
 }
 
-/** Which cases the lift is read over, as the line under its change. */
-const overLine = (lift: CaseLift): string =>
-  `Over ${plural(lift.cases, 'case')} that ran more than once${lift.mixed ? ', on more than one model' : ''}${uncountedPart(lift)}${floorRules(lift)}${answersOnly(lift)}`
+/**
+ * Which cases the lift is read over, as the line under its change. `floor`
+ * says whether the score without the skill is said beside it: drawn on the
+ * ribbon, or read out. What is said of that score is left out where it is not.
+ */
+const overLine = (lift: CaseLift, floor: boolean): string =>
+  `Over ${plural(lift.cases, 'case')} that ran more than once${lift.mixed ? ', on more than one model' : ''}${uncountedPart(lift)}${floor ? floorRules(lift) : ''}${answersOnly(lift)}`
 
 /** What the line under the change says of the cases left out, which have nothing both their runs counted. */
 const uncountedPart = (lift: CaseLift): string =>
@@ -178,7 +182,7 @@ export function LiftFigure({
   const change = pointsMoved(lift.first, lift.latest)
   const floor = floorAt(lift)
   const attempts = liftAttemptsLine(lift)
-  const summary = `Lift: ${overLine(lift).toLowerCase()}, from ${round(lift.first)} on their first runs to ${round(lift.latest)} on their latest.${floorNote(lift)} ${attempts}${aside ? ` ${aside}` : ''}`
+  const summary = `Lift: ${overLine(lift, true).toLowerCase()}, from ${round(lift.first)} on their first runs to ${round(lift.latest)} on their latest.${floorNote(lift)} ${attempts}${aside ? ` ${aside}` : ''}`
   return (
     <figure
       aria-label={summary}
@@ -201,7 +205,7 @@ export function LiftFigure({
               run
             </Text>
             <Text size="ui" tone="muted">
-              {overLine(lift)}
+              {overLine(lift, floor !== null)}
             </Text>
             <Text size="ui" tone="muted">
               {attempts}
