@@ -12,6 +12,7 @@ import {
 import { type Corrections, NO_CORRECTIONS, unreadable } from '@domain/pack.ts'
 import { defaultPair, type PairOutput } from '@domain/pairs.ts'
 import { drawnArtifact, primaryArtifact } from '@domain/primary.ts'
+import { type RuleRate, ruleRates } from '@domain/rule-rate.ts'
 import { versionAfterRunDelete } from '@domain/run-delete.ts'
 import { parseSampleDir } from '@domain/run-name.ts'
 import type {
@@ -534,6 +535,19 @@ export function attemptsLine(standing: Pick<CaseStand, 'latest' | 'previous'>): 
       : ` Its run before had ${before.count}, ${spreadWords(before)}.`
   return `${head}${tail}`
 }
+
+/**
+ * How often each rule was followed and broken (`ruleRates`), by its words,
+ * over the outputs written with the skill, as Results scores them under
+ * `config`: the reader's answers count, and an output cut short, of a case
+ * its run did not finish (`shortOf`) or with no score counts for nothing.
+ */
+export const ruleRatesOf = (outputs: Output[], config: BenchConfig): Map<string, RuleRate> =>
+  ruleRates(
+    outputs
+      .filter((o) => !o.cut && !shortOf(o.run, o.caseId) && testedVersion(testOf(o.run)))
+      .map((o) => ({ total: totalOf(o, config), verdicts: scoreOf(o, config)?.verdicts ?? [] })),
+  )
 
 /** What the page says where a change is not the difference of the scores beside it (`unshared`). */
 export const unsharedLine = (sides: string): string =>

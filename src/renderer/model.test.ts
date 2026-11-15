@@ -37,6 +37,7 @@ import {
   primaryOf,
   readParams,
   regradeOwed,
+  ruleRatesOf,
   rulesUnmarked,
   runLabel,
   runTitle,
@@ -436,6 +437,24 @@ describe('a change between runs that counted different facts', () => {
     )
     const sure = caseOf(answered(0.1, 0.9), answered(0.9, 0.9))
     expect(asideLine(sure.outputs, saved)).toBeNull()
+  })
+})
+
+describe('ruleRatesOf', () => {
+  const files = [md('a.md')]
+  it('counts the outputs written with the skill, with the reader’s answers, as Results scores them', () => {
+    const runs = [
+      runOf('r1', 'v1', files, graded(0)),
+      runOf('r2', 'v2', files, graded(0)),
+      runOf('r3', 'v2', files, graded(100)),
+      madeBy(runOf('r4', 'v2', files, graded(0)), { configuration: 'without_skill' }),
+    ]
+    const state = stateOf(runs, ['generic'])
+    state.reviews.reviews['r1/page-s1'] = { corrections: { 'rule:Be brief.': true } } as never
+    expect(ruleRatesOf(outputsOf(state), saved).get('Be brief.')).toEqual({
+      followed: 2,
+      broken: 1,
+    })
   })
 })
 

@@ -284,6 +284,7 @@ Results shows the two set aside as groups of their own, **Not sure** open and **
 
 - A fact is named by its kind and its words, such as `rule:Keep the note under 120 words.` or `check:The note names Priya.`, so a rule or check that is edited is a new fact. The fixed questions of a pack have names of their own (`other:hierarchy`, `other:finished`, `other:followed task`).
 - Two checks of one case that say the same thing are two facts: each after the first also carries its own id, as in `check:The note names Priya. #03-names-priya` (`checkIds` in `src/domain/verdict.ts`).
+- How often each rule was followed and broken over the outputs written with the skill is counted the same way (`ruleRates` in `src/domain/rule-rate.ts`, `ruleRatesOf` in `src/renderer/model.ts`): met is followed, missed is broken, a rule under Not sure or Does not apply is neither, and an output with no score counts for nothing. A rule is named by its words, so one edited since has a count of its own. `mostlyBroken` is true when more of them broke it than followed it.
 - A fact Jev answered is open to the reader's own answer. A fact code measured is not: the exit code of a check command, a count of tool calls, a word range.
 
 ## Corrections
