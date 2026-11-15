@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
@@ -212,6 +212,47 @@ describe('the cases a run keeps', () => {
     expect(entry.case.graders).toHaveLength(1)
     expect(entry.case.graders[0]).toMatchObject({ statement: 'Short.', image: null, type: 'llm' })
     expect(entry.case.graders[0].weight).toBeLessThan(99)
+  })
+})
+
+describe('the pictures a run keeps with its cases', () => {
+  const picture = (bytes: string) => {
+    mkdirSync(join(caseDir('email'), 'references'), { recursive: true })
+    writeFileSync(join(caseDir('email'), 'references/look.png'), bytes)
+  }
+
+  it('reads a check of the run’s copy on its picture as it was, once the case changed or went', () => {
+    picture('first')
+    mkdirSync(join(caseDir('email'), 'graders'), { recursive: true })
+    writeFileSync(
+      join(caseDir('email'), 'graders/01-look.md'),
+      '---\nimage: references/look.png\n---\nIt looks like the picture.\n',
+    )
+    keepCases(dir, run, loadCases(dir))
+    const [kept] = keptCases(run) ?? []
+    const image = kept.case.graders[0].image ?? ''
+    expect(image).toBe('evals/runs/r1/_checks/email/evals/cases/email/references/look.png')
+    expect(readFileSync(join(dir, image), 'utf8')).toBe('first')
+    const held = takenCase(dir, kept, null)?.yardstick
+
+    picture('second')
+    writeCase('email', 'Write a letter.')
+    const taken = takenCase(dir, kept, email())
+    expect(taken?.earlier).not.toBeNull()
+    expect(taken?.case.graders[0].image).toBe(image)
+    expect(taken?.yardstick).toBe(held)
+    rmSync(caseDir('email'), { recursive: true })
+    expect(takenCase(dir, kept, null)?.yardstick).toBe(held)
+  })
+
+  it('leaves a check whose picture is not there as it was', () => {
+    mkdirSync(join(caseDir('email'), 'graders'), { recursive: true })
+    writeFileSync(
+      join(caseDir('email'), 'graders/01-look.md'),
+      '---\nimage: references/look.png\n---\nIt looks like the picture.\n',
+    )
+    keepCases(dir, run, loadCases(dir))
+    expect(keptCases(run)?.[0].case.graders[0].image).toBeNull()
   })
 })
 

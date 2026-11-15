@@ -12,8 +12,8 @@
  * changed from one made since.
  */
 import { createHash } from 'node:crypto'
-import { existsSync, readFileSync, statSync } from 'node:fs'
-import { join } from 'node:path'
+import { copyFileSync, existsSync, mkdirSync, readFileSync, statSync } from 'node:fs'
+import { dirname, join, relative, sep } from 'node:path'
 import { checkWeight } from '@domain/case-draft.ts'
 import { fingerprint, sameFingerprint } from '@domain/fingerprint.ts'
 import type { Case, CaseSettings, Grader } from '@domain/schemas.ts'
@@ -204,11 +204,41 @@ function keptOf(raw: unknown, where: string): KeptCase | null {
   }
 }
 
-/** Keep `cases` with the run in `runDir`, each with what it asks as the run starts. */
+/** Where a run keeps the pictures its cases' checks are about, a folder per case. */
+export const CHECKS_DIR = '_checks'
+
+/**
+ * `testCase` with each check's picture copied into the run's `_checks/`, and
+ * the check naming that copy by its path in the skill, so a check of the
+ * run's copy reads the picture as it was. A picture that is not a file inside
+ * the skill keeps its name, and reads as missing as it did.
+ */
+function withKeptPictures(skillDir: string, runDir: string, testCase: Case): Case {
+  if (!testCase.graders.some((grader) => grader.image)) return testCase
+  const graders = testCase.graders.map((grader) => {
+    if (!grader.image) return grader
+    const source = join(skillDir, grader.image)
+    try {
+      if (!isFile(assertInside(skillDir, source))) return grader
+    } catch {
+      return grader
+    }
+    const dest = join(runDir, CHECKS_DIR, testCase.id, grader.image)
+    mkdirSync(dirname(dest), { recursive: true })
+    copyFileSync(source, dest)
+    return { ...grader, image: relative(skillDir, dest).split(sep).join('/') }
+  })
+  return { ...testCase, graders }
+}
+
+/**
+ * Keep `cases` with the run in `runDir`, each with what it asks as the run
+ * starts and a copy of the pictures its checks are about.
+ */
 export function keepCases(skillDir: string, runDir: string, cases: readonly Case[]): void {
   const kept: KeptCase[] = cases.map((testCase) => ({
     ask: askOf(skillDir, testCase),
-    case: testCase,
+    case: withKeptPictures(skillDir, runDir, testCase),
   }))
   writeJson(join(runDir, CASES_FILE), kept)
 }
