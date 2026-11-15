@@ -4,6 +4,7 @@
  * file by file, with the way back to it. A run keeps the version it tested, so
  * there is always a copy to read and restore; one saved by hand keeps its own.
  */
+import { byFileOrder } from '@domain/paths.ts'
 import type { SkillVersion } from '@domain/views.ts'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { api } from '../api.ts'
@@ -20,6 +21,7 @@ import {
   versionOutputs,
   versionReading,
 } from '../model.ts'
+import { restoreAsk } from '../restore.ts'
 import { FileDiff } from './FileDiff.tsx'
 import {
   ColumnBody,
@@ -41,7 +43,8 @@ import { Toggle } from './ui/toggle.tsx'
 type Against = 'now' | 'before'
 
 export function VersionDetail({ ctx, version }: { ctx: Ctx; version: string }) {
-  const { state, config, outputs, go, report, confirm, reload } = ctx
+  const { state, config, outputs, go, report, confirm, reload, drafts } = ctx
+  const skill = state.skill.path
   const { versions, current } = state.versions
   const found = versions.find((v) => v.version === version) ?? null
   const before = found ? (versions[versions.indexOf(found) - 1] ?? null) : null
@@ -102,25 +105,22 @@ export function VersionDetail({ ctx, version }: { ctx: Ctx; version: string }) {
 
   const restore = async () => {
     const lose = current.changed
+    // Restore writes every file: an unsaved edit left as a draft would save back over it.
+    const unsaved = Object.entries(drafts.files)
     const ok = await confirm(
-      lose
-        ? {
-            title: `Restore ${found.version} and lose your latest edits?`,
-            description:
-              'Your edits since the last run are kept nowhere else. Run them first to keep them as a version.',
-            action: 'Restore',
-            destructive: true,
-          }
-        : {
-            title: `Restore ${found.version}?`,
-            description: `The skill’s files go back to ${found.version}. ${current.version} stays in the list, so you can return to it.`,
-            action: 'Restore',
-          },
+      restoreAsk({
+        version: found.version,
+        current: current.version,
+        changed: lose,
+        unsaved: unsaved.map(([path]) => path).sort(byFileOrder),
+      }),
     )
     if (!ok) return
     setRestoring(true)
     try {
       await api.restoreVersion(found.version, lose)
+      // Dropped in the skill it was restored in, open or not.
+      for (const [path, draft] of unsaved) drafts.savedFile(path, draft.text, skill)
       await reload()
       report(`Restored ${found.version}`)
     } catch (e) {

@@ -139,7 +139,7 @@ Once one model has run two versions, every version's score is that model's, so t
 
 - **Click a version** to see what changed since.
 - **Older versions** fold under one line once the list grows long. Click it to see them.
-- **Restore** puts a version back.
+- **Restore** puts a version back. It asks first when your files hold edits no version keeps, and edits you have not saved are lost with it.
 - **Delete version** removes it and its runs. **Undo** brings them back.
 
 ## 3. Write cases

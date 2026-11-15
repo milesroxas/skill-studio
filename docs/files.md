@@ -103,6 +103,7 @@ A skill's version is a hash of every file an agent's copy holds: `SKILL.md`, `re
 A run keeps the version it tested. Its `_skill/` snapshot is the copy the app reads and restores.
 
 - Restore puts back `SKILL.md` and `references/`, byte for byte, all of them or none. Other files stay as they are.
+- The app asks before a restore when the files were saved since the last run or hold unsaved edits (`restoreAsk` in `src/renderer/restore.ts`). A restore drops the unsaved edits of the skill's files, so none stays to be saved back over a restored file.
 - When a restore fails partway and a file cannot be moved back, your files are kept in a hidden `.restore-…` folder in the skill. The error names each one and where it goes.
 - A changed tree needs a name on its first run. The app names a skill's first version "First version" and a later one after the date, unless you type what changed. `st run` asks for `--name`.
 - Later runs of the same files reuse the version.
