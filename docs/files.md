@@ -60,7 +60,7 @@ evals/runs/<date>-skill-<vN>-<engine>-<model>[-<effort>][-<configuration>]/
   report.json                     raw judge answers and scores per sample, written by grading
   judge-cache.json                each pack's raw answer by a hash of what it was asked, so Regrade asks only about what changed
   _skill/                         the skill as it was when the run started, as an agent's copy holds it (see Versions): every sample is made from it
-  _inputs/<case>/                 each case's input files as they were then, which grading reads its pictures from
+  _inputs/<case>/                 each case's input files as they were then, which grading reads its pictures and text files from
   _cases.json                     each case as it was then, with a fingerprint of what it asked: what the run is graded on once the case changes or goes (see grading.md)
   _checks/<case>/                 the pictures the case's checks were about then, under their paths in the skill: the run's copy of a check names its picture here
   <case>-s<n>/                    one sample: the agent's working directory

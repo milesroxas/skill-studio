@@ -345,6 +345,38 @@ describe('gradeRun, on what makes an output worth asking about again', () => {
   })
 })
 
+describe('gradeRun, on the text files a case came with', () => {
+  it('gives a pack the start of each text file the agent was handed, as the run kept it, by its name', async () => {
+    const { dir, run } = skillWith(['email'], ['email-s1'])
+    const files = join(dir, 'evals/cases/email/files')
+    mkdirSync(join(files, 'design'), { recursive: true })
+    writeFileSync(join(files, 'design/color.md'), 'Ink #0A1020, now.')
+    writeFileSync(join(files, 'design/long.md'), 'y'.repeat(9000))
+    writeFileSync(join(files, 'shot.png'), pngHeader(800, 600))
+    writeFileSync(join(files, 'data.bin'), new Uint8Array([1, 0, 2, 0, 3]))
+    const kept = join(dir, 'evals/runs', run, '_inputs/email/design')
+    mkdirSync(kept, { recursive: true })
+    writeFileSync(join(kept, 'color.md'), 'Ink #0A1020, as the agent saw it.')
+    writeFileSync(join(kept, 'long.md'), 'y'.repeat(9000))
+    const judge = genericJudge().mockResolvedValue(null)
+    await gradeRun(dir, run, { useJev: false })
+    const [input] = judge.mock.calls[0]
+    // No picture and nothing that is not text: those go as pictures, or not at all.
+    expect(input.requestFiles?.map((f) => [f.file, f.text.length, f.cut ?? false])).toEqual([
+      ['design/color.md', 33, false],
+      ['design/long.md', 8000, true],
+    ])
+    expect(input.requestFiles?.[0].text).toBe('Ink #0A1020, as the agent saw it.')
+    // What the agent was handed is part of what was judged: a change to the run's copy asks again.
+    judge.mockClear()
+    await gradeRun(dir, run, { useJev: false })
+    expect(judge).not.toHaveBeenCalled()
+    writeFileSync(join(kept, 'color.md'), 'Ink #000000.')
+    await gradeRun(dir, run, { useJev: false })
+    expect(judge).toHaveBeenCalledTimes(1)
+  })
+})
+
 describe('gradeRun, on the pictures a case is judged with', () => {
   /** A picture of the case, now, and the copy the run took of it when it started. */
   function withPicture(dir: string, run: string, now: string, then: string | null) {

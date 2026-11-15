@@ -16,6 +16,12 @@ export interface JudgeInput {
   case: Case | null
   /** The pictures the case's request came with, which Jev sees beside it. */
   images: RequestImage[]
+  /**
+   * The start of each text file the case's request came with, by the name the
+   * agent was given it under: what the work was made from, such as a design
+   * system's `color.md`. Absent or empty when there is none.
+   */
+  requestFiles?: FileStart[]
   rules: Rule[]
   /**
    * The SKILL.md the rules were read from, whole: a rule is asked under its

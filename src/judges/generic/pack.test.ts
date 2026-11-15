@@ -557,6 +557,53 @@ describe('generic pack', () => {
     ])
   })
 
+  it('gives Jev the text files the request came with, by name, and says what it read of them', async () => {
+    const requestFiles = [
+      { file: 'design/color.md', text: 'Ink #0A1020.' },
+      { file: 'design/layout.md', text: 'l'.repeat(8000), cut: true },
+      { file: 'design/type.md', text: 't'.repeat(20_000) },
+      { file: 'design/forms.md', text: '', cut: true },
+    ]
+    const raw = await genericPack.judge(
+      output({ rules: [rule('r1')], case: testCase(), requestFiles }),
+      ctx,
+    )
+    const { state, questions } = asked()
+    expect(state.request_files).toEqual({
+      'design/color.md': 'Ink #0A1020.',
+      'design/layout.md': 'l'.repeat(8000),
+      'design/type.md': 't'.repeat(24_000 - 8012),
+    })
+    expect(questions['rule:r1'].instructions).toContain(
+      '`request_files` holds the files that came with `request`, each by its name: what `output` was made from, and no part of it.',
+    )
+    expect(raw?.cut).toEqual([
+      "Jev read only the start of the case's design/layout.md and design/type.md",
+      "Jev read none of the case's design/forms.md",
+    ])
+    // Asked again with less, less of them is read, and that is said too.
+    ask.mockClear()
+    ask.mockRejectedValueOnce(new Error('400 {"detail":{"error_type":"max_tokens_exceeded"}}'))
+    const less = await genericPack.judge(
+      output({ rules: [rule('r1')], case: testCase(), requestFiles }),
+      ctx,
+    )
+    // The room is shared out: a short file is read whole, and the long ones split what is left.
+    expect(asked(1).state.request_files).toEqual({
+      'design/color.md': 'Ink #0A1020.',
+      'design/layout.md': 'l'.repeat(3994),
+      'design/type.md': 't'.repeat(3994),
+    })
+    expect(less?.cut).toEqual([
+      "Jev read only the start of the case's design/layout.md and design/type.md",
+      "Jev read none of the case's design/forms.md",
+    ])
+    // Without a request there is nothing they came with, and a heading is asked without them.
+    ask.mockClear()
+    await genericPack.judge(output({ rules: [rule('r1')], requestFiles }), ctx)
+    expect(asked().state).not.toHaveProperty('request_files')
+  })
+
   it('asks a long list of rules in one request, over one state', async () => {
     const rules = Array.from({ length: 45 }, (_, i) => rule(`r${i + 1}`))
     const raw = await genericPack.judge(output({ rules }), ctx)

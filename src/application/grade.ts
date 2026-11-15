@@ -7,9 +7,9 @@ import { createHash } from 'node:crypto'
 import { readFileSync, statSync } from 'node:fs'
 import { basename, join } from 'node:path'
 import { type PageRenderer, RENDER_SIZES, type RenderSize } from '@domain/artifact-address.ts'
-import { isPicture } from '@domain/case-draft.ts'
+import { inputName, isPicture } from '@domain/case-draft.ts'
 import { mergeConfig } from '@domain/config.ts'
-import { fitForJev, PICTURE_HEAD_BYTES, pictureSize } from '@domain/image.ts'
+import { fitForJev, imageTypeOf, PICTURE_HEAD_BYTES, pictureSize } from '@domain/image.ts'
 import { type PageLayout, readLayout } from '@domain/layout.ts'
 import { packFailedFlag, packFailure } from '@domain/pack.ts'
 import { differing, SAME_PICTURE, scaleOf } from '@domain/picture-match.ts'
@@ -51,6 +51,7 @@ import { scorers } from '@judges/scorers.ts'
 import { agentPicture } from '@judges/shared/picture.ts'
 import { asksJev } from '@judges/shared/questions.ts'
 import type {
+  FileStart,
   FittedPicture,
   JudgeContext,
   JudgeInput,
@@ -404,14 +405,14 @@ function fileInside(root: string, path: string): string | null {
 }
 
 /**
- * Where a picture the case's request came with is read: from the run's copy of
- * the case's input files, so a picture changed or added since the run is not
- * judged as what the agent saw, and from the case as it is now for a run that
+ * Where a file the case's request came with is read, a picture or a text file:
+ * from the run's copy of the case's input files, so a file changed or added
+ * since the run is not judged as what the agent saw, and from the case as it is now for a run that
  * kept no copy. The run's copy is looked for wherever the run may have put it
  * (`stagedInputs`), since the case's other files may have changed since. Null
  * when there is no such file.
  */
-function requestPicture(ctx: GradeContext, testCase: Case, rel: string): string | null {
+function requestFile(ctx: GradeContext, testCase: Case, rel: string): string | null {
   const { inputs } = ctx
   if (!inputs) return fileInside(ctx.judge.skillDir, join(ctx.judge.skillDir, rel))
   for (const staged of stagedInputs(inputs, testCase, rel)) {
@@ -429,8 +430,52 @@ const requestPictures = (
   testCase
     ? testCase.files
         .filter((rel) => isPicture(testCase, rel))
-        .map((rel) => [rel, requestPicture(ctx, testCase, rel)])
+        .map((rel) => [rel, requestFile(ctx, testCase, rel)])
     : []
+
+/**
+ * How much of each text file a case's request came with is read, and of all of
+ * them together: more than a request holds, which the pack shares out among them.
+ */
+const REQUEST_FILE_CHARS = 8000
+const REQUEST_FILES_CHARS = 80_000
+
+/** Whether the start of a file reads as text: no NUL byte, and next to nothing that is not a character. */
+function readsAsText(bytes: Uint8Array): string | null {
+  if (bytes.includes(0)) return null
+  const text = new TextDecoder().decode(bytes)
+  const unreadable = text.split('\uFFFD').length - 1
+  return unreadable > Math.max(4, text.length / 100) ? null : text
+}
+
+/**
+ * The start of each text file the case's request came with, read where the run
+ * kept it, in the case's order, until the room for them is used: the files the
+ * agent had to work from, which a rule may hold the work to. The generic pack
+ * shares out what a request holds among them. Pictures go to
+ * Jev as pictures, and any other file that is not text is left out. A file that
+ * goes on past its start is marked `cut`, and one past the room is listed with
+ * no text, so the output is flagged with what Jev did not read.
+ */
+function requestFilesOf(ctx: GradeContext, testCase: Case | null): FileStart[] {
+  if (!testCase) return []
+  const files: FileStart[] = []
+  let room = REQUEST_FILES_CHARS
+  for (const rel of testCase.files) {
+    if (imageTypeOf(rel)) continue
+    const path = requestFile(ctx, testCase, rel)
+    if (path === null) continue
+    const bytes = REQUEST_FILE_CHARS * 4
+    const start = readsAsText(readStart(path, bytes))
+    if (!start?.trim()) continue
+    const text = start.slice(0, Math.max(0, Math.min(REQUEST_FILE_CHARS, room)))
+    const cut = text.length < start.length || statSync(path).size > bytes
+    const file = inputName(testCase, rel)
+    files.push(cut ? { file, text, cut } : { file, text })
+    room -= text.length
+  }
+  return files
+}
 
 /**
  * The pictures a case is judged with, each by a hash of the bytes the judge
@@ -549,6 +594,7 @@ function judgeInput(
       }),
       log,
     ),
+    requestFiles: requestFilesOf(ctx, testCase),
     rules: ctx.rules,
     skill: ctx.skill,
     artifacts: sample.artifacts,
@@ -590,6 +636,7 @@ function judgeKey(
     artifacts: input.artifacts,
     primary: input.primary,
     others: input.others,
+    requestFiles: input.requestFiles ?? [],
     notes: input.notes,
     transcript: input.transcript,
   }

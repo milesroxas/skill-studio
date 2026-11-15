@@ -48,14 +48,16 @@ interface Room {
   skill: number
   /** Whether the other files the agent wrote are read. */
   others: boolean
+  /** Characters of the text files the case's request came with, in all. */
+  files: number
   /** Characters of the page's measured layout: its largest elements first. */
   layout: number
 }
 
 const ROOMS: readonly Room[] = [
-  { output: 40_000, notes: 6000, skill: 12_000, others: true, layout: 14_000 },
-  { output: 20_000, notes: 3000, skill: 6000, others: false, layout: 8000 },
-  { output: 8000, notes: 1500, skill: 0, others: false, layout: 0 },
+  { output: 40_000, notes: 6000, skill: 12_000, others: true, files: 24_000, layout: 14_000 },
+  { output: 20_000, notes: 3000, skill: 6000, others: false, files: 8000, layout: 8000 },
+  { output: 8000, notes: 1500, skill: 0, others: false, files: 0, layout: 0 },
 ]
 
 /** The longest side of a picture Jev reads: a page drawn in a larger window is scaled down to it. */
@@ -76,6 +78,8 @@ interface Work {
   fitted: [number, number] | null
   /** The other files it wrote are in `other_files`, by name. */
   others: boolean
+  /** The text files the request came with are in `request_files`, by name. */
+  files: boolean
   /** The SKILL.md the rules are quoted from is in `skill`. */
   skill: boolean
   /** The headings its rules stand under are in `headings`. */
@@ -114,6 +118,11 @@ function workOf(input: JudgeInput, room: Room): Work | null {
   // One file is the work itself; with more, a rule may be about what was made beside it.
   const others = room.others ? input.others.filter((o) => o.text) : []
   if (others.length) state.other_files = Object.fromEntries(others.map((o) => [o.file, o.text]))
+  // What the agent was handed to work from: a rule may hold the work to a file of it.
+  const given = shareRoom(input.requestFiles ?? [], room.files)
+  const files = given.filter((f) => f.text)
+  if (files.length && has(state, 'request'))
+    state.request_files = Object.fromEntries(files.map((f) => [f.file, f.text]))
   // A rule is read where it stands: the skill says what its words mean and which work each heading is for.
   const written = input.rules.length ? (input.skill?.trim() ?? '') : ''
   const skill = written.slice(0, room.skill)
@@ -148,6 +157,7 @@ function workOf(input: JudgeInput, room: Room): Work | null {
         ? input.fitted.pixels
         : null,
     others: others.length > 0,
+    files: has(state, 'request_files'),
     skill: Boolean(skill),
     headings,
     layout: measured !== null || borrowed !== null,
@@ -162,6 +172,7 @@ function workOf(input: JudgeInput, room: Room): Work | null {
           : 'Jev read none of SKILL.md'
         : null,
       ...filesCut(room.others ? input.others : input.others.map((o) => ({ ...o, text: '' }))),
+      ...(has(state, 'request') ? filesCut(given, "the case's ") : []),
     ].filter((line): line is string => line !== null),
   }
 }
@@ -170,14 +181,35 @@ function workOf(input: JudgeInput, room: Room): Work | null {
 const firstOf = (n: number, what: string): string =>
   `Jev read only the first ${characters(n)} characters of ${what}`
 
-/** What is said of the files beside the output that Jev read only the start of, and of those it read none of. */
-function filesCut(files: readonly FileStart[]): string[] {
+/** What is said of the files Jev read only the start of, and of those it read none of. */
+function filesCut(files: readonly FileStart[], whose = ''): string[] {
   const started = files.filter((f) => f.cut && f.text).map((f) => f.file)
   const unread = files.filter((f) => !f.text).map((f) => f.file)
   return [
-    started.length ? `Jev read only the start of ${listed(started)}` : null,
-    unread.length ? `Jev read none of ${listed(unread)}` : null,
+    started.length ? `Jev read only the start of ${whose}${listed(started)}` : null,
+    unread.length ? `Jev read none of ${whose}${listed(unread)}` : null,
   ].filter((line): line is string => line !== null)
+}
+
+/**
+ * `files` as `room` characters of them hold, shared out evenly: a file shorter
+ * than its share is read whole and leaves the rest to the others, so every file
+ * has its start read, the one a rule is about among them, whatever its place in
+ * the list. One cut short is marked so; with no room at all, none has text.
+ */
+function shareRoom(files: readonly FileStart[], room: number): FileStart[] {
+  const shares = new Map<FileStart, number>()
+  let left = room
+  const shortest = [...files].sort((a, b) => a.text.length - b.text.length)
+  shortest.forEach((f, i) => {
+    const share = Math.min(f.text.length, Math.floor(left / (shortest.length - i)))
+    shares.set(f, share)
+    left -= share
+  })
+  return files.map((f) => {
+    const text = f.text.slice(0, shares.get(f) ?? 0)
+    return text.length < f.text.length ? { ...f, text, cut: true } : f
+  })
 }
 
 /** Whether a rule or a check of this output is about a size, a place or a colour: what a layout holds. */
@@ -233,6 +265,9 @@ function lead(work: Work): string {
             ? ', which came with the pictures in `request_images`'
             : ''
         }.`
+      : null,
+    work.files
+      ? `\`request_files\` holds the files that came with \`request\`, each by its name: what ${made} was made from, and no part of it.`
       : null,
     work.text && work.picture
       ? work.drawn
