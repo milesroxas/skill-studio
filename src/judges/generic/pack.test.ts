@@ -518,14 +518,41 @@ describe('generic pack', () => {
     expect(ask).toHaveBeenCalledTimes(1)
   })
 
-  it('asks a long list of rules in more than one request, each over the same state', async () => {
+  it('asks a long list of rules in one request, over one state', async () => {
     const rules = Array.from({ length: 45 }, (_, i) => rule(`r${i + 1}`))
     const raw = await genericPack.judge(output({ rules }), ctx)
-    expect(ask).toHaveBeenCalledTimes(2)
-    expect(Object.keys(asked(0).questions)).toHaveLength(40)
-    expect(Object.keys(asked(1).questions)).toHaveLength(5)
-    expect(asked(1).state).toEqual(asked(0).state)
+    expect(ask).toHaveBeenCalledTimes(1)
+    expect(Object.keys(asked(0).questions)).toHaveLength(45)
     expect(raw?.adherence?.rules).toHaveLength(45)
+  })
+
+  it('asks fewer questions a request, not less of the work, when the questions are what is too large', async () => {
+    const tooLarge = new Error('400 {"detail":{"error_type":"max_tokens_exceeded"}}')
+    // Jev holds the whole output with up to 10 questions, and refuses more.
+    ask.mockImplementation(async (_state, questions) => {
+      if (Object.keys(questions).length > 10) throw tooLarge
+      return Object.fromEntries(Object.keys(questions).map((id) => [id, { noul: 0.9 }]))
+    })
+    try {
+      const rules = Array.from({ length: 45 }, (_, i) => rule(`r${i + 1}`))
+      const raw = await genericPack.judge(output({ text: 'x'.repeat(30_000), rules }), ctx)
+      const calls = ask.mock.calls as unknown as Array<[Record<string, unknown>, object]>
+      // The whole output stays in every request: only the questions were split.
+      expect(calls.every(([state]) => state.output === asked(0).state.output)).toBe(true)
+      const answered = calls.flatMap(([, questions]) =>
+        Object.keys(questions).length <= 10 ? Object.keys(questions) : [],
+      )
+      // Each question is answered once, and each rule has its answer.
+      expect(answered).toHaveLength(45)
+      expect(new Set(answered).size).toBe(45)
+      expect(raw?.adherence?.rules.map((r) => r.noul)).toEqual(Array(45).fill(0.9))
+      expect(raw).not.toHaveProperty('cut')
+    } finally {
+      ask.mockReset()
+      ask.mockImplementation(async (_state, questions) =>
+        Object.fromEntries(Object.keys(questions).map((id) => [id, { noul: 0.12345 }])),
+      )
+    }
   })
 
   it('reads the start of a long file, so one output cannot outgrow a request', async () => {

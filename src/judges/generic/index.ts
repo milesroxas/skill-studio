@@ -15,7 +15,7 @@ import { join } from 'node:path'
 import { aboutLayout, layoutText } from '@domain/layout.ts'
 import { headingOf, plain, type Rule } from '@domain/rules.ts'
 import type { Grader } from '@domain/schemas.ts'
-import { type Image, noul, withAssets } from '@typesafe-ai/sdk'
+import { type Image, noul, type Question, withAssets } from '@typesafe-ai/sdk'
 import { type Readable, readForJev } from '../images.ts'
 import { isTooLarge, type JevState } from '../jev.ts'
 import { pictureOf, renderOf } from '../shared/picture.ts'
@@ -63,8 +63,6 @@ const ROOMS: readonly Room[] = [
   },
 ]
 
-/** The most questions one request holds: each repeats what the state is, so many of them outgrow a request. */
-const QUESTIONS_MAX = 40
 /** The longest side of a picture Jev reads: a page drawn in a larger window is scaled down to it. */
 const LONGEST_SIDE = 1568
 
@@ -372,10 +370,42 @@ function askedChecks(input: JudgeInput, ctx: JudgeContext) {
 }
 
 /**
+ * Ask `questions` of `state` in one request, or in as many as it takes.
+ * TypeSafe refuses a request for its size when the state with one question is
+ * more than Jev reads at once, or when the state with all the questions is.
+ * Fewer questions help only the second, and less of the work only the first,
+ * so a refused request is asked again with its first question alone: refused
+ * too, it is the state, and the error goes up for the work to be cut; answered,
+ * the rest are asked in two halves, each the same way. No answer is asked twice.
+ */
+async function askAll(
+  state: JevState,
+  questions: Record<string, Question>,
+  ctx: JudgeContext,
+): Promise<Record<string, unknown>> {
+  const entries = Object.entries(questions)
+  if (!entries.length) return {}
+  try {
+    return await ctx.jev.ask(state, questions, ctx.signal)
+  } catch (error) {
+    if (!isTooLarge(error) || entries.length < 2) throw error
+  }
+  const [first, ...rest] = entries
+  const one = await ctx.jev.ask(state, Object.fromEntries([first]), ctx.signal)
+  ctx.log(`${entries.length} questions are more than one request holds: asking them in parts`)
+  const half = Math.ceil(rest.length / 2)
+  const parts = [rest.slice(0, half), rest.slice(half)].filter((part) => part.length > 0)
+  const answers = await Promise.all(
+    parts.map((part) => askAll(state, Object.fromEntries(part), ctx)),
+  )
+  return Object.assign({}, one, ...answers)
+}
+
+/**
  * Every rule of the skill and every check of the case, in one request: they
  * are independent questions over one state, so the output and its pictures are
  * sent, and paid for, once. A skill with more questions than one request holds
- * has them asked in several. The headings the rules stand under are asked of
+ * has them asked in several (`askAll`). The headings the rules stand under are asked of
  * the request alone, in a request of their own, and with the rest where there
  * is no request.
  */
@@ -401,15 +431,11 @@ async function ask(
       ]),
     ),
   }
-  const entries = Object.entries(questions)
-  const requests = Array.from({ length: Math.ceil(entries.length / QUESTIONS_MAX) }, (_, i) =>
-    Object.fromEntries(entries.slice(i * QUESTIONS_MAX, (i + 1) * QUESTIONS_MAX)),
-  )
   const answers: Record<string, unknown> = Object.assign(
     {},
     ...(await Promise.all([
-      ...requests.map((part) => ctx.jev.ask(work.state, part, ctx.signal)),
-      ...(apart ? [ctx.jev.ask(headingState(work), headings, ctx.signal)] : []),
+      askAll(work.state, questions, ctx),
+      ...(apart ? [askAll(headingState(work), headings, ctx)] : []),
     ])),
   )
   const applies = new Map(

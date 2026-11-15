@@ -188,6 +188,8 @@ A picture Jev cannot read is left out with the flag `picture not judged: ...`, a
 
 A check about a picture (`image:` in its front matter) that Jev cannot read is not asked: without the picture its answer would be a guess. It is left out of the rubric, which is counted from the case's other checks, with the flag `grader <id> not judged, its picture is not shown to Jev (<why>): <the check>`.
 
+TypeSafe refuses a request for its size in two ways: the state with one question is more than Jev reads at once (32k tokens), or the state with all its questions is (64k). Every rule and check goes in one request. When it is refused, the first question is asked alone (`askAll` in `src/judges/generic/index.ts`): answered, the state fits and the rest are asked in two halves, each the same way, so the whole output is still read; refused too, the state is too large and the pack asks again with less of the work.
+
 ### Measuring a page
 
 Jev looks at a picture and reads source, and does neither a sum nor a ruler's work well. So a size, a distance or a position is measured where the page is drawn, and the sums are done in code.
