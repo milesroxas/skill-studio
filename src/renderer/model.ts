@@ -1,7 +1,14 @@
 /** Outputs across runs, their scores under the skill's scoring, the pair to compare per case, and display names. */
 import { caseName } from '@domain/case-draft.ts'
+import { changeAnswers } from '@domain/change.ts'
 import { BASE_PACK, mergeConfig } from '@domain/config.ts'
-import { testedVersion, type VersionRun, versionWriter, writerKey } from '@domain/lift.ts'
+import {
+  pointsMoved,
+  testedVersion,
+  type VersionRun,
+  versionWriter,
+  writerKey,
+} from '@domain/lift.ts'
 import { type Corrections, NO_CORRECTIONS, unreadable } from '@domain/pack.ts'
 import { defaultPair, type PairOutput } from '@domain/pairs.ts'
 import { drawnArtifact, primaryArtifact } from '@domain/primary.ts'
@@ -25,7 +32,14 @@ import {
   type Scored,
   scoreResult,
 } from '@domain/scoring.ts'
-import { type CaseLift, caseLift, type Standing, standingOf, type Try } from '@domain/standing.ts'
+import {
+  type CaseLift,
+  caseLift,
+  type Move,
+  type Standing,
+  standingOf,
+  type Try,
+} from '@domain/standing.ts'
 import { mean } from '@domain/stats.ts'
 import { type Count, countOf, sumCounts } from '@domain/verdict.ts'
 import { scorers } from '@judges/scorers.ts'
@@ -367,6 +381,63 @@ const versionRuns = (runs: RunView[], outputs: Output[], config: BenchConfig): V
     ).means,
   }))
 
+/**
+ * Two sets of outputs as a change between them reads them: each output with
+ * only the reader's answers on facts answered on both sides (`changeAnswers`),
+ * every other fact as Jev answered it.
+ */
+function forChange(from: Output[], to: Output[]): { from: Output[]; to: Output[] } {
+  const kept = changeAnswers(
+    from.map((o) => o.corrections),
+    to.map((o) => o.corrections),
+  )
+  const as = (outputs: Output[], answers: Output['corrections'][]) =>
+    outputs.map((o, i) => (answers[i] === o.corrections ? o : { ...o, corrections: answers[i] }))
+  return { from: as(from, kept.a), to: as(to, kept.b) }
+}
+
+/**
+ * The two scores a change from `from` to `to` is read between: each a score
+ * over its outputs as `scoreOver` counts it, from Jev's answers, with the
+ * reader's only where both sides hold one on the same fact. Null when either
+ * side has no score so.
+ */
+function moveBetween(from: Output[], to: Output[], config: BenchConfig): Move | null {
+  const read = forChange(from, to)
+  const a = scoreOver(read.from, config)
+  const b = scoreOver(read.to, config)
+  return a === null || b === null ? null : { from: a, to: b }
+}
+
+/**
+ * How far `to` moved from `from` in the whole points shown, read as a change
+ * is (`moveBetween`); null when the two are not set against each other
+ * (`comparable`) or either has no score.
+ */
+export function changeBetween(from: Output, to: Output, config: BenchConfig): number | null {
+  if (!comparable(from, to)) return null
+  const move = moveBetween([from], [to], config)
+  return move ? pointsMoved(move.from, move.to) : null
+}
+
+/**
+ * A change read between two scores is not their difference as shown, since
+ * one of them counts an answer of the reader's that the other side does not
+ * hold (`moveBetween`): the page says so where the change is read.
+ */
+export const unshared = (change: number | null, from: number | null, to: number | null): boolean =>
+  change !== null && from !== null && to !== null && change !== pointsMoved(from, to)
+
+/** `unshared` for the change from `previous` to `latest` a case stands on. */
+export const standingUnshared = (
+  standing: Pick<Standing, 'change' | 'previous' | 'latest'>,
+): boolean =>
+  unshared(standing.change, standing.previous?.score ?? null, standing.latest?.score ?? null)
+
+/** What the page says where a change is not the difference of the scores beside it (`unshared`). */
+export const unsharedLine = (sides: string): string =>
+  `The change counts your answers only where you gave one on both ${sides}.`
+
 /** One run's answer to a case: its outputs for it, and the score they come to. */
 export interface CaseTry extends Try {
   run: RunView
@@ -439,7 +510,9 @@ export function standingsOf(state: State, outputs: Output[], config: BenchConfig
       known: live,
       earlier: !live && known.has(id),
       history: [...tries].sort((a, b) => b.createdAt.localeCompare(a.createdAt)),
-      ...standingOf(tries, state.versions.current.version),
+      ...standingOf(tries, state.versions.current.version, (from, to) =>
+        moveBetween(from.outputs, to.outputs, config),
+      ),
     }
   }
   const order = [...known.keys()]

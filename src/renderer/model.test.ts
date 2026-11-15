@@ -7,6 +7,7 @@ import {
   apartLine,
   casePair,
   caseTitle,
+  changeBetween,
   comparable,
   cutOf,
   cutOff,
@@ -39,6 +40,7 @@ import {
   scoreOver,
   setByHand,
   standingsOf,
+  standingUnshared,
   toGrade,
   totalOf,
   unscoredLine,
@@ -324,6 +326,43 @@ const graded = (total: 0 | 100, flags: string[] = []): Report =>
 /** `run` as another writer or configuration made it. */
 const madeBy = (run: RunView, over: Record<string, unknown>): RunView =>
   ({ ...run, meta: { ...run.meta, ...over } }) as RunView
+
+describe('a change in score', () => {
+  const files = [md('a.md')]
+  const rule = 'rule:Be brief.'
+  /** v1 and v2 each broke the one rule, as Jev read it; `answers` are the reader's, by run. */
+  const caseWith = (answers: Record<string, boolean>) => {
+    const state = stateOf(
+      [runOf('r1', 'v1', files, graded(0)), runOf('r2', 'v2', files, graded(0))],
+      ['generic'],
+    )
+    for (const [run, met] of Object.entries(answers))
+      state.reviews.reviews[`${run}/page-s1`] = { corrections: { [rule]: met } } as never
+    const outputs = outputsOf(state)
+    return { state, outputs, standing: standingsOf(state, outputs, saved)[0] }
+  }
+
+  it('is read from Jev’s answers when the reader answered on the latest run alone', () => {
+    const { outputs, standing } = caseWith({ r2: true })
+    // The score shown counts the reader's answer: v2 stands on 100.
+    expect(standing.latest?.score).toBe(100)
+    expect(standing.previous?.score).toBe(0)
+    // The change does not: the case did not rise by the reader's attention to v2.
+    expect(standing.change).toBe(0)
+    expect(standingUnshared(standing)).toBe(true)
+    expect(liftOf([standing])).toMatchObject({ first: 0, latest: 0, unshared: true })
+    const [a, b] = outputs
+    expect(totalOf(b, saved)).toBe(100)
+    expect(changeBetween(a, b, saved)).toBe(0)
+  })
+
+  it('counts the reader’s answer at both ends when both runs hold one on the fact', () => {
+    const { standing } = caseWith({ r1: false, r2: true })
+    expect(standing.change).toBe(100)
+    expect(standingUnshared(standing)).toBe(false)
+    expect(liftOf([standing])).toMatchObject({ first: 0, latest: 100, unshared: false })
+  })
+})
 
 describe('a version’s outputs', () => {
   const sonnet = { engine: 'claude-code', model: 'sonnet' }

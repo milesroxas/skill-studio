@@ -1,6 +1,5 @@
 /** The total chip and what is behind it, a score's move from one version to the next, and the parts one score is made of. */
 import { weightMark } from '@domain/case-draft.ts'
-import { pointsMoved } from '@domain/lift.ts'
 import type { Scored } from '@domain/scoring.ts'
 import { layerCount } from '@domain/verdict.ts'
 import { cva } from 'class-variance-authority'
@@ -200,21 +199,13 @@ export function ListScore({
 
 /**
  * How a score moved, in words, for the line under a row's title: "Up 11 from
- * v0", "Down 4 from v0", "Same as v0". `against` names the earlier version;
+ * v0", "Down 4 from v0", "Same as v0". `change` is in the whole points shown,
+ * read as a change is (`changeBetween` in `model.ts`). `against` names the earlier version;
  * null means the earlier score was written without the skill, so the line says
  * what the skill did: "Up 20 with the skill". Only a drop is colored: a rise
  * is the resting state, and the eye should land on what got worse.
  */
-export function ScoreChange({
-  from,
-  to,
-  against,
-}: {
-  from: number
-  to: number
-  against: string | null
-}) {
-  const change = pointsMoved(from, to)
+export function ScoreChange({ change, against }: { change: number; against: string | null }) {
   const tail = against === null ? 'with the skill' : `from ${against}`
   if (change === 0) return against === null ? 'Same as without the skill' : `Same as ${against}`
   if (change > 0) return `Up ${change} ${tail}`

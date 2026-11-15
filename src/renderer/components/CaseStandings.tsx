@@ -34,9 +34,11 @@ import {
   runStamp,
   runTitle,
   scoreOf,
+  standingUnshared,
   toGrade,
   totalOf,
   unreadOutput,
+  unsharedLine,
   writerName,
 } from '../model.ts'
 import { PlainList, Rows, Stack, Toolbar } from './layout.tsx'
@@ -414,6 +416,8 @@ function StandingLine({ standing, version }: { standing: CaseStand; version: str
     versionOf(previous) === versionOf(latest)
       ? `its run before on ${modelShort(previous.run.meta?.writer)}`
       : versionOf(previous)
+  // The change is read from Jev's answers, so it may not be the difference of the two scores shown.
+  const answers = standingUnshared(standing) ? ` ${unsharedLine('runs')}` : ''
   return (
     <>
       Scored {score} on {version},{' '}
@@ -426,7 +430,8 @@ function StandingLine({ standing, version }: { standing: CaseStand; version: str
           <Text tone="destructive">down {-change}</Text> from {from}
         </>
       )}
-      .{since}
+      .{answers}
+      {since}
     </>
   )
 }

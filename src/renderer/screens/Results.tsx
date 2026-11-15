@@ -10,6 +10,7 @@
  * names the case, `a` and `b` the two outputs when they are not the pair the
  * case opens with, and `view=all` the summary.
  */
+import { pointsMoved } from '@domain/lift.ts'
 import { memo, useMemo } from 'react'
 import { Comparison } from '../components/Comparison.tsx'
 import {
@@ -30,7 +31,7 @@ import {
   casePair,
   casesRun,
   caseTitle,
-  comparable,
+  changeBetween,
   cutOf,
   isWithoutSkill,
   liftOf,
@@ -85,7 +86,9 @@ export const Results = memo(function Results({ ctx }: { ctx: Ctx }) {
           a: pair.a ? totalOf(pair.a, config) : null,
           b: pair.b ? totalOf(pair.b, config) : null,
         }
-        return { id, pair, totals }
+        // Read from Jev's answers, with yours only where both outputs hold one.
+        const change = pair.a && pair.b ? changeBetween(pair.a, pair.b, config) : null
+        return { id, pair, totals, change }
       }),
     [caseIds, outputs, config],
   )
@@ -166,7 +169,10 @@ export const Results = memo(function Results({ ctx }: { ctx: Ctx }) {
                   <NavButtonTitle>All cases</NavButtonTitle>
                   {lift ? (
                     <NavButtonMeta>
-                      <ScoreChange from={lift.first} to={lift.latest} against="first runs" />
+                      <ScoreChange
+                        change={pointsMoved(lift.first, lift.latest)}
+                        against="first runs"
+                      />
                     </NavButtonMeta>
                   ) : latest ? (
                     // With no lift to show, the line says only what is sure: one version ran, or the latest has no score.
@@ -186,7 +192,7 @@ export const Results = memo(function Results({ ctx }: { ctx: Ctx }) {
           </ColumnSection>
           <ColumnSection inset="list">
             <PlainList gap="xs" bleed>
-              {rows.map(({ id, pair, totals }) => (
+              {rows.map(({ id, pair, totals, change }) => (
                 <li key={id}>
                   <NavButton
                     current={!all && id === caseId}
@@ -197,7 +203,7 @@ export const Results = memo(function Results({ ctx }: { ctx: Ctx }) {
                   >
                     <NavButtonTitle>{caseTitle(state, id)}</NavButtonTitle>
                     <NavButtonMeta>
-                      <CaseMove pair={pair} totals={totals} />
+                      <CaseMove pair={pair} totals={totals} change={change} />
                     </NavButtonMeta>
                   </NavButton>
                 </li>
@@ -230,19 +236,21 @@ export const Results = memo(function Results({ ctx }: { ctx: Ctx }) {
 function CaseMove({
   pair,
   totals,
+  change,
 }: {
   pair: OutputPair
   totals: { a: number | null; b: number | null }
+  /** The change between the two, as a change is read (`changeBetween`). */
+  change: number | null
 }) {
   if (pair.a && pair.b) {
     if (totals.b === null) return unscoredLine(pair.b)
     if (totals.a === null) return unscoredLine(pair.a)
     // Two answers to different requests, or graded two ways, have no change to read between them.
-    if (!comparable(pair.a, pair.b)) return null
+    if (change === null) return null
     return (
       <ScoreChange
-        from={totals.a}
-        to={totals.b}
+        change={change}
         against={isWithoutSkill(pair.a.run) ? null : runTitle(pair.a.run, { short: true })}
       />
     )

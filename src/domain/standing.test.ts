@@ -106,6 +106,36 @@ describe('standingOf', () => {
   })
 })
 
+describe('standingOf with a reading of the change', () => {
+  it('reads the change and the move since the first run between the scores it is handed', () => {
+    // The scores shown count an answer of the reader's on the latest run only; read without it, 70 is 60.
+    const read = (from: Try, to: Try) => ({
+      from: from.score as number,
+      to: to.version === 'v2' ? 60 : (to.score as number),
+    })
+    const standing = standingOf([at('v0', 50), at('v1', 55), at('v2', 70)], 'v2', read)
+    expect(standing.latest?.score).toBe(70)
+    expect(standing).toMatchObject({
+      change: 5,
+      moved: { from: 55, to: 60 },
+      since: { from: 50, to: 60 },
+    })
+    expect(caseLift([standing])).toMatchObject({ first: 50, latest: 60, unshared: true })
+  })
+
+  it('has no change when the reading has none to read', () => {
+    const standing = standingOf([at('v0', 50), at('v1', 55)], 'v1', () => null)
+    expect(standing).toMatchObject({ change: null, moved: null, since: null })
+    expect(caseLift([standing])).toBeNull()
+  })
+
+  it('reads the scores as shown without one', () => {
+    const standing = standingOf([at('v0', 50), at('v1', 55)], 'v1')
+    expect(standing.moved).toEqual({ from: 50, to: 55 })
+    expect(caseLift([standing])?.unshared).toBe(false)
+  })
+})
+
 describe('caseLift', () => {
   it('sets each case’s first score against its latest, over the cases that ran more than once', () => {
     const lift = caseLift([

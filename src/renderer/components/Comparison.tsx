@@ -43,7 +43,7 @@ import { isMac } from '../keys.ts'
 import {
   apartLine,
   caseTitle,
-  comparable,
+  changeBetween,
   drawnOf,
   failedLine,
   failureOf,
@@ -63,6 +63,8 @@ import {
   runTitle,
   scoreOf,
   totalOf,
+  unshared,
+  unsharedLine,
 } from '../model.ts'
 import { useLanded } from '../motion.ts'
 import { useShortcut, useShortcutKeys } from '../shortcuts.ts'
@@ -660,14 +662,14 @@ function Side({
   const setView = (next: OutputView | null) => setPicked({ key: output.key, view: next })
   const [pending, setPending] = useState<string | null>(null)
   const landed = useLanded(writing)
-  // A change is read only between two answers to the same request, graded the same way.
-  const delta =
-    other &&
-    comparable(output, other) &&
-    scored?.scores.total != null &&
-    otherScored?.scores.total != null
-      ? scored.scores.total - otherScored.scores.total
-      : null
+  // A change is read only between two answers to the same request, graded the same way, and
+  // from Jev's answers, with yours only where both hold one.
+  const delta = other ? changeBetween(other, output, config) : null
+  const answersApart = unshared(
+    delta,
+    otherScored?.scores.total ?? null,
+    scored?.scores.total ?? null,
+  )
   /** The skill still has the case, and this output answers an earlier wording of it. */
   const before = output.earlier !== null && state.cases.some((c) => c.id === output.caseId)
   const meta = output.run.meta?.samples.find((s) => s.dir === output.sample.name) ?? null
@@ -744,6 +746,7 @@ function Side({
         </Hint>
       ) : null}
       {before ? <Hint inset>Written for this case before its prompt or files changed.</Hint> : null}
+      {answersApart ? <Hint inset>{unsharedLine('outputs')}</Hint> : null}
       {scored && outputRulesUnmarked(output) ? (
         <Hint inset>
           Graded before rules and checks were marked on this kind of output. Regrade to see them.

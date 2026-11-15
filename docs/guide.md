@@ -209,7 +209,7 @@ Results shows one case at a time: **A**, the answer from your previous version, 
 | Jev got one rule or check wrong | Click **⋯** beside it, then **Mark as met** or **Mark as missed** |
 | Jev was not sure of one | Click **⋯** beside it under **Not sure**, then **Mark as met** or **Mark as missed** |
 
-Your mark replaces Jev's and the score updates. **Take back**, in the same menu, undoes it.
+Your mark replaces Jev's and the score updates. **Take back**, in the same menu, undoes it. A change in score between two runs counts your mark only when you marked the same rule or check on both, so a case does not rise just because you checked its newest run more closely.
 
 After you add a check, click **⋯** at the top right and choose **Regrade**, so Jev reads the answers again. Until then an answer graded before the change has no score, and says so. On **All cases** its case says **Needs grading**, and **Grade N runs** grades every run that needs it.
 

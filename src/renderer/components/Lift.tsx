@@ -135,7 +135,11 @@ function Ribbon({ lift, floor }: { lift: CaseLift; floor: number | null }) {
 
 /** Which cases the lift is read over, as the line under its change. */
 const overLine = (lift: CaseLift): string =>
-  `Over ${plural(lift.cases, 'case')} that ran more than once${lift.mixed ? ', on more than one model' : ''}${floorRules(lift)}`
+  `Over ${plural(lift.cases, 'case')} that ran more than once${lift.mixed ? ', on more than one model' : ''}${floorRules(lift)}${answersOnly(lift)}`
+
+/** What the line under the change says when the cases' scores count an answer of yours only one of their runs holds. */
+const answersOnly = (lift: CaseLift): string =>
+  lift.unshared ? '; it counts your answers only where you gave one on both runs' : ''
 
 /** What the line under the change says when a score without the skill was graded on another version's rules. */
 const floorRules = (lift: CaseLift): string =>

@@ -32,6 +32,26 @@ export interface Try {
   score: number | null
 }
 
+/** The two scores a change is read between, each end read as a change reads it. */
+export interface Move {
+  from: number
+  to: number
+}
+
+/**
+ * How a change is read between two scored runs of one case: the two scores
+ * it is read between, or null when there is no change to read between them.
+ * A change counts the reader's answers only where both runs hold one on the
+ * same fact (`changeAnswers` in `change.ts`), so the caller reads each end
+ * again. Without one, the two scores as shown.
+ */
+export type ReadMove<T extends Try = Try> = (from: T, to: T) => Move | null
+
+const asShown = (from: Try, to: Try): Move => ({
+  from: from.score as number,
+  to: to.score as number,
+})
+
 export interface Standing<T extends Try = Try> {
   /** The runs that tested a version of the skill on the case: by version, then by when they ran. */
   tries: T[]
@@ -55,8 +75,12 @@ export interface Standing<T extends Try = Try> {
    * score, the newest scored run without it.
    */
   floor: T | null
-  /** How far `latest` moved from `previous`, in the whole points shown; null with nothing to move from. */
+  /** How far `latest` moved from `previous`, in the whole points shown, read as `moved`; null with nothing to move from. */
   change: number | null
+  /** The two scores the change from `previous` to `latest` is read between; null with nothing to move from. */
+  moved: Move | null
+  /** The two scores the move from `first` to `latest` is read between, which the lift is counted from; null with nothing to move from. */
+  since: Move | null
   /**
    * A run before `latest` has a score, and none of them was graded as it was:
    * `latest` is not the case's first run, and there is still no move to read.
@@ -76,9 +100,14 @@ const inOrder = <T extends Try>(a: T, b: T): number =>
 /**
  * Where one case stands on `version`, from every run that answered it. The
  * runs are answers to one request: the caller hands in only the ones asked
- * the same prompt with the same files.
+ * the same prompt with the same files. `read` gives the two scores a change
+ * between two of them is read between (`ReadMove`).
  */
-export function standingOf<T extends Try>(all: readonly T[], version: string): Standing<T> {
+export function standingOf<T extends Try>(
+  all: readonly T[],
+  version: string,
+  read: ReadMove<T> = asShown,
+): Standing<T> {
   const tries = all.filter(testedVersion).sort(inOrder)
   const marks = scored(tries)
   const here = marks.filter((t) => t.version === version)
@@ -92,14 +121,17 @@ export function standingOf<T extends Try>(all: readonly T[], version: string): S
     scored(all.filter((t) => t.configuration === 'without_skill' && alike(t)))
       .sort((a, b) => a.createdAt.localeCompare(b.createdAt))
       .at(-1) ?? null
+  const first = before[0] ?? latest
+  const moved = latest && previous ? read(previous, latest) : null
   return {
     tries,
     latest,
     previous,
-    first: before[0] ?? latest,
+    first,
     floor,
-    change:
-      latest && previous ? pointsMoved(previous.score as number, latest.score as number) : null,
+    change: moved ? pointsMoved(moved.from, moved.to) : null,
+    moved,
+    since: latest && first && previous ? read(first, latest) : null,
     apart: earlier.length > 0 && before.length === 0,
     current: latest !== null && latest.version === version,
   }
@@ -117,6 +149,12 @@ export interface CaseLift {
   floorCases: number
   /** How many cases ran more than once with a score: the ones the means are over. */
   cases: number
+  /**
+   * The cases' scores as shown count an answer of the reader's that only one
+   * of a case's two runs holds, so the means above, read without it, are not
+   * the means of the scores shown in the whole points shown.
+   */
+  unshared: boolean
   /** The latest mean is higher than the first, by a whole point or more as the scores are shown. Only then is the lift drawn. */
   rises: boolean
   /** Some case's first and latest runs had different writers, so part of its move may be the model's. */
@@ -132,11 +170,16 @@ export interface CaseLift {
 /** The lift over `standings`; null until one case has two scored runs with the skill. */
 export function caseLift(standings: readonly Standing[]): CaseLift | null {
   const twice = standings.filter(
-    (s) => s.first !== null && s.latest !== null && s.previous !== null,
+    (s) => s.first !== null && s.latest !== null && s.previous !== null && s.since !== null,
   )
   if (!twice.length) return null
-  const first = mean(twice.map((s) => s.first?.score as number)) as number
-  const latest = mean(twice.map((s) => s.latest?.score as number)) as number
+  // Read from Jev's answers, with the reader's only where both runs hold one (`ReadMove`).
+  const first = mean(twice.map((s) => s.since?.from as number)) as number
+  const latest = mean(twice.map((s) => s.since?.to as number)) as number
+  const shown = {
+    first: mean(twice.map((s) => s.first?.score as number)) as number,
+    latest: mean(twice.map((s) => s.latest?.score as number)) as number,
+  }
   const floors = twice.flatMap((s) => (s.floor ? [s.floor.score as number] : []))
   return {
     first,
@@ -144,6 +187,9 @@ export function caseLift(standings: readonly Standing[]): CaseLift | null {
     floor: mean(floors),
     floorCases: floors.length,
     cases: twice.length,
+    unshared:
+      Math.round(shown.first) !== Math.round(first) ||
+      Math.round(shown.latest) !== Math.round(latest),
     rises: pointsMoved(first, latest) > 0,
     mixed: twice.some((s) => s.first?.writer !== s.latest?.writer),
     floorApart: twice.some((s) => s.floor !== null && s.floor.version !== s.latest?.version),
