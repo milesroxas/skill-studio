@@ -39,7 +39,15 @@ export function readResult(event: ResultEvent, request: EngineRequest, result: E
 /** A run that ended before it began, with the reason as its error and in the transcript. */
 function refused(request: EngineRequest, error: string): EngineResult {
   request.transcript.push({ kind: 'error', text: error, error: true })
-  return { ok: false, error, costUsd: null, tokens: null, model: null, finalText: null }
+  return {
+    ok: false,
+    error,
+    costUsd: null,
+    tokens: null,
+    model: null,
+    finalText: null,
+    ended: 'unstarted',
+  }
 }
 
 /**
@@ -94,10 +102,14 @@ export async function runStreamJson<E>(
   })
   if (request.transcript.failure)
     request.log?.(`the transcript could not be written: ${request.transcript.failure}`)
-  if (run.spawnError) result.error = run.spawnError
-  else if (request.signal?.aborted) result.error = 'stopped'
-  else if (run.timedOut) result.error = `timed out after ${Math.round(request.timeoutMs / 1000)} s`
-  else if (run.code !== 0)
+  if (run.spawnError) {
+    result.error = run.spawnError
+    result.ended = 'unstarted'
+  } else if (request.signal?.aborted) result.error = 'stopped'
+  else if (run.timedOut) {
+    result.error = `timed out after ${Math.round(request.timeoutMs / 1000)} s`
+    result.ended = 'timeout'
+  } else if (run.code !== 0)
     result.error ??= (run.stderr || run.stdout).trim().slice(-400) || `exit ${run.code}`
   result.ok = run.code === 0 && !run.timedOut
   return result

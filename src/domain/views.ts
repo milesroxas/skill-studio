@@ -23,12 +23,13 @@ export interface Sample {
   legacy: boolean
   /**
    * The sample's agent did not run to its end, in a run that lists its
-   * samples: the run recorded that a stop ended it (`stopped`), or never
+   * samples: the run recorded that a stop ended it (`stopped`), or that it
+   * failed with no stop (`failed`: the time limit, an error, never begun), or never
    * recorded it at all (`unlisted`), which is a sample still being written or
    * one whose agent was cut off when the app quit or crashed. Grading leaves
-   * out both. Absent for a sample whose agent ended by itself.
+   * out all three. Absent for a sample whose agent ended by itself.
    */
-  cut?: 'stopped' | 'unlisted'
+  cut?: 'stopped' | 'failed' | 'unlisted'
 }
 
 /**

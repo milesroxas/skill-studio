@@ -189,6 +189,9 @@ export interface Timing {
   model: string | null
 }
 
+/** Why a sample's agent did not run to its end, in words that follow "It". */
+export type SampleFailure = 'ran out of time' | 'could not start' | 'ended with an error'
+
 export interface SampleMeta {
   /** Sample directory name: `<case>-s<n>`. */
   dir: string
@@ -209,6 +212,15 @@ export interface SampleMeta {
    * says nothing of the skill, so grading leaves it out.
    */
   stopped?: boolean
+  /**
+   * Its agent did not run to its end by itself, and no stop ended it: the time
+   * limit did (`ran out of time`), it never began (`could not start`: the CLI
+   * was missing, or refused the model), or the CLI ended with an error (`ended
+   * with an error`: signed out, a usage limit, a refusal). The words open with
+   * "It" in a sentence; `error` holds the CLI's own. What it left, nothing or
+   * a file, is no whole answer, so grading leaves it out as a stopped one.
+   */
+  failed?: SampleFailure
   /**
    * The files under `outputs/` when the agent ended, by sample-relative path:
    * what it wrote. A file put there later, such as one a check command builds,

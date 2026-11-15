@@ -27,6 +27,12 @@ export interface EngineResult {
   model: string | null
   /** The agent's last message. */
   finalText: string | null
+  /**
+   * How the session ended when it was not by itself: `timeout`, the time limit
+   * ended it; `unstarted`, it never began (the CLI could not be started, or it
+   * was refused before it ran). Absent otherwise.
+   */
+  ended?: 'timeout' | 'unstarted'
 }
 
 export interface Engine {

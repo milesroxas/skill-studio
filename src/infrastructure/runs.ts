@@ -7,7 +7,7 @@
 import { readFileSync, statSync } from 'node:fs'
 import { join } from 'node:path'
 import { parseSampleDir } from '@domain/run-name.ts'
-import type { Artifact, Case, Report, RunMeta, SampleMeta } from '@domain/schemas.ts'
+import type { Artifact, Case, Report, RunMeta, SampleFailure, SampleMeta } from '@domain/schemas.ts'
 import { metaList, metaText, readFrontMatter } from '@domain/text.ts'
 import type { FileHead, RunView, Sample } from '@domain/views.ts'
 import { detectArtifacts } from './artifacts.ts'
@@ -89,6 +89,14 @@ const isLegacy = (dir: string): boolean =>
   !listDirs(dir).some((d) => parseSampleDir(d)) && listFiles(dir, isLegacyOutput).length > 0
 
 type LegacySample = Partial<SampleMeta> & { file?: string }
+
+const FAILURES: readonly SampleFailure[] = [
+  'ran out of time',
+  'could not start',
+  'ended with an error',
+]
+const isFailure = (value: unknown): value is SampleFailure =>
+  FAILURES.includes(value as SampleFailure)
 type RawMeta = Partial<Omit<RunMeta, 'samples'>> & { samples?: LegacySample[] }
 
 /** A sample as `run.json` lists it, the legacy shape brought up to `SampleMeta`. */
@@ -108,6 +116,7 @@ function sampleMetaOf(s: LegacySample, i: number): SampleMeta {
     steps: s.steps ?? 0,
     toolCalls: s.toolCalls ?? 0,
     ...(s.stopped === true ? { stopped: true } : {}),
+    ...(isFailure(s.failed) ? { failed: s.failed } : {}),
     ...(Array.isArray(s.outputs)
       ? { outputs: s.outputs.filter((file) => typeof file === 'string') }
       : {}),
@@ -159,7 +168,15 @@ export function runSamples(dir: string): Sample[] {
     .map((name) => {
       const path = join(dir, name)
       const record = recorded.get(name)
-      const cut = !listed ? null : !record ? 'unlisted' : record.stopped ? 'stopped' : null
+      const cut = !listed
+        ? null
+        : !record
+          ? 'unlisted'
+          : record.stopped
+            ? 'stopped'
+            : record.failed
+              ? 'failed'
+              : null
       return {
         name,
         path,
@@ -173,7 +190,8 @@ export function runSamples(dir: string): Sample[] {
 
 /**
  * The samples of a run whose agents ran to their end, which are the ones
- * grading reads, and how many folders were left out: those a stop ended, and
+ * grading reads, and how many folders were left out: those a stop ended, those
+ * that failed (the time limit, an error, an agent that never began), and
  * those the run never recorded, each made for an agent that was cut off (the
  * app quit or crashed). Neither says anything of the skill. A run with no
  * list of its samples, and one of flat files, is graded whole.

@@ -934,10 +934,10 @@ export async function gradeRun(
 ): Promise<Report> {
   const dir = runDir(skillDir, run)
   if (!isDir(dir)) throw new Error(`There is no run called ${run}.`)
-  // A sample whose agent was stopped or cut off says nothing of the skill: it is not graded, so it scores nothing.
+  // A sample whose agent was stopped, failed or was cut off says nothing whole of the skill: it is not graded, so it scores nothing.
   const { samples, unfinished } = finishedSamples(skillDir, run)
   if (unfinished)
-    options.log?.(`${unfinished} output(s) stopped before they were finished: left out of grading.`)
+    options.log?.(`${unfinished} output(s) did not run to their end: left out of grading.`)
   const subjects: Subject[] = samples.map((sample) => {
     if (sample.legacy) {
       const head = readHead(join(sample.path, sample.name))

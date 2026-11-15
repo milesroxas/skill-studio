@@ -338,7 +338,7 @@ async function main(): Promise<number> {
     const missing = wanted.filter((id) => !cases.some((c) => c.id === id))
     if (missing.length) throw new Error(`No case named ${missing.join(', ')}.`)
     if (!selected.length) throw new Error('No cases to run.')
-    const { name } = await held(
+    const { name, meta } = await held(
       generateRun({
         skillDir: skill,
         cases: selected,
@@ -356,8 +356,13 @@ async function main(): Promise<number> {
       }),
     )
     console.log(`Run: ${runDir(skill, name)}`)
-    if (values['no-grade']) return 0
-    return printGraded(await held(gradeRun(skill, name, jevOptions)), values.json) ? 0 : 1
+    // An attempt that failed is no answer: the run is not whole, whatever its grading says.
+    const failed = meta.samples.filter((s) => s.failed)
+    for (const s of failed)
+      console.error(`Failed: ${s.dir}, it ${s.failed}${s.error ? ` (${s.error})` : ''}`)
+    const fine =
+      values['no-grade'] || printGraded(await held(gradeRun(skill, name, jevOptions)), values.json)
+    return fine && !failed.length ? 0 : 1
   }
 
   if (command === 'grade') {

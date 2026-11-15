@@ -168,9 +168,10 @@ describe('gradeRun, on which case a sample answers', () => {
     expect(braces.flags).not.toContain('no output to judge')
   })
 
-  it('leaves out a sample the stop ended or the run never recorded, and grades the rest', async () => {
-    // s2 was stopped with nothing written, s3 with half a file, and s4 was cut off unrecorded.
-    const { dir, run } = skillWith(['email'], ['email-s1', 'email-s3', 'email-s4'])
+  it('leaves out a sample the stop ended, one that failed or the run never recorded, and grades the rest', async () => {
+    // s2 was stopped with nothing written, s3 with half a file, s4 was cut off unrecorded,
+    // and s5 ran out of time with a file left.
+    const { dir, run } = skillWith(['email'], ['email-s1', 'email-s3', 'email-s4', 'email-s5'])
     mkdirSync(join(dir, 'evals/runs', run, 'email-s2/outputs'), { recursive: true })
     const sample = (index: number, patch: object) => ({
       dir: `email-s${index}`,
@@ -186,6 +187,7 @@ describe('gradeRun, on which case a sample answers', () => {
           sample(1, { ok: true, outputs: ['outputs/note.md'] }),
           sample(2, { ok: false, stopped: true }),
           sample(3, { ok: true, stopped: true }),
+          sample(5, { ok: true, failed: 'ran out of time', outputs: ['outputs/note.md'] }),
         ],
       }),
     )
@@ -195,7 +197,7 @@ describe('gradeRun, on which case a sample answers', () => {
     const report = await gradeRun(dir, run, { useJev: false, log: (line) => lines.push(line) })
     expect(report.results.map((r) => r.sample)).toEqual(['email-s1'])
     expect(report.results[0].artifacts).toEqual([{ file: 'outputs/note.md', kind: 'markdown' }])
-    expect(lines).toContain('3 output(s) stopped before they were finished: left out of grading.')
+    expect(lines).toContain('4 output(s) did not run to their end: left out of grading.')
   })
 
   it('refuses a run that is not there, and makes no folder for it', async () => {

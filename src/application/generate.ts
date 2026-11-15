@@ -15,10 +15,18 @@ import { copyFileSync, existsSync, mkdirSync, writeFileSync } from 'node:fs'
 import { basename, dirname, join, relative } from 'node:path'
 import { agentPrompt, OUTPUTS_DIR, SCRATCH_DIR } from '@domain/prompt.ts'
 import { runName, sampleDir } from '@domain/run-name.ts'
-import type { Case, Configuration, RunMeta, SampleMeta, Timing } from '@domain/schemas.ts'
+import type {
+  Case,
+  Configuration,
+  RunMeta,
+  SampleFailure,
+  SampleMeta,
+  Timing,
+} from '@domain/schemas.ts'
 import { slug } from '@domain/text.ts'
 import { detectArtifacts } from '@infrastructure/artifacts.ts'
 import type { Engine } from '@infrastructure/engines/index.ts'
+import type { EngineResult } from '@infrastructure/engines/types.ts'
 import { isStopping } from '@infrastructure/exec.ts'
 import {
   assertInside,
@@ -311,11 +319,14 @@ export async function generateRun(
     )
   meta.finishedAt = new Date().toISOString()
   writeJson(join(dir, 'run.json'), meta)
-  const wrote = meta.samples.filter((s) => s.ok && !s.stopped).length
+  const wrote = meta.samples.filter((s) => s.ok && !s.stopped && !s.failed).length
+  const failed = meta.samples.filter((s) => s.failed).length
   log(
-    options.signal?.aborted
-      ? `${name}: stopped, ${wrote}/${jobs.length} wrote output`
-      : `${name}: done, ${wrote}/${meta.samples.length} wrote output`,
+    `${
+      options.signal?.aborted
+        ? `${name}: stopped, ${wrote}/${jobs.length} wrote output`
+        : `${name}: done, ${wrote}/${meta.samples.length} wrote output`
+    }${failed ? `, ${failed} failed` : ''}`,
   )
   return { name, dir, meta }
 }
@@ -350,8 +361,21 @@ async function sampleOrFailure(
       steps: 0,
       toolCalls: 0,
       outputs: outputsIn(join(options.runDir, name)),
+      failed: 'could not start',
     }
   }
+}
+
+/**
+ * Why a session that no stop ended did not run to its end; null when it did.
+ * The engine's own word is what tells them apart: a session that ended well
+ * exits with success and reports no error, whether or not it wrote a file.
+ */
+function sessionFailure(result: EngineResult): SampleFailure | null {
+  if (result.ok && result.error === null) return null
+  if (result.ended === 'timeout') return 'ran out of time'
+  if (result.ended === 'unstarted') return 'could not start'
+  return 'ended with an error'
 }
 
 /** What an agent has written in its sample folder, fixed as it ends: a file put under outputs/ later is not its output. */
@@ -440,6 +464,8 @@ async function generateSample(
   // Its agent was still going when the stop or the quit came, so that is what ended it:
   // what it left, nothing or half a file, is not the skill's doing.
   const stopped = options.signal.aborted || isStopping()
+  // No stop ended it, and it did not end well by itself: what it left is no whole answer either.
+  const failed = stopped ? null : sessionFailure(result)
   const seconds = Math.round(timing.durationMs / 1000)
   const spend =
     result.costUsd !== null
@@ -450,9 +476,11 @@ async function generateSample(
   options.log(
     stopped
       ? `${label}: stopped before it ${ok ? 'finished' : 'wrote anything'}`
-      : ok
-        ? `${label}: done in ${seconds} s, ${counts.toolCalls} tool calls${spend}${result.error ? ` (${result.error})` : ''}`
-        : `${label}: no output written in ${seconds} s. ${result.error ?? ''}`.trim(),
+      : failed
+        ? `${label}: failed in ${seconds} s, it ${failed}${result.error ? ` (${result.error})` : ''}`
+        : ok
+          ? `${label}: done in ${seconds} s, ${counts.toolCalls} tool calls${spend}`
+          : `${label}: no output written in ${seconds} s`,
   )
   return {
     dir: name,
@@ -468,5 +496,6 @@ async function generateSample(
     toolCalls: counts.toolCalls,
     outputs,
     ...(stopped ? { stopped: true } : {}),
+    ...(failed ? { failed } : {}),
   }
 }

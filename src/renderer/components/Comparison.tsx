@@ -45,6 +45,7 @@ import {
   caseTitle,
   comparable,
   drawnOf,
+  failedLine,
   failureOf,
   isWithoutSkill,
   layersOf,
@@ -767,9 +768,11 @@ function Side({
             ? 'Graded when it is done.'
             : output.cut === 'stopped'
               ? 'Stopped before it finished, so it has no score.'
-              : output.cut === 'unfinished'
-                ? 'Not finished, so it has no score.'
-                : 'Not graded yet.'}
+              : output.cut === 'failed'
+                ? failedLine(output)
+                : output.cut === 'unfinished'
+                  ? 'Not finished, so it has no score.'
+                  : 'Not graded yet.'}
         </Hint>
       )}
       {reading && writing ? <OutputWriting place="card" /> : null}

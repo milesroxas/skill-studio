@@ -91,7 +91,20 @@ describe('runStreamJson', () => {
   it('reports a timeout', async () => {
     replay.run = { ...replay.run, code: null, timedOut: true }
     const result = await runStreamJson('x', [], request, () => {})
-    expect(result).toMatchObject({ ok: false, error: 'timed out after 60 s' })
+    expect(result).toMatchObject({ ok: false, error: 'timed out after 60 s', ended: 'timeout' })
+  })
+
+  it('says a CLI that could not be started never began', async () => {
+    replay.run = { ...replay.run, code: null, spawnError: 'spawn x ENOENT' }
+    const result = await runStreamJson('x', [], request, () => {})
+    expect(result).toMatchObject({ ok: false, error: 'spawn x ENOENT', ended: 'unstarted' })
+  })
+
+  it('says nothing of how a session ended that ended by itself, well or with an error', async () => {
+    const ended = await runStreamJson('x', [], request, () => {})
+    replay.run = { ...replay.run, code: 1, stderr: 'usage limit reached' }
+    const failed = await runStreamJson('x', [], request, () => {})
+    expect([ended.ended, failed.ended]).toEqual([undefined, undefined])
   })
 })
 
@@ -191,6 +204,7 @@ describe('claude stream-json', () => {
       const result = await claudeEngine.run({ ...request, ...bad })
       expect(result.ok).toBe(false)
       expect(result.error).toMatch(/^Claude Code has no (model|effort) named /)
+      expect(result.ended).toBe('unstarted')
     }
     expect(replay.calls).toEqual([])
     expect(request.transcript.events.every((e) => e.kind === 'error')).toBe(true)

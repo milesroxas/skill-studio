@@ -36,12 +36,14 @@ export interface Output {
   /**
    * Why grading leaves the output out, when it does, so that it has no score.
    * `stopped`: the run says its agent was cut short, by a stop or by ending
-   * without ever recording it. `unfinished`: the run has not recorded it and
+   * without ever recording it. `failed`: the run says its agent did not run to
+   * its end and no stop ended it: the time limit, an error, or it never began
+   * (`SampleMeta.failed`). `unfinished`: the run has not recorded it and
    * has no end of its own, so it is still being written, here or by another
    * copy of the app, or the run was cut off with the app. Null for an output
    * whose agent ran to its end.
    */
-  cut: 'stopped' | 'unfinished' | null
+  cut: 'stopped' | 'failed' | 'unfinished' | null
   /** Your own answers on this output's verdicts, which stand over Jev's. */
   corrections: Corrections
   /** The file that stands for the output: the one graded, else the one grading would judge. */
@@ -64,6 +66,55 @@ export interface Output {
   behind: string | null
 }
 
+/** Why grading leaves out one sample of `run`, as an output's `cut` reads. */
+const sampleCut = (run: RunView, sample: Sample): Output['cut'] =>
+  sample.cut === 'stopped' || (sample.cut === 'unlisted' && run.meta?.finishedAt)
+    ? 'stopped'
+    : sample.cut === 'failed'
+      ? 'failed'
+      : sample.cut === 'unlisted'
+        ? 'unfinished'
+        : null
+
+/**
+ * How many attempts at each of its cases a run was asked for, 0 when it says
+ * nothing that can be counted on: a run of flat files, or one that lists no
+ * samples of its own.
+ */
+const askedOf = (run: RunView): number =>
+  run.meta && !run.meta.legacy && run.samples.every((s) => !s.legacy)
+    ? run.meta.samplesPerCase || 0
+    : 0
+
+/**
+ * Why a case's answers in one run stand for less than the run was asked, so
+ * that no mean of them is read as the case's: one of its attempts is cut, or
+ * an attempt never began, which leaves no folder. `stopped`, `failed` or
+ * `unfinished` as an output's `cut` reads; `unfinished` while the run, with no
+ * end of its own, may still begin it. Null when every attempt asked ran to its end.
+ */
+function shortOf(run: RunView, caseId: string): Output['cut'] {
+  const kept = shortBy.get(run)?.get(caseId)
+  if (kept !== undefined) return kept
+  const mine = run.samples.filter((s) => parseSampleDir(s.name)?.case === caseId)
+  const cuts = mine.map((s) => sampleCut(run, s))
+  const missing = mine.length < askedOf(run)
+  const short: Output['cut'] = cuts.includes('unfinished')
+    ? 'unfinished'
+    : missing && !run.meta?.finishedAt
+      ? 'unfinished'
+      : cuts.includes('failed')
+        ? 'failed'
+        : cuts.includes('stopped') || missing
+          ? 'stopped'
+          : null
+  const byCase = shortBy.get(run) ?? new Map<string, Output['cut']>()
+  byCase.set(caseId, short)
+  shortBy.set(run, byCase)
+  return short
+}
+const shortBy = new WeakMap<RunView, Map<string, Output['cut']>>()
+
 /** `v2` as 2. A run with no version sorts last; v0 is a version like any other. */
 const versionNumber = (run: RunView): number => {
   const number = Number(run.meta?.skillVersion.slice(1) || Number.NaN)
@@ -78,12 +129,7 @@ function outputOf(
   graded: ReportResult | null,
   judged: readonly ArtifactKind[],
 ): Output {
-  const cut =
-    sample.cut === 'stopped' || (sample.cut === 'unlisted' && run.meta?.finishedAt)
-      ? 'stopped'
-      : sample.cut === 'unlisted'
-        ? 'unfinished'
-        : null
+  const cut = sampleCut(run, sample)
   // A score an earlier grading gave an output grading now leaves out is no score of it.
   const result = cut ? null : graded
   const parsed = parseSampleDir(sample.name)
@@ -99,7 +145,10 @@ function outputOf(
     result,
     caseId,
     index: parsed?.index ?? 1,
-    samples: run.samples.filter((s) => parseSampleDir(s.name)?.case === caseId).length,
+    samples: Math.max(
+      run.samples.filter((s) => parseSampleDir(s.name)?.case === caseId).length,
+      askedOf(run),
+    ),
     cut,
     corrections: state.reviews.reviews[key]?.corrections ?? NO_CORRECTIONS,
     // The file graded, else the one grading would judge.
@@ -193,15 +242,18 @@ export const totalOf = (output: Output, config: BenchConfig): number | null =>
 
 /**
  * What a set of outputs has in place of a score when grading leaves out every
- * one of them: `stopped` when each was, `unfinished` when any may still be
- * written. Null when one of them ran to its end, or there is none.
+ * one of them: `stopped` when each was, `failed` when each was stopped or
+ * failed and one failed, `unfinished` when any may still be written. Null when
+ * one of them ran to its end, or there is none.
  */
 export const cutOf = (outputs: Output[]): Output['cut'] =>
   outputs.length === 0 || outputs.some((o) => o.cut === null)
     ? null
     : outputs.every((o) => o.cut === 'stopped')
       ? 'stopped'
-      : 'unfinished'
+      : outputs.every((o) => o.cut === 'stopped' || o.cut === 'failed')
+        ? 'failed'
+        : 'unfinished'
 
 /**
  * The output was graded and still has no total until its run is graded again:
@@ -233,7 +285,9 @@ const comparedKey = (output: Output): string => `${askedKey(output)}\n${output.j
  * every output has a total is counted: a mean over the ones that happen to be
  * graded would be set beside means over all of theirs. `whole` is false when a
  * case was left out for that. An output cut short says nothing of the skill,
- * and is no part of either.
+ * and is no part of either. Nor is any answer of a run to a case it did not
+ * finish (`shortOf`): a mean over the attempts that happened to end would read
+ * as one over all it was asked for.
  */
 function caseMeans(
   outputs: Output[],
@@ -241,7 +295,7 @@ function caseMeans(
 ): { means: Record<string, number>; whole: boolean } {
   const totals = new Map<string, Array<number | null>>()
   for (const o of outputs) {
-    if (o.cut) continue
+    if (o.cut || shortOf(o.run, o.caseId)) continue
     const key = comparedKey(o)
     totals.set(key, [...(totals.get(key) ?? []), totalOf(o, config)])
   }
@@ -292,7 +346,10 @@ export interface CaseTry extends Try {
   outputs: Output[]
   /** How many of the outputs have a score: all of them that ran to their end when `score` is not null, since it is their mean. */
   scored: number
-  /** What the outputs have in place of a score when grading leaves out every one of them. */
+  /**
+   * What the outputs have in place of a score when grading leaves out every one
+   * of them, or when the run did not finish the case (`shortOf`).
+   */
   cut: Output['cut']
 }
 
@@ -346,7 +403,7 @@ export function standingsOf(state: State, outputs: Output[], config: BenchConfig
       outputs: mine,
       score: scoreOver(mine, config),
       scored: mine.filter((o) => totalOf(o, config) !== null).length,
-      cut: cutOf(mine),
+      cut: cutOf(mine) ?? shortOf(mine[0].run, mine[0].caseId),
     }))
     return {
       key,
@@ -396,13 +453,13 @@ export const liftOf = (standings: readonly CaseStand[]): CaseLift | null =>
 
 /**
  * The versions outputs were written on, oldest first: "v0", "v1". A version
- * whose every output was stopped has nothing to read or score, so it is not
- * one of them.
+ * whose every output was stopped or failed has nothing to read or score, so it
+ * is not one of them.
  */
 export function versionsRun(outputs: Output[]): string[] {
   const seen = new Set(
     outputs
-      .filter((o) => o.cut !== 'stopped')
+      .filter((o) => o.cut !== 'stopped' && o.cut !== 'failed')
       .map((o) => testOf(o.run))
       .filter(testedVersion)
       .map((test) => test.version),
@@ -600,7 +657,7 @@ const candidate = (output: Output): Candidate => ({
   ...testOf(output.run),
   index: output.index,
   written: output.sample.artifacts.length > 0 && output.cut === null,
-  stopped: output.cut === 'stopped',
+  stopped: output.cut === 'stopped' || output.cut === 'failed',
   output,
 })
 
@@ -733,9 +790,11 @@ export const runInSentence = (run: RunView, { start = false, short = false } = {
 export const unscoredWords = (cut: Output['cut']): string =>
   cut === 'stopped'
     ? 'was stopped before it finished'
-    : cut === 'unfinished'
-      ? 'is not finished'
-      : 'has no score yet'
+    : cut === 'failed'
+      ? 'could not finish'
+      : cut === 'unfinished'
+        ? 'is not finished'
+        : 'has no score yet'
 
 /**
  * Why an output's agent failed, in the agent's own words; null when it did
@@ -747,10 +806,17 @@ export function failureOf(output: Output): string | null {
   return output.cut === 'stopped' || meta?.stopped ? null : (meta?.error ?? null)
 }
 
+/** Why an output that failed has no score, as a sentence: "It ran out of time, so it has no score." Null for one that did not fail. */
+export function failedLine(output: Output): string | null {
+  if (output.cut !== 'failed') return null
+  const meta = output.run.meta?.samples.find((s) => s.dir === output.sample.name)
+  return `It ${meta?.failed ?? 'could not finish'}, so it has no score.`
+}
+
 /**
  * The outputs of a case one side of a comparison picks from: each that ran to
  * its end or is still being written, and `shown`, the ones in view. A stopped
- * output has no score to compare, so it is not offered; it is still read from
+ * or failed output has no score to compare, so it is not offered; it is still read from
  * its run, under Runs on All cases.
  */
 export const outputsToPick = (
@@ -759,7 +825,9 @@ export const outputsToPick = (
   shown: ReadonlyArray<Output | null>,
 ): Output[] =>
   outputs.filter(
-    (o) => o.caseId === caseId && (o.cut !== 'stopped' || shown.some((s) => s?.key === o.key)),
+    (o) =>
+      o.caseId === caseId &&
+      (o.cut === null || o.cut === 'unfinished' || shown.some((s) => s?.key === o.key)),
   )
 
 /** That an output has no score, as a line that opens with its run. */
@@ -955,7 +1023,7 @@ export interface AttemptCost {
 /** What an attempt at `output`'s case cost in its run; null for a run that kept no cost. */
 export function attemptCost(output: Output): AttemptCost | null {
   const samples = (output.run.meta?.samples ?? []).filter(
-    (s) => s.case === output.caseId && s.costUsd !== null && !s.stopped,
+    (s) => s.case === output.caseId && s.costUsd !== null && !s.stopped && !s.failed,
   )
   const usd = mean(samples.map((s) => s.costUsd ?? 0))
   const seconds = mean(samples.map((s) => s.seconds))

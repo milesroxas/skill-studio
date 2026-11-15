@@ -13,6 +13,7 @@ import {
   deleteRunDialog,
   drawnOf,
   extraKinds,
+  failedLine,
   failureOf,
   gradedLine,
   kindsLine,
@@ -702,12 +703,63 @@ describe('a score over outputs', () => {
 
   it('leaves out an output that was stopped: it says nothing of the skill', () => {
     const one = runOf('r1', 'v1', [md('a.md')])
+    const stopped = { ...one.samples[0], name: 'page-s2', cut: 'stopped' as const }
     const run = {
       ...one,
-      samples: [one.samples[0], { ...one.samples[0], name: 'page-s2', cut: 'stopped' as const }],
-      report: { results: [resultOf('page-s1', 100)] } as unknown as Report,
+      samples: [one.samples[0], stopped, { ...one.samples[0], name: 'note-s1' }],
+      report: { results: [resultOf('page-s1', 0), resultOf('note-s1', 100)] } as unknown as Report,
     }
-    expect(scoreOver(outputsOf(stateOf([run], ['generic'])), saved)).toBe(100)
+    const outputs = outputsOf(stateOf([run], ['generic']))
+    expect(outputs.find((o) => o.sample.name === 'page-s2')?.cut).toBe('stopped')
+    // Nor is the 0 of the attempt that did finish read as the case's: its run did not finish it.
+    expect(scoreOver(outputs, saved)).toBe(100)
+  })
+
+  it('leaves out an output that failed, a file left or none, as one that was stopped', () => {
+    const one = runOf('r1', 'v1', [md('a.md')])
+    const run = {
+      ...one,
+      meta: {
+        ...one.meta,
+        samples: [{ dir: 'note-s1', failed: 'ran out of time', error: 'timed out after 60 s' }],
+      } as unknown as RunMeta,
+      samples: [one.samples[0], { ...one.samples[0], name: 'note-s1', cut: 'failed' as const }],
+      report: { results: [resultOf('page-s1', 100), resultOf('note-s1', 0)] } as unknown as Report,
+    }
+    const outputs = outputsOf(stateOf([run], ['generic']))
+    const failed = outputs.find((o) => o.sample.name === 'note-s1') as Output
+    expect(failed.cut).toBe('failed')
+    expect(failed.result).toBeNull()
+    expect(failedLine(failed)).toBe('It ran out of time, so it has no score.')
+    expect(failureOf(failed)).toBe('timed out after 60 s')
+    expect(unscoredLine(failed)).toBe('v1 could not finish')
+    expect(cutOf([failed])).toBe('failed')
+    expect(scoreOver(outputs, saved)).toBe(100)
+  })
+
+  it('reads a case a run asked more attempts of than began as cut short, with no mean', () => {
+    const one = runOf('r1', 'v1', [md('a.md')], graded(100))
+    const asked = (finishedAt: string | null) =>
+      ({ ...one, meta: { ...one.meta, samplesPerCase: 3, finishedAt } }) as RunView
+    const [stopped] = outputsOf(stateOf([asked('2026-11-01T10:05:00Z')], ['generic']))
+    expect(stopped.samples).toBe(3)
+    expect(stopped.cut).toBeNull()
+    expect(totalOf(stopped, saved)).toBe(100)
+    expect(scoreOver([stopped], saved)).toBeNull()
+    const standing = standingsOf(
+      stateOf([asked('2026-11-01T10:05:00Z')], ['generic']),
+      [stopped],
+      saved,
+    )
+    expect(standing[0].tries[0]).toMatchObject({ score: null, cut: 'stopped' })
+    // Still being written, the attempts to come are not finished.
+    const [writing] = outputsOf(stateOf([asked(null)], ['generic']))
+    expect(standingsOf(stateOf([asked(null)], ['generic']), [writing], saved)[0].tries[0].cut).toBe(
+      'unfinished',
+    )
+    // A run that began every attempt it asked for reads as before.
+    const whole = { ...one, meta: { ...one.meta, samplesPerCase: 1, finishedAt: 'x' } } as RunView
+    expect(scoreOver(outputsOf(stateOf([whole], ['generic'])), saved)).toBe(100)
   })
 })
 

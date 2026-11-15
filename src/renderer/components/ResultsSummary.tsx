@@ -19,6 +19,7 @@ import {
   type CaseStand,
   caseTitle,
   duration,
+  failedLine,
   failureOf,
   fmt,
   gradedLine,
@@ -408,6 +409,7 @@ function RunDetail({
             const missed = s?.verdicts.filter(isMissed) ?? []
             const failure = failureOf(o)
             const stopped = o.cut === 'stopped'
+            const failed = failedLine(o)
             return (
               <TableRow
                 key={o.key}
@@ -433,7 +435,7 @@ function RunDetail({
                   <TotalChip total={s?.scores.total} />
                 </TableCell>
                 <TableCell wrap wide>
-                  {failure || stopped || s?.stale.length || missed.length ? (
+                  {failure || stopped || failed || s?.stale.length || missed.length ? (
                     <PlainList gap="md">
                       {failure ? (
                         <Text as="li" size="xs" tone="destructive" measure>
@@ -443,6 +445,11 @@ function RunDetail({
                       {stopped ? (
                         <Text as="li" size="xs" tone="muted" measure>
                           Stopped before it finished.
+                        </Text>
+                      ) : null}
+                      {failed ? (
+                        <Text as="li" size="xs" tone="muted" measure>
+                          {failed}
                         </Text>
                       ) : null}
                       {s?.stale.map((why) => (

@@ -245,6 +245,61 @@ describe('generateRun', () => {
     expect(finishedSamples(skill, name)).toEqual({ samples: [], unfinished: 1 })
   })
 
+  it('marks a sample that failed with no stop, a file left or none, and grading leaves it out', async () => {
+    const engine = engineThat((cwd, call) => {
+      if (call !== 3)
+        writeFileSync(join(cwd, 'outputs/note.md'), call === 1 ? 'A note.' : 'Half a no')
+      // 2: the time limit ends it; 3: signed out, nothing written; 4: it never began.
+      if (call === 2) return { ok: false, error: 'timed out after 60 s', ended: 'timeout' }
+      if (call === 3) return { ok: false, error: 'Not logged in · Please run /login' }
+      if (call === 4) return { ok: false, error: 'spawn claude ENOENT', ended: 'unstarted' }
+      // 5: it exits well but the session reports an error, as a refusal does.
+      if (call === 5) return { ok: true, error: 'error_during_execution' }
+      return null
+    })
+    const { name, dir, meta } = await generateRun(options(engine, 5))
+    expect(meta.samples.map((s) => [s.dir, s.ok, s.failed])).toEqual([
+      ['note-s1', true, undefined],
+      ['note-s2', true, 'ran out of time'],
+      ['note-s3', false, 'ended with an error'],
+      ['note-s4', true, 'could not start'],
+      ['note-s5', true, 'ended with an error'],
+    ])
+    expect(meta.samples[2].error).toBe('Not logged in · Please run /login')
+    // What the engine said is kept beside the sample, and run.json reads back the same.
+    expect(readJson(join(dir, 'note-s2/agent.json'), {})).toMatchObject({ ok: false })
+    expect(readRun(skill, name).samples.map((s) => s.cut)).toEqual([
+      undefined,
+      'failed',
+      'failed',
+      'failed',
+      'failed',
+    ])
+    expect(finishedSamples(skill, name)).toMatchObject({ unfinished: 4 })
+  })
+
+  it('records a sample whose making threw as failed, so it is not graded as a whole answer', async () => {
+    const engine = engineThat(() => {
+      throw new Error('EACCES: permission denied')
+    })
+    const { meta } = await generateRun(options(engine, 1))
+    expect(meta.samples).toEqual([
+      expect.objectContaining({ dir: 'note-s1', ok: false, failed: 'could not start' }),
+    ])
+  })
+
+  it('leaves a sample that ran to its end and wrote nothing as one that did not fail', async () => {
+    const { name, meta } = await generateRun(
+      options(
+        engineThat(() => {}),
+        1,
+      ),
+    )
+    expect(meta.samples).toEqual([expect.objectContaining({ ok: false })])
+    expect(meta.samples[0].failed).toBeUndefined()
+    expect(finishedSamples(skill, name)).toMatchObject({ unfinished: 0 })
+  })
+
   it('records no sample for an agent the process could not start, and grading leaves its folder out', async () => {
     const engine = engineThat((cwd, call) => {
       writeFileSync(join(cwd, 'outputs/note.md'), 'A note.')

@@ -96,12 +96,13 @@ export interface GradeRuns {
  */
 function unscored(t: CaseTry, ctx: Ctx): { word: string; says: string; opens: boolean } {
   const { jobs, state } = ctx
-  if (t.cut !== 'stopped' && writingRun(jobs, state.skill.path, t.run.name))
+  if ((t.cut === null || t.cut === 'unfinished') && writingRun(jobs, state.skill.path, t.run.name))
     return { word: 'Writing…', says: 'still being written', opens: false }
   if (!t.cut && gradingRun(jobs, state.skill.path, t.run.name))
     return { word: 'Grading…', says: 'being graded', opens: false }
   if (t.cut === 'stopped')
     return { word: 'Stopped', says: 'stopped before it finished', opens: true }
+  if (t.cut === 'failed') return { word: 'Failed', says: 'could not finish', opens: true }
   if (t.cut === 'unfinished') return { word: 'Not finished', says: 'not finished', opens: true }
   // Graded, and held to something else since: its output says what.
   if (t.outputs.some((o) => regradeOwed(scoreOf(o, ctx.config))))
@@ -111,13 +112,13 @@ function unscored(t: CaseTry, ctx: Ctx): { word: string; says: string; opens: bo
 
 /**
  * What a case with a score is waiting on: a newer run that has none yet. A
- * stopped run is the reader's own doing and waits on nothing, so it is left to
- * the case's list of runs.
+ * stopped run is the reader's own doing, and one that failed has nothing more
+ * to come: neither is waited on, so each is left to the case's list of runs.
  */
 function waitingOn(standing: CaseStand, ctx: Ctx): string | null {
   const { latest, tries } = standing
   const newer = latest ? tries.slice(tries.indexOf(latest) + 1) : tries
-  const next = newer.findLast((t) => t.score === null && t.cut !== 'stopped')
+  const next = newer.findLast((t) => t.score === null && t.cut !== 'stopped' && t.cut !== 'failed')
   if (!next) return null
   const { word } = unscored(next, ctx)
   return word.endsWith('…')
