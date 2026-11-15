@@ -79,7 +79,7 @@ The **Library** lists every skill on your computer.
 
 - **Open a skill:** click its name, or type in the search box to find it.
 - **In progress** holds the skills you are working on. **Mark done** moves one to **Other skills**.
-- **Claude, Cursor, Codex:** turn the skill on or off for that app. Turning it off never deletes it.
+- **Claude, Cursor, Codex:** turn the skill on or off for that app. Turning it off never deletes it. It turns off a link to the skill under any name.
 - **Folder icon:** shows the skill's files on your computer.
 
 **To make a new skill:**

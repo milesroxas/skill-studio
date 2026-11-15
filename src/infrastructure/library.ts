@@ -358,13 +358,30 @@ const skillReal = (path: string): string => {
 export const linkSkill = (path: string, agent: string, scope: string): string =>
   link(skillReal(path), agent, placeFor(scope))
 
-/** Remove an agent's link to this skill. A folder holding files is never removed. */
+/** The names in a folder; none when it cannot be read. */
+const namesIn = (dir: string): string[] => {
+  try {
+    return readdirSync(dir)
+  } catch {
+    return []
+  }
+}
+
+/**
+ * Remove an agent's links to this skill, whatever each is named: a link named
+ * other than the folder it leads to shows as installed, so it is uninstalled
+ * too. A folder holding files is never removed.
+ */
 export function unlinkSkill(path: string, agent: string, scope: string): void {
   const real = skillReal(path)
-  const target = join(placeFor(scope).root, agentDir(agent), basename(real))
-  if (!isLink(target) || realOf(target) !== real)
+  const dir = join(placeFor(scope).root, agentDir(agent))
+  const target = join(dir, basename(real))
+  const links = namesIn(dir)
+    .map((name) => join(dir, name))
+    .filter((entry) => isLink(entry) && realOf(entry) === real)
+  if (!links.length)
     throw new Error(`${tilde(target)} is not a link to this skill, so it is left alone.`)
-  unlinkSync(target)
+  for (const entry of links) unlinkSync(entry)
 }
 
 /**

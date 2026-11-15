@@ -269,6 +269,18 @@ describe('linkSkill and unlinkSkill', () => {
     symlinkSync(join(project, '.agents/skills/notes'), join(project, '.cursor/skills/notes'))
     expect(() => unlinkSkill(path, 'cursor', project)).toThrow('left alone')
   })
+
+  it('uninstalls a link named other than the folder it leads to', () => {
+    writeSkill(join(home, '.agents/skills/notes'), 'notes')
+    mkdirSync(join(home, '.claude/skills'), { recursive: true })
+    symlinkSync(join(home, '.agents/skills/notes'), join(home, '.claude/skills/my-notes'))
+    const { path, installs } = rowOf('notes')
+    expect(installs.claude).toBe('link')
+    unlinkSkill(path, 'claude', 'user')
+    expect(rowOf('notes').installs.claude).toBeNull()
+    expect(existsSync(join(home, '.claude/skills/my-notes'))).toBe(false)
+    expect(existsSync(join(home, '.agents/skills/notes/SKILL.md'))).toBe(true)
+  })
 })
 
 describe('settings', () => {
