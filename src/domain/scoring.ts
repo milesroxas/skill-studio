@@ -1,4 +1,5 @@
 import { BASE_PACK } from './config.ts'
+import { sameFingerprint } from './fingerprint.ts'
 import {
   type Corrections,
   NO_CORRECTIONS,
@@ -71,7 +72,7 @@ export function behindOf(
   if (
     now.yardstick !== null &&
     graded.yardstick !== undefined &&
-    graded.yardstick !== now.yardstick
+    !sameFingerprint(graded.yardstick, now.yardstick)
   )
     return 'Graded before its case changed'
   const was = graded.graded

@@ -36,14 +36,16 @@ This page uses the words of the files. A **pack** is a set of judge questions fo
 
 ### The case a run is graded on
 
-A run keeps its cases as it starts, in `_cases.json`, each with a fingerprint of what the agents were asked: the prompt, and each input file by name and bytes (`askOf` in `src/infrastructure/run-cases.ts`). Grading reads the case through `takenCase` there:
+A run keeps its cases as it starts, in `_cases.json`, each with a fingerprint of what the agents were asked: the prompt, each input file by name and bytes, the tools the case allows (`allowed_tools`, in any order) and its time limit (`timeout_seconds`) (`askOf` in `src/infrastructure/run-cases.ts`). Grading reads the case through `takenCase` there:
 
 - While the skill's case asks what the run was asked, the output is graded on the skill's case, so its checks and settings are read as they are now. A check added since the run is marked on the next grading.
 - Once the case's prompt or files have changed, or the case is gone, the output is graded on the run's own copy, whole: the prompt its agent got and the checks of then. An output is never held to a request its agent did not get, and an id used again for another case is another case.
 - A run made before runs kept their cases is graded on the cases as they are now.
 - `bench.json` is how every run is scored, so it is read as it is now for every run.
 
-Each graded output keeps a fingerprint of what it was held to, `yardstick` in `report.json`: its case's checks, each by its words, its weight and the bytes of its picture, and the case's settings (`yardstickOf`). The names of the check files and their order are no part of it.
+Each graded output keeps a fingerprint of what it was held to, `yardstick` in `report.json`: its case's checks, each by its words, its weight and the bytes of its picture, the case's `bench` settings, and the turns and the time the workflow pack holds a run to (`max_turns`, `timeout_seconds`) (`yardstickOf`). The names of the check files and their order are no part of it.
+
+Each fingerprint is two parts with a colon between them, the run settings second. One written by Skill Studio 0.14.0 or earlier holds the first part alone, and is compared with the first part only (`sameFingerprint` in `src/domain/fingerprint.ts`): for such a run or grading, a change to the settings is not seen.
 
 It also keeps what graded it, `graded` in `report.json`: the Jev model asked (null without Jev), the version of the questions of each pack that judged it (`packs`), and, for an output with a page or a picture for Jev to look at, whether the host drew it (`drawn`: the desktop app does, `st grade` and `st serve` do not).
 

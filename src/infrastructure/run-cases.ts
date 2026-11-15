@@ -15,6 +15,7 @@ import { createHash } from 'node:crypto'
 import { readFileSync, statSync } from 'node:fs'
 import { join } from 'node:path'
 import { checkWeight } from '@domain/case-draft.ts'
+import { fingerprint, sameFingerprint } from '@domain/fingerprint.ts'
 import type { Case, CaseSettings, Grader } from '@domain/schemas.ts'
 import type { RunCase } from '@domain/views.ts'
 import { caseBench } from './cases.ts'
@@ -71,10 +72,17 @@ const canonical = (value: unknown): string =>
 
 /**
  * A fingerprint of what a case asks an agent: its prompt, and each input file
- * by name and bytes. A file of the case's own `files/` folder goes by its path
- * inside it, so moving the case's folder asks nothing new.
+ * by name and bytes, then the tools it may use and how long it may take. A
+ * file of the case's own `files/` folder goes by its path inside it, so moving
+ * the case's folder asks nothing new. A run made before the settings were part
+ * of it kept the first part alone (`sameFingerprint`).
  */
-export function askOf(skillDir: string, testCase: Pick<Case, 'prompt' | 'files' | 'dir'>): string {
+export function askOf(
+  skillDir: string,
+  testCase: Pick<Case, 'prompt' | 'files' | 'dir'> & {
+    settings: Pick<CaseSettings, 'allowedTools' | 'timeoutSeconds'>
+  },
+): string {
   const own = testCase.dir ? `${testCase.dir}/files/` : null
   const files = testCase.files
     .map((rel) => [
@@ -82,16 +90,32 @@ export function askOf(skillDir: string, testCase: Pick<Case, 'prompt' | 'files' 
       fileHash(skillDir, join(skillDir, rel)),
     ])
     .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
-  return sha(JSON.stringify([testCase.prompt.trim(), files]))
+  const tools = testCase.settings.allowedTools
+  return fingerprint(
+    sha(JSON.stringify([testCase.prompt.trim(), files])),
+    sha(
+      canonical({
+        allowedTools: tools ? [...tools].sort() : null,
+        timeoutSeconds: testCase.settings.timeoutSeconds,
+      }),
+    ),
+  )
 }
 
 /**
  * A fingerprint of what a case holds an output to: each check by its words,
  * its weight and the bytes of its picture, and the case's settings (its
- * length, its size, the file to grade, its check command). The order of the
- * checks and the names of their files are no part of it.
+ * length, its size, the file to grade, its check command), then the turns and
+ * the time the workflow pack holds a run to. The order of the checks and the
+ * names of their files are no part of it. A grading made before the turns and
+ * the time were part of it kept the first part alone (`sameFingerprint`).
  */
-export function yardstickOf(skillDir: string, testCase: Pick<Case, 'graders' | 'bench'>): string {
+export function yardstickOf(
+  skillDir: string,
+  testCase: Pick<Case, 'graders' | 'bench'> & {
+    settings: Pick<CaseSettings, 'maxTurns' | 'timeoutSeconds'>
+  },
+): string {
   const checks = testCase.graders
     .map((grader) =>
       JSON.stringify([
@@ -101,7 +125,15 @@ export function yardstickOf(skillDir: string, testCase: Pick<Case, 'graders' | '
       ]),
     )
     .sort()
-  return sha(canonical([checks, testCase.bench]))
+  return fingerprint(
+    sha(canonical([checks, testCase.bench])),
+    sha(
+      canonical({
+        maxTurns: testCase.settings.maxTurns,
+        timeoutSeconds: testCase.settings.timeoutSeconds,
+      }),
+    ),
+  )
 }
 
 const strings = (value: unknown): string[] =>
@@ -217,7 +249,7 @@ export function takenCase(
   live: Case | null,
 ): TakenCase | null {
   const asked = live ? askOf(skillDir, live) : null
-  if (live && asked !== null && (!kept || kept.ask === asked))
+  if (live && asked !== null && (!kept || sameFingerprint(kept.ask, asked)))
     return { case: live, ask: asked, yardstick: yardstickOf(skillDir, live), earlier: null }
   if (!kept) return null
   return {

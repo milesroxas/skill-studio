@@ -75,6 +75,44 @@ describe('askOf', () => {
   })
 })
 
+describe('askOf and yardstickOf, on a case’s run settings', () => {
+  const settle = (front: string) =>
+    writeFileSync(join(caseDir('email'), 'prompt.md'), `---\n${front}\n---\nWrite the email.\n`)
+
+  it('ask again when the tools or the time change, and hold again when the turns or the time do', () => {
+    const asked = askOf(dir, email())
+    const held = yardstickOf(dir, email())
+    settle('allowed_tools: [Read, Write]')
+    expect(askOf(dir, email())).not.toBe(asked)
+    expect(yardstickOf(dir, email())).toBe(held)
+    // The order the tools are listed in is no part of it.
+    const tools = askOf(dir, email())
+    settle('allowed_tools: [Write, Read]')
+    expect(askOf(dir, email())).toBe(tools)
+
+    settle('max_turns: 5')
+    expect(askOf(dir, email())).toBe(asked)
+    expect(yardstickOf(dir, email())).not.toBe(held)
+    settle('timeout_seconds: 60')
+    expect(askOf(dir, email())).not.toBe(asked)
+    expect(yardstickOf(dir, email())).not.toBe(held)
+  })
+
+  it('read a fingerprint kept before the settings were part of it by the part it has', () => {
+    keepCases(dir, run, loadCases(dir))
+    const [kept] = keptCases(run) ?? []
+    const before = { ...kept, ask: kept.ask.split(':')[0] }
+    expect(takenCase(dir, before, email())?.earlier).toBeNull()
+    expect(takenCase(dir, before, email())?.ask).toBe(askOf(dir, email()))
+    // A run that kept the whole fingerprint is read on the settings too.
+    settle('allowed_tools: [Read]')
+    expect(takenCase(dir, kept, email())?.earlier).not.toBeNull()
+    expect(takenCase(dir, before, email())?.earlier).toBeNull()
+    writeCase('email', 'Write a letter.')
+    expect(takenCase(dir, before, email())?.earlier).not.toBeNull()
+  })
+})
+
 describe('yardstickOf', () => {
   it('changes with a check’s words or weight and with the case’s settings, not with the prompt', () => {
     writeCheck('email', '01-short', 'It is under 50 words.')

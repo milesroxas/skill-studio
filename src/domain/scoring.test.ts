@@ -309,6 +309,18 @@ describe('a grading that is behind', () => {
     expect(behindOf({ yardstick: 'a', model: 'jev' }, now)).toBe('Graded before its case changed')
   })
 
+  it('reads a fingerprint kept before its second part was added by its first part', () => {
+    const now = { yardstick: 'checks:turns', jev: true }
+    expect(behindOf({ yardstick: 'checks', model: 'jev' }, now)).toBeNull()
+    expect(behindOf({ yardstick: 'checks:turns', model: 'jev' }, now)).toBeNull()
+    expect(behindOf({ yardstick: 'checks:fewer', model: 'jev' }, now)).toBe(
+      'Graded before its case changed',
+    )
+    expect(behindOf({ yardstick: 'other', model: 'jev' }, now)).toBe(
+      'Graded before its case changed',
+    )
+  })
+
   it('is not one that kept no record of what it was held to, nor one whose case is unknown', () => {
     expect(behindOf({ model: 'jev' }, { yardstick: 'b', jev: true })).toBeNull()
     expect(behindOf({ yardstick: 'a', model: 'jev' }, { yardstick: null, jev: true })).toBeNull()
