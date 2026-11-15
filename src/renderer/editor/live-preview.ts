@@ -163,7 +163,9 @@ function decorate(view: EditorView): DecorationSet {
           const item = node.node.parent
           const task = item?.getChild('Task')
           if (item?.parent?.name !== 'BulletList') {
-            out.push(mark('cm-md-number').range(from, to))
+            // A numbered step graded as a rule shows the rule's number in place of its own.
+            const graded = touches(from, to + 1) ? null : ruleBulletAt(state, doc.lineAt(from).from)
+            out.push(graded ? graded.range(from, to) : mark('cm-md-number').range(from, to))
             return
           }
           if (touches(from, to + 1)) return

@@ -45,6 +45,10 @@ interface Graded {
 const SKIPPED: Record<SkippedBullet['reason'], string> = {
   short: 'Not checked: under four words. A rule is a top-level bullet of four words or more.',
   link: 'Not checked: a link only. Say what to do with it in the same bullet.',
+  pointer:
+    'Not checked: it only says to read a file. Say what to do with what it says in the same bullet.',
+  example:
+    'Not checked: it stands under a heading for examples, so it shows a rule but is not one.',
   repeat: 'Not checked: the same as a rule above. A rule written twice counts once.',
 }
 

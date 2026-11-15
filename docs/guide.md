@@ -98,7 +98,7 @@ The **Library** lists every skill on your computer.
 
 Write the skill in the editor, then click **Save** (Cmd+S). Your unsaved text is kept even if you close the app.
 
-- **Rules are bullets.** Each bullet of four words or more gets a number, such as 01, and Jev grades it. A bullet that keeps its dot is not graded: point at it to see why.
+- **Rules are bullets.** Each bullet of four words or more gets a number, such as 01, and Jev grades it. A bullet that keeps its dot is not graded: point at it to see why. A skill written only as numbered steps has its steps graded instead.
 - **An amber number** means the rule could be clearer. Click it to see why and to get help.
 - **Insert**, on the left, adds a ready-made rule, decision tree, step list or link.
 - **The five bars** in the toolbar show how long the file is. Amber means getting long, red means too long.
@@ -243,7 +243,7 @@ Two versions only a few points apart may not really differ. Run with two or more
 | An agent says "not set up" in the Run panel | Install that agent and sign in to it |
 | A skill is missing from the Library | Choose **Every place**, or add its folder under **Where skills are found** |
 | The agent says it cannot find a file | Add the file to the case under **Files** |
-| A bullet gets no number | Make it four words or more, not part of a numbered list, and not the same as a bullet above it |
+| A bullet gets no number | Make it four words or more, not only a pointer to a file, not under an example heading, and not the same as a bullet above it |
 | A score looks wrong | Read the transcript, then mark the rule or check Jev got wrong |
 | An answer says it could not finish | Read the reason under it, such as a sign-in or a usage limit, fix that, and run the case again |
 | Results shows one answer, not two | Change the skill and run again, so there are two versions to compare |

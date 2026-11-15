@@ -384,6 +384,26 @@ describe('a grading that is behind', () => {
   })
 })
 
+describe('an output with nothing to count', () => {
+  it('has no total, owes no grading, and says the skill has no rules and the case no checks', () => {
+    const scored = scoreResult(result({}), config(), scorers)
+    expect(scored.scores.total).toBeNull()
+    expect(scored.regrade).toEqual([])
+    expect(scored.stale).toEqual(['The skill has no rules and the case has no checks'])
+  })
+
+  it('says none could be counted when every rule it was graded on was set aside', () => {
+    const scored = scoreResult(result({ rules: { layers: {} } }), config(), scorers)
+    expect(scored.scores.total).toBeNull()
+    expect(scored.stale).toEqual(['None of its rules or checks could be counted'])
+  })
+
+  it('says nothing of a total that stands', () => {
+    const scored = scoreResult(result({ rules: { layers: { adherence: 1 } } }), config(), scorers)
+    expect(scored.stale).toEqual([])
+  })
+})
+
 describe('packFailure', () => {
   it('reads the pack and the reason from the flag a failed pack leaves, and from no other flag', () => {
     expect(packFailure('generic pack failed: no network')).toEqual({

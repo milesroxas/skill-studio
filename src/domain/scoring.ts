@@ -30,9 +30,11 @@ export interface Scored {
    */
   regrade: string[]
   /**
-   * Those of `regrade` that are no failure: the grading is whole, and is of
-   * something other than what the output is held to now. A failure is listed
-   * among the verdicts; these are said beside the score they withhold.
+   * Why a graded output has no total that is no failure, each said beside the
+   * score it withholds: those of `regrade` whose grading is whole and is of
+   * something other than what the output is held to now, and, when the
+   * grading is whole and current, that it found nothing to count. A failure is
+   * listed among the verdicts.
    */
   stale: string[]
 }
@@ -239,15 +241,24 @@ export function scoreResult(
   }
   const owed = empty || unread ? [] : [...failures, ...stale.map((s) => s.text)]
   const total = empty ? 0 : unread || owed.length ? null : totalOf(raw, config)
+  // A whole grading with nothing to count: grading again would find the same. A file Jev cannot read says so itself.
+  const unscored =
+    !empty && !unread && !owed.length && total === null ? [nothingCounted(verdicts)] : []
   return {
     scores: scoresOf(raw, total),
     flags,
     verdicts,
     confidence: mean(certainties),
     regrade: owed,
-    stale: stale.map((s) => s.text),
+    stale: [...stale.map((s) => s.text), ...unscored],
   }
 }
+
+/** Why a whole grading left no total: nothing to mark, or nothing marked that counts. */
+const nothingCounted = (verdicts: Verdict[]): string =>
+  verdicts.some((v) => v.kind === 'rule' || v.kind === 'check')
+    ? 'None of its rules or checks could be counted'
+    : 'The skill has no rules and the case has no checks'
 
 /** The total out of 100: the layers with points, weighted by them; null when none of those was scored. */
 function totalOf(shares: Record<string, number | null>, config: BenchConfig): number | null {

@@ -24,7 +24,7 @@ Everything Skill Studio knows about a skill is plain files in the skill's `evals
     runs/                         one directory per run, below
 ```
 
-- A rule is a top-level bullet of `SKILL.md`; indented lines under it join it as a clause. A bullet under four words, or made only of a link, is not a rule ([grading.md](grading.md#rules)).
+- A rule is a top-level bullet of `SKILL.md`; indented lines under it join it as a clause. A bullet under four words, made only of a link, only saying to read a file, or under an example heading is not a rule. A skill with no bullet that is a rule has its numbered steps read as rules ([grading.md](grading.md#rules)).
 - A name the app is given for a file, such as a reference to save or an output to open, may hold spaces and letters of any alphabet, but not `<`, `>`, `:`, `"`, `|`, `?`, `*` or a backslash, and on Windows not a device name (`con`, `nul.md`, `com1`) or a final dot or space.
 - The app saves a text file by writing a hidden `.<name>.<pid>.tmp` beside it and renaming that over the file, so a crash leaves the old file whole; a leftover one can be deleted. A file that is a link to another file in the skill stays a link, and the file it leads to is written.
 - Any folder directly under `evals/` is read as a case too, except `runs`, `anchors`, `files`, `results`, `mocks`, `cases`, `node_modules`, `reviews` and `benchmarks`. When a folder under `evals/cases/` has the same id, that one is read.

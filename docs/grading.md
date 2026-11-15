@@ -136,7 +136,10 @@ A run is graded on the rules of the skill it ran: the bullets are read from the 
 - A thematic break (`* * *`, `- - -`) is not a bullet.
 - A comment opens on a line that starts with `<!--` and runs to the line that holds `-->`. Nothing in it is read.
 - A bullet under four words, made only of a link, or the same as a rule above it is not a rule, and the editor says so. A rule written twice counts once.
-- Numbered lists are never rules, and neither is a bullet indented under a numbered step.
+- A bullet under a heading that marks examples ("Example", "Examples", "Bad example", "Good and bad examples"), or under a heading inside one, is not a rule, and the editor says so.
+- A bullet whose one sentence only says to read a file ("Read references/forms.md before you start") is not a rule, and the editor says so. One that also says what to do, with a second clause or a word such as never, must or only, is a rule.
+- When no bullet is a rule, the numbered steps are read as bullets, by the same tests, and a bullet indented under a step joins it as a clause. A skill with a rule among its bullets has no numbered step graded, and no bullet indented under one.
+- Rules are read from `SKILL.md` alone. A rule written in a reference file is not graded.
 
 ## Packs
 
@@ -147,7 +150,7 @@ A run is graded on the rules of the skill it ran: the bullets are read from the 
 | `workflow` | the transcript | efficiency 40, scope 20, process 40 | `workflow.maxRetries`, `workflow.summaryLines` |
 | `design` | HTML or an image | visual 30 (Jev, looking at the output as a picture) | |
 
-Within a layer, an answer at or above `yes` counts as met and one at or below `no` as missed (`readingOf` in `src/domain/verdict.ts`). An answer between the two is **not sure**: Jev holds a yes about as likely as a no, so it is set aside and counts in no layer until the reader answers it. Adherence is the share met of the rules that count. Rubric is the share met of the checks that count, each by its weight. A layer whose every fact was set aside has no score, and is left out of the total like any null layer.
+Within a layer, an answer at or above `yes` counts as met and one at or below `no` as missed (`readingOf` in `src/domain/verdict.ts`). An answer between the two is **not sure**: Jev holds a yes about as likely as a no, so it is set aside and counts in no layer until the reader answers it. Adherence is the share met of the rules that count. Rubric is the share met of the checks that count, each by its weight. A layer whose every fact was set aside has no score, and is left out of the total like any null layer. An output with no layer to count has no total, and Results says why beside it: the skill has no rules and the case has no checks, or none of them could be counted (`scoreResult`).
 
 - The two defaults are where TypeSafe's docs say to start, and the editor reads Jev by the same two (`HOLDS`, `DRIFTS` in `src/domain/improve.ts`).
 - A fact set aside leaves a flag, so `st grade` and `st report` print it: `rule not counted, Jev was not sure (<section>): ...` or `grader <id> not counted, Jev was not sure: ...`.

@@ -4,6 +4,7 @@ import {
   fenceOf,
   LIST_MARK,
   normalizeNewlines,
+  sentencesOf,
   stripFrontMatter,
 } from './text.ts'
 
@@ -36,8 +37,12 @@ export const plain = (markdown: string): string =>
 export interface SkippedBullet {
   /** 1-based line in the file, front matter included. */
   line: number
-  /** `short`: under four words. `link`: nothing but a link. `repeat`: says what a rule above it says. */
-  reason: 'short' | 'link' | 'repeat'
+  /**
+   * `short`: under four words. `link`: nothing but a link. `pointer`: only says
+   * to read a file. `example`: stands under a heading that marks examples.
+   * `repeat`: says what a rule above it says.
+   */
+  reason: 'short' | 'link' | 'pointer' | 'example' | 'repeat'
 }
 
 /** The lines one rule takes: its bullet and the indented lines that belong to it. 1-based, inclusive. */
@@ -57,6 +62,27 @@ export interface RuleScan {
 /** Words in a rule's text, by the same count the judge uses. */
 const WORDS_MIN = 4
 const LINK_ONLY = /^\[[^\]]+\]\([^)]*\)$/
+/** A heading over examples: "Example", "Examples", "Bad example", "Good and bad examples". */
+const EXAMPLE_HEADING =
+  /^(?:(?:good|bad|wrong|right|correct|incorrect|sample|more|some|and|or|&|\/)\s*)*examples?\b/i
+/** A bullet that sends the agent to read something, an "If ..., " or "When ..., " before it allowed. */
+const POINTER_VERB =
+  /^(?:(?:if|when|for|before|after)\b[^,]*,\s*)?(?:first,?\s+)?(?:read|see|open|load|consult|refer to|look at|look in)\b/i
+/** A file named in a bullet: a link's target, a path, or a name with a file's extension. */
+const FILE_REF =
+  /\]\([^)]+\)|[\w.-]+\/[\w./-]*\w|\b[\w-]+\.(?:md|mdx|txt|json|ya?ml|toml|csv|py|ts|tsx|js|jsx|sh|html|css)\b/i
+/** What makes a pointer a rule as well: a second clause, or a word that bounds what to do. */
+const MORE_THAN_POINTER = /;|\b(?:never|don't|do not|must|only)\b/i
+
+/** A bullet whose one sentence only says to read a file: there is nothing in the output to mark. */
+function pointsOnly(raw: string, text: string): boolean {
+  return (
+    POINTER_VERB.test(text) &&
+    FILE_REF.test(raw) &&
+    !MORE_THAN_POINTER.test(text) &&
+    sentencesOf(text).length === 1
+  )
+}
 
 /** One top-level bullet as it stands in the text: its own line and the indented lines under it. */
 export interface Bullet {
@@ -67,12 +93,16 @@ export interface Bullet {
   lines: string[]
   /** The nearest heading above it; null before any heading. */
   section: string | null
+  /** Every heading it stands under, the outermost first. */
+  headings: string[]
 }
 
 /** A bullet at the margin, which Markdown takes to reach three spaces in: `-` or `*`, then its text. */
 const BULLET = /^ {0,3}[-*]\s+(.+)$/
 /** A thematic break, `* * *` or `- - -`: it starts like a bullet and is none. */
 const THEMATIC_BREAK = /^ {0,3}([-*_])(?:[ \t]*\1){2,}[ \t]*$/
+/** A numbered step at the margin: `1.` or `1)`, then its text. */
+const STEP = /^ {0,3}\d+[.)]\s+(.+)$/
 /** Any list item, a numbered step and a `+` item among them, with what leads it. */
 const ITEM = new RegExp(`^ {0,3}${LIST_MARK}\\s`)
 const NESTED = new RegExp(`^\\s+${LIST_MARK}\\s+(.+)$`)
@@ -102,10 +132,15 @@ function indentOf(line: string): number {
  * only on its own character, at least as long, so a ``` inside a ~~~ block is
  * text. A comment opens on a line that starts with `<!--` and runs to the
  * line that holds its `-->`; nothing in it is read.
+ *
+ * With `steps`, a numbered step at the margin is read as a bullet too, and the
+ * bullets indented under it are its clauses.
  */
-export function bulletsOf(lines: readonly string[]): Bullet[] {
+export function bulletsOf(lines: readonly string[], { steps = false } = {}): Bullet[] {
   const bullets: Bullet[] = []
   let section: string | null = null
+  /** The headings over the line being read, each with its level. */
+  let trail: Array<{ level: number; text: string }> = []
   let fence: Fence | null = null
   let comment = false
   let open: Bullet | null = null
@@ -147,10 +182,12 @@ export function bulletsOf(lines: readonly string[]): Bullet[] {
       }
       return
     }
-    const heading = /^#{1,6}\s+(.+)$/.exec(line)
+    const heading = /^(#{1,6})\s+(.+)$/.exec(line)
     if (heading) {
       open = null
-      section = heading[1].trim()
+      section = heading[2].trim()
+      const level = heading[1].length
+      trail = [...trail.filter((h) => h.level < level), { level, text: section }]
       return
     }
     if (THEMATIC_BREAK.test(line)) {
@@ -158,7 +195,10 @@ export function bulletsOf(lines: readonly string[]): Bullet[] {
       return
     }
     if (ITEM.test(line)) inside = indent + ITEM_DEPTH
-    open = BULLET.test(line) ? { from: i, to: i, lines: [line], section } : null
+    const item = BULLET.test(line) || (steps && STEP.test(line))
+    open = item
+      ? { from: i, to: i, lines: [line], section, headings: trail.map((h) => h.text) }
+      : null
     if (open) bullets.push(open)
   })
   return bullets
@@ -166,7 +206,7 @@ export function bulletsOf(lines: readonly string[]): Bullet[] {
 
 /** A bullet as one line of text: a nested bullet joins after a `;` unless the text before it already ends in punctuation. */
 function bulletText(bullet: Bullet): string {
-  let text = BULLET.exec(bullet.lines[0])?.[1] ?? ''
+  let text = (BULLET.exec(bullet.lines[0]) ?? STEP.exec(bullet.lines[0]))?.[1] ?? ''
   for (const line of bullet.lines.slice(1)) {
     const nested = NESTED.exec(line)
     if (nested) text += `${/[.,;:!?]$/.test(text.trim()) ? '' : ';'} ${nested[1].trim()}`
@@ -180,11 +220,21 @@ function bulletText(bullet: Bullet): string {
  * matter, each tagged with the section it sits under. Indented lines belong to
  * the bullet above: a nested bullet is a clause of its parent rule, joined
  * after a `;` unless the text before it already ends in punctuation. Bullets
- * that are only a link, shorter than four words, or the same as a rule above
- * are skipped, and reported: a rule written twice counts once, as in a
- * `rules` list in bench.json, which replaces all of this.
+ * under a heading that marks examples, that are only a link, shorter than four
+ * words, only a pointer to a file to read, or the same as a rule above are
+ * skipped, and reported: a rule written twice counts once, as in a `rules`
+ * list in bench.json, which replaces all of this.
+ *
+ * A skill none of whose bullets is a rule, such as one written as numbered
+ * steps, is read once more with its numbered steps as bullets, by the same
+ * tests. A skill with a rule among its bullets keeps its steps out of grading.
  */
 export function scanRules(skillMd: string): RuleScan {
+  const first = scanOnce(skillMd, false)
+  return first.rules.length ? first : scanOnce(skillMd, true)
+}
+
+function scanOnce(skillMd: string, steps: boolean): RuleScan {
   // Measured on the text as `stripFrontMatter` reads it, so a `\r` it drops does not shift a line.
   const source = normalizeNewlines(skillMd)
   const body = stripFrontMatter(source)
@@ -193,8 +243,12 @@ export function scanRules(skillMd: string): RuleScan {
   const rules: Rule[] = []
   const spans: RuleSpan[] = []
   const skipped: SkippedBullet[] = []
-  for (const bullet of bulletsOf(body.split('\n'))) {
+  for (const bullet of bulletsOf(body.split('\n'), { steps })) {
     const line = offset + bullet.from + 1
+    if (bullet.headings.some((heading) => EXAMPLE_HEADING.test(plain(heading)))) {
+      skipped.push({ line, reason: 'example' })
+      continue
+    }
     const raw = bulletText(bullet)
     // Read the link before `plain` turns it into its label.
     if (LINK_ONLY.test(raw.trim())) {
@@ -204,6 +258,10 @@ export function scanRules(skillMd: string): RuleScan {
     const text = plain(raw)
     if (text.split(' ').length < WORDS_MIN) {
       skipped.push({ line, reason: 'short' })
+      continue
+    }
+    if (pointsOnly(raw, text)) {
+      skipped.push({ line, reason: 'pointer' })
       continue
     }
     if (rules.some((rule) => rule.text === text)) {

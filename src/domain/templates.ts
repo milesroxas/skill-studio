@@ -53,7 +53,7 @@ export const kase = (
 
 /** The shape of a graded rule, in one line: the templates say it, and so does the assistant. */
 export const RULE_SHAPE =
-  'one rule per top-level bullet, numeric or absolute, with its why in the same bullet. Every top-level bullet of four words or more is graded. Steps and checklists go in numbered lists, which are not graded.'
+  'one rule per top-level bullet, numeric or absolute, with its why in the same bullet. Every top-level bullet of four words or more is graded, except under an example heading. Steps and checklists go in numbered lists, which are not graded while a bullet is a rule.'
 
 const GUIDE = `<!-- Replace the example rules with yours and keep the shape: ${RULE_SHAPE} -->`
 

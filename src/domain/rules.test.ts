@@ -276,8 +276,85 @@ describe('what is and is not a bullet', () => {
       '~~~',
     ]
     expect(bulletsOf(lines)).toEqual([
-      { from: 1, to: 2, lines: ['- one', '  more'], section: null },
-      { from: 5, to: 5, lines: ['* two'], section: 'Next' },
+      { from: 1, to: 2, lines: ['- one', '  more'], section: null, headings: [] },
+      { from: 5, to: 5, lines: ['* two'], section: 'Next', headings: ['Next'] },
+    ])
+  })
+
+  it('skips a bullet under an example heading, and under a heading inside one', () => {
+    const md = [
+      '## Rules',
+      '- Always lead with the answer.',
+      '## Bad example',
+      '- Maybe consider leading with the answer.',
+      '## Examples',
+      '### Wrong',
+      '- Write a long preamble before the answer.',
+      '## Formatting',
+      '- Keep every line under eighty characters.',
+    ].join('\n')
+    const scan = scanRules(md)
+    expect(scan.rules.map((r) => r.text)).toEqual([
+      'Always lead with the answer.',
+      'Keep every line under eighty characters.',
+    ])
+    expect(scan.skipped).toEqual([
+      { line: 4, reason: 'example' },
+      { line: 7, reason: 'example' },
+    ])
+  })
+
+  it('skips a bullet that only says to read a file, and keeps one that says more', () => {
+    const scan = scanRules(
+      [
+        '- Read references/forms.md before you start.',
+        '- When the task has a form, see [the form guide](references/forms.md).',
+        '- Read the code you are about to change first.',
+        '- Read references/api.md and never call an endpoint it does not list.',
+      ].join('\n'),
+    )
+    expect(scan.rules.map((r) => r.text)).toEqual([
+      'Read the code you are about to change first.',
+      'Read references/api.md and never call an endpoint it does not list.',
+    ])
+    expect(scan.skipped).toEqual([
+      { line: 1, reason: 'pointer' },
+      { line: 2, reason: 'pointer' },
+    ])
+  })
+
+  it('reads the numbered steps of a skill with no bullet rules, by the same tests', () => {
+    const md = [
+      '# Release notes',
+      '',
+      'Write the notes for a release.',
+      '',
+      '1. Read the merged pull requests since the last tag.',
+      '   - and the issues they close',
+      '2. Group them.',
+      '3. Lead each group with the change a user notices first.',
+      '',
+      '- [Style](style.md)',
+    ].join('\n')
+    const scan = scanRules(md)
+    expect(scan.rules.map((r) => r.text)).toEqual([
+      'Read the merged pull requests since the last tag. and the issues they close',
+      'Lead each group with the change a user notices first.',
+    ])
+    expect(scan.spans).toEqual([
+      { from: 5, to: 6 },
+      { from: 8, to: 8 },
+    ])
+    expect(scan.skipped).toEqual([
+      { line: 7, reason: 'short' },
+      { line: 10, reason: 'link' },
+    ])
+  })
+
+  it('keeps every rule a skill with bullets has, and its steps out', () => {
+    const md = '1. Read the request before anything else.\n\n- Always lead with the answer.\n'
+    expect(scanRules(md).rules.map((r) => [r.id, r.text])).toEqual([
+      ['r1', 'Always lead with the answer.'],
     ])
   })
 })
