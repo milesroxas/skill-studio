@@ -65,7 +65,7 @@ import type { Ctx } from '../ctx.ts'
 import { lineDiff } from '../diff.ts'
 import { useAction } from '../hooks.ts'
 import { shortcut } from '../keys.ts'
-import { capital, shortDate, versionScore } from '../model.ts'
+import { capital, shortDate, versionReading } from '../model.ts'
 import { useArrivals } from '../motion.ts'
 import { editorFile } from '../route.ts'
 
@@ -134,7 +134,7 @@ export const Editor = memo(function Editor({ ctx }: { ctx: Ctx }) {
   const scores = useMemo(
     () =>
       new Map(
-        state.versions.versions.map((v) => [v.version, versionScore(outputs, config, v.version)]),
+        state.versions.versions.map((v) => [v.version, versionReading(outputs, config, v.version)]),
       ),
     [state.versions.versions, outputs, config],
   )
@@ -330,7 +330,7 @@ export const Editor = memo(function Editor({ ctx }: { ctx: Ctx }) {
   const { current, versions } = state.versions
   const newest = versions.at(-1)
   const versionRow = (v: (typeof versions)[number]) => {
-    const score = scores.get(v.version) ?? null
+    const { score, why } = scores.get(v.version) ?? { score: null, why: 'not run yet' }
     return (
       <li key={v.version}>
         <NavButton
@@ -348,7 +348,7 @@ export const Editor = memo(function Editor({ ctx }: { ctx: Ctx }) {
               [
                 v.date ? shortDate(v.date) : null,
                 // The score is the chip at the row's end; without one, the line says why.
-                score === null ? 'not run yet' : null,
+                why,
                 // The newest is the files unless they changed; a restored one says so.
                 v !== newest && !current.changed && v.version === current.version
                   ? 'in the files now'

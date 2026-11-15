@@ -417,22 +417,40 @@ export const versionOutputs = (outputs: Output[], version: string): Output[] =>
     return test.version === version && testedVersion(test)
   })
 
+/** What the versions list, a version's page and the sidebar read of a version: its score, else why it has none. */
+export type VersionReading = { score: number; why: null } | { score: null; why: string }
+
 /**
- * A version's score under `config`, counted as `scoreOver` counts. Where the
- * writer that ran two versions ran this one, only that writer's outputs
- * count, so one version's score is read against the next. Null when none is graded.
+ * A version's score under `config`, counted as `scoreOver` counts. Once one
+ * writer ran two versions (`versionWriter`), every version is read by that
+ * writer's outputs alone, so one version's score is read against the next: a
+ * version it never ran has no score, and says which writer to run it with.
+ * Before that, a version counts all its outputs.
  */
-export function versionScore(
+export function versionReading(
   outputs: Output[],
   config: BenchConfig,
   version: string,
-): number | null {
+): VersionReading {
   const mine = versionOutputs(outputs, version)
+  if (!mine.length) return { score: null, why: 'not run yet' }
   const runs = [...new Map(outputs.map((o) => [o.run.name, o.run])).values()]
   const writer = versionWriter(versionRuns(runs, outputs, config))
-  const pinned = writer ? mine.filter((o) => writerKey(o.run.meta?.writer) === writer) : []
-  return scoreOver(pinned.length ? pinned : mine, config)
+  const read = writer ? mine.filter((o) => writerKey(o.run.meta?.writer) === writer) : mine
+  if (!read.length) {
+    const by = outputs.find((o) => writerKey(o.run.meta?.writer) === writer)
+    return { score: null, why: `not run with ${writerName(by?.run.meta?.writer)}` }
+  }
+  const score = scoreOver(read, config)
+  return score === null ? { score: null, why: 'no score yet' } : { score, why: null }
 }
+
+/** A version's score, as `versionReading` reads it. Null when it has none. */
+export const versionScore = (
+  outputs: Output[],
+  config: BenchConfig,
+  version: string,
+): number | null => versionReading(outputs, config, version).score
 
 /** The score of the outputs written without the skill, counted as a version's is. */
 export const noSkillScore = (outputs: Output[], config: BenchConfig): number | null =>

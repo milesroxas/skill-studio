@@ -11,7 +11,15 @@ import type { Ctx } from '../ctx.ts'
 import { lineDiff } from '../diff.ts'
 import { useFetch } from '../hooks.ts'
 import { inSkill } from '../in-skill.ts'
-import { countsLine, countsOf, plural, shortDate, versionOutputs, versionScore } from '../model.ts'
+import {
+  capital,
+  countsLine,
+  countsOf,
+  plural,
+  shortDate,
+  versionOutputs,
+  versionReading,
+} from '../model.ts'
 import { FileDiff } from './FileDiff.tsx'
 import {
   ColumnBody,
@@ -89,7 +97,7 @@ export function VersionDetail({ ctx, version }: { ctx: Ctx; version: string }) {
 
   const isCurrent = !current.changed && found.version === current.version
   const runs = state.runs.filter((r) => r.meta?.skillVersion === found.version).length
-  const score = versionScore(outputs, config, found.version)
+  const { score, why } = versionReading(outputs, config, found.version)
   const counts = countsLine(countsOf(versionOutputs(outputs, found.version), config))
 
   const restore = async () => {
@@ -205,6 +213,8 @@ export function VersionDetail({ ctx, version }: { ctx: Ctx; version: string }) {
             {[
               found.date ? shortDate(found.date) : null,
               runs ? plural(runs, 'run') : 'Not run yet',
+              // With no score chip, the line says why, once it is more than not being run.
+              runs && why && why !== 'not run yet' ? capital(why) : null,
               counts,
               isCurrent ? 'In the files now' : null,
             ]

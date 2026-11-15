@@ -280,7 +280,7 @@ A version's score is the mean of its cases, each case the mean of its outputs, s
 - Two outputs are set against each other only when they answer the same request and were both graded with Jev, or both without (`comparable`). Results shows no change in score between two that are not.
 
 - A version's outputs are those written with the skill as it stood and those written on the copy kept of it (`old_skill`), never one written without the skill (`testedVersion` in `src/domain/lift.ts`). The score, a case's standing and the comparison all read it so.
-- Where one writer (an engine and model) ran two versions, a version's score counts that writer's outputs only, so one version reads against the next.
+- Where one writer (an engine and model) ran two versions, every version's score counts that writer's outputs only, so one version reads against the next. A version that writer never ran has no score, in the sidebar, the versions list and its own page alike, and its line says `Not run with` and the writer (`versionReading` in `src/renderer/model.ts`). Before any writer ran two versions, a version's score counts all its outputs.
 - When several writers did, the writer whose newest run is newest is read.
 - A writer ran two versions when its run on its latest version shares a case with a run of its own on an earlier one: the same case, asked the same way, graded the same way, with a total on every output (`versionWriter` in `src/domain/lift.ts`). A run on an earlier version that shares none is passed over, and does not stand in the way of one that does.
 

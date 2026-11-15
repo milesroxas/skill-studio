@@ -24,12 +24,12 @@ import {
   noSkillScore,
   outputFacts,
   outputNames,
+  outputRulesUnmarked,
   outputsOf,
   outputsToPick,
   primaryOf,
   readParams,
   regradeOwed,
-  outputRulesUnmarked,
   rulesUnmarked,
   runLabel,
   runTitle,
@@ -41,6 +41,7 @@ import {
   totalOf,
   unscoredLine,
   versionOutputs,
+  versionReading,
   versionScore,
   versionsRun,
   writerName,
@@ -350,6 +351,46 @@ describe('a version’s outputs', () => {
         .map((o) => o.run.name)
         .sort(),
     ).toEqual(['r1', 'r3'])
+  })
+
+  it('give a version the writer of the others never ran no score, and name that writer', () => {
+    const outputs = outputsOf(
+      stateOf(
+        [
+          // Only Sonnet ran v1; Opus ran v2 and v3, so every score is read by Opus.
+          madeBy(runOf('r1', 'v1', files, graded(100)), { writer: sonnet }),
+          runOf('r2', 'v2', files, graded(0)),
+          runOf('r3', 'v3', files, graded(100)),
+          // Sonnet on v3 as well, not counted in v3's score.
+          madeBy(runOf('r4', 'v3', files, graded(0)), {
+            writer: sonnet,
+            createdAt: '2026-11-02T10:00:00Z',
+          }),
+        ],
+        ['generic'],
+      ),
+    )
+    expect(versionReading(outputs, saved, 'v1')).toEqual({
+      score: null,
+      why: 'not run with opus',
+    })
+    expect(versionScore(outputs, saved, 'v1')).toBeNull()
+    expect(versionReading(outputs, saved, 'v2')).toEqual({ score: 0, why: null })
+    expect(versionScore(outputs, saved, 'v3')).toBe(100)
+    expect(versionReading(outputs, saved, 'v4')).toEqual({ score: null, why: 'not run yet' })
+  })
+
+  it('count every output of a version before any writer ran two', () => {
+    const outputs = outputsOf(
+      stateOf(
+        [
+          madeBy(runOf('r1', 'v1', files, graded(100)), { writer: sonnet }),
+          runOf('r2', 'v1', files, graded(0)),
+        ],
+        ['generic'],
+      ),
+    )
+    expect(versionScore(outputs, saved, 'v1')).toBe(50)
   })
 
   it('name a version run only on its kept copy, and never one run without the skill', () => {
