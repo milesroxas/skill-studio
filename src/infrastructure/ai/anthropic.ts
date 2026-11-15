@@ -65,6 +65,21 @@ async function listModels(): Promise<AiModel[]> {
 
 const models = keyed(key, () => listModels())
 
+/**
+ * The system prompt as the API takes it. The brief carries the whole skill and
+ * is the same from one turn to the next, so it is cached: a turn reads it at
+ * the cached rate. What changes from turn to turn, such as the screen, is a
+ * block after it, so a move does not pay for the brief again.
+ */
+export const systemBlocks = (request: Pick<AiRequest, 'system' | 'turn'>) => [
+  {
+    type: 'text' as const,
+    text: request.system,
+    cache_control: { type: 'ephemeral' as const },
+  },
+  ...(request.turn ? [{ type: 'text' as const, text: request.turn }] : []),
+]
+
 type ImageType = 'image/png' | 'image/jpeg' | 'image/webp' | 'image/gif'
 
 /** A message as the API takes it: plain text, or its pictures and then its text. */
@@ -90,19 +105,7 @@ async function run(request: AiRequest) {
     {
       model: request.model,
       max_tokens: maxTokensWithin(outputLimits.get(request.model)),
-      // The system prompt carries the whole skill and is the same from one turn
-      // to the next, so it is cached: a turn reads it at the cached rate.
-      ...(request.system
-        ? {
-            system: [
-              {
-                type: 'text' as const,
-                text: request.system,
-                cache_control: { type: 'ephemeral' as const },
-              },
-            ],
-          }
-        : {}),
+      ...(request.system ? { system: systemBlocks(request) } : {}),
       messages: request.messages.map((m) => ({ role: m.role, content: contentOf(m) })),
       output_config: {
         ...(request.effort ? { effort: request.effort as Effort } : {}),

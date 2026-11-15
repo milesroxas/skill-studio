@@ -21,7 +21,7 @@ import { hasCommand, resolveCommand } from '../exec.ts'
 import { imageBase64 } from '../images.ts'
 import { cliStatus, commandPrompt, picturesOf, runJsonLines, transcriptPrompt } from './cli.ts'
 import { listClaudeCommands } from './commands.ts'
-import type { AiProvider, AiReply, AiRequest } from './types.ts'
+import { type AiProvider, type AiReply, type AiRequest, systemText } from './types.ts'
 
 interface StreamEvent {
   type: string
@@ -113,7 +113,7 @@ async function run(request: AiRequest): Promise<AiReply> {
     ? commandPrompt(request.messages)
     : { prompt: transcriptPrompt(request.messages), context: null }
   const { systemPrompt, prompt } = placeBrief(
-    context ? `${request.system}\n\n${context}` : request.system,
+    context ? `${systemText(request)}\n\n${context}` : systemText(request),
     typed || (pictures.length ? 'See the attached pictures.' : ''),
     command,
   )

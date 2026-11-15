@@ -6,6 +6,7 @@ import {
   assistPrompt,
   assistText,
   CONTEXT_BUDGET,
+  chatBrief,
   chatSystem,
   partialText,
   VOICE,
@@ -295,6 +296,22 @@ describe('chatSystem', () => {
       cases: {},
     }),
   }
+
+  it('keeps the brief the same as the reader moves, and says where they are after it', () => {
+    const cases = chatBrief({ screen: 'Cases', open: { file: null, case: 'shift' }, skill })
+    const editor = chatBrief({
+      screen: 'Editor',
+      open: { file: 'references/voice.md', case: null },
+      skill,
+    })
+    expect(editor.system).toBe(cases.system)
+    expect(cases.system).not.toContain('Cases screen')
+    expect(cases.turn).toContain('The reader is on the Cases screen.')
+    expect(editor.turn).toContain('They have references/voice.md open')
+    expect(chatSystem({ screen: 'Cases', open: { file: null, case: 'shift' }, skill })).toBe(
+      `${cases.system}\n\n${cases.turn}`,
+    )
+  })
 
   it('talks to a new reader: short, in their words, with how the app works kept out', () => {
     const system = chatSystem({ screen: 'Cases', open: { file: null, case: 'shift' }, skill })

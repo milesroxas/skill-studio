@@ -497,13 +497,19 @@ function spend(budget: Budget, text: string): boolean {
   return true
 }
 
-/** The skill's files: SKILL.md whole, then each reference in full while the budget lasts, the open one first. */
+/**
+ * The skill's files: SKILL.md whole, then each reference in full while the
+ * budget lasts. The open one goes first only when they do not all fit, so a
+ * move to another file leaves the text the same.
+ */
 function filesText(files: SceneFile[], open: string | null, budget: Budget): string {
   const mark = (f: SceneFile) => (f.unsaved ? `${f.path} (unsaved)` : f.path)
   const skillMd = files.find((f) => f.path === 'SKILL.md')
-  const references = files
-    .filter((f) => f !== skillMd)
-    .sort((a, b) => Number(b.path === open) - Number(a.path === open))
+  const others = files.filter((f) => f !== skillMd)
+  const fits = others.reduce((sum, f) => sum + f.text.length, 0) <= budget.left
+  const references = fits
+    ? others
+    : others.sort((a, b) => Number(b.path === open) - Number(a.path === open))
   const shown: string[] = []
   const named: string[] = []
   for (const f of references) {
@@ -564,8 +570,23 @@ function casesText(cases: SceneCase[], budget: Budget): string {
     .join('\n')
 }
 
-/** The brief of the side panel's assistant: the app, how a skill is written, where the reader is, the skill in hand, and how to change it. */
+/**
+ * The brief of the side panel's assistant in two parts. `system` is the app,
+ * how a skill is written, the skill in hand and how to change it: the same
+ * from turn to turn while the skill is, so a provider caches it. `turn` is
+ * where the reader is, which changes as they move, and comes after it.
+ */
+export function chatBrief(scene: ChatScene): { system: string; turn: string } {
+  return { system: chatStable(scene), turn: whereText(scene) }
+}
+
+/** The whole brief as one text, the part that stays the same first. */
 export function chatSystem(scene: ChatScene): string {
+  const { system, turn } = chatBrief(scene)
+  return turn ? `${system}\n\n${turn}` : system
+}
+
+function chatStable(scene: ChatScene): string {
   const parts = [
     `You are the assistant in Skill Studio's side panel. ${APP}`,
     `Its screens: ${SCREENS}`,
@@ -574,8 +595,6 @@ export function chatSystem(scene: ChatScene): string {
     VOICE,
     'Answer in Markdown, with no headings. When you suggest a rule, a check or a prompt, write it out in full. If you do not know something about this app, say so in one sentence.',
   ]
-  const where = whereText(scene)
-  if (where) parts.push(where)
   if (scene.skill) {
     const { name, files, cases } = scene.skill
     const budget: Budget = { left: CONTEXT_BUDGET }

@@ -29,7 +29,7 @@ import {
   assistPrompt,
   assistText,
   type ChatScene,
-  chatSystem,
+  chatBrief,
   partialText,
 } from '@domain/assist.ts'
 import type { SlashCommand } from '@domain/commands.ts'
@@ -188,6 +188,8 @@ interface Work {
   kind: AiRunKind
   choice: AiChoice
   system: string
+  /** What changes from turn to turn, sent after `system` (`AiRequest.turn`). */
+  turn?: string
   messages: AiMessage[]
   schema: Readonly<Record<string, unknown>> | null
   /** What the run shows of the reply so far. */
@@ -219,6 +221,7 @@ function start(work: Work): AiRun {
       model: choice.model,
       effort: choice.effort,
       system: work.system,
+      turn: work.turn,
       messages: work.messages,
       schema: work.schema,
       signal: controller.signal,
@@ -354,7 +357,7 @@ async function sendChatNow(
   chatRun = start({
     kind: 'chat',
     choice,
-    system: chatSystem(scene),
+    ...chatBrief(scene),
     messages: chatWindow(messages),
     schema: null,
     preview: (raw) => raw,

@@ -18,7 +18,10 @@ export interface AiRequest {
   model: string
   /** Empty for the model's own default. */
   effort: string
+  /** The brief, the same from one turn to the next, so a provider can cache it. */
   system: string
+  /** What changes from turn to turn, such as the screen the reader is on: sent after `system`, outside its cache. */
+  turn?: string
   /** The conversation, oldest first, ending with the user's message. */
   messages: AiMessage[]
   /** A JSON Schema the whole reply must match; null for prose. */
@@ -73,3 +76,7 @@ export interface AiProvider {
   /** Who an installed CLI is signed in as; null when it cannot say. */
   account?(): Promise<CliAccount | null>
 }
+
+/** The whole brief as one text, for a provider that takes one: what stays the same first, so a cache by prefix holds. */
+export const systemText = (request: Pick<AiRequest, 'system' | 'turn'>): string =>
+  request.turn ? `${request.system}\n\n${request.turn}` : request.system

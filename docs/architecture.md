@@ -212,7 +212,8 @@ Only `claude-code` has been run against a live account. A command with pictures 
 ### anthropic
 
 - The Anthropic SDK with your key. Replies stream, and a field's shape is enforced with structured outputs.
-- The system prompt carries the skill and is the same from turn to turn. It is sent as a text block marked `cache_control: ephemeral`, so a later turn reads it at the cached rate.
+- The system prompt carries the skill and is the same from turn to turn. It is sent as a text block marked `cache_control: ephemeral`, so a later turn reads it at the cached rate. Where the reader is, the screen and the file or case they have open, changes from turn to turn, so it is a second block after the cached one (`chatBrief` in `src/domain/assist.ts`, `systemBlocks` in `src/infrastructure/ai/anthropic.ts`). The reference files keep their order as the reader moves; the open one goes first only when they do not all fit.
+- A provider that takes the brief as one text gets the part that stays the same first and where the reader is after it (`systemText`), so a cache by prefix holds too.
 - Requests to Fable 5, Opus 5 and Sonnet 5.5 models opt in to Anthropic's server-side fallback, so a request a safety classifier declines is retried on the model Anthropic recommends.
 - A reply may run to 64,000 tokens, or to the model's own `max_tokens` from the Models API when that is lower.
 

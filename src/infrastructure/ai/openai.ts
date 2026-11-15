@@ -10,7 +10,13 @@ import OpenAI from 'openai'
 import { imageBase64 } from '../images.ts'
 import { explain as explainFor } from './explain.ts'
 import { keyed } from './keyed.ts'
-import { type AiMessage, type AiProvider, type AiRequest, ProviderError } from './types.ts'
+import {
+  type AiMessage,
+  type AiProvider,
+  type AiRequest,
+  ProviderError,
+  systemText,
+} from './types.ts'
 
 const key = (): string | undefined => secretOf('openai', process.env)
 const client = keyed(key, (apiKey) => new OpenAI({ apiKey }))
@@ -52,7 +58,7 @@ async function run(request: AiRequest) {
   const stream = client().responses.stream(
     {
       model: request.model,
-      instructions: request.system,
+      instructions: systemText(request),
       input: request.messages.map(inputOf),
       store: false,
       ...(request.effort ? { reasoning: { effort: request.effort as Effort } } : {}),

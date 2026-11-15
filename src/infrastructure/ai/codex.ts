@@ -12,7 +12,7 @@ import { join } from 'node:path'
 import { type CliAccount, CODEX_DEFAULT_MODEL, CODEX_MODELS } from '@domain/ai.ts'
 import { hasCommand } from '../exec.ts'
 import { cliStatus, picturesOf, runJsonLines, transcriptPrompt } from './cli.ts'
-import type { AiProvider, AiReply, AiRequest } from './types.ts'
+import { type AiProvider, type AiReply, type AiRequest, systemText } from './types.ts'
 
 interface CodexEvent {
   type: string
@@ -45,7 +45,7 @@ async function run(request: AiRequest): Promise<AiReply> {
     await runJsonLines<CodexEvent>(
       'codex',
       args,
-      `${request.system}\n\n${transcriptPrompt(request.messages)}`,
+      `${systemText(request)}\n\n${transcriptPrompt(request.messages)}`,
       request,
       (event) => {
         if (event.type === 'item.completed' && event.item?.type === 'agent_message') {

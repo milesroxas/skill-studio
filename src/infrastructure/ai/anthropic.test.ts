@@ -1,5 +1,15 @@
 import { describe, expect, it } from 'vitest'
-import { maxTokensWithin } from './anthropic.ts'
+import { maxTokensWithin, systemBlocks } from './anthropic.ts'
+
+describe('systemBlocks', () => {
+  it('caches the brief alone, and sends what changes from turn to turn after it', () => {
+    expect(systemBlocks({ system: 'Brief.', turn: 'The reader is on the Cases screen.' })).toEqual([
+      { type: 'text', text: 'Brief.', cache_control: { type: 'ephemeral' } },
+      { type: 'text', text: 'The reader is on the Cases screen.' },
+    ])
+    expect(systemBlocks({ system: 'Brief.' })).toHaveLength(1)
+  })
+})
 
 describe('maxTokensWithin', () => {
   it("asks for no more than the model's own limit", () => {
