@@ -77,6 +77,14 @@ afterAll(() => {
 })
 afterEach(() => vi.restoreAllMocks())
 
+/** Each pack's reading `judge-cache.json` keeps, by its key. */
+const cachedReadings = (path: string): Record<string, unknown> =>
+  Object.fromEntries(
+    Object.entries(
+      readJson<{ packs?: Record<string, { raw: unknown }> }>(path, {}).packs ?? {},
+    ).map(([key, entry]) => [key, entry.raw]),
+  )
+
 /** Spy on the generic pack's `judge`, the one pack a made skill runs. */
 const genericJudge = () => {
   const pack = packById('generic')
@@ -253,7 +261,7 @@ describe('gradeRun, on what a grading that fails leaves behind', () => {
     const cachePath = join(dir, 'evals/runs', run, 'judge-cache.json')
     await gradeRun(dir, run, { useJev: false })
     const report = readFileSync(reportPath, 'utf8')
-    const kept = Object.keys(readJson<Record<string, unknown>>(cachePath, {}))
+    const kept = Object.keys(cachedReadings(cachePath))
     expect(kept).toHaveLength(2)
 
     // A rule changes, so every output is asked about again, and every ask fails.
@@ -262,7 +270,7 @@ describe('gradeRun, on what a grading that fails leaves behind', () => {
     const failed = await gradeRun(dir, run, { useJev: false })
     expect(failed.results.every((r) => r.flags.some((f) => f.includes('pack failed')))).toBe(true)
     expect(readFileSync(reportPath, 'utf8')).toBe(report)
-    expect(Object.keys(readJson<Record<string, unknown>>(cachePath, {}))).toEqual(kept)
+    expect(Object.keys(cachedReadings(cachePath))).toEqual(kept)
   })
 
   it('gives an output one pack failed on no total, though another pack scored its layers', async () => {
@@ -309,10 +317,7 @@ describe('gradeRun, on what a grading that fails leaves behind', () => {
       'Stopped.',
     )
     expect(existsSync(join(dir, 'evals/runs', run, 'report.json'))).toBe(false)
-    const cache = readJson<Record<string, unknown>>(
-      join(dir, 'evals/runs', run, 'judge-cache.json'),
-      {},
-    )
+    const cache = cachedReadings(join(dir, 'evals/runs', run, 'judge-cache.json'))
     expect(Object.keys(cache)).toHaveLength(1)
   })
 
@@ -331,10 +336,7 @@ describe('gradeRun, on what a grading that fails leaves behind', () => {
     )
     expect(existsSync(join(dir, 'evals/runs', run, 'report.json'))).toBe(false)
     // What the first output was answered is kept all the same.
-    const cache = readJson<Record<string, unknown>>(
-      join(dir, 'evals/runs', run, 'judge-cache.json'),
-      {},
-    )
+    const cache = cachedReadings(join(dir, 'evals/runs', run, 'judge-cache.json'))
     expect(Object.keys(cache)).toHaveLength(1)
   })
 })
@@ -495,7 +497,7 @@ describe('gradeRun, on a stop', () => {
       expect(readFileSync(join(runDir, 'report.json'), 'utf8')).toBe('"the last report"')
       // The first sample's reading of its rules and checks is kept, which without Jev holds
       // nothing. No check's answer is, the stopped one's "check failed" least of all.
-      const cache = readJson<Record<string, unknown>>(join(runDir, 'judge-cache.json'), {})
+      const cache = cachedReadings(join(runDir, 'judge-cache.json'))
       expect(Object.values(cache)).toEqual([null])
     },
   )
@@ -1183,10 +1185,7 @@ describe.skipIf(process.platform === 'win32')('gradeRun, on a case’s check com
     expect(again.results[0].scores.check).toBe(100)
     // The answers that are kept were kept: the output itself did not change.
     expect(lines).toContain('1 of 1 outputs unchanged: kept their verdicts.')
-    const cache = readJson<Record<string, unknown>>(
-      join(dir, 'evals/runs', run, 'judge-cache.json'),
-      {},
-    )
+    const cache = cachedReadings(join(dir, 'evals/runs', run, 'judge-cache.json'))
     expect(Object.values(cache)).toEqual([null])
   })
 

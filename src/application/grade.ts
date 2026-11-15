@@ -68,6 +68,7 @@ import type {
   SourcePage,
 } from '@judges/types.ts'
 import { INPUTS_DIR, stagedInputs } from './generate.ts'
+import { type Asked, cachedAsker, JudgeCache } from './judge-cache.ts'
 
 export interface GradeOptions {
   /** False grades with code checks only: no TypeSafe calls, Jev layers stay null. */
@@ -91,7 +92,7 @@ export interface GradeOptions {
 /** The folder of a sample the pages drawn for grading are kept in: beside outputs/, never in it. */
 const RENDERS_DIR = 'renders'
 
-/** The file beside `report.json` that keeps each pack's raw answers by the hash of what it was asked. */
+/** The file beside `report.json` that keeps Jev's answers by the hash of what each was asked (`JudgeCache`). */
 const CACHE_FILE = 'judge-cache.json'
 /** What a grading that was stopped rejects with. */
 const STOPPED = 'Stopped.'
@@ -102,13 +103,6 @@ interface Subject extends Sample {
   caseFromFileName?: boolean
   label: string | null
   tests: string[]
-}
-
-interface JudgeCache {
-  /** The answers the last grading kept, by hash. */
-  old: Record<string, unknown>
-  /** The answers this grading keeps: reused and new. */
-  fresh: Record<string, unknown>
 }
 
 interface GradeContext {
@@ -519,6 +513,21 @@ function casePictures(ctx: GradeContext, testCase: Case | null): Record<string, 
   return hashes
 }
 
+/** The hash of each file a sample's agent wrote, by its name, read once a grading. */
+function outputHashes(ctx: GradeContext, sample: Sample): Record<string, string> {
+  const hashes: Record<string, string> = {}
+  for (const { file } of sample.artifacts) {
+    const path = fileInside(sample.path, join(sample.path, file))
+    let hash = path === null ? 'missing' : ctx.pictures.get(path)
+    if (hash === undefined && path !== null) {
+      hash = createHash('sha256').update(readFileSync(path)).digest('hex')
+      ctx.pictures.set(path, hash)
+    }
+    hashes[`output:${file}`] = hash ?? 'missing'
+  }
+  return hashes
+}
+
 /**
  * The skill's `bench.json`, with the call's overrides and pack list laid over
  * it. A pack the call names that the app does not have is refused: a file may
@@ -721,7 +730,8 @@ async function gradeSubject(
     ctx.judge.log(`${subject.name}: ${line}`),
   )
   const { primary } = input
-  const pictures = casePictures(ctx, testCase)
+  // The bytes of every file the agent wrote are in each pack's hash: a picture has no text to hash, and one rewritten is new work.
+  const pictures = { ...casePictures(ctx, testCase), ...outputHashes(ctx, subject) }
   // The page is drawn only when a pack will look at it, and a pack that does is asked again when it changes.
   // A pack looks when it judges this output, Jev is asked of this case and the pack has a question for it.
   const looks =
@@ -761,14 +771,13 @@ async function gradeSubject(
     ...(sourced ? { 'source:page': sourced.hash } : {}),
   }
   const packs: Record<string, unknown> = {}
-  /** This sample's new answers: kept only once the whole sample was judged without a stop. */
-  const answers: Record<string, unknown> = {}
+  /** This sample's new readings, with the answers each rests on: kept only once the whole sample was judged without a stop. */
+  const readings: Array<{ key: string; raw: unknown; keys: string[] }> = []
   const failures: string[] = []
   /** The version of the questions of each pack that judged this output. */
   const judgedBy: Record<string, number> = {}
-  /** The packs whose answers the cache keeps, and how many of them it had. */
-  let keepable = 0
-  let kept = 0
+  /** How many of this output's questions went to Jev, and how many were answered from the cache. */
+  const counts: Asked = { asked: 0, kept: 0 }
   for (const pack of ctx.packs) {
     if (!applies(pack, subject, primary)) {
       packs[pack.id] = null
@@ -778,21 +787,21 @@ async function gradeSubject(
     const key = pack.live
       ? null
       : judgeKey(pack, input, pack.renders ? { ...pictures, ...seen } : pictures, ctx)
-    if (key !== null) {
-      keepable += 1
-      if (Object.hasOwn(ctx.cache.old, key)) {
-        packs[pack.id] = ctx.cache.old[key]
-        ctx.cache.fresh[key] = ctx.cache.old[key]
-        judgedBy[pack.id] = pack.version
-        kept += 1
-        continue
-      }
+    const reading = key === null ? undefined : ctx.cache.pack(key)
+    if (reading) {
+      packs[pack.id] = reading.raw
+      judgedBy[pack.id] = pack.version
+      counts.kept += 1
+      continue
     }
+    // Whatever the pack asks Jev is asked through the cache: a question asked before over the same state is not asked again.
+    const keys: string[] = []
+    const judge = { ...ctx.judge, jev: cachedAsker(ctx.judge.jev, ctx.cache, pack, keys, counts) }
     try {
-      const answer = await untilStopped(pack.judge(input, ctx.judge), ctx.signal)
+      const answer = await untilStopped(pack.judge(input, judge), ctx.signal)
       packs[pack.id] = answer
       judgedBy[pack.id] = pack.version
-      if (key !== null) answers[key] = answer
+      if (key !== null) readings.push({ key, raw: answer, keys })
     } catch (error) {
       // A command ended by the stop is no answer, and no failure of the pack either.
       if (ctx.signal?.aborted) throw new Error(STOPPED)
@@ -805,7 +814,7 @@ async function gradeSubject(
   }
   // Stopped while this sample was judged: a check may have been cut short, so nothing of it is kept.
   if (ctx.signal?.aborted) throw new Error(STOPPED)
-  Object.assign(ctx.cache.fresh, answers)
+  for (const { key, raw, keys } of readings) ctx.cache.keepPack(key, raw, keys)
   const base = {
     sample: subject.name,
     case: testCase?.id ?? subject.caseRef,
@@ -846,20 +855,8 @@ async function gradeSubject(
       confidence: scored.confidence,
     },
     // Unchanged is said of what the cache keeps: Jev was asked nothing new about this output.
-    unchanged: keepable > 0 && kept === keepable,
+    unchanged: counts.asked === 0 && counts.kept > 0,
   }
-}
-
-/**
- * The cache as it is written: this grading's answers, and before them the
- * last ones it did not ask about again, so going back to a setting or a key
- * finds its answers still there. The oldest go once the file holds several
- * gradings' worth.
- */
-function keptAnswers(cache: JudgeCache, perGrading: number): Record<string, unknown> {
-  const earlier = Object.entries(cache.old).filter(([key]) => !Object.hasOwn(cache.fresh, key))
-  const all = [...earlier, ...Object.entries(cache.fresh)]
-  return Object.fromEntries(all.slice(-Math.max(200, perGrading * 4)))
 }
 
 /**
@@ -904,7 +901,7 @@ async function gradeSubjects(
       run: commandRunner(options.signal),
       once: new Map(),
     },
-    cache: { old: readCache(join(dir, CACHE_FILE)), fresh: {} },
+    cache: new JudgeCache(join(dir, CACHE_FILE)),
     pictures: new Map(),
     inputs: run?.inputs ?? null,
     signal: options.signal,
@@ -940,11 +937,7 @@ async function gradeSubjects(
     if (options.signal?.aborted) throw new Error(STOPPED)
   } finally {
     // Nothing to keep and nothing kept before: no file is made for a grading that asked nothing.
-    if (
-      subjects.length &&
-      (Object.keys(ctx.cache.fresh).length || Object.keys(ctx.cache.old).length)
-    )
-      writeJson(join(dir, CACHE_FILE), keptAnswers(ctx.cache, subjects.length * packs.length))
+    if (subjects.length && ctx.cache.holds) ctx.cache.write(join(dir, CACHE_FILE))
   }
   if (unchanged) log(`${unchanged} of ${subjects.length} outputs unchanged: kept their verdicts.`)
   const report: Report = {
@@ -968,19 +961,6 @@ async function gradeSubjects(
 function skillText(dir: string): string | null {
   const path = join(dir, 'SKILL.md')
   return isFile(path) ? readFileSync(path, 'utf8') : null
-}
-
-/** The answers kept by the last grading; none when the file is absent or damaged. */
-function readCache(path: string): Record<string, unknown> {
-  try {
-    const kept = readJson<unknown>(path, {})
-    return kept && typeof kept === 'object' && !Array.isArray(kept)
-      ? (kept as Record<string, unknown>)
-      : {}
-  } catch (error) {
-    console.warn((error as Error).message)
-    return {}
-  }
 }
 
 /**

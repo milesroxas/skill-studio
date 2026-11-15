@@ -60,7 +60,7 @@ Everything Skill Studio knows about a skill is plain files in the skill's `evals
 evals/runs/<date>-skill-<vN>-<engine>-<model>[-<effort>][-<configuration>]/
   run.json                        skill version and hash, writer, cases, and each sample as its agent ended: cost, tokens, the files it wrote (`outputs`), `stopped`, `failed`
   report.json                     raw judge answers and scores per sample, written by grading
-  judge-cache.json                each pack's raw answer by a hash of what it was asked, so Regrade asks only about what changed
+  judge-cache.json                Jev's answer to each question by a hash of what it was asked, so Regrade asks only what changed
   _skill/                         the skill as it was when the run started, as an agent's copy holds it (see Versions): every sample is made from it
   _inputs/<case>/                 each case's input files as they were then, which grading reads its pictures and text files from
   _cases.json                     each case as it was then, with a fingerprint of what it asked: what the run is graded on once the case changes or goes (see grading.md)

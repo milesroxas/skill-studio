@@ -23,6 +23,17 @@ const IMAGES_HEADER = { 'TypeSafe-Danger-Zone-Images': 'true' }
 
 export type JevState = NonNullable<Parameters<TypeSafeClient['systemOne']>[0]['state']>
 
+/** What one request cost, filled in by `Jev.ask` once it is answered. */
+export interface Usage {
+  inputTokens: number
+}
+
+/**
+ * What a pack asks Jev through: the client itself, or one grading puts in
+ * its place that keeps each answer and asks only what it does not hold.
+ */
+export type JevAsker = Pick<Jev, 'model' | 'ask'>
+
 /** TypeSafe refused the key: it is missing, wrong, or may not do this. */
 export const isAuthError = (error: unknown): boolean =>
   error instanceof AuthenticationError || error instanceof PermissionDeniedError
@@ -52,11 +63,15 @@ export class Jev {
     return Boolean(process.env.TYPESAFE_API_KEY)
   }
 
-  /** Ask `questions` of `state`. `signal` ends the request, and any retry of it, when the grading is stopped. */
+  /**
+   * Ask `questions` of `state`. `signal` ends the request, and any retry of it,
+   * when the grading is stopped. `usage`, when given, is told what the request cost.
+   */
   async ask<const Q extends Questions>(
     state: JevState,
     questions: Q,
     signal?: AbortSignal,
+    usage?: Usage,
   ): Promise<SystemOneResult<Q>['answers']> {
     const key = process.env.TYPESAFE_API_KEY
     if (!key) throw new Error('No TypeSafe key is set, so Jev cannot judge.')
@@ -76,7 +91,9 @@ export class Jev {
         ...(holdsImage(state) || holdsImage(questions) ? { headers: IMAGES_HEADER } : {}),
       },
     )
-    this.inputTokens += result.usage.input_tokens ?? 0
+    const tokens = result.usage.input_tokens ?? 0
+    this.inputTokens += tokens
+    if (usage) usage.inputTokens = tokens
     this.calls += 1
     this.modelSeen = result.model
     return result.answers

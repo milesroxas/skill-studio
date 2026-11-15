@@ -5,7 +5,7 @@ import type { Rule } from '@domain/rules.ts'
 import type { Artifact, BenchConfig, Case, TranscriptEvent } from '@domain/schemas.ts'
 import type { Unit } from '@domain/text.ts'
 import type { Readable, RequestImage } from './images.ts'
-import type { Jev } from './jev.ts'
+import type { JevAsker } from './jev.ts'
 
 /** One output as a pack sees it. */
 export interface JudgeInput {
@@ -125,7 +125,8 @@ export type CommandRunner = (
 ) => Promise<CommandResult>
 
 export interface JudgeContext {
-  jev: Jev
+  /** Asks Jev. In a grading, it keeps each answer by what it was asked, and asks only what it does not hold. */
+  jev: JevAsker
   /** False when grading without TypeSafe: packs run their code checks and leave judged layers null. */
   useJev: boolean
   config: BenchConfig
