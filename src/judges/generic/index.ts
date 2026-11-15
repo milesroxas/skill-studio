@@ -155,7 +155,7 @@ function workOf(input: JudgeInput, room: Room): Work | null {
   const borrowed = source?.layout && room.layout && asksOfLayout(input) ? source.layout : null
   if (measured) state.layout = layoutText(measured, room.layout)
   else if (borrowed) state.layout = layoutText(borrowed, room.layout)
-  return {
+  const work: Work = {
     state,
     text: Boolean(text),
     picture: Boolean(read?.image),
@@ -184,6 +184,10 @@ function workOf(input: JudgeInput, room: Room): Work | null {
       ...(has(state, 'request') ? filesCut(given, "the case's ") : []),
     ].filter((line): line is string => line !== null),
   }
+  // What each field is, once, for every question asked of this state.
+  const fields = fieldsOf(work)
+  if (Object.keys(fields).length) state.fields = fields
+  return work
 }
 
 /** Whether the copy drawn of a picture is another size than the picture: one drawn only to be a plain, upright PNG is not. */
@@ -270,44 +274,54 @@ function sourceLine(source: SourcePage): string {
   return `\`picture\` is what the page "${plain(source.file)}" draws in a window ${width} px wide and ${height} px tall, and \`layout\` lists that page's elements as measured there: the place and the size of each in px, from the top left of the page, and where it sits inside the elements that hold it.${larger} A size, a distance or a position is read from \`layout\`, where it was measured, and not judged by eye on \`picture\`.`
 }
 
-/** What each field of the state is, said once before the question, so Jev knows what it is reading. */
-function lead(work: Work): string {
+/**
+ * What each field of the state is, by its name: said once, in the state, for
+ * every question to read. TypeSafe bills the state once a request and each
+ * question's own words, so a question that said it all again would cost a
+ * request as much again in room as its output.
+ */
+function fieldsOf(work: Work): Record<string, string> {
   const made = work.text ? '`output`' : '`picture`'
-  const lines = [
-    has(work.state, 'request')
+  const picture = [
+    work.text && work.picture
+      ? work.drawn
+        ? drawnLine(work.drawn)
+        : '`picture` is a picture made with `output`.'
+      : null,
+    work.fitted
+      ? `\`picture\` is shown at another size than the file it is, which is ${work.fitted[0]} by ${work.fitted[1]} px, so a length measured on \`picture\` is not its length in the file.`
+      : null,
+  ].filter((line): line is string => line !== null)
+  const fields: Record<string, string | null> = {
+    request: has(work.state, 'request')
       ? `${made} was produced to answer \`request\`${
           has(work.state, 'request_images')
             ? ', which came with the pictures in `request_images`'
             : ''
         }.`
       : null,
-    work.files
+    request_files: work.files
       ? `\`request_files\` holds the files that came with \`request\`, each by its name: what ${made} was made from, and no part of it.`
       : null,
-    work.text && work.picture
-      ? work.drawn
-        ? drawnLine(work.drawn)
-        : '`picture` is a picture made with `output`.'
-      : null,
-    work.layout
+    picture: picture.length ? picture.join(' ') : null,
+    layout: work.layout
       ? work.source
         ? sourceLine(work.source)
         : `\`layout\` lists the elements of ${made} as that window measured them: the place and the size of each in px, from the top left of the page, and where it sits inside the elements that hold it. A size, a distance or a position is read from \`layout\`, where it was measured, and not judged by eye on \`picture\`.`
       : null,
-    work.fitted
-      ? `\`picture\` is shown at another size than the file it is, which is ${work.fitted[0]} by ${work.fitted[1]} px, so a length measured on \`picture\` is not its length in the file.`
-      : null,
-    work.others
+    other_files: work.others
       ? `\`other_files\` holds the other files made with ${made}, each by its name.`
       : null,
-    work.notes
+    notes: work.notes
       ? `\`notes\` is what its maker told the user about ${made}: it is not part of ${made}.`
       : null,
-    work.skill
+    skill: work.skill
       ? `\`skill\` holds the instructions ${made} is held to: it is not part of ${made}.`
       : null,
-  ].filter((line): line is string => line !== null)
-  return lines.length ? `${lines.join(' ')} ` : ''
+  }
+  return Object.fromEntries(
+    Object.entries(fields).filter((entry): entry is [string, string] => entry[1] !== null),
+  )
 }
 
 /** The fields a rule or a check is judged on, as the question names them. */
@@ -332,6 +346,7 @@ const saidBy = (work: Work): string =>
  * What the criteria add when there are notes. A rule about the piece itself,
  * such as its length or its look, must never be failed for how the notes
  * read; a rule that asks for something to be said is met wherever it is said.
+ * It is the boundary of a yes and a no, so it stays with each criterion.
  */
 const notesClause = (work: Work): string =>
   work.notes
@@ -359,7 +374,7 @@ const ruleQuestion = (rule: Rule, work: Work) => {
     ? `\`skill\` has this rule under its heading "${plain(heading)}": ${quoted(rule.text)} ${does} ${subject} follow the rule?`
     : `${does} ${subject} follow this rule: ${quoted(rule.text)}`
   const elsewhere = heading ? 'its heading or its own words are' : 'its own words are'
-  return noul(`${lead(work)}${asked}`, {
+  return noul(asked, {
     true: `What the rule asks is done everywhere it applies in ${subject}, or the rule does not come up here: ${elsewhere} for another kind of work than ${saidBy(work)}, or for a situation that is not this one.${notesClause(work)}`,
     false: `The rule is for work of this kind, and something it forbids is done in ${subject} or something it requires is left out.${notesClause(work)}`,
   })
@@ -378,18 +393,15 @@ const headingState = (work: Work): JevState => {
   const { state } = work
   if (!has(state, 'request')) return state
   const fields = state as Record<string, unknown>
-  return Object.fromEntries(
-    ['request', 'skill', 'headings'].flatMap((key) => (key in fields ? [[key, fields[key]]] : [])),
-  ) as JevState
+  return Object.fromEntries([
+    ...['request', 'skill', 'headings'].flatMap((key) =>
+      key in fields ? [[key, fields[key]]] : [],
+    ),
+    ...(work.skill
+      ? [['fields', { skill: '`skill` holds the instructions an answer to `request` is held to.' }]]
+      : []),
+  ]) as JevState
 }
-
-/** What each field a heading is judged on is. */
-const headingLead = (work: Work): string =>
-  has(work.state, 'request')
-    ? work.skill
-      ? '`skill` holds the instructions an answer to `request` is held to. '
-      : ''
-    : lead(work)
 
 /**
  * Whether one rule comes up for what the request asks, asked of the request
@@ -406,7 +418,7 @@ const upQuestion = (rule: Rule, work: Work) => {
     ? `\`skill\` has this rule under its heading "${plain(heading)}": `
     : 'An answer to `request` is held to this rule: '
   return noul(
-    `${headingLead(work)}${where}${quoted(rule.text)} Does the rule come up for what \`request\` asks, whatever an answer to it turns out to be?`,
+    `${where}${quoted(rule.text)} Does the rule come up for what \`request\` asks, whatever an answer to it turns out to be?`,
     {
       true: 'The rule is about something an answer to `request` holds, does or could do: what it must do, or what it must not do. A rule that forbids a thing, or says how a thing is done when it is done, comes up wherever an answer could do that thing.',
       false:
@@ -423,7 +435,7 @@ const upQuestion = (rule: Rule, work: Work) => {
  */
 const headingQuestion = (heading: string, work: Work) =>
   noul(
-    `${headingLead(work)}\`skill\` groups its rules under the headings in \`headings\`. Are the rules under the heading "${plain(heading)}" for the kind of work ${saidBy(work)}?`,
+    `\`skill\` groups its rules under the headings in \`headings\`. Are the rules under the heading "${plain(heading)}" for the kind of work ${saidBy(work)}?`,
     {
       true: `The heading names no one kind of work, so its rules are for all of it, or it names the kind of work ${saidBy(work)}.`,
       false: `The heading names a kind of work, a mode or a situation other than the one ${saidBy(work)}.`,
@@ -432,7 +444,7 @@ const headingQuestion = (heading: string, work: Work) =>
 
 function statementQuestion(statement: string, work: Work, reference: Image | null) {
   const subject = subjectOf(work)
-  const asked = `${lead(work)}Is this statement true of ${subject}: ${quoted(statement)}`
+  const asked = `Is this statement true of ${subject}: ${quoted(statement)}`
   return noul(
     reference
       ? withAssets`${asked} The statement came with this picture, which it holds ${subject} against and which is no part of ${subject}: ${reference}`

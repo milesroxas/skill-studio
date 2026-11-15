@@ -73,6 +73,11 @@ const asked = (n = 0) => {
   return { state, questions }
 }
 
+/** What request `n` says each field of its state is: once, in the state, for every question. */
+const fieldsOf = (n = 0): Record<string, string> =>
+  (asked(n).state.fields ?? {}) as Record<string, string>
+const said = (n = 0): string => Object.values(fieldsOf(n)).join(' ')
+
 const drawn = {
   size: { id: 'desktop' as const, width: 1280, height: 960 },
   read: { image: image(pngHeader(1280, 960)), problem: null },
@@ -126,14 +131,20 @@ describe('generic pack', () => {
 
   it('says what the output answers, and no more, of a piece of writing with nothing beside it', async () => {
     await genericPack.judge(output({ rules: [rule('r1')], case: testCase([grader('g1')]) }), ctx)
-    expect(asked(0).state).toEqual({ request: 'Thank Elena.', output: 'note' })
+    // What a field is, is said once in the state: a question holds its own words alone.
+    expect(asked(0).state).toEqual({
+      request: 'Thank Elena.',
+      output: 'note',
+      fields: { request: '`output` was produced to answer `request`.' },
+    })
     expect(asked(0).questions['rule:r1'].instructions).toBe(
-      '`output` was produced to answer `request`. Does `output` follow this rule: "rule r1"',
+      'Does `output` follow this rule: "rule r1"',
     )
     expect(asked(0).questions['check:g1'].instructions).toBe(
-      '`output` was produced to answer `request`. Is this statement true of `output`: "statement g1"',
+      'Is this statement true of `output`: "statement g1"',
     )
     await genericPack.judge(output({ rules: [rule('r1')] }), ctx)
+    expect(asked(2).state).toEqual({ output: 'note' })
     expect(asked(2).questions['rule:r1'].instructions).toBe(
       'Does `output` follow this rule: "rule r1"',
     )
@@ -168,25 +179,26 @@ describe('generic pack', () => {
       output: 'note',
       skill: skill.trim(),
       headings: ['For a screen', 'For a detail'],
+      fields: {
+        request: '`output` was produced to answer `request`.',
+        skill: '`skill` holds the instructions `output` is held to: it is not part of `output`.',
+      },
     })
     expect(Object.keys(questions)).toEqual(['rule:r1', 'rule:r2', 'rule:r3'])
-    const lead =
-      '`output` was produced to answer `request`. `skill` holds the instructions `output` is held to: it is not part of `output`. '
     expect(questions['rule:r1'].instructions).toBe(
-      `${lead}\`skill\` has this rule under its heading "For a screen": "rule r1" Does \`output\` follow the rule?`,
+      '`skill` has this rule under its heading "For a screen": "rule r1" Does `output` follow the rule?',
     )
     expect(questions['rule:r1'].criteria.true).toContain(
       'its heading or its own words are for another kind of work than `request` asks for',
     )
-    expect(questions['rule:r3'].instructions).toBe(
-      `${lead}Does \`output\` follow this rule: "rule r3"`,
-    )
+    expect(questions['rule:r3'].instructions).toBe('Does `output` follow this rule: "rule r3"')
     // Which rules are for this work is what was asked for: the output that was made is not in view.
     const headings = asked(1)
     expect(headings.state).toEqual({
       request: 'Thank Elena.',
       skill: skill.trim(),
       headings: ['For a screen', 'For a detail'],
+      fields: { skill: '`skill` holds the instructions an answer to `request` is held to.' },
     })
     expect(Object.keys(headings.questions)).toEqual([
       'heading:0',
@@ -196,7 +208,7 @@ describe('generic pack', () => {
       'up:r3',
     ])
     expect(headings.questions['heading:0'].instructions).toBe(
-      '`skill` holds the instructions an answer to `request` is held to. `skill` groups its rules under the headings in `headings`. Are the rules under the heading "For a screen" for the kind of work `request` asks for?',
+      '`skill` groups its rules under the headings in `headings`. Are the rules under the heading "For a screen" for the kind of work `request` asks for?',
     )
     expect(raw?.adherence?.rules).toEqual([
       {
@@ -235,10 +247,13 @@ describe('generic pack', () => {
       output: 'note',
       skill: skill.trim(),
       headings: ['For a screen'],
+      fields: {
+        skill: '`skill` holds the instructions `output` is held to: it is not part of `output`.',
+      },
     })
     expect(Object.keys(asked().questions)).toEqual(['rule:r1', 'heading:0'])
     expect(asked().questions['heading:0'].instructions).toBe(
-      '`skill` holds the instructions `output` is held to: it is not part of `output`. `skill` groups its rules under the headings in `headings`. Are the rules under the heading "For a screen" for the kind of work `output` is?',
+      '`skill` groups its rules under the headings in `headings`. Are the rules under the heading "For a screen" for the kind of work `output` is?',
     )
   })
 
@@ -256,6 +271,7 @@ describe('generic pack', () => {
       request: 'Thank Elena.',
       skill: skill.trim(),
       headings: ['For a screen'],
+      fields: { skill: '`skill` holds the instructions an answer to `request` is held to.' },
     })
     expect(holdsImage(asked(1).state)).toBe(false)
   })
@@ -303,9 +319,10 @@ describe('generic pack', () => {
       request: 'Tell the team the launch moved.',
       skill: skill.trim(),
       headings: ['Rules'],
+      fields: { skill: '`skill` holds the instructions an answer to `request` is held to.' },
     })
     expect(up.questions['up:r1'].instructions).toBe(
-      '`skill` holds the instructions an answer to `request` is held to. `skill` has this rule under its heading "Rules": "When the request names a table, write a Markdown table." Does the rule come up for what `request` asks, whatever an answer to it turns out to be?',
+      '`skill` has this rule under its heading "Rules": "When the request names a table, write a Markdown table." Does the rule come up for what `request` asks, whatever an answer to it turns out to be?',
     )
     const scored = genericScoring.score(raw, {} as never, ctx.config)
     // A table rule on a request with no table is no rule followed. A rule marked broken with the
@@ -398,9 +415,16 @@ describe('generic pack', () => {
     )
     expect(raw?.adherence?.rules).toHaveLength(1)
     const { state, questions } = asked()
-    expect(state).toEqual({ output: '<h1>Hi</h1>', picture: drawn.read.image })
+    expect(state).toEqual({
+      output: '<h1>Hi</h1>',
+      picture: drawn.read.image,
+      fields: {
+        picture:
+          '`picture` shows `output` as it looks when it is opened in a window 1280 px wide and 960 px tall. Anything of the page below that window is not in `picture`.',
+      },
+    })
     expect(questions['rule:r1'].instructions).toBe(
-      '`picture` shows `output` as it looks when it is opened in a window 1280 px wide and 960 px tall. Anything of the page below that window is not in `picture`. Do `output` and `picture` follow this rule: "rule r1"',
+      'Do `output` and `picture` follow this rule: "rule r1"',
     )
   })
 
@@ -420,7 +444,7 @@ describe('generic pack', () => {
       }),
       ctx,
     )
-    expect(asked().questions['rule:r1'].instructions).toContain(
+    expect(fieldsOf().picture).toContain(
       'in a window 1600 px wide and 1200 px tall, scaled to 1568 by 1176 px, so a length measured on `picture` is not its length in `output`.',
     )
   })
@@ -444,7 +468,7 @@ describe('generic pack', () => {
     })
     await genericPack.judge(measured, ctx)
     expect(asked().state.layout).toBe(layoutText(layout, 14_000))
-    expect(asked().questions['rule:r1'].instructions).toContain(
+    expect(fieldsOf().layout).toBe(
       '`layout` lists the elements of `output` as that window measured them: the place and the size of each in px, from the top left of the page, and where it sits inside the elements that hold it. A size, a distance or a position is read from `layout`, where it was measured, and not judged by eye on `picture`.',
     )
 
@@ -453,7 +477,7 @@ describe('generic pack', () => {
     await genericPack.judge({ ...measured, rules: [rule('r1')] }, ctx)
     expect(asked().state).not.toHaveProperty('layout')
     expect(asked().state).toHaveProperty('picture')
-    expect(asked().questions['rule:r1'].instructions).not.toContain('`layout`')
+    expect(fieldsOf()).not.toHaveProperty('layout')
     ask.mockClear()
     await genericPack.judge(
       {
@@ -483,9 +507,10 @@ describe('generic pack', () => {
       const picture = output({ text: '', dir, primary: card, artifacts: [card] })
       await genericPack.judge({ ...picture, case: testCase([grader('g1')]) }, ctx)
       const { state, questions } = asked()
-      expect(Object.keys(state)).toEqual(['request', 'picture'])
+      expect(Object.keys(state)).toEqual(['request', 'picture', 'fields'])
+      expect(state.fields).toEqual({ request: '`picture` was produced to answer `request`.' })
       expect(questions['check:g1'].instructions).toBe(
-        '`picture` was produced to answer `request`. Is this statement true of `picture`: "statement g1"',
+        'Is this statement true of `picture`: "statement g1"',
       )
       // A picture Jev cannot read is said, and no rule is marked followed for it.
       writeFileSync(join(dir, 'outputs/card.png'), pngHeader(100, 100))
@@ -514,7 +539,7 @@ describe('generic pack', () => {
       ask.mockClear()
       const fitted = { file: card.file, pixels, read: { image: copy, problem: null } }
       await genericPack.judge({ ...picture, fitted }, ctx)
-      return asked().questions['check:g1'].instructions
+      return said()
     }
     expect(await lead([1920, 1080])).toContain('which is 1920 by 1080 px')
     // A copy drawn only to be still and upright is the picture's own size: nothing to say of it.
@@ -543,9 +568,9 @@ describe('generic pack', () => {
         source: { file: 'outputs/index.html', window: [600, 450], times: 2, layout },
       })
       await genericPack.judge(made, ctx)
-      expect(Object.keys(asked().state)).toEqual(['picture', 'other_files', 'layout'])
+      expect(Object.keys(asked().state)).toEqual(['picture', 'other_files', 'layout', 'fields'])
       expect(asked().state.layout).toBe(layoutText(layout, 14_000))
-      expect(asked().questions['rule:r1'].instructions).toContain(
+      expect(fieldsOf().layout).toContain(
         '`picture` is what the page "outputs/index.html" draws in a window 600 px wide and 450 px tall, and `layout` lists that page\'s elements as measured there: the place and the size of each in px, from the top left of the page, and where it sits inside the elements that hold it. `picture` is 2 times that size, so a length in `picture` is 2 times its length in `layout`. A size, a distance or a position is read from `layout`',
       )
 
@@ -556,7 +581,7 @@ describe('generic pack', () => {
       // A page judged as the work has measures of its own: the source is for a picture.
       ask.mockClear()
       await genericPack.judge({ ...made, text: '<main></main>', primary: page }, ctx)
-      expect(asked().questions['rule:r1'].instructions).not.toContain('is what the page')
+      expect(said()).not.toContain('is what the page')
     } finally {
       rmSync(dir, { recursive: true, force: true })
     }
@@ -569,7 +594,7 @@ describe('generic pack', () => {
     )
     const { state, questions } = asked()
     expect(state.notes).toBe('Size: 1536 by 864, as asked.')
-    expect(questions['rule:r1'].instructions).toContain(
+    expect(fieldsOf().notes).toBe(
       '`notes` is what its maker told the user about `output`: it is not part of `output`.',
     )
     // A rule about the piece, such as its length, is never failed for how the notes read.
@@ -585,8 +610,11 @@ describe('generic pack', () => {
     await genericPack.judge(output({ rules: [rule('r1')], others }), ctx)
     const { state, questions } = asked()
     expect(state.other_files).toEqual({ 'outputs/sum.test.ts': 'test("adds", () => {})' })
+    expect(fieldsOf().other_files).toBe(
+      '`other_files` holds the other files made with `output`, each by its name.',
+    )
     expect(questions['rule:r1'].instructions).toBe(
-      '`other_files` holds the other files made with `output`, each by its name. Do `output` and `other_files` follow this rule: "rule r1"',
+      'Do `output` and `other_files` follow this rule: "rule r1"',
     )
   })
 
@@ -604,10 +632,12 @@ describe('generic pack', () => {
       request: 'Describe the chart.',
       request_images: [chart],
       output: 'note',
+      fields: {
+        request:
+          '`output` was produced to answer `request`, which came with the pictures in `request_images`.',
+      },
     })
-    expect(questions['check:g1'].instructions).toContain(
-      'which came with the pictures in `request_images`',
-    )
+    expect(questions['check:g1'].instructions).not.toContain('request_images')
   })
 
   it('asks a check about a picture with that picture in its own question', async () => {
@@ -660,7 +690,7 @@ describe('generic pack', () => {
     expect((asked(0).state.output as string).length).toBe(40_000)
     expect((asked(1).state.output as string).length).toBe(20_000)
     expect(asked(1).state).not.toHaveProperty('other_files')
-    expect(asked(1).questions['rule:r1'].instructions).not.toContain('other_files')
+    expect(fieldsOf(1)).not.toHaveProperty('other_files')
     expect(raw?.cut).toEqual([
       'Jev read only the first 20,000 characters of the output',
       'Jev read none of outputs/app.js',
@@ -726,13 +756,13 @@ describe('generic pack', () => {
       output({ rules: [rule('r1')], case: testCase(), requestFiles }),
       ctx,
     )
-    const { state, questions } = asked()
+    const { state } = asked()
     expect(state.request_files).toEqual({
       'design/color.md': 'Ink #0A1020.',
       'design/layout.md': 'l'.repeat(8000),
       'design/type.md': 't'.repeat(24_000 - 8012),
     })
-    expect(questions['rule:r1'].instructions).toContain(
+    expect(fieldsOf().request_files).toBe(
       '`request_files` holds the files that came with `request`, each by its name: what `output` was made from, and no part of it.',
     )
     expect(raw?.cut).toEqual([
