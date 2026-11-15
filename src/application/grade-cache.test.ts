@@ -193,6 +193,62 @@ describe('gradeRun, on what a question is asked again for', () => {
   })
 })
 
+describe('gradeRun, on a request that fails', () => {
+  it('keeps the answers that came back, and asks only the ones that did not on the next grading', async () => {
+    const { dir } = demo()
+    const { ask, asked } = answering()
+    const answer = ask.getMockImplementation()
+    if (!answer) throw new Error('no answer')
+    // Whether each rule comes up is asked in a request of its own: that one fails.
+    ask.mockImplementation(async function (this: Jev, state, questions, signal, usage) {
+      if (Object.keys(questions).some((q) => q.startsWith('up:'))) throw new Error('no network')
+      return answer.call(this, state, questions, signal, usage)
+    })
+    const failed = await grade(dir)
+    expect(failed.results[0].flags[0]).toBe('generic pack failed: no network')
+    expect(failed.results[0].scores.total).toBeNull()
+    const sent = generic(asked())
+    ask.mockClear()
+
+    ask.mockImplementation(answer)
+    const fixed = await grade(dir)
+    expect(fixed.results[0].scores.total).toBeTypeOf('number')
+    // The rules and checks that were answered are not asked again; the request that failed is.
+    expect(asked().every((q) => /^(heading|up):/.test(q))).toBe(true)
+    expect(asked().sort()).toEqual(sent.filter((q) => /^(heading|up):/.test(q)).sort())
+  })
+
+  it('asks again only a question Jev left unanswered, or answered with no number', async () => {
+    const { dir } = demo()
+    const { ask, asked } = answering()
+    const answer = ask.getMockImplementation()
+    if (!answer) throw new Error('no answer')
+    let left: string[] = []
+    ask.mockImplementation(async function (this: Jev, state, questions, signal, usage) {
+      const answers = (await answer.call(this, state, questions, signal, usage)) as Record<
+        string,
+        unknown
+      >
+      const checks = Object.keys(answers).filter((q) => q.startsWith('check:'))
+      if (checks.length < 2) return answers as never
+      left = checks
+      // One check is left out of the reply, and the other has no number.
+      delete answers[checks[0]]
+      answers[checks[1]] = { noul: 'yes' }
+      return answers as never
+    })
+    const failed = await grade(dir)
+    expect(failed.results[0].scores.total).toBeNull()
+    expect(failed.results[0].flags[0]).toMatch(/^generic pack failed: Jev gave no noul/)
+    ask.mockClear()
+
+    ask.mockImplementation(answer)
+    const fixed = await grade(dir)
+    expect(fixed.results[0].scores.total).toBeTypeOf('number')
+    expect(asked().sort()).toEqual(left.sort())
+  })
+})
+
 describe('gradeRun, on what a report says its answers cost', () => {
   it('counts the tokens of every answer it holds, kept or asked, and apart what this grading paid', async () => {
     const { dir, cases } = demo()
