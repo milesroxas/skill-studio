@@ -73,6 +73,12 @@ export interface RunView {
    * for a run that kept no copy of its cases.
    */
   cases: Record<string, RunCase>
+  /**
+   * The run kept its cases and that file does not read whole (`readKept`), so
+   * a case it lost is read as it is now. Absent for a run whose file reads,
+   * and for one made before runs kept their cases.
+   */
+  casesDamaged?: boolean
 }
 
 export interface SkillVersion {

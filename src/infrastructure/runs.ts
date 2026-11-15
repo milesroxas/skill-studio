@@ -13,7 +13,7 @@ import type { FileHead, RunView, Sample } from '@domain/views.ts'
 import { detectArtifacts } from './artifacts.ts'
 import { loadCases } from './cases.ts'
 import { assertInside, isDir, isFile, listDirs, listFiles, readJson } from './fs.ts'
-import { runCases } from './run-cases.ts'
+import { readKept, runCases } from './run-cases.ts'
 import { skillFiles, skillVersions } from './skill.ts'
 import { readTranscript } from './transcript.ts'
 import { isVersionLabel, savedVersionSource, savedVersions } from './versions.ts'
@@ -250,13 +250,20 @@ export function readRun(
   live: readonly Case[] = loadCases(skillDir),
 ): RunView {
   const dir = runDir(skillDir, name)
+  const meta = readRunMeta(skillDir, name)
+  // A hand-edited `run.json` may hold anything under `cases`.
+  const answered = Array.isArray(meta?.cases)
+    ? meta.cases.filter((id) => typeof id === 'string')
+    : []
+  const { kept, damaged } = readKept(dir, answered)
   return {
     name,
-    meta: readRunMeta(skillDir, name),
+    meta,
     report: readRunJson<Report | null>(join(dir, 'report.json'), null),
     samples: runSamples(dir),
     hasSkill: isDir(skillCopy(skillDir, name)),
-    cases: runCases(skillDir, dir, live),
+    cases: runCases(skillDir, dir, live, kept, answered),
+    ...(damaged ? { casesDamaged: true } : {}),
   }
 }
 

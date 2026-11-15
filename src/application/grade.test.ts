@@ -117,6 +117,17 @@ describe('gradeRun, on the case a run was asked', () => {
     expect(readRun(dir, run).cases.email.yardstick).toBe(second.result.yardstick)
   })
 
+  it('says when the run’s copy of its cases does not read, and grades on the case as it is', async () => {
+    const { dir, run } = skillWith(['email'], ['email-s1'])
+    writeFileSync(join(dir, 'evals/runs', run, '_cases.json'), '{ torn')
+    vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const log: string[] = []
+    genericJudge().mockResolvedValue(null)
+    const report = await gradeRun(dir, run, { useJev: false, log: (line) => log.push(line) })
+    expect(log.join('\n')).toMatch('_cases.json does not read whole')
+    expect(report.results[0].case).toBe('email')
+  })
+
   it('holds an output to the prompt its agent got, and the checks of then, once the prompt changed', async () => {
     const { dir, run } = skillWith(['email'], ['email-s1'])
     check(dir, 'email', '01-short', 'It is under 50 words.')

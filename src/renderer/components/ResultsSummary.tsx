@@ -399,6 +399,12 @@ function RunDetail({
             ? `Graded ${stamp(view.report.createdAt) ?? view.report.createdAt}${view.report.model ? (rulesUnmarked(view.report) ? ' by Jev, before rules and checks were marked on this kind of output. Regrade to see them.' : ' by Jev.') : ' without Jev: no rule or check is marked.'}`
             : 'Not graded yet.'}
         </Hint>
+        {view.casesDamaged ? (
+          <Hint tone="destructive">
+            What this run's cases asked could not be read, so its outputs are judged on the cases as
+            they are now.
+          </Hint>
+        ) : null}
       </Stack>
       <Table bleed>
         <TableHeader>

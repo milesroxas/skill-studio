@@ -33,7 +33,7 @@ import {
   writeText,
 } from '@infrastructure/fs.ts'
 import { readPng } from '@infrastructure/png.ts'
-import { type KeptCase, keptCases, takenCase } from '@infrastructure/run-cases.ts'
+import { CASES_FILE, type KeptCase, readKept, takenCase } from '@infrastructure/run-cases.ts'
 import {
   anchorsDir,
   finishedSamples,
@@ -989,11 +989,17 @@ export async function gradeRun(
   })
   const inputs = join(dir, INPUTS_DIR)
   const skill = skillCopy(skillDir, run)
+  const answered = readRunMeta(skillDir, run)?.cases
+  const { kept, damaged } = readKept(dir, Array.isArray(answered) ? answered : [])
+  if (damaged)
+    options.log?.(
+      `${CASES_FILE} does not read whole: a case it lost is graded on the case as it is now.`,
+    )
   return gradeSubjects(skillDir, dir, subjects, options, {
     name: run,
     inputs: isDir(inputs) ? inputs : null,
     skill: isFile(join(skill, 'SKILL.md')) ? skill : null,
-    cases: keptCases(dir),
+    cases: kept,
   })
 }
 

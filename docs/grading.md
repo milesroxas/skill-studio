@@ -41,6 +41,7 @@ A run keeps its cases as it starts, in `_cases.json`, each with a fingerprint of
 - While the skill's case asks what the run was asked, the output is graded on the skill's case, so its checks and settings are read as they are now. A check added since the run is marked on the next grading.
 - Once the case's prompt or files have changed, or the case is gone, the output is graded on the run's own copy, whole: the prompt its agent got and the checks of then. An output is never held to a request its agent did not get, and an id used again for another case is another case.
 - A run made before runs kept their cases is graded on the cases as they are now.
+- A run whose `_cases.json` does not read whole (it does not parse, holds no list, has an entry that names no case, or lacks a case `run.json` lists) has each case it lost graded and compared as the case is now (`readKept`). The grading's log says so, and so does the run on Results, in red under its head.
 - `bench.json` is how every run is scored, so it is read as it is now for every run.
 
 Each graded output keeps a fingerprint of what it was held to, `yardstick` in `report.json`: its case's checks, each by its words, its weight and the bytes of its picture, the case's `bench` settings, and the turns and the time the workflow pack holds a run to (`max_turns`, `timeout_seconds`) (`yardstickOf`). The names of the check files and their order are no part of it.

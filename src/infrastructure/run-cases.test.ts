@@ -9,6 +9,7 @@ import {
   CASES_FILE,
   keepCases,
   keptCases,
+  readKept,
   runCases,
   takenCase,
   yardstickOf,
@@ -169,6 +170,23 @@ describe('the cases a run keeps', () => {
     expect(keptCases(run)).toBeNull()
   })
 
+  it('tells a run that kept none from one whose file is damaged', () => {
+    expect(readKept(run, ['email'])).toEqual({ kept: null, damaged: false })
+    keepCases(dir, run, loadCases(dir))
+    expect(readKept(run, ['email']).damaged).toBe(false)
+    const file = join(run, CASES_FILE)
+    const held = readJson<unknown[]>(file, [])
+    // A case the run answered that the file does not hold.
+    expect(readKept(run, ['email', 'note']).damaged).toBe(true)
+    writeFileSync(file, JSON.stringify([...held, { ask: 'x' }]))
+    expect(readKept(run, ['email'])).toMatchObject({ damaged: true })
+    expect(readKept(run, ['email']).kept?.map((entry) => entry.case.id)).toEqual(['email'])
+    writeFileSync(file, '{ torn')
+    expect(readKept(run, ['email'])).toEqual({ kept: null, damaged: true })
+    writeFileSync(file, '{"email": {}}')
+    expect(readKept(run, ['email'])).toEqual({ kept: null, damaged: true })
+  })
+
   it('reads a case written by hand into shapes every reader can use', () => {
     writeFileSync(
       join(run, CASES_FILE),
@@ -228,6 +246,15 @@ describe('takenCase', () => {
 })
 
 describe('runCases', () => {
+  it('takes a case a damaged file lost as it is now, and none the run did not answer', () => {
+    writeCase('note', 'Write the note.')
+    writeFileSync(join(run, CASES_FILE), '[]')
+    writeCase('later', 'Added after the run.')
+    const cases = runCases(dir, run, loadCases(dir), [], ['email', 'note'])
+    expect(Object.keys(cases).sort()).toEqual(['email', 'note'])
+    expect(cases.email.earlier).toBeNull()
+  })
+
   it('lists each case a run kept, and marks the ones the skill no longer asks', () => {
     writeCase('note', 'Write the note.')
     keepCases(dir, run, loadCases(dir))

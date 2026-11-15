@@ -12,7 +12,7 @@
  * changed from one made since.
  */
 import { createHash } from 'node:crypto'
-import { readFileSync, statSync } from 'node:fs'
+import { existsSync, readFileSync, statSync } from 'node:fs'
 import { join } from 'node:path'
 import { checkWeight } from '@domain/case-draft.ts'
 import { fingerprint, sameFingerprint } from '@domain/fingerprint.ts'
@@ -213,23 +213,50 @@ export function keepCases(skillDir: string, runDir: string, cases: readonly Case
   writeJson(join(runDir, CASES_FILE), kept)
 }
 
+/** What a run kept of its cases, as read. */
+export interface KeptRead {
+  /** The cases it kept; null for a run that kept none, or whose file holds no list. */
+  kept: KeptCase[] | null
+  /**
+   * The run kept its cases and the file does not read whole: it does not
+   * parse, holds no list, has an entry that names no case, or lacks a case
+   * the run answered (`answered`). Each case without a kept copy is read as
+   * it is now. False for a run made before runs kept their cases.
+   */
+  damaged: boolean
+}
+
 /**
- * The cases the run in `runDir` kept; null for a run that kept none, which is
- * one made before runs kept their cases, or whose file cannot be read. Such a
- * run is read against the cases as they are now.
+ * The cases the run in `runDir` kept, and whether its file is damaged.
+ * `answered` is the ids `run.json` says the run answered, when known.
  */
-export function keptCases(runDir: string): KeptCase[] | null {
+export function readKept(runDir: string, answered: readonly string[] = []): KeptRead {
   const path = join(runDir, CASES_FILE)
+  if (!existsSync(path)) return { kept: null, damaged: false }
   let raw: unknown
   try {
     raw = readJson<unknown>(path, null)
   } catch (error) {
     console.warn((error as Error).message)
-    return null
+    return { kept: null, damaged: true }
   }
-  if (!Array.isArray(raw)) return null
-  return raw.flatMap((entry) => keptOf(entry, path) ?? [])
+  if (!Array.isArray(raw)) {
+    console.warn(`${path} holds no list of cases.`)
+    return { kept: null, damaged: true }
+  }
+  const kept = raw.flatMap((entry) => keptOf(entry, path) ?? [])
+  const ids = new Set(kept.map((entry) => entry.case.id))
+  const damaged = kept.length < raw.length || answered.some((id) => !ids.has(id))
+  if (damaged) console.warn(`${path} does not hold every case the run answered.`)
+  return { kept, damaged }
 }
+
+/**
+ * The cases the run in `runDir` kept; null for a run that kept none, which is
+ * one made before runs kept their cases, or whose file holds no list. Such a
+ * run is read against the cases as they are now.
+ */
+export const keptCases = (runDir: string): KeptCase[] | null => readKept(runDir).kept
 
 /** A case as a run takes it, with the case its grading reads. */
 export interface TakenCase extends RunCase {
@@ -263,17 +290,24 @@ export function takenCase(
 /**
  * Every case the run in `runDir` takes, by id, against the skill's cases as
  * they are now (`live`). A run that kept its cases takes those; one that kept
- * none takes each of the skill's.
+ * none takes each of the skill's. A case the run answered (`answered`) that
+ * a damaged file lost is taken as it is now, as for a run that kept none.
  */
 export function runCases(
   skillDir: string,
   runDir: string,
   live: readonly Case[],
+  kept: KeptCase[] | null = keptCases(runDir),
+  answered: readonly string[] = [],
 ): Record<string, RunCase> {
-  const kept = keptCases(runDir)
   const byId = new Map(live.map((testCase) => [testCase.id, testCase]))
+  const held = new Set(kept?.map((entry) => entry.case.id))
+  const lost = live.filter((testCase) => answered.includes(testCase.id) && !held.has(testCase.id))
   const pairs: Array<[KeptCase | null, Case | null]> = kept
-    ? kept.map((entry) => [entry, byId.get(entry.case.id) ?? null])
+    ? [
+        ...kept.map((entry): [KeptCase, Case | null] => [entry, byId.get(entry.case.id) ?? null]),
+        ...lost.map((testCase): [null, Case] => [null, testCase]),
+      ]
     : live.map((testCase) => [null, testCase])
   const cases: Record<string, RunCase> = {}
   for (const [entry, testCase] of pairs) {

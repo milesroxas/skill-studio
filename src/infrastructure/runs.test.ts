@@ -113,3 +113,15 @@ describe('reading run.json again', () => {
     expect(readRunMeta(dir, 'r1')?.skillName).toBe('bbbb')
   })
 })
+
+describe('a run’s kept cases, as read', () => {
+  it('says when the file does not read, and not for a run that kept none', () => {
+    const run = writeRun('r1', ['note-s1'], { cases: ['note'], samples: [listed('note-s1')] })
+    expect(readRun(dir, 'r1').casesDamaged).toBeUndefined()
+    writeFileSync(join(run, '_cases.json'), '{ torn')
+    expect(readRun(dir, 'r1').casesDamaged).toBe(true)
+    // A hand-edited run.json with no list of cases reads, and says only what it can.
+    writeJson(join(run, 'run.json'), { cases: 'note' })
+    expect(readRun(dir, 'r1').casesDamaged).toBe(true)
+  })
+})
