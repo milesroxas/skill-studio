@@ -24,7 +24,7 @@ import type {
 import type { SecretId, Settings } from '@domain/secrets.ts'
 import type { TemplateId } from '@domain/templates.ts'
 import type { UpdateRequest, UpdateState } from '@domain/update.ts'
-import type { Job, RunView, SkillInfo, SkillVersion, State } from '@domain/views.ts'
+import type { Job, RunView, SkillInfo, SkillVersion, State, TrashedDelete } from '@domain/views.ts'
 
 /** Operations on one skill name it by path. The client fills this in. */
 export interface Scoped {
@@ -162,7 +162,7 @@ export interface Contract {
     input: Scoped & { version: string }
     output: { deleted: string; runs: number; reviews: number; undo: string }
   }
-  /** Take back the latest delete, named by the `undo` it returned. */
+  /** Take back a version delete, named by the `undo` it returned. */
   'skill.undeleteVersion': { input: Scoped & { undo: string }; output: { restored: string } }
   /**
    * Delete one run: its outputs and the corrections on them. Its version stays,
@@ -173,8 +173,13 @@ export interface Contract {
     input: Scoped & { run: string }
     output: { deleted: string; reviews: number; kept: string | null; undo: string }
   }
-  /** Take back the latest run delete, named by the `undo` it returned. */
+  /** Take back a run delete, named by the `undo` it returned. */
   'skill.undeleteRun': { input: Scoped & { undo: string }; output: { restored: string } }
+  /**
+   * The skill's version and run deletes the trash still holds, the newest
+   * first: each one's `undo` takes it back, as long as nothing took its place.
+   */
+  'skill.trashed': { input: Scoped; output: { deletes: TrashedDelete[] } }
   'skill.drafts': { input: Scoped; output: SkillDrafts }
   'skill.saveDrafts': {
     input: Scoped & { drafts: SkillDrafts }

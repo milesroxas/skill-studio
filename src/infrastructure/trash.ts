@@ -2,15 +2,17 @@
  * Deleting a version or one run, with a way back. What goes (a version's saved
  * copy, the runs, and the corrections on their outputs, with any votes on them
  * an earlier version of the app wrote) moves to `~/.skill-studio/trash/<id>/`,
- * outside the skill so it never shows in its git status. Only the latest
- * delete can be undone: each delete empties the trash first, so it never holds
- * more than one, apart from an entry marked `unfinished`, which may hold the
- * only copy of a run.
+ * outside the skill so it never shows in its git status. Each delete keeps its
+ * own entry, so a later delete, in this skill or another, leaves the undo of
+ * an earlier one standing. The trash keeps a skill's newest `KEEP_PER_SKILL`
+ * deletes for `KEEP_DAYS` days, apart from an entry marked `unfinished`, which
+ * may hold the only copy of a run and is never emptied.
  */
 import { randomUUID } from 'node:crypto'
-import { cpSync, mkdirSync, renameSync, rmSync } from 'node:fs'
-import { dirname, join } from 'node:path'
+import { cpSync, mkdirSync, renameSync, rmSync, statSync } from 'node:fs'
+import { basename, dirname, join } from 'node:path'
 import { type VersionAfterRunDelete, versionAfterRunDelete } from '@domain/run-delete.ts'
+import type { TrashedDelete } from '@domain/views.ts'
 import { assertInside, isDir, isFile, listDirs, readJson, writeJson } from './fs.ts'
 import { STUDIO_DIR } from './library.ts'
 import {
@@ -31,6 +33,13 @@ import {
 
 const TRASH = join(STUDIO_DIR, 'trash')
 
+/** How many of a skill's deletes the trash keeps, the newest first. */
+const KEEP_PER_SKILL = 10
+
+/** How long the trash keeps a delete. */
+const KEEP_DAYS = 30
+const DAY_MS = 24 * 60 * 60 * 1000
+
 interface TrashEntry {
   /** A delete of one run; a version's delete leaves it out. */
   kind?: 'run'
@@ -50,6 +59,15 @@ interface TrashEntry {
   kept?: VersionFile
   /** A run's delete that took its version with it: the run was its last copy and kept no snapshot. */
   took?: true
+  /** When the delete was made. An entry written before this was kept reads its file's time. */
+  deletedAt?: string
+  /**
+   * A run's delete that left its version in the list, whose version a later
+   * delete (named here) took out of it. The number may be given out again
+   * since: while it is, the run is not brought back. Undoing that delete
+   * takes the mark off.
+   */
+  freedBy?: string
 }
 
 export interface DeletedVersion {
@@ -130,18 +148,75 @@ const moveBack = (stuck: Move[]): string =>
 
 const entryFile = (entry: string): string => join(entry, 'entry.json')
 
-/** Empty the trash, passing over an entry marked unfinished, or one whose record cannot be read. */
-function emptyTrash(): void {
+/** Every entry in the trash whose record can be read, by id. */
+function readEntries(): Array<{ id: string; file: TrashEntry; at: number }> {
+  const entries: Array<{ id: string; file: TrashEntry; at: number }> = []
   for (const id of listDirs(TRASH)) {
-    let file: TrashEntry | null
     try {
-      file = readJson<TrashEntry | null>(entryFile(join(TRASH, id)), null)
-    } catch {
-      continue
-    }
-    if (!file?.unfinished) rmSync(join(TRASH, id), { recursive: true, force: true })
+      const path = entryFile(join(TRASH, id))
+      const file = readJson<TrashEntry | null>(path, null)
+      if (!file) continue
+      const at = file.deletedAt ? Date.parse(file.deletedAt) : statSync(path).mtimeMs
+      entries.push({ id, file, at: Number.isNaN(at) ? 0 : at })
+    } catch {}
+  }
+  return entries.sort((a, b) => b.at - a.at)
+}
+
+/**
+ * Empty the trash of what it no longer keeps: a delete older than `KEEP_DAYS`,
+ * and a skill's deletes past its newest `KEEP_PER_SKILL`. An entry marked
+ * unfinished, or one whose record cannot be read, is passed over: it may hold
+ * the only copy of a run.
+ */
+function pruneTrash(now: number): void {
+  const kept = new Map<string, number>()
+  for (const { id, file, at } of readEntries()) {
+    if (file.unfinished) continue
+    const count = (kept.get(file.skill) ?? 0) + 1
+    kept.set(file.skill, count)
+    if (count > KEEP_PER_SKILL || now - at > KEEP_DAYS * DAY_MS)
+      rmSync(join(TRASH, id), { recursive: true, force: true })
   }
 }
+
+/** The deletes of `skillDir` the trash holds and can undo, the newest first. */
+export function trashedDeletes(skillDir: string): TrashedDelete[] {
+  return readEntries()
+    .filter(({ file }) => file.skill === skillDir && !file.unfinished)
+    .map(({ id, file, at }) => ({
+      undo: id,
+      kind: file.kind ?? 'version',
+      name: file.kind === 'run' ? (file.runs[0] ?? '') : file.version,
+      version: file.version,
+      deletedAt: new Date(at).toISOString(),
+    }))
+}
+
+/**
+ * The delete `id` took `version` out of the skill's list. Every run delete of
+ * that version before it that left the version in the list is marked: the
+ * number may be given out again, and a run of the old text must not come back
+ * under it. `freed` false takes the marks off again, when that delete is undone.
+ */
+function markFreed(skillDir: string, version: string, id: string, freed: boolean): void {
+  for (const other of readEntries()) {
+    const { file } = other
+    if (other.id === id || file.skill !== skillDir || file.kind !== 'run' || file.took) continue
+    if (file.version !== version) continue
+    if (freed ? file.freedBy : file.freedBy !== id) continue
+    const { freedBy: _, ...rest } = file
+    try {
+      writeJson(entryFile(join(TRASH, other.id)), freed ? { ...rest, freedBy: id } : rest)
+    } catch (error) {
+      console.warn(`${other.id} could not be updated: ${(error as Error).message}`)
+    }
+  }
+}
+
+/** The delete took its version out of the list: a version's delete, or a run's that was its last copy. */
+const frees = (file: Pick<TrashEntry, 'kind' | 'took'>): boolean =>
+  file.kind !== 'run' || file.took === true
 
 /** Mark an entry unfinished, so no later delete empties it; a failure to is warned of and passed. */
 function markUnfinished(entry: string, file: TrashEntry): void {
@@ -182,10 +257,17 @@ function trash(
   const reviews = Object.fromEntries(Object.entries(kept).filter(([key]) => gone.has(runOf(key))))
   const preferences = votes.filter((p) => onRuns(p, gone))
 
-  emptyTrash()
+  // Later than every delete before it, so two in the same moment keep their order.
+  const now = Math.max(Date.now(), (readEntries()[0]?.at ?? 0) + 1)
   const id = randomUUID()
   const entry = join(TRASH, id)
-  const file: TrashEntry = { ...base, skill: skillDir, reviews, preferences }
+  const file: TrashEntry = {
+    ...base,
+    skill: skillDir,
+    reviews,
+    preferences,
+    deletedAt: new Date(now).toISOString(),
+  }
   // Unfinished until every move is made, so a crash partway leaves the entry for no later delete to empty.
   writeJson(entryFile(entry), { ...file, unfinished: true } satisfies TrashEntry)
   try {
@@ -210,9 +292,11 @@ function trash(
   try {
     writeJson(entryFile(entry), file)
   } catch (error) {
-    // The delete is made and can be undone; the entry only stays in the trash after the next one.
+    // The delete is made and can be undone; the entry only stays in the trash for good.
     console.warn(`${entry} stays marked unfinished: ${(error as Error).message}`)
   }
+  if (frees(file)) markFreed(skillDir, file.version, id, true)
+  pruneTrash(now)
   if (Object.keys(reviews).length || preferences.length) {
     for (const key of Object.keys(reviews)) delete kept[key]
     writeStoredReviews(skillDir, {
@@ -346,10 +430,11 @@ function restore(entry: string, file: TrashEntry, what: string, moves: Move[]): 
   }
 }
 
-/** Everything is back: the corrections too, and the entry goes. */
+/** Everything is back: the corrections too, and the entry goes. Its version is in the list again. */
 function closeEntry(skillDir: string, entry: string, file: TrashEntry): void {
   untrashReviews(skillDir, file)
   rmSync(entry, { recursive: true, force: true })
+  if (frees(file)) markFreed(skillDir, file.version, basename(entry), false)
 }
 
 /** The version's saved copy is still the one a run's delete wrote as `kept`. */
@@ -360,8 +445,9 @@ function isKept(skillDir: string, kept: VersionFile): boolean {
 
 /**
  * Put back the run the delete named `undo` moved out. Refused when a run of
- * that name is there again, or when the delete took the run's version and its
- * number was given out again since. A version the delete saved for the run
+ * that name is there again, when the delete took the run's version and its
+ * number was given out again since, or when a later delete took the version
+ * the run left in the list (`freedBy`) and its number was given out again. A version the delete saved for the run
  * goes again while it is still the one the delete wrote: the run is its copy
  * once more.
  */
@@ -370,9 +456,12 @@ export function undeleteRun(skillDir: string, undo: string): { restored: string 
   const [run] = file.runs
   if (!run || !isDir(join(entry, 'runs', run))) throw new Error(GONE)
   if (isDir(runDir(skillDir, run))) throw new Error(`Can't undo: a run called ${run} exists.`)
-  // Only a delete that took the version frees its number. Any later delete in the app empties
-  // the trash, so while this one can be undone no other could have freed it.
-  if (file.took && versionsOf(skillDir).versions.some((v) => v.version === file.version))
+  // Only a delete that took the version frees its number: this one, or a later one. While the
+  // number is free the run brings back the version it was made with.
+  if (
+    (file.took || file.freedBy) &&
+    versionsOf(skillDir).versions.some((v) => v.version === file.version)
+  )
     throw new Error(
       `Can't undo: a new ${file.version} was made since. Delete it first to bring the run back.`,
     )

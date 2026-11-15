@@ -7,6 +7,7 @@ import {
   readFileSync,
   rmSync,
   symlinkSync,
+  utimesSync,
   writeFileSync,
 } from 'node:fs'
 import { tmpdir } from 'node:os'
@@ -19,7 +20,9 @@ import { failRenames } from './__fixtures__/fs.ts'
 const home = mkdtempSync(join(tmpdir(), 'st-trash-home-'))
 process.env.SKILL_STUDIO_HOME = home
 afterAll(() => rmSync(home, { recursive: true, force: true }))
-const { deleteRun, deleteVersion, undeleteRun, undeleteVersion } = await import('./trash.ts')
+const { deleteRun, deleteVersion, trashedDeletes, undeleteRun, undeleteVersion } = await import(
+  './trash.ts'
+)
 const { loadReviews, readStoredReviews, saveCorrection, writeStoredReviews } = await import(
   './reviews.ts'
 )
@@ -34,7 +37,11 @@ beforeEach(() => {
   writeFileSync(join(dir, 'SKILL.md'), 'first')
 })
 
-afterEach(() => rmSync(dir, { recursive: true, force: true }))
+afterEach(() => {
+  rmSync(dir, { recursive: true, force: true })
+  // Each test reads the trash as its own deletes leave it.
+  rmSync(trash, { recursive: true, force: true })
+})
 
 /** A vote between two outputs, as an earlier version of the app wrote one. */
 function writeVote(a: string, b: string) {
@@ -113,14 +120,57 @@ describe('deleteVersion', () => {
     expect(() => deleteVersion(dir, 'v3')).toThrow('There is no v3.')
   })
 
-  it('keeps only the latest delete in the trash', () => {
+  it('keeps each delete, so a later one leaves the undo of an earlier one standing', () => {
     saveVersion(dir, versionsOf(dir).current, 'One', '')
     writeFileSync(join(dir, 'SKILL.md'), 'second')
     saveVersion(dir, versionsOf(dir).current, 'Two', '')
     const first = deleteVersion(dir, 'v0')
     const second = deleteVersion(dir, 'v1')
-    expect(readdirSync(trash)).toEqual([second.undo])
-    expect(() => undeleteVersion(dir, first.undo)).toThrow('can no longer be undone')
+    expect(readdirSync(trash).sort()).toEqual([first.undo, second.undo].sort())
+    expect(undeleteVersion(dir, first.undo)).toEqual({ restored: 'v0' })
+    expect(undeleteVersion(dir, second.undo)).toEqual({ restored: 'v1' })
+  })
+
+  it('leaves the undo of a delete in one skill standing through a delete in another', () => {
+    const other = mkdtempSync(join(tmpdir(), 'st-trash-other-'))
+    try {
+      writeRun('r-a', 'v0')
+      const mine = deleteRun(dir, 'r-a')
+      writeFileSync(join(other, 'SKILL.md'), 'other')
+      saveVersion(other, versionsOf(other).current, 'One', '')
+      deleteVersion(other, 'v0')
+      expect(undeleteRun(dir, mine.undo)).toEqual({ restored: 'r-a' })
+    } finally {
+      rmSync(other, { recursive: true, force: true })
+    }
+  })
+
+  it('keeps a skill’s newest 10 deletes, and lists them the newest first', () => {
+    const runs = Array.from({ length: 11 }, (_, i) => `r-${String(i).padStart(2, '0')}`)
+    for (const run of runs) writeRun(run, 'v0')
+    const undos = runs.map((run) => deleteRun(dir, run).undo)
+    expect(() => undeleteRun(dir, undos[0])).toThrow('can no longer be undone')
+    const listed = trashedDeletes(dir)
+    expect(listed.map((d) => d.undo)).toEqual(undos.slice(1).reverse())
+    expect(listed[0]).toMatchObject({ kind: 'run', name: 'r-10', version: 'v0' })
+    expect(trashedDeletes(join(dir, 'other'))).toEqual([])
+  })
+
+  it('empties a delete older than 30 days, one from before deletes kept their time by its file', () => {
+    writeRun('r-a', 'v0')
+    writeRun('r-b', 'v0')
+    writeRun('r-c', 'v0')
+    const old = deleteRun(dir, 'r-a').undo
+    const older = deleteRun(dir, 'r-b').undo
+    const record = (id: string) => join(trash, id, 'entry.json')
+    const aged = JSON.parse(readFileSync(record(old), 'utf8'))
+    writeFileSync(record(old), JSON.stringify({ ...aged, deletedAt: '2026-01-01T00:00:00Z' }))
+    const { deletedAt: _, ...bare } = JSON.parse(readFileSync(record(older), 'utf8'))
+    writeFileSync(record(older), JSON.stringify(bare))
+    const then = new Date('2026-01-01T00:00:00Z')
+    utimesSync(record(older), then, then)
+    const kept = deleteRun(dir, 'r-c').undo
+    expect(readdirSync(trash)).toEqual([kept])
   })
 })
 
@@ -238,13 +288,29 @@ describe('undeleteRun', () => {
     expect(existsSync(join(trash, undo))).toBe(false)
   })
 
-  it('can no longer be undone once a later delete empties the trash', () => {
+  it('refuses once a later delete took its version and the number was given out again', () => {
     writeRun('r-a', 'v0', 'h0')
     writeRun('r-b', 'v0', 'h0')
     const { undo } = deleteRun(dir, 'r-a')
     deleteVersion(dir, 'v0')
     writeRun('r-c', 'v0', 'h1')
-    expect(() => undeleteRun(dir, undo)).toThrow('can no longer be undone')
+    expect(() => undeleteRun(dir, undo)).toThrow('a new v0 was made since')
+    expect(existsSync(join(dir, 'evals/runs/r-a'))).toBe(false)
+  })
+
+  it('comes back once the later delete of its version is undone, or while the number is free', () => {
+    writeRun('r-a', 'v0', 'h0')
+    writeRun('r-b', 'v0', 'h0')
+    writeRun('r-c', 'v1', 'h1')
+    writeRun('r-d', 'v1', 'h1')
+    const a = deleteRun(dir, 'r-a')
+    const v0 = deleteVersion(dir, 'v0')
+    expect(undeleteVersion(dir, v0.undo)).toEqual({ restored: 'v0' })
+    expect(undeleteRun(dir, a.undo)).toEqual({ restored: 'r-a' })
+    // With v1 deleted and its number not given out, the run brings v1 back.
+    const c = deleteRun(dir, 'r-c')
+    deleteVersion(dir, 'v1')
+    expect(undeleteRun(dir, c.undo)).toEqual({ restored: 'r-c' })
   })
 
   it('refuses when the delete took the version and its number was given out again', () => {
@@ -292,9 +358,6 @@ describe('a version number given out again', () => {
 })
 
 describe('a move that cannot be taken back', () => {
-  // What these keep in the trash on purpose must not reach the other tests.
-  afterEach(() => rmSync(trash, { recursive: true, force: true }))
-
   /** The move of `run` out of the skill, and the move that would bring `back` home again. */
   const blocked = (run: string, back: string) =>
     failRenames(
@@ -323,7 +386,7 @@ describe('a move that cannot be taken back', () => {
     expect(message).toContain(`${kept} to ${join(dir, 'evals', 'runs', 'r-a')}`)
     expect(existsSync(join(kept, 'run.json'))).toBe(true)
     expect(existsSync(join(dir, 'evals/runs/r-b/run.json'))).toBe(true)
-    // The next delete empties the trash of finished entries only.
+    // A later delete keeps the entry.
     const next = deleteVersion(dir, 'v1')
     expect(readdirSync(trash).sort()).toEqual([id, next.undo].sort())
     expect(existsSync(join(kept, 'run.json'))).toBe(true)
@@ -351,7 +414,7 @@ describe('a move that cannot be taken back', () => {
     expect(existsSync(join(trash, id, 'runs', 'r-b', 'run.json'))).toBe(true)
   })
 
-  it('leaves a finished delete unmarked, so the next one empties it', () => {
+  it('leaves a finished delete unmarked, so the trash empties it in time', () => {
     writeRun('r-a', 'v0')
     const { undo: id } = deleteVersion(dir, 'v0')
     expect(readFileSync(join(trash, id, 'entry.json'), 'utf8')).not.toContain('unfinished')

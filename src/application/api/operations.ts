@@ -92,7 +92,13 @@ import {
   skillInfo,
   writeSkillFile,
 } from '@infrastructure/skill.ts'
-import { deleteRun, deleteVersion, undeleteRun, undeleteVersion } from '@infrastructure/trash.ts'
+import {
+  deleteRun,
+  deleteVersion,
+  trashedDeletes,
+  undeleteRun,
+  undeleteVersion,
+} from '@infrastructure/trash.ts'
 import { isVersionLabel, saveVersion } from '@infrastructure/versions.ts'
 import { Jev } from '@judges/jev.ts'
 import { scorers } from '@judges/scorers.ts'
@@ -463,6 +469,7 @@ export const parsers: { [K in OperationName]: (raw: Raw) => Input<K> } = {
   'skill.undeleteVersion': (raw) => ({ ...scoped(raw), undo: assertSafe(str(raw.undo), 'undo') }),
   'skill.deleteRun': (raw) => ({ ...scoped(raw), run: assertSafe(str(raw.run), 'run') }),
   'skill.undeleteRun': (raw) => ({ ...scoped(raw), undo: assertSafe(str(raw.undo), 'undo') }),
+  'skill.trashed': scoped,
   'skill.drafts': scoped,
   'skill.saveDrafts': (raw) => ({ ...scoped(raw), drafts: draftsOf(raw.drafts) }),
   'skill.correct': (raw) => {
@@ -789,6 +796,7 @@ export function createOperations(options: OperationsOptions): Runners {
       return deleteRun(skill.path, input.run)
     },
     'skill.undeleteRun': (input) => undeleteRun(skillOf(input).path, input.undo),
+    'skill.trashed': (input) => ({ deletes: trashedDeletes(skillOf(input).path) }),
     'skill.drafts': (input) => readDrafts(skillOf(input).path),
     'skill.saveDrafts': (input) => ({
       updatedAt: writeDrafts(skillOf(input).path, input.drafts),

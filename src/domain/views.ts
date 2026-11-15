@@ -149,3 +149,15 @@ export interface State {
   jevKey: boolean
   paths: { bench: string; reviews: string }
 }
+
+/** A delete the trash can still undo, as the app lists it, the newest first. */
+export interface TrashedDelete {
+  /** Names the entry, for `undeleteVersion` or `undeleteRun`. */
+  undo: string
+  kind: 'run' | 'version'
+  /** The version, or the run's name. */
+  name: string
+  /** The version a run was made with; the version itself for a version's delete. */
+  version: string
+  deletedAt: string
+}
