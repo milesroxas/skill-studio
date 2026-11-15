@@ -192,7 +192,7 @@ Results shows one case at a time: **A**, the answer from your previous version, 
 
 - **The list on the left** has every case with its score and how much it moved. Click one to open it.
 - **Missed** lists each rule and check the answer did not meet. **Open rule** takes you to that rule in the editor. It also says when Jev read only the start of a long answer or file: a rule broken past that point is not seen.
-- **Not sure** lists what Jev could not tell. These are left out of the score until you mark them yourself. Where a score leaves some out, All cases says how many of its rules and checks Jev was not sure of. Two runs where Jev was not sure of different rules or checks show no change between them: mark those rules or checks on both runs to see one.
+- **Not sure** lists what Jev could not tell. These are left out of the score until you mark them yourself. Where a score leaves some out, All cases says how many of its rules and checks Jev was not sure of. A change between two runs counts only the rules and checks marked on both, and says how many it left out: mark a rule or check on both runs to count it in the change.
 - **Met** folds away everything it got right.
 - **Does not apply** folds away rules written for another kind of work than this answer, such as rules under "For a bug report" when the request was for a summary, and rules for a situation the request is not, such as "When the request names a table, write a table" when it names none. They are left out of the score.
 - **Click a score** to see how it was counted.

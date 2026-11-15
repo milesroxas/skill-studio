@@ -1,4 +1,5 @@
 import type { Artifact, Report, RunMeta } from '@domain/schemas.ts'
+import type { Move } from '@domain/standing.ts'
 import { describe, expect, it } from 'vitest'
 import type { RunView, State } from './api.ts'
 import type { Output } from './model.ts'
@@ -10,6 +11,7 @@ import {
   casePair,
   caseTitle,
   changeBetween,
+  changeLine,
   comparable,
   cutOf,
   cutOff,
@@ -28,6 +30,7 @@ import {
   listLine,
   mergedConfig,
   modelShort,
+  movedBetween,
   noSkillScore,
   outputFacts,
   outputNames,
@@ -369,10 +372,10 @@ describe('a change in score', () => {
   })
 })
 
-describe('a change between runs that counted different facts', () => {
+describe('a change over the facts both runs counted', () => {
   const files = [md('a.md')]
-  /** A report of one sample answered on two rules, each by Jev's probability. */
-  const answered = (brief: number, plain: number): Report =>
+  /** A report of one sample answered on rules, each by Jev's probability. */
+  const answered = (...noul: number[]): Report =>
     ({
       results: [
         {
@@ -381,8 +384,11 @@ describe('a change between runs that counted different facts', () => {
             generic: {
               adherence: {
                 rules: [
-                  { id: 'r1', text: 'Be brief.', section: 'S', noul: brief },
-                  { id: 'r2', text: 'Use plain words.', section: 'S', noul: plain },
+                  { id: 'r1', text: 'Be brief.', section: 'S', noul: noul[0] },
+                  { id: 'r2', text: 'Use plain words.', section: 'S', noul: noul[1] },
+                  ...(noul.length > 2
+                    ? [{ id: 'r3', text: 'Name the file.', section: 'S', noul: noul[2] }]
+                    : []),
                 ],
               },
               rubric: null,
@@ -400,28 +406,64 @@ describe('a change between runs that counted different facts', () => {
     return { state, outputs, standing: standingsOf(state, outputs, saved)[0] }
   }
 
-  it('has no change when a rule counted on one run was not sure on the other', () => {
-    // v1 met both rules: 100. v2 met one and Jev was not sure of the other: 100 of what counted.
-    const { outputs, standing } = caseOf(answered(0.9, 0.9), answered(0.9, 0.5))
-    expect([standing.previous?.score, standing.latest?.score]).toEqual([100, 100])
-    expect(standing).toMatchObject({ change: null, uncounted: true })
-    expect(liftOf([standing])).toBeNull()
-    expect(changeBetween(outputs[0], outputs[1], saved)).toBeNull()
+  it('leaves out at both runs a rule one run counted and the other was not sure of', () => {
+    // v1 missed both rules: 0. v2 met one and Jev was not sure of the other: 100 of what counted.
+    const { outputs, standing } = caseOf(answered(0.1, 0.1), answered(0.9, 0.5))
+    expect([standing.previous?.score, standing.latest?.score]).toEqual([0, 100])
+    expect(standing).toMatchObject({ change: 100, uncounted: false })
+    expect(standing.moved).toMatchObject({ from: 0, to: 100, left: ['rule'] })
+    expect(changeBetween(outputs[0], outputs[1], saved)).toBe(100)
+    expect(liftOf([standing])).toMatchObject({ first: 0, latest: 100, cases: 1 })
   })
 
-  it('reads the change once the reader answers the fact on both runs', () => {
-    const { state } = caseOf(answered(0.9, 0.9), answered(0.9, 0.5))
+  it('reads a change that is not the difference of the scores shown, and says why', () => {
+    // v1 met one rule and missed one: 50. v2 met one, Jev was not sure of the one v1 missed: 100.
+    const { outputs, standing } = caseOf(answered(0.9, 0.1), answered(0.9, 0.5))
+    expect([standing.previous?.score, standing.latest?.score]).toEqual([50, 100])
+    expect(standing.change).toBe(0)
+    expect(standingUnshared(standing)).toBe(true)
+    expect(changeLine('runs', standing.moved as Move)).toBe(
+      'The change counts only what was marked on both runs, so 1 rule is left out of it.',
+    )
+    expect(liftOf([standing])).toMatchObject({ first: 100, latest: 100, unshared: true })
+    expect(movedBetween(outputs[0], outputs[1], saved)).toMatchObject({ from: 100, to: 100 })
+  })
+
+  it('counts a rule both runs counted, and one the reader answered on both', () => {
+    const { state } = caseOf(answered(0.9, 0.9, 0.1), answered(0.9, 0.5, 0.9))
     for (const run of ['r1', 'r2'])
       state.reviews.reviews[`${run}/page-s1`] = {
         corrections: { 'rule:Use plain words.': run === 'r2' },
       } as never
     const [standing] = standingsOf(state, outputsOf(state), saved)
-    expect(standing).toMatchObject({ change: 50, uncounted: false })
+    // v1: 1 of 3 met. v2: 3 of 3, every rule counted at both.
+    expect(standing.moved).toMatchObject({ left: [], oneSided: false })
+    expect(standing.change).toBe(67)
   })
 
-  it('reads the change when both runs were not sure of the same rule', () => {
-    const { standing } = caseOf(answered(0.1, 0.5), answered(0.9, 0.5))
-    expect(standing).toMatchObject({ change: 100, uncounted: false })
+  it('has no change when nothing is left to count at one run', () => {
+    // The reader marked both rules on v1 alone, where Jev was not sure of either.
+    const { state } = caseOf(answered(0.5, 0.5), answered(0.9, 0.9))
+    state.reviews.reviews['r1/page-s1'] = {
+      corrections: { 'rule:Be brief.': true, 'rule:Use plain words.': false },
+    } as never
+    const [standing] = standingsOf(state, outputsOf(state), saved)
+    expect(standing.previous?.score).toBe(50)
+    expect(standing).toMatchObject({ change: null, uncounted: true })
+    expect(liftOf([standing])).toBeNull()
+  })
+
+  it('says why in one line when a change also leaves out an answer on one run', () => {
+    expect(changeLine('runs', { left: ['rule', 'check', 'check'], oneSided: true })).toBe(
+      'The change counts only what was marked on both runs, and your answers only where you gave one on both, so 3 rules and checks are left out of it.',
+    )
+    expect(changeLine('outputs', { left: [], oneSided: true })).toBe(
+      'The change counts your answers only where you gave one on both outputs.',
+    )
+    expect(changeLine('runs', { left: [] })).toBeNull()
+    expect(changeLine('runs', { left: ['rule', 'other'] })).toBe(
+      'The change counts only what was marked on both runs, so 2 of Jev’s answers are left out of it.',
+    )
   })
 
   it('says how much of a score was counted where Jev was not sure of some of it', () => {

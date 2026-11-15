@@ -3,17 +3,27 @@
  * probability; the reader may answer it themselves, and their answer stands.
  * Pure functions, shared by every pack's scorer and the page.
  */
-import type {
-  Aside,
-  Corrections,
-  JudgedVerdict,
-  MeasuredVerdict,
-  Verdict,
-  VerdictKind,
+import {
+  type Aside,
+  type Corrections,
+  type JudgedVerdict,
+  LEFT_OUT,
+  type MeasuredVerdict,
+  type Verdict,
+  type VerdictKind,
 } from './pack.ts'
 
 /** A fact's name within its output: its kind and its words. */
 export const verdictId = (kind: VerdictKind, text: string): string => `${kind}:${text.trim()}`
+
+/** A fact as a layer counts it: its layer and its name, since one check may count in two layers. */
+export const factKey = (layer: string | null, id: string): string => `${layer}\n${id}`
+
+/** `corrections` that leave `facts` out of every layer, each by `factKey` (`LEFT_OUT`). */
+export const leavingOut = (corrections: Corrections, facts: ReadonlySet<string>): Corrections => ({
+  ...corrections,
+  [LEFT_OUT]: facts,
+})
 
 /**
  * A name for each of a case's checks, in the order given. A check is named by
@@ -63,7 +73,8 @@ export function readingOf(noul: number, cuts: Cuts, applies = 1): 'met' | 'misse
 
 /**
  * A fact Jev answered, read by `cuts` (`readingOf`), unless the reader says
- * otherwise: their answer is met or missed, and it counts.
+ * otherwise: their answer is met or missed, and it counts. A fact the
+ * corrections leave out (`leavingOut`) is set aside whatever was answered.
  */
 export function jevVerdict(
   fact: Fact,
@@ -75,6 +86,17 @@ export function jevVerdict(
   const id = fact.id ?? verdictId(fact.kind, fact.text)
   const reading = readingOf(noul, cuts, applies)
   const jev = reading === 'met' ? true : reading === 'missed' ? false : null
+  // A fact a change leaves out counts in no layer, as one Jev was not sure of.
+  if (corrections[LEFT_OUT]?.has(factKey(fact.layer, id)))
+    return {
+      ...fact,
+      id,
+      met: false,
+      aside: reading === 'inapplicable' ? 'inapplicable' : 'unsure',
+      jev,
+      open: true,
+      corrected: false,
+    }
   const own = Object.hasOwn(corrections, id) ? corrections[id] : undefined
   // An answer the reader gave is theirs whatever Jev said: moving the threshold must not hide it.
   if (own !== undefined) return { ...fact, id, met: own, jev, open: true, corrected: true }

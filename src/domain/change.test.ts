@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import { changeAnswers, countedApart } from './change.ts'
-import { NO_CORRECTIONS, type Verdict } from './pack.ts'
+import { changeAnswers, changeReading } from './change.ts'
+import { type Corrections, NO_CORRECTIONS, type Verdict } from './pack.ts'
+import { jevVerdict } from './verdict.ts'
 
 describe('changeAnswers', () => {
   it('keeps the reader’s answer only on a fact answered at both ends', () => {
@@ -27,46 +28,98 @@ describe('changeAnswers', () => {
   })
 })
 
-describe('countedApart', () => {
-  const rule = (text: string, over: Partial<Verdict> = {}): Verdict =>
-    ({
-      kind: 'rule',
-      id: `rule:${text}`,
-      text,
-      layer: 'adherence',
-      met: true,
-      jev: true,
-      open: true,
-      corrected: false,
-      ...over,
-    }) as Verdict
-  const unsure = (text: string) => rule(text, { met: false, jev: null, aside: 'unsure' })
+describe('changeReading', () => {
+  const cuts = { yes: 0.7, no: 0.3 }
+  /** One output as Jev answered it, by each rule's probability, in the adherence layer unless named. */
+  type Answers = Record<string, number | [number, string]>
+  /** A scorer as every pack counts: each fact through `jevVerdict`, with the answers given. */
+  const scorer =
+    (ends: { a: Answers[]; b: Answers[] }) =>
+    (end: 'a' | 'b', answers: Corrections[]): Verdict[][] =>
+      ends[end].map((output, i) =>
+        Object.entries(output).map(([text, answer]) => {
+          const [noul, layer] = typeof answer === 'number' ? [answer, 'adherence'] : answer
+          return jevVerdict({ kind: 'rule', text, layer }, noul, cuts, answers[i])
+        }),
+      )
+  /** The share met of each end's facts that count, over all its outputs. */
+  const shareAt = (verdicts: Verdict[][]) => {
+    const counted = verdicts.flat().filter((v) => !v.aside)
+    return counted.length ? counted.filter((v) => v.met).length / counted.length : null
+  }
+  const read = (a: Answers[], b: Answers[], answers?: { a: Corrections[]; b: Corrections[] }) => {
+    const score = scorer({ a, b })
+    const given = answers ?? { a: a.map(() => NO_CORRECTIONS), b: b.map(() => NO_CORRECTIONS) }
+    const reading = changeReading(given.a, given.b, score)
+    return {
+      reading,
+      from: shareAt(score('a', reading.a)),
+      to: shareAt(score('b', reading.b)),
+    }
+  }
 
-  it('is true when a fact both ends were asked counts at one and is set aside at the other', () => {
-    expect(countedApart([[rule('A'), rule('B')]], [[rule('A'), unsure('B')]])).toBe(true)
-    // Set aside on one attempt of an end is set aside at that end.
-    expect(countedApart([[rule('A')]], [[rule('A')], [unsure('A')]])).toBe(true)
-    expect(countedApart([[rule('A')]], [[rule('A', { aside: 'inapplicable', met: false })]])).toBe(
-      true,
-    )
+  it('leaves out at both ends a fact both were asked and one set aside', () => {
+    // A met and B met, then A met and B not sure: B counts at neither end.
+    const { reading, from, to } = read([{ A: 0.9, B: 0.9 }], [{ A: 0.9, B: 0.5 }])
+    expect(reading.left).toEqual(['rule'])
+    expect([from, to]).toEqual([1, 1])
+    // Missed before, not sure now: the change is A's alone.
+    const missed = read([{ A: 0.1, B: 0.1 }], [{ A: 0.9, B: 0.5 }])
+    expect([missed.from, missed.to]).toEqual([0, 1])
   })
 
-  it('is false when both ends counted and set aside the same facts, met or missed', () => {
+  it('leaves out a fact set aside on one attempt of an end, and one that does not apply', () => {
     expect(
-      countedApart(
-        [[rule('A', { met: false, jev: false }), unsure('B')]],
-        [[rule('A'), unsure('B')]],
-      ),
-    ).toBe(false)
+      read(
+        [{ A: 0.9, B: 0.1 }],
+        [
+          { A: 0.9, B: 0.9 },
+          { A: 0.9, B: 0.5 },
+        ],
+      ).to,
+    ).toBe(1)
+    const inapplicable = changeReading([NO_CORRECTIONS], [NO_CORRECTIONS], (end) => [
+      [
+        jevVerdict({ kind: 'rule', text: 'A', layer: 'adherence' }, 0.9, cuts, NO_CORRECTIONS),
+        jevVerdict(
+          { kind: 'rule', text: 'B', layer: 'adherence' },
+          0.9,
+          cuts,
+          NO_CORRECTIONS,
+          end === 'a' ? 1 : 0.1,
+        ),
+      ],
+    ])
+    expect(inapplicable.left).toEqual(['rule'])
   })
 
-  it('passes over a fact only one end was asked, such as a rule edited between versions', () => {
-    expect(countedApart([[rule('A'), unsure('Old')]], [[rule('A'), rule('New')]])).toBe(false)
+  it('counts a fact only one end was asked, such as a rule edited between versions', () => {
+    const { reading, from, to } = read([{ A: 0.9, Old: 0.5 }], [{ A: 0.9, New: 0.1 }])
+    expect(reading.left).toEqual([])
+    expect([from, to]).toEqual([1, 0.5])
   })
 
   it('tells a fact by its layer too', () => {
-    const inLook = rule('B', { layer: 'visual' })
-    expect(countedApart([[rule('B'), inLook]], [[unsure('B'), inLook]])).toBe(true)
-    expect(countedApart([[inLook]], [[unsure('B')]])).toBe(false)
+    const { reading } = read([{ B: 0.9, C: [0.9, 'visual'] }], [{ B: 0.9, C: [0.5, 'visual'] }])
+    expect(reading.left).toEqual(['rule'])
+    expect(read([{ C: [0.9, 'visual'] }], [{ C: 0.5 }]).reading.left).toEqual([])
+  })
+
+  it('counts a fact the reader answered at both ends, and leaves out one they answered at one', () => {
+    const at = (met: boolean) => ({ 'rule:B': met })
+    const both = read([{ A: 0.9, B: 0.5 }], [{ A: 0.9, B: 0.5 }], { a: [at(false)], b: [at(true)] })
+    expect(both.reading).toMatchObject({ left: [], oneSided: false })
+    expect([both.from, both.to]).toEqual([0.5, 1])
+    const one = read([{ A: 0.9, B: 0.9 }], [{ A: 0.9, B: 0.5 }], {
+      a: [NO_CORRECTIONS],
+      b: [at(false)],
+    })
+    expect(one.reading).toMatchObject({ left: ['rule'], oneSided: true })
+    expect([one.from, one.to]).toEqual([1, 1])
+  })
+
+  it('leaves nothing to count where every fact of an end is left out', () => {
+    const { from, to } = read([{ A: 0.5 }], [{ A: 0.9 }])
+    expect([from, to]).toEqual([null, null])
   })
 })

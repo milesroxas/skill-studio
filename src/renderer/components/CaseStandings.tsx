@@ -27,6 +27,7 @@ import {
   attemptsLine,
   type CaseStand,
   type CaseTry,
+  changeLine,
   isWithoutSkill,
   modelShort,
   type Output,
@@ -41,7 +42,6 @@ import {
   toGrade,
   totalOf,
   unreadOutput,
-  unsharedLine,
   writerName,
 } from '../model.ts'
 import { PlainList, Rows, Stack, Toolbar } from './layout.tsx'
@@ -406,7 +406,7 @@ function StandingLine({ standing, version }: { standing: CaseStand; version: str
   if (standing.uncounted)
     return (
       <>
-        Scored {score} on {version}. Jev was not sure of other rules or checks on its run before, so
+        Scored {score} on {version}. Nothing was marked on both this run and the one before, so
         there is no change to read.{since}
       </>
     )
@@ -426,8 +426,10 @@ function StandingLine({ standing, version }: { standing: CaseStand; version: str
     versionOf(previous) === versionOf(latest)
       ? `its run before on ${modelShort(previous.run.meta?.writer)}`
       : versionOf(previous)
-  // The change is read from Jev's answers, so it may not be the difference of the two scores shown.
-  const answers = standingUnshared(standing) ? ` ${unsharedLine('runs')}` : ''
+  // The change is read over what both runs counted, so it may not be the difference of the two scores shown.
+  const why =
+    standingUnshared(standing) && standing.moved ? changeLine('runs', standing.moved) : null
+  const answers = why ? ` ${why}` : ''
   return (
     <>
       Scored {score} on {version},{' '}

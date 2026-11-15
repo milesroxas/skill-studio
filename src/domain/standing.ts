@@ -6,6 +6,7 @@
  * they are tested without a page.
  */
 import { pointsMoved, testedVersion, versionNumber } from './lift.ts'
+import type { VerdictKind } from './pack.ts'
 import type { Configuration } from './schemas.ts'
 import { mean, spread } from './stats.ts'
 
@@ -56,14 +57,19 @@ export function attemptsOf(t: Try): Attempts | null {
 export interface Move {
   from: number
   to: number
+  /** The kind of each fact left out at both ends (`changeReading` in `change.ts`); absent or empty when none was. */
+  left?: readonly VerdictKind[]
+  /** An answer of the reader's that only one end holds was read as Jev answered it. */
+  oneSided?: boolean
 }
 
 /**
  * How a change is read between two scored runs of one case: the two scores
  * it is read between, or null when there is no change to read between them.
- * A change counts the reader's answers only where both runs hold one on the
- * same fact (`changeAnswers` in `change.ts`), so the caller reads each end
- * again. Without one, the two scores as shown.
+ * A change is read over the facts both runs counted, with the reader's answers
+ * only where both runs hold one on the same fact (`changeReading` in
+ * `change.ts`), so the caller reads each end again. Without one, the two
+ * scores as shown.
  */
 export type ReadMove<T extends Try = Try> = (from: T, to: T) => Move | null
 
@@ -108,7 +114,8 @@ export interface Standing<T extends Try = Try> {
   apart: boolean
   /**
    * `latest` has a scored run to move from, and no change can be read from it:
-   * the two counted different facts (`countedApart` in `change.ts`).
+   * once the facts only one of them counted are left out, nothing is left to
+   * count at one end (`changeReading` in `change.ts`).
    */
   uncounted: boolean
   /** `latest` is on the version asked about: the case is checked on the skill as it is now. */
@@ -185,15 +192,20 @@ export interface CaseLift {
   /**
    * How many more cases ran more than once with a score, and are left out:
    * their first and latest runs have no change to read between them, since
-   * they counted different facts.
+   * nothing both counted is left to count (`Standing.uncounted`).
    */
   uncounted: number
   /**
-   * The cases' scores as shown count an answer of the reader's that only one
-   * of a case's two runs holds, so the means above, read without it, are not
-   * the means of the scores shown in the whole points shown.
+   * The means above, read as a change is, are not the means of the scores
+   * shown in the whole points shown: a case's two runs left facts out
+   * (`left`), or the scores shown count an answer of the reader's that only
+   * one of a case's two runs holds (`oneSided`).
    */
   unshared: boolean
+  /** The kind of each fact the cases' moves left out, one entry a fact of a case. */
+  left: VerdictKind[]
+  /** Some case's move read an answer of the reader's that only one of its runs holds as Jev answered it. */
+  oneSided: boolean
   /** The latest mean is higher than the first, by a whole point or more as the scores are shown. Only then is the lift drawn. */
   rises: boolean
   /** Some case's first and latest runs had different writers, so part of its move may be the model's. */
@@ -213,7 +225,7 @@ export function caseLift(standings: readonly Standing[]): CaseLift | null {
   )
   const twice = again.filter((s) => s.since !== null)
   if (!twice.length) return null
-  // Read from Jev's answers, with the reader's only where both runs hold one (`ReadMove`).
+  // Read over the facts both runs counted, with the reader's answers only where both hold one (`ReadMove`).
   const first = mean(twice.map((s) => s.since?.from as number)) as number
   const latest = mean(twice.map((s) => s.since?.to as number)) as number
   const shown = {
@@ -239,6 +251,8 @@ export function caseLift(standings: readonly Standing[]): CaseLift | null {
     floorCases: floors.length,
     cases: twice.length,
     uncounted: again.length - twice.length,
+    left: twice.flatMap((s) => s.since?.left ?? []),
+    oneSided: twice.some((s) => s.since?.oneSided === true),
     unshared:
       Math.round(shown.first) !== Math.round(first) ||
       Math.round(shown.latest) !== Math.round(latest),

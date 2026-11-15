@@ -8,7 +8,7 @@ import { readFileSync, statSync } from 'node:fs'
 import { basename, join } from 'node:path'
 import { type PageRenderer, RENDER_SIZES, type RenderSize } from '@domain/artifact-address.ts'
 import { inputName, isPicture } from '@domain/case-draft.ts'
-import { type Answered, changeAnswers, comparableAnswers, countedApart } from '@domain/change.ts'
+import { type Answered, changeReading, comparableAnswers } from '@domain/change.ts'
 import { mergeConfig } from '@domain/config.ts'
 import {
   fitForJev,
@@ -1318,10 +1318,10 @@ export interface Compared {
  * between two outputs (`changeBetween` in the renderer): only between two
  * answers to the same case as it was asked, both graded with Jev or both
  * without (`comparableAnswers`), each scored under `bench.json` as it is now
- * with only the reader's answers on facts both hold (`changeAnswers`), and
- * none between two that counted different facts (`countedApart`). Every
- * output left out is said, with why. A sample folder since removed is no
- * output of its run.
+ * over the rules and checks both counted, with only the reader's answers on
+ * facts both hold (`changeReading`). None is read between two with nothing
+ * counted in both. Every output left out is said, with why. A sample folder
+ * since removed is no output of its run.
  */
 export function compareRuns(
   skillDir: string,
@@ -1360,11 +1360,23 @@ export function compareRuns(
       )
       continue
     }
-    const kept = changeAnswers([corrections(before, from)], [corrections(after, to)])
-    const was = scoredResult(from, before.report, before.cases, scoring, kept.a[0])
-    const is = scoredResult(to, after.report, after.cases, scoring, kept.b[0])
-    if (countedApart([was.verdicts], [is.verdicts])) {
-      left.push(`${rowKey(to)}: the two counted different facts, so no change is read between them`)
+    const scored = (end: 'a' | 'b', answers: Corrections) =>
+      end === 'a'
+        ? scoredResult(from, before.report, before.cases, scoring, answers)
+        : scoredResult(to, after.report, after.cases, scoring, answers)
+    const reading = changeReading(
+      [corrections(before, from)],
+      [corrections(after, to)],
+      (end, answers) => [scored(end, answers[0]).verdicts],
+    )
+    const was = scored('a', reading.a[0])
+    const is = scored('b', reading.b[0])
+    // Both had a score of their own, and nothing is left that both counted.
+    if (
+      (was.scores.total === null && scored('a', corrections(before, from)).scores.total !== null) ||
+      (is.scores.total === null && scored('b', corrections(after, to)).scores.total !== null)
+    ) {
+      left.push(`${rowKey(to)}: nothing was marked in both runs, so no change is read between them`)
       continue
     }
     rows.push(rowOf(was.scores, { ...to, scores: is.scores }, rowKey(to)))

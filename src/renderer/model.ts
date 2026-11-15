@@ -1,6 +1,6 @@
 /** Outputs across runs, their scores under the skill's scoring, the pair to compare per case, and display names. */
 import { caseName } from '@domain/case-draft.ts'
-import { changeAnswers, comparableAnswers, countedApart } from '@domain/change.ts'
+import { changeReading, comparableAnswers } from '@domain/change.ts'
 import { BASE_PACK, mergeConfig } from '@domain/config.ts'
 import {
   pointsMoved,
@@ -9,7 +9,7 @@ import {
   versionWriter,
   writerKey,
 } from '@domain/lift.ts'
-import { type Corrections, NO_CORRECTIONS, unreadable } from '@domain/pack.ts'
+import { type Corrections, NO_CORRECTIONS, unreadable, type VerdictKind } from '@domain/pack.ts'
 import { defaultPair, type PairOutput } from '@domain/pairs.ts'
 import { drawnArtifact, primaryArtifact } from '@domain/primary.ts'
 import { type RuleRate, ruleRates } from '@domain/rule-rate.ts'
@@ -388,20 +388,9 @@ const versionRuns = (runs: RunView[], outputs: Output[], config: BenchConfig): V
     ).means,
   }))
 
-/**
- * Two sets of outputs as a change between them reads them: each output with
- * only the reader's answers on facts answered on both sides (`changeAnswers`),
- * every other fact as Jev answered it.
- */
-function forChange(from: Output[], to: Output[]): { from: Output[]; to: Output[] } {
-  const kept = changeAnswers(
-    from.map((o) => o.corrections),
-    to.map((o) => o.corrections),
-  )
-  const as = (outputs: Output[], answers: Output['corrections'][]) =>
-    outputs.map((o, i) => (answers[i] === o.corrections ? o : { ...o, corrections: answers[i] }))
-  return { from: as(from, kept.a), to: as(to, kept.b) }
-}
+/** `outputs` with the answers given, one each in order; an output whose answers are its own stays itself. */
+const withAnswers = (outputs: Output[], answers: readonly Corrections[]): Output[] =>
+  outputs.map((o, i) => (answers[i] === o.corrections ? o : { ...o, corrections: answers[i] }))
 
 /** The verdicts of each output a score over `outputs` counts: none cut short or on a file Jev cannot read. */
 const countedVerdicts = (outputs: Output[], config: BenchConfig) =>
@@ -409,19 +398,31 @@ const countedVerdicts = (outputs: Output[], config: BenchConfig) =>
 
 /**
  * The two scores a change from `from` to `to` is read between: each a score
- * over its outputs as `scoreOver` counts it, from Jev's answers, with the
- * reader's only where both sides hold one on the same fact. Null when either
- * side has no score so, and when the two counted different facts
- * (`countedApart`): there is no change to read between them.
+ * over its outputs as `scoreOver` counts it, over the facts both sides
+ * counted, from Jev's answers, with the reader's only where both sides hold
+ * one on the same fact (`changeReading`). Null when either side has no score
+ * so: nothing is left to count at it.
  */
 function moveBetween(from: Output[], to: Output[], config: BenchConfig): Move | null {
-  const read = forChange(from, to)
-  if (countedApart(countedVerdicts(read.from, config), countedVerdicts(read.to, config)))
-    return null
-  const a = scoreOver(read.from, config)
-  const b = scoreOver(read.to, config)
-  return a === null || b === null ? null : { from: a, to: b }
+  const reading = changeReading(
+    from.map((o) => o.corrections),
+    to.map((o) => o.corrections),
+    (end, answers) => countedVerdicts(withAnswers(end === 'a' ? from : to, answers), config),
+  )
+  const a = scoreOver(withAnswers(from, reading.a), config)
+  const b = scoreOver(withAnswers(to, reading.b), config)
+  return a === null || b === null
+    ? null
+    : { from: a, to: b, left: reading.left, oneSided: reading.oneSided }
 }
+
+/**
+ * The two scores the change from `from` to `to` is read between
+ * (`moveBetween`); null when the two are not set against each other
+ * (`comparable`) or either has no score.
+ */
+export const movedBetween = (from: Output, to: Output, config: BenchConfig): Move | null =>
+  comparable(from, to) ? moveBetween([from], [to], config) : null
 
 /**
  * How far `to` moved from `from` in the whole points shown, read as a change
@@ -429,15 +430,15 @@ function moveBetween(from: Output[], to: Output[], config: BenchConfig): Move | 
  * (`comparable`) or either has no score.
  */
 export function changeBetween(from: Output, to: Output, config: BenchConfig): number | null {
-  if (!comparable(from, to)) return null
-  const move = moveBetween([from], [to], config)
+  const move = movedBetween(from, to, config)
   return move ? pointsMoved(move.from, move.to) : null
 }
 
 /**
  * A change read between two scores is not their difference as shown, since
- * one of them counts an answer of the reader's that the other side does not
- * hold (`moveBetween`): the page says so where the change is read.
+ * it left out facts only one side counted, or an answer of the reader's that
+ * only one side holds (`moveBetween`): the page says why where the change is
+ * read (`changeWhy`).
  */
 export const unshared = (change: number | null, from: number | null, to: number | null): boolean =>
   change !== null && from !== null && to !== null && change !== pointsMoved(from, to)
@@ -553,9 +554,40 @@ export const ruleRatesOf = (outputs: Output[], config: BenchConfig): Map<string,
       .map((o) => ({ total: totalOf(o, config), verdicts: scoreOf(o, config)?.verdicts ?? [] })),
   )
 
-/** What the page says where a change is not the difference of the scores beside it (`unshared`). */
-export const unsharedLine = (sides: string): string =>
-  `The change counts your answers only where you gave one on both ${sides}.`
+/**
+ * "3 rules", "1 check", "3 rules and checks": `left`, one kind a fact, as
+ * the facts are called. With a fact that is neither, such as whether a
+ * picture looks broken, "24 of Jev's answers".
+ */
+function factCount(left: readonly VerdictKind[]): string {
+  const n = left.length
+  const kinds = new Set(left)
+  if (kinds.has('other')) return `${n} of Jev’s answers`
+  if (kinds.size > 1) return `${n} rules and checks`
+  return `${n} ${kinds.has('rule') ? 'rule' : 'check'}${n > 1 ? 's' : ''}`
+}
+
+/**
+ * Why a change is not the difference of the two scores beside it
+ * (`unshared`), as what follows "The change": "counts only what was marked on
+ * both runs, so 3 rules are left out of it". `sides` names the two ("runs",
+ * "outputs"). Null when the move left nothing out and read every answer.
+ */
+export function changeWhy(sides: string, move: Pick<Move, 'left' | 'oneSided'>): string | null {
+  const left = move.left ?? []
+  const answers = `your answers only where you gave one on both`
+  if (!left.length) return move.oneSided ? `counts ${answers} ${sides}` : null
+  const out = `so ${factCount(left)} ${left.length > 1 ? 'are' : 'is'} left out of it`
+  return move.oneSided
+    ? `counts only what was marked on both ${sides}, and ${answers}, ${out}`
+    : `counts only what was marked on both ${sides}, ${out}`
+}
+
+/** `changeWhy` as the line the page shows where a change is read; null with nothing to say. */
+export function changeLine(sides: string, move: Pick<Move, 'left' | 'oneSided'>): string | null {
+  const why = changeWhy(sides, move)
+  return why ? `The change ${why}.` : null
+}
 
 /** One run's answer to a case: its outputs for it, and the score they come to. */
 export interface CaseTry extends Try {

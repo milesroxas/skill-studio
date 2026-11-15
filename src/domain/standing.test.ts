@@ -137,6 +137,24 @@ describe('standingOf with a reading of the change', () => {
     expect(caseLift([apart, read])).toMatchObject({ first: 50, latest: 60, cases: 1, uncounted: 1 })
   })
 
+  it('gathers what the cases’ moves left out, and whether one read an answer as Jev did', () => {
+    const left = (from: Try, to: Try) => ({
+      from: from.score as number,
+      to: to.score as number,
+      left: ['rule', 'check'] as const,
+    })
+    const one = (from: Try, to: Try) => ({
+      from: from.score as number,
+      to: to.score as number,
+      oneSided: true,
+    })
+    const lift = caseLift([
+      standingOf([at('v0', 50), at('v1', 60)], 'v1', left),
+      standingOf([at('v0', 40), at('v1', 70)], 'v1', one),
+    ])
+    expect(lift).toMatchObject({ left: ['rule', 'check'], oneSided: true })
+  })
+
   it('reads the scores as shown without one', () => {
     const standing = standingOf([at('v0', 50), at('v1', 55)], 'v1')
     expect(standing.moved).toEqual({ from: 50, to: 55 })

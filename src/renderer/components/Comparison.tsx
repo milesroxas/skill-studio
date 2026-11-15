@@ -27,6 +27,7 @@
  */
 
 import { draftOf, newCheck } from '@domain/case-draft.ts'
+import { pointsMoved } from '@domain/lift.ts'
 import type { Verdict } from '@domain/pack.ts'
 import type { Case } from '@domain/schemas.ts'
 import { comboText } from '@domain/shortcuts.ts'
@@ -43,12 +44,13 @@ import { isMac } from '../keys.ts'
 import {
   apartLine,
   caseTitle,
-  changeBetween,
+  changeLine,
   drawnOf,
   failedLine,
   failureOf,
   isWithoutSkill,
   layersOf,
+  movedBetween,
   type Output,
   outputDetail,
   outputFacts,
@@ -64,7 +66,6 @@ import {
   scoreOf,
   totalOf,
   unshared,
-  unsharedLine,
 } from '../model.ts'
 import { useLanded } from '../motion.ts'
 import { useShortcut, useShortcutKeys } from '../shortcuts.ts'
@@ -664,12 +665,13 @@ function Side({
   const landed = useLanded(writing)
   // A change is read only between two answers to the same request, graded the same way, and
   // from Jev's answers, with yours only where both hold one.
-  const delta = other ? changeBetween(other, output, config) : null
-  const answersApart = unshared(
-    delta,
-    otherScored?.scores.total ?? null,
-    scored?.scores.total ?? null,
-  )
+  const move = other ? movedBetween(other, output, config) : null
+  const delta = move ? pointsMoved(move.from, move.to) : null
+  // Where the change is not the difference of the two scores, why.
+  const why =
+    move && unshared(delta, otherScored?.scores.total ?? null, scored?.scores.total ?? null)
+      ? changeLine('outputs', move)
+      : null
   /** The skill still has the case, and this output answers an earlier wording of it. */
   const before = output.earlier !== null && state.cases.some((c) => c.id === output.caseId)
   const meta = output.run.meta?.samples.find((s) => s.dir === output.sample.name) ?? null
@@ -746,7 +748,7 @@ function Side({
         </Hint>
       ) : null}
       {before ? <Hint inset>Written for this case before its prompt or files changed.</Hint> : null}
-      {answersApart ? <Hint inset>{unsharedLine('outputs')}</Hint> : null}
+      {why ? <Hint inset>{why}</Hint> : null}
       {scored && output.primary && output.sample.artifacts.length > 1 ? (
         <Hint inset>The score is for {output.primary.file.replace(/^outputs\//, '')}.</Hint>
       ) : null}

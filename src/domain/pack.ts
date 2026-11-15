@@ -106,8 +106,20 @@ export interface MeasuredVerdict extends VerdictBase {
 
 export type Verdict = JudgedVerdict | MeasuredVerdict
 
-/** The reader's own answers on one output, by verdict id: true when the output meets it. */
-export type Corrections = Readonly<Record<string, boolean>>
+/**
+ * Facts a change between two ends leaves out at both (`changeReading` in
+ * `change.ts`), each by `factKey`. Held under a symbol, so no list of the
+ * reader's answers ever sees it, and only a change's reading sets it.
+ */
+export const LEFT_OUT: unique symbol = Symbol('left out')
+
+/**
+ * The reader's own answers on one output, by verdict id: true when the output
+ * meets it. A change's reading may add the facts it leaves out (`LEFT_OUT`).
+ */
+export type Corrections = Readonly<Record<string, boolean>> & {
+  readonly [LEFT_OUT]?: ReadonlySet<string>
+}
 
 export const NO_CORRECTIONS: Corrections = Object.freeze({})
 

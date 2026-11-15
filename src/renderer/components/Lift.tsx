@@ -17,7 +17,7 @@ import { pointsMoved } from '@domain/lift.ts'
 import type { CaseLift } from '@domain/standing.ts'
 import type { CSSProperties, ReactNode } from 'react'
 import { cn } from '../lib/utils.ts'
-import { liftAttemptsLine, plural } from '../model.ts'
+import { changeWhy, liftAttemptsLine, plural } from '../model.ts'
 import { Delta } from './Scores.tsx'
 import { Text } from './text.tsx'
 
@@ -137,15 +137,17 @@ function Ribbon({ lift, floor }: { lift: CaseLift; floor: number | null }) {
 const overLine = (lift: CaseLift): string =>
   `Over ${plural(lift.cases, 'case')} that ran more than once${lift.mixed ? ', on more than one model' : ''}${uncountedPart(lift)}${floorRules(lift)}${answersOnly(lift)}`
 
-/** What the line under the change says of the cases left out, whose runs counted different facts. */
+/** What the line under the change says of the cases left out, which have nothing both their runs counted. */
 const uncountedPart = (lift: CaseLift): string =>
   lift.uncounted
-    ? `; ${lift.uncounted} more left out, as Jev was not sure of other rules or checks on their runs`
+    ? `; ${lift.uncounted} more left out, as nothing was marked on both ${lift.uncounted > 1 ? 'of their runs' : 'of its runs'}`
     : ''
 
-/** What the line under the change says when the cases' scores count an answer of yours only one of their runs holds. */
-const answersOnly = (lift: CaseLift): string =>
-  lift.unshared ? '; it counts your answers only where you gave one on both runs' : ''
+/** What the line under the change says when its means are not those of the scores shown (`changeWhy`). */
+function answersOnly(lift: CaseLift): string {
+  const why = lift.unshared ? changeWhy('runs', lift) : null
+  return why ? `; it ${why}` : ''
+}
 
 /** What the line under the change says when a score without the skill was graded on another version's rules. */
 const floorRules = (lift: CaseLift): string =>
