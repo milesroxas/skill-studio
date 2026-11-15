@@ -366,6 +366,26 @@ describe('generateRun', () => {
     ])
   })
 
+  it('takes no version for a run without the skill, so edited files still count as untested', async () => {
+    const write = engineThat((cwd) => writeFileSync(join(cwd, 'outputs/note.md'), 'A note.'))
+    await generateRun(options(write, 1))
+    writeFileSync(join(skill, 'SKILL.md'), '---\nname: Notes Skill\n---\n\n- Keep it shorter.\n')
+    // No name is needed: the run tests no version.
+    const { meta } = await generateRun({
+      ...options(write, 1),
+      configuration: 'without_skill',
+      skillName: null,
+    })
+    expect(meta).toMatchObject({ skillVersion: 'v1', skillName: '' })
+    const { versions, current } = versionsOf(skill)
+    expect(versions.map((v) => v.version)).toEqual(['v0'])
+    expect(current).toMatchObject({ version: 'v1', changed: true })
+    // The next run with the skill takes that number, under its own name.
+    const { meta: next } = await generateRun({ ...options(write, 1), skillName: 'Shorter' })
+    expect(next).toMatchObject({ skillVersion: 'v1', skillName: 'Shorter' })
+    expect(versionsOf(skill).current).toMatchObject({ version: 'v1', changed: false })
+  })
+
   it('names the skill to a run against an older version as that version named it', async () => {
     saveVersion(skill, versionsOf(skill).current, 'Short notes', '')
     writeFileSync(join(skill, 'SKILL.md'), '---\nname: Memo Skill\n---\n\n- Keep it long.\n')

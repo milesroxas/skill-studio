@@ -309,7 +309,8 @@ export function skillIdentity(skillDir: string): { hash: string; files: string }
 /**
  * The skill's versions, oldest first: those saved by hand, then any known only
  * from runs. The working tree is the version stamped with its hash, when saved
- * or by any run, or else the next number, marked changed.
+ * or by any run, or else the next number, marked changed. A run without the
+ * skill tested no version, so it neither names one nor makes the tree one.
  *
  * A version stamped from SKILL.md and references/ alone, before the other
  * files were counted, cannot say which scripts and assets it had; the copy a
@@ -333,7 +334,8 @@ export function skillVersions(
     stamps.set(version, held.add(hash))
   }
   for (const v of saved) stamp(v.version, v.hash)
-  for (const meta of runMetas) {
+  const tested = runMetas.filter((meta) => meta.configuration !== 'without_skill')
+  for (const meta of tested) {
     if (!meta.skillVersion) continue
     stamp(meta.skillVersion, meta.skillHash)
     if (versions.has(meta.skillVersion)) continue
@@ -354,7 +356,7 @@ export function skillVersions(
     stamps.get(v.version)?.has(mark) ?? false
   /** A run of `v` kept a copy of the skill that is the working tree, other files and all. */
   const ranAsIs = (v: SkillVersion): boolean =>
-    runMetas.some((meta) => {
+    tested.some((meta) => {
       if (!copyOf || meta.skillVersion !== v.version) return false
       const copy = copyOf(meta.name)
       return isDir(copy) && skillIdentity(copy).hash === hash

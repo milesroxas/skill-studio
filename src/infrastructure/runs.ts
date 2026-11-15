@@ -293,8 +293,12 @@ export const versionsOf = (skillDir: string) =>
 export function versionSource(skillDir: string, version: string): string {
   const saved = savedVersionSource(skillDir, version)
   if (saved) return saved
+  // A run without the skill tested no version: its copy is of whatever the files were then.
   const run = runMetas(skillDir).find(
-    (meta) => meta.skillVersion === version && isDir(skillCopy(skillDir, meta.name)),
+    (meta) =>
+      meta.skillVersion === version &&
+      meta.configuration !== 'without_skill' &&
+      isDir(skillCopy(skillDir, meta.name)),
   )
   if (!run) throw new Error(`No copy of ${version} is kept: it was neither saved nor run.`)
   return skillCopy(skillDir, run.name)

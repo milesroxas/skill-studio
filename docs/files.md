@@ -108,6 +108,7 @@ A run keeps the version it tested. Its `_skill/` snapshot is the copy the app re
 - The app asks before a restore when the files were saved since the last run or hold unsaved edits (`restoreAsk` in `src/renderer/restore.ts`). A restore drops the unsaved edits of the skill's files, so none stays to be saved back over a restored file.
 - When a restore fails partway and a file cannot be moved back, your files are kept in a hidden `.restore-…` folder in the skill. The error names each one and where it goes.
 - A changed tree needs a name on its first run. The app names a skill's first version "First version" and a later one after the date, unless you type what changed. `st run` asks for `--name`.
+- A run without the skill tests no version. It needs no name, and it is stamped with the number the files have now but names no version: the files still count as changed until a run with the skill, which takes that number. Its `_skill/` is never read as a version's copy.
 - Later runs of the same files reuse the version.
 - The Assistant can save the files as a version before it changes them. That copy lands in `evals/versions/`.
 - Deleting a version's only run saves the version there too, from the run's `_skill/`, so the version stays.

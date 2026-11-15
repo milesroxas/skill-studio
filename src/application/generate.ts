@@ -121,11 +121,23 @@ interface SkillStamp {
   note: string
 }
 
-/** The version a new run is stamped with. Throws when the tree changed and has no name yet. */
-function stampSkill(skillDir: string, skillName: string | null, note: string): SkillStamp {
+/**
+ * The version a new run is stamped with. Throws when the tree changed and has
+ * no name yet. A run without the skill tests no version: it is stamped with
+ * the number the tree has now and no name, which names no version and makes
+ * the tree none (`skillVersions` passes over such a run).
+ */
+function stampSkill(
+  skillDir: string,
+  skillName: string | null,
+  note: string,
+  configuration: Configuration,
+): SkillStamp {
   const { current } = versionsOf(skillDir)
   if (!current.changed)
     return { version: current.version, name: current.name, hash: current.hash, note: current.note }
+  if (configuration === 'without_skill')
+    return { version: current.version, name: '', hash: current.hash, note: '' }
   const name = skillName?.trim()
   if (!name)
     throw new Error(
@@ -219,7 +231,9 @@ export async function generateRun(
   const info = skillInfo(skillDir)
   const configuration = options.configuration
   const baseline = configuration === 'old_skill' ? baselineOf(skillDir, options.baseline) : null
-  const stamp = baseline ? baseline.stamp : stampSkill(skillDir, options.skillName, options.note)
+  const stamp = baseline
+    ? baseline.stamp
+    : stampSkill(skillDir, options.skillName, options.note, configuration)
   // The skill as the run's copy names it: a run against an older version uses the name it had then.
   const skillName = baseline ? skillHead(baseline.dir, basename(info.path)).name : info.name
   const model = options.model?.trim() || engine.defaultModel
