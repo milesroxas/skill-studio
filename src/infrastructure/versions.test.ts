@@ -137,12 +137,12 @@ describe('versionFiles', () => {
   it('reads a saved version from its own copy', () => {
     saveVersion(dir, versionsOf(dir).current, 'One', '')
     writeFileSync(join(dir, 'SKILL.md'), 'changed')
-    expect(versionFiles(dir, 'v0')).toEqual({ 'SKILL.md': 'first' })
+    expect(versionFiles(dir, 'v0')).toEqual({ files: { 'SKILL.md': 'first' }, others: {} })
   })
 
   it('falls back to the snapshot of a run of that version', () => {
     writeRun('2026-11-01-skill-v0-a', 'v0', 'from the run')
-    expect(versionFiles(dir, 'v0')).toEqual({ 'SKILL.md': 'from the run' })
+    expect(versionFiles(dir, 'v0')).toEqual({ files: { 'SKILL.md': 'from the run' }, others: {} })
   })
 
   it('says when no copy is kept', () => {
@@ -277,6 +277,63 @@ describe('restoreSkillFiles', () => {
     )
     expect(existsSync(join(dir, 'evals'))).toBe(false)
     expect(existsSync(join(dir, 'run.sh'))).toBe(false)
+  })
+
+  it('given a whole copy, puts every file back and takes away what the version does not hold', () => {
+    const logo = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0xff, 0xfe, 0x00, 0xc3, 0x28])
+    for (const folder of ['scripts', 'assets', 'evals/cases', '.git', 'node_modules'])
+      mkdirSync(join(dir, folder), { recursive: true })
+    writeFileSync(join(dir, 'scripts/check.py'), 'now')
+    writeFileSync(join(dir, 'scripts/added-since.py'), 'gone soon')
+    writeFileSync(join(dir, 'assets/added-since.png'), 'gone soon')
+    writeFileSync(join(dir, 'evals/cases/keep.md'), 'a case')
+    writeFileSync(join(dir, '.git/config'), 'mine')
+    writeFileSync(join(dir, 'node_modules/x.js'), 'mine')
+    const version = {
+      'SKILL.md': 'restored',
+      'forms.md': 'forms',
+      'scripts/check.py': 'then',
+      'assets/logo.png': logo,
+      // A name Windows cannot hold is still put back where it can be held: the walk found it.
+      ...(process.platform === 'win32' ? {} : { 'a:b "c".md': 'a name only some systems hold' }),
+    }
+    restoreSkillFiles(dir, source(version), true)
+    expect(readFileSync(join(dir, 'SKILL.md'), 'utf8')).toBe('restored')
+    expect(readFileSync(join(dir, 'forms.md'), 'utf8')).toBe('forms')
+    expect(readFileSync(join(dir, 'scripts/check.py'), 'utf8')).toBe('then')
+    expect(readFileSync(join(dir, 'assets/logo.png')).equals(logo)).toBe(true)
+    expect(existsSync(join(dir, 'scripts/added-since.py'))).toBe(false)
+    expect(existsSync(join(dir, 'assets/added-since.png'))).toBe(false)
+    // Cases and runs, hidden files and installed packages are no part of a version.
+    expect(readFileSync(join(dir, 'evals/cases/keep.md'), 'utf8')).toBe('a case')
+    expect(readFileSync(join(dir, '.git/config'), 'utf8')).toBe('mine')
+    expect(readFileSync(join(dir, 'node_modules/x.js'), 'utf8')).toBe('mine')
+    expect(readdirSync(dir).filter((name) => name.startsWith('.restore'))).toEqual([])
+    // The skill is now exactly the version: the hash of one is the hash of the other.
+    expect(skillIdentity(dir).hash).toBe(skillIdentity(source(version)).hash)
+  })
+
+  it('given a copy of SKILL.md and references alone, leaves every other file as it is', () => {
+    mkdirSync(join(dir, 'scripts'))
+    writeFileSync(join(dir, 'scripts/check.py'), 'mine')
+    writeFileSync(join(dir, 'forms.md'), 'mine')
+    restoreSkillFiles(dir, source({ 'SKILL.md': 'restored' }))
+    expect(readFileSync(join(dir, 'SKILL.md'), 'utf8')).toBe('restored')
+    expect(readFileSync(join(dir, 'scripts/check.py'), 'utf8')).toBe('mine')
+    expect(readFileSync(join(dir, 'forms.md'), 'utf8')).toBe('mine')
+  })
+
+  it('puts a file where a folder of the same name was, and a folder where a file was', () => {
+    mkdirSync(join(dir, 'notes'))
+    writeFileSync(join(dir, 'notes/a.md'), 'in a folder')
+    writeFileSync(join(dir, 'guide'), 'a file')
+    restoreSkillFiles(
+      dir,
+      source({ 'SKILL.md': 'restored', notes: 'now a file', 'guide/a.md': 'now in a folder' }),
+      true,
+    )
+    expect(readFileSync(join(dir, 'notes'), 'utf8')).toBe('now a file')
+    expect(readFileSync(join(dir, 'guide/a.md'), 'utf8')).toBe('now in a folder')
   })
 
   it('brings a picture back byte for byte, and a file whose name has a space', () => {

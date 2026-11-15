@@ -35,6 +35,7 @@ import {
 } from '@domain/schemas.ts'
 import {
   frontMatterBlock,
+  frontMatterYaml,
   isSlug,
   metaList,
   metaText,
@@ -43,7 +44,7 @@ import {
   slug,
 } from '@domain/text.ts'
 import { scorers } from '@judges/scorers.ts'
-import { isMap, parseDocument, parse as parseYaml, stringify as toYaml } from 'yaml'
+import { isMap, parseDocument, parse as parseYaml } from 'yaml'
 import {
   assertInside,
   assertSafePath,
@@ -643,7 +644,7 @@ export function saveCase(
       meta.image = `${REFERENCES}/${name}`
     } else if (!g.image) delete meta.image
     if (typeof meta.image === 'string') references.add(basename(meta.image))
-    const fields = Object.keys(meta).length ? toYaml(meta) : ''
+    const fields = Object.keys(meta).length ? frontMatterYaml(meta) : ''
     write(path, `---\n${fields}---\n\n${statement}\n`)
     kept.add(id)
   })

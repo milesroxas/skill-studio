@@ -12,10 +12,10 @@
 import { inputEntries, inputName, picturesOf } from './case-draft.ts'
 import { CHANGES_GUIDE } from './changes.ts'
 import type { ImageRef } from './image.ts'
-import { byFileOrder, isEditablePath } from './paths.ts'
+import { byFileOrder, isSkillFilePath } from './paths.ts'
 import { type Case, type CaseDraft, NEW_CASE_KEY, type SkillDrafts } from './schemas.ts'
 import { CASE_PROMPT_HINT, CHECK_EXAMPLES, RULE_GUIDE, RULE_SHAPE } from './templates.ts'
-import { closesFence, fenceOf, frontMatterBlock, LIST_MARK } from './text.ts'
+import { closesFence, fenceOf, frontMatterBlock, LIST_MARK, withFrontMatterQuoted } from './text.ts'
 
 export const ASSIST_FIELD_IDS = [
   'skill.file',
@@ -325,7 +325,7 @@ const FIT: Record<AssistFieldDef['form'], (text: string) => string> = {
  * The finished reply as the field's text, fitted to the field: one line stays
  * one line, a list's items stand one to a line without their markers, a file
  * ends with a newline, and a SKILL.md that came back without its front matter
- * gets the block it had. A file wrapped whole in one code fence is unwrapped.
+ * gets the block it had, with any value that needs quotes put in them. A file wrapped whole in one code fence is unwrapped.
  * Throws when the reply is not the agreed object, holds no text, or is a file
  * that still opens with a fence (its front matter would sit inside a code
  * block, and no rule would be graded), so a bad reply never reaches a field.
@@ -345,8 +345,11 @@ export function assistText(input: Pick<AssistInput, 'field' | 'current'>, raw: s
   if (startsFenced(fitted))
     throw new Error('The model wrapped the file in a code fence. Try again.')
   const text = `${fitted}\n`
-  const front = input.field === 'skill.file' ? frontMatterBlock(input.current) : ''
-  return front && !frontMatterBlock(text) ? `${front.trimEnd()}\n\n${text}` : text
+  if (input.field !== 'skill.file') return text
+  const front = frontMatterBlock(input.current)
+  return withFrontMatterQuoted(
+    front && !frontMatterBlock(text) ? `${front.trimEnd()}\n\n${text}` : text,
+  )
 }
 
 /** One file of the open skill as the reader has it: their unsaved text when there is some. */
@@ -437,7 +440,7 @@ export function workingSkill(
   const fresh = own(drafts.cases, NEW_CASE_KEY)
   return {
     files: [...paths]
-      .filter(isEditablePath)
+      .filter(isSkillFilePath)
       .sort(byFileOrder)
       .map((path) => {
         const draft = own(drafts.files, path)
@@ -468,7 +471,7 @@ export function workingSkill(
 export const CONTEXT_BUDGET = 40_000
 
 const SCREENS =
-  'Skill (edit SKILL.md and references/, with every version to compare and restore), Cases (the prompts a run is made of, each with checks; Add files or Add folder, under Files, gives a case a copy of a picture or any other file or folder the prompt is about), Results (two outputs of a case compared, each with the rules and checks it missed, and every run under All cases, where Graded as adds Code, Workflow or Design to the rules and checks every skill is graded on), Library, Guide and Settings. Run, at the top of the window, has an agent do the cases and saves the skill as a version.'
+  'Skill (edit SKILL.md and the skill’s other files, such as its references and scripts, with every version to compare and restore), Cases (the prompts a run is made of, each with checks; Add files or Add folder, under Files, gives a case a copy of a picture or any other file or folder the prompt is about), Results (two outputs of a case compared, each with the rules and checks it missed, and every run under All cases, where Graded as adds Code, Workflow or Design to the rules and checks every skill is graded on), Library, Guide and Settings. Run, at the top of the window, has an agent do the cases and saves the skill as a version.'
 
 /** Where the reader is and what they have open, as the brief says it. */
 function whereText(scene: ChatScene): string {
@@ -519,7 +522,7 @@ function filesText(files: SceneFile[], open: string | null, budget: Budget): str
   return [
     skillMd ? tag('file', skillMd.text, mark(skillMd)) : 'The skill has no SKILL.md yet.',
     ...shown,
-    named.length ? `Reference files too long to include here: ${named.join(', ')}.` : '',
+    named.length ? `Files too long to include here: ${named.join(', ')}.` : '',
   ]
     .filter(Boolean)
     .join('\n')

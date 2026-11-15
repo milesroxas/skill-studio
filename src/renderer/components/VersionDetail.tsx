@@ -4,7 +4,7 @@
  * file by file, with the way back to it. A run keeps the version it tested, so
  * there is always a copy to read and restore; one saved by hand keeps its own.
  */
-import { byFileOrder } from '@domain/paths.ts'
+import { byFileOrder, isCorePath } from '@domain/paths.ts'
 import type { SkillVersion } from '@domain/views.ts'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { api } from '../api.ts'
@@ -70,17 +70,42 @@ export function VersionDetail({ ctx, version }: { ctx: Ctx; version: string }) {
   }, [hash, readFrom, readTo])
   const filesFrom = a.data?.files
   const filesTo = b.data?.files
+  const othersFrom = a.data?.others
+  const othersTo = b.data?.others
+  /**
+   * The version whose copy holds SKILL.md and references alone, when one side of the comparison
+   * is such a copy: its other files are not known, so they are not read as added or deleted.
+   */
+  const partial = found?.partial
+    ? found.version
+    : against === 'before' && before?.partial
+      ? before.version
+      : null
   // Every file is compared line by line: once per read, not on each render.
   const diffs = useMemo(
     () =>
       filesFrom && filesTo
-        ? [...new Set([...Object.keys(filesFrom), ...Object.keys(filesTo)])].sort().map((file) => {
-            const was = filesFrom[file] ?? ''
-            const now = filesTo[file] ?? ''
-            return { file, was, now, lines: lineDiff(was, now) }
-          })
+        ? [...new Set([...Object.keys(filesFrom), ...Object.keys(filesTo)])]
+            .filter((file) => !partial || isCorePath(file))
+            .sort(byFileOrder)
+            .map((file) => {
+              const was = filesFrom[file] ?? ''
+              const now = filesTo[file] ?? ''
+              return { file, was, now, lines: lineDiff(was, now) }
+            })
         : null,
-    [filesFrom, filesTo],
+    [filesFrom, filesTo, partial],
+  )
+  /** The files that are not text, such as a picture, and differ: added, deleted or other bytes. */
+  const othersChanged = useMemo(
+    () =>
+      othersFrom && othersTo
+        ? [...new Set([...Object.keys(othersFrom), ...Object.keys(othersTo)])]
+            .filter((file) => !partial || isCorePath(file))
+            .filter((file) => othersFrom[file] !== othersTo[file])
+            .sort(byFileOrder)
+        : [],
+    [othersFrom, othersTo, partial],
   )
 
   if (!found)
@@ -166,7 +191,7 @@ export function VersionDetail({ ctx, version }: { ctx: Ctx; version: string }) {
   /** A read that failed takes the place of the files: what was read before it is not what was asked for. */
   const failed = a.error ?? b.error
   const shown = failed ? null : diffs
-  const changed = shown?.some((d) => d.lines.length) ?? false
+  const changed = (shown?.some((d) => d.lines.length) ?? false) || othersChanged.length > 0
   const options: Array<{ value: Against; label: string }> = [
     { value: 'now', label: 'The files now' },
     ...(before
@@ -282,6 +307,15 @@ export function VersionDetail({ ctx, version }: { ctx: Ctx; version: string }) {
               />
             ) : null,
           )}
+          {shown && othersChanged.length ? (
+            <Hint>Also changed, and not text: {othersChanged.join(', ')}.</Hint>
+          ) : null}
+          {shown && partial ? (
+            <Hint>
+              Only SKILL.md and references were kept of {partial}. Its other files are not compared,
+              and Restore leaves them as they are.
+            </Hint>
+          ) : null}
           {shown && !changed ? (
             <Hint>
               {to === 'current'

@@ -196,6 +196,64 @@ describe('skill.restoreVersion', () => {
   })
 })
 
+describe("the skill's other files", () => {
+  const picture = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x00, 0xff])
+
+  it('lists every file, saves and deletes a script, and refuses what is no file of the skill', async () => {
+    mkdirSync(join(skill, 'assets'), { recursive: true })
+    writeFileSync(join(skill, 'assets/logo.png'), picture)
+    await invoke(operations, 'skill.saveFile', {
+      skill,
+      path: 'scripts/check.py',
+      text: 'print(1)\n',
+      previous: null,
+    })
+    const { files, others } = await invoke(operations, 'skill.files', { skill, source: 'current' })
+    expect(files['scripts/check.py']).toBe('print(1)\n')
+    expect(Object.keys(others)).toEqual(['assets/logo.png'])
+    for (const path of ['evals/bench.json', '../x.md', '.env', 'node_modules/x.js'])
+      await expect(
+        invoke(operations, 'skill.saveFile', { skill, path, text: 'x', previous: null }),
+      ).rejects.toThrow('file')
+    await expect(
+      invoke(operations, 'skill.saveFile', {
+        skill,
+        path: 'assets/logo.png',
+        text: 'x',
+        previous: null,
+      }),
+    ).rejects.toThrow('not a text file')
+    await invoke(operations, 'skill.deleteFile', { skill, path: 'assets/logo.png' })
+    await invoke(operations, 'skill.deleteFile', { skill, path: 'scripts/check.py' })
+    expect(existsSync(join(skill, 'assets'))).toBe(false)
+    expect(existsSync(join(skill, 'scripts'))).toBe(false)
+  })
+
+  it('restores a saved version whole: its script and its picture back, a later file gone', async () => {
+    mkdirSync(join(skill, 'scripts'), { recursive: true })
+    mkdirSync(join(skill, 'assets'), { recursive: true })
+    writeFileSync(join(skill, 'scripts/check.py'), 'then')
+    writeFileSync(join(skill, 'assets/logo.png'), picture)
+    const saved = await invoke(operations, 'skill.saveVersion', { skill, name: 'Whole', note: '' })
+    writeFileSync(join(skill, 'scripts/check.py'), 'now')
+    writeFileSync(join(skill, 'scripts/later.py'), 'added since')
+    rmSync(join(skill, 'assets/logo.png'))
+    const before = await invoke(operations, 'skill.state', { skill })
+    expect(before.versions.current.changed).toBe(true)
+    // What the version holds and the files do not is told file by file, text or not.
+    const then = await invoke(operations, 'skill.files', { skill, source: saved.version })
+    expect(then.files['scripts/check.py']).toBe('then')
+    expect(Object.keys(then.others)).toEqual(['assets/logo.png'])
+    await invoke(operations, 'skill.restoreVersion', { skill, version: saved.version, force: true })
+    expect(readFileSync(join(skill, 'scripts/check.py'), 'utf8')).toBe('then')
+    expect(readFileSync(join(skill, 'assets/logo.png')).equals(picture)).toBe(true)
+    expect(existsSync(join(skill, 'scripts/later.py'))).toBe(false)
+    // The files are the version again, so nothing reads as changed.
+    const after = await invoke(operations, 'skill.state', { skill })
+    expect(after.versions.current).toMatchObject({ version: saved.version, changed: false })
+  })
+})
+
 describe('skill.saveCase', () => {
   const draft = { id: 'memo', title: 'Memo', prompt: 'Write a memo.', graders: [] }
 

@@ -6,6 +6,22 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+### Added
+
+- The Skill screen lists every file of the skill, not only SKILL.md and its references: scripts, other Markdown files and anything else the skill holds. Each text file can be edited, and **+** adds one anywhere in the skill, such as `scripts/check.py`. A picture or another file that is not text is listed and can be deleted.
+
+### Changed
+
+- **Restore** puts back every file of a version, scripts and pictures included, so the files match the version again. Before, it put back SKILL.md and the references and left the rest.
+- A version's page compares every file of the skill, and says when a picture or another file that is not text changed.
+- The notes about a skill's name and description say what some apps will not take, such as a name that is not the folder's. Before, they read as if the skill could not be used.
+- The Assistant can read and change a skill's scripts and other text files.
+
+### Fixed
+
+- A skill whose description holds a colon, such as `description: Use when: a release ships`, no longer shows as a file whose top lines cannot be read. The editor reads it as Claude Code does and offers **Add quotes**, so other apps can read it too.
+- A SKILL.md written by **Write with AI**, the selection tools or the assistant puts quotes around a description that holds a colon. A new skill's description stays on one line.
+
 ## [0.15.0] - 2026-11-15
 
 ### Added

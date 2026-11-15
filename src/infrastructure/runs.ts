@@ -23,7 +23,7 @@ import { detectArtifacts } from './artifacts.ts'
 import { loadCases } from './cases.ts'
 import { assertInside, isDir, isFile, listDirs, listFiles, present, readJson } from './fs.ts'
 import { readKept, runCases } from './run-cases.ts'
-import { skillFiles, skillIdentity, skillVersions } from './skill.ts'
+import { type SkillTexts, skillIdentity, skillTexts, skillVersions } from './skill.ts'
 import { readTranscript } from './transcript.ts'
 import { isVersionLabel, savedVersionFile, savedVersionSource, savedVersions } from './versions.ts'
 import { asSamplePath, liveWorkdir, workdirsOf } from './workdir.ts'
@@ -378,16 +378,16 @@ export function versionCopy(skillDir: string, version: string): { dir: string; w
 }
 
 /** The folder holding a version's files: the first copy kept of it that holds the whole of it. */
-export const versionSource = (skillDir: string, version: string): string =>
+const versionSource = (skillDir: string, version: string): string =>
   versionCopy(skillDir, version).dir
 
-/** A version's SKILL.md and references, as text. */
-export const versionFiles = (skillDir: string, version: string): Record<string, string> =>
-  skillFiles(versionSource(skillDir, version))
+/** A version's files as the editor reads them, from the copy kept of it. */
+export const versionFiles = (skillDir: string, version: string): SkillTexts =>
+  skillTexts(versionSource(skillDir, version))
 
-/** The SKILL.md and references a run was made with, as text. */
-export const runSkillFiles = (skillDir: string, run: string): Record<string, string> =>
-  skillFiles(skillCopy(skillDir, run))
+/** The files a run was made with, as the editor reads them. */
+export const runSkillFiles = (skillDir: string, run: string): SkillTexts =>
+  skillTexts(skillCopy(skillDir, run))
 
 export const sampleTranscript = (skillDir: string, run: string, sample: string) =>
   readSampleTranscript(join(runDir(skillDir, run), sample))

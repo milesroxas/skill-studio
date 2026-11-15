@@ -131,7 +131,7 @@ A key in the environment at launch wins over a stored one. A stored Anthropic or
 
 A skill has three screens (`SKILL_PLACES` in `src/renderer/places.ts`):
 
-- **Skill** (`screens/Editor.tsx`) edits `SKILL.md` and `references/`, and lists the versions. A version opens in the main column (`components/VersionDetail.tsx`) with its changes and Restore.
+- **Skill** (`screens/Editor.tsx`) edits every file of the skill (`SKILL.md`, `references/`, scripts and the rest: `isSkillFilePath`), and lists the versions. A version opens in the main column (`components/VersionDetail.tsx`) with its changes and Restore.
 - **Cases** (`screens/Cases.tsx`) edits the cases a run is made of. A case needs a prompt only.
 - **Results** (`screens/Results.tsx`) lists the cases a run answered and compares two outputs of the one picked (`components/Comparison.tsx`). "All cases" (`components/ResultsSummary.tsx`) shows the lift (`components/Lift.tsx`), how many cases are checked on the skill as it is now (`components/Coverage.tsx`), where each case stands (`components/CaseStandings.tsx`) and the runs, with Graded as folded at its foot (`components/GradedAs.tsx`).
 
@@ -257,7 +257,7 @@ The side panel's slash menu lists the panel's own commands first (`src/renderer/
 
 ### Changes from the side panel
 
-The assistant can propose changes to the open skill: a whole file (SKILL.md or one under `references/`), a case to add or replace, and a version to save.
+The assistant can propose changes to the open skill: a whole file (SKILL.md or any other text file of the skill), a case to add or replace, and a version to save.
 
 - The model writes each change as a block fenced with four tildes, so a code fence inside a SKILL.md cannot end it early. A file block closes at the last four-tilde line before the next block or the end of the reply, so a four-tilde fence inside the file is kept too.
 - `src/domain/changes.ts` holds the format: the brief that teaches it (`CHANGES_GUIDE`, part of `chatSystem`) and the parser (`replyParts`).

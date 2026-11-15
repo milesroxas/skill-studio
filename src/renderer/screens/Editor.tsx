@@ -15,7 +15,7 @@
  * on the first keystroke.
  */
 
-import { byFileOrder } from '@domain/paths.ts'
+import { byFileOrder, isMarkdownPath, newFilePath } from '@domain/paths.ts'
 import { applyPracticeEdit, PRACTICE_EDIT } from '@domain/practice.ts'
 import { scanRules } from '@domain/rules.ts'
 import {
@@ -28,7 +28,13 @@ import {
   SNIPPETS,
   type Snippet,
 } from '@domain/templates.ts'
-import { frontMatterUnreadable, headProblems, metaText, readFrontMatter } from '@domain/text.ts'
+import {
+  frontMatterQuotes,
+  frontMatterUnreadable,
+  headProblems,
+  metaText,
+  readFrontMatter,
+} from '@domain/text.ts'
 import { Fragment, memo, useEffect, useMemo, useRef, useState } from 'react'
 import { api, currentSkill } from '../api.ts'
 import { DiffLines } from '../components/DiffLines.tsx'
@@ -79,10 +85,14 @@ import {
 import { useArrivals } from '../motion.ts'
 import { editorFile } from '../route.ts'
 
-const referencePath = (name: string): string | null => {
-  const clean = name.trim().replace(/^references\//, '')
-  if (!/^[\w][\w.-]*(\/[\w][\w.-]*)*$/.test(clean)) return null
-  return `references/${/\.\w+$/.test(clean) ? clean : `${clean}.md`}`
+/** The fields at the top of a SKILL.md, as a title names them: "The name and the description". */
+const fieldNames = (keys: string[]): string => {
+  const names = keys.map((k) =>
+    k === 'name' || k === 'description' ? `the ${k}` : `the ${k} line`,
+  )
+  const joined =
+    names.length > 1 ? `${names.slice(0, -1).join(', ')} and ${names.at(-1)}` : names[0]
+  return joined.charAt(0).toUpperCase() + joined.slice(1)
 }
 
 /**
@@ -125,6 +135,9 @@ const VIEWS = [
 ] as const
 
 type View = (typeof VIEWS)[number]['value']
+
+/** A file that is not Markdown has one way to be read, so its views are the text and its changes. */
+const TEXT_VIEWS = [{ value: 'markdown', label: 'Text', title: 'Edit the file' }, VIEWS[2]] as const
 
 /** How many of the newest versions the list shows before the rest fold away. */
 const SHOWN_VERSIONS = 5
@@ -189,8 +202,15 @@ export const Editor = memo(function Editor({ ctx }: { ctx: Ctx }) {
   }, [naming])
 
   const files = disk.saved ?? {}
-  const paths = [...new Set([...Object.keys(files), ...Object.keys(edits)])].sort(byFileOrder)
+  // Every file of the skill: the ones that read as text, a file only drafted so far, and the rest.
+  const paths = [...new Set([...Object.keys(files), ...Object.keys(edits), ...disk.others])].sort(
+    byFileOrder,
+  )
   const file = editorFile(route.params)
+  /** A picture, a font, a file too large to open: listed, and not read as text. */
+  const notText = disk.others.includes(file)
+  /** Styled and checked as Markdown; any other text is edited as it is written. */
+  const markdown = isMarkdownPath(file)
   /** A version opened from the list: the column shows it in place of the file. */
   const version = route.params.get('version')
   /** A rule someone was sent here to change, by its text: Results links a missed rule to it. */
@@ -239,7 +259,8 @@ export const Editor = memo(function Editor({ ctx }: { ctx: Ctx }) {
   const look = (next: View | null) => {
     if (!next) return
     setShowDiff(next === 'changes')
-    if (next !== 'changes' && next !== mode) setMode(next)
+    // A file that is not Markdown has no view to remember.
+    if (markdown && next !== 'changes' && next !== mode) setMode(next)
   }
 
   /** Put a template's body under the front matter of an empty SKILL.md. */
@@ -274,11 +295,13 @@ export const Editor = memo(function Editor({ ctx }: { ctx: Ctx }) {
   }
 
   const create = () => {
-    const path = referencePath(newName ?? '')
+    const path = newFilePath(newName ?? '')
     if (!path)
       return report('Use letters, digits, dots, dashes and slashes only.', { tone: 'warning' })
     if (paths.includes(path)) return report(`${path} already exists.`, { tone: 'warning' })
-    drafts.setFile(path, { text: referenceTemplate(path), previous: null })
+    // A Markdown file starts from the outline of a reference; any other starts empty.
+    const text = isMarkdownPath(path) ? referenceTemplate(path) : ''
+    drafts.setFile(path, { text, previous: null })
     setNewName(null)
     go('editor', { file: path })
   }
@@ -320,6 +343,19 @@ export const Editor = memo(function Editor({ ctx }: { ctx: Ctx }) {
   }
 
   const isSkill = file === 'SKILL.md'
+  const deleteFile = (
+    <Button
+      type="button"
+      variant="destructive-ghost"
+      size="sm"
+      disabled={busy}
+      busy={deleting}
+      busyLabel="Deleting…"
+      onClick={remove}
+    >
+      Delete file
+    </Button>
+  )
   const meta = isSkill ? readFrontMatter(text).meta : {}
   /** The bullets are the rules Jev grades, so the editor marks them; not when bench.json names its own. */
   const graded = isSkill && !config.rules?.length
@@ -371,6 +407,8 @@ export const Editor = memo(function Editor({ ctx }: { ctx: Ctx }) {
   const unreadable = isSkill && frontMatterUnreadable(text)
   const missing =
     isSkill && !unreadable ? ['name', 'description'].filter((k) => !metaText(meta, k)) : []
+  // Read all the same, as Claude Code reads it, but a stricter app drops the whole block.
+  const quotes = isSkill ? frontMatterQuotes(text) : null
   const { current, versions } = state.versions
   const newest = versions.at(-1)
   const versionRow = (v: (typeof versions)[number]) => {
@@ -412,7 +450,7 @@ export const Editor = memo(function Editor({ ctx }: { ctx: Ctx }) {
    * missing front matter, a tool that reinstalls the skill over these edits.
    */
   const notes =
-    stale || missing.length || head.length || state.source ? (
+    stale || missing.length || quotes || head.length || state.source ? (
       <>
         {stale ? (
           <Alert variant="warning" role="status">
@@ -461,6 +499,25 @@ export const Editor = memo(function Editor({ ctx }: { ctx: Ctx }) {
             </AlertDescription>
           </Alert>
         ) : null}
+        {quotes ? (
+          <Alert variant="warning">
+            <AlertTitle>
+              {fieldNames(quotes.keys)} {quotes.keys.length === 1 ? 'has' : 'have'} a colon some
+              apps cannot read
+            </AlertTitle>
+            <AlertDescription>
+              <p>
+                Quotes around {quotes.keys.length === 1 ? 'it' : 'them'} keep{' '}
+                {quotes.keys.length === 1 ? 'it' : 'them'} whole wherever the skill is used.
+              </p>
+              <Toolbar>
+                <Button type="button" variant="outline" size="sm" onClick={() => edit(quotes.text)}>
+                  Add quotes
+                </Button>
+              </Toolbar>
+            </AlertDescription>
+          </Alert>
+        ) : null}
         {head.map((problem) => (
           <Alert variant="warning" key={problem.title}>
             <AlertTitle>{problem.title}</AlertTitle>
@@ -487,7 +544,7 @@ export const Editor = memo(function Editor({ ctx }: { ctx: Ctx }) {
         <ListHeader
           title="Files"
           count={paths.length}
-          addLabel="Add a reference file"
+          addLabel="Add a file"
           addDisabled={naming}
           onAdd={() => setNewName('')}
         />
@@ -521,7 +578,7 @@ export const Editor = memo(function Editor({ ctx }: { ctx: Ctx }) {
             >
               <Input
                 ref={nameField}
-                aria-label="Name of the new reference file"
+                aria-label="Name of the new file"
                 placeholder="references/name.md"
                 autoCapitalize="none"
                 autoCorrect="off"
@@ -606,35 +663,52 @@ export const Editor = memo(function Editor({ ctx }: { ctx: Ctx }) {
             ) : null}
           </ColumnSection>
         )}
-        <ColumnSection inset="list" title="Insert">
-          <Toolbar>
-            {SNIPPETS.map((s) => (
-              <Button
-                key={s.id}
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => insert(s)}
-              >
-                {s.label}
-              </Button>
-            ))}
-          </Toolbar>
-          <GuideBox summary="How to write a rule" defaultOpen={blank}>
-            <GuideList>
-              {RULE_GUIDE.map((item) => (
-                <li key={item.lead}>
-                  <b>{item.lead}</b> {item.text}
-                </li>
+        {/* A rule or a process is Markdown: a script or a data file takes none. */}
+        {markdown && !notText ? (
+          <ColumnSection inset="list" title="Insert">
+            <Toolbar>
+              {SNIPPETS.map((s) => (
+                <Button
+                  key={s.id}
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => insert(s)}
+                >
+                  {s.label}
+                </Button>
               ))}
-            </GuideList>
-          </GuideBox>
-        </ColumnSection>
+            </Toolbar>
+            <GuideBox summary="How to write a rule" defaultOpen={blank}>
+              <GuideList>
+                {RULE_GUIDE.map((item) => (
+                  <li key={item.lead}>
+                    <b>{item.lead}</b> {item.text}
+                  </li>
+                ))}
+              </GuideList>
+            </GuideBox>
+          </ColumnSection>
+        ) : null}
       </Column>
 
       {version ? (
         <Column>
           <VersionDetail key={version} ctx={ctx} version={version} />
+        </Column>
+      ) : notText ? (
+        <Column>
+          <ColumnHeader>
+            <ColumnTitle>
+              <Text font="mono" size="ui" weight="medium">
+                {file}
+              </Text>
+            </ColumnTitle>
+            {deleteFile}
+          </ColumnHeader>
+          <EmptyState title="This file cannot be opened here">
+            It is not text, or it is too large. It is still part of the skill and of every version.
+          </EmptyState>
         </Column>
       ) : (
         <Column>
@@ -652,23 +726,11 @@ export const Editor = memo(function Editor({ ctx }: { ctx: Ctx }) {
             </ColumnTitle>
             <Segmented<View>
               aria-label="View"
-              value={showDiff ? 'changes' : mode}
+              value={showDiff ? 'changes' : markdown ? mode : 'markdown'}
               onChange={look}
-              options={VIEWS}
+              options={markdown ? VIEWS : TEXT_VIEWS}
             />
-            {!isSkill && saved !== null ? (
-              <Button
-                type="button"
-                variant="destructive-ghost"
-                size="sm"
-                disabled={busy}
-                busy={deleting}
-                busyLabel="Deleting…"
-                onClick={remove}
-              >
-                Delete file
-              </Button>
-            ) : null}
+            {!isSkill && saved !== null ? deleteFile : null}
             <Button
               type="button"
               variant="ghost"
@@ -696,7 +758,8 @@ export const Editor = memo(function Editor({ ctx }: { ctx: Ctx }) {
             key={file}
             id={`${skill}:${file}`}
             ref={editor}
-            mode={mode}
+            mode={markdown ? mode : 'markdown'}
+            plain={!markdown}
             instead={
               showDiff ? (
                 <ColumnBody>
@@ -713,7 +776,9 @@ export const Editor = memo(function Editor({ ctx }: { ctx: Ctx }) {
             placeholder={
               isSkill
                 ? 'One rule per bullet, with its why.'
-                : 'Longer material SKILL.md points to. Say first when to read it.'
+                : markdown
+                  ? 'Longer material SKILL.md points to. Say first when to read it.'
+                  : undefined
             }
             value={text}
             onChange={edit}
@@ -736,20 +801,25 @@ export const Editor = memo(function Editor({ ctx }: { ctx: Ctx }) {
                   }
                 : undefined
             }
-            assist={{
-              field: isSkill ? 'skill.file' : 'skill.reference',
-              blank,
-              // A reference is written to serve the skill it belongs to.
-              context: () =>
-                isSkill
-                  ? []
-                  : [
-                      {
-                        label: 'SKILL.md',
-                        text: edits['SKILL.md']?.text ?? files['SKILL.md'] ?? '',
-                      },
-                    ],
-            }}
+            // "Write with AI" writes Markdown: SKILL.md, or a file it points to.
+            assist={
+              markdown
+                ? {
+                    field: isSkill ? 'skill.file' : 'skill.reference',
+                    blank,
+                    // A reference is written to serve the skill it belongs to.
+                    context: () =>
+                      isSkill
+                        ? []
+                        : [
+                            {
+                              label: 'SKILL.md',
+                              text: edits['SKILL.md']?.text ?? files['SKILL.md'] ?? '',
+                            },
+                          ],
+                  }
+                : undefined
+            }
             banner={
               // The practice skill needs no introduction here: the walkthrough in the sidebar says what it is.
               notes || blank || tightened ? (

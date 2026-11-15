@@ -101,6 +101,8 @@ Write the skill in the editor, then click **Save** (Cmd+S). Your unsaved text is
 - **Rules are bullets.** Each bullet of four words or more gets a number, such as 01, and Jev grades it. A bullet that keeps its dot is not graded: point at it to see why. A skill written only as numbered steps has its steps graded instead.
 - **An amber number** means the rule could be clearer. Click it to see why and to get help.
 - **A red number** means most answers broke the rule. Point at any number to see how many answers broke it.
+- **Files**, on the left, lists every file of the skill: SKILL.md, its references, its scripts and anything else it holds. Click one to edit it. A picture, or another file that is not text, is listed and cannot be opened.
+- **+** beside Files adds a file. A name alone, such as `voice`, becomes `references/voice.md`. A name with a folder, such as `scripts/check.py`, goes there.
 - **Insert**, on the left, adds a ready-made rule, decision tree, step list or link.
 - **The five bars** in the toolbar show how long the file is. Amber means getting long, red means too long.
 
@@ -138,9 +140,9 @@ Each run saves the skill as it was, as a **version**: v0, v1 and so on. You neve
 
 Once one model has run two versions, every version's score is that model's, so the scores read against each other. A version it never ran shows the score of the model that did run it, and its line names that model, such as **With Sonnet, high effort**. A version only several other models ran shows no score, and says **Not run with** the model the other scores are from.
 
-- **Click a version** to see what changed since.
+- **Click a version** to see what changed since, in every file of the skill.
 - **Older versions** fold under one line once the list grows long. Click it to see them.
-- **Restore** puts a version back. It asks first when your files hold edits no version keeps, and edits you have not saved are lost with it.
+- **Restore** puts a version back: every file of the skill as it was then. It asks first when your files hold edits no version keeps, and edits you have not saved are lost with it. A version kept without its scripts and other files says so, and Restore leaves those as they are.
 - **Delete version** removes it and its runs. **Undo** brings them back.
 - **Recently deleted**, under the versions, lists the versions and runs you deleted in the last 30 days, the newest 10. **Undo** on one brings it back, even after the app restarts.
 

@@ -145,10 +145,13 @@ export interface Contract {
     input: Scoped & { run: string; sample: string; file: string }
     output: ArtifactFile
   }
-  /** The skill's files from `source`: `current` (the working tree), a version (`v2`) or a run name. */
+  /**
+   * The skill's files from `source`: `current` (the working tree), a version (`v2`) or a run name.
+   * `files` holds each file that reads as text, and `others` the rest by a hash of its bytes.
+   */
   'skill.files': {
     input: Scoped & { source: string }
-    output: { files: Record<string, string>; label: string }
+    output: { files: Record<string, string>; others: Record<string, string>; label: string }
   }
   'skill.saveVersion': { input: Scoped & { name: string; note: string }; output: SkillVersion }
   /** Put a version's files back in the skill. `force` overwrites a working tree that is no version. */

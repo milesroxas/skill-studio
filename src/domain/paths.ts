@@ -44,15 +44,57 @@ export function folderEnding(path: string, tail: readonly string[]): string | nu
 }
 
 /**
- * A skill-relative path the editor may write: SKILL.md or a file under
- * references/, written plainly. A path that resolves to something other
- * than itself (`..`, `.`, an empty segment, a backslash) or names the
- * directory alone is not one.
+ * Folders no copy of a skill holds, at any depth: installed packages and
+ * caches, heavy and made again from the files beside them.
  */
-export const isEditablePath = (path: string): boolean => {
+const NEVER_COPIED = new Set(['node_modules', 'venv', '__pycache__'])
+
+/** A folder's or a file's name that no copy of a skill holds, wherever it is. */
+export const isPassedOver = (name: string): boolean => NEVER_COPIED.has(name)
+
+/**
+ * A skill-relative path of one of the skill's own files, written plainly:
+ * SKILL.md, a reference, a script, an asset or any other file an agent's
+ * copy of the skill holds. Not one: a path that resolves to something other
+ * than itself (`..`, `.`, an empty segment, a backslash), a hidden file or
+ * folder, anything under `evals/`, where the cases and runs are, and
+ * anything in a folder no copy holds (`isPassedOver`).
+ */
+export const isSkillFilePath = (path: string): boolean => {
   if (path === 'SKILL.md') return true
   const parts = segments(path)
-  return parts[0] === 'references' && parts.length > 1 && parts.join('/') === path
+  return (
+    parts.length > 0 &&
+    parts.join('/') === path &&
+    parts[0] !== 'evals' &&
+    parts.every((part) => !part.startsWith('.') && !isPassedOver(part))
+  )
+}
+
+/**
+ * SKILL.md or a file under references/: all that was kept of a version
+ * before a skill's other files were kept with it.
+ */
+export const isCorePath = (path: string): boolean =>
+  path === 'SKILL.md' || (isSkillFilePath(path) && path.startsWith('references/'))
+
+/** A file that reads as Markdown, by its name: the editor styles it, and the assistant writes it. */
+export const isMarkdownPath = (path: string): boolean => /\.(md|markdown)$/i.test(path)
+
+/**
+ * The path a new file gets from the name typed for it. A bare name is a
+ * reference, the kind of file a skill most often gains, and a name with no
+ * extension is Markdown: `voice` is `references/voice.md`. A name with a
+ * folder is taken as it is written, so `scripts/check.py` is a script. Null
+ * for a name that is no path of the skill's, or holds anything but letters,
+ * digits, `_`, `.` and `-` in a part.
+ */
+export function newFilePath(name: string): string | null {
+  const clean = name.trim()
+  if (!/^[\w][\w.-]*(\/[\w][\w.-]*)*$/.test(clean)) return null
+  const placed = clean.includes('/') ? clean : `references/${clean}`
+  const path = /\.\w+$/.test(placed) ? placed : `${placed}.md`
+  return isSkillFilePath(path) && path !== 'SKILL.md' ? path : null
 }
 
 /** The order a skill's files are listed in: SKILL.md first, then by path. */

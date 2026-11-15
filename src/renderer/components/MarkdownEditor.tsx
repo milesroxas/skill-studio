@@ -27,6 +27,7 @@ import { type Finding, type RuleScene, sceneOf, worthChecking } from '@domain/li
 import type { EditorMode } from '@domain/preferences.ts'
 import type { RuleRate } from '@domain/rule-rate.ts'
 import { insertAt, type Snippet } from '@domain/templates.ts'
+import { quotesAfterEdit } from '@domain/text.ts'
 import { cva } from 'class-variance-authority'
 import {
   BoldIcon,
@@ -256,6 +257,44 @@ function replaceIn(
   return 'replaced'
 }
 
+/** The smallest single change that turns `now` into `next`. */
+function changeBetween(now: string, next: string): { from: number; to: number; insert: string } {
+  let from = 0
+  while (from < now.length && from < next.length && now[from] === next[from]) from++
+  let to = now.length
+  let end = next.length
+  while (to > from && end > from && now[to - 1] === next[end - 1]) {
+    to--
+    end--
+  }
+  return { from, to, insert: next.slice(from, end) }
+}
+
+/**
+ * The replace of `original` by `next` in `doc`, widened to take in the
+ * quotes a front matter value needs once it is made: a rewrite of a skill's
+ * description that holds a colon comes out readable everywhere. The same
+ * replace when nothing needs quotes, or `original` is not found.
+ */
+function quotedReplace(
+  doc: string,
+  original: string,
+  next: string,
+  hint?: { from: number; to: number },
+): { original: string; next: string; hint?: { from: number; to: number } } {
+  const at = hint && doc.slice(hint.from, hint.to) === original ? hint.from : doc.indexOf(original)
+  if (at === -1) return { original, next, hint }
+  const whole = doc.slice(0, at) + next + doc.slice(at + original.length)
+  const quoted = quotesAfterEdit(doc, whole)
+  if (quoted === whole) return { original, next, hint }
+  const change = changeBetween(doc, quoted)
+  return {
+    original: doc.slice(change.from, change.to),
+    next: change.insert,
+    hint: { from: change.from, to: change.to },
+  }
+}
+
 /** The page's style nonce, which lets CodeMirror's one style tag past the app's policy. */
 const styleNonce = (): string | undefined =>
   document.querySelector<HTMLMetaElement>('meta[property="csp-nonce"]')?.nonce || undefined
@@ -268,6 +307,12 @@ interface MarkdownEditorProps {
   onChange: (value: string) => void
   onSave?: () => void
   mode: EditorMode
+  /**
+   * The file is not Markdown: a script, a data file, plain text. Nothing in it
+   * is read or styled as Markdown, and the toolbar keeps only Undo and Redo.
+   * Its `mode` is `markdown`, the source view. Set once, when the file opens.
+   */
+  plain?: boolean
   placeholder?: string
   'aria-label': string
   /** Notes about the file, shown between the toolbar and the text. The editor spaces them. */
@@ -329,6 +374,7 @@ export function MarkdownEditor({
   onChange,
   onSave,
   mode,
+  plain = false,
   placeholder: hint,
   'aria-label': label,
   banner,
@@ -367,11 +413,23 @@ export function MarkdownEditor({
   const modes = useRef(new Compartment())
   const grading = useRef(new Compartment())
   const about = refine?.description ?? ''
-  const latest = useRef({ id, value, mode, hint, label, graded, about, rates, onChange, onSave })
-  latest.current = { id, value, mode, hint, label, graded, about, rates, onChange, onSave }
+  const latest = useRef({
+    id,
+    value,
+    mode,
+    plain,
+    hint,
+    label,
+    graded,
+    about,
+    rates,
+    onChange,
+    onSave,
+  })
+  latest.current = { id, value, mode, plain, hint, label, graded, about, rates, onChange, onSave }
 
   useEffect(() => {
-    const { id, value, mode, hint, label, graded, about, rates } = latest.current
+    const { id, value, mode, plain: plainText, hint, label, graded, about, rates } = latest.current
     const nonce = styleNonce()
     /** Put the popout over the selection, or take it away, once the selection has settled. */
     const place = (view: EditorView) => {
@@ -436,11 +494,11 @@ export function MarkdownEditor({
       landedField,
       improvingField,
       EditorView.lineWrapping,
-      skillMarkdown(),
-      markdownHighlighting,
+      // A script's `#` is a comment and its `*` a product: read as Markdown, both would be styled wrong.
+      plainText ? [] : [skillMarkdown(), markdownHighlighting],
       editorTheme,
       keymap.of([
-        ...formatKeymap,
+        ...(plainText ? [] : formatKeymap),
         {
           // The popout takes no focus as it opens, and Tab indents: this is the keyboard's way into it.
           // F6 is the key that moves to the next part of a window. Escape comes back to the text.
@@ -565,7 +623,9 @@ export function MarkdownEditor({
     const view = editor.current
     const spec = refining.current
     if (!view || !spec) return 'missing' as const
-    if (replaceIn(view, original, next, hint, focus) === 'missing') return 'missing' as const
+    const step = quotedReplace(view.state.doc.toString(), original, next, hint)
+    if (replaceIn(view, step.original, step.next, step.hint, focus) === 'missing')
+      return 'missing' as const
     const after = view.state.doc
     spec.onReplaced(
       () => {
@@ -573,7 +633,7 @@ export function MarkdownEditor({
         if (!now) return
         // Nothing typed since: the history step is exactly the replace.
         if (now.state.doc === after) undo(now)
-        else if (replaceIn(now, next, original) === 'missing')
+        else if (replaceIn(now, step.next, step.original) === 'missing')
           spec.onError('The new text has changed since. Undo it in the editor.')
       },
       { panel: !focus, rule: passageNow()?.number ?? undefined },
@@ -632,18 +692,7 @@ export function MarkdownEditor({
     if (!view) return
     const now = view.state.doc.toString()
     if (now === value) return
-    let start = 0
-    while (start < now.length && start < value.length && now[start] === value[start]) start++
-    let end = now.length
-    let next = value.length
-    while (end > start && next > start && now[end - 1] === value[next - 1]) {
-      end--
-      next--
-    }
-    view.dispatch({
-      changes: { from: start, to: end, insert: value.slice(start, next) },
-      annotations: fromScreen.of(true),
-    })
+    view.dispatch({ changes: changeBetween(now, value), annotations: fromScreen.of(true) })
   }, [value])
 
   useEffect(() => {
@@ -740,9 +789,13 @@ export function MarkdownEditor({
           {tool(UNDO, steps.undo)}
           {tool(REDO, steps.redo)}
         </ToolbarGroup>
-        {ACTIONS.map((group) => (
-          <ToolbarGroup key={group[0].label}>{group.map((action) => tool(action))}</ToolbarGroup>
-        ))}
+        {plain
+          ? null
+          : ACTIONS.map((group) => (
+              <ToolbarGroup key={group[0].label}>
+                {group.map((action) => tool(action))}
+              </ToolbarGroup>
+            ))}
         <span className="ml-auto flex items-center gap-1">
           <TextSizeIndicator text={value} />
           {assist ? (
@@ -762,9 +815,12 @@ export function MarkdownEditor({
               }}
               onApply={(text) => {
                 const view = editor.current
-                if (picked && view)
-                  view.dispatch({ changes: { ...picked, insert: text }, userEvent: 'input' })
-                else onChange(text)
+                if (picked && view) {
+                  const doc = view.state.doc.toString()
+                  const whole = doc.slice(0, picked.from) + text + doc.slice(picked.to)
+                  const quoted = assist.field === 'skill.file' ? quotesAfterEdit(doc, whole) : whole
+                  view.dispatch({ changes: changeBetween(doc, quoted), userEvent: 'input' })
+                } else onChange(text)
                 view?.focus()
               }}
             >

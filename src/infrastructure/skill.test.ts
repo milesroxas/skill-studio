@@ -15,6 +15,7 @@ import {
 } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { basename, dirname, join, relative, sep } from 'node:path'
+import { TEXT_MAX_BYTES } from '@domain/text.ts'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { failRenames, patchFs } from './__fixtures__/fs.ts'
 import {
@@ -25,6 +26,7 @@ import {
   skillHead,
   skillIdentity,
   skillInfo,
+  skillTexts,
   snapshotSkill,
   writeSkillFile,
 } from './skill.ts'
@@ -39,21 +41,28 @@ beforeEach(() => {
 afterEach(() => rmSync(dir, { recursive: true, force: true }))
 
 describe('editablePath', () => {
-  it.each(['SKILL.md', 'references/a.md', 'references/deep/b.md'])('allows %s', (path) => {
+  it.each([
+    'SKILL.md',
+    'references/a.md',
+    'references/deep/b.md',
+    'README.md',
+    'scripts/run.sh',
+    'assets/logo.png',
+  ])('allows %s', (path) => {
     expect(editablePath(path)).toBe(path)
   })
 
-  it.each(['README.md', 'evals/bench.json', 'references', 'scripts/run.sh', 'skill.md'])(
-    'refuses %s',
+  it.each(['evals/bench.json', 'evals/cases/a/prompt.md', 'scripts/node_modules/x/index.js'])(
+    'refuses %s, which no copy of the skill holds',
     (path) => {
-      expect(() => editablePath(path)).toThrow('Only SKILL.md')
+      expect(() => editablePath(path)).toThrow("is not one of the skill's files")
     },
   )
 
-  it.each(['../SKILL.md', 'references/../evals/bench.json', '/tmp/SKILL.md'])(
-    'refuses traversal %s',
+  it.each(['../SKILL.md', 'references/../evals/bench.json', '/tmp/SKILL.md', '.git/config', ''])(
+    'refuses "%s", which is not a name a file of the skill can have',
     (path) => {
-      expect(() => editablePath(path)).toThrow('Bad path.')
+      expect(() => editablePath(path)).toThrow('is not a name a file of the skill can have')
     },
   )
 })
@@ -82,6 +91,25 @@ describe('writeSkillFile', () => {
     expect(readFileSync(join(dir, 'references/a/b.md'), 'utf8')).toBe('new')
   })
 
+  it('creates a script, and saves one without changing whether it can be run', () => {
+    writeSkillFile(dir, 'scripts/check.py', 'print(1)\n', null)
+    expect(readFileSync(join(dir, 'scripts/check.py'), 'utf8')).toBe('print(1)\n')
+    if (process.platform === 'win32') return
+    chmodSync(join(dir, 'scripts/check.py'), 0o755)
+    writeSkillFile(dir, 'scripts/check.py', 'print(2)\n', 'print(1)\n')
+    expect(statSync(join(dir, 'scripts/check.py')).mode & 0o777).toBe(0o755)
+  })
+
+  it('never writes text over a file that is not text, or over a folder', () => {
+    const picture = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x00, 0xff])
+    mkdirSync(join(dir, 'assets'))
+    writeFileSync(join(dir, 'assets/logo.png'), picture)
+    expect(() => writeSkillFile(dir, 'assets/logo.png', 'x', null)).toThrow('not a text file')
+    expect(() => writeSkillFile(dir, 'assets/logo.png', 'x', 'x')).toThrow('not a text file')
+    expect(readFileSync(join(dir, 'assets/logo.png')).equals(picture)).toBe(true)
+    expect(() => writeSkillFile(dir, 'assets', 'x', null)).toThrow('is a folder')
+  })
+
   it('never writes outside the editable set', () => {
     expect(() => writeSkillFile(dir, '../escape.md', 'x', null)).toThrow()
     expect(() => writeSkillFile(dir, 'evals/bench.json', '{}', null)).toThrow()
@@ -101,6 +129,45 @@ describe('deleteSkillFile', () => {
 
   it('refuses SKILL.md', () => {
     expect(() => deleteSkillFile(dir, 'SKILL.md')).toThrow('cannot be deleted')
+  })
+})
+
+describe('skillTexts', () => {
+  it('reads every file a copy of the skill holds, and tells text from the rest', () => {
+    const picture = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x00, 0xff])
+    for (const folder of ['references', 'scripts', 'assets', 'evals', '.git', 'node_modules'])
+      mkdirSync(join(dir, folder))
+    writeFileSync(join(dir, 'references/r.md'), 'ref')
+    writeFileSync(join(dir, 'references/shot.png'), picture)
+    writeFileSync(join(dir, 'forms.md'), 'forms')
+    writeFileSync(join(dir, 'scripts/check.py'), 'print(1)\n')
+    writeFileSync(join(dir, 'assets/logo.png'), picture)
+    writeFileSync(join(dir, 'assets/big.txt'), 'x'.repeat(TEXT_MAX_BYTES + 1))
+    writeFileSync(join(dir, 'evals/bench.json'), '{}')
+    writeFileSync(join(dir, '.git/config'), 'x')
+    writeFileSync(join(dir, 'node_modules/x.js'), 'x')
+    const { files, others } = skillTexts(dir)
+    expect(files).toEqual({
+      'SKILL.md': 'v1',
+      'references/r.md': 'ref',
+      'forms.md': 'forms',
+      'scripts/check.py': 'print(1)\n',
+    })
+    expect(Object.keys(others).sort()).toEqual([
+      'assets/big.txt',
+      'assets/logo.png',
+      'references/shot.png',
+    ])
+    // The same bytes have the same hash, wherever they are.
+    expect(others['assets/logo.png']).toBe(others['references/shot.png'])
+    expect(others['assets/logo.png']).not.toBe(others['assets/big.txt'])
+  })
+
+  it('reads a byte-order mark as part of the text, so a save writes it back', () => {
+    writeFileSync(join(dir, 'notes.md'), '\uFEFFnotes')
+    expect(skillTexts(dir).files['notes.md']).toBe('\uFEFFnotes')
+    writeSkillFile(dir, 'notes.md', '\uFEFFnotes, more', '\uFEFFnotes')
+    expect(readFileSync(join(dir, 'notes.md'), 'utf8')).toBe('\uFEFFnotes, more')
   })
 })
 

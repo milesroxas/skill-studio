@@ -4,12 +4,15 @@ import {
   copyOf,
   fenceOf,
   frontMatterBlock,
+  frontMatterQuotes,
   frontMatterUnreadable,
+  frontMatterYaml,
   headProblems,
   isSlug,
   metaList,
   metaText,
   pageText,
+  quotesAfterEdit,
   readFrontMatter,
   round,
   sentencesOf,
@@ -335,11 +338,79 @@ describe('tokens and sentencesOf', () => {
   })
 })
 
+describe('front matter that needs quotes', () => {
+  const skillMd = (head: string) => `---\n${head}\n---\n\n# Skill\n`
+  const colon = skillMd(
+    'name: brand\ndescription: Use when designing for the brand: site, posts and decks.',
+  )
+
+  it('reads a value that holds a colon, as Claude Code does', () => {
+    expect(frontMatterUnreadable(colon)).toBe(false)
+    expect(readFrontMatter(colon).meta).toEqual({
+      name: 'brand',
+      description: 'Use when designing for the brand: site, posts and decks.',
+    })
+    expect(headProblems(colon, 'brand')).toEqual([])
+    // A value that ends in a colon, and a key that is not name or description.
+    expect(readFrontMatter(skillMd('name: x\nwhen-to-use: Steps:')).meta).toEqual({
+      name: 'x',
+      'when-to-use': 'Steps:',
+    })
+  })
+
+  it('names the fields that need quotes and gives the text with them added', () => {
+    expect(frontMatterQuotes(colon)).toEqual({
+      keys: ['description'],
+      text: skillMd(
+        'name: brand\ndescription: "Use when designing for the brand: site, posts and decks."',
+      ),
+    })
+    // Quotes and backslashes inside the value stay as written, in single quotes.
+    const value = `It's "new": a \\ b`
+    const inner = frontMatterQuotes(skillMd(`name: x\ndescription: ${value}`))
+    expect(inner?.text).toContain(`description: 'It''s "new": a \\ b'`)
+    expect(inner && readFrontMatter(inner.text).meta.description).toBe(value)
+    // The file keeps its own line endings and byte-order mark.
+    const crlf = `\uFEFF${colon.replace(/\n/g, '\r\n')}`
+    const quoted = frontMatterQuotes(crlf)?.text ?? ''
+    expect(quoted.startsWith('\uFEFF---\r\n')).toBe(true)
+    expect(quoted.split('\r\n')).toHaveLength(crlf.split('\r\n').length)
+    expect(quoted.replace(/\r\n/g, '\n').slice(1)).toBe(frontMatterQuotes(colon)?.text)
+  })
+
+  it('leaves alone a block that reads as written, or that quotes do not fix', () => {
+    expect(frontMatterQuotes(skillMd('name: x\ndescription: "Use when: quoted"'))).toBeNull()
+    expect(frontMatterQuotes(skillMd('name: x\ndescription: [Use when'))).toBeNull()
+    expect(frontMatterQuotes('# No front matter: none\n')).toBeNull()
+    // A value that runs on to an indented line is not quoted by its first line alone.
+    const folded = skillMd('name: x\ndescription: Use when: a\n  release ships')
+    expect(frontMatterQuotes(folded)).toBeNull()
+    expect(frontMatterUnreadable(folded)).toBe(true)
+  })
+
+  it('adds quotes only where an edit made a value need them', () => {
+    const before = skillMd('name: brand\ndescription: Use for the brand.')
+    expect(quotesAfterEdit(before, colon)).toBe(frontMatterQuotes(colon)?.text)
+    // Already broken before the edit: an edit to the body does not reach it.
+    const body = colon.replace('# Skill', '# Brand')
+    expect(quotesAfterEdit(colon, body)).toBe(body)
+    expect(quotesAfterEdit(before, before)).toBe(before)
+  })
+
+  it('writes fields one line each, quoted where a value needs it', () => {
+    const description = `Use when designing for the brand: ${'site, '.repeat(20)}and decks.`
+    const yaml = frontMatterYaml({ name: 'brand', description })
+    expect(yaml.trimEnd().split('\n')).toHaveLength(2)
+    expect(readFrontMatter(`---\n${yaml}---\n`).meta.description).toBe(description)
+    expect(frontMatterQuotes(`---\n${yaml}---\n`)).toBeNull()
+  })
+})
+
 describe('headProblems', () => {
   const skillMd = (head: string) => `---\n${head}\n---\n\n# Skill\n`
 
   it('says a block that cannot be read, and nothing of its fields', () => {
-    const broken = skillMd('name: release-notes\ndescription: Use when: a release ships')
+    const broken = skillMd('name: release-notes\ndescription: [Use when a release ships')
     expect(frontMatterUnreadable(broken)).toBe(true)
     expect(headProblems(broken, 'release-notes').map((p) => p.title)).toEqual([
       'The lines at the top of the file cannot be read',
@@ -358,26 +429,26 @@ describe('headProblems', () => {
   it('says which limit a name or a description is past', () => {
     const long = 'a'.repeat(65)
     expect(headProblems(skillMd(`name: ${long}\ndescription: x`), long)[0].detail).toBe(
-      'A name can be 64 characters at most, and this one has 65.',
+      'Some take 64 characters at most, and this one has 65.',
     )
     expect(headProblems(skillMd('name: Release Notes\ndescription: x'), 'Release Notes')).toEqual([
       {
-        title: 'The skill’s name cannot be used as it is written',
-        detail: 'Use lowercase letters, digits and single dashes, like release-notes.',
+        title: 'The skill’s name has characters some apps refuse',
+        detail: 'Some take only lowercase letters, digits and single dashes, like release-notes.',
       },
     ])
     expect(headProblems(skillMd('name: notes\ndescription: x'), 'release-notes')).toEqual([
       {
         title: 'The skill’s name is not the name of its folder',
         detail:
-          'The skill is found by its folder, so name it release-notes, or rename the folder to notes.',
+          'Some apps ask that the two match: name it release-notes, or rename the folder to notes.',
       },
     ])
     const description = 'word '.repeat(206).trim()
     expect(headProblems(skillMd(`name: notes\ndescription: ${description}`), 'notes')).toEqual([
       {
-        title: 'The description is too long',
-        detail: 'A description can be 1,024 characters at most, and this one has 1,029.',
+        title: 'The description is longer than some apps accept',
+        detail: 'Some take 1,024 characters at most, and this one has 1,029.',
       },
     ])
   })

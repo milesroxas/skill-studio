@@ -149,6 +149,16 @@ describe('assistText', () => {
     expect(assistText({ field: 'skill.file', current }, reply(rewritten))).toBe(rewritten)
   })
 
+  it('puts quotes around a front matter value of SKILL.md that holds a colon', () => {
+    const current = '---\nname: notes\ndescription: Writes notes.\n---\n\n# Notes\n'
+    const written = '---\nname: notes\ndescription: Writes notes: short ones.\n---\n\n# Notes\n'
+    expect(assistText({ field: 'skill.file', current }, reply(written))).toBe(
+      '---\nname: notes\ndescription: "Writes notes: short ones."\n---\n\n# Notes\n',
+    )
+    // A reference file is not a skill's head: it stays as written.
+    expect(assistText({ field: 'skill.reference', current: '' }, reply(written))).toBe(written)
+  })
+
   it('unwraps a file the model fenced whole, and refuses one that still opens with a fence', () => {
     const current = '---\nname: notes\n---\n\n# Notes\n'
     const file = '---\nname: notes\ndescription: Better.\n---\n\n# Notes\n\n```sh\npnpm check\n```'
@@ -363,7 +373,7 @@ describe('chatSystem', () => {
     })
     expect(system).toContain('<file name="references/b.md">')
     expect(system).not.toContain('<file name="references/a.md">')
-    expect(system).toContain('Reference files too long to include here: references/a.md.')
+    expect(system).toContain('Files too long to include here: references/a.md.')
   })
 
   it('shares the budget with the cases, and names the cases left out', () => {

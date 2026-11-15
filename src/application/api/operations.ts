@@ -83,15 +83,15 @@ import {
   runSkillFiles,
   sampleFile,
   sampleTranscript,
+  versionCopy,
   versionFiles,
-  versionSource,
   versionsOf,
 } from '@infrastructure/runs.ts'
 import {
   deleteSkillFile,
   restoreSkillFiles,
-  skillFiles,
   skillInfo,
+  skillTexts,
   writeSkillFile,
 } from '@infrastructure/skill.ts'
 import {
@@ -722,7 +722,11 @@ export function createOperations(options: OperationsOptions): Runners {
         open: input.open,
         skill: skill && {
           name: skill.name,
-          ...workingSkill(skillFiles(skill.path), loadCases(skill.path), readDrafts(skill.path)),
+          ...workingSkill(
+            skillTexts(skill.path).files,
+            loadCases(skill.path),
+            readDrafts(skill.path),
+          ),
         },
       }
       return sendChat(input.text, input.images, scene, skill?.path ?? null)
@@ -793,11 +797,10 @@ export function createOperations(options: OperationsOptions): Runners {
     },
     'skill.files': (input) => {
       const skill = skillOf(input)
-      if (input.source === 'current')
-        return { files: skillFiles(skill.path), label: 'Working tree' }
+      if (input.source === 'current') return { ...skillTexts(skill.path), label: 'Working tree' }
       if (isVersionLabel(input.source))
-        return { files: versionFiles(skill.path, input.source), label: input.source }
-      return { files: runSkillFiles(skill.path, input.source), label: input.source }
+        return { ...versionFiles(skill.path, input.source), label: input.source }
+      return { ...runSkillFiles(skill.path, input.source), label: input.source }
     },
     'skill.saveVersion': (input) => {
       const skill = skillOf(input)
@@ -810,7 +813,9 @@ export function createOperations(options: OperationsOptions): Runners {
         throw new Error(
           `The skill's files are not saved as a version. Save them as ${current.version} first, or restore anyway.`,
         )
-      restoreSkillFiles(skill.path, versionSource(skill.path, input.version))
+      // A copy that holds all of the version puts all of it back; one that does not leaves the rest alone.
+      const copy = versionCopy(skill.path, input.version)
+      restoreSkillFiles(skill.path, copy.dir, copy.whole)
       // The name and description come from SKILL.md's front matter.
       Object.assign(skill, skillInfo(skill.path))
       return { restored: input.version }

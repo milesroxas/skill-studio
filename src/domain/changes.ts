@@ -8,7 +8,7 @@
  */
 import { blankDraft, checkWeight, draftOf, newCaseId, newCheck } from './case-draft.ts'
 import type { Case, CaseDraft } from './schemas.ts'
-import { isSlug, normalizeNewlines } from './text.ts'
+import { isSlug, normalizeNewlines, withFrontMatterQuoted } from './text.ts'
 
 /**
  * A change opens and closes with four tildes. Not backticks: a SKILL.md often
@@ -26,7 +26,7 @@ export interface CaseCheck {
 }
 
 export type SkillChange =
-  /** The whole new text of SKILL.md or of a file under references/. */
+  /** The whole new text of one of the skill's files: SKILL.md, a reference, a script or any other. */
   | { kind: 'file'; path: string; text: string }
   /** A case to add, or to replace when `id` names one the skill has. */
   | {
@@ -116,7 +116,10 @@ function caseChange(body: string): SkillChange | null {
 function changeOf(kind: string, rest: string, body: string[]): SkillChange | null {
   if (kind === 'file') {
     const path = rest.trim()
-    return path ? { kind: 'file', path, text: `${body.join('\n').trimEnd()}\n` } : null
+    if (!path) return null
+    const text = `${body.join('\n').trimEnd()}\n`
+    // A SKILL.md the model wrote keeps its description whole wherever the skill is loaded.
+    return { kind: 'file', path, text: path === 'SKILL.md' ? withFrontMatterQuoted(text) : text }
   }
   if (kind === 'case') return caseChange(body.join('\n'))
   const name = body.join(' ').replace(/\s+/g, ' ').trim()
@@ -189,7 +192,7 @@ function blockAt(lines: string[], at: number, opening: RegExpExecArray, partial:
 /** The brief that teaches the model the blocks, from the same fence the parser reads. */
 export const CHANGES_GUIDE = [
   'You can propose changes to the open skill. The reader applies each one with a button under it, and can undo it, so never tell them to copy or paste. Write each change as a block that opens and closes with a line of four tildes, outside any other fence:',
-  `- A file: open with "${CHANGE_FENCE} file SKILL.md", or "${CHANGE_FENCE} file references/<name>.md" for a reference, then the whole new text of the file, never a part of it, then "${CHANGE_FENCE}". A new path creates the file. Only SKILL.md and files under references/ can be written. The file block ends at the last line of four tildes before the next block or the end of your reply, so a tilde fence inside the file is kept; put no prose made of four tildes after it.`,
+  `- A file: open with "${CHANGE_FENCE} file SKILL.md", or "${CHANGE_FENCE} file references/<name>.md" for a reference, or the path of another file of the skill such as "scripts/<name>.py", then the whole new text of the file, never a part of it, then "${CHANGE_FENCE}". A new path creates the file. Any text file of the skill can be written, but nothing under evals/ and no hidden file. The file block ends at the last line of four tildes before the next block or the end of your reply, so a tilde fence inside the file is kept; put no prose made of four tildes after it.`,
   `- A case: open with "${CHANGE_FENCE} case", then one JSON object {"title": "…", "prompt": "…", "expected": "…", "checks": […]}, then "${CHANGE_FENCE}". Add "id" with an existing case's id to replace that case; leave it out to add a new one. A check is a string, or {"statement": "…", "weight": 2} for one that counts double. A string keeps the weight the saved check has, so to change one, write the case again with every check and the new weight on that one.`,
   `- A version: "${CHANGE_FENCE} version", one line naming the version, such as "Before the voice rewrite", then "${CHANGE_FENCE}". It saves the skill's files as they stand. Put it before a file change when the reader will want to compare the two later.`,
   "You make no change yourself, so never say you made one or will make one: say what each change does. Keep that outside the blocks, short. The skill's name is the name in SKILL.md's front matter: changing it there renames the skill in the app, and its folder keeps its own name.",

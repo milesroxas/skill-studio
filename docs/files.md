@@ -7,7 +7,8 @@ Everything Skill Studio knows about a skill is plain files in the skill's `evals
 ```
 <skill>/
   SKILL.md                        rules are its top-level `-` and `*` bullets (or `rules` in bench.json)
-  references/                     saved and restored with SKILL.md as the skill's version
+  references/                     longer material SKILL.md points to
+  scripts/, assets/, *.md, …      any other file of the skill: an agent's copy holds it, and a version keeps it
   evals/
     cases/<case>/prompt.md        the task; front matter: tags, max_turns, timeout_seconds, allowed_tools
     cases/<case>/case.yaml        title, expected_outcome, bench
@@ -24,7 +25,9 @@ Everything Skill Studio knows about a skill is plain files in the skill's `evals
     runs/                         one directory per run, below
 ```
 
-- `SKILL.md` opens with front matter that holds a `name` and a `description`. The editor warns when the block is not valid YAML, when the name is over 64 characters, is not lowercase letters, digits and single dashes, or is not its folder's name, and when the description is over 1,024 characters (`headProblems` in `src/domain/text.ts`). Each warning names the one that is off.
+- `SKILL.md` opens with front matter that holds a `name` and a `description`. A one-line value that holds `: ` (`description: Use when: a release ships`) is not valid YAML, but people and models write it often and Claude Code reads it, so the app reads it the same way: as if the value were in double quotes (`readFrontMatter` in `src/domain/text.ts`). The editor offers **Add quotes** for it, since a stricter reader drops the whole block. A SKILL.md the assistant writes, whole or in part, gets those quotes before it reaches the file, and a skill the app creates writes each field on one line, quoted where it needs to be (`frontMatterYaml`). The editor warns when the block cannot be read even so. It also says when the name is over 64 characters, is not lowercase letters, digits and single dashes, or is not its folder's name, and when the description is over 1,024 characters (`headProblems` in `src/domain/text.ts`). Those are the limits of the agent skills format: an app that holds a skill to them refuses it, and others load it all the same, so each line says what some apps will not take.
+- The Skill screen lists every file an agent's copy of the skill holds ([versions](#versions) says which those are) and edits each one that reads as text (`skillTexts` in `src/infrastructure/skill.ts`, `isSkillFilePath` in `src/domain/paths.ts`). A file reads as text when its bytes are UTF-8 with no zero byte and it is 1 MB or less; any other file, such as a picture or a font, is listed and can be deleted, and is never written over. A Markdown file (`.md`, `.markdown`) is edited styled or as source, with **Write with AI**; any other text is edited as it is written. A saved script keeps the mode it had, so one that could be run still can. Nothing under `evals/`, no hidden file and nothing in a `node_modules`, `venv` or `__pycache__` folder is listed or written here.
+- The name typed for a new file is its path: a bare name goes under `references/`, a name with a folder is taken as written, and a name with no extension is Markdown (`newFilePath`).
 - A rule is a top-level bullet of `SKILL.md`; indented lines under it join it as a clause. A bullet under four words, made only of a link, only saying to read a file, or under an example heading is not a rule. A skill with no bullet that is a rule has its numbered steps read as rules ([grading.md](grading.md#rules)).
 - A name the app is given for a file, such as a reference to save or an output to open, may hold spaces and letters of any alphabet, but not `<`, `>`, `:`, `"`, `|`, `?`, `*` or a backslash, and on Windows not a device name (`con`, `nul.md`, `com1`) or a final dot or space.
 - The app saves a text file by writing a hidden `.<name>.<pid>.tmp` beside it and renaming that over the file, so a crash leaves the old file whole; a leftover one can be deleted. A file that is a link to another file in the skill stays a link, and the file it leads to is written.
@@ -113,7 +116,7 @@ A skill's version is a hash of every file an agent's copy holds: `SKILL.md`, `re
 
 A run keeps the version it tested. Its `_skill/` snapshot is the copy the app reads and restores.
 
-- Restore puts back `SKILL.md` and `references/`, byte for byte, all of them or none. Other files stay as they are.
+- Restore makes the skill's files those of the version, byte for byte, all of them or none: every file the version's copy holds is put back, and a file the version does not have goes. `evals/`, hidden files and installed packages are no part of a version and are never touched. When the copy kept of a version does not hold all it was stamped with (a version marked `partial`), only `SKILL.md` and `references/` are restored and compared, and other files stay as they are: the version's page says so.
 - The app asks before a restore when the files were saved since the last run or hold unsaved edits (`restoreAsk` in `src/renderer/restore.ts`). A restore drops the unsaved edits of the skill's files, so none stays to be saved back over a restored file.
 - When a restore fails partway and a file cannot be moved back, your files are kept in a hidden `.restore-…` folder in the skill. The error names each one and where it goes.
 - A changed tree needs a name on its first run. The app names a skill's first version "First version" and a later one after the date, unless you type what changed. `st run` asks for `--name`.

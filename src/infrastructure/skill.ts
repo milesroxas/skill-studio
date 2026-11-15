@@ -9,15 +9,21 @@ import {
   renameSync,
   rmdirSync,
   rmSync,
+  type Stats,
   statSync,
 } from 'node:fs'
 import { basename, dirname, join, resolve } from 'node:path'
-import { isEditablePath, isWithin } from '@domain/paths.ts'
+import { isPassedOver, isSkillFilePath, isWithin } from '@domain/paths.ts'
 import type { RunMeta } from '@domain/schemas.ts'
 import { type SkillStart, templateBody, templateById } from '@domain/templates.ts'
-import { metaText, readFrontMatter } from '@domain/text.ts'
+import {
+  editableText,
+  frontMatterYaml,
+  metaText,
+  readFrontMatter,
+  TEXT_MAX_BYTES,
+} from '@domain/text.ts'
 import type { SkillInfo, SkillVersion, SkillVersions } from '@domain/views.ts'
-import { stringify as toYaml } from 'yaml'
 import {
   assertInside,
   assertSafePath,
@@ -32,18 +38,20 @@ import {
   writeText,
 } from './fs.ts'
 
-/** The files a writer edits and a version restores: SKILL.md and every reference. */
+/**
+ * SKILL.md and every reference: what a version was stamped with before the
+ * skill's other files were counted, and so the first part of its hash still.
+ */
 const SKILL_FILES = ['SKILL.md', 'references']
 
 /**
- * Folders an agent's copy of the skill never holds, at any depth: installed
- * packages and caches, heavy and made again from the files beside them.
- * Hidden names (`.git`, `.venv`, a restore's or a write's leftovers) are left
- * out as well, and `evals/` at the top. The version's hash covers exactly what
- * the copy holds, so it leaves out the same.
+ * A name an agent's copy of the skill never holds, at any depth
+ * (`isPassedOver`). Hidden names (`.git`, `.venv`, a restore's or a write's
+ * leftovers) are left out as well, and `evals/` at the top. The version's
+ * hash covers exactly what the copy holds, so it leaves out the same, and
+ * `isSkillFilePath` names the same files by their paths.
  */
-const NEVER_COPIED = new Set(['node_modules', 'venv', '__pycache__'])
-const passedOver = (name: string): boolean => NEVER_COPIED.has(name)
+const passedOver = isPassedOver
 
 /**
  * A skill's name and description from its SKILL.md; the folder's name when it
@@ -80,7 +88,11 @@ function skillFilePaths(skillDir: string): Array<{ rel: string; real: string }> 
   })
 }
 
-/** SKILL.md and references/**, keyed by skill-relative path. A link that leaves the skill is not read. */
+/**
+ * SKILL.md and references/**, keyed by skill-relative path, each read as
+ * text whatever it is: only the version's hash reads them so, as it always
+ * has. A link that leaves the skill is not read.
+ */
 export function skillFiles(skillDir: string): Record<string, string> {
   const files: Record<string, string> = {}
   for (const entry of SKILL_FILES) {
@@ -94,11 +106,83 @@ export function skillFiles(skillDir: string): Record<string, string> {
   return files
 }
 
-/** A skill-relative path the editor may write: SKILL.md or a file under references/. */
+/** The hash of each file that is not text, by where its bytes are, with its size, times and inode then. */
+const held = new Map<string, { print: string; hash: string }>()
+/** How many hashes are kept: the ones taken longest ago make room. */
+const HELD_MAX = 2000
+
+/**
+ * A short hash of a file's bytes: the same bytes, the same hash. A large
+ * asset is read once, and again only when its size, times or inode change,
+ * so listing a skill does not read a video each time the window is focused.
+ */
+function bytesHash(real: string, stat: Stats, bytes?: Uint8Array): string {
+  const print = `${stat.size}:${stat.mtimeMs}:${stat.ctimeMs}:${stat.ino}`
+  const had = held.get(real)
+  if (had?.print === print) return had.hash
+  const hash = createHash('sha256')
+    .update(bytes ?? readFileSync(real))
+    .digest('hex')
+    .slice(0, 12)
+  held.delete(real)
+  held.set(real, { print, hash })
+  if (held.size > HELD_MAX)
+    for (const [first] of held) {
+      held.delete(first)
+      break
+    }
+  return hash
+}
+
+/**
+ * A skill's files as the editor reads them, by skill-relative path. `files`
+ * holds each one that reads as text. `others` holds the rest (a picture, a
+ * font, a file too large to open), each by a hash of its bytes, so two
+ * copies of the skill can be told apart file by file.
+ */
+export interface SkillTexts {
+  files: Record<string, string>
+  others: Record<string, string>
+}
+
+/**
+ * Every file an agent's copy of the skill in `skillDir` holds, as the editor
+ * reads it: SKILL.md, the references, and the scripts, assets and other
+ * files beside them. `skillDir` is the skill itself, a run's `_skill/` or a
+ * saved version's `files/`. SKILL.md is always text, so a skill with a
+ * damaged one still opens.
+ */
+export function skillTexts(skillDir: string): SkillTexts {
+  const texts: SkillTexts = { files: {}, others: {} }
+  for (const { rel, real } of [...skillFilePaths(skillDir), ...otherFiles(skillDir)]) {
+    const stat = statSync(real)
+    // Too large to open: its bytes are not read to find that out.
+    if (rel !== 'SKILL.md' && stat.size > TEXT_MAX_BYTES) {
+      texts.others[rel] = bytesHash(real, stat)
+      continue
+    }
+    const bytes = readFileSync(real)
+    const text = rel === 'SKILL.md' ? bytes.toString('utf8') : editableText(bytes)
+    if (text === null) texts.others[rel] = bytesHash(real, stat, bytes)
+    else texts.files[rel] = text
+  }
+  return texts
+}
+
+/**
+ * A skill-relative path the editor may write or delete: one of the skill's
+ * own files (`isSkillFilePath`), with a name every system can hold.
+ */
 export function editablePath(path: string): string {
-  assertSafePath(path, 'path')
-  if (isEditablePath(path)) return path
-  throw new Error('Only SKILL.md and files under references/ can be edited.')
+  try {
+    assertSafePath(path, 'path')
+  } catch {
+    throw new Error(`${path || 'That'} is not a name a file of the skill can have.`)
+  }
+  if (isSkillFilePath(path)) return path
+  throw new Error(
+    `${path} is not one of the skill's files: cases and runs, hidden files and installed packages are not edited here.`,
+  )
 }
 
 /** Where an editable path is on disk. Refused when a link on the way leads out of the skill. */
@@ -117,7 +201,14 @@ export function writeSkillFile(
   previous: string | null,
 ): void {
   const full = editableFile(skillDir, path)
-  const current = isFile(full) ? readFileSync(full, 'utf8') : null
+  if (isDir(full)) throw new Error(`${path} is a folder.`)
+  const bytes = isFile(full) ? readFileSync(full) : null
+  // Read as the editor read it, so the text it began on is compared with the same text.
+  const current =
+    bytes === null ? null : path === 'SKILL.md' ? bytes.toString('utf8') : editableText(bytes)
+  // Text written over a picture or a font would leave neither.
+  if (bytes !== null && current === null)
+    throw new Error(`${path} is not a text file, so it is not written over.`)
   if (current !== previous)
     throw new Error(
       current === null
@@ -126,10 +217,12 @@ export function writeSkillFile(
           ? `${path} already exists.`
           : `${path} changed on disk since you opened it. Reload to see it.`,
     )
-  writeText(full, text, { root: skillDir })
+  // A script keeps the mode it had, so one that could be run still can.
+  const mode = bytes === null ? undefined : statSync(full).mode & 0o777
+  writeText(full, text, { root: skillDir, mode })
 }
 
-/** Remove the folders under references/ that hold nothing, and references/ itself when it is empty. */
+/** Remove the folders from `from` up to the skill's own that hold nothing: a folder whose last file went. */
 function pruneEmpty(skillDir: string, from: string): void {
   for (let dir = from; dir !== skillDir && dir.startsWith(skillDir); dir = dirname(dir)) {
     if (!isDir(dir) || readdirSync(dir).length) break
@@ -137,7 +230,7 @@ function pruneEmpty(skillDir: string, from: string): void {
   }
 }
 
-/** Delete one reference file. SKILL.md cannot be deleted. */
+/** Delete one of the skill's files, text or not. SKILL.md cannot be deleted. */
 export function deleteSkillFile(skillDir: string, path: string): void {
   if (editablePath(path) === 'SKILL.md') throw new Error('SKILL.md cannot be deleted.')
   const full = editableFile(skillDir, path)
@@ -161,7 +254,7 @@ export function newSkill(
   const md = join(path, 'SKILL.md')
   if (existsSync(md)) throw new Error(`${md} already exists.`)
   mkdirSync(join(path, 'evals', 'cases'), { recursive: true })
-  const front = toYaml({ name, description: description || template.description })
+  const front = frontMatterYaml({ name, description: description || template.description })
   writeText(md, `---\n${front}---\n\n${templateBody(template, name)}`)
   if (template.packs.some((p) => p !== 'generic'))
     writeJson(join(path, 'evals', 'bench.json'), { packs: template.packs })
@@ -426,23 +519,31 @@ function stoppedPartway(error: Error, kept: string, mine: Moved[], left: string[
 }
 
 /**
- * Make the skill's SKILL.md and references/ exactly those in `source`, a
- * folder holding a version's copy. Bytes are copied, never read as text, so a
- * picture or a PDF comes back as it was. All or nothing: every path is checked
- * and every file copied beside the skill before one of the skill's own is
- * touched, and a failure after that puts each file back where it was. When a
- * file cannot be put back, the folder holding the writer's files is kept and
- * the error says what to move where.
+ * Make the skill's files exactly those in `source`, a folder holding a
+ * version's copy. With `whole`, the copy holds all the version was stamped
+ * with, so every file an agent's copy holds is put back: SKILL.md, the
+ * references, and the scripts, assets and other files beside them, and a file
+ * the version does not have goes. Without it the copy is known to hold
+ * SKILL.md and references/ alone, so only those are made the version's and
+ * every other file stays as it is. `evals/`, hidden files and installed
+ * packages are no part of a version and are never touched.
+ *
+ * Bytes are copied, never read as text, so a picture or a PDF comes back as
+ * it was. All or nothing: every path is checked and every file copied beside
+ * the skill before one of the skill's own is touched, and a failure after
+ * that puts each file back where it was. When a file cannot be put back, the
+ * folder holding the writer's files is kept and the error says what to move where.
  */
-export function restoreSkillFiles(skillDir: string, source: string): void {
-  const incoming = skillFilePaths(source)
+export function restoreSkillFiles(skillDir: string, source: string, whole = false): void {
+  const filesOf = (dir: string): SkillFile[] =>
+    whole ? [...skillFilePaths(dir), ...otherFiles(dir)] : skillFilePaths(dir)
+  // A path found by walking the skill needs no check of its name, only of where it leads.
+  const inSkill = (rel: string): string => assertInside(skillDir, join(skillDir, rel))
+  const incoming = filesOf(source)
   if (!incoming.some((file) => file.rel === 'SKILL.md'))
     throw new Error('That version has no SKILL.md.')
-  const wanted = new Map(incoming.map((file) => [file.rel, editableFile(skillDir, file.rel)]))
-  const current = skillFilePaths(skillDir).map((file) => ({
-    rel: file.rel,
-    path: editableFile(skillDir, file.rel),
-  }))
+  const wanted = new Map(incoming.map((file) => [file.rel, inSkill(file.rel)]))
+  const current = filesOf(skillDir).map((file) => ({ rel: file.rel, path: inSkill(file.rel) }))
 
   // A name of its own, so a folder an earlier restore had to keep is never taken for this one's.
   const stage = mkdtempSync(join(skillDir, '.restore-'))
@@ -457,6 +558,9 @@ export function restoreSkillFiles(skillDir: string, source: string): void {
     copyFiles(incoming, join(stage, 'new'))
     try {
       for (const file of current) move(file.rel, file.path, join(stage, 'old', file.rel), true)
+      // A folder the move emptied goes, so a file of the version can take its name. Taking the
+      // moves back makes it again.
+      for (const file of current) pruneEmpty(skillDir, dirname(file.path))
       for (const [rel, path] of wanted) move(rel, join(stage, 'new', rel), path, false)
     } catch (error) {
       const stuck = takeBack(moved)

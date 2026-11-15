@@ -80,6 +80,21 @@ describe('replyParts', () => {
     ])
   })
 
+  it('puts quotes around a SKILL.md front matter value that holds a colon, and only there', () => {
+    const file = '---\nname: notes\ndescription: Writes notes: short ones.\n---\n\n# Notes'
+    const [skill] = replyParts(['~~~~ file SKILL.md', file, '~~~~'].join('\n'))
+    expect(skill).toEqual({
+      kind: 'change',
+      change: {
+        kind: 'file',
+        path: 'SKILL.md',
+        text: '---\nname: notes\ndescription: "Writes notes: short ones."\n---\n\n# Notes\n',
+      },
+    })
+    const [reference] = replyParts(['~~~~ file references/a.md', file, '~~~~'].join('\n'))
+    expect(reference).toMatchObject({ change: { text: `${file}\n` } })
+  })
+
   it('closes a case at the first tildes, as its JSON holds none', () => {
     const reply = '~~~~ case\n{"title": "T", "prompt": "P"}\n~~~~\n~~~~\n'
     expect(replyParts(reply)[0]).toMatchObject({ kind: 'change', change: { kind: 'case' } })

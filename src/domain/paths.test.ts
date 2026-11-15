@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { byFileOrder, folderEnding, isEditablePath, isWithin } from './paths.ts'
+import { byFileOrder, folderEnding, isSkillFilePath, isWithin, newFilePath } from './paths.ts'
 
 describe('folderEnding', () => {
   const pair = ['r1', 'case-s1']
@@ -47,23 +47,53 @@ describe('isWithin', () => {
   })
 })
 
-describe('isEditablePath', () => {
-  it('accepts SKILL.md and a file under references/', () => {
-    expect(isEditablePath('SKILL.md')).toBe(true)
-    expect(isEditablePath('references/voice.md')).toBe(true)
-    expect(isEditablePath('references/notes/..voice.md')).toBe(true)
+describe('isSkillFilePath', () => {
+  it('takes every file a copy of the skill holds', () => {
+    expect(isSkillFilePath('SKILL.md')).toBe(true)
+    expect(isSkillFilePath('references/voice.md')).toBe(true)
+    expect(isSkillFilePath('references/notes/a..voice.md')).toBe(true)
+    expect(isSkillFilePath('forms.md')).toBe(true)
+    expect(isSkillFilePath('scripts/check.py')).toBe(true)
+    expect(isSkillFilePath('assets/fonts/a.woff2')).toBe(true)
+    expect(isSkillFilePath('skill.md')).toBe(true)
   })
 
-  it('rejects anything else, and a reference path that does not read as written', () => {
-    expect(isEditablePath('evals/bench.json')).toBe(false)
-    expect(isEditablePath('skill.md')).toBe(false)
-    expect(isEditablePath('references')).toBe(false)
-    expect(isEditablePath('references/')).toBe(false)
-    expect(isEditablePath('references//voice.md')).toBe(false)
-    expect(isEditablePath('references/./voice.md')).toBe(false)
-    expect(isEditablePath('references/../../x')).toBe(false)
-    expect(isEditablePath('references/../SKILL.md')).toBe(false)
-    expect(isEditablePath('references\\voice.md')).toBe(false)
+  it('refuses what no copy holds, and a path not written plainly', () => {
+    expect(isSkillFilePath('')).toBe(false)
+    expect(isSkillFilePath('evals')).toBe(false)
+    expect(isSkillFilePath('evals/bench.json')).toBe(false)
+    expect(isSkillFilePath('.git/config')).toBe(false)
+    expect(isSkillFilePath('scripts/.env')).toBe(false)
+    expect(isSkillFilePath('references/notes/..voice.md')).toBe(false)
+    expect(isSkillFilePath('scripts/node_modules/x/index.js')).toBe(false)
+    expect(isSkillFilePath('scripts/__pycache__/a.pyc')).toBe(false)
+    expect(isSkillFilePath('references/')).toBe(false)
+    expect(isSkillFilePath('references//voice.md')).toBe(false)
+    expect(isSkillFilePath('references/./voice.md')).toBe(false)
+    expect(isSkillFilePath('references/../../x')).toBe(false)
+    expect(isSkillFilePath('references/../SKILL.md')).toBe(false)
+    expect(isSkillFilePath('references\\voice.md')).toBe(false)
+    expect(isSkillFilePath('/etc/passwd')).toBe(false)
+  })
+})
+
+describe('newFilePath', () => {
+  it('makes a bare name a reference, and a name with a folder what it says', () => {
+    expect(newFilePath('voice')).toBe('references/voice.md')
+    expect(newFilePath(' voice.md ')).toBe('references/voice.md')
+    expect(newFilePath('references/notes/tone')).toBe('references/notes/tone.md')
+    expect(newFilePath('scripts/check.py')).toBe('scripts/check.py')
+    expect(newFilePath('assets/palette.json')).toBe('assets/palette.json')
+  })
+
+  it('refuses a name that is no file of the skill', () => {
+    expect(newFilePath('')).toBeNull()
+    expect(newFilePath('../x')).toBeNull()
+    expect(newFilePath('evals/bench.json')).toBeNull()
+    expect(newFilePath('scripts/.env')).toBeNull()
+    expect(newFilePath('node_modules/x.js')).toBeNull()
+    expect(newFilePath('a b.md')).toBeNull()
+    expect(newFilePath('/abs.md')).toBeNull()
   })
 })
 

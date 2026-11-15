@@ -1,4 +1,5 @@
 import {
+  chmodSync,
   closeSync,
   cpSync,
   existsSync,
@@ -51,6 +52,8 @@ export function writeText(
   const temp = join(dirname(target), `.${basename(target)}.${process.pid}.tmp`)
   writeFileSync(temp, text, options.mode === undefined ? {} : { mode: options.mode })
   try {
+    // Asked for by name, the mode is set exactly: a new file's is otherwise cut down by the umask.
+    if (options.mode !== undefined) chmodSync(temp, options.mode)
     renameSync(temp, target)
   } catch (error) {
     rmSync(temp, { force: true })

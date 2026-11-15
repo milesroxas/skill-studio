@@ -19,6 +19,8 @@ import { createReads } from './reads.ts'
 export interface SavedFiles {
   /** Each file's text by path; null until read. */
   saved: Record<string, string> | null
+  /** The skill's files that are not text, such as a picture, or too large to open, by path. */
+  others: readonly string[]
   /** Why the last read failed; null once one has worked. */
   error: string | null
   /** A read is on its way. */
@@ -121,12 +123,19 @@ function useSkillRead(
   return { state, error, reload }
 }
 
+/** No file but text ones: one list, so a skill with none never looks changed. */
+const NO_OTHERS: readonly string[] = []
+
 /**
  * The open skill's files as saved. `path` and `hash` are the skill and its
  * version as last read, null before it is. Opening another skill clears them.
  */
 function useSavedFiles(skillPath: string, path: string | null, hash: string | null): SavedFiles {
-  const [files, setFiles] = useState<{ skill: string; files: Record<string, string> } | null>(null)
+  const [files, setFiles] = useState<{
+    skill: string
+    files: Record<string, string>
+    others: readonly string[]
+  } | null>(null)
   const [filesError, setFilesError] = useState<string | null>(null)
   const [filesTick, setFilesTick] = useState(0)
   /** The read that has landed, by what it was asked for. */
@@ -152,7 +161,7 @@ function useSavedFiles(skillPath: string, path: string | null, hash: string | nu
         if (!live || skill !== currentSkill()) return
         // A file was written while this was read: read again, so the older text never lands over it.
         if (at !== writes.current) return setFilesTick((t) => t + 1)
-        setFiles({ skill: path, files: loaded.files })
+        setFiles({ skill: path, files: loaded.files, others: Object.keys(loaded.others) })
         setFilesError(null)
         setFilesLanded(asked)
       },
@@ -173,14 +182,20 @@ function useSavedFiles(skillPath: string, path: string | null, hash: string | nu
     setFiles((held) => {
       if (!held) return held
       const { [file]: _, ...rest } = held.files
-      return { skill: held.skill, files: text === null ? rest : { ...rest, [file]: text } }
+      return {
+        skill: held.skill,
+        files: text === null ? rest : { ...rest, [file]: text },
+        // A file written as text is text, and one deleted is gone, whatever it was.
+        others: held.others.filter((path) => path !== file),
+      }
     })
   }, [])
 
   const saved = files && files.skill === path ? files.files : null
+  const others = files && files.skill === path ? files.others : NO_OTHERS
   const filesLoading = asked !== null && filesLanded !== asked
   return useMemo<SavedFiles>(
-    () => ({ saved, error: filesError, loading: filesLoading, reload: reloadFiles, took }),
-    [saved, filesError, filesLoading, reloadFiles, took],
+    () => ({ saved, others, error: filesError, loading: filesLoading, reload: reloadFiles, took }),
+    [saved, others, filesError, filesLoading, reloadFiles, took],
   )
 }
