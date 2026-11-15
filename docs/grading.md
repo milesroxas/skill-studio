@@ -159,7 +159,7 @@ Within a layer, an answer at or above `yes` counts as met and one at or below `n
 
 ### Generic
 
-The pack asks one question per rule and one per check, about the work as a whole, in one request: they are independent questions over one state, so the output and its pictures are sent once. It asks one more per heading the rules stand under, in a request of their own (see below). Jev is given every part of the work there is:
+The pack asks one question per rule and one per check, about the work as a whole, in one request: they are independent questions over one state, so the output and its pictures are sent once. It asks one more per heading the rules stand under, and one more per rule, whether it comes up, in a request of their own (see below). Jev is given every part of the work there is:
 
 - `output`: the text of the primary artifact, its first 40,000 characters. A page is its HTML and code is its source. A picture has no text.
 - `picture`: the output as a picture. A page is the page as the desktop app drew it (see Design, below, for how and at what size); an output that is a PNG or JPEG is that picture; anything else, and a page nothing drew, is the first PNG or JPEG the agent left in `outputs/`. So a rule about how a page looks is judged on how it looks.
@@ -170,12 +170,14 @@ The pack asks one question per rule and one per check, about the work as a whole
 - `request_files`: the case's other input files that are text, such as a design system's `color.md`, by the name the agent was given each under, read from the run's copy in `_inputs/`. A rule such as "Use only colours taken from the project" is held against them. 24,000 characters of them in all, shared out so a short file is read whole and the long ones split what is left, and at most 8,000 of one file. A file that is not text, such as a PDF, is left out.
 - `skill` and `headings`: the `SKILL.md` the rules were read from, its first 12,000 characters, and the headings they stand under. Both are left out when `bench.json` lists the rules.
 
-A rule is asked where it stands. The question names its heading, and the skill beside it says what the rule's words mean. Each heading is also asked once: are its rules for the kind of work the request asks for?
+A rule is asked where it stands. The question names its heading, and the skill beside it says what the rule's words mean. Each heading is also asked once: are its rules for the kind of work the request asks for? And each rule is asked once more: does it come up for what the request asks? A rule such as "When the request names a table, write it as a Markdown table" does not come up for a request that names no table, and counted as followed it would hold every answer to that request to a rule it could not break.
 
-A heading is asked of the request's words and the skill alone: `request`, `skill` and `headings`, with nothing of the output and none of the request's pictures, which cost more than the rest of that request together and change no answer. What was asked for settles which rules count. With the output in view, Jev answers for the kind of work that was made, so an output of the wrong kind has the rules it broke set aside. A sample with no request has its headings asked with its rules, of the output.
+A heading, and whether a rule comes up, is asked of the request's words and the skill alone: `request`, `skill` and `headings`, with nothing of the output and none of the request's pictures, which cost more than the rest of that request together and change no answer. What was asked for settles which rules count. With the output in view, Jev answers for the kind of work that was made, so an output of the wrong kind has the rules it broke set aside. A sample with no request has its headings asked with its rules, of the output, and no rule is asked whether it comes up: there is nothing it would come up for.
 
 - A heading that names no one kind of work ("Rules", "Tone") is for all of it. One that names another kind, mode or situation ("Rules for a screen mockup", when a focus mockup was asked for) is not.
-- A rule under a heading answered at or below `no` **does not apply**: it is set aside and counts in no layer, whatever was answered of the rule itself. The flag says how many: `2 rules not counted: for another kind of work than this`.
+- A rule under a heading answered at or below `no` **does not apply**: it is set aside and counts in no layer, whatever was answered of the rule itself. The flag says how many: `2 rules not counted: for another kind of work or situation than this`.
+- So does a rule answered at or below `no` for whether it comes up, unless the rule itself was answered at or below `no`. Asked of the request alone, a rule whose condition is about the answer ("When quoting a price, give its currency") can read as one that does not come up; its own answer was given with the output in view, so a rule marked broken there came up, and stays missed.
+- A rule's own question still counts a rule that does not come up as followed. Asked without that, Jev answered the rules that do come up less surely: on `miles-mockup`, 37 of 186 sure answers became Not sure.
 - A rule above every heading, and one `bench.json` lists, is asked of no heading.
 - The reader's own answer on a rule set aside, met or missed, makes it count.
 
@@ -272,7 +274,7 @@ A fact Jev answered stands one of four ways:
 | met | the answer is `yes` or more | in its layer |
 | missed | the answer is `no` or less | in its layer |
 | not sure (`aside: 'unsure'`) | the answer is between the two | in no layer |
-| does not apply (`aside: 'inapplicable'`) | a rule whose heading is for another kind of work | in no layer |
+| does not apply (`aside: 'inapplicable'`) | a rule whose heading is for another kind of work, or that does not come up for the request | in no layer |
 
 Results shows the two set aside as groups of their own, **Not sure** open and **Does not apply** folded.
 

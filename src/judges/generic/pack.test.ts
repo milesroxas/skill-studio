@@ -96,13 +96,15 @@ describe('generic pack', () => {
       ctx,
     )
     // One state, sent once: the output and its pictures are not paid for a second time.
-    expect(ask).toHaveBeenCalledTimes(1)
+    // Whether each rule comes up is asked of the request alone, beside it.
+    expect(ask).toHaveBeenCalledTimes(2)
     expect(Object.keys(asked(0).questions)).toEqual(['rule:r1', 'rule:r2', 'check:g1', 'check:g2'])
+    expect(Object.keys(asked(1).questions)).toEqual(['up:r1', 'up:r2'])
     expect(raw).toEqual({
       adherence: {
         rules: [
-          { id: 'r1', text: 'rule r1', section: 'Rules', noul: 0.12345 },
-          { id: 'r2', text: 'rule r2', section: 'Rules', noul: 0.12345 },
+          { id: 'r1', text: 'rule r1', section: 'Rules', noul: 0.12345, comesUp: 0.12345 },
+          { id: 'r2', text: 'rule r2', section: 'Rules', noul: 0.12345, comesUp: 0.12345 },
         ],
       },
       rubric: {
@@ -132,7 +134,7 @@ describe('generic pack', () => {
       '`output` was produced to answer `request`. Is this statement true of `output`: "statement g1"',
     )
     await genericPack.judge(output({ rules: [rule('r1')] }), ctx)
-    expect(asked(1).questions['rule:r1'].instructions).toBe(
+    expect(asked(2).questions['rule:r1'].instructions).toBe(
       'Does `output` follow this rule: "rule r1"',
     )
   })
@@ -151,7 +153,13 @@ describe('generic pack', () => {
         'rule:r2': { noul: 0.9 },
         'rule:r3': { noul: 0.8 },
       })
-      .mockResolvedValueOnce({ 'heading:0': { noul: 0.02 }, 'heading:1': { noul: 0.98 } })
+      .mockResolvedValueOnce({
+        'heading:0': { noul: 0.02 },
+        'heading:1': { noul: 0.98 },
+        'up:r1': { noul: 0.9 },
+        'up:r2': { noul: 0.9 },
+        'up:r3': { noul: 0.9 },
+      })
     const raw = await genericPack.judge(output({ rules, skill, case: testCase() }), ctx)
     expect(ask).toHaveBeenCalledTimes(2)
     const { state, questions } = asked(0)
@@ -180,20 +188,42 @@ describe('generic pack', () => {
       skill: skill.trim(),
       headings: ['For a screen', 'For a detail'],
     })
-    expect(Object.keys(headings.questions)).toEqual(['heading:0', 'heading:1'])
+    expect(Object.keys(headings.questions)).toEqual([
+      'heading:0',
+      'heading:1',
+      'up:r1',
+      'up:r2',
+      'up:r3',
+    ])
     expect(headings.questions['heading:0'].instructions).toBe(
       '`skill` holds the instructions an answer to `request` is held to. `skill` groups its rules under the headings in `headings`. Are the rules under the heading "For a screen" for the kind of work `request` asks for?',
     )
     expect(raw?.adherence?.rules).toEqual([
-      { id: 'r1', text: 'rule r1', section: 'For a screen', noul: 0.1, applies: 0.02 },
-      { id: 'r2', text: 'rule r2', section: 'For a detail', noul: 0.9, applies: 0.98 },
-      { id: 'r3', text: 'rule r3', section: 'SKILL.md', noul: 0.8 },
+      {
+        id: 'r1',
+        text: 'rule r1',
+        section: 'For a screen',
+        noul: 0.1,
+        applies: 0.02,
+        comesUp: 0.9,
+      },
+      {
+        id: 'r2',
+        text: 'rule r2',
+        section: 'For a detail',
+        noul: 0.9,
+        applies: 0.98,
+        comesUp: 0.9,
+      },
+      { id: 'r3', text: 'rule r3', section: 'SKILL.md', noul: 0.8, comesUp: 0.9 },
     ])
     // The rule for a screen is no miss of a detail: it is set aside, and the layer counts the other two.
     const scored = genericScoring.score(raw, {} as never, ctx.config)
     expect(scored.layers.adherence).toBe(1)
     expect(scored.verdicts.map((v) => v.aside)).toEqual(['inapplicable', undefined, undefined])
-    expect(scored.flags).toEqual(['1 rule not counted: for another kind of work than this'])
+    expect(scored.flags).toEqual([
+      '1 rule not counted: for another kind of work or situation than this',
+    ])
   })
 
   it('asks the headings with the rules, of the output, where there is no request', async () => {
@@ -235,6 +265,70 @@ describe('generic pack', () => {
     await genericPack.judge(output({ rules, skill: null }), ctx)
     expect(Object.keys(asked().questions)).toEqual(['rule:r1'])
     expect(asked().state).toEqual({ output: 'note' })
+  })
+
+  it('asks of the request alone whether each rule comes up, and sets aside one that does not', async () => {
+    const rules = [
+      {
+        id: 'r1',
+        text: 'When the request names a table, write a Markdown table.',
+        section: 'Rules',
+      },
+      { id: 'r2', text: 'When quoting a price, give its currency.', section: 'Rules' },
+      { id: 'r3', text: 'Open with the news.', section: 'Rules' },
+      { id: 'r4', text: 'Never use exclamation marks.', section: 'Rules' },
+    ]
+    const skill = '# Update\n\n## Rules\n\n- rules\n'
+    ask
+      .mockResolvedValueOnce({
+        'rule:r1': { noul: 0.98 },
+        'rule:r2': { noul: 0.08 },
+        'rule:r3': { noul: 0.95 },
+        'rule:r4': { noul: 0.5 },
+      })
+      .mockResolvedValueOnce({
+        'heading:0': { noul: 0.98 },
+        'up:r1': { noul: 0.1 },
+        'up:r2': { noul: 0.2 },
+        'up:r3': { noul: 0.97 },
+        'up:r4': { noul: 0.2 },
+      })
+    const raw = await genericPack.judge(
+      output({ rules, skill, case: testCase([], 'Tell the team the launch moved.') }),
+      ctx,
+    )
+    const up = asked(1)
+    // Asked as a heading is: of the request and the skill, with nothing of the output.
+    expect(up.state).toEqual({
+      request: 'Tell the team the launch moved.',
+      skill: skill.trim(),
+      headings: ['Rules'],
+    })
+    expect(up.questions['up:r1'].instructions).toBe(
+      '`skill` holds the instructions an answer to `request` is held to. `skill` has this rule under its heading "Rules": "When the request names a table, write a Markdown table." Does the rule come up for what `request` asks, whatever an answer to it turns out to be?',
+    )
+    const scored = genericScoring.score(raw, {} as never, ctx.config)
+    // A table rule on a request with no table is no rule followed. A rule marked broken with the
+    // output in view came up, whatever was said of the request. One not sure of is set aside too.
+    expect(scored.verdicts.map((v) => v.aside ?? (v.met ? 'met' : 'missed'))).toEqual([
+      'inapplicable',
+      'missed',
+      'met',
+      'inapplicable',
+    ])
+    expect(scored.layers.adherence).toBe(0.5)
+    expect(scored.flags).toContain(
+      '2 rules not counted: for another kind of work or situation than this',
+    )
+  })
+
+  it('asks no rule whether it comes up where there is no request, and reads an older reading as before', async () => {
+    await genericPack.judge(output({ rules: [rule('r1')] }), ctx)
+    expect(ask).toHaveBeenCalledTimes(1)
+    expect(Object.keys(asked().questions)).toEqual(['rule:r1'])
+    // A reading kept from before rules were asked it has no comesUp, and counts as it did.
+    const older = { adherence: { rules: [{ ...rule('r1'), noul: 0.9 }] }, rubric: null }
+    expect(genericScoring.score(older, {} as never, ctx.config).layers.adherence).toBe(1)
   })
 
   it('quotes a rule or a check without backticks, which TypeSafe reads as a path into the state', async () => {
@@ -609,7 +703,8 @@ describe('generic pack', () => {
       ctx,
     )
     // The room is shared out: a short file is read whole, and the long ones split what is left.
-    expect(asked(1).state.request_files).toEqual({
+    // Call 1 asked whether the rule comes up, beside the request that was refused.
+    expect(asked(2).state.request_files).toEqual({
       'design/color.md': 'Ink #0A1020.',
       'design/layout.md': 'l'.repeat(3994),
       'design/type.md': 't'.repeat(3994),

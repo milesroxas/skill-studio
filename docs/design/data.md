@@ -87,7 +87,7 @@ What a score is counted from shows under it as `Verdicts` (`components/Verdicts.
 2. **Not sure**, open: one row per fact Jev could not tell, which is in no score until the reader answers it. The heading is a `Term`.
 3. **Marked as met by you**, open, so the reader's own answers stay in view.
 4. **Met**, folded under its count.
-5. **Does not apply**, folded under its count: a rule under a heading for another kind of work than this output.
+5. **Does not apply**, folded under its count: a rule under a heading for another kind of work than this output, or a rule for a situation its request is not.
 
 A row is three columns:
 

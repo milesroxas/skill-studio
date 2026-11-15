@@ -13,7 +13,7 @@ import {
 } from '@domain/pack.ts'
 import type { BenchConfig } from '@domain/schemas.ts'
 import { certainty } from '@domain/stats.ts'
-import { finding, jevVerdict } from '@domain/verdict.ts'
+import { finding, jevVerdict, readingOf } from '@domain/verdict.ts'
 import { clip, markChecks, metShare, type StatementAnswer } from '../shared/score.ts'
 
 export interface RuleAnswer {
@@ -27,6 +27,11 @@ export interface RuleAnswer {
    * for a rule with no heading, and in a reading from before headings were asked.
    */
   applies?: number
+  /**
+   * Probability the rule comes up for what the request asks. Absent for an
+   * output with no request, and in a reading from before rules were asked it.
+   */
+  comesUp?: number
 }
 
 export interface GenericRaw {
@@ -40,6 +45,16 @@ export interface GenericRaw {
   /** Each part of the work Jev read only the start of, or none of, as its flag says it. */
   cut?: string[]
 }
+
+/**
+ * How surely a rule comes up for what was asked, as it sets the rule aside.
+ * Asked of the request alone, a rule whose condition is about the answer
+ * ("When quoting a price, ...") can read as one that does not come up. Its own
+ * answer was given with the output in view, so a rule marked broken there
+ * came up: it stays a miss.
+ */
+const comesUp = (rule: RuleAnswer, config: BenchConfig): number =>
+  rule.comesUp === undefined || readingOf(rule.noul, config) === 'missed' ? 1 : rule.comesUp
 
 function scoreGeneric(
   raw: GenericRaw | null,
@@ -65,7 +80,7 @@ function scoreGeneric(
       rule.noul,
       config,
       corrections,
-      rule.applies,
+      Math.min(rule.applies ?? 1, comesUp(rule, config)),
     ),
   )
   // The share of the rules that count: one Jev was not sure of, or that is for other work, is in neither number.
@@ -79,7 +94,7 @@ function scoreGeneric(
   const elsewhere = followed.filter((v) => v.aside === 'inapplicable').length
   if (elsewhere)
     flags.push(
-      `${elsewhere} ${elsewhere === 1 ? 'rule' : 'rules'} not counted: for another kind of work than this`,
+      `${elsewhere} ${elsewhere === 1 ? 'rule' : 'rules'} not counted: for another kind of work or situation than this`,
     )
   const checks = markChecks(raw.rubric?.statements ?? [], 'rubric', config, corrections)
   layers.rubric = checks.share

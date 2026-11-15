@@ -376,15 +376,43 @@ const ruleQuestion = (rule: Rule, work: Work) => {
 const headingState = (work: Work): JevState => {
   const { state } = work
   if (!has(state, 'request')) return state
-  const { request, skill, headings } = state as Record<string, unknown>
-  return { request, skill, headings } as JevState
+  const fields = state as Record<string, unknown>
+  return Object.fromEntries(
+    ['request', 'skill', 'headings'].flatMap((key) => (key in fields ? [[key, fields[key]]] : [])),
+  ) as JevState
 }
 
 /** What each field a heading is judged on is. */
 const headingLead = (work: Work): string =>
   has(work.state, 'request')
-    ? '`skill` holds the instructions an answer to `request` is held to. '
+    ? work.skill
+      ? '`skill` holds the instructions an answer to `request` is held to. '
+      : ''
     : lead(work)
+
+/**
+ * Whether one rule comes up for what the request asks, asked of the request
+ * and the skill alone, as a heading is. A rule's own words may set it aside
+ * ("When the request names a table, ..."), and a rule that does not come up is
+ * no rule followed: counted as met, it would hold every output of a case that
+ * names no table to a rule it could not break. A rule about what an answer may
+ * or may not do, such as one that forbids a headline or sets how a price is
+ * written, comes up whatever the request.
+ */
+const upQuestion = (rule: Rule, work: Work) => {
+  const heading = work.skill ? headingOf(rule) : null
+  const where = heading
+    ? `\`skill\` has this rule under its heading "${plain(heading)}": `
+    : 'An answer to `request` is held to this rule: '
+  return noul(
+    `${headingLead(work)}${where}${quoted(rule.text)} Does the rule come up for what \`request\` asks, whatever an answer to it turns out to be?`,
+    {
+      true: 'The rule is about something an answer to `request` holds, does or could do: what it must do, or what it must not do. A rule that forbids a thing, or says how a thing is done when it is done, comes up wherever an answer could do that thing.',
+      false:
+        'The rule is only for a situation `request` does not set up: it names a kind of request, reader, input or thing asked for that `request` does not have.',
+    },
+  )
+}
 
 /**
  * Whether the rules under one heading are for this work at all. One narrow
@@ -422,6 +450,7 @@ const referenceOf = (grader: Grader, ctx: JudgeContext): Readable | null =>
 /** The names the questions go under: rules, headings and checks. */
 const RULE = 'rule:'
 const HEADING = 'heading:'
+const UP = 'up:'
 const CHECK = 'check:'
 
 /**
@@ -493,8 +522,13 @@ async function ask(
   const headings = Object.fromEntries(
     work.headings.map((heading, i) => [`${HEADING}${i}`, headingQuestion(heading, work)]),
   )
-  // With a request, the headings are asked of it alone, in a request of their own.
-  const apart = work.headings.length > 0 && has(work.state, 'request')
+  // With a request, the headings are asked of it alone, in a request of their own,
+  // with whether each rule comes up for it. With none, there is nothing a rule comes up for.
+  const request = has(work.state, 'request')
+  const ups = request
+    ? Object.fromEntries(input.rules.map((r) => [`${UP}${r.id}`, upQuestion(r, work)]))
+    : {}
+  const apart = request && (work.headings.length > 0 || input.rules.length > 0)
   const questions = {
     ...Object.fromEntries(input.rules.map((r) => [`${RULE}${r.id}`, ruleQuestion(r, work)])),
     ...(apart ? {} : headings),
@@ -509,7 +543,7 @@ async function ask(
     {},
     ...(await Promise.all([
       askAll(work.state, questions, ctx),
-      ...(apart ? [askAll(headingState(work), headings, ctx)] : []),
+      ...(apart ? [askAll(headingState(work), { ...headings, ...ups }, ctx)] : []),
     ])),
   )
   const applies = new Map(
@@ -526,6 +560,7 @@ async function ask(
             section: r.section,
             noul: noulOf(answers, `${RULE}${r.id}`),
             ...(under === undefined ? {} : { applies: under }),
+            ...(request ? { comesUp: noulOf(answers, `${UP}${r.id}`) } : {}),
           }
         }),
       }
@@ -548,7 +583,7 @@ async function ask(
 
 export const genericPack: JudgePack<GenericRaw> = {
   ...genericScoring,
-  version: 9,
+  version: 10,
   label: 'Generic: the skill’s rules and the case’s checks',
   renders: true,
   asks: genericAsks,

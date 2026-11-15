@@ -194,7 +194,7 @@ Results shows one case at a time: **A**, the answer from your previous version, 
 - **Missed** lists each rule and check the answer did not meet. **Open rule** takes you to that rule in the editor. It also says when Jev read only the start of a long answer or file: a rule broken past that point is not seen.
 - **Not sure** lists what Jev could not tell. These are left out of the score until you mark them yourself.
 - **Met** folds away everything it got right.
-- **Does not apply** folds away rules written for another kind of work than this answer, such as rules under "For a bug report" when the request was for a summary. They are left out of the score.
+- **Does not apply** folds away rules written for another kind of work than this answer, such as rules under "For a bug report" when the request was for a summary, and rules for a situation the request is not, such as "When the request names a table, write a table" when it names none. They are left out of the score.
 - **Click a score** to see how it was counted.
 - **Read the transcript** shows every step the agent took. Read it when a score surprises you.
 - **Click a version name** to read a different answer on that side.
