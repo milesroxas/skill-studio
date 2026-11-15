@@ -492,21 +492,25 @@ describe('generic pack', () => {
     }
   })
 
-  it('asks again with less when Jev refuses a request for its size, and says what it read', async () => {
+  it('asks again with less when Jev refuses the state with one question, and says what it read', async () => {
     const tooLarge = new Error('400 {"detail":{"error_type":"max_tokens_exceeded"}}')
     ask.mockRejectedValueOnce(tooLarge)
     const others = [{ file: 'outputs/app.js', text: 'run()' }]
-    const long = output({ text: 'x'.repeat(30_000), rules: [rule('r1')], others })
+    const long = output({ text: 'x'.repeat(50_000), rules: [rule('r1')], others })
     const raw = await genericPack.judge(long, ctx)
     expect(ask).toHaveBeenCalledTimes(2)
-    expect((asked(0).state.output as string).length).toBe(24_000)
-    expect((asked(1).state.output as string).length).toBe(12_000)
+    expect((asked(0).state.output as string).length).toBe(40_000)
+    expect((asked(1).state.output as string).length).toBe(20_000)
     expect(asked(1).state).not.toHaveProperty('other_files')
     expect(asked(1).questions['rule:r1'].instructions).not.toContain('other_files')
-    expect(raw?.short).toContain('the first 12,000 characters')
+    expect(raw?.cut).toEqual([
+      'Jev read only the first 20,000 characters of the output',
+      'Jev read none of outputs/app.js',
+    ])
     // What was read less of is said under the output, and counts in no layer.
     const scored = genericScoring.score(raw, {} as never, ctx.config)
-    expect(scored.flags).toContain(raw?.short)
+    expect(scored.flags).toEqual(expect.arrayContaining(raw?.cut ?? []))
+    expect(scored.verdicts.map((v) => v.text)).toEqual(expect.arrayContaining(raw?.cut ?? []))
     // Refused at every size, the reading fails as any other does; so does any other error, at once.
     ask.mockClear()
     for (let i = 0; i < 3; i += 1) ask.mockRejectedValueOnce(tooLarge)
@@ -516,6 +520,41 @@ describe('generic pack', () => {
     ask.mockRejectedValueOnce(new Error('401 no key'))
     await expect(genericPack.judge(long, ctx)).rejects.toThrow('401 no key')
     expect(ask).toHaveBeenCalledTimes(1)
+  })
+
+  it('says every part of the work Jev read only the start of, and nothing of a part it read whole', async () => {
+    const whole = await genericPack.judge(
+      output({ rules: [rule('r1')], notes: 'Chose blue.', skill: '# Skill\n\n- rule r1' }),
+      ctx,
+    )
+    expect(whole).not.toHaveProperty('cut')
+    const raw = await genericPack.judge(
+      output({
+        text: 'x'.repeat(41_000),
+        rules: [rule('r1')],
+        case: testCase([], 'p'.repeat(17_000)),
+        notes: 'n'.repeat(7000),
+        skill: 's'.repeat(13_000),
+        others: [
+          { file: 'outputs/app.js', text: 'a'.repeat(6000), cut: true },
+          { file: 'outputs/b.css', text: 'b' },
+          { file: 'outputs/c.js', text: '', cut: true },
+        ],
+      }),
+      ctx,
+    )
+    expect(asked(1).state.other_files).toEqual({
+      'outputs/app.js': 'a'.repeat(6000),
+      'outputs/b.css': 'b',
+    })
+    expect(raw?.cut).toEqual([
+      "Jev read only the first 16,000 characters of the case's prompt",
+      'Jev read only the first 40,000 characters of the output',
+      'Jev read only the first 6,000 characters of notes.md',
+      'Jev read only the first 12,000 characters of SKILL.md',
+      'Jev read only the start of outputs/app.js',
+      'Jev read none of outputs/c.js',
+    ])
   })
 
   it('asks a long list of rules in one request, over one state', async () => {
@@ -556,7 +595,7 @@ describe('generic pack', () => {
   })
 
   it('reads the start of a long file, so one output cannot outgrow a request', async () => {
-    await genericPack.judge(output({ text: 'x'.repeat(30_000), rules: [rule('r1')] }), ctx)
-    expect((asked().state.output as string).length).toBe(24_000)
+    await genericPack.judge(output({ text: 'x'.repeat(50_000), rules: [rule('r1')] }), ctx)
+    expect((asked().state.output as string).length).toBe(40_000)
   })
 })

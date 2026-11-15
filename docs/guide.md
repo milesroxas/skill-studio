@@ -191,7 +191,7 @@ The run's progress shows at the bottom of the sidebar. Click it to watch, or to 
 Results shows one case at a time: **A**, the answer from your previous version, beside **B**, the answer from your latest.
 
 - **The list on the left** has every case with its score and how much it moved. Click one to open it.
-- **Missed** lists each rule and check the answer did not meet. **Open rule** takes you to that rule in the editor.
+- **Missed** lists each rule and check the answer did not meet. **Open rule** takes you to that rule in the editor. It also says when Jev read only the start of a long answer or file: a rule broken past that point is not seen.
 - **Not sure** lists what Jev could not tell. These are left out of the score until you mark them yourself.
 - **Met** folds away everything it got right.
 - **Does not apply** folds away rules written for another kind of work than this answer, such as rules under "For a bug report" when the request was for a summary. They are left out of the score.

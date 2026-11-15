@@ -14,13 +14,20 @@
 import { noul } from '@typesafe-ai/sdk'
 import type { JevState } from '../jev.ts'
 import { pictureOf, renderOf } from '../shared/picture.ts'
-import { asksJev, noulOf, optionalAnswer, requestState } from '../shared/questions.ts'
+import {
+  asksJev,
+  genericAsks,
+  noulOf,
+  optionalAnswer,
+  requestCut,
+  requestState,
+} from '../shared/questions.ts'
 import type { JudgePack } from '../types.ts'
 import { type DesignRaw, designScoring } from './score.ts'
 
 export const designPack: JudgePack<DesignRaw> = {
   ...designScoring,
-  version: 4,
+  version: 5,
   label: 'Design: a look at the output as a picture',
   renders: true,
   async judge(input, ctx) {
@@ -75,6 +82,8 @@ export const designPack: JudgePack<DesignRaw> = {
       // Asked only of a page drawn at phone width; one Jev left out is null, and the other answers stand.
       phone: phone ? optionalAnswer(() => noulOf(answers, 'phone')) : null,
     }
-    return unread ? { jev, unread } : { jev }
+    // A prompt Jev read only the start of is said once: by the generic pack, where it asks.
+    const cut = genericAsks(input) ? null : requestCut(input)
+    return { jev, ...(unread ? { unread } : {}), ...(cut ? { cut: [cut] } : {}) }
   },
 }

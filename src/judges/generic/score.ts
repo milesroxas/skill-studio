@@ -35,8 +35,10 @@ export interface GenericRaw {
   rubric: { statements: StatementAnswer[]; unasked?: string[] } | null
   /** Why the output's picture was left out, when it was. */
   unread?: string
-  /** What Jev read less of, when the whole work was more than one request holds. */
+  /** What Jev read less of, in a reading made before `cut` was kept. */
   short?: string
+  /** Each part of the work Jev read only the start of, or none of, as its flag says it. */
+  cut?: string[]
 }
 
 function scoreGeneric(
@@ -52,6 +54,7 @@ function scoreGeneric(
   const unjudged = [
     ...(raw.unread ? [raw.unread] : []),
     ...(raw.short ? [raw.short] : []),
+    ...(raw.cut ?? []),
     ...(raw.rubric?.unasked ?? []),
   ]
   flags.push(...unjudged)

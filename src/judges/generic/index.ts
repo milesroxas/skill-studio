@@ -13,21 +13,31 @@
  */
 import { join } from 'node:path'
 import { aboutLayout, layoutText } from '@domain/layout.ts'
+import { NOTES_FILE } from '@domain/prompt.ts'
 import { headingOf, plain, type Rule } from '@domain/rules.ts'
 import type { Grader } from '@domain/schemas.ts'
 import { type Image, noul, type Question, withAssets } from '@typesafe-ai/sdk'
 import { type Readable, readForJev } from '../images.ts'
 import { isTooLarge, type JevState } from '../jev.ts'
 import { pictureOf, renderOf } from '../shared/picture.ts'
-import { asksJev, noulOf, requestState } from '../shared/questions.ts'
+import {
+  asksJev,
+  characters,
+  genericAsks,
+  noulOf,
+  requestCut,
+  requestState,
+} from '../shared/questions.ts'
 import { clip } from '../shared/score.ts'
-import type { JudgeContext, JudgeInput, JudgePack, SourcePage } from '../types.ts'
+import type { FileStart, JudgeContext, JudgeInput, JudgePack, SourcePage } from '../types.ts'
 import { type GenericRaw, genericScoring, type RuleAnswer } from './score.ts'
 
 /**
- * How much of the work one request holds. Jev reads so much at once, and a
- * request past that is refused whole, so a reading that was refused is taken
- * again with less: `said` is what the output is flagged with when it was.
+ * How much of the work one request holds. Jev reads so much at once: 32k
+ * tokens for the state and one question, about 80,000 characters of a page's
+ * source and more of prose. A request past that is refused whole, so a reading
+ * that was refused is taken again with less, and the output is flagged with
+ * every part Jev read only the start of (`Work.cut`).
  */
 interface Room {
   /** Characters of the file judged: its start says what it is. */
@@ -40,27 +50,12 @@ interface Room {
   others: boolean
   /** Characters of the page's measured layout: its largest elements first. */
   layout: number
-  said?: string
 }
 
 const ROOMS: readonly Room[] = [
-  { output: 24_000, notes: 6000, skill: 12_000, others: true, layout: 14_000 },
-  {
-    output: 12_000,
-    notes: 3000,
-    skill: 6000,
-    others: false,
-    layout: 8000,
-    said: 'judged on the first 12,000 characters of the output and none of the files beside it: the whole is more than Jev reads at once',
-  },
-  {
-    output: 6000,
-    notes: 1500,
-    skill: 0,
-    others: false,
-    layout: 0,
-    said: 'judged on the first 6,000 characters of the output and none of the files beside it: the whole is more than Jev reads at once',
-  },
+  { output: 40_000, notes: 6000, skill: 12_000, others: true, layout: 14_000 },
+  { output: 20_000, notes: 3000, skill: 6000, others: false, layout: 8000 },
+  { output: 8000, notes: 1500, skill: 0, others: false, layout: 0 },
 ]
 
 /** The longest side of a picture Jev reads: a page drawn in a larger window is scaled down to it. */
@@ -89,6 +84,8 @@ interface Work {
   layout: boolean
   /** The page `picture` was made from, when `layout` is that page's and not `output`'s own; else null. */
   source: SourcePage | null
+  /** What Jev reads only the start of, or none of, each as the flag says it. */
+  cut: string[]
 }
 
 /** Why the output's picture is not shown to Jev, as a flag; null when it was read or there is none. */
@@ -105,18 +102,21 @@ const headingsOf = (rules: readonly Rule[]): string[] => [
 /** The work of one output as `room` holds it, or null when it has neither text nor a picture Jev can read. */
 function workOf(input: JudgeInput, room: Room): Work | null {
   const read = pictureOf(input)
-  const text = input.text.trim() ? input.text.slice(0, room.output) : ''
-  const notes = input.notes?.trim().slice(0, room.notes) ?? ''
+  const whole = input.text.trim() ? input.text : ''
+  const text = whole.slice(0, room.output)
+  const told = input.notes?.trim() ?? ''
+  const notes = told.slice(0, room.notes)
   if (!text && !read?.image) return null
   const state: JevState = { ...requestState(input) }
   if (text) state.output = text
   if (read?.image) state.picture = read.image
   if (notes) state.notes = notes
   // One file is the work itself; with more, a rule may be about what was made beside it.
-  const others = room.others ? input.others : []
+  const others = room.others ? input.others.filter((o) => o.text) : []
   if (others.length) state.other_files = Object.fromEntries(others.map((o) => [o.file, o.text]))
   // A rule is read where it stands: the skill says what its words mean and which work each heading is for.
-  const skill = input.rules.length ? (input.skill?.trim().slice(0, room.skill) ?? '') : ''
+  const written = input.rules.length ? (input.skill?.trim() ?? '') : ''
+  const skill = written.slice(0, room.skill)
   const headings = skill ? headingsOf(input.rules) : []
   if (skill) state.skill = skill
   if (headings.length) state.headings = headings
@@ -152,7 +152,32 @@ function workOf(input: JudgeInput, room: Room): Work | null {
     headings,
     layout: measured !== null || borrowed !== null,
     source: borrowed ? source : null,
+    cut: [
+      requestCut(input),
+      whole.length > text.length ? firstOf(text.length, 'the output') : null,
+      told.length > notes.length ? firstOf(notes.length, NOTES_FILE) : null,
+      written.length > skill.length
+        ? skill
+          ? firstOf(skill.length, 'SKILL.md')
+          : 'Jev read none of SKILL.md'
+        : null,
+      ...filesCut(room.others ? input.others : input.others.map((o) => ({ ...o, text: '' }))),
+    ].filter((line): line is string => line !== null),
   }
+}
+
+/** What is said of a part Jev read the first `n` characters of. */
+const firstOf = (n: number, what: string): string =>
+  `Jev read only the first ${characters(n)} characters of ${what}`
+
+/** What is said of the files beside the output that Jev read only the start of, and of those it read none of. */
+function filesCut(files: readonly FileStart[]): string[] {
+  const started = files.filter((f) => f.cut && f.text).map((f) => f.file)
+  const unread = files.filter((f) => !f.text).map((f) => f.file)
+  return [
+    started.length ? `Jev read only the start of ${listed(started)}` : null,
+    unread.length ? `Jev read none of ${listed(unread)}` : null,
+  ].filter((line): line is string => line !== null)
 }
 
 /** Whether a rule or a check of this output is about a size, a place or a colour: what a layout holds. */
@@ -474,10 +499,10 @@ async function ask(
 
 export const genericPack: JudgePack<GenericRaw> = {
   ...genericScoring,
-  version: 8,
+  version: 9,
   label: 'Generic: the skill’s rules and the case’s checks',
   renders: true,
-  asks: (input) => input.rules.length > 0 || (input.case?.graders ?? []).length > 0,
+  asks: genericAsks,
   async judge(input, ctx) {
     if (!asksJev(input, ctx)) return null
     // A picture Jev would refuse is said, so rules nobody marked are never read as followed.
@@ -493,7 +518,7 @@ export const genericPack: JudgePack<GenericRaw> = {
           adherence,
           rubric,
           ...(unread ? { unread } : {}),
-          ...(room.said ? { short: room.said } : {}),
+          ...(work.cut.length ? { cut: work.cut } : {}),
         }
       } catch (error) {
         // Refused for its size: the same request would be refused again, so the next one holds less.

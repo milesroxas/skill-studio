@@ -53,6 +53,8 @@ export interface WorkflowJev {
 export interface WorkflowRaw {
   metrics: WorkflowMetrics
   jev: WorkflowJev | null
+  /** Each part of the prompt and the transcript Jev read only some of, as its flag says it. */
+  cut?: string[]
 }
 
 function scoreWorkflow(
@@ -185,6 +187,12 @@ function scoreWorkflow(
     if (recovered && isMissed(recovered)) flags.push('after an error the agent repeated itself')
     verdicts.push(...judged)
   }
+  // What Jev read only some of is said beside its answers, and counts in no layer.
+  if (raw.jev)
+    for (const line of raw.cut ?? []) {
+      flags.push(line)
+      verdicts.push(finding(line))
+    }
   // How a run went is worth nothing when it produced nothing: a tidy transcript with no output is a failed sample.
   if (!m.wroteOutput || noOutput(subject))
     for (const layer of Object.keys(layers)) if (layers[layer] !== null) layers[layer] = 0

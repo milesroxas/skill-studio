@@ -98,6 +98,25 @@ describe('generic scoring', () => {
     expect(none.flags).toEqual([unasked])
   })
 
+  it('flags what Jev read only some of, in a reading kept before and in one made now', () => {
+    const old =
+      'judged on the first 12,000 characters of the output and none of the files beside it: the whole is more than Jev reads at once'
+    const cut = [
+      'Jev read only the first 40,000 characters of the output',
+      'Jev read none of outputs/app.js',
+    ]
+    for (const [read, lines] of [
+      [{ ...raw, short: old }, [old]],
+      [{ ...raw, cut }, cut],
+    ] as const) {
+      const { flags, verdicts, layers } = genericScoring.score(read, subject, config)
+      expect(flags).toEqual(expect.arrayContaining([...lines]))
+      for (const line of lines)
+        expect(verdicts.find((v) => v.text === line)).toMatchObject({ layer: null, met: false })
+      expect(layers).toEqual(genericScoring.score(raw, subject, config).layers)
+    }
+  })
+
   it('leaves every layer out without raw answers', () => {
     expect(genericScoring.score(null, subject, config)).toEqual({
       layers: { adherence: null, rubric: null },

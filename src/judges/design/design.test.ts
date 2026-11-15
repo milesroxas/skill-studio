@@ -4,6 +4,7 @@ import { join } from 'node:path'
 import { pngHeader } from '@domain/__fixtures__/image.ts'
 import { mergeConfig } from '@domain/config.ts'
 import type { ScoreSubject } from '@domain/pack.ts'
+import type { Case } from '@domain/schemas.ts'
 import { image } from '@typesafe-ai/sdk'
 import { describe, expect, it, vi } from 'vitest'
 import { Jev } from '../jev.ts'
@@ -80,6 +81,20 @@ describe('design pack', () => {
     const scored = raw && designScoring.score(raw, subject, config)
     expect(scored?.layers).toEqual({ visual: 1 })
     expect(scored?.flags).toEqual([])
+  })
+
+  it('says a prompt Jev read only the start of, when no rule or check has the generic pack say it', async () => {
+    const ask = vi.fn<Ask>(async () => ({ hierarchy: { noul: 0.9 }, finished: { noul: 0.8 } }))
+    const long = {
+      ...input(ARTBOARD, [drawn('desktop', 1280, 960)]),
+      case: { prompt: 'p'.repeat(17_000), graders: [], bench: {} } as unknown as Case,
+    }
+    const raw = await designPack.judge(long, asking(ask))
+    expect(raw?.cut).toEqual(["Jev read only the first 16,000 characters of the case's prompt"])
+    const scored = designScoring.score(raw, subject, config)
+    expect(scored.flags).toContain(raw?.cut?.[0])
+    const ruled = { ...long, rules: [{ id: 'r1', text: 'rule r1', section: 'Rules' }] }
+    expect(await designPack.judge(ruled, asking(ask))).not.toHaveProperty('cut')
   })
 
   it('does not call plain blocks broken, so a wireframe is not failed for being one', async () => {

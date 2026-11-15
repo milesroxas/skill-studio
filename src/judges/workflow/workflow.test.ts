@@ -8,7 +8,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { Jev } from '../jev.ts'
 import { MissingAnswerError } from '../shared/questions.ts'
 import type { JudgeContext, JudgeInput } from '../types.ts'
-import { summarize, workflowPack } from './index.ts'
+import { summarize, summaryOf, workflowPack } from './index.ts'
 import { type WorkflowMetrics, workflowScoring } from './score.ts'
 
 const config = mergeConfig({ packs: ['workflow'] }, [workflowScoring])
@@ -503,6 +503,53 @@ describe('workflow metrics', () => {
     expect(Object.keys(ask.mock.calls[0][0] as object)).toEqual(['transcript'])
     expect(Object.keys(ask.mock.calls[0][1])).toEqual(['recovered'])
     expect(raw?.jev).toEqual({ followedTask: null, recovered: 0.8 })
+  })
+})
+
+describe('what Jev read of the run', () => {
+  beforeEach(() => {
+    step = 0
+  })
+
+  it('says how many steps were left out and how many were read only in part', () => {
+    const events = [
+      ...Array.from({ length: 5 }, () => ev('text', { text: 'short' })),
+      ev('text', { text: 'w'.repeat(300) }),
+    ]
+    expect(summaryOf(events, 80).cut).toEqual([
+      "Jev read only the first 240 characters of 1 of the transcript's steps",
+    ])
+    expect(summaryOf(events, 4).cut).toEqual([
+      "Jev read only the first 240 characters of 1 of the transcript's steps",
+      "Jev read 4 of the transcript's 6 steps: the first 2 and the last 2",
+    ])
+    expect(summaryOf(events.slice(0, 5), 80).cut).toEqual([])
+  })
+
+  it('flags a long prompt and a long transcript beside Jev’s answers, and nothing without them', async () => {
+    const ask = vi.fn(async (_state: unknown, _questions: Record<string, unknown>) => ({
+      followed_task: { noul: 0.9 },
+    }))
+    const asking = { ...ctx, jev: { ask } as unknown as Jev, useJev: true }
+    const events = Array.from({ length: 100 }, () => tool('Bash', 'ls'))
+    const long = inputOf(events)
+    long.case = { ...(long.case as Case), prompt: 'p'.repeat(17_000), graders: [] }
+    const raw = await workflowPack.judge(long, asking)
+    expect((ask.mock.calls[0][0] as { task: string }).task).toHaveLength(16_000)
+    expect(raw?.cut).toEqual([
+      "Jev read only the first 16,000 characters of the case's prompt",
+      "Jev read 80 of the transcript's 100 steps: the first 40 and the last 40",
+    ])
+    const scored = workflowScoring.score(raw, subject, config)
+    expect(scored.flags).toEqual(expect.arrayContaining(raw?.cut ?? []))
+    expect(scored.verdicts.map((v) => v.text)).toEqual(expect.arrayContaining(raw?.cut ?? []))
+    // With a rule to ask, the generic pack says what was read of the prompt: it is not said twice.
+    const ruled = { ...long, rules: [{ id: 'r1', text: 'rule r1', section: 'Rules' }] }
+    expect((await workflowPack.judge(ruled, asking))?.cut).toEqual([
+      "Jev read 80 of the transcript's 100 steps: the first 40 and the last 40",
+    ])
+    // Without Jev, nothing was read, so nothing is said of it.
+    expect(await workflowPack.judge(long, ctx)).not.toHaveProperty('cut')
   })
 })
 

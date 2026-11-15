@@ -30,6 +30,8 @@ export interface DesignRaw {
   jev: DesignJev | null
   /** Why a picture was left out, when one was. */
   unread?: string
+  /** Each part Jev read only the start of, as its flag says it. */
+  cut?: string[]
 }
 
 /** The fixed questions, by the name a correction knows each by. */
@@ -60,6 +62,10 @@ function scoreDesign(
   if (raw.unread) {
     flags.push(raw.unread)
     verdicts.push(finding(raw.unread))
+  }
+  for (const line of raw.cut ?? []) {
+    flags.push(line)
+    verdicts.push(finding(line))
   }
   const { jev } = raw
   if (jev) {

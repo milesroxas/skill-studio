@@ -482,7 +482,9 @@ const READ_AS_TEXT = new Set(['markdown', 'html', 'code'])
 /**
  * The start of each text file the agent wrote beside the primary one, in the
  * order they are listed, until the room for them is used. A copy of the
- * primary file, such as a preview that is the page itself, is left out.
+ * primary file, such as a preview that is the page itself, is left out. A file
+ * that goes on past its start is marked `cut`, and one past the room is listed
+ * with no text, so the output is flagged with what Jev did not read.
  */
 function othersOf(
   sample: Sample,
@@ -492,15 +494,16 @@ function othersOf(
   const others: JudgeInput['others'] = []
   let room = OTHER_FILES_CHARS
   for (const artifact of sample.artifacts) {
-    if (room <= 0) break
     if (artifact.file === primary?.file || !READ_AS_TEXT.has(artifact.kind)) continue
     const path = fileInside(sample.path, join(sample.path, artifact.file))
     if (path === null) continue
     // Read by bytes so a file of any size costs no more than its start.
-    const start = new TextDecoder().decode(readStart(path, OTHER_FILE_CHARS * 4))
+    const bytes = OTHER_FILE_CHARS * 4
+    const start = new TextDecoder().decode(readStart(path, bytes))
     if (!start.trim() || start === primaryText.slice(0, start.length)) continue
-    const text = start.slice(0, Math.min(OTHER_FILE_CHARS, room))
-    others.push({ file: artifact.file, text })
+    const text = start.slice(0, Math.max(0, Math.min(OTHER_FILE_CHARS, room)))
+    const cut = text.length < start.length || statSync(path).size > bytes
+    others.push(cut ? { file: artifact.file, text, cut } : { file: artifact.file, text })
     room -= text.length
   }
   return others

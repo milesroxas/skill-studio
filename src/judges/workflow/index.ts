@@ -11,7 +11,15 @@ import { isAbsolute, join, resolve } from 'node:path'
 import { folderEnding, isWithin, segments } from '@domain/paths.ts'
 import type { Timing, TranscriptEvent } from '@domain/schemas.ts'
 import { noul } from '@typesafe-ai/sdk'
-import { asksJev, noulOf, optionalAnswer } from '../shared/questions.ts'
+import {
+  asksJev,
+  characters,
+  genericAsks,
+  noulOf,
+  optionalAnswer,
+  REQUEST_MAX,
+  requestCut,
+} from '../shared/questions.ts'
 import type { JudgeContext, JudgeInput, JudgePack } from '../types.ts'
 import {
   type WorkflowConfig,
@@ -475,9 +483,22 @@ function metricsOf(events: TranscriptEvent[], input: JudgeInput): WorkflowMetric
   }
 }
 
-/** One line per step, long values cut, so Jev reads the shape of the work and not its bulk. */
-export function summarize(events: TranscriptEvent[], maxLines: number): string {
-  const lines = events
+/**
+ * The most characters of a step Jev reads: more than the transcript keeps of
+ * a tool's arguments or result (200), with room for the step's name before it.
+ */
+const STEP_MAX = 240
+
+/**
+ * One line per step, long values cut, so Jev reads the shape of the work and
+ * not its bulk, with what is said of each cut: steps Jev read only the start
+ * of, and steps left out between the first and the last.
+ */
+export function summaryOf(
+  events: TranscriptEvent[],
+  maxLines: number,
+): { text: string; cut: string[] } {
+  const bodies = events
     .filter((e) => e.kind !== 'system')
     .map((e) => {
       const body =
@@ -486,15 +507,39 @@ export function summarize(events: TranscriptEvent[], maxLines: number): string {
           : e.kind === 'result'
             ? `${e.error ? 'ERROR ' : ''}result: ${e.result ?? ''}`
             : (e.text ?? '')
-      return `${e.step}. ${e.kind} ${body.replace(/\s+/g, ' ').slice(0, 160)}`
+      return { step: e.step, kind: e.kind, body: body.replace(/\s+/g, ' ') }
     })
   // At least a first and a last line: `slice(-0)` would be every line, the whole transcript.
   const kept = Math.max(2, Number.isFinite(maxLines) ? Math.floor(maxLines) : 2)
-  if (lines.length <= kept) return lines.join('\n')
-  const head = lines.slice(0, Math.floor(kept / 2))
-  const tail = lines.slice(-Math.ceil(kept / 2))
-  return [...head, `… ${lines.length - kept} steps left out …`, ...tail].join('\n')
+  const left = Math.max(0, bodies.length - kept)
+  const read = left
+    ? [...bodies.slice(0, Math.floor(kept / 2)), ...bodies.slice(-Math.ceil(kept / 2))]
+    : bodies
+  const lines = read.map((b) => `${b.step}. ${b.kind} ${b.body.slice(0, STEP_MAX)}`)
+  const text = left
+    ? [
+        ...lines.slice(0, Math.floor(kept / 2)),
+        `… ${left} steps left out …`,
+        ...lines.slice(Math.floor(kept / 2)),
+      ].join('\n')
+    : lines.join('\n')
+  const long = read.filter((b) => b.body.length > STEP_MAX).length
+  return {
+    text,
+    cut: [
+      long
+        ? `Jev read only the first ${characters(STEP_MAX)} characters of ${long} of the transcript's steps`
+        : null,
+      left
+        ? `Jev read ${read.length} of the transcript's ${bodies.length} steps: the first ${Math.floor(kept / 2)} and the last ${Math.ceil(kept / 2)}`
+        : null,
+    ].filter((line): line is string => line !== null),
+  }
 }
+
+/** The summary Jev reads, as `summaryOf` writes it. */
+export const summarize = (events: TranscriptEvent[], maxLines: number): string =>
+  summaryOf(events, maxLines).text
 
 /**
  * What Jev says of the summary. Each question is asked only where it has
@@ -543,7 +588,7 @@ async function judgeJev(
 
 export const workflowPack: JudgePack<WorkflowRaw> = {
   ...workflowScoring,
-  version: 2,
+  version: 3,
   label: 'Workflow: how the agent worked, from its transcript',
   async judge(input, ctx) {
     const events = input.transcript
@@ -551,12 +596,14 @@ export const workflowPack: JudgePack<WorkflowRaw> = {
     const metrics = metricsOf(events, input)
     const { summaryLines } = (ctx.config as WorkflowConfig).workflow
     // An output whose case is gone has no task to hold the transcript to.
-    const task = input.case?.prompt.trim().slice(0, 1500) || null
+    const task = input.case?.prompt.trim().slice(0, REQUEST_MAX) || null
     const hadErrors = metrics.errors > 0
-    const jev =
-      asksJev(input, ctx) && (task !== null || hadErrors)
-        ? await judgeJev(summarize(events, summaryLines), task, hadErrors, ctx)
-        : null
-    return { metrics, jev }
+    if (!asksJev(input, ctx) || (task === null && !hadErrors)) return { metrics, jev: null }
+    const summary = summaryOf(events, summaryLines)
+    const jev = await judgeJev(summary.text, task, hadErrors, ctx)
+    // A prompt Jev read only the start of is said once: by the generic pack, where it asks.
+    const prompt = task !== null && !genericAsks(input) ? requestCut(input) : null
+    const cut = [...(prompt ? [prompt] : []), ...summary.cut]
+    return { metrics, jev, ...(cut.length ? { cut } : {}) }
   },
 }

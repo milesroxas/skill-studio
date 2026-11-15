@@ -75,11 +75,28 @@ export function optionalAnswer<T>(read: () => T): T | null {
 }
 
 /** A longer prompt is cut here: its start says what was asked, and the output needs the room. */
-const REQUEST_MAX = 4000
+export const REQUEST_MAX = 16_000
 
 /** The case's prompt, as Jev reads it; null for an output with no case. */
 const requestOf = (input: JudgeInput): string | null =>
   input.case?.prompt.trim().slice(0, REQUEST_MAX) || null
+
+/** `n` as the app writes a count of characters: 16,000. */
+export const characters = (n: number): string => n.toLocaleString('en-US')
+
+/** What is said of a case's prompt Jev read only the start of; null when it read the whole. */
+export const requestCut = (input: Pick<JudgeInput, 'case'>, max = REQUEST_MAX): string | null =>
+  (input.case?.prompt.trim().length ?? 0) > max
+    ? `Jev read only the first ${characters(max)} characters of the case's prompt`
+    : null
+
+/**
+ * Whether the generic pack asks about this output: it has a rule or a check.
+ * The generic pack then says what Jev read of the prompt, and the other packs
+ * that read it do not say it again.
+ */
+export const genericAsks = (input: Pick<JudgeInput, 'rules' | 'case'>): boolean =>
+  input.rules.length > 0 || (input.case?.graders ?? []).length > 0
 
 /** What a case's request adds to a state: its text, and the pictures it came with. */
 type RequestState = {

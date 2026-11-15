@@ -30,7 +30,7 @@ export interface JudgeInput {
    * beside the code, a script beside a page. A rule or a check may be about
    * any of them. A file that says what the primary one says is left out.
    */
-  others: Array<{ file: string; text: string }>
+  others: FileStart[]
   /**
    * What the agent told the user beside its files (`notes.md`): the choices it
    * made, what needs checking, what it could not do. Null when it wrote none.
@@ -57,6 +57,16 @@ export interface JudgeInput {
    * when there is no such page, the two differ, or the host has no browser.
    */
   source?: SourcePage
+}
+
+/** The start of a text file, as much of it as a pack is given. */
+export interface FileStart {
+  /** Its path, by which Jev is told which file it is. */
+  file: string
+  /** Its first characters; empty when there was no room for any of it. */
+  text: string
+  /** The file goes on past `text`: Jev reads only its start, and the output is flagged with it. */
+  cut?: boolean
 }
 
 /** The page a picture was made from, as the app drew and measured it. */

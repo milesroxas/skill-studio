@@ -738,6 +738,8 @@ describe('gradeRun, on what a skill’s rules are judged on', () => {
     expect(input.notes).toBe('Size: 1536 by 864, as asked.')
     // The start of each text file beside the page: no picture, and no file that says what the page says.
     expect(input.others.map((o) => [o.file, o.text.length])).toEqual([['outputs/app.js', 6000]])
+    // A file Jev reads only the start of says so, so the output is flagged with it.
+    expect(input.others[0].cut).toBe(true)
 
     // What it said is part of what was judged: a change to it has the output judged again.
     judge.mockClear()
@@ -746,6 +748,26 @@ describe('gradeRun, on what a skill’s rules are judged on', () => {
     writeFileSync(join(sample, 'notes.md'), 'Size: 1600 by 1200.')
     await gradeRun(dir, run, { useJev: false })
     expect(judge).toHaveBeenCalledTimes(1)
+  })
+
+  it('lists a file past the room for the files beside the output with none of its text', async () => {
+    const { dir, run } = skillWith(['page'], ['page-s1'])
+    const sample = join(dir, 'evals/runs', run, 'page-s1')
+    rmSync(join(sample, 'outputs/note.md'))
+    writeFileSync(join(sample, 'outputs/index.html'), '<!doctype html><h1>Hi</h1>')
+    for (const name of ['a', 'b', 'c', 'd'])
+      writeFileSync(join(sample, `outputs/${name}.js`), name.repeat(6000))
+    writeFileSync(join(sample, 'outputs/e.js'), 'short')
+    const judge = genericJudge().mockResolvedValue(null)
+    await gradeRun(dir, run, { useJev: false })
+    const [input] = judge.mock.calls[0]
+    expect(input.others.map((o) => [o.file, o.text.length, o.cut ?? false])).toEqual([
+      ['outputs/a.js', 6000, false],
+      ['outputs/b.js', 6000, false],
+      ['outputs/c.js', 6000, false],
+      ['outputs/d.js', 0, true],
+      ['outputs/e.js', 0, true],
+    ])
   })
 
   it.skipIf(process.platform === 'win32')(
