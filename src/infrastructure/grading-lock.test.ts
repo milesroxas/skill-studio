@@ -57,6 +57,16 @@ describe('takeGradingLock', () => {
     release()
   })
 
+  it('takes over a lock older than any grading, though a process has its pid', () => {
+    const dir = folder()
+    // A copy that ended long ago, whose pid the system gave to a program that is running.
+    const at = new Date(Date.now() - 13 * 60 * 60 * 1000).toISOString()
+    writeFileSync(join(dir, LOCK_FILE), JSON.stringify({ pid: process.ppid, at, by: 'st serve' }))
+    const release = takeGradingLock(dir)
+    expect(JSON.parse(readFileSync(join(dir, LOCK_FILE), 'utf8')).pid).toBe(process.pid)
+    release()
+  })
+
   it('waits on a lock still being written, and takes over one never written whole', () => {
     const dir = folder()
     const path = join(dir, LOCK_FILE)

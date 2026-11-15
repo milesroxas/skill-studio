@@ -38,6 +38,7 @@ import {
   isFile,
   readJson,
   readStart,
+  textOf,
   writeJson,
   writeText,
 } from '@infrastructure/fs.ts'
@@ -489,14 +490,6 @@ const requestPictures = (
 const REQUEST_FILE_CHARS = 8000
 const REQUEST_FILES_CHARS = 80_000
 
-/** Whether the start of a file reads as text: no NUL byte, and next to nothing that is not a character. */
-function readsAsText(bytes: Uint8Array): string | null {
-  if (bytes.includes(0)) return null
-  const text = new TextDecoder().decode(bytes)
-  const unreadable = text.split('\uFFFD').length - 1
-  return unreadable > Math.max(4, text.length / 100) ? null : text
-}
-
 /**
  * The start of each text file the case's request came with, read where the run
  * kept it, in the case's order, until the room for them is used: the files the
@@ -515,7 +508,7 @@ function requestFilesOf(ctx: GradeContext, testCase: Case | null): FileStart[] {
     const path = requestFile(ctx, testCase, rel)
     if (path === null) continue
     const bytes = REQUEST_FILE_CHARS * 4
-    const start = readsAsText(readStart(path, bytes))
+    const start = textOf(readStart(path, bytes))
     if (!start?.trim()) continue
     const text = start.slice(0, Math.max(0, Math.min(REQUEST_FILE_CHARS, room)))
     const cut = text.length < start.length || statSync(path).size > bytes

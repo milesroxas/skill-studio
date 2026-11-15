@@ -5,7 +5,7 @@
  * is made only when there is none (`wx`), so of two gradings that start at
  * once one makes it. It holds the pid and the time of the one that holds it.
  * A lock whose process has ended is taken over, so a copy that crashed or was
- * killed holds nothing.
+ * killed holds nothing, and so is one taken more than twelve hours ago.
  */
 import { linkSync, readFileSync, renameSync, rmSync, statSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
@@ -15,6 +15,13 @@ export const LOCK_FILE = '.grading.lock'
 
 /** A lock just made may not have its text yet: one this young that does not read is still being written. */
 const WRITING_MS = 10_000
+
+/**
+ * No grading takes this long. A lock older than this is left over from a copy
+ * that ended, whose pid the system has since given to another program: it
+ * would read as alive, and hold the run for good.
+ */
+const STALE_MS = 12 * 60 * 60 * 1000
 
 interface Holder {
   pid: number
@@ -62,6 +69,12 @@ function alive(pid: number): boolean {
   } catch (error) {
     return (error as NodeJS.ErrnoException).code === 'EPERM'
   }
+}
+
+/** Whether the lock was taken longer ago than any grading runs; one with no time that reads has not. */
+function outlived(holder: Holder): boolean {
+  const at = Date.parse(holder.at)
+  return !Number.isNaN(at) && Date.now() - at > STALE_MS
 }
 
 const same = (a: Holder | null, b: Holder | null): boolean =>
@@ -113,7 +126,7 @@ export function takeGradingLock(dir: string): () => void {
         continue
       }
       if (age < WRITING_MS) throw refusal(null)
-    } else if (alive(holder.pid)) throw refusal(holder)
+    } else if (alive(holder.pid) && !outlived(holder)) throw refusal(holder)
     // Taken over by moving it aside: of two that find it stale, one moves it, and the other finds the lock again.
     const aside = `${path}.${process.pid}.stale`
     try {

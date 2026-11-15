@@ -2,7 +2,7 @@ import { lstatSync, readdirSync, type Stats } from 'node:fs'
 import { extname, join } from 'node:path'
 import { OUTPUTS_DIR } from '@domain/prompt.ts'
 import type { Artifact, ArtifactKind } from '@domain/schemas.ts'
-import { isDir, readStart } from './fs.ts'
+import { isDir, readStart, textOf } from './fs.ts'
 
 const KIND_BY_EXT: Record<string, ArtifactKind> = {
   '.md': 'markdown',
@@ -45,22 +45,10 @@ const CODE_EXT = new Set([
 /** How much of a file of a kind not listed is read to tell text from anything else. */
 const SNIFF_BYTES = 8192
 
-/**
- * Whether the file at `path` reads as text: its start is UTF-8 with no NUL
- * byte. A file that cannot be read is not text.
- */
+/** Whether the file at `path` reads as text by its start (`textOf`). A file that cannot be read is not text. */
 function readsAsText(path: string): boolean {
-  let start: Uint8Array
   try {
-    start = readStart(path, SNIFF_BYTES)
-  } catch {
-    return false
-  }
-  if (start.includes(0)) return false
-  try {
-    // `stream` lets the start end part way through a character.
-    new TextDecoder('utf-8', { fatal: true }).decode(start, { stream: true })
-    return true
+    return textOf(readStart(path, SNIFF_BYTES)) !== null
   } catch {
     return false
   }

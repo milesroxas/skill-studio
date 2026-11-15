@@ -4,7 +4,8 @@
  * of the skill or a check of the case that the output did not follow. Then
  * what Jev was not sure of, open too, since each waits for the reader and is
  * in no score until they answer. Met folds away under its count, and so does
- * what does not apply: a rule for another kind of work than this output.
+ * what does not apply: a rule for another kind of work than this output, or
+ * one that does not come up for what its case asks.
  *
  * Jev read each fact, and a reader may read it differently. Their answer
  * stands: it moves the fact to the other list and the score follows. A fact

@@ -282,6 +282,18 @@ export function dayOf(at: Date | string): string | undefined {
 
 export const today = (): string => dayOf(new Date()) as string
 
+/**
+ * `bytes` as text, when they read as text: no NUL byte, and no more than one
+ * character in a hundred that is none, so a file in an older encoding with a
+ * few accents still reads and a picture or an archive does not. Null otherwise.
+ */
+export function textOf(bytes: Uint8Array): string | null {
+  if (bytes.includes(0)) return null
+  const text = new TextDecoder().decode(bytes)
+  const unreadable = text.split('\uFFFD').length - 1
+  return unreadable > text.length / 100 ? null : text
+}
+
 /** The first `limit` bytes of a file, or all of it when it is shorter: for a header, read without loading the rest. */
 export function readStart(path: string, limit: number): Uint8Array {
   const fd = openSync(path, 'r')
