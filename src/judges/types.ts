@@ -134,6 +134,12 @@ export interface JudgeContext {
   log: (line: string) => void
   /** The grading was stopped: a request on its way to Jev is ended, so it is not waited for or paid for. */
   signal?: AbortSignal
+  /**
+   * Answers asked once a grading, by a key of all they were asked: what rests
+   * on the request and the skill alone, the same for every output of a case.
+   * Absent, each output asks its own.
+   */
+  once?: Map<string, Promise<Record<string, unknown>>>
   /** Runs a case's check command; the code pack fails without it. */
   run?: CommandRunner
 }

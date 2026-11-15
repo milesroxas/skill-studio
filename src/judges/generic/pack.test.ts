@@ -331,6 +331,50 @@ describe('generic pack', () => {
     expect(genericScoring.score(older, {} as never, ctx.config).layers.adherence).toBe(1)
   })
 
+  it('asks what rests on the request alone once a grading, and gives every output of the case that answer', async () => {
+    const skill = '# Update\n\n## Rules\n\n- rule r1\n'
+    const rules = [{ id: 'r1', text: 'rule r1', section: 'Rules' }]
+    const once = new Map()
+    const graded = { ...ctx, once }
+    const sideAsks = () =>
+      ask.mock.calls.filter(([, questions]) => Object.hasOwn(questions, 'up:r1')).length
+    ask.mockImplementation(async (_state, questions) =>
+      Object.fromEntries(
+        Object.keys(questions).map((id) => [id, { noul: id === 'up:r1' ? 0.2 : 0.9 }]),
+      ),
+    )
+    try {
+      const first = await genericPack.judge(
+        output({ rules, skill, text: 'one', case: testCase() }),
+        graded,
+      )
+      const second = await genericPack.judge(
+        output({ rules, skill, text: 'two', case: testCase() }),
+        graded,
+      )
+      // Each output's rules are asked of it; the headings and whether a rule comes up, once.
+      expect(ask).toHaveBeenCalledTimes(3)
+      expect(sideAsks()).toBe(1)
+      expect(first?.adherence?.rules[0]).toMatchObject({ applies: 0.9, comesUp: 0.2 })
+      expect(second?.adherence?.rules).toEqual(first?.adherence?.rules)
+      // Another request is another answer.
+      await genericPack.judge(output({ rules, skill, case: testCase([], 'Thank Ana.') }), graded)
+      expect(sideAsks()).toBe(2)
+      // A request that failed is asked again by the next output, not failed for it too.
+      ask.mockRejectedValueOnce(new Error('network')).mockRejectedValueOnce(new Error('network'))
+      await expect(
+        genericPack.judge(output({ rules, skill, case: testCase([], 'Thank Bo.') }), graded),
+      ).rejects.toThrow('network')
+      await genericPack.judge(output({ rules, skill, case: testCase([], 'Thank Bo.') }), graded)
+      expect(sideAsks()).toBe(4)
+    } finally {
+      ask.mockReset()
+      ask.mockImplementation(async (_state, questions) =>
+        Object.fromEntries(Object.keys(questions).map((id) => [id, { noul: 0.12345 }])),
+      )
+    }
+  })
+
   it('quotes a rule or a check without backticks, which TypeSafe reads as a path into the state', async () => {
     const check = { ...grader('g1'), statement: 'The file is `output.md`, in **bold**.' }
     const rules = [{ id: 'r1', text: 'Write to `out/`.', section: 'bench.json rules' }]

@@ -11,6 +11,7 @@
  * once whether its rules are for this work at all. Counting happens in
  * score.ts.
  */
+import { createHash } from 'node:crypto'
 import { join } from 'node:path'
 import { fitForJev } from '@domain/image.ts'
 import { aboutLayout, layoutText } from '@domain/layout.ts'
@@ -505,6 +506,28 @@ async function askAll(
 }
 
 /**
+ * `questions` of `state` as `askAll` asks them, asked once a grading: every
+ * output of a case is held to the one answer, and that answer is paid for once.
+ * A request that failed is forgotten, so the next output asks again.
+ */
+function askOnce(
+  state: JevState,
+  questions: Record<string, Question>,
+  ctx: JudgeContext,
+): Promise<Record<string, unknown>> {
+  if (!ctx.once) return askAll(state, questions, ctx)
+  const key = createHash('sha256')
+    .update(JSON.stringify([ctx.jev.model, state, questions]))
+    .digest('hex')
+  const kept = ctx.once.get(key)
+  if (kept) return kept
+  const asking = askAll(state, questions, ctx)
+  ctx.once.set(key, asking)
+  asking.catch(() => ctx.once?.delete(key))
+  return asking
+}
+
+/**
  * Every rule of the skill and every check of the case, in one request: they
  * are independent questions over one state, so the output and its pictures are
  * sent, and paid for, once. A skill with more questions than one request holds
@@ -543,7 +566,8 @@ async function ask(
     {},
     ...(await Promise.all([
       askAll(work.state, questions, ctx),
-      ...(apart ? [askAll(headingState(work), { ...headings, ...ups }, ctx)] : []),
+      // The same for every output of the case: asked once a grading.
+      ...(apart ? [askOnce(headingState(work), { ...headings, ...ups }, ctx)] : []),
     ])),
   )
   const applies = new Map(

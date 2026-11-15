@@ -84,6 +84,28 @@ const genericJudge = () => {
   return vi.spyOn(pack, 'judge')
 }
 
+describe('gradeRun, asking what rests on the request once', () => {
+  it('asks whether each rule comes up once for the outputs of one case, and once for each other case', async () => {
+    const { dir, run } = skillWith(['email', 'memo'], ['email-s1', 'email-s2', 'memo-s1'])
+    vi.spyOn(Jev, 'available').mockReturnValue(true)
+    const ask = vi
+      .spyOn(Jev.prototype, 'ask')
+      .mockImplementation(async (_state, questions) =>
+        Object.fromEntries(Object.keys(questions).map((id) => [id, { noul: 0.9 } as never])),
+      )
+    await gradeRun(dir, run, { useJev: true, packs: ['generic'] })
+    const asked = ask.mock.calls.map(([state, questions]) => [
+      (state as { request: string }).request,
+      Object.keys(questions),
+    ])
+    expect(asked.filter(([, keys]) => keys.includes('rule:r1'))).toHaveLength(3)
+    expect(asked.filter(([, keys]) => keys.includes('up:r1'))).toEqual([
+      ['Write the email.', ['heading:0', 'up:r1']],
+      ['Write the memo.', ['heading:0', 'up:r1']],
+    ])
+  })
+})
+
 describe('gradeRun, on the case a run was asked', () => {
   /** Keep the skill's cases with the run, as a run does when it starts. */
   const keep = (dir: string, run: string) =>

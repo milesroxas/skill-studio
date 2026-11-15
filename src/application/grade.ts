@@ -901,6 +901,7 @@ async function gradeSubjects(
       log,
       signal: options.signal,
       run: commandRunner(options.signal),
+      once: new Map(),
     },
     cache: { old: readCache(join(dir, CACHE_FILE)), fresh: {} },
     pictures: new Map(),
