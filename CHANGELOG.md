@@ -6,6 +6,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [0.15.0] - 2026-11-15
+
 ### Added
 
 - **Recently deleted**, under the versions on the Skill screen. It lists the versions and runs you deleted in the last 30 days, each with **Undo**, so you can bring one back after the notice is gone or the app restarts.
