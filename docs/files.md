@@ -63,7 +63,7 @@ evals/runs/<date>-skill-<vN>-<engine>-<model>[-<effort>][-<configuration>]/
   _inputs/<case>/                 each case's input files as they were then, which grading reads its pictures and text files from
   _cases.json                     each case as it was then, with a fingerprint of what it asked: what the run is graded on once the case changes or goes (see grading.md)
   _checks/<case>/                 the pictures the case's checks were about then, under their paths in the skill: the run's copy of a check names its picture here
-  <case>-s<n>/                    one sample: the agent's working directory
+  <case>-s<n>/                    one sample: what its agent made, moved here when it ended (see below)
     prompt.md                     the exact prompt sent
     files/                        the case's input files
     .agents/skills/<name>/        the skill copy the agent saw, made from _skill/
@@ -74,9 +74,13 @@ evals/runs/<date>-skill-<vN>-<engine>-<model>[-<effort>][-<configuration>]/
     transcript.jsonl              one event per line: system, text, thinking, tool, result, error;
                                   a tool event holds a hash of its whole input (`call`)
     timing.json                   start, end, duration, cost, tokens, model
-    agent.json                    exit state, error, the agent's last message
+    agent.json                    the folder the agent worked in (`workdir`, under each name it goes by), written as it starts;
+                                  its exit state, error and last message once it ends
 ```
 
+- Each sample's agent works in a folder of its own under the system's temporary folder, `skill-studio-sample-<random>/<case>-s<n>/` (`makeWorkdir` in `src/infrastructure/workdir.ts`). Nothing above it belongs to the skill or the run, so no `CLAUDE.md` or `.claude/skills` of the skill's repository is read, nothing of the run (`_skill/`, `_cases.json`, `_checks/`, `_inputs/`) is reached by `..`, and its path does not say whether the skill is there. It holds `files/`, the skill copy, `outputs/` and `scratch/`; `prompt.md`, `transcript.jsonl`, `agent.json` and `timing.json` are written in the sample's own folder from the start.
+- When the agent ends, by itself, on a stop, on a failure or at its time limit, everything in its folder is moved into the sample's folder, copied when the two are on different disks, and the temporary folder is removed. A file the agent made with one of those four names stays out. What could not be moved stays where it was, and the log names it and the folder.
+- While the agent works, Results shows its outputs from its folder. After a crash, its files stay in the temporary folder `agent.json` names until the system clears it: Results shows them from there while they last, and grading leaves the sample out.
 - The date in a run's name is the day where you are, not the day in UTC. A second run that would take the same name gets `-2`, then `-3`.
 - An input file of an `evals.json` case goes into `_inputs/<case>/` and a sample's `files/` by its name alone. Two of one case's files with the same name both keep their whole path in the skill (`files/evals/files/a/data.csv`), so the agent gets both.
 - `run.json` lists a sample once its agent has ended. One the run was stopped on, or the app quit on, is marked `stopped`, whether it had written nothing or half a file. One whose agent did not run to its end with no stop is marked `failed` with why, in words: `ran out of time`, `could not start` or `ended with an error`, and `error` holds the CLI's own. Grading reads the samples listed and neither stopped nor failed: a folder the run never listed was made for an agent that was cut off. A run whose `run.json` has no `samples` list, or one of flat files, is graded whole.

@@ -6,17 +6,27 @@
  */
 import { readFileSync, statSync } from 'node:fs'
 import { join } from 'node:path'
+import { OUTPUTS_DIR } from '@domain/prompt.ts'
 import { parseSampleDir } from '@domain/run-name.ts'
-import type { Artifact, Case, Report, RunMeta, SampleFailure, SampleMeta } from '@domain/schemas.ts'
+import type {
+  Artifact,
+  Case,
+  Report,
+  RunMeta,
+  SampleFailure,
+  SampleMeta,
+  TranscriptEvent,
+} from '@domain/schemas.ts'
 import { metaList, metaText, readFrontMatter } from '@domain/text.ts'
 import type { FileHead, RunView, Sample, SkillVersions } from '@domain/views.ts'
 import { detectArtifacts } from './artifacts.ts'
 import { loadCases } from './cases.ts'
-import { assertInside, isDir, isFile, listDirs, listFiles, readJson } from './fs.ts'
+import { assertInside, isDir, isFile, listDirs, listFiles, present, readJson } from './fs.ts'
 import { readKept, runCases } from './run-cases.ts'
 import { skillFiles, skillIdentity, skillVersions } from './skill.ts'
 import { readTranscript } from './transcript.ts'
 import { isVersionLabel, savedVersionFile, savedVersionSource, savedVersions } from './versions.ts'
+import { asSamplePath, liveWorkdir, workdirsOf } from './workdir.ts'
 
 const runsDir = (skillDir: string): string => join(skillDir, 'evals/runs')
 export const anchorsDir = (skillDir: string): string => join(skillDir, 'evals/anchors')
@@ -28,12 +38,17 @@ export const skillCopy = (skillDir: string, run: string): string =>
 /**
  * A file of a sample. A legacy sample is a flat file at the run root, so its
  * name is the file. A link the agent left that leads out of the skill is refused.
+ * While the sample's agent works, its files are in its own folder
+ * (`liveWorkdir`), and one not in the sample yet is read from there, with a
+ * link that leads out of that folder refused.
  */
-export const sampleFile = (skillDir: string, run: string, sample: string, file: string): string =>
-  assertInside(
-    skillDir,
-    sample === file ? join(runDir(skillDir, run), file) : join(runDir(skillDir, run), sample, file),
-  )
+export function sampleFile(skillDir: string, run: string, sample: string, file: string): string {
+  if (sample === file) return assertInside(skillDir, join(runDir(skillDir, run), file))
+  const dir = join(runDir(skillDir, run), sample)
+  const own = assertInside(skillDir, join(dir, file))
+  const work = present(own) ? null : liveWorkdir(dir)
+  return work ? assertInside(work, join(work, file)) : own
+}
 
 export function readHead(path: string): FileHead {
   const { meta } = readFrontMatter(readFileSync(path, 'utf8'))
@@ -137,10 +152,12 @@ const readRaw = (dir: string): RawMeta | null =>
  * agent ended, those of them still there. A file put there since, such as one
  * a check command builds, is not something the agent wrote. A sample with no
  * record, one still being written or from a run that kept none, is every file
- * under `outputs/`.
+ * under `outputs/`: in the agent's own folder until they are moved into the sample.
  */
 function outputsOf(path: string, recorded: string[] | undefined): Artifact[] {
-  const found = detectArtifacts(path)
+  // While its agent works, a sample's outputs are in the agent's own folder, under the same paths.
+  const work = isDir(join(path, OUTPUTS_DIR)) ? null : liveWorkdir(path)
+  const found = detectArtifacts(work ?? path)
   if (!recorded) return found
   const wrote = new Set(recorded)
   return found.filter((artifact) => wrote.has(artifact.file))
@@ -373,4 +390,24 @@ export const runSkillFiles = (skillDir: string, run: string): Record<string, str
   skillFiles(skillCopy(skillDir, run))
 
 export const sampleTranscript = (skillDir: string, run: string, sample: string) =>
-  readTranscript(join(runDir(skillDir, run), sample, 'transcript.jsonl'))
+  readSampleTranscript(join(runDir(skillDir, run), sample))
+
+/**
+ * A sample's transcript, with the paths its agent named in its own folder
+ * read as the sample's: the agent worked under the system's temporary folder,
+ * and what it did there it did to what is now the sample. A transcript of an
+ * agent that worked in the sample itself is read as it is.
+ */
+export function readSampleTranscript(sampleDir: string): TranscriptEvent[] | null {
+  const events = readTranscript(join(sampleDir, 'transcript.jsonl'))
+  const workdirs = workdirsOf(sampleDir)
+  if (!events || !workdirs.length) return events
+  const placed = (text: string | undefined) =>
+    text === undefined ? undefined : asSamplePath(text, workdirs, sampleDir)
+  return events.map((event) => ({
+    ...event,
+    ...(event.args !== undefined ? { args: placed(event.args) } : {}),
+    ...(event.result !== undefined ? { result: placed(event.result) } : {}),
+    ...(event.text !== undefined ? { text: placed(event.text) } : {}),
+  }))
+}

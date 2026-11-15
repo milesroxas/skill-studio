@@ -434,7 +434,8 @@ function metricsOf(events: TranscriptEvent[], input: JudgeInput): WorkflowMetric
     if (writes.has(e)) seen.clear()
     if (identity !== null) seen.add(identity)
   }
-  // One shell runs the transcript's commands in order, from the sample directory.
+  // One shell runs the transcript's commands in order, from the sample directory: the transcript
+  // names the agent's own folder as the sample's (`readSampleTranscript`).
   const shell: ShellPlace = { cwd: input.dir, previous: undefined, stack: [] }
   const named = tools.flatMap(({ tool = '', args = '' }) => pathsIn(tool, args, input.dir, shell))
   const homes = sampleHomes(

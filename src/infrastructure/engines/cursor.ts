@@ -1,6 +1,6 @@
 /**
  * Cursor's agent CLI, headless: `cursor-agent -p --output-format stream-json`
- * in the sample directory. Tool calls arrive as `tool_call` events whose one
+ * in the agent's folder. Tool calls arrive as `tool_call` events whose one
  * key names the tool (`readToolCall`, `shellToolCall`...), so the parser reads
  * the key rather than a fixed list.
  */

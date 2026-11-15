@@ -2,7 +2,7 @@ import type { Tokens } from '@domain/schemas.ts'
 import type { TranscriptWriter } from '../transcript.ts'
 
 export interface EngineRequest {
-  /** The sample directory: the agent's working directory. */
+  /** The agent's working directory: a folder of the sample's own under the system's temporary folder. */
   cwd: string
   prompt: string
   model: string | null

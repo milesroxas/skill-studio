@@ -179,13 +179,13 @@ The shell (`App.tsx`) hands every screen one object, `Ctx` in `src/renderer/ctx.
 
 ## Engines
 
-An engine runs one agent CLI in a sample directory (`src/infrastructure/engines/`). A model or effort outside what an engine takes is refused before anything starts (`chosen` in `engines/stream.ts`).
+An engine runs one agent CLI in a folder of the sample's own under the system's temporary folder (`src/infrastructure/engines/`, `makeWorkdir` in `src/infrastructure/workdir.ts`), and what the agent made is moved into the sample when it ends ([files.md](files.md#a-run)). A model or effort outside what an engine takes is refused before anything starts (`chosen` in `engines/stream.ts`).
 
 ### claude
 
 - Command: `claude -p --output-format stream-json --verbose --no-session-persistence --strict-mcp-config --setting-sources project --permission-mode acceptEdits`.
 - `--allowedTools` comes from the case's `allowed_tools` (by default Read, Write, Edit, Glob, Grep and Bash).
-- Only the sample directory's own settings load, so the machine's skills, `CLAUDE.md` and MCP servers stay out of the run.
+- `--setting-sources project` keeps the user's settings out, and with them the user's skills and `~/.claude/CLAUDE.md`; `--strict-mcp-config` keeps every MCP server out. Neither stops the CLI reading a `CLAUDE.md` from each folder above the one it starts in, or skills from each `.claude/skills` above it up to the nearest git root: the agent's folder has nothing above it, so those are none. The skills the CLI ships with itself still load. Checked live on 2026-11-15: a marked `CLAUDE.md` and a marked skill above the agent's folder came back, and with the folder under the temporary one neither they nor the user's own did.
 - The environment is the backend's less three things (`agentEnv` in `src/infrastructure/env.ts`): variables starting with `CLAUDECODE`, so a run works from inside a Claude Code session; `TYPESAFE_API_KEY`; and every `SKILL_STUDIO_*` variable, so an agent with Bash never sees the app's keys. The assistant's CLIs get the same environment.
 - Models offered: sonnet, opus, haiku, fable, and default (the CLI's own, with no `--model` flag). Any other name is passed on too, such as its aliases (`opusplan`), full ids (`claude-…[1m]`) and Bedrock and Vertex ids, as long as it is one argument: 1 to 120 letters, digits and `. _ - : @ [ ] /`, starting with a letter or a digit. The CLI says itself when it has no such model.
 - Efforts: low to max.
@@ -200,7 +200,7 @@ An engine runs one agent CLI in a sample directory (`src/infrastructure/engines/
 - The CLI has no setting-source switch, so a run sees the user's `~/.cursor/skills`.
 - This adapter has not been run against a live account.
 
-Isolation is by convention. The skill copy omits `evals/` and the prompt forbids reading outside the sample directory, but nothing stops an agent that follows an absolute path.
+Isolation is by place and by convention. The agent's folder has nothing of the skill or the run above it, and the skill copy omits `evals/`. The prompt forbids reading outside the folder, but nothing stops an agent that follows an absolute path, or `../..` to the temporary folder, where the folders of other samples being written at the same time sit.
 
 ## The assistant
 

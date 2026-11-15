@@ -47,11 +47,11 @@ import {
   finishedSamples,
   readHead,
   readRunMeta,
+  readSampleTranscript,
   runDir,
   runSamples,
   skillCopy,
 } from '@infrastructure/runs.ts'
-import { readTranscript } from '@infrastructure/transcript.ts'
 import { readForJev, requestImages } from '@judges/images.ts'
 import { packById, packVersions } from '@judges/index.ts'
 import { Jev } from '@judges/jev.ts'
@@ -616,7 +616,7 @@ function judgeInput(
     primary,
     others: sample.legacy ? [] : othersOf(sample, primary, raw),
     notes: sample.legacy ? null : notesOf(sample.path),
-    transcript: readTranscript(join(sample.path, 'transcript.jsonl')),
+    transcript: readSampleTranscript(sample.path),
     dir: sample.path,
     renders: [],
   }

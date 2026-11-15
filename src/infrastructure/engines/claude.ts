@@ -1,7 +1,13 @@
 /**
- * Claude Code, headless: `claude -p` in the sample directory with the prompt
- * on stdin and `stream-json` on stdout. Only project settings load, so the
- * machine's own skills, CLAUDE.md and MCP servers stay out of the benchmark.
+ * Claude Code, headless: `claude -p` in the agent's folder with the prompt on
+ * stdin and `stream-json` on stdout. `--setting-sources project` keeps the
+ * user's own settings out, and with them the user's skills and
+ * `~/.claude/CLAUDE.md`; `--strict-mcp-config` keeps every MCP server out. It
+ * does not stop the CLI reading a `CLAUDE.md` from each folder above the one it
+ * starts in, or skills from each `.claude/skills` above it up to the nearest
+ * git root: the agent's folder is one under the system's temporary folder with
+ * nothing above it (`makeWorkdir`), so those are none. The skills the CLI
+ * ships with itself still load, the same for every run.
  */
 import { type ClaudeUsage, claudePrintArgs, claudeTokens } from '../claude-cli.ts'
 import { agentEnv } from '../env.ts'
@@ -78,7 +84,7 @@ export const claudeEngine: Engine = {
   harness: 'agent',
   efforts: ['default', 'low', 'medium', 'high', 'xhigh', 'max'],
   defaultModel: 'sonnet',
-  hint: 'Install Claude Code and log in: the tool runs `claude -p` in each sample directory.',
+  hint: 'Install Claude Code and log in: the tool runs `claude -p` once for each output.',
   available: () => hasCommand('claude'),
   models: async () => MODELS,
   async run(request) {

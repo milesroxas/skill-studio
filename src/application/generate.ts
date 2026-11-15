@@ -1,9 +1,11 @@
 /**
- * Generate a run: one sample directory per case and sample, each the working
- * directory of a headless agent session. The agent sees a copy of the skill
- * (or none, or an older snapshot), the case's input files and the prompt;
- * it writes under `outputs/` and the harness records the transcript, timing
- * and cost beside them.
+ * Generate a run: one sample directory per case and sample, each what one
+ * headless agent session made. The agent works in a folder of its own under
+ * the system's temporary folder (`makeWorkdir`), where it sees a copy of the
+ * skill (or none, or an older snapshot), the case's input files and the
+ * prompt; it writes under `outputs/`, and when it ends everything it made is
+ * moved into the sample's directory, where the harness has kept the prompt,
+ * the transcript, timing and cost from the start.
  *
  * The skill, the cases and their input files are copied into the run once, as
  * it starts, and every sample is made from those copies. An edit, a save or a
@@ -11,7 +13,7 @@
  * samples answer to the one skill text its version names, and each case's
  * outputs to the one prompt the run kept.
  */
-import { copyFileSync, existsSync, mkdirSync, writeFileSync } from 'node:fs'
+import { copyFileSync, existsSync, lstatSync, mkdirSync, rmSync, writeFileSync } from 'node:fs'
 import { basename, dirname, join, relative } from 'node:path'
 import { agentPrompt, OUTPUTS_DIR, SCRATCH_DIR } from '@domain/prompt.ts'
 import { runName, sampleDir } from '@domain/run-name.ts'
@@ -34,6 +36,7 @@ import {
   copyTree,
   isFile,
   linkDir,
+  present,
   today,
   treeFiles,
   writeJson,
@@ -43,6 +46,7 @@ import { readRunMeta, runDir, skillCopy, versionCopy, versionsOf } from '@infras
 import { skillHead, skillInfo, snapshotSkill } from '@infrastructure/skill.ts'
 import { TranscriptWriter } from '@infrastructure/transcript.ts'
 import { isVersionLabel } from '@infrastructure/versions.ts'
+import { AGENT_FILE, makeWorkdir, moveWork } from '@infrastructure/workdir.ts'
 
 /** One sample of a long task; longer means the session is stuck. */
 const SAMPLE_TIMEOUT_MS = 20 * 60 * 1000
@@ -156,12 +160,23 @@ function freshRunName(skillDir: string, base: string): string {
 function placeSkill(sampleDir: string, source: string, folder: string): string {
   const rel = `.agents/skills/${folder}`
   snapshotSkill(source, join(sampleDir, rel))
-  for (const alias of ['.claude', '.cursor']) {
-    mkdirSync(join(sampleDir, alias), { recursive: true })
-    const link = join(sampleDir, alias, 'skills')
-    if (!existsSync(link)) linkDir('../.agents/skills', link)
-  }
+  linkSkillAliases(sampleDir)
   return rel
+}
+
+/** `.claude/skills` and `.cursor/skills` in a sample, each a link to its `.agents/skills`, made again when one is there. */
+function linkSkillAliases(sampleDir: string): void {
+  if (!existsSync(join(sampleDir, '.agents/skills'))) return
+  for (const alias of ['.claude', '.cursor']) {
+    const link = join(sampleDir, alias, 'skills')
+    try {
+      // Only a link is replaced: a folder the agent made there is its own.
+      if (present(link) && !lstatSync(link).isSymbolicLink()) continue
+      rmSync(link, { force: true })
+      mkdirSync(join(sampleDir, alias), { recursive: true })
+      linkDir('../.agents/skills', link)
+    } catch {}
+  }
 }
 
 /**
@@ -425,18 +440,42 @@ async function generateSample(
 ): Promise<SampleMeta> {
   const name = sampleDir(testCase.id, index)
   const dir = join(options.runDir, name)
-  mkdirSync(join(dir, OUTPUTS_DIR), { recursive: true })
-  mkdirSync(join(dir, SCRATCH_DIR), { recursive: true })
+  mkdirSync(dir, { recursive: true })
+  // The agent works away from the skill, with nothing above it an agent reads,
+  // and what it made is moved into the run when it ends, however it ends.
+  const work = makeWorkdir(name)
+  writeJson(join(dir, AGENT_FILE), { workdir: work.paths })
+  try {
+    return await runSample(testCase, index, options, dir, work)
+  } finally {
+    const left = moveWork(work.dir, dir)
+    if (left.length) options.log(`${name}: ${left.join('; ')}; the rest is in ${work.dir}`)
+    // A link to the skill is made by its full path on Windows, so it is made again where it now sits.
+    if (options.skillSource) linkSkillAliases(dir)
+  }
+}
+
+async function runSample(
+  testCase: Case,
+  index: number,
+  options: SampleOptions,
+  dir: string,
+  work: { dir: string; paths: string[] },
+): Promise<SampleMeta> {
+  const name = sampleDir(testCase.id, index)
+  const cwd = work.dir
+  mkdirSync(join(cwd, OUTPUTS_DIR), { recursive: true })
+  mkdirSync(join(cwd, SCRATCH_DIR), { recursive: true })
   const staged = join(options.runDir, INPUTS_DIR, testCase.id)
   const files: string[] = []
   for (const { rel, real } of treeFiles(staged, { hidden: true })) {
-    const dest = join(dir, 'files', rel)
+    const dest = join(cwd, 'files', rel)
     mkdirSync(dirname(dest), { recursive: true })
     copyFileSync(real, dest)
     files.push(`files/${rel}`)
   }
   const skillRel = options.skillSource
-    ? placeSkill(dir, options.skillSource, options.skillFolder)
+    ? placeSkill(cwd, options.skillSource, options.skillFolder)
     : null
   const prompt = agentPrompt({
     skillName: options.skillName,
@@ -451,7 +490,7 @@ async function generateSample(
   const transcript = new TranscriptWriter(join(dir, 'transcript.jsonl'))
   const startedAt = new Date()
   const result = await options.engine.run({
-    cwd: dir,
+    cwd,
     prompt,
     model: options.model,
     effort: options.effort,
@@ -476,13 +515,15 @@ async function generateSample(
     model: result.model,
   }
   writeJson(join(dir, 'timing.json'), timing)
-  writeJson(join(dir, 'agent.json'), {
+  writeJson(join(dir, AGENT_FILE), {
+    workdir: work.paths,
     ok: result.ok,
     error: result.error,
     finalText: result.finalText,
   })
   const counts = transcript.counts()
-  const outputs = outputsIn(dir)
+  // The agent's folder holds them until they are moved, under the same paths.
+  const outputs = outputsIn(cwd)
   const ok = outputs.length > 0
   // Its agent was still going when the stop or the quit came, so that is what ended it:
   // what it left, nothing or half a file, is not the skill's doing.

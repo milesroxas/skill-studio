@@ -4,17 +4,30 @@ import {
   mkdtempSync,
   readdirSync,
   readFileSync,
+  realpathSync,
   rmSync,
   writeFileSync,
 } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { dirname, join } from 'node:path'
+import { mergeConfig } from '@domain/config.ts'
+import { isWithin } from '@domain/paths.ts'
 import { loadCases } from '@infrastructure/cases.ts'
 import type { Engine } from '@infrastructure/engines/index.ts'
-import type { EngineResult } from '@infrastructure/engines/types.ts'
+import type { EngineRequest, EngineResult } from '@infrastructure/engines/types.ts'
 import { readJson } from '@infrastructure/fs.ts'
-import { finishedSamples, readRun, versionsOf } from '@infrastructure/runs.ts'
+import {
+  finishedSamples,
+  readRun,
+  readSampleTranscript,
+  runSamples,
+  sampleFile,
+  versionsOf,
+} from '@infrastructure/runs.ts'
 import { saveVersion } from '@infrastructure/versions.ts'
+import { packById } from '@judges/index.ts'
+import { Jev } from '@judges/jev.ts'
+import { workflowScoring } from '@judges/workflow/score.ts'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { generateRun, INPUTS_DIR, samplesPerCase, stagedInput, stagedInputs } from './generate.ts'
 
@@ -45,11 +58,13 @@ const ENDED: EngineResult = {
 }
 
 /**
- * An engine that does `act` in each sample folder in place of an agent, and
+ * An engine that does `act` in each agent's folder in place of an agent, and
  * counts its sessions. What `act` returns is laid over a session that ended
  * well by itself.
  */
-function engineThat(act: (cwd: string, call: number) => unknown): Engine & { calls: number } {
+function engineThat(
+  act: (cwd: string, call: number, request: EngineRequest) => unknown,
+): Engine & { calls: number } {
   const engine: Engine & { calls: number } = {
     calls: 0,
     id: 'fake',
@@ -62,7 +77,7 @@ function engineThat(act: (cwd: string, call: number) => unknown): Engine & { cal
     models: async () => ['small'],
     run: async (request) => {
       engine.calls += 1
-      const how = act(request.cwd, engine.calls)
+      const how = act(request.cwd, engine.calls, request)
       return { ...ENDED, ...(how && typeof how === 'object' ? how : {}) }
     },
   }
@@ -94,9 +109,9 @@ describe('generateRun', () => {
   it('gives the agent a folder among the input files as it is laid out, and names its files', async () => {
     let seen = ''
     let prompt = ''
-    const engine = engineThat((cwd) => {
+    const engine = engineThat((cwd, _call, request) => {
       seen = readFileSync(join(cwd, 'files/screen/Bookings.tsx'), 'utf8')
-      prompt = readFileSync(join(cwd, 'prompt.md'), 'utf8')
+      prompt = request.prompt
       writeFileSync(join(cwd, 'outputs/note.md'), 'A note.')
     })
     await generateRun(options(engine, 1))
@@ -107,10 +122,10 @@ describe('generateRun', () => {
   it('gives each sample its own folder for working files, and has the prompt name it', async () => {
     const seen: string[] = []
     let prompt = ''
-    const engine = engineThat((cwd) => {
+    const engine = engineThat((cwd, _call, request) => {
       seen.push(...readdirSync(join(cwd, 'scratch')))
       writeFileSync(join(cwd, 'scratch/probe.py'), 'print(1)')
-      prompt = readFileSync(join(cwd, 'prompt.md'), 'utf8')
+      prompt = request.prompt
       writeFileSync(join(cwd, 'outputs/note.md'), 'A note.')
     })
     const { meta } = await generateRun(options(engine, 2))
@@ -194,24 +209,41 @@ describe('generateRun', () => {
 
   it('names the skill folder in a sample by a slug, whatever the front matter says', async () => {
     writeFileSync(join(skill, 'SKILL.md'), '---\nname: ../../Escape Me\n---\n\n- Keep it short.\n')
-    let cwd = ''
-    const engine = engineThat((dir) => {
-      cwd = dir
+    let found: string[] = []
+    const engine = engineThat((cwd) => {
+      found = readdirSync(join(cwd, '.agents/skills'))
     })
-    await generateRun(options(engine, 1))
-    expect(existsSync(join(cwd, '.agents/skills/escape-me/SKILL.md'))).toBe(true)
-    expect(existsSync(join(cwd, '.agents/Escape Me'))).toBe(false)
+    const { dir } = await generateRun(options(engine, 1))
+    expect(found).toEqual(['escape-me'])
+    expect(existsSync(join(dir, 'note-s1/.agents/skills/escape-me/SKILL.md'))).toBe(true)
+    expect(existsSync(join(dir, 'note-s1/.agents/Escape Me'))).toBe(false)
   })
 
   it('stops every worker when the run can no longer be recorded, and says why', async () => {
+    let named = ''
+    let work = ''
+    const log: string[] = []
     const engine = engineThat((cwd) => {
+      work = cwd
       // The run's folder goes while its first sample is being written.
-      const run = join(cwd, '..')
+      const run = join(skill, 'evals/runs', named)
       rmSync(run, { recursive: true, force: true })
       writeFileSync(run, 'not a folder')
     })
-    await expect(generateRun(options(engine, 4))).rejects.toThrow('could not be written to')
+    await expect(
+      generateRun({
+        ...options(engine, 4),
+        log: (line) => log.push(line),
+        onNamed: (name) => {
+          named = name
+        },
+      }),
+    ).rejects.toThrow('could not be written to')
     expect(engine.calls).toBe(1)
+    // With nowhere to move it to, the agent's work stays where it is, and the log says where.
+    expect(log.join('\n')).toContain(`the rest is in ${work}`)
+    expect(existsSync(work)).toBe(true)
+    rmSync(dirname(work), { recursive: true, force: true })
   })
 
   it('takes no sample once the job is stopped, and records the run as ended', async () => {
@@ -337,11 +369,11 @@ describe('generateRun', () => {
     let seen: string[] = []
     let prompt = ''
     let secret = true
-    const engine = engineThat((cwd) => {
+    const engine = engineThat((cwd, _call, request) => {
       seen = ['files/.eslintrc.json', 'files/.github/ci.yml'].map((file) =>
         readFileSync(join(cwd, file), 'utf8'),
       )
-      prompt = readFileSync(join(cwd, 'prompt.md'), 'utf8')
+      prompt = request.prompt
       secret = existsSync(join(cwd, '.agents/skills/notes-skill/.secret'))
     })
     const { dir } = await generateRun(options(engine, 1))
@@ -365,8 +397,8 @@ describe('generateRun', () => {
     const tables = loadCases(skill).filter((c) => c.id === '7-tables')
     let prompt = ''
     const seen: string[] = []
-    const engine = engineThat((cwd) => {
-      prompt = readFileSync(join(cwd, 'prompt.md'), 'utf8')
+    const engine = engineThat((cwd, _call, request) => {
+      prompt = request.prompt
       for (const from of ['a', 'b'])
         seen.push(readFileSync(join(cwd, 'files/evals/files', from, 'data.csv'), 'utf8'))
       seen.push(readFileSync(join(cwd, 'files/only.txt'), 'utf8'))
@@ -412,8 +444,8 @@ describe('generateRun', () => {
     saveVersion(skill, versionsOf(skill).current, 'Short notes', '')
     writeFileSync(join(skill, 'SKILL.md'), '---\nname: Memo Skill\n---\n\n- Keep it long.\n')
     const seen: Record<string, string> = {}
-    const engine = engineThat((cwd) => {
-      seen.prompt = readFileSync(join(cwd, 'prompt.md'), 'utf8')
+    const engine = engineThat((cwd, _call, request) => {
+      seen.prompt = request.prompt
       seen.skill = readFileSync(join(cwd, '.agents/skills/notes-skill/SKILL.md'), 'utf8')
     })
     await generateRun({ ...options(engine, 1), configuration: 'old_skill', baseline: 'v0' })
@@ -496,5 +528,149 @@ describe('generateRun', () => {
       }),
     ).rejects.toThrow('Bad run.')
     expect(engine.calls).toBe(0)
+  })
+})
+
+describe('the folder an agent works in', () => {
+  /** Every folder above `dir`, nearest first. */
+  const above = (dir: string): string[] => {
+    const out: string[] = []
+    for (let at = dirname(dir); at !== dirname(at); at = dirname(at)) out.push(at)
+    return out
+  }
+
+  it('has nothing of the skill or the run above it or beside it, and its work lands in the run', async () => {
+    // What an agent CLI reads from the folders above it, marked, where a skill in a repository keeps it.
+    writeFileSync(join(skill, 'CLAUDE.md'), 'MARKED: the repository’s instructions')
+    mkdirSync(join(skill, '.claude/skills/marked'), { recursive: true })
+    writeFileSync(join(skill, '.claude/skills/marked/SKILL.md'), '---\nname: marked\n---\n')
+    mkdirSync(join(skill, '.git'))
+    let seen: { cwd: string; parents: string[]; beside: string[]; reached: string[] } | null = null
+    const engine = engineThat((cwd) => {
+      seen = {
+        cwd,
+        parents: above(cwd),
+        beside: readdirSync(join(cwd, '..')),
+        reached: ['../_skill', '../_cases.json', '../_inputs', '../_checks', '../run.json']
+          .flatMap((rel) => [rel, `../${rel}`, `../../${rel}`])
+          .filter((rel) => existsSync(join(cwd, rel))),
+      }
+      writeFileSync(join(cwd, 'outputs/note.md'), 'A note.')
+      writeFileSync(join(cwd, 'notes.md'), 'Chose short.')
+    })
+    const { dir } = await generateRun(options(engine, 1))
+    if (!seen) throw new Error('the agent never ran')
+    const { cwd, parents, beside, reached } = seen as NonNullable<typeof seen>
+    for (const parent of [cwd, ...parents])
+      for (const owner of [skill, realpathSync(skill)]) expect(isWithin(parent, owner)).toBe(false)
+    expect(beside).toEqual(['note-s1'])
+    expect(reached).toEqual([])
+    // Its work is in the run, and the folder made for it is gone.
+    expect(readFileSync(join(dir, 'note-s1/outputs/note.md'), 'utf8')).toBe('A note.')
+    expect(readFileSync(join(dir, 'note-s1/notes.md'), 'utf8')).toBe('Chose short.')
+    expect(existsSync(join(dir, 'note-s1/prompt.md'))).toBe(true)
+    expect(existsSync(join(dir, 'note-s1/.agents/skills/notes-skill/SKILL.md'))).toBe(true)
+    expect(existsSync(dirname(cwd))).toBe(false)
+    const { name } = readJson<{ name: string }>(join(dir, 'run.json'), { name: '' })
+    expect(readRun(skill, name).samples[0].artifacts).toEqual([
+      { file: 'outputs/note.md', kind: 'markdown' },
+    ])
+  })
+
+  it('names nothing of the run or of whether the skill is there', async () => {
+    const cwds: string[] = []
+    const engine = engineThat((cwd) => {
+      cwds.push(cwd)
+    })
+    await generateRun({ ...options(engine, 1), configuration: 'without_skill' })
+    await generateRun(options(engine, 1))
+    for (const cwd of cwds) {
+      expect(cwd).not.toMatch(/with_skill|without_skill|evals|runs/)
+      expect(cwd.split(/[\\/]/).at(-1)).toBe('note-s1')
+    }
+  })
+
+  it('shows what the agent writes while it works, from its own folder', async () => {
+    let named = ''
+    let live: { files: string[]; served: string } | null = null
+    const engine = engineThat((cwd) => {
+      writeFileSync(join(cwd, 'outputs/note.md'), 'Half a no')
+      const run = join(skill, 'evals/runs', named)
+      live = {
+        files: runSamples(run)[0].artifacts.map((a) => a.file),
+        served: readFileSync(sampleFile(skill, named, 'note-s1', 'outputs/note.md'), 'utf8'),
+      }
+      expect(() => sampleFile(skill, named, 'note-s1', '../../escape.md')).toThrow()
+    })
+    await generateRun({
+      ...options(engine, 1),
+      onNamed: (name) => {
+        named = name
+      },
+    })
+    expect(live).toEqual({ files: ['outputs/note.md'], served: 'Half a no' })
+  })
+
+  it('moves the work in and removes the folder when the run is stopped or the agent throws', async () => {
+    const stop = new AbortController()
+    const cwds: string[] = []
+    const engine = engineThat((cwd, call) => {
+      cwds.push(cwd)
+      writeFileSync(join(cwd, 'outputs/note.md'), 'Half a no')
+      if (call === 1) {
+        stop.abort()
+        return { ok: false, error: 'stopped' }
+      }
+      throw new Error('the CLI broke')
+    })
+    const first = await generateRun({ ...options(engine, 1), signal: stop.signal })
+    const second = await generateRun(options(engine, 1))
+    for (const { dir } of [first, second])
+      expect(readFileSync(join(dir, 'note-s1/outputs/note.md'), 'utf8')).toBe('Half a no')
+    for (const cwd of cwds) expect(existsSync(dirname(cwd))).toBe(false)
+    expect(second.meta.samples[0]).toMatchObject({
+      failed: 'could not start',
+      outputs: ['outputs/note.md'],
+    })
+  })
+
+  it('judges the paths the agent used in its own folder as inside the sample', async () => {
+    const engine = engineThat((cwd, _call, request) => {
+      request.transcript.toolStart('1', 'Bash', { command: `cat ${cwd}/files/input.txt` })
+      request.transcript.toolEnd('1', 'first input')
+      request.transcript.toolStart('2', 'Bash', { command: 'cat ../_cases.json' })
+      request.transcript.toolEnd('2', '')
+      writeFileSync(join(cwd, 'outputs/note.md'), 'A note.')
+    })
+    const { dir } = await generateRun(options(engine, 1))
+    const sample = join(dir, 'note-s1')
+    const transcript = readSampleTranscript(sample)
+    expect(transcript?.find((e) => e.kind === 'tool')?.args).toBe(`cat ${sample}/files/input.txt`)
+    const raw = await packById('workflow')?.judge(
+      {
+        text: '',
+        units: [],
+        case: null,
+        images: [],
+        rules: [],
+        artifacts: [{ file: 'outputs/note.md', kind: 'markdown' }],
+        primary: null,
+        others: [],
+        skill: null,
+        notes: null,
+        transcript,
+        dir: sample,
+        renders: [],
+      },
+      {
+        jev: new Jev(),
+        useJev: false,
+        config: mergeConfig({ packs: ['workflow'] }, [workflowScoring]),
+        skillDir: skill,
+        log: () => {},
+      },
+    )
+    const outside = (raw as { metrics: { outside: string[] } }).metrics.outside
+    expect(outside).toEqual(['../_cases.json'])
   })
 })
