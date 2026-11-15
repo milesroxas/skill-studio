@@ -747,6 +747,9 @@ function Side({
       ) : null}
       {before ? <Hint inset>Written for this case before its prompt or files changed.</Hint> : null}
       {answersApart ? <Hint inset>{unsharedLine('outputs')}</Hint> : null}
+      {scored && output.primary && output.sample.artifacts.length > 1 ? (
+        <Hint inset>The score is for {output.primary.file.replace(/^outputs\//, '')}.</Hint>
+      ) : null}
       {scored && outputRulesUnmarked(output) ? (
         <Hint inset>
           Graded before rules and checks were marked on this kind of output. Regrade to see them.

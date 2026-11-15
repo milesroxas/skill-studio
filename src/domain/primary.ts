@@ -41,6 +41,21 @@ function firstOf(artifacts: readonly Artifact[], kind: ArtifactKind): Artifact |
   return best
 }
 
+const escaped = (text: string): string => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+
+/**
+ * True when `prompt` names the file by its name or its path under the
+ * outputs folder, as a word of its own: "Save it as post.md" names
+ * `outputs/post.md`, and not `outputs/my-post.md`.
+ */
+function namedIn(prompt: string, file: string): boolean {
+  const inside = file.replace(new RegExp(`^${OUTPUTS_DIR}/`), '')
+  const base = inside.slice(inside.lastIndexOf('/') + 1)
+  return [file, inside, base].some((name) =>
+    new RegExp(`(?:^|[^\\w./-])${escaped(name)}(?![\\w/-]|\\.\\w)`, 'i').test(prompt),
+  )
+}
+
 /**
  * The artifact the packs judge: the case's kind when it names one; else a
  * page, a picture or code when a pack of the skill judges that kind; else
@@ -48,22 +63,32 @@ function firstOf(artifacts: readonly Artifact[], kind: ArtifactKind): Artifact |
  * file. The order of the skill's packs does not matter. A page and its
  * script, `index.html` and `app.js`, are judged as the page, whatever the
  * skill is graded as.
+ *
+ * A file the case's `prompt` names comes before the rest: of the case's kind
+ * when it names one, else of any kind, by the same order among them. So
+ * "Write the post to post.md" grades `post.md` over `notes.md` beside it.
  */
 export function primaryArtifact(
   artifacts: readonly Artifact[],
   preferred: ArtifactKind | undefined,
   judged: readonly ArtifactKind[] = [],
+  prompt = '',
 ): Artifact | null {
+  const named = prompt ? artifacts.filter((artifact) => namedIn(prompt, artifact.file)) : []
+  if (preferred) {
+    const match = firstOf(named, preferred) ?? firstOf(artifacts, preferred)
+    if (match) return match
+  }
   const kinds = [
-    ...(preferred ? [preferred] : []),
     ...PARTICULAR.filter((kind) => judged.includes(kind)),
     'markdown' as const,
     ...PARTICULAR,
   ]
-  for (const kind of kinds) {
-    const match = firstOf(artifacts, kind)
-    if (match) return match
-  }
+  for (const pool of [named, artifacts])
+    for (const kind of kinds) {
+      const match = firstOf(pool, kind)
+      if (match) return match
+    }
   return artifacts[0] ?? null
 }
 

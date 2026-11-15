@@ -161,7 +161,7 @@ When you know what a good answer looks like, open the case again and add:
 - **A good answer:** a sentence or two describing it.
 - **Length:** the fewest and most words an answer may have.
 
-Some answers come as two files: a page, and a picture made from it. After a first run of such a case, **File to grade** appears at the top of these, with the two files by name. Pick the one you would use: only that file is graded.
+Some answers come as two files: a page, and a picture made from it. After a first run of such a case, **File to grade** appears at the top of these, with the two files by name. Pick the one you would use: only that file is graded. An answer of several other files is graded on the one the prompt names, such as `post.md` in "Write the post to post.md", and Results says which file the score is for.
 
 The bars at the top of a case show its **run size**, from small to very large: a larger run takes longer and costs more. Pictures, files and an answer that is a page or a picture add the most. Checks add almost nothing, so write as many as the answer needs. Point at the bars to see what adds to the size, and what the last run of the case cost.
 

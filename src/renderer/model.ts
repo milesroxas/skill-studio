@@ -178,7 +178,7 @@ function outputOf(
     cut,
     corrections: state.reviews.reviews[key]?.corrections ?? NO_CORRECTIONS,
     // The file graded, else the one grading would judge.
-    primary: result?.primary ?? primaryArtifact(sample.artifacts, preferred, judged),
+    primary: result?.primary ?? primaryArtifact(sample.artifacts, preferred, judged, asked?.prompt),
     ask: taken?.ask ?? '',
     earlier: taken?.earlier ?? null,
     judged: Boolean(run.report?.model),

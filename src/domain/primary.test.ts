@@ -8,6 +8,37 @@ const code = (file: string): Artifact => ({ file: `outputs/${file}`, kind: 'code
 const picture = (file: string): Artifact => ({ file: `outputs/${file}`, kind: 'image' })
 
 describe('primaryArtifact', () => {
+  it('takes a file the case’s prompt names over today’s order, and the case’s kind over both', () => {
+    const files = [md('notes.md'), md('post.md')]
+    expect(primaryArtifact(files, undefined)).toEqual(md('notes.md'))
+    expect(primaryArtifact(files, undefined, [], 'Write the launch post to post.md.')).toEqual(
+      md('post.md'),
+    )
+    expect(primaryArtifact(files, undefined, [], 'Save it as outputs/post.md')).toEqual(
+      md('post.md'),
+    )
+    // A name inside another name is not that file.
+    expect(primaryArtifact(files, undefined, [], 'Read my-post.md and post.md.bak')).toEqual(
+      md('notes.md'),
+    )
+    // Named in the prompt, it stands before a page a pack judges.
+    expect(
+      primaryArtifact([page('index.html'), md('post.md')], undefined, ['html'], 'Write post.md'),
+    ).toEqual(md('post.md'))
+    // The case's kind stands first: a named file of another kind does not take its place.
+    expect(
+      primaryArtifact([page('index.html'), md('post.md')], 'html', ['html'], 'Write post.md'),
+    ).toEqual(page('index.html'))
+    expect(
+      primaryArtifact(
+        [page('index.html'), page('card.html'), md('post.md')],
+        'html',
+        [],
+        'Build card.html',
+      ),
+    ).toEqual(page('card.html'))
+  })
+
   it('takes the case’s kind first', () => {
     expect(primaryArtifact([code('app.js'), page('index.html')], 'html')).toEqual(
       page('index.html'),

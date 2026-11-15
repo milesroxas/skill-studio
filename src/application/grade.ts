@@ -590,6 +590,7 @@ function judgeInput(
     sample.artifacts,
     testCase?.bench.artifact,
     ctx.packs.flatMap((pack) => pack.artifacts),
+    testCase?.prompt,
   )
   const raw =
     primary && primary.kind !== 'image' && primary.kind !== 'other'

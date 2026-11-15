@@ -11,14 +11,15 @@ This page uses the words of the files. A **pack** is a set of judge questions fo
 - A `packs` list that leaves `generic` out still has it (`BASE_PACK` in `src/domain/config.ts`).
 - The generic and workflow packs run on every sample. The code pack runs on every sample that has a folder of its own, whichever file is judged, and says something only where the case names a check command. The design pack runs when the sample's primary artifact is a page or a picture (`applies` in `src/application/grade.ts`).
 - The primary artifact (`primaryArtifact` in `src/domain/primary.ts`) is the first match of:
-  1. an output of the case's `bench.artifact` kind, which **File to grade** on Cases sets to `html` or `image` for a case whose answers came as both a page and a picture;
-  2. a page, a picture or code, in that order, when one of the skill's packs judges that kind;
-  3. Markdown;
-  4. a page, a picture or code, in that order;
-  5. the first output of any kind, a file Jev cannot read (`other`) among them.
+  1. an output of the case's `bench.artifact` kind, which **File to grade** on Cases sets to `html` or `image` for a case whose answers came as both a page and a picture, one the case's prompt names first;
+  2. an output the case's prompt names, by its name or its path under `outputs/` ("Write the post to post.md"), by the order below when it names more than one;
+  3. a page, a picture or code, in that order, when one of the skill's packs judges that kind;
+  4. Markdown;
+  5. a page, a picture or code, in that order;
+  6. the first output of any kind, a file Jev cannot read (`other`) among them.
 - The order the skill lists its packs in does not matter.
 - Among files of one kind, `index.html` or `preview.html` comes first, then `outputs/output.*`, the file the run's prompt names for the piece, then the rest by name, and a `.txt` file and a `README` last. So a page beside its script is judged as the page, and a post beside its notes as the post.
-- Results opens the same file on an output not graded yet.
+- Results opens the same file on an output not graded yet, and under a graded output that wrote more than one file says which one its score is for.
 
 ## Answers and scores
 

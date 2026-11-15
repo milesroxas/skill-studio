@@ -252,6 +252,7 @@ An `OutputCard` says only what tells it from the other side, or what went wrong.
 - One `action` ends the meta's line, or stands beside the total when there is no meta, only when it is the next step: **Grade** on an output with no score, `ghost-muted` at `xs`. It reads "Grading…" on any card while its run is graded.
 - A `Hint inset` under the head says why a graded output has no score, one line each: "Graded before its case changed, so it has no score." A grading that failed is listed under **Missed** as before.
 - The same `Hint inset` says when an output answers an earlier wording of its case: "Written for this case before its prompt or files changed." The `Delta` shows only between two outputs that answer the same request and were graded the same way (`comparable` in `model.ts`).
+- The same `Hint inset` names the file a graded output's score is for, when it wrote more than one: "The score is for post.md."
 - The card's foot (`OutputCardFoot`) holds **Read the transcript**, `ghost-muted` at `xs` at its end. It reads **Back to the output** while the transcript is in its place. An output's seconds and cost are in its transcript.
 - The file tabs over the output (`ArtifactPicker`) show only when the output wrote two files or more.
 
