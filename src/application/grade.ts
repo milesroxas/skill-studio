@@ -529,7 +529,9 @@ function judgeInput(
     ctx.packs.flatMap((pack) => pack.artifacts),
   )
   const raw =
-    primary && primary.kind !== 'image' ? readFileSync(join(sample.path, primary.file), 'utf8') : ''
+    primary && primary.kind !== 'image' && primary.kind !== 'other'
+      ? readFileSync(join(sample.path, primary.file), 'utf8')
+      : ''
   const markdown = primary?.kind === 'markdown'
   const text = markdown ? copyOf(raw) : raw
   return {
@@ -592,12 +594,15 @@ function judgeKey(
 }
 
 /**
- * Whether `pack` has anything to say of this sample. A pack with no kinds
+ * Whether `pack` has anything to say of this sample. None has of an output
+ * that stands on a file of a kind Jev cannot read (`other`). A pack with no kinds
  * judges every sample. One that judges the sample's folder judges every sample
  * that has a folder: a flat file, an anchor included, has none for a command
  * to run in. Any other judges the samples whose primary artifact is of its kinds.
  */
 function applies(pack: JudgePack, subject: Subject, primary: Artifact | null): boolean {
+  // A file Jev cannot read, such as a PDF, is judged by no pack: the output has no score.
+  if (primary?.kind === 'other') return false
   if (pack.artifacts.length === 0) return true
   if (pack.wholeSample) return !subject.legacy
   return primary !== null && pack.artifacts.includes(primary.kind)
@@ -740,8 +745,12 @@ async function gradeSubject(
         ? pictureSize(readStart(join(subject.path, primary.file), PICTURE_HEAD_BYTES), primary.file)
         : null,
     size: testCase?.bench.size ?? null,
-    // A text output with nothing but whitespace in it is no output; a picture always is one.
-    blank: primary !== null && primary.kind !== 'image' && !input.text.trim(),
+    // A text output with nothing but whitespace in it is no output; a picture always is one, and so is a file Jev cannot read.
+    blank:
+      primary !== null &&
+      primary.kind !== 'image' &&
+      primary.kind !== 'other' &&
+      !input.text.trim(),
     // What the output was held to, so a grading made before its case changed is told from one made since.
     ...(taken ? { yardstick: taken.yardstick } : {}),
     packs,

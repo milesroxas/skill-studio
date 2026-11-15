@@ -15,7 +15,7 @@ This page uses the words of the files. A **pack** is a set of judge questions fo
   2. a page, a picture or code, in that order, when one of the skill's packs judges that kind;
   3. Markdown;
   4. a page, a picture or code, in that order;
-  5. the first output of any kind.
+  5. the first output of any kind, a file Jev cannot read (`other`) among them.
 - The order the skill lists its packs in does not matter.
 - Among files of one kind, `index.html` or `preview.html` comes first, then `outputs/output.*`, the file the run's prompt names for the piece, then the rest by name, and a `.txt` file and a `README` last. So a page beside its script is judged as the page, and a post beside its notes as the post.
 - Results opens the same file on an output not graded yet.
@@ -68,6 +68,7 @@ An output with nothing in it scores 0 however it was graded. Results says which 
 - A pack that throws leaves every one of its layers null and adds the flag `<pack> pack failed: ...`.
 - An output with that flag has no total: one counted from the layers that were left would read as a score of the whole. Its other layers stand, and Results offers to grade it again. The rule is `scoreResult`'s (`src/domain/scoring.ts`), so `report.json` and the app agree. Once the pack is no longer one the skill is graded as, its failure takes nothing away.
 - A grading with that flag on every output writes no `report.json`, so the last report stands. In the app the job fails, with the first reason in its log. A grading with the flag on some outputs says how many and goes on.
+- An output whose primary artifact is a file Jev cannot read, such as a PDF (`other`), is judged by no pack and has no score, not 0. It is flagged `a kind of file Jev cannot read, so it has no score`, no grading again is owed it, and it is no part of a mean (`unreadOutput` in `src/renderer/model.ts`).
 - An output with nothing in it scores 0: a sample whose agent ran to its end with no output file, or one whose file holds only whitespace, which `report.json` marks `blank`. A file with no word in it, such as `{}`, is an output, and so is a picture. A report with no `blank` mark reads only a missing file as no output.
 - Such an output is flagged `no output to judge`. Its total and every layer a pack scored are 0, the workflow pack's included (`noOutput` in `src/domain/pack.ts`). So such a sample counts as a failure wherever scores are averaged. That flag is its one verdict: what a pack counted about the run is listed under no part of the score.
 - A sample whose agent was ended before it finished (by Stop, quitting the app or Ctrl-C) says nothing of the skill, whether it had written nothing or half a file. `run.json` marks it `stopped`, and grading leaves it out.

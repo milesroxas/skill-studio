@@ -2,7 +2,7 @@
 import { caseName } from '@domain/case-draft.ts'
 import { BASE_PACK, mergeConfig } from '@domain/config.ts'
 import { testedVersion, type VersionRun, versionWriter, writerKey } from '@domain/lift.ts'
-import { type Corrections, NO_CORRECTIONS } from '@domain/pack.ts'
+import { type Corrections, NO_CORRECTIONS, unreadable } from '@domain/pack.ts'
 import { defaultPair, type PairOutput } from '@domain/pairs.ts'
 import { drawnArtifact, primaryArtifact } from '@domain/primary.ts'
 import { versionAfterRunDelete } from '@domain/run-delete.ts'
@@ -241,6 +241,14 @@ export const totalOf = (output: Output, config: BenchConfig): number | null =>
   scoreOf(output, config)?.scores.total ?? null
 
 /**
+ * The output was graded and stands on a file Jev cannot read, such as a PDF:
+ * it has no score, and no grading again would give it one, so no mean waits
+ * on it and nothing offers to grade it.
+ */
+export const unreadOutput = (output: Output): boolean =>
+  output.result !== null && unreadable(output.result)
+
+/**
  * What a set of outputs has in place of a score when grading leaves out every
  * one of them: `stopped` when each was, `failed` when each was stopped or
  * failed and one failed, `unfinished` when any may still be written. Null when
@@ -287,7 +295,8 @@ const comparedKey = (output: Output): string => `${askedKey(output)}\n${output.j
  * case was left out for that. An output cut short says nothing of the skill,
  * and is no part of either. Nor is any answer of a run to a case it did not
  * finish (`shortOf`): a mean over the attempts that happened to end would read
- * as one over all it was asked for.
+ * as one over all it was asked for. An output on a file Jev cannot read has
+ * no score to wait on, and is no part of either.
  */
 function caseMeans(
   outputs: Output[],
@@ -295,7 +304,7 @@ function caseMeans(
 ): { means: Record<string, number>; whole: boolean } {
   const totals = new Map<string, Array<number | null>>()
   for (const o of outputs) {
-    if (o.cut || shortOf(o.run, o.caseId)) continue
+    if (o.cut || unreadOutput(o) || shortOf(o.run, o.caseId)) continue
     const key = comparedKey(o)
     totals.set(key, [...(totals.get(key) ?? []), totalOf(o, config)])
   }
@@ -439,7 +448,10 @@ export function standingsOf(state: State, outputs: Output[], config: BenchConfig
 export function toGrade(standing: Pick<CaseStand, 'latest' | 'tries'>): CaseTry | null {
   const { latest, tries } = standing
   const newer = latest ? tries.slice(tries.indexOf(latest) + 1) : tries
-  return newer.findLast((t) => t.score === null && t.cut === null) ?? null
+  return (
+    newer.findLast((t) => t.score === null && t.cut === null && !t.outputs.every(unreadOutput)) ??
+    null
+  )
 }
 
 /**

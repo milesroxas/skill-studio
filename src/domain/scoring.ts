@@ -6,6 +6,8 @@ import {
   type PackScoring,
   packFailure,
   type ScoreSubject,
+  UNREADABLE,
+  unreadable,
   type Verdict,
 } from './pack.ts'
 import type { BenchConfig, Report, ReportResult, Scores } from './schemas.ts'
@@ -86,6 +88,7 @@ export const pixelText = ([width, height]: [number, number]): string => `${width
 /** Flags every pack shares: the output against the case's hard settings. */
 function commonFlags(subject: ScoreSubject): string[] {
   const flags: string[] = []
+  if (unreadable(subject)) return [UNREADABLE]
   const empty = noOutput(subject)
   if (empty) flags.push(NO_OUTPUT)
   const range = subject.range
@@ -119,6 +122,9 @@ function commonFlags(subject: ScoreSubject): string[] {
  * its grading left) has no total: one counted from the layers that were left
  * would read as a score of the whole. Its other layers stand, and its flags
  * and verdicts open with the failure.
+ *
+ * An output that stands on a file Jev cannot read (`unreadable`) has no
+ * total either, and nothing to grade again: its one verdict says so.
  *
  * The same holds for an active pack the grading never ran, which is one ticked
  * since: `packs` has no entry for it, where a pack that ran and had nothing to
@@ -164,15 +170,18 @@ export function scoreResult(
   })
   const common = commonFlags(subject)
   const empty = noOutput(subject)
+  // A file Jev cannot read has no score, and no grading again would give it one.
+  const unread = unreadable(subject)
   // An empty output scores 0 whatever it is graded on, so nothing is owed to it.
-  const stale = empty
-    ? []
-    : [
-        ...scorers
-          .filter((p) => config.packs.includes(p.id) && !Object.hasOwn(result.packs, p.id))
-          .map((p) => ({ flag: packUngradedFlag(p.id), text: ungradedText(p.id) })),
-        ...(behind ? [{ flag: behind, text: behind }] : []),
-      ]
+  const stale =
+    empty || unread
+      ? []
+      : [
+          ...scorers
+            .filter((p) => config.packs.includes(p.id) && !Object.hasOwn(result.packs, p.id))
+            .map((p) => ({ flag: packUngradedFlag(p.id), text: ungradedText(p.id) })),
+          ...(behind ? [{ flag: behind, text: behind }] : []),
+        ]
   const failures = failed.map((f) => `Grading failed: ${f.reason}`)
   const flags = [...failed.map((f) => f.flag), ...stale.map((s) => s.flag), ...common]
   const verdicts: Verdict[] = [...failures.map(finding), ...common.map(finding)]
@@ -183,14 +192,15 @@ export function scoreResult(
     const scored = pack.score(answers, subject, config, corrections)
     for (const [layer, value] of Object.entries(scored.layers)) {
       const held = share(value)
-      raw[layer] = empty && held !== null ? 0 : held
+      raw[layer] = unread ? null : empty && held !== null ? 0 : held
     }
+    if (unread) continue
     flags.push(...scored.flags)
     if (!empty) verdicts.push(...scored.verdicts)
     certainties.push(...pack.certainties(answers))
   }
-  const owed = empty ? [] : [...failures, ...stale.map((s) => s.text)]
-  const total = empty ? 0 : owed.length ? null : totalOf(raw, config)
+  const owed = empty || unread ? [] : [...failures, ...stale.map((s) => s.text)]
+  const total = empty ? 0 : unread || owed.length ? null : totalOf(raw, config)
   return {
     scores: scoresOf(raw, total),
     flags,

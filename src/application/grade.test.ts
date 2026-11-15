@@ -1250,3 +1250,25 @@ describe('scoredReport', () => {
     expect(() => scoredReport(dir, report, { packs: ['cod'] })).toThrow('No judge pack named cod.')
   })
 })
+
+describe('gradeRun, on an output Jev cannot read', () => {
+  it('judges a PDF with no pack and gives it no score, not 0, and a CSV as text', async () => {
+    const { dir, run } = skillWith(['email'], ['email-s1', 'email-s2'])
+    const at = (sample: string) => join(dir, 'evals/runs', run, sample, 'outputs')
+    rmSync(join(at('email-s1'), 'note.md'))
+    writeFileSync(join(at('email-s1'), 'report.pdf'), Buffer.from([0x25, 0x50, 0x44, 0x46, 0, 0]))
+    rmSync(join(at('email-s2'), 'note.md'))
+    writeFileSync(join(at('email-s2'), 'report.csv'), 'name,score\nA,1\n')
+    const judge = genericJudge()
+    const report = await gradeRun(dir, run, { useJev: false })
+    const [pdf, csv] = report.results
+    expect(pdf.primary).toEqual({ file: 'outputs/report.pdf', kind: 'other' })
+    expect(pdf.blank).toBe(false)
+    expect(pdf.scores.total).toBeNull()
+    expect(pdf.flags).toEqual(['a kind of file Jev cannot read, so it has no score'])
+    expect(Object.values(pdf.packs).every((answer) => answer === null)).toBe(true)
+    expect(csv.primary).toEqual({ file: 'outputs/report.csv', kind: 'markdown' })
+    expect(csv.flags).not.toContain('no output to judge')
+    expect(judge).toHaveBeenCalledTimes(1)
+  })
+})

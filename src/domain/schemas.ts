@@ -7,7 +7,12 @@ import type { ImageRef } from './image.ts'
 import type { InputUpload } from './inputs.ts'
 
 const ARTIFACT_KINDS = ['markdown', 'html', 'image', 'code', 'transcript'] as const
-export type ArtifactKind = (typeof ARTIFACT_KINDS)[number]
+/**
+ * What an output file is. `other` is a file that does not read as text and is
+ * no page or picture, such as a PDF: Jev cannot read it, so an output that
+ * stands on one has no score. A case cannot name it as the kind it is graded as.
+ */
+export type ArtifactKind = (typeof ARTIFACT_KINDS)[number] | 'other'
 export const isArtifactKind = (value: unknown): value is ArtifactKind =>
   (ARTIFACT_KINDS as readonly unknown[]).includes(value)
 

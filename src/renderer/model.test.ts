@@ -1044,3 +1044,26 @@ describe('cutOff', () => {
     expect(cutOff({ ...run({}), meta: null }, false)).toBe(false)
   })
 })
+
+describe('an output on a file Jev cannot read', () => {
+  const pdf = { file: 'outputs/report.pdf', kind: 'other' as const }
+  const unread = {
+    ...resultOf('page-s1', 0),
+    primary: pdf,
+    artifacts: [pdf],
+    flags: ['a kind of file Jev cannot read, so it has no score'],
+    packs: { generic: null },
+  }
+  const run = runOf('r2', 'v2', [pdf], { results: [unread] } as unknown as Report)
+
+  it('has no score, waits on no grading and holds up no mean', () => {
+    const state = stateOf([runOf('r1', 'v1', [md('a.md')], graded(100)), run], ['generic'])
+    const outputs = outputsOf(state)
+    const [, pdfOutput] = outputs
+    expect(totalOf(pdfOutput, saved)).toBeNull()
+    expect(regradeOwed(scoreOf(pdfOutput, saved))).toBe(false)
+    expect(scoreOver(outputs, saved)).toBe(100)
+    const [standing] = standingsOf(state, outputs, saved)
+    expect(toGrade(standing)).toBeNull()
+  })
+})

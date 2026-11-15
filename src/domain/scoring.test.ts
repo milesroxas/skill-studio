@@ -157,6 +157,25 @@ describe('scoreResult', () => {
     expect(seen.flags).not.toContain('no output to judge')
   })
 
+  it('gives an output on a file Jev cannot read no score, not 0, and nothing to grade again', () => {
+    const packs = { voice: { layers: { voice: 1, clarity: 1 } } }
+    const pdf = { primary: { file: 'outputs/report.pdf', kind: 'other' as const }, words: 0 }
+    const scored = scoreResult(result(packs, { ...pdf, range: [10, 20] }), config(), scorers)
+    expect(scored.scores).toEqual({ total: null, voice: null, clarity: null, adherence: null })
+    expect(scored.flags).toEqual(['a kind of file Jev cannot read, so it has no score'])
+    expect(scored.verdicts.map((v) => v.text)).toEqual([
+      'a kind of file Jev cannot read, so it has no score',
+    ])
+    expect(scored.regrade).toEqual([])
+    // A pack ticked since it was graded is owed nothing either.
+    const later = scoreResult(
+      result({}, pdf),
+      config({ packs: ['voice', 'rules', 'code'] }),
+      scorers,
+    )
+    expect(later.regrade).toEqual([])
+  })
+
   it('flags a missing output and a length outside the range', () => {
     expect(scoreResult(result({}, { primary: null }), config(), []).flags).toEqual([
       'no output to judge',

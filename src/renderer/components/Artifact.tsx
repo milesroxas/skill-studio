@@ -134,7 +134,9 @@ export function ArtifactView({ run, sample, artifact, page }: Props) {
   const [attempt, setAttempt] = useState(0)
   // By its name and kind, not the object: every reload of the skill brings a new object for the same file.
   const file = artifact?.file ?? null
-  const textual = artifact ? artifact.kind !== 'image' && artifact.kind !== 'html' : false
+  const textual = artifact
+    ? artifact.kind !== 'image' && artifact.kind !== 'html' && artifact.kind !== 'other'
+    : false
   const of = `${run}/${sample}/${file}`
   // biome-ignore lint/correctness/useExhaustiveDependencies: `attempt` reads again on purpose.
   useEffect(() => {
@@ -164,6 +166,12 @@ export function ArtifactView({ run, sample, artifact, page }: Props) {
   const url = api.artifactUrl(run, sample, artifact.file)
   if (artifact.kind === 'image')
     return <img className="block max-w-full" src={url} alt={artifact.file} />
+  if (artifact.kind === 'other')
+    return (
+      <Hint inset>
+        This kind of file cannot be shown here, and Jev cannot read it, so it has no score.
+      </Hint>
+    )
   if (artifact.kind === 'html')
     return (
       <PageView

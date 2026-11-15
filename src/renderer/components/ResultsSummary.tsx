@@ -39,6 +39,7 @@ import {
   stamp,
   toGrade,
   totalOf,
+  unreadOutput,
 } from '../model.ts'
 import { CaseStandings } from './CaseStandings.tsx'
 import { Coverage } from './Coverage.tsx'
@@ -132,7 +133,11 @@ export function ResultsSummary({ ctx, standings }: { ctx: Ctx; standings: CaseSt
   // Without a key a grading would drop what Jev marked, so a run he graded is left to its own Regrade.
   const owed = runs
     .filter((run) => state.jevKey || !run.report?.model)
-    .filter((run) => (byRun.get(run.name) ?? []).some((o) => !o.cut && totalOf(o, config) === null))
+    .filter((run) =>
+      (byRun.get(run.name) ?? []).some(
+        (o) => !o.cut && !unreadOutput(o) && totalOf(o, config) === null,
+      ),
+    )
     .map((run) => run.name)
     .filter((run) => !writingRun(jobs, state.skill.path, run))
   const gradeRuns = (names: string[]) => {

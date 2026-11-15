@@ -36,6 +36,7 @@ import {
   scoreOf,
   toGrade,
   totalOf,
+  unreadOutput,
   writerName,
 } from '../model.ts'
 import { PlainList, Rows, Stack, Toolbar } from './layout.tsx'
@@ -104,6 +105,8 @@ function unscored(t: CaseTry, ctx: Ctx): { word: string; says: string; opens: bo
     return { word: 'Stopped', says: 'stopped before it finished', opens: true }
   if (t.cut === 'failed') return { word: 'Failed', says: 'could not finish', opens: true }
   if (t.cut === 'unfinished') return { word: 'Not finished', says: 'not finished', opens: true }
+  if (t.outputs.every(unreadOutput))
+    return { word: 'No score', says: 'on a file Jev cannot read', opens: true }
   // Graded, and held to something else since: its output says what.
   if (t.outputs.some((o) => regradeOwed(scoreOf(o, ctx.config))))
     return { word: 'Needs grading', says: 'to be graded again', opens: true }
@@ -118,7 +121,13 @@ function unscored(t: CaseTry, ctx: Ctx): { word: string; says: string; opens: bo
 function waitingOn(standing: CaseStand, ctx: Ctx): string | null {
   const { latest, tries } = standing
   const newer = latest ? tries.slice(tries.indexOf(latest) + 1) : tries
-  const next = newer.findLast((t) => t.score === null && t.cut !== 'stopped' && t.cut !== 'failed')
+  const next = newer.findLast(
+    (t) =>
+      t.score === null &&
+      t.cut !== 'stopped' &&
+      t.cut !== 'failed' &&
+      !t.outputs.every(unreadOutput),
+  )
   if (!next) return null
   const { word } = unscored(next, ctx)
   return word.endsWith('…')

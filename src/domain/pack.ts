@@ -24,6 +24,16 @@ export interface ScoreSubject {
 export const noOutput = (subject: Pick<ScoreSubject, 'primary' | 'blank'>): boolean =>
   !subject.primary || (subject.primary.kind !== 'image' && subject.blank === true)
 
+/**
+ * The output stands on a file Jev cannot read, such as a PDF (`other`). It is
+ * an output, so it is not 0, and no pack judged it, so it has no score.
+ */
+export const unreadable = (subject: Pick<ScoreSubject, 'primary'>): boolean =>
+  subject.primary?.kind === 'other'
+
+/** What an output on a file Jev cannot read is flagged with, and its one verdict. */
+export const UNREADABLE = 'a kind of file Jev cannot read, so it has no score'
+
 /** How a pack that threw while grading is noted among an output's flags: "<pack> pack failed: <why>". */
 const PACK_FAILED = /^(\w+) pack failed: ([\s\S]*)$/
 

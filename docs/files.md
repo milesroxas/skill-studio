@@ -81,7 +81,7 @@ evals/runs/<date>-skill-<vN>-<engine>-<model>[-<effort>][-<configuration>]/
 - Graded artifacts are read under `outputs/` only. Dotfiles, `node_modules` and every link are skipped: the agent wrote the folder, and a link may lead out of it.
 - A sample's outputs are the files `run.json` lists for it (`outputs`), those of them still there. A file put under `outputs/` after the agent ended, such as one a check command builds, is not an output: grading and Results pass over it. A sample with no list, one still being written or from a run made before the list was kept, is read from the folder as it is.
 
-An artifact's kind comes from its extension:
+Every other file under `outputs/` is an output too. Its kind comes from its extension, and a file whose extension is not listed is read: one whose start is UTF-8 with no NUL byte is `markdown`, judged as text (`.csv`, `.xml`, `.ipynb`, a file with no extension), and any other is `other` (`.pdf`, `.docx`):
 
 | Kind | Files |
 | --- | --- |
@@ -90,6 +90,8 @@ An artifact's kind comes from its extension:
 | `image` | `.png`, `.jpg`, `.jpeg`, `.webp`, `.gif`, `.svg` |
 | `code` | source files: `.ts`, `.js`, `.py`, `.css`, `.json`, `.sh`, `.go`, `.rs` and the like |
 | `transcript` | `transcript.jsonl` |
+| `markdown` | any other file that reads as text |
+| `other` | any other file: Jev cannot read it |
 
 ## Versions
 

@@ -24,6 +24,27 @@ describe('detectArtifacts', () => {
     ])
   })
 
+  it('takes any file as an output: text of a kind not listed as text, anything else as a kind Jev cannot read', () => {
+    writeFileSync(join(sample, 'outputs/report.csv'), 'name,score\nA,1\n')
+    writeFileSync(join(sample, 'outputs/notes'), 'No extension, and text.')
+    writeFileSync(join(sample, 'outputs/café.xml'), '<a>é</a>')
+    writeFileSync(
+      join(sample, 'outputs/report.pdf'),
+      Buffer.from([0x25, 0x50, 0x44, 0x46, 0, 1, 2]),
+    )
+    writeFileSync(join(sample, 'outputs/bad.dat'), Buffer.from([0xff, 0xfe, 0x41]))
+    writeFileSync(join(sample, 'outputs/.DS_Store'), Buffer.from([0, 0, 1]))
+    expect(detectArtifacts(sample)).toEqual([
+      { file: 'outputs/bad.dat', kind: 'other' },
+      { file: 'outputs/café.xml', kind: 'markdown' },
+      { file: 'outputs/drafts/Cover Letter.md', kind: 'markdown' },
+      { file: 'outputs/note.md', kind: 'markdown' },
+      { file: 'outputs/notes', kind: 'markdown' },
+      { file: 'outputs/report.csv', kind: 'markdown' },
+      { file: 'outputs/report.pdf', kind: 'other' },
+    ])
+  })
+
   it.skipIf(process.platform === 'win32')(
     'passes over a link the agent left: to nothing, out of the sample, or back on itself',
     () => {
