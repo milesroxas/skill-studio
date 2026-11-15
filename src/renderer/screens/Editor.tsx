@@ -27,7 +27,7 @@ import {
   SNIPPETS,
   type Snippet,
 } from '@domain/templates.ts'
-import { metaText, readFrontMatter } from '@domain/text.ts'
+import { frontMatterUnreadable, headProblems, metaText, readFrontMatter } from '@domain/text.ts'
 import { Fragment, memo, useEffect, useMemo, useRef, useState } from 'react'
 import { api, currentSkill } from '../api.ts'
 import { DiffLines } from '../components/DiffLines.tsx'
@@ -326,7 +326,11 @@ export const Editor = memo(function Editor({ ctx }: { ctx: Ctx }) {
     )
   if (!disk.saved || drafts.status === 'loading') return <Loading size="screen" />
 
-  const missing = isSkill ? ['name', 'description'].filter((k) => !metaText(meta, k)) : []
+  // A block that cannot be read says so, not that its fields are missing.
+  const head = isSkill ? headProblems(text, state.skill.path.split(/[\\/]/).pop() ?? '') : []
+  const unreadable = isSkill && frontMatterUnreadable(text)
+  const missing =
+    isSkill && !unreadable ? ['name', 'description'].filter((k) => !metaText(meta, k)) : []
   const { current, versions } = state.versions
   const newest = versions.at(-1)
   const versionRow = (v: (typeof versions)[number]) => {
@@ -368,7 +372,7 @@ export const Editor = memo(function Editor({ ctx }: { ctx: Ctx }) {
    * missing front matter, a tool that reinstalls the skill over these edits.
    */
   const notes =
-    stale || missing.length || state.source ? (
+    stale || missing.length || head.length || state.source ? (
       <>
         {stale ? (
           <Alert variant="warning" role="status">
@@ -417,6 +421,14 @@ export const Editor = memo(function Editor({ ctx }: { ctx: Ctx }) {
             </AlertDescription>
           </Alert>
         ) : null}
+        {head.map((problem) => (
+          <Alert variant="warning" key={problem.title}>
+            <AlertTitle>{problem.title}</AlertTitle>
+            <AlertDescription>
+              <p>{problem.detail}</p>
+            </AlertDescription>
+          </Alert>
+        ))}
         {state.source ? (
           <Alert variant="muted">
             <AlertTitle>Installed from {state.source}</AlertTitle>

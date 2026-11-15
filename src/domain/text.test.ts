@@ -4,6 +4,8 @@ import {
   copyOf,
   fenceOf,
   frontMatterBlock,
+  frontMatterUnreadable,
+  headProblems,
   isSlug,
   metaList,
   metaText,
@@ -330,5 +332,53 @@ describe('tokens and sentencesOf', () => {
     ])
     // With `capital`, a piece with no letter in it is no sentence.
     expect(sentencesOf('Fine. 42.', { capital: true })).toEqual(['Fine.'])
+  })
+})
+
+describe('headProblems', () => {
+  const skillMd = (head: string) => `---\n${head}\n---\n\n# Skill\n`
+
+  it('says a block that cannot be read, and nothing of its fields', () => {
+    const broken = skillMd('name: release-notes\ndescription: Use when: a release ships')
+    expect(frontMatterUnreadable(broken)).toBe(true)
+    expect(headProblems(broken, 'release-notes').map((p) => p.title)).toEqual([
+      'The lines at the top of the file cannot be read',
+    ])
+    expect(frontMatterUnreadable(skillMd('- a\n- b'))).toBe(true)
+    expect(frontMatterUnreadable(skillMd(''))).toBe(false)
+    expect(frontMatterUnreadable('# No front matter\n')).toBe(false)
+  })
+
+  it('passes a name that is its folder’s and a description within the limit', () => {
+    const md = skillMd('name: release-notes\ndescription: Write release notes.')
+    expect(frontMatterUnreadable(md)).toBe(false)
+    expect(headProblems(md, 'release-notes')).toEqual([])
+  })
+
+  it('says which limit a name or a description is past', () => {
+    const long = 'a'.repeat(65)
+    expect(headProblems(skillMd(`name: ${long}\ndescription: x`), long)[0].detail).toBe(
+      'A name can be 64 characters at most, and this one has 65.',
+    )
+    expect(headProblems(skillMd('name: Release Notes\ndescription: x'), 'Release Notes')).toEqual([
+      {
+        title: 'The skill’s name cannot be used as it is written',
+        detail: 'Use lowercase letters, digits and single dashes, like release-notes.',
+      },
+    ])
+    expect(headProblems(skillMd('name: notes\ndescription: x'), 'release-notes')).toEqual([
+      {
+        title: 'The skill’s name is not the name of its folder',
+        detail:
+          'The skill is found by its folder, so name it release-notes, or rename the folder to notes.',
+      },
+    ])
+    const description = 'word '.repeat(206).trim()
+    expect(headProblems(skillMd(`name: notes\ndescription: ${description}`), 'notes')).toEqual([
+      {
+        title: 'The description is too long',
+        detail: 'A description can be 1,024 characters at most, and this one has 1,029.',
+      },
+    ])
   })
 })

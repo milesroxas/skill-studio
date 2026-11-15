@@ -24,6 +24,7 @@ Everything Skill Studio knows about a skill is plain files in the skill's `evals
     runs/                         one directory per run, below
 ```
 
+- `SKILL.md` opens with front matter that holds a `name` and a `description`. The editor warns when the block is not valid YAML, when the name is over 64 characters, is not lowercase letters, digits and single dashes, or is not its folder's name, and when the description is over 1,024 characters (`headProblems` in `src/domain/text.ts`). Each warning names the one that is off.
 - A rule is a top-level bullet of `SKILL.md`; indented lines under it join it as a clause. A bullet under four words, made only of a link, only saying to read a file, or under an example heading is not a rule. A skill with no bullet that is a rule has its numbered steps read as rules ([grading.md](grading.md#rules)).
 - A name the app is given for a file, such as a reference to save or an output to open, may hold spaces and letters of any alphabet, but not `<`, `>`, `:`, `"`, `|`, `?`, `*` or a backslash, and on Windows not a device name (`con`, `nul.md`, `com1`) or a final dot or space.
 - The app saves a text file by writing a hidden `.<name>.<pid>.tmp` beside it and renaming that over the file, so a crash leaves the old file whole; a leftover one can be deleted. A file that is a link to another file in the skill stays a link, and the file it leads to is written.

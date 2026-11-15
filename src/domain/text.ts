@@ -85,6 +85,72 @@ export function readFrontMatter(raw: string): { meta: Record<string, unknown>; t
   return { meta, text: source.slice(match[0].length).trim() }
 }
 
+/** True when the file has a front matter block that is not a YAML mapping, so none of its fields can be read. */
+export function frontMatterUnreadable(raw: string): boolean {
+  const match = FRONT_MATTER.exec(normalizeNewlines(raw))
+  if (!match) return false
+  try {
+    const parsed: unknown = parseYaml(match[1] ?? '')
+    // An empty block holds no fields, and is not broken.
+    return parsed !== null && (typeof parsed !== 'object' || Array.isArray(parsed))
+  } catch {
+    return true
+  }
+}
+
+/** The limits agent skills set on the two fields every skill needs. */
+const NAME_MAX = 64
+const DESCRIPTION_MAX = 1024
+
+/** One thing about a skill's name or description agents will not take, as the editor says it. */
+export interface HeadProblem {
+  title: string
+  detail: string
+}
+
+/**
+ * What is wrong with the name and the description in a SKILL.md's front
+ * matter, by the limits the agent skills format sets: a name of 64 characters at most, in
+ * lowercase letters, digits and single dashes, the same as its folder's
+ * name, and a description of 1,024 characters at most. A block that cannot
+ * be read says so alone; a field that is missing is not checked here.
+ */
+export function headProblems(raw: string, folder: string): HeadProblem[] {
+  if (frontMatterUnreadable(raw))
+    return [
+      {
+        title: 'The lines at the top of the file cannot be read',
+        detail:
+          'Write each one as a name, a colon and its value, and put a value that holds a colon in quotes.',
+      },
+    ]
+  const { meta } = readFrontMatter(raw)
+  const name = metaText(meta, 'name')
+  const description = metaText(meta, 'description')
+  const problems: HeadProblem[] = []
+  if (name && name.length > NAME_MAX)
+    problems.push({
+      title: 'The skill’s name is too long',
+      detail: `A name can be ${NAME_MAX} characters at most, and this one has ${name.length}.`,
+    })
+  else if (name && !isSlug(name))
+    problems.push({
+      title: 'The skill’s name cannot be used as it is written',
+      detail: SLUG_RULE,
+    })
+  else if (name && folder && name !== folder)
+    problems.push({
+      title: 'The skill’s name is not the name of its folder',
+      detail: `The skill is found by its folder, so name it ${folder}, or rename the folder to ${name}.`,
+    })
+  if (description && description.length > DESCRIPTION_MAX)
+    problems.push({
+      title: 'The description is too long',
+      detail: `A description can be ${DESCRIPTION_MAX.toLocaleString('en')} characters at most, and this one has ${description.length.toLocaleString('en')}.`,
+    })
+  return problems
+}
+
 /** A front matter field as text: strings, numbers and booleans; null for anything else. */
 export const metaText = (meta: Record<string, unknown>, key: string): string | null => {
   const value = meta[key]
