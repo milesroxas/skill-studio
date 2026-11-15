@@ -100,7 +100,7 @@ Imports point inward only. `pnpm fallow` fails on one that does not (`boundaries
 - The last 50 finished jobs are kept. A job's log keeps its first 100 lines and its latest, 500 in all.
 - A run is made from copies taken as it starts (`src/application/generate.ts`), and every sample is built from those:
   - The skill, as an agent's copy holds it, goes to the run's `_skill/`. That copy leaves out `evals/`, hidden files, `node_modules`, `venv` and `__pycache__` folders at any depth, and links that leave the skill. It is exactly what the version's hash covers.
-  - Each case's input files go to `_inputs/`, made even when no case has a file.
+  - Each case's input files go to `_inputs/`, made even when no case has a file. Hidden ones go too (`Walk.hidden` in `src/infrastructure/fs.ts`), which the skill's copy and hash never ask for.
   - An `old_skill` run names the skill to its agents as the copy it is made against does.
   - Saving, restoring or editing the skill during the run changes nothing the run reads.
 - Grading reads a case's pictures from `_inputs/`, as the agent got them, each only when it is a file inside that folder. A run with no `_inputs/` has its pictures read from the case as it is now.

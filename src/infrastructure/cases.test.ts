@@ -478,6 +478,45 @@ describe('case pictures', () => {
   })
 })
 
+describe('a case’s hidden input files', () => {
+  it('lists them with the rest, so the agent gets them, and a save can remove one', () => {
+    writeCase('lint', 'Fix the lint errors.')
+    const files = join(skill, 'evals/cases/lint/files')
+    mkdirSync(join(files, '.github/workflows'), { recursive: true })
+    writeFileSync(join(files, '.eslintrc.json'), '{}')
+    writeFileSync(join(files, '.github/workflows/ci.yml'), 'on: push')
+    writeFileSync(join(files, 'index.js'), 'var a')
+    const [lint] = loadCases(skill)
+    expect(lint.files).toEqual([
+      'evals/cases/lint/files/.eslintrc.json',
+      'evals/cases/lint/files/.github/workflows/ci.yml',
+      'evals/cases/lint/files/index.js',
+    ])
+    saveCase(
+      skill,
+      {
+        id: 'lint',
+        title: 'lint',
+        prompt: 'Fix the lint errors.',
+        expectedOutcome: '',
+        words: null,
+        images: [],
+        graders: [],
+        removed: ['.eslintrc.json'],
+      },
+      false,
+    )
+    expect(existsSync(join(files, '.eslintrc.json'))).toBe(false)
+    expect(() =>
+      saveCase(
+        skill,
+        { ...lint, expectedOutcome: '', words: null, images: [], graders: [], removed: ['..'] },
+        false,
+      ),
+    ).toThrow()
+  })
+})
+
 describe('findCase', () => {
   it('never takes a case for another whose id it leads', () => {
     writeCase('email', 'Write an email.')

@@ -229,7 +229,8 @@ function loadFolderCase(skillDir: string, rel: string): Case | null {
     read && typeof read === 'object' && !Array.isArray(read) ? read : {}
   const name = basename(rel)
   // Folders too: a screen's code often comes as a folder, and the agent gets it as it is laid out.
-  const files = treeFiles(join(dir, 'files'), { root: skillDir }).map(
+  // Hidden ones as well: a config such as `.eslintrc.json` is part of what the agent is given.
+  const files = treeFiles(join(dir, 'files'), { root: skillDir, hidden: true }).map(
     (f) => `${rel}/files/${f.rel}`,
   )
   return {
@@ -547,10 +548,12 @@ export function saveCase(
     listFiles(graderDir, (f) => f.endsWith('.md')).map((f) => f.replace(/\.md$/, '')),
   )
   for (const id of taken) inside(join(graderDir, `${id}.md`))
-  /** A file or folder right in `files/`, by a name the draft gave: one part, and inside the skill. */
+  /** A file or folder right in `files/`, by a name the draft gave: one part, hidden or not, and inside the skill. */
   const entry = (name: string): string => {
     if (name.includes('/')) throw new Error(`Bad input file ${name}.`)
-    return inside(join(filesDir, assertSafePath(name, 'input file')))
+    // A hidden one is an input file as any other, `.eslintrc.json` checked as `eslintrc.json` is.
+    assertSafePath(name.replace(/^\.(?=[^.])/, ''), 'input file')
+    return inside(join(filesDir, name))
   }
   const removed = (input.removed ?? []).map(entry)
   const added = (input.added ?? []).map((pick) => {

@@ -136,8 +136,14 @@ export const listFiles = (dir: string, test: (name: string) => boolean = () => t
 interface Walk {
   /** Links are followed while they stay inside it: the directory itself unless given. */
   root?: string
-  /** A name, of a file or a folder, passed over at any depth. Hidden names always are. */
+  /** A name, of a file or a folder, passed over at any depth. Hidden names are too, unless `hidden`. */
   skip?: (name: string) => boolean
+  /**
+   * Hidden files and folders are walked as well: a case's input files are
+   * the agent's, `.eslintrc.json` and `.github/` among them. The skill's own
+   * copy and its hash leave them out, so they never pass this.
+   */
+  hidden?: boolean
   /** Told each folder by its real path, before its entries are read. */
   folder?: (real: string) => void
 }
@@ -146,7 +152,7 @@ interface Walk {
  * Every file under a directory, by its path inside it with `/` between the
  * parts on every platform. Links are followed while they stay inside the
  * root; one that leaves it, leads nowhere or loops back is skipped. Dotfiles
- * are skipped.
+ * are skipped unless `hidden` is asked for.
  */
 function walkTree(dir: string, visit: (rel: string, real: string) => void, options: Walk): void {
   const base = realOf(options.root ?? dir)
@@ -156,7 +162,7 @@ function walkTree(dir: string, visit: (rel: string, real: string) => void, optio
   const walk = (current: string, real: string, prefix: string) => {
     options.folder?.(real)
     for (const name of readdirSync(current).sort()) {
-      if (name.startsWith('.') || options.skip?.(name)) continue
+      if ((name.startsWith('.') && !options.hidden) || options.skip?.(name)) continue
       const target = realOf(join(current, name))
       if (!target || !isWithin(target, base)) continue
       let folder: boolean

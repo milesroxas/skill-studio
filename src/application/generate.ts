@@ -420,7 +420,7 @@ async function generateSample(
   mkdirSync(join(dir, SCRATCH_DIR), { recursive: true })
   const staged = join(options.runDir, INPUTS_DIR, testCase.id)
   const files: string[] = []
-  for (const { rel, real } of treeFiles(staged)) {
+  for (const { rel, real } of treeFiles(staged, { hidden: true })) {
     const dest = join(dir, 'files', rel)
     mkdirSync(dirname(dest), { recursive: true })
     copyFileSync(real, dest)

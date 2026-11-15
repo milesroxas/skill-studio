@@ -329,6 +329,28 @@ describe('generateRun', () => {
     ])
   })
 
+  it('gives the agent a case’s hidden files, and leaves the skill’s own out of its copy', async () => {
+    mkdirSync(join(skill, 'evals/cases/note/files/.github'), { recursive: true })
+    writeFileSync(join(skill, 'evals/cases/note/files/.eslintrc.json'), '{"root": true}')
+    writeFileSync(join(skill, 'evals/cases/note/files/.github/ci.yml'), 'on: push')
+    writeFileSync(join(skill, '.secret'), 'the skill’s own')
+    let seen: string[] = []
+    let prompt = ''
+    let secret = true
+    const engine = engineThat((cwd) => {
+      seen = ['files/.eslintrc.json', 'files/.github/ci.yml'].map((file) =>
+        readFileSync(join(cwd, file), 'utf8'),
+      )
+      prompt = readFileSync(join(cwd, 'prompt.md'), 'utf8')
+      secret = existsSync(join(cwd, '.agents/skills/notes-skill/.secret'))
+    })
+    const { dir } = await generateRun(options(engine, 1))
+    expect(seen).toEqual(['{"root": true}', 'on: push'])
+    expect(secret).toBe(false)
+    expect(existsSync(join(dir, '_skill/.secret'))).toBe(false)
+    expect(prompt).toContain('files/.eslintrc.json')
+  })
+
   it('keeps two input files of one name apart, so the agent gets both', async () => {
     for (const from of ['a', 'b']) {
       mkdirSync(join(skill, 'evals/files', from), { recursive: true })
