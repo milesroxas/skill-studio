@@ -205,7 +205,7 @@ function keptOf(raw: unknown, where: string): KeptCase | null {
 }
 
 /** Where a run keeps the pictures its cases' checks are about, a folder per case. */
-export const CHECKS_DIR = '_checks'
+const CHECKS_DIR = '_checks'
 
 /**
  * `testCase` with each check's picture copied into the run's `_checks/`, and
