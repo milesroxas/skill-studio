@@ -32,6 +32,7 @@ import {
   type Report,
   type SkillDrafts,
 } from '@domain/schemas.ts'
+import { scoreResult } from '@domain/scoring.ts'
 import {
   SECRET_IDS,
   type SecretId,
@@ -568,6 +569,25 @@ function reportJudging(job: Job, report: Report): boolean {
   return true
 }
 
+/**
+ * The names of the facts a reader can answer on the output `key`
+ * (`<run>/<sample>`): every verdict Jev answered in its run's report, under
+ * every pack that graded it. Empty for an output never graded.
+ */
+function markable(skillDir: string, key: string): Set<string> {
+  const at = key.indexOf('/')
+  if (at < 1) return new Set()
+  const report = readJson<Partial<Report> | null>(
+    join(runDir(skillDir, key.slice(0, at)), 'report.json'),
+    null,
+  )
+  const result = report?.results?.find((r) => r.sample === key.slice(at + 1))
+  if (!result) return new Set()
+  const config = { ...loadBench(skillDir), packs: Object.keys(result.packs ?? {}) }
+  const { verdicts } = scoreResult({ ...result, flags: result.flags ?? [] }, config, scorers)
+  return new Set(verdicts.filter((v) => v.open).map((v) => v.id))
+}
+
 export function createOperations(options: OperationsOptions): Runners {
   const secrets = options.secrets ?? environmentSecrets
   const skills = options.skills.map((dir) => skillInfo(dir))
@@ -805,6 +825,9 @@ export function createOperations(options: OperationsOptions): Runners {
     }),
     'skill.correct': (input) => {
       const skill = skillOf(input)
+      // An answer is kept only on a fact the output has; taking one back is always allowed.
+      if (input.met !== null && !markable(skill.path, input.key).has(input.verdict))
+        throw new Error('This output has nothing by that name to mark.')
       saveCorrection(skill.path, input.key, input.verdict, input.met)
       return { saved: reviewsPath(skill.path) }
     },

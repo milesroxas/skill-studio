@@ -398,3 +398,87 @@ describe('skill.generate', () => {
     await expect(generate([{ engine: 'nobody' }])).rejects.toThrow('None of the agents picked')
   })
 })
+
+describe('skill.correct', () => {
+  /** A graded run whose one output Jev marked on the skill's one rule. */
+  function gradedRun(name: string): void {
+    const run = cutOffRun(name)
+    writeFileSync(
+      join(run, 'report.json'),
+      JSON.stringify({
+        run: name,
+        packs: ['generic'],
+        results: [
+          {
+            sample: 'note-s1',
+            case: 'note',
+            label: null,
+            tests: [],
+            artifacts: [{ file: 'outputs/note.md', kind: 'markdown' }],
+            primary: { file: 'outputs/note.md', kind: 'markdown' },
+            words: 2,
+            range: null,
+            flags: [],
+            packs: {
+              generic: {
+                adherence: {
+                  rules: [
+                    {
+                      id: 'r1',
+                      text: 'Keep every note under forty words.',
+                      section: 'SKILL.md',
+                      noul: 0.9,
+                    },
+                  ],
+                },
+                rubric: null,
+              },
+            },
+          },
+        ],
+      }),
+    )
+  }
+
+  it('keeps an answer on a fact the output has', async () => {
+    gradedRun('graded')
+    const key = 'graded/note-s1'
+    await invoke(operations, 'skill.correct', {
+      skill,
+      key,
+      verdict: 'rule:Keep every note under forty words.',
+      met: false,
+    })
+    const reviews = JSON.parse(readFileSync(join(skill, 'evals/reviews.json'), 'utf8'))
+    expect(reviews.reviews[key].corrections).toEqual({
+      'rule:Keep every note under forty words.': false,
+    })
+  })
+
+  it('refuses an answer on a fact the output does not have, and takes any back', async () => {
+    gradedRun('graded')
+    await expect(
+      invoke(operations, 'skill.correct', {
+        skill,
+        key: 'graded/note-s1',
+        verdict: 'rule:Never write a note.',
+        met: true,
+      }),
+    ).rejects.toThrow('This output has nothing by that name to mark.')
+    await expect(
+      invoke(operations, 'skill.correct', {
+        skill,
+        key: 'graded/missing-s1',
+        verdict: 'rule:Keep every note under forty words.',
+        met: true,
+      }),
+    ).rejects.toThrow('nothing by that name')
+    expect(existsSync(join(skill, 'evals/reviews.json'))).toBe(false)
+    await invoke(operations, 'skill.correct', {
+      skill,
+      key: 'graded/note-s1',
+      verdict: 'rule:Never write a note.',
+      met: null,
+    })
+  })
+})
