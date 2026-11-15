@@ -5,6 +5,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 const world = vi.hoisted(() => ({
   replies: 0,
   readings: [] as Array<{ selection: string; answer: (ok: boolean) => void }>,
+  /** How Jev's reading of the writer's answer to a question goes. */
+  answerReading: 'read' as 'read' | 'fails' | 'refused',
 }))
 
 vi.mock('@infrastructure/ai/index.ts', () => ({
@@ -43,7 +45,7 @@ vi.mock('@judges/jev.ts', () => ({
     static available = () => true
     model = 'jev'
   },
-  isAuthError: () => false,
+  isAuthError: (error: unknown) => (error as Error | undefined)?.message === 'refused',
 }))
 vi.mock('@judges/rule/index.ts', () => ({
   // Jev's reading of a rule: it comes when the test says, and a failed one leaves code's findings.
@@ -51,15 +53,20 @@ vi.mock('@judges/rule/index.ts', () => ({
     new Promise((done, fail) => {
       world.readings.push({
         selection: scene.selection,
-        answer: (ok) => (ok ? done(null) : fail(new Error('no network'))),
+        // A reading that holds nothing well: every principle drifts, so there is a walk to take.
+        answer: (ok) =>
+          ok ? done(new Proxy({}, { get: () => 0.1 })) : fail(new Error('no network')),
       })
     }),
-  judgeAnswer: async () => ({ answered: 1, cut: null }),
+  judgeAnswer: async () => {
+    if (world.answerReading === 'read') return { answered: 1, cut: null }
+    throw new Error(world.answerReading === 'refused' ? 'refused' : 'no network')
+  },
   judgeDraft: async () => null,
   verifyRewrites: async () => null,
 }))
 
-const { clearImprove, improveThread, sendImprove, startImprove } = await import('./ai.ts')
+const { clearImprove, improveThread, sendImprove, startImprove, stopRun } = await import('./ai.ts')
 
 const scene = (selection: string): RuleScene => ({
   selection,
@@ -80,6 +87,7 @@ beforeEach(() => {
   clearImprove()
   world.replies = 0
   world.readings = []
+  world.answerReading = 'read'
 })
 
 describe('startImprove', () => {
@@ -131,5 +139,45 @@ describe('sendImprove', () => {
     expect(thread.at).toBe(0)
     expect(thread.steps.length).toBeGreaterThan(0)
     expect(thread.scene.selection).toBe('- Keep every note under 50 words.')
+  })
+
+  /** Stop the reply on its way, which never ends on its own here, and wait for it to settle. */
+  async function settle() {
+    const run = improveThread()?.run
+    if (run) stopRun(run.id)
+    for (let i = 0; i < 100 && improveThread()?.run?.status === 'running'; i += 1)
+      await new Promise((next) => setImmediate(next))
+  }
+
+  /** A walk Jev read the rule for, past its first message. */
+  async function walking(rule: string) {
+    // A rule of its own: Jev's reading of one rule is kept, and asked once.
+    await startImprove(scene(rule))
+    await asked(1)
+    world.readings[0].answer(true)
+    const thread = await sendImprove('Ask me a few questions', { walk: true })
+    expect(thread.judged).toBe(true)
+    expect(thread.steps.length).toBeGreaterThan(0)
+    await settle()
+  }
+
+  it('says on the thread when Jev could not read an answer, and moves on', async () => {
+    await walking('- Keep every reply short.')
+    world.answerReading = 'fails'
+    const thread = await sendImprove('Under fifty words.')
+    expect(thread.unread).toBe(true)
+    expect(thread.at).toBe(1)
+    await settle()
+    world.answerReading = 'read'
+    expect((await sendImprove('Because they skim.')).unread).toBe(false)
+  })
+
+  it('says a refused key, and keeps the answer out so it can be sent again', async () => {
+    await walking('- Keep every summary short.')
+    const before = improveThread()?.messages.length ?? 0
+    world.answerReading = 'refused'
+    await expect(sendImprove('Under fifty words.')).rejects.toThrow('TypeSafe refused the key')
+    expect(improveThread()?.messages).toHaveLength(before)
+    expect(improveThread()?.at).toBe(0)
   })
 })

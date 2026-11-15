@@ -295,7 +295,7 @@ Selecting four or more words in SKILL.md opens a popout with three actions. Code
 Help me improve:
 
 - `improve.start` opens it and asks the model nothing. Jev starts reading the rule at once, and the writer's first message (`improve.send`) waits on that reading and sets the course.
-- With `walk`, it asks the questions in `IMPROVE_STEPS` in a fixed order, skipping those the judge already cleared. After each reply Jev says whether the question was answered, and code moves on or asks once more.
+- With `walk`, it asks the questions in `IMPROVE_STEPS` in a fixed order, skipping those the judge already cleared. After each reply Jev says whether the question was answered, and code moves on or asks once more. A reply Jev could not read counts as answered, and the panel says so under the conversation (`ImproveThread.unread`). A key TypeSafe refuses is said, as when the rule is read, and the reply is kept out so it can be sent again.
 - Without `walk`, the model drafts from what the writer asked, fixing what the checks found.
 - The draft is the last fenced block of the reply (`draftReply` splits a reply around it). Jev's reading of the newest draft is its checklist. Once a draft stands, a question gets an answer and no draft, and a request gets a whole new draft.
 - The editor follows the rule as a range that maps through every edit (`src/renderer/editor/improving.ts`) and publishes its text (`setPassage` in `src/renderer/replace.ts`). Apply puts a draft there through the registered replacer. The next `improve.send` carries the text as `current`, so the model works on the rule as it reads now.

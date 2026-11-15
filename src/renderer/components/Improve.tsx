@@ -155,7 +155,11 @@ export function ImprovePanel({ onBack, onClose }: { onBack: () => void; onClose:
               />
             )}
           />
-        ) : (
+        ) : null}
+        {shown.length && thread.unread ? (
+          <Hint>Jev could not read your last answer, so it counts as answered.</Hint>
+        ) : null}
+        {shown.length ? null : (
           <EmptyState
             arrive
             size="screen"

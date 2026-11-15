@@ -638,8 +638,19 @@ async function sendImproveNow(text: string, how: ImproveSend): Promise<ImproveTh
     thread.at = thread.walked ? 0 : thread.steps.length
   } else {
     const step = currentStep(thread)
+    thread.unread = false
     if (step) {
-      const reading = thread.judged ? await readAnswer(thread.scene, step, text) : null
+      let reading: AnswerReading | null = null
+      if (thread.judged)
+        try {
+          reading = await readAnswer(thread.scene, step, text)
+        } catch (error) {
+          // The answer is not lost: the writer sends it again once the key is fixed.
+          thread.messages = thread.messages.slice(0, -1)
+          throw error
+        }
+      if (improve !== thread) return gone(ticket)
+      thread.unread = thread.judged && reading === null
       Object.assign(thread, walkAfter(thread, reading))
     }
   }
@@ -653,7 +664,11 @@ async function sendImproveNow(text: string, how: ImproveSend): Promise<ImproveTh
   return snapshot(thread)
 }
 
-/** The judge's reading of the writer's reply to `step`; null when it could not read it. */
+/**
+ * The judge's reading of the writer's reply to `step`; null when it could not
+ * read it, and the reply counts as an answer. A refused key is said, as when
+ * the rule is read (`assess`), since every reading after it would fail too.
+ */
 async function readAnswer(
   scene: RuleScene,
   step: ImproveStep,
@@ -661,8 +676,9 @@ async function readAnswer(
 ): Promise<AnswerReading | null> {
   try {
     return await judgeAnswer(improveJev, scene, step, text)
-  } catch {
-    // Without the judge's reading, every reply counts as an answer.
+  } catch (error) {
+    if (isAuthError(error)) throw new Error('TypeSafe refused the key. Check it in Settings.')
+    console.warn(`Jev could not read the answer: ${(error as Error).message}`)
     return null
   }
 }

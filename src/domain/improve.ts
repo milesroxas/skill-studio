@@ -440,6 +440,8 @@ export interface ImproveThread {
   checklist: ChecklistItem[] | null
   /** Jev reads the answers and the draft; false when no TypeSafe key is set. */
   judged: boolean
+  /** Jev could not read the writer's last answer, so it counted as one. */
+  unread?: boolean
 }
 
 export const drafting = (thread: Pick<ImproveThread, 'steps' | 'at'>): boolean =>
