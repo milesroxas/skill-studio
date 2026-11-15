@@ -578,7 +578,7 @@ describe('workflow scoring', () => {
     expect(scored.verdicts.map((v) => [v.text, v.met, v.layer])).toEqual([
       ['No step repeated more than allowed', true, 'efficiency'],
       ['Stayed inside its own folder', true, 'scope'],
-      // Without Jev there is no process layer for it to count in.
+      // In no layer: a run without the skill has nothing to read.
       ['Read the skill before writing', true, null],
     ])
   })
@@ -586,8 +586,8 @@ describe('workflow scoring', () => {
   it('counts process from Jev’s answers, with the reader’s own over them', () => {
     const raw = { metrics: base, jev: { followedTask: 0.2, recovered: null } }
     const jev = workflowScoring.score(raw, subject, config)
-    // followed the task: no. Read the skill first: yes.
-    expect(jev.layers.process).toBe(1 / 2)
+    // Followed the task: no. Reading the skill first counts in no layer.
+    expect(jev.layers.process).toBe(0)
     expect(jev.flags).toEqual(['transcript does not show the task being done as asked'])
     const own = workflowScoring.score(raw, subject, config, { 'other:followed task': true })
     expect(own.layers.process).toBe(1)
@@ -600,8 +600,8 @@ describe('workflow scoring', () => {
   it('counts process from the answers there are, and leaves it out when there is none', () => {
     const only = { metrics: base, jev: { followedTask: null, recovered: 0.2 } }
     const scored = workflowScoring.score(only, subject, config)
-    // Changed course after an error: no. Read the skill first: yes.
-    expect(scored.layers.process).toBe(1 / 2)
+    // Changed course after an error: no.
+    expect(scored.layers.process).toBe(0)
     expect(scored.flags).toEqual(['after an error the agent repeated itself'])
     expect(scored.verdicts.map((v) => v.id)).toEqual([
       'other:retries',
@@ -613,6 +613,24 @@ describe('workflow scoring', () => {
     const unasked = workflowScoring.score(none, subject, config)
     expect(unasked.layers).toEqual({ efficiency: 1, scope: 1, process: null })
     expect(unasked.verdicts.find((v) => v.id === 'other:read first')?.layer).toBeNull()
+  })
+
+  it('counts process over the same facts with the skill and without it', () => {
+    const jev = { followedTask: 0.9, recovered: null }
+    const without = { ...base, skillPresent: false, skillReadAt: null }
+    const late = { ...base, skillReadAt: 3 }
+    const processOf = (metrics: WorkflowMetrics) =>
+      workflowScoring.score({ metrics, jev }, subject, config).layers.process
+    expect(processOf(base)).toBe(1)
+    expect(processOf(without)).toBe(1)
+    // A late read is said and flagged, and takes nothing from process.
+    const scored = workflowScoring.score({ metrics: late, jev }, subject, config)
+    expect(scored.layers.process).toBe(1)
+    expect(scored.flags).toContain('skill not read before writing')
+    expect(scored.verdicts.find((v) => v.id === 'other:read first')).toMatchObject({
+      met: false,
+      layer: null,
+    })
   })
 
   it('loses efficiency checks for repeats and the case limits', () => {

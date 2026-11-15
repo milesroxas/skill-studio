@@ -589,7 +589,7 @@ async function judgeJev(
 
 export const workflowPack: JudgePack<WorkflowRaw> = {
   ...workflowScoring,
-  version: 3,
+  version: 4,
   label: 'Workflow: how the agent worked, from its transcript',
   async judge(input, ctx) {
     const events = input.transcript

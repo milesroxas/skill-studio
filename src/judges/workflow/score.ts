@@ -157,7 +157,9 @@ function scoreWorkflow(
     raw.jev?.recovered,
   )
   const judged = [followed, recovered].filter((v) => v !== null)
-  // Code, not Jev: the transcript says exactly when SKILL.md was read and when writing began.
+  // Code, not Jev: the transcript says exactly when SKILL.md was read and when writing began. It
+  // counts in no layer: a run without the skill has nothing to read, and process is set against
+  // that run's, so both are counted over the same facts. It is said, and flagged, all the same.
   const readFirst = m.skillPresent
     ? m.skillReadAt !== null && (m.firstWriteAt === null || m.skillReadAt < m.firstWriteAt)
     : null
@@ -171,8 +173,7 @@ function scoreWorkflow(
           text: readFirst
             ? 'Read the skill before writing'
             : 'Did not read the skill before writing',
-          // Without an answer of Jev's there is no process layer for it to count in.
-          layer: judged.length ? 'process' : null,
+          layer: null,
         },
         readFirst,
       ),
@@ -180,7 +181,6 @@ function scoreWorkflow(
   if (judged.length) {
     // An answer Jev was not sure of is no part of the layer; what code read of the transcript still is.
     const parts = counted(judged).map((v) => v.met)
-    if (readFirst !== null) parts.push(readFirst)
     layers.process = parts.length ? parts.filter(Boolean).length / parts.length : null
     if (followed && isMissed(followed))
       flags.push('transcript does not show the task being done as asked')
