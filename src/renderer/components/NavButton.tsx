@@ -65,17 +65,21 @@ export function NavButton({
  * that comes while the reader types stamps in; one there when the list opens rests.
  * `font="mono"` is for a name that is a literal, such as a file's path.
  * `lead` goes before the name, on its first line: the chevron of a row that
- * folds what is under it, a folder in `FileTree`.
+ * folds what is under it, a folder in `FileTree`. `tone="muted"` is for a
+ * row that only groups the ones under it, the same folder: the things to
+ * open keep the weight.
  */
 export function NavButtonTitle({
   children,
   unsaved = false,
   font,
+  tone,
   lead,
 }: {
   children: ReactNode
   unsaved?: boolean
   font?: 'sans' | 'mono'
+  tone?: 'default' | 'muted'
   lead?: ReactNode
 }) {
   const changed = useArrived(String(unsaved))
@@ -85,6 +89,7 @@ export function NavButtonTitle({
       <Text
         size="ui"
         font={font}
+        tone={tone}
         clamp
         // Held to a measure with pretty wrapping: a second line never holds one word alone.
         measure

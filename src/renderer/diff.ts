@@ -296,6 +296,18 @@ export function lineDiff(before: string, after: string, context = 3): DiffLine[]
   return out
 }
 
+/**
+ * The lines of a diff to draw. Text that ends with a line break splits into
+ * its lines and one empty part after the last, and where both sides end so
+ * that part comes out as an unchanged line: drawn, it reads as a blank line
+ * the file does not have. It is the diff's last line and is left out. A line
+ * break added or taken from the end stays, as the `+` or `-` it is.
+ */
+export const drawnLines = (lines: DiffLine[]): DiffLine[] => {
+  const last = lines.at(-1)
+  return last?.op === 'same' && last.text === '' ? lines.slice(0, -1) : lines
+}
+
 /** A diff line as text: `+` added, `-` removed, an ellipsis where unchanged lines are folded. */
 export const diffLineText = (line: DiffLine): string =>
   line.op === 'fold'

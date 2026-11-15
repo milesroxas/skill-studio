@@ -4,6 +4,7 @@ import {
   compareTexts,
   DIFF_BUDGET,
   diffShown,
+  drawnLines,
   lineDiff,
   wordDiffHtml,
 } from './diff.ts'
@@ -113,6 +114,22 @@ describe('lineDiff', () => {
     expect(lines).toHaveLength(side * 2)
     expect(lines[0].op).toBe('del')
     expect(lines.at(-1)?.op).toBe('ins')
+  })
+})
+
+describe('drawnLines', () => {
+  const texts = (before: string, after: string) =>
+    drawnLines(lineDiff(before, after)).map((line) => `${line.op}:${line.text}`)
+
+  it('leaves out the empty part after a last line break', () => {
+    expect(texts('', 'a\nb\n')).toEqual(['ins:a', 'ins:b'])
+    expect(texts('a\nb\n', 'a\nc\n')).toEqual(['same:a', 'del:b', 'ins:c'])
+  })
+
+  it('keeps a blank line the file has, and a line break added at the end', () => {
+    expect(texts('a\n\nb', 'a\n\nc')).toEqual(['same:a', 'same:', 'del:b', 'ins:c'])
+    expect(texts('a\n\n', 'b\n\n')).toEqual(['del:a', 'ins:b', 'same:'])
+    expect(texts('a', 'a\n')).toEqual(['same:a', 'ins:'])
   })
 })
 

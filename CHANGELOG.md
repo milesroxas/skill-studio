@@ -22,6 +22,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Fixed
 
+- A file's changes no longer end with an empty line the file does not have.
 - A skill whose description holds a colon, such as `description: Use when: a release ships`, no longer shows as a file whose top lines cannot be read. The editor reads it as Claude Code does and offers **Add quotes**, so other apps can read it too.
 - A SKILL.md written by **Write with AI**, the selection tools or the assistant puts quotes around a description that holds a colon. A new skill's description stays on one line.
 

@@ -3,7 +3,7 @@
  * lines and folds muted. The + or - is its own span, so it can take the
  * verdict color while the line's text stays in text color.
  */
-import { type DiffLine, diffLineText } from '../diff.ts'
+import { type DiffLine, diffLineText, drawnLines } from '../diff.ts'
 
 /** The + or - and the space after it: the first two characters of `diffLineText`. */
 const SIGN = 2
@@ -37,7 +37,7 @@ export function WordDiff({
 export function DiffLines({ lines }: { lines: DiffLine[] }) {
   return (
     <pre className="diff-lines">
-      {lines.map((line) => {
+      {drawnLines(lines).map((line) => {
         const text = diffLineText(line)
         return (
           <span key={line.n} className={line.op}>

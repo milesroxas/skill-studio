@@ -78,7 +78,9 @@ function NameField({
   return (
     <li>
       <form
-        className="flex flex-col gap-1 py-0.5"
+        // As tall as a row, so the name is typed where it will stand and nothing under it moves
+        // when it lands.
+        className="flex flex-col gap-1 py-1"
         onBlur={leave}
         onSubmit={(event) => {
           event.preventDefault()
@@ -103,6 +105,8 @@ function NameField({
           enterKeyHint="done"
           size="sm"
           font="mono"
+          // With its 1px edge, the text starts 8px in, as a row's name does.
+          className="px-1.75"
           value={name}
           onChange={(event) => {
             setName(event.target.value)
@@ -111,7 +115,7 @@ function NameField({
           }}
         />
         {note ? (
-          // Under the field's own text, which starts 8px in.
+          // Under the field's own text.
           <Hint
             id={id}
             tone={error ? 'destructive' : undefined}
@@ -226,12 +230,16 @@ export function FileTree({
               <NavButton title={inner.path} aria-expanded={open} onClick={() => fold(inner.path)}>
                 <NavButtonTitle
                   font="mono"
+                  tone="muted"
                   lead={
                     <ChevronRightIcon
                       aria-hidden="true"
                       className={cn(
-                        // Its stroke starts 4px into its box; pulled back, it starts where a file's name does.
-                        '-ml-1 size-3.5 text-muted-foreground transition-transform duration-150 ease-out-strong',
+                        // Open, its strokes reach 3px into its box: pulled back by that, they
+                        // start where a file's name does, and the name after it keeps the 16px
+                        // step. Half a pixel down sets it between the middle of a capital and
+                        // of a lowercase letter, since a folder's name is most often lowercase.
+                        '-mr-0.25 -ml-0.75 size-3.5 translate-y-[0.5px] text-muted-foreground transition-transform duration-150 ease-out-strong',
                         open && 'rotate-90',
                       )}
                     />

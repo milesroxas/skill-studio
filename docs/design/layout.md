@@ -181,7 +181,7 @@ One quiet line about it
 
 | Part | Rule |
 | --- | --- |
-| `NavButtonTitle` | the item's name, `ui`, on two lines at most, so names that start alike still show the words that tell them apart, wrapped so the second line never holds one word alone. Opening the item shows the rest of a longer name in its column's header. `font="mono"` for a name that is a literal, a file's name. The `warning` dot follows it while the item has unsaved changes. `lead` is a chevron before the name, for a row that folds what is under it: a folder in the file tree, and nothing else. |
+| `NavButtonTitle` | the item's name, `ui`, on two lines at most, so names that start alike still show the words that tell them apart, wrapped so the second line never holds one word alone. Opening the item shows the rest of a longer name in its column's header. `font="mono"` for a name that is a literal, a file's name. The `warning` dot follows it while the item has unsaved changes. `lead` is a chevron before the name, for a row that folds what is under it, and `tone="muted"` quiets the name of that same row: a folder in the file tree, and nothing else. |
 | `NavButtonMeta` | one fact the reader needs before opening it, `xs` muted, one line, cut short: "3 checks", "Nov 3", "Up 11 from v0". Leave it out when there is none (a file). |
 | `end` | at most one value, on the title's first line at the row's end: a score, as `ListScore`. Never two numbers, never an action. A case on Cases has none: the list is for writing, and a case changed since its run would show a score for words it no longer holds. |
 
@@ -194,9 +194,10 @@ A row that joins the list while the reader watches (a case saved for the first t
 The Skill screen's files are a `FileTree` (`components/FileTree.tsx`): `NavButton` rows, nested by folder.
 
 - At each level the files come first, SKILL.md before the rest, then the folders. A file beside SKILL.md stays beside it, not under every folder.
-- A file's row shows its name, in mono, and its whole path as its `title`. A folder's row has a chevron (`lead`), 14px, `muted-foreground`, turned down while the folder is open. A click folds what the folder holds away and back, and nothing else: a folder is never the open item.
+- A file's row shows its name, in mono, and its whole path as its `title`. A folder's row has a chevron (`lead`), 14px, `muted-foreground`, turned down while the folder is open, and its name is `muted` too (`NavButtonTitle tone="muted"`): a folder only groups, so the files, the things to open, keep the weight. A click folds what the folder holds away and back, and nothing else: a folder is never the open item.
+- The chevron's strokes, open, start where a file's name does: its box is pulled back 3px, since the strokes begin 3px into it. It sits half a pixel under the line's middle, between the middle of a capital and of a lowercase letter, since a folder's name is most often lowercase.
 - What a folder holds is indented 16px, so it starts under the folder's name.
-- A new file or folder is named in the tree, in a `size="sm"` mono `Input` after the files of the folder it goes in. Enter makes it, Escape lets it go, and so does leaving the field empty; leaving it with a name in it makes it. A name that cannot be used is said under the field in a destructive `Hint`, once the name is sent, and checked as it is typed from then on.
+- A new file or folder is named in the tree, in a `size="sm"` mono `Input` after the files of the folder it goes in. The field takes a row's 36px and its text starts where a row's name does, so the name is typed where it will stand and nothing under it moves when it lands. Enter makes it, Escape lets it go, and so does leaving the field empty; leaving it with a name in it makes it. A name that cannot be used is said under the field in a destructive `Hint`, once the name is sent, and checked as it is typed from then on.
 - A folder is there while a file is in it. Naming a folder goes on to naming its first file, with one `Hint` that says so; Escape there lets the folder go.
 - The header's two buttons add next to the open file. A right-click on a row adds there: beside a file, inside a folder ([buttons.md](buttons.md#menus-and-right-click)).
 
