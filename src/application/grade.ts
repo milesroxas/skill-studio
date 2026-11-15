@@ -8,6 +8,7 @@ import { readFileSync, statSync } from 'node:fs'
 import { basename, join } from 'node:path'
 import { type PageRenderer, RENDER_SIZES, type RenderSize } from '@domain/artifact-address.ts'
 import { inputName, isPicture } from '@domain/case-draft.ts'
+import { type Answered, changeAnswers, comparableAnswers, countedApart } from '@domain/change.ts'
 import { mergeConfig } from '@domain/config.ts'
 import {
   fitForJev,
@@ -19,7 +20,7 @@ import {
   pictureSize,
 } from '@domain/image.ts'
 import { type PageLayout, readLayout } from '@domain/layout.ts'
-import { packFailedFlag, packFailure } from '@domain/pack.ts'
+import { type Corrections, NO_CORRECTIONS, packFailedFlag, packFailure } from '@domain/pack.ts'
 import { differing, SAME_PICTURE, scaleOf } from '@domain/picture-match.ts'
 import { primaryArtifact } from '@domain/primary.ts'
 import { NOTES_FILE } from '@domain/prompt.ts'
@@ -42,6 +43,7 @@ import {
 } from '@infrastructure/fs.ts'
 import { takeGradingLock } from '@infrastructure/grading-lock.ts'
 import { readPng } from '@infrastructure/png.ts'
+import { loadReviews } from '@infrastructure/reviews.ts'
 import { CASES_FILE, type KeptCase, readKept, takenCase } from '@infrastructure/run-cases.ts'
 import {
   anchorsDir,
@@ -69,7 +71,7 @@ import type {
   SourcePage,
 } from '@judges/types.ts'
 import { INPUTS_DIR, stagedInputs } from './generate.ts'
-import { type Asked, cachedAsker, JudgeCache } from './judge-cache.ts'
+import { type Asked, cachedAsker, hashOf, JudgeCache } from './judge-cache.ts'
 
 export interface GradeOptions {
   /** False grades with code checks only: no TypeSafe calls, Jev layers stay null. */
@@ -382,6 +384,43 @@ async function sourcePage(
   }
   log(`${basename(file)} is not what ${basename(page.file)} draws, so nothing is measured for it`)
   return null
+}
+
+/**
+ * The settings of `bench.json` a pack reads as it judges, by pack: what a
+ * grading made before one changed did not read. Every other setting is read
+ * in scoring, so a change to it is seen without grading again.
+ */
+const GRADE_TIME: Readonly<Record<string, (config: BenchConfig) => unknown>> = {
+  // The rules the file lists are the questions asked.
+  generic: (config) => config.rules,
+  // How much of the transcript is read.
+  workflow: (config) => (config.workflow as { summaryLines?: unknown } | undefined)?.summaryLines,
+  // How the check command runs.
+  code: (config) => config.codeCheck,
+}
+
+/**
+ * A fingerprint of the settings each pack reads as it judges, under `config`,
+ * by pack id (`GradedWith.settings`): an output graded under other ones is
+ * behind (`behindOf`), as one graded before its case's checks changed is.
+ */
+export function gradeSettings(config: BenchConfig): Record<string, string> {
+  return Object.fromEntries(
+    Object.entries(GRADE_TIME).map(([id, read]) => [id, hashOf(read(config) ?? null)]),
+  )
+}
+
+/** `GradedWith.settings` for the packs that judged an output; nothing when none has such settings. */
+function settingsOf(
+  config: BenchConfig,
+  judgedBy: Record<string, number>,
+): { settings?: Record<string, string> } {
+  const all = gradeSettings(config)
+  const settings = Object.fromEntries(
+    Object.entries(all).filter(([id]) => Object.hasOwn(judgedBy, id)),
+  )
+  return Object.keys(settings).length ? { settings } : {}
 }
 
 /** The keys of `bench.json` no pack's answer rests on: they apply after, in scoring, or choose what is judged. */
@@ -843,6 +882,7 @@ async function gradeSubject(
       model: ctx.judge.useJev ? ctx.judge.jev.model : null,
       packs: judgedBy,
       ...(drawable ? { drawn: ctx.draw !== undefined } : {}),
+      ...settingsOf(ctx.judge.config, judgedBy),
     },
     packs,
   }
@@ -951,6 +991,15 @@ async function gradeSubjects(
     inputTokens: ctx.cache.tokens(),
     seconds: Math.round((performance.now() - started) / 100) / 10,
     asked: { questions, inputTokens: jev.inputTokens },
+    // Laid over `bench.json` for this grading only, so a reader of the report can tell.
+    ...(options.packs || options.config
+      ? {
+          overrides: {
+            ...(options.packs ? { packs: options.packs } : {}),
+            ...(options.config ? { bench: options.config } : {}),
+          },
+        }
+      : {}),
     config,
     packs: config.packs,
     results,
@@ -1133,66 +1182,199 @@ export interface CompareRow {
 }
 
 /**
- * Per-sample score deltas between two reports. Between two runs of sample
- * folders, a sample is matched with the one of its name, which holds its case
- * and its number, so `email-s2` is read against `email-s2` however many
- * samples either run has. A run of legacy flat files names its files its own
- * way, so against one the samples are matched by their case, in order.
+ * The results of two reports read against each other, the earlier one's
+ * first. Between two runs of sample folders, a sample is matched with the
+ * one of its name, which holds its case and its number, so `email-s2` is
+ * read against `email-s2` however many samples either run has. A run of
+ * legacy flat files names its files its own way, so against one the samples
+ * are matched by their case, in order. `unmatched` are the later report's
+ * results with none to be read against.
  */
-export function compareReports(before: Report, after: Report): CompareRow[] {
+function matched(
+  before: Report,
+  after: Report,
+): { pairs: Array<[ReportResult, ReportResult]>; unmatched: ReportResult[] } {
   const caseOf = (r: ReportResult) => r.case ?? r.sample
   const folders = (report: Report) => report.results.every((r) => parseSampleDir(r.sample))
   const byName = folders(before) && folders(after)
   const keyOf = (r: ReportResult) => (byName ? r.sample : caseOf(r))
   const prior = new Map<string, ReportResult[]>()
   for (const r of before.results) prior.set(keyOf(r), [...(prior.get(keyOf(r)) ?? []), r])
-  return after.results.flatMap((r) => {
+  const pairs: Array<[ReportResult, ReportResult]> = []
+  const unmatched: ReportResult[] = []
+  for (const r of after.results) {
     const match = prior.get(keyOf(r))?.shift()
-    if (!match) return []
-    const deltas: Record<string, number | null> = {}
-    for (const layer of Object.keys(r.scores)) {
-      const a = r.scores[layer]
-      const b = match.scores[layer]
-      deltas[layer] = a === null || b === null || b === undefined ? null : a - b
-    }
-    return [{ key: `${caseOf(r)} ${r.sample}`, deltas }]
-  })
+    if (match) pairs.push([match, r])
+    else unmatched.push(r)
+  }
+  return { pairs, unmatched }
+}
+
+/** The row of one result read against an earlier one: the change of each layer, null where either has no score. */
+function rowOf(before: ReportResult['scores'], after: ReportResult, key: string): CompareRow {
+  const deltas: Record<string, number | null> = {}
+  for (const layer of Object.keys(after.scores)) {
+    const a = after.scores[layer]
+    const b = before[layer]
+    deltas[layer] = a === null || b === null || b === undefined ? null : a - b
+  }
+  return { key, deltas }
+}
+
+/** "email email-s2": how a row names a result, by its case and its sample. */
+const rowKey = (r: ReportResult): string => `${r.case ?? r.sample} ${r.sample}`
+
+/**
+ * Per-sample score deltas between two reports, each result read against the
+ * earlier report's of the same sample (`matched`).
+ */
+export function compareReports(before: Report, after: Report): CompareRow[] {
+  return matched(before, after).pairs.map(([match, r]) => rowOf(match.scores, r, rowKey(r)))
+}
+
+/** One run as the command line scores it: its report, its cases, and the reader's corrections on its outputs. */
+export interface RunScoring {
+  report: Report
+  /** Each case the run takes (`RunView.cases`). */
+  cases: Readonly<Record<string, RunCase>>
+  /** The sample folders on disk: a result of one since removed is no output of the run. */
+  samples: readonly string[]
+  /** The reader's corrections on each output, by sample name (`correctionsOf`). */
+  corrections: Readonly<Record<string, Corrections>>
+}
+
+/** The reader's corrections on each output of `run`, by sample name, from `evals/reviews.json`. */
+export function correctionsOf(skillDir: string, run: string): Record<string, Corrections> {
+  const prefix = `${run}/`
+  return Object.fromEntries(
+    Object.entries(loadReviews(skillDir).reviews).flatMap(([key, review]) =>
+      key.startsWith(prefix) ? [[key.slice(prefix.length), review.corrections]] : [],
+    ),
+  )
+}
+
+/** The scoring the command line reads a report under: `bench.json` as it is now, the call's laid over it. */
+function scoringNow(skillDir: string, options: Pick<GradeOptions, 'packs' | 'config'>) {
+  const config = benchFor(skillDir, options)
+  // The command line draws nothing and names its model by hand, so only the packs' questions and settings are asked of a grading.
+  const now = gradedNow(packVersions(), config.packs, null, false, gradeSettings(config))
+  return { config, now }
+}
+
+/** One result scored as the app scores it: under `config`, with `corrections`, held behind as the app holds it. */
+function scoredResult(
+  result: ReportResult,
+  report: Report,
+  cases: Readonly<Record<string, RunCase>>,
+  { config, now }: ReturnType<typeof scoringNow>,
+  corrections: Corrections,
+) {
+  const taken = result.case !== null && Object.hasOwn(cases, result.case)
+  const behind = behindOf(
+    { yardstick: result.yardstick, model: report.model, graded: result.graded },
+    { yardstick: taken ? cases[result.case as string].yardstick : null, jev: false, with: now },
+  )
+  return scoreResult(result, config, scorers, corrections, behind)
 }
 
 /**
  * A report as the app shows it: each output's stored answers scored under the
  * skill's `bench.json` as it is now, with the call's overrides laid over it,
- * and without the reader's corrections. So what `st report` and `st compare`
- * print follows a setting changed since the grading, as Results does. Given
- * the run's `cases` (`RunView.cases`), an output graded before its case's
- * checks or settings changed has no total, as in the app. A grading without
- * Jev is one the command line asks for by name, so here it stands.
+ * and the reader's `corrections` over Jev's answers, by sample name. So what
+ * `st report` prints follows a setting changed since the grading, and the
+ * reader's own answers, as Results does. Given the run's `cases`
+ * (`RunView.cases`), an output graded before its case's checks or settings,
+ * or the settings a pack read as it judged, changed has no total, as in the
+ * app. Given the run's `samples`, a result of a sample folder since removed
+ * is left out. A grading without Jev is one the command line asks for by
+ * name, so here it stands.
  */
 export function scoredReport(
   skillDir: string,
   report: Report,
   options: Pick<GradeOptions, 'packs' | 'config'> = {},
   cases: Readonly<Record<string, RunCase>> = {},
+  run: Partial<Pick<RunScoring, 'samples' | 'corrections'>> = {},
 ): Report {
-  const config = benchFor(skillDir, options)
-  // The command line draws nothing and names its model by hand, so only the packs' questions are asked of a grading.
-  const now = gradedNow(packVersions(), config.packs, null, false)
+  const scoring = scoringNow(skillDir, options)
+  const { samples, corrections = {} } = run
   return {
     ...report,
-    config,
-    packs: config.packs,
-    results: report.results.map((result) => {
-      const taken = result.case !== null && Object.hasOwn(cases, result.case)
-      const behind = behindOf(
-        { yardstick: result.yardstick, model: report.model, graded: result.graded },
-        {
-          yardstick: taken ? cases[result.case as string].yardstick : null,
-          jev: false,
-          with: now,
-        },
-      )
-      const { scores, flags, confidence } = scoreResult(result, config, scorers, undefined, behind)
-      return { ...result, scores, flags, confidence }
-    }),
+    config: scoring.config,
+    packs: scoring.config.packs,
+    results: report.results
+      .filter((result) => !samples || samples.includes(result.sample))
+      .map((result) => {
+        const mine = Object.hasOwn(corrections, result.sample)
+          ? corrections[result.sample]
+          : NO_CORRECTIONS
+        const { scores, flags, confidence } = scoredResult(result, report, cases, scoring, mine)
+        return { ...result, scores, flags, confidence }
+      }),
   }
+}
+
+/** What `compareRuns` read between two runs, and each output it left out, with why. */
+export interface Compared {
+  rows: CompareRow[]
+  left: string[]
+}
+
+/**
+ * Per-sample score deltas between two runs, read as the app reads a change
+ * between two outputs (`changeBetween` in the renderer): only between two
+ * answers to the same case as it was asked, both graded with Jev or both
+ * without (`comparableAnswers`), each scored under `bench.json` as it is now
+ * with only the reader's answers on facts both hold (`changeAnswers`), and
+ * none between two that counted different facts (`countedApart`). Every
+ * output left out is said, with why. A sample folder since removed is no
+ * output of its run.
+ */
+export function compareRuns(
+  skillDir: string,
+  before: RunScoring,
+  after: RunScoring,
+  options: Pick<GradeOptions, 'packs' | 'config'> = {},
+): Compared {
+  const scoring = scoringNow(skillDir, options)
+  const present = (side: RunScoring): Report => ({
+    ...side.report,
+    results: side.report.results.filter((r) => side.samples.includes(r.sample)),
+  })
+  const answered = (r: ReportResult, side: RunScoring): Answered => {
+    const id = r.case ?? parseSampleDir(r.sample)?.case ?? r.sample
+    return {
+      case: id,
+      ask: Object.hasOwn(side.cases, id) ? side.cases[id].ask : '',
+      judged: Boolean(side.report.model),
+    }
+  }
+  const corrections = (side: RunScoring, r: ReportResult): Corrections =>
+    Object.hasOwn(side.corrections, r.sample) ? side.corrections[r.sample] : NO_CORRECTIONS
+  const { pairs, unmatched } = matched(present(before), present(after))
+  const rows: CompareRow[] = []
+  const left: string[] = unmatched.map(
+    (r) => `${rowKey(r)}: the other run has no answer to read it against`,
+  )
+  for (const [from, to] of pairs) {
+    const a = answered(from, before)
+    const b = answered(to, after)
+    if (!comparableAnswers(a, b)) {
+      left.push(
+        a.judged !== b.judged
+          ? `${rowKey(to)}: graded with Jev in one run and without it in the other`
+          : `${rowKey(to)}: its agent was asked another prompt or other files in the other run`,
+      )
+      continue
+    }
+    const kept = changeAnswers([corrections(before, from)], [corrections(after, to)])
+    const was = scoredResult(from, before.report, before.cases, scoring, kept.a[0])
+    const is = scoredResult(to, after.report, after.cases, scoring, kept.b[0])
+    if (countedApart([was.verdicts], [is.verdicts])) {
+      left.push(`${rowKey(to)}: the two counted different facts, so no change is read between them`)
+      continue
+    }
+    rows.push(rowOf(was.scores, { ...to, scores: is.scores }, rowKey(to)))
+  }
+  return { rows, left }
 }

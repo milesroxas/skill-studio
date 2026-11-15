@@ -649,6 +649,8 @@ describe('gradeRun, on a page drawn for a pack that looks at it', () => {
       model: new Jev().model,
       packs: expect.objectContaining(versions),
       drawn: true,
+      // The generic pack read the rules the skill states, and no list in bench.json.
+      settings: { generic: expect.any(String) },
     })
     // A host with no browser judges the page by its source, and says so.
     const undrawn = await gradeRun(dir, run, { useJev: true, model: 'jev-0' })

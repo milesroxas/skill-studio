@@ -23,7 +23,8 @@ import { basename, join, resolve } from 'node:path'
 import { parseArgs } from 'node:util'
 import { generateRun } from '@application/generate.ts'
 import {
-  compareReports,
+  compareRuns,
+  correctionsOf,
   gradeAnchors,
   gradeRun,
   jevForRun,
@@ -156,6 +157,18 @@ function printReport(report: Report): void {
     console.log(`\n${r.sample}`)
     for (const flag of r.flags) console.log(`  - ${flag}`)
   }
+  const { overrides } = report
+  if (overrides)
+    console.log(
+      `\nGraded with ${[
+        overrides.packs ? `--packs ${overrides.packs.join(',')}` : null,
+        overrides.bench ? '--bench' : null,
+      ]
+        .filter(Boolean)
+        .join(
+          ' and ',
+        )} laid over bench.json: the app scores it under bench.json, and gives no total where they changed what was asked.`,
+    )
   console.log(
     `\n${report.results.length} output(s), ${report.model ?? 'no Jev'}, ${report.inputTokens.toLocaleString()} input tokens${report.asked ? ` (${report.asked.inputTokens.toLocaleString()} paid by this grading)` : ''}, ${report.seconds} s`,
   )
@@ -386,13 +399,22 @@ async function main(): Promise<number> {
 
   if (command === 'report') {
     if (!values.run) throw new Error('Pass --run <name>.')
-    const view = readRun(skill, runNameOf(values.run, '--run'))
+    const name = runNameOf(values.run, '--run')
+    const view = readRun(skill, name)
     if (!view.report)
       throw new Error(`${values.run} is not graded. Run: st grade --run ${values.run}`)
-    // Scored as the app scores it, under the scoring as it is now.
-    const report = scoredReport(skill, view.report, scoring, view.cases)
+    // Scored as the app scores it: under the scoring as it is now, with the reader's corrections.
+    const corrections = correctionsOf(skill, name)
+    const report = scoredReport(skill, view.report, scoring, view.cases, {
+      samples: view.samples.map((s) => s.name),
+      corrections,
+    })
     if (values.json) console.log(JSON.stringify(report, null, 2))
-    else printReport(report)
+    else {
+      printReport(report)
+      const fixed = Object.values(corrections).reduce((n, c) => n + Object.keys(c).length, 0)
+      if (fixed) console.log(`Your ${fixed} correction(s) in the app count, as they do there.`)
+    }
     return 0
   }
 
@@ -400,12 +422,18 @@ async function main(): Promise<number> {
     const [a, b] = rest
     if (!a || !b) throw new Error('Pass two run names.')
     const load = (name: string) => {
-      const { report, cases } = readRun(skill, runNameOf(name, '`st compare`'))
+      const run = runNameOf(name, '`st compare`')
+      const { report, cases, samples } = readRun(skill, run)
       if (!report) throw new Error(`${name} has no report.json.`)
-      // Both under one scoring, so a difference is the outputs' and not a setting's.
-      return scoredReport(skill, report, scoring, cases)
+      return {
+        report,
+        cases,
+        samples: samples.map((s) => s.name),
+        corrections: correctionsOf(skill, run),
+      }
     }
-    const rows = compareReports(load(a), load(b))
+    // Both under one scoring, so a difference is the outputs' and not a setting's, read as the app reads a change.
+    const { rows, left } = compareRuns(skill, load(a), load(b), scoring)
     const layers = rows.length ? Object.keys(rows[0].deltas) : []
     console.log(`\n${padEnd('sample', 44)}${layers.map((l) => pad(l, 11)).join('')}`)
     for (const row of rows)
@@ -417,6 +445,10 @@ async function main(): Promise<number> {
           })
           .join('')}`,
       )
+    if (left.length) {
+      console.log('\nLeft out, as the app leaves them out:')
+      for (const line of left) console.log(`  ${line}`)
+    }
     return 0
   }
 

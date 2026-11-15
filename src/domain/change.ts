@@ -10,6 +10,20 @@
  */
 import { type Corrections, NO_CORRECTIONS, type Verdict } from './pack.ts'
 
+/** An output as a change reads it: its case, what its agent was asked (`RunCase.ask`), and whether Jev graded it. */
+export interface Answered {
+  case: string
+  ask: string
+  judged: boolean
+}
+
+/**
+ * Two outputs whose scores can be set against each other: answers to the same
+ * case as it was asked, both graded with Jev or both without.
+ */
+export const comparableAnswers = (a: Answered, b: Answered): boolean =>
+  a.case === b.case && a.ask === b.ask && a.judged === b.judged
+
 /** The facts the reader answered at one end: on any of its outputs. */
 const answeredAt = (end: readonly Corrections[]): Set<string> =>
   new Set(end.flatMap((corrections) => Object.keys(corrections)))

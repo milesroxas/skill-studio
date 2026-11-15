@@ -19,8 +19,8 @@ pnpm st <command> [skill-dir] [options]
 | `cases` | List the skill's cases |
 | `run` | Generate outputs with a headless agent, then grade them |
 | `grade` | Grade a run again: `--run <name>` or `--all` |
-| `report` | Print a run's report: `--run <name>`. The scores are counted from the stored answers under `bench.json` as it is now, as the app shows them |
-| `compare <runA> <runB>` | Score differences between two graded runs, both under `bench.json` as it is now. A sample is read against the one of its name in the other run (`email-s2` against `email-s2`) |
+| `report` | Print a run's report: `--run <name>`. The scores are counted from the stored answers under `bench.json` as it is now, with your corrections from the app, as the app shows them. A sample folder since removed is left out |
+| `compare <runA> <runB>` | Score differences between two graded runs, both under `bench.json` as it is now. A sample is read against the one of its name in the other run (`email-s2` against `email-s2`), only where the app would set the two against each other: answers to the same case as it was asked, both graded with Jev or both without, with your corrections only on facts you answered in both, and not where the two counted different facts. Each sample left out is listed under the table, with why |
 | `versions` | List the skill versions seen in runs, and the working tree's |
 | `self-test` | Grade `evals/anchors` and check that bad anchors lose to good ones ([anchors](grading.md#anchors)) |
 | `serve [skill...]` | Start the app as a web server, below |
@@ -47,7 +47,7 @@ Every grading command takes `--no-jev`, `--packs a,b`, `--bench <file>` and `--j
 - A name `--packs` gives that is no pack stops the command: `No judge pack named ...`.
 - Without `TYPESAFE_API_KEY`, `run`, `grade` and `self-test` print `TYPESAFE_API_KEY is not set: grading without Jev.` to stderr and go on with the code checks.
 - `grade` stops instead when a run it was asked to grade has Jev's scores, before it grades any: without a key it would write them out of the report. `--no-jev` asks for that outright, and is done.
-- `report` and `compare` print no total for an output graded before its case's checks or settings changed, or on a pack's questions since changed, as the app does ([when a total does not stand](grading.md#when-a-total-does-not-stand)). One graded by another Jev model, or without the page drawn, stands.
+- `report` and `compare` print no total for an output graded before its case's checks or settings changed, before a setting of `bench.json` a pack reads as it judges changed, or on a pack's questions since changed, as the app does ([when a total does not stand](grading.md#when-a-total-does-not-stand)). One graded by another Jev model, or without the page drawn, stands.
 - `grade` and `run` refuse to grade a run the app, `st serve` or another `st` is grading, and say which one is ([architecture.md](architecture.md#jobs-and-runs)).
 - Ctrl-C stops `run` and `grade` as Stop does in the app: the agents and any check command are ended, and no report is written from what was graded by then.
 
@@ -60,7 +60,9 @@ Exit codes:
 - 2 on an error, an unknown command or no command (which prints the help).
 - 130, 143 or 129 when it was stopped by Ctrl-C, a request to end or the terminal closing.
 
-Corrections, restoring a version and choosing what a skill is graded as are in the app only. The rest of the scoring is `bench.json`, which both read.
+Making corrections, restoring a version and choosing what a skill is graded as are in the app only. `report` and `compare` read the corrections the app keeps in `evals/reviews.json`. The rest of the scoring is `bench.json`, which both read.
+
+`grade --packs` and `grade --bench` grade under the file with the flags laid over it, and the report says so (`overrides` in `report.json`), as `report` prints. The app scores such a report under `bench.json` as it is, and gives no total to an output where the flags changed what was asked: a pack left out, or a setting a pack reads as it judges.
 
 ## The web server
 

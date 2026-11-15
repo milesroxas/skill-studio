@@ -123,7 +123,7 @@ import {
   stopRun,
 } from '../ai.ts'
 import { generateRun, MAX_SAMPLES, samplesPerCase } from '../generate.ts'
-import { gradeRun, jevForRun, unjudged } from '../grade.ts'
+import { gradeRun, gradeSettings, jevForRun, unjudged } from '../grade.ts'
 import {
   anyRunning,
   listJobs,
@@ -768,7 +768,12 @@ export function createOperations(options: OperationsOptions): Runners {
         savedConfig: readJson<Partial<BenchConfig>>(benchPath(skill.path), {}),
         rules: loadRules(skill.path, config),
         jevKey: Jev.available(),
-        grading: { model: DEFAULT_MODEL, packs: packVersions(), drawn: Boolean(options.render) },
+        grading: {
+          model: DEFAULT_MODEL,
+          packs: packVersions(),
+          drawn: Boolean(options.render),
+          settings: gradeSettings(config),
+        },
         paths: {
           bench: relative(skill.path, benchPath(skill.path)),
           reviews: relative(skill.path, reviewsPath(skill.path)),

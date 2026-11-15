@@ -323,6 +323,13 @@ export interface GradedWith {
    * nothing of the output was for drawing, so it was judged the same anywhere.
    */
   drawn?: boolean
+  /**
+   * A fingerprint of the settings of `bench.json` each pack read as it judged,
+   * by pack id: the rules `bench.json` lists, the transcript lines the
+   * workflow pack reads, the code pack's check settings. Only a pack that has
+   * such settings is named. Absent in a report written before gradings kept it.
+   */
+  settings?: Record<string, string>
 }
 
 export interface Report {
@@ -341,6 +348,12 @@ export interface Report {
    * they cost. Absent in a report written before reports said it.
    */
   asked?: { questions: number; inputTokens: number }
+  /**
+   * What the grading was told to lay over `bench.json`: the packs `st grade
+   * --packs` named, and the file `--bench` gave. Absent for a grading made
+   * under `bench.json` alone.
+   */
+  overrides?: { packs?: string[]; bench?: Partial<BenchConfig> }
   config: BenchConfig
   packs: string[]
   results: ReportResult[]

@@ -1,6 +1,6 @@
 /** Outputs across runs, their scores under the skill's scoring, the pair to compare per case, and display names. */
 import { caseName } from '@domain/case-draft.ts'
-import { changeAnswers, countedApart } from '@domain/change.ts'
+import { changeAnswers, comparableAnswers, countedApart } from '@domain/change.ts'
 import { BASE_PACK, mergeConfig } from '@domain/config.ts'
 import {
   pointsMoved,
@@ -204,6 +204,7 @@ export function outputsOf(state: State): Output[] {
         state.config.packs,
         state.grading.model,
         state.grading.drawn === true,
+        state.grading.settings,
       )
     : null
   const list = state.runs.flatMap((run) => {
@@ -318,7 +319,10 @@ const askedKey = (output: Pick<Output, 'caseId' | 'ask'>): string =>
  * case as it was asked, both graded with Jev or both without.
  */
 export const comparable = (a: Output, b: Output): boolean =>
-  askedKey(a) === askedKey(b) && a.judged === b.judged
+  comparableAnswers(
+    { case: a.caseId, ask: a.ask, judged: a.judged },
+    { case: b.caseId, ask: b.ask, judged: b.judged },
+  )
 
 /** What `comparable` compares, as one key. */
 const comparedKey = (output: Output): string => `${askedKey(output)}\n${output.judged}`

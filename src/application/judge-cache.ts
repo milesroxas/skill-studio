@@ -259,7 +259,7 @@ function canonical(value: unknown, refs: Map<string, string>): unknown {
 }
 
 /** The hash of `value` as `canonical` writes it. */
-const hashOf = (value: unknown): string => sha(JSON.stringify(canonical(value, new Map())))
+export const hashOf = (value: unknown): string => sha(JSON.stringify(canonical(value, new Map())))
 
 /** What one output's questions cost this grading: how many were asked, and how many were kept. */
 export interface Asked {

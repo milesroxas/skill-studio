@@ -82,6 +82,17 @@ export function behindOf(
   if (!was || !is) return null
   if (Object.entries(was.packs).some(([id, version]) => (is.packs[id] ?? version) !== version))
     return 'Graded by an older version of Skill Studio'
+  // A setting read as the pack judged, changed since, as a check changed is: one the scores apply after is not.
+  const settings = is.settings
+  if (
+    was.settings &&
+    settings &&
+    Object.entries(was.settings).some(
+      ([id, print]) =>
+        Object.hasOwn(is.packs, id) && Object.hasOwn(settings, id) && settings[id] !== print,
+    )
+  )
+    return 'Graded before a setting changed'
   if (was.model !== null && is.model !== null && was.model !== is.model)
     return 'Graded by another version of Jev'
   if (was.drawn === false && is.drawn === true) return 'Graded without looking at the page'
@@ -91,13 +102,15 @@ export function behindOf(
 /**
  * What a grading made now grades with (`GradedNow.with`): the version of each
  * of the `active` packs, from every pack's `versions`, the Jev model (null to
- * let any stand) and whether the host draws pages.
+ * let any stand), whether the host draws pages, and the fingerprint of the
+ * settings each pack reads as it judges (`GradedWith.settings`), when known.
  */
 export function gradedNow(
   versions: Readonly<Record<string, number>>,
   active: readonly string[],
   model: string | null,
   drawn: boolean,
+  settings?: Readonly<Record<string, string>>,
 ): GradedWith {
   return {
     model,
@@ -105,6 +118,7 @@ export function gradedNow(
       active.flatMap((id) => (Object.hasOwn(versions, id) ? [[id, versions[id]]] : [])),
     ),
     drawn,
+    ...(settings ? { settings: { ...settings } } : {}),
   }
 }
 
