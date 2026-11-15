@@ -157,7 +157,7 @@ function printReport(report: Report): void {
     for (const flag of r.flags) console.log(`  - ${flag}`)
   }
   console.log(
-    `\n${report.results.length} output(s), ${report.model ?? 'no Jev'}, ${report.inputTokens.toLocaleString()} input tokens, ${report.seconds} s`,
+    `\n${report.results.length} output(s), ${report.model ?? 'no Jev'}, ${report.inputTokens.toLocaleString()} input tokens${report.asked ? ` (${report.asked.inputTokens.toLocaleString()} paid by this grading)` : ''}, ${report.seconds} s`,
   )
 }
 

@@ -723,7 +723,7 @@ function caseOf(subject: Subject, ctx: GradeContext) {
 async function gradeSubject(
   subject: Subject,
   ctx: GradeContext,
-): Promise<{ result: ReportResult; unchanged: boolean }> {
+): Promise<{ result: ReportResult; unchanged: boolean; asked: number }> {
   const taken = caseOf(subject, ctx)
   const testCase = taken?.case ?? null
   const input = judgeInput(ctx, subject, testCase, (line) =>
@@ -856,6 +856,7 @@ async function gradeSubject(
     },
     // Unchanged is said of what the cache keeps: Jev was asked nothing new about this output.
     unchanged: counts.asked === 0 && counts.kept > 0,
+    asked: counts.asked,
   }
 }
 
@@ -925,12 +926,14 @@ async function gradeSubjects(
   const started = performance.now()
   const results: ReportResult[] = []
   let unchanged = 0
+  let questions = 0
   try {
     for (const subject of subjects) {
       if (options.signal?.aborted) throw new Error(STOPPED)
       const graded = await gradeSubject(subject, ctx)
       results.push(graded.result)
       if (graded.unchanged) unchanged += 1
+      questions += graded.asked
       log(`${subject.name}: total ${graded.result.scores.total ?? '-'}`)
     }
     // A stop that came with the last sample's answers: the grading did not run to its end.
@@ -943,8 +946,10 @@ async function gradeSubjects(
   const report: Report = {
     createdAt: new Date().toISOString(),
     model: options.useJev ? (jev.modelSeen ?? jev.model) : null,
-    inputTokens: jev.inputTokens,
+    // What the answers cost in all, so a grading that kept them all does not write nothing over it.
+    inputTokens: ctx.cache.tokens(),
     seconds: Math.round((performance.now() - started) / 100) / 10,
+    asked: { questions, inputTokens: jev.inputTokens },
     config,
     packs: config.packs,
     results,

@@ -45,12 +45,17 @@ function demo(): { dir: string; sample: string; cases: string } {
  */
 function answering() {
   vi.spyOn(Jev, 'available').mockReturnValue(true)
-  const ask = vi
-    .spyOn(Jev.prototype, 'ask')
-    .mockImplementation(async (_state, questions, _signal, usage?: Usage) => {
-      if (usage) usage.inputTokens = 100
-      return Object.fromEntries(Object.keys(questions).map((id) => [id, { noul: 0.9 } as never]))
-    })
+  const ask = vi.spyOn(Jev.prototype, 'ask').mockImplementation(async function (
+    this: Jev,
+    _state,
+    questions,
+    _signal,
+    usage?: Usage,
+  ) {
+    this.inputTokens += 100
+    if (usage) usage.inputTokens = 100
+    return Object.fromEntries(Object.keys(questions).map((id) => [id, { noul: 0.9 } as never]))
+  })
   const asked = (): string[] => ask.mock.calls.flatMap(([, questions]) => Object.keys(questions))
   return { ask, asked }
 }
@@ -185,6 +190,32 @@ describe('gradeRun, on what a question is asked again for', () => {
     writeFileSync(picture, pngHeader(900, 600))
     await gradeRun(dir, 'run-1', { useJev: true })
     expect(asked()).toEqual(expect.arrayContaining(['hierarchy', 'finished', 'rule:r1']))
+  })
+})
+
+describe('gradeRun, on what a report says its answers cost', () => {
+  it('counts the tokens of every answer it holds, kept or asked, and apart what this grading paid', async () => {
+    const { dir, cases } = demo()
+    const { ask } = answering()
+    const first = await grade(dir)
+    const requests = ask.mock.calls.length
+    expect(first.inputTokens).toBe(requests * 100)
+    expect(first.asked?.inputTokens).toBe(requests * 100)
+    expect(first.asked?.questions).toBeGreaterThan(requests)
+
+    // A Regrade that asks nothing keeps what the answers cost.
+    const again = await grade(dir)
+    expect(again.inputTokens).toBe(first.inputTokens)
+    expect(again.asked).toEqual({ questions: 0, inputTokens: 0 })
+
+    // A check added is one request of one question: its cost is added to the rest.
+    writeFileSync(
+      join(cases, 'graders/03-plain.md'),
+      '---\ntype: llm\nweight: 1\n---\n\nThe note uses no jargon.\n',
+    )
+    const added = await grade(dir)
+    expect(added.inputTokens).toBe(first.inputTokens + 100)
+    expect(added.asked).toEqual({ questions: 1, inputTokens: 100 })
   })
 })
 

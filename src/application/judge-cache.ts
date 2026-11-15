@@ -162,6 +162,16 @@ export class JudgeCache {
     return true
   }
 
+  /**
+   * The input tokens of every answer the report rests on, each counted once,
+   * whether this grading asked it or kept it: what the answers cost in all.
+   */
+  tokens(): number {
+    let sum = 0
+    for (const key of this.used) sum += this.answers.get(key)?.tokens ?? 0
+    return Math.round(sum)
+  }
+
   /** Whether this grading used or kept anything, so the file has something to write. */
   get touched(): boolean {
     return this.packs.size > 0 || this.answers.size > 0

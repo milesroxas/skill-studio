@@ -328,8 +328,19 @@ export interface GradedWith {
 export interface Report {
   createdAt: string
   model: string | null
+  /**
+   * The input tokens of Jev's answers the report holds, in all: those this
+   * grading asked for and those kept from an earlier one, each answer once.
+   * An answer kept by Skill Studio 0.14.0 or earlier counts none.
+   */
   inputTokens: number
+  /** How long this grading took, in seconds. */
   seconds: number
+  /**
+   * What this grading asked Jev: how many questions, and the input tokens
+   * they cost. Absent in a report written before reports said it.
+   */
+  asked?: { questions: number; inputTokens: number }
   config: BenchConfig
   packs: string[]
   results: ReportResult[]
