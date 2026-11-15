@@ -105,7 +105,7 @@ A box around a region adds an edge the eye has to cross and takes 32px of width 
 | `Column kind` | `list` (260px), `side` (260px, a list beside an item that is the screen's point: after the item once the columns stack, as the Skill screen's files follow the document), `main` |
 | `Column scroll` | `self` (the default): the column scrolls. `parts`: the `SplitPane`s under its header scroll, each on its own |
 | `Column over` | a file is held over a column that takes a drop: the column takes `bg-accent` at 60% until it is dropped or leaves. The case's main column, where a picture, file or folder dropped anywhere joins the case's files (`useFileDrop` in `renderer/drop.ts`). A note that changes while a file is dragged would move everything under it. |
-| `ListHeader` | a list column's title, count and add button. A list nothing is added to (the scores on Results) is a `ColumnHeader inset="list"` with the title alone, named for what it shows that the Cases list does not: "Scores". |
+| `ListHeader` | a list column's title, count and add button: a plus. A list that adds two kinds of thing names each by its icon (`addIcon`) and takes the second as `also`: the Skill screen's files add a file and a folder. A list nothing is added to (the scores on Results) is a `ColumnHeader inset="list"` with the title alone, named for what it shows that the Cases list does not: "Scores". |
 | `ColumnHeader`, `ColumnTitle` | the main column's name and its actions |
 | `ColumnToolbar`, `ToolbarGroup`, `ToolbarItem` | a row of tools under the header |
 | `ColumnLead` | the head of a main column that opens with a figure: what the column comes to, on `bg-muted`, between `ColumnHeader` and `ColumnBody`. It ends at a hairline, or at the band that closes it. One per column, and only All cases has one: see [The head of All cases](#the-head-of-all-cases) |
@@ -181,13 +181,24 @@ One quiet line about it
 
 | Part | Rule |
 | --- | --- |
-| `NavButtonTitle` | the item's name, `ui`, on two lines at most, so names that start alike still show the words that tell them apart, wrapped so the second line never holds one word alone. Opening the item shows the rest of a longer name in its column's header. `font="mono"` for a name that is a literal, a file's path. The `warning` dot follows it while the item has unsaved changes. |
+| `NavButtonTitle` | the item's name, `ui`, on two lines at most, so names that start alike still show the words that tell them apart, wrapped so the second line never holds one word alone. Opening the item shows the rest of a longer name in its column's header. `font="mono"` for a name that is a literal, a file's name. The `warning` dot follows it while the item has unsaved changes. `lead` is a chevron before the name, for a row that folds what is under it: a folder in the file tree, and nothing else. |
 | `NavButtonMeta` | one fact the reader needs before opening it, `xs` muted, one line, cut short: "3 checks", "Nov 3", "Up 11 from v0". Leave it out when there is none (a file). |
 | `end` | at most one value, on the title's first line at the row's end: a score, as `ListScore`. Never two numbers, never an action. A case on Cases has none: the list is for writing, and a case changed since its run would show a score for words it no longer holds. |
 
 Rows are 36px at the least, 6px above and below their text, 2px apart. Pointing at a row tints it at half the open row's fill, so pointing never reads as opening, and the tint fades in over 150ms. The open row takes the full `accent` fill at once: a click or an arrow key moves it, and it must keep up. A score chip on the open row takes a hairline edge, since a grey chip on the grey fill would vanish.
 
 A row that joins the list while the reader watches (a case saved for the first time or duplicated, a new version, a case's first output) fades in with `animate-ink`, by `useArrivals` in `motion.ts`. The rows there when the list opens rest. An unsaved dot that comes while the reader types stamps in (`Dot stamp`), and a score that changes in view, as a run is graded, comes up a few pixels (`animate-tick`). With movement reduced, none of it moves.
+
+### The file tree
+
+The Skill screen's files are a `FileTree` (`components/FileTree.tsx`): `NavButton` rows, nested by folder.
+
+- At each level the files come first, SKILL.md before the rest, then the folders. A file beside SKILL.md stays beside it, not under every folder.
+- A file's row shows its name, in mono, and its whole path as its `title`. A folder's row has a chevron (`lead`), 14px, `muted-foreground`, turned down while the folder is open. A click folds what the folder holds away and back, and nothing else: a folder is never the open item.
+- What a folder holds is indented 16px, so it starts under the folder's name.
+- A new file or folder is named in the tree, in a `size="sm"` mono `Input` after the files of the folder it goes in. Enter makes it, Escape lets it go, and so does leaving the field empty; leaving it with a name in it makes it. A name that cannot be used is said under the field in a destructive `Hint`, once the name is sent, and checked as it is typed from then on.
+- A folder is there while a file is in it. Naming a folder goes on to naming its first file, with one `Hint` that says so; Escape there lets the folder go.
+- The header's two buttons add next to the open file. A right-click on a row adds there: beside a file, inside a folder ([buttons.md](buttons.md#menus-and-right-click)).
 
 ## The stage
 

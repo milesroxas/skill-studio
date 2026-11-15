@@ -210,6 +210,11 @@ export const frontMatterYaml = (meta: Record<string, unknown>): string =>
 const NAME_MAX = 64
 const DESCRIPTION_MAX = 1024
 
+/** The words Anthropic keeps out of the name of a skill uploaded to it. */
+const RESERVED_WORD = /anthropic|claude/i
+/** An XML tag, which Anthropic takes in neither field: `<example>`, `</b>`. */
+const TAG = /<\/?[A-Za-z][^<>]*>/
+
 /** One thing about a skill's name or description that some apps will not take, as the editor says it. */
 export interface HeadProblem {
   title: string
@@ -220,7 +225,9 @@ export interface HeadProblem {
  * Where the name and the description in a SKILL.md's front matter go past
  * what the agent skills format allows: a name of 64 characters at most, in
  * lowercase letters, digits and single dashes, the same as its folder's
- * name, and a description of 1,024 characters at most. An app that holds a
+ * name, and a description of 1,024 characters at most. Anthropic's own limits
+ * add two: no `anthropic` or `claude` in the name, and no XML tag in either
+ * field (one in a name is already a character it may not hold). An app that holds a
  * skill to the format refuses one past it, and others load it all the same:
  * skills named `plugin:skill`, named apart from their folder or described at
  * length are in daily use. So each line says what some apps will not take,
@@ -250,6 +257,11 @@ export function headProblems(raw: string, folder: string): HeadProblem[] {
       title: 'The skill’s name has characters some apps refuse',
       detail: 'Some take only lowercase letters, digits and single dashes, like release-notes.',
     })
+  else if (name && RESERVED_WORD.test(name))
+    problems.push({
+      title: 'The skill’s name has a word some apps refuse',
+      detail: 'Some take no name with “anthropic” or “claude” in it.',
+    })
   else if (name && folder && name !== folder)
     problems.push({
       title: 'The skill’s name is not the name of its folder',
@@ -259,6 +271,12 @@ export function headProblems(raw: string, folder: string): HeadProblem[] {
     problems.push({
       title: 'The description is longer than some apps accept',
       detail: `Some take ${DESCRIPTION_MAX.toLocaleString('en')} characters at most, and this one has ${description.length.toLocaleString('en')}.`,
+    })
+  const tag = description ? TAG.exec(description)?.[0] : undefined
+  if (tag)
+    problems.push({
+      title: 'The description has angle brackets some apps refuse',
+      detail: `Some take no text like ${tag} in a description.`,
     })
   return problems
 }

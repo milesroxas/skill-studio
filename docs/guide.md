@@ -102,7 +102,9 @@ Write the skill in the editor, then click **Save** (Cmd+S). Your unsaved text is
 - **An amber number** means the rule could be clearer. Click it to see why and to get help.
 - **A red number** means most answers broke the rule. Point at any number to see how many answers broke it.
 - **Files**, on the left, lists every file of the skill: SKILL.md, its references, its scripts and anything else it holds. Click one to edit it. A picture, or another file that is not text, is listed and cannot be opened.
-- **+** beside Files adds a file. A name alone, such as `voice`, becomes `references/voice.md`. A name with a folder, such as `scripts/check.py`, goes there.
+- **Add a file** and **Add a folder**, the two buttons beside Files, add one next to the file that is open: in its folder, or beside SKILL.md. Type its name where it appears in the list and press Enter. A name with no ending, such as `voice`, becomes `voice.md`.
+- **Right-click** a file or a folder to add a file or a folder there, or to delete the file. Click a folder to fold its files away.
+- A folder is kept once a file is in it, so a new folder asks for its first file.
 - **Insert**, on the left, adds a ready-made rule, decision tree, step list or link.
 - **The five bars** in the toolbar show how long the file is. Amber means getting long, red means too long.
 

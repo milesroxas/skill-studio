@@ -79,7 +79,7 @@ Every control sits in a `Field` with a `Label` above it. Never a placeholder as 
 
 - `font="mono"` for a path, a name used as an id, a key, or a command to copy. A command to copy is `readOnly` under its own label ("Run in Terminal"), selects whole on focus, and has a **Copy command** button under it (`CliSetup` in `components/Connections.tsx`).
 - `width="search"` for a search field in a `ListBar`.
-- `size="sm"` only for a field in a narrow list column: a new file's name on the Skill screen.
+- `size="sm"` only for a field in a narrow list column: a new file's or folder's name on the Skill screen. That field is the one with no `Label` above it: it stands in the list where the file will be, which says what it names, and a screen reader hears "Name of the new file". Its placeholder says which of the two is being named, and its error or hint is a `Hint` under it ([layout.md](layout.md#the-file-tree)).
 - An input's fill is `bg-card`. On porcelain its 1.5:1 edge is not enough to find it. Every field (`Input`, `TextArea`, the `Select` trigger) takes its edge and fill from `FIELD_SURFACE` in `ui/input.tsx`: change it there, once.
 
 ## TextArea and the composer

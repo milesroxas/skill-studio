@@ -452,4 +452,29 @@ describe('headProblems', () => {
       },
     ])
   })
+
+  it('says a word or a tag Anthropic takes in neither field', () => {
+    expect(headProblems(skillMd('name: claude-helper\ndescription: x'), 'claude-helper')).toEqual([
+      {
+        title: 'The skill’s name has a word some apps refuse',
+        detail: 'Some take no name with “anthropic” or “claude” in it.',
+      },
+    ])
+    // One note about a name at a time: the word before the folder.
+    expect(
+      headProblems(skillMd('name: my-anthropic-notes\ndescription: x'), 'notes').map(
+        (p) => p.title,
+      ),
+    ).toEqual(['The skill’s name has a word some apps refuse'])
+    const tagged = skillMd('name: notes\ndescription: "Use for <example>release notes</example>."')
+    expect(headProblems(tagged, 'notes')).toEqual([
+      {
+        title: 'The description has angle brackets some apps refuse',
+        detail: 'Some take no text like <example> in a description.',
+      },
+    ])
+    // A comparison is no tag.
+    const less = skillMd('name: notes\ndescription: Use when a list has < 3 items or > 9.')
+    expect(headProblems(less, 'notes')).toEqual([])
+  })
 })

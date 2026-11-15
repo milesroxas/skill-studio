@@ -8,7 +8,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Added
 
-- The Skill screen lists every file of the skill, not only SKILL.md and its references: scripts, other Markdown files and anything else the skill holds. Each text file can be edited, and **+** adds one anywhere in the skill, such as `scripts/check.py`. A picture or another file that is not text is listed and can be deleted.
+- The Skill screen lists every file of the skill, not only SKILL.md and its references: scripts, other Markdown files and anything else the skill holds. Each text file can be edited. A picture or another file that is not text is listed and can be deleted.
+- The files are listed by folder, and a click on a folder folds its files away. **Add a file** and **Add a folder**, beside Files, add one next to the open file, so a file can now sit beside SKILL.md. You type its name where it appears in the list.
+- Right-click a file or a folder on the Skill screen to add a file or a folder there, or to delete the file.
+- The editor says when a skill's name holds `anthropic` or `claude`, or its description holds a tag such as `<example>`: Anthropic refuses both in a skill uploaded to it.
 
 ### Changed
 

@@ -124,6 +124,14 @@ function MenuContent({
       if (itemOf(event.relatedTarget) || event.currentTarget.hasAttribute('data-chosen')) return
       glideTo(glide.current, null, keyed.current)
     },
+    // A closed menu hands the focus back to where it was. An action that put it somewhere, such
+    // as a field to name a new file in, keeps it there.
+    onCloseAutoFocus: (event: Event) => {
+      const at = document.activeElement
+      const menu = event.currentTarget
+      if (at && at !== document.body && !(menu instanceof Node && menu.contains(at)))
+        event.preventDefault()
+    },
   }
   const body = (
     <KindContext.Provider value={kind}>

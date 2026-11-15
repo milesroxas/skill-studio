@@ -64,19 +64,24 @@ export function NavButton({
  * `warning` one from `Status`; a screen reader hears "unsaved changes". A dot
  * that comes while the reader types stamps in; one there when the list opens rests.
  * `font="mono"` is for a name that is a literal, such as a file's path.
+ * `lead` goes before the name, on its first line: the chevron of a row that
+ * folds what is under it, a folder in `FileTree`.
  */
 export function NavButtonTitle({
   children,
   unsaved = false,
   font,
+  lead,
 }: {
   children: ReactNode
   unsaved?: boolean
   font?: 'sans' | 'mono'
+  lead?: ReactNode
 }) {
   const changed = useArrived(String(unsaved))
   return (
     <span className="col-start-1 row-start-1 flex min-w-0 items-start gap-1.5 self-start">
+      {lead ? <span className="flex h-5 shrink-0 items-center">{lead}</span> : null}
       <Text
         size="ui"
         font={font}

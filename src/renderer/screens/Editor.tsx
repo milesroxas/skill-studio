@@ -15,7 +15,7 @@
  * on the first keystroke.
  */
 
-import { byFileOrder, isMarkdownPath, newFilePath } from '@domain/paths.ts'
+import { byFileOrder, fileTree, folderOf, isMarkdownPath, placeNew } from '@domain/paths.ts'
 import { applyPracticeEdit, PRACTICE_EDIT } from '@domain/practice.ts'
 import { scanRules } from '@domain/rules.ts'
 import {
@@ -35,11 +35,13 @@ import {
   metaText,
   readFrontMatter,
 } from '@domain/text.ts'
+import { FilePlusIcon, FolderPlusIcon, Trash2Icon } from 'lucide-react'
 import { Fragment, memo, useEffect, useMemo, useRef, useState } from 'react'
 import { api, currentSkill } from '../api.ts'
 import { DiffLines } from '../components/DiffLines.tsx'
 import { Disclosure } from '../components/Disclosure.tsx'
 import { DraftNote } from '../components/DraftNote.tsx'
+import { FileTree, type TreeNaming } from '../components/FileTree.tsx'
 import {
   Column,
   ColumnBody,
@@ -61,13 +63,13 @@ import {
   useEditorMode,
 } from '../components/MarkdownEditor.tsx'
 import { NavButton, NavButtonMeta, NavButtonTitle } from '../components/NavButton.tsx'
+import { RowAction } from '../components/RowActions.tsx'
 import { ListScore } from '../components/Scores.tsx'
 import { Segmented } from '../components/Segmented.tsx'
 import { GuideBox, GuideList, PairList, Starter } from '../components/starters.tsx'
 import { Code, Hint, Text } from '../components/text.tsx'
 import { Alert, AlertDescription, AlertTitle } from '../components/ui/alert.tsx'
 import { Button } from '../components/ui/button.tsx'
-import { Input } from '../components/ui/input.tsx'
 import { VersionDetail } from '../components/VersionDetail.tsx'
 import type { Ctx } from '../ctx.ts'
 import { lineDiff } from '../diff.ts'
@@ -150,9 +152,12 @@ export const Editor = memo(function Editor({ ctx }: { ctx: Ctx }) {
   const disk = ctx.files
   const edits = drafts.files
   const [showDiff, setShowDiff] = useState(false)
-  const [newName, setNewName] = useState<string | null>(null)
+  /** A file or a folder is being named in the list, and where it will go. */
+  const [naming, setNaming] = useState<TreeNaming | null>(null)
   const [busy, runSave] = useAction(report)
   const [deleting, runDelete] = useAction(report)
+  /** The file a delete is on its way for: the open one's button waits only on its own. */
+  const [deletingPath, setDeletingPath] = useState<string | null>(null)
   /** Each version's score. It reads every output, so it is not worked out again on a keystroke. */
   const scores = useMemo(
     () =>
@@ -195,11 +200,6 @@ export const Editor = memo(function Editor({ ctx }: { ctx: Ctx }) {
     report(`Not saved: ${message}`, { tone: 'destructive' }),
   )
   const editor = useRef<MarkdownEditorHandle>(null)
-  const nameField = useRef<HTMLInputElement>(null)
-  const naming = newName !== null
-  useEffect(() => {
-    if (naming) nameField.current?.focus()
-  }, [naming])
 
   const files = disk.saved ?? {}
   // Every file of the skill: the ones that read as text, a file only drafted so far, and the rest.
@@ -294,53 +294,101 @@ export const Editor = memo(function Editor({ ctx }: { ctx: Ctx }) {
     })
   }
 
-  const create = () => {
-    const path = newFilePath(newName ?? '')
-    if (!path)
-      return report('Use letters, digits, dots, dashes and slashes only.', { tone: 'warning' })
-    if (paths.includes(path)) return report(`${path} already exists.`, { tone: 'warning' })
+  /** Where the name being typed would go, or the sentence that says why it cannot be used. */
+  const place = (name: string) =>
+    naming ? placeNew(naming.kind, name, naming.folder, paths) : { error: '' }
+
+  const named = (name: string) => {
+    const placed = place(name)
+    if (!naming || 'error' in placed) return
+    // A folder is kept by the files in it, so naming one goes on to its first file.
+    if (naming.kind === 'folder') return setNaming({ kind: 'file', folder: placed.path })
     // A Markdown file starts from the outline of a reference; any other starts empty.
-    const text = isMarkdownPath(path) ? referenceTemplate(path) : ''
-    drafts.setFile(path, { text, previous: null })
-    setNewName(null)
-    go('editor', { file: path })
+    const text = isMarkdownPath(placed.path) ? referenceTemplate(placed.path) : ''
+    drafts.setFile(placed.path, { text, previous: null })
+    setNaming(null)
+    go('editor', { file: placed.path })
   }
 
-  const discard = async () => {
+  /** Let go of a file's unsaved text: its changes, or all of a file not saved yet. */
+  const discard = async (path = file) => {
+    const fresh = files[path] === undefined
     if (
       await confirm({
-        title:
-          saved === null ? `Discard the new file ${file}?` : `Discard your changes to ${file}?`,
-        description:
-          saved === null ? 'What you typed goes.' : 'The file stays as it was last saved.',
+        title: fresh ? `Discard the new file ${path}?` : `Discard your changes to ${path}?`,
+        description: fresh ? 'What you typed goes.' : 'The file stays as it was last saved.',
         action: 'Discard',
         destructive: true,
       })
     ) {
-      drop(file)
-      if (saved === null) go('editor', {}, { replace: true })
+      drop(path)
+      if (fresh && path === file) go('editor', {}, { replace: true })
     }
   }
 
-  const remove = async () => {
+  const remove = async (path = file) => {
     const ok = await confirm({
-      title: `Delete ${file}?`,
+      title: `Delete ${path}?`,
       description: 'Past runs keep their copy.',
       action: 'Delete',
       destructive: true,
     })
     if (!ok) return
+    setDeletingPath(path)
     void runDelete(async () => {
-      await api.deleteSkillFile(file)
+      await api.deleteSkillFile(path)
       if (currentSkill() !== skill) return
-      disk.took(file, null)
-      drop(file)
-      forgetEditor(`${skill}:${file}`)
-      go('editor', {}, { replace: true })
+      disk.took(path, null)
+      drop(path)
+      forgetEditor(`${skill}:${path}`)
+      if (path === file) go('editor', {}, { replace: true })
       await reload()
-      report(`Deleted ${file}`)
+      report(`Deleted ${path}`)
     })
   }
+
+  /** What a right-click on a folder offers, and on a file before its own: a new one, there. */
+  const addActions = (folder: string) => (
+    <>
+      <RowAction
+        icon={<FilePlusIcon aria-hidden="true" />}
+        onSelect={() => setNaming({ kind: 'file', folder })}
+      >
+        Add a file
+      </RowAction>
+      <RowAction
+        icon={<FolderPlusIcon aria-hidden="true" />}
+        onSelect={() => setNaming({ kind: 'folder', folder })}
+      >
+        Add a folder
+      </RowAction>
+    </>
+  )
+  /** A right-click on a file: a new one beside it, and the way to be rid of it. */
+  const fileActions = (path: string) => (
+    <>
+      {addActions(folderOf(path))}
+      {path === 'SKILL.md' ? null : path in files || disk.others.includes(path) ? (
+        <RowAction
+          icon={<Trash2Icon aria-hidden="true" />}
+          tone="destructive"
+          // One save or delete at a time, as the open file's buttons wait on each other.
+          disabled={busy || deleting}
+          onSelect={() => void remove(path)}
+        >
+          Delete file
+        </RowAction>
+      ) : (
+        <RowAction
+          icon={<Trash2Icon aria-hidden="true" />}
+          tone="destructive"
+          onSelect={() => void discard(path)}
+        >
+          Discard new file
+        </RowAction>
+      )}
+    </>
+  )
 
   const isSkill = file === 'SKILL.md'
   const deleteFile = (
@@ -348,10 +396,10 @@ export const Editor = memo(function Editor({ ctx }: { ctx: Ctx }) {
       type="button"
       variant="destructive-ghost"
       size="sm"
-      disabled={busy}
-      busy={deleting}
+      disabled={busy || deleting}
+      busy={deleting && deletingPath === file}
       busyLabel="Deleting…"
-      onClick={remove}
+      onClick={() => void remove()}
     >
       Delete file
     </Button>
@@ -545,60 +593,34 @@ export const Editor = memo(function Editor({ ctx }: { ctx: Ctx }) {
           title="Files"
           count={paths.length}
           addLabel="Add a file"
-          addDisabled={naming}
-          onAdd={() => setNewName('')}
+          addIcon={<FilePlusIcon aria-hidden="true" />}
+          addDisabled={naming !== null}
+          // Beside the file that is open: in its folder, or by SKILL.md.
+          onAdd={() => setNaming({ kind: 'file', folder: folderOf(file) })}
+          also={{
+            label: 'Add a folder',
+            icon: <FolderPlusIcon aria-hidden="true" />,
+            onAdd: () => setNaming({ kind: 'folder', folder: folderOf(file) }),
+          }}
         />
         <ColumnSection inset="list" as="nav" label="Skill files">
-          <PlainList gap="xs" bleed>
-            {paths.map((path) => (
-              <li key={path}>
-                <NavButton
-                  current={!version && path === file}
-                  arrived={arrivedFile(path)}
-                  title={path}
-                  onClick={() => go('editor', { file: path })}
-                >
-                  <NavButtonTitle font="mono" unsaved={isDirty(path)}>
-                    {path}
-                  </NavButtonTitle>
-                </NavButton>
-              </li>
-            ))}
-          </PlainList>
-          {naming ? (
-            <form
-              className="contents"
-              onSubmit={(e) => {
-                e.preventDefault()
-                create()
-              }}
-              onKeyDown={(e) => {
-                if (e.key === 'Escape') setNewName(null)
-              }}
-            >
-              <Input
-                ref={nameField}
-                aria-label="Name of the new file"
-                placeholder="references/name.md"
-                autoCapitalize="none"
-                autoCorrect="off"
-                spellCheck={false}
-                enterKeyHint="done"
-                value={newName}
-                size="sm"
-                font="mono"
-                onChange={(e) => setNewName(e.target.value)}
-              />
-              <Toolbar>
-                <Button type="submit" size="sm" disabled={!newName.trim()}>
-                  Add file
-                </Button>
-                <Button type="button" variant="ghost" size="sm" onClick={() => setNewName(null)}>
-                  Cancel
-                </Button>
-              </Toolbar>
-            </form>
-          ) : null}
+          <FileTree
+            // A folder just named holds nothing yet, and is listed for the file it waits on.
+            tree={fileTree(paths, naming?.folder ? [naming.folder] : [])}
+            current={version ? null : file}
+            unsaved={isDirty}
+            arrived={arrivedFile}
+            onOpen={(path) => go('editor', { file: path })}
+            fileActions={fileActions}
+            folderActions={addActions}
+            naming={naming}
+            checkName={(name) => {
+              const placed = place(name)
+              return 'error' in placed ? placed.error : null
+            }}
+            onName={named}
+            onCancelName={() => setNaming(null)}
+          />
         </ColumnSection>
 
         {blank && !versions.length && !trashed.length ? null : (
@@ -736,7 +758,7 @@ export const Editor = memo(function Editor({ ctx }: { ctx: Ctx }) {
               variant="ghost"
               size="sm"
               disabled={!isDirty(file) || busy || deleting}
-              onClick={discard}
+              onClick={() => void discard()}
             >
               Discard
             </Button>

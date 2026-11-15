@@ -197,11 +197,13 @@ const actions = (
 
 Where a right-click goes:
 
-- **On a thing a reader acts on often enough to want it under the pointer:** a skill in the Library, a case in the Cases list, a fact in Verdicts, the outputs of a case on Results. Every action in its menu is also a button or in a "More actions" menu somewhere, since a right-click is never the only way: a reader who does not know it exists must lose nothing.
+- **On a thing a reader acts on often enough to want it under the pointer:** a skill in the Library, a case in the Cases list, a file or a folder in the Skill screen's files, a fact in Verdicts, the outputs of a case on Results. Every action in its menu is also a button or in a "More actions" menu somewhere, since a right-click is never the only way: a reader who does not know it exists must lose nothing. A file's menu adds a file or a folder beside it and deletes it; a folder's adds one inside it. The buttons beside Files add next to the open file, and **Delete file** is in the open file's header.
 - **Never on a field or on text the reader selected.** `ContextActions` lets those through to the system's own menu: Undo, Redo, Cut, Copy, Paste and Select All in a field, Copy over selected text (`interfaces/electron/main/text-menu.ts`).
 - **Never "Open".** A menu holds what a click on the thing does not already do.
 - Inside another `ContextActions`, the nearer one opens: a fact in Verdicts opens its own menu, not the outputs'.
 - `ContextActions` wraps one element that spreads its props, such as `TableRow`, `NavButton` or an `li`. The thing stays marked while its menu is open: `TableRow` and `NavButton` carry the `held` utility already; give a bare element `held`.
+
+- A closed menu gives the focus back to where it was, unless the action chosen put it somewhere: **Add a file** puts it in the field that names the file, and it stays there.
 
 How a menu moves (`ui/menu.tsx`), each for a reason:
 

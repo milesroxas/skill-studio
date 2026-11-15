@@ -354,19 +354,35 @@ export function ColumnTitle({ className, ...props }: ComponentProps<'div'>) {
   )
 }
 
-/** A list column's header: what the list holds, how many, and the button that adds one. */
+/** A second thing a list column's header adds, such as a folder beside a file. */
+interface ListAdd {
+  label: string
+  icon: ReactNode
+  onAdd: () => void
+}
+
+/**
+ * A list column's header: what the list holds, how many, and the button that
+ * adds one. `addIcon` stands in for the plus where the list adds two kinds of
+ * thing and `also` is the button for the second: a file and a folder.
+ */
 export function ListHeader({
   title,
   count,
   addLabel,
+  addIcon,
   onAdd,
   addDisabled,
+  also,
 }: {
   title: string
   count: number
   addLabel: string
+  addIcon?: ReactNode
   onAdd: () => void
+  /** Nothing can be added now: every add button waits. */
   addDisabled?: boolean
+  also?: ListAdd
 }) {
   return (
     <ColumnHeader inset="list">
@@ -379,19 +395,33 @@ export function ListHeader({
           {count}
         </Text>
       </ColumnTitle>
-      {/* Hung by its own padding, so the plus, not its box, ends where the rows' text does. */}
-      <Button
-        type="button"
-        variant="ghost"
-        size="icon-sm"
-        className="-mr-2"
-        aria-label={addLabel}
-        title={addLabel}
-        disabled={addDisabled}
-        onClick={onAdd}
-      >
-        <PlusIcon aria-hidden="true" />
-      </Button>
+      {/* Hung by its own padding, so the last icon, not its box, ends where the rows' text does. */}
+      <div className="-mr-2 flex shrink-0 items-center">
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon-sm"
+          aria-label={addLabel}
+          title={addLabel}
+          disabled={addDisabled}
+          onClick={onAdd}
+        >
+          {addIcon ?? <PlusIcon aria-hidden="true" />}
+        </Button>
+        {also ? (
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-sm"
+            aria-label={also.label}
+            title={also.label}
+            disabled={addDisabled}
+            onClick={also.onAdd}
+          >
+            {also.icon}
+          </Button>
+        ) : null}
+      </div>
     </ColumnHeader>
   )
 }
