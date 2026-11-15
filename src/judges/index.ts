@@ -9,4 +9,8 @@ const packs: JudgePack[] = [genericPack, codePack, workflowPack, designPack]
 
 export const packById = (id: string): JudgePack | undefined => packs.find((p) => p.id === id)
 
+/** The version of every pack's questions, by pack id: what a grading made now asks. */
+export const packVersions = (): Record<string, number> =>
+  Object.fromEntries(packs.map((p) => [p.id, p.version]))
+
 export type { JudgePack } from './types.ts'

@@ -568,6 +568,26 @@ describe('gradeRun, on a page drawn for a pack that looks at it', () => {
     expect(judge).not.toHaveBeenCalled()
   })
 
+  it('keeps what graded each output: the packs’ versions, the model, and whether the page was drawn', async () => {
+    const { dir, run } = pageSkill(false)
+    vi.spyOn(Jev, 'available').mockReturnValue(true)
+    designJudge()
+    const render = vi.fn(async (_page: unknown, size: { width: number; height: number }) => ({
+      png: pngHeader(size.width, size.height),
+      layout: null,
+    }))
+    const versions = { generic: packById('generic')?.version, design: packById('design')?.version }
+    const drawn = await gradeRun(dir, run, { useJev: true, render })
+    expect(drawn.results[0].graded).toEqual({
+      model: new Jev().model,
+      packs: expect.objectContaining(versions),
+      drawn: true,
+    })
+    // A host with no browser judges the page by its source, and says so.
+    const undrawn = await gradeRun(dir, run, { useJev: true, model: 'jev-0' })
+    expect(undrawn.results[0].graded).toMatchObject({ model: 'jev-0', drawn: false })
+  })
+
   it('draws a page once more when its picture was kept before pages were measured', async () => {
     const { dir, run, sample } = pageSkill(false)
     vi.spyOn(Jev, 'available').mockReturnValue(true)
@@ -1247,6 +1267,22 @@ describe('scoredReport', () => {
     expect(later.results[0].flags).toContain('design pack not graded')
 
     expect(scoredReport(dir, report, { packs: ['generic'] }).packs).toEqual(['generic'])
+
+    // Graded on a code pack's questions since changed: no total, whatever model or host graded it.
+    const code = packById('code')?.version ?? 0
+    const graded = (version: number) =>
+      reportOf([
+        {
+          sample: 'add-s1',
+          case: 'add',
+          packs: { generic: null, code: check(0) },
+          graded: { model: 'jev-0', packs: { code: version }, drawn: false },
+        },
+      ])
+    expect(scoredReport(dir, graded(code), { packs: ['code'] }).results[0].scores.total).toBe(100)
+    const earlier = scoredReport(dir, graded(code - 1), { packs: ['code'] }).results[0]
+    expect(earlier.scores.total).toBeNull()
+    expect(earlier.flags).toContain('Graded by an older version of Skill Studio')
     expect(() => scoredReport(dir, report, { packs: ['cod'] })).toThrow('No judge pack named cod.')
   })
 })

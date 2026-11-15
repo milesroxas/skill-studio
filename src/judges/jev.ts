@@ -11,7 +11,8 @@ import {
 } from '@typesafe-ai/sdk'
 import { holdsImage } from './images.ts'
 
-const DEFAULT_MODEL = 'jev-1.14.0'
+/** The model a grading asks unless it is given another. */
+export const DEFAULT_MODEL = 'jev-1.14.0'
 
 /**
  * Pictures are a preview feature of the API: a request that holds one is

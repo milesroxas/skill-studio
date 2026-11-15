@@ -18,7 +18,7 @@ import { NOTES_FILE } from '@domain/prompt.ts'
 import type { Rule } from '@domain/rules.ts'
 import { parseSampleDir } from '@domain/run-name.ts'
 import type { Artifact, BenchConfig, Case, Report, ReportResult } from '@domain/schemas.ts'
-import { behindOf, scoreResult } from '@domain/scoring.ts'
+import { behindOf, gradedNow, scoreResult } from '@domain/scoring.ts'
 import { copyOf, pageText, unitsOf, words } from '@domain/text.ts'
 import type { RunCase, Sample } from '@domain/views.ts'
 import { benchPath, findCase, loadCases, loadRules } from '@infrastructure/cases.ts'
@@ -45,7 +45,7 @@ import {
 } from '@infrastructure/runs.ts'
 import { readTranscript } from '@infrastructure/transcript.ts'
 import { readForJev, requestImages } from '@judges/images.ts'
-import { packById } from '@judges/index.ts'
+import { packById, packVersions } from '@judges/index.ts'
 import { Jev } from '@judges/jev.ts'
 import { scorers } from '@judges/scorers.ts'
 import { agentPicture } from '@judges/shared/picture.ts'
@@ -668,6 +668,11 @@ async function gradeSubject(
       ? await untilStopped(ctx.draw(subject, primary, renderSizes(testCase)), ctx.signal)
       : NOTHING_DRAWN
   input.renders = drawn.shots
+  // Whether this output had anything for the host to draw, so a grading that drew it is told from one that could not.
+  const drawable =
+    looks &&
+    !subject.legacy &&
+    (primary?.kind === 'html' || primary?.kind === 'image' || agentPicture(input) !== null)
   // A picture is fitted only where it is what Jev looks at: no page was drawn in its place.
   const shot = looks && !drawn.shots.some((s) => s.read.image) ? agentPicture(input) : null
   const fitted =
@@ -693,6 +698,8 @@ async function gradeSubject(
   /** This sample's new answers: kept only once the whole sample was judged without a stop. */
   const answers: Record<string, unknown> = {}
   const failures: string[] = []
+  /** The version of the questions of each pack that judged this output. */
+  const judgedBy: Record<string, number> = {}
   /** The packs whose answers the cache keeps, and how many of them it had. */
   let keepable = 0
   let kept = 0
@@ -710,6 +717,7 @@ async function gradeSubject(
       if (Object.hasOwn(ctx.cache.old, key)) {
         packs[pack.id] = ctx.cache.old[key]
         ctx.cache.fresh[key] = ctx.cache.old[key]
+        judgedBy[pack.id] = pack.version
         kept += 1
         continue
       }
@@ -717,6 +725,7 @@ async function gradeSubject(
     try {
       const answer = await untilStopped(pack.judge(input, ctx.judge), ctx.signal)
       packs[pack.id] = answer
+      judgedBy[pack.id] = pack.version
       if (key !== null) answers[key] = answer
     } catch (error) {
       // A command ended by the stop is no answer, and no failure of the pack either.
@@ -753,6 +762,12 @@ async function gradeSubject(
       !input.text.trim(),
     // What the output was held to, so a grading made before its case changed is told from one made since.
     ...(taken ? { yardstick: taken.yardstick } : {}),
+    // What graded it, so a grading by other questions, another model or a host that drew nothing is told apart.
+    graded: {
+      model: ctx.judge.useJev ? ctx.judge.jev.model : null,
+      packs: judgedBy,
+      ...(drawable ? { drawn: ctx.draw !== undefined } : {}),
+    },
     packs,
   }
   // The failures go in with the output: one a pack failed on has no total, and its flags open with why.
@@ -1066,6 +1081,8 @@ export function scoredReport(
   cases: Readonly<Record<string, RunCase>> = {},
 ): Report {
   const config = benchFor(skillDir, options)
+  // The command line draws nothing and names its model by hand, so only the packs' questions are asked of a grading.
+  const now = gradedNow(packVersions(), config.packs, null, false)
   return {
     ...report,
     config,
@@ -1073,8 +1090,12 @@ export function scoredReport(
     results: report.results.map((result) => {
       const taken = result.case !== null && Object.hasOwn(cases, result.case)
       const behind = behindOf(
-        { yardstick: result.yardstick, model: report.model },
-        { yardstick: taken ? cases[result.case as string].yardstick : null, jev: false },
+        { yardstick: result.yardstick, model: report.model, graded: result.graded },
+        {
+          yardstick: taken ? cases[result.case as string].yardstick : null,
+          jev: false,
+          with: now,
+        },
       )
       const { scores, flags, confidence } = scoreResult(result, config, scorers, undefined, behind)
       return { ...result, scores, flags, confidence }

@@ -297,12 +297,32 @@ export interface ReportResult {
    * stand. A report written before gradings kept one has none.
    */
   yardstick?: string
+  /**
+   * What graded the output (`GradedWith`). A grading made with other questions,
+   * another Jev model or without the page drawn is behind one made now, and
+   * its total does not stand. A report written before gradings kept it has
+   * none, and stands.
+   */
+  graded?: GradedWith
   /** Raw pack answers keyed by pack id. Thresholds apply later, in core. */
   packs: Record<string, unknown>
   scores: Scores
   flags: string[]
   /** Mean certainty of the judge's Nouls, 0 to 1. */
   confidence: number | null
+}
+
+/** What graded an output, or what a grading made now would grade it with. */
+export interface GradedWith {
+  /** The Jev model asked; null without Jev. */
+  model: string | null
+  /** The version of the questions of each pack that judged it, by pack id. */
+  packs: Record<string, number>
+  /**
+   * The page or picture Jev looked at was drawn by the host. Absent when
+   * nothing of the output was for drawing, so it was judged the same anywhere.
+   */
+  drawn?: boolean
 }
 
 export interface Report {

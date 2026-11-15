@@ -314,6 +314,46 @@ describe('a grading that is behind', () => {
     expect(behindOf({ yardstick: 'a', model: 'jev' }, { yardstick: null, jev: true })).toBeNull()
   })
 
+  it('is one graded on other questions, by another Jev model or without the page drawn', () => {
+    const was = { model: 'jev-1', packs: { generic: 8, design: 4 }, drawn: true }
+    const now = { yardstick: 'b', jev: true, with: { ...was } }
+    const graded = (graded: typeof was | Omit<typeof was, 'drawn'>) => ({
+      yardstick: 'b',
+      model: 'jev-1',
+      graded,
+    })
+    expect(behindOf(graded(was), now)).toBeNull()
+    expect(behindOf(graded({ ...was, packs: { generic: 7, design: 4 } }), now)).toBe(
+      'Graded by an older version of Skill Studio',
+    )
+    expect(behindOf(graded({ ...was, model: 'jev-0' }), now)).toBe(
+      'Graded by another version of Jev',
+    )
+    expect(behindOf(graded({ ...was, drawn: false }), now)).toBe(
+      'Graded without looking at the page',
+    )
+    // Nothing was for drawing, or the host draws nothing either: the same grading anywhere.
+    expect(behindOf(graded({ model: 'jev-1', packs: was.packs }), now)).toBeNull()
+    expect(
+      behindOf(graded({ ...was, drawn: false }), { ...now, with: { ...was, drawn: false } }),
+    ).toBeNull()
+    // A pack the skill is not graded as now, and a model left to stand, take nothing away.
+    expect(
+      behindOf(graded({ ...was, packs: { generic: 8, design: 1 } }), {
+        ...now,
+        with: { ...was, packs: { generic: 8 } },
+      }),
+    ).toBeNull()
+    expect(
+      behindOf(graded({ ...was, model: 'jev-0' }), { ...now, with: { ...was, model: null } }),
+    ).toBeNull()
+  })
+
+  it('is not one whose report says nothing of what graded it', () => {
+    const now = { yardstick: 'b', jev: true, with: { model: 'jev-2', packs: { generic: 9 } } }
+    expect(behindOf({ yardstick: 'b', model: 'jev-1' }, now)).toBeNull()
+  })
+
   it('has no total, keeps its layers and its verdicts, and opens with why', () => {
     const why = 'Graded before its case changed'
     const scored = scoreResult(result(packs), config(), scorers, undefined, why)

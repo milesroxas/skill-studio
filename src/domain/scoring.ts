@@ -10,7 +10,7 @@ import {
   unreadable,
   type Verdict,
 } from './pack.ts'
-import type { BenchConfig, Report, ReportResult, Scores } from './schemas.ts'
+import type { BenchConfig, GradedWith, Report, ReportResult, Scores } from './schemas.ts'
 import { mean, weighted } from './stats.ts'
 import { finding } from './verdict.ts'
 
@@ -45,17 +45,26 @@ export interface GradedNow {
   yardstick: string | null
   /** Jev would be asked: a key is set. */
   jev: boolean
+  /**
+   * What a grading made now grades with (`GradedWith`): the version of each
+   * pack the skill is graded as, the Jev model, and whether this host draws
+   * pages. A null `model` lets any model stand. Null to ask none of it.
+   */
+  with?: GradedWith | null
 }
 
 /**
  * Why a grading is behind what one made now would be, as the start of a line
  * a reader reads ("…, so it has no score"); null when it is not. A grading without Jev marked no rule or check,
  * so with a key it is behind. One made before its case's checks or settings
- * changed counted a total from other facts than the case states now. Either
- * way its total would be set beside totals counted from something else.
+ * changed counted a total from other facts than the case states now, and so
+ * did one asked with questions since rewritten, by another Jev model, or
+ * without the page drawn where this host draws it. Either way its total would
+ * be set beside totals counted from something else. A grading that kept no
+ * fingerprint or no `graded` is read as if nothing changed.
  */
 export function behindOf(
-  graded: { yardstick?: string; model: Report['model'] },
+  graded: { yardstick?: string; model: Report['model']; graded?: GradedWith },
   now: GradedNow,
 ): string | null {
   if (now.jev && graded.model === null) return 'Graded without Jev'
@@ -65,7 +74,35 @@ export function behindOf(
     graded.yardstick !== now.yardstick
   )
     return 'Graded before its case changed'
+  const was = graded.graded
+  const is = now.with
+  if (!was || !is) return null
+  if (Object.entries(was.packs).some(([id, version]) => (is.packs[id] ?? version) !== version))
+    return 'Graded by an older version of Skill Studio'
+  if (was.model !== null && is.model !== null && was.model !== is.model)
+    return 'Graded by another version of Jev'
+  if (was.drawn === false && is.drawn === true) return 'Graded without looking at the page'
   return null
+}
+
+/**
+ * What a grading made now grades with (`GradedNow.with`): the version of each
+ * of the `active` packs, from every pack's `versions`, the Jev model (null to
+ * let any stand) and whether the host draws pages.
+ */
+export function gradedNow(
+  versions: Readonly<Record<string, number>>,
+  active: readonly string[],
+  model: string | null,
+  drawn: boolean,
+): GradedWith {
+  return {
+    model,
+    packs: Object.fromEntries(
+      active.flatMap((id) => (Object.hasOwn(versions, id) ? [[id, versions[id]]] : [])),
+    ),
+    drawn,
+  }
 }
 
 /** A pack's kind of work by its name, as Graded as lists it: "Design". */

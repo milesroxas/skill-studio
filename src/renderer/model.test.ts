@@ -556,6 +556,44 @@ describe('an output whose case changed after it was graded', () => {
   })
 })
 
+describe('an output graded by something a grading now would not use', () => {
+  const files = [md('a.md')]
+  const by = (what: object): Report =>
+    ({
+      model: 'jev-1',
+      results: graded(100).results.map((r) => ({ ...r, yardstick: 'held', graded: what })),
+    }) as unknown as Report
+  const here = (state: State): State => ({
+    ...state,
+    grading: { model: 'jev-1', packs: { generic: 8, design: 4 }, drawn: true },
+  })
+
+  it('has no total once its questions, its model or the drawing differ', () => {
+    const same = { model: 'jev-1', packs: { generic: 8 }, drawn: true }
+    const cases: Array<[object, string | null]> = [
+      [same, null],
+      [{ ...same, packs: { generic: 7 } }, 'Graded by an older version of Skill Studio'],
+      [{ ...same, model: 'jev-0' }, 'Graded by another version of Jev'],
+      [{ ...same, drawn: false }, 'Graded without looking at the page'],
+      // A pack the skill is not graded as now takes nothing away.
+      [{ ...same, packs: { generic: 8, design: 1 } }, null],
+    ]
+    for (const [what, behind] of cases) {
+      const run = taking(runOf('r1', 'v1', files, by(what)), {})
+      const [output] = outputsOf(here(stateOf([run], ['generic'])))
+      expect(output.behind).toBe(behind)
+      expect(totalOf(output, saved)).toBe(behind ? null : 100)
+    }
+  })
+
+  it('stands when its report kept nothing of what graded it', () => {
+    const run = taking(runOf('r1', 'v1', files, heldTo(graded(100), 'held')), {})
+    const [output] = outputsOf(here(stateOf([run], ['generic'])))
+    expect(output.behind).toBeNull()
+    expect(totalOf(output, saved)).toBe(100)
+  })
+})
+
 /** The versions of a state whose skill stands on `version`. */
 const at = (version: string): State['versions'] =>
   ({ versions: [], current: { version, changed: false } }) as unknown as State['versions']

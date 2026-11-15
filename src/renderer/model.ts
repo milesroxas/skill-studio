@@ -12,11 +12,19 @@ import type {
   ArtifactKind,
   BenchConfig,
   Case,
+  GradedWith,
   Report,
   ReportResult,
   Writer,
 } from '@domain/schemas.ts'
-import { behindOf, layerOrder, pixelText, type Scored, scoreResult } from '@domain/scoring.ts'
+import {
+  behindOf,
+  gradedNow,
+  layerOrder,
+  pixelText,
+  type Scored,
+  scoreResult,
+} from '@domain/scoring.ts'
 import { type CaseLift, caseLift, type Standing, standingOf, type Try } from '@domain/standing.ts'
 import { mean } from '@domain/stats.ts'
 import { type Count, countOf, sumCounts } from '@domain/verdict.ts'
@@ -128,6 +136,7 @@ function outputOf(
   sample: Sample,
   graded: ReportResult | null,
   judged: readonly ArtifactKind[],
+  now: GradedWith | null,
 ): Output {
   const cut = sampleCut(run, sample)
   // A score an earlier grading gave an output grading now leaves out is no score of it.
@@ -159,8 +168,8 @@ function outputOf(
     behind:
       result && run.report
         ? behindOf(
-            { yardstick: result.yardstick, model: run.report.model },
-            { yardstick: taken?.yardstick ?? null, jev: state.jevKey },
+            { yardstick: result.yardstick, model: run.report.model, graded: result.graded },
+            { yardstick: taken?.yardstick ?? null, jev: state.jevKey, with: now },
           )
         : null,
   }
@@ -171,10 +180,19 @@ export function outputsOf(state: State): Output[] {
   const judged = scorers
     .filter((s) => state.config.packs.includes(s.id))
     .flatMap((s) => s.artifacts)
+  // What a grading here would grade with now; a state that does not say asks none of it.
+  const now = state.grading
+    ? gradedNow(
+        state.grading.packs,
+        state.config.packs,
+        state.grading.model,
+        state.grading.drawn === true,
+      )
+    : null
   const list = state.runs.flatMap((run) => {
     const results = new Map((run.report?.results ?? []).map((r) => [r.sample, r]))
     return run.samples.map((sample) =>
-      outputOf(state, run, sample, results.get(sample.name) ?? null, judged),
+      outputOf(state, run, sample, results.get(sample.name) ?? null, judged, now),
     )
   })
   return list.sort(

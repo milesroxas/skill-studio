@@ -45,6 +45,8 @@ A run keeps its cases as it starts, in `_cases.json`, each with a fingerprint of
 
 Each graded output keeps a fingerprint of what it was held to, `yardstick` in `report.json`: its case's checks, each by its words, its weight and the bytes of its picture, and the case's settings (`yardstickOf`). The names of the check files and their order are no part of it.
 
+It also keeps what graded it, `graded` in `report.json`: the Jev model asked (null without Jev), the version of the questions of each pack that judged it (`packs`), and, for an output with a page or a picture for Jev to look at, whether the host drew it (`drawn`: the desktop app does, `st grade` and `st serve` do not).
+
 ### When a total does not stand
 
 A total counted from other parts than the totals beside it would be compared with them as if it were not. So `scoreResult` gives an output no total, with its layers and verdicts as they are, until its run is graded again, when:
@@ -52,7 +54,11 @@ A total counted from other parts than the totals beside it would be compared wit
 - one of the skill's packs failed on it (below);
 - the skill is graded as a pack its grading never ran, which is one ticked since: `packs` has no entry for it, where a pack that ran and had nothing to say left `null`. The flag is `<pack> pack not graded`;
 - its case's checks or settings changed after it was graded: its `yardstick` is no longer the case's (`behindOf` in `src/domain/scoring.ts`). A report with no `yardstick` stands;
+- a pack the skill is graded as judged it on questions since changed: its version in `graded.packs` is not the pack's now. The flag is `Graded by an older version of Skill Studio`;
+- in the app, it was graded by another Jev model than the one a grading asks now (`Graded by another version of Jev`), or it had a page or a picture to look at and the host that graded it drew nothing, where the desktop app draws (`Graded without looking at the page`). `st report` and `st compare` let both stand: `--jev-model` names a model by hand, and the command line draws nothing;
 - in the app, it was graded without Jev and a TypeSafe key is now set. `st report` and `st compare` let such a grading stand, since `--no-jev` asks for it by name.
+
+A report with no `graded` on an output was written before gradings kept it, and is read as if nothing changed.
 
 An output with nothing in it scores 0 however it was graded. Results says which of these holds beside the score, and offers to grade the run. On All cases **Grade N runs** grades every run that has such an output, a case whose newest run waits on it says "Needs grading" and grades that run when opened, and the band grades the runs it waits on once no case is left to run.
 

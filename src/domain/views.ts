@@ -4,7 +4,15 @@
  * them without touching Node.
  */
 import type { Rule } from './rules.ts'
-import type { Artifact, BenchConfig, Case, Report, Reviews, RunMeta } from './schemas.ts'
+import type {
+  Artifact,
+  BenchConfig,
+  Case,
+  GradedWith,
+  Report,
+  Reviews,
+  RunMeta,
+} from './schemas.ts'
 
 export interface SkillInfo {
   path: string
@@ -148,6 +156,12 @@ export interface State {
   savedConfig: Partial<BenchConfig>
   rules: Rule[]
   jevKey: boolean
+  /**
+   * What a grading made here now grades with: the version of every pack's
+   * questions, by id, the Jev model, and whether this host draws pages
+   * (`drawn`: the desktop app does, `st serve` does not).
+   */
+  grading: GradedWith
   paths: { bench: string; reviews: string }
 }
 

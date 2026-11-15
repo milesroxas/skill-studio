@@ -100,7 +100,8 @@ import {
   undeleteVersion,
 } from '@infrastructure/trash.ts'
 import { isVersionLabel, saveVersion } from '@infrastructure/versions.ts'
-import { Jev } from '@judges/jev.ts'
+import { packVersions } from '@judges/index.ts'
+import { DEFAULT_MODEL, Jev } from '@judges/jev.ts'
 import { scorers } from '@judges/scorers.ts'
 import {
   aiCommands,
@@ -736,6 +737,7 @@ export function createOperations(options: OperationsOptions): Runners {
         savedConfig: readJson<Partial<BenchConfig>>(benchPath(skill.path), {}),
         rules: loadRules(skill.path, config),
         jevKey: Jev.available(),
+        grading: { model: DEFAULT_MODEL, packs: packVersions(), drawn: Boolean(options.render) },
         paths: {
           bench: relative(skill.path, benchPath(skill.path)),
           reviews: relative(skill.path, reviewsPath(skill.path)),
