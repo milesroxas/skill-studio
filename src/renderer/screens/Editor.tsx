@@ -5,7 +5,8 @@
  *
  * The skill's versions are listed under its files. A run keeps the version it
  * tested, so none is saved by hand; opening one shows what changed and offers
- * the way back to it.
+ * the way back to it. Under them, the versions and runs deleted lately, each
+ * with Undo, while the skill's trash still holds them.
  *
  * The file's header holds one switch for what the column shows (the text
  * styled, its Markdown, or what changed since the last save) and the two
@@ -43,6 +44,7 @@ import {
   ListHeader,
   Loading,
   PlainList,
+  Rows,
   Toolbar,
   Workbench,
 } from '../components/layout.tsx'
@@ -63,9 +65,17 @@ import { Input } from '../components/ui/input.tsx'
 import { VersionDetail } from '../components/VersionDetail.tsx'
 import type { Ctx } from '../ctx.ts'
 import { lineDiff } from '../diff.ts'
-import { useAction } from '../hooks.ts'
+import { useAction, useFetch } from '../hooks.ts'
 import { shortcut } from '../keys.ts'
-import { capital, ruleRatesOf, shortDate, versionReading } from '../model.ts'
+import {
+  capital,
+  deletedName,
+  deletesLine,
+  ruleRatesOf,
+  shortDate,
+  stamp,
+  versionReading,
+} from '../model.ts'
 import { useArrivals } from '../motion.ts'
 import { editorFile } from '../route.ts'
 
@@ -138,6 +148,34 @@ export const Editor = memo(function Editor({ ctx }: { ctx: Ctx }) {
       ),
     [state.versions.versions, outputs, config],
   )
+  /**
+   * What was deleted lately and can still be taken back, the newest first.
+   * Read again whenever the skill is: after a delete, an Undo and a reload.
+   */
+  const trash = useFetch(() => api.trashed(), [state])
+  const trashed = trash.data?.deletes ?? []
+  /** The delete whose Undo is on its way; the other rows wait for it. */
+  const [undoing, setUndoing] = useState<string | null>(null)
+  const undelete = async (gone: (typeof trashed)[number]) => {
+    setUndoing(gone.undo)
+    try {
+      if (gone.kind === 'version') {
+        const { restored } = await api.undeleteVersion(gone.undo)
+        await reload()
+        report(`${restored} is back`)
+      } else {
+        await api.undeleteRun(gone.undo)
+        await reload()
+        report('Run restored')
+      }
+    } catch (e) {
+      // A refusal, such as a version of that number made since, is said in the store's words.
+      report(e as Error)
+      trash.reload()
+    } finally {
+      setUndoing(null)
+    }
+  }
   /** How often each rule was followed and broken, for its number in the margin. */
   const rates = useMemo(() => ruleRatesOf(outputs, config), [outputs, config])
   const [mode, setMode] = useEditorMode((message) =>
@@ -506,7 +544,7 @@ export const Editor = memo(function Editor({ ctx }: { ctx: Ctx }) {
           ) : null}
         </ColumnSection>
 
-        {blank && !versions.length ? null : (
+        {blank && !versions.length && !trashed.length ? null : (
           <ColumnSection
             inset="list"
             title="Versions"
@@ -534,6 +572,36 @@ export const Editor = memo(function Editor({ ctx }: { ctx: Ctx }) {
                 <PlainList gap="xs" bleed>
                   {olderVersions.map(versionRow)}
                 </PlainList>
+              </Disclosure>
+            ) : null}
+            {trashed.length ? (
+              <Disclosure summary="Recently deleted" detail={deletesLine(trashed)}>
+                <Rows as="ul">
+                  {trashed.map((gone) => (
+                    <li key={gone.undo} className="flex min-h-9 items-center gap-2">
+                      <span className="flex min-w-0 flex-1 flex-col">
+                        <Text size="ui" truncate>
+                          {deletedName(gone)}
+                        </Text>
+                        <Text size="xs" tone="muted">
+                          Deleted {stamp(gone.deletedAt) ?? gone.deletedAt}
+                        </Text>
+                      </span>
+                      <Button
+                        type="button"
+                        variant="ghost-muted"
+                        size="xs"
+                        aria-label={`Undo: ${deletedName(gone)}`}
+                        disabled={undoing !== null && undoing !== gone.undo}
+                        busy={undoing === gone.undo}
+                        busyLabel="Undoing…"
+                        onClick={() => void undelete(gone)}
+                      >
+                        Undo
+                      </Button>
+                    </li>
+                  ))}
+                </Rows>
               </Disclosure>
             ) : null}
           </ColumnSection>

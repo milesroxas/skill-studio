@@ -16,7 +16,9 @@ import {
   cutOf,
   cutOff,
   deleteBlocked,
+  deletedName,
   deleteRunDialog,
+  deletesLine,
   drawnOf,
   extraKinds,
   failedLine,
@@ -1310,5 +1312,16 @@ describe('an output on a file Jev cannot read', () => {
     expect(scoreOver(outputs, saved)).toBe(100)
     const [standing] = standingsOf(state, outputs, saved)
     expect(toGrade(standing)).toBeNull()
+  })
+})
+
+describe('the recently deleted', () => {
+  it('names each delete and says what the trash holds', () => {
+    expect(deletedName({ kind: 'version', version: 'v3' })).toBe('v3')
+    expect(deletedName({ kind: 'run', version: 'v3' })).toBe('A run on v3')
+    expect(deletesLine([{ kind: 'version' }, { kind: 'run' }, { kind: 'version' }])).toBe(
+      '2 versions and 1 run',
+    )
+    expect(deletesLine([{ kind: 'run' }])).toBe('1 run')
   })
 })

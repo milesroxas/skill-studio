@@ -45,6 +45,7 @@ import {
 } from '@domain/standing.ts'
 import { mean } from '@domain/stats.ts'
 import { type Count, countOf, sumCounts } from '@domain/verdict.ts'
+import type { TrashedDelete } from '@domain/views.ts'
 import { scorers } from '@judges/scorers.ts'
 import type { RunView, Sample, State } from './api.ts'
 
@@ -1303,6 +1304,19 @@ export const money = (value: number | null | undefined): string =>
 
 export const fmt = (value: number | null, places = 1): string =>
   value === null ? '–' : value.toFixed(places)
+
+/** What a delete in the trash took, as its row names it: "v3", or "A run on v3". */
+export const deletedName = (gone: Pick<TrashedDelete, 'kind' | 'version'>): string =>
+  gone.kind === 'version' ? gone.version : `A run on ${gone.version}`
+
+/** "2 versions and 1 run": what the trash holds, for the line of its fold. */
+export function deletesLine(deletes: ReadonlyArray<Pick<TrashedDelete, 'kind'>>): string {
+  const versions = deletes.filter((d) => d.kind === 'version').length
+  const runs = deletes.length - versions
+  return [versions ? plural(versions, 'version') : null, runs ? plural(runs, 'run') : null]
+    .filter(Boolean)
+    .join(' and ')
+}
 
 /** `1 case`, `3 cases`. */
 export const plural = (n: number, one: string, many = `${one}s`): string =>

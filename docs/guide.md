@@ -142,6 +142,7 @@ Once one model has run two versions, every version's score is that model's, so t
 - **Older versions** fold under one line once the list grows long. Click it to see them.
 - **Restore** puts a version back. It asks first when your files hold edits no version keeps, and edits you have not saved are lost with it.
 - **Delete version** removes it and its runs. **Undo** brings them back.
+- **Recently deleted**, under the versions, lists the versions and runs you deleted in the last 30 days, the newest 10. **Undo** on one brings it back, even after the app restarts.
 
 ## 3. Write cases
 

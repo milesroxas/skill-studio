@@ -143,6 +143,8 @@ export const api = {
   undeleteVersion: (undo: string) => call('skill.undeleteVersion', scoped({ undo })),
   deleteRun: (run: string) => call('skill.deleteRun', scoped({ run })),
   undeleteRun: (undo: string) => call('skill.undeleteRun', scoped({ undo })),
+  /** The skill's deletes that can still be taken back, the newest first. */
+  trashed: () => call('skill.trashed', scoped({})),
   /** Drafts name their skill outright: a store can land after another skill is opened. */
   drafts: (skill: string) => call('skill.drafts', { skill }),
   saveDrafts: (skill: string, drafts: SkillDrafts, touched: TouchedDrafts) =>
