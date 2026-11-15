@@ -63,4 +63,4 @@ The steps in [releasing.md](releasing.md), in order.
 4. [ ] `gh workflow run release` builds every platform. Not run for 0.14.0; the tag's own run builds every platform.
 5. [x] In the changelog, add `## [0.14.0] - 2026-11-14` under a new `## [Unreleased]`, and commit.
 6. [x] `pnpm version minor -m "Release %s"`, then push `main` and the tag.
-7. [ ] The release workflow publishes v0.14.0, with the changelog entry as its notes.
+7. [x] The release workflow publishes v0.14.0, with the changelog entry as its notes.
