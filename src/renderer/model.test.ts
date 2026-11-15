@@ -564,11 +564,11 @@ describe('a version’s outputs', () => {
     ).toEqual(['r1', 'r3'])
   })
 
-  it('give a version the writer of the others never ran no score, and name that writer', () => {
+  it('read a version the writer of the others never ran by its own writer, and name it', () => {
     const outputs = outputsOf(
       stateOf(
         [
-          // Only Sonnet ran v1; Opus ran v2 and v3, so every score is read by Opus.
+          // Only Sonnet ran v1; Opus ran v2 and v3, so every other score is read by Opus.
           madeBy(runOf('r1', 'v1', files, graded(100)), { writer: sonnet }),
           runOf('r2', 'v2', files, graded(0)),
           runOf('r3', 'v3', files, graded(100)),
@@ -581,14 +581,32 @@ describe('a version’s outputs', () => {
         ['generic'],
       ),
     )
+    // One writer wrote all of v1: its score stands, and the line says whose it is.
+    expect(versionReading(outputs, saved, 'v1')).toEqual({ score: 100, why: 'with sonnet' })
+    expect(versionReading(outputs, saved, 'v2')).toEqual({ score: 0, why: null })
+    expect(versionScore(outputs, saved, 'v3')).toBe(100)
+    expect(versionReading(outputs, saved, 'v4')).toEqual({ score: null, why: 'not run yet' })
+  })
+
+  it('give a version only other writers ran, more than one, no score', () => {
+    const haiku = { ...sonnet, model: 'haiku' }
+    const outputs = outputsOf(
+      stateOf(
+        [
+          madeBy(runOf('r1', 'v1', files, graded(100)), { writer: sonnet }),
+          madeBy(runOf('r5', 'v1', files, graded(0)), { writer: haiku }),
+          runOf('r2', 'v2', files, graded(0)),
+          runOf('r3', 'v3', files, graded(100)),
+        ],
+        ['generic'],
+      ),
+    )
+    // A mean of two writers is no writer's, so it is not set beside the others.
     expect(versionReading(outputs, saved, 'v1')).toEqual({
       score: null,
       why: 'not run with opus',
     })
     expect(versionScore(outputs, saved, 'v1')).toBeNull()
-    expect(versionReading(outputs, saved, 'v2')).toEqual({ score: 0, why: null })
-    expect(versionScore(outputs, saved, 'v3')).toBe(100)
-    expect(versionReading(outputs, saved, 'v4')).toEqual({ score: null, why: 'not run yet' })
   })
 
   it('count every output of a version before any writer ran two', () => {

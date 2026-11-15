@@ -733,15 +733,26 @@ export const versionOutputs = (outputs: Output[], version: string): Output[] =>
     return test.version === version && testedVersion(test)
   })
 
-/** What the versions list, a version's page and the sidebar read of a version: its score, else why it has none. */
-export type VersionReading = { score: number; why: null } | { score: null; why: string }
+/**
+ * What the versions list, a version's page and the sidebar read of a version:
+ * its score, and what its line says of it. With no score, `why` says why it
+ * has none. With one, `why` is null unless another writer than the other
+ * scores' wrote it, and then names that writer.
+ */
+export interface VersionReading {
+  score: number | null
+  why: string | null
+}
 
 /**
  * A version's score under `config`, counted as `scoreOver` counts. Once one
  * writer ran two versions (`versionWriter`), every version is read by that
- * writer's outputs alone, so one version's score is read against the next: a
- * version it never ran has no score, and says which writer to run it with.
- * Before that, a version counts all its outputs.
+ * writer's outputs alone, so one version's score is read against the next.
+ * A version it never ran is read by the one writer that ran it, and says
+ * which, so the score is not taken for one of the same writer's. Run by more
+ * than one other writer it has no score, since a mean of them is no writer's,
+ * and says which writer to run it with. Before any writer ran two versions, a
+ * version counts all its outputs.
  */
 export function versionReading(
   outputs: Output[],
@@ -752,13 +763,15 @@ export function versionReading(
   if (!mine.length) return { score: null, why: 'not run yet' }
   const runs = [...new Map(outputs.map((o) => [o.run.name, o.run])).values()]
   const writer = versionWriter(versionRuns(runs, outputs, config))
-  const read = writer ? mine.filter((o) => writerKey(o.run.meta?.writer) === writer) : mine
-  if (!read.length) {
+  const pinned = writer ? mine.filter((o) => writerKey(o.run.meta?.writer) === writer) : mine
+  const others = new Set(mine.map((o) => writerKey(o.run.meta?.writer)))
+  if (!pinned.length && others.size > 1) {
     const by = outputs.find((o) => writerKey(o.run.meta?.writer) === writer)
     return { score: null, why: `not run with ${writerName(by?.run.meta?.writer)}` }
   }
-  const score = scoreOver(read, config)
-  return score === null ? { score: null, why: 'no score yet' } : { score, why: null }
+  const score = scoreOver(pinned.length ? pinned : mine, config)
+  if (score === null) return { score: null, why: 'no score yet' }
+  return { score, why: pinned.length ? null : `with ${writerName(mine[0].run.meta?.writer)}` }
 }
 
 /** A version's score, as `versionReading` reads it. Null when it has none. */

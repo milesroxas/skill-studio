@@ -136,7 +136,7 @@ First, connect a model in **Settings**. If you use Claude Code or Codex, it work
 
 Each run saves the skill as it was, as a **version**: v0, v1 and so on. You never save one by hand. Every score stays with the version that earned it.
 
-Once one model has run two versions, every version's score is that model's, so the scores read against each other. A version it never ran shows no score, and says **Not run with** that model.
+Once one model has run two versions, every version's score is that model's, so the scores read against each other. A version it never ran shows the score of the model that did run it, and its line names that model, such as **With Sonnet, high effort**. A version only several other models ran shows no score, and says **Not run with** the model the other scores are from.
 
 - **Click a version** to see what changed since.
 - **Older versions** fold under one line once the list grows long. Click it to see them.

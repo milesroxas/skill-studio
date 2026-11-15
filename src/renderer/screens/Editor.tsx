@@ -391,7 +391,7 @@ export const Editor = memo(function Editor({ ctx }: { ctx: Ctx }) {
             {capital(
               [
                 v.date ? shortDate(v.date) : null,
-                // The score is the chip at the row's end; without one, the line says why.
+                // The score is the chip at the row's end: the line says why there is none, or whose it is.
                 why,
                 // The newest is the files unless they changed; a restored one says so.
                 v !== newest && !current.changed && v.version === current.version

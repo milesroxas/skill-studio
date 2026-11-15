@@ -213,7 +213,7 @@ export function VersionDetail({ ctx, version }: { ctx: Ctx; version: string }) {
             {[
               found.date ? shortDate(found.date) : null,
               runs ? plural(runs, 'run') : 'Not run yet',
-              // With no score chip, the line says why, once it is more than not being run.
+              // Why it has no score, once that is more than not being run, or whose score the chip is.
               runs && why && why !== 'not run yet' ? capital(why) : null,
               counts,
               isCurrent ? 'In the files now' : null,
