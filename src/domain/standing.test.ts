@@ -148,6 +148,17 @@ describe('caseLift', () => {
     })
   })
 
+  it('says when a floor ran on another version than its case’s latest, so on other rules', () => {
+    const apart = caseLift([standingOf([bare(50), at('v0', 60), at('v1', 80)], 'v1')])
+    expect(apart).toMatchObject({ floor: 50, floorApart: true })
+    const same = { ...bare(50), version: 'v1' }
+    expect(caseLift([standingOf([same, at('v0', 60), at('v1', 80)], 'v1')])).toMatchObject({
+      floor: 50,
+      floorApart: false,
+    })
+    expect(caseLift([standingOf([at('v0', 60), at('v1', 80)], 'v1')])?.floorApart).toBe(false)
+  })
+
   it('leaves out a case whose two runs were graded two ways', () => {
     expect(
       caseLift([standingOf([at('v0', 60, { graded: 'plain' }), at('v1', 80)], 'v1')]),

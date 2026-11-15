@@ -135,7 +135,13 @@ function Ribbon({ lift, floor }: { lift: CaseLift; floor: number | null }) {
 
 /** Which cases the lift is read over, as the line under its change. */
 const overLine = (lift: CaseLift): string =>
-  `Over ${plural(lift.cases, 'case')} that ran more than once${lift.mixed ? ', on more than one model' : ''}`
+  `Over ${plural(lift.cases, 'case')} that ran more than once${lift.mixed ? ', on more than one model' : ''}${floorRules(lift)}`
+
+/** What the line under the change says when a score without the skill was graded on another version's rules. */
+const floorRules = (lift: CaseLift): string =>
+  lift.floor !== null && lift.floorApart
+    ? '; without the skill, graded on another version’s rules'
+    : ''
 
 /** The same, for a screen reader, with the score without the skill and how many cases it is over. */
 function floorNote(lift: CaseLift): string {

@@ -310,6 +310,7 @@ The lift (`caseLift`) is the mean of the cases' first scores against the mean of
 
 - The floor is the mean of those cases' newest scores without the skill, graded as their latest was, over the ones that have one (`floorCases`).
 - `mixed` is set when a case's first and latest runs had different writers, and the page says "on more than one model".
+- A run without the skill is stamped with the version the skill stood at when it ran, is graded on that version's rules (its `_skill/SKILL.md`), and is deleted with that version. `floorApart` is set when a case's floor ran on another version than its latest, so was held to other rules, and the page says "without the skill, graded on another version's rules".
 - A run made against an older version's snapshot (`old_skill`) counts as that version's run, as on the comparison.
 - The ribbon is drawn only when the latest mean is higher in the whole points shown (`rises`): 66.7 to 67.0 reads 67 and 67, and is no rise.
 

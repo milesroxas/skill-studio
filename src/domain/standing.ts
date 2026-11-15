@@ -121,6 +121,12 @@ export interface CaseLift {
   rises: boolean
   /** Some case's first and latest runs had different writers, so part of its move may be the model's. */
   mixed: boolean
+  /**
+   * Some case's floor ran on another version than its latest. A run without
+   * the skill is graded on the rules of the version it is stamped with, so
+   * that floor was held to other rules than the latest scores.
+   */
+  floorApart: boolean
 }
 
 /** The lift over `standings`; null until one case has two scored runs with the skill. */
@@ -140,6 +146,7 @@ export function caseLift(standings: readonly Standing[]): CaseLift | null {
     cases: twice.length,
     rises: pointsMoved(first, latest) > 0,
     mixed: twice.some((s) => s.first?.writer !== s.latest?.writer),
+    floorApart: twice.some((s) => s.floor !== null && s.floor.version !== s.latest?.version),
   }
 }
 
