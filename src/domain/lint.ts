@@ -138,6 +138,18 @@ const CONDITION = /\b(?:or|unless|if|when|while|except|but|otherwise)\b/gi
 
 /** The most conditions one rule holds before it is a tree written as prose. */
 const CLAUSES_MAX = 4
+/**
+ * Where one thing to mark ends and the next begins: a list's commas and its
+ * last and, or or nor. A comma in a number is none, and neither is the or of
+ * a bound, "300ms or less".
+ */
+const PART = /,(?!\d)|;|\b(?:and|nor)\b|\bor\b(?! (?:less|more|fewer|under|over|later|earlier)\b)/i
+/**
+ * The most things one rule asks for before Jev's one answer stops saying which
+ * was missed. Four is a list a reader checks at a glance: "a doctype, a lang,
+ * a title and a viewport meta".
+ */
+const PARTS_MAX = 4
 /** Words per rule: worth a look past the first, a finding past the second. */
 const WORDS_LONG = 40
 const WORDS_OVER = 60
@@ -285,6 +297,15 @@ function sizeFindings(raw: string, text: string, words: number): Finding[] {
         'complexity',
         null,
         `This rule holds ${clauses} conditions. Split them into a decision tree or numbered steps, so the agent takes one branch at a time.`,
+      ),
+    )
+  // "9:41, full signal and a full battery, with no notifications, cursor or scrollbars" is six facts and one answer.
+  else if (rule.split(PART).filter((part) => part.trim()).length > PARTS_MAX)
+    out.push(
+      found(
+        'complexity',
+        null,
+        'This rule asks for several things, and Jev marks them with one answer. Make each a rule of its own to see which one an output missed.',
       ),
     )
 

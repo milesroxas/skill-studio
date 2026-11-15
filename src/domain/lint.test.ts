@@ -89,6 +89,23 @@ describe('lintScene', () => {
     ).toEqual([])
   })
 
+  it('says when a rule asks for more things than one answer can mark', () => {
+    const many = lintScene(
+      scene(
+        '- Set the status bar to 9:41, full signal and a full battery, with no notifications, cursor, scrollbars or debug overlays, so every shot matches.',
+      ),
+    )
+    expect(many.map((f) => f.message)).toContain(
+      'This rule asks for several things, and Jev marks them with one answer. Make each a rule of its own to see which one an output missed.',
+    )
+    // A bound's "or" is no second thing, and the why after the rule is not counted.
+    expect(
+      principles(
+        '- Animate only transform and opacity, 300ms or less, with an ease-out curve. Anything else drops frames, stutters, or janks on scroll.',
+      ),
+    ).toEqual([])
+  })
+
   it('measures the rule and the file', () => {
     const words = Array.from({ length: 65 }, (_, i) => `word${i}`).join(' ')
     expect(principles(`- Always ${words}.`)).toContain('length')

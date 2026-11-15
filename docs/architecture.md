@@ -284,7 +284,7 @@ Each text area is one kind of field (`src/domain/assist.ts`). A kind states the 
 
 Selecting four or more words in SKILL.md opens a popout with three actions. Code owns each workflow; a model only writes prose.
 
-1. `src/domain/lint.ts` checks each top-level bullet in the selection by word lists and counts: a hedge word with no number or absolute to anchor it, an outcome adjective or a definition in the rule's first sentence, a missing reason, nested bullets, piled conditions, words per rule, and the file's size band. Prose, steps and code are not rules and get no findings. A bare rule with no hedge and no number is left to Jev. Free and instant.
+1. `src/domain/lint.ts` checks each top-level bullet in the selection by word lists and counts: a hedge word with no number or absolute to anchor it, an outcome adjective or a definition in the rule's first sentence, a missing reason, nested bullets, piled conditions, a rule that asks for more than four things at once (Jev gives a rule one answer, so it cannot say which part was missed), words per rule, and the file's size band. Prose, steps and code are not rules and get no findings. A bare rule with no hedge and no number is left to Jev. Free and instant.
 2. `src/judges/rule/index.ts` asks Jev one request over the rule and two lines either side: a yes/no per principle (`RULE_GUIDE`) and a complexity score. `src/domain/improve.ts` turns the probabilities into findings: holds above 0.7, drifts below 0.3, a maybe between. Without a TypeSafe key only step 1 runs.
 3. Then a model is asked, with the findings as its brief:
    - **Auto refine** (`ai.refine`) asks for one revision when anything drifts, and for nothing when the rule complies.
