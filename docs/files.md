@@ -34,6 +34,7 @@ Everything Skill Studio knows about a skill is plain files in the skill's `evals
 - Saving a case is refused, before anything is written, when its folder, its `files/`, `graders/` or `references/`, its `prompt.md`, its `case.yaml` or one of its checks is reached through a link that leads out of the skill.
 - A grader file must start with front matter (`---`), even an empty block. A file without it is skipped. Its `weight` is rounded and held to 1 to 5; a value that is not a positive number reads as 1. `type` and `focus` are kept when the case is saved.
 - `max_turns` is not passed to the agent. The workflow pack compares it with the number of tool calls.
+- `allowed_tools` is passed to Claude Code. The Cursor agent takes no list of tools and can use every one: the Run panel says so under **Agent** when a ticked case sets `allowed_tools`.
 - `allowed_tools` and `timeout_seconds` are part of what a case asks: a run made before either changed answered another request. `max_turns` and `timeout_seconds` are part of what an output is held to: one graded before either changed has no total until its run is graded again ([grading.md](grading.md#the-case-a-run-is-graded-on)).
 - `fixtures/` holds three small skills with generated runs: `demo-skill` (generic pack), `code-skill` (code pack) and `design-skill` (design pack). Each also runs the generic and workflow packs.
 

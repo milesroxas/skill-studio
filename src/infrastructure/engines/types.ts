@@ -42,6 +42,8 @@ export interface Engine {
   efforts: string[]
   defaultModel: string
   hint: string
+  /** The agent keeps to the tools a case allows (`allowed_tools`); false for a CLI that takes no such list. */
+  limitsTools: boolean
   available(): boolean
   /** Model ids the engine accepts; read from the tool when it can list them. */
   models(): Promise<string[]>

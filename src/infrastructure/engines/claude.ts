@@ -85,6 +85,7 @@ export const claudeEngine: Engine = {
   efforts: ['default', 'low', 'medium', 'high', 'xhigh', 'max'],
   defaultModel: 'sonnet',
   hint: 'Install Claude Code and log in: the tool runs `claude -p` once for each output.',
+  limitsTools: true,
   available: () => hasCommand('claude'),
   models: async () => MODELS,
   async run(request) {

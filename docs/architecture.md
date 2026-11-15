@@ -198,6 +198,7 @@ An engine runs one agent CLI in a folder of the sample's own under the system's 
 - Effort rides on the model string (`model[effort=high]`). A run's model must be one the CLI listed, or `auto`. Before any list arrives, it must have the shape of a model id.
 - The prompt is an argument, so on Windows with a `.cmd` install a prompt of more than one line is refused.
 - The CLI has no setting-source switch, so a run sees the user's `~/.cursor/skills`.
+- The CLI takes no list of tools, and `--force` lets it run every one, so a case's `allowed_tools` does not reach it (`limitsTools: false`). The Run panel says so under **Agent** when a ticked case sets them.
 - This adapter has not been run against a live account.
 
 Isolation is by place and by convention. The agent's folder has nothing of the skill or the run above it, and the skill copy omits `evals/`. The prompt forbids reading outside the folder, but nothing stops an agent that follows an absolute path, or `../..` to the temporary folder, where the folders of other samples being written at the same time sit.

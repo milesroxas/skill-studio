@@ -20,6 +20,7 @@ export async function engineInfo(): Promise<EngineInfo[]> {
         defaultModel: engine.defaultModel,
         available,
         hint: engine.hint,
+        limitsTools: engine.limitsTools,
       }
     }),
   )

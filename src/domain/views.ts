@@ -119,6 +119,8 @@ export interface EngineInfo {
   defaultModel: string
   available: boolean
   hint: string
+  /** The agent keeps to the tools a case allows (`allowed_tools`). */
+  limitsTools: boolean
 }
 
 export type JobKind = 'generate' | 'grade'

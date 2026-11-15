@@ -155,3 +155,12 @@ describe('cursor run', () => {
     expect(cli.calls).toHaveLength(calls)
   })
 })
+
+describe('cursor tools', () => {
+  it('says it does not keep to the tools a case allows, and passes none to the CLI', async () => {
+    expect(cursorEngine.limitsTools).toBe(false)
+    cli.answer = { code: 0, stdout: '' }
+    await cursorEngine.run({ ...request, allowedTools: ['Read'] })
+    expect(cli.calls.at(-1)?.args.join(' ')).not.toContain('Read')
+  })
+})

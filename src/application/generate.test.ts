@@ -73,6 +73,7 @@ function engineThat(
     efforts: [],
     defaultModel: 'small',
     hint: '',
+    limitsTools: true,
     available: () => true,
     models: async () => ['small'],
     run: async (request) => {

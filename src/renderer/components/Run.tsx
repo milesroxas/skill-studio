@@ -401,6 +401,11 @@ export function RunButton({
                   {e.label} is not set up. {e.hint}
                 </Hint>
               ))}
+              {engine && !engine.limitsTools && cases.some((c) => c.settings.allowedTools) ? (
+                <Hint>
+                  {engine.label} can use every tool, even in a case that allows only some.
+                </Hint>
+              ) : null}
             </Field>
             <Field>
               <Label htmlFor="run-model">Model</Label>

@@ -99,6 +99,8 @@ export const cursorEngine: Engine = {
   efforts: ['default', 'low', 'medium', 'high'],
   defaultModel: 'auto',
   hint: 'Install the Cursor CLI (cursor-agent) and run `cursor-agent login`, or set CURSOR_API_KEY in .env.',
+  // `cursor-agent` takes no list of tools: `--force` lets it run every one.
+  limitsTools: false,
   available: () => hasCommand('cursor-agent'),
   /**
    * What the CLI has listed, at once: asking it takes seconds, and every load
