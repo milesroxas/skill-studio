@@ -6,9 +6,59 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+### Added
+
+- **Recently deleted**, under the versions on the Skill screen. It lists the versions and runs you deleted in the last 30 days, each with **Undo**, so you can bring one back after the notice is gone or the app restarts.
+- A rule most answers break shows a red number in the editor, and pointing at any rule's number says how many answers broke it.
+- The editor says when a rule asks for so many things that one answer cannot say which was missed.
+- **Lift** says how many attempts each side is over and how far one case's attempts were apart, and an opened case says the same of its score.
+
 ### Changed
 
 - **Delete version** always asks first, even for a version with no runs. **Undo** on the status line still brings it back.
+- A change in score now counts only the rules and checks marked on both runs, and says how many it left out. Before, a rule Jev was unsure of on one run and not the other could read as the skill getting better or worse.
+- **All cases** says how many rules and checks Jev was not sure of behind a score. They stay out of the score until you mark them.
+- A case's change, the lift and the change between two outputs count your own marks only on the rules and checks you marked on both runs, so a case no longer rises just because you checked its newest run more closely. Each score shown on its own still counts every mark you made.
+- Jev now reads the text files a case gives the agent, such as a design system's notes, when it checks rules like "use only colours from the project".
+- Grading again asks Jev only the questions whose answer could have changed: add a check and only that check is asked, change a check's weight or a case's title and nothing is. The first grading after this update asks every question once more.
+- Reading the skill before writing is still shown and flagged, but no longer counts in **Process**, so a run with the skill and one without are scored on the same things.
+- **Lift** says when the score without the skill was graded on another version's rules.
+- The Run panel says when the Cursor agent will use every tool in a case that allows only some, and when an older version was kept without its scripts.
+
+### Fixed
+
+- A skill kept in a repository no longer has that repository's `CLAUDE.md` or other skills read by every attempt. Each attempt works in a folder of its own, away from the skill, and its files are moved into the run when it ends.
+- An attempt that hit the time limit, could not start, or ended with an error (signed out, a usage limit) no longer counts as an answer. It has no score, it is left out of every average, and Results says why. `st run` exits 1 when one fails.
+- A run stopped partway no longer scores a case from fewer attempts than it was asked for. The case has no score from that run until it is run again.
+- A run cut off when the app quit or crashed says "not finished" under **Runs**.
+- Any file a skill writes is now an output. A `.csv`, `.xml` or `.ipynb` is graded as text, and a `.pdf` or `.docx` shows no score instead of 0.
+- An answer that writes several files is graded on the one the case's prompt names, and Results says which file the score is for.
+- A rule that does not come up for a case, such as "When the request names a table…" on a request that names none, shows under **Does not apply** instead of counting as met.
+- A bullet under an example heading, or one that only says to read a file, is no longer graded as a rule. A skill written as numbered steps has its steps graded, and an answer with nothing to mark says why it has no score.
+- Results says when Jev read only the start of a long answer, a file beside it or the prompt, so a rule broken past that point is no longer counted as followed. Jev also reads more of each than before.
+- An answer graded by an older version of Skill Studio's questions, by another version of Jev, or without its page drawn has no score until you regrade its run, instead of standing beside scores counted another way. Scores graded before this update stand as they are.
+- Allowing a tool or changing a case's time limit makes it a new request, and changing its turn or time limit asks for a regrade, so neither reads as the skill's doing.
+- A check about a picture reads the picture as it was when the run was made, after the case is changed or deleted.
+- A run whose record of its cases is damaged says so on Results, instead of quietly reading its answers against the cases as they are now.
+- A version only one other model ran keeps its score, and its line names that model. One that several other models ran shows no score instead of an average that can't be compared.
+- Running an older saved version gives the agent its scripts and other files.
+- A run without the skill no longer takes a version number, so the files still count as changed until you run them with the skill.
+- A case's hidden files, such as `.eslintrc.json` or `.github/`, reach the agent.
+- An animated picture, a JPEG saved to load in passes, or a photo saved on its side no longer stops every rule from being graded. The app draws it again, or leaves it out and says why.
+- When part of a grading fails, the answers that did come back are kept, and grading again asks only the rest.
+- A grading that asks Jev nothing new keeps what the answers cost, and `st grade` says how much of it this grading paid.
+- Grading a run in the app while `st` grades it in a terminal is refused, with who is grading it, and no answer is lost to the other's write.
+- `st report` and `st compare` score as Results does: your corrections count, a changed rules list or transcript setting asks for grading again, and `st compare` lists the answers it does not compare, with why.
+- `st self-test` checks a bad anchor against every good anchor of its case, and fails one that has no good anchor to lose to.
+- A case's page tells you when an answer was graded before rules and checks were marked on its kind of file, and that **Regrade** marks them.
+- With an unsaved edit, the top bar's next step is to save it, not to run a version that doesn't have your edit.
+- **Restore** warns you before it drops edits you haven't saved, and keeping those edits afterwards can no longer quietly undo the restore.
+- Deleting a run or version no longer ends the **Undo** of the one you deleted before it, in this skill or another.
+- Unsaved edits made in the app and in a browser on the same skill no longer overwrite each other.
+- The editor says when the lines at the top of SKILL.md cannot be read, and when the name or description breaks a limit, instead of saying they are missing.
+- Turning a skill off for an app works when its link has a different name from the skill's folder.
+- The assistant no longer pays again for the whole skill each time you move to another screen.
+- **Help me improve** says when TypeSafe refuses your key, and when Jev could not read an answer.
 
 ## [0.14.0] - 2026-11-14
 
