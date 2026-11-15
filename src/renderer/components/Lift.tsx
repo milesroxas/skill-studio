@@ -17,7 +17,7 @@ import { pointsMoved } from '@domain/lift.ts'
 import type { CaseLift } from '@domain/standing.ts'
 import type { CSSProperties, ReactNode } from 'react'
 import { cn } from '../lib/utils.ts'
-import { plural } from '../model.ts'
+import { liftAttemptsLine, plural } from '../model.ts'
 import { Delta } from './Scores.tsx'
 import { Text } from './text.tsx'
 
@@ -175,7 +175,8 @@ export function LiftFigure({
 }) {
   const change = pointsMoved(lift.first, lift.latest)
   const floor = floorAt(lift)
-  const summary = `Lift: ${overLine(lift).toLowerCase()}, from ${round(lift.first)} on their first runs to ${round(lift.latest)} on their latest.${floorNote(lift)}${aside ? ` ${aside}` : ''}`
+  const attempts = liftAttemptsLine(lift)
+  const summary = `Lift: ${overLine(lift).toLowerCase()}, from ${round(lift.first)} on their first runs to ${round(lift.latest)} on their latest.${floorNote(lift)} ${attempts}${aside ? ` ${aside}` : ''}`
   return (
     <figure
       aria-label={summary}
@@ -199,6 +200,9 @@ export function LiftFigure({
             </Text>
             <Text size="ui" tone="muted">
               {overLine(lift)}
+            </Text>
+            <Text size="ui" tone="muted">
+              {attempts}
             </Text>
             {aside ? (
               <Text size="ui" tone="muted">

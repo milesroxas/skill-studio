@@ -6,6 +6,7 @@ import {
   answerFiles,
   apartLine,
   asideLine,
+  attemptsLine,
   casePair,
   caseTitle,
   changeBetween,
@@ -22,6 +23,7 @@ import {
   kindsLine,
   lastAnswer,
   liftAsideLine,
+  liftAttemptsLine,
   liftOf,
   listLine,
   mergedConfig,
@@ -434,6 +436,38 @@ describe('a change between runs that counted different facts', () => {
     )
     const sure = caseOf(answered(0.1, 0.9), answered(0.9, 0.9))
     expect(asideLine(sure.outputs, saved)).toBeNull()
+  })
+})
+
+describe('attempts in words', () => {
+  const lift = (first: [number, number], latest: [number, number], gap: number | null) =>
+    ({ attempts: { first, latest }, gap }) as Parameters<typeof liftAttemptsLine>[0]
+
+  it('says how many attempts the lift is over, and how far one case’s were apart', () => {
+    expect(liftAttemptsLine(lift([1, 1], [1, 1], null))).toBe(
+      '1 attempt a case on the first runs and the latest.',
+    )
+    expect(liftAttemptsLine(lift([1, 1], [3, 3], 26))).toBe(
+      '1 attempt a case on the first runs, 3 attempts on the latest. Attempts at one case scored up to 26 points apart.',
+    )
+    expect(liftAttemptsLine(lift([1, 2], [2, 2], 0))).toBe(
+      '1 to 2 attempts a case on the first runs, 2 attempts on the latest. Each case’s attempts scored the same.',
+    )
+  })
+
+  it('says it of a case only when one of its two scores is over several attempts', () => {
+    const t = (score: number, totals: number[]) =>
+      ({ score, totals }) as unknown as NonNullable<Parameters<typeof attemptsLine>[0]['latest']>
+    expect(attemptsLine({ latest: t(74, [62, 72, 88]), previous: t(60, [60]) })).toBe(
+      'Its score is the mean of 3 attempts, from 62 to 88. Its run before had one.',
+    )
+    expect(attemptsLine({ latest: t(70, [70]), previous: t(65, [60, 70]) })).toBe(
+      'Its score is from one attempt. Its run before had 2, from 60 to 70.',
+    )
+    expect(attemptsLine({ latest: t(80, [80, 80]), previous: null })).toBe(
+      'Its score is the mean of 2 attempts, which all scored 80.',
+    )
+    expect(attemptsLine({ latest: t(70, [70]), previous: t(60, [60]) })).toBeNull()
   })
 })
 

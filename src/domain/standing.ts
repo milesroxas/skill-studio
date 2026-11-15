@@ -7,7 +7,7 @@
  */
 import { pointsMoved, testedVersion, versionNumber } from './lift.ts'
 import type { Configuration } from './schemas.ts'
-import { mean } from './stats.ts'
+import { mean, spread } from './stats.ts'
 
 /** One run's answer to one case. */
 export interface Try {
@@ -30,6 +30,26 @@ export interface Try {
    * the rest is not the run's score on the case.
    */
   score: number | null
+  /**
+   * The totals `score` is the mean of, one per attempt; absent for a caller
+   * that does not say, which counts as one attempt.
+   */
+  totals?: readonly number[]
+}
+
+/** How many attempts a score is the mean of, and the lowest and highest of them. */
+export interface Attempts {
+  count: number
+  low: number
+  high: number
+}
+
+/** The attempts `t`'s score is the mean of; one at its own score when it does not say. */
+export function attemptsOf(t: Try): Attempts | null {
+  if (t.score === null) return null
+  const totals = t.totals?.length ? t.totals : [t.score]
+  const { low, high } = spread(totals) as { low: number; high: number }
+  return { count: totals.length, low, high }
 }
 
 /** The two scores a change is read between, each end read as a change reads it. */
@@ -153,6 +173,13 @@ export interface CaseLift {
   floor: number | null
   /** How many of the cases the floor's mean is over. */
   floorCases: number
+  /** The fewest and the most attempts a case's score is the mean of, on the first runs and on the latest. */
+  attempts: { first: [number, number]; latest: [number, number] }
+  /**
+   * The furthest apart, in points, two attempts at one case scored, on a
+   * first or a latest run; null when none of them had more than one attempt.
+   */
+  gap: number | null
   /** How many cases ran more than once with a score: the ones the means are over. */
   cases: number
   /**
@@ -194,9 +221,20 @@ export function caseLift(standings: readonly Standing[]): CaseLift | null {
     latest: mean(twice.map((s) => s.latest?.score as number)) as number,
   }
   const floors = twice.flatMap((s) => (s.floor ? [s.floor.score as number] : []))
+  const counts = (end: 'first' | 'latest'): [number, number] => {
+    const all = twice.map((s) => (attemptsOf(s[end] as Try) as Attempts).count)
+    return [Math.min(...all), Math.max(...all)]
+  }
+  const several = twice
+    .flatMap((s) => [attemptsOf(s.first as Try), attemptsOf(s.latest as Try)])
+    .filter((a): a is Attempts => a !== null && a.count > 1)
   return {
     first,
     latest,
+    attempts: { first: counts('first'), latest: counts('latest') },
+    gap: several.length
+      ? Math.max(...several.map((a) => Math.round(a.high) - Math.round(a.low)))
+      : null,
     floor: mean(floors),
     floorCases: floors.length,
     cases: twice.length,

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { byNeed, caseLift, standingOf, type Try } from './standing.ts'
+import { attemptsOf, byNeed, caseLift, standingOf, type Try } from './standing.ts'
 
 const at = (version: string, score: number | null, over: Partial<Try> = {}): Try => ({
   version,
@@ -141,6 +141,28 @@ describe('standingOf with a reading of the change', () => {
     const standing = standingOf([at('v0', 50), at('v1', 55)], 'v1')
     expect(standing.moved).toEqual({ from: 50, to: 55 })
     expect(caseLift([standing])?.unshared).toBe(false)
+  })
+})
+
+describe('attempts', () => {
+  it('reads the attempts a score is the mean of, and one where the caller does not say', () => {
+    expect(attemptsOf(at('v1', 74, { totals: [62, 72, 88] }))).toEqual({
+      count: 3,
+      low: 62,
+      high: 88,
+    })
+    expect(attemptsOf(at('v1', 74))).toEqual({ count: 1, low: 74, high: 74 })
+    expect(attemptsOf(at('v1', null))).toBeNull()
+  })
+
+  it('says how many attempts the lift sets against each other, and how far one case’s were apart', () => {
+    const lift = caseLift([
+      standingOf([at('v0', 60), at('v1', 74, { totals: [62, 72, 88] })], 'v1'),
+      standingOf([at('v0', 50, { totals: [40, 60] }), at('v1', 70)], 'v1'),
+    ])
+    expect(lift).toMatchObject({ attempts: { first: [1, 2], latest: [1, 3] }, gap: 26 })
+    const once = caseLift([standingOf([at('v0', 60), at('v1', 70)], 'v1')])
+    expect(once).toMatchObject({ attempts: { first: [1, 1], latest: [1, 1] }, gap: null })
   })
 })
 

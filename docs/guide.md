@@ -227,7 +227,7 @@ Changing a case's prompt or its files makes it a new request. Answers written be
 
 Under the cases, each run shows what it answered, when it ran, how long it took and what it cost, with **Delete run**. A run that ended when the app quit or crashed says **not finished**: grade it to score the attempts it finished.
 
-Two versions only a few points apart may not really differ. Run with two or more attempts to be sure.
+Two versions only a few points apart may not really differ. Run with two or more attempts to be sure. The lift says how many attempts each side is over and how far one case's attempts were apart, and an opened case says the same of its score.
 
 ### Then change the skill
 

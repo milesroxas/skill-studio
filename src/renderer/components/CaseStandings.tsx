@@ -16,7 +16,7 @@
  * a run only waits to be graded, that step is to grade it.
  */
 import { isMissed } from '@domain/pack.ts'
-import { byNeed } from '@domain/standing.ts'
+import { attemptsOf, byNeed } from '@domain/standing.ts'
 import { XIcon } from 'lucide-react'
 import { Fragment, useState } from 'react'
 import type { Ctx } from '../ctx.ts'
@@ -24,6 +24,7 @@ import { useToggleSet } from '../hooks.ts'
 import { gradingRun, writingRun } from '../job-start.ts'
 import {
   asideLine,
+  attemptsLine,
   type CaseStand,
   type CaseTry,
   isWithoutSkill,
@@ -35,6 +36,7 @@ import {
   runStamp,
   runTitle,
   scoreOf,
+  spreadWords,
   standingUnshared,
   toGrade,
   totalOf,
@@ -501,6 +503,8 @@ function CaseDetail({
   const stands = latest ?? floor
   // How much of the score it stands on was counted, where Jev left some of it to the reader.
   const aside = stands ? asideLine(stands.outputs, ctx.config) : null
+  // How many attempts its score and the one it moved from are over, and how far they were apart.
+  const attempts = attemptsLine(standing)
   // A run that only waits to be graded: grading it is a step, and the next one when it is the run on this version.
   const waits = toGrade(standing)
   const ungraded = waits && grade.owed.has(waits.run.name) ? waits : null
@@ -523,6 +527,11 @@ function CaseDetail({
           {aside ? (
             <Text as="p" size="ui" tone="muted" measure>
               {aside}
+            </Text>
+          ) : null}
+          {attempts ? (
+            <Text as="p" size="ui" tone="muted" measure>
+              {attempts}
             </Text>
           ) : null}
         </Stack>
@@ -652,12 +661,13 @@ function TryScore({
     )
   }
   const shown = Math.round(attempt.score)
+  const several = attemptsOf(attempt)
   return (
     <Button
       type="button"
       variant="ghost"
       size="cell"
-      aria-label={`${label}: ${shown}${attempt.scored > 1 ? `, the mean of ${attempt.scored} outputs` : ''}. Read it.`}
+      aria-label={`${label}: ${shown}${several && several.count > 1 ? `, the mean of ${several.count} attempts, ${spreadWords(several)}` : ''}. Read it.`}
       onClick={onRead}
     >
       <TotalChip total={shown} />

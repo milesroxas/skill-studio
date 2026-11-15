@@ -33,6 +33,8 @@ import {
   scoreResult,
 } from '@domain/scoring.ts'
 import {
+  type Attempts,
+  attemptsOf,
   type CaseLift,
   caseLift,
   type Move,
@@ -480,6 +482,59 @@ export const liftAsideLine = (
     'on their latest runs',
   )
 
+/** How far a score's attempts were apart, to follow its count: "from 62 to 88", or "which all scored 80". */
+export const spreadWords = (a: Attempts): string =>
+  Math.round(a.low) === Math.round(a.high)
+    ? `which all scored ${Math.round(a.low)}`
+    : `from ${Math.round(a.low)} to ${Math.round(a.high)}`
+
+/** "1 attempt", "3 attempts", "1 to 3 attempts". */
+const attemptCount = ([fewest, most]: [number, number]): string =>
+  `${fewest === most ? fewest : `${fewest} to ${most}`} ${most > 1 ? 'attempts' : 'attempt'}`
+
+/**
+ * How many attempts the lift's means are over, and how far one case's
+ * attempts were apart, for the line under its change: "1 attempt a case on
+ * the first runs, 3 on the latest. Attempts at one case scored up to 26 points
+ * apart." Facts only: whether a change is more than chance is the reader's to say.
+ */
+export function liftAttemptsLine(lift: CaseLift): string {
+  const { first, latest } = lift.attempts
+  const counts =
+    first[0] === latest[0] && first[1] === latest[1]
+      ? `${attemptCount(first)} a case on the first runs and the latest`
+      : `${attemptCount(first)} a case on the first runs, ${attemptCount(latest)} on the latest`
+  const gap =
+    lift.gap === null
+      ? ''
+      : lift.gap === 0
+        ? '. Each case’s attempts scored the same'
+        : `. Attempts at one case scored up to ${lift.gap} points apart`
+  return `${capital(counts)}${gap}.`
+}
+
+/**
+ * How many attempts the score a case stands on is the mean of, and the one it
+ * moved from, with how far each one's attempts were apart: "Its score is the
+ * mean of 3 attempts, from 62 to 88. Its run before had one." Null when both
+ * are one attempt, as most are.
+ */
+export function attemptsLine(standing: Pick<CaseStand, 'latest' | 'previous'>): string | null {
+  const now = standing.latest ? attemptsOf(standing.latest) : null
+  const before = standing.previous ? attemptsOf(standing.previous) : null
+  if (!now || (now.count === 1 && (!before || before.count === 1))) return null
+  const head =
+    now.count === 1
+      ? 'Its score is from one attempt.'
+      : `Its score is the mean of ${now.count} attempts, ${spreadWords(now)}.`
+  const tail = !before
+    ? ''
+    : before.count === 1
+      ? ' Its run before had one.'
+      : ` Its run before had ${before.count}, ${spreadWords(before)}.`
+  return `${head}${tail}`
+}
+
 /** What the page says where a change is not the difference of the scores beside it (`unshared`). */
 export const unsharedLine = (sides: string): string =>
   `The change counts your answers only where you gave one on both ${sides}.`
@@ -546,6 +601,10 @@ export function standingsOf(state: State, outputs: Output[], config: BenchConfig
       run: mine[0].run,
       outputs: mine,
       score: scoreOver(mine, config),
+      totals: mine.flatMap((o) => {
+        const total = totalOf(o, config)
+        return total === null ? [] : [total]
+      }),
       scored: mine.filter((o) => totalOf(o, config) !== null).length,
       cut: cutOf(mine) ?? shortOf(mine[0].run, mine[0].caseId),
     }))

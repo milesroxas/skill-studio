@@ -3,11 +3,9 @@
 export const mean = (values: number[]): number | null =>
   values.length ? values.reduce((sum, v) => sum + v, 0) / values.length : null
 
-export const stddev = (values: number[]): number | null => {
-  const m = mean(values)
-  if (m === null || values.length < 2) return values.length ? 0 : null
-  return Math.sqrt(values.reduce((sum, v) => sum + (v - m) ** 2, 0) / (values.length - 1))
-}
+/** The lowest and the highest of `values`: how far apart they were. Null for none. */
+export const spread = (values: readonly number[]): { low: number; high: number } | null =>
+  values.length ? { low: Math.min(...values), high: Math.max(...values) } : null
 
 /** Weighted mean of [value, weight] pairs; null when no weight. */
 export const weighted = (parts: Array<[number, number]>): number | null => {

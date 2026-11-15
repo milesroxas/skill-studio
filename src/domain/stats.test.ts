@@ -1,18 +1,16 @@
 import { describe, expect, it } from 'vitest'
-import { certainty, mean, stddev, weighted } from './stats.ts'
+import { certainty, mean, spread, weighted } from './stats.ts'
 
 describe('mean', () => {
   it('is null for no values', () => expect(mean([])).toBeNull())
   it('averages values', () => expect(mean([1, 2, 3, 6])).toBe(3))
 })
 
-describe('stddev', () => {
-  it('is null for no values and 0 for one', () => {
-    expect(stddev([])).toBeNull()
-    expect(stddev([5])).toBe(0)
-  })
-  it('uses the sample (n - 1) formula', () => {
-    expect(stddev([2, 4, 4, 4, 5, 5, 7, 9])).toBeCloseTo(Math.sqrt(32 / 7))
+describe('spread', () => {
+  it('is null for no values', () => expect(spread([])).toBeNull())
+  it('is the lowest and the highest', () => {
+    expect(spread([70, 62, 88])).toEqual({ low: 62, high: 88 })
+    expect(spread([5])).toEqual({ low: 5, high: 5 })
   })
 })
 
