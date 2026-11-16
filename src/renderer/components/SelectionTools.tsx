@@ -2,8 +2,8 @@
  * The popout over a selection in SKILL.md, or over words the writing checks
  * underlined while the pointer rests on them: what the checks found in the
  * rule, when they found anything, over three ways to improve it, in one fixed
- * order. Auto refine checks it and rewrites it only when something
- * drifts; Suggest changes offers three labelled rewrites; Help me improve
+ * order. Auto refine checks it and rewrites it only when new words can fix
+ * what drifts; Suggest changes offers three labelled rewrites; Help me improve
  * moves to the side panel for a few questions and a draft. The popout takes
  * no focus while it is a row of buttons, so typing goes on in the editor; it
  * takes focus once a result is in it.
@@ -120,6 +120,8 @@ export function SelectionTools({
         side="top"
         align="center"
         sideOffset={8}
+        // Clear of the window's edge, on the side with the most room.
+        collisionPadding={8}
         size={
           mode === 'menu'
             ? noted
@@ -176,6 +178,10 @@ export function SelectionTools({
             scene={scene}
             onApply={(text) => {
               onApply(text)
+              close()
+            }}
+            onImprove={() => {
+              onImprove()
               close()
             }}
           />

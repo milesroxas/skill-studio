@@ -24,12 +24,10 @@ import {
   StateField,
 } from '@codemirror/state'
 import { Decoration, EditorView, ViewPlugin, WidgetType } from '@codemirror/view'
-import { type Finding, lintScene, sceneOf } from '@domain/lint.ts'
+import { type Finding, lintRule } from '@domain/lint.ts'
 import { mostlyBroken, type RuleRate } from '@domain/rule-rate.ts'
 import { type SkippedBullet, scanRules } from '@domain/rules.ts'
 
-/** The skill's description, which the checks read a rule against. */
-const description = Facet.define<string, string>({ combine: (values) => values[0] ?? '' })
 /** Markdown view: the source mark stays, so the number hangs before it. Formatted: the live preview puts the number in the mark's place. */
 const hanging = Facet.define<boolean, boolean>({ combine: (values) => values[0] ?? false })
 const NO_RATES: ReadonlyMap<string, RuleRate> = new Map()
@@ -68,25 +66,20 @@ const label = (index: number): string => String(index + 1).padStart(2, '0')
 
 function read(state: EditorState): Graded {
   const doc = state.doc
-  const text = doc.toString()
-  const about = state.facet(description)
-  const scan = scanRules(text)
+  const scan = scanRules(doc.toString())
   const rules = scan.spans.map((span, i) => {
     const from = doc.line(span.from).from
     const to = doc.line(span.to).to
-    // The file's own length is a finding about the file, not about this rule.
-    const scene = { ...sceneOf(text, { from, to }, about), band: 'fine' as const }
-    return { from, to, label: label(i), text: scan.rules[i].text, findings: lintScene(scene) }
+    // The rule's own words alone: the file's length is a finding about the file.
+    const findings = lintRule(doc.sliceString(from, to))
+    return { from, to, label: label(i), text: scan.rules[i].text, findings }
   })
   return { rules, skipped: scan.skipped }
 }
 
 const field = StateField.define<Graded>({
   create: read,
-  update: (graded, tr) =>
-    tr.docChanged || tr.startState.facet(description) !== tr.state.facet(description)
-      ? read(tr.state)
-      : graded,
+  update: (graded, tr) => (tr.docChanged ? read(tr.state) : graded),
 })
 
 /** "Rule 04: broken by 5 of 7 answers." for a rule graded outputs counted; null for one they did not. */
@@ -165,16 +158,27 @@ export interface Flag {
   findings: Finding[]
 }
 
+/** A quote as the pattern that finds it in a rule: whole words, any run of space between them, any case. */
+const quotePattern = (quote: string): RegExp =>
+  new RegExp(
+    `(?<![\\w])${quote
+      .split(/\s+/)
+      .map((word) => word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
+      .join('\\s+')}(?![\\w])`,
+    'i',
+  )
+
 /** Where each finding's quote stands in its rule. Findings that quote the same words share a flag. */
 function flagsOf(state: EditorState, rule: GradedRule): Flag[] {
-  const text = state.doc.sliceString(rule.from, rule.to).toLowerCase()
+  const text = state.doc.sliceString(rule.from, rule.to)
   const flags: Flag[] = []
   for (const finding of rule.findings) {
     if (!finding.quote) continue
-    const at = text.indexOf(finding.quote.toLowerCase())
-    if (at < 0) continue
-    const from = rule.from + at
-    const to = from + finding.quote.length
+    // As the check read it: "good" is not the start of "goodbye", and a line break is a space.
+    const match = quotePattern(finding.quote).exec(text)
+    if (!match) continue
+    const from = rule.from + match.index
+    const to = from + match[0].length
     const same = flags.find((f) => f.from === from && f.to === to)
     if (same) same.findings.push(finding)
     else flags.push({ from, to, findings: [finding] })
@@ -335,17 +339,8 @@ export function ruleBulletAt(state: EditorState, lineFrom: number): Decoration |
 export const ruleNumbersChanged = (prev: EditorState, next: EditorState): boolean =>
   prev.facet(rates) !== next.facet(rates) || prev.field(field, false) !== next.field(field, false)
 
-/** Number and mark the graded rules of a SKILL.md described by `about`, each with its rate among `rated`. */
+/** Number and mark the graded rules of a SKILL.md, each with its rate among `rated`. */
 export const gradedRules = (
-  about: string,
   hang: boolean,
   rated: ReadonlyMap<string, RuleRate> = NO_RATES,
-): Extension => [
-  field,
-  pointed,
-  pointing,
-  decorations,
-  description.of(about),
-  hanging.of(hang),
-  rates.of(rated),
-]
+): Extension => [field, pointed, pointing, decorations, hanging.of(hang), rates.of(rated)]

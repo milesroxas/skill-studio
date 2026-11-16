@@ -15,8 +15,10 @@ import {
 } from 'lucide-react'
 import { type KeyboardEvent, useEffect, useMemo, useRef, useState } from 'react'
 import { REVEAL_LABEL } from '../keys.ts'
+import { cn } from '../lib/utils.ts'
 import { forgetScan, scanIsFresh, scanLibrary, scannedSkills } from '../library-scan.ts'
 import { plural } from '../model.ts'
+import { useChangedInPlace } from '../motion.ts'
 import { useShortcut, useShortcutHint } from '../shortcuts.ts'
 import { Text } from './text.tsx'
 import { Input } from './ui/input.tsx'
@@ -42,6 +44,7 @@ function matches(skill: LibrarySkill, query: string): boolean {
 export function SkillSwitcher({
   name,
   detail,
+  settled = false,
   onOpen,
   onNew,
   onLibrary,
@@ -50,8 +53,10 @@ export function SkillSwitcher({
 }: {
   /** The open skill's name; null when none is open. */
   name: string | null
-  /** A line under the name: its version. */
+  /** A line under the name: how its files stand against its versions. */
   detail?: string
+  /** The line is read, not still loading: a change to it from here on is one the reader watches. */
+  settled?: boolean
   onOpen: (path: string) => void
   /** Start a new skill, named after the search when there is one. */
   onNew: (name: string) => void
@@ -67,6 +72,8 @@ export function SkillSwitcher({
   const [skills, setSkills] = useState<LibrarySkill[] | null>(scannedSkills)
   const [error, setError] = useState<string | null>(null)
   const field = useRef<HTMLInputElement>(null)
+  // The skill's line changes as a file is saved or a run ends: the new one comes up a few pixels.
+  const lineChanged = useChangedInPlace(name, detail ?? '', settled)
 
   // Its shortcut (⌘K) opens it from anywhere in the app, and closes it again.
   useShortcut('skill.switch', () => setOpen((o) => !o))
@@ -156,7 +163,16 @@ export function SkillSwitcher({
               {name ?? 'Open a skill'}
             </Text>
             {detail ? (
-              <Text size="xs" tone="muted" truncate tabular title={detail}>
+              <Text
+                // A new line each time it changes, so the change plays again.
+                key={detail}
+                size="xs"
+                tone="muted"
+                truncate
+                tabular
+                title={detail}
+                className={cn(lineChanged && 'animate-tick')}
+              >
                 {detail}
               </Text>
             ) : null}

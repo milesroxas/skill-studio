@@ -406,7 +406,7 @@ function VersionRow({
     try {
       const version = await api.saveVersion(change.name, '')
       await ctx.reload()
-      ctx.report(`Saved ${version.version}`, {
+      ctx.report(`Kept ${version.version}`, {
         action: { label: 'Open', run: () => ctx.go('editor', { version: version.version }) },
       })
     } catch (e) {
@@ -431,9 +431,10 @@ function VersionRow({
         <Action
           host={host}
           offer={unsaved ? { kind: 'blocked', reason: '' } : offer}
-          label="Save"
-          busyLabel="Saving…"
-          doneLabel="Saved"
+          // "Save" is what writes a file: a version is kept, here as by a run.
+          label="Keep"
+          busyLabel="Keeping…"
+          doneLabel="Kept"
           done={saved !== undefined}
           onApply={apply}
         />

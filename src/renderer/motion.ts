@@ -48,6 +48,29 @@ export function useArrived(key: string): boolean {
 }
 
 /**
+ * Whether `value` changed while the reader could watch it, about the same
+ * `subject`: a line that changes under them, such as a skill's standing once
+ * its file is saved. One that comes with another subject, or that was still
+ * being read (`settled` false), is at rest. Give the element `key={value}`,
+ * so each change plays.
+ */
+export function useChangedInPlace(
+  subject: string | null,
+  value: string,
+  settled: boolean,
+): boolean {
+  const [seen, setSeen] = useState({ subject, value, settled, changed: false })
+  if (subject !== seen.subject || value !== seen.value || settled !== seen.settled)
+    setSeen({
+      subject,
+      value,
+      settled,
+      changed: settled && seen.settled && subject === seen.subject && value !== seen.value,
+    })
+  return seen.changed
+}
+
+/**
  * Whether something the reader waited on in view has come: true once
  * `waiting` has been true and is false again. What was already there when the
  * view opened plays no entrance.

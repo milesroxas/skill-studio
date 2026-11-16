@@ -6,6 +6,34 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+### Added
+
+- **Split up**, among the three rewrites of **Suggest changes**, for a rule that asks for several things: one rule for each, each with its reason. It takes the place of **Shorter** on such a rule, where fewer words would not fix it. The status line says "Split rule 04 into 3 rules.", and each new rule takes its own number.
+- The editor underlines a phrase that adds words and changes nothing, such as "in order to" or "make sure to", and several words where one says the same, such as "is able to" for "can".
+
+### Changed
+
+- **Changes**, on the Skill screen, shows what changed since the last version, so it is no longer empty after a save. While the file has unsaved text, **The last save** beside it shows only that.
+- After you save an edit, **Edited since v1** stands over the versions on the Skill screen and under the skill's name. Click it to see what changed. Before, the app showed "v2 · not run yet", as if saving had made v2: a version is made by a run.
+- The app says a run **keeps** a version, and the Assistant's button for one is **Keep**. **Save** is only for a file.
+- A rule has no word limit. The editor no longer marks a rule for being over 40 words: a rule is as long as what it says needs. An amber number now always names something you can change, and it goes when you change it.
+- **Shorter** makes a rule exact, not only brief: it cuts words that change nothing, says each thing once, and uses the one word where several stood for it.
+- A vague word such as "reasonably" is now marked in a rule that also says "each" or "every", or "always": none of them says how much. A number still answers it.
+- **Shorter** says "Nothing to cut" when every word in the rule does work, and says how many words it cut when it cuts. Before, it could offer a rewrite that was no shorter.
+- **Auto refine** and the **Best practice** rewrite are checked before you see them, and written once more when they did not fix what the editor marked. So replacing a rule clears its amber number. When a rewrite cannot supply something only you know, such as the reason for a rule, it says what it needs and offers **Help me improve**.
+- **Auto refine** no longer rewrites a rule whose trouble is not its wording: a line that changes nothing, a rule for another skill, or a long file. It says so and offers **Help me improve**.
+- A red number reads the rule on the last version that ran it. Before, it counted every run there had been, so a rule stayed red after a later version's answers followed it.
+- A draft in **Help me improve** says it meets the guide only when the editor's own checks find nothing in it either.
+
+### Fixed
+
+- **Best practice** no longer says "Still misses" for points Jev was not sure of, or for ones no rewrite can fix. The same goes for "Misses a point of the guide" under a draft in **Help me improve**.
+- **Suggest changes** no longer warns "May drop a fact" on a rewrite that only adds a number or a reason to the rule.
+- A long rule that asks for one thing is no longer marked as asking for several because of the commas in its reason.
+- On a small window, the rewrites and Auto refine's revision no longer run off the top of the window.
+- A rule whose reason follows a comma and "so", such as "..., so every shot matches", is no longer marked as having no reason.
+- An underline in a rule now stands under the word the check read, not under the same letters inside a longer word.
+
 ## [0.16.1] - 2026-11-16
 
 ### Changed

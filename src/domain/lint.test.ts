@@ -1,5 +1,14 @@
 import { describe, expect, it } from 'vitest'
-import { lintScene, type RuleScene, rulesIn, sceneOf, worthChecking } from './lint.ts'
+import {
+  lintRule,
+  lintScene,
+  proseWords,
+  type RuleScene,
+  ruleCount,
+  rulesIn,
+  sceneOf,
+  worthChecking,
+} from './lint.ts'
 import { applyPracticeEdit, PRACTICE, PRACTICE_EDIT } from './practice.ts'
 import { EXAMPLE_KINDS, SNIPPETS, TEMPLATES, templateBody } from './templates.ts'
 
@@ -50,6 +59,22 @@ describe('lintScene', () => {
     )
   })
 
+  it('takes a count over things as no answer to a hedge, and an absolute as none to how much', () => {
+    // "each" says how many paragraphs, not how short.
+    const each = lintScene(scene('- Try to keep each paragraph reasonably short. Readers skim.'))
+    expect(each.map((f) => [f.principle, f.quote])).toEqual([['strict', 'reasonably']])
+    // "always" does not say how short either; a number does, in figures or in words.
+    expect(principles('- Always keep the title reasonably short. Readers skim.')).toEqual([
+      'strict',
+    ])
+    expect(
+      principles('- Keep the title reasonably short, two lines at most. Readers skim.'),
+    ).toEqual([])
+    // A hedge about effort beside an absolute is a question for Jev.
+    expect(principles('- Never open with the date where possible. Readers skim.')).toEqual([])
+    expect(principles('- Put the title first if possible. Readers skim.')).toEqual(['strict'])
+  })
+
   it('wants a reason unless the bullet already gives one', () => {
     expect(principles('- Never add a sign-off.')).toContain('why')
     expect(principles('- Never add a sign-off: the sender signs it themselves.')).not.toContain(
@@ -58,6 +83,7 @@ describe('lintScene', () => {
     expect(principles('- Never add a sign-off. The sender signs it themselves.')).not.toContain(
       'why',
     )
+    expect(principles('- Set the status bar to 9:41, so every shot matches.')).not.toContain('why')
   })
 
   it('reads a definition as a line that changes nothing, and an instruction as none', () => {
@@ -98,6 +124,12 @@ describe('lintScene', () => {
     expect(many.map((f) => f.message)).toContain(
       'This rule asks for several things, and Jev marks them with one answer. Make each a rule of its own to see which one an output missed.',
     )
+    // A long rule that asks one thing: the commas and the "when" of its why are not things asked.
+    expect(
+      principles(
+        '- Name the version, the platform and the date a fix shipped in the first sentence of every note, always, because support staff search release notes by those three facts when a customer writes in, and a note that buries any one of them gets missed.',
+      ),
+    ).toEqual([])
     // A bound's "or" is no second thing, and the why after the rule is not counted.
     expect(
       principles(
@@ -106,13 +138,58 @@ describe('lintScene', () => {
     ).toEqual([])
   })
 
-  it('measures the rule and the file', () => {
+  it('sets no limit on a rule’s words, and says when its file is long', () => {
+    // A rule is as long as what it says needs: a count of words is no finding.
     const words = Array.from({ length: 65 }, (_, i) => `word${i}`).join(' ')
-    expect(principles(`- Always ${words}.`)).toContain('length')
+    expect(principles(`- Always ${words}. Readers need each one.`)).toEqual([])
     expect(lintScene(scene(`- ${PRACTICE_EDIT.good}`, { band: 'long' }))).toHaveLength(1)
-    expect(lintScene(scene(`- ${PRACTICE_EDIT.good}`, { band: 'over' }))[0].message).toContain(
-      '500 lines',
+    const over = lintScene(scene(`- ${PRACTICE_EDIT.good}`, { band: 'over' }))[0]
+    expect(over.message).toContain('500 lines')
+    expect(over.dimension).toBe('file')
+    // The number in the margin reads the rule alone, whatever its file's length.
+    expect(lintRule(`- ${PRACTICE_EDIT.good}`)).toEqual([])
+  })
+
+  it('flags a phrase that adds words and changes nothing, and quotes it', () => {
+    const found = lintScene(
+      scene('- In order to date the note, always write the day first. Readers sort by it.'),
     )
+    expect(found.map((f) => [f.dimension, f.quote])).toEqual([['length', 'in order to']])
+    expect(found[0].message).toBe('“in order to” adds words and changes nothing. Cut it.')
+    // Cut, the finding is gone: the fix clears what the check found.
+    expect(
+      principles('- To date the note, always write the day first. Readers sort by it.'),
+    ).toEqual([])
+    // The longer phrase is the one quoted, and a quoted phrase is a mention.
+    expect(
+      lintScene(scene('- Always date it, due to the fact that readers sort by day.')).find(
+        (f) => f.dimension === 'length',
+      )?.quote,
+    ).toBe('due to the fact that')
+    expect(
+      principles('- Never write "please" or "in order to" in a rule. They add nothing.'),
+    ).toEqual([])
+    // "A note that opens" is a noun, and "Feel free to" grants a leave: neither is filler.
+    expect(
+      principles('- Lead with the change, always. A note that opens on it reads fast.'),
+    ).toEqual([])
+  })
+
+  it('names the one word several words stand for', () => {
+    const found = lintScene(
+      scene('- Always date the note prior to the title, so a reader is able to sort by it.'),
+    )
+    expect(found.map((f) => [f.dimension, f.quote])).toEqual([['length', 'is able to']])
+    expect(found[0].message).toBe('“is able to” says “can” in more words. Use the one word.')
+    expect(
+      principles('- Always date the note before the title, so a reader can sort by it.'),
+    ).toEqual([])
+  })
+
+  it('counts the rules and the words of a passage', () => {
+    expect(ruleCount('- Open with the name, always.\n- Never add a sign-off, ever.')).toBe(2)
+    expect(ruleCount('Some prose about the skill.')).toBe(0)
+    expect(proseWords('- Open with the name.\n  - Never sign off.')).toBe(7)
   })
 
   it('reads a quoted word as a mention, not a hedge', () => {

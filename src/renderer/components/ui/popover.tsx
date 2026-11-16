@@ -16,6 +16,13 @@ function PopoverAnchor({ ...props }: React.ComponentProps<typeof PopoverPrimitiv
   return <PopoverPrimitive.Anchor data-slot="popover-anchor" {...props} />
 }
 
+/**
+ * A sheet that holds a reply is never taller than the room on its side of what
+ * it opened from (Radix measures it): past that it scrolls, or the part of it
+ * that scrolls on its own does. On a small window it would else run off the top.
+ */
+const FITS = 'max-h-(--radix-popover-content-available-height) overflow-y-auto overscroll-contain'
+
 const popoverContentVariants = cva(
   [floatingSheet, floatingMotion, 'origin-(--radix-popover-content-transform-origin)'],
   {
@@ -31,9 +38,9 @@ const popoverContentVariants = cva(
         /** A few fields under their labels. */
         form: 'flex w-72 flex-col gap-4 p-3',
         /** A request to write and the reply under it, in sections (`PopoverSection`). */
-        compose: 'flex w-[min(440px,calc(100vw-32px))] flex-col p-0',
+        compose: ['flex w-[min(440px,calc(100vw-32px))] flex-col p-0', FITS],
         /** The same, for a reply as long as a file. */
-        'compose-wide': 'flex w-[min(640px,calc(100vw-32px))] flex-col p-0',
+        'compose-wide': ['flex w-[min(640px,calc(100vw-32px))] flex-col p-0', FITS],
         /** What a screen is for and the words it uses, in sections (`PopoverSection`). */
         help: 'flex w-[min(340px,calc(100vw-32px))] flex-col p-0',
         /** One word and what it means, beside the word. */

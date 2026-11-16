@@ -72,7 +72,7 @@ import { useDrafts } from './drafts.ts'
 import { SCREEN_HELP } from './help.ts'
 import { back, forward, navigate, usePaneScroll, useRoute } from './history.ts'
 import { useNotice } from './hooks.ts'
-import { outputsOf, versionScore } from './model.ts'
+import { outputsOf, versionLine, versionScore } from './model.ts'
 import { atTarget, nextStep, screenFor } from './next-step.ts'
 import { APP_PLACES, isSkillScreen, placeFor, SKILL_PLACES, WORKBENCH } from './places.ts'
 import {
@@ -395,10 +395,8 @@ export function App() {
   }
 
   /** The open version, and how it scores: the line every screen shows under the skill's name. */
-  const versionLine = current
-    ? current.changed
-      ? `${current.version} · not run yet`
-      : `${current.version}${current.name ? ` · ${current.name}` : ''}${score === null ? '' : ` · mean ${Math.round(score)}`}`
+  const skillLine = loaded
+    ? versionLine(loaded.state.versions, score)
     : skillPath
       ? 'Loading…'
       : undefined
@@ -407,7 +405,8 @@ export function App() {
     <>
       <SkillSwitcher
         name={skillPath ? (state?.skill.name ?? skillPath.split('/').pop() ?? null) : null}
-        detail={versionLine}
+        detail={skillLine}
+        settled={Boolean(loaded)}
         onOpen={(path) => openSkill(path)}
         onNew={(name) => go('library', name ? { new: '1', name } : { new: '1' })}
         onLibrary={() => go('library')}

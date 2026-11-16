@@ -344,7 +344,12 @@ function DraftRow({
             {missing.length ? (
               <Stack gap="xs">
                 {missing.map((item) => (
-                  <Status key={item.principle} tone="warning" size="ui" detail={item.message}>
+                  <Status
+                    key={`${item.principle}:${item.message}`}
+                    tone="warning"
+                    size="ui"
+                    detail={item.message}
+                  >
                     {item.lead}
                   </Status>
                 ))}

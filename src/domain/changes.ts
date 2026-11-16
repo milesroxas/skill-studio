@@ -43,7 +43,7 @@ export type SkillChange =
       expected: string
       checks: CaseCheck[]
     }
-  /** Save the skill's files as they stand as the next version, under this name. */
+  /** Keep the skill's files as they stand as the next version, under this name. */
   | { kind: 'version'; name: string }
 
 export type ReplyPart =
@@ -194,7 +194,7 @@ export const CHANGES_GUIDE = [
   'You can propose changes to the open skill. The reader applies each one with a button under it, and can undo it, so never tell them to copy or paste. Write each change as a block that opens and closes with a line of four tildes, outside any other fence:',
   `- A file: open with "${CHANGE_FENCE} file SKILL.md", or "${CHANGE_FENCE} file references/<name>.md" for a reference, or the path of another file of the skill such as "scripts/<name>.py", then the whole new text of the file, never a part of it, then "${CHANGE_FENCE}". A new path creates the file. Any text file of the skill can be written, but nothing under evals/ and no hidden file. The file block ends at the last line of four tildes before the next block or the end of your reply, so a tilde fence inside the file is kept; put no prose made of four tildes after it.`,
   `- A case: open with "${CHANGE_FENCE} case", then one JSON object {"title": "…", "prompt": "…", "expected": "…", "checks": […]}, then "${CHANGE_FENCE}". Add "id" with an existing case's id to replace that case; leave it out to add a new one. A check is a string, or {"statement": "…", "weight": 2} for one that counts double. A string keeps the weight the saved check has, so to change one, write the case again with every check and the new weight on that one.`,
-  `- A version: "${CHANGE_FENCE} version", one line naming the version, such as "Before the voice rewrite", then "${CHANGE_FENCE}". It saves the skill's files as they stand. Put it before a file change when the reader will want to compare the two later.`,
+  `- A version: "${CHANGE_FENCE} version", one line naming the version, such as "Before the voice rewrite", then "${CHANGE_FENCE}". It keeps the skill's files as they stand, as a version. Put it before a file change when the reader will want to compare the two later.`,
   "You make no change yourself, so never say you made one or will make one: say what each change does. Keep that outside the blocks, short. The skill's name is the name in SKILL.md's front matter: changing it there renames the skill in the app, and its folder keeps its own name.",
 ].join('\n')
 

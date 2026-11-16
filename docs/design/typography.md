@@ -103,7 +103,7 @@ A number in a sentence stays in sans, and so does a live count under a field ("4
 - the label of a figure
 - the tag before each line of a rule pair (`PairList` in `starters.tsx`): "vague" and "check" by default, "vague" and "exact" on the Skill screen
 - the part labels of a case change in the Assistant ("Prompt", "A good answer", "Checks")
-- a rewrite's kind ("Best practice", "More direct", "Shorter")
+- a rewrite's kind ("Best practice", "More direct", "Shorter", "Split up")
 - the section labels of Auto refine ("What drifts", "Worth a look", "Revision")
 - the guide line over each writing-check finding in the selection popout (`FindingList` in `Refine.tsx`)
 - the labels of the facts beside a case's form: "Run size", "Last run", "Last answer"

@@ -213,12 +213,12 @@ export function RunButton({
         : firstVersion
           ? {
               title: 'Test this skill',
-              hint: `Saves it as ${current.version}, so you can compare later edits with it.`,
+              hint: `Keeps it as ${current.version}, so you can compare later edits with it.`,
             }
           : current.changed
             ? {
                 title: 'Test your edits',
-                hint: `Saves the skill as ${current.version}, so you can compare it with the version before.`,
+                hint: `Keeps the skill as ${current.version}, so you can compare it with the version before.`,
               }
             : {
                 title: `Test ${current.version} again`,

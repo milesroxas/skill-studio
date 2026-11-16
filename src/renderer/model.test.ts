@@ -20,6 +20,7 @@ import {
   deleteRunDialog,
   deletesLine,
   drawnOf,
+  editedSince,
   extraKinds,
   failedLine,
   failureOf,
@@ -55,6 +56,7 @@ import {
   toGrade,
   totalOf,
   unscoredLine,
+  versionLine,
   versionOutputs,
   versionReading,
   versionScore,
@@ -485,6 +487,41 @@ describe('a change over the facts both runs counted', () => {
   })
 })
 
+describe('how the files stand against the versions', () => {
+  const kept = (version: string, name = '') => ({
+    version,
+    name,
+    hash: version,
+    note: '',
+    date: undefined,
+    saved: false,
+  })
+  const v0 = kept('v0', 'First draft')
+  const v1 = kept('v1', 'Lead with the change')
+
+  it('gives a version its number, its name and its score while the files are that version', () => {
+    const versions = { versions: [v0, v1], current: { ...v1, changed: false } }
+    expect(editedSince(versions)).toBeNull()
+    expect(versionLine(versions, 97.6)).toBe('v1 · Lead with the change · mean 98')
+    expect(versionLine({ versions: [v0], current: { ...kept('v0'), changed: false } }, null)).toBe(
+      'v0',
+    )
+  })
+
+  it('names the version that exists once the files were saved since, never the next number', () => {
+    // The next run would keep them as v2, and until one has there is no v2 to name.
+    const versions = { versions: [v0, v1], current: { ...kept('v2'), changed: true } }
+    expect(editedSince(versions)).toBe('Edited since v1')
+    expect(versionLine(versions, 98)).toBe('Edited since v1')
+  })
+
+  it('says a skill no run has kept is not run yet', () => {
+    const versions = { versions: [], current: { ...kept('v0'), changed: true } }
+    expect(editedSince(versions)).toBeNull()
+    expect(versionLine(versions, null)).toBe('Not run yet')
+  })
+})
+
 describe('ruleRatesOf', () => {
   const files = [md('a.md')]
   it('counts the outputs written with the skill, with the reader’s answers, as Results scores them', () => {
@@ -496,10 +533,12 @@ describe('ruleRatesOf', () => {
     ]
     const state = stateOf(runs, ['generic'])
     state.reviews.reviews['r1/page-s1'] = { corrections: { 'rule:Be brief.': true } } as never
+    // v2 is the newest version that ran the rule: what v1's output did is not counted.
     expect(ruleRatesOf(outputsOf(state), saved).get('Be brief.')).toEqual({
-      followed: 2,
+      followed: 1,
       broken: 1,
     })
+    expect(ruleRatesOf(outputsOf(stateOf(runs.slice(0, 1), ['generic'])), saved).size).toBe(1)
   })
 })
 

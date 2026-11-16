@@ -7,7 +7,7 @@ const SKILL =
 
 /** The rate the number of the rule on `line` is drawn with, read from the decoration it gets. */
 function rateOn(rates: Map<string, { followed: number; broken: number }>, line: number) {
-  const state = EditorState.create({ doc: SKILL, extensions: gradedRules('', false, rates) })
+  const state = EditorState.create({ doc: SKILL, extensions: gradedRules(false, rates) })
   const deco = ruleBulletAt(state, state.doc.line(line).from)
   return (deco?.spec.widget as { rate: unknown } | undefined)?.rate ?? null
 }

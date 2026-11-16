@@ -9,7 +9,7 @@
  */
 import type { AiRun, ChatMessage } from './ai.ts'
 import { APP_INTRO as APP, tag, VOICE } from './assist.ts'
-import { type Finding, type RuleScene, wordCount } from './lint.ts'
+import { type Finding, lintRule, proseWords, type RuleScene, ruleCount } from './lint.ts'
 import { type Principle, principleGuide, RULE_GUIDE, RULE_SHAPE } from './templates.ts'
 import { LIST_MARK as MARK } from './text.ts'
 
@@ -94,8 +94,52 @@ export function mergeFindings(code: Finding[], judged: Finding[]): Finding[] {
   return [...code, ...sure, ...maybe]
 }
 
-/** Whether the findings leave the model anything to fix: a maybe alone does not. */
+/** Whether the checks are sure of anything in the rule: a maybe alone is not a finding. */
 export const drifts = (findings: Finding[]): boolean => findings.some((f) => f.source !== 'maybe')
+
+/**
+ * A finding new words can fix: a sure one about how the rule is written. A
+ * maybe is not sure. A line that changes nothing (`earns`) or belongs to
+ * another skill (`focused`) is wrong for being there, however it is worded,
+ * and the file's length is not this rule's to fix.
+ */
+const fixable = (f: Finding): boolean =>
+  f.source !== 'maybe' &&
+  f.dimension !== 'file' &&
+  f.principle !== 'earns' &&
+  f.principle !== 'focused'
+
+/** The findings a rewrite is asked to fix, and is held to once it is written. */
+export const toFix = (findings: Finding[]): Finding[] => findings.filter(fixable)
+
+/**
+ * What a rewrite still leaves open: what code finds in it, rule by rule, and
+ * what Jev was sure of when it read the rewrite, when it did. Empty means the
+ * rewrite does what it was asked.
+ */
+export const openIn = (text: string, judgment: RuleJudgment | null): Finding[] =>
+  toFix(mergeFindings(lintRule(text), judgment ? judgmentFindings(judgment) : []))
+
+/** Jev's questions are about one rule: a rewrite that became several is read by code alone. */
+export const oneRule = (text: string): boolean => ruleCount(text) <= 1
+
+/** What a rule still needs, by the finding that says so, as the words after "Still needs". */
+const NEEDS: Record<string, string> = {
+  process: 'a step to take',
+  why: 'a reason',
+  strict: 'a number, or an always or never',
+  complexity: 'one thing to a rule',
+  length: 'its spare words cut',
+}
+
+/**
+ * What a rewrite could not supply, each thing once, for the line under it:
+ * "a reason", "a number, or an always or never". Only the writer knows these,
+ * so the line sends them to Help me improve, which asks.
+ */
+export const needsOf = (open: Finding[]): string[] => [
+  ...new Set(open.map((f) => NEEDS[f.principle ?? f.dimension]).filter(Boolean)),
+]
 
 /** The rule in its place, as every brief shows it. */
 function sceneText(scene: RuleScene): string {
@@ -117,11 +161,11 @@ const HOW = `A rule is ${RULE_SHAPE}\n- ${RULE_GUIDE.map((item) => `${item.lead}
 
 const BUDGET: Record<RuleScene['band'], string> = {
   fine: '',
-  long: 'The file is long. The rewrite may not be longer than the selection.',
-  over: 'The file is past its budget. The rewrite must be shorter than the selection.',
+  long: 'The file is long. Add no word the fix does not need.',
+  over: 'The file is past its budget. Add no word the fix does not need, and cut any that does no work.',
 }
 
-const REPLACES = `Your text replaces the selection as it is, so it holds only the new text of the selection: the same list markers and heading level as the lines around it, no greeting, no explanation, no code fence. Keep every fact, number and condition the selection holds unless a finding says it is the problem.`
+const REPLACES = `Your text replaces the selection as it is, so it holds only the new text of the selection: the same list markers and heading level as the lines around it, no greeting, no explanation, no code fence. Keep every fact, number and condition the selection holds unless a finding says it is the problem. A rule is as long as what it says needs: never drop a fact to save words, and never add a word that changes nothing. Where a finding says the rule asks for several things, write one top-level bullet for each, every one with its own why.`
 
 /** The reply's shape for Auto refine: the one revision. */
 export const REFINE_SCHEMA = {
@@ -136,17 +180,26 @@ export const REFINE_SCHEMA = {
   additionalProperties: false,
 } as const
 
-/** What Auto refine asks once the checks have found drift. */
+/**
+ * What Auto refine asks once the checks have found something to fix. `findings`
+ * are the ones a rewrite can fix (`toFix`). With `again`, the selection is a
+ * first revision that left them open, and this is the one more try.
+ */
 export function refinePrompt(
   scene: RuleScene,
   findings: Finding[],
+  again = false,
 ): { system: string; user: string } {
   const system = `You rewrite one passage of a SKILL.md in Skill Studio. ${APP}
 
 ${HOW}
 
 The checks have already said what is wrong; your job is to fix exactly that and nothing more. ${REPLACES} ${BUDGET[scene.band]}`.trim()
-  const user = `${sceneText(scene)}\n\nWhat is wrong with the selection:\n${findingsText(findings)}`
+  const user = `${sceneText(scene)}\n\n${
+    again
+      ? 'The selection is a rewrite that was meant to fix these and did not. Fix them now, changing nothing else'
+      : 'What is wrong with the selection'
+  }:\n${findingsText(findings)}`
   return { system, user }
 }
 
@@ -182,7 +235,11 @@ export function refineText(raw: string): string {
   return text
 }
 
-/** Auto refine's answer: what was found, whether the judge read it, and the revision on its way when anything drifts. */
+/**
+ * Auto refine's answer: what was found, whether the judge read it, and the
+ * revision on its way when a rewrite can fix any of it. With no run, either
+ * nothing is wrong, or what is wrong is not a matter of wording.
+ */
 export interface RefineResult {
   findings: Finding[]
   /** Jev read the rule; false when no TypeSafe key is set, so only code's checks ran. */
@@ -190,9 +247,43 @@ export interface RefineResult {
   run: AiRun | null
 }
 
-/** The three rewrites, always in this order: correct first, then sharpen, then cut. */
-export const REWRITE_KINDS = ['practice', 'direct', 'shorter'] as const
+/** A finished revision, as the run's text carries it: the new text, and what it still leaves open. */
+export interface Revision {
+  text: string
+  /** What the checks still find in the revision, after one more try. Empty when it holds. */
+  open: Finding[]
+}
+
+export const revisionText = (revision: Revision): string => JSON.stringify(revision)
+
+/** A finished Auto refine run's text as its revision. */
+export function revisionOf(text: string): Revision {
+  const value = parse(text)
+  if (typeof value.text !== 'string' || !value.text.trim())
+    throw new Error('The revision could not be read. Ask again.')
+  return { text: value.text, open: Array.isArray(value.open) ? (value.open as Finding[]) : [] }
+}
+
+/**
+ * The kinds of rewrite. Three are offered at a time, always in this order:
+ * correct first, then sharpen, then the one that fits the rule (`kindsFor`).
+ */
+const REWRITE_KINDS = ['practice', 'direct', 'shorter', 'split'] as const
 export type RewriteKind = (typeof REWRITE_KINDS)[number]
+
+/**
+ * The three rewrites offered for a selection. The third is the cut, unless
+ * the selection is one rule the checks read as asking for several things or
+ * holding several conditions: fewer words would not fix that, and one rule
+ * for each would. Decided by code alone, so the cards are known before
+ * anything is asked.
+ */
+export function kindsFor(scene: Pick<RuleScene, 'selection'>): RewriteKind[] {
+  const several =
+    ruleCount(scene.selection) === 1 &&
+    lintRule(scene.selection).some((f) => f.dimension === 'complexity')
+  return ['practice', 'direct', several ? 'split' : 'shorter']
+}
 
 export const REWRITE_LABELS: Record<RewriteKind, { label: string; means: string }> = {
   practice: {
@@ -207,44 +298,57 @@ export const REWRITE_LABELS: Record<RewriteKind, { label: string; means: string 
     label: 'Shorter',
     means: 'Same rule, fewer words',
   },
+  split: {
+    label: 'Split up',
+    means: 'One rule for each thing it asks',
+  },
 }
 
-export const REWRITES_SCHEMA = {
-  type: 'object',
-  properties: {
-    practice: {
-      type: 'string',
-      description:
-        'The selection with every finding fixed: a number or absolute where it was vague, the why where it was missing, a step where it named a quality. Meaning kept.',
-    },
-    direct: {
-      type: 'string',
-      description:
-        'The selection in the imperative, the constraint first and soft verbs out. Same facts, about the same length.',
-    },
-    shorter: {
-      type: 'string',
-      description:
-        'The selection with every word that changes nothing cut. The why and the number stay. Fewer words than the selection.',
-    },
-  },
-  required: ['practice', 'direct', 'shorter'],
-  additionalProperties: false,
-} as const
+const REWRITE_FIELDS: Record<RewriteKind, string> = {
+  practice:
+    'The selection with every finding fixed: a number or absolute where it was vague, the why where it was missing, a step where it named a quality. Meaning kept.',
+  direct:
+    'The selection in the imperative, the constraint first and soft verbs out. Same facts, about the same length.',
+  shorter:
+    'The selection with every word that changes nothing cut, each thing said once, and one exact word where several stood for it. The why and every number stay. The selection unchanged when nothing can go.',
+  split:
+    'The selection as several top-level bullets, one for each thing it asks, each with its own why. Same facts.',
+}
+
+const REWRITE_BRIEFS: Record<RewriteKind, string> = {
+  practice:
+    'practice: fix what the checks found and nothing more. Where nothing was found, apply the principles above to what is there.',
+  direct:
+    'direct: the same facts in the imperative, the constraint first, soft verbs ("try to", "should", "consider") out. About the same length.',
+  shorter:
+    'shorter: make it exact, not merely brief. Cut every word that changes what the agent does by nothing, say each thing once, and put one exact word where several stand for it ("is able to" is "can"). Never trade a precise word for a vaguer short one. Keep the why, every number and every condition. A rule is as long as it needs to be: when no word can go without losing one of those, return the selection unchanged.',
+  split:
+    'split: one top-level bullet for each thing the selection asks, with the selection’s own list marker, each bullet with the why it needs. Keep the selection’s words where they still fit and add no fact. Conditions that only hold together stay in one bullet.',
+}
+
+/** The reply's shape for Suggest changes: the three rewrites `kinds` names. */
+export const rewritesSchema = (kinds: readonly RewriteKind[]) =>
+  ({
+    type: 'object',
+    properties: Object.fromEntries(
+      kinds.map((kind) => [kind, { type: 'string', description: REWRITE_FIELDS[kind] }]),
+    ),
+    required: [...kinds],
+    additionalProperties: false,
+  }) as const
 
 /** What Suggest changes asks: three rewrites, each with its own job. */
 export function rewritesPrompt(
   scene: RuleScene,
   findings: Finding[],
+  kinds: readonly RewriteKind[] = kindsFor(scene),
 ): { system: string; user: string } {
   const system = `You write three rewrites of one passage of a SKILL.md in Skill Studio. ${APP}
 
 ${HOW}
 
 The three rewrites:
-- practice: fix what the checks found and nothing more. Where nothing was found, apply the principles above to what is there.
-- direct: the same facts in the imperative, the constraint first, soft verbs ("try to", "should", "consider") out. About the same length.
-- shorter: cut every word that changes what the agent does by nothing. Keep the why and every number. Fewer words than the selection.
+${kinds.map((kind) => `- ${REWRITE_BRIEFS[kind]}`).join('\n')}
 
 ${REPLACES} ${BUDGET[scene.band]}`.trim()
   const user = `${sceneText(scene)}\n\n${
@@ -255,13 +359,14 @@ ${REPLACES} ${BUDGET[scene.band]}`.trim()
   return { system, user }
 }
 
-export type Rewrites = Record<RewriteKind, string>
+/** The rewrites of one reply, by kind: the three that were asked for. */
+export type Rewrites = Partial<Record<RewriteKind, string>>
 
-/** The three rewrites from a finished reply. Throws when one is missing. */
-export function rewritesOf(raw: string): Rewrites {
+/** The rewrites `kinds` names from a finished reply. Throws when one is missing. */
+export function rewritesOf(raw: string, kinds: readonly RewriteKind[]): Rewrites {
   const value = parse(raw)
-  const out = {} as Rewrites
-  for (const kind of REWRITE_KINDS) {
+  const out: Rewrites = {}
+  for (const kind of kinds) {
     const text = value[kind]
     if (typeof text !== 'string' || !text.trim())
       throw new Error(`The model returned no “${REWRITE_LABELS[kind].label}” rewrite. Try again.`)
@@ -274,16 +379,14 @@ export function rewritesOf(raw: string): Rewrites {
 export interface RewriteVerdict {
   /** Probability the rewrite keeps every fact of the selection; null when not judged. */
   kept: number | null
-  /** Principles the rewrite still drifts on, as the judge read it: `practice` only. */
-  drift: Finding[]
-  /** Fewer words than the selection: `shorter` only. */
-  shorter: boolean | null
+  /** What the rewrite still leaves open, after one more try: `practice` only. */
+  open: Finding[]
 }
 
 /** Suggest changes' answer, carried as the run's text. */
 export interface RewritesResult {
   rewrites: Rewrites
-  verdicts: Record<RewriteKind, RewriteVerdict>
+  verdicts: Partial<Record<RewriteKind, RewriteVerdict>>
   /** Jev read each rewrite against the selection; false without a key, or when Jev could not be reached. */
   judged: boolean
 }
@@ -299,19 +402,41 @@ export function rewritesResult(text: string): RewritesResult {
   return { rewrites, verdicts, judged: value.judged === true }
 }
 
-/** The verdicts code alone can give: whether `shorter` is shorter. */
-export function codeVerdicts(scene: RuleScene, rewrites: Rewrites): RewritesResult['verdicts'] {
-  const empty = (): RewriteVerdict => ({ kept: null, drift: [], shorter: null })
-  return {
-    practice: empty(),
-    direct: empty(),
-    shorter: { ...empty(), shorter: wordCount(rewrites.shorter) < wordCount(scene.selection) },
-  }
+/** A verdict before anything has read the rewrite. */
+export const noVerdict = (): RewriteVerdict => ({ kept: null, open: [] })
+
+/**
+ * Why a rewrite is not offered, in the words its card shows; null for one
+ * there is something to pick in. Code decides it, so a card never offers what
+ * its label does not hold: a Shorter that is no shorter, a Split up still in
+ * one piece, or any rewrite that is the selection again.
+ */
+export function withheld(scene: RuleScene, kind: RewriteKind, text: string): string | null {
+  const same = text.trim() === scene.selection.trim()
+  if (kind === 'shorter' && (same || proseWords(text) >= proseWords(scene.selection)))
+    return 'Nothing to cut. Every word here does work.'
+  if (kind === 'split' && (same || ruleCount(text) <= ruleCount(scene.selection)))
+    return 'Nothing to split. Its parts only hold together.'
+  return same ? 'Same as the selection.' : null
 }
 
-/** A rewrite that changes something: the selection again has nothing to replace. */
-export const offerable = (scene: RuleScene, text: string): boolean =>
-  text.trim() !== scene.selection.trim()
+/** A rewrite there is something to pick in. */
+export const offerable = (scene: RuleScene, kind: RewriteKind, text: string): boolean =>
+  withheld(scene, kind, text) === null
+
+/**
+ * What an offered rewrite did, counted by code, for the line under it: how
+ * many words a Shorter cut, how many rules a Split up made. Null for the
+ * kinds with nothing to count.
+ */
+export function measured(scene: RuleScene, kind: RewriteKind, text: string): string | null {
+  if (kind === 'shorter') {
+    const words = proseWords(text)
+    return `${words} words, ${proseWords(scene.selection) - words} fewer`
+  }
+  if (kind === 'split') return `${ruleCount(text)} rules`
+  return null
+}
 
 /**
  * Jev read the rewrite as dropping a fact of the selection. A warning, never
@@ -327,7 +452,7 @@ export const dropsFact = (verdict: RewriteVerdict): boolean =>
  * asked and which only when a finding stands on them.
  */
 export interface ImproveStep {
-  id: Principle | 'complexity' | 'length'
+  id: Principle | 'complexity' | 'file'
   /** The question, for the model to put to the writer in one or two sentences. */
   ask: string
   /** The question the judge answers about the writer's reply: did it give what was asked? */
@@ -375,7 +500,7 @@ const IMPROVE_STEPS: readonly ImproveStep[] = [
     when: 'flagged',
   },
   {
-    id: 'length',
+    id: 'file',
     ask: 'The file is long. What here can the agent already be assumed to know, so it can go?',
     answered: 'Does `answer` name something that can be cut, or say nothing can?',
     when: 'flagged',
@@ -574,24 +699,39 @@ export function improveSystem(
   return parts.join('\n\n')
 }
 
-/** One line of the checklist under a draft: a principle, and whether the judge saw it held. */
+/** One line of the checklist under a draft: a point of the guide, and whether the draft misses it. */
 export interface ChecklistItem {
-  principle: Judged
+  /** The principle, or the dimension of a finding that is no principle: several things in one rule, a filler phrase. */
+  principle: Judged | Finding['dimension']
   lead: string
+  /** False when code finds it missing, or Jev is sure it is: one Jev could not decide on is not a miss. */
   held: boolean
   /** What is still missing when it does not hold. */
   message: string | null
 }
 
-/** The judge's reading of a draft as the checklist the panel shows: one line per principle. */
-export function checklistOf(judgment: RuleJudgment): ChecklistItem[] {
-  return JUDGED.map((principle) => {
-    const held = judgment[principle] >= HOLDS
+/**
+ * How a draft stands against the guide, as the checklist the panel shows: one
+ * line per principle, then what code finds that is no principle. It is read
+ * by the checks that mark the rule in the editor once the draft is applied,
+ * so a draft that "meets the guide" does not land with an amber number. A
+ * draft misses a principle where code finds it missing or Jev is sure
+ * (`DRIFTS`): one Jev could not decide on is not a miss.
+ */
+export function checklistOf(judgment: RuleJudgment, draft = ''): ChecklistItem[] {
+  const code = lintRule(draft)
+  const items: ChecklistItem[] = JUDGED.map((principle) => {
+    const found = code.find((f) => f.principle === principle)
+    const held = !found && judgment[principle] >= DRIFTS
     return {
       principle,
       lead: principleGuide(principle).lead,
       held,
-      message: held ? null : JUDGE_MESSAGE[principle],
+      message: held ? null : (found?.message ?? JUDGE_MESSAGE[principle]),
     }
   })
+  for (const f of code)
+    if (!f.principle)
+      items.push({ principle: f.dimension, lead: f.lead, held: false, message: f.message })
+  return items
 }

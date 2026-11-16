@@ -1,23 +1,29 @@
 /**
  * Best practice for a rule, as far as code can tell before any model is asked.
- * Three dimensions: the six principles a rule is written by (`RULE_GUIDE`),
- * how much the agent must hold to follow it (complexity), and how long the
- * rule and its file are (length). Each check is a word list or a count, so it
- * runs as the selection is made and costs nothing. What code cannot read,
- * such as whether a step is really a step, is left to the judge
- * (`improve.ts`). Pure data and functions.
+ * Four dimensions: the six principles a rule is written by (`RULE_GUIDE`),
+ * how much the agent must hold to follow it (complexity), the words in it
+ * that do no work (length), and how long its file is (file). Each check is a
+ * word list or a count, so it runs as the selection is made and costs nothing.
+ * What code cannot read, such as whether a step is really a step, is left to
+ * the judge (`improve.ts`). Pure data and functions.
+ *
+ * A rule has no word limit. Anthropic's guide to writing skills sets one for
+ * the file alone (500 lines) and asks of each piece whether it earns what it
+ * costs, so a rule may run as long as what it says needs. Every finding names
+ * something the writer can change, and changing it clears the finding: a
+ * count of words did neither.
  */
 import { bulletsOf } from './rules.ts'
 import { type SizeBand, sizeBand, textSize } from './size.ts'
 import { type Principle, principleGuide } from './templates.ts'
 import { LIST_MARKER, sentencesOf, tokens } from './text.ts'
 
-export type Dimension = 'principle' | 'complexity' | 'length'
+export type Dimension = 'principle' | 'complexity' | 'length' | 'file'
 
 /** One thing wrong with the selection, as the writer reads it. */
 export interface Finding {
   dimension: Dimension
-  /** The principle at stake; null for a complexity or length finding. */
+  /** The principle at stake; null for a complexity, length or file finding. */
   principle: Principle | null
   /** The guide line it stands under, for the label over the message. */
   lead: string
@@ -116,13 +122,37 @@ const OUTCOMES = [
  */
 const OPENING_VERBS = new Set<string>(['clear', 'clean', 'smooth', 'feel'])
 
-/** A number, or a word that closes the boundary, an order among them: these make a rule checkable. */
-const ANCHOR =
-  /\d|\b(?:always|never|exactly|only|every|each|none|no|all|must|at most|at least|or fewer|or more|or less|under|over|within|maximum|minimum|once|twice|first|last|before|whole|same)\b/i
+/**
+ * What answers a hedge, so that code leaves the rule to Jev. A measure answers
+ * any hedge: a number in figures or words, or a phrase that bounds one. An
+ * absolute answers only a hedge about effort or scope ("where possible",
+ * "try to"): "always reasonably short" is still no length, so a hedge about
+ * how much (`DEGREE`) needs a measure. A word that only counts over things,
+ * "each" or "every", answers neither: "keep each paragraph reasonably short"
+ * says how many paragraphs and not how short.
+ */
+const MEASURE =
+  /\d|\b(?:two|three|four|five|six|seven|eight|nine|ten|twelve|zero|single|at most|at least|or fewer|or more|or less|maximum|minimum|once|twice)\b/i
+const ABSOLUTE = /\b(?:always|never|exactly|only|must|none)\b/i
 
-/** The reason follows one of these, or stands as a second sentence. */
+/** Hedges about how much of something. */
+const DEGREE = new Set<string>([
+  'reasonably',
+  'reasonable',
+  'tasteful',
+  'tastefully',
+  'appropriately',
+  'sensible',
+  'suitable',
+  'relatively',
+  'fairly',
+  'somewhat',
+  'a bit',
+])
+
+/** The reason follows one of these, a comma and "so", or a colon, or stands as a second sentence. */
 const REASON =
-  /\b(?:because|so that|so the|so a|so an|so it|so they|since|otherwise|which means|or else|or the|or a|or it)\b|: /i
+  /\b(?:because|so that|so the|so a|so an|so it|so they|since|otherwise|which means|or else|or the|or a|or it)\b|, so\b|: /i
 
 /**
  * A line that tells the agent what a thing is. It knows. The subject is a
@@ -132,6 +162,78 @@ const REASON =
  */
 const DEFINITION =
   /^(?:\*\*)?(?:An? |The )?[A-Z][\w'-]*(?: [\w'/-]+){0,3}(?:\*\*)? (?:is|are|means|refers to|stands for|describes) (?:an? |the |one |what |how |when )/
+
+/**
+ * Phrases that add words and change nothing the agent does: the rule reads
+ * the same with each one cut. Only ones that can go without a second look, so
+ * a word that sometimes carries the rule is not here: "just" and "very" can,
+ * "feel free to" grants a leave, and "note that" is also a note that opens.
+ * The longer phrase stands before the one it holds.
+ */
+const FILLERS = [
+  'due to the fact that',
+  'the fact that',
+  'in order to',
+  'for the purpose of',
+  'it is important to',
+  'it is important that',
+  'it’s important to',
+  'it’s important that',
+  "it's important to",
+  "it's important that",
+  'make sure to',
+  'make sure that',
+  'be sure to',
+  'please note that',
+  'keep in mind that',
+  'keep in mind',
+  'remember to',
+  'remember that',
+  'needless to say',
+  'as you know',
+  'when it comes to',
+  'with regard to',
+  'please',
+  'basically',
+  'essentially',
+  'actually',
+] as const
+
+/**
+ * Several words where one exact word says the same: each phrase with the word
+ * to use in its place. Only pairs that mean the same thing every time, so the
+ * swap never changes the rule. The longer phrase stands before the one it holds.
+ */
+const WORDY: ReadonlyArray<readonly [string, string]> = [
+  ['in spite of the fact that', 'although'],
+  ['until such time as', 'until'],
+  ['at this point in time', 'now'],
+  ['has the ability to', 'can'],
+  ['have the ability to', 'can'],
+  ['is able to', 'can'],
+  ['are able to', 'can'],
+  ['in the event that', 'if'],
+  ['for the reason that', 'because'],
+  ['with the exception of', 'except'],
+  ['in close proximity to', 'near'],
+  ['the majority of', 'most'],
+  ['each and every', 'every'],
+  ['any and all', 'all'],
+  ['first and foremost', 'first'],
+  ['whether or not', 'whether'],
+  ['as a means of', 'to'],
+  ['so as to', 'to'],
+  ['prior to', 'before'],
+  ['subsequent to', 'after'],
+  ['utilize', 'use'],
+  ['utilizes', 'uses'],
+]
+
+/**
+ * Where a rule's own sentence turns to its why. Narrower than `REASON`: a
+ * colon may open the list of things asked, and "or a" may be its last item.
+ */
+const WHY_FOLLOWS = /\b(?:because|so that|since|otherwise|which means|or else)\b|, so\b/i
 
 /** Where one condition ends and the next begins. A list of things, "a, b and c", is not conditions. */
 const CONDITION = /\b(?:or|unless|if|when|while|except|but|otherwise)\b/gi
@@ -150,9 +252,6 @@ const PART = /,(?!\d)|;|\b(?:and|nor)\b|\bor\b(?! (?:less|more|fewer|under|over|
  * a title and a viewport meta".
  */
 const PARTS_MAX = 4
-/** Words per rule: worth a look past the first, a finding past the second. */
-const WORDS_LONG = 40
-const WORDS_OVER = 60
 /** Under this, a selection has nothing for the checks to read. */
 const WORDS_MIN = 4
 
@@ -184,7 +283,7 @@ const found = (
     ? principleGuide(principle).lead
     : dimension === 'complexity'
       ? 'Keep each rule walkable.'
-      : 'Keep it short.',
+      : 'Cut what changes nothing.',
   message,
   quote,
   source,
@@ -216,6 +315,12 @@ const wordPatterns = (list: readonly string[]): Array<[string, RegExp]> =>
 
 const HEDGE_PATTERNS = wordPatterns(HEDGES)
 const OUTCOME_PATTERNS = wordPatterns(OUTCOMES)
+const FILLER_PATTERNS = wordPatterns(FILLERS)
+const WORDY_PATTERNS = wordPatterns(WORDY.map(([phrase]) => phrase))
+const exactFor = (phrase: string): string => WORDY.find(([wordy]) => wordy === phrase)?.[1] ?? ''
+
+/** `text` in lower case with what stands in quotes taken out: a quoted word is mentioned, not used. */
+const used = (text: string): string => text.toLowerCase().replace(/["“”][^"“”]*["“”]/g, ' ')
 
 const firstMatch = (patterns: Array<[string, RegExp]>, text: string): string | null =>
   patterns.find(([, pattern]) => pattern.test(text))?.[0] ?? null
@@ -226,12 +331,18 @@ function principleFindings(text: string): Finding[] {
   // The rule is the first sentence; what follows is its why, which may name an outcome or a thing.
   const rule = sentences(text)[0] ?? text
   // A word in quotes is mentioned, not used: a rule that bans "reasonably" is not hedging.
-  const lower = rule.toLowerCase().replace(/["“”][^"“”]*["“”]/g, ' ')
+  const lower = used(rule)
 
-  // A hedge with no number or absolute anywhere in the rule leaves the boundary to the agent.
-  // A bare rule with neither is left to the judge: code cannot tell a boundary from a habit.
-  const hedge = firstMatch(HEDGE_PATTERNS, lower)
-  if (hedge && !ANCHOR.test(text))
+  // A hedge nothing in the bullet answers leaves the boundary to the agent: the first such one
+  // is the finding. A bare rule with no hedge is left to the judge: code cannot tell a boundary
+  // from a habit.
+  const measured = MEASURE.test(text)
+  const absolute = ABSOLUTE.test(text)
+  const hedge =
+    HEDGE_PATTERNS.find(
+      ([word, pattern]) => pattern.test(lower) && !measured && !(absolute && !DEGREE.has(word)),
+    )?.[0] ?? null
+  if (hedge)
     out.push(
       found(
         'principle',
@@ -276,8 +387,8 @@ function principleFindings(text: string): Finding[] {
   return out
 }
 
-/** How much one rule asks the agent to hold, and how long it is. */
-function sizeFindings(raw: string, text: string, words: number): Finding[] {
+/** How much one rule asks the agent to hold, and the words in it that do no work. */
+function sizeFindings(raw: string, text: string): Finding[] {
   const out: Finding[] = []
   if (/\n(?:\t|\s{2,})\s*[-*+]\s/.test(raw))
     out.push(
@@ -288,8 +399,10 @@ function sizeFindings(raw: string, text: string, words: number): Finding[] {
       ),
     )
 
-  // The main clause and one more per condition word, so "or when" counts both.
-  const rule = sentences(text)[0] ?? text
+  // What the rule asks, without the why that follows it in the same sentence: a reason's own
+  // commas and conditions are not things asked. Then the main clause and one more per condition
+  // word, so "or when" counts both.
+  const rule = (sentences(text)[0] ?? text).split(WHY_FOLLOWS)[0] ?? ''
   const clauses = (rule.match(CONDITION) ?? []).length + 1
   if (clauses > CLAUSES_MAX)
     out.push(
@@ -309,16 +422,21 @@ function sizeFindings(raw: string, text: string, words: number): Finding[] {
       ),
     )
 
-  if (words > WORDS_OVER)
+  // Anywhere in the bullet, the why included: a filler phrase does no more work there.
+  const words = used(text)
+  const filler = firstMatch(FILLER_PATTERNS, words)
+  if (filler)
+    out.push(found('length', null, `“${filler}” adds words and changes nothing. Cut it.`, filler))
+  const wordy = firstMatch(WORDY_PATTERNS, words)
+  if (wordy)
     out.push(
       found(
         'length',
         null,
-        `${words} words. A rule and its why fit in two sentences; past that the agent skims.`,
+        `“${wordy}” says “${exactFor(wordy)}” in more words. Use the one word.`,
+        wordy,
       ),
     )
-  else if (words > WORDS_LONG)
-    out.push(found('length', null, `${words} words. Cut every word that changes nothing.`))
   return out
 }
 
@@ -326,7 +444,7 @@ function sizeFindings(raw: string, text: string, words: number): Finding[] {
 function checkUnit(unit: { raw: string; text: string }): Finding[] {
   const words = count(unit.text)
   if (words < WORDS_MIN) return []
-  return [...principleFindings(unit.text), ...sizeFindings(unit.raw, unit.text, words)]
+  return [...principleFindings(unit.text), ...sizeFindings(unit.raw, unit.text)]
 }
 
 /** What a long or oversized file means for the selection. */
@@ -337,10 +455,23 @@ const FILE_FINDING: Record<Exclude<SizeBand, 'fine'>, string> = {
 
 /** Every finding code can make about the selection in its file. */
 export function lintScene(scene: RuleScene): Finding[] {
-  const findings = rulesIn(scene.selection).flatMap(checkUnit)
-  if (scene.band !== 'fine') findings.push(found('length', null, FILE_FINDING[scene.band]))
+  const findings = lintRule(scene.selection)
+  if (scene.band !== 'fine') findings.push(found('file', null, FILE_FINDING[scene.band]))
   return findings
 }
+
+/**
+ * What the checks find in one rule, by its text alone: what its number in the
+ * margin and the words underlined in it are drawn from. The file's size is a
+ * finding about the file, so it is not among them.
+ */
+export const lintRule = (selection: string): Finding[] => rulesIn(selection).flatMap(checkUnit)
+
+/** The words of a passage as a reader counts them: its list marks are not words. */
+export const proseWords = (text: string): number => count(unmarked(text))
+
+/** How many graded rules `text` holds: one for a rule, more once it is split. */
+export const ruleCount = (text: string): number => rulesIn(text).length
 
 /** Whether the selection has enough in it to check: four words or more, a list marker not counted. */
 export const worthChecking = (selection: string): boolean => count(unmarked(selection)) >= WORDS_MIN

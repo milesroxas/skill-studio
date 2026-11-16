@@ -23,7 +23,7 @@ import {
 } from '@codemirror/commands'
 import { Annotation, Compartment, EditorState, type StateCommand } from '@codemirror/state'
 import { drawSelection, EditorView, keymap, placeholder } from '@codemirror/view'
-import { type Finding, type RuleScene, sceneOf, worthChecking } from '@domain/lint.ts'
+import { type Finding, type RuleScene, ruleCount, sceneOf, worthChecking } from '@domain/lint.ts'
 import type { EditorMode } from '@domain/preferences.ts'
 import type { RuleRate } from '@domain/rule-rate.ts'
 import { insertAt, type Snippet } from '@domain/templates.ts'
@@ -337,9 +337,13 @@ interface MarkdownEditorProps {
   refine?: {
     description: string
     onError: (message: string) => void
-    /** The popout put text in place of the selection, or the side panel put a draft in place of its rule; `undo` takes it back. */
-    /** `rule` names the rule a draft from the side panel went into, such as `03`; undefined for the selection. */
-    onReplaced: (undo: () => void, from: { panel: boolean; rule?: string }) => void
+    /**
+     * The popout put text in place of the selection, or the side panel put a
+     * draft in place of its rule; `undo` takes it back. `rule` names the rule
+     * the text went into, such as `03`, when it was one whole rule. `split` is
+     * how many rules stand there now, when one rule became several.
+     */
+    onReplaced: (undo: () => void, from: { panel: boolean; rule?: string; split?: number }) => void
     /** Asks before Help me improve takes the place of a conversation already under way. */
     confirm: Confirm
   }
@@ -412,24 +416,11 @@ export function MarkdownEditor({
   const [steps, setSteps] = useState({ undo: false, redo: false })
   const modes = useRef(new Compartment())
   const grading = useRef(new Compartment())
-  const about = refine?.description ?? ''
-  const latest = useRef({
-    id,
-    value,
-    mode,
-    plain,
-    hint,
-    label,
-    graded,
-    about,
-    rates,
-    onChange,
-    onSave,
-  })
-  latest.current = { id, value, mode, plain, hint, label, graded, about, rates, onChange, onSave }
+  const latest = useRef({ id, value, mode, plain, hint, label, graded, rates, onChange, onSave })
+  latest.current = { id, value, mode, plain, hint, label, graded, rates, onChange, onSave }
 
   useEffect(() => {
-    const { id, value, mode, plain: plainText, hint, label, graded, about, rates } = latest.current
+    const { id, value, mode, plain: plainText, hint, label, graded, rates } = latest.current
     const nonce = styleNonce()
     /** Put the popout over the selection, or take it away, once the selection has settled. */
     const place = (view: EditorView) => {
@@ -544,7 +535,7 @@ export function MarkdownEditor({
       }),
       nonce ? EditorView.cspNonce.of(nonce) : [],
       modes.current.of(mode === 'formatted' ? livePreview : []),
-      grading.current.of(graded ? gradedRules(about, mode === 'markdown', rates) : []),
+      grading.current.of(graded ? gradedRules(mode === 'markdown', rates) : []),
       EditorView.updateListener.of((update) => {
         if (update.docChanged && !update.transactions.some((tr) => tr.annotation(fromScreen)))
           latest.current.onChange(update.state.doc.toString())
@@ -623,6 +614,9 @@ export function MarkdownEditor({
     const view = editor.current
     const spec = refining.current
     if (!view || !spec) return 'missing' as const
+    // Read before the replace: after it the rule may be several, each with a number of its own.
+    const rule = focus ? (hint ? numberOf(view.state, hint) : null) : passageNow()?.number
+    const split = ruleCount(original) === 1 && ruleCount(next) > 1 ? ruleCount(next) : undefined
     const step = quotedReplace(view.state.doc.toString(), original, next, hint)
     if (replaceIn(view, step.original, step.next, step.hint, focus) === 'missing')
       return 'missing' as const
@@ -636,7 +630,7 @@ export function MarkdownEditor({
         else if (replaceIn(now, step.next, step.original) === 'missing')
           spec.onError('The new text has changed since. Undo it in the editor.')
       },
-      { panel: !focus, rule: passageNow()?.number ?? undefined },
+      { panel: !focus, rule: rule ?? undefined, split },
     )
     return 'replaced' as const
   }
@@ -703,11 +697,9 @@ export function MarkdownEditor({
 
   useEffect(() => {
     editor.current?.dispatch({
-      effects: grading.current.reconfigure(
-        graded ? gradedRules(about, mode === 'markdown', rates) : [],
-      ),
+      effects: grading.current.reconfigure(graded ? gradedRules(mode === 'markdown', rates) : []),
     })
-  }, [graded, about, mode, rates])
+  }, [graded, mode, rates])
 
   useImperativeHandle(
     ref,

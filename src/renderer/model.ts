@@ -12,7 +12,7 @@ import {
 import { type Corrections, NO_CORRECTIONS, unreadable, type VerdictKind } from '@domain/pack.ts'
 import { defaultPair, type PairOutput } from '@domain/pairs.ts'
 import { drawnArtifact, primaryArtifact } from '@domain/primary.ts'
-import { type RuleRate, ruleRates } from '@domain/rule-rate.ts'
+import { newestRates, type RuleRate, ruleRates } from '@domain/rule-rate.ts'
 import { versionAfterRunDelete } from '@domain/run-delete.ts'
 import { parseSampleDir } from '@domain/run-name.ts'
 import type {
@@ -45,7 +45,7 @@ import {
 } from '@domain/standing.ts'
 import { mean } from '@domain/stats.ts'
 import { type Count, countOf, sumCounts } from '@domain/verdict.ts'
-import type { TrashedDelete } from '@domain/views.ts'
+import type { SkillVersions, TrashedDelete } from '@domain/views.ts'
 import { scorers } from '@judges/scorers.ts'
 import type { RunView, Sample, State } from './api.ts'
 
@@ -595,17 +595,27 @@ export function attemptsLine(standing: Pick<CaseStand, 'latest' | 'previous'>): 
 }
 
 /**
- * How often each rule was followed and broken (`ruleRates`), by its words,
- * over the outputs written with the skill, as Results scores them under
- * `config`: the reader's answers count, and an output cut short, of a case
- * its run did not finish (`shortOf`) or with no score counts for nothing.
+ * How often each rule was followed and broken (`ruleRates`), by its words, on
+ * the newest version whose outputs counted it (`newestRates`), as Results
+ * scores them under `config`: the reader's answers count, and an output cut
+ * short, of a case its run did not finish (`shortOf`) or with no score counts
+ * for nothing. A rule broken on v2 and followed on v3 is read as followed.
  */
-export const ruleRatesOf = (outputs: Output[], config: BenchConfig): Map<string, RuleRate> =>
-  ruleRates(
-    outputs
-      .filter((o) => !o.cut && !shortOf(o.run, o.caseId) && testedVersion(testOf(o.run)))
-      .map((o) => ({ total: totalOf(o, config), verdicts: scoreOf(o, config)?.verdicts ?? [] })),
+export function ruleRatesOf(outputs: Output[], config: BenchConfig): Map<string, RuleRate> {
+  const counted = outputs.filter(
+    (o) => !o.cut && !shortOf(o.run, o.caseId) && testedVersion(testOf(o.run)),
   )
+  return newestRates(
+    versionsRun(counted).map((version) =>
+      ruleRates(
+        versionOutputs(counted, version).map((o) => ({
+          total: totalOf(o, config),
+          verdicts: scoreOf(o, config)?.verdicts ?? [],
+        })),
+      ),
+    ),
+  )
+}
 
 /**
  * "3 rules", "1 check", "3 rules and checks": `left`, one kind a fact, as
@@ -761,6 +771,29 @@ export function toGrade(standing: Pick<CaseStand, 'latest' | 'tries'>): CaseTry 
  */
 export const liftOf = (standings: readonly CaseStand[]): CaseLift | null =>
   caseLift(standings.filter((s) => !s.earlier))
+
+/**
+ * What the files hold that no version keeps, in a line: "Edited since v1",
+ * after the newest version. Null while the files are a version as they stand,
+ * and before the first version, when there is none to have edited since. It
+ * names the version that exists: the number the next run will take is on Run,
+ * and is no state until a run has made it.
+ */
+export function editedSince(versions: SkillVersions): string | null {
+  const newest = versions.versions.at(-1)
+  return versions.current.changed && newest ? `Edited since ${newest.version}` : null
+}
+
+/**
+ * The line under the skill's name: how its files stand against its versions.
+ * A version as it stands gives its number, its name and its score; edits no
+ * version keeps give `editedSince`; before the first version, "Not run yet".
+ */
+export function versionLine(versions: SkillVersions, score: number | null): string {
+  const { current } = versions
+  if (current.changed) return editedSince(versions) ?? 'Not run yet'
+  return `${current.version}${current.name ? ` · ${current.name}` : ''}${score === null ? '' : ` · mean ${Math.round(score)}`}`
+}
 
 /**
  * The versions outputs were written on, oldest first: "v0", "v1". A version

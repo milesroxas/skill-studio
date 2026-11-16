@@ -1,14 +1,18 @@
 /**
  * Auto refine, inside the selection popout. The checks run first and cost
- * nothing; Jev reads the rule when a TypeSafe key is set; a model is
- * asked to rewrite only when something drifts. A rule that already complies
- * gets told so, and offered the longer way: Help me improve.
+ * nothing; Jev reads the rule when a TypeSafe key is set; a model is asked to
+ * rewrite only when new words can fix what was found. The revision is held to
+ * the same checks before it is shown, so what is offered clears them, or says
+ * what it could not supply. A rule that already complies gets told so, and one
+ * whose trouble is not its wording says that: both are offered the longer
+ * way, Help me improve.
  */
-import { drifts, type RefineResult } from '@domain/improve.ts'
+import { drifts, needsOf, type RefineResult, revisionOf } from '@domain/improve.ts'
 import type { Finding, RuleScene } from '@domain/lint.ts'
 import { useEffect, useMemo, useRef } from 'react'
 import { startRefine, stopRun } from '../ai.ts'
 import { lineDiff } from '../diff.ts'
+import { listLine } from '../model.ts'
 import { useStartedRun } from '../started-run.ts'
 import { DiffLines } from './DiffLines.tsx'
 import { Loading, Toolbar } from './layout.tsx'
@@ -48,8 +52,8 @@ export function Unjudged() {
   return <Hint>Wording checks only. Add a Jev key in Settings for a fuller check.</Hint>
 }
 
-/** The revision a check starts, when anything drifts. */
-const revisionOf = (result: RefineResult) => result.run
+/** The run a check starts, when a rewrite can fix what it found. */
+const runOf = (result: RefineResult) => result.run
 
 export function RefineBody({
   scene,
@@ -63,7 +67,7 @@ export function RefineBody({
   onClose: () => void
 }) {
   // Asked as the popout opens on a rule; closing it on a revision still being written stops the writing.
-  const work = useStartedRun(() => startRefine(scene), revisionOf, [scene])
+  const work = useStartedRun(() => startRefine(scene), runOf, [scene])
   const { result, run } = work
   // Once the checks have answered, a failure is the revision's, said in its place under them.
   const error = result ? null : work.error
@@ -74,7 +78,18 @@ export function RefineBody({
     if (run?.status === 'done') accept.current?.focus()
   }, [run?.status])
 
-  const revision = run?.status === 'done' ? run.text : null
+  // The finished run carries the revision and what the checks still find in it.
+  const done = useMemo(() => {
+    if (run?.status !== 'done') return null
+    try {
+      return revisionOf(run.text)
+    } catch (e) {
+      return (e as Error).message
+    }
+  }, [run?.status, run?.text])
+  const unread = typeof done === 'string' ? done : null
+  const revision = done && typeof done !== 'string' ? done.text : null
+  const needs = done && typeof done !== 'string' ? needsOf(done.open) : []
   const changes = useMemo(
     () => (revision ? lineDiff(scene.selection, revision) : null),
     [scene.selection, revision],
@@ -99,6 +114,29 @@ export function RefineBody({
     )
 
   const maybes = result.findings.filter((f) => f.source === 'maybe')
+  // Something is wrong, and not with the wording: a line that changes nothing, or belongs elsewhere.
+  if (!result.run && drifts(result.findings))
+    return (
+      <>
+        <PopoverSection pad="text">
+          <Text size="xs" caps tone="muted">
+            What drifts
+          </Text>
+          <FindingList findings={result.findings} />
+          {result.judged ? null : <Unjudged />}
+        </PopoverSection>
+        <PopoverSection pad="text">
+          <Text as="p" size="ui" tone="muted">
+            New words will not fix this. To decide what to do with the line, answer a few questions.
+          </Text>
+          <Toolbar>
+            <Button type="button" variant="outline" size="sm" onClick={onImprove}>
+              Help me improve
+            </Button>
+          </Toolbar>
+        </PopoverSection>
+      </>
+    )
   if (!result.run)
     return (
       <>
@@ -146,9 +184,9 @@ export function RefineBody({
         <Excerpt holds="writing" aria-live="polite">
           {changes ? (
             <DiffLines lines={changes} />
-          ) : run?.status === 'failed' ? (
+          ) : run?.status === 'failed' || unread ? (
             <Hint tone="destructive" role="alert">
-              {run.error}
+              {unread ?? run?.error}
             </Hint>
           ) : run?.text ? (
             <Text as="p" wrap="pre">
@@ -158,6 +196,9 @@ export function RefineBody({
             <Text tone="muted">{run?.status === 'stopped' ? 'Stopped.' : 'Writing…'}</Text>
           )}
         </Excerpt>
+        {needs.length ? (
+          <Hint>Still needs {listLine(needs)}. Help me improve asks you for it.</Hint>
+        ) : null}
         <Toolbar justify="end">
           {running ? (
             <Button
@@ -170,6 +211,11 @@ export function RefineBody({
             </Button>
           ) : (
             <>
+              {needs.length ? (
+                <Button type="button" variant="ghost" size="sm" onClick={onImprove}>
+                  Help me improve
+                </Button>
+              ) : null}
               <Button type="button" variant="ghost" size="sm" onClick={onClose}>
                 Discard
               </Button>

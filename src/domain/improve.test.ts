@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest'
 import { VOICE } from './assist.ts'
 import {
   checklistOf,
-  codeVerdicts,
   draftOf,
   draftReply,
   drifts,
@@ -11,19 +10,30 @@ import {
   improveSystem,
   judgmentFindings,
   keepListMark,
+  kindsFor,
+  measured,
   mergeFindings,
+  needsOf,
+  noVerdict,
   offerable,
+  oneRule,
+  openIn,
   planImprove,
   type RuleJudgment,
   refinePrompt,
   refineText,
+  revisionOf,
+  revisionText,
   rewritesOf,
   rewritesPrompt,
   rewritesResult,
+  rewritesSchema,
   rewritesText,
+  toFix,
   walkAfter,
+  withheld,
 } from './improve.ts'
-import { type Finding, lintScene, type RuleScene } from './lint.ts'
+import { lintScene, type RuleScene } from './lint.ts'
 import { PRACTICE_EDIT } from './practice.ts'
 import { RULE_GUIDE } from './templates.ts'
 
@@ -94,36 +104,119 @@ describe('refinePrompt and refineText', () => {
 })
 
 describe('rewrites', () => {
+  const SEVERAL =
+    '- Set the status bar to 9:41, full signal and a full battery, with no notifications, cursor, scrollbars or debug overlays, so every shot matches.'
+
   it('asks for the three in one reply and reads them back', () => {
+    const kinds = kindsFor(scene)
+    expect(kinds).toEqual(['practice', 'direct', 'shorter'])
     const { system, user } = rewritesPrompt(scene, [])
     expect(system).toContain('practice:')
     expect(system).toContain('shorter:')
+    expect(system).not.toContain('split:')
     expect(user).toContain('found nothing wrong')
-    expect(rewritesOf(JSON.stringify({ practice: 'a b', direct: 'c', shorter: 'd' }))).toEqual({
-      practice: 'a b',
-      direct: 'c',
-      shorter: 'd',
-    })
-    expect(() => rewritesOf(JSON.stringify({ practice: 'a', direct: '' }))).toThrow('More direct')
+    expect(
+      rewritesOf(JSON.stringify({ practice: 'a b', direct: 'c', shorter: 'd' }), kinds),
+    ).toEqual({ practice: 'a b', direct: 'c', shorter: 'd' })
+    expect(() => rewritesOf(JSON.stringify({ practice: 'a', direct: '' }), kinds)).toThrow(
+      'More direct',
+    )
   })
 
-  it('checks in code that shorter is shorter, and carries the result as text', () => {
+  it('offers Split up in place of Shorter for one rule that asks for several things', () => {
+    const several = { ...scene, selection: SEVERAL }
+    const kinds = kindsFor(several)
+    expect(kinds).toEqual(['practice', 'direct', 'split'])
+    expect(rewritesPrompt(several, []).system).toContain('split:')
+    expect(rewritesPrompt(several, []).system).not.toContain('shorter:')
+    expect(Object.keys(rewritesSchema(kinds).properties)).toEqual(kinds)
+    expect(rewritesSchema(kinds).required).toEqual(kinds)
+    // Two rules selected together are not one rule to split.
+    expect(kindsFor({ selection: `${SEVERAL}\n${scene.selection}` })).toContain('shorter')
+  })
+
+  it('lets a rule be as long as it needs: the cut may hand the selection back', () => {
+    expect(rewritesPrompt(scene, []).system).toContain('return the selection unchanged')
+    expect(withheld(scene, 'shorter', scene.selection)).toBe(
+      'Nothing to cut. Every word here does work.',
+    )
+    // Other words, and no fewer: not a cut, so not offered as one.
+    const reworded = scene.selection.replace('Try to', 'Aim to')
+    expect(withheld(scene, 'shorter', reworded)).toContain('Nothing to cut')
+    expect(offerable(scene, 'shorter', '- Keep the note short.')).toBe(true)
+    expect(measured(scene, 'shorter', '- Keep the note short.')).toMatch(/^4 words, \d+ fewer$/)
+  })
+
+  it('withholds a split still in one piece, and counts the rules of one that is not', () => {
+    const several = { ...scene, selection: SEVERAL }
+    expect(withheld(several, 'split', '- Set the status bar to 9:41 and full signal.')).toContain(
+      'Nothing to split',
+    )
+    const split =
+      '- Set the status bar to 9:41, so every shot matches.\n- Hide the cursor in every shot. A cursor dates it.'
+    expect(withheld(several, 'split', split)).toBeNull()
+    expect(measured(several, 'split', split)).toBe('2 rules')
+    expect(measured(several, 'practice', split)).toBeNull()
+  })
+
+  it('offers no rewrite that is the selection again, and warns where Jev saw a fact dropped', () => {
+    expect(withheld(scene, 'practice', scene.selection)).toBe('Same as the selection.')
+    expect(offerable(scene, 'direct', ` ${scene.selection}\n`)).toBe(false)
+    expect(offerable(scene, 'practice', 'other')).toBe(true)
+    expect(dropsFact(noVerdict())).toBe(false)
+    expect(dropsFact({ ...noVerdict(), kept: 0.1 })).toBe(true)
+    expect(dropsFact({ ...noVerdict(), kept: 0.5 })).toBe(false)
+  })
+
+  it('carries the result as text', () => {
     const rewrites = { practice: 'x y z', direct: 'x y', shorter: 'Keep it to two sentences.' }
-    const verdicts = codeVerdicts(scene, rewrites)
-    expect(verdicts.shorter.shorter).toBe(true)
-    expect(verdicts.practice.kept).toBeNull()
+    const verdicts = { practice: noVerdict(), direct: noVerdict(), shorter: noVerdict() }
     const text = rewritesText({ rewrites, verdicts, judged: false })
     expect(rewritesResult(text)).toEqual({ rewrites, verdicts, judged: false })
     expect(() => rewritesResult('{}')).toThrow()
   })
+})
 
-  it('offers every rewrite that is not the selection again, and warns where Jev saw a fact dropped', () => {
-    const verdict = { kept: null, drift: [] as Finding[], shorter: null }
-    expect(offerable(scene, scene.selection)).toBe(false)
-    expect(offerable(scene, 'other')).toBe(true)
-    expect(dropsFact(verdict)).toBe(false)
-    expect(dropsFact({ ...verdict, kept: 0.1 })).toBe(true)
-    expect(dropsFact({ ...verdict, kept: 0.5 })).toBe(false)
+describe('what a rewrite leaves open', () => {
+  it('asks a rewrite to fix only what new words can fix', () => {
+    const findings = judgmentFindings({ ...held, earns: 0.1, focused: 0.1, why: 0.1, strict: 0.5 })
+    expect(toFix(findings).map((f) => f.principle)).toEqual(['why'])
+    const file = lintScene({ ...scene, selection: `- ${PRACTICE_EDIT.good}`, band: 'over' })
+    expect(drifts(file)).toBe(true)
+    expect(toFix(file)).toEqual([])
+  })
+
+  it('reads a rewrite with the checks that read the selection', () => {
+    expect(openIn(`- ${PRACTICE_EDIT.good}`, null)).toEqual([])
+    expect(openIn(`- ${PRACTICE_EDIT.good}`, held)).toEqual([])
+    expect(openIn(`- ${PRACTICE_EDIT.bad}`, null).map((f) => f.principle)).toContain('strict')
+    // Sure of a missing reason, unsure of the boundary, sure the line does no work: one is open.
+    const judged = { ...held, why: 0.1, strict: 0.5, earns: 0.1 }
+    expect(openIn(`- ${PRACTICE_EDIT.good}`, judged).map((f) => f.principle)).toEqual(['why'])
+  })
+
+  it('names what is still needed, each thing once', () => {
+    const open = openIn('- Try to keep the note clear.', { ...held, why: 0.1 })
+    expect(needsOf(open)).toEqual(['a number, or an always or never', 'a step to take', 'a reason'])
+    expect(needsOf([])).toEqual([])
+  })
+
+  it('tells one rule from several, for the questions Jev asks of one', () => {
+    expect(oneRule(scene.selection)).toBe(true)
+    expect(oneRule('- Open with the name, always.\n- Never add a sign-off, ever.')).toBe(false)
+  })
+
+  it('asks once more with what a first revision left open', () => {
+    const open = openIn(`- ${PRACTICE_EDIT.bad}`, null)
+    const { user } = refinePrompt({ ...scene, selection: `- ${PRACTICE_EDIT.bad}` }, open, true)
+    expect(user).toContain('was meant to fix these and did not')
+  })
+
+  it('carries a revision and what it leaves open as text', () => {
+    const revision = { text: '- Two sentences.', open: openIn(`- ${PRACTICE_EDIT.bad}`, null) }
+    expect(revisionOf(revisionText(revision))).toEqual(revision)
+    expect(revisionOf('{"text": "- Two."}')).toEqual({ text: '- Two.', open: [] })
+    expect(() => revisionOf('{"text": ""}')).toThrow('could not be read')
   })
 })
 
@@ -151,7 +244,16 @@ describe('planImprove', () => {
 
   it('adds the file question when the file is long', () => {
     const findings = lintScene({ ...scene, selection: `- ${PRACTICE_EDIT.good}`, band: 'long' })
-    expect(planImprove(findings, held)).toEqual(['length'])
+    expect(planImprove(findings, held)).toEqual(['file'])
+  })
+
+  it('does not ask about the file for a filler phrase in the rule', () => {
+    const findings = lintScene({
+      ...scene,
+      selection: '- In order to date the note, always write the day first. Readers sort by it.',
+    })
+    expect(findings.map((f) => f.dimension)).toEqual(['length'])
+    expect(planImprove(findings, held)).toEqual([])
   })
 })
 
@@ -222,7 +324,7 @@ describe('improveSystem', () => {
     expect(improveSystem({ ...thread, at: 2 })).toContain('Write the draft now')
     expect(improveSystem({ ...thread, at: 2, cut: true })).toContain('Propose deleting it')
     expect(improveSystem({ ...thread, at: 2, scene: { ...scene, band: 'over' } })).toContain(
-      'must be shorter',
+      'cut any that does no work',
     )
   })
 })
@@ -288,8 +390,9 @@ describe('draftOf and checklistOf', () => {
     expect(draftOf('no block')).toBeNull()
   })
 
-  it('lists each judged principle as held or not', () => {
-    const list = checklistOf({ ...held, why: 0.2 })
+  it('lists each judged principle as held, unless Jev is sure it is missing', () => {
+    // Jev could not decide on the boundary: that is not a point the draft misses.
+    const list = checklistOf({ ...held, why: 0.2, strict: 0.5 })
     expect(list.map((item) => [item.principle, item.held])).toEqual([
       ['process', true],
       ['why', false],
@@ -298,5 +401,19 @@ describe('draftOf and checklistOf', () => {
       ['focused', true],
     ])
     expect(list[1].message).toContain('no reason')
+  })
+
+  it('reads a draft with the checks that mark the rule once it is applied', () => {
+    // Jev held every principle, and the draft still hedges and pads: both show under it.
+    const list = checklistOf(
+      held,
+      '- In order to date it, try to write the day. Readers sort by it.',
+    )
+    expect(list.filter((item) => !item.held).map((item) => item.principle)).toEqual([
+      'strict',
+      'length',
+    ])
+    expect(list.find((item) => item.principle === 'strict')?.message).toContain('“try to”')
+    expect(checklistOf(held, `- ${PRACTICE_EDIT.good}`).every((item) => item.held)).toBe(true)
   })
 })

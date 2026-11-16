@@ -4,6 +4,7 @@ import {
   caseDetail,
   caseLabels,
   caseTarget,
+  changedSince,
   fileDetail,
   fileDone,
   fileStanding,
@@ -196,9 +197,20 @@ describe('version standing', () => {
     expect(versionSaved(undefined, 'x')).toBeUndefined()
   })
 
+  it('lists the files that read otherwise than a version’s copy, unsaved text counted', () => {
+    const kept = { 'SKILL.md': 'a', 'references/voice.md': 'b', 'gone.md': 'x' }
+    const files = { 'SKILL.md': 'a', 'references/voice.md': 'b2', 'new.md': 'n' }
+    const paths = ['SKILL.md', 'new.md', 'references/voice.md']
+    expect(changedSince(kept, files, {}, paths)).toEqual(['new.md', 'references/voice.md'])
+    // Unsaved text is what the reader sees: typed back to the version's words, the file is unchanged.
+    const drafts = { 'SKILL.md': { text: 'a2' }, 'references/voice.md': { text: 'b' } }
+    expect(changedSince(kept, files, drafts, paths)).toEqual(['SKILL.md', 'new.md'])
+    expect(changedSince(kept, { 'SKILL.md': 'a' }, {}, ['SKILL.md'])).toEqual([])
+  })
+
   it('says what saving does', () => {
     const current = { ...version('x', false), version: 'v2', changed: true }
-    expect(versionDetail({ versions: [], current }, undefined)).toBe('Saves the files as v2')
+    expect(versionDetail({ versions: [], current }, undefined)).toBe('Keeps the files as v2')
     expect(versionDetail({ versions: [], current }, version('x', true))).toBe('Version v1')
     expect(versionDetail(undefined, undefined)).toBe('A version of the files')
   })

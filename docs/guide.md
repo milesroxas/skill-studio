@@ -99,8 +99,9 @@ The **Library** lists every skill on your computer.
 Write the skill in the editor, then click **Save** (Cmd+S). Your unsaved text is kept even if you close the app.
 
 - **Rules are bullets.** Each bullet of four words or more gets a number, such as 01, and Jev grades it. A bullet that keeps its dot is not graded: point at it to see why. A skill written only as numbered steps has its steps graded instead.
-- **An amber number** means the rule could be clearer. Click it to see why and to get help.
-- **A red number** means most answers broke the rule. Point at any number to see how many answers broke it.
+- **An amber number** means the rule could be clearer. Click it to see why and to get help. It goes as soon as you fix what it names. A rule can be as long as it needs to be.
+- **A red number** means most answers broke the rule the last time it ran. Point at any number to see how many answers broke it. Run the cases again after a fix to see it change.
+- **Changes**, at the top right, shows what you changed since the last version. While the file has unsaved text, click **The last save** there to see only that.
 - **Files**, on the left, lists every file of the skill: SKILL.md, its references, its scripts and anything else it holds. Click one to edit it. A picture, or another file that is not text, is listed and cannot be opened.
 - **Add a file** and **Add a folder**, the two buttons beside Files, add one next to the file that is open: in its folder, or beside SKILL.md. Type its name where it appears in the list and press Enter. A name with no ending, such as `voice`, becomes `voice.md`.
 - **Right-click** a file or a folder to add a file or a folder there, or to delete the file. Click a folder to fold its files away.
@@ -132,13 +133,16 @@ First, connect a model in **Settings**. If you use Claude Code or Codex, it work
 
 - **Write with AI**, in the editor toolbar or in any text box: say what you want. Nothing changes until you click **Replace** or **Insert**.
 - **Select a rule** to get three choices: **Auto refine** fixes what is unclear, **Suggest changes** offers three rewrites, and **Help me improve** works through it with you in a chat. Nothing changes until you pick a result, and **Undo** takes it back.
+- A rule that asks for several things gets **Split up** among its rewrites: one rule for each thing, so you can see which one an answer missed.
 - **The Assistant** (top right, or Cmd+J) is a chat that reads your skill and suggests changes. You apply each one with a click.
 
 ### Versions
 
 ![A version open on the Skill screen: the list of versions on the left with each one's date and score; on the right v0 with its score, Restore and Delete version, and the lines that changed between it and the files now.](images/versions.webp)
 
-Each run saves the skill as it was, as a **version**: v0, v1 and so on. You never save one by hand. Every score stays with the version that earned it.
+Each run keeps the skill as it was, as a **version**: v0, v1 and so on. **Save** only writes the file: it makes no version. Every score stays with the version that earned it.
+
+After you save an edit, **Edited since v1** appears over the versions, and under the skill's name. It means your files have changed since v1 and have not run yet. Click it to see what changed. The next run keeps them as v2.
 
 Once one model has run two versions, every version's score is that model's, so the scores read against each other. A version it never ran shows the score of the model that did run it, and its line names that model, such as **With Sonnet, high effort**. A version only several other models ran shows no score, and says **Not run with** the model the other scores are from.
 

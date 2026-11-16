@@ -37,27 +37,34 @@ import type { ImageRef } from '@domain/image.ts'
 import {
   type AnswerReading,
   checklistOf,
-  codeVerdicts,
   currentStep,
   drafting,
   draftOf,
-  drifts,
   type ImproveStep,
   type ImproveThread,
   improveSystem,
   judgmentFindings,
   keepListMark,
+  kindsFor,
   mergeFindings,
+  noVerdict,
+  oneRule,
+  openIn,
   planImprove,
   REFINE_SCHEMA,
-  REWRITES_SCHEMA,
   type RefineResult,
+  type RewriteKind,
+  type Rewrites,
+  type RewritesResult,
   type RuleJudgment,
   refinePrompt,
   refineText,
+  revisionText,
   rewritesOf,
   rewritesPrompt,
+  rewritesSchema,
   rewritesText,
+  toFix,
   walkAfter,
 } from '@domain/improve.ts'
 import { type Finding, lintScene, type RuleScene } from '@domain/lint.ts'
@@ -184,6 +191,17 @@ export async function aiCommands(): Promise<SlashCommand[]> {
   return list ? list() : []
 }
 
+/**
+ * One more request to the run's own model, for a reply the first one's checks
+ * sent back: its text, whole. It stops with the run, and what it spent is
+ * logged with the run's.
+ */
+type Again = (
+  system: string,
+  user: string,
+  schema: Readonly<Record<string, unknown>> | null,
+) => Promise<string>
+
 interface Work {
   kind: AiRunKind
   choice: AiChoice
@@ -194,8 +212,11 @@ interface Work {
   schema: Readonly<Record<string, unknown>> | null
   /** What the run shows of the reply so far. */
   preview: (raw: string) => string
-  /** The run's text from the finished reply. Throws when the reply does not hold up. */
-  finish: (raw: string) => string | Promise<string>
+  /**
+   * The run's text from the finished reply. Throws when the reply does not
+   * hold up. `again` asks the same model once more, as part of this run.
+   */
+  finish: (raw: string, again: Again) => string | Promise<string>
   /** Called once, when the run has ended for any reason, and before the end is reported. */
   ended?: (run: AiRun) => void | Promise<void>
 }
@@ -216,7 +237,27 @@ function start(work: Work): AiRun {
   for (const id of runsToForget([...runs.values()])) runs.delete(id)
   const controller = new AbortController()
   controllers.set(run.id, controller)
-  aiProvider(choice.provider)
+  const provider = aiProvider(choice.provider)
+  const again: Again = async (system, user, schema) => {
+    const reply = await provider.run({
+      model: choice.model,
+      effort: choice.effort,
+      system,
+      messages: [{ role: 'user', text: user }],
+      schema,
+      signal: controller.signal,
+      // The reader keeps the first reply in view until the checked one takes its place.
+      onText: () => {},
+    })
+    spent({
+      at: new Date().toISOString(),
+      provider: choice.provider,
+      model: reply.model,
+      ...reply.usage,
+    })
+    return reply.text
+  }
+  provider
     .run({
       model: choice.model,
       effort: choice.effort,
@@ -239,7 +280,10 @@ function start(work: Work): AiRun {
         model: reply.model,
         ...reply.usage,
       })
-      run.text = await work.finish(reply.text)
+      const text = await work.finish(reply.text, again)
+      // Stopped while its reply was checked: nobody is waiting for it.
+      if (controller.signal.aborted) return
+      run.text = text
       run.status = 'done'
     })
     .catch((error: Error) => {
@@ -422,13 +466,59 @@ async function assess(scene: RuleScene, jev: Jev): Promise<Assessment> {
   }
 }
 
-/** Auto refine: check the rule, and start its revision only when something drifts. */
+/**
+ * What a rewrite of the selection still leaves open, as the checks that read
+ * the selection read the rewrite: code always, and Jev when it read the
+ * selection and the rewrite is still one rule. A Jev that cannot be reached
+ * leaves code's reading standing.
+ */
+async function stillOpen(scene: RuleScene, text: string, jev: Jev | null): Promise<Finding[]> {
+  let judgment: RuleJudgment | null = null
+  if (jev && oneRule(text))
+    try {
+      judgment = await judgeDraft(jev, scene, text)
+    } catch (error) {
+      console.warn(`Jev could not read the rewrite: ${(error as Error).message}`)
+    }
+  return openIn(text, judgment)
+}
+
+/**
+ * One more try at a rewrite that left `open` standing: the model is shown its
+ * own text and what the checks still find in it. Null when the try fails, so
+ * the first rewrite stands.
+ */
+async function oneMoreTry(
+  scene: RuleScene,
+  text: string,
+  open: Finding[],
+  again: Again,
+): Promise<string | null> {
+  const { system, user } = refinePrompt({ ...scene, selection: text }, open, true)
+  try {
+    return keepListMark(scene.selection, refineText(await again(system, user, REFINE_SCHEMA)))
+  } catch (error) {
+    console.warn(`The rewrite could not be tried again: ${(error as Error).message}`)
+    return null
+  }
+}
+
+/**
+ * Auto refine: check the rule, and start its revision only when a rewrite can
+ * fix what was found. The revision is held to the same checks before it is
+ * shown: one that leaves any of them open is sent back once, and what is
+ * still open after that is said under it. The finished run's text is the
+ * `Revision` as JSON.
+ */
 export async function startRefine(scene: RuleScene): Promise<RefineResult> {
   // Before Jev is paid: no model to write with means nothing to check for.
   const choice = await currentChoice()
-  const { findings, judged } = await assess(scene, new Jev())
-  if (!drifts(findings)) return { findings, judged, run: null }
-  const { system, user } = refinePrompt(scene, findings)
+  const jev = new Jev()
+  const { findings, judged } = await assess(scene, jev)
+  const fix = toFix(findings)
+  if (!fix.length) return { findings, judged, run: null }
+  const { system, user } = refinePrompt(scene, fix)
+  const reader = judged ? jev : null
   const run = start({
     kind: 'refine',
     choice,
@@ -436,45 +526,83 @@ export async function startRefine(scene: RuleScene): Promise<RefineResult> {
     messages: [{ role: 'user', text: user }],
     schema: REFINE_SCHEMA,
     preview: (raw) => partialText(raw, 'revision'),
-    finish: (raw) => keepListMark(scene.selection, refineText(raw)),
+    finish: async (raw, again) => {
+      let text = keepListMark(scene.selection, refineText(raw))
+      let open = await stillOpen(scene, text, reader)
+      const second = open.length ? await oneMoreTry(scene, text, open, again) : null
+      if (second) {
+        const left = await stillOpen(scene, second, reader)
+        if (left.length < open.length) {
+          text = second
+          open = left
+        }
+      }
+      return revisionText({ text, open })
+    },
   })
   return { findings, judged, run }
 }
 
+/** Jev's reading of rewrites: which kept the selection's facts, and `practice` as a rule while it is one. */
+async function readRewrites(
+  jev: Jev | null,
+  scene: RuleScene,
+  rewrites: Rewrites,
+): Promise<{ kept: Partial<Record<RewriteKind, number>>; judgment: RuleJudgment | null } | null> {
+  if (!jev) return null
+  try {
+    const read = rewrites.practice !== undefined && oneRule(rewrites.practice) ? 'practice' : null
+    return await verifyRewrites(jev, scene, rewrites, read)
+  } catch (error) {
+    // The rewrites stand unverified, as they would without a key.
+    console.warn(`Jev could not check the rewrites: ${(error as Error).message}`)
+    return null
+  }
+}
+
 /**
  * Suggest changes: three rewrites in one reply, each checked before it is
- * offered. The finished run's text is the `RewritesResult` as JSON.
+ * offered. Best practice is held to the checks it was asked to fix: one that
+ * leaves any of them open is sent back once. The finished run's text is the
+ * `RewritesResult` as JSON.
  */
 export async function startRewrites(scene: RuleScene): Promise<AiRun> {
   const choice = await currentChoice()
   const jev = new Jev()
   const { findings, judged } = await assess(scene, jev)
-  const { system, user } = rewritesPrompt(scene, findings)
+  const kinds = kindsFor(scene)
+  const { system, user } = rewritesPrompt(scene, findings, kinds)
+  const reader = judged ? jev : null
   return start({
     kind: 'rewrites',
     choice,
     system,
     messages: [{ role: 'user', text: user }],
-    schema: REWRITES_SCHEMA,
+    schema: rewritesSchema(kinds),
     preview: () => '',
-    finish: async (raw) => {
-      const rewrites = rewritesOf(raw)
-      for (const kind of ['practice', 'direct', 'shorter'] as const)
-        rewrites[kind] = keepListMark(scene.selection, rewrites[kind])
-      const verdicts = codeVerdicts(scene, rewrites)
-      let verified = false
-      if (judged)
-        try {
-          const read = await verifyRewrites(jev, scene, rewrites)
-          for (const kind of ['practice', 'direct', 'shorter'] as const)
-            verdicts[kind].kept = read.kept[kind]
-          verdicts.practice.drift = judgmentFindings(read.practice)
-          verified = true
-        } catch (error) {
-          // The rewrites stand unverified, as they would without a key.
-          console.warn(`Jev could not check the rewrites: ${(error as Error).message}`)
+    finish: async (raw, again) => {
+      const rewrites = rewritesOf(raw, kinds)
+      for (const kind of kinds) rewrites[kind] = keepListMark(scene.selection, rewrites[kind] ?? '')
+      const read = await readRewrites(reader, scene, rewrites)
+      const verdicts: RewritesResult['verdicts'] = Object.fromEntries(
+        kinds.map((kind) => [kind, { ...noVerdict(), kept: read?.kept[kind] ?? null }]),
+      )
+      // Best practice says it fixes what the checks found, so the checks read it before it is shown.
+      const practice = rewrites.practice ?? ''
+      let open = openIn(practice, read?.judgment ?? null)
+      let kept = read?.kept.practice ?? null
+      const second = open.length ? await oneMoreTry(scene, practice, open, again) : null
+      if (second) {
+        const reread = await readRewrites(reader, scene, { practice: second })
+        const left = openIn(second, reread?.judgment ?? null)
+        if (left.length < open.length) {
+          rewrites.practice = second
+          open = left
+          kept = reread?.kept.practice ?? null
         }
-      return rewritesText({ rewrites, verdicts, judged: verified })
+      }
+      verdicts.practice = { kept, open }
+      return rewritesText({ rewrites, verdicts, judged: read !== null })
     },
   })
 }
@@ -521,7 +649,7 @@ async function improveReply(thread: ImproveThread): Promise<void> {
       thread.draft = draft
       if (!thread.judged) return
       try {
-        thread.checklist = checklistOf(await judgeDraft(improveJev, thread.scene, draft))
+        thread.checklist = checklistOf(await judgeDraft(improveJev, thread.scene, draft), draft)
       } catch {
         thread.checklist = null
       }

@@ -9,13 +9,28 @@
  * with Undo, while the skill's trash still holds them.
  *
  * The file's header holds one switch for what the column shows (the text
- * styled, its Markdown, or what changed since the last save) and the two
- * actions on unsaved work. Save is the one filled button, and only while there
+ * styled, its Markdown, or what changed) and the two actions on unsaved work.
+ * Changes are read against the newest version, the copy the last run kept, so
+ * a save does not empty them. While the file holds unsaved text, the last save
+ * is the other thing to read them against: what Save would write and Discard
+ * would drop.
+ *
+ * Save writes a file and makes no version: a run keeps one. So files saved
+ * since the newest version stand in the versions list as a row of their own,
+ * "Edited since v1", over the versions, and it opens their changes. No number
+ * is given to a version until a run has made it. Save is the one filled button, and only while there
  * is something to save; Discard is always there, so nothing in the row moves
  * on the first keystroke.
  */
 
-import { byFileOrder, fileTree, folderOf, isMarkdownPath, placeNew } from '@domain/paths.ts'
+import {
+  byFileOrder,
+  fileTree,
+  folderOf,
+  isCorePath,
+  isMarkdownPath,
+  placeNew,
+} from '@domain/paths.ts'
 import { applyPracticeEdit, PRACTICE_EDIT } from '@domain/practice.ts'
 import { scanRules } from '@domain/rules.ts'
 import {
@@ -38,6 +53,7 @@ import {
 import { FilePlusIcon, FolderPlusIcon, Trash2Icon } from 'lucide-react'
 import { Fragment, memo, useEffect, useMemo, useRef, useState } from 'react'
 import { api, currentSkill } from '../api.ts'
+import { changedSince } from '../changes.ts'
 import { DiffLines } from '../components/DiffLines.tsx'
 import { Disclosure } from '../components/Disclosure.tsx'
 import { DraftNote } from '../components/DraftNote.tsx'
@@ -52,6 +68,7 @@ import {
   ListHeader,
   Loading,
   PlainList,
+  ReadFailed,
   Rows,
   Toolbar,
   Workbench,
@@ -79,6 +96,7 @@ import {
   capital,
   deletedName,
   deletesLine,
+  editedSince,
   ruleRatesOf,
   shortDate,
   stamp,
@@ -133,13 +151,23 @@ function BlankStart({
 const VIEWS = [
   { value: 'formatted', label: 'Formatted', title: 'Edit with the Markdown styled in place' },
   { value: 'markdown', label: 'Markdown', title: 'Edit the plain Markdown source' },
-  { value: 'changes', label: 'Changes', title: 'Read what changed since the file was saved' },
+  {
+    value: 'changes',
+    label: 'Changes',
+    title: 'Read what changed since the last version, or since the last save',
+  },
 ] as const
 
 type View = (typeof VIEWS)[number]['value']
 
 /** A file that is not Markdown has one way to be read, so its views are the text and its changes. */
 const TEXT_VIEWS = [{ value: 'markdown', label: 'Text', title: 'Edit the file' }, VIEWS[2]] as const
+
+/** What the changes are read against: the newest version, or the file as last saved. */
+type Since = 'version' | 'save'
+
+/** Names the row of edits no version keeps, among the rows that arrive in the versions list. */
+const EDITS = 'edits'
 
 /** How many of the newest versions the list shows before the rest fold away. */
 const SHOWN_VERSIONS = 5
@@ -152,6 +180,8 @@ export const Editor = memo(function Editor({ ctx }: { ctx: Ctx }) {
   const disk = ctx.files
   const edits = drafts.files
   const [showDiff, setShowDiff] = useState(false)
+  /** What the changes are read against, while a version has been kept to read them against. */
+  const [since, setSince] = useState<Since>('version')
   /** A file or a folder is being named in the list, and where it will go. */
   const [naming, setNaming] = useState<TreeNaming | null>(null)
   const [busy, runSave] = useAction(report)
@@ -216,6 +246,23 @@ export const Editor = memo(function Editor({ ctx }: { ctx: Ctx }) {
   /** A rule someone was sent here to change, by its text: Results links a missed rule to it. */
   const wanted = route.arrival === 'step' ? route.params.get('rule') : null
   const saved = files[file] ?? null
+  /**
+   * The version the changes are read against: the newest, which the last run
+   * kept. None before the first run, and none for a file a copy kept of
+   * SKILL.md and the references alone does not hold.
+   */
+  const newestVersion = state.versions.versions.at(-1)
+  const base =
+    newestVersion && (!newestVersion.partial || isCorePath(file)) ? newestVersion.version : null
+  /** The files were saved since the newest version: the line that says so, for their row in the list. */
+  const edited = editedSince(state.versions)
+  // A version's copy never changes, so it is read once, and only when something is read against it:
+  // the changes, or the row of edits, which opens the first file that has some.
+  const reads = showDiff || edited !== null
+  const kept = useFetch(
+    () => (reads && base ? api.skillFiles(base) : Promise.resolve(null)),
+    [reads, base],
+  )
   /** The file's draft. One that says what the file on disk says is none: there is nothing in it to save. */
   const draft = edits[file]?.text === saved ? undefined : edits[file]
   const text = draft?.text ?? saved ?? ''
@@ -223,7 +270,11 @@ export const Editor = memo(function Editor({ ctx }: { ctx: Ctx }) {
   // A file or a version added while the list is open fades in; what the list opened with rests.
   // The files count only once read, so the ones a draft names first do not rest alone.
   const arrivedFile = useArrivals(disk.saved && drafts.status !== 'loading' ? paths : [])
-  const arrivedVersion = useArrivals(state.versions.versions.map((v) => v.version))
+  // The row of edits arrives too, the first time a save parts the files from the newest version.
+  const arrivedVersion = useArrivals([
+    ...state.versions.versions.map((v) => v.version),
+    ...(edited ? [EDITS] : []),
+  ])
   // A long list keeps its newest versions in view and folds the rest under one line.
   const newestFirst = [...state.versions.versions].reverse()
   const folds = newestFirst.length - SHOWN_VERSIONS >= MIN_FOLDED_VERSIONS
@@ -261,6 +312,18 @@ export const Editor = memo(function Editor({ ctx }: { ctx: Ctx }) {
     setShowDiff(next === 'changes')
     // A file that is not Markdown has no view to remember.
     if (markdown && next !== 'changes' && next !== mode) setMode(next)
+  }
+
+  /**
+   * Open what changed since the newest version: in the open file when it has
+   * changes, else in the first file that has some.
+   */
+  const openEdits = () => {
+    const changed = kept.data ? changedSince(kept.data.files, files, edits, paths) : []
+    const target = changed.includes(file) || !changed.length ? file : changed[0]
+    setSince('version')
+    setShowDiff(true)
+    if (version || target !== file) go('editor', { file: target })
   }
 
   /** Put a template's body under the front matter of an empty SKILL.md. */
@@ -407,7 +470,19 @@ export const Editor = memo(function Editor({ ctx }: { ctx: Ctx }) {
   const meta = isSkill ? readFrontMatter(text).meta : {}
   /** The bullets are the rules Jev grades, so the editor marks them; not when bench.json names its own. */
   const graded = isSkill && !config.rules?.length
-  const diff = showDiff ? lineDiff(saved ?? '', text) : []
+  /**
+   * Read against the version while there is one; else against the last save.
+   * The last save is a choice only while the file holds unsaved text: with
+   * none, it would show nothing, so it is not offered.
+   */
+  const unsavedHere = isDirty(file)
+  const against: Since = base ? (unsavedHere ? since : 'version') : 'save'
+  /** The file as the changes are read against it; null until the version's copy is read. A file it does not hold was added since. */
+  const was = against === 'save' ? (saved ?? '') : kept.data ? (kept.data.files[file] ?? '') : null
+  const diff = useMemo(
+    () => (showDiff && was !== null ? lineDiff(was, text) : []),
+    [showDiff, was, text],
+  )
   /** SKILL.md says nothing yet: the sidebar shows how to write a rule and keeps the rest for later. */
   const blank = isSkill && isScaffold(text)
   /**
@@ -629,16 +704,28 @@ export const Editor = memo(function Editor({ ctx }: { ctx: Ctx }) {
             title="Versions"
             // Only edits no version holds need a word: unchanged files are a version in the list.
             // It names no version they came from: after a restore that is not the newest.
+            // Before the first run there is no version to stand in the list, so a line says what makes one.
             hint={
-              current.changed
-                ? newest
-                  ? `The next run keeps your edits as ${current.version}.`
-                  : `The first run keeps the files as ${current.version}.`
+              current.changed && !newest
+                ? `The first run keeps the files as ${current.version}.`
                 : null
             }
           >
             {versions.length ? (
               <PlainList gap="xs" bleed>
+                {edited ? (
+                  <li key={EDITS}>
+                    <NavButton
+                      current={!version && showDiff}
+                      arrived={arrivedVersion(EDITS)}
+                      onClick={openEdits}
+                    >
+                      {/* The dot: some of these edits are not saved, and a run tests the files as saved. */}
+                      <NavButtonTitle unsaved={paths.some(isDirty)}>{edited}</NavButtonTitle>
+                      <NavButtonMeta>Not run yet</NavButtonMeta>
+                    </NavButton>
+                  </li>
+                ) : null}
                 {shownVersions.map(versionRow)}
               </PlainList>
             ) : null}
@@ -786,10 +873,52 @@ export const Editor = memo(function Editor({ ctx }: { ctx: Ctx }) {
               showDiff ? (
                 <ColumnBody>
                   {notes}
-                  {diff.length ? (
+                  {base ? (
+                    // As tall as the switch, so the line holds still when the switch comes or goes.
+                    <Toolbar className="min-h-8 pointer-coarse:min-h-11">
+                      <Text tone="muted" size="ui" id="changes-since">
+                        Changes since
+                      </Text>
+                      {unsavedHere ? (
+                        <Segmented<Since>
+                          aria-labelledby="changes-since"
+                          value={since}
+                          onChange={(next) => next && setSince(next)}
+                          options={[
+                            { value: 'version', label: base },
+                            { value: 'save', label: 'The last save' },
+                          ]}
+                        />
+                      ) : (
+                        <Text size="ui" tabular>
+                          {base}
+                        </Text>
+                      )}
+                    </Toolbar>
+                  ) : null}
+                  {was === null ? (
+                    kept.error ? (
+                      <ReadFailed
+                        size="compact"
+                        title={`Could not read ${base}`}
+                        retrying={kept.loading}
+                        onRetry={kept.reload}
+                      >
+                        {kept.error}
+                      </ReadFailed>
+                    ) : (
+                      <Loading />
+                    )
+                  ) : diff.length ? (
                     <DiffLines lines={diff} />
-                  ) : (
+                  ) : against === 'version' ? (
+                    <Hint>No changes since {base}.</Hint>
+                  ) : base ? (
                     <Hint>No changes since the last save.</Hint>
+                  ) : (
+                    <Hint>
+                      No changes since the last save. The first run keeps a version to compare with.
+                    </Hint>
                   )}
                 </ColumnBody>
               ) : undefined
@@ -814,9 +943,12 @@ export const Editor = memo(function Editor({ ctx }: { ctx: Ctx }) {
                     onError: (message) => report(message, { tone: 'destructive' }),
                     onReplaced: (undo, from) =>
                       report(
-                        from.panel
-                          ? `Applied the draft${from.rule ? ` to rule ${from.rule}` : ''}.`
-                          : 'Replaced the selection.',
+                        // One rule became several: the numbers under it moved, so say what happened.
+                        from.split
+                          ? `Split ${from.rule ? `rule ${from.rule}` : 'the rule'} into ${from.split} rules.`
+                          : from.panel
+                            ? `Applied the draft${from.rule ? ` to rule ${from.rule}` : ''}.`
+                            : 'Replaced the selection.',
                         { undo },
                       ),
                     confirm,

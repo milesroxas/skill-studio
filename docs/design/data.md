@@ -216,10 +216,12 @@ A number is in one of three states, and only these:
 | --- | --- | --- | --- |
 | plain | `muted-foreground` | nothing below holds | "Rule 04. Click to select it." |
 | `flagged` | `warning` | the writing checks found something in the rule; the words that set a check off are underlined, dotted, in `warning` | "Rule 04: the writing checks found something. Click to select it." |
-| `broken` | `destructive` | more graded outputs broke the rule than followed it (`mostlyBroken` over `ruleRatesOf` in `model.ts`) | "Rule 04: broken by 5 of 7 answers. Click to select it." |
+| `broken` | `destructive` | more graded outputs broke the rule than followed it, on the newest version that ran it (`mostlyBroken` over `ruleRatesOf` in `model.ts`) | "Rule 04: broken by 5 of 7 answers. Click to select it." |
 
 - `broken` wins over `flagged` (`numberTone`): the outputs show the rule failing, where a writing check only says it might. The underlined words stay, and the tooltip says both: "Rule 04: broken by 5 of 7 answers. The writing checks found something. Click to select it."
 - Every rule that graded outputs counted says how many broke it, red or not: "Rule 01: broken by 0 of 4 answers." A rule is counted by its words, so a rule edited since its last run has no count until it runs again.
+- The count is of the newest version that ran the rule, never of every run there has been. A rule that v2's answers broke and v3's follow is no longer red: the change that fixed it may be anywhere in the skill, and the next run is what shows it.
+- `flagged` goes as soon as the words are fixed: every writing check names words or a shape the writer can change, and none counts the rule's words.
 - Color is never the only signal. The tooltip carries the words, and the number reads them to a screen reader too: it is `role="img"`, named by its tooltip, so a screen reader hears "Rule 06: broken by 11 of 11 answers. Click to select it." once.
 
 ## File size

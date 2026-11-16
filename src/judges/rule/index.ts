@@ -105,40 +105,44 @@ export async function judgeRule(jev: Jev, scene: RuleScene): Promise<RuleJudgmen
   return judgmentOf(answers, 'rule')
 }
 
+/**
+ * Whether a rewrite still asks what the rule asks. Put as "would following the
+ * rewrite follow the rule", so a rewrite that is stricter, more exact or adds
+ * a reason is not read as one that changed a fact: asked whether it "keeps
+ * every fact", Jev answered 0.15 for a vague rule given a number. On eight
+ * pairs (jev, 2026-11-16) the four that lost something scored 0.04 to 0.23
+ * and the four that kept everything 0.60 to 0.97.
+ */
 const keptQuestion = (field: string) =>
-  noul(`Does \`${field}\` keep every fact, number and condition that \`rule\` holds?`, {
-    true: 'Everything the rule requires, forbids or counts is still required, forbidden or counted, in whatever words.',
-    false: 'It drops, changes or softens a fact, a number or a condition of the rule.',
+  noul(`Would an agent that follows \`${field}\` exactly also be following \`rule\`?`, {
+    true: 'Whatever the rule asks is still asked, by a text that may be stricter, more exact, or give a reason the rule did not.',
+    false:
+      'It lets through something the rule forbids, leaves out something it requires, or changes a number it sets.',
   })
 
 /**
- * Whether each rewrite kept the selection's facts, and whether the best
- * practice rewrite now holds every principle: one request for all of it.
+ * Whether each rewrite kept the selection's facts, and, with `read`, Jev's
+ * reading of that one rewrite as a rule: one request for all of it. `read`
+ * names a rewrite that is still one rule, since the questions are about one.
  */
 export async function verifyRewrites(
   jev: Jev,
   scene: RuleScene,
   rewrites: Rewrites,
-): Promise<{ kept: Record<RewriteKind, number>; practice: RuleJudgment }> {
+  read: RewriteKind | null,
+): Promise<{ kept: Partial<Record<RewriteKind, number>>; judgment: RuleJudgment | null }> {
+  const kinds = Object.keys(rewrites) as RewriteKind[]
   const state = {
     ...stateOf(scene),
-    rewrite_practice: rewrites.practice,
-    rewrite_direct: rewrites.direct,
-    rewrite_shorter: rewrites.shorter,
+    ...Object.fromEntries(kinds.map((kind) => [`rewrite_${kind}`, rewrites[kind]])),
   }
   const answers = await jev.ask(state, {
-    kept_practice: keptQuestion('rewrite_practice'),
-    kept_direct: keptQuestion('rewrite_direct'),
-    kept_shorter: keptQuestion('rewrite_shorter'),
-    ...ruleQuestions('rewrite_practice', 'practice'),
+    ...Object.fromEntries(kinds.map((kind) => [`kept_${kind}`, keptQuestion(`rewrite_${kind}`)])),
+    ...(read ? ruleQuestions(`rewrite_${read}`, 'read') : {}),
   })
   return {
-    kept: {
-      practice: noulOf(answers, 'kept_practice'),
-      direct: noulOf(answers, 'kept_direct'),
-      shorter: noulOf(answers, 'kept_shorter'),
-    },
-    practice: judgmentOf(answers, 'practice'),
+    kept: Object.fromEntries(kinds.map((kind) => [kind, noulOf(answers, `kept_${kind}`)])),
+    judgment: read ? judgmentOf(answers, 'read') : null,
   }
 }
 

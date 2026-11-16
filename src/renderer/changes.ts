@@ -45,6 +45,19 @@ export const unsavedFiles = (
   drafts: Record<string, { text: string }>,
 ): string[] => Object.keys(drafts).filter((path) => !files || drafts[path]?.text !== files[path])
 
+/**
+ * The files that read otherwise than a version's copy of them, as the reader
+ * sees them: unsaved text counts, and a file the version does not hold was
+ * added since. A file only the version holds cannot be opened, so it is not
+ * listed. In the order given.
+ */
+export const changedSince = (
+  kept: Record<string, string>,
+  files: Record<string, string>,
+  drafts: Record<string, { text: string }>,
+  paths: readonly string[],
+): string[] => paths.filter((path) => (drafts[path]?.text ?? files[path]) !== kept[path])
+
 /** The row opens to a diff: there is a saved file to read, and the change differs from what the reader sees. */
 export const showsDiff = (standing: FileStanding): boolean =>
   standing.before !== undefined && !fileDone(standing) && shownText(standing) !== standing.text
@@ -164,5 +177,5 @@ export function versionDetail(
   saved: SkillVersion | undefined,
 ): string {
   if (saved) return `Version ${saved.version}`
-  return versions ? `Saves the files as ${versions.current.version}` : 'A version of the files'
+  return versions ? `Keeps the files as ${versions.current.version}` : 'A version of the files'
 }

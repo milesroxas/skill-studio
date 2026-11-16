@@ -187,7 +187,18 @@ One quiet line about it
 
 Rows are 36px at the least, 6px above and below their text, 2px apart. Pointing at a row tints it at half the open row's fill, so pointing never reads as opening, and the tint fades in over 150ms. The open row takes the full `accent` fill at once: a click or an arrow key moves it, and it must keep up. A score chip on the open row takes a hairline edge, since a grey chip on the grey fill would vanish.
 
-A row that joins the list while the reader watches (a case saved for the first time or duplicated, a new version, a case's first output) fades in with `animate-ink`, by `useArrivals` in `motion.ts`. The rows there when the list opens rest. An unsaved dot that comes while the reader types stamps in (`Dot stamp`), and a score that changes in view, as a run is graded, comes up a few pixels (`animate-tick`). With movement reduced, none of it moves.
+A row that joins the list while the reader watches (a case saved for the first time or duplicated, a new version, the row of edits, a case's first output) fades in with `animate-ink`, by `useArrivals` in `motion.ts`. The rows there when the list opens rest. An unsaved dot that comes while the reader types stamps in (`Dot stamp`), and a score that changes in view, as a run is graded, comes up a few pixels (`animate-tick`). With movement reduced, none of it moves.
+
+### Versions and edits
+
+A version exists once a run has kept it, and only then has a number on the page. Save writes a file and makes no version, so the page never says a version is "saved": a run **keeps** one, and so does the Assistant's **Keep**.
+
+- Files saved since the newest version are a row of their own at the top of the versions list: "Edited since v1", with "Not run yet" under it (`editedSince` in `model.ts`). Its title carries the unsaved dot while a file holds unsaved text, since a run tests the files as saved. It opens the file's Changes, in the open file when that has changes, else in the first file that has some (`changedSince` in `changes.ts`). It is the open row while Changes shows.
+- The row comes with the save that first parts the files from the newest version, fading in as any row that joins a list. After the run, the new version's row arrives where it stood.
+- Typing alone adds no row: nothing in the list moves on a keystroke. The file's own dot says it is unsaved.
+- The line under the skill's name in the sidebar says the same: the version, its name and its score while the files are that version, "Edited since v1" once they were saved since, "Not run yet" before the first version (`versionLine`). When it changes under the reader, the new line comes up a few pixels (`animate-tick`, by `useChangedInPlace`); the line a skill opens with rests.
+- The number the next run will take stands only on **Run v2** and in its panel, where it is a promise.
+- In Changes, "Changes since" is followed by the version alone. While the file holds unsaved text it is a switch between the version and **The last save**. The line is as tall as the switch either way, so nothing under it moves when the switch comes or goes.
 
 ### The file tree
 
@@ -329,6 +340,8 @@ Does the whole screen have nothing to show?
 | `field` | the list under a `ComboBox`: as wide as its field |
 | `selection` | the row of actions over a selection in the editor: as wide as its buttons, no focus of its own |
 
+A `compose` or `compose-wide` popover is never taller than the room on its side of what it opened from: past that it scrolls, or its `scroll` section does, so it never runs off a small window.
+
 A menu of actions is not a popover: it is `MenuContent` (`components/ui/menu.tsx`), drawn by `RowActions`, `MoreActions` and `ContextActions` ([buttons.md](buttons.md#menus-and-right-click)). It shares the popover's sheet, motion and row look (`ui/floating.ts`).
 
 Inside one: `PopoverSection` with `pad="rows"` (rows to pick from, the default) or `pad="text"`, and `scroll` for a list that may outgrow 320px; `PopoverAction` is a row that does something (an icon, what it does, its shortcut); `PopoverLabel` names a section. A `HoverCardContent` (`ui/hover-card.tsx`) is `default` (360px) or `note` (one word and what it means, `xs`), with `HoverCardSection part="head" | "body" | "foot"`.
@@ -350,15 +363,27 @@ It also opens over a word the writing checks underlined:
 - A popout a selection opened stays, and the pointer on a word does not replace it.
 - While it is open, the words take the warning tint, 10% (20% in the dark), fading in and out over 150ms.
 
+Auto refine (`Refine.tsx`) is in one of three states once the checks have answered, and only these:
+
+| State | When | What it shows |
+| --- | --- | --- |
+| nothing to fix | the checks found nothing they are sure of | one line that says so, what is "Worth a look", and Help me improve (`outline`) |
+| not the wording | every sure finding is one new words cannot fix: a line that changes nothing, a rule for another skill, a long file | the findings under "What drifts", "New words will not fix this." and Help me improve (`outline`) |
+| a revision | new words can fix a finding | the findings, then the revision as a diff, with Discard and Replace |
+
+- A revision is read by the checks before it is shown. When it still leaves one open, a `Hint` under the diff says what it needs ("Still needs a reason. Help me improve asks you for it."), and Help me improve (`ghost`) joins Discard and Replace.
+
 Suggest changes (`Rewrites.tsx`):
 
 - Its three cards show from the first frame, each with its label, what it does and its number key, and "Writing…" in place of the text, so the popout does not jump when the rewrites land.
-- Each card is pickable unless it is the selection again. Jev's verdicts are lines on the card (`warning` for a dropped fact), never a lock.
-- A footer says what is happening on the left, and holds Stop, or Try again, on the right.
+- The first two are always Best practice and More direct. The third is Shorter, or Split up for one rule that asks for several things (`kindsFor`), known from the selection before anything is asked.
+- A card offers only what its label holds. One with nothing to pick says why in place of its text, `muted`, at 70%: "Nothing to cut. Every word here does work.", "Nothing to split. Its parts only hold together.", "Same as the selection."
+- Under an offered rewrite, each on a line of its own in `xs`: what code counted (`muted`, tabular: "24 words, 14 fewer", "3 rules"), "May drop a fact. Read it before you replace." (`warning`), and what Best practice could not supply ("Still needs a reason. Help me improve asks you for it.", `muted`). None is a lock.
+- A footer says what is happening on the left, and holds Stop, or Try again, on the right. Help me improve (`ghost`) stands before Try again while a rewrite still needs something.
 - Once the rewrites are in, the first pickable card takes focus: 1 to 3 pick, the arrows walk the cards.
 - Closing the popout stops a run still writing.
 
-A picked rewrite closes the popout, tints the new text in the editor for 1.4s (`editor/landed.ts`), and reports "Replaced the selection." with Undo on the status line. Auto refine's Replace and Help me improve's Apply take the same path. Apply leaves the focus in the panel and reports "Applied the draft to rule 03." (or "Applied the draft." when the text is not one whole rule).
+A picked rewrite closes the popout, tints the new text in the editor for 1.4s (`editor/landed.ts`), and reports "Replaced the selection." with Undo on the status line. Auto refine's Replace and Help me improve's Apply take the same path. Apply leaves the focus in the panel and reports "Applied the draft to rule 03." (or "Applied the draft." when the text is not one whole rule). When one rule became several, by any of the three, the line says so in their place: "Split rule 04 into 3 rules." Each new rule takes its own number at once.
 
 ## Spacing
 

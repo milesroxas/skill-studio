@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { Verdict } from './pack.ts'
-import { mostlyBroken, ruleRates } from './rule-rate.ts'
+import { mostlyBroken, newestRates, ruleRates } from './rule-rate.ts'
 
 const rule = (text: string, met: boolean, aside?: Verdict['aside']): Verdict =>
   ({
@@ -44,6 +44,21 @@ describe('ruleRates', () => {
       { total: 0, verdicts: [check, rule('Be brief.', false), rule('Be brief.', false)] },
     ])
     expect([...rates]).toEqual([['Be brief.', { followed: 0, broken: 1 }]])
+  })
+})
+
+describe('newestRates', () => {
+  it('reads each rule on the newest version that counted it', () => {
+    const v1 = new Map([
+      ['Be brief.', { followed: 0, broken: 4 }],
+      ['Ask first.', { followed: 1, broken: 2 }],
+    ])
+    const v2 = new Map([['Be brief.', { followed: 3, broken: 0 }]])
+    const rates = newestRates([v1, v2])
+    // Broken on v1, followed on v2: the fix shows. A rule v2 did not run keeps v1's count.
+    expect(rates.get('Be brief.')).toEqual({ followed: 3, broken: 0 })
+    expect(rates.get('Ask first.')).toEqual({ followed: 1, broken: 2 })
+    expect(newestRates([]).size).toBe(0)
   })
 })
 
