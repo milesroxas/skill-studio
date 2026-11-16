@@ -1,6 +1,6 @@
 # Design system
 
-Skill Studio looks like a print proof: ink on porcelain stock, hairline rules, one fluorescent mark for what is live. The sidebar is the app icon's ink ground and the page is the paper it prints on. Color says only two things: how something stands (green works or passes, amber needs action, red is broken or failing) and what is running or next (yellow).
+Skill Studio looks like a print proof: ink on porcelain stock, hairline rules, one fluorescent mark for what is live. The sidebar is the app icon's ink ground and the page is the paper it prints on. Color says only two things: how something stands (green works or passes, amber needs action, red is broken or failing) and what is running or next (yellow). The one exception is a code block in a skill, whose code has two hues of its own ([data.md](data.md)).
 
 Read this file before any change to `src/renderer`. Then read only the topic files your task touches.
 

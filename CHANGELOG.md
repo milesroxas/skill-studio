@@ -13,6 +13,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Changed
 
+- Code in a code block is colored: the language's own words, such as `const` or `return`, are violet, values such as text in quotes and numbers are blue, and comments are grey. This works for JavaScript, TypeScript, CSS, HTML, JSON, Python, YAML and shell commands.
 - **Changes**, on the Skill screen, shows what changed since the last version, so it is no longer empty after a save. While the file has unsaved text, **The last save** beside it shows only that.
 - After you save an edit, **Edited since v1** stands over the versions on the Skill screen and under the skill's name. Click it to see what changed. Before, the app showed "v2 · not run yet", as if saving had made v2: a version is made by a run.
 - The app says a run **keeps** a version, and the Assistant's button for one is **Keep**. **Save** is only for a file.
@@ -27,6 +28,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Fixed
 
+- A table in a skill shows as a table in **Formatted**. Before, it showed its bars and dashes. Click a cell to edit it as text.
+- A code block in **Formatted** no longer shows its ``` lines until you click in it. Its language, such as "css", stays as a small label over the code.
 - **Best practice** no longer says "Still misses" for points Jev was not sure of, or for ones no rewrite can fix. The same goes for "Misses a point of the guide" under a draft in **Help me improve**.
 - **Suggest changes** no longer warns "May drop a fact" on a rewrite that only adds a number or a reason to the rule.
 - A long rule that asks for one thing is no longer marked as asking for several because of the commas in its reason.

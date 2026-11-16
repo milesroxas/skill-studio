@@ -33,6 +33,20 @@ export const markdownHighlighting = syntaxHighlighting(
     { tag: tags.strikethrough, class: 'tok-strike' },
     { tag: [tags.link, tags.url], class: 'tok-link' },
     { tag: tags.monospace, class: 'tok-code' },
+    // Inside a code block: the language's own words, and the values written in it.
+    { tag: [tags.keyword, tags.tagName], class: 'tok-keyword' },
+    {
+      tag: [
+        tags.string,
+        tags.number,
+        tags.bool,
+        tags.null,
+        tags.atom,
+        tags.color,
+        tags.attributeValue,
+      ],
+      class: 'tok-value',
+    },
     {
       tag: [
         tags.processingInstruction,
@@ -132,6 +146,10 @@ export const editorTheme = EditorView.theme({
   '.tok-link': { color: 'var(--muted-foreground)' },
   '.tok-mark': { color: 'var(--muted-foreground)', fontWeight: '400', fontStyle: 'normal' },
   '.cm-md-key': { color: 'var(--foreground)' },
+  // Code has two hues of its own, kept off the ones that say how something stands (color.md):
+  // violet for the language's words, blue for values. Comments are quieter (`tok-mark`).
+  '.tok-keyword': { color: 'var(--code-keyword)' },
+  '.tok-value': { color: 'var(--code-value)' },
 
   // Formatted view. Headings, quotes and lists read as a page, not as source.
   // The same steps as an output's headings (.doc in styles.css): 21, 18 and 16px over 15.
@@ -201,4 +219,21 @@ export const editorTheme = EditorView.theme({
   '.cm-line:is(.cm-md-codeblock-start, .cm-md-frontmatter-start)': { paddingTop: '6px' },
   '.cm-line:is(.cm-md-codeblock-end, .cm-md-frontmatter-end)': { paddingBottom: '6px' },
   '.cm-md-fence': { color: 'var(--muted-foreground)' },
+  // A block's language, where its opening ``` was: a caption over the code, at the `xs` step.
+  '.cm-line.cm-md-codeblock.cm-md-fence-label': { fontSize: '0.8em' },
+  // A ``` line with nothing else on it and the cursor elsewhere: no text, only the band's 6px edge.
+  '.cm-line.cm-md-codeblock.cm-md-fence-folded': { fontSize: '0', lineHeight: '0' },
+  // A table drawn as one, with the lines of a table in an output (`.doc table` in styles.css).
+  '.cm-md-tablewrap': { padding: `4px ${GUTTER}`, overflowX: 'auto' },
+  '.cm-md-tableview': { borderCollapse: 'collapse', fontSize: '0.8667em', lineHeight: '1.5' },
+  '.cm-md-tableview :is(th, td)': {
+    border: '1px solid var(--input)',
+    padding: '4px 8px',
+    textAlign: 'left',
+    verticalAlign: 'top',
+  },
+  '.cm-md-tableview td': { fontWeight: '400' },
+  '.cm-md-tableview th': { fontWeight: '600' },
+  '.cm-md-tableview :is(th, td).cm-md-center': { textAlign: 'center' },
+  '.cm-md-tableview :is(th, td).cm-md-right': { textAlign: 'right' },
 })

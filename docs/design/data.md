@@ -58,6 +58,10 @@ Rules:
 - An opened run says under its grading line how many of its outputs' rules and checks Jev was not sure of, when he was not sure of some (`asideLine`).
 - The runs, with what they answered, their time, cost and average, are a second table under it, the newest first and the runs without the skill last, whose rows open the run. It shows the newest 5 and "Show all 30 runs".
 
+A table written in a skill's Markdown is not a `Table`: it is the writer's own text. The formatted editor draws it (`editor/tables.ts`, styled in `editor/theme.ts`) with the lines of a table in an output (`.doc table` in `styles.css`): `text-ui`, a 1px `--input` line around every cell, 4px by 8px inside, the head at weight 600. It keeps the side the Markdown names for a column, centered included. With the cursor in it, it shows as its Markdown rows in mono. A code block's ``` lines fold into the 6px edge of its `--muted` band the same way, until the cursor is in the block. A language named on the opening line stays as the block's label: the name as written, mono at the `xs` step in `--muted-foreground`, on a line of its own over the code, at the text's left edge.
+
+Code in a block is colored, in both views: keywords and tag names in `--code-keyword`, strings, numbers and other values in `--code-value`, comments in `--muted-foreground`, everything else in text color (`tok-keyword`, `tok-value` and `tok-mark` in `editor/theme.ts`). A code block is the one surface with hues of its own: it holds the writer's code, not the app's words. They are violet and blue only, and stay off green, amber, red and yellow, which say how something stands. Never use the two tokens outside a code block. The languages read are the ones named in `CODE` in `editor/language.ts`; a block in any other is plain text.
+
 ## Scores
 
 A score is out of 100 and always shows through one of these, from `components/Scores.tsx`:

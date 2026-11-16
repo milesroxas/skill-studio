@@ -16,6 +16,7 @@ import {
   WidgetType,
 } from '@codemirror/view'
 import { ruleBulletAt, ruleNumbersChanged } from './graded.ts'
+import { drawnTables, INLINE, INLINE_MARKS, tableDrawn } from './tables.ts'
 
 const hide = Decoration.replace({})
 const marks = new Map<string, Decoration>()
@@ -72,14 +73,6 @@ const UNCHECKED = Decoration.replace({ widget: new Checkbox(false) })
 
 const ATX = /^ATXHeading([1-6])$/
 const SETEXT = /^SetextHeading([12])$/
-const INLINE: Record<string, string> = {
-  StrongEmphasis: 'cm-md-strong',
-  Emphasis: 'cm-md-em',
-  Strikethrough: 'cm-md-strike',
-  InlineCode: 'cm-md-code',
-}
-/** Marks that belong to an inline style and hide with it. */
-const INLINE_MARKS = new Set(['EmphasisMark', 'StrikethroughMark', 'CodeMark'])
 
 function decorate(view: EditorView): DecorationSet {
   const { state } = view
@@ -87,6 +80,12 @@ function decorate(view: EditorView): DecorationSet {
   const ranges = view.hasFocus ? state.selection.ranges : []
   /** Reveal syntax only where the cursor is, and nowhere while the editor is not focused. */
   const touches = (from: number, to: number) => ranges.some((r) => r.from <= to && r.to >= from)
+  /**
+   * The same, whether or not the editor has focus. For marks that take a line of their own:
+   * hiding one moves the text under it, which must not happen as focus leaves for a button.
+   */
+  const holdsCursor = (from: number, to: number) =>
+    state.selection.ranges.some((r) => r.from <= to && r.to >= from)
   const onLines = (from: number, to: number) => touches(doc.lineAt(from).from, doc.lineAt(to).to)
   const out: Range<Decoration>[] = []
   const { from: top, to: bottom } = view.viewport
@@ -186,12 +185,31 @@ function decorate(view: EditorView): DecorationSet {
           if (!touches(from, to)) out.push((checked ? CHECKED : UNCHECKED).range(from, to))
           return
         }
-        case 'FencedCode':
+        case 'FencedCode': {
+          block(from, to, 'cm-md-codeblock')
+          if (holdsCursor(from, to)) return
+          const info = node.node.getChild('CodeInfo')
+          if (info) out.push(mark('cm-md-fence').range(info.from, info.to))
+          // The code is its own language's (`language.ts`): none of it is Markdown to style here.
+          if (holdsCursor(from, to)) return false
+          // Until the cursor is in the block, its ``` lines fold into the band's top and bottom
+          // edge, and a language named on the first stays as the block's label.
+          const [open, close] = node.node.getChildren('CodeMark')
+          const fold = (at: number, end: number, label: boolean) => {
+            const fence = doc.lineAt(at)
+            // A fence that shares its line with a list or quote mark stays: the mark must show.
+            if (/\S/.test(doc.sliceString(fence.from, at))) return
+            out.push(line(label ? 'cm-md-fence-label' : 'cm-md-fence-folded').range(fence.from))
+            out.push(hide.range(at, end))
+          }
+          if (open && info) fold(open.from, info.from, true)
+          else if (open) fold(open.from, doc.lineAt(open.from).to, false)
+          if (open && close && doc.lineAt(close.from).number > doc.lineAt(open.from).number)
+            fold(close.from, close.to, false)
+          return false
+        }
         case 'CodeBlock':
           block(from, to, 'cm-md-codeblock')
-          return
-        case 'CodeInfo':
-          out.push(mark('cm-md-fence').range(from, to))
           return
         case 'HorizontalRule':
           if (!onLines(from, to)) {
@@ -211,7 +229,8 @@ function decorate(view: EditorView): DecorationSet {
           return false
         }
         case 'Table':
-          block(from, to, 'cm-md-table')
+          // Drawn as a table (`tables.ts`) until the cursor is in it; then its rows as written.
+          if (!tableDrawn(state, node.node)) block(from, to, 'cm-md-table')
           return false
         default:
           return
@@ -241,6 +260,7 @@ class LivePreview {
 
 /** Formatted editing. Leave it out for the plain Markdown view. */
 export const livePreview = [
+  drawnTables,
   ViewPlugin.fromClass(LivePreview, { decorations: (plugin) => plugin.decorations }),
   EditorView.editorAttributes.of({ class: 'cm-md-live' }),
 ]
