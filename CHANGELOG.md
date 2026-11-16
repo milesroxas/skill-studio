@@ -6,6 +6,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [0.16.0] - 2026-11-15
+
 ### Added
 
 - The Skill screen lists every file of the skill, not only SKILL.md and its references: scripts, other Markdown files and anything else the skill holds. Each text file can be edited. A picture or another file that is not text is listed and can be deleted.
