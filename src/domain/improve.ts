@@ -129,7 +129,6 @@ const NEEDS: Record<string, string> = {
   why: 'a reason',
   strict: 'a number, or an always or never',
   complexity: 'one thing to a rule',
-  length: 'its spare words cut',
 }
 
 /**

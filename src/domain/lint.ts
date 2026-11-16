@@ -233,7 +233,7 @@ const WORDY: ReadonlyArray<readonly [string, string]> = [
  * Where a rule's own sentence turns to its why. Narrower than `REASON`: a
  * colon may open the list of things asked, and "or a" may be its last item.
  */
-const WHY_FOLLOWS = /\b(?:because|so that|since|otherwise|which means|or else)\b|, so\b/i
+const WHY_FOLLOWS = /\b(?:because|so that|since|which means)\b|, so\b/i
 
 /** Where one condition ends and the next begins. A list of things, "a, b and c", is not conditions. */
 const CONDITION = /\b(?:or|unless|if|when|while|except|but|otherwise)\b/gi
@@ -319,8 +319,13 @@ const FILLER_PATTERNS = wordPatterns(FILLERS)
 const WORDY_PATTERNS = wordPatterns(WORDY.map(([phrase]) => phrase))
 const exactFor = (phrase: string): string => WORDY.find(([wordy]) => wordy === phrase)?.[1] ?? ''
 
-/** `text` in lower case with what stands in quotes taken out: a quoted word is mentioned, not used. */
-const used = (text: string): string => text.toLowerCase().replace(/["“”][^"“”]*["“”]/g, ' ')
+/**
+ * `text` in lower case with what stands in quotes or in a code span taken out:
+ * a quoted word is mentioned, not used. A single quote opens only where no
+ * letter stands before it, so the apostrophe of "don't" opens nothing.
+ */
+const used = (text: string): string =>
+  text.toLowerCase().replace(/["“”][^"“”]*["“”]|`[^`]*`|‘[^‘’]*’|(?<![\w'])'[^']*'(?!\w)/g, ' ')
 
 const firstMatch = (patterns: Array<[string, RegExp]>, text: string): string | null =>
   patterns.find(([, pattern]) => pattern.test(text))?.[0] ?? null
@@ -402,7 +407,9 @@ function sizeFindings(raw: string, text: string): Finding[] {
   // What the rule asks, without the why that follows it in the same sentence: a reason's own
   // commas and conditions are not things asked. Then the main clause and one more per condition
   // word, so "or when" counts both.
-  const rule = (sentences(text)[0] ?? text).split(WHY_FOLLOWS)[0] ?? ''
+  // A rule that opens with its why has nothing before it: then the whole sentence is counted.
+  const sentence = sentences(text)[0] ?? text
+  const rule = sentence.split(WHY_FOLLOWS)[0]?.trim() || sentence
   const clauses = (rule.match(CONDITION) ?? []).length + 1
   if (clauses > CLAUSES_MAX)
     out.push(
@@ -423,7 +430,8 @@ function sizeFindings(raw: string, text: string): Finding[] {
     )
 
   // Anywhere in the bullet, the why included: a filler phrase does no more work there.
-  const words = used(text)
+  // Read from the bullet as written, where a word the rule only names still stands in its code span.
+  const words = used(raw)
   const filler = firstMatch(FILLER_PATTERNS, words)
   if (filler)
     out.push(found('length', null, `“${filler}” adds words and changes nothing. Cut it.`, filler))

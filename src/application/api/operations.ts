@@ -811,7 +811,7 @@ export function createOperations(options: OperationsOptions): Runners {
       const { current } = versionsOf(skill.path)
       if (current.changed && !input.force)
         throw new Error(
-          `The skill's files are not saved as a version. Save them as ${current.version} first, or restore anyway.`,
+          `The skill's files are in no version yet. Run the cases to keep them as ${current.version} first, or restore anyway.`,
         )
       // A copy that holds all of the version puts all of it back; one that does not leaves the rest alone.
       const copy = versionCopy(skill.path, input.version)

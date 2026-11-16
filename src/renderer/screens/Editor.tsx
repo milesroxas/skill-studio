@@ -319,7 +319,9 @@ export const Editor = memo(function Editor({ ctx }: { ctx: Ctx }) {
    * changes, else in the first file that has some.
    */
   const openEdits = () => {
-    const changed = kept.data ? changedSince(kept.data.files, files, edits, paths) : []
+    // A version that kept only the skill's own files says nothing of the others.
+    const held = newestVersion?.partial ? paths.filter(isCorePath) : paths
+    const changed = kept.data ? changedSince(kept.data.files, files, edits, held) : []
     const target = changed.includes(file) || !changed.length ? file : changed[0]
     setSince('version')
     setShowDiff(true)
@@ -912,8 +914,9 @@ export const Editor = memo(function Editor({ ctx }: { ctx: Ctx }) {
                   ) : diff.length ? (
                     <DiffLines lines={diff} />
                   ) : against === 'version' ? (
-                    <Hint>No changes since {base}.</Hint>
-                  ) : base ? (
+                    // Another file may have: one deleted, or a picture replaced, shows in no file's lines.
+                    <Hint>No changes in this file since {base}.</Hint>
+                  ) : newestVersion ? (
                     <Hint>No changes since the last save.</Hint>
                   ) : (
                     <Hint>

@@ -186,6 +186,10 @@ class TableWidget extends WidgetType {
  */
 export function tableDrawn(state: EditorState, table: SyntaxNode): boolean {
   if (table.parent?.name !== 'Document') return false
+  // A drawn table takes whole lines: one indented under its line's start stays as text.
+  const { doc } = state
+  if (doc.lineAt(table.from).from !== table.from || doc.lineAt(table.to).to !== table.to)
+    return false
   return !state.selection.ranges.some((r) => r.from <= table.to && r.to >= table.from)
 }
 

@@ -309,3 +309,34 @@ describe('a word in the verb’s place', () => {
     expect(lintScene(scene(rule)).map((f) => f.dimension)).toContain('complexity')
   })
 })
+
+describe('reasons and named words', () => {
+  const messages = (rule: string) => lintRule(rule).map((f) => f.message)
+
+  it('counts the branches of a rule that says otherwise', () => {
+    const rule =
+      '- If the user asks for a table, write one; otherwise write a list, or when there is one item, a sentence, unless they said plain text, because tables cost room.'
+    expect(messages(rule).some((m) => /holds \d+ conditions/.test(m))).toBe(true)
+  })
+
+  it('counts what a rule asks when it opens with its reason', () => {
+    const rule =
+      '- Because readers skim, keep the title, the lede, the summary, the byline, the date and the tags on one screen.'
+    expect(messages(rule).some((m) => m.includes('several things'))).toBe(true)
+  })
+
+  it('does not mark a word the rule only names', () => {
+    for (const rule of [
+      '- Never write `please` or `basically` in a reply because they add nothing.',
+      "- Never write 'please' in a reply because it adds nothing to it.",
+      '- Never write ‘please’ in a reply because it adds nothing to it.',
+    ])
+      expect(messages(rule).filter((m) => m.includes('adds words'))).toEqual([])
+  })
+
+  it('still marks a filler word a rule with an apostrophe uses', () => {
+    const rule =
+      "- Don't answer before the user's file is read, and please keep it short because they skim."
+    expect(messages(rule).some((m) => m.includes('adds words'))).toBe(true)
+  })
+})
