@@ -6,6 +6,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [0.17.0] - 2026-11-16
+
 ### Added
 
 - **Split up**, among the three rewrites of **Suggest changes**, for a rule that asks for several things: one rule for each, each with its reason. It takes the place of **Shorter** on such a rule, where fewer words would not fix it. The status line says "Split rule 04 into 3 rules.", and each new rule takes its own number.
@@ -30,6 +32,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 - A table in a skill shows as a table in **Formatted**. Before, it showed its bars and dashes. Click a cell to edit it as text.
 - A code block in **Formatted** no longer shows its ``` lines until you click in it. Its language, such as "css", stays as a small label over the code.
+- A rule that says "otherwise", or that opens with its reason, is again marked when it holds too many conditions or asks for several things.
+- A word a rule only names, in single quotes or as code, is no longer marked as a spare word. So a rule such as "Never write `please`" keeps no amber number for it.
+- **Changes** says "No changes in this file since v1" when the open file is the same and another file was deleted or replaced. Before, it said nothing had changed.
+- **Edited since v1** no longer opens a file that the last version did not keep.
 - **Best practice** no longer says "Still misses" for points Jev was not sure of, or for ones no rewrite can fix. The same goes for "Misses a point of the guide" under a draft in **Help me improve**.
 - **Suggest changes** no longer warns "May drop a fact" on a rewrite that only adds a number or a reason to the rule.
 - A long rule that asks for one thing is no longer marked as asking for several because of the commas in its reason.

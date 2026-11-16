@@ -101,6 +101,7 @@ Write the skill in the editor, then click **Save** (Cmd+S). Your unsaved text is
 - **Rules are bullets.** Each bullet of four words or more gets a number, such as 01, and Jev grades it. A bullet that keeps its dot is not graded: point at it to see why. A skill written only as numbered steps has its steps graded instead.
 - **An amber number** means the rule could be clearer. Click it to see why and to get help. It goes as soon as you fix what it names. A rule can be as long as it needs to be.
 - **A red number** means most answers broke the rule the last time it ran. Point at any number to see how many answers broke it. Run the cases again after a fix to see it change.
+- **Formatted** shows a table as a table and colors the code in a code block. Click a table or a code block to edit it as text.
 - **Changes**, at the top right, shows what you changed since the last version. While the file has unsaved text, click **The last save** there to see only that.
 - **Files**, on the left, lists every file of the skill: SKILL.md, its references, its scripts and anything else it holds. Click one to edit it. A picture, or another file that is not text, is listed and cannot be opened.
 - **Add a file** and **Add a folder**, the two buttons beside Files, add one next to the file that is open: in its folder, or beside SKILL.md. Type its name where it appears in the list and press Enter. A name with no ending, such as `voice`, becomes `voice.md`.
