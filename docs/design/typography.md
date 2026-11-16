@@ -111,7 +111,7 @@ A number in a sentence stays in sans, and so does a live count under a field ("4
 
 ## Display type
 
-Large type carries its own negative tracking from the scale (`lg` and up). Do not add `tracking-tight`: `AlertTitle` in `ui/alert.tsx` is the one place that carries it, from shadcn. Do not set a line height on a heading: the step sets it. Text that wraps to two or more lines in a heading uses `text-balance`, which `Heading` already has; a paragraph uses `text-pretty`.
+Large type carries its own negative tracking from the scale (`lg` and up). Do not add `tracking-tight`: small text is set at the font's own spacing. Do not set a line height on a heading: the step sets it. Text that wraps to two or more lines in a heading uses `text-balance`, which `Heading` already has; a paragraph uses `text-pretty`.
 
 ## Geist, not the kit's Inter
 

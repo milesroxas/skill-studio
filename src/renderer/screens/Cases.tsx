@@ -73,7 +73,7 @@ import { Segmented } from '../components/Segmented.tsx'
 import { ExampleList, GuideBox, PairList } from '../components/starters.tsx'
 import { TextArea } from '../components/TextArea.tsx'
 import { Code, Heading, Hint, Text } from '../components/text.tsx'
-import { Alert, AlertDescription, AlertTitle } from '../components/ui/alert.tsx'
+import { Alert, AlertAction, AlertDescription, AlertTitle } from '../components/ui/alert.tsx'
 import { Button } from '../components/ui/button.tsx'
 import { Input } from '../components/ui/input.tsx'
 import { Label } from '../components/ui/label.tsx'
@@ -479,25 +479,25 @@ export const Cases = memo(function Cases({ ctx }: { ctx: Ctx }) {
           <AlertTitle>{savedName} was changed outside the app while you were editing</AlertTitle>
           <AlertDescription>
             <p>Keep your edits to save over that change, or take the changed case.</p>
-            <Toolbar>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => drafts.baseCase(key, savedAt)}
-              >
-                Keep my edits
-              </Button>
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                onClick={() => drafts.setCase(key, null)}
-              >
-                Take the changed case
-              </Button>
-            </Toolbar>
           </AlertDescription>
+          <AlertAction>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => drafts.baseCase(key, savedAt)}
+            >
+              Keep my edits
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => drafts.setCase(key, null)}
+            >
+              Take the changed case
+            </Button>
+          </AlertAction>
         </Alert>
       ) : null}
       {selected?.source === 'evals.json' ? (

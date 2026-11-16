@@ -68,7 +68,7 @@ import { ListScore } from '../components/Scores.tsx'
 import { Segmented } from '../components/Segmented.tsx'
 import { GuideBox, GuideList, PairList, Starter } from '../components/starters.tsx'
 import { Code, Hint, Text } from '../components/text.tsx'
-import { Alert, AlertDescription, AlertTitle } from '../components/ui/alert.tsx'
+import { Alert, AlertAction, AlertDescription, AlertTitle } from '../components/ui/alert.tsx'
 import { Button } from '../components/ui/button.tsx'
 import { VersionDetail } from '../components/VersionDetail.tsx'
 import type { Ctx } from '../ctx.ts'
@@ -511,28 +511,28 @@ export const Editor = memo(function Editor({ ctx }: { ctx: Ctx }) {
                   ? 'Keep your edits to save them as a new file, or discard them.'
                   : 'Keep your edits to save over that change, or take the changed file.'}
               </p>
-              <Toolbar>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => draft && drafts.setFile(file, { ...draft, previous: saved })}
-                >
-                  Keep my edits
-                </Button>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => {
-                    drop(file)
-                    if (gone) go('editor', {}, { replace: true })
-                  }}
-                >
-                  {gone ? 'Discard my edits' : 'Take the changed file'}
-                </Button>
-              </Toolbar>
             </AlertDescription>
+            <AlertAction>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => draft && drafts.setFile(file, { ...draft, previous: saved })}
+              >
+                Keep my edits
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  drop(file)
+                  if (gone) go('editor', {}, { replace: true })
+                }}
+              >
+                {gone ? 'Discard my edits' : 'Take the changed file'}
+              </Button>
+            </AlertAction>
           </Alert>
         ) : null}
         {missing.length ? (
@@ -558,12 +558,12 @@ export const Editor = memo(function Editor({ ctx }: { ctx: Ctx }) {
                 Quotes around {quotes.keys.length === 1 ? 'it' : 'them'} keep{' '}
                 {quotes.keys.length === 1 ? 'it' : 'them'} whole wherever the skill is used.
               </p>
-              <Toolbar>
-                <Button type="button" variant="outline" size="sm" onClick={() => edit(quotes.text)}>
-                  Add quotes
-                </Button>
-              </Toolbar>
             </AlertDescription>
+            <AlertAction>
+              <Button type="button" variant="outline" size="sm" onClick={() => edit(quotes.text)}>
+                Add quotes
+              </Button>
+            </AlertAction>
           </Alert>
         ) : null}
         {head.map((problem) => (

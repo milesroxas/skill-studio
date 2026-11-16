@@ -198,11 +198,13 @@ report(e.message)
 - `{ stays: true }` keeps a fact on the line the same way, with the plain dot and Dismiss. It is for news that ends on its own time and is easy to miss: the one use is an update ready to install (`updates.ts`).
 - A long message truncates; its whole text is the line's `title`.
 
-The dot is `Dot` from `components/Status.tsx`, the one dot in the app. `Status`, the jobs line, and the unsaved mark of a `NavItem` and a `NavButtonTitle` use it too, so a color means the same thing wherever it is read: `signal` runs, `success` works, `warning` needs the reader, `destructive` failed, `muted` is a fact. Its `size` is `sm` beside 12px text in the chrome and `default` beside body text.
+The dot is `Dot` from `components/Status.tsx`, the one dot in the app. `Status`, an `Alert` that states a verdict, the jobs line, and the unsaved mark of a `NavItem` and a `NavButtonTitle` use it too, so a color means the same thing wherever it is read: `signal` runs, `success` works, `warning` needs the reader, `destructive` failed, `muted` is a fact. Its `size` is `sm` beside 12px text in the chrome and `default` beside body text.
 
 ## Alert
 
-`components/ui/alert.tsx`. A message about the whole screen or section, above its content. Variants: `default`, `destructive`, `success`, `warning`, `muted`. The heading carries the color and the body stays `card-foreground`. A remark that is not a verdict is `muted`. A message about one field is a `Hint` under it, not an alert.
+`components/ui/alert.tsx`. A message about the whole screen or section, above its content. Variants: `default`, `destructive`, `success`, `warning`, `muted`. A verdict (`destructive`, `success`, `warning`) is said by the `Dot` of its tone before the heading, on the heading's first line, as `Status` says one. The words stay ink: the heading in `card-foreground` at medium weight, the body in `muted-foreground`. Never color the heading: in the dark theme an amber heading reads quieter than the body under it. A remark that is not a verdict is `muted`. A message about one field is a `Hint` under it, not an alert.
+
+What the reader can do about it goes in `AlertAction`, after `AlertDescription`, never inside it: one `outline` `sm` button, or an `outline` and a `ghost` one. When the alert is 36rem wide or more (`@xl/alert`), the actions stand at its right edge, centred on the words; narrower, they go under them. The heading wraps rather than truncate.
 
 ## Rule numbers
 
