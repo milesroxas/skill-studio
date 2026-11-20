@@ -9,6 +9,14 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 ### Added
 
 - The Assistant shows what it thought before it replied. While it thinks, the line over its reply reads "Thinking…"; once it answers, "Thought for 12s". Click the line to read it. This works with Claude Code, Codex, and an Anthropic key on Claude 5 models. No reply costs more for it.
+- Drag the line beside the sidebar, the list of cases (or the Skill screen's files) or the Assistant to make it wider or narrower. The app remembers each width.
+- Each of these can be hidden to a narrow strip by the button at its top, and shown again by a click anywhere on the strip. `Cmd+\` hides the sidebar, `Option+Cmd+\` the list, and Cmd+J the Assistant. The folded sidebar keeps an icon for each place.
+- A quick throw of a divider carries on where it was thrown, and a flick toward the edge hides the panel.
+
+### Changed
+
+- The Assistant stays on the right edge as a narrow strip when it is closed, so its button has moved there from the top bar. On a narrow window it still opens from the top bar.
+- On Windows and Linux the top of the sidebar is 48px high, the height of the top bar, to hold its hide button.
 
 ## [0.17.0] - 2026-11-16
 

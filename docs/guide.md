@@ -27,7 +27,8 @@ You do, in writing. The skill's **rules** say what the agent should always do. E
 ### Finding your way
 
 - **Sidebar:** Skill, Cases and Results for the skill you have open. Library, Guide and Settings sit at the bottom.
-- **Top right:** the **Run** button, a yellow button when there is a next step to take, the **?** that explains the screen you are on, and the Assistant.
+- **Top right:** the **Run** button, a yellow button when there is a next step to take, and the **?** that explains the screen you are on. The Assistant is the strip on the right edge.
+- **Make room:** drag the line beside the sidebar, the list of cases or the Assistant to make it wider or narrower. The button at its top hides it to a narrow strip; click the strip to show it again. `Cmd+\` hides the sidebar, `Option+Cmd+\` the list, Cmd+J the Assistant.
 - **A word with a dotted underline:** click it to see what it means.
 - **Right-click** a skill, a case, an answer or a rule to see what you can do with it.
 - **Switch skill:** click the skill's name at the top of the sidebar, or press Cmd+K.
@@ -135,7 +136,7 @@ First, connect a model in **Settings**. If you use Claude Code or Codex, it work
 - **Write with AI**, in the editor toolbar or in any text box: say what you want. Nothing changes until you click **Replace** or **Insert**.
 - **Select a rule** to get three choices: **Auto refine** fixes what is unclear, **Suggest changes** offers three rewrites, and **Help me improve** works through it with you in a chat. Nothing changes until you pick a result, and **Undo** takes it back.
 - A rule that asks for several things gets **Split up** among its rewrites: one rule for each thing, so you can see which one an answer missed.
-- **The Assistant** (top right, or Cmd+J) is a chat that reads your skill and suggests changes. You apply each one with a click. Click **Thought for 12s** over a reply to read what it thought first.
+- **The Assistant** (the strip on the right edge, or Cmd+J) is a chat that reads your skill and suggests changes. You apply each one with a click. Click **Thought for 12s** over a reply to read what it thought first.
 
 ### Versions
 

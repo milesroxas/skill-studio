@@ -866,7 +866,7 @@ export const Cases = memo(function Cases({ ctx }: { ctx: Ctx }) {
   return (
     <Workbench layout={cases.length ? 'list' : 'single'}>
       {cases.length ? (
-        <Column kind="list">
+        <Column kind="list" fold={{ panel: 'list', name: 'the case list', count: cases.length }}>
           <nav aria-label="Cases" className="contents">
             <ListHeader
               title="Cases"

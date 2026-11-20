@@ -48,9 +48,11 @@ import {
   HistoryNav,
   NavItem,
   Pane,
+  RailItem,
   Sidebar,
   SidebarBody,
   SidebarFooter,
+  SidebarRail,
   SidebarSection,
   TopBar,
   TopBarEnd,
@@ -74,6 +76,7 @@ import { back, forward, navigate, usePaneScroll, useRoute } from './history.ts'
 import { useNotice } from './hooks.ts'
 import { outputsOf, versionLine, versionScore } from './model.ts'
 import { atTarget, nextStep, screenFor } from './next-step.ts'
+import { setPanelOpen, useFoldActive, usePanel } from './panels.ts'
 import { APP_PLACES, isSkillScreen, placeFor, SKILL_PLACES, WORKBENCH } from './places.ts'
 import {
   practiceGuide,
@@ -113,20 +116,6 @@ const SettingsScreen = lazy(() =>
   import('./screens/Settings.tsx').then((m) => ({ default: m.SettingsScreen })),
 )
 
-const ASSISTANT_KEY = 'skill-studio.assistant'
-
-/** Whether the assistant's panel is open, remembered across reloads, and its shortcut (⌘J) to toggle it. */
-function useAssistant(): [boolean, (open: boolean) => void] {
-  const [open, setOpen] = useState(() => localStorage.getItem(ASSISTANT_KEY) === 'open')
-  const set = useCallback((next: boolean) => {
-    setOpen(next)
-    if (next) localStorage.setItem(ASSISTANT_KEY, 'open')
-    else localStorage.removeItem(ASSISTANT_KEY)
-  }, [])
-  useShortcut('assistant.toggle', () => set(!open))
-  return [open, set]
-}
-
 /** Status beside each place, from the loaded skill. */
 interface PlaceStatus {
   meta: Record<string, string | null>
@@ -151,7 +140,10 @@ export function App() {
   const { state, config, error, reload, files } = useSkillState(skillPath, report)
   const jobs = useJobs(reload)
   const [confirm, confirmDialog] = useConfirm()
-  const [assistant, setAssistant] = useAssistant()
+  const { open: assistant } = usePanel('assistant')
+  /** On a narrow window the assistant lies over the page, and the top bar's button opens it. */
+  const assistantDocked = useFoldActive('assistant')
+  const setAssistant = useCallback((open: boolean) => setPanelOpen('assistant', open), [])
   /** Run, in the top bar, is open: what the next run will do, over the button that starts it. */
   const [runOpen, setRunOpen] = useState(false)
   /** The cases Run was last asked to open on, and a count that tells one asking from the next. */
@@ -389,10 +381,11 @@ export function App() {
   const assistantHint = useShortcutHint('assistant.toggle', 'Assistant')
   /** A place's hover text: what is there, and the keys that go to it. */
   const keys = resolveKeys(preferences.shortcuts)
-  const placeHint = (place: string) => {
+  const placeKeys = (place: string) => {
     const id = PLACE_SHORTCUTS[place]
-    return hintOf(id ? keys[id] : '', SCREEN_HELP[place]?.short ?? '')
+    return id ? keys[id] : ''
   }
+  const placeHint = (place: string) => hintOf(placeKeys(place), SCREEN_HELP[place]?.short ?? '')
 
   /** The open version, and how it scores: the line every screen shows under the skill's name. */
   const skillLine = loaded
@@ -466,6 +459,36 @@ export function App() {
         ))}
       </SidebarFooter>
     </>
+  )
+
+  /** The folded sidebar: each place by its icon, its name and keys in the hover text. */
+  const sidebarRail = (
+    <SidebarRail
+      places={
+        skillPath
+          ? SKILL_PLACES.map((p) => (
+              <RailItem
+                key={p.screen}
+                icon={<p.icon aria-hidden="true" />}
+                label={p.label}
+                title={hintOf(placeKeys(p.screen), p.label).title}
+                current={screen === p.screen}
+                onClick={() => go(p.screen)}
+              />
+            ))
+          : null
+      }
+      end={APP_PLACES.map((p) => (
+        <RailItem
+          key={p.screen}
+          icon={<p.icon aria-hidden="true" />}
+          label={p.label}
+          title={hintOf(placeKeys(p.screen), p.label).title}
+          current={screen === p.screen}
+          onClick={() => go(p.screen)}
+        />
+      ))}
+    />
   )
 
   // One object while nothing in it changes, so a screen that takes it renders again only when something did.
@@ -605,8 +628,8 @@ export function App() {
     )
 
   return (
-    <AppFrame assistant={assistant}>
-      <Sidebar>{sidebar}</Sidebar>
+    <AppFrame>
+      <Sidebar rail={sidebarRail}>{sidebar}</Sidebar>
       <Workspace>
         <TopBar>
           <Popover>
@@ -701,15 +724,18 @@ export function App() {
                   report('Each screen shows its hint again')
                 }}
               />
-              <Toggle
-                size="icon-sm"
-                aria-label="Assistant"
-                {...assistantHint}
-                pressed={assistant}
-                onPressedChange={setAssistant}
-              >
-                <MessageCircleIcon aria-hidden="true" />
-              </Toggle>
+              {/* Beside the page the assistant has its own fold button; over it, this one opens it. */}
+              {assistantDocked ? null : (
+                <Toggle
+                  size="icon-sm"
+                  aria-label="Assistant"
+                  {...assistantHint}
+                  pressed={assistant}
+                  onPressedChange={setAssistant}
+                >
+                  <MessageCircleIcon aria-hidden="true" />
+                </Toggle>
+              )}
             </TopBarGroup>
           </TopBarEnd>
         </TopBar>
@@ -721,26 +747,24 @@ export function App() {
         </Pane>
         <StatusLine notice={notice} onDismiss={dismissNotice} />
       </Workspace>
-      {assistant ? (
-        <AssistantPane>
-          <PanelView view={improving ? 'opened' : 'chat'}>
-            {improving ? (
-              <ImprovePanel
-                onBack={() => void clearImprove().catch(report)}
-                onClose={() => setAssistant(false)}
-              />
-            ) : (
-              <ChatPanel
-                screen={place?.label ?? ''}
-                skill={skillPath ? (state?.skill.name ?? null) : null}
-                ctx={ctx}
-                confirm={confirm}
-                onClose={() => setAssistant(false)}
-              />
-            )}
-          </PanelView>
-        </AssistantPane>
-      ) : null}
+      <AssistantPane>
+        <PanelView view={improving ? 'opened' : 'chat'}>
+          {improving ? (
+            <ImprovePanel
+              onBack={() => void clearImprove().catch(report)}
+              onClose={() => setAssistant(false)}
+            />
+          ) : (
+            <ChatPanel
+              screen={place?.label ?? ''}
+              skill={skillPath ? (state?.skill.name ?? null) : null}
+              ctx={ctx}
+              confirm={confirm}
+              onClose={() => setAssistant(false)}
+            />
+          )}
+        </PanelView>
+      </AssistantPane>
       <ShortcutsDialog
         open={shortcutsOpen}
         onOpenChange={setShortcutsOpen}

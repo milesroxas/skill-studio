@@ -8,18 +8,35 @@ All in `src/renderer/components/Shell.tsx`, except `StatusLine`, which has its o
 
 | Part | Rule |
 | --- | --- |
-| `AppFrame` | the window-sized grid: the sidebar, then `Workspace`, then `AssistantPane` when the Assistant is open |
-| `Sidebar` | ink in both themes: it carries `data-surface="ink"`. 208px, 232px from the `lg` breakpoint. `SidebarBody` is its middle, scrolling on its own when the window is short. Its `foot` (the Walkthrough box) stands at its end and scrolls with it, so a short window hides the foot and never the places. |
+| `AppFrame` | the window-sized grid: the sidebar, then `Workspace`, then `AssistantPane`, each panel as wide as it is drawn (see [Panels that fold](#panels-that-fold)) |
+| `Sidebar` | ink in both themes: it carries `data-surface="ink"`. A `FoldPanel` from `sm`: 232px until dragged, folded to a 48px strip of its places (`SidebarRail`, one `RailItem` each, the app's own at its foot). Its top is a 48px drag strip holding the fold button and the mark. `SidebarBody` is its middle, scrolling on its own when the window is short. Its `foot` (the Walkthrough box) stands at its end and scrolls with it, so a short window hides the foot and never the places. |
 | `SidebarSection` | the open skill's three places, one `NavItem` each: Skill, Cases, Results |
 | `NavItem` | one place. `meta` is its count, `xs` sans at 55%, tabular: the cases. `dot` is unsaved work, in `warning`. |
 | `SidebarFooter` | Library, Guide, Settings, with a running job above them. `lead` holds the update. |
 | `Workspace` | the column beside the sidebar: the top bar over the pane |
-| `AssistantPane` | the Assistant's panel: a 360px column beside `Workspace` on a wide window, over its right edge on a narrow one. It holds the chat or Help me improve, in a `PanelView`: the view that replaces the other slides 12px in from the side it was pushed from (Help me improve from the right, the chat from the left) over 200ms; the first view rests, since the panel plays its own arrival. Help me improve's `PanelHeader` takes `back`, an arrow before the title that returns to the chat. |
-| `TopBar` | `HistoryNav` (back and forward), `Heading level="page"`, then `TopBarEnd` (`App.tsx` only). Below `sm` a menu button leads it and opens the sidebar as `PopoverContent size="nav"`. The place's name never shrinks. Below `lg` the bar gives way from its right end in this order: the warning hides (Run's panel says the same before a run), the next step drops "Next:" (a screen reader still hears it), the gaps close, and last the step's name truncates, with the whole name in its title. |
-| `TopBarEnd` | the bar's right end, in three groups, 20px apart (12px below `lg`): `TopBarWarning` while the skill lacks Jev's key, then `TopBarGroup kind="actions"` (the next step and Run, 8px apart), then `TopBarGroup kind="tools"` (help and the Assistant, 4px apart, 12px under a finger). More room between the groups than inside them, so the eye reads three things. Every control in it is 32px high. |
+| `AssistantPane` | the Assistant's panel: a `FoldPanel` beside `Workspace` from `lg`, 360px until dragged, folded to a 48px strip with the chat's icon. Its fold button stands where `PanelHeader`'s close button stands on a narrow window, where the panel lies over the page's right edge and is gone when closed. Its contents are there only while it is open or folding. It holds the chat or Help me improve, in a `PanelView`: the view that replaces the other slides 12px in from the side it was pushed from (Help me improve from the right, the chat from the left) over 200ms; the first view rests, since the panel plays its own arrival. Help me improve's `PanelHeader` takes `back`, an arrow before the title that returns to the chat. |
+| `TopBar` | `HistoryNav` (back and forward), `Heading level="page"`, then `TopBarEnd` (`App.tsx` only). On a Mac with the sidebar folded the sidebar's fold button stands on the bar, right of the window's buttons, and the bar's padding grows with it (`--fold-lead`, set by `panels.ts`). Below `sm` a menu button leads it and opens the sidebar as `PopoverContent size="nav"`. The place's name never shrinks. Below `lg` the bar gives way from its right end in this order: the warning hides (Run's panel says the same before a run), the next step drops "Next:" (a screen reader still hears it), the gaps close, and last the step's name truncates, with the whole name in its title. |
+| `TopBarEnd` | the bar's right end, in three groups, 20px apart (12px below `lg`): `TopBarWarning` while the skill lacks Jev's key, then `TopBarGroup kind="actions"` (the next step and Run, 8px apart), then `TopBarGroup kind="tools"` (help, and below `lg` the Assistant, 4px apart, 12px under a finger). From `lg` the Assistant opens from its own strip. More room between the groups than inside them, so the eye reads three things. Every control in it is 32px high. |
 | `TopBarWarning` | "No Jev key": a `ghost` `sm` button with the warning `Dot` before the state, as `Status` says one. It opens where it is fixed. Never a filled badge: next to the yellow step a fill reads as one more thing to press. |
 | `Pane` | `layout="page"` for a `Screen` (the default), `layout="flush"` for a `Workbench` |
 | `StatusLine` | under the pane: what just happened, in a 48px strip kept for it (a fact for a moment, a failure until dismissed), the top bar's mirror, ink while it speaks. Fed by `ctx.report`. See [data.md](data.md). |
+
+### Panels that fold
+
+The sidebar, a workbench's list column and the Assistant can be dragged wider or narrower and folded to a 48px strip at their side (`components/FoldPanel.tsx`, moved by `renderer/panels.ts`, numbers in `renderer/fold.ts`). Each remembers its width and whether it is open.
+
+| Part | Rule |
+| --- | --- |
+| Fold button | `ghost-muted` `icon-sm`, a panel outline with a chevron the way the panel will go; the chevron turns over 200ms when it folds. It stands 8px in from the panel's fixed side, 8px down, the same place open or folded, so the second click lands where the first did. The sidebar's stands right of the window's buttons on a Mac. Its keys are in its hover text: `⌘\` the sidebar, `⌥⌘\` the list, ⌘J the Assistant. |
+| Divider | 8px to grab over the panel's edge; a 2px line in `--ring` shows at 30% once the pointer rests 120ms, 75% while dragged or focused. Arrows resize it by 16px (64px with Shift), Enter folds or opens it, Home and End go to its narrowest and widest, all at once. A click on a folded panel's divider opens it; a double-click puts an open one back to its first width. |
+| Strip | the folded panel: a click anywhere on it opens the panel. The sidebar's shows its places; a list's, its count; the Assistant's, the chat's icon. While the panel passes under it, it is frosted glass. |
+| Sizes | sidebar 180 to 320px, list 200 to 420px, Assistant 300 to 560px. A drag leaves the page's own column 400px. A release within 20px of the first width lands on it. |
+
+How it moves:
+
+- The width is the one thing that moves, by spring, so a release carries the hand's speed and a panel sent back mid-flight turns round. A click is critically damped and rests by about 350ms; a release overshoots a few pixels and settles. Where a release lands is where the throw would carry it: the release point plus 150ms of the hand's speed. Pulled 72px past its narrowest, or flicked shut, a panel folds.
+- Every other layer is drawn from one number, how far open it is, read from the width, so nothing can fall out of step: the strip's icons leave first, the contents come in while the strip lifts away, and folding plays the same in reverse. While a panel changes state its contents ride its moving edge and slide under the strip, cut 32px short of the fold button, so the moving edge never slices a line.
+- Below its breakpoint a panel steps aside: the sidebar is the top bar's menu below `sm`, the list stacks over the item below `lg`, and the Assistant lies over the page.
 
 The sidebar lists every screen flat so a reader always sees where they are. Never a second level of navigation, tabs inside a screen, or a link in the top bar. Run is the one action the top bar holds beside the next step: it is a step of the loop that is not a place (`components/Run.tsx`, see [buttons.md](buttons.md)).
 
@@ -104,7 +121,8 @@ A box around a region adds an edge the eye has to cross and takes 32px of width 
 
 | Part | Use |
 | --- | --- |
-| `Column kind` | `list` (260px), `side` (260px, a list beside an item that is the screen's point: after the item once the columns stack, as the Skill screen's files follow the document), `main` |
+| `Column kind` | `list`, `side` (a list beside an item that is the screen's point: after the item once the columns stack, as the Skill screen's files follow the document), `main` |
+| `Column fold` | a `list` or `side` column that folds from `lg` ([Panels that fold](#panels-that-fold)): its panel (`list`, which Cases and Results share, or `files`), its name after "Hide", and the count its strip shows. Its `ColumnHeader` starts its title 44px in, after the fold button. |
 | `Column scroll` | `self` (the default): the column scrolls. `parts`: the `SplitPane`s under its header scroll, each on its own |
 | `Column over` | a file is held over a column that takes a drop: the column takes `bg-accent` at 60% until it is dropped or leaves. The case's main column, where a picture, file or folder dropped anywhere joins the case's files (`useFileDrop` in `renderer/drop.ts`). A note that changes while a file is dragged would move everything under it. |
 | `ListHeader` | a list column's title, count and add button: a plus. A list that adds two kinds of thing names each by its icon (`addIcon`) and takes the second as `also`: the Skill screen's files add a file and a folder. A list nothing is added to (the scores on Results) is a `ColumnHeader inset="list"` with the title alone, named for what it shows that the Cases list does not: "Scores". |

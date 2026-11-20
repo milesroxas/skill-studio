@@ -50,6 +50,13 @@ export const SHORTCUT_COMMANDS = [
   { id: 'go.forward', group: 'go', label: 'Go forward', keys: 'mod+]', fixed: true },
   { id: 'run.open', group: 'anywhere', label: 'Open Run', keys: 'r' },
   { id: 'skill.switch', group: 'anywhere', label: 'Switch skill', keys: 'mod+k' },
+  { id: 'sidebar.toggle', group: 'anywhere', label: 'Show or hide the sidebar', keys: 'mod+\\' },
+  {
+    id: 'list.toggle',
+    group: 'anywhere',
+    label: 'Show or hide the case list or files',
+    keys: 'mod+alt+\\',
+  },
   { id: 'assistant.toggle', group: 'anywhere', label: 'Show or hide the assistant', keys: 'mod+j' },
   { id: 'shortcuts.open', group: 'anywhere', label: 'Show keyboard shortcuts', keys: '?' },
   { id: 'results.a', group: 'results', label: 'Show output A', keys: 'a' },
@@ -150,7 +157,25 @@ function keyOf(press: KeyPress): string | null {
   if (press.key === 'Del') return 'delete'
   if (NAMED.has(key)) return key
   if (isCharacter(press.key)) return press.key
-  return null
+  return PUNCTUATION[press.code] ?? null
+}
+
+/**
+ * Punctuation by its place, for a press that types something else there:
+ * Option on a Mac turns a backslash into «, so ⌥⌘ and backslash is read from the key it is on.
+ */
+const PUNCTUATION: Readonly<Record<string, string>> = {
+  Backslash: '\\',
+  BracketLeft: '[',
+  BracketRight: ']',
+  Slash: '/',
+  Comma: ',',
+  Period: '.',
+  Semicolon: ';',
+  Quote: "'",
+  Backquote: '`',
+  Minus: '-',
+  Equal: '=',
 }
 
 /**

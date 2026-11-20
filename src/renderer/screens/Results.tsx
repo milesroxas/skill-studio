@@ -141,7 +141,7 @@ export const Results = memo(function Results({ ctx }: { ctx: Ctx }) {
 
   return (
     <Workbench>
-      <Column kind="list">
+      <Column kind="list" fold={{ panel: 'list', name: 'the case list' }}>
         <nav aria-label="Results" className="contents">
           <ColumnHeader inset="list">
             {/* Scores, not Cases: the Cases screen's list is headed Cases, and the two must not read alike. */}

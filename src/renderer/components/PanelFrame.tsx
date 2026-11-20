@@ -8,6 +8,7 @@ import { ArrowLeftIcon, XIcon } from 'lucide-react'
 import { type ReactNode, type RefObject, useLayoutEffect, useRef } from 'react'
 import { useArrived } from '../motion.ts'
 import { useShortcutHint } from '../shortcuts.ts'
+import { useFoldSlot } from './FoldPanel.tsx'
 import { Spacer } from './layout.tsx'
 import { Heading } from './text.tsx'
 import { Button } from './ui/button.tsx'
@@ -56,6 +57,8 @@ export function PanelHeader({
   onClose: () => void
 }) {
   const closeHint = useShortcutHint('assistant.toggle', 'Close')
+  // Beside the page the panel's fold button stands at the header's end, where the close button would.
+  const folds = useFoldSlot() === 'end'
   return (
     <header data-drag className={headerVariants({ back: Boolean(back) })}>
       {back ? (
@@ -75,16 +78,20 @@ export function PanelHeader({
       </Heading>
       <Spacer />
       {children}
-      <Button
-        type="button"
-        variant="ghost"
-        size="icon-sm"
-        aria-label="Close the assistant"
-        {...closeHint}
-        onClick={onClose}
-      >
-        <XIcon aria-hidden="true" />
-      </Button>
+      {folds ? (
+        <span className="size-8 shrink-0" aria-hidden="true" />
+      ) : (
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon-sm"
+          aria-label="Close the assistant"
+          {...closeHint}
+          onClick={onClose}
+        >
+          <XIcon aria-hidden="true" />
+        </Button>
+      )}
     </header>
   )
 }

@@ -19,6 +19,7 @@ import { Toolbar as ToolbarPrimitive } from 'radix-ui'
 import { type ComponentProps, type HTMLAttributes, type ReactNode, useState } from 'react'
 import { cn } from '../lib/utils.ts'
 import { after } from '../motion.ts'
+import { FoldPanel, useFoldSlot } from './FoldPanel.tsx'
 import { Heading, Hint, Text } from './text.tsx'
 import { Button } from './ui/button.tsx'
 
@@ -141,8 +142,8 @@ const workbenchVariants = cva(
       layout: {
         /** One column: a workbench screen with nothing to list yet. */
         single: '',
-        /** A list to pick from on the left, the picked item beside it. */
-        list: 'lg:grid-cols-[260px_minmax(0,1fr)]',
+        /** A list to pick from on the left, as wide as it is drawn, the picked item beside it. */
+        list: 'lg:grid-cols-[auto_minmax(0,1fr)]',
       },
     },
     defaultVariants: { layout: 'list' },
@@ -190,15 +191,45 @@ const columnVariants = cva('flex min-w-0 flex-col bg-background lg:min-h-0', {
   defaultVariants: { scroll: 'self', kind: 'main', over: false },
 })
 
-/** One column of a workbench. */
+/** What a list column folds as: which panel it is, its name after "Hide", and what its strip shows. */
+export interface ColumnFold {
+  panel: 'list' | 'files'
+  name: string
+  /** A count on the folded strip, such as how many cases there are. */
+  count?: number
+}
+
+/**
+ * One column of a workbench. A list or side column given `fold` can be
+ * resized and folded to a strip from the large breakpoint (`FoldPanel`).
+ */
 export function Column({
   scroll,
   kind,
   over,
+  fold,
   className,
   ...props
-}: ComponentProps<'div'> & VariantProps<typeof columnVariants>) {
-  return <div className={cn(columnVariants({ scroll, kind, over }), className)} {...props} />
+}: ComponentProps<'div'> & VariantProps<typeof columnVariants> & { fold?: ColumnFold }) {
+  const column = (
+    <div className={cn(columnVariants({ scroll, kind, over }), className)} {...props} />
+  )
+  if (!fold) return column
+  return (
+    <FoldPanel
+      id={fold.panel}
+      name={fold.name}
+      rail={
+        fold.count === undefined ? null : (
+          <Text tone="muted" size="xs" tabular aria-hidden="true">
+            {fold.count}
+          </Text>
+        )
+      }
+    >
+      {column}
+    </FoldPanel>
+  )
 }
 
 /**
@@ -436,11 +467,14 @@ export function ColumnHeader({
   className,
   ...props
 }: ComponentProps<'header'> & VariantProps<typeof insetVariants>) {
+  // In a column that folds, the fold button stands over the header's start: the title begins after it.
+  const fold = useFoldSlot()
   return (
     <header
       className={cn(
         'sticky top-0 z-10 flex min-h-12 shrink-0 items-center gap-2 border-b bg-background py-2 pointer-coarse:py-0.5',
         insetVariants({ inset }),
+        fold === 'start' && 'pl-11',
         className,
       )}
       {...props}

@@ -35,6 +35,15 @@ describe('comboOf', () => {
     expect(comboOf(press('k', 'KeyK', { ctrlKey: true }), false)).toBe('mod+k')
   })
 
+  it('reads punctuation from its key when Option types another character there', () => {
+    expect(comboOf(press('«', 'Backslash', { metaKey: true, altKey: true }), true)).toBe(
+      'mod+alt+\\',
+    )
+    expect(comboOf(press('\\', 'Backslash', { ctrlKey: true, altKey: true }), false)).toBe(
+      'mod+alt+\\',
+    )
+  })
+
   it('keeps the Mac’s Control apart from ⌘', () => {
     expect(comboOf(press('k', 'KeyK', { ctrlKey: true }), true)).toBe('ctrl+k')
   })

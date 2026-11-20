@@ -665,7 +665,7 @@ export const Editor = memo(function Editor({ ctx }: { ctx: Ctx }) {
   return (
     <Workbench>
       {/* The document is the screen's point: once the columns stack, its files follow it. */}
-      <Column kind="side">
+      <Column kind="side" fold={{ panel: 'files', name: 'the files', count: paths.length }}>
         <ListHeader
           title="Files"
           count={paths.length}

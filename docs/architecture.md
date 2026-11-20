@@ -178,6 +178,7 @@ The shell (`App.tsx`) hands every screen one object, `Ctx` in `src/renderer/ctx.
 - Where the focus is decides what may start (`firesIn`): anything on the page; only a shortcut with Cmd or Control in a field, a menu, a list or a popover; nothing while a dialog stops the page or while Settings listens for new keys (`pauseShortcuts`).
 - One key starts one thing: giving a command keys another has takes them from it (`assignKeys`), and Settings reports the move with Undo. Keys the computer or the app keep are refused (`refusalOf`).
 - A control a shortcut also presses takes its keys in its hover text and in `aria-keyshortcuts` (`useShortcutHint`).
+- A symbol is read from its key's place when a modifier types something else there (`PUNCTUATION`): Option on a Mac turns the backslash of `⌥⌘\` into «.
 
 ## Engines
 

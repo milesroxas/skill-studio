@@ -35,6 +35,8 @@
 }
 
 :root {
+  /* The top bar's leading padding, which `panels.ts` widens to clear the sidebar's fold button once the sidebar folds. */
+  --fold-lead: 24px;
   --background: oklch(0.961 0.01 94);
   --foreground: oklch(0.177 0.035 267.3);
   --card: oklch(0.985 0.005 95);
@@ -176,6 +178,9 @@
   --ease-stroke: cubic-bezier(0.32, 0.72, 0, 1);
   /* Lands a touch past its place and settles back. For small things that arrive, never for text. */
   --ease-out-back: cubic-bezier(0.34, 1.4, 0.64, 1);
+  /* A panel's divider, over the column beside it and its sticky header; the fold button over the divider. */
+  --z-index-handle: 20;
+  --z-index-fold: 30;
   --z-index-popover: 50;
   /* The skip link, when focused, over everything. */
   --z-index-skip: 400;
@@ -541,6 +546,43 @@
 }
 
 /*
+ * While a panel's divider is dragged, everything shows its cursor and nothing
+ * selects. Unlayered, so it beats every cursor a control names.
+ */
+:root[data-resizing],
+:root[data-resizing] * {
+  cursor: col-resize;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+/*
+ * A panel's fold button (`FoldPanel.tsx`): outside the clip, so it stays put
+ * while the panel folds and opens around it, and gone where the panel does not
+ * fold. Unlayered, so its place beats the display and position a button's own
+ * classes name.
+ */
+[data-fold] > [data-fold-button] {
+  position: absolute;
+  top: 8px;
+  z-index: var(--z-index-fold);
+  app-region: no-drag;
+  -webkit-app-region: no-drag;
+}
+[data-fold][data-side="start"] > [data-fold-button] {
+  left: 8px;
+}
+[data-fold][data-side="end"] > [data-fold-button] {
+  right: 8px;
+}
+[data-platform="darwin"] [data-fold="sidebar"] > [data-fold-button] {
+  left: 76px;
+}
+[data-fold]:not([data-active]) > [data-fold-button] {
+  display: none;
+}
+
+/*
  * A zero-width character ahead of a row's content. An icon has no baseline of
  * its own, so a row that may hold nothing else takes its baseline from this.
  * Set through Tailwind's own variable, so a `before:` class beside it (the
@@ -567,6 +609,210 @@
     > :is([data-slot="menu-item"]:not([data-chosen]), [data-slot="menu-separator"]) {
     opacity: 0;
     transition: opacity 80ms ease-out;
+  }
+
+  /*
+   * A panel that folds (`components/FoldPanel.tsx`, moved by `panels.ts`). From
+   * the width it folds at (`data-active`) it is a column of its own: its
+   * contents in a clip at the width `panels.ts` draws, the strip it folds to,
+   * the divider, and the fold button, which never moves. Narrower, the panel's
+   * own boxes step aside (`display: contents`) and its contents lay out as
+   * they would without it.
+   *
+   * Opacity and scale of the contents, the ground and the strip are not
+   * transitions: `panels.ts` sets them every frame from the panel's width, so
+   * they stay locked to it through a drag, a throw, a spring and a reversal.
+   */
+  [data-fold]:not([data-active]),
+  [data-fold]:not([data-active]) > [data-fold-clip],
+  [data-fold]:not([data-active]) > [data-fold-clip] > [data-fold-inner] {
+    display: contents;
+  }
+  [data-fold]:not([data-active]) > :is([data-fold-rail], [data-fold-handle]) {
+    display: none;
+  }
+  [data-fold][data-active] {
+    position: relative;
+    width: var(--fold-w);
+    min-height: 0;
+  }
+  [data-fold][data-active] > [data-fold-clip] {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+  }
+  [data-fold][data-open="false"] > [data-fold-clip] {
+    pointer-events: none;
+  }
+  [data-fold][data-active] > [data-fold-clip] > [data-fold-inner] {
+    position: absolute;
+    inset-block: 0;
+    width: var(--fold-inner-w);
+    display: flex;
+    flex-direction: column;
+    will-change: transform, opacity;
+  }
+  [data-fold][data-active] > [data-fold-clip] > [data-fold-inner] > * {
+    flex: 1 1 auto;
+    min-height: 0;
+  }
+  /* The contents scale from the header's line, so the headers across the window stay level. */
+  [data-fold][data-side="start"] > [data-fold-clip] > [data-fold-inner] {
+    left: 0;
+    transform-origin: 0 24px;
+  }
+  [data-fold][data-side="end"] > [data-fold-clip] > [data-fold-inner] {
+    right: 0;
+    transform-origin: 100% 24px;
+  }
+  /*
+   * Tucking away: the width is what folds, and the moving edge must never
+   * slice what is in it. So while a panel changes state its contents ride the
+   * moving edge and slide under the strip at the fixed side.
+   */
+  [data-fold][data-side="start"][data-tucking] > [data-fold-clip] > [data-fold-inner] {
+    left: auto;
+    right: 0;
+  }
+  [data-fold][data-side="end"][data-tucking] > [data-fold-clip] > [data-fold-inner] {
+    right: auto;
+    left: 0;
+  }
+  /*
+   * Two masks while tucking, measured from the fixed side. The header row (48px)
+   * is cut at the fold button: the button stands 8 to 40px in and never moves,
+   * so a title riding the contents under it would show through. The title
+   * fades over 40 to 32px, gone before it meets the icon; it rests at 44px,
+   * clear of the band, so at rest it stands whole. Below the header the rows
+   * fade over the first 8px only, clear of a picked row's ground, so starting
+   * a fold moves nothing. The sidebar stands at the window's edge: no mask.
+   */
+  [data-fold]:not([data-fold="sidebar"])[data-tucking] > [data-fold-clip] {
+    mask-repeat: no-repeat;
+    mask-position:
+      0 0,
+      0 48px;
+    mask-size:
+      100% 48px,
+      100% calc(100% - 48px);
+  }
+  [data-fold][data-side="start"]:not([data-fold="sidebar"])[data-tucking] > [data-fold-clip] {
+    mask-image:
+      linear-gradient(to right, transparent 32px, black 40px),
+      linear-gradient(to right, transparent, black 8px);
+  }
+  [data-fold][data-side="end"]:not([data-fold="sidebar"])[data-tucking] > [data-fold-clip] {
+    mask-image:
+      linear-gradient(to left, transparent 32px, black 40px),
+      linear-gradient(to left, transparent, black 8px);
+  }
+
+  /*
+   * The strip: one surface in three looks, drawn from the fold progress.
+   * Absent over an open panel, frosted glass while the panel passes under it,
+   * solid and clickable once folded. Its ground is its scope's page ground at
+   * --solid (100% at rest, 70% as glass).
+   */
+  [data-fold] > [data-fold-rail] {
+    position: absolute;
+    inset-block: 0;
+    width: 48px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    padding: 48px 0 12px;
+    opacity: 0;
+    pointer-events: none;
+    cursor: pointer;
+    background-color: color-mix(in oklch, var(--background) var(--solid, 100%), transparent);
+    --rail-hover: color-mix(in oklch, var(--accent) 55%, var(--background));
+    app-region: no-drag;
+    -webkit-app-region: no-drag;
+  }
+  [data-fold][data-side="start"] > [data-fold-rail] {
+    left: 0;
+    border-right-width: 1px;
+  }
+  [data-fold][data-side="end"] > [data-fold-rail] {
+    right: 0;
+    border-left-width: 1px;
+  }
+  [data-fold="sidebar"][data-side] > [data-fold-rail] {
+    border-width: 0;
+    --rail-hover: color-mix(in oklch, var(--sidebar-accent) 45%, var(--background));
+  }
+  /* On a Mac the folded sidebar starts under the top bar: the window's buttons then sit on the bar. */
+  [data-platform="darwin"] [data-fold="sidebar"] > [data-fold-rail] {
+    top: 48px;
+    padding-top: 8px;
+  }
+  /* Blur only while there is something under the glass to blur. */
+  [data-fold] > [data-fold-rail][data-frosted] {
+    backdrop-filter: blur(10px) saturate(1.2);
+  }
+  [data-fold][data-open="false"] > [data-fold-rail] {
+    pointer-events: auto;
+  }
+  /* The hover tint eases; the ground drawn each frame never does, so it never lags the panel. */
+  [data-fold][data-open="false"]:not([data-tucking]) > [data-fold-rail] {
+    transition: background-color 120ms ease-out;
+  }
+  @media (hover: hover) {
+    [data-fold][data-open="false"]:not([data-tucking]) > [data-fold-rail]:hover {
+      background-color: var(--rail-hover);
+    }
+  }
+
+  /*
+   * The divider: 8px to grab, a 2px line drawn once the pointer rests on it
+   * for 120ms, so passing over never flickers. Darker while dragged or focused.
+   */
+  [data-fold] > [data-fold-handle] {
+    position: absolute;
+    inset-block: 0;
+    width: 8px;
+    z-index: var(--z-index-handle);
+    cursor: col-resize;
+    touch-action: none;
+    outline: none;
+    app-region: no-drag;
+    -webkit-app-region: no-drag;
+  }
+  [data-fold][data-side="start"] > [data-fold-handle] {
+    right: -4px;
+  }
+  [data-fold][data-side="end"] > [data-fold-handle] {
+    left: -4px;
+  }
+  [data-fold] > [data-fold-handle]::after {
+    content: "";
+    position: absolute;
+    inset-block: 0;
+    left: 3px;
+    width: 2px;
+    background: var(--ring);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 150ms ease-out;
+  }
+  [data-fold] > [data-fold-handle]:hover::after {
+    opacity: 0.3;
+    transition-delay: 120ms;
+  }
+  [data-fold] > [data-fold-handle]:is([data-dragging], :focus-visible)::after {
+    opacity: 0.75;
+    transition-delay: 0s;
+  }
+
+  /* Its chevron points the way the panel will go, and turns when it does. */
+  [data-fold] > [data-fold-button] [data-chevron] {
+    transform-box: fill-box;
+    transform-origin: center;
+    transition: transform 200ms var(--ease-out-strong);
+  }
+  [data-fold] > [data-fold-button][aria-expanded="false"] [data-chevron] {
+    transform: scaleX(-1);
   }
 
   /* An agent's answer: a reading column. */

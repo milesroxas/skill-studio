@@ -1,35 +1,34 @@
 /**
  * The app frame. A window-sized grid: the sidebar on the left, the top bar and
- * the pane on the right. Nothing outside the pane scrolls, so the chrome never
- * moves and every screen lands in the same place. On macOS the title bar is
- * hidden: the top of the sidebar and the top bar are the drag regions, and the
- * window buttons sit over the sidebar.
+ * the pane in the middle, the assistant on the right. Nothing outside the pane
+ * scrolls, so the chrome never moves and every screen lands in the same place.
+ * The sidebar and the assistant fold to a strip (`FoldPanel.tsx`). On macOS
+ * the title bar is hidden: the top of the sidebar and the top bar are the drag
+ * regions, and the window buttons sit over the sidebar.
  */
 import { cva, type VariantProps } from 'class-variance-authority'
-import { ChevronLeftIcon, ChevronRightIcon } from 'lucide-react'
+import { ChevronLeftIcon, ChevronRightIcon, MessageCircleIcon } from 'lucide-react'
 import type { ComponentProps, ReactNode } from 'react'
 import { api } from '../api.ts'
 import { shortcut } from '../keys.ts'
 import { cn } from '../lib/utils.ts'
+import { usePanel } from '../panels.ts'
+import { FoldPanel } from './FoldPanel.tsx'
 import { Mark } from './Mark.tsx'
 import { Dot } from './Status.tsx'
 import { Button } from './ui/button.tsx'
 
-export function AppFrame({
-  assistant = false,
-  className,
-  children,
-  ...props
-}: ComponentProps<'div'> & {
-  /** The assistant's panel is open: on a wide window it takes a third column. */
-  assistant?: boolean
-}) {
+/**
+ * The sidebar and the assistant are as wide as they are drawn: open at the
+ * width they were dragged to, or folded to their strip. On a narrow window the
+ * assistant lies over the page, out of the grid.
+ */
+export function AppFrame({ className, children, ...props }: ComponentProps<'div'>) {
   return (
     <div
       data-platform={api.platform}
-      data-assistant={assistant ? 'open' : undefined}
       className={cn(
-        'grid h-dvh grid-cols-1 grid-rows-[minmax(0,1fr)] overflow-hidden sm:grid-cols-[208px_minmax(0,1fr)] lg:grid-cols-[232px_minmax(0,1fr)] lg:data-[assistant=open]:grid-cols-[232px_minmax(0,1fr)_360px]',
+        'grid h-dvh grid-cols-1 grid-rows-[minmax(0,1fr)] overflow-hidden sm:grid-cols-[auto_minmax(0,1fr)] lg:grid-cols-[auto_minmax(0,1fr)_auto]',
         className,
       )}
       {...props}
@@ -47,28 +46,74 @@ export function AppFrame({
 }
 
 /**
- * The left column, on ink in both themes: a drag strip for the window buttons
- * and, on macOS, the mark, then the skill, its loop and the app links.
+ * The left column, on ink in both themes: a drag strip for the window buttons,
+ * the fold button and the mark, then the skill, its loop and the app links.
+ * It folds to a strip of its places (`rail`, `RailItem`s).
  */
-export function Sidebar({ className, children, ...props }: ComponentProps<'nav'>) {
+export function Sidebar({
+  rail,
+  className,
+  children,
+  ...props
+}: ComponentProps<'nav'> & { rail: ReactNode }) {
   return (
-    <nav
-      aria-label="App"
-      data-surface="ink"
-      className={cn(
-        'hidden min-h-0 flex-col bg-sidebar text-sidebar-foreground sm:flex',
-        className,
-      )}
+    <FoldPanel id="sidebar" name="the sidebar" ink rail={rail}>
+      <nav
+        aria-label="App"
+        data-surface="ink"
+        className={cn('flex min-h-0 flex-col bg-sidebar text-sidebar-foreground', className)}
+        {...props}
+      >
+        <div
+          data-drag
+          className="flex h-12 shrink-0 items-center justify-end px-5 text-sidebar-foreground"
+        >
+          <Mark size="strip" />
+        </div>
+        {children}
+      </nav>
+    </FoldPanel>
+  )
+}
+
+/**
+ * The folded sidebar's places, one icon each, with the app's own at the
+ * strip's end. A click on the strip between them opens the sidebar.
+ */
+export function SidebarRail({ places, end }: { places: ReactNode; end: ReactNode }) {
+  return (
+    <>
+      {places}
+      <div className="mt-auto flex flex-col gap-1">{end}</div>
+    </>
+  )
+}
+
+/** One place on the folded sidebar: its icon, its name in the hover text. */
+export function RailItem({
+  icon,
+  label,
+  current,
+  title,
+  ...props
+}: Omit<ComponentProps<'button'>, 'children'> & {
+  icon: ReactNode
+  label: string
+  current?: boolean
+}) {
+  return (
+    <Button
+      type="button"
+      variant="ghost-muted"
+      size="icon-sm"
+      aria-label={label}
+      title={title ?? label}
+      aria-current={current ? 'page' : undefined}
+      className="aria-[current=page]:bg-accent aria-[current=page]:text-foreground"
       {...props}
     >
-      <div
-        data-drag
-        className="flex h-3 shrink-0 items-center justify-end px-5 text-sidebar-foreground in-data-[platform=darwin]:h-12"
-      >
-        <Mark size="strip" />
-      </div>
-      {children}
-    </nav>
+      {icon}
+    </Button>
   )
 }
 
@@ -171,7 +216,7 @@ export function TopBar({ className, children, ...props }: ComponentProps<'header
     <header
       data-drag
       className={cn(
-        'flex h-12 shrink-0 items-center gap-2 border-b px-4 sm:px-6 lg:gap-3 in-data-[platform=darwin]:max-sm:pl-21',
+        'flex h-12 shrink-0 items-center gap-2 border-b px-4 sm:px-6 sm:pl-(--fold-lead) lg:gap-3 in-data-[platform=darwin]:max-sm:pl-21',
         className,
       )}
       {...props}
@@ -285,19 +330,35 @@ export function HistoryNav({
 
 /**
  * The assistant's panel, beside the workspace and never over it on a wide
- * window, so the work stays in view while it answers. On a narrow window it
- * lies over the right edge instead. It comes in from the edge it lives on.
+ * window, so the work stays in view while it answers. There it folds to a
+ * strip with the chat's icon, which opens it again. On a narrow window it lies
+ * over the right edge instead, coming in from that edge, and is gone when
+ * closed. Its contents are there only while it is open or folding, so a
+ * folded assistant does no work.
  */
-export function AssistantPane({ className, ...props }: ComponentProps<'aside'>) {
+export function AssistantPane({ className, children, ...props }: ComponentProps<'aside'>) {
+  const { open, moving } = usePanel('assistant')
   return (
-    <aside
-      aria-label="Assistant"
-      className={cn(
-        'flex min-h-0 min-w-0 animate-in flex-col overflow-hidden border-l bg-background duration-200 ease-out-strong fade-in-0 slide-in-from-right-3 max-lg:fixed max-lg:inset-y-0 max-lg:right-0 max-lg:z-popover max-lg:w-[min(380px,100vw)] max-lg:shadow-popover',
-        className,
-      )}
-      {...props}
-    />
+    <FoldPanel
+      id="assistant"
+      name="the assistant"
+      rail={
+        <span className="flex size-8 items-center justify-center text-muted-foreground">
+          <MessageCircleIcon className="size-4" aria-hidden="true" />
+        </span>
+      }
+    >
+      <aside
+        aria-label="Assistant"
+        className={cn(
+          'flex min-h-0 min-w-0 flex-col overflow-hidden border-l bg-background in-data-[open=false]:max-lg:hidden max-lg:fixed max-lg:inset-y-0 max-lg:right-0 max-lg:z-popover max-lg:w-[min(380px,100vw)] max-lg:animate-in max-lg:shadow-popover max-lg:duration-200 max-lg:ease-out-strong max-lg:fade-in-0 max-lg:slide-in-from-right-3',
+          className,
+        )}
+        {...props}
+      >
+        {open || moving ? children : null}
+      </aside>
+    </FoldPanel>
   )
 }
 
