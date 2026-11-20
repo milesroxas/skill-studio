@@ -4,10 +4,10 @@ The plan for the next release: what is in it, what is still to do, and the check
 
 | | |
 | --- | --- |
-| Version | 0.17.0 |
-| Status | Tagging 2026-11-16 |
-| Previous release | [v0.16.1](https://github.com/milesroxas/skill-studio/releases/tag/v0.16.1), 2026-11-16 |
-| Target date | 2026-11-16 |
+| Version | 0.18.0 |
+| Status | Tagging 2026-11-20 |
+| Previous release | [v0.17.0](https://github.com/milesroxas/skill-studio/releases/tag/v0.17.0), 2026-11-16 |
+| Target date | 2026-11-20 |
 | Owner | Miles Roxas |
 
 The version follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html): a minor bump when the release adds a feature, a patch when it only fixes. Before 1.0, a change that breaks a skill or run file is a minor bump too.
@@ -21,15 +21,13 @@ The version follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html): 
 
 ## Shipped to main
 
-Everything merged since v0.16.1.
+Everything merged since v0.17.0.
 
-- [x] The editor's rewrites: checked and written once more before they show, **Split up** for a rule that asks for several things, no word limit on a rule, spare words underlined, a red number read from the newest run (d65207c).
-- [x] **Edited since v1** and **Changes** against the last version; a run keeps a version, **Save** is for a file (d65207c).
-- [x] The formatted editor draws a table as a table, folds a code block's ``` lines and keeps its language as a label, and colors code in eight languages with two tokens of its own (1e6843e).
-- [x] A review of everything since v0.16.1 before the tag: a rule that says "otherwise" or opens with its reason is counted again, a word a rule only names is not a spare word, and Changes no longer says nothing changed when another file did.
-- [x] Docs updated in the same commit as the change.
+- [x] The Assistant shows what it thought over each reply: **Thinking…** while it thinks, **Thought for 12s** once it answers, on Claude Code, Codex and an Anthropic key on Claude 5 models (550aca7).
+- [x] The sidebar, the list beside a screen and the Assistant resize by their divider and fold to a 48px strip, with a shortcut each; the Assistant stays as a strip on the right when closed.
+- [x] Docs and the guide's screenshots updated in the same commits as the changes.
 
-0.17.0 adds Split up, the spare-word marks, drawn tables and colored code, so it is a minor release.
+0.18.0 adds resizable, foldable panels and the Assistant's thinking, so it is a minor release.
 
 ## Planned
 
@@ -57,9 +55,9 @@ Checks that are not covered by `pnpm check`.
 The steps in [releasing.md](releasing.md), in order.
 
 1. [x] Every item under "Planned" is shipped or moved to "Later".
-2. [ ] Every item under "Before the release" is done. Not for 0.17.0: the unchecked items carry to the next release.
-3. [x] `pnpm check` and `pnpm build` pass on `main`, 1,722 tests, and main's own run passes on Windows and macOS before the tag.
-4. [ ] `gh workflow run release` builds every platform. Not run for 0.17.0; the tag's own run builds every platform.
-5. [x] In the changelog, add `## [0.17.0] - 2026-11-16` under a new `## [Unreleased]`, and commit.
+2. [ ] Every item under "Before the release" is done. Not for 0.18.0: the unchecked items carry to the next release.
+3. [x] `pnpm check` and `pnpm build` pass on `main`, 1,743 tests, and main's own run passes on Windows and macOS before the tag.
+4. [ ] `gh workflow run release` builds every platform. Not run for 0.18.0; the tag's own run builds every platform.
+5. [x] In the changelog, add `## [0.18.0] - 2026-11-20` under a new `## [Unreleased]`, and commit.
 6. [ ] `pnpm version minor -m "Release %s"`, then push `main` and the tag.
-7. [ ] The release workflow publishes v0.17.0, with the changelog entry as its notes.
+7. [ ] The release workflow publishes v0.18.0, with the changelog entry as its notes.
