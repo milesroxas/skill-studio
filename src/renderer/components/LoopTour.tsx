@@ -195,7 +195,7 @@ function SideBySide({ at }: { at: number }) {
           className="flex animate-rise items-center gap-2.5 px-3 py-2.5 text-ui"
           style={after(at + i * BEAT.row)}
         >
-          <Slot variant="letter">{row.slot}</Slot>
+          <Slot>{row.slot}</Slot>
           <span className="min-w-0 flex-1 font-semibold">{row.name}</span>
           <span className="flex items-center tabular-nums">
             <span className="sr-only">Score {row.score}</span>

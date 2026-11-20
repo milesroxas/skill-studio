@@ -9,6 +9,11 @@
  * one action on what is in view. An output still being written holds the
  * frame its page will be drawn in, so nothing moves when it lands, and it
  * fades in when it does.
+ *
+ * Two stages side by side (`StagePair`) hold one output each, and their pages
+ * scroll together as two on one stage do. Something read in place of an
+ * output, such as the diff of two files, stands on the same ground at the same
+ * size (`StageSheet`), so a change of view moves nothing under it.
  */
 import type { Artifact, ArtifactKind } from '@domain/schemas.ts'
 import {
@@ -27,6 +32,9 @@ import { OutputWriting } from './OutputCard.tsx'
 import { Hint, Text } from './text.tsx'
 
 export type Side = 'a' | 'b'
+
+/** The ground an output stands on: 60% of the window high, so the page under it starts at one height in every view. */
+const GROUND = 'relative h-[60svh] min-h-64 rounded-md bg-muted'
 
 /** One output on the stage. */
 export interface StageLayer {
@@ -185,7 +193,7 @@ export function Stage({
 
   return (
     <>
-      <div className="relative h-[60svh] min-h-64 rounded-md bg-muted">
+      <div className={GROUND}>
         <div ref={box} className="absolute inset-4">
           {placed.map(({ layer, geometry: g }) =>
             g ? (
@@ -208,6 +216,59 @@ export function Stage({
           {caption}
         </Text>
         {action ? <span className="-mr-2 ml-auto">{action}</span> : null}
+      </div>
+    </>
+  )
+}
+
+/**
+ * Two stages side by side, one output each. A page says where it scrolled, and
+ * the page on the other stage follows.
+ */
+export function StagePair({ children }: { children: ReactNode }) {
+  const box = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    const handle = (event: MessageEvent) => {
+      const frames = [...(box.current?.querySelectorAll('iframe') ?? [])]
+      const from = frames.find((f) => f.contentWindow === event.source)
+      const said = event.data as { studioStage?: unknown; x?: unknown; y?: unknown }
+      if (!from || !said || typeof said !== 'object' || said.studioStage !== 'scroll') return
+      const to = { studioStage: 'scrollTo', x: Number(said.x) || 0, y: Number(said.y) || 0 }
+      // The pages run in origins of their own, which have no name to address them by.
+      for (const frame of frames) if (frame !== from) frame.contentWindow?.postMessage(to, '*')
+    }
+    window.addEventListener('message', handle)
+    return () => window.removeEventListener('message', handle)
+  }, [])
+  return (
+    <div ref={box} className="grid grid-cols-1 gap-4 md:grid-cols-2">
+      {children}
+    </div>
+  )
+}
+
+/** One stage of a pair: the stage and the line under it, in its half. */
+export function StageHalf({ children }: { children: ReactNode }) {
+  return <div className="flex min-w-0 flex-col gap-2.5">{children}</div>
+}
+
+/**
+ * Something read on the stage's ground in place of an output: one sheet that
+ * scrolls, on `bg-card` as a file is, and under it the line a stage has, which
+ * here says how to read the sheet. The line keeps its height when it is empty.
+ */
+export function StageSheet({ line, children }: { line?: string; children: ReactNode }) {
+  return (
+    <>
+      <div className={GROUND}>
+        <div className="absolute inset-4 overflow-y-auto rounded-sm bg-card shadow-raised">
+          {children}
+        </div>
+      </div>
+      <div className="flex min-h-6 items-center">
+        <Text size="xs" tone="muted">
+          {line}
+        </Text>
       </div>
     </>
   )
@@ -245,7 +306,7 @@ function StageFrame({
       style={g.frame}
     >
       {writing ? (
-        <OutputWriting place="stage" />
+        <OutputWriting />
       ) : reading ? (
         reading
       ) : !artifact ? (

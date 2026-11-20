@@ -1,38 +1,35 @@
 /**
- * One case, two outputs side by side: the version before on the left, the
- * latest on the right. It is what the whole loop is for. Each side carries its
- * score and what it missed, so a difference in the number is read as a
- * difference in the text. A card says only what tells it from the other side
- * or what went wrong: the parts a score is counted from, and who wrote the
- * output, when and in which attempt, are behind its score, a click away.
+ * One case, two outputs compared: the version before as A, the latest as B.
+ * It is what the whole loop is for. The pair is picked in a band under the
+ * header (`PairBand`), which holds still while the rest scrolls: each side's
+ * version, its score and how it moved. Under the band the stage shows the
+ * outputs in every view (`OutputStage`), and under the stage a card a side
+ * holds what that output missed, so a difference in the number is read as a
+ * difference in the text.
  *
  * Jev answers facts: whether a rule was followed, whether a check was met.
  * Where the reader sees it otherwise, each way out changes the score at once
  * or from the next grading: a verdict to correct, a check to add, a rule to
  * edit.
  *
- * An output a reader looks at rather than reads, a page or a picture, opens
- * on the stage (`Flip`): drawn as a browser draws it, with A and B in the same
- * place so a flip between them shows what changed. The cards under it keep the
- * scores and what each missed.
+ * A sentence about a number stands with that number, never over a list: the
+ * file a score is for is behind the score, why a change is not the difference
+ * of the two scores is behind the change, and why an output has no score is
+ * under its version, where Grade is. So both cards start with their lists, at
+ * one height.
  *
- * What an output is decides how it opens, and each file brings its own
- * controls: only a page has a size to pick. Each card's title picks its
- * output. What is done now and then, a swap, the case's own screen, a grade
- * read again, is folded away, so what stands over an output is what picks it.
- *
- * Deleting a run is in the same menu, last and set apart: a run spans every
- * case and every attempt, so its delete belongs with the other actions named
- * by the run, not on one output's card or under one case's form.
+ * What is done now and then, a swap, the case's own screen, a grade read
+ * again, is folded into the header's menu. Deleting a run is in the same
+ * menu, last and set apart: a run spans every case and every attempt, so its
+ * delete belongs with the other actions named by the run, not on one output.
  */
 
 import { draftOf, newCheck } from '@domain/case-draft.ts'
 import { pointsMoved } from '@domain/lift.ts'
-import type { Verdict } from '@domain/pack.ts'
+import { isMissed, type Verdict } from '@domain/pack.ts'
 import type { Case } from '@domain/schemas.ts'
-import { comboText } from '@domain/shortcuts.ts'
 import { ArrowLeftRightIcon, PencilIcon, RefreshCwIcon, Trash2Icon } from 'lucide-react'
-import { useCallback, useState } from 'react'
+import { useState } from 'react'
 import { api } from '../api.ts'
 import { caseContext, skillContext } from '../assist.ts'
 import type { Ctx } from '../ctx.ts'
@@ -40,12 +37,10 @@ import { useDeleteRun } from '../delete-run.ts'
 import { caseUnsaved } from '../draft-edits.ts'
 import { inSkill } from '../in-skill.ts'
 import { gradingRun, outputWriting, useJobStart, writingRun } from '../job-start.ts'
-import { isMac } from '../keys.ts'
 import {
   apartLine,
   caseTitle,
   changeLine,
-  drawnOf,
   failedLine,
   failureOf,
   isWithoutSkill,
@@ -60,24 +55,12 @@ import {
   outputWriter,
   primaryOf,
   regradeOwed,
-  runInSentence,
   runStamp,
   runTitle,
   scoreOf,
-  totalOf,
   unshared,
 } from '../model.ts'
-import { useLanded } from '../motion.ts'
-import { useShortcut, useShortcutKeys } from '../shortcuts.ts'
-import { type PageSize, usePageSize } from '../stage.ts'
-import {
-  ArtifactPicker,
-  ArtifactView,
-  OpenFullSize,
-  type OutputView,
-  PageSizeSelect,
-} from './Artifact.tsx'
-import { DiffCard } from './DiffCard.tsx'
+import { usePageSize } from '../stage.ts'
 import { Disclosure } from './Disclosure.tsx'
 import {
   ColumnBody,
@@ -91,29 +74,27 @@ import {
   Stack,
   Toolbar,
 } from './layout.tsx'
-import {
-  FactList,
-  OutputCard,
-  OutputCardFoot,
-  OutputCardHead,
-  OutputWriting,
-  Slot,
-} from './OutputCard.tsx'
+import { FactList, OutputCard, Slot } from './OutputCard.tsx'
+import { useOutputStage, type View } from './OutputStage.tsx'
+import { type HeadFlip, PairBand, PairEmpty, PairHead } from './PairBand.tsx'
 import { ContextActions, MoreActions, RowAction } from './RowActions.tsx'
-import { CheckWeight, Delta, PartList, TotalDetail, TotalDetailSection } from './Scores.tsx'
+import {
+  CheckWeight,
+  Delta,
+  DeltaExplained,
+  PartList,
+  TotalDetail,
+  TotalDetailSection,
+} from './Scores.tsx'
 import { Segmented } from './Segmented.tsx'
 import { SelectBox, type SelectOption, type SelectOptionGroup } from './SelectBox.tsx'
-import { Stage, type Side as StageSide } from './Stage.tsx'
 import { TextArea } from './TextArea.tsx'
-import { TranscriptList } from './TranscriptList.tsx'
 import { Heading, Hint, Text } from './text.tsx'
 import { Button } from './ui/button.tsx'
 import { Label } from './ui/label.tsx'
 import { Verdicts } from './Verdicts.tsx'
 
 const SLOT_LABEL = { a: 'A', b: 'B' } as const
-
-type View = 'flip' | 'side' | 'diff'
 
 const VIEWS = [
   { value: 'flip', label: 'One at a time' },
@@ -143,7 +124,7 @@ export function Comparison({
   // Both keys always go in the address, so a side left empty stays empty.
   const show = (pair: { a: Output | null; b: Output | null }) =>
     go('results', { case: caseId, a: pair.a?.key ?? '', b: pair.b?.key ?? '' })
-  const both = a && b ? { a, b } : null
+  const both = a !== null && b !== null
 
   /** Grades of the runs these outputs came from: busy from the press, not from the first poll that lists the job. */
   const grade = useJobStart(jobs, 'grade', report)
@@ -174,34 +155,35 @@ export function Comparison({
   }
 
   const sides = [a, b].filter((o): o is Output => o !== null)
-  const drawn = sides.some((o) => drawnOf(o) !== null)
   const kinds = sides.map((o) => primaryOf(o)?.kind)
-  // A view is a way to set two outputs against each other: one output has none to choose from.
-  const views = both ? VIEWS.filter((v) => v.value !== 'flip' || drawn) : []
   /**
    * How the case opens, by the file that stands for each output: a page or a
-   * picture on the stage, two pieces of code as their diff, anything else as
-   * cards. A picture beside a note does not put the note on the stage.
+   * picture one at a time, two pieces of code as their diff, anything else
+   * side by side. A picture beside a note does not open on the note.
    */
   const opening: View = kinds.some((k) => k === 'html' || k === 'image')
     ? 'flip'
     : both && kinds.every((k) => k === 'code')
       ? 'diff'
       : 'side'
-  const view: View = views.find((v) => v.value === chosen)?.value ?? opening
+  // A view is a way to set two outputs against each other: one output is read by itself.
+  const view: View = both ? (chosen ?? opening) : 'flip'
   const runs = [...new Set(sides.map((o) => o.run.name))]
   /** What the menu calls a run: "this run", or A's or B's when the two sides come from two. */
   const whoseRun = (run: string) =>
     runs.length > 1
       ? `${sides.find((o) => o.run.name === run) === a ? 'A' : 'B'}’s run`
       : 'this run'
-  /**
-   * The line that picks the pair, only where the cards cannot: each card's title
-   * picks its own output, so the line shows with one side empty or under Word diff.
-   */
-  const picking = candidates.length > 1 && (!both || view === 'diff')
-  /** The size a page is drawn at: one for the case, on the stage and in both cards. */
+  /** The size a page is drawn at: one for the case, on every stage. */
   const page = usePageSize(testCase?.bench.size ?? null)
+  const stage = useOutputStage({
+    a,
+    b,
+    view,
+    drawnFirst: opening === 'flip',
+    page,
+    writing: { a: unwritten(a), b: unwritten(b) },
+  })
 
   /** Written once: the header's "More actions" menu and a right-click on the outputs draw these. */
   const actions = (
@@ -259,84 +241,81 @@ export function Comparison({
     </>
   )
 
+  const title = caseTitle(state, caseId)
+  /** The case has an output to put on a side left empty, or in place of one picked. */
+  const pickable = candidates.length > 1
+  /** What a side's head and its list share. */
+  const sideOf = (slot: 'a' | 'b', output: Output) => ({
+    ctx,
+    output,
+    other: slot === 'a' ? null : a,
+    grading: grading(output.run.name),
+    held: grade.starting(),
+    onRegrade: () => regrade([output.run.name]),
+  })
+  const head = (slot: 'a' | 'b', output: Output) => (
+    <SideHead
+      {...sideOf(slot, output)}
+      // B keeps its letter beside an empty A, where the field that fills A stands next to it.
+      letter={slot === 'a' || a || pickable ? SLOT_LABEL[slot] : null}
+      apart={apartLine(output, slot === 'a' ? b : a)}
+      candidates={candidates}
+      onPick={(o) => show(slot === 'a' ? { a: o, b } : { a, b: o })}
+      layers={layers}
+      writing={unwritten(output)}
+      flip={stage.flipOf(slot)}
+    />
+  )
+  const empty = (slot: 'a' | 'b') =>
+    pickable ? (
+      <PairEmpty>
+        <EmptySide
+          slot={slot}
+          outputs={candidates}
+          onPick={(o) => show(slot === 'a' ? { a: o, b } : { a, b: o })}
+        />
+      </PairEmpty>
+    ) : null
+
   return (
     <>
-      {/* Stacked under the list, the case's name takes the first row and the views the second. */}
       <ColumnHeader className="max-lg:flex-wrap">
         <ColumnTitle className="max-lg:basis-full">
           <Heading level={2} as="h2">
-            {caseTitle(state, caseId)}
+            {title}
           </Heading>
         </ColumnTitle>
-        {views.length > 1 ? (
-          <Segmented aria-label="View" options={views} value={view} onChange={setChosen} />
+        {both ? (
+          <Segmented aria-label="View" options={VIEWS} value={view} onChange={setChosen} />
         ) : null}
-        <MoreActions subject={caseTitle(state, caseId)}>{actions}</MoreActions>
+        <MoreActions subject={title}>{actions}</MoreActions>
       </ColumnHeader>
-      <ContextActions subject={caseTitle(state, caseId)} actions={actions}>
+      {sides.length || pickable ? (
+        <PairBand two={both || pickable}>
+          {a ? head('a', a) : empty('a')}
+          {b ? head('b', b) : empty('b')}
+        </PairBand>
+      ) : null}
+      <ContextActions subject={title} actions={actions}>
         <ColumnBody>
-          {testCase || sides.some((o) => o.earlier) || picking || view === 'flip' ? (
-            // The case, the pair and the stage that shows it: one group, closer to each other than to the cards.
-            <Stack gap="md">
-              {askedBy(testCase, a, b).map((asked) => (
-                <Asked key={asked.key} testCase={asked.testCase} summary={asked.summary} />
-              ))}
-              {picking ? <Pair candidates={candidates} a={a} b={b} show={show} /> : null}
-              {view === 'flip' ? (
-                <Flip
-                  key={`${a?.key}|${b?.key}`}
-                  a={a}
-                  b={b}
-                  page={page}
-                  totals={{ a: a ? totalOf(a, config) : null, b: b ? totalOf(b, config) : null }}
-                  writing={{ a: unwritten(a), b: unwritten(b) }}
-                />
-              ) : null}
-            </Stack>
-          ) : null}
+          <Stack gap="md">
+            {askedBy(testCase, a, b).map((asked) => (
+              <Asked key={asked.key} testCase={asked.testCase} summary={asked.summary} />
+            ))}
+            {stage.stage}
+          </Stack>
           {!sides.length ? (
             <EmptyState title="Pick an output to read">
               Pick one for A and one for B above to read them side by side.
             </EmptyState>
-          ) : view === 'diff' && both ? (
-            <DiffCard a={both.a} b={both.b} />
           ) : (
-            <Columns count={both ? 2 : 1}>
-              {a ? (
-                <Side
-                  ctx={ctx}
-                  output={a}
-                  other={null}
-                  slot="a"
-                  apart={apartLine(a, b)}
-                  candidates={candidates}
-                  onPick={(o) => show({ a: o, b })}
-                  layers={layers}
-                  grading={grading(a.run.name)}
-                  writing={unwritten(a)}
-                  held={grade.starting()}
-                  onRegrade={() => regrade([a.run.name])}
-                  reading={view !== 'flip'}
-                  page={page}
-                />
+            // Read one at a time, the page shows the list of the output on the stage alone.
+            <Columns count={both && !stage.side ? 2 : 1}>
+              {a && stage.side !== 'b' ? (
+                <SideList {...sideOf('a', a)} writing={unwritten(a)} />
               ) : null}
-              {b ? (
-                <Side
-                  ctx={ctx}
-                  output={b}
-                  other={a}
-                  slot={a ? 'b' : null}
-                  apart={apartLine(b, a)}
-                  candidates={candidates}
-                  onPick={(o) => show({ a, b: o })}
-                  layers={layers}
-                  grading={grading(b.run.name)}
-                  writing={unwritten(b)}
-                  held={grade.starting()}
-                  onRegrade={() => regrade([b.run.name])}
-                  reading={view !== 'flip'}
-                  page={page}
-                />
+              {b && stage.side !== 'a' ? (
+                <SideList {...sideOf('b', b)} writing={unwritten(b)} />
               ) : null}
             </Columns>
           )}
@@ -390,54 +369,6 @@ function DeleteRunAction({
 }
 
 /**
- * The pair being read, as one line, where the cards cannot pick it: with one
- * side empty, or under Word diff, which has one card for both. The fields that
- * pick another pair are folded under it with Swap. With neither side picked it
- * stands open.
- */
-function Pair({
-  candidates,
-  a,
-  b,
-  show,
-}: {
-  candidates: Output[]
-  a: Output | null
-  b: Output | null
-  show: (pair: { a: Output | null; b: Output | null }) => void
-}) {
-  const names = outputNames(candidates)
-  // The line says the two versions, which is what tells most pairs apart; two outputs of one
-  // version take the longer names the fields list them by.
-  const short = !(a && b && runTitle(a.run) === runTitle(b.run))
-  // Mid-sentence, a run without the skill reads as what it is, not as a name in capitals.
-  const name = (o: Output) => (short ? runInSentence(o.run) : (names.get(o.key) ?? o.key))
-  const one = a ?? b
-  return (
-    <Disclosure
-      summary={
-        a && b
-          ? `Comparing ${name(a)} with ${name(b)}`
-          : one
-            ? `Reading ${name(one)} alone`
-            : 'No output picked'
-      }
-      defaultOpen={!one}
-    >
-      <div className="grid max-w-3xl grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] items-center gap-x-3">
-        <Picker slot="a" outputs={candidates} value={a} onChange={(o) => show({ a: o, b })} />
-        <Picker slot="b" outputs={candidates} value={b} onChange={(o) => show({ a, b: o })} />
-        {a && b ? (
-          <Button type="button" variant="outline" size="sm" onClick={() => show({ a: b, b: a })}>
-            Swap
-          </Button>
-        ) : null}
-      </div>
-    </Disclosure>
-  )
-}
-
-/**
  * A list of outputs to pick from. Outputs written without the skill serve
  * another purpose, the score the skill has to beat, so they stand in a group
  * of their own after the versions; with none of them the list stays flat.
@@ -470,32 +401,26 @@ function outputChoices(
   }
 }
 
-/**
- * One side of the pair: its letter, then the output in it. The field names the
- * output by its version; who wrote it and when is a line under each name in
- * the list, so the two fields stay short and the same width.
- */
-function Picker({
+/** A side left empty in the band: its letter, then the field that fills it. */
+function EmptySide({
   slot,
   outputs,
-  value,
-  onChange,
+  onPick,
 }: {
   slot: 'a' | 'b'
   outputs: Output[]
-  value: Output | null
-  onChange: (output: Output | null) => void
+  onPick: (output: Output | null) => void
 }) {
   const names = outputNames(outputs)
   return (
     <div className="flex min-w-0 items-center gap-2">
-      <Slot variant="letter">{SLOT_LABEL[slot]}</Slot>
+      <Slot>{SLOT_LABEL[slot]}</Slot>
       <SelectBox
         aria-label={`Output ${SLOT_LABEL[slot]}`}
         width="fill"
         size="sm"
-        value={value?.key ?? ''}
-        onChange={(key) => onChange(outputs.find((o) => o.key === key) ?? null)}
+        value=""
+        onChange={(key) => onPick(outputs.find((o) => o.key === key) ?? null)}
         none="None"
         {...outputChoices(outputs, (o) => ({
           value: o.key,
@@ -577,28 +502,36 @@ function Asked({ testCase, summary }: { testCase: Case; summary: string }) {
 }
 
 /**
- * A card's title: its version, and where the case has other outputs, the
- * field that picks another for this side. The field shows the version alone;
- * its list names each output in full, with who wrote it and when under it.
+ * A head's title: its version, and where the case has other outputs, the
+ * field that picks another for this side. The field shows the version and its
+ * name; its list names each output in full, with who wrote it and when under
+ * it.
  */
 function OutputTitle({
   output,
-  slot,
+  letter,
   candidates,
   onPick,
 }: {
   output: Output
-  slot: 'a' | 'b' | null
+  letter: string | null
   candidates: Output[]
   onPick: (output: Output | null) => void
 }) {
   const title = runTitle(output.run)
-  if (candidates.length < 2) return title
+  if (candidates.length < 2)
+    return (
+      <span className="block truncate" title={title}>
+        {title}
+      </span>
+    )
   const names = outputNames(candidates)
   return (
     <SelectBox
-      aria-label={`Output ${SLOT_LABEL[slot ?? 'b']}`}
+      aria-label={`Output ${letter ?? SLOT_LABEL.b}`}
       variant="title"
+      // The version says which group it is from: "Without skill" needs no "Without the skill" after it.
+      nameGroup={false}
       value={output.key}
       onChange={(key) => onPick(candidates.find((o) => o.key === key) ?? null)}
       {...outputChoices(candidates, (o) => ({
@@ -611,11 +544,32 @@ function OutputTitle({
   )
 }
 
-function Side({
+/** What a side's head in the band and its list under the stage are both given. */
+interface SideProps {
+  ctx: Ctx
+  output: Output
+  /** The earlier side, which this one's score is set against. */
+  other: Output | null
+  /** A grade of this output's run is going. */
+  grading: boolean
+  /** A grade is being started, of this run or the other: one start at a time. */
+  held: boolean
+  onRegrade: () => void
+  /** The output is still being written: it holds its place, and its run is graded when it is done. */
+  writing: boolean
+}
+
+/**
+ * One side's head in the band: its letter, the field that picks its output,
+ * its score and how it moved from the other side. The line under them says
+ * what waits in its list under the stage, what tells it from the other side
+ * besides its version, and what went wrong.
+ */
+function SideHead({
   ctx,
   output,
   other,
-  slot,
+  letter,
   apart,
   candidates,
   onPick,
@@ -624,45 +578,23 @@ function Side({
   writing,
   held,
   onRegrade,
-  reading = true,
-  page,
-}: {
-  ctx: Ctx
-  output: Output
-  /** The earlier side, which this one's score is set against. */
-  other: Output | null
+  flip,
+}: SideProps & {
   /** Its letter; null when it is the only output shown. */
-  slot: 'a' | 'b' | null
+  letter: string | null
   /** What tells it from the output beside it besides its version (`apartLine`). */
   apart: string | null
   /** Every output of the case, which its title picks from. */
   candidates: Output[]
   onPick: (output: Output | null) => void
   layers: string[]
-  /** A grade of this output's run is going. */
-  grading: boolean
-  /** The output is still being written: it holds its place, and its run is graded when it is done. */
-  writing: boolean
-  /** A grade is being started, of this run or the other: one start at a time. */
-  held: boolean
-  onRegrade: () => void
-  /** The card shows what the output wrote; false when the stage above shows it. */
-  reading?: boolean
-  /** The size a page in this card is drawn at. */
-  page: PageSize
+  /** The head is half of the switch that says which output is on the stage. */
+  flip: HeadFlip | null
 }) {
-  const { state, config, go, report, reload } = ctx
+  const { config, go } = ctx
   const scored = scoreOf(output, config)
   const otherScored = other ? scoreOf(other, config) : null
   const ungraded = !scored || regradeOwed(scored)
-  // The artifact in view, kept by the output's key: a reload after a correction
-  // brings a new output object for the same output, and the view holds.
-  const [picked, setPicked] = useState<{ key: string; view: OutputView | null } | null>(null)
-  const opening: OutputView | null = primaryOf(output)
-  const view = picked?.key === output.key ? picked.view : opening
-  const setView = (next: OutputView | null) => setPicked({ key: output.key, view: next })
-  const [pending, setPending] = useState<string | null>(null)
-  const landed = useLanded(writing)
   // A change is read only between two answers to the same request, graded the same way, and
   // from Jev's answers, with yours only where both hold one.
   const move = other ? movedBetween(other, output, config) : null
@@ -672,10 +604,97 @@ function Side({
     move && unshared(delta, otherScored?.scores.total ?? null, scored?.scores.total ?? null)
       ? changeLine('outputs', move)
       : null
-  /** The skill still has the case, and this output answers an earlier wording of it. */
-  const before = output.earlier !== null && state.cases.some((c) => c.id === output.caseId)
-  const meta = output.run.meta?.samples.find((s) => s.dir === output.sample.name) ?? null
   const failure = failureOf(output)
+  /** The file a score is for, where the output wrote more than one. */
+  const gradedFile =
+    scored && output.primary && output.sample.artifacts.length > 1
+      ? output.primary.file.replace(/^outputs\//, '')
+      : null
+  // The lists stand under the stage, often past the window's foot: the head says how long
+  // each is, so the reader knows what waits there before scrolling.
+  const missed = scored?.verdicts.filter(isMissed).length ?? 0
+  const unsure = scored?.verdicts.filter((v) => v.aside === 'unsure').length ?? 0
+  const counts = scored
+    ? [missed ? `${missed} missed` : 'Nothing missed', unsure ? `${unsure} not sure` : null]
+        .filter(Boolean)
+        .join(' · ')
+    : null
+  return (
+    <PairHead
+      letter={letter ?? undefined}
+      flip={flip}
+      title={
+        <OutputTitle output={output} letter={letter} candidates={candidates} onPick={onPick} />
+      }
+      total={
+        <>
+          <TotalDetail total={scored?.scores.total}>
+            {scored ? (
+              <TotalDetailSection title="What the score is counted from">
+                {gradedFile ? (
+                  <Text as="p" size="xs" tone="muted">
+                    The score is for {gradedFile}.
+                  </Text>
+                ) : null}
+                <PartList
+                  scored={scored}
+                  layers={layers}
+                  other={otherScored}
+                  onChangeKinds={() => go('results', { view: 'all', graded: '1' })}
+                />
+              </TotalDetailSection>
+            ) : null}
+            <TotalDetailSection title="How it was made">
+              <FactList facts={outputFacts(output)} />
+            </TotalDetailSection>
+          </TotalDetail>
+          {why ? <DeltaExplained value={delta} why={why} /> : <Delta value={delta} />}
+        </>
+      }
+      action={
+        // Grading is the next step for an output with no score, one whose grading failed part
+        // way among them. One with a score is graded again from the header's menu, and says so
+        // here while it is. One still being written is graded by its run when it is done, and
+        // one cut short, or not finished for all the run says, is not graded.
+        !writing && (grading || (ungraded && !output.cut)) ? (
+          <Button
+            type="button"
+            variant="ghost-muted"
+            size="xs"
+            disabled={held}
+            busy={grading}
+            busyLabel="Grading…"
+            onClick={onRegrade}
+          >
+            Grade
+          </Button>
+        ) : undefined
+      }
+      meta={
+        counts || apart || failure || scored?.stale.length ? (
+          <>
+            {counts ? <span className="tabular-nums">{counts}</span> : null}
+            {apart ? <span>{apart}</span> : null}
+            {failure ? <span className="text-destructive">{failure}</span> : null}
+            {scored?.stale.map((reason) => (
+              <span key={reason}>{reason}, so it has no score.</span>
+            ))}
+          </>
+        ) : undefined
+      }
+    />
+  )
+}
+
+/**
+ * What one output missed, on its card under the stage. The card holds the
+ * list and nothing else: the output itself is on the stage. Without a list
+ * it says why in the list's place.
+ */
+function SideList({ ctx, output, grading, writing, held, onRegrade }: SideProps) {
+  const { state, config, go, report, reload } = ctx
+  const scored = scoreOf(output, config)
+  const [pending, setPending] = useState<string | null>(null)
   const rules = new Set(state.rules.map((r) => r.text))
 
   const correct = async (verdict: Verdict, met: boolean | null) => {
@@ -698,70 +717,23 @@ function Side({
 
   return (
     <OutputCard>
-      <OutputCardHead
-        slot={slot ? <Slot variant="letter">{SLOT_LABEL[slot]}</Slot> : undefined}
-        title={<OutputTitle output={output} slot={slot} candidates={candidates} onPick={onPick} />}
-        total={
-          <>
-            <TotalDetail total={scored?.scores.total}>
-              {scored ? (
-                <TotalDetailSection title="What the score is counted from">
-                  <PartList
-                    scored={scored}
-                    layers={layers}
-                    other={otherScored}
-                    onChangeKinds={() => go('results', { view: 'all', graded: '1' })}
-                  />
-                </TotalDetailSection>
-              ) : null}
-              <TotalDetailSection title="How it was made">
-                <FactList facts={outputFacts(output)} />
-              </TotalDetailSection>
-            </TotalDetail>
-            <Delta value={delta} />
-          </>
-        }
-        action={
-          // Grading is the next step for an output with no score, one whose grading failed part
-          // way among them. One with a score is graded again from the header's menu, and says so
-          // here while it is. One still being written is graded by its run when it is done, and
-          // one cut short, or not finished for all the run says, is not graded.
-          !writing && (grading || (ungraded && !output.cut)) ? (
-            <Button
-              type="button"
-              variant="ghost-muted"
-              size="xs"
-              disabled={held}
-              busy={grading}
-              busyLabel="Grading…"
-              onClick={onRegrade}
-            >
-              Grade
-            </Button>
-          ) : undefined
-        }
-        meta={apart ?? undefined}
-      />
-      {failure ? (
-        <Hint inset tone="destructive">
-          {failure}
-        </Hint>
-      ) : null}
-      {before ? <Hint inset>Written for this case before its prompt or files changed.</Hint> : null}
-      {why ? <Hint inset>{why}</Hint> : null}
-      {scored && output.primary && output.sample.artifacts.length > 1 ? (
-        <Hint inset>The score is for {output.primary.file.replace(/^outputs\//, '')}.</Hint>
-      ) : null}
       {scored && outputRulesUnmarked(output) ? (
-        <Hint inset>
-          Graded before rules and checks were marked on this kind of output. Regrade to see them.
-        </Hint>
+        // It stands where the list would, with the way to fill it.
+        <Toolbar gap="md" className="px-4 py-3">
+          <Hint>Graded before rules and checks were marked on this kind of output.</Hint>
+          <Button
+            type="button"
+            variant="outline"
+            size="xs"
+            disabled={held}
+            busy={grading}
+            busyLabel="Grading…"
+            onClick={onRegrade}
+          >
+            Regrade
+          </Button>
+        </Toolbar>
       ) : null}
-      {scored?.stale.map((why) => (
-        <Hint inset key={why}>
-          {why}, so it has no score.
-        </Hint>
-      ))}
       {scored ? (
         <Verdicts
           verdicts={scored.verdicts}
@@ -783,186 +755,7 @@ function Side({
                   : 'Not graded yet.'}
         </Hint>
       )}
-      {reading && writing ? <OutputWriting place="card" /> : null}
-      {reading && !writing ? (
-        // An output that lands while it is read fades in where it was waited on.
-        <div className={landed ? 'animate-ink' : undefined}>
-          <ArtifactPicker artifacts={output.sample.artifacts} value={view} onChange={setView} />
-          {view === 'transcript' ? (
-            <TranscriptList
-              run={output.run.name}
-              sample={output.sample.name}
-              root={output.sample.path}
-              meta={meta}
-            />
-          ) : (
-            <ArtifactView
-              run={output.run.name}
-              sample={output.sample.name}
-              artifact={view}
-              page={page}
-            />
-          )}
-          {output.sample.hasTranscript ? (
-            <OutputCardFoot>
-              <Button
-                type="button"
-                variant="ghost-muted"
-                size="xs"
-                onClick={() => setView(view === 'transcript' ? opening : 'transcript')}
-              >
-                {view === 'transcript' ? 'Back to the output' : 'Read the transcript'}
-              </Button>
-            </OutputCardFoot>
-          ) : null}
-        </div>
-      ) : null}
     </OutputCard>
-  )
-}
-
-/** The choice that reads an output's steps in place of one of its files. */
-const STEPS = ':transcript'
-
-/**
- * The stage, the bar over it and the size line under it. The bar holds what
- * picks the thing in view: which output (A or B with each version and total,
- * and the keys), and which of its files, or its steps. What belongs to the file in
- * view stands in the line under the stage: for a page, the size it is drawn
- * at, which is also where that size is changed, then how it is scaled, and at
- * the line's end a way to open the file full size.
- */
-function Flip({
-  a,
-  b,
-  totals,
-  writing,
-  page,
-}: {
-  a: Output | null
-  b: Output | null
-  totals: { a: number | null; b: number | null }
-  /** Which sides are still being written: they wait on the stage, with no file to pick or open. */
-  writing: { a: boolean; b: boolean }
-  /** The size a page is drawn at, shared with the cards. */
-  page: PageSize
-}) {
-  const [shown, setShown] = useState<StageSide>(b ? 'b' : 'a')
-  /** A file the reader picked by name, or the steps; until then each output shows its own page or picture. */
-  const [picked, setPicked] = useState<string | null>(null)
-  const both = a !== null && b !== null
-  const sides = (
-    [
-      ['a', a],
-      ['b', b],
-    ] as const
-  ).filter((entry): entry is readonly [StageSide, Output] => entry[1] !== null)
-  const [side, output] = sides.find(([s]) => s === shown) ?? sides[0]
-  const steps = picked === STEPS
-  const ready = sides.filter(([s]) => !writing[s])
-  const fileOf = (s: StageSide, o: Output) =>
-    steps || writing[s]
-      ? null
-      : picked === null
-        ? drawnOf(o)
-        : (o.sample.artifacts.find((f) => f.file === picked) ?? null)
-  const files = [
-    ...new Set(
-      ready.flatMap(([, o]) =>
-        o.sample.artifacts.filter((f) => f.kind !== 'transcript').map((f) => f.file),
-      ),
-    ),
-  ]
-  // A list, not segments: an agent writes as many files as it likes.
-  const reads = [
-    ...files.map((f) => ({ value: f, label: f.replace(/^outputs\//, '') })),
-    ...(ready.some(([, o]) => o.sample.hasTranscript)
-      ? [{ value: STEPS, label: 'Transcript' }]
-      : []),
-  ]
-  const file = fileOf(side, output)
-  const flip = useCallback((to: StageSide) => setShown(to), [])
-
-  // A and B (their shortcuts) flip the stage, unless the key is being typed somewhere.
-  useShortcut('results.a', () => setShown('a'), both)
-  useShortcut('results.b', () => setShown('b'), both)
-  const flipKeys = { a: useShortcutKeys('results.a'), b: useShortcutKeys('results.b') }
-
-  // Each letter says which version it is, so the reader need not find the cards under the stage.
-  const pairNames = outputNames(
-    sides.map(([, o]) => o),
-    { short: true },
-  )
-  const flipTo = (to: StageSide, o: Output) => ({
-    value: to,
-    label: (
-      <>
-        <Text font="mono" weight="semibold">
-          {SLOT_LABEL[to]}
-        </Text>
-        {pairNames.get(o.key) ?? runTitle(o.run, { short: true })}
-        {totals[to] === null ? null : <Text tabular>{Math.round(totals[to])}</Text>}
-      </>
-    ),
-    title: flipKeys[to]
-      ? `${runTitle(o.run)}. Press ${comboText(flipKeys[to], isMac)} to show it.`
-      : runTitle(o.run),
-  })
-
-  return (
-    <>
-      {(a && b) || reads.length > 1 ? (
-        <Toolbar gap="md">
-          {a && b ? (
-            <Segmented
-              aria-label="Output in view"
-              value={side}
-              onChange={setShown}
-              options={[flipTo('a', a), flipTo('b', b)]}
-            />
-          ) : null}
-          {reads.length > 1 ? (
-            <SelectBox
-              aria-label="File in view"
-              size="sm"
-              value={steps ? STEPS : (file?.file ?? '')}
-              onChange={setPicked}
-              options={reads}
-            />
-          ) : null}
-        </Toolbar>
-      ) : null}
-      <Stage
-        layers={sides.map(([s, o]) => ({
-          side: s,
-          run: o.run.name,
-          sample: o.sample.name,
-          artifact: fileOf(s, o),
-          name: `${SLOT_LABEL[s]}, ${runTitle(o.run)}`,
-          writing: writing[s],
-          reading: !steps ? undefined : o.sample.hasTranscript ? (
-            <TranscriptList
-              run={o.run.name}
-              sample={o.sample.name}
-              root={o.sample.path}
-              meta={o.run.meta?.samples.find((m) => m.dir === o.sample.name) ?? null}
-            />
-          ) : (
-            <Hint inset>This output kept no transcript.</Hint>
-          ),
-        }))}
-        shown={side}
-        width={page.width}
-        height={page.height}
-        onFlip={flip}
-        lead={file?.kind === 'html' ? <PageSizeSelect page={page} /> : null}
-        action={
-          file ? (
-            <OpenFullSize run={output.run.name} sample={output.sample.name} file={file.file} />
-          ) : null
-        }
-      />
-    </>
   )
 }
 

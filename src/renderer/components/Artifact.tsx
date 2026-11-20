@@ -10,7 +10,6 @@ import { Prose } from './Prose.tsx'
 import { SelectBox } from './SelectBox.tsx'
 import { Hint, Text } from './text.tsx'
 import { Button } from './ui/button.tsx'
-import { ToggleGroup, ToggleGroupItem } from './ui/toggle-group.tsx'
 
 interface Props {
   run: string
@@ -218,47 +217,5 @@ export function OpenFullSize({ run, sample, file }: { run: string; sample: strin
       Open full size
       <ArrowUpRightIcon aria-hidden="true" />
     </Button>
-  )
-}
-
-/** What of an output is being read: one of the files the agent wrote, or the steps it took. */
-export type OutputView = ArtifactRef | 'transcript'
-
-/**
- * Pick which file of an output to read, when it wrote more than one. Its
- * transcript is not one of them: the card's foot opens it.
- */
-export function ArtifactPicker({
-  artifacts,
-  value,
-  onChange,
-}: {
-  artifacts: ArtifactRef[]
-  value: OutputView | null
-  onChange: (view: OutputView) => void
-}) {
-  if (artifacts.length < 2) return null
-  return (
-    <div className="border-b px-4 py-2">
-      <ToggleGroup
-        type="single"
-        variant="default"
-        size="sm"
-        spacing={1}
-        aria-label="Read"
-        className="flex-wrap"
-        value={value === 'transcript' ? '' : (value?.file ?? '')}
-        onValueChange={(picked) => {
-          const next = artifacts.find((a) => a.file === picked)
-          if (next) onChange(next)
-        }}
-      >
-        {artifacts.map((a) => (
-          <ToggleGroupItem key={a.file} value={a.file} font="mono" text="xs">
-            {a.file.replace(/^outputs\//, '')}
-          </ToggleGroupItem>
-        ))}
-      </ToggleGroup>
-    </div>
   )
 }

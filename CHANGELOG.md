@@ -6,6 +6,14 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+### Changed
+
+- On Results, the two versions you compare stay at the top while you scroll, each with its score and how many rules and checks it missed. Click a version there to read a different answer on that side.
+- The answers show in the same place in all three views. **Side by side** sets them next to each other, and **Word diff** now compares any file the agent wrote, picked by the file name over the answer. **Transcript** is the last choice in that list.
+- Read one at a time, the two versions at the top are the switch: click the other one, or press A or B, to see its answer and its list.
+- A long rule under **Missed** or **Not sure** shows two lines. Click it to read all of it. A list longer than four shows three and folds the rest under one line, such as "9 more not sure".
+- What explains a number is behind that number. Click a score to see which file it is for. Where the change beside a score is not the difference of the two scores, click the change to see why.
+
 ## [0.18.0] - 2026-11-20
 
 ### Added

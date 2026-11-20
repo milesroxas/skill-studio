@@ -14,7 +14,7 @@ You go round three steps:
 
 Then change a rule and go round again.
 
-![The app with the release-notes skill open on Results: the sidebar with Skill, Cases and Results; three cases listed with how each score moved; and two outputs of one case side by side, each with its score and what it missed.](images/app.webp)
+![The app with the release-notes skill open on Results: the sidebar with Skill, Cases and Results; three cases listed with how each score moved; and two versions of one case with their scores, the two answers side by side under them.](images/app.webp)
 
 The pictures in this guide show an example skill that writes release notes. Its scores are made up.
 
@@ -198,19 +198,19 @@ The run's progress shows at the bottom of the sidebar. Click it to watch, or to 
 
 ## 5. Compare the results
 
-![Results: three cases on the left, each with its score before and after; on the right two outputs of one case side by side, A from v0 and B from v1, each with its version, its score and a list of what it missed.](images/results.webp)
+![Results: three cases on the left, each with its score before and after; on the right the two versions of one case, A from v0 and B from v1, each with its score and how much it missed, and the two answers side by side under them.](images/results.webp)
 
-Results shows one case at a time: **A**, the answer from your previous version, beside **B**, the answer from your latest.
+Results shows one case at a time: **A**, the answer from your previous version, and **B**, the answer from your latest. Their versions and scores stay at the top while you scroll.
 
 - **The list on the left** has every case with its score and how much it moved. Click one to open it.
-- **Missed** lists each rule and check the answer did not meet. **Open rule** takes you to that rule in the editor. It also says when Jev read only the start of a long answer or file: a rule broken past that point is not seen.
+- **Click a version name** at the top to read a different answer on that side.
+- **Click a score** to see how it was counted. Where the change beside B's score is underlined, click it to see why it is not the difference of the two scores.
+- **The answers** are under the two versions. **One at a time** shows one answer large: click the other version, or press A or B, to flip between the two. **Side by side** shows both. **Word diff** marks the words that differ.
+- **The file name** over the answer changes which file you read, when the agent wrote more than one. **Transcript**, last in that list, shows every step the agent took. Read it when a score surprises you.
+- **Missed**, under the answer, lists each rule and check the answer did not meet. A long rule shows its first two lines: click it to read all of it. **Open rule** takes you to that rule in the editor. Missed also says when Jev read only the start of a long answer or file: a rule broken past that point is not seen.
 - **Not sure** lists what Jev could not tell. These are left out of the score until you mark them yourself. Where a score leaves some out, All cases says how many of its rules and checks Jev was not sure of. A change between two runs counts only the rules and checks marked on both, and says how many it left out: mark a rule or check on both runs to count it in the change.
 - **Met** folds away everything it got right.
 - **Does not apply** folds away rules written for another kind of work than this answer, such as rules under "For a bug report" when the request was for a summary, and rules for a situation the request is not, such as "When the request names a table, write a table" when it names none. They are left out of the score.
-- **Click a score** to see how it was counted.
-- **Read the transcript** shows every step the agent took. Read it when a score surprises you.
-- **Click a version name** to read a different answer on that side.
-- **Side by side** and **Word diff**, at the top right, change how the two answers are shown. A web page or a picture opens large above the scores: press A and B to flip between the two.
 
 ### When you and Jev disagree
 
@@ -256,7 +256,7 @@ Two versions only a few points apart may not really differ. Run with two or more
 | A skill is missing from the Library | Choose **Every place**, or add its folder under **Where skills are found** |
 | The agent says it cannot find a file | Add the file to the case under **Files** |
 | A bullet gets no number | Make it four words or more, not only a pointer to a file, not under an example heading, and not the same as a bullet above it |
-| A score looks wrong | Read the transcript, then mark the rule or check Jev got wrong |
+| A score looks wrong | Read the transcript, last in the list of files over the answer, then mark the rule or check Jev got wrong |
 | An answer says it could not finish | Read the reason under it, such as a sign-in or a usage limit, fix that, and run the case again |
 | Results shows one answer, not two | Change the skill and run again, so there are two versions to compare |
 

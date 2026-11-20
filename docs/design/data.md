@@ -72,6 +72,7 @@ A score is out of 100 and always shows through one of these, from `components/Sc
 | `TotalDetail` | an output's `TotalChip` as a button that opens what is behind the number: a `help` popover of `TotalDetailSection`s, each a heading and what it holds. On Results it holds "What the score is counted from" (`PartList`) and "How it was made" (`FactList` in `components/OutputCard.tsx`: who wrote it, when, the attempt, the length or size). Pointed at or open, the chip takes a 2px ring in `border`. A click, never a hover, so a part's own note opens inside it. |
 | `SampleCount` | how many outputs a mean stands for, which are the ones with a score: "×2". Its slot keeps its width when empty. Hidden below `lg`, so a table of cases fits 720px. |
 | `Delta` | a change between two scores: "+15" in `success`, "−4" in `destructive`. It brings its own space after the score it follows; `lead={false}` where it opens a line or stands alone in a cell |
+| `DeltaExplained` | a `Delta` that is not the difference of the two scores beside it, as an `Explained` figure that opens why: the change counts only what was marked on both outputs. Where nothing moved it reads "Same", muted, so two scores apart never stand with no change and no reason. Its hit area reaches 8px past the figure. |
 | `ListScore` | a `TotalChip` at the end of a row that lists a case: a `NavButton`'s `end` in a list column, a row of All cases. The latest score alone, `stale` when the case has not run on the skill as it is now. On a list column's open row it takes a hairline edge. A score that changes in view comes up a few pixels (`animate-tick`). |
 | `ScoreChange` | how a score moved, in words, read as a change is (`changeBetween` in `model.ts`), for the line under a row's title: "Up 11 from v0", "Down 4 from v0", "Same as v0", or "Up 20 with the skill" or "Same as without the skill" against the run without it. A case with one output says "Only v0 so far": with nothing to move from, a bare version would explain nothing. Where one of the two outputs has no score the line names it, "v2 has no score yet", or "v2 was stopped before it finished" for a case whose every output was stopped, and the chip beside it shows the later output's score or none, never the earlier one's. Only "Down" is colored, `destructive`: a rise is the resting state, and the eye lands on what got worse. |
 | `PartList` | the parts one score is made of, a row each: the name, then "4 of 5" at the row's end, or "4 of 5, 2 not sure" where Jev left facts for the reader (`countText` in `model.ts`). A part counted from facts says the count, each fact by its weight so a ×2 check counts two; any other says its score and its `Delta` from the other side. A count stays in `foreground` until its part is weak. A part a kind of work adds (Look, Efficiency, Scope, Process, Check command) names itself through `Explained`, below; Rules and Checks, which every skill is graded on, are plain text. |
@@ -89,7 +90,7 @@ A score is out of 100 and always shows through one of these, from `components/Sc
 
 ### Verdicts
 
-What a score is counted from shows under it as `Verdicts` (`components/Verdicts.tsx`), on an `OutputCard`:
+What a score is counted from shows as `Verdicts` (`components/Verdicts.tsx`), on an `OutputCard` under the stage:
 
 1. **Missed**, open: one row per rule broken or check not met.
 2. **Not sure**, open: one row per fact Jev could not tell, which is in no score until the reader answers it. The heading is a `Term`.
@@ -97,15 +98,21 @@ What a score is counted from shows under it as `Verdicts` (`components/Verdicts.
 4. **Met**, folded under its count.
 5. **Does not apply**, folded under its count: a rule under a heading for another kind of work than this output, or a rule for a situation its request is not.
 
+A rule carries its reason and runs to 400 characters and more, so a list is kept short two ways:
+
+- **A row shows two lines.** A longer fact ends in an ellipsis, never a fade: an ellipsis says "more text", a fade says "more to scroll". The chevron at the row's end opens it in place, and a press on the cut text does the same. Open, the text is only text, so it can be selected and copied. Whether a fact is cut is read from the text as it is laid out, so a short check has no chevron.
+- **An open group shows three rows.** The rest fold under one line that names what it holds, "9 more not sure", since Met and Does not apply stand right under it. A line that hid one row would save nothing, so a group of four shows all four.
+
 A row is three columns:
 
 - A mark: a red cross or a green tick, which repeat the words "Missed" and "Met". A fact in Not sure or Does not apply is no verdict, so its mark is a `muted-foreground` dash and never a verdict color.
-- The rule or check in full. Under it, in `faint`, a line shows only when it says something: the kind when the list holds both rules and checks, or when the check counts more than once ("Rule", "Check ×2"); the reader's own answer; and "Saving…" while it is saved.
-- Its actions at the end, top-aligned so they line up from row to row.
+- The rule or check, at the row's whole width. Under it, a line shows only when it has something to say: in `faint`, the kind when the list holds both rules and checks, or when the check counts more than once ("Rule", "Check ×2"), the reader's own answer, and "Saving…" while it is saved; then "Open rule".
+- At the end, top-aligned so they line up from row to row: the chevron, on a row that is cut, then the menu.
 
 The actions are `ghost-muted` at `xs`:
 
-- "Open rule" on every rule SKILL.md still holds, missed or met.
+- "Open rule", in the line under the text, on every rule SKILL.md still holds, missed or met. Never beside the text: there it takes a third of the row's width from the rule.
+- The chevron, `icon-xs`: "Show all", "Show less".
 - Then `MoreActions` at `size="xs"`, holding only the answer, "Mark as met" or "Mark as missed", for a fact Jev answered. Answering is rare, so it never sits in the row itself. A fact in Not sure or Does not apply is neither, so its menu holds both.
 - Each action has one place on every row, whatever the row says, so a reader finds it where they found it last.
 - Never make the whole row the button: its text is copied, and a check has no rule to open.

@@ -155,6 +155,33 @@ export function Delta({ value, lead = true }: { value: number | null; lead?: boo
   )
 }
 
+/**
+ * A change that is not the difference of the two scores beside it, as a figure
+ * that opens why (`Explained`). It stands even when nothing moved, as "Same":
+ * two scores apart with no change beside them is what the note is for. A
+ * figure of one or two characters is small to press, so its hit area reaches
+ * 8px past it each way.
+ */
+export function DeltaExplained({ value, why }: { value: number | null; why: string }) {
+  return (
+    <span className="ml-1.5 flex [&>button]:relative [&>button]:before:absolute [&>button]:before:-inset-x-2 [&>button]:before:-inset-y-1.5">
+      <Explained
+        label={
+          value ? (
+            <Delta value={value} lead={false} />
+          ) : (
+            <Text size="xs" tone="muted">
+              Same
+            </Text>
+          )
+        }
+        title="The change"
+        means={why}
+      />
+    </span>
+  )
+}
+
 /** A part's count or score: plain while it holds, amber or red once it is weak. */
 const partValue = cva('font-semibold whitespace-nowrap tabular-nums text-foreground', {
   variants: {

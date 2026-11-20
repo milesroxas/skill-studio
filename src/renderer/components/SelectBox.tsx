@@ -54,9 +54,14 @@ interface Props extends VariantProps<typeof triggerVariants> {
   size?: 'sm' | 'default'
   /**
    * `caption`: a value in a line of meta, changed where it is read. `title`: a
-   * card's title that picks what the card shows. A field otherwise.
+   * title that picks what stands under it. A field otherwise.
    */
   variant?: 'field' | 'caption' | 'title'
+  /**
+   * False where every choice's own name says which group it is from: the field
+   * then shows the choice alone, with no group after it.
+   */
+  nameGroup?: boolean
   disabled?: boolean
 }
 
@@ -76,6 +81,7 @@ export function SelectBox({
   size,
   variant,
   width,
+  nameGroup = true,
   disabled,
   ...aria
 }: Props) {
@@ -98,7 +104,7 @@ export function SelectBox({
   // A name the field cuts short is whole in its title, with the line the list shows under it.
   const chosen = [...options, ...groups.flatMap((g) => g.options)].find((o) => o.value === value)
   // A grouped choice names its group after it, since two groups may hold the same name.
-  const group = groups.find((g) => g.options.some((o) => o.value === value))
+  const group = nameGroup ? groups.find((g) => g.options.some((o) => o.value === value)) : null
   return (
     <Select
       value={value === '' && none ? NONE : value}

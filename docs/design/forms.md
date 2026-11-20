@@ -146,16 +146,16 @@ An option may carry:
 - a `detail`: a quieter `xs` line under its label, in the list only. The trigger shows the label alone and holds both in its title, so a field stays short where the list says more.
 - a `short`: what the trigger shows while it is picked, where the list's label is longer than the field needs.
 
-A choice from a grouped list shows its group after it in `muted-foreground`, since two groups may hold the same name: the assistant's model reads "Sonnet  Claude Code". `ModelChip` names the provider the same way.
+A choice from a grouped list shows its group after it in `muted-foreground`, since two groups may hold the same name: the assistant's model reads "Sonnet  Claude Code". `ModelChip` names the provider the same way. `nameGroup={false}` leaves the group out where each choice's own name says which group it is from: an output's version on Results.
 
 `caption` is a value in a line of meta, changed where it is read: `xs` and muted, no edge, lit as a `ghost-muted` button is when pointed at or open.
 
 - It shows a short name ("Case size", "Phone") and never the value's figures. Those are each option's `detail`, at the end of its row, so the list is one line a row.
 - Its list hangs from the caption, under it or over it as the window allows, and never covers it.
 - It stands 8px before the line's edge, so its text, not its hover box, starts there.
-- One use: the size a page is drawn at, at the start of the line under the stage on Results ([layout.md](layout.md#the-stage)).
+- Two uses, both on Results ([layout.md](layout.md#the-stage)): the size a page is drawn at, at the start of the line under the stage, and the file in view, in the line over it.
 
-`title` is a card's title that picks what the card shows: the title's own size and weight, no edge, lit as a caption is.
+`title` is a title that picks what stands under it: the title's own size and weight, no edge, lit as a caption is. One use: a side's version in the band on Results.
 
 - Its list hangs from it, as a caption's does, with each option's `detail` as a line under the name.
 - It stands 8px before the title's edge.

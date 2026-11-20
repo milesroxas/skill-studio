@@ -12,7 +12,7 @@ A desktop app for writing agent skills and seeing whether an edit made them bett
 
 It suits work that is a matter of judgement, such as writing, web pages and agent process.
 
-![Skill Studio with a skill open on Results: the sidebar with Skill, Cases and Results, three cases with how each score moved, and two outputs of one case side by side with what each missed.](docs/images/app.webp)
+![Skill Studio with a skill open on Results: the sidebar with Skill, Cases and Results, three cases with how each score moved, and two versions of one case with their scores, the two answers side by side under them.](docs/images/app.webp)
 
 ## Install
 

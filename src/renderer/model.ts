@@ -1140,7 +1140,7 @@ export const runTitle = (run: RunView, { short = false }: { short?: boolean } = 
  * run without the skill", capitalised only to open the sentence, so the name
  * never reads as a label dropped mid-line.
  */
-export const runInSentence = (run: RunView, { start = false, short = false } = {}): string =>
+const runInSentence = (run: RunView, { start = false, short = false } = {}): string =>
   isWithoutSkill(run) ? `${start ? 'The' : 'the'} run without the skill` : runTitle(run, { short })
 
 /** Why something has no score, as the end of a line that opens with its name: "v2 was stopped before it finished". */
