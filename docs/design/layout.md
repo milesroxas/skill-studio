@@ -238,7 +238,7 @@ An output is judged on the stage (`components/Stage.tsx`), under the band on Res
 
 - **A page** is drawn at the size the reader picks and scaled down to fit, never up. `STAGE_WIDTHS` in `src/renderer/stage.ts` is the closed set: Full width (the stage's own width, where a page starts), Phone 390, Tablet 820 and Desktop 1280. The choice is kept for the next case and the next launch. A case with a size (`bench.size`) adds Case size, first, and its page opens at it, fitted whole as a picture is. A page runs its own scripts, sandboxed (see `SECURITY.md`).
 - **A picture** is fitted whole, never enlarged, on the artifact's own white.
-- **Any other file** (code, Markdown) and the transcript stand on `bg-card` and scroll. Code is colored by its language ([data.md](data.md)).
+- **Any other file** (code, Markdown) and the transcript stand on `bg-card` and scroll. Code is colored by its language ([data.md](data.md)) and has no fill of its own: it stands on the sheet, as prose does. A fill would end where the code does and leave a short file's sheet in two tones.
 
 The stage stands in the same place in every view, and the view only says how the pair stands on it. So a change of view moves nothing under the stage.
 

@@ -206,6 +206,10 @@ let highlighter: Promise<typeof import('../highlight.ts')> | null = null
  * (`highlight.ts`). It shows plain at once and takes its colors when they are
  * read, which changes no line's length or place. A language not known and a
  * very long file stay plain.
+ *
+ * It has no fill of its own: the code stands on the sheet that holds it, as
+ * prose does. A fill would end where the code does, and a short file would
+ * leave its sheet in two tones.
  */
 function CodeFile({ text, file }: { text: string; file: string }) {
   // The colors, with what they were read for: those of another file are never drawn on this one.
@@ -227,7 +231,7 @@ function CodeFile({ text, file }: { text: string; file: string }) {
   }, [text, file])
   const tokens = colored?.of === of ? colored.tokens : null
   return (
-    <pre className="code-file m-0 overflow-x-auto bg-muted px-5 py-4 font-mono text-xs whitespace-pre-wrap break-words">
+    <pre className="code-file m-0 overflow-x-auto px-6 py-5 font-mono text-xs whitespace-pre-wrap break-words">
       {tokens
         ? tokens.map((token, i) =>
             token.class ? (

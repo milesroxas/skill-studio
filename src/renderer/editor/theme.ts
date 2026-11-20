@@ -9,6 +9,7 @@
 import { syntaxHighlighting } from '@codemirror/language'
 import { EditorView } from '@codemirror/view'
 import { tagHighlighter, tags } from '@lezer/highlight'
+import { CODE_TOKENS } from '../code-tokens.ts'
 
 const MONO = 'var(--font-mono, ui-monospace, monospace)'
 const GUTTER = '24px'
@@ -33,20 +34,8 @@ export const markdownHighlighting = syntaxHighlighting(
     { tag: tags.strikethrough, class: 'tok-strike' },
     { tag: [tags.link, tags.url], class: 'tok-link' },
     { tag: tags.monospace, class: 'tok-code' },
-    // Inside a code block: the language's own words, and the values written in it.
-    { tag: [tags.keyword, tags.tagName], class: 'tok-keyword' },
-    {
-      tag: [
-        tags.string,
-        tags.number,
-        tags.bool,
-        tags.null,
-        tags.atom,
-        tags.color,
-        tags.attributeValue,
-      ],
-      class: 'tok-value',
-    },
+    // Inside a code block: the language's own words, the values written in it, and its names.
+    ...CODE_TOKENS,
     {
       tag: [
         tags.processingInstruction,
@@ -146,10 +135,12 @@ export const editorTheme = EditorView.theme({
   '.tok-link': { color: 'var(--muted-foreground)' },
   '.tok-mark': { color: 'var(--muted-foreground)', fontWeight: '400', fontStyle: 'normal' },
   '.cm-md-key': { color: 'var(--foreground)' },
-  // Code has two hues of its own, kept off the ones that say how something stands (color.md):
-  // violet for the language's words, blue for values. Comments are quieter (`tok-mark`).
+  // Code has three hues of its own, kept off the ones that say how something stands (color.md):
+  // violet for the language's words, blue for values, teal for the names it gives and calls.
+  // Comments are quieter (`tok-mark`).
   '.tok-keyword': { color: 'var(--code-keyword)' },
   '.tok-value': { color: 'var(--code-value)' },
+  '.tok-name': { color: 'var(--code-name)' },
 
   // Formatted view. Headings, quotes and lists read as a page, not as source.
   // The same steps as an output's headings (.doc in styles.css): 21, 18 and 16px over 15.

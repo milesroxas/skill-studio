@@ -27,6 +27,7 @@ Ink uses the dark scope's values, with `--background` set to `--sidebar` and the
 | `--primary` / `--primary-foreground` | ink / porcelain | porcelain / ink | the filled button, and the band on All cases |
 | `--code-keyword` | `oklch(0.47 0.151 300)` violet | `oklch(0.72 0.12 300)` | in a code block: a language's own words (`const`, `return`, a tag's name) |
 | `--code-value` | `oklch(0.47 0.094 255)` blue | `oklch(0.72 0.104 255)` | in a code block: a string, a number, `true`, `null` |
+| `--code-name` | `oklch(0.47 0.08 200)` teal | `oklch(0.72 0.09 200)` | in a code block: the name of a function, a type or a class |
 | `--border` | `oklch(0.177 0.035 267.3 / 0.1)` | `oklch(0.25 0.01 267.3)` | hairlines |
 | `--input` | `oklch(0.177 0.035 267.3 / 0.2)` | `oklch(0.31 0.01 267.3)` | a control's edge |
 | `--ring` | `oklch(0.177 0.035 267.3)` | `oklch(0.961 0.01 94)` | focus: the keyboard's line at 50%, a field's edge at full |
@@ -163,7 +164,8 @@ Measured with WCAG 2 and APCA. A new text pair needs 4.5:1, and |Lc| 60 when it 
 | muted-foreground on background | 5.7:1, Lc 74 | 9.8:1, Lc 63 |
 | muted-foreground on accent | 5.0:1, Lc 66 | 8.5:1, Lc 62 |
 | muted-foreground on muted (the head of All cases) | 5.3:1 | 8.9:1 |
-| code-keyword, code-value on muted (a code block) | 6.1, 5.7:1 | 6.9, 7.2:1 |
+| code-keyword, code-value, code-name on muted (a code block) | 6.1, 5.7, 5.5:1 | 6.9, 7.2, 7.4:1 |
+| code-keyword, code-value, code-name, muted-foreground on card (a file of code) | 7.0, 6.5, 6.3, 6.2:1 | 7.3, 7.6, 7.9, 9.4:1 |
 | success, destructive on muted (a change in the head) | 4.9, 5.1:1 | 10.2, 7.8:1 |
 | primary-foreground on primary, and at 70% (the band's sentence) | 16.9:1, 8.6:1 | 17.5:1, 7.1:1 |
 | success, warning, destructive on their tint | 4.9, 4.9, 5.0:1, Lc 67, 67, 64 | 7.2, 6.6, 5.9:1, Lc 66, 60, 53 (chips only, never running text) |

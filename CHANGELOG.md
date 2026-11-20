@@ -15,7 +15,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - The space behind a picture is no taller than the picture needs, so the list under it starts higher.
 - Scrolling over an answer on Results moves the screen, not the answer, so a long file or page no longer holds you inside it. Click the answer to scroll inside it; move the pointer off it, or press Escape, to scroll the screen again.
 - An answer that is code opens on its page or picture when the agent wrote one, such as `preview.html`, not on the first code file by name. Text still opens on its text.
-- Code files on Results are colored by their language, as code blocks in the editor are.
+- Code files on Results are colored by their language, as code blocks in the editor are. Both now color the names of functions and types too, in teal.
 
 ### Removed
 

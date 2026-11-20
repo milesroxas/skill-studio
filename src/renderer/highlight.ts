@@ -1,6 +1,7 @@
 /**
  * Code an output wrote, colored by its language as the editor colors a code
- * block: a language's own words, its values, and its comments. The language
+ * block: a language's own words, its values, the names it gives and calls,
+ * and its comments. The language
  * is read from the file's name. Each is parsed by its own grammar, so a
  * keyword inside a string is never colored as one.
  *
@@ -24,6 +25,7 @@ import { parser as javascript } from '@lezer/javascript'
 import { parser as json } from '@lezer/json'
 import { parser as python } from '@lezer/python'
 import { parser as yaml } from '@lezer/yaml'
+import { CODE_TOKENS } from './code-tokens.ts'
 
 /** What reads a file into the tree its colors come from: a grammar of its own, or an older mode read as one. */
 interface Grammar {
@@ -71,26 +73,9 @@ const BY_ENDING: Record<string, Grammar> = {
   swift: legacy(swift),
 }
 
-/**
- * The same three classes the editor gives code in a block (`editor/theme.ts`),
- * so code reads alike wherever the app shows it: `tok-keyword` for the
- * language's own words and a tag's name, `tok-value` for what is written in
- * it, `tok-mark` for a comment and the like.
- */
+/** The classes the editor gives code in a block (`code-tokens.ts`), and `tok-mark` for a comment and the like. */
 const classes = tagHighlighter([
-  { tag: [tags.keyword, tags.tagName], class: 'tok-keyword' },
-  {
-    tag: [
-      tags.string,
-      tags.number,
-      tags.bool,
-      tags.null,
-      tags.atom,
-      tags.color,
-      tags.attributeValue,
-    ],
-    class: 'tok-value',
-  },
+  ...CODE_TOKENS,
   { tag: [tags.comment, tags.meta, tags.processingInstruction], class: 'tok-mark' },
 ])
 

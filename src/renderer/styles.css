@@ -64,9 +64,14 @@
   --destructive-foreground: oklch(0.961 0.01 94);
   --success: oklch(0.49 0.133 148);
   --warning: oklch(0.51 0.105 69);
-  /* Code in a skill's code block: a language's own words, and its values. Never a status hue. */
+  /*
+   * Code, in a skill's code block and in a file a run wrote: a language's own words, its
+   * values, and the names it gives and calls. Never a status hue: violet, blue and teal stand
+   * clear of the green, amber and red that say how something stands, and of the yellow.
+   */
   --code-keyword: oklch(0.47 0.151 300);
   --code-value: oklch(0.47 0.094 255);
+  --code-name: oklch(0.47 0.08 200);
   --border: oklch(0.177 0.035 267.3 / 0.1);
   --input: oklch(0.177 0.035 267.3 / 0.2);
   --ring: oklch(0.177 0.035 267.3);
@@ -117,6 +122,7 @@
     --warning: oklch(0.8 0.152 70);
     --code-keyword: oklch(0.72 0.12 300);
     --code-value: oklch(0.72 0.104 255);
+    --code-name: oklch(0.72 0.09 200);
     --border: oklch(0.25 0.01 267.3);
     --input: oklch(0.31 0.01 267.3);
     --ring: oklch(0.961 0.01 94);
@@ -603,14 +609,17 @@
   /*
    * Code an output wrote (`CodeFile` in `components/Artifact.tsx`), in the
    * hues the editor gives a code block (`editor/theme.ts`): violet for the
-   * language's own words, blue for values, comments quieter. Never a hue that
-   * says how something stands.
+   * language's own words, blue for values, teal for the names it gives and
+   * calls, comments quieter. Never a hue that says how something stands.
    */
   .code-file .tok-keyword {
     color: var(--code-keyword);
   }
   .code-file .tok-value {
     color: var(--code-value);
+  }
+  .code-file .tok-name {
+    color: var(--code-name);
   }
   .code-file .tok-mark {
     color: var(--muted-foreground);

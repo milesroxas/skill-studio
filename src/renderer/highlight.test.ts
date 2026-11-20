@@ -10,6 +10,13 @@ describe('highlighted', () => {
     expect(classOf(ts, 'const')).toBe('tok-keyword')
     expect(classOf(ts, '42')).toBe('tok-value')
     expect(classOf(ts, '// note')).toBe('tok-mark')
+    // What the code names and calls: a function, a type.
+    const named = highlighted('function total(p: Product) { return sum(p) }', 'a.ts')
+    expect(classOf(named, 'total')).toBe('tok-name')
+    expect(classOf(named, 'Product')).toBe('tok-name')
+    expect(classOf(named, 'sum')).toBe('tok-name')
+    // A variable is plain text.
+    expect(classOf(named, 'p')).toBeUndefined()
     // A keyword inside a string is a value.
     expect(classOf(ts, '"const"')).toBe('tok-value')
     expect(classOf(highlighted('{"a": true}', 'package.json'), 'true')).toBe('tok-value')
