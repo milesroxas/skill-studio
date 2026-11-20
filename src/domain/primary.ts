@@ -1,7 +1,8 @@
 /**
  * Which of the files an output wrote stands for it: the one grading judges
- * and Results opens first. Grading and Results both choose here, so the two
- * never disagree on an output nobody has graded yet.
+ * (`primaryArtifact`), and the one Results opens on (`previewArtifact`).
+ * Grading and Results both choose here, so the two never disagree on an
+ * output nobody has graded yet.
  */
 import { DELIVERABLE, OUTPUTS_DIR } from './prompt.ts'
 import type { Artifact, ArtifactKind } from './schemas.ts'
@@ -107,4 +108,24 @@ export function drawnArtifact(
 ): Artifact | null {
   if (primary && isDrawn(primary)) return primary
   return firstOf(artifacts, 'html') ?? firstOf(artifacts, 'image')
+}
+
+/**
+ * The file Results opens an output on: what a reader came to see. A reader
+ * looks before they read, and seldom reads code, so code that came with a
+ * page or a picture opens on that: its preview first, as `drawnArtifact`
+ * orders them. Prose is the piece itself, so an output graded as prose opens
+ * on its text, whatever pictures stand beside it. A page or a picture that is
+ * graded opens on itself. With nothing to look at, the output opens on the
+ * file it is graded on.
+ *
+ * It says only what opens first. The file grading judges is `primary`, and
+ * every file stays a choice away.
+ */
+export function previewArtifact(
+  artifacts: readonly Artifact[],
+  primary: Artifact | null,
+): Artifact | null {
+  if (primary?.kind === 'markdown') return primary
+  return drawnArtifact(artifacts, primary) ?? primary
 }

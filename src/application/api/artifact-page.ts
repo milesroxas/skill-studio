@@ -34,14 +34,19 @@ export function artifactPolicy(own: string): string {
 
 /**
  * What the stage adds to a page it shows: the page tells Results where it
- * scrolled and which of A or B was pressed while it had the focus, and
- * scrolls where Results asks. A message comes only from the frame's parent,
- * and carries nothing but numbers and a letter.
+ * scrolled, how far it can scroll, and which of A or B was pressed while it
+ * had the focus, and scrolls where Results asks. How far it can scroll is
+ * said when the page loads and whenever its size changes, so the stage knows
+ * whether a turn of the wheel over it would move the page or the app. A
+ * message comes only from the frame's parent, and carries nothing but
+ * numbers and a letter.
  */
 const STAGE_BRIDGE = `<script data-skill-studio-stage>(function(){
 var quiet=0;
 addEventListener('scroll',function(){if(Date.now()-quiet<150)return;parent.postMessage({studioStage:'scroll',x:scrollX,y:scrollY},'*')},{passive:true});
 addEventListener('message',function(e){var d=e.data;if(e.source!==parent||!d||d.studioStage!=='scrollTo')return;quiet=Date.now();scrollTo(Number(d.x)||0,Number(d.y)||0)});
+function reach(){var e=document.documentElement;parent.postMessage({studioStage:'reach',y:Math.max(0,e.scrollHeight-innerHeight)},'*')}
+addEventListener('load',reach);addEventListener('resize',reach);if(window.ResizeObserver)new ResizeObserver(reach).observe(document.documentElement);reach();
 addEventListener('keydown',function(e){var t=e.target;if(e.defaultPrevented||e.metaKey||e.ctrlKey||e.altKey||(t&&(t.isContentEditable||/^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))))return;var k=e.key.toLowerCase();if(k==='a'||k==='b')parent.postMessage({studioStage:'key',key:k},'*')});
 })()</script>`
 

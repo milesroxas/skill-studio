@@ -9,6 +9,10 @@
  *  - `MoreActions`: the "More actions" menu alone, at every width.
  *  - `ContextActions`: the same actions in a menu at the pointer, on a
  *    right-click (or a long press) anywhere on the thing.
+ *
+ * Actions on one of several things the row holds stand in a `RowActionGroup`,
+ * under a heading that says which. A part of the row that stands for one of
+ * those things may open its own group where it is (`PartActions`).
  */
 
 import { EllipsisIcon } from 'lucide-react'
@@ -28,6 +32,7 @@ import {
   DropdownMenu,
   DropdownMenuTrigger,
   MenuContent,
+  MenuGroup,
   MenuItem,
   MenuSeparator,
 } from './ui/menu.tsx'
@@ -36,6 +41,9 @@ import {
 type Place = { in: 'row' | 'menu'; subject: string }
 
 const PlaceContext = createContext<Place>({ in: 'row', subject: '' })
+
+/** The action stands in a `RowActionGroup`, whose rule already sets it apart. */
+const GroupedContext = createContext(false)
 
 /** How big the "More actions" button is: `sm` in a table or a header, `xs` in a dense list. */
 type MenuSize = 'sm' | 'xs'
@@ -177,6 +185,65 @@ export function ContextActions({
   )
 }
 
+/**
+ * `RowAction`s on one of several things a row holds, such as one of the two
+ * outputs a fact was marked on. In a menu they stand under a heading that
+ * says which thing, so each action keeps the words it has everywhere else,
+ * "Mark as met", and the menu is read a thing at a time. Never write the
+ * thing into each action's label: four rows that differ by one letter are
+ * read word by word. In a row of buttons there is no heading, so use it only
+ * where the actions are drawn in a menu.
+ */
+export function RowActionGroup({
+  heading,
+  children,
+}: {
+  /** Which thing, and how it stands: "Output A · Not sure". */
+  heading: string
+  /** `RowAction`s; none, and nothing is drawn. */
+  children: ReactNode
+}) {
+  const place = useContext(PlaceContext)
+  if (!hasActions(children)) return null
+  return place.in === 'menu' ? (
+    <MenuGroup heading={heading}>
+      <GroupedContext.Provider value>{children}</GroupedContext.Provider>
+    </MenuGroup>
+  ) : (
+    children
+  )
+}
+
+/**
+ * A part of a row that opens the actions on itself where it stands: an
+ * output's mark on a fact opens that output's answers. The part is the
+ * button, so it says what it is and looks pressed at: `children` is one
+ * `button` that takes a ref and spreads its props. The same actions stay in
+ * the row's "More actions" menu and its right-click, so the part is the short
+ * way and never the only one. With no actions, the part is drawn as it is.
+ */
+export function PartActions({
+  subject,
+  actions,
+  children,
+}: {
+  /** What the actions are done to: "output A on Place every size…". */
+  subject: string
+  /** `RowAction`s, the very ones the row's menu draws for this part. */
+  actions: ReactNode
+  children: ReactElement
+}) {
+  if (!hasActions(actions)) return children
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>{children}</DropdownMenuTrigger>
+      <MenuContent kind="dropdown" label={`Actions for ${subject}`} align="start">
+        <PlaceContext.Provider value={{ in: 'menu', subject }}>{actions}</PlaceContext.Provider>
+      </MenuContent>
+    </DropdownMenu>
+  )
+}
+
 export function RowAction({
   icon,
   show = 'label',
@@ -206,6 +273,7 @@ export function RowAction({
   children: string
 }) {
   const place = useContext(PlaceContext)
+  const grouped = useContext(GroupedContext)
   const off = disabled || busy
   if (place.in === 'menu') {
     // The menu closes as it is chosen, so whatever the action moves is seen moving.
@@ -221,7 +289,7 @@ export function RowAction({
         {children}
       </MenuItem>
     )
-    return tone === 'destructive' ? (
+    return tone === 'destructive' && !grouped ? (
       <>
         <MenuSeparator />
         {item}

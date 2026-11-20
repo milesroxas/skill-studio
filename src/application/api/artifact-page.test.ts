@@ -31,6 +31,12 @@ describe('withStageBridge', () => {
     expect(html.endsWith('</BODY></html>')).toBe(true)
   })
 
+  it('tells the stage how far the page scrolls, as a number', () => {
+    expect(withStageBridge('<p>a</p>')).toContain(
+      "parent.postMessage({studioStage:'reach',y:Math.max(0,e.scrollHeight-innerHeight)},'*')",
+    )
+  })
+
   it('goes at the end of a page with no body tag', () => {
     expect(withStageBridge('<p>a</p>')).toMatch(/^<p>a<\/p><script data-skill-studio-stage>/)
   })

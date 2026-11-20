@@ -32,7 +32,8 @@ export function PairBand({
       aria-label="Outputs compared"
       className="top-12 z-10 shrink-0 border-b bg-background px-3 py-1.5 lg:sticky"
     >
-      <div className={cn('grid items-start gap-1', two && 'md:grid-cols-2')}>{children}</div>
+      {/* Two heads are one height, whichever says more, so the fill of the one in view is too. */}
+      <div className={cn('grid gap-1', two && 'md:grid-cols-2')}>{children}</div>
     </section>
   )
 }
@@ -85,7 +86,7 @@ export function PairHead({
     // biome-ignore lint/a11y/useKeyWithClickEvents: the keyboard uses the letter, and the A and B keys.
     <div
       className={cn(
-        'grid min-w-0 items-center gap-x-2.5 rounded-md px-3 py-1.5 transition-[background-color] duration-150 ease-out',
+        'grid min-w-0 content-start items-center gap-x-2.5 rounded-md px-3 py-1.5 transition-[background-color] duration-150 ease-out',
         letter ? 'grid-cols-[auto_minmax(0,1fr)_auto]' : 'grid-cols-[minmax(0,1fr)_auto]',
         flip?.on && 'bg-accent',
         flip && !flip.on && 'cursor-pointer hover:bg-accent/50',

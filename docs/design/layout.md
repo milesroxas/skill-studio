@@ -234,26 +234,44 @@ The Skill screen's files are a `FileTree` (`components/FileTree.tsx`): `NavButto
 
 ## The stage
 
-An output is judged on the stage (`components/Stage.tsx`), under the band on Results (`useOutputStage` in `components/OutputStage.tsx`). The stage is a ground, not a card: `bg-muted` with a container's corners, 60% of the window high, the output standing on it with `shadow-raised`.
+An output is judged on the stage (`components/Stage.tsx`), under the band on Results (`useOutputStage` in `components/OutputStage.tsx`). The stage is a ground, not a card: `bg-muted` with a container's corners, the output standing on it with `shadow-raised`. It is 60% of the window high, and no higher than what stands on it needs: a picture, or a page drawn whole at its case's size, that the stage's width holds short of that height takes a ground as high as itself, never under 256px. A page with no height of its own, a file and the transcript scroll, so they keep the whole height. Two outputs on one stage take the height the taller needs, so a flip moves nothing, and two stages side by side end on one line. A picture's size is known before it loads where grading measured it or the stage has shown it before; else its ground settles when it loads.
 
 - **A page** is drawn at the size the reader picks and scaled down to fit, never up. `STAGE_WIDTHS` in `src/renderer/stage.ts` is the closed set: Full width (the stage's own width, where a page starts), Phone 390, Tablet 820 and Desktop 1280. The choice is kept for the next case and the next launch. A case with a size (`bench.size`) adds Case size, first, and its page opens at it, fitted whole as a picture is. A page runs its own scripts, sandboxed (see `SECURITY.md`).
 - **A picture** is fitted whole, never enlarged, on the artifact's own white.
-- **Any other file** (code, Markdown) and the transcript stand on `bg-card` and scroll.
+- **Any other file** (code, Markdown) and the transcript stand on `bg-card` and scroll. Code is colored by its language ([data.md](data.md)).
 
 The stage stands in the same place in every view, and the view only says how the pair stands on it. So a change of view moves nothing under the stage.
 
 - **One at a time**: both outputs are on one stage, one in view. Flipping is instant, with no transition: the change between A and B is what the reader is looking for. Two pages scroll together, so a flip lands on the same part of both.
 - **Side by side**: a stage each, A under A's head in the band and B under B's (`StagePair`, `StageHalf`). Two pages scroll together here too.
-- **Word diff**: the diff of the file in view, on one sheet on the same ground (`StageSheet`). The line under it says how to read the marks, or that the files are too long to compare word by word and are compared by line.
+- **Word diff**: the diff of the file in view, on one sheet on the same ground (`StageSheet`). The line under it says how to read the marks, that the files are too long to compare word by word and are compared by line, or "This file is the same in A and B." Until the reader picks a file it opens on the first one both outputs wrote that differs, the file that stands for the output first: code written as several files has some that are the same in both, and a diff with nothing marked reads as no change.
 
-What an output is decides how its case opens, by the file that stands for each output (`primaryOf` in `model.ts`): a page or a picture one at a time, two pieces of code as their diff, anything else side by side. A picture an agent wrote beside a note does not open on the note. The kind sets what opens first and nothing else: there is one Results screen, and every view stays a press away.
+What an output is decides how its case opens, by the file each output opens on (`previewArtifact` in `domain/primary.ts`, `previewOf` in `model.ts`): a page or a picture one at a time, two pieces of code as their diff, anything else side by side. The kind sets what opens first and nothing else: there is one Results screen, and every view stays a press away.
+
+An output opens on what its reader came to see:
+
+- **Code that came with a page or a picture opens on that**, its main page first (`index.html`, `preview.html`). A reader looks before they read, and seldom reads code.
+- **Prose opens on its text**, whatever pictures stand beside it: the text is the piece.
+- **A page or a picture that is graded opens on itself.**
+- **Code alone opens on the file it is graded on.**
+- This says only what opens first. The file grading judges does not change, and every file is in the list over the stage.
+
+### Who the wheel moves
+
+The wheel moves the app, never what is on the stage, until the reader asks (`useGate` in `components/Stage.tsx`). The stage is most of the column, so the pointer is nearly always over it: a file or a page that took the wheel there would hold a reader who only meant to move down the app.
+
+- Over what scrolls, a long file, a page, the transcript, the diff, lies a cover that takes nothing from the wheel. A press on it lets the reader scroll inside. It is a button, "Scroll inside this output", so the keyboard reaches it, and the focus goes to what scrolls.
+- The cover says "Click to scroll" in a small line at the stage's foot, on `bg-popover` with `shadow-popover`, once the pointer has rested on the stage for 300ms. A reader on their way down the app is told nothing.
+- Inside, the ground takes a 2px ring in `border`: the wheel is the stage's now. Leaving the stage, a press anywhere else, or Escape gives it back.
+- What does not scroll has no cover: a picture, a short file, a page that fits are used as they are. A file is measured as it is laid out; a page says how far it can scroll (`STAGE_BRIDGE` in `application/api/artifact-page.ts`).
+- Never let a region inside the column take the wheel unasked, and never a fade over what scrolls.
 
 A control stands with what it changes. Five places hold them.
 
 ### The header
 
 - The views, a `Segmented`: **One at a time**, **Side by side**, **Word diff**. A view sets two outputs against each other, so one output shows none.
-- After it, `MoreActions` (`components/RowActions.tsx`) holds what is done now and then: **Edit case**, **Swap A and B** with two outputs in view, and **Regrade this run** (**Grade this run** before its outputs have a score). When A and B come from different runs, it holds one for each.
+- After it, `MoreActions` (`components/RowActions.tsx`) holds what is done now and then: **Edit case**, **Swap A and B** with two outputs in view, then **Regrade this run** (**Grade this run** before its outputs have a score) and **Delete this run**. When A and B come from different runs, each run is a `RowActionGroup` headed by its side and version, "Output A · v9", holding **Regrade run** and **Delete run**: the heading says whose, so no label repeats "A's run". In a group the delete needs no rule of its own: the group's rule sets it apart.
 - Grading reads a whole run, so the action names the run, and Regrade never sits on one output.
 - Below `lg` the header wraps as the Skill screen's does: the case's name takes the first row.
 
@@ -261,15 +279,16 @@ A control stands with what it changes. Five places hold them.
 
 The pair is what the rest of the column is about, so it is picked in a band under the header (`PairBand` in `components/PairBand.tsx`) that holds still while the stage and the lists scroll. From `lg` up it sticks under the header; below, where the header wraps, it scrolls with the page.
 
-- One head a side (`PairHead`), in two equal columns: its letter, its version, and its `TotalDetail` with the `Delta`. A head bleeds 12px past the column's inset, so its fill stands clear of its text and the text starts on the column's edge.
+- One head a side (`PairHead`), in two equal columns: its letter, its version, and its `TotalDetail` with the `Delta`. A head bleeds 12px past the column's inset, so its fill stands clear of its text and the text starts on the column's edge. The two heads are one height, whichever says more.
 - The letter is `Slot` (`components/OutputCard.tsx`), an outline in the text's color. An output read alone has no letter.
 - Where the case has other outputs, the version is a `SelectBox variant="title"` that picks this side's output. Its list names each output in full, with who wrote it and when under the name (`outputNames` and `outputDetail` in `model.ts`).
 - A side left empty holds a `Slot` and a `SelectBox width="fill" size="sm"` that fills it (`PairEmpty`).
 - **Read one at a time, the two heads are the switch.** The head of the output on the stage takes an open row's fill (`bg-accent`) and its letter is filled (`SlotButton`, pressed). A press on the other head, on its letter, or its shortcut shows it. A press on a head's own control, the version or the score, is for that control. Nothing else on the screen repeats A and B.
 - Their shortcuts, A and B unless changed in Settings, flip the stage anywhere on the screen, unless a field, an editor, a menu or a dialog has the focus. In the views that show both outputs no head is filled and the keys do nothing.
-- Under the version, the meta (`xs`, muted) says, in this order: how long the output's list is ("4 missed · 12 not sure", or "Nothing missed"), since the list starts under the stage; what tells the two apart besides their version (`apartLine` in `model.ts`); a grading that failed, in `destructive`; and why a graded output has no score ("Graded before its case changed, so it has no score.").
+- Under the version, the meta (`xs`, muted) says, in this order: how long the output's list is ("4 missed · 12 not sure", or "Nothing missed"), since the list starts under the stage; what tells the two apart besides their version (`apartLine` in `model.ts`); a change that is not the difference of the two scores (`SharedChange`, below); a grading that failed, in `destructive`; and why a graded output has no score ("Graded before its case changed, so it has no score.").
 - One `action` ends the meta's line, or stands beside the total when there is no meta, only when it is the next step: **Grade** on an output with no score, `ghost-muted` at `xs`. It reads "Grading…" on any head while its run is graded.
-- **A sentence about a number stands with that number.** The file a score is for, when the output wrote more than one, is the first line behind the score ("The score is for post.md."). A change that is not the difference of the two scores opens its own note (`DeltaExplained`, [data.md](data.md)). Neither is a line over a list.
+- **A sentence about a number stands with that number.** What a score is for, when the output wrote more than one file, is the first line behind the score (`scoredFor` in `model.ts`): "The score is for post.md." for a piece one file stands for, "The score is for all 8 files it wrote." for code written as several files, whose rules and checks are marked on all of them. It is never a line over a list.
+- **A figure beside two scores is their difference.** `Delta` stands beside B's score only when it is. A change read over the rules and checks both outputs were marked on is often not, so it is said in words in the meta, "Up 4 on shared rules" (`SharedChange`, [data.md](data.md)), and the words open why, with the two scores it was read between.
 - The `Delta` shows only between two outputs that answer the same request and were graded the same way (`comparable` in `model.ts`).
 
 ### Above the stage
@@ -292,10 +311,11 @@ The case stands in one `Stack gap="md"` with the stage. Each line is a `Disclosu
 
 ### The cards under the stage
 
-An `OutputCard` holds what one output missed (`Verdicts`, [data.md](data.md#verdicts)) and nothing else: no head, no files, no transcript. The output is on the stage, and its name and score are in the band.
+An `OutputCard` holds what an output missed (`Verdicts`, [data.md](data.md#verdicts)) and nothing else: no head, no files, no transcript. The output is on the stage, and its name and score are in the band.
 
-- Two cards side by side, A under A's head and B under B's. Both start with their lists, at one height.
-- Read one at a time, only the card of the output on the stage shows, at the column's width. A flip swaps the list with the output.
+- Read one at a time, the card of the output on the stage shows, at the column's width. A flip swaps the list with the output.
+- With both outputs in view, one card holds one list for the two (`PairVerdicts`): a fact is read once, with A's mark and B's in its row.
+- An output with no list to join, not graded or waiting on a regrade, keeps a card of its own beside the other's, A under A's head and B under B's.
 - A card with no list says why in the list's place, in one `Hint inset`: "Not graded yet.", "Graded when it is done.", or why the output was cut short.
 - An output graded before rules and checks were marked on its kind says so where the list would start, with **Regrade** (`outline`, `xs`) beside the line.
 

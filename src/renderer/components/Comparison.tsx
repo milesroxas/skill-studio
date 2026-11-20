@@ -5,12 +5,13 @@
  * version, its score and how it moved. Under the band the stage shows the
  * outputs in every view (`OutputStage`), and under the stage a card a side
  * holds what that output missed, so a difference in the number is read as a
- * difference in the text.
+ * difference in the text. Where both outputs are in view the two lists are
+ * one (`PairList`): a fact is read once, with A's mark and B's in its row.
  *
  * Jev answers facts: whether a rule was followed, whether a check was met.
  * Where the reader sees it otherwise, each way out changes the score at once
- * or from the next grading: a verdict to correct, a check to add, a rule to
- * edit.
+ * or from the next grading: a verdict to correct here, a rule to edit on
+ * Skill, a check to add on Cases, which Edit case in the menu opens.
  *
  * A sentence about a number stands with that number, never over a list: the
  * file a score is for is behind the score, why a change is not the difference
@@ -24,23 +25,20 @@
  * delete belongs with the other actions named by the run, not on one output.
  */
 
-import { draftOf, newCheck } from '@domain/case-draft.ts'
 import { pointsMoved } from '@domain/lift.ts'
 import { isMissed, type Verdict } from '@domain/pack.ts'
 import type { Case } from '@domain/schemas.ts'
 import { ArrowLeftRightIcon, PencilIcon, RefreshCwIcon, Trash2Icon } from 'lucide-react'
-import { useState } from 'react'
+import { Fragment, useState } from 'react'
 import { api } from '../api.ts'
-import { caseContext, skillContext } from '../assist.ts'
 import type { Ctx } from '../ctx.ts'
 import { useDeleteRun } from '../delete-run.ts'
-import { caseUnsaved } from '../draft-edits.ts'
 import { inSkill } from '../in-skill.ts'
 import { gradingRun, outputWriting, useJobStart, writingRun } from '../job-start.ts'
 import {
   apartLine,
   caseTitle,
-  changeLine,
+  changeNote,
   failedLine,
   failureOf,
   isWithoutSkill,
@@ -53,10 +51,11 @@ import {
   outputRulesUnmarked,
   outputsToPick,
   outputWriter,
-  primaryOf,
+  previewOf,
   regradeOwed,
   runStamp,
   runTitle,
+  scoredFor,
   scoreOf,
   unshared,
 } from '../model.ts'
@@ -68,8 +67,6 @@ import {
   Columns,
   ColumnTitle,
   EmptyState,
-  Field,
-  FormSection,
   List,
   Stack,
   Toolbar,
@@ -77,22 +74,20 @@ import {
 import { FactList, OutputCard, Slot } from './OutputCard.tsx'
 import { useOutputStage, type View } from './OutputStage.tsx'
 import { type HeadFlip, PairBand, PairEmpty, PairHead } from './PairBand.tsx'
-import { ContextActions, MoreActions, RowAction } from './RowActions.tsx'
+import { ContextActions, MoreActions, RowAction, RowActionGroup } from './RowActions.tsx'
 import {
   CheckWeight,
   Delta,
-  DeltaExplained,
   PartList,
+  SharedChange,
   TotalDetail,
   TotalDetailSection,
 } from './Scores.tsx'
 import { Segmented } from './Segmented.tsx'
 import { SelectBox, type SelectOption, type SelectOptionGroup } from './SelectBox.tsx'
-import { TextArea } from './TextArea.tsx'
 import { Heading, Hint, Text } from './text.tsx'
 import { Button } from './ui/button.tsx'
-import { Label } from './ui/label.tsx'
-import { Verdicts } from './Verdicts.tsx'
+import { PairVerdicts, Verdicts } from './Verdicts.tsx'
 
 const SLOT_LABEL = { a: 'A', b: 'B' } as const
 
@@ -155,11 +150,12 @@ export function Comparison({
   }
 
   const sides = [a, b].filter((o): o is Output => o !== null)
-  const kinds = sides.map((o) => primaryOf(o)?.kind)
+  const kinds = sides.map((o) => previewOf(o)?.kind)
   /**
-   * How the case opens, by the file that stands for each output: a page or a
-   * picture one at a time, two pieces of code as their diff, anything else
-   * side by side. A picture beside a note does not open on the note.
+   * How the case opens, by the file each output opens on (`previewOf`): a page
+   * or a picture one at a time, two pieces of code as their diff, anything
+   * else side by side. Code that came with a page opens on the page; a note
+   * with a picture beside it stays a note.
    */
   const opening: View = kinds.some((k) => k === 'html' || k === 'image')
     ? 'flip'
@@ -169,18 +165,12 @@ export function Comparison({
   // A view is a way to set two outputs against each other: one output is read by itself.
   const view: View = both ? (chosen ?? opening) : 'flip'
   const runs = [...new Set(sides.map((o) => o.run.name))]
-  /** What the menu calls a run: "this run", or A's or B's when the two sides come from two. */
-  const whoseRun = (run: string) =>
-    runs.length > 1
-      ? `${sides.find((o) => o.run.name === run) === a ? 'A' : 'B'}’s run`
-      : 'this run'
   /** The size a page is drawn at: one for the case, on every stage. */
   const page = usePageSize(testCase?.bench.size ?? null)
   const stage = useOutputStage({
     a,
     b,
     view,
-    drawnFirst: opening === 'flip',
     page,
     writing: { a: unwritten(a), b: unwritten(b) },
   })
@@ -207,40 +197,51 @@ export function Comparison({
       {runs.map((run) => {
         const of = sides.filter((o) => o.run.name === run)
         const verb = of.some((o) => scoreOf(o, config)) ? 'Regrade' : 'Grade'
-        // Grading reads a whole run, so the action names the run, not the output.
-        const whose = whoseRun(run)
+        // Grading and deleting read a whole run, so the actions name the run, not the output.
+        // With two runs each has a group, headed by its side, and the actions keep their words.
+        const items = (
+          <>
+            <RowAction
+              icon={<RefreshCwIcon aria-hidden="true" />}
+              title={
+                writing(run)
+                  ? 'Wait for the run to finish. It is graded then.'
+                  : 'Jev grades the whole run again.'
+              }
+              disabled={grade.starting() || writing(run)}
+              busy={grading(run)}
+              onSelect={() => regrade([run])}
+            >
+              {`${verb} ${runs.length > 1 ? 'run' : 'this run'}`}
+            </RowAction>
+            <DeleteRunAction
+              ctx={ctx}
+              run={run}
+              label={runs.length > 1 ? 'Delete run' : 'Delete this run'}
+              grading={grading(run)}
+              waiting={grade.starting()}
+              // The address named an output of the run: the case opens on the pair it has left.
+              closed={() => go('results', { case: caseId })}
+            />
+          </>
+        )
+        if (runs.length < 2) return <Fragment key={run}>{items}</Fragment>
+        const side = of[0] === a ? 'A' : 'B'
         return (
-          <RowAction
+          <RowActionGroup
             key={run}
-            icon={<RefreshCwIcon aria-hidden="true" />}
-            title={
-              writing(run)
-                ? 'Wait for the run to finish. It is graded then.'
-                : 'Jev grades the whole run again.'
-            }
-            disabled={grade.starting() || writing(run)}
-            busy={grading(run)}
-            onSelect={() => regrade([run])}
+            heading={`Output ${side} · ${runTitle(of[0].run, { short: true })}`}
           >
-            {`${verb} ${whose}`}
-          </RowAction>
+            {items}
+          </RowActionGroup>
         )
       })}
-      {runs.map((run) => (
-        <DeleteRunAction
-          key={run}
-          ctx={ctx}
-          run={run}
-          label={`Delete ${whoseRun(run)}`}
-          grading={grading(run)}
-          waiting={grade.starting()}
-          // The address named an output of the run: the case opens on the pair it has left.
-          closed={() => go('results', { case: caseId })}
-        />
-      ))}
     </>
   )
 
+  /** The output has a list of facts to show, and none of it waits on a regrade. */
+  const listed = (output: Output) =>
+    scoreOf(output, config) !== null && !outputRulesUnmarked(output)
   const title = caseTitle(state, caseId)
   /** The case has an output to put on a side left empty, or in place of one picked. */
   const pickable = candidates.length > 1
@@ -308,6 +309,8 @@ export function Comparison({
             <EmptyState title="Pick an output to read">
               Pick one for A and one for B above to read them side by side.
             </EmptyState>
+          ) : a && b && !stage.side && listed(a) && listed(b) ? (
+            <PairList ctx={ctx} a={a} b={b} />
           ) : (
             // Read one at a time, the page shows the list of the output on the stage alone.
             <Columns count={both && !stage.side ? 2 : 1}>
@@ -319,13 +322,6 @@ export function Comparison({
               ) : null}
             </Columns>
           )}
-          {testCase ? (
-            <AddCheck
-              ctx={ctx}
-              testCase={testCase}
-              onRegrade={() => regrade(sides.map((o) => o.run.name))}
-            />
-          ) : null}
         </ColumnBody>
       </ContextActions>
     </>
@@ -599,17 +595,14 @@ function SideHead({
   // from Jev's answers, with yours only where both hold one.
   const move = other ? movedBetween(other, output, config) : null
   const delta = move ? pointsMoved(move.from, move.to) : null
-  // Where the change is not the difference of the two scores, why.
+  // Where the change is not the difference of the two scores, why, with the two it was read between.
   const why =
     move && unshared(delta, otherScored?.scores.total ?? null, scored?.scores.total ?? null)
-      ? changeLine('outputs', move)
+      ? changeNote(move)
       : null
   const failure = failureOf(output)
-  /** The file a score is for, where the output wrote more than one. */
-  const gradedFile =
-    scored && output.primary && output.sample.artifacts.length > 1
-      ? output.primary.file.replace(/^outputs\//, '')
-      : null
+  /** What the score is for, where the output wrote more than one file. */
+  const scoredFiles = scored ? scoredFor(output) : null
   // The lists stand under the stage, often past the window's foot: the head says how long
   // each is, so the reader knows what waits there before scrolling.
   const missed = scored?.verdicts.filter(isMissed).length ?? 0
@@ -631,9 +624,9 @@ function SideHead({
           <TotalDetail total={scored?.scores.total}>
             {scored ? (
               <TotalDetailSection title="What the score is counted from">
-                {gradedFile ? (
+                {scoredFiles ? (
                   <Text as="p" size="xs" tone="muted">
-                    The score is for {gradedFile}.
+                    {scoredFiles}
                   </Text>
                 ) : null}
                 <PartList
@@ -648,7 +641,9 @@ function SideHead({
               <FactList facts={outputFacts(output)} />
             </TotalDetailSection>
           </TotalDetail>
-          {why ? <DeltaExplained value={delta} why={why} /> : <Delta value={delta} />}
+          {/* A figure beside two scores is their difference. A change that is not says so in
+              words, in the line under them. */}
+          {why ? null : <Delta value={delta} />}
         </>
       }
       action={
@@ -675,6 +670,12 @@ function SideHead({
           <>
             {counts ? <span className="tabular-nums">{counts}</span> : null}
             {apart ? <span>{apart}</span> : null}
+            {/* Last of what both heads may say, so the two first lines read alike. */}
+            {why && delta !== null ? (
+              <span className="tabular-nums">
+                <SharedChange change={delta} why={why} />
+              </span>
+            ) : null}
             {failure ? <span className="text-destructive">{failure}</span> : null}
             {scored?.stale.map((reason) => (
               <span key={reason}>{reason}, so it has no score.</span>
@@ -686,17 +687,10 @@ function SideHead({
   )
 }
 
-/**
- * What one output missed, on its card under the stage. The card holds the
- * list and nothing else: the output itself is on the stage. Without a list
- * it says why in the list's place.
- */
-function SideList({ ctx, output, grading, writing, held, onRegrade }: SideProps) {
-  const { state, config, go, report, reload } = ctx
-  const scored = scoreOf(output, config)
+/** The reader's answers on one output's facts: the one being saved, and the way to give one. */
+function useCorrect(ctx: Ctx, output: Output) {
+  const { report, reload } = ctx
   const [pending, setPending] = useState<string | null>(null)
-  const rules = new Set(state.rules.map((r) => r.text))
-
   const correct = async (verdict: Verdict, met: boolean | null) => {
     setPending(verdict.id)
     try {
@@ -714,7 +708,26 @@ function SideList({ ctx, output, grading, writing, held, onRegrade }: SideProps)
       setPending(null)
     }
   }
+  return { pending, correct }
+}
 
+/** What opening a rule and telling whether SKILL.md still holds it need, for a list of facts. */
+function ruleActions(ctx: Ctx) {
+  const rules = new Set(ctx.state.rules.map((r) => r.text))
+  return {
+    ruleStands: (text: string) => rules.has(text),
+    onOpenRule: (text: string) => ctx.go('editor', { file: 'SKILL.md', rule: text }),
+  }
+}
+
+/**
+ * What one output missed, on its card under the stage. The card holds the
+ * list and nothing else: the output itself is on the stage. Without a list
+ * it says why in the list's place.
+ */
+function SideList({ ctx, output, grading, writing, held, onRegrade }: SideProps) {
+  const scored = scoreOf(output, ctx.config)
+  const { pending, correct } = useCorrect(ctx, output)
   return (
     <OutputCard>
       {scored && outputRulesUnmarked(output) ? (
@@ -738,9 +751,8 @@ function SideList({ ctx, output, grading, writing, held, onRegrade }: SideProps)
         <Verdicts
           verdicts={scored.verdicts}
           pending={pending}
-          ruleStands={(text) => rules.has(text)}
-          onOpenRule={(text) => go('editor', { file: 'SKILL.md', rule: text })}
           onCorrect={correct}
+          {...ruleActions(ctx)}
         />
       ) : (
         <Hint inset>
@@ -760,105 +772,28 @@ function SideList({ ctx, output, grading, writing, held, onRegrade }: SideProps)
 }
 
 /**
- * What an output gets wrong that nothing names yet, turned into a check. A
- * check written after reading an output is about something that happened; one
- * written before is a guess. It joins the case's checks, and Jev marks it from
- * the next grading on.
+ * What two outputs missed, as one list on one card: a row a fact, with A's
+ * mark and B's. It stands where both outputs are in view and both have a
+ * list; a side with none keeps a card of its own, which says why.
  */
-function AddCheck({
-  ctx,
-  testCase,
-  onRegrade,
-}: {
-  ctx: Ctx
-  testCase: Case
-  onRegrade: () => void
-}) {
-  const { state, go, report, reload, drafts } = ctx
-  const [text, setText] = useState('')
-  const [busy, setBusy] = useState(false)
-  const title = testCase.title || testCase.id
-
-  const add = async () => {
-    const statement = text.trim()
-    if (!statement || busy) return
-    setBusy(true)
-    try {
-      // A draft that says what the saved case says holds no edits: the check is saved at once.
-      const kept = drafts.cases[testCase.id]
-      const unsaved = caseUnsaved(kept, draftOf(testCase)) ? kept : undefined
-      if (unsaved) {
-        // The case has edits waiting on Cases: the check joins them, so saving there keeps both.
-        drafts.setCase(testCase.id, {
-          ...unsaved,
-          graders: [
-            ...unsaved.graders.filter((g) => g.statement.trim() || g.image),
-            { ...newCheck(), statement },
-          ],
-        })
-        report(`Added to your unsaved edits of ${title}. Save the case to keep it.`, {
-          action: { label: 'Open', run: () => go('cases', { id: testCase.id }) },
-        })
-      } else {
-        const saved = draftOf(testCase)
-        await api.saveCase(
-          { ...saved, graders: [...saved.graders, { ...newCheck(), statement }] },
-          false,
-        )
-        await reload()
-        report(
-          `Added a check to ${title}`,
-          state.jevKey ? { action: { label: 'Regrade', run: onRegrade } } : undefined,
-        )
-      }
-      setText('')
-    } catch (e) {
-      report(e as Error)
-    } finally {
-      setBusy(false)
-    }
-  }
-
+function PairList({ ctx, a, b }: { ctx: Ctx; a: Output; b: Output }) {
+  const ofA = useCorrect(ctx, a)
+  const ofB = useCorrect(ctx, b)
   return (
-    <FormSection
-      layout="stacked"
-      title="Add a check"
-      hint="Say what a good answer does. It is checked on every run from now on, and on these outputs when you regrade."
-    >
-      <Field>
-        <Label htmlFor="new-check">A good answer makes this true</Label>
-        <TextArea
-          id="new-check"
-          variant="line"
-          rows={1}
-          value={text}
-          placeholder="The note has exactly two sentences."
-          onValueChange={setText}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
-              e.preventDefault()
-              void add()
-            }
-          }}
-          assist={{
-            field: 'case.check',
-            context: () => [skillContext(state), caseContext(draftOf(testCase))],
-          }}
-        />
-      </Field>
-      <Toolbar>
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          disabled={!text.trim()}
-          busy={busy}
-          busyLabel="Adding…"
-          onClick={add}
-        >
-          Add check
-        </Button>
-      </Toolbar>
-    </FormSection>
+    <OutputCard>
+      <PairVerdicts
+        a={{
+          verdicts: scoreOf(a, ctx.config)?.verdicts ?? [],
+          pending: ofA.pending,
+          onCorrect: ofA.correct,
+        }}
+        b={{
+          verdicts: scoreOf(b, ctx.config)?.verdicts ?? [],
+          pending: ofB.pending,
+          onCorrect: ofB.correct,
+        }}
+        {...ruleActions(ctx)}
+      />
+    </OutputCard>
   )
 }

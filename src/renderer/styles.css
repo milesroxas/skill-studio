@@ -601,12 +601,33 @@
  */
 @layer components {
   /*
-   * A menu closing on a choice (`ui/menu.tsx`): the other rows and the rules
-   * go first, so the row chosen is the last thing to leave. Layered, so
-   * reduced motion still stops it.
+   * Code an output wrote (`CodeFile` in `components/Artifact.tsx`), in the
+   * hues the editor gives a code block (`editor/theme.ts`): violet for the
+   * language's own words, blue for values, comments quieter. Never a hue that
+   * says how something stands.
+   */
+  .code-file .tok-keyword {
+    color: var(--code-keyword);
+  }
+  .code-file .tok-value {
+    color: var(--code-value);
+  }
+  .code-file .tok-mark {
+    color: var(--muted-foreground);
+  }
+
+  /*
+   * A menu closing on a choice (`ui/menu.tsx`): the other rows, the rules and
+   * the headings go first, so the row chosen is the last thing to leave. A row
+   * may stand in a group, so they are matched at any depth. Layered, so reduced
+   * motion still stops it.
    */
   [data-slot="menu-content"][data-chosen][data-state="closed"]
-    > :is([data-slot="menu-item"]:not([data-chosen]), [data-slot="menu-separator"]) {
+    :is(
+      [data-slot="menu-item"]:not([data-chosen]),
+      [data-slot="menu-separator"],
+      [data-slot="menu-heading"]
+    ) {
     opacity: 0;
     transition: opacity 80ms ease-out;
   }

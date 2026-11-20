@@ -204,10 +204,11 @@ Results shows one case at a time: **A**, the answer from your previous version, 
 
 - **The list on the left** has every case with its score and how much it moved. Click one to open it.
 - **Click a version name** at the top to read a different answer on that side.
-- **Click a score** to see how it was counted. Where the change beside B's score is underlined, click it to see why it is not the difference of the two scores.
+- **Click a score** to see how it was counted. A line such as "Up 4 on shared rules" under B's version is the change counted only on the rules and checks marked on both answers: click it to see the two scores it compares.
 - **The answers** are under the two versions. **One at a time** shows one answer large: click the other version, or press A or B, to flip between the two. **Side by side** shows both. **Word diff** marks the words that differ.
-- **The file name** over the answer changes which file you read, when the agent wrote more than one. **Transcript**, last in that list, shows every step the agent took. Read it when a score surprises you.
-- **Missed**, under the answer, lists each rule and check the answer did not meet. A long rule shows its first two lines: click it to read all of it. **Open rule** takes you to that rule in the editor. Missed also says when Jev read only the start of a long answer or file: a rule broken past that point is not seen.
+- **Scroll inside an answer** by clicking it first. Until you do, scrolling moves the whole screen, so a long answer never holds you. Move the pointer off the answer to scroll the screen again.
+- **The file name** over the answer changes which file you read, when the agent wrote more than one. An answer opens on its page or picture when it has one, and code is colored by its language. **Transcript**, last in that list, shows every step the agent took. Read it when a score surprises you.
+- **Missed**, under the answer, lists each rule and check the answer did not meet. With both answers in view, each row has a mark for A and a mark for B. A long rule shows its first two lines: click it to read all of it. **Open rule** takes you to that rule in the editor. Missed also says when Jev read only the start of a long answer or file: a rule broken past that point is not seen.
 - **Not sure** lists what Jev could not tell. These are left out of the score until you mark them yourself. Where a score leaves some out, All cases says how many of its rules and checks Jev was not sure of. A change between two runs counts only the rules and checks marked on both, and says how many it left out: mark a rule or check on both runs to count it in the change.
 - **Met** folds away everything it got right.
 - **Does not apply** folds away rules written for another kind of work than this answer, such as rules under "For a bug report" when the request was for a summary, and rules for a situation the request is not, such as "When the request names a table, write a table" when it names none. They are left out of the score.
@@ -216,7 +217,7 @@ Results shows one case at a time: **A**, the answer from your previous version, 
 
 | You see | Do |
 | --- | --- |
-| Jev passed an answer you do not like | Write down what is missing: **Add a check** under the answers, or add a rule to the skill |
+| Jev passed an answer you do not like | Write down what is missing: click **⋯** at the top right, then **Edit case**, and add a check there. Or add a rule to the skill |
 | Jev failed an answer you like | Edit or delete the rule or check that asked for the wrong thing |
 | Jev got one rule or check wrong | Click **⋯** beside it, then **Mark as met** or **Mark as missed** |
 | Jev was not sure of one | Click **⋯** beside it under **Not sure**, then **Mark as met** or **Mark as missed** |

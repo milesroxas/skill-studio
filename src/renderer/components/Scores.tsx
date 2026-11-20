@@ -156,29 +156,32 @@ export function Delta({ value, lead = true }: { value: number | null; lead?: boo
 }
 
 /**
- * A change that is not the difference of the two scores beside it, as a figure
- * that opens why (`Explained`). It stands even when nothing moved, as "Same":
- * two scores apart with no change beside them is what the note is for. A
- * figure of one or two characters is small to press, so its hit area reaches
- * 8px past it each way.
+ * A change that is not the difference of the two scores beside it, in words
+ * that say what it was read over: "Up 4 on shared rules", the rules and
+ * checks both outputs were marked on. A bare figure beside two scores reads as
+ * their difference, so this one is never a figure. The words are short, since
+ * they share a line of a head half a column wide, and open why, with the two
+ * scores the change was read between (`Explained`). As in `ScoreChange`, only
+ * a drop is colored.
  */
-export function DeltaExplained({ value, why }: { value: number | null; why: string }) {
+export function SharedChange({ change, why }: { change: number; why: string }) {
+  const over = 'on shared rules'
   return (
-    <span className="ml-1.5 flex [&>button]:relative [&>button]:before:absolute [&>button]:before:-inset-x-2 [&>button]:before:-inset-y-1.5">
-      <Explained
-        label={
-          value ? (
-            <Delta value={value} lead={false} />
-          ) : (
-            <Text size="xs" tone="muted">
-              Same
-            </Text>
-          )
-        }
-        title="The change"
-        means={why}
-      />
-    </span>
+    <Explained
+      label={
+        change < 0 ? (
+          <>
+            <Text tone="destructive">Down {-change}</Text> {over}
+          </>
+        ) : change > 0 ? (
+          `Up ${change} ${over}`
+        ) : (
+          `Same ${over}`
+        )
+      }
+      title="The change"
+      means={why}
+    />
   )
 }
 

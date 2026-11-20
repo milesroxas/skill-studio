@@ -11,7 +11,7 @@ import {
 } from '@domain/lift.ts'
 import { type Corrections, NO_CORRECTIONS, unreadable, type VerdictKind } from '@domain/pack.ts'
 import { defaultPair, type PairOutput } from '@domain/pairs.ts'
-import { drawnArtifact, primaryArtifact } from '@domain/primary.ts'
+import { previewArtifact, primaryArtifact } from '@domain/primary.ts'
 import { newestRates, type RuleRate, ruleRates } from '@domain/rule-rate.ts'
 import { versionAfterRunDelete } from '@domain/run-delete.ts'
 import { parseSampleDir } from '@domain/run-name.ts'
@@ -650,6 +650,18 @@ function changeWhy(sides: string, move: Pick<Move, 'left' | 'oneSided'>): string
 export function changeLine(sides: string, move: Pick<Move, 'left' | 'oneSided'>): string | null {
   const why = changeWhy(sides, move)
   return why ? `The change ${why}.` : null
+}
+
+/**
+ * `changeLine` for two outputs, with the two scores the change was read
+ * between, so the reader can check it: "… Counted that way, A scores 77 and B
+ * 81." Null with nothing to say.
+ */
+export function changeNote(move: Move): string | null {
+  const line = changeLine('outputs', move)
+  return line
+    ? `${line} Counted that way, A scores ${Math.round(move.from)} and B ${Math.round(move.to)}.`
+    : null
 }
 
 /** One run's answer to a case: its outputs for it, and the score they come to. */
@@ -1310,9 +1322,31 @@ export function caseTitle(state: State, caseId: string): string {
 
 export const primaryOf = (output: Output): Artifact | null => output.primary
 
-/** The file of an output a reader looks at rather than reads; null for an output of text alone. */
-export const drawnOf = (output: Output): Artifact | null =>
-  drawnArtifact(output.sample.artifacts, output.primary)
+/** The kinds of file Jev reads as text beside the one that stands for an output (`othersOf` in `application/grade.ts`). */
+const READ_BESIDE: ReadonlySet<string> = new Set(['markdown', 'html', 'code'])
+
+/**
+ * What a score is for, where its output wrote more than one file; null where
+ * it wrote one. A piece with a file that stands for it, a page, a picture or a
+ * note, is scored as that file: "The score is for post.md." Code written as
+ * several files has no such file: its rules and checks are marked on all of
+ * them, so the line says how many.
+ */
+export function scoredFor(output: Output): string | null {
+  const { primary, sample } = output
+  if (!primary || sample.artifacts.length < 2) return null
+  const code = sample.artifacts.filter((artifact) => artifact.kind === 'code')
+  if (primary.kind !== 'code' || code.length < 2 || sample.legacy)
+    return `The score is for ${primary.file.replace(/^outputs\//, '')}.`
+  const read = sample.artifacts.filter((artifact) => READ_BESIDE.has(artifact.kind)).length
+  return read === sample.artifacts.length
+    ? `The score is for all ${read} files it wrote.`
+    : `The score is for the ${read} files of text it wrote.`
+}
+
+/** The file Results opens an output on: something to look at before code, prose as itself (`previewArtifact`). */
+export const previewOf = (output: Output): Artifact | null =>
+  previewArtifact(output.sample.artifacts, output.primary)
 
 /**
  * How big the output is, where size means something: "31 words, the case asks

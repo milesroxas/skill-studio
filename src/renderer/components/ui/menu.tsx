@@ -2,8 +2,9 @@
  * Menus: the list a "More actions" button drops, and the one a right-click
  * opens where the pointer is. Both are this one component on Radix's menu, so
  * they look, move and answer keys alike: arrows, Home, End, a name typed,
- * Escape. A screen does not use these parts: it writes `RowAction`s, and
- * `RowActions`, `MoreActions` and `ContextActions` draw them here.
+ * Escape. A screen does not use these parts: it writes `RowAction`s, in a
+ * `RowActionGroup` where they act on one of several things, and `RowActions`,
+ * `MoreActions` and `ContextActions` draw them here.
  *
  * Three movements, each with a reason:
  *  - It scales in from where it opened: the button, or the pointer.
@@ -199,6 +200,35 @@ function MenuItem({
 }
 
 /**
+ * Rows that act on one of several things the menu is about, under a heading
+ * that says which, and how it stands: "Output A · Not sure". The heading is
+ * words alone, since a mark in a menu reads as something to press. It is not
+ * a row: keys skip it, and it is `xs` and muted, so the rows under it stay the
+ * things to press. After anything else in the menu the group starts under
+ * a hairline, edge to edge, as a `MenuSeparator` draws it.
+ */
+function MenuGroup({ heading, children }: { heading: string; children: ReactNode }) {
+  const dropdown = useContext(KindContext) === 'dropdown'
+  const Group = dropdown ? DropdownMenuPrimitive.Group : ContextMenuPrimitive.Group
+  const Label = dropdown ? DropdownMenuPrimitive.Label : ContextMenuPrimitive.Label
+  return (
+    <Group
+      data-slot="menu-group"
+      aria-label={heading}
+      className="-mx-1 flex flex-col gap-px px-1 [[data-slot=menu-group]~&]:mt-1 [[data-slot=menu-group]~&]:border-t [[data-slot=menu-group]~&]:pt-1 [[data-slot=menu-item]~&]:mt-1 [[data-slot=menu-item]~&]:border-t [[data-slot=menu-item]~&]:pt-1"
+    >
+      <Label
+        data-slot="menu-heading"
+        className="flex min-h-7 items-center px-2 text-xs text-muted-foreground select-none"
+      >
+        {heading}
+      </Label>
+      {children}
+    </Group>
+  )
+}
+
+/**
  * A hairline across the menu, edge to edge, that sets the rows after it apart.
  * Keys skip it. Between two destructive rows it is not drawn: one rule sets the
  * whole group apart.
@@ -222,6 +252,7 @@ export {
   DropdownMenu,
   DropdownMenuTrigger,
   MenuContent,
+  MenuGroup,
   MenuItem,
   MenuSeparator,
 }

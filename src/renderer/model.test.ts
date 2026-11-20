@@ -12,6 +12,7 @@ import {
   caseTitle,
   changeBetween,
   changeLine,
+  changeNote,
   comparable,
   cutOf,
   cutOff,
@@ -19,7 +20,6 @@ import {
   deletedName,
   deleteRunDialog,
   deletesLine,
-  drawnOf,
   editedSince,
   extraKinds,
   failedLine,
@@ -41,6 +41,7 @@ import {
   outputRulesUnmarked,
   outputsOf,
   outputsToPick,
+  previewOf,
   primaryOf,
   readParams,
   regradeOwed,
@@ -48,6 +49,7 @@ import {
   rulesUnmarked,
   runLabel,
   runTitle,
+  scoredFor,
   scoreOf,
   scoreOver,
   setByHand,
@@ -194,10 +196,11 @@ describe('outputsOf', () => {
   it('opens an output not graded on the file grading would judge', () => {
     const [output] = outputsOf(stateOf([runOf('r1', 'v1', files)], ['generic', 'design']))
     expect(primaryOf(output)).toEqual(html('index.html'))
-    expect(drawnOf(output)).toEqual(html('index.html'))
+    expect(previewOf(output)).toEqual(html('index.html'))
     const [prose] = outputsOf(stateOf([runOf('r1', 'v1', files)], ['generic']))
     expect(primaryOf(prose)).toEqual(md('README.md'))
-    expect(drawnOf(prose)).toEqual(html('index.html'))
+    // Prose opens on its text, though a page stands beside it.
+    expect(previewOf(prose)).toEqual(md('README.md'))
     const [named] = outputsOf(stateOf([runOf('r1', 'v1', files)], ['design'], 'markdown'))
     expect(primaryOf(named)).toEqual(md('README.md'))
   })
@@ -209,6 +212,31 @@ describe('outputsOf', () => {
     const [output] = outputsOf(stateOf([runOf('r1', 'v1', files, report)], ['design']))
     expect(primaryOf(output)).toEqual(code('app.js'))
     expect(output.caseId).toBe('page')
+  })
+
+  it('says a piece is scored as the file that stands for it', () => {
+    const one = outputsOf(stateOf([runOf('r1', 'v1', [md('post.md')])], ['generic']))[0]
+    expect(scoredFor(one)).toBeNull()
+    const [note] = outputsOf(
+      stateOf([runOf('r1', 'v1', [md('notes.md'), md('output.md')])], ['generic']),
+    )
+    expect(scoredFor(note)).toBe('The score is for output.md.')
+    const [page] = outputsOf(stateOf([runOf('r1', 'v1', files)], ['generic', 'design']))
+    expect(scoredFor(page)).toBe('The score is for index.html.')
+  })
+
+  it('says code written as several files is scored on all of them', () => {
+    const repo = [code('package.json'), code('src/Badge.tsx'), code('src/Card.tsx')]
+    const [all] = outputsOf(stateOf([runOf('r1', 'v1', repo)], ['generic', 'code']))
+    expect(primaryOf(all)).toEqual(code('package.json'))
+    expect(scoredFor(all)).toBe('The score is for all 3 files it wrote.')
+    const picture: Artifact = { file: 'outputs/shot.png', kind: 'image' }
+    const [some] = outputsOf(stateOf([runOf('r1', 'v1', [...repo, picture])], ['generic', 'code']))
+    expect(scoredFor(some)).toBe('The score is for the 3 files of text it wrote.')
+    const [alone] = outputsOf(
+      stateOf([runOf('r1', 'v1', [code('app.js'), md('README.md')])], ['generic', 'code']),
+    )
+    expect(scoredFor(alone)).toBe('The score is for app.js.')
   })
 
   it('lists outputs by version, and pairs the version before with the latest', () => {
@@ -466,6 +494,10 @@ describe('a change over the facts both runs counted', () => {
       'The change counts your answers only where you gave one on both outputs.',
     )
     expect(changeLine('runs', { left: [] })).toBeNull()
+    expect(changeNote({ from: 85.6, to: 90.2, left: ['rule'] })).toBe(
+      'The change counts only what was marked on both outputs, so 1 rule is left out of it. Counted that way, A scores 86 and B 90.',
+    )
+    expect(changeNote({ from: 80, to: 80, left: [] })).toBeNull()
     expect(changeLine('runs', { left: ['rule', 'other'] })).toBe(
       'The change counts only what was marked on both runs, so 2 of Jev’s answers are left out of it.',
     )

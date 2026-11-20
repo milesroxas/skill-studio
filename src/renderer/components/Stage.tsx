@@ -14,11 +14,25 @@
  * scroll together as two on one stage do. Something read in place of an
  * output, such as the diff of two files, stands on the same ground at the same
  * size (`StageSheet`), so a change of view moves nothing under it.
+ *
+ * The ground is 60% of the window high, and no higher than what stands on it
+ * needs: a picture, or a page drawn whole, that its width holds short of that
+ * height takes a ground as high as itself, so no empty ground parts it from
+ * what follows. Anything that scrolls keeps the whole height.
+ *
+ * The wheel moves the app, never what is on the stage, until the reader asks
+ * (`useGate`). The stage is most of the column, so the pointer is nearly
+ * always over it: a file or a page that took the wheel there would hold the
+ * reader inside it until its end. A press on the stage lets them scroll
+ * inside, and leaving it gives the wheel back.
  */
 import type { Artifact, ArtifactKind } from '@domain/schemas.ts'
 import {
   type CSSProperties,
+  type KeyboardEvent,
   type ReactNode,
+  type RefObject,
+  useCallback,
   useEffect,
   useLayoutEffect,
   useRef,
@@ -33,8 +47,136 @@ import { Hint, Text } from './text.tsx'
 
 export type Side = 'a' | 'b'
 
-/** The ground an output stands on: 60% of the window high, so the page under it starts at one height in every view. */
-const GROUND = 'relative h-[60svh] min-h-64 rounded-md bg-muted'
+/**
+ * The ground an output stands on: 60% of the window high, so the page under it
+ * starts at one height in every view. It grows where a ground beside it is
+ * higher, so two side by side end on one line.
+ */
+const GROUND = 'relative h-[60svh] min-h-64 grow rounded-md bg-muted'
+
+/** The ground while the reader scrolls inside it: a ring says the wheel is the stage's now. */
+const ENGAGED =
+  'transition-[box-shadow] duration-150 ease-out data-engaged:ring-2 data-engaged:ring-border'
+
+/**
+ * Who the wheel moves over a stage. What stands on it may scroll, a long
+ * file, a page, the steps: left to take the wheel, it would hold a reader who
+ * only meant to move down the app. So until they ask, a cover lies over what
+ * scrolls: it takes nothing from the wheel, which moves the app, and a press
+ * on it lets them in. The cover says so in a small line once the pointer
+ * rests on the stage, and is a button, so the keyboard reaches it.
+ *
+ * Inside, the wheel is the stage's, and the ground takes a ring that says so.
+ * Leaving the stage, a press anywhere else, or Escape gives it back. What
+ * does not scroll has no cover: a page that fits is used as it is.
+ */
+function useGate(scrolls: boolean): {
+  ground: RefObject<HTMLDivElement | null>
+  /** For the ground: how it leaves, and that it is engaged. */
+  props: {
+    'data-engaged'?: ''
+    onMouseLeave: () => void
+    onKeyDown: (event: KeyboardEvent) => void
+  }
+  /** The cover, over what scrolls; null inside and where nothing scrolls. */
+  cover: ReactNode
+} {
+  const ground = useRef<HTMLDivElement>(null)
+  const cover = useRef<HTMLButtonElement>(null)
+  const [engaged, setEngaged] = useState(false)
+  /** The keyboard let the reader in, or out: the focus goes with them. */
+  const keyed = useRef(false)
+  const inside = scrolls && engaged
+
+  useEffect(() => {
+    if (!inside) {
+      // Out by Escape: the focus is back on the cover, where it came from.
+      if (keyed.current) cover.current?.focus()
+      keyed.current = false
+      return
+    }
+    if (keyed.current) {
+      // In by the keyboard: the focus goes to what scrolls, so the arrows move it.
+      const scroller = [
+        ...(ground.current?.querySelectorAll<HTMLElement>('[data-stage-scroll]') ?? []),
+      ].find((el) => !el.closest('[inert]'))
+      scroller?.focus()
+      keyed.current = false
+    }
+    // A press anywhere but the stage gives the wheel back: a finger has no pointer to leave with.
+    const out = (event: PointerEvent) => {
+      if (!(event.target instanceof Node) || !ground.current?.contains(event.target))
+        setEngaged(false)
+    }
+    document.addEventListener('pointerdown', out, true)
+    return () => document.removeEventListener('pointerdown', out, true)
+  }, [inside])
+
+  return {
+    ground,
+    props: {
+      'data-engaged': inside ? '' : undefined,
+      onMouseLeave: () => setEngaged(false),
+      onKeyDown: (event) => {
+        if (event.key !== 'Escape' || !inside) return
+        keyed.current = true
+        setEngaged(false)
+      },
+    },
+    cover:
+      scrolls && !engaged ? (
+        <button
+          ref={cover}
+          type="button"
+          aria-label="Scroll inside this output"
+          className="group/gate absolute inset-4 cursor-pointer rounded-sm focus-ring"
+          onClick={(event) => {
+            // A click with no pointer behind it came from the keyboard.
+            keyed.current = event.detail === 0
+            setEngaged(true)
+          }}
+        >
+          {/* Shown once the pointer rests, not as it passes: a reader on their way down the app
+              is told nothing. */}
+          <span className="pointer-events-none absolute bottom-3 left-1/2 -translate-x-1/2 rounded-sm bg-popover px-2.5 py-1 text-xs whitespace-nowrap text-popover-foreground opacity-0 shadow-popover transition-opacity duration-150 ease-out group-hover/gate:opacity-100 group-hover/gate:delay-300 group-focus-visible/gate:opacity-100 motion-reduce:transition-none">
+            Click to scroll
+          </span>
+        </button>
+      ) : null,
+  }
+}
+
+/**
+ * Whether what a frame holds runs past it, read from the two as they are laid
+ * out and again whenever either changes size. `off` for what never scrolls
+ * here or says so itself: a picture, a page.
+ */
+function useOverflows(off = false): {
+  frame: RefObject<HTMLDivElement | null>
+  held: RefObject<HTMLDivElement | null>
+  overflows: boolean
+} {
+  const frame = useRef<HTMLDivElement>(null)
+  const held = useRef<HTMLDivElement>(null)
+  const [overflows, setOverflows] = useState(false)
+  useLayoutEffect(() => {
+    const el = frame.current
+    if (off || !el) return setOverflows(false)
+    const measure = () => setOverflows(el.scrollHeight > el.clientHeight + 1)
+    measure()
+    const observer = new ResizeObserver(measure)
+    observer.observe(el)
+    if (held.current) observer.observe(held.current)
+    return () => observer.disconnect()
+  }, [off])
+  return { frame, held, overflows }
+}
+
+/** The ground's inset on each side, in px (`inset-4`). */
+const INSET = 16
+
+/** Pictures' own sizes by URL, kept past the stage that read them: a picture seen once holds its ground from the first frame after. */
+const SEEN = new Map<string, Box>()
 
 /** One output on the stage. */
 export interface StageLayer {
@@ -49,6 +191,8 @@ export interface StageLayer {
   reading?: ReactNode
   /** The output is still being written: its frame waits for it. */
   writing?: boolean
+  /** The picture's own size where it is known before the picture loads, so its ground is right from the first frame. */
+  size?: Box | null
 }
 
 interface Box {
@@ -106,6 +250,33 @@ function geometry(
   return whole
 }
 
+/**
+ * How high a box `width` wide must be to hold the file whole; null for what
+ * fills any height it is given: a page with no height of its own, a file or
+ * steps that scroll, a picture whose size is not known yet.
+ */
+function heightFor(
+  kind: ArtifactKind | null,
+  boxWidth: number,
+  width: number | null,
+  height: number | null,
+  natural: Box | undefined,
+): number | null {
+  if (kind === 'html')
+    return width !== null && height ? height * Math.min(1, boxWidth / width) : null
+  if (kind === 'image' && natural) return natural.height * Math.min(1, boxWidth / natural.width)
+  return null
+}
+
+/** What a layer shows, as one name: what scrolls is known for that, and not for what it showed before. */
+const scrollKeyOf = (layer: StageLayer): string =>
+  [
+    layer.side,
+    layer.run,
+    layer.sample,
+    layer.writing ? '' : layer.reading ? ':reading' : (layer.artifact?.file ?? ''),
+  ].join('|')
+
 export function Stage({
   layers,
   shown,
@@ -141,6 +312,17 @@ export function Stage({
   const [size, setSize] = useState<Box | null>(null)
   /** A picture's own size, by its URL, once it has loaded. */
   const [natural, setNatural] = useState<Record<string, Box>>({})
+  const naturalOf = (layer: StageLayer, artifact: Artifact): Box | undefined => {
+    const url = urlOf(layer, artifact)
+    return natural[url] ?? SEEN.get(url) ?? layer.size ?? undefined
+  }
+  /** What scrolls, by `scrollKey`: a file or the steps by their own measure, a page by its word. */
+  const [scrolling, setScrolling] = useState<Record<string, boolean>>({})
+  const tellScrolls = useCallback(
+    (key: string, scrolls: boolean) =>
+      setScrolling((known) => (known[key] === scrolls ? known : { ...known, [key]: scrolls })),
+    [],
+  )
 
   useLayoutEffect(() => {
     const el = box.current
@@ -160,7 +342,11 @@ export function Stage({
       const said = event.data as { studioStage?: unknown; x?: unknown; y?: unknown; key?: unknown }
       if (!from || !said || typeof said !== 'object') return
       if (said.studioStage === 'key' && (said.key === 'a' || said.key === 'b')) onFlip(said.key)
-      else if (said.studioStage === 'scroll') {
+      else if (said.studioStage === 'reach') {
+        // How far the page can scroll: any way at all, and the wheel over it would be the page's.
+        const key = from.closest<HTMLElement>('[data-scroll-key]')?.dataset.scrollKey
+        if (key) tellScrolls(key, Number(said.y) > 0)
+      } else if (said.studioStage === 'scroll') {
         const to = { studioStage: 'scrollTo', x: Number(said.x) || 0, y: Number(said.y) || 0 }
         // The pages run in origins of their own, which have no name to address them by.
         for (const frame of frames) if (frame !== from) frame.contentWindow?.postMessage(to, '*')
@@ -168,7 +354,7 @@ export function Stage({
     }
     window.addEventListener('message', handle)
     return () => window.removeEventListener('message', handle)
-  }, [onFlip])
+  }, [onFlip, tellScrolls])
 
   const urlOf = (layer: StageLayer, artifact: Artifact, stage = false) =>
     api.artifactUrl(layer.run, layer.sample, artifact.file, stage)
@@ -186,14 +372,40 @@ export function Stage({
             size,
             width,
             height,
-            layer.artifact ? natural[urlOf(layer, layer.artifact)] : undefined,
+            layer.artifact ? naturalOf(layer, layer.artifact) : undefined,
           ),
   }))
+  // What each output needs of the ground; one that fills any height keeps the ground whole.
+  const needs = !size
+    ? [null]
+    : layers.map((layer) =>
+        layer.reading
+          ? null
+          : layer.writing
+            ? heightFor(waitsAsPage ? 'html' : null, size.width, width, height, undefined)
+            : heightFor(
+                layer.artifact?.kind ?? null,
+                size.width,
+                width,
+                height,
+                layer.artifact ? naturalOf(layer, layer.artifact) : undefined,
+              ),
+      )
+  const held = needs.every((need): need is number => need !== null)
+    ? Math.ceil(Math.max(...needs)) + INSET * 2
+    : null
   const caption = placed.find((p) => p.layer.side === shown)?.geometry?.caption ?? ''
+  const inView = layers.find((layer) => layer.side === shown)
+  const gate = useGate(inView ? (scrolling[scrollKeyOf(inView)] ?? false) : false)
 
   return (
     <>
-      <div className={GROUND}>
+      <div
+        ref={gate.ground}
+        className={cn(GROUND, ENGAGED)}
+        style={held ? { height: `min(60svh, ${held}px)` } : undefined}
+        {...gate.props}
+      >
         <div ref={box} className="absolute inset-4">
           {placed.map(({ layer, geometry: g }) =>
             g ? (
@@ -202,12 +414,18 @@ export function Stage({
                 layer={layer}
                 geometry={g}
                 on={layer.side === shown}
+                scrollKey={scrollKeyOf(layer)}
+                onScrolls={tellScrolls}
                 urlOf={urlOf}
-                onNatural={(url, box) => setNatural((known) => ({ ...known, [url]: box }))}
+                onNatural={(url, box) => {
+                  SEEN.set(url, box)
+                  setNatural((known) => ({ ...known, [url]: box }))
+                }}
               />
             ) : null,
           )}
         </div>
+        {gate.cover}
       </div>
       {/* Kept from the first frame, so nothing moves when a picture loads and its size is known. */}
       <div className="flex min-h-6 items-center gap-1">
@@ -258,12 +476,20 @@ export function StageHalf({ children }: { children: ReactNode }) {
  * here says how to read the sheet. The line keeps its height when it is empty.
  */
 export function StageSheet({ line, children }: { line?: string; children: ReactNode }) {
+  const { frame, held, overflows } = useOverflows()
+  const gate = useGate(overflows)
   return (
     <>
-      <div className={GROUND}>
-        <div className="absolute inset-4 overflow-y-auto rounded-sm bg-card shadow-raised">
-          {children}
+      <div ref={gate.ground} className={cn(GROUND, ENGAGED)} {...gate.props}>
+        <div
+          ref={frame}
+          data-stage-scroll=""
+          tabIndex={-1}
+          className="absolute inset-4 overflow-y-auto rounded-sm bg-card shadow-raised outline-none"
+        >
+          <div ref={held}>{children}</div>
         </div>
+        {gate.cover}
       </div>
       <div className="flex min-h-6 items-center">
         <Text size="xs" tone="muted">
@@ -279,6 +505,8 @@ function StageFrame({
   layer,
   geometry: g,
   on,
+  scrollKey,
+  onScrolls,
   urlOf,
   onNatural,
 }: {
@@ -286,6 +514,10 @@ function StageFrame({
   geometry: Geometry
   /** In view; the other frame stays drawn under it, hidden, so a flip is instant. */
   on: boolean
+  /** What the frame shows, as one name (`scrollKeyOf`). */
+  scrollKey: string
+  /** The frame's file or steps run past it, or stopped doing so. A page says so itself. */
+  onScrolls: (key: string, scrolls: boolean) => void
   urlOf: (layer: StageLayer, artifact: Artifact, stage?: boolean) => string
   /** A picture loaded, and this is its own size. */
   onNatural: (url: string, box: Box) => void
@@ -293,13 +525,23 @@ function StageFrame({
   const { artifact, reading, writing = false } = layer
   const landed = useLanded(writing)
   const page = !writing && !reading && (artifact?.kind === 'html' || artifact?.kind === 'image')
+  const { frame, held, overflows } = useOverflows(page || writing)
+  useEffect(() => {
+    if (!page) onScrolls(scrollKey, overflows)
+  }, [page, scrollKey, overflows, onScrolls])
+  /** A file or the steps, read in the frame, which scrolls when they run past it. */
+  const read = (content: ReactNode) => <div ref={held}>{content}</div>
   return (
     <div
+      ref={frame}
       aria-hidden={!on}
       inert={!on}
+      data-scroll-key={scrollKey}
+      // What the keyboard is put on to scroll a file; a page's frame takes the focus itself.
+      {...(page ? {} : { 'data-stage-scroll': '', tabIndex: -1 })}
       className={cn(
         'absolute overflow-hidden shadow-raised',
-        page ? 'bg-artifact' : 'overflow-y-auto rounded-sm bg-card',
+        page ? 'bg-artifact' : 'overflow-y-auto rounded-sm bg-card outline-none',
         !on && 'invisible',
         landed && 'animate-ink',
       )}
@@ -308,11 +550,12 @@ function StageFrame({
       {writing ? (
         <OutputWriting />
       ) : reading ? (
-        reading
+        read(reading)
       ) : !artifact ? (
         <Hint inset>This output wrote no file to show here.</Hint>
       ) : artifact.kind === 'html' ? (
         <iframe
+          data-stage-scroll=""
           className="block origin-top-left border-0 bg-artifact"
           style={g.page}
           src={urlOf(layer, artifact, true)}
@@ -330,7 +573,7 @@ function StageFrame({
           }}
         />
       ) : (
-        <ArtifactView run={layer.run} sample={layer.sample} artifact={artifact} />
+        read(<ArtifactView run={layer.run} sample={layer.sample} artifact={artifact} />)
       )}
     </div>
   )

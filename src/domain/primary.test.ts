@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { drawnArtifact, primaryArtifact } from './primary.ts'
+import { drawnArtifact, previewArtifact, primaryArtifact } from './primary.ts'
 import type { Artifact } from './schemas.ts'
 
 const md = (file: string): Artifact => ({ file: `outputs/${file}`, kind: 'markdown' })
@@ -132,5 +132,31 @@ describe('drawnArtifact', () => {
       picture('hero.png'),
     )
     expect(drawnArtifact([md('post.md')], md('post.md'))).toBeNull()
+  })
+})
+
+describe('previewArtifact', () => {
+  const repo = [code('package.json'), page('preview.html'), code('src/Card.tsx')]
+
+  it('opens code on the page or the picture written with it', () => {
+    expect(previewArtifact(repo, code('package.json'))).toEqual(page('preview.html'))
+    expect(previewArtifact([code('plot.py'), picture('plot.png')], code('plot.py'))).toEqual(
+      picture('plot.png'),
+    )
+    // Its main page before any other, as on the stage.
+    expect(
+      previewArtifact([page('about.html'), code('app.js'), page('index.html')], code('app.js')),
+    ).toEqual(page('index.html'))
+  })
+
+  it('opens prose on its text, whatever stands beside it', () => {
+    const files = [picture('chart.png'), page('index.html'), md('post.md')]
+    expect(previewArtifact(files, md('post.md'))).toEqual(md('post.md'))
+  })
+
+  it('opens a graded page or picture on itself, and code alone on the graded file', () => {
+    expect(previewArtifact(repo, page('preview.html'))).toEqual(page('preview.html'))
+    expect(previewArtifact([code('a.ts'), code('b.ts')], code('b.ts'))).toEqual(code('b.ts'))
+    expect(previewArtifact([], null)).toBeNull()
   })
 })

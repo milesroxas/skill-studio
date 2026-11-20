@@ -195,6 +195,14 @@ const actions = (
 <ContextActions subject={s.name} actions={<RowAction …>Mark done</RowAction>}>
 ```
 
+A row may hold several things an action could be done to, such as the two outputs a fact was marked on. Their actions stand in a `RowActionGroup` each:
+
+- In a menu, a group is a heading and its `RowAction`s. The heading is `xs` and muted and is not a row: keys skip it. It is words alone, which thing and how it stands: "Output A · Not sure". Never a mark or a letter in a box: in a menu that reads as something to press.
+- After anything else in the menu a group starts under a hairline, edge to edge.
+- Each action keeps the words it has everywhere else: "Mark as met". Never write the thing into every label ("Mark A as met", "Mark B as met"): rows that differ by one letter are read word by word, and the heading says it once.
+- The heading says how the thing stands now, so the reader sees what an action would change.
+- A part of the row that stands for one of the things may open that thing's group where it is (`PartActions`): an output's mark on a fact opens that output's answers. The part is a `button`, and says it is pressed at as a score's chip does, with a 2px ring in `border` when pointed at or open. It is the short way and never the only one: the same actions stay in the row's "More actions" menu and its right-click.
+
 Where a right-click goes:
 
 - **On a thing a reader acts on often enough to want it under the pointer:** a skill in the Library, a case in the Cases list, a file or a folder in the Skill screen's files, a fact in Verdicts, the outputs of a case on Results. Every action in its menu is also a button or in a "More actions" menu somewhere, since a right-click is never the only way: a reader who does not know it exists must lose nothing. A file's menu adds a file or a folder beside it and deletes it; a folder's adds one inside it. The buttons beside Files add next to the open file, and **Delete file** is in the open file's header.

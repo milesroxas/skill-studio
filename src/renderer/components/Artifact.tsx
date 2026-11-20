@@ -4,6 +4,7 @@ import { copyOf } from '@domain/text.ts'
 import { ArrowUpRightIcon } from 'lucide-react'
 import { type ReactNode, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { api } from '../api.ts'
+import type { Token } from '../highlight.ts'
 import type { PageSize } from '../stage.ts'
 import { Loading, ReadFailed } from './layout.tsx'
 import { Prose } from './Prose.tsx'
@@ -194,9 +195,51 @@ export function ArtifactView({ run, sample, artifact, page }: Props) {
       <Loading />
     )
   if (artifact.kind === 'markdown') return <Prose text={copyOf(text)} />
+  return <CodeFile text={text} file={artifact.file} />
+}
+
+/** The highlighter, loaded once, with the first code file shown: its grammars are heavy. */
+let highlighter: Promise<typeof import('../highlight.ts')> | null = null
+
+/**
+ * A file of code, colored by its language as the editor colors a code block
+ * (`highlight.ts`). It shows plain at once and takes its colors when they are
+ * read, which changes no line's length or place. A language not known and a
+ * very long file stay plain.
+ */
+function CodeFile({ text, file }: { text: string; file: string }) {
+  // The colors, with what they were read for: those of another file are never drawn on this one.
+  const [colored, setColored] = useState<{ of: string; tokens: Token[] | null } | null>(null)
+  const of = `${file}\n${text}`
+  useEffect(() => {
+    let live = true
+    highlighter ??= import('../highlight.ts')
+    highlighter.then(
+      ({ highlighted }) => {
+        if (live) setColored({ of: `${file}\n${text}`, tokens: highlighted(text, file) })
+      },
+      // Colors are a help, not the content: without them the file reads plain.
+      () => {},
+    )
+    return () => {
+      live = false
+    }
+  }, [text, file])
+  const tokens = colored?.of === of ? colored.tokens : null
   return (
-    <pre className="m-0 overflow-x-auto bg-muted px-5 py-4 font-mono text-xs whitespace-pre-wrap break-words">
-      {text}
+    <pre className="code-file m-0 overflow-x-auto bg-muted px-5 py-4 font-mono text-xs whitespace-pre-wrap break-words">
+      {tokens
+        ? tokens.map((token, i) =>
+            token.class ? (
+              // biome-ignore lint/suspicious/noArrayIndexKey: the runs of one text never reorder.
+              <span key={i} className={token.class}>
+                {token.text}
+              </span>
+            ) : (
+              token.text
+            ),
+          )
+        : text}
     </pre>
   )
 }
