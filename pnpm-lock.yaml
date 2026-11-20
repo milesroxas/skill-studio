@@ -170,8 +170,8 @@ importers:
   .:
     dependencies:
       '@anthropic-ai/sdk':
-        specifier: ^1.4.0
-        version: 1.4.0
+        specifier: ^1.8.0
+        version: 1.8.0
       '@typesafe-ai/sdk':
         specifier: 0.7.0
         version: 0.7.0
@@ -179,8 +179,8 @@ importers:
         specifier: ^6.8.11
         version: 6.8.11(supports-color@7.2.0)
       openai:
-        specifier: ^7.50.0
-        version: 7.50.0(undici@7.30.1)
+        specifier: ^7.57.0
+        version: 7.57.0(undici@7.30.1)
       yaml:
         specifier: ^2.9.1
         version: 2.9.1
@@ -308,8 +308,8 @@ importers:
 
 packages:
 
-  '@anthropic-ai/sdk@1.4.0':
-    resolution: {integrity: sha512-tyuibnhQL57kLOx5oomY4Ld7jOVOPNC5v3IiyRtR3l+Friv66tI4VbuZYF2NMel/T0WMuQMBFOMKDBUbUh8gPA==}
+  '@anthropic-ai/sdk@1.8.0':
+    resolution: {integrity: sha512-yDOArk2+Qpd/djEKmZjrv7JZ+pn5iBHARJ9PAdvfhGf4H5wNqTgY/2K0/yDKdQdm8G8hrNQchMlBAHpPK7yBfg==}
     hasBin: true
     peerDependencies:
       zod: ^3.25.0 || ^4.0.0
@@ -2811,8 +2811,8 @@ packages:
   once@1.4.0:
     resolution: {integrity: sha512-lNaJgI+2Q5URQBkccEKHTQOPaXdUxnZZElQTZY0MFUAuaEqe1E+Nyvgdz/aIyNi6Z9MzO5dv1H8n58/GELp3+w==}
 
-  openai@7.50.0:
-    resolution: {integrity: sha512-VFBqvO4pL3sXY1y3L1qo+9yUkE+sHOov044/mWAHThG+XUgUrMmQsigwY0ONfYBzLE7Rx4222mM6I+CTNw+Gsw==}
+  openai@7.57.0:
+    resolution: {integrity: sha512-RbmrdE5NdfW6nGq/FaCJ3KFCZpotoExPzruQUSMCTw/ouUFO08vpvVdSmgmPxQMFAiv9EXZCEXvcWYU+n6NzsQ==}
     engines: {node: '>=22.0.0'}
     peerDependencies:
       '@aws-sdk/credential-provider-node': '>=3.972.0 <4'
@@ -3395,7 +3395,7 @@ packages:
 
 snapshots:
 
-  '@anthropic-ai/sdk@1.4.0':
+  '@anthropic-ai/sdk@1.8.0':
     dependencies:
       '@opentelemetry/api': 1.10.0
       json-schema-to-ts: 3.1.1
@@ -5923,7 +5923,7 @@ snapshots:
     dependencies:
       wrappy: 1.0.2
 
-  openai@7.50.0(undici@7.30.1):
+  openai@7.57.0(undici@7.30.1):
     optionalDependencies:
       undici: 7.30.1
 
