@@ -6,23 +6,25 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [0.18.1] - 2026-11-20
+
 ### Changed
 
 - On Results, the two versions you compare stay at the top while you scroll, each with its score and how many rules and checks it missed. Click a version there to read a different answer on that side.
+- Read one at a time, the two versions at the top are the switch: click the other one, or press A or B, to see its answer and its list.
 - The answers show in the same place in all three views. **Side by side** sets them next to each other, and **Word diff** now compares any file the agent wrote, picked by the file name over the answer. **Transcript** is the last choice in that list.
-- **Word diff** opens on the first file that differs, and says so when a file is the same in A and B.
-- With both answers in view, the rules and checks are one list, with a mark for A and a mark for B on each row. What only one answer missed comes first.
-- The space behind a picture is no taller than the picture needs, so the list under it starts higher.
 - Scrolling over an answer on Results moves the screen, not the answer, so a long file or page no longer holds you inside it. Click the answer to scroll inside it; move the pointer off it, or press Escape, to scroll the screen again.
 - An answer that is code opens on its page or picture when the agent wrote one, such as `preview.html`, not on the first code file by name. Text still opens on its text.
+- **Word diff** opens on the first file that differs, and says so when a file is the same in A and B.
+- The space behind a picture is no taller than the picture needs, so the list under it starts higher.
+- With both answers in view, the rules and checks are one list, with a mark for A and a mark for B on each row. What only one answer missed comes first.
+- A long rule under **Missed** or **Not sure** shows two lines. Click it to read all of it. A list longer than four shows three and folds the rest under one line, such as "9 more not sure".
+- What explains a number is behind that number. Click a score to see which file it is for; code written as several files says the score is for all of them. A change that is not the difference of the two scores is said in words, such as "Up 4 on shared rules": click it to see the two scores it compares.
 - Code files on Results are colored by their language, as code blocks in the editor are. Both now color the names of functions and types too, in teal.
 
 ### Removed
 
 - **Add a check** under the answers on Results. Add a check on Cases: click **⋯** at the top right of a case on Results, then **Edit case**.
-- Read one at a time, the two versions at the top are the switch: click the other one, or press A or B, to see its answer and its list.
-- A long rule under **Missed** or **Not sure** shows two lines. Click it to read all of it. A list longer than four shows three and folds the rest under one line, such as "9 more not sure".
-- What explains a number is behind that number. Click a score to see which file it is for; code written as several files says the score is for all of them. A change that is not the difference of the two scores is said in words, such as "Up 4 on shared rules": click it to see the two scores it compares.
 
 ## [0.18.0] - 2026-11-20
 

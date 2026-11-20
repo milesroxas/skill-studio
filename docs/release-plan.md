@@ -4,9 +4,9 @@ The plan for the next release: what is in it, what is still to do, and the check
 
 | | |
 | --- | --- |
-| Version | 0.18.0 |
+| Version | 0.18.1 |
 | Status | Tagging 2026-11-20 |
-| Previous release | [v0.17.0](https://github.com/milesroxas/skill-studio/releases/tag/v0.17.0), 2026-11-16 |
+| Previous release | [v0.18.0](https://github.com/milesroxas/skill-studio/releases/tag/v0.18.0), 2026-11-20 |
 | Target date | 2026-11-20 |
 | Owner | Miles Roxas |
 
@@ -21,13 +21,14 @@ The version follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html): 
 
 ## Shipped to main
 
-Everything merged since v0.17.0.
+Everything merged since v0.18.0.
 
-- [x] The Assistant shows what it thought over each reply: **Thinking…** while it thinks, **Thought for 12s** once it answers, on Claude Code, Codex and an Anthropic key on Claude 5 models (550aca7).
-- [x] The sidebar, the list beside a screen and the Assistant resize by their divider and fold to a 48px strip, with a shortcut each; the Assistant stays as a strip on the right when closed.
+- [x] Results: the two outputs compared are picked in a band under the header that stays in view, and the stage stands in the same place in every view (72ba681).
+- [x] Results: one list for two outputs with a verdict chip a side, menus grouped by output, a stage that leaves the wheel to the app until it is pressed, an output that opens on its page or picture before its code, code colored by its language, and Add a check removed (abf2a50).
+- [x] Code: a third hue for the names of functions and types, and a code file on one surface on the stage (32a3e82).
 - [x] Docs and the guide's screenshots updated in the same commits as the changes.
 
-0.18.0 adds resizable, foldable panels and the Assistant's thinking, so it is a minor release.
+0.18.1 changes how Results is laid out and read, which by the rule above is a minor release. It ships as a patch at the owner's word.
 
 ## Planned
 
@@ -55,9 +56,9 @@ Checks that are not covered by `pnpm check`.
 The steps in [releasing.md](releasing.md), in order.
 
 1. [x] Every item under "Planned" is shipped or moved to "Later".
-2. [ ] Every item under "Before the release" is done. Not for 0.18.0: the unchecked items carry to the next release.
-3. [x] `pnpm check` and `pnpm build` pass on `main`, 1,743 tests, and main's own run passes on Windows and macOS before the tag.
-4. [ ] `gh workflow run release` builds every platform. Not run for 0.18.0; the tag's own run builds every platform.
-5. [x] In the changelog, add `## [0.18.0] - 2026-11-20` under a new `## [Unreleased]`, and commit.
-6. [ ] `pnpm version minor -m "Release %s"`, then push `main` and the tag.
-7. [ ] The release workflow publishes v0.18.0, with the changelog entry as its notes.
+2. [ ] Every item under "Before the release" is done. Not for 0.18.1: the unchecked items carry to the next release.
+3. [x] `pnpm check` and `pnpm build` pass on `main`, 1,752 tests, and main's own run passes on Windows and macOS before the tag.
+4. [ ] `gh workflow run release` builds every platform. Not run for 0.18.1; the tag's own run builds every platform.
+5. [x] In the changelog, add `## [0.18.1] - 2026-11-20` under a new `## [Unreleased]`, and commit.
+6. [ ] `pnpm version patch -m "Release %s"`, then push `main` and the tag.
+7. [ ] The release workflow publishes v0.18.1, with the changelog entry as its notes.
