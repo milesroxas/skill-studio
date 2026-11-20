@@ -44,7 +44,7 @@ Is it a heading in the page's outline?
 
 The guide's title is its Markdown `h1`, set to `3xl` (`2xl` on a small window) by `.guide-body` in `styles.css`. A screen's title is `level="page"` in the top bar. A screen never repeats its own name in its body.
 
-Markdown the app renders itself (a reply, an output, the changelog) goes through `Prose` (`components/Prose.tsx`), which sets `.doc` in `styles.css`. Its `density` is `reading` (a column read at length), `compact` (a narrow column with no padding of its own) or `notes` (a release's changes, one to a line under small labels, bullets hung in the margin).
+Markdown the app renders itself (a reply, an output, the changelog) goes through `Prose` (`components/Prose.tsx`), which sets `.doc` in `styles.css`. Its `density` is `reading` (a column read at length), `compact` (a narrow column with no padding of its own) `notes` (a release's changes, one to a line under small labels, bullets hung in the margin) or `thinking` (what the model thought before a reply in the Assistant panel, `text-ui` and muted on a hairline at its left, under the `Disclosure` that folds it).
 
 ```tsx
 // Correct: components/layout.tsx, ListHeader

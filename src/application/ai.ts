@@ -228,6 +228,8 @@ function start(work: Work): AiRun {
     kind: work.kind,
     status: 'running',
     text: '',
+    thinking: '',
+    thinkingMs: null,
     error: null,
     provider: choice.provider,
     model: choice.model,
@@ -238,6 +240,7 @@ function start(work: Work): AiRun {
   const controller = new AbortController()
   controllers.set(run.id, controller)
   const provider = aiProvider(choice.provider)
+  const begun = Date.now()
   const again: Again = async (system, user, schema) => {
     const reply = await provider.run({
       model: choice.model,
@@ -267,7 +270,13 @@ function start(work: Work): AiRun {
       schema: work.schema,
       signal: controller.signal,
       onText: (raw) => {
+        // The reply has begun: the thinking before it is over.
+        if (run.thinking && run.thinkingMs === null) run.thinkingMs = Date.now() - begun
         run.text = work.preview(raw)
+        changed(run)
+      },
+      onThinking: (thinking) => {
+        run.thinking = thinking
         changed(run)
       },
     })
@@ -354,6 +363,17 @@ const message = (
   at: new Date().toISOString(),
 })
 
+/** A finished reply as the conversation keeps it, with the thinking that came before it. */
+const replyOf = (messages: ChatMessage[], run: AiRun): ChatMessage => ({
+  ...message(messages, 'assistant', run.text.trim()),
+  ...(run.thinking.trim()
+    ? {
+        thinking: run.thinking.trim(),
+        ...(run.thinkingMs === null ? {} : { thinkingMs: run.thinkingMs }),
+      }
+    : {}),
+})
+
 /** A message's pictures on disk. One whose upload is no longer kept is left out, not an error. */
 const picturesOf = (images: ImageRef[] = []): StoredImage[] =>
   images.flatMap((ref) => {
@@ -413,7 +433,7 @@ async function sendChatNow(
       // A finished reply, and what a stopped one had written, join the conversation.
       if (run.status === 'failed' || !run.text.trim()) return
       const now = readChat()
-      const reply = message(now, 'assistant', run.text.trim())
+      const reply = replyOf(now, run)
       writeChat([...now, skill ? { ...reply, skill } : reply])
       chatRun = null
     },
@@ -635,7 +655,7 @@ async function improveReply(thread: ImproveThread): Promise<void> {
       if (improve !== thread || thread.run?.id !== run.id) return
       thread.run = run
       if (run.status === 'failed' || !run.text.trim()) return
-      thread.messages = [...thread.messages, message(thread.messages, 'assistant', run.text.trim())]
+      thread.messages = [...thread.messages, replyOf(thread.messages, run)]
       thread.run = null
       if (!drafting(thread)) return
       const found = draftOf(run.text)

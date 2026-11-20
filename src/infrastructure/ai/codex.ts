@@ -3,7 +3,7 @@
  * sandbox, on the ChatGPT plan the CLI is signed in to. Codex takes no system
  * prompt, so the brief leads the prompt; a field's shape goes in as a schema
  * file, and pictures as `--image` files. It reports each message whole, so the
- * reply appears at once, not word by word. The adapter reads how the CLI
+ * reply appears at once, not word by word, and its thinking a step at a time. The adapter reads how the CLI
  * is signed in (`codex login status`) and never signs it in itself.
  */
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
@@ -41,6 +41,7 @@ async function run(request: AiRequest): Promise<AiReply> {
       '-',
     ]
     const reply: AiReply = { text: '', model: request.model, usage: { input: 0, output: 0 } }
+    let thinking = ''
     let failure: string | null = null
     await runJsonLines<CodexEvent>(
       'codex',
@@ -51,6 +52,9 @@ async function run(request: AiRequest): Promise<AiReply> {
         if (event.type === 'item.completed' && event.item?.type === 'agent_message') {
           reply.text = event.item.text ?? ''
           request.onText(reply.text)
+        } else if (event.type === 'item.completed' && event.item?.type === 'reasoning') {
+          thinking = [thinking, event.item.text ?? ''].filter(Boolean).join('\n\n')
+          request.onThinking?.(thinking)
         } else if (event.type === 'turn.completed')
           reply.usage = {
             input: event.usage?.input_tokens ?? 0,

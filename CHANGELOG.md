@@ -6,6 +6,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+### Added
+
+- The Assistant shows what it thought before it replied. While it thinks, the line over its reply reads "Thinking…"; once it answers, "Thought for 12s". Click the line to read it. This works with Claude Code, Codex, and an Anthropic key on Claude 5 models. No reply costs more for it.
+
 ## [0.17.0] - 2026-11-16
 
 ### Added

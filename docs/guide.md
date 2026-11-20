@@ -135,7 +135,7 @@ First, connect a model in **Settings**. If you use Claude Code or Codex, it work
 - **Write with AI**, in the editor toolbar or in any text box: say what you want. Nothing changes until you click **Replace** or **Insert**.
 - **Select a rule** to get three choices: **Auto refine** fixes what is unclear, **Suggest changes** offers three rewrites, and **Help me improve** works through it with you in a chat. Nothing changes until you pick a result, and **Undo** takes it back.
 - A rule that asks for several things gets **Split up** among its rewrites: one rule for each thing, so you can see which one an answer missed.
-- **The Assistant** (top right, or Cmd+J) is a chat that reads your skill and suggests changes. You apply each one with a click.
+- **The Assistant** (top right, or Cmd+J) is a chat that reads your skill and suggests changes. You apply each one with a click. Click **Thought for 12s** over a reply to read what it thought first.
 
 ### Versions
 

@@ -628,6 +628,16 @@
   .doc[data-density="compact"] :is(h1, h2, h3, h4) {
     @apply mt-4 mb-1.5 text-sm first:mt-0;
   }
+  /* What the model thought before a reply, opened under its line: smaller and muted, so the reply stays what is read. */
+  .doc[data-density="thinking"] {
+    @apply border-l border-border p-0 pl-3 text-ui leading-[1.55] text-muted-foreground;
+  }
+  .doc[data-density="thinking"] :is(p, ul, ol, blockquote, pre, table, .aside) {
+    @apply mb-2 last:mb-0;
+  }
+  .doc[data-density="thinking"] :is(h1, h2, h3, h4) {
+    @apply mt-3 mb-1 text-ui first:mt-0;
+  }
   /*
    * A release's notes. The version above them is the heading, so Added, Changed
    * and Fixed are small labels. The bullets hang in the margin: every change

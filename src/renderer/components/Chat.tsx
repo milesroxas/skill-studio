@@ -28,11 +28,13 @@ import { APP_COMMANDS, appCommandOf } from '../commands.ts'
 import type { Ctx } from '../ctx.ts'
 import { navigate } from '../history.ts'
 import { useAttached } from '../images.ts'
+import { duration } from '../model.ts'
 import { useRested } from '../motion.ts'
 import { openAt } from '../route.ts'
 import { type ChangeHost, Reply } from './Change.tsx'
 import { Composer } from './Composer.tsx'
 import type { Confirm } from './confirm.tsx'
+import { Disclosure } from './Disclosure.tsx'
 import { EmptyState, Loading, PlainList, ReadFailed } from './layout.tsx'
 import { PanelBody, PanelHeader, usePin } from './PanelFrame.tsx'
 import { PictureStrip } from './Pictures.tsx'
@@ -315,14 +317,22 @@ export function Conversation({
           </li>
         ) : (
           // biome-ignore lint/suspicious/noArrayIndexKey: as above
-          <li key={i}>{reply(message.text, message.skill, false, message.id)}</li>
+          <li key={i} className="flex flex-col gap-1">
+            {message.thinking ? (
+              <Thought text={message.thinking} ms={message.thinkingMs ?? null} thinking={false} />
+            ) : null}
+            {reply(message.text, message.skill, false, message.id)}
+          </li>
         ),
       )}
       {run?.status === 'running' || (waiting && !error) ? (
-        <li aria-live="polite">
+        <li aria-live="polite" className="flex flex-col gap-1">
+          {run?.status === 'running' && run.thinking ? (
+            <Thought text={run.thinking} ms={run.thinkingMs} thinking={!run.text} />
+          ) : null}
           {run?.status === 'running' && run.text ? (
             reply(run.text, undefined, true, null)
-          ) : (
+          ) : run?.status === 'running' && run.thinking ? null : (
             <Text tone="muted" className="animate-pulse">
               Thinking…
             </Text>
@@ -337,6 +347,28 @@ export function Conversation({
         </li>
       ) : null}
     </ol>
+  )
+}
+
+/**
+ * What the model thought before a reply, folded under one line the reader
+ * opens to read it. While it thinks, the line says so and what opens grows.
+ */
+function Thought({ text, ms, thinking }: { text: string; ms: number | null; thinking: boolean }) {
+  return (
+    <Disclosure
+      summary={
+        thinking ? (
+          <span className="animate-pulse">Thinking…</span>
+        ) : ms === null ? (
+          'Thought'
+        ) : (
+          `Thought for ${duration(Math.max(1, Math.round(ms / 1000)))}`
+        )
+      }
+    >
+      <Prose text={text} density="thinking" />
+    </Disclosure>
   )
 }
 

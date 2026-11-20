@@ -72,6 +72,8 @@ A region is a part of the page: a column, a section, a group of fields. It ends 
 
 A `Disclosure` takes `detail`: what the block holds, said after its line in `xs` `faint` while it is closed ("7 checks"), and gone once it is open and shows them.
 
+What the model thought before an Assistant reply (with Claude Code, Codex, or an Anthropic key on a model that thinks by default, so showing it costs nothing more) folds under a `plain` `Disclosure` over the reply: "Thinking…", pulsing, while it thinks, then "Thought for 12s" once the reply begins, or "Thought" when it stopped first. It is closed until the reader opens it, and opens on `Prose density="thinking"`. A reply with no thinking shows no line.
+
 The changes an Assistant reply proposes are `row`s. A draft from Help me improve is the same row (`RowAction` in `Change.tsx`):
 
 - It reads SKILL.md, how the draft stands against the guide, its length in words, and Apply. Once the rule reads as the draft, Apply becomes Applied.

@@ -184,6 +184,8 @@ const runOf = (id: string, status: AiRunStatus): AiRun => ({
   kind: 'assist',
   status,
   text: '',
+  thinking: '',
+  thinkingMs: null,
   error: null,
   provider: 'claude-code',
   model: 'opus',

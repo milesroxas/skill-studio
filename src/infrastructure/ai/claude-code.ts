@@ -5,7 +5,7 @@
  * runs with the user's own settings loaded so the CLI expands the skill as it
  * would in a terminal. A field's shape goes in as `--json-schema`; the reply
  * then arrives as the input of its StructuredOutput tool, streamed the same as
- * prose. Pictures cannot ride in a plain prompt, so a request with any goes in
+ * prose, and the model's thinking as a summary beside it. Pictures cannot ride in a plain prompt, so a request with any goes in
  * as one `stream-json` user message: the pictures, then the prompt.
  *
  * The adapter only runs the CLI as Anthropic publishes it, on whatever
@@ -29,7 +29,7 @@ interface StreamEvent {
   model?: string
   event?: {
     type: string
-    delta?: { type: string; text?: string; partial_json?: string }
+    delta?: { type: string; text?: string; partial_json?: string; thinking?: string }
   }
   is_error?: boolean
   result?: string
@@ -120,6 +120,9 @@ async function run(request: AiRequest): Promise<AiReply> {
   const args = claudePrintArgs(
     ...(pictures.length ? ['--input-format', 'stream-json'] : []),
     '--include-partial-messages',
+    // Without it the CLI streams the model's thinking as empty blocks.
+    '--thinking-display',
+    'summarized',
     // A command needs the user's skills; anything else runs as a plain model.
     ...(command
       ? ['--setting-sources', 'user']
@@ -136,6 +139,7 @@ async function run(request: AiRequest): Promise<AiReply> {
   // With a schema the reply is the tool's JSON input; without one it is the text.
   const wanted = request.schema ? 'input_json_delta' : 'text_delta'
   let text = ''
+  let thinking = ''
   const reply: AiReply = { text: '', model: request.model, usage: { input: 0, output: 0 } }
   let failure: string | null = null
   let finished = false
@@ -149,7 +153,12 @@ async function run(request: AiRequest): Promise<AiReply> {
         reply.model = event.model
       else if (event.type === 'stream_event') {
         const delta = event.event?.delta
-        if (event.event?.type !== 'content_block_delta' || delta?.type !== wanted) return
+        if (event.event?.type !== 'content_block_delta') return
+        if (delta?.type === 'thinking_delta' && delta.thinking) {
+          thinking += delta.thinking
+          request.onThinking?.(thinking)
+        }
+        if (delta?.type !== wanted) return
         text += delta.text ?? delta.partial_json ?? ''
         request.onText(text)
       } else if (event.type === 'result') {

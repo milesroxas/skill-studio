@@ -32,6 +32,14 @@ const client = keyed(key, (apiKey) => new Anthropic({ apiKey }))
 const FALLBACK_BETA = 'server-side-fallback-2026-07-01'
 const declines = (model: string): boolean => /^claude-(fable-5|opus-5|sonnet-5-5)/.test(model)
 
+/**
+ * Whether a model thinks before it replies when the request does not say: the
+ * fifth generation on. Asking those for a summary of it costs nothing more. An
+ * older model asked would start to think, and bill for it, so it is not asked.
+ */
+export const thinksByDefault = (model: string): boolean =>
+  /^claude-(fable|mythos|opus|sonnet|haiku)-([5-9]|\d{2,})(-|$)/.test(model)
+
 const explain = (error: unknown): Error =>
   explainFor('Anthropic', Anthropic, error, '. Wait a moment and try again.')
 
@@ -107,6 +115,10 @@ async function run(request: AiRequest) {
       max_tokens: maxTokensWithin(outputLimits.get(request.model)),
       ...(request.system ? { system: systemBlocks(request) } : {}),
       messages: request.messages.map((m) => ({ role: m.role, content: contentOf(m) })),
+      // Shown as a summary; without `display` the thinking streams empty.
+      ...(thinksByDefault(request.model)
+        ? { thinking: { type: 'adaptive' as const, display: 'summarized' as const } }
+        : {}),
       output_config: {
         ...(request.effort ? { effort: request.effort as Effort } : {}),
         ...(request.schema ? { format: { type: 'json_schema', schema: request.schema } } : {}),
@@ -116,12 +128,18 @@ async function run(request: AiRequest) {
     { signal: request.signal },
   )
   let text = ''
+  let thinking = ''
   for await (const event of stream) {
-    // A fallback model starts the reply again: what the first model wrote is dropped.
-    if (event.type === 'content_block_start' && event.content_block.type === 'fallback') text = ''
-    else if (event.type === 'content_block_delta' && event.delta.type === 'text_delta') {
+    // A fallback model starts the reply again: what the first model wrote and thought is dropped.
+    if (event.type === 'content_block_start' && event.content_block.type === 'fallback') {
+      text = ''
+      thinking = ''
+    } else if (event.type === 'content_block_delta' && event.delta.type === 'text_delta') {
       text += event.delta.text
       request.onText(text)
+    } else if (event.type === 'content_block_delta' && event.delta.type === 'thinking_delta') {
+      thinking += event.delta.thinking
+      request.onThinking?.(thinking)
     }
   }
   const message = await stream.finalMessage()

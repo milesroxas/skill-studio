@@ -36,6 +36,30 @@ describe('run', () => {
     ]
     expect(await ask('Hi')).toMatchObject({ text: 'Hello.', usage: { input: 0, output: 0 } })
   })
+
+  it('reports the thinking as it grows, apart from the reply', async () => {
+    const delta = (d: Record<string, string>) =>
+      JSON.stringify({ type: 'stream_event', event: { type: 'content_block_delta', delta: d } })
+    cli.lines = [
+      delta({ type: 'thinking_delta', thinking: 'Counting ' }),
+      delta({ type: 'thinking_delta', thinking: 'the rules.' }),
+      delta({ type: 'text_delta', text: 'Three.' }),
+      JSON.stringify({ type: 'result', subtype: 'success', result: 'Three.', usage: null }),
+    ]
+    const thinking: string[] = []
+    const reply = await claudeCodeProvider.run({
+      model: 'sonnet',
+      effort: '',
+      system: 'Brief.',
+      messages: [{ role: 'user', text: 'How many?' }],
+      schema: null,
+      signal: new AbortController().signal,
+      onText: () => {},
+      onThinking: (text) => thinking.push(text),
+    })
+    expect(thinking).toEqual(['Counting ', 'Counting the rules.'])
+    expect(reply.text).toBe('Three.')
+  })
 })
 
 describe('commandProblem', () => {

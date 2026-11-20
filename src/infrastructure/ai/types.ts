@@ -29,6 +29,8 @@ export interface AiRequest {
   signal: AbortSignal
   /** Called with the reply so far each time it grows, or starts over on another model. */
   onText: (text: string) => void
+  /** Called with what the model has thought so far each time it grows, by a provider that shows its thinking. */
+  onThinking?: (thinking: string) => void
 }
 
 export interface AiReply {

@@ -10,9 +10,10 @@ export function Prose({
   /**
    * `reading`: a column to read at length. `compact`: a narrow column, with no
    * padding of its own. `notes`: a release's changes, one to a line under small
-   * labels, with the bullets hung in the margin.
+   * labels, with the bullets hung in the margin. `thinking`: what the model
+   * thought before a reply, smaller and muted, on a hairline at its left.
    */
-  density?: 'reading' | 'compact' | 'notes'
+  density?: 'reading' | 'compact' | 'notes' | 'thinking'
 }) {
   // Parsed once per text: a conversation renders on every key typed under it.
   const html = useMemo(() => markdownHtml(text), [text])

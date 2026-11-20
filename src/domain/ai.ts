@@ -247,6 +247,13 @@ export interface AiRun {
   status: AiRunStatus
   /** The reply so far: a field's text for `assist` and `refine`, Markdown for `chat` and `improve`, JSON for `rewrites`. */
   text: string
+  /**
+   * What the model thought before it replied, so far, as its provider shows
+   * it: a summary, not every step. Empty when the provider shows none.
+   */
+  thinking: string
+  /** How long it thought, once its reply began; null until then, or when it showed no thinking. */
+  thinkingMs: number | null
   error: string | null
   provider: AiProviderId
   model: string
@@ -287,6 +294,9 @@ export interface ChatMessage {
   images?: ImageRef[]
   /** The skill a reply was written about, by path: the only one its changes apply to. */
   skill?: string
+  /** What the model thought before a reply, and for how long (`AiRun.thinking`). Never sent back to it. */
+  thinking?: string
+  thinkingMs?: number
   /** ISO time it was sent or finished. */
   at: string
 }
