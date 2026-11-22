@@ -22,6 +22,7 @@ const pack = (id: string, layers: string[]): PackScoring<Raw> => ({
           text: layer,
           met: corrections[`rule:${layer}`] ?? (raw.layers[layer] ?? 0) >= 0.5,
           open: true as const,
+          by: 'jev' as const,
           jev: (raw.layers[layer] ?? 0) >= 0.5,
           corrected: corrections[`rule:${layer}`] !== undefined,
           layer,
@@ -66,6 +67,34 @@ describe('scoreResult', () => {
     )
     // (1 * 2 + 0.5 * 1 + 0 * 1) / 4
     expect(scores).toEqual({ total: 63, voice: 100, clarity: 50, adherence: 0 })
+  })
+
+  it('owes a grading to an output whose pack kept a reading of less than it reads now', () => {
+    const partly = {
+      ...rules,
+      behind: (raw: Raw | null) => (raw?.layers.adherence === 0 ? 'Read only in part' : null),
+    } as PackScoring<Raw>
+    const scored = scoreResult(
+      result({ voice: { layers: { voice: 1, clarity: 1 } }, rules: { layers: { adherence: 0 } } }),
+      config(),
+      [voice, partly] as PackScoring[],
+    )
+    expect(scored.scores.total).toBeNull()
+    expect(scored.regrade).toEqual(['Read only in part'])
+    expect(scored.flags).toContain('Read only in part')
+    // A pack since unticked owes nothing, and a reading that stands owes nothing either.
+    const unticked = scoreResult(
+      result({ voice: { layers: { voice: 1, clarity: 1 } }, rules: { layers: { adherence: 0 } } }),
+      config({ packs: ['voice'] }),
+      [voice, partly] as PackScoring[],
+    )
+    expect(unticked.regrade).toEqual([])
+    const stands = scoreResult(
+      result({ voice: { layers: { voice: 1, clarity: 1 } }, rules: { layers: { adherence: 1 } } }),
+      config(),
+      [voice, partly] as PackScoring[],
+    )
+    expect(stands.regrade).toEqual([])
   })
 
   it('leaves a layer with no answers out of the total and reports it as null', () => {

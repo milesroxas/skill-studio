@@ -1,0 +1,9 @@
+{
+  "workdir": [
+    "/private/var/folders/y0/ck9dy0lj7s5fyss3r1dkfmf40000gn/T/skill-studio-sample-WoGYiC/page-long-s1",
+    "/var/folders/y0/ck9dy0lj7s5fyss3r1dkfmf40000gn/T/skill-studio-sample-WoGYiC/page-long-s1"
+  ],
+  "ok": true,
+  "error": null,
+  "finalText": "I wrote `outputs/index.html` with the Ferry 4.0 headline, a short intro and all 180 changes in order. Each one has its number, title, area and full description.\n\nI kept the skill's 120-word limit to the intro only, because the full list can't fit inside it. The brief has no Price, Quote or Features lines, so the page has none of them. The choices and open checks are in `notes.md`."
+}

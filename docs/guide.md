@@ -198,18 +198,22 @@ The run's progress shows at the bottom of the sidebar. Click it to watch, or to 
 
 ## 5. Compare the results
 
-![Results: three cases on the left, each with its score before and after; on the right the two versions of one case, A from v0 and B from v1, each with its score and how much it missed, and the two answers side by side under them.](images/results.webp)
+![Results: the cases on the left, each saying how it did against the answer without the skill; on the right the two versions of one case, A from v0 and B from v1, and the two answers side by side under them.](images/results.webp)
 
-Results shows one case at a time: **A**, the answer from your previous version, and **B**, the answer from your latest. Their versions and scores stay at the top while you scroll.
+Results shows one case at a time: **A**, the answer from your previous version, and **B**, the answer from your latest. Their versions stay at the top while you scroll. Nothing there scores them: read both answers first and make up your own mind.
 
-- **The list on the left** has every case with its score and how much it moved. Click one to open it.
+- **The list on the left** has every case with how it did, in words such as **Better than without the skill** or **Same as v1**, or, for a skill with no checks yet, its score. Click one to open it.
 - **Click a version name** at the top to read a different answer on that side.
-- **Click a score** to see how it was counted. A line such as "Up 4 on shared rules" under B's version is the change counted only on the rules and checks marked on both answers: click it to see the two scores it compares.
 - **The answers** are under the two versions. **One at a time** shows one answer large: click the other version, or press A or B, to flip between the two. **Side by side** shows both. **Word diff** marks the words that differ.
 - **Scroll inside an answer** by clicking it first. Until you do, scrolling moves the whole screen, so a long answer never holds you. Move the pointer off the answer to scroll the screen again.
 - **The file name** over the answer changes which file you read, when the agent wrote more than one. An answer opens on its page or picture when it has one, and code is colored by its language. **Transcript**, last in that list, shows every step the agent took. Read it when a score surprises you.
-- **Missed**, under the answer, lists each rule and check the answer did not meet. With both answers in view, each row has a mark for A and a mark for B. A long rule shows its first two lines: click it to read all of it. **Open rule** takes you to that rule in the editor. Missed also says when Jev read only the start of a long answer or file: a rule broken past that point is not seen.
-- **Not sure** lists what Jev could not tell. These are left out of the score until you mark them yourself. Where a score leaves some out, All cases says how many of its rules and checks Jev was not sure of. A change between two runs counts only the rules and checks marked on both, and says how many it left out: mark a rule or check on both runs to count it in the change.
+- **What to fix** comes first under the answer: each rule and check it did not meet, grouped by why, in the order to fix them. **The skill was never opened** means the agent never read your skill, so what it missed says nothing about your rules: work on the skill's description. **No rule was broken, and a check was still missed** means your rules ask for the wrong thing or leave out what the check needs. **A rule was broken on this answer too** lists checks missed beside a broken rule: fix the rule first. **A rule was broken** lists the rules it did not follow. **Open skill**, **Open rule** and **Edit case** take you to where the fix is. A long rule shows its first two lines: click it to read all of it.
+- With both answers in view, the list is B's, and a row says when A did otherwise, such as **A missed this**. To mark one of A's rules or checks yourself, show A alone.
+- **Missed** lists what no reason explains: an answer written without the skill was held to no rule, so its missed checks are here. Missed also says when Jev read only the start of a file beside the answer, or of an answer too long even to read in parts: a rule broken past that point is not seen.
+- **Not sure** lists what Jev could not tell. These are left out of the score until you mark them yourself with **Mark as met** or **Mark as missed** under each. Where a score leaves some out, All cases says how many of its rules and checks Jev was not sure of. A change between two runs counts only the rules and checks marked on both, and says how many it left out: mark a rule or check on both runs to count it in the change.
+- **Not read** lists what Jev could not settle on an answer too long to read at once. Jev reads such an answer in parts, and a rule or check the parts do not settle, such as a footer only the last part holds, is left out of the score until you mark it yourself.
+- **Cannot be marked** lists rules and checks written so that two careful readers would mark them differently, rules that cannot hold beside another rule, and, on one case's answers, a rule that cannot hold beside one of that case's checks, such as a word limit beside a check that asks for a list longer than the limit. Each says why, and how it could be written instead. They are left out of the score until you mark them yourself, or rewrite them. This list shows only after the rules and checks were sorted from the command line (`st sort`).
+- Under a rule or check the app checked itself, such as a word count, the line says what it found: "Checked by the app: 134 words, more than 120." Where the app could not settle it, such as a count that depends on how words are counted, the rule or check is under **Not sure** and says why.
 - **Met** folds away everything it got right.
 - **Does not apply** folds away rules written for another kind of work than this answer, such as rules under "For a bug report" when the request was for a summary, and rules for a situation the request is not, such as "When the request names a table, write a table" when it names none. They are left out of the score.
 
@@ -219,8 +223,10 @@ Results shows one case at a time: **A**, the answer from your previous version, 
 | --- | --- |
 | Jev passed an answer you do not like | Write down what is missing: click **⋯** at the top right, then **Edit case**, and add a check there. Or add a rule to the skill |
 | Jev failed an answer you like | Edit or delete the rule or check that asked for the wrong thing |
-| Jev got one rule or check wrong | Click **⋯** beside it, then **Mark as met** or **Mark as missed** |
-| Jev was not sure of one | Click **⋯** beside it under **Not sure**, then **Mark as met** or **Mark as missed** |
+| Jev, or the app's own check, got one rule or check wrong | Click **⋯** beside it, then **Mark as met** or **Mark as missed** |
+| A rule or check cannot be marked | Rewrite it in the skill or the case, as the line under it suggests, then run again. Or click **⋯** beside it, then **Mark as met** or **Mark as missed** |
+| Jev was not sure of one | Click **Mark as met** or **Mark as missed** under it, in **Not sure** |
+| Jev did not read one | Click **Mark as met** or **Mark as missed** under it, in **Not read** |
 
 Your mark replaces Jev's and the score updates. **Take back**, in the same menu, undoes it. A change in score between two runs counts your mark only when you marked the same rule or check on both, so a case does not rise just because you checked its newest run more closely.
 
@@ -230,17 +236,22 @@ Changing a case's prompt or its files makes it a new request. Answers written be
 
 ### All cases
 
-![All cases: the lift, a ribbon from the cases' first scores to their latest over the score without the skill; under it how many cases are checked on the version a run would test, and each case with its last run, its score and how it changed.](images/all-cases.webp)
+![All cases: the cases better, the same and worse on their checks; under it each case with how many checks it met without the skill and on v1, and whether it got better.](images/all-cases.webp)
 
-**All cases**, at the top of the list, shows how far your cases have come since their first runs, and where each case stands now. You do not have to run every case each time: each case is read against its own runs.
+**All cases**, at the top of the list, shows which cases got better, which stayed the same and which got worse, on their checks. You do not have to run every case each time: each case's newest answer is set against its own earlier answer.
 
-- **Lift** is the average of the cases' latest scores, against the average of their first. Under the number is how far it moved and how many cases it is over. Click the number of cases to see how it is counted: which cases, the score without the skill, and anything that makes the change less sure.
-- Under it, a line says how many cases have run on the version a run would test now. After you edit the skill, a score from before the edit may no longer hold. Such a score is drawn as an outline with no fill, here and in the list on the left. **Run the other 4 on v3** opens Run with only those cases ticked. A case that has run on that version and only waits to be graded is not run again: the line says how many wait, and the button grades them once no other case is left.
-- Each row is a case: its last run, its score, and how the score changed. Cases that dropped come first. Click a case to see what its answer missed, read the output, and see its other runs.
+- **Without the skill** and **The version before**, at the top right, choose what each case's newest answer is set against: its answer written without the skill, or its answer before this one.
+- The three numbers count the cases that got **better**, stayed the **same** and got **worse**. Under them is how many more checks the answers met, and how many cases were compared. Click the number of cases to see how a case is read, all the checks added up, and the score out of 100 over the same cases.
+- Each row is a case, with how many checks each answer met, such as **1 of 2 checks** without the skill and **2 of 2 checks** on v1. A check met on some attempts and missed on others is not counted as met.
+- **Change** says **Better**, **Same** or **Worse**. A change with a dotted line may be chance: each side ran once and one check moved. Run the case again to see if it holds.
+- A case with nothing to compare says why, such as **First run** or **The case has no checks**. A skill none of whose cases has checks marked on two answers shows **Lift** instead: the average of the cases' latest scores against their first, with each case's last run, score and change. **Open Cases** takes you to add checks.
+- Under the numbers, a line says how many cases have run on the version a run would test now. After you edit the skill, an answer from before the edit may no longer hold, and its case is listed under **Not checked on v3 yet**. **Run the other 4 on v3** opens Run with only those cases ticked. A case that has run on that version and only waits to be graded is not run again: the line says how many wait, and the button grades them once no other case is left.
+- Click a case to see what its answer missed, its score, its output and its other runs.
+- In the list on the left, each case says how it did in words, and **All cases** shows the counts.
 
 Under the cases, each run shows what it answered, when it ran, how long it took and what it cost, with **Delete run**. A run that ended when the app quit or crashed says **not finished**: grade it to score the attempts it finished.
 
-Two versions only a few points apart may not really differ. Run with two or more attempts to be sure. Click the number of cases under the lift to see how many attempts each side is over and how far one case's attempts were apart. An opened case says the same of its score.
+A case that moved by one check, on one attempt each side, may not really differ. Run with two or more attempts to be sure: a case with several attempts counts as the same unless it moved more than its attempts differ from each other. An opened case says how many attempts its score is over and how far apart they were.
 
 ### Then change the skill
 

@@ -1,0 +1,1 @@
+Choices: subject restates headline with version (42 chars); body opens with headline verbatim; ~90 words; codename and Internal line omitted; no list marks used, features as plain lines. Release date is 4 March 2027 per brief.

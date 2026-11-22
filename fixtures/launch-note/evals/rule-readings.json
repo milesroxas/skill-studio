@@ -1,0 +1,1591 @@
+{
+  "readings": [
+    {
+      "stamp": "7f5b69a3be5de07a59e38c5cee39c9174ee9846f88c4e227d91bda140a5357cd",
+      "kind": "check",
+      "text": "The email says the update is free for everyone on a paid plan.",
+      "case": "email-free",
+      "reading": {
+        "reading": "judged",
+        "span": "any"
+      },
+      "against": [],
+      "reason": "The statement can be worded many ways, so understanding is needed; one part showing it is enough.",
+      "refused": [],
+      "provider": "claude-code",
+      "model": "claude-sonnet-5-5",
+      "at": "2026-11-21T05:54:46.473Z",
+      "prompt": 12
+    },
+    {
+      "stamp": "447c652d4a2c26128cce137280d3573c6487c3cfd4a8a7752e8dc06e7ee813a1",
+      "kind": "check",
+      "text": "The email gives the support address, help@ferry.example.",
+      "case": "email-free",
+      "reading": {
+        "reading": "exact",
+        "outputs": [
+          "text"
+        ],
+        "join": "all",
+        "tests": [
+          {
+            "test": "has",
+            "read": {
+              "part": "text",
+              "skip": null
+            },
+            "values": {
+              "from": "listed",
+              "items": [
+                "help@ferry.example"
+              ]
+            },
+            "need": "all",
+            "at": "anywhere",
+            "match": "characters",
+            "case": "any"
+          }
+        ]
+      },
+      "against": [],
+      "reason": "The support address is a fixed value the check names, so code can look for it in the text.",
+      "refused": [],
+      "provider": "claude-code",
+      "model": "claude-sonnet-5-5",
+      "at": "2026-11-21T05:54:46.473Z",
+      "prompt": 12
+    },
+    {
+      "stamp": "ed8d0d489a20c8fb94ed7b13ec5879fe84775c68e8f824425e42f46c02a4fb05",
+      "kind": "check",
+      "text": "The email names all six features.",
+      "case": "email-crowded",
+      "reading": {
+        "reading": "judged",
+        "span": "whole"
+      },
+      "against": [],
+      "reason": "Features can be named in other words, so understanding is needed to tell whether all six appear, and no single part shows it.",
+      "refused": [],
+      "provider": "claude-code",
+      "model": "claude-sonnet-5-5",
+      "at": "2026-11-21T05:54:46.492Z",
+      "prompt": 12
+    },
+    {
+      "stamp": "35ed1f1896be6555b7a5a0dd91234e96c287a0fbbcc2f6024151a5abeecab8f7",
+      "kind": "check",
+      "text": "The email gives the release date, 9 June 2027.",
+      "case": "email-crowded",
+      "reading": {
+        "reading": "judged",
+        "span": "any"
+      },
+      "against": [],
+      "reason": "A date can be written in several forms, so Jev must judge whether the release date appears; one mention is enough.",
+      "refused": [],
+      "provider": "claude-code",
+      "model": "claude-sonnet-5-5",
+      "at": "2026-11-21T05:54:46.492Z",
+      "prompt": 12
+    },
+    {
+      "stamp": "7ac90f3cb1ad3eea1193f5179db45a5662264631a6a1f8e251887130b3f8aa1b",
+      "kind": "check",
+      "text": "The email names Priya Raman of Slate & Pine Studio.",
+      "case": "email-quote",
+      "reading": {
+        "reading": "judged",
+        "span": "any"
+      },
+      "against": [],
+      "reason": "The organisation name can be written with '&' or 'and', and a name may appear in other forms, so understanding is needed; one mention anywhere is enough.",
+      "refused": [],
+      "provider": "claude-code",
+      "model": "claude-sonnet-5-5",
+      "at": "2026-11-21T05:54:49.179Z",
+      "prompt": 12
+    },
+    {
+      "stamp": "643b338be505a7fc21e021bc7723f5844e1313bdf68067872dfe6e1d851902d2",
+      "kind": "check",
+      "text": "The email states the price as 12 USD a month.",
+      "case": "email-price",
+      "reading": {
+        "reading": "exact",
+        "outputs": [
+          "text"
+        ],
+        "join": "all",
+        "tests": [
+          {
+            "test": "has",
+            "read": {
+              "part": "text",
+              "skip": null
+            },
+            "values": {
+              "from": "listed",
+              "items": [
+                "12 USD a month"
+              ]
+            },
+            "need": "all",
+            "at": "anywhere",
+            "match": "words",
+            "case": "any"
+          }
+        ]
+      },
+      "against": [],
+      "reason": "The check fixes the exact wording '12 USD a month', so code can look for those words in the email text.",
+      "refused": [],
+      "provider": "claude-code",
+      "model": "claude-sonnet-5-5",
+      "at": "2026-11-21T05:54:51.657Z",
+      "prompt": 12
+    },
+    {
+      "stamp": "3d8aa0a7f11a45302c6b8c3fe91a381cf111a4ff49798a7105c891785db50e76",
+      "kind": "check",
+      "text": "The email gives the release date, 4 March 2027.",
+      "case": "email-price",
+      "reading": {
+        "reading": "judged",
+        "span": "any"
+      },
+      "against": [],
+      "reason": "A date can be written in several forms (4 March 2027, March 4, 2027), so Jev must judge whether the email gives that date.",
+      "refused": [],
+      "provider": "claude-code",
+      "model": "claude-sonnet-5-5",
+      "at": "2026-11-21T05:54:51.657Z",
+      "prompt": 12
+    },
+    {
+      "stamp": "a8b6fce8ac59bf8ffb485d53751353d261d3622499737d098641acf593a75261",
+      "kind": "check",
+      "text": "The page states the price as 12 USD a month.",
+      "case": "page-basic",
+      "reading": {
+        "reading": "exact",
+        "outputs": [
+          "page"
+        ],
+        "join": "all",
+        "tests": [
+          {
+            "test": "has",
+            "read": {
+              "part": "text",
+              "skip": null
+            },
+            "values": {
+              "from": "listed",
+              "items": [
+                "12 USD a month"
+              ]
+            },
+            "need": "all",
+            "at": "anywhere",
+            "match": "words",
+            "case": "any"
+          }
+        ]
+      },
+      "against": [],
+      "reason": "The price is given as fixed words, 12 USD a month, so a word search of the page text answers it.",
+      "refused": [],
+      "provider": "claude-code",
+      "model": "claude-sonnet-5-5",
+      "at": "2026-11-21T05:54:54.070Z",
+      "prompt": 12
+    },
+    {
+      "stamp": "aa03a6852b322c15acfc5d9caec0986f6e8f2135989ae91106caf39a56cbfc99",
+      "kind": "check",
+      "text": "The page has a link or a button that reads Book a demo.",
+      "case": "page-basic",
+      "reading": {
+        "reading": "judged",
+        "span": "any"
+      },
+      "against": [],
+      "reason": "Whether the words sit in a link or a button, which can be built from several tags, takes understanding of the page.",
+      "refused": [],
+      "provider": "claude-code",
+      "model": "claude-sonnet-5-5",
+      "at": "2026-11-21T05:54:54.070Z",
+      "prompt": 12
+    },
+    {
+      "stamp": "9d46c76af91c1d6875880957ee9992861cfa28ada188fd26caf2d68d298d6dba",
+      "kind": "check",
+      "text": "The page lists all 180 changes.",
+      "case": "page-long",
+      "reading": {
+        "reading": "judged",
+        "span": "whole"
+      },
+      "against": [
+        {
+          "rule": "Write no more than 120 words. Most readers stop after the first screen.",
+          "fix": "Write no more than 120 words, unless the request asks for a full list of changes; then keep each entry to its number, title, area and description."
+        }
+      ],
+      "reason": "Whether every one of the 180 changes is listed needs a reader to count entries across the whole page; no single tag names them.",
+      "refused": [],
+      "provider": "claude-code",
+      "model": "claude-sonnet-5-5",
+      "at": "2026-11-21T05:54:57.590Z",
+      "prompt": 12
+    },
+    {
+      "stamp": "af56938ba3dceaeeb171f72bd23206362b91b7272e3fdc4455f0c801fd38dcfe",
+      "kind": "check",
+      "text": "The last change on the page is Export bookings as CSV.",
+      "case": "page-long",
+      "reading": {
+        "reading": "judged",
+        "span": "end"
+      },
+      "against": [],
+      "reason": "Which change comes last on the page needs understanding of the page's entries, and only the end of the page counts.",
+      "refused": [],
+      "provider": "claude-code",
+      "model": "claude-sonnet-5-5",
+      "at": "2026-11-21T05:54:57.590Z",
+      "prompt": 12
+    },
+    {
+      "stamp": "3256244b78e7c7cc0b3510351a9654f38ce960b3d3411c556ed24e71f979b7fb",
+      "kind": "rule",
+      "text": "Open with the brief's Headline, word for word. A reworded headline is one the team did not approve.",
+      "case": null,
+      "reading": {
+        "reading": "unmarkable",
+        "why": "conflict",
+        "with": "r2",
+        "fix": "Open with the Headline word for word, then give the product's name and version number in the next line."
+      },
+      "reason": "It says the note opens with the headline while another rule says to start with the product name and version, and no output can start with both.",
+      "refused": [],
+      "provider": "claude-code",
+      "model": "claude-sonnet-5-5",
+      "at": "2026-11-21T05:55:10.139Z",
+      "prompt": 12
+    },
+    {
+      "stamp": "910aec34843e698784ba9e8d2bb715bc789db7f2b1d426089827f888cb89d81b",
+      "kind": "rule",
+      "text": "Start with the product's name and version number, before anything else. A reader should know at once what the note is about.",
+      "case": null,
+      "reading": {
+        "reading": "unmarkable",
+        "why": "conflict",
+        "with": "r1",
+        "fix": "Give the product's name and version number right after the headline, before anything else in the body."
+      },
+      "reason": "It puts the product name and version first, but the headline rule also claims first place with different text.",
+      "refused": [],
+      "provider": "claude-code",
+      "model": "claude-sonnet-5-5",
+      "at": "2026-11-21T05:55:10.139Z",
+      "prompt": 12
+    },
+    {
+      "stamp": "f5996caaa32456096e12ca08581575801647c0f35c9c71fc41a9b02c52205f5a",
+      "kind": "rule",
+      "text": "Use only numbers the brief states, never a number of your own. An invented figure is a claim nobody checked.",
+      "case": null,
+      "reading": {
+        "reading": "exact",
+        "outputs": [
+          "text",
+          "page"
+        ],
+        "join": "all",
+        "tests": [
+          {
+            "test": "only",
+            "read": {
+              "part": "text",
+              "skip": null
+            },
+            "what": "numbers",
+            "allowed": {
+              "from": "request",
+              "in": "request and files",
+              "file": null,
+              "labels": [],
+              "take": "numbers",
+              "level": null
+            }
+          }
+        ]
+      },
+      "reason": "Every number in the text can be checked against the numbers the brief states.",
+      "refused": [],
+      "provider": "claude-code",
+      "model": "claude-sonnet-5-5",
+      "at": "2026-11-21T05:55:10.139Z",
+      "prompt": 12
+    },
+    {
+      "stamp": "916d96d13f85b3d6b735c63135949591849ca25df45ae1482ddfd3371983a469",
+      "kind": "rule",
+      "text": "Write no more than 120 words. Most readers stop after the first screen.",
+      "case": null,
+      "reading": {
+        "reading": "exact",
+        "outputs": [
+          "text",
+          "page"
+        ],
+        "join": "all",
+        "tests": [
+          {
+            "test": "count",
+            "read": {
+              "part": "text",
+              "skip": null
+            },
+            "what": "words",
+            "compare": "at most",
+            "n": 120
+          }
+        ]
+      },
+      "reason": "A word count with a bound is an exact test.",
+      "refused": [],
+      "provider": "claude-code",
+      "model": "claude-sonnet-5-5",
+      "at": "2026-11-21T05:55:10.139Z",
+      "prompt": 12
+    },
+    {
+      "stamp": "7f3439a4daf64ccf4bb06f524b235db3f835aecf8181c1d04ce02ef10e4d8cef",
+      "kind": "rule",
+      "text": "When the brief gives a Price, state it with its currency code, such as 12 USD. A bare number reads as a different amount in each country.",
+      "case": null,
+      "reading": {
+        "reading": "judged",
+        "span": "any"
+      },
+      "reason": "The price can be written in several ways, and whether the currency code is stated takes understanding.",
+      "refused": [],
+      "provider": "claude-code",
+      "model": "claude-sonnet-5-5",
+      "at": "2026-11-21T05:55:10.139Z",
+      "prompt": 12
+    },
+    {
+      "stamp": "b9eec93fb61d116dffc79ccee1e6347cb3f906235799c2d03afe1addba50f758",
+      "kind": "rule",
+      "text": "Quote the customer in the brief's Quote word for word, with their name. A paraphrase puts words in their mouth.",
+      "case": null,
+      "reading": {
+        "reading": "judged",
+        "span": "any"
+      },
+      "reason": "The quote must match word for word with the person's name, which sits inside a line that also holds a company, so it needs understanding.",
+      "refused": [],
+      "provider": "claude-code",
+      "model": "claude-sonnet-5-5",
+      "at": "2026-11-21T05:55:10.139Z",
+      "prompt": 12
+    },
+    {
+      "stamp": "1a083ae22fab53e8cd632e8bd5a6d5f03448c502ac05a0d2f08bddc97fe2e716",
+      "kind": "rule",
+      "text": "Never use the words exciting, thrilled, delighted or proud. They say how the company feels, not what the reader gets.",
+      "case": null,
+      "reading": {
+        "reading": "exact",
+        "outputs": [
+          "text",
+          "page"
+        ],
+        "join": "all",
+        "tests": [
+          {
+            "test": "has",
+            "read": {
+              "part": "text",
+              "skip": null
+            },
+            "values": {
+              "from": "listed",
+              "items": [
+                "exciting",
+                "thrilled",
+                "delighted",
+                "proud"
+              ]
+            },
+            "need": "none",
+            "at": "anywhere",
+            "match": "words",
+            "case": "any"
+          }
+        ]
+      },
+      "reason": "Four named words are forbidden, so code can look for them.",
+      "refused": [],
+      "provider": "claude-code",
+      "model": "claude-sonnet-5-5",
+      "at": "2026-11-21T05:55:10.139Z",
+      "prompt": 12
+    },
+    {
+      "stamp": "53d994de3e219fcaf7951260d2443d1fa32e9a65ee83b97171c76a2ddd3ca5f9",
+      "kind": "rule",
+      "text": "Try to keep the tone reasonably friendly.",
+      "case": null,
+      "reading": {
+        "reading": "unmarkable",
+        "why": "vague",
+        "with": null,
+        "fix": "Keep the tone friendly: address the reader as you and use plain, warm words."
+      },
+      "reason": "It asks for a hedged quality (try to, reasonably) that nobody can mark the same way.",
+      "refused": [],
+      "provider": "claude-code",
+      "model": "claude-sonnet-5-5",
+      "at": "2026-11-21T05:55:10.139Z",
+      "prompt": 12
+    },
+    {
+      "stamp": "277e29d786f2f29e729c20be172fe98ac2018704f07439395e63a5ccf67c1ed9",
+      "kind": "rule",
+      "text": "Put the subject on the first line, after Subject: , in 50 characters or fewer. A longer subject is cut off in most inboxes.",
+      "case": null,
+      "reading": {
+        "reading": "exact",
+        "outputs": [
+          "text"
+        ],
+        "join": "all",
+        "tests": [
+          {
+            "test": "has",
+            "read": {
+              "part": "line",
+              "label": null,
+              "number": 1
+            },
+            "values": {
+              "from": "listed",
+              "items": [
+                "Subject:"
+              ]
+            },
+            "need": "all",
+            "at": "start",
+            "match": "characters",
+            "case": "exact"
+          },
+          {
+            "test": "count",
+            "read": {
+              "part": "line",
+              "label": "Subject",
+              "number": null
+            },
+            "what": "characters",
+            "compare": "at most",
+            "n": 50
+          }
+        ]
+      },
+      "reason": "The subject line's place, label and length limit are all exact.",
+      "refused": [],
+      "provider": "claude-code",
+      "model": "claude-sonnet-5-5",
+      "at": "2026-11-21T05:55:10.139Z",
+      "prompt": 12
+    },
+    {
+      "stamp": "2dd1cc13e6f4d970f455ce54d1bd80f5cd5eb5ed439d96d8fc8cdad885b212c3",
+      "kind": "rule",
+      "text": "Write plain text with no Markdown: no #, no ** and no list marks (-, * or •). Most mail apps show the marks as they are typed.",
+      "case": null,
+      "reading": {
+        "reading": "judged",
+        "span": "every"
+      },
+      "reason": "No Markdown is broader than the three marks named, so code cannot cover every way to break it.",
+      "refused": [],
+      "provider": "claude-code",
+      "model": "claude-sonnet-5-5",
+      "at": "2026-11-21T05:55:10.139Z",
+      "prompt": 12
+    },
+    {
+      "stamp": "a25698c82a83917846be8df862c4c1111eb3adc6046d302ce03a69e01558a16e",
+      "kind": "rule",
+      "text": "Give exactly one link, the brief's Link. Two links split the clicks.",
+      "case": null,
+      "reading": {
+        "reading": "exact",
+        "outputs": [
+          "text"
+        ],
+        "join": "all",
+        "tests": [
+          {
+            "test": "count",
+            "read": {
+              "part": "file"
+            },
+            "what": "links",
+            "compare": "exactly",
+            "n": 1
+          },
+          {
+            "test": "has",
+            "read": {
+              "part": "file"
+            },
+            "values": {
+              "from": "request",
+              "in": "request and files",
+              "file": null,
+              "labels": [
+                "Link"
+              ],
+              "take": "links",
+              "level": null
+            },
+            "need": "all",
+            "at": "anywhere",
+            "match": "characters",
+            "case": "exact"
+          }
+        ]
+      },
+      "reason": "A link is one form, so one link count and the brief's Link can be checked.",
+      "refused": [],
+      "provider": "claude-code",
+      "model": "claude-sonnet-5-5",
+      "at": "2026-11-21T05:55:10.139Z",
+      "prompt": 12
+    },
+    {
+      "stamp": "ea332e05498026d21daa9bb2f56c2d76ff74f9269307a4effc889a311f7ec86c",
+      "kind": "rule",
+      "text": "End with the release date, the support address and the name of the person who signs it, in that order, each on a line of its own. Readers look for all three in the same place.",
+      "case": null,
+      "reading": {
+        "reading": "judged",
+        "span": "end"
+      },
+      "reason": "The release date can be written in several forms, so the closing three lines need understanding.",
+      "refused": [],
+      "provider": "claude-code",
+      "model": "claude-sonnet-5-5",
+      "at": "2026-11-21T05:55:10.139Z",
+      "prompt": 12
+    },
+    {
+      "stamp": "aebcf490be702a24820b6c179ee21085cd87958ea8fa12296db2669c75800af0",
+      "kind": "rule",
+      "text": "Write one file with its styles in a <style> tag, no script and no outside file. The page is pasted into a CMS that strips both.",
+      "case": null,
+      "reading": {
+        "reading": "judged",
+        "span": "whole"
+      },
+      "reason": "Outside files can be loaded in many ways (links, images, fonts, frames), so no list of tests covers it.",
+      "refused": [],
+      "provider": "claude-code",
+      "model": "claude-sonnet-5-5",
+      "at": "2026-11-21T05:55:10.139Z",
+      "prompt": 12
+    },
+    {
+      "stamp": "98d57d0eee80cc5711c9b2598be22e478d0519645ca249070008249d8319aaeb",
+      "kind": "rule",
+      "text": "Use exactly one <h1>, holding the headline and nothing else. Search engines and screen readers take it as the page's title.",
+      "case": null,
+      "reading": {
+        "reading": "exact",
+        "outputs": [
+          "page"
+        ],
+        "join": "all",
+        "tests": [
+          {
+            "test": "count",
+            "read": {
+              "part": "elements",
+              "tag": "h1",
+              "attribute": null,
+              "which": "every"
+            },
+            "what": "items",
+            "compare": "exactly",
+            "n": 1
+          },
+          {
+            "test": "has",
+            "read": {
+              "part": "elements",
+              "tag": "h1",
+              "attribute": null,
+              "which": "every"
+            },
+            "values": {
+              "from": "request",
+              "in": "request and files",
+              "file": null,
+              "labels": [
+                "Headline"
+              ],
+              "take": "whole",
+              "level": null
+            },
+            "need": "all",
+            "at": "whole",
+            "match": "words",
+            "case": "exact"
+          }
+        ]
+      },
+      "reason": "It needs exactly one h1 tag whose text is the headline, and both can be tested.",
+      "refused": [],
+      "provider": "claude-code",
+      "model": "claude-sonnet-5-5",
+      "at": "2026-11-21T05:55:10.139Z",
+      "prompt": 12
+    },
+    {
+      "stamp": "3476c527cf0d1d260ffa513d1decf6fd1e4df6b3a09157e1627ae252a7d48f7c",
+      "kind": "rule",
+      "text": "Set the body text at 18px and the content column at most 640px wide. That is what the site's articles use.",
+      "case": null,
+      "reading": {
+        "reading": "judged",
+        "span": "whole"
+      },
+      "reason": "The content column has no tag to measure, so the page's styles and elements together decide it.",
+      "refused": [],
+      "provider": "claude-code",
+      "model": "claude-sonnet-5-5",
+      "at": "2026-11-21T05:55:10.139Z",
+      "prompt": 12
+    },
+    {
+      "stamp": "8e26f4e37adc2f81c43f1b5fa57871afecfcd603f8312dac4280da7810a908e2",
+      "kind": "rule",
+      "text": "Use only the colours in the brief's Colours list. Any other colour is off brand.",
+      "case": null,
+      "reading": {
+        "reading": "exact",
+        "outputs": [
+          "page"
+        ],
+        "join": "all",
+        "tests": [
+          {
+            "test": "only",
+            "read": {
+              "part": "styles"
+            },
+            "what": "hex colours",
+            "allowed": {
+              "from": "request",
+              "in": "request and files",
+              "file": null,
+              "labels": [
+                "Colours"
+              ],
+              "take": "hex colours",
+              "level": null
+            }
+          }
+        ]
+      },
+      "reason": "Every hex colour in the styles can be checked against the brief's Colours list.",
+      "refused": [],
+      "provider": "claude-code",
+      "model": "claude-sonnet-5-5",
+      "at": "2026-11-21T05:55:10.139Z",
+      "prompt": 12
+    },
+    {
+      "stamp": "c0322aa86ec60237e1c01aaaffca4329f4639cb4f6572b6d4bfa5d6c33bbce4f",
+      "kind": "rule",
+      "text": "End the page with a footer that holds the line \"Questions? Write to\" and the support address. A reader who scrolls to the end is looking for a way to ask.",
+      "case": null,
+      "reading": {
+        "reading": "judged",
+        "span": "end"
+      },
+      "reason": "A footer can be built from other tags, and the line plus address at the page end needs understanding.",
+      "refused": [],
+      "provider": "claude-code",
+      "model": "claude-sonnet-5-5",
+      "at": "2026-11-21T05:55:10.139Z",
+      "prompt": 12
+    },
+    {
+      "stamp": "f67e5fd9efc84b3e3db1310872bd70e6153608cd862fdc4a855f8b60b4cbc24b",
+      "kind": "check",
+      "text": "The email says the update is free for everyone on a paid plan.",
+      "case": "email-free",
+      "reading": {
+        "reading": "judged",
+        "span": "any"
+      },
+      "against": [],
+      "reason": "Saying the update is free for paid-plan customers can be worded many ways, so it takes understanding.",
+      "refused": [],
+      "provider": "claude-code",
+      "model": "claude-sonnet-5-5",
+      "at": "2026-11-21T05:55:13.265Z",
+      "prompt": 12
+    },
+    {
+      "stamp": "64bf18d892eae572cb1c04688d2d0aade20262a137103e28a93f7e3761b964bb",
+      "kind": "check",
+      "text": "The email gives the support address, help@ferry.example.",
+      "case": "email-free",
+      "reading": {
+        "reading": "exact",
+        "outputs": [
+          "text"
+        ],
+        "join": "all",
+        "tests": [
+          {
+            "test": "has",
+            "read": {
+              "part": "text",
+              "skip": null
+            },
+            "values": {
+              "from": "listed",
+              "items": [
+                "help@ferry.example"
+              ]
+            },
+            "need": "all",
+            "at": "anywhere",
+            "match": "characters",
+            "case": "any"
+          }
+        ]
+      },
+      "against": [],
+      "reason": "The support address is a fixed value with one form, so a text search for it settles the check.",
+      "refused": [],
+      "provider": "claude-code",
+      "model": "claude-sonnet-5-5",
+      "at": "2026-11-21T05:55:13.265Z",
+      "prompt": 12
+    },
+    {
+      "stamp": "1f917ab146c7ca902c552ad1737a137c9d83924f8d415ccbcbafbe5ce87be19a",
+      "kind": "check",
+      "text": "The email names all six features.",
+      "case": "email-crowded",
+      "reading": {
+        "reading": "judged",
+        "span": "whole"
+      },
+      "against": [],
+      "reason": "A feature may be named in a slightly different form (singular, hyphenation), and code can't tell that from a miss, so Jev judges across the whole email.",
+      "refused": [],
+      "provider": "claude-code",
+      "model": "claude-sonnet-5-5",
+      "at": "2026-11-21T05:55:14.809Z",
+      "prompt": 12
+    },
+    {
+      "stamp": "9c9d834639f0c267b0da7f4a5584507dd7d59a4d888d206f52a2c8581ce1c0a5",
+      "kind": "check",
+      "text": "The email gives the release date, 9 June 2027.",
+      "case": "email-crowded",
+      "reading": {
+        "reading": "judged",
+        "span": "any"
+      },
+      "against": [],
+      "reason": "A date can be written in several forms, so Jev judges it; one mention anywhere is enough.",
+      "refused": [],
+      "provider": "claude-code",
+      "model": "claude-sonnet-5-5",
+      "at": "2026-11-21T05:55:14.809Z",
+      "prompt": 12
+    },
+    {
+      "stamp": "a7205d5b27cca552b12bb745566aa3519414fb857fc3fabd34aaec750700f749",
+      "kind": "check",
+      "text": "The email names Priya Raman of Slate & Pine Studio.",
+      "case": "email-quote",
+      "reading": {
+        "reading": "judged",
+        "span": "any"
+      },
+      "against": [],
+      "reason": "A person and organisation name can be written in several forms (\"&\" or \"and\"), so Jev must judge it, and one mention anywhere is enough.",
+      "refused": [],
+      "provider": "claude-code",
+      "model": "claude-sonnet-5-5",
+      "at": "2026-11-21T05:55:17.466Z",
+      "prompt": 12
+    },
+    {
+      "stamp": "92a8d5baeb7073073b32268930ab46088bc85df4912afb8b4ba8501bcbfbeea8",
+      "kind": "check",
+      "text": "The email states the price as 12 USD a month.",
+      "case": "email-price",
+      "reading": {
+        "reading": "exact",
+        "outputs": [
+          "text"
+        ],
+        "join": "all",
+        "tests": [
+          {
+            "test": "has",
+            "read": {
+              "part": "text",
+              "skip": null
+            },
+            "values": {
+              "from": "listed",
+              "items": [
+                "12 USD a month"
+              ]
+            },
+            "need": "all",
+            "at": "anywhere",
+            "match": "words",
+            "case": "any"
+          }
+        ]
+      },
+      "against": [],
+      "reason": "The check fixes the price form with 'as 12 USD a month', so a words search for it in the email text answers it.",
+      "refused": [],
+      "provider": "claude-code",
+      "model": "claude-sonnet-5-5",
+      "at": "2026-11-21T05:55:17.788Z",
+      "prompt": 12
+    },
+    {
+      "stamp": "753bde1a329d19a85ef3d81efd583ff3d3d66fb89992f24859c6d58514f4d00d",
+      "kind": "check",
+      "text": "The email gives the release date, 4 March 2027.",
+      "case": "email-price",
+      "reading": {
+        "reading": "judged",
+        "span": "any"
+      },
+      "against": [],
+      "reason": "A date can be written in several forms, so Jev must judge whether the email gives that date anywhere.",
+      "refused": [],
+      "provider": "claude-code",
+      "model": "claude-sonnet-5-5",
+      "at": "2026-11-21T05:55:17.788Z",
+      "prompt": 12
+    },
+    {
+      "stamp": "99cf9be40026dc486392615892b3f4a18d9eaa5cbeacf59f358cf1cdab5fd040",
+      "kind": "check",
+      "text": "The page states the price as 12 USD a month.",
+      "case": "page-basic",
+      "reading": {
+        "reading": "exact",
+        "outputs": [
+          "page"
+        ],
+        "join": "all",
+        "tests": [
+          {
+            "test": "has",
+            "read": {
+              "part": "text",
+              "skip": null
+            },
+            "values": {
+              "from": "listed",
+              "items": [
+                "12 USD a month"
+              ]
+            },
+            "need": "all",
+            "at": "anywhere",
+            "match": "words",
+            "case": "any"
+          }
+        ]
+      },
+      "against": [],
+      "reason": "The check fixes the price as the exact words 12 USD a month, so a words match on the visible text answers it.",
+      "refused": [],
+      "provider": "claude-code",
+      "model": "claude-sonnet-5-5",
+      "at": "2026-11-21T05:55:21.726Z",
+      "prompt": 12
+    },
+    {
+      "stamp": "fc110fa0e8906741a2944a82ad10d5996f3dbc4348f9c2121840601121fa14d6",
+      "kind": "check",
+      "text": "The page has a link or a button that reads Book a demo.",
+      "case": "page-basic",
+      "reading": {
+        "reading": "judged",
+        "span": "any"
+      },
+      "against": [],
+      "reason": "A button can be built from several tags (a, button, input, styled div), so no tag test is exact and Jev must judge it.",
+      "refused": [],
+      "provider": "claude-code",
+      "model": "claude-sonnet-5-5",
+      "at": "2026-11-21T05:55:21.726Z",
+      "prompt": 12
+    },
+    {
+      "stamp": "1a843b517ea0220afe0914d9c716600271b3482edc2e3508502a41ca831aa475",
+      "kind": "check",
+      "text": "The page lists all 180 changes.",
+      "case": "page-long",
+      "reading": {
+        "reading": "judged",
+        "span": "whole"
+      },
+      "against": [
+        {
+          "rule": "Write no more than 120 words. Most readers stop after the first screen.",
+          "fix": "Write no more than 120 words, unless the request asks for a full list of changes; then the list itself is not counted."
+        }
+      ],
+      "reason": "Whether all 180 changes are listed takes understanding of the page's content and a count across the whole page; and 180 changes cannot fit in the 120-word limit.",
+      "refused": [],
+      "provider": "claude-code",
+      "model": "claude-sonnet-5-5",
+      "at": "2026-11-21T05:55:24.327Z",
+      "prompt": 12
+    },
+    {
+      "stamp": "a9bc14a31c93c715f31ce674d0b2858f1ed6e7a7d4f6218d5e7895f50f6d279b",
+      "kind": "check",
+      "text": "The last change on the page is Export bookings as CSV.",
+      "case": "page-long",
+      "reading": {
+        "reading": "judged",
+        "span": "whole"
+      },
+      "against": [],
+      "reason": "Which change comes last needs reading the page; the footer rule puts the footer after it, so the last part alone cannot show it.",
+      "refused": [],
+      "provider": "claude-code",
+      "model": "claude-sonnet-5-5",
+      "at": "2026-11-21T05:55:24.327Z",
+      "prompt": 12
+    },
+    {
+      "stamp": "6507c8ce98a6b9281aa40b446e8173b30344f344b45a34f88c844f472d292926",
+      "kind": "rule",
+      "text": "Open with the brief's Headline, word for word. A reworded headline is one the team did not approve.",
+      "case": null,
+      "reading": {
+        "reading": "exact",
+        "outputs": [
+          "text",
+          "page"
+        ],
+        "join": "same",
+        "tests": [
+          {
+            "test": "has",
+            "read": {
+              "part": "line",
+              "label": "Subject",
+              "number": null
+            },
+            "values": {
+              "from": "request",
+              "in": "request and files",
+              "file": null,
+              "labels": [
+                "Headline"
+              ],
+              "take": "whole",
+              "level": null
+            },
+            "need": "all",
+            "at": "start",
+            "match": "words",
+            "case": "exact"
+          },
+          {
+            "test": "has",
+            "read": {
+              "part": "text",
+              "skip": "Subject"
+            },
+            "values": {
+              "from": "request",
+              "in": "request and files",
+              "file": null,
+              "labels": [
+                "Headline"
+              ],
+              "take": "whole",
+              "level": null
+            },
+            "need": "all",
+            "at": "start",
+            "match": "words",
+            "case": "exact"
+          }
+        ]
+      },
+      "reason": "The headline is copied word for word and fixed in form; an email opens twice (subject or first body line), so both readings are tested.",
+      "refused": [],
+      "provider": "claude-code",
+      "model": "claude-sonnet-5-5",
+      "at": "2026-11-21T05:55:43.449Z",
+      "prompt": 12
+    },
+    {
+      "stamp": "41f0cceed2d6cd8e2e79052994e3da367c4fd5f9e37cb85b2afe41200c753041",
+      "kind": "rule",
+      "text": "Name the product with its version, such as Ferry 3.2, at least once. A reader should know which release the note is about.",
+      "case": null,
+      "reading": {
+        "reading": "judged",
+        "span": "any"
+      },
+      "reason": "The product and version can be written in other forms (Ferry v3.2, version 3.2), so it needs understanding.",
+      "refused": [],
+      "provider": "claude-code",
+      "model": "claude-sonnet-5-5",
+      "at": "2026-11-21T05:55:43.449Z",
+      "prompt": 12
+    },
+    {
+      "stamp": "af9bcd21fbdc2edcd01762996ff8c24283d985309fff89f5063fc9455076fdd2",
+      "kind": "rule",
+      "text": "Use only numbers the brief states, never a number of your own. An invented figure is a claim nobody checked.",
+      "case": null,
+      "reading": {
+        "reading": "exact",
+        "outputs": [
+          "text",
+          "page"
+        ],
+        "join": "all",
+        "tests": [
+          {
+            "test": "only",
+            "read": {
+              "part": "text",
+              "skip": null
+            },
+            "what": "numbers",
+            "allowed": {
+              "from": "request",
+              "in": "request and files",
+              "file": null,
+              "labels": [],
+              "take": "numbers",
+              "level": null
+            }
+          }
+        ]
+      },
+      "reason": "Numbers found in the output can be checked against the numbers in the request and brief.",
+      "refused": [],
+      "provider": "claude-code",
+      "model": "claude-sonnet-5-5",
+      "at": "2026-11-21T05:55:43.449Z",
+      "prompt": 12
+    },
+    {
+      "stamp": "683191fa5d6159c37ddbff06edab5fb6718dbedf609453066e50c809a3a3df10",
+      "kind": "rule",
+      "text": "Write no more than 120 words. Most readers stop after the first screen.",
+      "case": null,
+      "reading": {
+        "reading": "exact",
+        "outputs": [
+          "text",
+          "page"
+        ],
+        "join": "all",
+        "tests": [
+          {
+            "test": "count",
+            "read": {
+              "part": "text",
+              "skip": null
+            },
+            "what": "words",
+            "compare": "at most",
+            "n": 120
+          }
+        ]
+      },
+      "reason": "A word count with its bound is exact.",
+      "refused": [],
+      "provider": "claude-code",
+      "model": "claude-sonnet-5-5",
+      "at": "2026-11-21T05:55:43.449Z",
+      "prompt": 12
+    },
+    {
+      "stamp": "276728a4cc0f915cb698994cd1270d98ad37909bb28b31e0c04cd3e80d3f8279",
+      "kind": "rule",
+      "text": "When the brief gives a Price, state it with its currency code, such as 12 USD. A bare number reads as a different amount in each country.",
+      "case": null,
+      "reading": {
+        "reading": "judged",
+        "span": "any"
+      },
+      "reason": "A price can be written in several forms with its currency code, so it needs judgement.",
+      "refused": [],
+      "provider": "claude-code",
+      "model": "claude-sonnet-5-5",
+      "at": "2026-11-21T05:55:43.449Z",
+      "prompt": 12
+    },
+    {
+      "stamp": "956198077dcc6ec9d48246afbb4ebc0735f0b1709a31e03e065ca7cffc976651",
+      "kind": "rule",
+      "text": "Quote the customer in the brief's Quote word for word, with their name. A paraphrase puts words in their mouth.",
+      "case": null,
+      "reading": {
+        "reading": "judged",
+        "span": "any"
+      },
+      "reason": "Telling a word-for-word quote with a name from a paraphrase takes understanding.",
+      "refused": [],
+      "provider": "claude-code",
+      "model": "claude-sonnet-5-5",
+      "at": "2026-11-21T05:55:43.449Z",
+      "prompt": 12
+    },
+    {
+      "stamp": "3f26cff5afc1ea3b247ace51228f8772bccb4e8aef631150615348dd6672cc7e",
+      "kind": "rule",
+      "text": "Never use the words exciting, thrilled, delighted or proud. They say how the company feels, not what the reader gets.",
+      "case": null,
+      "reading": {
+        "reading": "exact",
+        "outputs": [
+          "text",
+          "page"
+        ],
+        "join": "all",
+        "tests": [
+          {
+            "test": "has",
+            "read": {
+              "part": "text",
+              "skip": null
+            },
+            "values": {
+              "from": "listed",
+              "items": [
+                "exciting",
+                "thrilled",
+                "delighted",
+                "proud"
+              ]
+            },
+            "need": "none",
+            "at": "anywhere",
+            "match": "words",
+            "case": "any"
+          }
+        ]
+      },
+      "reason": "Four forbidden words named by the rule can be searched for.",
+      "refused": [],
+      "provider": "claude-code",
+      "model": "claude-sonnet-5-5",
+      "at": "2026-11-21T05:55:43.449Z",
+      "prompt": 12
+    },
+    {
+      "stamp": "6d4732e09693dca2a85511794d5f553cab4f4540014ec77bfe5ca3437bd72aef",
+      "kind": "rule",
+      "text": "Never use the word users. Write to the reader as you, since the note goes to one person at a time.",
+      "case": null,
+      "reading": {
+        "reading": "exact",
+        "outputs": [
+          "text",
+          "page"
+        ],
+        "join": "all",
+        "tests": [
+          {
+            "test": "has",
+            "read": {
+              "part": "text",
+              "skip": null
+            },
+            "values": {
+              "from": "listed",
+              "items": [
+                "users"
+              ]
+            },
+            "need": "none",
+            "at": "anywhere",
+            "match": "words",
+            "case": "any"
+          }
+        ]
+      },
+      "reason": "One forbidden word named by the rule can be searched for.",
+      "refused": [],
+      "provider": "claude-code",
+      "model": "claude-sonnet-5-5",
+      "at": "2026-11-21T05:55:43.449Z",
+      "prompt": 12
+    },
+    {
+      "stamp": "7132723c0989d2c13ba6548deb3b9dcb260486314635c9b597b0b70bf80857f1",
+      "kind": "rule",
+      "text": "Name every feature in the brief's Features list by the name the brief gives it. A feature left out is one nobody hears about.",
+      "case": null,
+      "reading": {
+        "reading": "exact",
+        "outputs": [
+          "text",
+          "page"
+        ],
+        "join": "all",
+        "tests": [
+          {
+            "test": "has",
+            "read": {
+              "part": "text",
+              "skip": null
+            },
+            "values": {
+              "from": "request",
+              "in": "file",
+              "file": "brief.md",
+              "labels": [
+                "Features"
+              ],
+              "take": "item names",
+              "level": null
+            },
+            "need": "all",
+            "at": "anywhere",
+            "match": "words",
+            "case": "any"
+          }
+        ]
+      },
+      "reason": "Feature names are copied from the brief's Features list, so each name can be looked for in the text.",
+      "refused": [
+        "reading.tests[0].values.file: names a file only when values come from one file"
+      ],
+      "provider": "claude-code",
+      "model": "claude-sonnet-5-5",
+      "at": "2026-11-21T05:55:43.449Z",
+      "prompt": 12
+    },
+    {
+      "stamp": "f2be9123ae70a4a7af61b512263b5962ae7237dfb479a356c3825e0847f00bd2",
+      "kind": "rule",
+      "text": "Leave out anything the brief marks Internal, and any codename it gives. Those lines are for the team alone.",
+      "case": null,
+      "reading": {
+        "reading": "judged",
+        "span": "every"
+      },
+      "reason": "Internal lines and codenames appear in prose or other forms, so it needs understanding; nothing forbidden may appear anywhere.",
+      "refused": [],
+      "provider": "claude-code",
+      "model": "claude-sonnet-5-5",
+      "at": "2026-11-21T05:55:43.449Z",
+      "prompt": 12
+    },
+    {
+      "stamp": "ce95a31b26a967f26d36500f6125adb2123c84b4593740e96e2648593e61b9cb",
+      "kind": "rule",
+      "text": "Put the subject on the first line, after Subject: , in 50 characters or fewer. A longer subject is cut off in most inboxes.",
+      "case": null,
+      "reading": {
+        "reading": "exact",
+        "outputs": [
+          "text"
+        ],
+        "join": "all",
+        "tests": [
+          {
+            "test": "has",
+            "read": {
+              "part": "line",
+              "label": null,
+              "number": 1
+            },
+            "values": {
+              "from": "listed",
+              "items": [
+                "Subject:"
+              ]
+            },
+            "need": "all",
+            "at": "start",
+            "match": "characters",
+            "case": "exact"
+          },
+          {
+            "test": "count",
+            "read": {
+              "part": "line",
+              "label": "Subject",
+              "number": null
+            },
+            "what": "characters",
+            "compare": "at most",
+            "n": 50
+          }
+        ]
+      },
+      "reason": "The subject line's label, place and length are all fixed.",
+      "refused": [],
+      "provider": "claude-code",
+      "model": "claude-sonnet-5-5",
+      "at": "2026-11-21T05:55:43.449Z",
+      "prompt": 12
+    },
+    {
+      "stamp": "1ef162b5692a8acb54f39c1f7c3f177b0f34fb141f79d52ee8adccfbe3cc8610",
+      "kind": "rule",
+      "text": "Write plain text with no Markdown: no #, no ** and no list marks (-, * or •). Most mail apps show the marks as they are typed.",
+      "case": null,
+      "reading": {
+        "reading": "judged",
+        "span": "every"
+      },
+      "reason": "No Markdown is broader than a few marks, so it needs judging throughout.",
+      "refused": [],
+      "provider": "claude-code",
+      "model": "claude-sonnet-5-5",
+      "at": "2026-11-21T05:55:43.449Z",
+      "prompt": 12
+    },
+    {
+      "stamp": "507208377cdabeafc425b192b50d9a0170f2ca89adb9779d819774ab1012ad25",
+      "kind": "rule",
+      "text": "Give exactly one link, the brief's Link. Two links split the clicks.",
+      "case": null,
+      "reading": {
+        "reading": "exact",
+        "outputs": [
+          "text"
+        ],
+        "join": "all",
+        "tests": [
+          {
+            "test": "count",
+            "read": {
+              "part": "file"
+            },
+            "what": "links",
+            "compare": "exactly",
+            "n": 1
+          },
+          {
+            "test": "has",
+            "read": {
+              "part": "file"
+            },
+            "values": {
+              "from": "request",
+              "in": "request and files",
+              "file": null,
+              "labels": [
+                "Link"
+              ],
+              "take": "links",
+              "level": null
+            },
+            "need": "all",
+            "at": "anywhere",
+            "match": "characters",
+            "case": "exact"
+          }
+        ]
+      },
+      "reason": "The link count and the brief's Link are both fixed values.",
+      "refused": [],
+      "provider": "claude-code",
+      "model": "claude-sonnet-5-5",
+      "at": "2026-11-21T05:55:43.449Z",
+      "prompt": 12
+    },
+    {
+      "stamp": "03328885f7b5bad71bdd464769afaaa9b67f960446e5cfb50326b78b4da2a150",
+      "kind": "rule",
+      "text": "End with the release date, the support address and the name of the person who signs it, in that order, each on a line of its own. Readers look for all three in the same place.",
+      "case": null,
+      "reading": {
+        "reading": "judged",
+        "span": "end"
+      },
+      "reason": "Dates and names can be written in several forms and the order at the end needs understanding.",
+      "refused": [],
+      "provider": "claude-code",
+      "model": "claude-sonnet-5-5",
+      "at": "2026-11-21T05:55:43.449Z",
+      "prompt": 12
+    },
+    {
+      "stamp": "88c330338117f6af8033cd90cda263749199d8d2805c2901d7ca6976aad851fa",
+      "kind": "rule",
+      "text": "Write one file with its styles in a <style> tag, no script and no outside file. The page is pasted into a CMS that strips both.",
+      "case": null,
+      "reading": {
+        "reading": "judged",
+        "span": "whole"
+      },
+      "reason": "Outside files and scripts can come in many forms, so no exact test lists them all.",
+      "refused": [],
+      "provider": "claude-code",
+      "model": "claude-sonnet-5-5",
+      "at": "2026-11-21T05:55:43.449Z",
+      "prompt": 12
+    },
+    {
+      "stamp": "c2dfc2254a90bab87460a52abbcdaf718b83e1357eb16f7137ef94cf19c6882b",
+      "kind": "rule",
+      "text": "Use exactly one <h1>, holding the headline and nothing else. Search engines and screen readers take it as the page's title.",
+      "case": null,
+      "reading": {
+        "reading": "exact",
+        "outputs": [
+          "page"
+        ],
+        "join": "all",
+        "tests": [
+          {
+            "test": "count",
+            "read": {
+              "part": "elements",
+              "tag": "h1",
+              "attribute": null,
+              "which": "every"
+            },
+            "what": "items",
+            "compare": "exactly",
+            "n": 1
+          },
+          {
+            "test": "has",
+            "read": {
+              "part": "elements",
+              "tag": "h1",
+              "attribute": null,
+              "which": "every"
+            },
+            "values": {
+              "from": "request",
+              "in": "request and files",
+              "file": null,
+              "labels": [
+                "Headline"
+              ],
+              "take": "whole",
+              "level": null
+            },
+            "need": "all",
+            "at": "whole",
+            "match": "words",
+            "case": "exact"
+          }
+        ]
+      },
+      "reason": "One h1 holding exactly the headline is countable and comparable.",
+      "refused": [],
+      "provider": "claude-code",
+      "model": "claude-sonnet-5-5",
+      "at": "2026-11-21T05:55:43.449Z",
+      "prompt": 12
+    },
+    {
+      "stamp": "7979eedc1c454895bc7ea1705e84f30da85e356d2468208d8cba08b5b65424ad",
+      "kind": "rule",
+      "text": "Set the body text at 18px and the content column at most 640px wide. That is what the site's articles use.",
+      "case": null,
+      "reading": {
+        "reading": "judged",
+        "span": "whole"
+      },
+      "reason": "Body text size and column width are set by styles and elements together, so the page is judged as a whole.",
+      "refused": [],
+      "provider": "claude-code",
+      "model": "claude-sonnet-5-5",
+      "at": "2026-11-21T05:55:43.449Z",
+      "prompt": 12
+    },
+    {
+      "stamp": "aad68957b77639944aef45acd19989008c5b704b74a5b8bfed08af08aacb1df0",
+      "kind": "rule",
+      "text": "Use only the colours in the brief's Colours list. Any other colour is off brand.",
+      "case": null,
+      "reading": {
+        "reading": "exact",
+        "outputs": [
+          "page"
+        ],
+        "join": "all",
+        "tests": [
+          {
+            "test": "only",
+            "read": {
+              "part": "styles"
+            },
+            "what": "hex colours",
+            "allowed": {
+              "from": "request",
+              "in": "request and files",
+              "file": null,
+              "labels": [
+                "Colours"
+              ],
+              "take": "hex colours",
+              "level": null
+            }
+          }
+        ]
+      },
+      "reason": "Hex colours in the styles can be checked against the brief's Colours list.",
+      "refused": [],
+      "provider": "claude-code",
+      "model": "claude-sonnet-5-5",
+      "at": "2026-11-21T05:55:43.449Z",
+      "prompt": 12
+    },
+    {
+      "stamp": "ed92519b034777c67045b9f8ce5c3a77d1aa1d434e6d91644981da3d1457490d",
+      "kind": "rule",
+      "text": "End the page with a footer that holds the line \"Questions? Write to\" and the support address. A reader who scrolls to the end is looking for a way to ask.",
+      "case": null,
+      "reading": {
+        "reading": "judged",
+        "span": "end"
+      },
+      "reason": "A footer can be built from other tags, so it needs judging at the page's end.",
+      "refused": [],
+      "provider": "claude-code",
+      "model": "claude-sonnet-5-5",
+      "at": "2026-11-21T05:55:43.449Z",
+      "prompt": 12
+    }
+  ]
+}

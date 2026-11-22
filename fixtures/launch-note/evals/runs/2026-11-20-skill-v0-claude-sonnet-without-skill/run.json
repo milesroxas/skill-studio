@@ -1,0 +1,143 @@
+{
+  "name": "2026-11-20-skill-v0-claude-sonnet-without-skill",
+  "skillPath": "/Users/milesroxas/.t3/worktrees/skill-studio/t3-d3df4122-128d2e8331300de5/fixtures/launch-note",
+  "skillVersion": "v0",
+  "skillName": "First draft",
+  "skillHash": "209a28a22c1e",
+  "note": "Vague, crowded and one pair of rules that cannot both hold",
+  "writer": {
+    "engine": "claude",
+    "model": "sonnet",
+    "effort": "default",
+    "harness": "agent"
+  },
+  "configuration": "without_skill",
+  "baselineDir": null,
+  "cases": [
+    "email-crowded",
+    "email-free",
+    "email-price",
+    "email-quote",
+    "page-basic",
+    "page-long"
+  ],
+  "samplesPerCase": 1,
+  "createdAt": "2026-11-21T00:10:05.175Z",
+  "finishedAt": "2026-11-21T00:10:29.588Z",
+  "samples": [
+    {
+      "dir": "email-crowded-s1",
+      "case": "email-crowded",
+      "index": 1,
+      "ok": true,
+      "seconds": 14,
+      "costUsd": 0.048331299999999994,
+      "tokens": {
+        "input": 63038,
+        "output": 899
+      },
+      "model": "claude-sonnet-5-5",
+      "error": null,
+      "steps": 4,
+      "toolCalls": 3,
+      "outputs": [
+        "outputs/email.txt"
+      ]
+    },
+    {
+      "dir": "email-free-s1",
+      "case": "email-free",
+      "index": 1,
+      "ok": true,
+      "seconds": 14,
+      "costUsd": 0.0436504,
+      "tokens": {
+        "input": 62358,
+        "output": 672
+      },
+      "model": "claude-sonnet-5-5",
+      "error": null,
+      "steps": 3,
+      "toolCalls": 2,
+      "outputs": [
+        "outputs/email.txt"
+      ]
+    },
+    {
+      "dir": "email-price-s1",
+      "case": "email-price",
+      "index": 1,
+      "ok": true,
+      "seconds": 11,
+      "costUsd": 0.0436481,
+      "tokens": {
+        "input": 62345,
+        "output": 668
+      },
+      "model": "claude-sonnet-5-5",
+      "error": null,
+      "steps": 3,
+      "toolCalls": 2,
+      "outputs": [
+        "outputs/email.txt"
+      ]
+    },
+    {
+      "dir": "email-quote-s1",
+      "case": "email-quote",
+      "index": 1,
+      "ok": true,
+      "seconds": 15,
+      "costUsd": 0.0481859,
+      "tokens": {
+        "input": 62656,
+        "output": 997
+      },
+      "model": "claude-sonnet-5-5",
+      "error": null,
+      "steps": 3,
+      "toolCalls": 2,
+      "outputs": [
+        "outputs/email.txt"
+      ]
+    },
+    {
+      "dir": "page-basic-s1",
+      "case": "page-basic",
+      "index": 1,
+      "ok": true,
+      "seconds": 15,
+      "costUsd": 0.0638167,
+      "tokens": {
+        "input": 63886,
+        "output": 2087
+      },
+      "model": "claude-sonnet-5-5",
+      "error": null,
+      "steps": 3,
+      "toolCalls": 2,
+      "outputs": [
+        "outputs/index.html"
+      ]
+    },
+    {
+      "dir": "page-long-s1",
+      "case": "page-long",
+      "index": 1,
+      "ok": true,
+      "seconds": 24,
+      "costUsd": 0.1235087,
+      "tokens": {
+        "input": 94147,
+        "output": 1920
+      },
+      "model": "claude-sonnet-5-5",
+      "error": null,
+      "steps": 4,
+      "toolCalls": 3,
+      "outputs": [
+        "outputs/index.html"
+      ]
+    }
+  ]
+}

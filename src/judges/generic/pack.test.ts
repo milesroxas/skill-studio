@@ -11,7 +11,7 @@ import { holdsImage } from '../images.ts'
 import type { Jev } from '../jev.ts'
 import { MissingAnswerError } from '../shared/questions.ts'
 import type { JudgeContext, JudgeInput } from '../types.ts'
-import { genericPack } from './index.ts'
+import { genericPack, partsOf } from './index.ts'
 import { genericScoring } from './score.ts'
 
 type Question = { instructions: string; criteria: { true: string; false: string } }
@@ -686,28 +686,30 @@ describe('generic pack', () => {
     const others = [{ file: 'outputs/app.js', text: 'run()' }]
     const long = output({ text: 'x'.repeat(50_000), rules: [rule('r1')], others })
     const raw = await genericPack.judge(long, ctx)
-    expect(ask).toHaveBeenCalledTimes(2)
+    // Two parts of 40,000 characters, the first refused; then three of 20,000, each with less beside it.
+    expect(ask).toHaveBeenCalledTimes(5)
     expect((asked(0).state.output as string).length).toBe(40_000)
-    expect((asked(1).state.output as string).length).toBe(20_000)
-    expect(asked(1).state).not.toHaveProperty('other_files')
-    expect(fieldsOf(1)).not.toHaveProperty('other_files')
-    expect(raw?.cut).toEqual([
-      'Jev read only the first 20,000 characters of the output',
-      'Jev read none of outputs/app.js',
-    ])
+    for (const n of [2, 3]) expect((asked(n).state.output as string).length).toBe(20_000)
+    expect((asked(4).state.output as string).length).toBe(15_000)
+    expect(asked(2).state).not.toHaveProperty('other_files')
+    expect(fieldsOf(2)).not.toHaveProperty('other_files')
+    expect(raw?.parts).toEqual({ read: 3, of: 3 })
+    // Every part was read, so only what was left out beside the output is said.
+    expect(raw?.cut).toEqual(['Jev read none of outputs/app.js'])
     // What was read less of is said under the output, and counts in no layer.
     const scored = genericScoring.score(raw, {} as never, ctx.config)
     expect(scored.flags).toEqual(expect.arrayContaining(raw?.cut ?? []))
     expect(scored.verdicts.map((v) => v.text)).toEqual(expect.arrayContaining(raw?.cut ?? []))
     // Refused at every size, the reading fails as any other does; so does any other error, at once.
     ask.mockClear()
-    for (let i = 0; i < 3; i += 1) ask.mockRejectedValueOnce(tooLarge)
+    // 2 parts, then 3, then the first 4 of 7, each refused.
+    for (let i = 0; i < 9; i += 1) ask.mockRejectedValueOnce(tooLarge)
     await expect(genericPack.judge(long, ctx)).rejects.toThrow('max_tokens_exceeded')
-    expect(ask).toHaveBeenCalledTimes(3)
+    expect(ask).toHaveBeenCalledTimes(9)
     ask.mockClear()
     ask.mockRejectedValueOnce(new Error('401 no key'))
     await expect(genericPack.judge(long, ctx)).rejects.toThrow('401 no key')
-    expect(ask).toHaveBeenCalledTimes(1)
+    expect(ask).toHaveBeenCalledTimes(2)
   })
 
   it('says every part of the work Jev read only the start of, and nothing of a part it read whole', async () => {
@@ -735,9 +737,10 @@ describe('generic pack', () => {
       'outputs/app.js': 'a'.repeat(6000),
       'outputs/b.css': 'b',
     })
+    // The output is longer than one request holds, so it was asked in two parts, and read whole.
+    expect(raw?.parts).toEqual({ read: 2, of: 2 })
     expect(raw?.cut).toEqual([
       "Jev read only the first 16,000 characters of the case's prompt",
-      'Jev read only the first 40,000 characters of the output',
       'Jev read only the first 6,000 characters of notes.md',
       'Jev read only the first 12,000 characters of SKILL.md',
       'Jev read only the start of outputs/app.js',
@@ -820,7 +823,9 @@ describe('generic pack', () => {
       // Each question is answered once, and each rule has its answer.
       expect(answered).toHaveLength(45)
       expect(new Set(answered).size).toBe(45)
-      expect(raw?.adherence?.rules.map((r) => r.noul)).toEqual(Array(45).fill(0.9))
+      expect(raw?.adherence?.rules.map((r) => ('noul' in r ? r.noul : null))).toEqual(
+        Array(45).fill(0.9),
+      )
       expect(raw).not.toHaveProperty('cut')
     } finally {
       ask.mockReset()
@@ -830,8 +835,130 @@ describe('generic pack', () => {
     }
   })
 
-  it('reads the start of a long file, so one output cannot outgrow a request', async () => {
-    await genericPack.judge(output({ text: 'x'.repeat(50_000), rules: [rule('r1')] }), ctx)
-    expect((asked().state.output as string).length).toBe(40_000)
+  it('splits a long file into parts that overlap, the last ending where the file does', () => {
+    expect(partsOf(30_000, 40_000)).toEqual([{ index: 0, of: 1, from: 0, to: 30_000 }])
+    expect(partsOf(40_000, 40_000)).toHaveLength(1)
+    const parts = partsOf(110_000, 40_000)
+    expect(parts.map((p) => [p.from, p.to])).toEqual([
+      [0, 40_000],
+      [35_000, 75_000],
+      [70_000, 110_000],
+    ])
+    expect(parts.every((p) => p.of === 3)).toBe(true)
+    // Each part overlaps the one before by 5,000 characters, so a thing that long across a line is whole in one.
+    for (let i = 1; i < parts.length; i += 1) expect(parts[i - 1].to - parts[i].from).toBe(5000)
+  })
+
+  it('asks every rule and check of each part of a long output, and says which part it is', async () => {
+    // The footer is past the first 40,000 characters: the first part cannot see it.
+    const text = `${'a'.repeat(39_000)}${'b'.repeat(10_000)}<footer>`
+    const raw = await genericPack.judge(
+      output({
+        text,
+        rules: [rule('r1')],
+        case: testCase([grader('g1')]),
+        skill: '# S\n\n- rule r1',
+      }),
+      ctx,
+    )
+    // Two parts, then the headings and whether each rule comes up, asked once of the request whatever the parts.
+    expect(ask).toHaveBeenCalledTimes(3)
+    expect(asked(0).state.output).toBe(text.slice(0, 40_000))
+    expect(asked(1).state.output).toBe(text.slice(35_000))
+    expect(Object.keys(asked(0).questions)).toEqual(['rule:r1', 'check:g1'])
+    expect(Object.keys(asked(1).questions)).toEqual(['rule:r1', 'check:g1'])
+    expect(Object.keys(asked(2).questions)).toEqual(['heading:0', 'up:r1'])
+    expect(asked(2).state).not.toHaveProperty('output')
+    // Each part's state says which part it is, and that a thing in another part is not missing.
+    expect(fieldsOf(0).output).toContain('part 1 of 2 of the file')
+    expect(fieldsOf(0).output).toContain('the start of the file')
+    expect(fieldsOf(1).output).toContain('part 2 of 2 of the file')
+    expect(fieldsOf(1).output).toContain('characters 35,001 to 49,008, the end of the file')
+    expect(fieldsOf(1).output).toContain('it is not missing for that alone')
+    // Everything else in the state is as it is for the whole.
+    const { output: _a, fields: _f, ...first } = asked(0).state
+    const { output: _b, fields: _g, ...second } = asked(1).state
+    expect(second).toEqual(first)
+    expect(raw?.parts).toEqual({ read: 2, of: 2 })
+    expect(raw).not.toHaveProperty('cut')
+    expect(raw?.adherence?.rules[0]).toMatchObject({ noul: 0.12345, parts: [0.12345, 0.12345] })
+    expect(raw?.rubric?.statements[0]).toMatchObject({ noul: 0.12345, parts: [0.12345, 0.12345] })
+  })
+
+  it('asks the headings of the first part alone where there is no request', async () => {
+    const text = 'x'.repeat(50_000)
+    await genericPack.judge(
+      output({
+        text,
+        rules: [{ ...rule('r1'), section: 'For a page' }],
+        skill: '# S\n\n## For a page\n\n- rule r1',
+      }),
+      ctx,
+    )
+    expect(ask).toHaveBeenCalledTimes(2)
+    expect(Object.keys(asked(0).questions)).toEqual(['rule:r1', 'heading:0'])
+    expect(Object.keys(asked(1).questions)).toEqual(['rule:r1'])
+  })
+
+  it('keeps each part’s answer unrounded, and the span a fact is given, so scoring joins them', async () => {
+    ask.mockImplementation(async (state, questions) => {
+      const last = (state.output as string).endsWith('<footer>')
+      return Object.fromEntries(
+        Object.keys(questions).map((id) => [
+          id,
+          { noul: id === 'check:g1' && last ? 0.9123 : 0.1987 },
+        ]),
+      )
+    })
+    try {
+      const text = `${'a'.repeat(49_000)}<footer>`
+      const long = output({ text, case: testCase([grader('g1'), grader('g2')]) })
+      const unsorted = await genericPack.judge(long, ctx)
+      expect(unsorted?.rubric?.statements.map((s) => ('parts' in s ? s.parts : null))).toEqual([
+        [0.1987, 0.9123],
+        [0.1987, 0.1987],
+      ])
+      const subject = { primary: md } as never
+      // Nobody said how to join the footer's parts, and they differ: not read, never missed.
+      const plain = genericScoring.score(unsorted, subject, ctx.config)
+      expect(plain.verdicts.find((v) => v.id === 'check:statement g1')).toMatchObject({
+        aside: 'unread',
+      })
+      // Both parts missed the other check: it is missed.
+      expect(plain.verdicts.find((v) => v.id === 'check:statement g2')).toMatchObject({
+        met: false,
+        jev: false,
+      })
+      // Given as a thing that must be somewhere, the footer's last part settles it.
+      const spans = { checks: { g1: 'any' as const } }
+      const sorted = await genericPack.judge({ ...long, spans }, ctx)
+      expect(sorted?.rubric?.statements[0]).toMatchObject({ span: 'any' })
+      const scored = genericScoring.score(sorted, subject, ctx.config)
+      expect(scored.verdicts.find((v) => v.id === 'check:statement g1')).toMatchObject({
+        met: true,
+        jev: true,
+      })
+    } finally {
+      ask.mockReset()
+      ask.mockImplementation(async (_state, questions) =>
+        Object.fromEntries(Object.keys(questions).map((id) => [id, { noul: 0.12345 }])),
+      )
+    }
+  })
+
+  it('asks at most four parts, and says how much of the output Jev read', async () => {
+    const text = 'x'.repeat(200_000)
+    const raw = await genericPack.judge(output({ text, case: testCase([grader('g1')]) }), ctx)
+    // 40,000 characters a part, 35,000 on from the one before: 6 parts, the first 4 asked.
+    expect(ask).toHaveBeenCalledTimes(4)
+    expect(raw?.parts).toEqual({ read: 4, of: 6 })
+    expect(raw?.cut).toEqual(['Jev read only the first 145,000 characters of the output'])
+    expect(fieldsOf(3).output).toContain('part 4 of 6 of the file')
+    // A sure answer on every part read still leaves the fact not read: the rest was not.
+    const scored = genericScoring.score(raw, { primary: md } as never, ctx.config)
+    expect(scored.verdicts.find((v) => v.id === 'check:statement g1')).toMatchObject({
+      aside: 'unread',
+    })
+    expect(scored.flags).toContain('Jev read only the first 145,000 characters of the output')
   })
 })

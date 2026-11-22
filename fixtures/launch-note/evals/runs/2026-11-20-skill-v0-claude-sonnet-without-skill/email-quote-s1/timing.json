@@ -1,0 +1,11 @@
+{
+  "startedAt": "2026-11-21T00:10:05.182Z",
+  "finishedAt": "2026-11-21T00:10:20.307Z",
+  "durationMs": 15125,
+  "costUsd": 0.0481859,
+  "tokens": {
+    "input": 62656,
+    "output": 997
+  },
+  "model": "claude-sonnet-5-5"
+}

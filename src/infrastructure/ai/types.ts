@@ -33,6 +33,24 @@ export interface AiRequest {
   onThinking?: (thinking: string) => void
 }
 
+/**
+ * One reply written after reading a folder. The model is started in `dir`
+ * with tools that only read, and reads nothing outside it: no other folder,
+ * no network, and no tool that writes or runs anything.
+ */
+export interface AiFolderRequest {
+  model: string
+  /** Empty for the model's own default. */
+  effort: string
+  system: string
+  prompt: string
+  /** The folder it may read, by its real path. */
+  dir: string
+  /** A JSON Schema the whole reply must match. */
+  schema: Readonly<Record<string, unknown>>
+  signal: AbortSignal
+}
+
 export interface AiReply {
   text: string
   usage: AiUsage
@@ -71,6 +89,11 @@ export interface AiProvider {
    * `ProviderError` when the request was billed before it failed.
    */
   run(request: AiRequest): Promise<AiReply>
+  /**
+   * Write one reply after reading a folder, for a provider that can be held
+   * to it. Its `text` is the reply as JSON. Throws as `run` does.
+   */
+  readFolder?(request: AiFolderRequest): Promise<AiReply>
   /** The commands a chat message may start with, for a provider that expands them. Throws when it cannot say. */
   commands?(): Promise<SlashCommand[]>
   /** The one-line install command its maker's guide gives works on this host. */

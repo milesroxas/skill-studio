@@ -1,0 +1,11 @@
+{
+  "startedAt": "2026-11-21T00:11:32.355Z",
+  "finishedAt": "2026-11-21T00:11:52.130Z",
+  "durationMs": 19775,
+  "costUsd": 0.00597047,
+  "tokens": {
+    "input": 71741,
+    "output": 4607
+  },
+  "model": "claude-haiku-5-5"
+}

@@ -8,8 +8,10 @@ import { readFileSync, statSync } from 'node:fs'
 import { basename, join } from 'node:path'
 import { type PageRenderer, RENDER_SIZES, type RenderSize } from '@domain/artifact-address.ts'
 import { inputName, isPicture } from '@domain/case-draft.ts'
+import { type CaseEnds, type CaseResults, caseResults } from '@domain/case-result.ts'
 import { type Answered, changeReading, comparableAnswers } from '@domain/change.ts'
 import { mergeConfig } from '@domain/config.ts'
+import { EXACT_VERSION } from '@domain/exact.ts'
 import {
   fitForJev,
   imageTypeOf,
@@ -20,17 +22,24 @@ import {
   pictureSize,
 } from '@domain/image.ts'
 import { type PageLayout, readLayout } from '@domain/layout.ts'
-import { type Corrections, NO_CORRECTIONS, packFailedFlag, packFailure } from '@domain/pack.ts'
+import {
+  type Corrections,
+  NO_CORRECTIONS,
+  packFailedFlag,
+  packFailure,
+  type Verdict,
+} from '@domain/pack.ts'
 import { differing, SAME_PICTURE, scaleOf } from '@domain/picture-match.ts'
 import { primaryArtifact } from '@domain/primary.ts'
 import { NOTES_FILE } from '@domain/prompt.ts'
 import type { Rule } from '@domain/rules.ts'
 import { parseSampleDir } from '@domain/run-name.ts'
-import type { Artifact, BenchConfig, Case, Report, ReportResult } from '@domain/schemas.ts'
+import type { Artifact, BenchConfig, Case, Grader, Report, ReportResult } from '@domain/schemas.ts'
 import { behindOf, gradedNow, scoreResult } from '@domain/scoring.ts'
 import { copyOf, pageText, unitsOf, words } from '@domain/text.ts'
+import { checkIds, codeAnswerOf, verdictId } from '@domain/verdict.ts'
 import type { RunCase, Sample } from '@domain/views.ts'
-import { benchPath, findCase, loadCases, loadRules } from '@infrastructure/cases.ts'
+import { benchPath, findCase, loadCases, loadEveryCase, loadRules } from '@infrastructure/cases.ts'
 import { commandRunner } from '@infrastructure/exec.ts'
 import {
   assertInside,
@@ -39,12 +48,14 @@ import {
   readJson,
   readStart,
   textOf,
+  treeFiles,
   writeJson,
   writeText,
 } from '@infrastructure/fs.ts'
 import { takeGradingLock } from '@infrastructure/grading-lock.ts'
 import { readPng } from '@infrastructure/png.ts'
 import { loadReviews } from '@infrastructure/reviews.ts'
+import { currentReadings, readStored } from '@infrastructure/rule-readings.ts'
 import { CASES_FILE, type KeptCase, readKept, takenCase } from '@infrastructure/run-cases.ts'
 import {
   anchorsDir,
@@ -69,7 +80,9 @@ import type {
   JudgeInput,
   JudgePack,
   PageShot,
+  Readings,
   SourcePage,
+  WholeFiles,
 } from '@judges/types.ts'
 import { INPUTS_DIR, stagedInputs } from './generate.ts'
 import { type Asked, cachedAsker, hashOf, JudgeCache } from './judge-cache.ts'
@@ -112,6 +125,8 @@ interface Subject extends Sample {
 interface GradeContext {
   /** The skill's cases as they are now. */
   cases: Case[]
+  /** The checks for every case as they are now (`loadEveryCase`). */
+  every: Grader[]
   /**
    * The cases the run kept as it started: what its agents were asked. Null for
    * anchors, and for a run made before runs kept them.
@@ -120,6 +135,19 @@ interface GradeContext {
   rules: Rule[]
   /** The SKILL.md the rules were read from; null when `bench.json` lists them or there is none. */
   skill: string | null
+  /**
+   * The SKILL.md of the skill graded, as written, whether or not `bench.json`
+   * lists the rules: the text a rule's reading was made from. Null when there is none.
+   */
+  skillMd: string | null
+  /** Each case's readings, by its id and what it asks, read once a grading (`readingsFor`). */
+  readings: Map<string, { readings: Readings; exact: boolean } | null>
+  /**
+   * The rules and checks this grading looked up readings for (`readingsFor`),
+   * a rule once by its words and a check once by its case, and those of them
+   * with no current reading: the log says so when the skill has been sorted.
+   */
+  sorted: { facts: Set<string>; missing: Set<string> }
   packs: JudgePack[]
   judge: JudgeContext
   cache: JudgeCache
@@ -519,6 +547,124 @@ function requestFilesOf(ctx: GradeContext, testCase: Case | null): FileStart[] {
   return files
 }
 
+/** The most of one file an answer by code reads: past it, the file is left out, so a test on it has no answer. */
+const WHOLE_FILE_BYTES = 4 * 1024 * 1024
+
+/** A file's text, whole, when it is text and no larger than `WHOLE_FILE_BYTES`; else null. */
+function wholeText(path: string): string | null {
+  if (statSync(path).size > WHOLE_FILE_BYTES) return null
+  return textOf(readFileSync(path))
+}
+
+/**
+ * The files an answer by code reads, whole and as written (`JudgeInput.whole`):
+ * the primary file, every other text file the agent wrote, the request, and
+ * each text file the request came with, from where the run kept it, by the
+ * name the agent got it under. A folder the request came with gives each of
+ * its files, as `<folder>/<path>`.
+ */
+function wholeFiles(
+  ctx: GradeContext,
+  sample: Sample,
+  testCase: Case | null,
+  primary: Artifact | null,
+): WholeFiles {
+  const read = (rel: string): string | null => {
+    const path = fileInside(sample.path, join(sample.path, rel))
+    return path === null ? null : wholeText(path)
+  }
+  const output = primary && READ_AS_TEXT.has(primary.kind) ? (read(primary.file) ?? '') : ''
+  const others: Record<string, string> = {}
+  for (const artifact of sample.artifacts) {
+    if (artifact.file === primary?.file || !READ_AS_TEXT.has(artifact.kind)) continue
+    const text = read(artifact.file)
+    if (text !== null) others[artifact.file] = text
+  }
+  const files: Record<string, string> = {}
+  for (const rel of testCase?.files ?? []) {
+    if (!testCase || imageTypeOf(rel)) continue
+    const name = inputName(testCase, rel)
+    const path = requestFile(ctx, testCase, rel)
+    if (path !== null) {
+      const text = wholeText(path)
+      if (text !== null) files[name] = text
+      continue
+    }
+    const dirs = ctx.inputs
+      ? stagedInputs(ctx.inputs, testCase, rel)
+      : [join(ctx.judge.skillDir, rel)]
+    const dir = dirs.find((d) => isDir(d))
+    if (!dir) continue
+    for (const file of treeFiles(dir, { hidden: true })) {
+      const text = wholeText(file.real)
+      if (text !== null) files[`${name}/${file.rel}`] = text
+    }
+  }
+  return { output, others, request: testCase?.prompt ?? '', files }
+}
+
+/**
+ * How each rule and check of a case is read, where `st sort` kept a reading
+ * made from the very text graded: the run's SKILL.md and the case as the run
+ * asked it (`ask`), so a run is graded on readings of its own version, or
+ * none. By the rule's id and the check's id, as a pack asks them; null when
+ * none has a reading. `exact` says whether any is answered by code. Read once
+ * a grading for each case and ask.
+ */
+function readingsFor(
+  ctx: GradeContext,
+  testCase: Case | null,
+  ask: string | undefined,
+): { readings: Readings; exact: boolean } | null {
+  if (!testCase || ctx.skillMd === null) return null
+  const key = `${testCase.id}\n${ask ?? ''}`
+  if (ctx.readings.has(key)) return ctx.readings.get(key) ?? null
+  const found = currentReadings(ctx.judge.skillDir, ctx.skillMd, testCase, {
+    rules: ctx.rules,
+    ...(ask === undefined ? {} : { ask }),
+  })
+  const looked = (fact: string, held: boolean) => {
+    ctx.sorted.facts.add(fact)
+    if (!held) ctx.sorted.missing.add(fact)
+  }
+  const rules: Record<string, Readings['rules'][string]> = {}
+  for (const rule of ctx.rules) {
+    const id = verdictId('rule', rule.text)
+    const reading = found.rules.get(id)?.reading
+    if (reading) rules[rule.id] = reading
+    looked(id, reading !== undefined)
+  }
+  const checks: Record<string, Readings['checks'][string]> = {}
+  const ids = checkIds(testCase.graders.map((g) => ({ id: g.id, text: g.statement })))
+  testCase.graders.forEach((grader, i) => {
+    const reading = found.checks.get(ids[i])?.reading
+    if (reading) checks[grader.id] = reading
+    looked(`${testCase.id}\n${ids[i]}`, reading !== undefined)
+  })
+  const all = [...Object.values(rules), ...Object.values(checks)]
+  const held = all.length
+    ? { readings: { rules, checks }, exact: all.some((r) => r.reading === 'exact') }
+    : null
+  ctx.readings.set(key, held)
+  return held
+}
+
+/**
+ * Read the readings file once before anything is graded. One that does not
+ * read stops the grading with what is wrong and the way on: graded without
+ * it, rules a person asked to be answered by code, or left out as not
+ * markable, would count as Jev answered them, and nothing would say so.
+ */
+function checkReadings(skillDir: string): number {
+  try {
+    return readStored(skillDir).length
+  } catch (error) {
+    throw new Error(
+      `${(error as Error).message}. Run st sort again to write it anew, or delete it to grade as before.`,
+    )
+  }
+}
+
 /**
  * The pictures a case is judged with, each by a hash of the bytes the judge
  * reads: the ones the agent got and the ones its checks are about. A picture
@@ -697,6 +843,16 @@ function judgeKey(
     requestFiles: input.requestFiles ?? [],
     notes: input.notes,
     transcript: input.transcript,
+    // How a long output's parts are joined is kept in the reading. Absent, it is no part of the key, so a key made before spans were given stands.
+    spans: input.spans,
+    // How each rule and check is read, and what code read to answer one: absent without readings, so no key made before moves.
+    readings: input.readings
+      ? {
+          ...input.readings,
+          code: EXACT_VERSION,
+          whole: input.whole ? hashOf(input.whole) : null,
+        }
+      : undefined,
   }
   return createHash('sha256').update(JSON.stringify(asked)).digest('hex')
 }
@@ -742,15 +898,16 @@ function untilStopped<T>(work: Promise<T>, signal: AbortSignal | undefined): Pro
 
 /**
  * The case an output is graded on. While the skill's case asks what the run
- * was asked, it is the skill's, so its checks are read as they are now. Once
- * its prompt or files have changed, or the case is gone, it is the run's own
- * copy: an output is never held to a request its agent did not get.
+ * was asked, it is the skill's, so its checks and the checks for every case
+ * are read as they are now. Once its prompt or files have changed, or the
+ * case is gone, it is the run's own copy, with the checks for every case it
+ * kept: an output is never held to a request its agent did not get.
  */
 function caseOf(subject: Subject, ctx: GradeContext) {
   const live = findCase(ctx.cases, subject.caseRef, { fileName: subject.caseFromFileName })
   const id = live?.id ?? subject.caseRef
   const kept = ctx.kept?.find((entry) => entry.case.id === id) ?? null
-  return takenCase(ctx.judge.skillDir, kept, live)
+  return takenCase(ctx.judge.skillDir, kept, live, ctx.every)
 }
 
 async function gradeSubject(
@@ -763,6 +920,12 @@ async function gradeSubject(
     ctx.judge.log(`${subject.name}: ${line}`),
   )
   const { primary } = input
+  // How each rule and check is read, where `st sort` read the text this output is graded on.
+  const read = readingsFor(ctx, testCase, taken?.ask)
+  if (read) {
+    input.readings = read.readings
+    if (read.exact) input.whole = wholeFiles(ctx, subject, testCase, primary)
+  }
   // The bytes of every file the agent wrote are in each pack's hash: a picture has no text to hash, and one rewritten is new work.
   const pictures = { ...casePictures(ctx, testCase), ...outputHashes(ctx, subject) }
   // The page is drawn only when a pack will look at it, and a pack that does is asked again when it changes.
@@ -820,7 +983,9 @@ async function gradeSubject(
     const key = pack.live
       ? null
       : judgeKey(pack, input, pack.renders ? { ...pictures, ...seen } : pictures, ctx)
-    const reading = key === null ? undefined : ctx.cache.pack(key)
+    // A kept reading of less than the pack reads now, such as a long output read only in part, is read again.
+    const kept = key === null ? undefined : ctx.cache.pack(key)
+    const reading = kept && !pack.behind?.(kept.raw) ? kept : undefined
     if (reading) {
       packs[pack.id] = reading.raw
       judgedBy[pack.id] = pack.version
@@ -920,11 +1085,17 @@ async function gradeSubjects(
   const log = options.log ?? (() => {})
   // A run is graded on the rules of the skill it ran, whatever the skill says since.
   const ruled = run?.skill ?? skillDir
+  const sorted = checkReadings(skillDir)
+  const skillMd = skillText(ruled)
   const ctx: GradeContext = {
     cases: loadCases(skillDir),
+    every: loadEveryCase(skillDir),
     kept: run?.cases ?? null,
     rules: loadRules(ruled, config),
-    skill: config.rules?.length ? null : skillText(ruled),
+    skill: config.rules?.length ? null : skillMd,
+    skillMd,
+    readings: new Map(),
+    sorted: { facts: new Set(), missing: new Set() },
     packs,
     judge: {
       jev,
@@ -976,7 +1147,14 @@ async function gradeSubjects(
     // Nothing to keep and nothing kept before: no file is made for a grading that asked nothing.
     if (subjects.length && ctx.cache.holds) ctx.cache.write(join(dir, CACHE_FILE))
   }
-  if (unchanged) log(`${unchanged} of ${subjects.length} outputs unchanged: kept their verdicts.`)
+  if (unchanged)
+    log(
+      `Jev was asked nothing new about ${unchanged} of ${subjects.length} outputs: its answers from before were kept.`,
+    )
+  const read = readingsLine(results, ctx)
+  if (read) log(read)
+  const stale = unsortedLine(ctx, sorted > 0, skillMd === skillText(skillDir))
+  if (stale) log(stale)
   const report: Report = {
     createdAt: new Date().toISOString(),
     model: options.useJev ? (jev.modelSeen ?? jev.model) : null,
@@ -1003,6 +1181,56 @@ async function gradeSubjects(
     log('No output to grade, so no report was written. The last one, if any, still stands.')
   else if (failed < total) writeJson(join(dir, 'report.json'), report)
   return report
+}
+
+/**
+ * How the rules and checks of a grading with readings were answered, for its
+ * log: how many were asked of Jev, how many of those code answered or set
+ * aside as not sure, and how many cannot be marked, so were asked of no one.
+ * Null when no case had readings.
+ */
+function readingsLine(results: readonly ReportResult[], ctx: GradeContext): string | null {
+  if (![...ctx.readings.values()].some(Boolean)) return null
+  let asked = 0
+  let code = 0
+  let aside = 0
+  let unmarked = 0
+  for (const result of results) {
+    const raw = result.packs.generic as {
+      adherence?: { rules?: object[] } | null
+      rubric?: { statements?: object[] } | null
+    } | null
+    for (const fact of [...(raw?.adherence?.rules ?? []), ...(raw?.rubric?.statements ?? [])]) {
+      if ('unmarkable' in fact) {
+        unmarked += 1
+        continue
+      }
+      asked += 1
+      const kept = (fact as { code?: Parameters<typeof codeAnswerOf>[0] }).code
+      const answer = kept ? codeAnswerOf(kept) : null
+      if (answer?.stands && answer.met !== null) code += 1
+      else if (answer?.stands) aside += 1
+    }
+  }
+  return `Rules and checks over ${results.length} outputs: ${asked} asked of Jev, of which code answered ${code} and set ${aside} aside as not sure; ${unmarked} cannot be marked as written, so were asked of no one.`
+}
+
+/**
+ * When the skill has been sorted and some of the rules and checks graded have
+ * no reading made from the text graded, one line that says how many, and
+ * what to run: graded so, they were asked of Jev as if never sorted, and the
+ * grading would look as it did before `st sort` ran. `current` says whether
+ * the run used the SKILL.md the skill has now, which is what `st sort` sorts.
+ * Null when nothing is missing, or the skill was never sorted.
+ */
+function unsortedLine(ctx: GradeContext, sorted: boolean, current: boolean): string | null {
+  const { facts, missing } = ctx.sorted
+  if (!sorted || !missing.size) return null
+  const how =
+    missing.size === facts.size
+      ? `None of the ${facts.size} rules and checks graded was sorted for the skill and cases this run used, so Jev was asked them all as before.`
+      : `${missing.size} of the ${facts.size} rules and checks graded were not sorted for the skill and cases this run used, so Jev was asked them as before.`
+  return `${how} ${current ? 'Run st sort to sort them.' : 'This run used another version of the skill, and st sort sorts the version there is now.'}`
 }
 
 /** The SKILL.md in `dir`, as it is written; null when there is none. */
@@ -1307,6 +1535,57 @@ export function scoredReport(
   }
 }
 
+/**
+ * Every fact each output of a run was scored on, by sample name, as
+ * `scoredReport` scores it: under `bench.json` as it is now, with the
+ * reader's `corrections` over Jev's answers.
+ */
+export function runVerdicts(
+  skillDir: string,
+  report: Report,
+  cases: Readonly<Record<string, RunCase>> = {},
+  corrections: Readonly<Record<string, Corrections>> = {},
+): Record<string, Verdict[]> {
+  const scoring = scoringNow(skillDir, {})
+  return Object.fromEntries(
+    report.results.map((result) => {
+      const mine = Object.hasOwn(corrections, result.sample)
+        ? corrections[result.sample]
+        : NO_CORRECTIONS
+      return [result.sample, scoredResult(result, report, cases, scoring, mine).verdicts]
+    }),
+  )
+}
+
+/** A run's report with only the results of the sample folders still there. */
+const present = (side: RunScoring): Report => ({
+  ...side.report,
+  results: side.report.results.filter((r) => side.samples.includes(r.sample)),
+})
+
+/** The case a result answers, by its id. */
+const caseIdOf = (r: ReportResult): string => r.case ?? parseSampleDir(r.sample)?.case ?? r.sample
+
+/** A result as a change reads it: its case, what its agent was asked, and whether Jev graded it. */
+function answered(r: ReportResult, side: RunScoring): Answered {
+  const id = caseIdOf(r)
+  return {
+    case: id,
+    ask: Object.hasOwn(side.cases, id) ? side.cases[id].ask : '',
+    judged: Boolean(side.report.model),
+  }
+}
+
+/** The reader's corrections on one result of a run. */
+const corrections = (side: RunScoring, r: ReportResult): Corrections =>
+  Object.hasOwn(side.corrections, r.sample) ? side.corrections[r.sample] : NO_CORRECTIONS
+
+/** Why two answers to one case are not set against each other (`comparableAnswers`). */
+const apartWhy = (a: Answered, b: Answered): string =>
+  a.judged !== b.judged
+    ? 'graded with Jev in one run and without it in the other'
+    : 'its agent was asked another prompt or other files in the other run'
+
 /** What `compareRuns` read between two runs, and each output it left out, with why. */
 export interface Compared {
   rows: CompareRow[]
@@ -1332,20 +1611,6 @@ export function compareRuns(
   options: Pick<GradeOptions, 'packs' | 'config'> = {},
 ): Compared {
   const scoring = scoringNow(skillDir, options)
-  const present = (side: RunScoring): Report => ({
-    ...side.report,
-    results: side.report.results.filter((r) => side.samples.includes(r.sample)),
-  })
-  const answered = (r: ReportResult, side: RunScoring): Answered => {
-    const id = r.case ?? parseSampleDir(r.sample)?.case ?? r.sample
-    return {
-      case: id,
-      ask: Object.hasOwn(side.cases, id) ? side.cases[id].ask : '',
-      judged: Boolean(side.report.model),
-    }
-  }
-  const corrections = (side: RunScoring, r: ReportResult): Corrections =>
-    Object.hasOwn(side.corrections, r.sample) ? side.corrections[r.sample] : NO_CORRECTIONS
   const { pairs, unmatched } = matched(present(before), present(after))
   const rows: CompareRow[] = []
   const left: string[] = unmatched.map(
@@ -1356,11 +1621,7 @@ export function compareRuns(
     const a = answered(from, before)
     const b = answered(to, after)
     if (!comparableAnswers(a, b)) {
-      left.push(
-        a.judged !== b.judged
-          ? `${rowKey(to)}: graded with Jev in one run and without it in the other`
-          : `${rowKey(to)}: its agent was asked another prompt or other files in the other run`,
-      )
+      left.push(`${rowKey(to)}: ${apartWhy(a, b)}`)
       continue
     }
     const scored = (end: 'a' | 'b', answers: Corrections) =>
@@ -1390,4 +1651,63 @@ export function compareRuns(
     rows.push(rowOf(was.scores, { ...to, scores: is.scores }, rowKey(to)))
   }
   return { rows, left, notes }
+}
+
+/** What `compareCases` read between two runs: each case on its checks, and each case left out, with why. */
+export interface ComparedCases extends CaseResults {
+  left: string[]
+}
+
+/**
+ * Two runs read as cases, on checks (`caseResults`): for each case both
+ * answered, every attempt of it in each run, scored under `bench.json` as it
+ * is now with the reader's corrections, as `compareRuns` scores them. A case
+ * is read only between answers to it as it was asked, both graded with Jev or
+ * both without (`comparableAnswers`); every other case is left out, with why.
+ * Cases come in the order the second run lists them.
+ */
+export function compareCases(
+  skillDir: string,
+  before: RunScoring,
+  after: RunScoring,
+  options: Pick<GradeOptions, 'packs' | 'config'> = {},
+): ComparedCases {
+  const scoring = scoringNow(skillDir, options)
+  const byCase = (side: RunScoring) => {
+    const cases = new Map<string, ReportResult[]>()
+    for (const r of present(side).results)
+      cases.set(caseIdOf(r), [...(cases.get(caseIdOf(r)) ?? []), r])
+    return cases
+  }
+  const from = byCase(before)
+  const to = byCase(after)
+  const ends: CaseEnds[] = []
+  const left: string[] = [...from.keys()]
+    .filter((id) => !to.has(id))
+    .map((id) => `${id}: only the first run answered it`)
+  for (const [id, b] of to) {
+    const a = from.get(id)
+    if (!a) {
+      left.push(`${id}: only the second run answered it`)
+      continue
+    }
+    const one = answered(a[0], before)
+    const two = answered(b[0], after)
+    if (!comparableAnswers(one, two)) {
+      left.push(`${id}: ${apartWhy(one, two)}`)
+      continue
+    }
+    ends.push({
+      case: id,
+      a: a.map((r) => corrections(before, r)),
+      b: b.map((r) => corrections(after, r)),
+      verdictsOf: (end, answers) => {
+        const [side, results] = end === 'a' ? [before, a] : [after, b]
+        return results.map(
+          (r, i) => scoredResult(r, side.report, side.cases, scoring, answers[i]).verdicts,
+        )
+      },
+    })
+  }
+  return { ...caseResults(ends), left }
 }

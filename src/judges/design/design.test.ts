@@ -210,7 +210,7 @@ describe('design scoring', () => {
       met: true,
       corrected: true,
     })
-    expect(designScoring.certainties(raw)).toHaveLength(2)
+    expect(designScoring.certainties(raw, { yes: 0.7, no: 0.3 })).toHaveLength(2)
   })
 
   it('counts neither the shell checks nor the checks a reading from before holds', () => {

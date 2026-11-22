@@ -1,0 +1,21 @@
+Subject: Ferry 3.2: Bookings now confirm themselves.
+
+Hi,
+
+Ferry 3.2 is out on 4 March 2027, and the headline is simple: bookings now confirm themselves.
+
+What's new
+
+- Automatic confirmations: Ferry sends the confirmation as soon as someone picks a slot.
+- Waitlist: when a slot opens, the next person on the list is offered it.
+- Calendar sync: bookings appear in your calendar within 60 seconds.
+
+"Ferry cut our booking calls in half." - Dana Okafor, Tidewater Kayaks
+
+Ferry is 12 USD a month.
+
+See everything in 3.2: https://ferry.example/3-2
+
+Questions? Write to help@ferry.example.
+
+Mara Lindqvist

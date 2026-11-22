@@ -1,9 +1,8 @@
 /**
  * What an output is shown through beside another: the card that holds what it
- * missed, the facts about how it was made, the place it holds while it is
- * still being written, and its letter.
+ * missed, the place it holds while it is still being written, and its letter.
  */
-import type { ComponentProps, ReactNode } from 'react'
+import type { ComponentProps } from 'react'
 import { cn } from '../lib/utils.ts'
 import { RunningChip } from './Status.tsx'
 import { Text } from './text.tsx'
@@ -12,20 +11,6 @@ import { Card } from './ui/card.tsx'
 /** What one output missed: an object a reader sets beside another's, so it stands on its own card. */
 export function OutputCard({ className, ...props }: ComponentProps<typeof Card>) {
   return <Card role="article" className={cn('gap-0 overflow-hidden py-0', className)} {...props} />
-}
-
-/** Facts about an output, a label and its value a row, such as who wrote it and when. */
-export function FactList({ facts }: { facts: ReadonlyArray<{ label: string; value: ReactNode }> }) {
-  return (
-    <dl className="m-0 grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-1.5 text-xs">
-      {facts.map((fact) => (
-        <div key={fact.label} className="contents">
-          <dt className="text-muted-foreground">{fact.label}</dt>
-          <dd className="m-0 text-pretty">{fact.value}</dd>
-        </div>
-      ))}
-    </dl>
-  )
 }
 
 /**

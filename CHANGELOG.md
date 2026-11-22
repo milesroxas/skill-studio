@@ -6,6 +6,30 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+### Changed
+
+- **All cases** on Results counts the cases that got better, stayed the same and got worse on their checks, against the answer without the skill or the version before. Each case shows how many checks each answer met, such as "1 of 2 checks", and **Change** says Better, Same or Worse. The score out of 100 moves into the note under the counts, an opened case and Runs. The list on the left says how each case did in words, such as "Better than without the skill". A skill whose cases have no checks to compare yet keeps the lift and the scores.
+- A case on Results lists what to fix first, grouped by why it was missed: the skill was never opened, a check was missed though no rule was broken, a check was missed beside a broken rule, or a rule was broken. **Open skill**, **Open rule** and **Edit case** take you to the fix. What waits for your mark comes next, with **Mark as met** and **Mark as missed** on each row. With both answers in view the list is the later one's, and a row says when the other answer did otherwise. An answer written without the skill lists no rules, since it never saw them.
+- The two versions at the top of a case show only their names: no score and no count of what each missed, so you read both answers before anything judges them.
+
+### Added
+
+- `st sort` has the assistant read each rule of a skill and each check of its cases once, and say how each will be marked: answered by code, asked of Jev, or not markable as written, with a fix. It prints what code will look for, keeps what it read in the skill's `evals/`, and asks again only what changed since. It needs the assistant set up, and only this command asks.
+- `st propose` has the assistant read each case's latest answers, with and without the skill, and propose checks a good answer meets: from the case's "A good answer" note, from what the brief says must not appear, and from faults it found in the answers. Each says why, quotes what asks for it, and says which answers already meet it. What tells the answers apart is printed first; the rest are counted in one line, and `--all` lists them. Each fact of a case's note is listed with what covers it, and one nothing covers is shown. A check proposed for every case on several cases is one proposal, and accepting it with `--accept` alone writes one check for every case. With a TypeSafe key, Jev leaves out a proposal that asks for more than the words it stands on, and joins proposals for every case that say the same in other words. A case read again keeps what was proposed before unless something changed, and a run on unchanged input asks nothing. Nothing changes in a case until you accept a proposal with `--accept`; one you `--drop` is not proposed again. It needs Claude Code, and only this command asks.
+- `st read` has the assistant read a graded run from the command line. It answers the rules and checks Jev was not sure of, quotes where it saw each, and prints how often its answers agree with yours. It needs Claude Code, and it changes nothing in the skill.
+
+- After `st sort`, grading marks each rule and check the way it was sorted. A rule the app can check itself, such as a word count or a banned word, is checked by the app on the whole answer, and the line under it on Results says what it found: "Checked by the app: 134 words, more than 120." Jev still reads it, and your mark still stands over the app's. When rules or checks have changed since they were sorted, the grading says how many, and to run `st sort` again.
+- Results lists **Cannot be marked**: rules and checks written so that two careful readers would mark them differently, or rules that cannot hold beside another rule. Each says why and how it could be written. They are left out of the score until you mark them yourself.
+- A check is always graded. When a rule cannot hold beside one of a case's checks, such as a word limit beside a check that asks for a list longer than the limit, that rule is under **Cannot be marked** on that case's answers alone, with the check's words and a fix, and counts as usual on every other case.
+- Checks for every case: a check written as a file in the skill's `evals/graders/` is graded on every answer to every case, beside the case's own checks, and shows on Results as a check. It stays the same when you edit the skill, so two versions can be compared on it. Write the files by hand for now, as a case's checks are written.
+- `st compare` also reads the two runs case by case, on checks alone: "better on 1, the same on 5, worse on 0", with a line for each case. A case run once in each says a small move may be chance.
+- `st report` prints each answer's checks met and rules followed apart. An answer written without the skill has no rules count.
+
+### Fixed
+
+- An answer too long for Jev to read at once, such as a long page, is read in parts. Jev no longer marks a rule or check missed for text it never read. One the parts cannot settle shows under **Not read**, counts in no score, and counts once you mark it yourself.
+- An answer like this graded before shows its rules and checks under **Not read**, and has no score until you grade its run again.
+
 ## [0.18.1] - 2026-11-20
 
 ### Changed

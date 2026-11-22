@@ -10,10 +10,13 @@ import { extendTailwindMerge } from 'tailwind-merge'
  * - Type sizes (`text-ui`, `text-code`, and the rest of the scale in
  *   styles.css): an unknown `text-*` reads as a color, so a size beside a color
  *   dropped whichever came first. `text-ui text-muted-foreground` lost its
- *   size and `text-muted-foreground text-code` lost its color.
+ *   size and `text-muted-foreground text-code` lost its color. `display`
+ *   too, for the counts at the head of All cases.
  */
 const twMerge = extendTailwindMerge({
-  extend: { theme: { shadow: ['raised', 'popover'], text: ['2xs', 'ui', 'md', 'code'] } },
+  extend: {
+    theme: { shadow: ['raised', 'popover'], text: ['2xs', 'ui', 'md', 'code', 'display'] },
+  },
 })
 
 export function cn(...inputs: ClassValue[]) {

@@ -11,6 +11,7 @@ import { parseSampleDir } from '@domain/run-name.ts'
 import type {
   Artifact,
   Case,
+  Grader,
   Report,
   RunMeta,
   SampleFailure,
@@ -20,7 +21,7 @@ import type {
 import { metaList, metaText, readFrontMatter } from '@domain/text.ts'
 import type { FileHead, RunView, Sample, SkillVersions } from '@domain/views.ts'
 import { detectArtifacts } from './artifacts.ts'
-import { loadCases } from './cases.ts'
+import { loadCases, loadEveryCase } from './cases.ts'
 import { assertInside, isDir, isFile, listDirs, listFiles, present, readJson } from './fs.ts'
 import { readKept, runCases } from './run-cases.ts'
 import { type SkillTexts, skillIdentity, skillTexts, skillVersions } from './skill.ts'
@@ -28,7 +29,7 @@ import { readTranscript } from './transcript.ts'
 import { isVersionLabel, savedVersionFile, savedVersionSource, savedVersions } from './versions.ts'
 import { asSamplePath, liveWorkdir, workdirsOf } from './workdir.ts'
 
-const runsDir = (skillDir: string): string => join(skillDir, 'evals/runs')
+export const runsDir = (skillDir: string): string => join(skillDir, 'evals/runs')
 export const anchorsDir = (skillDir: string): string => join(skillDir, 'evals/anchors')
 export const runDir = (skillDir: string, run: string): string => join(runsDir(skillDir), run)
 /** Where a run keeps the copy of the skill its samples were made from: what the run is graded on. */
@@ -260,11 +261,16 @@ export function readRunMeta(skillDir: string, name: string): RunMeta | null {
   }
 }
 
-/** A run as every interface reads it. `live` is the skill's cases as they are now, read once for a list of runs. */
+/**
+ * A run as every interface reads it. `live` is the skill's cases as they are
+ * now, and `every` the checks for every case as they are now, each read once
+ * for a list of runs.
+ */
 export function readRun(
   skillDir: string,
   name: string,
   live: readonly Case[] = loadCases(skillDir),
+  every: readonly Grader[] = loadEveryCase(skillDir),
 ): RunView {
   const dir = runDir(skillDir, name)
   const meta = readRunMeta(skillDir, name)
@@ -279,16 +285,17 @@ export function readRun(
     report: readRunJson<Report | null>(join(dir, 'report.json'), null),
     samples: runSamples(dir),
     hasSkill: isDir(skillCopy(skillDir, name)),
-    cases: runCases(skillDir, dir, live, kept, answered),
+    cases: runCases(skillDir, dir, live, kept, answered, every),
     ...(damaged ? { casesDamaged: true } : {}),
   }
 }
 
 /** Every run of the skill. One that cannot be read is left out, with a warning, and the rest are listed. */
 export function listRuns(skillDir: string, live: readonly Case[] = loadCases(skillDir)): RunView[] {
+  const every = loadEveryCase(skillDir)
   return listDirs(runsDir(skillDir)).flatMap((name) => {
     try {
-      return [readRun(skillDir, name, live)]
+      return [readRun(skillDir, name, live, every)]
     } catch (error) {
       console.warn(`Run ${name} could not be read: ${(error as Error).message}`)
       return []

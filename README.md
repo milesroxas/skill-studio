@@ -60,6 +60,7 @@ The first launch offers a walkthrough: a sample skill taken once round the loop.
 | [Releasing](docs/releasing.md) | Cutting a release, signing and updates |
 | [Release plan](docs/release-plan.md) | What goes into the next release, and what is done |
 | [Hardening checklist](docs/hardening.md) | Known issues from the QA review, and which are fixed |
+| [Reshape plan](docs/reshape-plan.md) | A proposal to show whether an answer got better, not only whether the skill was followed |
 | [Changelog](CHANGELOG.md) | What changed in each release |
 
 ## Contributing

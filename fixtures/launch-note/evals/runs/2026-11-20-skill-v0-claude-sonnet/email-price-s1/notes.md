@@ -1,0 +1,5 @@
+- Headline and "product name + version first" conflict; I opened the body with "Ferry 3.2: Bookings now confirm themselves." (headline verbatim, preceded only by name/version). Same line is the subject (43 chars).
+- Only brief numbers used (3.2, 60 seconds, 12 USD, 4 March 2027). About 90 words.
+- The internal codename in the brief is left out, as the brief requires.
+- Closing lines are date, support address, signer, each on its own line. The release date has no label, so check that it reads clearly.
+- "Hello," is a generic greeting because the brief names no recipient.

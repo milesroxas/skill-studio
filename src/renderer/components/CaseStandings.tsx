@@ -1,11 +1,15 @@
 /**
  * All cases' table: one row per case, saying where it stands on the skill as
  * it is now. A case is run when its writer chooses, so each row is read against
- * the case's own runs: its latest score, the run it came from and how it moved
- * from the run before. The cases checked on the version a run would test now
- * come first, then the ones that are not, each group with what needs a look on
- * top. The columns stay four however many runs there are; a long list shows
- * its first rows and a field that finds a case by name.
+ * the case's own runs. Where the cases are read on their checks (`checks`), a
+ * row is how many checks the answer it is read against met, how many its
+ * newest met, and whether it got better, stayed the same or got worse; else
+ * it is its latest score, the run it came from and how it moved from the run
+ * before. The cases
+ * checked on the version a run would test now come first, then the ones that
+ * are not, each group with what needs a look on top. The columns stay four
+ * however many runs there are; a long list shows its first rows and a field
+ * that finds a case by name.
  *
  * A row holds answers to one request. Answers written before a case's prompt
  * or files changed stand in a row of their own, in a group after the skill's
@@ -19,6 +23,7 @@ import { isMissed } from '@domain/pack.ts'
 import { attemptsOf, byNeed } from '@domain/standing.ts'
 import { XIcon } from 'lucide-react'
 import { Fragment, useState } from 'react'
+import { type CaseRead, compared, rowVersion, type SideName, sideCount } from '../case-checks.ts'
 import type { Ctx } from '../ctx.ts'
 import { useToggleSet } from '../hooks.ts'
 import { gradingRun, writingRun } from '../job-start.ts'
@@ -44,6 +49,7 @@ import {
   unreadOutput,
   writerName,
 } from '../model.ts'
+import { ChecksChange } from './CaseChecks.tsx'
 import { PlainList, Rows, Stack, Toolbar } from './layout.tsx'
 import { Delta, ListScore, SampleCount, TotalChip } from './Scores.tsx'
 import { Hint, Text } from './text.tsx'
@@ -62,7 +68,7 @@ import {
   TableRowToggle,
 } from './ui/table.tsx'
 
-/** Case, last run, score, change. */
+/** Case, last run, score, change; or case, the two sides' checks met, change. */
 const COLUMNS = 4
 /** How many rows of a group show before the rest wait under a button. */
 const CAP = 8
@@ -118,6 +124,15 @@ function unscored(t: CaseTry, ctx: Ctx): { word: string; says: string; opens: bo
   return { word: 'Not graded', says: 'not graded yet', opens: true }
 }
 
+/** Why a run of a case has no score, in the table's word for it: "Writing…", "Not graded". */
+export const unscoredWord = (t: CaseTry, ctx: Ctx): string => unscored(t, ctx).word
+
+/** The cases read on their checks, by row, and what the two columns of marks are headed by. */
+export interface ChecksTable {
+  reads: ReadonlyMap<string, CaseRead>
+  names: { from: SideName; to: SideName }
+}
+
 /**
  * What a case with a score is waiting on: a newer run that has none yet. A
  * stopped run is the reader's own doing, and one that failed has nothing more
@@ -147,9 +162,12 @@ export function CaseStandings({
   onOpen,
   onRun,
   grade,
+  checks = null,
 }: {
   ctx: Ctx
   standings: CaseStand[]
+  /** Read on checks: the two sides' checks met in place of the last run and its score. */
+  checks?: ChecksTable | null
   /** The row that is open, by its key. */
   open: string | null
   onOpen: (key: string | null) => void
@@ -216,14 +234,35 @@ export function CaseStandings({
         </Toolbar>
       ) : null}
       {found.length ? (
-        <Table bleed stick>
+        <Table
+          bleed
+          stick
+          // Read on checks, the two sides' columns keep their width whatever a filter leaves, and the case takes the rest.
+          layout={checks ? 'fixed' : 'auto'}
+        >
           <TableHeader>
-            <TableRow>
-              <TableHead clip>Case</TableHead>
-              <TableHead>Last run</TableHead>
-              <TableHead numeric>Score</TableHead>
-              <TableHead trailing>Change</TableHead>
-            </TableRow>
+            {checks ? (
+              // The older side folds away first as the table narrows, then the newer: the case and its change stay.
+              <TableRow>
+                <TableHead clip>Case</TableHead>
+                <TableHead col="lg" fold="first">
+                  {checks.names.from.name}
+                </TableHead>
+                <TableHead col="lg" fold="narrowest">
+                  {checks.names.to.name}
+                </TableHead>
+                <TableHead col="sm" trailing>
+                  Change
+                </TableHead>
+              </TableRow>
+            ) : (
+              <TableRow>
+                <TableHead clip>Case</TableHead>
+                <TableHead>Last run</TableHead>
+                <TableHead numeric>Score</TableHead>
+                <TableHead trailing>Change</TableHead>
+              </TableRow>
+            )}
           </TableHeader>
           {found.map((group) => {
             // The open case shows even when it lies past the first rows.
@@ -247,6 +286,7 @@ export function CaseStandings({
                     standing={standing}
                     version={version}
                     repeated={repeated}
+                    checks={checks}
                     open={open === standing.key}
                     onToggle={() => onOpen(open === standing.key ? null : standing.key)}
                     onRun={onRun}
@@ -286,6 +326,7 @@ function CaseRow({
   standing,
   version,
   repeated,
+  checks,
   open,
   onToggle,
   onRun,
@@ -295,6 +336,7 @@ function CaseRow({
   standing: CaseStand
   version: string
   repeated: boolean
+  checks: ChecksTable | null
   open: boolean
   onToggle: () => void
   onRun: (cases: string[]) => void
@@ -305,6 +347,7 @@ function CaseRow({
   // Before its first run with the skill, a case stands on its score without it.
   const stands = latest ?? floor
   const waiting = waitingOn(standing, ctx)
+  const read = checks?.reads.get(standing.key) ?? null
   return (
     <Fragment>
       <TableRow interactive onClick={rowAction(onToggle)}>
@@ -313,7 +356,9 @@ function CaseRow({
             {name}
           </TableRowToggle>
         </TableCell>
-        {stands ? (
+        {checks && read ? (
+          <CountCells read={read} names={checks.names} waiting={waiting} />
+        ) : stands ? (
           <>
             <TableCell>
               <Text
@@ -358,6 +403,75 @@ function CaseRow({
         </TableDetail>
       ) : null}
     </Fragment>
+  )
+}
+
+/** Waiting words in the change column: a newer run with no score yet. */
+const Waiting = ({ words }: { words: string }) => (
+  <Text tone="faint" size="xs">
+    {words}
+  </Text>
+)
+
+/**
+ * A row read on checks: how many checks the answer it is read against met,
+ * then its newest answer, each followed by its version where the column's
+ * head names none, and its change, or a newer run it waits on. A case with
+ * nothing to compare says why once, across the columns a comparison would
+ * fill.
+ */
+function CountCells({
+  read,
+  names,
+  waiting,
+}: {
+  read: CaseRead
+  names: ChecksTable['names']
+  waiting: string | null
+}) {
+  // A case with no answer of the skill's to read waits on nothing else: its why says what is under way.
+  const waits = read.to ? waiting : null
+  if (!compared(read))
+    return (
+      <>
+        <TableCell colSpan={waits ? COLUMNS - 2 : COLUMNS - 1}>
+          <Text tone="faint" size="xs">
+            {read.why}
+          </Text>
+        </TableCell>
+        {waits ? (
+          <TableCell trailing>
+            <Waiting words={waits} />
+          </TableCell>
+        ) : null}
+      </>
+    )
+  const side = (which: 'a' | 'b') => {
+    const version = rowVersion(
+      which === 'a' ? read.from : read.to,
+      which === 'a' ? names.from : names.to,
+    )
+    return (
+      <span className="inline-flex items-baseline gap-2">
+        <Text tone={which === 'a' ? 'muted' : undefined} tabular>
+          {sideCount(read, which)}
+        </Text>
+        {version ? (
+          <Text tone="faint" size="xs">
+            {version}
+          </Text>
+        ) : null}
+      </span>
+    )
+  }
+  return (
+    <>
+      <TableCell fold="first">{side('a')}</TableCell>
+      <TableCell fold="narrowest">{side('b')}</TableCell>
+      <TableCell trailing>
+        {waiting ? <Waiting words={waiting} /> : <ChecksChange read={read} />}
+      </TableCell>
+    </>
   )
 }
 
@@ -528,7 +642,7 @@ function CaseDetail({
           </Text>
           {aside ? (
             <Text as="p" size="ui" tone="muted" measure>
-              {aside}
+              {aside.text}
             </Text>
           ) : null}
           {attempts ? (

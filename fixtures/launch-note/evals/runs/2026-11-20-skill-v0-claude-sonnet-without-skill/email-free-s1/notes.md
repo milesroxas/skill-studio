@@ -1,0 +1,3 @@
+- Left out the codename (internal, must not be published).
+- Brief gives release date 18 May 2027, which is after today's date (2026-11-20). I wrote "is out on" per the brief; change to "arrives on" if sending early.
+- Greeting is generic ("Hi,") since no recipient name field was given. Subject line and "Ferry" under the signature are my additions.

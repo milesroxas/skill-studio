@@ -4,6 +4,7 @@ import {
   type Corrections,
   NO_CORRECTIONS,
   noOutput,
+  OLDER_VERSION,
   type PackScoring,
   packFailure,
   type ScoreSubject,
@@ -81,7 +82,7 @@ export function behindOf(
   const is = now.with
   if (!was || !is) return null
   if (Object.entries(was.packs).some(([id, version]) => (is.packs[id] ?? version) !== version))
-    return 'Graded by an older version of Skill Studio'
+    return OLDER_VERSION
   // A setting read as the pack judged, changed since, as a check changed is: one the scores apply after is not.
   const settings = is.settings
   if (
@@ -235,6 +236,12 @@ export function scoreResult(
             .filter((p) => config.packs.includes(p.id) && !Object.hasOwn(result.packs, p.id))
             .map((p) => ({ flag: packUngradedFlag(p.id), text: ungradedText(p.id) })),
           ...(behind ? [{ flag: behind, text: behind }] : []),
+          // A reading a pack kept of less than it reads now, such as a long output read only in part.
+          ...scorers.flatMap((p) => {
+            if (!config.packs.includes(p.id) || !Object.hasOwn(result.packs, p.id)) return []
+            const why = behind ? null : (p.behind?.(result.packs[p.id] ?? null) ?? null)
+            return why ? [{ flag: why, text: why }] : []
+          }),
         ]
   const failures = failed.map((f) => `Grading failed: ${f.reason}`)
   const flags = [...failed.map((f) => f.flag), ...stale.map((s) => s.flag), ...common]
@@ -251,7 +258,7 @@ export function scoreResult(
     if (unread) continue
     flags.push(...scored.flags)
     if (!empty) verdicts.push(...scored.verdicts)
-    certainties.push(...pack.certainties(answers))
+    certainties.push(...pack.certainties(answers, config))
   }
   const owed = empty || unread ? [] : [...failures, ...stale.map((s) => s.text)]
   const total = empty ? 0 : unread || owed.length ? null : totalOf(raw, config)

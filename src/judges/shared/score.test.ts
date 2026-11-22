@@ -1,6 +1,15 @@
 import type { Verdict } from '@domain/pack.ts'
+import { NOTES_FILE } from '@domain/prompt.ts'
 import { describe, expect, it } from 'vitest'
-import { markChecks, metShare, type StatementAnswer, unmetFlag } from './score.ts'
+import {
+  firstOf,
+  isOutputCut,
+  markChecks,
+  metShare,
+  OUTPUT_PART,
+  type StatementAnswer,
+  unmetFlag,
+} from './score.ts'
 
 const answer = (weight: number, over: Partial<StatementAnswer> = {}): StatementAnswer => ({
   id: '01-names',
@@ -30,6 +39,7 @@ describe('metShare', () => {
     text: 'x',
     met,
     open: false,
+    by: 'code',
     corrected: false,
     layer: 'rubric',
     ...(weight === undefined ? {} : { weight }),
@@ -47,7 +57,7 @@ describe('metShare', () => {
   })
 
   it('counts no fact that was set aside, and has no share when every one was', () => {
-    const aside: Verdict = { ...fact(false), open: true, jev: null, aside: 'unsure' }
+    const aside: Verdict = { ...fact(false), open: true, by: 'jev', jev: null, aside: 'unsure' }
     expect(metShare([fact(true), fact(false), aside])).toBe(0.5)
     expect(metShare([aside])).toBeNull()
   })
@@ -116,5 +126,24 @@ describe('markChecks', () => {
 
   it('leaves the layer out for a case with no checks', () => {
     expect(markChecks([], 'review', BINARY, {})).toEqual({ verdicts: [], share: null, flags: [] })
+  })
+})
+
+describe('the flag of a part Jev read only the start of', () => {
+  it('says it in the words gradings on disk hold', () => {
+    expect(firstOf(145_000, OUTPUT_PART)).toBe(
+      'Jev read only the first 145,000 characters of the output',
+    )
+    expect(firstOf(6000, NOTES_FILE)).toBe('Jev read only the first 6,000 characters of notes.md')
+  })
+
+  it('knows what it says of the output, at any length, and of no other part', () => {
+    for (const n of [240, 6000, 40_000, 1_234_567])
+      expect(isOutputCut(firstOf(n, OUTPUT_PART))).toBe(true)
+    expect(isOutputCut(firstOf(40_000, NOTES_FILE))).toBe(false)
+    expect(isOutputCut(firstOf(40_000, 'SKILL.md'))).toBe(false)
+    expect(isOutputCut(firstOf(40_000, "the case's prompt"))).toBe(false)
+    expect(isOutputCut(`${firstOf(40_000, OUTPUT_PART)}s`)).toBe(false)
+    expect(isOutputCut('Jev read only the first many characters of the output')).toBe(false)
   })
 })

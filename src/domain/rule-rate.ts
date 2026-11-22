@@ -2,7 +2,8 @@
  * How often each of the skill's rules is followed and broken across graded
  * outputs, so a rule most outputs break can be told from one they follow. It
  * is counted the way Results counts a rule: met is followed, missed is
- * broken, and a rule set aside (Not sure, Does not apply) is neither. An
+ * broken, and a rule set aside (Not sure, Not read, Cannot be marked, Does not
+ * apply) is neither. An
  * output with no score counts for nothing. A rule is read on the newest
  * version that ran it (`newestRates`): what an older version's outputs broke
  * says nothing of the skill once a later one has run the same rule. Pure.

@@ -1,0 +1,17 @@
+Subject: Ferry 3.4: Reminders that people answer.
+
+Reminders that people answer.
+
+Ferry 3.4 is here. Two-way reminders let you reply to a reminder with yes, no or a new time, so the person who sent it knows where things stand without another message.
+
+Quiet hours mean no reminder is sent between 21:00 and 08:00, so your evenings and early mornings stay yours.
+
+Ferry 3.4 costs 12 USD a month.
+
+"Ferry saved us a full day every week." Priya Raman, Slate & Pine Studio
+
+Read the release notes: https://ferry.example/3-4
+
+22 July 2027
+help@ferry.example
+Mara Lindqvist

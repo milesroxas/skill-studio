@@ -10,11 +10,17 @@
  * check added since is marked on the next grading. A grading keeps a
  * fingerprint of the yardstick it used, which tells one made before the case
  * changed from one made since.
+ *
+ * The checks for every case (`evals/graders/`) are part of each case's
+ * yardstick in the same way: a run keeps them with each case it answered, and
+ * reads them as they are now while it takes the skill's case, else the copy
+ * it kept with that case.
  */
 import { createHash } from 'node:crypto'
 import { copyFileSync, existsSync, mkdirSync, readFileSync, statSync } from 'node:fs'
 import { dirname, join, relative, sep } from 'node:path'
 import { checkWeight } from '@domain/case-draft.ts'
+import { withEveryCase } from '@domain/every-case.ts'
 import { fingerprint, sameFingerprint } from '@domain/fingerprint.ts'
 import type { Case, CaseSettings, Grader } from '@domain/schemas.ts'
 import type { RunCase } from '@domain/views.ts'
@@ -29,6 +35,12 @@ export interface KeptCase {
   /** A fingerprint of what the agents were asked (`askOf`). */
   ask: string
   case: Case
+  /**
+   * The checks for every case as they stood when the run started, with their
+   * pictures in the run's `_checks/`. Absent for a run made before runs kept
+   * them, which ran under none.
+   */
+  every?: Grader[]
 }
 
 const sha = (value: string | Uint8Array): string => createHash('sha256').update(value).digest('hex')
@@ -179,7 +191,11 @@ function settingsOf(value: unknown): CaseSettings {
  */
 function keptOf(raw: unknown, where: string): KeptCase | null {
   if (!raw || typeof raw !== 'object') return null
-  const { ask, case: held } = raw as { ask?: unknown; case?: Record<string, unknown> }
+  const {
+    ask,
+    case: held,
+    every,
+  } = raw as { ask?: unknown; case?: Record<string, unknown>; every?: unknown }
   if (typeof ask !== 'string' || !held || typeof held !== 'object') return null
   if (typeof held.id !== 'string' || !isSafeName(held.id) || typeof held.prompt !== 'string')
     return null
@@ -201,6 +217,7 @@ function keptOf(raw: unknown, where: string): KeptCase | null {
       source: held.source === 'evals.json' ? 'evals.json' : 'folder',
       dir: typeof held.dir === 'string' ? held.dir : null,
     },
+    ...(Array.isArray(every) ? { every: gradersOf(every) } : {}),
   }
 }
 
@@ -208,14 +225,18 @@ function keptOf(raw: unknown, where: string): KeptCase | null {
 const CHECKS_DIR = '_checks'
 
 /**
- * `testCase` with each check's picture copied into the run's `_checks/`, and
- * the check naming that copy by its path in the skill, so a check of the
- * run's copy reads the picture as it was. A picture that is not a file inside
- * the skill keeps its name, and reads as missing as it did.
+ * `graders` of the case `caseId` with each check's picture copied into the
+ * run's `_checks/`, and the check naming that copy by its path in the skill,
+ * so a check of the run's copy reads the picture as it was. A picture that is
+ * not a file inside the skill keeps its name, and reads as missing as it did.
  */
-function withKeptPictures(skillDir: string, runDir: string, testCase: Case): Case {
-  if (!testCase.graders.some((grader) => grader.image)) return testCase
-  const graders = testCase.graders.map((grader) => {
+function keptPictures(
+  skillDir: string,
+  runDir: string,
+  caseId: string,
+  graders: readonly Grader[],
+): Grader[] {
+  return graders.map((grader) => {
     if (!grader.image) return grader
     const source = join(skillDir, grader.image)
     try {
@@ -223,22 +244,34 @@ function withKeptPictures(skillDir: string, runDir: string, testCase: Case): Cas
     } catch {
       return grader
     }
-    const dest = join(runDir, CHECKS_DIR, testCase.id, grader.image)
+    const dest = join(runDir, CHECKS_DIR, caseId, grader.image)
     mkdirSync(dirname(dest), { recursive: true })
     copyFileSync(source, dest)
     return { ...grader, image: relative(skillDir, dest).split(sep).join('/') }
   })
-  return { ...testCase, graders }
+}
+
+/** `testCase` with each check's picture copied into the run's `_checks/` (`keptPictures`). */
+function withKeptPictures(skillDir: string, runDir: string, testCase: Case): Case {
+  if (!testCase.graders.some((grader) => grader.image)) return testCase
+  return { ...testCase, graders: keptPictures(skillDir, runDir, testCase.id, testCase.graders) }
 }
 
 /**
  * Keep `cases` with the run in `runDir`, each with what it asks as the run
- * starts and a copy of the pictures its checks are about.
+ * starts, the checks for every case (`every`) as they stand, and a copy of
+ * the pictures its checks and those are about.
  */
-export function keepCases(skillDir: string, runDir: string, cases: readonly Case[]): void {
+export function keepCases(
+  skillDir: string,
+  runDir: string,
+  cases: readonly Case[],
+  every: readonly Grader[] = [],
+): void {
   const kept: KeptCase[] = cases.map((testCase) => ({
     ask: askOf(skillDir, testCase),
     case: withKeptPictures(skillDir, runDir, testCase),
+    every: keptPictures(skillDir, runDir, testCase.id, every),
   }))
   writeJson(join(runDir, CASES_FILE), kept)
 }
@@ -295,24 +328,31 @@ export interface TakenCase extends RunCase {
 
 /**
  * The case a run takes: the skill's own (`live`) while it asks what the run
- * was asked, with its checks and settings as they are now; else the run's
- * copy (`kept`), whole, so the run is read against the test it took. A run
- * that kept no copy takes the skill's case as it is. Null when there is
- * neither.
+ * was asked, with its checks and settings as they are now, and the checks for
+ * every case as they are now (`every`); else the run's copy (`kept`), whole,
+ * with the checks for every case it kept beside it, so the run is read
+ * against the test it took. A run that kept no copy takes the skill's case as
+ * it is. Null when there is neither. The case taken holds the checks for every
+ * case after its own (`withEveryCase`), and its yardstick counts them;
+ * `earlier` is the copy as it was asked, without them.
  */
 export function takenCase(
   skillDir: string,
   kept: KeptCase | null,
   live: Case | null,
+  every: readonly Grader[] = [],
 ): TakenCase | null {
   const asked = live ? askOf(skillDir, live) : null
-  if (live && asked !== null && (!kept || sameFingerprint(kept.ask, asked)))
-    return { case: live, ask: asked, yardstick: yardstickOf(skillDir, live), earlier: null }
+  if (live && asked !== null && (!kept || sameFingerprint(kept.ask, asked))) {
+    const graded = withEveryCase(live, every)
+    return { case: graded, ask: asked, yardstick: yardstickOf(skillDir, graded), earlier: null }
+  }
   if (!kept) return null
+  const graded = withEveryCase(kept.case, kept.every ?? [])
   return {
-    case: kept.case,
+    case: graded,
     ask: kept.ask,
-    yardstick: yardstickOf(skillDir, kept.case),
+    yardstick: yardstickOf(skillDir, graded),
     earlier: kept.case,
   }
 }
@@ -322,6 +362,7 @@ export function takenCase(
  * they are now (`live`). A run that kept its cases takes those; one that kept
  * none takes each of the skill's. A case the run answered (`answered`) that
  * a damaged file lost is taken as it is now, as for a run that kept none.
+ * `every` is the checks for every case as they are now (`takenCase`).
  */
 export function runCases(
   skillDir: string,
@@ -329,6 +370,7 @@ export function runCases(
   live: readonly Case[],
   kept: KeptCase[] | null = keptCases(runDir),
   answered: readonly string[] = [],
+  every: readonly Grader[] = [],
 ): Record<string, RunCase> {
   const byId = new Map(live.map((testCase) => [testCase.id, testCase]))
   const held = new Set(kept?.map((entry) => entry.case.id))
@@ -341,7 +383,7 @@ export function runCases(
     : live.map((testCase) => [null, testCase])
   const cases: Record<string, RunCase> = {}
   for (const [entry, testCase] of pairs) {
-    const taken = takenCase(skillDir, entry, testCase)
+    const taken = takenCase(skillDir, entry, testCase, every)
     if (!taken) continue
     const { case: read, ...view } = taken
     cases[read.id] = view

@@ -1,0 +1,4303 @@
+{
+  "createdAt": "2026-11-21T05:55:46.342Z",
+  "model": "jev-1.14.0",
+  "inputTokens": 83305,
+  "seconds": 0.7,
+  "asked": {
+    "questions": 209,
+    "inputTokens": 83305
+  },
+  "config": {
+    "packs": [
+      "generic"
+    ],
+    "rules": null,
+    "weights": {
+      "adherence": 50,
+      "rubric": 50
+    },
+    "yes": 0.7,
+    "no": 0.3
+  },
+  "packs": [
+    "generic"
+  ],
+  "results": [
+    {
+      "sample": "email-crowded-s1",
+      "case": "email-crowded",
+      "label": null,
+      "tests": [],
+      "artifacts": [
+        {
+          "file": "outputs/email.txt",
+          "kind": "markdown"
+        }
+      ],
+      "primary": {
+        "file": "outputs/email.txt",
+        "kind": "markdown"
+      },
+      "words": 136,
+      "range": null,
+      "pixels": null,
+      "size": null,
+      "blank": false,
+      "yardstick": "1fe2d78e1b0cdb1e6033aae8446e4415ea48adc22decfecf39514455a42a0f31:3c8730491642a631566d1f405f96d3986e7ee137526759259bce4cfad3390127",
+      "graded": {
+        "model": "jev-1.14.0",
+        "packs": {
+          "generic": 10
+        },
+        "settings": {
+          "generic": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b"
+        }
+      },
+      "packs": {
+        "generic": {
+          "adherence": {
+            "rules": [
+              {
+                "id": "r1",
+                "text": "Open with the brief's Headline, word for word. A reworded headline is one the team did not approve.",
+                "section": "Rules for every announcement",
+                "noul": 0.8,
+                "code": {
+                  "answer": "none",
+                  "why": "differ",
+                  "saw": [
+                    {
+                      "test": "has",
+                      "answer": "missed",
+                      "why": null,
+                      "found": [],
+                      "missing": [
+                        "Six ways to fill a quiet week."
+                      ],
+                      "foundTotal": 0,
+                      "missingTotal": 1
+                    },
+                    {
+                      "test": "has",
+                      "answer": "met",
+                      "why": null,
+                      "found": [
+                        {
+                          "value": "Six ways to fill a quiet week.",
+                          "piece": 0,
+                          "at": 1,
+                          "text": "Six ways to fill a quiet week"
+                        }
+                      ],
+                      "missing": [],
+                      "foundTotal": 1,
+                      "missingTotal": 0
+                    }
+                  ],
+                  "tests": [
+                    {
+                      "test": "has",
+                      "read": {
+                        "part": "line",
+                        "label": "Subject",
+                        "number": null
+                      },
+                      "values": {
+                        "from": "request",
+                        "in": "request and files",
+                        "file": null,
+                        "labels": [
+                          "Headline"
+                        ],
+                        "take": "whole",
+                        "level": null
+                      },
+                      "need": "all",
+                      "at": "start",
+                      "match": "words",
+                      "case": "exact"
+                    },
+                    {
+                      "test": "has",
+                      "read": {
+                        "part": "text",
+                        "skip": "Subject"
+                      },
+                      "values": {
+                        "from": "request",
+                        "in": "request and files",
+                        "file": null,
+                        "labels": [
+                          "Headline"
+                        ],
+                        "take": "whole",
+                        "level": null
+                      },
+                      "need": "all",
+                      "at": "start",
+                      "match": "words",
+                      "case": "exact"
+                    }
+                  ]
+                },
+                "applies": 0.99,
+                "comesUp": 0.99
+              },
+              {
+                "id": "r2",
+                "text": "Name the product with its version, such as Ferry 3.2, at least once. A reader should know which release the note is about.",
+                "section": "Rules for every announcement",
+                "noul": 0.98,
+                "span": "any",
+                "applies": 0.99,
+                "comesUp": 0.99
+              },
+              {
+                "id": "r3",
+                "text": "Use only numbers the brief states, never a number of your own. An invented figure is a claim nobody checked.",
+                "section": "Rules for every announcement",
+                "noul": 0.86,
+                "code": {
+                  "answer": "met",
+                  "saw": [
+                    {
+                      "test": "only",
+                      "answer": "met",
+                      "why": null,
+                      "outside": [],
+                      "otherNotation": [],
+                      "outsideTotal": 0
+                    }
+                  ],
+                  "tests": [
+                    {
+                      "test": "only",
+                      "read": {
+                        "part": "text",
+                        "skip": null
+                      },
+                      "what": "numbers",
+                      "allowed": {
+                        "from": "request",
+                        "in": "request and files",
+                        "file": null,
+                        "labels": [],
+                        "take": "numbers",
+                        "level": null
+                      }
+                    }
+                  ]
+                },
+                "applies": 0.99,
+                "comesUp": 0.98
+              },
+              {
+                "id": "r4",
+                "text": "Write no more than 120 words. Most readers stop after the first screen.",
+                "section": "Rules for every announcement",
+                "noul": 0.75,
+                "code": {
+                  "answer": "missed",
+                  "saw": [
+                    {
+                      "test": "count",
+                      "answer": "missed",
+                      "why": null,
+                      "counts": [
+                        136,
+                        129,
+                        136,
+                        129
+                      ],
+                      "compare": "at most",
+                      "n": 120
+                    }
+                  ],
+                  "tests": [
+                    {
+                      "test": "count",
+                      "read": {
+                        "part": "text",
+                        "skip": null
+                      },
+                      "what": "words",
+                      "compare": "at most",
+                      "n": 120
+                    }
+                  ]
+                },
+                "applies": 0.99,
+                "comesUp": 0.99
+              },
+              {
+                "id": "r5",
+                "text": "When the brief gives a Price, state it with its currency code, such as 12 USD. A bare number reads as a different amount in each country.",
+                "section": "Rules for every announcement",
+                "noul": 0.97,
+                "span": "any",
+                "applies": 0.99,
+                "comesUp": 0.94
+              },
+              {
+                "id": "r6",
+                "text": "Quote the customer in the brief's Quote word for word, with their name. A paraphrase puts words in their mouth.",
+                "section": "Rules for every announcement",
+                "noul": 0.98,
+                "span": "any",
+                "applies": 0.99,
+                "comesUp": 0.96
+              },
+              {
+                "id": "r7",
+                "text": "Never use the words exciting, thrilled, delighted or proud. They say how the company feels, not what the reader gets.",
+                "section": "Rules for every announcement",
+                "noul": 0.99,
+                "code": {
+                  "answer": "met",
+                  "saw": [
+                    {
+                      "test": "has",
+                      "answer": "met",
+                      "why": null,
+                      "found": [],
+                      "missing": [
+                        "exciting",
+                        "thrilled",
+                        "delighted",
+                        "proud"
+                      ],
+                      "foundTotal": 0,
+                      "missingTotal": 4
+                    }
+                  ],
+                  "tests": [
+                    {
+                      "test": "has",
+                      "read": {
+                        "part": "text",
+                        "skip": null
+                      },
+                      "values": {
+                        "from": "listed",
+                        "items": [
+                          "exciting",
+                          "thrilled",
+                          "delighted",
+                          "proud"
+                        ]
+                      },
+                      "need": "none",
+                      "at": "anywhere",
+                      "match": "words",
+                      "case": "any"
+                    }
+                  ]
+                },
+                "applies": 0.99,
+                "comesUp": 0.99
+              },
+              {
+                "id": "r8",
+                "text": "Never use the word users. Write to the reader as you, since the note goes to one person at a time.",
+                "section": "Rules for every announcement",
+                "noul": 0.96,
+                "code": {
+                  "answer": "met",
+                  "saw": [
+                    {
+                      "test": "has",
+                      "answer": "met",
+                      "why": null,
+                      "found": [],
+                      "missing": [
+                        "users"
+                      ],
+                      "foundTotal": 0,
+                      "missingTotal": 1
+                    }
+                  ],
+                  "tests": [
+                    {
+                      "test": "has",
+                      "read": {
+                        "part": "text",
+                        "skip": null
+                      },
+                      "values": {
+                        "from": "listed",
+                        "items": [
+                          "users"
+                        ]
+                      },
+                      "need": "none",
+                      "at": "anywhere",
+                      "match": "words",
+                      "case": "any"
+                    }
+                  ]
+                },
+                "applies": 0.99,
+                "comesUp": 0.99
+              },
+              {
+                "id": "r9",
+                "text": "Name every feature in the brief's Features list by the name the brief gives it. A feature left out is one nobody hears about.",
+                "section": "Rules for every announcement",
+                "noul": 0.99,
+                "code": {
+                  "answer": "met",
+                  "saw": [
+                    {
+                      "test": "has",
+                      "answer": "met",
+                      "why": null,
+                      "found": [
+                        {
+                          "value": "Gap finder",
+                          "piece": 0,
+                          "at": 173,
+                          "text": "gap finder"
+                        },
+                        {
+                          "value": "Last-minute offers",
+                          "piece": 0,
+                          "at": 228,
+                          "text": "last-minute offers"
+                        },
+                        {
+                          "value": "Group bookings",
+                          "piece": 0,
+                          "at": 310,
+                          "text": "group bookings"
+                        },
+                        {
+                          "value": "Gift cards",
+                          "piece": 0,
+                          "at": 355,
+                          "text": "gift cards"
+                        },
+                        {
+                          "value": "Repeat bookings",
+                          "piece": 0,
+                          "at": 411,
+                          "text": "repeat bookings"
+                        },
+                        {
+                          "value": "Busy-time report",
+                          "piece": 0,
+                          "at": 466,
+                          "text": "busy-time report"
+                        }
+                      ],
+                      "missing": [],
+                      "foundTotal": 6,
+                      "missingTotal": 0
+                    }
+                  ],
+                  "tests": [
+                    {
+                      "test": "has",
+                      "read": {
+                        "part": "text",
+                        "skip": null
+                      },
+                      "values": {
+                        "from": "request",
+                        "in": "file",
+                        "file": "brief.md",
+                        "labels": [
+                          "Features"
+                        ],
+                        "take": "item names",
+                        "level": null
+                      },
+                      "need": "all",
+                      "at": "anywhere",
+                      "match": "words",
+                      "case": "any"
+                    }
+                  ]
+                },
+                "applies": 0.99,
+                "comesUp": 0.98
+              },
+              {
+                "id": "r10",
+                "text": "Leave out anything the brief marks Internal, and any codename it gives. Those lines are for the team alone.",
+                "section": "Rules for every announcement",
+                "noul": 0.99,
+                "span": "every",
+                "applies": 0.99,
+                "comesUp": 0.99
+              },
+              {
+                "id": "r11",
+                "text": "Put the subject on the first line, after Subject: , in 50 characters or fewer. A longer subject is cut off in most inboxes.",
+                "section": "Rules for an email",
+                "noul": 0.91,
+                "code": {
+                  "answer": "met",
+                  "saw": [
+                    {
+                      "test": "has",
+                      "answer": "met",
+                      "why": null,
+                      "found": [
+                        {
+                          "value": "Subject:",
+                          "piece": 0,
+                          "at": 0,
+                          "text": "Subject:"
+                        }
+                      ],
+                      "missing": [],
+                      "foundTotal": 1,
+                      "missingTotal": 0
+                    },
+                    {
+                      "test": "count",
+                      "answer": "met",
+                      "why": null,
+                      "counts": [
+                        40,
+                        40,
+                        40
+                      ],
+                      "compare": "at most",
+                      "n": 50
+                    }
+                  ],
+                  "tests": [
+                    {
+                      "test": "has",
+                      "read": {
+                        "part": "line",
+                        "label": null,
+                        "number": 1
+                      },
+                      "values": {
+                        "from": "listed",
+                        "items": [
+                          "Subject:"
+                        ]
+                      },
+                      "need": "all",
+                      "at": "start",
+                      "match": "characters",
+                      "case": "exact"
+                    },
+                    {
+                      "test": "count",
+                      "read": {
+                        "part": "line",
+                        "label": "Subject",
+                        "number": null
+                      },
+                      "what": "characters",
+                      "compare": "at most",
+                      "n": 50
+                    }
+                  ]
+                },
+                "applies": 0.99,
+                "comesUp": 0.99
+              },
+              {
+                "id": "r12",
+                "text": "Write plain text with no Markdown: no #, no ** and no list marks (-, * or •). Most mail apps show the marks as they are typed.",
+                "section": "Rules for an email",
+                "noul": 0.56,
+                "span": "every",
+                "applies": 0.99,
+                "comesUp": 0.99
+              },
+              {
+                "id": "r13",
+                "text": "Give exactly one link, the brief's Link. Two links split the clicks.",
+                "section": "Rules for an email",
+                "noul": 0.98,
+                "code": {
+                  "answer": "met",
+                  "saw": [
+                    {
+                      "test": "count",
+                      "answer": "met",
+                      "why": null,
+                      "counts": [
+                        1
+                      ],
+                      "compare": "exactly",
+                      "n": 1
+                    },
+                    {
+                      "test": "has",
+                      "answer": "met",
+                      "why": null,
+                      "found": [
+                        {
+                          "value": "https://ferry.example/3-5",
+                          "piece": 0,
+                          "at": 607,
+                          "text": "https://ferry.example/3-5"
+                        }
+                      ],
+                      "missing": [],
+                      "foundTotal": 1,
+                      "missingTotal": 0
+                    }
+                  ],
+                  "tests": [
+                    {
+                      "test": "count",
+                      "read": {
+                        "part": "file"
+                      },
+                      "what": "links",
+                      "compare": "exactly",
+                      "n": 1
+                    },
+                    {
+                      "test": "has",
+                      "read": {
+                        "part": "file"
+                      },
+                      "values": {
+                        "from": "request",
+                        "in": "request and files",
+                        "file": null,
+                        "labels": [
+                          "Link"
+                        ],
+                        "take": "links",
+                        "level": null
+                      },
+                      "need": "all",
+                      "at": "anywhere",
+                      "match": "characters",
+                      "case": "exact"
+                    }
+                  ]
+                },
+                "applies": 0.99,
+                "comesUp": 0.99
+              },
+              {
+                "id": "r14",
+                "text": "End with the release date, the support address and the name of the person who signs it, in that order, each on a line of its own. Readers look for all three in the same place.",
+                "section": "Rules for an email",
+                "noul": 0.92,
+                "span": "end",
+                "applies": 0.99,
+                "comesUp": 0.98
+              },
+              {
+                "id": "r15",
+                "text": "Write one file with its styles in a <style> tag, no script and no outside file. The page is pasted into a CMS that strips both.",
+                "section": "Rules for a web page",
+                "noul": 0.96,
+                "span": "whole",
+                "applies": 0.03,
+                "comesUp": 0.04
+              },
+              {
+                "id": "r16",
+                "text": "Use exactly one <h1>, holding the headline and nothing else. Search engines and screen readers take it as the page's title.",
+                "section": "Rules for a web page",
+                "noul": 0.96,
+                "code": {
+                  "answer": "none",
+                  "why": "kind",
+                  "saw": [],
+                  "tests": [
+                    {
+                      "test": "count",
+                      "read": {
+                        "part": "elements",
+                        "tag": "h1",
+                        "attribute": null,
+                        "which": "every"
+                      },
+                      "what": "items",
+                      "compare": "exactly",
+                      "n": 1
+                    },
+                    {
+                      "test": "has",
+                      "read": {
+                        "part": "elements",
+                        "tag": "h1",
+                        "attribute": null,
+                        "which": "every"
+                      },
+                      "values": {
+                        "from": "request",
+                        "in": "request and files",
+                        "file": null,
+                        "labels": [
+                          "Headline"
+                        ],
+                        "take": "whole",
+                        "level": null
+                      },
+                      "need": "all",
+                      "at": "whole",
+                      "match": "words",
+                      "case": "exact"
+                    }
+                  ]
+                },
+                "applies": 0.03,
+                "comesUp": 0.04
+              },
+              {
+                "id": "r17",
+                "text": "Set the body text at 18px and the content column at most 640px wide. That is what the site's articles use.",
+                "section": "Rules for a web page",
+                "noul": 0.97,
+                "span": "whole",
+                "applies": 0.03,
+                "comesUp": 0.03
+              },
+              {
+                "id": "r18",
+                "text": "Use only the colours in the brief's Colours list. Any other colour is off brand.",
+                "section": "Rules for a web page",
+                "noul": 0.98,
+                "code": {
+                  "answer": "none",
+                  "why": "kind",
+                  "saw": [],
+                  "tests": [
+                    {
+                      "test": "only",
+                      "read": {
+                        "part": "styles"
+                      },
+                      "what": "hex colours",
+                      "allowed": {
+                        "from": "request",
+                        "in": "request and files",
+                        "file": null,
+                        "labels": [
+                          "Colours"
+                        ],
+                        "take": "hex colours",
+                        "level": null
+                      }
+                    }
+                  ]
+                },
+                "applies": 0.03,
+                "comesUp": 0.04
+              },
+              {
+                "id": "r19",
+                "text": "End the page with a footer that holds the line \"Questions? Write to\" and the support address. A reader who scrolls to the end is looking for a way to ask.",
+                "section": "Rules for a web page",
+                "noul": 0.96,
+                "span": "end",
+                "applies": 0.03,
+                "comesUp": 0.04
+              }
+            ]
+          },
+          "rubric": {
+            "statements": [
+              {
+                "id": "01-six",
+                "text": "The email names all six features.",
+                "weight": 2,
+                "noul": 0.99,
+                "span": "whole",
+                "units": null,
+                "best": null
+              },
+              {
+                "id": "02-date",
+                "text": "The email gives the release date, 9 June 2027.",
+                "weight": 1,
+                "noul": 0.99,
+                "span": "any",
+                "units": null,
+                "best": null
+              }
+            ]
+          }
+        }
+      },
+      "scores": {
+        "total": 96,
+        "adherence": 92,
+        "rubric": 100
+      },
+      "flags": [
+        "rule not counted, code could not settle it (differ) (Rules for every announcement): Open with the brief's Headline, word for word. A reworded headline is one the team did not approve.",
+        "rule not followed, by code (Rules for every announcement): Write no more than 120 words. Most readers stop after the first screen.",
+        "rule not counted, Jev was not sure (Rules for an email): Write plain text with no Markdown: no #, no ** and no list marks (-, * or •). Most mail apps show the marks a…",
+        "5 rules not counted: for another kind of work or situation than this"
+      ],
+      "confidence": 0.8523809523809524
+    },
+    {
+      "sample": "email-free-s1",
+      "case": "email-free",
+      "label": null,
+      "tests": [],
+      "artifacts": [
+        {
+          "file": "outputs/email.txt",
+          "kind": "markdown"
+        }
+      ],
+      "primary": {
+        "file": "outputs/email.txt",
+        "kind": "markdown"
+      },
+      "words": 97,
+      "range": null,
+      "pixels": null,
+      "size": null,
+      "blank": false,
+      "yardstick": "ef4f99fff5e8ba53547aefe68d4580ec933e9f9a9925d16ac6ab17b0b9dee65f:3c8730491642a631566d1f405f96d3986e7ee137526759259bce4cfad3390127",
+      "graded": {
+        "model": "jev-1.14.0",
+        "packs": {
+          "generic": 10
+        },
+        "settings": {
+          "generic": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b"
+        }
+      },
+      "packs": {
+        "generic": {
+          "adherence": {
+            "rules": [
+              {
+                "id": "r1",
+                "text": "Open with the brief's Headline, word for word. A reworded headline is one the team did not approve.",
+                "section": "Rules for every announcement",
+                "noul": 0.94,
+                "code": {
+                  "answer": "none",
+                  "why": "differ",
+                  "saw": [
+                    {
+                      "test": "has",
+                      "answer": "missed",
+                      "why": null,
+                      "found": [],
+                      "missing": [
+                        "Reschedule in one tap."
+                      ],
+                      "foundTotal": 0,
+                      "missingTotal": 1
+                    },
+                    {
+                      "test": "has",
+                      "answer": "met",
+                      "why": null,
+                      "found": [
+                        {
+                          "value": "Reschedule in one tap.",
+                          "piece": 0,
+                          "at": 1,
+                          "text": "Reschedule in one tap"
+                        }
+                      ],
+                      "missing": [],
+                      "foundTotal": 1,
+                      "missingTotal": 0
+                    }
+                  ],
+                  "tests": [
+                    {
+                      "test": "has",
+                      "read": {
+                        "part": "line",
+                        "label": "Subject",
+                        "number": null
+                      },
+                      "values": {
+                        "from": "request",
+                        "in": "request and files",
+                        "file": null,
+                        "labels": [
+                          "Headline"
+                        ],
+                        "take": "whole",
+                        "level": null
+                      },
+                      "need": "all",
+                      "at": "start",
+                      "match": "words",
+                      "case": "exact"
+                    },
+                    {
+                      "test": "has",
+                      "read": {
+                        "part": "text",
+                        "skip": "Subject"
+                      },
+                      "values": {
+                        "from": "request",
+                        "in": "request and files",
+                        "file": null,
+                        "labels": [
+                          "Headline"
+                        ],
+                        "take": "whole",
+                        "level": null
+                      },
+                      "need": "all",
+                      "at": "start",
+                      "match": "words",
+                      "case": "exact"
+                    }
+                  ]
+                },
+                "applies": 0.99,
+                "comesUp": 0.99
+              },
+              {
+                "id": "r2",
+                "text": "Name the product with its version, such as Ferry 3.2, at least once. A reader should know which release the note is about.",
+                "section": "Rules for every announcement",
+                "noul": 0.99,
+                "span": "any",
+                "applies": 0.99,
+                "comesUp": 0.99
+              },
+              {
+                "id": "r3",
+                "text": "Use only numbers the brief states, never a number of your own. An invented figure is a claim nobody checked.",
+                "section": "Rules for every announcement",
+                "noul": 0.9,
+                "code": {
+                  "answer": "met",
+                  "saw": [
+                    {
+                      "test": "only",
+                      "answer": "met",
+                      "why": null,
+                      "outside": [],
+                      "otherNotation": [],
+                      "outsideTotal": 0
+                    }
+                  ],
+                  "tests": [
+                    {
+                      "test": "only",
+                      "read": {
+                        "part": "text",
+                        "skip": null
+                      },
+                      "what": "numbers",
+                      "allowed": {
+                        "from": "request",
+                        "in": "request and files",
+                        "file": null,
+                        "labels": [],
+                        "take": "numbers",
+                        "level": null
+                      }
+                    }
+                  ]
+                },
+                "applies": 0.99,
+                "comesUp": 0.98
+              },
+              {
+                "id": "r4",
+                "text": "Write no more than 120 words. Most readers stop after the first screen.",
+                "section": "Rules for every announcement",
+                "noul": 0.97,
+                "code": {
+                  "answer": "met",
+                  "saw": [
+                    {
+                      "test": "count",
+                      "answer": "met",
+                      "why": null,
+                      "counts": [
+                        97,
+                        91,
+                        97,
+                        91
+                      ],
+                      "compare": "at most",
+                      "n": 120
+                    }
+                  ],
+                  "tests": [
+                    {
+                      "test": "count",
+                      "read": {
+                        "part": "text",
+                        "skip": null
+                      },
+                      "what": "words",
+                      "compare": "at most",
+                      "n": 120
+                    }
+                  ]
+                },
+                "applies": 0.99,
+                "comesUp": 0.99
+              },
+              {
+                "id": "r5",
+                "text": "When the brief gives a Price, state it with its currency code, such as 12 USD. A bare number reads as a different amount in each country.",
+                "section": "Rules for every announcement",
+                "noul": 0.99,
+                "span": "any",
+                "applies": 0.99,
+                "comesUp": 0.94
+              },
+              {
+                "id": "r6",
+                "text": "Quote the customer in the brief's Quote word for word, with their name. A paraphrase puts words in their mouth.",
+                "section": "Rules for every announcement",
+                "noul": 0.99,
+                "span": "any",
+                "applies": 0.99,
+                "comesUp": 0.96
+              },
+              {
+                "id": "r7",
+                "text": "Never use the words exciting, thrilled, delighted or proud. They say how the company feels, not what the reader gets.",
+                "section": "Rules for every announcement",
+                "noul": 0.99,
+                "code": {
+                  "answer": "met",
+                  "saw": [
+                    {
+                      "test": "has",
+                      "answer": "met",
+                      "why": null,
+                      "found": [],
+                      "missing": [
+                        "exciting",
+                        "thrilled",
+                        "delighted",
+                        "proud"
+                      ],
+                      "foundTotal": 0,
+                      "missingTotal": 4
+                    }
+                  ],
+                  "tests": [
+                    {
+                      "test": "has",
+                      "read": {
+                        "part": "text",
+                        "skip": null
+                      },
+                      "values": {
+                        "from": "listed",
+                        "items": [
+                          "exciting",
+                          "thrilled",
+                          "delighted",
+                          "proud"
+                        ]
+                      },
+                      "need": "none",
+                      "at": "anywhere",
+                      "match": "words",
+                      "case": "any"
+                    }
+                  ]
+                },
+                "applies": 0.99,
+                "comesUp": 0.99
+              },
+              {
+                "id": "r8",
+                "text": "Never use the word users. Write to the reader as you, since the note goes to one person at a time.",
+                "section": "Rules for every announcement",
+                "noul": 0.68,
+                "code": {
+                  "answer": "met",
+                  "saw": [
+                    {
+                      "test": "has",
+                      "answer": "met",
+                      "why": null,
+                      "found": [],
+                      "missing": [
+                        "users"
+                      ],
+                      "foundTotal": 0,
+                      "missingTotal": 1
+                    }
+                  ],
+                  "tests": [
+                    {
+                      "test": "has",
+                      "read": {
+                        "part": "text",
+                        "skip": null
+                      },
+                      "values": {
+                        "from": "listed",
+                        "items": [
+                          "users"
+                        ]
+                      },
+                      "need": "none",
+                      "at": "anywhere",
+                      "match": "words",
+                      "case": "any"
+                    }
+                  ]
+                },
+                "applies": 0.99,
+                "comesUp": 0.99
+              },
+              {
+                "id": "r9",
+                "text": "Name every feature in the brief's Features list by the name the brief gives it. A feature left out is one nobody hears about.",
+                "section": "Rules for every announcement",
+                "noul": 0.99,
+                "code": {
+                  "answer": "met",
+                  "saw": [
+                    {
+                      "test": "has",
+                      "answer": "met",
+                      "why": null,
+                      "found": [
+                        {
+                          "value": "One-tap reschedule",
+                          "piece": 0,
+                          "at": 145,
+                          "text": "one-tap reschedule"
+                        },
+                        {
+                          "value": "Reschedule limits",
+                          "piece": 0,
+                          "at": 235,
+                          "text": "reschedule limits"
+                        }
+                      ],
+                      "missing": [],
+                      "foundTotal": 2,
+                      "missingTotal": 0
+                    }
+                  ],
+                  "tests": [
+                    {
+                      "test": "has",
+                      "read": {
+                        "part": "text",
+                        "skip": null
+                      },
+                      "values": {
+                        "from": "request",
+                        "in": "file",
+                        "file": "brief.md",
+                        "labels": [
+                          "Features"
+                        ],
+                        "take": "item names",
+                        "level": null
+                      },
+                      "need": "all",
+                      "at": "anywhere",
+                      "match": "words",
+                      "case": "any"
+                    }
+                  ]
+                },
+                "applies": 0.99,
+                "comesUp": 0.98
+              },
+              {
+                "id": "r10",
+                "text": "Leave out anything the brief marks Internal, and any codename it gives. Those lines are for the team alone.",
+                "section": "Rules for every announcement",
+                "noul": 0.99,
+                "span": "every",
+                "applies": 0.99,
+                "comesUp": 0.99
+              },
+              {
+                "id": "r11",
+                "text": "Put the subject on the first line, after Subject: , in 50 characters or fewer. A longer subject is cut off in most inboxes.",
+                "section": "Rules for an email",
+                "noul": 0.99,
+                "code": {
+                  "answer": "met",
+                  "saw": [
+                    {
+                      "test": "has",
+                      "answer": "met",
+                      "why": null,
+                      "found": [
+                        {
+                          "value": "Subject:",
+                          "piece": 0,
+                          "at": 0,
+                          "text": "Subject:"
+                        }
+                      ],
+                      "missing": [],
+                      "foundTotal": 1,
+                      "missingTotal": 0
+                    },
+                    {
+                      "test": "count",
+                      "answer": "met",
+                      "why": null,
+                      "counts": [
+                        32,
+                        32,
+                        32
+                      ],
+                      "compare": "at most",
+                      "n": 50
+                    }
+                  ],
+                  "tests": [
+                    {
+                      "test": "has",
+                      "read": {
+                        "part": "line",
+                        "label": null,
+                        "number": 1
+                      },
+                      "values": {
+                        "from": "listed",
+                        "items": [
+                          "Subject:"
+                        ]
+                      },
+                      "need": "all",
+                      "at": "start",
+                      "match": "characters",
+                      "case": "exact"
+                    },
+                    {
+                      "test": "count",
+                      "read": {
+                        "part": "line",
+                        "label": "Subject",
+                        "number": null
+                      },
+                      "what": "characters",
+                      "compare": "at most",
+                      "n": 50
+                    }
+                  ]
+                },
+                "applies": 0.99,
+                "comesUp": 0.99
+              },
+              {
+                "id": "r12",
+                "text": "Write plain text with no Markdown: no #, no ** and no list marks (-, * or •). Most mail apps show the marks as they are typed.",
+                "section": "Rules for an email",
+                "noul": 0.96,
+                "span": "every",
+                "applies": 0.99,
+                "comesUp": 0.99
+              },
+              {
+                "id": "r13",
+                "text": "Give exactly one link, the brief's Link. Two links split the clicks.",
+                "section": "Rules for an email",
+                "noul": 0.97,
+                "code": {
+                  "answer": "met",
+                  "saw": [
+                    {
+                      "test": "count",
+                      "answer": "met",
+                      "why": null,
+                      "counts": [
+                        1
+                      ],
+                      "compare": "exactly",
+                      "n": 1
+                    },
+                    {
+                      "test": "has",
+                      "answer": "met",
+                      "why": null,
+                      "found": [
+                        {
+                          "value": "https://ferry.example/3-3",
+                          "piece": 0,
+                          "at": 448,
+                          "text": "https://ferry.example/3-3"
+                        }
+                      ],
+                      "missing": [],
+                      "foundTotal": 1,
+                      "missingTotal": 0
+                    }
+                  ],
+                  "tests": [
+                    {
+                      "test": "count",
+                      "read": {
+                        "part": "file"
+                      },
+                      "what": "links",
+                      "compare": "exactly",
+                      "n": 1
+                    },
+                    {
+                      "test": "has",
+                      "read": {
+                        "part": "file"
+                      },
+                      "values": {
+                        "from": "request",
+                        "in": "request and files",
+                        "file": null,
+                        "labels": [
+                          "Link"
+                        ],
+                        "take": "links",
+                        "level": null
+                      },
+                      "need": "all",
+                      "at": "anywhere",
+                      "match": "characters",
+                      "case": "exact"
+                    }
+                  ]
+                },
+                "applies": 0.99,
+                "comesUp": 0.99
+              },
+              {
+                "id": "r14",
+                "text": "End with the release date, the support address and the name of the person who signs it, in that order, each on a line of its own. Readers look for all three in the same place.",
+                "section": "Rules for an email",
+                "noul": 0.97,
+                "span": "end",
+                "applies": 0.99,
+                "comesUp": 0.98
+              },
+              {
+                "id": "r15",
+                "text": "Write one file with its styles in a <style> tag, no script and no outside file. The page is pasted into a CMS that strips both.",
+                "section": "Rules for a web page",
+                "noul": 0.97,
+                "span": "whole",
+                "applies": 0.03,
+                "comesUp": 0.04
+              },
+              {
+                "id": "r16",
+                "text": "Use exactly one <h1>, holding the headline and nothing else. Search engines and screen readers take it as the page's title.",
+                "section": "Rules for a web page",
+                "noul": 0.96,
+                "code": {
+                  "answer": "none",
+                  "why": "kind",
+                  "saw": [],
+                  "tests": [
+                    {
+                      "test": "count",
+                      "read": {
+                        "part": "elements",
+                        "tag": "h1",
+                        "attribute": null,
+                        "which": "every"
+                      },
+                      "what": "items",
+                      "compare": "exactly",
+                      "n": 1
+                    },
+                    {
+                      "test": "has",
+                      "read": {
+                        "part": "elements",
+                        "tag": "h1",
+                        "attribute": null,
+                        "which": "every"
+                      },
+                      "values": {
+                        "from": "request",
+                        "in": "request and files",
+                        "file": null,
+                        "labels": [
+                          "Headline"
+                        ],
+                        "take": "whole",
+                        "level": null
+                      },
+                      "need": "all",
+                      "at": "whole",
+                      "match": "words",
+                      "case": "exact"
+                    }
+                  ]
+                },
+                "applies": 0.03,
+                "comesUp": 0.04
+              },
+              {
+                "id": "r17",
+                "text": "Set the body text at 18px and the content column at most 640px wide. That is what the site's articles use.",
+                "section": "Rules for a web page",
+                "noul": 0.97,
+                "span": "whole",
+                "applies": 0.03,
+                "comesUp": 0.03
+              },
+              {
+                "id": "r18",
+                "text": "Use only the colours in the brief's Colours list. Any other colour is off brand.",
+                "section": "Rules for a web page",
+                "noul": 0.99,
+                "code": {
+                  "answer": "none",
+                  "why": "kind",
+                  "saw": [],
+                  "tests": [
+                    {
+                      "test": "only",
+                      "read": {
+                        "part": "styles"
+                      },
+                      "what": "hex colours",
+                      "allowed": {
+                        "from": "request",
+                        "in": "request and files",
+                        "file": null,
+                        "labels": [
+                          "Colours"
+                        ],
+                        "take": "hex colours",
+                        "level": null
+                      }
+                    }
+                  ]
+                },
+                "applies": 0.03,
+                "comesUp": 0.04
+              },
+              {
+                "id": "r19",
+                "text": "End the page with a footer that holds the line \"Questions? Write to\" and the support address. A reader who scrolls to the end is looking for a way to ask.",
+                "section": "Rules for a web page",
+                "noul": 0.96,
+                "span": "end",
+                "applies": 0.03,
+                "comesUp": 0.04
+              }
+            ]
+          },
+          "rubric": {
+            "statements": [
+              {
+                "id": "01-free",
+                "text": "The email says the update is free for everyone on a paid plan.",
+                "weight": 1,
+                "noul": 1,
+                "span": "any",
+                "units": null,
+                "best": null
+              },
+              {
+                "id": "02-support",
+                "text": "The email gives the support address, help@ferry.example.",
+                "weight": 1,
+                "noul": 0.99,
+                "code": {
+                  "answer": "met",
+                  "saw": [
+                    {
+                      "test": "has",
+                      "answer": "met",
+                      "why": null,
+                      "found": [
+                        {
+                          "value": "help@ferry.example",
+                          "piece": 0,
+                          "at": 509,
+                          "text": "help@ferry.example"
+                        }
+                      ],
+                      "missing": [],
+                      "foundTotal": 1,
+                      "missingTotal": 0
+                    }
+                  ],
+                  "tests": [
+                    {
+                      "test": "has",
+                      "read": {
+                        "part": "text",
+                        "skip": null
+                      },
+                      "values": {
+                        "from": "listed",
+                        "items": [
+                          "help@ferry.example"
+                        ]
+                      },
+                      "need": "all",
+                      "at": "anywhere",
+                      "match": "characters",
+                      "case": "any"
+                    }
+                  ]
+                },
+                "units": null,
+                "best": null
+              }
+            ]
+          }
+        }
+      },
+      "scores": {
+        "total": 100,
+        "adherence": 100,
+        "rubric": 100
+      },
+      "flags": [
+        "rule not counted, code could not settle it (differ) (Rules for every announcement): Open with the brief's Headline, word for word. A reworded headline is one the team did not approve.",
+        "5 rules not counted: for another kind of work or situation than this"
+      ],
+      "confidence": 0.9199999999999998
+    },
+    {
+      "sample": "email-price-s1",
+      "case": "email-price",
+      "label": null,
+      "tests": [],
+      "artifacts": [
+        {
+          "file": "outputs/email.txt",
+          "kind": "markdown"
+        }
+      ],
+      "primary": {
+        "file": "outputs/email.txt",
+        "kind": "markdown"
+      },
+      "words": 97,
+      "range": null,
+      "pixels": null,
+      "size": null,
+      "blank": false,
+      "yardstick": "08a95e067589bc87ff5038507840f4e18a04d47a02cc35964ee93b04a2d556bc:3c8730491642a631566d1f405f96d3986e7ee137526759259bce4cfad3390127",
+      "graded": {
+        "model": "jev-1.14.0",
+        "packs": {
+          "generic": 10
+        },
+        "settings": {
+          "generic": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b"
+        }
+      },
+      "packs": {
+        "generic": {
+          "adherence": {
+            "rules": [
+              {
+                "id": "r1",
+                "text": "Open with the brief's Headline, word for word. A reworded headline is one the team did not approve.",
+                "section": "Rules for every announcement",
+                "noul": 0.88,
+                "code": {
+                  "answer": "none",
+                  "why": "differ",
+                  "saw": [
+                    {
+                      "test": "has",
+                      "answer": "missed",
+                      "why": null,
+                      "found": [],
+                      "missing": [
+                        "Bookings now confirm themselves."
+                      ],
+                      "foundTotal": 0,
+                      "missingTotal": 1
+                    },
+                    {
+                      "test": "has",
+                      "answer": "met",
+                      "why": null,
+                      "found": [
+                        {
+                          "value": "Bookings now confirm themselves.",
+                          "piece": 0,
+                          "at": 1,
+                          "text": "Bookings now confirm themselves"
+                        }
+                      ],
+                      "missing": [],
+                      "foundTotal": 1,
+                      "missingTotal": 0
+                    }
+                  ],
+                  "tests": [
+                    {
+                      "test": "has",
+                      "read": {
+                        "part": "line",
+                        "label": "Subject",
+                        "number": null
+                      },
+                      "values": {
+                        "from": "request",
+                        "in": "request and files",
+                        "file": null,
+                        "labels": [
+                          "Headline"
+                        ],
+                        "take": "whole",
+                        "level": null
+                      },
+                      "need": "all",
+                      "at": "start",
+                      "match": "words",
+                      "case": "exact"
+                    },
+                    {
+                      "test": "has",
+                      "read": {
+                        "part": "text",
+                        "skip": "Subject"
+                      },
+                      "values": {
+                        "from": "request",
+                        "in": "request and files",
+                        "file": null,
+                        "labels": [
+                          "Headline"
+                        ],
+                        "take": "whole",
+                        "level": null
+                      },
+                      "need": "all",
+                      "at": "start",
+                      "match": "words",
+                      "case": "exact"
+                    }
+                  ]
+                },
+                "applies": 0.99,
+                "comesUp": 0.99
+              },
+              {
+                "id": "r2",
+                "text": "Name the product with its version, such as Ferry 3.2, at least once. A reader should know which release the note is about.",
+                "section": "Rules for every announcement",
+                "noul": 0.99,
+                "span": "any",
+                "applies": 0.99,
+                "comesUp": 0.99
+              },
+              {
+                "id": "r3",
+                "text": "Use only numbers the brief states, never a number of your own. An invented figure is a claim nobody checked.",
+                "section": "Rules for every announcement",
+                "noul": 0.91,
+                "code": {
+                  "answer": "met",
+                  "saw": [
+                    {
+                      "test": "only",
+                      "answer": "met",
+                      "why": null,
+                      "outside": [],
+                      "otherNotation": [],
+                      "outsideTotal": 0
+                    }
+                  ],
+                  "tests": [
+                    {
+                      "test": "only",
+                      "read": {
+                        "part": "text",
+                        "skip": null
+                      },
+                      "what": "numbers",
+                      "allowed": {
+                        "from": "request",
+                        "in": "request and files",
+                        "file": null,
+                        "labels": [],
+                        "take": "numbers",
+                        "level": null
+                      }
+                    }
+                  ]
+                },
+                "applies": 0.99,
+                "comesUp": 0.98
+              },
+              {
+                "id": "r4",
+                "text": "Write no more than 120 words. Most readers stop after the first screen.",
+                "section": "Rules for every announcement",
+                "noul": 0.95,
+                "code": {
+                  "answer": "met",
+                  "saw": [
+                    {
+                      "test": "count",
+                      "answer": "met",
+                      "why": null,
+                      "counts": [
+                        97,
+                        89,
+                        97,
+                        89
+                      ],
+                      "compare": "at most",
+                      "n": 120
+                    }
+                  ],
+                  "tests": [
+                    {
+                      "test": "count",
+                      "read": {
+                        "part": "text",
+                        "skip": null
+                      },
+                      "what": "words",
+                      "compare": "at most",
+                      "n": 120
+                    }
+                  ]
+                },
+                "applies": 0.99,
+                "comesUp": 0.99
+              },
+              {
+                "id": "r5",
+                "text": "When the brief gives a Price, state it with its currency code, such as 12 USD. A bare number reads as a different amount in each country.",
+                "section": "Rules for every announcement",
+                "noul": 0.99,
+                "span": "any",
+                "applies": 0.99,
+                "comesUp": 0.94
+              },
+              {
+                "id": "r6",
+                "text": "Quote the customer in the brief's Quote word for word, with their name. A paraphrase puts words in their mouth.",
+                "section": "Rules for every announcement",
+                "noul": 0.97,
+                "span": "any",
+                "applies": 0.99,
+                "comesUp": 0.96
+              },
+              {
+                "id": "r7",
+                "text": "Never use the words exciting, thrilled, delighted or proud. They say how the company feels, not what the reader gets.",
+                "section": "Rules for every announcement",
+                "noul": 0.99,
+                "code": {
+                  "answer": "met",
+                  "saw": [
+                    {
+                      "test": "has",
+                      "answer": "met",
+                      "why": null,
+                      "found": [],
+                      "missing": [
+                        "exciting",
+                        "thrilled",
+                        "delighted",
+                        "proud"
+                      ],
+                      "foundTotal": 0,
+                      "missingTotal": 4
+                    }
+                  ],
+                  "tests": [
+                    {
+                      "test": "has",
+                      "read": {
+                        "part": "text",
+                        "skip": null
+                      },
+                      "values": {
+                        "from": "listed",
+                        "items": [
+                          "exciting",
+                          "thrilled",
+                          "delighted",
+                          "proud"
+                        ]
+                      },
+                      "need": "none",
+                      "at": "anywhere",
+                      "match": "words",
+                      "case": "any"
+                    }
+                  ]
+                },
+                "applies": 0.99,
+                "comesUp": 0.99
+              },
+              {
+                "id": "r8",
+                "text": "Never use the word users. Write to the reader as you, since the note goes to one person at a time.",
+                "section": "Rules for every announcement",
+                "noul": 0.85,
+                "code": {
+                  "answer": "met",
+                  "saw": [
+                    {
+                      "test": "has",
+                      "answer": "met",
+                      "why": null,
+                      "found": [],
+                      "missing": [
+                        "users"
+                      ],
+                      "foundTotal": 0,
+                      "missingTotal": 1
+                    }
+                  ],
+                  "tests": [
+                    {
+                      "test": "has",
+                      "read": {
+                        "part": "text",
+                        "skip": null
+                      },
+                      "values": {
+                        "from": "listed",
+                        "items": [
+                          "users"
+                        ]
+                      },
+                      "need": "none",
+                      "at": "anywhere",
+                      "match": "words",
+                      "case": "any"
+                    }
+                  ]
+                },
+                "applies": 0.99,
+                "comesUp": 0.99
+              },
+              {
+                "id": "r9",
+                "text": "Name every feature in the brief's Features list by the name the brief gives it. A feature left out is one nobody hears about.",
+                "section": "Rules for every announcement",
+                "noul": 0.98,
+                "code": {
+                  "answer": "met",
+                  "saw": [
+                    {
+                      "test": "has",
+                      "answer": "met",
+                      "why": null,
+                      "found": [
+                        {
+                          "value": "Automatic confirmations",
+                          "piece": 0,
+                          "at": 167,
+                          "text": "automatic confirmations"
+                        },
+                        {
+                          "value": "Waitlist",
+                          "piece": 0,
+                          "at": 255,
+                          "text": "waitlist"
+                        },
+                        {
+                          "value": "Calendar sync",
+                          "piece": 0,
+                          "at": 328,
+                          "text": "calendar sync"
+                        }
+                      ],
+                      "missing": [],
+                      "foundTotal": 3,
+                      "missingTotal": 0
+                    }
+                  ],
+                  "tests": [
+                    {
+                      "test": "has",
+                      "read": {
+                        "part": "text",
+                        "skip": null
+                      },
+                      "values": {
+                        "from": "request",
+                        "in": "file",
+                        "file": "brief.md",
+                        "labels": [
+                          "Features"
+                        ],
+                        "take": "item names",
+                        "level": null
+                      },
+                      "need": "all",
+                      "at": "anywhere",
+                      "match": "words",
+                      "case": "any"
+                    }
+                  ]
+                },
+                "applies": 0.99,
+                "comesUp": 0.98
+              },
+              {
+                "id": "r10",
+                "text": "Leave out anything the brief marks Internal, and any codename it gives. Those lines are for the team alone.",
+                "section": "Rules for every announcement",
+                "noul": 0.99,
+                "span": "every",
+                "applies": 0.99,
+                "comesUp": 0.99
+              },
+              {
+                "id": "r11",
+                "text": "Put the subject on the first line, after Subject: , in 50 characters or fewer. A longer subject is cut off in most inboxes.",
+                "section": "Rules for an email",
+                "noul": 0.96,
+                "code": {
+                  "answer": "met",
+                  "saw": [
+                    {
+                      "test": "has",
+                      "answer": "met",
+                      "why": null,
+                      "found": [
+                        {
+                          "value": "Subject:",
+                          "piece": 0,
+                          "at": 0,
+                          "text": "Subject:"
+                        }
+                      ],
+                      "missing": [],
+                      "foundTotal": 1,
+                      "missingTotal": 0
+                    },
+                    {
+                      "test": "count",
+                      "answer": "met",
+                      "why": null,
+                      "counts": [
+                        43,
+                        43,
+                        43
+                      ],
+                      "compare": "at most",
+                      "n": 50
+                    }
+                  ],
+                  "tests": [
+                    {
+                      "test": "has",
+                      "read": {
+                        "part": "line",
+                        "label": null,
+                        "number": 1
+                      },
+                      "values": {
+                        "from": "listed",
+                        "items": [
+                          "Subject:"
+                        ]
+                      },
+                      "need": "all",
+                      "at": "start",
+                      "match": "characters",
+                      "case": "exact"
+                    },
+                    {
+                      "test": "count",
+                      "read": {
+                        "part": "line",
+                        "label": "Subject",
+                        "number": null
+                      },
+                      "what": "characters",
+                      "compare": "at most",
+                      "n": 50
+                    }
+                  ]
+                },
+                "applies": 0.99,
+                "comesUp": 0.99
+              },
+              {
+                "id": "r12",
+                "text": "Write plain text with no Markdown: no #, no ** and no list marks (-, * or •). Most mail apps show the marks as they are typed.",
+                "section": "Rules for an email",
+                "noul": 0.97,
+                "span": "every",
+                "applies": 0.99,
+                "comesUp": 0.99
+              },
+              {
+                "id": "r13",
+                "text": "Give exactly one link, the brief's Link. Two links split the clicks.",
+                "section": "Rules for an email",
+                "noul": 0.99,
+                "code": {
+                  "answer": "met",
+                  "saw": [
+                    {
+                      "test": "count",
+                      "answer": "met",
+                      "why": null,
+                      "counts": [
+                        1
+                      ],
+                      "compare": "exactly",
+                      "n": 1
+                    },
+                    {
+                      "test": "has",
+                      "answer": "met",
+                      "why": null,
+                      "found": [
+                        {
+                          "value": "https://ferry.example/3-2",
+                          "piece": 0,
+                          "at": 502,
+                          "text": "https://ferry.example/3-2"
+                        }
+                      ],
+                      "missing": [],
+                      "foundTotal": 1,
+                      "missingTotal": 0
+                    }
+                  ],
+                  "tests": [
+                    {
+                      "test": "count",
+                      "read": {
+                        "part": "file"
+                      },
+                      "what": "links",
+                      "compare": "exactly",
+                      "n": 1
+                    },
+                    {
+                      "test": "has",
+                      "read": {
+                        "part": "file"
+                      },
+                      "values": {
+                        "from": "request",
+                        "in": "request and files",
+                        "file": null,
+                        "labels": [
+                          "Link"
+                        ],
+                        "take": "links",
+                        "level": null
+                      },
+                      "need": "all",
+                      "at": "anywhere",
+                      "match": "characters",
+                      "case": "exact"
+                    }
+                  ]
+                },
+                "applies": 0.99,
+                "comesUp": 0.99
+              },
+              {
+                "id": "r14",
+                "text": "End with the release date, the support address and the name of the person who signs it, in that order, each on a line of its own. Readers look for all three in the same place.",
+                "section": "Rules for an email",
+                "noul": 0.91,
+                "span": "end",
+                "applies": 0.99,
+                "comesUp": 0.98
+              },
+              {
+                "id": "r15",
+                "text": "Write one file with its styles in a <style> tag, no script and no outside file. The page is pasted into a CMS that strips both.",
+                "section": "Rules for a web page",
+                "noul": 0.97,
+                "span": "whole",
+                "applies": 0.03,
+                "comesUp": 0.04
+              },
+              {
+                "id": "r16",
+                "text": "Use exactly one <h1>, holding the headline and nothing else. Search engines and screen readers take it as the page's title.",
+                "section": "Rules for a web page",
+                "noul": 0.97,
+                "code": {
+                  "answer": "none",
+                  "why": "kind",
+                  "saw": [],
+                  "tests": [
+                    {
+                      "test": "count",
+                      "read": {
+                        "part": "elements",
+                        "tag": "h1",
+                        "attribute": null,
+                        "which": "every"
+                      },
+                      "what": "items",
+                      "compare": "exactly",
+                      "n": 1
+                    },
+                    {
+                      "test": "has",
+                      "read": {
+                        "part": "elements",
+                        "tag": "h1",
+                        "attribute": null,
+                        "which": "every"
+                      },
+                      "values": {
+                        "from": "request",
+                        "in": "request and files",
+                        "file": null,
+                        "labels": [
+                          "Headline"
+                        ],
+                        "take": "whole",
+                        "level": null
+                      },
+                      "need": "all",
+                      "at": "whole",
+                      "match": "words",
+                      "case": "exact"
+                    }
+                  ]
+                },
+                "applies": 0.03,
+                "comesUp": 0.04
+              },
+              {
+                "id": "r17",
+                "text": "Set the body text at 18px and the content column at most 640px wide. That is what the site's articles use.",
+                "section": "Rules for a web page",
+                "noul": 0.96,
+                "span": "whole",
+                "applies": 0.03,
+                "comesUp": 0.03
+              },
+              {
+                "id": "r18",
+                "text": "Use only the colours in the brief's Colours list. Any other colour is off brand.",
+                "section": "Rules for a web page",
+                "noul": 0.98,
+                "code": {
+                  "answer": "none",
+                  "why": "kind",
+                  "saw": [],
+                  "tests": [
+                    {
+                      "test": "only",
+                      "read": {
+                        "part": "styles"
+                      },
+                      "what": "hex colours",
+                      "allowed": {
+                        "from": "request",
+                        "in": "request and files",
+                        "file": null,
+                        "labels": [
+                          "Colours"
+                        ],
+                        "take": "hex colours",
+                        "level": null
+                      }
+                    }
+                  ]
+                },
+                "applies": 0.03,
+                "comesUp": 0.04
+              },
+              {
+                "id": "r19",
+                "text": "End the page with a footer that holds the line \"Questions? Write to\" and the support address. A reader who scrolls to the end is looking for a way to ask.",
+                "section": "Rules for a web page",
+                "noul": 0.96,
+                "span": "end",
+                "applies": 0.03,
+                "comesUp": 0.04
+              }
+            ]
+          },
+          "rubric": {
+            "statements": [
+              {
+                "id": "01-price",
+                "text": "The email states the price as 12 USD a month.",
+                "weight": 2,
+                "noul": 1,
+                "code": {
+                  "answer": "met",
+                  "saw": [
+                    {
+                      "test": "has",
+                      "answer": "met",
+                      "why": null,
+                      "found": [
+                        {
+                          "value": "12 USD a month",
+                          "piece": 0,
+                          "at": 482,
+                          "text": "12 usd a month"
+                        }
+                      ],
+                      "missing": [],
+                      "foundTotal": 1,
+                      "missingTotal": 0
+                    }
+                  ],
+                  "tests": [
+                    {
+                      "test": "has",
+                      "read": {
+                        "part": "text",
+                        "skip": null
+                      },
+                      "values": {
+                        "from": "listed",
+                        "items": [
+                          "12 USD a month"
+                        ]
+                      },
+                      "need": "all",
+                      "at": "anywhere",
+                      "match": "words",
+                      "case": "any"
+                    }
+                  ]
+                },
+                "units": null,
+                "best": null
+              },
+              {
+                "id": "02-date",
+                "text": "The email gives the release date, 4 March 2027.",
+                "weight": 1,
+                "noul": 0.99,
+                "span": "any",
+                "units": null,
+                "best": null
+              }
+            ]
+          }
+        }
+      },
+      "scores": {
+        "total": 100,
+        "adherence": 100,
+        "rubric": 100
+      },
+      "flags": [
+        "rule not counted, code could not settle it (differ) (Rules for every announcement): Open with the brief's Headline, word for word. A reworded headline is one the team did not approve.",
+        "5 rules not counted: for another kind of work or situation than this"
+      ],
+      "confidence": 0.9199999999999998
+    },
+    {
+      "sample": "email-quote-s1",
+      "case": "email-quote",
+      "label": null,
+      "tests": [],
+      "artifacts": [
+        {
+          "file": "outputs/email.txt",
+          "kind": "markdown"
+        }
+      ],
+      "primary": {
+        "file": "outputs/email.txt",
+        "kind": "markdown"
+      },
+      "words": 103,
+      "range": null,
+      "pixels": null,
+      "size": null,
+      "blank": false,
+      "yardstick": "3e4fe83c9daf8cc090742dd7a6c9581b7dc5675e5fad8eb925e6336c6d736c20:3c8730491642a631566d1f405f96d3986e7ee137526759259bce4cfad3390127",
+      "graded": {
+        "model": "jev-1.14.0",
+        "packs": {
+          "generic": 10
+        },
+        "settings": {
+          "generic": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b"
+        }
+      },
+      "packs": {
+        "generic": {
+          "adherence": {
+            "rules": [
+              {
+                "id": "r1",
+                "text": "Open with the brief's Headline, word for word. A reworded headline is one the team did not approve.",
+                "section": "Rules for every announcement",
+                "noul": 0.84,
+                "code": {
+                  "answer": "none",
+                  "why": "differ",
+                  "saw": [
+                    {
+                      "test": "has",
+                      "answer": "missed",
+                      "why": null,
+                      "found": [],
+                      "missing": [
+                        "Reminders that people answer."
+                      ],
+                      "foundTotal": 0,
+                      "missingTotal": 1
+                    },
+                    {
+                      "test": "has",
+                      "answer": "met",
+                      "why": null,
+                      "found": [
+                        {
+                          "value": "Reminders that people answer.",
+                          "piece": 0,
+                          "at": 1,
+                          "text": "Reminders that people answer"
+                        }
+                      ],
+                      "missing": [],
+                      "foundTotal": 1,
+                      "missingTotal": 0
+                    }
+                  ],
+                  "tests": [
+                    {
+                      "test": "has",
+                      "read": {
+                        "part": "line",
+                        "label": "Subject",
+                        "number": null
+                      },
+                      "values": {
+                        "from": "request",
+                        "in": "request and files",
+                        "file": null,
+                        "labels": [
+                          "Headline"
+                        ],
+                        "take": "whole",
+                        "level": null
+                      },
+                      "need": "all",
+                      "at": "start",
+                      "match": "words",
+                      "case": "exact"
+                    },
+                    {
+                      "test": "has",
+                      "read": {
+                        "part": "text",
+                        "skip": "Subject"
+                      },
+                      "values": {
+                        "from": "request",
+                        "in": "request and files",
+                        "file": null,
+                        "labels": [
+                          "Headline"
+                        ],
+                        "take": "whole",
+                        "level": null
+                      },
+                      "need": "all",
+                      "at": "start",
+                      "match": "words",
+                      "case": "exact"
+                    }
+                  ]
+                },
+                "applies": 0.99,
+                "comesUp": 0.99
+              },
+              {
+                "id": "r2",
+                "text": "Name the product with its version, such as Ferry 3.2, at least once. A reader should know which release the note is about.",
+                "section": "Rules for every announcement",
+                "noul": 0.99,
+                "span": "any",
+                "applies": 0.99,
+                "comesUp": 0.99
+              },
+              {
+                "id": "r3",
+                "text": "Use only numbers the brief states, never a number of your own. An invented figure is a claim nobody checked.",
+                "section": "Rules for every announcement",
+                "noul": 0.9,
+                "code": {
+                  "answer": "met",
+                  "saw": [
+                    {
+                      "test": "only",
+                      "answer": "met",
+                      "why": null,
+                      "outside": [],
+                      "otherNotation": [],
+                      "outsideTotal": 0
+                    }
+                  ],
+                  "tests": [
+                    {
+                      "test": "only",
+                      "read": {
+                        "part": "text",
+                        "skip": null
+                      },
+                      "what": "numbers",
+                      "allowed": {
+                        "from": "request",
+                        "in": "request and files",
+                        "file": null,
+                        "labels": [],
+                        "take": "numbers",
+                        "level": null
+                      }
+                    }
+                  ]
+                },
+                "applies": 0.99,
+                "comesUp": 0.98
+              },
+              {
+                "id": "r4",
+                "text": "Write no more than 120 words. Most readers stop after the first screen.",
+                "section": "Rules for every announcement",
+                "noul": 0.95,
+                "code": {
+                  "answer": "met",
+                  "saw": [
+                    {
+                      "test": "count",
+                      "answer": "met",
+                      "why": null,
+                      "counts": [
+                        103,
+                        94,
+                        103,
+                        94
+                      ],
+                      "compare": "at most",
+                      "n": 120
+                    }
+                  ],
+                  "tests": [
+                    {
+                      "test": "count",
+                      "read": {
+                        "part": "text",
+                        "skip": null
+                      },
+                      "what": "words",
+                      "compare": "at most",
+                      "n": 120
+                    }
+                  ]
+                },
+                "applies": 0.99,
+                "comesUp": 0.99
+              },
+              {
+                "id": "r5",
+                "text": "When the brief gives a Price, state it with its currency code, such as 12 USD. A bare number reads as a different amount in each country.",
+                "section": "Rules for every announcement",
+                "noul": 0.99,
+                "span": "any",
+                "applies": 0.99,
+                "comesUp": 0.94
+              },
+              {
+                "id": "r6",
+                "text": "Quote the customer in the brief's Quote word for word, with their name. A paraphrase puts words in their mouth.",
+                "section": "Rules for every announcement",
+                "noul": 0.11,
+                "span": "any",
+                "applies": 0.99,
+                "comesUp": 0.96
+              },
+              {
+                "id": "r7",
+                "text": "Never use the words exciting, thrilled, delighted or proud. They say how the company feels, not what the reader gets.",
+                "section": "Rules for every announcement",
+                "noul": 0.99,
+                "code": {
+                  "answer": "met",
+                  "saw": [
+                    {
+                      "test": "has",
+                      "answer": "met",
+                      "why": null,
+                      "found": [],
+                      "missing": [
+                        "exciting",
+                        "thrilled",
+                        "delighted",
+                        "proud"
+                      ],
+                      "foundTotal": 0,
+                      "missingTotal": 4
+                    }
+                  ],
+                  "tests": [
+                    {
+                      "test": "has",
+                      "read": {
+                        "part": "text",
+                        "skip": null
+                      },
+                      "values": {
+                        "from": "listed",
+                        "items": [
+                          "exciting",
+                          "thrilled",
+                          "delighted",
+                          "proud"
+                        ]
+                      },
+                      "need": "none",
+                      "at": "anywhere",
+                      "match": "words",
+                      "case": "any"
+                    }
+                  ]
+                },
+                "applies": 0.99,
+                "comesUp": 0.99
+              },
+              {
+                "id": "r8",
+                "text": "Never use the word users. Write to the reader as you, since the note goes to one person at a time.",
+                "section": "Rules for every announcement",
+                "noul": 0.75,
+                "code": {
+                  "answer": "met",
+                  "saw": [
+                    {
+                      "test": "has",
+                      "answer": "met",
+                      "why": null,
+                      "found": [],
+                      "missing": [
+                        "users"
+                      ],
+                      "foundTotal": 0,
+                      "missingTotal": 1
+                    }
+                  ],
+                  "tests": [
+                    {
+                      "test": "has",
+                      "read": {
+                        "part": "text",
+                        "skip": null
+                      },
+                      "values": {
+                        "from": "listed",
+                        "items": [
+                          "users"
+                        ]
+                      },
+                      "need": "none",
+                      "at": "anywhere",
+                      "match": "words",
+                      "case": "any"
+                    }
+                  ]
+                },
+                "applies": 0.99,
+                "comesUp": 0.99
+              },
+              {
+                "id": "r9",
+                "text": "Name every feature in the brief's Features list by the name the brief gives it. A feature left out is one nobody hears about.",
+                "section": "Rules for every announcement",
+                "noul": 0.91,
+                "code": {
+                  "answer": "met",
+                  "saw": [
+                    {
+                      "test": "has",
+                      "answer": "met",
+                      "why": null,
+                      "found": [
+                        {
+                          "value": "Two-way reminders",
+                          "piece": 0,
+                          "at": 101,
+                          "text": "two-way reminders"
+                        },
+                        {
+                          "value": "Quiet hours",
+                          "piece": 0,
+                          "at": 252,
+                          "text": "quiet hours"
+                        }
+                      ],
+                      "missing": [],
+                      "foundTotal": 2,
+                      "missingTotal": 0
+                    }
+                  ],
+                  "tests": [
+                    {
+                      "test": "has",
+                      "read": {
+                        "part": "text",
+                        "skip": null
+                      },
+                      "values": {
+                        "from": "request",
+                        "in": "file",
+                        "file": "brief.md",
+                        "labels": [
+                          "Features"
+                        ],
+                        "take": "item names",
+                        "level": null
+                      },
+                      "need": "all",
+                      "at": "anywhere",
+                      "match": "words",
+                      "case": "any"
+                    }
+                  ]
+                },
+                "applies": 0.99,
+                "comesUp": 0.98
+              },
+              {
+                "id": "r10",
+                "text": "Leave out anything the brief marks Internal, and any codename it gives. Those lines are for the team alone.",
+                "section": "Rules for every announcement",
+                "noul": 0.99,
+                "span": "every",
+                "applies": 0.99,
+                "comesUp": 0.99
+              },
+              {
+                "id": "r11",
+                "text": "Put the subject on the first line, after Subject: , in 50 characters or fewer. A longer subject is cut off in most inboxes.",
+                "section": "Rules for an email",
+                "noul": 0.96,
+                "code": {
+                  "answer": "met",
+                  "saw": [
+                    {
+                      "test": "has",
+                      "answer": "met",
+                      "why": null,
+                      "found": [
+                        {
+                          "value": "Subject:",
+                          "piece": 0,
+                          "at": 0,
+                          "text": "Subject:"
+                        }
+                      ],
+                      "missing": [],
+                      "foundTotal": 1,
+                      "missingTotal": 0
+                    },
+                    {
+                      "test": "count",
+                      "answer": "met",
+                      "why": null,
+                      "counts": [
+                        40,
+                        40,
+                        40
+                      ],
+                      "compare": "at most",
+                      "n": 50
+                    }
+                  ],
+                  "tests": [
+                    {
+                      "test": "has",
+                      "read": {
+                        "part": "line",
+                        "label": null,
+                        "number": 1
+                      },
+                      "values": {
+                        "from": "listed",
+                        "items": [
+                          "Subject:"
+                        ]
+                      },
+                      "need": "all",
+                      "at": "start",
+                      "match": "characters",
+                      "case": "exact"
+                    },
+                    {
+                      "test": "count",
+                      "read": {
+                        "part": "line",
+                        "label": "Subject",
+                        "number": null
+                      },
+                      "what": "characters",
+                      "compare": "at most",
+                      "n": 50
+                    }
+                  ]
+                },
+                "applies": 0.99,
+                "comesUp": 0.99
+              },
+              {
+                "id": "r12",
+                "text": "Write plain text with no Markdown: no #, no ** and no list marks (-, * or •). Most mail apps show the marks as they are typed.",
+                "section": "Rules for an email",
+                "noul": 0.98,
+                "span": "every",
+                "applies": 0.99,
+                "comesUp": 0.99
+              },
+              {
+                "id": "r13",
+                "text": "Give exactly one link, the brief's Link. Two links split the clicks.",
+                "section": "Rules for an email",
+                "noul": 0.99,
+                "code": {
+                  "answer": "met",
+                  "saw": [
+                    {
+                      "test": "count",
+                      "answer": "met",
+                      "why": null,
+                      "counts": [
+                        1
+                      ],
+                      "compare": "exactly",
+                      "n": 1
+                    },
+                    {
+                      "test": "has",
+                      "answer": "met",
+                      "why": null,
+                      "found": [
+                        {
+                          "value": "https://ferry.example/3-4",
+                          "piece": 0,
+                          "at": 488,
+                          "text": "https://ferry.example/3-4"
+                        }
+                      ],
+                      "missing": [],
+                      "foundTotal": 1,
+                      "missingTotal": 0
+                    }
+                  ],
+                  "tests": [
+                    {
+                      "test": "count",
+                      "read": {
+                        "part": "file"
+                      },
+                      "what": "links",
+                      "compare": "exactly",
+                      "n": 1
+                    },
+                    {
+                      "test": "has",
+                      "read": {
+                        "part": "file"
+                      },
+                      "values": {
+                        "from": "request",
+                        "in": "request and files",
+                        "file": null,
+                        "labels": [
+                          "Link"
+                        ],
+                        "take": "links",
+                        "level": null
+                      },
+                      "need": "all",
+                      "at": "anywhere",
+                      "match": "characters",
+                      "case": "exact"
+                    }
+                  ]
+                },
+                "applies": 0.99,
+                "comesUp": 0.99
+              },
+              {
+                "id": "r14",
+                "text": "End with the release date, the support address and the name of the person who signs it, in that order, each on a line of its own. Readers look for all three in the same place.",
+                "section": "Rules for an email",
+                "noul": 0.98,
+                "span": "end",
+                "applies": 0.99,
+                "comesUp": 0.98
+              },
+              {
+                "id": "r15",
+                "text": "Write one file with its styles in a <style> tag, no script and no outside file. The page is pasted into a CMS that strips both.",
+                "section": "Rules for a web page",
+                "noul": 0.98,
+                "span": "whole",
+                "applies": 0.03,
+                "comesUp": 0.04
+              },
+              {
+                "id": "r16",
+                "text": "Use exactly one <h1>, holding the headline and nothing else. Search engines and screen readers take it as the page's title.",
+                "section": "Rules for a web page",
+                "noul": 0.97,
+                "code": {
+                  "answer": "none",
+                  "why": "kind",
+                  "saw": [],
+                  "tests": [
+                    {
+                      "test": "count",
+                      "read": {
+                        "part": "elements",
+                        "tag": "h1",
+                        "attribute": null,
+                        "which": "every"
+                      },
+                      "what": "items",
+                      "compare": "exactly",
+                      "n": 1
+                    },
+                    {
+                      "test": "has",
+                      "read": {
+                        "part": "elements",
+                        "tag": "h1",
+                        "attribute": null,
+                        "which": "every"
+                      },
+                      "values": {
+                        "from": "request",
+                        "in": "request and files",
+                        "file": null,
+                        "labels": [
+                          "Headline"
+                        ],
+                        "take": "whole",
+                        "level": null
+                      },
+                      "need": "all",
+                      "at": "whole",
+                      "match": "words",
+                      "case": "exact"
+                    }
+                  ]
+                },
+                "applies": 0.03,
+                "comesUp": 0.04
+              },
+              {
+                "id": "r17",
+                "text": "Set the body text at 18px and the content column at most 640px wide. That is what the site's articles use.",
+                "section": "Rules for a web page",
+                "noul": 0.98,
+                "span": "whole",
+                "applies": 0.03,
+                "comesUp": 0.03
+              },
+              {
+                "id": "r18",
+                "text": "Use only the colours in the brief's Colours list. Any other colour is off brand.",
+                "section": "Rules for a web page",
+                "noul": 0.99,
+                "code": {
+                  "answer": "none",
+                  "why": "kind",
+                  "saw": [],
+                  "tests": [
+                    {
+                      "test": "only",
+                      "read": {
+                        "part": "styles"
+                      },
+                      "what": "hex colours",
+                      "allowed": {
+                        "from": "request",
+                        "in": "request and files",
+                        "file": null,
+                        "labels": [
+                          "Colours"
+                        ],
+                        "take": "hex colours",
+                        "level": null
+                      }
+                    }
+                  ]
+                },
+                "applies": 0.03,
+                "comesUp": 0.04
+              },
+              {
+                "id": "r19",
+                "text": "End the page with a footer that holds the line \"Questions? Write to\" and the support address. A reader who scrolls to the end is looking for a way to ask.",
+                "section": "Rules for a web page",
+                "noul": 0.98,
+                "span": "end",
+                "applies": 0.03,
+                "comesUp": 0.04
+              }
+            ]
+          },
+          "rubric": {
+            "statements": [
+              {
+                "id": "01-names",
+                "text": "The email names Priya Raman of Slate & Pine Studio.",
+                "weight": 1,
+                "noul": 0.99,
+                "span": "any",
+                "units": null,
+                "best": null
+              }
+            ]
+          }
+        }
+      },
+      "scores": {
+        "total": 96,
+        "adherence": 92,
+        "rubric": 100
+      },
+      "flags": [
+        "rule not counted, code could not settle it (differ) (Rules for every announcement): Open with the brief's Headline, word for word. A reworded headline is one the team did not approve.",
+        "rule not followed (Rules for every announcement): Quote the customer in the brief's Quote word for word, with their name. A paraphrase puts words in their mout…",
+        "5 rules not counted: for another kind of work or situation than this"
+      ],
+      "confidence": 0.9000000000000001
+    },
+    {
+      "sample": "page-basic-s1",
+      "case": "page-basic",
+      "label": null,
+      "tests": [],
+      "artifacts": [
+        {
+          "file": "outputs/index.html",
+          "kind": "html"
+        }
+      ],
+      "primary": {
+        "file": "outputs/index.html",
+        "kind": "html"
+      },
+      "words": 85,
+      "range": null,
+      "pixels": null,
+      "size": null,
+      "blank": false,
+      "yardstick": "b8231189b04e136bdecd36d6ef64a8ec08615775ccd795a1c12cd5dc0d03aaca:3c8730491642a631566d1f405f96d3986e7ee137526759259bce4cfad3390127",
+      "graded": {
+        "model": "jev-1.14.0",
+        "packs": {
+          "generic": 10
+        },
+        "drawn": false,
+        "settings": {
+          "generic": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b"
+        }
+      },
+      "packs": {
+        "generic": {
+          "adherence": {
+            "rules": [
+              {
+                "id": "r1",
+                "text": "Open with the brief's Headline, word for word. A reworded headline is one the team did not approve.",
+                "section": "Rules for every announcement",
+                "noul": 0.97,
+                "code": {
+                  "answer": "met",
+                  "saw": [
+                    {
+                      "test": "none",
+                      "answer": "none",
+                      "why": "kind"
+                    },
+                    {
+                      "test": "has",
+                      "answer": "met",
+                      "why": null,
+                      "found": [
+                        {
+                          "value": "Bookings now confirm themselves.",
+                          "piece": 0,
+                          "at": 13,
+                          "text": "Bookings now confirm themselves"
+                        }
+                      ],
+                      "missing": [],
+                      "foundTotal": 1,
+                      "missingTotal": 0
+                    }
+                  ],
+                  "tests": [
+                    {
+                      "test": "has",
+                      "read": {
+                        "part": "line",
+                        "label": "Subject",
+                        "number": null
+                      },
+                      "values": {
+                        "from": "request",
+                        "in": "request and files",
+                        "file": null,
+                        "labels": [
+                          "Headline"
+                        ],
+                        "take": "whole",
+                        "level": null
+                      },
+                      "need": "all",
+                      "at": "start",
+                      "match": "words",
+                      "case": "exact"
+                    },
+                    {
+                      "test": "has",
+                      "read": {
+                        "part": "text",
+                        "skip": "Subject"
+                      },
+                      "values": {
+                        "from": "request",
+                        "in": "request and files",
+                        "file": null,
+                        "labels": [
+                          "Headline"
+                        ],
+                        "take": "whole",
+                        "level": null
+                      },
+                      "need": "all",
+                      "at": "start",
+                      "match": "words",
+                      "case": "exact"
+                    }
+                  ]
+                },
+                "applies": 0.99,
+                "comesUp": 0.99
+              },
+              {
+                "id": "r2",
+                "text": "Name the product with its version, such as Ferry 3.2, at least once. A reader should know which release the note is about.",
+                "section": "Rules for every announcement",
+                "noul": 0.99,
+                "span": "any",
+                "applies": 0.99,
+                "comesUp": 0.99
+              },
+              {
+                "id": "r3",
+                "text": "Use only numbers the brief states, never a number of your own. An invented figure is a claim nobody checked.",
+                "section": "Rules for every announcement",
+                "noul": 0.86,
+                "code": {
+                  "answer": "met",
+                  "saw": [
+                    {
+                      "test": "only",
+                      "answer": "met",
+                      "why": null,
+                      "outside": [],
+                      "otherNotation": [],
+                      "outsideTotal": 0
+                    }
+                  ],
+                  "tests": [
+                    {
+                      "test": "only",
+                      "read": {
+                        "part": "text",
+                        "skip": null
+                      },
+                      "what": "numbers",
+                      "allowed": {
+                        "from": "request",
+                        "in": "request and files",
+                        "file": null,
+                        "labels": [],
+                        "take": "numbers",
+                        "level": null
+                      }
+                    }
+                  ]
+                },
+                "applies": 0.99,
+                "comesUp": 0.99
+              },
+              {
+                "id": "r4",
+                "text": "Write no more than 120 words. Most readers stop after the first screen.",
+                "section": "Rules for every announcement",
+                "noul": 0.8,
+                "code": {
+                  "answer": "met",
+                  "saw": [
+                    {
+                      "test": "count",
+                      "answer": "met",
+                      "why": null,
+                      "counts": [
+                        85,
+                        81,
+                        85,
+                        81
+                      ],
+                      "compare": "at most",
+                      "n": 120
+                    }
+                  ],
+                  "tests": [
+                    {
+                      "test": "count",
+                      "read": {
+                        "part": "text",
+                        "skip": null
+                      },
+                      "what": "words",
+                      "compare": "at most",
+                      "n": 120
+                    }
+                  ]
+                },
+                "applies": 0.99,
+                "comesUp": 0.99
+              },
+              {
+                "id": "r5",
+                "text": "When the brief gives a Price, state it with its currency code, such as 12 USD. A bare number reads as a different amount in each country.",
+                "section": "Rules for every announcement",
+                "noul": 0.99,
+                "span": "any",
+                "applies": 0.99,
+                "comesUp": 0.95
+              },
+              {
+                "id": "r6",
+                "text": "Quote the customer in the brief's Quote word for word, with their name. A paraphrase puts words in their mouth.",
+                "section": "Rules for every announcement",
+                "noul": 0.95,
+                "span": "any",
+                "applies": 0.99,
+                "comesUp": 0.97
+              },
+              {
+                "id": "r7",
+                "text": "Never use the words exciting, thrilled, delighted or proud. They say how the company feels, not what the reader gets.",
+                "section": "Rules for every announcement",
+                "noul": 0.99,
+                "code": {
+                  "answer": "met",
+                  "saw": [
+                    {
+                      "test": "has",
+                      "answer": "met",
+                      "why": null,
+                      "found": [],
+                      "missing": [
+                        "exciting",
+                        "thrilled",
+                        "delighted",
+                        "proud"
+                      ],
+                      "foundTotal": 0,
+                      "missingTotal": 4
+                    }
+                  ],
+                  "tests": [
+                    {
+                      "test": "has",
+                      "read": {
+                        "part": "text",
+                        "skip": null
+                      },
+                      "values": {
+                        "from": "listed",
+                        "items": [
+                          "exciting",
+                          "thrilled",
+                          "delighted",
+                          "proud"
+                        ]
+                      },
+                      "need": "none",
+                      "at": "anywhere",
+                      "match": "words",
+                      "case": "any"
+                    }
+                  ]
+                },
+                "applies": 0.99,
+                "comesUp": 0.99
+              },
+              {
+                "id": "r8",
+                "text": "Never use the word users. Write to the reader as you, since the note goes to one person at a time.",
+                "section": "Rules for every announcement",
+                "noul": 0.89,
+                "code": {
+                  "answer": "met",
+                  "saw": [
+                    {
+                      "test": "has",
+                      "answer": "met",
+                      "why": null,
+                      "found": [],
+                      "missing": [
+                        "users"
+                      ],
+                      "foundTotal": 0,
+                      "missingTotal": 1
+                    }
+                  ],
+                  "tests": [
+                    {
+                      "test": "has",
+                      "read": {
+                        "part": "text",
+                        "skip": null
+                      },
+                      "values": {
+                        "from": "listed",
+                        "items": [
+                          "users"
+                        ]
+                      },
+                      "need": "none",
+                      "at": "anywhere",
+                      "match": "words",
+                      "case": "any"
+                    }
+                  ]
+                },
+                "applies": 0.99,
+                "comesUp": 0.99
+              },
+              {
+                "id": "r9",
+                "text": "Name every feature in the brief's Features list by the name the brief gives it. A feature left out is one nobody hears about.",
+                "section": "Rules for every announcement",
+                "noul": 0.99,
+                "code": {
+                  "answer": "met",
+                  "saw": [
+                    {
+                      "test": "has",
+                      "answer": "met",
+                      "why": null,
+                      "found": [
+                        {
+                          "value": "Automatic confirmations",
+                          "piece": 0,
+                          "at": 150,
+                          "text": "automatic confirmations"
+                        },
+                        {
+                          "value": "Waitlist",
+                          "piece": 0,
+                          "at": 245,
+                          "text": "waitlist"
+                        },
+                        {
+                          "value": "Calendar sync",
+                          "piece": 0,
+                          "at": 325,
+                          "text": "calendar sync"
+                        }
+                      ],
+                      "missing": [],
+                      "foundTotal": 3,
+                      "missingTotal": 0
+                    }
+                  ],
+                  "tests": [
+                    {
+                      "test": "has",
+                      "read": {
+                        "part": "text",
+                        "skip": null
+                      },
+                      "values": {
+                        "from": "request",
+                        "in": "file",
+                        "file": "brief.md",
+                        "labels": [
+                          "Features"
+                        ],
+                        "take": "item names",
+                        "level": null
+                      },
+                      "need": "all",
+                      "at": "anywhere",
+                      "match": "words",
+                      "case": "any"
+                    }
+                  ]
+                },
+                "applies": 0.99,
+                "comesUp": 0.99
+              },
+              {
+                "id": "r10",
+                "text": "Leave out anything the brief marks Internal, and any codename it gives. Those lines are for the team alone.",
+                "section": "Rules for every announcement",
+                "noul": 0.99,
+                "span": "every",
+                "applies": 0.99,
+                "comesUp": 0.99
+              },
+              {
+                "id": "r11",
+                "text": "Put the subject on the first line, after Subject: , in 50 characters or fewer. A longer subject is cut off in most inboxes.",
+                "section": "Rules for an email",
+                "noul": 0.96,
+                "code": {
+                  "answer": "none",
+                  "why": "kind",
+                  "saw": [],
+                  "tests": [
+                    {
+                      "test": "has",
+                      "read": {
+                        "part": "line",
+                        "label": null,
+                        "number": 1
+                      },
+                      "values": {
+                        "from": "listed",
+                        "items": [
+                          "Subject:"
+                        ]
+                      },
+                      "need": "all",
+                      "at": "start",
+                      "match": "characters",
+                      "case": "exact"
+                    },
+                    {
+                      "test": "count",
+                      "read": {
+                        "part": "line",
+                        "label": "Subject",
+                        "number": null
+                      },
+                      "what": "characters",
+                      "compare": "at most",
+                      "n": 50
+                    }
+                  ]
+                },
+                "applies": 0.03,
+                "comesUp": 0.04
+              },
+              {
+                "id": "r12",
+                "text": "Write plain text with no Markdown: no #, no ** and no list marks (-, * or •). Most mail apps show the marks as they are typed.",
+                "section": "Rules for an email",
+                "noul": 0.93,
+                "span": "every",
+                "applies": 0.03,
+                "comesUp": 0.06
+              },
+              {
+                "id": "r13",
+                "text": "Give exactly one link, the brief's Link. Two links split the clicks.",
+                "section": "Rules for an email",
+                "noul": 0.93,
+                "code": {
+                  "answer": "none",
+                  "why": "kind",
+                  "saw": [],
+                  "tests": [
+                    {
+                      "test": "count",
+                      "read": {
+                        "part": "file"
+                      },
+                      "what": "links",
+                      "compare": "exactly",
+                      "n": 1
+                    },
+                    {
+                      "test": "has",
+                      "read": {
+                        "part": "file"
+                      },
+                      "values": {
+                        "from": "request",
+                        "in": "request and files",
+                        "file": null,
+                        "labels": [
+                          "Link"
+                        ],
+                        "take": "links",
+                        "level": null
+                      },
+                      "need": "all",
+                      "at": "anywhere",
+                      "match": "characters",
+                      "case": "exact"
+                    }
+                  ]
+                },
+                "applies": 0.03,
+                "comesUp": 0.07
+              },
+              {
+                "id": "r14",
+                "text": "End with the release date, the support address and the name of the person who signs it, in that order, each on a line of its own. Readers look for all three in the same place.",
+                "section": "Rules for an email",
+                "noul": 0.94,
+                "span": "end",
+                "applies": 0.03,
+                "comesUp": 0.05
+              },
+              {
+                "id": "r15",
+                "text": "Write one file with its styles in a <style> tag, no script and no outside file. The page is pasted into a CMS that strips both.",
+                "section": "Rules for a web page",
+                "noul": 0.99,
+                "span": "whole",
+                "applies": 0.98,
+                "comesUp": 0.99
+              },
+              {
+                "id": "r16",
+                "text": "Use exactly one <h1>, holding the headline and nothing else. Search engines and screen readers take it as the page's title.",
+                "section": "Rules for a web page",
+                "noul": 0.97,
+                "code": {
+                  "answer": "met",
+                  "saw": [
+                    {
+                      "test": "count",
+                      "answer": "met",
+                      "why": null,
+                      "counts": [
+                        1
+                      ],
+                      "compare": "exactly",
+                      "n": 1
+                    },
+                    {
+                      "test": "has",
+                      "answer": "met",
+                      "why": null,
+                      "found": [
+                        {
+                          "value": "Bookings now confirm themselves.",
+                          "piece": 0,
+                          "at": 0,
+                          "text": "Bookings now confirm themselves"
+                        }
+                      ],
+                      "missing": [],
+                      "foundTotal": 1,
+                      "missingTotal": 0
+                    }
+                  ],
+                  "tests": [
+                    {
+                      "test": "count",
+                      "read": {
+                        "part": "elements",
+                        "tag": "h1",
+                        "attribute": null,
+                        "which": "every"
+                      },
+                      "what": "items",
+                      "compare": "exactly",
+                      "n": 1
+                    },
+                    {
+                      "test": "has",
+                      "read": {
+                        "part": "elements",
+                        "tag": "h1",
+                        "attribute": null,
+                        "which": "every"
+                      },
+                      "values": {
+                        "from": "request",
+                        "in": "request and files",
+                        "file": null,
+                        "labels": [
+                          "Headline"
+                        ],
+                        "take": "whole",
+                        "level": null
+                      },
+                      "need": "all",
+                      "at": "whole",
+                      "match": "words",
+                      "case": "exact"
+                    }
+                  ]
+                },
+                "applies": 0.98,
+                "comesUp": 0.99
+              },
+              {
+                "id": "r17",
+                "text": "Set the body text at 18px and the content column at most 640px wide. That is what the site's articles use.",
+                "section": "Rules for a web page",
+                "noul": 0.96,
+                "span": "whole",
+                "applies": 0.98,
+                "comesUp": 0.99
+              },
+              {
+                "id": "r18",
+                "text": "Use only the colours in the brief's Colours list. Any other colour is off brand.",
+                "section": "Rules for a web page",
+                "noul": 0.85,
+                "code": {
+                  "answer": "met",
+                  "saw": [
+                    {
+                      "test": "only",
+                      "answer": "met",
+                      "why": null,
+                      "outside": [],
+                      "otherNotation": [],
+                      "outsideTotal": 0
+                    }
+                  ],
+                  "tests": [
+                    {
+                      "test": "only",
+                      "read": {
+                        "part": "styles"
+                      },
+                      "what": "hex colours",
+                      "allowed": {
+                        "from": "request",
+                        "in": "request and files",
+                        "file": null,
+                        "labels": [
+                          "Colours"
+                        ],
+                        "take": "hex colours",
+                        "level": null
+                      }
+                    }
+                  ]
+                },
+                "applies": 0.98,
+                "comesUp": 0.99
+              },
+              {
+                "id": "r19",
+                "text": "End the page with a footer that holds the line \"Questions? Write to\" and the support address. A reader who scrolls to the end is looking for a way to ask.",
+                "section": "Rules for a web page",
+                "noul": 0.9,
+                "span": "end",
+                "applies": 0.98,
+                "comesUp": 0.99
+              }
+            ]
+          },
+          "rubric": {
+            "statements": [
+              {
+                "id": "01-price",
+                "text": "The page states the price as 12 USD a month.",
+                "weight": 1,
+                "noul": 0.99,
+                "code": {
+                  "answer": "met",
+                  "saw": [
+                    {
+                      "test": "has",
+                      "answer": "met",
+                      "why": null,
+                      "found": [
+                        {
+                          "value": "12 USD a month",
+                          "piece": 0,
+                          "at": 93,
+                          "text": "12 usd a month"
+                        }
+                      ],
+                      "missing": [],
+                      "foundTotal": 1,
+                      "missingTotal": 0
+                    }
+                  ],
+                  "tests": [
+                    {
+                      "test": "has",
+                      "read": {
+                        "part": "text",
+                        "skip": null
+                      },
+                      "values": {
+                        "from": "listed",
+                        "items": [
+                          "12 USD a month"
+                        ]
+                      },
+                      "need": "all",
+                      "at": "anywhere",
+                      "match": "words",
+                      "case": "any"
+                    }
+                  ]
+                },
+                "units": null,
+                "best": null
+              },
+              {
+                "id": "02-button",
+                "text": "The page has a link or a button that reads Book a demo.",
+                "weight": 2,
+                "noul": 1,
+                "span": "any",
+                "units": null,
+                "best": null
+              }
+            ]
+          }
+        }
+      },
+      "scores": {
+        "total": 100,
+        "adherence": 100,
+        "rubric": 100
+      },
+      "flags": [
+        "4 rules not counted: for another kind of work or situation than this"
+      ],
+      "confidence": 0.8895238095238095
+    },
+    {
+      "sample": "page-long-s1",
+      "case": "page-long",
+      "label": null,
+      "tests": [],
+      "artifacts": [
+        {
+          "file": "outputs/index.html",
+          "kind": "html"
+        }
+      ],
+      "primary": {
+        "file": "outputs/index.html",
+        "kind": "html"
+      },
+      "words": 7524,
+      "range": null,
+      "pixels": null,
+      "size": null,
+      "blank": false,
+      "yardstick": "ad513b5af5a83d1632ebe516fba3638be1b7107d92a774a3f319cdd81aa7c9fc:3ddcab0f58597843a83e0c08e2d34de43140b24e676a865518416cea92445fe2",
+      "graded": {
+        "model": "jev-1.14.0",
+        "packs": {
+          "generic": 10
+        },
+        "drawn": false,
+        "settings": {
+          "generic": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b"
+        }
+      },
+      "packs": {
+        "generic": {
+          "adherence": {
+            "rules": [
+              {
+                "id": "r1",
+                "text": "Open with the brief's Headline, word for word. A reworded headline is one the team did not approve.",
+                "section": "Rules for every announcement",
+                "noul": 0.94,
+                "parts": [
+                  0.94,
+                  0.65
+                ],
+                "code": {
+                  "answer": "met",
+                  "saw": [
+                    {
+                      "test": "none",
+                      "answer": "none",
+                      "why": "kind"
+                    },
+                    {
+                      "test": "has",
+                      "answer": "met",
+                      "why": null,
+                      "found": [
+                        {
+                          "value": "Everything that changed in Ferry 4.0.",
+                          "piece": 0,
+                          "at": 11,
+                          "text": "Everything that changed in Ferry 4.0"
+                        }
+                      ],
+                      "missing": [],
+                      "foundTotal": 1,
+                      "missingTotal": 0
+                    }
+                  ],
+                  "tests": [
+                    {
+                      "test": "has",
+                      "read": {
+                        "part": "line",
+                        "label": "Subject",
+                        "number": null
+                      },
+                      "values": {
+                        "from": "request",
+                        "in": "request and files",
+                        "file": null,
+                        "labels": [
+                          "Headline"
+                        ],
+                        "take": "whole",
+                        "level": null
+                      },
+                      "need": "all",
+                      "at": "start",
+                      "match": "words",
+                      "case": "exact"
+                    },
+                    {
+                      "test": "has",
+                      "read": {
+                        "part": "text",
+                        "skip": "Subject"
+                      },
+                      "values": {
+                        "from": "request",
+                        "in": "request and files",
+                        "file": null,
+                        "labels": [
+                          "Headline"
+                        ],
+                        "take": "whole",
+                        "level": null
+                      },
+                      "need": "all",
+                      "at": "start",
+                      "match": "words",
+                      "case": "exact"
+                    }
+                  ]
+                },
+                "applies": 0.96,
+                "comesUp": 0.95
+              },
+              {
+                "id": "r2",
+                "text": "Name the product with its version, such as Ferry 3.2, at least once. A reader should know which release the note is about.",
+                "section": "Rules for every announcement",
+                "noul": 0.91,
+                "parts": [
+                  0.91,
+                  0.67
+                ],
+                "span": "any",
+                "applies": 0.96,
+                "comesUp": 0.98
+              },
+              {
+                "id": "r3",
+                "text": "Use only numbers the brief states, never a number of your own. An invented figure is a claim nobody checked.",
+                "section": "Rules for every announcement",
+                "noul": 0.64,
+                "parts": [
+                  0.64,
+                  0.58
+                ],
+                "code": {
+                  "answer": "met",
+                  "saw": [
+                    {
+                      "test": "only",
+                      "answer": "met",
+                      "why": null,
+                      "outside": [],
+                      "otherNotation": [],
+                      "outsideTotal": 0
+                    }
+                  ],
+                  "tests": [
+                    {
+                      "test": "only",
+                      "read": {
+                        "part": "text",
+                        "skip": null
+                      },
+                      "what": "numbers",
+                      "allowed": {
+                        "from": "request",
+                        "in": "request and files",
+                        "file": null,
+                        "labels": [],
+                        "take": "numbers",
+                        "level": null
+                      }
+                    }
+                  ]
+                },
+                "applies": 0.96,
+                "comesUp": 0.9
+              },
+              {
+                "id": "r4",
+                "text": "Write no more than 120 words. Most readers stop after the first screen.",
+                "section": "Rules for every announcement",
+                "unmarkable": {
+                  "why": "conflict",
+                  "with": "The page lists all 180 changes.",
+                  "fix": "Write no more than 120 words, unless the request asks for a full list of changes; then the list itself is not counted."
+                }
+              },
+              {
+                "id": "r5",
+                "text": "When the brief gives a Price, state it with its currency code, such as 12 USD. A bare number reads as a different amount in each country.",
+                "section": "Rules for every announcement",
+                "noul": 0.97,
+                "parts": [
+                  0.97,
+                  0.97
+                ],
+                "span": "any",
+                "applies": 0.96,
+                "comesUp": 0.79
+              },
+              {
+                "id": "r6",
+                "text": "Quote the customer in the brief's Quote word for word, with their name. A paraphrase puts words in their mouth.",
+                "section": "Rules for every announcement",
+                "noul": 0.96,
+                "parts": [
+                  0.96,
+                  0.96
+                ],
+                "span": "any",
+                "applies": 0.96,
+                "comesUp": 0.86
+              },
+              {
+                "id": "r7",
+                "text": "Never use the words exciting, thrilled, delighted or proud. They say how the company feels, not what the reader gets.",
+                "section": "Rules for every announcement",
+                "noul": 0.99,
+                "parts": [
+                  0.99,
+                  0.97
+                ],
+                "code": {
+                  "answer": "met",
+                  "saw": [
+                    {
+                      "test": "has",
+                      "answer": "met",
+                      "why": null,
+                      "found": [],
+                      "missing": [
+                        "exciting",
+                        "thrilled",
+                        "delighted",
+                        "proud"
+                      ],
+                      "foundTotal": 0,
+                      "missingTotal": 4
+                    }
+                  ],
+                  "tests": [
+                    {
+                      "test": "has",
+                      "read": {
+                        "part": "text",
+                        "skip": null
+                      },
+                      "values": {
+                        "from": "listed",
+                        "items": [
+                          "exciting",
+                          "thrilled",
+                          "delighted",
+                          "proud"
+                        ]
+                      },
+                      "need": "none",
+                      "at": "anywhere",
+                      "match": "words",
+                      "case": "any"
+                    }
+                  ]
+                },
+                "applies": 0.96,
+                "comesUp": 0.96
+              },
+              {
+                "id": "r8",
+                "text": "Never use the word users. Write to the reader as you, since the note goes to one person at a time.",
+                "section": "Rules for every announcement",
+                "noul": 0.88,
+                "parts": [
+                  0.88,
+                  0.92
+                ],
+                "code": {
+                  "answer": "met",
+                  "saw": [
+                    {
+                      "test": "has",
+                      "answer": "met",
+                      "why": null,
+                      "found": [],
+                      "missing": [
+                        "users"
+                      ],
+                      "foundTotal": 0,
+                      "missingTotal": 1
+                    }
+                  ],
+                  "tests": [
+                    {
+                      "test": "has",
+                      "read": {
+                        "part": "text",
+                        "skip": null
+                      },
+                      "values": {
+                        "from": "listed",
+                        "items": [
+                          "users"
+                        ]
+                      },
+                      "need": "none",
+                      "at": "anywhere",
+                      "match": "words",
+                      "case": "any"
+                    }
+                  ]
+                },
+                "applies": 0.96,
+                "comesUp": 0.95
+              },
+              {
+                "id": "r9",
+                "text": "Name every feature in the brief's Features list by the name the brief gives it. A feature left out is one nobody hears about.",
+                "section": "Rules for every announcement",
+                "noul": 0.96,
+                "parts": [
+                  0.96,
+                  0.95
+                ],
+                "code": {
+                  "answer": "none",
+                  "why": "not there",
+                  "saw": [
+                    {
+                      "test": "none",
+                      "answer": "none",
+                      "why": "not there"
+                    }
+                  ],
+                  "tests": [
+                    {
+                      "test": "has",
+                      "read": {
+                        "part": "text",
+                        "skip": null
+                      },
+                      "values": {
+                        "from": "request",
+                        "in": "file",
+                        "file": "brief.md",
+                        "labels": [
+                          "Features"
+                        ],
+                        "take": "item names",
+                        "level": null
+                      },
+                      "need": "all",
+                      "at": "anywhere",
+                      "match": "words",
+                      "case": "any"
+                    }
+                  ]
+                },
+                "applies": 0.96,
+                "comesUp": 0.83
+              },
+              {
+                "id": "r10",
+                "text": "Leave out anything the brief marks Internal, and any codename it gives. Those lines are for the team alone.",
+                "section": "Rules for every announcement",
+                "noul": 0.97,
+                "parts": [
+                  0.97,
+                  0.95
+                ],
+                "span": "every",
+                "applies": 0.96,
+                "comesUp": 0.97
+              },
+              {
+                "id": "r11",
+                "text": "Put the subject on the first line, after Subject: , in 50 characters or fewer. A longer subject is cut off in most inboxes.",
+                "section": "Rules for an email",
+                "noul": 0.96,
+                "parts": [
+                  0.96,
+                  0.96
+                ],
+                "code": {
+                  "answer": "none",
+                  "why": "kind",
+                  "saw": [],
+                  "tests": [
+                    {
+                      "test": "has",
+                      "read": {
+                        "part": "line",
+                        "label": null,
+                        "number": 1
+                      },
+                      "values": {
+                        "from": "listed",
+                        "items": [
+                          "Subject:"
+                        ]
+                      },
+                      "need": "all",
+                      "at": "start",
+                      "match": "characters",
+                      "case": "exact"
+                    },
+                    {
+                      "test": "count",
+                      "read": {
+                        "part": "line",
+                        "label": "Subject",
+                        "number": null
+                      },
+                      "what": "characters",
+                      "compare": "at most",
+                      "n": 50
+                    }
+                  ]
+                },
+                "applies": 0.02,
+                "comesUp": 0.03
+              },
+              {
+                "id": "r12",
+                "text": "Write plain text with no Markdown: no #, no ** and no list marks (-, * or •). Most mail apps show the marks as they are typed.",
+                "section": "Rules for an email",
+                "noul": 0.94,
+                "parts": [
+                  0.94,
+                  0.93
+                ],
+                "span": "every",
+                "applies": 0.02,
+                "comesUp": 0.06
+              },
+              {
+                "id": "r13",
+                "text": "Give exactly one link, the brief's Link. Two links split the clicks.",
+                "section": "Rules for an email",
+                "noul": 0.95,
+                "parts": [
+                  0.95,
+                  0.94
+                ],
+                "code": {
+                  "answer": "none",
+                  "why": "kind",
+                  "saw": [],
+                  "tests": [
+                    {
+                      "test": "count",
+                      "read": {
+                        "part": "file"
+                      },
+                      "what": "links",
+                      "compare": "exactly",
+                      "n": 1
+                    },
+                    {
+                      "test": "has",
+                      "read": {
+                        "part": "file"
+                      },
+                      "values": {
+                        "from": "request",
+                        "in": "request and files",
+                        "file": null,
+                        "labels": [
+                          "Link"
+                        ],
+                        "take": "links",
+                        "level": null
+                      },
+                      "need": "all",
+                      "at": "anywhere",
+                      "match": "characters",
+                      "case": "exact"
+                    }
+                  ]
+                },
+                "applies": 0.02,
+                "comesUp": 0.06
+              },
+              {
+                "id": "r14",
+                "text": "End with the release date, the support address and the name of the person who signs it, in that order, each on a line of its own. Readers look for all three in the same place.",
+                "section": "Rules for an email",
+                "noul": 0.94,
+                "parts": [
+                  0.94,
+                  0.95
+                ],
+                "span": "end",
+                "applies": 0.02,
+                "comesUp": 0.05
+              },
+              {
+                "id": "r15",
+                "text": "Write one file with its styles in a <style> tag, no script and no outside file. The page is pasted into a CMS that strips both.",
+                "section": "Rules for a web page",
+                "noul": 0.94,
+                "parts": [
+                  0.94,
+                  0.74
+                ],
+                "span": "whole",
+                "applies": 0.97,
+                "comesUp": 0.99
+              },
+              {
+                "id": "r16",
+                "text": "Use exactly one <h1>, holding the headline and nothing else. Search engines and screen readers take it as the page's title.",
+                "section": "Rules for a web page",
+                "noul": 0.89,
+                "parts": [
+                  0.89,
+                  0.64
+                ],
+                "code": {
+                  "answer": "met",
+                  "saw": [
+                    {
+                      "test": "count",
+                      "answer": "met",
+                      "why": null,
+                      "counts": [
+                        1
+                      ],
+                      "compare": "exactly",
+                      "n": 1
+                    },
+                    {
+                      "test": "has",
+                      "answer": "met",
+                      "why": null,
+                      "found": [
+                        {
+                          "value": "Everything that changed in Ferry 4.0.",
+                          "piece": 0,
+                          "at": 0,
+                          "text": "Everything that changed in Ferry 4.0"
+                        }
+                      ],
+                      "missing": [],
+                      "foundTotal": 1,
+                      "missingTotal": 0
+                    }
+                  ],
+                  "tests": [
+                    {
+                      "test": "count",
+                      "read": {
+                        "part": "elements",
+                        "tag": "h1",
+                        "attribute": null,
+                        "which": "every"
+                      },
+                      "what": "items",
+                      "compare": "exactly",
+                      "n": 1
+                    },
+                    {
+                      "test": "has",
+                      "read": {
+                        "part": "elements",
+                        "tag": "h1",
+                        "attribute": null,
+                        "which": "every"
+                      },
+                      "values": {
+                        "from": "request",
+                        "in": "request and files",
+                        "file": null,
+                        "labels": [
+                          "Headline"
+                        ],
+                        "take": "whole",
+                        "level": null
+                      },
+                      "need": "all",
+                      "at": "whole",
+                      "match": "words",
+                      "case": "exact"
+                    }
+                  ]
+                },
+                "applies": 0.97,
+                "comesUp": 0.98
+              },
+              {
+                "id": "r17",
+                "text": "Set the body text at 18px and the content column at most 640px wide. That is what the site's articles use.",
+                "section": "Rules for a web page",
+                "noul": 0.93,
+                "parts": [
+                  0.93,
+                  0.71
+                ],
+                "span": "whole",
+                "applies": 0.97,
+                "comesUp": 0.98
+              },
+              {
+                "id": "r18",
+                "text": "Use only the colours in the brief's Colours list. Any other colour is off brand.",
+                "section": "Rules for a web page",
+                "noul": 0.87,
+                "parts": [
+                  0.87,
+                  0.67
+                ],
+                "code": {
+                  "answer": "met",
+                  "saw": [
+                    {
+                      "test": "only",
+                      "answer": "met",
+                      "why": null,
+                      "outside": [],
+                      "otherNotation": [],
+                      "outsideTotal": 0
+                    }
+                  ],
+                  "tests": [
+                    {
+                      "test": "only",
+                      "read": {
+                        "part": "styles"
+                      },
+                      "what": "hex colours",
+                      "allowed": {
+                        "from": "request",
+                        "in": "request and files",
+                        "file": null,
+                        "labels": [
+                          "Colours"
+                        ],
+                        "take": "hex colours",
+                        "level": null
+                      }
+                    }
+                  ]
+                },
+                "applies": 0.97,
+                "comesUp": 0.96
+              },
+              {
+                "id": "r19",
+                "text": "End the page with a footer that holds the line \"Questions? Write to\" and the support address. A reader who scrolls to the end is looking for a way to ask.",
+                "section": "Rules for a web page",
+                "noul": 0.14,
+                "parts": [
+                  0.14,
+                  0.94
+                ],
+                "span": "end",
+                "applies": 0.97,
+                "comesUp": 0.96
+              }
+            ]
+          },
+          "rubric": {
+            "statements": [
+              {
+                "id": "01-all",
+                "text": "The page lists all 180 changes.",
+                "weight": 2,
+                "noul": 0.12,
+                "parts": [
+                  0.12,
+                  0.33
+                ],
+                "span": "whole",
+                "units": null,
+                "best": null
+              },
+              {
+                "id": "02-last",
+                "text": "The last change on the page is Export bookings as CSV.",
+                "weight": 1,
+                "noul": 0.02,
+                "parts": [
+                  0.02,
+                  0.96
+                ],
+                "span": "whole",
+                "units": null,
+                "best": null
+              }
+            ]
+          },
+          "cut": [
+            "Jev read only the start of the case's changes.md"
+          ],
+          "parts": {
+            "read": 2,
+            "of": 2
+          }
+        }
+      },
+      "scores": {
+        "total": 100,
+        "adherence": 100,
+        "rubric": null
+      },
+      "flags": [
+        "Jev read only the start of the case's changes.md",
+        "rule not counted, it cannot be marked as written (it cannot hold beside \"The page lists all 180 changes.\") (Rules for every announcement): Write no more than 120 words. Most readers stop after the first screen.",
+        "rule not counted, the output is too long for Jev to read it whole (Rules for a web page): Write one file with its styles in a <style> tag, no script and no outside file. The page is pasted into a CMS…",
+        "rule not counted, the output is too long for Jev to read it whole (Rules for a web page): Set the body text at 18px and the content column at most 640px wide. That is what the site's articles use.",
+        "4 rules not counted: for another kind of work or situation than this",
+        "grader 01-all not counted, the output is too long for Jev to read it whole: The page lists all 180 changes.",
+        "grader 02-last not counted, the output is too long for Jev to read it whole: The last change on the page is Export bookings as CSV."
+      ],
+      "confidence": 0.8384615384615386
+    }
+  ]
+}

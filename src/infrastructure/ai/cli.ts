@@ -1,7 +1,7 @@
 /**
  * What the two CLI providers share. A signed-in CLI takes one prompt per run,
  * so a conversation goes in as a transcript, and its output is one JSON event
- * per line.
+ * per line. A run that reads a folder is started in that folder (`CliRun`).
  */
 import { tmpdir } from 'node:os'
 import { agentEnv } from '../env.ts'
@@ -11,6 +11,17 @@ import { jsonLine } from '../json-lines.ts'
 import type { AiMessage, AiRequest } from './types.ts'
 
 const TIMEOUT_MS = 5 * 60_000
+
+/** Where a CLI run is started and how long it may take, when not the usual. */
+export interface CliRun {
+  /** The folder it is started in; the temp folder unless given. */
+  cwd?: string
+  timeoutMs?: number
+}
+
+/** A time limit in words: "five minutes", "20 minutes". */
+const minutesText = (ms: number): string =>
+  ms === TIMEOUT_MS ? 'five minutes' : `${Math.round(ms / 60_000)} minutes`
 /**
  * Ask a CLI how it is signed in. The answer is in what it prints and how it
  * exits. This only reads: signing in and installing are the person's to do, in
@@ -77,7 +88,8 @@ export function commandPrompt(messages: AiMessage[]): { prompt: string; context:
 /**
  * Run a CLI with the prompt on stdin, handing each JSON line it prints to
  * `onEvent`. It runs in the temp folder, so no project's settings, skills or
- * instructions load. Throws when it cannot start or exits with an error.
+ * instructions load, unless `how` names another folder: one made for the run,
+ * with nothing above it. Throws when it cannot start or exits with an error.
  */
 export async function runJsonLines<E>(
   command: string,
@@ -85,12 +97,14 @@ export async function runJsonLines<E>(
   input: string,
   request: Pick<AiRequest, 'signal'>,
   onEvent: (event: E) => void,
+  how: CliRun = {},
 ): Promise<void> {
+  const timeoutMs = how.timeoutMs ?? TIMEOUT_MS
   const result = await exec(command, args, {
-    cwd: tmpdir(),
+    cwd: how.cwd ?? tmpdir(),
     env: agentEnv(),
     input,
-    timeoutMs: TIMEOUT_MS,
+    timeoutMs,
     signal: request.signal,
     onLine: (line) => {
       const event = jsonLine(line)
@@ -104,7 +118,8 @@ export async function runJsonLines<E>(
       `This conversation is too long to send to ${command} as a command. Start a new one, or ask with less text.`,
     )
   if (result.spawnError) throw new Error(`Could not start ${command}: ${result.spawnError}`)
-  if (result.timedOut) throw new Error(`${command} took longer than five minutes and was stopped.`)
+  if (result.timedOut)
+    throw new Error(`${command} took longer than ${minutesText(timeoutMs)} and was stopped.`)
   if (result.code !== 0) {
     const detail = result.stderr.trim().split('\n').at(-1)
     throw new Error(`${command} stopped with an error${detail ? `: ${detail}` : '.'}`)

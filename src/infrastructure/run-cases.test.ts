@@ -2,7 +2,7 @@ import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'nod
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { loadCases } from './cases.ts'
+import { loadCases, loadEveryCase } from './cases.ts'
 import { readJson } from './fs.ts'
 import {
   askOf,
@@ -315,5 +315,81 @@ describe('runCases', () => {
       yardstick: yardstickOf(dir, email()),
       earlier: null,
     })
+  })
+})
+
+describe('the checks for every case', () => {
+  const writeEvery = (name: string, statement: string, extra = '') => {
+    mkdirSync(join(dir, 'evals/graders'), { recursive: true })
+    writeFileSync(
+      join(dir, 'evals/graders', `${name}.md`),
+      `---\nweight: 1\n${extra}---\n${statement}\n`,
+    )
+  }
+
+  it('load from evals/graders under ids no case’s own check can have, and are no case', () => {
+    writeCheck('email', '01-names', 'It names the product.')
+    writeEvery('01-names', 'It names the product.')
+    writeFileSync(join(dir, 'evals/graders', 'notes.txt'), 'not a check')
+    writeFileSync(join(dir, 'evals/graders', 'prompt.md'), '---\n---\nNot a case either.\n')
+    const every = loadEveryCase(dir)
+    expect(every.map((g) => g.id)).toEqual(['every/01-names', 'every/prompt'])
+    expect(loadCases(dir).map((c) => c.id)).toEqual(['email'])
+    expect(loadEveryCase(join(dir, 'nowhere'))).toEqual([])
+  })
+
+  it('are graded after a case’s own, and count in its yardstick only when there are some', () => {
+    writeCheck('email', '01-short', 'It is under 50 words.')
+    const held = yardstickOf(dir, email())
+    expect(takenCase(dir, null, email(), [])?.yardstick).toBe(held)
+    writeEvery('01-names', 'It names the product.')
+    const taken = takenCase(dir, null, email(), loadEveryCase(dir))
+    expect(taken?.case.graders.map((g) => g.id)).toEqual(['01-short', 'every/01-names'])
+    expect(taken?.yardstick).not.toBe(held)
+    expect(runCases(dir, run, loadCases(dir), null, [], loadEveryCase(dir)).email.yardstick).toBe(
+      taken?.yardstick,
+    )
+  })
+
+  it('are kept with each case a run answers, and read from that copy once the case changed', () => {
+    writeEvery('01-names', 'It names the product.')
+    keepCases(dir, run, loadCases(dir), loadEveryCase(dir))
+    const [kept] = keptCases(run) ?? []
+    expect(kept.every?.map((g) => g.statement)).toEqual(['It names the product.'])
+    writeEvery('01-names', 'It names the product and its version.')
+    // While the case asks what the run was asked, the checks are read as they are now.
+    expect(takenCase(dir, kept, email(), loadEveryCase(dir))?.case.graders.at(-1)?.statement).toBe(
+      'It names the product and its version.',
+    )
+    writeCase('email', 'Write a letter.')
+    const earlier = takenCase(dir, kept, email(), loadEveryCase(dir))
+    expect(earlier?.case.graders.map((g) => g.statement)).toEqual(['It names the product.'])
+    // What the agent was asked, without them.
+    expect(earlier?.earlier?.graders).toEqual([])
+  })
+
+  it('are none on a run kept before runs kept them', () => {
+    keepCases(dir, run, loadCases(dir))
+    const file = join(run, CASES_FILE)
+    const held = readJson<Array<Record<string, unknown>>>(file, [])
+    writeFileSync(file, JSON.stringify(held.map(({ every: _, ...rest }) => rest)))
+    const [kept] = keptCases(run) ?? []
+    expect(kept.every).toBeUndefined()
+    writeEvery('01-names', 'It names the product.')
+    writeCase('email', 'Write a letter.')
+    expect(takenCase(dir, kept, email(), loadEveryCase(dir))?.case.graders).toEqual([])
+  })
+
+  it('keep the picture a check is about with the run, as a case’s check does', () => {
+    mkdirSync(join(dir, 'evals/references'), { recursive: true })
+    writeFileSync(join(dir, 'evals/references/logo.png'), 'png')
+    writeEvery('01-logo', 'It shows the logo.', 'image: references/logo.png\n')
+    const [check] = loadEveryCase(dir)
+    expect(check.image).toBe('evals/references/logo.png')
+    keepCases(dir, run, loadCases(dir), [check])
+    const [kept] = keptCases(run) ?? []
+    const image = kept.every?.[0].image ?? ''
+    expect(image).toBe('evals/runs/r1/_checks/email/evals/references/logo.png')
+    expect(readFileSync(join(dir, image), 'utf8')).toBe('png')
   })
 })

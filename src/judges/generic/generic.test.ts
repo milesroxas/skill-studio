@@ -102,7 +102,7 @@ describe('generic scoring', () => {
     const old =
       'judged on the first 12,000 characters of the output and none of the files beside it: the whole is more than Jev reads at once'
     const cut = [
-      'Jev read only the first 40,000 characters of the output',
+      'Jev read only the first 6,000 characters of notes.md',
       'Jev read none of outputs/app.js',
     ]
     for (const [read, lines] of [
@@ -114,7 +114,102 @@ describe('generic scoring', () => {
       for (const line of lines)
         expect(verdicts.find((v) => v.text === line)).toMatchObject({ layer: null, met: false })
       expect(layers).toEqual(genericScoring.score(raw, subject, config).layers)
+      expect(genericScoring.behind?.(read)).toBeNull()
     }
+  })
+
+  it('reads a kept reading of the start of a long output as not read, and as owed a grading', () => {
+    // Kept before long outputs were asked in parts: each answer is of the first 40,000 characters alone.
+    const cut = ['Jev read only the first 40,000 characters of the output']
+    const kept = { ...raw, cut }
+    const { flags, verdicts, layers } = genericScoring.score(kept, subject, config)
+    expect(layers).toEqual({ adherence: null, rubric: null })
+    const facts = verdicts.filter((v) => v.kind === 'rule' || v.kind === 'check')
+    expect(facts).toHaveLength(4)
+    for (const fact of facts) expect(fact).toMatchObject({ aside: 'unread', met: false, jev: null })
+    expect(flags).toEqual(expect.arrayContaining(cut))
+    expect(flags).toContain(
+      'rule not counted, the output is too long for Jev to read it whole (Rules): Keep it under 25 words.',
+    )
+    expect(flags).toContain(
+      'grader g2 not counted, the output is too long for Jev to read it whole: The note has two sentences.',
+    )
+    expect(genericScoring.behind?.(kept)).toBe('Graded by an older version of Skill Studio')
+    // Jev answered nothing of the whole, so it was sure of nothing.
+    expect(genericScoring.certainties(kept, config)).toEqual([])
+    // The reader's own answer on a fact not read counts.
+    const yours = genericScoring.score(kept, subject, config, {
+      'rule:Keep it under 25 words.': true,
+    })
+    expect(yours.layers.adherence).toBe(1)
+    expect(yours.verdicts.find((v) => v.id === 'rule:Keep it under 25 words.')).toMatchObject({
+      met: true,
+      corrected: true,
+      jev: null,
+    })
+    expect(yours.verdicts.find((v) => v.id === 'rule:Keep it under 25 words.')).not.toHaveProperty(
+      'aside',
+    )
+  })
+
+  it('joins the answers of an output asked in parts, by each fact’s span where it is known', () => {
+    const parted: GenericRaw = {
+      parts: { read: 2, of: 2 },
+      adherence: {
+        rules: [
+          // Every part met: met, as sure as the least sure part.
+          {
+            id: 'r1',
+            text: 'Open with the first name.',
+            section: 'Rules',
+            noul: 0.9,
+            parts: [0.9, 0.8],
+          },
+          // The parts differ and nobody said how to join them: not read.
+          {
+            id: 'r2',
+            text: 'Keep it under 25 words.',
+            section: 'Rules',
+            noul: 0.9,
+            parts: [0.9, 0.1],
+          },
+          // Something forbidden that one part does: missed.
+          {
+            id: 'r3',
+            text: 'Never name the codename.',
+            section: 'Rules',
+            noul: 0.9,
+            parts: [0.9, 0.1],
+            span: 'every',
+          },
+        ],
+      },
+      rubric: {
+        statements: [
+          // Something present in one part: met.
+          {
+            id: 'g1',
+            text: 'The page has a footer.',
+            weight: 1,
+            noul: 0.2,
+            parts: [0.2, 0.95],
+            span: 'any',
+            units: null,
+            best: null,
+          },
+        ],
+      },
+    }
+    const { layers, verdicts } = genericScoring.score(parted, subject, config)
+    const by = (id: string) => verdicts.find((v) => v.id === id)
+    expect(by('rule:Open with the first name.')).toMatchObject({ met: true, jev: true })
+    expect(by('rule:Keep it under 25 words.')).toMatchObject({ aside: 'unread', jev: null })
+    expect(by('rule:Never name the codename.')).toMatchObject({ met: false, jev: false })
+    expect(by('check:The page has a footer.')).toMatchObject({ met: true, jev: true })
+    expect(layers).toEqual({ adherence: 1 / 2, rubric: 1 })
+    // How sure Jev was is read off the joined answers; the one not read has none.
+    expect(genericScoring.certainties(parted, config)).toHaveLength(3)
+    expect(genericScoring.behind?.(parted)).toBeNull()
   })
 
   it('leaves every layer out without raw answers', () => {

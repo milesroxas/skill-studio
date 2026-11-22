@@ -1,0 +1,4 @@
+- Brief has no Price line, so none is stated; the brief's Note says the update is free on paid plans, which I used.
+- Left out the codename (Internal line) and rewrote the Summary without it.
+- Subject is "Ferry 3.3: Reschedule in one tap." (under 50 chars); body opens with the headline verbatim.
+- Word count is about 85, under the 120 limit. Check that the sign-off order (date, support, name) suits you.

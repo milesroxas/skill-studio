@@ -1,0 +1,4 @@
+- Email is plain text, generic greeting "Hi," (no recipient name given).
+- Release date 4 March 2027 is in the future relative to today (2026-11-20); written as "is out on" per the brief. Change to "arrives on" if sending earlier.
+- Price stated as "12 USD a month" exactly as in the brief.
+- Codename from the brief's internal note is not used anywhere.

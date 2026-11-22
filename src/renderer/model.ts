@@ -25,14 +25,7 @@ import type {
   ReportResult,
   Writer,
 } from '@domain/schemas.ts'
-import {
-  behindOf,
-  gradedNow,
-  layerOrder,
-  pixelText,
-  type Scored,
-  scoreResult,
-} from '@domain/scoring.ts'
+import { behindOf, gradedNow, pixelText, type Scored, scoreResult } from '@domain/scoring.ts'
 import {
   type Attempts,
   attemptsOf,
@@ -390,7 +383,7 @@ const versionRuns = (runs: RunView[], outputs: Output[], config: BenchConfig): V
   }))
 
 /** `outputs` with the answers given, one each in order; an output whose answers are its own stays itself. */
-const withAnswers = (outputs: Output[], answers: readonly Corrections[]): Output[] =>
+export const withAnswers = (outputs: Output[], answers: readonly Corrections[]): Output[] =>
   outputs.map((o, i) => (answers[i] === o.corrections ? o : { ...o, corrections: answers[i] }))
 
 /** The verdicts of each output a score over `outputs` counts: none cut short or on a file Jev cannot read. */
@@ -441,7 +434,7 @@ export function changeBetween(from: Output, to: Output, config: BenchConfig): nu
  * only one side holds (`moveBetween`): the page says why where the change is
  * read (`changeWhy`).
  */
-export const unshared = (change: number | null, from: number | null, to: number | null): boolean =>
+const unshared = (change: number | null, from: number | null, to: number | null): boolean =>
   change !== null && from !== null && to !== null && change !== pointsMoved(from, to)
 
 /** `unshared` for the change from `previous` to `latest` a case stands on. */
@@ -451,20 +444,45 @@ export const standingUnshared = (
   unshared(standing.change, standing.previous?.score ?? null, standing.latest?.score ?? null)
 
 /**
+ * How much of a score Jev left to the reader, in one sentence (`asideLine`),
+ * and which of the two the sentence opens with: what Jev was not sure of where
+ * there is any, else what it could not read the whole output for. A note's
+ * title is chosen by `leads`, never by the words.
+ */
+export interface AsideLine {
+  leads: 'unsure' | 'unread'
+  text: string
+}
+
+/** The title of the note an `AsideLine` is, by what it leads with. */
+const ASIDE_TITLE: Record<AsideLine['leads'], string> = {
+  unsure: 'Not sure',
+  unread: 'Not read',
+}
+
+/**
  * How much of a score was counted, where Jev left some of it to the reader:
  * "Jev was not sure of 8 of the 17 rules, left out of the score until you
- * mark them." Counted over the rules and checks of every output with a score
+ * mark them.", and of facts it could not read the whole output for (`unread`):
+ * "Jev could not read the whole output for 3 of the 17 rules, …". Counted over the rules and checks of every output with a score
  * among `outputs`, each once, the ones that do not apply left out; `over`
  * says where they were when the outputs are more than one ("on their latest
- * runs"). Null when Jev was sure of every one.
+ * runs"). Null when Jev was sure of every one and read all it needed.
  */
-export function asideLine(outputs: Output[], config: BenchConfig, over?: string): string | null {
+export function asideLine(outputs: Output[], config: BenchConfig, over?: string): AsideLine | null {
   const graded = countedVerdicts(outputs, config).filter((verdicts) => verdicts.length)
+  // A fact that does not apply, or that nobody can mark, is no part of what a score could count.
   const facts = graded
     .flat()
-    .filter((v) => (v.kind === 'rule' || v.kind === 'check') && v.aside !== 'inapplicable')
+    .filter(
+      (v) =>
+        (v.kind === 'rule' || v.kind === 'check') &&
+        v.aside !== 'inapplicable' &&
+        v.aside !== 'unmarkable',
+    )
   const unsure = facts.filter((v) => v.aside === 'unsure').length
-  if (!unsure) return null
+  const unread = facts.filter((v) => v.aside === 'unread').length
+  if (!unsure && !unread) return null
   const kinds = new Set(facts.map((v) => v.kind))
   const many = facts.length > 1
   const noun =
@@ -472,15 +490,40 @@ export function asideLine(outputs: Output[], config: BenchConfig, over?: string)
       ? 'rules and checks'
       : `${kinds.has('rule') ? 'rule' : 'check'}${many ? 's' : ''}`
   const where = over ?? (graded.length > 1 ? `over ${graded.length} outputs` : null)
-  const of = many ? `${unsure} of the ${facts.length} ${noun}` : `the one ${noun}`
-  return `Jev was not sure of ${of}${where ? ` ${where}` : ''}, left out of the score until you mark ${unsure > 1 ? 'them' : 'it'}.`
+  const of = (n: number) => (many ? `${n} of the ${facts.length} ${noun}` : `the one ${noun}`)
+  const them = `left out of the score until you mark ${unsure + unread > 1 ? 'them' : 'it'}.`
+  // A fact the app's own count could not settle is not sure too, and is not Jev's to be unsure of.
+  if (facts.some((v) => v.aside === 'unsure' && v.by === 'code')) {
+    const said = [
+      unsure ? `Not sure on ${of(unsure)}` : null,
+      unread
+        ? `${unsure ? 'not read on' : 'Not read on'} ${unsure ? `${unread} more` : of(unread)}`
+        : null,
+    ]
+      .filter(Boolean)
+      .join(' and ')
+    return { leads: 'unsure', text: `${said}${where ? ` ${where}` : ''}, ${them}` }
+  }
+  // Not read is said apart from not sure: Jev answered the one, and was never asked of the whole for the other.
+  const said = [
+    unsure ? `was not sure of ${of(unsure)}` : null,
+    unread
+      ? `could not read the whole output for ${unsure ? unread : of(unread)}${unsure ? ' more' : ''}`
+      : null,
+  ]
+    .filter(Boolean)
+    .join(' and ')
+  return {
+    leads: unsure ? 'unsure' : 'unread',
+    text: `Jev ${said}${where ? ` ${where}` : ''}, ${them}`,
+  }
 }
 
 /** `asideLine` for the outputs the lift's latest means are over. */
 export const liftAsideLine = (
   standings: readonly CaseStand[],
   config: BenchConfig,
-): string | null =>
+): AsideLine | null =>
   asideLine(
     standings
       .filter((s) => !s.earlier && s.previous && s.since && s.latest)
@@ -534,7 +577,7 @@ export interface LiftNote {
  * from `liftAsideLine`). The head of All cases shows none of it: its count
  * of cases opens it.
  */
-export function liftNotes(lift: CaseLift, aside: string | null): LiftNote[] {
+export function liftNotes(lift: CaseLift, aside: AsideLine | null): LiftNote[] {
   const one = lift.cases === 1
   const some = lift.floorCases < lift.cases ? `, over ${lift.floorCases} of them` : ''
   const change = lift.unshared ? changeLine('runs', lift) : null
@@ -567,7 +610,7 @@ export function liftNotes(lift: CaseLift, aside: string | null): LiftNote[] {
       : null,
     change ? { title: 'What the change counts', text: change } : null,
     several ? { title: 'Attempts', text: liftAttemptsLine(lift) } : null,
-    aside ? { title: 'Not sure', text: aside } : null,
+    aside ? { title: ASIDE_TITLE[aside.leads], text: aside.text } : null,
   ]
   return notes.filter((note): note is LiftNote => note !== null)
 }
@@ -888,10 +931,6 @@ export const noSkillScore = (outputs: Output[], config: BenchConfig): number | n
 export const mergedConfig = (saved: Partial<BenchConfig> | null): BenchConfig =>
   mergeConfig(saved, scorers)
 
-/** The parts of a score under `config`, in the order they are shown, without the total. */
-export const layersOf = (config: BenchConfig): string[] =>
-  layerOrder(config, scorers).filter((l) => l !== 'total')
-
 /**
  * True for a report Jev graded that marked no rule or check on some output
  * with something in it: one from before rules and checks were marked on every
@@ -998,12 +1037,14 @@ export function countsOf(
 
 /**
  * A count as it reads: "9 of 11", "9 of 11, 2 not sure" where Jev left some
- * for the reader, and "2 not sure" where it was sure of none.
+ * for the reader, "9 of 11, 1 not read" where an output was too long for Jev to
+ * read whole, and "2 not sure" where it was sure of none.
  */
-export function countText(count: Count): string {
+function countText(count: Count): string {
   const unsure = count.unsure ? `${count.unsure} not sure` : null
+  const unread = count.unread ? `${count.unread} not read` : null
   const marked = count.total ? `${count.met} of ${count.total}` : null
-  return [marked, unsure].filter(Boolean).join(', ')
+  return [marked, unsure, unread].filter(Boolean).join(', ')
 }
 
 /** "rules 9 of 11 · checks 7 of 9", to follow other parts of a line; null when nothing was counted. */

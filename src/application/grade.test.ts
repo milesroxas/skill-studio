@@ -23,7 +23,15 @@ import { readRun } from '@infrastructure/runs.ts'
 import { packById } from '@judges/index.ts'
 import { Jev } from '@judges/jev.ts'
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
-import { compareReports, gradeRun, jevForRun, scoredReport, selfTest, unjudged } from './grade.ts'
+import {
+  compareCases,
+  compareReports,
+  gradeRun,
+  jevForRun,
+  scoredReport,
+  selfTest,
+  unjudged,
+} from './grade.ts'
 
 const FIXTURE = resolve(import.meta.dirname, '../../fixtures/demo-skill')
 const RUN = '2026-10-30-skill-v0-claude-haiku'
@@ -1186,7 +1194,9 @@ describe.skipIf(process.platform === 'win32')('gradeRun, on a case’s check com
     const again = await gradeRun(dir, run, { useJev: false, log: (line) => lines.push(line) })
     expect(again.results[0].scores.check).toBe(100)
     // The answers that are kept were kept: the output itself did not change.
-    expect(lines).toContain('1 of 1 outputs unchanged: kept their verdicts.')
+    expect(lines).toContain(
+      'Jev was asked nothing new about 1 of 1 outputs: its answers from before were kept.',
+    )
     const cache = cachedReadings(join(dir, 'evals/runs', run, 'judge-cache.json'))
     expect(Object.values(cache)).toEqual([null])
   })
@@ -1459,5 +1469,110 @@ describe('gradeRun, on an output Jev cannot read', () => {
     expect(csv.primary).toEqual({ file: 'outputs/report.csv', kind: 'markdown' })
     expect(csv.flags).not.toContain('no output to judge')
     expect(judge).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('gradeRun and compareCases, on the checks for every case', () => {
+  const writeCheck = (dir: string, folder: string, name: string, statement: string) => {
+    mkdirSync(join(dir, folder), { recursive: true })
+    writeFileSync(join(dir, folder, `${name}.md`), `---\ntype: llm\n---\n${statement}\n`)
+  }
+  /** A second run of the skill, its outputs saying what each is given. */
+  const runOf = (dir: string, run: string, outputs: Record<string, string>) => {
+    for (const [sample, text] of Object.entries(outputs)) {
+      mkdirSync(join(dir, 'evals/runs', run, sample, 'outputs'), { recursive: true })
+      writeFileSync(join(dir, 'evals/runs', run, sample, 'outputs/note.md'), text)
+    }
+  }
+  /** Jev, answering a check met where the output holds its word in capitals: "PRICE" meets "It gives the price.". */
+  const jevReads = () => {
+    vi.spyOn(Jev, 'available').mockReturnValue(true)
+    return vi.spyOn(Jev.prototype, 'ask').mockImplementation(async (state, questions) => {
+      const output = (state as { output?: string }).output ?? ''
+      return Object.fromEntries(
+        Object.entries(questions).map(([id, question]) => {
+          const word = /the (\w+)\./.exec(JSON.stringify(question))?.[1]?.toUpperCase() ?? ''
+          const met = !id.startsWith('check:') || (word !== '' && output.includes(word))
+          return [id, { noul: met ? 0.9 : 0.1 } as never]
+        }),
+      )
+    })
+  }
+  const scoring = (dir: string, run: string) => {
+    const view = readRun(dir, run)
+    if (!view.report) throw new Error(`${run} is not graded`)
+    return {
+      report: view.report,
+      cases: view.cases,
+      samples: view.samples.map((s) => s.name),
+      corrections: {},
+    }
+  }
+
+  it('asks them of every output beside the case’s own, counts them in the same layer and keeps them with a run', async () => {
+    const { dir, run } = skillWith(['email', 'memo'], ['email-s1', 'memo-s1'])
+    writeCheck(dir, 'evals/cases/email/graders', '01-price', 'It gives the price.')
+    writeCheck(dir, 'evals/graders', '01-price', 'It gives the price.')
+    writeCheck(dir, 'evals/graders', '02-name', 'It gives the name.')
+    const ask = jevReads()
+    const report = await gradeRun(dir, run, { useJev: true, packs: ['generic'] })
+    const checks = ask.mock.calls.flatMap(([, q]) =>
+      Object.keys(q).filter((k) => k.startsWith('check:')),
+    )
+    expect(checks.sort()).toEqual(
+      [
+        'check:01-price',
+        'check:every/01-price',
+        'check:every/02-name',
+        'check:every/01-price',
+        'check:every/02-name',
+      ].sort(),
+    )
+    const email = report.results.find((r) => r.case === 'email')
+    const generic = email?.packs.generic as { rubric: { statements: Array<{ id: string }> } }
+    const statements = generic.rubric.statements
+    expect(statements.map((s) => s.id)).toEqual(['01-price', 'every/01-price', 'every/02-name'])
+    // The run's view of the case counts them in its yardstick, so the grading stands.
+    expect(
+      scoredReport(dir, report, {}, readRun(dir, run).cases).results.map((r) => r.scores.total),
+    ).not.toContain(null)
+  })
+
+  it('reads two runs as cases, on checks alone', async () => {
+    const { dir, run } = skillWith(['email', 'memo'], ['email-s1', 'memo-s1'])
+    writeCheck(dir, 'evals/graders', '01-price', 'It gives the price.')
+    writeCheck(dir, 'evals/cases/memo/graders', '01-name', 'It gives the name.')
+    // The first run gives the price in neither, and the memo's name.
+    writeFileSync(join(dir, 'evals/runs', run, 'email-s1/outputs/note.md'), 'An email.')
+    writeFileSync(join(dir, 'evals/runs', run, 'memo-s1/outputs/note.md'), 'A memo, NAME.')
+    runOf(dir, 'run-2', { 'email-s1': 'An email, PRICE.', 'memo-s1': 'A memo, PRICE.' })
+    jevReads()
+    await gradeRun(dir, run, { useJev: true, packs: ['generic'] })
+    await gradeRun(dir, 'run-2', { useJev: true, packs: ['generic'] })
+    const read = compareCases(dir, scoring(dir, run), scoring(dir, 'run-2'))
+    expect(read.cases.map((c) => [c.case, c.move, c.a, c.b])).toEqual([
+      ['email', 'better', [{ met: 0, total: 1 }], [{ met: 1, total: 1 }]],
+      ['memo', 'same', [{ met: 1, total: 2 }], [{ met: 1, total: 2 }]],
+    ])
+    expect(read).toMatchObject({ better: 1, same: 1, worse: 0, none: 0, left: [] })
+  })
+
+  it('leaves out a case only one run answered, or one asked another way', async () => {
+    const { dir, run } = skillWith(['email', 'memo'], ['email-s1', 'memo-s1'])
+    runOf(dir, 'run-2', { 'email-s1': 'An email.', 'note-s1': 'A note.' })
+    genericJudge().mockResolvedValue(null)
+    await gradeRun(dir, run, { useJev: false })
+    await gradeRun(dir, 'run-2', { useJev: false })
+    const two = scoring(dir, 'run-2')
+    const asked = compareCases(dir, scoring(dir, run), {
+      ...two,
+      cases: { ...two.cases, email: { ...two.cases.email, ask: 'another' } },
+    })
+    expect(asked.left).toEqual([
+      'memo: only the first run answered it',
+      'email: its agent was asked another prompt or other files in the other run',
+      'note: only the second run answered it',
+    ])
+    expect(asked.cases).toEqual([])
   })
 })

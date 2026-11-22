@@ -1,24 +1,13 @@
-/** The total chip and what is behind it, a score's move from one version to the next, and the parts one score is made of. */
+/** The total chip, a score's move from one version to the next, and a check's weight. */
 import { weightMark } from '@domain/case-draft.ts'
-import type { Scored } from '@domain/scoring.ts'
-import { layerCount } from '@domain/verdict.ts'
 import { cva } from 'class-variance-authority'
-import { type ReactNode, useRef } from 'react'
+import type { ReactNode } from 'react'
 import { cn } from '../lib/utils.ts'
-import {
-  countText,
-  kindHint,
-  kindLabel,
-  kindOfPart,
-  partLabel,
-  type ScoreBand,
-  scoreBand,
-} from '../model.ts'
+import { scoreBand } from '../model.ts'
 import { useArrived } from '../motion.ts'
-import { Explained } from './Help.tsx'
 import { Text } from './text.tsx'
 import { Badge } from './ui/badge.tsx'
-import { Popover, PopoverContent, PopoverSection, PopoverTrigger } from './ui/popover.tsx'
+import { PopoverSection } from './ui/popover.tsx'
 
 const BADGE_TONE = {
   hi: 'success',
@@ -70,48 +59,6 @@ export function TotalChip({
   )
 }
 
-/**
- * The total chip as a button: a click opens what lies behind the number, in
- * `TotalDetailSection`s. A click, never a hover, so a part's own note opens
- * inside it. Opened by a pointer, it keeps the focus off what it holds, so no
- * ring shows unasked; opened from the keyboard, the focus goes in.
- */
-export function TotalDetail({
-  total,
-  children,
-}: {
-  total: number | null | undefined
-  children: ReactNode
-}) {
-  const pointed = useRef(false)
-  const shown = total === null || total === undefined ? 'not graded yet' : Math.round(total)
-  return (
-    <Popover>
-      <PopoverTrigger
-        aria-label={`Score ${shown}: what it is counted from`}
-        onPointerDown={() => {
-          pointed.current = true
-        }}
-        onKeyDown={() => {
-          pointed.current = false
-        }}
-        className="rounded-sm focus-ring transition-[box-shadow] duration-150 ease-out hover:ring-2 hover:ring-border data-[state=open]:ring-2 data-[state=open]:ring-border"
-      >
-        <TotalChip total={total} />
-      </PopoverTrigger>
-      <PopoverContent
-        size="help"
-        align="end"
-        onOpenAutoFocus={(event) => {
-          if (pointed.current) event.preventDefault()
-        }}
-      >
-        {children}
-      </PopoverContent>
-    </Popover>
-  )
-}
-
 /** One part of what is behind a total: its heading, then what it holds. */
 export function TotalDetailSection({ title, children }: { title: string; children: ReactNode }) {
   return (
@@ -154,49 +101,6 @@ export function Delta({ value, lead = true }: { value: number | null; lead?: boo
     </Text>
   )
 }
-
-/**
- * A change that is not the difference of the two scores beside it, in words
- * that say what it was read over: "Up 4 on shared rules", the rules and
- * checks both outputs were marked on. A bare figure beside two scores reads as
- * their difference, so this one is never a figure. The words are short, since
- * they share a line of a head half a column wide, and open why, with the two
- * scores the change was read between (`Explained`). As in `ScoreChange`, only
- * a drop is colored.
- */
-export function SharedChange({ change, why }: { change: number; why: string }) {
-  const over = 'on shared rules'
-  return (
-    <Explained
-      label={
-        change < 0 ? (
-          <>
-            <Text tone="destructive">Down {-change}</Text> {over}
-          </>
-        ) : change > 0 ? (
-          `Up ${change} ${over}`
-        ) : (
-          `Same ${over}`
-        )
-      }
-      title="The change"
-      means={why}
-    />
-  )
-}
-
-/** A part's count or score: plain while it holds, amber or red once it is weak. */
-const partValue = cva('font-semibold whitespace-nowrap tabular-nums text-foreground', {
-  variants: {
-    band: {
-      hi: '',
-      mid: '',
-      lo: 'text-warning',
-      vlo: 'text-destructive',
-      na: 'text-muted-foreground/70',
-    },
-  },
-})
 
 /**
  * A score at the end of a row that lists a case: a `NavButton` in a list
@@ -243,73 +147,6 @@ export function ScoreChange({ change, against }: { change: number; against: stri
     <>
       <Text tone="destructive">Down {-change}</Text> {tail}
     </>
-  )
-}
-
-/**
- * A part's name. A part a kind of work adds, such as Look, opens what grades
- * it and the way to change that: the reader meets the setting where its
- * score shows, not only where it is kept.
- */
-function PartName({ layer, onChangeKinds }: { layer: string; onChangeKinds?: () => void }) {
-  const name = partLabel(layer)
-  const kind = kindOfPart(layer)
-  if (!kind) return name
-  return (
-    <Explained
-      label={name}
-      title={name}
-      means={`${kindLabel(kind)} grading adds this part. ${kindHint(kind)}`}
-      action={
-        onChangeKinds ? { label: 'Change what is graded', onClick: onChangeKinds } : undefined
-      }
-    />
-  )
-}
-
-/**
- * The parts one score is made of, a row each: the rules followed, the checks
- * met, and whatever else was measured. A part counted from facts says the
- * count, "3 of 4", each fact by its weight so a ×2 check counts two; any other
- * says its score and its move from the other side. Only a weak part is colored,
- * so the eye lands on it.
- */
-export function PartList({
-  scored,
-  layers,
-  other,
-  onChangeKinds,
-}: {
-  scored: Scored
-  layers: string[]
-  other?: Scored | null
-  /** Go to where the kinds of work are ticked. */
-  onChangeKinds?: () => void
-}) {
-  return (
-    <dl className="m-0 grid grid-cols-[minmax(0,1fr)_auto] items-baseline gap-x-4 gap-y-1.5 text-xs">
-      {layers.map((layer) => {
-        const value = scored.scores[layer] ?? null
-        const o = other?.scores[layer] ?? null
-        const delta = value !== null && o !== null ? value - o : null
-        const band: ScoreBand = scoreBand(value)
-        // A part whose every fact waits for the reader has no score, and still says how many wait.
-        const count = layerCount(scored.verdicts, layer)
-        return (
-          <div key={layer} className="contents">
-            <dt className="text-muted-foreground">
-              <PartName layer={layer} onChangeKinds={onChangeKinds} />
-            </dt>
-            <dd className="m-0 text-right">
-              <span className={partValue({ band })}>
-                {count ? countText(count) : (value ?? '–')}
-              </span>
-              {count ? null : <Delta value={delta} />}
-            </dd>
-          </div>
-        )
-      })}
-    </dl>
   )
 }
 

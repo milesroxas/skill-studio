@@ -1,9 +1,11 @@
 /**
- * Every case at once: how far the cases have come since their first runs, how
- * many of them are checked on the skill as it is now, where each case stands,
- * the runs themselves, and the kind of work the skill is graded as. The
- * comparison of one case shows what changed; this answers "did my edits help,
- * and what is left to check", and is where a run is graded again or its cost read.
+ * Every case at once: how many cases got better, stayed the same and got worse
+ * on their checks, or, for a skill none of whose cases can be read on checks,
+ * how far the cases' scores have come since their first runs; how many of them
+ * are checked on the skill as it is now, where each case stands, the runs
+ * themselves, and the kind of work the skill is graded as. The comparison of
+ * one case shows what changed; this answers "did my edits help, and what is
+ * left to check", and is where a run is graded again or its cost read.
  *
  * A run with an output that has no score a grading would give it is graded
  * from here: one button over Runs grades every such run, an opened case
@@ -12,6 +14,7 @@
 import { isMissed } from '@domain/pack.ts'
 import { Fragment, useEffect, useRef, useState } from 'react'
 import { api } from '../api.ts'
+import type { Against, CaseRead } from '../case-checks.ts'
 import type { Ctx } from '../ctx.ts'
 import { type DeleteRun, useDeleteRun } from '../delete-run.ts'
 import { gradingRun, useJobStart, writingRun } from '../job-start.ts'
@@ -43,7 +46,8 @@ import {
   totalOf,
   unreadOutput,
 } from '../model.ts'
-import { CaseStandings } from './CaseStandings.tsx'
+import { ChecksHead } from './CaseChecks.tsx'
+import { CaseStandings, type ChecksTable } from './CaseStandings.tsx'
 import { Coverage } from './Coverage.tsx'
 import { Disclosure } from './Disclosure.tsx'
 import { GradedAs } from './GradedAs.tsx'
@@ -85,13 +89,31 @@ const RUNS_CAP = 5
 const byNewest = (a: Ctx['state']['runs'][number], b: Ctx['state']['runs'][number]): number =>
   (b.meta?.createdAt ?? '').localeCompare(a.meta?.createdAt ?? '')
 
-export function ResultsSummary({ ctx, standings }: { ctx: Ctx; standings: CaseStand[] }) {
+/** The cases read on their checks, for a skill where some case can be: what the head counts, and the table. */
+export interface ChecksRead extends ChecksTable {
+  against: Against
+  /** Every case as it stands, without answers to a case before it changed. */
+  head: CaseRead[]
+}
+
+export function ResultsSummary({
+  ctx,
+  standings,
+  checks = null,
+}: {
+  ctx: Ctx
+  standings: CaseStand[]
+  /** Null where no case can be read on its checks: the head is then the lift, and the table scores. */
+  checks?: ChecksRead | null
+}) {
   const { state, config, outputs, route, go, report, jobs, openRun: runCases } = ctx
   /** In the address, so Back from a case finds the same row still open: a case's (`open`) or a run's (`run`). */
   const openCase = route.params.get('open')
   const openRun = route.params.get('run')
+  // What a case is read against stays in the address as rows open and close.
+  const kept: Record<string, string> = checks?.against === 'before' ? { against: 'before' } : {}
   const show = (params: Record<string, string>) =>
-    go('results', { view: 'all', ...params }, { replace: true })
+    go('results', { view: 'all', ...kept, ...params }, { replace: true })
   const setOpenCase = (id: string | null) => show(id ? { open: id } : {})
   const setOpenRun = (run: string | null) => show(run ? { run } : {})
   const [everyRun, setEveryRun] = useState(false)
@@ -184,9 +206,23 @@ export function ResultsSummary({ ctx, standings }: { ctx: Ctx; standings: CaseSt
           <Hint as="span">{plural(runs.length, 'run')}</Hint>
         </ColumnTitle>
       </ColumnHeader>
-      {lift || cases.length ? (
+      {checks || lift || cases.length ? (
         <ColumnLead>
-          {lift ? <LiftFigure lift={lift} aside={liftAsideLine(standings, config)} /> : null}
+          {checks ? (
+            <ChecksHead
+              reads={checks.head}
+              against={checks.against}
+              onAgainst={(against) =>
+                go(
+                  'results',
+                  { view: 'all', ...(against === 'before' ? { against } : {}) },
+                  { replace: true },
+                )
+              }
+            />
+          ) : lift ? (
+            <LiftFigure lift={lift} aside={liftAsideLine(standings, config)} />
+          ) : null}
           {cases.length ? (
             <Coverage
               checked={cases.length - behind.length}
@@ -207,10 +243,28 @@ export function ResultsSummary({ ctx, standings }: { ctx: Ctx; standings: CaseSt
       ) : null}
       <ColumnBody>
         <Section>
-          <Hint>Scores are out of 100. Open a case to see what its answer missed.</Hint>
+          {checks ? (
+            <Hint>Open a case to see what its answer missed.</Hint>
+          ) : (
+            <>
+              <Hint>Scores are out of 100. Open a case to see what its answer missed.</Hint>
+              <Hint>
+                Cases are compared on their checks once a case has checks marked on two answers.{' '}
+                <Button
+                  type="button"
+                  variant="link-muted"
+                  size="inline-sm"
+                  onClick={() => go('cases')}
+                >
+                  Open Cases
+                </Button>
+              </Hint>
+            </>
+          )}
           <CaseStandings
             ctx={ctx}
             standings={standings}
+            checks={checks}
             open={openCase}
             onOpen={setOpenCase}
             onRun={runCases}
@@ -403,7 +457,7 @@ function RunDetail({
             : 'Not graded yet.'}
         </Hint>
         {/* How much of its scores was counted, where Jev left some to the reader. */}
-        {aside ? <Hint>{aside}</Hint> : null}
+        {aside ? <Hint>{aside.text}</Hint> : null}
         {view.casesDamaged ? (
           <Hint tone="destructive">
             What this run's cases asked could not be read, so its outputs are judged on the cases as

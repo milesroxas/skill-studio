@@ -1,0 +1,9 @@
+{
+  "workdir": [
+    "/private/var/folders/y0/ck9dy0lj7s5fyss3r1dkfmf40000gn/T/skill-studio-sample-ML30cb/email-crowded-s1",
+    "/var/folders/y0/ck9dy0lj7s5fyss3r1dkfmf40000gn/T/skill-studio-sample-ML30cb/email-crowded-s1"
+  ],
+  "ok": true,
+  "error": null,
+  "finalText": "I wrote the launch email to `outputs/email.txt` (118 words by `wc`, under the 120 limit). My choices are in `notes.md`.\n\nThe skill asks for both the headline and the product name and version to come first. I put the Subject line first, then opened the body with \"Ferry 3.5: Six ways to fill a quiet week.\" so all three appear together. The release date line gives only the date from the brief, 9 June 2027. Check whether you want wording like \"available from\" added."
+}

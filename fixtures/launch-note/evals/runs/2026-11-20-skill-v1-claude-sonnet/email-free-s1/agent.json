@@ -1,0 +1,9 @@
+{
+  "workdir": [
+    "/private/var/folders/y0/ck9dy0lj7s5fyss3r1dkfmf40000gn/T/skill-studio-sample-K85qCn/email-free-s1",
+    "/var/folders/y0/ck9dy0lj7s5fyss3r1dkfmf40000gn/T/skill-studio-sample-K85qCn/email-free-s1"
+  ],
+  "ok": true,
+  "error": null,
+  "finalText": "I wrote the launch email to `outputs/email.txt` and my notes to `notes.md`. I didn't run a word count or any other check on the email."
+}

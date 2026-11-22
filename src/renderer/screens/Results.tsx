@@ -1,17 +1,31 @@
 /**
  * Results: what the agent wrote, compared. The cases a run answered are listed
- * on the left, each with how its score moved from the version before to the
- * latest. Opening one puts those two outputs side by side, with what each
- * missed. "All cases" is every case at once: how far they have come, and
- * where each stands on the skill as it is now. A score from an earlier version
- * than that stands open in the list, an edge and no fill.
+ * on the left. Where the cases can be read on their checks, each says in words
+ * how its newest answer did against the answer it is read against, "Better
+ * than without the skill"; All cases says how many cases got better, stayed
+ * the same and got worse. Where no case can, each says how its score moved
+ * from the version before to the latest, and a score from an earlier version
+ * than the skill as it is now stands open, an edge and no fill. Opening a case
+ * puts two outputs side by side, with what to fix under them. "All cases" is
+ * every case at once, and where each stands on the skill as it is now.
  *
  * The selection lives in the address, so Back and Forward follow it: `case`
  * names the case, `a` and `b` the two outputs when they are not the pair the
- * case opens with, and `view=all` the summary.
+ * case opens with, `view=all` the summary, and `against=before` that a case is
+ * read against its answer before rather than its answer without the skill.
  */
 import { pointsMoved } from '@domain/lift.ts'
 import { memo, useMemo } from 'react'
+import {
+  againstOf,
+  type CaseRead,
+  compared,
+  outcomeLine,
+  readCase,
+  sideNames,
+} from '../case-checks.ts'
+import { CaseChecksLine } from '../components/CaseChecks.tsx'
+import { unscoredWord } from '../components/CaseStandings.tsx'
 import { Comparison } from '../components/Comparison.tsx'
 import {
   Column,
@@ -92,6 +106,22 @@ export const Results = memo(function Results({ ctx }: { ctx: Ctx }) {
       }),
     [caseIds, outputs, config],
   )
+  // Each case on its checks, against what the address asks, and whether any case can be read so on
+  // either: a skill none of whose cases can keeps the screen read on scores.
+  const against = againstOf(route.params)
+  const checks = useMemo(() => {
+    const read = (on: typeof against) =>
+      new Map<string, CaseRead>(
+        standings.map((s) => [s.key, readCase(s, config, on, (t) => unscoredWord(t, ctx))]),
+      )
+    const reads = read(against)
+    const other = read(against === 'without' ? 'before' : 'without')
+    if (![...reads.values(), ...other.values()].some(compared)) return null
+    // The head counts the cases as they stand: answers to a case before it changed are a row apart.
+    const head = standings.filter((s) => !s.earlier).map((s) => reads.get(s.key) as CaseRead)
+    return { against, reads, head, names: sideNames(head, against) }
+    // The words for a run with no score turn on the jobs running, as the table's do.
+  }, [standings, config, against, ctx])
   // A case whose first output lands while the list is open fades in; the ones there when it opened rest.
   const arrivedCase = useArrivals(caseIds)
 
@@ -157,7 +187,7 @@ export const Results = memo(function Results({ ctx }: { ctx: Ctx }) {
                   current={all}
                   onClick={() => go('results', { view: 'all' })}
                   end={
-                    lift ? (
+                    checks ? null : lift ? (
                       <ListScore total={lift.latest} />
                     ) : latest ? (
                       <ListScore total={latestScore} />
@@ -167,7 +197,9 @@ export const Results = memo(function Results({ ctx }: { ctx: Ctx }) {
                   }
                 >
                   <NavButtonTitle>All cases</NavButtonTitle>
-                  {lift ? (
+                  {checks ? (
+                    <NavButtonMeta>{outcomeLine(checks.head)}</NavButtonMeta>
+                  ) : lift ? (
                     <NavButtonMeta>
                       <ScoreChange
                         change={pointsMoved(lift.first, lift.latest)}
@@ -192,29 +224,40 @@ export const Results = memo(function Results({ ctx }: { ctx: Ctx }) {
           </ColumnSection>
           <ColumnSection inset="list">
             <PlainList gap="xs" bleed>
-              {rows.map(({ id, pair, totals, change }) => (
-                <li key={id}>
-                  <NavButton
-                    current={!all && id === caseId}
-                    arrived={arrivedCase(id)}
-                    onClick={() => go('results', { case: id })}
-                    // The later output's score, or none: an earlier version's never stands under its name.
-                    end={<ListScore total={pair.b ? totals.b : totals.a} stale={behind.has(id)} />}
-                  >
-                    <NavButtonTitle>{caseTitle(state, id)}</NavButtonTitle>
-                    <NavButtonMeta>
-                      <CaseMove pair={pair} totals={totals} change={change} />
-                    </NavButtonMeta>
-                  </NavButton>
-                </li>
-              ))}
+              {rows.map(({ id, pair, totals, change }) => {
+                const read = checks?.reads.get(id)
+                return (
+                  <li key={id}>
+                    <NavButton
+                      current={!all && id === caseId}
+                      arrived={arrivedCase(id)}
+                      onClick={() => go('results', { case: id })}
+                      // The later output's score, or none: an earlier version's never stands under its name.
+                      end={
+                        read ? null : (
+                          <ListScore total={pair.b ? totals.b : totals.a} stale={behind.has(id)} />
+                        )
+                      }
+                    >
+                      <NavButtonTitle>{caseTitle(state, id)}</NavButtonTitle>
+                      <NavButtonMeta>
+                        {read ? (
+                          <CaseChecksLine read={read} />
+                        ) : (
+                          <CaseMove pair={pair} totals={totals} change={change} />
+                        )}
+                      </NavButtonMeta>
+                    </NavButton>
+                  </li>
+                )
+              })}
             </PlainList>
           </ColumnSection>
         </nav>
       </Column>
       <Column>
         {all ? (
-          <ResultsSummary ctx={ctx} standings={standings} />
+          <ResultsSummary ctx={ctx} standings={standings} checks={checks} />
         ) : (
           <Comparison
             key={caseId}

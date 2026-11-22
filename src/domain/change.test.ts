@@ -118,6 +118,33 @@ describe('changeReading', () => {
     expect([one.from, one.to]).toEqual([1, 1])
   })
 
+  it('leaves out at both ends a fact one end did not read, and counts the reader’s marks on both', () => {
+    // B was not read on the later run, such as a long page asked in parts that differ.
+    const unread = (end: 'a' | 'b', answers: Corrections[]) => [
+      [
+        jevVerdict({ kind: 'rule', text: 'A', layer: 'adherence' }, 0.9, cuts, answers[0]),
+        jevVerdict(
+          { kind: 'rule', text: 'B', layer: 'adherence' },
+          end === 'a' ? 0.1 : null,
+          cuts,
+          answers[0],
+        ),
+      ],
+    ]
+    const shares = (reading: ReturnType<typeof changeReading>) => [
+      shareAt(unread('a', reading.a)),
+      shareAt(unread('b', reading.b)),
+    ]
+    const left = changeReading([NO_CORRECTIONS], [NO_CORRECTIONS], unread)
+    expect(left.left).toEqual(['rule'])
+    // B missed before and not read now: the change is A's alone, never a rise from a miss nobody read.
+    expect(shares(left)).toEqual([1, 1])
+    // Marked by the reader on both runs, it counts at both.
+    const marked = changeReading([{ 'rule:B': false }], [{ 'rule:B': true }], unread)
+    expect(marked).toMatchObject({ left: [], oneSided: false })
+    expect(shares(marked)).toEqual([0.5, 1])
+  })
+
   it('leaves nothing to count where every fact of an end is left out', () => {
     const { from, to } = read([{ A: 0.5 }], [{ A: 0.9 }])
     expect([from, to]).toEqual([null, null])

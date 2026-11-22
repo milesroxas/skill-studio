@@ -1,0 +1,5 @@
+- Page generated from files/changes.md by scratch/gen.py; all 180 changes in order with number, title, area, full description.
+- Descriptions are identical boilerplate in the source apart from the area word; kept verbatim.
+- Items 1-179 are repeated titles ("part 2" etc.); item 180 "Export bookings as CSV" is the only distinct one. Not reordered or merged.
+- Codename in brief.md's Internal line is not used anywhere in the page.
+- Sign-off is a plain name line (Mara Lindqvist) in the footer; support email and release link included. Colours from brief.

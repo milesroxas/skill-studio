@@ -15,12 +15,15 @@ Everything Skill Studio knows about a skill is plain files in the skill's `evals
     cases/<case>/graders/*.md     one check each; front matter: type (llm when absent), focus, weight (1 to 5, 1 when absent), image
     cases/<case>/files/           input files, folders and pictures the agent gets, laid out as they are here; only the images right in it are the case's pictures
     cases/<case>/references/      pictures a check is about
+    graders/*.md                  checks for every case: one check each, written as a case's are (below)
     <case>/                       a case folder may also sit here, below
     evals.json                    cases in skill-creator's `evals.json` shape, read when no folder has the same id
     bench.json                    packs, points per layer and the threshold (see grading.md#benchjson)
     anchors/*.md                  labelled outputs for `st self-test`; front matter: case, label, tests
     anchors/report.json           what `st self-test` scored, written each time it runs, with judge-cache.json beside it
     reviews.json                  your corrections to Jev's verdicts (see grading.md#corrections)
+    rule-readings.json            how each rule and check is marked, as `st sort` read it (below)
+    proposals.json                the checks `st propose` proposed for each case, and which were accepted or dropped (below)
     versions/<vN>/                a saved version (by the Assistant, or kept when its only run is deleted): version.json and files/, the skill as an agent's copy holds it
     runs/                         one directory per run, below
 ```
@@ -31,7 +34,7 @@ Everything Skill Studio knows about a skill is plain files in the skill's `evals
 - A rule is a top-level bullet of `SKILL.md`; indented lines under it join it as a clause. A bullet under four words, made only of a link, only saying to read a file, or under an example heading is not a rule. A skill with no bullet that is a rule has its numbered steps read as rules ([grading.md](grading.md#rules)).
 - A name the app is given for a file, such as a reference to save or an output to open, may hold spaces and letters of any alphabet, but not `<`, `>`, `:`, `"`, `|`, `?`, `*` or a backslash, and on Windows not a device name (`con`, `nul.md`, `com1`) or a final dot or space.
 - The app saves a text file by writing a hidden `.<name>.<pid>.tmp` beside it and renaming that over the file, so a crash leaves the old file whole; a leftover one can be deleted. A file that is a link to another file in the skill stays a link, and the file it leads to is written.
-- Any folder directly under `evals/` is read as a case too, except `runs`, `anchors`, `files`, `results`, `mocks`, `cases`, `node_modules`, `reviews` and `benchmarks`. When a folder under `evals/cases/` has the same id, that one is read.
+- Any folder directly under `evals/` is read as a case too, except `runs`, `anchors`, `files`, `results`, `mocks`, `cases`, `node_modules`, `reviews`, `benchmarks` and `graders`. When a folder under `evals/cases/` has the same id, that one is read.
 - A case folder's name is the case's id, and names a folder in every run. A folder whose name holds anything but letters, digits, `_`, `.` and `-`, or starts with a dot, is left out with a warning that names it. The app makes ids of lowercase letters, digits and single dashes.
 - An `evals.json` case is named `<id>-<name>`, and a name that is not lowercase letters, digits and single dashes, or an entry with no prompt, is left out with a warning that names the entry.
 - Every file under a case's `files/` is an input file, a hidden one such as `.eslintrc.json` or `.github/ci.yml` among them, and the agent gets each one. The skill's own hidden files stay out of its copy ([versions](#versions)).
@@ -41,6 +44,83 @@ Everything Skill Studio knows about a skill is plain files in the skill's `evals
 - `allowed_tools` is passed to Claude Code. The Cursor agent takes no list of tools and can use every one: the Run panel says so under **Agent** when a ticked case sets `allowed_tools`.
 - `allowed_tools` and `timeout_seconds` are part of what a case asks: a run made before either changed answered another request. `max_turns` and `timeout_seconds` are part of what an output is held to: one graded before either changed has no total until its run is graded again ([grading.md](grading.md#the-case-a-run-is-graded-on)).
 - `fixtures/` holds three small skills with generated runs: `demo-skill` (generic pack), `code-skill` (code pack) and `design-skill` (design pack). Each also runs the generic and workflow packs.
+
+### Checks for every case
+
+`evals/graders/` holds what every answer to the skill owes, whatever the case: that it names the product with its version, say, or leaves out a codename. A check there is kept with the cases and not in `SKILL.md`, so it stays the same from one version of the skill to the next, and a result can be read on it across an edit to a rule. A rule is named by its words, so an edited rule is a new one that an earlier run was never marked on.
+
+```
+---
+type: llm
+weight: 1
+---
+
+The announcement never mentions the codename Falcon, which the brief marks Internal.
+```
+
+- Each `.md` file is one check, written as a file in a case's `graders/` is: the same front matter (`type`, `focus`, `weight` 1 to 5, `image`), and a file without the `---` block is skipped. An `image` is a path under `evals/`, such as `references/logo.png` for `evals/references/logo.png`.
+- Every output of every case is graded on each one after the case's own checks, asked the same way, counted in the same part of the score and shown as a check (`withEveryCase` in `src/domain/every-case.ts`). A run without the skill is graded on them too.
+- Each is named `every/<file>` (`01-version.md` is `every/01-version`), so it never shares a name with a case's own check. Where one says what a case's own check says, the case's keeps its name and your corrections on it (`checkIds` in `src/domain/verdict.ts`).
+- They are part of what each case holds an output to: adding, editing or removing one leaves every output graded before it with no total until its run is graded again ([grading.md](grading.md#the-case-a-run-is-graded-on)).
+- `st sort` reads each one for each case, beside that case's request and files, since what it needs can differ from one request to the next ([cli.md](cli.md#sorting-rules-and-checks)).
+- They are edited by hand for now, or written by `st propose --accept` from a proposal for every case ([cli.md](cli.md#proposing-checks)): the Cases screen lists a case's own checks only.
+
+### `rule-readings.json`
+
+`st sort` keeps here how each rule and check is marked ([cli.md](cli.md#sorting-rules-and-checks)). It is one object with a `readings` list, written whole as the app's other files are. Each entry holds:
+
+| Key | Holds |
+| --- | --- |
+| `stamp` | What the reading was made from, as one hash: for a rule, the version of what the assistant is told, the whole SKILL.md and the rule's words; for a check, that version, the whole SKILL.md (a check is read beside the rules), what its case asks (its request and each input file by name and bytes) and the check's words |
+| `kind`, `text`, `case` | `rule` or `check`, its words, and for a check the case's id |
+| `reading` | The reading: `exact` with its tests, `judged` with its `span`, or `unmarkable` with `why`, `with` and `fix` (`RuleReading` in `src/domain/rule-reading.ts`). A check's is never `unmarkable` with `why: "conflict"`. `{ "reading": "judged", "span": null }` is one the assistant could not fill in the shape twice |
+| `against` | For a check only: the rules that cannot hold beside it on its case, each `{ "rule": <its words>, "fix": <the rule rewritten, or null> }`. Each counts in no score on that case. An empty list when there is none |
+| `reason` | The assistant's one sentence on why |
+| `refused` | Why each earlier reading of it did not fit the shape: none, one or two |
+| `provider`, `model`, `at`, `prompt` | Who read it, when, and the version of what it was told |
+
+- A reading whose stamp no longer matches what it was read from is out of date and never used. It stays in the file, so the runs of an earlier version of the skill still find theirs, until the file holds 2,000 entries, when the oldest go.
+- An entry that does not hold to its shape is left out when the file is read. A file that is not JSON stops the command with its name, and is not written over. It stops a grading too, before any output is graded ([grading.md](grading.md#readings-who-answers-a-rule-or-a-check)).
+
+### `proposals.json`
+
+`st propose` keeps here the checks it proposed ([cli.md](cli.md#proposing-checks)), so a screen can show them. It is one object with `proposals`, `reads`, `every` and `asked` lists, written whole as the app's other files are.
+
+Each proposal holds:
+
+| Key | Holds |
+| --- | --- |
+| `id` | Eight characters from a hash of its case, what the case asks and its words: what `--accept` and `--drop` name it by |
+| `case`, `check`, `why` | The case's id, the check's words, and the assistant's one sentence on why |
+| `scope` | `case`, or `every case` when the assistant said it would hold for every case of the skill. What makes a proposal part of one for every case (an entry of `every`) is that two cases or more propose it, whatever its scope |
+| `basis` | What asks for it: `{ "in": "request" }`, `{ "in": "note" }` (the case's "A good answer") or `{ "in": "input", "file": <name> }`, with `quote`, its words there |
+| `shownBy`, `fault` | An answer that misses it, or null; and where that answer says something wrong, `{ "file": <its path in the attempt's folder>, "quote": ... }`, or null when it leaves something out |
+| `answers` | Each answer read, by `run`, `sample` (the attempt's folder), `configuration`, `version` and its `name`, with `meets`: `yes`, `no` or `cannot tell`, as the assistant read it |
+| `tells` | `apart` when some answers read meet it and some miss it, `all meet`, `none meet`, or `unclear` when the assistant could not tell for enough of them |
+| `state`, `decidedAt` | `proposed`, `accepted` or `dropped`, and when it was accepted or dropped |
+| `stamp` | What it was made from, as one hash: the version of what the assistant is told, what its case asks (its request and each input file by name and bytes), the case's note, and each answer read by run, attempt and the bytes of the files it wrote |
+| `ask` | What its case asked, as `rule-readings.json` stamps it |
+| `provider`, `model`, `at`, `prompt` | Who proposed it, when, and the version of what it was told |
+| `basisLines` | The whole lines of its basis that its quote stands in, as Jev reads them |
+| `basisCheck` | Jev's answers on whether the words it stands on ask for all of it: `forward` (they do), `inverse` (it asks for more), and `reading`, `yes` or `not sure`. Null when Jev was not asked |
+
+Each entry of `reads` is one case's last reading: `case`, `stamp`, `at`, `model`, `kept` (how many proposals it kept) and `refused` (why the assistant's proposals that did not fit were not taken), with:
+
+| Key | Holds |
+| --- | --- |
+| `facts` | Each fact of the case's note as the assistant listed it: `fact` (its words in the note) and `by`: `check` with `check` (the words of the check that covers it), `proposal` with `proposal` (its id) and `check`, `reason` with `why` (why it cannot be a check), or `nothing`, with `why` when its proposal was left out |
+| `unlisted` | Words of the note no listed fact holds |
+| `factsRefused` | Why each fact the assistant listed was not taken: its words are not in the note, or the check or proposal it names is not there |
+| `overreach` | The proposals left out because Jev was sure their words do not ask for all of them, each with `check`, `why`, `scope`, `basis` and Jev's `basisCheck` |
+| `basisChecked` | Whether Jev was asked about each proposal's words |
+
+Each entry of `every` is one proposal for every case, proposed on two cases or more: `id` (eight characters from a hash of its words, what `--accept` and `--drop` name it by without `--case`), `check` (the first case's words, with that case's name for its answer read as "The answer") and `why` (of the first case it was proposed on), `members` (each proposal it is made of, by `case` and `id`), `state`, `decidedAt` and `at`. Accepting it writes one file in `evals/graders/` and marks it and its members accepted.
+
+Each entry of `asked` is one answer of Jev's: `key` (a hash of the model, the question's version and everything asked), `noul` (its probability, unrounded) and `at`. The newest 4,000 are kept.
+
+- A proposal whose stamp is not its case's now is out of date: its request or note changed, an answer it read changed, or a newer run has a newer answer. It is not shown as current, and the next `st propose` reads the case again and puts new proposals in place of those still proposed for it. Accepted and dropped ones stay.
+- A dropped one is not proposed again while its words and what its case asks stand.
+- An entry that does not hold to its shape is left out when the file is read. A file that is not JSON stops the command with its name, and is not written over.
 
 ### The `bench` block of `case.yaml`
 
@@ -62,12 +142,12 @@ Everything Skill Studio knows about a skill is plain files in the skill's `evals
 ```
 evals/runs/<date>-skill-<vN>-<engine>-<model>[-<effort>][-<configuration>]/
   run.json                        skill version and hash, writer, cases, and each sample as its agent ended: cost, tokens, the files it wrote (`outputs`), `stopped`, `failed`
-  report.json                     raw judge answers and scores per sample, written by grading
+  report.json                     raw judge answers and scores per sample, written by grading: for a rule or check read by code, code's answer and what it saw beside Jev's; for one nobody can mark, why and its fix in place of an answer
   judge-cache.json                Jev's answer to each question by a hash of what it was asked, so Regrade asks only what changed
   _skill/                         the skill as it was when the run started, as an agent's copy holds it (see Versions): every sample is made from it
   _inputs/<case>/                 each case's input files as they were then, which grading reads its pictures and text files from
-  _cases.json                     each case as it was then, with a fingerprint of what it asked: what the run is graded on once the case changes or goes (see grading.md)
-  _checks/<case>/                 the pictures the case's checks were about then, under their paths in the skill: the run's copy of a check names its picture here
+  _cases.json                     each case as it was then, with a fingerprint of what it asked and the checks for every case as they stood (`every`): what the run is graded on once the case changes or goes (see grading.md)
+  _checks/<case>/                 the pictures the case's checks and the checks for every case were about then, under their paths in the skill: the run's copy of a check names its picture here
   <case>-s<n>/                    one sample: what its agent made, moved here when it ended (see below)
     prompt.md                     the exact prompt sent
     files/                        the case's input files

@@ -1,0 +1,9 @@
+{
+  "workdir": [
+    "/private/var/folders/y0/ck9dy0lj7s5fyss3r1dkfmf40000gn/T/skill-studio-sample-wff3WT/email-price-s1",
+    "/var/folders/y0/ck9dy0lj7s5fyss3r1dkfmf40000gn/T/skill-studio-sample-wff3WT/email-price-s1"
+  ],
+  "ok": true,
+  "error": null,
+  "finalText": "I wrote the launch email to `outputs/email.txt` and my notes to `notes.md`.\n\nThe brief's release date, 4 March 2027, is still in the future, but the email says \"is out on\". Change that wording if it goes out before then."
+}

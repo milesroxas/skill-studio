@@ -343,7 +343,8 @@ const tableCellVariants = cva('', {
     /**
      * A column the row reads fine without, folded away when the table itself
      * is narrow: the pane's width decides, not the window's, so it holds with
-     * the assistant open. `last` goes first and `first` holds out longest.
+     * the assistant open. `last` goes first, then `second`, `first`, and
+     * `narrowest` holds out longest.
      * Needs a `bleed` table, which is the size container.
      */
     fold: {
@@ -351,6 +352,8 @@ const tableCellVariants = cva('', {
       last: '@max-5xl:hidden',
       second: '@max-[50rem]:hidden',
       first: '@max-2xl:hidden',
+      /** Goes only once the table is too narrow for its name column beside it: a figure the row is read by. */
+      narrowest: '@max-lg:hidden',
       /** Stays, one icon wide, where `first` goes: its row's actions fold into a menu (`RowActions`). */
       menu: '@max-2xl:w-12',
     },

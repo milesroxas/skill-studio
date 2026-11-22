@@ -1,0 +1,9 @@
+{
+  "workdir": [
+    "/private/var/folders/y0/ck9dy0lj7s5fyss3r1dkfmf40000gn/T/skill-studio-sample-90G2vE/email-price-s1",
+    "/var/folders/y0/ck9dy0lj7s5fyss3r1dkfmf40000gn/T/skill-studio-sample-90G2vE/email-price-s1"
+  ],
+  "ok": true,
+  "error": null,
+  "finalText": "Wrote the launch email to `outputs/email.txt` and the choices and checks to `notes.md`."
+}

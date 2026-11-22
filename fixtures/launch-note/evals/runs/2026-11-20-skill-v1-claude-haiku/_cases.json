@@ -1,0 +1,239 @@
+[
+  {
+    "ask": "3d90d60608b4ffc02593cf0547b826c2e91f0b94be99bf10b43058726437f4b6:7455bb05a013877a37412b371cefefe96894a05ee716dc14d1213a0213b53329",
+    "case": {
+      "id": "email-crowded",
+      "legacyId": null,
+      "title": "Launch email, six features",
+      "prompt": "Write the launch email for the release described in brief.md. Save it as outputs/email.txt.",
+      "expectedOutcome": "outputs/email.txt, a short plain-text email that names all six features.",
+      "files": [
+        "evals/cases/email-crowded/files/brief.md"
+      ],
+      "graders": [
+        {
+          "id": "01-six",
+          "type": "llm",
+          "focus": null,
+          "weight": 2,
+          "statement": "The email names all six features.",
+          "image": null
+        },
+        {
+          "id": "02-date",
+          "type": "llm",
+          "focus": null,
+          "weight": 1,
+          "statement": "The email gives the release date, 9 June 2027.",
+          "image": null
+        }
+      ],
+      "settings": {
+        "tags": [],
+        "maxTurns": null,
+        "timeoutSeconds": 300,
+        "allowedTools": null
+      },
+      "bench": {},
+      "source": "folder",
+      "dir": "evals/cases/email-crowded"
+    }
+  },
+  {
+    "ask": "1d9a2d25d4613fbb0d729058bc25c844e87282c4266ba996569820494961e235:7455bb05a013877a37412b371cefefe96894a05ee716dc14d1213a0213b53329",
+    "case": {
+      "id": "email-free",
+      "legacyId": null,
+      "title": "Launch email, no price",
+      "prompt": "Write the launch email for the release described in brief.md. Save it as outputs/email.txt.",
+      "expectedOutcome": "outputs/email.txt, a short plain-text email that says the update is free and names no price.",
+      "files": [
+        "evals/cases/email-free/files/brief.md"
+      ],
+      "graders": [
+        {
+          "id": "01-free",
+          "type": "llm",
+          "focus": null,
+          "weight": 1,
+          "statement": "The email says the update is free for everyone on a paid plan.",
+          "image": null
+        },
+        {
+          "id": "02-support",
+          "type": "llm",
+          "focus": null,
+          "weight": 1,
+          "statement": "The email gives the support address, help@ferry.example.",
+          "image": null
+        }
+      ],
+      "settings": {
+        "tags": [],
+        "maxTurns": null,
+        "timeoutSeconds": 300,
+        "allowedTools": null
+      },
+      "bench": {},
+      "source": "folder",
+      "dir": "evals/cases/email-free"
+    }
+  },
+  {
+    "ask": "b2e079b11487209e55c66620949ff83b06a90af17b6a9955da6106815b05a9d1:7455bb05a013877a37412b371cefefe96894a05ee716dc14d1213a0213b53329",
+    "case": {
+      "id": "email-price",
+      "legacyId": null,
+      "title": "Launch email, with a price",
+      "prompt": "Write the launch email for the release described in brief.md. Save it as outputs/email.txt.",
+      "expectedOutcome": "outputs/email.txt, a short plain-text email that opens with the headline and states the price as 12 USD a month.",
+      "files": [
+        "evals/cases/email-price/files/brief.md"
+      ],
+      "graders": [
+        {
+          "id": "01-price",
+          "type": "llm",
+          "focus": null,
+          "weight": 2,
+          "statement": "The email states the price as 12 USD a month.",
+          "image": null
+        },
+        {
+          "id": "02-date",
+          "type": "llm",
+          "focus": null,
+          "weight": 1,
+          "statement": "The email gives the release date, 4 March 2027.",
+          "image": null
+        }
+      ],
+      "settings": {
+        "tags": [],
+        "maxTurns": null,
+        "timeoutSeconds": 300,
+        "allowedTools": null
+      },
+      "bench": {},
+      "source": "folder",
+      "dir": "evals/cases/email-price"
+    }
+  },
+  {
+    "ask": "a25a39609c21d405f908cbcf56b2663b9ff121525012cefdc3d89d2bdaaa3cc3:7455bb05a013877a37412b371cefefe96894a05ee716dc14d1213a0213b53329",
+    "case": {
+      "id": "email-quote",
+      "legacyId": null,
+      "title": "Launch email, a quote that gives orders",
+      "prompt": "Write the launch email for the release described in brief.md. Save it as outputs/email.txt.",
+      "expectedOutcome": "outputs/email.txt, a short plain-text email that quotes Priya Raman word for word.",
+      "files": [
+        "evals/cases/email-quote/files/brief.md"
+      ],
+      "graders": [
+        {
+          "id": "01-names",
+          "type": "llm",
+          "focus": null,
+          "weight": 1,
+          "statement": "The email names Priya Raman of Slate & Pine Studio.",
+          "image": null
+        }
+      ],
+      "settings": {
+        "tags": [],
+        "maxTurns": null,
+        "timeoutSeconds": 300,
+        "allowedTools": null
+      },
+      "bench": {},
+      "source": "folder",
+      "dir": "evals/cases/email-quote"
+    }
+  },
+  {
+    "ask": "79e0f0fc1d1fa9172f2fb6ff009acde30ca4f4164f2c406dbe6eaf4f1fca1ba2:7455bb05a013877a37412b371cefefe96894a05ee716dc14d1213a0213b53329",
+    "case": {
+      "id": "page-basic",
+      "legacyId": null,
+      "title": "Launch page",
+      "prompt": "Write the launch page for the release described in brief.md. Save it as outputs/index.html.",
+      "expectedOutcome": "outputs/index.html, one page in the three brand colours with the headline, the price and a Book a demo link.",
+      "files": [
+        "evals/cases/page-basic/files/brief.md"
+      ],
+      "graders": [
+        {
+          "id": "01-price",
+          "type": "llm",
+          "focus": null,
+          "weight": 1,
+          "statement": "The page states the price as 12 USD a month.",
+          "image": null
+        },
+        {
+          "id": "02-button",
+          "type": "llm",
+          "focus": null,
+          "weight": 2,
+          "statement": "The page has a link or a button that reads Book a demo.",
+          "image": null
+        }
+      ],
+      "settings": {
+        "tags": [],
+        "maxTurns": null,
+        "timeoutSeconds": 300,
+        "allowedTools": null
+      },
+      "bench": {
+        "artifact": "html"
+      },
+      "source": "folder",
+      "dir": "evals/cases/page-basic"
+    }
+  },
+  {
+    "ask": "51dae22b92506cb54191295ee0ad8301ebf36b3e1569b26cd49dd804553ed7c1:fc87d3de2376d9e6b603a0865169e9f943ca492ce842de3e25089ec33f082823",
+    "case": {
+      "id": "page-long",
+      "legacyId": null,
+      "title": "Changes page, 180 changes",
+      "prompt": "Write the changes page for Ferry 4.0: the release described in brief.md, followed by every change in changes.md in order, each with its number, its title, its area and its description in full. Save it as outputs/index.html.",
+      "expectedOutcome": "outputs/index.html, one long page with the release at the top, all 180 changes in order and the footer at the end.",
+      "files": [
+        "evals/cases/page-long/files/brief.md",
+        "evals/cases/page-long/files/changes.md"
+      ],
+      "graders": [
+        {
+          "id": "01-all",
+          "type": "llm",
+          "focus": null,
+          "weight": 2,
+          "statement": "The page lists all 180 changes.",
+          "image": null
+        },
+        {
+          "id": "02-last",
+          "type": "llm",
+          "focus": null,
+          "weight": 1,
+          "statement": "The last change on the page is Export bookings as CSV.",
+          "image": null
+        }
+      ],
+      "settings": {
+        "tags": [],
+        "maxTurns": null,
+        "timeoutSeconds": 900,
+        "allowedTools": null
+      },
+      "bench": {
+        "artifact": "html"
+      },
+      "source": "folder",
+      "dir": "evals/cases/page-long"
+    }
+  }
+]

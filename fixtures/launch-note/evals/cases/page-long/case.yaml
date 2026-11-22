@@ -1,0 +1,4 @@
+title: Changes page, 180 changes
+expected_outcome: outputs/index.html, one long page with the release at the top, all 180 changes in order and the footer at the end.
+bench:
+  artifact: html

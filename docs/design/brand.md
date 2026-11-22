@@ -25,13 +25,13 @@ M 0 120 H 64 C 104 120 104 64 144 64 H 184 V 96 H 144 C 104 96 104 152 64 152 H 
 | The app icon | the mark on an ink tile | the kit's own |
 | The sidebar's drag strip, macOS only | the mark, 23px wide, porcelain | the strip is 48px tall and empty there. Other platforms have a title bar that names the app. |
 | The welcome's opening | the mark, cropped by the frame | the one expressive moment |
-| Results | one ribbon as the lift figure | the ribbon's rise is the score's rise |
+| Results, for a skill none of whose cases can be read on checks | one ribbon as the lift figure | the ribbon's rise is the score's rise |
 
 Nowhere else. No mark in an empty state, a dialog, a loading state or the top bar. A logo the reader meets on every screen stops being seen and starts being in the way.
 
 ## The ribbon as a figure
 
-The lift on Results (`LiftFigure` in `components/Lift.tsx`, fed by `caseLift` in `domain/standing.ts`) is the only data figure drawn as a ribbon: flat at the mean of the cases' first scores, one S-curve, flat at the mean of their latest. It compares each case with itself, so it holds whatever order the cases were run in. The band's top edge stands for the mean. The figure is a fixed height and stretches only sideways, so the band keeps its thickness; its labels are HTML text over it, so they stay on the type scale.
+The lift on Results (`LiftFigure` in `components/Lift.tsx`, fed by `caseLift` in `domain/standing.ts`) is the only data figure drawn as a ribbon. All cases draws it only when no case can be read on its checks, against the answer without the skill or the one before: a skill whose cases have no checks yet. Otherwise the head counts cases on their checks ([layout.md](layout.md#the-head-of-all-cases)) and no ribbon is drawn. The ribbon runs flat at the mean of the cases' first scores, one S-curve, flat at the mean of their latest. It compares each case with itself, so it holds whatever order the cases were run in. The band's top edge stands for the mean. The figure is a fixed height and stretches only sideways, so the band keeps its thickness; its labels are HTML text over it, so they stay on the type scale.
 
 - The curve is the mark's own: both control points sit at the horizontal midpoint. `C mx y0, mx y1, x1 y1`.
 - The band keeps one thickness. Rise divided by thickness stays between 1.5 and 2 (the mark's is 1.75). Scale the vertical axis to hold that, and label both ends with their real numbers.
@@ -50,7 +50,7 @@ One slab, only in the welcome: on "works" in the opening.
 
 ## The welcome
 
-The welcome runs in its own 760 x 600 window, laid out for exactly that size and scaled by zoom. Display type that fits at 100% can clip at 110%: check both. It is the only surface with display type above 30px, the ink cover and the cropped mark.
+The welcome runs in its own 760 x 600 window, laid out for exactly that size and scaled by zoom. Display type that fits at 100% can clip at 110%: check both. It is the only surface with the ink cover and the cropped mark, and with display type above 30px save the head of All cases on Results, which sets its one figure at `display`: the lift's mean, or the three counts of cases on their checks.
 
 | Frame | Ground | Holds |
 | --- | --- | --- |

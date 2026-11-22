@@ -8,6 +8,9 @@
  * prose, and the model's thinking as a summary beside it. Pictures cannot ride in a plain prompt, so a request with any goes in
  * as one `stream-json` user message: the pictures, then the prompt.
  *
+ * A second kind of run reads one folder (`readFolder`): it is started there
+ * with the tools that read and no other, and is refused every path outside it.
+ *
  * The adapter only runs the CLI as Anthropic publishes it, on whatever
  * account the person signed it in to. It reads how the CLI is signed in
  * (`claude auth status`) and nothing more: it never installs the CLI, never
@@ -21,7 +24,13 @@ import { hasCommand, resolveCommand } from '../exec.ts'
 import { imageBase64 } from '../images.ts'
 import { cliStatus, commandPrompt, picturesOf, runJsonLines, transcriptPrompt } from './cli.ts'
 import { listClaudeCommands } from './commands.ts'
-import { type AiProvider, type AiReply, type AiRequest, systemText } from './types.ts'
+import {
+  type AiFolderRequest,
+  type AiProvider,
+  type AiReply,
+  type AiRequest,
+  systemText,
+} from './types.ts'
 
 interface StreamEvent {
   type: string
@@ -163,22 +172,108 @@ async function run(request: AiRequest): Promise<AiReply> {
         request.onText(text)
       } else if (event.type === 'result') {
         finished = true
-        if (event.is_error || event.subtype !== 'success')
-          failure = event.result || 'Claude Code could not finish the reply.'
-        reply.text = request.schema
-          ? JSON.stringify(event.structured_output ?? null)
-          : (event.result ?? text)
-        // A result can carry `usage: null`: no tokens counted, not a failed reply.
-        reply.usage = claudeTokens(event.usage ?? undefined)
+        failure = closeReply(reply, event, Boolean(request.schema), text)
       }
     },
   )
+  return ended(reply, failure, finished, request.signal)
+}
+
+/**
+ * Take a run's closing event into `reply`: its text, or its structured
+ * output as JSON, and what it spent. Returns why the run failed, or null.
+ */
+function closeReply(
+  reply: AiReply,
+  event: StreamEvent,
+  structured: boolean,
+  streamed: string,
+): string | null {
+  reply.text = structured
+    ? JSON.stringify(event.structured_output ?? null)
+    : (event.result ?? streamed)
+  // A result can carry `usage: null`: no tokens counted, not a failed reply.
+  reply.usage = claudeTokens(event.usage ?? undefined)
+  return event.is_error || event.subtype !== 'success'
+    ? event.result || 'Claude Code could not finish the reply.'
+    : null
+}
+
+/** The reply of a run that has ended, or the error it ended with. */
+function ended(
+  reply: AiReply,
+  failure: string | null,
+  finished: boolean,
+  signal: AbortSignal,
+): AiReply {
   if (failure) throw new Error(failure)
-  if (!finished && !request.signal.aborted)
+  if (!finished && !signal.aborted)
     throw new Error(
       'Claude Code ended without a reply. Run `claude` once to check it is signed in.',
     )
   return reply
+}
+
+/** A session that reads a folder opens many files, so it gets longer than a reply does. */
+const FOLDER_TIMEOUT_MS = 20 * 60_000
+
+/** The tools a session that reads a folder gets. None writes, runs a command or reaches the network. */
+const READ_TOOLS = 'Read,Glob,Grep'
+
+/**
+ * The arguments of a session that reads `dir` and nothing else. It has only
+ * the tools that read, no settings and no skills, and asks nobody for
+ * anything (`dontAsk`): a read the one rule here does not allow is refused.
+ * That rule allows the folder it is started in, so a path that leads out of
+ * it, by `..` or by its full name, is refused too. Checked live on 2026-11-20:
+ * a file beside the folder and `/etc/hosts` were both refused to Read and Grep.
+ */
+export function folderArgs(
+  request: Pick<AiFolderRequest, 'dir' | 'model' | 'effort' | 'schema'>,
+  systemPrompt: string,
+): string[] {
+  const dir = request.dir.replace(/\\/g, '/').replace(/^\/+/, '')
+  return claudePrintArgs(
+    '--disable-slash-commands',
+    '--setting-sources',
+    '',
+    '--tools',
+    READ_TOOLS,
+    '--permission-mode',
+    'dontAsk',
+    '--allowedTools',
+    `Read(//${dir}/**)`,
+    '--system-prompt',
+    systemPrompt,
+    '--model',
+    request.model,
+    ...(request.effort ? ['--effort', request.effort] : []),
+    '--json-schema',
+    JSON.stringify(request.schema),
+  )
+}
+
+async function readFolder(request: AiFolderRequest): Promise<AiReply> {
+  const { systemPrompt, prompt } = placeBrief(request.system, request.prompt, false)
+  const reply: AiReply = { text: '', model: request.model, usage: { input: 0, output: 0 } }
+  let failure: string | null = null
+  let finished = false
+  await runJsonLines<StreamEvent>(
+    'claude',
+    folderArgs(request, systemPrompt),
+    prompt,
+    request,
+    (event) => {
+      if (event.type === 'system' && event.subtype === 'init' && event.model)
+        reply.model = event.model
+      else if (event.type === 'result') {
+        finished = true
+        failure = closeReply(reply, event, true, '')
+      }
+    },
+    { cwd: request.dir, timeoutMs: FOLDER_TIMEOUT_MS },
+  )
+  return ended(reply, failure, finished, request.signal)
 }
 
 /**
@@ -225,6 +320,7 @@ export const claudeCodeProvider: AiProvider = {
   connected: () => hasCommand('claude'),
   models: async () => [...CLAUDE_CODE_MODELS],
   run,
+  readFolder,
   commands: listClaudeCommands,
   // The guide's one-line installer is a bash script, for macOS and Linux.
   installable: process.platform !== 'win32',

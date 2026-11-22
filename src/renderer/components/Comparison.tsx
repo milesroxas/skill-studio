@@ -2,22 +2,20 @@
  * One case, two outputs compared: the version before as A, the latest as B.
  * It is what the whole loop is for. The pair is picked in a band under the
  * header (`PairBand`), which holds still while the rest scrolls: each side's
- * version, its score and how it moved. Under the band the stage shows the
- * outputs in every view (`OutputStage`), and under the stage a card a side
- * holds what that output missed, so a difference in the number is read as a
- * difference in the text. Where both outputs are in view the two lists are
- * one (`PairList`): a fact is read once, with A's mark and B's in its row.
+ * letter and version, and nothing that judges it. The person reads the two
+ * answers first and makes up their own mind. Under the band the stage shows
+ * the outputs in every view (`OutputStage`), and under the stage a card holds
+ * what to fix, in order (`Verdicts`). Where both outputs are in view the list
+ * is the later one's, and a row names the earlier only where it stands
+ * otherwise.
  *
  * Jev answers facts: whether a rule was followed, whether a check was met.
  * Where the reader sees it otherwise, each way out changes the score at once
  * or from the next grading: a verdict to correct here, a rule to edit on
  * Skill, a check to add on Cases, which Edit case in the menu opens.
  *
- * A sentence about a number stands with that number, never over a list: the
- * file a score is for is behind the score, why a change is not the difference
- * of the two scores is behind the change, and why an output has no score is
- * under its version, where Grade is. So both cards start with their lists, at
- * one height.
+ * Why an output has no score is under its version, where Grade is, never
+ * over a list.
  *
  * What is done now and then, a swap, the case's own screen, a grade read
  * again, is folded into the header's menu. Deleting a run is in the same
@@ -25,28 +23,25 @@
  * delete belongs with the other actions named by the run, not on one output.
  */
 
-import { pointsMoved } from '@domain/lift.ts'
-import { isMissed, type Verdict } from '@domain/pack.ts'
+import { openedSkill } from '@domain/fix-order.ts'
+import type { Verdict } from '@domain/pack.ts'
 import type { Case } from '@domain/schemas.ts'
 import { ArrowLeftRightIcon, PencilIcon, RefreshCwIcon, Trash2Icon } from 'lucide-react'
 import { Fragment, useState } from 'react'
 import { api } from '../api.ts'
 import type { Ctx } from '../ctx.ts'
 import { useDeleteRun } from '../delete-run.ts'
+import { useFetch } from '../hooks.ts'
 import { inSkill } from '../in-skill.ts'
 import { gradingRun, outputWriting, useJobStart, writingRun } from '../job-start.ts'
 import {
   apartLine,
   caseTitle,
-  changeNote,
   failedLine,
   failureOf,
   isWithoutSkill,
-  layersOf,
-  movedBetween,
   type Output,
   outputDetail,
-  outputFacts,
   outputNames,
   outputRulesUnmarked,
   outputsToPick,
@@ -55,9 +50,7 @@ import {
   regradeOwed,
   runStamp,
   runTitle,
-  scoredFor,
   scoreOf,
-  unshared,
 } from '../model.ts'
 import { usePageSize } from '../stage.ts'
 import { Disclosure } from './Disclosure.tsx'
@@ -71,23 +64,16 @@ import {
   Stack,
   Toolbar,
 } from './layout.tsx'
-import { FactList, OutputCard, Slot } from './OutputCard.tsx'
+import { OutputCard, Slot } from './OutputCard.tsx'
 import { useOutputStage, type View } from './OutputStage.tsx'
 import { type HeadFlip, PairBand, PairEmpty, PairHead } from './PairBand.tsx'
 import { ContextActions, MoreActions, RowAction, RowActionGroup } from './RowActions.tsx'
-import {
-  CheckWeight,
-  Delta,
-  PartList,
-  SharedChange,
-  TotalDetail,
-  TotalDetailSection,
-} from './Scores.tsx'
+import { CheckWeight } from './Scores.tsx'
 import { Segmented } from './Segmented.tsx'
 import { SelectBox, type SelectOption, type SelectOptionGroup } from './SelectBox.tsx'
 import { Heading, Hint, Text } from './text.tsx'
 import { Button } from './ui/button.tsx'
-import { PairVerdicts, Verdicts } from './Verdicts.tsx'
+import { Verdicts } from './Verdicts.tsx'
 
 const SLOT_LABEL = { a: 'A', b: 'B' } as const
 
@@ -115,11 +101,11 @@ export function Comparison({
   const [chosen, setChosen] = useState<View | null>(null)
   const testCase = state.cases.find((c) => c.id === caseId) ?? null
   const candidates = outputsToPick(outputs, caseId, [a, b])
-  const layers = layersOf(config)
   // Both keys always go in the address, so a side left empty stays empty.
   const show = (pair: { a: Output | null; b: Output | null }) =>
     go('results', { case: caseId, a: pair.a?.key ?? '', b: pair.b?.key ?? '' })
   const both = a !== null && b !== null
+  const opened = { a: useOpened(a), b: useOpened(b) }
 
   /** Grades of the runs these outputs came from: busy from the press, not from the first poll that lists the job. */
   const grade = useJobStart(jobs, 'grade', report)
@@ -246,23 +232,21 @@ export function Comparison({
   /** The case has an output to put on a side left empty, or in place of one picked. */
   const pickable = candidates.length > 1
   /** What a side's head and its list share. */
-  const sideOf = (slot: 'a' | 'b', output: Output) => ({
+  const sideOf = (output: Output) => ({
     ctx,
     output,
-    other: slot === 'a' ? null : a,
     grading: grading(output.run.name),
     held: grade.starting(),
     onRegrade: () => regrade([output.run.name]),
   })
   const head = (slot: 'a' | 'b', output: Output) => (
     <SideHead
-      {...sideOf(slot, output)}
+      {...sideOf(output)}
       // B keeps its letter beside an empty A, where the field that fills A stands next to it.
       letter={slot === 'a' || a || pickable ? SLOT_LABEL[slot] : null}
       apart={apartLine(output, slot === 'a' ? b : a)}
       candidates={candidates}
       onPick={(o) => show(slot === 'a' ? { a: o, b } : { a, b: o })}
-      layers={layers}
       writing={unwritten(output)}
       flip={stage.flipOf(slot)}
     />
@@ -310,15 +294,15 @@ export function Comparison({
               Pick one for A and one for B above to read them side by side.
             </EmptyState>
           ) : a && b && !stage.side && listed(a) && listed(b) ? (
-            <PairList ctx={ctx} a={a} b={b} />
+            <PairList ctx={ctx} a={a} b={b} opened={opened} />
           ) : (
             // Read one at a time, the page shows the list of the output on the stage alone.
             <Columns count={both && !stage.side ? 2 : 1}>
               {a && stage.side !== 'b' ? (
-                <SideList {...sideOf('a', a)} writing={unwritten(a)} />
+                <SideList {...sideOf(a)} writing={unwritten(a)} opened={opened.a} />
               ) : null}
               {b && stage.side !== 'a' ? (
-                <SideList {...sideOf('b', b)} writing={unwritten(b)} />
+                <SideList {...sideOf(b)} writing={unwritten(b)} opened={opened.b} />
               ) : null}
             </Columns>
           )}
@@ -544,8 +528,6 @@ function OutputTitle({
 interface SideProps {
   ctx: Ctx
   output: Output
-  /** The earlier side, which this one's score is set against. */
-  other: Output | null
   /** A grade of this output's run is going. */
   grading: boolean
   /** A grade is being started, of this run or the other: one start at a time. */
@@ -556,20 +538,18 @@ interface SideProps {
 }
 
 /**
- * One side's head in the band: its letter, the field that picks its output,
- * its score and how it moved from the other side. The line under them says
- * what waits in its list under the stage, what tells it from the other side
- * besides its version, and what went wrong.
+ * One side's head in the band: its letter and the field that picks its
+ * output, and nothing that judges it: the person reads the answers first, and
+ * what to fix is the list under them. The line under the version says only
+ * what tells it from the other side besides its version, and what went wrong.
  */
 function SideHead({
   ctx,
   output,
-  other,
   letter,
   apart,
   candidates,
   onPick,
-  layers,
   grading,
   writing,
   held,
@@ -583,68 +563,18 @@ function SideHead({
   /** Every output of the case, which its title picks from. */
   candidates: Output[]
   onPick: (output: Output | null) => void
-  layers: string[]
   /** The head is half of the switch that says which output is on the stage. */
   flip: HeadFlip | null
 }) {
-  const { config, go } = ctx
-  const scored = scoreOf(output, config)
-  const otherScored = other ? scoreOf(other, config) : null
+  const scored = scoreOf(output, ctx.config)
   const ungraded = !scored || regradeOwed(scored)
-  // A change is read only between two answers to the same request, graded the same way, and
-  // from Jev's answers, with yours only where both hold one.
-  const move = other ? movedBetween(other, output, config) : null
-  const delta = move ? pointsMoved(move.from, move.to) : null
-  // Where the change is not the difference of the two scores, why, with the two it was read between.
-  const why =
-    move && unshared(delta, otherScored?.scores.total ?? null, scored?.scores.total ?? null)
-      ? changeNote(move)
-      : null
   const failure = failureOf(output)
-  /** What the score is for, where the output wrote more than one file. */
-  const scoredFiles = scored ? scoredFor(output) : null
-  // The lists stand under the stage, often past the window's foot: the head says how long
-  // each is, so the reader knows what waits there before scrolling.
-  const missed = scored?.verdicts.filter(isMissed).length ?? 0
-  const unsure = scored?.verdicts.filter((v) => v.aside === 'unsure').length ?? 0
-  const counts = scored
-    ? [missed ? `${missed} missed` : 'Nothing missed', unsure ? `${unsure} not sure` : null]
-        .filter(Boolean)
-        .join(' · ')
-    : null
   return (
     <PairHead
       letter={letter ?? undefined}
       flip={flip}
       title={
         <OutputTitle output={output} letter={letter} candidates={candidates} onPick={onPick} />
-      }
-      total={
-        <>
-          <TotalDetail total={scored?.scores.total}>
-            {scored ? (
-              <TotalDetailSection title="What the score is counted from">
-                {scoredFiles ? (
-                  <Text as="p" size="xs" tone="muted">
-                    {scoredFiles}
-                  </Text>
-                ) : null}
-                <PartList
-                  scored={scored}
-                  layers={layers}
-                  other={otherScored}
-                  onChangeKinds={() => go('results', { view: 'all', graded: '1' })}
-                />
-              </TotalDetailSection>
-            ) : null}
-            <TotalDetailSection title="How it was made">
-              <FactList facts={outputFacts(output)} />
-            </TotalDetailSection>
-          </TotalDetail>
-          {/* A figure beside two scores is their difference. A change that is not says so in
-              words, in the line under them. */}
-          {why ? null : <Delta value={delta} />}
-        </>
       }
       action={
         // Grading is the next step for an output with no score, one whose grading failed part
@@ -666,16 +596,9 @@ function SideHead({
         ) : undefined
       }
       meta={
-        counts || apart || failure || scored?.stale.length ? (
+        apart || failure || scored?.stale.length ? (
           <>
-            {counts ? <span className="tabular-nums">{counts}</span> : null}
             {apart ? <span>{apart}</span> : null}
-            {/* Last of what both heads may say, so the two first lines read alike. */}
-            {why && delta !== null ? (
-              <span className="tabular-nums">
-                <SharedChange change={delta} why={why} />
-              </span>
-            ) : null}
             {failure ? <span className="text-destructive">{failure}</span> : null}
             {scored?.stale.map((reason) => (
               <span key={reason}>{reason}, so it has no score.</span>
@@ -685,6 +608,23 @@ function SideHead({
       }
     />
   )
+}
+
+/**
+ * Whether an answer's transcript shows the skill read (`openedSkill`), so a
+ * list can say the skill was never opened. Null for an answer without the
+ * skill, and while the transcript loads.
+ */
+function useOpened(output: Output | null): boolean | null {
+  const withSkill = output !== null && !isWithoutSkill(output.run)
+  const { data } = useFetch(
+    () =>
+      output && withSkill
+        ? api.transcript(output.run.name, output.sample.name)
+        : Promise.resolve(null),
+    [withSkill ? output?.key : null],
+  )
+  return withSkill ? openedSkill(data) : null
 }
 
 /** The reader's answers on one output's facts: the one being saved, and the way to give one. */
@@ -711,12 +651,15 @@ function useCorrect(ctx: Ctx, output: Output) {
   return { pending, correct }
 }
 
-/** What opening a rule and telling whether SKILL.md still holds it need, for a list of facts. */
-function ruleActions(ctx: Ctx) {
+/** Where a list's rows go: a rule SKILL.md still holds, the skill, and the case while it stands. */
+function listActions(ctx: Ctx, output: Output) {
   const rules = new Set(ctx.state.rules.map((r) => r.text))
+  const caseStands = ctx.state.cases.some((c) => c.id === output.caseId)
   return {
     ruleStands: (text: string) => rules.has(text),
     onOpenRule: (text: string) => ctx.go('editor', { file: 'SKILL.md', rule: text }),
+    onOpenSkill: () => ctx.go('editor', { file: 'SKILL.md' }),
+    onEditCase: caseStands ? () => ctx.go('cases', { id: output.caseId }) : null,
   }
 }
 
@@ -725,7 +668,15 @@ function ruleActions(ctx: Ctx) {
  * list and nothing else: the output itself is on the stage. Without a list
  * it says why in the list's place.
  */
-function SideList({ ctx, output, grading, writing, held, onRegrade }: SideProps) {
+function SideList({
+  ctx,
+  output,
+  grading,
+  writing,
+  held,
+  onRegrade,
+  opened,
+}: SideProps & { opened: boolean | null }) {
   const scored = scoreOf(output, ctx.config)
   const { pending, correct } = useCorrect(ctx, output)
   return (
@@ -752,7 +703,10 @@ function SideList({ ctx, output, grading, writing, held, onRegrade }: SideProps)
           verdicts={scored.verdicts}
           pending={pending}
           onCorrect={correct}
-          {...ruleActions(ctx)}
+          withSkill={!isWithoutSkill(output.run)}
+          opened={opened}
+          other={null}
+          {...listActions(ctx, output)}
         />
       ) : (
         <Hint inset>
@@ -772,27 +726,37 @@ function SideList({ ctx, output, grading, writing, held, onRegrade }: SideProps)
 }
 
 /**
- * What two outputs missed, as one list on one card: a row a fact, with A's
- * mark and B's. It stands where both outputs are in view and both have a
- * list; a side with none keeps a card of its own, which says why.
+ * Both outputs in view, and both with a list: the later one's list, on one
+ * card, with a row naming A only where A stands otherwise, and on a rule only
+ * where A was held to the rules. A side with no list keeps a card of its own,
+ * which says why.
  */
-function PairList({ ctx, a, b }: { ctx: Ctx; a: Output; b: Output }) {
-  const ofA = useCorrect(ctx, a)
-  const ofB = useCorrect(ctx, b)
+function PairList({
+  ctx,
+  a,
+  b,
+  opened,
+}: {
+  ctx: Ctx
+  a: Output
+  b: Output
+  opened: { a: boolean | null; b: boolean | null }
+}) {
+  const { pending, correct } = useCorrect(ctx, b)
   return (
     <OutputCard>
-      <PairVerdicts
-        a={{
+      <Verdicts
+        verdicts={scoreOf(b, ctx.config)?.verdicts ?? []}
+        pending={pending}
+        onCorrect={correct}
+        withSkill={!isWithoutSkill(b.run)}
+        opened={opened.b}
+        other={{
+          letter: SLOT_LABEL.a,
           verdicts: scoreOf(a, ctx.config)?.verdicts ?? [],
-          pending: ofA.pending,
-          onCorrect: ofA.correct,
+          heldToRules: !isWithoutSkill(a.run) && opened.a !== false,
         }}
-        b={{
-          verdicts: scoreOf(b, ctx.config)?.verdicts ?? [],
-          pending: ofB.pending,
-          onCorrect: ofB.correct,
-        }}
-        {...ruleActions(ctx)}
+        {...listActions(ctx, b)}
       />
     </OutputCard>
   )

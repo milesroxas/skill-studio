@@ -20,7 +20,7 @@
 import { pointsMoved } from '@domain/lift.ts'
 import type { CaseLift } from '@domain/standing.ts'
 import { type CSSProperties, type ReactNode, useRef } from 'react'
-import { type LiftNote, liftNotes, plural } from '../model.ts'
+import { type AsideLine, type LiftNote, liftNotes, plural } from '../model.ts'
 import { EXPLAINED } from './Help.tsx'
 import { Delta, TotalDetailSection } from './Scores.tsx'
 import { Text } from './text.tsx'
@@ -202,7 +202,7 @@ export function LiftFigure({
 }: {
   lift: CaseLift
   /** How much of the latest scores was counted, where Jev left some to the reader (`liftAsideLine`). */
-  aside?: string | null
+  aside?: AsideLine | null
 }) {
   const change = pointsMoved(lift.first, lift.latest)
   const floor = floorAt(lift)

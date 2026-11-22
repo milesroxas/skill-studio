@@ -76,7 +76,7 @@ describe('code scoring of a reading from before', () => {
       flags: [],
       verdicts: [],
     })
-    expect(codeScoring.certainties(old)).toEqual([])
+    expect(codeScoring.certainties(old, { yes: 0.7, no: 0.3 })).toEqual([])
   })
 })
 

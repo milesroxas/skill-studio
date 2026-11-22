@@ -1,0 +1,6 @@
+- Email saved to outputs/email.txt (whole file, subject included, is within 120 words).
+- Subject is "Ferry 3.5: fill a quiet week" (under 50 characters). The headline opens the body, word for word.
+- Features are written as plain sentences, not list marks, so the email stays plain text.
+- The Internal line (the codename) is left out.
+- "Is 12 USD a month" is stated as the brief gives it. The brief doesn't say whether this is a new price.
+- The release date (9 June 2027) is later than today's date. I used it as given.

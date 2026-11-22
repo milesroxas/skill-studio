@@ -153,12 +153,19 @@ Below `lg` the columns stack and the pane scrolls, a `side` column after the mai
 
 ### The head of All cases
 
-All cases opens with a `ColumnLead`: the lift (`LiftFigure`, [brand.md](brand.md)), then `Coverage` (`components/Coverage.tsx`), which says how much of that lift is checked on the version a run would test now.
+All cases opens with a `ColumnLead`: the counts of cases on their checks (`ChecksHead` in `components/CaseChecks.tsx`), or, for a skill none of whose cases can be read on checks, the lift (`LiftFigure`, [brand.md](brand.md)); then `Coverage` (`components/Coverage.tsx`), which says how many cases are checked on the version a run would test now.
+
+The counts read each case's newest answer against its answer without the skill, or against its answer before, on its checks alone (`case-checks.ts`, `caseResult` in `domain/case-result.ts`):
+
+- The eyebrow, "Cases by checks met" in caps, `muted`. At its right on the same line, a `Segmented` reads **Without the skill** / **The version before**. The choice is kept in the address (`against=before`; without the skill when it is absent), so it holds as rows open and close, and Back returns to it.
+- Three counts of cases, each a numeral at the `display` step with a one-word label after it on its baseline: "better", "same", "worse". The numeral of "better" is `foreground`, of "same" `muted-foreground`, of "worse" `destructive` above nought; a nought is `muted-foreground` at 35%, and its word `faint`. A screen reader hears the figure as one sentence: "Cases by checks met: 1 better, 4 same, 0 worse."
+- One line under them in `xs`: the checks the compared cases moved by, added up, as a `Delta` and "check" or "checks" ("No change" when nought), a middle dot, and the count of cases compared. The count has the dotted underline (`EXPLAINED`) and opens a `help` popover of `TotalDetailSection`s (`casesNotes` in `case-checks.ts`): how a case is read, then all checks added up ("Across the 5 cases compared, answers met 11 of 11 checks, from 10."), the score out of 100 over the same cases, and, only where some case ran once on each side and moved by one check, "May be chance". Nothing else is written in the head.
+- Better, the same and worse are read on each check's weight (`caseResult`); the change beside them counts each check once, so it matches the counts in the rows.
 
 - The head has a ground of its own, `bg-muted`, so the page reads in three steps: the head, the band that closes it, the list on the page's ground. The working area stays the lightest surface.
 - While a case is behind, `Coverage` is a band across the column: `bg-primary` under `text-primary-foreground`, square to the column, never a boxed alert. It is the page's inverse, ink in the light theme and porcelain in the dark, so it stands as far from the page in both. It holds one sentence at `ui`, its count in medium and the rest at 70%, and one `inverse` `sm` button that opens Run on the cases behind ([buttons.md](buttons.md)).
 - A case behind whose run on that version only waits to be graded needs no run. The band's second sentence then says how many wait, "1 is waiting to be graded.", in place of the one on earlier scores, and its button runs the others. Once only such cases are behind, the button reads **Grade N runs**.
-- The band has no large type, no meter and no yellow. The lift over it holds the head's one display number, the table under it shows the same split in its groups, and yellow is the top bar's.
+- The band has no large type, no meter and no yellow. The counts or the lift over it hold the head's display type, the table under it shows the same split in its groups, and yellow is the top bar's.
 - Once every case is checked the band is gone and one plain line stands in its place, so the band is seen when it comes.
 - It scrolls with the page. Run, in the top bar, never leaves view.
 
@@ -279,17 +286,14 @@ A control stands with what it changes. Five places hold them.
 
 The pair is what the rest of the column is about, so it is picked in a band under the header (`PairBand` in `components/PairBand.tsx`) that holds still while the stage and the lists scroll. From `lg` up it sticks under the header; below, where the header wraps, it scrolls with the page.
 
-- One head a side (`PairHead`), in two equal columns: its letter, its version, and its `TotalDetail` with the `Delta`. A head bleeds 12px past the column's inset, so its fill stands clear of its text and the text starts on the column's edge. The two heads are one height, whichever says more.
+- One head a side (`PairHead`), in two equal columns: its letter and its version, and nothing that judges the output, no score and no count. The reader reads the two answers first and makes up their own mind; what to fix is the list under the stage. A head bleeds 12px past the column's inset, so its fill stands clear of its text and the text starts on the column's edge. The two heads are one height, whichever says more.
 - The letter is `Slot` (`components/OutputCard.tsx`), an outline in the text's color. An output read alone has no letter.
 - Where the case has other outputs, the version is a `SelectBox variant="title"` that picks this side's output. Its list names each output in full, with who wrote it and when under the name (`outputNames` and `outputDetail` in `model.ts`).
 - A side left empty holds a `Slot` and a `SelectBox width="fill" size="sm"` that fills it (`PairEmpty`).
-- **Read one at a time, the two heads are the switch.** The head of the output on the stage takes an open row's fill (`bg-accent`) and its letter is filled (`SlotButton`, pressed). A press on the other head, on its letter, or its shortcut shows it. A press on a head's own control, the version or the score, is for that control. Nothing else on the screen repeats A and B.
+- **Read one at a time, the two heads are the switch.** The head of the output on the stage takes an open row's fill (`bg-accent`) and its letter is filled (`SlotButton`, pressed). A press on the other head, on its letter, or its shortcut shows it. A press on a head's own control, the version, is for that control. Nothing else on the screen repeats A and B.
 - Their shortcuts, A and B unless changed in Settings, flip the stage anywhere on the screen, unless a field, an editor, a menu or a dialog has the focus. In the views that show both outputs no head is filled and the keys do nothing.
-- Under the version, the meta (`xs`, muted) says, in this order: how long the output's list is ("4 missed · 12 not sure", or "Nothing missed"), since the list starts under the stage; what tells the two apart besides their version (`apartLine` in `model.ts`); a change that is not the difference of the two scores (`SharedChange`, below); a grading that failed, in `destructive`; and why a graded output has no score ("Graded before its case changed, so it has no score.").
-- One `action` ends the meta's line, or stands beside the total when there is no meta, only when it is the next step: **Grade** on an output with no score, `ghost-muted` at `xs`. It reads "Grading…" on any head while its run is graded.
-- **A sentence about a number stands with that number.** What a score is for, when the output wrote more than one file, is the first line behind the score (`scoredFor` in `model.ts`): "The score is for post.md." for a piece one file stands for, "The score is for all 8 files it wrote." for code written as several files, whose rules and checks are marked on all of them. It is never a line over a list.
-- **A figure beside two scores is their difference.** `Delta` stands beside B's score only when it is. A change read over the rules and checks both outputs were marked on is often not, so it is said in words in the meta, "Up 4 on shared rules" (`SharedChange`, [data.md](data.md)), and the words open why, with the two scores it was read between.
-- The `Delta` shows only between two outputs that answer the same request and were graded the same way (`comparable` in `model.ts`).
+- Under the version, the meta (`xs`, muted) shows only when it has something to say, in this order: what tells the two apart besides their version (`apartLine` in `model.ts`); a grading that failed, in `destructive`; and why a graded output has no score ("Graded before its case changed, so it has no score.").
+- One `action` ends the meta's line, or the head's first line when there is no meta, only when it is the next step: **Grade** on an output with no score, `ghost-muted` at `xs`. It reads "Grading…" on any head while its run is graded.
 
 ### Above the stage
 
@@ -311,10 +315,10 @@ The case stands in one `Stack gap="md"` with the stage. Each line is a `Disclosu
 
 ### The cards under the stage
 
-An `OutputCard` holds what an output missed (`Verdicts`, [data.md](data.md#verdicts)) and nothing else: no head, no files, no transcript. The output is on the stage, and its name and score are in the band.
+An `OutputCard` holds what to fix on an output (`Verdicts`, [data.md](data.md#verdicts)) and nothing else: no head, no files, no transcript. The output is on the stage, and its name is in the band.
 
 - Read one at a time, the card of the output on the stage shows, at the column's width. A flip swaps the list with the output.
-- With both outputs in view, one card holds one list for the two (`PairVerdicts`): a fact is read once, with A's mark and B's in its row.
+- With both outputs in view, one card holds the later output's list, and a row names A only where A stands otherwise ([data.md](data.md#verdicts)).
 - An output with no list to join, not graded or waiting on a regrade, keeps a card of its own beside the other's, A under A's head and B under B's.
 - A card with no list says why in the list's place, in one `Hint inset`: "Not graded yet.", "Graded when it is done.", or why the output was cut short.
 - An output graded before rules and checks were marked on its kind says so where the list would start, with **Regrade** (`outline`, `xs`) beside the line.
@@ -375,7 +379,7 @@ Does the whole screen have nothing to show?
 | `form` | a few fields under their labels: Run, opened from the top bar |
 | `compose` | a request to write and its reply (`Assist`, Auto refine) |
 | `compose-wide` | the same for a reply as long as a file, or three rewrites side by side in a column |
-| `help` | what a screen is for, and what stands behind a number: a score's parts (`TotalDetail`), the lift's note |
+| `help` | what a screen is for, and what stands behind a number: the note behind the count of cases, the lift's note |
 | `note` | one word and what it means |
 | `field` | the list under a `ComboBox`: as wide as its field |
 | `selection` | the row of actions over a selection in the editor: as wide as its buttons, no focus of its own |

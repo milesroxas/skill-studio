@@ -1,0 +1,2 @@
+title: Launch email, six features
+expected_outcome: outputs/email.txt, a short plain-text email that names all six features.

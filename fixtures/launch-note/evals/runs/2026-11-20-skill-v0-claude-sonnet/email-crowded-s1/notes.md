@@ -1,0 +1,4 @@
+- The skill wants the headline first and the product name and version first. I put the Subject line first, then a body opening "Ferry 3.5: Six ways to fill a quiet week." This gives name, version and the exact headline together.
+- All six features are included, using only figures from the brief. The email is about 120 words or fewer including subject and sign-off (checked with wc).
+- The internal codename from the brief is not used.
+- The release date line is the brief's date only. Check whether the email should say it is available "from" that date. The date is in 2027, so the wording is left neutral.

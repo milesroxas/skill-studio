@@ -1,0 +1,4 @@
+title: Launch page
+expected_outcome: outputs/index.html, one page in the three brand colours with the headline, the price and a Book a demo link.
+bench:
+  artifact: html

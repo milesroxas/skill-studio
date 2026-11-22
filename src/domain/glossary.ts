@@ -65,12 +65,22 @@ export const GLOSSARY = {
   missed: {
     term: 'Missed',
     means:
-      'A rule from your skill that the output breaks, a check it fails, or a flaw in how it looks. Jev, the grader, decides each one, and you can overrule it.',
+      'A rule from your skill that the output breaks, a check it fails, or a flaw in how it looks. Jev, the grader, or a count the app makes decides each one, and you can overrule it.',
   },
   unsure: {
     term: 'Not sure',
     means:
-      'Jev, the grader, could not tell whether the output meets it, so it is left out of the score. Mark it yourself and it counts.',
+      'Jev, the grader, could not tell whether the output meets it, or the app’s own count gave no clear answer, so it is left out of the score. Mark it yourself and it counts.',
+  },
+  unread: {
+    term: 'Not read',
+    means:
+      'The output is too long for Jev, the grader, to read whole, and this needs all of it, so it is left out of the score. Mark it yourself and it counts.',
+  },
+  unmarkable: {
+    term: 'Cannot be marked',
+    means:
+      'A rule or check written so that two careful readers would mark it differently, or a rule that cannot hold beside another rule or one of a case’s checks, so it is left out of the score. Mark it yourself and it counts.',
   },
   version: {
     term: 'Version',

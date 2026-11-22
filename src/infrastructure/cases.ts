@@ -21,6 +21,7 @@ import {
   unusedTitle,
 } from '@domain/case-draft.ts'
 import { mergeConfig } from '@domain/config.ts'
+import { everyCaseId } from '@domain/every-case.ts'
 import { type ImageFormat, imageFileName, imageTypeOf } from '@domain/image.ts'
 import type { Rule } from '@domain/rules.ts'
 import { rulesFromList, rulesFromSkill } from '@domain/rules.ts'
@@ -70,6 +71,8 @@ const RESERVED = new Set([
   'node_modules',
   'reviews',
   'benchmarks',
+  // The checks for every case (`loadEveryCase`).
+  'graders',
 ])
 
 /** A positive number from front matter; null when absent or not a positive number. */
@@ -120,6 +123,52 @@ function readGraders(skillDir: string, rel: string): Grader[] {
       },
     ]
   })
+}
+
+/** Where the checks for every case are kept: beside the cases, written as a case's own checks are. */
+const EVERY_CASE_DIR = 'evals/graders'
+
+/**
+ * The checks for every case of the skill: each `.md` file in `evals/graders/`,
+ * read as a case's `graders/` is read, with its picture under `evals/` when it
+ * names one. Each is named `every/<file>` (`everyCaseId`), so it never shares
+ * an id with a case's own check. None when the folder is not there; a folder
+ * that cannot be read gives none, with a warning naming it.
+ */
+export function loadEveryCase(skillDir: string): Grader[] {
+  try {
+    return readGraders(skillDir, 'evals').map((grader) => ({
+      ...grader,
+      id: everyCaseId(grader.id),
+    }))
+  } catch (error) {
+    warnOnce(`${join(skillDir, EVERY_CASE_DIR)} could not be read: ${(error as Error).message}`)
+    return []
+  }
+}
+
+/**
+ * Write one check for every case: a new `.md` file in `evals/graders/`, in
+ * the form `loadEveryCase` reads and a case's own checks are written in, with
+ * weight 1. It is named as a case's new check is (`02-the-answer-never-names`)
+ * and never takes the name of a file there. Returns its id (`every/<file>`).
+ * Refused before anything is written when the folder is reached through a
+ * link that leads out of the skill.
+ */
+export function saveEveryCase(skillDir: string, statement: string): string {
+  const text = statement.trim()
+  if (!text) throw new Error('Write the check first.')
+  const dir = assertInside(skillDir, join(skillDir, EVERY_CASE_DIR))
+  const taken = new Set(
+    listFiles(dir, (name) => name.endsWith('.md')).map((name) => name.replace(/\.md$/, '')),
+  )
+  const base = `${String(taken.size + 1).padStart(2, '0')}-${slug(text, 32) || 'check'}`
+  let name = base
+  for (let n = 2; taken.has(name); n += 1) name = `${base}-${n}`
+  const path = assertInside(skillDir, join(dir, `${name}.md`))
+  mkdirSync(dir, { recursive: true })
+  writeText(path, `---\ntype: llm\n---\n\n${text}\n`, { root: skillDir })
+  return everyCaseId(name)
 }
 
 /** Each warning once a session: the cases are read again every few seconds while a run goes on. */

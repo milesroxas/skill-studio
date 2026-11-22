@@ -1,0 +1,2 @@
+title: Launch email, with a price
+expected_outcome: outputs/email.txt, a short plain-text email that opens with the headline and states the price as 12 USD a month.

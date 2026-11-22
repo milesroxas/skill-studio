@@ -1,0 +1,143 @@
+{
+  "name": "2026-11-20-skill-v1-claude-haiku",
+  "skillPath": "/Users/milesroxas/.t3/worktrees/skill-studio/t3-d3df4122-128d2e8331300de5/fixtures/launch-note",
+  "skillVersion": "v1",
+  "skillName": "Second draft",
+  "skillHash": "29ddf2d3e4ee",
+  "note": "The pair that could not both hold is gone, and every feature is named",
+  "writer": {
+    "engine": "claude",
+    "model": "haiku",
+    "effort": "default",
+    "harness": "agent"
+  },
+  "configuration": "with_skill",
+  "baselineDir": null,
+  "cases": [
+    "email-crowded",
+    "email-free",
+    "email-price",
+    "email-quote",
+    "page-basic",
+    "page-long"
+  ],
+  "samplesPerCase": 1,
+  "createdAt": "2026-11-21T00:11:32.353Z",
+  "finishedAt": "2026-11-21T00:12:04.544Z",
+  "samples": [
+    {
+      "dir": "email-crowded-s1",
+      "case": "email-crowded",
+      "index": 1,
+      "ok": true,
+      "seconds": 20,
+      "costUsd": 0.00597047,
+      "tokens": {
+        "input": 71741,
+        "output": 4607
+      },
+      "model": "claude-haiku-5-5",
+      "error": null,
+      "steps": 5,
+      "toolCalls": 4,
+      "outputs": [
+        "outputs/email.txt"
+      ]
+    },
+    {
+      "dir": "email-free-s1",
+      "case": "email-free",
+      "index": 1,
+      "ok": true,
+      "seconds": 10,
+      "costUsd": 0.0042875,
+      "tokens": {
+        "input": 69151,
+        "output": 2185
+      },
+      "model": "claude-haiku-5-5",
+      "error": null,
+      "steps": 5,
+      "toolCalls": 4,
+      "outputs": [
+        "outputs/email.txt"
+      ]
+    },
+    {
+      "dir": "email-price-s1",
+      "case": "email-price",
+      "index": 1,
+      "ok": true,
+      "seconds": 18,
+      "costUsd": 0.00592352,
+      "tokens": {
+        "input": 121506,
+        "output": 3810
+      },
+      "model": "claude-haiku-5-5",
+      "error": null,
+      "steps": 6,
+      "toolCalls": 5,
+      "outputs": [
+        "outputs/email.txt"
+      ]
+    },
+    {
+      "dir": "email-quote-s1",
+      "case": "email-quote",
+      "index": 1,
+      "ok": true,
+      "seconds": 12,
+      "costUsd": 0.00416302,
+      "tokens": {
+        "input": 68572,
+        "output": 2324
+      },
+      "model": "claude-haiku-5-5",
+      "error": null,
+      "steps": 3,
+      "toolCalls": 2,
+      "outputs": [
+        "outputs/email.txt"
+      ]
+    },
+    {
+      "dir": "page-basic-s1",
+      "case": "page-basic",
+      "index": 1,
+      "ok": true,
+      "seconds": 19,
+      "costUsd": 0.0058395700000000005,
+      "tokens": {
+        "input": 71466,
+        "output": 4367
+      },
+      "model": "claude-haiku-5-5",
+      "error": null,
+      "steps": 5,
+      "toolCalls": 4,
+      "outputs": [
+        "outputs/index.html"
+      ]
+    },
+    {
+      "dir": "page-long-s1",
+      "case": "page-long",
+      "index": 1,
+      "ok": true,
+      "seconds": 32,
+      "costUsd": 0.01122967,
+      "tokens": {
+        "input": 190394,
+        "output": 6467
+      },
+      "model": "claude-haiku-5-5",
+      "error": null,
+      "steps": 7,
+      "toolCalls": 6,
+      "outputs": [
+        "outputs/index.html"
+      ]
+    }
+  ]
+}

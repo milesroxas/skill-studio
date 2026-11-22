@@ -1,0 +1,9 @@
+{
+  "workdir": [
+    "/private/var/folders/y0/ck9dy0lj7s5fyss3r1dkfmf40000gn/T/skill-studio-sample-qbOuG9/email-crowded-s1",
+    "/var/folders/y0/ck9dy0lj7s5fyss3r1dkfmf40000gn/T/skill-studio-sample-qbOuG9/email-crowded-s1"
+  ],
+  "ok": true,
+  "error": null,
+  "finalText": "I wrote the launch email to `outputs/email.txt` (117 words, subject line included). My choices are in `notes.md`."
+}

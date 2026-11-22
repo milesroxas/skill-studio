@@ -1,0 +1,4 @@
+- Left out the internal codename, as the brief requires.
+- The greeting is generic ("Hi,") because the brief has no recipient name.
+- Used the headline as the subject line, prefixed with the product and version.
+- The release date is 9 June 2027, which is after today's date (2026-11-20). I wrote "is out on" as the brief implies; change to "arrives on" if the email goes out earlier.

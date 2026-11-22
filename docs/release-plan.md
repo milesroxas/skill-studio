@@ -32,7 +32,11 @@ Everything merged since v0.18.0.
 
 ## Planned
 
-Nothing is planned and not shipped. Add an item here before work on it starts.
+The assistant on Results: it reads a graded run, marks what Jev was not sure of, says in a few sentences what to fix first, and works through one fix at a time with the writer.
+
+- [ ] Measure a reading before any screen is built: `st read` on real runs, set against the writer’s own answers. It decides whether the assistant's answers count in a score or are offered to accept.
+- [ ] Prototype where the reading shows on Results, on what `st read` writes, and pick one.
+- [ ] The reading as a job after a run, off unless the writer turns it on, with what it marked kept beside the run and counted in the score.
 
 ## Later
 
@@ -58,7 +62,8 @@ The steps in [releasing.md](releasing.md), in order.
 1. [x] Every item under "Planned" is shipped or moved to "Later".
 2. [ ] Every item under "Before the release" is done. Not for 0.18.1: the unchecked items carry to the next release.
 3. [x] `pnpm check` and `pnpm build` pass on `main`, 1,752 tests, and main's own run passes on Windows and macOS before the tag.
-4. [ ] `gh workflow run release` builds every platform. Not run for 0.18.1; the tag's own run builds every platform.
-5. [x] In the changelog, add `## [0.18.1] - 2026-11-20` under a new `## [Unreleased]`, and commit.
-6. [x] `pnpm version patch -m "Release %s"`, then push `main` and the tag.
-7. [x] The release workflow publishes v0.18.1, with the changelog entry as its notes.
+4. [ ] The grading gate passes: `pnpm reading-gate`, for a release that changes the words of a question Jev is asked, the scoring, what the assistant is told when it sorts, or the exact tests ([releasing.md](releasing.md#check-grading-against-the-key)). Not needed for 0.18.1, which changed none of them.
+5. [ ] `gh workflow run release` builds every platform. Not run for 0.18.1; the tag's own run builds every platform.
+6. [x] In the changelog, add `## [0.18.1] - 2026-11-20` under a new `## [Unreleased]`, and commit.
+7. [x] `pnpm version patch -m "Release %s"`, then push `main` and the tag.
+8. [x] The release workflow publishes v0.18.1, with the changelog entry as its notes.

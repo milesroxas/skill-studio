@@ -15,7 +15,8 @@
       "!**/*.md",
       "!**/evals/runs",
       "!**/evals/anchors/report.json",
-      "!**/evals/reviews.json"
+      "!**/evals/reviews.json",
+      "!**/evals/rule-readings.json"
     ]
   },
   "formatter": {

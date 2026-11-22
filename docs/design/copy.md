@@ -37,7 +37,10 @@ A hint under a section heading that says what the section is ("How Skill Studio 
 | what an output passes | "met" |
 | what an output fails | "missed" |
 | what Jev could not tell, so it is in no score | "not sure" |
+| what Jev could not settle on an output too long to read whole, so it is in no score | "not read" |
 | a rule for another kind of work than the output | "does not apply" |
+| a rule or check written so nobody can mark it, so it is in no score until the reader marks it | "cannot be marked" |
+| a rule or check the app answered itself, such as a count | "checked by the app" |
 | the reader's own answer on one verdict | a "correction", shown as "your answer" |
 
 ## Counts

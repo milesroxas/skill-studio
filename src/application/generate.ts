@@ -27,6 +27,7 @@ import type {
 } from '@domain/schemas.ts'
 import { slug } from '@domain/text.ts'
 import { detectArtifacts } from '@infrastructure/artifacts.ts'
+import { loadEveryCase } from '@infrastructure/cases.ts'
 import type { Engine } from '@infrastructure/engines/index.ts'
 import type { EngineResult } from '@infrastructure/engines/types.ts'
 import { isStopping } from '@infrastructure/exec.ts'
@@ -280,8 +281,8 @@ export async function generateRun(
   if (baseline) copyTree(baseline.dir, snapshot)
   else snapshotSkill(skillDir, snapshot)
   stageInputs(skillDir, dir, options.cases, log)
-  // The cases as they are asked now: what the run is read against, whatever is edited since.
-  keepCases(skillDir, dir, options.cases)
+  // The cases as they are asked now, with the checks for every case: what the run is read against, whatever is edited since.
+  keepCases(skillDir, dir, options.cases, loadEveryCase(skillDir))
 
   const meta: RunMeta = {
     name,

@@ -22,6 +22,22 @@ The workflow refuses a tag that does not match `package.json` or is not on `main
 
 The changelog entry becomes the release's notes in three places: the What's New window in the app, the GitHub release, and the update files (`latest*.yml`), where a running copy reads what an update brings before it installs. `pnpm exec tsx scripts/release-notes.ts` prints the entry for the version in `package.json`.
 
+## Check grading against the key
+
+A release that changes the words of a question Jev is asked, the scoring, what the assistant is told when it sorts rules and checks (`src/domain/sorting.ts`), or the set of exact tests (`src/domain/exact.ts`, `src/domain/rule-reading.ts`) runs the reading gate before it is tagged. It needs a signed-in assistant in Settings and `TYPESAFE_API_KEY`, and refuses to start without either.
+
+```
+pnpm reading-gate
+```
+
+- It copies `fixtures/launch-note` to the system's temp folder, sorts both versions of its skill with the assistant, grades its five runs with Jev, and counts both against the answer key in `scripts/reading-bench/key.ts`. It never writes under `fixtures/`.
+- Before it starts it says what it will spend: about 14 assistant requests for the sorting, and up to 895 Jev questions on TypeSafe for the grading. It asks before it goes on; `--yes` skips the question.
+- It prints one table: sure and right, sure and wrong, not sure, not read, does not apply, answered by code and cannot be marked, then the assistant's exact readings against the key on the stored outputs and on them changed to miss, each beside the numbers last pinned in `scripts/reading-bench/pinned.ts`.
+- It exits 1 when an exact reading answers otherwise than the key, when code gives a sure answer the key does not share, or when sure and wrong passes its ceiling. Fix that before the release.
+- A number that moved for a reason the release means is pinned again: `--json` prints the counts, which go into `LIVE` in `pinned.ts` with a line on what moved them.
+
+`pnpm check` runs the offline half on every change (`src/interfaces/cli/reading-gate.test.ts`): the five stored gradings as the scoring code reads them now, made on the stored readings in `fixtures/launch-note/evals/rule-readings.json`, so code's answers and the facts that cannot be marked are among them; the same gradings with each fact set aside marked as a reader would; and the hand-written gold readings answered by code, held to `STORED` in `pinned.ts`. [The bench's notes](../scripts/reading-bench/README.md) say what it holds.
+
 ## Rehearse
 
 `gh workflow run release` builds every platform, keeps the files as workflow artifacts for 7 days, and publishes nothing. It needs a changelog entry for the version in `package.json`.

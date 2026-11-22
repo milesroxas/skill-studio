@@ -14,9 +14,8 @@ vi.mock('../exec.ts', async (actual) => ({
   },
 }))
 
-const { claudeAccountOf, claudeCodeProvider, commandProblem, placeBrief } = await import(
-  './claude-code.ts'
-)
+const { claudeAccountOf, claudeCodeProvider, commandProblem, folderArgs, placeBrief } =
+  await import('./claude-code.ts')
 
 const ask = (text: string) =>
   claudeCodeProvider.run({
@@ -160,5 +159,72 @@ describe('claudeAccountOf', () => {
     expect(claudeAccountOf('error: unknown command auth')).toBeNull()
     expect(claudeAccountOf('null')).toBeNull()
     expect(claudeAccountOf('{"authMethod": "none"}')).toBeNull()
+  })
+})
+
+describe('a session that reads a folder', () => {
+  const request = {
+    dir: '/private/tmp/skill-studio-reading-x/room',
+    model: 'sonnet',
+    effort: '',
+    schema: { type: 'object' },
+  }
+  const given = (args: string[], flag: string) => args[args.indexOf(flag) + 1]
+
+  it('gets only the tools that read, and asks nobody', () => {
+    const args = folderArgs(request, 'Brief.')
+    expect(given(args, '--tools')).toBe('Read,Glob,Grep')
+    expect(given(args, '--permission-mode')).toBe('dontAsk')
+    expect(given(args, '--setting-sources')).toBe('')
+    expect(args).toContain('--disable-slash-commands')
+    expect(args).toContain('--strict-mcp-config')
+  })
+
+  it('is allowed its own folder and nothing else', () => {
+    const args = folderArgs(request, 'Brief.')
+    expect(given(args, '--allowedTools')).toBe('Read(//private/tmp/skill-studio-reading-x/room/**)')
+    expect(args.filter((arg) => arg === '--allowedTools')).toHaveLength(1)
+  })
+
+  it('names the effort only when one is given', () => {
+    expect(folderArgs(request, 'Brief.')).not.toContain('--effort')
+    expect(given(folderArgs({ ...request, effort: 'high' }, 'Brief.'), '--effort')).toBe('high')
+  })
+
+  it('returns the structured reply as JSON, with what it spent', async () => {
+    cli.lines = [
+      JSON.stringify({ type: 'system', subtype: 'init', model: 'claude-sonnet-5-5' }),
+      JSON.stringify({
+        type: 'result',
+        subtype: 'success',
+        structured_output: { note: 'Fine.' },
+        usage: { input_tokens: 5, cache_read_input_tokens: 7, output_tokens: 3 },
+      }),
+    ]
+    const reply = await claudeCodeProvider.readFolder?.({
+      ...request,
+      system: 'Brief.',
+      prompt: 'Read it.',
+      signal: new AbortController().signal,
+    })
+    expect(reply).toEqual({
+      text: '{"note":"Fine."}',
+      model: 'claude-sonnet-5-5',
+      usage: { input: 12, output: 3 },
+    })
+  })
+
+  it('throws what the CLI said when the session failed', async () => {
+    cli.lines = [
+      JSON.stringify({ type: 'result', subtype: 'error_max_turns', result: 'Too long.' }),
+    ]
+    await expect(
+      claudeCodeProvider.readFolder?.({
+        ...request,
+        system: 'Brief.',
+        prompt: 'Read it.',
+        signal: new AbortController().signal,
+      }),
+    ).rejects.toThrow('Too long.')
   })
 })

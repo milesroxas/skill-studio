@@ -219,7 +219,8 @@ const SHOTS: Shot[] = [
   { file: 'versions.webp', route: `#/editor?version=${sample.version}` },
   { file: 'cases.webp', route: `#/cases?id=${sample.case}` },
   { file: 'results.webp', route: compared, width: 1280 },
-  { file: 'all-cases.webp', route: '#/results?view=all' },
+  // Wide enough that the table keeps both columns of checks met.
+  { file: 'all-cases.webp', route: '#/results?view=all', width: 1280 },
   { file: 'run.webp', route: `#/cases?id=${sample.case}`, press: ['Run v'] },
 ]
 

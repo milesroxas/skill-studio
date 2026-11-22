@@ -1,0 +1,17 @@
+Subject: Ferry 3.3: Reschedule in one tap.
+
+Reschedule in one tap.
+
+Ferry 3.3 lets the person who booked move their own booking. The update is free for everyone on a paid plan.
+
+One-tap reschedule: the person who booked can move their own slot from the confirmation.
+
+Reschedule limits: you set how late a booking can still be moved.
+
+"Nobody phones us to move a slot any more." Tomas Bell, Bell & Daughter Cycles
+
+See it here: https://ferry.example/3-3
+
+18 May 2027
+help@ferry.example
+Mara Lindqvist

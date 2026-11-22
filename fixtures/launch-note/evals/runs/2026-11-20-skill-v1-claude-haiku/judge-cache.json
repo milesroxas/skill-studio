@@ -1,0 +1,5928 @@
+{
+  "version": 2,
+  "generation": 1,
+  "packs": {
+    "efe475c5086857b08393d92b1f4a41293b522ac9bb116a5fed581d0dcb0fadde": {
+      "raw": {
+        "adherence": {
+          "rules": [
+            {
+              "id": "r1",
+              "text": "Open with the brief's Headline, word for word. A reworded headline is one the team did not approve.",
+              "section": "Rules for every announcement",
+              "noul": 0.8,
+              "code": {
+                "answer": "none",
+                "why": "differ",
+                "saw": [
+                  {
+                    "test": "has",
+                    "answer": "missed",
+                    "why": null,
+                    "found": [],
+                    "missing": [
+                      "Six ways to fill a quiet week."
+                    ],
+                    "foundTotal": 0,
+                    "missingTotal": 1
+                  },
+                  {
+                    "test": "has",
+                    "answer": "met",
+                    "why": null,
+                    "found": [
+                      {
+                        "value": "Six ways to fill a quiet week.",
+                        "piece": 0,
+                        "at": 1,
+                        "text": "Six ways to fill a quiet week"
+                      }
+                    ],
+                    "missing": [],
+                    "foundTotal": 1,
+                    "missingTotal": 0
+                  }
+                ],
+                "tests": [
+                  {
+                    "test": "has",
+                    "read": {
+                      "part": "line",
+                      "label": "Subject",
+                      "number": null
+                    },
+                    "values": {
+                      "from": "request",
+                      "in": "request and files",
+                      "file": null,
+                      "labels": [
+                        "Headline"
+                      ],
+                      "take": "whole",
+                      "level": null
+                    },
+                    "need": "all",
+                    "at": "start",
+                    "match": "words",
+                    "case": "exact"
+                  },
+                  {
+                    "test": "has",
+                    "read": {
+                      "part": "text",
+                      "skip": "Subject"
+                    },
+                    "values": {
+                      "from": "request",
+                      "in": "request and files",
+                      "file": null,
+                      "labels": [
+                        "Headline"
+                      ],
+                      "take": "whole",
+                      "level": null
+                    },
+                    "need": "all",
+                    "at": "start",
+                    "match": "words",
+                    "case": "exact"
+                  }
+                ]
+              },
+              "applies": 0.99,
+              "comesUp": 0.99
+            },
+            {
+              "id": "r2",
+              "text": "Name the product with its version, such as Ferry 3.2, at least once. A reader should know which release the note is about.",
+              "section": "Rules for every announcement",
+              "noul": 0.98,
+              "span": "any",
+              "applies": 0.99,
+              "comesUp": 0.99
+            },
+            {
+              "id": "r3",
+              "text": "Use only numbers the brief states, never a number of your own. An invented figure is a claim nobody checked.",
+              "section": "Rules for every announcement",
+              "noul": 0.86,
+              "code": {
+                "answer": "met",
+                "saw": [
+                  {
+                    "test": "only",
+                    "answer": "met",
+                    "why": null,
+                    "outside": [],
+                    "otherNotation": [],
+                    "outsideTotal": 0
+                  }
+                ],
+                "tests": [
+                  {
+                    "test": "only",
+                    "read": {
+                      "part": "text",
+                      "skip": null
+                    },
+                    "what": "numbers",
+                    "allowed": {
+                      "from": "request",
+                      "in": "request and files",
+                      "file": null,
+                      "labels": [],
+                      "take": "numbers",
+                      "level": null
+                    }
+                  }
+                ]
+              },
+              "applies": 0.99,
+              "comesUp": 0.98
+            },
+            {
+              "id": "r4",
+              "text": "Write no more than 120 words. Most readers stop after the first screen.",
+              "section": "Rules for every announcement",
+              "noul": 0.75,
+              "code": {
+                "answer": "missed",
+                "saw": [
+                  {
+                    "test": "count",
+                    "answer": "missed",
+                    "why": null,
+                    "counts": [
+                      136,
+                      129,
+                      136,
+                      129
+                    ],
+                    "compare": "at most",
+                    "n": 120
+                  }
+                ],
+                "tests": [
+                  {
+                    "test": "count",
+                    "read": {
+                      "part": "text",
+                      "skip": null
+                    },
+                    "what": "words",
+                    "compare": "at most",
+                    "n": 120
+                  }
+                ]
+              },
+              "applies": 0.99,
+              "comesUp": 0.99
+            },
+            {
+              "id": "r5",
+              "text": "When the brief gives a Price, state it with its currency code, such as 12 USD. A bare number reads as a different amount in each country.",
+              "section": "Rules for every announcement",
+              "noul": 0.97,
+              "span": "any",
+              "applies": 0.99,
+              "comesUp": 0.94
+            },
+            {
+              "id": "r6",
+              "text": "Quote the customer in the brief's Quote word for word, with their name. A paraphrase puts words in their mouth.",
+              "section": "Rules for every announcement",
+              "noul": 0.98,
+              "span": "any",
+              "applies": 0.99,
+              "comesUp": 0.96
+            },
+            {
+              "id": "r7",
+              "text": "Never use the words exciting, thrilled, delighted or proud. They say how the company feels, not what the reader gets.",
+              "section": "Rules for every announcement",
+              "noul": 0.99,
+              "code": {
+                "answer": "met",
+                "saw": [
+                  {
+                    "test": "has",
+                    "answer": "met",
+                    "why": null,
+                    "found": [],
+                    "missing": [
+                      "exciting",
+                      "thrilled",
+                      "delighted",
+                      "proud"
+                    ],
+                    "foundTotal": 0,
+                    "missingTotal": 4
+                  }
+                ],
+                "tests": [
+                  {
+                    "test": "has",
+                    "read": {
+                      "part": "text",
+                      "skip": null
+                    },
+                    "values": {
+                      "from": "listed",
+                      "items": [
+                        "exciting",
+                        "thrilled",
+                        "delighted",
+                        "proud"
+                      ]
+                    },
+                    "need": "none",
+                    "at": "anywhere",
+                    "match": "words",
+                    "case": "any"
+                  }
+                ]
+              },
+              "applies": 0.99,
+              "comesUp": 0.99
+            },
+            {
+              "id": "r8",
+              "text": "Never use the word users. Write to the reader as you, since the note goes to one person at a time.",
+              "section": "Rules for every announcement",
+              "noul": 0.96,
+              "code": {
+                "answer": "met",
+                "saw": [
+                  {
+                    "test": "has",
+                    "answer": "met",
+                    "why": null,
+                    "found": [],
+                    "missing": [
+                      "users"
+                    ],
+                    "foundTotal": 0,
+                    "missingTotal": 1
+                  }
+                ],
+                "tests": [
+                  {
+                    "test": "has",
+                    "read": {
+                      "part": "text",
+                      "skip": null
+                    },
+                    "values": {
+                      "from": "listed",
+                      "items": [
+                        "users"
+                      ]
+                    },
+                    "need": "none",
+                    "at": "anywhere",
+                    "match": "words",
+                    "case": "any"
+                  }
+                ]
+              },
+              "applies": 0.99,
+              "comesUp": 0.99
+            },
+            {
+              "id": "r9",
+              "text": "Name every feature in the brief's Features list by the name the brief gives it. A feature left out is one nobody hears about.",
+              "section": "Rules for every announcement",
+              "noul": 0.99,
+              "code": {
+                "answer": "met",
+                "saw": [
+                  {
+                    "test": "has",
+                    "answer": "met",
+                    "why": null,
+                    "found": [
+                      {
+                        "value": "Gap finder",
+                        "piece": 0,
+                        "at": 173,
+                        "text": "gap finder"
+                      },
+                      {
+                        "value": "Last-minute offers",
+                        "piece": 0,
+                        "at": 228,
+                        "text": "last-minute offers"
+                      },
+                      {
+                        "value": "Group bookings",
+                        "piece": 0,
+                        "at": 310,
+                        "text": "group bookings"
+                      },
+                      {
+                        "value": "Gift cards",
+                        "piece": 0,
+                        "at": 355,
+                        "text": "gift cards"
+                      },
+                      {
+                        "value": "Repeat bookings",
+                        "piece": 0,
+                        "at": 411,
+                        "text": "repeat bookings"
+                      },
+                      {
+                        "value": "Busy-time report",
+                        "piece": 0,
+                        "at": 466,
+                        "text": "busy-time report"
+                      }
+                    ],
+                    "missing": [],
+                    "foundTotal": 6,
+                    "missingTotal": 0
+                  }
+                ],
+                "tests": [
+                  {
+                    "test": "has",
+                    "read": {
+                      "part": "text",
+                      "skip": null
+                    },
+                    "values": {
+                      "from": "request",
+                      "in": "file",
+                      "file": "brief.md",
+                      "labels": [
+                        "Features"
+                      ],
+                      "take": "item names",
+                      "level": null
+                    },
+                    "need": "all",
+                    "at": "anywhere",
+                    "match": "words",
+                    "case": "any"
+                  }
+                ]
+              },
+              "applies": 0.99,
+              "comesUp": 0.98
+            },
+            {
+              "id": "r10",
+              "text": "Leave out anything the brief marks Internal, and any codename it gives. Those lines are for the team alone.",
+              "section": "Rules for every announcement",
+              "noul": 0.99,
+              "span": "every",
+              "applies": 0.99,
+              "comesUp": 0.99
+            },
+            {
+              "id": "r11",
+              "text": "Put the subject on the first line, after Subject: , in 50 characters or fewer. A longer subject is cut off in most inboxes.",
+              "section": "Rules for an email",
+              "noul": 0.91,
+              "code": {
+                "answer": "met",
+                "saw": [
+                  {
+                    "test": "has",
+                    "answer": "met",
+                    "why": null,
+                    "found": [
+                      {
+                        "value": "Subject:",
+                        "piece": 0,
+                        "at": 0,
+                        "text": "Subject:"
+                      }
+                    ],
+                    "missing": [],
+                    "foundTotal": 1,
+                    "missingTotal": 0
+                  },
+                  {
+                    "test": "count",
+                    "answer": "met",
+                    "why": null,
+                    "counts": [
+                      40,
+                      40,
+                      40
+                    ],
+                    "compare": "at most",
+                    "n": 50
+                  }
+                ],
+                "tests": [
+                  {
+                    "test": "has",
+                    "read": {
+                      "part": "line",
+                      "label": null,
+                      "number": 1
+                    },
+                    "values": {
+                      "from": "listed",
+                      "items": [
+                        "Subject:"
+                      ]
+                    },
+                    "need": "all",
+                    "at": "start",
+                    "match": "characters",
+                    "case": "exact"
+                  },
+                  {
+                    "test": "count",
+                    "read": {
+                      "part": "line",
+                      "label": "Subject",
+                      "number": null
+                    },
+                    "what": "characters",
+                    "compare": "at most",
+                    "n": 50
+                  }
+                ]
+              },
+              "applies": 0.99,
+              "comesUp": 0.99
+            },
+            {
+              "id": "r12",
+              "text": "Write plain text with no Markdown: no #, no ** and no list marks (-, * or •). Most mail apps show the marks as they are typed.",
+              "section": "Rules for an email",
+              "noul": 0.56,
+              "span": "every",
+              "applies": 0.99,
+              "comesUp": 0.99
+            },
+            {
+              "id": "r13",
+              "text": "Give exactly one link, the brief's Link. Two links split the clicks.",
+              "section": "Rules for an email",
+              "noul": 0.98,
+              "code": {
+                "answer": "met",
+                "saw": [
+                  {
+                    "test": "count",
+                    "answer": "met",
+                    "why": null,
+                    "counts": [
+                      1
+                    ],
+                    "compare": "exactly",
+                    "n": 1
+                  },
+                  {
+                    "test": "has",
+                    "answer": "met",
+                    "why": null,
+                    "found": [
+                      {
+                        "value": "https://ferry.example/3-5",
+                        "piece": 0,
+                        "at": 607,
+                        "text": "https://ferry.example/3-5"
+                      }
+                    ],
+                    "missing": [],
+                    "foundTotal": 1,
+                    "missingTotal": 0
+                  }
+                ],
+                "tests": [
+                  {
+                    "test": "count",
+                    "read": {
+                      "part": "file"
+                    },
+                    "what": "links",
+                    "compare": "exactly",
+                    "n": 1
+                  },
+                  {
+                    "test": "has",
+                    "read": {
+                      "part": "file"
+                    },
+                    "values": {
+                      "from": "request",
+                      "in": "request and files",
+                      "file": null,
+                      "labels": [
+                        "Link"
+                      ],
+                      "take": "links",
+                      "level": null
+                    },
+                    "need": "all",
+                    "at": "anywhere",
+                    "match": "characters",
+                    "case": "exact"
+                  }
+                ]
+              },
+              "applies": 0.99,
+              "comesUp": 0.99
+            },
+            {
+              "id": "r14",
+              "text": "End with the release date, the support address and the name of the person who signs it, in that order, each on a line of its own. Readers look for all three in the same place.",
+              "section": "Rules for an email",
+              "noul": 0.92,
+              "span": "end",
+              "applies": 0.99,
+              "comesUp": 0.98
+            },
+            {
+              "id": "r15",
+              "text": "Write one file with its styles in a <style> tag, no script and no outside file. The page is pasted into a CMS that strips both.",
+              "section": "Rules for a web page",
+              "noul": 0.96,
+              "span": "whole",
+              "applies": 0.03,
+              "comesUp": 0.04
+            },
+            {
+              "id": "r16",
+              "text": "Use exactly one <h1>, holding the headline and nothing else. Search engines and screen readers take it as the page's title.",
+              "section": "Rules for a web page",
+              "noul": 0.96,
+              "code": {
+                "answer": "none",
+                "why": "kind",
+                "saw": [],
+                "tests": [
+                  {
+                    "test": "count",
+                    "read": {
+                      "part": "elements",
+                      "tag": "h1",
+                      "attribute": null,
+                      "which": "every"
+                    },
+                    "what": "items",
+                    "compare": "exactly",
+                    "n": 1
+                  },
+                  {
+                    "test": "has",
+                    "read": {
+                      "part": "elements",
+                      "tag": "h1",
+                      "attribute": null,
+                      "which": "every"
+                    },
+                    "values": {
+                      "from": "request",
+                      "in": "request and files",
+                      "file": null,
+                      "labels": [
+                        "Headline"
+                      ],
+                      "take": "whole",
+                      "level": null
+                    },
+                    "need": "all",
+                    "at": "whole",
+                    "match": "words",
+                    "case": "exact"
+                  }
+                ]
+              },
+              "applies": 0.03,
+              "comesUp": 0.04
+            },
+            {
+              "id": "r17",
+              "text": "Set the body text at 18px and the content column at most 640px wide. That is what the site's articles use.",
+              "section": "Rules for a web page",
+              "noul": 0.97,
+              "span": "whole",
+              "applies": 0.03,
+              "comesUp": 0.03
+            },
+            {
+              "id": "r18",
+              "text": "Use only the colours in the brief's Colours list. Any other colour is off brand.",
+              "section": "Rules for a web page",
+              "noul": 0.98,
+              "code": {
+                "answer": "none",
+                "why": "kind",
+                "saw": [],
+                "tests": [
+                  {
+                    "test": "only",
+                    "read": {
+                      "part": "styles"
+                    },
+                    "what": "hex colours",
+                    "allowed": {
+                      "from": "request",
+                      "in": "request and files",
+                      "file": null,
+                      "labels": [
+                        "Colours"
+                      ],
+                      "take": "hex colours",
+                      "level": null
+                    }
+                  }
+                ]
+              },
+              "applies": 0.03,
+              "comesUp": 0.04
+            },
+            {
+              "id": "r19",
+              "text": "End the page with a footer that holds the line \"Questions? Write to\" and the support address. A reader who scrolls to the end is looking for a way to ask.",
+              "section": "Rules for a web page",
+              "noul": 0.96,
+              "span": "end",
+              "applies": 0.03,
+              "comesUp": 0.04
+            }
+          ]
+        },
+        "rubric": {
+          "statements": [
+            {
+              "id": "01-six",
+              "text": "The email names all six features.",
+              "weight": 2,
+              "noul": 0.99,
+              "span": "whole",
+              "units": null,
+              "best": null
+            },
+            {
+              "id": "02-date",
+              "text": "The email gives the release date, 9 June 2027.",
+              "weight": 1,
+              "noul": 0.99,
+              "span": "any",
+              "units": null,
+              "best": null
+            }
+          ]
+        }
+      },
+      "keys": [
+        "59ec7b7d164efe2e1a72202a22bb9d448a20e5e44046d5b2e23f0e943c3f42a9",
+        "e086170b9d4a751442df8bc1c6ab21a8110def1782c9ad49aba90405fc0fb0c8",
+        "d2bb469d9c1a6b027f387f1664d845a292d581a06fc1c80ee55ebbaf26fe3d8e",
+        "dcdef5302e45dfa8e58c0e8fd98ee641439233fb4f9da4dad40c729eac1cbe57",
+        "12524c07367cefbcc88a0726055f96644a394d517bedf421c3ba24788ca85f47",
+        "07f50c8dd505ddf225d7662dd31c0446ff04004b9b82d12aa67e9a228cb4867f",
+        "dab0d041f7aaa02ec98de9c79b086f65d6864b11f0c6a7a8a13fbff85bbd7d32",
+        "1ff40975e9c9fe7547bab0dd6e700441b71678f55f97498dfae3260d043e5172",
+        "ffc37a01208c91bba8f396aaf799a189f00b441fa2c1aa25cc6801586031d426",
+        "57d64f7a10c60a46e53edb46605dca789cb8faf893ade62c49b759bfb0ab4400",
+        "8661e7d99f7e8dfa3c1b09b1258e19279343246e852036cdd36069406e384007",
+        "67e9ac8562f49003d571fb9197507eba460007269437a6330ce38b11fc438f3c",
+        "12782c218bb63c3cd46a5093d98127e223c951b4bfc28940aa1e17f4cfe46abc",
+        "025483b114c9c0e1b6a6ef25496c6133fd513a73704a10d08ae6abaf2b6b695e",
+        "6a5c35e8e0e1b7ddd6963ffdad36a5a08814c78981a6c6192102da5a293bd071",
+        "1b0a3caa39dc07f71c88dbfd434c23cd70ed1fffd90bbb6d6144444eaeed7fd8",
+        "fc44809938a72e2693dc82365104f06e78d750fcc5dbbdcd488547e32aea935b",
+        "c436e3718fa66813757b19286a91d2e15631559da10b0f73e711a204b0903f0b",
+        "09b0119010d5e7a79736a1c752ac4925f3c7382d0c9943eb18ef0ea9f90d2576",
+        "d36d07fa9cb8633538cb8af504b9fce89facca029a238f37f4a1e0588cd2f4fb",
+        "c43bdc211cca8f14c41e0d96d3e16ee5f85a9a866513c7ed9c8e75510c7b9c10",
+        "b0e497356887524c1f29428b2fc4eab8ff2d63a6410de617648f212b5960857c",
+        "2557fdee30896364401c34a41e6a78714e4a612b98838a875e0099a659fcedb1",
+        "361767fe3deb66b3d68e163dab6b6d904172be9636508b0c6da41a061aa6680c",
+        "1814fa820db5a437274645e84424dfd83f0eca7ef7fcd843e0ad739dca024051",
+        "35fbd50da3d85adb68700decce3b6ee73dc2527dc50d8712e8b06a79a308d608",
+        "426ea3a2d81563b899d65c3225f345a0730151c58fb4eada614375d649325672",
+        "2b4515cdcd9d7908d5b900648736878d70251c9b85b090a4711734dd2be29da4",
+        "5b79541c63ca34912c570b8ae47e5ecdbdfb28d584d673e80f4b4d15370aa36e",
+        "33ca798036ac2f6d12cbe375cd2a8083e8c1ff00bad27e71b22788e3f36c8d6b",
+        "56104847e810ad06bdac1505d1f206909ca229c0cd47558b88db78dcd1eb054d",
+        "f029ae89e3d59519cbf031d0338e2466904767d0c0ce5555648ee1379e2fbd13",
+        "cc7cf799ea095a69b588f702d1eec3028037f069d78fdd4b0cb15dbc4e7e293e",
+        "d30ac2f3957c8d705fc81634a5b37d95acb0e3c76c647af97f2f8df4e753a6c4",
+        "d9e8227d625dc7896c8134d5fa00609cdd9eb7dbfb38f559fd3d5e7292eb2e9b",
+        "8f28c3987c3c598f45611c2e67c4d575f2b3551073d439a178beb10c7879c06b",
+        "ded2bd8811290b8997353eb05d2591da37c04f951b79584a9a30a7d61e174c3e",
+        "5d1b2fc274296154e5ec79bb8a8865d240d1e54562df6bfd28c45a9e0972a848",
+        "3864872294964769be949a28421a75e547c88ab606e2ae4b3d09b4c65bb89eca",
+        "df35b78aee2c0acb067e5dc31c4e4f742a43c5d6f1baa63a76c5f0a7cd595df9",
+        "e3fa83cce71efa7773940b42d169f8842eca72a0e5760ba0f2a1570eee3594cc",
+        "d67311ba049beb97da6714d86b1e820c8ba61d7d2b91cb042feafef4850c5822",
+        "38cc97b8eb420aa0210bd681813d09f2a758e6b0866609a2130dbeffca77a413"
+      ],
+      "g": 1
+    },
+    "141863ce18e82d3a3aa31bf7f1d51b153e8450b2fcc1b195ec4e18cad30c2953": {
+      "raw": {
+        "adherence": {
+          "rules": [
+            {
+              "id": "r1",
+              "text": "Open with the brief's Headline, word for word. A reworded headline is one the team did not approve.",
+              "section": "Rules for every announcement",
+              "noul": 0.94,
+              "code": {
+                "answer": "none",
+                "why": "differ",
+                "saw": [
+                  {
+                    "test": "has",
+                    "answer": "missed",
+                    "why": null,
+                    "found": [],
+                    "missing": [
+                      "Reschedule in one tap."
+                    ],
+                    "foundTotal": 0,
+                    "missingTotal": 1
+                  },
+                  {
+                    "test": "has",
+                    "answer": "met",
+                    "why": null,
+                    "found": [
+                      {
+                        "value": "Reschedule in one tap.",
+                        "piece": 0,
+                        "at": 1,
+                        "text": "Reschedule in one tap"
+                      }
+                    ],
+                    "missing": [],
+                    "foundTotal": 1,
+                    "missingTotal": 0
+                  }
+                ],
+                "tests": [
+                  {
+                    "test": "has",
+                    "read": {
+                      "part": "line",
+                      "label": "Subject",
+                      "number": null
+                    },
+                    "values": {
+                      "from": "request",
+                      "in": "request and files",
+                      "file": null,
+                      "labels": [
+                        "Headline"
+                      ],
+                      "take": "whole",
+                      "level": null
+                    },
+                    "need": "all",
+                    "at": "start",
+                    "match": "words",
+                    "case": "exact"
+                  },
+                  {
+                    "test": "has",
+                    "read": {
+                      "part": "text",
+                      "skip": "Subject"
+                    },
+                    "values": {
+                      "from": "request",
+                      "in": "request and files",
+                      "file": null,
+                      "labels": [
+                        "Headline"
+                      ],
+                      "take": "whole",
+                      "level": null
+                    },
+                    "need": "all",
+                    "at": "start",
+                    "match": "words",
+                    "case": "exact"
+                  }
+                ]
+              },
+              "applies": 0.99,
+              "comesUp": 0.99
+            },
+            {
+              "id": "r2",
+              "text": "Name the product with its version, such as Ferry 3.2, at least once. A reader should know which release the note is about.",
+              "section": "Rules for every announcement",
+              "noul": 0.99,
+              "span": "any",
+              "applies": 0.99,
+              "comesUp": 0.99
+            },
+            {
+              "id": "r3",
+              "text": "Use only numbers the brief states, never a number of your own. An invented figure is a claim nobody checked.",
+              "section": "Rules for every announcement",
+              "noul": 0.9,
+              "code": {
+                "answer": "met",
+                "saw": [
+                  {
+                    "test": "only",
+                    "answer": "met",
+                    "why": null,
+                    "outside": [],
+                    "otherNotation": [],
+                    "outsideTotal": 0
+                  }
+                ],
+                "tests": [
+                  {
+                    "test": "only",
+                    "read": {
+                      "part": "text",
+                      "skip": null
+                    },
+                    "what": "numbers",
+                    "allowed": {
+                      "from": "request",
+                      "in": "request and files",
+                      "file": null,
+                      "labels": [],
+                      "take": "numbers",
+                      "level": null
+                    }
+                  }
+                ]
+              },
+              "applies": 0.99,
+              "comesUp": 0.98
+            },
+            {
+              "id": "r4",
+              "text": "Write no more than 120 words. Most readers stop after the first screen.",
+              "section": "Rules for every announcement",
+              "noul": 0.97,
+              "code": {
+                "answer": "met",
+                "saw": [
+                  {
+                    "test": "count",
+                    "answer": "met",
+                    "why": null,
+                    "counts": [
+                      97,
+                      91,
+                      97,
+                      91
+                    ],
+                    "compare": "at most",
+                    "n": 120
+                  }
+                ],
+                "tests": [
+                  {
+                    "test": "count",
+                    "read": {
+                      "part": "text",
+                      "skip": null
+                    },
+                    "what": "words",
+                    "compare": "at most",
+                    "n": 120
+                  }
+                ]
+              },
+              "applies": 0.99,
+              "comesUp": 0.99
+            },
+            {
+              "id": "r5",
+              "text": "When the brief gives a Price, state it with its currency code, such as 12 USD. A bare number reads as a different amount in each country.",
+              "section": "Rules for every announcement",
+              "noul": 0.99,
+              "span": "any",
+              "applies": 0.99,
+              "comesUp": 0.94
+            },
+            {
+              "id": "r6",
+              "text": "Quote the customer in the brief's Quote word for word, with their name. A paraphrase puts words in their mouth.",
+              "section": "Rules for every announcement",
+              "noul": 0.99,
+              "span": "any",
+              "applies": 0.99,
+              "comesUp": 0.96
+            },
+            {
+              "id": "r7",
+              "text": "Never use the words exciting, thrilled, delighted or proud. They say how the company feels, not what the reader gets.",
+              "section": "Rules for every announcement",
+              "noul": 0.99,
+              "code": {
+                "answer": "met",
+                "saw": [
+                  {
+                    "test": "has",
+                    "answer": "met",
+                    "why": null,
+                    "found": [],
+                    "missing": [
+                      "exciting",
+                      "thrilled",
+                      "delighted",
+                      "proud"
+                    ],
+                    "foundTotal": 0,
+                    "missingTotal": 4
+                  }
+                ],
+                "tests": [
+                  {
+                    "test": "has",
+                    "read": {
+                      "part": "text",
+                      "skip": null
+                    },
+                    "values": {
+                      "from": "listed",
+                      "items": [
+                        "exciting",
+                        "thrilled",
+                        "delighted",
+                        "proud"
+                      ]
+                    },
+                    "need": "none",
+                    "at": "anywhere",
+                    "match": "words",
+                    "case": "any"
+                  }
+                ]
+              },
+              "applies": 0.99,
+              "comesUp": 0.99
+            },
+            {
+              "id": "r8",
+              "text": "Never use the word users. Write to the reader as you, since the note goes to one person at a time.",
+              "section": "Rules for every announcement",
+              "noul": 0.68,
+              "code": {
+                "answer": "met",
+                "saw": [
+                  {
+                    "test": "has",
+                    "answer": "met",
+                    "why": null,
+                    "found": [],
+                    "missing": [
+                      "users"
+                    ],
+                    "foundTotal": 0,
+                    "missingTotal": 1
+                  }
+                ],
+                "tests": [
+                  {
+                    "test": "has",
+                    "read": {
+                      "part": "text",
+                      "skip": null
+                    },
+                    "values": {
+                      "from": "listed",
+                      "items": [
+                        "users"
+                      ]
+                    },
+                    "need": "none",
+                    "at": "anywhere",
+                    "match": "words",
+                    "case": "any"
+                  }
+                ]
+              },
+              "applies": 0.99,
+              "comesUp": 0.99
+            },
+            {
+              "id": "r9",
+              "text": "Name every feature in the brief's Features list by the name the brief gives it. A feature left out is one nobody hears about.",
+              "section": "Rules for every announcement",
+              "noul": 0.99,
+              "code": {
+                "answer": "met",
+                "saw": [
+                  {
+                    "test": "has",
+                    "answer": "met",
+                    "why": null,
+                    "found": [
+                      {
+                        "value": "One-tap reschedule",
+                        "piece": 0,
+                        "at": 145,
+                        "text": "one-tap reschedule"
+                      },
+                      {
+                        "value": "Reschedule limits",
+                        "piece": 0,
+                        "at": 235,
+                        "text": "reschedule limits"
+                      }
+                    ],
+                    "missing": [],
+                    "foundTotal": 2,
+                    "missingTotal": 0
+                  }
+                ],
+                "tests": [
+                  {
+                    "test": "has",
+                    "read": {
+                      "part": "text",
+                      "skip": null
+                    },
+                    "values": {
+                      "from": "request",
+                      "in": "file",
+                      "file": "brief.md",
+                      "labels": [
+                        "Features"
+                      ],
+                      "take": "item names",
+                      "level": null
+                    },
+                    "need": "all",
+                    "at": "anywhere",
+                    "match": "words",
+                    "case": "any"
+                  }
+                ]
+              },
+              "applies": 0.99,
+              "comesUp": 0.98
+            },
+            {
+              "id": "r10",
+              "text": "Leave out anything the brief marks Internal, and any codename it gives. Those lines are for the team alone.",
+              "section": "Rules for every announcement",
+              "noul": 0.99,
+              "span": "every",
+              "applies": 0.99,
+              "comesUp": 0.99
+            },
+            {
+              "id": "r11",
+              "text": "Put the subject on the first line, after Subject: , in 50 characters or fewer. A longer subject is cut off in most inboxes.",
+              "section": "Rules for an email",
+              "noul": 0.99,
+              "code": {
+                "answer": "met",
+                "saw": [
+                  {
+                    "test": "has",
+                    "answer": "met",
+                    "why": null,
+                    "found": [
+                      {
+                        "value": "Subject:",
+                        "piece": 0,
+                        "at": 0,
+                        "text": "Subject:"
+                      }
+                    ],
+                    "missing": [],
+                    "foundTotal": 1,
+                    "missingTotal": 0
+                  },
+                  {
+                    "test": "count",
+                    "answer": "met",
+                    "why": null,
+                    "counts": [
+                      32,
+                      32,
+                      32
+                    ],
+                    "compare": "at most",
+                    "n": 50
+                  }
+                ],
+                "tests": [
+                  {
+                    "test": "has",
+                    "read": {
+                      "part": "line",
+                      "label": null,
+                      "number": 1
+                    },
+                    "values": {
+                      "from": "listed",
+                      "items": [
+                        "Subject:"
+                      ]
+                    },
+                    "need": "all",
+                    "at": "start",
+                    "match": "characters",
+                    "case": "exact"
+                  },
+                  {
+                    "test": "count",
+                    "read": {
+                      "part": "line",
+                      "label": "Subject",
+                      "number": null
+                    },
+                    "what": "characters",
+                    "compare": "at most",
+                    "n": 50
+                  }
+                ]
+              },
+              "applies": 0.99,
+              "comesUp": 0.99
+            },
+            {
+              "id": "r12",
+              "text": "Write plain text with no Markdown: no #, no ** and no list marks (-, * or •). Most mail apps show the marks as they are typed.",
+              "section": "Rules for an email",
+              "noul": 0.96,
+              "span": "every",
+              "applies": 0.99,
+              "comesUp": 0.99
+            },
+            {
+              "id": "r13",
+              "text": "Give exactly one link, the brief's Link. Two links split the clicks.",
+              "section": "Rules for an email",
+              "noul": 0.97,
+              "code": {
+                "answer": "met",
+                "saw": [
+                  {
+                    "test": "count",
+                    "answer": "met",
+                    "why": null,
+                    "counts": [
+                      1
+                    ],
+                    "compare": "exactly",
+                    "n": 1
+                  },
+                  {
+                    "test": "has",
+                    "answer": "met",
+                    "why": null,
+                    "found": [
+                      {
+                        "value": "https://ferry.example/3-3",
+                        "piece": 0,
+                        "at": 448,
+                        "text": "https://ferry.example/3-3"
+                      }
+                    ],
+                    "missing": [],
+                    "foundTotal": 1,
+                    "missingTotal": 0
+                  }
+                ],
+                "tests": [
+                  {
+                    "test": "count",
+                    "read": {
+                      "part": "file"
+                    },
+                    "what": "links",
+                    "compare": "exactly",
+                    "n": 1
+                  },
+                  {
+                    "test": "has",
+                    "read": {
+                      "part": "file"
+                    },
+                    "values": {
+                      "from": "request",
+                      "in": "request and files",
+                      "file": null,
+                      "labels": [
+                        "Link"
+                      ],
+                      "take": "links",
+                      "level": null
+                    },
+                    "need": "all",
+                    "at": "anywhere",
+                    "match": "characters",
+                    "case": "exact"
+                  }
+                ]
+              },
+              "applies": 0.99,
+              "comesUp": 0.99
+            },
+            {
+              "id": "r14",
+              "text": "End with the release date, the support address and the name of the person who signs it, in that order, each on a line of its own. Readers look for all three in the same place.",
+              "section": "Rules for an email",
+              "noul": 0.97,
+              "span": "end",
+              "applies": 0.99,
+              "comesUp": 0.98
+            },
+            {
+              "id": "r15",
+              "text": "Write one file with its styles in a <style> tag, no script and no outside file. The page is pasted into a CMS that strips both.",
+              "section": "Rules for a web page",
+              "noul": 0.97,
+              "span": "whole",
+              "applies": 0.03,
+              "comesUp": 0.04
+            },
+            {
+              "id": "r16",
+              "text": "Use exactly one <h1>, holding the headline and nothing else. Search engines and screen readers take it as the page's title.",
+              "section": "Rules for a web page",
+              "noul": 0.96,
+              "code": {
+                "answer": "none",
+                "why": "kind",
+                "saw": [],
+                "tests": [
+                  {
+                    "test": "count",
+                    "read": {
+                      "part": "elements",
+                      "tag": "h1",
+                      "attribute": null,
+                      "which": "every"
+                    },
+                    "what": "items",
+                    "compare": "exactly",
+                    "n": 1
+                  },
+                  {
+                    "test": "has",
+                    "read": {
+                      "part": "elements",
+                      "tag": "h1",
+                      "attribute": null,
+                      "which": "every"
+                    },
+                    "values": {
+                      "from": "request",
+                      "in": "request and files",
+                      "file": null,
+                      "labels": [
+                        "Headline"
+                      ],
+                      "take": "whole",
+                      "level": null
+                    },
+                    "need": "all",
+                    "at": "whole",
+                    "match": "words",
+                    "case": "exact"
+                  }
+                ]
+              },
+              "applies": 0.03,
+              "comesUp": 0.04
+            },
+            {
+              "id": "r17",
+              "text": "Set the body text at 18px and the content column at most 640px wide. That is what the site's articles use.",
+              "section": "Rules for a web page",
+              "noul": 0.97,
+              "span": "whole",
+              "applies": 0.03,
+              "comesUp": 0.03
+            },
+            {
+              "id": "r18",
+              "text": "Use only the colours in the brief's Colours list. Any other colour is off brand.",
+              "section": "Rules for a web page",
+              "noul": 0.99,
+              "code": {
+                "answer": "none",
+                "why": "kind",
+                "saw": [],
+                "tests": [
+                  {
+                    "test": "only",
+                    "read": {
+                      "part": "styles"
+                    },
+                    "what": "hex colours",
+                    "allowed": {
+                      "from": "request",
+                      "in": "request and files",
+                      "file": null,
+                      "labels": [
+                        "Colours"
+                      ],
+                      "take": "hex colours",
+                      "level": null
+                    }
+                  }
+                ]
+              },
+              "applies": 0.03,
+              "comesUp": 0.04
+            },
+            {
+              "id": "r19",
+              "text": "End the page with a footer that holds the line \"Questions? Write to\" and the support address. A reader who scrolls to the end is looking for a way to ask.",
+              "section": "Rules for a web page",
+              "noul": 0.96,
+              "span": "end",
+              "applies": 0.03,
+              "comesUp": 0.04
+            }
+          ]
+        },
+        "rubric": {
+          "statements": [
+            {
+              "id": "01-free",
+              "text": "The email says the update is free for everyone on a paid plan.",
+              "weight": 1,
+              "noul": 1,
+              "span": "any",
+              "units": null,
+              "best": null
+            },
+            {
+              "id": "02-support",
+              "text": "The email gives the support address, help@ferry.example.",
+              "weight": 1,
+              "noul": 0.99,
+              "code": {
+                "answer": "met",
+                "saw": [
+                  {
+                    "test": "has",
+                    "answer": "met",
+                    "why": null,
+                    "found": [
+                      {
+                        "value": "help@ferry.example",
+                        "piece": 0,
+                        "at": 509,
+                        "text": "help@ferry.example"
+                      }
+                    ],
+                    "missing": [],
+                    "foundTotal": 1,
+                    "missingTotal": 0
+                  }
+                ],
+                "tests": [
+                  {
+                    "test": "has",
+                    "read": {
+                      "part": "text",
+                      "skip": null
+                    },
+                    "values": {
+                      "from": "listed",
+                      "items": [
+                        "help@ferry.example"
+                      ]
+                    },
+                    "need": "all",
+                    "at": "anywhere",
+                    "match": "characters",
+                    "case": "any"
+                  }
+                ]
+              },
+              "units": null,
+              "best": null
+            }
+          ]
+        }
+      },
+      "keys": [
+        "29537c8df723489be3b7045b548491d83490e2a84a876f4244b425bde4705d29",
+        "8a6003b9cd149f605158e4779b421e1ab1d96917baec06355b88d66b1ff6f800",
+        "43486ea562f21877f7eb70aea6768a8e381af9e2ccab2a72d1bf27add1fae5c3",
+        "8a55566b279e0e19475cf56a490c279b05a2b7747f6766ac92f4a8752d06ed3e",
+        "36a08bd70eb95e76d1eb89cb1a2ccc3ffbbb8b544f8f631adbf878112bae8b75",
+        "30ecc3cfcaf3d233331ce5d1c9f961f1d812f6ee43c43f2d4ec2321333b53aaa",
+        "1ccf22eabd3dadab090d474d29f5fb446833367d4d1be3bb77b0cc6c244b2dda",
+        "78491cc8507eff3aff536bbc1cce1b1e9bbbd4e3bf62c8fb9765bd75d43860f6",
+        "21376c3b8694c093f03f5546f4566a78bedc1f5e9ce7cc582541207e199fe030",
+        "232648f5125466f31d9ebe7454562caa0f376d34826d95a47e9ba98c041b22ff",
+        "f55e19fbfea714c0db57c756e403fada466f2aa868854fbb53d91f3183459ba3",
+        "a4b02d0e0ca4c2197708e15145bdae5d87d0e372536bc1a847386e78919f6d83",
+        "e0e469fd7ecabd2c51af51efc04a07a090ce268f9a7326e248abf9471351c5bf",
+        "b76ef917aaacbec98065ca6712c8722a04e355c522539a325fa870e8e856efa8",
+        "b1cd4adf5e855c9b329edcbde02f6719aa09800477239ccf07a1361b58da1b94",
+        "b7d51ad506a251b129a3860f1acb9d2a7faf195847aa27fb2b570ea625842315",
+        "d089e27db9d8d2dcd5cabdc6c2536b5f4278678ba5dffc344228e26c670a41ec",
+        "a281e85c21d045687c05c3880330442fa1be451c45e4e09c834a25cc26ac7ec5",
+        "1189e8ef0946d47ddcaf887541f9cd68cda6e7696a3cd496602066b63b921aea",
+        "3b97b2ef80325e47489c4c35a74170a62430d74a9a0d5a58373f97230f62c4c0",
+        "934ab6ec10a2576c41cefa82cf752ebfec8ff72e44ed3574b529db9d4078265c"
+      ],
+      "g": 1
+    },
+    "581dab6b23a7005e92a94a41fdee4e56cd1d80ca08f1df07765579543e88511e": {
+      "raw": {
+        "adherence": {
+          "rules": [
+            {
+              "id": "r1",
+              "text": "Open with the brief's Headline, word for word. A reworded headline is one the team did not approve.",
+              "section": "Rules for every announcement",
+              "noul": 0.88,
+              "code": {
+                "answer": "none",
+                "why": "differ",
+                "saw": [
+                  {
+                    "test": "has",
+                    "answer": "missed",
+                    "why": null,
+                    "found": [],
+                    "missing": [
+                      "Bookings now confirm themselves."
+                    ],
+                    "foundTotal": 0,
+                    "missingTotal": 1
+                  },
+                  {
+                    "test": "has",
+                    "answer": "met",
+                    "why": null,
+                    "found": [
+                      {
+                        "value": "Bookings now confirm themselves.",
+                        "piece": 0,
+                        "at": 1,
+                        "text": "Bookings now confirm themselves"
+                      }
+                    ],
+                    "missing": [],
+                    "foundTotal": 1,
+                    "missingTotal": 0
+                  }
+                ],
+                "tests": [
+                  {
+                    "test": "has",
+                    "read": {
+                      "part": "line",
+                      "label": "Subject",
+                      "number": null
+                    },
+                    "values": {
+                      "from": "request",
+                      "in": "request and files",
+                      "file": null,
+                      "labels": [
+                        "Headline"
+                      ],
+                      "take": "whole",
+                      "level": null
+                    },
+                    "need": "all",
+                    "at": "start",
+                    "match": "words",
+                    "case": "exact"
+                  },
+                  {
+                    "test": "has",
+                    "read": {
+                      "part": "text",
+                      "skip": "Subject"
+                    },
+                    "values": {
+                      "from": "request",
+                      "in": "request and files",
+                      "file": null,
+                      "labels": [
+                        "Headline"
+                      ],
+                      "take": "whole",
+                      "level": null
+                    },
+                    "need": "all",
+                    "at": "start",
+                    "match": "words",
+                    "case": "exact"
+                  }
+                ]
+              },
+              "applies": 0.99,
+              "comesUp": 0.99
+            },
+            {
+              "id": "r2",
+              "text": "Name the product with its version, such as Ferry 3.2, at least once. A reader should know which release the note is about.",
+              "section": "Rules for every announcement",
+              "noul": 0.99,
+              "span": "any",
+              "applies": 0.99,
+              "comesUp": 0.99
+            },
+            {
+              "id": "r3",
+              "text": "Use only numbers the brief states, never a number of your own. An invented figure is a claim nobody checked.",
+              "section": "Rules for every announcement",
+              "noul": 0.91,
+              "code": {
+                "answer": "met",
+                "saw": [
+                  {
+                    "test": "only",
+                    "answer": "met",
+                    "why": null,
+                    "outside": [],
+                    "otherNotation": [],
+                    "outsideTotal": 0
+                  }
+                ],
+                "tests": [
+                  {
+                    "test": "only",
+                    "read": {
+                      "part": "text",
+                      "skip": null
+                    },
+                    "what": "numbers",
+                    "allowed": {
+                      "from": "request",
+                      "in": "request and files",
+                      "file": null,
+                      "labels": [],
+                      "take": "numbers",
+                      "level": null
+                    }
+                  }
+                ]
+              },
+              "applies": 0.99,
+              "comesUp": 0.98
+            },
+            {
+              "id": "r4",
+              "text": "Write no more than 120 words. Most readers stop after the first screen.",
+              "section": "Rules for every announcement",
+              "noul": 0.95,
+              "code": {
+                "answer": "met",
+                "saw": [
+                  {
+                    "test": "count",
+                    "answer": "met",
+                    "why": null,
+                    "counts": [
+                      97,
+                      89,
+                      97,
+                      89
+                    ],
+                    "compare": "at most",
+                    "n": 120
+                  }
+                ],
+                "tests": [
+                  {
+                    "test": "count",
+                    "read": {
+                      "part": "text",
+                      "skip": null
+                    },
+                    "what": "words",
+                    "compare": "at most",
+                    "n": 120
+                  }
+                ]
+              },
+              "applies": 0.99,
+              "comesUp": 0.99
+            },
+            {
+              "id": "r5",
+              "text": "When the brief gives a Price, state it with its currency code, such as 12 USD. A bare number reads as a different amount in each country.",
+              "section": "Rules for every announcement",
+              "noul": 0.99,
+              "span": "any",
+              "applies": 0.99,
+              "comesUp": 0.94
+            },
+            {
+              "id": "r6",
+              "text": "Quote the customer in the brief's Quote word for word, with their name. A paraphrase puts words in their mouth.",
+              "section": "Rules for every announcement",
+              "noul": 0.97,
+              "span": "any",
+              "applies": 0.99,
+              "comesUp": 0.96
+            },
+            {
+              "id": "r7",
+              "text": "Never use the words exciting, thrilled, delighted or proud. They say how the company feels, not what the reader gets.",
+              "section": "Rules for every announcement",
+              "noul": 0.99,
+              "code": {
+                "answer": "met",
+                "saw": [
+                  {
+                    "test": "has",
+                    "answer": "met",
+                    "why": null,
+                    "found": [],
+                    "missing": [
+                      "exciting",
+                      "thrilled",
+                      "delighted",
+                      "proud"
+                    ],
+                    "foundTotal": 0,
+                    "missingTotal": 4
+                  }
+                ],
+                "tests": [
+                  {
+                    "test": "has",
+                    "read": {
+                      "part": "text",
+                      "skip": null
+                    },
+                    "values": {
+                      "from": "listed",
+                      "items": [
+                        "exciting",
+                        "thrilled",
+                        "delighted",
+                        "proud"
+                      ]
+                    },
+                    "need": "none",
+                    "at": "anywhere",
+                    "match": "words",
+                    "case": "any"
+                  }
+                ]
+              },
+              "applies": 0.99,
+              "comesUp": 0.99
+            },
+            {
+              "id": "r8",
+              "text": "Never use the word users. Write to the reader as you, since the note goes to one person at a time.",
+              "section": "Rules for every announcement",
+              "noul": 0.85,
+              "code": {
+                "answer": "met",
+                "saw": [
+                  {
+                    "test": "has",
+                    "answer": "met",
+                    "why": null,
+                    "found": [],
+                    "missing": [
+                      "users"
+                    ],
+                    "foundTotal": 0,
+                    "missingTotal": 1
+                  }
+                ],
+                "tests": [
+                  {
+                    "test": "has",
+                    "read": {
+                      "part": "text",
+                      "skip": null
+                    },
+                    "values": {
+                      "from": "listed",
+                      "items": [
+                        "users"
+                      ]
+                    },
+                    "need": "none",
+                    "at": "anywhere",
+                    "match": "words",
+                    "case": "any"
+                  }
+                ]
+              },
+              "applies": 0.99,
+              "comesUp": 0.99
+            },
+            {
+              "id": "r9",
+              "text": "Name every feature in the brief's Features list by the name the brief gives it. A feature left out is one nobody hears about.",
+              "section": "Rules for every announcement",
+              "noul": 0.98,
+              "code": {
+                "answer": "met",
+                "saw": [
+                  {
+                    "test": "has",
+                    "answer": "met",
+                    "why": null,
+                    "found": [
+                      {
+                        "value": "Automatic confirmations",
+                        "piece": 0,
+                        "at": 167,
+                        "text": "automatic confirmations"
+                      },
+                      {
+                        "value": "Waitlist",
+                        "piece": 0,
+                        "at": 255,
+                        "text": "waitlist"
+                      },
+                      {
+                        "value": "Calendar sync",
+                        "piece": 0,
+                        "at": 328,
+                        "text": "calendar sync"
+                      }
+                    ],
+                    "missing": [],
+                    "foundTotal": 3,
+                    "missingTotal": 0
+                  }
+                ],
+                "tests": [
+                  {
+                    "test": "has",
+                    "read": {
+                      "part": "text",
+                      "skip": null
+                    },
+                    "values": {
+                      "from": "request",
+                      "in": "file",
+                      "file": "brief.md",
+                      "labels": [
+                        "Features"
+                      ],
+                      "take": "item names",
+                      "level": null
+                    },
+                    "need": "all",
+                    "at": "anywhere",
+                    "match": "words",
+                    "case": "any"
+                  }
+                ]
+              },
+              "applies": 0.99,
+              "comesUp": 0.98
+            },
+            {
+              "id": "r10",
+              "text": "Leave out anything the brief marks Internal, and any codename it gives. Those lines are for the team alone.",
+              "section": "Rules for every announcement",
+              "noul": 0.99,
+              "span": "every",
+              "applies": 0.99,
+              "comesUp": 0.99
+            },
+            {
+              "id": "r11",
+              "text": "Put the subject on the first line, after Subject: , in 50 characters or fewer. A longer subject is cut off in most inboxes.",
+              "section": "Rules for an email",
+              "noul": 0.96,
+              "code": {
+                "answer": "met",
+                "saw": [
+                  {
+                    "test": "has",
+                    "answer": "met",
+                    "why": null,
+                    "found": [
+                      {
+                        "value": "Subject:",
+                        "piece": 0,
+                        "at": 0,
+                        "text": "Subject:"
+                      }
+                    ],
+                    "missing": [],
+                    "foundTotal": 1,
+                    "missingTotal": 0
+                  },
+                  {
+                    "test": "count",
+                    "answer": "met",
+                    "why": null,
+                    "counts": [
+                      43,
+                      43,
+                      43
+                    ],
+                    "compare": "at most",
+                    "n": 50
+                  }
+                ],
+                "tests": [
+                  {
+                    "test": "has",
+                    "read": {
+                      "part": "line",
+                      "label": null,
+                      "number": 1
+                    },
+                    "values": {
+                      "from": "listed",
+                      "items": [
+                        "Subject:"
+                      ]
+                    },
+                    "need": "all",
+                    "at": "start",
+                    "match": "characters",
+                    "case": "exact"
+                  },
+                  {
+                    "test": "count",
+                    "read": {
+                      "part": "line",
+                      "label": "Subject",
+                      "number": null
+                    },
+                    "what": "characters",
+                    "compare": "at most",
+                    "n": 50
+                  }
+                ]
+              },
+              "applies": 0.99,
+              "comesUp": 0.99
+            },
+            {
+              "id": "r12",
+              "text": "Write plain text with no Markdown: no #, no ** and no list marks (-, * or •). Most mail apps show the marks as they are typed.",
+              "section": "Rules for an email",
+              "noul": 0.97,
+              "span": "every",
+              "applies": 0.99,
+              "comesUp": 0.99
+            },
+            {
+              "id": "r13",
+              "text": "Give exactly one link, the brief's Link. Two links split the clicks.",
+              "section": "Rules for an email",
+              "noul": 0.99,
+              "code": {
+                "answer": "met",
+                "saw": [
+                  {
+                    "test": "count",
+                    "answer": "met",
+                    "why": null,
+                    "counts": [
+                      1
+                    ],
+                    "compare": "exactly",
+                    "n": 1
+                  },
+                  {
+                    "test": "has",
+                    "answer": "met",
+                    "why": null,
+                    "found": [
+                      {
+                        "value": "https://ferry.example/3-2",
+                        "piece": 0,
+                        "at": 502,
+                        "text": "https://ferry.example/3-2"
+                      }
+                    ],
+                    "missing": [],
+                    "foundTotal": 1,
+                    "missingTotal": 0
+                  }
+                ],
+                "tests": [
+                  {
+                    "test": "count",
+                    "read": {
+                      "part": "file"
+                    },
+                    "what": "links",
+                    "compare": "exactly",
+                    "n": 1
+                  },
+                  {
+                    "test": "has",
+                    "read": {
+                      "part": "file"
+                    },
+                    "values": {
+                      "from": "request",
+                      "in": "request and files",
+                      "file": null,
+                      "labels": [
+                        "Link"
+                      ],
+                      "take": "links",
+                      "level": null
+                    },
+                    "need": "all",
+                    "at": "anywhere",
+                    "match": "characters",
+                    "case": "exact"
+                  }
+                ]
+              },
+              "applies": 0.99,
+              "comesUp": 0.99
+            },
+            {
+              "id": "r14",
+              "text": "End with the release date, the support address and the name of the person who signs it, in that order, each on a line of its own. Readers look for all three in the same place.",
+              "section": "Rules for an email",
+              "noul": 0.91,
+              "span": "end",
+              "applies": 0.99,
+              "comesUp": 0.98
+            },
+            {
+              "id": "r15",
+              "text": "Write one file with its styles in a <style> tag, no script and no outside file. The page is pasted into a CMS that strips both.",
+              "section": "Rules for a web page",
+              "noul": 0.97,
+              "span": "whole",
+              "applies": 0.03,
+              "comesUp": 0.04
+            },
+            {
+              "id": "r16",
+              "text": "Use exactly one <h1>, holding the headline and nothing else. Search engines and screen readers take it as the page's title.",
+              "section": "Rules for a web page",
+              "noul": 0.97,
+              "code": {
+                "answer": "none",
+                "why": "kind",
+                "saw": [],
+                "tests": [
+                  {
+                    "test": "count",
+                    "read": {
+                      "part": "elements",
+                      "tag": "h1",
+                      "attribute": null,
+                      "which": "every"
+                    },
+                    "what": "items",
+                    "compare": "exactly",
+                    "n": 1
+                  },
+                  {
+                    "test": "has",
+                    "read": {
+                      "part": "elements",
+                      "tag": "h1",
+                      "attribute": null,
+                      "which": "every"
+                    },
+                    "values": {
+                      "from": "request",
+                      "in": "request and files",
+                      "file": null,
+                      "labels": [
+                        "Headline"
+                      ],
+                      "take": "whole",
+                      "level": null
+                    },
+                    "need": "all",
+                    "at": "whole",
+                    "match": "words",
+                    "case": "exact"
+                  }
+                ]
+              },
+              "applies": 0.03,
+              "comesUp": 0.04
+            },
+            {
+              "id": "r17",
+              "text": "Set the body text at 18px and the content column at most 640px wide. That is what the site's articles use.",
+              "section": "Rules for a web page",
+              "noul": 0.96,
+              "span": "whole",
+              "applies": 0.03,
+              "comesUp": 0.03
+            },
+            {
+              "id": "r18",
+              "text": "Use only the colours in the brief's Colours list. Any other colour is off brand.",
+              "section": "Rules for a web page",
+              "noul": 0.98,
+              "code": {
+                "answer": "none",
+                "why": "kind",
+                "saw": [],
+                "tests": [
+                  {
+                    "test": "only",
+                    "read": {
+                      "part": "styles"
+                    },
+                    "what": "hex colours",
+                    "allowed": {
+                      "from": "request",
+                      "in": "request and files",
+                      "file": null,
+                      "labels": [
+                        "Colours"
+                      ],
+                      "take": "hex colours",
+                      "level": null
+                    }
+                  }
+                ]
+              },
+              "applies": 0.03,
+              "comesUp": 0.04
+            },
+            {
+              "id": "r19",
+              "text": "End the page with a footer that holds the line \"Questions? Write to\" and the support address. A reader who scrolls to the end is looking for a way to ask.",
+              "section": "Rules for a web page",
+              "noul": 0.96,
+              "span": "end",
+              "applies": 0.03,
+              "comesUp": 0.04
+            }
+          ]
+        },
+        "rubric": {
+          "statements": [
+            {
+              "id": "01-price",
+              "text": "The email states the price as 12 USD a month.",
+              "weight": 2,
+              "noul": 1,
+              "code": {
+                "answer": "met",
+                "saw": [
+                  {
+                    "test": "has",
+                    "answer": "met",
+                    "why": null,
+                    "found": [
+                      {
+                        "value": "12 USD a month",
+                        "piece": 0,
+                        "at": 482,
+                        "text": "12 usd a month"
+                      }
+                    ],
+                    "missing": [],
+                    "foundTotal": 1,
+                    "missingTotal": 0
+                  }
+                ],
+                "tests": [
+                  {
+                    "test": "has",
+                    "read": {
+                      "part": "text",
+                      "skip": null
+                    },
+                    "values": {
+                      "from": "listed",
+                      "items": [
+                        "12 USD a month"
+                      ]
+                    },
+                    "need": "all",
+                    "at": "anywhere",
+                    "match": "words",
+                    "case": "any"
+                  }
+                ]
+              },
+              "units": null,
+              "best": null
+            },
+            {
+              "id": "02-date",
+              "text": "The email gives the release date, 4 March 2027.",
+              "weight": 1,
+              "noul": 0.99,
+              "span": "any",
+              "units": null,
+              "best": null
+            }
+          ]
+        }
+      },
+      "keys": [
+        "d1eae34c5edf403cf36f27f9d0d4a25adac9d504531e58ad134f16b2449bd814",
+        "672023dd3a61ec88e124376864d650cd2a0d4de281ca356115857e62be57bbd6",
+        "fd55ba903820d7f77dea25698cf10ec528c3c308d9b00314bc45ea4343a89ab7",
+        "e9418bae198e0a8662284e73b4ae14ffdacfcb1612018012ed0bc0171f2959e3",
+        "b42925b9eb5f7cd53345b8b7c2d015586a19d20969021f0e12019fecddac9be3",
+        "06ca69a7e9dbe5f18897a7ea4afb4dc492564adf3a8ae63eed8f4d6a397c40ae",
+        "6a755fcbf705ca07e806da00162c3cfa8603feb422eb3ea41f77303f3753fdc2",
+        "516cdc3955cc587f0e2bfd77852e1f8a89946b99b32ff42e4cdc0c981d782d64",
+        "c1ee27db994dd521c10aa84ce0aa785a48747fd153ad15006b37b04ec6769227",
+        "09be86fc387fddfe553db2376bed505e02bac9b94bfa7cafb83d0d540747a576",
+        "577f8b62710788345ae5cb9ed1cea671056437ef2153815624e41d77d9fb598a",
+        "a47b5ac603232eeaa28116e177c22e64eccb87bbdb3396592cc3963658bad194",
+        "a2d7ceddf79d47696ea6578feaf401b50e8cb41a9bd3083806fa2c899865eda4",
+        "f88e03986d001cb0f23280d8c0c8e05ca2bb23f9f0b4edccfb571026e49275ff",
+        "b596092f6dc7bf8252ca9507058d5871808dc406f699ee1f2ea4fbb7d891efad",
+        "f7d0c2e18b24274a3ca828865f0f23de4f3824feb8eb011d406bf12d9a3f538b",
+        "7fed3f2f5a107314ff6c461caa2f99dac5f4f3e2cae6c8637a315364257c2c83",
+        "12f30795f5a33d95c39930491a967038fca22a42e519b19270be7247f0cda274",
+        "f85478b26f4c2fa5d0b15938b7449bb02d8615d4d946bb84ab4f839b3a5d0d66",
+        "84b6e93d7597a0232c8c732300ca7ee69e505a1b4f9a76c3bfd1640f4659ecd0",
+        "3f60225c59b31e4c9e9893f8b9979f5574a6671538e1e3aa302e824bad65f986"
+      ],
+      "g": 1
+    },
+    "242fcecf69e40f616bf5c7612999afbad3b6290e1fafaa576b0a56b69c4e566f": {
+      "raw": {
+        "adherence": {
+          "rules": [
+            {
+              "id": "r1",
+              "text": "Open with the brief's Headline, word for word. A reworded headline is one the team did not approve.",
+              "section": "Rules for every announcement",
+              "noul": 0.84,
+              "code": {
+                "answer": "none",
+                "why": "differ",
+                "saw": [
+                  {
+                    "test": "has",
+                    "answer": "missed",
+                    "why": null,
+                    "found": [],
+                    "missing": [
+                      "Reminders that people answer."
+                    ],
+                    "foundTotal": 0,
+                    "missingTotal": 1
+                  },
+                  {
+                    "test": "has",
+                    "answer": "met",
+                    "why": null,
+                    "found": [
+                      {
+                        "value": "Reminders that people answer.",
+                        "piece": 0,
+                        "at": 1,
+                        "text": "Reminders that people answer"
+                      }
+                    ],
+                    "missing": [],
+                    "foundTotal": 1,
+                    "missingTotal": 0
+                  }
+                ],
+                "tests": [
+                  {
+                    "test": "has",
+                    "read": {
+                      "part": "line",
+                      "label": "Subject",
+                      "number": null
+                    },
+                    "values": {
+                      "from": "request",
+                      "in": "request and files",
+                      "file": null,
+                      "labels": [
+                        "Headline"
+                      ],
+                      "take": "whole",
+                      "level": null
+                    },
+                    "need": "all",
+                    "at": "start",
+                    "match": "words",
+                    "case": "exact"
+                  },
+                  {
+                    "test": "has",
+                    "read": {
+                      "part": "text",
+                      "skip": "Subject"
+                    },
+                    "values": {
+                      "from": "request",
+                      "in": "request and files",
+                      "file": null,
+                      "labels": [
+                        "Headline"
+                      ],
+                      "take": "whole",
+                      "level": null
+                    },
+                    "need": "all",
+                    "at": "start",
+                    "match": "words",
+                    "case": "exact"
+                  }
+                ]
+              },
+              "applies": 0.99,
+              "comesUp": 0.99
+            },
+            {
+              "id": "r2",
+              "text": "Name the product with its version, such as Ferry 3.2, at least once. A reader should know which release the note is about.",
+              "section": "Rules for every announcement",
+              "noul": 0.99,
+              "span": "any",
+              "applies": 0.99,
+              "comesUp": 0.99
+            },
+            {
+              "id": "r3",
+              "text": "Use only numbers the brief states, never a number of your own. An invented figure is a claim nobody checked.",
+              "section": "Rules for every announcement",
+              "noul": 0.9,
+              "code": {
+                "answer": "met",
+                "saw": [
+                  {
+                    "test": "only",
+                    "answer": "met",
+                    "why": null,
+                    "outside": [],
+                    "otherNotation": [],
+                    "outsideTotal": 0
+                  }
+                ],
+                "tests": [
+                  {
+                    "test": "only",
+                    "read": {
+                      "part": "text",
+                      "skip": null
+                    },
+                    "what": "numbers",
+                    "allowed": {
+                      "from": "request",
+                      "in": "request and files",
+                      "file": null,
+                      "labels": [],
+                      "take": "numbers",
+                      "level": null
+                    }
+                  }
+                ]
+              },
+              "applies": 0.99,
+              "comesUp": 0.98
+            },
+            {
+              "id": "r4",
+              "text": "Write no more than 120 words. Most readers stop after the first screen.",
+              "section": "Rules for every announcement",
+              "noul": 0.95,
+              "code": {
+                "answer": "met",
+                "saw": [
+                  {
+                    "test": "count",
+                    "answer": "met",
+                    "why": null,
+                    "counts": [
+                      103,
+                      94,
+                      103,
+                      94
+                    ],
+                    "compare": "at most",
+                    "n": 120
+                  }
+                ],
+                "tests": [
+                  {
+                    "test": "count",
+                    "read": {
+                      "part": "text",
+                      "skip": null
+                    },
+                    "what": "words",
+                    "compare": "at most",
+                    "n": 120
+                  }
+                ]
+              },
+              "applies": 0.99,
+              "comesUp": 0.99
+            },
+            {
+              "id": "r5",
+              "text": "When the brief gives a Price, state it with its currency code, such as 12 USD. A bare number reads as a different amount in each country.",
+              "section": "Rules for every announcement",
+              "noul": 0.99,
+              "span": "any",
+              "applies": 0.99,
+              "comesUp": 0.94
+            },
+            {
+              "id": "r6",
+              "text": "Quote the customer in the brief's Quote word for word, with their name. A paraphrase puts words in their mouth.",
+              "section": "Rules for every announcement",
+              "noul": 0.11,
+              "span": "any",
+              "applies": 0.99,
+              "comesUp": 0.96
+            },
+            {
+              "id": "r7",
+              "text": "Never use the words exciting, thrilled, delighted or proud. They say how the company feels, not what the reader gets.",
+              "section": "Rules for every announcement",
+              "noul": 0.99,
+              "code": {
+                "answer": "met",
+                "saw": [
+                  {
+                    "test": "has",
+                    "answer": "met",
+                    "why": null,
+                    "found": [],
+                    "missing": [
+                      "exciting",
+                      "thrilled",
+                      "delighted",
+                      "proud"
+                    ],
+                    "foundTotal": 0,
+                    "missingTotal": 4
+                  }
+                ],
+                "tests": [
+                  {
+                    "test": "has",
+                    "read": {
+                      "part": "text",
+                      "skip": null
+                    },
+                    "values": {
+                      "from": "listed",
+                      "items": [
+                        "exciting",
+                        "thrilled",
+                        "delighted",
+                        "proud"
+                      ]
+                    },
+                    "need": "none",
+                    "at": "anywhere",
+                    "match": "words",
+                    "case": "any"
+                  }
+                ]
+              },
+              "applies": 0.99,
+              "comesUp": 0.99
+            },
+            {
+              "id": "r8",
+              "text": "Never use the word users. Write to the reader as you, since the note goes to one person at a time.",
+              "section": "Rules for every announcement",
+              "noul": 0.75,
+              "code": {
+                "answer": "met",
+                "saw": [
+                  {
+                    "test": "has",
+                    "answer": "met",
+                    "why": null,
+                    "found": [],
+                    "missing": [
+                      "users"
+                    ],
+                    "foundTotal": 0,
+                    "missingTotal": 1
+                  }
+                ],
+                "tests": [
+                  {
+                    "test": "has",
+                    "read": {
+                      "part": "text",
+                      "skip": null
+                    },
+                    "values": {
+                      "from": "listed",
+                      "items": [
+                        "users"
+                      ]
+                    },
+                    "need": "none",
+                    "at": "anywhere",
+                    "match": "words",
+                    "case": "any"
+                  }
+                ]
+              },
+              "applies": 0.99,
+              "comesUp": 0.99
+            },
+            {
+              "id": "r9",
+              "text": "Name every feature in the brief's Features list by the name the brief gives it. A feature left out is one nobody hears about.",
+              "section": "Rules for every announcement",
+              "noul": 0.91,
+              "code": {
+                "answer": "met",
+                "saw": [
+                  {
+                    "test": "has",
+                    "answer": "met",
+                    "why": null,
+                    "found": [
+                      {
+                        "value": "Two-way reminders",
+                        "piece": 0,
+                        "at": 101,
+                        "text": "two-way reminders"
+                      },
+                      {
+                        "value": "Quiet hours",
+                        "piece": 0,
+                        "at": 252,
+                        "text": "quiet hours"
+                      }
+                    ],
+                    "missing": [],
+                    "foundTotal": 2,
+                    "missingTotal": 0
+                  }
+                ],
+                "tests": [
+                  {
+                    "test": "has",
+                    "read": {
+                      "part": "text",
+                      "skip": null
+                    },
+                    "values": {
+                      "from": "request",
+                      "in": "file",
+                      "file": "brief.md",
+                      "labels": [
+                        "Features"
+                      ],
+                      "take": "item names",
+                      "level": null
+                    },
+                    "need": "all",
+                    "at": "anywhere",
+                    "match": "words",
+                    "case": "any"
+                  }
+                ]
+              },
+              "applies": 0.99,
+              "comesUp": 0.98
+            },
+            {
+              "id": "r10",
+              "text": "Leave out anything the brief marks Internal, and any codename it gives. Those lines are for the team alone.",
+              "section": "Rules for every announcement",
+              "noul": 0.99,
+              "span": "every",
+              "applies": 0.99,
+              "comesUp": 0.99
+            },
+            {
+              "id": "r11",
+              "text": "Put the subject on the first line, after Subject: , in 50 characters or fewer. A longer subject is cut off in most inboxes.",
+              "section": "Rules for an email",
+              "noul": 0.96,
+              "code": {
+                "answer": "met",
+                "saw": [
+                  {
+                    "test": "has",
+                    "answer": "met",
+                    "why": null,
+                    "found": [
+                      {
+                        "value": "Subject:",
+                        "piece": 0,
+                        "at": 0,
+                        "text": "Subject:"
+                      }
+                    ],
+                    "missing": [],
+                    "foundTotal": 1,
+                    "missingTotal": 0
+                  },
+                  {
+                    "test": "count",
+                    "answer": "met",
+                    "why": null,
+                    "counts": [
+                      40,
+                      40,
+                      40
+                    ],
+                    "compare": "at most",
+                    "n": 50
+                  }
+                ],
+                "tests": [
+                  {
+                    "test": "has",
+                    "read": {
+                      "part": "line",
+                      "label": null,
+                      "number": 1
+                    },
+                    "values": {
+                      "from": "listed",
+                      "items": [
+                        "Subject:"
+                      ]
+                    },
+                    "need": "all",
+                    "at": "start",
+                    "match": "characters",
+                    "case": "exact"
+                  },
+                  {
+                    "test": "count",
+                    "read": {
+                      "part": "line",
+                      "label": "Subject",
+                      "number": null
+                    },
+                    "what": "characters",
+                    "compare": "at most",
+                    "n": 50
+                  }
+                ]
+              },
+              "applies": 0.99,
+              "comesUp": 0.99
+            },
+            {
+              "id": "r12",
+              "text": "Write plain text with no Markdown: no #, no ** and no list marks (-, * or •). Most mail apps show the marks as they are typed.",
+              "section": "Rules for an email",
+              "noul": 0.98,
+              "span": "every",
+              "applies": 0.99,
+              "comesUp": 0.99
+            },
+            {
+              "id": "r13",
+              "text": "Give exactly one link, the brief's Link. Two links split the clicks.",
+              "section": "Rules for an email",
+              "noul": 0.99,
+              "code": {
+                "answer": "met",
+                "saw": [
+                  {
+                    "test": "count",
+                    "answer": "met",
+                    "why": null,
+                    "counts": [
+                      1
+                    ],
+                    "compare": "exactly",
+                    "n": 1
+                  },
+                  {
+                    "test": "has",
+                    "answer": "met",
+                    "why": null,
+                    "found": [
+                      {
+                        "value": "https://ferry.example/3-4",
+                        "piece": 0,
+                        "at": 488,
+                        "text": "https://ferry.example/3-4"
+                      }
+                    ],
+                    "missing": [],
+                    "foundTotal": 1,
+                    "missingTotal": 0
+                  }
+                ],
+                "tests": [
+                  {
+                    "test": "count",
+                    "read": {
+                      "part": "file"
+                    },
+                    "what": "links",
+                    "compare": "exactly",
+                    "n": 1
+                  },
+                  {
+                    "test": "has",
+                    "read": {
+                      "part": "file"
+                    },
+                    "values": {
+                      "from": "request",
+                      "in": "request and files",
+                      "file": null,
+                      "labels": [
+                        "Link"
+                      ],
+                      "take": "links",
+                      "level": null
+                    },
+                    "need": "all",
+                    "at": "anywhere",
+                    "match": "characters",
+                    "case": "exact"
+                  }
+                ]
+              },
+              "applies": 0.99,
+              "comesUp": 0.99
+            },
+            {
+              "id": "r14",
+              "text": "End with the release date, the support address and the name of the person who signs it, in that order, each on a line of its own. Readers look for all three in the same place.",
+              "section": "Rules for an email",
+              "noul": 0.98,
+              "span": "end",
+              "applies": 0.99,
+              "comesUp": 0.98
+            },
+            {
+              "id": "r15",
+              "text": "Write one file with its styles in a <style> tag, no script and no outside file. The page is pasted into a CMS that strips both.",
+              "section": "Rules for a web page",
+              "noul": 0.98,
+              "span": "whole",
+              "applies": 0.03,
+              "comesUp": 0.04
+            },
+            {
+              "id": "r16",
+              "text": "Use exactly one <h1>, holding the headline and nothing else. Search engines and screen readers take it as the page's title.",
+              "section": "Rules for a web page",
+              "noul": 0.97,
+              "code": {
+                "answer": "none",
+                "why": "kind",
+                "saw": [],
+                "tests": [
+                  {
+                    "test": "count",
+                    "read": {
+                      "part": "elements",
+                      "tag": "h1",
+                      "attribute": null,
+                      "which": "every"
+                    },
+                    "what": "items",
+                    "compare": "exactly",
+                    "n": 1
+                  },
+                  {
+                    "test": "has",
+                    "read": {
+                      "part": "elements",
+                      "tag": "h1",
+                      "attribute": null,
+                      "which": "every"
+                    },
+                    "values": {
+                      "from": "request",
+                      "in": "request and files",
+                      "file": null,
+                      "labels": [
+                        "Headline"
+                      ],
+                      "take": "whole",
+                      "level": null
+                    },
+                    "need": "all",
+                    "at": "whole",
+                    "match": "words",
+                    "case": "exact"
+                  }
+                ]
+              },
+              "applies": 0.03,
+              "comesUp": 0.04
+            },
+            {
+              "id": "r17",
+              "text": "Set the body text at 18px and the content column at most 640px wide. That is what the site's articles use.",
+              "section": "Rules for a web page",
+              "noul": 0.98,
+              "span": "whole",
+              "applies": 0.03,
+              "comesUp": 0.03
+            },
+            {
+              "id": "r18",
+              "text": "Use only the colours in the brief's Colours list. Any other colour is off brand.",
+              "section": "Rules for a web page",
+              "noul": 0.99,
+              "code": {
+                "answer": "none",
+                "why": "kind",
+                "saw": [],
+                "tests": [
+                  {
+                    "test": "only",
+                    "read": {
+                      "part": "styles"
+                    },
+                    "what": "hex colours",
+                    "allowed": {
+                      "from": "request",
+                      "in": "request and files",
+                      "file": null,
+                      "labels": [
+                        "Colours"
+                      ],
+                      "take": "hex colours",
+                      "level": null
+                    }
+                  }
+                ]
+              },
+              "applies": 0.03,
+              "comesUp": 0.04
+            },
+            {
+              "id": "r19",
+              "text": "End the page with a footer that holds the line \"Questions? Write to\" and the support address. A reader who scrolls to the end is looking for a way to ask.",
+              "section": "Rules for a web page",
+              "noul": 0.98,
+              "span": "end",
+              "applies": 0.03,
+              "comesUp": 0.04
+            }
+          ]
+        },
+        "rubric": {
+          "statements": [
+            {
+              "id": "01-names",
+              "text": "The email names Priya Raman of Slate & Pine Studio.",
+              "weight": 1,
+              "noul": 0.99,
+              "span": "any",
+              "units": null,
+              "best": null
+            }
+          ]
+        }
+      },
+      "keys": [
+        "62e148ffbac79915b3bcfb11a6cd203b83ee1dda12986d9c13c1346996556656",
+        "0a3f109623532a31288b7d98f0709ca7a45a58d10bd73b96f277cb6045314d15",
+        "b415e63f8cca5fcf5b83e20f3674d8ed849f72f6d7e54127ff3a0dd7049d0efb",
+        "8a965ec4397a476c1573b7cfbef3b7dc13783c8a8fe4edb681cb9b11ada2cde8",
+        "207c8aefa2b5604b1e87d655fd577653bd9563b893d6b30914957e657534e99b",
+        "de4f9d66c4c73c950f9359869ff09a7fd0cfa10ad6cc8f248232e5ff9d56e767",
+        "eac9a0cfed8bdd6b46ee64af090d02cd0eadc71dbbb1dc6a4734bee04bffe0fb",
+        "1c375c81ad60b2abeb73b3c7a597d69f50505c77370526b54a364fed29029cec",
+        "6a39a7f42dd8304fcbd7605bab1e5e1095158628079509f8311cbfc0ce2c338b",
+        "75c9ef66b43efc1c858d6bfb7df2800caefcf3f845fc535e54253b7acad46702",
+        "177a1df0ecffdd629678e6ba7685c3329e059929e6057f96110778199d115515",
+        "dc9e0567d043d996c33e484ffaa96366ee471909b61039227a38afaf4f7f0a81",
+        "2e47d7da44a2552a92e50dc4aca4bab52dc549d65c503b965d18b7e0eafd9c49",
+        "7675909eb2fd28715cf5c5dbc98c1fe77b52833f4ea927a1c40e3f22dfd4df24",
+        "83925b6a38ce990b9fa3c6df088f213fde612f959aa68796b173b18aeabf0314",
+        "0bc03e7c45884cef5d0c0bed173c207be792d117ddd48541fa2e082fddc469e5",
+        "7700667c1a79d8a4c3ea1d5e57e359b74236174349f6de4a999f52dcf28e23f6",
+        "c513b9f3f40b12df8fc14715d7bb5f448c08ecbee1311e823b975e9f05177699",
+        "a44d39f21e4e6157b8783ad39ef323c8c1b59258922bf3ac8f2998f445f8a742",
+        "111db8cb6b2f2384ab3a87b225a069b7b699fda32ce7efc9355ce7ad933286fd"
+      ],
+      "g": 1
+    },
+    "9c3de7d9a0db46615e60cf590888da8b03ab4f8058787b066d4cadc19f227d5d": {
+      "raw": {
+        "adherence": {
+          "rules": [
+            {
+              "id": "r1",
+              "text": "Open with the brief's Headline, word for word. A reworded headline is one the team did not approve.",
+              "section": "Rules for every announcement",
+              "noul": 0.97,
+              "code": {
+                "answer": "met",
+                "saw": [
+                  {
+                    "test": "none",
+                    "answer": "none",
+                    "why": "kind"
+                  },
+                  {
+                    "test": "has",
+                    "answer": "met",
+                    "why": null,
+                    "found": [
+                      {
+                        "value": "Bookings now confirm themselves.",
+                        "piece": 0,
+                        "at": 13,
+                        "text": "Bookings now confirm themselves"
+                      }
+                    ],
+                    "missing": [],
+                    "foundTotal": 1,
+                    "missingTotal": 0
+                  }
+                ],
+                "tests": [
+                  {
+                    "test": "has",
+                    "read": {
+                      "part": "line",
+                      "label": "Subject",
+                      "number": null
+                    },
+                    "values": {
+                      "from": "request",
+                      "in": "request and files",
+                      "file": null,
+                      "labels": [
+                        "Headline"
+                      ],
+                      "take": "whole",
+                      "level": null
+                    },
+                    "need": "all",
+                    "at": "start",
+                    "match": "words",
+                    "case": "exact"
+                  },
+                  {
+                    "test": "has",
+                    "read": {
+                      "part": "text",
+                      "skip": "Subject"
+                    },
+                    "values": {
+                      "from": "request",
+                      "in": "request and files",
+                      "file": null,
+                      "labels": [
+                        "Headline"
+                      ],
+                      "take": "whole",
+                      "level": null
+                    },
+                    "need": "all",
+                    "at": "start",
+                    "match": "words",
+                    "case": "exact"
+                  }
+                ]
+              },
+              "applies": 0.99,
+              "comesUp": 0.99
+            },
+            {
+              "id": "r2",
+              "text": "Name the product with its version, such as Ferry 3.2, at least once. A reader should know which release the note is about.",
+              "section": "Rules for every announcement",
+              "noul": 0.99,
+              "span": "any",
+              "applies": 0.99,
+              "comesUp": 0.99
+            },
+            {
+              "id": "r3",
+              "text": "Use only numbers the brief states, never a number of your own. An invented figure is a claim nobody checked.",
+              "section": "Rules for every announcement",
+              "noul": 0.86,
+              "code": {
+                "answer": "met",
+                "saw": [
+                  {
+                    "test": "only",
+                    "answer": "met",
+                    "why": null,
+                    "outside": [],
+                    "otherNotation": [],
+                    "outsideTotal": 0
+                  }
+                ],
+                "tests": [
+                  {
+                    "test": "only",
+                    "read": {
+                      "part": "text",
+                      "skip": null
+                    },
+                    "what": "numbers",
+                    "allowed": {
+                      "from": "request",
+                      "in": "request and files",
+                      "file": null,
+                      "labels": [],
+                      "take": "numbers",
+                      "level": null
+                    }
+                  }
+                ]
+              },
+              "applies": 0.99,
+              "comesUp": 0.99
+            },
+            {
+              "id": "r4",
+              "text": "Write no more than 120 words. Most readers stop after the first screen.",
+              "section": "Rules for every announcement",
+              "noul": 0.8,
+              "code": {
+                "answer": "met",
+                "saw": [
+                  {
+                    "test": "count",
+                    "answer": "met",
+                    "why": null,
+                    "counts": [
+                      85,
+                      81,
+                      85,
+                      81
+                    ],
+                    "compare": "at most",
+                    "n": 120
+                  }
+                ],
+                "tests": [
+                  {
+                    "test": "count",
+                    "read": {
+                      "part": "text",
+                      "skip": null
+                    },
+                    "what": "words",
+                    "compare": "at most",
+                    "n": 120
+                  }
+                ]
+              },
+              "applies": 0.99,
+              "comesUp": 0.99
+            },
+            {
+              "id": "r5",
+              "text": "When the brief gives a Price, state it with its currency code, such as 12 USD. A bare number reads as a different amount in each country.",
+              "section": "Rules for every announcement",
+              "noul": 0.99,
+              "span": "any",
+              "applies": 0.99,
+              "comesUp": 0.95
+            },
+            {
+              "id": "r6",
+              "text": "Quote the customer in the brief's Quote word for word, with their name. A paraphrase puts words in their mouth.",
+              "section": "Rules for every announcement",
+              "noul": 0.95,
+              "span": "any",
+              "applies": 0.99,
+              "comesUp": 0.97
+            },
+            {
+              "id": "r7",
+              "text": "Never use the words exciting, thrilled, delighted or proud. They say how the company feels, not what the reader gets.",
+              "section": "Rules for every announcement",
+              "noul": 0.99,
+              "code": {
+                "answer": "met",
+                "saw": [
+                  {
+                    "test": "has",
+                    "answer": "met",
+                    "why": null,
+                    "found": [],
+                    "missing": [
+                      "exciting",
+                      "thrilled",
+                      "delighted",
+                      "proud"
+                    ],
+                    "foundTotal": 0,
+                    "missingTotal": 4
+                  }
+                ],
+                "tests": [
+                  {
+                    "test": "has",
+                    "read": {
+                      "part": "text",
+                      "skip": null
+                    },
+                    "values": {
+                      "from": "listed",
+                      "items": [
+                        "exciting",
+                        "thrilled",
+                        "delighted",
+                        "proud"
+                      ]
+                    },
+                    "need": "none",
+                    "at": "anywhere",
+                    "match": "words",
+                    "case": "any"
+                  }
+                ]
+              },
+              "applies": 0.99,
+              "comesUp": 0.99
+            },
+            {
+              "id": "r8",
+              "text": "Never use the word users. Write to the reader as you, since the note goes to one person at a time.",
+              "section": "Rules for every announcement",
+              "noul": 0.89,
+              "code": {
+                "answer": "met",
+                "saw": [
+                  {
+                    "test": "has",
+                    "answer": "met",
+                    "why": null,
+                    "found": [],
+                    "missing": [
+                      "users"
+                    ],
+                    "foundTotal": 0,
+                    "missingTotal": 1
+                  }
+                ],
+                "tests": [
+                  {
+                    "test": "has",
+                    "read": {
+                      "part": "text",
+                      "skip": null
+                    },
+                    "values": {
+                      "from": "listed",
+                      "items": [
+                        "users"
+                      ]
+                    },
+                    "need": "none",
+                    "at": "anywhere",
+                    "match": "words",
+                    "case": "any"
+                  }
+                ]
+              },
+              "applies": 0.99,
+              "comesUp": 0.99
+            },
+            {
+              "id": "r9",
+              "text": "Name every feature in the brief's Features list by the name the brief gives it. A feature left out is one nobody hears about.",
+              "section": "Rules for every announcement",
+              "noul": 0.99,
+              "code": {
+                "answer": "met",
+                "saw": [
+                  {
+                    "test": "has",
+                    "answer": "met",
+                    "why": null,
+                    "found": [
+                      {
+                        "value": "Automatic confirmations",
+                        "piece": 0,
+                        "at": 150,
+                        "text": "automatic confirmations"
+                      },
+                      {
+                        "value": "Waitlist",
+                        "piece": 0,
+                        "at": 245,
+                        "text": "waitlist"
+                      },
+                      {
+                        "value": "Calendar sync",
+                        "piece": 0,
+                        "at": 325,
+                        "text": "calendar sync"
+                      }
+                    ],
+                    "missing": [],
+                    "foundTotal": 3,
+                    "missingTotal": 0
+                  }
+                ],
+                "tests": [
+                  {
+                    "test": "has",
+                    "read": {
+                      "part": "text",
+                      "skip": null
+                    },
+                    "values": {
+                      "from": "request",
+                      "in": "file",
+                      "file": "brief.md",
+                      "labels": [
+                        "Features"
+                      ],
+                      "take": "item names",
+                      "level": null
+                    },
+                    "need": "all",
+                    "at": "anywhere",
+                    "match": "words",
+                    "case": "any"
+                  }
+                ]
+              },
+              "applies": 0.99,
+              "comesUp": 0.99
+            },
+            {
+              "id": "r10",
+              "text": "Leave out anything the brief marks Internal, and any codename it gives. Those lines are for the team alone.",
+              "section": "Rules for every announcement",
+              "noul": 0.99,
+              "span": "every",
+              "applies": 0.99,
+              "comesUp": 0.99
+            },
+            {
+              "id": "r11",
+              "text": "Put the subject on the first line, after Subject: , in 50 characters or fewer. A longer subject is cut off in most inboxes.",
+              "section": "Rules for an email",
+              "noul": 0.96,
+              "code": {
+                "answer": "none",
+                "why": "kind",
+                "saw": [],
+                "tests": [
+                  {
+                    "test": "has",
+                    "read": {
+                      "part": "line",
+                      "label": null,
+                      "number": 1
+                    },
+                    "values": {
+                      "from": "listed",
+                      "items": [
+                        "Subject:"
+                      ]
+                    },
+                    "need": "all",
+                    "at": "start",
+                    "match": "characters",
+                    "case": "exact"
+                  },
+                  {
+                    "test": "count",
+                    "read": {
+                      "part": "line",
+                      "label": "Subject",
+                      "number": null
+                    },
+                    "what": "characters",
+                    "compare": "at most",
+                    "n": 50
+                  }
+                ]
+              },
+              "applies": 0.03,
+              "comesUp": 0.04
+            },
+            {
+              "id": "r12",
+              "text": "Write plain text with no Markdown: no #, no ** and no list marks (-, * or •). Most mail apps show the marks as they are typed.",
+              "section": "Rules for an email",
+              "noul": 0.93,
+              "span": "every",
+              "applies": 0.03,
+              "comesUp": 0.06
+            },
+            {
+              "id": "r13",
+              "text": "Give exactly one link, the brief's Link. Two links split the clicks.",
+              "section": "Rules for an email",
+              "noul": 0.93,
+              "code": {
+                "answer": "none",
+                "why": "kind",
+                "saw": [],
+                "tests": [
+                  {
+                    "test": "count",
+                    "read": {
+                      "part": "file"
+                    },
+                    "what": "links",
+                    "compare": "exactly",
+                    "n": 1
+                  },
+                  {
+                    "test": "has",
+                    "read": {
+                      "part": "file"
+                    },
+                    "values": {
+                      "from": "request",
+                      "in": "request and files",
+                      "file": null,
+                      "labels": [
+                        "Link"
+                      ],
+                      "take": "links",
+                      "level": null
+                    },
+                    "need": "all",
+                    "at": "anywhere",
+                    "match": "characters",
+                    "case": "exact"
+                  }
+                ]
+              },
+              "applies": 0.03,
+              "comesUp": 0.07
+            },
+            {
+              "id": "r14",
+              "text": "End with the release date, the support address and the name of the person who signs it, in that order, each on a line of its own. Readers look for all three in the same place.",
+              "section": "Rules for an email",
+              "noul": 0.94,
+              "span": "end",
+              "applies": 0.03,
+              "comesUp": 0.05
+            },
+            {
+              "id": "r15",
+              "text": "Write one file with its styles in a <style> tag, no script and no outside file. The page is pasted into a CMS that strips both.",
+              "section": "Rules for a web page",
+              "noul": 0.99,
+              "span": "whole",
+              "applies": 0.98,
+              "comesUp": 0.99
+            },
+            {
+              "id": "r16",
+              "text": "Use exactly one <h1>, holding the headline and nothing else. Search engines and screen readers take it as the page's title.",
+              "section": "Rules for a web page",
+              "noul": 0.97,
+              "code": {
+                "answer": "met",
+                "saw": [
+                  {
+                    "test": "count",
+                    "answer": "met",
+                    "why": null,
+                    "counts": [
+                      1
+                    ],
+                    "compare": "exactly",
+                    "n": 1
+                  },
+                  {
+                    "test": "has",
+                    "answer": "met",
+                    "why": null,
+                    "found": [
+                      {
+                        "value": "Bookings now confirm themselves.",
+                        "piece": 0,
+                        "at": 0,
+                        "text": "Bookings now confirm themselves"
+                      }
+                    ],
+                    "missing": [],
+                    "foundTotal": 1,
+                    "missingTotal": 0
+                  }
+                ],
+                "tests": [
+                  {
+                    "test": "count",
+                    "read": {
+                      "part": "elements",
+                      "tag": "h1",
+                      "attribute": null,
+                      "which": "every"
+                    },
+                    "what": "items",
+                    "compare": "exactly",
+                    "n": 1
+                  },
+                  {
+                    "test": "has",
+                    "read": {
+                      "part": "elements",
+                      "tag": "h1",
+                      "attribute": null,
+                      "which": "every"
+                    },
+                    "values": {
+                      "from": "request",
+                      "in": "request and files",
+                      "file": null,
+                      "labels": [
+                        "Headline"
+                      ],
+                      "take": "whole",
+                      "level": null
+                    },
+                    "need": "all",
+                    "at": "whole",
+                    "match": "words",
+                    "case": "exact"
+                  }
+                ]
+              },
+              "applies": 0.98,
+              "comesUp": 0.99
+            },
+            {
+              "id": "r17",
+              "text": "Set the body text at 18px and the content column at most 640px wide. That is what the site's articles use.",
+              "section": "Rules for a web page",
+              "noul": 0.96,
+              "span": "whole",
+              "applies": 0.98,
+              "comesUp": 0.99
+            },
+            {
+              "id": "r18",
+              "text": "Use only the colours in the brief's Colours list. Any other colour is off brand.",
+              "section": "Rules for a web page",
+              "noul": 0.85,
+              "code": {
+                "answer": "met",
+                "saw": [
+                  {
+                    "test": "only",
+                    "answer": "met",
+                    "why": null,
+                    "outside": [],
+                    "otherNotation": [],
+                    "outsideTotal": 0
+                  }
+                ],
+                "tests": [
+                  {
+                    "test": "only",
+                    "read": {
+                      "part": "styles"
+                    },
+                    "what": "hex colours",
+                    "allowed": {
+                      "from": "request",
+                      "in": "request and files",
+                      "file": null,
+                      "labels": [
+                        "Colours"
+                      ],
+                      "take": "hex colours",
+                      "level": null
+                    }
+                  }
+                ]
+              },
+              "applies": 0.98,
+              "comesUp": 0.99
+            },
+            {
+              "id": "r19",
+              "text": "End the page with a footer that holds the line \"Questions? Write to\" and the support address. A reader who scrolls to the end is looking for a way to ask.",
+              "section": "Rules for a web page",
+              "noul": 0.9,
+              "span": "end",
+              "applies": 0.98,
+              "comesUp": 0.99
+            }
+          ]
+        },
+        "rubric": {
+          "statements": [
+            {
+              "id": "01-price",
+              "text": "The page states the price as 12 USD a month.",
+              "weight": 1,
+              "noul": 0.99,
+              "code": {
+                "answer": "met",
+                "saw": [
+                  {
+                    "test": "has",
+                    "answer": "met",
+                    "why": null,
+                    "found": [
+                      {
+                        "value": "12 USD a month",
+                        "piece": 0,
+                        "at": 93,
+                        "text": "12 usd a month"
+                      }
+                    ],
+                    "missing": [],
+                    "foundTotal": 1,
+                    "missingTotal": 0
+                  }
+                ],
+                "tests": [
+                  {
+                    "test": "has",
+                    "read": {
+                      "part": "text",
+                      "skip": null
+                    },
+                    "values": {
+                      "from": "listed",
+                      "items": [
+                        "12 USD a month"
+                      ]
+                    },
+                    "need": "all",
+                    "at": "anywhere",
+                    "match": "words",
+                    "case": "any"
+                  }
+                ]
+              },
+              "units": null,
+              "best": null
+            },
+            {
+              "id": "02-button",
+              "text": "The page has a link or a button that reads Book a demo.",
+              "weight": 2,
+              "noul": 1,
+              "span": "any",
+              "units": null,
+              "best": null
+            }
+          ]
+        }
+      },
+      "keys": [
+        "72941cc31437344ebe4bc0f4d30de7233489c8cbb9c792ab53642713eb7ba31d",
+        "5167d82e27bb891901916fabb2e95c3960dcad99ed5e9596af7fd9e69ab6d65e",
+        "42b4109b667dbbb2452ccb39d9670c2cf5e1b33f6942885a2be7caa2c03f4b65",
+        "2bd049c116b1b8ef2fde20c2d0ab5fe511f8b94587fc9f0c0c5cc6733b24cf4e",
+        "c4ebf2c45bb4e4d2e0a9ba9d39f7429915d614323dba0fceb453b040a3ec20f1",
+        "0476bd50b34453d3ff0708f3d53f6a9bb15fb6dc6ec3ebe542b30d1565e0fc10",
+        "7919b79dc0ff98e8e5274ef9830d008661ce14305ac69ee3737971a638efda30",
+        "26ba919965d9b1f88d341b78855dbdfd588686a11ff2c3cf23944c6b4193a671",
+        "e7d557f82e413aca44e5a3701ae6d23849c2263d91ecb4aafc1af5bc87818a0a",
+        "2ba7473838925d346c5ed3bda54fdfd6e4ded6af196cfa75bc68b241c91bbc1b",
+        "92ed10c18638ea68b619c963f60d9a551a88e35755cd5f58a1846f48edd6d3ab",
+        "7c8c3e8a802227a6b572ed7e661a3fa360fa47e45231e3e1bf5b8d4e08499896",
+        "48320c2b927a5fb8318cd14642d85e53a1560b9d27c8a269ef7cac1578ae5d95",
+        "e8324a3f5ae8209bb0ce023268b99654499f4af04f9517a9988443375fa68004",
+        "55d70fc648c3b9f55ee0c28a54f800838acb936c31675fa2e4aae2e4558f7cdb",
+        "1783b179e20a754ff7d83357a2ee0c99a33827f2c10c2467f69c022566284e93",
+        "568a306c9a3d937de0d7a994bfdbbefb1755bb358dd0fef5bbe83c8bac0b4e09",
+        "d18e43c98a829d884679897ebfe108aedcc013534c23dcbbdedb2997170071e8",
+        "98a7882c5e571f3eb74d4cf0d0510e77ec90fbd0195ee2a20e180f285b9ee80e",
+        "b6e8b5e85b70e3e140f5d316a02dfd6e2f74bfeb48bc99bb5a0f04e724780b80",
+        "b23bd698491e933e43a011b2c8c6598091bdfc291b013f6fece986c5260456cc",
+        "09238ba62990b12628cc63504ca5a5eecd762f329eb747ea8bcc938360f9bb60",
+        "d9605ea7102de8652608ac3ac67fde1817e206e10c89278baf63d6a48a43a89b",
+        "38ccdb1504268b50d63c6aead06b07a3f2314da65ee28c1f2832e2cec810d51a",
+        "ca38dea5dd0d70edd5cc4d6a565110d0bd13722f299067d2100c170e9eefac8e",
+        "8e82bef6bf4048c334ac66adb83d36bd0261c0bd1af026aa35691a13cc1a6d6f",
+        "c04691fec06e79834e1367daa537a24ddf7cea130e5c5618bb4d95cc5185dd3f",
+        "c51931e8a98abcc8596f2ca002b030baa279d74eddc30615a3fac3e48265681f",
+        "529854304f62564733f240fc3b1362820fb58d9c14a49f7afae9babca759fc2b",
+        "f7b06e1a8e789f5635a00bcedda44c91479848ae8be5180f6374445bf31fa40c",
+        "5854ce4225f0bd1605c49534afe515643a23bda1030b8bc758c5eafa67df677f",
+        "5e9f82eee046bed425d707b6533c2dd9759b50f23a058163138e343da841ca48",
+        "54a66fc1b4cfbc28766e807f9b744a6687ff7ab9250e1f7b6934ac5cea977429",
+        "4955bedafa486455ccfbc493b1ddd04f534898f77b5aefc19c89204c6cf00efc",
+        "7a7eef87fc483f0477838f4eeb63731b46ec2e20e4e3f3f341e803e5c8b6ed2d",
+        "8bcd9cb8bdce0be64d8cf315541e2eaa943068f1553f929cf9769f048536638e",
+        "e6075495b6fcc90b08d545e1efb9f177b3988ac43d1ec02b5186c4704ea4e487",
+        "112b9a27367bbcbede66d8b24b1b70a40fe7c81a306c48858f9ab567e2b8e594",
+        "d35bca9cff8c4d6949b037a43cfe18137c6944b416cdd988b2b716ea38331791",
+        "6be58c2ce2dfafa7201ee2e77f10f645b57d00eb4f40b279fdf47308dbb02db7",
+        "ade291e69c8c82f0cb44878dd3d4e408a0b5a67ead51280f8aa1fa1a35e26a67",
+        "43707ff1911c0d6f4d34df781523b188b6045326f23b46e3dcfe06d0c068997b",
+        "21f2f8c16231cce6948e98e9296fd09d1650f0c66257623127e6539ffc0e41ed"
+      ],
+      "g": 1
+    },
+    "80662a9fb35241d35bc9ab9b88829ff58ba983382167e9498e5eab380d4302bd": {
+      "raw": {
+        "adherence": {
+          "rules": [
+            {
+              "id": "r1",
+              "text": "Open with the brief's Headline, word for word. A reworded headline is one the team did not approve.",
+              "section": "Rules for every announcement",
+              "noul": 0.94,
+              "parts": [
+                0.94,
+                0.65
+              ],
+              "code": {
+                "answer": "met",
+                "saw": [
+                  {
+                    "test": "none",
+                    "answer": "none",
+                    "why": "kind"
+                  },
+                  {
+                    "test": "has",
+                    "answer": "met",
+                    "why": null,
+                    "found": [
+                      {
+                        "value": "Everything that changed in Ferry 4.0.",
+                        "piece": 0,
+                        "at": 11,
+                        "text": "Everything that changed in Ferry 4.0"
+                      }
+                    ],
+                    "missing": [],
+                    "foundTotal": 1,
+                    "missingTotal": 0
+                  }
+                ],
+                "tests": [
+                  {
+                    "test": "has",
+                    "read": {
+                      "part": "line",
+                      "label": "Subject",
+                      "number": null
+                    },
+                    "values": {
+                      "from": "request",
+                      "in": "request and files",
+                      "file": null,
+                      "labels": [
+                        "Headline"
+                      ],
+                      "take": "whole",
+                      "level": null
+                    },
+                    "need": "all",
+                    "at": "start",
+                    "match": "words",
+                    "case": "exact"
+                  },
+                  {
+                    "test": "has",
+                    "read": {
+                      "part": "text",
+                      "skip": "Subject"
+                    },
+                    "values": {
+                      "from": "request",
+                      "in": "request and files",
+                      "file": null,
+                      "labels": [
+                        "Headline"
+                      ],
+                      "take": "whole",
+                      "level": null
+                    },
+                    "need": "all",
+                    "at": "start",
+                    "match": "words",
+                    "case": "exact"
+                  }
+                ]
+              },
+              "applies": 0.96,
+              "comesUp": 0.95
+            },
+            {
+              "id": "r2",
+              "text": "Name the product with its version, such as Ferry 3.2, at least once. A reader should know which release the note is about.",
+              "section": "Rules for every announcement",
+              "noul": 0.91,
+              "parts": [
+                0.91,
+                0.67
+              ],
+              "span": "any",
+              "applies": 0.96,
+              "comesUp": 0.98
+            },
+            {
+              "id": "r3",
+              "text": "Use only numbers the brief states, never a number of your own. An invented figure is a claim nobody checked.",
+              "section": "Rules for every announcement",
+              "noul": 0.64,
+              "parts": [
+                0.64,
+                0.58
+              ],
+              "code": {
+                "answer": "met",
+                "saw": [
+                  {
+                    "test": "only",
+                    "answer": "met",
+                    "why": null,
+                    "outside": [],
+                    "otherNotation": [],
+                    "outsideTotal": 0
+                  }
+                ],
+                "tests": [
+                  {
+                    "test": "only",
+                    "read": {
+                      "part": "text",
+                      "skip": null
+                    },
+                    "what": "numbers",
+                    "allowed": {
+                      "from": "request",
+                      "in": "request and files",
+                      "file": null,
+                      "labels": [],
+                      "take": "numbers",
+                      "level": null
+                    }
+                  }
+                ]
+              },
+              "applies": 0.96,
+              "comesUp": 0.9
+            },
+            {
+              "id": "r4",
+              "text": "Write no more than 120 words. Most readers stop after the first screen.",
+              "section": "Rules for every announcement",
+              "unmarkable": {
+                "why": "conflict",
+                "with": "The page lists all 180 changes.",
+                "fix": "Write no more than 120 words, unless the request asks for a full list of changes; then the list itself is not counted."
+              }
+            },
+            {
+              "id": "r5",
+              "text": "When the brief gives a Price, state it with its currency code, such as 12 USD. A bare number reads as a different amount in each country.",
+              "section": "Rules for every announcement",
+              "noul": 0.97,
+              "parts": [
+                0.97,
+                0.97
+              ],
+              "span": "any",
+              "applies": 0.96,
+              "comesUp": 0.79
+            },
+            {
+              "id": "r6",
+              "text": "Quote the customer in the brief's Quote word for word, with their name. A paraphrase puts words in their mouth.",
+              "section": "Rules for every announcement",
+              "noul": 0.96,
+              "parts": [
+                0.96,
+                0.96
+              ],
+              "span": "any",
+              "applies": 0.96,
+              "comesUp": 0.86
+            },
+            {
+              "id": "r7",
+              "text": "Never use the words exciting, thrilled, delighted or proud. They say how the company feels, not what the reader gets.",
+              "section": "Rules for every announcement",
+              "noul": 0.99,
+              "parts": [
+                0.99,
+                0.97
+              ],
+              "code": {
+                "answer": "met",
+                "saw": [
+                  {
+                    "test": "has",
+                    "answer": "met",
+                    "why": null,
+                    "found": [],
+                    "missing": [
+                      "exciting",
+                      "thrilled",
+                      "delighted",
+                      "proud"
+                    ],
+                    "foundTotal": 0,
+                    "missingTotal": 4
+                  }
+                ],
+                "tests": [
+                  {
+                    "test": "has",
+                    "read": {
+                      "part": "text",
+                      "skip": null
+                    },
+                    "values": {
+                      "from": "listed",
+                      "items": [
+                        "exciting",
+                        "thrilled",
+                        "delighted",
+                        "proud"
+                      ]
+                    },
+                    "need": "none",
+                    "at": "anywhere",
+                    "match": "words",
+                    "case": "any"
+                  }
+                ]
+              },
+              "applies": 0.96,
+              "comesUp": 0.96
+            },
+            {
+              "id": "r8",
+              "text": "Never use the word users. Write to the reader as you, since the note goes to one person at a time.",
+              "section": "Rules for every announcement",
+              "noul": 0.88,
+              "parts": [
+                0.88,
+                0.92
+              ],
+              "code": {
+                "answer": "met",
+                "saw": [
+                  {
+                    "test": "has",
+                    "answer": "met",
+                    "why": null,
+                    "found": [],
+                    "missing": [
+                      "users"
+                    ],
+                    "foundTotal": 0,
+                    "missingTotal": 1
+                  }
+                ],
+                "tests": [
+                  {
+                    "test": "has",
+                    "read": {
+                      "part": "text",
+                      "skip": null
+                    },
+                    "values": {
+                      "from": "listed",
+                      "items": [
+                        "users"
+                      ]
+                    },
+                    "need": "none",
+                    "at": "anywhere",
+                    "match": "words",
+                    "case": "any"
+                  }
+                ]
+              },
+              "applies": 0.96,
+              "comesUp": 0.95
+            },
+            {
+              "id": "r9",
+              "text": "Name every feature in the brief's Features list by the name the brief gives it. A feature left out is one nobody hears about.",
+              "section": "Rules for every announcement",
+              "noul": 0.96,
+              "parts": [
+                0.96,
+                0.95
+              ],
+              "code": {
+                "answer": "none",
+                "why": "not there",
+                "saw": [
+                  {
+                    "test": "none",
+                    "answer": "none",
+                    "why": "not there"
+                  }
+                ],
+                "tests": [
+                  {
+                    "test": "has",
+                    "read": {
+                      "part": "text",
+                      "skip": null
+                    },
+                    "values": {
+                      "from": "request",
+                      "in": "file",
+                      "file": "brief.md",
+                      "labels": [
+                        "Features"
+                      ],
+                      "take": "item names",
+                      "level": null
+                    },
+                    "need": "all",
+                    "at": "anywhere",
+                    "match": "words",
+                    "case": "any"
+                  }
+                ]
+              },
+              "applies": 0.96,
+              "comesUp": 0.83
+            },
+            {
+              "id": "r10",
+              "text": "Leave out anything the brief marks Internal, and any codename it gives. Those lines are for the team alone.",
+              "section": "Rules for every announcement",
+              "noul": 0.97,
+              "parts": [
+                0.97,
+                0.95
+              ],
+              "span": "every",
+              "applies": 0.96,
+              "comesUp": 0.97
+            },
+            {
+              "id": "r11",
+              "text": "Put the subject on the first line, after Subject: , in 50 characters or fewer. A longer subject is cut off in most inboxes.",
+              "section": "Rules for an email",
+              "noul": 0.96,
+              "parts": [
+                0.96,
+                0.96
+              ],
+              "code": {
+                "answer": "none",
+                "why": "kind",
+                "saw": [],
+                "tests": [
+                  {
+                    "test": "has",
+                    "read": {
+                      "part": "line",
+                      "label": null,
+                      "number": 1
+                    },
+                    "values": {
+                      "from": "listed",
+                      "items": [
+                        "Subject:"
+                      ]
+                    },
+                    "need": "all",
+                    "at": "start",
+                    "match": "characters",
+                    "case": "exact"
+                  },
+                  {
+                    "test": "count",
+                    "read": {
+                      "part": "line",
+                      "label": "Subject",
+                      "number": null
+                    },
+                    "what": "characters",
+                    "compare": "at most",
+                    "n": 50
+                  }
+                ]
+              },
+              "applies": 0.02,
+              "comesUp": 0.03
+            },
+            {
+              "id": "r12",
+              "text": "Write plain text with no Markdown: no #, no ** and no list marks (-, * or •). Most mail apps show the marks as they are typed.",
+              "section": "Rules for an email",
+              "noul": 0.94,
+              "parts": [
+                0.94,
+                0.93
+              ],
+              "span": "every",
+              "applies": 0.02,
+              "comesUp": 0.06
+            },
+            {
+              "id": "r13",
+              "text": "Give exactly one link, the brief's Link. Two links split the clicks.",
+              "section": "Rules for an email",
+              "noul": 0.95,
+              "parts": [
+                0.95,
+                0.94
+              ],
+              "code": {
+                "answer": "none",
+                "why": "kind",
+                "saw": [],
+                "tests": [
+                  {
+                    "test": "count",
+                    "read": {
+                      "part": "file"
+                    },
+                    "what": "links",
+                    "compare": "exactly",
+                    "n": 1
+                  },
+                  {
+                    "test": "has",
+                    "read": {
+                      "part": "file"
+                    },
+                    "values": {
+                      "from": "request",
+                      "in": "request and files",
+                      "file": null,
+                      "labels": [
+                        "Link"
+                      ],
+                      "take": "links",
+                      "level": null
+                    },
+                    "need": "all",
+                    "at": "anywhere",
+                    "match": "characters",
+                    "case": "exact"
+                  }
+                ]
+              },
+              "applies": 0.02,
+              "comesUp": 0.06
+            },
+            {
+              "id": "r14",
+              "text": "End with the release date, the support address and the name of the person who signs it, in that order, each on a line of its own. Readers look for all three in the same place.",
+              "section": "Rules for an email",
+              "noul": 0.94,
+              "parts": [
+                0.94,
+                0.95
+              ],
+              "span": "end",
+              "applies": 0.02,
+              "comesUp": 0.05
+            },
+            {
+              "id": "r15",
+              "text": "Write one file with its styles in a <style> tag, no script and no outside file. The page is pasted into a CMS that strips both.",
+              "section": "Rules for a web page",
+              "noul": 0.94,
+              "parts": [
+                0.94,
+                0.74
+              ],
+              "span": "whole",
+              "applies": 0.97,
+              "comesUp": 0.99
+            },
+            {
+              "id": "r16",
+              "text": "Use exactly one <h1>, holding the headline and nothing else. Search engines and screen readers take it as the page's title.",
+              "section": "Rules for a web page",
+              "noul": 0.89,
+              "parts": [
+                0.89,
+                0.64
+              ],
+              "code": {
+                "answer": "met",
+                "saw": [
+                  {
+                    "test": "count",
+                    "answer": "met",
+                    "why": null,
+                    "counts": [
+                      1
+                    ],
+                    "compare": "exactly",
+                    "n": 1
+                  },
+                  {
+                    "test": "has",
+                    "answer": "met",
+                    "why": null,
+                    "found": [
+                      {
+                        "value": "Everything that changed in Ferry 4.0.",
+                        "piece": 0,
+                        "at": 0,
+                        "text": "Everything that changed in Ferry 4.0"
+                      }
+                    ],
+                    "missing": [],
+                    "foundTotal": 1,
+                    "missingTotal": 0
+                  }
+                ],
+                "tests": [
+                  {
+                    "test": "count",
+                    "read": {
+                      "part": "elements",
+                      "tag": "h1",
+                      "attribute": null,
+                      "which": "every"
+                    },
+                    "what": "items",
+                    "compare": "exactly",
+                    "n": 1
+                  },
+                  {
+                    "test": "has",
+                    "read": {
+                      "part": "elements",
+                      "tag": "h1",
+                      "attribute": null,
+                      "which": "every"
+                    },
+                    "values": {
+                      "from": "request",
+                      "in": "request and files",
+                      "file": null,
+                      "labels": [
+                        "Headline"
+                      ],
+                      "take": "whole",
+                      "level": null
+                    },
+                    "need": "all",
+                    "at": "whole",
+                    "match": "words",
+                    "case": "exact"
+                  }
+                ]
+              },
+              "applies": 0.97,
+              "comesUp": 0.98
+            },
+            {
+              "id": "r17",
+              "text": "Set the body text at 18px and the content column at most 640px wide. That is what the site's articles use.",
+              "section": "Rules for a web page",
+              "noul": 0.93,
+              "parts": [
+                0.93,
+                0.71
+              ],
+              "span": "whole",
+              "applies": 0.97,
+              "comesUp": 0.98
+            },
+            {
+              "id": "r18",
+              "text": "Use only the colours in the brief's Colours list. Any other colour is off brand.",
+              "section": "Rules for a web page",
+              "noul": 0.87,
+              "parts": [
+                0.87,
+                0.67
+              ],
+              "code": {
+                "answer": "met",
+                "saw": [
+                  {
+                    "test": "only",
+                    "answer": "met",
+                    "why": null,
+                    "outside": [],
+                    "otherNotation": [],
+                    "outsideTotal": 0
+                  }
+                ],
+                "tests": [
+                  {
+                    "test": "only",
+                    "read": {
+                      "part": "styles"
+                    },
+                    "what": "hex colours",
+                    "allowed": {
+                      "from": "request",
+                      "in": "request and files",
+                      "file": null,
+                      "labels": [
+                        "Colours"
+                      ],
+                      "take": "hex colours",
+                      "level": null
+                    }
+                  }
+                ]
+              },
+              "applies": 0.97,
+              "comesUp": 0.96
+            },
+            {
+              "id": "r19",
+              "text": "End the page with a footer that holds the line \"Questions? Write to\" and the support address. A reader who scrolls to the end is looking for a way to ask.",
+              "section": "Rules for a web page",
+              "noul": 0.14,
+              "parts": [
+                0.14,
+                0.94
+              ],
+              "span": "end",
+              "applies": 0.97,
+              "comesUp": 0.96
+            }
+          ]
+        },
+        "rubric": {
+          "statements": [
+            {
+              "id": "01-all",
+              "text": "The page lists all 180 changes.",
+              "weight": 2,
+              "noul": 0.12,
+              "parts": [
+                0.12,
+                0.33
+              ],
+              "span": "whole",
+              "units": null,
+              "best": null
+            },
+            {
+              "id": "02-last",
+              "text": "The last change on the page is Export bookings as CSV.",
+              "weight": 1,
+              "noul": 0.02,
+              "parts": [
+                0.02,
+                0.96
+              ],
+              "span": "whole",
+              "units": null,
+              "best": null
+            }
+          ]
+        },
+        "cut": [
+          "Jev read only the start of the case's changes.md"
+        ],
+        "parts": {
+          "read": 2,
+          "of": 2
+        }
+      },
+      "keys": [
+        "2d94cb96b5475fb6e3fbc137fb44d9e13c93710cc2e827abb29e655be61017ca",
+        "dfed6647cf9bec14fabdb489f7f3b963cc23ae73e6f995b9db2e8f05343ab550",
+        "c2f672d50ca7c88bc2dc088824482c00965ffd358952c1dfa19f69ebde31c6a0",
+        "bf7fdfd52b19d6b501e5244f987a699944c3dcf54afcab2887a8ddc4e648a64e",
+        "0fe76a8ca76fb239c2ede3e5ae6130cb5627f92e5a686be3a664789c48358498",
+        "244f080930c5d433029f4e04e776defd8eef2abbe443cc682fa42eae572f40f6",
+        "3ae0470d9a0cbdf1e09db4896d922ff2a29bd16fd5a568e3d770a5ec0da65497",
+        "7f4db8a6b8ecf9d8d06e3dd463fc98f2f241aff255b65dc99d9aa456f87fc86e",
+        "6d551b147e32d0ce5195796d2d8a3f638521b18336ae1b52d46f9db6b1215b1f",
+        "d572dcb046501c70083851176384c9611cb1b043967ec9d1a8167a92f6b90bae",
+        "6579d77fa1de990905cac07a79ae52f60e9123bcd2171c78d0b589010cbcb766",
+        "119d578754c05bb0a19634717fcb4103ec45528ade1aebe03f8f895fffc817ef",
+        "ca52bdb158d20d58d572953c64a2bfb3ce5cf2db5d1c3f17cae3444afe61407f",
+        "0633d7539c04a4d2d35b7ebbb9c29d6484bc227c05dd8c8fd3f2e90603791c84",
+        "56e5fdfd0b250657926544f5439f3fc27605def438806f936435b1a70fa3b763",
+        "792f49da25cb30cd862a2fa25c8af7d685b95d07a4ced50a5c7ed6fbbf884b95",
+        "bd308b2fa2c8e7f75618921d9d823a1a85061810d8f96e6543b470a1201b49fa",
+        "50e4b43dbe50f3b3811a1d070fd8ef9a22ce2dd26eb7c825f85a864704b85024",
+        "678909d0b1b6a5730989f6449d05c31bee66643f4dc7fd563281cb56c477c40d",
+        "731176c00f3c12214b48b052519f3990f0949b559644aea28f8f4163cce8953f",
+        "678695b1f7a49d579f4e334c4a441391a7e050b907f35f1e49b55bbfa72c9997",
+        "97d4e092212727ca9713a45cd444e9dffd4088cdaddf628475629ee025da76f4",
+        "ccc0bcc96ed34ee7773cd51de05333de4384b8537c53e61f546a48b2692e16bf",
+        "1bbafb5d044ef769223c853f36d847b8588ef9600e4785dac2e81e4ca366a953",
+        "b8c0fbb02c722f5774a272e94d59b64ced4ba0dc9a80d36fc7bcf88cd47b9284",
+        "7bc33f98218adbc3d4e64528a79b85cc89e25b2168cac606fdb5d295c1ff8129",
+        "249aa726a4d1eb8a9a377bffab1dfd8f957ece354aece7c507aa5ea30f4b7054",
+        "34de6c9f60be75ae4610a722f0b41da6e80e3f4343aea84b42d9e0b2ef474eb9",
+        "66cdc705156d61b9be6472d88e416e3e6f232c6776f7cc2770aa81e0d6f32ac3",
+        "bb0810388ddf2614aff7e4ed98dd1381df2e09076dc02acb63ef768a7bc867f1",
+        "d6c31e31a385b2ca8e9d1002bca6eba3d41f356d006c0c5e3f2da33c7243c5e0",
+        "92d9208d630ffa518abd83f75a7e56f1d14c2bf8d228f0433395d2d6b780fc8d",
+        "ee648a32f235cb25a32317b03d8bb6b7c85d263c442d0c4b226c721309b75266",
+        "b9d3a5b28de01becc92a2c35acdb311b468b9ddd36e877fbc6935f7321c8fb64",
+        "a0b137eca149e7579bb23166d6bc8080ba3b92d98f6489cb7503615d4f1c00b9",
+        "b3b53b45fac836deb65469752a5bfa129b9c2d3e9708c63c37d4756a8ed548e4",
+        "502908a9a7c847b383e97127b57193e192fe6ae4ef3b180d51aa706680f62c73",
+        "94f86474b04f71ab228c762516fa71cb9ff15bc631a08451605fb4242901d917",
+        "a548e79d4e033fe3480614e8a5c2d8837df94c8513853b4762c40601994d014a",
+        "eda53cfd706cc00af679246bd1e33333a17801e4b7dfc50a97f9e542662949ae",
+        "6823ae5773558073d1eb2e57d14a3456d01f8de589f0c5e6f1f48888a80fe566",
+        "8d07a0bdbfc542f138f8803f3f8d2e6beb70ecb3291350648b3a543e09fc4886",
+        "cd5658f8b0ca92116b5a9bd461f93396d6ff77c24b0f4be737003821b03eba58",
+        "f030e9a971f961b649146b4dc40efa9f6914b0a8fd0767793aae2e1f7a14dcf0",
+        "15190e041e555d023fb5c2dce86305f301c7b9b426a6d680956fc51ce38a92cb",
+        "47889513a09944489b58ec64aa16cc57c43c44b3fae31189c0437931e1360004",
+        "d593e7cd68c5524ab677da3ceba54b56e29f11ba05c57c66c09105b572630fa1",
+        "7246e608e532680698d111379d2119dda01500be76f19e15134f82f4cd1b5202",
+        "9d3ae35524ee2fb0a38547319d1ba03f7c13d6a8fa00fe89c64492e4940636a7",
+        "e271659c65bb6ffd35990219f9a93f933161fe2fc9af64aceea469d5d41f6eb2",
+        "cdc2e4bad30b97ae73c778218528676470bda83e234c899ba247b7af5c8dc1ba",
+        "a6bd55f1c0ba9c009d22582d662c1ad07464b863aac4757c2d404239a9313222",
+        "803024459083b89633c8e62f5dec099b051fdee0b779a64f29aa1b6287f760bb",
+        "cb4c27b6746ebe4c3c9220ce9a9209d319782fbbbbdec620be0177ae650a4109",
+        "e0cc6aa2b806adc482d3b0401286005111c638d2906ebf337011637682e25be7",
+        "8cb5eeb9fe182da20b1ab698ca10658344856f60ee25df6c4e69fa429efe5e1c",
+        "d18ad38db4b7491ff0a71d9e481a1397770d7098bcc5128b981826fd50ed569c",
+        "9aae4ecba3419069ff521b9e4f09330878e96f4f1388a72f27d84e84159845ce",
+        "26b4e8e064e37ef16bb17569d5f003c2444ca7c39914f5a3937a641cbfbc8893",
+        "c4c5f1cdb9d9207430e0086fe80b0763074d50fdb63a5b8654fe6f27a1f08326",
+        "9d7b275cde3ed1f20e3e73a04356b0e2859f9a628a96950830bb4d308e85176a"
+      ],
+      "g": 1
+    }
+  },
+  "answers": {
+    "59ec7b7d164efe2e1a72202a22bb9d448a20e5e44046d5b2e23f0e943c3f42a9": {
+      "answer": {
+        "type": "noul",
+        "noul": 0.8
+      },
+      "tokens": 302.3809523809524,
+      "g": 1
+    },
+    "e086170b9d4a751442df8bc1c6ab21a8110def1782c9ad49aba90405fc0fb0c8": {
+      "answer": {
+        "type": "noul",
+        "noul": 0.98
+      },
+      "tokens": 302.3809523809524,
+      "g": 1
+    },
+    "d2bb469d9c1a6b027f387f1664d845a292d581a06fc1c80ee55ebbaf26fe3d8e": {
+      "answer": {
+        "type": "noul",
+        "noul": 0.86
+      },
+      "tokens": 302.3809523809524,
+      "g": 1
+    },
+    "dcdef5302e45dfa8e58c0e8fd98ee641439233fb4f9da4dad40c729eac1cbe57": {
+      "answer": {
+        "type": "noul",
+        "noul": 0.75
+      },
+      "tokens": 302.3809523809524,
+      "g": 1
+    },
+    "12524c07367cefbcc88a0726055f96644a394d517bedf421c3ba24788ca85f47": {
+      "answer": {
+        "type": "noul",
+        "noul": 0.97
+      },
+      "tokens": 302.3809523809524,
+      "g": 1
+    },
+    "07f50c8dd505ddf225d7662dd31c0446ff04004b9b82d12aa67e9a228cb4867f": {
+      "answer": {
+        "type": "noul",
+        "noul": 0.98
+      },
+      "tokens": 302.3809523809524,
+      "g": 1
+    },
+    "dab0d041f7aaa02ec98de9c79b086f65d6864b11f0c6a7a8a13fbff85bbd7d32": {
+      "answer": {
+        "type": "noul",
+        "noul": 0.99
+      },
+      "tokens": 302.3809523809524,
+      "g": 1
+    },
+    "1ff40975e9c9fe7547bab0dd6e700441b71678f55f97498dfae3260d043e5172": {
+      "answer": {
+        "type": "noul",
+        "noul": 0.96
+      },
+      "tokens": 302.3809523809524,
+      "g": 1
+    },
+    "ffc37a01208c91bba8f396aaf799a189f00b441fa2c1aa25cc6801586031d426": {
+      "answer": {
+        "type": "noul",
+        "noul": 0.99
+      },
+      "tokens": 302.3809523809524,
+      "g": 1
+    },
+    "57d64f7a10c60a46e53edb46605dca789cb8faf893ade62c49b759bfb0ab4400": {
+      "answer": {
+        "type": "noul",
+        "noul": 0.99
+      },
+      "tokens": 302.3809523809524,
+      "g": 1
+    },
+    "8661e7d99f7e8dfa3c1b09b1258e19279343246e852036cdd36069406e384007": {
+      "answer": {
+        "type": "noul",
+        "noul": 0.91
+      },
+      "tokens": 302.3809523809524,
+      "g": 1
+    },
+    "67e9ac8562f49003d571fb9197507eba460007269437a6330ce38b11fc438f3c": {
+      "answer": {
+        "type": "noul",
+        "noul": 0.56
+      },
+      "tokens": 302.3809523809524,
+      "g": 1
+    },
+    "12782c218bb63c3cd46a5093d98127e223c951b4bfc28940aa1e17f4cfe46abc": {
+      "answer": {
+        "type": "noul",
+        "noul": 0.98
+      },
+      "tokens": 302.3809523809524,
+      "g": 1
+    },
+    "025483b114c9c0e1b6a6ef25496c6133fd513a73704a10d08ae6abaf2b6b695e": {
+      "answer": {
+        "type": "noul",
+        "noul": 0.92
+      },
+      "tokens": 302.3809523809524,
+      "g": 1
+    },
+    "6a5c35e8e0e1b7ddd6963ffdad36a5a08814c78981a6c6192102da5a293bd071": {
+      "answer": {
+        "type": "noul",
+        "noul": 0.96
+      },
+      "tokens": 302.3809523809524,
+      "g": 1
+    },
+    "1b0a3caa39dc07f71c88dbfd434c23cd70ed1fffd90bbb6d6144444eaeed7fd8": {
+      "answer": {
+        "type": "noul",
+        "noul": 0.96
+      },
+      "tokens": 302.3809523809524,
+      "g": 1
+    },
+    "fc44809938a72e2693dc82365104f06e78d750fcc5dbbdcd488547e32aea935b": {
+      "answer": {
+        "type": "noul",
+        "noul": 0.97
+      },
+      "tokens": 302.3809523809524,
+      "g": 1
+    },
+    "c436e3718fa66813757b19286a91d2e15631559da10b0f73e711a204b0903f0b": {
+      "answer": {
+        "type": "noul",
+        "noul": 0.98
+      },
+      "tokens": 302.3809523809524,
+      "g": 1
+    },
+    "09b0119010d5e7a79736a1c752ac4925f3c7382d0c9943eb18ef0ea9f90d2576": {
+      "answer": {
+        "type": "noul",
+        "noul": 0.96
+      },
+      "tokens": 302.3809523809524,
+      "g": 1
+    },
+    "d36d07fa9cb8633538cb8af504b9fce89facca029a238f37f4a1e0588cd2f4fb": {
+      "answer": {
+        "type": "noul",
+        "noul": 0.99
+      },
+      "tokens": 302.3809523809524,
+      "g": 1
+    },
+    "c43bdc211cca8f14c41e0d96d3e16ee5f85a9a866513c7ed9c8e75510c7b9c10": {
+      "answer": {
+        "type": "noul",
+        "noul": 0.99
+      },
+      "tokens": 302.3809523809524,
+      "g": 1
+    },
+    "b0e497356887524c1f29428b2fc4eab8ff2d63a6410de617648f212b5960857c": {
+      "answer": {
+        "type": "noul",
+        "noul": 0.99
+      },
+      "tokens": 223.54545454545453,
+      "g": 1
+    },
+    "2557fdee30896364401c34a41e6a78714e4a612b98838a875e0099a659fcedb1": {
+      "answer": {
+        "type": "noul",
+        "noul": 0.99
+      },
+      "tokens": 223.54545454545453,
+      "g": 1
+    },
+    "361767fe3deb66b3d68e163dab6b6d904172be9636508b0c6da41a061aa6680c": {
+      "answer": {
+        "type": "noul",
+        "noul": 0.03
+      },
+      "tokens": 223.54545454545453,
+      "g": 1
+    },
+    "1814fa820db5a437274645e84424dfd83f0eca7ef7fcd843e0ad739dca024051": {
+      "answer": {
+        "type": "noul",
+        "noul": 0.99
+      },
+      "tokens": 223.54545454545453,
+      "g": 1
+    },
+    "35fbd50da3d85adb68700decce3b6ee73dc2527dc50d8712e8b06a79a308d608": {
+      "answer": {
+        "type": "noul",
+        "noul": 0.99
+      },
+      "tokens": 223.54545454545453,
+      "g": 1
+    },
+    "426ea3a2d81563b899d65c3225f345a0730151c58fb4eada614375d649325672": {
+      "answer": {
+        "type": "noul",
+        "noul": 0.98
+      },
+      "tokens": 223.54545454545453,
+      "g": 1
+    },
+    "2b4515cdcd9d7908d5b900648736878d70251c9b85b090a4711734dd2be29da4": {
+      "answer": {
+        "type": "noul",
+        "noul": 0.99
+      },
+      "tokens": 223.54545454545453,
+      "g": 1
+    },
+    "5b79541c63ca34912c570b8ae47e5ecdbdfb28d584d673e80f4b4d15370aa36e": {
+      "answer": {
+        "type": "noul",
+        "noul": 0.94
+      },
+      "tokens": 223.54545454545453,
+      "g": 1
+    },
+    "33ca798036ac2f6d12cbe375cd2a8083e8c1ff00bad27e71b22788e3f36c8d6b": {
+      "answer": {
+        "type": "noul",
+        "noul": 0.96
+      },
+      "tokens": 223.54545454545453,
+      "g": 1
+    },
+    "56104847e810ad06bdac1505d1f206909ca229c0cd47558b88db78dcd1eb054d": {
+      "answer": {
+        "type": "noul",
+        "noul": 0.99
+      },
+      "tokens": 223.54545454545453,
+      "g": 1
+    },
+    "f029ae89e3d59519cbf031d0338e2466904767d0c0ce5555648ee1379e2fbd13": {
+      "answer": {
+        "type": "noul",
+        "noul": 0.99
+      },
+      "tokens": 223.54545454545453,
+      "g": 1
+    },
+    "cc7cf799ea095a69b588f702d1eec3028037f069d78fdd4b0cb15dbc4e7e293e": {
+      "answer": {
+        "type": "noul",
+        "noul": 0.98
+      },
+      "tokens": 223.54545454545453,
+      "g": 1
+    },
+    "d30ac2f3957c8d705fc81634a5b37d95acb0e3c76c647af97f2f8df4e753a6c4": {
+      "answer": {
+        "type": "noul",
+        "noul": 0.99
+      },
+      "tokens": 223.54545454545453,
+      "g": 1
+    },
+    "d9e8227d625dc7896c8134d5fa00609cdd9eb7dbfb38f559fd3d5e7292eb2e9b": {
+      "answer": {
+        "type": "noul",
+        "noul": 0.99
+      },
+      "tokens": 223.54545454545453,
+      "g": 1
+    },
+    "8f28c3987c3c598f45611c2e67c4d575f2b3551073d439a178beb10c7879c06b": {
+      "answer": {
+        "type": "noul",
+        "noul": 0.99
+      },
+      "tokens": 223.54545454545453,
+      "g": 1
+    },
+    "ded2bd8811290b8997353eb05d2591da37c04f951b79584a9a30a7d61e174c3e": {
+      "answer": {
+        "type": "noul",
+        "noul": 0.99
+      },
+      "tokens": 223.54545454545453,
+      "g": 1
+    },
+    "5d1b2fc274296154e5ec79bb8a8865d240d1e54562df6bfd28c45a9e0972a848": {
+      "answer": {
+        "type": "noul",
+        "noul": 0.98
+      },
+      "tokens": 223.54545454545453,
+      "g": 1
+    },
+    "3864872294964769be949a28421a75e547c88ab606e2ae4b3d09b4c65bb89eca": {
+      "answer": {
+        "type": "noul",
+        "noul": 0.04
+      },
+      "tokens": 223.54545454545453,
+      "g": 1
+    },
+    "df35b78aee2c0acb067e5dc31c4e4f742a43c5d6f1baa63a76c5f0a7cd595df9": {
+      "answer": {
+        "type": "noul",
+        "noul": 0.04
+      },
+      "tokens": 223.54545454545453,
+      "g": 1
+    },
+    "e3fa83cce71efa7773940b42d169f8842eca72a0e5760ba0f2a1570eee3594cc": {
+      "answer": {
+        "type": "noul",
+        "noul": 0.03
+      },
+      "tokens": 223.54545454545453,
+      "g": 1
+    },
+    "d67311ba049beb97da6714d86b1e820c8ba61d7d2b91cb042feafef4850c5822": {
+      "answer": {
+        "type": "noul",
+        "noul": 0.04
+      },
+      "tokens": 223.54545454545453,
+      "g": 1
+    },
+    "38cc97b8eb420aa0210bd681813d09f2a758e6b0866609a2130dbeffca77a413": {
+      "answer": {
+        "type": "noul",
+        "noul": 0.04
+      },
+      "tokens": 223.54545454545453,
+      "g": 1
+    },
+    "29537c8df723489be3b7045b548491d83490e2a84a876f4244b425bde4705d29": {
+      "answer": {
+        "type": "noul",
+        "noul": 0.94
+      },
+      "tokens": 298.7142857142857,
+      "g": 1
+    },
+    "8a6003b9cd149f605158e4779b421e1ab1d96917baec06355b88d66b1ff6f800": {
+      "answer": {
+        "type": "noul",
+        "noul": 0.99
+      },
+      "tokens": 298.7142857142857,
+      "g": 1
+    },
+    "43486ea562f21877f7eb70aea6768a8e381af9e2ccab2a72d1bf27add1fae5c3": {
+      "answer": {
+        "type": "noul",
+        "noul": 0.9
+      },
+      "tokens": 298.7142857142857,
+      "g": 1
+    },
+    "8a55566b279e0e19475cf56a490c279b05a2b7747f6766ac92f4a8752d06ed3e": {
+      "answer": {
+        "type": "noul",
+        "noul": 0.97
+      },
+      "tokens": 298.7142857142857,
+      "g": 1
+    },
+    "36a08bd70eb95e76d1eb89cb1a2ccc3ffbbb8b544f8f631adbf878112bae8b75": {
+      "answer": {
+        "type": "noul",
+        "noul": 0.99
+      },
+      "tokens": 298.7142857142857,
+      "g": 1
+    },
+    "30ecc3cfcaf3d233331ce5d1c9f961f1d812f6ee43c43f2d4ec2321333b53aaa": {
+      "answer": {
+        "type": "noul",
+        "noul": 0.99
+      },
+      "tokens": 298.7142857142857,
+      "g": 1
+    },
+    "1ccf22eabd3dadab090d474d29f5fb446833367d4d1be3bb77b0cc6c244b2dda": {
+      "answer": {
+        "type": "noul",
+        "noul": 0.99
+      },
+      "tokens": 298.7142857142857,
+      "g": 1
+    },
+    "78491cc8507eff3aff536bbc1cce1b1e9bbbd4e3bf62c8fb9765bd75d43860f6": {
+      "answer": {
+        "type": "noul",
+        "noul": 0.68
+      },
+      "tokens": 298.7142857142857,
+      "g": 1
+    },
+    "21376c3b8694c093f03f5546f4566a78bedc1f5e9ce7cc582541207e199fe030": {
+      "answer": {
+        "type": "noul",
+        "noul": 0.99
+      },
+      "tokens": 298.7142857142857,
+      "g": 1
+    },
+    "232648f5125466f31d9ebe7454562caa0f376d34826d95a47e9ba98c041b22ff": {
+      "answer": {
+        "type": "noul",
+        "noul": 0.99
+      },
+      "tokens": 298.7142857142857,
+      "g": 1
+    },
+    "f55e19fbfea714c0db57c756e403fada466f2aa868854fbb53d91f3183459ba3": {
+      "answer": {
+        "type": "noul",
+        "noul": 0.99
+      },
+      "tokens": 298.7142857142857,
+      "g": 1
+    },
+    "a4b02d0e0ca4c2197708e15145bdae5d87d0e372536bc1a847386e78919f6d83": {
+      "answer": {
+        "type": "noul",
+        "noul": 0.96
+      },
+      "tokens": 298.7142857142857,
+      "g": 1
+    },
+    "e0e469fd7ecabd2c51af51efc04a07a090ce268f9a7326e248abf9471351c5bf": {
+      "answer": {
+        "type": "noul",
+        "noul": 0.97
+      },
+      "tokens": 298.7142857142857,
+      "g": 1
+    },
+    "b76ef917aaacbec98065ca6712c8722a04e355c522539a325fa870e8e856efa8": {
+      "answer": {
+        "type": "noul",
+        "noul": 0.97
+      },
+      "tokens": 298.7142857142857,
+      "g": 1
+    },
+    "b1cd4adf5e855c9b329edcbde02f6719aa09800477239ccf07a1361b58da1b94": {
+      "answer": {
+        "type": "noul",
+        "noul": 0.97
+      },
+      "tokens": 298.7142857142857,
+      "g": 1
+    },
+    "b7d51ad506a251b129a3860f1acb9d2a7faf195847aa27fb2b570ea625842315": {
+      "answer": {
+        "type": "noul",
+        "noul": 0.96
+      },
+      "tokens": 298.7142857142857,
+      "g": 1
+    },
+    "d089e27db9d8d2dcd5cabdc6c2536b5f4278678ba5dffc344228e26c670a41ec": {
+      "answer": {
+        "type": "noul",
+        "noul": 0.97
+      },
+      "tokens": 298.7142857142857,
+      "g": 1
+    },
+    "a281e85c21d045687c05c3880330442fa1be451c45e4e09c834a25cc26ac7ec5": {
+      "answer": {
+        "type": "noul",
+        "noul": 0.99
+      },
+      "tokens": 298.7142857142857,
+      "g": 1
+    },
+    "1189e8ef0946d47ddcaf887541f9cd68cda6e7696a3cd496602066b63b921aea": {
+      "answer": {
+        "type": "noul",
+        "noul": 0.96
+      },
+      "tokens": 298.7142857142857,
+      "g": 1
+    },
+    "3b97b2ef80325e47489c4c35a74170a62430d74a9a0d5a58373f97230f62c4c0": {
+      "answer": {
+        "type": "noul",
+        "noul": 1
+      },
+      "tokens": 298.7142857142857,
+      "g": 1
+    },
+    "934ab6ec10a2576c41cefa82cf752ebfec8ff72e44ed3574b529db9d4078265c": {
+      "answer": {
+        "type": "noul",
+        "noul": 0.99
+      },
+      "tokens": 298.7142857142857,
+      "g": 1
+    },
+    "d1eae34c5edf403cf36f27f9d0d4a25adac9d504531e58ad134f16b2449bd814": {
+      "answer": {
+        "type": "noul",
+        "noul": 0.88
+      },
+      "tokens": 298.76190476190476,
+      "g": 1
+    },
+    "672023dd3a61ec88e124376864d650cd2a0d4de281ca356115857e62be57bbd6": {
+      "answer": {
+        "type": "noul",
+        "noul": 0.99
+      },
+      "tokens": 298.76190476190476,
+      "g": 1
+    },
+    "fd55ba903820d7f77dea25698cf10ec528c3c308d9b00314bc45ea4343a89ab7": {
+      "answer": {
+        "type": "noul",
+        "noul": 0.91
+      },
+      "tokens": 298.76190476190476,
+      "g": 1
+    },
+    "e9418bae198e0a8662284e73b4ae14ffdacfcb1612018012ed0bc0171f2959e3": {
+      "answer": {
+        "type": "noul",
+        "noul": 0.95
+      },
+      "tokens": 298.76190476190476,
+      "g": 1
+    },
+    "b42925b9eb5f7cd53345b8b7c2d015586a19d20969021f0e12019fecddac9be3": {
+      "answer": {
+        "type": "noul",
+        "noul": 0.99
+      },
+      "tokens": 298.76190476190476,
+      "g": 1
+    },
+    "06ca69a7e9dbe5f18897a7ea4afb4dc492564adf3a8ae63eed8f4d6a397c40ae": {
+      "answer": {
+        "type": "noul",
+        "noul": 0.97
+      },
+      "tokens": 298.76190476190476,
+      "g": 1
+    },
+    "6a755fcbf705ca07e806da00162c3cfa8603feb422eb3ea41f77303f3753fdc2": {
+      "answer": {
+        "type": "noul",
+        "noul": 0.99
+      },
+      "tokens": 298.76190476190476,
+      "g": 1
+    },
+    "516cdc3955cc587f0e2bfd77852e1f8a89946b99b32ff42e4cdc0c981d782d64": {
+      "answer": {
+        "type": "noul",
+        "noul": 0.85
+      },
+      "tokens": 298.76190476190476,
+      "g": 1
+    },
+    "c1ee27db994dd521c10aa84ce0aa785a48747fd153ad15006b37b04ec6769227": {
+      "answer": {
+        "type": "noul",
+        "noul": 0.98
+      },
+      "tokens": 298.76190476190476,
+      "g": 1
+    },
+    "09be86fc387fddfe553db2376bed505e02bac9b94bfa7cafb83d0d540747a576": {
+      "answer": {
+        "type": "noul",
+        "noul": 0.99
+      },
+      "tokens": 298.76190476190476,
+      "g": 1
+    },
+    "577f8b62710788345ae5cb9ed1cea671056437ef2153815624e41d77d9fb598a": {
+      "answer": {
+        "type": "noul",
+        "noul": 0.96
+      },
+      "tokens": 298.76190476190476,
+      "g": 1
+    },
+    "a47b5ac603232eeaa28116e177c22e64eccb87bbdb3396592cc3963658bad194": {
+      "answer": {
+        "type": "noul",
+        "noul": 0.97
+      },
+      "tokens": 298.76190476190476,
+      "g": 1
+    },
+    "a2d7ceddf79d47696ea6578feaf401b50e8cb41a9bd3083806fa2c899865eda4": {
+      "answer": {
+        "type": "noul",
+        "noul": 0.99
+      },
+      "tokens": 298.76190476190476,
+      "g": 1
+    },
+    "f88e03986d001cb0f23280d8c0c8e05ca2bb23f9f0b4edccfb571026e49275ff": {
+      "answer": {
+        "type": "noul",
+        "noul": 0.91
+      },
+      "tokens": 298.76190476190476,
+      "g": 1
+    },
+    "b596092f6dc7bf8252ca9507058d5871808dc406f699ee1f2ea4fbb7d891efad": {
+      "answer": {
+        "type": "noul",
+        "noul": 0.97
+      },
+      "tokens": 298.76190476190476,
+      "g": 1
+    },
+    "f7d0c2e18b24274a3ca828865f0f23de4f3824feb8eb011d406bf12d9a3f538b": {
+      "answer": {
+        "type": "noul",
+        "noul": 0.97
+      },
+      "tokens": 298.76190476190476,
+      "g": 1
+    },
+    "7fed3f2f5a107314ff6c461caa2f99dac5f4f3e2cae6c8637a315364257c2c83": {
+      "answer": {
+        "type": "noul",
+        "noul": 0.96
+      },
+      "tokens": 298.76190476190476,
+      "g": 1
+    },
+    "12f30795f5a33d95c39930491a967038fca22a42e519b19270be7247f0cda274": {
+      "answer": {
+        "type": "noul",
+        "noul": 0.98
+      },
+      "tokens": 298.76190476190476,
+      "g": 1
+    },
+    "f85478b26f4c2fa5d0b15938b7449bb02d8615d4d946bb84ab4f839b3a5d0d66": {
+      "answer": {
+        "type": "noul",
+        "noul": 0.96
+      },
+      "tokens": 298.76190476190476,
+      "g": 1
+    },
+    "84b6e93d7597a0232c8c732300ca7ee69e505a1b4f9a76c3bfd1640f4659ecd0": {
+      "answer": {
+        "type": "noul",
+        "noul": 1
+      },
+      "tokens": 298.76190476190476,
+      "g": 1
+    },
+    "3f60225c59b31e4c9e9893f8b9979f5574a6671538e1e3aa302e824bad65f986": {
+      "answer": {
+        "type": "noul",
+        "noul": 0.99
+      },
+      "tokens": 298.76190476190476,
+      "g": 1
+    },
+    "62e148ffbac79915b3bcfb11a6cd203b83ee1dda12986d9c13c1346996556656": {
+      "answer": {
+        "type": "noul",
+        "noul": 0.84
+      },
+      "tokens": 307.45,
+      "g": 1
+    },
+    "0a3f109623532a31288b7d98f0709ca7a45a58d10bd73b96f277cb6045314d15": {
+      "answer": {
+        "type": "noul",
+        "noul": 0.99
+      },
+      "tokens": 307.45,
+      "g": 1
+    },
+    "b415e63f8cca5fcf5b83e20f3674d8ed849f72f6d7e54127ff3a0dd7049d0efb": {
+      "answer": {
+        "type": "noul",
+        "noul": 0.9
+      },
+      "tokens": 307.45,
+      "g": 1
+    },
+    "8a965ec4397a476c1573b7cfbef3b7dc13783c8a8fe4edb681cb9b11ada2cde8": {
+      "answer": {
+        "type": "noul",
+        "noul": 0.95
+      },
+      "tokens": 307.45,
+      "g": 1
+    },
+    "207c8aefa2b5604b1e87d655fd577653bd9563b893d6b30914957e657534e99b": {
+      "answer": {
+        "type": "noul",
+        "noul": 0.99
+      },
+      "tokens": 307.45,
+      "g": 1
+    },
+    "de4f9d66c4c73c950f9359869ff09a7fd0cfa10ad6cc8f248232e5ff9d56e767": {
+      "answer": {
+        "type": "noul",
+        "noul": 0.11
+      },
+      "tokens": 307.45,
+      "g": 1
+    },
+    "eac9a0cfed8bdd6b46ee64af090d02cd0eadc71dbbb1dc6a4734bee04bffe0fb": {
+      "answer": {
+        "type": "noul",
+        "noul": 0.99
+      },
+      "tokens": 307.45,
+      "g": 1
+    },
+    "1c375c81ad60b2abeb73b3c7a597d69f50505c77370526b54a364fed29029cec": {
+      "answer": {
+        "type": "noul",
+        "noul": 0.75
+      },
+      "tokens": 307.45,
+      "g": 1
+    },
+    "6a39a7f42dd8304fcbd7605bab1e5e1095158628079509f8311cbfc0ce2c338b": {
+      "answer": {
+        "type": "noul",
+        "noul": 0.91
+      },
+      "tokens": 307.45,
+      "g": 1
+    },
+    "75c9ef66b43efc1c858d6bfb7df2800caefcf3f845fc535e54253b7acad46702": {
+      "answer": {
+        "type": "noul",
+        "noul": 0.99
+      },
+      "tokens": 307.45,
+      "g": 1
+    },
+    "177a1df0ecffdd629678e6ba7685c3329e059929e6057f96110778199d115515": {
+      "answer": {
+        "type": "noul",
+        "noul": 0.96
+      },
+      "tokens": 307.45,
+      "g": 1
+    },
+    "dc9e0567d043d996c33e484ffaa96366ee471909b61039227a38afaf4f7f0a81": {
+      "answer": {
+        "type": "noul",
+        "noul": 0.98
+      },
+      "tokens": 307.45,
+      "g": 1
+    },
+    "2e47d7da44a2552a92e50dc4aca4bab52dc549d65c503b965d18b7e0eafd9c49": {
+      "answer": {
+        "type": "noul",
+        "noul": 0.99
+      },
+      "tokens": 307.45,
+      "g": 1
+    },
+    "7675909eb2fd28715cf5c5dbc98c1fe77b52833f4ea927a1c40e3f22dfd4df24": {
+      "answer": {
+        "type": "noul",
+        "noul": 0.98
+      },
+      "tokens": 307.45,
+      "g": 1
+    },
+    "83925b6a38ce990b9fa3c6df088f213fde612f959aa68796b173b18aeabf0314": {
+      "answer": {
+        "type": "noul",
+        "noul": 0.98
+      },
+      "tokens": 307.45,
+      "g": 1
+    },
+    "0bc03e7c45884cef5d0c0bed173c207be792d117ddd48541fa2e082fddc469e5": {
+      "answer": {
+        "type": "noul",
+        "noul": 0.97
+      },
+      "tokens": 307.45,
+      "g": 1
+    },
+    "7700667c1a79d8a4c3ea1d5e57e359b74236174349f6de4a999f52dcf28e23f6": {
+      "answer": {
+        "type": "noul",
+        "noul": 0.98
+      },
+      "tokens": 307.45,
+      "g": 1
+    },
+    "c513b9f3f40b12df8fc14715d7bb5f448c08ecbee1311e823b975e9f05177699": {
+      "answer": {
+        "type": "noul",
+        "noul": 0.99
+      },
+      "tokens": 307.45,
+      "g": 1
+    },
+    "a44d39f21e4e6157b8783ad39ef323c8c1b59258922bf3ac8f2998f445f8a742": {
+      "answer": {
+        "type": "noul",
+        "noul": 0.98
+      },
+      "tokens": 307.45,
+      "g": 1
+    },
+    "111db8cb6b2f2384ab3a87b225a069b7b699fda32ce7efc9355ce7ad933286fd": {
+      "answer": {
+        "type": "noul",
+        "noul": 0.99
+      },
+      "tokens": 307.45,
+      "g": 1
+    },
+    "72941cc31437344ebe4bc0f4d30de7233489c8cbb9c792ab53642713eb7ba31d": {
+      "answer": {
+        "type": "noul",
+        "noul": 0.99
+      },
+      "tokens": 223.54545454545453,
+      "g": 1
+    },
+    "5167d82e27bb891901916fabb2e95c3960dcad99ed5e9596af7fd9e69ab6d65e": {
+      "answer": {
+        "type": "noul",
+        "noul": 0.03
+      },
+      "tokens": 223.54545454545453,
+      "g": 1
+    },
+    "42b4109b667dbbb2452ccb39d9670c2cf5e1b33f6942885a2be7caa2c03f4b65": {
+      "answer": {
+        "type": "noul",
+        "noul": 0.98
+      },
+      "tokens": 223.54545454545453,
+      "g": 1
+    },
+    "2bd049c116b1b8ef2fde20c2d0ab5fe511f8b94587fc9f0c0c5cc6733b24cf4e": {
+      "answer": {
+        "type": "noul",
+        "noul": 0.99
+      },
+      "tokens": 223.54545454545453,
+      "g": 1
+    },
+    "c4ebf2c45bb4e4d2e0a9ba9d39f7429915d614323dba0fceb453b040a3ec20f1": {
+      "answer": {
+        "type": "noul",
+        "noul": 0.99
+      },
+      "tokens": 223.54545454545453,
+      "g": 1
+    },
+    "0476bd50b34453d3ff0708f3d53f6a9bb15fb6dc6ec3ebe542b30d1565e0fc10": {
+      "answer": {
+        "type": "noul",
+        "noul": 0.99
+      },
+      "tokens": 223.54545454545453,
+      "g": 1
+    },
+    "7919b79dc0ff98e8e5274ef9830d008661ce14305ac69ee3737971a638efda30": {
+      "answer": {
+        "type": "noul",
+        "noul": 0.99
+      },
+      "tokens": 223.54545454545453,
+      "g": 1
+    },
+    "26ba919965d9b1f88d341b78855dbdfd588686a11ff2c3cf23944c6b4193a671": {
+      "answer": {
+        "type": "noul",
+        "noul": 0.95
+      },
+      "tokens": 223.54545454545453,
+      "g": 1
+    },
+    "e7d557f82e413aca44e5a3701ae6d23849c2263d91ecb4aafc1af5bc87818a0a": {
+      "answer": {
+        "type": "noul",
+        "noul": 0.97
+      },
+      "tokens": 223.54545454545453,
+      "g": 1
+    },
+    "2ba7473838925d346c5ed3bda54fdfd6e4ded6af196cfa75bc68b241c91bbc1b": {
+      "answer": {
+        "type": "noul",
+        "noul": 0.99
+      },
+      "tokens": 223.54545454545453,
+      "g": 1
+    },
+    "92ed10c18638ea68b619c963f60d9a551a88e35755cd5f58a1846f48edd6d3ab": {
+      "answer": {
+        "type": "noul",
+        "noul": 0.99
+      },
+      "tokens": 223.54545454545453,
+      "g": 1
+    },
+    "7c8c3e8a802227a6b572ed7e661a3fa360fa47e45231e3e1bf5b8d4e08499896": {
+      "answer": {
+        "type": "noul",
+        "noul": 0.99
+      },
+      "tokens": 223.54545454545453,
+      "g": 1
+    },
+    "48320c2b927a5fb8318cd14642d85e53a1560b9d27c8a269ef7cac1578ae5d95": {
+      "answer": {
+        "type": "noul",
+        "noul": 0.99
+      },
+      "tokens": 223.54545454545453,
+      "g": 1
+    },
+    "e8324a3f5ae8209bb0ce023268b99654499f4af04f9517a9988443375fa68004": {
+      "answer": {
+        "type": "noul",
+        "noul": 0.04
+      },
+      "tokens": 223.54545454545453,
+      "g": 1
+    },
+    "55d70fc648c3b9f55ee0c28a54f800838acb936c31675fa2e4aae2e4558f7cdb": {
+      "answer": {
+        "type": "noul",
+        "noul": 0.06
+      },
+      "tokens": 223.54545454545453,
+      "g": 1
+    },
+    "1783b179e20a754ff7d83357a2ee0c99a33827f2c10c2467f69c022566284e93": {
+      "answer": {
+        "type": "noul",
+        "noul": 0.07
+      },
+      "tokens": 223.54545454545453,
+      "g": 1
+    },
+    "568a306c9a3d937de0d7a994bfdbbefb1755bb358dd0fef5bbe83c8bac0b4e09": {
+      "answer": {
+        "type": "noul",
+        "noul": 0.05
+      },
+      "tokens": 223.54545454545453,
+      "g": 1
+    },
+    "d18e43c98a829d884679897ebfe108aedcc013534c23dcbbdedb2997170071e8": {
+      "answer": {
+        "type": "noul",
+        "noul": 0.99
+      },
+      "tokens": 223.54545454545453,
+      "g": 1
+    },
+    "98a7882c5e571f3eb74d4cf0d0510e77ec90fbd0195ee2a20e180f285b9ee80e": {
+      "answer": {
+        "type": "noul",
+        "noul": 0.99
+      },
+      "tokens": 223.54545454545453,
+      "g": 1
+    },
+    "b6e8b5e85b70e3e140f5d316a02dfd6e2f74bfeb48bc99bb5a0f04e724780b80": {
+      "answer": {
+        "type": "noul",
+        "noul": 0.99
+      },
+      "tokens": 223.54545454545453,
+      "g": 1
+    },
+    "b23bd698491e933e43a011b2c8c6598091bdfc291b013f6fece986c5260456cc": {
+      "answer": {
+        "type": "noul",
+        "noul": 0.99
+      },
+      "tokens": 223.54545454545453,
+      "g": 1
+    },
+    "09238ba62990b12628cc63504ca5a5eecd762f329eb747ea8bcc938360f9bb60": {
+      "answer": {
+        "type": "noul",
+        "noul": 0.99
+      },
+      "tokens": 223.54545454545453,
+      "g": 1
+    },
+    "d9605ea7102de8652608ac3ac67fde1817e206e10c89278baf63d6a48a43a89b": {
+      "answer": {
+        "type": "noul",
+        "noul": 0.97
+      },
+      "tokens": 342.1904761904762,
+      "g": 1
+    },
+    "38ccdb1504268b50d63c6aead06b07a3f2314da65ee28c1f2832e2cec810d51a": {
+      "answer": {
+        "type": "noul",
+        "noul": 0.99
+      },
+      "tokens": 342.1904761904762,
+      "g": 1
+    },
+    "ca38dea5dd0d70edd5cc4d6a565110d0bd13722f299067d2100c170e9eefac8e": {
+      "answer": {
+        "type": "noul",
+        "noul": 0.86
+      },
+      "tokens": 342.1904761904762,
+      "g": 1
+    },
+    "8e82bef6bf4048c334ac66adb83d36bd0261c0bd1af026aa35691a13cc1a6d6f": {
+      "answer": {
+        "type": "noul",
+        "noul": 0.8
+      },
+      "tokens": 342.1904761904762,
+      "g": 1
+    },
+    "c04691fec06e79834e1367daa537a24ddf7cea130e5c5618bb4d95cc5185dd3f": {
+      "answer": {
+        "type": "noul",
+        "noul": 0.99
+      },
+      "tokens": 342.1904761904762,
+      "g": 1
+    },
+    "c51931e8a98abcc8596f2ca002b030baa279d74eddc30615a3fac3e48265681f": {
+      "answer": {
+        "type": "noul",
+        "noul": 0.95
+      },
+      "tokens": 342.1904761904762,
+      "g": 1
+    },
+    "529854304f62564733f240fc3b1362820fb58d9c14a49f7afae9babca759fc2b": {
+      "answer": {
+        "type": "noul",
+        "noul": 0.99
+      },
+      "tokens": 342.1904761904762,
+      "g": 1
+    },
+    "f7b06e1a8e789f5635a00bcedda44c91479848ae8be5180f6374445bf31fa40c": {
+      "answer": {
+        "type": "noul",
+        "noul": 0.89
+      },
+      "tokens": 342.1904761904762,
+      "g": 1
+    },
+    "5854ce4225f0bd1605c49534afe515643a23bda1030b8bc758c5eafa67df677f": {
+      "answer": {
+        "type": "noul",
+        "noul": 0.99
+      },
+      "tokens": 342.1904761904762,
+      "g": 1
+    },
+    "5e9f82eee046bed425d707b6533c2dd9759b50f23a058163138e343da841ca48": {
+      "answer": {
+        "type": "noul",
+        "noul": 0.99
+      },
+      "tokens": 342.1904761904762,
+      "g": 1
+    },
+    "54a66fc1b4cfbc28766e807f9b744a6687ff7ab9250e1f7b6934ac5cea977429": {
+      "answer": {
+        "type": "noul",
+        "noul": 0.96
+      },
+      "tokens": 342.1904761904762,
+      "g": 1
+    },
+    "4955bedafa486455ccfbc493b1ddd04f534898f77b5aefc19c89204c6cf00efc": {
+      "answer": {
+        "type": "noul",
+        "noul": 0.93
+      },
+      "tokens": 342.1904761904762,
+      "g": 1
+    },
+    "7a7eef87fc483f0477838f4eeb63731b46ec2e20e4e3f3f341e803e5c8b6ed2d": {
+      "answer": {
+        "type": "noul",
+        "noul": 0.93
+      },
+      "tokens": 342.1904761904762,
+      "g": 1
+    },
+    "8bcd9cb8bdce0be64d8cf315541e2eaa943068f1553f929cf9769f048536638e": {
+      "answer": {
+        "type": "noul",
+        "noul": 0.94
+      },
+      "tokens": 342.1904761904762,
+      "g": 1
+    },
+    "e6075495b6fcc90b08d545e1efb9f177b3988ac43d1ec02b5186c4704ea4e487": {
+      "answer": {
+        "type": "noul",
+        "noul": 0.99
+      },
+      "tokens": 342.1904761904762,
+      "g": 1
+    },
+    "112b9a27367bbcbede66d8b24b1b70a40fe7c81a306c48858f9ab567e2b8e594": {
+      "answer": {
+        "type": "noul",
+        "noul": 0.97
+      },
+      "tokens": 342.1904761904762,
+      "g": 1
+    },
+    "d35bca9cff8c4d6949b037a43cfe18137c6944b416cdd988b2b716ea38331791": {
+      "answer": {
+        "type": "noul",
+        "noul": 0.96
+      },
+      "tokens": 342.1904761904762,
+      "g": 1
+    },
+    "6be58c2ce2dfafa7201ee2e77f10f645b57d00eb4f40b279fdf47308dbb02db7": {
+      "answer": {
+        "type": "noul",
+        "noul": 0.85
+      },
+      "tokens": 342.1904761904762,
+      "g": 1
+    },
+    "ade291e69c8c82f0cb44878dd3d4e408a0b5a67ead51280f8aa1fa1a35e26a67": {
+      "answer": {
+        "type": "noul",
+        "noul": 0.9
+      },
+      "tokens": 342.1904761904762,
+      "g": 1
+    },
+    "43707ff1911c0d6f4d34df781523b188b6045326f23b46e3dcfe06d0c068997b": {
+      "answer": {
+        "type": "noul",
+        "noul": 0.99
+      },
+      "tokens": 342.1904761904762,
+      "g": 1
+    },
+    "21f2f8c16231cce6948e98e9296fd09d1650f0c66257623127e6539ffc0e41ed": {
+      "answer": {
+        "type": "noul",
+        "noul": 1
+      },
+      "tokens": 342.1904761904762,
+      "g": 1
+    },
+    "2d94cb96b5475fb6e3fbc137fb44d9e13c93710cc2e827abb29e655be61017ca": {
+      "answer": {
+        "type": "noul",
+        "noul": 0.96
+      },
+      "tokens": 227.28571428571428,
+      "g": 1
+    },
+    "dfed6647cf9bec14fabdb489f7f3b963cc23ae73e6f995b9db2e8f05343ab550": {
+      "answer": {
+        "type": "noul",
+        "noul": 0.02
+      },
+      "tokens": 227.28571428571428,
+      "g": 1
+    },
+    "c2f672d50ca7c88bc2dc088824482c00965ffd358952c1dfa19f69ebde31c6a0": {
+      "answer": {
+        "type": "noul",
+        "noul": 0.97
+      },
+      "tokens": 227.28571428571428,
+      "g": 1
+    },
+    "bf7fdfd52b19d6b501e5244f987a699944c3dcf54afcab2887a8ddc4e648a64e": {
+      "answer": {
+        "type": "noul",
+        "noul": 0.95
+      },
+      "tokens": 227.28571428571428,
+      "g": 1
+    },
+    "0fe76a8ca76fb239c2ede3e5ae6130cb5627f92e5a686be3a664789c48358498": {
+      "answer": {
+        "type": "noul",
+        "noul": 0.98
+      },
+      "tokens": 227.28571428571428,
+      "g": 1
+    },
+    "244f080930c5d433029f4e04e776defd8eef2abbe443cc682fa42eae572f40f6": {
+      "answer": {
+        "type": "noul",
+        "noul": 0.9
+      },
+      "tokens": 227.28571428571428,
+      "g": 1
+    },
+    "3ae0470d9a0cbdf1e09db4896d922ff2a29bd16fd5a568e3d770a5ec0da65497": {
+      "answer": {
+        "type": "noul",
+        "noul": 0.79
+      },
+      "tokens": 227.28571428571428,
+      "g": 1
+    },
+    "7f4db8a6b8ecf9d8d06e3dd463fc98f2f241aff255b65dc99d9aa456f87fc86e": {
+      "answer": {
+        "type": "noul",
+        "noul": 0.86
+      },
+      "tokens": 227.28571428571428,
+      "g": 1
+    },
+    "6d551b147e32d0ce5195796d2d8a3f638521b18336ae1b52d46f9db6b1215b1f": {
+      "answer": {
+        "type": "noul",
+        "noul": 0.96
+      },
+      "tokens": 227.28571428571428,
+      "g": 1
+    },
+    "d572dcb046501c70083851176384c9611cb1b043967ec9d1a8167a92f6b90bae": {
+      "answer": {
+        "type": "noul",
+        "noul": 0.95
+      },
+      "tokens": 227.28571428571428,
+      "g": 1
+    },
+    "6579d77fa1de990905cac07a79ae52f60e9123bcd2171c78d0b589010cbcb766": {
+      "answer": {
+        "type": "noul",
+        "noul": 0.83
+      },
+      "tokens": 227.28571428571428,
+      "g": 1
+    },
+    "119d578754c05bb0a19634717fcb4103ec45528ade1aebe03f8f895fffc817ef": {
+      "answer": {
+        "type": "noul",
+        "noul": 0.97
+      },
+      "tokens": 227.28571428571428,
+      "g": 1
+    },
+    "ca52bdb158d20d58d572953c64a2bfb3ce5cf2db5d1c3f17cae3444afe61407f": {
+      "answer": {
+        "type": "noul",
+        "noul": 0.03
+      },
+      "tokens": 227.28571428571428,
+      "g": 1
+    },
+    "0633d7539c04a4d2d35b7ebbb9c29d6484bc227c05dd8c8fd3f2e90603791c84": {
+      "answer": {
+        "type": "noul",
+        "noul": 0.06
+      },
+      "tokens": 227.28571428571428,
+      "g": 1
+    },
+    "56e5fdfd0b250657926544f5439f3fc27605def438806f936435b1a70fa3b763": {
+      "answer": {
+        "type": "noul",
+        "noul": 0.06
+      },
+      "tokens": 227.28571428571428,
+      "g": 1
+    },
+    "792f49da25cb30cd862a2fa25c8af7d685b95d07a4ced50a5c7ed6fbbf884b95": {
+      "answer": {
+        "type": "noul",
+        "noul": 0.05
+      },
+      "tokens": 227.28571428571428,
+      "g": 1
+    },
+    "bd308b2fa2c8e7f75618921d9d823a1a85061810d8f96e6543b470a1201b49fa": {
+      "answer": {
+        "type": "noul",
+        "noul": 0.99
+      },
+      "tokens": 227.28571428571428,
+      "g": 1
+    },
+    "50e4b43dbe50f3b3811a1d070fd8ef9a22ce2dd26eb7c825f85a864704b85024": {
+      "answer": {
+        "type": "noul",
+        "noul": 0.98
+      },
+      "tokens": 227.28571428571428,
+      "g": 1
+    },
+    "678909d0b1b6a5730989f6449d05c31bee66643f4dc7fd563281cb56c477c40d": {
+      "answer": {
+        "type": "noul",
+        "noul": 0.98
+      },
+      "tokens": 227.28571428571428,
+      "g": 1
+    },
+    "731176c00f3c12214b48b052519f3990f0949b559644aea28f8f4163cce8953f": {
+      "answer": {
+        "type": "noul",
+        "noul": 0.96
+      },
+      "tokens": 227.28571428571428,
+      "g": 1
+    },
+    "678695b1f7a49d579f4e334c4a441391a7e050b907f35f1e49b55bbfa72c9997": {
+      "answer": {
+        "type": "noul",
+        "noul": 0.96
+      },
+      "tokens": 227.28571428571428,
+      "g": 1
+    },
+    "97d4e092212727ca9713a45cd444e9dffd4088cdaddf628475629ee025da76f4": {
+      "answer": {
+        "type": "noul",
+        "noul": 0.65
+      },
+      "tokens": 821.95,
+      "g": 1
+    },
+    "ccc0bcc96ed34ee7773cd51de05333de4384b8537c53e61f546a48b2692e16bf": {
+      "answer": {
+        "type": "noul",
+        "noul": 0.67
+      },
+      "tokens": 821.95,
+      "g": 1
+    },
+    "1bbafb5d044ef769223c853f36d847b8588ef9600e4785dac2e81e4ca366a953": {
+      "answer": {
+        "type": "noul",
+        "noul": 0.58
+      },
+      "tokens": 821.95,
+      "g": 1
+    },
+    "b8c0fbb02c722f5774a272e94d59b64ced4ba0dc9a80d36fc7bcf88cd47b9284": {
+      "answer": {
+        "type": "noul",
+        "noul": 0.97
+      },
+      "tokens": 821.95,
+      "g": 1
+    },
+    "7bc33f98218adbc3d4e64528a79b85cc89e25b2168cac606fdb5d295c1ff8129": {
+      "answer": {
+        "type": "noul",
+        "noul": 0.96
+      },
+      "tokens": 821.95,
+      "g": 1
+    },
+    "249aa726a4d1eb8a9a377bffab1dfd8f957ece354aece7c507aa5ea30f4b7054": {
+      "answer": {
+        "type": "noul",
+        "noul": 0.97
+      },
+      "tokens": 821.95,
+      "g": 1
+    },
+    "34de6c9f60be75ae4610a722f0b41da6e80e3f4343aea84b42d9e0b2ef474eb9": {
+      "answer": {
+        "type": "noul",
+        "noul": 0.92
+      },
+      "tokens": 821.95,
+      "g": 1
+    },
+    "66cdc705156d61b9be6472d88e416e3e6f232c6776f7cc2770aa81e0d6f32ac3": {
+      "answer": {
+        "type": "noul",
+        "noul": 0.95
+      },
+      "tokens": 821.95,
+      "g": 1
+    },
+    "bb0810388ddf2614aff7e4ed98dd1381df2e09076dc02acb63ef768a7bc867f1": {
+      "answer": {
+        "type": "noul",
+        "noul": 0.95
+      },
+      "tokens": 821.95,
+      "g": 1
+    },
+    "d6c31e31a385b2ca8e9d1002bca6eba3d41f356d006c0c5e3f2da33c7243c5e0": {
+      "answer": {
+        "type": "noul",
+        "noul": 0.96
+      },
+      "tokens": 821.95,
+      "g": 1
+    },
+    "92d9208d630ffa518abd83f75a7e56f1d14c2bf8d228f0433395d2d6b780fc8d": {
+      "answer": {
+        "type": "noul",
+        "noul": 0.93
+      },
+      "tokens": 821.95,
+      "g": 1
+    },
+    "ee648a32f235cb25a32317b03d8bb6b7c85d263c442d0c4b226c721309b75266": {
+      "answer": {
+        "type": "noul",
+        "noul": 0.94
+      },
+      "tokens": 821.95,
+      "g": 1
+    },
+    "b9d3a5b28de01becc92a2c35acdb311b468b9ddd36e877fbc6935f7321c8fb64": {
+      "answer": {
+        "type": "noul",
+        "noul": 0.95
+      },
+      "tokens": 821.95,
+      "g": 1
+    },
+    "a0b137eca149e7579bb23166d6bc8080ba3b92d98f6489cb7503615d4f1c00b9": {
+      "answer": {
+        "type": "noul",
+        "noul": 0.74
+      },
+      "tokens": 821.95,
+      "g": 1
+    },
+    "b3b53b45fac836deb65469752a5bfa129b9c2d3e9708c63c37d4756a8ed548e4": {
+      "answer": {
+        "type": "noul",
+        "noul": 0.64
+      },
+      "tokens": 821.95,
+      "g": 1
+    },
+    "502908a9a7c847b383e97127b57193e192fe6ae4ef3b180d51aa706680f62c73": {
+      "answer": {
+        "type": "noul",
+        "noul": 0.71
+      },
+      "tokens": 821.95,
+      "g": 1
+    },
+    "94f86474b04f71ab228c762516fa71cb9ff15bc631a08451605fb4242901d917": {
+      "answer": {
+        "type": "noul",
+        "noul": 0.67
+      },
+      "tokens": 821.95,
+      "g": 1
+    },
+    "a548e79d4e033fe3480614e8a5c2d8837df94c8513853b4762c40601994d014a": {
+      "answer": {
+        "type": "noul",
+        "noul": 0.94
+      },
+      "tokens": 821.95,
+      "g": 1
+    },
+    "eda53cfd706cc00af679246bd1e33333a17801e4b7dfc50a97f9e542662949ae": {
+      "answer": {
+        "type": "noul",
+        "noul": 0.33
+      },
+      "tokens": 821.95,
+      "g": 1
+    },
+    "6823ae5773558073d1eb2e57d14a3456d01f8de589f0c5e6f1f48888a80fe566": {
+      "answer": {
+        "type": "noul",
+        "noul": 0.96
+      },
+      "tokens": 821.95,
+      "g": 1
+    },
+    "8d07a0bdbfc542f138f8803f3f8d2e6beb70ecb3291350648b3a543e09fc4886": {
+      "answer": {
+        "type": "noul",
+        "noul": 0.94
+      },
+      "tokens": 1001.25,
+      "g": 1
+    },
+    "cd5658f8b0ca92116b5a9bd461f93396d6ff77c24b0f4be737003821b03eba58": {
+      "answer": {
+        "type": "noul",
+        "noul": 0.91
+      },
+      "tokens": 1001.25,
+      "g": 1
+    },
+    "f030e9a971f961b649146b4dc40efa9f6914b0a8fd0767793aae2e1f7a14dcf0": {
+      "answer": {
+        "type": "noul",
+        "noul": 0.64
+      },
+      "tokens": 1001.25,
+      "g": 1
+    },
+    "15190e041e555d023fb5c2dce86305f301c7b9b426a6d680956fc51ce38a92cb": {
+      "answer": {
+        "type": "noul",
+        "noul": 0.97
+      },
+      "tokens": 1001.25,
+      "g": 1
+    },
+    "47889513a09944489b58ec64aa16cc57c43c44b3fae31189c0437931e1360004": {
+      "answer": {
+        "type": "noul",
+        "noul": 0.96
+      },
+      "tokens": 1001.25,
+      "g": 1
+    },
+    "d593e7cd68c5524ab677da3ceba54b56e29f11ba05c57c66c09105b572630fa1": {
+      "answer": {
+        "type": "noul",
+        "noul": 0.99
+      },
+      "tokens": 1001.25,
+      "g": 1
+    },
+    "7246e608e532680698d111379d2119dda01500be76f19e15134f82f4cd1b5202": {
+      "answer": {
+        "type": "noul",
+        "noul": 0.88
+      },
+      "tokens": 1001.25,
+      "g": 1
+    },
+    "9d3ae35524ee2fb0a38547319d1ba03f7c13d6a8fa00fe89c64492e4940636a7": {
+      "answer": {
+        "type": "noul",
+        "noul": 0.96
+      },
+      "tokens": 1001.25,
+      "g": 1
+    },
+    "e271659c65bb6ffd35990219f9a93f933161fe2fc9af64aceea469d5d41f6eb2": {
+      "answer": {
+        "type": "noul",
+        "noul": 0.97
+      },
+      "tokens": 1001.25,
+      "g": 1
+    },
+    "cdc2e4bad30b97ae73c778218528676470bda83e234c899ba247b7af5c8dc1ba": {
+      "answer": {
+        "type": "noul",
+        "noul": 0.96
+      },
+      "tokens": 1001.25,
+      "g": 1
+    },
+    "a6bd55f1c0ba9c009d22582d662c1ad07464b863aac4757c2d404239a9313222": {
+      "answer": {
+        "type": "noul",
+        "noul": 0.94
+      },
+      "tokens": 1001.25,
+      "g": 1
+    },
+    "803024459083b89633c8e62f5dec099b051fdee0b779a64f29aa1b6287f760bb": {
+      "answer": {
+        "type": "noul",
+        "noul": 0.95
+      },
+      "tokens": 1001.25,
+      "g": 1
+    },
+    "cb4c27b6746ebe4c3c9220ce9a9209d319782fbbbbdec620be0177ae650a4109": {
+      "answer": {
+        "type": "noul",
+        "noul": 0.94
+      },
+      "tokens": 1001.25,
+      "g": 1
+    },
+    "e0cc6aa2b806adc482d3b0401286005111c638d2906ebf337011637682e25be7": {
+      "answer": {
+        "type": "noul",
+        "noul": 0.94
+      },
+      "tokens": 1001.25,
+      "g": 1
+    },
+    "8cb5eeb9fe182da20b1ab698ca10658344856f60ee25df6c4e69fa429efe5e1c": {
+      "answer": {
+        "type": "noul",
+        "noul": 0.89
+      },
+      "tokens": 1001.25,
+      "g": 1
+    },
+    "d18ad38db4b7491ff0a71d9e481a1397770d7098bcc5128b981826fd50ed569c": {
+      "answer": {
+        "type": "noul",
+        "noul": 0.93
+      },
+      "tokens": 1001.25,
+      "g": 1
+    },
+    "9aae4ecba3419069ff521b9e4f09330878e96f4f1388a72f27d84e84159845ce": {
+      "answer": {
+        "type": "noul",
+        "noul": 0.87
+      },
+      "tokens": 1001.25,
+      "g": 1
+    },
+    "26b4e8e064e37ef16bb17569d5f003c2444ca7c39914f5a3937a641cbfbc8893": {
+      "answer": {
+        "type": "noul",
+        "noul": 0.14
+      },
+      "tokens": 1001.25,
+      "g": 1
+    },
+    "c4c5f1cdb9d9207430e0086fe80b0763074d50fdb63a5b8654fe6f27a1f08326": {
+      "answer": {
+        "type": "noul",
+        "noul": 0.12
+      },
+      "tokens": 1001.25,
+      "g": 1
+    },
+    "9d7b275cde3ed1f20e3e73a04356b0e2859f9a628a96950830bb4d308e85176a": {
+      "answer": {
+        "type": "noul",
+        "noul": 0.02
+      },
+      "tokens": 1001.25,
+      "g": 1
+    }
+  }
+}

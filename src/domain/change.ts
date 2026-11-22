@@ -84,8 +84,9 @@ export interface ChangeReading {
 /**
  * What a change between two ends is read over: the rules and checks both
  * ends counted. A fact both ends were asked, by its name in the same layer,
- * that either end set aside on any of its outputs, as not sure or as not
- * applying, is left out at both ends, so each end's layers are counted over
+ * that either end set aside on any of its outputs, as not sure, as not
+ * applying or as not read (an output too long for Jev to read whole), is
+ * left out at both ends, so each end's layers are counted over
  * the same facts. A fact only one end was asked, such as a rule added,
  * edited or taken out between two versions, is the skill's own change, and
  * counts where it was asked. The reader's answers count only where both ends

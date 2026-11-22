@@ -1,0 +1,21 @@
+Subject: Ferry 3.3: Reschedule in one tap.
+
+Hi,
+
+Ferry 3.3 is out on 18 May 2027, and it makes moving a booking a one-tap job for the person who booked it.
+
+What's new
+
+- One-tap reschedule: the person who booked can move their own slot straight from the confirmation.
+- Reschedule limits: you set how late a booking can still be moved.
+
+"Nobody phones us to move a slot any more." - Tomas Bell, Bell & Daughter Cycles
+
+The update is free for everyone on a paid plan.
+
+See what's new: https://ferry.example/3-3
+
+Questions? Write to us at help@ferry.example.
+
+Mara Lindqvist
+Ferry

@@ -1,0 +1,9 @@
+{
+  "workdir": [
+    "/private/var/folders/y0/ck9dy0lj7s5fyss3r1dkfmf40000gn/T/skill-studio-sample-KamQDT/email-free-s1",
+    "/var/folders/y0/ck9dy0lj7s5fyss3r1dkfmf40000gn/T/skill-studio-sample-KamQDT/email-free-s1"
+  ],
+  "ok": true,
+  "error": null,
+  "finalText": "I wrote the launch email to `outputs/email.txt` (93 words), and my choices are in `notes.md`.\n\n- **Opening line:** the skill says to open with the headline and also to start with the product name and version. I used \"Ferry 3.3: Reschedule in one tap.\" so both hold.\n- **Price:** the brief has none, so the email states no price.\n- **Codename:** I left out \"Falcon\", as the brief's internal note requires."
+}

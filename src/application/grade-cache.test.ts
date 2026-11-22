@@ -15,6 +15,11 @@ import {
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { pngHeader } from '@domain/__fixtures__/image.ts'
+import { rulesFromSkill } from '@domain/rules.ts'
+import { SORT_PROMPT_VERSION, type SortedReading } from '@domain/sorting.ts'
+import { loadCases } from '@infrastructure/cases.ts'
+import { askStamp, checkStamp, ruleStamp, storeReadings } from '@infrastructure/rule-readings.ts'
+import type { GenericRaw } from '@judges/generic/score.ts'
 import { packById } from '@judges/index.ts'
 import { Jev, type Usage } from '@judges/jev.ts'
 import { afterAll, afterEach, describe, expect, it, vi } from 'vitest'
@@ -88,6 +93,27 @@ describe('gradeRun, on what a question is asked again for', () => {
       report.results[0].packs.generic as { rubric: { statements: { weight: number }[] } }
     ).rubric.statements
     expect(statements.map((s) => s.weight)).toContain(5)
+  })
+
+  it('reads again a kept reading of only the start of a long output, and keeps one of an output read whole', async () => {
+    const { dir } = demo()
+    const { ask } = answering()
+    const first = await grade(dir)
+    expect(first.results[0].scores.total).not.toBeNull()
+    // A reading kept from before long outputs were asked in parts: of its first 40,000 characters alone.
+    const path = join(dir, 'evals/runs', RUN, 'judge-cache.json')
+    const file = JSON.parse(readFileSync(path, 'utf8'))
+    for (const entry of Object.values(file.packs) as Array<{ raw: Record<string, unknown> }>)
+      if (entry.raw && 'adherence' in entry.raw)
+        entry.raw.cut = ['Jev read only the first 40,000 characters of the output']
+    writeFileSync(path, JSON.stringify(file))
+    ask.mockClear()
+    const again = await grade(dir)
+    // The pack ran again: its questions over the same state were answered from the cache, so Jev was asked nothing.
+    expect(ask).not.toHaveBeenCalled()
+    const raw = again.results[0].packs.generic as { cut?: string[] }
+    expect(raw.cut ?? []).not.toContain('Jev read only the first 40,000 characters of the output')
+    expect(again.results[0].scores.total).toBe(first.results[0].scores.total)
   })
 
   it('asks a check added to the case, and nothing else of any pack', async () => {
@@ -383,5 +409,233 @@ describe('gradeRun, on another grading of the same run', () => {
     ask.mockClear()
     await grade(dir)
     expect(ask).not.toHaveBeenCalled()
+  })
+})
+
+describe('gradeRun, with the readings st sort kept', () => {
+  const runSkill = (dir: string) => join(dir, 'evals/runs', RUN, '_skill')
+  const packKeys = (dir: string): string[] =>
+    Object.keys(
+      JSON.parse(readFileSync(join(dir, 'evals/runs', RUN, 'judge-cache.json'), 'utf8')).packs,
+    )
+
+  /** Keep `readings` for the rules of `skillMd` and the checks of the demo's case, each by its words. */
+  function keep(
+    dir: string,
+    skillMd: string,
+    readings: {
+      rules?: Record<string, SortedReading>
+      checks?: Record<string, SortedReading>
+      /** By a check's words, the rules it cannot hold beside, each by its words. */
+      against?: Record<string, string[]>
+    },
+  ) {
+    const [testCase] = loadCases(dir)
+    const ask = askStamp(dir, testCase)
+    const entry = (
+      kind: 'rule' | 'check',
+      stamp: string,
+      text: string,
+      reading: SortedReading,
+    ) => ({
+      stamp,
+      kind,
+      text,
+      case: kind === 'check' ? testCase.id : null,
+      reading,
+      reason: '',
+      refused: [],
+      provider: 'claude-code',
+      model: 'sonnet',
+      at: '2026-11-21T00:00:00.000Z',
+      prompt: SORT_PROMPT_VERSION,
+    })
+    storeReadings(dir, [
+      ...rulesFromSkill(skillMd).flatMap((rule) => {
+        const reading = readings.rules?.[rule.text]
+        return reading ? [entry('rule', ruleStamp(skillMd, rule.text), rule.text, reading)] : []
+      }),
+      ...testCase.graders.flatMap((grader) => {
+        const reading = readings.checks?.[grader.statement]
+        const against = (readings.against?.[grader.statement] ?? []).map((rule) => ({
+          rule,
+          fix: 'Allow more words where the case asks for them.',
+        }))
+        return reading
+          ? [
+              {
+                ...entry(
+                  'check',
+                  checkStamp(skillMd, ask, grader.statement),
+                  grader.statement,
+                  reading,
+                ),
+                against,
+              },
+            ]
+          : []
+      }),
+    ])
+  }
+
+  const UNDER = 'Keep the note under 120 words.'
+  const WHERE = 'The note tells the reader the change is under Settings > Export.'
+  const count: SortedReading = {
+    reading: 'exact',
+    outputs: ['text'],
+    join: 'all',
+    tests: [
+      {
+        test: 'count',
+        read: { part: 'text', skip: null },
+        what: 'words',
+        compare: 'at most',
+        n: 119,
+      },
+    ],
+  }
+  const vague: SortedReading = {
+    reading: 'unmarkable',
+    why: 'vague',
+    with: null,
+    fix: 'Say it plainly.',
+  }
+  const found: SortedReading = {
+    reading: 'exact',
+    outputs: ['text'],
+    join: 'all',
+    tests: [
+      {
+        test: 'has',
+        read: { part: 'text', skip: null },
+        values: { from: 'listed', items: ['Settings > Export'] },
+        need: 'all',
+        at: 'anywhere',
+        match: 'characters',
+        case: 'any',
+      },
+    ],
+  }
+
+  it('moves no key a grading without readings made, and finds no reading made for another version of the skill', async () => {
+    const { dir } = demo()
+    const { ask } = answering()
+    const first = await grade(dir)
+    const keys = packKeys(dir)
+    // Readings of the skill as it is now, after an edit the run never saw.
+    const edited = `${readFileSync(join(dir, 'SKILL.md'), 'utf8')}\n- Name the date the change reached every account.\n`
+    keep(dir, edited, { rules: { [UNDER]: vague }, checks: { [WHERE]: found } })
+    ask.mockClear()
+    const again = await grade(dir)
+    expect(ask).not.toHaveBeenCalled()
+    expect(packKeys(dir)).toEqual(keys)
+    expect(again.results[0].scores).toEqual(first.results[0].scores)
+    expect(again.results[0].packs).toEqual(first.results[0].packs)
+  })
+
+  it('says in one line when the skill was sorted and what was graded has no reading, and what to run', async () => {
+    const { dir } = demo()
+    answering()
+    const never: string[] = []
+    await gradeRun(dir, RUN, { useJev: true, log: (line) => never.push(line) })
+    // Never sorted: nothing to say.
+    expect(never.some((line) => line.includes('st sort'))).toBe(false)
+    const edited = `${readFileSync(join(dir, 'SKILL.md'), 'utf8')}\n- Name the date the change reached every account.\n`
+    keep(dir, edited, { rules: { [UNDER]: vague }, checks: { [WHERE]: found } })
+    const none: string[] = []
+    const report = await gradeRun(dir, RUN, { useJev: true, log: (line) => none.push(line) })
+    expect(report.results).toHaveLength(1)
+    expect(none.filter((line) => line.includes('st sort'))).toEqual([
+      expect.stringMatching(
+        /^None of the \d+ rules and checks graded was sorted for the skill and cases this run used, so Jev was asked them all as before\. Run st sort to sort them\.$/,
+      ),
+    ])
+    // Some sorted for the run's own SKILL.md: how many are not.
+    const skillMd = readFileSync(join(runSkill(dir), 'SKILL.md'), 'utf8')
+    keep(dir, skillMd, { rules: { [UNDER]: count } })
+    const some: string[] = []
+    await gradeRun(dir, RUN, { useJev: true, log: (line) => some.push(line) })
+    const [testCase] = loadCases(dir)
+    const facts = rulesFromSkill(skillMd).length + testCase.graders.length
+    expect(some).toContain(
+      `${facts - 1} of the ${facts} rules and checks graded were not sorted for the skill and cases this run used, so Jev was asked them as before. Run st sort to sort them.`,
+    )
+  })
+
+  it('sets a rule aside on a case whose check it cannot hold beside, naming the check, and grades the check', async () => {
+    const { dir } = demo()
+    const { asked } = answering()
+    const skillMd = readFileSync(join(runSkill(dir), 'SKILL.md'), 'utf8')
+    keep(dir, skillMd, {
+      rules: { [UNDER]: count },
+      checks: { [WHERE]: found },
+      against: { [WHERE]: [UNDER] },
+    })
+    const report = await gradeRun(dir, RUN, { useJev: true, log: () => {} })
+    const raw = report.results[0].packs.generic as GenericRaw
+    expect(raw.adherence?.rules.find((r) => r.text === UNDER)).toMatchObject({
+      unmarkable: {
+        why: 'conflict',
+        with: WHERE,
+        fix: 'Allow more words where the case asks for them.',
+      },
+    })
+    expect(asked().some((q) => q.includes(UNDER))).toBe(false)
+    expect(raw.rubric?.statements.find((s) => s.text === WHERE)).toMatchObject({
+      code: { answer: 'met' },
+    })
+    // The check is named by its words, cut to what a flag holds.
+    expect(report.results[0].flags).toEqual([
+      expect.stringMatching(
+        /^rule not counted, it cannot be marked as written \(it cannot hold beside "The note tells the reader the change is under Settings > Ex…"\) \(Rules\): Keep the note under 120 words\.$/,
+      ),
+    ])
+  })
+
+  it('grades on the readings made from the run’s own SKILL.md, and keeps them in the key', async () => {
+    const { dir } = demo()
+    const { ask, asked } = answering()
+    await grade(dir)
+    const keys = packKeys(dir)
+    const skillMd = readFileSync(join(runSkill(dir), 'SKILL.md'), 'utf8')
+    keep(dir, skillMd, {
+      rules: { [UNDER]: count, 'End with one line that says where to find the change.': vague },
+      checks: { [WHERE]: found },
+    })
+    ask.mockClear()
+    const lines: string[] = []
+    const report = await gradeRun(dir, RUN, { useJev: true, log: (line) => lines.push(line) })
+    // The pack read again under a key of its own; its questions were answered from the cache,
+    // and the rule nobody can mark was asked of no one.
+    expect(packKeys(dir).length).toBeGreaterThan(keys.length)
+    expect(asked().some((q) => q.startsWith('rule:'))).toBe(false)
+    const raw = report.results[0].packs.generic as GenericRaw
+    const rules = raw.adherence?.rules ?? []
+    expect(rules.find((r) => r.text === UNDER)).toMatchObject({ code: { answer: 'met' } })
+    expect(rules.at(-1)).toMatchObject({ unmarkable: { why: 'vague' } })
+    expect(raw.rubric?.statements.find((s) => s.text === WHERE)).toMatchObject({
+      code: { answer: 'met' },
+    })
+    expect(lines).toContain(
+      'Rules and checks over 1 outputs: 6 asked of Jev, of which code answered 2 and set 0 aside as not sure; 1 cannot be marked as written, so were asked of no one.',
+    )
+    // Graded again with nothing changed, the kept reading is taken whole.
+    ask.mockClear()
+    await grade(dir)
+    expect(ask).not.toHaveBeenCalled()
+  })
+
+  it('stops with what is wrong when the readings file does not read, and writes no report over the last', async () => {
+    const { dir } = demo()
+    answering()
+    await grade(dir)
+    const report = join(dir, 'evals/runs', RUN, 'report.json')
+    const before = readFileSync(report, 'utf8')
+    mkdirSync(join(dir, 'evals'), { recursive: true })
+    writeFileSync(join(dir, 'evals', 'rule-readings.json'), '{ not json')
+    await expect(grade(dir)).rejects.toThrow(
+      /rule-readings\.json is malformed and could not be read: .*Run st sort again to write it anew, or delete it to grade as before\./,
+    )
+    expect(readFileSync(report, 'utf8')).toBe(before)
   })
 })

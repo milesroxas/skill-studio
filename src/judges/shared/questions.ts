@@ -5,6 +5,7 @@
  */
 import type { Image } from '@typesafe-ai/sdk'
 import type { JudgeContext, JudgeInput } from '../types.ts'
+import { firstOf } from './score.ts'
 
 /**
  * Whether Jev is asked about this output: grading has a key to ask with, and
@@ -86,9 +87,7 @@ export const characters = (n: number): string => n.toLocaleString('en-US')
 
 /** What is said of a case's prompt Jev read only the start of; null when it read the whole. */
 export const requestCut = (input: Pick<JudgeInput, 'case'>, max = REQUEST_MAX): string | null =>
-  (input.case?.prompt.trim().length ?? 0) > max
-    ? `Jev read only the first ${characters(max)} characters of the case's prompt`
-    : null
+  (input.case?.prompt.trim().length ?? 0) > max ? firstOf(max, "the case's prompt") : null
 
 /**
  * Whether the generic pack asks about this output: it has a rule or a check.

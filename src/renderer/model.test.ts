@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest'
 import type { RunView, State } from './api.ts'
 import type { Output } from './model.ts'
 import {
+  type AsideLine,
   answerFiles,
   apartLine,
   asideLine,
@@ -505,17 +506,67 @@ describe('a change over the facts both runs counted', () => {
 
   it('says how much of a score was counted where Jev was not sure of some of it', () => {
     const { state, outputs } = caseOf(answered(0.1, 0.5), answered(0.9, 0.5))
-    expect(asideLine([outputs[1]], saved)).toBe(
-      'Jev was not sure of 1 of the 2 rules, left out of the score until you mark it.',
-    )
-    expect(asideLine(outputs, saved)).toBe(
+    expect(asideLine([outputs[1]], saved)).toEqual({
+      leads: 'unsure',
+      text: 'Jev was not sure of 1 of the 2 rules, left out of the score until you mark it.',
+    })
+    expect(asideLine(outputs, saved)?.text).toBe(
       'Jev was not sure of 2 of the 4 rules over 2 outputs, left out of the score until you mark them.',
     )
-    expect(liftAsideLine(standingsOf(state, outputs, saved), saved)).toBe(
-      'Jev was not sure of 1 of the 2 rules on their latest runs, left out of the score until you mark it.',
-    )
+    expect(liftAsideLine(standingsOf(state, outputs, saved), saved)).toEqual({
+      leads: 'unsure',
+      text: 'Jev was not sure of 1 of the 2 rules on their latest runs, left out of the score until you mark it.',
+    })
     const sure = caseOf(answered(0.1, 0.9), answered(0.9, 0.9))
     expect(asideLine(sure.outputs, saved)).toBeNull()
+  })
+
+  /** `answered`, of an output asked in two parts of which Jev read one: each rule answered 0.5 one of the whole (`span`) the part cannot settle, the rest of its start. */
+  const halfRead = (...noul: number[]): Report => {
+    const report = answered(...noul)
+    const raw = (report.results[0] as unknown as { packs: { generic: Record<string, unknown> } })
+      .packs.generic
+    raw.parts = { read: 1, of: 2 }
+    for (const rule of (raw.adherence as { rules: Array<Record<string, unknown>> }).rules)
+      Object.assign(rule, rule.noul === 0.5 ? { noul: 0.9, span: 'whole' } : { span: 'start' })
+    return report
+  }
+
+  it('says apart what Jev could not read the whole output for, and leads with what it was not sure of', () => {
+    const unread = caseOf(answered(0.9, 0.9), halfRead(0.9, 0.5)).outputs
+    expect(asideLine([unread[1]], saved)).toEqual({
+      leads: 'unread',
+      text: 'Jev could not read the whole output for 1 of the 2 rules, left out of the score until you mark it.',
+    })
+    const both = caseOf(answered(0.9, 0.9), halfRead(0.5, 0.5, 0.4)).outputs
+    expect(asideLine([both[1]], saved)).toEqual({
+      leads: 'unsure',
+      text: 'Jev was not sure of 1 of the 3 rules and could not read the whole output for 2 more, left out of the score until you mark them.',
+    })
+  })
+  /** `answered`, with its first rule set aside by the app's own count and its second written so nobody can mark it. */
+  const sorted = (...noul: number[]): Report => {
+    const report = answered(...noul)
+    const raw = (report.results[0] as unknown as { packs: { generic: Record<string, unknown> } })
+      .packs.generic
+    const rules = (raw.adherence as { rules: Array<Record<string, unknown>> }).rules
+    rules[0].code = { answer: 'none', why: 'convention', saw: [], tests: [] }
+    rules[1] = {
+      id: rules[1].id,
+      text: rules[1].text,
+      section: rules[1].section,
+      unmarkable: { why: 'vague', with: null, fix: null },
+    }
+    return report
+  }
+
+  it('counts what the app could not settle as not sure, and leaves out a rule nobody can mark', () => {
+    const { outputs } = caseOf(answered(0.9, 0.9), sorted(0.9, 0.9, 0.5))
+    // Jev was sure of the first rule; the app's count could not settle it. The second is in no count at all.
+    expect(asideLine([outputs[1]], saved)).toEqual({
+      leads: 'unsure',
+      text: 'Not sure on 2 of the 2 rules, left out of the score until you mark them.',
+    })
   })
 })
 
@@ -618,7 +669,10 @@ describe('liftNotes', () => {
         attempts: { first: [1, 1], latest: [3, 3] },
         gap: 26,
       } as Parameters<typeof liftNotes>[0],
-      'Jev was not sure of 8 of the 17 rules on their latest runs, left out of the score until you mark them.',
+      {
+        leads: 'unsure',
+        text: 'Jev was not sure of 8 of the 17 rules on their latest runs, left out of the score until you mark them.',
+      },
     )
     expect(notes.map((note) => note.title)).toEqual([
       'Which cases',
@@ -643,6 +697,17 @@ describe('liftNotes', () => {
     expect(text('Attempts')).toBe(
       '1 attempt a case on the first runs, 3 attempts on the latest. Attempts at one case scored up to 26 points apart.',
     )
+  })
+
+  it('titles the note of what Jev left to the reader by what the line leads with', () => {
+    const title = (aside: AsideLine) => liftNotes(plain, aside).at(-1)
+    const unsure = { leads: 'unsure', text: 'Jev was not sure of the one rule.' } as const
+    const unread = { leads: 'unread', text: 'Jev could not read the whole output.' } as const
+    expect(title(unsure)).toEqual({ title: 'Not sure', text: unsure.text })
+    expect(title(unread)).toEqual({ title: 'Not read', text: unread.text })
+    // Whatever the words, the title follows what was counted: the two cannot disagree.
+    expect(title({ ...unread, text: unsure.text })?.title).toBe('Not read')
+    expect(title({ ...unsure, text: unread.text })?.title).toBe('Not sure')
   })
 
   it('says the score without the skill plainly when it was graded on the same rules', () => {

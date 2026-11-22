@@ -1,0 +1,4 @@
+- Rules conflict: headline must open the note, but product name and version must come first. I wrote "Ferry 3.3: Reschedule in one tap." so both hold (headline verbatim, after name and version).
+- Brief has no Price, so none is stated. The brief's "Falcon" codename is left out, as the brief's Internal line requires.
+- Closing lines: release date (as "Released 18 May 2027"), support address, signer, each on its own line. Plain text, one link, no list marks.
+- Word count is about 100 including the subject line; check it.

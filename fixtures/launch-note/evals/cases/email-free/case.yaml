@@ -1,0 +1,2 @@
+title: Launch email, no price
+expected_outcome: outputs/email.txt, a short plain-text email that says the update is free and names no price.

@@ -1,14 +1,17 @@
 import { describe, expect, it } from 'vitest'
-import type { Verdict } from './pack.ts'
+import { NO_CORRECTIONS, packAnswer, type Verdict } from './pack.ts'
 import {
   checkIds,
   codeVerdict,
   countOf,
+  factKey,
   finding,
   jevVerdict,
   layerCount,
+  leavingOut,
   readingOf,
   sumCounts,
+  unmarkableVerdict,
   verdictId,
 } from './verdict.ts'
 
@@ -17,6 +20,47 @@ const rule = { kind: 'rule' as const, text: 'Be brief.', layer: 'adherence' }
 const BINARY = { yes: 0.5, no: 0.5 }
 /** The thresholds every skill starts with. */
 const CUTS = { yes: 0.7, no: 0.3 }
+
+describe('jevVerdict, with code’s answer', () => {
+  const met = { answer: 'met' as const, saw: [] }
+  it('stands on code’s answer where code answered, and keeps Jev’s beside it', () => {
+    expect(jevVerdict(rule, 0.1, CUTS, {}, 1, met)).toMatchObject({
+      met: true,
+      by: 'code',
+      jev: false,
+      code: { met: true, stands: true },
+    })
+  })
+
+  it('falls back to Jev where code did not read the output, and sets the fact aside where code would not call it', () => {
+    for (const why of ['kind', 'empty', 'not there', 'not measured'] as const)
+      expect(jevVerdict(rule, 0.9, CUTS, {}, 1, { answer: 'none', why, saw: [] })).toMatchObject({
+        met: true,
+        by: 'jev',
+      })
+    for (const why of ['convention', 'differ', 'other notation', 'not listed'] as const)
+      expect(jevVerdict(rule, 0.9, CUTS, {}, 1, { answer: 'none', why, saw: [] })).toMatchObject({
+        met: false,
+        aside: 'unsure',
+        by: 'code',
+        jev: true,
+      })
+  })
+
+  it('sets aside a rule for another kind of work whoever answered it, and takes the reader’s answer over code’s', () => {
+    expect(jevVerdict(rule, 0.9, CUTS, {}, 0.1, met)).toMatchObject({
+      aside: 'inapplicable',
+      by: 'jev',
+    })
+    const id = verdictId('rule', 'Be brief.')
+    expect(jevVerdict(rule, 0.9, CUTS, { [id]: false }, 1, met)).toMatchObject({
+      met: false,
+      by: 'reader',
+      corrected: true,
+      open: true,
+    })
+  })
+})
 
 describe('jevVerdict', () => {
   it('is met when the probability reaches the threshold', () => {
@@ -86,6 +130,25 @@ describe('jevVerdict', () => {
     expect(jevVerdict(rule, 0.05, CUTS, { [id]: false }, 0.02)).not.toHaveProperty('aside')
   })
 
+  it('stands a fact with no answer it could stand on as not read, and counts the reader’s mark on it', () => {
+    expect(readingOf(null, CUTS)).toBe('unread')
+    // A rule for another kind of work does not apply, read or not.
+    expect(readingOf(null, CUTS, 0.1)).toBe('inapplicable')
+    expect(jevVerdict(rule, null, CUTS, {})).toMatchObject({
+      met: false,
+      aside: 'unread',
+      jev: null,
+      open: true,
+      corrected: false,
+    })
+    const marked = jevVerdict(rule, null, CUTS, { 'rule:Be brief.': false })
+    expect(marked).toMatchObject({ met: false, jev: null, corrected: true })
+    expect(marked).not.toHaveProperty('aside')
+    // Left out of a change, it stays not read.
+    const left = leavingOut({}, new Set([factKey('adherence', 'rule:Be brief.')]))
+    expect(jevVerdict(rule, null, CUTS, left)).toMatchObject({ aside: 'unread' })
+  })
+
   it('reads every answer as a yes or a no under a config that names no `no`', () => {
     expect(readingOf(0.5, { yes: 0.5 } as never)).toBe('met')
     expect(readingOf(0.49, { yes: 0.5 } as never)).toBe('missed')
@@ -128,12 +191,42 @@ describe('checkIds', () => {
   })
 })
 
+describe('a fact that cannot be marked', () => {
+  const vague = { why: 'vague' as const, with: null, fix: 'Say what brief means.' }
+
+  it('is set aside, open to the reader, until they answer it', () => {
+    const v = unmarkableVerdict(rule, vague, NO_CORRECTIONS)
+    expect(v).toMatchObject({ aside: 'unmarkable', met: false, open: true, by: null })
+    expect(packAnswer(v)).toBeNull()
+    expect(countOf([v], 'rule')).toBeNull()
+  })
+
+  it('counts the reader’s answer, as on one Jev was not sure of, and keeps why beside it', () => {
+    const v = unmarkableVerdict(rule, vague, { [verdictId('rule', 'Be brief.')]: false })
+    expect(v).toMatchObject({ met: false, by: 'reader', corrected: true, unmarkable: vague })
+    expect(v.aside).toBeUndefined()
+    expect(packAnswer(v)).toBeNull()
+    expect(countOf([v], 'rule')).toEqual({ met: 0, total: 1, unsure: 0, unread: 0 })
+  })
+
+  it('stays set aside where a change leaves it out', () => {
+    const id = verdictId('rule', 'Be brief.')
+    const v = unmarkableVerdict(
+      rule,
+      vague,
+      leavingOut({ [id]: true }, new Set([factKey('adherence', id)])),
+    )
+    expect(v).toMatchObject({ aside: 'unmarkable', corrected: false })
+  })
+})
+
 describe('what code measured', () => {
   it('is never open to a correction', () => {
     expect(codeVerdict(rule, false)).toMatchObject({ met: false, open: false, corrected: false })
     expect(finding('length: 40 words, case asks 50 to 120')).toEqual({
       id: 'other:length: 40 words, case asks 50 to 120',
       kind: 'other',
+      by: 'code',
       text: 'length: 40 words, case asks 50 to 120',
       met: false,
       open: false,
@@ -152,9 +245,9 @@ describe('counts', () => {
   ]
 
   it('counts the facts of one kind, and of one layer', () => {
-    expect(countOf(verdicts, 'rule')).toEqual({ met: 1, total: 2, unsure: 0 })
-    expect(countOf(verdicts, 'check')).toEqual({ met: 1, total: 1, unsure: 0 })
-    expect(layerCount(verdicts, 'adherence')).toEqual({ met: 1, total: 2, unsure: 0 })
+    expect(countOf(verdicts, 'rule')).toEqual({ met: 1, total: 2, unsure: 0, unread: 0 })
+    expect(countOf(verdicts, 'check')).toEqual({ met: 1, total: 1, unsure: 0, unread: 0 })
+    expect(layerCount(verdicts, 'adherence')).toEqual({ met: 1, total: 2, unsure: 0, unread: 0 })
   })
 
   it('counts a weighted check by its weight on both sides, as the layer share does', () => {
@@ -165,8 +258,8 @@ describe('counts', () => {
       jevVerdict({ ...check, text: 'Says Saturday.' }, 0.1, BINARY, {}),
     ]
     // 3 of 4 reads as the 75 the bar shows, where 2 of 3 would not.
-    expect(countOf(weighted, 'check')).toEqual({ met: 3, total: 4, unsure: 0 })
-    expect(layerCount(weighted, 'rubric')).toEqual({ met: 3, total: 4, unsure: 0 })
+    expect(countOf(weighted, 'check')).toEqual({ met: 3, total: 4, unsure: 0, unread: 0 })
+    expect(layerCount(weighted, 'rubric')).toEqual({ met: 3, total: 4, unsure: 0, unread: 0 })
   })
 
   it('leaves a fact set aside out of both numbers, and says how many Jev was not sure of', () => {
@@ -176,11 +269,21 @@ describe('counts', () => {
       jevVerdict({ ...rule, text: 'Say the day.' }, 0.5, CUTS, {}),
       jevVerdict({ ...rule, text: 'Frame the device.' }, 0.1, CUTS, {}, 0.02),
     ]
-    expect(countOf(mixed, 'rule')).toEqual({ met: 1, total: 2, unsure: 1 })
+    expect(countOf(mixed, 'rule')).toEqual({ met: 1, total: 2, unsure: 1, unread: 0 })
     // Nothing but rules for other work: no count at all.
     expect(countOf([mixed[3]], 'rule')).toBeNull()
     // Nothing Jev was sure of: a count of none, with what waits for the reader.
-    expect(countOf([mixed[2]], 'rule')).toEqual({ met: 0, total: 0, unsure: 1 })
+    expect(countOf([mixed[2]], 'rule')).toEqual({ met: 0, total: 0, unsure: 1, unread: 0 })
+  })
+
+  it('counts a fact not read apart from one Jev was not sure of, in neither number', () => {
+    const facts: Verdict[] = [
+      jevVerdict(rule, 0.9, CUTS, {}),
+      jevVerdict({ ...rule, text: 'Say the day.' }, 0.5, CUTS, {}),
+      jevVerdict({ ...rule, text: 'Name the footer.' }, null, CUTS, {}),
+    ]
+    expect(countOf(facts, 'rule')).toEqual({ met: 1, total: 1, unsure: 1, unread: 1 })
+    expect(countOf([facts[2]], 'rule')).toEqual({ met: 0, total: 0, unsure: 0, unread: 1 })
   })
 
   it('has no count where there are no facts', () => {
@@ -190,8 +293,12 @@ describe('counts', () => {
 
   it('adds counts up across outputs, passing over outputs with none', () => {
     expect(
-      sumCounts([{ met: 1, total: 2, unsure: 1 }, null, { met: 3, total: 3, unsure: 2 }]),
-    ).toEqual({ met: 4, total: 5, unsure: 3 })
+      sumCounts([
+        { met: 1, total: 2, unsure: 1, unread: 0 },
+        null,
+        { met: 3, total: 3, unsure: 2, unread: 1 },
+      ]),
+    ).toEqual({ met: 4, total: 5, unsure: 3, unread: 1 })
     expect(sumCounts([null, null])).toBeNull()
   })
 })

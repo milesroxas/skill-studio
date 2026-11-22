@@ -3,6 +3,8 @@ import type { PageLayout } from '@domain/layout.ts'
 import type { PackScoring } from '@domain/pack.ts'
 import type { Rule } from '@domain/rules.ts'
 import type { Artifact, BenchConfig, Case, TranscriptEvent } from '@domain/schemas.ts'
+import type { SortedReading } from '@domain/sorting.ts'
+import type { Span } from '@domain/span.ts'
 import type { Unit } from '@domain/text.ts'
 import type { Readable, RequestImage } from './images.ts'
 import type { JevAsker } from './jev.ts'
@@ -63,6 +65,51 @@ export interface JudgeInput {
    * when there is no such page, the two differ, or the host has no browser.
    */
   source?: SourcePage
+  /**
+   * How the answer on each rule and each check is put together from the
+   * answers about an output's parts (`Span`), by the rule's id and the check's
+   * id: for an output too long to read at once. A fact with none, and every
+   * fact when this is absent, joins its parts only where every part reads the
+   * same way.
+   */
+  spans?: Spans
+  /**
+   * How each rule and each check is read, where `st sort` kept a reading made
+   * from the very text graded (`currentReadings`): by the rule's id and the
+   * check's id. Absent, and for a rule or check with none, Jev is asked as
+   * before sorting.
+   */
+  readings?: Readings
+  /**
+   * The files an answer by code reads, whole and as written: given only where
+   * a reading is answered by code. What the rest of the input holds of them is
+   * a start or a cleaned copy, and an answer on a cut file would be a guess.
+   */
+  whole?: WholeFiles
+}
+
+/** How each rule and each check of an output is read, by the rule's id (`r3`) and the check's id. */
+export interface Readings {
+  rules: Readonly<Record<string, SortedReading>>
+  checks: Readonly<Record<string, SortedReading>>
+}
+
+/** An output's files whole, as code reads them. */
+export interface WholeFiles {
+  /** The primary file as the agent wrote it; empty for a picture. */
+  output: string
+  /** Every other text file the agent wrote, by its path in the sample (`outputs/sum.test.mjs`). */
+  others: Readonly<Record<string, string>>
+  /** The case's request. */
+  request: string
+  /** The text files the request came with, by the name the agent got each under. */
+  files: Readonly<Record<string, string>>
+}
+
+/** How each rule's and each check's answer is joined over an output's parts, by its id. */
+export interface Spans {
+  rules?: Readonly<Record<string, Span>>
+  checks?: Readonly<Record<string, Span>>
 }
 
 /** The start of a text file, as much of it as a pack is given. */
