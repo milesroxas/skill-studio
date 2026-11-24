@@ -9,6 +9,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 ### Fixed
 
 - On a Mac, the button that shows the sidebar again works once the sidebar is folded. A click on it used to start moving the window instead.
+- On a Mac, the top edge of a menu or panel opened from the top bar takes a click, and so does the dimmed page behind a dialog over the top bar. Both used to move the window.
 
 ## [0.20.0] - 2026-11-24
 
