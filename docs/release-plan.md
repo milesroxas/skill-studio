@@ -71,5 +71,5 @@ The steps in [releasing.md](releasing.md), in order.
 4. [x] The grading gate: nothing it covers changed since it ran on 2026-11-21. Fix with AI's prompt is new and asks no Jev question; no scoring, sorting prompt or exact test changed.
 5. [ ] `gh workflow run release` builds every platform. Not run for 0.20.0; the tag's own run builds every platform.
 6. [x] In the changelog, add `## [0.20.0] - 2026-11-24` under a new `## [Unreleased]`, and commit.
-7. [ ] `pnpm version minor -m "Release %s"`, then push `main` and the tag.
-8. [ ] The release workflow publishes v0.20.0, with the changelog entry as its notes.
+7. [x] `pnpm version minor -m "Release %s"`, then push `main` and the tag.
+8. [x] The release workflow publishes v0.20.0, with the changelog entry as its notes.
