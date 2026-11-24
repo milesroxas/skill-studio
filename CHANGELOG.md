@@ -6,6 +6,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [0.19.0] - 2026-11-24
+
 ### Changed
 
 - `st propose` and `st read` send each case's files to the assistant in one message, in place of a session that reads them in a folder. On the test skill's six cases `st propose` took 39 seconds and about 119,000 input tokens, where the session took about 6.5 minutes and 1.2 million, and its checks told the two versions apart as before. `st read` took 33 seconds and about 62,000 input tokens, and agreed with the answer key on 61 of 62 answers. `--deep` keeps the folder session, which sees a page as a browser drew it.
