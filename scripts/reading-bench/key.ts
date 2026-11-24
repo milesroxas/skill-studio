@@ -53,9 +53,10 @@ const plain = (text: string): string =>
   text
     .replace(/[‘’]/g, "'")
     .replace(/[“”]/g, '"')
-    .replace(/&amp;/g, '&')
     .replace(/&quot;/g, '"')
     .replace(/&#39;|&apos;/g, "'")
+    // Last, so "&amp;quot;" reads as "&quot;" and is never decoded twice.
+    .replace(/&amp;/g, '&')
     .replace(/\s+/g, ' ')
     .trim()
 
