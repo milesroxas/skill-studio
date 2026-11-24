@@ -112,6 +112,7 @@ import {
   chatThread,
   clearChat,
   clearImprove,
+  currentChoice,
   findRun,
   improveThread,
   sendChat,
@@ -141,6 +142,7 @@ import {
   acceptProposals,
   dropEveryCase,
   dropProposals,
+  proposeChecks,
   proposedChecks,
   restoreEveryCase,
   restoreProposals,
@@ -523,6 +525,11 @@ export const parsers: { [K in OperationName]: (raw: Raw) => Input<K> } = {
   'skill.deleteCase': (raw) => ({ ...scoped(raw), id: assertSafe(str(raw.id), 'case') }),
   'skill.duplicateCase': (raw) => ({ ...scoped(raw), id: assertSafe(str(raw.id), 'case') }),
   'proposals.read': scoped,
+  'proposals.suggest': (raw) => {
+    const cases = Array.isArray(raw.cases) ? raw.cases.map((c) => assertSafe(str(c), 'case')) : []
+    if (!cases.length) throw new Error('Name the cases to read.')
+    return { ...scoped(raw), cases }
+  },
   'proposals.decide': (raw) => ({
     ...scoped(raw),
     case: raw.case == null ? null : assertSafe(str(raw.case), 'case'),
@@ -897,6 +904,28 @@ export function createOperations(options: OperationsOptions): Runners {
     },
     'skill.duplicateCase': (input) => ({ id: duplicateCase(skillOf(input).path, input.id) }),
     'proposals.read': (input) => ({ proposals: proposedChecks(skillOf(input).path) }),
+    'proposals.suggest': async (input) => {
+      const { path } = skillOf(input)
+      const choice = await currentChoice()
+      const result = await proposeChecks(path, {
+        ...choice,
+        cases: input.cases,
+        again: false,
+        parallel: 2,
+        jev: Jev.available() ? new Jev() : null,
+        inline: true,
+        log: () => {},
+        signal: new AbortController().signal,
+      })
+      return {
+        cases: result.cases.map((c) => ({
+          case: c.case,
+          suggested: c.proposals.filter((p) => p.state === 'proposed').length,
+          skipped: c.skipped,
+          error: c.error,
+        })),
+      }
+    },
     'proposals.decide': (input) => {
       const { path } = skillOf(input)
       const ids = [input.id]

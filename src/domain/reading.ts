@@ -443,3 +443,56 @@ For each output, answer every rule and check listed under "Answer each of these"
 Then, under "findings", list at most three things per output that are wrong with it for the person who asked, and that no rule or check on the sheet asks about. For each, "check" is one statement that would catch it, which a reader could answer yes or no by reading the output. List none when nothing is wrong.
 
 "note" is one or two plain sentences on the outputs as a whole: the main thing they get right or wrong.`
+
+/**
+ * A brief with each of its sentences `swaps` names put another way; throws
+ * when one is no longer there, so a change to the brief cannot drop a swap
+ * unseen. How a brief for a folder becomes one for a single message.
+ */
+export function swapped(brief: string, swaps: ReadonlyArray<readonly [string, string]>): string {
+  return swaps.reduce((text, [from, to]) => {
+    if (!text.includes(from)) throw new Error(`The brief no longer says: ${from}`)
+    return text.replace(from, to)
+  }, brief)
+}
+
+/**
+ * A room's files as one message, each in a <file> block named by its path,
+ * in the order `readFirst` names (by path or by folder, then the rest by
+ * path), then what to do. A file's text goes in as it is, so a quote copied
+ * from it is held against the same text.
+ */
+export function filesMessage(
+  files: ReadonlyArray<{ path: string; text: string }>,
+  prompt: string,
+  readFirst: readonly string[],
+): string {
+  const placeOf = (path: string): number => {
+    const i = readFirst.findIndex((first) => path === first || path.startsWith(first))
+    return i < 0 ? readFirst.length : i
+  }
+  const ordered = [...files].sort(
+    (a, b) => placeOf(a.path) - placeOf(b.path) || a.path.localeCompare(b.path),
+  )
+  const blocks = ordered.map(
+    ({ path, text }) => `<file path="${path}">\n${text.trimEnd()}\n</file>`,
+  )
+  return `${blocks.join('\n\n')}\n\n${prompt.replace(/^Read /, 'Read, in the files above, ')}`
+}
+
+/** `READING_BRIEF` for one message that holds the room's files: a page's picture is not sent, so it is read from its layout. */
+export const READING_BRIEF_INLINE = swapped(READING_BRIEF, [
+  [
+    'You are started in a folder that holds one request and the outputs written for it. You can only read files in this folder.',
+    'The message holds one request and the outputs written for it, as files: each is in a <file> block named by its path.',
+  ],
+  ['What the folder holds:', 'What the files are:'],
+  [
+    ', page.png is its page as a browser drew it, and layout.txt lists',
+    ', and layout.txt, for a page, lists',
+  ],
+  ['For how a page looks, look at page.png. ', 'For how a page looks, read layout.txt. '],
+])
+
+/** The order a reading room is read in: the sheet and what was asked, the skill, then the outputs. */
+export const READING_FIRST = ['sheet.md', 'request.md', 'inputs/', 'skill/'] as const

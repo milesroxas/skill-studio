@@ -10,7 +10,7 @@
  *   st compare [skill] <runA> <runB>
  *   st read [skill] --run <name> [--blind] [--model sonnet] [--out <file>] [--answers <file>]
  *   st sort [skill] [--again] [--model <id>]
- *   st propose [skill] [--cases a,b] [--again] [--all] | [--case <id>] --accept <ids> | --drop <ids>
+ *   st propose [skill] [--cases a,b] [--again] [--all] [--deep] | [--case <id>] --accept <ids> | --drop <ids>
  *   st self-test [skill] [--no-jev]
  *   st versions [skill]
  *   st serve [skill...] [--port 4400] [--tailscale [--tailscale-port 8443]]
@@ -101,6 +101,8 @@ Commands
     --model <id>              The model to ask (default sonnet), on Claude Code.
     --effort <level>          Its effort; default the model's own.
     --parallel <n>            Cases read at once (default 2).
+    --deep                    Have a session read each case's files in a folder, pages as
+                              drawn, instead of sending them in one message. Costs far more.
     --out <file>              Also write the reading to this file, as JSON.
     --answers <file>          Count its answers against the ones in this file, not against
                               yours: JSON by output, then by rule or check.
@@ -119,6 +121,8 @@ Commands
     --model <id>              The model to ask (default sonnet), on Claude Code.
     --effort <level>          Its effort; default the model's own.
     --parallel <n>            Cases read at once (default 2).
+    --deep                    Have a session read each case's files in a folder, pages as
+                              drawn, instead of sending them in one message. Costs far more.
     --all                     Also list the proposals every answer already meets, the note
                               fact by fact, and what was left out.
     --case <id> --accept <ids>  Add these proposals to the case's checks.
@@ -163,6 +167,7 @@ const OPTIONS = {
   all: { type: 'boolean' },
   blind: { type: 'boolean' },
   again: { type: 'boolean' },
+  deep: { type: 'boolean' },
   case: { type: 'string' },
   accept: { type: 'string' },
   drop: { type: 'string' },
@@ -847,6 +852,7 @@ async function main(): Promise<number> {
           ? { answers: JSON.parse(readFileSync(resolve(values.answers), 'utf8')) }
           : {}),
         parallel: countOf(values.parallel, '--parallel') ?? 2,
+        inline: !values.deep,
         log: (line) => console.error(line),
         signal: lifecycle?.signal ?? new AbortController().signal,
       }),
@@ -891,6 +897,7 @@ async function main(): Promise<number> {
         again: Boolean(values.again),
         parallel: countOf(values.parallel, '--parallel') ?? 2,
         jev: wantsJev && Jev.available() ? new Jev(values['jev-model']) : null,
+        inline: !values.deep,
         log: (line) => console.error(line),
         signal: lifecycle?.signal ?? new AbortController().signal,
       }),

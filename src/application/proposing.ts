@@ -35,6 +35,8 @@ import {
   type Parsed,
   PROPOSALS_MAX,
   PROPOSE_BRIEF,
+  PROPOSE_BRIEF_INLINE,
+  PROPOSE_FIRST,
   PROPOSE_PROMPT,
   PROPOSE_PROMPT_VERSION,
   PROPOSE_SCHEMA,
@@ -50,6 +52,7 @@ import {
   unlistedOf,
   wordsOf,
 } from '@domain/proposal.ts'
+import { filesMessage } from '@domain/reading.ts'
 import { parseSampleDir } from '@domain/run-name.ts'
 import type { Case } from '@domain/schemas.ts'
 import type { Sample } from '@domain/views.ts'
@@ -83,6 +86,7 @@ import {
   storeCaseRead,
   storeEvery,
 } from '@infrastructure/proposals.ts'
+import { roomText } from '@infrastructure/reading-room.ts'
 import { askStamp } from '@infrastructure/rule-readings.ts'
 import { readKept, takenCase } from '@infrastructure/run-cases.ts'
 import { readRunMeta, runDir, runSamples, runsDir } from '@infrastructure/runs.ts'
@@ -112,6 +116,13 @@ export interface ProposeOptions {
   parallel: number
   /** Jev, to check each proposal's words and to join proposals that say the same; null to ask nothing of it. */
   jev: JevAsker | null
+  /**
+   * Send each case's material to the model in one message, with no tools
+   * (true), or start a session that reads it in a folder (false: `--deep`).
+   * The message costs a small part of the session, which pays for its tools'
+   * instructions on every step it takes; the session sees a page as drawn.
+   */
+  inline: boolean
   log: (line: string) => void
   signal: AbortSignal
 }
@@ -488,11 +499,11 @@ export async function proposeChecks(
   options: ProposeOptions,
 ): Promise<ProposeResult> {
   const provider = aiProvider(options.provider)
-  if (!provider.readFolder)
+  const read = provider.readFolder
+  if (!options.inline && !read)
     throw new Error(
       `${options.provider} cannot be held to reading one folder yet. Use claude-code.`,
     )
-  const read = provider.readFolder
   const live = loadCases(skillDir)
   for (const id of options.cases)
     if (!live.some((c) => c.id === id)) throw new Error(`No case named ${id}.`)
@@ -579,15 +590,28 @@ export async function proposeChecks(
     let usage = NO_USAGE
     const session = async (prompt: string): Promise<string> => {
       try {
-        const reply = await read({
-          model: options.model,
-          effort: options.effort,
-          system: PROPOSE_BRIEF,
-          prompt,
-          dir: room.dir,
-          schema: PROPOSE_SCHEMA,
-          signal: options.signal,
-        })
+        const reply =
+          options.inline || !read
+            ? await provider.run({
+                model: options.model,
+                effort: options.effort,
+                system: PROPOSE_BRIEF_INLINE,
+                messages: [
+                  { role: 'user', text: filesMessage(roomText(room.dir), prompt, PROPOSE_FIRST) },
+                ],
+                schema: PROPOSE_SCHEMA,
+                signal: options.signal,
+                onText: () => {},
+              })
+            : await read({
+                model: options.model,
+                effort: options.effort,
+                system: PROPOSE_BRIEF,
+                prompt,
+                dir: room.dir,
+                schema: PROPOSE_SCHEMA,
+                signal: options.signal,
+              })
         usage = add(usage, reply.usage)
         model = reply.model
         spent(options.provider, reply.model, reply.usage)

@@ -71,7 +71,7 @@ import { NavButton, NavButtonMeta, NavButtonTitle } from '../components/NavButto
 import { ContextActions, RowAction } from '../components/RowActions.tsx'
 import { RunSizeMeter, RunSizeRail, RunSizeStrip, runSize } from '../components/RunSize.tsx'
 import { Segmented } from '../components/Segmented.tsx'
-import { SuggestedChecks } from '../components/SuggestedChecks.tsx'
+import { SuggestedChecks, useReadRuns } from '../components/SuggestedChecks.tsx'
 import { ExampleList, GuideBox, PairList } from '../components/starters.tsx'
 import { TextArea } from '../components/TextArea.tsx'
 import { Code, Heading, Hint, Text } from '../components/text.tsx'
@@ -176,6 +176,8 @@ export const Cases = memo(function Cases({ ctx }: { ctx: Ctx }) {
   const setDraft = (next: CaseDraft) =>
     drafts.setCase(key, JSON.stringify(next) === baseJson ? null : next, held ? undefined : savedAt)
   const set = (patch: Partial<CaseDraft>) => setDraft({ ...draft, ...patch })
+  // Once the case has runs, Write checks with AI reads them and suggests checks in the call-out.
+  const readRuns = useReadRuns(ctx, selected?.id ?? null)
 
   /** The case in view, for a step that ends later: it goes on only where it began. */
   const inView = useRef(key)
@@ -690,14 +692,17 @@ export const Cases = memo(function Cases({ ctx }: { ctx: Ctx }) {
         examples={kind.cases[0]?.graders.map((g) => g.statement) ?? []}
         assist={assist}
         report={report}
+        writeWithAi={readRuns.writeWithAi}
       />
       {/* A saved case only: the assistant reads a case's answers, and a new one has none. Keyed by
-          the case, so Show opened on one case is closed on the next. */}
+          the case, so a row's Why opened on one case is closed on the next. */}
       {selected ? (
         <SuggestedChecks
-          key={`${skill}\n${key}`}
+          // Not the check list's key: two siblings with one key leave the last case's list behind.
+          key={`suggested\n${skill}\n${key}`}
           ctx={ctx}
           caseId={selected.id}
+          reading={readRuns.reading}
           statements={draft.graders.map((g) => g.statement)}
           onAdd={(statement) =>
             set({

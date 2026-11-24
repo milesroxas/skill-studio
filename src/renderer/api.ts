@@ -157,6 +157,8 @@ export const api = {
     call('skill.correct', scoped({ key, verdict, met })),
   /** The checks proposed for the skill's cases, those for every case first. */
   proposals: () => call('proposals.read', scoped({})),
+  /** Have the assistant read these cases' latest answers and suggest checks; resolves once each is read. */
+  suggestChecks: (cases: string[]) => call('proposals.suggest', scoped({ cases })),
   /**
    * Add one proposed check to its case, or to every case where `caseId` is
    * null, turn it down, or propose again one turned down (the Undo of a drop).

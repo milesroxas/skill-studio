@@ -130,3 +130,14 @@ export function makeRoom(input: RoomInput): Room {
     throw error
   }
 }
+
+/**
+ * Every file in a room a model reads as text, by its path in the room: all
+ * but pictures. What a session reading the folder would find, for a model
+ * sent it in one message instead.
+ */
+export function roomText(dir: string): Array<{ path: string; text: string }> {
+  return treeFiles(dir)
+    .filter(({ rel }) => !/\.(png|jpe?g|webp|gif)$/i.test(rel))
+    .map(({ rel, real }) => ({ path: rel.replace(/\\/g, '/'), text: readFileSync(real, 'utf8') }))
+}

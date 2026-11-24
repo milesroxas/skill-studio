@@ -24,11 +24,23 @@ const session = vi.hoisted(() => ({
   requests: [] as AiFolderRequest[],
   sheets: [] as string[],
   skillSeen: [] as boolean[],
+  /** One message's text and brief, when the material is sent in one. */
+  messages: [] as string[],
+  systems: [] as string[],
   reply: (_request: AiFolderRequest, _turn: number): string => '{"proposals":[]}',
 }))
 
 vi.mock('@infrastructure/ai/index.ts', () => ({
   aiProvider: () => ({
+    run: async (request: { system: string; messages: Array<{ text: string }> }) => {
+      session.messages.push(request.messages[0]?.text ?? '')
+      session.systems.push(request.system)
+      return {
+        text: session.reply({ dir: '' } as AiFolderRequest, session.messages.length),
+        model: 'claude-test',
+        usage: { input: 100, output: 10 },
+      }
+    },
     readFolder: async (request: AiFolderRequest) => {
       session.requests.push(request)
       session.sheets.push(readFileSync(join(request.dir, 'sheet.md'), 'utf8'))
@@ -82,6 +94,7 @@ const options = (over: Record<string, unknown> = {}) => ({
   again: false,
   parallel: 1,
   jev: null as JevAsker | null,
+  inline: false,
   log: () => {},
   signal: new AbortController().signal,
   ...over,
@@ -144,6 +157,8 @@ beforeEach(() => {
   session.requests = []
   session.sheets = []
   session.skillSeen = []
+  session.messages = []
+  session.systems = []
   session.reply = () => reply()
 })
 
@@ -171,6 +186,42 @@ describe('the answers read', () => {
     const result = await proposeChecks(dir, options())
     expect(result.cases[0].skipped).toContain('No run has an answer')
     expect(session.requests).toHaveLength(0)
+  })
+})
+
+describe('in one message', () => {
+  it("sends the room's files in one message, with no tools and nothing of the skill, and keeps what it proposes", async () => {
+    const dir = skill()
+    session.reply = () => {
+      const message = session.messages.at(-1) ?? ''
+      return reply({
+        check: 'The email says the update costs nothing for anyone on a paid plan.',
+        why: 'A reader on a paid plan wants to know whether to pay.',
+        scope: 'case',
+        basis_file: 'inputs/brief.md',
+        basis_quote: 'The update is free for everyone on a paid plan.',
+        answer: '',
+        fault_file: '',
+        fault_quote: '',
+        meets: lettersIn(message).map((l) => ({ answer: l, meets: 'yes' })),
+      })
+    }
+    const result = await proposeChecks(dir, options({ inline: true }))
+    expect(session.requests).toEqual([])
+    expect(session.messages).toHaveLength(1)
+    const [message] = session.messages
+    // What was asked comes first, then the answers; a page's picture is never sent.
+    const paths = [...message.matchAll(/<file path="([^"]+)">/g)].map((m) => m[1])
+    expect(paths.slice(0, 2)).toEqual(['sheet.md', 'request.md'])
+    expect(paths).toContain('inputs/brief.md')
+    expect(paths.some((path) => /^[A-Z]\/outputs\/email\.txt$/.test(path))).toBe(true)
+    expect(paths.some((path) => path.endsWith('.png'))).toBe(false)
+    expect(message).not.toContain('name: launch-note')
+    expect(session.systems[0]).toContain('The message holds one request')
+    expect(session.systems[0]).not.toContain('You can only read files in this folder')
+    expect(result.cases[0].proposals.map((p) => p.check)).toEqual([
+      'The email says the update costs nothing for anyone on a paid plan.',
+    ])
   })
 })
 

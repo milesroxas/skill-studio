@@ -128,3 +128,115 @@ export function useSwap<T>(initial: T): { view: T; leaving: boolean; swap: (next
   }
   return { ...state, swap }
 }
+
+/** How long a block takes to fold away (`animate-fold`): it stays on screen that long. */
+const FOLD_MS = 180
+
+/** One item of a list as `usePresence` shows it: on its way in, at rest, or on its way out. */
+export interface Present<T> {
+  item: T
+  key: string
+  /** It came in the list's last change, which the reader could watch: it unfolds in. */
+  arrived: boolean
+  /** It is gone from the list and folds away, in the place it had. */
+  leaving: boolean
+}
+
+/**
+ * A list as it is drawn while items come and go: one that left stays, in the
+ * place it had, for `FOLD_MS` while it folds away, and one that came in the
+ * last change arrives. What the list held when it was first drawn rests, and
+ * so does all it holds when it is first filled from nothing, as a list read
+ * from the backend is. One that comes back while it leaves stops leaving.
+ * With movement reduced nothing stays behind.
+ */
+export function usePresence<T>(items: readonly T[], keyOf: (item: T) => string): Present<T>[] {
+  const signature = items.map(keyOf).join('\n')
+  const [state, setState] = useState<PresenceState<T>>(() => ({
+    signature,
+    items,
+    fresh: new Set(),
+    leaving: [],
+  }))
+  if (state.signature !== signature) setState(nextPresence(state, items, keyOf, reducedMotion()))
+  const leavingKeys = state.leaving.map((entry) => entry.key).join('\n')
+  useEffect(() => {
+    if (!leavingKeys) return
+    const timer = setTimeout(() => setState((was) => ({ ...was, leaving: [] })), FOLD_MS)
+    return () => clearTimeout(timer)
+  }, [leavingKeys])
+  return drawnList(state, items, keyOf)
+}
+
+/** What `usePresence` keeps between renders: the list as last drawn, what came in its last change, and what is leaving. */
+export interface PresenceState<T> {
+  signature: string
+  items: readonly T[]
+  fresh: ReadonlySet<string>
+  leaving: ReadonlyArray<{ item: T; key: string; index: number }>
+}
+
+/**
+ * The state once the list changed to `items`: what came is fresh, unless the
+ * list was empty (filled from nothing, it is read, not changed); what went
+ * leaves from the place it had, unless movement is reduced; what came back
+ * stops leaving.
+ */
+export function nextPresence<T>(
+  state: PresenceState<T>,
+  items: readonly T[],
+  keyOf: (item: T) => string,
+  reduced: boolean,
+): PresenceState<T> {
+  const keys = items.map(keyOf)
+  const before = new Set(state.items.map(keyOf))
+  const now = new Set(keys)
+  const gone = state.items
+    .map((item, index) => ({ item, key: keyOf(item), index }))
+    .filter((entry) => !now.has(entry.key))
+  return {
+    signature: keys.join('\n'),
+    items,
+    fresh: before.size ? new Set(keys.filter((key) => !before.has(key))) : new Set(),
+    leaving: reduced ? [] : [...state.leaving.filter((entry) => !now.has(entry.key)), ...gone],
+  }
+}
+
+/** The list to draw: `items`, with each one leaving put back in the place it had. */
+export function drawnList<T>(
+  state: PresenceState<T>,
+  items: readonly T[],
+  keyOf: (item: T) => string,
+): Present<T>[] {
+  const shown: Present<T>[] = items.map((item) => {
+    const key = keyOf(item)
+    return { item, key, arrived: state.fresh.has(key), leaving: false }
+  })
+  for (const entry of [...state.leaving].sort((a, b) => a.index - b.index))
+    shown.splice(Math.min(entry.index, shown.length), 0, {
+      item: entry.item,
+      key: entry.key,
+      arrived: false,
+      leaving: true,
+    })
+  return shown
+}
+
+/**
+ * Whether something that comes and goes is drawn: it stays for `FOLD_MS`
+ * after it is gone, so it can fold away. With movement reduced it goes at once.
+ */
+export function useStaying(present: boolean): boolean {
+  const [staying, setStaying] = useState(present)
+  if (present && !staying) setStaying(true)
+  useEffect(() => {
+    if (present || !staying) return
+    if (reducedMotion()) {
+      setStaying(false)
+      return
+    }
+    const timer = setTimeout(() => setStaying(false), FOLD_MS)
+    return () => clearTimeout(timer)
+  }, [present, staying])
+  return present || staying
+}

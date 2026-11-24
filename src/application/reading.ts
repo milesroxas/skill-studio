@@ -15,15 +15,18 @@ import {
   checkedFindings,
   checkedMarks,
   type Finding,
+  filesMessage,
   parseReading,
   READING_BRIEF,
+  READING_BRIEF_INLINE,
+  READING_FIRST,
   READING_SCHEMA,
   readFacts,
 } from '@domain/reading.ts'
 import { aiProvider } from '@infrastructure/ai/index.ts'
 import { recordUsage } from '@infrastructure/ai/store.ts'
 import { loadCases } from '@infrastructure/cases.ts'
-import { makeRoom, type RoomSample } from '@infrastructure/reading-room.ts'
+import { makeRoom, type RoomSample, roomText } from '@infrastructure/reading-room.ts'
 import { readKept, takenCase } from '@infrastructure/run-cases.ts'
 import { readRun, runDir } from '@infrastructure/runs.ts'
 import { correctionsOf, runVerdicts } from './grade.ts'
@@ -45,6 +48,12 @@ export interface ReadingOptions {
   answers?: Readonly<Record<string, Readonly<Record<string, boolean>>>>
   /** Sessions in flight at once. */
   parallel: number
+  /**
+   * Send each case's room to the model in one message, with no tools (true),
+   * or start a session that reads it in a folder (false: `--deep`), which
+   * sees a page as drawn and costs far more.
+   */
+  inline: boolean
   log: (line: string) => void
   signal: AbortSignal
 }
@@ -111,11 +120,11 @@ export async function readingOfRun(
   options: ReadingOptions,
 ): Promise<RunReading> {
   const provider = aiProvider(options.provider)
-  if (!provider.readFolder)
+  const read = provider.readFolder
+  if (!options.inline && !read)
     throw new Error(
       `${options.provider} cannot be held to reading one folder yet. Use claude-code.`,
     )
-  const read = provider.readFolder
   const live = loadCases(skillDir)
   const view = readRun(skillDir, run, live)
   if (!view.report) throw new Error(`${run} is not graded. Run: st grade --run ${run}`)
@@ -180,15 +189,28 @@ export async function readingOfRun(
       if (options.signal.aborted) return { ...base, asked, error: 'Stopped.' }
       options.log(`${id}: reading ${samples.length} output(s), ${asked} to answer.`)
       const begun = Date.now()
-      const reply = await read({
-        model: options.model,
-        effort: options.effort,
-        system: READING_BRIEF,
-        prompt: PROMPT,
-        dir: room.dir,
-        schema: READING_SCHEMA,
-        signal: options.signal,
-      })
+      const reply =
+        options.inline || !read
+          ? await provider.run({
+              model: options.model,
+              effort: options.effort,
+              system: READING_BRIEF_INLINE,
+              messages: [
+                { role: 'user', text: filesMessage(roomText(room.dir), PROMPT, READING_FIRST) },
+              ],
+              schema: READING_SCHEMA,
+              signal: options.signal,
+              onText: () => {},
+            })
+          : await read({
+              model: options.model,
+              effort: options.effort,
+              system: READING_BRIEF,
+              prompt: PROMPT,
+              dir: room.dir,
+              schema: READING_SCHEMA,
+              signal: options.signal,
+            })
       model = reply.model
       try {
         recordUsage({

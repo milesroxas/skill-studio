@@ -88,6 +88,7 @@ const options = (over: Partial<Parameters<typeof readingOfRun>[2]> = {}) => ({
   effort: '',
   cases: [],
   blind: false,
+  inline: false,
   parallel: 2,
   log: () => {},
   signal: new AbortController().signal,

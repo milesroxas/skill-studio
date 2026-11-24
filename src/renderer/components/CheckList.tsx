@@ -11,6 +11,7 @@ import { assistItems } from '@domain/assist.ts'
 import { DOUBLE, newCheck, weightMark } from '@domain/case-draft.ts'
 import type { ImageRef } from '@domain/image.ts'
 import type { CaseDraft } from '@domain/schemas.ts'
+import { cva } from 'class-variance-authority'
 import { PenLineIcon, PlusIcon, XIcon } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import type { Reporter } from '../hooks.ts'
@@ -36,15 +37,38 @@ const rowKey = (): string => `row-${++made}`
  */
 function useRowKeys(count: number) {
   const keys = useRef<string[]>([])
+  const drawn = useRef(false)
+  /** Rows the list got from outside since it was first drawn, such as a suggestion added: they unfold in. */
+  const [arrived, setArrived] = useState<ReadonlySet<string>>(new Set())
+  const fresh: string[] = []
   // A list changed from outside, by an example or the assistant: names for the rows it has now.
-  while (keys.current.length < count) keys.current.push(rowKey())
+  while (keys.current.length < count) {
+    const key = rowKey()
+    keys.current.push(key)
+    if (drawn.current) fresh.push(key)
+  }
   keys.current.length = count
+  if (fresh.length) setArrived((was) => new Set([...was, ...fresh]))
+  useEffect(() => {
+    drawn.current = true
+  })
+  // Once it has unfolded, a row is at rest: nothing of the unfolding is left on it.
+  useEffect(() => {
+    if (!arrived.size) return
+    const timer = setTimeout(() => setArrived(new Set()), UNFOLD_MS)
+    return () => clearTimeout(timer)
+  }, [arrived])
   return {
     keys: keys.current,
+    // A row typed in, by Enter or Add a check, is the reader's own step: it is there at once.
     added: (at: number) => keys.current.splice(at, 0, rowKey()),
     removed: (at: number) => keys.current.splice(at, 1),
+    arrived: (key: string | undefined) => key !== undefined && arrived.has(key),
   }
 }
+
+/** How long a row that comes from outside takes to unfold (`animate-unfold`). */
+const UNFOLD_MS = 260
 
 export function CheckList({
   graders,
@@ -52,6 +76,7 @@ export function CheckList({
   examples,
   assist,
   report,
+  writeWithAi,
 }: {
   graders: Check[]
   onChange: (graders: Check[]) => void
@@ -60,6 +85,8 @@ export function CheckList({
   /** What the assistant reads when it writes checks for the list: the skill, the case as typed, its pictures. */
   assist: Omit<AssistSpec, 'field'>
   report: Reporter
+  /** What stands in place of Write checks with AI, once the case has runs to read: see `useReadRuns`. */
+  writeWithAi?: React.ReactNode
 }) {
   const rows = useRowKeys(graders.length)
   /** The list as it stands when an Undo is taken, which may be a few edits after it was offered; null once this case is left. */
@@ -143,7 +170,7 @@ export function CheckList({
     <Stack gap="md">
       <PlainList as="ol" gap="md">
         {graders.map((g, i) => (
-          <CheckLine key={rows.keys[i]} index={i + 1}>
+          <CheckLine key={rows.keys[i]} index={i + 1} arrived={rows.arrived(rows.keys[i])}>
             <CheckStatement
               index={i + 1}
               fieldRef={(el) => {
@@ -193,19 +220,21 @@ export function CheckList({
           <PlusIcon aria-hidden="true" />
           Add a check
         </Button>
-        <Assist
-          field="case.checks"
-          value=""
-          // It opens under the row of buttons, never over the checks it adds to.
-          anchor={tools}
-          {...assist}
-          onApply={(text) => addAll(assistItems(text))}
-        >
-          <Button type="button" variant="ghost" size="sm">
-            <PenLineIcon aria-hidden="true" />
-            {assistTitle('case.checks')}
-          </Button>
-        </Assist>
+        {writeWithAi ?? (
+          <Assist
+            field="case.checks"
+            value=""
+            // It opens under the row of buttons, never over the checks it adds to.
+            anchor={tools}
+            {...assist}
+            onApply={(text) => addAll(assistItems(text))}
+          >
+            <Button type="button" variant="ghost" size="sm">
+              <PenLineIcon aria-hidden="true" />
+              {assistTitle('case.checks')}
+            </Button>
+          </Assist>
+        )}
       </Toolbar>
     </Stack>
   )
@@ -315,15 +344,44 @@ const checkLine = 'relative -mr-2.5 grid grid-cols-[minmax(0,1fr)_auto_36px] ite
 /** The check's number, in the margin, centred on the first line of its 36px controls. */
 const checkIndex = 'absolute top-0 right-full mr-2 flex h-9 items-center'
 
-function CheckLine({ index, children }: { index: number; children: React.ReactNode }) {
+/**
+ * A row that comes from outside unfolds: its height grows as it fades in, so
+ * the rows and the form under it move down with it rather than jump. While it
+ * does, a clip as wide as the row's number and its remove button keeps what
+ * grows inside it; once it has, the row is plain again.
+ */
+const arrivalVariants = cva('', {
+  variants: {
+    arrived: { true: 'grid animate-unfold', false: '' },
+  },
+})
+const clipVariants = cva('', {
+  variants: {
+    arrived: { true: '-mr-3 -ml-8 min-h-0 overflow-hidden pr-3 pl-8', false: '' },
+  },
+})
+
+function CheckLine({
+  index,
+  arrived,
+  children,
+}: {
+  index: number
+  arrived: boolean
+  children: React.ReactNode
+}) {
   return (
-    <li className={checkLine}>
-      <span className={checkIndex}>
-        <Text tone="faint" font="mono" size="xs" weight="medium" tabular>
-          {index}
-        </Text>
-      </span>
-      {children}
+    <li className={arrivalVariants({ arrived })}>
+      <div className={clipVariants({ arrived })}>
+        <div className={checkLine}>
+          <span className={checkIndex}>
+            <Text tone="faint" font="mono" size="xs" weight="medium" tabular>
+              {index}
+            </Text>
+          </span>
+          {children}
+        </div>
+      </div>
     </li>
   )
 }

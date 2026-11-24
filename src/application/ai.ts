@@ -178,7 +178,8 @@ const choiceNow = async (): Promise<AiChoice | null> =>
   resolveChoice(aiChoiceOf(readPreferences()), await aiProviderInfo())
 
 /** The model in use, or why there is none. */
-async function currentChoice(): Promise<AiChoice> {
+/** The provider, model and effort the person chose in Settings; throws while none is set up. */
+export async function currentChoice(): Promise<AiChoice> {
   const choice = await choiceNow()
   if (!choice) throw new Error('Set up the assistant in Settings first.')
   return choice

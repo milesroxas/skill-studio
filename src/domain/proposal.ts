@@ -20,7 +20,7 @@
  * check or proposal it says covers the fact must be one there is. Pure data
  * and functions.
  */
-import { quoteHolds } from './reading.ts'
+import { quoteHolds, swapped } from './reading.ts'
 import { CHECK_EXAMPLES } from './templates.ts'
 
 /**
@@ -166,6 +166,34 @@ export function proposalSheet(input: {
 /** What the session is asked to do once it starts. */
 export const PROPOSE_PROMPT =
   'Read sheet.md, then request.md, every file in inputs/, note.md, checks.md, earlier.md when it is there, and every answer the sheet names, and propose checks as your instructions say.'
+
+/**
+ * The brief for one message that holds the room's files, in place of a
+ * session that reads them in a folder (`filesMessage`). The same job and the
+ * same reply: only how the material comes differs. A page's picture is not
+ * sent, so the page is read as its file.
+ */
+export const PROPOSE_BRIEF_INLINE = swapped(PROPOSE_BRIEF, [
+  [
+    'You are started in a folder that holds one request the agent was given and the answers several agents wrote to it. You can only read files in this folder.',
+    'The message holds one request the agent was given and the answers several agents wrote to it, as files: each is in a <file> block named by its path.',
+  ],
+  ['What the folder holds:', 'What the files are:'],
+  [
+    'Its outputs/ holds the files the agent wrote, and page.png, when there is one, is its page as a browser drew it.',
+    'Its outputs/ holds the files the agent wrote.',
+  ],
+])
+
+/** The order a proposal room is read in: the sheet, what was asked, what is known of it, then the answers. */
+export const PROPOSE_FIRST = [
+  'sheet.md',
+  'request.md',
+  'inputs/',
+  'note.md',
+  'checks.md',
+  'earlier.md',
+] as const
 
 /** One proposal made for a case before, as `earlierSheet` shows it. */
 export interface EarlierProposal {

@@ -217,6 +217,23 @@ export interface Contract {
   'skill.deleteCase': { input: Scoped & { id: string }; output: { deleted: true } }
   /** Copy a folder case whole under a new id, which it returns. */
   'skill.duplicateCase': { input: Scoped & { id: string }; output: { id: string } }
+  /**
+   * Have the assistant read the named cases' latest answers and suggest
+   * checks, as `st propose` does, on the model chosen in Settings and in one
+   * message a case. A case read before and unchanged since asks nothing.
+   * Resolves once every case is read: what each came to, by case.
+   */
+  'proposals.suggest': {
+    input: Scoped & { cases: string[] }
+    output: {
+      cases: Array<{
+        case: string
+        suggested: number
+        skipped: string | null
+        error: string | null
+      }>
+    }
+  }
   /** The checks proposed for the skill's cases, as the last `st propose` kept them: those for every case first. */
   'proposals.read': { input: Scoped; output: { proposals: ProposedCheck[] } }
   /**

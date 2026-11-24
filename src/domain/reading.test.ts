@@ -7,13 +7,16 @@ import {
   checkedFindings,
   checkedMarks,
   factsAsked,
+  filesMessage,
   type Mark,
   parseReading,
   quoteHolds,
+  READING_BRIEF_INLINE,
   type ReadFact,
   type ReadOutput,
   readFacts,
   sheetText,
+  swapped,
 } from './reading.ts'
 import { codeVerdict, jevVerdict, unmarkableVerdict, verdictId } from './verdict.ts'
 
@@ -323,5 +326,37 @@ describe('sheetText', () => {
 
   it('never shows the reader’s own answer', () => {
     expect(sheetText([output(false)], false)).not.toMatch(/yours|true/)
+  })
+})
+
+describe('filesMessage', () => {
+  it('puts each file in a block, those named first in their order, the rest by path, then what to do', () => {
+    const message = filesMessage(
+      [
+        { path: 'B/outputs/email.txt', text: 'Second.\n' },
+        { path: 'request.md', text: 'Write it.' },
+        { path: 'A/outputs/email.txt', text: 'First.' },
+        { path: 'sheet.md', text: 'Read A and B.' },
+      ],
+      'Read sheet.md, then answer.',
+      ['sheet.md', 'request.md'],
+    )
+    expect([...message.matchAll(/<file path="([^"]+)">/g)].map((m) => m[1])).toEqual([
+      'sheet.md',
+      'request.md',
+      'A/outputs/email.txt',
+      'B/outputs/email.txt',
+    ])
+    expect(message).toContain('<file path="B/outputs/email.txt">\nSecond.\n</file>')
+    expect(message.endsWith('Read, in the files above, sheet.md, then answer.')).toBe(true)
+  })
+
+  it("swaps a brief's sentences, and refuses one it no longer holds", () => {
+    expect(swapped('You read a folder.', [['a folder', 'a message']])).toBe('You read a message.')
+    expect(() => swapped('You read a folder.', [['a shelf', 'a message']])).toThrow(
+      'no longer says: a shelf',
+    )
+    expect(READING_BRIEF_INLINE).toContain('The message holds one request')
+    expect(READING_BRIEF_INLINE).not.toContain('page.png')
   })
 })

@@ -369,7 +369,35 @@
    * is constant motion, not a transition.
    */
   --animate-hazard: hazard 560ms linear infinite;
+  /*
+   * A block coming into a flow, or leaving it: its height grows from nothing,
+   * or goes to nothing, as it fades, so what is under it moves with it and
+   * never jumps. On an element that is `display: grid` with one child that is
+   * `min-h-0`; leaving is quicker than coming. See docs/design/brand.md.
+   */
+  --animate-unfold: unfold 260ms var(--ease-out-strong) var(--delay) both;
+  --animate-fold: fold 180ms var(--ease-out-strong) var(--delay) both;
 
+  @keyframes unfold {
+    from {
+      grid-template-rows: 0fr;
+      opacity: 0;
+    }
+    to {
+      grid-template-rows: 1fr;
+      opacity: 1;
+    }
+  }
+  @keyframes fold {
+    from {
+      grid-template-rows: 1fr;
+      opacity: 1;
+    }
+    to {
+      grid-template-rows: 0fr;
+      opacity: 0;
+    }
+  }
   @keyframes rise {
     from {
       opacity: 0;
