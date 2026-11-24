@@ -216,11 +216,17 @@ export function TopBar({ className, children, ...props }: ComponentProps<'header
     <header
       data-drag
       className={cn(
-        'flex h-12 shrink-0 items-center gap-2 border-b px-4 sm:px-6 sm:pl-(--fold-lead) lg:gap-3 in-data-[platform=darwin]:max-sm:pl-21',
+        'relative flex h-12 shrink-0 items-center gap-2 border-b px-4 sm:px-6 sm:pl-(--fold-lead) lg:gap-3 in-data-[platform=darwin]:max-sm:pl-21',
         className,
       )}
       {...props}
     >
+      {/* Under the folded sidebar's fold button on a Mac: the bar must not drag there (`styles.css`). */}
+      <span
+        data-drag-hole=""
+        aria-hidden="true"
+        className="absolute inset-y-0 left-0 w-(--fold-hole) max-sm:hidden"
+      />
       {children}
     </header>
   )

@@ -202,6 +202,11 @@ function draw(p: Live, w: number): void {
       '--fold-lead',
       `${Math.max(BAR_PADDING, SIDEBAR_CLEAR - w)}px`,
     )
+    // The part of the top bar under the button, which must not drag the window.
+    document.documentElement.style.setProperty(
+      '--fold-hole',
+      `${isMac ? Math.max(0, SIDEBAR_BUTTON_END - w) : 0}px`,
+    )
     // The sidebar's fold button is on ink while the sidebar covers it, on the top bar once it folds past.
     if (button) {
       if (!isMac || w > SIDEBAR_BUTTON_END) button.dataset.surface = 'ink'

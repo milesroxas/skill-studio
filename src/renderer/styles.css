@@ -37,6 +37,8 @@
 :root {
   /* The top bar's leading padding, which `panels.ts` widens to clear the sidebar's fold button once the sidebar folds. */
   --fold-lead: 24px;
+  /* How far into the top bar the sidebar's fold button reaches on a Mac, so the bar's drag region leaves it a hole (`panels.ts`). */
+  --fold-hole: 0px;
   --background: oklch(0.961 0.01 94);
   --foreground: oklch(0.177 0.035 267.3);
   --card: oklch(0.985 0.005 95);
@@ -552,6 +554,16 @@
     -webkit-app-region: drag;
   }
   [data-platform="darwin"] [data-drag] :is(button, a, input, select, [role="tab"]) {
+    app-region: no-drag;
+    -webkit-app-region: no-drag;
+  }
+  /*
+   * Electron reads drag regions in page order, and a later drag region wins
+   * over an earlier no-drag one. The folded sidebar's fold button comes before
+   * the top bar in the page but stands over it, so the bar leaves a hole under
+   * it (`TopBar`), or the bar would take the click and move the window.
+   */
+  [data-platform="darwin"] [data-drag] [data-drag-hole] {
     app-region: no-drag;
     -webkit-app-region: no-drag;
   }

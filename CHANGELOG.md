@@ -6,6 +6,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+### Fixed
+
+- On a Mac, the button that shows the sidebar again works once the sidebar is folded. A click on it used to start moving the window instead.
+
 ## [0.20.0] - 2026-11-24
 
 ### Added
