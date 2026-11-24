@@ -23,8 +23,10 @@
  *
  * Each row has one action in the line under its text, named by what it does:
  * a row waiting for the reader's mark offers the mark, "Mark as met" and
- * "Mark as missed"; any other offers where its fix is, "Open rule" or "Edit
- * case". Everything a row can do is in its menu too, and on a right-click.
+ * "Mark as missed"; a broken rule SKILL.md still holds offers "Fix with AI"
+ * where the list can draft one (`FixWithAi`); any other offers where its fix
+ * is, "Open rule" or "Edit case". Everything else a row can do is in its menu
+ * too, and on a right-click.
  */
 import { weightMark } from '@domain/case-draft.ts'
 import { FIX_ORDER, type MissReason, placeMisses } from '@domain/fix-order.ts'
@@ -124,6 +126,8 @@ export interface VerdictsProps {
   onOpenSkill: () => void
   /** The case's own screen; null for a case since deleted. */
   onEditCase: (() => void) | null
+  /** Fix with AI on a broken rule, as the row's action; null where the list drafts no fix. */
+  fixRule?: ((verdict: Verdict) => ReactNode) | null
 }
 
 /** Where a row's fix is: the one action it shows, besides an answer. */
@@ -227,8 +231,11 @@ function Row({
   marks,
   pending,
   onCorrect,
+  fix = null,
 }: {
   verdict: Verdict
+  /** Fix with AI, the row's action in place of where its fix is, which stays in the menu. */
+  fix?: ReactNode
   /** The list holds both rules and checks, so each row names its kind. */
   mixed: boolean
   /** The other answer's letter and how it stands, where it stands otherwise. */
@@ -269,7 +276,7 @@ function Row({
           run: () => onCorrect(verdict, answer.met),
           disabled: waiting,
         }))
-      : go
+      : go && !fix
         ? [{ label: go.label, run: go.run }]
         : []
   const fold = useFold()
@@ -324,7 +331,7 @@ function Row({
             <span className="sr-only">{said}: </span>
             {verdict.text}
           </span>
-          {note || inline.length ? (
+          {note || inline.length || fix ? (
             // A button is lifted out of the line's height and pulled back by its own padding, so
             // the line stays 16px and a label that wraps starts where the text does.
             <span className="flex min-h-4 flex-wrap items-center gap-x-3.5">
@@ -345,6 +352,7 @@ function Row({
                   ))}
                 </span>
               ) : null}
+              {fix ? <span className="-my-1 -ml-2 flex">{fix}</span> : null}
             </span>
           ) : null}
         </span>
@@ -459,6 +467,7 @@ export function Verdicts({
   onOpenRule,
   onOpenSkill,
   onEditCase,
+  fixRule = null,
 }: VerdictsProps) {
   // An answer without the skill never saw the rules: they are not in its list.
   const verdicts = withSkill ? all : all.filter((v) => v.kind !== 'rule')
@@ -488,8 +497,9 @@ export function Verdicts({
       ? { letter: other.letter, verdict: theirs }
       : null
   }
-  const row = (v: Verdict, i: number, go: Go | null, marks = false) => (
+  const row = (v: Verdict, i: number, go: Go | null, marks = false, fix: ReactNode = null) => (
     <Row
+      fix={fix}
       // Two rules of one skill may read the same, so a fact's place in the list is part of its key.
       key={`${factKey(v.layer, v.id)}#${i}`}
       verdict={v}
@@ -529,7 +539,16 @@ export function Verdicts({
             title={REASON[g.why](g.rows.length > 1)}
             rest="to fix"
             action={whole ? openSkill : null}
-            rows={g.rows.map((v, i) => row(v, i, whole ? null : goOf(v)))}
+            rows={g.rows.map((v, i) =>
+              row(
+                v,
+                i,
+                whole ? null : goOf(v),
+                false,
+                // A rule SKILL.md no longer holds has nothing to fix in place.
+                !whole && v.kind === 'rule' && ruleStands(v.text) ? fixRule?.(v) : null,
+              ),
+            )}
           />
         )
       })}

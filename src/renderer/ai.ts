@@ -337,6 +337,10 @@ export async function startRefine(scene: RuleScene): Promise<RefineResult> {
 export const startRewrites = async (scene: RuleScene): Promise<AiRun> =>
   follow(await api.rewrites(scene))
 
+/** Fix with AI: draft a change to `rule`, which the attempt `sample` of `run` broke. */
+export const startFix = async (run: string, sample: string, rule: string): Promise<AiRun> =>
+  follow(await api.fix(run, sample, rule))
+
 /** The improve conversation, null when none is open, and why the last read of it failed. */
 export function useImprove(): { thread: ImproveThread | null; problem: string | null } {
   return {

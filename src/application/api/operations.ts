@@ -118,6 +118,7 @@ import {
   sendChat,
   sendImprove,
   startAssist,
+  startFix,
   startImprove,
   startRefine,
   startRewrites,
@@ -423,6 +424,16 @@ export const parsers: { [K in OperationName]: (raw: Raw) => Input<K> } = {
   'chat.clear': none,
   'ai.refine': sceneOf,
   'ai.rewrites': sceneOf,
+  'ai.fix': (raw) => {
+    const rule = str(raw.rule).trim()
+    if (!rule || rule.length > 20_000) throw new Error('Name the rule to fix.')
+    return {
+      ...scoped(raw),
+      run: assertSafe(str(raw.run), 'run'),
+      sample: assertSafe(str(raw.sample), 'sample'),
+      rule,
+    }
+  },
   'improve.read': none,
   'improve.start': sceneOf,
   'improve.send': (raw) => {
@@ -757,6 +768,13 @@ export function createOperations(options: OperationsOptions): Runners {
     'chat.clear': () => clearChat(),
     'ai.refine': (scene) => startRefine(scene),
     'ai.rewrites': (scene) => startRewrites(scene),
+    'ai.fix': (input) =>
+      startFix({
+        skillDir: skillOf(input).path,
+        run: input.run,
+        sample: input.sample,
+        rule: input.rule,
+      }),
     'improve.read': () => improveThread(),
     'improve.start': (scene) => startImprove(scene),
     'improve.send': ({ text, walk, current }) => sendImprove(text, { walk, current }),

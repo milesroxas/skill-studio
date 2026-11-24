@@ -54,6 +54,7 @@ import {
 } from '../model.ts'
 import { usePageSize } from '../stage.ts'
 import { Disclosure } from './Disclosure.tsx'
+import { FixWithAi } from './FixWithAi.tsx'
 import {
   ColumnBody,
   ColumnHeader,
@@ -651,7 +652,11 @@ function useCorrect(ctx: Ctx, output: Output) {
   return { pending, correct }
 }
 
-/** Where a list's rows go: a rule SKILL.md still holds, the skill, and the case while it stands. */
+/**
+ * Where a list's rows go: a rule SKILL.md still holds, the skill, and the case
+ * while it stands. An answer written with the skill offers Fix with AI on a
+ * rule it broke, while its case stands to be run again.
+ */
 function listActions(ctx: Ctx, output: Output) {
   const rules = new Set(ctx.state.rules.map((r) => r.text))
   const caseStands = ctx.state.cases.some((c) => c.id === output.caseId)
@@ -660,6 +665,10 @@ function listActions(ctx: Ctx, output: Output) {
     onOpenRule: (text: string) => ctx.go('editor', { file: 'SKILL.md', rule: text }),
     onOpenSkill: () => ctx.go('editor', { file: 'SKILL.md' }),
     onEditCase: caseStands ? () => ctx.go('cases', { id: output.caseId }) : null,
+    fixRule:
+      caseStands && !isWithoutSkill(output.run)
+        ? (verdict: Verdict) => <FixWithAi ctx={ctx} output={output} verdict={verdict} />
+        : null,
   }
 }
 

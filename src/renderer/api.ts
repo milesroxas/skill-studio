@@ -106,6 +106,7 @@ export const api = {
   refine: (scene: RuleScene) => call('ai.refine', scene),
   /** Suggest changes on a selected rule: one run whose finished text is the three rewrites. */
   rewrites: (scene: RuleScene) => call('ai.rewrites', scene),
+  fix: (run: string, sample: string, rule: string) => call('ai.fix', scoped({ run, sample, rule })),
   improve: () => call('improve.read', {}),
   improveStart: (scene: RuleScene) => call('improve.start', scene),
   improveSend: (text: string, how: { walk?: boolean; current?: string } = {}) =>

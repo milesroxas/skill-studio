@@ -2,14 +2,17 @@
  * The assistant's work. A request starts a run: one reply, written by the
  * model the preferences name, held here while it grows and for a while after.
  * Interfaces either poll a run or subscribe with `watchRuns`, which reports a
- * growing reply a few times a second and its end at once. Five kinds of run
+ * growing reply a few times a second and its end at once. Six kinds of run
  * exist: `assist` fills one field in the field's own shape, `chat` adds a
- * reply to the side panel's conversation, and `refine`, `rewrites` and
- * `improve` serve the three actions on a selected rule. For those, the lint
+ * reply to the side panel's conversation, `refine`, `rewrites` and
+ * `improve` serve the three actions on a selected rule, and `fix` drafts a
+ * change to a rule an answer broke, from Results. For those, the lint
  * and Jev decide what is wrong before any model writes, so a rule that
  * already complies costs no generative call at all.
  */
 import { randomUUID } from 'node:crypto'
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
 import {
   type AiChoice,
   type AiRun,
@@ -33,6 +36,7 @@ import {
   partialText,
 } from '@domain/assist.ts'
 import type { SlashCommand } from '@domain/commands.ts'
+import { FIX_SCHEMA, fixDraftOf, fixPrompt, fixText, ruleSource, sheetFiles } from '@domain/fix.ts'
 import type { ImageRef } from '@domain/image.ts'
 import {
   type AnswerReading,
@@ -76,6 +80,8 @@ import {
   isProviderError,
 } from '@infrastructure/ai/index.ts'
 import { readChat, readUsage, recordUsage, writeChat } from '@infrastructure/ai/store.ts'
+import { answerText } from '@infrastructure/answer-files.ts'
+import { loadCases } from '@infrastructure/cases.ts'
 import { findImage, type StoredImage } from '@infrastructure/images.ts'
 import { readPreferences } from '@infrastructure/preferences.ts'
 import { isAuthError, Jev } from '@judges/jev.ts'
@@ -562,6 +568,43 @@ export async function startRefine(scene: RuleScene): Promise<RefineResult> {
     },
   })
   return { findings, judged, run }
+}
+
+/** What Fix with AI is asked for: one rule an attempt of a run broke, by its words. */
+export interface FixRequest {
+  skillDir: string
+  run: string
+  sample: string
+  rule: string
+}
+
+/**
+ * Fix with AI: one reply, from a short sheet of what the answer wrote, that
+ * says what broke the rule and gives the rule's new text. The finished run's
+ * text is the `FixDraft` as JSON. Throws before anything is spent when the
+ * rule is no longer in SKILL.md as the run read it.
+ */
+export async function startFix(request: FixRequest): Promise<AiRun> {
+  const choice = await currentChoice()
+  const skillMd = readFileSync(join(request.skillDir, 'SKILL.md'), 'utf8')
+  const rule = ruleSource(skillMd, request.rule)
+  if (!rule) throw new Error('This rule has changed since the run. Open it to edit it yourself.')
+  const answer = answerText(request.skillDir, request.run, request.sample)
+  const testCase = loadCases(request.skillDir).find((c) => c.id === answer.caseId)
+  const { system, user } = fixPrompt({
+    rule,
+    request: testCase?.prompt ?? '',
+    answer: sheetFiles(answer.files),
+  })
+  return start({
+    kind: 'fix',
+    choice,
+    system,
+    messages: [{ role: 'user', text: user }],
+    schema: FIX_SCHEMA,
+    preview: (raw) => partialText(raw, 'why'),
+    finish: (raw) => fixText(fixDraftOf(raw, rule)),
+  })
 }
 
 /** Jev's reading of rewrites: which kept the selection's facts, and `practice` as a rule while it is one. */

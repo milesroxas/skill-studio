@@ -121,6 +121,8 @@ export interface Contract {
   'ai.refine': { input: RuleScene; output: RefineResult }
   /** Start the three rewrites of a selected rule. The finished run's text is a `RewritesResult` as JSON. */
   'ai.rewrites': { input: RuleScene; output: AiRun }
+  /** Draft a change to a rule an attempt broke, by the rule's words. The finished run's text is a `FixDraft` as JSON. */
+  'ai.fix': { input: Scoped & { run: string; sample: string; rule: string }; output: AiRun }
   /** The side panel's improve conversation; null when none is open. */
   'improve.read': { input: Record<string, never>; output: ImproveThread | null }
   /** Open an improve conversation on a selected rule. Nothing is asked until the writer's first message. */

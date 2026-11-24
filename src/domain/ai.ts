@@ -236,7 +236,7 @@ export interface AiUsage {
  * (its text is the JSON of a `RewritesResult`), and `improve` adds to a Help me
  * improve conversation.
  */
-export type AiRunKind = 'assist' | 'chat' | 'refine' | 'rewrites' | 'improve'
+export type AiRunKind = 'assist' | 'chat' | 'refine' | 'rewrites' | 'improve' | 'fix'
 export type AiRunStatus = 'running' | 'done' | 'failed' | 'stopped'
 
 /** One reply, while it is written and after. The backend holds it; the page mirrors it. */

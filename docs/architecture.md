@@ -354,4 +354,13 @@ Help me improve:
 - The editor follows the rule as a range that maps through every edit (`src/renderer/editor/improving.ts`) and publishes its text (`setPassage` in `src/renderer/replace.ts`). Apply puts a draft there through the registered replacer. The next `improve.send` carries the text as `current`, so the model works on the rule as it reads now.
 - The conversation stays open after Apply. A rule picked while the last one is still opening takes its place.
 
-The run kinds `refine`, `rewrites` and `improve` sit beside `assist` and `chat` in `src/domain/ai.ts`.
+The run kinds `refine`, `rewrites`, `improve` and `fix` sit beside `assist` and `chat` in `src/domain/ai.ts`.
+
+### Fixing a broken rule from Results
+
+**Fix with AI** on a broken rule's row (`FixWithAi` in `src/renderer/components/FixWithAi.tsx`) drafts a change to the rule from one short sheet of evidence, in one message, and the writer applies it and runs the case again.
+
+- `ai.fix` takes the run, the attempt and the rule's words, and starts a run of kind `fix` (`startFix` in `src/application/ai.ts`) on the model chosen in Settings, through the provider's `run`, with no tools.
+- The sheet (`fixPrompt` in `src/domain/fix.ts`) holds the rule as SKILL.md writes it now, list mark and all (`ruleSource`, found by the rule's words through `scanRules`), the case's request, and the files the attempt wrote, read as text (`answerText` in `src/infrastructure/answer-files.ts`, pictures left out) and cut to `ANSWER_BUDGET` (24,000 characters, `sheetFiles`). It holds no other rule and no agent's `notes.md`. A rule no longer in SKILL.md as the run read it is refused before anything is asked.
+- The reply's shape is `FIX_SCHEMA`: `why`, one sentence on what in the answer broke the rule, and `revision`, the rule's whole new text, or the rule unchanged when the answer did follow it. `fixDraftOf` reads it and keeps the rule's list mark; the finished run's text is the `FixDraft` as JSON.
+- Apply and run replaces the rule's lines in SKILL.md as saved (`replaceRule`, in the file's own line endings) through `skill.saveFile`, after asking when that drops unsaved edits to SKILL.md. Then `skill.generate` runs the case alone, one attempt, with the writer of the answer being fixed, as a new version named `Fix: ` and the rule's first words (`fixVersionName`), with the reason as its note. It is an ordinary run: graded when done, its answer the case's newest on Results.
