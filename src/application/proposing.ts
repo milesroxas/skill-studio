@@ -1212,3 +1212,30 @@ export function restoreEveryCase(skillDir: string, ids: readonly string[]): Stor
   namedEvery(skillDir, ids, ['dropped'])
   return decideEvery(skillDir, ids, 'proposed')
 }
+
+/**
+ * How much reading one case would send, in characters, before it is asked:
+ * its room's text as the one message carries it, pictures left out. Nothing
+ * when the case would ask nothing: no answer to read, or a reading kept from
+ * before that still stands. Asks no model.
+ */
+export function readingSize(skillDir: string, caseId: string): { characters: number } {
+  const testCase = loadCases(skillDir).find((c) => c.id === caseId)
+  if (!testCase) throw new Error('There is no such case.')
+  const answers = lettered(testCase.id, answersFor(skillDir, testCase))
+  if (!answers.length) return { characters: 0 }
+  const lastRead = readProposals(skillDir).reads.find((r) => r.case === testCase.id)
+  if (lastRead?.stamp === caseStamp(skillDir, testCase, answers)) return { characters: 0 }
+  const room = makeProposalRoom({
+    skillDir,
+    testCase: withEveryCase(testCase, loadEveryCase(skillDir)),
+    answers: answers.map((a) => ({ letter: a.ref.letter, sample: a.sample })),
+    dropped: [],
+    max: PROPOSALS_MAX,
+  })
+  try {
+    return { characters: roomText(room.dir).reduce((n, file) => n + file.text.length, 0) }
+  } finally {
+    room.dispose()
+  }
+}

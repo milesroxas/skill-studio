@@ -616,10 +616,12 @@ describe('ruleRatesOf', () => {
     ]
     const state = stateOf(runs, ['generic'])
     state.reviews.reviews['r1/page-s1'] = { corrections: { 'rule:Be brief.': true } } as never
-    // v2 is the newest version that ran the rule: what v1's output did is not counted.
+    // v2 is the newest version that ran the rule: what v1's output did is not counted. The answer
+    // without the skill counts apart, beside it.
     expect(ruleRatesOf(outputsOf(state), saved).get('Be brief.')).toEqual({
       followed: 1,
       broken: 1,
+      without: { followed: 0, broken: 1 },
     })
     expect(ruleRatesOf(outputsOf(stateOf(runs.slice(0, 1), ['generic'])), saved).size).toBe(1)
   })

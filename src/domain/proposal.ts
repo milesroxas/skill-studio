@@ -44,6 +44,18 @@ export const PROPOSALS_MAX = 6
 /** The most answers read for one case: the one without the skill and the latest three versions. Each is read whole. */
 export const ANSWERS_MAX = 4
 
+/** What one case's reading sends on the test skill, in characters: about 6,000 tokens. */
+const USUAL_READING = 24_000
+/** Past this, about four usual readings, the reader is asked before the case is read. */
+export const LARGE_READING = 100_000
+
+/** A reading of `characters` is large enough to ask about first. */
+export const largeReading = (characters: number): boolean => characters > LARGE_READING
+
+/** How many usual readings `characters` comes to, rounded, at least one. */
+export const readingTimes = (characters: number): number =>
+  Math.max(1, Math.round(characters / USUAL_READING))
+
 /** The longest check kept, in characters: one sentence. */
 const CHECK_MAX = 200
 /** The longest reason kept. */

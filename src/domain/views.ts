@@ -123,7 +123,8 @@ export interface EngineInfo {
   limitsTools: boolean
 }
 
-export type JobKind = 'generate' | 'grade'
+/** A run, a grading, or the assistant reading a case's answers to suggest checks. */
+export type JobKind = 'generate' | 'grade' | 'read'
 /** `stopped`: the reader ended it before it finished; it did not fail, and it did not do what it set out to. */
 export type JobStatus = 'running' | 'done' | 'failed' | 'stopped'
 

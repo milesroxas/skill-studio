@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { Verdict } from './pack.ts'
-import { mostlyBroken, newestRates, ruleRates } from './rule-rate.ts'
+import { mostlyBroken, newestRates, ruleRates, withWithout } from './rule-rate.ts'
 
 const rule = (text: string, met: boolean, aside?: Verdict['aside']): Verdict =>
   ({
@@ -67,5 +67,27 @@ describe('mostlyBroken', () => {
     expect(mostlyBroken({ followed: 1, broken: 2 })).toBe(true)
     expect(mostlyBroken({ followed: 1, broken: 1 })).toBe(false)
     expect(mostlyBroken({ followed: 3, broken: 0 })).toBe(false)
+  })
+})
+
+describe('withWithout', () => {
+  it('sets the rate without the skill beside each rule, and keeps a rule only it counted', () => {
+    const merged = withWithout(
+      new Map([['Be brief.', { followed: 3, broken: 1 }]]),
+      new Map([
+        ['Be brief.', { followed: 2, broken: 0 }],
+        ['Cite sources.', { followed: 0, broken: 1 }],
+      ]),
+    )
+    expect(merged.get('Be brief.')).toEqual({
+      followed: 3,
+      broken: 1,
+      without: { followed: 2, broken: 0 },
+    })
+    expect(merged.get('Cite sources.')).toEqual({
+      followed: 0,
+      broken: 0,
+      without: { followed: 0, broken: 1 },
+    })
   })
 })

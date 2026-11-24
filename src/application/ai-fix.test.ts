@@ -9,6 +9,7 @@ const world = vi.hoisted(() => ({
   replies: [] as string[],
   asked: [] as Array<{ system: string; user: string }>,
   files: [] as Array<{ path: string; text: string }>,
+  request: null as string | null,
 }))
 
 vi.mock('@infrastructure/ai/index.ts', () => ({
@@ -42,7 +43,7 @@ vi.mock('@infrastructure/preferences.ts', () => ({
   readPreferences: () => ({ aiProvider: 'claude-code', aiModel: 'sonnet', aiEffort: '' }),
 }))
 vi.mock('@infrastructure/answer-files.ts', () => ({
-  answerText: () => ({ caseId: 'shelf', files: world.files }),
+  answerText: () => ({ caseId: 'shelf', request: world.request, files: world.files }),
 }))
 vi.mock('@infrastructure/cases.ts', () => ({
   loadCases: () => [{ id: 'shelf', prompt: 'Write the launch note for Shelf.' }],
@@ -57,6 +58,7 @@ let skillDir = ''
 beforeEach(() => {
   world.replies = []
   world.asked = []
+  world.request = null
   world.files = [{ path: 'outputs/output.md', text: 'Shelf is here. Meet the new shelf.' }]
   skillDir = mkdtempSync(join(tmpdir(), 'fix-'))
   writeFileSync(join(skillDir, 'SKILL.md'), `# Note\n\n## Rules\n\n- ${RULE}\n`)
@@ -92,6 +94,14 @@ describe('startFix', () => {
     expect(user).toContain(`- ${RULE}`)
     expect(user).toContain('Write the launch note for Shelf.')
     expect(user).toContain('Shelf is here. Meet the new shelf.')
+  })
+
+  it('sends the request as the agent got it, with what the app added to it', async () => {
+    world.request = 'Write the launch note for Shelf.\nAlso write outputs/preview.html.'
+    world.replies.push(JSON.stringify({ why: 'It followed the rule.', revision: `- ${RULE}` }))
+    const run = await startFix({ skillDir, run: 'r1', sample: 'shelf-s1', rule: RULE })
+    await ended(run.id)
+    expect(world.asked[0].user).toContain('Also write outputs/preview.html.')
   })
 
   it('asks nothing when the rule is no longer in SKILL.md', async () => {

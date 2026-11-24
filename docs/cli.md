@@ -74,6 +74,7 @@ Read as cases, on checks alone: better on 1, the same on 5, worse on 0.
 - An answer names a file and quotes it. A quote that is not in that file sets the answer to "cannot tell".
 - It prints each answer beside Jev's and yours, then the counts: how many it answered, how many of the rules and checks Jev was not sure of or did not read it settled, how often it agrees with your answers from the app, and with `--blind` how often it agrees with Jev where Jev was sure.
 - `--out <file>` also writes the reading as JSON, and `--json` prints it.
+- `--recount <file>` takes a reading saved with `--out` and counts it again against your answers as they are now, asking nothing: mark rows in the app, then recount. It needs no `--run`.
 - `--answers <file>` counts its answers against the ones in that file in place of yours: JSON by output, then by rule or check, true where the output meets it. `fixtures/launch-note` is a skill whose every rule code can answer, and `scripts/reading-bench` writes that file for one of its runs ([its notes](../scripts/reading-bench/README.md)).
 - It exits 1 when a case's reading failed.
 

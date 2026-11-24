@@ -8,7 +8,13 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Added
 
-- **Fix with AI** on a broken rule on Results. The assistant reads the rule, the case's request and what the answer wrote, in one message, and drafts a change to the rule, in a box under the button: one line on what in the answer broke the rule, then the rule with the change marked. **Apply and run** saves the new rule in SKILL.md and runs the case once more with the model that wrote the answer, as a new version named after the fix. When the answer did follow the rule, the draft says so and changes nothing.
+- **Fix with AI** on a broken rule on Results. The assistant reads the rule, the request as the agent got it (with what the app adds to every request, such as the preview page) and what the answer wrote, in one message, and drafts a change to the rule, in a box under the button: one line on what in the answer broke the rule, then the rule with the change marked. **Apply and run** saves the new rule in SKILL.md and runs the case once more with the model that wrote the answer, as a new version named after the fix. When the answer did follow the rule, the draft says so and changes nothing.
+- A rule's number in the editor also says how many answers written without the skill followed it, where a case ran without the skill: "Followed by 2 of 2 answers written without the skill." A rule the agent follows without being told may be one you can cut.
+- `st read --recount <file>` counts a saved reading again against your answers as they are now, without asking the assistant again.
+
+### Changed
+
+- **Write checks with AI** can be stopped: **Stop** beside the button, or in the list of jobs, ends the reading. When a case's answers are long, it asks first, and says how many usual readings it counts as.
 
 ## [0.19.0] - 2026-11-24
 

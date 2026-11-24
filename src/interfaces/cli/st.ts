@@ -9,6 +9,7 @@
  *   st report [skill] --run <name>
  *   st compare [skill] <runA> <runB>
  *   st read [skill] --run <name> [--blind] [--model sonnet] [--out <file>] [--answers <file>]
+ *   st read [skill] --recount <file>
  *   st sort [skill] [--again] [--model <id>]
  *   st propose [skill] [--cases a,b] [--again] [--all] [--deep] | [--case <id>] --accept <ids> | --drop <ids>
  *   st self-test [skill] [--no-jev]
@@ -48,7 +49,7 @@ import {
   proposeChecks,
   type ReadAnswer,
 } from '@application/proposing.ts'
-import { type RunReading, readingOfRun } from '@application/reading.ts'
+import { type RunReading, readingOfRun, recountReading } from '@application/reading.ts'
 import { type SortedItem, type SortResult, sortSkill } from '@application/sorting.ts'
 import { type CaseMove, type Met, type TwoCounts, twoCounts } from '@domain/case-result.ts'
 import type { Tells } from '@domain/proposal.ts'
@@ -106,6 +107,8 @@ Commands
     --out <file>              Also write the reading to this file, as JSON.
     --answers <file>          Count its answers against the ones in this file, not against
                               yours: JSON by output, then by rule or check.
+    --recount <file>          Count a reading saved with --out again, against your answers
+                              as they are now. Asks nothing, and needs no --run.
   sort                        Have the assistant read each rule and check, and say how each
                               will be marked: by code, by Jev, or not at all as written, with
                               a fix. It keeps the readings in evals/rule-readings.json.
@@ -173,6 +176,7 @@ const OPTIONS = {
   drop: { type: 'string' },
   out: { type: 'string' },
   answers: { type: 'string' },
+  recount: { type: 'string' },
   'no-jev': { type: 'boolean' },
   'jev-model': { type: 'string' },
   packs: { type: 'string' },
@@ -837,6 +841,15 @@ async function main(): Promise<number> {
       judged = printGraded(report, values.json) && judged
     }
     return judged ? 0 : 1
+  }
+
+  if (command === 'read' && values.recount) {
+    const saved = JSON.parse(readFileSync(resolve(values.recount), 'utf8')) as RunReading
+    const reading = recountReading(skill, saved)
+    if (values.out) writeFileSync(resolve(values.out), `${JSON.stringify(reading, null, 2)}\n`)
+    if (values.json) console.log(JSON.stringify(reading, null, 2))
+    else printReading(reading, 'your answers')
+    return 0
   }
 
   if (command === 'read') {

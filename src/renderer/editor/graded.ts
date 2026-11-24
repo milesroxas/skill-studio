@@ -82,12 +82,24 @@ const field = StateField.define<Graded>({
   update: (graded, tr) => (tr.docChanged ? read(tr.state) : graded),
 })
 
-/** "Rule 04: broken by 5 of 7 answers." for a rule graded outputs counted; null for one they did not. */
+const answersWord = (n: number): string => (n === 1 ? 'answer' : 'answers')
+
+/**
+ * "Rule 04: broken by 5 of 7 answers. Followed by 2 of 2 answers written
+ * without the skill." for a rule graded outputs counted, the second sentence
+ * only where answers without the skill counted it; null for one none did.
+ */
 export function rateLine(label: string, rate: RuleRate | null): string | null {
   if (!rate) return null
   const answers = rate.followed + rate.broken
-  if (!answers) return null
-  return `Rule ${label}: broken by ${rate.broken} of ${answers} ${answers === 1 ? 'answer' : 'answers'}.`
+  const plain = rate.without ? rate.without.followed + rate.without.broken : 0
+  const without =
+    rate.without && plain
+      ? `${rate.without.followed} of ${plain} ${answersWord(plain)} written without the skill`
+      : null
+  if (!answers) return without ? `Rule ${label}: followed by ${without}.` : null
+  const broken = `Rule ${label}: broken by ${rate.broken} of ${answers} ${answersWord(answers)}.`
+  return without ? `${broken} Followed by ${without}.` : broken
 }
 
 /**

@@ -254,6 +254,7 @@ A number is in one of three states, and only these:
 
 - `broken` wins over `flagged` (`numberTone`): the outputs show the rule failing, where a writing check only says it might. The underlined words stay, and the tooltip says both: "Rule 04: broken by 5 of 7 answers. The writing checks found something. Click to select it."
 - Every rule that graded outputs counted says how many broke it, red or not: "Rule 01: broken by 0 of 4 answers." A rule is counted by its words, so a rule edited since its last run has no count until it runs again.
+- Where answers written without the skill were marked on the rule, a second sentence says how many followed it: "Rule 04: broken by 5 of 7 answers. Followed by 2 of 2 answers written without the skill." (`without` on `RuleRate`). It never colors the number.
 - The count is of the newest version that ran the rule, never of every run there has been. A rule that v2's answers broke and v3's follow is no longer red: the change that fixed it may be anywhere in the skill, and the next run is what shows it.
 - `flagged` goes as soon as the words are fixed: every writing check names words or a shape the writer can change, and none counts the rule's words.
 - Color is never the only signal. The tooltip carries the words, and the number reads them to a screen reader too: it is `role="img"`, named by its tooltip, so a screen reader hears "Rule 06: broken by 11 of 11 answers. Click to select it." once.

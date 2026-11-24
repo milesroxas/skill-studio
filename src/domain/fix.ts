@@ -17,6 +17,8 @@ import { normalizeNewlines } from './text.ts'
 export const ANSWER_BUDGET = 24_000
 /** No one file takes more than this, so a long page leaves room for the files beside it. */
 const FILE_MAX = 16_000
+/** The request's own share: one that carries a project's files is cut, not left out. */
+const REQUEST_MAX = 16_000
 
 /** The rule as SKILL.md writes it, and the lines it takes there (1-based, as `scanRules` counts). */
 export interface RuleSource {
@@ -37,6 +39,7 @@ export interface AnswerFile {
 
 export interface FixSheet {
   rule: RuleSource
+  /** What the agent was asked, word for word, with what the app adds to every request. */
   request: string
   answer: readonly AnswerFile[]
 }
@@ -123,7 +126,9 @@ export function fixPrompt(sheet: FixSheet): { system: string; user: string } {
 
 Then change the rule so an agent reading it would not do that again: say plainly what was left unclear, add the case the rule missed, or draw the line where it should be. Change only what the miss needs, and keep every other fact, number and condition the rule holds. Your text replaces the rule's lines as they are: the same list mark, no heading, no code fence, no other rule.
 
-If the answer did follow the rule, and only the marking was wrong, return the rule unchanged and say so. If the rule asks for something the request itself contradicts, make the rule say which one wins.
+The request is what the agent was given, word for word, with the instructions the app adds to every request. Whatever it asks for, a file, a step or a format, is part of the answer and never extra. If the answer broke the rule only by doing what the request asked, make the rule say the request wins; never forbid what the request asks for.
+
+If the answer did follow the rule, and only the marking was wrong, return the rule unchanged and say so.
 
 ${HOW}
 
@@ -141,7 +146,12 @@ Write "why" for someone who does not write code: one sentence, 20 words or fewer
     : 'The answer wrote no file that can be read as text.'
   const user = [
     tag('rule', sheet.rule.text, sheet.rule.section),
-    tag('request', sheet.request),
+    tag(
+      'request',
+      sheet.request.length > REQUEST_MAX
+        ? `${sheet.request.slice(0, REQUEST_MAX)}\n[cut here: the request goes on]`
+        : sheet.request,
+    ),
     tag('answer', answer),
   ].join('\n\n')
   return { system, user }

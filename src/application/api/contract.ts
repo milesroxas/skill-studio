@@ -225,19 +225,12 @@ export interface Contract {
    * message a case. A case read before and unchanged since asks nothing.
    * Resolves once every case is read: what each came to, by case.
    */
-  'proposals.suggest': {
-    input: Scoped & { cases: string[] }
-    output: {
-      cases: Array<{
-        case: string
-        suggested: number
-        skipped: string | null
-        error: string | null
-      }>
-    }
-  }
+  /** Have the assistant read the cases' latest answers and suggest checks, as a job that stops like a run. Its last log line says how it went. */
+  'proposals.suggest': { input: Scoped & { cases: string[] }; output: Started }
   /** The checks proposed for the skill's cases, as the last `st propose` kept them: those for every case first. */
   'proposals.read': { input: Scoped; output: { proposals: ProposedCheck[] } }
+  /** How much Write checks with AI would send for a case, in characters, before it is asked; 0 when it would ask nothing. */
+  'proposals.size': { input: Scoped & { case: string }; output: { characters: number } }
   /**
    * Add one proposed check to the checks, turn it down, or propose again one
    * that was turned down (`proposed`, the Undo of a drop): a case's own by its

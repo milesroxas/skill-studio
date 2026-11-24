@@ -593,7 +593,8 @@ export async function startFix(request: FixRequest): Promise<AiRun> {
   const testCase = loadCases(request.skillDir).find((c) => c.id === answer.caseId)
   const { system, user } = fixPrompt({
     rule,
-    request: testCase?.prompt ?? '',
+    // As the agent got it, with what the app adds to every request: a rule can clash with that too.
+    request: answer.request ?? testCase?.prompt ?? '',
     answer: sheetFiles(answer.files),
   })
   return start({

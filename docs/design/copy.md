@@ -45,7 +45,7 @@ A hint under a section heading that says what the section is ("How Skill Studio 
 
 ## Counts
 
-- A rule's count in the editor names its number and the answers: "Rule 04: broken by 5 of 7 answers." Never a share or a percentage: the reader counts answers, not rates.
+- A rule's count in the editor names its number and the answers: "Rule 04: broken by 5 of 7 answers." Never a share or a percentage: the reader counts answers, not rates. Answers without the skill are counted the same way, in a sentence of their own: "Followed by 2 of 2 answers written without the skill."
 
 ## Form
 

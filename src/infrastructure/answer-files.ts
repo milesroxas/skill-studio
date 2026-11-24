@@ -1,7 +1,9 @@
 /**
- * What one attempt of a run wrote, as text: each file it left that is not a
- * picture, in the order the run lists them. A file too large to be text, or
- * gone, is left out. Read for Fix with AI's sheet of evidence.
+ * What one attempt of a run was asked and what it wrote, as text: the
+ * request word for word as the agent got it, with what the app adds to every
+ * request (such as "also write outputs/preview.html"), and each file it left
+ * that is not a picture, in the order the run lists them. A file too large to
+ * be text, or gone, is left out. Read for Fix with AI's sheet of evidence.
  */
 import { readFileSync, statSync } from 'node:fs'
 import { join } from 'node:path'
@@ -15,6 +17,8 @@ const PICTURE = /\.(png|jpe?g|webp|gif|avif|bmp|ico|svgz)$/i
 export interface AnswerText {
   /** The case the attempt answered. */
   caseId: string
+  /** The request as the agent got it (`prompt.md`); null for a run that kept none. */
+  request: string | null
   files: Array<{ path: string; text: string }>
 }
 
@@ -30,5 +34,7 @@ export function answerText(skillDir: string, run: string, sample: string): Answe
     if (!isFile(path) || statSync(path).size > TEXT_MAX) return []
     return [{ path: file, text: readFileSync(path, 'utf8') }]
   })
-  return { caseId, files }
+  const prompt = join(found.path, 'prompt.md')
+  const request = found.legacy || !isFile(prompt) ? null : readFileSync(prompt, 'utf8')
+  return { caseId, request, files }
 }

@@ -261,3 +261,39 @@ export async function readingOfRun(
     ),
   }
 }
+
+/**
+ * A reading made before, counted again against the reader's answers as they
+ * stand now: each mark's `yours` is read afresh from the run's corrections,
+ * and the agreement counted again. Asks no model. A mark on a fact the run no
+ * longer grades keeps no answer of the reader's.
+ */
+export function recountReading(skillDir: string, reading: RunReading): RunReading {
+  const view = readRun(skillDir, reading.run)
+  if (!view.report) throw new Error(`${reading.run} is not graded.`)
+  const verdicts = runVerdicts(
+    skillDir,
+    view.report,
+    view.cases,
+    correctionsOf(skillDir, reading.run),
+  )
+  const yoursOf = (output: string, fact: string): boolean | null =>
+    Object.hasOwn(verdicts, output)
+      ? (readFacts(verdicts[output]).find((f) => f.id === fact)?.yours ?? null)
+      : null
+  const cases = reading.cases.map((c) => ({
+    ...c,
+    marks: c.marks.map((mark) => ({
+      ...mark,
+      fact: { ...mark.fact, yours: yoursOf(mark.output, mark.fact.id) },
+    })),
+  }))
+  return {
+    ...reading,
+    cases,
+    agreement: cases
+      .filter((c) => !c.error)
+      .map((c) => agreementOf(c.marks, c.asked))
+      .reduce(addAgreements, agreementOf([], 0)),
+  }
+}

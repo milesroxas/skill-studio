@@ -12,7 +12,7 @@ import {
 import { type Corrections, NO_CORRECTIONS, unreadable, type VerdictKind } from '@domain/pack.ts'
 import { defaultPair, type PairOutput } from '@domain/pairs.ts'
 import { previewArtifact, primaryArtifact } from '@domain/primary.ts'
-import { newestRates, type RuleRate, ruleRates } from '@domain/rule-rate.ts'
+import { newestRates, type RuleRate, ruleRates, withWithout } from '@domain/rule-rate.ts'
 import { versionAfterRunDelete } from '@domain/run-delete.ts'
 import { parseSampleDir } from '@domain/run-name.ts'
 import type {
@@ -643,12 +643,18 @@ export function attemptsLine(standing: Pick<CaseStand, 'latest' | 'previous'>): 
  * scores them under `config`: the reader's answers count, and an output cut
  * short, of a case its run did not finish (`shortOf`) or with no score counts
  * for nothing. A rule broken on v2 and followed on v3 is read as followed.
+ * Beside each, how often answers written without the skill followed it
+ * (`without`): those were marked on every rule too, so the count costs nothing.
  */
 export function ruleRatesOf(outputs: Output[], config: BenchConfig): Map<string, RuleRate> {
-  const counted = outputs.filter(
-    (o) => !o.cut && !shortOf(o.run, o.caseId) && testedVersion(testOf(o.run)),
+  const whole = (o: Output) => !o.cut && !shortOf(o.run, o.caseId)
+  const counted = outputs.filter((o) => whole(o) && testedVersion(testOf(o.run)))
+  const plain = ruleRates(
+    outputs
+      .filter((o) => whole(o) && isWithoutSkill(o.run))
+      .map((o) => ({ total: totalOf(o, config), verdicts: scoreOf(o, config)?.verdicts ?? [] })),
   )
-  return newestRates(
+  const rated = newestRates(
     versionsRun(counted).map((version) =>
       ruleRates(
         versionOutputs(counted, version).map((o) => ({
@@ -658,6 +664,7 @@ export function ruleRatesOf(outputs: Output[], config: BenchConfig): Map<string,
       ),
     ),
   )
+  return withWithout(rated, plain)
 }
 
 /**

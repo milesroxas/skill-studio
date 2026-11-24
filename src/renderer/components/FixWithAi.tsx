@@ -14,7 +14,7 @@ import type { AiRun } from '@domain/ai.ts'
 import { fixVersionName, readFixText, replaceRule, ruleSource, unchanged } from '@domain/fix.ts'
 import { withoutListMark } from '@domain/improve.ts'
 import type { Verdict } from '@domain/pack.ts'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { startFix } from '../ai.ts'
 import { api } from '../api.ts'
 import type { Ctx } from '../ctx.ts'
@@ -73,6 +73,13 @@ export function FixWithAi({
     [fix, source, same],
   )
 
+  // The draft has landed: the keys go to the button that applies it, as the Stop they were on is gone.
+  const applyButton = useRef<HTMLButtonElement>(null)
+  const landed = fix !== null
+  useEffect(() => {
+    if (landed) applyButton.current?.focus()
+  }, [landed])
+
   const ask = () => {
     setOpen(true)
     void draft.start(() => startFix(output.run.name, output.sample.name, verdict.text))
@@ -125,7 +132,16 @@ export function FixWithAi({
       onOpenChange={(next) => (next || busy ? null : close())}
     >
       <PopoverAnchor asChild>
-        <Button type="button" variant="ghost-muted" size="xs" onClick={ask}>
+        <Button
+          type="button"
+          variant="ghost-muted"
+          size="xs"
+          aria-haspopup="dialog"
+          aria-expanded={open}
+          // Lit while its popover is open, so the row it belongs to is plain.
+          data-state={open ? 'open' : 'closed'}
+          onClick={ask}
+        >
           Fix with AI
         </Button>
       </PopoverAnchor>
@@ -147,12 +163,12 @@ export function FixWithAi({
             </div>
           ) : (
             <>
-              <Text as="p" tone="muted" className="m-0 text-pretty">
+              <Text as="p" tone="muted" role="status" className="m-0 text-pretty">
                 {fix.why}
               </Text>
               {!source ? (
                 <Hint tone="destructive" role="alert">
-                  This rule has changed since the run. Open it to edit it yourself.
+                  This rule has changed since the run, so the fix cannot be put in its place.
                 </Hint>
               ) : same ? (
                 <Hint>The rule stays as it is.</Hint>
@@ -167,6 +183,7 @@ export function FixWithAi({
             {fix && source && !same && writer ? (
               <>
                 <Button
+                  ref={applyButton}
                   type="button"
                   size="xs"
                   busy={busy}
@@ -195,6 +212,29 @@ export function FixWithAi({
               <Button type="button" variant="ghost-muted" size="xs" onClick={close}>
                 Stop
               </Button>
+            ) : draft.error ? (
+              <>
+                <Button type="button" variant="outline" size="xs" onClick={ask}>
+                  Try again
+                </Button>
+                <Button type="button" variant="ghost-muted" size="xs" onClick={close}>
+                  Close
+                </Button>
+              </>
+            ) : fix && !source ? (
+              <>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="xs"
+                  onClick={() => ctx.go('editor', { file: SKILL_MD })}
+                >
+                  Open skill
+                </Button>
+                <Button type="button" variant="ghost-muted" size="xs" onClick={close}>
+                  Close
+                </Button>
+              </>
             ) : (
               <Button type="button" variant="ghost-muted" size="xs" onClick={close}>
                 Close

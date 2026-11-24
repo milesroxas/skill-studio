@@ -145,6 +145,7 @@ import {
   dropProposals,
   proposeChecks,
   proposedChecks,
+  readingSize,
   restoreEveryCase,
   restoreProposals,
 } from '../proposing.ts'
@@ -536,6 +537,7 @@ export const parsers: { [K in OperationName]: (raw: Raw) => Input<K> } = {
   'skill.deleteCase': (raw) => ({ ...scoped(raw), id: assertSafe(str(raw.id), 'case') }),
   'skill.duplicateCase': (raw) => ({ ...scoped(raw), id: assertSafe(str(raw.id), 'case') }),
   'proposals.read': scoped,
+  'proposals.size': (raw) => ({ ...scoped(raw), case: assertSafe(str(raw.case), 'case') }),
   'proposals.suggest': (raw) => {
     const cases = Array.isArray(raw.cases) ? raw.cases.map((c) => assertSafe(str(c), 'case')) : []
     if (!cases.length) throw new Error('Name the cases to read.')
@@ -922,27 +924,55 @@ export function createOperations(options: OperationsOptions): Runners {
     },
     'skill.duplicateCase': (input) => ({ id: duplicateCase(skillOf(input).path, input.id) }),
     'proposals.read': (input) => ({ proposals: proposedChecks(skillOf(input).path) }),
+    'proposals.size': (input) => readingSize(skillOf(input).path, input.case),
     'proposals.suggest': async (input) => {
       const { path } = skillOf(input)
       const choice = await currentChoice()
-      const result = await proposeChecks(path, {
-        ...choice,
-        cases: input.cases,
-        again: false,
-        parallel: 2,
-        jev: Jev.available() ? new Jev() : null,
-        inline: true,
-        log: () => {},
-        signal: new AbortController().signal,
-      })
-      return {
-        cases: result.cases.map((c) => ({
-          case: c.case,
-          suggested: c.proposals.filter((p) => p.state === 'proposed').length,
-          skipped: c.skipped,
-          error: c.error,
-        })),
-      }
+      const skillPath = realPath(path)
+      if (runningJob('read', skillPath))
+        throw new Error('The assistant is already reading this skill. Wait for it, or stop it.')
+      const job = runJob(
+        'read',
+        input.cases.length === 1
+          ? 'Write checks with AI'
+          : `Write checks with AI for ${input.cases.length} cases`,
+        skillPath,
+        skillPath,
+        async (job, signal) => {
+          const result = await proposeChecks(path, {
+            ...choice,
+            cases: input.cases,
+            again: false,
+            parallel: 2,
+            jev: Jev.available() ? new Jev() : null,
+            inline: true,
+            log: () => {},
+            signal,
+          })
+          // The last line is the outcome the screen shows: a failure, why nothing was read, or the count.
+          if (signal.aborted) return false
+          const failed = result.cases.find((c) => c.error)
+          if (failed?.error) {
+            say(job, failed.error)
+            return false
+          }
+          const skipped = result.cases.find((c) => c.skipped)
+          const suggested = result.cases.reduce(
+            (n, c) => n + c.proposals.filter((p) => p.state === 'proposed').length,
+            0,
+          )
+          say(
+            job,
+            skipped?.skipped && !suggested
+              ? skipped.skipped
+              : suggested
+                ? `Suggested ${suggested} ${suggested === 1 ? 'check' : 'checks'}`
+                : 'Nothing to suggest for this case',
+          )
+          return true
+        },
+      )
+      return { started: true, job: job.id }
     },
     'proposals.decide': (input) => {
       const { path } = skillOf(input)

@@ -14,6 +14,12 @@ import type { Verdict } from './pack.ts'
 export interface RuleRate {
   followed: number
   broken: number
+  /**
+   * The same over answers written without the skill, which Jev marks on every
+   * rule too. A rule they follow as often teaches the agent nothing it did not
+   * do already. Absent where no such answer counted the rule.
+   */
+  without?: { followed: number; broken: number }
 }
 
 /**
@@ -53,6 +59,24 @@ export function newestRates(
   const newest = new Map<string, RuleRate>()
   for (const rates of rated) for (const [words, rate] of rates) newest.set(words, rate)
   return newest
+}
+
+/**
+ * `rates` with each rule's rate over answers written without the skill
+ * (`ruleRates` over those) set beside it as `without`. A rule only they
+ * counted gets a rate of its own with nothing followed or broken with the
+ * skill.
+ */
+export function withWithout(
+  rates: ReadonlyMap<string, RuleRate>,
+  without: ReadonlyMap<string, RuleRate>,
+): Map<string, RuleRate> {
+  const merged = new Map(rates)
+  for (const [words, rate] of without) {
+    const own = merged.get(words) ?? { followed: 0, broken: 0 }
+    merged.set(words, { ...own, without: { followed: rate.followed, broken: rate.broken } })
+  }
+  return merged
 }
 
 /** More of the outputs that counted the rule broke it than followed it. */

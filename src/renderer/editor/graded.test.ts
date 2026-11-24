@@ -36,4 +36,16 @@ describe('a rule’s number', () => {
     )
     expect(numberTitle('02', false, null)).toBe('Rule 02. Click to select it.')
   })
+
+  it('says how many answers written without the skill followed it, where any counted it', () => {
+    expect(rateLine('04', { followed: 2, broken: 5, without: { followed: 2, broken: 0 } })).toBe(
+      'Rule 04: broken by 5 of 7 answers. Followed by 2 of 2 answers written without the skill.',
+    )
+    expect(rateLine('03', { followed: 0, broken: 0, without: { followed: 0, broken: 1 } })).toBe(
+      'Rule 03: followed by 0 of 1 answer written without the skill.',
+    )
+    expect(rateLine('03', { followed: 1, broken: 0, without: { followed: 0, broken: 0 } })).toBe(
+      'Rule 03: broken by 0 of 1 answer.',
+    )
+  })
 })

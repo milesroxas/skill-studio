@@ -12,10 +12,10 @@
  * Save and Discard hold it. Turn down is written at once, and its Undo on the
  * status line proposes it again.
  */
-import type { ProposedCheck } from '@domain/proposal.ts'
+import { largeReading, type ProposedCheck, readingTimes } from '@domain/proposal.ts'
 import { cva } from 'class-variance-authority'
 import { ChevronRightIcon, PenLineIcon, PlusIcon, XIcon } from 'lucide-react'
-import { type ReactNode, useId, useState } from 'react'
+import { type ReactNode, useEffect, useId, useState } from 'react'
 import { api } from '../api.ts'
 import type { Ctx } from '../ctx.ts'
 import { useFetch } from '../hooks.ts'
@@ -100,6 +100,13 @@ function useSuggestedChecks(
   }
 }
 
+/** Asked before a case whose answers are long is read. */
+const longAnswers = (characters: number) => ({
+  title: 'Read these long answers?',
+  description: `Its answers are long, so reading them counts about ${readingTimes(characters)} times as much toward your usage as a usual case.`,
+  action: 'Read',
+})
+
 export interface ReadRuns {
   /** In place of Write checks with AI once the case has runs; undefined before a first run keeps it. */
   writeWithAi?: ReactNode
@@ -111,40 +118,81 @@ export interface ReadRuns {
  * Write checks with AI, once the case has runs: the assistant reads what the
  * latest runs wrote and suggests checks in the call-out. Before a first run
  * there is nothing to read, and the button writes from the prompt, as it
- * always has. While it reads, the button only waits: the call-out's band says
- * what is happening, once.
+ * always has. The reading is a job, as a run is: while it reads, the button
+ * waits and Stop beside it ends the reading, as Stop in the list of jobs does.
+ * The call-out's band says what is happening, once, and the status line says
+ * how it went when it ends.
  */
 export function useReadRuns(ctx: Ctx, caseId: string | null): ReadRuns {
-  const [reading, setReading] = useState<string | null>(null)
+  const { jobs, report } = ctx
+  /** The reading this screen started, and the case it reads. */
+  const [started, setStarted] = useState<{ job: number; caseId: string } | null>(null)
+  const [asking, setAsking] = useState<string | null>(null)
+  /** Stop was pressed on this reading: it waits for the job to end, so a second press does nothing. */
+  const [stopping, setStopping] = useState<number | null>(null)
+  const job = started ? (jobs.find((j) => j.id === started.job) ?? null) : null
+  // The job has ended: say how it went, from its last line, and let the button go.
+  useEffect(() => {
+    if (!job || job.status === 'running') return
+    const last = job.log.at(-1)?.replace(/^\d\d:\d\d:\d\d\s+/, '') ?? null
+    if (job.status === 'failed' && last) report(last, { tone: 'destructive' })
+    else if (job.status === 'stopped') report('Stopped reading the answers')
+    else if (last) report(last)
+    setStarted(null)
+  }, [job, report])
   if (!caseId || lastAnswer(ctx.outputs, caseId) === null) return { reading: false }
-  const busy = reading === caseId
+  const mine = started?.caseId === caseId
+  const busy = asking === caseId || (mine && (job === null || job.status === 'running'))
+  const elsewhere = (asking !== null || started !== null) && !busy
   const read = async () => {
-    setReading(caseId)
+    setAsking(caseId)
     try {
-      const { cases } = await api.suggestChecks([caseId])
-      const [one] = cases
-      if (one?.error) ctx.report(one.error, { tone: 'destructive' })
-      else if (one?.skipped) ctx.report(one.skipped, { tone: 'warning' })
-      else if (one && !one.suggested) ctx.report('Nothing to suggest for this case')
+      // A case whose answers are long pages is said before it is read: it uses several times as much.
+      const { characters } = await api.readingSize(caseId)
+      if (largeReading(characters) && !(await ctx.confirm(longAnswers(characters)))) return
+      const { job: id } = await api.suggestChecks([caseId])
+      setStarted({ job: id, caseId })
     } catch (e) {
-      ctx.report(e as Error)
+      report(e as Error)
     } finally {
-      setReading(null)
+      setAsking(null)
     }
+  }
+  const stop = () => {
+    if (!started) return
+    setStopping(started.job)
+    api.stopJob(started.job).catch((e: Error) => {
+      setStopping(null)
+      report(e)
+    })
   }
   return {
     writeWithAi: (
-      <Button
-        type="button"
-        variant="ghost"
-        size="sm"
-        busy={busy}
-        disabled={reading !== null && !busy}
-        onClick={() => void read()}
-      >
-        <PenLineIcon aria-hidden="true" />
-        Write checks with AI
-      </Button>
+      <>
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          busy={busy}
+          disabled={elsewhere}
+          onClick={() => void read()}
+        >
+          <PenLineIcon aria-hidden="true" />
+          Write checks with AI
+        </Button>
+        {busy && started ? (
+          <Button
+            type="button"
+            variant="ghost-muted"
+            size="sm"
+            busy={stopping === started.job}
+            busyLabel="Stopping…"
+            onClick={stop}
+          >
+            Stop
+          </Button>
+        ) : null}
+      </>
     ),
     reading: busy,
   }

@@ -4,11 +4,14 @@ import {
   asAnswer,
   earlierSheet,
   joinGroups,
+  LARGE_READING,
+  largeReading,
   PROPOSALS_MAX,
   type ProposalRoom,
   parseProposals,
   pickProposals,
   proposalSheet,
+  readingTimes,
   retryText,
   sameWords,
   tellsOf,
@@ -323,5 +326,14 @@ describe("the answer's name", () => {
     expect(answerNoun(['The page has a title.', 'The page is short.', 'The answer is.'])).toBe(
       'page',
     )
+  })
+})
+
+describe('largeReading', () => {
+  it('asks first only past about four usual readings, and says how many times a usual one', () => {
+    expect(largeReading(LARGE_READING)).toBe(false)
+    expect(largeReading(LARGE_READING + 1)).toBe(true)
+    expect(readingTimes(1_000)).toBe(1)
+    expect(readingTimes(452_000)).toBe(19)
   })
 })
