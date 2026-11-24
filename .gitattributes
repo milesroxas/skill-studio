@@ -1,0 +1,7 @@
+# Test fixtures, and the reading bench's copies of the test skill, are kept
+# byte for byte on every system. Stored runs hold hashes of the case they
+# answered, and the answer key compares and parses these files line by line,
+# so a checkout that turns LF into CRLF (Git on Windows) would make every
+# stored run answer another case.
+fixtures/** -text
+scripts/reading-bench/skill/** -text
