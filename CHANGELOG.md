@@ -6,6 +6,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [0.20.0] - 2026-11-24
+
 ### Added
 
 - **Fix with AI** on a broken rule on Results. The assistant reads the rule, the request as the agent got it (with what the app adds to every request, such as the preview page) and what the answer wrote, in one message, and drafts a change to the rule, in a box under the button: one line on what in the answer broke the rule, then the rule with the change marked. **Apply and run** saves the new rule in SKILL.md and runs the case once more with the model that wrote the answer, as a new version named after the fix. When the answer did follow the rule, the draft says so and changes nothing.

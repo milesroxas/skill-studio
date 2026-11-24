@@ -35,13 +35,13 @@ The assistant helps change the skill, cheaply. Each step reads a short sheet of 
 
 - [x] **The improving loop, for a broken rule.** **Fix with AI** on a broken rule's row drafts a change to the rule in a popover, from the rule, the request the agent got and what it wrote, in one message. Apply and run saves the rule and runs the case once with the model that wrote the answer, as a new version named after the fix. Picked from five places in a prototype round on 2026-11-24. Run live on miles-implement on 2026-11-24: the draft saw that the app asked for the preview page the rule counted as extra, said so in the rule, and the case ran again on Opus as v1; Jev's answer on the rule moved from missed to not sure.
 - [x] **Stop a reading.** Write checks with AI is a job, as a run is: Stop beside the button, and in the list of jobs, ends it. Every other way the assistant is asked already had Stop.
-- [ ] **A home for checks for every case.** They are graded and `st propose` suggests them, but Cases cannot show, add or edit them, so a suggestion of that kind is hidden there.
 - [x] **How often the answer without the skill follows each rule anyway.** A rule's number in the editor says it in a second sentence, where a case ran without the skill: "Followed by 2 of 2 answers written without the skill." It costs nothing: those answers are marked on every rule already.
 - [x] **A size before a large reading.** Write checks with AI measures what it would send before it asks. Past about four usual readings it asks first: "Read these long answers?", with how many usual readings it counts as. miles-mockup's latest run read at about 19.
 - [x] **Reading after a run.** Decided 2026-11-24: the assistant never runs by itself. A reading starts only from a press, or a setting the writer turns on and can see, and says while it runs. Nothing in the app shows a reading's marks yet, so no such setting is built now.
 
 ## Later
 
+- [ ] **A home for checks for every case.** They are graded and `st propose` suggests them, but Cases cannot show, add or edit them, so a suggestion of that kind is hidden there. Moved here on 2026-11-24: it is a new place on Cases, so it needs a design round of its own.
 - [ ] **Measure `st read` against the writer's own answers**, once the app shows the assistant's marks on Results: they count in a score on their own only at 90% agreement with the writer (decided 2026-11-20). Moved here on 2026-11-24, since nothing in the app uses those marks yet. The writer's everyday marks in Results build the count: `st read --recount <file>` counts a saved reading against them, asking nothing. On 2026-11-24 a reading of miles-mockup and miles-implement answered 31 rows Jev was not sure of, for about 482,000 input tokens (452,000 of them miles-mockup's pages).
 - [ ] **Fix with AI on a check missed with no rule broken.** Its fix is a new rule, not a change to one, so it needs its own draft.
 - [ ] **Say on the new answer whether the fix worked.** After Apply and run, Results shows the case's newest answer; a line saying the rule is now met, and that nothing else the case was marked on got worse, is not built.
@@ -55,7 +55,7 @@ The assistant helps change the skill, cheaply. Each step reads a short sheet of 
 
 Checks that are not covered by `pnpm check`.
 
-- [ ] Package the app for macOS and start it: only the runtime packages ship, the windows render under the production CSP, and the backend starts.
+- [ ] Package the app for macOS and start it: only the runtime packages ship, the windows render under the production CSP, and the backend starts. For 0.20.0 the built app was started unpackaged (`electron .` on `out/`): Library, Results and the Skill screen rendered under the production CSP with no violation, and the backend answered.
 - [ ] Run the assistant live on each provider that has only been typechecked: the Anthropic API, OpenAI and Codex. Claude Code has been run live; the other three have not.
 - [ ] Send a picture to the assistant on the Anthropic API, OpenAI and Codex paths. Jev and Claude Code have been run live with a picture.
 - [ ] Go through the welcome at 110% zoom. Its window grows with the zoom, so the page keeps its 760 x 600; this has not been seen at a real 110%.
@@ -65,11 +65,11 @@ Checks that are not covered by `pnpm check`.
 
 The steps in [releasing.md](releasing.md), in order.
 
-1. [x] Every item under "Planned" is shipped or moved to "Later". For 0.19.0 the planned items are the next release's work.
-2. [ ] Every item under "Before the release" is done. Not for 0.19.0: the unchecked items carry to the next release.
-3. [x] `pnpm check` and `pnpm build` pass on `main`, 2,136 tests, and main's own run passes on Windows and macOS before the tag.
-4. [x] The grading gate: `pnpm reading-gate` ran live on 2026-11-21 for the sorting and exact tests of 0eae323, and its counts are pinned in `scripts/reading-bench/pinned.ts`. Nothing it covers changed since: no Jev question, scoring, sorting prompt or exact test.
-5. [ ] `gh workflow run release` builds every platform. Not run for 0.19.0; the tag's own run builds every platform.
-6. [x] In the changelog, add `## [0.19.0] - 2026-11-24` under a new `## [Unreleased]`, and commit.
-7. [x] `pnpm version minor -m "Release %s"`, then push `main` and the tag.
-8. [x] The release workflow publishes v0.19.0, with the changelog entry as its notes.
+1. [x] Every item under "Planned" is shipped or moved to "Later".
+2. [ ] Every item under "Before the release" is done. Not for 0.20.0: shipped as soon as it could be, at the writer's word; the unchecked items carry to the next release.
+3. [x] `pnpm check` and `pnpm build` pass on `main`, and main's own run passes on Windows, macOS and Linux before the tag.
+4. [x] The grading gate: nothing it covers changed since it ran on 2026-11-21. Fix with AI's prompt is new and asks no Jev question; no scoring, sorting prompt or exact test changed.
+5. [ ] `gh workflow run release` builds every platform. Not run for 0.20.0; the tag's own run builds every platform.
+6. [x] In the changelog, add `## [0.20.0] - 2026-11-24` under a new `## [Unreleased]`, and commit.
+7. [ ] `pnpm version minor -m "Release %s"`, then push `main` and the tag.
+8. [ ] The release workflow publishes v0.20.0, with the changelog entry as its notes.

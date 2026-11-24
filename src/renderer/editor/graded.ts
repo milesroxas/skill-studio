@@ -140,7 +140,9 @@ class RuleNumber extends WidgetType {
       other.flagged === this.flagged &&
       other.hanging === this.hanging &&
       other.rate?.followed === this.rate?.followed &&
-      other.rate?.broken === this.rate?.broken
+      other.rate?.broken === this.rate?.broken &&
+      other.rate?.without?.followed === this.rate?.without?.followed &&
+      other.rate?.without?.broken === this.rate?.without?.broken
     )
   }
   override toDOM() {
