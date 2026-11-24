@@ -5,7 +5,7 @@ The plan for the next release: what is in it, what is still to do, and the check
 | | |
 | --- | --- |
 | Version | 0.19.0 |
-| Status | Releasing 2026-11-24 |
+| Status | Released 2026-11-24 |
 | Previous release | [v0.18.1](https://github.com/milesroxas/skill-studio/releases/tag/v0.18.1), 2026-11-20 |
 | Target date | 2026-11-24 |
 | Owner | Miles Roxas |
@@ -69,5 +69,5 @@ The steps in [releasing.md](releasing.md), in order.
 4. [x] The grading gate: `pnpm reading-gate` ran live on 2026-11-21 for the sorting and exact tests of 0eae323, and its counts are pinned in `scripts/reading-bench/pinned.ts`. Nothing it covers changed since: no Jev question, scoring, sorting prompt or exact test.
 5. [ ] `gh workflow run release` builds every platform. Not run for 0.19.0; the tag's own run builds every platform.
 6. [x] In the changelog, add `## [0.19.0] - 2026-11-24` under a new `## [Unreleased]`, and commit.
-7. [ ] `pnpm version minor -m "Release %s"`, then push `main` and the tag.
-8. [ ] The release workflow publishes v0.19.0, with the changelog entry as its notes.
+7. [x] `pnpm version minor -m "Release %s"`, then push `main` and the tag.
+8. [x] The release workflow publishes v0.19.0, with the changelog entry as its notes.
