@@ -312,24 +312,33 @@ export function storeEvery(
   })
 }
 
-/** Set the state of the named proposals for every case and of each proposal they are made of. Returns those set. */
+/**
+ * Set the state of the named proposals for every case and of each proposal
+ * they are made of. Returns those set. Set back to proposed, a decision is
+ * taken back: its time goes, and the proposals it decided are proposed again.
+ */
 export function decideEvery(
   skillDir: string,
   ids: readonly string[],
-  state: Exclude<ProposalState, 'proposed'>,
+  state: ProposalState,
 ): StoredEvery[] {
   const file = readProposals(skillDir)
   const at = new Date().toISOString()
   const set: StoredEvery[] = []
   const every = file.every.map((e) => {
     if (!ids.includes(e.id)) return e
-    const next = { ...e, state, decidedAt: at }
+    const next = decided(e, state, at)
     set.push(next)
     return next
   })
   const members = new Set(set.flatMap((e) => e.members.map((m) => `${m.case}/${m.id}`)))
+  // A decision sets the members still open; taking one back opens the members it closed.
+  const from =
+    state === 'proposed'
+      ? set.map((e) => file.every.find((f) => f.id === e.id)?.state)
+      : ['proposed']
   const proposals = file.proposals.map((p) =>
-    members.has(`${p.case}/${p.id}`) && p.state === 'proposed' ? { ...p, state, decidedAt: at } : p,
+    members.has(`${p.case}/${p.id}`) && from.includes(p.state) ? decided(p, state, at) : p,
   )
   write(skillDir, { ...file, every, proposals })
   return set
@@ -362,19 +371,30 @@ export function storeCaseRead(
   })
 }
 
-/** Set the state of the named proposals of one case, and when. Returns those it set. */
+/** A proposal in its new state: decided at `at`, or proposed again with no time of decision. */
+function decided<T extends { state: ProposalState; decidedAt?: string }>(
+  proposal: T,
+  state: ProposalState,
+  at: string,
+): T {
+  if (state !== 'proposed') return { ...proposal, state, decidedAt: at }
+  const { decidedAt: _, ...open } = proposal
+  return { ...open, state } as T
+}
+
+/** Set the state of the named proposals of one case, and when. Returns those it set. Set back to proposed, a decision is taken back. */
 export function decideProposals(
   skillDir: string,
   caseId: string,
   ids: readonly string[],
-  state: Exclude<ProposalState, 'proposed'>,
+  state: ProposalState,
 ): StoredProposal[] {
   const file = readProposals(skillDir)
   const at = new Date().toISOString()
   const set: StoredProposal[] = []
   const proposals = file.proposals.map((p) => {
     if (p.case !== caseId || !ids.includes(p.id)) return p
-    const next = { ...p, state, decidedAt: at }
+    const next = decided(p, state, at)
     set.push(next)
     return next
   })

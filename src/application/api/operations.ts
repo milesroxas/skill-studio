@@ -137,6 +137,15 @@ import {
   stopJob,
 } from '../jobs.ts'
 import {
+  acceptEveryCase,
+  acceptProposals,
+  dropEveryCase,
+  dropProposals,
+  proposedChecks,
+  restoreEveryCase,
+  restoreProposals,
+} from '../proposing.ts'
+import {
   type GenerateInput,
   type Input,
   type OperationName,
@@ -513,6 +522,13 @@ export const parsers: { [K in OperationName]: (raw: Raw) => Input<K> } = {
   }),
   'skill.deleteCase': (raw) => ({ ...scoped(raw), id: assertSafe(str(raw.id), 'case') }),
   'skill.duplicateCase': (raw) => ({ ...scoped(raw), id: assertSafe(str(raw.id), 'case') }),
+  'proposals.read': scoped,
+  'proposals.decide': (raw) => ({
+    ...scoped(raw),
+    case: raw.case == null ? null : assertSafe(str(raw.case), 'case'),
+    id: assertSafe(str(raw.id), 'proposal'),
+    to: oneOf(raw.to, ['accepted', 'dropped', 'proposed'] as const, 'answer'),
+  }),
   'skill.gradedAs': (raw) => {
     const packs = Array.isArray(raw.packs) ? raw.packs : []
     // Named once each, every one a pack the app has. Rules and checks are graded whatever the list says.
@@ -880,6 +896,21 @@ export function createOperations(options: OperationsOptions): Runners {
       return { deleted: true }
     },
     'skill.duplicateCase': (input) => ({ id: duplicateCase(skillOf(input).path, input.id) }),
+    'proposals.read': (input) => ({ proposals: proposedChecks(skillOf(input).path) }),
+    'proposals.decide': (input) => {
+      const { path } = skillOf(input)
+      const ids = [input.id]
+      if (input.to !== 'accepted') {
+        const [set] = input.case
+          ? (input.to === 'dropped' ? dropProposals : restoreProposals)(path, input.case, ids)
+          : (input.to === 'dropped' ? dropEveryCase : restoreEveryCase)(path, ids)
+        return { check: set.check, added: false }
+      }
+      const { added, had } = input.case
+        ? acceptProposals(path, input.case, ids)
+        : acceptEveryCase(path, ids)
+      return { check: (added[0] ?? had[0]).check, added: added.length > 0 }
+    },
     'skill.gradedAs': (input) => {
       const skill = skillOf(input)
       savePacks(skill.path, input.packs)

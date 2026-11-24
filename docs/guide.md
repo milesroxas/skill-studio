@@ -173,6 +173,8 @@ When you know what a good answer looks like, open the case again and add:
 - **A good answer:** a sentence or two describing it.
 - **Length:** the fewest and most words an answer may have.
 
+**Suggested by the assistant** shows under a case's checks when the assistant has read the case's answers and suggests checks for it. Click **Show** to see them, the ones an answer missed first. **Why** says why each matters, the words in your case that ask for it, and what an answer wrote instead. **Add** puts a check in the case as if you typed it: click **Save case** to keep it. The cross turns a suggestion down, and **Undo** at the foot of the window brings it back. For now the assistant suggests checks from the command line only, with `st propose` ([cli.md](cli.md#proposing-checks)).
+
 Some answers come as two files: a page, and a picture made from it. After a first run of such a case, **File to grade** appears at the top of these, with the two files by name. Pick the one you would use: only that file is graded. An answer of several other files is graded on the one the prompt names, such as `post.md` in "Write the post to post.md", and Results says which file the score is for.
 
 The bars at the top of a case show its **run size**, from small to very large: a larger run takes longer and costs more. Pictures, files and an answer that is a page or a picture add the most. Checks add almost nothing, so write as many as the answer needs. Point at the bars to see what adds to the size, and what the last run of the case cost.

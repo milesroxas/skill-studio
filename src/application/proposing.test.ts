@@ -52,7 +52,10 @@ const {
   answersFor,
   dropEveryCase,
   dropProposals,
+  restoreEveryCase,
+  restoreProposals,
   proposeChecks,
+  proposedChecks,
 } = await import('./proposing.ts')
 const { readProposals } = await import('@infrastructure/proposals.ts')
 
@@ -356,6 +359,20 @@ describe('accepting and dropping', () => {
     expect(readProposals(dir).proposals.map((p) => p.state)).toEqual(['dropped'])
     expect(() => dropProposals(dir, CASE, [one.id])).toThrow('dropped already')
   })
+
+  it('proposes again one that was turned down, with no time of decision', async () => {
+    const dir = skill()
+    session.reply = (request) => reply(codename(request.dir))
+    const [one] = (await proposeChecks(dir, options())).cases[0].proposals
+    expect(() => restoreProposals(dir, CASE, [one.id])).toThrow('proposed already')
+    dropProposals(dir, CASE, [one.id])
+    restoreProposals(dir, CASE, [one.id])
+    const [stored] = readProposals(dir).proposals
+    expect(stored?.state).toBe('proposed')
+    expect(stored?.decidedAt).toBeUndefined()
+    dropProposals(dir, CASE, [one.id])
+    expect(readProposals(dir).proposals.map((p) => p.state)).toEqual(['dropped'])
+  })
 })
 
 // ---------------------------------------------------------------- with Jev
@@ -424,6 +441,56 @@ const SAME_THING = (a: string, b: string) => ([a, b].every((x) => /Falcon/.test(
 beforeEach(() => {
   jevCount.requests = 0
   jevCount.questions = 0
+})
+
+describe('the proposals as a screen lists them', () => {
+  it("lists one for every case first and once, then each case's own, with the answers by their keys", async () => {
+    const dir = skill()
+    session.reply = (request) =>
+      reply(
+        codename(request.dir, {
+          check: 'The answer never names the codename Falcon.',
+          basis_quote: 'The codename Falcon must not appear in anything we publish.',
+        }),
+        ...(caseOf(request.dir) === CASE ? [free(request.dir)] : []),
+      )
+    const result = await proposeChecks(dir, options({ cases: TWO }))
+    const [every] = result.every
+    const listed = proposedChecks(dir)
+    expect(listed.map((p) => [p.case, p.check])).toEqual([
+      [null, 'The answer never names the codename Falcon.'],
+      [CASE, 'The email says the update costs nothing for anyone on a paid plan.'],
+    ])
+    expect(listed[0]).toMatchObject({
+      id: every.id,
+      cases: ['email-free', 'email-price'],
+      tells: every.tells,
+      state: 'proposed',
+      basis: {
+        in: 'input',
+        file: 'brief.md',
+        quote: 'The codename Falcon must not appear in anything we publish.',
+      },
+    })
+    // Every member's answers, each named as the app names an output.
+    const read = every.made.flatMap((p) => p.answers.map((a) => `${a.run}/${a.sample}`))
+    expect(listed[0].answers.map((a) => a.key)).toEqual(read)
+    const shownBy = every.made.find((p) => p.shownBy)?.shownBy
+    expect(listed[0].fault).toEqual(
+      shownBy
+        ? { key: `${shownBy.run}/${shownBy.sample}`, file: 'outputs/email.txt', quote: 'Falcon' }
+        : null,
+    )
+    expect(listed[1]).toMatchObject({ cases: [], fault: null, tells: 'all meet' })
+
+    acceptEveryCase(dir, [every.id])
+    dropProposals(dir, CASE, [listed[1].id])
+    expect(proposedChecks(dir).map((p) => p.state)).toEqual(['accepted', 'dropped'])
+  })
+
+  it('lists nothing for a skill never read', () => {
+    expect(proposedChecks(skill())).toEqual([])
+  })
 })
 
 describe('one proposal for every case', () => {
@@ -595,6 +662,19 @@ describe('one proposal for every case', () => {
     const again = await proposeChecks(dir, options({ cases: TWO, again: true }))
     expect(again.every).toEqual([])
     expect(loadEveryCase(dir)).toEqual([])
+  })
+
+  it('proposes again one for every case that was turned down, with the proposals it is made of', async () => {
+    const dir = skill()
+    session.reply = (request) =>
+      reply(everyCodename(request.dir, 'The answer never names the codename Falcon.'))
+    const [one] = (await proposeChecks(dir, options({ cases: TWO }))).every
+    dropEveryCase(dir, [one.id])
+    restoreEveryCase(dir, [one.id])
+    const file = readProposals(dir)
+    expect(file.every.map((e) => [e.state, e.decidedAt])).toEqual([['proposed', undefined]])
+    expect(file.proposals.map((p) => p.state)).toEqual(['proposed', 'proposed'])
+    expect(() => restoreEveryCase(dir, [one.id])).toThrow('proposed already')
   })
 })
 

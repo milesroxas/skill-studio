@@ -21,6 +21,7 @@ import {
   inputEntries,
   MAX_SIDE,
   newCaseId,
+  newCheck,
   sameTitle,
   sizeProblem,
   titleTaken,
@@ -70,6 +71,7 @@ import { NavButton, NavButtonMeta, NavButtonTitle } from '../components/NavButto
 import { ContextActions, RowAction } from '../components/RowActions.tsx'
 import { RunSizeMeter, RunSizeRail, RunSizeStrip, runSize } from '../components/RunSize.tsx'
 import { Segmented } from '../components/Segmented.tsx'
+import { SuggestedChecks } from '../components/SuggestedChecks.tsx'
 import { ExampleList, GuideBox, PairList } from '../components/starters.tsx'
 import { TextArea } from '../components/TextArea.tsx'
 import { Code, Heading, Hint, Text } from '../components/text.tsx'
@@ -689,6 +691,24 @@ export const Cases = memo(function Cases({ ctx }: { ctx: Ctx }) {
         assist={assist}
         report={report}
       />
+      {/* A saved case only: the assistant reads a case's answers, and a new one has none. Keyed by
+          the case, so Show opened on one case is closed on the next. */}
+      {selected ? (
+        <SuggestedChecks
+          key={`${skill}\n${key}`}
+          ctx={ctx}
+          caseId={selected.id}
+          statements={draft.graders.map((g) => g.statement)}
+          onAdd={(statement) =>
+            set({
+              graders: [
+                ...draft.graders.filter((g) => g.statement.trim() || g.image),
+                { ...newCheck(), statement },
+              ],
+            })
+          }
+        />
+      ) : null}
     </FormSection>
   )
 

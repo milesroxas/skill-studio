@@ -26,6 +26,7 @@ M 0 120 H 64 C 104 120 104 64 144 64 H 184 V 96 H 144 C 104 96 104 152 64 152 H 
 | The sidebar's drag strip, macOS only | the mark, 23px wide, porcelain | the strip is 48px tall and empty there. Other platforms have a title bar that names the app. |
 | The welcome's opening | the mark, cropped by the frame | the one expressive moment |
 | Results, for a skill none of whose cases can be read on checks | one ribbon as the lift figure | the ribbon's rise is the score's rise |
+| Cases, at the head of the checks the assistant suggests | the turning ribbon, in the text color | the ribbon is how the app marks what the assistant made |
 
 Nowhere else. No mark in an empty state, a dialog, a loading state or the top bar. A logo the reader meets on every screen stops being seen and starts being in the way.
 
@@ -41,6 +42,16 @@ The lift on Results (`LiftFigure` in `components/Lift.tsx`, fed by `caseLift` in
 - If the latest mean is not higher than the first in the whole points shown (`CaseLift.rises`), draw no ribbon: the latest mean and its `Delta` since the first say it. A ribbon that falls or lies flat would misstate the brand's one motif.
 
 Never use a ribbon as a divider, a background, a progress bar or a loading animation.
+
+## The turning ribbon
+
+`TurningRibbon` in `components/TurningRibbon.tsx` marks what the assistant made. Its one place is the head of the checks the assistant suggests on Cases ([layout.md](layout.md#suggested-checks)). A new place is a decision about where the assistant speaks, not a decoration: add it here first.
+
+- Eleven hairlines, 1px at any size, each the mark's own curve: both control points at the horizontal midpoint. Each line's two ends rise and fall a beat apart, and each line runs a step behind the one before, so the lines read as one ribbon turning in space.
+- A line at the back is a quarter as strong as one in front, which gives the depth. The lines fade out over the first and last 30% of their length, the brand's one gradient, so the figure has no hard edge.
+- It takes the text color: ink on paper, porcelain on dark. Never yellow: it is not next or running.
+- One turn takes 11 seconds, so it is felt more than watched. It moves by SVG's own animation, sampled once, so nothing renders again while it runs. With movement reduced it stands still at its first frame.
+- It fills the column it is laid over and sets no height of its own: the words beside it do.
 
 ## The slab
 
@@ -81,6 +92,7 @@ The welcome runs in its own 760 x 600 window, laid out for exactly that size and
 - A keyboard shortcut the reader just chose in Settings is stamped in: each keycap lands with `animate-pop`, 40ms after the one before (`KeyCombo stamp`), and so do the keys of a row that was reset. A row that lost its keys to another writes "None" in with `animate-ink`, as the line under a listening field is written. The modifiers held while a field listens show at once, and the keys there when Settings opened rest: a key pressed never waits on a movement.
 - A panel folding or opening moves its width by spring, and draws every other layer from how far open it is, so a drag, a throw and a reversal keep them in step ([layout.md](layout.md#panels-that-fold)). With movement reduced, or a key on its divider, it lands at once.
 - Things used many times a day do not animate: the skill switcher (⌘K), menus opened by key.
+- The turning ribbon is the one thing that moves without the reader doing anything, slowly, while what the assistant suggested waits ([The turning ribbon](#the-turning-ribbon)).
 - The status line is the one place in the app that draws: its ink is laid down left to right on `ease-stroke` in 300ms (a `scale-x` of its own layer, not `clip-path`), its words rise in after it, and it withdraws in 150ms. A notice is occasional and asks to be seen; nothing else in the app does this.
 - The welcome may say more, because it is seen once or twice: the mark draws (`animate-draw`), text rises in reading order (`animate-rise`), the slab crosses its word (`animate-draw`). Delays come from `after(ms)` in `renderer/motion.ts`.
 - Nothing waits on an animation. Next works from the first frame.
@@ -89,7 +101,7 @@ The welcome runs in its own 760 x 600 window, laid out for exactly that size and
 
 ## Never
 
-- A gradient, a glow, glass blur, a drop shadow on text, or a second accent color.
+- A gradient, save the fade at the ends of the turning ribbon's lines; a glow, glass blur, a drop shadow on text, or a second accent color.
 - An emoji as an icon. Icons are `lucide-react`, 16px in chrome, `aria-hidden`.
 - A serif, a script or a third typeface.
 

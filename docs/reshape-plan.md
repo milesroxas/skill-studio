@@ -4,8 +4,8 @@ Skill Studio grades an answer mostly on the skill's own rules. That shows whethe
 
 | | |
 | --- | --- |
-| Status | Proposed on 2026-11-20. Nothing here is built. |
-| Reviewed | The app and docs at `28012ed`, with the `st read` harness and the `launch-note` test skill, both uncommitted on `t3/ai-results-skill-refinement` |
+| Status | Phase 0 is built. Phases 1 and 2 are built in part: the assistant proposes checks and reads answers from the command line, and Cases shows a case's proposed checks to add or turn down. Phases 3 to 5 are not started. |
+| Reviewed | The app and docs at `28012ed`, with the `st read` harness and the `launch-note` test skill |
 | Evidence | Five graded runs of `fixtures/launch-note`, counted against the answer key in `scripts/reading-bench/key.ts` |
 | Owner | Miles Roxas |
 

@@ -545,6 +545,33 @@ export function asAnswer(check: string, noun: string | null): string {
   return check.trim().replace(lead, 'The answer')
 }
 
+/** One answer that was read, and the model's word on whether it meets a proposed check. */
+export interface ProposedAnswer {
+  /** The output, as the app names one: its run and its attempt (`run/attempt`). */
+  key: string
+  meets: Meets
+}
+
+/**
+ * A proposed check as a screen reads it: a case's own, or one for every case
+ * (`case` null), which stands for the proposals of the cases it names.
+ */
+export interface ProposedCheck {
+  id: string
+  case: string | null
+  /** For every case: the cases whose proposals it joins, in the cases' order. Empty on a case's own. */
+  cases: string[]
+  check: string
+  why: string
+  /** What asks for it: the request, the case's note or one of the request's files, and the words there. */
+  basis: { in: 'request' | 'note' | 'input'; file: string | null; quote: string }
+  /** An answer that misses it, with the file and the words where the fault shows; null when no answer read does. */
+  fault: { key: string; file: string | null; quote: string | null } | null
+  answers: ProposedAnswer[]
+  tells: Tells
+  state: 'proposed' | 'accepted' | 'dropped'
+}
+
 /** Whether a proposal tells the answers apart, from the model's word on each. */
 export function tellsOf(meets: Readonly<Record<string, Meets>>): Tells {
   const words = Object.values(meets)

@@ -16,6 +16,7 @@ import type { AgentId, Library } from '@domain/library.ts'
 import type { RuleScene } from '@domain/lint.ts'
 import type { LookStep } from '@domain/practice.ts'
 import type { Preferences } from '@domain/preferences.ts'
+import type { ProposedCheck } from '@domain/proposal.ts'
 import type {
   BenchConfig,
   CaseDraft,
@@ -216,6 +217,18 @@ export interface Contract {
   'skill.deleteCase': { input: Scoped & { id: string }; output: { deleted: true } }
   /** Copy a folder case whole under a new id, which it returns. */
   'skill.duplicateCase': { input: Scoped & { id: string }; output: { id: string } }
+  /** The checks proposed for the skill's cases, as the last `st propose` kept them: those for every case first. */
+  'proposals.read': { input: Scoped; output: { proposals: ProposedCheck[] } }
+  /**
+   * Add one proposed check to the checks, turn it down, or propose again one
+   * that was turned down (`proposed`, the Undo of a drop): a case's own by its
+   * `case` and `id`, one for every case by its `id` with `case` null. `added`
+   * is false when a check already says the same, so nothing was written.
+   */
+  'proposals.decide': {
+    input: Scoped & { case: string | null; id: string; to: 'accepted' | 'dropped' | 'proposed' }
+    output: { check: string; added: boolean }
+  }
   /** Set the packs the skill is graded as, in `bench.json`. Every other key of the file stays as it is. */
   'skill.gradedAs': {
     input: Scoped & { packs: string[] }

@@ -155,6 +155,14 @@ export const api = {
   /** Your own answer on one verdict of an output; null takes it back, so Jev's stands again. */
   correct: (key: string, verdict: string, met: boolean | null) =>
     call('skill.correct', scoped({ key, verdict, met })),
+  /** The checks proposed for the skill's cases, those for every case first. */
+  proposals: () => call('proposals.read', scoped({})),
+  /**
+   * Add one proposed check to its case, or to every case where `caseId` is
+   * null, turn it down, or propose again one turned down (the Undo of a drop).
+   */
+  decideProposal: (caseId: string | null, id: string, to: 'accepted' | 'dropped' | 'proposed') =>
+    call('proposals.decide', scoped({ case: caseId, id, to })),
   /** Set the packs the skill is graded as; the rest of `bench.json` stays as it is. */
   gradedAs: (packs: string[]) => call('skill.gradedAs', scoped({ packs })),
   generate: (request: GenerateRequest) => call('skill.generate', scoped(request)),

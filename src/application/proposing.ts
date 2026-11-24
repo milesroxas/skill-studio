@@ -39,6 +39,7 @@ import {
   PROPOSE_PROMPT_VERSION,
   PROPOSE_SCHEMA,
   type Proposal,
+  type ProposedCheck,
   parseProposals,
   pickProposals,
   retryText,
@@ -985,6 +986,78 @@ async function joinEveryCase(
   }
 }
 
+const keyOf = (answer: AnswerRef): string => `${answer.run}/${answer.sample}`
+
+/** A stored proposal's parts as a screen reads them, but for whose it is. */
+function shown(proposal: StoredProposal) {
+  const { basis, shownBy, fault } = proposal
+  return {
+    check: proposal.check,
+    why: proposal.why,
+    basis: { in: basis.in, file: basis.in === 'input' ? basis.file : null, quote: basis.quote },
+    fault: shownBy
+      ? { key: keyOf(shownBy), file: fault?.file ?? null, quote: fault?.quote ?? null }
+      : null,
+    answers: proposal.answers.map((a) => ({ key: keyOf(a), meets: a.meets })),
+  }
+}
+
+/**
+ * The proposals kept for a skill, as a screen lists them: those for every
+ * case first, then each case's own in the cases' order. A proposal that is
+ * part of one for every case is not listed again under its case. One for
+ * every case stands on its first member's words, shows the first fault any
+ * member found, and holds every member's answers.
+ */
+export function proposedChecks(skillDir: string): ProposedCheck[] {
+  const file = readProposals(skillDir)
+  const order = loadCases(skillDir).map((c) => c.id)
+  const place = (id: string): number => {
+    const at = order.indexOf(id)
+    return at < 0 ? order.length : at
+  }
+  const byPlace = <T extends { case: string }>(list: readonly T[]): T[] =>
+    [...list].sort((a, b) => place(a.case) - place(b.case))
+  const joined = new Set<string>()
+  const every: ProposedCheck[] = []
+  for (const group of file.every) {
+    const made = byPlace(
+      group.members.flatMap((m) =>
+        file.proposals.filter((p) => p.case === m.case && p.id === m.id),
+      ),
+    )
+    for (const p of made) joined.add(`${p.case}/${p.id}`)
+    if (!made.length) continue
+    const withFault = made.find((p) => p.shownBy)
+    every.push({
+      ...shown(made[0]),
+      id: group.id,
+      case: null,
+      cases: [...new Set(made.map((p) => p.case))],
+      check: group.check,
+      why: group.why,
+      fault: withFault ? shown(withFault).fault : null,
+      answers: made.flatMap((p) => shown(p).answers),
+      tells: tellsOfAll(
+        made.map((p) => Object.fromEntries(p.answers.map((a, i) => [`${i}`, a.meets]))),
+      ),
+      state: group.state,
+    })
+  }
+  const own = byPlace(file.proposals.filter((p) => !joined.has(`${p.case}/${p.id}`)))
+  return [
+    ...every,
+    ...own.map((p) => ({
+      ...shown(p),
+      id: p.id,
+      case: p.case,
+      cases: [],
+      tells: p.tells,
+      state: p.state,
+    })),
+  ]
+}
+
 /** The named proposals of one case, each in a state `allowed` takes. Throws naming one that is not. */
 function named(
   skillDir: string,
@@ -1051,6 +1124,16 @@ export function dropProposals(
   return decideProposals(skillDir, caseId, ids, 'dropped')
 }
 
+/** Propose again the named proposals of one case that were turned down: the Undo of a drop. */
+export function restoreProposals(
+  skillDir: string,
+  caseId: string,
+  ids: readonly string[],
+): StoredProposal[] {
+  named(skillDir, caseId, ids, ['dropped'])
+  return decideProposals(skillDir, caseId, ids, 'proposed')
+}
+
 /** The named proposals for every case, each in a state `allowed` takes. Throws naming one that is not. */
 function namedEvery(
   skillDir: string,
@@ -1098,4 +1181,10 @@ export function acceptEveryCase(
 export function dropEveryCase(skillDir: string, ids: readonly string[]): StoredEvery[] {
   namedEvery(skillDir, ids, ['proposed'])
   return decideEvery(skillDir, ids, 'dropped')
+}
+
+/** Propose again the named proposals for every case that were turned down, and the proposals they are made of. */
+export function restoreEveryCase(skillDir: string, ids: readonly string[]): StoredEvery[] {
+  namedEvery(skillDir, ids, ['dropped'])
+  return decideEvery(skillDir, ids, 'proposed')
 }

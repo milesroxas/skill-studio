@@ -540,3 +540,64 @@ describe('skill.correct', () => {
     })
   })
 })
+
+describe('proposals', () => {
+  /** A proposal of the one case, as `st propose` keeps one. */
+  const proposal = (id: string, check: string) => ({
+    id,
+    case: 'note',
+    check,
+    why: 'A long note is not read.',
+    scope: 'case',
+    basis: { in: 'request', quote: 'Write a note.' },
+    shownBy: null,
+    fault: null,
+    answers: [{ run: 'first', sample: 'note-s1', meets: 'yes' }],
+    tells: 'all meet',
+    state: 'proposed',
+    stamp: 's',
+    ask: 'a',
+  })
+  const keep = (...proposals: unknown[]) =>
+    writeFileSync(join(skill, 'evals/proposals.json'), JSON.stringify({ proposals }))
+
+  it('reads what was proposed, adds one to its case and turns one down', async () => {
+    keep(proposal('aaaa1111', 'The note is one line.'), proposal('bbbb2222', 'The note is signed.'))
+    const read = async () => (await invoke(operations, 'proposals.read', { skill })).proposals
+    expect((await read()).map((p) => [p.case, p.check, p.state, p.answers])).toEqual([
+      ['note', 'The note is one line.', 'proposed', [{ key: 'first/note-s1', meets: 'yes' }]],
+      ['note', 'The note is signed.', 'proposed', [{ key: 'first/note-s1', meets: 'yes' }]],
+    ])
+    const decide = (id: string, to: string) =>
+      invoke(operations, 'proposals.decide', { skill, case: 'note', id, to })
+    expect(await decide('aaaa1111', 'accepted')).toEqual({
+      check: 'The note is one line.',
+      added: true,
+    })
+    expect(await decide('bbbb2222', 'dropped')).toEqual({
+      check: 'The note is signed.',
+      added: false,
+    })
+    expect((await read()).map((p) => p.state)).toEqual(['accepted', 'dropped'])
+    const state = await invoke(operations, 'skill.state', { skill })
+    expect(state.cases[0].graders.map((g) => g.statement)).toEqual(['The note is one line.'])
+    await expect(decide('aaaa1111', 'accepted')).rejects.toThrow('accepted already')
+    // Undo of a turn down: proposed again, and only a turned-down one can be.
+    expect(await decide('bbbb2222', 'proposed')).toEqual({
+      check: 'The note is signed.',
+      added: false,
+    })
+    expect((await read()).map((p) => p.state)).toEqual(['accepted', 'proposed'])
+    await expect(decide('aaaa1111', 'proposed')).rejects.toThrow('accepted already')
+  })
+
+  it('reads nothing where nothing was proposed, and refuses a name that is no proposal', async () => {
+    expect(await invoke(operations, 'proposals.read', { skill })).toEqual({ proposals: [] })
+    await expect(
+      invoke(operations, 'proposals.decide', { skill, case: 'note', id: 'nope', to: 'accepted' }),
+    ).rejects.toThrow('No proposal nope')
+    await expect(
+      invoke(operations, 'proposals.decide', { skill, case: null, id: 'nope', to: 'maybe' }),
+    ).rejects.toThrow('Bad answer.')
+  })
+})
