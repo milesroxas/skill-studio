@@ -20,7 +20,8 @@ src/
     renderer-files.ts  the built renderer's file for a request path, for the `studio://` scheme and `st serve`
     electron/      main process, preload bridge, backend utility process
     http/          `st serve`: the table over HTTP, the request guard, Tailscale
-    cli/           the `st` command
+    cli/           the `st` command: `st.ts` reads the flags, picks the command and exits with its code
+      commands/      one module per command (its name, help lines, flags and `run`); the help is put together from them
   renderer/        the React app; reaches the table through a transport (IPC or HTTP)
     components/ui/   shadcn/ui sources (Radix + Tailwind v4), owned by the repo
     components/      the app's composites built on them

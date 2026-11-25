@@ -1,0 +1,38 @@
+import { gradeRun, jevForRun } from '@application/grade.ts'
+import { listRuns } from '@infrastructure/runs.ts'
+import { runNameOf } from '../input.ts'
+import type { Command, FlagValues } from './command.ts'
+import { GRADING, shared } from './flags.ts'
+import { held, noteNoKey, printGraded, skillOf, wantsJev } from './shared.ts'
+
+const flags = shared('run', 'all', 'json', ...GRADING)
+
+export const grade: Command = {
+  name: 'grade',
+  help: ['  grade                       Grade a run: --run <name> or --all.'],
+  flags,
+  agents: true,
+  async run(context) {
+    const values = context.values as FlagValues<typeof flags>
+    const { skill } = skillOf(context.args)
+    const names = values.all
+      ? listRuns(skill).map((r) => r.name)
+      : values.run
+        ? [runNameOf(values.run, '--run')]
+        : []
+    if (!names.length) throw new Error('Pass --run <name> or --all.')
+    // Asked of every run before any is graded: with no key, a run Jev scored is refused, not written over.
+    const runs = names.map((name) => ({
+      name,
+      useJev: wantsJev(context) && jevForRun(skill, name),
+    }))
+    noteNoKey(context)
+    let judged = true
+    for (const { name, useJev } of runs) {
+      const report = await held(context, gradeRun(skill, name, { ...context.jev, useJev }))
+      console.log(`\n${name}`)
+      judged = printGraded(report, values.json) && judged
+    }
+    return judged ? 0 : 1
+  },
+}
