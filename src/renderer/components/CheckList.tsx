@@ -16,6 +16,7 @@ import { PenLineIcon, PlusIcon, XIcon } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import type { Reporter } from '../hooks.ts'
 import { useAddPictures } from '../images.ts'
+import { UNFOLD_MS } from '../motion.ts'
 import { Assist, type AssistSpec, assistTitle } from './Assist.tsx'
 import { PlainList, Stack, Toolbar } from './layout.tsx'
 import { PicturePicker, PictureStrip } from './Pictures.tsx'
@@ -66,9 +67,6 @@ function useRowKeys(count: number) {
     arrived: (key: string | undefined) => key !== undefined && arrived.has(key),
   }
 }
-
-/** How long a row that comes from outside takes to unfold (`animate-unfold`). */
-const UNFOLD_MS = 260
 
 export function CheckList({
   graders,
@@ -357,7 +355,7 @@ const arrivalVariants = cva('', {
 })
 const clipVariants = cva('', {
   variants: {
-    arrived: { true: '-mr-3 -ml-8 min-h-0 overflow-hidden pr-3 pl-8', false: '' },
+    arrived: { true: '-mr-3 -ml-8 min-h-0 overflow-clip pr-3 pl-8', false: '' },
   },
 })
 

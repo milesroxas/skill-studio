@@ -108,6 +108,9 @@ function PopoverAnchor({
  */
 const FITS = 'max-h-(--radix-popover-content-available-height) overflow-y-auto overscroll-contain'
 
+/** A sheet the assistant writes into opens on a spring, a little past its size; it still leaves as every sheet does. */
+const SPRUNG = 'data-[state=open]:animate-sheet'
+
 const popoverContentVariants = cva(
   [floatingSheet, floatingMotion, 'origin-(--radix-popover-content-transform-origin)'],
   {
@@ -122,10 +125,13 @@ const popoverContentVariants = cva(
         wide: 'w-[min(520px,calc(100vw-280px))] p-2',
         /** A few fields under their labels. */
         form: 'flex w-72 flex-col gap-4 p-3',
-        /** A request to write and the reply under it, in sections (`PopoverSection`). */
-        compose: ['flex w-[min(440px,calc(100vw-32px))] flex-col p-0', FITS],
+        /**
+         * A request to write and the reply under it, in sections (`PopoverSection`).
+         * Asked for once per reply, it springs open from its button (`animate-sheet`).
+         */
+        compose: ['flex w-[min(440px,calc(100vw-32px))] flex-col p-0', FITS, SPRUNG],
         /** The same, for a reply as long as a file. */
-        'compose-wide': ['flex w-[min(640px,calc(100vw-32px))] flex-col p-0', FITS],
+        'compose-wide': ['flex w-[min(640px,calc(100vw-32px))] flex-col p-0', FITS, SPRUNG],
         /** What a screen is for and the words it uses, in sections (`PopoverSection`). */
         help: 'flex w-[min(340px,calc(100vw-32px))] flex-col p-0',
         /** One word and what it means, beside the word. */

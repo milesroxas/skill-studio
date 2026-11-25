@@ -6,6 +6,15 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+### Changed
+
+- **Fix with AI** springs open from its button, and its ribbon springs open with it. When the fix lands, the ribbon sinks away and the fix settles in from the top, a beat apart: the rule with its change, the reason, then the two buttons together.
+- The checks the assistant suggests on **Cases**, their rows, **Why**, and a suggested check added to a case's checks now grow in on the same spring, so everything the assistant hands you moves the same way.
+
+### Fixed
+
+- When a fix landed in **Fix with AI**, the change could show from its last line for a moment, then jump to the top.
+
 ## [0.20.1] - 2026-11-24
 
 ### Changed

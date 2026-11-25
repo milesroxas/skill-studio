@@ -13,7 +13,6 @@
  * status line proposes it again.
  */
 import { largeReading, type ProposedCheck, readingTimes } from '@domain/proposal.ts'
-import { cva } from 'class-variance-authority'
 import { ChevronRightIcon, PenLineIcon, PlusIcon, XIcon } from 'lucide-react'
 import { type ReactNode, useEffect, useId, useState } from 'react'
 import { api } from '../api.ts'
@@ -34,19 +33,9 @@ import {
 import { PlainList } from './layout.tsx'
 import { TurningRibbon } from './TurningRibbon.tsx'
 import { Excerpt, Text } from './text.tsx'
+import { UNFOLD_CHILD, UNFOLDING, unfoldVariants } from './Unfold.tsx'
 import { Button } from './ui/button.tsx'
 import { Collapsible, CollapsibleContent } from './ui/collapsible.tsx'
-
-/** A block that grows into the flow and shrinks out of it (`animate-unfold`, `animate-fold`), round one child. */
-const unfoldVariants = cva('grid', {
-  variants: {
-    motion: { in: 'animate-unfold', out: 'pointer-events-none animate-fold', rest: '' },
-  },
-})
-/** The one child of an unfolding block: it may be no higher than the block, and shows no more. */
-const UNFOLD_CHILD = 'min-h-0 overflow-hidden'
-/** What a `Collapsible` opens: it unfolds as it opens and folds as it closes, and stays until it has. */
-const UNFOLDING = 'grid data-[state=closed]:animate-fold data-[state=open]:animate-unfold'
 
 interface Suggested {
   /** The suggestions were read at least once: before that, none showing says nothing. */

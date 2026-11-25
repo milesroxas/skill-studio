@@ -2,12 +2,14 @@
  * Fix with AI, on a rule an answer broke: the row's button, and the popover
  * that hangs from it. The popover opens as the fix is asked for: Stop in its
  * head, away from where Apply and run lands, and under it the turning ribbon
- * edge to edge with "Writing a fix…" centred under it (`WritingBand`), drawn in from the left as the sheet opens. As the fix
- * lands the band folds away and the fix unfolds in its place, so the sheet
- * grows rather than jumps, and Stop goes with the band. The fix comes in
- * reading order: the rule with the change marked, the struck words' line
- * drawn across them, one line on what in the answer broke the rule, then
- * what to do with it. Apply and run saves the rule's new text in SKILL.md
+ * edge to edge with "Writing a fix…" centred under it (`WritingBand`). The
+ * sheet springs open from the button, and the ribbon springs open in it. As
+ * the fix lands the band sinks away as its block folds, and the fix unfolds
+ * in its place on a spring, so the sheet grows rather than jumps, and Stop
+ * goes with the band. The fix settles in top to bottom, a beat apart: the
+ * rule with the change marked, the struck words' line drawn across them,
+ * one line on what in the answer broke the rule, then what to do with it,
+ * its two buttons as one part. Apply and run saves the rule's new text in SKILL.md
  * and runs this case once more, with the model that wrote the answer, as a
  * new version named after the fix. The run is an ordinary run: its answer
  * shows here when it is graded, as the case's newest.
@@ -30,7 +32,7 @@ import type { Ctx } from '../ctx.ts'
 import { compareTexts } from '../diff.ts'
 import { useJobStart } from '../job-start.ts'
 import { modelShort, type Output } from '../model.ts'
-import { after, useLanded, useStaying } from '../motion.ts'
+import { settleTurn, useLanded, useStaying } from '../motion.ts'
 import { useHeldRun } from '../started-run.ts'
 import { DiffLines, WordDiff } from './DiffLines.tsx'
 import { Toolbar } from './layout.tsx'
@@ -98,7 +100,8 @@ export function FixWithAi({
   const opener = useRef<HTMLButtonElement>(null)
   const landed = fix !== null
   useEffect(() => {
-    if (landed) applyButton.current?.focus()
+    // Not scrolled to: it is on its way in, and the sheet takes its height round it.
+    if (landed) applyButton.current?.focus({ preventScroll: true })
   }, [landed])
 
   // What the sheet showed as it closed: it fades on those words, not on an empty draft.
@@ -198,15 +201,24 @@ export function FixWithAi({
         </div>
         {writing ? null : (
           <Unfold motion={landedNow ? 'in' : 'rest'}>
-            {/* In reading order as the sheet grows: the marks on the rule, why, then what to do. */}
+            {/* Settling in top to bottom as the sheet grows: the marks on the rule, why, then what to do. */}
             <div className="flex flex-col gap-2 pt-2">
               {compared?.kind === 'words' ? (
-                <WordDiff size="row" html={compared.html} arrive />
+                <div className="animate-settle" style={settleTurn(0)}>
+                  <WordDiff size="row" html={compared.html} arrive />
+                </div>
               ) : compared?.kind === 'lines' ? (
-                <DiffLines lines={compared.lines} arrive />
+                <div className="animate-settle" style={settleTurn(0)}>
+                  <DiffLines lines={compared.lines} arrive />
+                </div>
               ) : null}
               {draft.error ? (
-                <Hint tone="destructive" role="alert" className="animate-ink" style={after(60)}>
+                <Hint
+                  tone="destructive"
+                  role="alert"
+                  className="animate-settle"
+                  style={settleTurn(0)}
+                >
                   {draft.error}
                 </Hint>
               ) : !fix ? null : (
@@ -215,8 +227,8 @@ export function FixWithAi({
                     as="p"
                     tone="muted"
                     role="status"
-                    className="m-0 animate-ink text-pretty"
-                    style={after(300)}
+                    className="m-0 animate-settle text-pretty"
+                    style={settleTurn(1)}
                   >
                     {fix.why}
                   </Text>
@@ -229,7 +241,8 @@ export function FixWithAi({
                   ) : null}
                 </>
               )}
-              <Toolbar gap="md" className="animate-tick" style={after(fix ? 380 : 140)}>
+              {/* The buttons are one choice, so they come as one part. */}
+              <Toolbar gap="md" className="animate-settle" style={settleTurn(fix ? 2 : 1)}>
                 {fix && source && !same && writer ? (
                   <>
                     <Button
@@ -288,7 +301,7 @@ export function FixWithAi({
       </PopoverSection>
       {bandDrawn ? (
         <Unfold motion={writing ? 'rest' : 'out'}>
-          <WritingBand label="Writing a fix…" />
+          <WritingBand label="Writing a fix…" leaving={!writing} />
         </Unfold>
       ) : null}
     </>

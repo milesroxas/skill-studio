@@ -10,6 +10,13 @@ const reducedMotion = (): boolean => document.documentElement.dataset.motion ===
 /** The turn of one part of a sequence: how long it waits before it moves, as `--delay`. */
 export const after = (ms: number): CSSProperties => ({ '--delay': `${ms}ms` }) as CSSProperties
 
+/**
+ * The turn of a part of what the assistant handed over, settling into its
+ * sheet (`animate-settle`): the first a beat after the sheet takes it, each
+ * next 45ms after the one above, so they come top to bottom.
+ */
+export const settleTurn = (turn: number): CSSProperties => after(30 + turn * 45)
+
 const easeOut = (t: number): number => 1 - (1 - t) ** 3
 
 /**
@@ -131,6 +138,9 @@ export function useSwap<T>(initial: T): { view: T; leaving: boolean; swap: (next
 
 /** How long a block takes to fold away (`animate-fold`): it stays on screen that long. */
 const FOLD_MS = 180
+
+/** How long a block takes to unfold and come to rest (`animate-unfold`, on `ease-spring-settle`). */
+export const UNFOLD_MS = 750
 
 /** One item of a list as `usePresence` shows it: on its way in, at rest, or on its way out. */
 export interface Present<T> {

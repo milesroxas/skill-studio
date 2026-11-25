@@ -12,10 +12,17 @@ import { extendTailwindMerge } from 'tailwind-merge'
  *   dropped whichever came first. `text-ui text-muted-foreground` lost its
  *   size and `text-muted-foreground text-code` lost its color. `display`
  *   too, for the counts at the head of All cases.
+ * - Animations a sheet opens with (`animate-in` from tw-animate-css,
+ *   `animate-sheet`): a sheet's size that springs open replaces the plain
+ *   opening it shares with every sheet, instead of both landing.
  */
 const twMerge = extendTailwindMerge({
   extend: {
-    theme: { shadow: ['raised', 'popover'], text: ['2xs', 'ui', 'md', 'code', 'display'] },
+    theme: {
+      shadow: ['raised', 'popover'],
+      text: ['2xs', 'ui', 'md', 'code', 'display'],
+      animate: ['in', 'out', 'sheet'],
+    },
   },
 })
 
