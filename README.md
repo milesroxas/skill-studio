@@ -61,6 +61,7 @@ The first launch offers a walkthrough: a sample skill taken once round the loop.
 | [Release plan](docs/release-plan.md) | What goes into the next release, and what is done |
 | [Hardening checklist](docs/hardening.md) | Known issues from the QA review, and which are fixed |
 | [Reshape plan](docs/reshape-plan.md) | A proposal to show whether an answer got better, not only whether the skill was followed |
+| [Agent loop plan](docs/agent-loop-plan.md) | Running the whole loop from a chat with `st`, with less model work |
 | [Changelog](CHANGELOG.md) | What changed in each release |
 
 ## Contributing
