@@ -5,7 +5,7 @@ The plan for the next release: what is in it, what is still to do, and the check
 | | |
 | --- | --- |
 | Version | 0.20.1 |
-| Status | Releasing 2026-11-24 |
+| Status | Released 2026-11-24 |
 | Previous release | [v0.20.0](https://github.com/milesroxas/skill-studio/releases/tag/v0.20.0), 2026-11-24 |
 | Target date | 2026-11-24 |
 | Owner | Miles Roxas |
@@ -59,9 +59,9 @@ The steps in [releasing.md](releasing.md), in order.
 
 1. [x] Every item under "Planned" is shipped or moved to "Later".
 2. [ ] Every item under "Before the release" is done. Not for 0.20.1: a patch at the writer's word; the unchecked items carry to the next release.
-3. [ ] `pnpm check` and `pnpm build` pass on `main`, and main's own run passes on Windows, macOS and Linux before the tag.
+3. [x] `pnpm check` and `pnpm build` pass on `main`, and main's own run passes on Windows, macOS and Linux before the tag.
 4. [x] The grading gate: nothing it covers changed since it ran on 2026-11-21. These changes are in the app's look and the answer key's decoding, which its tests cover.
 5. [ ] `gh workflow run release` builds every platform. Not run for 0.20.1; the tag's own run builds every platform.
 6. [x] In the changelog, add `## [0.20.1] - 2026-11-24` under a new `## [Unreleased]`, and commit.
-7. [ ] `pnpm version patch -m "Release %s"`, then push `main` and the tag.
-8. [ ] The release workflow publishes v0.20.1, with the changelog entry as its notes.
+7. [x] `pnpm version patch -m "Release %s"`, then push `main` and the tag.
+8. [x] The release workflow publishes v0.20.1, with the changelog entry as its notes.
