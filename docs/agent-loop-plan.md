@@ -4,7 +4,7 @@ The plan for letting a coding agent (Claude Code, in T3 Code or a terminal) do t
 
 | | |
 | --- | --- |
-| Status | Planned (2026-11-25), nothing started |
+| Status | Planned (2026-11-25), decisions made, nothing started |
 | Base | `main` at `7d83dc3`, Skill Studio 0.20.2 |
 | Acceptance test | The React card experiment in [Phase 4](#phase-4-the-acceptance-run) runs from a chat, end to end |
 | Owner | Miles Roxas |
@@ -96,7 +96,7 @@ Each agent's brief is its item text here, the test it names, and the rules above
 - [ ] **1.4 Print the Results address.** One helper builds `?skill=<path>#/results?case=&a=&b=` (`src/renderer/route.ts` writes the hash today). `st run` prints it for the run it made and `st compare` for the pair. Test: the helper's unit test, and a server test that the address opens the pair (`src/interfaces/http/server.test.ts`).
 - [ ] **1.5 `st open`.** `st open <skill> [--case id] [--a run] [--b run]` starts `st serve` or reuses one this checkout started, and prints the address with its token. The agent opens it in T3 Code's preview panel; a person opens it anywhere. Test: two calls start one server, and the second prints the same origin.
 - [ ] **1.6 Short output.** `--brief` on `report`, `compare` and `run` prints, for each case, the version that did better and the words of each rule or check an output missed, nothing else. `run --quiet` prints one line per finished attempt. Test: output tests on the stored runs under `fixtures/`, and a size test that fails when `--brief` grows past a set number of bytes per case.
-- [ ] **1.7 Draw pages from the command line.** `st run`, `st grade` and `st serve` draw a page as the desktop app does: they start Electron with no window as a drawing host and reuse `render.ts` and `measure.ts`, so the grading says `drawn: true` and writes `renders/`. Without a display (Linux CI), it draws under `xvfb-run` or says why it cannot and grades undrawn as today. Test: `st grade fixtures/design-skill` writes a PNG under `renders/` and `graded.drawn` is true; the test skips with a reason where no display can be had.
+- [ ] **1.7 Draw pages from the command line.** `st run`, `st grade` and `st serve` draw a page as the desktop app does: they start Electron with no window as a drawing host ([decision 2](#decisions)) and reuse `render.ts` and `measure.ts`, so the grading says `drawn: true` and writes `renders/`, the same pictures and measures the desktop app makes. Linux CI draws under `xvfb-run`. Where Electron cannot start, the command says why and grades undrawn as today. Test: `st grade fixtures/design-skill` writes a PNG under `renders/` and `graded.drawn` is true; the test skips with a reason where no display can be had.
 - [ ] **1.8 A contact sheet.** After 1.7, `st sheet <skill> --run A --run B [--case id]` puts each case's drawn pages side by side, labelled by run and attempt, in one PNG at most 1568 pixels a side, drawn by the same host from a small page of its own. The agent looks at one picture a case instead of reading each page, and a person can look at it in the chat. Test: one PNG per case, inside the size, with as many panels as attempts.
 
 ## Phase 2: compute what is known
@@ -111,7 +111,7 @@ Grouped by the files they touch: 2.1 and 2.2 are `domain/proposal.ts` and `domai
 - [ ] **2.6 Help me improve asks its own question.** A step's fixed question goes to the writer as written, with no model call to say it again. Test: a fake provider counts no call on a question step.
 - [ ] **2.7 Smaller asks for rewrites.** Suggest changes drops "return it unchanged when nothing can go". The rule judge's `strict` question is answered by lint where `MEASURE` or `ABSOLUTE` finds the word, and Jev is not asked it. Test: unit tests in `improve` and `judges/rule`.
 - [ ] **2.8 Fix with AI starts from the evidence.** The request holds the verdict, and for a fact code read, what code saw, so the model revises instead of searching. The revision is checked after with `openIn` and `keptQuestion`, and retried once when it still breaks the rule, as Auto refine is. Write with AI counts the 50-word description in code and drops a proposed check a case has already (`sameWords`, then Jev's same-question check). Test: unit tests with a fake provider for each.
-- [ ] **2.9 Edits as search and replace.** The chat's change blocks may name a file and give the text to find and the text to put in its place. Code applies one only when the text is found exactly once, and refuses it otherwise with why. Whole files still work. Test: parser and apply tests in `domain/changes.ts`.
+- [ ] **2.9 Edits as search and replace.** The chat's change blocks may name a file and give the text to find and the text to put in its place. Code applies one only when the text is found exactly once ([decision 3](#decisions)). When it is not, the same press asks the model once more for that file whole, with why, so no change fails quietly. Whole files still work. Test: parser and apply tests in `domain/changes.ts`, and a fake provider that sends a block whose text is not found gets one more request and its whole file is applied.
 
 ## Phase 3: Jev before Claude
 
@@ -122,7 +122,7 @@ Each item is a cascade: code first, Jev next, Claude only for what is still open
 - [ ] **3.3 Join proposals with fewer questions.** Code first ranks pairs of proposals by shared words, and Jev is asked only about pairs code cannot settle. Gate: the same groups on the bench, with fewer Jev questions.
 - [ ] **3.4 Parallel Jev requests.** Proposal questions go in parallel requests sized to the 64k context, not 40 at a time in series. Same for any other caller that sends in series. Test: a fake Jev sees the requests overlap, and the answers come back in order.
 - [ ] **3.5 A lasting cache for the rule judge.** `judgeRule`, `verifyRewrites` and `judgeAnswer` keep answers by a hash of state, question and model, as `judge-cache.json` does for grading. Test: a second call with the same rule asks Jev nothing.
-- [ ] **3.6 Skip Jev where code's answer stands.** Needs the decision below. If yes: ask Jev only the facts where code's answer does not stand, and record that code answered. Test: a grading of launch-note asks fewer questions and scores the same.
+- [ ] **3.6 Show where code and a sure Jev disagree.** Jev is still asked every fact code answered ([decision 1](#decisions)). Where code's answer stands and Jev was sure of the other answer, the report and `--brief` say so, by rule or check, since that is where a code reading may be wrong. Test: a grading with a planted code reading that a sure Jev contradicts lists it, and one where they agree lists nothing.
 
 ## Phase 4: the acceptance run
 
@@ -138,11 +138,13 @@ These go in the loop skill (1.1). They need no code.
 - Run long commands in the background and read only the end of what they print.
 - Look at the sheet before opening any page. Read a page's source only to quote it.
 
-## Decisions for Miles
+## Decisions
 
-1. **3.6:** should Jev still be asked a fact code answered? It is cheap, and today its answer is kept beside code's. Skipping it makes grading faster, but nothing then shows where Jev and code would have disagreed.
-2. **1.7:** the command line would start Electron to draw. It makes `st` heavier and needs a display on Linux. The other choice is a headless browser library, which adds a dependency and may draw unlike the app.
-3. **2.9:** search and replace changes what the assistant may send in chat. A block whose text is not found is refused, so a person sees fewer changes applied whole.
+Made by Miles on 2026-11-25.
+
+1. **Jev is still asked a fact code answered.** Its questions ride in the same request, so they cost almost nothing, and its answer is the second opinion that shows where a code reading is wrong. Item 2.3 needs those stored answers. Item 3.6 shows the disagreements instead of skipping Jev.
+2. **The command line draws with Electron.** It is the engine the desktop app draws with, so a grading from a chat sees the same picture and measures as one from the app. A headless browser library would be a large second download and a second way of drawing that can differ in fonts and sizes. The cost is a virtual display on Linux CI.
+3. **The chat may send search and replace edits, with whole files as the fallback.** A one-line change no longer sends the whole file back, which is slower, costs more and can change lines nobody asked about, and a person reviews only the lines that changed. A block whose text is not found is asked for once more as the whole file, inside the same press.
 
 ## Not in this plan
 
