@@ -10,7 +10,7 @@ import type { CallRecord } from '@domain/cost.ts'
 export interface Meter {
   /** Every call counted to it, in the order each ended. */
   readonly calls: CallRecord[]
-  /** Why each call a replay had no saved reply for was stopped. */
+  /** Why each call a replay could not answer was stopped: no reply was saved for it, or none ever is. */
   readonly missing: string[]
 }
 
@@ -30,7 +30,7 @@ export function countCall(record: CallRecord): void {
   for (const meter of meters.getStore() ?? []) meter.calls.push(record)
 }
 
-/** Say that a replay had no reply for a call, to every meter it is made under. */
+/** Say that a replay could not answer a call, to every meter it is made under. */
 export function countMissing(message: string): void {
   for (const meter of meters.getStore() ?? []) meter.missing.push(message)
 }

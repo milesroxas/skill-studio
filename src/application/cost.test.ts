@@ -211,15 +211,6 @@ describe('the meter', () => {
     })
     expect(totals).toEqual([
       {
-        operation: 'sort',
-        provider: 'claude-code',
-        model: 'claude-test',
-        source: 'asked',
-        calls: 2,
-        input: 200,
-        output: 40,
-      },
-      {
         operation: 'chat',
         provider: 'claude-code',
         model: 'claude-test',
@@ -227,15 +218,6 @@ describe('the meter', () => {
         calls: 1,
         input: 100,
         output: 20,
-      },
-      {
-        operation: 'read',
-        provider: 'claude-code',
-        model: 'claude-test',
-        source: 'asked',
-        calls: 1,
-        input: 900,
-        output: 30,
       },
       {
         operation: 'grade',
@@ -247,6 +229,15 @@ describe('the meter', () => {
         output: 0,
       },
       {
+        operation: 'read',
+        provider: 'claude-code',
+        model: 'claude-test',
+        source: 'asked',
+        calls: 1,
+        input: 900,
+        output: 30,
+      },
+      {
         operation: 'run',
         provider: 'engine',
         model: 'small-1',
@@ -255,6 +246,39 @@ describe('the meter', () => {
         input: 10_000,
         output: 1400,
       },
+      {
+        operation: 'sort',
+        provider: 'claude-code',
+        model: 'claude-test',
+        source: 'asked',
+        calls: 2,
+        input: 200,
+        output: 40,
+      },
+    ])
+  })
+
+  it('sums the same calls to the same lines, whatever order they came in', () => {
+    const record = (operation: 'sort' | 'read', model: string) => ({
+      operation,
+      provider: 'claude-code' as const,
+      model,
+      input: 1,
+      output: 1,
+      seconds: 0,
+      source: 'replayed' as const,
+    })
+    const calls = [
+      record('sort', 'b'),
+      record('read', 'a'),
+      record('sort', 'a'),
+      record('read', 'a'),
+    ]
+    expect(sumCalls(calls)).toEqual(sumCalls([...calls].reverse()))
+    expect(sumCalls(calls).map((t) => [t.operation, t.model])).toEqual([
+      ['read', 'a'],
+      ['sort', 'a'],
+      ['sort', 'b'],
     ])
   })
 
@@ -324,7 +348,7 @@ describe('saved replies', () => {
     expect(replayed.both).toEqual({ brief: asked.short, kind: asked.kind })
     expect(replayed.refused).toBeInstanceOf(ProviderError)
     expect((replayed.refused as ProviderError).usage).toEqual({ input: 100, output: 20 })
-    expect(replayed.calls.every((c) => c.source === 'replayed')).toBe(true)
+    expect(replayed.calls.every((c) => c.source === 'replayed' && c.seconds === 0)).toBe(true)
     expect(replayed.calls.map((c) => c.provider)).toEqual([
       'claude-code',
       'jev',
@@ -349,6 +373,50 @@ describe('saved replies', () => {
       `propose in ${dir}: claude-code/${replyKey('claude-code', asked)}.json`,
     )
     expect(missing).toHaveLength(2)
+  })
+
+  it('stops a --deep session and the answer under test, which are never saved', async () => {
+    const dir = scratch('st-cost-saved-')
+    vi.stubEnv('ST_AI_REPLAY', dir)
+    const provider = fakeProvider()
+    const readFolder = vi.spyOn(provider, 'readFolder')
+    const run = vi.spyOn(engine, 'run')
+    const skill = noteSkill()
+    const missing = await withMeter(async (meter) => {
+      await expect(
+        metered(provider, () => {}).readFolder?.({
+          operation: 'propose',
+          model: 'sonnet',
+          effort: '',
+          system: 'Brief.',
+          prompt: 'Read it.',
+          dir,
+          schema: {},
+          signal: new AbortController().signal,
+        }),
+      ).rejects.toThrow('A --deep session is never saved')
+      await expect(
+        generateRun({
+          skillDir: skill,
+          cases: loadCases(skill),
+          engine,
+          model: null,
+          effort: null,
+          samples: 1,
+          configuration: 'with_skill',
+          baseline: null,
+          skillName: 'First',
+          note: '',
+          parallel: 1,
+          log: () => {},
+        }),
+      ).rejects.toThrow('The answer under test')
+      return meter.missing
+    })
+    expect(readFolder).not.toHaveBeenCalled()
+    expect(run).not.toHaveBeenCalled()
+    expect(missing).toHaveLength(2)
+    run.mockRestore()
   })
 
   it('never saves a session that reads a folder', async () => {
@@ -405,7 +473,8 @@ describe('the key of a saved reply', () => {
     // So a third copy is sorted from what the first saved, asking nobody.
     vi.stubEnv('ST_AI_REPLAY', saved)
     sorting.provider = metered(throwing, () => {})
-    const replayed = await sortSkill(copy(), sortOptions)
+    await expect(sortSkill(copy(), sortOptions)).rejects.toThrow('--model')
+    const replayed = await sortSkill(copy(), { ...sortOptions, model: 'sonnet' })
     const readings = (r: typeof live) =>
       [...r.rules, ...r.cases.flatMap((c) => c.checks)].map((i) => i.stored?.reading)
     expect(readings(replayed)).toEqual(readings(live))

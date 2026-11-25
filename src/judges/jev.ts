@@ -15,7 +15,15 @@ import {
 } from '@typesafe-ai/sdk'
 import { holdsImage } from './images.ts'
 import { countCall } from './meter.ts'
-import { hashOf, MissingReply, readSaved, savedReplies, sha, writeSaved } from './replies.ts'
+import {
+  hashOf,
+  MissingReply,
+  readSaved,
+  savedReplies,
+  sha,
+  unanswered,
+  writeSaved,
+} from './replies.ts'
 
 /** The model a grading asks unless it is given another. */
 export const DEFAULT_MODEL = 'jev-1.14.0'
@@ -146,7 +154,8 @@ export class Jev {
       model,
       input,
       output: 0,
-      seconds: seconds(begun),
+      // A replayed answer took no time a gate could compare.
+      seconds: source === 'replayed' ? 0 : seconds(begun),
       source,
     }
   }
@@ -159,7 +168,9 @@ export class Jev {
     for (const [name, question] of Object.entries(questions)) {
       const key = hashOf(question)
       if (!Object.hasOwn(held, key))
-        throw new MissingReply(this.operation, dir, `jev/${file}.json has no answer ${key}`)
+        throw unanswered(
+          new MissingReply(this.operation, dir, `jev/${file}.json has no answer ${key}`),
+        )
       answers[name] = held[key]
     }
     return answers

@@ -27,7 +27,7 @@ export interface CallTotal extends Omit<CallRecord, 'seconds'> {
   seconds: number
 }
 
-/** `records` added up by operation, provider, model and source, in the order each first came. */
+/** `records` added up by operation, provider, model and source, and sorted by the same, so two sums of the same calls are equal. */
 export function sumCalls(records: readonly CallRecord[]): CallTotal[] {
   const totals = new Map<string, CallTotal>()
   for (const r of records) {
@@ -48,5 +48,7 @@ export function sumCalls(records: readonly CallRecord[]): CallTotal[] {
     total.seconds = Math.round((total.seconds + r.seconds) * 100) / 100
     totals.set(key, total)
   }
-  return [...totals.values()]
+  return [...totals.entries()]
+    .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
+    .map(([, total]) => total)
 }

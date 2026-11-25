@@ -66,8 +66,19 @@ export class MissingReply extends Error {
   constructor(operation: Operation, dir: string, what: string) {
     super(`No saved reply for ${operation} in ${dir}: ${what}.`)
     this.name = 'MissingReply'
-    countMissing(this.message)
   }
+}
+
+/** `error`, a call a replay cannot answer, counted to the meters so the command stops with it. */
+export function unanswered<E extends Error>(error: E): E {
+  countMissing(error.message)
+  return error
+}
+
+/** Throws, counted, when a replay is on: a call that is never saved cannot be answered from one. */
+export function neverReplayed(what: string): void {
+  if (savedReplies()?.mode === 'replay')
+    throw unanswered(new Error(`${what} is never saved, so a replay cannot answer it.`))
 }
 
 /** The file `<dir>/<folder>/<key>.json`, read; undefined when there is none. */

@@ -49,6 +49,7 @@ import { TranscriptWriter } from '@infrastructure/transcript.ts'
 import { isVersionLabel } from '@infrastructure/versions.ts'
 import { AGENT_FILE, makeWorkdir, moveWork } from '@infrastructure/workdir.ts'
 import { countCall } from '@judges/meter.ts'
+import { neverReplayed } from '@judges/replies.ts'
 
 /** One sample of a long task; longer means the session is stuck. */
 const SAMPLE_TIMEOUT_MS = 20 * 60 * 1000
@@ -249,6 +250,8 @@ function baselineOf(
 export async function generateRun(
   options: GenerateOptions,
 ): Promise<{ name: string; dir: string; meta: RunMeta }> {
+  // The answer under test is never saved: a replay asks nobody, so it runs no agent.
+  neverReplayed("The answer under test, a run's agent,")
   const { skillDir, engine, log } = options
   const info = skillInfo(skillDir)
   const configuration = options.configuration

@@ -2,12 +2,21 @@
  * A provider as the application reaches it: each reply counted to the meter
  * and written to the usage log, and a one-message reply saved or answered
  * from a saved one as `replies.ts` says. A session that reads a folder
- * (`readFolder`) is counted and logged, never saved.
+ * (`readFolder`) is counted and logged, never saved, so a replay stops it.
  */
 import type { AiUsage, UsageEntry } from '@domain/ai.ts'
 import type { CallRecord } from '@domain/cost.ts'
 import { countCall } from '@judges/meter.ts'
-import { hashOf, MissingReply, readSaved, savedReplies, sha, writeSaved } from '@judges/replies.ts'
+import {
+  hashOf,
+  MissingReply,
+  neverReplayed,
+  readSaved,
+  savedReplies,
+  sha,
+  unanswered,
+  writeSaved,
+} from '@judges/replies.ts'
 import { readImage } from '../images.ts'
 import { type AiProvider, type AiReply, type AiRequest, ProviderError } from './types.ts'
 
@@ -51,7 +60,8 @@ export function metered(provider: AiProvider, log: (entry: UsageEntry) => void):
       model: reply.model,
       input: reply.usage.input,
       output: reply.usage.output,
-      seconds: seconds(begun),
+      // A replayed reply took no time a gate could compare.
+      seconds: source === 'replayed' ? 0 : seconds(begun),
       source,
     })
     if (source === 'replayed') return
@@ -100,7 +110,8 @@ export function metered(provider: AiProvider, log: (entry: UsageEntry) => void):
       return asked(request, provider.run, (reply) => writeSaved(saved.dir, provider.id, key, reply))
     const begun = performance.now()
     const held = readSaved<SavedReply>(saved.dir, provider.id, key)
-    if (!held) throw new MissingReply(request.operation, saved.dir, `${provider.id}/${key}.json`)
+    if (!held)
+      throw unanswered(new MissingReply(request.operation, saved.dir, `${provider.id}/${key}.json`))
     if ('error' in held) {
       const { message, usage, model } = held.error
       count(request.operation, { model, usage }, begun, 'replayed')
@@ -115,6 +126,13 @@ export function metered(provider: AiProvider, log: (entry: UsageEntry) => void):
   return {
     ...provider,
     run,
-    ...(readFolder ? { readFolder: (request) => asked(request, readFolder, null) } : {}),
+    ...(readFolder
+      ? {
+          readFolder: async (request) => {
+            neverReplayed('A --deep session')
+            return asked(request, readFolder, null)
+          },
+        }
+      : {}),
   }
 }

@@ -52,6 +52,7 @@ import {
   type StoredReading,
   storeReadings,
 } from '@infrastructure/rule-readings.ts'
+import { savedReplies } from '@judges/replies.ts'
 
 export interface SortOptions {
   /** The model to ask in place of the one set in Settings, on the same assistant. */
@@ -133,10 +134,20 @@ async function pooled<T, R>(
 /**
  * The model a sort asks: the one set in Settings, or the one named, on the
  * same assistant. Throws when no assistant is set up, before anything is asked.
+ * A replay asks no assistant what it offers, so it takes the model named, on
+ * the assistant in Settings or else Claude Code, and throws without one.
  */
 export async function sortChoice(
   options: Pick<SortOptions, 'model' | 'effort'>,
 ): Promise<AiChoice> {
+  if (savedReplies()?.mode === 'replay') {
+    if (!options.model) throw new Error('A replay asks no assistant, so name the model: --model.')
+    return {
+      provider: aiChoiceOf(readPreferences())?.provider ?? 'claude-code',
+      model: options.model,
+      effort: options.effort ?? '',
+    }
+  }
   const choice = resolveChoice(aiChoiceOf(readPreferences()), await aiProviderInfo())
   if (!choice) throw new Error('Set up the assistant in Settings first.')
   return options.model
