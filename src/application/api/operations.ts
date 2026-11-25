@@ -944,7 +944,7 @@ export function createOperations(options: OperationsOptions): Runners {
             cases: input.cases,
             again: false,
             parallel: 2,
-            jev: Jev.available() ? new Jev() : null,
+            jev: Jev.available() ? new Jev(undefined, 'propose') : null,
             inline: true,
             log: () => {},
             signal,

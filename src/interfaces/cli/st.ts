@@ -18,12 +18,15 @@
  *   st new <dir> [--name <id>] [--description <text>]
  *
  * Each command is a module in `commands/`; this file reads the flags, picks
- * the command and exits with its code. The ones that start agents end them
+ * the command and exits with its code. Every model call the command makes is
+ * counted to its meter, and with `ST_AI_REPLAY` one that had no saved reply
+ * ends it with code 2. The ones that start agents end them
  * before they go: on Ctrl-C, and when asked to stop. A run or a grading cut
  * off that way stops as one stopped in the app does: no report is written
  * from part of it.
  */
 import { parseArgs } from 'node:util'
+import { withMeter } from '@judges/meter.ts'
 import { loadEnv } from '../host.ts'
 import { agentLifecycle } from '../lifecycle.ts'
 import { commandOf, HELP, OPTIONS } from './commands/index.ts'
@@ -42,7 +45,13 @@ async function main(): Promise<number> {
   // These start agents: the ones an earlier copy left are ended first, and Ctrl-C ends this copy's.
   const lifecycle = found?.command.agents ? agentLifecycle({ signals: true }) : null
   const context = contextOf(found?.args ?? positionals.slice(1), values, lifecycle)
-  if (found) return found.command.run(context)
+  if (found)
+    return withMeter(async (meter) => {
+      const code = await found.command.run(context)
+      // A replay that had no saved reply for a call did not do what was asked, whatever else came of it.
+      for (const missing of new Set(meter.missing)) console.error(missing)
+      return meter.missing.length ? 2 : code
+    })
   // An unknown command is named only once a skill is found, as for every command but new and serve.
   skillOf(context.args)
   throw new Error(`Unknown command ${positionals[0]}.\n\n${HELP}`)

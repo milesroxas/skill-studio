@@ -1,5 +1,6 @@
 import { gradeRun, jevForRun } from '@application/grade.ts'
 import { listRuns } from '@infrastructure/runs.ts'
+import { withMeter } from '@judges/meter.ts'
 import { runNameOf } from '../input.ts'
 import type { Command, FlagValues } from './command.ts'
 import { GRADING, shared } from './flags.ts'
@@ -28,11 +29,13 @@ export const grade: Command = {
     }))
     noteNoKey(context)
     let judged = true
-    for (const { name, useJev } of runs) {
-      const report = await held(context, gradeRun(skill, name, { ...context.jev, useJev }))
-      console.log(`\n${name}`)
-      judged = printGraded(report, values.json) && judged
-    }
+    // Each run's JSON carries what its own grading cost.
+    for (const { name, useJev } of runs)
+      await withMeter(async () => {
+        const report = await held(context, gradeRun(skill, name, { ...context.jev, useJev }))
+        console.log(`\n${name}`)
+        judged = printGraded(report, values.json) && judged
+      })
     return judged ? 0 : 1
   },
 }

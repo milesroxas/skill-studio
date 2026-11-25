@@ -70,6 +70,7 @@ import {
 import { readForJev, requestImages } from '@judges/images.ts'
 import { packById, packVersions } from '@judges/index.ts'
 import { Jev } from '@judges/jev.ts'
+import { hashOf } from '@judges/replies.ts'
 import { scorers } from '@judges/scorers.ts'
 import { agentPicture } from '@judges/shared/picture.ts'
 import { asksJev } from '@judges/shared/questions.ts'
@@ -85,7 +86,7 @@ import type {
   WholeFiles,
 } from '@judges/types.ts'
 import { INPUTS_DIR, stagedInputs } from './generate.ts'
-import { type Asked, cachedAsker, hashOf, JudgeCache } from './judge-cache.ts'
+import { type Asked, cachedAsker, JudgeCache } from './judge-cache.ts'
 
 export interface GradeOptions {
   /** False grades with code checks only: no TypeSafe calls, Jev layers stay null. */
@@ -1081,7 +1082,7 @@ async function gradeSubjects(
   const config = benchFor(skillDir, options)
   // `mergeConfig` keeps only the packs the app has, so each id names one.
   const packs = config.packs.flatMap((id) => packById(id) ?? [])
-  const jev = new Jev(options.model)
+  const jev = new Jev(options.model, 'grade')
   const log = options.log ?? (() => {})
   // A run is graded on the rules of the skill it ran, whatever the skill says since.
   const ruled = run?.skill ?? skillDir

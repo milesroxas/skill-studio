@@ -5,7 +5,7 @@ import type { Agreed } from '@domain/reading.ts'
 import { countOf, runNameOf } from '../input.ts'
 import type { Command, FlagValues } from './command.ts'
 import { shared } from './flags.ts'
-import { held, padEnd, signalOf, skillOf } from './shared.ts'
+import { held, padEnd, signalOf, skillOf, withCost } from './shared.ts'
 
 const flags = {
   ...shared('run', 'cases', 'model', 'effort', 'parallel', 'deep', 'json'),
@@ -111,7 +111,7 @@ export const read: Command = {
       }),
     )
     if (values.out) writeFileSync(resolve(values.out), `${JSON.stringify(reading, null, 2)}\n`)
-    if (values.json) console.log(JSON.stringify(reading, null, 2))
+    if (values.json) console.log(JSON.stringify(withCost(reading), null, 2))
     else printReading(reading, values.answers ? 'the answers given' : 'your answers')
     return reading.cases.some((c) => c.error) ? 1 : 0
   },

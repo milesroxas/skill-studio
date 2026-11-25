@@ -79,7 +79,7 @@ import {
   aiProviderInfo,
   isProviderError,
 } from '@infrastructure/ai/index.ts'
-import { readChat, readUsage, recordUsage, writeChat } from '@infrastructure/ai/store.ts'
+import { readChat, readUsage, writeChat } from '@infrastructure/ai/store.ts'
 import { answerText } from '@infrastructure/answer-files.ts'
 import { loadCases } from '@infrastructure/cases.ts'
 import { findImage, type StoredImage } from '@infrastructure/images.ts'
@@ -135,18 +135,6 @@ export function stopRun(id: string): AiRun {
 /** Stop every reply still being written. For when the process is going away. */
 export function stopAllRuns(): void {
   for (const controller of controllers.values()) controller.abort()
-}
-
-/**
- * Keep what a request spent. The log is a record beside the reply, never part
- * of it: a log that cannot be written must not turn a good reply into a failed one.
- */
-function spent(entry: Parameters<typeof recordUsage>[0]): void {
-  try {
-    recordUsage(entry)
-  } catch (error) {
-    console.warn(`The usage log could not be written: ${(error as Error).message}`)
-  }
 }
 
 /** A prose reply as the run keeps it. An empty one is a failure the writer can retry. */
@@ -250,6 +238,7 @@ function start(work: Work): AiRun {
   const begun = Date.now()
   const again: Again = async (system, user, schema) => {
     const reply = await provider.run({
+      operation: work.kind,
       model: choice.model,
       effort: choice.effort,
       system,
@@ -259,16 +248,11 @@ function start(work: Work): AiRun {
       // The reader keeps the first reply in view until the checked one takes its place.
       onText: () => {},
     })
-    spent({
-      at: new Date().toISOString(),
-      provider: choice.provider,
-      model: reply.model,
-      ...reply.usage,
-    })
     return reply.text
   }
   provider
     .run({
+      operation: work.kind,
       model: choice.model,
       effort: choice.effort,
       system: work.system,
@@ -290,12 +274,6 @@ function start(work: Work): AiRun {
     .then(async (reply) => {
       if (controller.signal.aborted) return
       run.usage = reply.usage
-      spent({
-        at: new Date().toISOString(),
-        provider: choice.provider,
-        model: reply.model,
-        ...reply.usage,
-      })
       const text = await work.finish(reply.text, again)
       // Stopped while its reply was checked: nobody is waiting for it.
       if (controller.signal.aborted) return
@@ -304,16 +282,8 @@ function start(work: Work): AiRun {
     })
     .catch((error: Error) => {
       if (controller.signal.aborted) return
-      // A reply the provider billed and then refused still cost tokens; the log keeps them.
-      if (isProviderError(error)) {
-        run.usage = error.usage
-        spent({
-          at: new Date().toISOString(),
-          provider: choice.provider,
-          model: error.model,
-          ...error.usage,
-        })
-      }
+      // A reply the provider billed and then refused still cost tokens.
+      if (isProviderError(error)) run.usage = error.usage
       run.status = 'failed'
       run.error = error.message
     })
@@ -540,7 +510,7 @@ async function oneMoreTry(
 export async function startRefine(scene: RuleScene): Promise<RefineResult> {
   // Before Jev is paid: no model to write with means nothing to check for.
   const choice = await currentChoice()
-  const jev = new Jev()
+  const jev = new Jev(undefined, 'refine')
   const { findings, judged } = await assess(scene, jev)
   const fix = toFix(findings)
   if (!fix.length) return { findings, judged, run: null }
@@ -633,7 +603,7 @@ async function readRewrites(
  */
 export async function startRewrites(scene: RuleScene): Promise<AiRun> {
   const choice = await currentChoice()
-  const jev = new Jev()
+  const jev = new Jev(undefined, 'rewrites')
   const { findings, judged } = await assess(scene, jev)
   const kinds = kindsFor(scene)
   const { system, user } = rewritesPrompt(scene, findings, kinds)
@@ -674,7 +644,7 @@ export async function startRewrites(scene: RuleScene): Promise<AiRun> {
 
 /** The one improve conversation, on one selection, kept while the window is open. */
 let improve: ImproveThread | null = null
-const improveJev = new Jev()
+const improveJev = new Jev(undefined, 'improve')
 
 const snapshot = (thread: ImproveThread): ImproveThread => ({
   ...thread,

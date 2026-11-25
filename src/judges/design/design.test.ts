@@ -15,7 +15,7 @@ import { type DesignRaw, designScoring } from './score.ts'
 
 const config = mergeConfig({ packs: ['design'] }, [designScoring])
 const ctx: JudgeContext = {
-  jev: new Jev(),
+  jev: new Jev(undefined, 'grade'),
   useJev: false,
   config,
   skillDir: '/none',

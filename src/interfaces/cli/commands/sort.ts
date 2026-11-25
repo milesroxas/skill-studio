@@ -3,7 +3,7 @@ import { describeReading } from '@domain/sorting.ts'
 import { countOf } from '../input.ts'
 import type { Command, FlagValues } from './command.ts'
 import { shared } from './flags.ts'
-import { held, padEnd, signalOf, skillOf } from './shared.ts'
+import { held, padEnd, signalOf, skillOf, withCost } from './shared.ts'
 
 const flags = shared('model', 'effort', 'again', 'parallel', 'json')
 
@@ -100,7 +100,7 @@ export const sort: Command = {
         signal: signalOf(context),
       }),
     )
-    if (values.json) console.log(JSON.stringify(result, null, 2))
+    if (values.json) console.log(JSON.stringify(withCost(result), null, 2))
     else printSort(result)
     return result.calls.some((c) => c.error) ? 1 : 0
   },

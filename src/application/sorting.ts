@@ -40,7 +40,6 @@ import {
 } from '@domain/sorting.ts'
 import { checkIds, verdictId } from '@domain/verdict.ts'
 import { aiProvider, aiProviderInfo, isProviderError } from '@infrastructure/ai/index.ts'
-import { recordUsage } from '@infrastructure/ai/store.ts'
 import type { AiMessage } from '@infrastructure/ai/types.ts'
 import { loadBench, loadCases, loadEveryCase, loadRules } from '@infrastructure/cases.ts'
 import { isDir, isFile, textOf, treeFiles } from '@infrastructure/fs.ts'
@@ -200,6 +199,7 @@ async function sortCall(
   const ask = async (messages: AiMessage[]): Promise<string> => {
     try {
       const reply = await provider.run({
+        operation: 'sort',
         model: choice.model,
         effort: choice.effort,
         system: SORT_BRIEF,
@@ -209,13 +209,11 @@ async function sortCall(
         onText: () => {},
       })
       usage = add(usage, reply.usage)
-      spent(choice.provider, reply.model, reply.usage)
       model = reply.model
       return reply.text
     } catch (error) {
       if (isProviderError(error)) {
         usage = add(usage, error.usage)
-        spent(choice.provider, error.model, error.usage)
       }
       throw error
     }
@@ -310,15 +308,6 @@ function earlierReadings(current: readonly StoredReading[]): (ask: Ask) => RuleR
   return (ask) => {
     const found = latest.get(keyOf(ask.kind, ask.case, ask.text))
     return found && found.stamp !== ask.stamp ? (found.reading as RuleReading) : null
-  }
-}
-
-/** Keep what a request spent. The log is a record beside the reading, never part of it. */
-function spent(provider: AiProviderId, model: string, usage: AiUsage): void {
-  try {
-    recordUsage({ at: new Date().toISOString(), provider, model, ...usage })
-  } catch (error) {
-    console.warn(`The usage log could not be written: ${(error as Error).message}`)
   }
 }
 

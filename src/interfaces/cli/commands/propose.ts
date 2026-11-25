@@ -14,7 +14,7 @@ import { Jev } from '@judges/jev.ts'
 import { countOf } from '../input.ts'
 import type { Command, FlagValues } from './command.ts'
 import { shared } from './flags.ts'
-import { held, padEnd, signalOf, skillOf, wantsJev } from './shared.ts'
+import { held, padEnd, signalOf, skillOf, wantsJev, withCost } from './shared.ts'
 
 const flags = {
   ...shared(
@@ -283,13 +283,13 @@ export const propose: Command = {
         cases: values.cases ? ids(values.cases) : [],
         again: Boolean(values.again),
         parallel: countOf(values.parallel, '--parallel') ?? 2,
-        jev: wantsJev(context) && Jev.available() ? new Jev(values['jev-model']) : null,
+        jev: wantsJev(context) && Jev.available() ? new Jev(values['jev-model'], 'propose') : null,
         inline: !values.deep,
         log: (line) => console.error(line),
         signal: signalOf(context),
       }),
     )
-    if (values.json) console.log(JSON.stringify(result, null, 2))
+    if (values.json) console.log(JSON.stringify(withCost(result), null, 2))
     else printProposals(result, context.args[0] ?? '.', Boolean(values.all))
     return result.cases.some((c) => c.error) ? 1 : 0
   },

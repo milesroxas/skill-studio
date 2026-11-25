@@ -2,12 +2,14 @@
 import { existsSync, readFileSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 import { unjudged } from '@application/grade.ts'
+import { type CallTotal, sumCalls } from '@domain/cost.ts'
 import type { BenchConfig, Report } from '@domain/schemas.ts'
 import { layerOrder } from '@domain/scoring.ts'
 import type { SkillInfo } from '@domain/views.ts'
 import { realPath } from '@infrastructure/fs.ts'
 import { skillInfo } from '@infrastructure/skill.ts'
 import { Jev } from '@judges/jev.ts'
+import { meterNow } from '@judges/meter.ts'
 import { scorers } from '@judges/scorers.ts'
 import type { Lifecycle } from '../../lifecycle.ts'
 import type { Context, FlagValues, Values } from './command.ts'
@@ -45,6 +47,15 @@ export function contextOf(
   }
   return { args, values, lifecycle, scoring, jev }
 }
+
+/**
+ * `value` as `--json` prints it: with `cost`, every model call made under the
+ * meter it is printed in, added up by operation, provider, model and source.
+ */
+export const withCost = <T extends object>(value: T): T & { cost: CallTotal[] } => ({
+  ...value,
+  cost: sumCalls(meterNow()?.calls ?? []),
+})
 
 /** Whether the flags ask for Jev: they do unless `--no-jev` is given. */
 export const wantsJev = (context: Context): boolean => !context.values['no-jev']
@@ -129,7 +140,7 @@ export function printReport(report: Report): void {
  * a pack failed on every one.
  */
 export function printGraded(report: Report, json: boolean | undefined): boolean {
-  if (json) console.log(JSON.stringify(report, null, 2))
+  if (json) console.log(JSON.stringify(withCost(report), null, 2))
   else printReport(report)
   const { failed, total, reason } = unjudged(report)
   if (total && failed === total)

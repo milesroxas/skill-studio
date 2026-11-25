@@ -19,6 +19,7 @@ const { claudeAccountOf, claudeCodeProvider, commandProblem, folderArgs, placeBr
 
 const ask = (text: string) =>
   claudeCodeProvider.run({
+    operation: 'chat',
     model: 'sonnet',
     effort: '',
     system: 'Line one.\nLine two.',
@@ -47,6 +48,7 @@ describe('run', () => {
     ]
     const thinking: string[] = []
     const reply = await claudeCodeProvider.run({
+      operation: 'chat',
       model: 'sonnet',
       effort: '',
       system: 'Brief.',
@@ -164,6 +166,7 @@ describe('claudeAccountOf', () => {
 
 describe('a session that reads a folder', () => {
   const request = {
+    operation: 'read' as const,
     dir: '/private/tmp/skill-studio-reading-x/room',
     model: 'sonnet',
     effort: '',

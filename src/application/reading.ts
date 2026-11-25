@@ -24,7 +24,6 @@ import {
   readFacts,
 } from '@domain/reading.ts'
 import { aiProvider } from '@infrastructure/ai/index.ts'
-import { recordUsage } from '@infrastructure/ai/store.ts'
 import { loadCases } from '@infrastructure/cases.ts'
 import { makeRoom, type RoomSample, roomText } from '@infrastructure/reading-room.ts'
 import { readKept, takenCase } from '@infrastructure/run-cases.ts'
@@ -192,6 +191,7 @@ export async function readingOfRun(
       const reply =
         options.inline || !read
           ? await provider.run({
+              operation: 'read',
               model: options.model,
               effort: options.effort,
               system: READING_BRIEF_INLINE,
@@ -203,6 +203,7 @@ export async function readingOfRun(
               onText: () => {},
             })
           : await read({
+              operation: 'read',
               model: options.model,
               effort: options.effort,
               system: READING_BRIEF,
@@ -212,17 +213,6 @@ export async function readingOfRun(
               signal: options.signal,
             })
       model = reply.model
-      try {
-        recordUsage({
-          at: new Date().toISOString(),
-          provider: options.provider,
-          model: reply.model,
-          ...reply.usage,
-        })
-      } catch (error) {
-        // The log is a record beside the reading, never part of it.
-        console.warn(`The usage log could not be written: ${(error as Error).message}`)
-      }
       const reading = parseReading(reply.text)
       return {
         ...base,

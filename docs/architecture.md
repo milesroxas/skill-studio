@@ -254,6 +254,10 @@ The OpenAI SDK (Responses API) with your key, with a strict JSON schema for the 
 
 A reply a provider billed and then refused (the model declined, or the reply ran past its length) is thrown as a `ProviderError` (`src/infrastructure/ai/types.ts`). It carries the `usage` and `model` the reply would have had, so the cost is still recorded.
 
+### Counting each call
+
+Each model call is one `CallRecord` (`src/domain/cost.ts`), named by the operation it was made for (`AiRequest.operation`, and the second argument of `new Jev`). It is taken where the call is made: `aiProvider()` hands out each provider wrapped (`src/infrastructure/ai/metered.ts`), which counts every reply, refused or not, and writes it to the usage log; `Jev.ask` counts its own; and `generateRun` counts each attempt of the agent from what it keeps in `timing.json`. Records go to every meter the call is made under (`withMeter`, `src/judges/meter.ts`): `st` runs each command under one and prints the sum with `--json`. The app runs under none. An answer kept from before (`judge-cache.json`, `Asking`) asks nobody and has no record. The same wrapper and `Jev.ask` save and replay replies under `ST_AI_RECORD` and `ST_AI_REPLAY` (`src/judges/replies.ts`, [cli.md](cli.md#saved-replies)).
+
 The side panel's slash menu lists the panel's own commands first (`src/renderer/commands.ts`: clear, settings and guide, run in the page and never sent). Then it lists the skills Claude Code can invoke (`src/domain/commands.ts`, `src/infrastructure/ai/commands.ts`), through `ai.commands`. The other providers offer no commands, and the menu does not open on them.
 
 - Only the CLI knows the whole list, with every plugin and override. It prints the list in the `init` event of a run, before the model is asked.

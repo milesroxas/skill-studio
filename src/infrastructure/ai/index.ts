@@ -10,7 +10,9 @@ import { keptAccount } from './account.ts'
 import { anthropicProvider } from './anthropic.ts'
 import { claudeCodeProvider } from './claude-code.ts'
 import { codexProvider } from './codex.ts'
+import { metered } from './metered.ts'
 import { openaiProvider } from './openai.ts'
+import { recordUsage } from './store.ts'
 import type { AiProvider } from './types.ts'
 
 const providers: Record<AiProviderId, AiProvider> = {
@@ -20,7 +22,12 @@ const providers: Record<AiProviderId, AiProvider> = {
   codex: codexProvider,
 }
 
-export const aiProvider = (id: AiProviderId): AiProvider => providers[id]
+/** Each provider as the application asks it: every reply counted, logged, and saved or replayed (`metered.ts`). */
+const counted = Object.fromEntries(
+  AI_PROVIDER_IDS.map((id) => [id, metered(providers[id], recordUsage)]),
+) as Record<AiProviderId, AiProvider>
+
+export const aiProvider = (id: AiProviderId): AiProvider => counted[id]
 
 /** What to offer when a connected provider cannot list its models right now. */
 const KNOWN_MODELS: Partial<Record<AiProviderId, readonly AiModel[]>> = {

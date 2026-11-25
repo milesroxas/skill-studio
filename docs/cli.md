@@ -142,6 +142,15 @@ Every grading command takes `--no-jev`, `--packs a,b`, `--bench <file>` and `--j
 
 `--json` prints JSON instead of a table for `cases`, `versions`, `run`, `grade`, `report`, `compare`, `read`, `sort` and `propose`: for `compare`, the table's rows and notes, and the cases read on checks (`cases`). `self-test` prints tables only. `pnpm st --help` lists every command and flag.
 
+The JSON of `run`, `grade`, `read`, `sort` and `propose` carries `cost`: every model call the command made, added up by operation, provider, model and source. A call to Claude or another assistant is counted under its provider, one to Jev under `jev`, and each attempt of a run's agent under `engine`, with the tokens it kept in `timing.json`. Jev's output is not counted. `grade --all` prints each run's own cost with its report.
+
+### Saved replies
+
+- `ST_AI_RECORD=<dir>` writes each one-message reply of the assistant to `<dir>/<provider>/<key>.json`, and each answer of Jev's to `<dir>/jev/<key>.json`. A reply that was billed and then refused is saved as its refusal.
+- `ST_AI_REPLAY=<dir>` answers each of those calls from its file and asks nobody: it needs no TypeSafe key and no network. A call with no file fails with its operation and key, and the command exits 2. A replayed call is counted with `source: "replayed"`, Jev's with no tokens, and is not written to the usage log.
+- A key is the SHA-256 of what was sent, a picture by its bytes. It names no folder, so a reply saved from one copy of a skill answers another. Jev's answers to one state are kept in one file, each by its question, so a replay answers however the questions are grouped.
+- A `--deep` session and the agent of `run` are counted, never saved, and a replay asks them live.
+
 Exit codes:
 
 - 0 on success. `--help` exits 0.

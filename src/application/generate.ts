@@ -48,6 +48,7 @@ import { skillHead, skillInfo, snapshotSkill } from '@infrastructure/skill.ts'
 import { TranscriptWriter } from '@infrastructure/transcript.ts'
 import { isVersionLabel } from '@infrastructure/versions.ts'
 import { AGENT_FILE, makeWorkdir, moveWork } from '@infrastructure/workdir.ts'
+import { countCall } from '@judges/meter.ts'
 
 /** One sample of a long task; longer means the session is stuck. */
 const SAMPLE_TIMEOUT_MS = 20 * 60 * 1000
@@ -516,6 +517,16 @@ async function runSample(
     model: result.model,
   }
   writeJson(join(dir, 'timing.json'), timing)
+  // The answer under test is counted once an attempt, never saved: it is what the skill is tried on.
+  countCall({
+    operation: 'run',
+    provider: 'engine',
+    model: result.model ?? options.model,
+    input: result.tokens?.input ?? 0,
+    output: result.tokens?.output ?? 0,
+    seconds: timing.durationMs / 1000,
+    source: 'asked',
+  })
   writeJson(join(dir, AGENT_FILE), {
     workdir: work.paths,
     ok: result.ok,

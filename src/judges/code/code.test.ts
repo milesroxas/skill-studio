@@ -82,7 +82,7 @@ describe('code scoring of a reading from before', () => {
 
 describe('code pack without Jev', () => {
   const ctx: JudgeContext = {
-    jev: new Jev(),
+    jev: new Jev(undefined, 'grade'),
     useJev: false,
     config,
     skillDir: '/skill',
