@@ -359,6 +359,18 @@
   --animate-ink: ink 260ms ease-out var(--delay) both;
   /* A message sent: up from the corner it was typed under, nearly its own size. */
   --animate-send: send 220ms var(--ease-out-strong) var(--delay) both;
+  /*
+   * A struck word's line drawn across it from the left, as a proofreader's
+   * pen strikes a word, when a change is written (`WordDiff arrive`).
+   */
+  --animate-strike: strike 240ms var(--ease-stroke) var(--delay) both;
+  /*
+   * A figure coming into a sheet as it opens, slowly, as a moment of its own:
+   * out of nothing and a soft focus, unfurled down from its top edge from half
+   * its height (set `origin-top` where it is used). Its lines keep their weight
+   * as it grows (`vector-effect`), so it opens rather than stretches.
+   */
+  --animate-grow: grow 900ms var(--ease-stroke) var(--delay) both;
   /* A short label that changed in place, such as a count: the new one comes up a few pixels. */
   --animate-tick: tick 200ms var(--ease-out-strong) var(--delay) both;
   /* What a stamp or a choice replaces, gone as it lands. */
@@ -371,6 +383,12 @@
    * is constant motion, not a transition.
    */
   --animate-hazard: hazard 560ms linear infinite;
+  /*
+   * Words that say the assistant is still at work, beside the turning ribbon:
+   * down to 55% and back, slowly, so the line is felt to be live, never read
+   * as a blink. With movement reduced it rests at full strength.
+   */
+  --animate-breathe: breathe 2.4s ease-in-out infinite;
   /*
    * A block coming into a flow, or leaving it: its height grows from nothing,
    * or goes to nothing, as it fades, so what is under it moves with it and
@@ -432,6 +450,18 @@
       transform: translateY(6px) scale(0.97);
     }
   }
+  @keyframes strike {
+    from {
+      background-size: 0% 1px;
+    }
+  }
+  @keyframes grow {
+    from {
+      opacity: 0;
+      transform: scale(0.96, 0.5);
+      filter: blur(4px);
+    }
+  }
   @keyframes tick {
     from {
       opacity: 0;
@@ -446,6 +476,11 @@
   @keyframes turn {
     to {
       rotate: 360deg;
+    }
+  }
+  @keyframes breathe {
+    50% {
+      opacity: 0.55;
     }
   }
   @keyframes hazard {
@@ -1010,9 +1045,25 @@
   .diff[data-size="row"] {
     @apply max-w-none p-0 text-ui leading-normal;
   }
-  /* A draft just written: the struck words are read first, the new ones are written in after them. */
+  /*
+   * A change just written, marked as a proofreader marks a proof: each struck
+   * word's line is drawn across it from the left, through a line break in
+   * reading order (the line is one background over the word's every line),
+   * then the new words are written in, so old reads before new. The line is
+   * drawn on the word's own box: nothing around it moves.
+   */
+  .diff[data-arrive] del {
+    --delay: 60ms;
+    text-decoration-line: none;
+    background-image: linear-gradient(var(--color-destructive), var(--color-destructive));
+    background-repeat: no-repeat;
+    background-position: 0 55%;
+    background-size: 100% 1px;
+    @apply animate-strike;
+  }
   .diff[data-arrive] ins {
-    animation: ink 260ms ease-out 140ms both;
+    --delay: 220ms;
+    @apply animate-ink;
   }
 
   /*
@@ -1029,6 +1080,11 @@
   }
   .diff-lines .ins {
     @apply bg-success/10 text-foreground dark:bg-success/20;
+  }
+  /* A change just written: its added lines are written in after the rest are read. */
+  .diff-lines[data-arrive] .ins {
+    --delay: 140ms;
+    @apply animate-ink;
   }
   .diff-lines .del {
     @apply bg-destructive/10 text-foreground dark:bg-destructive/20;

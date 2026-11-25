@@ -31,7 +31,7 @@ import { after } from '../motion.ts'
 import { useStartedRun } from '../started-run.ts'
 import { Toolbar } from './layout.tsx'
 import { Unjudged } from './Refine.tsx'
-import { Hint, Text } from './text.tsx'
+import { Hint, Text, Working } from './text.tsx'
 import { Button } from './ui/button.tsx'
 import { PopoverSection } from './ui/popover.tsx'
 
@@ -114,7 +114,7 @@ function RewriteCard({
         </span>
         {text === null ? (
           <Text as="p" size="ui" tone="faint">
-            {stopped ? 'Stopped.' : 'Writing…'}
+            {stopped ? 'Stopped.' : <Working>Writing…</Working>}
           </Text>
         ) : ready ? (
           <Text as="p" size="ui" wrap="pre" className="animate-ink" style={after(index * 50)}>
@@ -263,7 +263,7 @@ export function RewritesBody({
           <span className="mr-auto" role="status">
             {running ? (
               <Text size="xs" tone="muted">
-                Writing three rewrites…
+                <Working>Writing three rewrites…</Working>
               </Text>
             ) : stopped ? (
               <Text size="xs" tone="muted">

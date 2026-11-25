@@ -16,7 +16,7 @@ import { api } from '../api.ts'
 import { Spacer } from '../components/layout.tsx'
 import { Prose } from '../components/Prose.tsx'
 import { StatusLine } from '../components/StatusLine.tsx'
-import { Heading, Hint, Link, Text } from '../components/text.tsx'
+import { Heading, Hint, Link, Said, Text } from '../components/text.tsx'
 import { ProgressLine } from '../components/Update.tsx'
 import { Button } from '../components/ui/button.tsx'
 import type { Notice } from '../hooks.ts'
@@ -115,7 +115,7 @@ function UpdateBand({ state, onStep }: { state: UpdateState; onStep: (step: Upda
             )}
           >
             <Text as="p" weight="medium">
-              {title}
+              <Said>{title}</Said>
             </Text>
             {detail ? (
               <Hint

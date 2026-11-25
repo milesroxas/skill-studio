@@ -5,7 +5,7 @@
 import type { ComponentProps } from 'react'
 import { cn } from '../lib/utils.ts'
 import { RunningChip } from './Status.tsx'
-import { Text } from './text.tsx'
+import { Text, Working } from './text.tsx'
 import { Card } from './ui/card.tsx'
 
 /** What one output missed: an object a reader sets beside another's, so it stands on its own card. */
@@ -24,7 +24,9 @@ export function OutputWriting() {
       role="status"
       className="m-0 flex size-full flex-col items-center justify-center gap-2 p-6 text-center"
     >
-      <RunningChip>Writing…</RunningChip>
+      <RunningChip>
+        <Working>Writing…</Working>
+      </RunningChip>
       <Text size="xs" tone="muted">
         It shows here when it is done.
       </Text>

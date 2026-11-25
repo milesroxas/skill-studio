@@ -27,7 +27,7 @@ import { useArrived } from '../motion.ts'
 import { offerOf, useUpdate, useUpdateStep } from '../updates.ts'
 import type { Confirm } from './confirm.tsx'
 import { Prose } from './Prose.tsx'
-import { Heading, Hint, VisuallyHidden } from './text.tsx'
+import { Heading, Hint, Said, VisuallyHidden } from './text.tsx'
 import { Button } from './ui/button.tsx'
 import {
   HoverCard,
@@ -263,7 +263,7 @@ export function UpdateControl({ confirm, report }: { confirm: Confirm; report: R
                           'animate-in duration-200 ease-out-strong fade-in-0 slide-in-from-bottom-1',
                       )}
                     >
-                      {view.label}
+                      <Said>{view.label}</Said>
                     </span>
                     {downloading ? (
                       <span className="text-xs font-normal text-muted-foreground tabular-nums">

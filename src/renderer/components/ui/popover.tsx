@@ -1,19 +1,104 @@
 import { cn } from '@renderer/lib/utils.ts'
 import { cva, type VariantProps } from 'class-variance-authority'
-import { Popover as PopoverPrimitive } from 'radix-ui'
+import { Popover as PopoverPrimitive, Slot } from 'radix-ui'
 import type * as React from 'react'
+import { useCallback, useRef } from 'react'
 import { floatingMotion, floatingRow, floatingRowTone, floatingSheet } from './floating.ts'
 
 function Popover({ ...props }: React.ComponentProps<typeof PopoverPrimitive.Root>) {
   return <PopoverPrimitive.Root data-slot="popover" {...props} />
 }
 
-function PopoverTrigger({ ...props }: React.ComponentProps<typeof PopoverPrimitive.Trigger>) {
-  return <PopoverPrimitive.Trigger data-slot="popover-trigger" {...props} />
+/** What Radix hangs a sheet from: a box on screen, and the element whose scrolling and resizing move it. */
+interface Measured {
+  getBoundingClientRect: () => DOMRect
+  readonly contextElement: Element | undefined
 }
 
-function PopoverAnchor({ ...props }: React.ComponentProps<typeof PopoverPrimitive.Anchor>) {
-  return <PopoverPrimitive.Anchor data-slot="popover-anchor" {...props} />
+/**
+ * An element's box as laid out, not as drawn. A button shrinks while it is
+ * pressed (`scale`, from its centre), and a popover opens on the release, so
+ * the drawn box would hang the sheet a pixel or two in from the button's edge,
+ * and Radix does not measure again when the button grows back. Its own scale
+ * is taken out; a scale on something around it, such as a dialog still
+ * zooming in, is where it really is and stays.
+ */
+function laidOut(element: Element): DOMRect {
+  const drawn = element.getBoundingClientRect()
+  const { scale } = getComputedStyle(element)
+  if (!scale || scale === 'none') return drawn
+  const [sx = 1, sy = sx] = scale.split(' ').map(Number)
+  if (!sx || !sy) return drawn
+  const width = drawn.width / sx
+  const height = drawn.height / sy
+  return new DOMRect(
+    drawn.x + (drawn.width - width) / 2,
+    drawn.y + (drawn.height - height) / 2,
+    width,
+    height,
+  )
+}
+
+/** The element to measure, and the anchor Radix reads it through. */
+function useLaidOutAnchor() {
+  const element = useRef<Element | null>(null)
+  const anchor = useRef<Measured | null>(null)
+  if (anchor.current === null)
+    anchor.current = {
+      getBoundingClientRect: () => (element.current ? laidOut(element.current) : new DOMRect()),
+      get contextElement() {
+        return element.current ?? undefined
+      },
+    }
+  return { element, anchor }
+}
+
+/** One ref from the caller's and ours, kept while the caller's is the same. */
+function useBothRefs<T>(theirs: React.Ref<T> | undefined, ours: React.RefObject<T | null>) {
+  return useCallback(
+    (node: T | null) => {
+      ours.current = node
+      if (typeof theirs === 'function') theirs(node)
+      else if (theirs) theirs.current = node
+    },
+    [theirs, ours],
+  )
+}
+
+/** Opens the sheet, which hangs from it as laid out (`laidOut`). */
+function PopoverTrigger({ ref, ...props }: React.ComponentProps<typeof PopoverPrimitive.Trigger>) {
+  const { element, anchor } = useLaidOutAnchor()
+  const refs = useBothRefs(ref, element)
+  return (
+    <>
+      <PopoverPrimitive.Anchor virtualRef={anchor} />
+      <PopoverPrimitive.Trigger data-slot="popover-trigger" ref={refs} {...props} />
+    </>
+  )
+}
+
+/**
+ * What the sheet hangs from when that is not what opens it: an element, as
+ * laid out (`laidOut`), or a box of the caller's own (`virtualRef`), such as a
+ * selection in the editor.
+ */
+function PopoverAnchor({
+  ref,
+  asChild,
+  virtualRef,
+  ...props
+}: React.ComponentProps<typeof PopoverPrimitive.Anchor>) {
+  const { element, anchor } = useLaidOutAnchor()
+  const refs = useBothRefs(ref, element)
+  if (virtualRef)
+    return <PopoverPrimitive.Anchor data-slot="popover-anchor" virtualRef={virtualRef} />
+  const Comp = asChild ? Slot.Root : 'div'
+  return (
+    <>
+      <PopoverPrimitive.Anchor virtualRef={anchor} />
+      <Comp data-slot="popover-anchor" ref={refs} {...props} />
+    </>
+  )
 }
 
 /**

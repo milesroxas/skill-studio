@@ -20,7 +20,7 @@ import { forgetScan, scanIsFresh, scanLibrary, scannedSkills } from '../library-
 import { plural } from '../model.ts'
 import { useChangedInPlace } from '../motion.ts'
 import { useShortcut, useShortcutHint } from '../shortcuts.ts'
-import { Text } from './text.tsx'
+import { Said, Text, Working } from './text.tsx'
 import { Input } from './ui/input.tsx'
 import {
   Popover,
@@ -173,7 +173,7 @@ export function SkillSwitcher({
                 title={detail}
                 className={cn(lineChanged && 'animate-tick')}
               >
-                {detail}
+                <Said>{detail}</Said>
               </Text>
             ) : null}
           </span>
@@ -208,7 +208,11 @@ export function SkillSwitcher({
         </PopoverSection>
         <PopoverSection scroll id="skill-switcher-list" role="listbox" aria-label="Skills">
           {error ? <PopoverLabel role="alert">{error}</PopoverLabel> : null}
-          {!skills && !error ? <PopoverLabel role="status">Loading…</PopoverLabel> : null}
+          {!skills && !error ? (
+            <PopoverLabel role="status">
+              <Working>Loading…</Working>
+            </PopoverLabel>
+          ) : null}
           {skills && !shown.length ? (
             <PopoverLabel>
               {query.trim()

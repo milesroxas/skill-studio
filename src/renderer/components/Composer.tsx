@@ -32,7 +32,7 @@ import { useArrived } from '../motion.ts'
 import { Spacer } from './layout.tsx'
 import { ModelChip } from './ModelControls.tsx'
 import { PicturePicker, PictureStrip, usePictureDrop } from './Pictures.tsx'
-import { Hint, Text, VisuallyHidden } from './text.tsx'
+import { Hint, Said, Text, VisuallyHidden } from './text.tsx'
 import { Button } from './ui/button.tsx'
 import {
   Popover,
@@ -570,7 +570,9 @@ function CommandMenu({ menu }: { menu: CommandMenuState }) {
             {section.label}
           </Text>
           {section.note ? (
-            <PopoverLabel role={section.note.tone ?? undefined}>{section.note.text}</PopoverLabel>
+            <PopoverLabel role={section.note.tone ?? undefined}>
+              <Said>{section.note.text}</Said>
+            </PopoverLabel>
           ) : null}
           {section.rows.map((row) => (
             <button

@@ -29,7 +29,7 @@ import { Composer } from './Composer.tsx'
 import { CornerButton } from './CornerButton.tsx'
 import { DiffLines } from './DiffLines.tsx'
 import { Toolbar } from './layout.tsx'
-import { Excerpt, Hint, Text } from './text.tsx'
+import { Excerpt, Hint, Text, Working } from './text.tsx'
 import { Button } from './ui/button.tsx'
 import {
   Popover,
@@ -95,7 +95,9 @@ function Unread({ problem }: { problem: string | null }) {
   if (!problem)
     return (
       <PopoverSection>
-        <PopoverLabel>Loading…</PopoverLabel>
+        <PopoverLabel>
+          <Working>Loading…</Working>
+        </PopoverLabel>
       </PopoverSection>
     )
   return (
@@ -163,7 +165,7 @@ function Reply({
           {text}
         </Text>
       ) : (
-        <Text tone="muted">{status === 'stopped' ? 'Stopped.' : 'Writing…'}</Text>
+        <Text tone="muted">{status === 'stopped' ? 'Stopped.' : <Working>Writing…</Working>}</Text>
       )}
     </Excerpt>
   )

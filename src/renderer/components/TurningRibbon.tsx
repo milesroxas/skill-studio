@@ -9,7 +9,7 @@
  * It moves by SVG's own animation, sampled once, so nothing renders again
  * while it runs. With movement reduced it is drawn at rest.
  */
-import { useId, useMemo } from 'react'
+import { type CSSProperties, useId, useMemo } from 'react'
 
 const W = 112
 const H = 88
@@ -39,7 +39,7 @@ const depth = (turn: number): number => round(0.25 + 0.75 * (0.5 + 0.5 * Math.si
 
 const reducedMotion = (): boolean => document.documentElement.dataset.motion === 'reduced'
 
-export function TurningRibbon({ className }: { className?: string }) {
+export function TurningRibbon({ className, style }: { className?: string; style?: CSSProperties }) {
   const fade = useId()
   const lines = useMemo(
     () =>
@@ -62,6 +62,7 @@ export function TurningRibbon({ className }: { className?: string }) {
       preserveAspectRatio="none"
       fill="none"
       className={className}
+      style={style}
     >
       <defs>
         {/* In the picture's own units: a flat line has no box of its own to measure a fade by. */}

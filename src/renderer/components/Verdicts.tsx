@@ -48,7 +48,7 @@ import { answerNote } from '../verdict-notes.ts'
 import { Disclosure } from './Disclosure.tsx'
 import { Term } from './Help.tsx'
 import { ContextActions, MoreActions, PartActions, RowAction } from './RowActions.tsx'
-import { Text } from './text.tsx'
+import { Said, Text } from './text.tsx'
 import { badgeVariants } from './ui/badge.tsx'
 import { Button } from './ui/button.tsx'
 
@@ -158,21 +158,18 @@ function answersOf(verdict: Verdict): Answer[] {
 }
 
 /**
- * The line under a fact: its kind where the list mixes kinds or it counts more
- * than once, the part a kind of work adds, how the app checked it or why
+ * The line under a fact: its kind where it counts more than once ("Check ×2"), the part a kind of work adds, how the app checked it or why
  * nobody can mark it, the reader's answer, how the other answer stands where
  * it stands otherwise, and a save on the way.
  */
 function noteOf(
   verdict: Verdict,
-  mixed: boolean,
   other: { letter: string; verdict: Verdict } | null,
   saving: boolean,
 ): string {
   const kind = KIND[verdict.kind]
   const parts: string[] = []
-  if (kind && (mixed || verdict.weight))
-    parts.push(verdict.weight ? `${kind} ${weightMark(verdict.weight)}` : kind)
+  if (kind && verdict.weight) parts.push(`${kind} ${weightMark(verdict.weight)}`)
   // A fact a kind of work adds, such as Look, always names its part: it is no rule or check of the reader's.
   if (!kind && verdict.layer && kindOfPart(verdict.layer)) parts.push(partLabel(verdict.layer))
   const answered = answerNote(verdict)
@@ -225,7 +222,6 @@ function useFold() {
 
 function Row({
   verdict,
-  mixed,
   other,
   go,
   marks,
@@ -236,8 +232,6 @@ function Row({
   verdict: Verdict
   /** Fix with AI, the row's action in place of where its fix is, which stays in the menu. */
   fix?: ReactNode
-  /** The list holds both rules and checks, so each row names its kind. */
-  mixed: boolean
   /** The other answer's letter and how it stands, where it stands otherwise. */
   other: { letter: string; verdict: Verdict } | null
   /** Where the fix is; null where the group's head says, or there is nowhere to go. */
@@ -267,7 +261,7 @@ function Row({
   ) : null
   const { said, chip, icon } = STANDING[standingOf(verdict)]
   const look = cn(badgeVariants({ variant: chip }), 'size-5 p-0')
-  const note = noteOf(verdict, mixed, other, pending === verdict.id)
+  const note = noteOf(verdict, other, pending === verdict.id)
   // The line's one action: the mark on a row that waits for one, else where the fix is.
   const inline: Array<{ label: string; run: () => void; disabled?: boolean }> =
     marks && answers.length
@@ -335,7 +329,11 @@ function Row({
             // A button is lifted out of the line's height and pulled back by its own padding, so
             // the line stays 16px and a label that wraps starts where the text does.
             <span className="flex min-h-4 flex-wrap items-center gap-x-3.5">
-              {note ? <Text tone="faint">{note}</Text> : null}
+              {note ? (
+                <Text tone="faint">
+                  <Said>{note}</Said>
+                </Text>
+              ) : null}
               {inline.length ? (
                 <span className="-my-1 -ml-2 flex">
                   {inline.map((action) => (
@@ -472,7 +470,6 @@ export function Verdicts({
   // An answer without the skill never saw the rules: they are not in its list.
   const verdicts = withSkill ? all : all.filter((v) => v.kind !== 'rule')
   if (!verdicts.length) return null
-  const mixed = new Set(verdicts.map((v) => KIND[v.kind]).filter(Boolean)).size > 1
   const openSkill: Go = {
     label: 'Open skill',
     icon: <FileTextIcon aria-hidden="true" />,
@@ -503,7 +500,6 @@ export function Verdicts({
       // Two rules of one skill may read the same, so a fact's place in the list is part of its key.
       key={`${factKey(v.layer, v.id)}#${i}`}
       verdict={v}
-      mixed={mixed}
       other={otherOf(v)}
       go={go}
       marks={marks}

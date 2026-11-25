@@ -47,7 +47,7 @@ import { List, Stack, Toolbar } from './layout.tsx'
 import { Prose } from './Prose.tsx'
 import { CheckWeight } from './Scores.tsx'
 import { Status } from './Status.tsx'
-import { Hint, Text } from './text.tsx'
+import { Hint, Said, Text, Working } from './text.tsx'
 import { Button } from './ui/button.tsx'
 
 /** Where changes land: the open skill and its files as saved. */
@@ -255,12 +255,13 @@ function FileRow({
         <Summary
           mono
           title={name}
-          detail={[
-            folder,
-            (before === undefined && unreadDetail(host)) || fileDetail(standing, lines),
-          ]
-            .filter(Boolean)
-            .join(' · ')}
+          detail={
+            <Said>
+              {[folder, (before === undefined && unreadDetail(host)) || fileDetail(standing, lines)]
+                .filter(Boolean)
+                .join(' · ')}
+            </Said>
+          }
         />
       }
       action={
@@ -457,7 +458,7 @@ export function WritingRow({ label, className }: { label: string; className?: st
           detail={
             <>
               {file?.folder ? `${file.folder} · ` : ''}
-              <span className="animate-pulse">Writing…</span>
+              <Working>Writing…</Working>
             </>
           }
         />

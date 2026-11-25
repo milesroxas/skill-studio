@@ -39,7 +39,7 @@ import { EmptyState, Loading, PlainList, ReadFailed } from './layout.tsx'
 import { PanelBody, PanelHeader, usePin } from './PanelFrame.tsx'
 import { PictureStrip } from './Pictures.tsx'
 import { Prose } from './Prose.tsx'
-import { Hint, Text } from './text.tsx'
+import { Hint, Text, Working } from './text.tsx'
 import { UsageButton } from './Usage.tsx'
 import { Button } from './ui/button.tsx'
 
@@ -333,8 +333,8 @@ export function Conversation({
           {run?.status === 'running' && run.text ? (
             reply(run.text, undefined, true, null)
           ) : run?.status === 'running' && run.thinking ? null : (
-            <Text tone="muted" className="animate-pulse">
-              Thinking…
+            <Text tone="muted">
+              <Working>Thinking…</Working>
             </Text>
           )}
         </li>
@@ -359,7 +359,7 @@ function Thought({ text, ms, thinking }: { text: string; ms: number | null; thin
     <Disclosure
       summary={
         thinking ? (
-          <span className="animate-pulse">Thinking…</span>
+          <Working>Thinking…</Working>
         ) : ms === null ? (
           'Thought'
         ) : (

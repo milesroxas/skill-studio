@@ -247,6 +247,26 @@ export function Excerpt({
   return <Tag className={cn(excerptVariants({ edge, holds }), className)} {...props} />
 }
 
+/**
+ * Words that say something is under way, a verb in progress with an
+ * ellipsis ("Running…", "Thinking…", "Writing a fix…"): they breathe, down
+ * and back slowly, for as long as they show (`animate-breathe`), and rest at
+ * full strength when movement is reduced. Every such line in the app goes
+ * through here, a button's busy label too, so they all keep one pace.
+ */
+export function Working({ className, ...props }: HTMLAttributes<HTMLSpanElement>) {
+  return <span className={cn('animate-breathe', className)} {...props} />
+}
+
+/**
+ * A line built elsewhere that may say something is under way: it is
+ * `Working` when it ends in an ellipsis, the mark of a verb in progress in
+ * the app's words ("Writing v3…"), and plain words otherwise ("Not graded").
+ */
+export function Said({ children }: { children: string }) {
+  return children.endsWith('…') ? <Working>{children}</Working> : children
+}
+
 /** A monospace code span inside running text. */
 export function Code({ className, ...props }: HTMLAttributes<HTMLElement>) {
   return <code className={cn('font-mono text-code', className)} {...props} />

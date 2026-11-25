@@ -21,6 +21,8 @@ export interface ConfirmOptions {
   action?: string
   /** A destructive action gets the destructive button. */
   destructive?: boolean
+  /** The button that keeps things as they are, where "Cancel" would not say what it keeps: "Let it finish". */
+  cancel?: string
 }
 
 export type Confirm = (options: ConfirmOptions) => Promise<boolean>
@@ -51,7 +53,9 @@ export function useConfirm(): [Confirm, ReactNode] {
           ) : null}
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel onClick={() => settle(false)}>Cancel</AlertDialogCancel>
+          <AlertDialogCancel onClick={() => settle(false)}>
+            {options?.cancel ?? 'Cancel'}
+          </AlertDialogCancel>
           <AlertDialogAction
             variant={options?.destructive ? 'destructive' : 'default'}
             onClick={() => settle(true)}

@@ -9,7 +9,7 @@ import { api, type Job, type JobProgress } from '../api.ts'
 import { reportFailure } from '../transport.ts'
 import { Rows } from './layout.tsx'
 import { Dot, RunningChip, type Tone } from './Status.tsx'
-import { Text } from './text.tsx'
+import { Text, Working } from './text.tsx'
 import { Button } from './ui/button.tsx'
 import { Popover, PopoverContent, PopoverTrigger } from './ui/popover.tsx'
 
@@ -175,13 +175,19 @@ function JobLogs({ jobs }: { jobs: Job[] }) {
               <Text weight="semibold" tone={job.status === 'failed' ? 'destructive' : 'default'}>
                 {job.title}
               </Text>{' '}
-              <Text tone="muted">{STATUS_WORD[job.status]}</Text>
+              <Text tone="muted">
+                {job.status === 'running' ? (
+                  <Working>{STATUS_WORD.running}</Working>
+                ) : (
+                  STATUS_WORD[job.status]
+                )}
+              </Text>
             </Text>
             {job.status === 'running' ? <StopJob job={job} /> : null}
           </span>
           {/* One scroller per screen on touch: the log flows at full height there. */}
           <pre className="m-0 max-h-60 overflow-auto font-mono text-2xs whitespace-pre-wrap break-words text-muted-foreground pointer-coarse:max-h-none pointer-coarse:overflow-visible">
-            {job.log.slice(-40).join('\n') || 'Starting…'}
+            {job.log.slice(-40).join('\n') || <Working>Starting…</Working>}
           </pre>
         </li>
       ))}

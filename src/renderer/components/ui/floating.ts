@@ -11,9 +11,15 @@ export const floatingSheet =
 /**
  * In from where it opened in 150ms, a touch under its size, and out faster
  * than it came. The origin is set by each surface, from its trigger or the pointer.
+ *
+ * `transition-none`: `duration-*` times the animation, but it also sets a
+ * transition duration, and with no property named a transition covers every
+ * property. The origin Radix measures lands a frame after the sheet mounts, so
+ * the sheet then eased its origin from its centre to its trigger and slid
+ * sideways as the scale finished. Only the animation moves a sheet.
  */
 export const floatingMotion =
-  'duration-150 ease-out-strong data-[state=closed]:duration-100 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-[0.97]'
+  'transition-none duration-150 ease-out-strong data-[state=closed]:duration-100 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-[0.97]'
 
 /** A row that does something: an icon, then what it does. 4px inside its sheet, so its corners are the sheet's less 4: `rounded-xs`. */
 export const floatingRow =

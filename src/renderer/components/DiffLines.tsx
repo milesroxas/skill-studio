@@ -12,7 +12,8 @@ const SIGN = 2
  * A word diff as running text: removed words struck through, added words
  * marked. `card` fills an output's card; `row` is one rule in a proposed
  * change's row. `html` comes escaped from `wordDiffHtml`. `arrive`: just
- * written, so the added words are written in after the struck ones are read.
+ * written, so each struck word's line is drawn across it, and the added words
+ * are written in after it, so old reads before new.
  */
 export function WordDiff({
   html,
@@ -34,9 +35,10 @@ export function WordDiff({
   )
 }
 
-export function DiffLines({ lines }: { lines: DiffLine[] }) {
+/** `arrive`: just written, so the added lines are written in after the rest are read. */
+export function DiffLines({ lines, arrive = false }: { lines: DiffLine[]; arrive?: boolean }) {
   return (
-    <pre className="diff-lines">
+    <pre className="diff-lines" data-arrive={arrive || undefined}>
       {drawnLines(lines).map((line) => {
         const text = diffLineText(line)
         return (

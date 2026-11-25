@@ -135,7 +135,8 @@ function iconSide(children: React.ReactNode): 'lead' | 'trail' | 'both' | undefi
  * A label and the label it shows while busy, laid over each other in one cell,
  * so the button is as wide as the wider of the two from the start and nothing
  * beside it moves when the work begins. The one not showing keeps its box and
- * is hidden from assistive technology.
+ * is hidden from assistive technology. The busy label breathes while it shows,
+ * as every line that says something is under way does (`Working` in text.tsx).
  */
 function BusyLabel({
   busy,
@@ -152,7 +153,10 @@ function BusyLabel({
       <span className={cn(face, busy && 'invisible')} aria-hidden={busy || undefined}>
         {children}
       </span>
-      <span className={cn(face, !busy && 'invisible')} aria-hidden={!busy || undefined}>
+      <span
+        className={cn(face, busy ? 'animate-breathe' : 'invisible')}
+        aria-hidden={!busy || undefined}
+      >
         {label}
       </span>
     </span>

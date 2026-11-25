@@ -20,7 +20,7 @@ import { type ComponentProps, type HTMLAttributes, type ReactNode, useState } fr
 import { cn } from '../lib/utils.ts'
 import { after } from '../motion.ts'
 import { FoldPanel, useFoldSlot } from './FoldPanel.tsx'
-import { Heading, Hint, Text } from './text.tsx'
+import { Heading, Hint, Text, Working } from './text.tsx'
 import { Button } from './ui/button.tsx'
 
 const screenVariants = cva('flex w-full flex-col gap-10', {
@@ -920,11 +920,11 @@ export function ReadFailed({
 export function Loading({ size = 'inline' }: { size?: 'screen' | 'inline' }) {
   return size === 'screen' ? (
     <EmptyState size="screen" role="status">
-      Loading…
+      <Working>Loading…</Working>
     </EmptyState>
   ) : (
     <Hint inset role="status">
-      Loading…
+      <Working>Loading…</Working>
     </Hint>
   )
 }

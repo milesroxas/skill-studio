@@ -52,7 +52,7 @@ import {
 import { ChecksChange } from './CaseChecks.tsx'
 import { PlainList, Rows, Stack, Toolbar } from './layout.tsx'
 import { Delta, ListScore, SampleCount, TotalChip } from './Scores.tsx'
-import { Hint, Text } from './text.tsx'
+import { Hint, Said, Text } from './text.tsx'
 import { Button } from './ui/button.tsx'
 import { Input } from './ui/input.tsx'
 import {
@@ -377,7 +377,7 @@ function CaseRow({
             <TableCell trailing>
               {waiting ? (
                 <Text tone="faint" size="xs">
-                  {waiting}
+                  <Said>{waiting}</Said>
                 </Text>
               ) : change ? (
                 <Delta value={change} lead={false} />
@@ -392,7 +392,7 @@ function CaseRow({
           // No score to show: the row says why once, across the columns a score would fill.
           <TableCell colSpan={COLUMNS - 1}>
             <Text tone="faint" size="xs">
-              {history[0] ? unscored(history[0], ctx).word : 'Not run yet'}
+              <Said>{history[0] ? unscored(history[0], ctx).word : 'Not run yet'}</Said>
             </Text>
           </TableCell>
         )}
@@ -409,7 +409,7 @@ function CaseRow({
 /** Waiting words in the change column: a newer run with no score yet. */
 const Waiting = ({ words }: { words: string }) => (
   <Text tone="faint" size="xs">
-    {words}
+    <Said>{words}</Said>
   </Text>
 )
 
@@ -436,7 +436,7 @@ function CountCells({
       <>
         <TableCell colSpan={waits ? COLUMNS - 2 : COLUMNS - 1}>
           <Text tone="faint" size="xs">
-            {read.why}
+            <Said>{read.why ?? ''}</Said>
           </Text>
         </TableCell>
         {waits ? (
@@ -772,7 +772,7 @@ function TryScore({
       </Button>
     ) : (
       <Text tone="faint" size="xs">
-        {why.word}
+        <Said>{why.word}</Said>
       </Text>
     )
   }

@@ -6,10 +6,23 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+### Changed
+
+- **Fix with AI** says "Writing a fix…" under the ribbon while the fix is written, and **Stop** is at the top, away from where **Apply and run** appears. When the fix lands, the struck words are crossed out as you watch, then the new ones are written in.
+- Everything that says something is under way, such as **Running…**, **Thinking…** or **Saving…**, now pulses slowly, at one pace across the app.
+- Clicking away from **Fix with AI** while it writes asks before stopping. Let it finish and its button says **Writing a fix…**, then **See the fix**, and opens it again.
+- Fix with AI's box moves as one piece. The ribbon unfolds from its top as it opens. When the fix lands, the ribbon folds away as the fix grows in its place, rather than the box jumping to a new size, and the rule, the reason and the buttons come in that order.
+- A rule or check on Results no longer has "Rule" or "Check" written under it when the list holds both.
+- **Apply and run** says **Waiting for a run…** while another run is going, in place of a line under it.
+
 ### Fixed
 
 - On a Mac, the button that shows the sidebar again works once the sidebar is folded. A click on it used to start moving the window instead.
 - On a Mac, a click on the top edge of a menu or panel opened from the top bar works. It used to move the window.
+- Popovers and menus grow from the button that opened them. They used to start from their middle and slide sideways as they finished.
+- A popover opened from a button lines up with the button's edge, not the edge of the button pressed small.
+- Fix with AI closes on what it showed, rather than flashing back to "Writing a fix…" as it fades.
+- Pressing **Fix with AI** again while its box is open closes it. It used to close and open again at once, and ask for a new fix.
 
 ## [0.20.0] - 2026-11-24
 

@@ -12,7 +12,7 @@ import { FileIcon, FilePlusIcon, FolderIcon, FolderPlusIcon, XIcon } from 'lucid
 import { type ReactNode, useEffect, useRef, useState } from 'react'
 import { Toolbar } from './layout.tsx'
 import { Picture } from './Pictures.tsx'
-import { Text } from './text.tsx'
+import { Text, Working } from './text.tsx'
 import { Button } from './ui/button.tsx'
 
 const plural = (n: number, word: string): string => `${n} ${word}${n === 1 ? '' : 's'}`
@@ -132,7 +132,9 @@ export function CaseFiles({
             // biome-ignore lint/suspicious/noArrayIndexKey: placeholders with nothing else to tell them apart.
             <li key={i} className={row}>
               <span className={`${tile} animate-pulse`} />
-              <Text tone="muted">Reading…</Text>
+              <Text tone="muted">
+                <Working>Reading…</Working>
+              </Text>
             </li>
           ))}
         </ul>

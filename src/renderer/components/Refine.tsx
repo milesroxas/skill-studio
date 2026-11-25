@@ -16,7 +16,7 @@ import { listLine } from '../model.ts'
 import { useStartedRun } from '../started-run.ts'
 import { DiffLines } from './DiffLines.tsx'
 import { Loading, Toolbar } from './layout.tsx'
-import { Excerpt, Hint, Text } from './text.tsx'
+import { Excerpt, Hint, Text, Working } from './text.tsx'
 import { Button } from './ui/button.tsx'
 import { PopoverSection } from './ui/popover.tsx'
 
@@ -107,7 +107,7 @@ export function RefineBody({
     return (
       <PopoverSection pad="text">
         <Text size="ui" tone="muted">
-          Checking the rule…
+          <Working>Checking the rule…</Working>
         </Text>
         <Loading />
       </PopoverSection>
@@ -193,7 +193,9 @@ export function RefineBody({
               {run.text}
             </Text>
           ) : (
-            <Text tone="muted">{run?.status === 'stopped' ? 'Stopped.' : 'Writing…'}</Text>
+            <Text tone="muted">
+              {run?.status === 'stopped' ? 'Stopped.' : <Working>Writing…</Working>}
+            </Text>
           )}
         </Excerpt>
         {needs.length ? (
