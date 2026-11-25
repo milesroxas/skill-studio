@@ -6,8 +6,9 @@
 import type { ComponentProps, ReactNode } from 'react'
 import { cn } from '../lib/utils.ts'
 import { Disclosure } from './Disclosure.tsx'
-import { Rows } from './layout.tsx'
+import { PlainList, Rows } from './layout.tsx'
 import { Heading, Hint, Text } from './text.tsx'
+import { Button } from './ui/button.tsx'
 
 export function Starter({
   title,
@@ -100,6 +101,40 @@ export function ExampleList({ items }: { items: Example[] }) {
         </li>
       ))}
     </Rows>
+  )
+}
+
+/**
+ * Messages to start a conversation with, under an empty one. Each is a quiet
+ * row: muted at rest, filled and in ink once pointed at. Picking one sends it
+ * as it reads. The fill reaches 8px past the text, so the text keeps the edge
+ * of the words above.
+ */
+export function QuestionList({
+  questions,
+  disabled,
+  onSend,
+}: {
+  questions: string[]
+  disabled?: boolean
+  onSend: (question: string) => void
+}) {
+  return (
+    <PlainList gap="xs" bleed>
+      {questions.map((question) => (
+        <li key={question}>
+          <Button
+            type="button"
+            variant="ghost-muted"
+            size="row"
+            disabled={disabled}
+            onClick={() => onSend(question)}
+          >
+            {question}
+          </Button>
+        </li>
+      ))}
+    </PlainList>
   )
 }
 

@@ -79,7 +79,7 @@ Is it the next step of the loop, in the top bar?
 | `inline`, `inline-sm` | none | a link in running text, or small under a form |
 | `cell` | 28px | a button filling a table cell |
 | `cell-inline` | none | a text link in a table cell |
-| `row` | grows | a full-width row in a list, left-aligned and wrapping, at the text's own weight: the questions to ask on the Assistant's empty state (`Chat.tsx`), with `ghost`. Nowhere else. |
+| `row` | grows | a full-width row in a list, left-aligned and wrapping, at `ui` size and the text's own weight: the messages to start a conversation with (`QuestionList` in `components/starters.tsx`), with `ghost-muted`, in a `PlainList bleed` so its text keeps the edge above. Nowhere else. |
 
 ```
 Is it in a table cell?

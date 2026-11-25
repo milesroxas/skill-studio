@@ -795,8 +795,16 @@ export function Fieldset({
   )
 }
 
-const emptyVariants = cva('flex flex-col items-center px-4 text-center', {
+const emptyVariants = cva('flex flex-col px-4', {
   variants: {
+    /**
+     * `center` on a screen or a column. `start` in a side panel, whose header
+     * and messages all start on its 16px edge: the empty state starts there too.
+     */
+    align: {
+      center: 'items-center text-center',
+      start: 'items-start text-left',
+    },
     size: {
       /**
        * The whole screen has nothing to show. It fills the pane and sits a little
@@ -804,12 +812,18 @@ const emptyVariants = cva('flex flex-col items-center px-4 text-center', {
        * flush workbench. Return it in place of the screen, never inside one.
        */
       screen: 'min-h-full flex-1 justify-center gap-2 pt-10 pb-[calc(2.5rem+8vh)]',
+      /**
+       * A side panel's conversation has nothing in it yet. It sits at the foot
+       * of the panel, just over the box the first message is typed in, so what
+       * it offers is next to where the reader acts.
+       */
+      panel: 'min-h-full flex-1 justify-end gap-2 pt-10 pb-4',
       /** A part of a screen, such as a column or a section, is empty. */
       default: 'gap-2 py-14',
       compact: 'gap-2 py-8',
     },
   },
-  defaultVariants: { size: 'default' },
+  defaultVariants: { size: 'default', align: 'center' },
 })
 
 /**
@@ -821,6 +835,7 @@ const ARRIVE_STEP_MS = 50
 
 export function EmptyState({
   size,
+  align,
   title,
   actions,
   more,
@@ -843,7 +858,7 @@ export function EmptyState({
   const step = (turn: number) =>
     arrive ? { className: 'animate-tick', style: after(turn * ARRIVE_STEP_MS) } : {}
   return (
-    <div className={cn(emptyVariants({ size }), className)} {...props}>
+    <div className={cn(emptyVariants({ size, align }), className)} {...props}>
       {title ? (
         <Heading level={2} {...step(0)}>
           {title}
@@ -855,19 +870,31 @@ export function EmptyState({
           size="ui"
           tone="muted"
           style={step(1).style}
-          className={cn('max-w-[46ch] text-pretty', step(1).className)}
+          className={cn(
+            'max-w-[46ch]',
+            // Centered lines balance; lines on one edge only keep a last word company.
+            align === 'start' ? 'text-pretty' : 'text-balance',
+            step(1).className,
+          )}
         >
           {children}
         </Text>
       ) : null}
       {actions ? (
-        <Toolbar className={cn('mt-3 justify-center', step(2).className)} style={step(2).style}>
+        <Toolbar
+          className={cn('mt-3', align !== 'start' && 'justify-center', step(2).className)}
+          style={step(2).style}
+        >
           {actions}
         </Toolbar>
       ) : null}
       {more ? (
         <div
-          className={cn('mt-6 w-full max-w-sm text-left', step(2).className)}
+          className={cn(
+            'mt-6 w-full text-left',
+            align !== 'start' && 'max-w-sm',
+            step(2).className,
+          )}
           style={step(2).style}
         >
           {more}

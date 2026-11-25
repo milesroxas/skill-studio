@@ -29,13 +29,13 @@ import { Composer, ComposerTopic } from './Composer.tsx'
 import { useConfirm } from './confirm.tsx'
 import { DiffLines, WordDiff } from './DiffLines.tsx'
 import { Disclosure, DisclosureList } from './Disclosure.tsx'
-import { EmptyState, PlainList, Stack } from './layout.tsx'
+import { EmptyState, Stack } from './layout.tsx'
 import { PanelBody, PanelHeader, usePin } from './PanelFrame.tsx'
 import { Prose } from './Prose.tsx'
 import { Unjudged } from './Refine.tsx'
 import { Status } from './Status.tsx'
+import { QuestionList } from './starters.tsx'
 import { Hint, Text } from './text.tsx'
-import { Button } from './ui/button.tsx'
 
 /** The first message that asks for the questions rather than a draft. It is sent as written. */
 const WALK = 'Ask me a few questions'
@@ -162,22 +162,15 @@ export function ImprovePanel({ onBack, onClose }: { onBack: () => void; onClose:
         {shown.length ? null : (
           <EmptyState
             arrive
-            size="screen"
+            size="panel"
+            align="start"
             title="What should change?"
             more={
-              <PlainList gap="none">
-                <li>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="row"
-                    disabled={!choice}
-                    onClick={() => void send(WALK, true)}
-                  >
-                    {WALK}
-                  </Button>
-                </li>
-              </PlainList>
+              <QuestionList
+                questions={[WALK]}
+                disabled={!choice}
+                onSend={(question) => void send(question, true)}
+              />
             }
           >
             Say it in your own words, or answer a few questions first.

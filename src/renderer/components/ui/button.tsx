@@ -96,9 +96,11 @@ const buttonVariants = cva(
           'relative h-auto rounded-xs p-0 text-left text-[length:inherit] before:absolute before:-inset-x-1.5 before:-inset-y-2',
         /**
          * A full-width row in a list, such as a question to ask: left-aligned,
-         * at the text's own weight, wrapping onto a second line when it is long.
+         * at the text's own weight and the UI's size, wrapping evenly onto a
+         * second line when it is long. Its 8px inset matches `PlainList bleed`,
+         * so in a bleeding list its text stands on the edge of the text above.
          */
-        row: 'h-auto w-full justify-start rounded-sm px-3 py-1.5 text-left font-normal whitespace-normal',
+        row: 'h-auto w-full justify-start rounded-sm px-2 py-2 text-left text-ui font-normal text-pretty whitespace-normal',
       },
     },
     defaultVariants: {

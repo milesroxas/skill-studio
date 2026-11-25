@@ -35,10 +35,11 @@ import { type ChangeHost, Reply } from './Change.tsx'
 import { Composer } from './Composer.tsx'
 import type { Confirm } from './confirm.tsx'
 import { Disclosure } from './Disclosure.tsx'
-import { EmptyState, Loading, PlainList, ReadFailed } from './layout.tsx'
+import { EmptyState, Loading, ReadFailed } from './layout.tsx'
 import { PanelBody, PanelHeader, usePin } from './PanelFrame.tsx'
 import { PictureStrip } from './Pictures.tsx'
 import { Prose } from './Prose.tsx'
+import { QuestionList } from './starters.tsx'
 import { Hint, Text, Working } from './text.tsx'
 import { UsageButton } from './Usage.tsx'
 import { Button } from './ui/button.tsx'
@@ -79,6 +80,8 @@ export function ChatPanel({ screen, skill, ctx, confirm, onClose }: ChatPanelPro
   const [failure, setFailure] = useState<string | null>(null)
   const [sending, setSending] = useState(false)
   const [clearing, setClearing] = useState(false)
+  // A conversation the reader just started over comes up in turn; one opened as it stood is at rest.
+  const [cleared, setCleared] = useState(false)
   const attached = useAttached()
   const pin = usePin()
 
@@ -159,6 +162,7 @@ export function ChatPanel({ screen, skill, ctx, confirm, onClose }: ChatPanelPro
       setClearing(true)
       try {
         await clearChat()
+        setCleared(true)
       } catch (e) {
         setFailure((e as Error).message)
       } finally {
@@ -173,6 +177,7 @@ export function ChatPanel({ screen, skill, ctx, confirm, onClose }: ChatPanelPro
     ) : !choice ? (
       <EmptyState
         size="screen"
+        align="start"
         title="The assistant is not set up"
         actions={
           <Button type="button" onClick={() => navigate('settings')}>
@@ -184,23 +189,12 @@ export function ChatPanel({ screen, skill, ctx, confirm, onClose }: ChatPanelPro
       </EmptyState>
     ) : !messages.length && !run ? (
       <EmptyState
-        size="screen"
+        size="panel"
+        align="start"
         title="Ask about your skill"
+        arrive={cleared}
         more={
-          <PlainList gap="none">
-            {starters(skill).map((question) => (
-              <li key={question}>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="row"
-                  onClick={() => void send(question)}
-                >
-                  {question}
-                </Button>
-              </li>
-            ))}
-          </PlainList>
+          <QuestionList questions={starters(skill)} onSend={(question) => void send(question)} />
         }
       >
         It reads the open skill, and changes nothing until you apply a change.
