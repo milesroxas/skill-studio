@@ -1,7 +1,9 @@
 /**
  * The real `st` under a replay: it asks no assistant and no Jev, so on an
  * empty folder of replies it stops at the first call, naming the call, and
- * still prints what the command cost.
+ * still prints what the command cost. It sees no assistant at all: no `claude`
+ * or `codex` on its PATH and no provider key, so it passes only because a
+ * replay asks no assistant what it offers.
  */
 import { spawnSync } from 'node:child_process'
 import { cpSync, mkdtempSync, rmSync } from 'node:fs'
@@ -18,6 +20,26 @@ const scratch = (prefix: string): string => {
   made.push(dir)
   return dir
 }
+/**
+ * The environment with no assistant connected: each CLI provider is connected
+ * when its command is on the PATH, and each API provider when its key is set
+ * (`src/infrastructure/ai/`). Windows spells PATH as it likes, so every
+ * spelling goes before the empty folder is put in its place.
+ */
+const noAssistant = (): NodeJS.ProcessEnv => {
+  const env = Object.fromEntries(
+    Object.entries(process.env).filter(([name]) => name.toUpperCase() !== 'PATH'),
+  )
+  return {
+    ...env,
+    PATH: scratch('st-replay-path-'),
+    ANTHROPIC_API_KEY: '',
+    SKILL_STUDIO_ANTHROPIC_API_KEY: '',
+    OPENAI_API_KEY: '',
+    SKILL_STUDIO_OPENAI_API_KEY: '',
+  }
+}
+
 afterAll(() => {
   for (const dir of made) rmSync(dir, { recursive: true, force: true })
 })
@@ -45,13 +67,11 @@ describe('st under ST_AI_REPLAY', () => {
         cwd: ROOT,
         encoding: 'utf8',
         env: {
-          ...process.env,
+          ...noAssistant(),
           ST_AI_REPLAY: replies,
           ST_AI_RECORD: '',
           SKILL_STUDIO_HOME: scratch('st-replay-home-'),
           TYPESAFE_API_KEY: '',
-          ANTHROPIC_API_KEY: '',
-          OPENAI_API_KEY: '',
         },
       },
     )
