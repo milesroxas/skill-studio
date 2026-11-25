@@ -6,6 +6,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [0.20.2] - 2026-11-25
+
 ### Changed
 
 - **Fix with AI** springs open from its button, and its ribbon springs open with it. When the fix lands, the ribbon sinks away and the fix settles in from the top, a beat apart: the rule with its change, the reason, then the two buttons together.

@@ -4,10 +4,10 @@ The plan for the next release: what is in it, what is still to do, and the check
 
 | | |
 | --- | --- |
-| Version | 0.20.1 |
-| Status | Released 2026-11-24 |
-| Previous release | [v0.20.0](https://github.com/milesroxas/skill-studio/releases/tag/v0.20.0), 2026-11-24 |
-| Target date | 2026-11-24 |
+| Version | 0.20.2 |
+| Status | Releasing 2026-11-25 |
+| Previous release | [v0.20.1](https://github.com/milesroxas/skill-studio/releases/tag/v0.20.1), 2026-11-24 |
+| Target date | 2026-11-25 |
 | Owner | Miles Roxas |
 
 The version follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html): a minor bump when the release adds a feature, a patch when it only fixes. Before 1.0, a change that breaks a skill or run file is a minor bump too.
@@ -21,11 +21,9 @@ The version follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html): 
 
 ## Shipped to main
 
-Everything merged since v0.20.0. A patch, at the writer's word: "cut a patch for all the updates waiting to be released on main".
+Everything merged since v0.20.1. A patch, at the writer's word: "cut new patch for all work waiting to be released on main".
 
-- [x] Fix with AI: the popover's parts come in turn (the ribbon unfolds, the band folds away as the fix unfolds in its place, then the marks, the reason and the buttons); "Writing a fix…" breathes with no timer; closing it while it writes asks before stopping, and Let it finish keeps it under its button ("Writing a fix…", then "See the fix"); a blocked Apply and run says "Waiting for a run…"; every line that says something is under way breathes at one pace (`Working`, `Said`, a busy button's label); no "Rule" or "Check" under rows; sheets no longer slide as they open (538e791).
-- [x] On a Mac, the sidebar's fold button works once the sidebar is folded (8dc23c4), and sheets, menus and dialogs never drag the window, while a dialog's scrim over the top bar still does (e30217a, dccb0d1).
-- [x] The answer key decodes `&amp;` last, so no entity is decoded twice (f41ef40).
+- [x] Spring motion for what the assistant hands over: Fix with AI springs open from its button with its ribbon; when the fix lands the band sinks away and the fix settles in top to bottom, its two buttons as one part. The suggested checks call-out, its list, rows and Why, and a check added from outside unfold on the same spring. `Unfold` clips with `overflow: clip`, so a fix no longer shows from its last line and then jumps to the top (1236558).
 
 ## Planned
 
@@ -58,10 +56,10 @@ Checks that are not covered by `pnpm check`.
 The steps in [releasing.md](releasing.md), in order.
 
 1. [x] Every item under "Planned" is shipped or moved to "Later".
-2. [ ] Every item under "Before the release" is done. Not for 0.20.1: a patch at the writer's word; the unchecked items carry to the next release.
+2. [ ] Every item under "Before the release" is done. Not for 0.20.2: a patch at the writer's word; the unchecked items carry to the next release.
 3. [x] `pnpm check` and `pnpm build` pass on `main`, and main's own run passes on Windows, macOS and Linux before the tag.
-4. [x] The grading gate: nothing it covers changed since it ran on 2026-11-21. These changes are in the app's look and the answer key's decoding, which its tests cover.
-5. [ ] `gh workflow run release` builds every platform. Not run for 0.20.1; the tag's own run builds every platform.
-6. [x] In the changelog, add `## [0.20.1] - 2026-11-24` under a new `## [Unreleased]`, and commit.
-7. [x] `pnpm version patch -m "Release %s"`, then push `main` and the tag.
-8. [x] The release workflow publishes v0.20.1, with the changelog entry as its notes.
+4. [x] The grading gate: nothing it covers changed since it ran on 2026-11-21. This change is motion in the app's look only.
+5. [ ] `gh workflow run release` builds every platform. Not run for 0.20.2; the tag's own run builds every platform.
+6. [x] In the changelog, add `## [0.20.2] - 2026-11-25` under a new `## [Unreleased]`, and commit.
+7. [ ] `pnpm version patch -m "Release %s"`, then push `main` and the tag.
+8. [ ] The release workflow publishes v0.20.2, with the changelog entry as its notes.
