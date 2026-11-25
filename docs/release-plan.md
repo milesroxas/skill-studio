@@ -5,7 +5,7 @@ The plan for the next release: what is in it, what is still to do, and the check
 | | |
 | --- | --- |
 | Version | 0.20.2 |
-| Status | Releasing 2026-11-25 |
+| Status | Released 2026-11-25 |
 | Previous release | [v0.20.1](https://github.com/milesroxas/skill-studio/releases/tag/v0.20.1), 2026-11-24 |
 | Target date | 2026-11-25 |
 | Owner | Miles Roxas |
@@ -61,5 +61,5 @@ The steps in [releasing.md](releasing.md), in order.
 4. [x] The grading gate: nothing it covers changed since it ran on 2026-11-21. This change is motion in the app's look only.
 5. [ ] `gh workflow run release` builds every platform. Not run for 0.20.2; the tag's own run builds every platform.
 6. [x] In the changelog, add `## [0.20.2] - 2026-11-25` under a new `## [Unreleased]`, and commit.
-7. [ ] `pnpm version patch -m "Release %s"`, then push `main` and the tag.
-8. [ ] The release workflow publishes v0.20.2, with the changelog entry as its notes.
+7. [x] `pnpm version patch -m "Release %s"`, then push `main` and the tag.
+8. [x] The release workflow publishes v0.20.2, with the changelog entry as its notes. The tag push started no run during a GitHub outage, so the run was started on the tag by hand.

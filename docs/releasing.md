@@ -2,7 +2,7 @@
 
 A release is a `v*` tag on `main`. The `release` workflow runs the checks, packages the app for macOS (arm64 and x64, signed and notarized), Windows and Linux, and publishes one GitHub release. A version with a suffix, such as `1.2.0-beta.1`, is published as a prerelease.
 
-A release is permanent. The repository refuses to move or delete a `v*` tag, and a published release cannot be changed. When a release run fails for a reason outside the code, run its failed jobs again. Otherwise fix the code and release the next version.
+A release is permanent. The repository refuses to move or delete a `v*` tag, and a published release cannot be changed. When a release run fails for a reason outside the code, run its failed jobs again. Otherwise fix the code and release the next version. When a pushed tag starts no release run, as during a GitHub outage, start it on the tag: `gh workflow run release --ref vX.Y.Z`. A run on a tag checks and publishes as the push would have.
 
 ## Cut a release
 
@@ -40,7 +40,7 @@ pnpm reading-gate
 
 ## Rehearse
 
-`gh workflow run release` builds every platform, keeps the files as workflow artifacts for 7 days, and publishes nothing. It needs a changelog entry for the version in `package.json`.
+`gh workflow run release` on a branch builds every platform, keeps the files as workflow artifacts for 7 days, and publishes nothing. It needs a changelog entry for the version in `package.json`.
 
 ## Signing secrets
 

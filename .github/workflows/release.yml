@@ -1,7 +1,8 @@
 name: release
 
 # A `v*` tag builds every platform, signs and notarizes the Mac app, and
-# publishes one GitHub release. A manual run is a rehearsal: it builds and
+# publishes one GitHub release, and so does a manual run on a tag. A manual run
+# on a branch is a rehearsal: it builds and
 # keeps the files as workflow artifacts, and publishes nothing.
 #
 # The version's entry in CHANGELOG.md is read once and used twice: it goes into
