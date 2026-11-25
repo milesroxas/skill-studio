@@ -4,9 +4,9 @@ The plan for the next release: what is in it, what is still to do, and the check
 
 | | |
 | --- | --- |
-| Version | 0.20.2 |
-| Status | Released 2026-11-25 |
-| Previous release | [v0.20.1](https://github.com/milesroxas/skill-studio/releases/tag/v0.20.1), 2026-11-24 |
+| Version | 0.20.3 |
+| Status | In progress |
+| Previous release | [v0.20.2](https://github.com/milesroxas/skill-studio/releases/tag/v0.20.2), 2026-11-25 |
 | Target date | 2026-11-25 |
 | Owner | Miles Roxas |
 
@@ -21,9 +21,9 @@ The version follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html): 
 
 ## Shipped to main
 
-Everything merged since v0.20.1. A patch, at the writer's word: "cut new patch for all work waiting to be released on main".
+Everything merged since v0.20.2. A patch, at the writer's word: "add some improvements if you have any then cut a patch release".
 
-- [x] Spring motion for what the assistant hands over: Fix with AI springs open from its button with its ribbon; when the fix lands the band sinks away and the fix settles in top to bottom, its two buttons as one part. The suggested checks call-out, its list, rows and Why, and a check added from outside unfold on the same spring. `Unfold` clips with `overflow: clip`, so a fix no longer shows from its last line and then jumps to the top (1236558).
+- [x] The Assistant's and Help me improve's empty conversation: left on the panel's 16px edge (`EmptyState align="start"`) and at the foot of the panel over the message box (`size="panel"`); the messages it offers are a `QuestionList` of `ghost-muted` `row`s in a `PlainList bleed`, muted until pointed at; a conversation started over comes up in turn (`arrive`); a centered empty state's words wrap balanced.
 
 ## Planned
 

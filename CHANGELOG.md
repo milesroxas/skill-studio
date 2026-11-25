@@ -6,6 +6,14 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [0.20.3] - 2026-11-25
+
+### Changed
+
+- The **Assistant** and **Help me improve** open on an empty conversation that sits at the foot of the panel, just over the box you type in, and lines up with the panel's title on the left.
+- The questions offered there are quiet until you point at one: it fills in and its text darkens. A press sends it.
+- On a screen with nothing to show yet, the words under the heading break into lines of even length, so no word is left alone on the last line.
+
 ## [0.20.2] - 2026-11-25
 
 ### Changed

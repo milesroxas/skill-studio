@@ -371,7 +371,11 @@ Does the whole screen have nothing to show?
  └── No, one part is empty → <EmptyState> (size "default") or size="compact" in a column
 ```
 
+- An empty state is centered, except in a side panel (the Assistant, Help me improve), whose header and messages start on its 16px edge: there it is `align="start"`, and its title, words, actions and the rest start on that edge too. A panel's empty conversation is `size="panel"`: it sits at the foot of the panel, just over the box the first message is typed in, so the messages it offers are next to where the reader acts.
+
 - The step that fills the empty state is the default `Button`. A second way out is `outline`.
+- An empty conversation offers messages to start with under its words, as a `QuestionList` (`components/starters.tsx`): one `ghost-muted` `row` per message in a `PlainList bleed`, no rule between them and no word at the end. The fill reaches 8px past the text, so the text stands on the edge of the title above. A row is muted at rest and fills, in ink, once pointed at; a press sends the message as it reads.
+- An empty state that opens in answer to the reader, such as a conversation they just started over, takes `arrive`: its title, words and the rest come up in turn.
 - Loading is `<Loading size="screen" />` or `<Loading />` inline. Never a spinner of your own.
 - An output a run is still writing is `OutputWriting` (`components/OutputCard.tsx`) in its frame on the stage, which takes the size of the page beside it so nothing moves when it lands. It fades in when it lands (`useLanded` in `motion.ts`). Its head offers no Grade and its card says "Graded when it is done.": the run grades it then.
 - The standing of something a section depends on (a connection, a permission, a key) is a `Status` inside that section, under its fields or as its first line. Never a free line above the first section. See [data.md](data.md).
