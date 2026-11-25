@@ -4,9 +4,9 @@ The plan for the next release: what is in it, what is still to do, and the check
 
 | | |
 | --- | --- |
-| Version | 0.19.0 |
-| Status | Released 2026-11-24 |
-| Previous release | [v0.18.1](https://github.com/milesroxas/skill-studio/releases/tag/v0.18.1), 2026-11-20 |
+| Version | 0.20.1 |
+| Status | Releasing 2026-11-24 |
+| Previous release | [v0.20.0](https://github.com/milesroxas/skill-studio/releases/tag/v0.20.0), 2026-11-24 |
 | Target date | 2026-11-24 |
 | Owner | Miles Roxas |
 
@@ -21,23 +21,15 @@ The version follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html): 
 
 ## Shipped to main
 
-Everything merged since v0.18.1.
+Everything merged since v0.20.0. A patch, at the writer's word: "cut a patch for all the updates waiting to be released on main".
 
-- [x] Results read by checks: All cases counts the cases that got better, the same and worse on their checks, and a case lists what to fix first, grouped by why it was missed. `st sort`, `st propose` and `st read`; rules and checks answered by code once sorted; Cannot be marked; checks for every case as files (0eae323).
-- [x] Suggested checks on Cases, under the case's checks, with the turning ribbon; Add to the unsaved case, Turn down with Undo (fbb2fa2).
-- [x] Test fixtures kept byte for byte on Windows, which fixed 47 tests that failed there (e568d25).
-- [x] `st propose` and `st read` in one message a case, about 10 times fewer tokens; Write checks with AI reads a case's latest runs once it has some; the call-out always open, with its motion in one flow; the previous case's check list no longer stays on screen after switching cases (367884a).
-- [x] Docs and the guide updated in the same commits as the changes.
+- [x] Fix with AI: the popover's parts come in turn (the ribbon unfolds, the band folds away as the fix unfolds in its place, then the marks, the reason and the buttons); "Writing a fix…" breathes with no timer; closing it while it writes asks before stopping, and Let it finish keeps it under its button ("Writing a fix…", then "See the fix"); a blocked Apply and run says "Waiting for a run…"; every line that says something is under way breathes at one pace (`Working`, `Said`, a busy button's label); no "Rule" or "Check" under rows; sheets no longer slide as they open (538e791).
+- [x] On a Mac, the sidebar's fold button works once the sidebar is folded (8dc23c4), and sheets, menus and dialogs never drag the window, while a dialog's scrim over the top bar still does (e30217a, dccb0d1).
+- [x] The answer key decodes `&amp;` last, so no entity is decoded twice (f41ef40).
 
 ## Planned
 
-The assistant helps change the skill, cheaply. Each step reads a short sheet of evidence in one message, never a folder.
-
-- [x] **The improving loop, for a broken rule.** **Fix with AI** on a broken rule's row drafts a change to the rule in a popover, from the rule, the request the agent got and what it wrote, in one message. Apply and run saves the rule and runs the case once with the model that wrote the answer, as a new version named after the fix. Picked from five places in a prototype round on 2026-11-24. Run live on miles-implement on 2026-11-24: the draft saw that the app asked for the preview page the rule counted as extra, said so in the rule, and the case ran again on Opus as v1; Jev's answer on the rule moved from missed to not sure.
-- [x] **Stop a reading.** Write checks with AI is a job, as a run is: Stop beside the button, and in the list of jobs, ends it. Every other way the assistant is asked already had Stop.
-- [x] **How often the answer without the skill follows each rule anyway.** A rule's number in the editor says it in a second sentence, where a case ran without the skill: "Followed by 2 of 2 answers written without the skill." It costs nothing: those answers are marked on every rule already.
-- [x] **A size before a large reading.** Write checks with AI measures what it would send before it asks. Past about four usual readings it asks first: "Read these long answers?", with how many usual readings it counts as. miles-mockup's latest run read at about 19.
-- [x] **Reading after a run.** Decided 2026-11-24: the assistant never runs by itself. A reading starts only from a press, or a setting the writer turns on and can see, and says while it runs. Nothing in the app shows a reading's marks yet, so no such setting is built now.
+Nothing more for this patch.
 
 ## Later
 
@@ -55,7 +47,7 @@ The assistant helps change the skill, cheaply. Each step reads a short sheet of 
 
 Checks that are not covered by `pnpm check`.
 
-- [ ] Package the app for macOS and start it: only the runtime packages ship, the windows render under the production CSP, and the backend starts. For 0.20.0 the built app was started unpackaged (`electron .` on `out/`): Library, Results and the Skill screen rendered under the production CSP with no violation, and the backend answered.
+- [ ] Package the app for macOS and start it: only the runtime packages ship, the windows render under the production CSP, and the backend starts.
 - [ ] Run the assistant live on each provider that has only been typechecked: the Anthropic API, OpenAI and Codex. Claude Code has been run live; the other three have not.
 - [ ] Send a picture to the assistant on the Anthropic API, OpenAI and Codex paths. Jev and Claude Code have been run live with a picture.
 - [ ] Go through the welcome at 110% zoom. Its window grows with the zoom, so the page keeps its 760 x 600; this has not been seen at a real 110%.
@@ -66,10 +58,10 @@ Checks that are not covered by `pnpm check`.
 The steps in [releasing.md](releasing.md), in order.
 
 1. [x] Every item under "Planned" is shipped or moved to "Later".
-2. [ ] Every item under "Before the release" is done. Not for 0.20.0: shipped as soon as it could be, at the writer's word; the unchecked items carry to the next release.
-3. [x] `pnpm check` and `pnpm build` pass on `main`, and main's own run passes on Windows, macOS and Linux before the tag.
-4. [x] The grading gate: nothing it covers changed since it ran on 2026-11-21. Fix with AI's prompt is new and asks no Jev question; no scoring, sorting prompt or exact test changed.
-5. [ ] `gh workflow run release` builds every platform. Not run for 0.20.0; the tag's own run builds every platform.
-6. [x] In the changelog, add `## [0.20.0] - 2026-11-24` under a new `## [Unreleased]`, and commit.
-7. [x] `pnpm version minor -m "Release %s"`, then push `main` and the tag.
-8. [x] The release workflow publishes v0.20.0, with the changelog entry as its notes.
+2. [ ] Every item under "Before the release" is done. Not for 0.20.1: a patch at the writer's word; the unchecked items carry to the next release.
+3. [ ] `pnpm check` and `pnpm build` pass on `main`, and main's own run passes on Windows, macOS and Linux before the tag.
+4. [x] The grading gate: nothing it covers changed since it ran on 2026-11-21. These changes are in the app's look and the answer key's decoding, which its tests cover.
+5. [ ] `gh workflow run release` builds every platform. Not run for 0.20.1; the tag's own run builds every platform.
+6. [x] In the changelog, add `## [0.20.1] - 2026-11-24` under a new `## [Unreleased]`, and commit.
+7. [ ] `pnpm version patch -m "Release %s"`, then push `main` and the tag.
+8. [ ] The release workflow publishes v0.20.1, with the changelog entry as its notes.

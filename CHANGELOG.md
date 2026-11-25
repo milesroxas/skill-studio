@@ -6,6 +6,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [0.20.1] - 2026-11-24
+
 ### Changed
 
 - **Fix with AI** says "Writing a fix…" under the ribbon while the fix is written, and **Stop** is at the top, away from where **Apply and run** appears. When the fix lands, the struck words are crossed out as you watch, then the new ones are written in.
