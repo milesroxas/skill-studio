@@ -4,7 +4,7 @@ The plan for letting a coding agent (Claude Code, in T3 Code or a terminal) do t
 
 | | |
 | --- | --- |
-| Status | Planned (2026-11-25), decisions made, every item checked against the code at `61db117`, nothing started |
+| Status | Planned (2026-11-25), decisions made, every item checked against the code at `61db117` and the [shapes items share](#shapes-the-items-share) at `9efce2a`, nothing started |
 | Base | `main` at `7d83dc3`, Skill Studio 0.20.2 |
 | Acceptance test | The React card experiment in [Phase 4](#phase-4-the-acceptance-run) runs from a chat, end to end |
 | Owner | Miles Roxas |
@@ -61,13 +61,14 @@ Speed: proposal questions go to Jev 40 at a time, one request after another (`As
 ## Rules for every change
 
 - **One item, one commit, one test.** Each item below names the test that proves it. It fails before the change and passes after. An item with no test that fits is split until it has one.
-- **Check once.** While working, run only the item's own test file (`pnpm vitest run <file>`). Run `pnpm check` and `pnpm build` once, before the commit; both pass on every commit. A change under `src/renderer` follows [design/README.md](design/README.md) and [design/copy.md](design/copy.md).
-- **Read little.** Read the item, these rules and the files the item names. Search a doc for the section you need; do not read [cli.md](cli.md), [grading.md](grading.md) or [files.md](files.md) whole.
+- **Check once.** While working, run only the item's own test file (`pnpm vitest run <file>`). Run `pnpm check` and `pnpm build` once, before the commit; both pass on every commit. Send what each prints to a file and read the file only when the command fails: a check that passed is nothing an agent needs to read. A change under `src/renderer` follows [design/README.md](design/README.md) and [design/copy.md](design/copy.md).
+- **Read little.** Read the item, these rules, the [shapes](#shapes-the-items-share) the item builds on and the files the item names. Search a doc for the section you need; do not read [cli.md](cli.md), [grading.md](grading.md) or [files.md](files.md) whole.
 - The docs that describe the change change with it: [cli.md](cli.md), [architecture.md](architecture.md), [grading.md](grading.md) or [files.md](files.md). Each user-visible change gets a line in `CHANGELOG.md`.
+- **Two files are the lead's.** An item's agent writes neither `CHANGELOG.md` nor this file. It reports its changelog line and its measured numbers, and the lead writes both when it takes the item ([one item](#one-item)). Every item would change those two files, so two chains would meet in them at every merge.
 - A prompt that changes bumps its version (`SORT_PROMPT_VERSION`, `PROPOSE_PROMPT_VERSION` and the others), so no stored reading made under the old words is reused. A bump makes every user's stored readings be asked for again, so change a prompt only where the item says to.
 - A pack question keeps its words unless the item says otherwise: new words void every stored total graded on the old ones ([when a total does not stand](grading.md#when-a-total-does-not-stand)).
 - **Never run a command on a fixture in place.** Copy it to a scratch folder first: the stored runs and readings under `fixtures/` are what the tests are pinned to.
-- **A move from Claude to Jev or code is measured, once.** Item 0.3 records each operation's tokens, seconds and agreement with the answer key on a copy of `fixtures/launch-note` ([reading bench](../scripts/reading-bench/README.md)), and keeps Claude's replies. An item that sends Claude the same words is measured by replaying those replies, which uses no Claude. An item that changes what Claude is sent runs live once, on the one operation it touches. Agreement with the key may not drop. A gate that fails means tuning the state, the question or the threshold, not giving up the item. Thresholds are read off this data, never copied from a cookbook.
+- **A move from Claude to Jev or code is measured, once.** Item 0.3 records each operation's tokens, seconds and agreement with the answer key on a copy of `fixtures/launch-note` ([reading bench](../scripts/reading-bench/README.md)), and keeps Claude's replies. An item that sends Claude the same words is measured by replaying those replies, which asks neither Claude nor Jev and needs no key ([decision 6](#decisions)). An item that changes what Claude is sent runs live once, on the one operation it touches. Agreement with the key may not drop. A gate that fails means tuning the state, the question or the threshold, not giving up the item. Thresholds are read off this data, never copied from a cookbook.
 - **Nothing to save, nothing to build.** Where the baseline shows an item would save nothing, close it with the number that shows it.
 - Every number in this file is replaced by the measured one when its item lands.
 - In the app, the assistant still runs only on a press or a visible setting. A cascade runs inside the action that was pressed.
@@ -75,27 +76,192 @@ Speed: proposal questions go to Jev 40 at a time, one request after another (`As
 
 ## How to build it
 
-One fresh agent builds one item. Its brief is the item's text, the test it names and the rules above, so it starts with little to read. It reports the commit, the test and the measured numbers.
+A lead agent runs the build, one fresh agent builds each item, and another fresh agent checks it. The lead is Fable 5.2 at high effort, and it is spent only where a judgment is made ([decision 8](#decisions)). It writes no item's code and reads no diff whole, except the three foundations'. Every agent it starts is Opus 5.5 at high effort and never above it, since the item already says what to build.
 
-Items that touch the same files are a chain, built one after another on one branch. Chains touch different files, so they can run at once, each in its own worktree. Running them at once saves time, not usage: on one branch, one after another, costs the same and needs no merge. The lead agent merges each chain, runs `pnpm check` and `pnpm build` on the merge, and writes nothing else.
+| Work | Who |
+| --- | --- |
+| Hand an item to a builder, word for word | Lead |
+| Build the item | A builder: Opus 5.5 |
+| Run the checks and list the departures | A checker: Opus 5.5, fresh, never the item's builder |
+| Decide what to do about a departure | Lead |
+| Tick the box, write the numbers and the changelog line | Lead |
+| Walk Miles through 0.1, 0.2 and 1.7 | Lead, from the code itself |
+| Walk Miles through a chain or the acceptance run | Drafted by an Opus 5.5 agent; the lead reads the draft and the lines it quotes |
 
-| Order | Items, in this order | Files they share |
+What an agent sends back to the lead is short: a report or a list, never a diff or what a command printed. That keeps the lead's own reading small through thirty items.
+
+### One item
+
+1. **The brief.** The lead gives a fresh agent the item's text, the test it names, the [rules](#rules-for-every-change) and the [shapes](#shapes-the-items-share) the item builds on. It gives nothing else: no account of the build so far, and no other item.
+2. **The report.** The agent reports the commit, the test file, the measured numbers, its line for `CHANGELOG.md`, each place it departed from the item's text and why, and each file it changed that the item does not name.
+3. **The check.** A checker gets the item's text, the shapes it builds on, the commit and the builder's report, and nothing the builder said beyond it. It checks what can be checked without judging, and sends back one line a check and a list of departures:
+   - The item's test passes on the commit. On the commit before it, with only the item's test files brought over, the test fails.
+   - `pnpm check` and `pnpm build` pass.
+   - The commit changes nothing under `fixtures/`, no prompt's version and no pack question's words, unless the item says to.
+   - The diff, read beside the item's text and its shapes, departs from them nowhere the builder did not report.
+4. **The answer.** With no departure left open, the lead takes the commit. Otherwise it sends the list back to the same builder, once. When the second try fails the check too, a fresh builder gets the item and the list: an agent that has failed twice tends to fail the same way a third time. A departure that needs a decision this file does not settle goes to Miles.
+5. **The record.** The lead ticks the item's box here, writes its measured numbers here, and writes its line in `CHANGELOG.md`.
+
+The checker is never asked whether the code is good. A model asked that finds something to change every time. It is asked only where the code departs from the item, and what the checks above say. It is the same model as the builder, so it catches less than a second reader would: what stands behind it is the checks that run as code, and the walkthroughs.
+
+### What Miles is shown
+
+Miles reads no diff cold ([decision 5](#decisions)). At each point below the lead walks him through the code in the chat, in plain words, written for a reader who has not seen that part of the codebase:
+
+- what the change is for, in one sentence;
+- the path one call takes through it, file by file, each step linked to its lines and shown as the real code, never as a retelling;
+- each shape that later items build on, as it was written;
+- each departure from this file, and what the lead did about it;
+- what no test covers, and what the lead is least sure of.
+
+A walkthrough is one agent's reading of the code, and it can be wrong as the code can. So it quotes the code it explains, and Miles can stop on any line and ask. Before he sees a drafted one, the lead holds each quote to the file and lines it names, and reads those lines. Nothing merges at these points until he has had the walkthrough and said to go on.
+
+| When | What is walked through |
+| --- | --- |
+| After 0.1 and 0.2 | The command module and the cost meter: every later item builds on both |
+| After 1.7 | The drawing host: a second process, and the one new way the command line starts Electron |
+| Before a chain's pull request merges | The chain, item by item |
+| After 4.1 | The acceptance run: what it cost, and what the agent had to work around |
+
+### Order
+
+Chain A and the acceptance run come first ([decision 4](#decisions)): the acceptance run needs nothing from chains B to E, and what it shows can change them.
+
+| Stage | Built | Then |
 | --- | --- | --- |
-| First, alone | 0.1, 0.2, 0.3 | They set up the rest |
-| Chain A | 1.2, 1.3, 1.4, 1.5, 1.6, 1.7, 1.8, 1.1 | `src/interfaces/cli/`, the drawing host |
-| Chain B | 2.1, 2.2, 3.4, 3.3, 3.1 | `proposing.ts`, `domain/proposal.ts`, `domain/reading.ts`, `reading.ts` |
-| Chain C | 2.3 | `sorting.ts`, `domain/sorting.ts` |
-| Chain D | 2.4, 2.5, then 3.6 once 1.6 is merged | `src/judges/` |
-| Chain E | 2.6, 2.8, 2.10, 2.9, 3.5 | `ai.ts`, `domain/improve.ts`, `domain/fix.ts`, `domain/changes.ts` |
-| Last, alone | 4.1, 4.2 | |
+| 1 | 0.1, then 0.2 | Walkthrough |
+| 2 | Chain A. 0.3 runs beside it: it adds the replies, one test, two lines of configuration and this file's numbers, and touches nothing chain A does | Walkthrough after 1.7; chain A's pull request |
+| 3 | 4.1, the acceptance run | Walkthrough. The baseline from 0.3 now closes each later item it shows would save nothing |
+| 4 | Chains B and E, each in its own worktree | A pull request each |
+| 5 | Chains C and D, each in its own worktree | A pull request each |
+| 6 | 4.2 | The release |
+
+Items that touch the same files are a chain, built one after another on one branch from `main`. A chain goes back to `main` as one pull request, so the checks run on Linux, macOS and Windows before it merges. Items 0.1 and 0.2 are one pull request, merged before chain A branches from `main`, and 0.3 is one of its own.
+
+| Chain | Items, in this order | Files they share |
+| --- | --- | --- |
+| A | 1.2, 1.3, 1.4, 1.5, 1.6, 1.7, 1.8, 1.1 | `src/interfaces/cli/`, the drawing host |
+| B | 2.1, 2.2, 3.4, 3.3, 3.1 | `proposing.ts`, `domain/proposal.ts`, `domain/reading.ts`, `reading.ts` |
+| C | 2.3 | `sorting.ts`, `domain/sorting.ts` |
+| D | 2.4, 2.5, 3.6 | `src/judges/` |
+| E | 2.6, 2.8, 2.10, 2.9, 3.5 | `ai.ts`, `domain/improve.ts`, `domain/fix.ts`, `domain/changes.ts` |
+
+Items 2.1 and 3.6 also print a line from a command's module. Chain A is merged before either starts, so they build on the modules 0.1 made.
+
+Two chains at once save time, not usage: one after another costs the same and needs no merge. Never more than two, because each one ends in a walkthrough.
+
+The lead starts fresh at each stage. This file is what it remembers: the boxes, the numbers and the stage table say where the build stands, so a new lead reads this file and goes on.
 
 A worktree needs `pnpm install` before its first command, and chain A needs the Electron binary that install fetches.
+
+## Shapes the items share
+
+The types more than one item builds on, written before any item so that no two agents invent two. An item's agent builds to them as written. Where the code shows a shape cannot work as written, the agent stops and says so; it does not change the shape on its own.
+
+### A command (0.1, and every item of chain A)
+
+```ts
+// src/interfaces/cli/commands/command.ts
+export interface Flag {
+  type: 'string' | 'boolean'
+  short?: string
+}
+
+export interface Command {
+  /** As typed after `st`: 'run', 'compare', 'case add'. */
+  name: string
+  /** Its lines under "Commands" in `st --help`, its flags' lines among them, as printed. */
+  help: readonly string[]
+  /** The flags it reads. One that two commands read is imported from `flags.ts`, never written twice. */
+  flags: Readonly<Record<string, Flag>>
+  /** True when it starts agents, so `st.ts` gives it a lifecycle. */
+  agents: boolean
+  /** Resolves to the exit code. */
+  run(context: Context): Promise<number>
+}
+
+export interface Context {
+  /** What followed the command's name. */
+  args: readonly string[]
+  /** What `parseArgs` read, over every command's flags. */
+  values: Values
+  lifecycle: Lifecycle | null
+}
+```
+
+- `commands/index.ts` lists the commands in the order the help prints them. `st.ts` picks the longest name the arguments start with, so `case add` is found before `case`.
+- A flag's type is declared once. Its help line is not: `--model` says something different under `run`, `read` and `sort`, and each command keeps its own line.
+- `Context` grows only where two commands need the same thing, such as the Jev options `run` and `grade` both read.
+
+### One model call (0.2, then 0.3, 4.1 and every gate)
+
+```ts
+// src/domain/cost.ts
+/** The work a call was made for, named by whoever asked. */
+export type Operation = 'run' | 'grade' | 'sort' | 'propose' | 'read' | AiRunKind
+
+export interface CallRecord {
+  operation: Operation
+  provider: AiProviderId | 'jev' | 'engine'
+  /** The model that answered, as the provider names it. */
+  model: string
+  input: number
+  /** 0 for Jev, whose output is not counted. */
+  output: number
+  seconds: number
+  /** `replayed` came from a file under `ST_AI_REPLAY` and cost nothing. */
+  source: 'asked' | 'replayed'
+}
+```
+
+- **Who names the operation.** `AiRequest` and `AiFolderRequest` gain `operation`, set at each place a provider is called (`sortCall`, `proposeChecks`, `readingOfRun`, and the two calls in `ai.ts`). `Jev`'s constructor takes one after the model, at each `new Jev(` (`grade.ts`, `ai.ts`, `operations.ts`, the `propose` command).
+- **Where it is counted.** `aiProvider()` returns each provider wrapped, and `Jev.ask` counts its own. The answer under test is not written through either: `generateRun` asks an engine and keeps each attempt's tokens in `timing.json`, so it adds one record an attempt, with `provider: 'engine'`.
+- **Kept is not a source.** An answer a caller kept from before (`Asking`, `judge-cache.json`) never reaches a provider, so it has no record. Its caller counts it as today (`JevSpent.kept`).
+- **The key of a saved reply** is the SHA-256 of what was sent, written the same way every time: a provider's id, the model, the effort, `system`, `turn`, each message's role and text with its pictures by their bytes, and the schema. Nothing in a key names a folder on this machine, so a reply saved from one scratch copy answers another.
+- **Jev is keyed by question, not by request.** Jev answers each question apart from the others, as `judge-cache.ts` relies on. So a saved answer's key is the model, the state and that one question's words, pictures by their bytes. A replay answers a request when it holds every question in it, however the questions were grouped when they were saved. Item 3.4 groups them anew and still replays; item 2.1 asks live only for the questions it adds.
+- **The files.** A provider's reply is `<dir>/<provider>/<key>.json`: the operation and the reply (`text`, `usage`, `model`), or, for a request that was billed and then refused, the `ProviderError`'s message, usage and model, which a replay throws again. Jev's answers are `<dir>/jev/<key of the model and state>.json`: each answer by its question's key.
+
+### A page to draw (1.7, 1.8)
+
+```ts
+// src/domain/drawing-host.ts
+/** One line the command writes to the host. */
+export type HostRequest =
+  | { id: string; page: ArtifactAddress; width: number; height: number }
+  /** 1.8: a page of the command's own, by its `file:` address. */
+  | { id: string; file: string; width: number; height: number }
+
+/** One line the host writes back. */
+export type HostReply =
+  | { id: string; png: string; layout: PageLayout | null }
+  | { id: string; error: string }
+```
+
+- `png` is base64. `page.skill` is the skill folder's real path, never the empty string that means "the first one served".
+- The host serves a sample's file only from a skill it has open (`skill.artifact` in `operations.ts`). It opens `page.skill` the first time a line names it. The line comes from the command, which is trusted; a page cannot write one.
+- `serveArtifacts` in `protocol.ts` is not exported and takes a `Backend`. Export it and narrow what it takes to the `call` it uses, so the host hands it its own.
+
+### The server `st open` starts (1.5)
+
+```ts
+// src/interfaces/cli/open-server.ts
+export interface OpenServer {
+  pid: number
+  port: number
+  token: string
+  /** The checkout it serves from, by its real path. */
+  checkout: string
+}
+```
+
+- One file a checkout, `open-<first 8 of the SHA-256 of checkout>.json` in `STUDIO_DIR` (`src/infrastructure/library.ts`), mode `0600`. Two worktrees each have their own build of the app, so each has its own server and neither stops the other's.
+- The token stays in that file. `st open` uses it to ask the server for a ticket and prints the ticket's address ([decision 7](#decisions)).
 
 ## Phase 0: ground to build on
 
 - [ ] **0.1 Split `st.ts` into a module per command.** `src/interfaces/cli/st.ts` is 1,049 lines and runs a command the moment it is loaded, so nothing in it is tested. Move each command to `src/interfaces/cli/commands/<name>.ts`, which exports its name, its help lines, its flags and its `run`. `st.ts` keeps only the start: read the flags, pick the command, exit with its code. The help text is put together from the modules and can be imported without running anything. A flag two commands share (`--model`, `--cases`, `--run`, `--name`, `--json`) is declared once. No behaviour changes. Test: before the split, save what `pnpm st --help` prints; a new test holds the help to it byte for byte, and the tests there are pass.
-- [ ] **0.2 A cost meter for every model call, and saved replies.** One record per call (operation, model, input and output tokens, seconds, cached or asked), summed at the end of a command and written with `--json`. `st read`, `st propose` and `st sort` count some of this already (`spent`); make it one shape for Claude and Jev, taken where every call passes: `aiProvider` in `src/infrastructure/ai/index.ts` and `Jev` in `src/judges/jev.ts`. At the same place, `ST_AI_RECORD=<dir>` writes each one-message reply to a file named by a hash of the model and everything sent, and `ST_AI_REPLAY=<dir>` answers from those files and stops with the call's name when one is missing. A `--deep` session is not recorded. Test: a unit test with a fake provider and a fake Jev for the totals; and a recorded call replayed against a provider that throws gives the same reply.
-- [ ] **0.3 The baseline.** On a scratch copy of `fixtures/launch-note`, with `ST_AI_RECORD` on, run `st sort` on both versions as the [reading bench](../scripts/reading-bench/README.md#counting-what-st-sort-read) says, `st propose`, and `st read --answers key.json` on the two runs the bench names, blind and not. Write each one's tokens, seconds, Jev questions, replies refused once and twice, and agreement with the key in a table here. Commit the replies under `scripts/reading-bench/replies/`. This is the one time the plan pays for these operations whole: about 700,000 input tokens. It needs a signed-in Claude Code and `TYPESAFE_API_KEY`; a worktree has no `.env`, so stop and ask where either is missing. Test: with `ST_AI_REPLAY` on that folder, the same three commands give the same counts and ask Claude nothing.
+- [ ] **0.2 A cost meter for every model call, and saved replies.** One [record](#one-model-call-02-then-03-41-and-every-gate) per call, summed at the end of a command and written with `--json`. `st read`, `st propose` and `st sort` count some of this already (`spent`); make it one shape for Claude, Jev and the answer under test, taken where the shape says each is counted. At the first two, `ST_AI_RECORD=<dir>` writes each one-message reply and each Jev answer to a file named by its key, and `ST_AI_REPLAY=<dir>` answers from those files and stops with the call's operation and key when one is missing ([decision 6](#decisions)). A `--deep` session and the answer under test are counted, never recorded. Test: a unit test with a fake provider, a fake Jev and a fake engine for the totals; a recorded call replayed against a provider and a Jev that throw gives the same reply; and one request built from two copies of a skill in two folders has one key.
+- [ ] **0.3 The baseline.** On a scratch copy of `fixtures/launch-note`, with `ST_AI_RECORD` on, run `st sort` on both versions as the [reading bench](../scripts/reading-bench/README.md#counting-what-st-sort-read) says, `st propose`, and `st read --answers key.json` on the two runs the bench names, blind and not. Write each one's tokens, seconds, Jev questions, replies refused once and twice, and agreement with the key in a table here. Commit the replies under `scripts/reading-bench/replies/`, kept byte for byte (`-text` in `.gitattributes`) and left out of Biome (`files.includes` in `biome.json`), as the stored runs are. This is the one time the plan pays for these operations whole: about 700,000 input tokens. It needs a signed-in Claude Code and `TYPESAFE_API_KEY`; a worktree has no `.env`, so stop and ask where either is missing. Test, in `pnpm check`: with `ST_AI_REPLAY` on that folder, on a new scratch copy in another folder and with no key set, the same three commands give the same counts and ask Claude and Jev nothing.
 
 ## Phase 1: the agent's surface
 
@@ -106,24 +272,26 @@ A worktree needs `pnpm install` before its first command, and chain A needs the 
   - Two runs started together must not take one number. `stampSkill` to the write of `run.json` in `generateRun` happen under a lock file in `evals/runs/`, made as `takeGradingLock` makes its own (`src/infrastructure/grading-lock.ts`).
   - `--from` is for `with_skill` only, and is refused with any other `--configuration`.
   - Test: a run with `--from` keeps the folder's files in `_skill/` and its version, and the working tree's `SKILL.md` is untouched; two stamps taken together get two numbers.
-- [ ] **1.4 The Results address.** One function in `src/domain/` builds `?skill=<path>#/results?case=&a=&b=`. `a` and `b` are outputs, each `<run>/<sample>`: given a run, it names that run's first attempt at the case, and with no case named, the first case both runs answered. `st run` and `st compare` have no server to give an address for, so each prints the command that opens it: `Open: pnpm st open <skill> --a <run> [--b <run>]`. Move the lines of `Results.tsx` that read `case`, `a` and `b` into a function beside `outputByKey` (`src/renderer/model.ts`), unchanged. Test: an address the function builds, read back by `placeOf` and that function, names the same case and the same two outputs.
-- [ ] **1.5 `st open`.** `st open <skill> [--case id] [--a run] [--b run]` prints the address from 1.4 on a running server, with its token. The agent opens it in T3 Code's preview panel; a person opens it anywhere.
+- [ ] **1.4 The Results address.** One function in `src/domain/` builds `?skill=<path>#/results?case=&a=&b=`. `a` and `b` are outputs, each `<run>/<sample>`: given a run, it names that run's first attempt at the case, and with no case named, the first case both runs answered. `st run` and `st compare` have no server to give an address for, so each prints the command that opens it: `Open: pnpm st open <skill> --a <run> [--b <run>]`. Move the lines of `Results.tsx` that read `case`, `a` and `b` into a function beside `outputByKey` (`src/renderer/model.ts`), unchanged. Test, under `src/renderer` since it reads `placeOf` (`route.ts`) and the domain imports nothing from the renderer: an address the function builds, read back by `placeOf` and that function, names the same case and the same two outputs.
+- [ ] **1.5 `st open`.** `st open <skill> [--case id] [--a run] [--b run]` prints the address from 1.4 on a running server. The agent opens it in T3 Code's preview panel; a person opens it anywhere.
+  - **The address carries a ticket, never the token** ([decision 7](#decisions)). A chat is kept and is sent to the model's maker, so it is not the terminal [SECURITY.md](../SECURITY.md#the-web-server) calls yours. `st open` asks the server for a ticket, in a new request the server answers only to the token, made by the `tickets.issue()` that `ticketUrl()` uses (`src/interfaces/http/server.ts`). The first load within a minute trades it for the cookie. An address opened a second time, or after a minute, is refused: run `st open` again.
   - With no server of this checkout running, it starts one as a detached copy of itself (`process.execPath`, `process.execArgv`, `process.argv[1]`, `serve`) on a free port the system picks, and waits up to 10 seconds for it.
-  - That server writes its process id, port and token to one file in Skill Studio's own folder in the user's home (where `src/infrastructure/preferences.ts` keeps its file), never in the checkout, readable by the user alone (`0600`). It removes the file when it stops. A file whose process is gone is removed and a new server started.
+  - That server writes [its file](#the-server-st-open-starts-15), never in the checkout, readable by the user alone (`0600`). It removes the file when it stops. A file whose process is gone is removed and a new server started.
   - A server started this way stops itself after 60 minutes with no request. `st open --stop` stops it now.
   - Where the app is not built, it says `Run pnpm build first.` and exits 2.
-  - [SECURITY.md](../SECURITY.md#the-web-server) says the token is now also in that file, and who can read it.
-  - Test: two calls start one server and the second prints the same origin; `--stop` ends it and removes the file; the file's mode is `0600` (skipped on Windows).
+  - [SECURITY.md](../SECURITY.md#the-web-server) says the token is now also in that file, who can read it, and that `st open` prints a ticket.
+  - Test: two calls start one server and the second prints the same origin with another ticket; no line `st open` prints holds the token; a second checkout's call starts a second server and leaves the first running; `--stop` ends this checkout's and removes its file; the file's mode is `0600` (skipped on Windows).
 - [ ] **1.6 Short output.** `--brief` on `report`, `compare` and `run` prints, for each case, the version that did better and the words of each rule or check an output missed, nothing else. `run --quiet` prints one line per finished attempt. Test: output tests on the stored runs under `fixtures/`, and a size test that fails when `--brief` prints more than 200 bytes a case beyond the words of what was missed.
 - [ ] **1.7 Draw pages from the command line.** `st run`, `st grade` and `st serve` draw a page as the desktop app does: they start Electron with no window as a drawing host ([decision 2](#decisions)), so the grading says `drawn: true` and writes `renders/`, the same pictures and measures the desktop app makes.
-  - **The host** is a new start file, `src/interfaces/electron/draw/index.ts`, built by `pnpm build` to `out/main/draw.js` (a second input beside the app's in `electron.vite.config.ts`; `out/main/index.js` keeps its name). It registers the `artifact:` scheme before `ready`, serves it with `serveArtifacts` (`protocol.ts`) over its own `createOperations`, and draws with `pageRenderer()` unchanged. It takes a temporary profile folder of its own, no single-instance lock and no keychain, hides its Dock icon, and stops when its input closes. It reads one JSON line for each page (`id`, `page`, `width`, `height`) and writes one back (`id`, then `png` as base64 and `layout`, or `error`). A line it cannot read as JSON is passed over.
+  - **Prove it first.** Before the item's own code, a script of a few lines starts Electron from Node with no window, draws one stored page of a scratch copy of `fixtures/design-skill` through the `artifact:` scheme, and prints the PNG's size and how many elements the layout holds. Nothing in the repository has started Electron this way. Where it cannot be made to draw, stop and say what it did: the item is built on it.
+  - **The host** is a new start file, `src/interfaces/electron/draw/index.ts`, built by `pnpm build` to `out/main/draw.js` (a second input beside the app's in `electron.vite.config.ts`; `out/main/index.js` keeps its name). It registers the `artifact:` scheme before `ready`, serves it with `serveArtifacts` (`protocol.ts`) over its own `createOperations`, and draws with `pageRenderer()` unchanged. It takes a temporary profile folder of its own, no single-instance lock and no keychain, hides its Dock icon, and stops when its input closes. It reads one JSON line for each page and writes one back ([the lines](#a-page-to-draw-17-18)). A line it cannot read as JSON is passed over.
   - **The command's side** is `src/interfaces/cli/drawing.ts`: a `PageRenderer` that starts the host at the first page asked for, finding Electron as `launch` does in `scripts/guide-shots/index.ts`, keeps it for the command's life, and is ended by the command's lifecycle (`src/interfaces/lifecycle.ts`) as agents are. It is passed as `render` to `gradeRun`, and through `startServer` to `createOperations`.
   - A grading draws only when Jev grades, as in the app, so `--no-jev` never starts the host. `--no-draw` grades as before this item; `pnpm reading-gate` passes it, so its pinned numbers stand.
   - Where the host cannot start, the command says why once (`Run pnpm build to draw pages.`, Electron not installed, no display) and grades undrawn.
   - Test, in `pnpm check`: the command's side against a stand-in host, a plain script that speaks the same lines: one start for many pages, replies matched by `id`, and a host that fails grades undrawn with the reason. Test, as `pnpm test:draw`: build, start the real host, draw the stored page of a scratch copy of `fixtures/design-skill`, and hold the PNG to the size asked and the layout to at least one element. CI runs `pnpm test:draw` in one new job on Linux under `xvfb-run`, with the Electron binary fetched (the other jobs skip it).
 - [ ] **1.8 A contact sheet.** After 1.7, `st sheet <skill> --run A --run B [--case id] [--out <dir>]` puts each case's drawn pages side by side, labelled by run and attempt, in one PNG at most 1568 pixels a side, and prints each file's path. The agent looks at one picture a case instead of reading each page, and a person can look at it in the chat.
   - It reads the desktop-size pictures already in each sample's `renders/`. An output with none is left out, with a line that says to grade its run first.
-  - It writes a small page and copies of those pictures to a temporary folder, and the host draws that page from its `file:` address: a second kind of line the host takes (`id`, `file`, `width`, `height`). Labels are written as text, never as markup.
+  - It writes a small page and copies of those pictures to a temporary folder, and the host draws that page from its `file:` address: the second kind of [line](#a-page-to-draw-17-18) the host takes. Labels are written as text, never as markup.
   - One row a run, one column an attempt, 12 panels at most. Attempts that do not fit are left out, and a line says how many.
   - Without `--out`, the sheets go to a temporary folder.
   - Test, in `pnpm test:draw`: one PNG a case, inside the size, with as many panels as attempts.
@@ -151,9 +319,9 @@ A worktree needs `pnpm install` before its first command, and chain A needs the 
 
 ## Phase 4: the acceptance run
 
-- [ ] **4.1 The React card experiment, from a chat.** An agent follows only the loop skill.
-  - It makes `react-card` with three cases that each ask for one HTML page. An output's page loads nothing from the network (`artifactPolicy` in `src/application/api/artifact-page.ts`), so a page that takes React from a CDN draws blank. Each case gives React's browser files in its own files (React 18.3.1: `react.production.min.js` and `react-dom.production.min.js`, added with `st case add --file`) and asks the page to load them from beside it.
-  - It runs one case once on the smaller model and looks at the drawn page before anything else. A blank page means the files do not reach it: stop and fix the case.
+- [ ] **4.1 The React card experiment, from a chat.** Run as soon as chain A is merged ([order](#order)). An agent follows only the loop skill.
+  - It makes `react-card` with three cases that each ask for one HTML page. An output's page loads nothing from the network (`artifactPolicy` in `src/application/api/artifact-page.ts`), so a page that takes React from a CDN draws blank. Each case gives React's browser files in its own files (React 18.3.1: `react.production.min.js` and `react-dom.production.min.js`, added with `st case add --file`). A case's files are staged under `files/` where the answer is written, and a kept attempt holds its `outputs/`. So each prompt asks for the two files to be copied into `outputs/`, beside the page, and loaded from there by name. The policy lets a page run a script file of its own (`script-src` names the page's own files).
+  - It runs one case once on the smaller model and looks at the drawn page before anything else. A blank page means the files do not reach it: stop and fix the case. This is the one part of the run nobody has seen work.
   - It has two fresh agents write `SKILL.md` from the same brief, each in a folder of its own outside the skill, one after loading `emil-writing-skills`; runs both with `--from` and once without the skill; compares; makes the sheet; opens the pair with `st open`.
   - Record its tokens, its seconds and Claude usage for each step in this file. The run is not done the old way first: that would pay for the slow way once more only to have its number.
 - [ ] **4.2 Release.** `pnpm reading-gate`, live, once ([releasing.md](releasing.md#check-grading-against-the-key)). `CHANGELOG.md` entry, docs checked against the code, release by [releasing.md](releasing.md).
@@ -176,6 +344,11 @@ Made by Miles on 2026-11-25.
 1. **Jev is still asked a fact code answered.** Its questions ride in the same request, so they cost almost nothing, and its answer is the second opinion that shows where a code reading is wrong. Items 2.3, 2.4 and 2.5 need those answers. Item 3.6 shows the disagreements instead of skipping Jev.
 2. **The command line draws with Electron.** It is the engine the desktop app draws with, so a grading from a chat sees the same picture and measures as one from the app. A headless browser library would be a large second download and a second way of drawing that can differ in fonts and sizes. The cost is a virtual display on Linux CI.
 3. **The chat may send search and replace edits, with whole files as the fallback.** A one-line change no longer sends the whole file back, which is slower, costs more and can change lines nobody asked about. A block whose text is not found is asked for once more as the whole file, inside the same press.
+4. **Chain A and the acceptance run come first.** Chains B to E start after the React card experiment has run, two at a time. The thing the plan is for is reached first, and the baseline can close a later item before anyone builds it.
+5. **Miles is walked through the code; he does not read diffs cold.** He does not know this part of the codebase yet, so at each point in [what Miles is shown](#what-miles-is-shown) the lead explains the code plainly, with the real lines beside the explanation. The lead's check alone approves nothing for merging.
+6. **A replay holds Jev's answers as well as Claude's.** A replay then needs no key and no network, so the gates that replay the baseline run in `pnpm check` and on all three systems. The cost is a larger folder of replies in the repository.
+7. **`st open` prints a one-use ticket, never the token.** A chat is kept and sent on, unlike a terminal. The cost is one new request on the server.
+8. **Fable is spent only on judgment.** Opus 5.5 agents build, check and draft, which is where the tokens go. The lead hands out items, decides on departures, keeps this file, and reads the code itself only for the three foundations. The cost is a check made by the builder's own model, which the walkthroughs stand behind.
 
 ## Not in this plan
 
