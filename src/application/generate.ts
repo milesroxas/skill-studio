@@ -128,8 +128,13 @@ export interface GenerateOptions {
   note: string
   parallel?: number
   log: (line: string) => void
-  /** Called as each output is written, ok or not. */
-  onSample?: () => void
+  /**
+   * What a person must know even where progress is not shown, such as a
+   * case's file that is missing: said through `log` when not given.
+   */
+  warn?: (line: string) => void
+  /** Called as each output is written, ok or not, with the attempt as the run records it. */
+  onSample?: (sample: SampleMeta) => void
   /** Called once the run has its name and its folder, before any agent starts. */
   onNamed?: (name: string) => void
   /** The job was stopped: workers take no more samples and the agents in flight are ended. */
@@ -326,7 +331,7 @@ function startRun(
   const snapshot = skillCopy(skillDir, name)
   if (baseline) copyTree(baseline.dir, snapshot)
   else snapshotSkill(tree, snapshot)
-  stageInputs(skillDir, dir, options.cases, options.log)
+  stageInputs(skillDir, dir, options.cases, options.warn ?? options.log)
   // The cases as they are asked now, with the checks for every case: what the run is read against, whatever is edited since.
   keepCases(skillDir, dir, options.cases, loadEveryCase(skillDir))
   const meta: RunMeta = {
@@ -355,6 +360,7 @@ export async function generateRun(
   // The answer under test is never saved: a replay asks nobody, so it runs no agent.
   neverReplayed("The answer under test, a run's agent,")
   const { skillDir, engine, log } = options
+  const warn = options.warn ?? log
   const info = skillInfo(skillDir)
   const configuration = options.configuration
   const draft =
@@ -364,7 +370,7 @@ export async function generateRun(
   const tree = draft ?? skillDir
   const baseline = configuration === 'old_skill' ? baselineOf(skillDir, options.baseline) : null
   if (baseline?.partial)
-    log(
+    warn(
       `${baseline.stamp.version} was kept with SKILL.md and references/ only: this run gets none of its scripts or other files.`,
     )
   // The skill as the run's copy names it: a run against an older version uses the name it had then.
@@ -408,6 +414,7 @@ export async function generateRun(
     // The name is the writer's own text: only a slug of it names a folder.
     skillFolder: slug(skillName) || slug(basename(info.path)) || 'skill',
     log,
+    warn,
     signal: stop.signal,
   }
   let next = 0
@@ -431,7 +438,7 @@ export async function generateRun(
         stop.abort()
         return
       }
-      options.onSample?.()
+      options.onSample?.(sample)
     }
   }
   const parallel = Math.max(1, Math.min(options.parallel ?? MAX_PARALLEL, jobs.length))
@@ -516,6 +523,8 @@ interface SampleOptions {
   /** The folder the skill sits in inside the sample. */
   skillFolder: string
   log: (line: string) => void
+  /** What a person must know even where progress is not shown (`GenerateOptions.warn`). */
+  warn: (line: string) => void
   signal: AbortSignal
 }
 
@@ -535,7 +544,7 @@ async function generateSample(
     return await runSample(testCase, index, options, dir, work)
   } finally {
     const left = moveWork(work.dir, dir)
-    if (left.length) options.log(`${name}: ${left.join('; ')}; the rest is in ${work.dir}`)
+    if (left.length) options.warn(`${name}: ${left.join('; ')}; the rest is in ${work.dir}`)
     // A link to the skill is made by its full path on Windows, so it is made again where it now sits.
     if (options.skillSource) linkSkillAliases(dir)
   }
@@ -589,7 +598,8 @@ async function runSample(
     ),
     signal: options.signal,
     transcript,
-    log: (line) => options.log(`${label}: ${line}`),
+    // An engine says only what went wrong, such as a transcript it could not write.
+    log: (line) => options.warn(`${label}: ${line}`),
   })
   const finishedAt = new Date()
   const timing: Timing = {

@@ -180,6 +180,8 @@ export interface JudgeContext {
   /** Absolute path of the skill being graded; a check's picture is read from here. */
   skillDir: string
   log: (line: string) => void
+  /** What went wrong, said even where progress is not shown: through `log` when not given. */
+  warn?: (line: string) => void
   /** The grading was stopped: a request on its way to Jev is ended, so it is not waited for or paid for. */
   signal?: AbortSignal
   /**

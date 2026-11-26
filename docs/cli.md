@@ -21,8 +21,8 @@ pnpm st <command> [skill-dir] [options]
 | `case check` | List each case and check file that will not load or is skipped, and each title two cases share. It exits 1 when it lists any ([below](#adding-and-checking-cases)) |
 | `run` | Generate outputs with a headless agent, then grade them |
 | `grade` | Grade a run again: `--run <name>` or `--all` |
-| `report` | Print a run's report: `--run <name>`. The scores are counted from the stored answers under `bench.json` as it is now, with your corrections from the app, as the app shows them. A sample folder since removed is left out. Under the table, each output's checks met and rules followed, counted apart: an output of a run without the skill has no rules count |
-| `compare <runA> <runB>` | Score differences between two graded runs, both under `bench.json` as it is now. A sample is read against the one of its name in the other run (`email-s2` against `email-s2`), only where the app would set the two against each other: answers to the same case as it was asked, both graded with Jev or both without, with your corrections only on facts you answered in both. A change counts only the rules and checks marked in both: one Jev was not sure of, did not read, or set aside, in either run is left out of both, and the table says how many under it. Each sample left out is listed there too, with why. Then it reads the two runs as cases, on checks alone ([below](#reading-two-runs-as-cases)) |
+| `report` | Print a run's report: `--run <name>`. The scores are counted from the stored answers under `bench.json` as it is now, with your corrections from the app, as the app shows them. A sample folder since removed is left out. Under the table, each output's checks met and rules followed, counted apart: an output of a run without the skill has no rules count. `--brief` prints only each case and what it missed ([below](#short-output)) |
+| `compare <runA> <runB>` | Score differences between two graded runs, both under `bench.json` as it is now. A sample is read against the one of its name in the other run (`email-s2` against `email-s2`), only where the app would set the two against each other: answers to the same case as it was asked, both graded with Jev or both without, with your corrections only on facts you answered in both. A change counts only the rules and checks marked in both: one Jev was not sure of, did not read, or set aside, in either run is left out of both, and the table says how many under it. Each sample left out is listed there too, with why. Then it reads the two runs as cases, on checks alone ([below](#reading-two-runs-as-cases)). `--brief` prints only each case, the run that did better on it and what each run missed ([below](#short-output)) |
 | `read` | Have the assistant read a graded run: `--run <name>`. It answers the rules and checks Jev was not sure of or did not read, each with where it saw it, and prints how often its answers agree with yours. It writes nothing to the skill ([below](#reading-a-run)) |
 | `sort` | Have the assistant read each rule and each check once and say how it will be marked: answered by code, asked of Jev, or not markable as written, with a fix. It keeps what it read in `evals/rule-readings.json` ([below](#sorting-rules-and-checks)) |
 | `propose` | Have the assistant read each case's latest answers and propose checks a good answer meets. It changes no case until you accept a proposal. It keeps them in `evals/proposals.json` ([below](#proposing-checks)) |
@@ -50,8 +50,28 @@ To add a check for every case, write it as a file in the skill's `evals/graders/
 - `--name` and `--note`: name the skill version and note on it, when the files changed. A run with `--configuration without_skill` tests no version and needs neither.
 - `--parallel n`: samples in flight (3).
 - `--no-grade`: skip grading.
+- `--brief`: print only each case and what it missed in place of the report ([below](#short-output)).
+- `--quiet`: print one line as each attempt ends, such as `Launch page, attempt 1: done in 20 s` or `Launch page, attempt 2: failed, it ran out of time (after 600 s)`, in place of the agents' and the grading's progress. A failed attempt has no other line. What went wrong is still said, once each: outputs that did not run to their end, a case's file that is missing, files left in an agent's work folder, a transcript that could not be written, an older version kept with `SKILL.md` and `references/` only, a run that has not finished, a cases file that does not read whole, a pack that failed on an output, a page or picture that could not be drawn or measured, a file or a check's picture Jev is not shown, an output Jev read only the first parts of, and that there was no output to grade.
 
 `run` ends with the command that opens Results on the run it made, `Open: pnpm st open <skill> --a <run>`, and `compare` with the one that opens it on its two runs, `--a <runA> --b <runB>`. With `--json` neither prints it.
+
+### Short output
+
+`--brief` on `report`, `compare` and `run` prints what an agent in a chat needs in place of the report: each case, by its name and in the order `cases` lists them, with what became of an attempt not read whole, then the words of each rule or check an output of it missed, one line each.
+
+```
+Launch email, no price: nothing missed
+Launch email, a quote that gives orders
+  missed: Quote the customer in the brief's Quote word for word, with their name. A paraphrase puts words in their mouth.
+```
+
+- Every case the run took is printed, and every case it has a grading of.
+- A rule or check counts as missed where an output of the case missed it on any attempt, scored as `report` scores it: under `bench.json` as it is now, with your corrections. One Jev was not sure of, did not read, or set aside is not missed. A run without the skill misses no rule, since its agent never saw the rules.
+- A case says `nothing missed` only where every attempt was read whole. Otherwise its line says what became of each attempt that was not, from what the run and its grading recorded: `wrote nothing`, `could not be read` (a kind of file Jev cannot read), `not scored, <why>` (a pack failed on it, it is owed a grading, or nothing in it could be counted), `failed, it <why>`, `stopped before it finished`, `not graded` or `its folder was removed`, and `no attempt ran` for a case with none. With more than one attempt it names them: `attempt 2 wrote nothing`, `every attempt failed, it ran out of time`. Then how many rules and checks Jev did not read, as in a long output read in part: `3 rules and checks not read`.
+- `report` and `run` read one run, so they name no run that did better.
+- `compare --brief` calls the first run A and the second B. Each case's line says which did better on its checks, read as [below](#reading-two-runs-as-cases): `B did better`, `A did better`, `neither did better` or `no checks to compare`, or why the two were not read against each other: `only A answered it`, `only B answered it`, or not compared because Jev graded it in only one, or its agent was asked it another way. What became of attempts not read whole follows, `in A, ...` or `in B, ...`. Each missed line says which run missed it: `A missed:`, `B missed:` or `A and B missed:`.
+- `run --brief` leaves out the `Run:` line, and `compare` and `run` still end with the `Open:` line. With `--no-grade`, `run --brief` names each case as `not graded`.
+- `--brief` and `--json` together are refused.
 
 ### Opening Results from the command line
 

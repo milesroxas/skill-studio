@@ -25,8 +25,10 @@ import { type PageLayout, readLayout } from '@domain/layout.ts'
 import {
   type Corrections,
   NO_CORRECTIONS,
+  noOutput,
   packFailedFlag,
   packFailure,
+  unreadable,
   type Verdict,
 } from '@domain/pack.ts'
 import { differing, SAME_PICTURE, scaleOf } from '@domain/picture-match.ts'
@@ -34,7 +36,15 @@ import { primaryArtifact } from '@domain/primary.ts'
 import { NOTES_FILE } from '@domain/prompt.ts'
 import type { Rule } from '@domain/rules.ts'
 import { parseSampleDir } from '@domain/run-name.ts'
-import type { Artifact, BenchConfig, Case, Grader, Report, ReportResult } from '@domain/schemas.ts'
+import type {
+  Artifact,
+  BenchConfig,
+  Case,
+  Grader,
+  Report,
+  ReportResult,
+  RunMeta,
+} from '@domain/schemas.ts'
 import { behindOf, gradedNow, scoreResult } from '@domain/scoring.ts'
 import { copyOf, pageText, unitsOf, words } from '@domain/text.ts'
 import { checkIds, codeAnswerOf, verdictId } from '@domain/verdict.ts'
@@ -97,6 +107,11 @@ export interface GradeOptions {
   /** Keys laid over the skill's `bench.json` for this grading only. */
   config?: Partial<BenchConfig>
   log?: (line: string) => void
+  /**
+   * What a person must know even where progress is not shown, such as an
+   * output left out of grading: said through `log` when not given.
+   */
+  warn?: (line: string) => void
   /** The job was stopped: no further sample is judged, and no report is written. */
   signal?: AbortSignal
   /**
@@ -917,8 +932,9 @@ async function gradeSubject(
 ): Promise<{ result: ReportResult; unchanged: boolean; asked: number }> {
   const taken = caseOf(subject, ctx)
   const testCase = taken?.case ?? null
+  // It says only which file Jev is not shown, and why: a warning, never progress.
   const input = judgeInput(ctx, subject, testCase, (line) =>
-    ctx.judge.log(`${subject.name}: ${line}`),
+    (ctx.judge.warn ?? ctx.judge.log)(`${subject.name}: ${line}`),
   )
   const { primary } = input
   // How each rule and check is read, where `st sort` read the text this output is graded on.
@@ -1006,7 +1022,8 @@ async function gradeSubject(
       if (ctx.signal?.aborted) throw new Error(STOPPED)
       // One pack failing leaves its layers out of the total, so the report says so.
       const failure = packFailedFlag(pack.id, (error as Error).message)
-      ctx.judge.log(`${subject.name}: ${failure}`)
+      const warn = ctx.judge.warn ?? ctx.judge.log
+      warn(`${subject.name}: ${failure}`)
       failures.push(failure)
       packs[pack.id] = null
     }
@@ -1084,6 +1101,7 @@ async function gradeSubjects(
   const packs = config.packs.flatMap((id) => packById(id) ?? [])
   const jev = new Jev(options.model, 'grade')
   const log = options.log ?? (() => {})
+  const warn = options.warn ?? log
   // A run is graded on the rules of the skill it ran, whatever the skill says since.
   const ruled = run?.skill ?? skillDir
   const sorted = checkReadings(skillDir)
@@ -1104,6 +1122,7 @@ async function gradeSubjects(
       config,
       skillDir,
       log,
+      warn,
       signal: options.signal,
       run: commandRunner(options.signal),
       once: new Map(),
@@ -1116,17 +1135,18 @@ async function gradeSubjects(
   // Drawing a page is for Jev to look at: without Jev, or without a browser, nothing is drawn.
   const { render } = options
   if (render && run && options.useJev) {
+    // Each says only what could not be drawn or measured: a warning, never progress.
     ctx.draw = (sample, page, sizes) =>
       drawPage(render, skillDir, run.name, sample, page, sizes, (line) =>
-        log(`${sample.name}: ${line}`),
+        warn(`${sample.name}: ${line}`),
       )
     ctx.fit = (sample, picture) =>
       fitPicture(render, skillDir, run.name, sample, picture, (line) =>
-        log(`${sample.name}: ${line}`),
+        warn(`${sample.name}: ${line}`),
       )
     ctx.source = (sample, picture, size) =>
       sourcePage(render, skillDir, run.name, sample, picture, size, (line) =>
-        log(`${sample.name}: ${line}`),
+        warn(`${sample.name}: ${line}`),
       )
   }
   const started = performance.now()
@@ -1179,7 +1199,7 @@ async function gradeSubjects(
   // A report with no output in it, or none judged, holds no verdict: the one before it is worth more.
   const { failed, total } = unjudged(report)
   if (!total)
-    log('No output to grade, so no report was written. The last one, if any, still stands.')
+    warn('No output to grade, so no report was written. The last one, if any, still stands.')
   else if (failed < total) writeJson(join(dir, 'report.json'), report)
   return report
 }
@@ -1299,12 +1319,12 @@ export async function gradeRun(
   if (!isDir(dir)) throw new Error(`There is no run called ${run}.`)
   // A sample whose agent was stopped, failed or was cut off says nothing whole of the skill: it is not graded, so it scores nothing.
   const { samples, unfinished } = finishedSamples(skillDir, run)
-  if (unfinished)
-    options.log?.(`${unfinished} output(s) did not run to their end: left out of grading.`)
+  const warn = options.warn ?? options.log
+  if (unfinished) warn?.(`${unfinished} output(s) did not run to their end: left out of grading.`)
   // A run with no end of its own is still being written, here or by another copy, or was cut off.
   const meta = readRunMeta(skillDir, run)
   if (meta && !meta.legacy && !meta.finishedAt)
-    options.log?.(`${run} has not finished: only the outputs it has recorded so far are graded.`)
+    warn?.(`${run} has not finished: only the outputs it has recorded so far are graded.`)
   const subjects: Subject[] = samples.map((sample) => {
     if (sample.legacy) {
       const head = readHead(join(sample.path, sample.name))
@@ -1330,9 +1350,7 @@ export async function gradeRun(
   const answered = readRunMeta(skillDir, run)?.cases
   const { kept, damaged } = readKept(dir, Array.isArray(answered) ? answered : [])
   if (damaged)
-    options.log?.(
-      `${CASES_FILE} does not read whole: a case it lost is graded on the case as it is now.`,
-    )
+    warn?.(`${CASES_FILE} does not read whole: a case it lost is graded on the case as it is now.`)
   return locked(dir, () =>
     gradeSubjects(skillDir, dir, subjects, options, {
       name: run,
@@ -1583,9 +1601,7 @@ const corrections = (side: RunScoring, r: ReportResult): Corrections =>
 
 /** Why two answers to one case are not set against each other (`comparableAnswers`). */
 const apartWhy = (a: Answered, b: Answered): string =>
-  a.judged !== b.judged
-    ? 'graded with Jev in one run and without it in the other'
-    : 'its agent was asked another prompt or other files in the other run'
+  APART[a.judged !== b.judged ? 'judged' : 'asked']
 
 /** What `compareRuns` read between two runs, and each output it left out, with why. */
 export interface Compared {
@@ -1660,12 +1676,57 @@ export interface ComparedCases extends CaseResults {
 }
 
 /**
+ * Why a case is not read between two runs: only the first run answered it
+ * (`only-a`), only the second did (`only-b`), Jev graded it in one run and
+ * not in the other (`judged`), or its agent was asked it another way (`asked`).
+ */
+export type Apart = 'only-a' | 'only-b' | 'judged' | 'asked'
+
+/** How `compareCases` says each `Apart` in its `left` lines. */
+const APART: Readonly<Record<Apart, string>> = {
+  'only-a': 'only the first run answered it',
+  'only-b': 'only the second run answered it',
+  judged: 'graded with Jev in one run and without it in the other',
+  asked: 'its agent was asked another prompt or other files in the other run',
+}
+
+/** Each run's outputs still on disk, by case id, in the order the run lists them. */
+function resultsByCase(side: RunScoring): Map<string, ReportResult[]> {
+  const cases = new Map<string, ReportResult[]>()
+  for (const r of present(side).results)
+    cases.set(caseIdOf(r), [...(cases.get(caseIdOf(r)) ?? []), r])
+  return cases
+}
+
+/**
+ * Each case `compareCases` leaves out, with why, in the order it lists them:
+ * the cases only the first run answered, then the second run's in its order.
+ */
+export function casesApart(before: RunScoring, after: RunScoring): Map<string, Apart> {
+  const from = resultsByCase(before)
+  const to = resultsByCase(after)
+  const apart = new Map<string, Apart>()
+  for (const id of from.keys()) if (!to.has(id)) apart.set(id, 'only-a')
+  for (const [id, b] of to) {
+    const a = from.get(id)
+    if (!a) apart.set(id, 'only-b')
+    else {
+      const one = answered(a[0], before)
+      const two = answered(b[0], after)
+      if (!comparableAnswers(one, two))
+        apart.set(id, one.judged !== two.judged ? 'judged' : 'asked')
+    }
+  }
+  return apart
+}
+
+/**
  * Two runs read as cases, on checks (`caseResults`): for each case both
  * answered, every attempt of it in each run, scored under `bench.json` as it
  * is now with the reader's corrections, as `compareRuns` scores them. A case
  * is read only between answers to it as it was asked, both graded with Jev or
- * both without (`comparableAnswers`); every other case is left out, with why.
- * Cases come in the order the second run lists them.
+ * both without (`comparableAnswers`); every other case is left out, with why
+ * (`casesApart`). Cases come in the order the second run lists them.
  */
 export function compareCases(
   skillDir: string,
@@ -1674,30 +1735,12 @@ export function compareCases(
   options: Pick<GradeOptions, 'packs' | 'config'> = {},
 ): ComparedCases {
   const scoring = scoringNow(skillDir, options)
-  const byCase = (side: RunScoring) => {
-    const cases = new Map<string, ReportResult[]>()
-    for (const r of present(side).results)
-      cases.set(caseIdOf(r), [...(cases.get(caseIdOf(r)) ?? []), r])
-    return cases
-  }
-  const from = byCase(before)
-  const to = byCase(after)
+  const from = resultsByCase(before)
+  const apart = casesApart(before, after)
   const ends: CaseEnds[] = []
-  const left: string[] = [...from.keys()]
-    .filter((id) => !to.has(id))
-    .map((id) => `${id}: only the first run answered it`)
-  for (const [id, b] of to) {
+  for (const [id, b] of resultsByCase(after)) {
     const a = from.get(id)
-    if (!a) {
-      left.push(`${id}: only the second run answered it`)
-      continue
-    }
-    const one = answered(a[0], before)
-    const two = answered(b[0], after)
-    if (!comparableAnswers(one, two)) {
-      left.push(`${id}: ${apartWhy(one, two)}`)
-      continue
-    }
+    if (!a || apart.has(id)) continue
     ends.push({
       case: id,
       a: a.map((r) => corrections(before, r)),
@@ -1710,5 +1753,111 @@ export function compareCases(
       },
     })
   }
+  const left = [...apart].map(([id, why]) => `${id}: ${APART[why]}`)
   return { ...caseResults(ends), left }
+}
+
+/**
+ * What became of one attempt that was not read whole: it wrote nothing
+ * (`empty`), it stands on a file Jev cannot read (`unreadable`), it has no
+ * score for `why` (`unscored`: a pack failed on it, it is owed a grading, or
+ * nothing in it could be counted), its agent failed (`failed`, with why) or
+ * was stopped (`stopped`), it is not in the grading (`ungraded`), or its
+ * folder was removed (`removed`).
+ */
+export type AttemptState =
+  | { index: number; kind: 'empty' | 'unreadable' | 'stopped' | 'ungraded' | 'removed' }
+  | { index: number; kind: 'unscored' | 'failed'; why: string }
+
+/** One case of a run, brief: what an agent in a chat reads of it (`caseBriefs`). */
+export interface CaseBrief {
+  /** Its attempts the run made or kept a grading of. */
+  attempts: number
+  /** The words of each rule and check an attempt missed, once each, in the order first missed. */
+  missed: string[]
+  /** The rules and checks Jev did not read all of an attempt to answer (`unread`), once each. */
+  unread: number
+  /** Each attempt not read whole, and what became of it, in the order of their numbers. */
+  apart: AttemptState[]
+}
+
+/** What became of an attempt a grading holds, where it was not read whole; null where it was. */
+function stateOf(
+  index: number,
+  scored: ReturnType<typeof scoredResult>,
+  r: ReportResult,
+): AttemptState | null {
+  if (noOutput(r)) return { index, kind: 'empty' }
+  if (unreadable(r)) return { index, kind: 'unreadable' }
+  const why = scored.regrade[0] ?? (scored.scores.total === null ? scored.stale.at(-1) : undefined)
+  return why === undefined ? null : { index, kind: 'unscored', why }
+}
+
+/**
+ * Each case of a run, by case id, as `--brief` reads it: every case the run
+ * took (`RunMeta.cases`) and every case it has a grading of, in that order.
+ * Each attempt still on disk is scored as `scoredReport` scores it, with the
+ * reader's corrections on it. A fact set aside is neither met nor missed, and
+ * an output of a run without the skill misses no rule: its agent never saw
+ * the rules (`twoCounts`). An attempt the grading left out says why, from
+ * `RunMeta.samples`. A run with no report is read as graded on nothing.
+ */
+export function caseBriefs(
+  skillDir: string,
+  side: Omit<RunScoring, 'report'> & { report: Report | null },
+  meta: RunMeta | null,
+  options: Pick<GradeOptions, 'packs' | 'config'> = {},
+): Map<string, CaseBrief> {
+  const scoring = scoringNow(skillDir, options)
+  const configuration = meta?.configuration ?? 'with_skill'
+  const briefs = new Map<string, CaseBrief>()
+  const briefOf = (id: string): CaseBrief => {
+    const known = briefs.get(id) ?? { attempts: 0, missed: [], unread: 0, apart: [] }
+    briefs.set(id, known)
+    return known
+  }
+  for (const id of meta?.cases ?? []) briefOf(id)
+  const unread = new Map<string, Set<string>>()
+  const graded = new Set<string>()
+  // A run not graded has no report: each attempt of it is `ungraded`.
+  const { report } = side
+  const attempts = report
+    ? present({ ...side, report }).results.map((r) => ({
+        r,
+        scored: scoredResult(r, report, side.cases, scoring, corrections({ ...side, report }, r)),
+      }))
+    : []
+  for (const { r, scored } of attempts) {
+    const id = caseIdOf(r)
+    const brief = briefOf(id)
+    graded.add(r.sample)
+    brief.attempts += 1
+    const state = stateOf(parseSampleDir(r.sample)?.index ?? 1, scored, r)
+    if (state) brief.apart.push(state)
+    const notRead = unread.get(id) ?? new Set<string>()
+    for (const v of scored.verdicts) {
+      const counted = v.kind === 'check' || (v.kind === 'rule' && configuration !== 'without_skill')
+      if (!counted || v.layer === null) continue
+      if (v.aside === 'unread') notRead.add(v.text)
+      else if (!v.aside && !v.met && !brief.missed.includes(v.text)) brief.missed.push(v.text)
+    }
+    unread.set(id, notRead)
+    brief.unread = notRead.size
+  }
+  for (const s of meta?.samples ?? []) {
+    if (graded.has(s.dir)) continue
+    const brief = briefOf(s.case)
+    brief.attempts += 1
+    brief.apart.push(
+      s.failed
+        ? { index: s.index, kind: 'failed', why: `it ${s.failed}${s.error ? ` (${s.error})` : ''}` }
+        : s.stopped
+          ? { index: s.index, kind: 'stopped' }
+          : side.samples.includes(s.dir)
+            ? { index: s.index, kind: 'ungraded' }
+            : { index: s.index, kind: 'removed' },
+    )
+  }
+  for (const brief of briefs.values()) brief.apart.sort((a, b) => a.index - b.index)
+  return briefs
 }

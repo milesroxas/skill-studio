@@ -25,9 +25,14 @@ Commands
     --note <text>             Note on the version.
     --parallel <n>            Samples in flight (default 3).
     --no-grade                Skip grading after generation.
+    --brief                   Print only each case and the rules and checks it missed.
+    --quiet                   Print one line as each attempt ends in place of progress.
   grade                       Grade a run: --run <name> or --all.
   report                      Print a run's report: --run <name>.
+    --brief                   Print only each case and the rules and checks it missed.
   compare <runA> <runB>       Score deltas between two graded runs.
+    --brief                   Print only each case, the run that did better on its checks,
+                              and the rules and checks each run missed.
   read                        Have the assistant read a graded run: --run <name>. It answers
                               what Jev was not sure of, and prints how often its answers
                               agree with yours. It writes nothing to the skill.

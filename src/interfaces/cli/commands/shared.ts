@@ -137,11 +137,15 @@ export function printReport(report: Report): void {
  * Print what a grading made of a run. False when it judged no output, so it
  * wrote no report and the command has not done what it was asked: the grading
  * said so itself when there was no output, and the reason is printed here when
- * a pack failed on every one.
+ * a pack failed on every one. `print` prints it where it is not JSON.
  */
-export function printGraded(report: Report, json: boolean | undefined): boolean {
+export function printGraded(
+  report: Report,
+  json: boolean | undefined,
+  print: (report: Report) => void = printReport,
+): boolean {
   if (json) console.log(JSON.stringify(withCost(report), null, 2))
-  else printReport(report)
+  else print(report)
   const { failed, total, reason } = unjudged(report)
   if (total && failed === total)
     console.error(`No output was judged, so no report was written: ${reason}`)

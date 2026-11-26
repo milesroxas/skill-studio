@@ -16,6 +16,7 @@ const SHARED = {
   again: { type: 'boolean' },
   deep: { type: 'boolean' },
   json: { type: 'boolean' },
+  brief: { type: 'boolean' },
   'no-jev': { type: 'boolean' },
   'jev-model': { type: 'string' },
   packs: { type: 'string' },
