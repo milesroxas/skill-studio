@@ -91,6 +91,14 @@ describe('the loop skill', () => {
   it('names no flag, in code or in prose, that st --help does not list', () => {
     expect(unknownFlagsOf(markdown)).toEqual([])
   })
+
+  it('gives each version name to one st run alone: a draft run again is its kept version, and a changed one needs a new name', () => {
+    const names = commands.flatMap((words) =>
+      words[0] === 'run' && words.includes('--name') ? [words[words.indexOf('--name') + 1]] : [],
+    )
+    expect(names.length).toBeGreaterThan(0)
+    expect(names).toEqual([...new Set(names)])
+  })
 })
 
 describe('reading st commands out of Markdown', () => {

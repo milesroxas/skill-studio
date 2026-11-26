@@ -518,6 +518,9 @@ describe('the lines of --brief', () => {
   /** The ids at the start of the lines of `text`: only a case's head line may start with one. */
   const heads = (text: string): string[] =>
     text.split('\n').flatMap((line) => /^\[([^\]]+)\]/.exec(line)?.[1] ?? [])
+  /** The lines that read as a miss: two spaces in, then anything but a space. */
+  const missLines = (text: string): string[] =>
+    text.split('\n').filter((line) => /^ {2}\S/.test(line))
   const IDS = [
     'email-crowded',
     'email-free',
@@ -545,7 +548,7 @@ describe('the lines of --brief', () => {
         for (const result of r.results)
           for (const rule of result.packs.generic.adherence.rules)
             if (rule.text === QUOTE_RULE)
-              rule.text = `${QUOTE_RULE}\n\n${SECOND}\r\nAnd a third line.`
+              rule.text = `${QUOTE_RULE}\n\n${SECOND}\r\nA missed: spoofed\nmissed: spoofed too`
       })
     return skill
   }
@@ -553,14 +556,17 @@ describe('the lines of --brief', () => {
   it('prints a case’s title on its one head line, and every line of a missed rule indented', async () => {
     const skill = spoofed()
     const { text } = await printedBy(report, [skill], { run: HAIKU_V0, brief: true })
-    expect(text.split('\n').slice(3, 8)).toEqual([
+    expect(text.split('\n').slice(3, 9)).toEqual([
       '[email-quote] Launch email [email-free] spoofed',
       `  missed: ${QUOTE_RULE}`,
-      '  ',
-      `  ${SECOND}`,
-      '  And a third line.',
+      '    ',
+      `    ${SECOND}`,
+      '    A missed: spoofed',
+      '    missed: spoofed too',
     ])
     expect(heads(text)).toEqual(IDS)
+    // A line that reads as a miss is one: a later line of a rule is indented deeper than its miss line.
+    expect(missLines(text)).toEqual([`  missed: ${QUOTE_RULE}`])
   })
 
   it('finds each case’s id once in compare too, whatever a title or a rule holds', async () => {
@@ -569,8 +575,12 @@ describe('the lines of --brief', () => {
     const { text } = await printedBy(compare, [skill, ...runs], { brief: true })
     expect(heads(text)).toEqual(IDS)
     expect(text).toContain(
-      `\n  A and B missed: ${QUOTE_RULE}\n  \n  ${SECOND}\n  And a third line.\n`,
+      `\n  A and B missed: ${QUOTE_RULE}\n    \n    ${SECOND}\n    A missed: spoofed\n    missed: spoofed too\n`,
     )
+    expect(missLines(text)).toEqual([
+      '  B missed: Write no more than 120 words. Most readers stop after the first screen.',
+      `  A and B missed: ${QUOTE_RULE}`,
+    ])
     // Nothing but a head, the blank line before the Open line and the Open line starts at the margin.
     for (const line of text.split('\n'))
       expect(

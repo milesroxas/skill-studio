@@ -741,11 +741,20 @@ export function saveCase(
     if (!present(source)) throw new Error(`${pick.name} is no longer kept. Add it again.`)
     return { source, dest: entry(pick.name) }
   })
+  // Everything that can refuse the save is asked before the first write: a save refused writes nothing.
+  const block = isFile(promptPath) ? frontMatterBlock(readFileSync(promptPath, 'utf8')) : ''
+  const promptText = promptFileText(block, input.prompt)
+  const pictures = new Map<string, string>()
+  for (const upload of [
+    ...input.images.map((image) => image.upload),
+    ...input.graders.filter((g) => g.statement.trim()).map((g) => g.image?.upload),
+  ])
+    if (upload && !pictures.has(upload)) pictures.set(upload, uploads.picture(upload))
+  const picture = (upload: string): string => pictures.get(upload) ?? uploads.picture(upload)
+
   const write = (path: string, text: string): void => writeText(path, text, { root: skillDir })
   mkdirSync(graderDir, { recursive: true })
-
-  const block = isFile(promptPath) ? frontMatterBlock(readFileSync(promptPath, 'utf8')) : ''
-  write(promptPath, promptFileText(block, input.prompt))
+  write(promptPath, promptText)
 
   const doc = caseYaml(yamlPath)
   doc.set('title', input.title.trim() || input.id)
@@ -777,7 +786,7 @@ export function saveCase(
     if (imageTypeOf(name) && !wanted.has(name)) rmSync(join(filesDir, name))
   for (const image of input.images) {
     if (!image.upload) continue
-    const source = uploads.picture(image.upload)
+    const source = picture(image.upload)
     mkdirSync(filesDir, { recursive: true })
     const base = imageFileName(image.name, formatOf(source))
     let name = base
@@ -814,7 +823,7 @@ export function saveCase(
     if (weight === 1) delete meta.weight
     else meta.weight = weight
     if (g.image?.upload) {
-      const source = uploads.picture(g.image.upload)
+      const source = picture(g.image.upload)
       mkdirSync(referenceDir, { recursive: true })
       const name = `${id}.${formatOf(source)}`
       // The check's picture replaces whatever had its name, a link included, and writes through none.

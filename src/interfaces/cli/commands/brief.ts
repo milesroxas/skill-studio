@@ -47,13 +47,14 @@ const headLine = (head: string, said: string): string => oneLine(said ? `${head}
 
 /**
  * A missed rule or check, `label` before its words, as indented lines: a rule
- * or check of several paragraphs keeps its line breaks, and every line of it
- * is indented as the first is, so none can be read as a case's head.
+ * or check of several paragraphs keeps its line breaks. The first line is two
+ * spaces in, and every later line four, so none is read as a case's head, and
+ * none as a miss of its own, whatever it starts with (`missed:` say).
  */
 const missedLines = (label: string, words: string): string =>
   words
     .split(LINE_BREAK)
-    .map((line, i) => (i ? `  ${line}` : `  ${label}: ${line}`))
+    .map((line, i) => (i ? `    ${line}` : `  ${label}: ${line}`))
     .join('\n')
 
 /**
