@@ -118,7 +118,17 @@ function notesOf(brief: CaseBrief): string[] {
   return notes
 }
 
-const NONE: CaseBrief = { attempts: 0, missed: [], unread: 0, apart: [] }
+const NONE: CaseBrief = { attempts: 0, missed: [], misses: new Map(), unread: 0, apart: [] }
+
+/**
+ * How many attempts missed a rule or check, where the case had more than one:
+ * ` in 1 of 3`, out of the attempts it was marked on (`CaseBrief.misses`).
+ * Nothing where the case had one attempt.
+ */
+function howOften(brief: CaseBrief, words: string): string {
+  const count = brief.misses.get(words)
+  return brief.attempts > 1 && count ? ` in ${count.of} of ${count.in}` : ''
+}
 
 /**
  * One run, brief: each case it took or has a grading of, then a line for each
@@ -133,7 +143,7 @@ export function printBrief(skill: string, side: Side, scoring: Context['scoring'
     const notes = notesOf(brief)
     const words = notes.length ? notes.join('; ') : brief.missed.length ? '' : 'nothing missed'
     console.log(words ? `${head(id)}: ${words}` : head(id))
-    for (const w of brief.missed) console.log(`  missed: ${w}`)
+    for (const w of brief.missed) console.log(`  missed${howOften(brief, w)}: ${w}`)
   }
 }
 
@@ -188,8 +198,17 @@ export function printBriefCompare(
     ].join('; ')
     console.log(`${head(id)}: ${said}${words.length || notes.length ? '' : ', nothing missed'}`)
     for (const w of words) {
-      const who = one.missed.includes(w) ? (two.missed.includes(w) ? 'A and B' : 'A') : 'B'
-      console.log(`  ${who} missed: ${w}`)
+      const [inA, inB] = [one.missed.includes(w), two.missed.includes(w)]
+      const [oftenA, oftenB] = [howOften(one, w), howOften(two, w)]
+      const who =
+        inA && inB
+          ? oftenA === oftenB
+            ? `A and B missed${oftenA}`
+            : `A missed${oftenA}, B missed${oftenB}`
+          : inA
+            ? `A missed${oftenA}`
+            : `B missed${oftenB}`
+      console.log(`  ${who}: ${w}`)
     }
   }
 }

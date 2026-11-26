@@ -265,7 +265,11 @@ function factWords(skill: string, runs: readonly string[]): Set<string> {
   )
 }
 
-const MISSED_LINE = /^ {2}(?:A |B |A and B )?missed: (.*)$/
+/** How often a case's attempts missed it, where it had more than one. */
+const OFTEN = '(?: in \\d+ of \\d+)?'
+const MISSED_LINE = new RegExp(
+  `^ {2}(?:(?:A |B |A and B )?missed${OFTEN}|A missed${OFTEN}, B missed${OFTEN}): (.*)$`,
+)
 
 /** The longest id `case add` gives a case: each case is counted as though its id were this long. */
 const LONGEST_ID = 40
@@ -422,6 +426,91 @@ describe('run --quiet --brief', () => {
       expect.stringMatching(/^short-note-s1: shot\.png is not shown to Jev: .+\.$/),
       expect.stringMatching(/^short-note-s2: shot\.png is not shown to Jev: .+\.$/),
     ])
+  })
+})
+
+describe('how often --brief says a rule or check was missed', () => {
+  /**
+   * A copy of the haiku run with three more attempts at the quote case: two
+   * graded as the first was, then `edit` changes them, and one that failed.
+   */
+  function moreAttempts(skill: string, edit: (results: Stored[]) => void): void {
+    const runDir = join(skill, 'evals/runs', HAIKU_V0)
+    for (const n of [2, 3])
+      cpSync(join(runDir, 'email-quote-s1'), join(runDir, `email-quote-s${n}`), { recursive: true })
+    edited(skill, HAIKU_V0, 'report.json', (r) => {
+      const first = r.results.find((x: { sample: string }) => x.sample === 'email-quote-s1')
+      const added = [2, 3].map((n) => ({ ...structuredClone(first), sample: `email-quote-s${n}` }))
+      edit(added)
+      r.results.push(...added)
+    })
+    edited(skill, HAIKU_V0, 'run.json', (m) => {
+      const first = m.samples.find((s: { dir: string }) => s.dir === 'email-quote-s1')
+      for (const n of [2, 3]) m.samples.push({ ...first, dir: `email-quote-s${n}`, index: n })
+      m.samples.push({
+        ...first,
+        dir: 'email-quote-s4',
+        index: 4,
+        ok: false,
+        failed: 'ran out of time',
+        error: null,
+      })
+    })
+  }
+
+  /** The quote rule's verdict in one attempt's grading. */
+  const quoteRule = (result: Stored): Stored =>
+    result.packs.generic.adherence.rules.find((rule: { text: string }) => rule.text === QUOTE_RULE)
+
+  it('says in how many of the attempts marked on it a rule was missed, and not where a case had one attempt', async () => {
+    const skill = copyOf('launch-note')
+    moreAttempts(skill, () => {})
+    const all = await printedBy(report, [skill], { run: HAIKU_V0, brief: true })
+    expect(all.text).toContain(
+      `[email-quote] Launch email, a quote that gives orders: attempt 4 failed, it ran out of time\n  missed in 3 of 3: ${QUOTE_RULE}`,
+    )
+    // A case with one attempt says no count.
+    const single = await printedBy(report, [skill], {
+      run: '2026-11-20-skill-v1-claude-haiku',
+      brief: true,
+    })
+    expect(single.text).toContain(`\n  missed: ${QUOTE_RULE}`)
+  })
+
+  it('counts an attempt Jev did not read on a rule in neither number, and says it was not read', async () => {
+    const skill = copyOf('launch-note')
+    moreAttempts(skill, ([two, three]) => {
+      quoteRule(two).noul = 0.95
+      quoteRule(three).noul = null
+    })
+    const { text } = await printedBy(report, [skill], { run: HAIKU_V0, brief: true })
+    expect(text).toContain(
+      `[email-quote] Launch email, a quote that gives orders: attempt 4 failed, it ran out of time; 1 rule or check not read\n  missed in 1 of 2: ${QUOTE_RULE}`,
+    )
+  })
+
+  it('counts an attempt that met the rule among those marked on it, and one not sure or failed in neither number', async () => {
+    const skill = copyOf('launch-note')
+    // Met on attempt 2, Jev not sure on attempt 3, and attempt 4 failed: missed on 1 of the 2 marked.
+    moreAttempts(skill, ([two, three]) => {
+      quoteRule(two).noul = 0.95
+      quoteRule(three).noul = 0.5
+    })
+    const one = await printedBy(report, [skill], { run: HAIKU_V0, brief: true })
+    expect(one.text).toContain(`\n  missed in 1 of 2: ${QUOTE_RULE}`)
+    // Beside a run with one attempt at the case, each run says its own.
+    const runs = [HAIKU_V0, '2026-11-20-skill-v1-claude-haiku']
+    const two = await printedBy(compare, [skill, ...runs], { brief: true })
+    expect(two.text).toContain(`\n  A missed in 1 of 2, B missed: ${QUOTE_RULE}\n`)
+    const swapped = await printedBy(compare, [skill, ...[...runs].reverse()], { brief: true })
+    expect(swapped.text).toContain(`\n  A missed, B missed in 1 of 2: ${QUOTE_RULE}\n`)
+    // The count is held to the same size as every other line of a case.
+    for (const [named, { text }] of [
+      [[HAIKU_V0], one],
+      [runs, two],
+    ] as const)
+      for (const bytes of bytesByCase(text, caseHeadsOf(skill, named), factWords(skill, named)))
+        expect(bytes).toBeLessThanOrEqual(200)
   })
 })
 

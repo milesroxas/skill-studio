@@ -1845,6 +1845,12 @@ export interface CaseBrief {
   attempts: number
   /** The words of each rule and check an attempt missed, once each, in the order first missed. */
   missed: string[]
+  /**
+   * For each of `missed`, by its words, how many attempts missed it (`of`
+   * them), out of the attempts it was marked on (`in`): met or missed, not set
+   * aside, not left unread. An attempt not read whole on it counts in neither.
+   */
+  misses: Map<string, { of: number; in: number }>
   /** The rules and checks Jev did not read all of an attempt to answer (`unread`), once each. */
   unread: number
   /** Each attempt not read whole, and what became of it, in the order of their numbers. */
@@ -1882,12 +1888,20 @@ export function caseBriefs(
   const configuration = meta?.configuration ?? 'with_skill'
   const briefs = new Map<string, CaseBrief>()
   const briefOf = (id: string): CaseBrief => {
-    const known = briefs.get(id) ?? { attempts: 0, missed: [], unread: 0, apart: [] }
+    const known = briefs.get(id) ?? {
+      attempts: 0,
+      missed: [],
+      misses: new Map(),
+      unread: 0,
+      apart: [],
+    }
     briefs.set(id, known)
     return known
   }
   for (const id of meta?.cases ?? []) briefOf(id)
   const unread = new Map<string, Set<string>>()
+  /** For each case, each fact's words, and the attempts that marked it and that missed it. */
+  const marked = new Map<string, Map<string, { of: number; in: number }>>()
   const graded = new Set<string>()
   // A run not graded has no report: each attempt of it is `ungraded`.
   const { report } = side
@@ -1905,14 +1919,34 @@ export function caseBriefs(
     const state = stateOf(parseSampleDir(r.sample)?.index ?? 1, scored, r)
     if (state) brief.apart.push(state)
     const notRead = unread.get(id) ?? new Set<string>()
+    const tally = marked.get(id) ?? new Map<string, { of: number; in: number }>()
+    // An attempt marks a fact once, however many verdicts say it.
+    const seen = new Map<string, boolean>()
     for (const v of scored.verdicts) {
       const counted = v.kind === 'check' || (v.kind === 'rule' && configuration !== 'without_skill')
       if (!counted || v.layer === null) continue
       if (v.aside === 'unread') notRead.add(v.text)
-      else if (!v.aside && !v.met && !brief.missed.includes(v.text)) brief.missed.push(v.text)
+      else if (!v.aside) {
+        seen.set(v.text, (seen.get(v.text) ?? false) || !v.met)
+        if (!v.met && !brief.missed.includes(v.text)) brief.missed.push(v.text)
+      }
     }
+    for (const [text, missed] of seen) {
+      const count = tally.get(text) ?? { of: 0, in: 0 }
+      tally.set(text, { of: count.of + (missed ? 1 : 0), in: count.in + 1 })
+    }
+    marked.set(id, tally)
     unread.set(id, notRead)
     brief.unread = notRead.size
+  }
+  for (const [id, tally] of marked) {
+    const brief = briefOf(id)
+    brief.misses = new Map(
+      brief.missed.flatMap((text) => {
+        const count = tally.get(text)
+        return count ? [[text, count] as const] : []
+      }),
+    )
   }
   for (const s of meta?.samples ?? []) {
     if (graded.has(s.dir)) continue
