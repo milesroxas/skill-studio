@@ -49,8 +49,10 @@ export interface OpenServer {
 
 /** Set on the `st serve` that `st open` starts, so it serves as below. */
 const OPENED = 'ST_OPEN_SERVER'
-/** How long `st open` waits for the server it started, and for one it stops. */
+/** How long `st open` waits for an answer from a running server, and for one it stops. */
 const WAIT_MS = 10_000
+/** How long it waits for the server it started: a slow machine takes five seconds to load the command alone. */
+const START_MS = 30_000
 /** How long the server goes with no request before it stops itself. */
 const IDLE_MS = 60 * 60_000
 /** How often the server asks itself whether to stop. */
@@ -226,7 +228,7 @@ function startCopy(checkout: string): ChildProcess {
   }
 }
 
-/** The server a copy just started wrote the file for, `WAIT_MS` at most. */
+/** The server a copy just started wrote the file for, `START_MS` at most. */
 async function startedServer(checkout: string): Promise<OpenServer> {
   const child = startCopy(checkout)
   let ended = false
@@ -236,7 +238,7 @@ async function startedServer(checkout: string): Promise<OpenServer> {
   child.on('error', () => {
     ended = true
   })
-  const until = Date.now() + WAIT_MS
+  const until = Date.now() + START_MS
   while (Date.now() < until) {
     // The one that wrote it may be another `st open`'s, started at the same time: it serves as well.
     const found = runningServer(checkout)
@@ -249,7 +251,7 @@ async function startedServer(checkout: string): Promise<OpenServer> {
   }
   child.kill()
   throw new Error(
-    `The server did not start within ${WAIT_MS / 1000} seconds. What it wrote is in ${serverLog(checkout)}.`,
+    `The server did not start within ${START_MS / 1000} seconds. What it wrote is in ${serverLog(checkout)}.`,
   )
 }
 

@@ -339,10 +339,10 @@ describe('st open, when its server does not come up', () => {
     const st = stOpenWith(held, checkout, skill)
     expect(st.status).not.toBe(0)
     expect(st.stderr).toContain(
-      `The server did not start within 10 seconds. What it wrote is in ${logOf(checkout)}.`,
+      `The server did not start within 30 seconds. What it wrote is in ${logOf(checkout)}.`,
     )
     expect(readFileSync(logOf(checkout), 'utf8')).toContain('stuck on purpose')
-  }, 60_000)
+  }, 120_000)
 })
 
 describe('the log of the server st open starts', () => {
