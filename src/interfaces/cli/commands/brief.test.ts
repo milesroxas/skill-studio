@@ -17,6 +17,7 @@ import { loadCases } from '@infrastructure/cases.ts'
 import type { EngineRequest, EngineResult } from '@infrastructure/engines/types.ts'
 import { readRun } from '@infrastructure/runs.ts'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { caseHead } from './brief.ts'
 import type { Values } from './command.ts'
 import { compare } from './compare.ts'
 import { report } from './report.ts'
@@ -124,14 +125,14 @@ describe('report --brief', () => {
     const { code, text } = await printedBy(report, [skill], { run: HAIKU_V0, brief: true })
     expect(code).toBe(0)
     expect(text.split('\n')).toEqual([
-      'Launch email, six features: nothing missed',
-      'Launch email, no price: nothing missed',
-      'Launch email, with a price: nothing missed',
-      'Launch email, a quote that gives orders',
+      '[email-crowded] Launch email, six features: nothing missed',
+      '[email-free] Launch email, no price: nothing missed',
+      '[email-price] Launch email, with a price: nothing missed',
+      '[email-quote] Launch email, a quote that gives orders',
       `  missed: ${QUOTE_RULE}`,
-      'Launch page: nothing missed',
+      '[page-basic] Launch page: nothing missed',
       // A long output read in part: what was not read is said, never "nothing missed".
-      'Changes page, 180 changes: 3 rules and checks not read',
+      '[page-long] Changes page, 180 changes: 3 rules and checks not read',
     ])
   })
 
@@ -157,12 +158,12 @@ describe('report --brief', () => {
     rmSync(join(skill, 'evals/runs', HAIKU_V0, 'email-quote-s1'), { recursive: true })
     const { text } = await printedBy(report, [skill], { run: HAIKU_V0, brief: true })
     expect(text.split('\n')).toEqual([
-      'Launch email, six features: not scored, grading failed: the network was down',
-      'Launch email, no price: wrote nothing',
-      'Launch email, with a price: could not be read',
-      'Launch email, a quote that gives orders: its folder was removed',
-      'Launch page: failed, it ran out of time (after 600 s)',
-      'Changes page, 180 changes: no attempt ran',
+      '[email-crowded] Launch email, six features: not scored, grading failed: the network was down',
+      '[email-free] Launch email, no price: wrote nothing',
+      '[email-price] Launch email, with a price: could not be read',
+      '[email-quote] Launch email, a quote that gives orders: its folder was removed',
+      '[page-basic] Launch page: failed, it ran out of time (after 600 s)',
+      '[page-long] Changes page, 180 changes: no attempt ran',
     ])
   })
 
@@ -184,15 +185,15 @@ describe('compare --brief', () => {
     const { code, text } = await printedBy(compare, [skill, ...runs], { brief: true })
     expect(code).toBe(0)
     expect(text.split('\n')).toEqual([
-      'Launch email, six features: neither did better, nothing missed',
-      'Launch email, no price: neither did better, nothing missed',
-      'Launch email, with a price: neither did better, nothing missed',
-      'Launch email, a quote that gives orders: neither did better',
+      '[email-crowded] Launch email, six features: neither did better, nothing missed',
+      '[email-free] Launch email, no price: neither did better, nothing missed',
+      '[email-price] Launch email, with a price: neither did better, nothing missed',
+      '[email-quote] Launch email, a quote that gives orders: neither did better',
       `  B missed: ${QUOTE_RULE}`,
-      'Launch page: B did better',
+      '[page-basic] Launch page: B did better',
       '  A missed: The page states the price as 12 USD a month.',
       "  B missed: Open with the brief's Headline, word for word. A reworded headline is one the team did not approve.",
-      'Changes page, 180 changes: no checks to compare; in A, 1 rule or check not read; in B, 4 rules and checks not read',
+      '[page-long] Changes page, 180 changes: no checks to compare; in A, 1 rule or check not read; in B, 4 rules and checks not read',
       '',
       `Open: pnpm st open ${skill} --a ${runs[0]} --b ${runs[1]}`,
     ])
@@ -203,7 +204,7 @@ describe('compare --brief', () => {
     const runs = [HAIKU_V0, '2026-11-20-skill-v1-claude-haiku']
     const { text } = await printedBy(compare, [skill, ...runs], { brief: true })
     expect(text).toContain(
-      `Launch email, a quote that gives orders: neither did better\n  A and B missed: ${QUOTE_RULE}\n`,
+      `[email-quote] Launch email, a quote that gives orders: neither did better\n  A and B missed: ${QUOTE_RULE}\n`,
     )
   })
 
@@ -221,15 +222,20 @@ describe('compare --brief', () => {
     })
     const { text } = await printedBy(compare, [skill, ...runs], { brief: true })
     const lines = text.split('\n')
-    expect(lines).toContain('Launch email, no price: only B answered it, nothing missed')
     expect(lines).toContain(
-      'Changes page, 180 changes: only A answered it; in A, 3 rules and checks not read; in B, its folder was removed',
+      '[email-free] Launch email, no price: only B answered it, nothing missed',
+    )
+    expect(lines).toContain(
+      '[page-long] Changes page, 180 changes: only A answered it; in A, 3 rules and checks not read; in B, its folder was removed',
     )
   })
 })
 
-/** Each case's name, in the order `--brief` prints them: every case the runs took or have a grading of. */
-function caseNamesOf(skill: string, runs: readonly string[]): string[] {
+/**
+ * Each case's id and its head (`caseHead`), in the order `--brief` prints
+ * them: every case the runs took or has a grading of.
+ */
+function caseHeadsOf(skill: string, runs: readonly string[]): Array<{ id: string; head: string }> {
   const live = loadCases(skill)
   const views = runs.map((name) => readRun(skill, name))
   const answered = views.flatMap((v) => [
@@ -239,7 +245,10 @@ function caseNamesOf(skill: string, runs: readonly string[]): string[] {
   return casesInOrder(
     live.map((c) => c.id),
     answered,
-  ).map((id) => caseName(live.find((c) => c.id === id) ?? { id, title: id, prompt: '' }))
+  ).map((id) => ({
+    id,
+    head: caseHead(id, caseName(live.find((c) => c.id === id) ?? { id, title: id, prompt: '' })),
+  }))
 }
 
 /** The words of every rule and check the runs were graded on: only these count as words of what was missed. */
@@ -258,14 +267,22 @@ function factWords(skill: string, runs: readonly string[]): Set<string> {
 
 const MISSED_LINE = /^ {2}(?:A |B |A and B )?missed: (.*)$/
 
+/** The longest id `case add` gives a case: each case is counted as though its id were this long. */
+const LONGEST_ID = 40
+
 /**
- * The bytes each case printed beyond the words of what it missed, in order.
- * A case runs from its name's line to the next case's: every line between
- * counts, whatever it holds. Only the words on a missed line that are a rule
- * or check the runs were graded on are left out of the count. Past the last
- * case only a blank line and the Open line may follow, and nothing after it.
+ * The bytes each case printed beyond the words of what it missed, in order,
+ * its id counted as though it were `LONGEST_ID` characters long. A case runs
+ * from its head's line to the next case's: every line between counts,
+ * whatever it holds. Only the words on a missed line that are a rule or check
+ * the runs were graded on are left out of the count. Past the last case only
+ * a blank line and the Open line may follow, and nothing after it.
  */
-function bytesByCase(text: string, names: readonly string[], words: Set<string>): number[] {
+function bytesByCase(
+  text: string,
+  cases: ReadonlyArray<{ id: string; head: string }>,
+  words: Set<string>,
+): number[] {
   const lines = text.split('\n')
   const body = lines.at(-1)?.startsWith('Open: ') ? lines.slice(0, -1) : lines
   if (body !== lines) {
@@ -275,9 +292,10 @@ function bytesByCase(text: string, names: readonly string[], words: Set<string>)
   const bytes: number[] = []
   let next = 0
   for (const line of body) {
-    const name = names[next]
-    if (name !== undefined && (line === name || line.startsWith(`${name}: `))) {
-      bytes.push(0)
+    const now = cases[next]
+    if (now !== undefined && (line === now.head || line.startsWith(`${now.head}: `))) {
+      expect(now.id.length).toBeLessThanOrEqual(LONGEST_ID)
+      bytes.push(LONGEST_ID - now.id.length)
       next += 1
     }
     expect(bytes.length, `a line before the first case: ${line}`).toBeGreaterThan(0)
@@ -285,7 +303,7 @@ function bytesByCase(text: string, names: readonly string[], words: Set<string>)
     const known = missed !== undefined && words.has(missed) ? Buffer.byteLength(missed) : 0
     bytes[bytes.length - 1] += Buffer.byteLength(line) + 1 - known
   }
-  expect(next, 'every case is printed').toBe(names.length)
+  expect(next, 'every case is printed').toBe(cases.length)
   return bytes
 }
 
@@ -312,7 +330,7 @@ describe('the size of --brief', () => {
       ]
       for (const [named, printing] of printings) {
         const { text } = await printing
-        for (const bytes of bytesByCase(text, caseNamesOf(skill, named), factWords(skill, named))) {
+        for (const bytes of bytesByCase(text, caseHeadsOf(skill, named), factWords(skill, named))) {
           expect(bytes).toBeLessThanOrEqual(200)
           most = Math.max(most, bytes)
         }
@@ -365,7 +383,7 @@ describe('run --quiet --brief', () => {
     ])
     const name = runsOf(skill)[0]
     expect(printed).toEqual([
-      'A short note: attempt 1 not scored, the skill has no rules and the case has no checks; attempt 2 failed, it ended with an error (signed out)',
+      '[short-note] A short note: attempt 1 not scored, the skill has no rules and the case has no checks; attempt 2 failed, it ended with an error (signed out)',
       `\nOpen: pnpm st open ${skill} --a ${name}`,
     ])
     expect(code).toBe(1)
@@ -382,7 +400,7 @@ describe('run --quiet --brief', () => {
       'No output to grade, so no report was written. The last one, if any, still stands.',
     ])
     expect(printed[0]).toBe(
-      'A short note: every attempt failed, it ended with an error (signed out)',
+      '[short-note] A short note: every attempt failed, it ended with an error (signed out)',
     )
   })
 
@@ -390,7 +408,7 @@ describe('run --quiet --brief', () => {
     const skill = notesSkill()
     ends.list = ['note', 'note']
     expect(await quietRun(skill, { 'no-grade': true })).toBe(0)
-    expect(printed[0]).toBe('A short note: every attempt not graded')
+    expect(printed[0]).toBe('[short-note] A short note: every attempt not graded')
     expect(printed).toHaveLength(2)
   })
 
@@ -404,5 +422,55 @@ describe('run --quiet --brief', () => {
       expect.stringMatching(/^short-note-s1: shot\.png is not shown to Jev: .+\.$/),
       expect.stringMatching(/^short-note-s2: shot\.png is not shown to Jev: .+\.$/),
     ])
+  })
+})
+
+describe('the case head of --brief', () => {
+  /** The ids at the start of the case lines `--brief` printed: what an agent passes to `--cases`. */
+  const idsIn = (lines: readonly string[]): string[] =>
+    lines.flatMap((line) => /^\[([^\]]+)\]/.exec(line)?.[1] ?? [])
+
+  it('is the id in brackets, then the name, once where the two are the same text', () => {
+    expect(caseHead('email-quote', 'Launch email, a quote')).toBe(
+      '[email-quote] Launch email, a quote',
+    )
+    expect(caseHead('short-note', 'short-note')).toBe('[short-note]')
+  })
+
+  it('gives each case its id once, whatever its name holds, one with no title and one since deleted too', async () => {
+    const skill = notesSkill()
+    const long = 'a-case-whose-id-runs-to-forty-characters'
+    expect(long).toHaveLength(40)
+    const add = (id: string, prompt: string, yaml?: string) => {
+      mkdirSync(join(skill, 'evals/cases', id), { recursive: true })
+      writeFileSync(join(skill, 'evals/cases', id, 'prompt.md'), prompt)
+      if (yaml) writeFileSync(join(skill, 'evals/cases', id, 'case.yaml'), yaml)
+    }
+    add(long, 'Write a long note.', 'title: "[email-quote] Notes: long [draft]"\n')
+    add('untitled', 'Write a note with no title.')
+    ends.list = ['note', 'note', 'note', 'note', 'note', 'note']
+    await quietRun(skill)
+    const [name] = runsOf(skill)
+    const heads = [
+      `[${long}] [email-quote] Notes: long [draft]`,
+      '[short-note] A short note',
+      '[untitled] Write a note with no title.',
+    ]
+    const lines = (printed: string) => printed.split('\n').filter((line) => !line.startsWith('  '))
+    const first = await printedBy(report, [skill], { run: name, brief: true })
+    expect(lines(first.text).map((line) => line.split(': every attempt')[0])).toEqual(heads)
+    // An id stands at the start of its case's line alone: one a line, and only there.
+    expect(idsIn(first.text.split('\n'))).toEqual([long, 'short-note', 'untitled'])
+    expect(first.text.split(long)).toHaveLength(2)
+    // What it read is what `--cases` takes.
+    printed = []
+    ends.list = ['note', 'note']
+    await quietRun(skill, { cases: idsIn(first.text.split('\n')).slice(1, 2).join(',') })
+    const second = runsOf(skill).find((run) => run !== name) ?? ''
+    expect(readRun(skill, second).meta?.cases).toEqual(['short-note'])
+    // A case deleted since is named as the run kept it.
+    rmSync(join(skill, 'evals/cases/untitled'), { recursive: true })
+    const after = await printedBy(report, [skill], { run: name, brief: true })
+    expect(lines(after.text).map((line) => line.split(': every attempt')[0])).toEqual(heads)
   })
 })

@@ -58,15 +58,16 @@ To add a check for every case, write it as a file in the skill's `evals/graders/
 
 ### Short output
 
-`--brief` on `report`, `compare` and `run` prints what an agent in a chat needs in place of the report: each case, by its name and in the order `cases` lists them, with what became of an attempt not read whole, then the words of each rule or check an output of it missed, one line each.
+`--brief` on `report`, `compare` and `run` prints what an agent in a chat needs in place of the report: each case, by its id and its name and in the order `cases` lists them, with what became of an attempt not read whole, then the words of each rule or check an output of it missed, one line each.
 
 ```
-Launch email, no price: nothing missed
-Launch email, a quote that gives orders
+[email-free] Launch email, no price: nothing missed
+[email-quote] Launch email, a quote that gives orders
   missed: Quote the customer in the brief's Quote word for word, with their name. A paraphrase puts words in their mouth.
 ```
 
 - Every case the run took is printed, and every case it has a grading of.
+- A case's line starts with its id in brackets, the one `--cases` takes, then its name: its title, or the start of its prompt when it has none, or as the run kept it when the case is since deleted. Where the name is the id, the id stands alone: `[short-note]: nothing missed`. An id holds no bracket or space, so `^\[([^\]]+)\]` finds it whatever the name holds. Only a case's line holds its id.
 - A rule or check counts as missed where an output of the case missed it on any attempt, scored as `report` scores it: under `bench.json` as it is now, with your corrections. One Jev was not sure of, did not read, or set aside is not missed. A run without the skill misses no rule, since its agent never saw the rules.
 - A case says `nothing missed` only where every attempt was read whole. Otherwise its line says what became of each attempt that was not, from what the run and its grading recorded: `wrote nothing`, `could not be read` (a kind of file Jev cannot read), `not scored, <why>` (a pack failed on it, it is owed a grading, or nothing in it could be counted), `failed, it <why>`, `stopped before it finished`, `not graded` or `its folder was removed`, and `no attempt ran` for a case with none. With more than one attempt it names them: `attempt 2 wrote nothing`, `every attempt failed, it ran out of time`. Then how many rules and checks Jev did not read, as in a long output read in part: `3 rules and checks not read`.
 - `report` and `run` read one run, so they name no run that did better.

@@ -1,6 +1,6 @@
 /**
  * What `--brief` prints, for an agent in a chat to read in place of the full
- * report: for each case, by name and in the order `st cases` lists them, the
+ * report: for each case, by id and name and in the order `st cases` lists them, the
  * run that did better where two are read, and the words of each rule or check
  * an output missed. Nothing else.
  */
@@ -21,7 +21,19 @@ import type { RunView } from '@domain/views.ts'
 import { loadCases } from '@infrastructure/cases.ts'
 import type { Context } from './command.ts'
 
-/** The skill's case ids in the order `st cases` lists them, and each case's name, by id. */
+/**
+ * A case as the head of its `--brief` lines: its id in brackets at the start
+ * of the line, where `--cases` can take it from, then its name, once where the
+ * two are the same text. An id holds no bracket or space (`isSafeName`), so
+ * `^\[([^\]]+)\]` finds it whatever the name holds.
+ */
+export const caseHead = (id: string, name: string): string =>
+  name.trim() === id ? `[${id}]` : `[${id}] ${name}`
+
+/**
+ * The skill's case ids in the order `st cases` lists them, and each case's
+ * head (`caseHead`), by id: a case since deleted is named as a run kept it.
+ */
 function namesOf(skill: string, views: readonly RunView[]) {
   const live = loadCases(skill)
   const name = (id: string): string => {
@@ -30,7 +42,7 @@ function namesOf(skill: string, views: readonly RunView[]) {
       views.flatMap((v) => (Object.hasOwn(v.cases, id) ? (v.cases[id].earlier ?? []) : []))[0]
     return found ? caseName(found) : id
   }
-  return { order: live.map((c) => c.id), name }
+  return { order: live.map((c) => c.id), name, head: (id: string) => caseHead(id, name(id)) }
 }
 
 /** One run as the command read it, and as it is scored. */
@@ -115,12 +127,12 @@ const NONE: CaseBrief = { attempts: 0, missed: [], unread: 0, apart: [] }
  */
 export function printBrief(skill: string, side: Side, scoring: Context['scoring']): void {
   const briefs = briefsOf(skill, side, scoring)
-  const { order, name } = namesOf(skill, [side.view])
+  const { order, head } = namesOf(skill, [side.view])
   for (const id of casesInOrder(order, briefs.keys())) {
     const brief = briefs.get(id) ?? NONE
     const notes = notesOf(brief)
     const words = notes.length ? notes.join('; ') : brief.missed.length ? '' : 'nothing missed'
-    console.log(words ? `${name(id)}: ${words}` : name(id))
+    console.log(words ? `${head(id)}: ${words}` : head(id))
     for (const w of brief.missed) console.log(`  missed: ${w}`)
   }
 }
@@ -158,7 +170,7 @@ export function printBriefCompare(
   const inA = briefsOf(skill, a, scoring)
   const inB = briefsOf(skill, b, scoring)
   const apart = casesApart(a, b)
-  const { order, name } = namesOf(skill, [b.view, a.view])
+  const { order, head } = namesOf(skill, [b.view, a.view])
   for (const id of casesInOrder(order, [...inA.keys(), ...inB.keys()])) {
     const read = byCase.cases.find((c) => c.case === id)
     const why = apart.get(id)
@@ -170,11 +182,11 @@ export function printBriefCompare(
       ...notesOf(two).flatMap((n) => (two.attempts ? [`in B, ${n}`] : [])),
     ]
     const words = [...new Set([...one.missed, ...two.missed])]
-    const head = [
+    const said = [
       read ? BETTER[read.move] : why ? APART[why] : 'neither answered it',
       ...notes,
     ].join('; ')
-    console.log(`${name(id)}: ${head}${words.length || notes.length ? '' : ', nothing missed'}`)
+    console.log(`${head(id)}: ${said}${words.length || notes.length ? '' : ', nothing missed'}`)
     for (const w of words) {
       const who = one.missed.includes(w) ? (two.missed.includes(w) ? 'A and B' : 'A') : 'B'
       console.log(`  ${who} missed: ${w}`)
