@@ -16,17 +16,21 @@ pnpm st <command> [skill-dir] [options]
 | Command | Does |
 | --- | --- |
 | `new <dir>` | Scaffold a skill. `--name <id>` is the skill name (default the folder name; it must be a slug). `--description <text>` is its front matter description. `--template` is `blank` (the default), `writing`, `code`, `workflow` or `design`. `--with-cases` adds the template's sample cases |
-| `cases` | List the skill's cases |
+| `cases` | List the skill's cases, each by its whole id as `--cases` and `--case` take it, with its checks, its files and its title |
+| `case add` | Write a new case from flags, checked as the Cases screen checks one ([below](#adding-and-checking-cases)) |
+| `case check` | List each case and check file that will not load or is skipped, each title with a line break in it, and each title two cases share. It exits 1 when it lists any ([below](#adding-and-checking-cases)) |
 | `run` | Generate outputs with a headless agent, then grade them |
 | `grade` | Grade a run again: `--run <name>` or `--all` |
-| `report` | Print a run's report: `--run <name>`. The scores are counted from the stored answers under `bench.json` as it is now, with your corrections from the app, as the app shows them. A sample folder since removed is left out. Under the table, each output's checks met and rules followed, counted apart: an output of a run without the skill has no rules count |
-| `compare <runA> <runB>` | Score differences between two graded runs, both under `bench.json` as it is now. A sample is read against the one of its name in the other run (`email-s2` against `email-s2`), only where the app would set the two against each other: answers to the same case as it was asked, both graded with Jev or both without, with your corrections only on facts you answered in both. A change counts only the rules and checks marked in both: one Jev was not sure of, did not read, or set aside, in either run is left out of both, and the table says how many under it. Each sample left out is listed there too, with why. Then it reads the two runs as cases, on checks alone ([below](#reading-two-runs-as-cases)) |
+| `report` | Print a run's report: `--run <name>`. Each sample and case is printed whole, as `--case` takes it. The scores are counted from the stored answers under `bench.json` as it is now, with your corrections from the app, as the app shows them. A sample folder since removed is left out. Under the table, each output's checks met and rules followed, counted apart: an output of a run without the skill has no rules count. `--brief` prints only each case and what it missed ([below](#short-output)) |
+| `compare <runA> <runB>` | Score differences between two graded runs, both under `bench.json` as it is now, each case and sample printed whole. A sample is read against the one of its name in the other run (`email-s2` against `email-s2`), only where the app would set the two against each other: answers to the same case as it was asked, both graded with Jev or both without, with your corrections only on facts you answered in both. A change counts only the rules and checks marked in both: one Jev was not sure of, did not read, or set aside, in either run is left out of both, and the table says how many under it. Each sample left out is listed there too, with why. Then it reads the two runs as cases, on checks alone ([below](#reading-two-runs-as-cases)). `--brief` prints only each case, the run that did better on it and what each run missed ([below](#short-output)) |
+| `sheet` | Put each case's drawn pages from the runs named side by side in one PNG a case, a row a run and a column an attempt, and print each PNG's path ([below](#contact-sheets)) |
 | `read` | Have the assistant read a graded run: `--run <name>`. It answers the rules and checks Jev was not sure of or did not read, each with where it saw it, and prints how often its answers agree with yours. It writes nothing to the skill ([below](#reading-a-run)) |
 | `sort` | Have the assistant read each rule and each check once and say how it will be marked: answered by code, asked of Jev, or not markable as written, with a fix. It keeps what it read in `evals/rule-readings.json` ([below](#sorting-rules-and-checks)) |
 | `propose` | Have the assistant read each case's latest answers and propose checks a good answer meets. It changes no case until you accept a proposal. It keeps them in `evals/proposals.json` ([below](#proposing-checks)) |
 | `versions` | List the skill versions seen in runs, and the working tree's |
 | `self-test` | Grade `evals/anchors` and check that bad anchors lose to good ones ([anchors](grading.md#anchors)) |
 | `serve [skill...]` | Start the app as a web server, below |
+| `open` | Print an address that opens Results in a browser on one case and two runs' outputs, good for one load within a minute ([below](#opening-results-from-the-command-line)) |
 
 ```
 pnpm st new skills/release-notes --template writing --with-cases
@@ -43,9 +47,76 @@ To add a check for every case, write it as a file in the skill's `evals/graders/
 - `--cases a,b`: default every case.
 - `--samples n`: a whole number from 1 (the default) to 10.
 - `--configuration`: `with_skill` (the default), `without_skill`, or `old_skill` with `--baseline <version>` (such as `v1`) or `--baseline <run>` ([versions](files.md#versions)).
-- `--name` and `--note`: name the skill version and note on it, when the files changed. A run with `--configuration without_skill` tests no version and needs neither.
+- `--from <dir>`: run the skill files in that folder in place of the skill's own, under the skill's cases and `bench.json`. The folder holds a `SKILL.md` and is outside the skill's folder; one inside it, or one that holds it, is refused. Its files are held against the skill's versions as the skill's own are: the same files as a kept version are that version, and new ones take the next number and need `--name`. The skill's own files are not touched, so two drafts can run at once, each its own version. With `with_skill` only ([versions](files.md#versions)).
+- `--name` and `--note`: name the skill version and note on it, when the files changed. A name another version already has is refused, whatever its case, spacing, invisible characters or look-alike letters, before anything is written: changed files are a new version and need a name of their own. The same files as a kept version are that version, and keep its name. A run with `--configuration without_skill` tests no version and needs neither.
 - `--parallel n`: samples in flight (3).
 - `--no-grade`: skip grading.
+- `--brief`: print only each case and what it missed in place of the report ([below](#short-output)).
+- `--quiet`: print one line as each attempt ends, such as `Launch page, attempt 1: done in 20 s` or `Launch page, attempt 2: failed, it ran out of time (after 600 s)`, in place of the agents' and the grading's progress. A failed attempt has no other line. What went wrong is still said, once each: outputs that did not run to their end, a case's file that is missing, files left in an agent's work folder, a transcript that could not be written, an older version kept with `SKILL.md` and `references/` only, a run that has not finished, a cases file that does not read whole, a pack that failed on an output, a page or picture that could not be drawn or measured, a file or a check's picture Jev is not shown, an output Jev read only the first parts of, and that there was no output to grade.
+
+`run` ends with the command that opens Results on the run it made, `Open: pnpm st open <skill> --a <run>`, and `compare` with the one that opens it on its two runs, `--a <runA> --b <runB>`. With `--json` neither prints it. A path a shell would split is quoted as that shell reads it: in single quotes on macOS and Linux, in double quotes on Windows.
+
+### Short output
+
+`--brief` on `report`, `compare` and `run` prints what an agent in a chat needs in place of the report: each case, by its id and its name and in the order `cases` lists them, with what became of an attempt not read whole, then the words of each rule or check an output of it missed, one line each.
+
+```
+[email-free] Launch email, no price: nothing missed
+[email-quote] Launch email, a quote that gives orders
+  missed: Quote the customer in the brief's Quote word for word, with their name. A paraphrase puts words in their mouth.
+```
+
+- Every case the run took is printed, and every case it has a grading of.
+- A case's line starts with its id in brackets, the one `--cases` takes, then its name: its title, or the start of its prompt when it has none, or as the run kept it when the case is since deleted. Where the name is the id, the id stands alone: `[short-note]: nothing missed`. An id holds no bracket or space, so `^\[([^\]]+)\]` finds it whatever the name holds. Each case is one head line: a line break or a run of white space in its title, or in what became of an attempt, reads as one space there. Every other line is indented: a missed line two spaces in, and a rule or check of several paragraphs keeps its line breaks, each later line four spaces in, so only a case's head line starts with `[`, and only a missed line starts two spaces in.
+- A rule or check counts as missed where an output of the case missed it on any attempt, scored as `report` scores it: under `bench.json` as it is now, with your corrections. One Jev was not sure of, did not read, or set aside is not missed. A run without the skill misses no rule, since its agent never saw the rules.
+- Where the case had more than one attempt, the missed line says how many missed it, out of the attempts it was marked on: `missed in 1 of 3:`. An attempt counts in neither number where the rule or check was not marked on it: Jev was not sure of it, did not read it or set it aside, or the attempt failed, was stopped, wrote nothing, was not graded or its folder was removed. The case's line already says what became of such an attempt. With one attempt the line says only `missed:`.
+- A case says `nothing missed` only where every attempt was read whole. Otherwise its line says what became of each attempt that was not, from what the run and its grading recorded: `wrote nothing`, `could not be read` (a kind of file Jev cannot read), `not scored, <why>` (a pack failed on it, it is owed a grading, or nothing in it could be counted), `failed, it <why>`, `stopped before it finished`, `not graded` or `its folder was removed`, and `no attempt ran` for a case with none. With more than one attempt it names them: `attempt 2 wrote nothing`, `every attempt failed, it ran out of time`. Then how many rules and checks Jev did not read, as in a long output read in part: `3 rules and checks not read`.
+- `report` and `run` read one run, so they name no run that did better.
+- `compare --brief` calls the first run A and the second B. Each case's line says which did better on its checks, read as [below](#reading-two-runs-as-cases): `B did better`, `A did better`, `neither did better` or `no checks to compare`, or why the two were not read against each other: `only A answered it`, `only B answered it`, or not compared because Jev graded it in only one, or its agent was asked it another way. What became of attempts not read whole follows, `in A, ...` or `in B, ...`. Each missed line says which run missed it: `A missed:`, `B missed:` or `A and B missed:`, each with how often where that run had more than one attempt: `A missed in 1 of 3, B missed:`.
+- `run --brief` leaves out the `Run:` line, and `compare` and `run` still end with the `Open:` line. With `--no-grade`, `run --brief` names each case as `not graded`.
+- `--brief` and `--json` together are refused.
+
+### Opening Results from the command line
+
+```
+pnpm build
+pnpm st open skills/release-notes --a <runA> --b <runB>   # http://127.0.0.1:<port>/?ticket=...&skill=...#/results?case=...
+pnpm st open --stop
+```
+
+- `--a` and `--b` name the runs shown as A and B, each by the attempt at the case Results opens it on: the first with an output to show, else the first. `--case <id>` names the case; without it, the case is the first one, in the order Results lists them, that every run named answered.
+- The address carries a one-use ticket, never the token: the first load within a minute trades it for the cookie, and a second load, or one after a minute, is refused. Run `st open` again for a new address. It is safe to paste in a chat. Its host is `127.0.0.1`, never `localhost`: a browser sends a cookie to every port of the host name it was set for, and dev servers are opened as `localhost`, so they are never sent this one ([SECURITY.md](../SECURITY.md#the-web-server)).
+- With no server of this checkout running, it starts one in the background, on a port the system picks, and waits up to 30 seconds for it. Later calls use that server. Each checkout, a worktree among them, has a server of its own, and neither stops the other's.
+- That server stops itself once 60 minutes have gone with no request it let in (one it refused for want of the token counts for nothing), but never while a run, a grading or a reading is going: it waits for the last one to end. It also stops when its file is gone or names another server, as when `st open` found it not answering and started another; that too waits for every job to end. It asks itself once a minute. `st open --stop` stops this checkout's now.
+- Where the app is not built, it says `Run pnpm build first.` and exits 2.
+- The server's port, pid and token are in `open-<hash>.json` in the app's own folder ([files.md](files.md#the-apps-own-files)), readable by you alone.
+- What that server writes to stderr, a fault after it started among it, goes to `open-<hash>.log` beside its file, readable by you alone. Each start begins the log again; `--stop` and the server's own stop leave it, so it still says why a server died. Past 1 MB its oldest half goes, after a line that says so. Its stdout, where `st serve` prints the address with the token, goes nowhere. When the server stops as it starts, or has not started within 30 seconds, `st open` names the log.
+
+### Adding and checking cases
+
+`case add` writes a new case under `evals/cases/`, through the same check as a case saved on the Cases screen, so it refuses what the screen refuses: an empty prompt, a title another case has, a size out of range.
+
+- `--prompt <text>` or `--prompt-file <file>` is the request the agent gets. Pass one of the two, not both.
+- `--title <text>` is its title, saved on one line: a line break, a tab or a run of spaces in it is one space, as it is on the Cases screen and wherever a title is shown or compared (`oneLineTitle` in `src/domain/case-draft.ts`). Without one the case is named after the start of its prompt. The case's folder is named after its title, or after its prompt when it has none, with a number after it when that folder is taken.
+- `--check <text>` adds a check a good answer meets, with weight 1. Give it once for each check.
+- `--file <path>` copies a file or a folder into the case's `files/`, under its own name, for the agent to get with the request. Give it once for each. Two with the same name are refused.
+- `--artifact html` or `--artifact image` is the file to grade: a page or a picture ([`bench.artifact`](files.md#the-bench-block-of-caseyaml)).
+- `--size WxH`, such as `1280x800`, is the size in pixels a picture must be, or a page is drawn at for grading.
+
+```
+pnpm st case add skills/release-notes --title "Launch note" --prompt "Write the launch note." --check "It names the day." --check "It is under 100 words."
+```
+
+`case check` reads every case and check file of the skill as a run reads them, and lists:
+
+- each check file that does not start with front matter, which is skipped;
+- each check whose `weight` is outside 1 to 5 or is not a whole number, with the weight it is read as;
+- each case folder that is skipped: one under `evals/cases/` with no `prompt.md`, one whose name cannot be a case's id, and one right under `evals/` whose id a folder under `evals/cases/` has;
+- each `evals.json` entry that is left out, or is skipped because a case folder has its id, and an `evals.json` that is not JSON, which the app stops on;
+- each `case.yaml` that cannot be read, and each `bench` value of the wrong kind, which is left out;
+- each title written with a line break in it, which the app shows on one line, and each title two cases share, read on one line and whatever their capitals.
+
+It changes nothing. It exits 0 when it lists nothing and 1 when it lists anything; `--json` prints the counts and the list.
 
 ### Reading two runs as cases
 
@@ -131,7 +202,7 @@ pnpm st propose skills/release-notes --case email-free --drop 5c7d2e9f
 - `--case <id> --drop <ids>` turns the named proposals down. One turned down is not proposed again while its words and what its case asks stand: the sheet the assistant reads lists it as turned down, and a proposal in the same words is left out. `--drop <ids>` with no `--case` turns down proposals for every case, on each case they were proposed on.
 - `--json` prints the whole result as JSON. It exits 1 when a case's reading failed: that case has no new proposals, and a line says why.
 
-Every grading command takes `--no-jev`, `--packs a,b`, `--bench <file>` and `--jev-model <id>` ([grading](grading.md)). `report` and `compare` take `--packs` and `--bench` too, to print a run as a grading with those flags scored it.
+Every grading command takes `--no-jev`, `--packs a,b`, `--bench <file>` and `--jev-model <id>` ([grading](grading.md)). `report` and `compare` take `--packs` and `--bench` too, to print a run as a grading with those flags scored it. `run` and `grade` take `--no-draw` too, to grade without drawing pages ([below](#drawing-pages)).
 
 - A name `--packs` gives that is no pack stops the command: `No judge pack named ...`.
 - Without `TYPESAFE_API_KEY`, `run`, `grade` and `self-test` print `TYPESAFE_API_KEY is not set: grading without Jev.` to stderr and go on with the code checks.
@@ -143,6 +214,35 @@ Every grading command takes `--no-jev`, `--packs a,b`, `--bench <file>` and `--j
 `--json` prints JSON instead of a table for `cases`, `versions`, `run`, `grade`, `report`, `compare`, `read`, `sort` and `propose`: for `compare`, the table's rows and notes, and the cases read on checks (`cases`). `self-test` prints tables only. `pnpm st --help` lists every command and flag.
 
 The JSON of `run`, `grade`, `read`, `sort` and `propose` carries `cost`: every model call the command made, added up by operation, provider, model and source, and sorted by the same, so two sums of the same calls are equal. A call to Claude or another assistant is counted under its provider, one to Jev under `jev`, and each attempt of a run's agent under `engine`, with the tokens it kept in `timing.json`. Jev's output is not counted. `grade --all` prints each run's own cost with its report.
+
+### Drawing pages
+
+`run`, `grade` and `st serve` draw a page an output made as the desktop app does, so a grading from the command line looks at the same picture and measures the same layout: `drawn: true` in `report.json`, and the pictures in the sample's `renders/` ([grading](grading.md#measuring-a-page)). They start Electron with no window, the drawing host (`out/main/draw.js`), at the first page a grading draws, and keep it until the command ends.
+
+- A page is drawn only when Jev grades, so `--no-jev` never starts the host. `--no-draw` grades without drawing.
+- Nothing about drawing is said or started until a grading draws its first page: a command, or an `st serve`, that draws none says nothing of it. Where the host cannot start then, the command says why, once, and grades without drawing: `Run pnpm build to draw pages.`, `Electron is not installed: run pnpm install to draw pages.`, or, on Linux, `There is no display to draw pages on: run the command under xvfb-run.`
+- A host that stops after it has started is said once, with why, and never asked again. The output it was drawing, and every output after it, is graded exactly as with no host: no picture, `drawn: false`, and nothing in its `renders/` that this grading drew. An output drawn before it keeps its pictures and `drawn: true`. A host that says nothing for 60 seconds while a page waits is stopped the same way.
+- A page in the host is refused every permission it asks for, notifications and where the machine is among them, as in the app.
+- On Linux the host draws in software, as there is no GPU under `xvfb-run`, so a page that draws with WebGL is pictured without it. Chromium would give it WebGL there only through SwiftShader, whose switch it says is not meant for untrusted content, as a page a model wrote is. On macOS and Windows it draws as the app does.
+- The host keeps its own profile in a new folder under the system's temp folder, named `skill-studio-draw-<pid>-...`. As it ends, by its input closing or a signal, it ends the browser's own processes, removes the folder and ends at once, and a small process of its own removes the folder again once they are all gone: on Linux the network service writes into it as it ends. When a host the command started is gone, the command removes that host's folder too, so a host killed outright leaves none either. A host ended in the first moment of its start can still leave an empty one, so each host that starts removes the folders of hosts that have gone. A folder whose process id has a process is left, since the system may have given the id to a new host. It takes no single-instance lock, reads no keychain, and shows no window and no Dock icon, so a running copy of the app is left alone. It ends when the command does, on Ctrl-C too, at any moment of its start: its input closes then and it is sent SIGTERM, and it ends at once on either, and on SIGINT and SIGHUP.
+- `pnpm test:draw` builds the app, starts the real host and draws a stored page of `fixtures/design-skill` at both sizes a grading draws, then a page that clears a WebGL canvas to green, and it says whether the page got WebGL and how much of the canvas is green, failing on no platform: on Linux a page goes without, and on macOS and Windows it is the GPU's. Then a page that asks for notifications and where the machine is, which must be refused both. Then it puts the desktop picture on a sheet for two runs of three attempts and two, which must be one PNG inside 1568 pixels a side with a drawn panel for each of the five, and draws a page of its own that asks for a picture beside it and one in the folder above, of which the host must serve only the first. Last a page of its own with no policy of its own tries a script, a WebSocket, a fetch, a picture, a stylesheet and a frame on a local server the test starts: the script must not run and the server must see no request. Last it starts the host and closes its input or sends it SIGTERM or SIGINT, at once or a moment into its start, and the host must be gone within 5 seconds each time. Then it starts it to draw a page and closes its input or sends it SIGTERM, and within 3 seconds of the host's end no profile folder of it may be left, nor come back in the second after.
+
+### Contact sheets
+
+`sheet` puts each case's pages from two or more runs side by side, so an agent in a chat looks at one picture a case instead of each page, and a person can look at it there too:
+
+```
+pnpm st sheet skills/landing --run <runA> --run <runB> [--case <id>] [--out <dir>]
+```
+
+- `--run` is given once for each run, and each run is a row, in the order given; a run named twice is one row. Each column is one attempt, labelled `attempt 1`, `attempt 2`, under the run's name, with the case's name at the top. Where a run has no picture of an attempt that another run has, its place in that column is empty. `report`, `read` and `grade` read one run: given `--run` twice, they read the last.
+- It shows the pictures a grading drew at the desktop size, in each output's `renders/` ([drawing pages](#drawing-pages)), and draws none of its own. An output that is a page with no such picture is left out, with a line that names its attempts and the command that grades its run: `Landing page, <run>: attempt 2 has no drawn page, so it is left out. Grade the run with TYPESAFE_API_KEY set and without --no-jev or --no-draw to draw it: pnpm st grade <skill> --run <run>`. A grading draws a page only where Jev grades it. An output that is no page, or that did not run to its end, is passed over.
+- A sheet holds 12 panels at most. An empty place is no panel, so a run with fewer pictures than the others leaves room for more columns. The attempts past the last column that fits are left out, and a line says how many: `Landing page: 3 attempts are left out, as a sheet holds 12 at most.`
+- Each sheet is a PNG at most 1568 pixels a side, the most Jev reads, named by its case: `landing.png`. Each panel is as wide as the others, no wider than the page was drawn, and the sheet is scaled to fit.
+- `--case <id>` makes the one case's sheet; without it, one for each case the runs answered with a page, in the order `cases` lists them. `--out <dir>` is the folder the sheets go in, each named for its case, and a sheet already there by that name is written over, as a picture made from the runs is; without it, a new folder under the system's temp folder, made at the first sheet. It prints each sheet's path as it is written, one a line, and says what it left out on stderr.
+- It draws each sheet with the drawing host, from a page it writes with copies of the pictures in a temporary folder that it removes when it is done, and when it is stopped with Ctrl-C. Every label is written into that page as text, never as markup. Whatever a page of the command's own says of itself, the host lets it run no script, leave itself or load anything but the `.png` files in its own folder, whatever folders it drew from before, and refuses it every permission, as it does a sample's page. A picture written into the page as a `data:` address is not shown either, nor anything through an `<object>` or an `<embed>`, nor a stylesheet but one written in the page, and a refresh to another address goes nowhere.
+- Where the host cannot start, it says why, as `run` does. Where it stops while sheets are drawn, it says why and `No more sheets are made.` Either way it then names each case whose sheet was not made: `Sheets not made: Landing page, Pricing page.`
+- It exits 1 when it wrote no sheet, or did not make one it laid out.
 
 ### Saved replies
 
@@ -178,9 +278,10 @@ pnpm st serve --tailscale     # also https://<this-machine>.<tailnet>.ts.net:844
 - The server prints the address to open. It ends in `?token=...`, a new token at every start. After a restart, open the newly printed address.
 - Opening it stores the token in a cookie and goes on to the same address without it, so a bookmark of the plain address works until the server stops.
 - A request with neither the cookie nor the token gets `401`. That includes another account on the same machine.
-- `--open` gives the browser an address with a one-use ticket in place of the token, good for one load within a minute. If that browser window is gone, open the printed address.
+- `--open` gives the browser an address with a one-use ticket in place of the token, good for one load within a minute. If that browser window is gone, open the printed address. `st open` prints such an address too ([above](#opening-results-from-the-command-line)).
 - The page is served under the desktop app's Content Security Policy, with frames and pictures allowed from the server's own origin.
 - The server listens on `127.0.0.1` only. `--tailscale` is the one supported way to reach it from another device. It prints the tailnet address with the token in it and lets in only the Tailscale login that owns this machine, which still needs the token, so open the printed tailnet address on the other device once. The tailnet address goes away when the server stops. Do not expose the server any other way. [SECURITY.md](../SECURITY.md#the-web-server) has the details.
+- A grading the server runs draws pages with the drawing host, as `st grade` does ([drawing pages](#drawing-pages)). The host ends with the server, when it is stopped and when `st open`'s server stops for want of use.
 - Ctrl-C, or closing the terminal, stops the server and ends every agent it started. `st run` and `st grade` do the same: Ctrl-C ends the agents in flight, then the command exits once it has written what it has, the run's record or the answers a grading already holds, three seconds at most (`Lifecycle.during` in `src/interfaces/lifecycle.ts`). A second Ctrl-C exits at once, without waiting for them.
 - An error inside the server that nothing caught is printed, and the server goes on.
 - In a browser, API keys come from the environment or a `.env` in the checkout. Settings stores keys in the desktop app only.
@@ -190,6 +291,8 @@ pnpm st serve --tailscale     # also https://<this-machine>.<tailnet>.ts.net:844
 Every operation is `POST /api/<name>` with its input as a JSON body, 32 MB at most. Operations on a skill take `skill`, its path, in the body. A tool outside the browser adds the token to each call: `POST /api/<name>?token=<token>`. [`src/application/api/contract.ts`](../src/application/api/contract.ts) lists every operation with its input and output.
 
 A `GET` that carries `?token=` answers with a redirect to the same address without it and sets the cookie, so a tool follows the redirect and sends the cookie back.
+
+`POST /api/ticket` answers `{ "ticket": "..." }`, a one-use ticket good for a minute, which `?ticket=` on a page address trades for the cookie. It answers only to the token in an `x-skill-studio-token` header: not to the cookie, and not to `?token=`. `st open` asks for its ticket this way.
 
 Two operations answer with a file and also take `GET`, so a page can load them by URL:
 

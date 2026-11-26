@@ -5,6 +5,37 @@
  */
 import { testedVersion, versionNumber } from './lift.ts'
 import type { Configuration } from './schemas.ts'
+import type { RunView, Sample } from './views.ts'
+
+/**
+ * Why grading leaves out one sample of `run`, as Results reads an output's
+ * `cut`: `stopped` by a stop, or with no end of its own in a run that has
+ * ended; `failed` with no stop; `unfinished` while the run, with no end of
+ * its own, may still be writing it. Null for a sample whose agent ran to its end.
+ */
+export const sampleCut = (
+  run: Pick<RunView, 'meta'>,
+  sample: Pick<Sample, 'cut'>,
+): 'stopped' | 'failed' | 'unfinished' | null =>
+  sample.cut === 'stopped' || (sample.cut === 'unlisted' && run.meta?.finishedAt)
+    ? 'stopped'
+    : sample.cut === 'failed'
+      ? 'failed'
+      : sample.cut === 'unlisted'
+        ? 'unfinished'
+        : null
+
+/** What pairing reads of a sample of `run`: whether it is written whole, and whether its agent was stopped (`PairOutput`). */
+export function sampleShown(
+  run: Pick<RunView, 'meta'>,
+  sample: Pick<Sample, 'cut' | 'artifacts'>,
+): { written: boolean; stopped: boolean } {
+  const cut = sampleCut(run, sample)
+  return {
+    written: sample.artifacts.length > 0 && cut === null,
+    stopped: cut === 'stopped' || cut === 'failed',
+  }
+}
 
 /** One output as pairing reads it. */
 export interface PairOutput {
@@ -33,17 +64,39 @@ export interface Pair<T extends PairOutput = PairOutput> {
   b: T | null
 }
 
-/** The newest run's first sample, among the outputs that were written when any was. */
-const newestFirstSample = <T extends PairOutput>(outputs: T[]): T | null =>
+/** The outputs whose agents were not stopped, when any was not; else all of them. */
+function endedOf<T extends Pick<PairOutput, 'stopped'>>(all: readonly T[]): readonly T[] {
+  const ended = all.filter((o) => !o.stopped)
+  return ended.length ? ended : all
+}
+
+/**
+ * The newest run's first sample, among the outputs that were written when any
+ * was. Outputs that say no `createdAt` are read as of one run.
+ */
+const newestFirstSample = <
+  T extends Pick<PairOutput, 'index' | 'written'> & { createdAt?: string },
+>(
+  outputs: readonly T[],
+): T | null =>
   (outputs.some((o) => o.written) ? outputs.filter((o) => o.written) : outputs).reduce<T | null>(
     (best, o) =>
       !best ||
-      o.createdAt > best.createdAt ||
+      (o.createdAt ?? '') > (best.createdAt ?? '') ||
       (o.createdAt === best.createdAt && o.index < best.index)
         ? o
         : best,
     null,
   )
+
+/**
+ * Of one run's attempts at a case, the one Results opens the run on, as
+ * `defaultPair` picks within a run: the first written whole, else the first
+ * whose agent was not stopped, else the first. `st open` names it.
+ */
+export const firstAttempt = <T extends Pick<PairOutput, 'index' | 'written' | 'stopped'>>(
+  attempts: readonly T[],
+): T | null => newestFirstSample(endedOf(attempts))
 
 /**
  * The two outputs of one case a reader compares first: the latest version's
@@ -57,8 +110,7 @@ const newestFirstSample = <T extends PairOutput>(outputs: T[]): T | null =>
  * there are.
  */
 export function defaultPair<T extends PairOutput>(all: readonly T[]): Pair<T> {
-  const ended = all.filter((o) => !o.stopped)
-  const outputs = ended.length ? ended : all
+  const outputs = endedOf(all)
   const skilled = outputs.filter(testedVersion)
   const bare = outputs.filter((o) => o.configuration === 'without_skill')
   if (!skilled.length)

@@ -15,6 +15,9 @@ files:
   - "!**/*.map"
   - "!out/licenses/**"
   - "!out/*/.vite/**"
+  # The drawing host the command line starts (`pnpm build`); the app never runs it.
+  - "!out/main/draw.js"
+  - "!out/main/draw/**"
 # The licenses of the open-source code the app ships, written by `pnpm build`
 # (scripts/third-party-licenses.ts), and the app's own. They go in the resources
 # folder, outside the archive, so anyone can read them.

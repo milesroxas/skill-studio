@@ -75,10 +75,19 @@ export interface DrawnPage {
 
 /**
  * Draws a page a sample wrote in a window of one size, and measures what it
- * drew. Only the desktop app has a browser to draw with; the CLI and
- * `st serve` grade without one.
+ * drew. The desktop app draws in a window of its own; `st run`, `st grade`
+ * and `st serve` start Electron with no window to draw with, the drawing
+ * host (`drawing-host.ts`).
  */
 export type PageRenderer = (
   page: ArtifactAddress,
   size: { width: number; height: number },
 ) => Promise<DrawnPage>
+
+/**
+ * What a renderer rejects with once it can draw no page again: the drawing
+ * host stopped. It has said why, once. A grading that meets it draws no more,
+ * and grades the output it was drawing, and every one after, as with no
+ * renderer at all.
+ */
+export class RendererGone extends Error {}

@@ -1,7 +1,7 @@
 import { fileURLToPath } from 'node:url'
 import tailwindcss from '@tailwindcss/vite'
 import react from '@vitejs/plugin-react'
-import { defineConfig } from 'electron-vite'
+import { defineConfig, type UserConfig } from 'electron-vite'
 import type { Plugin } from 'vite'
 import { contentSecurityPolicy } from './src/interfaces/electron/main/csp.ts'
 
@@ -45,7 +45,33 @@ const cspMeta = (serve: boolean): Plugin => ({
   ],
 })
 
-export default defineConfig(({ command }) => ({
+/**
+ * `electron-vite build --mode draw` builds the drawing host the command line
+ * draws pages with, alone, to out/main/draw.js beside the app's main bundle
+ * (`pnpm build` runs it after the app's build). It is a pass of its own, as the
+ * backend's bundle is: as a second input of the app's build it would share a
+ * chunk with the app, and the app would load every operation the host serves.
+ * The packaged app leaves it out (electron-builder.yml).
+ */
+const DRAW_MODE = 'draw'
+const drawHost: UserConfig = {
+  main: {
+    resolve: { alias },
+    build: {
+      externalizeDeps: true,
+      // The app's build wrote out/main first: this pass only adds its file.
+      emptyOutDir: false,
+      rollupOptions: {
+        input: { draw: `${src}/interfaces/electron/draw/index.ts` },
+        // The host's code, loaded by draw.js once the app is in the background, kept apart from the app's.
+        output: { chunkFileNames: 'draw/[name]-[hash].js' },
+      },
+    },
+  },
+}
+
+/** The desktop app: its main process, its preload and its pages. */
+const app = (command: string): UserConfig => ({
   main: {
     resolve: { alias },
     build: {
@@ -77,4 +103,6 @@ export default defineConfig(({ command }) => ({
       rollupOptions: { input: `${src}/renderer/index.html` },
     },
   },
-}))
+})
+
+export default defineConfig(({ command, mode }) => (mode === DRAW_MODE ? drawHost : app(command)))

@@ -563,7 +563,7 @@ function askedChecks(input: JudgeInput, ctx: JudgeContext) {
     )
     return []
   })
-  for (const line of unasked) ctx.log(line)
+  for (const line of unasked) (ctx.warn ?? ctx.log)(line)
   return { asked, unasked }
 }
 
@@ -837,12 +837,13 @@ export const genericPack: JudgePack<GenericRaw> = {
       const asking = worksOf(input, room)
       if (!asking) return nothing
       const { works, parted } = asking
-      if (parted)
-        ctx.log(
-          parted.read < parted.of
-            ? `the output is more than Jev reads at once: asking the first ${parted.read} of its ${parted.of} parts`
-            : `the output is more than Jev reads at once: asking it in ${parted.of} parts`,
+      // Asking only the first parts leaves the rest unread, a warning; asking every part is progress.
+      if (parted && parted.read < parted.of)
+        (ctx.warn ?? ctx.log)(
+          `the output is more than Jev reads at once: asking the first ${parted.read} of its ${parted.of} parts`,
         )
+      else if (parted)
+        ctx.log(`the output is more than Jev reads at once: asking it in ${parted.of} parts`)
       try {
         const { adherence, rubric } = await ask(input, works, parted, ctx)
         if (!adherence && !rubric) return nothing

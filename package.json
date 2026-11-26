@@ -24,7 +24,7 @@
     "bootstrap": "node scripts/bootstrap.ts",
     "start": "electron-vite preview",
     "dev": "electron-vite dev",
-    "build": "electron-vite build && node scripts/third-party-licenses.ts",
+    "build": "electron-vite build && electron-vite build --mode draw && node scripts/third-party-licenses.ts",
     "dist": "pnpm build && electron-builder",
     "st": "tsx src/interfaces/cli/st.ts",
     "reading-gate": "tsx scripts/reading-bench/gate.ts",
@@ -35,6 +35,7 @@
     "fallow": "fallow dead-code --quiet",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:draw": "pnpm build && tsx scripts/test-draw.ts",
     "test:coverage": "vitest run --coverage",
     "health": "pnpm test:coverage && fallow health",
     "check": "pnpm typecheck && pnpm lint && pnpm fallow && pnpm test"

@@ -36,12 +36,13 @@ macOS knows the stock Electron binary only by its hash, so after an Electron upg
 
 ```
 pnpm check      # typecheck, Biome, fallow, tests
-pnpm build      # the electron-vite build
+pnpm build      # the electron-vite builds: the app, then the drawing host the command line draws with
 pnpm format     # apply Biome's formatting and safe fixes
 pnpm health     # tests with coverage, then fallow's complexity report: see docs/complexity-plan.md
+pnpm test:draw  # build, then draw a stored page with Electron as st grade does: see docs/cli.md#drawing-pages
 ```
 
-CI runs `pnpm check` and `pnpm build` on Linux for every pull request (the `check` job), and the tests on macOS (`test-macos`) and Windows (`test-windows`). All three must pass to merge. A test that needs a POSIX shell or POSIX links skips on Windows (`it.skipIf`). The app itself has not been run on Windows by hand.
+CI runs `pnpm check` and `pnpm build` on Linux for every pull request (the `check` job), and the tests on macOS (`test-macos`) and Windows (`test-windows`). All three must pass to merge. The `draw` job runs `pnpm test:draw` on Linux under `xvfb-run`, the one job that fetches Electron's binary; `pnpm check` never starts Electron. A test that needs a POSIX shell or POSIX links skips on Windows (`it.skipIf`). The app itself has not been run on Windows by hand.
 
 Fix warnings and findings; do not suppress them. A `biome-ignore` or `fallow-ignore` comment, or a rule turned off for a file, is accepted only when the pull request explains why the tool is wrong.
 

@@ -2,6 +2,7 @@
 import { existsSync, readFileSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 import { unjudged } from '@application/grade.ts'
+import type { PageRenderer } from '@domain/artifact-address.ts'
 import { type CallTotal, sumCalls } from '@domain/cost.ts'
 import type { BenchConfig, Report } from '@domain/schemas.ts'
 import { layerOrder } from '@domain/scoring.ts'
@@ -12,6 +13,7 @@ import { Jev } from '@judges/jev.ts'
 import { meterNow } from '@judges/meter.ts'
 import { scorers } from '@judges/scorers.ts'
 import type { Lifecycle } from '../../lifecycle.ts'
+import { drawingHost } from '../drawing.ts'
 import type { Context, FlagValues, Values } from './command.ts'
 import { GRADING, shared } from './flags.ts'
 
@@ -20,6 +22,14 @@ export const padEnd = (value: unknown, width: number): string =>
   String(value ?? '-')
     .slice(0, width - 1)
     .padEnd(width)
+
+/**
+ * The width of a column that holds each of `values` whole with a space after
+ * it, as `padEnd` prints them: `least` while every one fits in that, so a
+ * table of short names prints as it always has.
+ */
+export const widthOf = (values: readonly unknown[], least: number): number =>
+  Math.max(least, ...values.map((value) => String(value ?? '-').length + 1))
 
 const grading = shared(...GRADING)
 
@@ -66,9 +76,29 @@ export function noteNoKey(context: Context): void {
     console.error('TYPESAFE_API_KEY is not set: grading without Jev.')
 }
 
+/**
+ * What a grading draws pages with: the drawing host, as the desktop app
+ * draws them. None with `--no-draw`, and none when Jev does not grade, since
+ * only Jev looks at a page. The host starts at the first page drawn; where it
+ * cannot, the reason is said then, once, and the grading is undrawn.
+ */
+export function drawingOf(context: Context): PageRenderer | undefined {
+  if (context.values['no-draw'] || !context.jev.useJev) return undefined
+  return drawingHost({ warn: (line) => console.error(line), signal: context.lifecycle?.signal })
+}
+
 /** The command's own run or grading, held so a Ctrl-C lets it write what it has as it stops. */
 export const held = <T>(context: Context, work: Promise<T>): Promise<T> =>
   context.lifecycle?.during(work) ?? work
+
+/**
+ * The one run `--run` names, for a command that reads one: the last given.
+ * The flag is given once for each run where `st sheet` reads it.
+ */
+export function oneRun(values: Context['values']): string | undefined {
+  const run = values.run
+  return typeof run === 'string' ? run : Array.isArray(run) ? run.at(-1) : undefined
+}
 
 /** What stops the command's work: Ctrl-C, through its lifecycle. */
 export const signalOf = (context: Context): AbortSignal =>
@@ -104,12 +134,21 @@ export function skillOf(args: readonly string[]): {
 
 export function printReport(report: Report): void {
   const layers = layerOrder(report.config, scorers)
+  // Each sample and case whole, as `--case` takes it: a column widens for a long one.
+  const samples = widthOf(
+    report.results.map((r) => r.sample),
+    36,
+  )
+  const cases = widthOf(
+    report.results.map((r) => r.case),
+    22,
+  )
   console.log(
-    `\n${padEnd('sample', 36)}${padEnd('case', 22)}${layers.map((l) => pad(l, 11)).join('')}`,
+    `\n${padEnd('sample', samples)}${padEnd('case', cases)}${layers.map((l) => pad(l, 11)).join('')}`,
   )
   for (const r of report.results)
     console.log(
-      `${padEnd(r.sample, 36)}${padEnd(r.case, 22)}${layers.map((l) => pad(r.scores[l], 11)).join('')}`,
+      `${padEnd(r.sample, samples)}${padEnd(r.case, cases)}${layers.map((l) => pad(r.scores[l], 11)).join('')}`,
     )
   for (const r of report.results) {
     if (!r.flags.length) continue
@@ -137,13 +176,40 @@ export function printReport(report: Report): void {
  * Print what a grading made of a run. False when it judged no output, so it
  * wrote no report and the command has not done what it was asked: the grading
  * said so itself when there was no output, and the reason is printed here when
- * a pack failed on every one.
+ * a pack failed on every one. `print` prints it where it is not JSON.
  */
-export function printGraded(report: Report, json: boolean | undefined): boolean {
+export function printGraded(
+  report: Report,
+  json: boolean | undefined,
+  print: (report: Report) => void = printReport,
+): boolean {
   if (json) console.log(JSON.stringify(withCost(report), null, 2))
-  else printReport(report)
+  else print(report)
   const { failed, total, reason } = unjudged(report)
   if (total && failed === total)
     console.error(`No output was judged, so no report was written: ${reason}`)
   return total > 0 && failed < total
+}
+
+/**
+ * A word as a shell reads it back: as it is when it is safe so, else quoted.
+ * On macOS and Linux in single quotes. On Windows, where PowerShell and
+ * cmd.exe both keep a backslash and a tilde as they are, and read double
+ * quotes but cmd.exe does not read single ones, in double quotes: a Windows
+ * path cannot hold one.
+ */
+export const shellWord = (word: string, platform: NodeJS.Platform = process.platform): string => {
+  if (platform === 'win32') return /^[\w.:\\/~-]+$/.test(word) ? word : `"${word}"`
+  return /^[\w@%+=:,./-]+$/.test(word) ? word : `'${word.replaceAll("'", `'\\''`)}'`
+}
+
+/**
+ * The line that says how to open Results on one or two runs: `st run` and
+ * `st compare` start no server to give an address on, so they print the
+ * command that does. Not with `--json`, whose output is read as JSON.
+ */
+export function printOpen(json: boolean | undefined, skill: string, a: string, b?: string): void {
+  if (json) return
+  const runs = [`--a ${shellWord(a)}`, b === undefined ? null : `--b ${shellWord(b)}`]
+  console.log(`\nOpen: pnpm st open ${shellWord(skill)} ${runs.filter(Boolean).join(' ')}`)
 }

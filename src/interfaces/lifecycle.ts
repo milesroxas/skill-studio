@@ -18,7 +18,7 @@ import { watchChildren } from '@infrastructure/exec.ts'
  * expects of each: 128 plus the signal's number. SIGHUP comes when the
  * terminal itself is closed.
  */
-const SIGNAL_EXITS = { SIGHUP: 129, SIGINT: 130, SIGTERM: 143 } as const
+export const SIGNAL_EXITS = { SIGHUP: 129, SIGINT: 130, SIGTERM: 143 } as const
 
 /** The part of `process` this module uses, so a test can stand in for it. */
 export interface Host {

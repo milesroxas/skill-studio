@@ -19,7 +19,7 @@ import {
   invoke,
   isOperation,
 } from '@application/api/operations.ts'
-import { ARTIFACT_KEY_META } from '@domain/artifact-address.ts'
+import { ARTIFACT_KEY_META, type PageRenderer } from '@domain/artifact-address.ts'
 import { isDir } from '@infrastructure/fs.ts'
 // The same policy the desktop app's scheme sends; the module imports nothing of Electron's.
 import { contentSecurityPolicy, withStyleNonce } from '../electron/main/csp.ts'
@@ -32,6 +32,7 @@ import {
   newToken,
   type Remote,
   TICKET_PARAM,
+  TICKET_PATH,
   TOKEN_PARAM,
   ticketBook,
 } from './guard.ts'
@@ -54,6 +55,10 @@ export interface ServerOptions {
   rendererDir?: string
   /** Bytes one request body may hold; 32 MB when left out. */
   maxBodyBytes?: number
+  /** Told of every request the access check lets through: `st open`'s server stops after an hour with none. */
+  onRequest?: () => void
+  /** Draws a sample's page for grading to look at: `st serve`'s drawing host. */
+  render?: PageRenderer
 }
 
 export interface Server {
@@ -115,11 +120,13 @@ export function startServer(options: ServerOptions): Promise<Server> {
     remote: options.remote,
     tickets,
   }
-  const operations = createOperations({ skills: options.skills })
+  const operations = createOperations({ skills: options.skills, render: options.render })
   const server = createServer(async (req, res) => {
     const api = (req.url ?? '').startsWith('/api/')
     const decision = decide({ method: req.method, url: req.url, headers: req.headers }, access)
     if (decision.kind === 'refuse') return sendError(res, decision.status, decision.error, api)
+    // Only a request let through counts as use: one anyone on the machine can send keeps nothing up.
+    options.onRequest?.()
     if (decision.kind === 'sign-in') {
       res.writeHead(302, {
         location: decision.location,
@@ -149,6 +156,11 @@ export function startServer(options: ServerOptions): Promise<Server> {
           own: "'self'",
         })
         return send(res, 200, file.bytes, file.headers['content-type'], file.headers)
+      }
+      // The guard let this through only with the token in its header (`st open`).
+      if (url.pathname === TICKET_PATH) {
+        if (req.method !== 'POST') return send(res, 405, { error: 'Ask for a ticket with POST.' })
+        return send(res, 200, { ticket: tickets.issue() })
       }
       if (api) {
         const name = url.pathname.slice('/api/'.length)

@@ -2,11 +2,12 @@ import { type ComparedCases, compareCases, compareRuns, correctionsOf } from '@a
 import type { CaseMove, Met } from '@domain/case-result.ts'
 import { readRun } from '@infrastructure/runs.ts'
 import { runNameOf } from '../input.ts'
+import { briefOrJson, printBriefCompare } from './brief.ts'
 import type { Command, FlagValues } from './command.ts'
 import { shared } from './flags.ts'
-import { pad, padEnd, skillOf } from './shared.ts'
+import { pad, padEnd, printOpen, skillOf, widthOf } from './shared.ts'
 
-const flags = shared('json', 'packs', 'bench')
+const flags = shared('json', 'brief', 'packs', 'bench')
 
 /** How a case moved, as a line says it. */
 const MOVED: Readonly<Record<CaseMove, string>> = {
@@ -28,8 +29,13 @@ function printCases(compared: ComparedCases): void {
       none ? ` ${none} with no checks to compare.` : ''
     }`,
   )
+  // Each case whole, as `--case` takes it: the column widens for a long one.
+  const width = widthOf(
+    compared.cases.map((c) => c.case),
+    28,
+  )
   for (const c of compared.cases) {
-    const head = `  ${padEnd(c.case, 28)}${padEnd(MOVED[c.move], 12)}`
+    const head = `  ${padEnd(c.case, width)}${padEnd(MOVED[c.move], 12)}`
     if (c.move === 'none') {
       console.log(head.trimEnd())
       continue
@@ -50,7 +56,11 @@ function printCases(compared: ComparedCases): void {
 
 export const compare: Command = {
   name: 'compare',
-  help: ['  compare <runA> <runB>       Score deltas between two graded runs.'],
+  help: [
+    '  compare <runA> <runB>       Score deltas between two graded runs.',
+    '    --brief                   Print only each case, the run that did better on its checks,',
+    '                              and the rules and checks each run missed.',
+  ],
   flags,
   agents: false,
   async run(context) {
@@ -58,11 +68,14 @@ export const compare: Command = {
     const { skill, rest } = skillOf(context.args)
     const [a, b] = rest
     if (!a || !b) throw new Error('Pass two run names.')
+    const brief = briefOrJson(context.values)
     const load = (name: string) => {
       const run = runNameOf(name, '`st compare`')
-      const { report, cases, samples } = readRun(skill, run)
+      const view = readRun(skill, run)
+      const { report, cases, samples } = view
       if (!report) throw new Error(`${name} has no report.json.`)
       return {
+        view,
         report,
         cases,
         samples: samples.map((s) => s.name),
@@ -72,18 +85,27 @@ export const compare: Command = {
     // Both under one scoring, so a difference is the outputs' and not a setting's, read as the app reads a change.
     const before = load(a)
     const after = load(b)
-    const { rows, left, notes } = compareRuns(skill, before, after, context.scoring)
     // The same two runs read as cases, on checks alone.
     const byCase = compareCases(skill, before, after, context.scoring)
+    if (brief) {
+      printBriefCompare(skill, before, after, byCase, context.scoring)
+      printOpen(false, skill, a, b)
+      return 0
+    }
+    const { rows, left, notes } = compareRuns(skill, before, after, context.scoring)
     if (values.json) {
       console.log(JSON.stringify({ rows, left, notes, cases: byCase }, null, 2))
       return 0
     }
     const layers = rows.length ? Object.keys(rows[0].deltas) : []
-    console.log(`\n${padEnd('sample', 44)}${layers.map((l) => pad(l, 11)).join('')}`)
+    const width = widthOf(
+      rows.map((row) => row.key),
+      44,
+    )
+    console.log(`\n${padEnd('sample', width)}${layers.map((l) => pad(l, 11)).join('')}`)
     for (const row of rows)
       console.log(
-        `${padEnd(row.key, 44)}${layers
+        `${padEnd(row.key, width)}${layers
           .map((l) => {
             const d = row.deltas[l]
             return pad(d === null ? '-' : `${d > 0 ? '+' : ''}${d}`, 11)
@@ -99,6 +121,7 @@ export const compare: Command = {
       for (const line of left) console.log(`  ${line}`)
     }
     printCases(byCase)
+    printOpen(values.json, skill, a, b)
     return 0
   },
 }

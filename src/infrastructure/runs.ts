@@ -317,11 +317,12 @@ export const runsOfVersion = (skillDir: string, version: string): string[] =>
 
 /**
  * The skill's versions (`skillVersions`), each marked `partial` when no copy
- * kept of it holds all it was stamped with.
+ * kept of it holds all it was stamped with. `current` is the files in `tree`,
+ * the skill's own by default, or a draft's held against the skill's versions.
  */
-export function versionsOf(skillDir: string): SkillVersions {
+export function versionsOf(skillDir: string, tree = skillDir): SkillVersions {
   const metas = runMetas(skillDir)
-  const versions = skillVersions(skillDir, metas, savedVersions(skillDir), (run) =>
+  const versions = skillVersions(tree, metas, savedVersions(skillDir), (run) =>
     skillCopy(skillDir, run),
   )
   return {

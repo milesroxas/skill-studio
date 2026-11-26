@@ -962,3 +962,66 @@ describe('generic pack', () => {
     expect(scored.flags).toContain('Jev read only the first 145,000 characters of the output')
   })
 })
+
+describe('generic pack, on what a person must know even with progress silenced', () => {
+  type Channels = { log: (line: string) => void; warn?: (line: string) => void }
+  const rows: Array<{
+    kind: string
+    line: RegExp
+    judge: (channels: Channels) => Promise<unknown>
+  }> = [
+    {
+      kind: 'a check whose picture Jev is not shown',
+      line: /^grader g1 not judged, its picture is not shown to Jev \(.*4000 × 3000 px.*\): statement g1$/,
+      judge: async (channels) => {
+        const skillDir = mkdtempSync(join(tmpdir(), 'st-generic-'))
+        try {
+          writeFileSync(join(skillDir, 'huge.png'), pngHeader(4000, 3000))
+          const graders = [{ ...grader('g1'), image: 'huge.png' }, grader('g2')]
+          await genericPack.judge(output({ case: testCase(graders) }), {
+            ...ctx,
+            skillDir,
+            ...channels,
+          })
+        } finally {
+          rmSync(skillDir, { recursive: true, force: true })
+        }
+      },
+    },
+    {
+      kind: 'an output asked only in its first parts',
+      line: /^the output is more than Jev reads at once: asking the first 4 of its 6 parts$/,
+      judge: (channels) =>
+        genericPack.judge(output({ text: 'x'.repeat(200_000), case: testCase([grader('g1')]) }), {
+          ...ctx,
+          ...channels,
+        }),
+    },
+  ]
+
+  it.each(rows)(
+    'says $kind through warn alone when both are given, and through log when warn is not',
+    async ({ line, judge }) => {
+      const log: string[] = []
+      const warn: string[] = []
+      await judge({ log: (l) => log.push(l), warn: (l) => warn.push(l) })
+      expect(warn.filter((l) => line.test(l))).toHaveLength(1)
+      expect(log.filter((l) => line.test(l))).toEqual([])
+      const alone: string[] = []
+      await judge({ log: (l) => alone.push(l) })
+      expect(alone.filter((l) => line.test(l))).toHaveLength(1)
+    },
+  )
+
+  it('says through log, never warn, an output asked in every one of its parts', async () => {
+    const log: string[] = []
+    const warn: string[] = []
+    await genericPack.judge(output({ text: 'x'.repeat(100_000), case: testCase([grader('g1')]) }), {
+      ...ctx,
+      log: (l) => log.push(l),
+      warn: (l) => warn.push(l),
+    })
+    expect(log).toContain('the output is more than Jev reads at once: asking it in 3 parts')
+    expect(warn).toEqual([])
+  })
+})

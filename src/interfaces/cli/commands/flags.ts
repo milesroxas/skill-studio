@@ -8,17 +8,21 @@ const SHARED = {
   model: { type: 'string' },
   effort: { type: 'string' },
   cases: { type: 'string' },
+  case: { type: 'string' },
   parallel: { type: 'string' },
   name: { type: 'string' },
-  run: { type: 'string' },
+  run: { type: 'string', multiple: true },
   all: { type: 'boolean' },
   again: { type: 'boolean' },
   deep: { type: 'boolean' },
   json: { type: 'boolean' },
+  brief: { type: 'boolean' },
   'no-jev': { type: 'boolean' },
+  'no-draw': { type: 'boolean' },
   'jev-model': { type: 'string' },
   packs: { type: 'string' },
   bench: { type: 'string' },
+  out: { type: 'string' },
 } as const satisfies Record<string, Flag>
 
 type Shared = typeof SHARED

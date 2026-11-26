@@ -38,6 +38,25 @@ jobs:
       - run: pnpm test
       - run: pnpm build
 
+  # `st run`, `st grade` and `st serve` draw pages with Electron. Only this job fetches its
+  # binary, and draws on a virtual display (xvfb-run, from the runner's own packages).
+  draw:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # With no ELECTRON_SKIP_BINARY_DOWNLOAD, the root postinstall fetches the binary.
+      - uses: pnpm/setup@731dfb6463bbd11c11fd0ee11fe00ed0e36d48a1 # v3.2.0
+        with:
+          cache: true
+          require-lockfile: true
+      # Ubuntu stops a program from making the user namespaces Chromium's sandbox needs. A page
+      # an agent wrote is drawn sandboxed, as in the app, so they are allowed for this job.
+      - run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+      - run: xvfb-run --auto-servernum pnpm test:draw
+
   # The process and path code branches by platform, so the tests run where the
   # app ships too. `check` keeps its name: a required status check is named for it.
   test-macos:

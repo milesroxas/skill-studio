@@ -3,7 +3,8 @@
  * the size asked, the page loaded from the `artifact:` scheme under the same
  * sandbox policy Results shows it with, a PNG of what it drew and the box of
  * each element it drew. One page at a time, each in a window of its own that
- * is closed after.
+ * is closed after. The drawing host draws a page of the command's own the same
+ * way, from its `file:` address, on a session of its own.
  */
 import { artifactPath, type DrawnPage, type PageRenderer } from '@domain/artifact-address.ts'
 import { type PageLayout, readLayout } from '@domain/layout.ts'
@@ -56,7 +57,13 @@ async function measure(page: Electron.WebContents): Promise<PageLayout | null> {
   }
 }
 
-async function draw(url: string, width: number, height: number): Promise<DrawnPage> {
+async function draw(
+  url: string,
+  width: number,
+  height: number,
+  session: Electron.Session | undefined,
+  hold: ((page: Electron.WebContents) => () => void) | undefined,
+): Promise<DrawnPage> {
   const window = new BrowserWindow({
     show: false,
     width,
@@ -72,12 +79,15 @@ async function draw(url: string, width: number, height: number): Promise<DrawnPa
       nodeIntegration: false,
       backgroundThrottling: false,
       spellcheck: false,
+      ...(session ? { session } : {}),
     },
   })
   const page = window.webContents
   page.setAudioMuted(true)
   page.setWindowOpenHandler(() => ({ action: 'deny' }))
   page.on('will-navigate', (event) => event.preventDefault())
+  // What the caller holds this drawing to, set before the page starts to load and let go of with it.
+  const letGo = hold?.(page)
   // A page that crashes or runs out of memory never answers a capture.
   const gone = new Promise<never>((_, reject) => {
     page.once('render-process-gone', (_event, details) =>
@@ -106,21 +116,40 @@ async function draw(url: string, width: number, height: number): Promise<DrawnPa
   } finally {
     // Starting over destroys every window, this one included, possibly mid-draw.
     if (!window.isDestroyed()) window.destroy()
+    letGo?.()
   }
 }
 
+/**
+ * Draws a page by its address in a window of one size, on `session` when one
+ * is given and else on the app's own, once each page asked for before it is
+ * drawn. `hold` is handed the window's page before it loads, to hold it to
+ * more than every page is held to, and what it returns is called once the
+ * window is gone, before the next page is drawn.
+ */
+export type PageDrawer = (
+  url: string,
+  size: { width: number; height: number },
+  session?: Electron.Session,
+  hold?: (page: Electron.WebContents) => () => void,
+) => Promise<DrawnPage>
+
 /** Draw pages one after another, so grading a run never opens a window per sample at once. */
-export function pageRenderer(): PageRenderer {
+export function pageDrawer(): PageDrawer {
   let queue: Promise<unknown> = Promise.resolve()
-  return (page, size) => {
+  return (url, size, session, hold) => {
     // Asked by the backend: a size is held to a window this process can draw.
     if (!Number.isFinite(size.width) || !Number.isFinite(size.height))
       return Promise.reject(new Error('A page is drawn at a size in pixels.'))
     const width = Math.min(WINDOW_MAX, Math.max(1, Math.round(size.width)))
     const height = Math.min(WINDOW_MAX, Math.max(1, Math.round(size.height)))
-    const url = `${ARTIFACT_SCHEME}://${ARTIFACT_HOST}${artifactPath(page)}`
-    const next = queue.then(() => draw(url, width, height))
+    const next = queue.then(() => draw(url, width, height, session, hold))
     queue = next.catch(() => {})
     return next
   }
+}
+
+/** Draw a sample's pages from the `artifact:` scheme, one after another, with `drawer`. */
+export function pageRenderer(drawer: PageDrawer = pageDrawer()): PageRenderer {
+  return (page, size) => drawer(`${ARTIFACT_SCHEME}://${ARTIFACT_HOST}${artifactPath(page)}`, size)
 }

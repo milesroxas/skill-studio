@@ -9,6 +9,9 @@ import { loadDotEnv } from '@infrastructure/dotenv.ts'
 
 const REPO_ROOT = resolve(fileURLToPath(import.meta.url), '../../..')
 
+/** The checkout's root, which `st open` keeps one server for. */
+export const CHECKOUT = REPO_ROOT
+
 /** The renderer `electron-vite build` writes, which `st serve` serves beside the API. */
 export const RENDERER_DIST = join(REPO_ROOT, 'out/renderer')
 

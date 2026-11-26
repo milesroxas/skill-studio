@@ -17,7 +17,7 @@ import { join, resolve } from 'node:path'
 import type { AiFolderRequest } from '@infrastructure/ai/types.ts'
 import { loadCases, loadEveryCase } from '@infrastructure/cases.ts'
 import type { JevAsker } from '@judges/jev.ts'
-import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 /** What the session does: each test says how it answers, and sees what it was given. */
 const session = vi.hoisted(() => ({
@@ -74,14 +74,17 @@ const { readProposals } = await import('@infrastructure/proposals.ts')
 const FIXTURE = resolve(import.meta.dirname, '../../fixtures/launch-note')
 const CASE = 'email-free'
 const made: string[] = []
-afterAll(() => {
-  for (const dir of made) rmSync(dir, { recursive: true, force: true })
+// Each test's copies go as it ends: some 330 files a copy, which one hook at the end removing every
+// test's copies took close to its 10 seconds to delete on a Windows runner.
+afterEach(() => {
+  for (const dir of made.splice(0)) rmSync(dir, { recursive: true, force: true })
 })
 
-/** A copy of launch-note with its runs. */
+/** A copy of launch-note with its runs, in a folder of its own that goes with it. */
 function skill(): string {
-  const dir = join(mkdtempSync(join(tmpdir(), 'st-propose-')), 'launch-note')
-  made.push(dir)
+  const folder = mkdtempSync(join(tmpdir(), 'st-propose-'))
+  made.push(folder)
+  const dir = join(folder, 'launch-note')
   cpSync(FIXTURE, dir, { recursive: true })
   return dir
 }

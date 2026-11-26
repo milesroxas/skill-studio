@@ -14,7 +14,9 @@
  * outputs to the one prompt the run kept.
  */
 import { copyFileSync, existsSync, lstatSync, mkdirSync, rmSync, writeFileSync } from 'node:fs'
-import { basename, dirname, join, relative } from 'node:path'
+import { copyFile } from 'node:fs/promises'
+import { basename, dirname, join, relative, resolve } from 'node:path'
+import { isWithin } from '@domain/paths.ts'
 import { agentPrompt, OUTPUTS_DIR, SCRATCH_DIR } from '@domain/prompt.ts'
 import { runName, sampleDir } from '@domain/run-name.ts'
 import type {
@@ -26,6 +28,7 @@ import type {
   Timing,
 } from '@domain/schemas.ts'
 import { slug } from '@domain/text.ts'
+import type { SkillVersion } from '@domain/views.ts'
 import { detectArtifacts } from '@infrastructure/artifacts.ts'
 import { loadEveryCase } from '@infrastructure/cases.ts'
 import type { Engine } from '@infrastructure/engines/index.ts'
@@ -38,12 +41,21 @@ import {
   isFile,
   linkDir,
   present,
+  realPath,
   today,
   treeFiles,
   writeJson,
 } from '@infrastructure/fs.ts'
+import { takeStampLock } from '@infrastructure/grading-lock.ts'
 import { keepCases } from '@infrastructure/run-cases.ts'
-import { readRunMeta, runDir, skillCopy, versionCopy, versionsOf } from '@infrastructure/runs.ts'
+import {
+  readRunMeta,
+  runDir,
+  runsDir,
+  skillCopy,
+  versionCopy,
+  versionsOf,
+} from '@infrastructure/runs.ts'
 import { skillHead, skillInfo, snapshotSkill } from '@infrastructure/skill.ts'
 import { TranscriptWriter } from '@infrastructure/transcript.ts'
 import { isVersionLabel } from '@infrastructure/versions.ts'
@@ -108,13 +120,29 @@ export interface GenerateOptions {
   configuration: Configuration
   /** What an `old_skill` run generates against: a version (`vN`), or a run whose `_skill/` to use. */
   baseline: string | null
-  /** Name for the skill version when the working tree is new. */
+  /**
+   * A folder outside the skill whose files a `with_skill` run tests in place of
+   * the skill's own, held against the skill's versions as the working tree is.
+   */
+  from?: string | null
+  /** Name for the skill version when the files tested are new. */
   skillName: string | null
+  /**
+   * Refuse a name another version of the skill already has (`takenBy`). The
+   * command line asks it, where a name is all an agent tells its drafts apart
+   * by; the app names a version itself when none is typed, and leaves it out.
+   */
+  ownName?: boolean
   note: string
   parallel?: number
   log: (line: string) => void
-  /** Called as each output is written, ok or not. */
-  onSample?: () => void
+  /**
+   * What a person must know even where progress is not shown, such as a
+   * case's file that is missing: said through `log` when not given.
+   */
+  warn?: (line: string) => void
+  /** Called as each output is written, ok or not, with the attempt as the run records it. */
+  onSample?: (sample: SampleMeta) => void
   /** Called once the run has its name and its folder, before any agent starts. */
   onNamed?: (name: string) => void
   /** The job was stopped: workers take no more samples and the agents in flight are ended. */
@@ -129,28 +157,61 @@ interface SkillStamp {
 }
 
 /**
- * The version a new run is stamped with. Throws when the tree changed and has
- * no name yet. A run without the skill tests no version: it is stamped with
- * the number the tree has now and no name, which names no version and makes
- * the tree none (`skillVersions` passes over such a run).
+ * A version's name as a person reads it: letters that look alike as one
+ * (NFKC, so a full-width `Ｃ` is `C`), no invisible format character (Unicode
+ * category Cf, such as a zero-width space), every run of white space one
+ * space and none at either end, and no case. Empty when nothing is left to read.
+ */
+const nameKey = (name: string): string =>
+  name
+    .normalize('NFKC')
+    .replace(/\p{Cf}/gu, '')
+    .replace(/\p{White_Space}+/gu, ' ')
+    .trim()
+    // Upper then lower folds what lowering alone leaves apart, as `ß` and `SS`.
+    .toUpperCase()
+    .toLowerCase()
+    .normalize('NFKC')
+
+/** The version among `versions` already called `name`, as a person reads names; null when none is. */
+function takenBy(versions: readonly SkillVersion[], name: string): SkillVersion | null {
+  const key = nameKey(name)
+  if (!key) return null
+  return versions.find((v) => nameKey(v.name) === key) ?? null
+}
+
+/**
+ * The version a new run is stamped with: that of the files in `tree`, the
+ * skill's own or a draft's. Throws when they changed and have no name yet,
+ * and, with `ownName`, when another version already has the name given. The
+ * same files as a kept version are that version under its own name, so a name
+ * passed with them is never refused. A run without the skill tests no
+ * version: it is stamped with the number the tree has now and no name, which
+ * names no version and makes the tree none (`skillVersions` passes over such
+ * a run).
  */
 function stampSkill(
   skillDir: string,
-  skillName: string | null,
-  note: string,
-  configuration: Configuration,
+  tree: string,
+  options: Pick<GenerateOptions, 'skillName' | 'note' | 'configuration' | 'ownName'>,
 ): SkillStamp {
-  const { current } = versionsOf(skillDir)
+  const { versions, current } = versionsOf(skillDir, tree)
   if (!current.changed)
     return { version: current.version, name: current.name, hash: current.hash, note: current.note }
-  if (configuration === 'without_skill')
+  if (options.configuration === 'without_skill')
     return { version: current.version, name: '', hash: current.hash, note: '' }
-  const name = skillName?.trim()
-  if (!name)
+  const name = options.skillName?.trim()
+  // A name with nothing to read in it, only spaces or invisible characters, is no name.
+  if (!name || !nameKey(name))
     throw new Error(
       `The skill changed since the last run. Name this version (${current.version}) to run it.`,
     )
-  return { version: current.version, name, hash: current.hash, note }
+  const holder = options.ownName ? takenBy(versions, name) : null
+  if (holder)
+    throw new Error(
+      `${holder.version} is already called "${holder.name}". Give these files (${current.version}) a name of their own to run them.`,
+    )
+  return { version: current.version, name, hash: current.hash, note: options.note }
 }
 
 function freshRunName(skillDir: string, base: string): string {
@@ -184,14 +245,15 @@ function linkSkillAliases(sampleDir: string): void {
 
 /**
  * Copy each case's input files into the run, once. A file that is missing, or
- * that a link leads out of the skill to, is left out and the log says so.
+ * that a link leads out of the skill to, is left out and the log says so. The
+ * copies are made without holding up the process, as they may be large.
  */
-function stageInputs(
+async function stageInputs(
   skillDir: string,
   run: string,
   cases: Case[],
   log: (line: string) => void,
-): void {
+): Promise<void> {
   const inputs = join(run, INPUTS_DIR)
   mkdirSync(inputs, { recursive: true })
   for (const testCase of cases)
@@ -205,7 +267,7 @@ function stageInputs(
       }
       const dest = stagedInput(inputs, testCase, rel)
       mkdirSync(dirname(dest), { recursive: true })
-      copyFileSync(source, dest)
+      await copyFile(source, dest)
     }
 }
 
@@ -247,26 +309,53 @@ function baselineOf(
   }
 }
 
-export async function generateRun(
-  options: GenerateOptions,
-): Promise<{ name: string; dir: string; meta: RunMeta }> {
-  // The answer under test is never saved: a replay asks nobody, so it runs no agent.
-  neverReplayed("The answer under test, a run's agent,")
-  const { skillDir, engine, log } = options
-  const info = skillInfo(skillDir)
-  const configuration = options.configuration
-  const baseline = configuration === 'old_skill' ? baselineOf(skillDir, options.baseline) : null
-  if (baseline?.partial)
-    log(
-      `${baseline.stamp.version} was kept with SKILL.md and references/ only: this run gets none of its scripts or other files.`,
+/**
+ * The folder a draft is run from, as its real path. Throws when none is
+ * named, when it holds no SKILL.md, or when it and the skill's folder are one inside the other: a
+ * draft inside the skill would be kept as part of each of the skill's
+ * versions, and a folder holding the skill would copy the skill's runs into
+ * each of its own.
+ */
+function draftOf(skillDir: string, from: string, configuration: Configuration): string {
+  if (configuration !== 'with_skill')
+    throw new Error(
+      `A run of the files in another folder runs with the skill, so it cannot be ${configuration}.`,
     )
-  const stamp = baseline
-    ? baseline.stamp
-    : stampSkill(skillDir, options.skillName, options.note, configuration)
-  // The skill as the run's copy names it: a run against an older version uses the name it had then.
-  const skillName = baseline ? skillHead(baseline.dir, basename(info.path)).name : info.name
-  const model = options.model?.trim() || engine.defaultModel
-  const effort = options.effort || 'default'
+  if (!from.trim()) throw new Error('No folder was named to run the skill files from.')
+  const draft = realPath(resolve(from))
+  if (!isFile(join(draft, 'SKILL.md'))) throw new Error(`No SKILL.md at ${draft}.`)
+  const skill = realPath(skillDir)
+  if (isWithin(draft, skill))
+    throw new Error(
+      `${draft} is inside the skill's folder. Keep the draft in a folder outside it, or its files become part of the skill's own.`,
+    )
+  if (isWithin(skill, draft))
+    throw new Error(
+      `${draft} holds the skill's folder. Keep the draft in a folder outside the skill, holding only the draft.`,
+    )
+  return draft
+}
+
+/**
+ * Stamp the run, name it and make its folder, with the copy of the skill and
+ * `run.json`: all another run starting at the same time must see to take a
+ * number and a name of its own. The version is read from the runs' `run.json`
+ * files and the name from their folders, so once this returns the next run
+ * takes the next number. The skill's copy is made before `run.json`, so no
+ * run against this version (`baselineOf`) finds the run before its copy is whole.
+ */
+function takeRun(
+  options: GenerateOptions,
+  how: {
+    tree: string
+    baseline: ReturnType<typeof baselineOf> | null
+    model: string
+    effort: string
+  },
+): { name: string; dir: string; snapshot: string; meta: RunMeta } {
+  const { skillDir, engine, configuration } = options
+  const { tree, baseline, model, effort } = how
+  const stamp = baseline ? baseline.stamp : stampSkill(skillDir, tree, options)
   const name = freshRunName(
     skillDir,
     runName({
@@ -283,11 +372,7 @@ export async function generateRun(
   // The one copy of the skill every sample of this run is made from.
   const snapshot = skillCopy(skillDir, name)
   if (baseline) copyTree(baseline.dir, snapshot)
-  else snapshotSkill(skillDir, snapshot)
-  stageInputs(skillDir, dir, options.cases, log)
-  // The cases as they are asked now, with the checks for every case: what the run is read against, whatever is edited since.
-  keepCases(skillDir, dir, options.cases, loadEveryCase(skillDir))
-
+  else snapshotSkill(tree, snapshot)
   const meta: RunMeta = {
     name,
     skillPath: skillDir,
@@ -305,6 +390,68 @@ export async function generateRun(
     samples: [],
   }
   writeJson(join(dir, 'run.json'), meta)
+  return { name, dir, snapshot, meta }
+}
+
+/**
+ * Copy into a run the cases' input files and the cases as they are asked
+ * now, with the checks for every case: what the run is read against, whatever
+ * is edited since. A run that cannot have them is taken out whole: no agent
+ * has run, so it leaves no run, and no version known from that run alone.
+ */
+async function stageRun(options: GenerateOptions, dir: string): Promise<void> {
+  const { skillDir, cases } = options
+  try {
+    await stageInputs(skillDir, dir, cases, options.warn ?? options.log)
+    keepCases(skillDir, dir, cases, loadEveryCase(skillDir))
+  } catch (error) {
+    try {
+      rmSync(dir, { recursive: true, force: true })
+    } catch {}
+    throw error
+  }
+}
+
+export async function generateRun(
+  options: GenerateOptions,
+): Promise<{ name: string; dir: string; meta: RunMeta }> {
+  // The answer under test is never saved: a replay asks nobody, so it runs no agent.
+  neverReplayed("The answer under test, a run's agent,")
+  const { skillDir, engine, log } = options
+  const warn = options.warn ?? log
+  const info = skillInfo(skillDir)
+  const configuration = options.configuration
+  const draft =
+    options.from === undefined || options.from === null
+      ? null
+      : draftOf(skillDir, options.from, configuration)
+  const tree = draft ?? skillDir
+  const baseline = configuration === 'old_skill' ? baselineOf(skillDir, options.baseline) : null
+  if (baseline?.partial)
+    warn(
+      `${baseline.stamp.version} was kept with SKILL.md and references/ only: this run gets none of its scripts or other files.`,
+    )
+  // The skill as the run's copy names it: a run against an older version uses the name it had then.
+  const skillName = baseline
+    ? skillHead(baseline.dir, basename(info.path)).name
+    : draft
+      ? skillHead(draft, basename(info.path)).name
+      : info.name
+  const model = options.model?.trim() || engine.defaultModel
+  const effort = options.effort || 'default'
+  // A run refused for its version is refused before the lock, so it leaves `evals/runs/` as it was.
+  if (!baseline) stampSkill(skillDir, tree, options)
+  // From the version taken to `run.json` written, no other run of the skill starts: two would take one number.
+  const release = await takeStampLock(runsDir(skillDir))
+  const { name, dir, snapshot, meta } = (() => {
+    try {
+      return takeRun(options, { tree, baseline, model, effort })
+    } finally {
+      release()
+    }
+  })()
+  // The input files are copied once the lock is given back, so a run with large ones holds up no other.
+  await stageRun(options, dir)
   options.onNamed?.(name)
   log(`${name}: ${options.cases.length} case(s) × ${meta.samplesPerCase} sample(s)`)
 
@@ -327,6 +474,7 @@ export async function generateRun(
     // The name is the writer's own text: only a slug of it names a folder.
     skillFolder: slug(skillName) || slug(basename(info.path)) || 'skill',
     log,
+    warn,
     signal: stop.signal,
   }
   let next = 0
@@ -350,7 +498,7 @@ export async function generateRun(
         stop.abort()
         return
       }
-      options.onSample?.()
+      options.onSample?.(sample)
     }
   }
   const parallel = Math.max(1, Math.min(options.parallel ?? MAX_PARALLEL, jobs.length))
@@ -435,6 +583,8 @@ interface SampleOptions {
   /** The folder the skill sits in inside the sample. */
   skillFolder: string
   log: (line: string) => void
+  /** What a person must know even where progress is not shown (`GenerateOptions.warn`). */
+  warn: (line: string) => void
   signal: AbortSignal
 }
 
@@ -454,7 +604,7 @@ async function generateSample(
     return await runSample(testCase, index, options, dir, work)
   } finally {
     const left = moveWork(work.dir, dir)
-    if (left.length) options.log(`${name}: ${left.join('; ')}; the rest is in ${work.dir}`)
+    if (left.length) options.warn(`${name}: ${left.join('; ')}; the rest is in ${work.dir}`)
     // A link to the skill is made by its full path on Windows, so it is made again where it now sits.
     if (options.skillSource) linkSkillAliases(dir)
   }
@@ -508,7 +658,8 @@ async function runSample(
     ),
     signal: options.signal,
     transcript,
-    log: (line) => options.log(`${label}: ${line}`),
+    // An engine says only what went wrong, such as a transcript it could not write.
+    log: (line) => options.warn(`${label}: ${line}`),
   })
   const finishedAt = new Date()
   const timing: Timing = {

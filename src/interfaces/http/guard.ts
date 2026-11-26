@@ -18,7 +18,9 @@
  * the cookie from then on. On the tailnet the login is checked as well. A
  * one-use ticket, good for a minute, stands in for the token in the address
  * `--open` hands the browser, since that address is on a command line other
- * accounts can list.
+ * accounts can list, and in the address `st open` prints, since that is read
+ * in a chat that is kept and sent on. `st open` asks for its ticket with the
+ * token in a header, and that request answers to nothing else.
  *
  * A file a sample wrote is the one exception. A page the agent wrote runs in
  * an origin of its own, so the files it loads beside it go out with no cookie
@@ -48,12 +50,17 @@ const ARTIFACT_PREFIX = '/api/artifact/'
 export const TICKET_PARAM = 'ticket'
 /** How long a ticket can be traded for the cookie. */
 const TICKET_MS = 60_000
+/** Where `st open` asks for a ticket: `POST`, with the token in `TOKEN_HEADER`. */
+export const TICKET_PATH = '/api/ticket'
+/** The header `st open` sends the token in, so that it is in no address. */
+export const TOKEN_HEADER = 'x-skill-studio-token'
 
 /** What a refused reader is told to do. The token itself is never repeated. */
 const NO_TOKEN =
   'Open the address `st serve` printed when it started: it carries the token this server needs.'
 const USED_TICKET =
-  'This address works once, within a minute of `st serve --open`. Open the address `st serve` printed when it started.'
+  'This address works once, within a minute of being made. Run `st open` again, or open the address `st serve` printed when it started.'
+const TICKET_TOKEN = 'A ticket is given only for the token in the `x-skill-studio-token` header.'
 
 /** A tailnet host name the server may answer, and the logins allowed on it. */
 export interface Remote {
@@ -130,7 +137,8 @@ const hostOf = (value: string): URL | null => {
  * The cookie's name. Browsers keep one jar per host name whatever the port, so
  * the port is in the name and two servers on one machine do not sign each
  * other out. That jar is also why the browser sends every one of these cookies
- * to any server on `localhost` it visits, whatever its port.
+ * to any server it visits under the same host name, whatever its port: `st
+ * open` prints its address under `127.0.0.1` for that reason (`OPEN_HOST`).
  */
 const cookieName = (host: URL, via: Via): string =>
   `st_token_${host.port || (via === 'tailnet' ? '443' : '80')}`
@@ -215,6 +223,13 @@ export function decide({ method, url, headers }: Asked, access: Access): Decisio
   const from = origin(method, headers, access.remote, !keyed)
   if ('refused' in from) return { kind: 'refuse', status: 403, error: from.refused }
   if (keyed) return { kind: 'serve' }
+  // Not for the cookie or `?token=`: a page signed in has no use for a ticket, and an address is no place for the token.
+  if (asked.pathname === TICKET_PATH) {
+    const header = headers[TOKEN_HEADER]
+    return sameToken(typeof header === 'string' ? header : null, access.token)
+      ? { kind: 'serve' }
+      : { kind: 'refuse', status: 401, error: TICKET_TOKEN }
+  }
   const name = cookieName(from.host, from.via)
   const signIn = (): Decision => {
     asked.searchParams.delete(TOKEN_PARAM)

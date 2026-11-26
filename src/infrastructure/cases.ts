@@ -11,12 +11,15 @@ import {
 } from 'node:fs'
 import { basename, extname, join } from 'node:path'
 import {
+  breaksLine,
   checkWeight,
   hasTitle,
   newCaseId,
+  oneLineTitle,
   promptStart,
   sameTitle,
   sizeProblem,
+  titleKey,
   titleTaken,
   unusedTitle,
 } from '@domain/case-draft.ts'
@@ -40,6 +43,7 @@ import {
   isSlug,
   metaList,
   metaText,
+  normalizeNewlines,
   readFrontMatter,
   SLUG_RULE,
   slug,
@@ -103,21 +107,40 @@ function isCasePicture(skillDir: string, rel: string, image: string): boolean {
   }
 }
 
+/** A check's weight as written, when it is not the weight it is read as; null when it is, or none is written. */
+function weightProblem(written: string | null, read: number): string | null {
+  if (written === null || Number(written) === read) return null
+  const value = Number(written)
+  return Number.isFinite(value) && (value < 1 || value > 5)
+    ? `weight ${written} is out of range, 1 to 5, so it is read as ${read}.`
+    : `weight ${written} is not a whole number from 1 to 5, so it is read as ${read}.`
+}
+
 /** The graders of the case folder at `rel`, each with its reference picture when the file is there. */
-function readGraders(skillDir: string, rel: string): Grader[] {
+function readGraders(skillDir: string, rel: string, warn: Warn = warnOnce): Grader[] {
   const dir = join(skillDir, rel, 'graders')
   return listFiles(dir, (name) => name.endsWith('.md')).flatMap((name) => {
-    const raw = readFileSync(join(dir, name), 'utf8')
-    if (!raw.startsWith('---')) return []
+    const file = join(dir, name)
+    const raw = readFileSync(file, 'utf8')
+    if (!raw.startsWith('---')) {
+      warn(
+        `${file} is skipped: a check's file starts with front matter (---), even an empty block.`,
+        true,
+      )
+      return []
+    }
     const { meta, text } = readFrontMatter(raw)
     const image = metaText(meta, 'image')
+    // Held to the range the form offers, so a file written by hand scores as it shows.
+    const weight = checkWeight(positive(meta, 'weight')) ?? 1
+    const badWeight = weightProblem(metaText(meta, 'weight'), weight)
+    if (badWeight) warn(`${file}: ${badWeight}`, true)
     return [
       {
         id: name.replace(/\.md$/, ''),
         type: metaText(meta, 'type') ?? 'llm',
         focus: metaText(meta, 'focus'),
-        // Held to the range the form offers, so a file written by hand scores as it shows.
-        weight: checkWeight(positive(meta, 'weight')) ?? 1,
+        weight,
         statement: text,
         image: image && isCasePicture(skillDir, rel, image) ? `${rel}/${image}` : null,
       },
@@ -135,14 +158,14 @@ const EVERY_CASE_DIR = 'evals/graders'
  * an id with a case's own check. None when the folder is not there; a folder
  * that cannot be read gives none, with a warning naming it.
  */
-export function loadEveryCase(skillDir: string): Grader[] {
+export function loadEveryCase(skillDir: string, warn: Warn = warnOnce): Grader[] {
   try {
-    return readGraders(skillDir, 'evals').map((grader) => ({
+    return readGraders(skillDir, 'evals', warn).map((grader) => ({
       ...grader,
       id: everyCaseId(grader.id),
     }))
   } catch (error) {
-    warnOnce(`${join(skillDir, EVERY_CASE_DIR)} could not be read: ${(error as Error).message}`)
+    warn(`${join(skillDir, EVERY_CASE_DIR)} could not be read: ${(error as Error).message}`)
     return []
   }
 }
@@ -171,21 +194,28 @@ export function saveEveryCase(skillDir: string, statement: string): string {
   return everyCaseId(name)
 }
 
+/**
+ * Where a loader says what it leaves out, or reads otherwise than it is
+ * written. One marked `quiet` is read as the app always reads it, with no
+ * warning: only `caseProblems` lists it.
+ */
+type Warn = (message: string, quiet?: boolean) => void
+
 /** Each warning once a session: the cases are read again every few seconds while a run goes on. */
 const warned = new Set<string>()
-const warnOnce = (message: string): void => {
-  if (warned.has(message)) return
+const warnOnce: Warn = (message, quiet = false) => {
+  if (quiet || warned.has(message)) return
   warned.add(message)
   console.warn(message)
 }
 
 /** The entries of `value` that are paths inside the skill; one that could climb out of it is dropped. */
-function safePaths(value: unknown, what: string): string[] {
+function safePaths(value: unknown, what: string, warn: Warn): string[] {
   return (Array.isArray(value) ? value : []).flatMap((entry) => {
     try {
       return [assertSafePath(typeof entry === 'string' ? entry : null, what)]
     } catch {
-      warnOnce(`A case names ${what} ${JSON.stringify(entry)}, which is not a path in the skill.`)
+      warn(`A case names ${what} ${JSON.stringify(entry)}, which is not a path in the skill.`)
       return []
     }
   })
@@ -238,7 +268,7 @@ const BENCH_KEYS: Readonly<Record<string, { is: string; read: (value: unknown) =
  * A value of the wrong kind is left out, so its default stands, with a warning
  * naming the case at `where`. A key nothing here knows passes through.
  */
-export function caseBench(value: unknown, where: string): CaseBench {
+export function caseBench(value: unknown, where: string, warn: Warn = warnOnce): CaseBench {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return {}
   const bench: CaseBench = {}
   for (const [key, raw] of Object.entries(value)) {
@@ -246,7 +276,7 @@ export function caseBench(value: unknown, where: string): CaseBench {
     const read = known ? known.read(raw) : raw
     if (read !== undefined) bench[key] = read
     else if (raw !== undefined && raw !== null)
-      warnOnce(
+      warn(
         `${where}: bench.${key} is ${JSON.stringify(raw)}, which is not ${known?.is}, so it is left out.`,
       )
   }
@@ -259,19 +289,40 @@ export function caseBench(value: unknown, where: string): CaseBench {
  * `_`, `.` and `-`; a folder of any other name, one with a space say, is no
  * case, and the warning names it.
  */
-function namesCase(skillDir: string, rel: string): boolean {
+function namesCase(skillDir: string, rel: string, warn: Warn = warnOnce): boolean {
   if (isSafeName(basename(rel))) return true
-  warnOnce(
+  warn(
     `${join(skillDir, rel)} is left out: a case's folder names a folder in every run, so its name may hold only letters, digits, dots, dashes and underscores.`,
   )
   return false
 }
 
+/**
+ * A case's title as it is shown, on one line (`oneLineTitle`). One written
+ * with a line break in it is read with a space there, and only `caseProblems`
+ * says so, naming the case at `where`: saving the case writes it on one line.
+ */
+function titleOf(title: string, where: string, warn: Warn): string {
+  const one = oneLineTitle(title)
+  if (breaksLine(title))
+    warn(
+      `${where}: the title holds a line break, so it is shown on one line, as "${one}". Save the case to write it that way.`,
+      true,
+    )
+  return one
+}
+
 /** One skill-creator case folder. Throws when its `case.yaml` cannot be read. */
-function loadFolderCase(skillDir: string, rel: string): Case | null {
+function loadFolderCase(skillDir: string, rel: string, warn: Warn): Case | null {
   const dir = join(skillDir, rel)
   const promptPath = join(dir, 'prompt.md')
-  if (!isFile(promptPath) || !namesCase(skillDir, rel)) return null
+  if (!isFile(promptPath)) {
+    // A folder right under `evals/` may be something else; one under `evals/cases/` is meant as a case.
+    if (rel.startsWith('evals/cases/'))
+      warn(`${dir} is skipped: a case's folder holds its prompt in prompt.md.`, true)
+    return null
+  }
+  if (!namesCase(skillDir, rel, warn)) return null
   const { meta: settings, text: prompt } = readFrontMatter(readFileSync(promptPath, 'utf8'))
   const yamlPath = join(dir, 'case.yaml')
   const read = isFile(yamlPath) ? parseYaml(readFileSync(yamlPath, 'utf8')) : null
@@ -286,13 +337,13 @@ function loadFolderCase(skillDir: string, rel: string): Case | null {
   return {
     id: name,
     legacyId: null,
-    title: typeof spec.title === 'string' ? spec.title : name,
+    title: typeof spec.title === 'string' ? titleOf(spec.title, yamlPath, warn) : name,
     prompt,
     expectedOutcome: typeof spec.expected_outcome === 'string' ? spec.expected_outcome.trim() : '',
     files,
-    graders: readGraders(skillDir, rel),
+    graders: readGraders(skillDir, rel, warn),
     settings: parseSettings(settings),
-    bench: caseBench(spec.bench, yamlPath),
+    bench: caseBench(spec.bench, yamlPath, warn),
     source: 'folder',
     dir: rel,
   }
@@ -319,25 +370,25 @@ interface LegacyEval {
  * key is not a slug, or that has no prompt, is not a case: null, with a
  * warning naming the entry.
  */
-function legacyKey(skillDir: string, entry: LegacyEval): string | null {
+function legacyKey(skillDir: string, entry: LegacyEval, warn: Warn = warnOnce): string | null {
   if (!entry || typeof entry !== 'object') return null
   const label = slug(String(entry.name ?? entry.eval_name ?? entry.title ?? ''))
   const id = label ? `${entry.id}-${label}` : String(entry.id)
   const where = `${legacyFile(skillDir)}: the case ${JSON.stringify(entry.id)}`
   if (typeof entry.prompt !== 'string') {
-    warnOnce(`${where} has no prompt, so it is left out.`)
+    warn(`${where} has no prompt, so it is left out.`)
     return null
   }
   if (!isSlug(id)) {
-    warnOnce(`${where} is left out: its name, ${id}, names a folder in every run. ${SLUG_RULE}`)
+    warn(`${where} is left out: its name, ${id}, names a folder in every run. ${SLUG_RULE}`)
     return null
   }
   return id
 }
 
 /** A legacy `evals.json` entry as a case; null when it is not one. Its files are held to paths inside the skill. */
-function fromLegacy(skillDir: string, entry: LegacyEval): Case | null {
-  const id = legacyKey(skillDir, entry)
+function fromLegacy(skillDir: string, entry: LegacyEval, warn: Warn): Case | null {
+  const id = legacyKey(skillDir, entry, warn)
   if (!id) return null
   const expectations = (entry.expectations ?? entry.assertions ?? []).filter(
     (statement): statement is string => typeof statement === 'string',
@@ -345,10 +396,14 @@ function fromLegacy(skillDir: string, entry: LegacyEval): Case | null {
   return {
     id,
     legacyId: entry.id,
-    title: String(entry.title ?? entry.eval_name ?? entry.name ?? id),
+    title: titleOf(
+      String(entry.title ?? entry.eval_name ?? entry.name ?? id),
+      `${legacyFile(skillDir)}: the case ${JSON.stringify(entry.id)}`,
+      warn,
+    ),
     prompt: entry.prompt,
     expectedOutcome: typeof entry.expected_output === 'string' ? entry.expected_output : '',
-    files: safePaths(entry.files, 'the input file'),
+    files: safePaths(entry.files, 'the input file', warn),
     graders: expectations.map((statement, i) => ({
       id: `${String(i + 1).padStart(2, '0')}-${slug(statement, 32)}`,
       type: 'llm',
@@ -358,7 +413,11 @@ function fromLegacy(skillDir: string, entry: LegacyEval): Case | null {
       image: null,
     })),
     settings: { tags: [], maxTurns: null, timeoutSeconds: null, allowedTools: null },
-    bench: caseBench(entry.bench, `${legacyFile(skillDir)}: the case ${JSON.stringify(entry.id)}`),
+    bench: caseBench(
+      entry.bench,
+      `${legacyFile(skillDir)}: the case ${JSON.stringify(entry.id)}`,
+      warn,
+    ),
     source: 'evals.json',
     dir: null,
   }
@@ -375,9 +434,20 @@ const caseFolders = (skillDir: string): string[] => {
   ]
 }
 
-/** The entries of `evals.json`; none when the file is absent or holds no list. */
-function legacyEntries(skillDir: string): LegacyEval[] {
-  const legacy = readJson<{ evals?: unknown }>(legacyFile(skillDir), {})
+/**
+ * The entries of `evals.json`; none when the file is absent or holds no list.
+ * A file that is not JSON stops the reading, unless `warn` is given: then it
+ * is said there, and gives none.
+ */
+function legacyEntries(skillDir: string, warn?: Warn): LegacyEval[] {
+  let legacy: { evals?: unknown }
+  try {
+    legacy = readJson<{ evals?: unknown }>(legacyFile(skillDir), {})
+  } catch (error) {
+    if (!warn) throw error
+    warn((error as Error).message)
+    return []
+  }
   return Array.isArray(legacy?.evals) ? (legacy.evals as LegacyEval[]) : []
 }
 
@@ -385,31 +455,80 @@ function legacyEntries(skillDir: string): LegacyEval[] {
  * Every case folder under `evals/cases/` or directly under `evals/`, plus
  * every `evals.json` entry whose key is not already a folder. A case that
  * cannot be read is left out with a warning naming its file, so one bad
- * `case.yaml` never hides the skill's other cases.
+ * `case.yaml` never hides the skill's other cases. Given `listed`, what is
+ * left out or skipped is said there instead, and an `evals.json` that is not
+ * JSON is one of them rather than the end of the reading.
  */
-export function loadCases(skillDir: string): Case[] {
+export function loadCases(skillDir: string, listed?: Warn): Case[] {
+  const warn = listed ?? warnOnce
   const cases: Case[] = []
   const seen = new Set<string>()
   for (const rel of caseFolders(skillDir)) {
     let loaded: Case | null
     try {
-      loaded = loadFolderCase(skillDir, rel)
+      loaded = loadFolderCase(skillDir, rel, warn)
     } catch (error) {
-      warnOnce(`${join(skillDir, rel)} could not be read as a case: ${(error as Error).message}`)
+      warn(`${join(skillDir, rel)} could not be read as a case: ${(error as Error).message}`)
       continue
     }
-    if (loaded && !seen.has(loaded.id)) {
+    if (loaded && seen.has(loaded.id))
+      warn(
+        `${join(skillDir, rel)} is skipped: the case ${loaded.id} under evals/cases/ is read in its place.`,
+        true,
+      )
+    else if (loaded) {
       seen.add(loaded.id)
       cases.push(loaded)
     }
   }
-  for (const entry of legacyEntries(skillDir)) {
-    const loaded = fromLegacy(skillDir, entry)
-    if (!loaded || seen.has(loaded.id)) continue
+  // An `evals.json` that is not JSON stops the reading, as it does in the app, unless what is found is listed.
+  for (const entry of legacyEntries(skillDir, listed)) {
+    const loaded = fromLegacy(skillDir, entry, warn)
+    if (!loaded) continue
+    if (seen.has(loaded.id)) {
+      warn(
+        `${legacyFile(skillDir)}: the case ${JSON.stringify(entry.id)} is skipped: the case folder ${loaded.id} is read in its place.`,
+        true,
+      )
+      continue
+    }
     seen.add(loaded.id)
     cases.push(loaded)
   }
   return cases
+}
+
+/**
+ * What `st case check` lists: each case or check file of the skill that will
+ * not load or is skipped, or is read otherwise than it is written, found as
+ * `loadCases` and `loadEveryCase` read them, and each title two cases share.
+ * With how many cases and checks load.
+ */
+export function caseProblems(skillDir: string): {
+  cases: number
+  checks: number
+  problems: string[]
+} {
+  const problems: string[] = []
+  const note: Warn = (message) => {
+    // One line each: a YAML error comes with the lines it was read on.
+    const line = message.replace(/\s+/g, ' ').trim()
+    if (!problems.includes(line)) problems.push(line)
+  }
+  const cases = loadCases(skillDir, note)
+  const every = loadEveryCase(skillDir, note)
+  const byTitle = new Map<string, Case[]>()
+  for (const c of cases.filter(hasTitle)) {
+    const key = titleKey(c.title)
+    byTitle.set(key, [...(byTitle.get(key) ?? []), c])
+  }
+  for (const same of byTitle.values())
+    if (same.length > 1)
+      problems.push(
+        `${same.length} cases are called ${oneLineTitle(same[0].title)} (${same.map((c) => c.id).join(', ')}): cases are told apart by title, so give each one its own.`,
+      )
+  const checks = every.length + cases.reduce((sum, c) => sum + c.graders.length, 0)
+  return { cases: cases.length, checks, problems }
 }
 
 /**
@@ -531,6 +650,39 @@ export function caseSavedAt(skillDir: string, rel: string): string | null {
   return Number.isFinite(latest) ? new Date(latest).toISOString() : null
 }
 
+/**
+ * A settings block that sets nothing, put before a request that would
+ * otherwise be read as a block of its own. Not an empty block: the reader
+ * takes the first block to end at the first `---` line after its own, and an
+ * empty one has no line of its own, so the request's would end it.
+ */
+const NO_SETTINGS = '---\n{}\n---\n'
+
+/**
+ * The text of a case's `prompt.md`: the settings block it has (`kept`, empty
+ * when none), then the request. The reader takes the first block off the
+ * file and reads the rest as the request (`loadFolderCase`), so a request
+ * that starts like a block, or a file whose block is empty and so would be
+ * ended by the request's first `---` line, goes after a block that sets
+ * nothing, and reads back whole, as every request does: line ends as `\n`
+ * and no space at either end. Every file this writes reads back so; a
+ * request that would not is refused.
+ */
+export function promptFileText(kept: string, prompt: string): string {
+  const request = prompt.trim()
+  const compose = (front: string): string => `${front ? `${front.trimEnd()}\n\n` : ''}${request}\n`
+  const reads = (text: string): boolean =>
+    readFrontMatter(text).text === normalizeNewlines(request).trim() &&
+    JSON.stringify(readFrontMatter(text).meta) === JSON.stringify(readFrontMatter(kept).meta)
+  if (reads(compose(kept))) return compose(kept)
+  // A block that sets nothing reads as the one it takes the place of.
+  if (!Object.keys(readFrontMatter(kept).meta).length && reads(compose(NO_SETTINGS)))
+    return compose(NO_SETTINGS)
+  throw new Error(
+    'This prompt starts with lines that would be read as the case’s settings. Start it with other words.',
+  )
+}
+
 /** A case's `case.yaml` to edit, seeded when absent or empty so a new file is a block mapping, like hand-written ones. */
 function caseYaml(path: string) {
   const raw = isFile(path) ? readFileSync(path, 'utf8') : ''
@@ -576,7 +728,7 @@ export function saveCase(
   const existing = cases.find((c) => c.id === input.id)
   if (isNew && existing) throw new Error(`A case called ${input.id} already exists.`)
   // Cases are told apart by title. One kept as it was saves even if another took it by hand since.
-  const title = input.title.trim()
+  const title = oneLineTitle(input.title)
   if (!(existing && sameTitle(existing.title, title)) && titleTaken(cases, title, input.id))
     throw new Error(`Another case is called ${title}. Give this one a title of its own.`)
   if (!isNew && expectedSavedAt != null) {
@@ -611,14 +763,23 @@ export function saveCase(
     if (!present(source)) throw new Error(`${pick.name} is no longer kept. Add it again.`)
     return { source, dest: entry(pick.name) }
   })
+  // Everything that can refuse the save is asked before the first write: a save refused writes nothing.
+  const block = isFile(promptPath) ? frontMatterBlock(readFileSync(promptPath, 'utf8')) : ''
+  const promptText = promptFileText(block, input.prompt)
+  const pictures = new Map<string, string>()
+  for (const upload of [
+    ...input.images.map((image) => image.upload),
+    ...input.graders.filter((g) => g.statement.trim()).map((g) => g.image?.upload),
+  ])
+    if (upload && !pictures.has(upload)) pictures.set(upload, uploads.picture(upload))
+  const picture = (upload: string): string => pictures.get(upload) ?? uploads.picture(upload)
+
   const write = (path: string, text: string): void => writeText(path, text, { root: skillDir })
   mkdirSync(graderDir, { recursive: true })
-
-  const front = isFile(promptPath) ? frontMatterBlock(readFileSync(promptPath, 'utf8')) : ''
-  write(promptPath, `${front ? `${front.trimEnd()}\n\n` : ''}${input.prompt.trim()}\n`)
+  write(promptPath, promptText)
 
   const doc = caseYaml(yamlPath)
-  doc.set('title', input.title.trim() || input.id)
+  doc.set('title', title || input.id)
   if (input.expectedOutcome.trim()) doc.set('expected_outcome', input.expectedOutcome.trim())
   else doc.delete('expected_outcome')
   if (input.words) {
@@ -647,7 +808,7 @@ export function saveCase(
     if (imageTypeOf(name) && !wanted.has(name)) rmSync(join(filesDir, name))
   for (const image of input.images) {
     if (!image.upload) continue
-    const source = uploads.picture(image.upload)
+    const source = picture(image.upload)
     mkdirSync(filesDir, { recursive: true })
     const base = imageFileName(image.name, formatOf(source))
     let name = base
@@ -684,7 +845,7 @@ export function saveCase(
     if (weight === 1) delete meta.weight
     else meta.weight = weight
     if (g.image?.upload) {
-      const source = uploads.picture(g.image.upload)
+      const source = picture(g.image.upload)
       mkdirSync(referenceDir, { recursive: true })
       const name = `${id}.${formatOf(source)}`
       // The check's picture replaces whatever had its name, a link included, and writes through none.
@@ -738,7 +899,7 @@ export function duplicateCase(skillDir: string, id: string): string {
     }
   }
   // An untitled case is named by its prompt: the copy takes that as its title, so the two differ.
-  const named = hasTitle(found) ? found.title.trim() : promptStart(found.prompt) || id
+  const named = hasTitle(found) ? oneLineTitle(found.title) : promptStart(found.prompt) || id
   const title = unusedTitle(cases, `${named} copy`)
   const taken = cases.map((c) => c.id)
   try {

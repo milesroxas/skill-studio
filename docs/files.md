@@ -38,12 +38,15 @@ Everything Skill Studio knows about a skill is plain files in the skill's `evals
 - A case folder's name is the case's id, and names a folder in every run. A folder whose name holds anything but letters, digits, `_`, `.` and `-`, or starts with a dot, is left out with a warning that names it. The app makes ids of lowercase letters, digits and single dashes.
 - An `evals.json` case is named `<id>-<name>`, and a name that is not lowercase letters, digits and single dashes, or an entry with no prompt, is left out with a warning that names the entry.
 - Every file under a case's `files/` is an input file, a hidden one such as `.eslintrc.json` or `.github/ci.yml` among them, and the agent gets each one. The skill's own hidden files stay out of its copy ([versions](#versions)).
+- A `prompt.md` is read as its first front matter block, the case's settings, then the request. A save keeps the block the file has. A request that starts like a block of its own, as one whose first line is `---` and a later line closes it, is saved after a block that sets nothing (`---`, `{}`, `---`), so it reads back whole, and so is any request after an empty block, which the request's first `---` line would end (`promptFileText` in `src/infrastructure/cases.ts`). Settings come only from that first block: a block in the request is the request's text.
+- A case's `title` is one line wherever it is shown: a line break, a tab or a run of spaces in it reads as one space, and a save writes it that way. Two cases may not share a title, read so and whatever its capitals. A title written by hand with a line break in it is listed by `st case check`. A title of white space alone is none, and the case is named by the start of its prompt.
+- A save that is refused writes nothing: a prompt that would not read back, a picture no longer kept, and every check below are asked before the first write.
 - Saving a case is refused, before anything is written, when its folder, its `files/`, `graders/` or `references/`, its `prompt.md`, its `case.yaml` or one of its checks is reached through a link that leads out of the skill.
-- A grader file must start with front matter (`---`), even an empty block. A file without it is skipped. Its `weight` is rounded and held to 1 to 5; a value that is not a positive number reads as 1. `type` and `focus` are kept when the case is saved.
+- A grader file must start with front matter (`---`), even an empty block. A file without it is skipped. Its `weight` is rounded and held to 1 to 5; a value that is not a positive number reads as 1. `type` and `focus` are kept when the case is saved. `st case check` lists each file skipped and each weight read otherwise than written ([cli.md](cli.md#adding-and-checking-cases)).
 - `max_turns` is not passed to the agent. The workflow pack compares it with the number of tool calls.
 - `allowed_tools` is passed to Claude Code. The Cursor agent takes no list of tools and can use every one: the Run panel says so under **Agent** when a ticked case sets `allowed_tools`.
 - `allowed_tools` and `timeout_seconds` are part of what a case asks: a run made before either changed answered another request. `max_turns` and `timeout_seconds` are part of what an output is held to: one graded before either changed has no total until its run is graded again ([grading.md](grading.md#the-case-a-run-is-graded-on)).
-- `fixtures/` holds three small skills with generated runs: `demo-skill` (generic pack), `code-skill` (code pack) and `design-skill` (design pack). Each also runs the generic and workflow packs.
+- `fixtures/` holds four small skills with generated runs: `demo-skill` (generic pack), `code-skill` (code pack) and `design-skill` (design pack), each of which also runs the generic and workflow packs, and `launch-note`, a skill whose every rule code can answer, with the answer key the [reading bench](../scripts/reading-bench/README.md) counts against.
 
 ### Checks for every case
 
@@ -154,7 +157,7 @@ evals/runs/<date>-skill-<vN>-<engine>-<model>[-<effort>][-<configuration>]/
     .agents/skills/<name>/        the skill copy the agent saw, made from _skill/
     outputs/                      everything the agent produced; graded artifacts come from here
     scratch/                      the agent's working files (scripts, crops, trial renders), which the prompt sends here; never graded
-    renders/                      the page as the desktop app drew it for grading: one PNG per size, beside each a `.json` of what was measured, and a `.match.json` where a picture the agent made was compared with it
+    renders/                      the page as the desktop app drew it for grading: one PNG per size, beside each a `.json` of what was measured, and a `.match.json` where a picture the agent made was compared with it; `st sheet` shows the desktop one
     notes.md                      what the agent would have told the user
     transcript.jsonl              one event per line: system, text, thinking, tool, result, error;
                                   a tool event holds a hash of its whole input (`call`)
@@ -199,16 +202,17 @@ A run keeps the version it tested. Its `_skill/` snapshot is the copy the app re
 - Restore makes the skill's files those of the version, byte for byte, all of them or none: every file the version's copy holds is put back, and a file the version does not have goes. `evals/`, hidden files and installed packages are no part of a version and are never touched. When the copy kept of a version does not hold all it was stamped with (a version marked `partial`), only `SKILL.md` and `references/` are restored and compared, and other files stay as they are: the version's page says so.
 - The app asks before a restore when the files were saved since the last run or hold unsaved edits (`restoreAsk` in `src/renderer/restore.ts`). A restore drops the unsaved edits of the skill's files, so none stays to be saved back over a restored file.
 - When a restore fails partway and a file cannot be moved back, your files are kept in a hidden `.restore-…` folder in the skill. The error names each one and where it goes.
-- A changed tree needs a name on its first run. The app names a skill's first version "First version" and a later one after the date, unless you type what changed. `st run` asks for `--name`.
+- A changed tree needs a name on its first run. The app names a skill's first version "First version" and a later one after the date, unless you type what changed, and two versions may share a name there. `st run` asks for `--name`, and refuses a name another version already has, read as a person reads it: letters that look alike as one (NFKC, so a full-width letter is its plain one), no invisible format character such as a zero-width space, every run of white space one space and none at either end, and no case (`takenBy` in `src/application/generate.ts`). A name with nothing left to read after that is no name. It refuses before it writes anything, and of two runs started at once under one new name, the second is refused. The same files as a kept version are that version under its own name, whatever `--name` says.
 - A run without the skill tests no version. It needs no name, and it is stamped with the number the files have now but names no version: the files still count as changed until a run with the skill, which takes that number. Its `_skill/` is never read as a version's copy.
 - Later runs of the same files reuse the version.
 - The Assistant can keep the files as a version before it changes them. That copy lands in `evals/versions/`.
 - Deleting a version's only run saves the version there too, from the run's `_skill/`, so the version stays.
 - Saved and run versions share one numbering.
+- A run takes its version and writes its `run.json` holding `evals/runs/.stamp.lock`, so two runs started at once, from the app, `st serve` or `st`, never take one number: the second waits for the first to take its number, never for it to copy its cases' input files. A run whose input files cannot be copied leaves no folder behind.
 
 A run's configuration says which skill the agent saw:
 
-- `with_skill` (the default): the skill as it is now.
+- `with_skill` (the default): the skill as it is now. With `st run --from <dir>`, the files in that folder instead, outside the skill: they are the version the run keeps, numbered as the skill's own files would be, and `_skill/` holds them ([cli.md](cli.md#commands)).
 - `without_skill`: no skill in the workspace, and no line in the prompt pointing at one.
 - `old_skill --baseline <version>`: that version's files, from the first copy kept of it that holds all its hash covers: its saved copy in `evals/versions/`, then the `_skill/` of each of its runs, oldest first (`versionCopy` in `src/infrastructure/runs.ts`). The agent is told the skill by the name that copy gives it, whatever the skill is called now.
 - A saved copy holds what a run's `_skill/` holds: SKILL.md, `references/`, scripts, assets and every other file the hash covers. One saved by Skill Studio 0.14.0 or earlier holds SKILL.md and `references/` only, and gives way to a run's copy that holds the rest. With no copy whole, a run of the version gets SKILL.md and `references/` alone: the log says so, and the Run panel says so under **Version**.
@@ -226,6 +230,8 @@ A run's configuration says which skill the agent saw:
 | `practice/` | The walkthrough's skill, and `seen.json`: the walkthrough steps that only ask you to look at a screen, once you have |
 | `chat.json`, `ai-usage.json` | The Assistant's conversation and its usage log |
 | `claude-commands.json` | The skills Claude Code can invoke, for the side panel's slash menu, with the modification times of the folders they were read from |
+| `open-<hash>.json` | The server `st open` started for one checkout, `<hash>` the first 8 hex digits of the SHA-256 of the checkout's real path: its `pid`, `port`, `token` and `checkout`. Readable by your account alone (`0600`). The server writes it as it starts and removes it as it stops, and `st open` removes one whose process is gone ([cli.md](cli.md#opening-results-from-the-command-line)) |
+| `open-<hash>.log` | What that server wrote to stderr, never its stdout. Made anew at each start, readable by your account alone (`0600`) from its first byte, and left when the server stops. Past 1 MB its oldest half goes |
 | `agents.json` | The agents each running copy (the app's backend, `st`) has started, under the copy that started it, so a copy that starts after another crashed can end that copy's agents |
 | `uploads/` | Pictures added but not yet saved in a case. One nothing has read for 30 days is removed when the next picture is uploaded |
 | `uploads/inputs/` | Files and folders added to a case and not saved yet, one folder for each pick. One nothing has used for 30 days is removed when the next is added |

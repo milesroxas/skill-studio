@@ -6,6 +6,28 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+### Added
+
+- On the command line, `st case add` writes a new case from flags, checked as the **Cases** screen checks one, and `st case check` lists each case and check file that will not load or is skipped, and each title two cases share.
+- `st run --from <folder>` runs the skill files in a folder outside the skill as the version, on the skill's own cases, so two drafts can run at once and each is kept as its own version.
+- `st run` and `st compare` now end with the command that opens **Results** on their runs.
+- `st open` prints an address that opens **Results** on one case and two runs, safe to paste in a chat: it works for one load within a minute. It starts the app for this checkout in the background when it is not running, and `st open --stop` stops it.
+- `st report`, `st compare` and `st run` take `--brief`, which prints only each case, what became of an attempt that was not read whole, and the words of each rule or check it missed. For `compare` it also says which run did better.
+- `st run --quiet` prints one line as each attempt ends in place of progress, and still says what needs your attention.
+- `st run`, `st grade` and `st serve` now draw a page as the desktop app does, so a grading from the command line sees the same picture and the same measures. `--no-draw` grades without drawing.
+- `st sheet` puts each case's drawn pages from two or more runs side by side in one picture, a row for each run and a column for each attempt, and prints where each picture is.
+- `st run` refuses a version name another version of the skill already has, however its letters, spaces or case are written. Pass another `--name`.
+- `--brief` starts each case's line with its id in brackets, the one `--cases` takes, and says how many attempts missed a rule or check, such as `missed in 1 of 3`.
+- The app `st open` starts writes its errors to `open-<hash>.log` in the studio folder, and `st open` names that file when the app does not come up.
+- An agent in a chat can follow a project skill, `.claude/skills/skill-studio-loop`, to make a skill, run two versions of it and compare them with `pnpm st`.
+
+### Fixed
+
+- Two runs of one skill started at the same moment no longer take the same version number.
+- A case's title is always one line. A line break or a tab in a title reads as one space, and `st case check` lists a title written with a line break.
+- A case's request that starts with a `---` block is kept as the request. It was read as the case's settings.
+- `st cases`, `st report` and `st compare` print every case id and attempt name whole, so an id copied from them works in `--cases`.
+
 ## [0.20.3] - 2026-11-25
 
 ### Added

@@ -56,7 +56,13 @@ function serveApp(rendererDir: string): (request: Request) => Promise<Response> 
   }
 }
 
-function serveArtifacts(backend: Backend): (request: Request) => Promise<Response> {
+/**
+ * Serve a sample's files and the writer's pictures through `call`: the app's
+ * backend, or the drawing host's own operations (`../draw/host.ts`).
+ */
+export function serveArtifacts(
+  backend: Pick<Backend, 'call'>,
+): (request: Request) => Promise<Response> {
   return async (request) => {
     const url = new URL(request.url)
     // A sample's file is named by its path, so a page loads the files beside it by their relative names.

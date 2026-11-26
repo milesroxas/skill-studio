@@ -3,11 +3,12 @@ import { type TwoCounts, twoCounts } from '@domain/case-result.ts'
 import type { Configuration } from '@domain/schemas.ts'
 import { readRun } from '@infrastructure/runs.ts'
 import { runNameOf } from '../input.ts'
+import { briefOrJson, printBrief } from './brief.ts'
 import type { Command, FlagValues } from './command.ts'
 import { shared } from './flags.ts'
-import { padEnd, printReport, skillOf } from './shared.ts'
+import { oneRun, padEnd, printReport, skillOf, widthOf } from './shared.ts'
 
-const flags = shared('run', 'json', 'packs', 'bench')
+const flags = shared('run', 'json', 'brief', 'packs', 'bench')
 
 /** A count as the app writes it: "3 of 4", "3 of 4, 1 not sure", "3 of 4, 1 not read". */
 function countWords(count: TwoCounts['checks']): string {
@@ -30,9 +31,13 @@ function printCounts(
 ): void {
   if (!counts.length) return
   console.log('\nChecks met and rules followed, counted apart')
+  const width = widthOf(
+    counts.map(([sample]) => sample),
+    36,
+  )
   for (const [sample, two] of counts)
     console.log(
-      `  ${padEnd(sample, 36)}checks ${padEnd(countWords(two.checks), 24)}rules ${
+      `  ${padEnd(sample, width)}checks ${padEnd(countWords(two.checks), 24)}rules ${
         two.rules
           ? countWords(two.rules)
           : configuration === 'without_skill'
@@ -44,21 +49,31 @@ function printCounts(
 
 export const report: Command = {
   name: 'report',
-  help: ["  report                      Print a run's report: --run <name>."],
+  help: [
+    "  report                      Print a run's report: --run <name>.",
+    '    --brief                   Print only each case and the rules and checks it missed.',
+  ],
   flags,
   agents: false,
   async run(context) {
     const values = context.values as FlagValues<typeof flags>
     const { skill } = skillOf(context.args)
-    if (!values.run) throw new Error('Pass --run <name>.')
-    const name = runNameOf(values.run, '--run')
+    const run = oneRun(context.values)
+    if (!run) throw new Error('Pass --run <name>.')
+    const brief = briefOrJson(context.values)
+    const name = runNameOf(run, '--run')
     const view = readRun(skill, name)
-    if (!view.report)
-      throw new Error(`${values.run} is not graded. Run: st grade --run ${values.run}`)
+    if (!view.report) throw new Error(`${run} is not graded. Run: st grade --run ${run}`)
     // Scored as the app scores it: under the scoring as it is now, with the reader's corrections.
     const corrections = correctionsOf(skill, name)
+    const samples = view.samples.map((s) => s.name)
+    if (brief) {
+      const side = { view, report: view.report, cases: view.cases, samples, corrections }
+      printBrief(skill, side, context.scoring)
+      return 0
+    }
     const scored = scoredReport(skill, view.report, context.scoring, view.cases, {
-      samples: view.samples.map((s) => s.name),
+      samples,
       corrections,
     })
     if (values.json) console.log(JSON.stringify(scored, null, 2))

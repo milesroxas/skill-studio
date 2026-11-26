@@ -4,8 +4,10 @@ import { join, resolve } from 'node:path'
 import { TOKEN_PARAM } from '../../http/guard.ts'
 import { DEFAULT_PORT, startServer } from '../../http/server.ts'
 import { DEFAULT_TAILSCALE_PORT, serveOnTailnet, tailnetIdentity } from '../../http/tailscale.ts'
-import { keepRunning } from '../../lifecycle.ts'
+import { keepRunning, type Lifecycle } from '../../lifecycle.ts'
+import { drawingHost } from '../drawing.ts'
 import { openCommand, portOf } from '../input.ts'
+import { openedServe } from '../open-server.ts'
 import type { Command, FlagValues } from './command.ts'
 
 const flags = {
@@ -14,6 +16,17 @@ const flags = {
   tailscale: { type: 'boolean' },
   'tailscale-port': { type: 'string' },
 } as const
+
+/**
+ * How the server stops, by itself (`st open`'s idle stop) as on Ctrl-C:
+ * through the lifecycle, which ends its jobs' agents and its drawing host,
+ * then the process exits.
+ */
+export const stopServing =
+  (lifecycle: Lifecycle | null, exit: (code: number) => void = process.exit) =>
+  (): void => {
+    void (lifecycle?.stop() ?? Promise.resolve()).finally(() => exit(0))
+  }
 
 export const serve: Command = {
   name: 'serve',
@@ -37,7 +50,25 @@ export const serve: Command = {
     const httpsPort = portOf(values['tailscale-port'], '--tailscale-port')
     if (httpsPort && !values.tailscale) throw new Error('--tailscale-port needs --tailscale.')
     const remote = values.tailscale ? await tailnetIdentity() : null
-    const server = await startServer({ skills, port, remote })
+    // Started by `st open`: on a port the system picks, found by its file, and stopped when unused.
+    const opened = openedServe()
+    const server = await startServer({
+      skills,
+      port: opened ? 0 : port,
+      remote,
+      onRequest: opened?.onRequest,
+      // Started at the first page a grading draws, and ended with the server, the idle stop included.
+      render: drawingHost({
+        warn: (line) => console.error(line),
+        signal: context.lifecycle?.signal,
+      }),
+    })
+    const stop = stopServing(context.lifecycle)
+    if (opened && !opened.host(server, stop)) {
+      // Another `st open` started this checkout's server at the same time, and it serves.
+      await server.close()
+      process.exit(0)
+    }
     // The address carries the token every request needs, from this machine or the tailnet.
     console.log(`Skill Studio: ${server.url}${skills.length ? `  (${skills.join(', ')})` : ''}`)
     if (remote) {

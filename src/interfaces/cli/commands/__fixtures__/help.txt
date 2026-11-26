@@ -2,6 +2,16 @@ Usage: st <command> [skill-dir] [options]
 
 Commands
   cases                       List the skill's cases.
+  case add                    Write a new case, checked as the Cases screen checks one.
+    --title <text>            Its title; default the start of its prompt.
+    --prompt <text>           The request the agent gets.
+    --prompt-file <file>      The request, from a file, in place of --prompt.
+    --check <text>            A check a good answer meets. Once for each check.
+    --file <path>             A file or folder the agent gets with the request. Once for each.
+    --artifact <kind>         The file to grade: html (a page) or image (a picture).
+    --size <WxH>              The size in pixels a picture must be, or a page is drawn at.
+  case check                  List each case and check file that will not load or is skipped,
+                              and each title two cases share. Exits 1 when it lists any.
   run                         Generate outputs with a headless agent, then grade them.
     --engine <id>             claude (default) or cursor.
     --model <id>              Engine model; default per engine.
@@ -10,13 +20,25 @@ Commands
     --samples <n>             Samples per case (default 1).
     --configuration <c>       with_skill (default), without_skill, old_skill.
     --baseline <v|run>        For old_skill: the version (v1) or run to test.
+    --from <dir>              Run the skill files in <dir>, outside the skill, as the version.
     --name <text>             Name the skill version when the tree changed.
     --note <text>             Note on the version.
     --parallel <n>            Samples in flight (default 3).
     --no-grade                Skip grading after generation.
+    --brief                   Print only each case and the rules and checks it missed.
+    --quiet                   Print one line as each attempt ends in place of progress.
   grade                       Grade a run: --run <name> or --all.
   report                      Print a run's report: --run <name>.
+    --brief                   Print only each case and the rules and checks it missed.
   compare <runA> <runB>       Score deltas between two graded runs.
+    --brief                   Print only each case, the run that did better on its checks,
+                              and the rules and checks each run missed.
+  sheet                       Put each case's drawn pages side by side in one picture, a row
+                              a run and a column an attempt, and print each picture's path.
+                              It shows the pages a grading drew, so grade the runs first.
+    --run <name>              A run to show. Once for each run.
+    --case <id>               The one case to show; default every case the runs answered.
+    --out <dir>               The folder the pictures go in; default a new temporary folder.
   read                        Have the assistant read a graded run: --run <name>. It answers
                               what Jev was not sure of, and prints how often its answers
                               agree with yours. It writes nothing to the skill.
@@ -69,9 +91,17 @@ Commands
                               With no skill it opens on the library of skills on this machine.
                               --tailscale also serves it on this machine's tailnet name
                               (--tailscale-port 8443), for your own Tailscale login only.
+  open                        Print an address that opens Results in a browser, good for one
+                              load within a minute. It starts the app for this checkout when
+                              it is not running; that stops after an hour with no use.
+    --case <id>               The case to show; default the first one the runs answered.
+    --a <run>                 The run shown as A.
+    --b <run>                 The run shown as B.
+    --stop                    Stop this checkout's app now.
 
 Common
   --no-jev                    Grade without TypeSafe calls (code checks only).
+  --no-draw                   Grade without drawing each page first (run and grade draw them).
   --packs <a,b>               Judge packs to run, instead of bench.json's list.
   --bench <file>              A bench.json laid over the skill's for this grading.
   --jev-model <id>            Jev version to judge with.

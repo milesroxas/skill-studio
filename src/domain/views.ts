@@ -174,7 +174,8 @@ export interface State {
   /**
    * What a grading made here now grades with: the version of every pack's
    * questions, by id, the Jev model, and whether this host draws pages
-   * (`drawn`: the desktop app does, `st serve` does not).
+   * (`drawn`: the desktop app does, and `st serve` does when it can start
+   * the drawing host).
    */
   grading: GradedWith
   paths: { bench: string; reviews: string }

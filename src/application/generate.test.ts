@@ -1,4 +1,6 @@
+import { spawn } from 'node:child_process'
 import {
+  cpSync,
   existsSync,
   mkdirSync,
   mkdtempSync,
@@ -6,16 +8,19 @@ import {
   readFileSync,
   realpathSync,
   rmSync,
+  statSync,
+  utimesSync,
   writeFileSync,
 } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { dirname, join } from 'node:path'
+import { dirname, join, resolve } from 'node:path'
 import { mergeConfig } from '@domain/config.ts'
 import { isWithin } from '@domain/paths.ts'
 import { loadCases } from '@infrastructure/cases.ts'
 import type { Engine } from '@infrastructure/engines/index.ts'
 import type { EngineRequest, EngineResult } from '@infrastructure/engines/types.ts'
 import { readJson } from '@infrastructure/fs.ts'
+import { STAMP_LOCK_FILE } from '@infrastructure/grading-lock.ts'
 import {
   finishedSamples,
   readRun,
@@ -28,8 +33,23 @@ import { saveVersion } from '@infrastructure/versions.ts'
 import { packById } from '@judges/index.ts'
 import { Jev } from '@judges/jev.ts'
 import { workflowScoring } from '@judges/workflow/score.ts'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { generateRun, INPUTS_DIR, samplesPerCase, stagedInput, stagedInputs } from './generate.ts'
+
+/** What each copy of a case's input file into a run does first, when set: wait, or fail. */
+const copies = vi.hoisted(() => ({
+  hook: null as ((source: string, dest: string) => Promise<void>) | null,
+}))
+vi.mock('node:fs/promises', async (actual) => {
+  const real = await actual<typeof import('node:fs/promises')>()
+  return {
+    ...real,
+    copyFile: (async (...args: Parameters<typeof real.copyFile>) => {
+      await copies.hook?.(String(args[0]), String(args[1]))
+      return real.copyFile(...args)
+    }) as typeof real.copyFile,
+  }
+})
 
 let skill: string
 beforeEach(() => {
@@ -46,7 +66,43 @@ beforeEach(() => {
   mkdirSync(join(skill, 'evals/cases/note/files/screen'))
   writeFileSync(join(skill, 'evals/cases/note/files/screen/Bookings.tsx'), 'a screen')
 })
-afterEach(() => rmSync(skill, { recursive: true, force: true }))
+/** Other folders a test made, removed after it. */
+const made: string[] = []
+afterEach(() => {
+  copies.hook = null
+  rmSync(skill, { recursive: true, force: true })
+  for (const dir of made.splice(0)) rmSync(dir, { recursive: true, force: true })
+})
+
+const ROOT = resolve(import.meta.dirname, '../..')
+
+/**
+ * One process that starts a run of a draft of a skill with an engine that
+ * does nothing: it says it is ready, waits for the word to go, and prints the
+ * version the run took.
+ */
+const START_SCRIPT = `
+import { existsSync, writeFileSync } from 'node:fs'
+import { pathToFileURL } from 'node:url'
+const [skill, draft, ready, go, named] = process.argv.slice(2)
+const root = ${JSON.stringify(ROOT)}
+const { generateRun } = await import(pathToFileURL(root + '/src/application/generate.ts').href)
+const { loadCases } = await import(pathToFileURL(root + '/src/infrastructure/cases.ts').href)
+const ended = { ok: true, error: null, costUsd: null, tokens: null, model: 'small', finalText: null }
+const engine = {
+  id: 'fake', label: 'Fake', harness: 'agent', efforts: [], defaultModel: 'small', hint: '',
+  limitsTools: true, available: () => true, models: async () => ['small'], run: async () => ended,
+}
+const cases = loadCases(skill)
+writeFileSync(ready, '')
+while (!existsSync(go)) {}
+const { meta } = await generateRun({
+  skillDir: skill, from: draft, cases, engine, model: null, effort: null, samples: 1,
+  configuration: 'with_skill', baseline: null, skillName: named ?? draft, ownName: Boolean(named),
+  note: '', parallel: 1, log: () => {},
+})
+console.log(meta.skillVersion)
+`
 
 const ENDED: EngineResult = {
   ok: true,
@@ -519,6 +575,331 @@ describe('generateRun', () => {
     ).rejects.toThrow('No version v4 is kept.')
   })
 
+  it('runs the files of a folder outside the skill as the version, held against the skill’s', async () => {
+    const draft = mkdtempSync(join(tmpdir(), 'st-draft-'))
+    made.push(draft)
+    const working = readFileSync(join(skill, 'SKILL.md'), 'utf8')
+    await generateRun(
+      options(
+        engineThat(() => {}),
+        1,
+      ),
+    )
+    writeFileSync(join(draft, 'SKILL.md'), '---\nname: Notes Skill\n---\n\n- Keep it long.\n')
+    mkdirSync(join(draft, 'scripts'))
+    writeFileSync(join(draft, 'scripts/tool.sh'), 'draft tool')
+    let seen = ''
+    const engine = engineThat((cwd) => {
+      seen = readFileSync(join(cwd, '.agents/skills/notes-skill/SKILL.md'), 'utf8')
+    })
+    // New files take the next number, and a name.
+    await expect(
+      generateRun({ ...options(engine, 1), from: draft, skillName: null }),
+    ).rejects.toThrow('Name this version (v1) to run it.')
+    const { dir, meta } = await generateRun({
+      ...options(engine, 1),
+      from: draft,
+      skillName: 'Long',
+    })
+    expect(meta).toMatchObject({ skillVersion: 'v1', skillName: 'Long' })
+    expect(seen).toContain('Keep it long')
+    expect(readFileSync(join(dir, '_skill/SKILL.md'), 'utf8')).toContain('Keep it long')
+    expect(readFileSync(join(dir, '_skill/scripts/tool.sh'), 'utf8')).toBe('draft tool')
+    // The skill's own files are untouched, and are still the version they were.
+    expect(readFileSync(join(skill, 'SKILL.md'), 'utf8')).toBe(working)
+    expect(readFileSync(join(skill, 'scripts/tool.sh'), 'utf8')).toBe('first tool')
+    expect(versionsOf(skill).current).toMatchObject({ version: 'v0', changed: false })
+    expect(versionsOf(skill).versions.map((v) => v.version)).toEqual(['v0', 'v1'])
+    // The same files as a kept version are that version, with no name asked.
+    const again = await generateRun({ ...options(engine, 1), from: draft, skillName: null })
+    expect(again.meta).toMatchObject({ skillVersion: 'v1', skillName: 'Long' })
+    cpSync(join(skill, 'SKILL.md'), join(draft, 'SKILL.md'))
+    cpSync(join(skill, 'scripts'), join(draft, 'scripts'), { recursive: true })
+    const same = await generateRun({ ...options(engine, 1), from: draft, skillName: null })
+    expect(same.meta).toMatchObject({ skillVersion: 'v0', skillName: 'First version' })
+  })
+
+  it('refuses a draft folder with no SKILL.md, none named, one inside or around the skill, and a run that is not with_skill', async () => {
+    const engine = engineThat(() => {})
+    const empty = mkdtempSync(join(tmpdir(), 'st-draft-'))
+    made.push(empty)
+    // An empty name is no folder, not the skill's own files.
+    await expect(generateRun({ ...options(engine, 1), from: '' })).rejects.toThrow(
+      'No folder was named',
+    )
+    await expect(generateRun({ ...options(engine, 1), from: empty })).rejects.toThrow(
+      'No SKILL.md at',
+    )
+    mkdirSync(join(skill, 'drafts/long'), { recursive: true })
+    writeFileSync(join(skill, 'drafts/long/SKILL.md'), '- Keep it long.\n')
+    await expect(
+      generateRun({ ...options(engine, 1), from: join(skill, 'drafts/long') }),
+    ).rejects.toThrow("is inside the skill's folder")
+    await expect(generateRun({ ...options(engine, 1), from: skill })).rejects.toThrow(
+      "is inside the skill's folder",
+    )
+    const around = mkdtempSync(join(tmpdir(), 'st-around-'))
+    made.push(around)
+    cpSync(skill, join(around, 'notes'), { recursive: true })
+    writeFileSync(join(around, 'SKILL.md'), '- Keep it long.\n')
+    await expect(
+      generateRun({ ...options(engine, 1), skillDir: join(around, 'notes'), from: around }),
+    ).rejects.toThrow("holds the skill's folder")
+    writeFileSync(join(empty, 'SKILL.md'), '- Keep it long.\n')
+    for (const configuration of ['without_skill', 'old_skill'] as const)
+      await expect(
+        generateRun({ ...options(engine, 1), configuration, baseline: 'v0', from: empty }),
+      ).rejects.toThrow(`cannot be ${configuration}`)
+    expect(engine.calls).toBe(0)
+    expect(existsSync(join(skill, 'evals/runs'))).toBe(false)
+  })
+
+  it('leaves the runs folder as it found it when a run is refused', async () => {
+    const engine = engineThat(() => {})
+    const runs = join(skill, 'evals/runs')
+    const draft = mkdtempSync(join(tmpdir(), 'st-draft-'))
+    made.push(draft)
+    writeFileSync(join(draft, 'SKILL.md'), '- Keep it long.\n')
+    const refused = [
+      { skillName: null },
+      { from: join(draft, 'missing') },
+      { from: draft, configuration: 'without_skill' as const },
+    ]
+    for (const how of refused)
+      await expect(generateRun({ ...options(engine, 1), ...how })).rejects.toThrow()
+    expect(existsSync(runs)).toBe(false)
+    await generateRun(options(engine, 1))
+    const then = new Date('2026-01-01T00:00:00Z')
+    utimesSync(runs, then, then)
+    writeFileSync(join(skill, 'SKILL.md'), '---\nname: Notes Skill\n---\n\n- Keep it shorter.\n')
+    for (const how of [...refused, { from: draft, skillName: null }])
+      await expect(generateRun({ ...options(engine, 1), ...how })).rejects.toThrow()
+    expect(statSync(runs).mtimeMs).toBe(then.getTime())
+    expect(readdirSync(runs)).toHaveLength(1)
+  })
+
+  /**
+   * Start a run of each of two drafts, `a` and `b`, in two processes at once,
+   * each named `named` when given; each process's version, or its failure.
+   */
+  async function startTogether(named?: string): Promise<PromiseSettledResult<string>[]> {
+    const scratch = mkdtempSync(join(tmpdir(), 'st-stamp-'))
+    made.push(scratch)
+    // Files enough that one start takes a while, so the two would overlap with nothing to stop them.
+    for (let n = 0; n < 200; n += 1) writeFileSync(join(skill, 'scripts', `tool-${n}.sh`), `${n}`)
+    const drafts = ['a', 'b'].map((letter) => {
+      const draft = join(scratch, `draft-${letter}`)
+      cpSync(skill, draft, {
+        recursive: true,
+        filter: (path) => !path.startsWith(join(skill, 'evals')),
+      })
+      writeFileSync(join(draft, 'SKILL.md'), `---\nname: Notes Skill\n---\n\n- Draft ${letter}.\n`)
+      return draft
+    })
+    const script = join(scratch, 'start.mts')
+    writeFileSync(script, START_SCRIPT)
+    const go = join(scratch, 'go')
+    const children = drafts.map((draft, i) => {
+      const child = spawn(
+        process.execPath,
+        [
+          '--import',
+          'tsx',
+          script,
+          skill,
+          draft,
+          join(scratch, `ready-${i}`),
+          go,
+          ...(named ? [named] : []),
+        ],
+        { cwd: ROOT, stdio: ['ignore', 'pipe', 'pipe'] },
+      )
+      let out = ''
+      let err = ''
+      child.stdout.on('data', (chunk) => (out += chunk))
+      child.stderr.on('data', (chunk) => (err += chunk))
+      return new Promise<string>((done, fail) =>
+        child.on('close', (code) => (code === 0 ? done(out.trim()) : fail(new Error(err)))),
+      )
+    })
+    while (![0, 1].every((i) => existsSync(join(scratch, `ready-${i}`))))
+      await new Promise((done) => setTimeout(done, 10))
+    writeFileSync(go, '')
+    return Promise.allSettled(children)
+  }
+
+  it('gives two runs of two drafts started together in two processes two numbers', async () => {
+    const versions = (await startTogether()).map((result) =>
+      result.status === 'fulfilled' ? result.value : String(result.reason),
+    )
+    expect(versions.sort()).toEqual(['v0', 'v1'])
+    // Two runs, and the lock given back.
+    expect(readdirSync(join(skill, 'evals/runs'))).toHaveLength(2)
+    expect(existsSync(join(skill, 'evals/runs', STAMP_LOCK_FILE))).toBe(false)
+  }, 60_000)
+
+  it('refuses the second of two drafts started together under one new name', async () => {
+    const results = await startTogether('Draft A')
+    const kept = results.flatMap((r) => (r.status === 'fulfilled' ? [r.value] : []))
+    const refused = results.flatMap((r) => (r.status === 'rejected' ? [String(r.reason)] : []))
+    expect(kept).toEqual(['v0'])
+    expect(refused).toHaveLength(1)
+    expect(refused[0]).toContain('v0 is already called "Draft A"')
+    // One run, one version of that name, and the lock given back.
+    expect(readdirSync(join(skill, 'evals/runs'))).toHaveLength(1)
+    expect(versionsOf(skill).versions.map((v) => [v.version, v.name])).toEqual([['v0', 'Draft A']])
+    expect(existsSync(join(skill, 'evals/runs', STAMP_LOCK_FILE))).toBe(false)
+  }, 60_000)
+
+  it('lets a second run start while the first is still copying its input files', async () => {
+    let open = () => {}
+    const gate = new Promise<void>((done) => {
+      open = done
+    })
+    let entered = () => {}
+    const copying = new Promise<void>((done) => {
+      entered = done
+    })
+    // The first run's first input file takes as long as the second run needs to start.
+    copies.hook = async () => {
+      copies.hook = null
+      entered()
+      await gate
+    }
+    const engine = engineThat(() => {})
+    const first = generateRun(options(engine, 1))
+    await copying
+    let named = ''
+    const second = generateRun({
+      ...options(engine, 1),
+      onNamed: (name) => {
+        named = name
+      },
+    })
+    const started = await Promise.race([
+      second.then(() => 'started'),
+      new Promise<string>((done) => setTimeout(() => done('held up'), 5_000)),
+    ])
+    open()
+    expect(started).toBe('started')
+    const [a, b] = await Promise.all([first, second])
+    // Two runs of one set of files: one version, two names.
+    expect(named).toBe(b.name)
+    expect(a.name).not.toBe(b.name)
+    expect([a.meta.skillVersion, b.meta.skillVersion]).toEqual(['v0', 'v0'])
+    expect(
+      readFileSync(
+        stagedInput(
+          join(a.dir, INPUTS_DIR),
+          loadCases(skill)[0],
+          'evals/cases/note/files/input.txt',
+        ),
+        'utf8',
+      ),
+    ).toBe('first input')
+    expect(existsSync(join(skill, 'evals/runs', STAMP_LOCK_FILE))).toBe(false)
+  }, 30_000)
+
+  it('leaves no run and no version when its input files cannot be copied, so the next run takes the number', async () => {
+    copies.hook = async () => {
+      throw new Error('no space left on device')
+    }
+    const engine = engineThat(() => {})
+    let named = ''
+    await expect(
+      generateRun({
+        ...options(engine, 1),
+        onNamed: (name) => {
+          named = name
+        },
+      }),
+    ).rejects.toThrow('no space left on device')
+    expect(engine.calls).toBe(0)
+    // Nothing was named, and nothing is left: no run, no lock, no version.
+    expect(named).toBe('')
+    expect(readdirSync(join(skill, 'evals/runs'))).toEqual([])
+    expect(versionsOf(skill).versions).toEqual([])
+    copies.hook = null
+    const { meta } = await generateRun(options(engine, 1))
+    expect(meta).toMatchObject({ skillVersion: 'v0', skillName: 'First version' })
+    expect(engine.calls).toBe(1)
+  })
+
+  it('refuses new files a name another version has, read as a person reads it, before it writes', async () => {
+    const engine = engineThat(() => {})
+    const runs = join(skill, 'evals/runs')
+    const own = { ...options(engine, 1), ownName: true }
+    await generateRun({ ...own, skillName: 'Draft A' })
+    const then = new Date('2026-01-01T00:00:00Z')
+    utimesSync(runs, then, then)
+    const draft = mkdtempSync(join(tmpdir(), 'st-draft-'))
+    made.push(draft)
+    writeFileSync(join(draft, 'SKILL.md'), '---\nname: Notes Skill\n---\n\n- Keep it long.\n')
+    // From a draft or from the skill's own edited files, the name is held by v0 however it is typed.
+    for (const name of ['Draft A', '  draft a ', 'DRAFT  A', 'draft\ta'])
+      await expect(generateRun({ ...own, from: draft, skillName: name })).rejects.toThrow(
+        'v0 is already called "Draft A". Give these files (v1) a name of their own to run them.',
+      )
+    writeFileSync(join(skill, 'SKILL.md'), '---\nname: Notes Skill\n---\n\n- Keep it shorter.\n')
+    await expect(generateRun({ ...own, skillName: 'draft a' })).rejects.toThrow('already called')
+    // An empty name is asked for as no name, never matched to a version.
+    for (const name of ['', '   '])
+      await expect(generateRun({ ...own, skillName: name })).rejects.toThrow(
+        'Name this version (v1) to run it.',
+      )
+    expect(engine.calls).toBe(1)
+    expect(statSync(runs).mtimeMs).toBe(then.getTime())
+    expect(readdirSync(runs)).toHaveLength(1)
+    // A name of their own is taken.
+    const fresh = await generateRun({ ...own, skillName: 'Draft A, shorter' })
+    expect(fresh.meta).toMatchObject({ skillVersion: 'v1', skillName: 'Draft A, shorter' })
+    // The same files as a kept version are that version: its own name, or another's, is no error.
+    for (const name of ['Draft A, shorter', 'Draft A', null]) {
+      const again = await generateRun({ ...own, skillName: name })
+      expect(again.meta).toMatchObject({ skillVersion: 'v1', skillName: 'Draft A, shorter' })
+    }
+    // Without `ownName`, as the app runs, a name may be shared.
+    const shared = await generateRun({ ...options(engine, 1), from: draft, skillName: 'Draft A' })
+    expect(shared.meta).toMatchObject({ skillVersion: 'v2', skillName: 'Draft A' })
+  })
+
+  it('reads names that look alike as one, and one with nothing to read as no name', async () => {
+    const engine = engineThat(() => {})
+    const own = { ...options(engine, 1), ownName: true }
+    await generateRun({ ...own, skillName: 'Café Draft' })
+    const draft = mkdtempSync(join(tmpdir(), 'st-draft-'))
+    made.push(draft)
+    writeFileSync(join(draft, 'SKILL.md'), '---\nname: Notes Skill\n---\n\n- Keep it long.\n')
+    const alike = [
+      '\uFF23\uFF41\uFF46é \uFF24\uFF52\uFF41\uFF46\uFF54', // full-width
+      'Café\u200B Draft', // zero-width space
+      'Ca\u200Cfé Dr\u200Daft', // zero-width non-joiner and joiner
+      'Café\u2060 Draft\uFEFF', // word joiner, byte-order mark
+      'Cafe\u0301 Draft', // é written as e and its accent
+      'Café\u3000Draft', // ideographic space
+      'Café\u0085Draft', // next line, white space JavaScript's \\s leaves out
+      'Café \t\u00A0 Draft', // a run of white space
+      'CAFÉ DRAFT',
+    ]
+    for (const name of alike)
+      await expect(
+        generateRun({ ...own, from: draft, skillName: name }),
+        JSON.stringify(name),
+      ).rejects.toThrow('v0 is already called "Café Draft"')
+    for (const name of ['\u200B', '\u200C\u200D\u2060\uFEFF', '\u3000\u0085', ' \u200B '])
+      await expect(
+        generateRun({ ...own, from: draft, skillName: name }),
+        JSON.stringify(name),
+      ).rejects.toThrow('Name this version (v1) to run it.')
+    // Folded as a person reads it: `ß` is `SS`.
+    await generateRun({ ...own, from: draft, skillName: 'Straße' })
+    writeFileSync(join(draft, 'SKILL.md'), '---\nname: Notes Skill\n---\n\n- Keep it longer.\n')
+    await expect(generateRun({ ...own, from: draft, skillName: 'STRASSE' })).rejects.toThrow(
+      'v1 is already called "Straße"',
+    )
+    expect(engine.calls).toBe(2)
+  })
+
   it('refuses a baseline that is not a run name', async () => {
     const engine = engineThat(() => {})
     await expect(
@@ -530,6 +911,101 @@ describe('generateRun', () => {
     ).rejects.toThrow('Bad run.')
     expect(engine.calls).toBe(0)
   })
+})
+
+describe('generateRun, on what a person must know even with progress silenced', () => {
+  /** The lines said through each channel. */
+  type Said = { log: string[]; warn: string[] }
+  type Channels = { log: (line: string) => void; warn?: (line: string) => void }
+  const rows: Array<{
+    kind: string
+    line: RegExp
+    start: (channels: Channels) => Promise<unknown>
+  }> = [
+    {
+      kind: 'an input file of a case that is missing',
+      line: /^note: input file missing, evals\/cases\/note\/files\/gone\.txt$/,
+      start: (channels) => {
+        const [note] = loadCases(skill)
+        const cases = [{ ...note, files: [...note.files, 'evals/cases/note/files/gone.txt'] }]
+        return generateRun({
+          ...options(
+            engineThat(() => {}),
+            1,
+          ),
+          cases,
+          ...channels,
+        })
+      },
+    },
+    {
+      kind: 'a version kept with SKILL.md and references/ alone',
+      line: /^v0 was kept with SKILL\.md and references\/ only: this run gets none of its scripts/,
+      start: (channels) => {
+        rmSync(join(skill, 'evals'), { recursive: true, force: true })
+        mkdirSync(join(skill, 'evals/cases/note'), { recursive: true })
+        writeFileSync(join(skill, 'evals/cases/note/prompt.md'), 'Write a note.')
+        saveVersion(skill, versionsOf(skill).current, 'Short notes', '')
+        rmSync(join(skill, 'evals/versions/v0/files/scripts'), { recursive: true })
+        return generateRun({
+          ...options(
+            engineThat(() => {}),
+            1,
+          ),
+          configuration: 'old_skill',
+          baseline: 'v0',
+          ...channels,
+        })
+      },
+    },
+    {
+      kind: 'work of an agent that could not be moved into the run',
+      line: /^note-s1: .+; the rest is in .+$/,
+      start: async (channels) => {
+        let named = ''
+        let work = ''
+        const engine = engineThat((cwd) => {
+          work = cwd
+          const run = join(skill, 'evals/runs', named)
+          rmSync(run, { recursive: true, force: true })
+          writeFileSync(run, 'not a folder')
+        })
+        await expect(
+          generateRun({
+            ...options(engine, 1),
+            onNamed: (name) => {
+              named = name
+            },
+            ...channels,
+          }),
+        ).rejects.toThrow('could not be written to')
+        rmSync(dirname(work), { recursive: true, force: true })
+      },
+    },
+    {
+      kind: 'what an engine says went wrong',
+      line: /^note-s1 \(fake small\): the transcript could not be written$/,
+      start: (channels) => {
+        const engine = engineThat((_cwd, _call, request) =>
+          request.log?.('the transcript could not be written'),
+        )
+        return generateRun({ ...options(engine, 1), ...channels })
+      },
+    },
+  ]
+
+  it.each(rows)(
+    'says $kind through warn alone when both are given, and through log when warn is not',
+    async ({ line, start }) => {
+      const said: Said = { log: [], warn: [] }
+      await start({ log: (l) => said.log.push(l), warn: (l) => said.warn.push(l) })
+      expect(said.warn.filter((l) => line.test(l))).toHaveLength(1)
+      expect(said.log.filter((l) => line.test(l))).toEqual([])
+      const alone: string[] = []
+      await start({ log: (l) => alone.push(l) })
+      expect(alone.filter((l) => line.test(l))).toHaveLength(1)
+    },
+  )
 })
 
 describe('the folder an agent works in', () => {

@@ -5,12 +5,11 @@ import type { Agreed } from '@domain/reading.ts'
 import { countOf, runNameOf } from '../input.ts'
 import type { Command, FlagValues } from './command.ts'
 import { shared } from './flags.ts'
-import { held, padEnd, signalOf, skillOf, withCost } from './shared.ts'
+import { held, oneRun, padEnd, signalOf, skillOf, withCost } from './shared.ts'
 
 const flags = {
-  ...shared('run', 'cases', 'model', 'effort', 'parallel', 'deep', 'json'),
+  ...shared('run', 'cases', 'model', 'effort', 'parallel', 'deep', 'json', 'out'),
   blind: { type: 'boolean' },
-  out: { type: 'string' },
   answers: { type: 'string' },
   recount: { type: 'string' },
 } as const
@@ -92,10 +91,11 @@ export const read: Command = {
       else printReading(reading, 'your answers')
       return 0
     }
-    if (!values.run) throw new Error('Pass --run <name>.')
+    const run = oneRun(context.values)
+    if (!run) throw new Error('Pass --run <name>.')
     const reading = await held(
       context,
-      readingOfRun(skill, runNameOf(values.run, '--run'), {
+      readingOfRun(skill, runNameOf(run, '--run'), {
         provider: 'claude-code',
         model: values.model ?? 'sonnet',
         effort: values.effort ?? '',
