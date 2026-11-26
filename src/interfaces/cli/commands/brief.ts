@@ -142,7 +142,27 @@ function notesOf(brief: CaseBrief): string[] {
   return notes
 }
 
-const NONE: CaseBrief = { attempts: 0, missed: [], misses: new Map(), unread: 0, apart: [] }
+const NONE: CaseBrief = {
+  attempts: 0,
+  missed: [],
+  misses: new Map(),
+  unread: 0,
+  apart: [],
+  asked: 0,
+  unsure: 0,
+  whole: 0,
+}
+
+/**
+ * How many of a case's rules and checks were left not sure, out of those
+ * asked: `4 of 16 not sure`, counted over its attempts read whole, each rule
+ * or check once. Over more than one attempt, one not sure on any of them
+ * counts: `4 of 16 not sure at least once`. Null where none was.
+ */
+function unsureWords(brief: CaseBrief): string | null {
+  if (!brief.unsure) return null
+  return `${brief.unsure} of ${brief.asked} not sure${brief.whole > 1 ? ' at least once' : ''}`
+}
 
 /**
  * How many attempts missed a rule or check, where the case had more than one:
@@ -155,18 +175,32 @@ function howOften(brief: CaseBrief, words: string): string {
 }
 
 /**
+ * What a case's head line says of one run. Where an attempt was not read
+ * whole, what became of it is said, as it always was, and that alone.
+ * Otherwise how many of its rules and checks were left not sure, after
+ * "nothing missed" where nothing was: "nothing missed" stands alone only
+ * where every one asked got an answer.
+ */
+function caseWords(brief: CaseBrief): string {
+  const notes = notesOf(brief)
+  if (notes.length) return notes.join('; ')
+  const unsure = unsureWords(brief)
+  if (brief.missed.length) return unsure ?? ''
+  return unsure ? `nothing missed, ${unsure}` : 'nothing missed'
+}
+
+/**
  * One run, brief: each case it took or has a grading of, then a line for each
  * rule or check an attempt missed. A case not read whole says why in place of
- * "nothing missed". One run has no other to have done better than.
+ * "nothing missed", and one with rules or checks left not sure says how many.
+ * One run has no other to have done better than.
  */
 export function printBrief(skill: string, side: Side, scoring: Context['scoring']): void {
   const briefs = briefsOf(skill, side, scoring)
   const { order, head } = namesOf(skill, [side.view])
   for (const id of casesInOrder(order, briefs.keys())) {
     const brief = briefs.get(id) ?? NONE
-    const notes = notesOf(brief)
-    const words = notes.length ? notes.join('; ') : brief.missed.length ? '' : 'nothing missed'
-    console.log(headLine(head(id), words))
+    console.log(headLine(head(id), caseWords(brief)))
     for (const w of brief.missed) console.log(missedLines(`missed${howOften(brief, w)}`, w))
   }
 }
@@ -191,8 +225,8 @@ const APART: Readonly<Record<Apart, string>> = {
  * Two runs, brief, A the first named and B the second: each case either took,
  * which did better on its checks (`compareCases`) or why the two were not
  * read against each other (`casesApart`), what became of attempts not read
- * whole, in A or in B, then each rule or check an attempt missed, with which
- * run missed it.
+ * whole, in A or in B, or else how many rules and checks each left not sure,
+ * then each rule or check an attempt missed, with which run missed it.
  */
 export function printBriefCompare(
   skill: string,
@@ -215,13 +249,26 @@ export function printBriefCompare(
       ...notesOf(one).flatMap((n) => (one.attempts ? [`in A, ${n}`] : [])),
       ...notesOf(two).flatMap((n) => (two.attempts ? [`in B, ${n}`] : [])),
     ]
+    // What became of an attempt not read whole is said alone, as with one run.
+    const unsure = notes.length
+      ? []
+      : (
+          [
+            ['A', one],
+            ['B', two],
+          ] as const
+        ).flatMap(([run, brief]) => {
+          const said = unsureWords(brief)
+          return said ? [`in ${run}, ${said}`] : []
+        })
     const words = [...new Set([...one.missed, ...two.missed])]
     const said = [
       read ? BETTER[read.move] : why ? APART[why] : 'neither answered it',
       ...notes,
     ].join('; ')
+    const nothing = !words.length && !notes.length
     console.log(
-      headLine(head(id), `${said}${words.length || notes.length ? '' : ', nothing missed'}`),
+      headLine(head(id), [`${said}${nothing ? ', nothing missed' : ''}`, ...unsure].join('; ')),
     )
     for (const w of words) {
       const [inA, inB] = [one.missed.includes(w), two.missed.includes(w)]

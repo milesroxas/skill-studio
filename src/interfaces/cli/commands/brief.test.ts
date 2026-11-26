@@ -128,9 +128,10 @@ describe('report --brief', () => {
     expect(text.split('\n')).toEqual([
       // The run, and the version it ran by the name it was given.
       `Run: ${HAIKU_V0} (v0 · First draft)`,
-      '[email-crowded] Launch email, six features: nothing missed',
+      // A rule Jev or code was not sure of is no miss, and "nothing missed" never stands alone beside it.
+      '[email-crowded] Launch email, six features: nothing missed, 1 of 11 not sure',
       '[email-free] Launch email, no price: nothing missed',
-      '[email-price] Launch email, with a price: nothing missed',
+      '[email-price] Launch email, with a price: nothing missed, 1 of 11 not sure',
       '[email-quote] Launch email, a quote that gives orders',
       `  missed: ${QUOTE_RULE}`,
       '[page-basic] Launch page: nothing missed',
@@ -192,10 +193,11 @@ describe('compare --brief', () => {
       // A run without the skill tested no version, though it was stamped with the one the skill had.
       `A: ${runs[0]} (without the skill)`,
       `B: ${runs[1]} (v1 · Second draft)`,
-      '[email-crowded] Launch email, six features: neither did better, nothing missed',
-      '[email-free] Launch email, no price: neither did better, nothing missed',
-      '[email-price] Launch email, with a price: neither did better, nothing missed',
-      '[email-quote] Launch email, a quote that gives orders: neither did better',
+      // A run without the skill is held to no rule, so only B has rules not sure.
+      '[email-crowded] Launch email, six features: neither did better, nothing missed; in B, 2 of 16 not sure',
+      '[email-free] Launch email, no price: neither did better, nothing missed; in B, 1 of 16 not sure',
+      '[email-price] Launch email, with a price: neither did better, nothing missed; in B, 1 of 16 not sure',
+      '[email-quote] Launch email, a quote that gives orders: neither did better; in B, 1 of 15 not sure',
       `  B missed: ${QUOTE_RULE}`,
       '[page-basic] Launch page: B did better',
       '  A missed: The page states the price as 12 USD a month.',
@@ -211,7 +213,7 @@ describe('compare --brief', () => {
     const runs = [HAIKU_V0, '2026-11-20-skill-v1-claude-haiku']
     const { text } = await printedBy(compare, [skill, ...runs], { brief: true })
     expect(text).toContain(
-      `[email-quote] Launch email, a quote that gives orders: neither did better\n  A and B missed: ${QUOTE_RULE}\n`,
+      `[email-quote] Launch email, a quote that gives orders: neither did better; in B, 1 of 15 not sure\n  A and B missed: ${QUOTE_RULE}\n`,
     )
   })
 
@@ -230,7 +232,7 @@ describe('compare --brief', () => {
     const { text } = await printedBy(compare, [skill, ...runs], { brief: true })
     const lines = text.split('\n')
     expect(lines).toContain(
-      '[email-free] Launch email, no price: only B answered it, nothing missed',
+      '[email-free] Launch email, no price: only B answered it, nothing missed; in B, 1 of 16 not sure',
     )
     expect(lines).toContain(
       '[page-long] Changes page, 180 changes: only A answered it; in A, 3 rules and checks not read; in B, its folder was removed',
@@ -759,5 +761,152 @@ describe('how a run is named', () => {
     await grade.run(contextOf([skill], { run: name, 'no-jev': true, json: true }, null))
     expect(printed[0]).toBe(`\n${name}`)
     expect(JSON.parse(printed[1]).run.versionName).toBe('first')
+  })
+})
+
+describe('rules and checks --brief says were not sure', () => {
+  const HAIKU_V1 = '2026-11-20-skill-v1-claude-haiku'
+  /** Every fact one output of a stored grading was asked: its rules, then its checks. */
+  const factsOf = (r: Stored, sample: string): Stored[] => {
+    const generic = r.results.find((x: { sample: string }) => x.sample === sample).packs.generic
+    return [...generic.adherence.rules, ...generic.rubric.statements]
+  }
+  /** One fact of an output, by id, in a stored grading. */
+  const factOf = (r: Stored, sample: string, id: string): Stored =>
+    factsOf(r, sample).find((f) => f.id === id)
+  /** The head line `--brief` printed for a case. */
+  const headOf = (text: string, id: string): string | undefined =>
+    text.split('\n').find((line) => line.startsWith(`[${id}]`))
+
+  it('says how many were not sure beside "nothing missed", and with a miss, without printing their words', async () => {
+    const skill = copyOf('launch-note')
+    const { text } = await printedBy(report, [skill], { run: HAIKU_V1, brief: true })
+    // A miss and two rules not sure, one Jev's and one code's.
+    expect(text).toContain(
+      '[email-crowded] Launch email, six features: 2 of 16 not sure\n  missed: Write no more than 120 words. Most readers stop after the first screen.\n',
+    )
+    expect(headOf(text, 'email-free')).toBe(
+      '[email-free] Launch email, no price: nothing missed, 1 of 16 not sure',
+    )
+    expect(text).not.toContain('Write plain text with no Markdown')
+    // Plain report says which they were, by their words.
+    const plain = await printedBy(report, [skill], { run: HAIKU_V1 })
+    expect(plain.text).toContain(
+      "rule not counted, code could not settle it (differ) (Rules for every announcement): Open with the brief's Headline",
+    )
+    expect(plain.text).toContain(
+      'rule not counted, Jev was not sure (Rules for an email): Write plain text with no Markdown',
+    )
+  })
+
+  it('does not say "nothing missed" of a case whose every rule and check was not sure, nor count them where it says why', async () => {
+    const skill = copyOf('launch-note')
+    edited(skill, HAIKU_V0, 'report.json', (r) => {
+      for (const fact of factsOf(r, 'email-free-s1'))
+        if (!fact.unmarkable) {
+          fact.noul = 0.5
+          delete fact.code
+        }
+    })
+    const { text } = await printedBy(report, [skill], { run: HAIKU_V0, brief: true })
+    expect(headOf(text, 'email-free')).toBe(
+      // With nothing marked the output has no score, and the words for that win.
+      '[email-free] Launch email, no price: not scored, none of its rules or checks could be counted',
+    )
+  })
+
+  it('counts each rule or check once over several attempts, and says one not sure on any of them counts', async () => {
+    const skill = copyOf('launch-note')
+    const runDir = join(skill, 'evals/runs', HAIKU_V0)
+    cpSync(join(runDir, 'email-free-s1'), join(runDir, 'email-free-s2'), { recursive: true })
+    edited(skill, HAIKU_V0, 'report.json', (r) => {
+      const first = r.results.find((x: { sample: string }) => x.sample === 'email-free-s1')
+      r.results.push({ ...structuredClone(first), sample: 'email-free-s2' })
+      factOf(r, 'email-free-s2', 'r5').noul = 0.5
+    })
+    edited(skill, HAIKU_V0, 'run.json', (m) => {
+      const first = m.samples.find((s: { dir: string }) => s.dir === 'email-free-s1')
+      m.samples.push({ ...first, dir: 'email-free-s2', index: 2 })
+    })
+    const { text } = await printedBy(report, [skill], { run: HAIKU_V0, brief: true })
+    expect(headOf(text, 'email-free')).toBe(
+      '[email-free] Launch email, no price: nothing missed, 1 of 11 not sure at least once',
+    )
+  })
+
+  it('says it of A and of B in compare, each of its own run', async () => {
+    const skill = copyOf('launch-note')
+    const { text } = await printedBy(compare, [skill, HAIKU_V0, HAIKU_V1], { brief: true })
+    expect(headOf(text, 'email-price')).toBe(
+      '[email-price] Launch email, with a price: neither did better, nothing missed; in A, 1 of 11 not sure; in B, 1 of 16 not sure',
+    )
+    expect(headOf(text, 'email-free')).toBe(
+      '[email-free] Launch email, no price: neither did better, nothing missed; in B, 1 of 16 not sure',
+    )
+  })
+
+  it('says only what became of an attempt not read whole, as before, and never "nothing missed" there', async () => {
+    const skill = copyOf('launch-note')
+    edited(skill, HAIKU_V0, 'report.json', (r) => {
+      // Read in part, and another of its rules not sure; and an answer that wrote nothing.
+      factOf(r, 'page-long-s1', 'r5').parts = [0.5, 0.5]
+      r.results.find((x: { sample: string }) => x.sample === 'email-free-s1').blank = true
+      factOf(r, 'email-free-s1', 'r5').noul = 0.5
+    })
+    const one = await printedBy(report, [skill], { run: HAIKU_V0, brief: true })
+    expect(headOf(one.text, 'page-long')).toBe(
+      '[page-long] Changes page, 180 changes: 3 rules and checks not read',
+    )
+    expect(headOf(one.text, 'email-free')).toBe(
+      '[email-free] Launch email, no price: wrote nothing',
+    )
+    const two = await printedBy(compare, [skill, HAIKU_V0, HAIKU_V1], { brief: true })
+    // B's own rule not sure is not said either where A's attempt was not read whole.
+    expect(headOf(two.text, 'email-free')).toBe(
+      '[email-free] Launch email, no price: no checks to compare; in A, wrote nothing',
+    )
+  })
+
+  it('reads a grading kept from before code or headings answered as its own answers say, as plain report does', async () => {
+    const skill = copyOf('launch-note')
+    // As a grading made before code read rules, or Jev was asked whether a heading applies.
+    edited(skill, HAIKU_V1, 'report.json', (r) => {
+      for (const result of r.results)
+        for (const fact of factsOf(r, result.sample)) {
+          delete fact.code
+          delete fact.applies
+          delete fact.comesUp
+        }
+    })
+    const brief = await printedBy(report, [skill], { run: HAIKU_V1, brief: true })
+    const plain = await printedBy(report, [skill], { run: HAIKU_V1 })
+    // Each output's "N not sure" in plain report's counts, rules and checks added up, by case.
+    const plainUnsure = new Map(
+      [...plain.text.matchAll(/^ {2}(\S+)-s1 +checks (.*?) {2,}rules (.*)$/gm)].map((m) => [
+        m[1],
+        [m[2], m[3]].reduce(
+          (sum, count) => sum + Number(/(\d+) not sure/.exec(count)?.[1] ?? 0),
+          0,
+        ),
+      ]),
+    )
+    const briefUnsure = new Map(
+      brief.text
+        .split('\n')
+        .flatMap((line) => /^\[([^\]]+)\]/.exec(line)?.[1] ?? [])
+        .map((id) => [
+          id,
+          Number(/(\d+) of \d+ not sure/.exec(headOf(brief.text, id) ?? '')?.[1] ?? 0),
+        ]),
+    )
+    // page-long is read in part, so what became of it is said in place of a count.
+    plainUnsure.delete('page-long')
+    briefUnsure.delete('page-long')
+    expect(briefUnsure).toEqual(plainUnsure)
+    // Without code's word, the rules code settled or could not settle stand on Jev's answers, met here;
+    // without the headings' answers, every rule is asked of every case.
+    expect(headOf(brief.text, 'email-crowded')).toBe(
+      '[email-crowded] Launch email, six features: nothing missed, 1 of 21 not sure',
+    )
   })
 })
