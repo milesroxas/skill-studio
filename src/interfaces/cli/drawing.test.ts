@@ -365,8 +365,14 @@ describe('the end of the drawing host', () => {
           `const start = ${JSON.stringify(standIn)}`,
           'const render = drawingHost({ warn: console.error, start })',
           `void render({ skill: ${JSON.stringify(scratch)}, run: 'r1', sample: 's1', file: 'a.html' }, { width: 400, height: 300 })`,
-          // As Ctrl-C ends a command: at once, with nothing awaited.
-          'setTimeout(() => process.exit(130), 300)',
+          "import { existsSync } from 'node:fs'",
+          // As Ctrl-C ends a command: at once, with nothing awaited, once its host is up. A host
+          // killed before it wrote its pid, as a slow machine can, would leave nothing to tell it by.
+          `const up = ${JSON.stringify(`${log}.pid`)}`,
+          'const since = Date.now()',
+          'setInterval(() => {',
+          '  if (existsSync(up) || Date.now() - since > 15_000) process.exit(130)',
+          '}, 50)',
         ].join('\n'),
       )
       const done = spawnSync(process.execPath, ['--import', 'tsx', command], {
