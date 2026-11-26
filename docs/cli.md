@@ -16,7 +16,7 @@ pnpm st <command> [skill-dir] [options]
 | Command | Does |
 | --- | --- |
 | `new <dir>` | Scaffold a skill. `--name <id>` is the skill name (default the folder name; it must be a slug). `--description <text>` is its front matter description. `--template` is `blank` (the default), `writing`, `code`, `workflow` or `design`. `--with-cases` adds the template's sample cases |
-| `cases` | List the skill's cases |
+| `cases` | List the skill's cases, each by its whole id as `--cases` and `--case` take it, with its checks, its files and its title |
 | `case add` | Write a new case from flags, checked as the Cases screen checks one ([below](#adding-and-checking-cases)) |
 | `case check` | List each case and check file that will not load or is skipped, and each title two cases share. It exits 1 when it lists any ([below](#adding-and-checking-cases)) |
 | `run` | Generate outputs with a headless agent, then grade them |
