@@ -356,11 +356,28 @@ export interface OpenServer {
 
 ## Phase 4: the acceptance run
 
-- [ ] **4.1 The React card experiment, from a chat.** Run as soon as chain A is merged ([order](#order)). An agent follows only the loop skill.
+- [x] **4.1 The React card experiment, from a chat.** Run as soon as chain A is merged ([order](#order)). An agent follows only the loop skill.
   - It makes `react-card` with three cases that each ask for one HTML page. An output's page loads nothing from the network (`artifactPolicy` in `src/application/api/artifact-page.ts`), so a page that takes React from a CDN draws blank. Each case gives React's browser files in its own files (React 18.3.1: `react.production.min.js` and `react-dom.production.min.js`, added with `st case add --file`). A case's files are staged under `files/` where the answer is written, and a kept attempt holds its `outputs/`. So each prompt asks for the two files to be copied into `outputs/`, beside the page, and loaded from there by name. The policy lets a page run a script file of its own (`script-src` names the page's own files).
   - It runs one case once on the smaller model and looks at the drawn page before anything else. A blank page means the files do not reach it: stop and fix the case. This is the one part of the run nobody has seen work.
   - It has two fresh agents write `SKILL.md` from the same brief, each in a folder of its own outside the skill, one after loading `emil-writing-skills`; runs both with `--from` and once without the skill; compares; makes the sheet; opens the pair with `st open`.
   - Record its tokens, its seconds and Claude usage for each step in this file. The run is not done the old way first: that would pay for the slow way once more only to have its number.
+  - Run on 2026-11-26, on `main` at `aefd45e`, by one Opus 5.5 agent that read only the loop skill and `st --help`. It took about 7.5 minutes, every command worked on its first try, and React reached the page on the first try.
+
+    | Step | Seconds | Tokens |
+    | --- | --- | --- |
+    | Build, key check, `st new`, React's two files | 4 | none |
+    | Three cases with three checks and two files each, `case check` | 2 | none |
+    | One case once, no skill, `haiku`, and its sheet | 23 | 198,047 answering, 16,312 grading |
+    | Two writers, one after `emil-writing-skills` | 29 and 45 | 70,883 and 73,592 |
+    | Draft a on three cases | 48 | 785,405 answering, 85,600 grading |
+    | Draft b on three cases | 43 | 686,019 answering, 97,410 grading |
+    | No skill on three cases | 72 | 1,103,386 answering, 49,333 grading |
+    | Three compares, the sheet, `st open`, `--stop` | 3 or less each | none |
+
+    The ten attempts cost $0.0985: answering read 2,772,857 tokens, nearly all from cache, and grading 248,655. The agent's own context ended near 70,000 tokens.
+  - What it showed. All three runs met all nine checks, so no case told the versions apart: checks a person can see at a glance are too easy for `haiku` with or without a skill. Draft a had 4 or 5 of its 16 rules marked not sure on each case, and draft b 1 or 2 of its 20.
+  - What the agent had to guess, now said in the skill: try a case with no skill when no draft is written yet; give each draft `--name` on whichever run is its first; a run's name holds the version's number and `st versions` maps it; leave the skill's own `SKILL.md` alone when drafts run with `--from`; `compare` takes two runs and `sheet` any number; `--out` keeps the sheets; `timing.json` holds the answer's cost alone.
+  - What it showed that words in a skill do not fix, for Miles to weigh: a sheet's rows and a run's name say `v0`, `v1`, not the name the version was given; `--brief` says "nothing missed" while rules were not sure; no command adds up a run's tokens and cost; and Jev read only the start of each of React's two files, on every attempt.
 - [ ] **4.2 Release.** `pnpm reading-gate`, live, once ([releasing.md](releasing.md#check-grading-against-the-key)). `CHANGELOG.md` entry, docs checked against the code, release by [releasing.md](releasing.md).
 
 ## Habits for the agent
