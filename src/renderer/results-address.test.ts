@@ -3,7 +3,15 @@ import { type AddressRun, resultsAddress } from '@domain/results-address.ts'
 import type { Report, ReportResult, RunMeta } from '@domain/schemas.ts'
 import { describe, expect, it } from 'vitest'
 import type { RunView, Sample, State } from './api.ts'
-import { casePair, casesRun, mergedConfig, outputsOf, resultsShown } from './model.ts'
+import {
+  casePair,
+  casesRun,
+  failedLine,
+  failureOf,
+  mergedConfig,
+  outputsOf,
+  resultsShown,
+} from './model.ts'
 import { placeOf } from './route.ts'
 
 // The address is built in the domain, which imports nothing from the renderer, and read back here.
@@ -180,6 +188,37 @@ describe('resultsAddress', () => {
       expect(readBack(alone, address)).toMatchObject({ caseId, a: key })
       expect(casePair(outputsOf(alone), caseId).b?.key).toBe(key)
     }
+  })
+
+  it('opens a run whose every attempt failed on its first, which says why it failed', () => {
+    // What `st run` prints its Open line for when no attempt wrote an output.
+    const run = runOf('r7', ['note-s1', 'note-s2'])
+    for (const sample of run.samples) sample.cut = 'failed'
+    run.meta = {
+      ...(run.meta as RunMeta),
+      finishedAt: '2026-11-01T10:05:00Z',
+      samples: run.samples.map((s, i) => ({
+        dir: s.name,
+        case: 'note',
+        index: i + 1,
+        ok: false,
+        failed: 'ended with an error',
+        error: 'signed out',
+      })),
+    } as unknown as RunMeta
+    const alone = stateOf([run], ['note'])
+    const address = resultsAddress({
+      skill: SKILL,
+      cases: ['note'],
+      case: null,
+      a: addressed(run),
+      b: null,
+    })
+    expect(readBack(alone, address)).toMatchObject({ caseId: 'note', a: 'r7/note-s1', b: null })
+    const shown = outputsOf(alone).find((o) => o.key === 'r7/note-s1')
+    if (!shown) throw new Error('The attempt is not shown.')
+    expect(failureOf(shown)).toBe('signed out')
+    expect(failedLine(shown)).toBe('It ended with an error, so it has no score.')
   })
 
   it('names one output when one run is named', () => {
