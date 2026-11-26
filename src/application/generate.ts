@@ -14,6 +14,7 @@
  * outputs to the one prompt the run kept.
  */
 import { copyFileSync, existsSync, lstatSync, mkdirSync, rmSync, writeFileSync } from 'node:fs'
+import { copyFile } from 'node:fs/promises'
 import { basename, dirname, join, relative, resolve } from 'node:path'
 import { isWithin } from '@domain/paths.ts'
 import { agentPrompt, OUTPUTS_DIR, SCRATCH_DIR } from '@domain/prompt.ts'
@@ -244,14 +245,15 @@ function linkSkillAliases(sampleDir: string): void {
 
 /**
  * Copy each case's input files into the run, once. A file that is missing, or
- * that a link leads out of the skill to, is left out and the log says so.
+ * that a link leads out of the skill to, is left out and the log says so. The
+ * copies are made without holding up the process, as they may be large.
  */
-function stageInputs(
+async function stageInputs(
   skillDir: string,
   run: string,
   cases: Case[],
   log: (line: string) => void,
-): void {
+): Promise<void> {
   const inputs = join(run, INPUTS_DIR)
   mkdirSync(inputs, { recursive: true })
   for (const testCase of cases)
@@ -265,7 +267,7 @@ function stageInputs(
       }
       const dest = stagedInput(inputs, testCase, rel)
       mkdirSync(dirname(dest), { recursive: true })
-      copyFileSync(source, dest)
+      await copyFile(source, dest)
     }
 }
 
@@ -335,10 +337,14 @@ function draftOf(skillDir: string, from: string, configuration: Configuration): 
 }
 
 /**
- * Stamp the run, name it and make its folder: the copy of the skill, the
- * cases' input files, the cases, and `run.json`.
+ * Stamp the run, name it and make its folder, with the copy of the skill and
+ * `run.json`: all another run starting at the same time must see to take a
+ * number and a name of its own. The version is read from the runs' `run.json`
+ * files and the name from their folders, so once this returns the next run
+ * takes the next number. The skill's copy is made before `run.json`, so no
+ * run against this version (`baselineOf`) finds the run before its copy is whole.
  */
-function startRun(
+function takeRun(
   options: GenerateOptions,
   how: {
     tree: string
@@ -367,9 +373,6 @@ function startRun(
   const snapshot = skillCopy(skillDir, name)
   if (baseline) copyTree(baseline.dir, snapshot)
   else snapshotSkill(tree, snapshot)
-  stageInputs(skillDir, dir, options.cases, options.warn ?? options.log)
-  // The cases as they are asked now, with the checks for every case: what the run is read against, whatever is edited since.
-  keepCases(skillDir, dir, options.cases, loadEveryCase(skillDir))
   const meta: RunMeta = {
     name,
     skillPath: skillDir,
@@ -388,6 +391,25 @@ function startRun(
   }
   writeJson(join(dir, 'run.json'), meta)
   return { name, dir, snapshot, meta }
+}
+
+/**
+ * Copy into a run the cases' input files and the cases as they are asked
+ * now, with the checks for every case: what the run is read against, whatever
+ * is edited since. A run that cannot have them is taken out whole: no agent
+ * has run, so it leaves no run, and no version known from that run alone.
+ */
+async function stageRun(options: GenerateOptions, dir: string): Promise<void> {
+  const { skillDir, cases } = options
+  try {
+    await stageInputs(skillDir, dir, cases, options.warn ?? options.log)
+    keepCases(skillDir, dir, cases, loadEveryCase(skillDir))
+  } catch (error) {
+    try {
+      rmSync(dir, { recursive: true, force: true })
+    } catch {}
+    throw error
+  }
 }
 
 export async function generateRun(
@@ -423,11 +445,13 @@ export async function generateRun(
   const release = await takeStampLock(runsDir(skillDir))
   const { name, dir, snapshot, meta } = (() => {
     try {
-      return startRun(options, { tree, baseline, model, effort })
+      return takeRun(options, { tree, baseline, model, effort })
     } finally {
       release()
     }
   })()
+  // The input files are copied once the lock is given back, so a run with large ones holds up no other.
+  await stageRun(options, dir)
   options.onNamed?.(name)
   log(`${name}: ${options.cases.length} case(s) × ${meta.samplesPerCase} sample(s)`)
 

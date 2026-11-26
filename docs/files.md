@@ -207,7 +207,7 @@ A run keeps the version it tested. Its `_skill/` snapshot is the copy the app re
 - The Assistant can keep the files as a version before it changes them. That copy lands in `evals/versions/`.
 - Deleting a version's only run saves the version there too, from the run's `_skill/`, so the version stays.
 - Saved and run versions share one numbering.
-- A run takes its version and writes its `run.json` holding `evals/runs/.stamp.lock`, so two runs started at once, from the app, `st serve` or `st`, never take one number: the second waits for the first.
+- A run takes its version and writes its `run.json` holding `evals/runs/.stamp.lock`, so two runs started at once, from the app, `st serve` or `st`, never take one number: the second waits for the first to take its number, never for it to copy its cases' input files. A run whose input files cannot be copied leaves no folder behind.
 
 A run's configuration says which skill the agent saw:
 

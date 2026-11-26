@@ -2,8 +2,8 @@ import { spawnSync } from 'node:child_process'
 import { existsSync, mkdtempSync, readFileSync, rmSync, utimesSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { afterEach, describe, expect, it } from 'vitest'
-import { LOCK_FILE, takeGradingLock } from './grading-lock.ts'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import { LOCK_FILE, STAMP_LOCK_FILE, takeGradingLock, takeStampLock } from './grading-lock.ts'
 
 const made: string[] = []
 afterEach(() => {
@@ -87,5 +87,55 @@ describe('takeGradingLock', () => {
     )
     release()
     expect(existsSync(join(dir, LOCK_FILE))).toBe(true)
+  })
+})
+
+describe('takeStampLock', () => {
+  const holding = (dir: string, pid: number): void =>
+    writeFileSync(
+      join(dir, STAMP_LOCK_FILE),
+      JSON.stringify({ pid, at: new Date().toISOString(), by: 'st serve' }),
+    )
+
+  it('takes over at once a lock left by a process that was killed', async () => {
+    const dir = folder()
+    holding(dir, deadPid())
+    const release = await takeStampLock(dir)
+    expect(JSON.parse(readFileSync(join(dir, STAMP_LOCK_FILE), 'utf8')).pid).toBe(process.pid)
+    release()
+    expect(existsSync(join(dir, STAMP_LOCK_FILE))).toBe(false)
+  })
+
+  it('waits while a running process holds it, and takes it once it is given back', async () => {
+    const dir = folder()
+    holding(dir, process.ppid)
+    let taken = false
+    const taking = takeStampLock(dir).then((release) => {
+      taken = true
+      return release
+    })
+    await new Promise((done) => setTimeout(done, 100))
+    expect(taken).toBe(false)
+    rmSync(join(dir, STAMP_LOCK_FILE))
+    const release = await taking
+    expect(JSON.parse(readFileSync(join(dir, STAMP_LOCK_FILE), 'utf8')).pid).toBe(process.pid)
+    release()
+  })
+
+  it('refuses with who holds it once a running process has held it for a minute', async () => {
+    const dir = folder()
+    holding(dir, process.ppid)
+    vi.useFakeTimers()
+    try {
+      const refused = expect(takeStampLock(dir)).rejects.toThrow(
+        'Another run of this skill is still starting (st serve). Try again once it has started.',
+      )
+      await vi.advanceTimersByTimeAsync(61_000)
+      await refused
+    } finally {
+      vi.useRealTimers()
+    }
+    // The holder's lock is left as it was.
+    expect(JSON.parse(readFileSync(join(dir, STAMP_LOCK_FILE), 'utf8')).pid).toBe(process.ppid)
   })
 })

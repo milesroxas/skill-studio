@@ -170,7 +170,7 @@ export function takeGradingLock(dir: string): () => void {
 /** The lock a run holds in `evals/runs/` while it takes its version and writes its `run.json`. */
 export const STAMP_LOCK_FILE = '.stamp.lock'
 
-/** A run waits this long for another to finish starting, at most: one start copies the skill and the cases' files. */
+/** A run waits this long for another to take its version, at most: one start copies the skill, never the cases' files. */
 const STAMP_WAIT_MS = 60_000
 const STAMP_POLL_MS = 20
 

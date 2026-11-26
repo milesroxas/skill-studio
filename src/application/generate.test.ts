@@ -33,8 +33,23 @@ import { saveVersion } from '@infrastructure/versions.ts'
 import { packById } from '@judges/index.ts'
 import { Jev } from '@judges/jev.ts'
 import { workflowScoring } from '@judges/workflow/score.ts'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { generateRun, INPUTS_DIR, samplesPerCase, stagedInput, stagedInputs } from './generate.ts'
+
+/** What each copy of a case's input file into a run does first, when set: wait, or fail. */
+const copies = vi.hoisted(() => ({
+  hook: null as ((source: string, dest: string) => Promise<void>) | null,
+}))
+vi.mock('node:fs/promises', async (actual) => {
+  const real = await actual<typeof import('node:fs/promises')>()
+  return {
+    ...real,
+    copyFile: (async (...args: Parameters<typeof real.copyFile>) => {
+      await copies.hook?.(String(args[0]), String(args[1]))
+      return real.copyFile(...args)
+    }) as typeof real.copyFile,
+  }
+})
 
 let skill: string
 beforeEach(() => {
@@ -54,6 +69,7 @@ beforeEach(() => {
 /** Other folders a test made, removed after it. */
 const made: string[] = []
 afterEach(() => {
+  copies.hook = null
   rmSync(skill, { recursive: true, force: true })
   for (const dir of made.splice(0)) rmSync(dir, { recursive: true, force: true })
 })
@@ -734,6 +750,80 @@ describe('generateRun', () => {
     expect(versionsOf(skill).versions.map((v) => [v.version, v.name])).toEqual([['v0', 'Draft A']])
     expect(existsSync(join(skill, 'evals/runs', STAMP_LOCK_FILE))).toBe(false)
   }, 60_000)
+
+  it('lets a second run start while the first is still copying its input files', async () => {
+    let open = () => {}
+    const gate = new Promise<void>((done) => {
+      open = done
+    })
+    let entered = () => {}
+    const copying = new Promise<void>((done) => {
+      entered = done
+    })
+    // The first run's first input file takes as long as the second run needs to start.
+    copies.hook = async () => {
+      copies.hook = null
+      entered()
+      await gate
+    }
+    const engine = engineThat(() => {})
+    const first = generateRun(options(engine, 1))
+    await copying
+    let named = ''
+    const second = generateRun({
+      ...options(engine, 1),
+      onNamed: (name) => {
+        named = name
+      },
+    })
+    const started = await Promise.race([
+      second.then(() => 'started'),
+      new Promise<string>((done) => setTimeout(() => done('held up'), 5_000)),
+    ])
+    open()
+    expect(started).toBe('started')
+    const [a, b] = await Promise.all([first, second])
+    // Two runs of one set of files: one version, two names.
+    expect(named).toBe(b.name)
+    expect(a.name).not.toBe(b.name)
+    expect([a.meta.skillVersion, b.meta.skillVersion]).toEqual(['v0', 'v0'])
+    expect(
+      readFileSync(
+        stagedInput(
+          join(a.dir, INPUTS_DIR),
+          loadCases(skill)[0],
+          'evals/cases/note/files/input.txt',
+        ),
+        'utf8',
+      ),
+    ).toBe('first input')
+    expect(existsSync(join(skill, 'evals/runs', STAMP_LOCK_FILE))).toBe(false)
+  }, 30_000)
+
+  it('leaves no run and no version when its input files cannot be copied, so the next run takes the number', async () => {
+    copies.hook = async () => {
+      throw new Error('no space left on device')
+    }
+    const engine = engineThat(() => {})
+    let named = ''
+    await expect(
+      generateRun({
+        ...options(engine, 1),
+        onNamed: (name) => {
+          named = name
+        },
+      }),
+    ).rejects.toThrow('no space left on device')
+    expect(engine.calls).toBe(0)
+    // Nothing was named, and nothing is left: no run, no lock, no version.
+    expect(named).toBe('')
+    expect(readdirSync(join(skill, 'evals/runs'))).toEqual([])
+    expect(versionsOf(skill).versions).toEqual([])
+    copies.hook = null
+    const { meta } = await generateRun(options(engine, 1))
+    expect(meta).toMatchObject({ skillVersion: 'v0', skillName: 'First version' })
+    expect(engine.calls).toBe(1)
+  })
 
   it('refuses new files a name another version has, read as a person reads it, before it writes', async () => {
     const engine = engineThat(() => {})
