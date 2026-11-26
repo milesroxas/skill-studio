@@ -773,6 +773,43 @@ describe('generateRun', () => {
     expect(shared.meta).toMatchObject({ skillVersion: 'v2', skillName: 'Draft A' })
   })
 
+  it('reads names that look alike as one, and one with nothing to read as no name', async () => {
+    const engine = engineThat(() => {})
+    const own = { ...options(engine, 1), ownName: true }
+    await generateRun({ ...own, skillName: 'Café Draft' })
+    const draft = mkdtempSync(join(tmpdir(), 'st-draft-'))
+    made.push(draft)
+    writeFileSync(join(draft, 'SKILL.md'), '---\nname: Notes Skill\n---\n\n- Keep it long.\n')
+    const alike = [
+      '\uFF23\uFF41\uFF46é \uFF24\uFF52\uFF41\uFF46\uFF54', // full-width
+      'Café\u200B Draft', // zero-width space
+      'Ca\u200Cfé Dr\u200Daft', // zero-width non-joiner and joiner
+      'Café\u2060 Draft\uFEFF', // word joiner, byte-order mark
+      'Cafe\u0301 Draft', // é written as e and its accent
+      'Café\u3000Draft', // ideographic space
+      'Café\u0085Draft', // next line, white space JavaScript's \\s leaves out
+      'Café \t\u00A0 Draft', // a run of white space
+      'CAFÉ DRAFT',
+    ]
+    for (const name of alike)
+      await expect(
+        generateRun({ ...own, from: draft, skillName: name }),
+        JSON.stringify(name),
+      ).rejects.toThrow('v0 is already called "Café Draft"')
+    for (const name of ['\u200B', '\u200C\u200D\u2060\uFEFF', '\u3000\u0085', ' \u200B '])
+      await expect(
+        generateRun({ ...own, from: draft, skillName: name }),
+        JSON.stringify(name),
+      ).rejects.toThrow('Name this version (v1) to run it.')
+    // Folded as a person reads it: `ß` is `SS`.
+    await generateRun({ ...own, from: draft, skillName: 'Straße' })
+    writeFileSync(join(draft, 'SKILL.md'), '---\nname: Notes Skill\n---\n\n- Keep it longer.\n')
+    await expect(generateRun({ ...own, from: draft, skillName: 'STRASSE' })).rejects.toThrow(
+      'v1 is already called "Straße"',
+    )
+    expect(engine.calls).toBe(2)
+  })
+
   it('refuses a baseline that is not a run name', async () => {
     const engine = engineThat(() => {})
     await expect(

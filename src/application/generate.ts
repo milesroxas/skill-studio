@@ -155,9 +155,22 @@ interface SkillStamp {
   note: string
 }
 
-/** A version's name as a person reads it: no space at either end or doubled, and no case. */
+/**
+ * A version's name as a person reads it: letters that look alike as one
+ * (NFKC, so a full-width `Ｃ` is `C`), no invisible format character (Unicode
+ * category Cf, such as a zero-width space), every run of white space one
+ * space and none at either end, and no case. Empty when nothing is left to read.
+ */
 const nameKey = (name: string): string =>
-  name.normalize('NFC').trim().replace(/\s+/g, ' ').toLowerCase()
+  name
+    .normalize('NFKC')
+    .replace(/\p{Cf}/gu, '')
+    .replace(/\p{White_Space}+/gu, ' ')
+    .trim()
+    // Upper then lower folds what lowering alone leaves apart, as `ß` and `SS`.
+    .toUpperCase()
+    .toLowerCase()
+    .normalize('NFKC')
 
 /** The version among `versions` already called `name`, as a person reads names; null when none is. */
 function takenBy(versions: readonly SkillVersion[], name: string): SkillVersion | null {
@@ -187,7 +200,8 @@ function stampSkill(
   if (options.configuration === 'without_skill')
     return { version: current.version, name: '', hash: current.hash, note: '' }
   const name = options.skillName?.trim()
-  if (!name)
+  // A name with nothing to read in it, only spaces or invisible characters, is no name.
+  if (!name || !nameKey(name))
     throw new Error(
       `The skill changed since the last run. Name this version (${current.version}) to run it.`,
     )
