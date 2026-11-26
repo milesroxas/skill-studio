@@ -1,4 +1,6 @@
+import { spawn } from 'node:child_process'
 import {
+  cpSync,
   existsSync,
   mkdirSync,
   mkdtempSync,
@@ -6,16 +8,19 @@ import {
   readFileSync,
   realpathSync,
   rmSync,
+  statSync,
+  utimesSync,
   writeFileSync,
 } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { dirname, join } from 'node:path'
+import { dirname, join, resolve } from 'node:path'
 import { mergeConfig } from '@domain/config.ts'
 import { isWithin } from '@domain/paths.ts'
 import { loadCases } from '@infrastructure/cases.ts'
 import type { Engine } from '@infrastructure/engines/index.ts'
 import type { EngineRequest, EngineResult } from '@infrastructure/engines/types.ts'
 import { readJson } from '@infrastructure/fs.ts'
+import { STAMP_LOCK_FILE } from '@infrastructure/grading-lock.ts'
 import {
   finishedSamples,
   readRun,
@@ -46,7 +51,41 @@ beforeEach(() => {
   mkdirSync(join(skill, 'evals/cases/note/files/screen'))
   writeFileSync(join(skill, 'evals/cases/note/files/screen/Bookings.tsx'), 'a screen')
 })
-afterEach(() => rmSync(skill, { recursive: true, force: true }))
+/** Other folders a test made, removed after it. */
+const made: string[] = []
+afterEach(() => {
+  rmSync(skill, { recursive: true, force: true })
+  for (const dir of made.splice(0)) rmSync(dir, { recursive: true, force: true })
+})
+
+const ROOT = resolve(import.meta.dirname, '../..')
+
+/**
+ * One process that starts a run of a draft of a skill with an engine that
+ * does nothing: it says it is ready, waits for the word to go, and prints the
+ * version the run took.
+ */
+const START_SCRIPT = `
+import { existsSync, writeFileSync } from 'node:fs'
+import { pathToFileURL } from 'node:url'
+const [skill, draft, ready, go] = process.argv.slice(2)
+const root = ${JSON.stringify(ROOT)}
+const { generateRun } = await import(pathToFileURL(root + '/src/application/generate.ts').href)
+const { loadCases } = await import(pathToFileURL(root + '/src/infrastructure/cases.ts').href)
+const ended = { ok: true, error: null, costUsd: null, tokens: null, model: 'small', finalText: null }
+const engine = {
+  id: 'fake', label: 'Fake', harness: 'agent', efforts: [], defaultModel: 'small', hint: '',
+  limitsTools: true, available: () => true, models: async () => ['small'], run: async () => ended,
+}
+const cases = loadCases(skill)
+writeFileSync(ready, '')
+while (!existsSync(go)) {}
+const { meta } = await generateRun({
+  skillDir: skill, from: draft, cases, engine, model: null, effort: null, samples: 1,
+  configuration: 'with_skill', baseline: null, skillName: draft, note: '', parallel: 1, log: () => {},
+})
+console.log(meta.skillVersion)
+`
 
 const ENDED: EngineResult = {
   ok: true,
@@ -518,6 +557,150 @@ describe('generateRun', () => {
       }),
     ).rejects.toThrow('No version v4 is kept.')
   })
+
+  it('runs the files of a folder outside the skill as the version, held against the skill’s', async () => {
+    const draft = mkdtempSync(join(tmpdir(), 'st-draft-'))
+    made.push(draft)
+    const working = readFileSync(join(skill, 'SKILL.md'), 'utf8')
+    await generateRun(
+      options(
+        engineThat(() => {}),
+        1,
+      ),
+    )
+    writeFileSync(join(draft, 'SKILL.md'), '---\nname: Notes Skill\n---\n\n- Keep it long.\n')
+    mkdirSync(join(draft, 'scripts'))
+    writeFileSync(join(draft, 'scripts/tool.sh'), 'draft tool')
+    let seen = ''
+    const engine = engineThat((cwd) => {
+      seen = readFileSync(join(cwd, '.agents/skills/notes-skill/SKILL.md'), 'utf8')
+    })
+    // New files take the next number, and a name.
+    await expect(
+      generateRun({ ...options(engine, 1), from: draft, skillName: null }),
+    ).rejects.toThrow('Name this version (v1) to run it.')
+    const { dir, meta } = await generateRun({
+      ...options(engine, 1),
+      from: draft,
+      skillName: 'Long',
+    })
+    expect(meta).toMatchObject({ skillVersion: 'v1', skillName: 'Long' })
+    expect(seen).toContain('Keep it long')
+    expect(readFileSync(join(dir, '_skill/SKILL.md'), 'utf8')).toContain('Keep it long')
+    expect(readFileSync(join(dir, '_skill/scripts/tool.sh'), 'utf8')).toBe('draft tool')
+    // The skill's own files are untouched, and are still the version they were.
+    expect(readFileSync(join(skill, 'SKILL.md'), 'utf8')).toBe(working)
+    expect(readFileSync(join(skill, 'scripts/tool.sh'), 'utf8')).toBe('first tool')
+    expect(versionsOf(skill).current).toMatchObject({ version: 'v0', changed: false })
+    expect(versionsOf(skill).versions.map((v) => v.version)).toEqual(['v0', 'v1'])
+    // The same files as a kept version are that version, with no name asked.
+    const again = await generateRun({ ...options(engine, 1), from: draft, skillName: null })
+    expect(again.meta).toMatchObject({ skillVersion: 'v1', skillName: 'Long' })
+    cpSync(join(skill, 'SKILL.md'), join(draft, 'SKILL.md'))
+    cpSync(join(skill, 'scripts'), join(draft, 'scripts'), { recursive: true })
+    const same = await generateRun({ ...options(engine, 1), from: draft, skillName: null })
+    expect(same.meta).toMatchObject({ skillVersion: 'v0', skillName: 'First version' })
+  })
+
+  it('refuses a draft folder with no SKILL.md, none named, one inside or around the skill, and a run that is not with_skill', async () => {
+    const engine = engineThat(() => {})
+    const empty = mkdtempSync(join(tmpdir(), 'st-draft-'))
+    made.push(empty)
+    // An empty name is no folder, not the skill's own files.
+    await expect(generateRun({ ...options(engine, 1), from: '' })).rejects.toThrow(
+      'No folder was named',
+    )
+    await expect(generateRun({ ...options(engine, 1), from: empty })).rejects.toThrow(
+      'No SKILL.md at',
+    )
+    mkdirSync(join(skill, 'drafts/long'), { recursive: true })
+    writeFileSync(join(skill, 'drafts/long/SKILL.md'), '- Keep it long.\n')
+    await expect(
+      generateRun({ ...options(engine, 1), from: join(skill, 'drafts/long') }),
+    ).rejects.toThrow("is inside the skill's folder")
+    await expect(generateRun({ ...options(engine, 1), from: skill })).rejects.toThrow(
+      "is inside the skill's folder",
+    )
+    const around = mkdtempSync(join(tmpdir(), 'st-around-'))
+    made.push(around)
+    cpSync(skill, join(around, 'notes'), { recursive: true })
+    writeFileSync(join(around, 'SKILL.md'), '- Keep it long.\n')
+    await expect(
+      generateRun({ ...options(engine, 1), skillDir: join(around, 'notes'), from: around }),
+    ).rejects.toThrow("holds the skill's folder")
+    writeFileSync(join(empty, 'SKILL.md'), '- Keep it long.\n')
+    for (const configuration of ['without_skill', 'old_skill'] as const)
+      await expect(
+        generateRun({ ...options(engine, 1), configuration, baseline: 'v0', from: empty }),
+      ).rejects.toThrow(`cannot be ${configuration}`)
+    expect(engine.calls).toBe(0)
+    expect(existsSync(join(skill, 'evals/runs'))).toBe(false)
+  })
+
+  it('leaves the runs folder as it found it when a run is refused', async () => {
+    const engine = engineThat(() => {})
+    const runs = join(skill, 'evals/runs')
+    const draft = mkdtempSync(join(tmpdir(), 'st-draft-'))
+    made.push(draft)
+    writeFileSync(join(draft, 'SKILL.md'), '- Keep it long.\n')
+    const refused = [
+      { skillName: null },
+      { from: join(draft, 'missing') },
+      { from: draft, configuration: 'without_skill' as const },
+    ]
+    for (const how of refused)
+      await expect(generateRun({ ...options(engine, 1), ...how })).rejects.toThrow()
+    expect(existsSync(runs)).toBe(false)
+    await generateRun(options(engine, 1))
+    const then = new Date('2026-01-01T00:00:00Z')
+    utimesSync(runs, then, then)
+    writeFileSync(join(skill, 'SKILL.md'), '---\nname: Notes Skill\n---\n\n- Keep it shorter.\n')
+    for (const how of [...refused, { from: draft, skillName: null }])
+      await expect(generateRun({ ...options(engine, 1), ...how })).rejects.toThrow()
+    expect(statSync(runs).mtimeMs).toBe(then.getTime())
+    expect(readdirSync(runs)).toHaveLength(1)
+  })
+
+  it('gives two runs of two drafts started together in two processes two numbers', async () => {
+    const scratch = mkdtempSync(join(tmpdir(), 'st-stamp-'))
+    made.push(scratch)
+    // Files enough that one start takes a while, so the two would overlap with nothing to stop them.
+    for (let n = 0; n < 200; n += 1) writeFileSync(join(skill, 'scripts', `tool-${n}.sh`), `${n}`)
+    const drafts = ['a', 'b'].map((letter) => {
+      const draft = join(scratch, `draft-${letter}`)
+      cpSync(skill, draft, {
+        recursive: true,
+        filter: (path) => !path.startsWith(join(skill, 'evals')),
+      })
+      writeFileSync(join(draft, 'SKILL.md'), `---\nname: Notes Skill\n---\n\n- Draft ${letter}.\n`)
+      return draft
+    })
+    const script = join(scratch, 'start.mts')
+    writeFileSync(script, START_SCRIPT)
+    const go = join(scratch, 'go')
+    const children = drafts.map((draft, i) => {
+      const child = spawn(
+        process.execPath,
+        ['--import', 'tsx', script, skill, draft, join(scratch, `ready-${i}`), go],
+        { cwd: ROOT, stdio: ['ignore', 'pipe', 'pipe'] },
+      )
+      let out = ''
+      let err = ''
+      child.stdout.on('data', (chunk) => (out += chunk))
+      child.stderr.on('data', (chunk) => (err += chunk))
+      return new Promise<string>((done, fail) =>
+        child.on('close', (code) => (code === 0 ? done(out.trim()) : fail(new Error(err)))),
+      )
+    })
+    while (![0, 1].every((i) => existsSync(join(scratch, `ready-${i}`))))
+      await new Promise((done) => setTimeout(done, 10))
+    writeFileSync(go, '')
+    const versions = await Promise.all(children)
+    expect(versions.sort()).toEqual(['v0', 'v1'])
+    // Two runs, and the lock given back.
+    expect(readdirSync(join(skill, 'evals/runs'))).toHaveLength(2)
+    expect(existsSync(join(skill, 'evals/runs', STAMP_LOCK_FILE))).toBe(false)
+  }, 60_000)
 
   it('refuses a baseline that is not a run name', async () => {
     const engine = engineThat(() => {})

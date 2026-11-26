@@ -14,6 +14,7 @@ const flags = {
   samples: { type: 'string' },
   configuration: { type: 'string' },
   baseline: { type: 'string' },
+  from: { type: 'string' },
   note: { type: 'string' },
   'no-grade': { type: 'boolean' },
 } as const
@@ -29,6 +30,7 @@ export const run: Command = {
     '    --samples <n>             Samples per case (default 1).',
     '    --configuration <c>       with_skill (default), without_skill, old_skill.',
     '    --baseline <v|run>        For old_skill: the version (v1) or run to test.',
+    '    --from <dir>              Run the skill files in <dir>, outside the skill, as the version.',
     '    --name <text>             Name the skill version when the tree changed.',
     '    --note <text>             Note on the version.',
     '    --parallel <n>            Samples in flight (default 3).',
@@ -77,6 +79,7 @@ export const run: Command = {
         samples: input.samples,
         configuration: input.configuration,
         baseline: input.baseline,
+        from: values.from ?? null,
         skillName: input.skillName,
         note: input.note,
         parallel,

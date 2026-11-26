@@ -1,13 +1,23 @@
 /**
- * One grading of a folder at a time, across every copy of the app on this
- * machine: the desktop app, `st serve` and `st` each keep their jobs in their
- * own memory, so a grading takes a lock file in the folder it grades. The file
- * is made only when there is none (`wx`), so of two gradings that start at
+ * Two locks, each across every copy of the app on this machine: the desktop
+ * app, `st serve` and `st` each keep their jobs in their own memory. A grading
+ * takes one in the folder it grades, so one folder is graded at a time, and a
+ * run takes one in the skill's `evals/runs/` while it takes its version and
+ * writes its `run.json`, so two runs started together never take one number.
+ * A lock file is made only when there is none (`wx`), so of two that start at
  * once one makes it. It holds the pid and the time of the one that holds it.
  * A lock whose process has ended is taken over, so a copy that crashed or was
  * killed holds nothing, and so is one taken more than twelve hours ago.
  */
-import { linkSync, readFileSync, renameSync, rmSync, statSync, writeFileSync } from 'node:fs'
+import {
+  linkSync,
+  mkdirSync,
+  readFileSync,
+  renameSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from 'node:fs'
 import { join } from 'node:path'
 
 /** The lock file, hidden, so no list of a run's files holds it. */
@@ -100,33 +110,32 @@ function refusal(holder: Holder | null): Error {
 }
 
 /**
- * Take the lock of `dir` for one grading, or refuse with who holds it. The
- * function it returns gives it back; it is given back when the process exits
- * too. A lock left by a process that has ended is taken over.
+ * Take the lock at `path`: the function that gives it back, or who holds it
+ * (null when the file does not read yet). It is given back when the process
+ * exits too. A lock left by a process that has ended is taken over.
  */
-export function takeGradingLock(dir: string): () => void {
-  const path = join(dir, LOCK_FILE)
+function tryLock(path: string): { release: () => void } | { holder: Holder | null } {
   const mine: Holder = { pid: process.pid, at: new Date().toISOString(), by: thisCopy() }
   for (let attempt = 0; attempt < 5; attempt += 1) {
     try {
       writeFileSync(path, JSON.stringify(mine), { flag: 'wx' })
       held.add(path)
       releaseAllOnExit()
-      return () => removeIfMine(path)
+      return { release: () => removeIfMine(path) }
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code !== 'EEXIST') throw error
     }
     const holder = readHolder(path)
     if (holder === null) {
-      // Not yet written, or never written whole: young, it is a grading starting; old, nothing holds it.
+      // Not yet written, or never written whole: young, it is a lock being taken; old, nothing holds it.
       let age = Number.POSITIVE_INFINITY
       try {
         age = Date.now() - statSync(path).mtimeMs
       } catch {
         continue
       }
-      if (age < WRITING_MS) throw refusal(null)
-    } else if (alive(holder.pid) && !outlived(holder)) throw refusal(holder)
+      if (age < WRITING_MS) return { holder: null }
+    } else if (alive(holder.pid) && !outlived(holder)) return { holder }
     // Taken over by moving it aside: of two that find it stale, one moves it, and the other finds the lock again.
     const aside = `${path}.${process.pid}.stale`
     try {
@@ -141,9 +150,51 @@ export function takeGradingLock(dir: string): () => void {
         linkSync(aside, path)
       } catch {}
       rmSync(aside, { force: true })
-      throw refusal(moved)
+      return { holder: moved }
     }
     rmSync(aside, { force: true })
   }
-  throw refusal(readHolder(path))
+  return { holder: readHolder(path) }
+}
+
+/**
+ * Take the lock of `dir` for one grading, or refuse with who holds it. The
+ * function it returns gives it back.
+ */
+export function takeGradingLock(dir: string): () => void {
+  const lock = tryLock(join(dir, LOCK_FILE))
+  if ('holder' in lock) throw refusal(lock.holder)
+  return lock.release
+}
+
+/** The lock a run holds in `evals/runs/` while it takes its version and writes its `run.json`. */
+export const STAMP_LOCK_FILE = '.stamp.lock'
+
+/** A run waits this long for another to finish starting, at most: one start copies the skill and the cases' files. */
+const STAMP_WAIT_MS = 60_000
+const STAMP_POLL_MS = 20
+
+/**
+ * Take the lock of a skill's `runs` folder for the start of one run, waiting
+ * while another run of the skill starts. The function it resolves to gives it
+ * back. Refuses with who holds it when the wait is over.
+ */
+export async function takeStampLock(runs: string): Promise<() => void> {
+  mkdirSync(runs, { recursive: true })
+  const path = join(runs, STAMP_LOCK_FILE)
+  const until = Date.now() + STAMP_WAIT_MS
+  for (;;) {
+    const lock = tryLock(path)
+    if ('release' in lock) return lock.release
+    if (Date.now() >= until) throw startRefusal(lock.holder)
+    await new Promise((done) => setTimeout(done, STAMP_POLL_MS))
+  }
+}
+
+/** The line a run is refused with when another run of the skill has been starting for the whole wait. */
+function startRefusal(holder: Holder | null): Error {
+  const by = holder ? ` (${holder.by})` : ''
+  return new Error(
+    `Another run of this skill is still starting${by}. Try again once it has started.`,
+  )
 }

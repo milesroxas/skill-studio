@@ -20,6 +20,7 @@ Commands
     --samples <n>             Samples per case (default 1).
     --configuration <c>       with_skill (default), without_skill, old_skill.
     --baseline <v|run>        For old_skill: the version (v1) or run to test.
+    --from <dir>              Run the skill files in <dir>, outside the skill, as the version.
     --name <text>             Name the skill version when the tree changed.
     --note <text>             Note on the version.
     --parallel <n>            Samples in flight (default 3).

@@ -401,7 +401,8 @@ export function skillIdentity(skillDir: string): { hash: string; files: string }
 
 /**
  * The skill's versions, oldest first: those saved by hand, then any known only
- * from runs. The working tree is the version stamped with its hash, when saved
+ * from runs. The working tree, the files in `skillDir` (the skill's, or a
+ * draft's), is the version stamped with its hash, when saved
  * or by any run, or else the next number, marked changed. A run without the
  * skill tested no version, so it neither names one nor makes the tree one.
  *
