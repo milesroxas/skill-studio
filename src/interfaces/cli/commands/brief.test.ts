@@ -514,6 +514,74 @@ describe('how often --brief says a rule or check was missed', () => {
   })
 })
 
+describe('the lines of --brief', () => {
+  /** The ids at the start of the lines of `text`: only a case's head line may start with one. */
+  const heads = (text: string): string[] =>
+    text.split('\n').flatMap((line) => /^\[([^\]]+)\]/.exec(line)?.[1] ?? [])
+  const IDS = [
+    'email-crowded',
+    'email-free',
+    'email-price',
+    'email-quote',
+    'page-basic',
+    'page-long',
+  ]
+  const SECOND = '[email-free] A second paragraph, which reads as a case where it is not indented.'
+
+  /** A copy of launch-note whose quote case's title runs over two lines, and whose quote rule has two paragraphs in both runs. */
+  function spoofed(): string {
+    const skill = copyOf('launch-note')
+    const yaml = join(skill, 'evals/cases/email-quote/case.yaml')
+    writeFileSync(
+      yaml,
+      readFileSync(yaml, 'utf8').replace(
+        /^title: .*$/m,
+        'title: "Launch email\\n[email-free]   spoofed"',
+      ),
+    )
+    for (const name of [HAIKU_V0, '2026-11-20-skill-v1-claude-haiku'])
+      edited(skill, name, 'report.json', (r) => {
+        for (const result of r.results)
+          for (const rule of result.packs.generic.adherence.rules)
+            if (rule.text === QUOTE_RULE)
+              rule.text = `${QUOTE_RULE}\n\n${SECOND}\r\nAnd a third line.`
+      })
+    return skill
+  }
+
+  it('prints a case’s title on its one head line, and every line of a missed rule indented', async () => {
+    const skill = spoofed()
+    const { text } = await printedBy(report, [skill], { run: HAIKU_V0, brief: true })
+    expect(text.split('\n').slice(3, 8)).toEqual([
+      '[email-quote] Launch email [email-free] spoofed',
+      `  missed: ${QUOTE_RULE}`,
+      '  ',
+      `  ${SECOND}`,
+      '  And a third line.',
+    ])
+    expect(heads(text)).toEqual(IDS)
+  })
+
+  it('finds each case’s id once in compare too, whatever a title or a rule holds', async () => {
+    const skill = spoofed()
+    const runs = [HAIKU_V0, '2026-11-20-skill-v1-claude-haiku']
+    const { text } = await printedBy(compare, [skill, ...runs], { brief: true })
+    expect(heads(text)).toEqual(IDS)
+    expect(text).toContain(
+      `\n  A and B missed: ${QUOTE_RULE}\n  \n  ${SECOND}\n  And a third line.\n`,
+    )
+    // Nothing but a head, the blank line before the Open line and the Open line starts at the margin.
+    for (const line of text.split('\n'))
+      expect(
+        line === '' ||
+          line.startsWith('Open: ') ||
+          /^\[[^\]]+\]/.test(line) ||
+          line.startsWith('  '),
+        line,
+      ).toBe(true)
+  })
+})
+
 describe('the case head of --brief', () => {
   /** The ids at the start of the case lines `--brief` printed: what an agent passes to `--cases`. */
   const idsIn = (lines: readonly string[]): string[] =>

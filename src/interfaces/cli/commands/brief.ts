@@ -21,14 +21,40 @@ import type { RunView } from '@domain/views.ts'
 import { loadCases } from '@infrastructure/cases.ts'
 import type { Context } from './command.ts'
 
+/** Text on one line: each line break and run of white space read as one space, none at either end. */
+const oneLine = (text: string): string => text.replace(/\p{White_Space}+/gu, ' ').trim()
+
+/** Where a line breaks, as a terminal or an agent reading the text would break it. */
+const LINE_BREAK = /\r\n|[\n\r\v\f\u0085\u2028\u2029]/
+
 /**
  * A case as the head of its `--brief` lines: its id in brackets at the start
- * of the line, where `--cases` can take it from, then its name, once where the
- * two are the same text. An id holds no bracket or space (`isSafeName`), so
- * `^\[([^\]]+)\]` finds it whatever the name holds.
+ * of the line, where `--cases` can take it from, then its name on the same
+ * line, once where the two are the same text. An id holds no bracket or space
+ * (`isSafeName`), so `^\[([^\]]+)\]` finds it whatever the name holds.
  */
-export const caseHead = (id: string, name: string): string =>
-  name.trim() === id ? `[${id}]` : `[${id}] ${name}`
+export const caseHead = (id: string, name: string): string => {
+  const named = oneLine(name)
+  return named === id ? `[${id}]` : `[${id}] ${named}`
+}
+
+/**
+ * A case's head line, `head` and what follows it, on one line whatever it
+ * holds. It is the one line of the output that starts at the margin with `[`:
+ * every other line of a case is indented (`missedLines`).
+ */
+const headLine = (head: string, said: string): string => oneLine(said ? `${head}: ${said}` : head)
+
+/**
+ * A missed rule or check, `label` before its words, as indented lines: a rule
+ * or check of several paragraphs keeps its line breaks, and every line of it
+ * is indented as the first is, so none can be read as a case's head.
+ */
+const missedLines = (label: string, words: string): string =>
+  words
+    .split(LINE_BREAK)
+    .map((line, i) => (i ? `  ${line}` : `  ${label}: ${line}`))
+    .join('\n')
 
 /**
  * The skill's case ids in the order `st cases` lists them, and each case's
@@ -142,8 +168,8 @@ export function printBrief(skill: string, side: Side, scoring: Context['scoring'
     const brief = briefs.get(id) ?? NONE
     const notes = notesOf(brief)
     const words = notes.length ? notes.join('; ') : brief.missed.length ? '' : 'nothing missed'
-    console.log(words ? `${head(id)}: ${words}` : head(id))
-    for (const w of brief.missed) console.log(`  missed${howOften(brief, w)}: ${w}`)
+    console.log(headLine(head(id), words))
+    for (const w of brief.missed) console.log(missedLines(`missed${howOften(brief, w)}`, w))
   }
 }
 
@@ -196,7 +222,9 @@ export function printBriefCompare(
       read ? BETTER[read.move] : why ? APART[why] : 'neither answered it',
       ...notes,
     ].join('; ')
-    console.log(`${head(id)}: ${said}${words.length || notes.length ? '' : ', nothing missed'}`)
+    console.log(
+      headLine(head(id), `${said}${words.length || notes.length ? '' : ', nothing missed'}`),
+    )
     for (const w of words) {
       const [inA, inB] = [one.missed.includes(w), two.missed.includes(w)]
       const [oftenA, oftenB] = [howOften(one, w), howOften(two, w)]
@@ -208,7 +236,7 @@ export function printBriefCompare(
           : inA
             ? `A missed${oftenA}`
             : `B missed${oftenB}`
-      console.log(`  ${who}: ${w}`)
+      console.log(missedLines(who, w))
     }
   }
 }
