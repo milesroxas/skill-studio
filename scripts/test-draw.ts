@@ -109,9 +109,12 @@ function runOf(from: string, to: string, attempts: number, picture: Uint8Array):
 const ending = new AbortController()
 const problems: string[] = []
 let desktop: Uint8Array | null = null
+/** The check under way, named with what stops it: an error that ends the test says which it was. */
+let check = ''
 try {
   const render = drawingHost({ warn: (line) => problems.push(line), signal: ending.signal })
   for (const size of RENDER_SIZES) {
+    check = `Drawing the stored page at ${size.id}, ${size.width}x${size.height}`
     const started = performance.now()
     const { png, layout } = await render(page, size)
     const seconds = ((performance.now() - started) / 1000).toFixed(2)
@@ -126,12 +129,14 @@ try {
     if (size.id === 'desktop') desktop = png
   }
   // Without the app's refusal, Electron grants notifications and asks the system where it is.
+  check = 'Drawing the page that asks for notifications and where the machine is'
   const { layout } = await render(asking, { width: 800, height: 600 })
   const answered = (layout?.elements ?? []).map((e) => e.text).filter(Boolean)
   console.log(`permissions: ${answered.join(', ')}`)
   for (const wanted of ['notifications: denied', 'geolocation: denied'])
     if (!answered.includes(wanted)) problems.push(`The page was not refused: no "${wanted}".`)
 
+  check = 'Putting the desktop picture on a contact sheet'
   if (!desktop) throw new Error('No desktop picture was drawn to put on a sheet.')
   // Loaded once the studio folder is set: the library reads it as it loads.
   const { sheet } = await import('../src/interfaces/cli/commands/sheet.ts')
@@ -173,6 +178,7 @@ try {
   }
 
   // A page of the command's own is served the pictures beside it, and nothing from the folder above.
+  check = 'Drawing a page of its own with a picture beside it and one in the folder above'
   const folder = join(scratch, 'own/inside')
   mkdirSync(folder, { recursive: true })
   writeFileSync(join(folder, 'beside.png'), desktop)
@@ -199,6 +205,7 @@ try {
   if (aboveShare > 0.1) problems.push("A picture outside its own page's folder was served.")
 
   // Whatever a page of the command's own says of itself, it runs no script and reaches nothing.
+  check = 'Drawing a page of its own that tries a script and requests to a local server'
   let reached = 0
   const server = createServer((_request, response) => response.end())
   server.on('connection', () => reached++)
@@ -230,6 +237,7 @@ fetch('http://${local}/fetch').catch(() => {})
   if (reached) problems.push(`A page of the command's own reached a local server ${reached} times.`)
 
   // A host whose command is gone ends, at any moment of its start: its input closed, or a signal.
+  check = 'Starting hosts to end them'
   const start = hostStart()
   if ('reason' in start) throw new Error(start.reason)
   for (const [how, after] of [
@@ -254,7 +262,9 @@ fetch('http://${local}/fetch').catch(() => {})
     }
   }
 } catch (error) {
-  problems.push((error as Error).message)
+  // Electron rejects a picture it could not take with only the name of what failed, so the check says where.
+  const said = error instanceof Error ? error.message || error.name : String(error)
+  problems.push(`${check}: ${said}`)
 } finally {
   ending.abort()
   rmSync(scratch, { recursive: true, force: true })
