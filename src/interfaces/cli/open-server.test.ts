@@ -26,6 +26,7 @@ import {
 } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
+import { pathToFileURL } from 'node:url'
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest'
 
 const ROOT = resolve(import.meta.dirname, '../../..')
@@ -66,13 +67,19 @@ let second: string
 
 /** `st open ...args`, run from `checkout`'s copy of the command line. */
 function stOpen(checkout: string, ...args: string[]) {
+  return stOpenWith({}, checkout, ...args)
+}
+
+/** `st open ...args` as `stOpen` runs it, with `env` laid over its environment, and the server's. */
+function stOpenWith(env: Record<string, string>, checkout: string, ...args: string[]) {
+  const { ST_OPEN_SERVER: _, ...own } = process.env
   const st = spawnSync(
     process.execPath,
     ['--import', 'tsx', join(checkout, 'src/interfaces/cli/st.ts'), 'open', ...args],
     {
       cwd: checkout,
       encoding: 'utf8',
-      env: { ...process.env, SKILL_STUDIO_HOME: home },
+      env: { ...own, SKILL_STUDIO_HOME: home, ...env },
       timeout: 60_000,
     },
   )
@@ -294,26 +301,26 @@ describe('st open', () => {
 })
 
 describe('st open, when its server does not come up', () => {
-  /** A checkout whose server writes `line` to stderr, then does `then`, as it starts. */
-  function brokenCheckout(line: string, then: string): string {
-    const checkout = checkoutCopy()
-    const serve = join(checkout, 'src/interfaces/cli/commands/serve.ts')
-    const source = readFileSync(serve, 'utf8')
-    const at = '    keepRunning()\n'
-    expect(source).toContain(at)
+  /**
+   * What makes the server `st open` starts write `line` to stderr and then do
+   * `then`, before any of its code loads, and leaves `st open` itself alone: a
+   * module Node loads first in every process, through `NODE_OPTIONS`, which
+   * the server inherits, that acts only where `ST_OPEN_SERVER` is set, as it
+   * is for the server alone. No source is edited, so no line end matters.
+   */
+  function breaking(line: string, then: string): Record<string, string> {
+    const dir = scratch('st-open-break-')
+    const preload = join(dir, 'break.mjs')
     writeFileSync(
-      serve,
-      source.replace(
-        at,
-        `${at}    if (process.env.ST_OPEN_SERVER) { console.error(${JSON.stringify(line)}); ${then} }\n`,
-      ),
+      preload,
+      `if (process.env.ST_OPEN_SERVER === '1') { console.error(${JSON.stringify(line)}); ${then} }\n`,
     )
-    return checkout
+    return { NODE_OPTIONS: `--import=${JSON.stringify(pathToFileURL(preload).href)}` }
   }
 
   it('says where the log is when the server stops as it starts, and the log says why', () => {
-    const checkout = brokenCheckout('broken on purpose', 'process.exit(3)')
-    const st = stOpen(checkout, skill)
+    const checkout = checkoutCopy()
+    const st = stOpenWith(breaking('broken on purpose', 'process.exit(3)'), checkout, skill)
     expect(st.status).not.toBe(0)
     expect(st.stderr).toContain(
       `The server stopped as it started. What it wrote is in ${logOf(checkout)}.`,
@@ -323,11 +330,13 @@ describe('st open, when its server does not come up', () => {
   }, 60_000)
 
   it('says where the log is when the server does not answer in time', () => {
-    const checkout = brokenCheckout(
+    const checkout = checkoutCopy()
+    // Held before its code loads, with something to keep it up: it never writes its file.
+    const held = breaking(
       'stuck on purpose',
-      'await new Promise(() => setInterval(() => {}, 1000))',
+      'setInterval(() => {}, 1000); await new Promise(() => {})',
     )
-    const st = stOpen(checkout, skill)
+    const st = stOpenWith(held, checkout, skill)
     expect(st.status).not.toBe(0)
     expect(st.stderr).toContain(
       `The server did not start within 10 seconds. What it wrote is in ${logOf(checkout)}.`,

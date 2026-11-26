@@ -135,6 +135,13 @@ const count = (line: string): number => logged().filter((l) => l === line).lengt
 
 const WINDOWS = process.platform === 'win32'
 
+/**
+ * How long a test that runs a command of its own may take: the command loads
+ * through tsx, which on a Windows runner takes some 5 seconds by itself, and
+ * then the test waits up to 5 seconds more for the host to go.
+ */
+const COMMAND_MS = 30_000
+
 /** The stand-in that wrote this test's log has exited. */
 function standInGone(): boolean {
   if (!existsSync(`${log}.pid`)) return false
@@ -313,59 +320,68 @@ describe('the end of the drawing host', () => {
     expect(warn).not.toHaveBeenCalled()
   })
 
-  it('ends when a command that drew a page is done: an idle host holds nothing open', async () => {
-    const command = join(scratch, 'command.mts')
-    writeFileSync(
-      command,
-      [
-        `import { drawingHost } from ${importable(join(ROOT, 'src/interfaces/cli/drawing.ts'))}`,
-        `const start = ${JSON.stringify(standIn)}`,
-        'const render = drawingHost({ warn: console.error, start })',
-        `await render({ skill: ${JSON.stringify(scratch)}, run: 'r1', sample: 's1', file: 'a.html' }, { width: 400, height: 300 })`,
-        "console.log('drawn')",
-      ].join('\n'),
-    )
-    const done = spawnSync(process.execPath, ['--import', 'tsx', command], {
-      cwd: ROOT,
-      encoding: 'utf8',
-      env: { ...process.env, SKILL_STUDIO_HOME: home },
-      timeout: 30_000,
-    })
-    // It exited by itself, long before the time it was given, once its page was drawn.
-    expect(done.status).toBe(0)
-    expect(done.stdout).toBe('drawn\n')
-    expect(logged().slice(0, 2)).toEqual(['start', `asked 1 400x300 ${scratch}`])
-    // On Windows the kill as the command exits ends the host before it can note its input closing.
-    expect(await until(() => (WINDOWS ? standInGone() : logged().includes('end')))).toBe(true)
-  })
+  it(
+    'ends when a command that drew a page is done: an idle host holds nothing open',
+    async () => {
+      const command = join(scratch, 'command.mts')
+      writeFileSync(
+        command,
+        [
+          `import { drawingHost } from ${importable(join(ROOT, 'src/interfaces/cli/drawing.ts'))}`,
+          `const start = ${JSON.stringify(standIn)}`,
+          'const render = drawingHost({ warn: console.error, start })',
+          `await render({ skill: ${JSON.stringify(scratch)}, run: 'r1', sample: 's1', file: 'a.html' }, { width: 400, height: 300 })`,
+          "console.log('drawn')",
+        ].join('\n'),
+      )
+      const done = spawnSync(process.execPath, ['--import', 'tsx', command], {
+        cwd: ROOT,
+        encoding: 'utf8',
+        env: { ...process.env, SKILL_STUDIO_HOME: home },
+        timeout: 30_000,
+      })
+      // It exited by itself, long before the time it was given, once its page was drawn.
+      expect(done.status).toBe(0)
+      expect(done.stdout).toBe('drawn\n')
+      expect(logged().slice(0, 2)).toEqual(['start', `asked 1 400x300 ${scratch}`])
+      // On Windows the kill as the command exits ends the host before it can note its input closing.
+      expect(await until(() => (WINDOWS ? standInGone() : logged().includes('end')))).toBe(true)
+      // A command started with tsx takes some 5 seconds to load on a Windows runner, before it draws.
+    },
+    COMMAND_MS,
+  )
 
-  it('ends with a command that exits while a page waits, though the host does not hear its input close', async () => {
-    vi.stubEnv('STAND_IN_DEAF', '1')
-    // Held: no page is answered, so the command exits with its host still drawing.
-    vi.stubEnv('STAND_IN_BATCH', '2')
-    const command = join(scratch, 'exits.mts')
-    writeFileSync(
-      command,
-      [
-        `import { drawingHost } from ${importable(join(ROOT, 'src/interfaces/cli/drawing.ts'))}`,
-        `const start = ${JSON.stringify(standIn)}`,
-        'const render = drawingHost({ warn: console.error, start })',
-        `void render({ skill: ${JSON.stringify(scratch)}, run: 'r1', sample: 's1', file: 'a.html' }, { width: 400, height: 300 })`,
-        // As Ctrl-C ends a command: at once, with nothing awaited.
-        'setTimeout(() => process.exit(130), 300)',
-      ].join('\n'),
-    )
-    const done = spawnSync(process.execPath, ['--import', 'tsx', command], {
-      cwd: ROOT,
-      encoding: 'utf8',
-      env: { ...process.env, SKILL_STUDIO_HOME: home },
-      timeout: 30_000,
-    })
-    expect(done.status).toBe(130)
-    // Windows has no SIGTERM to hear: its kill ends the host at once.
-    expect(await until(() => (WINDOWS ? standInGone() : logged().includes('killed')))).toBe(true)
-    expect(await until(standInGone)).toBe(true)
-  })
+  it(
+    'ends with a command that exits while a page waits, though the host does not hear its input close',
+    async () => {
+      vi.stubEnv('STAND_IN_DEAF', '1')
+      // Held: no page is answered, so the command exits with its host still drawing.
+      vi.stubEnv('STAND_IN_BATCH', '2')
+      const command = join(scratch, 'exits.mts')
+      writeFileSync(
+        command,
+        [
+          `import { drawingHost } from ${importable(join(ROOT, 'src/interfaces/cli/drawing.ts'))}`,
+          `const start = ${JSON.stringify(standIn)}`,
+          'const render = drawingHost({ warn: console.error, start })',
+          `void render({ skill: ${JSON.stringify(scratch)}, run: 'r1', sample: 's1', file: 'a.html' }, { width: 400, height: 300 })`,
+          // As Ctrl-C ends a command: at once, with nothing awaited.
+          'setTimeout(() => process.exit(130), 300)',
+        ].join('\n'),
+      )
+      const done = spawnSync(process.execPath, ['--import', 'tsx', command], {
+        cwd: ROOT,
+        encoding: 'utf8',
+        env: { ...process.env, SKILL_STUDIO_HOME: home },
+        timeout: 30_000,
+      })
+      expect(done.status).toBe(130)
+      // Windows has no SIGTERM to hear: its kill ends the host at once.
+      expect(await until(() => (WINDOWS ? standInGone() : logged().includes('killed')))).toBe(true)
+      expect(await until(standInGone)).toBe(true)
+    },
+    COMMAND_MS,
+  )
 
   it('ends when the server `st open` started stops for want of use', async () => {
     vi.stubEnv('ST_OPEN_SERVER', '1')

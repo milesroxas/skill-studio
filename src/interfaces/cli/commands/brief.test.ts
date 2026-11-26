@@ -532,13 +532,14 @@ describe('the lines of --brief', () => {
   function spoofed(): string {
     const skill = copyOf('launch-note')
     const yaml = join(skill, 'evals/cases/email-quote/case.yaml')
-    writeFileSync(
-      yaml,
-      readFileSync(yaml, 'utf8').replace(
-        /^title: .*$/m,
-        'title: "Launch email\\n[email-free]   spoofed"',
-      ),
+    const before = readFileSync(yaml, 'utf8')
+    // `[^\r\n]*` stops at either line end, so the title line is found however the file ends its lines.
+    const after = before.replace(
+      /^title: [^\r\n]*/m,
+      'title: "Launch email\\n[email-free]   spoofed"',
     )
+    expect(after).not.toBe(before)
+    writeFileSync(yaml, after)
     for (const name of [HAIKU_V0, '2026-11-20-skill-v1-claude-haiku'])
       edited(skill, name, 'report.json', (r) => {
         for (const result of r.results)
