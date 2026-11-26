@@ -1576,3 +1576,155 @@ describe('gradeRun and compareCases, on the checks for every case', () => {
     expect(asked.cases).toEqual([])
   })
 })
+
+describe('gradeRun, on what a person must know even with progress silenced', () => {
+  type Channels = { log: (line: string) => void; warn?: (line: string) => void }
+  type Render = NonNullable<Parameters<typeof gradeRun>[2]['render']>
+  /** One output's run, with its `run.json` saying what each sample did and whether the run ended. */
+  const recorded = (samples: object[], finished: boolean) => {
+    const { dir, run } = skillWith(['email'], ['email-s1'])
+    writeFileSync(
+      join(dir, 'evals/runs', run, 'run.json'),
+      JSON.stringify({
+        name: run,
+        createdAt: '2026-11-26T10:00:00.000Z',
+        finishedAt: finished ? '2026-11-26T10:05:00.000Z' : null,
+        samples,
+      }),
+    )
+    return { dir, run }
+  }
+  const done = { dir: 'email-s1', case: 'email', index: 1, ok: true, outputs: ['outputs/note.md'] }
+  /** A run whose one output is the files given, graded with Jev and a browser drawing as `render` says. */
+  const drawn = (files: Record<string, Uint8Array | string>, render: Render, yaml?: string) => {
+    const { dir, run } = skillWith(['card'], ['card-s1'])
+    if (yaml) writeFileSync(join(dir, 'evals/cases/card/case.yaml'), yaml)
+    const outputs = join(dir, 'evals/runs', run, 'card-s1/outputs')
+    rmSync(join(outputs, 'note.md'))
+    for (const [name, body] of Object.entries(files)) writeFileSync(join(outputs, name), body)
+    vi.spyOn(Jev, 'available').mockReturnValue(true)
+    genericJudge().mockResolvedValue(null)
+    return { dir, run, render }
+  }
+  const failing: Render = async () => {
+    throw new Error('The page stopped.')
+  }
+  const INK: [number, number, number, number] = [10, 12, 17, 255]
+  const PAPER: [number, number, number, number] = [244, 242, 235, 255]
+  const blocks = (width: number, height: number, share: number) =>
+    pngOf(width, height, (x) => (x < width * share ? INK : PAPER))
+  const cardLayout = readLayout({
+    window: [320, 300],
+    page: [320, 300],
+    elements: [{ parent: 0, name: 'main#card', text: '', x: 0, y: 0, width: 320, height: 300 }],
+  }) as PageLayout
+
+  const rows: Array<{
+    kind: string
+    line: RegExp
+    grade: (channels: Channels) => Promise<unknown>
+  }> = [
+    {
+      kind: 'a picture the case came with that Jev is not shown',
+      line: /^email-s1: shot\.png is not shown to Jev: .+\.$/,
+      grade: (channels) => {
+        const { dir, run } = skillWith(['email'], ['email-s1'])
+        mkdirSync(join(dir, 'evals/cases/email/files'))
+        writeFileSync(join(dir, 'evals/cases/email/files/shot.png'), 'not a picture')
+        return gradeRun(dir, run, { useJev: false, ...channels })
+      },
+    },
+    {
+      kind: 'a pack that failed',
+      line: /^email-s1: generic pack failed: no network$/,
+      grade: (channels) => {
+        const { dir, run } = skillWith(['email'], ['email-s1'])
+        genericJudge().mockRejectedValue(new Error('no network'))
+        return gradeRun(dir, run, { useJev: false, ...channels })
+      },
+    },
+    {
+      kind: 'a page it could not draw',
+      line: /^card-s1: the page could not be drawn at desktop width: The page stopped\.$/,
+      grade: (channels) => {
+        const { dir, run, render } = drawn({ 'index.html': '<h1>Hi</h1>' }, failing)
+        writeFileSync(join(dir, 'evals/bench.json'), JSON.stringify({ packs: ['design'] }))
+        const pack = packById('design')
+        if (pack) vi.spyOn(pack, 'judge').mockResolvedValue(null)
+        return gradeRun(dir, run, { useJev: true, render, ...channels })
+      },
+    },
+    {
+      kind: 'a picture it could not draw at a size Jev reads',
+      line: /^card-s1: cover\.png could not be drawn at a size Jev reads: The page stopped\.$/,
+      grade: (channels) => {
+        const { dir, run, render } = drawn({ 'cover.png': pngHeader(1920, 1080) }, failing)
+        return gradeRun(dir, run, { useJev: true, render, ...channels })
+      },
+    },
+    {
+      kind: 'a picture the page beside it does not draw',
+      line: /^card-s1: card\.png is not what card\.html draws, so nothing is measured for it$/,
+      grade: (channels) => {
+        const { dir, run, render } = drawn(
+          { 'card.html': '<main id="card"></main>', 'card.png': blocks(320, 300, 0.5) },
+          async (_page, size) => ({
+            png: blocks(size.width, size.height, 0.6),
+            layout: cardLayout,
+          }),
+          'bench:\n  artifact: image\n',
+        )
+        return gradeRun(dir, run, { useJev: true, render, ...channels })
+      },
+    },
+    {
+      kind: 'that there was no output to grade',
+      line: /^No output to grade, so no report was written\. The last one, if any, still stands\.$/,
+      grade: (channels) => {
+        const { dir, run } = recorded([{ ...done, ok: false, stopped: true }], true)
+        return gradeRun(dir, run, { useJev: false, ...channels })
+      },
+    },
+    {
+      kind: 'outputs that did not run to their end',
+      line: /^1 output\(s\) did not run to their end: left out of grading\.$/,
+      grade: (channels) => {
+        const { dir, run } = recorded([{ ...done, ok: false, stopped: true }], true)
+        return gradeRun(dir, run, { useJev: false, ...channels })
+      },
+    },
+    {
+      kind: 'a run that has not finished',
+      line: /^run-1 has not finished: only the outputs it has recorded so far are graded\.$/,
+      grade: (channels) => {
+        const { dir, run } = recorded([done], false)
+        return gradeRun(dir, run, { useJev: false, ...channels })
+      },
+    },
+    {
+      kind: 'a copy of the cases that does not read whole',
+      line: /^_cases\.json does not read whole: a case it lost is graded on the case as it is now\.$/,
+      grade: (channels) => {
+        const { dir, run } = skillWith(['email'], ['email-s1'])
+        writeFileSync(join(dir, 'evals/runs', run, '_cases.json'), '{ torn')
+        vi.spyOn(console, 'warn').mockImplementation(() => {})
+        genericJudge().mockResolvedValue(null)
+        return gradeRun(dir, run, { useJev: false, ...channels })
+      },
+    },
+  ]
+
+  it.each(rows)(
+    'says $kind through warn alone when both are given, and through log when warn is not',
+    async ({ line, grade }) => {
+      const log: string[] = []
+      const warn: string[] = []
+      await grade({ log: (l) => log.push(l), warn: (l) => warn.push(l) })
+      expect(warn.filter((l) => line.test(l))).toHaveLength(1)
+      expect(log.filter((l) => line.test(l))).toEqual([])
+      const alone: string[] = []
+      await grade({ log: (l) => alone.push(l) })
+      expect(alone.filter((l) => line.test(l))).toHaveLength(1)
+    },
+  )
+})

@@ -913,6 +913,101 @@ describe('generateRun', () => {
   })
 })
 
+describe('generateRun, on what a person must know even with progress silenced', () => {
+  /** The lines said through each channel. */
+  type Said = { log: string[]; warn: string[] }
+  type Channels = { log: (line: string) => void; warn?: (line: string) => void }
+  const rows: Array<{
+    kind: string
+    line: RegExp
+    start: (channels: Channels) => Promise<unknown>
+  }> = [
+    {
+      kind: 'an input file of a case that is missing',
+      line: /^note: input file missing, evals\/cases\/note\/files\/gone\.txt$/,
+      start: (channels) => {
+        const [note] = loadCases(skill)
+        const cases = [{ ...note, files: [...note.files, 'evals/cases/note/files/gone.txt'] }]
+        return generateRun({
+          ...options(
+            engineThat(() => {}),
+            1,
+          ),
+          cases,
+          ...channels,
+        })
+      },
+    },
+    {
+      kind: 'a version kept with SKILL.md and references/ alone',
+      line: /^v0 was kept with SKILL\.md and references\/ only: this run gets none of its scripts/,
+      start: (channels) => {
+        rmSync(join(skill, 'evals'), { recursive: true, force: true })
+        mkdirSync(join(skill, 'evals/cases/note'), { recursive: true })
+        writeFileSync(join(skill, 'evals/cases/note/prompt.md'), 'Write a note.')
+        saveVersion(skill, versionsOf(skill).current, 'Short notes', '')
+        rmSync(join(skill, 'evals/versions/v0/files/scripts'), { recursive: true })
+        return generateRun({
+          ...options(
+            engineThat(() => {}),
+            1,
+          ),
+          configuration: 'old_skill',
+          baseline: 'v0',
+          ...channels,
+        })
+      },
+    },
+    {
+      kind: 'work of an agent that could not be moved into the run',
+      line: /^note-s1: .+; the rest is in .+$/,
+      start: async (channels) => {
+        let named = ''
+        let work = ''
+        const engine = engineThat((cwd) => {
+          work = cwd
+          const run = join(skill, 'evals/runs', named)
+          rmSync(run, { recursive: true, force: true })
+          writeFileSync(run, 'not a folder')
+        })
+        await expect(
+          generateRun({
+            ...options(engine, 1),
+            onNamed: (name) => {
+              named = name
+            },
+            ...channels,
+          }),
+        ).rejects.toThrow('could not be written to')
+        rmSync(dirname(work), { recursive: true, force: true })
+      },
+    },
+    {
+      kind: 'what an engine says went wrong',
+      line: /^note-s1 \(fake small\): the transcript could not be written$/,
+      start: (channels) => {
+        const engine = engineThat((_cwd, _call, request) =>
+          request.log?.('the transcript could not be written'),
+        )
+        return generateRun({ ...options(engine, 1), ...channels })
+      },
+    },
+  ]
+
+  it.each(rows)(
+    'says $kind through warn alone when both are given, and through log when warn is not',
+    async ({ line, start }) => {
+      const said: Said = { log: [], warn: [] }
+      await start({ log: (l) => said.log.push(l), warn: (l) => said.warn.push(l) })
+      expect(said.warn.filter((l) => line.test(l))).toHaveLength(1)
+      expect(said.log.filter((l) => line.test(l))).toEqual([])
+      const alone: string[] = []
+      await start({ log: (l) => alone.push(l) })
+      expect(alone.filter((l) => line.test(l))).toHaveLength(1)
+    },
+  )
+})
+
 describe('the folder an agent works in', () => {
   /** Every folder above `dir`, nearest first. */
   const above = (dir: string): string[] => {
