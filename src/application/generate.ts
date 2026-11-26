@@ -48,6 +48,8 @@ import { skillHead, skillInfo, snapshotSkill } from '@infrastructure/skill.ts'
 import { TranscriptWriter } from '@infrastructure/transcript.ts'
 import { isVersionLabel } from '@infrastructure/versions.ts'
 import { AGENT_FILE, makeWorkdir, moveWork } from '@infrastructure/workdir.ts'
+import { countCall } from '@judges/meter.ts'
+import { neverReplayed } from '@judges/replies.ts'
 
 /** One sample of a long task; longer means the session is stuck. */
 const SAMPLE_TIMEOUT_MS = 20 * 60 * 1000
@@ -248,6 +250,8 @@ function baselineOf(
 export async function generateRun(
   options: GenerateOptions,
 ): Promise<{ name: string; dir: string; meta: RunMeta }> {
+  // The answer under test is never saved: a replay asks nobody, so it runs no agent.
+  neverReplayed("The answer under test, a run's agent,")
   const { skillDir, engine, log } = options
   const info = skillInfo(skillDir)
   const configuration = options.configuration
@@ -516,6 +520,16 @@ async function runSample(
     model: result.model,
   }
   writeJson(join(dir, 'timing.json'), timing)
+  // The answer under test is counted once an attempt, never saved: it is what the skill is tried on.
+  countCall({
+    operation: 'run',
+    provider: 'engine',
+    model: result.model ?? options.model,
+    input: result.tokens?.input ?? 0,
+    output: result.tokens?.output ?? 0,
+    seconds: timing.durationMs / 1000,
+    source: 'asked',
+  })
   writeJson(join(dir, AGENT_FILE), {
     workdir: work.paths,
     ok: result.ok,

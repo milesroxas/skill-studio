@@ -57,7 +57,6 @@ import { parseSampleDir } from '@domain/run-name.ts'
 import type { Case } from '@domain/schemas.ts'
 import type { Sample } from '@domain/views.ts'
 import { aiProvider, isProviderError } from '@infrastructure/ai/index.ts'
-import { recordUsage } from '@infrastructure/ai/store.ts'
 import {
   loadBench,
   loadCases,
@@ -238,15 +237,6 @@ async function pooled<T, R>(
   }
   await Promise.all(Array.from({ length: Math.max(1, Math.min(limit, items.length)) }, worker))
   return results
-}
-
-/** Keep what a session spent. The log is a record beside the proposals, never part of them. */
-function spent(provider: AiProviderId, model: string, usage: AiUsage): void {
-  try {
-    recordUsage({ at: new Date().toISOString(), provider, model, ...usage })
-  } catch (error) {
-    console.warn(`The usage log could not be written: ${(error as Error).message}`)
-  }
 }
 
 /**
@@ -593,6 +583,7 @@ export async function proposeChecks(
         const reply =
           options.inline || !read
             ? await provider.run({
+                operation: 'propose',
                 model: options.model,
                 effort: options.effort,
                 system: PROPOSE_BRIEF_INLINE,
@@ -604,6 +595,7 @@ export async function proposeChecks(
                 onText: () => {},
               })
             : await read({
+                operation: 'propose',
                 model: options.model,
                 effort: options.effort,
                 system: PROPOSE_BRIEF,
@@ -614,13 +606,9 @@ export async function proposeChecks(
               })
         usage = add(usage, reply.usage)
         model = reply.model
-        spent(options.provider, reply.model, reply.usage)
         return reply.text
       } catch (error) {
-        if (isProviderError(error)) {
-          usage = add(usage, error.usage)
-          spent(options.provider, error.model, error.usage)
-        }
+        if (isProviderError(error)) usage = add(usage, error.usage)
         throw error
       }
     }

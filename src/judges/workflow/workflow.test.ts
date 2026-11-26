@@ -12,7 +12,13 @@ import { summarize, summaryOf, workflowPack } from './index.ts'
 import { type WorkflowMetrics, workflowScoring } from './score.ts'
 
 const config = mergeConfig({ packs: ['workflow'] }, [workflowScoring])
-const ctx: JudgeContext = { jev: new Jev(), useJev: false, config, skillDir: '/s', log: () => {} }
+const ctx: JudgeContext = {
+  jev: new Jev(undefined, 'grade'),
+  useJev: false,
+  config,
+  skillDir: '/s',
+  log: () => {},
+}
 const subject: ScoreSubject = {
   case: null,
   primary: { file: 'outputs/note.md', kind: 'markdown' },

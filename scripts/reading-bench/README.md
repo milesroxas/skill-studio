@@ -80,6 +80,8 @@ pnpm st sort /tmp/v2 --model sonnet
 pnpm exec tsx scripts/reading-bench/sorted.ts /tmp/v2 [--json <file>]
 ```
 
+With `ST_AI_RECORD` on, record one command at a time: two processes saving Jev's answers to one state at once can lose some of them.
+
 Sorted after version one's readings, version two's sort is shown how each rule and check whose words it shares was read, and keeps that reading unless the edit changes how it is marked. `readings.ts differ <a> <b>` lists what two sorts of the same version read differently.
 
 It reads each output's rules and checks as the stored readings say, for the SKILL.md its run was made with and the case as the run asked it, and answers each exact one by code. It prints, on the stored outputs and on the same outputs changed to miss: how many answers agree with the key and with gold, every one that differs, those only the model's code answered, and those only the other side answered, by why the model's reading gave none. Then each rule and check with how the model read it beside gold.

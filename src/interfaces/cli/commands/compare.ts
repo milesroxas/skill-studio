@@ -1,0 +1,104 @@
+import { type ComparedCases, compareCases, compareRuns, correctionsOf } from '@application/grade.ts'
+import type { CaseMove, Met } from '@domain/case-result.ts'
+import { readRun } from '@infrastructure/runs.ts'
+import { runNameOf } from '../input.ts'
+import type { Command, FlagValues } from './command.ts'
+import { shared } from './flags.ts'
+import { pad, padEnd, skillOf } from './shared.ts'
+
+const flags = shared('json', 'packs', 'bench')
+
+/** How a case moved, as a line says it. */
+const MOVED: Readonly<Record<CaseMove, string>> = {
+  better: 'better',
+  same: 'the same',
+  worse: 'worse',
+  none: 'no checks to compare',
+}
+
+/** One end of a case: the checks met on each attempt, "4 of 5" or "4 of 5 and 5 of 5". */
+const endWords = (end: readonly Met[]): string =>
+  end.map((m) => `${m.met} of ${m.total}`).join(' and ')
+
+/** Print two runs read as cases, on checks: the count of each move, then each case's line. */
+function printCases(compared: ComparedCases): void {
+  const { better, same, worse, none } = compared
+  console.log(
+    `\nRead as cases, on checks alone: better on ${better}, the same on ${same}, worse on ${worse}.${
+      none ? ` ${none} with no checks to compare.` : ''
+    }`,
+  )
+  for (const c of compared.cases) {
+    const head = `  ${padEnd(c.case, 28)}${padEnd(MOVED[c.move], 12)}`
+    if (c.move === 'none') {
+      console.log(head.trimEnd())
+      continue
+    }
+    const tail = [
+      c.alone && c.move !== 'same' ? 'one attempt each, so a small move may be chance' : null,
+      c.left ? `${c.left} left out, marked in only one run or set aside` : null,
+    ].filter(Boolean)
+    console.log(
+      `${head}checks met ${endWords(c.a)}, then ${endWords(c.b)}${tail.length ? `; ${tail.join('; ')}` : ''}`,
+    )
+  }
+  if (compared.left.length) {
+    console.log('\nCases not read:')
+    for (const line of compared.left) console.log(`  ${line}`)
+  }
+}
+
+export const compare: Command = {
+  name: 'compare',
+  help: ['  compare <runA> <runB>       Score deltas between two graded runs.'],
+  flags,
+  agents: false,
+  async run(context) {
+    const values = context.values as FlagValues<typeof flags>
+    const { skill, rest } = skillOf(context.args)
+    const [a, b] = rest
+    if (!a || !b) throw new Error('Pass two run names.')
+    const load = (name: string) => {
+      const run = runNameOf(name, '`st compare`')
+      const { report, cases, samples } = readRun(skill, run)
+      if (!report) throw new Error(`${name} has no report.json.`)
+      return {
+        report,
+        cases,
+        samples: samples.map((s) => s.name),
+        corrections: correctionsOf(skill, run),
+      }
+    }
+    // Both under one scoring, so a difference is the outputs' and not a setting's, read as the app reads a change.
+    const before = load(a)
+    const after = load(b)
+    const { rows, left, notes } = compareRuns(skill, before, after, context.scoring)
+    // The same two runs read as cases, on checks alone.
+    const byCase = compareCases(skill, before, after, context.scoring)
+    if (values.json) {
+      console.log(JSON.stringify({ rows, left, notes, cases: byCase }, null, 2))
+      return 0
+    }
+    const layers = rows.length ? Object.keys(rows[0].deltas) : []
+    console.log(`\n${padEnd('sample', 44)}${layers.map((l) => pad(l, 11)).join('')}`)
+    for (const row of rows)
+      console.log(
+        `${padEnd(row.key, 44)}${layers
+          .map((l) => {
+            const d = row.deltas[l]
+            return pad(d === null ? '-' : `${d > 0 ? '+' : ''}${d}`, 11)
+          })
+          .join('')}`,
+      )
+    if (notes.length) {
+      console.log('\nA change counts only what was marked in both runs, as in the app:')
+      for (const line of notes) console.log(`  ${line}`)
+    }
+    if (left.length) {
+      console.log('\nLeft out, as the app leaves them out:')
+      for (const line of left) console.log(`  ${line}`)
+    }
+    printCases(byCase)
+    return 0
+  },
+}

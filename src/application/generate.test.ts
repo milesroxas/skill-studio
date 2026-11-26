@@ -664,7 +664,7 @@ describe('the folder an agent works in', () => {
         renders: [],
       },
       {
-        jev: new Jev(),
+        jev: new Jev(undefined, 'grade'),
         useJev: false,
         config: mergeConfig({ packs: ['workflow'] }, [workflowScoring]),
         skillDir: skill,

@@ -5,3 +5,5 @@
 # stored run answer another case.
 fixtures/** -text
 scripts/reading-bench/skill/** -text
+# What `st --help` printed, held to the help byte for byte.
+src/interfaces/cli/commands/__fixtures__/** -text

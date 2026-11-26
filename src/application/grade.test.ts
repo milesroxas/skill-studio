@@ -654,7 +654,7 @@ describe('gradeRun, on a page drawn for a pack that looks at it', () => {
     const versions = { generic: packById('generic')?.version, design: packById('design')?.version }
     const drawn = await gradeRun(dir, run, { useJev: true, render })
     expect(drawn.results[0].graded).toEqual({
-      model: new Jev().model,
+      model: new Jev(undefined, 'grade').model,
       packs: expect.objectContaining(versions),
       drawn: true,
       // The generic pack read the rules the skill states, and no list in bench.json.

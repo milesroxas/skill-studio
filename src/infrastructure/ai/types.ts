@@ -5,6 +5,7 @@
  */
 import type { AiModel, AiProviderId, AiUsage, CliAccount } from '@domain/ai.ts'
 import type { SlashCommand } from '@domain/commands.ts'
+import type { Operation } from '@domain/cost.ts'
 import type { StoredImage } from '../images.ts'
 
 export interface AiMessage {
@@ -15,6 +16,8 @@ export interface AiMessage {
 }
 
 export interface AiRequest {
+  /** The work the reply is asked for, counted under it. */
+  operation: Operation
   model: string
   /** Empty for the model's own default. */
   effort: string
@@ -39,6 +42,8 @@ export interface AiRequest {
  * no network, and no tool that writes or runs anything.
  */
 export interface AiFolderRequest {
+  /** The work the reply is asked for, counted under it. */
+  operation: Operation
   model: string
   /** Empty for the model's own default. */
   effort: string

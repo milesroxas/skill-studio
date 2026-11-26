@@ -16,9 +16,9 @@
  * gradings' worth. It is merged with what is on disk as it is written, so a
  * write from another copy of the app loses no answer.
  */
-import { createHash } from 'node:crypto'
 import { readJson, writeJson } from '@infrastructure/fs.ts'
 import type { JevAsker, JevState, Usage } from '@judges/jev.ts'
+import { hashOf, sha } from '@judges/replies.ts'
 import type { Questions } from '@typesafe-ai/sdk'
 
 /** The shape the file is written in. A file without it is from an earlier version. */
@@ -53,8 +53,6 @@ interface CacheFile {
 
 const isObject = (value: unknown): value is Record<string, unknown> =>
   Boolean(value) && typeof value === 'object' && !Array.isArray(value)
-
-const sha = (text: string | Uint8Array): string => createHash('sha256').update(text).digest('hex')
 
 /**
  * The file at `path`, as entries that read. A file from an earlier version
@@ -222,44 +220,6 @@ export class JudgeCache {
     writeJson(path, file)
   }
 }
-
-/** Marks the SDK puts on its pictures and on text that holds them, across copies of it. */
-const IMAGE = Symbol.for('@typesafe-ai/sdk/image')
-const TEXT_WITH_ASSETS = Symbol.for('@typesafe-ai/sdk/text-with-assets')
-/** How the SDK refers to a picture inside text. */
-const REFERENCE = /<image:[0-9a-f]+>/g
-
-/**
- * `value` as it is hashed: a picture by the hash of its bytes, where the SDK
- * writes a reference made up afresh for every picture read, and text that
- * holds a picture with that hash in place of its reference. An object's keys
- * are sorted. A picture whose bytes are not at hand yet (a `Blob`) is given a
- * key of its own, so it is never taken for another.
- */
-function canonical(value: unknown, refs: Map<string, string>): unknown {
-  if (value === null || typeof value !== 'object') return value
-  const marked = value as Record<symbol, unknown>
-  if (marked[IMAGE]) {
-    const data = (value as { data?: unknown }).data
-    const hash = data instanceof Uint8Array ? sha(data) : `unread:${Math.random()}`
-    refs.set(String(value), hash)
-    return { image: hash }
-  }
-  if (marked[TEXT_WITH_ASSETS]) {
-    const { text, assets } = value as { text: string; assets: unknown[] }
-    for (const asset of assets) canonical(asset, refs)
-    return { text: text.replace(REFERENCE, (ref) => `<image:${refs.get(ref) ?? ref}>`) }
-  }
-  if (Array.isArray(value)) return value.map((item) => canonical(item, refs))
-  return Object.fromEntries(
-    Object.keys(value)
-      .sort()
-      .map((key) => [key, canonical((value as Record<string, unknown>)[key], refs)]),
-  )
-}
-
-/** The hash of `value` as `canonical` writes it. */
-export const hashOf = (value: unknown): string => sha(JSON.stringify(canonical(value, new Map())))
 
 /** What one output's questions cost this grading: how many were asked, and how many were kept. */
 export interface Asked {

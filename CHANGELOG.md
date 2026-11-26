@@ -6,6 +6,15 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+### Added
+
+- On the command line, `st run`, `grade`, `read`, `sort` and `propose` with `--json` now list what every model call cost (`cost`), added up by what it was for, the provider, the model, and whether it was asked or replayed.
+- `ST_AI_RECORD=<folder>` saves the assistant's one-message replies and Jev's answers. `ST_AI_REPLAY=<folder>` answers from them with no key and no network. A replay stops with exit code 2 and names the call when a reply is missing, and on `st run` or `--deep`, which are never saved. Under a replay, `st sort` needs `--model`.
+
+### Changed
+
+- The record of what the assistant used now holds every reply you were billed for. It used to leave out a reply you stopped, and a reply the app refused and asked for again.
+
 ## [0.20.3] - 2026-11-25
 
 ### Changed
