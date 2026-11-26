@@ -325,7 +325,14 @@ export interface OpenServer {
   - `st open` prints its address under `127.0.0.1`, so a server a person opens as `localhost` is never sent its cookie. `st serve` prints `localhost` as before.
   - The host falls back to `process.exit` where `process.reallyExit` is absent. One rule names a profile folder (`profilePid`, `goneProfiles`), and no folder of a live process is removed. Every process started without a window passes `windowsHide`.
   - WebGL on Linux was tried and taken back out: `enable-unsafe-swiftshader` gives it, and Chromium says that switch "is not intended for running untrusted content". A test holds the start file to no such switch.
-  - Left as it is: a title given to `st case add --title` or written in `case.yaml` may hold a line break; the Cases screen's field cannot.
+  - A refused case save writes nothing; a later line of a missed rule is four spaces in, so it cannot read as a miss; the loop skill gives each version name to one run.
+- **Before the merge** (`164d6ca` to `a6ab9e7`), the gaps still open were closed:
+  - The stamp lock covers taking the version and name, making the run's folder and the skill's copy, and writing `run.json`. Input files and cases are copied after it is given back (`takeRun`, then `stageRun`), so a second run never waits on the first run's copying. A run whose copy fails is removed whole.
+  - A title is one line everywhere (`oneLineTitle` in `src/domain/case-draft.ts`), and `st case check` lists a stored one written with a line break.
+  - Each of the 13 kinds of warning, at 15 call sites, is tested to go to `warn` under `--quiet` and to `log` where no `warn` is given.
+  - A page of the command's own is served its own page and the `.png` files of its own folder for that drawing alone, whatever earlier lines named, and cannot navigate away (`Drawing` in `draw/host.ts`). A `data:` picture is not shown.
+  - Results opens an all-failed run on its first attempt and says why it failed, so `st run` keeps its `Open:` line there.
+  - `SECURITY.md` says the cookie goes to every server on `127.0.0.1` the same browser opens, and that on Windows the server file and log are as private as the profile folder.
 
 ## Phase 2: compute what is known
 

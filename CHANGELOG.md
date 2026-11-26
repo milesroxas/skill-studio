@@ -24,6 +24,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 ### Fixed
 
 - Two runs of one skill started at the same moment no longer take the same version number.
+- A case's title is always one line. A line break or a tab in a title reads as one space, and `st case check` lists a title written with a line break.
 - A case's request that starts with a `---` block is kept as the request. It was read as the case's settings.
 - `st cases`, `st report` and `st compare` print every case id and attempt name whole, so an id copied from them works in `--cases`.
 
