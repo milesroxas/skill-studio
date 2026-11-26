@@ -2,6 +2,8 @@
 
 Skill Studio is an Electron app for writing and testing agent skills. [CONTRIBUTING.md](CONTRIBUTING.md) covers setup and pull requests. [docs/architecture.md](docs/architecture.md) maps the layers and the import rules.
 
+To make, run and compare a skill with `pnpm st` from a chat, follow [the loop skill](.claude/skills/skill-studio-loop/SKILL.md). A test fails when it names a command or flag `st --help` does not list.
+
 ## Before you finish any change
 
 ```sh
