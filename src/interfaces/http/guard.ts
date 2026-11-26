@@ -137,7 +137,8 @@ const hostOf = (value: string): URL | null => {
  * The cookie's name. Browsers keep one jar per host name whatever the port, so
  * the port is in the name and two servers on one machine do not sign each
  * other out. That jar is also why the browser sends every one of these cookies
- * to any server on `localhost` it visits, whatever its port.
+ * to any server it visits under the same host name, whatever its port: `st
+ * open` prints its address under `127.0.0.1` for that reason (`OPEN_HOST`).
  */
 const cookieName = (host: URL, via: Via): string =>
   `st_token_${host.port || (via === 'tailnet' ? '443' : '80')}`

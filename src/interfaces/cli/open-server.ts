@@ -277,6 +277,15 @@ export async function openServer(): Promise<{
 }
 
 /**
+ * The host name of every address `st open` prints. A browser keeps one jar of
+ * cookies for a host name, whatever the port, and sends the server's cookie,
+ * which holds its token, to every server it loads from that name. Dev servers
+ * are opened as `localhost`, so this one is opened by the number, which
+ * shares its jar only with what is opened as `127.0.0.1`.
+ */
+export const OPEN_HOST = '127.0.0.1'
+
+/**
  * The address that opens `address` (`resultsAddress`) on the server at
  * `port`, with the ticket its first load trades for the cookie.
  */
@@ -285,7 +294,7 @@ export function ticketAddress(port: number, ticket: string, address: string): st
   const search = new URLSearchParams(at < 0 ? address : address.slice(0, at))
   const query = new URLSearchParams({ [TICKET_PARAM]: ticket })
   for (const [name, value] of search) query.append(name, value)
-  return `http://localhost:${port}/?${query}${at < 0 ? '' : address.slice(at)}`
+  return `http://${OPEN_HOST}:${port}/?${query}${at < 0 ? '' : address.slice(at)}`
 }
 
 /**

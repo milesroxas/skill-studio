@@ -145,7 +145,8 @@ describe('st open', () => {
     seen.add(server.pid)
     expect(server.checkout).toBe(first)
     address = new URL(once.stdout.trim())
-    expect(address.origin).toBe(`http://localhost:${server.port}`)
+    // By the number, never `localhost`: no dev server opened as `localhost` is sent its cookie.
+    expect(address.origin).toBe(`http://127.0.0.1:${server.port}`)
     expect(address.searchParams.get('skill')).toBe(skill)
     expect(address.hash).toMatch(/^#\/results\?case=.+&a=.+&b=.+$/)
 
@@ -173,10 +174,21 @@ describe('st open', () => {
   it('prints an address whose first load trades its ticket for the cookie, and no second', async () => {
     const load = await fetch(address, { redirect: 'manual' })
     expect(load.status).toBe(302)
-    expect(load.headers.get('set-cookie')).toContain(`st_token_${address.port}=`)
-    const on = new URL(load.headers.get('location') ?? '', address)
+    // For this port by name, for its host alone (no Domain), never sent by another site's page, never read by a script.
+    const cookie = load.headers.get('set-cookie') ?? ''
+    expect(cookie).toMatch(
+      new RegExp(`^st_token_${address.port}=[\\w-]{43}; HttpOnly; SameSite=Strict; Path=/$`),
+    )
+    // The way on is a path on this server, so the browser stays on 127.0.0.1.
+    const location = load.headers.get('location') ?? ''
+    expect(location).toMatch(/^\/(?!\/)/)
+    const on = new URL(location, address)
+    expect(on.origin).toBe(address.origin)
     expect(on.pathname).toBe('/')
     expect([...on.searchParams]).toEqual([['skill', skill]])
+    // The cookie it set lets in a page load by the same address.
+    const page = await fetch(on, { headers: { cookie: cookie.split(';')[0] } })
+    expect(page.status).toBe(200)
     expect((await fetch(address, { redirect: 'manual' })).status).toBe(401)
   })
 
@@ -235,7 +247,7 @@ describe('st open', () => {
     const two = serverOf(second)
     const stopped = stOpen(first, '--stop')
     expect(stopped.status).toBe(0)
-    expect(stopped.stdout).toContain(`Stopped the app at http://localhost:${one.port}.`)
+    expect(stopped.stdout).toContain(`Stopped the app at http://127.0.0.1:${one.port}.`)
     expect(alive(one.pid)).toBe(false)
     expect(existsSync(fileOf(first))).toBe(false)
     // The log stays: it is what explains a server that died.

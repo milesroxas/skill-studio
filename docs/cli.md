@@ -80,12 +80,12 @@ To add a check for every case, write it as a file in the skill's `evals/graders/
 
 ```
 pnpm build
-pnpm st open skills/release-notes --a <runA> --b <runB>   # http://localhost:<port>/?ticket=...&skill=...#/results?case=...
+pnpm st open skills/release-notes --a <runA> --b <runB>   # http://127.0.0.1:<port>/?ticket=...&skill=...#/results?case=...
 pnpm st open --stop
 ```
 
 - `--a` and `--b` name the runs shown as A and B, each by the attempt at the case Results opens it on: the first with an output to show, else the first. `--case <id>` names the case; without it, the case is the first one, in the order Results lists them, that every run named answered.
-- The address carries a one-use ticket, never the token: the first load within a minute trades it for the cookie, and a second load, or one after a minute, is refused. Run `st open` again for a new address. It is safe to paste in a chat.
+- The address carries a one-use ticket, never the token: the first load within a minute trades it for the cookie, and a second load, or one after a minute, is refused. Run `st open` again for a new address. It is safe to paste in a chat. Its host is `127.0.0.1`, never `localhost`: a browser sends a cookie to every port of the host name it was set for, and dev servers are opened as `localhost`, so they are never sent this one ([SECURITY.md](../SECURITY.md#the-web-server)).
 - With no server of this checkout running, it starts one in the background, on a port the system picks, and waits up to 10 seconds for it. Later calls use that server. Each checkout, a worktree among them, has a server of its own, and neither stops the other's.
 - That server stops itself once 60 minutes have gone with no request it let in (one it refused for want of the token counts for nothing), but never while a run, a grading or a reading is going: it waits for the last one to end. It also stops when its file is gone or names another server, as when `st open` found it not answering and started another; that too waits for every job to end. It asks itself once a minute. `st open --stop` stops this checkout's now.
 - Where the app is not built, it says `Run pnpm build first.` and exits 2.

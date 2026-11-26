@@ -7,7 +7,7 @@ import { isDir } from '@infrastructure/fs.ts'
 import { readRun, runDir } from '@infrastructure/runs.ts'
 import { RENDERER_DIST } from '../../host.ts'
 import { runNameOf } from '../input.ts'
-import { openServer, stopServer, ticketAddress } from '../open-server.ts'
+import { OPEN_HOST, openServer, stopServer, ticketAddress } from '../open-server.ts'
 import type { Command, FlagValues } from './command.ts'
 import { shared } from './flags.ts'
 import { skillOf } from './shared.ts'
@@ -59,7 +59,7 @@ export const open: Command = {
       const stopped = await stopServer()
       console.log(
         stopped
-          ? `Stopped the app at http://localhost:${stopped.port}.`
+          ? `Stopped the app at http://${OPEN_HOST}:${stopped.port}.`
           : 'The app is not running for this checkout.',
       )
       return 0
