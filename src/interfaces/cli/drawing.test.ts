@@ -35,13 +35,22 @@ import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from 'vites
  * `STAND_IN_DEAF` makes it go on when its input closes, as a host still
  * starting may, so only a signal ends it. It writes its pid beside the log,
  * so a test can tell it is gone where it hears no signal: on Windows a kill
- * ends a process at once.
+ * ends a process at once. `STAND_IN_PROFILE` makes it leave a profile folder
+ * in the system's temp folder as a host killed outright does, named for its
+ * pid, beside two of the same start that are not its own.
  */
 const STAND_IN = `
-import { appendFileSync, writeFileSync } from 'node:fs'
+import { appendFileSync, mkdirSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import { createInterface } from 'node:readline'
 const log = (line) => appendFileSync(process.env.STAND_IN_LOG, line + '\\n')
 writeFileSync(process.env.STAND_IN_LOG + '.pid', String(process.pid))
+if (process.env.STAND_IN_PROFILE)
+  for (const name of [process.pid + '-left', process.pid + '9-other', process.ppid + '-other']) {
+    mkdirSync(join(tmpdir(), 'skill-studio-draw-' + name, 'Cache'), { recursive: true })
+    writeFileSync(join(tmpdir(), 'skill-studio-draw-' + name, 'Local State'), '{}')
+  }
 const die = () => {
   process.stderr.write('warming up\\n' + process.env.STAND_IN_FAIL + '\\n')
   log('end')
@@ -228,6 +237,22 @@ describe('drawingHost', () => {
     expect(warn.mock.calls).toEqual([
       [`${DIED} The pages after it are graded without being drawn.`],
     ])
+  })
+
+  it("removes the profile folder a host that stopped left, once it is gone, and no other host's", async () => {
+    vi.stubEnv('STAND_IN_FAIL', 'Missing X server or $DISPLAY')
+    vi.stubEnv('STAND_IN_PROFILE', '1')
+    const render = drawingHost({ warn: () => {}, start: standIn, signal: ending.signal })
+    await expect(render(page(), { width: 400, height: 300 })).rejects.toThrow(DIED)
+    const pid = readFileSync(`${log}.pid`, 'utf8')
+    const folder = (name: string) => join(tmpdir(), `skill-studio-draw-${name}`)
+    const others = [folder(`${pid}9-other`), folder(`${process.pid}-other`)]
+    try {
+      expect(existsSync(folder(`${pid}-left`))).toBe(false)
+      expect(others.filter(existsSync)).toEqual(others)
+    } finally {
+      for (const other of others) rmSync(other, { recursive: true, force: true })
+    }
   })
 
   it('says what becomes of the pages after a host that stopped in the words the command gives', async () => {

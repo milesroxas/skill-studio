@@ -13,8 +13,9 @@
  * that is done exits as it would without it.
  */
 import { type ChildProcess, spawn } from 'node:child_process'
-import { existsSync, readFileSync } from 'node:fs'
+import { existsSync, readdirSync, readFileSync, rmSync } from 'node:fs'
 import { createRequire } from 'node:module'
+import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { createInterface } from 'node:readline'
 import {
@@ -23,7 +24,7 @@ import {
   type PageRenderer,
   RendererGone,
 } from '@domain/artifact-address.ts'
-import { type HostRequest, replyOf } from '@domain/drawing-host.ts'
+import { type HostRequest, profilesOf, replyOf } from '@domain/drawing-host.ts'
 import { readLayout } from '@domain/layout.ts'
 import { realPath } from '@infrastructure/fs.ts'
 import { CHECKOUT } from '../host.ts'
@@ -102,6 +103,21 @@ interface Waiting {
 export type DrawingHost = PageRenderer & {
   /** Draw a page the command wrote, by its `file:` address: the host serves it only the files beside it. */
   file: (address: string, size: { width: number; height: number }) => Promise<DrawnPage>
+}
+
+/**
+ * Remove what is left of the profile folder of the host that had process id
+ * `pid`, once it is gone: a host removes its own as it ends, but one killed
+ * outright, or one that crashed, cannot. Only that host's folder is touched.
+ */
+function removeProfiles(pid: number | undefined): void {
+  if (!pid) return
+  try {
+    for (const name of profilesOf(readdirSync(tmpdir()), pid))
+      rmSync(join(tmpdir(), name), { recursive: true, force: true, maxRetries: 3, retryDelay: 50 })
+  } catch {
+    // Left for the next host, which removes the folders of hosts that have gone.
+  }
 }
 
 /** A handle a process holds open, or lets go of. */
@@ -184,6 +200,7 @@ export function drawingHost(options: DrawingOptions): DrawingHost {
     child.on('error', (error) => lost(`The drawing host could not start: ${error.message}`))
     child.on('exit', (code, signal) => {
       process.off('exit', going)
+      removeProfiles(child.pid)
       const last = said.trim().split('\n').at(-1)?.trim()
       lost(`The drawing host stopped (${code ?? signal})${last ? `: ${last}` : '.'}`)
     })

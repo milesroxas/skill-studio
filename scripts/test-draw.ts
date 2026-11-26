@@ -17,8 +17,8 @@
  * saw no request. Last it starts the host and, at once or a moment into its
  * start, closes its input or sends it a signal, and fails unless the host has
  * gone within 5 seconds; and starts it to draw a page, then closes its input
- * or sends it SIGTERM, and fails unless its profile folder is gone a second
- * after it.
+ * or sends it SIGTERM, and fails unless its profile folder is gone within 3
+ * seconds of it and stays gone a second more.
  * It needs the Electron
  * binary and, on Linux, a display: CI runs it under `xvfb-run`. `pnpm check`
  * never runs it, since it starts Electron.
@@ -42,6 +42,7 @@ import { createInterface } from 'node:readline'
 import { pathToFileURL } from 'node:url'
 import { RENDER_SIZES } from '@domain/artifact-address.ts'
 import { type Box, SHEET_BACKGROUND, SHEET_SIDE_MAX, sheetLayout } from '@domain/contact-sheet.ts'
+import { profilesOf } from '@domain/drawing-host.ts'
 import { readPng } from '@infrastructure/png.ts'
 import { drawingHost, hostStart } from '../src/interfaces/cli/drawing.ts'
 
@@ -267,8 +268,7 @@ fetch('http://${local}/fetch').catch(() => {})
 
   // A host that has drawn a page and then ends leaves no profile folder, by its input closing or a signal.
   check = 'Ending hosts that have drawn a page'
-  const profiles = (pid: number) =>
-    readdirSync(tmpdir()).filter((name) => name.startsWith(`skill-studio-draw-${pid}-`))
+  const profiles = (pid: number) => profilesOf(readdirSync(tmpdir()), pid)
   const drawnPage = pathToFileURL(realpathSync(join(folder, 'page.html'))).href
   for (const how of ['input closed', 'SIGTERM'] as const) {
     const host = spawn(start.command, [...start.args], { stdio: 'pipe' })
@@ -282,10 +282,17 @@ fetch('http://${local}/fetch').catch(() => {})
     const held = profiles(pid).length
     how === 'input closed' ? host.stdin.end() : host.kill(how)
     await Promise.race([gone, new Promise((late) => setTimeout(late, 5000))])
-    // Time for anything the browser would write back as it shuts down.
+    // The browser's own processes end a moment after the host, and its folder goes once they have:
+    // 3 seconds at most, then a second more for anything that would make it again.
+    const ended = performance.now()
+    while (profiles(pid).length && performance.now() - ended < 3000)
+      await new Promise((wait) => setTimeout(wait, 50))
+    const ms = Math.round(performance.now() - ended)
     await new Promise((wait) => setTimeout(wait, 1000))
     const left = profiles(pid)
-    console.log(`profile, ${how} after a page: ${held} while drawing, ${left.length} left after`)
+    console.log(
+      `profile, ${how} after a page: ${held} while drawing, ${left.length} left after, gone in ${ms} ms`,
+    )
     if (!held) problems.push(`No profile folder of host ${pid} was found while it drew.`)
     if (left.length)
       problems.push(`A host ended by ${how} left its profile folder: ${left.join(', ')}.`)

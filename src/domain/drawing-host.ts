@@ -7,6 +7,17 @@
 import type { ArtifactAddress } from './artifact-address.ts'
 import type { PageLayout } from './layout.ts'
 
+/**
+ * The start of the name of a host's profile folder in the system's temp
+ * folder, which goes on with its process id and a dash. The host makes it,
+ * and the command removes what is left of it once the host's process is gone.
+ */
+export const PROFILE_PREFIX = 'skill-studio-draw-'
+
+/** The names in `names` of the profile folders of the host with process id `pid`, and of no other. */
+export const profilesOf = (names: readonly string[], pid: number): string[] =>
+  names.filter((name) => name.startsWith(`${PROFILE_PREFIX}${pid}-`))
+
 /** One line the command writes to the host. */
 export type HostRequest =
   | { id: string; page: ArtifactAddress; width: number; height: number }
