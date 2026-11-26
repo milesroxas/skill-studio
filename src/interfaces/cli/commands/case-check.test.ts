@@ -8,7 +8,7 @@ import {
   writeFileSync,
 } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { join, relative, resolve } from 'node:path'
+import { join, relative, resolve, sep } from 'node:path'
 import { loadCases } from '@infrastructure/cases.ts'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { caseCheck } from './case-check.ts'
@@ -30,6 +30,12 @@ afterEach(() => {
 })
 
 const check = (skill: string): Promise<number> => caseCheck.run(contextOf([skill], {}, null))
+
+/** A printed line with the skill's folder as `<skill>`: a path is printed as the system writes it, with `\\` on Windows. */
+const under =
+  (skill: string) =>
+  (line: string): string =>
+    line.replace(realpathSync(skill), '<skill>').replaceAll(sep, '/')
 
 /** A scratch skill whose cases are the given files, by path under the skill. */
 function skillWith(files: Record<string, string>): string {
@@ -58,7 +64,7 @@ describe('st case check', () => {
     expect(await check(skill)).toBe(1)
     const [head, ...lines] = printed
     expect(head).toBe('note: 1 case(s), 3 check(s), 7 problem(s)')
-    const said = lines.map((line) => line.replace(realpathSync(skill), '<skill>')).sort()
+    const said = lines.map(under(skill)).sort()
     expect(said).toEqual(
       [
         "  - <skill>/evals/cases/good/graders/01-short.md is skipped: a check's file starts with front matter (---), even an empty block.",
@@ -91,7 +97,7 @@ describe('st case check', () => {
     expect(await check(skill)).toBe(1)
     const [head, ...lines] = printed
     expect(head).toBe('note: 3 case(s), 0 check(s), 5 problem(s)')
-    const said = lines.map((line) => line.replace(realpathSync(skill), '<skill>'))
+    const said = lines.map(under(skill))
     expect(said).toEqual([
       '  - <skill>/evals/cases/bad could not be read as a case: Flow sequence in block collection must be sufficiently indented and end with a ] at line 2, column 1: title: [unclosed ^',
       '  - <skill>/evals/good is skipped: the case good under evals/cases/ is read in its place.',
@@ -107,7 +113,7 @@ describe('st case check', () => {
       'evals/evals.json': '{ nope',
     })
     expect(await check(skill)).toBe(1)
-    const said = printed.map((line) => line.replace(realpathSync(skill), '<skill>'))
+    const said = printed.map(under(skill))
     expect(said).toEqual([
       'note: 1 case(s), 0 check(s), 1 problem(s)',
       "  - <skill>/evals/evals.json is malformed and could not be read: Expected property name or '}' in JSON at position 2 (line 1 column 3)",

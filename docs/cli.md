@@ -54,7 +54,7 @@ To add a check for every case, write it as a file in the skill's `evals/graders/
 - `--brief`: print only each case and what it missed in place of the report ([below](#short-output)).
 - `--quiet`: print one line as each attempt ends, such as `Launch page, attempt 1: done in 20 s` or `Launch page, attempt 2: failed, it ran out of time (after 600 s)`, in place of the agents' and the grading's progress. A failed attempt has no other line. What went wrong is still said, once each: outputs that did not run to their end, a case's file that is missing, files left in an agent's work folder, a transcript that could not be written, an older version kept with `SKILL.md` and `references/` only, a run that has not finished, a cases file that does not read whole, a pack that failed on an output, a page or picture that could not be drawn or measured, a file or a check's picture Jev is not shown, an output Jev read only the first parts of, and that there was no output to grade.
 
-`run` ends with the command that opens Results on the run it made, `Open: pnpm st open <skill> --a <run>`, and `compare` with the one that opens it on its two runs, `--a <runA> --b <runB>`. With `--json` neither prints it.
+`run` ends with the command that opens Results on the run it made, `Open: pnpm st open <skill> --a <run>`, and `compare` with the one that opens it on its two runs, `--a <runA> --b <runB>`. With `--json` neither prints it. A path a shell would split is quoted as that shell reads it: in single quotes on macOS and Linux, in double quotes on Windows.
 
 ### Short output
 

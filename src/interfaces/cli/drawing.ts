@@ -8,8 +8,9 @@
  * the page's `file:` address.
  *
  * The host ends when the command's lifecycle stops, and when the command
- * exits: its input closes then, and it is sent SIGTERM. While no page is being drawn it holds
- * nothing open, so a command that is done exits as it would without it.
+ * exits: its input closes then, and it is sent SIGTERM, which on Windows ends
+ * it at once. While no page is being drawn it holds nothing open, so a command
+ * that is done exits as it would without it.
  */
 import { type ChildProcess, spawn } from 'node:child_process'
 import { existsSync, readFileSync } from 'node:fs'

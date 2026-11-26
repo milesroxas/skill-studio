@@ -17,6 +17,7 @@ import {
 } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
+import { pathToFileURL } from 'node:url'
 import { type ArtifactAddress, RendererGone } from '@domain/artifact-address.ts'
 import type { ReportResult } from '@domain/schemas.ts'
 import { pngOf } from '@infrastructure/__fixtures__/png.ts'
@@ -32,12 +33,15 @@ import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from 'vites
  * it has answered that many pages. A file named `broken.html` is answered with
  * an error. A page of the command's own is noted by its address.
  * `STAND_IN_DEAF` makes it go on when its input closes, as a host still
- * starting may, so only a signal ends it.
+ * starting may, so only a signal ends it. It writes its pid beside the log,
+ * so a test can tell it is gone where it hears no signal: on Windows a kill
+ * ends a process at once.
  */
 const STAND_IN = `
-import { appendFileSync } from 'node:fs'
+import { appendFileSync, writeFileSync } from 'node:fs'
 import { createInterface } from 'node:readline'
 const log = (line) => appendFileSync(process.env.STAND_IN_LOG, line + '\\n')
+writeFileSync(process.env.STAND_IN_LOG + '.pid', String(process.pid))
 const die = () => {
   process.stderr.write('warming up\\n' + process.env.STAND_IN_FAIL + '\\n')
   log('end')
@@ -119,6 +123,22 @@ async function until(met: () => boolean, withinMs = 5000): Promise<boolean> {
 const logged = (): string[] =>
   existsSync(log) ? readFileSync(log, 'utf8').trim().split('\n').filter(Boolean) : []
 const count = (line: string): number => logged().filter((l) => l === line).length
+
+const WINDOWS = process.platform === 'win32'
+
+/** The stand-in that wrote this test's log has exited. */
+function standInGone(): boolean {
+  if (!existsSync(`${log}.pid`)) return false
+  try {
+    process.kill(Number(readFileSync(`${log}.pid`, 'utf8')), 0)
+    return false
+  } catch {
+    return true
+  }
+}
+
+/** A module's address for an `import` in a script a test writes: Node takes a Windows path only as a file: URL. */
+const importable = (path: string): string => JSON.stringify(pathToFileURL(path).href)
 
 const page = (file = 'outputs/index.html'): ArtifactAddress => ({
   skill: scratch,
@@ -273,7 +293,7 @@ describe('the end of the drawing host', () => {
     writeFileSync(
       command,
       [
-        `import { drawingHost } from ${JSON.stringify(join(ROOT, 'src/interfaces/cli/drawing.ts'))}`,
+        `import { drawingHost } from ${importable(join(ROOT, 'src/interfaces/cli/drawing.ts'))}`,
         `const start = ${JSON.stringify(standIn)}`,
         'const render = drawingHost({ warn: console.error, start })',
         `await render({ skill: ${JSON.stringify(scratch)}, run: 'r1', sample: 's1', file: 'a.html' }, { width: 400, height: 300 })`,
@@ -290,7 +310,8 @@ describe('the end of the drawing host', () => {
     expect(done.status).toBe(0)
     expect(done.stdout).toBe('drawn\n')
     expect(logged().slice(0, 2)).toEqual(['start', `asked 1 400x300 ${scratch}`])
-    expect(await until(() => logged().includes('end'))).toBe(true)
+    // On Windows the kill as the command exits ends the host before it can note its input closing.
+    expect(await until(() => (WINDOWS ? standInGone() : logged().includes('end')))).toBe(true)
   })
 
   it('ends with a command that exits while a page waits, though the host does not hear its input close', async () => {
@@ -301,7 +322,7 @@ describe('the end of the drawing host', () => {
     writeFileSync(
       command,
       [
-        `import { drawingHost } from ${JSON.stringify(join(ROOT, 'src/interfaces/cli/drawing.ts'))}`,
+        `import { drawingHost } from ${importable(join(ROOT, 'src/interfaces/cli/drawing.ts'))}`,
         `const start = ${JSON.stringify(standIn)}`,
         'const render = drawingHost({ warn: console.error, start })',
         `void render({ skill: ${JSON.stringify(scratch)}, run: 'r1', sample: 's1', file: 'a.html' }, { width: 400, height: 300 })`,
@@ -316,7 +337,9 @@ describe('the end of the drawing host', () => {
       timeout: 30_000,
     })
     expect(done.status).toBe(130)
-    expect(await until(() => logged().includes('killed'))).toBe(true)
+    // Windows has no SIGTERM to hear: its kill ends the host at once.
+    expect(await until(() => (WINDOWS ? standInGone() : logged().includes('killed')))).toBe(true)
+    expect(await until(standInGone)).toBe(true)
   })
 
   it('ends when the server `st open` started stops for want of use', async () => {

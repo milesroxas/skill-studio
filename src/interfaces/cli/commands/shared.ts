@@ -174,9 +174,17 @@ export function printGraded(
   return total > 0 && failed < total
 }
 
-/** A word as a shell reads it back: as it is when it is safe so, else in single quotes. */
-export const shellWord = (word: string): string =>
-  /^[\w@%+=:,./-]+$/.test(word) ? word : `'${word.replaceAll("'", `'\\''`)}'`
+/**
+ * A word as a shell reads it back: as it is when it is safe so, else quoted.
+ * On macOS and Linux in single quotes. On Windows, where PowerShell and
+ * cmd.exe both keep a backslash and a tilde as they are, and read double
+ * quotes but cmd.exe does not read single ones, in double quotes: a Windows
+ * path cannot hold one.
+ */
+export const shellWord = (word: string, platform: NodeJS.Platform = process.platform): string => {
+  if (platform === 'win32') return /^[\w.:\\/~-]+$/.test(word) ? word : `"${word}"`
+  return /^[\w@%+=:,./-]+$/.test(word) ? word : `'${word.replaceAll("'", `'\\''`)}'`
+}
 
 /**
  * The line that says how to open Results on one or two runs: `st run` and

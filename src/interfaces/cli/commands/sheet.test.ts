@@ -33,8 +33,10 @@ afterAll(() => rmSync(scratch, { recursive: true, force: true }))
 
 describe('the lines st sheet prints', () => {
   it('says which attempts have no drawn page, and how to draw them', () => {
+    // Quoted as the shell reads it: in double quotes on Windows.
+    const skill = process.platform === 'win32' ? '"/s/my skill"' : "'/s/my skill'"
     expect(undrawnLine('/s/my skill', 'r1', 'Launch page', [2])).toBe(
-      "Launch page, r1: attempt 2 has no drawn page, so it is left out. Grade the run first: pnpm st grade '/s/my skill' --run r1",
+      `Launch page, r1: attempt 2 has no drawn page, so it is left out. Grade the run first: pnpm st grade ${skill} --run r1`,
     )
     expect(undrawnLine('/s', 'r1', 'Launch page', [1, 2, 4])).toContain(
       'attempts 1, 2 and 4 have no drawn page, so they are left out.',
