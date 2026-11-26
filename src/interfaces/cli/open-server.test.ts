@@ -8,10 +8,13 @@
 import { spawnSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
 import {
+  chmodSync,
+  closeSync,
   cpSync,
   existsSync,
   mkdirSync,
   mkdtempSync,
+  openSync,
   readdirSync,
   readFileSync,
   realpathSync,
@@ -19,6 +22,7 @@ import {
   statSync,
   symlinkSync,
   writeFileSync,
+  writeSync,
 } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
@@ -37,7 +41,7 @@ const scratch = (prefix: string): string => {
 // The library reads SKILL_STUDIO_HOME once, at import: a server hosted in this process writes its file there.
 const ownHome = scratch('st-open-own-home-')
 process.env.SKILL_STUDIO_HOME = ownHome
-const { openedServe } = await import('./open-server.ts')
+const { logCap, openedServe } = await import('./open-server.ts')
 const { runJob } = await import('@application/jobs.ts')
 
 /** A checkout of its own: the sources, the packages through a link, and a built app that is one page. */
@@ -87,6 +91,9 @@ const fileOf = (checkout: string, under = home): string =>
     '.skill-studio',
     `open-${createHash('sha256').update(checkout).digest('hex').slice(0, 8)}.json`,
   )
+
+/** The log of `checkout`'s server, beside its file. */
+const logOf = (checkout: string): string => fileOf(checkout).replace(/\.json$/, '.log')
 
 const serverOf = (
   checkout: string,
@@ -153,6 +160,9 @@ describe('st open', () => {
 
     // No line it printed holds the token, and neither does the server's command line.
     for (const printed of [once.lines, twice.lines]) expect(printed).not.toContain(server.token)
+    // Its stderr goes to a log beside its file; its stdout, with the address that carries the token, nowhere.
+    expect(existsSync(logOf(first))).toBe(true)
+    expect(readFileSync(logOf(first), 'utf8')).not.toContain('Skill Studio:')
     if (process.platform !== 'win32') {
       const args = spawnSync('ps', ['-o', 'args=', '-p', String(server.pid)], { encoding: 'utf8' })
       expect(args.stdout).toContain('serve')
@@ -185,8 +195,25 @@ describe('st open', () => {
     expect(given.status).toBe(200)
   })
 
-  it.skipIf(process.platform === 'win32')('keeps the file readable by the user alone', () => {
-    expect(statSync(fileOf(first)).mode & 0o777).toBe(0o600)
+  it.skipIf(process.platform === 'win32')(
+    'keeps the file and the log readable by the user alone',
+    () => {
+      expect(statSync(fileOf(first)).mode & 0o777).toBe(0o600)
+      expect(statSync(logOf(first)).mode & 0o777).toBe(0o600)
+    },
+  )
+
+  it('writes no token to the log, whatever it was asked', async () => {
+    const { port, token } = serverOf(first)
+    // Refused, signed in, and an operation that fails: each may say something on stderr.
+    await fetch(`http://127.0.0.1:${port}/?token=nope`)
+    await fetch(`http://127.0.0.1:${port}/?token=${token}`, { redirect: 'manual' })
+    await fetch(`http://127.0.0.1:${port}/api/skill.run?token=${token}`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: '{"skill":"/nowhere","run":"none"}',
+    })
+    expect(readFileSync(logOf(first), 'utf8')).not.toContain(token)
   })
 
   it("starts a second checkout's server and leaves the first running", () => {
@@ -211,6 +238,8 @@ describe('st open', () => {
     expect(stopped.stdout).toContain(`Stopped the app at http://localhost:${one.port}.`)
     expect(alive(one.pid)).toBe(false)
     expect(existsSync(fileOf(first))).toBe(false)
+    // The log stays: it is what explains a server that died.
+    expect(existsSync(logOf(first))).toBe(true)
     expect(alive(two.pid)).toBe(true)
     expect(stOpen(first, '--stop').stdout).toContain('The app is not running for this checkout.')
     expect(stOpen(second, '--stop').status).toBe(0)
@@ -218,10 +247,12 @@ describe('st open', () => {
     expect(existsSync(fileOf(second))).toBe(false)
   }, 120_000)
 
-  it('removes a file whose process is gone and starts a new server', () => {
+  it('removes a file whose process is gone and starts a new server, with a new log', () => {
     const gone = spawnSync(process.execPath, ['-e', '']).pid
     expect(alive(gone)).toBe(false)
     mkdirSync(join(home, '.skill-studio'), { recursive: true })
+    writeFileSync(logOf(first), 'what the last server wrote\n', { mode: 0o644 })
+    chmodSync(logOf(first), 0o644)
     writeFileSync(
       fileOf(first),
       JSON.stringify({ pid: gone, port: 9, token: 'old', checkout: first }),
@@ -235,6 +266,8 @@ describe('st open', () => {
     expect(server.pid).not.toBe(gone)
     expect(alive(server.pid)).toBe(true)
     expect(new URL(fresh.stdout.trim()).port).toBe(String(server.port))
+    expect(readFileSync(logOf(first), 'utf8')).not.toContain('what the last server wrote')
+    if (process.platform !== 'win32') expect(statSync(logOf(first)).mode & 0o777).toBe(0o600)
     expect(stOpen(first, '--stop').status).toBe(0)
     expect(existsSync(fileOf(first))).toBe(false)
   }, 120_000)
@@ -246,6 +279,84 @@ describe('st open', () => {
     expect(unbuilt.status).toBe(2)
     expect(existsSync(fileOf(second))).toBe(false)
   }, 60_000)
+})
+
+describe('st open, when its server does not come up', () => {
+  /** A checkout whose server writes `line` to stderr, then does `then`, as it starts. */
+  function brokenCheckout(line: string, then: string): string {
+    const checkout = checkoutCopy()
+    const serve = join(checkout, 'src/interfaces/cli/commands/serve.ts')
+    const source = readFileSync(serve, 'utf8')
+    const at = '    keepRunning()\n'
+    expect(source).toContain(at)
+    writeFileSync(
+      serve,
+      source.replace(
+        at,
+        `${at}    if (process.env.ST_OPEN_SERVER) { console.error(${JSON.stringify(line)}); ${then} }\n`,
+      ),
+    )
+    return checkout
+  }
+
+  it('says where the log is when the server stops as it starts, and the log says why', () => {
+    const checkout = brokenCheckout('broken on purpose', 'process.exit(3)')
+    const st = stOpen(checkout, skill)
+    expect(st.status).not.toBe(0)
+    expect(st.stderr).toContain(
+      `The server stopped as it started. What it wrote is in ${logOf(checkout)}.`,
+    )
+    expect(readFileSync(logOf(checkout), 'utf8')).toContain('broken on purpose')
+    expect(existsSync(fileOf(checkout))).toBe(false)
+  }, 60_000)
+
+  it('says where the log is when the server does not answer in time', () => {
+    const checkout = brokenCheckout(
+      'stuck on purpose',
+      'await new Promise(() => setInterval(() => {}, 1000))',
+    )
+    const st = stOpen(checkout, skill)
+    expect(st.status).not.toBe(0)
+    expect(st.stderr).toContain(
+      `The server did not start within 10 seconds. What it wrote is in ${logOf(checkout)}.`,
+    )
+    expect(readFileSync(logOf(checkout), 'utf8')).toContain('stuck on purpose')
+  }, 60_000)
+})
+
+describe('the log of the server st open starts', () => {
+  it('keeps its newest half, after a line saying so, once it passes its most', () => {
+    const dir = scratch('st-open-log-')
+    const path = join(dir, 'open-test.log')
+    const fd = openSync(path, 'ax', 0o600)
+    const cap = logCap(path, fd, 1000)
+    try {
+      for (let n = 0; n < 100; n += 1) {
+        writeSync(fd, `line ${String(n).padStart(3, '0')} ${'x'.repeat(40)}\n`)
+        cap()
+        expect(statSync(path).size).toBeLessThanOrEqual(1000 + 200)
+      }
+    } finally {
+      closeSync(fd)
+    }
+    const text = readFileSync(path, 'utf8')
+    expect(text).toContain('line 099')
+    expect(text).not.toContain('line 000')
+    expect(text).toMatch(/^\[.+: the log passed 1000 bytes; its oldest lines went\]\n/)
+  })
+
+  it('leaves a descriptor that is not the log alone', () => {
+    const dir = scratch('st-open-log-')
+    const path = join(dir, 'open-test.log')
+    writeFileSync(path, 'y'.repeat(5000))
+    const other = openSync(join(dir, 'other.log'), 'ax')
+    try {
+      logCap(path, other, 1000)()
+    } finally {
+      closeSync(other)
+    }
+    expect(statSync(path).size).toBe(5000)
+  })
 })
 
 describe('the server st open starts, as it stops itself', () => {

@@ -90,6 +90,7 @@ pnpm st open --stop
 - That server stops itself once 60 minutes have gone with no request it let in (one it refused for want of the token counts for nothing), but never while a run, a grading or a reading is going: it waits for the last one to end. It also stops when its file is gone or names another server, as when `st open` found it not answering and started another; that too waits for every job to end. It asks itself once a minute. `st open --stop` stops this checkout's now.
 - Where the app is not built, it says `Run pnpm build first.` and exits 2.
 - The server's port, pid and token are in `open-<hash>.json` in the app's own folder ([files.md](files.md#the-apps-own-files)), readable by you alone.
+- What that server writes to stderr, a fault after it started among it, goes to `open-<hash>.log` beside its file, readable by you alone. Each start begins the log again; `--stop` and the server's own stop leave it, so it still says why a server died. Past 1 MB its oldest half goes, after a line that says so. Its stdout, where `st serve` prints the address with the token, goes nowhere. When the server stops as it starts, or does not answer within 10 seconds, `st open` names the log.
 
 ### Adding and checking cases
 
