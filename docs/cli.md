@@ -17,6 +17,8 @@ pnpm st <command> [skill-dir] [options]
 | --- | --- |
 | `new <dir>` | Scaffold a skill. `--name <id>` is the skill name (default the folder name; it must be a slug). `--description <text>` is its front matter description. `--template` is `blank` (the default), `writing`, `code`, `workflow` or `design`. `--with-cases` adds the template's sample cases |
 | `cases` | List the skill's cases |
+| `case add` | Write a new case from flags, checked as the Cases screen checks one ([below](#adding-and-checking-cases)) |
+| `case check` | List each case and check file that will not load or is skipped, and each title two cases share. It exits 1 when it lists any ([below](#adding-and-checking-cases)) |
 | `run` | Generate outputs with a headless agent, then grade them |
 | `grade` | Grade a run again: `--run <name>` or `--all` |
 | `report` | Print a run's report: `--run <name>`. The scores are counted from the stored answers under `bench.json` as it is now, with your corrections from the app, as the app shows them. A sample folder since removed is left out. Under the table, each output's checks met and rules followed, counted apart: an output of a run without the skill has no rules count |
@@ -46,6 +48,32 @@ To add a check for every case, write it as a file in the skill's `evals/graders/
 - `--name` and `--note`: name the skill version and note on it, when the files changed. A run with `--configuration without_skill` tests no version and needs neither.
 - `--parallel n`: samples in flight (3).
 - `--no-grade`: skip grading.
+
+### Adding and checking cases
+
+`case add` writes a new case under `evals/cases/`, through the same check as a case saved on the Cases screen, so it refuses what the screen refuses: an empty prompt, a title another case has, a size out of range.
+
+- `--prompt <text>` or `--prompt-file <file>` is the request the agent gets. Pass one of the two, not both.
+- `--title <text>` is its title. Without one the case is named after the start of its prompt. The case's folder is named after its title, or after its prompt when it has none, with a number after it when that folder is taken.
+- `--check <text>` adds a check a good answer meets, with weight 1. Give it once for each check.
+- `--file <path>` copies a file or a folder into the case's `files/`, under its own name, for the agent to get with the request. Give it once for each. Two with the same name are refused.
+- `--artifact html` or `--artifact image` is the file to grade: a page or a picture ([`bench.artifact`](files.md#the-bench-block-of-caseyaml)).
+- `--size WxH`, such as `1280x800`, is the size in pixels a picture must be, or a page is drawn at for grading.
+
+```
+pnpm st case add skills/release-notes --title "Launch note" --prompt "Write the launch note." --check "It names the day." --check "It is under 100 words."
+```
+
+`case check` reads every case and check file of the skill as a run reads them, and lists:
+
+- each check file that does not start with front matter, which is skipped;
+- each check whose `weight` is outside 1 to 5 or is not a whole number, with the weight it is read as;
+- each case folder that is skipped: one under `evals/cases/` with no `prompt.md`, one whose name cannot be a case's id, and one right under `evals/` whose id a folder under `evals/cases/` has;
+- each `evals.json` entry that is left out, or is skipped because a case folder has its id, and an `evals.json` that is not JSON, which the app stops on;
+- each `case.yaml` that cannot be read, and each `bench` value of the wrong kind, which is left out;
+- each title two cases share.
+
+It changes nothing. It exits 0 when it lists nothing and 1 when it lists anything; `--json` prints the counts and the list.
 
 ### Reading two runs as cases
 

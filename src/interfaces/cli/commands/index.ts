@@ -2,6 +2,8 @@
  * Every `st` command, in the order `st --help` prints them, and the help put
  * together from them. Importing this runs nothing.
  */
+import { caseAdd } from './case-add.ts'
+import { caseCheck } from './case-check.ts'
 import { cases } from './cases.ts'
 import type { Command, Flag } from './command.ts'
 import { compare } from './compare.ts'
@@ -18,6 +20,8 @@ import { versions } from './versions.ts'
 
 const commands: readonly Command[] = [
   cases,
+  caseAdd,
+  caseCheck,
   run,
   grade,
   report,

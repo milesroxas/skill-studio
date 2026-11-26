@@ -2,6 +2,16 @@ Usage: st <command> [skill-dir] [options]
 
 Commands
   cases                       List the skill's cases.
+  case add                    Write a new case, checked as the Cases screen checks one.
+    --title <text>            Its title; default the start of its prompt.
+    --prompt <text>           The request the agent gets.
+    --prompt-file <file>      The request, from a file, in place of --prompt.
+    --check <text>            A check a good answer meets. Once for each check.
+    --file <path>             A file or folder the agent gets with the request. Once for each.
+    --artifact <kind>         The file to grade: html (a page) or image (a picture).
+    --size <WxH>              The size in pixels a picture must be, or a page is drawn at.
+  case check                  List each case and check file that will not load or is skipped,
+                              and each title two cases share. Exits 1 when it lists any.
   run                         Generate outputs with a headless agent, then grade them.
     --engine <id>             claude (default) or cursor.
     --model <id>              Engine model; default per engine.

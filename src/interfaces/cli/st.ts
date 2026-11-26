@@ -4,6 +4,8 @@
  * (default: the current directory) and works on its `evals/`.
  *
  *   st cases [skill]
+ *   st case add [skill] --prompt <text> | --prompt-file <file> [--title <text>] [--check <text>]... [--file <path>]... [--artifact html|image] [--size WxH]
+ *   st case check [skill]
  *   st run [skill] --engine claude --model sonnet --cases a,b --samples 2
  *   st grade [skill] --run <name> | --all   [--no-jev]
  *   st report [skill] --run <name>
@@ -29,6 +31,7 @@ import { parseArgs } from 'node:util'
 import { withMeter } from '@judges/meter.ts'
 import { loadEnv } from '../host.ts'
 import { agentLifecycle } from '../lifecycle.ts'
+import type { Values } from './commands/command.ts'
 import { commandOf, HELP, OPTIONS } from './commands/index.ts'
 import { contextOf, skillOf } from './commands/shared.ts'
 import { withHint } from './input.ts'
@@ -44,7 +47,8 @@ async function main(): Promise<number> {
   const found = commandOf(positionals)
   // These start agents: the ones an earlier copy left are ended first, and Ctrl-C ends this copy's.
   const lifecycle = found?.command.agents ? agentLifecycle({ signals: true }) : null
-  const context = contextOf(found?.args ?? positionals.slice(1), values, lifecycle)
+  // Only a flag that takes text is given once for each value (`--check`), so a list holds text.
+  const context = contextOf(found?.args ?? positionals.slice(1), values as Values, lifecycle)
   if (found)
     return withMeter(async (meter) => {
       const code = await found.command.run(context)

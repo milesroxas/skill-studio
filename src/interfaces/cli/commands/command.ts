@@ -8,6 +8,8 @@ import type { Lifecycle } from '../../lifecycle.ts'
 export interface Flag {
   type: 'string' | 'boolean'
   short?: string
+  /** True for a flag given once for each value, such as `--check`: it reads as every value, in order. */
+  multiple?: true
 }
 
 export interface Command {
@@ -23,8 +25,11 @@ export interface Command {
   run(context: Context): Promise<number>
 }
 
-/** What `parseArgs` read: the text of a flag that takes some, true for one that is given. */
-export type Values = Readonly<Record<string, string | boolean | undefined>>
+/**
+ * What `parseArgs` read: the text of a flag that takes some, true for one that
+ * is given, and every text of one given once for each value.
+ */
+export type Values = Readonly<Record<string, string | boolean | readonly string[] | undefined>>
 
 export interface Context {
   /** What followed the command's name. */
@@ -38,7 +43,11 @@ export interface Context {
   jev: GradeOptions
 }
 
-/** `values` as a command reads them: each of its flags as text or as on, by the type it declares. */
+/** `values` as a command reads them: each of its flags as text, as on or as every text, by what it declares. */
 export type FlagValues<F extends Readonly<Record<string, Flag>>> = {
-  readonly [K in keyof F]?: F[K]['type'] extends 'boolean' ? boolean : string
+  readonly [K in keyof F]?: F[K]['multiple'] extends true
+    ? readonly string[]
+    : F[K]['type'] extends 'boolean'
+      ? boolean
+      : string
 }
