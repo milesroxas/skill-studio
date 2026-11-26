@@ -16,8 +16,10 @@
  * a page of its own that asks for a picture beside it and one in the folder
  * above, and fails unless the host served the first and refused the second;
  * and one with no policy of its own that tries a script and requests to a
- * local server the test starts, and fails unless no script ran and the server
- * saw no request. Last it starts the host and, at once or a moment into its
+ * local server the test starts, a picture written into it as a `data:`
+ * address, a `blob:` one, an `<object>` and an `<embed>`, a stylesheet beside
+ * it and a refresh to the server, and fails unless no script ran, the server
+ * saw no request, none of those was shown and the page stayed. Last it starts the host and, at once or a moment into its
  * start, closes its input or sends it a signal, and fails unless the host has
  * gone within 5 seconds; and starts it to draw a page, then closes its input
  * or sends it SIGTERM, and fails unless its profile folder is gone within 3
@@ -248,20 +250,36 @@ try {
   if (besideShare < 0.5) problems.push('The picture beside its own page was not served.')
   if (aboveShare > 0.1) problems.push("A picture outside its own page's folder was served.")
 
-  // Whatever a page of the command's own says of itself, it runs no script and reaches nothing.
+  // Whatever a page of the command's own says of itself, it runs no script and reaches nothing. It
+  // shows the `.html` and `.png` files of its own folder and nothing else: not a picture written into
+  // the page as a `data:` address (`OWN_POLICY` allows pictures from `file:` alone), not a `blob:`
+  // one, not an `<object>` or `<embed>`, not a stylesheet beside it (no `.css` is served, and the
+  // policy allows only styles in the page), and a refresh to another address goes nowhere.
   check = 'Drawing a page of its own that tries a script and requests to a local server'
   let reached = 0
   const server = createServer((_request, response) => response.end())
   server.on('connection', () => reached++)
   await new Promise<void>((listening) => server.listen(0, '127.0.0.1', listening))
   const local = `127.0.0.1:${(server.address() as AddressInfo).port}`
+  const written = { x: 20, y: 60, width: 100, height: 80 }
+  const objected = { x: 140, y: 60, width: 100, height: 80 }
+  const embedded = { x: 260, y: 60, width: 100, height: 80 }
+  const bare = { x: 300, y: 200, width: 80, height: 80 }
+  writeFileSync(join(folder, 'tries.css'), 'body { background: rgb(255 0 0) !important }')
   writeFileSync(
     join(folder, 'tries.html'),
-    `<!doctype html><html><body>
-<p id="said">script: did not run</p>
-<img alt="" src="http://${local}/picture.png" width="10" height="10">
+    `<!doctype html><html><body style="margin:0;background:rgb(${SHEET_BACKGROUND.join(' ')})">
+<p id="said" style="position:absolute;left:20px;top:0;margin:0">script: did not run</p>
+<img alt="" src="http://${local}/picture.png" width="10" height="10" style="position:absolute;left:20px;top:200px">
 <link rel="stylesheet" href="http://${local}/style.css">
-<iframe src="http://${local}/frame"></iframe>
+<link rel="stylesheet" href="tries.css">
+<iframe src="http://${local}/frame" style="position:absolute;left:40px;top:200px;width:40px;height:40px"></iframe>
+<object data="http://${local}/object" style="position:absolute;left:100px;top:200px;width:20px;height:20px"></object>
+<embed src="http://${local}/embed" style="position:absolute;left:140px;top:200px;width:20px;height:20px">
+<img alt="" src="data:image/png;base64,${Buffer.from(desktop).toString('base64')}" style="${at(written)}">
+<object data="beside.png" type="image/png" style="${at(objected)}"></object>
+<embed src="beside.png" type="image/png" style="${at(embedded)}">
+<img alt="" src="blob:file:///0b8a2d64-1f5a-4c1e-9d3e-7a4f2b6c8e10" width="10" height="10" style="position:absolute;left:180px;top:200px">
 <script>
 document.getElementById('said').textContent = 'script: ran'
 new WebSocket('ws://${local}/')
@@ -272,13 +290,41 @@ fetch('http://${local}/fetch').catch(() => {})
     width: 400,
     height: 300,
   })
-  // Time for anything the page set going to arrive.
+  // A page that sends itself on to the local server as soon as it is shown.
+  writeFileSync(
+    join(folder, 'refresh.html'),
+    `<!doctype html><html><head><meta http-equiv="refresh" content="0;url=http://${local}/refresh"></head>
+<body><p>refresh: stayed</p></body></html>`,
+  )
+  const refreshed = await render.file(
+    pathToFileURL(realpathSync(join(folder, 'refresh.html'))).href,
+    { width: 400, height: 300 },
+  )
+  // Time for anything the pages set going to arrive.
   await new Promise((wait) => setTimeout(wait, 500))
   server.close()
   const ran = (tried.layout?.elements ?? []).some((e) => e.text === 'script: ran')
-  console.log(`page with no policy: script ${ran ? 'ran' : 'did not run'}, ${reached} requests`)
+  const shown = Object.entries({ data: written, object: objected, embed: embedded, css: bare })
+    .filter(([, box]) => drawnShare(tried.png, box) > 0.1)
+    .map(([what]) => what)
+  const stayed = (refreshed.layout?.elements ?? []).some((e) => e.text === 'refresh: stayed')
+  console.log(
+    `page with no policy: script ${ran ? 'ran' : 'did not run'}, ${reached} requests, ${shown.length ? `showed ${shown.join(', ')}` : 'showed nothing it was refused'}, refresh ${stayed ? 'stayed' : 'went'}`,
+  )
   if (ran) problems.push("A page of the command's own ran a script.")
   if (reached) problems.push(`A page of the command's own reached a local server ${reached} times.`)
+  for (const what of shown)
+    problems.push(
+      `A page of the command's own showed ${
+        {
+          data: 'a picture written into it as a data: address',
+          object: 'a picture beside it through an <object>',
+          embed: 'a picture beside it through an <embed>',
+          css: 'a stylesheet beside it',
+        }[what]
+      }.`,
+    )
+  if (!stayed) problems.push("A page of the command's own was sent on by a refresh.")
 
   // A host whose command is gone ends, at any moment of its start: its input closed, or a signal.
   check = 'Starting hosts to end them'
