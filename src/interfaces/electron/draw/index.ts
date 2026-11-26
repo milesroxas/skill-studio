@@ -19,9 +19,12 @@ import { makeProfile } from './profile.ts'
 app.dock?.hide()
 // On Linux the host draws under xvfb-run, with no GPU: a picture taken through one fails there
 // (UnknownVizError). Drawn in software from the start, off-screen pages are pictured as on a
-// machine with one, but for WebGL, which a page drawn there goes without. macOS and Windows keep
-// the GPU, so their pictures are the app's.
-if (process.platform === 'linux') app.disableHardwareAcceleration()
+// machine with one. WebGL is drawn in software too, by SwiftShader, which Chromium gives a page
+// only when told to. macOS and Windows keep the GPU, so their pictures are the app's.
+if (process.platform === 'linux') {
+  app.disableHardwareAcceleration()
+  app.commandLine.appendSwitch('enable-unsafe-swiftshader')
+}
 
 // Made here, before the host's code loads, so the host knows the folder to remove however it ends.
 const removeProfile = makeProfile()

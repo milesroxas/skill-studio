@@ -7,7 +7,10 @@
  * its own that asks for notifications and where the machine is, and fails
  * unless the host refused both, as the app does: the page writes what it was
  * answered into its own text, which comes back in the layout the host
- * measured. Last it puts that picture on a contact sheet as `st sheet` does,
+ * measured. It draws a page that clears a WebGL canvas to green and says
+ * whether it got a context; on Linux, where the host draws WebGL in software,
+ * it fails unless the page got one and the canvas is green in the picture,
+ * and elsewhere, where WebGL is the machine's GPU's, it says what it found. Last it puts that picture on a contact sheet as `st sheet` does,
  * for two runs of three attempts and two, and fails unless the sheet is one
  * PNG inside 1568 pixels a side with a drawn panel for each attempt; and draws
  * a page of its own that asks for a picture beside it and one in the folder
@@ -73,6 +76,35 @@ navigator.geolocation.getCurrentPosition(
 const asking = { ...page, file: 'outputs/asks.html' }
 writeFileSync(join(skill, 'evals/runs', run, asking.sample, asking.file), ASKS)
 
+/** Where the WebGL page's canvas is: it is cleared to green there when the page has a context. */
+const GL_BOX: Box = { x: 0, y: 0, width: 100, height: 100 }
+
+/** A page that asks for a WebGL context, clears its canvas to green with it, and says what it got. */
+const WEBGL = `<!doctype html><html><body style="margin:0;background:#fff">
+<canvas id="c" width="${GL_BOX.width}" height="${GL_BOX.height}" style="position:absolute;left:0;top:0"></canvas>
+<p id="said" style="position:absolute;top:120px">webgl: not run</p>
+<script>
+const gl = document.getElementById('c').getContext('webgl')
+if (gl) { gl.clearColor(0, 1, 0, 1); gl.clear(gl.COLOR_BUFFER_BIT) }
+document.getElementById('said').textContent = 'webgl: ' + (gl ? 'yes, ' + gl.getParameter(gl.VERSION) : 'no')
+</script></body></html>`
+const webgl = { ...page, file: 'outputs/webgl.html' }
+writeFileSync(join(skill, 'evals/runs', run, webgl.sample, webgl.file), WEBGL)
+
+/** The share of a box's pixels that are green, as the WebGL page clears its canvas. */
+function greenShare(png: Uint8Array, box: Box): number {
+  const pixels = readPng(png)
+  if (!pixels) return 0
+  let green = 0
+  for (let y = box.y; y < box.y + box.height; y++)
+    for (let x = box.x; x < box.x + box.width; x++) {
+      const at = (y * pixels.width + x) * 4
+      const [r, g, b] = [pixels.data[at], pixels.data[at + 1], pixels.data[at + 2]]
+      if (r < 40 && g > 215 && b < 40) green++
+    }
+  return green / (box.width * box.height)
+}
+
 /** The width and height a PNG says it holds. */
 const sizeOf = (png: Uint8Array): [number, number] => {
   const view = new DataView(png.buffer, png.byteOffset, png.byteLength)
@@ -132,6 +164,18 @@ try {
     if (!elements) problems.push(`${size.id}: the layout holds no element.`)
     if (size.id === 'desktop') desktop = png
   }
+  // A page that draws with WebGL is drawn with it: on Linux by SwiftShader, which the host turns on,
+  // elsewhere by the machine's GPU, which the host leaves as the app has it.
+  check = 'Drawing a page that clears a WebGL canvas to green'
+  const gl = await render(webgl, { width: 400, height: 300 })
+  const glSaid = (gl.layout?.elements ?? []).map((e) => e.text).find((t) => t?.startsWith('webgl:'))
+  const green = greenShare(gl.png, GL_BOX)
+  console.log(`webgl: ${glSaid ?? 'nothing said'}, canvas ${Math.round(green * 100)}% green`)
+  if (process.platform === 'linux') {
+    if (!glSaid?.startsWith('webgl: yes')) problems.push(`A WebGL page got no context: ${glSaid}.`)
+    if (green < 0.9) problems.push('A WebGL canvas was not drawn in the picture.')
+  }
+
   // Without the app's refusal, Electron grants notifications and asks the system where it is.
   check = 'Drawing the page that asks for notifications and where the machine is'
   const { layout } = await render(asking, { width: 800, height: 600 })

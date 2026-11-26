@@ -38,6 +38,7 @@ Skill Studio runs coding agents and executes the code they write. Treat every sk
 - `default-src 'none'` and `connect-src 'none'` keep it off the network. It loads only files samples wrote and pictures, of skills already open, and inline or `data:` content. Asking for either never opens a skill.
 - A page can still keep a processor busy while it is shown, and WebRTC is outside what a content policy governs. It knows nothing the agent did not write. A bypass is in scope.
 - To judge a page as drawn, the desktop app opens it in an offscreen window under the same policy, with no preload, no new windows and no navigation, at the case's size or 1280 by 960, and at 390 pixels wide for a case that asks for a phone, and keeps a PNG of each in the sample's `renders/` folder. The window is closed after each picture.
+- `st run`, `st grade` and `st serve` draw the same way, in a drawing host with no window. On Linux it draws in software, and draws a page's WebGL with SwiftShader, which Chromium calls unsafe because the shaders a page sends then run on the CPU in the GPU process, a larger target than a GPU's own driver. The page is still sandboxed as in the app. macOS and Windows draw WebGL with the GPU, as the app does.
 
 ### The web server
 
