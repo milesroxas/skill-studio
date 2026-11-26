@@ -21,7 +21,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 ### Fixed
 
 - Two runs of one skill started at the same moment no longer take the same version number.
-- `st cases` prints every case id whole, so an id copied from it works in `--cases`.
+- `st cases`, `st report` and `st compare` print every case id and attempt name whole, so an id copied from them works in `--cases`.
 
 ## [0.20.3] - 2026-11-25
 
