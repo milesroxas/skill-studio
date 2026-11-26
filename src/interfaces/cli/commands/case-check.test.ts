@@ -136,6 +136,29 @@ describe('st case check', () => {
     ])
   })
 
+  it('lists a title written with a line break in it, and none written on one line with CRLF endings', async () => {
+    const skill = skillWith({
+      'evals/cases/broken/prompt.md': 'Write it.',
+      'evals/cases/broken/case.yaml': 'title: "Tone\\r\\ncheck"\n',
+      'evals/cases/folded/prompt.md': 'Write it again.',
+      'evals/cases/folded/case.yaml': 'title: |\n  Kind\n  reply\n',
+      'evals/cases/crlf/prompt.md': 'Write it once more.\r\n',
+      'evals/cases/crlf/case.yaml': 'title: Plain\ttitle\r\nexpected_outcome: Short.\r\n',
+    })
+    expect(await check(skill)).toBe(1)
+    const [head, ...lines] = printed
+    expect(head).toBe('note: 3 case(s), 0 check(s), 2 problem(s)')
+    expect(lines.map(under(skill)).sort()).toEqual([
+      '  - <skill>/evals/cases/broken/case.yaml: the title holds a line break, so it is shown on one line, as "Tone check". Save the case to write it that way.',
+      '  - <skill>/evals/cases/folded/case.yaml: the title holds a line break, so it is shown on one line, as "Kind reply". Save the case to write it that way.',
+    ])
+    expect(
+      loadCases(skill)
+        .map((c) => c.title)
+        .sort(),
+    ).toEqual(['Kind reply', 'Plain title', 'Tone check'])
+  })
+
   it('passes a skill whose cases all load as written', async () => {
     const skill = skillWith({
       'evals/cases/good/prompt.md': 'Write it.',

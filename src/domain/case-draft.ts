@@ -128,23 +128,37 @@ const words = (prompt: string): string[] => prompt.trim().split(/\s+/).filter(Bo
 /** The first words of a prompt, enough to name a case after when it has no title. */
 export const promptStart = (prompt: string): string => words(prompt).slice(0, ID_WORDS).join(' ')
 
+/**
+ * A title as it is saved and shown: one line, every run of white space, a
+ * line break or a tab among them, one space, and none at either end. A title
+ * is one line wherever it shows, and the Cases form's field cannot make two.
+ */
+export const oneLineTitle = (title: string): string =>
+  title.replace(/\p{White_Space}+/gu, ' ').trim()
+
+/** Whether a title holds a line break between its words, which it is read and saved with a space for. */
+export const breaksLine = (title: string): boolean =>
+  /[\n\v\f\r\u0085\u2028\u2029]/u.test(title.replace(/^\p{White_Space}+|\p{White_Space}+$/gu, ''))
+
 /** Whether a case has a title of its own. One without is read with its id in the title's place. */
 export const hasTitle = (c: Pick<Case, 'id' | 'title'>): boolean =>
-  c.title.trim() !== '' && c.title !== c.id
+  oneLineTitle(c.title) !== '' && c.title !== c.id
 
 /**
  * How a case is named wherever it shows: its title, or the start of its
  * prompt when it has none. Never its id, which only names its folder.
  */
 export function caseName(c: Pick<Case, 'id' | 'title' | 'prompt'>): string {
-  if (hasTitle(c)) return c.title.trim()
+  if (hasTitle(c)) return oneLineTitle(c.title)
   const start = promptStart(c.prompt)
   return words(c.prompt).length > ID_WORDS ? `${start}…` : start || c.id
 }
 
-/** Two titles that read as one: the same words, whatever their capitals or the spaces at their ends. */
-export const sameTitle = (a: string, b: string): boolean =>
-  a.trim().toLowerCase() === b.trim().toLowerCase()
+/** A title as two that read as one are the same: one line (`oneLineTitle`), and no capitals. */
+export const titleKey = (title: string): string => oneLineTitle(title).toLowerCase()
+
+/** Two titles that read as one: the same words, whatever their capitals or the white space between and around them. */
+export const sameTitle = (a: string, b: string): boolean => titleKey(a) === titleKey(b)
 
 /**
  * Whether a case other than `own` has the title. Cases are told apart by
@@ -155,11 +169,12 @@ export const titleTaken = (
   title: string,
   own: string | null = null,
 ): boolean =>
-  title.trim() !== '' && cases.some((c) => c.id !== own && hasTitle(c) && sameTitle(c.title, title))
+  oneLineTitle(title) !== '' &&
+  cases.some((c) => c.id !== own && hasTitle(c) && sameTitle(c.title, title))
 
 /** The title, or with the first number after it that no case's title has: "Tone check 2". */
 export function unusedTitle(cases: readonly Pick<Case, 'id' | 'title'>[], title: string): string {
-  const base = title.trim()
+  const base = oneLineTitle(title)
   let free = base
   for (let n = 2; titleTaken(cases, free); n += 1) free = `${base} ${n}`
   return free

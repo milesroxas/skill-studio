@@ -18,7 +18,7 @@ pnpm st <command> [skill-dir] [options]
 | `new <dir>` | Scaffold a skill. `--name <id>` is the skill name (default the folder name; it must be a slug). `--description <text>` is its front matter description. `--template` is `blank` (the default), `writing`, `code`, `workflow` or `design`. `--with-cases` adds the template's sample cases |
 | `cases` | List the skill's cases, each by its whole id as `--cases` and `--case` take it, with its checks, its files and its title |
 | `case add` | Write a new case from flags, checked as the Cases screen checks one ([below](#adding-and-checking-cases)) |
-| `case check` | List each case and check file that will not load or is skipped, and each title two cases share. It exits 1 when it lists any ([below](#adding-and-checking-cases)) |
+| `case check` | List each case and check file that will not load or is skipped, each title with a line break in it, and each title two cases share. It exits 1 when it lists any ([below](#adding-and-checking-cases)) |
 | `run` | Generate outputs with a headless agent, then grade them |
 | `grade` | Grade a run again: `--run <name>` or `--all` |
 | `report` | Print a run's report: `--run <name>`. Each sample and case is printed whole, as `--case` takes it. The scores are counted from the stored answers under `bench.json` as it is now, with your corrections from the app, as the app shows them. A sample folder since removed is left out. Under the table, each output's checks met and rules followed, counted apart: an output of a run without the skill has no rules count. `--brief` prints only each case and what it missed ([below](#short-output)) |
@@ -97,7 +97,7 @@ pnpm st open --stop
 `case add` writes a new case under `evals/cases/`, through the same check as a case saved on the Cases screen, so it refuses what the screen refuses: an empty prompt, a title another case has, a size out of range.
 
 - `--prompt <text>` or `--prompt-file <file>` is the request the agent gets. Pass one of the two, not both.
-- `--title <text>` is its title. Without one the case is named after the start of its prompt. The case's folder is named after its title, or after its prompt when it has none, with a number after it when that folder is taken.
+- `--title <text>` is its title, saved on one line: a line break, a tab or a run of spaces in it is one space, as it is on the Cases screen and wherever a title is shown or compared (`oneLineTitle` in `src/domain/case-draft.ts`). Without one the case is named after the start of its prompt. The case's folder is named after its title, or after its prompt when it has none, with a number after it when that folder is taken.
 - `--check <text>` adds a check a good answer meets, with weight 1. Give it once for each check.
 - `--file <path>` copies a file or a folder into the case's `files/`, under its own name, for the agent to get with the request. Give it once for each. Two with the same name are refused.
 - `--artifact html` or `--artifact image` is the file to grade: a page or a picture ([`bench.artifact`](files.md#the-bench-block-of-caseyaml)).
@@ -114,7 +114,7 @@ pnpm st case add skills/release-notes --title "Launch note" --prompt "Write the 
 - each case folder that is skipped: one under `evals/cases/` with no `prompt.md`, one whose name cannot be a case's id, and one right under `evals/` whose id a folder under `evals/cases/` has;
 - each `evals.json` entry that is left out, or is skipped because a case folder has its id, and an `evals.json` that is not JSON, which the app stops on;
 - each `case.yaml` that cannot be read, and each `bench` value of the wrong kind, which is left out;
-- each title two cases share.
+- each title written with a line break in it, which the app shows on one line, and each title two cases share, read on one line and whatever their capitals.
 
 It changes nothing. It exits 0 when it lists nothing and 1 when it lists anything; `--json` prints the counts and the list.
 

@@ -107,6 +107,19 @@ describe('st case add', () => {
     expect(loadCases(skill).map((c) => c.id)).toEqual(['tone'])
   })
 
+  it('saves a --title with a line break in it on one line', async () => {
+    expect(await add('--title', 'Launch\r\nnote\tfor Friday', '--prompt', 'Write it.')).toBe(0)
+    expect(loadCases(skill)).toMatchObject([
+      { id: 'launch-note-for-friday', title: 'Launch note for Friday' },
+    ])
+    expect(readFileSync(join(skill, 'evals/cases/launch-note-for-friday/case.yaml'), 'utf8')).toBe(
+      'title: Launch note for Friday\n',
+    )
+    await expect(add('--title', 'launch note\nfor friday', '--prompt', 'Again.')).rejects.toThrow(
+      'Another case is called launch note for friday.',
+    )
+  })
+
   it('refuses flags it cannot read', async () => {
     const file = join(scratch, 'prompt.md')
     writeFileSync(file, 'Write it.')

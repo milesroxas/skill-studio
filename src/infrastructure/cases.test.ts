@@ -222,6 +222,33 @@ describe('saveCase and deleteCase', () => {
     }
   })
 
+  it('saves a title on one line, a line break, a tab or a run of spaces read as one space', () => {
+    saveCase(skill, { ...draft, title: ' A short\r\nnote,\tsaid \n\n twice ' }, true)
+    const yamlPath = join(skill, 'evals/cases/short-note/case.yaml')
+    expect(readFileSync(yamlPath, 'utf8')).toMatch(/^title: A short note, said twice\n/)
+    // A title of white space alone is none: the case is named by its id in the file.
+    saveCase(skill, { ...draft, title: '\r\n\t\u0085 ' }, false)
+    expect(readFileSync(yamlPath, 'utf8')).toMatch(/^title: short-note\n/)
+    expect(loadCases(skill)[0].title).toBe('short-note')
+    // A long one is kept whole.
+    const long = Array.from({ length: 120 }, (_, n) => `word${n}`)
+    saveCase(skill, { ...draft, title: long.join('\r\n') }, false)
+    expect(loadCases(skill)[0].title).toBe(long.join(' '))
+  })
+
+  it('reads a title written with a line break as one line, and refuses it to another case', () => {
+    saveCase(skill, draft, true)
+    const yamlPath = join(skill, 'evals/cases/short-note/case.yaml')
+    writeFileSync(yamlPath, 'title: "A short\\r\\nnote"\r\n')
+    expect(loadCases(skill)[0].title).toBe('A short note')
+    expect(() => saveCase(skill, { ...draft, id: 'other', title: 'a SHORT\nnote' }, true)).toThrow(
+      'Another case is called a SHORT note.',
+    )
+    // The case itself saves under it, and the file then holds it on one line, in the quotes it was written in.
+    saveCase(skill, { ...draft, title: 'A short\nnote' }, false)
+    expect(readFileSync(yamlPath, 'utf8')).toMatch(/^title: "A short note"\n/)
+  })
+
   it('refuses a title another case has, and keeps one saved before the rule', () => {
     saveCase(skill, draft, true)
     const other = { ...draft, id: 'other', title: 'Other' }

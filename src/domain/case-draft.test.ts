@@ -1,9 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import {
+  breaksLine,
   caseName,
   inputEntries,
   isPicture,
   newCaseId,
+  oneLineTitle,
   titleTaken,
   unusedTitle,
 } from './case-draft.ts'
@@ -60,6 +62,37 @@ describe('case names', () => {
     // A case with no title of its own holds none.
     expect(titleTaken(cases, 'untitled')).toBe(false)
     expect(titleTaken(cases, ' ')).toBe(false)
+  })
+
+  it('reads a title as one line: every line break, tab and run of spaces one space', () => {
+    expect(oneLineTitle('Tone\ncheck')).toBe('Tone check')
+    expect(oneLineTitle(' Tone \r\n\r\n check\t2 ')).toBe('Tone check 2')
+    expect(oneLineTitle('Tone\u0085check\u2028now\u00A0\u3000ok')).toBe('Tone check now ok')
+    // A title that is only white space is none.
+    expect(oneLineTitle(' \r\n\t\u0085 ')).toBe('')
+    expect(caseName({ id: 'x', title: ' \r\n\t ', prompt: 'Write a note.' })).toBe('Write a note.')
+    expect(caseName({ id: 'x', title: 'Tone\r\ncheck', prompt: 'Hi.' })).toBe('Tone check')
+    // A long title keeps every word: there is no limit to cut it at.
+    const long = Array.from({ length: 200 }, (_, n) => `word${n}`)
+    expect(oneLineTitle(long.join('\r\n'))).toBe(long.join(' '))
+  })
+
+  it('tells a line break between words from white space at either end, or a tab', () => {
+    expect(
+      ['Tone\ncheck', 'Tone\r\ncheck', 'Tone\rcheck', 'Tone\u2028check'].map(breaksLine),
+    ).toEqual([true, true, true, true])
+    expect(
+      ['Tone check\n', '\r\nTone check', 'Tone\tcheck', 'Tone  check', '\n'].map(breaksLine),
+    ).toEqual([false, false, false, false, false])
+  })
+
+  it('finds a title another case has across a line break, a tab or a run of spaces', () => {
+    expect(titleTaken(cases, 'Tone\ncheck')).toBe(true)
+    expect(titleTaken(cases, 'tone\r\n  CHECK')).toBe(true)
+    expect(titleTaken(cases, 'Tone\tcheck')).toBe(true)
+    expect(titleTaken([{ id: 'a', title: 'Tone\ncheck' }], 'Tone check')).toBe(true)
+    expect(titleTaken(cases, '\r\n\t')).toBe(false)
+    expect(unusedTitle(cases, 'Tone\ncheck')).toBe('Tone check 2')
   })
 
   it('numbers a title another case has', () => {

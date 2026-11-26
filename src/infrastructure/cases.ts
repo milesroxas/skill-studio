@@ -11,12 +11,15 @@ import {
 } from 'node:fs'
 import { basename, extname, join } from 'node:path'
 import {
+  breaksLine,
   checkWeight,
   hasTitle,
   newCaseId,
+  oneLineTitle,
   promptStart,
   sameTitle,
   sizeProblem,
+  titleKey,
   titleTaken,
   unusedTitle,
 } from '@domain/case-draft.ts'
@@ -294,6 +297,21 @@ function namesCase(skillDir: string, rel: string, warn: Warn = warnOnce): boolea
   return false
 }
 
+/**
+ * A case's title as it is shown, on one line (`oneLineTitle`). One written
+ * with a line break in it is read with a space there, and only `caseProblems`
+ * says so, naming the case at `where`: saving the case writes it on one line.
+ */
+function titleOf(title: string, where: string, warn: Warn): string {
+  const one = oneLineTitle(title)
+  if (breaksLine(title))
+    warn(
+      `${where}: the title holds a line break, so it is shown on one line, as "${one}". Save the case to write it that way.`,
+      true,
+    )
+  return one
+}
+
 /** One skill-creator case folder. Throws when its `case.yaml` cannot be read. */
 function loadFolderCase(skillDir: string, rel: string, warn: Warn): Case | null {
   const dir = join(skillDir, rel)
@@ -319,7 +337,7 @@ function loadFolderCase(skillDir: string, rel: string, warn: Warn): Case | null 
   return {
     id: name,
     legacyId: null,
-    title: typeof spec.title === 'string' ? spec.title : name,
+    title: typeof spec.title === 'string' ? titleOf(spec.title, yamlPath, warn) : name,
     prompt,
     expectedOutcome: typeof spec.expected_outcome === 'string' ? spec.expected_outcome.trim() : '',
     files,
@@ -378,7 +396,11 @@ function fromLegacy(skillDir: string, entry: LegacyEval, warn: Warn): Case | nul
   return {
     id,
     legacyId: entry.id,
-    title: String(entry.title ?? entry.eval_name ?? entry.name ?? id),
+    title: titleOf(
+      String(entry.title ?? entry.eval_name ?? entry.name ?? id),
+      `${legacyFile(skillDir)}: the case ${JSON.stringify(entry.id)}`,
+      warn,
+    ),
     prompt: entry.prompt,
     expectedOutcome: typeof entry.expected_output === 'string' ? entry.expected_output : '',
     files: safePaths(entry.files, 'the input file', warn),
@@ -497,13 +519,13 @@ export function caseProblems(skillDir: string): {
   const every = loadEveryCase(skillDir, note)
   const byTitle = new Map<string, Case[]>()
   for (const c of cases.filter(hasTitle)) {
-    const key = c.title.trim().toLowerCase()
+    const key = titleKey(c.title)
     byTitle.set(key, [...(byTitle.get(key) ?? []), c])
   }
   for (const same of byTitle.values())
     if (same.length > 1)
       problems.push(
-        `${same.length} cases are called ${same[0].title.trim()} (${same.map((c) => c.id).join(', ')}): cases are told apart by title, so give each one its own.`,
+        `${same.length} cases are called ${oneLineTitle(same[0].title)} (${same.map((c) => c.id).join(', ')}): cases are told apart by title, so give each one its own.`,
       )
   const checks = every.length + cases.reduce((sum, c) => sum + c.graders.length, 0)
   return { cases: cases.length, checks, problems }
@@ -706,7 +728,7 @@ export function saveCase(
   const existing = cases.find((c) => c.id === input.id)
   if (isNew && existing) throw new Error(`A case called ${input.id} already exists.`)
   // Cases are told apart by title. One kept as it was saves even if another took it by hand since.
-  const title = input.title.trim()
+  const title = oneLineTitle(input.title)
   if (!(existing && sameTitle(existing.title, title)) && titleTaken(cases, title, input.id))
     throw new Error(`Another case is called ${title}. Give this one a title of its own.`)
   if (!isNew && expectedSavedAt != null) {
@@ -757,7 +779,7 @@ export function saveCase(
   write(promptPath, promptText)
 
   const doc = caseYaml(yamlPath)
-  doc.set('title', input.title.trim() || input.id)
+  doc.set('title', title || input.id)
   if (input.expectedOutcome.trim()) doc.set('expected_outcome', input.expectedOutcome.trim())
   else doc.delete('expected_outcome')
   if (input.words) {
@@ -877,7 +899,7 @@ export function duplicateCase(skillDir: string, id: string): string {
     }
   }
   // An untitled case is named by its prompt: the copy takes that as its title, so the two differ.
-  const named = hasTitle(found) ? found.title.trim() : promptStart(found.prompt) || id
+  const named = hasTitle(found) ? oneLineTitle(found.title) : promptStart(found.prompt) || id
   const title = unusedTitle(cases, `${named} copy`)
   const taken = cases.map((c) => c.id)
   try {
