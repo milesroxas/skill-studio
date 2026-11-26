@@ -6,6 +6,7 @@ import { DEFAULT_PORT, startServer } from '../../http/server.ts'
 import { DEFAULT_TAILSCALE_PORT, serveOnTailnet, tailnetIdentity } from '../../http/tailscale.ts'
 import { keepRunning } from '../../lifecycle.ts'
 import { openCommand, portOf } from '../input.ts'
+import { openedServe } from '../open-server.ts'
 import type { Command, FlagValues } from './command.ts'
 
 const flags = {
@@ -37,7 +38,22 @@ export const serve: Command = {
     const httpsPort = portOf(values['tailscale-port'], '--tailscale-port')
     if (httpsPort && !values.tailscale) throw new Error('--tailscale-port needs --tailscale.')
     const remote = values.tailscale ? await tailnetIdentity() : null
-    const server = await startServer({ skills, port, remote })
+    // Started by `st open`: on a port the system picks, found by its file, and stopped when unused.
+    const opened = openedServe()
+    const server = await startServer({
+      skills,
+      port: opened ? 0 : port,
+      remote,
+      onRequest: opened?.onRequest,
+    })
+    const stop = () => {
+      void (context.lifecycle?.stop() ?? Promise.resolve()).finally(() => process.exit(0))
+    }
+    if (opened && !opened.host(server, stop)) {
+      // Another `st open` started this checkout's server at the same time, and it serves.
+      await server.close()
+      process.exit(0)
+    }
     // The address carries the token every request needs, from this machine or the tailnet.
     console.log(`Skill Studio: ${server.url}${skills.length ? `  (${skills.join(', ')})` : ''}`)
     if (remote) {

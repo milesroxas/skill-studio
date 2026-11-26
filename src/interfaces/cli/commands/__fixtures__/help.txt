@@ -80,6 +80,13 @@ Commands
                               With no skill it opens on the library of skills on this machine.
                               --tailscale also serves it on this machine's tailnet name
                               (--tailscale-port 8443), for your own Tailscale login only.
+  open                        Print an address that opens Results in a browser, good for one
+                              load within a minute. It starts the app for this checkout when
+                              it is not running; that stops after an hour with no use.
+    --case <id>               The case to show; default the first one the runs answered.
+    --a <run>                 The run shown as A.
+    --b <run>                 The run shown as B.
+    --stop                    Stop this checkout's app now.
 
 Common
   --no-jev                    Grade without TypeSafe calls (code checks only).

@@ -9,6 +9,7 @@ import type { Command, Flag } from './command.ts'
 import { compare } from './compare.ts'
 import { grade } from './grade.ts'
 import { newCommand } from './new.ts'
+import { open } from './open.ts'
 import { propose } from './propose.ts'
 import { read } from './read.ts'
 import { report } from './report.ts'
@@ -33,6 +34,7 @@ const commands: readonly Command[] = [
   versions,
   newCommand,
   serve,
+  open,
 ]
 
 /** Every command's flags, and `--help`: what `parseArgs` reads. */

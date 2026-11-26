@@ -29,6 +29,7 @@ pnpm st <command> [skill-dir] [options]
 | `versions` | List the skill versions seen in runs, and the working tree's |
 | `self-test` | Grade `evals/anchors` and check that bad anchors lose to good ones ([anchors](grading.md#anchors)) |
 | `serve [skill...]` | Start the app as a web server, below |
+| `open` | Print an address that opens Results in a browser on one case and two runs' outputs, good for one load within a minute ([below](#opening-results-from-the-command-line)) |
 
 ```
 pnpm st new skills/release-notes --template writing --with-cases
@@ -51,6 +52,21 @@ To add a check for every case, write it as a file in the skill's `evals/graders/
 - `--no-grade`: skip grading.
 
 `run` ends with the command that opens Results on the run it made, `Open: pnpm st open <skill> --a <run>`, and `compare` with the one that opens it on its two runs, `--a <runA> --b <runB>`. With `--json` neither prints it.
+
+### Opening Results from the command line
+
+```
+pnpm build
+pnpm st open skills/release-notes --a <runA> --b <runB>   # http://localhost:<port>/?ticket=...&skill=...#/results?case=...
+pnpm st open --stop
+```
+
+- `--a` and `--b` name the runs shown as A and B, each by its first attempt at the case. `--case <id>` names the case; without it, the case is the first one, in the order Results lists them, that every run named answered.
+- The address carries a one-use ticket, never the token: the first load within a minute trades it for the cookie, and a second load, or one after a minute, is refused. Run `st open` again for a new address. It is safe to paste in a chat.
+- With no server of this checkout running, it starts one in the background, on a port the system picks, and waits up to 10 seconds for it. Later calls use that server. Each checkout, a worktree among them, has a server of its own, and neither stops the other's.
+- That server stops itself once 60 minutes have gone with no request, but never while a run, a grading or a reading is going: it waits for the last one to end. It also stops when its file is gone or names another server, as when `st open` found it not answering and started another; that too waits for every job to end. It asks itself once a minute. `st open --stop` stops this checkout's now.
+- Where the app is not built, it says `Run pnpm build first.` and exits 2.
+- The server's port, pid and token are in `open-<hash>.json` in the app's own folder ([files.md](files.md#the-apps-own-files)), readable by you alone.
 
 ### Adding and checking cases
 
@@ -209,7 +225,7 @@ pnpm st serve --tailscale     # also https://<this-machine>.<tailnet>.ts.net:844
 - The server prints the address to open. It ends in `?token=...`, a new token at every start. After a restart, open the newly printed address.
 - Opening it stores the token in a cookie and goes on to the same address without it, so a bookmark of the plain address works until the server stops.
 - A request with neither the cookie nor the token gets `401`. That includes another account on the same machine.
-- `--open` gives the browser an address with a one-use ticket in place of the token, good for one load within a minute. If that browser window is gone, open the printed address.
+- `--open` gives the browser an address with a one-use ticket in place of the token, good for one load within a minute. If that browser window is gone, open the printed address. `st open` prints such an address too ([above](#opening-results-from-the-command-line)).
 - The page is served under the desktop app's Content Security Policy, with frames and pictures allowed from the server's own origin.
 - The server listens on `127.0.0.1` only. `--tailscale` is the one supported way to reach it from another device. It prints the tailnet address with the token in it and lets in only the Tailscale login that owns this machine, which still needs the token, so open the printed tailnet address on the other device once. The tailnet address goes away when the server stops. Do not expose the server any other way. [SECURITY.md](../SECURITY.md#the-web-server) has the details.
 - Ctrl-C, or closing the terminal, stops the server and ends every agent it started. `st run` and `st grade` do the same: Ctrl-C ends the agents in flight, then the command exits once it has written what it has, the run's record or the answers a grading already holds, three seconds at most (`Lifecycle.during` in `src/interfaces/lifecycle.ts`). A second Ctrl-C exits at once, without waiting for them.
@@ -221,6 +237,8 @@ pnpm st serve --tailscale     # also https://<this-machine>.<tailnet>.ts.net:844
 Every operation is `POST /api/<name>` with its input as a JSON body, 32 MB at most. Operations on a skill take `skill`, its path, in the body. A tool outside the browser adds the token to each call: `POST /api/<name>?token=<token>`. [`src/application/api/contract.ts`](../src/application/api/contract.ts) lists every operation with its input and output.
 
 A `GET` that carries `?token=` answers with a redirect to the same address without it and sets the cookie, so a tool follows the redirect and sends the cookie back.
+
+`POST /api/ticket` answers `{ "ticket": "..." }`, a one-use ticket good for a minute, which `?ticket=` on a page address trades for the cookie. It answers only to the token in an `x-skill-studio-token` header: not to the cookie, and not to `?token=`. `st open` asks for its ticket this way.
 
 Two operations answer with a file and also take `GET`, so a page can load them by URL:
 

@@ -32,6 +32,7 @@ import {
   newToken,
   type Remote,
   TICKET_PARAM,
+  TICKET_PATH,
   TOKEN_PARAM,
   ticketBook,
 } from './guard.ts'
@@ -54,6 +55,8 @@ export interface ServerOptions {
   rendererDir?: string
   /** Bytes one request body may hold; 32 MB when left out. */
   maxBodyBytes?: number
+  /** Told of every request as it comes, before it is checked: `st open`'s server stops after an hour with none. */
+  onRequest?: () => void
 }
 
 export interface Server {
@@ -117,6 +120,7 @@ export function startServer(options: ServerOptions): Promise<Server> {
   }
   const operations = createOperations({ skills: options.skills })
   const server = createServer(async (req, res) => {
+    options.onRequest?.()
     const api = (req.url ?? '').startsWith('/api/')
     const decision = decide({ method: req.method, url: req.url, headers: req.headers }, access)
     if (decision.kind === 'refuse') return sendError(res, decision.status, decision.error, api)
@@ -149,6 +153,11 @@ export function startServer(options: ServerOptions): Promise<Server> {
           own: "'self'",
         })
         return send(res, 200, file.bytes, file.headers['content-type'], file.headers)
+      }
+      // The guard let this through only with the token in its header (`st open`).
+      if (url.pathname === TICKET_PATH) {
+        if (req.method !== 'POST') return send(res, 405, { error: 'Ask for a ticket with POST.' })
+        return send(res, 200, { ticket: tickets.issue() })
       }
       if (api) {
         const name = url.pathname.slice('/api/'.length)

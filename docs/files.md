@@ -227,6 +227,7 @@ A run's configuration says which skill the agent saw:
 | `practice/` | The walkthrough's skill, and `seen.json`: the walkthrough steps that only ask you to look at a screen, once you have |
 | `chat.json`, `ai-usage.json` | The Assistant's conversation and its usage log |
 | `claude-commands.json` | The skills Claude Code can invoke, for the side panel's slash menu, with the modification times of the folders they were read from |
+| `open-<hash>.json` | The server `st open` started for one checkout, `<hash>` the first 8 hex digits of the SHA-256 of the checkout's real path: its `pid`, `port`, `token` and `checkout`. Readable by your account alone (`0600`). The server writes it as it starts and removes it as it stops, and `st open` removes one whose process is gone ([cli.md](cli.md#opening-results-from-the-command-line)) |
 | `agents.json` | The agents each running copy (the app's backend, `st`) has started, under the copy that started it, so a copy that starts after another crashed can end that copy's agents |
 | `uploads/` | Pictures added but not yet saved in a case. One nothing has read for 30 days is removed when the next picture is uploaded |
 | `uploads/inputs/` | Files and folders added to a case and not saved yet, one folder for each pick. One nothing has used for 30 days is removed when the next is added |

@@ -19,6 +19,7 @@ import { held, padEnd, signalOf, skillOf, wantsJev, withCost } from './shared.ts
 const flags = {
   ...shared(
     'cases',
+    'case',
     'again',
     'model',
     'effort',
@@ -29,7 +30,6 @@ const flags = {
     'no-jev',
     'jev-model',
   ),
-  case: { type: 'string' },
   accept: { type: 'string' },
   drop: { type: 'string' },
 } as const

@@ -17,6 +17,7 @@
  *   st self-test [skill] [--no-jev]
  *   st versions [skill]
  *   st serve [skill...] [--port 4400] [--tailscale [--tailscale-port 8443]]
+ *   st open [skill] [--case <id>] [--a <run>] [--b <run>] | --stop
  *   st new <dir> [--name <id>] [--description <text>]
  *
  * Each command is a module in `commands/`; this file reads the flags, picks

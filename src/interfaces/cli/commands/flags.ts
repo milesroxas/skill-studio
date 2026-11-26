@@ -8,6 +8,7 @@ const SHARED = {
   model: { type: 'string' },
   effort: { type: 'string' },
   cases: { type: 'string' },
+  case: { type: 'string' },
   parallel: { type: 'string' },
   name: { type: 'string' },
   run: { type: 'string' },

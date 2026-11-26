@@ -21,6 +21,7 @@ src/
     electron/      main process, preload bridge, backend utility process
     http/          `st serve`: the table over HTTP, the request guard, Tailscale
     cli/           the `st` command: `st.ts` reads the flags, picks the command and exits with its code
+      open-server.ts   the server `st open` starts, one a checkout, found by its file in the app's own folder
       commands/      one module per command (its name, help lines, flags and `run`); the help is put together from them
   renderer/        the React app; reaches the table through a transport (IPC or HTTP)
     components/ui/   shadcn/ui sources (Radix + Tailwind v4), owned by the repo
