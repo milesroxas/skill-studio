@@ -68,7 +68,7 @@ const ROOT = resolve(import.meta.dirname, '../..')
 const START_SCRIPT = `
 import { existsSync, writeFileSync } from 'node:fs'
 import { pathToFileURL } from 'node:url'
-const [skill, draft, ready, go] = process.argv.slice(2)
+const [skill, draft, ready, go, named] = process.argv.slice(2)
 const root = ${JSON.stringify(ROOT)}
 const { generateRun } = await import(pathToFileURL(root + '/src/application/generate.ts').href)
 const { loadCases } = await import(pathToFileURL(root + '/src/infrastructure/cases.ts').href)
@@ -82,7 +82,8 @@ writeFileSync(ready, '')
 while (!existsSync(go)) {}
 const { meta } = await generateRun({
   skillDir: skill, from: draft, cases, engine, model: null, effort: null, samples: 1,
-  configuration: 'with_skill', baseline: null, skillName: draft, note: '', parallel: 1, log: () => {},
+  configuration: 'with_skill', baseline: null, skillName: named ?? draft, ownName: Boolean(named),
+  note: '', parallel: 1, log: () => {},
 })
 console.log(meta.skillVersion)
 `
@@ -661,7 +662,11 @@ describe('generateRun', () => {
     expect(readdirSync(runs)).toHaveLength(1)
   })
 
-  it('gives two runs of two drafts started together in two processes two numbers', async () => {
+  /**
+   * Start a run of each of two drafts, `a` and `b`, in two processes at once,
+   * each named `named` when given; each process's version, or its failure.
+   */
+  async function startTogether(named?: string): Promise<PromiseSettledResult<string>[]> {
     const scratch = mkdtempSync(join(tmpdir(), 'st-stamp-'))
     made.push(scratch)
     // Files enough that one start takes a while, so the two would overlap with nothing to stop them.
@@ -681,7 +686,16 @@ describe('generateRun', () => {
     const children = drafts.map((draft, i) => {
       const child = spawn(
         process.execPath,
-        ['--import', 'tsx', script, skill, draft, join(scratch, `ready-${i}`), go],
+        [
+          '--import',
+          'tsx',
+          script,
+          skill,
+          draft,
+          join(scratch, `ready-${i}`),
+          go,
+          ...(named ? [named] : []),
+        ],
         { cwd: ROOT, stdio: ['ignore', 'pipe', 'pipe'] },
       )
       let out = ''
@@ -695,12 +709,69 @@ describe('generateRun', () => {
     while (![0, 1].every((i) => existsSync(join(scratch, `ready-${i}`))))
       await new Promise((done) => setTimeout(done, 10))
     writeFileSync(go, '')
-    const versions = await Promise.all(children)
+    return Promise.allSettled(children)
+  }
+
+  it('gives two runs of two drafts started together in two processes two numbers', async () => {
+    const versions = (await startTogether()).map((result) =>
+      result.status === 'fulfilled' ? result.value : String(result.reason),
+    )
     expect(versions.sort()).toEqual(['v0', 'v1'])
     // Two runs, and the lock given back.
     expect(readdirSync(join(skill, 'evals/runs'))).toHaveLength(2)
     expect(existsSync(join(skill, 'evals/runs', STAMP_LOCK_FILE))).toBe(false)
   }, 60_000)
+
+  it('refuses the second of two drafts started together under one new name', async () => {
+    const results = await startTogether('Draft A')
+    const kept = results.flatMap((r) => (r.status === 'fulfilled' ? [r.value] : []))
+    const refused = results.flatMap((r) => (r.status === 'rejected' ? [String(r.reason)] : []))
+    expect(kept).toEqual(['v0'])
+    expect(refused).toHaveLength(1)
+    expect(refused[0]).toContain('v0 is already called "Draft A"')
+    // One run, one version of that name, and the lock given back.
+    expect(readdirSync(join(skill, 'evals/runs'))).toHaveLength(1)
+    expect(versionsOf(skill).versions.map((v) => [v.version, v.name])).toEqual([['v0', 'Draft A']])
+    expect(existsSync(join(skill, 'evals/runs', STAMP_LOCK_FILE))).toBe(false)
+  }, 60_000)
+
+  it('refuses new files a name another version has, read as a person reads it, before it writes', async () => {
+    const engine = engineThat(() => {})
+    const runs = join(skill, 'evals/runs')
+    const own = { ...options(engine, 1), ownName: true }
+    await generateRun({ ...own, skillName: 'Draft A' })
+    const then = new Date('2026-01-01T00:00:00Z')
+    utimesSync(runs, then, then)
+    const draft = mkdtempSync(join(tmpdir(), 'st-draft-'))
+    made.push(draft)
+    writeFileSync(join(draft, 'SKILL.md'), '---\nname: Notes Skill\n---\n\n- Keep it long.\n')
+    // From a draft or from the skill's own edited files, the name is held by v0 however it is typed.
+    for (const name of ['Draft A', '  draft a ', 'DRAFT  A', 'draft\ta'])
+      await expect(generateRun({ ...own, from: draft, skillName: name })).rejects.toThrow(
+        'v0 is already called "Draft A". Give these files (v1) a name of their own to run them.',
+      )
+    writeFileSync(join(skill, 'SKILL.md'), '---\nname: Notes Skill\n---\n\n- Keep it shorter.\n')
+    await expect(generateRun({ ...own, skillName: 'draft a' })).rejects.toThrow('already called')
+    // An empty name is asked for as no name, never matched to a version.
+    for (const name of ['', '   '])
+      await expect(generateRun({ ...own, skillName: name })).rejects.toThrow(
+        'Name this version (v1) to run it.',
+      )
+    expect(engine.calls).toBe(1)
+    expect(statSync(runs).mtimeMs).toBe(then.getTime())
+    expect(readdirSync(runs)).toHaveLength(1)
+    // A name of their own is taken.
+    const fresh = await generateRun({ ...own, skillName: 'Draft A, shorter' })
+    expect(fresh.meta).toMatchObject({ skillVersion: 'v1', skillName: 'Draft A, shorter' })
+    // The same files as a kept version are that version: its own name, or another's, is no error.
+    for (const name of ['Draft A, shorter', 'Draft A', null]) {
+      const again = await generateRun({ ...own, skillName: name })
+      expect(again.meta).toMatchObject({ skillVersion: 'v1', skillName: 'Draft A, shorter' })
+    }
+    // Without `ownName`, as the app runs, a name may be shared.
+    const shared = await generateRun({ ...options(engine, 1), from: draft, skillName: 'Draft A' })
+    expect(shared.meta).toMatchObject({ skillVersion: 'v2', skillName: 'Draft A' })
+  })
 
   it('refuses a baseline that is not a run name', async () => {
     const engine = engineThat(() => {})

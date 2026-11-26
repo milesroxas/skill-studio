@@ -108,6 +108,7 @@ const HINTS: ReadonlyArray<{ when: RegExp; flag: string; hint: string; drop?: Re
     flag: '--name',
     hint: 'Pass --name "<a name for this version>".',
   },
+  { when: /is already called/i, flag: '--name', hint: 'Pass another --name.' },
   { when: /old_skill needs/i, flag: '--baseline', hint: 'Pass --baseline <version>, such as v1.' },
 ]
 

@@ -142,6 +142,16 @@ describe('withHint', () => {
     )
   })
 
+  it('asks for another --name when the name given is another version’s', () => {
+    expect(
+      withHint(
+        'v1 is already called "draft a". Give these files (v2) a name of their own to run them.',
+      ),
+    ).toBe(
+      'v1 is already called "draft a". Give these files (v2) a name of their own to run them. Pass another --name.',
+    )
+  })
+
   it('names --baseline when an old_skill run has no version to run against', () => {
     expect(withHint('old_skill needs the version to run against.')).toMatch(
       'Pass --baseline <version>, such as v1.',

@@ -48,7 +48,7 @@ To add a check for every case, write it as a file in the skill's `evals/graders/
 - `--samples n`: a whole number from 1 (the default) to 10.
 - `--configuration`: `with_skill` (the default), `without_skill`, or `old_skill` with `--baseline <version>` (such as `v1`) or `--baseline <run>` ([versions](files.md#versions)).
 - `--from <dir>`: run the skill files in that folder in place of the skill's own, under the skill's cases and `bench.json`. The folder holds a `SKILL.md` and is outside the skill's folder; one inside it, or one that holds it, is refused. Its files are held against the skill's versions as the skill's own are: the same files as a kept version are that version, and new ones take the next number and need `--name`. The skill's own files are not touched, so two drafts can run at once, each its own version. With `with_skill` only ([versions](files.md#versions)).
-- `--name` and `--note`: name the skill version and note on it, when the files changed. A run with `--configuration without_skill` tests no version and needs neither.
+- `--name` and `--note`: name the skill version and note on it, when the files changed. A name another version already has is refused, whatever its case or spacing, before anything is written: changed files are a new version and need a name of their own. The same files as a kept version are that version, and keep its name. A run with `--configuration without_skill` tests no version and needs neither.
 - `--parallel n`: samples in flight (3).
 - `--no-grade`: skip grading.
 - `--brief`: print only each case and what it missed in place of the report ([below](#short-output)).

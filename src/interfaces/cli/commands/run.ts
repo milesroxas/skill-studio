@@ -95,6 +95,8 @@ export const run: Command = {
         baseline: input.baseline,
         from: values.from ?? null,
         skillName: input.skillName,
+        // A name is what an agent tells its drafts apart by: one name, one version.
+        ownName: true,
         note: input.note,
         parallel,
         log: values.quiet ? () => {} : (line) => console.error(line),

@@ -27,6 +27,7 @@ import type {
   Timing,
 } from '@domain/schemas.ts'
 import { slug } from '@domain/text.ts'
+import type { SkillVersion } from '@domain/views.ts'
 import { detectArtifacts } from '@infrastructure/artifacts.ts'
 import { loadEveryCase } from '@infrastructure/cases.ts'
 import type { Engine } from '@infrastructure/engines/index.ts'
@@ -125,6 +126,12 @@ export interface GenerateOptions {
   from?: string | null
   /** Name for the skill version when the files tested are new. */
   skillName: string | null
+  /**
+   * Refuse a name another version of the skill already has (`takenBy`). The
+   * command line asks it, where a name is all an agent tells its drafts apart
+   * by; the app names a version itself when none is typed, and leaves it out.
+   */
+  ownName?: boolean
   note: string
   parallel?: number
   log: (line: string) => void
@@ -148,31 +155,48 @@ interface SkillStamp {
   note: string
 }
 
+/** A version's name as a person reads it: no space at either end or doubled, and no case. */
+const nameKey = (name: string): string =>
+  name.normalize('NFC').trim().replace(/\s+/g, ' ').toLowerCase()
+
+/** The version among `versions` already called `name`, as a person reads names; null when none is. */
+function takenBy(versions: readonly SkillVersion[], name: string): SkillVersion | null {
+  const key = nameKey(name)
+  if (!key) return null
+  return versions.find((v) => nameKey(v.name) === key) ?? null
+}
+
 /**
  * The version a new run is stamped with: that of the files in `tree`, the
- * skill's own or a draft's. Throws when they changed and have no name yet. A
- * run without the skill tests no version: it is stamped with the number the
- * tree has now and no name, which names no version and makes the tree none
- * (`skillVersions` passes over such a run).
+ * skill's own or a draft's. Throws when they changed and have no name yet,
+ * and, with `ownName`, when another version already has the name given. The
+ * same files as a kept version are that version under its own name, so a name
+ * passed with them is never refused. A run without the skill tests no
+ * version: it is stamped with the number the tree has now and no name, which
+ * names no version and makes the tree none (`skillVersions` passes over such
+ * a run).
  */
 function stampSkill(
   skillDir: string,
   tree: string,
-  skillName: string | null,
-  note: string,
-  configuration: Configuration,
+  options: Pick<GenerateOptions, 'skillName' | 'note' | 'configuration' | 'ownName'>,
 ): SkillStamp {
-  const { current } = versionsOf(skillDir, tree)
+  const { versions, current } = versionsOf(skillDir, tree)
   if (!current.changed)
     return { version: current.version, name: current.name, hash: current.hash, note: current.note }
-  if (configuration === 'without_skill')
+  if (options.configuration === 'without_skill')
     return { version: current.version, name: '', hash: current.hash, note: '' }
-  const name = skillName?.trim()
+  const name = options.skillName?.trim()
   if (!name)
     throw new Error(
       `The skill changed since the last run. Name this version (${current.version}) to run it.`,
     )
-  return { version: current.version, name, hash: current.hash, note }
+  const holder = options.ownName ? takenBy(versions, name) : null
+  if (holder)
+    throw new Error(
+      `${holder.version} is already called "${holder.name}". Give these files (${current.version}) a name of their own to run them.`,
+    )
+  return { version: current.version, name, hash: current.hash, note: options.note }
 }
 
 function freshRunName(skillDir: string, base: string): string {
@@ -311,9 +335,7 @@ function startRun(
 ): { name: string; dir: string; snapshot: string; meta: RunMeta } {
   const { skillDir, engine, configuration } = options
   const { tree, baseline, model, effort } = how
-  const stamp = baseline
-    ? baseline.stamp
-    : stampSkill(skillDir, tree, options.skillName, options.note, configuration)
+  const stamp = baseline ? baseline.stamp : stampSkill(skillDir, tree, options)
   const name = freshRunName(
     skillDir,
     runName({
@@ -382,7 +404,7 @@ export async function generateRun(
   const model = options.model?.trim() || engine.defaultModel
   const effort = options.effort || 'default'
   // A run refused for its version is refused before the lock, so it leaves `evals/runs/` as it was.
-  if (!baseline) stampSkill(skillDir, tree, options.skillName, options.note, configuration)
+  if (!baseline) stampSkill(skillDir, tree, options)
   // From the version taken to `run.json` written, no other run of the skill starts: two would take one number.
   const release = await takeStampLock(runsDir(skillDir))
   const { name, dir, snapshot, meta } = (() => {
