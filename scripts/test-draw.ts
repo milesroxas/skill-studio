@@ -8,9 +8,9 @@
  * unless the host refused both, as the app does: the page writes what it was
  * answered into its own text, which comes back in the layout the host
  * measured. It draws a page that clears a WebGL canvas to green and says
- * whether it got a context; on Linux, where the host draws WebGL in software,
- * it fails unless the page got one and the canvas is green in the picture,
- * and elsewhere, where WebGL is the machine's GPU's, it says what it found. Last it puts that picture on a contact sheet as `st sheet` does,
+ * whether it got a context and how much of the canvas is green, failing on no
+ * platform: on Linux a page goes without WebGL, and elsewhere it is the
+ * machine's GPU's. Last it puts that picture on a contact sheet as `st sheet` does,
  * for two runs of three attempts and two, and fails unless the sheet is one
  * PNG inside 1568 pixels a side with a drawn panel for each attempt; and draws
  * a page of its own that asks for a picture beside it and one in the folder
@@ -164,17 +164,13 @@ try {
     if (!elements) problems.push(`${size.id}: the layout holds no element.`)
     if (size.id === 'desktop') desktop = png
   }
-  // A page that draws with WebGL is drawn with it: on Linux by SwiftShader, which the host turns on,
-  // elsewhere by the machine's GPU, which the host leaves as the app has it.
+  // What a page that draws with WebGL gets, said and never failed on: on Linux the host draws with
+  // no GPU and no SwiftShader, so a page goes without, and elsewhere it is the machine's GPU's.
   check = 'Drawing a page that clears a WebGL canvas to green'
   const gl = await render(webgl, { width: 400, height: 300 })
   const glSaid = (gl.layout?.elements ?? []).map((e) => e.text).find((t) => t?.startsWith('webgl:'))
   const green = greenShare(gl.png, GL_BOX)
   console.log(`webgl: ${glSaid ?? 'nothing said'}, canvas ${Math.round(green * 100)}% green`)
-  if (process.platform === 'linux') {
-    if (!glSaid?.startsWith('webgl: yes')) problems.push(`A WebGL page got no context: ${glSaid}.`)
-    if (green < 0.9) problems.push('A WebGL canvas was not drawn in the picture.')
-  }
 
   // Without the app's refusal, Electron grants notifications and asks the system where it is.
   check = 'Drawing the page that asks for notifications and where the machine is'

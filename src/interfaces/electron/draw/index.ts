@@ -19,12 +19,12 @@ import { makeProfile } from './profile.ts'
 app.dock?.hide()
 // On Linux the host draws under xvfb-run, with no GPU: a picture taken through one fails there
 // (UnknownVizError). Drawn in software from the start, off-screen pages are pictured as on a
-// machine with one. WebGL is drawn in software too, by SwiftShader, which Chromium gives a page
-// only when told to. macOS and Windows keep the GPU, so their pictures are the app's.
-if (process.platform === 'linux') {
-  app.disableHardwareAcceleration()
-  app.commandLine.appendSwitch('enable-unsafe-swiftshader')
-}
+// machine with one, but for WebGL, which a page drawn there goes without: with no GPU, Chromium
+// gives WebGL only through SwiftShader, and only with --enable-unsafe-swiftshader. That switch is
+// not taken: Chromium's SwiftShader document says it "is not intended for running untrusted
+// content", since SwiftShader runs JIT-ed code in the GPU process, and a page a model wrote is
+// such content. macOS and Windows keep the GPU, so their pictures are the app's.
+if (process.platform === 'linux') app.disableHardwareAcceleration()
 
 // Made here, before the host's code loads, so the host knows the folder to remove however it ends.
 const removeProfile = makeProfile()
