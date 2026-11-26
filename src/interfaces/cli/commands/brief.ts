@@ -13,16 +13,13 @@ import {
   casesApart,
   type RunScoring,
 } from '@application/grade.ts'
-import { caseName } from '@domain/case-draft.ts'
+import { caseName, oneLineTitle as oneLine } from '@domain/case-draft.ts'
 import type { CaseMove } from '@domain/case-result.ts'
 import { casesInOrder } from '@domain/results-address.ts'
 import type { Report, SampleMeta } from '@domain/schemas.ts'
 import type { RunView } from '@domain/views.ts'
 import { loadCases } from '@infrastructure/cases.ts'
 import type { Context } from './command.ts'
-
-/** Text on one line: each line break and run of white space read as one space, none at either end. */
-const oneLine = (text: string): string => text.replace(/\p{White_Space}+/gu, ' ').trim()
 
 /** Where a line breaks, as a terminal or an agent reading the text would break it. */
 const LINE_BREAK = /\r\n|[\n\r\v\f\u0085\u2028\u2029]/

@@ -1,12 +1,13 @@
 import { correctionsOf, runVerdicts, scoredReport } from '@application/grade.ts'
 import { type TwoCounts, twoCounts } from '@domain/case-result.ts'
+import { runShown } from '@domain/run-name.ts'
 import type { Configuration } from '@domain/schemas.ts'
 import { readRun } from '@infrastructure/runs.ts'
 import { runNameOf } from '../input.ts'
 import { briefOrJson, printBrief } from './brief.ts'
 import type { Command, FlagValues } from './command.ts'
 import { shared } from './flags.ts'
-import { oneRun, padEnd, printReport, skillOf, widthOf } from './shared.ts'
+import { oneRun, padEnd, printReport, runNamer, skillOf, widthOf } from './shared.ts'
 
 const flags = shared('run', 'json', 'brief', 'packs', 'bench')
 
@@ -67,8 +68,11 @@ export const report: Command = {
     // Scored as the app scores it: under the scoring as it is now, with the reader's corrections.
     const corrections = correctionsOf(skill, name)
     const samples = view.samples.map((s) => s.name)
+    // The version it ran, by the name it was given, so no one looks it up.
+    const named = runNamer(skill)(name, view.meta)
     if (brief) {
       const side = { view, report: view.report, cases: view.cases, samples, corrections }
+      console.log(`Run: ${runShown(named)}`)
       printBrief(skill, side, context.scoring)
       return 0
     }
@@ -76,8 +80,9 @@ export const report: Command = {
       samples,
       corrections,
     })
-    if (values.json) console.log(JSON.stringify(scored, null, 2))
+    if (values.json) console.log(JSON.stringify({ ...scored, run: named }, null, 2))
     else {
+      console.log(`Run: ${runShown(named)}`)
       printReport(scored)
       // The same verdicts the scores above were counted from, read as two counts.
       const verdicts = runVerdicts(skill, view.report, view.cases, corrections)

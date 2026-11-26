@@ -1,5 +1,6 @@
 import { generateRun } from '@application/generate.ts'
 import { correctionsOf, gradeRun } from '@application/grade.ts'
+import { runShown, versionWords } from '@domain/run-name.ts'
 import type { Report } from '@domain/schemas.ts'
 import { loadCases } from '@infrastructure/cases.ts'
 import { engineById, engines } from '@infrastructure/engines/index.ts'
@@ -15,7 +16,9 @@ import {
   printGraded,
   printOpen,
   printReport,
+  runNamer,
   skillOf,
+  withCost,
 } from './shared.ts'
 
 const flags = {
@@ -107,7 +110,11 @@ export const run: Command = {
         signal: context.lifecycle?.signal,
       }),
     )
-    if (!brief) console.log(`Run: ${runDir(skill, name)}`)
+    // The version it ran, by the name it was given, beside the folder that holds it.
+    const named = runNamer(skill)(name, meta)
+    const words = versionWords(named)
+    if (!brief && !values.json)
+      console.log(`Run: ${runDir(skill, name)}${words ? ` (${words})` : ''}`)
     // An attempt that failed is no answer: the run is not whole, whatever its grading says.
     const failed = meta.samples.filter((s) => s.failed)
     // Quiet, each attempt's own line already said it failed, and why.
@@ -121,16 +128,20 @@ export const run: Command = {
       const view = readRun(skill, name)
       const samples = view.samples.map((s) => s.name)
       const corrections = correctionsOf(skill, name)
+      console.log(`Run: ${runShown(named)}`)
       printBrief(skill, { view, report, cases: view.cases, samples, corrections }, context.scoring)
     }
-    // Not graded, a brief still names each case: no attempt of it is graded.
+    // Not graded, a brief still names each case: no attempt of it is graded. JSON still names the run.
     if (values['no-grade'] && brief) briefly(null)
+    if (values['no-grade'] && values.json)
+      console.log(JSON.stringify(withCost({ run: named }), null, 2))
     const fine =
       values['no-grade'] ||
       printGraded(
         await held(context, gradeRun(skill, name, { ...jev, render: drawingOf(context) })),
         values.json,
         brief ? briefly : printReport,
+        { run: named },
       )
     printOpen(values.json, skill, name)
     return fine && !failed.length ? 0 : 1

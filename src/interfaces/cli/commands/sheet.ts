@@ -21,7 +21,7 @@ import {
 } from '@domain/contact-sheet.ts'
 import { pictureSize } from '@domain/image.ts'
 import { casesInOrder } from '@domain/results-address.ts'
-import { sampleOf } from '@domain/run-name.ts'
+import { type RunNamed, runShown, sampleOf } from '@domain/run-name.ts'
 import { loadCases } from '@infrastructure/cases.ts'
 import { isDir, realPath, writeText } from '@infrastructure/fs.ts'
 import { readRun, runDir } from '@infrastructure/runs.ts'
@@ -31,7 +31,7 @@ import { runNameOf } from '../input.ts'
 import { numbers } from './brief.ts'
 import type { Command, FlagValues } from './command.ts'
 import { shared } from './flags.ts'
-import { shellWord, skillOf } from './shared.ts'
+import { runNamer, shellWord, skillOf } from './shared.ts'
 
 const flags = shared('run', 'case', 'out')
 
@@ -82,13 +82,18 @@ function outputsOf(skill: string, run: string): Output[] {
  * The line for a run's pages of a case that have no picture: a grading draws
  * them only where Jev grades and drawing is not turned off.
  */
-export function undrawnLine(skill: string, run: string, name: string, attempts: number[]): string {
+export function undrawnLine(
+  skill: string,
+  run: RunNamed,
+  name: string,
+  attempts: number[],
+): string {
   const [which, them] =
     attempts.length > 1
       ? [`attempts ${numbers(attempts)} have no drawn page, so they are`, 'them']
       : [`attempt ${attempts[0]} has no drawn page, so it is`, 'it']
-  const grade = `pnpm st grade ${shellWord(skill)} --run ${shellWord(run)}`
-  return `${name}, ${run}: ${which} left out. Grade the run with TYPESAFE_API_KEY set and without --no-jev or --no-draw to draw ${them}: ${grade}`
+  const grade = `pnpm st grade ${shellWord(skill)} --run ${shellWord(run.name)}`
+  return `${name}, ${runShown(run)}: ${which} left out. Grade the run with TYPESAFE_API_KEY set and without --no-jev or --no-draw to draw ${them}: ${grade}`
 }
 
 /** The file a case's sheet is written to: by its id, when that is a plain file name. */
@@ -148,6 +153,8 @@ export const sheet: Command = {
 
     const live = loadCases(skill)
     const outputs = new Map(runs.map((run) => [run, outputsOf(skill, run)]))
+    // Each row says which version its run ran, so no one looks it up to tell the drafts apart.
+    const nameRun = runNamer(skill)
     const pages = [...outputs.values()].flat().filter((o) => o.page)
     const ids = casesInOrder(
       live.map((c) => c.id),
@@ -178,14 +185,15 @@ export const sheet: Command = {
           .filter((o) => o.case === id && o.page)
           .sort((a, b) => a.attempt - b.attempt)
         const undrawn = mine.filter((o) => !o.picture).map((o) => o.attempt)
-        if (undrawn.length) console.error(undrawnLine(skill, run, name, undrawn))
+        const shown = nameRun(run)
+        if (undrawn.length) console.error(undrawnLine(skill, shown, name, undrawn))
         const pictures: SheetPicture[] = []
         for (const { attempt, picture } of mine) {
           if (!picture) continue
           pictures.push({ attempt, width: picture.width, height: picture.height })
           paths.set(`${run}/${attempt}`, picture.path)
         }
-        rows.push({ run, pictures })
+        rows.push({ run, label: runShown(shown), pictures })
       }
       const layout = sheetLayout(rows)
       if (!layout) continue

@@ -4,10 +4,12 @@ import { join, resolve } from 'node:path'
 import { unjudged } from '@application/grade.ts'
 import type { PageRenderer } from '@domain/artifact-address.ts'
 import { type CallTotal, sumCalls } from '@domain/cost.ts'
-import type { BenchConfig, Report } from '@domain/schemas.ts'
+import { type RunNamed, runNamed } from '@domain/run-name.ts'
+import type { BenchConfig, Report, RunMeta } from '@domain/schemas.ts'
 import { layerOrder } from '@domain/scoring.ts'
-import type { SkillInfo } from '@domain/views.ts'
+import type { SkillInfo, SkillVersion } from '@domain/views.ts'
 import { realPath } from '@infrastructure/fs.ts'
+import { readRunMeta, versionsOf } from '@infrastructure/runs.ts'
 import { skillInfo } from '@infrastructure/skill.ts'
 import { Jev } from '@judges/jev.ts'
 import { meterNow } from '@judges/meter.ts'
@@ -132,6 +134,20 @@ export function skillOf(args: readonly string[]): {
   return { skill, rest, info: skillInfo(skill) }
 }
 
+/**
+ * How a command names each run of the skill to a reader (`runNamed`): by its
+ * folder and the version it ran, with that version's name as `st versions`
+ * lists it. The versions are read once, at the first run named; a run's
+ * `run.json` is read where its `meta` is not handed in.
+ */
+export function runNamer(skill: string): (run: string, meta?: RunMeta | null) => RunNamed {
+  let versions: SkillVersion[] | null = null
+  return (run, meta = readRunMeta(skill, run)) => {
+    versions ??= versionsOf(skill).versions
+    return runNamed(run, meta, versions)
+  }
+}
+
 export function printReport(report: Report): void {
   const layers = layerOrder(report.config, scorers)
   // Each sample and case whole, as `--case` takes it: a column widens for a long one.
@@ -176,14 +192,16 @@ export function printReport(report: Report): void {
  * Print what a grading made of a run. False when it judged no output, so it
  * wrote no report and the command has not done what it was asked: the grading
  * said so itself when there was no output, and the reason is printed here when
- * a pack failed on every one. `print` prints it where it is not JSON.
+ * a pack failed on every one. `print` prints it where it is not JSON, and
+ * `more` is laid beside the report where it is.
  */
 export function printGraded(
   report: Report,
   json: boolean | undefined,
   print: (report: Report) => void = printReport,
+  more: object = {},
 ): boolean {
-  if (json) console.log(JSON.stringify(withCost(report), null, 2))
+  if (json) console.log(JSON.stringify(withCost({ ...report, ...more }), null, 2))
   else print(report)
   const { failed, total, reason } = unjudged(report)
   if (total && failed === total)

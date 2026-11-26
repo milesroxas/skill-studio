@@ -56,11 +56,25 @@ To add a check for every case, write it as a file in the skill's `evals/graders/
 
 `run` ends with the command that opens Results on the run it made, `Open: pnpm st open <skill> --a <run>`, and `compare` with the one that opens it on its two runs, `--a <runA> --b <runB>`. With `--json` neither prints it. A path a shell would split is quoted as that shell reads it: in single quotes on macOS and Linux, in double quotes on Windows.
 
+### How a run is named
+
+Wherever `st` names a run to you, it gives the run's folder, which `--run` takes, then the version it ran with the name that version was given, as `versions` lists it:
+
+```
+Run: 2026-11-26-skill-v1-claude-haiku (v1 · draft a)
+```
+
+- A run without the skill tested no version, whatever number its folder holds: `(without the skill)`. A run on a version's kept copy (`--configuration old_skill`) ends `· old skill`. A version with no name is its number alone, and a run that recorded no version is its folder alone.
+- The name is printed on one line and whole. The folder always comes first, so two runs of one version, or two versions given the same name, are told apart.
+- `run` says it after the agents are done: `Run: <path> (v1 · draft a)`, with the run's whole path. `report` starts with `Run: <run> (...)`, and so do `report --brief` and `run --brief`; `compare` and `compare --brief` start with `A: <runA> (...)` and `B: <runB> (...)`. `grade` names each run so above its report. Each row of a [sheet](#contact-sheets) is headed so, and so is its line for the pages it leaves out.
+- With `--json` none of those lines is printed. `report`, `run` and `grade` carry `run`, and `compare` carries `a` and `b`, each `{ "name", "version", "versionName", "configuration" }`: the folder, `v1`, the name as it was given, and the configuration, with `version` and `versionName` null where there is none. `grade` still prints each run's folder alone above its JSON, and `run --no-grade --json` prints `run` and `cost` alone.
+
 ### Short output
 
 `--brief` on `report`, `compare` and `run` prints what an agent in a chat needs in place of the report: each case, by its id and its name and in the order `cases` lists them, with what became of an attempt not read whole, then the words of each rule or check an output of it missed, one line each.
 
 ```
+Run: 2026-11-20-skill-v1-claude-haiku (v1 · Second draft)
 [email-free] Launch email, no price: nothing missed
 [email-quote] Launch email, a quote that gives orders
   missed: Quote the customer in the brief's Quote word for word, with their name. A paraphrase puts words in their mouth.
@@ -72,8 +86,8 @@ To add a check for every case, write it as a file in the skill's `evals/graders/
 - Where the case had more than one attempt, the missed line says how many missed it, out of the attempts it was marked on: `missed in 1 of 3:`. An attempt counts in neither number where the rule or check was not marked on it: Jev was not sure of it, did not read it or set it aside, or the attempt failed, was stopped, wrote nothing, was not graded or its folder was removed. The case's line already says what became of such an attempt. With one attempt the line says only `missed:`.
 - A case says `nothing missed` only where every attempt was read whole. Otherwise its line says what became of each attempt that was not, from what the run and its grading recorded: `wrote nothing`, `could not be read` (a kind of file Jev cannot read), `not scored, <why>` (a pack failed on it, it is owed a grading, or nothing in it could be counted), `failed, it <why>`, `stopped before it finished`, `not graded` or `its folder was removed`, and `no attempt ran` for a case with none. With more than one attempt it names them: `attempt 2 wrote nothing`, `every attempt failed, it ran out of time`. Then how many rules and checks Jev did not read, as in a long output read in part: `3 rules and checks not read`.
 - `report` and `run` read one run, so they name no run that did better.
-- `compare --brief` calls the first run A and the second B. Each case's line says which did better on its checks, read as [below](#reading-two-runs-as-cases): `B did better`, `A did better`, `neither did better` or `no checks to compare`, or why the two were not read against each other: `only A answered it`, `only B answered it`, or not compared because Jev graded it in only one, or its agent was asked it another way. What became of attempts not read whole follows, `in A, ...` or `in B, ...`. Each missed line says which run missed it: `A missed:`, `B missed:` or `A and B missed:`, each with how often where that run had more than one attempt: `A missed in 1 of 3, B missed:`.
-- `run --brief` leaves out the `Run:` line, and `compare` and `run` still end with the `Open:` line. With `--no-grade`, `run --brief` names each case as `not graded`.
+- `compare --brief` calls the first run A and the second B, as its first two lines say. Each case's line says which did better on its checks, read as [below](#reading-two-runs-as-cases): `B did better`, `A did better`, `neither did better` or `no checks to compare`, or why the two were not read against each other: `only A answered it`, `only B answered it`, or not compared because Jev graded it in only one, or its agent was asked it another way. What became of attempts not read whole follows, `in A, ...` or `in B, ...`. Each missed line says which run missed it: `A missed:`, `B missed:` or `A and B missed:`, each with how often where that run had more than one attempt: `A missed in 1 of 3, B missed:`.
+- `report --brief` and `run --brief` start with the run they read, `Run: <run> (v1 · draft a)`, and `compare --brief` with `A:` and `B:` lines ([how a run is named](#how-a-run-is-named)). `compare` and `run` still end with the `Open:` line. With `--no-grade`, `run --brief` names each case as `not graded`.
 - `--brief` and `--json` together are refused.
 
 ### Opening Results from the command line
@@ -235,8 +249,8 @@ The JSON of `run`, `grade`, `read`, `sort` and `propose` carries `cost`: every m
 pnpm st sheet skills/landing --run <runA> --run <runB> [--case <id>] [--out <dir>]
 ```
 
-- `--run` is given once for each run, and each run is a row, in the order given; a run named twice is one row. Each column is one attempt, labelled `attempt 1`, `attempt 2`, under the run's name, with the case's name at the top. Where a run has no picture of an attempt that another run has, its place in that column is empty. `report`, `read` and `grade` read one run: given `--run` twice, they read the last.
-- It shows the pictures a grading drew at the desktop size, in each output's `renders/` ([drawing pages](#drawing-pages)), and draws none of its own. An output that is a page with no such picture is left out, with a line that names its attempts and the command that grades its run: `Landing page, <run>: attempt 2 has no drawn page, so it is left out. Grade the run with TYPESAFE_API_KEY set and without --no-jev or --no-draw to draw it: pnpm st grade <skill> --run <run>`. A grading draws a page only where Jev grades it. An output that is no page, or that did not run to its end, is passed over.
+- `--run` is given once for each run, and each run is a row, in the order given; a run named twice is one row. A row is headed with its run and the version it ran, `<run> (v1 · draft a)` ([how a run is named](#how-a-run-is-named)), cut short with `…` where it runs past the sheet's width, as the case's name at the top is. Each column is one attempt, labelled `attempt 1`, `attempt 2`. Where a run has no picture of an attempt that another run has, its place in that column is empty. `report`, `read` and `grade` read one run: given `--run` twice, they read the last.
+- It shows the pictures a grading drew at the desktop size, in each output's `renders/` ([drawing pages](#drawing-pages)), and draws none of its own. An output that is a page with no such picture is left out, with a line that names its attempts and the command that grades its run: `Landing page, <run> (v1 · draft a): attempt 2 has no drawn page, so it is left out. Grade the run with TYPESAFE_API_KEY set and without --no-jev or --no-draw to draw it: pnpm st grade <skill> --run <run>`. A grading draws a page only where Jev grades it. An output that is no page, or that did not run to its end, is passed over.
 - A sheet holds 12 panels at most. An empty place is no panel, so a run with fewer pictures than the others leaves room for more columns. The attempts past the last column that fits are left out, and a line says how many: `Landing page: 3 attempts are left out, as a sheet holds 12 at most.`
 - Each sheet is a PNG at most 1568 pixels a side, the most Jev reads, named by its case: `landing.png`. Each panel is as wide as the others, no wider than the page was drawn, and the sheet is scaled to fit.
 - `--case <id>` makes the one case's sheet; without it, one for each case the runs answered with a page, in the order `cases` lists them. `--out <dir>` is the folder the sheets go in, each named for its case, and a sheet already there by that name is written over, as a picture made from the runs is; without it, a new folder under the system's temp folder, made at the first sheet. It prints each sheet's path as it is written, one a line, and says what it left out on stderr.

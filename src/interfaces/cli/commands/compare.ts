@@ -1,11 +1,12 @@
 import { type ComparedCases, compareCases, compareRuns, correctionsOf } from '@application/grade.ts'
 import type { CaseMove, Met } from '@domain/case-result.ts'
+import { type RunNamed, runShown } from '@domain/run-name.ts'
 import { readRun } from '@infrastructure/runs.ts'
 import { runNameOf } from '../input.ts'
 import { briefOrJson, printBriefCompare } from './brief.ts'
 import type { Command, FlagValues } from './command.ts'
 import { shared } from './flags.ts'
-import { pad, padEnd, printOpen, skillOf, widthOf } from './shared.ts'
+import { pad, padEnd, printOpen, runNamer, skillOf, widthOf } from './shared.ts'
 
 const flags = shared('json', 'brief', 'packs', 'bench')
 
@@ -15,6 +16,12 @@ const MOVED: Readonly<Record<CaseMove, string>> = {
   same: 'the same',
   worse: 'worse',
   none: 'no checks to compare',
+}
+
+/** The two runs, A the first named and B the second, each with the version it ran. */
+function printHeads(a: RunNamed, b: RunNamed): void {
+  console.log(`A: ${runShown(a)}`)
+  console.log(`B: ${runShown(b)}`)
 }
 
 /** One end of a case: the checks met on each attempt, "4 of 5" or "4 of 5 and 5 of 5". */
@@ -69,6 +76,7 @@ export const compare: Command = {
     const [a, b] = rest
     if (!a || !b) throw new Error('Pass two run names.')
     const brief = briefOrJson(context.values)
+    const nameRun = runNamer(skill)
     const load = (name: string) => {
       const run = runNameOf(name, '`st compare`')
       const view = readRun(skill, run)
@@ -80,6 +88,7 @@ export const compare: Command = {
         cases,
         samples: samples.map((s) => s.name),
         corrections: correctionsOf(skill, run),
+        named: nameRun(run, view.meta),
       }
     }
     // Both under one scoring, so a difference is the outputs' and not a setting's, read as the app reads a change.
@@ -88,15 +97,18 @@ export const compare: Command = {
     // The same two runs read as cases, on checks alone.
     const byCase = compareCases(skill, before, after, context.scoring)
     if (brief) {
+      printHeads(before.named, after.named)
       printBriefCompare(skill, before, after, byCase, context.scoring)
       printOpen(false, skill, a, b)
       return 0
     }
     const { rows, left, notes } = compareRuns(skill, before, after, context.scoring)
     if (values.json) {
-      console.log(JSON.stringify({ rows, left, notes, cases: byCase }, null, 2))
+      const ends = { a: before.named, b: after.named }
+      console.log(JSON.stringify({ rows, left, notes, cases: byCase, ...ends }, null, 2))
       return 0
     }
+    printHeads(before.named, after.named)
     const layers = rows.length ? Object.keys(rows[0].deltas) : []
     const width = widthOf(
       rows.map((row) => row.key),
