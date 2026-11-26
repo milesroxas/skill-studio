@@ -10,7 +10,7 @@ import {
   writerKey,
 } from '@domain/lift.ts'
 import { type Corrections, NO_CORRECTIONS, unreadable, type VerdictKind } from '@domain/pack.ts'
-import { defaultPair, type PairOutput } from '@domain/pairs.ts'
+import { defaultPair, type PairOutput, sampleCut, sampleShown } from '@domain/pairs.ts'
 import { previewArtifact, primaryArtifact } from '@domain/primary.ts'
 import { casesInOrder } from '@domain/results-address.ts'
 import { newestRates, type RuleRate, ruleRates, withWithout } from '@domain/rule-rate.ts'
@@ -85,16 +85,6 @@ export interface Output {
   /** Why its grading is behind what one made now would be (`behindOf`), so that it has no total; null when it is not. */
   behind: string | null
 }
-
-/** Why grading leaves out one sample of `run`, as an output's `cut` reads. */
-const sampleCut = (run: RunView, sample: Sample): Output['cut'] =>
-  sample.cut === 'stopped' || (sample.cut === 'unlisted' && run.meta?.finishedAt)
-    ? 'stopped'
-    : sample.cut === 'failed'
-      ? 'failed'
-      : sample.cut === 'unlisted'
-        ? 'unfinished'
-        : null
 
 /**
  * How many attempts at each of its cases a run was asked for, 0 when it says
@@ -1098,8 +1088,7 @@ const candidate = (output: Output): Candidate => ({
   caseId: output.caseId,
   ...testOf(output.run),
   index: output.index,
-  written: output.sample.artifacts.length > 0 && output.cut === null,
-  stopped: output.cut === 'stopped' || output.cut === 'failed',
+  ...sampleShown(output.run, output.sample),
   output,
 })
 

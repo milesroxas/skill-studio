@@ -78,13 +78,17 @@ function outputsOf(skill: string, run: string): Output[] {
     })
 }
 
-/** The line for a run's pages of a case that have no picture: they are drawn when the run is graded. */
+/**
+ * The line for a run's pages of a case that have no picture: a grading draws
+ * them only where Jev grades and drawing is not turned off.
+ */
 export function undrawnLine(skill: string, run: string, name: string, attempts: number[]): string {
-  const which =
+  const [which, them] =
     attempts.length > 1
-      ? `attempts ${numbers(attempts)} have no drawn page, so they are`
-      : `attempt ${attempts[0]} has no drawn page, so it is`
-  return `${name}, ${run}: ${which} left out. Grade the run first: pnpm st grade ${shellWord(skill)} --run ${shellWord(run)}`
+      ? [`attempts ${numbers(attempts)} have no drawn page, so they are`, 'them']
+      : [`attempt ${attempts[0]} has no drawn page, so it is`, 'it']
+  const grade = `pnpm st grade ${shellWord(skill)} --run ${shellWord(run)}`
+  return `${name}, ${run}: ${which} left out. Grade the run with TYPESAFE_API_KEY set and without --no-jev or --no-draw to draw ${them}: ${grade}`
 }
 
 /** The file a case's sheet is written to: by its id, when that is a plain file name. */

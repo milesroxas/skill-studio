@@ -36,10 +36,11 @@ describe('the lines st sheet prints', () => {
     // Quoted as the shell reads it: in double quotes on Windows.
     const skill = process.platform === 'win32' ? '"/s/my skill"' : "'/s/my skill'"
     expect(undrawnLine('/s/my skill', 'r1', 'Launch page', [2])).toBe(
-      `Launch page, r1: attempt 2 has no drawn page, so it is left out. Grade the run first: pnpm st grade ${skill} --run r1`,
+      `Launch page, r1: attempt 2 has no drawn page, so it is left out. Grade the run with TYPESAFE_API_KEY set and without --no-jev or --no-draw to draw it: pnpm st grade ${skill} --run r1`,
     )
-    expect(undrawnLine('/s', 'r1', 'Launch page', [1, 2, 4])).toContain(
-      'attempts 1, 2 and 4 have no drawn page, so they are left out.',
+    // A grading draws a page only where Jev grades it, so the line says what that takes.
+    expect(undrawnLine('/s', 'r1', 'Launch page', [1, 2, 4])).toBe(
+      'Launch page, r1: attempts 1, 2 and 4 have no drawn page, so they are left out. Grade the run with TYPESAFE_API_KEY set and without --no-jev or --no-draw to draw them: pnpm st grade /s --run r1',
     )
   })
 
@@ -83,7 +84,7 @@ describe('st sheet', () => {
     expect(code).toBe(1)
     expect(out).toEqual([])
     expect(said).toEqual([
-      `Landing page for a bike repair shop, ${RUN}: attempt 1 has no drawn page, so it is left out. Grade the run first: pnpm st grade ${skill} --run ${RUN}`,
+      `Landing page for a bike repair shop, ${RUN}: attempt 1 has no drawn page, so it is left out. Grade the run with TYPESAFE_API_KEY set and without --no-jev or --no-draw to draw it: pnpm st grade ${skill} --run ${RUN}`,
     ])
   })
 

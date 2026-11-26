@@ -4,6 +4,7 @@
  * renderer reads it back with `placeOf` (`src/renderer/route.ts`) and
  * `resultsShown` (`src/renderer/model.ts`).
  */
+import { firstAttempt } from './pairs.ts'
 import { sampleOf } from './run-name.ts'
 
 /** One sample of a run as the address reads it. */
@@ -15,6 +16,10 @@ export interface AddressSample {
    * leaves the sample out (`Output.cut` in `src/renderer/model.ts`).
    */
   graded: string | null
+  /** It has an output to show: its agent wrote a file and ran to its end (`sampleShown` in `pairs.ts`). */
+  written: boolean
+  /** Its agent was stopped, or failed with no stop. */
+  stopped: boolean
 }
 
 /** A run as the address names it: its name and its samples. */
@@ -48,15 +53,17 @@ export function casesInOrder(cases: readonly string[], answered: Iterable<string
 const attemptOf = (sample: AddressSample): { case: string; index: number } =>
   sampleOf(sample.name, sample.graded)
 
-/** The run's first attempt at the case, as `<run>/<sample>`; null when the run did not answer it. */
-function firstAttempt(run: AddressRun, caseId: string): string | null {
-  let first: { sample: string; index: number } | null = null
-  for (const sample of run.samples) {
-    const attempt = attemptOf(sample)
-    if (attempt.case === caseId && (first === null || attempt.index < first.index))
-      first = { sample: sample.name, index: attempt.index }
-  }
-  return first ? `${run.name}/${first.sample}` : null
+/**
+ * The run's attempt at the case Results opens the run on (`firstAttempt`):
+ * the first with an output to show, else the first. As `<run>/<sample>`; null
+ * when the run did not answer the case.
+ */
+function shownAttempt(run: AddressRun, caseId: string): string | null {
+  const attempts = run.samples
+    .map((sample) => ({ ...sample, ...attemptOf(sample) }))
+    .filter((attempt) => attempt.case === caseId)
+  const first = firstAttempt(attempts)
+  return first ? `${run.name}/${first.name}` : null
 }
 
 /** The first case, in the order Results lists them, that every run answered; null when they share none. */
@@ -74,8 +81,8 @@ function sharedCase(cases: readonly string[], runs: readonly AddressRun[]): stri
 }
 
 /**
- * The address of Results on `place`: each run named names its first attempt
- * at the case. With no case named, the case is the first one each run named
+ * The address of Results on `place`: each run named names the attempt at the
+ * case Results opens it on, the first with an output to show. With no case named, the case is the first one each run named
  * answered; with no run named either, the address names none. Throws when a
  * run did not answer the case, or the runs share none.
  */
@@ -90,7 +97,7 @@ export function resultsAddress(place: ResultsPlace): string {
     )
   const output = (run: AddressRun | null): string | null => {
     if (!run || caseId === null) return null
-    const key = firstAttempt(run, caseId)
+    const key = shownAttempt(run, caseId)
     if (key === null) throw new Error(`${run.name} did not answer ${caseId}.`)
     return key
   }

@@ -55,7 +55,7 @@ export interface ServerOptions {
   rendererDir?: string
   /** Bytes one request body may hold; 32 MB when left out. */
   maxBodyBytes?: number
-  /** Told of every request as it comes, before it is checked: `st open`'s server stops after an hour with none. */
+  /** Told of every request the access check lets through: `st open`'s server stops after an hour with none. */
   onRequest?: () => void
   /** Draws a sample's page for grading to look at: `st serve`'s drawing host. */
   render?: PageRenderer
@@ -122,10 +122,11 @@ export function startServer(options: ServerOptions): Promise<Server> {
   }
   const operations = createOperations({ skills: options.skills, render: options.render })
   const server = createServer(async (req, res) => {
-    options.onRequest?.()
     const api = (req.url ?? '').startsWith('/api/')
     const decision = decide({ method: req.method, url: req.url, headers: req.headers }, access)
     if (decision.kind === 'refuse') return sendError(res, decision.status, decision.error, api)
+    // Only a request let through counts as use: one anyone on the machine can send keeps nothing up.
+    options.onRequest?.()
     if (decision.kind === 'sign-in') {
       res.writeHead(302, {
         location: decision.location,

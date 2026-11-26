@@ -23,6 +23,14 @@ export const padEnd = (value: unknown, width: number): string =>
     .slice(0, width - 1)
     .padEnd(width)
 
+/**
+ * The width of a column that holds each of `values` whole with a space after
+ * it, as `padEnd` prints them: `least` while every one fits in that, so a
+ * table of short names prints as it always has.
+ */
+export const widthOf = (values: readonly unknown[], least: number): number =>
+  Math.max(least, ...values.map((value) => String(value ?? '-').length + 1))
+
 const grading = shared(...GRADING)
 
 /** The context a command runs in: what followed its name, the flags, and the grading they ask for. */
@@ -126,12 +134,21 @@ export function skillOf(args: readonly string[]): {
 
 export function printReport(report: Report): void {
   const layers = layerOrder(report.config, scorers)
+  // Each sample and case whole, as `--case` takes it: a column widens for a long one.
+  const samples = widthOf(
+    report.results.map((r) => r.sample),
+    36,
+  )
+  const cases = widthOf(
+    report.results.map((r) => r.case),
+    22,
+  )
   console.log(
-    `\n${padEnd('sample', 36)}${padEnd('case', 22)}${layers.map((l) => pad(l, 11)).join('')}`,
+    `\n${padEnd('sample', samples)}${padEnd('case', cases)}${layers.map((l) => pad(l, 11)).join('')}`,
   )
   for (const r of report.results)
     console.log(
-      `${padEnd(r.sample, 36)}${padEnd(r.case, 22)}${layers.map((l) => pad(r.scores[l], 11)).join('')}`,
+      `${padEnd(r.sample, samples)}${padEnd(r.case, cases)}${layers.map((l) => pad(r.scores[l], 11)).join('')}`,
     )
   for (const r of report.results) {
     if (!r.flags.length) continue

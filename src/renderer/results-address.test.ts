@@ -1,8 +1,9 @@
+import { sampleShown } from '@domain/pairs.ts'
 import { type AddressRun, resultsAddress } from '@domain/results-address.ts'
 import type { Report, ReportResult, RunMeta } from '@domain/schemas.ts'
 import { describe, expect, it } from 'vitest'
-import type { RunView, State } from './api.ts'
-import { casesRun, mergedConfig, outputsOf, resultsShown } from './model.ts'
+import type { RunView, Sample, State } from './api.ts'
+import { casePair, casesRun, mergedConfig, outputsOf, resultsShown } from './model.ts'
 import { placeOf } from './route.ts'
 
 // The address is built in the domain, which imports nothing from the renderer, and read back here.
@@ -54,6 +55,7 @@ const addressed = (run: RunView): AddressRun => ({
   samples: run.samples.map((s) => ({
     name: s.name,
     graded: run.report?.results.find((r) => r.sample === s.name)?.case ?? null,
+    ...sampleShown(run, s),
   })),
 })
 
@@ -149,6 +151,35 @@ describe('resultsAddress', () => {
       b: null,
     })
     expect(readBack(kept, address)).toMatchObject({ caseId: 'release', a: 'r5/release.md' })
+  })
+
+  it('names the first attempt with an output to show, as Results opens the run, and else the first', () => {
+    const run = runOf('r6', ['page-s1', 'page-s2', 'page-s3', 'notes-s1', 'notes-s2'])
+    const page = { file: 'outputs/index.html', kind: 'html' } as Sample['artifacts'][number]
+    const as = (name: string, sample: Partial<Sample>) => {
+      Object.assign(run.samples.find((s) => s.name === name) as Sample, sample)
+    }
+    // Attempt 1 failed and attempt 2 was stopped, each with nothing; attempt 3 ran to its end.
+    as('page-s1', { cut: 'failed' })
+    as('page-s2', { cut: 'stopped', artifacts: [page] })
+    as('page-s3', { artifacts: [page] })
+    // Neither attempt at notes has an output to show: the first is named.
+    as('notes-s2', { cut: 'failed' })
+    const alone = stateOf([run], ['page', 'notes'])
+    for (const [caseId, key] of [
+      ['page', 'r6/page-s3'],
+      ['notes', 'r6/notes-s1'],
+    ]) {
+      const address = resultsAddress({
+        skill: SKILL,
+        cases: ['page', 'notes'],
+        case: caseId,
+        a: addressed(run),
+        b: null,
+      })
+      expect(readBack(alone, address)).toMatchObject({ caseId, a: key })
+      expect(casePair(outputsOf(alone), caseId).b?.key).toBe(key)
+    }
   })
 
   it('names one output when one run is named', () => {

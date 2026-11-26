@@ -287,3 +287,29 @@ describe('st serve', () => {
     })
   })
 })
+
+describe('the use `st open`’s server counts', () => {
+  it('counts only a request the access check lets through, so a refused one keeps no server up', async () => {
+    let used = 0
+    const counted = await startServer({
+      skills: [],
+      port: 0,
+      rendererDir,
+      onRequest: () => {
+        used++
+      },
+    })
+    try {
+      const at = `http://localhost:${counted.port}`
+      expect((await fetch(`${at}/`)).status).toBe(401)
+      expect((await fetch(`${at}/?token=nope`)).status).toBe(401)
+      expect((await fetch(`${at}/api/library.skills`, { method: 'POST' })).ok).toBe(false)
+      expect(used).toBe(0)
+      const cookie = `st_token_${counted.port}=${counted.token}`
+      expect((await fetch(`${at}/`, { headers: { cookie } })).status).toBe(200)
+      expect(used).toBe(1)
+    } finally {
+      await counted.close()
+    }
+  })
+})

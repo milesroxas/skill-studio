@@ -5,7 +5,7 @@ import { runNameOf } from '../input.ts'
 import { briefOrJson, printBriefCompare } from './brief.ts'
 import type { Command, FlagValues } from './command.ts'
 import { shared } from './flags.ts'
-import { pad, padEnd, printOpen, skillOf } from './shared.ts'
+import { pad, padEnd, printOpen, skillOf, widthOf } from './shared.ts'
 
 const flags = shared('json', 'brief', 'packs', 'bench')
 
@@ -29,8 +29,13 @@ function printCases(compared: ComparedCases): void {
       none ? ` ${none} with no checks to compare.` : ''
     }`,
   )
+  // Each case whole, as `--case` takes it: the column widens for a long one.
+  const width = widthOf(
+    compared.cases.map((c) => c.case),
+    28,
+  )
   for (const c of compared.cases) {
-    const head = `  ${padEnd(c.case, 28)}${padEnd(MOVED[c.move], 12)}`
+    const head = `  ${padEnd(c.case, width)}${padEnd(MOVED[c.move], 12)}`
     if (c.move === 'none') {
       console.log(head.trimEnd())
       continue
@@ -93,10 +98,14 @@ export const compare: Command = {
       return 0
     }
     const layers = rows.length ? Object.keys(rows[0].deltas) : []
-    console.log(`\n${padEnd('sample', 44)}${layers.map((l) => pad(l, 11)).join('')}`)
+    const width = widthOf(
+      rows.map((row) => row.key),
+      44,
+    )
+    console.log(`\n${padEnd('sample', width)}${layers.map((l) => pad(l, 11)).join('')}`)
     for (const row of rows)
       console.log(
-        `${padEnd(row.key, 44)}${layers
+        `${padEnd(row.key, width)}${layers
           .map((l) => {
             const d = row.deltas[l]
             return pad(d === null ? '-' : `${d > 0 ? '+' : ''}${d}`, 11)

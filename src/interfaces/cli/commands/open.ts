@@ -1,5 +1,6 @@
 import { existsSync } from 'node:fs'
 import { join } from 'node:path'
+import { sampleShown } from '@domain/pairs.ts'
 import { type AddressRun, resultsAddress } from '@domain/results-address.ts'
 import { loadCases } from '@infrastructure/cases.ts'
 import { isDir } from '@infrastructure/fs.ts'
@@ -20,19 +21,21 @@ const flags = {
 
 /**
  * A run as the address reads it: each sample with the case its grading names,
- * none for a sample grading leaves out, as Results reads it (`sampleCut`).
+ * none for a sample grading leaves out, and whether it has an output to show,
+ * as Results reads them (`sampleCut`, `sampleShown`).
  */
 function addressRun(skill: string, name: string | undefined): AddressRun | null {
   if (name === undefined) return null
   const run = runNameOf(name, '`st open`')
   if (!isDir(runDir(skill, run))) throw new Error(`${skill} has no run named ${run}.`)
-  const { report, samples } = readRun(skill, run)
-  const graded = new Map((report?.results ?? []).map((r) => [r.sample, r.case]))
+  const view = readRun(skill, run)
+  const graded = new Map((view.report?.results ?? []).map((r) => [r.sample, r.case]))
   return {
     name: run,
-    samples: samples.map((s) => ({
+    samples: view.samples.map((s) => ({
       name: s.name,
       graded: s.cut ? null : (graded.get(s.name) ?? null),
+      ...sampleShown(view, s),
     })),
   }
 }

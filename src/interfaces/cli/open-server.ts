@@ -249,7 +249,8 @@ const TIMING: IdleTiming = { idleMs: IDLE_MS, everyMs: CHECK_MS, now: Date.now }
  * What an `st serve` that `st open` started does to be found and to stop when
  * unused; null for any other `st serve`. `host` writes the server's file,
  * removed as the process exits, and calls `stop` once, when no job is running
- * and either an hour has gone with no request or its file is gone or names
+ * and either an hour has gone with no request the access check let through
+ * (`onRequest`, which the server calls for those alone) or its file is gone or names
  * another server: `st open` found it not answering and started another, so
  * nothing finds this one again. It is false when another server of this
  * checkout holds the file.

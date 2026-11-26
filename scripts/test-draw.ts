@@ -16,7 +16,9 @@
  * local server the test starts, and fails unless no script ran and the server
  * saw no request. Last it starts the host and, at once or a moment into its
  * start, closes its input or sends it a signal, and fails unless the host has
- * gone within 5 seconds.
+ * gone within 5 seconds; and starts it to draw a page, then closes its input
+ * or sends it SIGTERM, and fails unless its profile folder is gone a second
+ * after it.
  * It needs the Electron
  * binary and, on Linux, a display: CI runs it under `xvfb-run`. `pnpm check`
  * never runs it, since it starts Electron.
@@ -36,6 +38,7 @@ import { createServer } from 'node:http'
 import type { AddressInfo } from 'node:net'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
+import { createInterface } from 'node:readline'
 import { pathToFileURL } from 'node:url'
 import { RENDER_SIZES } from '@domain/artifact-address.ts'
 import { type Box, SHEET_BACKGROUND, SHEET_SIDE_MAX, sheetLayout } from '@domain/contact-sheet.ts'
@@ -260,6 +263,32 @@ fetch('http://${local}/fetch').catch(() => {})
       problems.push(`A host was still running 5 s after ${how} at ${after} ms.`)
       host.kill('SIGKILL')
     }
+  }
+
+  // A host that has drawn a page and then ends leaves no profile folder, by its input closing or a signal.
+  check = 'Ending hosts that have drawn a page'
+  const profiles = (pid: number) =>
+    readdirSync(tmpdir()).filter((name) => name.startsWith(`skill-studio-draw-${pid}-`))
+  const drawnPage = pathToFileURL(realpathSync(join(folder, 'page.html'))).href
+  for (const how of ['input closed', 'SIGTERM'] as const) {
+    const host = spawn(start.command, [...start.args], { stdio: 'pipe' })
+    const pid = host.pid as number
+    const gone = new Promise<void>((ended) => host.on('exit', () => ended()))
+    const replied = new Promise<void>((answered) =>
+      createInterface({ input: host.stdout }).once('line', () => answered()),
+    )
+    host.stdin.write(`${JSON.stringify({ id: '1', file: drawnPage, width: 200, height: 100 })}\n`)
+    await Promise.race([replied, new Promise((late) => setTimeout(late, 20_000))])
+    const held = profiles(pid).length
+    how === 'input closed' ? host.stdin.end() : host.kill(how)
+    await Promise.race([gone, new Promise((late) => setTimeout(late, 5000))])
+    // Time for anything the browser would write back as it shuts down.
+    await new Promise((wait) => setTimeout(wait, 1000))
+    const left = profiles(pid)
+    console.log(`profile, ${how} after a page: ${held} while drawing, ${left.length} left after`)
+    if (!held) problems.push(`No profile folder of host ${pid} was found while it drew.`)
+    if (left.length)
+      problems.push(`A host ended by ${how} left its profile folder: ${left.join(', ')}.`)
   }
 } catch (error) {
   // Electron rejects a picture it could not take with only the name of what failed, so the check says where.

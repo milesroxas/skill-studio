@@ -6,7 +6,7 @@ import { runNameOf } from '../input.ts'
 import { briefOrJson, printBrief } from './brief.ts'
 import type { Command, FlagValues } from './command.ts'
 import { shared } from './flags.ts'
-import { oneRun, padEnd, printReport, skillOf } from './shared.ts'
+import { oneRun, padEnd, printReport, skillOf, widthOf } from './shared.ts'
 
 const flags = shared('run', 'json', 'brief', 'packs', 'bench')
 
@@ -31,9 +31,13 @@ function printCounts(
 ): void {
   if (!counts.length) return
   console.log('\nChecks met and rules followed, counted apart')
+  const width = widthOf(
+    counts.map(([sample]) => sample),
+    36,
+  )
   for (const [sample, two] of counts)
     console.log(
-      `  ${padEnd(sample, 36)}checks ${padEnd(countWords(two.checks), 24)}rules ${
+      `  ${padEnd(sample, width)}checks ${padEnd(countWords(two.checks), 24)}rules ${
         two.rules
           ? countWords(two.rules)
           : configuration === 'without_skill'
