@@ -3,13 +3,13 @@ import { existsSync, readFileSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 import { unjudged } from '@application/grade.ts'
 import type { PageRenderer } from '@domain/artifact-address.ts'
-import { type CallTotal, sumCalls } from '@domain/cost.ts'
+import { type CallTotal, dollars, type RunSpent, runSpent, sumCalls } from '@domain/cost.ts'
 import { type RunNamed, runNamed } from '@domain/run-name.ts'
 import type { BenchConfig, Report, RunMeta } from '@domain/schemas.ts'
 import { layerOrder } from '@domain/scoring.ts'
 import type { SkillInfo, SkillVersion } from '@domain/views.ts'
 import { realPath } from '@infrastructure/fs.ts'
-import { readRunMeta, versionsOf } from '@infrastructure/runs.ts'
+import { answerCosts, readRunMeta, versionsOf } from '@infrastructure/runs.ts'
 import { skillInfo } from '@infrastructure/skill.ts'
 import { Jev } from '@judges/jev.ts'
 import { meterNow } from '@judges/meter.ts'
@@ -147,6 +147,70 @@ export function runNamer(skill: string): (run: string, meta?: RunMeta | null) =>
     return runNamed(run, meta, versions)
   }
 }
+
+/** What a run spent, from each attempt's `timing.json` and its `report`, as `st report` prints it. */
+export const spentOf = (skill: string, run: string, report: Report | null): RunSpent =>
+  runSpent(answerCosts(skill, run), report)
+
+/** A count as the report writes one: "83,305". */
+const counted = (n: number): string => n.toLocaleString('en-US')
+
+/** Seconds added up: tenths under ten, whole from there. */
+const secondsOf = (seconds: number): string =>
+  `${seconds < 10 ? Math.round(seconds * 10) / 10 : Math.round(seconds)} s`
+
+/** What answering cost: each figure over the attempts that kept it, said where they are not all. */
+function answeringWords({ attempts, answering }: RunSpent): string {
+  if (!attempts) return 'no attempt ran'
+  const over = (n: number): string => (n < attempts ? ` for ${n} of them` : '')
+  const { seconds, tokens, usd } = answering
+  return [
+    `answering ${attempts} ${attempts === 1 ? 'attempt' : 'attempts'}`,
+    seconds.attempts ? `${secondsOf(seconds.total)}${over(seconds.attempts)}` : 'no time kept',
+    tokens.attempts
+      ? `${counted(tokens.input)} input and ${counted(tokens.output)} output tokens${over(tokens.attempts)}`
+      : 'no tokens kept',
+    // Only a price the attempts kept: none is made up from tokens.
+    usd.attempts ? `${dollars(usd.total)}${over(usd.attempts)}` : 'no price kept',
+  ].join(', ')
+}
+
+/** What grading cost, as the report keeps it: never a nought where it kept nothing. */
+function gradingWords({ graded, grading }: RunSpent): string {
+  // Not graded, or graded with nothing judged, so no report was written.
+  if (!graded) return 'no grading kept'
+  if (!grading) return 'grading not counted, as it was graded before gradings kept their cost'
+  const asked = grading.calls.filter((c) => c.source === 'asked')
+  const sum = (key: 'calls' | 'input' | 'output' | 'seconds'): number =>
+    asked.reduce((total, c) => total + c[key], 0)
+  const replayed = grading.calls
+    .filter((c) => c.source === 'replayed')
+    .reduce((total, c) => total + c.calls, 0)
+  const calls = sum('calls')
+  const to = asked.every((c) => c.provider === 'jev') ? 'to Jev' : 'to models'
+  return [
+    'grading',
+    ...(calls
+      ? [
+          `${calls} ${calls === 1 ? 'call' : 'calls'} ${to}`,
+          `${counted(sum('input'))} input${sum('output') ? ` and ${counted(sum('output'))} output` : ''} tokens`,
+          secondsOf(sum('seconds')),
+        ]
+      : replayed
+        ? []
+        : ['no model calls']),
+    ...(replayed ? [`${replayed} replayed from saved replies, which cost nothing`] : []),
+    ...(grading.whole ? [] : ['and an earlier grading not counted']),
+  ].join(', ')
+}
+
+/**
+ * The one line that says what a run spent: answering, over its attempts, and
+ * grading, as its report keeps it. `who` names the run where two are printed:
+ * "A spent:".
+ */
+export const spentLine = (spent: RunSpent, who = ''): string =>
+  `${who ? `${who} spent` : 'Spent'}: ${answeringWords(spent)}; ${gradingWords(spent)}`
 
 export function printReport(report: Report): void {
   const layers = layerOrder(report.config, scorers)

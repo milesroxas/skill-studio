@@ -20,7 +20,7 @@ Run every command from this checkout's root: relative paths are read from there.
 11. Make the sheet: `pnpm st sheet <skill> --run <runA> --run <runB>` prints one PNG path a case, a row a run. Give `--run` once for each run, two or more, and `--out <dir>` to keep the pictures. Look at each PNG. It shows only pages a grading drew: a run with `--no-draw`, `--no-jev` or no key draws none.
 12. Open the pair: `pnpm st open <skill> --case <id> --a <runA> --b <runB>`. Give the person the address it prints, at once: it opens once, within a minute. Run it again for a new one. When the person is done, `pnpm st open --stop` stops the app.
 
-Each attempt's seconds, tokens and cost are in `<skill>/evals/runs/<run>/<case>-s<n>/timing.json`. `--json` in place of `--brief` adds `cost`: each model call the command made, added up, with its tokens and seconds. `timing.json` holds the answer's cost alone, and its input counts tokens read from cache. `--brief` counts the rules and checks Jev was not sure of, `4 of 16 not sure`, and `pnpm st report <skill> --run <run>` names them.
+`run`, `report` and `compare` end with what a run spent, `Spent: answering 6 attempts, 111 s, ...; grading, 6 calls to Jev, ...`: each attempt's seconds, tokens and price, added up, and its grading's calls. Its input tokens count those read from the cache. `--brief` counts the rules and checks Jev was not sure of, `4 of 16 not sure`, and `pnpm st report <skill> --run <run>` names them.
 
 ## Habits
 

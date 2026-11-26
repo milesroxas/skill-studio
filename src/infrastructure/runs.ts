@@ -6,6 +6,7 @@
  */
 import { readFileSync, statSync } from 'node:fs'
 import { join } from 'node:path'
+import type { AnswerCost } from '@domain/cost.ts'
 import { OUTPUTS_DIR } from '@domain/prompt.ts'
 import { parseSampleDir } from '@domain/run-name.ts'
 import type {
@@ -16,6 +17,7 @@ import type {
   RunMeta,
   SampleFailure,
   SampleMeta,
+  Timing,
   TranscriptEvent,
 } from '@domain/schemas.ts'
 import { metaList, metaText, readFrontMatter } from '@domain/text.ts'
@@ -204,6 +206,37 @@ export function runSamples(dir: string): Sample[] {
         ...(cut ? { cut } : {}),
       }
     })
+}
+
+/** A number a hand-edited file holds as one, else null. */
+const numberIn = (value: unknown): number | null =>
+  typeof value === 'number' && Number.isFinite(value) ? value : null
+
+/**
+ * What each attempt's answer cost, as its `timing.json` keeps it, in the
+ * order of the run's sample folders: null for an attempt with none, as one
+ * cut off before its agent ended, a flat file of an old run, or one whose
+ * file does not read. A figure the file holds in another shape is read as
+ * not kept.
+ */
+export function answerCosts(skillDir: string, run: string): Array<AnswerCost | null> {
+  return runSamples(runDir(skillDir, run)).map((sample) => {
+    if (sample.legacy) return null
+    const timing = readRunJson<Partial<Record<keyof Timing, unknown>> | null>(
+      join(sample.path, 'timing.json'),
+      null,
+    )
+    const ms = numberIn(timing?.durationMs)
+    if (!timing || typeof timing !== 'object' || ms === null) return null
+    const tokens = timing.tokens as Partial<Record<'input' | 'output', unknown>> | null
+    const input = numberIn(tokens?.input)
+    const output = numberIn(tokens?.output)
+    return {
+      seconds: ms / 1000,
+      tokens: input === null || output === null ? null : { input, output },
+      usd: numberIn(timing.costUsd),
+    }
+  })
 }
 
 /**

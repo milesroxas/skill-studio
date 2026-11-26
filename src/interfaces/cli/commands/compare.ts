@@ -6,7 +6,7 @@ import { runNameOf } from '../input.ts'
 import { briefOrJson, printBriefCompare } from './brief.ts'
 import type { Command, FlagValues } from './command.ts'
 import { shared } from './flags.ts'
-import { pad, padEnd, printOpen, runNamer, skillOf, widthOf } from './shared.ts'
+import { pad, padEnd, printOpen, runNamer, skillOf, spentLine, spentOf, widthOf } from './shared.ts'
 
 const flags = shared('json', 'brief', 'packs', 'bench')
 
@@ -89,6 +89,7 @@ export const compare: Command = {
         samples: samples.map((s) => s.name),
         corrections: correctionsOf(skill, run),
         named: nameRun(run, view.meta),
+        spent: spentOf(skill, run, report),
       }
     }
     // Both under one scoring, so a difference is the outputs' and not a setting's, read as the app reads a change.
@@ -96,15 +97,18 @@ export const compare: Command = {
     const after = load(b)
     // The same two runs read as cases, on checks alone.
     const byCase = compareCases(skill, before, after, context.scoring)
+    // What each run spent, A's then B's.
+    const spentLines = [spentLine(before.spent, 'A'), spentLine(after.spent, 'B')]
     if (brief) {
       printHeads(before.named, after.named)
       printBriefCompare(skill, before, after, byCase, context.scoring)
+      for (const line of spentLines) console.log(line)
       printOpen(false, skill, a, b)
       return 0
     }
     const { rows, left, notes } = compareRuns(skill, before, after, context.scoring)
     if (values.json) {
-      const ends = { a: before.named, b: after.named }
+      const ends = { a: before.named, b: after.named, spent: { a: before.spent, b: after.spent } }
       console.log(JSON.stringify({ rows, left, notes, cases: byCase, ...ends }, null, 2))
       return 0
     }
@@ -133,6 +137,7 @@ export const compare: Command = {
       for (const line of left) console.log(`  ${line}`)
     }
     printCases(byCase)
+    console.log(`\n${spentLines.join('\n')}`)
     printOpen(values.json, skill, a, b)
     return 0
   },

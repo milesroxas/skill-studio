@@ -23,7 +23,7 @@ import type { Values } from './command.ts'
 import { compare } from './compare.ts'
 import { report } from './report.ts'
 import { run } from './run.ts'
-import { contextOf } from './shared.ts'
+import { contextOf, spentLine, spentOf } from './shared.ts'
 
 /**
  * How each attempt of the engine that runs no agent ends, in the order they
@@ -109,6 +109,9 @@ const QUOTE_RULE =
 
 const HAIKU_V0 = '2026-11-20-skill-v0-claude-haiku'
 
+/** What the spent line says of a stored run's grading: the stored runs were graded before gradings kept their cost. */
+const OLD = 'grading not counted, as it was graded before gradings kept their cost'
+
 /** A stored run's file, read as JSON, changed by `edit`, and written back: in a copy only. */
 // biome-ignore lint/suspicious/noExplicitAny: a stored run's file, changed by hand in a copy, has no type here.
 type Stored = any
@@ -137,6 +140,8 @@ describe('report --brief', () => {
       '[page-basic] Launch page: nothing missed',
       // A long output read in part: what was not read is said, never "nothing missed".
       '[page-long] Changes page, 180 changes: 3 rules and checks not read',
+      // Then what the run spent: its grading was kept before gradings kept their cost.
+      `Spent: answering 6 attempts, 140 s, 604,099 input and 31,112 output tokens, $0.0426; ${OLD}`,
     ])
   })
 
@@ -169,6 +174,8 @@ describe('report --brief', () => {
       '[email-quote] Launch email, a quote that gives orders: its folder was removed',
       '[page-basic] Launch page: failed, it ran out of time (after 600 s)',
       '[page-long] Changes page, 180 changes: no attempt ran',
+      // Two folders removed: four attempts are left to count, each with its timing.json.
+      `Spent: answering 4 attempts, 84 s, 336,642 input and 18,912 output tokens, $0.0246; ${OLD}`,
     ])
   })
 
@@ -203,6 +210,8 @@ describe('compare --brief', () => {
       '  A missed: The page states the price as 12 USD a month.',
       "  B missed: Open with the brief's Headline, word for word. A reworded headline is one the team did not approve.",
       '[page-long] Changes page, 180 changes: no checks to compare; in A, 1 rule or check not read; in B, 4 rules and checks not read',
+      `A spent: answering 6 attempts, 94 s, 408,430 input and 7,243 output tokens, $0.37; ${OLD}`,
+      `B spent: answering 6 attempts, 80 s, 442,589 input and 8,699 output tokens, $0.37; ${OLD}`,
       '',
       `Open: pnpm st open ${skill} --a ${runs[0]} --b ${runs[1]}`,
     ])
@@ -250,6 +259,20 @@ function runHeadsOf(skill: string, runs: readonly string[]): string[] {
   return shown.length === 1 ? [`Run: ${shown[0]}`] : [`A: ${shown[0]}`, `B: ${shown[1]}`]
 }
 
+/** The lines `--brief` ends its cases with, saying what each run spent: `Spent:` for one, `A spent:` and `B spent:` for two. */
+function spentLinesOf(skill: string, runs: readonly string[]): string[] {
+  const spent = runs.map((name) => spentOf(skill, name, readRun(skill, name).report))
+  return spent.length === 1
+    ? [spentLine(spent[0])]
+    : [spentLine(spent[0], 'A'), spentLine(spent[1], 'B')]
+}
+
+/** The lines `--brief` prints around its cases for these runs: each run's head, and what each spent. */
+const frameOf = (skill: string, runs: readonly string[]) => ({
+  heads: runHeadsOf(skill, runs),
+  spent: spentLinesOf(skill, runs),
+})
+
 /**
  * Each case's id and its head (`caseHead`), in the order `--brief` prints
  * them: every case the runs took or has a grading of.
@@ -296,27 +319,30 @@ const LONGEST_ID = 40
 /**
  * The bytes each case printed beyond the words of what it missed, in order,
  * its id counted as though it were `LONGEST_ID` characters long. Before the
- * first case only the lines that name the runs may stand (`runHeadsOf`),
- * each as it is expected, and they belong to no case. A case runs from its
- * head's line to the next case's: every line between counts, whatever it
+ * first case only the lines that name the runs may stand (`runHeadsOf`), and
+ * after the last only the lines that say what each run spent
+ * (`spentLinesOf`), then a blank line and the Open line, and nothing after
+ * it: each as it is expected, and they belong to no case. A case runs from
+ * its head's line to the next case's: every line between counts, whatever it
  * holds. Only the words on a missed line that are a rule or check the runs
- * were graded on are left out of the count. Past the last case only a blank
- * line and the Open line may follow, and nothing after it.
+ * were graded on are left out of the count.
  */
 function bytesByCase(
   text: string,
-  runHeads: readonly string[],
+  frame: { heads: readonly string[]; spent: readonly string[] },
   cases: ReadonlyArray<{ id: string; head: string }>,
   words: Set<string>,
 ): number[] {
   const all = text.split('\n')
-  expect(all.slice(0, runHeads.length)).toEqual(runHeads)
-  const lines = all.slice(runHeads.length)
+  expect(all.slice(0, frame.heads.length)).toEqual(frame.heads)
+  const lines = all.slice(frame.heads.length)
   const body = lines.at(-1)?.startsWith('Open: ') ? lines.slice(0, -1) : lines
   if (body !== lines) {
     expect(body.at(-1)).toBe('')
     body.pop()
   }
+  expect(body.slice(-frame.spent.length)).toEqual(frame.spent)
+  body.splice(-frame.spent.length)
   const bytes: number[] = []
   let next = 0
   for (const line of body) {
@@ -361,7 +387,7 @@ describe('the size of --brief', () => {
         const { text } = await printing()
         for (const bytes of bytesByCase(
           text,
-          runHeadsOf(skill, named),
+          frameOf(skill, named),
           caseHeadsOf(skill, named),
           factWords(skill, named),
         )) {
@@ -419,6 +445,10 @@ describe('run --quiet --brief', () => {
     expect(printed).toEqual([
       `Run: ${name} (v0 · first)`,
       '[short-note] A short note: attempt 1 not scored, the skill has no rules and the case has no checks; attempt 2 failed, it ended with an error (signed out)',
+      // An engine that keeps no tokens or price, and a grading without Jev, which asks no model.
+      expect.stringMatching(
+        /^Spent: answering 2 attempts, [\d.]+ s, no tokens kept, no price kept; grading, no model calls$/,
+      ),
       `\nOpen: pnpm st open ${skill} --a ${name}`,
     ])
     expect(code).toBe(1)
@@ -444,7 +474,8 @@ describe('run --quiet --brief', () => {
     ends.list = ['note', 'note']
     expect(await quietRun(skill, { 'no-grade': true })).toBe(0)
     expect(printed[1]).toBe('[short-note] A short note: every attempt not graded')
-    expect(printed).toHaveLength(3)
+    expect(printed[2]).toMatch(/^Spent: answering 2 attempts, .*; no grading kept$/)
+    expect(printed).toHaveLength(4)
   })
 
   it('still says what went wrong as it grades: a picture the case came with that Jev is not shown', async () => {
@@ -542,7 +573,7 @@ describe('how often --brief says a rule or check was missed', () => {
     ] as const)
       for (const bytes of bytesByCase(
         text,
-        runHeadsOf(skill, named),
+        frameOf(skill, named),
         caseHeadsOf(skill, named),
         factWords(skill, named),
       ))
@@ -618,7 +649,7 @@ describe('the lines of --brief', () => {
       `  A and B missed: ${QUOTE_RULE}`,
     ])
     // Nothing but the two runs' lines, a case's head, the blank line before the Open line and the Open line starts at the margin.
-    const named = runHeadsOf(skill, runs)
+    const named = [...runHeadsOf(skill, runs), ...spentLinesOf(skill, runs)]
     for (const line of text.split('\n'))
       expect(
         named.includes(line) ||
@@ -628,7 +659,7 @@ describe('the lines of --brief', () => {
           line.startsWith('  '),
         line,
       ).toBe(true)
-    expect(text.split('\n').slice(0, 2)).toEqual(named)
+    expect(text.split('\n').slice(0, 2)).toEqual(named.slice(0, 2))
   })
 })
 
@@ -663,11 +694,11 @@ describe('the case head of --brief', () => {
       '[short-note] A short note',
       '[untitled] Write a note with no title.',
     ]
-    // The case heads alone: not the line naming the run above them, nor the missed lines under them.
+    // The case heads alone: not the lines naming the run above them and what it spent below, nor the missed lines.
     const lines = (printed: string) =>
       printed
         .split('\n')
-        .slice(1)
+        .slice(1, -1)
         .filter((line) => !line.startsWith('  '))
     const first = await printedBy(report, [skill], { run: name, brief: true })
     expect(lines(first.text).map((line) => line.split(': every attempt')[0])).toEqual(heads)
@@ -725,7 +756,7 @@ describe('how a run is named', () => {
       { name: WITHOUT, version: null, versionName: null, configuration: 'without_skill' },
       'Second draft',
     ])
-    expect(Object.keys(two)).toEqual(['rows', 'left', 'notes', 'cases', 'a', 'b'])
+    expect(Object.keys(two)).toEqual(['rows', 'left', 'notes', 'cases', 'a', 'b', 'spent'])
   })
 
   it('names the version on the Run line of st run, the line of st grade, and in their JSON, never before it', async () => {
@@ -747,12 +778,21 @@ describe('how a run is named', () => {
       versionName: 'first',
       configuration: 'with_skill',
     })
+    // Graded without Jev: a grading that asked no model, kept as such.
+    expect(JSON.parse(printed[0]).spent).toMatchObject({
+      attempts: 1,
+      graded: true,
+      grading: { calls: [], whole: true },
+    })
     // Not graded, the JSON still names the run it made.
     printed = []
     ends.list = ['note']
     await run.run(contextOf([skill], { ...values, json: true, 'no-grade': true }, null))
     expect(printed).toHaveLength(1)
-    expect(JSON.parse(printed[0])).toMatchObject({ run: { version: 'v0', versionName: 'first' } })
+    expect(JSON.parse(printed[0])).toMatchObject({
+      run: { version: 'v0', versionName: 'first' },
+      spent: { attempts: 1, graded: false, grading: null },
+    })
     const { grade } = await import('./grade.ts')
     printed = []
     await grade.run(contextOf([skill], { run: name, 'no-jev': true }, null))
@@ -908,5 +948,147 @@ describe('rules and checks --brief says were not sure', () => {
     expect(headOf(brief.text, 'email-crowded')).toBe(
       '[email-crowded] Launch email, six features: nothing missed, 1 of 21 not sure',
     )
+  })
+})
+
+describe('what a run spent', () => {
+  const HAIKU_V1 = '2026-11-20-skill-v1-claude-haiku'
+  const WITHOUT = '2026-11-20-skill-v0-claude-sonnet-without-skill'
+  const ALL = [
+    'email-crowded-s1',
+    'email-free-s1',
+    'email-price-s1',
+    'email-quote-s1',
+    'page-basic-s1',
+    'page-long-s1',
+  ]
+  /** The line a report ends with. */
+  const spentIn = async (skill: string, run: string, more: Values = {}) =>
+    (await printedBy(report, [skill], { run, ...more })).text.split('\n').at(-1)
+  /** A stored attempt's timing.json, read here apart from the command. */
+  const timingOf = (skill: string, run: string, sample: string): Stored =>
+    JSON.parse(readFileSync(join(skill, 'evals/runs', run, sample, 'timing.json'), 'utf8'))
+  /** The attempts' timing.json files of a stored run, added up here apart from the command. */
+  function summed(skill: string, run: string, samples: readonly string[]) {
+    const timings = samples.map((sample) => timingOf(skill, run, sample))
+    const add = (of: (t: Stored) => number) => timings.reduce((n, t) => n + of(t), 0)
+    return {
+      ms: add((t) => t.durationMs),
+      input: add((t) => t.tokens.input).toLocaleString('en-US'),
+      output: add((t) => t.tokens.output).toLocaleString('en-US'),
+      usd: add((t) => t.costUsd),
+    }
+  }
+
+  it('adds up each attempt’s answer, in plain report and in --brief, and says its grading kept no cost', async () => {
+    const skill = copyOf('launch-note')
+    const sum = summed(skill, HAIKU_V1, ALL)
+    const line = `Spent: answering 6 attempts, ${Math.round(sum.ms / 1000)} s, ${sum.input} input and ${sum.output} output tokens, $${sum.usd.toFixed(4)}; ${OLD}`
+    expect(await spentIn(skill, HAIKU_V1, { brief: true })).toBe(line)
+    const plain = (await printedBy(report, [skill], { run: HAIKU_V1 })).text.split('\n')
+    expect(plain.slice(-2)).toEqual(['', line])
+  })
+
+  it('says over how many attempts a figure is counted, for one with no timing.json and one stopped half way', async () => {
+    const skill = copyOf('launch-note')
+    // Cut off before its agent ended: no timing.json.
+    const cut = join(skill, 'evals/runs', HAIKU_V1, 'page-long-s1/timing.json')
+    rmSync(cut)
+    expect(await spentIn(skill, HAIKU_V1)).toMatch(
+      / s for 5 of them, [\d,]+ input and [\d,]+ output tokens for 5 of them, \$[\d.]+ for 5 of them; /,
+    )
+    // Stopped: its agent was ended, so it kept its time but no tokens and no price.
+    const stopped = timingOf(skill, HAIKU_V1, 'page-basic-s1')
+    writeFileSync(
+      join(skill, 'evals/runs', HAIKU_V1, 'page-basic-s1/timing.json'),
+      JSON.stringify({ ...stopped, tokens: null, costUsd: null }),
+    )
+    edited(skill, HAIKU_V1, 'run.json', (m) => {
+      const sample = m.samples.find((s: { dir: string }) => s.dir === 'page-basic-s1')
+      Object.assign(sample, { stopped: true, tokens: null, costUsd: null })
+    })
+    const sum = summed(skill, HAIKU_V1, ALL.slice(0, 4))
+    const seconds = Math.round((sum.ms + stopped.durationMs) / 1000)
+    expect(await spentIn(skill, HAIKU_V1)).toBe(
+      `Spent: answering 6 attempts, ${seconds} s for 5 of them, ${sum.input} input and ${sum.output} output tokens for 4 of them, $${sum.usd.toFixed(4)} for 4 of them; ${OLD}`,
+    )
+  })
+
+  it('says no price where no attempt kept one, never a nought', async () => {
+    const skill = copyOf('launch-note')
+    for (const sample of ALL)
+      writeFileSync(
+        join(skill, 'evals/runs', HAIKU_V1, sample, 'timing.json'),
+        JSON.stringify({ ...timingOf(skill, HAIKU_V1, sample), costUsd: null }),
+      )
+    const line = await spentIn(skill, HAIKU_V1)
+    expect(line).toMatch(/ output tokens, no price kept; /)
+    expect(line).not.toContain('$')
+  })
+
+  it('counts the answers of a run without the skill as any run’s', async () => {
+    const skill = copyOf('launch-note')
+    const sum = summed(skill, WITHOUT, ALL)
+    expect(await spentIn(skill, WITHOUT)).toBe(
+      `Spent: answering 6 attempts, ${Math.round(sum.ms / 1000)} s, ${sum.input} input and ${sum.output} output tokens, $${sum.usd.toFixed(2)}; ${OLD}`,
+    )
+  })
+
+  it('counts what the gradings kept, a grading again among them, and says what is not in it', async () => {
+    const skill = copyOf('launch-note')
+    const calls = (n: number, source: 'asked' | 'replayed' = 'asked') => ({
+      operation: 'grade',
+      provider: 'jev',
+      model: 'jev-1.14.0',
+      source,
+      calls: n,
+      input: 1000 * n,
+      output: 0,
+      seconds: 1.5 * n,
+    })
+    const kept = (gradingCost: Stored) =>
+      edited(skill, HAIKU_V1, 'report.json', (r) => {
+        r.gradingCost = gradingCost
+      })
+    // Two gradings of 3 and 5 calls, the second added to the first, as a grading again keeps them.
+    kept({ calls: [calls(8)], whole: true })
+    expect(await spentIn(skill, HAIKU_V1, { brief: true })).toMatch(
+      /; grading, 8 calls to Jev, 8,000 input tokens, 12 s$/,
+    )
+    kept({ calls: [calls(3), calls(5, 'replayed')], whole: false })
+    expect(await spentIn(skill, HAIKU_V1, { brief: true })).toMatch(
+      /; grading, 3 calls to Jev, 3,000 input tokens, 4.5 s, 5 replayed from saved replies, which cost nothing, and an earlier grading not counted$/,
+    )
+    kept({ calls: [], whole: true })
+    expect(await spentIn(skill, HAIKU_V1, { brief: true })).toMatch(/; grading, no model calls$/)
+  })
+
+  it('carries the totals in the JSON of report and compare, beside what was there', async () => {
+    const skill = copyOf('launch-note')
+    const one = JSON.parse((await printedBy(report, [skill], { run: HAIKU_V1, json: true })).text)
+    expect(one.spent).toMatchObject({
+      attempts: 6,
+      answering: { seconds: { attempts: 6 }, tokens: { attempts: 6 }, usd: { attempts: 6 } },
+      graded: true,
+      grading: null,
+    })
+    expect(one.results).toHaveLength(6)
+    const two = JSON.parse(
+      (await printedBy(compare, [skill, WITHOUT, HAIKU_V1], { json: true })).text,
+    )
+    expect(two.spent.b).toEqual(one.spent)
+    expect(two.spent.a.answering.usd.total).toBeCloseTo(0.371141, 6)
+  })
+
+  it('ends plain compare with what A and B spent, before the Open line', async () => {
+    const skill = copyOf('launch-note')
+    const lines = (await printedBy(compare, [skill, WITHOUT, HAIKU_V1], {})).text.split('\n')
+    expect(lines.slice(-5)).toEqual([
+      '',
+      expect.stringMatching(/^A spent: answering 6 attempts, 94 s, /),
+      expect.stringMatching(/^B spent: answering 6 attempts, 111 s, /),
+      '',
+      expect.stringMatching(/^Open: /),
+    ])
   })
 })

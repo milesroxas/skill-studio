@@ -28,7 +28,7 @@ Commands
     --brief                   Print only each case and the rules and checks it missed.
     --quiet                   Print one line as each attempt ends in place of progress.
   grade                       Grade a run: --run <name> or --all.
-  report                      Print a run's report: --run <name>.
+  report                      Print a run's report and what it spent: --run <name>.
     --brief                   Print only each case and the rules and checks it missed.
   compare <runA> <runB>       Score deltas between two graded runs.
     --brief                   Print only each case, the run that did better on its checks,

@@ -7,7 +7,16 @@ import { runNameOf } from '../input.ts'
 import { briefOrJson, printBrief } from './brief.ts'
 import type { Command, FlagValues } from './command.ts'
 import { shared } from './flags.ts'
-import { oneRun, padEnd, printReport, runNamer, skillOf, widthOf } from './shared.ts'
+import {
+  oneRun,
+  padEnd,
+  printReport,
+  runNamer,
+  skillOf,
+  spentLine,
+  spentOf,
+  widthOf,
+} from './shared.ts'
 
 const flags = shared('run', 'json', 'brief', 'packs', 'bench')
 
@@ -51,7 +60,7 @@ function printCounts(
 export const report: Command = {
   name: 'report',
   help: [
-    "  report                      Print a run's report: --run <name>.",
+    "  report                      Print a run's report and what it spent: --run <name>.",
     '    --brief                   Print only each case and the rules and checks it missed.',
   ],
   flags,
@@ -70,17 +79,20 @@ export const report: Command = {
     const samples = view.samples.map((s) => s.name)
     // The version it ran, by the name it was given, so no one looks it up.
     const named = runNamer(skill)(name, view.meta)
+    // What answering and grading it cost, added up from what its files keep.
+    const spent = spentOf(skill, name, view.report)
     if (brief) {
       const side = { view, report: view.report, cases: view.cases, samples, corrections }
       console.log(`Run: ${runShown(named)}`)
       printBrief(skill, side, context.scoring)
+      console.log(spentLine(spent))
       return 0
     }
     const scored = scoredReport(skill, view.report, context.scoring, view.cases, {
       samples,
       corrections,
     })
-    if (values.json) console.log(JSON.stringify({ ...scored, run: named }, null, 2))
+    if (values.json) console.log(JSON.stringify({ ...scored, run: named, spent }, null, 2))
     else {
       console.log(`Run: ${runShown(named)}`)
       printReport(scored)
@@ -96,6 +108,7 @@ export const report: Command = {
       )
       const fixed = Object.values(corrections).reduce((n, c) => n + Object.keys(c).length, 0)
       if (fixed) console.log(`Your ${fixed} correction(s) in the app count, as they do there.`)
+      console.log(`\n${spentLine(spent)}`)
     }
     return 0
   },

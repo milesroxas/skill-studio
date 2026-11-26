@@ -18,6 +18,8 @@ import {
   printReport,
   runNamer,
   skillOf,
+  spentLine,
+  spentOf,
   withCost,
 } from './shared.ts'
 
@@ -123,26 +125,28 @@ export const run: Command = {
     const jev = values.quiet
       ? { ...context.jev, log: () => {}, warn: (line: string) => console.error(line) }
       : context.jev
+    const graded = values['no-grade']
+      ? null
+      : await held(context, gradeRun(skill, name, { ...jev, render: drawingOf(context) }))
+    // The run as its files hold it once the grading is written.
+    const view = readRun(skill, name)
+    // What it spent, answering and grading, as those files keep it.
+    const spent = spentOf(skill, name, view.report)
     // Brief, the report is each case and what it missed, scored as `st report --brief` scores it.
     const briefly = (report: Report | null) => {
-      const view = readRun(skill, name)
       const samples = view.samples.map((s) => s.name)
       const corrections = correctionsOf(skill, name)
       console.log(`Run: ${runShown(named)}`)
       printBrief(skill, { view, report, cases: view.cases, samples, corrections }, context.scoring)
     }
     // Not graded, a brief still names each case: no attempt of it is graded. JSON still names the run.
-    if (values['no-grade'] && brief) briefly(null)
-    if (values['no-grade'] && values.json)
-      console.log(JSON.stringify(withCost({ run: named }), null, 2))
+    if (!graded && brief) briefly(null)
+    if (!graded && values.json)
+      console.log(JSON.stringify(withCost({ run: named, spent }), null, 2))
     const fine =
-      values['no-grade'] ||
-      printGraded(
-        await held(context, gradeRun(skill, name, { ...jev, render: drawingOf(context) })),
-        values.json,
-        brief ? briefly : printReport,
-        { run: named },
-      )
+      !graded ||
+      printGraded(graded, values.json, brief ? briefly : printReport, { run: named, spent })
+    if (!values.json) console.log(brief ? spentLine(spent) : `\n${spentLine(spent)}`)
     printOpen(values.json, skill, name)
     return fine && !failed.length ? 0 : 1
   },

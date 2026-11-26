@@ -27,28 +27,107 @@ export interface CallTotal extends Omit<CallRecord, 'seconds'> {
   seconds: number
 }
 
-/** `records` added up by operation, provider, model and source, and sorted by the same, so two sums of the same calls are equal. */
-export function sumCalls(records: readonly CallRecord[]): CallTotal[] {
-  const totals = new Map<string, CallTotal>()
-  for (const r of records) {
-    const key = JSON.stringify([r.operation, r.provider, r.model, r.source])
-    const total = totals.get(key) ?? {
-      operation: r.operation,
-      provider: r.provider,
-      model: r.model,
-      source: r.source,
+/** `totals` added up by operation, provider, model and source, and sorted by the same, so two sums of the same calls are equal. */
+export function addTotals(...totals: ReadonlyArray<readonly CallTotal[]>): CallTotal[] {
+  const sums = new Map<string, CallTotal>()
+  for (const t of totals.flat()) {
+    const key = JSON.stringify([t.operation, t.provider, t.model, t.source])
+    const sum = sums.get(key) ?? {
+      operation: t.operation,
+      provider: t.provider,
+      model: t.model,
+      source: t.source,
       calls: 0,
       input: 0,
       output: 0,
       seconds: 0,
     }
-    total.calls += 1
-    total.input += r.input
-    total.output += r.output
-    total.seconds = Math.round((total.seconds + r.seconds) * 100) / 100
-    totals.set(key, total)
+    sum.calls += t.calls
+    sum.input += t.input
+    sum.output += t.output
+    sum.seconds = Math.round((sum.seconds + t.seconds) * 100) / 100
+    sums.set(key, sum)
   }
-  return [...totals.entries()]
-    .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
-    .map(([, total]) => total)
+  return [...sums.entries()].sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)).map(([, sum]) => sum)
 }
+
+/** `records` added up by operation, provider, model and source, and sorted by the same, so two sums of the same calls are equal. */
+export const sumCalls = (records: readonly CallRecord[]): CallTotal[] =>
+  addTotals(records.map((r) => ({ ...r, calls: 1 })))
+
+/**
+ * What the gradings of a run cost (`Report.gradingCost`): every model call
+ * each made, added up. `whole` is false where an earlier grading of the run
+ * kept no cost, so it is not among them.
+ */
+export interface GradingCost {
+  calls: CallTotal[]
+  whole: boolean
+}
+
+/**
+ * What one attempt's answer cost, as its `timing.json` keeps it: how long its
+ * agent took, its tokens and its price, each null where it kept none. Input
+ * counts the tokens read from the cache and written to it.
+ */
+export interface AnswerCost {
+  seconds: number
+  tokens: { input: number; output: number } | null
+  usd: number | null
+}
+
+/**
+ * What a run cost in all, as its files keep it: each attempt's answer, from
+ * its `timing.json`, and its gradings, from its report. Each figure says how
+ * many attempts it is added up over, since an attempt cut off keeps none and
+ * an engine may keep no tokens or no price.
+ */
+export interface RunSpent {
+  /** The run's attempts: each sample folder it has. */
+  attempts: number
+  answering: {
+    /** Added up over the attempts with a `timing.json`. */
+    seconds: { attempts: number; total: number }
+    /** Added up over the attempts that kept their tokens. Input counts tokens read from the cache and written to it. */
+    tokens: { attempts: number; input: number; output: number }
+    /** In US dollars, added up over the attempts that kept a price. */
+    usd: { attempts: number; total: number }
+  }
+  /** Whether the run has a report. */
+  graded: boolean
+  /** What its gradings cost, as its report keeps it; null where it keeps none, as one graded before reports kept it. */
+  grading: GradingCost | null
+}
+
+/** What a run spent: `answers` holds each attempt's answer, null for one with no `timing.json`. */
+export function runSpent(
+  answers: ReadonlyArray<AnswerCost | null>,
+  report: { gradingCost?: GradingCost } | null,
+): RunSpent {
+  const timed = answers.filter((a): a is AnswerCost => a !== null)
+  const tokened = timed.flatMap((a) => (a.tokens ? [a.tokens] : []))
+  const priced = timed.flatMap((a) => (a.usd === null ? [] : [a.usd]))
+  return {
+    attempts: answers.length,
+    answering: {
+      seconds: {
+        attempts: timed.length,
+        total: Math.round(timed.reduce((sum, a) => sum + a.seconds, 0) * 100) / 100,
+      },
+      tokens: {
+        attempts: tokened.length,
+        input: tokened.reduce((sum, t) => sum + t.input, 0),
+        output: tokened.reduce((sum, t) => sum + t.output, 0),
+      },
+      usd: {
+        attempts: priced.length,
+        total: Math.round(priced.reduce((sum, usd) => sum + usd, 0) * 1e6) / 1e6,
+      },
+    },
+    graded: report !== null,
+    grading: report?.gradingCost ?? null,
+  }
+}
+
+/** A price as the run's log writes one: four places under ten cents ("$0.0985"), two from there ("$1.23"). */
+export const dollars = (usd: number): string => `$${usd.toFixed(usd < 0.1 ? 4 : 2)}`

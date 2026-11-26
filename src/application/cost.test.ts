@@ -4,11 +4,20 @@
  * provider and a Jev that would throw, and one key for one request whatever
  * folder its skill sits in.
  */
-import { cpSync, mkdirSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
+import {
+  cpSync,
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import type { AiUsage } from '@domain/ai.ts'
-import { sumCalls } from '@domain/cost.ts'
+import { addTotals, runSpent, sumCalls } from '@domain/cost.ts'
+import type { Report } from '@domain/schemas.ts'
 import { metered, replyKey } from '@infrastructure/ai/metered.ts'
 import {
   type AiProvider,
@@ -65,6 +74,7 @@ vi.mock('@infrastructure/preferences.ts', () => ({
 }))
 
 const { generateRun } = await import('./generate.ts')
+const { gradeRun } = await import('./grade.ts')
 const { sortSkill } = await import('./sorting.ts')
 
 const made: string[] = []
@@ -499,5 +509,132 @@ describe('the key of a saved reply', () => {
     expect(replyKey('claude-code', withPicture(a))).not.toBe(
       replyKey('claude-code', withPicture(b)),
     )
+  })
+})
+
+describe('what a run spent', () => {
+  /** A run of the note skill with a rule Jev is asked of, one attempt, made by the engine that writes a note. */
+  async function noteRun(): Promise<{ skill: string; run: string }> {
+    const skill = noteSkill()
+    writeFileSync(
+      join(skill, 'SKILL.md'),
+      '---\nname: Notes\n---\n\n- Keep the note under fifty words.\n',
+    )
+    const { name } = await generateRun({
+      skillDir: skill,
+      cases: loadCases(skill),
+      engine,
+      model: null,
+      effort: null,
+      samples: 1,
+      configuration: 'with_skill',
+      baseline: null,
+      skillName: 'First',
+      note: '',
+      parallel: 1,
+      log: () => {},
+    })
+    return { skill, run: name }
+  }
+  const reportOf = (skill: string, run: string): Report =>
+    JSON.parse(readFileSync(join(skill, 'evals/runs', run, 'report.json'), 'utf8'))
+  const grade = (skill: string, run: string) =>
+    gradeRun(skill, run, { useJev: true, log: () => {} })
+  /** The grading's calls to Jev as its report keeps them, their seconds left out. */
+  const jevCalls = (skill: string, run: string) =>
+    reportOf(skill, run).gradingCost?.calls.map(({ seconds, ...rest }) => {
+      expect(seconds).toBeGreaterThanOrEqual(0)
+      return rest
+    })
+
+  it('keeps with a grading every model call it made, and adds a grading again to what was kept', async () => {
+    const { skill, run } = await noteRun()
+    await grade(skill, run)
+    const asked = jev.asked.length
+    expect(asked).toBeGreaterThan(0)
+    const once = {
+      operation: 'grade',
+      provider: 'jev',
+      model: 'jev-test',
+      source: 'asked',
+      calls: asked,
+      input: 40 * asked,
+      output: 0,
+    }
+    expect(jevCalls(skill, run)).toEqual([once])
+    expect(reportOf(skill, run).gradingCost?.whole).toBe(true)
+    // Asked again, with nothing kept from before: what was spent before is still spent.
+    rmSync(join(skill, 'evals/runs', run, 'judge-cache.json'))
+    await grade(skill, run)
+    expect(jevCalls(skill, run)).toEqual([{ ...once, calls: 2 * asked, input: 80 * asked }])
+    // Asked nothing new, its answers kept from before: nothing more is spent, and nothing is lost.
+    await grade(skill, run)
+    expect(jev.asked).toHaveLength(2 * asked)
+    expect(jevCalls(skill, run)).toEqual([{ ...once, calls: 2 * asked, input: 80 * asked }])
+  })
+
+  it('says a grading again over a report that kept no cost is not the whole of what grading spent', async () => {
+    const { skill, run } = await noteRun()
+    await grade(skill, run)
+    const path = join(skill, 'evals/runs', run, 'report.json')
+    const { gradingCost: _, ...old } = reportOf(skill, run)
+    writeFileSync(path, JSON.stringify(old))
+    rmSync(join(skill, 'evals/runs', run, 'judge-cache.json'))
+    await grade(skill, run)
+    const kept = reportOf(skill, run).gradingCost
+    expect(kept?.whole).toBe(false)
+    // Only what this grading asked: the one before kept no count to add.
+    expect(kept?.calls.map((c) => c.calls)).toEqual([jev.asked.length / 2])
+  })
+
+  it('adds up each attempt’s answer from its timing.json, saying over how many each figure is', () => {
+    const answer = (seconds: number, tokens: [number, number] | null, usd: number | null) => ({
+      seconds,
+      tokens: tokens && { input: tokens[0], output: tokens[1] },
+      usd,
+    })
+    const spent = runSpent(
+      [
+        answer(20.4, [1000, 50], 0.01),
+        answer(30, [2000, 70], null),
+        null,
+        answer(1.25, null, null),
+      ],
+      null,
+    )
+    expect(spent).toEqual({
+      attempts: 4,
+      answering: {
+        seconds: { attempts: 3, total: 51.65 },
+        tokens: { attempts: 2, input: 3000, output: 120 },
+        usd: { attempts: 1, total: 0.01 },
+      },
+      graded: false,
+      grading: null,
+    })
+    expect(runSpent([], { gradingCost: { calls: [], whole: true } })).toMatchObject({
+      attempts: 0,
+      graded: true,
+      grading: { calls: [], whole: true },
+    })
+    // A report kept from before reports kept their cost was graded, at a cost not known.
+    expect(runSpent([], {})).toMatchObject({ graded: true, grading: null })
+  })
+
+  it('adds totals of the same calls to the same lines, as summing their records does', () => {
+    const total = (model: string, calls: number) => ({
+      operation: 'grade' as const,
+      provider: 'jev' as const,
+      model,
+      source: 'asked' as const,
+      calls,
+      input: 10 * calls,
+      output: 0,
+      seconds: 0.5 * calls,
+    })
+    expect(addTotals([total('b', 1), total('a', 2)], [total('a', 3)])).toEqual([
+      total('a', 5),
+      total('b', 1),
+    ])
   })
 })

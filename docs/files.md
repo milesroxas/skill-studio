@@ -145,7 +145,8 @@ Each entry of `asked` is one answer of Jev's: `key` (a hash of the model, the qu
 ```
 evals/runs/<date>-skill-<vN>-<engine>-<model>[-<effort>][-<configuration>]/
   run.json                        skill version and hash, writer, cases, and each sample as its agent ended: cost, tokens, the files it wrote (`outputs`), `stopped`, `failed`
-  report.json                     raw judge answers and scores per sample, written by grading: for a rule or check read by code, code's answer and what it saw beside Jev's; for one nobody can mark, why and its fix in place of an answer
+  report.json                     raw judge answers and scores per sample, written by grading: for a rule or check read by code, code's answer and what it saw beside Jev's; for one nobody can mark, why and its fix in place of an answer;
+                                  what the gradings cost (`gradingCost`, below)
   judge-cache.json                Jev's answer to each question by a hash of what it was asked, so Regrade asks only what changed
   _skill/                         the skill as it was when the run started, as an agent's copy holds it (see Versions): every sample is made from it
   _inputs/<case>/                 each case's input files as they were then, which grading reads its pictures and text files from
@@ -161,7 +162,7 @@ evals/runs/<date>-skill-<vN>-<engine>-<model>[-<effort>][-<configuration>]/
     notes.md                      what the agent would have told the user
     transcript.jsonl              one event per line: system, text, thinking, tool, result, error;
                                   a tool event holds a hash of its whole input (`call`)
-    timing.json                   start, end, duration, cost, tokens, model
+    timing.json                   start, end, duration, cost, tokens (input, the cache's reads and writes among it, and output), model
     agent.json                    the folder the agent worked in (`workdir`, under each name it goes by), written as it starts;
                                   its exit state, error and last message once it ends
 ```
@@ -173,6 +174,7 @@ evals/runs/<date>-skill-<vN>-<engine>-<model>[-<effort>][-<configuration>]/
 - An input file of an `evals.json` case goes into `_inputs/<case>/` and a sample's `files/` by its name alone. Two of one case's files with the same name both keep their whole path in the skill (`files/evals/files/a/data.csv`), so the agent gets both.
 - `run.json` lists a sample once its agent has ended. One the run was stopped on, or the app quit on, is marked `stopped`, whether it had written nothing or half a file. One whose agent did not run to its end with no stop is marked `failed` with why, in words: `ran out of time`, `could not start` or `ended with an error`, and `error` holds the CLI's own. Grading reads the samples listed and neither stopped nor failed: a folder the run never listed was made for an agent that was cut off. A run whose `run.json` has no `samples` list, or one of flat files, is graded whole.
 - A sample's skill folder is named by a slug of the skill's name. `.claude/skills` and `.cursor/skills` in a sample link to `.agents/skills`. A `without_skill` sample has none of the three.
+- `report.json` keeps what the gradings cost in `gradingCost`: `calls`, every model call each grading made, added up by operation, provider, model and source (`CallTotal` in `src/domain/cost.ts`), and `whole`. A grading again adds its calls to the ones the report it replaces kept, since a grading again replaces the report, not what was spent. `whole` is false where that report kept none, as one written before reports kept it. A report written before then has no `gradingCost`, and reads as before.
 - Graded artifacts are read under `outputs/` only. Dotfiles, `node_modules` and every link are skipped: the agent wrote the folder, and a link may lead out of it.
 - A sample's outputs are the files `run.json` lists for it (`outputs`), those of them still there. A file put under `outputs/` after the agent ended, such as one a check command builds, is not an output: grading and Results pass over it. A sample with no list, one still being written or from a run made before the list was kept, is read from the folder as it is.
 

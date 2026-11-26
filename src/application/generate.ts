@@ -16,6 +16,7 @@
 import { copyFileSync, existsSync, lstatSync, mkdirSync, rmSync, writeFileSync } from 'node:fs'
 import { copyFile } from 'node:fs/promises'
 import { basename, dirname, join, relative, resolve } from 'node:path'
+import { dollars } from '@domain/cost.ts'
 import { isWithin } from '@domain/paths.ts'
 import { agentPrompt, OUTPUTS_DIR, SCRATCH_DIR } from '@domain/prompt.ts'
 import { runName, sampleDir } from '@domain/run-name.ts'
@@ -699,7 +700,7 @@ async function runSample(
   const seconds = Math.round(timing.durationMs / 1000)
   const spend =
     result.costUsd !== null
-      ? `, $${result.costUsd.toFixed(result.costUsd < 0.1 ? 4 : 2)}`
+      ? `, ${dollars(result.costUsd)}`
       : result.tokens
         ? `, ${result.tokens.input.toLocaleString()} in / ${result.tokens.output.toLocaleString()} out`
         : ''

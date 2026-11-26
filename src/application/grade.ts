@@ -16,6 +16,13 @@ import { inputName, isPicture } from '@domain/case-draft.ts'
 import { type CaseEnds, type CaseResults, caseResults } from '@domain/case-result.ts'
 import { type Answered, changeReading, comparableAnswers } from '@domain/change.ts'
 import { mergeConfig } from '@domain/config.ts'
+import {
+  addTotals,
+  type CallRecord,
+  type CallTotal,
+  type GradingCost,
+  sumCalls,
+} from '@domain/cost.ts'
 import { EXACT_VERSION } from '@domain/exact.ts'
 import {
   fitForJev,
@@ -85,6 +92,7 @@ import {
 import { readForJev, requestImages } from '@judges/images.ts'
 import { packById, packVersions } from '@judges/index.ts'
 import { Jev } from '@judges/jev.ts'
+import { withMeter } from '@judges/meter.ts'
 import { hashOf } from '@judges/replies.ts'
 import { scorers } from '@judges/scorers.ts'
 import { agentPicture } from '@judges/shared/picture.ts'
@@ -1223,17 +1231,22 @@ async function gradeSubjects(
   const results: ReportResult[] = []
   let unchanged = 0
   let questions = 0
+  /** Every model call this grading makes, as each ends: its report keeps what they cost. */
+  let calls: readonly CallRecord[] = []
   try {
-    for (const subject of subjects) {
+    await withMeter(async (meter) => {
+      calls = meter.calls
+      for (const subject of subjects) {
+        if (options.signal?.aborted) throw new Error(STOPPED)
+        const graded = await gradeSubject(subject, ctx)
+        results.push(graded.result)
+        if (graded.unchanged) unchanged += 1
+        questions += graded.asked
+        log(`${subject.name}: total ${graded.result.scores.total ?? '-'}`)
+      }
+      // A stop that came with the last sample's answers: the grading did not run to its end.
       if (options.signal?.aborted) throw new Error(STOPPED)
-      const graded = await gradeSubject(subject, ctx)
-      results.push(graded.result)
-      if (graded.unchanged) unchanged += 1
-      questions += graded.asked
-      log(`${subject.name}: total ${graded.result.scores.total ?? '-'}`)
-    }
-    // A stop that came with the last sample's answers: the grading did not run to its end.
-    if (options.signal?.aborted) throw new Error(STOPPED)
+    })
   } finally {
     // Nothing to keep and nothing kept before: no file is made for a grading that asked nothing.
     if (subjects.length && ctx.cache.holds) ctx.cache.write(join(dir, CACHE_FILE))
@@ -1253,6 +1266,7 @@ async function gradeSubjects(
     inputTokens: ctx.cache.tokens(),
     seconds: Math.round((performance.now() - started) / 100) / 10,
     asked: { questions, inputTokens: jev.inputTokens },
+    gradingCost: gradingCostOf(dir, sumCalls(calls)),
     // Laid over `bench.json` for this grading only, so a reader of the report can tell.
     ...(options.packs || options.config
       ? {
@@ -1272,6 +1286,47 @@ async function gradeSubjects(
     warn('No output to grade, so no report was written. The last one, if any, still stands.')
   else if (failed < total) writeJson(join(dir, 'report.json'), report)
   return report
+}
+
+/** A sum of model calls as a report keeps it, where a hand-edited one may hold anything. */
+const isCallTotal = (total: unknown): total is CallTotal => {
+  const t = total as Partial<Record<keyof CallTotal, unknown>> | null
+  return (
+    typeof t === 'object' &&
+    t !== null &&
+    (['operation', 'provider', 'model', 'source'] as const).every(
+      (key) => typeof t[key] === 'string',
+    ) &&
+    (['calls', 'input', 'output', 'seconds'] as const).every(
+      (key) => typeof t[key] === 'number' && Number.isFinite(t[key]),
+    )
+  )
+}
+
+/**
+ * What the gradings of the outputs in `dir` cost, this one's `calls` among
+ * them. A grading again replaces the report, not what was spent: so the cost
+ * the report it replaces kept is added to this one's. Where that report kept
+ * none, as one written before reports kept it, or cannot be read, the sum is
+ * not whole. A grading that wrote no report, stopped or with nothing judged,
+ * is counted nowhere.
+ */
+function gradingCostOf(dir: string, calls: CallTotal[]): GradingCost {
+  const path = join(dir, 'report.json')
+  if (!isFile(path)) return { calls, whole: true }
+  let before: Partial<Report> | null = null
+  try {
+    before = readJson<Partial<Report> | null>(path, null)
+  } catch {
+    // A report that does not read keeps no cost that can be added.
+  }
+  const kept = before?.gradingCost
+  if (!kept || !Array.isArray(kept.calls)) return { calls, whole: false }
+  const read = kept.calls.filter(isCallTotal)
+  return {
+    calls: addTotals(read, calls),
+    whole: kept.whole === true && read.length === kept.calls.length,
+  }
 }
 
 /**
