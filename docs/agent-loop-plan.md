@@ -4,7 +4,7 @@ The plan for letting a coding agent (Claude Code, in T3 Code or a terminal) do t
 
 | | |
 | --- | --- |
-| Status | Planned (2026-11-25), decisions made, every item checked against the code at `61db117` and the [shapes items share](#shapes-the-items-share) at `9efce2a`, nothing started |
+| Status | Stage 2 under way: 0.1, 0.2 and 1.2 built. Planned 2026-11-25, every item checked against the code at `61db117` and the [shapes items share](#shapes-the-items-share) at `9efce2a` |
 | Base | `main` at `7d83dc3`, Skill Studio 0.20.2 |
 | Acceptance test | The React card experiment in [Phase 4](#phase-4-the-acceptance-run) runs from a chat, end to end |
 | Owner | Miles Roxas |
@@ -165,6 +165,8 @@ The types more than one item builds on, written before any item so that no two a
 export interface Flag {
   type: 'string' | 'boolean'
   short?: string
+  /** Given once for each value, as `--check` and `--file` are. Its value is a list. */
+  multiple?: true
 }
 
 export interface Command {
@@ -275,7 +277,7 @@ export interface OpenServer {
 
 ## Phase 1: the agent's surface
 
-- [ ] **1.2 `st case add` and `st case check`.** `add` writes a case from flags (`--title`, `--prompt` or `--prompt-file`, `--check` once for each check, `--file` once for each file to copy into the case, `--artifact html|image`, `--size WxH`) through the same check the Cases screen's save goes through, as `generateInputOf` does for a run. Each check gets weight 1, as an accepted proposal does. `check` reads every case and grader file of one skill and lists what will not load or will be skipped (missing front matter, a bad id, a weight out of range, a title used twice), exiting 1 when it finds any. Test: unit tests over a scratch skill, and `st case check` passes on each of the four skills under `fixtures/`.
+- [x] **1.2 `st case add` and `st case check`.** `add` writes a case from flags (`--title`, `--prompt` or `--prompt-file`, `--check` once for each check, `--file` once for each file to copy into the case, `--artifact html|image`, `--size WxH`) through the same check the Cases screen's save goes through, as `generateInputOf` does for a run. Each check gets weight 1, as an accepted proposal does. `check` reads every case and grader file of one skill and lists what will not load or will be skipped (missing front matter, a bad id, a weight out of range, a title used twice), exiting 1 when it finds any. Test: unit tests over a scratch skill, and `st case check` passes on each of the four skills under `fixtures/`. Measured (`b6fb32b`): 2 command modules, 13 tests (4 for `add`, 9 for `check`), 10 help lines; `check` also lists a case folder with no `prompt.md`, a folder under `evals/` that one under `evals/cases/` hides, an `evals.json` entry a case folder hides, and an `evals.json` that cannot be read; it takes `--json`, and `--file` takes a folder.
 - [ ] **1.3 Run a draft without swapping files.** `st run --from <dir>` runs the skill files in that folder as the version, under the skill's own cases and `bench.json`, and keeps that version as any run keeps one. So two drafts run at once, each named.
   - The folder holds a `SKILL.md` and is outside the skill's folder. One inside it is refused: the skill's own files would be kept as part of each version.
   - The folder's files are held against the skill's versions as the working tree is (`skillVersions` in `src/infrastructure/skill.ts`). The same files as a kept version are that version. New files take the next number and need `--name`, as a changed tree does.
