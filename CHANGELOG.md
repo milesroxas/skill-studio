@@ -14,6 +14,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - `st open` prints an address that opens **Results** on one case and two runs, safe to paste in a chat: it works for one load within a minute. It starts the app for this checkout in the background when it is not running, and `st open --stop` stops it.
 - `st report`, `st compare` and `st run` take `--brief`, which prints only each case, what became of an attempt that was not read whole, and the words of each rule or check it missed. For `compare` it also says which run did better.
 - `st run --quiet` prints one line as each attempt ends in place of progress, and still says what needs your attention.
+- `st run`, `st grade` and `st serve` now draw a page as the desktop app does, so a grading from the command line sees the same picture and the same measures. `--no-draw` grades without drawing.
 
 ### Fixed
 
