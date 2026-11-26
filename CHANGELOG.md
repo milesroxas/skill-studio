@@ -10,6 +10,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 - On the command line, `st case add` writes a new case from flags, checked as the **Cases** screen checks one, and `st case check` lists each case and check file that will not load or is skipped, and each title two cases share.
 - `st run --from <folder>` runs the skill files in a folder outside the skill as the version, on the skill's own cases, so two drafts can run at once and each is kept as its own version.
+- `st run` and `st compare` now end with the command that opens **Results** on their runs.
 
 ### Fixed
 
