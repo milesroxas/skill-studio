@@ -92,7 +92,7 @@ describe('the loop skill', () => {
     expect(unknownFlagsOf(markdown)).toEqual([])
   })
 
-  it('gives each version name to one st run alone: a draft run again is its kept version, and a changed one needs a new name', () => {
+  it('gives each version name to one st run command alone, since st run refuses a name another version has', () => {
     const names = commands.flatMap((words) =>
       words[0] === 'run' && words.includes('--name') ? [words[words.indexOf('--name') + 1]] : [],
     )
