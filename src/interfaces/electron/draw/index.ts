@@ -13,6 +13,7 @@
  */
 import { createInterface } from 'node:readline'
 import { app } from 'electron'
+import { exitNowOf } from './exit.ts'
 import { makeProfile } from './profile.ts'
 
 app.dock?.hide()
@@ -25,8 +26,8 @@ if (process.platform === 'linux') app.disableHardwareAcceleration()
 // Made here, before the host's code loads, so the host knows the folder to remove however it ends.
 const removeProfile = makeProfile()
 
-/** Node's own exit, which Electron leaves as it is: the process ends at once, with no shutdown. */
-const exitNow = (process as unknown as { reallyExit: (code: number) => never }).reallyExit
+/** Node's own exit, which Electron leaves as it is: the process ends at once, with no shutdown (`exitNowOf`). */
+const exitNow = exitNowOf(process)
 
 /**
  * End now: no reply is wanted by a command that is gone, and no window is

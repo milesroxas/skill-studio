@@ -14,9 +14,30 @@ import type { PageLayout } from './layout.ts'
  */
 export const PROFILE_PREFIX = 'skill-studio-draw-'
 
-/** The names in `names` of the profile folders of the host with process id `pid`, and of no other. */
-export const profilesOf = (names: readonly string[], pid: number): string[] =>
-  names.filter((name) => name.startsWith(`${PROFILE_PREFIX}${pid}-`))
+/** The process id a host's profile folder is named for; null for a name that is no host's profile folder. */
+export function profilePid(name: string): number | null {
+  const pid = Number(new RegExp(`^${PROFILE_PREFIX}(\\d+)-`).exec(name)?.[1])
+  return Number.isSafeInteger(pid) && pid > 0 ? pid : null
+}
+
+/**
+ * The names in `names` of the profile folders of hosts that have gone, by
+ * `running`, which says whether a process id still has a process: of the host
+ * with process id `only` alone when it is given. A folder whose process id has
+ * a process is never among them, whatever that process is: a host that is
+ * gone may have had its id given to another, which may be a host drawing in
+ * that very folder's place, and a folder left over is only space.
+ */
+export function goneProfiles(
+  names: readonly string[],
+  running: (pid: number) => boolean,
+  only?: number,
+): string[] {
+  return names.filter((name) => {
+    const pid = profilePid(name)
+    return pid !== null && (only === undefined || pid === only) && !running(pid)
+  })
+}
 
 /** One line the command writes to the host. */
 export type HostRequest =

@@ -24,7 +24,7 @@ import {
   type PageRenderer,
   RendererGone,
 } from '@domain/artifact-address.ts'
-import { type HostRequest, profilesOf, replyOf } from '@domain/drawing-host.ts'
+import { goneProfiles, type HostRequest, replyOf } from '@domain/drawing-host.ts'
 import { readLayout } from '@domain/layout.ts'
 import { realPath } from '@infrastructure/fs.ts'
 import { CHECKOUT } from '../host.ts'
@@ -105,15 +105,27 @@ export type DrawingHost = PageRenderer & {
   file: (address: string, size: { width: number; height: number }) => Promise<DrawnPage>
 }
 
+/** Whether a process id has a process. One of another user's has. */
+function running(pid: number): boolean {
+  try {
+    process.kill(pid, 0)
+    return true
+  } catch (error) {
+    return (error as NodeJS.ErrnoException).code === 'EPERM'
+  }
+}
+
 /**
  * Remove what is left of the profile folder of the host that had process id
  * `pid`, once it is gone: a host removes its own as it ends, but one killed
- * outright, or one that crashed, cannot. Only that host's folder is touched.
+ * outright, or one that crashed, cannot. Only that host's folder is touched,
+ * and not while its id has a process: the system may have given it to another
+ * host already (`goneProfiles`).
  */
 function removeProfiles(pid: number | undefined): void {
   if (!pid) return
   try {
-    for (const name of profilesOf(readdirSync(tmpdir()), pid))
+    for (const name of goneProfiles(readdirSync(tmpdir()), running, pid))
       rmSync(join(tmpdir(), name), { recursive: true, force: true, maxRetries: 3, retryDelay: 50 })
   } catch {
     // Left for the next host, which removes the folders of hosts that have gone.
@@ -188,7 +200,8 @@ export function drawingHost(options: DrawingOptions): DrawingHost {
   const launch = (start: HostStart): ChildProcess => {
     // Set by an editor that runs Node in Electron, it would start Electron as plain Node.
     const { ELECTRON_RUN_AS_NODE: _, ...env } = process.env
-    const child = spawn(start.command, [...start.args], { stdio: 'pipe', env })
+    // A process with no window, on purpose: on Windows it would otherwise open a console.
+    const child = spawn(start.command, [...start.args], { stdio: 'pipe', env, windowsHide: true })
     let said = ''
     child.stderr?.on('data', (chunk: Buffer) => {
       said = (said + chunk.toString()).slice(-STDERR_KEPT)

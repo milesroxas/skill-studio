@@ -42,7 +42,7 @@ import { createInterface } from 'node:readline'
 import { pathToFileURL } from 'node:url'
 import { RENDER_SIZES } from '@domain/artifact-address.ts'
 import { type Box, SHEET_BACKGROUND, SHEET_SIDE_MAX, sheetLayout } from '@domain/contact-sheet.ts'
-import { profilesOf } from '@domain/drawing-host.ts'
+import { profilePid } from '@domain/drawing-host.ts'
 import { readPng } from '@infrastructure/png.ts'
 import { drawingHost, hostStart } from '../src/interfaces/cli/drawing.ts'
 
@@ -268,7 +268,7 @@ fetch('http://${local}/fetch').catch(() => {})
 
   // A host that has drawn a page and then ends leaves no profile folder, by its input closing or a signal.
   check = 'Ending hosts that have drawn a page'
-  const profiles = (pid: number) => profilesOf(readdirSync(tmpdir()), pid)
+  const profiles = (pid: number) => readdirSync(tmpdir()).filter((name) => profilePid(name) === pid)
   const drawnPage = pathToFileURL(realpathSync(join(folder, 'page.html'))).href
   for (const how of ['input closed', 'SIGTERM'] as const) {
     const host = spawn(start.command, [...start.args], { stdio: 'pipe' })

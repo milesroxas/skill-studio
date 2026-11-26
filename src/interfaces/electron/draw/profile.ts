@@ -7,7 +7,7 @@ import { spawn } from 'node:child_process'
 import { mkdtempSync, readdirSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { PROFILE_PREFIX } from '@domain/drawing-host.ts'
+import { goneProfiles, PROFILE_PREFIX } from '@domain/drawing-host.ts'
 import { app } from 'electron'
 
 /** Whether a process is still running. One of another user's still is. */
@@ -29,11 +29,12 @@ function running(pid: number): boolean {
  */
 function sweepProfiles(): void {
   try {
-    for (const name of readdirSync(tmpdir())) {
-      const pid = Number(new RegExp(`^${PROFILE_PREFIX}(\\d+)-`).exec(name)?.[1])
-      if (pid && pid !== process.pid && !running(pid))
-        rmSync(join(tmpdir(), name), { recursive: true, force: true })
-    }
+    // This host's own is running, and so is any whose id the system gave to another process.
+    for (const name of goneProfiles(
+      readdirSync(tmpdir()),
+      (pid) => pid === process.pid || running(pid),
+    ))
+      rmSync(join(tmpdir(), name), { recursive: true, force: true })
   } catch {
     // A folder that cannot be read or removed is left for the system to clear.
   }
@@ -51,6 +52,10 @@ const REMOVER = `
 const { readFileSync, rmSync } = require('node:fs')
 const [folder, ...pids] = process.argv.slice(1)
 // On Linux a process that has ended and is not yet reaped answers a signal: its state says it is done.
+// Only Linux has /proc: elsewhere the read fails and a signal alone says whether a process is there,
+// which holds once its parent has reaped it, as the command that started the host does on macOS and
+// Windows; an id still held waits out the 10 seconds. The folder is named, never found by an id, so
+// an id the system gave to a new host only makes this wait: that host's own folder has another name.
 const ended = (pid) => { try { return / [ZX] /.test(readFileSync('/proc/' + pid + '/stat', 'utf8').split(')').at(-1)) } catch { return false } }
 const running = (pid) => { try { process.kill(Number(pid), 0); return !ended(pid) } catch (error) { return error.code === 'EPERM' } }
 const until = Date.now() + 10000
@@ -102,6 +107,8 @@ export function makeProfile(): () => void {
           env: { ...process.env, ELECTRON_RUN_AS_NODE: '1' },
           detached: true,
           stdio: 'ignore',
+          // No window, on purpose: on Windows a detached process would otherwise open a console.
+          windowsHide: true,
         },
       ).unref()
     } catch {
