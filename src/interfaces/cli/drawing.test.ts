@@ -31,6 +31,8 @@ import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from 'vites
  * stderr and exit as it starts; `STAND_IN_DIE_AFTER` makes it do the same once
  * it has answered that many pages. A file named `broken.html` is answered with
  * an error. A page of the command's own is noted by its address.
+ * `STAND_IN_DEAF` makes it go on when its input closes, as a host still
+ * starting may, so only a signal ends it.
  */
 const STAND_IN = `
 import { appendFileSync } from 'node:fs'
@@ -43,6 +45,13 @@ const die = () => {
 }
 log('start')
 if (process.env.STAND_IN_FAIL && !process.env.STAND_IN_DIE_AFTER) die()
+// Sent as the command exits: noted, then gone, as a host is.
+process.on('SIGTERM', () => {
+  if (process.env.STAND_IN_DEAF) log('killed')
+  log('end')
+  process.exit(0)
+})
+if (process.env.STAND_IN_DEAF) setInterval(() => {}, 1000)
 const held = []
 let answered = 0
 const answer = (request) => {
@@ -67,7 +76,9 @@ input.on('line', (line) => {
     if (answered >= Number(process.env.STAND_IN_DIE_AFTER ?? Infinity)) die()
   })
 })
-input.on('close', () => log('end'))
+input.on('close', () => {
+  if (!process.env.STAND_IN_DEAF) log('end')
+})
 `
 
 const ROOT = resolve(import.meta.dirname, '../../..')
@@ -280,6 +291,32 @@ describe('the end of the drawing host', () => {
     expect(done.stdout).toBe('drawn\n')
     expect(logged().slice(0, 2)).toEqual(['start', `asked 1 400x300 ${scratch}`])
     expect(await until(() => logged().includes('end'))).toBe(true)
+  })
+
+  it('ends with a command that exits while a page waits, though the host does not hear its input close', async () => {
+    vi.stubEnv('STAND_IN_DEAF', '1')
+    // Held: no page is answered, so the command exits with its host still drawing.
+    vi.stubEnv('STAND_IN_BATCH', '2')
+    const command = join(scratch, 'exits.mts')
+    writeFileSync(
+      command,
+      [
+        `import { drawingHost } from ${JSON.stringify(join(ROOT, 'src/interfaces/cli/drawing.ts'))}`,
+        `const start = ${JSON.stringify(standIn)}`,
+        'const render = drawingHost({ warn: console.error, start })',
+        `void render({ skill: ${JSON.stringify(scratch)}, run: 'r1', sample: 's1', file: 'a.html' }, { width: 400, height: 300 })`,
+        // As Ctrl-C ends a command: at once, with nothing awaited.
+        'setTimeout(() => process.exit(130), 300)',
+      ].join('\n'),
+    )
+    const done = spawnSync(process.execPath, ['--import', 'tsx', command], {
+      cwd: ROOT,
+      encoding: 'utf8',
+      env: { ...process.env, SKILL_STUDIO_HOME: home },
+      timeout: 30_000,
+    })
+    expect(done.status).toBe(130)
+    expect(await until(() => logged().includes('killed'))).toBe(true)
   })
 
   it('ends when the server `st open` started stops for want of use', async () => {

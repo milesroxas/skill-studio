@@ -3,8 +3,8 @@
  * Electron with no window, which `st run`, `st grade` and
  * `st serve` start to draw a sample's page as the desktop app does
  * (`src/interfaces/cli/drawing.ts`). It reads one JSON line for each page on
- * its input and writes one back on its output (`@domain/drawing-host.ts`),
- * and stops when its input closes.
+ * its input and writes one back on its output (`@domain/drawing-host.ts`).
+ * `index.ts` reads the input and ends the host when it closes.
  *
  * It draws a page of the command's own too, `st sheet`'s, from its `file:`
  * address, on a session of its own. There, whatever the page says of itself,
@@ -20,7 +20,6 @@
 import { mkdtempSync, readdirSync, readFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, extname, join } from 'node:path'
-import { createInterface } from 'node:readline'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import type { OperationName, Reply } from '@application/api/contract.ts'
 import { createOperations, invoke, type Runners } from '@application/api/operations.ts'
@@ -183,23 +182,28 @@ process.on('exit', () => {
   }
 })
 
-// Not awaited at the top: the app is ready only once this file has run.
-void app.whenReady().then(() => {
-  // A page is refused what the app refuses it: every permission it asks for.
-  refusePermissions(session.defaultSession)
-  protocol.handle(ARTIFACT_SCHEME, serveArtifacts({ call }))
-  // A page of the command's own is refused the same. It runs no script (`OWN_POLICY`), and asks
-  // for nothing but a file in its own folder: every other request, a WebSocket's too, is cancelled.
-  own = session.fromPartition(OWN_PARTITION)
-  refusePermissions(own)
-  own.protocol.handle('file', serveOwn)
-  own.webRequest.onBeforeRequest((details, callback) =>
-    callback({ cancel: !details.url.startsWith('file:') }),
-  )
-  const input = createInterface({ input: process.stdin })
-  input.on('line', (line) => {
-    const request = requestOf(line)
-    if (request) void answer(request).then(reply)
+/**
+ * Answer each line of the host's input once the app is ready. `index.ts`
+ * reads the input from the start and ends the host when it closes; `lines`
+ * hands each line on from then, those read while the host loaded first.
+ */
+export function answerLines(lines: (answer: (line: string) => void) => void): void {
+  // Not awaited: the app is ready only once `index.ts` has run.
+  void app.whenReady().then(() => {
+    // A page is refused what the app refuses it: every permission it asks for.
+    refusePermissions(session.defaultSession)
+    protocol.handle(ARTIFACT_SCHEME, serveArtifacts({ call }))
+    // A page of the command's own is refused the same. It runs no script (`OWN_POLICY`), and asks
+    // for nothing but a file in its own folder: every other request, a WebSocket's too, is cancelled.
+    own = session.fromPartition(OWN_PARTITION)
+    refusePermissions(own)
+    own.protocol.handle('file', serveOwn)
+    own.webRequest.onBeforeRequest((details, callback) =>
+      callback({ cancel: !details.url.startsWith('file:') }),
+    )
+    lines((line) => {
+      const request = requestOf(line)
+      if (request) void answer(request).then(reply)
+    })
   })
-  input.on('close', () => app.quit())
-})
+}

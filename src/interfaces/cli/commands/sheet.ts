@@ -25,6 +25,7 @@ import { sampleOf } from '@domain/run-name.ts'
 import { loadCases } from '@infrastructure/cases.ts'
 import { isDir, realPath, writeText } from '@infrastructure/fs.ts'
 import { readRun, runDir } from '@infrastructure/runs.ts'
+import { SIGNAL_EXITS } from '../../lifecycle.ts'
 import { drawingHost } from '../drawing.ts'
 import { runNameOf } from '../input.ts'
 import { numbers } from './brief.ts'
@@ -93,6 +94,32 @@ export const sheetFile = (id: string, n: number): string =>
 /** The line for the attempts a sheet has no room for. */
 export function leftOutLine(name: string, count: number): string {
   return `${name}: ${count} ${count === 1 ? 'attempt is' : 'attempts are'} left out, as a sheet holds ${SHEET_PANELS_MAX} at most.`
+}
+
+/** The part of `process` `whenStopped` uses, so a test can stand in for it. */
+export interface Stoppable {
+  once(event: string, listener: () => void): unknown
+  off(event: string, listener: () => void): unknown
+  exit(code: number): void
+}
+
+/**
+ * Do `clean` when the command is stopped, by Ctrl-C, a request to stop or its
+ * terminal closing, then exit as a stopped command does. Returns what
+ * lets go of the signals, for when the command ends by itself.
+ */
+export function whenStopped(clean: () => void, host: Stoppable = process): () => void {
+  const held = Object.entries(SIGNAL_EXITS).map(([signal, code]) => {
+    const stop = (): void => {
+      clean()
+      host.exit(code)
+    }
+    host.once(signal, stop)
+    return [signal, stop] as const
+  })
+  return () => {
+    for (const [signal, stop] of held) host.off(signal, stop)
+  }
 }
 
 export const sheet: Command = {
@@ -171,6 +198,12 @@ export const sheet: Command = {
     // The page and its pictures: the host draws the page from here, and serves it only what is here.
     const work = realPath(mkdtempSync(join(tmpdir(), 'st-sheet-page-')))
     const ending = new AbortController()
+    const done = (): void => {
+      ending.abort()
+      rmSync(work, { recursive: true, force: true })
+    }
+    // Stopped part way, it ends its host and leaves no page behind either.
+    const release = whenStopped(done)
     const host = drawingHost({
       warn: (line) => console.error(line),
       signal: ending.signal,
@@ -202,8 +235,8 @@ export const sheet: Command = {
         }
       }
     } finally {
-      ending.abort()
-      rmSync(work, { recursive: true, force: true })
+      release()
+      done()
     }
     if (unmade.length) console.error(`Sheets not made: ${unmade.join(', ')}.`)
     // A sheet that could not be drawn, or none at all, is not what was asked.

@@ -2,8 +2,11 @@
  * `st sheet` without drawing: what it says of the outputs it leaves out. The
  * sheet as the drawing host draws it is `pnpm test:draw`'s.
  */
+
+import { EventEmitter } from 'node:events'
 import {
   cpSync,
+  existsSync,
   mkdirSync,
   mkdtempSync,
   readdirSync,
@@ -16,7 +19,7 @@ import { join, resolve } from 'node:path'
 import { pngOf } from '@infrastructure/__fixtures__/png.ts'
 import { afterAll, afterEach, describe, expect, it, vi } from 'vitest'
 import { contextOf } from './shared.ts'
-import { leftOutLine, sheet, sheetFile, undrawnLine } from './sheet.ts'
+import { leftOutLine, sheet, sheetFile, undrawnLine, whenStopped } from './sheet.ts'
 
 const FIXTURE = resolve(import.meta.dirname, '../../../../fixtures/design-skill')
 const RUN = '2026-10-30-skill-v0-claude-haiku'
@@ -108,5 +111,41 @@ describe('st sheet', () => {
     await expect(sheetOf({ run: [RUN], case: 'other' })).rejects.toThrow(
       'No run named has a page for the case other.',
     )
+  })
+})
+
+describe('whenStopped', () => {
+  /** A stand-in for `process`: signals sent with `emit`, and the code it exited with. */
+  const fakeProcess = () => {
+    const events = new EventEmitter()
+    const exited: number[] = []
+    return {
+      events,
+      exited,
+      host: {
+        once: (event: string, listener: () => void) => events.once(event, listener),
+        off: (event: string, listener: () => void) => events.off(event, listener),
+        exit: (code: number) => void exited.push(code),
+      },
+    }
+  }
+
+  it('removes the page folder when the command is stopped, then exits as a stopped command does', () => {
+    const folder = mkdtempSync(join(scratch, 'page-'))
+    const { events, exited, host } = fakeProcess()
+    whenStopped(() => rmSync(folder, { recursive: true, force: true }), host)
+    events.emit('SIGINT')
+    expect(existsSync(folder)).toBe(false)
+    expect(exited).toEqual([130])
+  })
+
+  it('lets go of the signals once the command has ended by itself', () => {
+    const cleaned: string[] = []
+    const { events, exited, host } = fakeProcess()
+    const release = whenStopped(() => cleaned.push('cleaned'), host)
+    release()
+    for (const signal of ['SIGINT', 'SIGTERM', 'SIGHUP']) events.emit(signal)
+    expect([cleaned, exited]).toEqual([[], []])
+    expect(events.eventNames()).toEqual([])
   })
 })

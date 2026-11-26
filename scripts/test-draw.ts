@@ -14,11 +14,14 @@
  * above, and fails unless the host served the first and refused the second;
  * and one with no policy of its own that tries a script and requests to a
  * local server the test starts, and fails unless no script ran and the server
- * saw no request.
+ * saw no request. Last it starts the host and, at once or a moment into its
+ * start, closes its input or sends it a signal, and fails unless the host has
+ * gone within 5 seconds.
  * It needs the Electron
  * binary and, on Linux, a display: CI runs it under `xvfb-run`. `pnpm check`
  * never runs it, since it starts Electron.
  */
+import { spawn } from 'node:child_process'
 import {
   cpSync,
   mkdirSync,
@@ -37,7 +40,7 @@ import { pathToFileURL } from 'node:url'
 import { RENDER_SIZES } from '@domain/artifact-address.ts'
 import { type Box, SHEET_BACKGROUND, SHEET_SIDE_MAX, sheetLayout } from '@domain/contact-sheet.ts'
 import { readPng } from '@infrastructure/png.ts'
-import { drawingHost } from '../src/interfaces/cli/drawing.ts'
+import { drawingHost, hostStart } from '../src/interfaces/cli/drawing.ts'
 
 const FIXTURE = resolve(import.meta.dirname, '../fixtures/design-skill')
 
@@ -225,6 +228,31 @@ fetch('http://${local}/fetch').catch(() => {})
   console.log(`page with no policy: script ${ran ? 'ran' : 'did not run'}, ${reached} requests`)
   if (ran) problems.push("A page of the command's own ran a script.")
   if (reached) problems.push(`A page of the command's own reached a local server ${reached} times.`)
+
+  // A host whose command is gone ends, at any moment of its start: its input closed, or a signal.
+  const start = hostStart()
+  if ('reason' in start) throw new Error(start.reason)
+  for (const [how, after] of [
+    ['input closed', 0],
+    ['SIGTERM', 0],
+    ['SIGINT', 150],
+    ['SIGTERM', 300],
+  ] as const) {
+    const host = spawn(start.command, [...start.args], { stdio: 'pipe' })
+    const gone = new Promise<number>((ended) => {
+      const began = performance.now()
+      host.on('exit', () => ended(performance.now() - began))
+    })
+    setTimeout(() => (how === 'input closed' ? host.stdin.end() : host.kill(how)), after)
+    const ms = await Promise.race([gone, new Promise<null>((late) => setTimeout(late, 5000, null))])
+    console.log(
+      `host ended, ${how} after ${after} ms: ${ms === null ? 'not in 5 s' : `in ${Math.round(ms)} ms`}`,
+    )
+    if (ms === null) {
+      problems.push(`A host was still running 5 s after ${how} at ${after} ms.`)
+      host.kill('SIGKILL')
+    }
+  }
 } catch (error) {
   problems.push((error as Error).message)
 } finally {

@@ -8,7 +8,7 @@
  * the page's `file:` address.
  *
  * The host ends when the command's lifecycle stops, and when the command
- * exits, since its input closes then. While no page is being drawn it holds
+ * exits: its input closes then, and it is sent SIGTERM. While no page is being drawn it holds
  * nothing open, so a command that is done exits as it would without it.
  */
 import { type ChildProcess, spawn } from 'node:child_process'
@@ -177,8 +177,12 @@ export function drawingHost(options: DrawingOptions): DrawingHost {
       said = (said + chunk.toString()).slice(-STDERR_KEPT)
     })
     child.stdin?.on('error', () => {})
+    // A command that exits, on Ctrl-C too, takes the host with it, whatever the host is doing.
+    const going = (): void => void child.kill()
+    process.once('exit', going)
     child.on('error', (error) => lost(`The drawing host could not start: ${error.message}`))
     child.on('exit', (code, signal) => {
+      process.off('exit', going)
       const last = said.trim().split('\n').at(-1)?.trim()
       lost(`The drawing host stopped (${code ?? signal})${last ? `: ${last}` : '.'}`)
     })
