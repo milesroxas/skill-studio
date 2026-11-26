@@ -23,6 +23,7 @@ The version follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html): 
 
 Everything merged since v0.20.2. A patch, at the writer's word: "add some improvements if you have any then cut a patch release".
 
+- [x] Agent loop stage 1: a module per `st` command, `cost` on every model call with `--json`, and `ST_AI_RECORD` / `ST_AI_REPLAY` (92320da, PR #8). Taken in at the writer's word, since it landed on main before the tag.
 - [x] The Assistant's and Help me improve's empty conversation: left on the panel's 16px edge (`EmptyState align="start"`) and at the foot of the panel over the message box (`size="panel"`); the messages it offers are a `QuestionList` of `ghost-muted` `row`s in a `PlainList bleed`, muted until pointed at; a conversation started over comes up in turn (`arrive`); a centered empty state's words wrap balanced.
 
 ## Planned
