@@ -4,9 +4,14 @@
  * scores come from core so the app can rescore as a setting moves.
  */
 import { createHash } from 'node:crypto'
-import { readFileSync, statSync } from 'node:fs'
+import { readdirSync, readFileSync, rmSync, statSync } from 'node:fs'
 import { basename, join } from 'node:path'
-import { type PageRenderer, RENDER_SIZES, type RenderSize } from '@domain/artifact-address.ts'
+import {
+  type PageRenderer,
+  RENDER_SIZES,
+  RendererGone,
+  type RenderSize,
+} from '@domain/artifact-address.ts'
 import { inputName, isPicture } from '@domain/case-draft.ts'
 import { type CaseEnds, type CaseResults, caseResults } from '@domain/case-result.ts'
 import { type Answered, changeReading, comparableAnswers } from '@domain/change.ts'
@@ -116,8 +121,9 @@ export interface GradeOptions {
   signal?: AbortSignal
   /**
    * Draws an HTML page at a size, for a pack that looks at the page as drawn
-   * (`JudgePack.renders`). Only the desktop app has one; without it such a
-   * pack looks at any screenshot the agent left.
+   * (`JudgePack.renders`): the desktop app's window, or the drawing host the
+   * command line starts. Without one such a pack looks at any screenshot the
+   * agent left.
    */
   render?: PageRenderer
 }
@@ -276,6 +282,8 @@ async function drawPage(
         // A page that could not be measured keeps a file that says so, and is not drawn on every grading.
         writeText(measured, JSON.stringify(shot.layout))
       } catch (error) {
+        // A host that stopped has said why: the grading goes on as with none.
+        if (error instanceof RendererGone) throw error
         log(`the page could not be drawn at ${size.id} width: ${(error as Error).message}`)
         continue
       }
@@ -333,6 +341,7 @@ async function fitPicture(
       )
       writeText(path, png)
     } catch (error) {
+      if (error instanceof RendererGone) throw error
       log(`${basename(file)} could not be drawn at a size Jev reads: ${(error as Error).message}`)
       return null
     }
@@ -926,6 +935,70 @@ function caseOf(subject: Subject, ctx: GradeContext) {
   return takenCase(ctx.judge.skillDir, kept, live, ctx.every)
 }
 
+/** The files in an output's `renders/` folder, each by when it was last written; null for no folder. */
+function rendersOf(sample: Sample): Map<string, number> | null {
+  const dir = join(sample.path, RENDERS_DIR)
+  if (!isDir(dir)) return null
+  return new Map(readdirSync(dir).map((name) => [name, statSync(join(dir, name)).mtimeMs]))
+}
+
+/**
+ * Take out of an output's `renders/` folder what was written since `before`,
+ * and the folder when it was not there: what an output graded undrawn keeps
+ * of its pictures matches what its grading says.
+ */
+function dropDrawn(sample: Sample, before: Map<string, number> | null): void {
+  const dir = join(sample.path, RENDERS_DIR)
+  if (!isDir(dir)) return
+  if (!before) {
+    rmSync(dir, { recursive: true, force: true })
+    return
+  }
+  for (const [name, written] of rendersOf(sample) ?? [])
+    if (before.get(name) !== written) rmSync(join(dir, name), { force: true })
+}
+
+/** What the host drew for an output: its page, its picture fitted, the page its picture came from. */
+interface Looked {
+  drawn: Drawn
+  fitted: Fitted | null
+  sourced: Sourced | null
+}
+
+/**
+ * Draw what Jev will look at in an output, with the host's hooks on `ctx`:
+ * nothing where they are absent. Rejects with `RendererGone` when the host
+ * stops part way, and keeps nothing of what it drew for this output then.
+ */
+async function look(
+  subject: Subject,
+  input: JudgeInput,
+  testCase: Case | null,
+  looks: boolean,
+  ctx: GradeContext,
+): Promise<Looked> {
+  const { primary } = input
+  const drawn =
+    looks && ctx.draw && primary?.kind === 'html' && !subject.legacy
+      ? await untilStopped(ctx.draw(subject, primary, renderSizes(testCase)), ctx.signal)
+      : NOTHING_DRAWN
+  // A picture is fitted only where it is what Jev looks at: no page was drawn in its place.
+  const shot = looks && !drawn.shots.some((s) => s.read.image) ? agentPicture(input) : null
+  const fitted =
+    shot && ctx.fit && !subject.legacy
+      ? await untilStopped(ctx.fit(subject, shot.file), ctx.signal)
+      : null
+  // A picture that is the work may have the page it was made from beside it: measured there, if so.
+  const sourced =
+    looks && ctx.source && primary?.kind === 'image' && !subject.legacy
+      ? await untilStopped(
+          ctx.source(subject, primary.file, testCase?.bench.size ?? null),
+          ctx.signal,
+        )
+      : null
+  return { drawn, fitted, sourced }
+}
+
 async function gradeSubject(
   subject: Subject,
   ctx: GradeContext,
@@ -952,31 +1025,28 @@ async function gradeSubject(
     ctx.packs.some(
       (pack) => pack.renders && applies(pack, subject, primary) && (pack.asks?.(input) ?? true),
     )
-  const drawn =
-    looks && ctx.draw && primary?.kind === 'html' && !subject.legacy
-      ? await untilStopped(ctx.draw(subject, primary, renderSizes(testCase)), ctx.signal)
-      : NOTHING_DRAWN
-  input.renders = drawn.shots
   // Whether this output had anything for the host to draw, so a grading that drew it is told from one that could not.
   const drawable =
     looks &&
     !subject.legacy &&
     (primary?.kind === 'html' || primary?.kind === 'image' || agentPicture(input) !== null)
-  // A picture is fitted only where it is what Jev looks at: no page was drawn in its place.
-  const shot = looks && !drawn.shots.some((s) => s.read.image) ? agentPicture(input) : null
-  const fitted =
-    shot && ctx.fit && !subject.legacy
-      ? await untilStopped(ctx.fit(subject, shot.file), ctx.signal)
-      : null
+  let looked: Looked
+  const before = rendersOf(subject)
+  try {
+    looked = await look(subject, input, testCase, looks, ctx)
+  } catch (error) {
+    if (!(error instanceof RendererGone)) throw error
+    // The host stopped: this output, and every one after it, is graded as with no renderer,
+    // keeping none of the pictures drawn for it before it stopped.
+    dropDrawn(subject, before)
+    ctx.draw = undefined
+    ctx.fit = undefined
+    ctx.source = undefined
+    looked = await look(subject, input, testCase, looks, ctx)
+  }
+  const { drawn, fitted, sourced } = looked
+  input.renders = drawn.shots
   if (fitted) input.fitted = fitted.picture
-  // A picture that is the work may have the page it was made from beside it: measured there, if so.
-  const sourced =
-    looks && ctx.source && primary?.kind === 'image' && !subject.legacy
-      ? await untilStopped(
-          ctx.source(subject, primary.file, testCase?.bench.size ?? null),
-          ctx.signal,
-        )
-      : null
   if (sourced) input.source = sourced.page
   const seen = {
     ...drawn.hashes,
@@ -1496,7 +1566,7 @@ export function correctionsOf(skillDir: string, run: string): Record<string, Cor
 /** The scoring the command line reads a report under: `bench.json` as it is now, the call's laid over it. */
 function scoringNow(skillDir: string, options: Pick<GradeOptions, 'packs' | 'config'>) {
   const config = benchFor(skillDir, options)
-  // The command line draws nothing and names its model by hand, so only the packs' questions and settings are asked of a grading.
+  // `report` and `compare` let a grading made without the page drawn stand, and name the model by hand, so only the packs' questions and settings are asked of a grading.
   const now = gradedNow(packVersions(), config.packs, null, false, gradeSettings(config))
   return { config, now }
 }

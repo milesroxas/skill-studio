@@ -18,6 +18,7 @@ const SHARED = {
   json: { type: 'boolean' },
   brief: { type: 'boolean' },
   'no-jev': { type: 'boolean' },
+  'no-draw': { type: 'boolean' },
   'jev-model': { type: 'string' },
   packs: { type: 'string' },
   bench: { type: 'string' },

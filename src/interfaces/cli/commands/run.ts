@@ -8,10 +8,18 @@ import { countOf, generateInputOf } from '../input.ts'
 import { attemptLine, briefOrJson, printBrief } from './brief.ts'
 import type { Command, FlagValues } from './command.ts'
 import { GRADING, shared } from './flags.ts'
-import { held, noteNoKey, printGraded, printOpen, printReport, skillOf } from './shared.ts'
+import {
+  drawingOf,
+  held,
+  noteNoKey,
+  printGraded,
+  printOpen,
+  printReport,
+  skillOf,
+} from './shared.ts'
 
 const flags = {
-  ...shared('model', 'effort', 'cases', 'name', 'parallel', 'json', 'brief', ...GRADING),
+  ...shared('model', 'effort', 'cases', 'name', 'parallel', 'json', 'brief', 'no-draw', ...GRADING),
   engine: { type: 'string' },
   samples: { type: 'string' },
   configuration: { type: 'string' },
@@ -118,7 +126,7 @@ export const run: Command = {
     const fine =
       values['no-grade'] ||
       printGraded(
-        await held(context, gradeRun(skill, name, jev)),
+        await held(context, gradeRun(skill, name, { ...jev, render: drawingOf(context) })),
         values.json,
         brief ? briefly : printReport,
       )

@@ -198,7 +198,7 @@ pnpm st propose skills/release-notes --case email-free --drop 5c7d2e9f
 - `--case <id> --drop <ids>` turns the named proposals down. One turned down is not proposed again while its words and what its case asks stand: the sheet the assistant reads lists it as turned down, and a proposal in the same words is left out. `--drop <ids>` with no `--case` turns down proposals for every case, on each case they were proposed on.
 - `--json` prints the whole result as JSON. It exits 1 when a case's reading failed: that case has no new proposals, and a line says why.
 
-Every grading command takes `--no-jev`, `--packs a,b`, `--bench <file>` and `--jev-model <id>` ([grading](grading.md)). `report` and `compare` take `--packs` and `--bench` too, to print a run as a grading with those flags scored it.
+Every grading command takes `--no-jev`, `--packs a,b`, `--bench <file>` and `--jev-model <id>` ([grading](grading.md)). `report` and `compare` take `--packs` and `--bench` too, to print a run as a grading with those flags scored it. `run` and `grade` take `--no-draw` too, to grade without drawing pages ([below](#drawing-pages)).
 
 - A name `--packs` gives that is no pack stops the command: `No judge pack named ...`.
 - Without `TYPESAFE_API_KEY`, `run`, `grade` and `self-test` print `TYPESAFE_API_KEY is not set: grading without Jev.` to stderr and go on with the code checks.
@@ -210,6 +210,17 @@ Every grading command takes `--no-jev`, `--packs a,b`, `--bench <file>` and `--j
 `--json` prints JSON instead of a table for `cases`, `versions`, `run`, `grade`, `report`, `compare`, `read`, `sort` and `propose`: for `compare`, the table's rows and notes, and the cases read on checks (`cases`). `self-test` prints tables only. `pnpm st --help` lists every command and flag.
 
 The JSON of `run`, `grade`, `read`, `sort` and `propose` carries `cost`: every model call the command made, added up by operation, provider, model and source, and sorted by the same, so two sums of the same calls are equal. A call to Claude or another assistant is counted under its provider, one to Jev under `jev`, and each attempt of a run's agent under `engine`, with the tokens it kept in `timing.json`. Jev's output is not counted. `grade --all` prints each run's own cost with its report.
+
+### Drawing pages
+
+`run`, `grade` and `st serve` draw a page an output made as the desktop app does, so a grading from the command line looks at the same picture and measures the same layout: `drawn: true` in `report.json`, and the pictures in the sample's `renders/` ([grading](grading.md#measuring-a-page)). They start Electron with no window, the drawing host (`out/main/draw.js`), at the first page a grading draws, and keep it until the command ends.
+
+- A page is drawn only when Jev grades, so `--no-jev` never starts the host. `--no-draw` grades without drawing.
+- Nothing about drawing is said or started until a grading draws its first page: a command, or an `st serve`, that draws none says nothing of it. Where the host cannot start then, the command says why, once, and grades without drawing: `Run pnpm build to draw pages.`, `Electron is not installed: run pnpm install to draw pages.`, or, on Linux, `There is no display to draw pages on: run the command under xvfb-run.`
+- A host that stops after it has started is said once, with why, and never asked again. The output it was drawing, and every output after it, is graded exactly as with no host: no picture, `drawn: false`, and nothing in its `renders/` that this grading drew. An output drawn before it keeps its pictures and `drawn: true`. A host that says nothing for 60 seconds while a page waits is stopped the same way.
+- A page in the host is refused every permission it asks for, notifications and where the machine is among them, as in the app.
+- The host keeps its own profile in a new folder under the system's temp folder, named `skill-studio-draw-<pid>-...`. It removes it as it quits, and the browser writes a few small files back as it shuts down, so each host that starts removes the folders of hosts that have gone. It takes no single-instance lock, reads no keychain, and shows no window and no Dock icon, so a running copy of the app is left alone. It ends when the command does.
+- `pnpm test:draw` builds the app, starts the real host and draws a stored page of `fixtures/design-skill` at both sizes a grading draws, then a page that asks for notifications and where the machine is, which must be refused both.
 
 ### Saved replies
 
@@ -248,6 +259,7 @@ pnpm st serve --tailscale     # also https://<this-machine>.<tailnet>.ts.net:844
 - `--open` gives the browser an address with a one-use ticket in place of the token, good for one load within a minute. If that browser window is gone, open the printed address. `st open` prints such an address too ([above](#opening-results-from-the-command-line)).
 - The page is served under the desktop app's Content Security Policy, with frames and pictures allowed from the server's own origin.
 - The server listens on `127.0.0.1` only. `--tailscale` is the one supported way to reach it from another device. It prints the tailnet address with the token in it and lets in only the Tailscale login that owns this machine, which still needs the token, so open the printed tailnet address on the other device once. The tailnet address goes away when the server stops. Do not expose the server any other way. [SECURITY.md](../SECURITY.md#the-web-server) has the details.
+- A grading the server runs draws pages with the drawing host, as `st grade` does ([drawing pages](#drawing-pages)). The host ends with the server, when it is stopped and when `st open`'s server stops for want of use.
 - Ctrl-C, or closing the terminal, stops the server and ends every agent it started. `st run` and `st grade` do the same: Ctrl-C ends the agents in flight, then the command exits once it has written what it has, the run's record or the answers a grading already holds, three seconds at most (`Lifecycle.during` in `src/interfaces/lifecycle.ts`). A second Ctrl-C exits at once, without waiting for them.
 - An error inside the server that nothing caught is printed, and the server goes on.
 - In a browser, API keys come from the environment or a `.env` in the checkout. Settings stores keys in the desktop app only.

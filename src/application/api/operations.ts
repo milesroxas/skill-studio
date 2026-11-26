@@ -590,7 +590,7 @@ export interface OperationsOptions {
   /** Skill folders served from the start. */
   skills: string[]
   secrets?: SecretStore
-  /** Draws a sample's page for grading to look at; only the desktop app has a browser to. */
+  /** Draws a sample's page for grading to look at: the desktop app's window, or `st serve`'s drawing host. */
   render?: PageRenderer
 }
 

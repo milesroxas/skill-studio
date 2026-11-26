@@ -2,9 +2,10 @@
  * The design judge pack: Jev looks at the output as a picture. A page is the
  * page as the desktop app draws it, in a window the case's size or a
  * desktop's, which is what Results shows the reader; for a case that asks,
- * the app also draws it at phone width, and Jev says whether it fits. The CLI
- * and `st serve` have no browser to draw with, so there it looks at the first
- * PNG or JPEG the agent left in outputs/, and says nothing when there is none.
+ * the app also draws it at phone width, and Jev says whether it fits. The
+ * command line draws it the same way. A grading that draws nothing looks at
+ * the first PNG or JPEG the agent left in outputs/, and says nothing when
+ * there is none.
  *
  * It asks only what any visual must be: one clear main point and nothing
  * broken. Anything else is the skill's rule or the case's check to

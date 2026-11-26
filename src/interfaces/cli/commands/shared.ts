@@ -2,6 +2,7 @@
 import { existsSync, readFileSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 import { unjudged } from '@application/grade.ts'
+import type { PageRenderer } from '@domain/artifact-address.ts'
 import { type CallTotal, sumCalls } from '@domain/cost.ts'
 import type { BenchConfig, Report } from '@domain/schemas.ts'
 import { layerOrder } from '@domain/scoring.ts'
@@ -12,6 +13,7 @@ import { Jev } from '@judges/jev.ts'
 import { meterNow } from '@judges/meter.ts'
 import { scorers } from '@judges/scorers.ts'
 import type { Lifecycle } from '../../lifecycle.ts'
+import { drawingHost } from '../drawing.ts'
 import type { Context, FlagValues, Values } from './command.ts'
 import { GRADING, shared } from './flags.ts'
 
@@ -64,6 +66,17 @@ export const wantsJev = (context: Context): boolean => !context.values['no-jev']
 export function noteNoKey(context: Context): void {
   if (wantsJev(context) && !Jev.available())
     console.error('TYPESAFE_API_KEY is not set: grading without Jev.')
+}
+
+/**
+ * What a grading draws pages with: the drawing host, as the desktop app
+ * draws them. None with `--no-draw`, and none when Jev does not grade, since
+ * only Jev looks at a page. The host starts at the first page drawn; where it
+ * cannot, the reason is said then, once, and the grading is undrawn.
+ */
+export function drawingOf(context: Context): PageRenderer | undefined {
+  if (context.values['no-draw'] || !context.jev.useJev) return undefined
+  return drawingHost({ warn: (line) => console.error(line), signal: context.lifecycle?.signal })
 }
 
 /** The command's own run or grading, held so a Ctrl-C lets it write what it has as it stops. */

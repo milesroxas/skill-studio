@@ -19,7 +19,7 @@ import {
   invoke,
   isOperation,
 } from '@application/api/operations.ts'
-import { ARTIFACT_KEY_META } from '@domain/artifact-address.ts'
+import { ARTIFACT_KEY_META, type PageRenderer } from '@domain/artifact-address.ts'
 import { isDir } from '@infrastructure/fs.ts'
 // The same policy the desktop app's scheme sends; the module imports nothing of Electron's.
 import { contentSecurityPolicy, withStyleNonce } from '../electron/main/csp.ts'
@@ -57,6 +57,8 @@ export interface ServerOptions {
   maxBodyBytes?: number
   /** Told of every request as it comes, before it is checked: `st open`'s server stops after an hour with none. */
   onRequest?: () => void
+  /** Draws a sample's page for grading to look at: `st serve`'s drawing host. */
+  render?: PageRenderer
 }
 
 export interface Server {
@@ -118,7 +120,7 @@ export function startServer(options: ServerOptions): Promise<Server> {
     remote: options.remote,
     tickets,
   }
-  const operations = createOperations({ skills: options.skills })
+  const operations = createOperations({ skills: options.skills, render: options.render })
   const server = createServer(async (req, res) => {
     options.onRequest?.()
     const api = (req.url ?? '').startsWith('/api/')

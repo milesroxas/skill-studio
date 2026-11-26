@@ -65,7 +65,7 @@ The key answers true, false or nothing. It gives no answer on tone, on a word co
 
 `pnpm check` runs the offline half (`reading-gate.test.ts`): the five stored gradings as the scoring code reads them now, counted against the key, with the answers code gave and the facts that cannot be marked among them; the same gradings with every fact they set aside marked as the key answers it, as a reader would, each of which must then count as the reader's (`countMarked`); and the gold readings answered by code on the stored outputs and on each one changed to miss. A count that moves fails it until it is pinned again in `STORED`; sure and wrong may not pass its ceiling, and an exact answer may never differ from the key. `READING_GATE_REPORT=1` prints what it counted.
 
-`pnpm reading-gate` is the live half, run before a release that changes a question's words, the scoring, the sorting prompt or the exact tests ([releasing.md](../../docs/releasing.md#check-grading-against-the-key)). It sorts both versions afresh on a scratch copy, without the fixture's `rule-readings.json`, grades the five runs with Jev, and prints the grading's sure and right, sure and wrong, not sure, not read, does not apply, answered by code and cannot be marked, and the assistant's exact readings against the key, beside `LIVE` in `pinned.ts`.
+`pnpm reading-gate` is the live half, run before a release that changes a question's words, the scoring, the sorting prompt or the exact tests ([releasing.md](../../docs/releasing.md#check-grading-against-the-key)). It sorts both versions afresh on a scratch copy, without the fixture's `rule-readings.json`, grades the five runs with Jev, and prints the grading's sure and right, sure and wrong, not sure, not read, does not apply, answered by code and cannot be marked, and the assistant's exact readings against the key, beside `LIVE` in `pinned.ts`. It grades through `gradeRun` itself, never through `st`, and hands it no renderer, so it draws no page, as the stored gradings drew none: the pinned numbers stand.
 
 ## Counting what `st sort` read
 
@@ -112,7 +112,7 @@ On the other fixtures, two sorts each: `code-skill` is all Jev's. `demo-skill` g
 
 ## Making the runs again
 
-The runs were made in this order, with a signed-in Claude Code and `TYPESAFE_API_KEY` set. `st run` draws no page, so these outputs were graded on their HTML alone: grade a run again in the desktop app to have its pages drawn and measured.
+The runs were made in this order, with a signed-in Claude Code and `TYPESAFE_API_KEY` set. These outputs were graded on their HTML alone, with no page drawn. To have a run's pages drawn and measured, grade it again with `st grade` or in the desktop app; `st run --no-draw` makes a run graded as these were.
 
 ```
 cp scripts/reading-bench/skill/v1.md fixtures/launch-note/SKILL.md
@@ -126,7 +126,7 @@ pnpm st run fixtures/launch-note --model haiku
 
 ## What the stored gradings show
 
-The five stored gradings were made on the readings in `evals/rule-readings.json`: both versions sorted with Sonnet under sorting prompt version 12, then each run graded with Jev (jev-1.14.0) from the command line, so no page was drawn. Each run found the readings for its own copy of the skill. Scored as the code reads them now and counted against the key where it answers: sure and right on 342, of which code answered 183, sure and wrong on none, not sure of 4, not read on 17 (the long page's parts that do not settle a fact), cannot be marked on 35, and set aside as not applying on 100. These are the numbers `STORED` pins.
+The five stored gradings were made on the readings in `evals/rule-readings.json`: both versions sorted with Sonnet under sorting prompt version 12, then each run graded with Jev (jev-1.14.0) from the command line, with no page drawn. Each run found the readings for its own copy of the skill. Scored as the code reads them now and counted against the key where it answers: sure and right on 342, of which code answered 183, sure and wrong on none, not sure of 4, not read on 17 (the long page's parts that do not settle a fact), cannot be marked on 35, and set aside as not applying on 100. These are the numbers `STORED` pins.
 
 - Cannot be marked: version one's pair that cannot both hold and its vague rule, on every output; and on `page-long` alone, in both versions, "Write no more than 120 words", which cannot hold beside the case's check "The page lists all 180 changes". That check is graded: the sort asks it of Jev over the whole output, which the long page's parts cannot settle, so it is not read on all five.
 - The Haiku email of version two that runs past 120 words, which Jev calls within them, is code's: missed.

@@ -18,9 +18,10 @@ src/
     host.ts        the checkout's paths for the CLI and `st serve`: `.env` and `out/renderer`
     lifecycle.ts   what every host does about agents: end a crashed copy's, record its own, end them on a signal
     renderer-files.ts  the built renderer's file for a request path, for the `studio://` scheme and `st serve`
-    electron/      main process, preload bridge, backend utility process
+    electron/      main process, preload bridge, backend utility process, and the drawing host the CLI starts
     http/          `st serve`: the table over HTTP, the request guard, Tailscale
     cli/           the `st` command: `st.ts` reads the flags, picks the command and exits with its code
+      drawing.ts     how the command line draws pages: it starts the drawing host and speaks its lines
       open-server.ts   the server `st open` starts, one a checkout, found by its file in the app's own folder
       commands/      one module per command (its name, help lines, flags and `run`); the help is put together from them
   renderer/        the React app; reaches the table through a transport (IPC or HTTP)
@@ -122,7 +123,15 @@ Imports point inward only. `pnpm fallow` fails on one that does not (`boundaries
   - The backend posts `render` with the page and a size (`PageRenderer` in `src/domain/artifact-address.ts`).
   - The main process loads it in an offscreen window (`src/interfaces/electron/main/render.ts`), one page at a time, and answers `rendered` with a PNG of that size, scaled down whole when a side is past 1568 pixels, and the layout it measured: the box and the look of each element the page drew (`measure.ts`, read by `readLayout` in `src/domain/layout.ts`).
   - `gradeRun` draws at the case's size, or 1280 by 960, and also at 390 by 1200 for a case that asks for a phone. The PNGs go in the sample's `renders/` folder, named by size, each with its layout beside it as `.json`, and are drawn again only when the page is newer or a picture has no layout. A page is drawn only when a pack that looks at pages judges this output and has a question for it (`JudgePack.asks`): the generic pack has none without a rule or a check, and no pack has one for a case with `bench.judge: false`.
-  - The CLI and `st serve` have no renderer, so there a page is judged by its HTML and any screenshot the agent left.
+- `st run`, `st grade` and `st serve` draw the same way, through a second process: the drawing host.
+  - It is Electron with no window. Its start file, `src/interfaces/electron/draw/index.ts` (built to `out/main/draw.js`), hides the Dock icon before anything else loads, then awaits the host itself, `host.ts` (built to `out/main/draw/host-<hash>.js`). Loading the host's code takes long enough that macOS would show it as an app in front for a moment first.
+  - The host registers the `artifact:` scheme, serves it with `serveArtifacts` (`protocol.ts`) over operations of its own, and draws with `pageRenderer()`. It serves files only from the skills a request has named.
+  - It sets on its session what the app sets on its own, which the app's drawing windows share: every permission request refused (`refusePermissions` in `window.ts`). The app sets nothing else on a session: no permission check handler, so `navigator.permissions.query` still answers `granted`, and no download, web request or capture handlers.
+  - The command's side is `src/interfaces/cli/drawing.ts`, a `PageRenderer` handed to `gradeRun`, or to `createOperations` through `startServer`. It looks for the build, the display and Electron's binary at the first page asked for, finding the binary as `require('electron')` does but never fetching it, then starts the host and keeps it for the command's life.
+  - They speak one JSON line each way for each page (`HostRequest` and `HostReply` in `src/domain/drawing-host.ts`), matched by `id`. The PNG goes as base64; a line that is not one is passed over.
+  - The host takes a profile folder of its own in the system's temp folder, named by its process id, no single-instance lock and no keychain, and hides its Dock icon. The browser writes a few files back into the folder after the host has removed it, so each host that starts removes the folders of hosts whose process is gone. It quits when its input closes: when the command's lifecycle stops (`Lifecycle.signal`), and when the command exits. While no page is waiting, the command holds none of its pipes open, so a command that is done exits as it would without it.
+  - A host that cannot start (no build, no Electron, no display), or stops after it has started, is said once and not started again. The renderer then rejects every page with `RendererGone` (`src/domain/artifact-address.ts`), and `gradeRun` takes its drawing away for the rest of the grading: the output it was drawing, and each one after, is graded as with no renderer, `drawn: false`. Whatever this grading wrote to that output's `renders/` before the host stopped is removed, and the folder too when the grading made it, so the next grading draws it again.
+  - The host is built in a pass of its own (`electron-vite build --mode draw`), so the app's `out/main/index.js` is one file as before and shares no chunk with it. The packaged app leaves `draw.js` and `draw/` out.
 
 ### Keys
 

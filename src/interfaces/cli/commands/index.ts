@@ -52,6 +52,7 @@ export const HELP = [
   '',
   'Common',
   '  --no-jev                    Grade without TypeSafe calls (code checks only).',
+  '  --no-draw                   Grade without drawing each page first (run and grade draw them).',
   "  --packs <a,b>               Judge packs to run, instead of bench.json's list.",
   "  --bench <file>              A bench.json laid over the skill's for this grading.",
   '  --jev-model <id>            Jev version to judge with.',

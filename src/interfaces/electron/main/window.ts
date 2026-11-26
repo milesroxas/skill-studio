@@ -109,6 +109,16 @@ const PAGE_PREFERENCES = {
   spellcheck: false,
 }
 
+/**
+ * Refuse every permission a page asks for: the camera, notifications, where
+ * the machine is, and the rest. Set on the session every window shares, the
+ * windows a page is drawn in for grading among them, and by the drawing host
+ * on its own (`../draw/host.ts`).
+ */
+export function refusePermissions(session: Electron.Session): void {
+  session.setPermissionRequestHandler((_contents, _permission, callback) => callback(false))
+}
+
 /** Keep a window on the app's own page: outside links go to the browser, and nothing else opens. A right-click on text gets the system's text menu. */
 function confine(window: BrowserWindow, url: string): void {
   const appOrigin = new URL(url).origin
@@ -121,9 +131,7 @@ function confine(window: BrowserWindow, url: string): void {
   webContents.on('will-navigate', (event, target) => {
     if (new URL(target).origin !== appOrigin) event.preventDefault()
   })
-  webContents.session.setPermissionRequestHandler((_contents, _permission, callback) =>
-    callback(false),
-  )
+  refusePermissions(webContents.session)
   // A right-click the page did not take for its own menu: the system's menu for text, if any.
   webContents.on('context-menu', (_event, params) => {
     const items = textMenu(params)
