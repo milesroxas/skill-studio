@@ -16,6 +16,7 @@ import { report } from './report.ts'
 import { run } from './run.ts'
 import { selfTestCommand } from './self-test.ts'
 import { serve } from './serve.ts'
+import { sheet } from './sheet.ts'
 import { sort } from './sort.ts'
 import { versions } from './versions.ts'
 
@@ -27,6 +28,7 @@ const commands: readonly Command[] = [
   grade,
   report,
   compare,
+  sheet,
   read,
   sort,
   propose,

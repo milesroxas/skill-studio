@@ -4,7 +4,8 @@
  * (`src/interfaces/electron/draw/index.ts`, built to `out/main/draw.js`), at
  * the first page a grading asks for, and keep it for the command's life. One
  * JSON line goes to it for each page and one comes back, matched by `id`
- * (`@domain/drawing-host.ts`).
+ * (`@domain/drawing-host.ts`). `st sheet` draws a page of its own with it, by
+ * the page's `file:` address.
  *
  * The host ends when the command's lifecycle stops, and when the command
  * exits, since its input closes then. While no page is being drawn it holds
@@ -15,7 +16,12 @@ import { existsSync, readFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import { dirname, join } from 'node:path'
 import { createInterface } from 'node:readline'
-import { type DrawnPage, type PageRenderer, RendererGone } from '@domain/artifact-address.ts'
+import {
+  type ArtifactAddress,
+  type DrawnPage,
+  type PageRenderer,
+  RendererGone,
+} from '@domain/artifact-address.ts'
 import { type HostRequest, replyOf } from '@domain/drawing-host.ts'
 import { readLayout } from '@domain/layout.ts'
 import { realPath } from '@infrastructure/fs.ts'
@@ -77,6 +83,11 @@ export interface DrawingOptions {
   warn: (line: string) => void
   /** The command's lifecycle's: the host ends as the stop begins. */
   signal?: AbortSignal
+  /**
+   * What is said after the reason a host that had started stopped: what
+   * becomes of the pages after it. A grading's when left out.
+   */
+  after?: string
   /** How to start the host; this checkout's when left out. A test hands it a stand-in. */
   start?: HostStart | { reason: string }
 }
@@ -84,6 +95,12 @@ export interface DrawingOptions {
 interface Waiting {
   resolve: (page: DrawnPage) => void
   reject: (error: Error) => void
+}
+
+/** The renderer `drawingHost` gives, which draws a page of the command's own too. */
+export type DrawingHost = PageRenderer & {
+  /** Draw a page the command wrote, by its `file:` address: the host serves it only the files beside it. */
+  file: (address: string, size: { width: number; height: number }) => Promise<DrawnPage>
 }
 
 /** A handle a process holds open, or lets go of. */
@@ -97,7 +114,7 @@ type Held = { ref?: () => unknown; unref?: () => unknown } | null
  * to come rejects with `RendererGone`, and a grading goes on as with no
  * renderer.
  */
-export function drawingHost(options: DrawingOptions): PageRenderer {
+export function drawingHost(options: DrawingOptions): DrawingHost {
   const waiting = new Map<string, Waiting>()
   let host: ChildProcess | null = null
   /** Why the host can draw no more, once it has stopped of itself. */
@@ -123,7 +140,7 @@ export function drawingHost(options: DrawingOptions): PageRenderer {
   /** The host cannot draw, not asked to stop: say why once, and fail every page waiting and to come. */
   const lost = (
     reason: string,
-    said = `${reason} The pages after it are graded without being drawn.`,
+    said = `${reason} ${options.after ?? 'The pages after it are graded without being drawn.'}`,
   ): void => {
     if (!gone && !ended) {
       gone = new RendererGone(reason)
@@ -183,7 +200,11 @@ export function drawingHost(options: DrawingOptions): PageRenderer {
     return child
   }
 
-  return (page, size) => {
+  /** Send the host one page to draw: a sample's, or one of the command's own. */
+  const ask = (
+    what: { page: ArtifactAddress } | { file: string },
+    size: { width: number; height: number },
+  ): Promise<DrawnPage> => {
     if (gone) return Promise.reject(gone)
     if (ended || options.signal?.aborted) return Promise.reject(new Error('Stopped.'))
     if (!host) {
@@ -197,13 +218,7 @@ export function drawingHost(options: DrawingOptions): PageRenderer {
     }
     const child = host
     const id = String(++sent)
-    // The host opens the skill by its folder: by its real path, as it serves it.
-    const request: HostRequest = {
-      id,
-      page: { ...page, skill: realPath(page.skill) },
-      width: size.width,
-      height: size.height,
-    }
+    const request: HostRequest = { id, ...what, width: size.width, height: size.height }
     return new Promise<DrawnPage>((resolve, reject) => {
       waiting.set(id, { resolve, reject })
       hold(child, true)
@@ -211,4 +226,11 @@ export function drawingHost(options: DrawingOptions): PageRenderer {
       child.stdin?.write(`${JSON.stringify(request)}\n`)
     })
   }
+
+  // The host opens the skill by its folder: by its real path, as it serves it.
+  const render: PageRenderer = (page, size) =>
+    ask({ page: { ...page, skill: realPath(page.skill) } }, size)
+  return Object.assign(render, {
+    file: (file: string, size: { width: number; height: number }) => ask({ file }, size),
+  })
 }

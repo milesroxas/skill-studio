@@ -6,7 +6,7 @@ import { runNameOf } from '../input.ts'
 import { briefOrJson, printBrief } from './brief.ts'
 import type { Command, FlagValues } from './command.ts'
 import { shared } from './flags.ts'
-import { padEnd, printReport, skillOf } from './shared.ts'
+import { oneRun, padEnd, printReport, skillOf } from './shared.ts'
 
 const flags = shared('run', 'json', 'brief', 'packs', 'bench')
 
@@ -54,12 +54,12 @@ export const report: Command = {
   async run(context) {
     const values = context.values as FlagValues<typeof flags>
     const { skill } = skillOf(context.args)
-    if (!values.run) throw new Error('Pass --run <name>.')
+    const run = oneRun(context.values)
+    if (!run) throw new Error('Pass --run <name>.')
     const brief = briefOrJson(context.values)
-    const name = runNameOf(values.run, '--run')
+    const name = runNameOf(run, '--run')
     const view = readRun(skill, name)
-    if (!view.report)
-      throw new Error(`${values.run} is not graded. Run: st grade --run ${values.run}`)
+    if (!view.report) throw new Error(`${run} is not graded. Run: st grade --run ${run}`)
     // Scored as the app scores it: under the scoring as it is now, with the reader's corrections.
     const corrections = correctionsOf(skill, name)
     const samples = view.samples.map((s) => s.name)

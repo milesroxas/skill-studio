@@ -76,7 +76,7 @@ function stateWords(state: AttemptState): string {
 }
 
 /** "1", "1 and 3", "1, 2 and 4". */
-const numbers = (list: readonly number[]): string =>
+export const numbers = (list: readonly number[]): string =>
   list.length > 1 ? `${list.slice(0, -1).join(', ')} and ${list.at(-1)}` : String(list[0])
 
 /**

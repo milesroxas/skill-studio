@@ -33,6 +33,12 @@ Commands
   compare <runA> <runB>       Score deltas between two graded runs.
     --brief                   Print only each case, the run that did better on its checks,
                               and the rules and checks each run missed.
+  sheet                       Put each case's drawn pages side by side in one picture, a row
+                              a run and a column an attempt, and print each picture's path.
+                              It shows the pages a grading drew, so grade the runs first.
+    --run <name>              A run to show. Once for each run.
+    --case <id>               The one case to show; default every case the runs answered.
+    --out <dir>               The folder the pictures go in; default a new temporary folder.
   read                        Have the assistant read a graded run: --run <name>. It answers
                               what Jev was not sure of, and prints how often its answers
                               agree with yours. It writes nothing to the skill.

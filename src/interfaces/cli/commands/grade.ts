@@ -4,7 +4,7 @@ import { withMeter } from '@judges/meter.ts'
 import { runNameOf } from '../input.ts'
 import type { Command, FlagValues } from './command.ts'
 import { GRADING, shared } from './flags.ts'
-import { drawingOf, held, noteNoKey, printGraded, skillOf, wantsJev } from './shared.ts'
+import { drawingOf, held, noteNoKey, oneRun, printGraded, skillOf, wantsJev } from './shared.ts'
 
 const flags = shared('run', 'all', 'json', 'no-draw', ...GRADING)
 
@@ -16,10 +16,11 @@ export const grade: Command = {
   async run(context) {
     const values = context.values as FlagValues<typeof flags>
     const { skill } = skillOf(context.args)
+    const one = oneRun(context.values)
     const names = values.all
       ? listRuns(skill).map((r) => r.name)
-      : values.run
-        ? [runNameOf(values.run, '--run')]
+      : one
+        ? [runNameOf(one, '--run')]
         : []
     if (!names.length) throw new Error('Pass --run <name> or --all.')
     // Asked of every run before any is graded: with no key, a run Jev scored is refused, not written over.

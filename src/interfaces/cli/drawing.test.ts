@@ -30,7 +30,7 @@ import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from 'vites
  * layout of one element the size asked. `STAND_IN_FAIL` makes it say why on
  * stderr and exit as it starts; `STAND_IN_DIE_AFTER` makes it do the same once
  * it has answered that many pages. A file named `broken.html` is answered with
- * an error.
+ * an error. A page of the command's own is noted by its address.
  */
 const STAND_IN = `
 import { appendFileSync } from 'node:fs'
@@ -46,7 +46,7 @@ if (process.env.STAND_IN_FAIL && !process.env.STAND_IN_DIE_AFTER) die()
 const held = []
 let answered = 0
 const answer = (request) => {
-  if (request.page.file === 'broken.html') return { id: request.id, error: 'The page stopped (crashed).' }
+  if (request.page?.file === 'broken.html') return { id: request.id, error: 'The page stopped (crashed).' }
   const element = { name: 'body', x: 0, y: 0, width: request.width, height: request.height }
   const layout = { window: [request.width, request.height], page: [request.width, request.height], elements: [element] }
   return { id: request.id, png: process.env.STAND_IN_PNG, layout }
@@ -55,7 +55,7 @@ const input = createInterface({ input: process.stdin })
 input.on('line', (line) => {
   let request
   try { request = JSON.parse(line) } catch { return }
-  log('asked ' + request.id + ' ' + request.width + 'x' + request.height + ' ' + request.page.skill)
+  log('asked ' + request.id + ' ' + request.width + 'x' + request.height + ' ' + (request.page?.skill ?? request.file))
   held.push(request)
   if (held.length < Number(process.env.STAND_IN_BATCH ?? 1)) return
   // Something that is not a reply first: the command passes it over.
@@ -165,6 +165,18 @@ describe('drawingHost', () => {
     expect(logged()).toContain(`asked 1 400x300 ${join(scratch, 'real-skill')}`)
   })
 
+  it("sends a page of the command's own by its file: address, to the same host", async () => {
+    const host = drawingHost({ warn: () => {}, start: standIn, signal: ending.signal })
+    await host(page(), { width: 400, height: 300 })
+    const own = await host.file('file:///sheets/1.html', { width: 900, height: 700 })
+    expect(own.layout?.window).toEqual([900, 700])
+    expect(logged()).toEqual([
+      'start',
+      `asked 1 400x300 ${scratch}`,
+      'asked 2 900x700 file:///sheets/1.html',
+    ])
+  })
+
   it('fails a page the host could not draw with its reason, and draws the next', async () => {
     const render = drawingHost({ warn: () => {}, start: standIn, signal: ending.signal })
     await expect(render(page('broken.html'), { width: 400, height: 300 })).rejects.toThrow(
@@ -185,6 +197,21 @@ describe('drawingHost', () => {
     expect(warn.mock.calls).toEqual([
       [`${DIED} The pages after it are graded without being drawn.`],
     ])
+  })
+
+  it('says what becomes of the pages after a host that stopped in the words the command gives', async () => {
+    vi.stubEnv('STAND_IN_FAIL', 'Missing X server or $DISPLAY')
+    const warn = vi.fn()
+    const host = drawingHost({
+      warn,
+      start: standIn,
+      signal: ending.signal,
+      after: 'No more sheets are made.',
+    })
+    await expect(host.file('file:///sheets/1.html', { width: 400, height: 300 })).rejects.toThrow(
+      DIED,
+    )
+    expect(warn.mock.calls).toEqual([[`${DIED} No more sheets are made.`]])
   })
 
   it('says nothing of a host that cannot start until a page is asked for, then once', async () => {

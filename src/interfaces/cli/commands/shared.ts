@@ -83,6 +83,15 @@ export function drawingOf(context: Context): PageRenderer | undefined {
 export const held = <T>(context: Context, work: Promise<T>): Promise<T> =>
   context.lifecycle?.during(work) ?? work
 
+/**
+ * The one run `--run` names, for a command that reads one: the last given.
+ * The flag is given once for each run where `st sheet` reads it.
+ */
+export function oneRun(values: Context['values']): string | undefined {
+  const run = values.run
+  return typeof run === 'string' ? run : Array.isArray(run) ? run.at(-1) : undefined
+}
+
 /** What stops the command's work: Ctrl-C, through its lifecycle. */
 export const signalOf = (context: Context): AbortSignal =>
   context.lifecycle?.signal ?? new AbortController().signal
@@ -166,7 +175,7 @@ export function printGraded(
 }
 
 /** A word as a shell reads it back: as it is when it is safe so, else in single quotes. */
-const shellWord = (word: string): string =>
+export const shellWord = (word: string): string =>
   /^[\w@%+=:,./-]+$/.test(word) ? word : `'${word.replaceAll("'", `'\\''`)}'`
 
 /**
