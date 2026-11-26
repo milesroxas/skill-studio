@@ -50,6 +50,8 @@ To add a check for every case, write it as a file in the skill's `evals/graders/
 - `--parallel n`: samples in flight (3).
 - `--no-grade`: skip grading.
 
+`run` ends with the command that opens Results on the run it made, `Open: pnpm st open <skill> --a <run>`, and `compare` with the one that opens it on its two runs, `--a <runA> --b <runB>`. With `--json` neither prints it.
+
 ### Adding and checking cases
 
 `case add` writes a new case under `evals/cases/`, through the same check as a case saved on the Cases screen, so it refuses what the screen refuses: an empty prompt, a title another case has, a size out of range.

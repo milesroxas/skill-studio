@@ -12,9 +12,10 @@ import {
 import { type Corrections, NO_CORRECTIONS, unreadable, type VerdictKind } from '@domain/pack.ts'
 import { defaultPair, type PairOutput } from '@domain/pairs.ts'
 import { previewArtifact, primaryArtifact } from '@domain/primary.ts'
+import { casesInOrder } from '@domain/results-address.ts'
 import { newestRates, type RuleRate, ruleRates, withWithout } from '@domain/rule-rate.ts'
 import { versionAfterRunDelete } from '@domain/run-delete.ts'
-import { parseSampleDir } from '@domain/run-name.ts'
+import { parseSampleDir, sampleOf } from '@domain/run-name.ts'
 import type {
   Artifact,
   ArtifactKind,
@@ -152,8 +153,7 @@ function outputOf(
   const cut = sampleCut(run, sample)
   // A score an earlier grading gave an output grading now leaves out is no score of it.
   const result = cut ? null : graded
-  const parsed = parseSampleDir(sample.name)
-  const caseId = result?.case ?? parsed?.case ?? sample.name
+  const { case: caseId, index } = sampleOf(sample.name, result?.case ?? null)
   const key = `${run.name}/${sample.name}`
   const taken = Object.hasOwn(run.cases, caseId) ? run.cases[caseId] : null
   const asked = taken?.earlier ?? state.cases.find((c) => c.id === caseId)
@@ -164,7 +164,7 @@ function outputOf(
     sample,
     result,
     caseId,
-    index: parsed?.index ?? 1,
+    index,
     samples: Math.max(
       run.samples.filter((s) => parseSampleDir(s.name)?.case === caseId).length,
       askedOf(run),
@@ -248,6 +248,31 @@ export function answerFiles(outputs: Output[], caseId: string): AnswerFiles | nu
 
 export const outputByKey = (outputs: Output[], key: string | null): Output | null =>
   key ? (outputs.find((o) => o.key === key) ?? null) : null
+
+/**
+ * What Results shows by its address (`resultsAddress` in
+ * `src/domain/results-address.ts` builds one): the case `case` names, else
+ * the case of the output named, else the first case run; and when `a` or `b`
+ * is named, the two outputs named, each null outside that case. `shown` is
+ * null when neither is named, for the pair the case opens with.
+ */
+export function resultsShown(
+  outputs: Output[],
+  caseIds: string[],
+  params: URLSearchParams,
+): { caseId: string; shown: OutputPair | null } {
+  // An address may name the outputs and not their case: the first one named says which case it is.
+  const named = outputByKey(outputs, params.get('b')) ?? outputByKey(outputs, params.get('a'))
+  const asked = params.get('case') ?? named?.caseId ?? null
+  const caseId = asked !== null && caseIds.includes(asked) ? asked : caseIds[0]
+  const pinned = params.has('a') || params.has('b')
+  const inCase = (key: string | null): Output | null => {
+    const output = outputByKey(outputs, key)
+    return output?.caseId === caseId ? output : null
+  }
+  const shown = pinned ? { a: inCase(params.get('a')), b: inCase(params.get('b')) } : null
+  return { caseId, shown }
+}
 
 /** The last score worked out for an output, and the scoring it was worked out under. */
 const scoredBy = new WeakMap<Output, { config: BenchConfig; scored: Scored }>()
@@ -1113,9 +1138,10 @@ export function readParams(
 
 /** Every case with an output, in the order Cases lists them; a case since deleted comes last. */
 export function casesRun(state: State, outputs: Output[]): string[] {
-  const ran = new Set(outputs.map((o) => o.caseId))
-  const known = state.cases.map((c) => c.id).filter((id) => ran.has(id))
-  return [...known, ...[...ran].filter((id) => !known.includes(id)).sort()]
+  return casesInOrder(
+    state.cases.map((c) => c.id),
+    outputs.map((o) => o.caseId),
+  )
 }
 
 /** How good a score out of 100 is, from high to very low; `na` when there is none. */

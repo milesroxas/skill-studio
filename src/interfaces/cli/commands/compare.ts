@@ -4,7 +4,7 @@ import { readRun } from '@infrastructure/runs.ts'
 import { runNameOf } from '../input.ts'
 import type { Command, FlagValues } from './command.ts'
 import { shared } from './flags.ts'
-import { pad, padEnd, skillOf } from './shared.ts'
+import { pad, padEnd, printOpen, skillOf } from './shared.ts'
 
 const flags = shared('json', 'packs', 'bench')
 
@@ -99,6 +99,7 @@ export const compare: Command = {
       for (const line of left) console.log(`  ${line}`)
     }
     printCases(byCase)
+    printOpen(values.json, skill, a, b)
     return 0
   },
 }

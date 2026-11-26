@@ -50,9 +50,8 @@ import {
   isWithoutSkill,
   liftOf,
   noSkillScore,
-  type Output,
   type OutputPair,
-  outputByKey,
+  resultsShown,
   runTitle,
   standingsOf,
   totalOf,
@@ -158,16 +157,7 @@ export const Results = memo(function Results({ ctx }: { ctx: Ctx }) {
 
   const params = route.params
   const all = params.get('view') === 'all'
-  // An address may name the outputs and not their case: the first one named says which case it is.
-  const named = outputByKey(outputs, params.get('b')) ?? outputByKey(outputs, params.get('a'))
-  const asked = params.get('case') ?? named?.caseId ?? null
-  const caseId = asked !== null && caseIds.includes(asked) ? asked : caseIds[0]
-  const pinned = params.has('a') || params.has('b')
-  const inCase = (key: string | null): Output | null => {
-    const output = outputByKey(outputs, key)
-    return output?.caseId === caseId ? output : null
-  }
-  const shown = pinned ? { a: inCase(params.get('a')), b: inCase(params.get('b')) } : null
+  const { caseId, shown } = resultsShown(outputs, caseIds, params)
 
   return (
     <Workbench>

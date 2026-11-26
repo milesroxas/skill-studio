@@ -31,3 +31,13 @@ export function parseSampleDir(name: string): { case: string; index: number } | 
   const match = /^(.+)-s(\d+)$/.exec(name.replace(/\.md$/, ''))
   return match ? { case: match[1], index: Number(match[2]) } : null
 }
+
+/**
+ * The case and attempt a sample is of: the case a grading of it names, when
+ * one does, else the one its name gives (`<case>-s<n>`), else its whole name.
+ * A name that numbers no attempt is the first.
+ */
+export function sampleOf(name: string, graded: string | null): { case: string; index: number } {
+  const parsed = parseSampleDir(name)
+  return { case: graded ?? parsed?.case ?? name, index: parsed?.index ?? 1 }
+}

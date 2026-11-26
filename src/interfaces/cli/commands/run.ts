@@ -6,7 +6,7 @@ import { runDir } from '@infrastructure/runs.ts'
 import { countOf, generateInputOf } from '../input.ts'
 import type { Command, FlagValues } from './command.ts'
 import { GRADING, shared } from './flags.ts'
-import { held, noteNoKey, printGraded, skillOf } from './shared.ts'
+import { held, noteNoKey, printGraded, printOpen, skillOf } from './shared.ts'
 
 const flags = {
   ...shared('model', 'effort', 'cases', 'name', 'parallel', 'json', ...GRADING),
@@ -95,6 +95,7 @@ export const run: Command = {
     const fine =
       values['no-grade'] ||
       printGraded(await held(context, gradeRun(skill, name, context.jev)), values.json)
+    printOpen(values.json, skill, name)
     return fine && !failed.length ? 0 : 1
   },
 }

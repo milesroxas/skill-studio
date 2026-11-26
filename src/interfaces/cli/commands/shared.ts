@@ -147,3 +147,18 @@ export function printGraded(report: Report, json: boolean | undefined): boolean 
     console.error(`No output was judged, so no report was written: ${reason}`)
   return total > 0 && failed < total
 }
+
+/** A word as a shell reads it back: as it is when it is safe so, else in single quotes. */
+const shellWord = (word: string): string =>
+  /^[\w@%+=:,./-]+$/.test(word) ? word : `'${word.replaceAll("'", `'\\''`)}'`
+
+/**
+ * The line that says how to open Results on one or two runs: `st run` and
+ * `st compare` start no server to give an address on, so they print the
+ * command that does. Not with `--json`, whose output is read as JSON.
+ */
+export function printOpen(json: boolean | undefined, skill: string, a: string, b?: string): void {
+  if (json) return
+  const runs = [`--a ${shellWord(a)}`, b === undefined ? null : `--b ${shellWord(b)}`]
+  console.log(`\nOpen: pnpm st open ${shellWord(skill)} ${runs.filter(Boolean).join(' ')}`)
+}
