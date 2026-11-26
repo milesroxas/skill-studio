@@ -19,7 +19,10 @@
  * local server the test starts, a picture written into it as a `data:`
  * address, a `blob:` one, an `<object>` and an `<embed>`, a stylesheet beside
  * it and a refresh to the server, and fails unless no script ran, the server
- * saw no request, none of those was shown and the page stayed. Last it starts the host and, at once or a moment into its
+ * saw no request, none of those was shown and the page stayed; then draws a
+ * page in one folder and, after it, one in another folder that reaches for the
+ * first's page and picture by a refresh, a frame and a picture, and fails
+ * unless none of them shows and the picture taken is of the second page. Last it starts the host and, at once or a moment into its
  * start, closes its input or sends it a signal, and fails unless the host has
  * gone within 5 seconds; and starts it to draw a page, then closes its input
  * or sends it SIGTERM, and fails unless its profile folder is gone within 3
@@ -48,6 +51,7 @@ import { pathToFileURL } from 'node:url'
 import { RENDER_SIZES } from '@domain/artifact-address.ts'
 import { type Box, SHEET_BACKGROUND, SHEET_SIDE_MAX, sheetLayout } from '@domain/contact-sheet.ts'
 import { profilePid } from '@domain/drawing-host.ts'
+import { pngOf } from '@infrastructure/__fixtures__/png.ts'
 import { readPng } from '@infrastructure/png.ts'
 import { drawingHost, hostStart } from '../src/interfaces/cli/drawing.ts'
 
@@ -325,6 +329,54 @@ fetch('http://${local}/fetch').catch(() => {})
       }.`,
     )
   if (!stayed) problems.push("A page of the command's own was sent on by a refresh.")
+
+  // What a page of the command's own may load is held to its own drawing: a page drawn later, in
+  // another folder, reaches nothing of the folder an earlier line named, by a refresh, a frame or a
+  // picture, and the picture taken is of the page its line named.
+  check = 'Drawing a page of its own in one folder, then one in another that reaches for the first'
+  const first = join(scratch, 'own/first')
+  const second = join(scratch, 'own/second')
+  mkdirSync(first, { recursive: true })
+  mkdirSync(second, { recursive: true })
+  const GREEN: [number, number, number, number] = [0, 255, 0, 255]
+  writeFileSync(
+    join(first, 'green.png'),
+    pngOf(160, 120, () => GREEN),
+  )
+  const firstPicture = { x: 20, y: 40, width: 160, height: 120 }
+  writeFileSync(
+    join(first, 'green.html'),
+    `<!doctype html><html><body style="margin:0;background:rgb(${SHEET_BACKGROUND.join(' ')})">
+<p style="position:absolute;left:20px;top:0;margin:0">page A</p>
+<img alt="" src="green.png" style="${at(firstPicture)}"></body></html>`,
+  )
+  const pageA = await render.file(pathToFileURL(realpathSync(join(first, 'green.html'))).href, {
+    width: 400,
+    height: 300,
+  })
+  const aShown = greenShare(pageA.png, firstPicture)
+  const href = (file: string) => pathToFileURL(realpathSync(file)).href
+  const framed = { x: 20, y: 40, width: 160, height: 120 }
+  const pictured = { x: 220, y: 40, width: 160, height: 120 }
+  writeFileSync(
+    join(second, 'reaches.html'),
+    `<!doctype html><html><head><meta http-equiv="refresh" content="0;url=${href(join(first, 'green.html'))}"></head>
+<body style="margin:0;background:rgb(${SHEET_BACKGROUND.join(' ')})">
+<p style="position:absolute;left:20px;top:0;margin:0">page B</p>
+<iframe src="${href(join(first, 'green.html'))}" style="${at(framed)};border:0"></iframe>
+<img alt="" src="${href(join(first, 'green.png'))}" style="${at(pictured)}"></body></html>`,
+  )
+  const pageB = await render.file(href(join(second, 'reaches.html')), { width: 400, height: 300 })
+  const said = (pageB.layout?.elements ?? []).map((e) => e.text)
+  const [frameGreen, pictureGreen] = [framed, pictured].map((box) => greenShare(pageB.png, box))
+  console.log(
+    `two folders: page A's picture ${Math.round(aShown * 100)}% shown; page B ${said.includes('page B') ? 'drawn' : 'not drawn'}, its frame ${Math.round(frameGreen * 100)}% page A, its picture of folder A ${Math.round(pictureGreen * 100)}% shown`,
+  )
+  if (aShown < 0.9) problems.push("Page A's own picture was not shown, so nothing below is proven.")
+  if (!said.includes('page B') || said.includes('page A'))
+    problems.push('The picture taken of page B is not of page B: a refresh sent it on.')
+  if (frameGreen > 0.1) problems.push('A frame of page B showed page A, from another folder.')
+  if (pictureGreen > 0.1) problems.push("Page B showed a picture from page A's folder.")
 
   // A host whose command is gone ends, at any moment of its start: its input closed, or a signal.
   check = 'Starting hosts to end them'

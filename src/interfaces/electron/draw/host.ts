@@ -8,10 +8,11 @@
  *
  * It draws a page of the command's own too, `st sheet`'s, from its `file:`
  * address, on a session of its own. There, whatever the page says of itself,
- * it runs no script and asks for nothing but an `.html` or `.png` file in a
- * folder a line has named: the host serves only those, each with a policy
- * that allows no script and no request but for pictures, and cancels every
- * request to an address that is not `file:`, a WebSocket's among them.
+ * it runs no script, never leaves itself, and is served nothing but its own
+ * `.png` pictures: what it may load is held to the one drawing (`Drawing`),
+ * never to a folder an earlier line named. Each file is served with a policy
+ * that allows no script and no request but for pictures, and every request to
+ * an address that is not `file:`, a WebSocket's among them, is cancelled.
  *
  * It keeps nothing of its own: a temporary profile folder (`profile.ts`), no
  * single-instance lock and no keychain, and no Dock icon, so it never shows
@@ -61,10 +62,16 @@ const drawer = pageDrawer()
 const render = pageRenderer(drawer)
 
 /**
- * The folders a `file` line has named. A page of the command's own is served
- * only a page or a picture that is in one of them, never in a folder inside.
+ * A page of the command's own while it is drawn: the file its line named and
+ * that file's folder, by its window's page, and let go of once the window is gone. Pages
+ * are drawn one at a time, so there is one at most, and nothing of an earlier
+ * line's is left to load from.
  */
-const folders: string[] = []
+interface Drawing {
+  page: string
+  folder: string
+}
+const drawings = new Map<number, Drawing>()
 /** What a page of the command's own may load, by the file's extension. */
 const OWN_TYPES: Readonly<Record<string, string>> = {
   '.html': 'text/html; charset=utf-8',
@@ -91,20 +98,53 @@ function ownFile(address: string): string | null {
   }
 }
 
-/** Serve the folder of a page a `file` line names from now on, and the page's address. */
-function openFolder(address: string): string {
+/** The page a `file` line names, as its address, and the drawing to hold its window to. */
+function ownPage(address: string): { url: string; drawing: Drawing } {
   const file = ownFile(address)
   if (!file || !isFile(file))
     throw new Error("A page of the command's own is a file, by its file: address.")
-  const folder = dirname(file)
-  if (!folders.includes(folder)) folders.push(folder)
-  return pathToFileURL(file).href
+  return { url: pathToFileURL(file).href, drawing: { page: file, folder: dirname(file) } }
 }
 
-/** A file a page of the command's own asks for: a page or a picture in a folder a line named. */
+/**
+ * Hold a page of the command's own to `drawing` while it is drawn: it loads
+ * the page its line named and the pictures beside it, and nothing else. No
+ * frame of it navigates (a refresh, a link, a script, a frame's own address),
+ * none is sent on by a redirect, and it opens no window.
+ */
+const holdTo =
+  (drawing: Drawing) =>
+  (page: Electron.WebContents): (() => void) => {
+    const id = page.id
+    drawings.set(id, drawing)
+    page.on('will-frame-navigate', (event) => event.preventDefault())
+    page.on('will-redirect', (event) => event.preventDefault())
+    page.setWindowOpenHandler(() => ({ action: 'deny' }))
+    return () => drawings.delete(id)
+  }
+
+/** Whether a page of the command's own may load `url`: its own page as its main frame, a picture of its own folder. */
+function ownRequest(details: Electron.OnBeforeRequestListenerDetails): boolean {
+  const drawing =
+    details.webContentsId === undefined ? undefined : drawings.get(details.webContentsId)
+  const file = ownFile(details.url)
+  if (!drawing || !file) return false
+  if (details.resourceType === 'mainFrame') return file === drawing.page
+  return (
+    details.resourceType === 'image' &&
+    dirname(file) === drawing.folder &&
+    extname(file).toLowerCase() === '.png'
+  )
+}
+
+/**
+ * A file a page of the command's own asks for: a page or a picture in the
+ * folder of the page being drawn now, never one an earlier line named.
+ */
 function serveOwn(request: Request): Response {
   const file = ownFile(request.url)
   const type = file ? OWN_TYPES[extname(file).toLowerCase()] : undefined
+  const folders = [...drawings.values()].map((drawing) => drawing.folder)
   if (!file || !type || !folders.includes(dirname(file)) || !isFile(file))
     return new Response(null, { status: 404 })
   return new Response(readFileSync(file), {
@@ -117,7 +157,10 @@ let own: Electron.Session | undefined
 
 /** A sample's page, from a skill opened for it, or a page of the command's own on its session. */
 function drawn(request: HostRequest) {
-  if ('file' in request) return drawer(openFolder(request.file), request, own)
+  if ('file' in request) {
+    const { url, drawing } = ownPage(request.file)
+    return drawer(url, request, own, holdTo(drawing))
+  }
   open(request.page.skill)
   return render(request.page, request)
 }
@@ -149,13 +192,14 @@ export function answerLines(lines: (answer: (line: string) => void) => void): vo
     // A page is refused what the app refuses it: every permission it asks for.
     refusePermissions(session.defaultSession)
     protocol.handle(ARTIFACT_SCHEME, serveArtifacts({ call }))
-    // A page of the command's own is refused the same. It runs no script (`OWN_POLICY`), and asks
-    // for nothing but a file in its own folder: every other request, a WebSocket's too, is cancelled.
+    // A page of the command's own is refused the same. It runs no script (`OWN_POLICY`), and loads
+    // nothing but itself and its own pictures (`ownRequest`): every other request is cancelled, a
+    // frame's, a WebSocket's and one to an address that is not `file:` among them.
     own = session.fromPartition(OWN_PARTITION)
     refusePermissions(own)
     own.protocol.handle('file', serveOwn)
     own.webRequest.onBeforeRequest((details, callback) =>
-      callback({ cancel: !details.url.startsWith('file:') }),
+      callback({ cancel: !ownRequest(details) }),
     )
     lines((line) => {
       const request = requestOf(line)

@@ -62,6 +62,7 @@ async function draw(
   width: number,
   height: number,
   session: Electron.Session | undefined,
+  hold: ((page: Electron.WebContents) => () => void) | undefined,
 ): Promise<DrawnPage> {
   const window = new BrowserWindow({
     show: false,
@@ -85,6 +86,8 @@ async function draw(
   page.setAudioMuted(true)
   page.setWindowOpenHandler(() => ({ action: 'deny' }))
   page.on('will-navigate', (event) => event.preventDefault())
+  // What the caller holds this drawing to, set before the page starts to load and let go of with it.
+  const letGo = hold?.(page)
   // A page that crashes or runs out of memory never answers a capture.
   const gone = new Promise<never>((_, reject) => {
     page.once('render-process-gone', (_event, details) =>
@@ -113,30 +116,34 @@ async function draw(
   } finally {
     // Starting over destroys every window, this one included, possibly mid-draw.
     if (!window.isDestroyed()) window.destroy()
+    letGo?.()
   }
 }
 
 /**
  * Draws a page by its address in a window of one size, on `session` when one
  * is given and else on the app's own, once each page asked for before it is
- * drawn.
+ * drawn. `hold` is handed the window's page before it loads, to hold it to
+ * more than every page is held to, and what it returns is called once the
+ * window is gone, before the next page is drawn.
  */
 export type PageDrawer = (
   url: string,
   size: { width: number; height: number },
   session?: Electron.Session,
+  hold?: (page: Electron.WebContents) => () => void,
 ) => Promise<DrawnPage>
 
 /** Draw pages one after another, so grading a run never opens a window per sample at once. */
 export function pageDrawer(): PageDrawer {
   let queue: Promise<unknown> = Promise.resolve()
-  return (url, size, session) => {
+  return (url, size, session, hold) => {
     // Asked by the backend: a size is held to a window this process can draw.
     if (!Number.isFinite(size.width) || !Number.isFinite(size.height))
       return Promise.reject(new Error('A page is drawn at a size in pixels.'))
     const width = Math.min(WINDOW_MAX, Math.max(1, Math.round(size.width)))
     const height = Math.min(WINDOW_MAX, Math.max(1, Math.round(size.height)))
-    const next = queue.then(() => draw(url, width, height, session))
+    const next = queue.then(() => draw(url, width, height, session, hold))
     queue = next.catch(() => {})
     return next
   }
