@@ -5,7 +5,7 @@ The plan for the next release: what is in it, what is still to do, and the check
 | | |
 | --- | --- |
 | Version | 0.20.3 |
-| Status | In progress |
+| Status | Released 2026-11-25 |
 | Previous release | [v0.20.2](https://github.com/milesroxas/skill-studio/releases/tag/v0.20.2), 2026-11-25 |
 | Target date | 2026-11-25 |
 | Owner | Miles Roxas |
