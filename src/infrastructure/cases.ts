@@ -40,6 +40,7 @@ import {
   isSlug,
   metaList,
   metaText,
+  normalizeNewlines,
   readFrontMatter,
   SLUG_RULE,
   slug,
@@ -627,6 +628,39 @@ export function caseSavedAt(skillDir: string, rel: string): string | null {
   return Number.isFinite(latest) ? new Date(latest).toISOString() : null
 }
 
+/**
+ * A settings block that sets nothing, put before a request that would
+ * otherwise be read as a block of its own. Not an empty block: the reader
+ * takes the first block to end at the first `---` line after its own, and an
+ * empty one has no line of its own, so the request's would end it.
+ */
+const NO_SETTINGS = '---\n{}\n---\n'
+
+/**
+ * The text of a case's `prompt.md`: the settings block it has (`kept`, empty
+ * when none), then the request. The reader takes the first block off the
+ * file and reads the rest as the request (`loadFolderCase`), so a request
+ * that starts like a block, or a file whose block is empty and so would be
+ * ended by the request's first `---` line, goes after a block that sets
+ * nothing, and reads back whole, as every request does: line ends as `\n`
+ * and no space at either end. Every file this writes reads back so; a
+ * request that would not is refused.
+ */
+export function promptFileText(kept: string, prompt: string): string {
+  const request = prompt.trim()
+  const compose = (front: string): string => `${front ? `${front.trimEnd()}\n\n` : ''}${request}\n`
+  const reads = (text: string): boolean =>
+    readFrontMatter(text).text === normalizeNewlines(request).trim() &&
+    JSON.stringify(readFrontMatter(text).meta) === JSON.stringify(readFrontMatter(kept).meta)
+  if (reads(compose(kept))) return compose(kept)
+  // A block that sets nothing reads as the one it takes the place of.
+  if (!Object.keys(readFrontMatter(kept).meta).length && reads(compose(NO_SETTINGS)))
+    return compose(NO_SETTINGS)
+  throw new Error(
+    'This prompt starts with lines that would be read as the case’s settings. Start it with other words.',
+  )
+}
+
 /** A case's `case.yaml` to edit, seeded when absent or empty so a new file is a block mapping, like hand-written ones. */
 function caseYaml(path: string) {
   const raw = isFile(path) ? readFileSync(path, 'utf8') : ''
@@ -710,8 +744,8 @@ export function saveCase(
   const write = (path: string, text: string): void => writeText(path, text, { root: skillDir })
   mkdirSync(graderDir, { recursive: true })
 
-  const front = isFile(promptPath) ? frontMatterBlock(readFileSync(promptPath, 'utf8')) : ''
-  write(promptPath, `${front ? `${front.trimEnd()}\n\n` : ''}${input.prompt.trim()}\n`)
+  const block = isFile(promptPath) ? frontMatterBlock(readFileSync(promptPath, 'utf8')) : ''
+  write(promptPath, promptFileText(block, input.prompt))
 
   const doc = caseYaml(yamlPath)
   doc.set('title', input.title.trim() || input.id)

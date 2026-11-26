@@ -13,6 +13,7 @@ import {
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { pngHeader } from '@domain/__fixtures__/image.ts'
+import { frontMatterBlock, readFrontMatter } from '@domain/text.ts'
 import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   caseSavedAt,
@@ -21,6 +22,7 @@ import {
   duplicateCase,
   findCase,
   loadCases,
+  promptFileText,
   saveCase,
 } from './cases.ts'
 
@@ -296,6 +298,90 @@ describe('saveCase and deleteCase', () => {
     deleteCase(skill, 'short-note')
     expect(() => saveCase(skill, draft, false, undefined, loadedAt)).toThrow('was deleted on disk')
     expect(caseSavedAt(skill, rel)).toBeNull()
+  })
+})
+
+describe('a prompt that starts like front matter', () => {
+  const base = {
+    id: 'dashes',
+    title: 'Dashes',
+    expectedOutcome: '',
+    words: null,
+    images: [],
+    graders: [],
+  }
+  const NO_SETTINGS = { tags: [], maxTurns: null, timeoutSeconds: null, allowedTools: null }
+  /** The request as it reads back: line ends as `\n`, no space at either end, as every prompt reads. */
+  const asRead = (prompt: string): string => prompt.replace(/\r\n?/g, '\n').trim()
+  const PROMPTS = [
+    '---',
+    '---\nNo closing line follows.',
+    '---\nallowed_tools: Bash\nmax_turns: 2\n---\nWrite it, settings block and all.',
+    '---\nHello\n---',
+    '---\n---\nAn empty block first.',
+    '---\r\ntags: [x]\r\n---\r\nWindows line ends.\r\n',
+    '---\nkey: value\n---\n\nA trailing newline.\n\n',
+    'Plain words, with --- later.\n---\nnot: a block\n---',
+  ]
+
+  it('reads back as the request it was saved as, whatever its text, with no settings', () => {
+    for (const [n, prompt] of PROMPTS.entries()) {
+      const id = `dashes-${n}`
+      saveCase(skill, { ...base, id, title: `Dashes ${n}`, prompt }, true)
+      const found = loadCases(skill).find((c) => c.id === id)
+      expect(found?.prompt, JSON.stringify(prompt)).toBe(asRead(prompt))
+      expect(found?.settings).toEqual(NO_SETTINGS)
+      // Saved again as it was read, it stays the same.
+      saveCase(skill, { ...base, id, title: `Dashes ${n}`, prompt: found?.prompt ?? '' }, false)
+      expect(loadCases(skill).find((c) => c.id === id)?.prompt).toBe(asRead(prompt))
+    }
+  })
+
+  it('keeps a settings block the file already had, and the request after it as written', () => {
+    writeCase('dashes', '---\nmax_turns: 3\n---\n\nOld prompt.\n')
+    const prompt = '---\ntags: [mine]\n---\nA block meant as text.'
+    saveCase(skill, { ...base, prompt }, false)
+    const [found] = loadCases(skill)
+    expect(found.prompt).toBe(prompt)
+    expect(found.settings).toEqual({ ...NO_SETTINGS, maxTurns: 3 })
+  })
+
+  it('puts a block that sets nothing in place of an empty one the request would end', () => {
+    writeCase('dashes', '---\n---\n\nOld prompt.\n')
+    for (const prompt of [
+      '---\nNo closing line follows.',
+      '---\nkey: value\n---\nAfter a block.',
+    ]) {
+      saveCase(skill, { ...base, prompt }, false)
+      const [found] = loadCases(skill)
+      expect(found.prompt).toBe(prompt)
+      expect(found.settings).toEqual(NO_SETTINGS)
+      expect(readFileSync(join(skill, 'evals/cases/dashes/prompt.md'), 'utf8')).toBe(
+        `---\n{}\n---\n\n${prompt}\n`,
+      )
+    }
+  })
+
+  it('writes every stored case’s prompt so it reads back as it does now', () => {
+    const files = readdirSync('fixtures', { recursive: true, encoding: 'utf8' }).filter((rel) =>
+      /(^|\/)evals\/cases\/[^/]+\/prompt\.md$/.test(rel.replaceAll('\\', '/')),
+    )
+    expect(files.length).toBeGreaterThan(0)
+    for (const rel of files) {
+      const raw = readFileSync(join('fixtures', rel), 'utf8')
+      const now = readFrontMatter(raw)
+      const again = readFrontMatter(promptFileText(frontMatterBlock(raw), now.text))
+      expect(again, rel).toEqual(now)
+    }
+  })
+
+  it('writes a prompt that does not start like front matter as it always has', () => {
+    saveCase(skill, { ...base, prompt: '  Write it.\n\n' }, true)
+    expect(readFileSync(join(skill, 'evals/cases/dashes/prompt.md'), 'utf8')).toBe('Write it.\n')
+    for (const prompt of ['---', '---\nNo closing line follows.']) {
+      saveCase(skill, { ...base, prompt }, false)
+      expect(readFileSync(join(skill, 'evals/cases/dashes/prompt.md'), 'utf8')).toBe(`${prompt}\n`)
+    }
   })
 })
 
