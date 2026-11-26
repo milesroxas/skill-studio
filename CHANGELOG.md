@@ -16,10 +16,12 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - `st run --quiet` prints one line as each attempt ends in place of progress, and still says what needs your attention.
 - `st run`, `st grade` and `st serve` now draw a page as the desktop app does, so a grading from the command line sees the same picture and the same measures. `--no-draw` grades without drawing.
 - `st sheet` puts each case's drawn pages from two or more runs side by side in one picture, a row for each run and a column for each attempt, and prints where each picture is.
+- An agent in a chat can follow a project skill, `.claude/skills/skill-studio-loop`, to make a skill, run two versions of it and compare them with `pnpm st`.
 
 ### Fixed
 
 - Two runs of one skill started at the same moment no longer take the same version number.
+- `st cases` prints every case id whole, so an id copied from it works in `--cases`.
 
 ## [0.20.3] - 2026-11-25
 
