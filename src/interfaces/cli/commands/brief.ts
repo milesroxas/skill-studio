@@ -192,12 +192,56 @@ function howOften(brief: CaseBrief, words: string): string {
  * "nothing missed" where nothing was: "nothing missed" stands alone only
  * where every one asked got an answer.
  */
-function caseWords(brief: CaseBrief): string {
+function caseWords(brief: CaseBrief, counted = true): string {
   const notes = notesOf(brief)
   if (notes.length) return notes.join('; ')
-  const unsure = unsureWords(brief)
+  const unsure = counted ? unsureWords(brief) : null
   if (brief.missed.length) return unsure ?? ''
+  // A count left out for room leaves "nothing missed" unsaid: alone it would say more than is so.
+  if (brief.unsure && !unsure) return ''
   return unsure ? `nothing missed, ${unsure}` : 'nothing missed'
+}
+
+/** The most a case prints, in bytes, beyond the words of the rules and checks it missed. */
+const CASE_BYTES = 200
+/** The longest a case's id runs to (`st case add`): a case is held to `CASE_BYTES` as though its id were this long. */
+const ID_LONGEST = 40
+
+/**
+ * The bytes a case prints, as `CASE_BYTES` holds it: its head line and each
+ * missed block, every line with its line end, less the words of each missed
+ * rule or check that are printed whole on their one line, its id counted as
+ * `ID_LONGEST` long.
+ */
+function caseBytes(
+  id: string,
+  head: string,
+  missed: ReadonlyArray<[block: string, words: string]>,
+): number {
+  const lines = [head, ...missed.map(([block]) => block)].join('\n')
+  const words = missed.reduce(
+    (n, [, w]) => n + (!LINE_BREAK.test(w) && printable(w) === w ? Buffer.byteLength(w) : 0),
+    0,
+  )
+  return Buffer.byteLength(lines) + 1 + Math.max(0, ID_LONGEST - id.length) - words
+}
+
+/**
+ * The head line with the most of its not-sure counts, in order, that keep the
+ * case within `CASE_BYTES`: `line(n)` is the line with the first `n` of them.
+ * Most lines hold all of them; a long title beside notes and misses may not.
+ */
+function fitted(
+  id: string,
+  counts: number,
+  line: (n: number) => string,
+  missed: ReadonlyArray<[block: string, words: string]>,
+): string {
+  for (let n = counts; n > 0; n -= 1) {
+    const head = line(n)
+    if (caseBytes(id, head, missed) <= CASE_BYTES) return head
+  }
+  return line(0)
 }
 
 /**
@@ -211,8 +255,13 @@ export function printBrief(skill: string, side: Side, scoring: Context['scoring'
   const { order, head } = namesOf(skill, [side.view])
   for (const id of casesInOrder(order, briefs.keys())) {
     const brief = briefs.get(id) ?? NONE
-    console.log(headLine(head(id), caseWords(brief)))
-    for (const w of brief.missed) console.log(missedLines(`missed${howOften(brief, w)}`, w))
+    const missed = brief.missed.map((w): [string, string] => [
+      missedLines(`missed${howOften(brief, w)}`, w),
+      w,
+    ])
+    const count = brief.unsure ? 1 : 0
+    console.log(fitted(id, count, (n) => headLine(head(id), caseWords(brief, n > 0)), missed))
+    for (const [block] of missed) console.log(block)
   }
 }
 
@@ -260,43 +309,49 @@ export function printBriefCompare(
       ...notesOf(one).flatMap((n) => (one.attempts ? [`in A, ${n}`] : [])),
       ...notesOf(two).flatMap((n) => (two.attempts ? [`in B, ${n}`] : [])),
     ]
-    // What became of an attempt not read whole is said alone, as with one run.
-    const unsure = notes.length
-      ? []
-      : (
-          [
-            ['A', one],
-            ['B', two],
-          ] as const
-        ).flatMap(([run, brief]) => {
-          const count = unsureCount(brief)
-          return count ? [`${run} ${count}`] : []
-        })
+    // Each run's own count: what became of a run's attempt not read whole is said alone for that run.
+    const unsure = (
+      [
+        ['A', one],
+        ['B', two],
+      ] as const
+    ).flatMap(([run, brief]) => {
+      const count = notesOf(brief).length && brief.attempts ? null : unsureCount(brief)
+      return count ? [`${run} ${count}`] : []
+    })
     const words = [...new Set([...one.missed, ...two.missed])]
     const said = [
       read ? BETTER[read.move] : why ? APART[why] : 'neither answered it',
       ...notes,
     ].join('; ')
     const nothing = !words.length && !notes.length
+    const missed = words.map((w): [string, string] => [missedLines(whoMissed(one, two, w), w), w])
     // What is counted is said once for both runs: `rules and checks not sure: A 1 of 11, B 1 of 16`.
-    const counts = unsure.length ? [`${NOT_SURE}: ${unsure.join(', ')}`] : []
-    console.log(
-      headLine(head(id), [`${said}${nothing ? ', nothing missed' : ''}`, ...counts].join('; ')),
-    )
-    for (const w of words) {
-      const [inA, inB] = [one.missed.includes(w), two.missed.includes(w)]
-      const [oftenA, oftenB] = [howOften(one, w), howOften(two, w)]
-      const who =
-        inA && inB
-          ? oftenA === oftenB
-            ? `A and B missed${oftenA}`
-            : `A missed${oftenA}, B missed${oftenB}`
-          : inA
-            ? `A missed${oftenA}`
-            : `B missed${oftenB}`
-      console.log(missedLines(who, w))
-    }
+    // A count left out for room leaves "nothing missed" unsaid.
+    const line = (n: number) =>
+      headLine(
+        head(id),
+        [
+          `${said}${nothing && n === unsure.length ? ', nothing missed' : ''}`,
+          ...(n ? [`${NOT_SURE}: ${unsure.slice(0, n).join(', ')}`] : []),
+        ].join('; '),
+      )
+    console.log(fitted(id, unsure.length, line, missed))
+    for (const [block] of missed) console.log(block)
   }
+}
+
+/** Which run missed a rule or check, and how often where it had more than one attempt: `A missed in 1 of 2, B missed`. */
+function whoMissed(one: CaseBrief, two: CaseBrief, w: string): string {
+  const [inA, inB] = [one.missed.includes(w), two.missed.includes(w)]
+  const [oftenA, oftenB] = [howOften(one, w), howOften(two, w)]
+  return inA && inB
+    ? oftenA === oftenB
+      ? `A and B missed${oftenA}`
+      : `A missed${oftenA}, B missed${oftenB}`
+    : inA
+      ? `A missed${oftenA}`
+      : `B missed${oftenB}`
 }
 
 /**

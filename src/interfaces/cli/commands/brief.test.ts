@@ -564,6 +564,10 @@ describe('how often --brief says a rule or check was missed', () => {
     const runs = [HAIKU_V0, '2026-11-20-skill-v1-claude-haiku']
     const two = await printedBy(compare, [skill, ...runs], { brief: true })
     expect(two.text).toContain(`\n  A missed in 1 of 2, B missed: ${QUOTE_RULE}\n`)
+    // B's count, 1 of 15, does not fit beside A's failed attempt and the split miss, so it is left out.
+    expect(two.text).toContain(
+      '\n[email-quote] Launch email, a quote that gives orders: neither did better; in A, attempt 4 failed, it ran out of time\n',
+    )
     const swapped = await printedBy(compare, [skill, ...[...runs].reverse()], { brief: true })
     expect(swapped.text).toContain(`\n  A missed, B missed in 1 of 2: ${QUOTE_RULE}\n`)
     // The count is held to the same size as every other line of a case.
@@ -1043,10 +1047,39 @@ describe('rules and checks --brief says were not sure', () => {
       '[email-free] Launch email, no price: wrote nothing',
     )
     const two = await printedBy(compare, [skill, HAIKU_V0, HAIKU_V1], { brief: true })
-    // B's own rule not sure is not said either where A's attempt was not read whole.
+    // Each run's count stands on its own: A's attempt not read whole hides A's alone.
     expect(headOf(two.text, 'email-free')).toBe(
-      '[email-free] Launch email, no price: no checks to compare; in A, wrote nothing',
+      '[email-free] Launch email, no price: no checks to compare; in A, wrote nothing; rules and checks not sure: B 1 of 16',
     )
+  })
+
+  it('leaves out a count only where the case would pass its 200 bytes, and then says no "nothing missed"', async () => {
+    const skill = copyOf('launch-note')
+    // A title long enough that the case cannot hold its counts as well, though it holds the rest.
+    const title = `Launch email, with a price, ${'and more words in its title '.repeat(3).trim()}`
+    expect(title.length).toBe(111)
+    writeFileSync(join(skill, 'evals/cases/email-price/case.yaml'), `title: ${title}\n`)
+    const one = await printedBy(report, [skill], { run: HAIKU_V1, brief: true })
+    // Its one count left out: the line says nothing it cannot hold whole.
+    expect(headOf(one.text, 'email-price')).toBe(`[email-price] ${title}`)
+    const two = await printedBy(compare, [skill, HAIKU_V0, HAIKU_V1], { brief: true })
+    expect(headOf(two.text, 'email-price')).toBe(`[email-price] ${title}: neither did better`)
+    // Where both fit, both are said.
+    const short = await printedBy(compare, [skill, HAIKU_V0, HAIKU_V1], { brief: true })
+    expect(headOf(short.text, 'email-crowded')).toBe(
+      '[email-crowded] Launch email, six features: neither did better; rules and checks not sure: A 1 of 11, B 2 of 16',
+    )
+    for (const [named, { text }] of [
+      [[HAIKU_V1], one],
+      [[HAIKU_V0, HAIKU_V1], two],
+    ] as const)
+      for (const bytes of bytesByCase(
+        text,
+        frameOf(skill, named),
+        caseHeadsOf(skill, named),
+        factWords(skill, named),
+      ))
+        expect(bytes).toBeLessThanOrEqual(200)
   })
 
   it('reads a grading kept from before code or headings answered as its own answers say, as plain report does', async () => {
