@@ -6,6 +6,7 @@
  */
 import {
   cpSync,
+  existsSync,
   mkdirSync,
   mkdtempSync,
   readdirSync,
@@ -17,7 +18,6 @@ import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import type { AiUsage } from '@domain/ai.ts'
 import { addTotals, runSpent, sumCalls } from '@domain/cost.ts'
-import type { Report } from '@domain/schemas.ts'
 import { metered, replyKey } from '@infrastructure/ai/metered.ts'
 import {
   type AiProvider,
@@ -27,6 +27,8 @@ import {
 } from '@infrastructure/ai/types.ts'
 import { loadCases } from '@infrastructure/cases.ts'
 import type { Engine } from '@infrastructure/engines/index.ts'
+import { takeGradingLock } from '@infrastructure/grading-lock.ts'
+import { GRADING_COST_FILE } from '@infrastructure/runs.ts'
 import { Jev } from '@judges/jev.ts'
 import { withMeter } from '@judges/meter.ts'
 import { MissingReply } from '@judges/replies.ts'
@@ -75,6 +77,10 @@ vi.mock('@infrastructure/preferences.ts', () => ({
 
 const { generateRun } = await import('./generate.ts')
 const { gradeRun } = await import('./grade.ts')
+type GradeOptions = Parameters<typeof gradeRun>[2]
+/** A file kept by a run, read raw, its shape for the test to hold. */
+// biome-ignore lint/suspicious/noExplicitAny: a stored file read raw, held to its shape by each test.
+type Stored = any
 const { sortSkill } = await import('./sorting.ts')
 
 const made: string[] = []
@@ -513,8 +519,8 @@ describe('the key of a saved reply', () => {
 })
 
 describe('what a run spent', () => {
-  /** A run of the note skill with a rule Jev is asked of, one attempt, made by the engine that writes a note. */
-  async function noteRun(): Promise<{ skill: string; run: string }> {
+  /** A run of the note skill with a rule Jev is asked of, made by the engine that writes a note. */
+  async function noteRun(samples = 1): Promise<{ skill: string; run: string; dir: string }> {
     const skill = noteSkill()
     writeFileSync(
       join(skill, 'SKILL.md'),
@@ -526,7 +532,7 @@ describe('what a run spent', () => {
       engine,
       model: null,
       effort: null,
-      samples: 1,
+      samples,
       configuration: 'with_skill',
       baseline: null,
       skillName: 'First',
@@ -534,74 +540,141 @@ describe('what a run spent', () => {
       parallel: 1,
       log: () => {},
     })
-    return { skill, run: name }
+    const dir = join(skill, 'evals/runs', name)
+    // Each attempt in words of its own, so Jev is asked of each and none answers another's.
+    for (let n = 2; n <= samples; n += 1)
+      writeFileSync(join(dir, `note-s${n}/outputs/note.md`), `Note number ${n}.`)
+    return { skill, run: name, dir }
   }
-  const reportOf = (skill: string, run: string): Report =>
-    JSON.parse(readFileSync(join(skill, 'evals/runs', run, 'report.json'), 'utf8'))
-  const grade = (skill: string, run: string) =>
-    gradeRun(skill, run, { useJev: true, log: () => {} })
-  /** The grading's calls to Jev as its report keeps them, their seconds left out. */
-  const jevCalls = (skill: string, run: string) =>
-    reportOf(skill, run).gradingCost?.calls.map(({ seconds, ...rest }) => {
-      expect(seconds).toBeGreaterThanOrEqual(0)
-      return rest
-    })
-
-  it('keeps with a grading every model call it made, and adds a grading again to what was kept', async () => {
-    const { skill, run } = await noteRun()
-    await grade(skill, run)
-    const asked = jev.asked.length
-    expect(asked).toBeGreaterThan(0)
-    const once = {
-      operation: 'grade',
-      provider: 'jev',
-      model: 'jev-test',
-      source: 'asked',
-      calls: asked,
-      input: 40 * asked,
-      output: 0,
+  const grade = (skill: string, run: string, more: Partial<GradeOptions> = {}) =>
+    gradeRun(skill, run, { useJev: true, log: () => {}, ...more })
+  /** What the run keeps of its gradings' cost: its file, read raw. */
+  const keptOf = (dir: string): Stored | null =>
+    existsSync(join(dir, GRADING_COST_FILE))
+      ? JSON.parse(readFileSync(join(dir, GRADING_COST_FILE), 'utf8'))
+      : null
+  /** The calls to Jev the run keeps, by count and input tokens. */
+  const jevKept = (dir: string) =>
+    keptOf(dir)?.calls.map((c: Stored) => ({
+      provider: c.provider,
+      calls: c.calls,
+      input: c.input,
+    }))
+  /** Answer each request with `answer` while `work` runs. */
+  async function answering<T>(answer: typeof jev.answer, work: () => Promise<T>): Promise<T> {
+    const before = jev.answer
+    jev.answer = answer
+    try {
+      return await work()
+    } finally {
+      jev.answer = before
     }
-    expect(jevCalls(skill, run)).toEqual([once])
-    expect(reportOf(skill, run).gradingCost?.whole).toBe(true)
-    // Asked again, with nothing kept from before: what was spent before is still spent.
-    rmSync(join(skill, 'evals/runs', run, 'judge-cache.json'))
+  }
+
+  it('keeps each call as it is made, and a grading again adds to it, asking nothing new adds nothing', async () => {
+    const { skill, run, dir } = await noteRun(2)
+    /** What the run kept, and what Jev had been asked, as the first output's grading ended. */
+    const seen: Array<[number, number]> = []
+    const log = (line: string) => {
+      if (line.includes(': total') && !seen.length)
+        seen.push([keptOf(dir)?.calls[0]?.calls ?? 0, jev.asked.length])
+    }
+    await grade(skill, run, { log })
+    const asked = jev.asked.length
+    // Kept as made, before the grading ended: the first output's calls, and not yet the second's.
+    expect(seen[0][0]).toBeGreaterThan(0)
+    expect(seen[0]).toEqual([seen[0][1], seen[0][1]])
+    expect(asked).toBeGreaterThan(seen[0][1])
+    expect(keptOf(dir)).toMatchObject({ whole: true })
+    expect(jevKept(dir)).toEqual([{ provider: 'jev', calls: asked, input: 40 * asked }])
+    // Nothing kept from before: asked again, and what was spent before is still spent.
+    rmSync(join(dir, 'judge-cache.json'))
     await grade(skill, run)
-    expect(jevCalls(skill, run)).toEqual([{ ...once, calls: 2 * asked, input: 80 * asked }])
-    // Asked nothing new, its answers kept from before: nothing more is spent, and nothing is lost.
+    expect(jevKept(dir)).toEqual([{ provider: 'jev', calls: 2 * asked, input: 80 * asked }])
+    // Its answers kept from before: nothing is asked, nothing more spent, nothing counted twice.
     await grade(skill, run)
     expect(jev.asked).toHaveLength(2 * asked)
-    expect(jevCalls(skill, run)).toEqual([{ ...once, calls: 2 * asked, input: 80 * asked }])
+    expect(jevKept(dir)).toEqual([{ provider: 'jev', calls: 2 * asked, input: 80 * asked }])
   })
 
-  it('says a grading again over a report that kept no cost is not the whole of what grading spent', async () => {
-    const { skill, run } = await noteRun()
+  it('counts a grading stopped part way, which writes no report, and the next adds only what it asks', async () => {
+    const { skill, run, dir } = await noteRun(2)
+    const stop = new AbortController()
+    // Stopped once the first output is graded: its answers are kept, its calls spent.
+    const log = (line: string) => {
+      if (line.includes(': total')) stop.abort()
+    }
+    await expect(grade(skill, run, { log, signal: stop.signal })).rejects.toThrow('Stopped.')
+    expect(existsSync(join(dir, 'report.json'))).toBe(false)
+    const first = jev.asked.length
+    expect(first).toBeGreaterThan(0)
+    expect(jevKept(dir)).toEqual([{ provider: 'jev', calls: first, input: 40 * first }])
     await grade(skill, run)
-    const path = join(skill, 'evals/runs', run, 'report.json')
-    const { gradingCost: _, ...old } = reportOf(skill, run)
-    writeFileSync(path, JSON.stringify(old))
-    rmSync(join(skill, 'evals/runs', run, 'judge-cache.json'))
+    const all = jev.asked.length
+    expect(all).toBeGreaterThan(first)
+    expect(keptOf(dir)).toMatchObject({ whole: true })
+    expect(jevKept(dir)).toEqual([{ provider: 'jev', calls: all, input: 40 * all }])
+  })
+
+  it('counts a grading whose pack fails on every output after its calls, which writes no report', async () => {
+    const { skill, run, dir } = await noteRun(2)
+    // Answers the pack cannot read: every output fails, after each request was made and paid for.
+    const graded = await answering(
+      () => ({}),
+      () => grade(skill, run),
+    )
+    expect(graded.results.every((r) => r.flags.some((f) => f.includes('pack failed')))).toBe(true)
+    expect(existsSync(join(dir, 'report.json'))).toBe(false)
+    const asked = jev.asked.length
+    expect(asked).toBeGreaterThan(0)
+    expect(jevKept(dir)).toEqual([{ provider: 'jev', calls: asked, input: 40 * asked }])
+  })
+
+  it('counts nothing for a grading the lock refuses, which asks nothing', async () => {
+    const { skill, run, dir } = await noteRun()
+    const release = takeGradingLock(dir)
+    try {
+      await expect(grade(skill, run)).rejects.toThrow('already being graded')
+    } finally {
+      release()
+    }
+    expect(jev.asked).toEqual([])
+    expect(keptOf(dir)).toBeNull()
+  })
+
+  it('keeps a grading that asks no model as such, and says a run graded before costs were kept is not whole', async () => {
+    const { skill, run, dir } = await noteRun()
+    await grade(skill, run, { useJev: false })
+    expect(keptOf(dir)).toEqual({ calls: [], whole: true })
+    // As a run graded before its gradings kept their cost: a report and kept answers, no cost.
     await grade(skill, run)
-    const kept = reportOf(skill, run).gradingCost
-    expect(kept?.whole).toBe(false)
+    rmSync(join(dir, GRADING_COST_FILE))
+    rmSync(join(dir, 'judge-cache.json'))
+    const before = jev.asked.length
+    await grade(skill, run)
+    expect(keptOf(dir)).toMatchObject({ whole: false })
     // Only what this grading asked: the one before kept no count to add.
-    expect(kept?.calls.map((c) => c.calls)).toEqual([jev.asked.length / 2])
+    expect(jevKept(dir)).toEqual([
+      {
+        provider: 'jev',
+        calls: jev.asked.length - before,
+        input: 40 * (jev.asked.length - before),
+      },
+    ])
   })
 
   it('adds nothing of an earlier cost kept in another shape, and says the sum is not whole', async () => {
-    const { skill, run } = await noteRun()
+    const { skill, run, dir } = await noteRun()
     await grade(skill, run)
-    const path = join(skill, 'evals/runs', run, 'report.json')
     writeFileSync(
-      path,
-      JSON.stringify({
-        ...reportOf(skill, run),
-        gradingCost: { calls: [{ calls: '9' }], whole: true },
-      }),
+      join(dir, GRADING_COST_FILE),
+      JSON.stringify({ calls: [{ calls: '9' }], whole: true }),
     )
-    rmSync(join(skill, 'evals/runs', run, 'judge-cache.json'))
+    rmSync(join(dir, 'judge-cache.json'))
+    const before = jev.asked.length
     await grade(skill, run)
-    expect(reportOf(skill, run).gradingCost).toMatchObject({
-      calls: [{ calls: jev.asked.length / 2 }],
+    expect(keptOf(dir)).toMatchObject({
+      calls: [{ calls: jev.asked.length - before }],
       whole: false,
     })
   })
@@ -619,7 +692,7 @@ describe('what a run spent', () => {
         null,
         answer(1.25, null, null),
       ],
-      null,
+      { cost: null, graded: false },
     )
     expect(spent).toEqual({
       attempts: 4,
@@ -631,13 +704,16 @@ describe('what a run spent', () => {
       graded: false,
       grading: null,
     })
-    expect(runSpent([], { gradingCost: { calls: [], whole: true } })).toMatchObject({
+    expect(runSpent([], { cost: { calls: [], whole: true }, graded: true })).toMatchObject({
       attempts: 0,
       graded: true,
       grading: { calls: [], whole: true },
     })
-    // A report kept from before reports kept their cost was graded, at a cost not known.
-    expect(runSpent([], {})).toMatchObject({ graded: true, grading: null })
+    // A run graded before its gradings kept their cost was graded, at a cost not known.
+    expect(runSpent([], { cost: null, graded: true })).toMatchObject({
+      graded: true,
+      grading: null,
+    })
   })
 
   it('adds totals of the same calls to the same lines, as summing their records does', () => {

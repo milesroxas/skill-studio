@@ -131,7 +131,7 @@ export const run: Command = {
     // The run as its files hold it once the grading is written.
     const view = readRun(skill, name)
     // What it spent, answering and grading, as those files keep it.
-    const spent = spentOf(skill, name, view.report)
+    const spent = spentOf(skill, name)
     // Brief, the report is each case and what it missed, scored as `st report --brief` scores it.
     const briefly = (report: Report | null) => {
       const samples = view.samples.map((s) => s.name)

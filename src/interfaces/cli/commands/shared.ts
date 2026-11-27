@@ -1,7 +1,7 @@
 /** What more than one command does: find the skill, hold its work, ask Jev, print a report. */
 import { existsSync, readFileSync } from 'node:fs'
 import { join, resolve } from 'node:path'
-import { unjudged } from '@application/grade.ts'
+import { gradingSpent, unjudged } from '@application/grade.ts'
 import type { PageRenderer } from '@domain/artifact-address.ts'
 import { type CallTotal, dollars, type RunSpent, runSpent, sumCalls } from '@domain/cost.ts'
 import { type RunNamed, runNamed } from '@domain/run-name.ts'
@@ -159,9 +159,9 @@ export function runNamer(skill: string): (run: string, meta?: RunMeta | null) =>
   }
 }
 
-/** What a run spent, from each attempt's `timing.json` and its `report`, as `st report` prints it. */
-export const spentOf = (skill: string, run: string, report: Report | null): RunSpent =>
-  runSpent(answerCosts(skill, run), report)
+/** What a run spent, from each attempt's `timing.json` and what its gradings kept, as `st report` prints it. */
+export const spentOf = (skill: string, run: string): RunSpent =>
+  runSpent(answerCosts(skill, run), gradingSpent(skill, run))
 
 /** A count as the report writes one: "83,305". */
 const counted = (n: number): string => n.toLocaleString('en-US')

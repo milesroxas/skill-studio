@@ -16,7 +16,7 @@ import { casesInOrder } from '@domain/results-address.ts'
 import { runNamed, runShown } from '@domain/run-name.ts'
 import { loadCases } from '@infrastructure/cases.ts'
 import type { EngineRequest, EngineResult } from '@infrastructure/engines/types.ts'
-import { readRun, versionsOf } from '@infrastructure/runs.ts'
+import { GRADING_COST_FILE, readRun, versionsOf } from '@infrastructure/runs.ts'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { caseHead } from './brief.ts'
 import type { Values } from './command.ts'
@@ -261,7 +261,7 @@ function runHeadsOf(skill: string, runs: readonly string[]): string[] {
 
 /** The lines `--brief` ends its cases with, saying what each run spent: `Spent:` for one, `A spent:` and `B spent:` for two. */
 function spentLinesOf(skill: string, runs: readonly string[]): string[] {
-  const spent = runs.map((name) => spentOf(skill, name, readRun(skill, name).report))
+  const spent = runs.map((name) => spentOf(skill, name))
   return spent.length === 1
     ? [spentLine(spent[0])]
     : [spentLine(spent[0], 'A'), spentLine(spent[1], 'B')]
@@ -1015,6 +1015,9 @@ describe('rules and checks --brief says were not sure', () => {
 })
 
 describe('what a run spent', () => {
+  /** Keep `cost` as a run's gradings would have kept it, in its file. */
+  const keepCost = (skill: string, run: string, cost: Stored) =>
+    writeFileSync(join(skill, 'evals/runs', run, GRADING_COST_FILE), JSON.stringify(cost))
   const HAIKU_V1 = '2026-11-20-skill-v1-claude-haiku'
   const WITHOUT = '2026-11-20-skill-v0-claude-sonnet-without-skill'
   const ALL = [
@@ -1109,10 +1112,7 @@ describe('what a run spent', () => {
       output: 0,
       seconds: 1.5 * n,
     })
-    const kept = (gradingCost: Stored) =>
-      edited(skill, HAIKU_V1, 'report.json', (r) => {
-        r.gradingCost = gradingCost
-      })
+    const kept = (gradingCost: Stored) => keepCost(skill, HAIKU_V1, gradingCost)
     // Two gradings of 3 and 5 calls, the second added to the first, as a grading again keeps them.
     kept({ calls: [calls(8)], whole: true })
     expect(await spentIn(skill, HAIKU_V1, { brief: true })).toMatch(
@@ -1152,9 +1152,7 @@ describe('what a run spent', () => {
       { calls: [{ ...good, source: 'guessed' }], whole: true },
     ]
     for (const shape of shapes) {
-      edited(skill, HAIKU_V1, 'report.json', (r) => {
-        r.gradingCost = shape
-      })
+      keepCost(skill, HAIKU_V1, shape)
       const line = await spentIn(skill, HAIKU_V1, { brief: true })
       expect(line, JSON.stringify(shape)).toMatch(new RegExp(`; ${OLD}$`))
       const json = JSON.parse(
@@ -1166,9 +1164,7 @@ describe('what a run spent', () => {
       expect(two.text).toMatch(new RegExp(`\\nB spent: .*; ${OLD}\\n`))
     }
     // The same in its shape is read and counted.
-    edited(skill, HAIKU_V1, 'report.json', (r) => {
-      r.gradingCost = { calls: [good], whole: true }
-    })
+    keepCost(skill, HAIKU_V1, { calls: [good], whole: true })
     expect(await spentIn(skill, HAIKU_V1, { brief: true })).toMatch(
       /; grading, 2 calls to Jev, 900 input tokens, 1 s$/,
     )

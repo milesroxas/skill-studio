@@ -3,7 +3,6 @@
  * server and the CLI all read the same shapes.
  */
 
-import type { GradingCost } from './cost.ts'
 import type { ImageRef } from './image.ts'
 import type { InputUpload } from './inputs.ts'
 
@@ -349,14 +348,6 @@ export interface Report {
    * they cost. Absent in a report written before reports said it.
    */
   asked?: { questions: number; inputTokens: number }
-  /**
-   * What the gradings of these outputs that wrote a report cost: every model
-   * call each made, this one's added to what the report it replaced kept, so
-   * a grading again that asks nothing new still counts what was spent before.
-   * Not whole (`whole: false`) where that report kept none. Absent in a report
-   * written before reports kept it.
-   */
-  gradingCost?: GradingCost
   /**
    * What the grading was told to lay over `bench.json`: the packs `st grade
    * --packs` named, and the file `--bench` gave. Absent for a grading made

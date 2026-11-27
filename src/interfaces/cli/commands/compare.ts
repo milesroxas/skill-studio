@@ -89,7 +89,7 @@ export const compare: Command = {
         samples: samples.map((s) => s.name),
         corrections: correctionsOf(skill, run),
         named: nameRun(run, view.meta),
-        spent: spentOf(skill, run, report),
+        spent: spentOf(skill, run),
       }
     }
     // Both under one scoring, so a difference is the outputs' and not a setting's, read as the app reads a change.

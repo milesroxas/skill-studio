@@ -56,7 +56,7 @@ export const sumCalls = (records: readonly CallRecord[]): CallTotal[] =>
   addTotals(records.map((r) => ({ ...r, calls: 1 })))
 
 /**
- * What the gradings of a run cost (`Report.gradingCost`): every model call
+ * What the gradings of a run cost, as the run keeps it: every model call
  * each made, added up. `whole` is false where an earlier grading of the run
  * kept no cost, so it is not among them.
  */
@@ -135,16 +135,16 @@ export interface RunSpent {
     /** In US dollars, added up over the attempts that kept a price. */
     usd: { attempts: number; total: number }
   }
-  /** Whether the run has a report. */
+  /** Whether the run was graded: it has a report, kept answers or a kept cost. */
   graded: boolean
-  /** What its gradings cost, as its report keeps it; null where it keeps none, as one graded before reports kept it. */
+  /** What its gradings cost, as it keeps it; null where it keeps none, as one graded before gradings kept their cost. */
   grading: GradingCost | null
 }
 
 /** What a run spent: `answers` holds each attempt's answer, null for one with no `timing.json`. */
 export function runSpent(
   answers: ReadonlyArray<AnswerCost | null>,
-  report: { gradingCost?: GradingCost } | null,
+  grading: { cost: GradingCost | null; graded: boolean },
 ): RunSpent {
   const timed = answers.filter((a): a is AnswerCost => a !== null)
   const tokened = timed.flatMap((a) => (a.tokens ? [a.tokens] : []))
@@ -166,8 +166,8 @@ export function runSpent(
         total: Math.round(priced.reduce((sum, usd) => sum + usd, 0) * 1e6) / 1e6,
       },
     },
-    graded: report !== null,
-    grading: report?.gradingCost ?? null,
+    graded: grading.graded,
+    grading: grading.cost,
   }
 }
 

@@ -6,7 +6,7 @@
  */
 import { readFileSync, statSync } from 'node:fs'
 import { join } from 'node:path'
-import { type AnswerCost, gradingCostIn } from '@domain/cost.ts'
+import { type AnswerCost, type GradingCost, gradingCostIn } from '@domain/cost.ts'
 import { OUTPUTS_DIR } from '@domain/prompt.ts'
 import { parseSampleDir } from '@domain/run-name.ts'
 import type {
@@ -24,7 +24,16 @@ import { metaList, metaText, readFrontMatter, textIn } from '@domain/text.ts'
 import type { FileHead, RunView, Sample, SkillVersions } from '@domain/views.ts'
 import { detectArtifacts } from './artifacts.ts'
 import { loadCases, loadEveryCase } from './cases.ts'
-import { assertInside, isDir, isFile, listDirs, listFiles, present, readJson } from './fs.ts'
+import {
+  assertInside,
+  isDir,
+  isFile,
+  listDirs,
+  listFiles,
+  present,
+  readJson,
+  writeJson,
+} from './fs.ts'
 import { readKept, runCases } from './run-cases.ts'
 import { type SkillTexts, skillIdentity, skillTexts, skillVersions } from './skill.ts'
 import { readTranscript } from './transcript.ts'
@@ -296,17 +305,23 @@ export function readRunMeta(skillDir: string, name: string): RunMeta | null {
 }
 
 /**
- * A report as every reader gets it: what its gradings cost (`gradingCost`)
- * checked whole (`gradingCostIn`), and left out where it is in another shape,
- * so it reads as a cost not kept. The report read is shared, so a checked one
- * is a copy.
+ * The file in a run's folder that keeps what its gradings cost: every model
+ * call each made, added up, written as each call is made known, whether or
+ * not the grading goes on to write a report (`gradeRun`).
  */
-function checkedReport(report: Report | null): Report | null {
-  if (!report || typeof report !== 'object' || !('gradingCost' in report)) return report
-  const { gradingCost, ...rest } = report
-  const checked = gradingCostIn(gradingCost)
-  return checked ? { ...rest, gradingCost: checked } : rest
-}
+export const GRADING_COST_FILE = 'grading-cost.json'
+
+/**
+ * What the gradings of the outputs in `dir` cost, as `GRADING_COST_FILE`
+ * keeps it, checked whole (`gradingCostIn`): null where there is none, or one
+ * in another shape, which reads as a cost not kept.
+ */
+export const readGradingCost = (dir: string): GradingCost | null =>
+  gradingCostIn(readRunJson<unknown>(join(dir, GRADING_COST_FILE), null))
+
+/** Keep what the gradings of the outputs in `dir` cost, written whole as the app writes JSON. */
+export const writeGradingCost = (dir: string, cost: GradingCost): void =>
+  writeJson(join(dir, GRADING_COST_FILE), cost)
 
 /**
  * A run as every interface reads it. `live` is the skill's cases as they are
@@ -329,7 +344,7 @@ export function readRun(
   return {
     name,
     meta,
-    report: checkedReport(readRunJson<Report | null>(join(dir, 'report.json'), null)),
+    report: readRunJson<Report | null>(join(dir, 'report.json'), null),
     samples: runSamples(dir),
     hasSkill: isDir(skillCopy(skillDir, name)),
     cases: runCases(skillDir, dir, live, kept, answered, every),

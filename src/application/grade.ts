@@ -16,14 +16,7 @@ import { inputName, isPicture } from '@domain/case-draft.ts'
 import { type CaseEnds, type CaseResults, caseResults } from '@domain/case-result.ts'
 import { type Answered, changeReading, comparableAnswers } from '@domain/change.ts'
 import { mergeConfig } from '@domain/config.ts'
-import {
-  addTotals,
-  type CallRecord,
-  type CallTotal,
-  type GradingCost,
-  gradingCostIn,
-  sumCalls,
-} from '@domain/cost.ts'
+import { addTotals, type CallRecord, type GradingCost, sumCalls } from '@domain/cost.ts'
 import { EXACT_VERSION } from '@domain/exact.ts'
 import {
   fitForJev,
@@ -83,12 +76,15 @@ import { CASES_FILE, type KeptCase, readKept, takenCase } from '@infrastructure/
 import {
   anchorsDir,
   finishedSamples,
+  GRADING_COST_FILE,
+  readGradingCost,
   readHead,
   readRunMeta,
   readSampleTranscript,
   runDir,
   runSamples,
   skillCopy,
+  writeGradingCost,
 } from '@infrastructure/runs.ts'
 import { readForJev, requestImages } from '@judges/images.ts'
 import { packById, packVersions } from '@judges/index.ts'
@@ -142,6 +138,8 @@ const RENDERS_DIR = 'renders'
 
 /** The file beside `report.json` that keeps Jev's answers by the hash of what each was asked (`JudgeCache`). */
 const CACHE_FILE = 'judge-cache.json'
+/** A grading's report, in the folder it grades. */
+const REPORT_FILE = 'report.json'
 /** What a grading that was stopped rejects with. */
 const STOPPED = 'Stopped.'
 
@@ -1232,11 +1230,11 @@ async function gradeSubjects(
   const results: ReportResult[] = []
   let unchanged = 0
   let questions = 0
-  /** Every model call this grading makes, as each ends: its report keeps what they cost. */
-  let calls: readonly CallRecord[] = []
+  // What a grading of a run spends is kept with the run as each call is made known, so a grading
+  // stopped, or one that writes no report, is counted all the same (`GRADING_COST_FILE`).
+  const keep = run ? costKeeper(dir, warn) : null
   try {
-    await withMeter(async (meter) => {
-      calls = meter.calls
+    await withMeter(async () => {
       for (const subject of subjects) {
         if (options.signal?.aborted) throw new Error(STOPPED)
         const graded = await gradeSubject(subject, ctx)
@@ -1247,8 +1245,11 @@ async function gradeSubjects(
       }
       // A stop that came with the last sample's answers: the grading did not run to its end.
       if (options.signal?.aborted) throw new Error(STOPPED)
-    })
+    }, keep?.call)
   } finally {
+    // Kept before the answers are: a crash between the two asks an answer again, and counts it again,
+    // rather than keeping an answer whose cost nobody counted.
+    keep?.end()
     // Nothing to keep and nothing kept before: no file is made for a grading that asked nothing.
     if (subjects.length && ctx.cache.holds) ctx.cache.write(join(dir, CACHE_FILE))
   }
@@ -1267,7 +1268,6 @@ async function gradeSubjects(
     inputTokens: ctx.cache.tokens(),
     seconds: Math.round((performance.now() - started) / 100) / 10,
     asked: { questions, inputTokens: jev.inputTokens },
-    gradingCost: gradingCostOf(dir, sumCalls(calls)),
     // Laid over `bench.json` for this grading only, so a reader of the report can tell.
     ...(options.packs || options.config
       ? {
@@ -1285,30 +1285,66 @@ async function gradeSubjects(
   const { failed, total } = unjudged(report)
   if (!total)
     warn('No output to grade, so no report was written. The last one, if any, still stands.')
-  else if (failed < total) writeJson(join(dir, 'report.json'), report)
+  else if (failed < total) writeJson(join(dir, REPORT_FILE), report)
   return report
 }
 
+/** Whether the outputs in `dir` were graded before: a report, kept answers or a kept cost is there. */
+const gradedIn = (dir: string): boolean =>
+  [REPORT_FILE, CACHE_FILE, GRADING_COST_FILE].some((file) => isFile(join(dir, file)))
+
 /**
- * What the gradings of the outputs in `dir` cost, this one's `calls` among
- * them. A grading again replaces the report, not what was spent: so the cost
- * the report it replaces kept is added to this one's. Where that report kept
- * none, as one written before reports kept it, or cannot be read, the sum is
- * not whole. A grading that wrote no report, stopped or with nothing judged,
- * is counted nowhere.
+ * What the gradings of the run in `dir` spend, kept as it is made known
+ * (`GRADING_COST_FILE`), for one grading that holds the run's lock: each model
+ * call is added and the file written whole as the call is counted (`call`),
+ * and once more as the grading ends (`end`), however it ends, so a grading
+ * that asks nothing still says so. It starts from what the file kept; with no
+ * file, from nothing, and not whole where the run was graded before its
+ * gradings kept their cost. A call counted after `end`, such as an answer a
+ * stop did not wait for, is not kept: the lock is given back by then. A
+ * file that cannot be written is said once, and grading goes on.
  */
-function gradingCostOf(dir: string, calls: CallTotal[]): GradingCost {
-  const path = join(dir, 'report.json')
-  if (!isFile(path)) return { calls, whole: true }
-  let before: Partial<Report> | null = null
-  try {
-    before = readJson<Partial<Report> | null>(path, null)
-  } catch {
-    // A report that does not read keeps no cost that can be added.
+function costKeeper(
+  dir: string,
+  warn: (line: string) => void,
+): { call: (record: CallRecord) => void; end: () => void } {
+  let spent: GradingCost = readGradingCost(dir) ?? { calls: [], whole: !gradedIn(dir) }
+  let open = true
+  let said = false
+  const write = (): void => {
+    try {
+      writeGradingCost(dir, spent)
+    } catch (error) {
+      if (!said) warn(`What this grading spends could not be kept: ${(error as Error).message}`)
+      said = true
+    }
   }
-  // Checked whole, as every reader of a report checks it: one in another shape was kept by no one.
-  const kept = gradingCostIn(before?.gradingCost)
-  return kept ? { calls: addTotals(kept.calls, calls), whole: kept.whole } : { calls, whole: false }
+  return {
+    call: (record) => {
+      if (!open) return
+      spent = { calls: addTotals(spent.calls, sumCalls([record])), whole: spent.whole }
+      write()
+    },
+    end: () => {
+      if (!open) return
+      open = false
+      write()
+    },
+  }
+}
+
+/**
+ * What the gradings of a run spent, as it keeps it (`GRADING_COST_FILE`),
+ * checked whole, and whether it was graded at all: one graded before its
+ * gradings kept their cost, or whose kept cost is in another shape, was
+ * graded at a cost not kept.
+ */
+export function gradingSpent(
+  skillDir: string,
+  run: string,
+): { cost: GradingCost | null; graded: boolean } {
+  const dir = runDir(skillDir, run)
+  return { cost: readGradingCost(dir), graded: gradedIn(dir) }
 }
 
 /**
@@ -1391,7 +1427,7 @@ export function jevForRun(skillDir: string, run: string): boolean {
   if (Jev.available()) return true
   let scored: Partial<Report> | null = null
   try {
-    scored = readJson<Partial<Report> | null>(join(runDir(skillDir, run), 'report.json'), null)
+    scored = readJson<Partial<Report> | null>(join(runDir(skillDir, run), REPORT_FILE), null)
   } catch {
     // A report that cannot be read holds no score to lose.
   }

@@ -80,7 +80,7 @@ export const report: Command = {
     // The version it ran, by the name it was given, so no one looks it up.
     const named = runNamer(skill)(name, view.meta)
     // What answering and grading it cost, added up from what its files keep.
-    const spent = spentOf(skill, name, view.report)
+    const spent = spentOf(skill, name)
     if (brief) {
       const side = { view, report: view.report, cases: view.cases, samples, corrections }
       console.log(`Run: ${runShown(named)}`)

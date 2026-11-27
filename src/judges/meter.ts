@@ -12,13 +12,18 @@ export interface Meter {
   readonly calls: CallRecord[]
   /** Why each call a replay could not answer was stopped: no reply was saved for it, or none ever is. */
   readonly missing: string[]
+  /** Told of each call as it is counted, for a meter that keeps its calls as they are made. */
+  readonly onCall?: (record: CallRecord) => void
 }
 
 const meters = new AsyncLocalStorage<readonly Meter[]>()
 
-/** Run `work` with a meter of its own. */
-export function withMeter<T>(work: (meter: Meter) => Promise<T>): Promise<T> {
-  const meter: Meter = { calls: [], missing: [] }
+/** Run `work` with a meter of its own; `onCall` is told of each call counted to it, as it is. */
+export function withMeter<T>(
+  work: (meter: Meter) => Promise<T>,
+  onCall?: (record: CallRecord) => void,
+): Promise<T> {
+  const meter: Meter = { calls: [], missing: [], ...(onCall ? { onCall } : {}) }
   return meters.run([...(meters.getStore() ?? []), meter], () => work(meter))
 }
 
@@ -27,7 +32,10 @@ export const meterNow = (): Meter | null => meters.getStore()?.at(-1) ?? null
 
 /** Count one call to every meter it is made under. */
 export function countCall(record: CallRecord): void {
-  for (const meter of meters.getStore() ?? []) meter.calls.push(record)
+  for (const meter of meters.getStore() ?? []) {
+    meter.calls.push(record)
+    meter.onCall?.(record)
+  }
 }
 
 /** Say that a replay could not answer a call, to every meter it is made under. */
