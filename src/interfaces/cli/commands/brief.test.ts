@@ -794,6 +794,34 @@ describe('how a run is named', () => {
     expect(Object.keys(two)).toEqual(['rows', 'left', 'notes', 'cases', 'a', 'b', 'spent'])
   })
 
+  it('reads a version name that is not text as none, in report, grade and a run made after it', async () => {
+    const skill = copyOf('launch-note')
+    edited(skill, HAIKU_V0, 'run.json', (m) => {
+      m.skillName = 5
+    })
+    const { code, text } = await printedBy(report, [skill], { run: HAIKU_V0, brief: true })
+    expect(code).toBe(0)
+    // v0's name is read from its first run, which holds none now.
+    expect(text.split('\n')[0]).toBe(`Run: ${HAIKU_V0} (v0)`)
+    const notes = notesSkill()
+    ends.list = ['note']
+    const values = { engine: 'fake', name: 'first', parallel: '1', 'no-jev': true, quiet: true }
+    await run.run(contextOf([notes], values, null))
+    const [first] = runsOf(notes)
+    const path = join(notes, 'evals/runs', first, 'run.json')
+    writeFileSync(path, JSON.stringify({ ...JSON.parse(readFileSync(path, 'utf8')), skillName: 5 }))
+    const { grade } = await import('./grade.ts')
+    printed = []
+    expect(await grade.run(contextOf([notes], { run: first, 'no-jev': true }, null))).toBe(0)
+    expect(printed[0]).toBe(`\n${first} (v0)`)
+    // The same files run again as v0, named by nothing now, and the run is named after its agents are done.
+    printed = []
+    ends.list = ['note']
+    expect(await run.run(contextOf([notes], { ...values, name: undefined }, null))).toBe(0)
+    const second = runsOf(notes).find((r) => r !== first) ?? ''
+    expect(printed[0]).toBe(`Run: ${join(notes, 'evals/runs', second)} (v0)`)
+  })
+
   it('names the version on the Run line of st run, the line of st grade, and in their JSON, never before it', async () => {
     const skill = notesSkill()
     ends.list = ['note', 'note']

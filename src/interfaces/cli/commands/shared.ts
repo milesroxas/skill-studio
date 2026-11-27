@@ -138,13 +138,24 @@ export function skillOf(args: readonly string[]): {
  * How a command names each run of the skill to a reader (`runNamed`): by its
  * folder and the version it ran, with that version's name as `st versions`
  * lists it. The versions are read once, at the first run named; a run's
- * `run.json` is read where its `meta` is not handed in.
+ * `run.json` is read where its `meta` is not handed in. Naming a run is only
+ * for show, and comes after work that must not be lost, such as a run's
+ * agents: where the files cannot be read, the run is named by what can be,
+ * or by its folder alone, and nothing is thrown.
  */
 export function runNamer(skill: string): (run: string, meta?: RunMeta | null) => RunNamed {
   let versions: SkillVersion[] | null = null
-  return (run, meta = readRunMeta(skill, run)) => {
-    versions ??= versionsOf(skill).versions
-    return runNamed(run, meta, versions)
+  return (run, given) => {
+    try {
+      versions ??= versionsOf(skill).versions
+    } catch {
+      versions = []
+    }
+    try {
+      return runNamed(run, given === undefined ? readRunMeta(skill, run) : given, versions)
+    } catch {
+      return runNamed(run, null, [])
+    }
   }
 }
 

@@ -281,6 +281,9 @@ export function headProblems(raw: string, folder: string): HeadProblem[] {
   return problems
 }
 
+/** A field of a file anyone may have written, read as text: a string, and anything else as none (''). */
+export const textIn = (value: unknown): string => (typeof value === 'string' ? value : '')
+
 /** A front matter field as text: strings, numbers and booleans; null for anything else. */
 export const metaText = (meta: Record<string, unknown>, key: string): string | null => {
   const value = meta[key]

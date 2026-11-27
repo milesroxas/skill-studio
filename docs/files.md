@@ -201,6 +201,8 @@ A skill's version is a hash of every file an agent's copy holds: `SKILL.md`, `re
 
 A run keeps the version it tested. Its `_skill/` snapshot is the copy the app reads and restores.
 
+- A version's name, note and hash are read as text wherever they are kept, in a run's `run.json` and in a saved version's `version.json`: one that is not text, such as a number, is none, and the version is shown by its number alone.
+
 - Restore makes the skill's files those of the version, byte for byte, all of them or none: every file the version's copy holds is put back, and a file the version does not have goes. `evals/`, hidden files and installed packages are no part of a version and are never touched. When the copy kept of a version does not hold all it was stamped with (a version marked `partial`), only `SKILL.md` and `references/` are restored and compared, and other files stay as they are: the version's page says so.
 - The app asks before a restore when the files were saved since the last run or hold unsaved edits (`restoreAsk` in `src/renderer/restore.ts`). A restore drops the unsaved edits of the skill's files, so none stays to be saved back over a restored file.
 - When a restore fails partway and a file cannot be moved back, your files are kept in a hidden `.restore-…` folder in the skill. The error names each one and where it goes.

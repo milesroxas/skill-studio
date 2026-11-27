@@ -20,7 +20,7 @@ import type {
   Timing,
   TranscriptEvent,
 } from '@domain/schemas.ts'
-import { metaList, metaText, readFrontMatter } from '@domain/text.ts'
+import { metaList, metaText, readFrontMatter, textIn } from '@domain/text.ts'
 import type { FileHead, RunView, Sample, SkillVersions } from '@domain/views.ts'
 import { detectArtifacts } from './artifacts.ts'
 import { loadCases, loadEveryCase } from './cases.ts'
@@ -259,15 +259,16 @@ export function finishedSamples(
 /**
  * The skill version a run names. The version is a label (`v3`) or nothing:
  * the file may have been written by anyone, and its version names a folder
- * when the version is deleted.
+ * when the version is deleted. Its name, hash and note are text, and one that
+ * is not is none.
  */
 function stampOf(raw: RawMeta): Pick<RunMeta, 'skillVersion' | 'skillName' | 'skillHash' | 'note'> {
-  const version = typeof raw.skillVersion === 'string' ? raw.skillVersion : ''
+  const version = textIn(raw.skillVersion)
   return {
     skillVersion: isVersionLabel(version) ? version : '',
-    skillName: raw.skillName ?? '',
-    skillHash: raw.skillHash ?? '',
-    note: raw.note ?? '',
+    skillName: textIn(raw.skillName),
+    skillHash: textIn(raw.skillHash),
+    note: textIn(raw.note),
   }
 }
 
