@@ -24,6 +24,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - `st report`, `st compare` and `st run` end with what a run spent: its attempts' seconds, tokens and price added up, and what grading it asked of Jev. A grading that is stopped is still counted.
 - An agent in a chat can follow a project skill, `.claude/skills/skill-studio-loop`, to make a skill, run two versions of it and compare them with `pnpm st`.
 
+### Changed
+
+- **Help me improve** asks each of its questions at once, without waiting on the assistant. The assistant writes only a question asked a second time, and the draft.
+
 ### Fixed
 
 - Two runs of one skill started at the same moment no longer take the same version number.
