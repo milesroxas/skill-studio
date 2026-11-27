@@ -1,0 +1,11 @@
+{
+  "operation": "sort",
+  "reply": {
+    "text": "{\"readings\":[{\"id\":\"c1\",\"reason\":\"The check fixes the price form with 'as 12 USD a month', so code can look for those words in the email.\",\"reading\":{\"reading\":\"exact\",\"outputs\":[\"text\"],\"join\":\"all\",\"tests\":[{\"test\":\"has\",\"read\":{\"part\":\"file\"},\"values\":{\"from\":\"listed\",\"items\":[\"12 USD a month\"]},\"need\":\"all\",\"at\":\"anywhere\",\"match\":\"words\",\"case\":\"any\"}]},\"against\":[]},{\"id\":\"c2\",\"reason\":\"A date can be written in several forms, so a model must judge whether the email gives that date.\",\"reading\":{\"reading\":\"judged\",\"span\":\"any\"},\"against\":[]}]}",
+    "model": "claude-sonnet-5-5",
+    "usage": {
+      "input": 13334,
+      "output": 578
+    }
+  }
+}

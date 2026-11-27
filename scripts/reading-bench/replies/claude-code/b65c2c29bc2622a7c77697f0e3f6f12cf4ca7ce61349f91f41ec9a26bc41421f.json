@@ -1,0 +1,11 @@
+{
+  "operation": "sort",
+  "reply": {
+    "text": "{\"readings\":[{\"id\":\"c1\",\"reason\":\"Features may be named in the brief's labels or in other words, and all six can be spread through the email, so Jev must judge the whole output.\",\"reading\":{\"reading\":\"judged\",\"span\":\"whole\"},\"against\":[]},{\"id\":\"c2\",\"reason\":\"A date can be written in several forms, so understanding is needed to see that the release date appears.\",\"reading\":{\"reading\":\"judged\",\"span\":\"any\"},\"against\":[]}]}",
+    "model": "claude-sonnet-5-5",
+    "usage": {
+      "input": 13408,
+      "output": 578
+    }
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "operation": "sort",
+  "reply": {
+    "text": "{\"readings\":[{\"id\":\"c1\",\"reason\":\"The claim can be worded many ways, so understanding is needed, and one part saying it is enough.\",\"reading\":{\"reading\":\"judged\",\"span\":\"any\"},\"against\":[]},{\"id\":\"c2\",\"reason\":\"The address is a fixed value the check names, so finding it in the file is an exact test.\",\"reading\":{\"reading\":\"exact\",\"outputs\":[\"text\"],\"join\":\"all\",\"tests\":[{\"test\":\"has\",\"read\":{\"part\":\"file\"},\"values\":{\"from\":\"listed\",\"items\":[\"help@ferry.example\"]},\"need\":\"all\",\"at\":\"anywhere\",\"match\":\"characters\",\"case\":\"any\"}]},\"against\":[]}]}",
+    "model": "claude-sonnet-5-5",
+    "usage": {
+      "input": 13740,
+      "output": 378
+    }
+  }
+}

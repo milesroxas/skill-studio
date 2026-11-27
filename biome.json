@@ -16,7 +16,8 @@
       "!**/evals/runs",
       "!**/evals/anchors/report.json",
       "!**/evals/reviews.json",
-      "!**/evals/rule-readings.json"
+      "!**/evals/rule-readings.json",
+      "!scripts/reading-bench/replies"
     ]
   },
   "formatter": {

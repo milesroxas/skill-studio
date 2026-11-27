@@ -1,0 +1,11 @@
+{
+  "operation": "sort",
+  "reply": {
+    "text": "{\"readings\":[{\"id\":\"c1\",\"reason\":\"A person's name and an organisation's name can be written in more than one form (\\\"&\\\" or \\\"and\\\"), so Jev judges it, and one mention anywhere meets it.\",\"reading\":{\"reading\":\"judged\",\"span\":\"any\"},\"against\":[]}]}",
+    "model": "claude-sonnet-5-5",
+    "usage": {
+      "input": 13299,
+      "output": 245
+    }
+  }
+}

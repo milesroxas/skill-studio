@@ -19,6 +19,7 @@
 | `scripts/reading-bench/count.ts` | the counts the bench and the gate share: a grading against the key, and readings answered by code |
 | `scripts/reading-bench/readings.ts` | puts two sorted copies' readings into one (`merge`), and lists what two sorts read differently (`differ`) |
 | `scripts/reading-bench/gate.ts`, `pinned.ts` | the reading gate (`pnpm reading-gate`), and the numbers it and `pnpm check` hold the skill to |
+| `scripts/reading-bench/replies/` | the assistant's and Jev's replies to one sort of both versions, one `st propose` and four `st read`s, saved to be replayed ([the baseline](#the-baseline)) |
 
 The key's tests are in `src/interfaces/cli/reading-bench.test.ts`. One of them fails when a rule or a check has no code in the key, and one when `SKILL.md` is neither of the two versions. `src/interfaces/cli/exact-key.test.ts` answers every exact gold reading on every stored output, and on each one changed to miss, and fails where it and the key differ. `src/interfaces/cli/reading-gate.test.ts` holds the counts to `STORED` in `pinned.ts`.
 
@@ -69,11 +70,12 @@ The key answers true, false or nothing. It gives no answer on tone, on a word co
 
 ## Counting what `st sort` read
 
-Never sort or grade `fixtures/launch-note` itself: its stored runs and readings are the baseline. Sort a copy of version one, give a copy of version two its readings, as one skill folder holds them over its life, and sort that:
+Never sort or grade `fixtures/launch-note` itself: its stored runs and readings are the baseline. Sort a copy of version one, give a copy of version two its readings, as one skill folder holds them over its life, and sort that. Each copy goes without the fixture's `rule-readings.json`, as the gate's do: while the sorting prompt's version is the one they were read under, a sort keeps every one of them and reads nothing.
 
 ```
 cp -R fixtures/launch-note /tmp/v1 && cp scripts/reading-bench/skill/v1.md /tmp/v1/SKILL.md
 cp -R fixtures/launch-note /tmp/v2
+rm /tmp/v1/evals/rule-readings.json /tmp/v2/evals/rule-readings.json
 pnpm st sort /tmp/v1 --model sonnet
 pnpm exec tsx scripts/reading-bench/readings.ts merge /tmp/v2 /tmp/v1
 pnpm st sort /tmp/v2 --model sonnet
@@ -109,6 +111,22 @@ On 2026-11-21, with sorting prompt version 12 and Sonnet, over both versions, tw
 - Each sort took about a minute, about 200,000 to 220,000 input and 14,000 output tokens of the assistant, and 895 Jev questions.
 
 On the other fixtures, two sorts each: `code-skill` is all Jev's. `demo-skill` gives code its word limit ("under 120 words", at most 119) and its banned words. `design-skill` gives code its opening rule: `<!doctype html>` first, `lang` on `<html>`, a `<title>` and a viewport `<meta>`. Each is answered as a reader would on the fixtures' stored outputs. `demo-skill`'s "under Settings > Export" and `design-skill`'s "Save the page as outputs/index.html" are Jev's: a path through menus can be written with other marks, and code never reads the graded file's own name.
+
+## The baseline
+
+`replies/` holds what the assistant (Sonnet, on Claude Code) and Jev answered when these ran live once, one after another, with `ST_AI_RECORD=scripts/reading-bench/replies`, on the copies above:
+
+```
+pnpm st sort /tmp/v1 --model sonnet
+pnpm exec tsx scripts/reading-bench/readings.ts merge /tmp/v2 /tmp/v1
+pnpm st sort /tmp/v2 --model sonnet
+pnpm st propose /tmp/v2
+pnpm exec tsx scripts/reading-bench/index.ts /tmp/v2 --run <run> --out key.json
+pnpm st read /tmp/v2 --run <run> --blind --answers key.json
+pnpm st read /tmp/v2 --run <run> --answers key.json
+```
+
+The two runs read are the ones [below](#what-the-stored-gradings-show): `2026-11-20-skill-v0-claude-sonnet` and `2026-11-20-skill-v0-claude-sonnet-without-skill`. With `ST_AI_REPLAY=scripts/reading-bench/replies` in place of `ST_AI_RECORD`, the same commands on a new pair of copies answer every call from those files, so they ask neither Claude nor Jev and need no key. `src/interfaces/cli/baseline.test.ts` does that in `pnpm check`, and holds each command to the counts the live run gave. A change to what one of these commands sends makes a key no reply has, and the test stops on that call by its operation and key.
 
 ## Making the runs again
 

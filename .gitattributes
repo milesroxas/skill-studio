@@ -5,5 +5,7 @@
 # stored run answer another case.
 fixtures/** -text
 scripts/reading-bench/skill/** -text
+# The baseline's saved replies, kept as they were written, as the stored runs are.
+scripts/reading-bench/replies/** -text
 # What `st --help` printed, held to the help byte for byte.
 src/interfaces/cli/commands/__fixtures__/** -text

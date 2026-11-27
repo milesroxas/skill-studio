@@ -1,0 +1,11 @@
+{
+  "operation": "sort",
+  "reply": {
+    "text": "{\"readings\":[{\"id\":\"c1\",\"reason\":\"Naming a feature can be done in slightly different words, so Jev must read the whole email for all six.\",\"reading\":{\"reading\":\"judged\",\"span\":\"whole\"},\"against\":[]},{\"id\":\"c2\",\"reading\":{\"reading\":\"judged\",\"span\":\"any\"},\"reason\":\"A date can be written in several forms, so Jev judges whether it appears anywhere.\",\"against\":[]}]}",
+    "model": "claude-sonnet-5-5",
+    "usage": {
+      "input": 13712,
+      "output": 587
+    }
+  }
+}

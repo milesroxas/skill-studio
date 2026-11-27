@@ -1,0 +1,11 @@
+{
+  "operation": "sort",
+  "reply": {
+    "text": "{\"readings\":[{\"id\":\"c1\",\"reason\":\"Whether every one of 180 changes is listed needs reading, since changes have no fixed tag; the 120-word rule cannot hold beside 180 entries.\",\"reading\":{\"reading\":\"judged\",\"span\":\"whole\"},\"against\":[{\"rule\":\"r4\",\"fix\":\"Write no more than 120 words, unless the request asks for a page listing every change; then list them all and keep the rest brief.\"}]},{\"id\":\"c2\",\"reason\":\"Which change comes last, near the end before the footer, depends on how the page is laid out and needs reading.\",\"reading\":{\"reading\":\"judged\",\"span\":\"end\"},\"against\":[]}]}",
+    "model": "claude-sonnet-5-5",
+    "usage": {
+      "input": 15603,
+      "output": 721
+    }
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "operation": "sort",
+  "reply": {
+    "text": "{\"readings\":[{\"id\":\"c1\",\"reason\":\"The price is a fixed string from the brief's Price line, so a words match on the page text finds it.\",\"reading\":{\"reading\":\"exact\",\"outputs\":[\"page\"],\"join\":\"all\",\"tests\":[{\"test\":\"has\",\"read\":{\"part\":\"text\",\"skip\":null},\"values\":{\"from\":\"request\",\"in\":\"file\",\"file\":\"brief.md\",\"labels\":[\"Price\"],\"take\":\"whole\",\"level\":null},\"need\":\"all\",\"at\":\"anywhere\",\"match\":\"words\",\"case\":\"any\"}]},\"against\":[]},{\"id\":\"c2\",\"reason\":\"A link is an a tag and a button is a button tag, and the label Book a demo is fixed, so code can find it in either.\",\"reading\":{\"reading\":\"exact\",\"outputs\":[\"page\"],\"join\":\"any\",\"tests\":[{\"test\":\"has\",\"read\":{\"part\":\"elements\",\"tag\":\"a\",\"attribute\":null,\"which\":\"every\"},\"values\":{\"from\":\"listed\",\"items\":[\"Book a demo\"]},\"need\":\"all\",\"at\":\"anywhere\",\"match\":\"words\",\"case\":\"any\"},{\"test\":\"has\",\"read\":{\"part\":\"elements\",\"tag\":\"button\",\"attribute\":null,\"which\":\"every\"},\"values\":{\"from\":\"listed\",\"items\":[\"Book a demo\"]},\"need\":\"all\",\"at\":\"anywhere\",\"match\":\"words\",\"case\":\"any\"}]},\"against\":[]}]}",
+    "model": "claude-sonnet-5-5",
+    "usage": {
+      "input": 13968,
+      "output": 793
+    }
+  }
+}
