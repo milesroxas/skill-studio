@@ -1,0 +1,11 @@
+{
+  "operation": "sort",
+  "reply": {
+    "text": "{\"readings\":[{\"id\":\"c1\",\"reason\":\"Counting changes on a page needs understanding of how the page marks each change, so Jev judges it over the whole page; 180 changes cannot fit in 120 words.\",\"reading\":{\"reading\":\"judged\",\"span\":\"whole\"},\"against\":[{\"rule\":\"r4\",\"fix\":\"Write no more than 120 words, unless the request asks for a full list of changes, which then adds to the count.\"}]},{\"id\":\"c2\",\"reason\":\"Which item is the last change, with the footer after it, takes understanding of the page's structure, and it sits near the end.\",\"reading\":{\"reading\":\"judged\",\"span\":\"end\"},\"against\":[]}]}",
+    "model": "claude-sonnet-5-5",
+    "usage": {
+      "input": 15294,
+      "output": 841
+    }
+  }
+}

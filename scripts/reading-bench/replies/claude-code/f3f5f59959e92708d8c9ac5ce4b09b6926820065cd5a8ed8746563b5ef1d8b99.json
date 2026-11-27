@@ -1,0 +1,11 @@
+{
+  "operation": "propose",
+  "reply": {
+    "text": "{\"proposals\":[{\"check\":\"The email's first line of body text is the headline \\\"Bookings now confirm themselves.\\\"\",\"why\":\"A reader should meet the release headline first, not a greeting.\",\"scope\":\"case\",\"basis_file\":\"note.md\",\"basis_quote\":\"opens with the headline\",\"answer\":\"A\",\"fault_file\":\"A/outputs/email.txt\",\"fault_quote\":\"Hi,\",\"meets\":[{\"answer\":\"A\",\"meets\":\"no\"},{\"answer\":\"B\",\"meets\":\"yes\"},{\"answer\":\"C\",\"meets\":\"yes\"}]},{\"check\":\"The email never holds the words \\\"Falcon\\\".\",\"why\":\"The internal codename leaking into a published email makes it unusable.\",\"scope\":\"case\",\"basis_file\":\"inputs/brief.md\",\"basis_quote\":\"The codename Falcon must not appear in anything we publish.\",\"answer\":\"\",\"fault_file\":\"\",\"fault_quote\":\"\",\"meets\":[{\"answer\":\"A\",\"meets\":\"yes\"},{\"answer\":\"B\",\"meets\":\"yes\"},{\"answer\":\"C\",\"meets\":\"yes\"}]}],\"note_facts\":[{\"quote\":\"a short plain-text email\",\"covered_by\":\"\",\"why_not\":\"Short has no stated limit, so a reader cannot answer it yes or no.\"},{\"quote\":\"opens with the headline\",\"covered_by\":\"P1\",\"why_not\":\"\"},{\"quote\":\"states the price as 12 USD a month\",\"covered_by\":\"C1\",\"why_not\":\"\"}]}",
+    "model": "claude-sonnet-5-5",
+    "usage": {
+      "input": 5725,
+      "output": 937
+    }
+  }
+}

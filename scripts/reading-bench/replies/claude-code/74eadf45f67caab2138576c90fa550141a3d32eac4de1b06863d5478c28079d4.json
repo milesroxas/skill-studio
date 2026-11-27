@@ -1,0 +1,11 @@
+{
+  "operation": "propose",
+  "reply": {
+    "text": "{\"proposals\":[{\"check\":\"The email names no price.\",\"why\":\"A price in a free-update announcement could mislead readers about what the update costs.\",\"scope\":\"every case\",\"basis_file\":\"note.md\",\"basis_quote\":\"says the update is free and names no price\",\"answer\":\"\",\"fault_file\":\"\",\"fault_quote\":\"\",\"meets\":[{\"answer\":\"A\",\"meets\":\"yes\"},{\"answer\":\"B\",\"meets\":\"yes\"},{\"answer\":\"C\",\"meets\":\"yes\"}]},{\"check\":\"The email never holds the words \\\"Falcon\\\".\",\"why\":\"The brief bars the codename from anything published, so one slip makes the email unusable.\",\"scope\":\"case\",\"basis_file\":\"inputs/brief.md\",\"basis_quote\":\"The codename Falcon must not appear in anything we publish.\",\"answer\":\"\",\"fault_file\":\"\",\"fault_quote\":\"\",\"meets\":[{\"answer\":\"A\",\"meets\":\"yes\"},{\"answer\":\"B\",\"meets\":\"yes\"},{\"answer\":\"C\",\"meets\":\"yes\"}]}],\"note_facts\":[{\"quote\":\"outputs/email.txt, a short plain-text email\",\"covered_by\":\"\",\"why_not\":\"\\\"Short\\\" has no measure the request sets, and the file name and format are given by the request itself.\"},{\"quote\":\"says the update is free\",\"covered_by\":\"C1\",\"why_not\":\"\"},{\"quote\":\"names no price\",\"covered_by\":\"P1\",\"why_not\":\"\"}]}",
+    "model": "claude-sonnet-5-5",
+    "usage": {
+      "input": 5684,
+      "output": 906
+    }
+  }
+}

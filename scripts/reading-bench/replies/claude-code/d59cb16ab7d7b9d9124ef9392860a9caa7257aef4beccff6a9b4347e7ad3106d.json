@@ -1,0 +1,11 @@
+{
+  "operation": "sort",
+  "reply": {
+    "text": "{\"readings\":[{\"id\":\"c1\",\"reason\":\"The statement can be worded many ways, so Jev must judge whether the email says it, and one part showing it is enough.\",\"reading\":{\"reading\":\"judged\",\"span\":\"any\"},\"against\":[]},{\"id\":\"c2\",\"reason\":\"The support address is a fixed value the check names, so code can look for it in the email text.\",\"reading\":{\"reading\":\"exact\",\"outputs\":[\"text\"],\"join\":\"all\",\"tests\":[{\"test\":\"has\",\"read\":{\"part\":\"file\"},\"values\":{\"from\":\"listed\",\"items\":[\"help@ferry.example\"]},\"need\":\"all\",\"at\":\"anywhere\",\"match\":\"characters\",\"case\":\"any\"}]},\"against\":[]}]}",
+    "model": "claude-sonnet-5-5",
+    "usage": {
+      "input": 13357,
+      "output": 445
+    }
+  }
+}

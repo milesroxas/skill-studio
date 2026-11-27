@@ -1,0 +1,11 @@
+{
+  "operation": "sort",
+  "reply": {
+    "text": "{\"readings\":[{\"id\":\"c1\",\"reason\":\"The check fixes the price as written in the brief's Price line, so the visible page text can be searched for that value.\",\"reading\":{\"reading\":\"exact\",\"outputs\":[\"page\"],\"join\":\"all\",\"tests\":[{\"test\":\"has\",\"read\":{\"part\":\"text\",\"skip\":null},\"values\":{\"from\":\"request\",\"in\":\"file\",\"file\":\"brief.md\",\"labels\":[\"Price\"],\"take\":\"whole\",\"level\":null},\"need\":\"all\",\"at\":\"anywhere\",\"match\":\"words\",\"case\":\"any\"}]},\"against\":[]},{\"id\":\"c2\",\"reason\":\"The check fixes the reading text as Book a demo, so a link or a button element can be searched for those words.\",\"reading\":{\"reading\":\"exact\",\"outputs\":[\"page\"],\"join\":\"any\",\"tests\":[{\"test\":\"has\",\"read\":{\"part\":\"elements\",\"tag\":\"a\",\"attribute\":null,\"which\":\"every\"},\"values\":{\"from\":\"listed\",\"items\":[\"Book a demo\"]},\"need\":\"all\",\"at\":\"anywhere\",\"match\":\"words\",\"case\":\"any\"},{\"test\":\"has\",\"read\":{\"part\":\"elements\",\"tag\":\"button\",\"attribute\":null,\"which\":\"every\"},\"values\":{\"from\":\"listed\",\"items\":[\"Book a demo\"]},\"need\":\"all\",\"at\":\"anywhere\",\"match\":\"words\",\"case\":\"any\"}]},\"against\":[]}]}",
+    "model": "claude-sonnet-5-5",
+    "usage": {
+      "input": 13381,
+      "output": 818
+    }
+  }
+}

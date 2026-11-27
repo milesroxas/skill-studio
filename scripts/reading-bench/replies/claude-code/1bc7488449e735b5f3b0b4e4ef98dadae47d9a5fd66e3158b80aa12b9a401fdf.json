@@ -1,0 +1,11 @@
+{
+  "operation": "sort",
+  "reply": {
+    "text": "{\"readings\":[{\"id\":\"c1\",\"reason\":\"An organisation's name can be written with \\\"&\\\" or \\\"and\\\", so code can't mark it reliably. Jev has to judge whether the email names both the person and the studio.\",\"reading\":{\"reading\":\"judged\",\"span\":\"any\"},\"against\":[]}]}",
+    "model": "claude-sonnet-5-5",
+    "usage": {
+      "input": 13571,
+      "output": 310
+    }
+  }
+}

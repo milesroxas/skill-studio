@@ -1,0 +1,11 @@
+{
+  "operation": "propose",
+  "reply": {
+    "text": "{\"proposals\":[{\"check\":\"The email never holds the word \\\"Falcon\\\".\",\"why\":\"The codename is internal, and one slip in a published email leaks it.\",\"scope\":\"case\",\"basis_file\":\"inputs/brief.md\",\"basis_quote\":\"The codename Falcon must not appear in anything we publish.\",\"answer\":\"\",\"fault_file\":\"\",\"fault_quote\":\"\",\"meets\":[{\"answer\":\"A\",\"meets\":\"yes\"},{\"answer\":\"B\",\"meets\":\"yes\"},{\"answer\":\"C\",\"meets\":\"yes\"}]}],\"note_facts\":[{\"quote\":\"a short plain-text email\",\"covered_by\":\"\",\"why_not\":\"No length is given for short, so a reader cannot answer yes or no from the answer alone.\"},{\"quote\":\"names all six features\",\"covered_by\":\"C1\",\"why_not\":\"\"}]}",
+    "model": "claude-sonnet-5-5",
+    "usage": {
+      "input": 5968,
+      "output": 814
+    }
+  }
+}
