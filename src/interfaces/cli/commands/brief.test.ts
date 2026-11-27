@@ -11,7 +11,7 @@ import {
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { runVerdicts } from '@application/grade.ts'
-import { caseName } from '@domain/case-draft.ts'
+import { caseName, oneLineTitle } from '@domain/case-draft.ts'
 import { casesInOrder } from '@domain/results-address.ts'
 import { parseSampleDir, runNamed, runShown } from '@domain/run-name.ts'
 import { loadCases } from '@infrastructure/cases.ts'
@@ -267,11 +267,46 @@ function spentLinesOf(skill: string, runs: readonly string[]): string[] {
     : [spentLine(spent[0], 'A'), spentLine(spent[1], 'B')]
 }
 
-/** The lines `--brief` prints around its cases for these runs: each run's head, and what each spent. */
-const frameOf = (skill: string, runs: readonly string[]) => ({
-  heads: runHeadsOf(skill, runs),
-  spent: spentLinesOf(skill, runs),
-})
+/**
+ * What `--brief` names around its cases, run by run, from the stored files
+ * alone: each run's folder and its version's name, as `st versions` lists it
+ * and on one line. The size test holds each head line and Spent line to a
+ * bound of its own beyond these and its figures, never to what the command's
+ * own functions print.
+ */
+function frameOf(skill: string, runs: readonly string[]) {
+  const { versions } = versionsOf(skill)
+  return runs.map((name) => {
+    const meta = readRun(skill, name).meta
+    const listed =
+      meta?.configuration === 'without_skill'
+        ? ''
+        : (versions.find((v) => v.version === meta?.skillVersion)?.name ?? '')
+    return { name, versionName: oneLineTitle(listed) }
+  })
+}
+
+/**
+ * The most bytes a head line (`Run:`, `A:`, `B:`) holds beyond its run's
+ * folder and its version's name: 25 on the stored runs (`Run: ... (without the
+ * skill)`), and 27 for a run on a kept copy, `· old skill`.
+ */
+const HEAD_EXTRA = 30
+/**
+ * The most bytes a Spent line holds beyond its figures, each number with its
+ * commas, point and dollar sign: 78 on the stored runs, whose grading cost is
+ * not kept, and 95 where it is (`grading N calls to Jev, N tokens in, N s`).
+ */
+const SPENT_EXTRA = 100
+/** The figures of a Spent line: counts, seconds, tokens and prices. */
+const FIGURES = /\$?\d[\d,.]*/g
+
+/** The bytes of `line` beyond each of `parts` it holds, each taken once. */
+function bytesBeyond(line: string, parts: readonly string[]): number {
+  let left = line
+  for (const part of parts) if (part && left.includes(part)) left = left.replace(part, '')
+  return Buffer.byteLength(left)
+}
 
 /**
  * Each case's id and its head (`caseHead`), in the order `--brief` prints
@@ -329,20 +364,36 @@ const LONGEST_ID = 40
  */
 function bytesByCase(
   text: string,
-  frame: { heads: readonly string[]; spent: readonly string[] },
+  frame: ReadonlyArray<{ name: string; versionName: string }>,
   cases: ReadonlyArray<{ id: string; head: string }>,
   words: Set<string>,
 ): number[] {
   const all = text.split('\n')
-  expect(all.slice(0, frame.heads.length)).toEqual(frame.heads)
-  const lines = all.slice(frame.heads.length)
+  const [heads, spent] =
+    frame.length === 1
+      ? [['Run'], ['Spent']]
+      : [
+          ['A', 'B'],
+          ['A spent', 'B spent'],
+        ]
+  // Each head line names its run first, and holds no more than `HEAD_EXTRA` bytes beside its names.
+  for (const [i, run] of frame.entries()) {
+    const line = all[i] ?? ''
+    expect(line.startsWith(`${heads[i]}: ${run.name}`), line).toBe(true)
+    expect(bytesBeyond(line, [run.name, run.versionName]), line).toBeLessThanOrEqual(HEAD_EXTRA)
+  }
+  const lines = all.slice(frame.length)
   const body = lines.at(-1)?.startsWith('Open: ') ? lines.slice(0, -1) : lines
   if (body !== lines) {
     expect(body.at(-1)).toBe('')
     body.pop()
   }
-  expect(body.slice(-frame.spent.length)).toEqual(frame.spent)
-  body.splice(-frame.spent.length)
+  // Each Spent line, after the last case, holds no more than `SPENT_EXTRA` bytes beside its figures.
+  for (const [i, line] of body.slice(-frame.length).entries()) {
+    expect(line.startsWith(`${spent[i]}: `), line).toBe(true)
+    expect(Buffer.byteLength(line.replace(FIGURES, '')), line).toBeLessThanOrEqual(SPENT_EXTRA)
+  }
+  body.splice(-frame.length)
   const bytes: number[] = []
   let next = 0
   for (const line of body) {
@@ -399,6 +450,43 @@ describe('the size of --brief', () => {
     }
     expect(read).toBe(20)
     expect(most).toBeGreaterThan(0)
+  })
+
+  it('holds a Spent line whose grading cost is kept, the longest it says, to the same bounds', async () => {
+    const skill = copyOf('launch-note')
+    const runs = [HAIKU_V0, '2026-11-20-skill-v1-claude-haiku']
+    const kept = {
+      calls: [
+        {
+          operation: 'grade',
+          provider: 'jev',
+          model: 'jev-1.14.0',
+          source: 'asked',
+          calls: 12,
+          input: 83_305,
+          output: 0,
+          seconds: 5.2,
+        },
+      ],
+      whole: true,
+    }
+    for (const run of runs)
+      writeFileSync(join(skill, 'evals/runs', run, GRADING_COST_FILE), JSON.stringify(kept))
+    for (const named of [[runs[1]], runs]) {
+      const { text } = await (named.length === 1
+        ? printedBy(report, [skill], { run: named[0], brief: true })
+        : printedBy(compare, [skill, ...named], { brief: true }))
+      expect(text).toMatch(
+        /^(?:Spent|B spent): .*; grading 12 calls to Jev, 83,305 tokens in, 5\.2 s$/m,
+      )
+      for (const bytes of bytesByCase(
+        text,
+        frameOf(skill, named),
+        caseHeadsOf(skill, named),
+        factWords(skill, named),
+      ))
+        expect(bytes).toBeLessThanOrEqual(200)
+    }
   })
 })
 
