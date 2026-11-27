@@ -22,6 +22,7 @@ import { headingOf, plain, type Rule } from '@domain/rules.ts'
 import type { Grader } from '@domain/schemas.ts'
 import type { SortedReading } from '@domain/sorting.ts'
 import type { Span } from '@domain/span.ts'
+import type { Cuts } from '@domain/verdict.ts'
 import { type Image, noul, type Question, withAssets } from '@typesafe-ai/sdk'
 import { type Readable, readForJev } from '../images.ts'
 import { isTooLarge, type JevState } from '../jev.ts'
@@ -35,6 +36,7 @@ import {
   requestState,
 } from '../shared/questions.ts'
 import {
+  answerOf,
   clip,
   firstOf,
   OUTPUT_PART,
@@ -628,29 +630,43 @@ function checkByRef(graders: readonly Grader[], ref: string): Grader | null {
  * so a refused request is asked again with its first question alone: refused
  * too, it is the state, and the error goes up for the work to be cut; answered,
  * the rest are asked in two halves, each the same way. No answer is asked twice.
+ * `send` puts one request to Jev, and `log` says when the questions are split.
  */
 async function askAll(
   state: JevState,
   questions: Record<string, Question>,
-  ctx: JudgeContext,
+  send: Send,
+  log: (line: string) => void,
 ): Promise<Record<string, unknown>> {
   const entries = Object.entries(questions)
   if (!entries.length) return {}
   try {
-    return await ctx.jev.ask(state, questions, ctx.signal)
+    return await send(state, questions)
   } catch (error) {
     if (!isTooLarge(error) || entries.length < 2) throw error
   }
   const [first, ...rest] = entries
-  const one = await ctx.jev.ask(state, Object.fromEntries([first]), ctx.signal)
-  ctx.log(`${entries.length} questions are more than one request holds: asking them in parts`)
+  const one = await send(state, Object.fromEntries([first]))
+  log(`${entries.length} questions are more than one request holds: asking them in parts`)
   const half = Math.ceil(rest.length / 2)
   const parts = [rest.slice(0, half), rest.slice(half)].filter((part) => part.length > 0)
   const answers = await Promise.all(
-    parts.map((part) => askAll(state, Object.fromEntries(part), ctx)),
+    parts.map((part) => askAll(state, Object.fromEntries(part), send, log)),
   )
   return Object.assign({}, one, ...answers)
 }
+
+/** One request to Jev: the questions of one state, answered by their names. */
+type Send = (
+  state: JevState,
+  questions: Record<string, Question>,
+) => Promise<Record<string, unknown>>
+
+/** A grading's way to put one request to Jev: its Jev, ended by its stop. */
+const sendOf =
+  (ctx: JudgeContext): Send =>
+  (state, questions) =>
+    ctx.jev.ask(state, questions, ctx.signal)
 
 /**
  * `questions` of `state` as `askAll` asks them, asked once a grading: every
@@ -662,13 +678,13 @@ function askOnce(
   questions: Record<string, Question>,
   ctx: JudgeContext,
 ): Promise<Record<string, unknown>> {
-  if (!ctx.once) return askAll(state, questions, ctx)
+  if (!ctx.once) return askAll(state, questions, sendOf(ctx), ctx.log)
   const key = createHash('sha256')
     .update(JSON.stringify([ctx.jev.model, state, questions]))
     .digest('hex')
   const kept = ctx.once.get(key)
   if (kept) return kept
-  const asking = askAll(state, questions, ctx)
+  const asking = askAll(state, questions, sendOf(ctx), ctx.log)
   ctx.once.set(key, asking)
   asking.catch(() => ctx.once?.delete(key))
   return asking
@@ -722,7 +738,7 @@ async function ask(
     ),
   })
   const replies = await Promise.all([
-    ...works.map((work, i) => askAll(work.state, questionsOf(work, i), ctx)),
+    ...works.map((work, i) => askAll(work.state, questionsOf(work, i), sendOf(ctx), ctx.log)),
     // The same for every output of the case: asked once a grading.
     ...(apart ? [askOnce(headingState(first), { ...headings, ...ups }, ctx)] : []),
   ])
@@ -822,6 +838,70 @@ function worksOf(input: JudgeInput, room: Room): { works: Work[]; parted: Parted
   return works.length === read ? { works, parted: { read, of: parts.length } } : null
 }
 
+/**
+ * `work` over the output as the pack asks it: the works of the first room
+ * whose request Jev does not refuse for its size, each room after it holding
+ * less (`ROOMS`). Null when Jev can read nothing of the output. `log` says when
+ * a room was refused and the next is asked. A grading's answers and what
+ * `st propose` asks of an answer both go through here, so the two ask the same.
+ */
+async function inRooms<T>(
+  input: JudgeInput,
+  log: (line: string) => void,
+  work: (asking: { works: Work[]; parted: Parted | null }) => Promise<T>,
+): Promise<T | null> {
+  for (const room of ROOMS) {
+    const asking = worksOf(input, room)
+    if (!asking) return null
+    try {
+      return await work(asking)
+    } catch (error) {
+      // Refused for its size: the same request would be refused again, so the next one holds less.
+      if (!isTooLarge(error) || room === ROOMS.at(-1)) throw error
+      log('the output is more than Jev reads at once: asking again with less of it')
+    }
+  }
+  return null
+}
+
+/**
+ * What a grading of `input` will answer each of `statements` as a check of its
+ * case, before any reading of the check is made: the question the pack asks a
+ * check, of the work as `judge` builds it, the whole output or each of its
+ * parts, room by room as `judge` asks (`inRooms`), and the parts joined as
+ * scoring joins a check's (`answerOf`). A request refused for its size is
+ * asked in fewer questions first, as a grading's is (`askAll`), so the two
+ * move to a smaller room only for the same reason. Jev answers each question
+ * apart from the others, so asking these alone gets what the grading's
+ * request, with every rule and check in it, gets. In the order of
+ * `statements`, null for one the parts do not settle; null in place of the
+ * list when Jev asks nothing of the output: a grading does not ask Jev of the
+ * case, or Jev can read nothing of it. `ask` puts one state's questions to
+ * Jev and gives back its answers by their names, as `Jev.ask` does.
+ */
+export async function statementAnswers(
+  input: JudgeInput,
+  statements: readonly string[],
+  ask: Send,
+  cuts: Cuts,
+  log: (line: string) => void,
+): Promise<Array<number | null> | null> {
+  if (!statements.length || !asksJev(input, { useJev: true })) return null
+  const questionsOf = (work: Work) =>
+    Object.fromEntries(
+      statements.map((statement, i) => [`${CHECK}${i}`, statementQuestion(statement, work, null)]),
+    )
+  return inRooms(input, log, async ({ works, parted }) => {
+    const replies = await Promise.all(
+      works.map((work) => askAll(work.state, questionsOf(work), ask, log)),
+    )
+    return statements.map((_, i) => {
+      const all = replies.map((reply) => noulOf(reply, `${CHECK}${i}`))
+      return answerOf({ noul: all[0], ...(parted ? { parts: all } : {}) }, parted, cuts)
+    })
+  })
+}
+
 export const genericPack: JudgePack<GenericRaw> = {
   ...genericScoring,
   version: 10,
@@ -833,10 +913,7 @@ export const genericPack: JudgePack<GenericRaw> = {
     // A picture Jev would refuse is said, so rules nobody marked are never read as followed.
     const unread = unreadOf(input)
     const nothing = unread ? { adherence: null, rubric: null, unread } : null
-    for (const room of ROOMS) {
-      const asking = worksOf(input, room)
-      if (!asking) return nothing
-      const { works, parted } = asking
+    const answered = await inRooms(input, ctx.log, async ({ works, parted }) => {
       // Asking only the first parts leaves the rest unread, a warning; asking every part is progress.
       if (parted && parted.read < parted.of)
         (ctx.warn ?? ctx.log)(
@@ -844,24 +921,18 @@ export const genericPack: JudgePack<GenericRaw> = {
         )
       else if (parted)
         ctx.log(`the output is more than Jev reads at once: asking it in ${parted.of} parts`)
-      try {
-        const { adherence, rubric } = await ask(input, works, parted, ctx)
-        if (!adherence && !rubric) return nothing
-        const [work] = works
-        return {
-          adherence,
-          rubric,
-          ...(unread ? { unread } : {}),
-          ...(work.cut.length ? { cut: work.cut } : {}),
-          ...(parted ? { parts: parted } : {}),
-        }
-      } catch (error) {
-        // Refused for its size: the same request would be refused again, so the next one holds less.
-        if (!isTooLarge(error) || room === ROOMS.at(-1)) throw error
-        ctx.log('the output is more than Jev reads at once: asking again with less of it')
+      const { adherence, rubric } = await ask(input, works, parted, ctx)
+      if (!adherence && !rubric) return nothing
+      const [work] = works
+      return {
+        adherence,
+        rubric,
+        ...(unread ? { unread } : {}),
+        ...(work.cut.length ? { cut: work.cut } : {}),
+        ...(parted ? { parts: parted } : {}),
       }
-    }
-    return nothing
+    })
+    return answered ?? nothing
   },
   anchorsTemplate: [
     '---',

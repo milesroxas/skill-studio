@@ -438,7 +438,8 @@ const jevCount = { requests: 0, questions: 0 }
  * A Jev that answers by the words of each question: `same` for two checks
  * (by their words, in either order), `fair` for a check on its basis. Each
  * question is asked both ways round, so the other way is answered with the
- * opposite.
+ * opposite. What a grading would answer of an answer read is not sure, so the
+ * assistant's word on it stands.
  */
 function fakeJev(says: {
   same?: (a: string, b: string) => number
@@ -457,13 +458,15 @@ function fakeJev(says: {
         entries.map(([name, q]) => {
           const text = String(q.instructions)
           const [a, b] = quoted(text)
-          const answer = text.startsWith('Do these two checks')
-            ? (says.same?.(a, b) ?? 0.5)
-            : text.startsWith('Could one answer')
-              ? 1 - (says.same?.(a, b) ?? 0.5)
-              : text.includes('Is every value')
-                ? (says.fair?.(a) ?? 0.9)
-                : 1 - (says.fair?.(a) ?? 0.9)
+          const answer = text.startsWith('Is this statement true of')
+            ? 0.5
+            : text.startsWith('Do these two checks')
+              ? (says.same?.(a, b) ?? 0.5)
+              : text.startsWith('Could one answer')
+                ? 1 - (says.same?.(a, b) ?? 0.5)
+                : text.includes('Is every value')
+                  ? (says.fair?.(a) ?? 0.9)
+                  : 1 - (says.fair?.(a) ?? 0.9)
           return [name, { noul: answer }]
         }),
       )
@@ -769,8 +772,9 @@ describe('a check asks no more than its words', () => {
       }),
     ])
     expect(readProposals(dir).proposals.map((p) => p.check)).toEqual([FAIR, unsure])
-    // One request for the case, each proposal asked both ways round.
-    expect(jevCount).toEqual({ requests: 1, questions: 6 })
+    // One request for the case, each proposal asked both ways round; then one for each of the
+    // three answers read, with the two proposals kept.
+    expect(jevCount).toEqual({ requests: 4, questions: 12 })
   })
 
   it('reads the whole line a quote stands in', async () => {
@@ -780,7 +784,8 @@ describe('a check asks no more than its words', () => {
     const jev = fakeJev({})
     const ask = jev.ask
     jev.ask = (async (state: unknown, questions: Record<string, { instructions?: unknown }>) => {
-      asked = String(Object.values(questions)[0].instructions)
+      // The first request is the one on the proposals' words.
+      asked ||= String(Object.values(questions)[0].instructions)
       return (ask as unknown as (s: unknown, q: unknown) => Promise<unknown>)(state, questions)
     }) as unknown as JevAsker['ask']
     await proposeChecks(dir, options({ jev }))

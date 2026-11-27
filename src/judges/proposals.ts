@@ -34,7 +34,7 @@ export const SAME_STATE: JevState = {
 }
 
 /** A check to compare, with the words of its request it stands on; empty for a check for every case, which stands on none. */
-export interface Compared {
+interface Compared {
   check: string
   words: string
 }
