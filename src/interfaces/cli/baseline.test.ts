@@ -2,7 +2,11 @@
  * The baseline, replayed. The replies under `scripts/reading-bench/replies/`
  * were saved with `ST_AI_RECORD` when `st sort` (both versions, as the reading
  * bench sorts them), `st propose` and `st read --answers` (two runs, blind and
- * not) ran live on a copy of `fixtures/launch-note`. Here the same commands run
+ * not) ran live on a copy of `fixtures/launch-note`. Jev's answers on what a
+ * grading will say of each answer `st propose` read were added after, asked
+ * live once for those questions alone, with Claude's replies replayed, and Jev's answers when
+ * `st read` asks it again first what it left, from the two reads that are not blind run live once
+ * more on a new copy. Here the same commands run
  * under `ST_AI_REPLAY` on a new copy in another folder, with no assistant on
  * the PATH and no key set, and each gives the counts the live run gave. Every
  * call each one makes is answered from a saved reply, so none asks Claude or
@@ -12,13 +16,15 @@
  * sends makes a key no reply has, and fails here by its operation and key.
  */
 import { spawnSync } from 'node:child_process'
-import { cpSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { cpSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import type { ProposeResult } from '@application/proposing.ts'
 import type { RunReading } from '@application/reading.ts'
 import type { SortResult } from '@application/sorting.ts'
 import type { CallTotal } from '@domain/cost.ts'
+import { readingOf } from '@domain/verdict.ts'
+import { loadBench } from '@infrastructure/cases.ts'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { countSorted, gradeRows } from '../../../scripts/reading-bench/count.ts'
 import { mergeReadings } from '../../../scripts/reading-bench/readings.ts'
@@ -46,6 +52,22 @@ const sortSpent = (calls: number, input: number, output: number): Spent => [
 const readSpent = (calls: number, input: number, output: number): Spent => [
   { operation: 'read', provider: 'claude-code', model: SONNET, calls, input, output },
 ]
+/** Jev asked again, first, what it left: its tokens are measured live only, so a replay counts none. */
+const againSpent = (calls: number): Spent => [
+  { operation: 'read', provider: 'jev', model: JEV, calls, input: 0, output: 0 },
+]
+/** One side's counts: `asked` facts, each answered, `yours` of them against the key and agreeing, `quoted` of those with a quote. */
+const side = (asked: number, yours: number, quoted: number) => ({
+  asked,
+  answered: asked,
+  cannotTell: 0,
+  skipped: 0,
+  unfound: 0,
+  yours: agreed(yours, yours),
+  yoursQuoted: agreed(quoted, quoted),
+  jev: agreed(0, 0),
+  settled: agreed(asked, asked),
+})
 const agreed = (agree: number, total: number) => ({ agree, total })
 
 /** What the live run counted, on 2026-11-27, under sorting prompt version 12. */
@@ -68,7 +90,16 @@ const LIVE = {
   propose: {
     counts: { proposals: 11, every: 1, overreach: 2, pairs: 69, joined: 1 },
     refused: { once: 0, twice: 0, failed: 0 },
-    jev: { requests: 10, questions: 176, kept: 0, error: null },
+    // 10 requests and 176 questions on the proposals' words and on joining them; 12 and 27 on
+    // what a grading will say of each answer read, asked live once more on the same day for those
+    // alone. A page's answers are not asked: a grading draws them.
+    jev: { requests: 22, questions: 203, kept: 0, error: null },
+    /**
+     * Jev's word on each answer read, as a grading will give it, over every proposal kept, those
+     * joined into one for every case among them: the answers asked, those Jev is sure of, those it
+     * is sure of the other word than the assistant's, and those whose parts do not settle it.
+     */
+    meets: { asked: 27, sure: 23, differ: 1, unsettled: 0 },
     spent: [
       {
         operation: 'propose',
@@ -78,8 +109,9 @@ const LIVE = {
         input: 118_758,
         output: 8_192,
       },
-      // Jev's tokens are measured live only: a replayed answer carries none (36,400 live).
-      { operation: 'propose', provider: 'jev', model: JEV, calls: 10, input: 0, output: 0 },
+      // Jev's tokens are measured live only: a replayed answer carries none (36,400 live, and of the
+      // 120,837 asked live on what a grading will say, about 24,000 by their characters are the 12 kept).
+      { operation: 'propose', provider: 'jev', model: JEV, calls: 22, input: 0, output: 0 },
     ] satisfies Spent,
   },
   read: {
@@ -97,6 +129,9 @@ const LIVE = {
       },
       spent: readSpent(6, 62_159, 10_101),
     },
+    // Jev is asked again first, each fact in a narrower state (asked live once, on 2026-11-27):
+    // it is sure of the long page's three, read whole. The word count code would not call is not
+    // asked again, so the assistant is asked the two emails alone (86,592 tokens in before, 3 calls).
     [RUNS[0]]: {
       agreement: {
         asked: 5,
@@ -105,11 +140,16 @@ const LIVE = {
         skipped: 0,
         unfound: 0,
         yours: agreed(4, 4),
-        yoursQuoted: agreed(4, 4),
+        // Jev's answers give no quote.
+        yoursQuoted: agreed(1, 1),
         jev: agreed(0, 0),
         settled: agreed(5, 5),
       },
-      spent: readSpent(3, 86_592, 2_409),
+      again: { asked: 3, settled: 3, failed: [] },
+      // Jev on the long page agrees with the key on 3 of 3, the assistant on 1 of 1: the word count has no key.
+      split: { jev: side(3, 3, 0), assistant: side(2, 1, 1) },
+      // Live, 22,280 of Jev's tokens in 2 requests, one of them the word count no longer asked.
+      spent: [...readSpent(2, 9_448, 1_264), ...againSpent(1)],
     },
     [`${RUNS[1]} blind`]: {
       agreement: {
@@ -125,6 +165,8 @@ const LIVE = {
       },
       spent: readSpent(6, 91_550, 17_615),
     },
+    // Jev, asked again of the long page whole, is sure of all three: the assistant is asked
+    // nothing (78,893 tokens in before, in 1 call).
     [RUNS[1]]: {
       agreement: {
         asked: 3,
@@ -133,11 +175,14 @@ const LIVE = {
         skipped: 0,
         unfound: 0,
         yours: agreed(3, 3),
-        yoursQuoted: agreed(3, 3),
+        yoursQuoted: agreed(0, 0),
         jev: agreed(0, 0),
         settled: agreed(3, 3),
       },
-      spent: readSpent(1, 78_893, 1_157),
+      again: { asked: 3, settled: 3, failed: [] },
+      split: { jev: side(3, 3, 0), assistant: side(0, 0, 0) },
+      // 20,858 of Jev's tokens live, in 1 request.
+      spent: againSpent(1),
     },
   },
 }
@@ -167,8 +212,12 @@ const replaying = (): NodeJS.ProcessEnv => ({
   TYPESAFE_API_KEY: '',
   ST_AI_RECORD: '',
   ST_AI_REPLAY: REPLIES,
+  ST_AI_REPLAY_LOG: replayed,
   SKILL_STUDIO_HOME: scratch('st-baseline-home-'),
 })
+
+/** Where every command here notes each saved reply it answered from (`noteReplayed`). */
+let replayed = ''
 
 /** Run `st` with `args` and `--json` under the replay, and read what it printed. */
 function st<T>(args: readonly string[]): T & { cost: CallTotal[] } {
@@ -232,6 +281,7 @@ beforeAll(() => {
   cpSync(FIXTURE, v2, { recursive: true })
   // Sorted afresh: without the fixture's readings, every rule and check is read.
   for (const dir of [v1, v2]) rmSync(join(dir, 'evals', 'rule-readings.json'))
+  replayed = join(scratch('st-baseline-replayed-'), 'replayed.txt')
 })
 
 afterAll(() => {
@@ -263,6 +313,13 @@ describe('the baseline, replayed on a new copy of launch-note', () => {
   it('proposes checks as the live run did, Jev answering from the saved replies', () => {
     const result = st<ProposeResult>(['propose', v2])
     const { cases } = result
+    // Each case's own, and those joined into one for every case, which a case no longer lists.
+    const read = [...cases.flatMap((c) => c.proposals), ...result.every.flatMap((e) => e.made)]
+      .filter((p, i, all) => all.findIndex((q) => q.case === p.case && q.id === p.id) === i)
+      .flatMap((p) => p.answers)
+    const cuts = loadBench(v2)
+    const sure = (jev: number | null | undefined) =>
+      typeof jev === 'number' && ['met', 'missed'].includes(readingOf(jev, cuts))
     expect({
       counts: {
         proposals: cases.reduce((n, c) => n + c.proposals.length, 0),
@@ -277,6 +334,12 @@ describe('the baseline, replayed on a new copy of launch-note', () => {
         failed: cases.filter((c) => c.error).length,
       },
       jev: result.jev,
+      meets: {
+        asked: read.filter((a) => a.jev !== undefined).length,
+        sure: read.filter((a) => sure(a.jev)).length,
+        differ: read.filter((a) => a.said !== undefined).length,
+        unsettled: read.filter((a) => a.jev === null).length,
+      },
       spent: spentOf(result.cost),
     }).toEqual(LIVE.propose)
   }, 30_000)
@@ -304,9 +367,32 @@ describe('the baseline, replayed on a new copy of launch-note', () => {
           answers,
         ])
         expect(reading.cases.filter((c) => c.error)).toEqual([])
-        expect({ agreement: reading.agreement, spent: spentOf(reading.cost) }).toEqual(
-          LIVE.read[name],
-        )
+        // A blind reading never asks Jev again, so it has no `again` and no `split`.
+        expect({
+          agreement: reading.agreement,
+          again: reading.again,
+          split: reading.split,
+          spent: spentOf(reading.cost),
+        }).toEqual({ again: undefined, split: undefined, ...LIVE.read[name] })
       }, 30_000)
     }
+
+  // Last, after every command above: a reply none of them read is one no command sends for now.
+  it("reads every reply kept, and every answer of Jev's in them", () => {
+    const kept = readdirSync(REPLIES, { withFileTypes: true })
+      .filter((folder) => folder.isDirectory())
+      .flatMap((folder) =>
+        readdirSync(join(REPLIES, folder.name))
+          .filter((file) => file.endsWith('.json'))
+          .flatMap((file) => {
+            const name = `${folder.name}/${file}`
+            if (folder.name !== 'jev') return [name]
+            const answers = JSON.parse(readFileSync(join(REPLIES, folder.name, file), 'utf8'))
+            return Object.keys(answers).map((key) => `${name}#${key}`)
+          }),
+      )
+    const read = new Set(readFileSync(replayed, 'utf8').split(/\r?\n/).filter(Boolean))
+    expect(kept.filter((name) => !read.has(name))).toEqual([])
+    expect([...read].filter((name) => !kept.includes(name))).toEqual([])
+  })
 })

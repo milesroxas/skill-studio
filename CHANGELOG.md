@@ -24,6 +24,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - `st report`, `st compare` and `st run` end with what a run spent: its attempts' seconds, tokens and price added up, and what grading it asked of Jev. A grading that is stopped is still counted.
 - An agent in a chat can follow a project skill, `.claude/skills/skill-studio-loop`, to make a skill, run two versions of it and compare them with `pnpm st`.
 
+### Changed
+
+- `st propose` and **Write checks with AI** ask Jev, of each answer read, what a grading will ask once a suggested check is accepted. Where Jev is sure, its word on whether that answer meets the check is the one shown, and a suggestion whose faulty answer Jev is sure meets it says so. A page or a picture keeps the assistant's word.
+- `st read` asks Jev again first what it left, showing it more of each rule or check (a long output whole, what the app counted or found, or the page's measured layout), and asks the assistant only what Jev is still not sure of. `--no-jev` asks as before.
+
 ### Fixed
 
 - Two runs of one skill started at the same moment no longer take the same version number.

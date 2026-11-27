@@ -18,6 +18,7 @@ import { countCall } from './meter.ts'
 import {
   hashOf,
   MissingReply,
+  noteReplayed,
   readSaved,
   savedReplies,
   sha,
@@ -172,6 +173,7 @@ export class Jev {
           new MissingReply(this.operation, dir, `jev/${file}.json has no answer ${key}`),
         )
       answers[name] = held[key]
+      noteReplayed(`jev/${file}.json#${key}`)
     }
     return answers
   }

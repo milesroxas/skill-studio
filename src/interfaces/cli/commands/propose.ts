@@ -69,26 +69,59 @@ function foldedCount(tells: readonly Tells[]): string {
   return listed(parts)
 }
 
-/** One proposal of one case, as a person reads it: its id, words, why, what asks for it and which answers meet it. */
-function printProposal(p: StoredProposal): void {
-  console.log(`\n  ${p.id}  ${p.check}`)
-  console.log(`            Why: ${p.why}`)
-  console.log(`            ${basisSays(p.basis)}: "${p.basis.quote}"`)
+/**
+ * The answer the fault was found in, where Jev's word that it meets the
+ * proposal stands in place of the assistant's; null for any other proposal.
+ */
+function faultMetBy(p: StoredProposal): StoredProposal['shownBy'] {
+  const { shownBy } = p
+  if (!shownBy) return null
+  const faulty = p.answers.find((a) => a.run === shownBy.run && a.sample === shownBy.sample)
+  return faulty?.meets === 'yes' && faulty.said !== undefined ? shownBy : null
+}
+
+/** What says so when Jev is sure the answers the fault was found in meet a proposal, named as `where` names them. */
+const faultMetLine = (where: string): string =>
+  `            Jev is sure it is met by ${where}, where the fault was found, so a grading will count it as met there.`
+
+/** Whether a case's proposal is printed in full: it tells the answers read apart, or its faulty answer meets it after all. */
+const inFull = (p: StoredProposal): boolean => p.tells === 'apart' || faultMetBy(p) !== null
+
+/** The same for a proposal for every case, over the proposals it is made of. */
+const everyInFull = (e: EveryProposal): boolean =>
+  e.tells === 'apart' || e.made.some((p) => faultMetBy(p) !== null)
+
+/**
+ * One proposal of one case, as a person reads it, a line each: its id, words,
+ * why, what asks for it and which answers meet it. Where Jev is sure the
+ * answer the fault was found in meets it, a line says so: a grading will not
+ * count that answer as missing it.
+ */
+function proposalLines(p: StoredProposal): string[] {
+  const lines = [`\n  ${p.id}  ${p.check}`, `            Why: ${p.why}`]
+  lines.push(`            ${basisSays(p.basis)}: "${p.basis.quote}"`)
   if (p.shownBy && p.fault)
-    console.log(`            ${capital(answerName(p.shownBy))} has: "${p.fault.quote}"`)
+    lines.push(`            ${capital(answerName(p.shownBy))} has: "${p.fault.quote}"`)
+  const met = faultMetBy(p)
+  if (met) lines.push(faultMetLine(answerName(met)))
   const by = (meets: string) => p.answers.filter((a) => a.meets === meets).map(answerName)
   const parts = [
     by('yes').length ? `met by ${listed(by('yes'))}` : '',
     by('no').length ? `missed by ${listed(by('no'))}` : '',
     by('cannot tell').length ? `not clear for ${listed(by('cannot tell'))}` : '',
   ].filter(Boolean)
-  console.log(`            ${capital(parts.join('; '))}.`)
+  lines.push(`            ${capital(parts.join('; '))}.`)
   if (p.basisCheck?.reading === 'not sure')
-    console.log('            Jev is not sure those words ask for all of it.')
+    lines.push('            Jev is not sure those words ask for all of it.')
   if (p.scope === 'every case')
-    console.log(
+    lines.push(
       '            Proposed for every case, but on this case alone: accepted, it is added to this case.',
     )
+  return lines
+}
+
+function printProposal(p: StoredProposal): void {
+  for (const line of proposalLines(p)) console.log(line)
 }
 
 /** One proposal for every case: its id, words, why, the cases it was seen on, and which answers miss it there. */
@@ -108,6 +141,11 @@ function printEvery(e: EveryProposal): void {
       `            Missed by ${listed([...missed].map(([name, on]) => `${name} on ${listed([...new Set(on)])}`))}. Every other answer read meets it.`,
     )
   else if (e.tells === 'all meet') console.log('            Every answer read meets it.')
+  const met = e.made.flatMap((p) => {
+    const by = faultMetBy(p)
+    return by ? [`${answerName(by)} on ${p.case}`] : []
+  })
+  if (met.length) console.log(faultMetLine(listed(met)))
   if (e.made.some((p) => p.basisCheck?.reading === 'not sure'))
     console.log('            Jev is not sure the words it stands on ask for all of it.')
 }
@@ -122,9 +160,10 @@ function factLine(f: StoredFact, groupOf: (id: string) => string): string {
 
 /**
  * Print proposed checks: first those for every case, then each case's own.
- * What tells the answers read apart is shown in full; the rest are counted in
- * one line and listed with `all`. A fact of a case's note that nothing covers
- * is always shown.
+ * What tells the answers read apart is shown in full, and so is one whose
+ * faulty answer Jev is sure meets it; the rest are counted in one line and
+ * listed with `all`. A fact of a case's note that nothing covers is always
+ * shown.
  */
 function printProposals(result: ProposeResult, skillArg: string, all: boolean): void {
   const folded: Tells[] = []
@@ -136,9 +175,9 @@ function printProposals(result: ProposeResult, skillArg: string, all: boolean): 
     )
   if (result.every.length) {
     console.log('\nFor every case')
-    const shown = result.every.filter((e) => all || e.tells === 'apart')
+    const shown = result.every.filter((e) => all || everyInFull(e))
     for (const e of shown) printEvery(e)
-    for (const e of result.every) if (e.tells !== 'apart') folded.push(e.tells)
+    for (const e of result.every) if (!everyInFull(e)) folded.push(e.tells)
     if (!shown.length) console.log('  None tells the answers read apart.')
   }
   for (const c of result.cases) {
@@ -154,13 +193,13 @@ function printProposals(result: ProposeResult, skillArg: string, all: boolean): 
     console.log(
       `  Answers read: ${listed(c.answers.map(answerName))}.${c.kept ? ' Read before, and nothing changed since.' : ''}`,
     )
-    const apart = c.proposals.filter((p) => p.tells === 'apart')
-    for (const p of c.proposals) if (p.tells !== 'apart') folded.push(p.tells)
-    for (const p of apart) printProposal(p)
+    const full = c.proposals.filter(inFull)
+    for (const p of c.proposals) if (!inFull(p)) folded.push(p.tells)
+    for (const p of full) printProposal(p)
     if (!c.proposals.length) console.log('  Nothing of its own to propose.')
-    else if (!apart.length) console.log('  None of its proposals tells the answers read apart.')
+    else if (!full.length) console.log('  None of its proposals tells the answers read apart.')
     if (all) {
-      const rest = c.proposals.filter((p) => p.tells !== 'apart')
+      const rest = c.proposals.filter((p) => !inFull(p))
       if (rest.length) {
         console.log(`\n  ${capital(foldedCount(rest.map((p) => p.tells)))}:`)
         for (const p of rest) printProposal(p)
@@ -187,6 +226,9 @@ function printProposals(result: ProposeResult, skillArg: string, all: boolean): 
   const shown =
     result.every.filter((e) => e.tells === 'apart').length +
     result.cases.reduce((n, c) => n + c.proposals.filter((p) => p.tells === 'apart').length, 0)
+  const printed =
+    result.every.filter(everyInFull).length +
+    result.cases.reduce((n, c) => n + c.proposals.filter(inFull).length, 0)
   console.log(`\n${shown} proposed that tell the answers read apart.`)
   if (folded.length)
     console.log(
@@ -208,7 +250,7 @@ function printProposals(result: ProposeResult, skillArg: string, all: boolean): 
     console.log(
       `${refused} did not fit at first and were asked for again; ${twice} did not fit again and were left out.`,
     )
-  if (shown || folded.length)
+  if (printed || folded.length)
     console.log(
       `To keep some: pnpm st propose ${skillArg} --case <case> --accept <id,id>, or --accept <id,id> alone for ones for every case. To turn some down: --drop <id,id> in the same way.`,
     )

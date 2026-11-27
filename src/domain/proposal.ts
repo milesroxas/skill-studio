@@ -67,9 +67,10 @@ export type Scope = 'case' | 'every case'
 export type Meets = 'yes' | 'no' | 'cannot tell'
 
 /**
- * Whether a proposal tells the answers read apart, from the model's word on
- * each: met by some and missed by others; met by every one; missed by every
- * one; or not known, when it could not tell for enough of them.
+ * Whether a proposal tells the answers read apart, from the word that stands
+ * on each (the model's, or Jev's where it is sure what a grading will say):
+ * met by some and missed by others; met by every one; missed by every one; or
+ * not known, when it is not known for enough of them.
  */
 export type Tells = 'apart' | 'all meet' | 'none meet' | 'unclear'
 
@@ -585,7 +586,7 @@ export function asAnswer(check: string, noun: string | null): string {
   return check.trim().replace(lead, 'The answer')
 }
 
-/** One answer that was read, and the model's word on whether it meets a proposed check. */
+/** One answer that was read, and the word that stands on whether it meets a proposed check. */
 export interface ProposedAnswer {
   /** The output, as the app names one: its run and its attempt (`run/attempt`). */
   key: string
@@ -612,7 +613,7 @@ export interface ProposedCheck {
   state: 'proposed' | 'accepted' | 'dropped'
 }
 
-/** Whether a proposal tells the answers apart, from the model's word on each. */
+/** Whether a proposal tells the answers apart, from the word that stands on each. */
 export function tellsOf(meets: Readonly<Record<string, Meets>>): Tells {
   const words = Object.values(meets)
   const yes = words.filter((w) => w === 'yes').length

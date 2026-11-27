@@ -98,8 +98,8 @@ Each proposal holds:
 | `scope` | `case`, or `every case` when the assistant said it would hold for every case of the skill. What makes a proposal part of one for every case (an entry of `every`) is that two cases or more propose it, whatever its scope |
 | `basis` | What asks for it: `{ "in": "request" }`, `{ "in": "note" }` (the case's "A good answer") or `{ "in": "input", "file": <name> }`, with `quote`, its words there |
 | `shownBy`, `fault` | An answer that misses it, or null; and where that answer says something wrong, `{ "file": <its path in the attempt's folder>, "quote": ... }`, or null when it leaves something out |
-| `answers` | Each answer read, by `run`, `sample` (the attempt's folder), `configuration`, `version` and its `name`, with `meets`: `yes`, `no` or `cannot tell`, as the assistant read it |
-| `tells` | `apart` when some answers read meet it and some miss it, `all meet`, `none meet`, or `unclear` when the assistant could not tell for enough of them |
+| `answers` | Each answer read, by `run`, `sample` (the attempt's folder), `configuration`, `version` and its `name`, with `meets`: `yes`, `no` or `cannot tell`. It is Jev's word where Jev is sure what a grading will say of that answer, and the assistant's where it is not. `jev` is Jev's answer as a grading reads it, null where Jev was asked and a long answer's parts do not settle it, and absent when Jev was not asked of that answer. `said` is the assistant's own word, kept only where Jev's stands in its place |
+| `tells` | `apart` when some answers read meet it and some miss it, `all meet`, `none meet`, or `unclear` when it is not known for enough of them, read from `meets` |
 | `state`, `decidedAt` | `proposed`, `accepted` or `dropped`, and when it was accepted or dropped |
 | `stamp` | What it was made from, as one hash: the version of what the assistant is told, what its case asks (its request and each input file by name and bytes), the case's note, and each answer read by run, attempt and the bytes of the files it wrote |
 | `ask` | What its case asked, as `rule-readings.json` stamps it |
@@ -116,10 +116,11 @@ Each entry of `reads` is one case's last reading: `case`, `stamp`, `at`, `model`
 | `factsRefused` | Why each fact the assistant listed was not taken: its words are not in the note, or the check or proposal it names is not there |
 | `overreach` | The proposals left out because Jev was sure their words do not ask for all of them, each with `check`, `why`, `scope`, `basis` and Jev's `basisCheck` |
 | `basisChecked` | Whether Jev was asked about each proposal's words |
+| `unanswered` | The answers, as `<run>/<attempt>`, whose request to Jev on what a grading will say failed: asked again the next time `st propose` runs on the case. Absent when none failed |
 
 Each entry of `every` is one proposal for every case, proposed on two cases or more: `id` (eight characters from a hash of its words, what `--accept` and `--drop` name it by without `--case`), `check` (the first case's words, with that case's name for its answer read as "The answer") and `why` (of the first case it was proposed on), `members` (each proposal it is made of, by `case` and `id`), `state`, `decidedAt` and `at`. Accepting it writes one file in `evals/graders/` and marks it and its members accepted.
 
-Each entry of `asked` is one answer of Jev's: `key` (a hash of the model, the question's version and everything asked), `noul` (its probability, unrounded) and `at`. The newest 4,000 are kept.
+Each entry of `asked` is one answer of Jev's: `key` (a hash of the model, the question's version and everything asked; for what a grading will say of an answer, the state and the question as a grading puts them), `noul` (its probability, unrounded) and `at`. The newest 4,000 are kept.
 
 - A proposal whose stamp is not its case's now is out of date: its request or note changed, an answer it read changed, or a newer run has a newer answer. It is not shown as current, and the next `st propose` reads the case again and puts new proposals in place of those still proposed for it. Accepted and dropped ones stay.
 - A dropped one is not proposed again while its words and what its case asks stand.

@@ -9,7 +9,7 @@
 import { copyFileSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
-import { layoutText, readLayout } from '@domain/layout.ts'
+import { layoutText, type PageLayout, readLayout } from '@domain/layout.ts'
 import { factsAsked, type ReadFact, type ReadOutput, sheetText } from '@domain/reading.ts'
 import type { Sample } from '@domain/views.ts'
 import { assertInside, isFile, listFiles, textOf, treeFiles, writeText } from './fs.ts'
@@ -69,6 +69,28 @@ function putTree(room: string, to: string, from: string): void {
   for (const { rel, real } of treeFiles(from, { hidden: true })) put(room, roomRel(to, rel), real)
 }
 
+/** The first picture in an output's `renders/`, when the app drew its page, and the layout measured with it. */
+function drawnPage(sampleDir: string): { picture: string; layout: PageLayout | null } | null {
+  const renders = join(sampleDir, 'renders')
+  const [picture] = listFiles(renders, (file) => file.endsWith('.png'))
+  if (!picture) return null
+  const measured = join(renders, picture.replace(/\.png$/, '.json'))
+  if (!isFile(measured)) return { picture: join(renders, picture), layout: null }
+  try {
+    return {
+      picture: join(renders, picture),
+      layout: readLayout(JSON.parse(readFileSync(measured, 'utf8'))),
+    }
+  } catch {
+    // A layout that does not read is no layout: the page is still there to look at.
+    return { picture: join(renders, picture), layout: null }
+  }
+}
+
+/** The page's layout as the window measured it when the app drew it, as a room holds it; null when none was kept. */
+export const measuredLayout = (sampleDir: string): PageLayout | null =>
+  drawnPage(sampleDir)?.layout ?? null
+
 /** The page as drawn and its measured layout, when the app drew one: the first picture in `renders/`. */
 export function putPage(
   room: string,
@@ -76,17 +98,13 @@ export function putPage(
   sampleDir: string,
   texts: Record<string, string>,
 ) {
-  const renders = join(sampleDir, 'renders')
-  const [picture] = listFiles(renders, (file) => file.endsWith('.png'))
-  if (!picture) return
-  put(room, roomRel(name, 'page.png'), join(renders, picture))
-  const measured = join(renders, picture.replace(/\.png$/, '.json'))
-  if (!isFile(measured)) return
+  const page = drawnPage(sampleDir)
+  if (!page) return
+  put(room, roomRel(name, 'page.png'), page.picture)
+  if (!page.layout) return
   try {
-    const layout = readLayout(JSON.parse(readFileSync(measured, 'utf8')))
-    if (!layout) return
     const rel = roomRel(name, 'layout.txt')
-    const text = layoutText(layout, LAYOUT_ROOM)
+    const text = layoutText(page.layout, LAYOUT_ROOM)
     writeText(join(room, rel), text)
     texts[rel] = text
   } catch {

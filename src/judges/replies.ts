@@ -7,8 +7,8 @@
  * answers another.
  */
 import { createHash } from 'node:crypto'
-import { mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs'
-import { join, resolve } from 'node:path'
+import { appendFileSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs'
+import { dirname, join, resolve } from 'node:path'
 import type { Operation } from '@domain/cost.ts'
 import { countMissing } from './meter.ts'
 
@@ -79,6 +79,31 @@ export function unanswered<E extends Error>(error: E): E {
 export function neverReplayed(what: string): void {
   if (savedReplies()?.mode === 'replay')
     throw unanswered(new Error(`${what} is never saved, so a replay cannot answer it.`))
+}
+
+/** The `ST_AI_REPLAY_LOG` that could not be written, said once. */
+let unwritable: string | null = null
+
+/**
+ * Under a replay, note a saved reply it answered from, as `<folder>/<key>.json`
+ * and, for one of Jev's, `#<question's key>`: a line each in the file
+ * `ST_AI_REPLAY_LOG` names, when it names one, its folder made if need be. So
+ * a test can hold every reply kept to being read, and none lies there unused.
+ * Noting never fails the call: a file that cannot be written is said once, on
+ * stderr, and nothing more is noted.
+ */
+export function noteReplayed(what: string): void {
+  const log = process.env.ST_AI_REPLAY_LOG
+  if (!log || unwritable === log) return
+  try {
+    mkdirSync(dirname(resolve(log)), { recursive: true })
+    appendFileSync(log, `${what}\n`)
+  } catch (error) {
+    unwritable = log
+    process.stderr.write(
+      `ST_AI_REPLAY_LOG cannot be written, so the replies read are not noted: ${(error as Error).message}\n`,
+    )
+  }
 }
 
 /** The file `<dir>/<folder>/<key>.json`, read; undefined when there is none. */
