@@ -8,7 +8,9 @@
  * `improve` serve the three actions on a selected rule, and `fix` drafts a
  * change to a rule an answer broke, from Results. For those, the lint
  * and Jev decide what is wrong before any model writes, so a rule that
- * already complies costs no generative call at all.
+ * already complies costs no generative call at all. What code and Jev can
+ * settle in a reply, they settle after it: a description's words are counted,
+ * and a new check that asks what one of its case's asks is left out.
  */
 import { randomUUID } from 'node:crypto'
 import { readFileSync } from 'node:fs'
@@ -21,6 +23,7 @@ import {
   type ChatMessage,
   type ChatThread,
   chatWindowOf,
+  type LeftOut,
   resolveChoice,
   runsToForget,
   summarizeUsage,
@@ -33,9 +36,14 @@ import {
   assistText,
   type ChatScene,
   chatBrief,
+  DESCRIPTION_WORDS,
+  leftOutOf,
+  newItems,
   partialText,
+  shorterRequest,
 } from '@domain/assist.ts'
 import type { SlashCommand } from '@domain/commands.ts'
+import { DEFAULT_CONFIG } from '@domain/config.ts'
 import {
   FIX_AGAIN_SCHEMA,
   FIX_SCHEMA,
@@ -91,6 +99,7 @@ import {
 import { type Finding, lintScene, type RuleScene } from '@domain/lint.ts'
 import { isMissed, type Verdict } from '@domain/pack.ts'
 import { aiChoiceOf } from '@domain/preferences.ts'
+import { wordCount } from '@domain/text.ts'
 import {
   type AiMessage,
   aiProvider,
@@ -99,11 +108,12 @@ import {
 } from '@infrastructure/ai/index.ts'
 import { readChat, readUsage, writeChat } from '@infrastructure/ai/store.ts'
 import { answerText } from '@infrastructure/answer-files.ts'
-import { loadCases } from '@infrastructure/cases.ts'
+import { loadBench, loadCases } from '@infrastructure/cases.ts'
 import { findImage, type StoredImage } from '@infrastructure/images.ts'
 import { readPreferences } from '@infrastructure/preferences.ts'
 import { readRun } from '@infrastructure/runs.ts'
 import { isAuthError, Jev } from '@judges/jev.ts'
+import { QUESTIONS_PER_REQUEST, sameOf } from '@judges/proposals.ts'
 import { judgeAnswer, judgeDraft, judgeRule, verifyRewrites } from '@judges/rule/index.ts'
 import { correctionsOf, runVerdicts } from './grade.ts'
 
@@ -217,6 +227,9 @@ type Again = (
   schema: Readonly<Record<string, unknown>> | null,
 ) => Promise<string>
 
+/** A finished reply's text, or a list's new items with how many were left out. */
+type Finished = string | { text: string; leftOut: LeftOut }
+
 interface Work {
   kind: AiRunKind
   choice: AiChoice
@@ -228,13 +241,20 @@ interface Work {
   /** What the run shows of the reply so far. */
   preview: (raw: string) => string
   /**
-   * The run's text from the finished reply. Throws when the reply does not
-   * hold up. `again` asks the same model once more, as part of this run, and
-   * `signal` is the run's: Jev's checks of the reply take it, so Stop ends them.
+   * The run's text from the finished reply, and for a list what was left out
+   * of it. Throws when the reply does not hold up. `again` asks the same model
+   * once more, as part of this run, and `signal` is the run's: Jev's checks of
+   * the reply take it, so Stop ends them.
    */
-  finish: (raw: string, again: Again, signal: AbortSignal) => string | Promise<string>
+  finish: (raw: string, again: Again, signal: AbortSignal) => Finished | Promise<Finished>
   /** Called once, when the run has ended for any reason, and before the end is reported. */
   ended?: (run: AiRun) => void | Promise<void>
+  /**
+   * A reply that has arrived stands when Stop is pressed while it is checked:
+   * `finish` asks nothing more once the signal ends, and the run ends done on
+   * what the checks had settled. Without this, Stop then ends it stopped.
+   */
+  standsOnStop?: true
 }
 
 function start(work: Work): AiRun {
@@ -295,12 +315,16 @@ function start(work: Work): AiRun {
       },
     })
     .then(async (reply) => {
-      if (controller.signal.aborted) return
+      if (controller.signal.aborted && !work.standsOnStop) return
       run.usage = reply.usage
-      const text = await work.finish(reply.text, again, controller.signal)
-      // Stopped while its reply was checked: nobody is waiting for it.
-      if (controller.signal.aborted) return
-      run.text = text
+      const finished = await work.finish(reply.text, again, controller.signal)
+      // Stopped while its reply was checked: nobody is waiting for it, unless the reply stands.
+      if (controller.signal.aborted && !work.standsOnStop) return
+      if (typeof finished === 'string') run.text = finished
+      else {
+        run.text = finished.text
+        if (finished.leftOut.had || finished.leftOut.twice) run.leftOut = finished.leftOut
+      }
       run.status = 'done'
     })
     .catch((error: Error) => {
@@ -328,9 +352,108 @@ function start(work: Work): AiRun {
   return { ...run }
 }
 
-/** Write one field's text, in the shape that field holds. `images` are `input.images`, found on disk. */
-export async function startAssist(input: AssistInput, images: StoredImage[]): Promise<AiRun> {
+/**
+ * A description held to `DESCRIPTION_WORDS`, counted as a person counts
+ * (`wordCount`): one over is sent back once with its count, and the second
+ * is kept when it has fewer words, though it may still be over. Any failure
+ * of the second, Stop included, leaves the first standing, so the writer
+ * still gets a description.
+ */
+async function shortEnough(
+  input: AssistInput,
+  system: string,
+  text: string,
+  again: Again,
+): Promise<string> {
+  const count = wordCount(text)
+  if (count <= DESCRIPTION_WORDS) return text
+  try {
+    const second = assistText(
+      input,
+      await again(system, shorterRequest(input, text), ASSIST_SCHEMA),
+    )
+    return wordCount(second) < count ? second : text
+  } catch (error) {
+    console.warn(`The description could not be written shorter: ${(error as Error).message}`)
+    return text
+  }
+}
+
+/**
+ * Jev's word on each pair, at most half `QUESTIONS_PER_REQUEST` pairs a
+ * request, one request after another, each ended by `signal`. A pair whose
+ * request failed, or was never sent because the run stopped, has none (null).
+ */
+async function sameByRequest(
+  jev: Jev,
+  pairs: ReadonlyArray<readonly [string, string]>,
+  signal: AbortSignal,
+): Promise<Array<number | null>> {
+  const per = Math.floor(QUESTIONS_PER_REQUEST / 2)
+  const same: Array<number | null> = pairs.map(() => null)
+  for (let at = 0; at < pairs.length && !signal.aborted; at += per)
+    try {
+      const part = await sameOf(jev, pairs.slice(at, at + per), signal)
+      part.forEach((value, i) => {
+        same[at + i] = value
+      })
+    } catch (error) {
+      if (!signal.aborted)
+        console.warn(
+          `Jev could not compare some new checks with the case's: ${(error as Error).message}`,
+        )
+    }
+  return same
+}
+
+/**
+ * The checks of a reply its case has not got already, and how many were left
+ * out: one in the same words as a check of the case, or as one before it in
+ * the reply, then one Jev is sure asks the same of an answer as a check of the
+ * case, at the skill's threshold. One Jev is not sure of stays, and so does
+ * one whose request failed or was not sent because Stop was pressed: without
+ * a key, or when Jev cannot be reached, only the words decide, so the writer
+ * still gets every other check.
+ */
+async function notHad(
+  text: string,
+  has: readonly string[],
+  jev: Jev | null,
+  sure: number,
+  signal: AbortSignal,
+): Promise<{ text: string; leftOut: LeftOut }> {
+  const found = newItems(text, has)
+  const { items } = found
+  const against = has.filter((h) => h.trim())
+  if (!jev || !items.length || !against.length)
+    return { text: items.join('\n'), leftOut: leftOutOf(found, new Set()) }
+  const pairs = items.flatMap((check) => against.map((other) => [check, other] as const))
+  const same = await sameByRequest(jev, pairs, signal)
+  const had = new Set(
+    pairs.flatMap(([check], i) => {
+      const value = same[i]
+      return value !== null && value >= sure ? [check] : []
+    }),
+  )
+  const kept = items.filter((check) => !had.has(check))
+  return { text: kept.join('\n'), leftOut: leftOutOf(found, had) }
+}
+
+/**
+ * Write one field's text, in the shape that field holds. `images` are
+ * `input.images`, found on disk; `skillDir` is the open skill's, whose
+ * threshold Jev's answers are read at, or null. A run that leaves out every
+ * check it wrote ends done with no text: there is nothing to add.
+ */
+export async function startAssist(
+  input: AssistInput,
+  images: StoredImage[],
+  skillDir: string | null = null,
+): Promise<AiRun> {
   const { system, user } = assistPrompt(input)
+  const checks = input.field === 'case.checks'
+  const jev = checks && Jev.available() ? new Jev(undefined, 'assist') : null
+  const sure = checks && skillDir ? loadBench(skillDir).yes : DEFAULT_CONFIG.yes
   return start({
     kind: 'assist',
     choice: await currentChoice(),
@@ -338,7 +461,14 @@ export async function startAssist(input: AssistInput, images: StoredImage[]): Pr
     messages: [{ role: 'user', text: user, images }],
     schema: ASSIST_SCHEMA,
     preview: partialText,
-    finish: (raw) => assistText(input, raw),
+    // Stop while a description is shortened, or checks are compared, keeps what has arrived.
+    standsOnStop: true,
+    finish: async (raw, again, signal) => {
+      const text = assistText(input, raw)
+      if (input.field === 'skill.description') return shortEnough(input, system, text, again)
+      if (checks) return notHad(text, input.items ?? [], jev, sure, signal)
+      return text
+    },
   })
 }
 

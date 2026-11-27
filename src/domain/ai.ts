@@ -239,6 +239,17 @@ export interface AiUsage {
 export type AiRunKind = 'assist' | 'chat' | 'refine' | 'rewrites' | 'improve' | 'fix'
 export type AiRunStatus = 'running' | 'done' | 'failed' | 'stopped'
 
+/** The new items of a list's reply that were left out before they were shown. */
+export interface LeftOut {
+  /**
+   * Ones the list has already: in the same words, or asking the same as Jev
+   * reads them, and a repeat in the reply of one of those.
+   */
+  had: number
+  /** Ones the reply said a second time, in the same words, of an item still shown. */
+  twice: number
+}
+
 /** One reply, while it is written and after. The backend holds it; the page mirrors it. */
 export interface AiRun {
   /** Unique for good, so a run started after the backend restarts is never taken for an older one. */
@@ -258,6 +269,8 @@ export interface AiRun {
   provider: AiProviderId
   model: string
   usage: AiUsage | null
+  /** For `assist` beside a list, once done: the new items left out. Absent when none were. */
+  leftOut?: LeftOut
 }
 
 export const isSettled = (run: AiRun): boolean => run.status !== 'running'

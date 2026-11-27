@@ -5,17 +5,29 @@
  * mark, a description says when to load the skill. A list is a kind too: its
  * reply is new items, one per line. The reply is one JSON object with the
  * field's text, so no greeting or explanation can land in a field, and the
- * text is then fitted to the field before anything shows it. Pure data and
- * functions.
+ * text is then fitted to the field before anything shows it. What code can
+ * settle in a reply, it settles: a description's words are counted
+ * (`wordCount`), and a new item the list has in the same words, or that the
+ * reply said before, is left out (`newItems`), and said so (`leftOutLine`).
+ * Pure data and functions.
  */
 
+import type { LeftOut } from './ai.ts'
 import { inputEntries, inputName, picturesOf } from './case-draft.ts'
 import { CHANGES_GUIDE } from './changes.ts'
 import type { ImageRef } from './image.ts'
 import { byFileOrder, isSkillFilePath } from './paths.ts'
+import { sameWords } from './proposal.ts'
 import { type Case, type CaseDraft, NEW_CASE_KEY, type SkillDrafts } from './schemas.ts'
 import { CASE_PROMPT_HINT, CHECK_EXAMPLES, RULE_GUIDE, RULE_SHAPE } from './templates.ts'
-import { closesFence, fenceOf, frontMatterBlock, LIST_MARK, withFrontMatterQuoted } from './text.ts'
+import {
+  closesFence,
+  fenceOf,
+  frontMatterBlock,
+  LIST_MARK,
+  withFrontMatterQuoted,
+  wordCount,
+} from './text.ts'
 
 export const ASSIST_FIELD_IDS = [
   'skill.file',
@@ -57,6 +69,14 @@ const CHECKS = CHECK_EXAMPLES.map(
   (example) => `Not "${example.bad}" but "${example.good}" ${example.why}`,
 ).join('\n- ')
 
+/**
+ * The most words a description holds. The model is asked for this many, and
+ * code counts what it wrote as a person would (`wordCount`). A description
+ * with no white space in it is one word to that count, so one written
+ * without spaces, as Chinese or Japanese is, is never sent back on it.
+ */
+export const DESCRIPTION_WORDS = 50
+
 /** What one check is, for the field that holds one and the list that takes several. */
 const CHECK = `a single statement a good answer makes true, that Jev, the grader, can mark by reading the answer. One fact per check, naming the thing to look for, in one sentence that starts "The answer", "The note" or the like.
 - ${CHECKS}`
@@ -95,8 +115,7 @@ export const ASSIST_FIELDS: Record<AssistFieldId, AssistFieldDef> = {
   'skill.description': {
     name: 'the description',
     form: 'line',
-    shape:
-      'The description in a skill’s front matter, which agents read to decide when to load the skill. One or two sentences, 50 words or fewer, in the third person. First what the skill does, starting with a verb such as "Writes" or "Reviews". Then a sentence starting "Use when" that names the requests it should load for.',
+    shape: `The description in a skill’s front matter, which agents read to decide when to load the skill. One or two sentences, ${DESCRIPTION_WORDS} words or fewer, in the third person. First what the skill does, starting with a verb such as "Writes" or "Reviews". Then a sentence starting "Use when" that names the requests it should load for.`,
     suggestions: {
       write: ['Say what it does and when to use it'],
       edit: ['Name when to use it', 'Make it shorter'],
@@ -153,6 +172,11 @@ export interface AssistInput {
   context: AssistContext[]
   /** Pictures the model reads beside the text: the case's own, and any attached to the request. */
   images: ImageRef[]
+  /**
+   * Beside a list: the items it has now. The model reads them in `context`;
+   * code leaves out a new item that says what one of them says.
+   */
+  items?: string[]
 }
 
 /** The most text one request carries, in characters. More than this is refused, never cut. */
@@ -350,6 +374,102 @@ export function assistText(input: Pick<AssistInput, 'field' | 'current'>, raw: s
   return withFrontMatterQuoted(
     front && !frontMatterBlock(text) ? `${front.trimEnd()}\n\n${text}` : text,
   )
+}
+
+/**
+ * The second request for a description that came back over
+ * `DESCRIPTION_WORDS`: the first request as it was, less its pictures, then the
+ * description and how many words code counted in it, so the model cuts what
+ * it wrote rather than starting anew. It goes with the same system prompt.
+ */
+export function shorterRequest(input: AssistInput, text: string): string {
+  return [
+    assistPrompt({ ...input, images: [] }).user,
+    tag('your_description', text),
+    `That description has ${wordCount(text)} words, and the field holds ${DESCRIPTION_WORDS} words or fewer. Write it again in ${DESCRIPTION_WORDS} words or fewer: keep what the skill does and when to use it, and cut the rest.`,
+  ].join('\n\n')
+}
+
+/**
+ * The items of a list's fitted reply that say nothing the list has already,
+ * nor an item before them in the reply, in the same words, give or take case,
+ * punctuation and spacing (`sameWords`). `had` counts those the list has;
+ * `repeats` names, for each one the reply said again, the item it repeats,
+ * so it is counted with that item once the rest is settled (`leftOutOf`).
+ */
+export function newItems(
+  text: string,
+  has: readonly string[],
+): { items: string[]; had: number; repeats: string[] } {
+  const items: string[] = []
+  const repeats: string[] = []
+  let had = 0
+  for (const item of assistItems(text)) {
+    if (!item) continue
+    const earlier = items.find((shown) => sameWords(shown, item))
+    if (has.some((h) => h.trim() && sameWords(h, item))) had += 1
+    else if (earlier !== undefined) repeats.push(earlier)
+    else items.push(item)
+  }
+  return { items, had, repeats }
+}
+
+/**
+ * What was left out of a list's reply once `gone`, the new items found to be
+ * ones the list has, are taken out too: a repeat of one of those is one the
+ * list has as well, and only a repeat of an item still shown repeats one above.
+ */
+export function leftOutOf(
+  found: { had: number; repeats: readonly string[] },
+  gone: ReadonlySet<string>,
+): LeftOut {
+  const twice = found.repeats.filter((item) => !gone.has(item)).length
+  return { had: found.had + gone.size + found.repeats.length - twice, twice }
+}
+
+/**
+ * The items to add when Add is pressed: the reply's, less any the list has
+ * by then in the same words, as the person may have added one since the
+ * request was sent. Null when none is left.
+ */
+export function toAdd(text: string, has: readonly string[]): string | null {
+  const { items } = newItems(text, has)
+  return items.length ? items.join('\n') : null
+}
+
+/**
+ * What a request was made for: the field, its text and, beside a list, the
+ * list's items. A reply is shown again only for the same: one made for a
+ * list that has changed since is let go.
+ */
+export const madeFor = (field: string, value: string, items?: readonly string[]): string =>
+  JSON.stringify([field, value, items ?? null])
+
+/** What the reply box says when every new check is one the case has already. */
+export const NOTHING_TO_ADD =
+  'Every check that came back is one this case has already: there is nothing to add.'
+
+/** "1 check" or "2 checks". */
+const checks = (n: number): string => `${n} ${n === 1 ? 'check' : 'checks'}`
+
+/**
+ * What the reply box says under a list's new checks of those left out, or in
+ * their place when none is left (`kept` is the run's text). Null when none
+ * was left out.
+ */
+export function leftOutLine(leftOut: LeftOut | undefined, kept: string): string | null {
+  const { had = 0, twice = 0 } = leftOut ?? {}
+  const left = had + twice
+  if (!left) return null
+  if (!kept.trim()) return NOTHING_TO_ADD
+  const are = left === 1 ? 'is' : 'are'
+  const why =
+    had && twice
+      ? `this case has ${had} already, and ${twice} ${twice === 1 ? 'repeats one' : 'repeat ones'} above`
+      : had
+        ? `this case has ${had === 1 ? 'it' : 'them'} already`
+        : `${twice === 1 ? 'it repeats one' : 'they repeat ones'} above`
+  return `${checks(left)} that came back ${are} left out: ${why}.`
 }
 
 /** One file of the open skill as the reader has it: their unsaved text when there is some. */

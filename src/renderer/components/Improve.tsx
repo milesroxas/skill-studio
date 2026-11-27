@@ -17,7 +17,7 @@ import {
   keepListMark,
   withoutListMark,
 } from '@domain/improve.ts'
-import { wordCount } from '@domain/lint.ts'
+import { wordCount } from '@domain/text.ts'
 import { useMemo, useState } from 'react'
 import { sendImprove, stopRun, useAi, useImprove, useImproveDraft } from '../ai.ts'
 import { compareTexts } from '../diff.ts'

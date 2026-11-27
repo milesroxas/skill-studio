@@ -95,6 +95,7 @@ import {
   basisState,
   bothWays,
   PROPOSAL_QUESTIONS_VERSION,
+  QUESTIONS_PER_REQUEST,
   SAME_STATE,
   sameQuestions,
 } from '@judges/proposals.ts'
@@ -383,7 +384,7 @@ class Asking {
   async ask(
     state: JevState,
     items: ReadonlyArray<{ key: string; question: Question }>,
-    per = 40,
+    per = QUESTIONS_PER_REQUEST,
   ): Promise<Map<string, number>> {
     const answers = new Map<string, number>()
     const missing: Array<{ key: string; question: Question }> = []

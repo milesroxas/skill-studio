@@ -331,6 +331,7 @@ function assistInputOf(raw: Raw): Scoped & AssistInput {
     current: str(raw.current),
     context,
     images: imageRefsOf(raw.images),
+    items: (Array.isArray(raw.items) ? raw.items : []).map((item) => str(item)),
   }
   if (!input.instruction) throw new Error('Say what to write or change.')
   const size =
@@ -745,6 +746,7 @@ export function createOperations(options: OperationsOptions): Runners {
       return startAssist(
         input,
         input.images.map((image) => findImage(dir, image)),
+        dir,
       )
     },
     'ai.run': ({ id }) => findRun(id),
