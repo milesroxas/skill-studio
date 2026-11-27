@@ -90,6 +90,7 @@ import {
 import {
   deleteSkillFile,
   restoreSkillFiles,
+  saveRefusal,
   skillInfo,
   skillTexts,
   writeSkillFile,
@@ -767,7 +768,24 @@ export function createOperations(options: OperationsOptions): Runners {
           ),
         },
       }
-      return sendChat(input.text, input.images, scene, skill?.path ?? null)
+      // Read again when the reply ends, so its edits apply to the files as they stand then.
+      const files = (path: string) => () =>
+        Object.fromEntries(
+          workingSkill(skillTexts(path).files, [], {
+            files: readDrafts(path).files,
+            cases: {},
+          }).files.map((f) => [f.path, f.text]),
+        )
+      return sendChat(
+        input.text,
+        input.images,
+        scene,
+        skill && {
+          path: skill.path,
+          files: files(skill.path),
+          refusal: (path) => saveRefusal(skill.path, path),
+        },
+      )
     },
     'chat.clear': () => clearChat(),
     'ai.refine': (scene) => startRefine(scene),

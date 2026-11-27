@@ -21,6 +21,7 @@ import { failRenames, patchFs } from './__fixtures__/fs.ts'
 import {
   deleteSkillFile,
   editablePath,
+  saveRefusal,
   skillFiles,
   skillHash,
   skillHead,
@@ -108,6 +109,40 @@ describe('writeSkillFile', () => {
     expect(() => writeSkillFile(dir, 'assets/logo.png', 'x', 'x')).toThrow('not a text file')
     expect(readFileSync(join(dir, 'assets/logo.png')).equals(picture)).toBe(true)
     expect(() => writeSkillFile(dir, 'assets', 'x', null)).toThrow('is a folder')
+  })
+
+  it('says a file too large to open as text is too large, not that it is not text', () => {
+    mkdirSync(join(dir, 'references'), { recursive: true })
+    writeFileSync(join(dir, 'references/big.md'), 'x'.repeat(TEXT_MAX_BYTES + 1))
+    expect(() => writeSkillFile(dir, 'references/big.md', 'x', null)).toThrow(
+      'references/big.md is too large to open as text, so it is not written over.',
+    )
+  })
+
+  it('says why a save would be refused before any text is compared, in the words it refuses with', () => {
+    mkdirSync(join(dir, 'assets'))
+    mkdirSync(join(dir, 'references'), { recursive: true })
+    writeFileSync(join(dir, 'assets/logo.png'), Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x00]))
+    writeFileSync(join(dir, 'references/big.md'), 'x'.repeat(TEXT_MAX_BYTES + 1))
+    const refused = ['assets/logo.png', 'references/big.md', 'assets', '../escape.md', 'evals/a.md']
+    const outside = mkdtempSync(join(tmpdir(), 'st-skill-outside-'))
+    if (process.platform !== 'win32') {
+      writeFileSync(join(outside, 'a.md'), 'x')
+      symlinkSync(join(outside, 'a.md'), join(dir, 'references/link.md'))
+      refused.push('references/link.md')
+    }
+    try {
+      for (const path of refused) {
+        const refusal = saveRefusal(dir, path)
+        expect(refusal).not.toBeNull()
+        expect(() => writeSkillFile(dir, path, 'x', 'x')).toThrow(refusal ?? '')
+      }
+    } finally {
+      rmSync(outside, { recursive: true, force: true })
+    }
+    // A file there is none of yet, and one there is, would be written.
+    expect(saveRefusal(dir, 'references/new.md')).toBeNull()
+    expect(saveRefusal(dir, 'SKILL.md')).toBeNull()
   })
 
   it('never writes outside the editable set', () => {

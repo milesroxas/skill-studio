@@ -190,6 +190,45 @@ const editableFile = (skillDir: string, path: string): string =>
   assertInside(skillDir, join(skillDir, editablePath(path)))
 
 /**
+ * Where a save of `path` lands and the text there now (null for no file), or
+ * the error the save is refused with whatever text it holds: a path the
+ * skill's files cannot have, a link that leads out of the skill, a folder, or
+ * a file that is not text or is too large to open as text.
+ */
+function saveTarget(
+  skillDir: string,
+  path: string,
+): { full: string; bytes: Buffer | null; current: string | null } {
+  const full = editableFile(skillDir, path)
+  if (isDir(full)) throw new Error(`${path} is a folder.`)
+  if (path !== 'SKILL.md' && isFile(full) && statSync(full).size > TEXT_MAX_BYTES)
+    throw new Error(`${path} is too large to open as text, so it is not written over.`)
+  const bytes = isFile(full) ? readFileSync(full) : null
+  // Read as the editor read it, so the text it began on is compared with the same text.
+  const current =
+    bytes === null ? null : path === 'SKILL.md' ? bytes.toString('utf8') : editableText(bytes)
+  // Text written over a picture or a font would leave neither.
+  if (bytes !== null && current === null)
+    throw new Error(`${path} is not a text file, so it is not written over.`)
+  return { full, bytes, current }
+}
+
+/**
+ * Why a save of `path` would be refused whatever its text, in the words
+ * `writeSkillFile` refuses it with, or null when it would be written. A
+ * change the assistant writes is checked with it before anything more is
+ * asked for it.
+ */
+export function saveRefusal(skillDir: string, path: string): string | null {
+  try {
+    saveTarget(skillDir, path)
+    return null
+  } catch (error) {
+    return (error as Error).message
+  }
+}
+
+/**
  * Write one skill file. `previous` is the text the editor loaded (null for a
  * new file); a mismatch means the file changed on disk since, so the write is
  * refused rather than overwriting someone else's edit.
@@ -200,15 +239,7 @@ export function writeSkillFile(
   text: string,
   previous: string | null,
 ): void {
-  const full = editableFile(skillDir, path)
-  if (isDir(full)) throw new Error(`${path} is a folder.`)
-  const bytes = isFile(full) ? readFileSync(full) : null
-  // Read as the editor read it, so the text it began on is compared with the same text.
-  const current =
-    bytes === null ? null : path === 'SKILL.md' ? bytes.toString('utf8') : editableText(bytes)
-  // Text written over a picture or a font would leave neither.
-  if (bytes !== null && current === null)
-    throw new Error(`${path} is not a text file, so it is not written over.`)
+  const { full, bytes, current } = saveTarget(skillDir, path)
   if (current !== previous)
     throw new Error(
       current === null

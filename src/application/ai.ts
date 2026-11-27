@@ -35,6 +35,7 @@ import {
   assistPrompt,
   assistText,
   type ChatScene,
+  CONTEXT_BUDGET,
   chatBrief,
   DESCRIPTION_WORDS,
   leftOutOf,
@@ -42,6 +43,20 @@ import {
   partialText,
   shorterRequest,
 } from '@domain/assist.ts'
+import {
+  type Applied,
+  applyEdits,
+  type EditOutcome,
+  type EditProblem,
+  editsOf,
+  type FileEdits,
+  notMadeLine,
+  refusedLine,
+  wholeFileOf,
+  wholeFileRequest,
+  withEdits,
+  withoutEdited,
+} from '@domain/changes.ts'
 import type { SlashCommand } from '@domain/commands.ts'
 import { DEFAULT_CONFIG } from '@domain/config.ts'
 import {
@@ -514,9 +529,13 @@ const picturesOf = (images: ImageRef[] = []): StoredImage[] =>
     }
   })
 
-/** The messages the model reads: the latest ones, starting at one from the user. */
+/**
+ * The messages the model reads: the latest ones, starting at one from the
+ * user. A reply goes back as the model wrote it (`ChatMessage.written`).
+ */
 function chatWindow(messages: ChatMessage[]): AiMessage[] {
-  return chatWindowOf(messages).map(({ role, text, images }) => ({
+  const asWritten = messages.map((m) => (m.written === undefined ? m : { ...m, text: m.written }))
+  return chatWindowOf(asWritten).map(({ role, text, images }) => ({
     role,
     text,
     images: picturesOf(images),
@@ -524,22 +543,117 @@ function chatWindow(messages: ChatMessage[]): AiMessage[] {
 }
 
 /**
+ * The open skill a message is sent about: its path, its files as they stand
+ * when asked, by path (each saved text file with the reader's stored draft
+ * laid over it, as the reply's edits are applied to them), and why a save of
+ * a path would be refused whatever its text, in the save's own words, or null
+ * (`saveRefusal`).
+ */
+export interface ChatSkill {
+  path: string
+  files: () => Readonly<Record<string, string>>
+  refusal: (path: string) => string | null
+}
+
+/**
+ * The file one more request writes whole, when its edits could not be
+ * applied, is at most this many characters: the most of the skill beyond
+ * SKILL.md the assistant reads in a turn. A longer one is not asked for.
+ */
+const WHOLE_FILE_MAX = CONTEXT_BUDGET
+
+/** How one more request is made, inside the run; null when nothing more may be asked, as once a reply is stopped. */
+type Ask = { system: string; again: Again; signal: AbortSignal } | null
+
+/**
+ * What became of the edits to one file that `applyEdits` could not apply:
+ * the file whole from one more request to the model, inside the same run, or
+ * the line that says why there is no change. Nothing is asked for a file too
+ * long to be written whole, or once Stop is pressed. A request that fails, is
+ * stopped, or comes back with no whole text for the file leaves it with no
+ * change.
+ */
+async function wholeFile(
+  file: FileEdits,
+  applied: Extract<Applied, { problem: EditProblem }>,
+  text: string | undefined,
+  ask: NonNullable<Ask>,
+): Promise<EditOutcome> {
+  const notMade = { notMade: notMadeLine(file.path, applied.problem) }
+  if ((text !== undefined && text.length > WHOLE_FILE_MAX) || ask.signal.aborted) return notMade
+  try {
+    const answer = await ask.again(ask.system, wholeFileRequest(file, applied, text), null)
+    if (ask.signal.aborted) return notMade
+    const whole = wholeFileOf(answer, file.path, text)
+    if (whole !== null) return { text: whole }
+  } catch (error) {
+    if (!ask.signal.aborted)
+      console.warn(`${file.path} could not be asked for whole: ${(error as Error).message}`)
+  }
+  return notMade
+}
+
+/**
+ * A finished or stopped reply as the panel reads it. An edited file the
+ * model wrote itself reads as code (`withoutEdited`). Then each file the
+ * edits name: to one a save would refuse whatever its text
+ * (`ChatSkill.refusal`), no edit is applied and nothing is asked; the
+ * others' edits are applied to the files as they stand now, from
+ * `skill.files()`, and with `ask`, one more request is made for each file
+ * whose edits do not apply, one after another. Without `ask` (a stopped
+ * reply), an edit that does not apply gets the line that says why.
+ */
+async function settledReply(reply: string, skill: ChatSkill | null, ask: Ask): Promise<string> {
+  const plain = withoutEdited(reply)
+  const edited = editsOf(plain)
+  if (!edited.length || !skill) return plain
+  let now: Readonly<Record<string, string>>
+  try {
+    now = skill.files()
+  } catch (error) {
+    // The skill could not be read: each change says so, and nothing more is asked.
+    console.warn(`The skill's files could not be read for the reply: ${(error as Error).message}`)
+    const none = (path: string) => notMadeLine(path, 'no-file')
+    return withEdits(plain, new Map(edited.map((f) => [f.path, { notMade: none(f.path) }])))
+  }
+  const textOf = (path: string) => (Object.hasOwn(now, path) ? now[path] : undefined)
+  const outcomes = new Map<string, EditOutcome>()
+  const misses: Array<{ file: FileEdits; applied: Extract<Applied, { problem: EditProblem }> }> = []
+  for (const file of edited) {
+    const refusal = skill.refusal(file.path)
+    if (refusal !== null) {
+      outcomes.set(file.path, { notMade: refusedLine(refusal) })
+      continue
+    }
+    const applied = applyEdits(file.path, textOf(file.path), file.edits)
+    if ('text' in applied) outcomes.set(file.path, applied)
+    else if (ask) misses.push({ file, applied })
+    else outcomes.set(file.path, { notMade: notMadeLine(file.path, applied.problem) })
+  }
+  if (ask)
+    for (const { file, applied } of misses)
+      outcomes.set(file.path, await wholeFile(file, applied, textOf(file.path), ask))
+  return withEdits(plain, outcomes)
+}
+
+/**
  * Add a message, with any pictures, to the side panel's conversation and start
- * the reply. `skill` is the open skill's path: the reply is marked with it, so
- * the changes it proposes are offered only while that skill is open.
+ * the reply. `skill` is the open skill: the reply is marked with its path, so
+ * the changes it proposes are offered only while that skill is open, and its
+ * edits are applied to its files as they stand when the reply ends.
  */
 export const sendChat = (
   text: string,
   images: ImageRef[],
   scene: ChatScene,
-  skill: string | null,
+  skill: ChatSkill | null,
 ): Promise<ChatThread> => once('chat', () => sendChatNow(text, images, scene, skill))
 
 async function sendChatNow(
   text: string,
   images: ImageRef[],
   scene: ChatScene,
-  skill: string | null,
+  skill: ChatSkill | null,
 ): Promise<ChatThread> {
   if (chatRun?.status === 'running') throw new Error('Wait for the reply, or stop it first.')
   const choice = await currentChoice()
@@ -548,23 +662,44 @@ async function sendChatNow(
   const asked = readChat()
   const messages = [...asked, message(asked, 'user', text, images)]
   writeChat(messages)
+  const brief = chatBrief(scene)
+  // The reply as the model wrote it, when applying its edits changed what the panel reads.
+  let written: string | undefined
   chatRun = start({
     kind: 'chat',
     choice,
-    ...chatBrief(scene),
+    ...brief,
     messages: chatWindow(messages),
     schema: null,
     preview: (raw) => raw,
-    finish: proseReply,
-    ended: (run) => {
+    // Stop while a file is asked for whole keeps every change settled before it.
+    standsOnStop: true,
+    finish: async (raw, again, signal) => {
+      // Stopped while it was written: the run ends stopped, and `ended` settles what had arrived.
+      if (signal.aborted) throw new Error('The reply was stopped.')
+      const reply = proseReply(raw)
+      const shown = await settledReply(reply, skill, { system: brief.system, again, signal })
+      if (shown !== reply) written = reply
+      return shown
+    },
+    ended: async (run) => {
       // The conversation was started over while this reply was on its way.
       if (chatRun?.id !== run.id) return
       chatRun = run
       // A finished reply, and what a stopped one had written, join the conversation.
       if (run.status === 'failed' || !run.text.trim()) return
+      if (run.status === 'stopped') {
+        // Its finished edits are applied as its finished files are offered, and nothing more is asked.
+        const raw = run.text.trim()
+        const shown = await settledReply(raw, skill, null)
+        if (shown !== raw) {
+          written = raw
+          run.text = shown
+        }
+      }
       const now = readChat()
-      const reply = replyOf(now, run)
-      writeChat([...now, skill ? { ...reply, skill } : reply])
+      const reply = { ...replyOf(now, run), ...(written === undefined ? {} : { written }) }
+      writeChat([...now, skill ? { ...reply, skill: skill.path } : reply])
       chatRun = null
     },
   })

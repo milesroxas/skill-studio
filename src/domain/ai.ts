@@ -310,6 +310,11 @@ export interface ChatMessage {
   /** What the model thought before a reply, and for how long (`AiRun.thinking`). Never sent back to it. */
   thinking?: string
   thinkingMs?: number
+  /**
+   * A reply as the model wrote it, when applying its edits changed `text`,
+   * which the panel reads: this is what goes back to the model.
+   */
+  written?: string
   /** ISO time it was sent or finished. */
   at: string
 }
