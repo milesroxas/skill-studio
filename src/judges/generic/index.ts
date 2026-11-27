@@ -13,11 +13,12 @@
  */
 import { createHash } from 'node:crypto'
 import { join } from 'node:path'
-import { answerExact, type ExactSubject } from '@domain/exact.ts'
+import { answerExact, type ExactSubject, type Found, type Seen } from '@domain/exact.ts'
 import { fitForJev } from '@domain/image.ts'
-import { aboutLayout, layoutText } from '@domain/layout.ts'
+import { aboutLayout, layoutText, type PageLayout } from '@domain/layout.ts'
 import type { Unmarked } from '@domain/pack.ts'
 import { NOTES_FILE } from '@domain/prompt.ts'
+import type { AgainState } from '@domain/reading.ts'
 import { headingOf, plain, type Rule } from '@domain/rules.ts'
 import type { Grader } from '@domain/schemas.ts'
 import type { SortedReading } from '@domain/sorting.ts'
@@ -900,6 +901,226 @@ export async function statementAnswers(
       return answerOf({ noul: all[0], ...(parted ? { parts: all } : {}) }, parted, cuts)
     })
   })
+}
+
+/**
+ * How much of the output and of the case's files one state asked again holds
+ * between them: what the first room gives the two. So an output a grading
+ * asked in parts is read whole when it is no longer than this, and the files,
+ * which a rule asked again rests on less often than on the output, have the
+ * room it leaves, up to what the first room gives them (`againRoom`).
+ */
+const AGAIN_ROOM = ROOMS[0].output + ROOMS[0].files
+
+/**
+ * The first room, with the output given `AGAIN_ROOM` and the files what
+ * `length` characters of it leave, never more than the grading gave them: a
+ * part shorter than the output is no reason to send more of the files.
+ */
+const againRoom = (length: number): Room => ({
+  ...ROOMS[0],
+  output: AGAIN_ROOM,
+  files: Math.min(ROOMS[0].files, Math.max(0, AGAIN_ROOM - length)),
+})
+
+/** A fact a grading of an output left open, to be asked of Jev again (`askAgain`). */
+export interface AgainFact {
+  /** The name its answer comes back under. */
+  name: string
+  kind: 'rule' | 'check'
+  /** A rule's id in `JudgeInput.rules`, or a check's id in the case's checks. */
+  id: string
+  /** How the grading joined the answers of the output's parts (`Span`), where it was said. */
+  span: Span | null
+  /** What code saw on it, for a fact code read (`CodeAnswer.saw`); empty for one it did not read. */
+  saw: readonly Seen[]
+}
+
+/** What a grading of the output did, which says what a state asked again can add to it. */
+export interface AgainOutput {
+  /** How the grading asked the output: in parts, or whole (null). */
+  parted: Parted | null
+  /**
+   * The grading showed Jev the page as the app drew it, which is not drawn
+   * here: a fact is asked again only with what code saw. Its measured layout
+   * was in the grading's state, so it is nothing new.
+   */
+  drawn: boolean
+  /** The page's elements as the window measured them when it was drawn, where they were kept. */
+  layout: PageLayout | null
+  /** The skill's folder, which a check's picture is read from. */
+  skillDir: string
+}
+
+export interface AgainAnswers {
+  /** Each fact asked again, by its name: the state it was asked in, and Jev's answer. */
+  answers: Record<string, { state: AgainState; noul: number }>
+  /** The facts no narrower state could be built for, by name: they stay as the grading left them. */
+  unbuilt: string[]
+  /** Each request that failed, with the facts it held: they stay as the grading left them. */
+  failed: Array<{ names: string[]; why: string }>
+}
+
+/** What code saw, without what it made of it, as `code` in a state holds it; null when it saw nothing to show. */
+function codeSaw(saw: readonly Seen[]): unknown[] | null {
+  const texts = (found: readonly Found[]) => found.map((f) => f.text)
+  const shown = saw.flatMap((seen): unknown[] => {
+    switch (seen.test) {
+      case 'count':
+        return seen.counts.length
+          ? [{ counted: seen.counts, bound: `${seen.compare} ${seen.n}` }]
+          : []
+      case 'has':
+      case 'order':
+        return seen.found.length || seen.missing.length
+          ? [
+              {
+                found: texts(seen.found),
+                not_found: seen.missing,
+                ...(seen.test === 'order' && seen.out ? { out_of_order: seen.out.text } : {}),
+              },
+            ]
+          : []
+      case 'only':
+        return seen.outside.length || seen.otherNotation.length
+          ? [{ not_allowed: texts(seen.outside), written_another_way: texts(seen.otherNotation) }]
+          : []
+      case 'measure':
+        return seen.elements.length
+          ? [
+              {
+                measured: seen.elements.map((e) => ({ element: e.name, px: e.value })),
+                bound: `${seen.compare} ${seen.px} px`,
+                not_measured: seen.leftOut,
+              },
+            ]
+          : []
+      default:
+        return []
+    }
+  })
+  return shown.length ? shown : null
+}
+
+/** What `code` in a state asked again is, said once in its `fields`. */
+const CODE_FIELD =
+  '`code` is what a program read in the whole of `output` for this rule or check, and no part of `output`: for a count, the number by each ordinary way of counting, and the bound; for words or values it looked for, those it found, as `output` writes them, and those it did not find; where only some values are allowed, those it found that are not, and those written in a way it could not read; for a measure, each element’s size in px, and the bound.'
+
+/** What `layout` in a state asked again is, with no picture of the page beside it. */
+const LAYOUT_FIELD =
+  '`layout` lists the elements of `output` as a browser window measured them when the page was drawn: the window and the page first, then the place and the size of each element in px, from the top left of the page, and where it sits inside the elements that hold it. A size, a distance or a position is read from `layout`, where it was measured.'
+
+/**
+ * Ask Jev again what a grading of `input` left open, each fact in a state
+ * narrower than the grading's: it holds what the grading's did not, which
+ * the fact can rest on.
+ *
+ * - An output the grading asked in parts is read whole, when it is no longer
+ *   than `AGAIN_ROOM`; longer, a fact whose parts join at its start or its
+ *   end is asked of that part alone (`whole`, `part`).
+ * - A fact code read is asked with what code saw on it (`code`).
+ * - A fact about a size, a place or a colour on a page whose layout was
+ *   measured, and which the grading did not draw, is asked with that layout
+ *   (`layout`). Where the grading drew the page, its state held the layout.
+ *
+ * A fact none of these fits is in `unbuilt`, as is every fact of a page the
+ * grading drew that is not asked with code's evidence, since the page's
+ * picture is not here. The questions are the pack's, in its words
+ * (`ruleQuestion`, `statementQuestion`), and the facts that share a state
+ * share a request (`askAll`). A request that fails is said in `failed`, with
+ * its facts; the rest are kept.
+ */
+export async function askAgain(
+  input: JudgeInput,
+  facts: readonly AgainFact[],
+  output: AgainOutput,
+  ask: Send,
+  log: (line: string) => void,
+): Promise<AgainAnswers> {
+  const done: AgainAnswers = { answers: {}, unbuilt: [], failed: [] }
+  if (!asksJev(input, { useJev: true })) return { ...done, unbuilt: facts.map((f) => f.name) }
+  const whole = input.text.trim() ? input.text.length : 0
+  const parts = partsOf(whole, AGAIN_ROOM)
+  // A page the grading drew had its layout in the grading's state wherever a rule or check is about one (`workOf`).
+  const heldLayout = output.drawn && input.primary?.kind === 'html' && asksOfLayout(input)
+  /** The output as a state asked again holds it, and what that adds to the grading's. */
+  const pieceOf = (span: Span | null) => {
+    if (output.parted && parts.length === 1)
+      return { key: 'whole', adds: 'whole' as const, work: workOf(input, againRoom(whole)) }
+    const at = span === 'start' ? parts[0] : span === 'end' ? parts.at(-1) : undefined
+    if (output.parted && at)
+      return {
+        key: span as string,
+        adds: 'part' as const,
+        work: workOf(input, againRoom(at.to - at.from), at, at.index + 1),
+      }
+    // As the grading's first room holds it: its start says what it is, beside the evidence that is added.
+    return { key: 'first', adds: null, work: workOf(input, ROOMS[0]) }
+  }
+  const groups = new Map<
+    string,
+    { state: JevState; adds: AgainState; questions: Record<string, Question> }
+  >()
+  for (const fact of facts) {
+    const rule = fact.kind === 'rule' ? input.rules.find((r) => r.id === fact.id) : undefined
+    const grader =
+      fact.kind === 'check' ? input.case?.graders.find((g) => g.id === fact.id) : undefined
+    const reference = grader?.image ? readForJev(join(output.skillDir, grader.image)) : null
+    const piece = pieceOf(fact.span)
+    const code = codeSaw(fact.saw)
+    const layout =
+      output.layout && !heldLayout && aboutLayout(rule?.text ?? grader?.statement ?? '')
+        ? output.layout
+        : null
+    const adds: AgainState | null = layout
+      ? 'layout'
+      : code
+        ? 'code'
+        : output.drawn
+          ? null
+          : piece.adds
+    const { work } = piece
+    if (!work || !adds || (!rule && !grader) || reference?.problem) {
+      done.unbuilt.push(fact.name)
+      continue
+    }
+    const key = code ? `${piece.key} code ${fact.name}` : `${piece.key} ${adds}`
+    const group = groups.get(key) ?? {
+      state: {
+        ...(work.state as Record<string, unknown>),
+        ...(code ? { code } : {}),
+        ...(layout ? { layout: layoutText(layout, ROOMS[0].layout) } : {}),
+        fields: {
+          ...((work.state as { fields?: Record<string, string> }).fields ?? {}),
+          ...(code ? { code: CODE_FIELD } : {}),
+          ...(layout ? { layout: LAYOUT_FIELD } : {}),
+        },
+      } as JevState,
+      adds,
+      questions: {},
+    }
+    group.questions[fact.name] = rule
+      ? ruleQuestion(rule, work)
+      : statementQuestion(grader?.statement ?? '', work, reference?.image ?? null)
+    groups.set(key, group)
+  }
+  const asked = [...groups.values()]
+  const replies = await Promise.allSettled(
+    asked.map((group) => askAll(group.state, group.questions, ask, log)),
+  )
+  replies.forEach((reply, i) => {
+    const { adds, questions } = asked[i]
+    const names = Object.keys(questions)
+    try {
+      if (reply.status === 'rejected') throw reply.reason
+      for (const name of names)
+        done.answers[name] = { state: adds, noul: noulOf(reply.value, name) }
+    } catch (error) {
+      for (const name of names) delete done.answers[name]
+      done.failed.push({ names, why: (error as Error)?.message ?? String(error) })
+    }
+  })
+  return done
 }
 
 export const genericPack: JudgePack<GenericRaw> = {

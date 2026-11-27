@@ -1,14 +1,26 @@
 import { readFileSync, writeFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { type RunReading, readingOfRun, recountReading } from '@application/reading.ts'
-import type { Agreed } from '@domain/reading.ts'
+import type { AgainState, Agreed, CheckedMark } from '@domain/reading.ts'
+import { Jev } from '@judges/jev.ts'
 import { countOf, runNameOf } from '../input.ts'
 import type { Command, FlagValues } from './command.ts'
 import { shared } from './flags.ts'
-import { held, oneRun, padEnd, signalOf, skillOf, withCost } from './shared.ts'
+import { held, oneRun, padEnd, signalOf, skillOf, wantsJev, withCost } from './shared.ts'
 
 const flags = {
-  ...shared('run', 'cases', 'model', 'effort', 'parallel', 'deep', 'json', 'out'),
+  ...shared(
+    'run',
+    'cases',
+    'model',
+    'effort',
+    'parallel',
+    'deep',
+    'json',
+    'out',
+    'no-jev',
+    'jev-model',
+  ),
   blind: { type: 'boolean' },
   answers: { type: 'string' },
   recount: { type: 'string' },
@@ -16,6 +28,22 @@ const flags = {
 
 const agreed = ({ agree, total }: Agreed): string =>
   total ? `${agree} of ${total} agree` : 'none to compare'
+
+/** What Jev was shown when it was asked again, as a mark's line says it. */
+const AGAIN: Record<AgainState, string> = {
+  whole: 'the whole output',
+  part: 'the part of the output it is joined at',
+  code: 'what code saw',
+  layout: 'the measured layout',
+}
+
+/** Who gave an answer, and what Jev and the reader said beside it. */
+function besideOf(mark: CheckedMark): string {
+  const yours = mark.fact.yours === null ? '' : `, answer: ${mark.fact.yours ? 'met' : 'missed'}`
+  return mark.jev
+    ? `(Jev, asked again with ${AGAIN[mark.jev.state]}: ${mark.jev.noul}; first: ${mark.fact.jev}${yours})`
+    : `(Jev: ${mark.fact.jev}${yours})`
+}
 
 /** Print a reading: each answer on its fact, beside Jev's and the reader's, then how they agree. */
 function printReading(reading: RunReading, against: string): void {
@@ -26,8 +54,6 @@ function printReading(reading: RunReading, against: string): void {
       continue
     }
     for (const mark of read.marks) {
-      const yours =
-        mark.fact.yours === null ? '' : `, answer: ${mark.fact.yours ? 'met' : 'missed'}`
       const quote =
         mark.evidence === 'quoted'
           ? ''
@@ -35,7 +61,7 @@ function printReading(reading: RunReading, against: string): void {
             ? ' [no quote]'
             : ` [its quote is not in ${mark.file || 'any file'}${mark.said ? `, it said ${mark.said}` : ''}]`
       console.log(
-        `  ${padEnd(mark.output, 28)}${padEnd(mark.fact.ref, 5)}${padEnd(mark.answer, 12)}(Jev: ${mark.fact.jev}${yours})${quote}`,
+        `  ${padEnd(mark.output, 28)}${padEnd(mark.fact.ref, 5)}${padEnd(mark.answer, 12)}${besideOf(mark)}${mark.jev ? '' : quote}`,
       )
       console.log(`      ${mark.fact.text.slice(0, 110)}`)
       if (mark.why) console.log(`      ${mark.why}`)
@@ -43,6 +69,10 @@ function printReading(reading: RunReading, against: string): void {
     for (const finding of read.findings)
       console.log(`  ${padEnd(finding.output, 28)}found: ${finding.text}`)
     if (read.note) console.log(`  ${read.note}`)
+    if (read.again && read.asked && read.again.settled === read.asked)
+      console.log(
+        '  Jev was sure of all of it when asked again, so the assistant was asked nothing here.',
+      )
   }
   const { agreement: a, usage } = reading
   console.log(
@@ -53,6 +83,22 @@ function printReading(reading: RunReading, against: string): void {
   )
   console.log(`Against ${against}: ${agreed(a.yours)} (with a quote: ${agreed(a.yoursQuoted)}).`)
   if (reading.blind) console.log(`Against Jev where it was sure: ${agreed(a.jev)}.`)
+  const again = reading.again
+  if (again?.asked)
+    console.log(
+      `Jev was asked ${again.asked} of the ${a.asked} again first and was sure of ${again.settled}, so the assistant was asked ${a.asked - again.settled}.`,
+    )
+  for (const why of new Set(again?.failed ?? []))
+    console.log(`Jev could not be asked some of them again, so the assistant was: ${why}`)
+  if (reading.split) {
+    const { jev, assistant } = reading.split
+    console.log(
+      `Jev, asked again: ${jev.answered} answered; against ${against}: ${agreed(jev.yours)}.`,
+    )
+    console.log(
+      `The assistant: ${assistant.asked} asked, ${assistant.answered} answered; against ${against}: ${agreed(assistant.yours)} (with a quote: ${agreed(assistant.yoursQuoted)}).`,
+    )
+  }
   console.log(
     `${reading.model} on ${reading.provider}, ${usage.input.toLocaleString()} input and ${usage.output.toLocaleString()} output tokens`,
   )
@@ -63,7 +109,9 @@ export const read: Command = {
   help: [
     '  read                        Have the assistant read a graded run: --run <name>. It answers',
     '                              what Jev was not sure of, and prints how often its answers',
-    '                              agree with yours. It writes nothing to the skill.',
+    '                              agree with yours. Jev is first asked those again, shown more',
+    '                              of what each is about, and the assistant gets only what it is',
+    '                              still not sure of. It writes nothing to the skill.',
     "    --blind                   Ask every rule and check and show it none of Jev's answers,",
     '                              to see how often the two agree.',
     '    --cases <a,b>             Case ids; default every case the run answered.',
@@ -77,6 +125,7 @@ export const read: Command = {
     '                              yours: JSON by output, then by rule or check.',
     '    --recount <file>          Count a reading saved with --out again, against your answers',
     '                              as they are now. Asks nothing, and needs no --run.',
+    '    --no-jev                  Do not ask Jev again first: the assistant answers all Jev left.',
   ],
   flags,
   agents: true,
@@ -93,6 +142,10 @@ export const read: Command = {
     }
     const run = oneRun(context.values)
     if (!run) throw new Error('Pass --run <name>.')
+    if (!values.blind && wantsJev(context) && !Jev.available())
+      console.error(
+        'TYPESAFE_API_KEY is not set: Jev is not asked again, so the assistant answers all Jev left.',
+      )
     const reading = await held(
       context,
       readingOfRun(skill, runNameOf(run, '--run'), {
@@ -106,6 +159,10 @@ export const read: Command = {
           : {}),
         parallel: countOf(values.parallel, '--parallel') ?? 2,
         inline: !values.deep,
+        jev:
+          !values.blind && wantsJev(context) && Jev.available()
+            ? new Jev(values['jev-model'], 'read')
+            : null,
         log: (line) => console.error(line),
         signal: signalOf(context),
       }),
