@@ -1,12 +1,22 @@
 import { correctionsOf, runVerdicts, scoredReport } from '@application/grade.ts'
 import { type TwoCounts, twoCounts } from '@domain/case-result.ts'
+import { runShown } from '@domain/run-name.ts'
 import type { Configuration } from '@domain/schemas.ts'
 import { readRun } from '@infrastructure/runs.ts'
 import { runNameOf } from '../input.ts'
 import { briefOrJson, printBrief } from './brief.ts'
 import type { Command, FlagValues } from './command.ts'
 import { shared } from './flags.ts'
-import { oneRun, padEnd, printReport, skillOf, widthOf } from './shared.ts'
+import {
+  oneRun,
+  padEnd,
+  printReport,
+  runNamer,
+  skillOf,
+  spentLine,
+  spentOf,
+  widthOf,
+} from './shared.ts'
 
 const flags = shared('run', 'json', 'brief', 'packs', 'bench')
 
@@ -50,8 +60,9 @@ function printCounts(
 export const report: Command = {
   name: 'report',
   help: [
-    "  report                      Print a run's report: --run <name>.",
-    '    --brief                   Print only each case and the rules and checks it missed.',
+    "  report                      Print a run's report and what it spent: --run <name>.",
+    '    --brief                   Print only the run, each case with what it missed and how many',
+    '                              of its rules and checks were not sure, and what the run spent.',
   ],
   flags,
   agents: false,
@@ -67,17 +78,24 @@ export const report: Command = {
     // Scored as the app scores it: under the scoring as it is now, with the reader's corrections.
     const corrections = correctionsOf(skill, name)
     const samples = view.samples.map((s) => s.name)
+    // The version it ran, by the name it was given, so no one looks it up.
+    const named = runNamer(skill)(name, view.meta)
+    // What answering and grading it cost, added up from what its files keep.
+    const spent = spentOf(skill, name)
     if (brief) {
       const side = { view, report: view.report, cases: view.cases, samples, corrections }
+      console.log(`Run: ${runShown(named)}`)
       printBrief(skill, side, context.scoring)
+      console.log(spentLine(spent))
       return 0
     }
     const scored = scoredReport(skill, view.report, context.scoring, view.cases, {
       samples,
       corrections,
     })
-    if (values.json) console.log(JSON.stringify(scored, null, 2))
+    if (values.json) console.log(JSON.stringify({ ...scored, run: named, spent }, null, 2))
     else {
+      console.log(`Run: ${runShown(named)}`)
       printReport(scored)
       // The same verdicts the scores above were counted from, read as two counts.
       const verdicts = runVerdicts(skill, view.report, view.cases, corrections)
@@ -91,6 +109,7 @@ export const report: Command = {
       )
       const fixed = Object.values(corrections).reduce((n, c) => n + Object.keys(c).length, 0)
       if (fixed) console.log(`Your ${fixed} correction(s) in the app count, as they do there.`)
+      console.log(`\n${spentLine(spent)}`)
     }
     return 0
   },

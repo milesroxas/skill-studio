@@ -164,6 +164,26 @@ describe('sheetPage', () => {
     expect(html).toContain('>attempt 2</div>')
   })
 
+  it('heads a row with its label, as text on one line cut short where it does not fit, and lays it out as without one', () => {
+    const label = `2026-11-26-skill-v1-claude-haiku (v1 · draft <b>a</b> & \n${'x'.repeat(200)})`
+    const labelled = laid([{ ...row('2026-11-26-skill-v1', 2), label }])
+    const { rows, ...rest } = labelled
+    const { rows: plainRows, ...plainRest } = layout
+    // A label of any length moves no box: the sheet is laid out by its pictures alone.
+    expect(rest).toEqual(plainRest)
+    expect(rows.map(({ label: _, ...r }) => r)).toEqual(plainRows.map(({ label: _, ...r }) => r))
+    expect([labelled.rows[0].label, layout.rows[0].label]).toEqual([label, '2026-11-26-skill-v1'])
+    const html = sheetPage('Landing', labelled, (r, a) => `${r}-${a}.png`)
+    expect(html).toContain(
+      `class="t run" style="${`left:24px;top:68px;width:${layout.width - 48}px;height:30px;line-height:30px`}">2026-11-26-skill-v1-claude-haiku (v1 · draft &lt;b&gt;a&lt;/b&gt; &amp; \n${'x'.repeat(200)})</div>`,
+    )
+    expect(html).not.toContain('<b>a</b>')
+    // Every label is held to one line and cut short with an ellipsis where it runs past its box.
+    expect(html).toContain(
+      '.t { position: absolute; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }',
+    )
+  })
+
   it('loads only the pictures beside it, and runs no script', () => {
     const html = sheetPage('Landing', layout, (r, a) => `${r}-${a}.png`)
     expect(html).toContain(`content="default-src 'none'; img-src file:; style-src 'unsafe-inline'"`)

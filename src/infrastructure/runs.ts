@@ -6,6 +6,7 @@
  */
 import { readFileSync, statSync } from 'node:fs'
 import { join } from 'node:path'
+import { type AnswerCost, type GradingCost, gradingCostIn } from '@domain/cost.ts'
 import { OUTPUTS_DIR } from '@domain/prompt.ts'
 import { parseSampleDir } from '@domain/run-name.ts'
 import type {
@@ -16,13 +17,23 @@ import type {
   RunMeta,
   SampleFailure,
   SampleMeta,
+  Timing,
   TranscriptEvent,
 } from '@domain/schemas.ts'
-import { metaList, metaText, readFrontMatter } from '@domain/text.ts'
+import { metaList, metaText, readFrontMatter, textIn } from '@domain/text.ts'
 import type { FileHead, RunView, Sample, SkillVersions } from '@domain/views.ts'
 import { detectArtifacts } from './artifacts.ts'
 import { loadCases, loadEveryCase } from './cases.ts'
-import { assertInside, isDir, isFile, listDirs, listFiles, present, readJson } from './fs.ts'
+import {
+  assertInside,
+  isDir,
+  isFile,
+  listDirs,
+  listFiles,
+  present,
+  readJson,
+  writeJson,
+} from './fs.ts'
 import { readKept, runCases } from './run-cases.ts'
 import { type SkillTexts, skillIdentity, skillTexts, skillVersions } from './skill.ts'
 import { readTranscript } from './transcript.ts'
@@ -206,6 +217,37 @@ export function runSamples(dir: string): Sample[] {
     })
 }
 
+/** A number a hand-edited file holds as one, else null. */
+const numberIn = (value: unknown): number | null =>
+  typeof value === 'number' && Number.isFinite(value) ? value : null
+
+/**
+ * What each attempt's answer cost, as its `timing.json` keeps it, in the
+ * order of the run's sample folders: null for an attempt with none, as one
+ * cut off before its agent ended, a flat file of an old run, or one whose
+ * file does not read. A figure the file holds in another shape is read as
+ * not kept.
+ */
+export function answerCosts(skillDir: string, run: string): Array<AnswerCost | null> {
+  return runSamples(runDir(skillDir, run)).map((sample) => {
+    if (sample.legacy) return null
+    const timing = readRunJson<Partial<Record<keyof Timing, unknown>> | null>(
+      join(sample.path, 'timing.json'),
+      null,
+    )
+    const ms = numberIn(timing?.durationMs)
+    if (!timing || typeof timing !== 'object' || ms === null) return null
+    const tokens = timing.tokens as Partial<Record<'input' | 'output', unknown>> | null
+    const input = numberIn(tokens?.input)
+    const output = numberIn(tokens?.output)
+    return {
+      seconds: ms / 1000,
+      tokens: input === null || output === null ? null : { input, output },
+      usd: numberIn(timing.costUsd),
+    }
+  })
+}
+
 /**
  * The samples of a run whose agents ran to their end, which are the ones
  * grading reads, and how many folders were left out: those a stop ended, those
@@ -226,15 +268,16 @@ export function finishedSamples(
 /**
  * The skill version a run names. The version is a label (`v3`) or nothing:
  * the file may have been written by anyone, and its version names a folder
- * when the version is deleted.
+ * when the version is deleted. Its name, hash and note are text, and one that
+ * is not is none.
  */
 function stampOf(raw: RawMeta): Pick<RunMeta, 'skillVersion' | 'skillName' | 'skillHash' | 'note'> {
-  const version = typeof raw.skillVersion === 'string' ? raw.skillVersion : ''
+  const version = textIn(raw.skillVersion)
   return {
     skillVersion: isVersionLabel(version) ? version : '',
-    skillName: raw.skillName ?? '',
-    skillHash: raw.skillHash ?? '',
-    note: raw.note ?? '',
+    skillName: textIn(raw.skillName),
+    skillHash: textIn(raw.skillHash),
+    note: textIn(raw.note),
   }
 }
 
@@ -260,6 +303,25 @@ export function readRunMeta(skillDir: string, name: string): RunMeta | null {
     ...(legacy ? { legacy: true } : {}),
   }
 }
+
+/**
+ * The file in a run's folder that keeps what its gradings cost: every model
+ * call each made, added up, written as each call is made known, whether or
+ * not the grading goes on to write a report (`gradeRun`).
+ */
+export const GRADING_COST_FILE = 'grading-cost.json'
+
+/**
+ * What the gradings of the outputs in `dir` cost, as `GRADING_COST_FILE`
+ * keeps it, checked whole (`gradingCostIn`): null where there is none, or one
+ * in another shape, which reads as a cost not kept.
+ */
+export const readGradingCost = (dir: string): GradingCost | null =>
+  gradingCostIn(readRunJson<unknown>(join(dir, GRADING_COST_FILE), null))
+
+/** Keep what the gradings of the outputs in `dir` cost, written whole as the app writes JSON. */
+export const writeGradingCost = (dir: string, cost: GradingCost): void =>
+  writeJson(join(dir, GRADING_COST_FILE), cost)
 
 /**
  * A run as every interface reads it. `live` is the skill's cases as they are

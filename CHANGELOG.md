@@ -19,6 +19,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - `st run` refuses a version name another version of the skill already has, however its letters, spaces or case are written. Pass another `--name`.
 - `--brief` starts each case's line with its id in brackets, the one `--cases` takes, and says how many attempts missed a rule or check, such as `missed in 1 of 3`.
 - The app `st open` starts writes its errors to `open-<hash>.log` in the studio folder, and `st open` names that file when the app does not come up.
+- `st` names each run with the version it ran and the name that version was given, such as `2026-11-26-skill-v1-claude-haiku (v1 · draft a)`: on `st run`'s Run line, at the top of `st report` and `st compare`, and on each row of a sheet. A run without the skill says `(without the skill)`.
+- `--brief` says how many of a case's rules and checks were not sure, such as `nothing missed, 1 of 16 rules and checks not sure`, and never says "nothing missed" alone beside them.
+- `st report`, `st compare` and `st run` end with what a run spent: its attempts' seconds, tokens and price added up, and what grading it asked of Jev. A grading that is stopped is still counted.
 - An agent in a chat can follow a project skill, `.claude/skills/skill-studio-loop`, to make a skill, run two versions of it and compare them with `pnpm st`.
 
 ### Fixed
@@ -26,6 +29,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - Two runs of one skill started at the same moment no longer take the same version number.
 - A case's title is always one line. A line break or a tab in a title reads as one space, and `st case check` lists a title written with a line break.
 - A case's request that starts with a `---` block is kept as the request. It was read as the case's settings.
+- A case title or a version name prints no escape sequence, control character or direction override, in a terminal or on a sheet.
 - `st cases`, `st report` and `st compare` print every case id and attempt name whole, so an id copied from them works in `--cases`.
 
 ## [0.20.3] - 2026-11-25

@@ -25,14 +25,17 @@ Commands
     --note <text>             Note on the version.
     --parallel <n>            Samples in flight (default 3).
     --no-grade                Skip grading after generation.
-    --brief                   Print only each case and the rules and checks it missed.
+    --brief                   Print only the run, each case with what it missed and how many
+                              of its rules and checks were not sure, and what the run spent.
     --quiet                   Print one line as each attempt ends in place of progress.
   grade                       Grade a run: --run <name> or --all.
-  report                      Print a run's report: --run <name>.
-    --brief                   Print only each case and the rules and checks it missed.
+  report                      Print a run's report and what it spent: --run <name>.
+    --brief                   Print only the run, each case with what it missed and how many
+                              of its rules and checks were not sure, and what the run spent.
   compare <runA> <runB>       Score deltas between two graded runs.
-    --brief                   Print only each case, the run that did better on its checks,
-                              and the rules and checks each run missed.
+    --brief                   Print only the two runs, each case with the run that did better
+                              on its checks, what each missed and how many of its rules and
+                              checks were not sure, and what each run spent.
   sheet                       Put each case's drawn pages side by side in one picture, a row
                               a run and a column an attempt, and print each picture's path.
                               It shows the pages a grading drew, so grade the runs first.

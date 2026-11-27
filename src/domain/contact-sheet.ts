@@ -32,6 +32,8 @@ export interface SheetPicture {
 /** One run's pictures of the case, in the order of its attempts. */
 export interface SheetRow {
   run: string
+  /** What the row's head says; the run's name where none is given. Written on one line, cut short where it does not fit. */
+  label?: string
   pictures: readonly SheetPicture[]
 }
 
@@ -55,8 +57,8 @@ export interface SheetLayout {
   width: number
   height: number
   title: Box
-  /** Each run with a panel, in the order given. */
-  rows: { run: string; head: Box; panels: SheetPanel[] }[]
+  /** Each run with a panel, in the order given, with what its head says. */
+  rows: { run: string; label: string; head: Box; panels: SheetPanel[] }[]
   /** The pictures that did not fit. */
   leftOut: number
 }
@@ -64,6 +66,7 @@ export interface SheetLayout {
 /** A row's pictures, one an attempt: the first of two with the same number. */
 const oneAnAttempt = (row: SheetRow): SheetRow => ({
   run: row.run,
+  label: row.label ?? row.run,
   pictures: row.pictures.filter((p, i, all) => all.findIndex((q) => q.attempt === p.attempt) === i),
 })
 
@@ -105,7 +108,7 @@ export function sheetLayout(given: readonly SheetRow[]): SheetLayout | null {
   const attempts = columnsOf(kept)
   const columns = attempts.length
   const shown = kept
-    .map((r) => ({ run: r.run, pictures: r.pictures.filter((p) => attempts.includes(p.attempt)) }))
+    .map((r) => ({ ...r, pictures: r.pictures.filter((p) => attempts.includes(p.attempt)) }))
     .filter((r) => r.pictures.length)
   const pictures = shown.flatMap((r) => r.pictures)
   const leftOut = withPictures.reduce((sum, r) => sum + r.pictures.length, 0) - pictures.length
@@ -130,6 +133,7 @@ export function sheetLayout(given: readonly SheetRow[]): SheetLayout | null {
       const top = PAD + TITLE + i * (rowHeight + GAP)
       return {
         run: row.run,
+        label: row.label ?? row.run,
         head: { x: PAD, y: top, width: inner, height: HEAD },
         panels: row.pictures.map((p) => {
           const x = PAD + attempts.indexOf(p.attempt) * (width + GAP)
@@ -173,7 +177,7 @@ export function sheetPage(
   const body = [
     words('title', layout.title, title),
     ...layout.rows.flatMap((row, r) => [
-      words('run', row.head, row.run),
+      words('run', row.head, row.label),
       ...row.panels.flatMap((panel) => [
         words('attempt', panel.caption, `attempt ${panel.attempt}`),
         `<img alt="" src="${asText(picture(r, panel.attempt))}" style="${place(panel.picture)}">`,

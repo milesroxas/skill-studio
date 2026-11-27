@@ -14,7 +14,7 @@ import { dirname, join } from 'node:path'
 import type { RunMeta } from '@domain/schemas.ts'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { failRenames } from './__fixtures__/fs.ts'
-import { versionCopy, versionFiles, versionsOf } from './runs.ts'
+import { readRunMeta, versionCopy, versionFiles, versionsOf } from './runs.ts'
 import { restoreSkillFiles, skillFiles, skillHash, skillIdentity, skillVersions } from './skill.ts'
 import { savedVersions, saveVersion } from './versions.ts'
 
@@ -123,6 +123,30 @@ describe('saveVersion', () => {
     const saved = saveVersion(dir, versionsOf(dir).current, 'One', '')
     expect(saved.version).toBe('v0')
     expect(readFileSync(join(dir, 'evals/versions/v0/files/SKILL.md'), 'utf8')).toBe('first')
+  })
+
+  it('reads a name, a note or a hash that is not text, in a version.json or a run.json, as none', () => {
+    saveVersion(dir, versionsOf(dir).current, 'One', '')
+    const path = join(dir, 'evals/versions/v0/version.json')
+    const saved = JSON.parse(readFileSync(path, 'utf8'))
+    writeFileSync(path, JSON.stringify({ ...saved, name: 5, note: { a: 1 }, createdAt: 7 }))
+    expect(savedVersions(dir)).toMatchObject([
+      { version: 'v0', name: '', note: '', date: undefined },
+    ])
+    writeRun('2026-11-01-skill-v1-a', 'v1', 'old')
+    const meta = join(dir, 'evals/runs/2026-11-01-skill-v1-a/run.json')
+    const run = JSON.parse(readFileSync(meta, 'utf8'))
+    writeFileSync(meta, JSON.stringify({ ...run, skillName: 5, skillHash: [1], note: null }))
+    expect(readRunMeta(dir, '2026-11-01-skill-v1-a')).toMatchObject({
+      skillVersion: 'v1',
+      skillName: '',
+      skillHash: '',
+      note: '',
+    })
+    expect(versionsOf(dir).versions.map((v) => [v.version, v.name])).toEqual([
+      ['v0', ''],
+      ['v1', ''],
+    ])
   })
 
   it('lists the other versions when one version.json cannot be read', () => {

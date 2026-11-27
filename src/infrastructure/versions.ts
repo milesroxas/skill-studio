@@ -7,6 +7,7 @@
  */
 import { rmSync } from 'node:fs'
 import { join } from 'node:path'
+import { textIn } from '@domain/text.ts'
 import type { SkillVersion, SkillVersions } from '@domain/views.ts'
 import { dayOf, isDir, isFile, listDirs, readJson, writeJson } from './fs.ts'
 import { snapshotSkill } from './skill.ts'
@@ -27,6 +28,25 @@ export interface VersionFile {
 }
 
 /**
+ * A `version.json` as it reads: anyone may have written it, so each field is
+ * text, and one that is not is none. Null for a file that holds no record, or
+ * no version's label.
+ */
+function versionFileOf(raw: unknown): VersionFile | null {
+  if (!raw || typeof raw !== 'object') return null
+  const file = raw as Partial<Record<keyof VersionFile, unknown>>
+  const version = textIn(file.version)
+  if (!isVersionLabel(version)) return null
+  return {
+    version,
+    name: textIn(file.name),
+    note: textIn(file.note),
+    hash: textIn(file.hash),
+    createdAt: textIn(file.createdAt),
+  }
+}
+
+/**
  * `version.json` is written last, so a folder holding one is a saved version
  * and a folder without one is a save that did not finish.
  */
@@ -37,20 +57,20 @@ export function savedVersions(skillDir: string): SkillVersion[] {
     const path = join(versionDir(skillDir, dir), 'version.json')
     let file: VersionFile | null
     try {
-      file = readJson<VersionFile | null>(path, null)
+      file = versionFileOf(readJson<unknown>(path, null))
     } catch (error) {
       // One version that cannot be read must not hide the rest.
       console.warn((error as Error).message)
       return []
     }
-    if (!file || !isVersionLabel(file.version)) return []
+    if (!file) return []
     return [
       {
         version: file.version,
         name: file.name,
         hash: file.hash,
         note: file.note,
-        date: dayOf(String(file.createdAt ?? '')),
+        date: dayOf(file.createdAt),
         saved: true,
       },
     ]
@@ -108,7 +128,7 @@ export function keepVersion(skillDir: string, from: string, file: VersionFile): 
 export const savedVersionFile = (skillDir: string, version: string): VersionFile | null => {
   const path = join(versionDir(skillDir, version), 'version.json')
   try {
-    return readJson<VersionFile | null>(path, null)
+    return versionFileOf(readJson<unknown>(path, null))
   } catch {
     return null
   }

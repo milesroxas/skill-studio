@@ -1,13 +1,15 @@
 /** What more than one command does: find the skill, hold its work, ask Jev, print a report. */
 import { existsSync, readFileSync } from 'node:fs'
 import { join, resolve } from 'node:path'
-import { unjudged } from '@application/grade.ts'
+import { gradingSpent, unjudged } from '@application/grade.ts'
 import type { PageRenderer } from '@domain/artifact-address.ts'
-import { type CallTotal, sumCalls } from '@domain/cost.ts'
-import type { BenchConfig, Report } from '@domain/schemas.ts'
+import { type CallTotal, dollars, type RunSpent, runSpent, sumCalls } from '@domain/cost.ts'
+import { type RunNamed, runNamed } from '@domain/run-name.ts'
+import type { BenchConfig, Report, RunMeta } from '@domain/schemas.ts'
 import { layerOrder } from '@domain/scoring.ts'
-import type { SkillInfo } from '@domain/views.ts'
+import type { SkillInfo, SkillVersion } from '@domain/views.ts'
 import { realPath } from '@infrastructure/fs.ts'
+import { answerCosts, readRunMeta, versionsOf } from '@infrastructure/runs.ts'
 import { skillInfo } from '@infrastructure/skill.ts'
 import { Jev } from '@judges/jev.ts'
 import { meterNow } from '@judges/meter.ts'
@@ -132,6 +134,109 @@ export function skillOf(args: readonly string[]): {
   return { skill, rest, info: skillInfo(skill) }
 }
 
+/**
+ * How a command names each run of the skill to a reader (`runNamed`): by its
+ * folder and the version it ran, with that version's name as `st versions`
+ * lists it. The versions are read once, at the first run named; a run's
+ * `run.json` is read where its `meta` is not handed in. Naming a run is only
+ * for show, and comes after work that must not be lost, such as a run's
+ * agents: where the files cannot be read, the run is named by what can be,
+ * or by its folder alone, and nothing is thrown.
+ */
+export function runNamer(skill: string): (run: string, meta?: RunMeta | null) => RunNamed {
+  let versions: SkillVersion[] | null = null
+  return (run, given) => {
+    try {
+      versions ??= versionsOf(skill).versions
+    } catch {
+      versions = []
+    }
+    try {
+      return runNamed(run, given === undefined ? readRunMeta(skill, run) : given, versions)
+    } catch {
+      return runNamed(run, null, [])
+    }
+  }
+}
+
+/** What a run spent, from each attempt's `timing.json` and what its gradings kept, as `st report` prints it. */
+export const spentOf = (skill: string, run: string): RunSpent =>
+  runSpent(answerCosts(skill, run), gradingSpent(skill, run))
+
+/** A count as the report writes one: "83,305". */
+const counted = (n: number): string => n.toLocaleString('en-US')
+
+/** Seconds added up: tenths under ten, whole from there. */
+const secondsOf = (seconds: number): string =>
+  `${seconds < 10 ? Math.round(seconds * 10) / 10 : Math.round(seconds)} s`
+
+/**
+ * What answering cost: the attempts, their seconds added up, their tokens
+ * and their price, each over the attempts that kept it, said where those are
+ * not all of them: "6 attempts, 111 s between them, 592,830 tokens in,
+ * 23,760 out, $0.0374".
+ */
+function answeringWords({ attempts, answering }: RunSpent): string {
+  if (!attempts) return 'no attempt ran'
+  const over = (n: number): string => (n < attempts ? ` for ${n} of them` : '')
+  const { seconds, tokens, usd } = answering
+  // Each attempt's own seconds, added up: attempts run at the same time, so the run took less.
+  const between =
+    seconds.attempts === attempts
+      ? attempts > 1
+        ? ' between them'
+        : ''
+      : seconds.attempts > 1
+        ? ` between ${seconds.attempts} of them`
+        : over(seconds.attempts)
+  return [
+    `${attempts} ${attempts === 1 ? 'attempt' : 'attempts'}`,
+    seconds.attempts ? `${secondsOf(seconds.total)}${between}` : 'no time kept',
+    tokens.attempts
+      ? `${counted(tokens.input)} tokens in, ${counted(tokens.output)} out${over(tokens.attempts)}`
+      : 'no tokens kept',
+    // Only a price the attempts kept: none is made up from tokens.
+    usd.attempts ? `${dollars(usd.total)}${over(usd.attempts)}` : 'no price kept',
+  ].join(', ')
+}
+
+/**
+ * What grading cost, as the run keeps it: "grading 6 calls to Jev, 83,305
+ * tokens in, 5.2 s". Never a nought where nothing was kept.
+ */
+function gradingWords({ graded, grading }: RunSpent): string {
+  if (!graded) return 'not graded'
+  if (!grading) return 'grading cost not kept'
+  const asked = grading.calls.filter((c) => c.source === 'asked')
+  const sum = (key: 'calls' | 'input' | 'output' | 'seconds'): number =>
+    asked.reduce((total, c) => total + c[key], 0)
+  const replayed = grading.calls
+    .filter((c) => c.source === 'replayed')
+    .reduce((total, c) => total + c.calls, 0)
+  const calls = sum('calls')
+  const to = asked.every((c) => c.provider === 'jev') ? 'to Jev' : 'to models'
+  const replays = `${replayed} replayed at no cost`
+  return [
+    ...(calls
+      ? [
+          `grading ${calls} ${calls === 1 ? 'call' : 'calls'} ${to}`,
+          `${counted(sum('input'))} tokens in${sum('output') ? `, ${counted(sum('output'))} out` : ''}`,
+          secondsOf(sum('seconds')),
+          ...(replayed ? [replays] : []),
+        ]
+      : [replayed ? `grading ${replays}` : 'grading asked no model']),
+    ...(grading.whole ? [] : ["an earlier grading's cost not kept"]),
+  ].join(', ')
+}
+
+/**
+ * The one line that says what a run spent: answering, over its attempts, and
+ * grading, as the run keeps it. `who` names the run where two are printed:
+ * "A spent:".
+ */
+export const spentLine = (spent: RunSpent, who = ''): string =>
+  `${who ? `${who} spent` : 'Spent'}: ${answeringWords(spent)}; ${gradingWords(spent)}`
+
 export function printReport(report: Report): void {
   const layers = layerOrder(report.config, scorers)
   // Each sample and case whole, as `--case` takes it: a column widens for a long one.
@@ -176,14 +281,16 @@ export function printReport(report: Report): void {
  * Print what a grading made of a run. False when it judged no output, so it
  * wrote no report and the command has not done what it was asked: the grading
  * said so itself when there was no output, and the reason is printed here when
- * a pack failed on every one. `print` prints it where it is not JSON.
+ * a pack failed on every one. `print` prints it where it is not JSON, and
+ * `more` is laid beside the report where it is.
  */
 export function printGraded(
   report: Report,
   json: boolean | undefined,
   print: (report: Report) => void = printReport,
+  more: object = {},
 ): boolean {
-  if (json) console.log(JSON.stringify(withCost(report), null, 2))
+  if (json) console.log(JSON.stringify(withCost({ ...report, ...more }), null, 2))
   else print(report)
   const { failed, total, reason } = unjudged(report)
   if (total && failed === total)

@@ -16,6 +16,7 @@ import { inputName, isPicture } from '@domain/case-draft.ts'
 import { type CaseEnds, type CaseResults, caseResults } from '@domain/case-result.ts'
 import { type Answered, changeReading, comparableAnswers } from '@domain/change.ts'
 import { mergeConfig } from '@domain/config.ts'
+import { addTotals, type CallRecord, type GradingCost, sumCalls } from '@domain/cost.ts'
 import { EXACT_VERSION } from '@domain/exact.ts'
 import {
   fitForJev,
@@ -75,16 +76,20 @@ import { CASES_FILE, type KeptCase, readKept, takenCase } from '@infrastructure/
 import {
   anchorsDir,
   finishedSamples,
+  GRADING_COST_FILE,
+  readGradingCost,
   readHead,
   readRunMeta,
   readSampleTranscript,
   runDir,
   runSamples,
   skillCopy,
+  writeGradingCost,
 } from '@infrastructure/runs.ts'
 import { readForJev, requestImages } from '@judges/images.ts'
 import { packById, packVersions } from '@judges/index.ts'
 import { Jev } from '@judges/jev.ts'
+import { withMeter } from '@judges/meter.ts'
 import { hashOf } from '@judges/replies.ts'
 import { scorers } from '@judges/scorers.ts'
 import { agentPicture } from '@judges/shared/picture.ts'
@@ -133,6 +138,8 @@ const RENDERS_DIR = 'renders'
 
 /** The file beside `report.json` that keeps Jev's answers by the hash of what each was asked (`JudgeCache`). */
 const CACHE_FILE = 'judge-cache.json'
+/** A grading's report, in the folder it grades. */
+const REPORT_FILE = 'report.json'
 /** What a grading that was stopped rejects with. */
 const STOPPED = 'Stopped.'
 
@@ -1223,18 +1230,26 @@ async function gradeSubjects(
   const results: ReportResult[] = []
   let unchanged = 0
   let questions = 0
+  // What a grading of a run spends is kept with the run as each call is made known, so a grading
+  // stopped, or one that writes no report, is counted all the same (`GRADING_COST_FILE`).
+  const keep = run ? costKeeper(dir, warn) : null
   try {
-    for (const subject of subjects) {
+    await withMeter(async () => {
+      for (const subject of subjects) {
+        if (options.signal?.aborted) throw new Error(STOPPED)
+        const graded = await gradeSubject(subject, ctx)
+        results.push(graded.result)
+        if (graded.unchanged) unchanged += 1
+        questions += graded.asked
+        log(`${subject.name}: total ${graded.result.scores.total ?? '-'}`)
+      }
+      // A stop that came with the last sample's answers: the grading did not run to its end.
       if (options.signal?.aborted) throw new Error(STOPPED)
-      const graded = await gradeSubject(subject, ctx)
-      results.push(graded.result)
-      if (graded.unchanged) unchanged += 1
-      questions += graded.asked
-      log(`${subject.name}: total ${graded.result.scores.total ?? '-'}`)
-    }
-    // A stop that came with the last sample's answers: the grading did not run to its end.
-    if (options.signal?.aborted) throw new Error(STOPPED)
+    }, keep?.call)
   } finally {
+    // Kept before the answers are: a crash between the two asks an answer again, and counts it again,
+    // rather than keeping an answer whose cost nobody counted.
+    keep?.end()
     // Nothing to keep and nothing kept before: no file is made for a grading that asked nothing.
     if (subjects.length && ctx.cache.holds) ctx.cache.write(join(dir, CACHE_FILE))
   }
@@ -1270,8 +1285,66 @@ async function gradeSubjects(
   const { failed, total } = unjudged(report)
   if (!total)
     warn('No output to grade, so no report was written. The last one, if any, still stands.')
-  else if (failed < total) writeJson(join(dir, 'report.json'), report)
+  else if (failed < total) writeJson(join(dir, REPORT_FILE), report)
   return report
+}
+
+/** Whether the outputs in `dir` were graded before: a report, kept answers or a kept cost is there. */
+const gradedIn = (dir: string): boolean =>
+  [REPORT_FILE, CACHE_FILE, GRADING_COST_FILE].some((file) => isFile(join(dir, file)))
+
+/**
+ * What the gradings of the run in `dir` spend, kept as it is made known
+ * (`GRADING_COST_FILE`), for one grading that holds the run's lock: each model
+ * call is added and the file written whole as the call is counted (`call`),
+ * and once more as the grading ends (`end`), however it ends, so a grading
+ * that asks nothing still says so. It starts from what the file kept; with no
+ * file, from nothing, and not whole where the run was graded before its
+ * gradings kept their cost. A call counted after `end`, such as an answer a
+ * stop did not wait for, is not kept: the lock is given back by then. A
+ * file that cannot be written is said once, and grading goes on.
+ */
+function costKeeper(
+  dir: string,
+  warn: (line: string) => void,
+): { call: (record: CallRecord) => void; end: () => void } {
+  let spent: GradingCost = readGradingCost(dir) ?? { calls: [], whole: !gradedIn(dir) }
+  let open = true
+  let said = false
+  const write = (): void => {
+    try {
+      writeGradingCost(dir, spent)
+    } catch (error) {
+      if (!said) warn(`What this grading spends could not be kept: ${(error as Error).message}`)
+      said = true
+    }
+  }
+  return {
+    call: (record) => {
+      if (!open) return
+      spent = { calls: addTotals(spent.calls, sumCalls([record])), whole: spent.whole }
+      write()
+    },
+    end: () => {
+      if (!open) return
+      open = false
+      write()
+    },
+  }
+}
+
+/**
+ * What the gradings of a run spent, as it keeps it (`GRADING_COST_FILE`),
+ * checked whole, and whether it was graded at all: one graded before its
+ * gradings kept their cost, or whose kept cost is in another shape, was
+ * graded at a cost not kept.
+ */
+export function gradingSpent(
+  skillDir: string,
+  run: string,
+): { cost: GradingCost | null; graded: boolean } {
+  const dir = runDir(skillDir, run)
+  return { cost: readGradingCost(dir), graded: gradedIn(dir) }
 }
 
 /**
@@ -1354,7 +1427,7 @@ export function jevForRun(skillDir: string, run: string): boolean {
   if (Jev.available()) return true
   let scored: Partial<Report> | null = null
   try {
-    scored = readJson<Partial<Report> | null>(join(runDir(skillDir, run), 'report.json'), null)
+    scored = readJson<Partial<Report> | null>(join(runDir(skillDir, run), REPORT_FILE), null)
   } catch {
     // A report that cannot be read holds no score to lose.
   }
@@ -1855,6 +1928,18 @@ export interface CaseBrief {
   unread: number
   /** Each attempt not read whole, and what became of it, in the order of their numbers. */
   apart: AttemptState[]
+  /**
+   * The rules and checks asked of the attempts read whole (none in `apart`),
+   * once each: every one that applies to the output and can be marked as
+   * written, whether it was met, missed, not sure or not read, the rules of a
+   * run without the skill among them. One for another kind of work
+   * (`inapplicable`) or that cannot be marked (`unmarkable`) is not among them.
+   */
+  asked: number
+  /** Of `asked`, those Jev or code was not sure of (`unsure`) on at least one of those attempts. */
+  unsure: number
+  /** The attempts read whole, which `asked` and `unsure` are counted over. */
+  whole: number
 }
 
 /** What became of an attempt a grading holds, where it was not read whole; null where it was. */
@@ -1875,8 +1960,11 @@ function stateOf(
  * Each attempt still on disk is scored as `scoredReport` scores it, with the
  * reader's corrections on it. A fact set aside is neither met nor missed, and
  * an output of a run without the skill misses no rule: its agent never saw
- * the rules (`twoCounts`). An attempt the grading left out says why, from
- * `RunMeta.samples`. A run with no report is read as graded on nothing.
+ * the rules (`twoCounts`). Over the attempts read whole, each case counts the
+ * rules and checks asked and those left not sure, apart from those that do
+ * not apply or cannot be marked, as the grading recorded each. An attempt the
+ * grading left out says why, from `RunMeta.samples`. A run with no report is
+ * read as graded on nothing.
  */
 export function caseBriefs(
   skillDir: string,
@@ -1894,6 +1982,9 @@ export function caseBriefs(
       misses: new Map(),
       unread: 0,
       apart: [],
+      asked: 0,
+      unsure: 0,
+      whole: 0,
     }
     briefs.set(id, known)
     return known
@@ -1902,6 +1993,8 @@ export function caseBriefs(
   const unread = new Map<string, Set<string>>()
   /** For each case, each fact's words, and the attempts that marked it and that missed it. */
   const marked = new Map<string, Map<string, { of: number; in: number }>>()
+  /** For each case, the words of each fact asked of an attempt read whole, and whether it was not sure on any. */
+  const asked = new Map<string, Map<string, boolean>>()
   const graded = new Set<string>()
   // A run not graded has no report: each attempt of it is `ungraded`.
   const { report } = side
@@ -1918,13 +2011,20 @@ export function caseBriefs(
     brief.attempts += 1
     const state = stateOf(parseSampleDir(r.sample)?.index ?? 1, scored, r)
     if (state) brief.apart.push(state)
+    else brief.whole += 1
+    // What became of an attempt not read whole is what is said of it: none of its facts is counted as asked.
+    const facts = state ? null : (asked.get(id) ?? new Map<string, boolean>())
     const notRead = unread.get(id) ?? new Set<string>()
     const tally = marked.get(id) ?? new Map<string, { of: number; in: number }>()
     // An attempt marks a fact once, however many verdicts say it.
     const seen = new Map<string, boolean>()
     for (const v of scored.verdicts) {
-      const counted = v.kind === 'check' || (v.kind === 'rule' && configuration !== 'without_skill')
-      if (!counted || v.layer === null) continue
+      if ((v.kind !== 'rule' && v.kind !== 'check') || v.layer === null) continue
+      // Every rule and check the grading asked counts as asked, and as not sure where it was, as
+      // plain report lists it: a run without the skill's rules among them, though none is its miss.
+      if (facts && v.aside !== 'inapplicable' && v.aside !== 'unmarkable')
+        facts.set(v.text, (facts.get(v.text) ?? false) || v.aside === 'unsure')
+      if (v.kind === 'rule' && configuration === 'without_skill') continue
       if (v.aside === 'unread') notRead.add(v.text)
       else if (!v.aside) {
         seen.set(v.text, (seen.get(v.text) ?? false) || !v.met)
@@ -1938,6 +2038,11 @@ export function caseBriefs(
     marked.set(id, tally)
     unread.set(id, notRead)
     brief.unread = notRead.size
+    if (facts) {
+      asked.set(id, facts)
+      brief.asked = facts.size
+      brief.unsure = [...facts.values()].filter(Boolean).length
+    }
   }
   for (const [id, tally] of marked) {
     const brief = briefOf(id)

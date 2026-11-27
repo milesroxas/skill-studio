@@ -11,18 +11,19 @@ import {
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { runVerdicts } from '@application/grade.ts'
-import { caseName } from '@domain/case-draft.ts'
+import { caseName, oneLineTitle } from '@domain/case-draft.ts'
 import { casesInOrder } from '@domain/results-address.ts'
+import { parseSampleDir, runNamed, runShown } from '@domain/run-name.ts'
 import { loadCases } from '@infrastructure/cases.ts'
 import type { EngineRequest, EngineResult } from '@infrastructure/engines/types.ts'
-import { readRun } from '@infrastructure/runs.ts'
+import { GRADING_COST_FILE, readRun, versionsOf } from '@infrastructure/runs.ts'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { caseHead } from './brief.ts'
 import type { Values } from './command.ts'
 import { compare } from './compare.ts'
 import { report } from './report.ts'
 import { run } from './run.ts'
-import { contextOf } from './shared.ts'
+import { contextOf, spentLine, spentOf } from './shared.ts'
 
 /**
  * How each attempt of the engine that runs no agent ends, in the order they
@@ -108,6 +109,9 @@ const QUOTE_RULE =
 
 const HAIKU_V0 = '2026-11-20-skill-v0-claude-haiku'
 
+/** What the spent line says of a stored run's grading: the stored runs were graded before gradings kept their cost. */
+const OLD = 'grading cost not kept'
+
 /** A stored run's file, read as JSON, changed by `edit`, and written back: in a copy only. */
 // biome-ignore lint/suspicious/noExplicitAny: a stored run's file, changed by hand in a copy, has no type here.
 type Stored = any
@@ -125,14 +129,19 @@ describe('report --brief', () => {
     const { code, text } = await printedBy(report, [skill], { run: HAIKU_V0, brief: true })
     expect(code).toBe(0)
     expect(text.split('\n')).toEqual([
-      '[email-crowded] Launch email, six features: nothing missed',
+      // The run, and the version it ran by the name it was given.
+      `Run: ${HAIKU_V0} (v0 · First draft)`,
+      // A rule Jev or code was not sure of is no miss, and "nothing missed" never stands alone beside it.
+      '[email-crowded] Launch email, six features: nothing missed, 1 of 11 rules and checks not sure',
       '[email-free] Launch email, no price: nothing missed',
-      '[email-price] Launch email, with a price: nothing missed',
+      '[email-price] Launch email, with a price: nothing missed, 1 of 11 rules and checks not sure',
       '[email-quote] Launch email, a quote that gives orders',
       `  missed: ${QUOTE_RULE}`,
       '[page-basic] Launch page: nothing missed',
       // A long output read in part: what was not read is said, never "nothing missed".
       '[page-long] Changes page, 180 changes: 3 rules and checks not read',
+      // Then what the run spent: its grading was kept before gradings kept their cost.
+      `Spent: 6 attempts, 140 s between them, 604,099 tokens in, 31,112 out, $0.0426; ${OLD}`,
     ])
   })
 
@@ -158,12 +167,15 @@ describe('report --brief', () => {
     rmSync(join(skill, 'evals/runs', HAIKU_V0, 'email-quote-s1'), { recursive: true })
     const { text } = await printedBy(report, [skill], { run: HAIKU_V0, brief: true })
     expect(text.split('\n')).toEqual([
+      `Run: ${HAIKU_V0} (v0 · First draft)`,
       '[email-crowded] Launch email, six features: not scored, grading failed: the network was down',
       '[email-free] Launch email, no price: wrote nothing',
       '[email-price] Launch email, with a price: could not be read',
       '[email-quote] Launch email, a quote that gives orders: its folder was removed',
       '[page-basic] Launch page: failed, it ran out of time (after 600 s)',
       '[page-long] Changes page, 180 changes: no attempt ran',
+      // Two folders removed: four attempts are left to count, each with its timing.json.
+      `Spent: 4 attempts, 84 s between them, 336,642 tokens in, 18,912 out, $0.0246; ${OLD}`,
     ])
   })
 
@@ -185,15 +197,21 @@ describe('compare --brief', () => {
     const { code, text } = await printedBy(compare, [skill, ...runs], { brief: true })
     expect(code).toBe(0)
     expect(text.split('\n')).toEqual([
-      '[email-crowded] Launch email, six features: neither did better, nothing missed',
-      '[email-free] Launch email, no price: neither did better, nothing missed',
-      '[email-price] Launch email, with a price: neither did better, nothing missed',
-      '[email-quote] Launch email, a quote that gives orders: neither did better',
+      // A run without the skill tested no version, though it was stamped with the one the skill had.
+      `A: ${runs[0]} (without the skill)`,
+      `B: ${runs[1]} (v1 · Second draft)`,
+      // A run without the skill is held to no rule, so only B has rules not sure.
+      '[email-crowded] Launch email, six features: neither did better, nothing missed; rules and checks not sure: B 2 of 16',
+      '[email-free] Launch email, no price: neither did better, nothing missed; rules and checks not sure: B 1 of 16',
+      '[email-price] Launch email, with a price: neither did better, nothing missed; rules and checks not sure: B 1 of 16',
+      '[email-quote] Launch email, a quote that gives orders: neither did better; rules and checks not sure: B 1 of 15',
       `  B missed: ${QUOTE_RULE}`,
       '[page-basic] Launch page: B did better',
       '  A missed: The page states the price as 12 USD a month.',
       "  B missed: Open with the brief's Headline, word for word. A reworded headline is one the team did not approve.",
       '[page-long] Changes page, 180 changes: no checks to compare; in A, 1 rule or check not read; in B, 4 rules and checks not read',
+      `A spent: 6 attempts, 94 s between them, 408,430 tokens in, 7,243 out, $0.37; ${OLD}`,
+      `B spent: 6 attempts, 80 s between them, 442,589 tokens in, 8,699 out, $0.37; ${OLD}`,
       '',
       `Open: pnpm st open ${skill} --a ${runs[0]} --b ${runs[1]}`,
     ])
@@ -204,7 +222,7 @@ describe('compare --brief', () => {
     const runs = [HAIKU_V0, '2026-11-20-skill-v1-claude-haiku']
     const { text } = await printedBy(compare, [skill, ...runs], { brief: true })
     expect(text).toContain(
-      `[email-quote] Launch email, a quote that gives orders: neither did better\n  A and B missed: ${QUOTE_RULE}\n`,
+      `[email-quote] Launch email, a quote that gives orders: neither did better; rules and checks not sure: B 1 of 15\n  A and B missed: ${QUOTE_RULE}\n`,
     )
   })
 
@@ -223,13 +241,72 @@ describe('compare --brief', () => {
     const { text } = await printedBy(compare, [skill, ...runs], { brief: true })
     const lines = text.split('\n')
     expect(lines).toContain(
-      '[email-free] Launch email, no price: only B answered it, nothing missed',
+      '[email-free] Launch email, no price: only B answered it, nothing missed; rules and checks not sure: B 1 of 16',
     )
     expect(lines).toContain(
       '[page-long] Changes page, 180 changes: only A answered it; in A, 3 rules and checks not read; in B, its folder was removed',
     )
   })
 })
+
+/**
+ * The lines `--brief` starts with, naming the runs it read and the version
+ * each ran: `Run:` for one run, `A:` and `B:` for two.
+ */
+function runHeadsOf(skill: string, runs: readonly string[]): string[] {
+  const { versions } = versionsOf(skill)
+  const shown = runs.map((name) => runShown(runNamed(name, readRun(skill, name).meta, versions)))
+  return shown.length === 1 ? [`Run: ${shown[0]}`] : [`A: ${shown[0]}`, `B: ${shown[1]}`]
+}
+
+/** The lines `--brief` ends its cases with, saying what each run spent: `Spent:` for one, `A spent:` and `B spent:` for two. */
+function spentLinesOf(skill: string, runs: readonly string[]): string[] {
+  const spent = runs.map((name) => spentOf(skill, name))
+  return spent.length === 1
+    ? [spentLine(spent[0])]
+    : [spentLine(spent[0], 'A'), spentLine(spent[1], 'B')]
+}
+
+/**
+ * What `--brief` names around its cases, run by run, from the stored files
+ * alone: each run's folder and its version's name, as `st versions` lists it
+ * and on one line. The size test holds each head line and Spent line to a
+ * bound of its own beyond these and its figures, never to what the command's
+ * own functions print.
+ */
+function frameOf(skill: string, runs: readonly string[]) {
+  const { versions } = versionsOf(skill)
+  return runs.map((name) => {
+    const meta = readRun(skill, name).meta
+    const listed =
+      meta?.configuration === 'without_skill'
+        ? ''
+        : (versions.find((v) => v.version === meta?.skillVersion)?.name ?? '')
+    return { name, versionName: oneLineTitle(listed) }
+  })
+}
+
+/**
+ * The most bytes a head line (`Run:`, `A:`, `B:`) holds beyond its run's
+ * folder and its version's name: 25 on the stored runs (`Run: ... (without the
+ * skill)`), and 27 for a run on a kept copy, `· old skill`.
+ */
+const HEAD_EXTRA = 30
+/**
+ * The most bytes a Spent line holds beyond its figures, each number with its
+ * commas, point and dollar sign: 78 on the stored runs, whose grading cost is
+ * not kept, and 95 where it is (`grading N calls to Jev, N tokens in, N s`).
+ */
+const SPENT_EXTRA = 100
+/** The figures of a Spent line: counts, seconds, tokens and prices. */
+const FIGURES = /\$?\d[\d,.]*/g
+
+/** The bytes of `line` beyond each of `parts` it holds, each taken once. */
+function bytesBeyond(line: string, parts: readonly string[]): number {
+  let left = line
+  for (const part of parts) if (part && left.includes(part)) left = left.replace(part, '')
+  return Buffer.byteLength(left)
+}
 
 /**
  * Each case's id and its head (`caseHead`), in the order `--brief` prints
@@ -276,23 +353,47 @@ const LONGEST_ID = 40
 
 /**
  * The bytes each case printed beyond the words of what it missed, in order,
- * its id counted as though it were `LONGEST_ID` characters long. A case runs
- * from its head's line to the next case's: every line between counts,
- * whatever it holds. Only the words on a missed line that are a rule or check
- * the runs were graded on are left out of the count. Past the last case only
- * a blank line and the Open line may follow, and nothing after it.
+ * its id counted as though it were `LONGEST_ID` characters long. Before the
+ * first case only the lines that name the runs may stand (`runHeadsOf`), and
+ * after the last only the lines that say what each run spent
+ * (`spentLinesOf`), then a blank line and the Open line, and nothing after
+ * it: each as it is expected, and they belong to no case. A case runs from
+ * its head's line to the next case's: every line between counts, whatever it
+ * holds. Only the words on a missed line that are a rule or check the runs
+ * were graded on are left out of the count.
  */
 function bytesByCase(
   text: string,
+  frame: ReadonlyArray<{ name: string; versionName: string }>,
   cases: ReadonlyArray<{ id: string; head: string }>,
   words: Set<string>,
 ): number[] {
-  const lines = text.split('\n')
+  const all = text.split('\n')
+  const [heads, spent] =
+    frame.length === 1
+      ? [['Run'], ['Spent']]
+      : [
+          ['A', 'B'],
+          ['A spent', 'B spent'],
+        ]
+  // Each head line names its run first, and holds no more than `HEAD_EXTRA` bytes beside its names.
+  for (const [i, run] of frame.entries()) {
+    const line = all[i] ?? ''
+    expect(line.startsWith(`${heads[i]}: ${run.name}`), line).toBe(true)
+    expect(bytesBeyond(line, [run.name, run.versionName]), line).toBeLessThanOrEqual(HEAD_EXTRA)
+  }
+  const lines = all.slice(frame.length)
   const body = lines.at(-1)?.startsWith('Open: ') ? lines.slice(0, -1) : lines
   if (body !== lines) {
     expect(body.at(-1)).toBe('')
     body.pop()
   }
+  // Each Spent line, after the last case, holds no more than `SPENT_EXTRA` bytes beside its figures.
+  for (const [i, line] of body.slice(-frame.length).entries()) {
+    expect(line.startsWith(`${spent[i]}: `), line).toBe(true)
+    expect(Buffer.byteLength(line.replace(FIGURES, '')), line).toBeLessThanOrEqual(SPENT_EXTRA)
+  }
+  body.splice(-frame.length)
   const bytes: number[] = []
   let next = 0
   for (const line of body) {
@@ -318,23 +419,29 @@ describe('the size of --brief', () => {
     for (const fixture of ['code-skill', 'demo-skill', 'design-skill', 'launch-note']) {
       const skill = copyOf(fixture)
       const runs = runsOf(skill)
-      const printings: Array<[string[], Promise<{ text: string }>]> = [
-        ...runs.map((name): [string[], Promise<{ text: string }>] => [
+      // Each printed in turn: `printedBy` reads what was printed since it began, so two at once would read each other's.
+      const printings: Array<[string[], () => Promise<{ text: string }>]> = [
+        ...runs.map((name): [string[], () => Promise<{ text: string }>] => [
           [name],
-          printedBy(report, [skill], { run: name, brief: true }),
+          () => printedBy(report, [skill], { run: name, brief: true }),
         ]),
         ...runs.flatMap((a, i) =>
           runs
             .slice(i + 1)
-            .map((b): [string[], Promise<{ text: string }>] => [
+            .map((b): [string[], () => Promise<{ text: string }>] => [
               [a, b],
-              printedBy(compare, [skill, a, b], { brief: true }),
+              () => printedBy(compare, [skill, a, b], { brief: true }),
             ]),
         ),
       ]
       for (const [named, printing] of printings) {
-        const { text } = await printing
-        for (const bytes of bytesByCase(text, caseHeadsOf(skill, named), factWords(skill, named))) {
+        const { text } = await printing()
+        for (const bytes of bytesByCase(
+          text,
+          frameOf(skill, named),
+          caseHeadsOf(skill, named),
+          factWords(skill, named),
+        )) {
           expect(bytes).toBeLessThanOrEqual(200)
           most = Math.max(most, bytes)
         }
@@ -343,6 +450,43 @@ describe('the size of --brief', () => {
     }
     expect(read).toBe(20)
     expect(most).toBeGreaterThan(0)
+  })
+
+  it('holds a Spent line whose grading cost is kept, the longest it says, to the same bounds', async () => {
+    const skill = copyOf('launch-note')
+    const runs = [HAIKU_V0, '2026-11-20-skill-v1-claude-haiku']
+    const kept = {
+      calls: [
+        {
+          operation: 'grade',
+          provider: 'jev',
+          model: 'jev-1.14.0',
+          source: 'asked',
+          calls: 12,
+          input: 83_305,
+          output: 0,
+          seconds: 5.2,
+        },
+      ],
+      whole: true,
+    }
+    for (const run of runs)
+      writeFileSync(join(skill, 'evals/runs', run, GRADING_COST_FILE), JSON.stringify(kept))
+    for (const named of [[runs[1]], runs]) {
+      const { text } = await (named.length === 1
+        ? printedBy(report, [skill], { run: named[0], brief: true })
+        : printedBy(compare, [skill, ...named], { brief: true }))
+      expect(text).toMatch(
+        /^(?:Spent|B spent): .*; grading 12 calls to Jev, 83,305 tokens in, 5\.2 s$/m,
+      )
+      for (const bytes of bytesByCase(
+        text,
+        frameOf(skill, named),
+        caseHeadsOf(skill, named),
+        factWords(skill, named),
+      ))
+        expect(bytes).toBeLessThanOrEqual(200)
+    }
   })
 })
 
@@ -387,7 +531,12 @@ describe('run --quiet --brief', () => {
     ])
     const name = runsOf(skill)[0]
     expect(printed).toEqual([
+      `Run: ${name} (v0 · first)`,
       '[short-note] A short note: attempt 1 not scored, the skill has no rules and the case has no checks; attempt 2 failed, it ended with an error (signed out)',
+      // An engine that keeps no tokens or price, and a grading without Jev, which asks no model.
+      expect.stringMatching(
+        /^Spent: 2 attempts, [\d.]+ s between them, no tokens kept, no price kept; grading asked no model$/,
+      ),
       `\nOpen: pnpm st open ${skill} --a ${name}`,
     ])
     expect(code).toBe(1)
@@ -403,7 +552,7 @@ describe('run --quiet --brief', () => {
       '2 output(s) did not run to their end: left out of grading.',
       'No output to grade, so no report was written. The last one, if any, still stands.',
     ])
-    expect(printed[0]).toBe(
+    expect(printed[1]).toBe(
       '[short-note] A short note: every attempt failed, it ended with an error (signed out)',
     )
   })
@@ -412,8 +561,9 @@ describe('run --quiet --brief', () => {
     const skill = notesSkill()
     ends.list = ['note', 'note']
     expect(await quietRun(skill, { 'no-grade': true })).toBe(0)
-    expect(printed[0]).toBe('[short-note] A short note: every attempt not graded')
-    expect(printed).toHaveLength(2)
+    expect(printed[1]).toBe('[short-note] A short note: every attempt not graded')
+    expect(printed[2]).toMatch(/^Spent: 2 attempts, .*; not graded$/)
+    expect(printed).toHaveLength(4)
   })
 
   it('still says what went wrong as it grades: a picture the case came with that Jev is not shown', async () => {
@@ -502,6 +652,10 @@ describe('how often --brief says a rule or check was missed', () => {
     const runs = [HAIKU_V0, '2026-11-20-skill-v1-claude-haiku']
     const two = await printedBy(compare, [skill, ...runs], { brief: true })
     expect(two.text).toContain(`\n  A missed in 1 of 2, B missed: ${QUOTE_RULE}\n`)
+    // B's count, 1 of 15, does not fit beside A's failed attempt and the split miss, so it is left out.
+    expect(two.text).toContain(
+      '\n[email-quote] Launch email, a quote that gives orders: neither did better; in A, attempt 4 failed, it ran out of time\n',
+    )
     const swapped = await printedBy(compare, [skill, ...[...runs].reverse()], { brief: true })
     expect(swapped.text).toContain(`\n  A missed, B missed in 1 of 2: ${QUOTE_RULE}\n`)
     // The count is held to the same size as every other line of a case.
@@ -509,7 +663,12 @@ describe('how often --brief says a rule or check was missed', () => {
       [[HAIKU_V0], one],
       [runs, two],
     ] as const)
-      for (const bytes of bytesByCase(text, caseHeadsOf(skill, named), factWords(skill, named)))
+      for (const bytes of bytesByCase(
+        text,
+        frameOf(skill, named),
+        caseHeadsOf(skill, named),
+        factWords(skill, named),
+      ))
         expect(bytes).toBeLessThanOrEqual(200)
   })
 })
@@ -556,7 +715,7 @@ describe('the lines of --brief', () => {
   it('prints a case’s title on its one head line, and every line of a missed rule indented', async () => {
     const skill = spoofed()
     const { text } = await printedBy(report, [skill], { run: HAIKU_V0, brief: true })
-    expect(text.split('\n').slice(3, 9)).toEqual([
+    expect(text.split('\n').slice(4, 10)).toEqual([
       '[email-quote] Launch email [email-free] spoofed',
       `  missed: ${QUOTE_RULE}`,
       '    ',
@@ -581,15 +740,53 @@ describe('the lines of --brief', () => {
       '  B missed: Write no more than 120 words. Most readers stop after the first screen.',
       `  A and B missed: ${QUOTE_RULE}`,
     ])
-    // Nothing but a head, the blank line before the Open line and the Open line starts at the margin.
+    // Nothing but the two runs' lines, a case's head, the blank line before the Open line and the Open line starts at the margin.
+    const named = [...runHeadsOf(skill, runs), ...spentLinesOf(skill, runs)]
     for (const line of text.split('\n'))
       expect(
-        line === '' ||
+        named.includes(line) ||
+          line === '' ||
           line.startsWith('Open: ') ||
           /^\[[^\]]+\]/.test(line) ||
           line.startsWith('  '),
         line,
       ).toBe(true)
+    expect(text.split('\n').slice(0, 2)).toEqual(named.slice(0, 2))
+  })
+})
+
+describe('what --brief keeps out of the terminal', () => {
+  it('prints no escape sequence, control or direction character from a title, a version name or a rule', async () => {
+    const skill = copyOf('launch-note')
+    // A title that would move up a line and erase it, as YAML writes an escape.
+    writeFileSync(
+      join(skill, 'evals/cases/email-quote/case.yaml'),
+      'title: "Launch email\\e[1A\\e[2K, a quote that gives orders"\n',
+    )
+    edited(skill, HAIKU_V0, 'run.json', (m) => {
+      m.skillName = 'First‮ draft\u0007'
+    })
+    edited(skill, HAIKU_V0, 'report.json', (r) => {
+      for (const result of r.results)
+        for (const rule of result.packs.generic.adherence.rules)
+          if (rule.text === QUOTE_RULE) rule.text = `\u001b[31m${QUOTE_RULE}\u001b]0;owned\u0007`
+    })
+    const { text } = await printedBy(report, [skill], { run: HAIKU_V0, brief: true })
+    // No control but the line feeds between lines, and no direction override or isolate.
+    const acted = [...text].filter((c) => {
+      const n = c.codePointAt(0) ?? 0
+      return (
+        (n < 0x20 && n !== 0x0a) ||
+        (n >= 0x7f && n <= 0x9f) ||
+        (n >= 0x202a && n <= 0x202e) ||
+        (n >= 0x2066 && n <= 0x2069)
+      )
+    })
+    expect(acted).toEqual([])
+    expect(text.split('\n').slice(0, 1)).toEqual([`Run: ${HAIKU_V0} (v0 · First draft)`])
+    expect(text).toContain(
+      `[email-quote] Launch email, a quote that gives orders\n  missed: ${QUOTE_RULE}\n`,
+    )
   })
 })
 
@@ -624,7 +821,12 @@ describe('the case head of --brief', () => {
       '[short-note] A short note',
       '[untitled] Write a note with no title.',
     ]
-    const lines = (printed: string) => printed.split('\n').filter((line) => !line.startsWith('  '))
+    // The case heads alone: not the lines naming the run above them and what it spent below, nor the missed lines.
+    const lines = (printed: string) =>
+      printed
+        .split('\n')
+        .slice(1, -1)
+        .filter((line) => !line.startsWith('  '))
     const first = await printedBy(report, [skill], { run: name, brief: true })
     expect(lines(first.text).map((line) => line.split(': every attempt')[0])).toEqual(heads)
     // An id stands at the start of its case's line alone: one a line, and only there.
@@ -640,5 +842,584 @@ describe('the case head of --brief', () => {
     rmSync(join(skill, 'evals/cases/untitled'), { recursive: true })
     const after = await printedBy(report, [skill], { run: name, brief: true })
     expect(lines(after.text).map((line) => line.split(': every attempt')[0])).toEqual(heads)
+  })
+})
+
+describe('how a run is named', () => {
+  const SONNET_V1 = '2026-11-20-skill-v1-claude-sonnet'
+  const WITHOUT = '2026-11-20-skill-v0-claude-sonnet-without-skill'
+
+  it('heads plain report and compare with each run and the version it ran, and leaves the rest as it was', async () => {
+    const skill = copyOf('launch-note')
+    const one = await printedBy(report, [skill], { run: SONNET_V1 })
+    expect(one.text.split('\n').slice(0, 3)).toEqual([
+      `Run: ${SONNET_V1} (v1 · Second draft)`,
+      '',
+      expect.stringMatching(/^sample +case +adherence/),
+    ])
+    const two = await printedBy(compare, [skill, WITHOUT, SONNET_V1], {})
+    expect(two.text.split('\n').slice(0, 4)).toEqual([
+      `A: ${WITHOUT} (without the skill)`,
+      `B: ${SONNET_V1} (v1 · Second draft)`,
+      '',
+      expect.stringMatching(/^sample +total +adherence/),
+    ])
+  })
+
+  it('names each run in the JSON of report and compare, beside what was there', async () => {
+    const skill = copyOf('launch-note')
+    const one = JSON.parse((await printedBy(report, [skill], { run: SONNET_V1, json: true })).text)
+    expect(one.run).toEqual({
+      name: SONNET_V1,
+      version: 'v1',
+      versionName: 'Second draft',
+      configuration: 'with_skill',
+    })
+    expect(one.results).toHaveLength(6)
+    const two = JSON.parse(
+      (await printedBy(compare, [skill, WITHOUT, SONNET_V1], { json: true })).text,
+    )
+    expect([two.a, two.b.versionName]).toEqual([
+      { name: WITHOUT, version: null, versionName: null, configuration: 'without_skill' },
+      'Second draft',
+    ])
+    expect(Object.keys(two)).toEqual(['rows', 'left', 'notes', 'cases', 'a', 'b', 'spent'])
+  })
+
+  it('reads a version name that is not text as none, in report, grade and a run made after it', async () => {
+    const skill = copyOf('launch-note')
+    edited(skill, HAIKU_V0, 'run.json', (m) => {
+      m.skillName = 5
+    })
+    const { code, text } = await printedBy(report, [skill], { run: HAIKU_V0, brief: true })
+    expect(code).toBe(0)
+    // v0's name is read from its first run, which holds none now.
+    expect(text.split('\n')[0]).toBe(`Run: ${HAIKU_V0} (v0)`)
+    const notes = notesSkill()
+    ends.list = ['note']
+    const values = { engine: 'fake', name: 'first', parallel: '1', 'no-jev': true, quiet: true }
+    await run.run(contextOf([notes], values, null))
+    const [first] = runsOf(notes)
+    const path = join(notes, 'evals/runs', first, 'run.json')
+    writeFileSync(path, JSON.stringify({ ...JSON.parse(readFileSync(path, 'utf8')), skillName: 5 }))
+    const { grade } = await import('./grade.ts')
+    printed = []
+    expect(await grade.run(contextOf([notes], { run: first, 'no-jev': true }, null))).toBe(0)
+    expect(printed[0]).toBe(`\n${first} (v0)`)
+    // The same files run again as v0, named by nothing now, and the run is named after its agents are done.
+    printed = []
+    ends.list = ['note']
+    expect(await run.run(contextOf([notes], { ...values, name: undefined }, null))).toBe(0)
+    const second = runsOf(notes).find((r) => r !== first) ?? ''
+    expect(printed[0]).toBe(`Run: ${join(notes, 'evals/runs', second)} (v0)`)
+  })
+
+  it('names the version on the Run line of st run, the line of st grade, and in their JSON, never before it', async () => {
+    const skill = notesSkill()
+    ends.list = ['note', 'note']
+    const values = { engine: 'fake', name: 'first', parallel: '1', 'no-jev': true, quiet: true }
+    await run.run(contextOf([skill], values, null))
+    const [name] = runsOf(skill)
+    expect(printed[0]).toBe(`Run: ${join(skill, 'evals/runs', name)} (v0 · first)`)
+    printed = []
+    ends.list = ['note']
+    await run.run(contextOf([skill], { ...values, json: true }, null))
+    const second = runsOf(skill).find((r) => r !== name) ?? ''
+    // JSON alone: the Run line is not printed before it.
+    expect(printed).toHaveLength(1)
+    expect(JSON.parse(printed[0]).run).toEqual({
+      name: second,
+      version: 'v0',
+      versionName: 'first',
+      configuration: 'with_skill',
+    })
+    // Graded without Jev: a grading that asked no model, kept as such.
+    expect(JSON.parse(printed[0]).spent).toMatchObject({
+      attempts: 1,
+      graded: true,
+      grading: { calls: [], whole: true },
+    })
+    // Not graded, the JSON still names the run it made.
+    printed = []
+    ends.list = ['note']
+    await run.run(contextOf([skill], { ...values, json: true, 'no-grade': true }, null))
+    expect(printed).toHaveLength(1)
+    expect(JSON.parse(printed[0])).toMatchObject({
+      run: { version: 'v0', versionName: 'first' },
+      spent: { attempts: 1, graded: false, grading: null },
+    })
+    const { grade } = await import('./grade.ts')
+    printed = []
+    await grade.run(contextOf([skill], { run: name, 'no-jev': true }, null))
+    expect(printed[0]).toBe(`\n${name} (v0 · first)`)
+    printed = []
+    await grade.run(contextOf([skill], { run: name, 'no-jev': true, json: true }, null))
+    expect(printed[0]).toBe(`\n${name}`)
+    expect(JSON.parse(printed[1]).run.versionName).toBe('first')
+  })
+})
+
+describe('nothing missed, beside what plain report says was not sure', () => {
+  /** Each case, by id, of which plain report lists a rule or check not sure under one of its outputs. */
+  async function unsureInPlain(skill: string, run: string): Promise<Set<string>> {
+    const results = readRun(skill, run).report?.results ?? []
+    const { text } = await printedBy(report, [skill], { run })
+    const cases = new Set<string>()
+    let under: (typeof results)[number] | undefined
+    for (const line of text.split('\n')) {
+      if (/^\S/.test(line)) under = results.find((r) => r.sample === line)
+      else if (
+        under &&
+        /^ {2}- .*not counted, (Jev was not sure|code could not settle it)/.test(line)
+      )
+        cases.add(under.case ?? parseSampleDir(under.sample)?.case ?? under.sample)
+    }
+    return cases
+  }
+  /** The head line `--brief` printed for a case. */
+  const lineOf = (text: string, id: string): string =>
+    text.split('\n').find((line) => line.startsWith(`[${id}]`)) ?? ''
+  /** Whether a compare line says how many of a run's rules and checks were not sure. */
+  const countsFor = (line: string, run: 'A' | 'B'): boolean =>
+    new RegExp(`(?:in ${run}, | ${run} )\\d+ of \\d+`).test(line)
+
+  /** Every stored run of a fixture, and every pair of them, held to plain report. */
+  async function holds(skill: string): Promise<number> {
+    const runs = runsOf(skill)
+    let held = 0
+    const unsure = new Map<string, Set<string>>()
+    for (const run of runs) {
+      unsure.set(run, await unsureInPlain(skill, run))
+      const { text } = await printedBy(report, [skill], { run, brief: true })
+      for (const id of unsure.get(run) ?? []) {
+        expect(lineOf(text, id), `${run} ${id}`).not.toMatch(/: nothing missed$/)
+        held += 1
+      }
+    }
+    for (const [i, a] of runs.entries())
+      for (const b of runs.slice(i + 1)) {
+        const { text } = await printedBy(compare, [skill, a, b], { brief: true })
+        for (const [run, side] of [
+          [a, 'A'],
+          [b, 'B'],
+        ] as const)
+          for (const id of unsure.get(run) ?? []) {
+            const line = lineOf(text, id)
+            if (line.includes('nothing missed')) expect(countsFor(line, side), line).toBe(true)
+            held += 1
+          }
+      }
+    return held
+  }
+
+  it('never says nothing missed alone of an attempt plain report lists a rule or check not sure under', async () => {
+    let held = 0
+    for (const fixture of ['code-skill', 'demo-skill', 'design-skill', 'launch-note'])
+      held += await holds(copyOf(fixture))
+    expect(held).toBeGreaterThan(0)
+  })
+
+  it('holds for a run without the skill graded as an old grading was, with no heading or code answers', async () => {
+    const skill = copyOf('launch-note')
+    const WITHOUT = '2026-11-20-skill-v0-claude-sonnet-without-skill'
+    edited(skill, WITHOUT, 'report.json', (r) => {
+      for (const result of r.results)
+        for (const fact of [
+          ...result.packs.generic.adherence.rules,
+          ...result.packs.generic.rubric.statements,
+        ]) {
+          delete fact.code
+          delete fact.applies
+          delete fact.comesUp
+        }
+    })
+    expect(await unsureInPlain(skill, WITHOUT)).toContain('email-crowded')
+    expect(await holds(skill)).toBeGreaterThan(0)
+  })
+})
+
+describe('rules and checks --brief says were not sure', () => {
+  const HAIKU_V1 = '2026-11-20-skill-v1-claude-haiku'
+  /** Every fact one output of a stored grading was asked: its rules, then its checks. */
+  const factsOf = (r: Stored, sample: string): Stored[] => {
+    const generic = r.results.find((x: { sample: string }) => x.sample === sample).packs.generic
+    return [...generic.adherence.rules, ...generic.rubric.statements]
+  }
+  /** One fact of an output, by id, in a stored grading. */
+  const factOf = (r: Stored, sample: string, id: string): Stored =>
+    factsOf(r, sample).find((f) => f.id === id)
+  /** The head line `--brief` printed for a case. */
+  const headOf = (text: string, id: string): string | undefined =>
+    text.split('\n').find((line) => line.startsWith(`[${id}]`))
+
+  it('says how many were not sure beside "nothing missed", and with a miss, without printing their words', async () => {
+    const skill = copyOf('launch-note')
+    const { text } = await printedBy(report, [skill], { run: HAIKU_V1, brief: true })
+    // A miss and two rules not sure, one Jev's and one code's.
+    expect(text).toContain(
+      '[email-crowded] Launch email, six features: 2 of 16 rules and checks not sure\n  missed: Write no more than 120 words. Most readers stop after the first screen.\n',
+    )
+    expect(headOf(text, 'email-free')).toBe(
+      '[email-free] Launch email, no price: nothing missed, 1 of 16 rules and checks not sure',
+    )
+    expect(text).not.toContain('Write plain text with no Markdown')
+    // Plain report says which they were, by their words.
+    const plain = await printedBy(report, [skill], { run: HAIKU_V1 })
+    expect(plain.text).toContain(
+      "rule not counted, code could not settle it (differ) (Rules for every announcement): Open with the brief's Headline",
+    )
+    expect(plain.text).toContain(
+      'rule not counted, Jev was not sure (Rules for an email): Write plain text with no Markdown',
+    )
+  })
+
+  it('does not say "nothing missed" of a case whose every rule and check was not sure, nor count them where it says why', async () => {
+    const skill = copyOf('launch-note')
+    edited(skill, HAIKU_V0, 'report.json', (r) => {
+      for (const fact of factsOf(r, 'email-free-s1'))
+        if (!fact.unmarkable) {
+          fact.noul = 0.5
+          delete fact.code
+        }
+    })
+    const { text } = await printedBy(report, [skill], { run: HAIKU_V0, brief: true })
+    expect(headOf(text, 'email-free')).toBe(
+      // With nothing marked the output has no score, and the words for that win.
+      '[email-free] Launch email, no price: not scored, none of its rules or checks could be counted',
+    )
+  })
+
+  it('counts each rule or check once over several attempts, and says one not sure on any of them counts', async () => {
+    const skill = copyOf('launch-note')
+    const runDir = join(skill, 'evals/runs', HAIKU_V0)
+    cpSync(join(runDir, 'email-free-s1'), join(runDir, 'email-free-s2'), { recursive: true })
+    edited(skill, HAIKU_V0, 'report.json', (r) => {
+      const first = r.results.find((x: { sample: string }) => x.sample === 'email-free-s1')
+      r.results.push({ ...structuredClone(first), sample: 'email-free-s2' })
+      factOf(r, 'email-free-s2', 'r5').noul = 0.5
+    })
+    edited(skill, HAIKU_V0, 'run.json', (m) => {
+      const first = m.samples.find((s: { dir: string }) => s.dir === 'email-free-s1')
+      m.samples.push({ ...first, dir: 'email-free-s2', index: 2 })
+    })
+    const { text } = await printedBy(report, [skill], { run: HAIKU_V0, brief: true })
+    expect(headOf(text, 'email-free')).toBe(
+      '[email-free] Launch email, no price: nothing missed, 1 of 11 rules and checks not sure at least once',
+    )
+  })
+
+  it('says it of A and of B in compare, each of its own run', async () => {
+    const skill = copyOf('launch-note')
+    const { text } = await printedBy(compare, [skill, HAIKU_V0, HAIKU_V1], { brief: true })
+    expect(headOf(text, 'email-price')).toBe(
+      '[email-price] Launch email, with a price: neither did better, nothing missed; rules and checks not sure: A 1 of 11, B 1 of 16',
+    )
+    expect(headOf(text, 'email-free')).toBe(
+      '[email-free] Launch email, no price: neither did better, nothing missed; rules and checks not sure: B 1 of 16',
+    )
+  })
+
+  it('says only what became of an attempt not read whole, as before, and never "nothing missed" there', async () => {
+    const skill = copyOf('launch-note')
+    edited(skill, HAIKU_V0, 'report.json', (r) => {
+      // Read in part, and another of its rules not sure; and an answer that wrote nothing.
+      factOf(r, 'page-long-s1', 'r5').parts = [0.5, 0.5]
+      r.results.find((x: { sample: string }) => x.sample === 'email-free-s1').blank = true
+      factOf(r, 'email-free-s1', 'r5').noul = 0.5
+    })
+    const one = await printedBy(report, [skill], { run: HAIKU_V0, brief: true })
+    expect(headOf(one.text, 'page-long')).toBe(
+      '[page-long] Changes page, 180 changes: 3 rules and checks not read',
+    )
+    expect(headOf(one.text, 'email-free')).toBe(
+      '[email-free] Launch email, no price: wrote nothing',
+    )
+    const two = await printedBy(compare, [skill, HAIKU_V0, HAIKU_V1], { brief: true })
+    // Each run's count stands on its own: A's attempt not read whole hides A's alone.
+    expect(headOf(two.text, 'email-free')).toBe(
+      '[email-free] Launch email, no price: no checks to compare; in A, wrote nothing; rules and checks not sure: B 1 of 16',
+    )
+  })
+
+  it('leaves out a count only where the case would pass its 200 bytes, and then says no "nothing missed"', async () => {
+    const skill = copyOf('launch-note')
+    // A title long enough that the case cannot hold its counts as well, though it holds the rest.
+    const title = `Launch email, with a price, ${'and more words in its title '.repeat(3).trim()}`
+    expect(title.length).toBe(111)
+    writeFileSync(join(skill, 'evals/cases/email-price/case.yaml'), `title: ${title}\n`)
+    const one = await printedBy(report, [skill], { run: HAIKU_V1, brief: true })
+    // Its one count left out: the line says nothing it cannot hold whole.
+    expect(headOf(one.text, 'email-price')).toBe(`[email-price] ${title}`)
+    const two = await printedBy(compare, [skill, HAIKU_V0, HAIKU_V1], { brief: true })
+    expect(headOf(two.text, 'email-price')).toBe(`[email-price] ${title}: neither did better`)
+    // Where both fit, both are said.
+    const short = await printedBy(compare, [skill, HAIKU_V0, HAIKU_V1], { brief: true })
+    expect(headOf(short.text, 'email-crowded')).toBe(
+      '[email-crowded] Launch email, six features: neither did better; rules and checks not sure: A 1 of 11, B 2 of 16',
+    )
+    for (const [named, { text }] of [
+      [[HAIKU_V1], one],
+      [[HAIKU_V0, HAIKU_V1], two],
+    ] as const)
+      for (const bytes of bytesByCase(
+        text,
+        frameOf(skill, named),
+        caseHeadsOf(skill, named),
+        factWords(skill, named),
+      ))
+        expect(bytes).toBeLessThanOrEqual(200)
+  })
+
+  it('reads a grading kept from before code or headings answered as its own answers say, as plain report does', async () => {
+    const skill = copyOf('launch-note')
+    // As a grading made before code read rules, or Jev was asked whether a heading applies.
+    edited(skill, HAIKU_V1, 'report.json', (r) => {
+      for (const result of r.results)
+        for (const fact of factsOf(r, result.sample)) {
+          delete fact.code
+          delete fact.applies
+          delete fact.comesUp
+        }
+    })
+    const brief = await printedBy(report, [skill], { run: HAIKU_V1, brief: true })
+    const plain = await printedBy(report, [skill], { run: HAIKU_V1 })
+    // Each output's "N not sure" in plain report's counts, rules and checks added up, by case.
+    const plainUnsure = new Map(
+      [...plain.text.matchAll(/^ {2}(\S+)-s1 +checks (.*?) {2,}rules (.*)$/gm)].map((m) => [
+        m[1],
+        [m[2], m[3]].reduce(
+          (sum, count) => sum + Number(/(\d+) not sure/.exec(count)?.[1] ?? 0),
+          0,
+        ),
+      ]),
+    )
+    const briefUnsure = new Map(
+      brief.text
+        .split('\n')
+        .flatMap((line) => /^\[([^\]]+)\]/.exec(line)?.[1] ?? [])
+        .map((id) => [
+          id,
+          Number(
+            /(\d+) of \d+ rules and checks not sure/.exec(headOf(brief.text, id) ?? '')?.[1] ?? 0,
+          ),
+        ]),
+    )
+    // page-long is read in part, so what became of it is said in place of a count.
+    plainUnsure.delete('page-long')
+    briefUnsure.delete('page-long')
+    expect(briefUnsure).toEqual(plainUnsure)
+    // Without code's word, the rules code settled or could not settle stand on Jev's answers, met here;
+    // without the headings' answers, every rule is asked of every case.
+    expect(headOf(brief.text, 'email-crowded')).toBe(
+      '[email-crowded] Launch email, six features: nothing missed, 1 of 21 rules and checks not sure',
+    )
+  })
+})
+
+describe('what a run spent', () => {
+  /** Keep `cost` as a run's gradings would have kept it, in its file. */
+  const keepCost = (skill: string, run: string, cost: Stored) =>
+    writeFileSync(join(skill, 'evals/runs', run, GRADING_COST_FILE), JSON.stringify(cost))
+  const HAIKU_V1 = '2026-11-20-skill-v1-claude-haiku'
+  const WITHOUT = '2026-11-20-skill-v0-claude-sonnet-without-skill'
+  const ALL = [
+    'email-crowded-s1',
+    'email-free-s1',
+    'email-price-s1',
+    'email-quote-s1',
+    'page-basic-s1',
+    'page-long-s1',
+  ]
+  /** The line a report ends with. */
+  const spentIn = async (skill: string, run: string, more: Values = {}) =>
+    (await printedBy(report, [skill], { run, ...more })).text.split('\n').at(-1)
+  /** A stored attempt's timing.json, read here apart from the command. */
+  const timingOf = (skill: string, run: string, sample: string): Stored =>
+    JSON.parse(readFileSync(join(skill, 'evals/runs', run, sample, 'timing.json'), 'utf8'))
+  /** The attempts' timing.json files of a stored run, added up here apart from the command. */
+  function summed(skill: string, run: string, samples: readonly string[]) {
+    const timings = samples.map((sample) => timingOf(skill, run, sample))
+    const add = (of: (t: Stored) => number) => timings.reduce((n, t) => n + of(t), 0)
+    return {
+      ms: add((t) => t.durationMs),
+      input: add((t) => t.tokens.input).toLocaleString('en-US'),
+      output: add((t) => t.tokens.output).toLocaleString('en-US'),
+      usd: add((t) => t.costUsd),
+    }
+  }
+
+  it('adds up each attempt’s answer, in plain report and in --brief, and says its grading kept no cost', async () => {
+    const skill = copyOf('launch-note')
+    const sum = summed(skill, HAIKU_V1, ALL)
+    const line = `Spent: 6 attempts, ${Math.round(sum.ms / 1000)} s between them, ${sum.input} tokens in, ${sum.output} out, $${sum.usd.toFixed(4)}; ${OLD}`
+    expect(await spentIn(skill, HAIKU_V1, { brief: true })).toBe(line)
+    const plain = (await printedBy(report, [skill], { run: HAIKU_V1 })).text.split('\n')
+    expect(plain.slice(-2)).toEqual(['', line])
+  })
+
+  it('says over how many attempts a figure is counted, for one with no timing.json and one stopped half way', async () => {
+    const skill = copyOf('launch-note')
+    // Cut off before its agent ended: no timing.json.
+    const cut = join(skill, 'evals/runs', HAIKU_V1, 'page-long-s1/timing.json')
+    rmSync(cut)
+    expect(await spentIn(skill, HAIKU_V1)).toMatch(
+      / s between 5 of them, [\d,]+ tokens in, [\d,]+ out for 5 of them, \$[\d.]+ for 5 of them; /,
+    )
+    // Stopped: its agent was ended, so it kept its time but no tokens and no price.
+    const stopped = timingOf(skill, HAIKU_V1, 'page-basic-s1')
+    writeFileSync(
+      join(skill, 'evals/runs', HAIKU_V1, 'page-basic-s1/timing.json'),
+      JSON.stringify({ ...stopped, tokens: null, costUsd: null }),
+    )
+    edited(skill, HAIKU_V1, 'run.json', (m) => {
+      const sample = m.samples.find((s: { dir: string }) => s.dir === 'page-basic-s1')
+      Object.assign(sample, { stopped: true, tokens: null, costUsd: null })
+    })
+    const sum = summed(skill, HAIKU_V1, ALL.slice(0, 4))
+    const seconds = Math.round((sum.ms + stopped.durationMs) / 1000)
+    expect(await spentIn(skill, HAIKU_V1)).toBe(
+      `Spent: 6 attempts, ${seconds} s between 5 of them, ${sum.input} tokens in, ${sum.output} out for 4 of them, $${sum.usd.toFixed(4)} for 4 of them; ${OLD}`,
+    )
+  })
+
+  it('says no price where no attempt kept one, never a nought', async () => {
+    const skill = copyOf('launch-note')
+    for (const sample of ALL)
+      writeFileSync(
+        join(skill, 'evals/runs', HAIKU_V1, sample, 'timing.json'),
+        JSON.stringify({ ...timingOf(skill, HAIKU_V1, sample), costUsd: null }),
+      )
+    const line = await spentIn(skill, HAIKU_V1)
+    expect(line).toMatch(/ out, no price kept; /)
+    expect(line).not.toContain('$')
+  })
+
+  it('counts the answers of a run without the skill as any run’s', async () => {
+    const skill = copyOf('launch-note')
+    const sum = summed(skill, WITHOUT, ALL)
+    expect(await spentIn(skill, WITHOUT)).toBe(
+      `Spent: 6 attempts, ${Math.round(sum.ms / 1000)} s between them, ${sum.input} tokens in, ${sum.output} out, $${sum.usd.toFixed(2)}; ${OLD}`,
+    )
+  })
+
+  it('counts what the gradings kept, a grading again among them, and says what is not in it', async () => {
+    const skill = copyOf('launch-note')
+    const calls = (n: number, source: 'asked' | 'replayed' = 'asked') => ({
+      operation: 'grade',
+      provider: 'jev',
+      model: 'jev-1.14.0',
+      source,
+      calls: n,
+      input: 1000 * n,
+      output: 0,
+      seconds: 1.5 * n,
+    })
+    const kept = (gradingCost: Stored) => keepCost(skill, HAIKU_V1, gradingCost)
+    // Two gradings of 3 and 5 calls, the second added to the first, as a grading again keeps them.
+    kept({ calls: [calls(8)], whole: true })
+    expect(await spentIn(skill, HAIKU_V1, { brief: true })).toMatch(
+      /; grading 8 calls to Jev, 8,000 tokens in, 12 s$/,
+    )
+    kept({ calls: [calls(3), calls(5, 'replayed')], whole: false })
+    expect(await spentIn(skill, HAIKU_V1, { brief: true })).toMatch(
+      /; grading 3 calls to Jev, 3,000 tokens in, 4.5 s, 5 replayed at no cost, an earlier grading's cost not kept$/,
+    )
+    kept({ calls: [], whole: true })
+    expect(await spentIn(skill, HAIKU_V1, { brief: true })).toMatch(/; grading asked no model$/)
+  })
+
+  it('reads a grading cost kept in another shape as not kept: never a crash, never a wrong number', async () => {
+    const skill = copyOf('launch-note')
+    const good = {
+      operation: 'grade',
+      provider: 'jev',
+      model: 'jev-1.14.0',
+      source: 'asked',
+      calls: 2,
+      input: 900,
+      output: 0,
+      seconds: 1,
+    }
+    const shapes: Stored[] = [
+      { whole: true },
+      5,
+      'x',
+      null,
+      { calls: [null], whole: true },
+      { calls: [good], whole: 'yes' },
+      { calls: [{ ...good, input: '900' }], whole: true },
+      { calls: [{ ...good, calls: -1 }], whole: true },
+      { calls: [{ ...good, calls: 1.5 }], whole: true },
+      { calls: [{ ...good, seconds: Number.NaN }], whole: true },
+      { calls: [{ ...good, source: 'guessed' }], whole: true },
+    ]
+    for (const shape of shapes) {
+      keepCost(skill, HAIKU_V1, shape)
+      const line = await spentIn(skill, HAIKU_V1, { brief: true })
+      expect(line, JSON.stringify(shape)).toMatch(new RegExp(`; ${OLD}$`))
+      const json = JSON.parse(
+        (await printedBy(report, [skill], { run: HAIKU_V1, json: true })).text,
+      )
+      expect(json.spent.grading).toBeNull()
+      expect(json).not.toHaveProperty('gradingCost')
+      const two = await printedBy(compare, [skill, HAIKU_V0, HAIKU_V1], { brief: true })
+      expect(two.text).toMatch(new RegExp(`\\nB spent: .*; ${OLD}\\n`))
+    }
+    // The same in its shape is read and counted.
+    keepCost(skill, HAIKU_V1, { calls: [good], whole: true })
+    expect(await spentIn(skill, HAIKU_V1, { brief: true })).toMatch(
+      /; grading 2 calls to Jev, 900 tokens in, 1 s$/,
+    )
+  })
+
+  it('carries the totals in the JSON of report and compare, beside what was there', async () => {
+    const skill = copyOf('launch-note')
+    const one = JSON.parse((await printedBy(report, [skill], { run: HAIKU_V1, json: true })).text)
+    expect(one.spent).toMatchObject({
+      attempts: 6,
+      answering: { seconds: { attempts: 6 }, tokens: { attempts: 6 }, usd: { attempts: 6 } },
+      graded: true,
+      grading: null,
+    })
+    expect(one.results).toHaveLength(6)
+    const two = JSON.parse(
+      (await printedBy(compare, [skill, WITHOUT, HAIKU_V1], { json: true })).text,
+    )
+    expect(two.spent.b).toEqual(one.spent)
+    expect(two.spent.a.answering.usd.total).toBeCloseTo(0.371141, 6)
+  })
+
+  it('ends plain compare with what A and B spent, before the Open line', async () => {
+    const skill = copyOf('launch-note')
+    const lines = (await printedBy(compare, [skill, WITHOUT, HAIKU_V1], {})).text.split('\n')
+    expect(lines.slice(-5)).toEqual([
+      '',
+      expect.stringMatching(/^A spent: 6 attempts, 94 s between them, /),
+      expect.stringMatching(/^B spent: 6 attempts, 111 s between them, /),
+      '',
+      expect.stringMatching(/^Open: /),
+    ])
+  })
+})
+
+describe('the examples of --brief in docs/cli.md', () => {
+  /** The first code block under a heading of docs/cli.md, line by line. */
+  const exampleUnder = (heading: string): string[] => {
+    // A checkout on Windows may hold the doc with CRLF line ends.
+    const doc = readFileSync(resolve('docs/cli.md'), 'utf8').replace(/\r\n/g, '\n')
+    const section = doc.slice(doc.indexOf(`\n${heading}\n`))
+    return /```\n([\s\S]*?)\n```/.exec(section)?.[1].split('\n') ?? []
+  }
+
+  it('are what report --brief prints on the stored run they name, from its first line to its last', async () => {
+    const skill = copyOf('launch-note')
+    const run = '2026-11-20-skill-v1-claude-haiku'
+    const printed = (await printedBy(report, [skill], { run, brief: true })).text.split('\n')
+    const brief = exampleUnder('### Short output')
+    expect(brief[0]).toBe(`Run: ${run} (v1 · Second draft)`)
+    // A few cases are left out of it, and every line it holds is one the command prints.
+    expect([brief[0], brief.at(-1)]).toEqual([printed[0], printed.at(-1)])
+    for (const line of brief) expect(printed).toContain(line)
+    expect(exampleUnder('### What a run spent')).toEqual([printed.at(-1)])
   })
 })

@@ -1,5 +1,6 @@
 import { generateRun } from '@application/generate.ts'
 import { correctionsOf, gradeRun } from '@application/grade.ts'
+import { runShown, versionWords } from '@domain/run-name.ts'
 import type { Report } from '@domain/schemas.ts'
 import { loadCases } from '@infrastructure/cases.ts'
 import { engineById, engines } from '@infrastructure/engines/index.ts'
@@ -15,7 +16,11 @@ import {
   printGraded,
   printOpen,
   printReport,
+  runNamer,
   skillOf,
+  spentLine,
+  spentOf,
+  withCost,
 } from './shared.ts'
 
 const flags = {
@@ -46,7 +51,8 @@ export const run: Command = {
     '    --note <text>             Note on the version.',
     '    --parallel <n>            Samples in flight (default 3).',
     '    --no-grade                Skip grading after generation.',
-    '    --brief                   Print only each case and the rules and checks it missed.',
+    '    --brief                   Print only the run, each case with what it missed and how many',
+    '                              of its rules and checks were not sure, and what the run spent.',
     '    --quiet                   Print one line as each attempt ends in place of progress.',
   ],
   flags,
@@ -107,7 +113,11 @@ export const run: Command = {
         signal: context.lifecycle?.signal,
       }),
     )
-    if (!brief) console.log(`Run: ${runDir(skill, name)}`)
+    // The version it ran, by the name it was given, beside the folder that holds it.
+    const named = runNamer(skill)(name, meta)
+    const words = versionWords(named)
+    if (!brief && !values.json)
+      console.log(`Run: ${runDir(skill, name)}${words ? ` (${words})` : ''}`)
     // An attempt that failed is no answer: the run is not whole, whatever its grading says.
     const failed = meta.samples.filter((s) => s.failed)
     // Quiet, each attempt's own line already said it failed, and why.
@@ -116,22 +126,28 @@ export const run: Command = {
     const jev = values.quiet
       ? { ...context.jev, log: () => {}, warn: (line: string) => console.error(line) }
       : context.jev
+    const graded = values['no-grade']
+      ? null
+      : await held(context, gradeRun(skill, name, { ...jev, render: drawingOf(context) }))
+    // The run as its files hold it once the grading is written.
+    const view = readRun(skill, name)
+    // What it spent, answering and grading, as those files keep it.
+    const spent = spentOf(skill, name)
     // Brief, the report is each case and what it missed, scored as `st report --brief` scores it.
     const briefly = (report: Report | null) => {
-      const view = readRun(skill, name)
       const samples = view.samples.map((s) => s.name)
       const corrections = correctionsOf(skill, name)
+      console.log(`Run: ${runShown(named)}`)
       printBrief(skill, { view, report, cases: view.cases, samples, corrections }, context.scoring)
     }
-    // Not graded, a brief still names each case: no attempt of it is graded.
-    if (values['no-grade'] && brief) briefly(null)
+    // Not graded, a brief still names each case: no attempt of it is graded. JSON still names the run.
+    if (!graded && brief) briefly(null)
+    if (!graded && values.json)
+      console.log(JSON.stringify(withCost({ run: named, spent }), null, 2))
     const fine =
-      values['no-grade'] ||
-      printGraded(
-        await held(context, gradeRun(skill, name, { ...jev, render: drawingOf(context) })),
-        values.json,
-        brief ? briefly : printReport,
-      )
+      !graded ||
+      printGraded(graded, values.json, brief ? briefly : printReport, { run: named, spent })
+    if (!values.json) console.log(brief ? spentLine(spent) : `\n${spentLine(spent)}`)
     printOpen(values.json, skill, name)
     return fine && !failed.length ? 0 : 1
   },
