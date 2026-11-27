@@ -157,13 +157,22 @@ const NONE: CaseBrief = {
 
 /**
  * How many of a case's rules and checks were left not sure, out of those
- * asked: `4 of 16 not sure`, counted over its attempts read whole, each rule
- * or check once. Over more than one attempt, one not sure on any of them
- * counts: `4 of 16 not sure at least once`. Null where none was.
+ * asked, `4 of 16`, counted over its attempts read whole, each rule or check
+ * once. Over more than one attempt, one not sure on any of them counts:
+ * `4 of 16 at least once`. Null where none was.
  */
+function unsureCount(brief: CaseBrief): string | null {
+  if (!brief.unsure) return null
+  return `${brief.unsure} of ${brief.asked}${brief.whole > 1 ? ' at least once' : ''}`
+}
+
+/** What is counted as not sure, said once a line. */
+const NOT_SURE = 'rules and checks not sure'
+
+/** One run's count, as a case's line says it: `4 of 16 rules and checks not sure`, `... at least once`. Null where none was. */
 function unsureWords(brief: CaseBrief): string | null {
   if (!brief.unsure) return null
-  return `${brief.unsure} of ${brief.asked} not sure${brief.whole > 1 ? ' at least once' : ''}`
+  return `${brief.unsure} of ${brief.asked} ${NOT_SURE}${brief.whole > 1 ? ' at least once' : ''}`
 }
 
 /**
@@ -260,8 +269,8 @@ export function printBriefCompare(
             ['B', two],
           ] as const
         ).flatMap(([run, brief]) => {
-          const said = unsureWords(brief)
-          return said ? [`in ${run}, ${said}`] : []
+          const count = unsureCount(brief)
+          return count ? [`${run} ${count}`] : []
         })
     const words = [...new Set([...one.missed, ...two.missed])]
     const said = [
@@ -269,8 +278,10 @@ export function printBriefCompare(
       ...notes,
     ].join('; ')
     const nothing = !words.length && !notes.length
+    // What is counted is said once for both runs: `rules and checks not sure: A 1 of 11, B 1 of 16`.
+    const counts = unsure.length ? [`${NOT_SURE}: ${unsure.join(', ')}`] : []
     console.log(
-      headLine(head(id), [`${said}${nothing ? ', nothing missed' : ''}`, ...unsure].join('; ')),
+      headLine(head(id), [`${said}${nothing ? ', nothing missed' : ''}`, ...counts].join('; ')),
     )
     for (const w of words) {
       const [inA, inB] = [one.missed.includes(w), two.missed.includes(w)]

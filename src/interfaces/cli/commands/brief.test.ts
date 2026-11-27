@@ -110,7 +110,7 @@ const QUOTE_RULE =
 const HAIKU_V0 = '2026-11-20-skill-v0-claude-haiku'
 
 /** What the spent line says of a stored run's grading: the stored runs were graded before gradings kept their cost. */
-const OLD = 'grading not counted, as it was graded before gradings kept their cost'
+const OLD = 'grading cost not kept'
 
 /** A stored run's file, read as JSON, changed by `edit`, and written back: in a copy only. */
 // biome-ignore lint/suspicious/noExplicitAny: a stored run's file, changed by hand in a copy, has no type here.
@@ -132,16 +132,16 @@ describe('report --brief', () => {
       // The run, and the version it ran by the name it was given.
       `Run: ${HAIKU_V0} (v0 · First draft)`,
       // A rule Jev or code was not sure of is no miss, and "nothing missed" never stands alone beside it.
-      '[email-crowded] Launch email, six features: nothing missed, 1 of 11 not sure',
+      '[email-crowded] Launch email, six features: nothing missed, 1 of 11 rules and checks not sure',
       '[email-free] Launch email, no price: nothing missed',
-      '[email-price] Launch email, with a price: nothing missed, 1 of 11 not sure',
+      '[email-price] Launch email, with a price: nothing missed, 1 of 11 rules and checks not sure',
       '[email-quote] Launch email, a quote that gives orders',
       `  missed: ${QUOTE_RULE}`,
       '[page-basic] Launch page: nothing missed',
       // A long output read in part: what was not read is said, never "nothing missed".
       '[page-long] Changes page, 180 changes: 3 rules and checks not read',
       // Then what the run spent: its grading was kept before gradings kept their cost.
-      `Spent: answering 6 attempts, 140 s, 604,099 input and 31,112 output tokens, $0.0426; ${OLD}`,
+      `Spent: 6 attempts, 140 s between them, 604,099 tokens in, 31,112 out, $0.0426; ${OLD}`,
     ])
   })
 
@@ -175,7 +175,7 @@ describe('report --brief', () => {
       '[page-basic] Launch page: failed, it ran out of time (after 600 s)',
       '[page-long] Changes page, 180 changes: no attempt ran',
       // Two folders removed: four attempts are left to count, each with its timing.json.
-      `Spent: answering 4 attempts, 84 s, 336,642 input and 18,912 output tokens, $0.0246; ${OLD}`,
+      `Spent: 4 attempts, 84 s between them, 336,642 tokens in, 18,912 out, $0.0246; ${OLD}`,
     ])
   })
 
@@ -201,17 +201,17 @@ describe('compare --brief', () => {
       `A: ${runs[0]} (without the skill)`,
       `B: ${runs[1]} (v1 · Second draft)`,
       // A run without the skill is held to no rule, so only B has rules not sure.
-      '[email-crowded] Launch email, six features: neither did better, nothing missed; in B, 2 of 16 not sure',
-      '[email-free] Launch email, no price: neither did better, nothing missed; in B, 1 of 16 not sure',
-      '[email-price] Launch email, with a price: neither did better, nothing missed; in B, 1 of 16 not sure',
-      '[email-quote] Launch email, a quote that gives orders: neither did better; in B, 1 of 15 not sure',
+      '[email-crowded] Launch email, six features: neither did better, nothing missed; rules and checks not sure: B 2 of 16',
+      '[email-free] Launch email, no price: neither did better, nothing missed; rules and checks not sure: B 1 of 16',
+      '[email-price] Launch email, with a price: neither did better, nothing missed; rules and checks not sure: B 1 of 16',
+      '[email-quote] Launch email, a quote that gives orders: neither did better; rules and checks not sure: B 1 of 15',
       `  B missed: ${QUOTE_RULE}`,
       '[page-basic] Launch page: B did better',
       '  A missed: The page states the price as 12 USD a month.',
       "  B missed: Open with the brief's Headline, word for word. A reworded headline is one the team did not approve.",
       '[page-long] Changes page, 180 changes: no checks to compare; in A, 1 rule or check not read; in B, 4 rules and checks not read',
-      `A spent: answering 6 attempts, 94 s, 408,430 input and 7,243 output tokens, $0.37; ${OLD}`,
-      `B spent: answering 6 attempts, 80 s, 442,589 input and 8,699 output tokens, $0.37; ${OLD}`,
+      `A spent: 6 attempts, 94 s between them, 408,430 tokens in, 7,243 out, $0.37; ${OLD}`,
+      `B spent: 6 attempts, 80 s between them, 442,589 tokens in, 8,699 out, $0.37; ${OLD}`,
       '',
       `Open: pnpm st open ${skill} --a ${runs[0]} --b ${runs[1]}`,
     ])
@@ -222,7 +222,7 @@ describe('compare --brief', () => {
     const runs = [HAIKU_V0, '2026-11-20-skill-v1-claude-haiku']
     const { text } = await printedBy(compare, [skill, ...runs], { brief: true })
     expect(text).toContain(
-      `[email-quote] Launch email, a quote that gives orders: neither did better; in B, 1 of 15 not sure\n  A and B missed: ${QUOTE_RULE}\n`,
+      `[email-quote] Launch email, a quote that gives orders: neither did better; rules and checks not sure: B 1 of 15\n  A and B missed: ${QUOTE_RULE}\n`,
     )
   })
 
@@ -241,7 +241,7 @@ describe('compare --brief', () => {
     const { text } = await printedBy(compare, [skill, ...runs], { brief: true })
     const lines = text.split('\n')
     expect(lines).toContain(
-      '[email-free] Launch email, no price: only B answered it, nothing missed; in B, 1 of 16 not sure',
+      '[email-free] Launch email, no price: only B answered it, nothing missed; rules and checks not sure: B 1 of 16',
     )
     expect(lines).toContain(
       '[page-long] Changes page, 180 changes: only A answered it; in A, 3 rules and checks not read; in B, its folder was removed',
@@ -447,7 +447,7 @@ describe('run --quiet --brief', () => {
       '[short-note] A short note: attempt 1 not scored, the skill has no rules and the case has no checks; attempt 2 failed, it ended with an error (signed out)',
       // An engine that keeps no tokens or price, and a grading without Jev, which asks no model.
       expect.stringMatching(
-        /^Spent: answering 2 attempts, [\d.]+ s, no tokens kept, no price kept; grading, no model calls$/,
+        /^Spent: 2 attempts, [\d.]+ s between them, no tokens kept, no price kept; grading asked no model$/,
       ),
       `\nOpen: pnpm st open ${skill} --a ${name}`,
     ])
@@ -474,7 +474,7 @@ describe('run --quiet --brief', () => {
     ends.list = ['note', 'note']
     expect(await quietRun(skill, { 'no-grade': true })).toBe(0)
     expect(printed[1]).toBe('[short-note] A short note: every attempt not graded')
-    expect(printed[2]).toMatch(/^Spent: answering 2 attempts, .*; no grading kept$/)
+    expect(printed[2]).toMatch(/^Spent: 2 attempts, .*; not graded$/)
     expect(printed).toHaveLength(4)
   })
 
@@ -965,10 +965,10 @@ describe('rules and checks --brief says were not sure', () => {
     const { text } = await printedBy(report, [skill], { run: HAIKU_V1, brief: true })
     // A miss and two rules not sure, one Jev's and one code's.
     expect(text).toContain(
-      '[email-crowded] Launch email, six features: 2 of 16 not sure\n  missed: Write no more than 120 words. Most readers stop after the first screen.\n',
+      '[email-crowded] Launch email, six features: 2 of 16 rules and checks not sure\n  missed: Write no more than 120 words. Most readers stop after the first screen.\n',
     )
     expect(headOf(text, 'email-free')).toBe(
-      '[email-free] Launch email, no price: nothing missed, 1 of 16 not sure',
+      '[email-free] Launch email, no price: nothing missed, 1 of 16 rules and checks not sure',
     )
     expect(text).not.toContain('Write plain text with no Markdown')
     // Plain report says which they were, by their words.
@@ -1012,7 +1012,7 @@ describe('rules and checks --brief says were not sure', () => {
     })
     const { text } = await printedBy(report, [skill], { run: HAIKU_V0, brief: true })
     expect(headOf(text, 'email-free')).toBe(
-      '[email-free] Launch email, no price: nothing missed, 1 of 11 not sure at least once',
+      '[email-free] Launch email, no price: nothing missed, 1 of 11 rules and checks not sure at least once',
     )
   })
 
@@ -1020,10 +1020,10 @@ describe('rules and checks --brief says were not sure', () => {
     const skill = copyOf('launch-note')
     const { text } = await printedBy(compare, [skill, HAIKU_V0, HAIKU_V1], { brief: true })
     expect(headOf(text, 'email-price')).toBe(
-      '[email-price] Launch email, with a price: neither did better, nothing missed; in A, 1 of 11 not sure; in B, 1 of 16 not sure',
+      '[email-price] Launch email, with a price: neither did better, nothing missed; rules and checks not sure: A 1 of 11, B 1 of 16',
     )
     expect(headOf(text, 'email-free')).toBe(
-      '[email-free] Launch email, no price: neither did better, nothing missed; in B, 1 of 16 not sure',
+      '[email-free] Launch email, no price: neither did better, nothing missed; rules and checks not sure: B 1 of 16',
     )
   })
 
@@ -1078,7 +1078,9 @@ describe('rules and checks --brief says were not sure', () => {
         .flatMap((line) => /^\[([^\]]+)\]/.exec(line)?.[1] ?? [])
         .map((id) => [
           id,
-          Number(/(\d+) of \d+ not sure/.exec(headOf(brief.text, id) ?? '')?.[1] ?? 0),
+          Number(
+            /(\d+) of \d+ rules and checks not sure/.exec(headOf(brief.text, id) ?? '')?.[1] ?? 0,
+          ),
         ]),
     )
     // page-long is read in part, so what became of it is said in place of a count.
@@ -1088,7 +1090,7 @@ describe('rules and checks --brief says were not sure', () => {
     // Without code's word, the rules code settled or could not settle stand on Jev's answers, met here;
     // without the headings' answers, every rule is asked of every case.
     expect(headOf(brief.text, 'email-crowded')).toBe(
-      '[email-crowded] Launch email, six features: nothing missed, 1 of 21 not sure',
+      '[email-crowded] Launch email, six features: nothing missed, 1 of 21 rules and checks not sure',
     )
   })
 })
@@ -1128,7 +1130,7 @@ describe('what a run spent', () => {
   it('adds up each attempt’s answer, in plain report and in --brief, and says its grading kept no cost', async () => {
     const skill = copyOf('launch-note')
     const sum = summed(skill, HAIKU_V1, ALL)
-    const line = `Spent: answering 6 attempts, ${Math.round(sum.ms / 1000)} s, ${sum.input} input and ${sum.output} output tokens, $${sum.usd.toFixed(4)}; ${OLD}`
+    const line = `Spent: 6 attempts, ${Math.round(sum.ms / 1000)} s between them, ${sum.input} tokens in, ${sum.output} out, $${sum.usd.toFixed(4)}; ${OLD}`
     expect(await spentIn(skill, HAIKU_V1, { brief: true })).toBe(line)
     const plain = (await printedBy(report, [skill], { run: HAIKU_V1 })).text.split('\n')
     expect(plain.slice(-2)).toEqual(['', line])
@@ -1140,7 +1142,7 @@ describe('what a run spent', () => {
     const cut = join(skill, 'evals/runs', HAIKU_V1, 'page-long-s1/timing.json')
     rmSync(cut)
     expect(await spentIn(skill, HAIKU_V1)).toMatch(
-      / s for 5 of them, [\d,]+ input and [\d,]+ output tokens for 5 of them, \$[\d.]+ for 5 of them; /,
+      / s between 5 of them, [\d,]+ tokens in, [\d,]+ out for 5 of them, \$[\d.]+ for 5 of them; /,
     )
     // Stopped: its agent was ended, so it kept its time but no tokens and no price.
     const stopped = timingOf(skill, HAIKU_V1, 'page-basic-s1')
@@ -1155,7 +1157,7 @@ describe('what a run spent', () => {
     const sum = summed(skill, HAIKU_V1, ALL.slice(0, 4))
     const seconds = Math.round((sum.ms + stopped.durationMs) / 1000)
     expect(await spentIn(skill, HAIKU_V1)).toBe(
-      `Spent: answering 6 attempts, ${seconds} s for 5 of them, ${sum.input} input and ${sum.output} output tokens for 4 of them, $${sum.usd.toFixed(4)} for 4 of them; ${OLD}`,
+      `Spent: 6 attempts, ${seconds} s between 5 of them, ${sum.input} tokens in, ${sum.output} out for 4 of them, $${sum.usd.toFixed(4)} for 4 of them; ${OLD}`,
     )
   })
 
@@ -1167,7 +1169,7 @@ describe('what a run spent', () => {
         JSON.stringify({ ...timingOf(skill, HAIKU_V1, sample), costUsd: null }),
       )
     const line = await spentIn(skill, HAIKU_V1)
-    expect(line).toMatch(/ output tokens, no price kept; /)
+    expect(line).toMatch(/ out, no price kept; /)
     expect(line).not.toContain('$')
   })
 
@@ -1175,7 +1177,7 @@ describe('what a run spent', () => {
     const skill = copyOf('launch-note')
     const sum = summed(skill, WITHOUT, ALL)
     expect(await spentIn(skill, WITHOUT)).toBe(
-      `Spent: answering 6 attempts, ${Math.round(sum.ms / 1000)} s, ${sum.input} input and ${sum.output} output tokens, $${sum.usd.toFixed(2)}; ${OLD}`,
+      `Spent: 6 attempts, ${Math.round(sum.ms / 1000)} s between them, ${sum.input} tokens in, ${sum.output} out, $${sum.usd.toFixed(2)}; ${OLD}`,
     )
   })
 
@@ -1195,14 +1197,14 @@ describe('what a run spent', () => {
     // Two gradings of 3 and 5 calls, the second added to the first, as a grading again keeps them.
     kept({ calls: [calls(8)], whole: true })
     expect(await spentIn(skill, HAIKU_V1, { brief: true })).toMatch(
-      /; grading, 8 calls to Jev, 8,000 input tokens, 12 s$/,
+      /; grading 8 calls to Jev, 8,000 tokens in, 12 s$/,
     )
     kept({ calls: [calls(3), calls(5, 'replayed')], whole: false })
     expect(await spentIn(skill, HAIKU_V1, { brief: true })).toMatch(
-      /; grading, 3 calls to Jev, 3,000 input tokens, 4.5 s, 5 replayed from saved replies, which cost nothing, and an earlier grading not counted$/,
+      /; grading 3 calls to Jev, 3,000 tokens in, 4.5 s, 5 replayed at no cost, an earlier grading's cost not kept$/,
     )
     kept({ calls: [], whole: true })
-    expect(await spentIn(skill, HAIKU_V1, { brief: true })).toMatch(/; grading, no model calls$/)
+    expect(await spentIn(skill, HAIKU_V1, { brief: true })).toMatch(/; grading asked no model$/)
   })
 
   it('reads a grading cost kept in another shape as not kept: never a crash, never a wrong number', async () => {
@@ -1245,7 +1247,7 @@ describe('what a run spent', () => {
     // The same in its shape is read and counted.
     keepCost(skill, HAIKU_V1, { calls: [good], whole: true })
     expect(await spentIn(skill, HAIKU_V1, { brief: true })).toMatch(
-      /; grading, 2 calls to Jev, 900 input tokens, 1 s$/,
+      /; grading 2 calls to Jev, 900 tokens in, 1 s$/,
     )
   })
 
@@ -1271,8 +1273,8 @@ describe('what a run spent', () => {
     const lines = (await printedBy(compare, [skill, WITHOUT, HAIKU_V1], {})).text.split('\n')
     expect(lines.slice(-5)).toEqual([
       '',
-      expect.stringMatching(/^A spent: answering 6 attempts, 94 s, /),
-      expect.stringMatching(/^B spent: answering 6 attempts, 111 s, /),
+      expect.stringMatching(/^A spent: 6 attempts, 94 s between them, /),
+      expect.stringMatching(/^B spent: 6 attempts, 111 s between them, /),
       '',
       expect.stringMatching(/^Open: /),
     ])

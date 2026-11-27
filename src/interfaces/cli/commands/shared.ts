@@ -170,27 +170,43 @@ const counted = (n: number): string => n.toLocaleString('en-US')
 const secondsOf = (seconds: number): string =>
   `${seconds < 10 ? Math.round(seconds * 10) / 10 : Math.round(seconds)} s`
 
-/** What answering cost: each figure over the attempts that kept it, said where they are not all. */
+/**
+ * What answering cost: the attempts, their seconds added up, their tokens
+ * and their price, each over the attempts that kept it, said where those are
+ * not all of them: "6 attempts, 111 s between them, 592,830 tokens in,
+ * 23,760 out, $0.0374".
+ */
 function answeringWords({ attempts, answering }: RunSpent): string {
   if (!attempts) return 'no attempt ran'
   const over = (n: number): string => (n < attempts ? ` for ${n} of them` : '')
   const { seconds, tokens, usd } = answering
+  // Each attempt's own seconds, added up: attempts run at the same time, so the run took less.
+  const between =
+    seconds.attempts === attempts
+      ? attempts > 1
+        ? ' between them'
+        : ''
+      : seconds.attempts > 1
+        ? ` between ${seconds.attempts} of them`
+        : over(seconds.attempts)
   return [
-    `answering ${attempts} ${attempts === 1 ? 'attempt' : 'attempts'}`,
-    seconds.attempts ? `${secondsOf(seconds.total)}${over(seconds.attempts)}` : 'no time kept',
+    `${attempts} ${attempts === 1 ? 'attempt' : 'attempts'}`,
+    seconds.attempts ? `${secondsOf(seconds.total)}${between}` : 'no time kept',
     tokens.attempts
-      ? `${counted(tokens.input)} input and ${counted(tokens.output)} output tokens${over(tokens.attempts)}`
+      ? `${counted(tokens.input)} tokens in, ${counted(tokens.output)} out${over(tokens.attempts)}`
       : 'no tokens kept',
     // Only a price the attempts kept: none is made up from tokens.
     usd.attempts ? `${dollars(usd.total)}${over(usd.attempts)}` : 'no price kept',
   ].join(', ')
 }
 
-/** What grading cost, as the report keeps it: never a nought where it kept nothing. */
+/**
+ * What grading cost, as the run keeps it: "grading 6 calls to Jev, 83,305
+ * tokens in, 5.2 s". Never a nought where nothing was kept.
+ */
 function gradingWords({ graded, grading }: RunSpent): string {
-  // Not graded, or graded with nothing judged, so no report was written.
-  if (!graded) return 'no grading kept'
-  if (!grading) return 'grading not counted, as it was graded before gradings kept their cost'
+  if (!graded) return 'not graded'
+  if (!grading) return 'grading cost not kept'
   const asked = grading.calls.filter((c) => c.source === 'asked')
   const sum = (key: 'calls' | 'input' | 'output' | 'seconds'): number =>
     asked.reduce((total, c) => total + c[key], 0)
@@ -199,25 +215,23 @@ function gradingWords({ graded, grading }: RunSpent): string {
     .reduce((total, c) => total + c.calls, 0)
   const calls = sum('calls')
   const to = asked.every((c) => c.provider === 'jev') ? 'to Jev' : 'to models'
+  const replays = `${replayed} replayed at no cost`
   return [
-    'grading',
     ...(calls
       ? [
-          `${calls} ${calls === 1 ? 'call' : 'calls'} ${to}`,
-          `${counted(sum('input'))} input${sum('output') ? ` and ${counted(sum('output'))} output` : ''} tokens`,
+          `grading ${calls} ${calls === 1 ? 'call' : 'calls'} ${to}`,
+          `${counted(sum('input'))} tokens in${sum('output') ? `, ${counted(sum('output'))} out` : ''}`,
           secondsOf(sum('seconds')),
+          ...(replayed ? [replays] : []),
         ]
-      : replayed
-        ? []
-        : ['no model calls']),
-    ...(replayed ? [`${replayed} replayed from saved replies, which cost nothing`] : []),
-    ...(grading.whole ? [] : ['and an earlier grading not counted']),
+      : [replayed ? `grading ${replays}` : 'grading asked no model']),
+    ...(grading.whole ? [] : ["an earlier grading's cost not kept"]),
   ].join(', ')
 }
 
 /**
  * The one line that says what a run spent: answering, over its attempts, and
- * grading, as its report keeps it. `who` names the run where two are printed:
+ * grading, as the run keeps it. `who` names the run where two are printed:
  * "A spent:".
  */
 export const spentLine = (spent: RunSpent, who = ''): string =>
