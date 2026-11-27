@@ -29,6 +29,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - **Help me improve** asks each of its questions at once, without waiting on the assistant. The assistant writes only a question asked a second time, and the draft.
 - **Fix with AI** starts from the grading's verdict: it is told who marked the answer and, for a rule the app checked, what it counted or found. Its draft is checked before you see it, and written once more when the checks find something in it.
 - **Stop** ends Auto refine, Suggest changes and Fix with AI at once, even while Jev is checking a reply.
+- **Write with AI** keeps a skill's description to 50 words, and **Write checks with AI** leaves out any check your case has already or that it wrote twice, and says how many.
 
 ### Fixed
 
