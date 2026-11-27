@@ -1931,9 +1931,9 @@ export interface CaseBrief {
   /**
    * The rules and checks asked of the attempts read whole (none in `apart`),
    * once each: every one that applies to the output and can be marked as
-   * written, whether it was met, missed, not sure or not read. One for another
-   * kind of work (`inapplicable`) or that cannot be marked (`unmarkable`) is
-   * not among them.
+   * written, whether it was met, missed, not sure or not read, the rules of a
+   * run without the skill among them. One for another kind of work
+   * (`inapplicable`) or that cannot be marked (`unmarkable`) is not among them.
    */
   asked: number
   /** Of `asked`, those Jev or code was not sure of (`unsure`) on at least one of those attempts. */
@@ -2019,10 +2019,12 @@ export function caseBriefs(
     // An attempt marks a fact once, however many verdicts say it.
     const seen = new Map<string, boolean>()
     for (const v of scored.verdicts) {
-      const counted = v.kind === 'check' || (v.kind === 'rule' && configuration !== 'without_skill')
-      if (!counted || v.layer === null) continue
+      if ((v.kind !== 'rule' && v.kind !== 'check') || v.layer === null) continue
+      // Every rule and check the grading asked counts as asked, and as not sure where it was, as
+      // plain report lists it: a run without the skill's rules among them, though none is its miss.
       if (facts && v.aside !== 'inapplicable' && v.aside !== 'unmarkable')
         facts.set(v.text, (facts.get(v.text) ?? false) || v.aside === 'unsure')
+      if (v.kind === 'rule' && configuration === 'without_skill') continue
       if (v.aside === 'unread') notRead.add(v.text)
       else if (!v.aside) {
         seen.set(v.text, (seen.get(v.text) ?? false) || !v.met)

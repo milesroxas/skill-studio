@@ -13,7 +13,7 @@ import { join, resolve } from 'node:path'
 import { runVerdicts } from '@application/grade.ts'
 import { caseName } from '@domain/case-draft.ts'
 import { casesInOrder } from '@domain/results-address.ts'
-import { runNamed, runShown } from '@domain/run-name.ts'
+import { parseSampleDir, runNamed, runShown } from '@domain/run-name.ts'
 import { loadCases } from '@infrastructure/cases.ts'
 import type { EngineRequest, EngineResult } from '@infrastructure/engines/types.ts'
 import { GRADING_COST_FILE, readRun, versionsOf } from '@infrastructure/runs.ts'
@@ -864,6 +864,85 @@ describe('how a run is named', () => {
     await grade.run(contextOf([skill], { run: name, 'no-jev': true, json: true }, null))
     expect(printed[0]).toBe(`\n${name}`)
     expect(JSON.parse(printed[1]).run.versionName).toBe('first')
+  })
+})
+
+describe('nothing missed, beside what plain report says was not sure', () => {
+  /** Each case, by id, of which plain report lists a rule or check not sure under one of its outputs. */
+  async function unsureInPlain(skill: string, run: string): Promise<Set<string>> {
+    const results = readRun(skill, run).report?.results ?? []
+    const { text } = await printedBy(report, [skill], { run })
+    const cases = new Set<string>()
+    let under: (typeof results)[number] | undefined
+    for (const line of text.split('\n')) {
+      if (/^\S/.test(line)) under = results.find((r) => r.sample === line)
+      else if (
+        under &&
+        /^ {2}- .*not counted, (Jev was not sure|code could not settle it)/.test(line)
+      )
+        cases.add(under.case ?? parseSampleDir(under.sample)?.case ?? under.sample)
+    }
+    return cases
+  }
+  /** The head line `--brief` printed for a case. */
+  const lineOf = (text: string, id: string): string =>
+    text.split('\n').find((line) => line.startsWith(`[${id}]`)) ?? ''
+  /** Whether a compare line says how many of a run's rules and checks were not sure. */
+  const countsFor = (line: string, run: 'A' | 'B'): boolean =>
+    new RegExp(`(?:in ${run}, | ${run} )\\d+ of \\d+`).test(line)
+
+  /** Every stored run of a fixture, and every pair of them, held to plain report. */
+  async function holds(skill: string): Promise<number> {
+    const runs = runsOf(skill)
+    let held = 0
+    const unsure = new Map<string, Set<string>>()
+    for (const run of runs) {
+      unsure.set(run, await unsureInPlain(skill, run))
+      const { text } = await printedBy(report, [skill], { run, brief: true })
+      for (const id of unsure.get(run) ?? []) {
+        expect(lineOf(text, id), `${run} ${id}`).not.toMatch(/: nothing missed$/)
+        held += 1
+      }
+    }
+    for (const [i, a] of runs.entries())
+      for (const b of runs.slice(i + 1)) {
+        const { text } = await printedBy(compare, [skill, a, b], { brief: true })
+        for (const [run, side] of [
+          [a, 'A'],
+          [b, 'B'],
+        ] as const)
+          for (const id of unsure.get(run) ?? []) {
+            const line = lineOf(text, id)
+            if (line.includes('nothing missed')) expect(countsFor(line, side), line).toBe(true)
+            held += 1
+          }
+      }
+    return held
+  }
+
+  it('never says nothing missed alone of an attempt plain report lists a rule or check not sure under', async () => {
+    let held = 0
+    for (const fixture of ['code-skill', 'demo-skill', 'design-skill', 'launch-note'])
+      held += await holds(copyOf(fixture))
+    expect(held).toBeGreaterThan(0)
+  })
+
+  it('holds for a run without the skill graded as an old grading was, with no heading or code answers', async () => {
+    const skill = copyOf('launch-note')
+    const WITHOUT = '2026-11-20-skill-v0-claude-sonnet-without-skill'
+    edited(skill, WITHOUT, 'report.json', (r) => {
+      for (const result of r.results)
+        for (const fact of [
+          ...result.packs.generic.adherence.rules,
+          ...result.packs.generic.rubric.statements,
+        ]) {
+          delete fact.code
+          delete fact.applies
+          delete fact.comesUp
+        }
+    })
+    expect(await unsureInPlain(skill, WITHOUT)).toContain('email-crowded')
+    expect(await holds(skill)).toBeGreaterThan(0)
   })
 })
 
