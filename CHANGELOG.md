@@ -30,6 +30,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - **Fix with AI** starts from the grading's verdict: it is told who marked the answer and, for a rule the app checked, what it counted or found. Its draft is checked before you see it, and written once more when the checks find something in it.
 - **Stop** ends Auto refine, Suggest changes and Fix with AI at once, even while Jev is checking a reply.
 - **Write with AI** keeps a skill's description to 50 words, and **Write checks with AI** leaves out any check your case has already or that it wrote twice, and says how many.
+- The **Assistant** changes part of a file by writing only the lines that change, so a one-line change to a long file comes in seconds where it took a minute. When those lines are not in the file as it is now, it writes the whole file in the same reply, and a change it still cannot make says why under it.
 
 ### Fixed
 
