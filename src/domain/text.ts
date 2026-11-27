@@ -414,6 +414,15 @@ export const words = (text: string): string[] =>
 export const tokens = (text: string): string[] => text.match(/\S+/g) ?? []
 
 /**
+ * A text's words as a person counts them: split on white space, so a dash
+ * between spaces is one and "v2.3" is one. The one count the app shows a
+ * person or holds their text to: a rule's length, the Improve panel's draft,
+ * a description Write with AI writes. Text written without spaces, such as
+ * Chinese or Japanese, is one word to it.
+ */
+export const wordCount = (text: string): number => tokens(text).length
+
+/**
  * The sentences of `text`. A sentence ends at a full stop, question mark or
  * exclamation mark followed by space. With `capital` the next one must also
  * open as a sentence does (a capital, a quote, a bracket or a digit), so

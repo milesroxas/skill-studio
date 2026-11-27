@@ -22,7 +22,14 @@
  * it showed: the draft is let go at once, but the words fade with the sheet.
  */
 import type { AiRun } from '@domain/ai.ts'
-import { fixVersionName, readFixText, replaceRule, ruleSource, unchanged } from '@domain/fix.ts'
+import {
+  fixVersionName,
+  NOTHING_TO_FIX,
+  readFixText,
+  replaceRule,
+  ruleSource,
+  unchanged,
+} from '@domain/fix.ts'
 import { withoutListMark } from '@domain/improve.ts'
 import type { Verdict } from '@domain/pack.ts'
 import { type ReactNode, useEffect, useMemo, useRef, useState } from 'react'
@@ -84,6 +91,8 @@ export function FixWithAi({
   const source = saved === null ? null : ruleSource(saved, verdict.text)
   const fix = draft.run?.status === 'done' ? readFixText(draft.run.text) : null
   const same = fix && source ? unchanged(source, fix) : false
+  // The answer follows the rule by now: that is no failure, so it is said plainly and has no Try again.
+  const settled = draft.error === NOTHING_TO_FIX
   const compared = useMemo(
     () =>
       fix && source && !same
@@ -104,6 +113,12 @@ export function FixWithAi({
     if (landed) applyButton.current?.focus({ preventScroll: true })
   }, [landed])
 
+  // Nothing to fix: Stop has gone from the head, so the keys go to the one button left.
+  const closeButton = useRef<HTMLButtonElement>(null)
+  useEffect(() => {
+    if (settled) closeButton.current?.focus({ preventScroll: true })
+  }, [settled])
+
   // What the sheet showed as it closed: it fades on those words, not on an empty draft.
   const [closing, setClosing] = useState<ReactNode>(null)
 
@@ -119,6 +134,8 @@ export function FixWithAi({
   const close = () => {
     hide()
     draft.discard()
+    // The row behind still says the rule was broken: read the marks again, so it says what is so.
+    if (settled) void reload()
   }
   /**
    * A click elsewhere, Escape, or the row's button pressed again. A fix being
@@ -212,7 +229,11 @@ export function FixWithAi({
                   <DiffLines lines={compared.lines} arrive />
                 </div>
               ) : null}
-              {draft.error ? (
+              {settled ? (
+                <Hint role="status" className="animate-settle" style={settleTurn(0)}>
+                  {draft.error}
+                </Hint>
+              ) : draft.error ? (
                 <Hint
                   tone="destructive"
                   role="alert"
@@ -266,7 +287,7 @@ export function FixWithAi({
                       Turn down
                     </Button>
                   </>
-                ) : draft.error ? (
+                ) : draft.error && !settled ? (
                   <>
                     <Button type="button" variant="outline" size="xs" onClick={ask}>
                       Try again
@@ -290,7 +311,13 @@ export function FixWithAi({
                     </Button>
                   </>
                 ) : (
-                  <Button type="button" variant="ghost-muted" size="xs" onClick={close}>
+                  <Button
+                    ref={closeButton}
+                    type="button"
+                    variant="ghost-muted"
+                    size="xs"
+                    onClick={close}
+                  >
                     Close
                   </Button>
                 )}

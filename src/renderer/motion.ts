@@ -3,6 +3,7 @@
  * number counting up. Both stand down when the person or the system asks for
  * less movement, which `preferences.ts` writes on the document as `data-motion`.
  */
+import type { ChatMessage } from '@domain/ai.ts'
 import { type CSSProperties, useEffect, useRef, useState } from 'react'
 
 const reducedMotion = (): boolean => document.documentElement.dataset.motion === 'reduced'
@@ -97,6 +98,56 @@ export function useRested(count: number | null): number {
   const rested = useRef<number | null>(null)
   if (count !== null && (rested.current === null || count < rested.current)) rested.current = count
   return rested.current ?? 0
+}
+
+/**
+ * What a conversation's screen reader has been told, carried from one render
+ * to the next. The reply on its way is drawn in a live region at the place it
+ * will take, so a reply that arrives whole, such as a question the app puts
+ * itself, takes that element over and is heard once, as it replaces the wait.
+ * A reply heard as it was written is no longer live once it joins, so it is
+ * not heard twice.
+ */
+interface Heard {
+  /** The place the reply on its way is drawn at; null when none is. */
+  wait: number | null
+  /** The place of the last reply heard as it was written. */
+  streamed: number | null
+  /** The place of the newest reply when it arrived whole where the wait was: live until a newer one. */
+  whole: number | null
+}
+
+const HEARD_NOTHING: Heard = { wait: null, streamed: null, whole: null }
+
+/**
+ * What is heard after this render. `drawn`: the reply on its way is drawn,
+ * as its text or as the wait for it. `writing`: it shows its text. The same
+ * render read twice gives the same answer.
+ */
+export function nextHeard(
+  last: Heard,
+  roles: readonly ChatMessage['role'][],
+  { drawn, writing }: { drawn: boolean; writing: boolean },
+): Heard {
+  const place = roles.length
+  const streamed = writing ? place : last.streamed
+  const newest = roles.lastIndexOf('assistant')
+  const arrived = newest === last.wait && newest !== streamed
+  return {
+    wait: drawn ? place : null,
+    streamed,
+    whole: newest !== -1 && (arrived || newest === last.whole) ? newest : null,
+  }
+}
+
+/** The place of the reply a screen reader hears arrive whole; null when there is none. */
+export function useHeardWhole(
+  roles: readonly ChatMessage['role'][],
+  now: { drawn: boolean; writing: boolean },
+): number | null {
+  const heard = useRef(HEARD_NOTHING)
+  heard.current = nextHeard(heard.current, roles, now)
+  return heard.current.whole
 }
 
 /**

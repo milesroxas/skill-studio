@@ -1,8 +1,10 @@
 /**
  * What Jev is asked about proposed checks (`st propose`): whether two
  * proposals ask the same of an answer, so they are one check for every case,
- * and whether a proposal's basis asks for all of what the check asks. Jev
- * reads and answers yes or no with a probability; it writes nothing here.
+ * and whether a proposal's basis asks for all of what the check asks. Write
+ * checks with AI asks the first of a new check and a check its case has
+ * (`sameOf`). Jev reads and answers yes or no with a probability; it writes
+ * nothing here.
  *
  * Each is asked both ways round, and the two answers are read as one
  * (`bothWays`). On the test skill's proposals, one question asked one way
@@ -16,10 +18,14 @@
  * and "The page never names X" were "not sure" until then.
  */
 import { noul, type Question } from '@typesafe-ai/sdk'
-import type { JevState } from './jev.ts'
+import type { JevAsker, JevState } from './jev.ts'
+import { noulOf } from './shared/questions.ts'
 
 /** The version of these questions. An answer kept under another is asked again. */
 export const PROPOSAL_QUESTIONS_VERSION = 2
+
+/** The most of these questions one request to Jev carries: more go in another request, after it. */
+export const QUESTIONS_PER_REQUEST = 40
 
 /** A longer request or file is cut here: Jev reads the start, which says what was asked. */
 const TEXT_MAX = 8_000
@@ -121,3 +127,29 @@ export function basisQuestions(
 
 /** Two answers of Jev's, one to a question and one to its opposite, read as one probability that the first holds. */
 export const bothWays = (yes: number, no: number): number => (yes + 1 - no) / 2
+
+/**
+ * For each pair of checks, the probability that the two ask the same of an
+ * answer: `sameQuestions` asked of `SAME_STATE` and read both ways round, in
+ * one request, so a caller sends at most half `QUESTIONS_PER_REQUEST` pairs.
+ * Neither check stands on words of a request, as a check Write with AI adds
+ * to a case does not. `signal` ends the request. Asks nothing for no pairs.
+ */
+export async function sameOf(
+  jev: JevAsker,
+  pairs: ReadonlyArray<readonly [string, string]>,
+  signal?: AbortSignal,
+): Promise<number[]> {
+  if (!pairs.length) return []
+  const questions = Object.fromEntries(
+    pairs.flatMap(([a, b], i) => {
+      const [same, differ] = sameQuestions({ check: a, words: '' }, { check: b, words: '' })
+      return [
+        [`same_${i}`, same],
+        [`differ_${i}`, differ],
+      ]
+    }),
+  )
+  const answers = await jev.ask(SAME_STATE, questions, signal)
+  return pairs.map((_, i) => bothWays(noulOf(answers, `same_${i}`), noulOf(answers, `differ_${i}`)))
+}

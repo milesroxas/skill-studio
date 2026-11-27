@@ -16,7 +16,7 @@
 import { bulletsOf } from './rules.ts'
 import { type SizeBand, sizeBand, textSize } from './size.ts'
 import { type Principle, principleGuide } from './templates.ts'
-import { LIST_MARKER, sentencesOf, tokens } from './text.ts'
+import { LIST_MARKER, sentencesOf, wordCount } from './text.ts'
 
 export type Dimension = 'principle' | 'complexity' | 'length' | 'file'
 
@@ -255,9 +255,7 @@ const PARTS_MAX = 4
 /** Under this, a selection has nothing for the checks to read. */
 const WORDS_MIN = 4
 
-const count = (text: string): number => tokens(text).length
-
-export const wordCount = count
+const count = wordCount
 
 const sentences = (text: string): string[] => sentencesOf(text)
 

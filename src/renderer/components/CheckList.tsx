@@ -222,6 +222,7 @@ export function CheckList({
           <Assist
             field="case.checks"
             value=""
+            items={graders.map((g) => g.statement)}
             // It opens under the row of buttons, never over the checks it adds to.
             anchor={tools}
             {...assist}

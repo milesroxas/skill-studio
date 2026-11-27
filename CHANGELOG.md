@@ -28,6 +28,13 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 - `st propose` and **Write checks with AI** ask Jev, of each answer read, what a grading will ask once a suggested check is accepted. Where Jev is sure, its word on whether that answer meets the check is the one shown, and a suggestion whose faulty answer Jev is sure meets it says so. A page or a picture keeps the assistant's word.
 - `st read` asks Jev again first what it left, showing it more of each rule or check (a long output whole, what the app counted or found, or the page's measured layout), and asks the assistant only what Jev is still not sure of. `--no-jev` asks as before.
+- **Help me improve** asks each of its questions at once, without waiting on the assistant. The assistant writes only a question asked a second time, and the draft.
+- **Fix with AI** starts from the grading's verdict: it is told who marked the answer and, for a rule the app checked, what it counted or found. Its draft is checked before you see it, and written once more when the checks find something in it.
+- **Stop** ends Auto refine, Suggest changes and Fix with AI at once, even while Jev is checking a reply.
+- **Write with AI** keeps a skill's description to 50 words, and **Write checks with AI** leaves out any check your case has already or that it wrote twice, and says how many.
+- The **Assistant** changes part of a file by writing only the lines that change, so a one-line change to a long file comes in seconds where it took a minute. When those lines are not in the file as it is now, it writes the whole file in the same reply, and a change it still cannot make says why under it.
+- Auto refine, Suggest changes, Help me improve and Fix with AI keep Jev's answers about a rule, so a rule, rewrite or reply Jev has read is not asked about again, even after a restart.
+
 
 ### Fixed
 

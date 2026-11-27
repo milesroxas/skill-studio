@@ -2,7 +2,8 @@
  * Help me improve, in the side panel: a conversation about one selected rule.
  * It opens with the rule in the composer and asks nothing until the writer
  * says what should change, or asks for a few questions first. Code decides
- * which question comes next; the model only phrases it and writes drafts. A
+ * which question comes next and puts it as written; the model only puts one
+ * again, saying what the last answer lacked, and writes drafts. A
  * draft stands in the reply as a proposed change, the same row the
  * Assistant's changes use, with Jev's reading of it inside. Applying it puts
  * it in the file and leaves the conversation open, so the rule can be talked
@@ -16,7 +17,7 @@ import {
   keepListMark,
   withoutListMark,
 } from '@domain/improve.ts'
-import { wordCount } from '@domain/lint.ts'
+import { wordCount } from '@domain/text.ts'
 import { useMemo, useState } from 'react'
 import { sendImprove, stopRun, useAi, useImprove, useImproveDraft } from '../ai.ts'
 import { compareTexts } from '../diff.ts'

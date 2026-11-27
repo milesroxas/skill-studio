@@ -103,7 +103,7 @@ function readFile(path: string): CacheFile {
  * An answer that can be read: an object with the number Jev gave. One that is
  * not is no answer, and is asked again; kept, it would fail every grading.
  */
-function usable(answer: unknown): boolean {
+export function usable(answer: unknown): boolean {
   if (!isObject(answer)) return false
   return ['noul', 'score'].some((field) => {
     const value = answer[field]

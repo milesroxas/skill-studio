@@ -4,10 +4,19 @@
  * or drop it. Nothing reaches the field until it is accepted. Every field
  * names its kind, and the reply comes back in that kind's shape: a check is
  * one fact Jev can mark, a SKILL.md is rules in the graded form. Beside a
- * list it writes new items, which are added to the ones there.
+ * list it writes new items, which are added to the ones there; one the list
+ * has already is left out before it is shown.
  */
 import type { AiRun } from '@domain/ai.ts'
-import { ASSIST_FIELDS, type AssistContext, type AssistFieldId } from '@domain/assist.ts'
+import {
+  ASSIST_FIELDS,
+  type AssistContext,
+  type AssistFieldId,
+  leftOutLine,
+  madeFor,
+  NOTHING_TO_ADD,
+  toAdd,
+} from '@domain/assist.ts'
 import { addImages, type ImageRef } from '@domain/image.ts'
 import { PenLineIcon } from 'lucide-react'
 import {
@@ -28,7 +37,7 @@ import { useHeldRun } from '../started-run.ts'
 import { Composer } from './Composer.tsx'
 import { CornerButton } from './CornerButton.tsx'
 import { DiffLines } from './DiffLines.tsx'
-import { Toolbar } from './layout.tsx'
+import { Stack, Toolbar } from './layout.tsx'
 import { Excerpt, Hint, Text, Working } from './text.tsx'
 import { Button } from './ui/button.tsx'
 import {
@@ -76,6 +85,8 @@ export function AssistButton({
 interface AssistProps extends AssistSpec {
   /** The field's text now; empty beside a list, whose items the context holds. */
   value: string
+  /** Beside a list, its items now: a new one that says what one of them says is left out. */
+  items?: readonly string[]
   /** Put the accepted text in the field, or its items in the list. */
   onApply: (text: string) => void
   /** Opened from outside the trigger, such as by a line on an empty page. Uncontrolled when absent. */
@@ -136,15 +147,22 @@ function Reply({
   run,
   current,
   asChanges,
+  list,
+  had,
 }: {
   run: AiRun
   /** The field's text now. */
   current: string
   /** A new version of a file reads best as what it changes. */
   asChanges: boolean
+  /** It writes new items for a list: what was left out of the reply is said under it. */
+  list: boolean
+  /** Add found every new item in the list by then: there is nothing left to add. */
+  had: boolean
 }) {
   const box = useRef<HTMLDivElement>(null)
-  const { status, text } = run
+  const { status } = run
+  const text = had ? '' : run.text
   // Follow the text as it arrives.
   useLayoutEffect(() => {
     if (status === 'running' && text && box.current)
@@ -154,12 +172,26 @@ function Reply({
     () => (status === 'done' && asChanges ? lineDiff(current, text) : null),
     [status, asChanges, current, text],
   )
+  /** The new checks the list has already, or that the reply said twice, are left out and said so. */
+  const leftOut =
+    status === 'done' && list ? (had ? NOTHING_TO_ADD : leftOutLine(run.leftOut, text)) : null
   return (
     <Excerpt ref={box} holds="writing" edge="bleed" aria-live="polite" className="mb-2">
-      {status === 'done' && text === current ? (
+      {leftOut && !text ? (
+        <Text tone="muted">{leftOut}</Text>
+      ) : status === 'done' && text === current ? (
         <Text tone="muted">The same text came back: there is nothing to change.</Text>
       ) : changes ? (
         <DiffLines lines={changes} />
+      ) : leftOut ? (
+        <Stack gap="md">
+          <Text as="p" wrap="pre">
+            {text}
+          </Text>
+          <Text as="p" tone="muted">
+            {leftOut}
+          </Text>
+        </Stack>
       ) : text ? (
         <Text as="p" wrap="pre">
           {text}
@@ -200,6 +232,7 @@ function Suggestions({
 export function Assist({
   field,
   value,
+  items,
   onApply,
   context,
   images,
@@ -222,18 +255,20 @@ export function Assist({
   const work = useHeldRun(itself)
   const attached = useAttached()
   const accept = useRef<HTMLButtonElement>(null)
+  /** Add found every new item one the list has by then, such as one added by hand meanwhile. */
+  const [had, setHad] = useState(false)
 
   /** The field has text, so a request changes it and the reply takes its place. */
   const editing = !blank && Boolean(value.trim())
   const proposal = work.run?.status === 'done' ? work.run.text : null
-  /** The same text back is nothing to accept. */
-  const acceptable = proposal !== null && proposal !== value
+  /** The same text back is nothing to accept, and nor is a list's that Add found in it already. */
+  const acceptable = proposal !== null && proposal !== value && !had
   /** A reply is on its way or ready: closing the popover keeps it. */
   const held = work.running || acceptable
-  /** The field and text the request in hand was made for. A reply is only for those. */
-  const askedFor = useRef<{ field: AssistFieldId; value: string } | null>(null)
-  const now = useRef({ field, value })
-  now.current = { field, value }
+  /** The field, its text and a list's items the request in hand was made for (`madeFor`). A reply is only for those. */
+  const askedFor = useRef<string | null>(null)
+  const now = useRef('')
+  now.current = madeFor(field, value, items)
 
   // The reply is ready: Return now accepts it.
   useEffect(() => {
@@ -246,15 +281,17 @@ export function Assist({
     setRequest('')
     attached.reset()
     askedFor.current = null
+    setHad(false)
   }
 
   // Opened again on other text than the reply was written for, such as after
-  // the editor's selection moved: that reply is for text no longer here.
+  // the editor's selection moved, or beside a list whose items have changed:
+  // that reply is for text no longer here.
   // biome-ignore lint/correctness/useExhaustiveDependencies: checked only as it opens, against what stands then
   useEffect(() => {
     const was = askedFor.current
     if (!open || !was) return
-    if (was.field !== now.current.field || was.value !== now.current.value) letGo()
+    if (was !== now.current) letGo()
   }, [open])
 
   const change = (next: boolean) => {
@@ -266,7 +303,8 @@ export function Assist({
   const ask = (instruction: string) => {
     // One at a time: a request made while a reply is on its way is not sent.
     if (!instruction.trim() || work.running) return
-    askedFor.current = { field, value }
+    askedFor.current = madeFor(field, value, items)
+    setHad(false)
     // Built as it is sent, so the texts beside the field are current.
     void work.start(async () =>
       startAssist({
@@ -275,6 +313,7 @@ export function Assist({
         current: value,
         context: (await context?.()) ?? [],
         images: addImages(images?.() ?? [], attached.images),
+        ...(items ? { items: [...items] } : {}),
       }),
     )
   }
@@ -310,7 +349,13 @@ export function Assist({
               type="button"
               size="sm"
               onClick={() => {
-                onApply(proposal)
+                // Beside a list, as it stands now: a check added since the request is not added twice.
+                const adding = def.form === 'items' ? toAdd(proposal, items ?? []) : proposal
+                if (adding === null) {
+                  setHad(true)
+                  return
+                }
+                onApply(adding)
                 letGo()
                 change(false)
               }}
@@ -326,7 +371,13 @@ export function Assist({
           {work.error}
         </Hint>
       ) : work.run ? (
-        <Reply run={work.run} current={value} asChanges={def.form === 'file' && editing} />
+        <Reply
+          run={work.run}
+          current={value}
+          asChanges={def.form === 'file' && editing}
+          list={def.form === 'items'}
+          had={had}
+        />
       ) : work.starting ? null : (
         <Suggestions
           requests={def.suggestions[editing ? 'edit' : 'write']}

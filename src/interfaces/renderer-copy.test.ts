@@ -1,5 +1,6 @@
 import { readdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
+import { type EditProblem, notMadeLine, refusedLine, replyParts } from '@domain/changes.ts'
 import { describe, expect, it } from 'vitest'
 
 /**
@@ -55,6 +56,27 @@ describe('the app’s words', () => {
           ([, say]) => `${path.slice(ROOT.length + 1)}: “${text}”. Say ${say}.`,
         ),
       ),
+    )
+    expect(slips).toEqual([])
+  })
+
+  it('never name how the app works in the lines the Assistant shows under a change not made', () => {
+    const problems: EditProblem[] = [
+      'not-found',
+      'found-twice',
+      'nothing-to-find',
+      'unclear',
+      'no-file',
+    ]
+    const label = replyParts('~~~~ edit\n- A rule.', { partial: true })
+    const lines = [
+      ...problems.map((problem) => notMadeLine('references/voice.md', problem)),
+      refusedLine('assets/logo.png is not a text file, so it is not written over.'),
+      ...label.flatMap((part) => (part.kind === 'writing' ? [part.label] : [])),
+    ]
+    expect(lines).toHaveLength(7)
+    const slips = lines.flatMap((line) =>
+      PLUMBING.filter(([word]) => word.test(line)).map(([, say]) => `“${line}”. Say ${say}.`),
     )
     expect(slips).toEqual([])
   })
