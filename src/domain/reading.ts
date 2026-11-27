@@ -232,13 +232,49 @@ const roomPath = (path: string): string => path.replace(/\\/g, '/').replace(/^(?
  */
 export type Evidence = 'quoted' | 'unquoted' | 'unfound'
 
+/**
+ * The state a fact Jev left is asked of Jev again in, before the assistant is
+ * asked it (`askAgain` in `src/judges/generic/index.ts`), named by what it
+ * holds that a grading's did not: the output whole, where a grading asked it
+ * in parts; the part a fact's parts are joined at (its start or its end);
+ * what code saw on the fact; or the page's measured layout, without the
+ * picture of the page.
+ */
+export type AgainState = 'whole' | 'part' | 'code' | 'layout'
+
 /** An answer code has checked, on the fact it is about. */
 export interface CheckedMark extends Omit<Mark, 'fact'> {
   fact: ReadFact
   evidence: Evidence
   /** What the model answered, when its quote was not found and the answer was set to "cannot tell". */
   said?: Answer
+  /**
+   * Where the answer is Jev's, asked again and sure: the state it was asked in
+   * and its probability. Absent on the assistant's answers, and on every answer
+   * of a reading made before Jev was asked again.
+   */
+  jev?: { state: AgainState; noul: number }
 }
+
+/**
+ * Jev's sure answer on a fact it left, asked again, as a mark of the reading:
+ * it gives no quote, so it is counted with the answers that rest on none.
+ */
+export const againMark = (
+  output: string,
+  fact: ReadFact,
+  met: boolean,
+  jev: { state: AgainState; noul: number },
+): CheckedMark => ({
+  output,
+  fact,
+  answer: met ? 'met' : 'missed',
+  why: '',
+  file: '',
+  quote: '',
+  evidence: 'unquoted',
+  jev,
+})
 
 /** One output as a reading checks against it. */
 export interface ReadOutput {

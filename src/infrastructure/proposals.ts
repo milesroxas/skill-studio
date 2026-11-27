@@ -72,8 +72,14 @@ export interface StoredProposal {
   shownBy: AnswerRef | null
   /** Where in that answer the fault shows, by its path in the attempt's folder, and its words; null for something it leaves out. */
   fault: { file: string; quote: string } | null
-  /** Each answer read, with the model's word on whether it meets the check. */
-  answers: Array<AnswerRef & { meets: Meets }>
+  /**
+   * Each answer read, with whether it meets the check: Jev's word where it is
+   * sure what a grading will say, else the model's. `jev` is Jev's answer as a
+   * grading reads it, null where Jev was asked and the answer's parts do not
+   * settle it, absent when Jev was not asked of the answer; `said` is the
+   * model's word, kept where Jev's stands in its place.
+   */
+  answers: Array<AnswerRef & { meets: Meets; said?: Meets; jev?: number | null }>
   tells: Tells
   state: ProposalState
   /** When it was accepted or dropped. */
@@ -145,6 +151,12 @@ export interface ProposalRead {
   overreach?: Overreach[]
   /** Whether Jev was asked about each proposal's basis. */
   basisChecked?: boolean
+  /**
+   * The answers, as `<run>/<attempt>`, whose request to Jev on what a grading
+   * will say failed: asked again the next time the case is not read again.
+   * Absent when none failed.
+   */
+  unanswered?: string[]
 }
 
 /** A proposal for every case: proposals of two or more cases that say the same. */

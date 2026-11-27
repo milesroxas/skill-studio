@@ -200,6 +200,12 @@ interface GradeContext {
   ) => Promise<Sourced | null>
 }
 
+/** What an output's input to the packs is built from (`judgeInput`), and the case it is graded on (`caseOf`). */
+type InputContext = Pick<
+  GradeContext,
+  'cases' | 'every' | 'kept' | 'rules' | 'skill' | 'packs' | 'inputs'
+> & { judge: Pick<JudgeContext, 'skillDir'> }
+
 /** The page a picture was made from, with a hash so an answer that read its measures is kept by them. */
 interface Sourced {
   page: SourcePage
@@ -522,7 +528,7 @@ function fileInside(root: string, path: string): string | null {
  * (`stagedInputs`), since the case's other files may have changed since. Null
  * when there is no such file.
  */
-function requestFile(ctx: GradeContext, testCase: Case, rel: string): string | null {
+function requestFile(ctx: InputContext, testCase: Case, rel: string): string | null {
   const { inputs } = ctx
   if (!inputs) return fileInside(ctx.judge.skillDir, join(ctx.judge.skillDir, rel))
   for (const staged of stagedInputs(inputs, testCase, rel)) {
@@ -534,7 +540,7 @@ function requestFile(ctx: GradeContext, testCase: Case, rel: string): string | n
 
 /** Each picture the case's request came with, by its path in the skill: where it is read, or null when it is not there. */
 const requestPictures = (
-  ctx: GradeContext,
+  ctx: InputContext,
   testCase: Case | null,
 ): Array<[string, string | null]> =>
   testCase
@@ -559,7 +565,7 @@ const REQUEST_FILES_CHARS = 80_000
  * goes on past its start is marked `cut`, and one past the room is listed with
  * no text, so the output is flagged with what Jev did not read.
  */
-function requestFilesOf(ctx: GradeContext, testCase: Case | null): FileStart[] {
+function requestFilesOf(ctx: InputContext, testCase: Case | null): FileStart[] {
   if (!testCase) return []
   const files: FileStart[] = []
   let room = REQUEST_FILES_CHARS
@@ -801,7 +807,7 @@ function notesOf(sampleDir: string): string | null {
 
 /** One sample as the packs see it. */
 function judgeInput(
-  ctx: GradeContext,
+  ctx: InputContext,
   sample: Sample,
   testCase: Case | null,
   log: (line: string) => void,
@@ -935,7 +941,7 @@ function untilStopped<T>(work: Promise<T>, signal: AbortSignal | undefined): Pro
  * case is gone, it is the run's own copy, with the checks for every case it
  * kept: an output is never held to a request its agent did not get.
  */
-function caseOf(subject: Subject, ctx: GradeContext) {
+function caseOf(subject: Pick<Subject, 'caseRef' | 'caseFromFileName'>, ctx: InputContext) {
   const live = findCase(ctx.cases, subject.caseRef, { fileName: subject.caseFromFileName })
   const id = live?.id ?? subject.caseRef
   const kept = ctx.kept?.find((entry) => entry.case.id === id) ?? null
@@ -964,6 +970,17 @@ function dropDrawn(sample: Sample, before: Map<string, number> | null): void {
   for (const [name, written] of rendersOf(sample) ?? [])
     if (before.get(name) !== written) rmSync(join(dir, name), { force: true })
 }
+
+/**
+ * Whether a grading that can draw has something of this output to draw for
+ * Jev (`look`): its file to grade is a page, which it draws; a picture, which
+ * it may draw again to fit and measure through the page that draws it; or any
+ * file beside a picture the agent left, which it may draw again to fit. Asked
+ * of an input with nothing drawn, as `gradingInput` builds one, Jev could be
+ * put another question than such a grading puts, so `st propose` does not ask.
+ */
+export const drawnWhenGraded = (input: Pick<JudgeInput, 'primary' | 'artifacts'>): boolean =>
+  input.primary?.kind === 'html' || input.primary?.kind === 'image' || agentPicture(input) !== null
 
 /** What the host drew for an output: its page, its picture fitted, the page its picture came from. */
 interface Looked {
@@ -1033,10 +1050,7 @@ async function gradeSubject(
       (pack) => pack.renders && applies(pack, subject, primary) && (pack.asks?.(input) ?? true),
     )
   // Whether this output had anything for the host to draw, so a grading that drew it is told from one that could not.
-  const drawable =
-    looks &&
-    !subject.legacy &&
-    (primary?.kind === 'html' || primary?.kind === 'image' || agentPicture(input) !== null)
+  const drawable = looks && !subject.legacy && drawnWhenGraded(input)
   let looked: Looked
   const before = rendersOf(subject)
   try {
@@ -1502,6 +1516,42 @@ export async function gradeRun(
       cases: kept,
     }),
   )
+}
+
+/**
+ * One output of a run as a grading of the run puts it to the packs: on the
+ * skill the run kept, and on its case as `gradeSubject` takes it, read from
+ * where the run kept its input files. Nothing is drawn, as in a grading with
+ * no `render`, and no reading is looked up, so a fact is asked as it is before
+ * `st sort` reads it. What `st propose` asks Jev of an answer it read, so the
+ * word it keeps is the one a grading gives once the check is accepted.
+ */
+export function gradingInput(
+  skillDir: string,
+  run: string,
+  sample: Sample,
+  log: (line: string) => void = () => {},
+): JudgeInput {
+  const dir = runDir(skillDir, run)
+  const config = benchFor(skillDir, {})
+  const copy = skillCopy(skillDir, run)
+  // A run is graded on the rules of the skill it ran, whatever the skill says since.
+  const ruled = isFile(join(copy, 'SKILL.md')) ? copy : skillDir
+  const skillMd = skillText(ruled)
+  const answered = readRunMeta(skillDir, run)?.cases
+  const inputs = join(dir, INPUTS_DIR)
+  const ctx: InputContext = {
+    cases: loadCases(skillDir),
+    every: loadEveryCase(skillDir),
+    kept: readKept(dir, Array.isArray(answered) ? answered : []).kept,
+    rules: loadRules(ruled, config),
+    skill: config.rules?.length ? null : skillMd,
+    packs: config.packs.flatMap((id) => packById(id) ?? []),
+    inputs: isDir(inputs) ? inputs : null,
+    judge: { skillDir },
+  }
+  const taken = caseOf({ caseRef: parseSampleDir(sample.name)?.case ?? sample.name }, ctx)
+  return judgeInput(ctx, sample, taken?.case ?? null, log)
 }
 
 /** Grade `evals/anchors/*.md` and write `evals/anchors/report.json`. */

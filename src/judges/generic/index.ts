@@ -13,15 +13,17 @@
  */
 import { createHash } from 'node:crypto'
 import { join } from 'node:path'
-import { answerExact, type ExactSubject } from '@domain/exact.ts'
+import { answerExact, type ExactSubject, type Found, type Seen } from '@domain/exact.ts'
 import { fitForJev } from '@domain/image.ts'
-import { aboutLayout, layoutText } from '@domain/layout.ts'
+import { aboutLayout, layoutText, type PageLayout } from '@domain/layout.ts'
 import type { Unmarked } from '@domain/pack.ts'
 import { NOTES_FILE } from '@domain/prompt.ts'
+import type { AgainState } from '@domain/reading.ts'
 import { headingOf, plain, type Rule } from '@domain/rules.ts'
 import type { Grader } from '@domain/schemas.ts'
 import type { SortedReading } from '@domain/sorting.ts'
 import type { Span } from '@domain/span.ts'
+import type { Cuts } from '@domain/verdict.ts'
 import { type Image, noul, type Question, withAssets } from '@typesafe-ai/sdk'
 import { type Readable, readForJev } from '../images.ts'
 import { isTooLarge, type JevState } from '../jev.ts'
@@ -35,6 +37,7 @@ import {
   requestState,
 } from '../shared/questions.ts'
 import {
+  answerOf,
   clip,
   firstOf,
   OUTPUT_PART,
@@ -628,29 +631,43 @@ function checkByRef(graders: readonly Grader[], ref: string): Grader | null {
  * so a refused request is asked again with its first question alone: refused
  * too, it is the state, and the error goes up for the work to be cut; answered,
  * the rest are asked in two halves, each the same way. No answer is asked twice.
+ * `send` puts one request to Jev, and `log` says when the questions are split.
  */
 async function askAll(
   state: JevState,
   questions: Record<string, Question>,
-  ctx: JudgeContext,
+  send: Send,
+  log: (line: string) => void,
 ): Promise<Record<string, unknown>> {
   const entries = Object.entries(questions)
   if (!entries.length) return {}
   try {
-    return await ctx.jev.ask(state, questions, ctx.signal)
+    return await send(state, questions)
   } catch (error) {
     if (!isTooLarge(error) || entries.length < 2) throw error
   }
   const [first, ...rest] = entries
-  const one = await ctx.jev.ask(state, Object.fromEntries([first]), ctx.signal)
-  ctx.log(`${entries.length} questions are more than one request holds: asking them in parts`)
+  const one = await send(state, Object.fromEntries([first]))
+  log(`${entries.length} questions are more than one request holds: asking them in parts`)
   const half = Math.ceil(rest.length / 2)
   const parts = [rest.slice(0, half), rest.slice(half)].filter((part) => part.length > 0)
   const answers = await Promise.all(
-    parts.map((part) => askAll(state, Object.fromEntries(part), ctx)),
+    parts.map((part) => askAll(state, Object.fromEntries(part), send, log)),
   )
   return Object.assign({}, one, ...answers)
 }
+
+/** One request to Jev: the questions of one state, answered by their names. */
+type Send = (
+  state: JevState,
+  questions: Record<string, Question>,
+) => Promise<Record<string, unknown>>
+
+/** A grading's way to put one request to Jev: its Jev, ended by its stop. */
+const sendOf =
+  (ctx: JudgeContext): Send =>
+  (state, questions) =>
+    ctx.jev.ask(state, questions, ctx.signal)
 
 /**
  * `questions` of `state` as `askAll` asks them, asked once a grading: every
@@ -662,13 +679,13 @@ function askOnce(
   questions: Record<string, Question>,
   ctx: JudgeContext,
 ): Promise<Record<string, unknown>> {
-  if (!ctx.once) return askAll(state, questions, ctx)
+  if (!ctx.once) return askAll(state, questions, sendOf(ctx), ctx.log)
   const key = createHash('sha256')
     .update(JSON.stringify([ctx.jev.model, state, questions]))
     .digest('hex')
   const kept = ctx.once.get(key)
   if (kept) return kept
-  const asking = askAll(state, questions, ctx)
+  const asking = askAll(state, questions, sendOf(ctx), ctx.log)
   ctx.once.set(key, asking)
   asking.catch(() => ctx.once?.delete(key))
   return asking
@@ -722,7 +739,7 @@ async function ask(
     ),
   })
   const replies = await Promise.all([
-    ...works.map((work, i) => askAll(work.state, questionsOf(work, i), ctx)),
+    ...works.map((work, i) => askAll(work.state, questionsOf(work, i), sendOf(ctx), ctx.log)),
     // The same for every output of the case: asked once a grading.
     ...(apart ? [askOnce(headingState(first), { ...headings, ...ups }, ctx)] : []),
   ])
@@ -822,6 +839,290 @@ function worksOf(input: JudgeInput, room: Room): { works: Work[]; parted: Parted
   return works.length === read ? { works, parted: { read, of: parts.length } } : null
 }
 
+/**
+ * `work` over the output as the pack asks it: the works of the first room
+ * whose request Jev does not refuse for its size, each room after it holding
+ * less (`ROOMS`). Null when Jev can read nothing of the output. `log` says when
+ * a room was refused and the next is asked. A grading's answers and what
+ * `st propose` asks of an answer both go through here, so the two ask the same.
+ */
+async function inRooms<T>(
+  input: JudgeInput,
+  log: (line: string) => void,
+  work: (asking: { works: Work[]; parted: Parted | null }) => Promise<T>,
+): Promise<T | null> {
+  for (const room of ROOMS) {
+    const asking = worksOf(input, room)
+    if (!asking) return null
+    try {
+      return await work(asking)
+    } catch (error) {
+      // Refused for its size: the same request would be refused again, so the next one holds less.
+      if (!isTooLarge(error) || room === ROOMS.at(-1)) throw error
+      log('the output is more than Jev reads at once: asking again with less of it')
+    }
+  }
+  return null
+}
+
+/**
+ * What a grading of `input` will answer each of `statements` as a check of its
+ * case, before any reading of the check is made: the question the pack asks a
+ * check, of the work as `judge` builds it, the whole output or each of its
+ * parts, room by room as `judge` asks (`inRooms`), and the parts joined as
+ * scoring joins a check's (`answerOf`). A request refused for its size is
+ * asked in fewer questions first, as a grading's is (`askAll`), so the two
+ * move to a smaller room only for the same reason. Jev answers each question
+ * apart from the others, so asking these alone gets what the grading's
+ * request, with every rule and check in it, gets. In the order of
+ * `statements`, null for one the parts do not settle; null in place of the
+ * list when Jev asks nothing of the output: a grading does not ask Jev of the
+ * case, or Jev can read nothing of it. `ask` puts one state's questions to
+ * Jev and gives back its answers by their names, as `Jev.ask` does.
+ */
+export async function statementAnswers(
+  input: JudgeInput,
+  statements: readonly string[],
+  ask: Send,
+  cuts: Cuts,
+  log: (line: string) => void,
+): Promise<Array<number | null> | null> {
+  if (!statements.length || !asksJev(input, { useJev: true })) return null
+  const questionsOf = (work: Work) =>
+    Object.fromEntries(
+      statements.map((statement, i) => [`${CHECK}${i}`, statementQuestion(statement, work, null)]),
+    )
+  return inRooms(input, log, async ({ works, parted }) => {
+    const replies = await Promise.all(
+      works.map((work) => askAll(work.state, questionsOf(work), ask, log)),
+    )
+    return statements.map((_, i) => {
+      const all = replies.map((reply) => noulOf(reply, `${CHECK}${i}`))
+      return answerOf({ noul: all[0], ...(parted ? { parts: all } : {}) }, parted, cuts)
+    })
+  })
+}
+
+/**
+ * How much of the output and of the case's files one state asked again holds
+ * between them: what the first room gives the two. So an output a grading
+ * asked in parts is read whole when it is no longer than this, and the files,
+ * which a rule asked again rests on less often than on the output, have the
+ * room it leaves, up to what the first room gives them (`againRoom`).
+ */
+const AGAIN_ROOM = ROOMS[0].output + ROOMS[0].files
+
+/**
+ * The first room, with the output given `AGAIN_ROOM` and the files what
+ * `length` characters of it leave, never more than the grading gave them: a
+ * part shorter than the output is no reason to send more of the files.
+ */
+const againRoom = (length: number): Room => ({
+  ...ROOMS[0],
+  output: AGAIN_ROOM,
+  files: Math.min(ROOMS[0].files, Math.max(0, AGAIN_ROOM - length)),
+})
+
+/** A fact a grading of an output left open, to be asked of Jev again (`askAgain`). */
+export interface AgainFact {
+  /** The name its answer comes back under. */
+  name: string
+  kind: 'rule' | 'check'
+  /** A rule's id in `JudgeInput.rules`, or a check's id in the case's checks. */
+  id: string
+  /** How the grading joined the answers of the output's parts (`Span`), where it was said. */
+  span: Span | null
+  /** What code saw on it, for a fact code read (`CodeAnswer.saw`); empty for one it did not read. */
+  saw: readonly Seen[]
+}
+
+/** What a grading of the output did, which says what a state asked again can add to it. */
+export interface AgainOutput {
+  /** How the grading asked the output: in parts, or whole (null). */
+  parted: Parted | null
+  /**
+   * The grading showed Jev the page as the app drew it, which is not drawn
+   * here: a fact is asked again only with what code saw. Its measured layout
+   * was in the grading's state, so it is nothing new.
+   */
+  drawn: boolean
+  /** The page's elements as the window measured them when it was drawn, where they were kept. */
+  layout: PageLayout | null
+  /** The skill's folder, which a check's picture is read from. */
+  skillDir: string
+}
+
+export interface AgainAnswers {
+  /** Each fact asked again, by its name: the state it was asked in, and Jev's answer. */
+  answers: Record<string, { state: AgainState; noul: number }>
+  /** The facts no narrower state could be built for, by name: they stay as the grading left them. */
+  unbuilt: string[]
+  /** Each request that failed, with the facts it held: they stay as the grading left them. */
+  failed: Array<{ names: string[]; why: string }>
+}
+
+/** What code saw, without what it made of it, as `code` in a state holds it; null when it saw nothing to show. */
+function codeSaw(saw: readonly Seen[]): unknown[] | null {
+  const texts = (found: readonly Found[]) => found.map((f) => f.text)
+  const shown = saw.flatMap((seen): unknown[] => {
+    switch (seen.test) {
+      case 'count':
+        return seen.counts.length
+          ? [{ counted: seen.counts, bound: `${seen.compare} ${seen.n}` }]
+          : []
+      case 'has':
+      case 'order':
+        return seen.found.length || seen.missing.length
+          ? [
+              {
+                found: texts(seen.found),
+                not_found: seen.missing,
+                ...(seen.test === 'order' && seen.out ? { out_of_order: seen.out.text } : {}),
+              },
+            ]
+          : []
+      case 'only':
+        return seen.outside.length || seen.otherNotation.length
+          ? [{ not_allowed: texts(seen.outside), written_another_way: texts(seen.otherNotation) }]
+          : []
+      case 'measure':
+        return seen.elements.length
+          ? [
+              {
+                measured: seen.elements.map((e) => ({ element: e.name, px: e.value })),
+                bound: `${seen.compare} ${seen.px} px`,
+                not_measured: seen.leftOut,
+              },
+            ]
+          : []
+      default:
+        return []
+    }
+  })
+  return shown.length ? shown : null
+}
+
+/** What `code` in a state asked again is, said once in its `fields`. */
+const CODE_FIELD =
+  '`code` is what a program read in the whole of `output` for this rule or check, and no part of `output`: for a count, the number by each ordinary way of counting, and the bound; for words or values it looked for, those it found, as `output` writes them, and those it did not find; where only some values are allowed, those it found that are not, and those written in a way it could not read; for a measure, each element’s size in px, and the bound.'
+
+/** What `layout` in a state asked again is, with no picture of the page beside it. */
+const LAYOUT_FIELD =
+  '`layout` lists the elements of `output` as a browser window measured them when the page was drawn: the window and the page first, then the place and the size of each element in px, from the top left of the page, and where it sits inside the elements that hold it. A size, a distance or a position is read from `layout`, where it was measured.'
+
+/**
+ * Ask Jev again what a grading of `input` left open, each fact in a state
+ * narrower than the grading's: it holds what the grading's did not, which
+ * the fact can rest on.
+ *
+ * - An output the grading asked in parts is read whole, when it is no longer
+ *   than `AGAIN_ROOM`; longer, a fact whose parts join at its start or its
+ *   end is asked of that part alone (`whole`, `part`).
+ * - A fact code read is asked with what code saw on it (`code`).
+ * - A fact about a size, a place or a colour on a page whose layout was
+ *   measured, and which the grading did not draw, is asked with that layout
+ *   (`layout`). Where the grading drew the page, its state held the layout.
+ *
+ * A fact none of these fits is in `unbuilt`, as is every fact of a page the
+ * grading drew that is not asked with code's evidence, since the page's
+ * picture is not here. The questions are the pack's, in its words
+ * (`ruleQuestion`, `statementQuestion`), and the facts that share a state
+ * share a request (`askAll`). A request that fails is said in `failed`, with
+ * its facts; the rest are kept.
+ */
+export async function askAgain(
+  input: JudgeInput,
+  facts: readonly AgainFact[],
+  output: AgainOutput,
+  ask: Send,
+  log: (line: string) => void,
+): Promise<AgainAnswers> {
+  const done: AgainAnswers = { answers: {}, unbuilt: [], failed: [] }
+  if (!asksJev(input, { useJev: true })) return { ...done, unbuilt: facts.map((f) => f.name) }
+  const whole = input.text.trim() ? input.text.length : 0
+  const parts = partsOf(whole, AGAIN_ROOM)
+  // A page the grading drew had its layout in the grading's state wherever a rule or check is about one (`workOf`).
+  const heldLayout = output.drawn && input.primary?.kind === 'html' && asksOfLayout(input)
+  /** The output as a state asked again holds it, and what that adds to the grading's. */
+  const pieceOf = (span: Span | null) => {
+    if (output.parted && parts.length === 1)
+      return { key: 'whole', adds: 'whole' as const, work: workOf(input, againRoom(whole)) }
+    const at = span === 'start' ? parts[0] : span === 'end' ? parts.at(-1) : undefined
+    if (output.parted && at)
+      return {
+        key: span as string,
+        adds: 'part' as const,
+        work: workOf(input, againRoom(at.to - at.from), at, at.index + 1),
+      }
+    // As the grading's first room holds it: its start says what it is, beside the evidence that is added.
+    return { key: 'first', adds: null, work: workOf(input, ROOMS[0]) }
+  }
+  const groups = new Map<
+    string,
+    { state: JevState; adds: AgainState; questions: Record<string, Question> }
+  >()
+  for (const fact of facts) {
+    const rule = fact.kind === 'rule' ? input.rules.find((r) => r.id === fact.id) : undefined
+    const grader =
+      fact.kind === 'check' ? input.case?.graders.find((g) => g.id === fact.id) : undefined
+    const reference = grader?.image ? readForJev(join(output.skillDir, grader.image)) : null
+    const piece = pieceOf(fact.span)
+    const code = codeSaw(fact.saw)
+    const layout =
+      output.layout && !heldLayout && aboutLayout(rule?.text ?? grader?.statement ?? '')
+        ? output.layout
+        : null
+    const adds: AgainState | null = layout
+      ? 'layout'
+      : code
+        ? 'code'
+        : output.drawn
+          ? null
+          : piece.adds
+    const { work } = piece
+    if (!work || !adds || (!rule && !grader) || reference?.problem) {
+      done.unbuilt.push(fact.name)
+      continue
+    }
+    const key = code ? `${piece.key} code ${fact.name}` : `${piece.key} ${adds}`
+    const group = groups.get(key) ?? {
+      state: {
+        ...(work.state as Record<string, unknown>),
+        ...(code ? { code } : {}),
+        ...(layout ? { layout: layoutText(layout, ROOMS[0].layout) } : {}),
+        fields: {
+          ...((work.state as { fields?: Record<string, string> }).fields ?? {}),
+          ...(code ? { code: CODE_FIELD } : {}),
+          ...(layout ? { layout: LAYOUT_FIELD } : {}),
+        },
+      } as JevState,
+      adds,
+      questions: {},
+    }
+    group.questions[fact.name] = rule
+      ? ruleQuestion(rule, work)
+      : statementQuestion(grader?.statement ?? '', work, reference?.image ?? null)
+    groups.set(key, group)
+  }
+  const asked = [...groups.values()]
+  const replies = await Promise.allSettled(
+    asked.map((group) => askAll(group.state, group.questions, ask, log)),
+  )
+  replies.forEach((reply, i) => {
+    const { adds, questions } = asked[i]
+    const names = Object.keys(questions)
+    try {
+      if (reply.status === 'rejected') throw reply.reason
+      for (const name of names)
+        done.answers[name] = { state: adds, noul: noulOf(reply.value, name) }
+    } catch (error) {
+      for (const name of names) delete done.answers[name]
+      done.failed.push({ names, why: (error as Error)?.message ?? String(error) })
+    }
+  })
+  return done
+}
+
 export const genericPack: JudgePack<GenericRaw> = {
   ...genericScoring,
   version: 10,
@@ -833,10 +1134,7 @@ export const genericPack: JudgePack<GenericRaw> = {
     // A picture Jev would refuse is said, so rules nobody marked are never read as followed.
     const unread = unreadOf(input)
     const nothing = unread ? { adherence: null, rubric: null, unread } : null
-    for (const room of ROOMS) {
-      const asking = worksOf(input, room)
-      if (!asking) return nothing
-      const { works, parted } = asking
+    const answered = await inRooms(input, ctx.log, async ({ works, parted }) => {
       // Asking only the first parts leaves the rest unread, a warning; asking every part is progress.
       if (parted && parted.read < parted.of)
         (ctx.warn ?? ctx.log)(
@@ -844,24 +1142,18 @@ export const genericPack: JudgePack<GenericRaw> = {
         )
       else if (parted)
         ctx.log(`the output is more than Jev reads at once: asking it in ${parted.of} parts`)
-      try {
-        const { adherence, rubric } = await ask(input, works, parted, ctx)
-        if (!adherence && !rubric) return nothing
-        const [work] = works
-        return {
-          adherence,
-          rubric,
-          ...(unread ? { unread } : {}),
-          ...(work.cut.length ? { cut: work.cut } : {}),
-          ...(parted ? { parts: parted } : {}),
-        }
-      } catch (error) {
-        // Refused for its size: the same request would be refused again, so the next one holds less.
-        if (!isTooLarge(error) || room === ROOMS.at(-1)) throw error
-        ctx.log('the output is more than Jev reads at once: asking again with less of it')
+      const { adherence, rubric } = await ask(input, works, parted, ctx)
+      if (!adherence && !rubric) return nothing
+      const [work] = works
+      return {
+        adherence,
+        rubric,
+        ...(unread ? { unread } : {}),
+        ...(work.cut.length ? { cut: work.cut } : {}),
+        ...(parted ? { parts: parted } : {}),
       }
-    }
-    return nothing
+    })
+    return answered ?? nothing
   },
   anchorsTemplate: [
     '---',

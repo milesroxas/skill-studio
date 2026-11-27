@@ -44,7 +44,9 @@ Commands
     --out <dir>               The folder the pictures go in; default a new temporary folder.
   read                        Have the assistant read a graded run: --run <name>. It answers
                               what Jev was not sure of, and prints how often its answers
-                              agree with yours. It writes nothing to the skill.
+                              agree with yours. Jev is first asked those again, shown more
+                              of what each is about, and the assistant gets only what it is
+                              still not sure of. It writes nothing to the skill.
     --blind                   Ask every rule and check and show it none of Jev's answers,
                               to see how often the two agree.
     --cases <a,b>             Case ids; default every case the run answered.
@@ -58,6 +60,7 @@ Commands
                               yours: JSON by output, then by rule or check.
     --recount <file>          Count a reading saved with --out again, against your answers
                               as they are now. Asks nothing, and needs no --run.
+    --no-jev                  Do not ask Jev again first: the assistant answers all Jev left.
   sort                        Have the assistant read each rule and check, and say how each
                               will be marked: by code, by Jev, or not at all as written, with
                               a fix. It keeps the readings in evals/rule-readings.json.

@@ -8,10 +8,12 @@
  *
  * After each case's reading, Jev is asked, when a TypeSafe key is set,
  * whether each proposal's words ask for all of it: one they do not, Jev being
- * sure, is left out. After every case, proposals for every case that say the
- * same, in the same words or, Jev being sure, in other words, are joined into
- * one proposal for every case (`judges/proposals.ts`). Jev's answers are kept,
- * so nothing is asked twice.
+ * sure, is left out. Then, of each answer read, Jev is asked what a grading
+ * will ask of it once the proposal is a check: where Jev is sure, its word on
+ * whether the answer meets it stands over the model's. After every case,
+ * proposals for every case that say the same, in the same words or, Jev being
+ * sure, in other words, are joined into one proposal for every case
+ * (`judges/proposals.ts`). Jev's answers are kept, so nothing is asked twice.
  *
  * Only `st propose` starts this: it spends the person's own model usage, so
  * nothing in a run, a grading or the app calls it by itself. It never changes
@@ -55,6 +57,7 @@ import {
 import { filesMessage } from '@domain/reading.ts'
 import { parseSampleDir } from '@domain/run-name.ts'
 import type { Case } from '@domain/schemas.ts'
+import { type Cuts, readingOf } from '@domain/verdict.ts'
 import type { Sample } from '@domain/views.ts'
 import { aiProvider, isProviderError } from '@infrastructure/ai/index.ts'
 import {
@@ -76,6 +79,7 @@ import {
   decideEvery,
   decideProposals,
   type Overreach,
+  type ProposalRead,
   type ProposalState,
   proposalId,
   readProposals,
@@ -89,6 +93,7 @@ import { roomText } from '@infrastructure/reading-room.ts'
 import { askStamp } from '@infrastructure/rule-readings.ts'
 import { readKept, takenCase } from '@infrastructure/run-cases.ts'
 import { readRunMeta, runDir, runSamples, runsDir } from '@infrastructure/runs.ts'
+import { statementAnswers } from '@judges/generic/index.ts'
 import type { JevAsker, JevState } from '@judges/jev.ts'
 import {
   basisQuestions,
@@ -99,8 +104,10 @@ import {
   SAME_STATE,
   sameQuestions,
 } from '@judges/proposals.ts'
+import { hashOf } from '@judges/replies.ts'
 import { noulOf } from '@judges/shared/questions.ts'
 import type { Question } from '@typesafe-ai/sdk'
+import { drawnWhenGraded, gradingInput } from './grade.ts'
 
 export interface ProposeOptions {
   /** The assistant to ask, and its model. */
@@ -189,7 +196,7 @@ export interface JevSpent {
   questions: number
   /** Answers kept from before, so not asked. */
   kept: number
-  /** Why Jev could not be asked, when it could not. */
+  /** Why Jev could not be asked, when it could not: each different reason once, in the order they came. */
   error: string | null
 }
 
@@ -370,6 +377,14 @@ class Asking {
     this.held = new Map(entries.map((e) => [e.key, e.noul]))
   }
 
+  private readonly errors = new Set<string>()
+
+  /** Keep why Jev could not be asked, in `spent.error`: each different reason once, in the order they came. */
+  failed(why: string): void {
+    this.errors.add(why)
+    this.spent.error = [...this.errors].join('; ')
+  }
+
   /** The answers new since the last call, to be written with what they answered. */
   drain(): AskedEntry[] {
     const out = this.fresh
@@ -472,6 +487,126 @@ async function checkBases(
   })
 }
 
+/**
+ * What a grading will answer of each answer read on each of `checks` once it
+ * is accepted: Jev asked, of each answer as a grading puts it to the packs
+ * (`gradingInput`), what the generic pack asks a check (`statementAnswers`),
+ * every check of the case in one request a state, each answer kept by
+ * `asking` by the state and the question. By answer, then by check; null
+ * where the answer's parts do not settle it. An answer a grading would draw
+ * for is not asked and has no words (`drawnWhenGraded`), nor has one Jev asks
+ * nothing of, nor one whose request failed: that one is in `failed`, by its
+ * place in `answers`, with why. The others keep theirs.
+ */
+async function gradedAnswers(
+  asking: Asking,
+  skillDir: string,
+  answers: ReadonlyArray<{ ref: AnswerRef; sample: Sample }>,
+  checks: readonly string[],
+  cuts: Cuts,
+  log: (line: string) => void,
+): Promise<{
+  words: Array<Array<number | null> | undefined>
+  failed: Array<{ at: number; why: string }>
+}> {
+  const ask = async (state: JevState, questions: Record<string, Question>) => {
+    const stateKey = hashOf(state)
+    const items = Object.entries(questions).map(([name, question]) => ({
+      name,
+      key: askedKey(asking.jev.model, ['meets', stateKey, hashOf(question)]),
+      question,
+    }))
+    const got = await asking.ask(state, items)
+    return Object.fromEntries(items.map((item) => [item.name, { noul: got.get(item.key) }]))
+  }
+  const settled = await Promise.allSettled(
+    answers.map(async ({ ref, sample }) => {
+      const input = gradingInput(skillDir, ref.run, sample, log)
+      // A grading shows Jev what it drew for a page or a picture; nothing is drawn here, so its question would differ.
+      if (drawnWhenGraded(input)) return undefined
+      return (await statementAnswers(input, checks, ask, cuts, log)) ?? undefined
+    }),
+  )
+  return {
+    words: settled.map((s) => (s.status === 'fulfilled' ? s.value : undefined)),
+    failed: settled.flatMap((s, at) =>
+      s.status === 'rejected'
+        ? [{ at, why: (s.reason as Error)?.message ?? String(s.reason) }]
+        : [],
+    ),
+  }
+}
+
+/**
+ * Ask Jev again, of a case read before with nothing changed since, about each
+ * answer whose request failed then (`ProposalRead.unanswered`), for the case's
+ * proposals still proposed. No other answer is asked again, and the assistant
+ * is asked nothing. Keeps what came, with the answers that failed again, and
+ * returns the proposals as they now stand.
+ */
+async function askAgain(
+  asking: Asking,
+  skillDir: string,
+  read: ProposalRead,
+  proposals: StoredProposal[],
+  answers: ReadonlyArray<{ ref: AnswerRef; sample: Sample }>,
+  cuts: Cuts,
+  log: (line: string) => void,
+  signal: AbortSignal,
+): Promise<StoredProposal[]> {
+  const unanswered = Array.isArray(read.unanswered) ? read.unanswered : []
+  const again = answers.filter((a) => unanswered.includes(keyOf(a.ref)))
+  if (!again.length || !proposals.length) return proposals
+  const { words, failed } = await gradedAnswers(
+    asking,
+    skillDir,
+    again,
+    proposals.map((p) => p.check),
+    cuts,
+    log,
+  )
+  if (signal.aborted) return proposals
+  const now = proposals.map((p, i): StoredProposal => {
+    const marked = p.answers.map((a) => {
+      const j = again.findIndex((x) => keyOf(x.ref) === keyOf(a))
+      if (j < 0 || words[j] === undefined) return a
+      const { meets, said, jev: _, ...ref } = a
+      return { ...ref, ...meetsOf(said ?? meets, words[j]?.[i], cuts) }
+    })
+    const tells = tellsOf(Object.fromEntries(marked.map((a, k) => [k, a.meets])))
+    return { ...p, answers: marked, tells }
+  })
+  for (const why of new Set(failed.map((f) => f.why))) {
+    asking.failed(why)
+    log(`Jev could not be asked what a grading will say of an answer: ${why}`)
+  }
+  const still = failed.map((f) => keyOf(again[f.at].ref))
+  const { unanswered: _, ...rest } = read
+  storeCaseRead(
+    skillDir,
+    { ...rest, ...(still.length ? { unanswered: still } : {}) },
+    now,
+    asking.drain(),
+  )
+  return now
+}
+
+/**
+ * Whether an answer meets a proposal: Jev's word where it is sure what a
+ * grading will say (`jev`, absent when Jev was not asked), else the model's.
+ * The model's word is kept as `said` where Jev's stands in its place.
+ */
+function meetsOf(
+  said: Meets,
+  jev: number | null | undefined,
+  cuts: Cuts,
+): { meets: Meets; said?: Meets; jev?: number | null } {
+  if (jev === undefined) return { meets: said }
+  const reading = readingOf(jev, cuts)
+  const sure: Meets | null = reading === 'met' ? 'yes' : reading === 'missed' ? 'no' : null
+  return sure && sure !== said ? { meets: sure, said, jev } : { meets: said, jev }
+}
+
 /** What a fact of the note's cover came to, after the proposals were picked and checked. */
 type Fate =
   | { kept: StoredProposal }
@@ -538,7 +673,20 @@ export async function proposeChecks(
       return {
         ...base,
         kept: true,
-        proposals: currentOf(file.proposals, testCase.id, stamp),
+        // An answer Jev could not be asked of then is asked now, and nothing else.
+        proposals:
+          asking && Array.isArray(lastRead.unanswered) && !options.signal.aborted
+            ? await askAgain(
+                asking,
+                skillDir,
+                lastRead,
+                currentOf(file.proposals, testCase.id, stamp),
+                answers,
+                cuts,
+                (line) => options.log(`${testCase.id}: ${line}`),
+                options.signal,
+              )
+            : currentOf(file.proposals, testCase.id, stamp),
         overreach: lastRead.overreach ?? [],
         basisChecked: lastRead.basisChecked ?? false,
         facts: lastRead.facts ?? [],
@@ -656,7 +804,7 @@ export async function proposeChecks(
           basisChecked = true
         } catch (error) {
           if (options.signal.aborted) throw error
-          asking.spent.error = (error as Error).message
+          asking.failed((error as Error).message)
           options.log(
             `${testCase.id}: Jev could not check the proposals' words: ${(error as Error).message}`,
           )
@@ -680,9 +828,38 @@ export async function proposeChecks(
         .slice(PROPOSALS_MAX)
         .map((f) => ({ proposal: f.proposal, why: 'past the most' as const }))
 
+      // Jev on each answer, asked what a grading will ask once the check is accepted: where it is sure, its word stands.
+      // An answer whose request failed keeps the model's word; the others keep Jev's.
+      // One whose request failed is asked again the next time the case is not read again (`askAgain`).
+      let graded: Array<Array<number | null> | undefined> = []
+      let unanswered: string[] = []
+      if (asking && shown.length && !options.signal.aborted) {
+        const { words, failed } = await gradedAnswers(
+          asking,
+          skillDir,
+          answers,
+          shown.map((s) => s.proposal.check),
+          cuts,
+          (line) => options.log(`${testCase.id}: ${line}`),
+        )
+        if (options.signal.aborted) throw new Error('Stopped.')
+        graded = words
+        unanswered = failed.map((f) => keyOf(answers[f.at].ref))
+        for (const why of new Set(failed.map((f) => f.why))) {
+          asking.failed(why)
+          options.log(
+            `${testCase.id}: Jev could not be asked what a grading will say of an answer: ${why}`,
+          )
+        }
+      }
+
       const at = new Date().toISOString()
-      const stored = shown.map(
-        ({ proposal: p, check }): StoredProposal => ({
+      const stored = shown.map(({ proposal: p, check }, i): StoredProposal => {
+        const read = refs.map((r, j) => ({
+          ...refOf(r),
+          ...meetsOf(p.meets[r.letter], graded[j]?.[i], cuts),
+        }))
+        return {
           id: proposalId(testCase.id, ask, p.check),
           case: testCase.id,
           check: p.check,
@@ -693,8 +870,8 @@ export async function proposeChecks(
           fault: p.fault
             ? { file: p.fault.file.replace(/^[A-Z]\//, ''), quote: p.fault.quote }
             : null,
-          answers: refs.map((r) => ({ ...refOf(r), meets: p.meets[r.letter] })),
-          tells: tellsOf(p.meets),
+          answers: read,
+          tells: tellsOf(Object.fromEntries(refs.map((r, j) => [r.letter, read[j].meets]))),
           state: 'proposed',
           stamp,
           ask,
@@ -704,8 +881,8 @@ export async function proposeChecks(
           prompt: PROPOSE_PROMPT_VERSION,
           basisLines: basisLines(room.files[p.basisFile] ?? '', p.basisQuote),
           basisCheck: check,
-        }),
-      )
+        }
+      })
 
       // What each proposal came to, for the note's facts that name it.
       const fateOf = (p: Proposal): Fate => {
@@ -790,6 +967,7 @@ export async function proposeChecks(
           factsRefused: once.factsRefused,
           overreach,
           basisChecked,
+          ...(unanswered.length ? { unanswered } : {}),
         },
         stored,
         asking?.drain() ?? [],
@@ -946,7 +1124,7 @@ async function joinEveryCase(
         if (joined && item.b === null && !likeCheck.has(item.a)) likeCheck.set(item.a, b)
       }
     } catch (error) {
-      asking.spent.error = (error as Error).message
+      asking.failed((error as Error).message)
       log(
         `Jev could not be asked which proposals of different cases say the same: ${(error as Error).message}`,
       )

@@ -11,6 +11,7 @@ import {
   hashOf,
   MissingReply,
   neverReplayed,
+  noteReplayed,
   readSaved,
   savedReplies,
   sha,
@@ -112,6 +113,7 @@ export function metered(provider: AiProvider, log: (entry: UsageEntry) => void):
     const held = readSaved<SavedReply>(saved.dir, provider.id, key)
     if (!held)
       throw unanswered(new MissingReply(request.operation, saved.dir, `${provider.id}/${key}.json`))
+    noteReplayed(`${provider.id}/${key}.json`)
     if ('error' in held) {
       const { message, usage, model } = held.error
       count(request.operation, { model, usage }, begun, 'replayed')
