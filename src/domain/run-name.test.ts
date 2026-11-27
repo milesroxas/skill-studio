@@ -128,6 +128,13 @@ describe('runNamed, versionWords and runShown', () => {
     )
   })
 
+  it('shows a name without what a terminal or a sheet would act on: escapes, controls, direction overrides', () => {
+    const run = runNamed('r', stamped('v3'), [
+      { version: 'v3', name: '‮draft a\u001b[1A\u001b[2K⁦b⁩\u0000' },
+    ])
+    expect(runShown(run)).toBe('r (v3 · draft ab)')
+  })
+
   it('tells apart two versions given the same name, and two runs of one version, by their folders and numbers', () => {
     const same = [
       { version: 'v0', name: 'Draft' },

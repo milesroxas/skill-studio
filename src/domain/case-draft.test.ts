@@ -6,6 +6,8 @@ import {
   isPicture,
   newCaseId,
   oneLineTitle,
+  printable,
+  titleKey,
   titleTaken,
   unusedTitle,
 } from './case-draft.ts'
@@ -75,6 +77,24 @@ describe('case names', () => {
     // A long title keeps every word: there is no limit to cut it at.
     const long = Array.from({ length: 200 }, (_, n) => `word${n}`)
     expect(oneLineTitle(long.join('\r\n'))).toBe(long.join(' '))
+  })
+
+  it('keeps out of a title what a terminal or a page would act on rather than show', () => {
+    // An escape that moves up a line and erases it, a terminal title, a link, a reset, the one-byte CSI.
+    expect(oneLineTitle('Tone\u001b[1A\u001b[2K check')).toBe('Tone check')
+    expect(oneLineTitle('Tone\u001b]0;owned\u0007 check')).toBe('Tone check')
+    expect(oneLineTitle('\u001b]8;;http://x\u001b\\Tone\u001b]8;;\u001b\\ check')).toBe(
+      'Tone check',
+    )
+    expect(oneLineTitle('Tone\u001bc check\u009b31m')).toBe('Tone check')
+    // C0 and C1 controls that are not white space, and the direction overrides and isolates.
+    expect(oneLineTitle('To\u0000n\u0007e\u007f \u0090check\u009f')).toBe('Tone check')
+    expect(oneLineTitle('‮Tone‪‫‬‭ check⁦⁧⁨⁩')).toBe('Tone check')
+    // White space that is a control is still white space: one space.
+    expect(oneLineTitle('Tone\u000b\u000c\u0085check')).toBe('Tone check')
+    expect(titleKey('Tone‮ check')).toBe(titleKey('tone check'))
+    // Kept apart from the line breaks a text of several lines is read by.
+    expect(printable('Line\u001b[2K one\r\nline‮ two')).toBe('Line one\r\nline two')
   })
 
   it('tells a line break between words from white space at either end, or a tab', () => {

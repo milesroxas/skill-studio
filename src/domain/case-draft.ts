@@ -129,12 +129,43 @@ const words = (prompt: string): string[] => prompt.trim().split(/\s+/).filter(Bo
 export const promptStart = (prompt: string): string => words(prompt).slice(0, ID_WORDS).join(' ')
 
 /**
- * A title as it is saved and shown: one line, every run of white space, a
- * line break or a tab among them, one space, and none at either end. A title
- * is one line wherever it shows, and the Cases form's field cannot make two.
+ * An ANSI escape sequence: a CSI run (`ESC [ ... final`, or its one-byte form
+ * U+009B), an OSC run up to its end (`ESC ] ... BEL` or `ESC \`), or ESC and
+ * one more character. A terminal acts on it, moving the cursor or erasing a
+ * line, rather than showing it.
+ */
+const ESCAPES =
+  // biome-ignore lint/suspicious/noControlCharactersInRegex: control characters are what it finds.
+  /\u001b\[[0-?]*[ -/]*[@-~]|\u009b[0-?]*[ -/]*[@-~]|\u001b\][^\u0007\u001b]*(?:\u0007|\u001b\\)?|\u001b[ -/]*[0-~]/g
+
+/**
+ * A character that is acted on rather than shown: a C0 or C1 control, but
+ * for those that are white space (tab, the line breaks, U+0085), and the
+ * Unicode direction overrides and isolates (U+202A to U+202E, U+2066 to
+ * U+2069), which turn the text after them around.
+ */
+// biome-ignore lint/suspicious/noControlCharactersInRegex: control characters are what it finds.
+const UNSHOWN = /[\u0000-\u0008\u000e-\u001f\u007f-\u0084\u0086-\u009f\u202a-\u202e\u2066-\u2069]/g
+
+/**
+ * Text as it is safe to print to a terminal or write into a page: what
+ * either would act on rather than show (`ESCAPES`, `UNSHOWN`) taken out, so a
+ * name cannot erase the line above it or turn the words after it around.
+ * White space, line breaks among it, is kept.
+ */
+export const printable = (text: string): string => text.replace(ESCAPES, '').replace(UNSHOWN, '')
+
+/**
+ * A title as it is saved and shown: nothing a terminal or a page would act
+ * on rather than show (`printable`), and one line, every run of white space,
+ * a line break or a tab among them, one space, and none at either end. A
+ * title is one line wherever it shows, and the Cases form's field cannot make
+ * two.
  */
 export const oneLineTitle = (title: string): string =>
-  title.replace(/\p{White_Space}+/gu, ' ').trim()
+  printable(title)
+    .replace(/\p{White_Space}+/gu, ' ')
+    .trim()
 
 /** Whether a title holds a line break between its words, which it is read and saved with a space for. */
 export const breaksLine = (title: string): boolean =>

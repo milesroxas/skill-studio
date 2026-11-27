@@ -13,7 +13,7 @@ import {
   casesApart,
   type RunScoring,
 } from '@application/grade.ts'
-import { caseName, oneLineTitle as oneLine } from '@domain/case-draft.ts'
+import { caseName, oneLineTitle as oneLine, printable } from '@domain/case-draft.ts'
 import type { CaseMove } from '@domain/case-result.ts'
 import { casesInOrder } from '@domain/results-address.ts'
 import type { Report, SampleMeta } from '@domain/schemas.ts'
@@ -44,13 +44,15 @@ const headLine = (head: string, said: string): string => oneLine(said ? `${head}
 
 /**
  * A missed rule or check, `label` before its words, as indented lines: a rule
- * or check of several paragraphs keeps its line breaks. The first line is two
+ * or check of several paragraphs keeps its line breaks, and loses only what a
+ * terminal would act on rather than show (`printable`). The first line is two
  * spaces in, and every later line four, so none is read as a case's head, and
  * none as a miss of its own, whatever it starts with (`missed:` say).
  */
 const missedLines = (label: string, words: string): string =>
   words
     .split(LINE_BREAK)
+    .map((line) => printable(line))
     .map((line, i) => (i ? `    ${line}` : `  ${label}: ${line}`))
     .join('\n')
 
@@ -296,7 +298,7 @@ export function attemptLine(skill: string): (sample: SampleMeta) => void {
     console.error(
       `${name(s.case)}, attempt ${s.index}: ${
         s.failed
-          ? `failed, it ${s.failed}${s.error ? ` (${s.error})` : ''}`
+          ? `failed, it ${s.failed}${s.error ? ` (${oneLine(s.error)})` : ''}`
           : s.stopped
             ? 'stopped'
             : s.ok

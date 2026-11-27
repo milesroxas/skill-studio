@@ -663,6 +663,41 @@ describe('the lines of --brief', () => {
   })
 })
 
+describe('what --brief keeps out of the terminal', () => {
+  it('prints no escape sequence, control or direction character from a title, a version name or a rule', async () => {
+    const skill = copyOf('launch-note')
+    // A title that would move up a line and erase it, as YAML writes an escape.
+    writeFileSync(
+      join(skill, 'evals/cases/email-quote/case.yaml'),
+      'title: "Launch email\\e[1A\\e[2K, a quote that gives orders"\n',
+    )
+    edited(skill, HAIKU_V0, 'run.json', (m) => {
+      m.skillName = 'First‮ draft\u0007'
+    })
+    edited(skill, HAIKU_V0, 'report.json', (r) => {
+      for (const result of r.results)
+        for (const rule of result.packs.generic.adherence.rules)
+          if (rule.text === QUOTE_RULE) rule.text = `\u001b[31m${QUOTE_RULE}\u001b]0;owned\u0007`
+    })
+    const { text } = await printedBy(report, [skill], { run: HAIKU_V0, brief: true })
+    // No control but the line feeds between lines, and no direction override or isolate.
+    const acted = [...text].filter((c) => {
+      const n = c.codePointAt(0) ?? 0
+      return (
+        (n < 0x20 && n !== 0x0a) ||
+        (n >= 0x7f && n <= 0x9f) ||
+        (n >= 0x202a && n <= 0x202e) ||
+        (n >= 0x2066 && n <= 0x2069)
+      )
+    })
+    expect(acted).toEqual([])
+    expect(text.split('\n').slice(0, 1)).toEqual([`Run: ${HAIKU_V0} (v0 · First draft)`])
+    expect(text).toContain(
+      `[email-quote] Launch email, a quote that gives orders\n  missed: ${QUOTE_RULE}\n`,
+    )
+  })
+})
+
 describe('the case head of --brief', () => {
   /** The ids at the start of the case lines `--brief` printed: what an agent passes to `--cases`. */
   const idsIn = (lines: readonly string[]): string[] =>
