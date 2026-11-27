@@ -1405,7 +1405,8 @@ describe('what a run spent', () => {
 describe('the examples of --brief in docs/cli.md', () => {
   /** The first code block under a heading of docs/cli.md, line by line. */
   const exampleUnder = (heading: string): string[] => {
-    const doc = readFileSync(resolve('docs/cli.md'), 'utf8')
+    // A checkout on Windows may hold the doc with CRLF line ends.
+    const doc = readFileSync(resolve('docs/cli.md'), 'utf8').replace(/\r\n/g, '\n')
     const section = doc.slice(doc.indexOf(`\n${heading}\n`))
     return /```\n([\s\S]*?)\n```/.exec(section)?.[1].split('\n') ?? []
   }
