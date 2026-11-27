@@ -127,10 +127,11 @@ import { loadBench, loadCases } from '@infrastructure/cases.ts'
 import { findImage, type StoredImage } from '@infrastructure/images.ts'
 import { readPreferences } from '@infrastructure/preferences.ts'
 import { readRun } from '@infrastructure/runs.ts'
-import { isAuthError, Jev } from '@judges/jev.ts'
+import { isAuthError, Jev, type JevAsker } from '@judges/jev.ts'
 import { QUESTIONS_PER_REQUEST, sameOf } from '@judges/proposals.ts'
 import { judgeAnswer, judgeDraft, judgeRule, verifyRewrites } from '@judges/rule/index.ts'
 import { correctionsOf, runVerdicts } from './grade.ts'
+import { keptRuleJev } from './rule-cache.ts'
 
 /** A growing reply is reported at most this often: smooth to read, light to send. */
 const REPORT_MS = 40
@@ -730,7 +731,7 @@ interface Assessment {
 /** The last rule Jev read and what it said: the same rule asked about twice in a row costs one reading. */
 let assessed: { key: string; value: Assessment } | null = null
 
-async function assess(scene: RuleScene, jev: Jev): Promise<Assessment> {
+async function assess(scene: RuleScene, jev: JevAsker): Promise<Assessment> {
   const code = lintScene(scene)
   if (!Jev.available()) return { findings: code, judgment: null, judged: false }
   const key = JSON.stringify(scene)
@@ -760,7 +761,7 @@ async function assess(scene: RuleScene, jev: Jev): Promise<Assessment> {
 async function stillOpen(
   scene: RuleScene,
   text: string,
-  jev: Jev | null,
+  jev: JevAsker | null,
   signal: AbortSignal,
 ): Promise<Finding[]> {
   let judgment: RuleJudgment | null = null
@@ -803,7 +804,7 @@ async function oneMoreTry(
 export async function startRefine(scene: RuleScene): Promise<RefineResult> {
   // Before Jev is paid: no model to write with means nothing to check for.
   const choice = await currentChoice()
-  const jev = new Jev(undefined, 'refine')
+  const jev = keptRuleJev(new Jev(undefined, 'refine'))
   const { findings, judged } = await assess(scene, jev)
   const fix = toFix(findings)
   if (!fix.length) return { findings, judged, run: null }
@@ -873,7 +874,7 @@ function ruleVerdict(request: FixRequest): Verdict | null {
 async function checkFix(
   scene: RuleScene,
   revision: string,
-  jev: Jev | null,
+  jev: JevAsker | null,
   signal: AbortSignal,
 ): Promise<FixCheck> {
   const read = await readRewrites(jev, scene, { practice: revision }, signal)
@@ -915,7 +916,7 @@ async function fixOnceMore(
 async function checkedFix(
   sheet: FixSheet,
   scene: RuleScene,
-  jev: Jev | null,
+  jev: JevAsker | null,
   raw: string,
   again: Again,
   signal: AbortSignal,
@@ -960,7 +961,7 @@ export async function startFix(request: FixRequest): Promise<AiRun> {
   }
   const { system, user } = fixPrompt(sheet)
   const scene = fixScene(skillMd, rule)
-  const jev = Jev.available() ? new Jev(undefined, 'fix') : null
+  const jev = Jev.available() ? keptRuleJev(new Jev(undefined, 'fix')) : null
   return start({
     kind: 'fix',
     choice,
@@ -975,7 +976,7 @@ export async function startFix(request: FixRequest): Promise<AiRun> {
 
 /** Jev's reading of rewrites: which kept the selection's facts, and `practice` as a rule while it is one. */
 async function readRewrites(
-  jev: Jev | null,
+  jev: JevAsker | null,
   scene: RuleScene,
   rewrites: Rewrites,
   signal: AbortSignal,
@@ -999,7 +1000,7 @@ async function readRewrites(
  */
 export async function startRewrites(scene: RuleScene): Promise<AiRun> {
   const choice = await currentChoice()
-  const jev = new Jev(undefined, 'rewrites')
+  const jev = keptRuleJev(new Jev(undefined, 'rewrites'))
   const { findings, judged } = await assess(scene, jev)
   const kinds = kindsFor(scene)
   const { system, user } = rewritesPrompt(scene, findings, kinds)
@@ -1040,7 +1041,7 @@ export async function startRewrites(scene: RuleScene): Promise<AiRun> {
 
 /** The one improve conversation, on one selection, kept while the window is open. */
 let improve: ImproveThread | null = null
-const improveJev = new Jev(undefined, 'improve')
+const improveJev = keptRuleJev(new Jev(undefined, 'improve'))
 
 const snapshot = (thread: ImproveThread): ImproveThread => ({
   ...thread,

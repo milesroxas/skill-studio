@@ -19,7 +19,7 @@ import {
 } from '@domain/improve.ts'
 import type { RuleScene } from '@domain/lint.ts'
 import { noul, score } from '@typesafe-ai/sdk'
-import type { Jev } from '../jev.ts'
+import type { JevAsker } from '../jev.ts'
 import { noulOf, scoreOf } from '../shared/questions.ts'
 
 /** The rule as Jev reads it. The description says the one aspect the skill is about. */
@@ -101,7 +101,7 @@ const judgmentOf = (answers: Readonly<Record<string, unknown>>, prefix: string):
 
 /** Jev's reading of the selected rule in its place. `signal` ends the request when the reply it checks is stopped. */
 export async function judgeRule(
-  jev: Jev,
+  jev: JevAsker,
   scene: RuleScene,
   signal?: AbortSignal,
 ): Promise<RuleJudgment> {
@@ -131,7 +131,7 @@ const keptQuestion = (field: string) =>
  * `signal` ends the request when the reply it checks is stopped.
  */
 export async function verifyRewrites(
-  jev: Jev,
+  jev: JevAsker,
   scene: RuleScene,
   rewrites: Rewrites,
   read: RewriteKind | null,
@@ -158,7 +158,7 @@ export async function verifyRewrites(
 
 /** Whether the writer's reply answered the step's question, and, on the first step, whether it says the line should go. */
 export async function judgeAnswer(
-  jev: Jev,
+  jev: JevAsker,
   scene: RuleScene,
   step: ImproveStep,
   answer: string,
@@ -184,7 +184,7 @@ export async function judgeAnswer(
 
 /** Jev's reading of a draft, in the selection's place. */
 export const judgeDraft = (
-  jev: Jev,
+  jev: JevAsker,
   scene: RuleScene,
   draft: string,
   signal?: AbortSignal,

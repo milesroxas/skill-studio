@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { readFixText } from '@domain/fix.ts'
 import type { JudgedVerdict } from '@domain/pack.ts'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 /**
  * What the model answers, one reply per request, and what it was asked; what
@@ -122,6 +122,11 @@ vi.mock('@judges/jev.ts', () => ({
   isAuthError: () => false,
 }))
 
+// The library reads SKILL_STUDIO_HOME once, at import. Jev's answers about a rule are kept in its folder, and each test starts with none.
+const home = mkdtempSync(join(tmpdir(), 'fix-home-'))
+process.env.SKILL_STUDIO_HOME = home
+afterAll(() => rmSync(home, { recursive: true, force: true }))
+
 const { findRun, startFix, startRefine, startRewrites, stopRun } = await import('./ai.ts')
 
 const RULE =
@@ -196,6 +201,7 @@ beforeEach(() => {
   world.jevAsked = []
   world.jevFails = []
   world.jevHolds = null
+  rmSync(join(home, '.skill-studio', 'rule-judge-cache.json'), { force: true })
   world.files = [{ path: 'outputs/output.md', text: 'Shelf is here. Meet the new shelf.' }]
   skillDir = mkdtempSync(join(tmpdir(), 'fix-'))
   writeFileSync(
@@ -540,7 +546,8 @@ describe('Stop, while Jev checks a reply', () => {
     const rule = '- Try to keep each answer reasonably brief. Long answers go unread.'
     world.jev = { kept: [], holds: 0.9 }
     world.jevHolds = 1
-    world.replies.push(JSON.stringify({ revision: rule }))
+    // A revision in other words: one that is the rule again reads as Jev read the rule, and asks nothing.
+    world.replies.push(JSON.stringify({ revision: rule.replace('brief', 'short') }))
     const { run } = await startRefine({
       selection: rule,
       before: '',
