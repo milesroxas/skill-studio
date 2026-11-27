@@ -87,7 +87,7 @@ That run graded again since, from the answers it kept, says `grading asked no mo
 
 ### Short output
 
-`--brief` on `report`, `compare` and `run` prints what an agent in a chat needs in place of the report: each case, by its id and its name and in the order `cases` lists them, with what became of an attempt not read whole or how many of its rules and checks were not sure, then the words of each rule or check an output of it missed, one line each.
+`--brief` on `report`, `compare` and `run` prints what an agent in a chat needs in place of the report: the run it read, each case, by its id and its name and in the order `cases` lists them, with what became of an attempt not read whole or how many of its rules and checks were not sure, then the words of each rule or check an output of it missed, one line each, and last what the run spent ([above](#what-a-run-spent)). Here `report --brief` on a stored run, a few of its cases left out:
 
 ```
 Run: 2026-11-20-skill-v1-claude-haiku (v1 · Second draft)
@@ -95,6 +95,7 @@ Run: 2026-11-20-skill-v1-claude-haiku (v1 · Second draft)
 [email-quote] Launch email, a quote that gives orders: 1 of 15 rules and checks not sure
   missed: Quote the customer in the brief's Quote word for word, with their name. A paraphrase puts words in their mouth.
 [page-basic] Launch page: nothing missed
+Spent: 6 attempts, 111 s between them, 592,830 tokens in, 23,760 out, $0.0374; grading cost not kept
 ```
 
 - Every case the run took is printed, and every case it has a grading of.

@@ -65,8 +65,9 @@ export const compare: Command = {
   name: 'compare',
   help: [
     '  compare <runA> <runB>       Score deltas between two graded runs.',
-    '    --brief                   Print only each case, the run that did better on its checks,',
-    '                              and the rules and checks each run missed.',
+    '    --brief                   Print only the two runs, each case with the run that did better',
+    '                              on its checks, what each missed and how many of its rules and',
+    '                              checks were not sure, and what each run spent.',
   ],
   flags,
   agents: false,

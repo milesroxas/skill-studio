@@ -61,7 +61,8 @@ export const report: Command = {
   name: 'report',
   help: [
     "  report                      Print a run's report and what it spent: --run <name>.",
-    '    --brief                   Print only each case and the rules and checks it missed.',
+    '    --brief                   Print only the run, each case with what it missed and how many',
+    '                              of its rules and checks were not sure, and what the run spent.',
   ],
   flags,
   agents: false,

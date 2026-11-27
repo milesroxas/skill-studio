@@ -1401,3 +1401,24 @@ describe('what a run spent', () => {
     ])
   })
 })
+
+describe('the examples of --brief in docs/cli.md', () => {
+  /** The first code block under a heading of docs/cli.md, line by line. */
+  const exampleUnder = (heading: string): string[] => {
+    const doc = readFileSync(resolve('docs/cli.md'), 'utf8')
+    const section = doc.slice(doc.indexOf(`\n${heading}\n`))
+    return /```\n([\s\S]*?)\n```/.exec(section)?.[1].split('\n') ?? []
+  }
+
+  it('are what report --brief prints on the stored run they name, from its first line to its last', async () => {
+    const skill = copyOf('launch-note')
+    const run = '2026-11-20-skill-v1-claude-haiku'
+    const printed = (await printedBy(report, [skill], { run, brief: true })).text.split('\n')
+    const brief = exampleUnder('### Short output')
+    expect(brief[0]).toBe(`Run: ${run} (v1 · Second draft)`)
+    // A few cases are left out of it, and every line it holds is one the command prints.
+    expect([brief[0], brief.at(-1)]).toEqual([printed[0], printed.at(-1)])
+    for (const line of brief) expect(printed).toContain(line)
+    expect(exampleUnder('### What a run spent')).toEqual([printed.at(-1)])
+  })
+})
