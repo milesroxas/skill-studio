@@ -36,7 +36,22 @@ import {
   partialText,
 } from '@domain/assist.ts'
 import type { SlashCommand } from '@domain/commands.ts'
-import { FIX_SCHEMA, fixDraftOf, fixPrompt, fixText, ruleSource, sheetFiles } from '@domain/fix.ts'
+import {
+  FIX_AGAIN_SCHEMA,
+  FIX_SCHEMA,
+  type FixCheck,
+  type FixDraft,
+  type FixSheet,
+  faultsOf,
+  fixDraftOf,
+  fixPrompt,
+  fixRevisionOf,
+  fixScene,
+  fixText,
+  ruleSource,
+  sheetFiles,
+  unchanged,
+} from '@domain/fix.ts'
 import type { ImageRef } from '@domain/image.ts'
 import {
   type AnswerReading,
@@ -44,6 +59,7 @@ import {
   currentStep,
   drafting,
   draftOf,
+  dropsFact,
   firstAsk,
   type ImproveStep,
   type ImproveThread,
@@ -73,6 +89,7 @@ import {
   walkAfter,
 } from '@domain/improve.ts'
 import { type Finding, lintScene, type RuleScene } from '@domain/lint.ts'
+import { isMissed, type Verdict } from '@domain/pack.ts'
 import { aiChoiceOf } from '@domain/preferences.ts'
 import {
   type AiMessage,
@@ -85,8 +102,10 @@ import { answerText } from '@infrastructure/answer-files.ts'
 import { loadCases } from '@infrastructure/cases.ts'
 import { findImage, type StoredImage } from '@infrastructure/images.ts'
 import { readPreferences } from '@infrastructure/preferences.ts'
+import { readRun } from '@infrastructure/runs.ts'
 import { isAuthError, Jev } from '@judges/jev.ts'
 import { judgeAnswer, judgeDraft, judgeRule, verifyRewrites } from '@judges/rule/index.ts'
+import { correctionsOf, runVerdicts } from './grade.ts'
 
 /** A growing reply is reported at most this often: smooth to read, light to send. */
 const REPORT_MS = 40
@@ -210,9 +229,10 @@ interface Work {
   preview: (raw: string) => string
   /**
    * The run's text from the finished reply. Throws when the reply does not
-   * hold up. `again` asks the same model once more, as part of this run.
+   * hold up. `again` asks the same model once more, as part of this run, and
+   * `signal` is the run's: Jev's checks of the reply take it, so Stop ends them.
    */
-  finish: (raw: string, again: Again) => string | Promise<string>
+  finish: (raw: string, again: Again, signal: AbortSignal) => string | Promise<string>
   /** Called once, when the run has ended for any reason, and before the end is reported. */
   ended?: (run: AiRun) => void | Promise<void>
 }
@@ -238,6 +258,8 @@ function start(work: Work): AiRun {
   const provider = aiProvider(choice.provider)
   const begun = Date.now()
   const again: Again = async (system, user, schema) => {
+    // Stopped while the first reply was checked: no more is asked.
+    if (controller.signal.aborted) throw new Error('The reply was stopped.')
     const reply = await provider.run({
       operation: work.kind,
       model: choice.model,
@@ -275,7 +297,7 @@ function start(work: Work): AiRun {
     .then(async (reply) => {
       if (controller.signal.aborted) return
       run.usage = reply.usage
-      const text = await work.finish(reply.text, again)
+      const text = await work.finish(reply.text, again, controller.signal)
       // Stopped while its reply was checked: nobody is waiting for it.
       if (controller.signal.aborted) return
       run.text = text
@@ -470,11 +492,16 @@ async function assess(scene: RuleScene, jev: Jev): Promise<Assessment> {
  * selection and the rewrite is still one rule. A Jev that cannot be reached
  * leaves code's reading standing.
  */
-async function stillOpen(scene: RuleScene, text: string, jev: Jev | null): Promise<Finding[]> {
+async function stillOpen(
+  scene: RuleScene,
+  text: string,
+  jev: Jev | null,
+  signal: AbortSignal,
+): Promise<Finding[]> {
   let judgment: RuleJudgment | null = null
   if (jev && oneRule(text))
     try {
-      judgment = await judgeDraft(jev, scene, text)
+      judgment = await judgeDraft(jev, scene, text, signal)
     } catch (error) {
       console.warn(`Jev could not read the rewrite: ${(error as Error).message}`)
     }
@@ -524,12 +551,12 @@ export async function startRefine(scene: RuleScene): Promise<RefineResult> {
     messages: [{ role: 'user', text: user }],
     schema: REFINE_SCHEMA,
     preview: (raw) => partialText(raw, 'revision'),
-    finish: async (raw, again) => {
+    finish: async (raw, again, signal) => {
       let text = keepListMark(scene.selection, refineText(raw))
-      let open = await stillOpen(scene, text, reader)
+      let open = await stillOpen(scene, text, reader, signal)
       const second = open.length ? await oneMoreTry(scene, text, open, again) : null
       if (second) {
-        const left = await stillOpen(scene, second, reader)
+        const left = await stillOpen(scene, second, reader, signal)
         if (left.length < open.length) {
           text = second
           open = left
@@ -550,24 +577,125 @@ export interface FixRequest {
 }
 
 /**
- * Fix with AI: one reply, from a short sheet of what the answer wrote, that
- * says what broke the rule and gives the rule's new text. The finished run's
- * text is the `FixDraft` as JSON. Throws before anything is spent when the
- * rule is no longer in SKILL.md as the run read it.
+ * The rule's verdict on the attempt, as Results shows it: under `bench.json`
+ * as it is now, with the reader's corrections. Null when the run's grading
+ * holds none, or cannot be read: the sheet then says no verdict was kept.
+ */
+function ruleVerdict(request: FixRequest): Verdict | null {
+  try {
+    const view = readRun(request.skillDir, request.run)
+    if (!view.report) return null
+    const verdicts = runVerdicts(
+      request.skillDir,
+      view.report,
+      view.cases,
+      correctionsOf(request.skillDir, request.run),
+    )
+    const mine = Object.hasOwn(verdicts, request.sample) ? verdicts[request.sample] : []
+    return mine.find((v) => v.kind === 'rule' && v.text === request.rule) ?? null
+  } catch (error) {
+    console.warn(`The rule's verdict could not be read: ${(error as Error).message}`)
+    return null
+  }
+}
+
+/**
+ * What the checks find in a revision: code always, and Jev, when it has a key,
+ * on whether it still asks what the rule asks and, while it is one rule, on
+ * the revision read as one, in one request. A Jev that cannot be reached
+ * leaves code's reading standing, and the check says Jev did not read it.
+ */
+async function checkFix(
+  scene: RuleScene,
+  revision: string,
+  jev: Jev | null,
+  signal: AbortSignal,
+): Promise<FixCheck> {
+  const read = await readRewrites(jev, scene, { practice: revision }, signal)
+  return {
+    open: openIn(revision, read?.judgment ?? null),
+    dropped: dropsFact({ kept: read?.kept.practice ?? null, open: [] }),
+    judged: read !== null,
+  }
+}
+
+/**
+ * One more try at a revision the checks sent back: the model is shown what
+ * broke the rule, its revision and what the checks found. Null when the try
+ * fails or puts the rule back as it was, so the first revision stands.
+ */
+async function fixOnceMore(
+  sheet: FixSheet,
+  draft: FixDraft,
+  check: FixCheck,
+  again: Again,
+): Promise<string | null> {
+  const { system, user } = fixPrompt(sheet, { draft, check })
+  try {
+    const revision = fixRevisionOf(await again(system, user, FIX_AGAIN_SCHEMA), sheet.rule)
+    return unchanged(sheet.rule, { why: draft.why, revision }) ? null : revision
+  } catch (error) {
+    console.warn(`The fix could not be tried again: ${(error as Error).message}`)
+    return null
+  }
+}
+
+/**
+ * The draft a fix's reply ends on. A revision is held to the checks before it
+ * is shown, as Auto refine's is: one they find anything in is sent back once,
+ * and the second is kept when they find less in it. A second Jev could not
+ * read is never kept over a first it read: it would win only for being read
+ * less. A rule that comes back unchanged is no revision, so nothing checks it.
+ */
+async function checkedFix(
+  sheet: FixSheet,
+  scene: RuleScene,
+  jev: Jev | null,
+  raw: string,
+  again: Again,
+  signal: AbortSignal,
+): Promise<FixDraft> {
+  const draft = fixDraftOf(raw, sheet.rule)
+  if (unchanged(sheet.rule, draft)) return draft
+  const check = await checkFix(scene, draft.revision, jev, signal)
+  if (!faultsOf(check)) return draft
+  const second = await fixOnceMore(sheet, draft, check, again)
+  if (!second) return draft
+  const left = await checkFix(scene, second, jev, signal)
+  if (check.judged && !left.judged) return draft
+  return faultsOf(left) < faultsOf(check) ? { ...draft, revision: second } : draft
+}
+
+/**
+ * Fix with AI: one reply, from a short sheet of the rule's verdict and what
+ * the answer wrote, that says what broke the rule and gives the rule's new
+ * text, checked before it is shown (`checkedFix`). The finished run's text
+ * is the `FixDraft` as JSON. Throws before anything is spent when the rule
+ * is no longer in SKILL.md as the run read it.
  */
 export async function startFix(request: FixRequest): Promise<AiRun> {
   const choice = await currentChoice()
   const skillMd = readFileSync(join(request.skillDir, 'SKILL.md'), 'utf8')
   const rule = ruleSource(skillMd, request.rule)
   if (!rule) throw new Error('This rule has changed since the run. Open it to edit it yourself.')
+  const verdict = ruleVerdict(request)
+  // Met, or set aside, as the grading stands now: the person may have changed their answer since.
+  if (verdict && !isMissed(verdict))
+    throw new Error(
+      'This answer no longer counts as breaking this rule, so there is nothing to fix.',
+    )
   const answer = answerText(request.skillDir, request.run, request.sample)
   const testCase = loadCases(request.skillDir).find((c) => c.id === answer.caseId)
-  const { system, user } = fixPrompt({
+  const sheet: FixSheet = {
     rule,
     // As the agent got it, with what the app adds to every request: a rule can clash with that too.
     request: answer.request ?? testCase?.prompt ?? '',
+    verdict,
     answer: sheetFiles(answer.files),
-  })
+  }
+  const { system, user } = fixPrompt(sheet)
+  const scene = fixScene(skillMd, rule)
+  const jev = Jev.available() ? new Jev(undefined, 'fix') : null
   return start({
     kind: 'fix',
     choice,
@@ -575,7 +703,8 @@ export async function startFix(request: FixRequest): Promise<AiRun> {
     messages: [{ role: 'user', text: user }],
     schema: FIX_SCHEMA,
     preview: (raw) => partialText(raw, 'why'),
-    finish: (raw) => fixText(fixDraftOf(raw, rule)),
+    finish: async (raw, again, signal) =>
+      fixText(await checkedFix(sheet, scene, jev, raw, again, signal)),
   })
 }
 
@@ -584,11 +713,12 @@ async function readRewrites(
   jev: Jev | null,
   scene: RuleScene,
   rewrites: Rewrites,
+  signal: AbortSignal,
 ): Promise<{ kept: Partial<Record<RewriteKind, number>>; judgment: RuleJudgment | null } | null> {
   if (!jev) return null
   try {
     const read = rewrites.practice !== undefined && oneRule(rewrites.practice) ? 'practice' : null
-    return await verifyRewrites(jev, scene, rewrites, read)
+    return await verifyRewrites(jev, scene, rewrites, read, signal)
   } catch (error) {
     // The rewrites stand unverified, as they would without a key.
     console.warn(`Jev could not check the rewrites: ${(error as Error).message}`)
@@ -616,10 +746,10 @@ export async function startRewrites(scene: RuleScene): Promise<AiRun> {
     messages: [{ role: 'user', text: user }],
     schema: rewritesSchema(kinds),
     preview: () => '',
-    finish: async (raw, again) => {
+    finish: async (raw, again, signal) => {
       const rewrites = rewritesOf(raw, kinds)
       for (const kind of kinds) rewrites[kind] = keepListMark(scene.selection, rewrites[kind] ?? '')
-      const read = await readRewrites(reader, scene, rewrites)
+      const read = await readRewrites(reader, scene, rewrites, signal)
       const verdicts: RewritesResult['verdicts'] = Object.fromEntries(
         kinds.map((kind) => [kind, { ...noVerdict(), kept: read?.kept[kind] ?? null }]),
       )
@@ -629,7 +759,7 @@ export async function startRewrites(scene: RuleScene): Promise<AiRun> {
       let kept = read?.kept.practice ?? null
       const second = open.length ? await oneMoreTry(scene, practice, open, again) : null
       if (second) {
-        const reread = await readRewrites(reader, scene, { practice: second })
+        const reread = await readRewrites(reader, scene, { practice: second }, signal)
         const left = openIn(second, reread?.judgment ?? null)
         if (left.length < open.length) {
           rewrites.practice = second

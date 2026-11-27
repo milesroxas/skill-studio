@@ -99,9 +99,13 @@ const judgmentOf = (answers: Readonly<Record<string, unknown>>, prefix: string):
   return judgment
 }
 
-/** Jev's reading of the selected rule in its place. */
-export async function judgeRule(jev: Jev, scene: RuleScene): Promise<RuleJudgment> {
-  const answers = await jev.ask(stateOf(scene), ruleQuestions('rule', 'rule'))
+/** Jev's reading of the selected rule in its place. `signal` ends the request when the reply it checks is stopped. */
+export async function judgeRule(
+  jev: Jev,
+  scene: RuleScene,
+  signal?: AbortSignal,
+): Promise<RuleJudgment> {
+  const answers = await jev.ask(stateOf(scene), ruleQuestions('rule', 'rule'), signal)
   return judgmentOf(answers, 'rule')
 }
 
@@ -124,22 +128,28 @@ const keptQuestion = (field: string) =>
  * Whether each rewrite kept the selection's facts, and, with `read`, Jev's
  * reading of that one rewrite as a rule: one request for all of it. `read`
  * names a rewrite that is still one rule, since the questions are about one.
+ * `signal` ends the request when the reply it checks is stopped.
  */
 export async function verifyRewrites(
   jev: Jev,
   scene: RuleScene,
   rewrites: Rewrites,
   read: RewriteKind | null,
+  signal?: AbortSignal,
 ): Promise<{ kept: Partial<Record<RewriteKind, number>>; judgment: RuleJudgment | null }> {
   const kinds = Object.keys(rewrites) as RewriteKind[]
   const state = {
     ...stateOf(scene),
     ...Object.fromEntries(kinds.map((kind) => [`rewrite_${kind}`, rewrites[kind]])),
   }
-  const answers = await jev.ask(state, {
-    ...Object.fromEntries(kinds.map((kind) => [`kept_${kind}`, keptQuestion(`rewrite_${kind}`)])),
-    ...(read ? ruleQuestions(`rewrite_${read}`, 'read') : {}),
-  })
+  const answers = await jev.ask(
+    state,
+    {
+      ...Object.fromEntries(kinds.map((kind) => [`kept_${kind}`, keptQuestion(`rewrite_${kind}`)])),
+      ...(read ? ruleQuestions(`rewrite_${read}`, 'read') : {}),
+    },
+    signal,
+  )
   return {
     kept: Object.fromEntries(kinds.map((kind) => [kind, noulOf(answers, `kept_${kind}`)])),
     judgment: read ? judgmentOf(answers, 'read') : null,
@@ -173,5 +183,9 @@ export async function judgeAnswer(
 }
 
 /** Jev's reading of a draft, in the selection's place. */
-export const judgeDraft = (jev: Jev, scene: RuleScene, draft: string): Promise<RuleJudgment> =>
-  judgeRule(jev, { ...scene, selection: draft })
+export const judgeDraft = (
+  jev: Jev,
+  scene: RuleScene,
+  draft: string,
+  signal?: AbortSignal,
+): Promise<RuleJudgment> => judgeRule(jev, { ...scene, selection: draft }, signal)

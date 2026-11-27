@@ -152,7 +152,8 @@ function sceneText(scene: RuleScene): string {
     .join('\n\n')
 }
 
-const findingsText = (findings: Finding[]): string =>
+/** Findings as a brief lists them, one to a line. */
+export const findingsText = (findings: Finding[]): string =>
   findings.map((f) => `- ${f.lead} ${f.message}${f.quote ? ` (“${f.quote}”)` : ''}`).join('\n')
 
 /** How a rule is written here: the shape and the six principles, for any brief that writes one. */

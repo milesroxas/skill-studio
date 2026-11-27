@@ -128,6 +128,7 @@ describe('fixPrompt', () => {
     const { system, user } = fixPrompt({
       rule: source,
       request: 'Write the launch note for Shelf.',
+      verdict: null,
       answer: [{ path: 'outputs/output.md', text: 'Shelf is here.', cut: true }],
     })
     expect(system).toContain('return the rule unchanged')
@@ -141,7 +142,7 @@ describe('fixPrompt', () => {
   it('says so when the answer wrote nothing to read', () => {
     const source = ruleSource(SKILL, ruleText(0))
     if (!source) throw new Error('no rule')
-    const { user } = fixPrompt({ rule: source, request: 'Write it.', answer: [] })
+    const { user } = fixPrompt({ rule: source, request: 'Write it.', verdict: null, answer: [] })
     expect(user).toContain('The answer wrote no file that can be read as text.')
   })
 })
