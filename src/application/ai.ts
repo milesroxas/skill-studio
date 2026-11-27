@@ -71,6 +71,7 @@ import {
   fixRevisionOf,
   fixScene,
   fixText,
+  NOTHING_TO_FIX,
   ruleSource,
   sheetFiles,
   unchanged,
@@ -946,10 +947,7 @@ export async function startFix(request: FixRequest): Promise<AiRun> {
   if (!rule) throw new Error('This rule has changed since the run. Open it to edit it yourself.')
   const verdict = ruleVerdict(request)
   // Met, or set aside, as the grading stands now: the person may have changed their answer since.
-  if (verdict && !isMissed(verdict))
-    throw new Error(
-      'This answer no longer counts as breaking this rule, so there is nothing to fix.',
-    )
+  if (verdict && !isMissed(verdict)) throw new Error(NOTHING_TO_FIX)
   const answer = answerText(request.skillDir, request.run, request.sample)
   const testCase = loadCases(request.skillDir).find((c) => c.id === answer.caseId)
   const sheet: FixSheet = {

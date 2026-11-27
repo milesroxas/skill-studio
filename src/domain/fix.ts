@@ -22,6 +22,13 @@ import { metaText, normalizeNewlines, readFrontMatter } from './text.ts'
 
 /** The answer's files the sheet holds, all together: about 6,000 tokens. */
 export const ANSWER_BUDGET = 24_000
+
+/**
+ * What a fix is refused with when the answer, as its grading stands now, follows the rule or the
+ * rule is set aside. Nothing went wrong, so the popover says it plainly and offers only Close.
+ */
+export const NOTHING_TO_FIX =
+  'This answer no longer counts as breaking this rule, so there is nothing to fix.'
 /** No one file takes more than this, so a long page leaves room for the files beside it. */
 const FILE_MAX = 16_000
 /** The request's own share: one that carries a project's files is cut, not left out. */
