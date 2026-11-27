@@ -1,3 +1,4 @@
+import { currentStep } from '@domain/improve.ts'
 import type { RuleScene } from '@domain/lint.ts'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -5,8 +6,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 const world = vi.hoisted(() => ({
   replies: 0,
   readings: [] as Array<{ selection: string; answer: (ok: boolean) => void }>,
-  /** How Jev's reading of the writer's answer to a question goes. */
-  answerReading: 'read' as 'read' | 'fails' | 'refused',
+  /** How Jev's reading of the writer's answer to a question goes: `missed` reads it as no answer. */
+  answerReading: 'read' as 'read' | 'missed' | 'fails' | 'refused',
 }))
 
 vi.mock('@infrastructure/ai/index.ts', () => ({
@@ -60,6 +61,7 @@ vi.mock('@judges/rule/index.ts', () => ({
     }),
   judgeAnswer: async () => {
     if (world.answerReading === 'read') return { answered: 1, cut: null }
+    if (world.answerReading === 'missed') return { answered: 0, cut: 0 }
     throw new Error(world.answerReading === 'refused' ? 'refused' : 'no network')
   },
   judgeDraft: async () => null,
@@ -160,6 +162,35 @@ describe('sendImprove', () => {
     expect(thread.steps.length).toBeGreaterThan(0)
     await settle()
   }
+
+  it('puts a question as written the first time, and asks the model only to put it again', async () => {
+    await walking('- Keep every note brief.')
+    // The first question is the app's own: no reply is paid for.
+    const first = improveThread()
+    const earns = first && currentStep(first)
+    expect(earns?.id).toBe('earns')
+    expect(first?.messages.map((m) => [m.role, m.text])).toEqual([
+      ['user', 'Ask me a few questions'],
+      ['assistant', earns?.ask],
+    ])
+    expect(first?.run).toBeNull()
+    expect(world.replies).toBe(0)
+    // Jev reads no answer in the reply: the question is put again, by the model, which says what was missing.
+    world.answerReading = 'missed'
+    const again = await sendImprove('Not sure yet.')
+    expect(again.at).toBe(0)
+    expect(again.asks).toBe(1)
+    expect(again.run?.status).toBe('running')
+    expect(world.replies).toBe(1)
+    await settle()
+    // Answered: the next step's question is the app's own again.
+    world.answerReading = 'read'
+    const next = await sendImprove('It keeps each note to two sentences.')
+    expect(next.at).toBe(1)
+    expect(next.messages.at(-1)).toMatchObject({ role: 'assistant', text: currentStep(next)?.ask })
+    expect(next.run).toBeNull()
+    expect(world.replies).toBe(1)
+  })
 
   it('says on the thread when Jev could not read an answer, and moves on', async () => {
     await walking('- Keep every reply short.')

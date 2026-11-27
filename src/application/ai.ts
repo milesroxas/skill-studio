@@ -44,6 +44,7 @@ import {
   currentStep,
   drafting,
   draftOf,
+  firstAsk,
   type ImproveStep,
   type ImproveThread,
   improveSystem,
@@ -654,7 +655,7 @@ const snapshot = (thread: ImproveThread): ImproveThread => ({
 
 export const improveThread = (): ImproveThread | null => (improve ? snapshot(improve) : null)
 
-/** The next reply of the improve conversation: a question, or the draft. */
+/** The model's next reply in the improve conversation: a question put again, or the draft. */
 async function improveReply(thread: ImproveThread): Promise<void> {
   const choice = await currentChoice()
   thread.run = start({
@@ -771,7 +772,8 @@ export interface ImproveSend {
  * the judge says whether a reply answered the question in hand, so an
  * unanswered one is put once more and an answered one moves on; on the first
  * question, a reply that says the line does nothing sends the walk straight to
- * a draft that deletes it.
+ * a draft that deletes it. A question put for the first time is code's, as
+ * `IMPROVE_STEPS` writes it; the model writes one put again, and the draft.
  */
 export const sendImprove = (text: string, how: ImproveSend = {}): Promise<ImproveThread> =>
   once('improve', () => sendImproveNow(text, how))
@@ -819,6 +821,13 @@ async function sendImproveNow(text: string, how: ImproveSend): Promise<ImproveTh
   }
   // Another rule was picked, or the conversation closed, while the answer was read: no reply is paid for.
   if (improve !== thread) return gone(ticket)
+  // A question put for the first time is put as written, and no reply is paid for either.
+  const question = firstAsk(thread)
+  if (question !== null) {
+    thread.run = null
+    thread.messages = [...thread.messages, message(thread.messages, 'assistant', question)]
+    return snapshot(thread)
+  }
   await improveReply(thread)
   if (improve !== thread) {
     stopReply(thread)

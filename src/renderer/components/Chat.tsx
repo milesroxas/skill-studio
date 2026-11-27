@@ -11,7 +11,7 @@
 import type { AiRun, ChatMessage } from '@domain/ai.ts'
 import { cva } from 'class-variance-authority'
 import { SquarePenIcon } from 'lucide-react'
-import { type ReactNode, useEffect, useMemo, useState } from 'react'
+import { Fragment, type ReactNode, useEffect, useMemo, useState } from 'react'
 import {
   clearChat,
   loadAi,
@@ -29,7 +29,7 @@ import type { Ctx } from '../ctx.ts'
 import { navigate } from '../history.ts'
 import { useAttached } from '../images.ts'
 import { duration } from '../model.ts'
-import { useRested } from '../motion.ts'
+import { useHeardWhole, useRested } from '../motion.ts'
 import { openAt } from '../route.ts'
 import { type ChangeHost, Reply } from './Change.tsx'
 import { Composer } from './Composer.tsx'
@@ -288,51 +288,74 @@ export function Conversation({
     id: number | null,
   ) => ReactNode
 }) {
+  const writing = run?.status === 'running' ? run : null
+  const drawn = writing !== null || (waiting && !error)
+  // A reply that arrives whole is heard as it takes the wait's element; one heard as it was written is not heard again.
+  const whole = useHeardWhole(
+    messages.map((m) => m.role),
+    { drawn, writing: Boolean(writing?.text) },
+  )
   return (
     <ol className="m-0 flex flex-col gap-4 px-4 py-4">
-      {messages.map((message, i) =>
-        message.role === 'user' ? (
-          // By place, not id: a message shown while it is sent keeps its element once it has an id.
-          // biome-ignore lint/suspicious/noArrayIndexKey: a conversation only grows at its end
-          <li key={i} className={sentVariants({ arrived: i >= rested })}>
-            {message.images?.length ? (
-              <PictureStrip
-                size="md"
-                label="Pictures with this message"
-                className="justify-end"
-                images={message.images}
-              />
-            ) : null}
-            {message.text ? (
-              <p className="m-0 max-w-full rounded-md bg-secondary px-3 py-2 text-sm break-words whitespace-pre-wrap">
-                {message.text}
-              </p>
-            ) : null}
-          </li>
-        ) : (
-          // biome-ignore lint/suspicious/noArrayIndexKey: as above
-          <li key={i} className="flex flex-col gap-1">
-            {message.thinking ? (
-              <Thought text={message.thinking} ms={message.thinkingMs ?? null} thinking={false} />
-            ) : null}
-            {reply(message.text, message.skill, false, message.id)}
-          </li>
+      {[
+        ...messages.map((message, i) =>
+          message.role === 'user' ? (
+            // By place, not id: a message shown while it is sent keeps its element once it has an id.
+            // biome-ignore lint/suspicious/noArrayIndexKey: a conversation only grows at its end
+            <li key={i} className={sentVariants({ arrived: i >= rested })}>
+              {message.images?.length ? (
+                <PictureStrip
+                  size="md"
+                  label="Pictures with this message"
+                  className="justify-end"
+                  images={message.images}
+                />
+              ) : null}
+              {message.text ? (
+                <p className="m-0 max-w-full rounded-md bg-secondary px-3 py-2 text-sm break-words whitespace-pre-wrap">
+                  {message.text}
+                </p>
+              ) : null}
+            </li>
+          ) : (
+            <li
+              // biome-ignore lint/suspicious/noArrayIndexKey: as above
+              key={i}
+              aria-live={i === whole ? 'polite' : undefined}
+              className="flex flex-col gap-1"
+            >
+              {/* What a reply holds mounts afresh when it joins, as it did in an element of its own. */}
+              <Fragment key="message">
+                {message.thinking ? (
+                  <Thought
+                    text={message.thinking}
+                    ms={message.thinkingMs ?? null}
+                    thinking={false}
+                  />
+                ) : null}
+                {reply(message.text, message.skill, false, message.id)}
+              </Fragment>
+            </li>
+          ),
         ),
-      )}
-      {run?.status === 'running' || (waiting && !error) ? (
-        <li aria-live="polite" className="flex flex-col gap-1">
-          {run?.status === 'running' && run.thinking ? (
-            <Thought text={run.thinking} ms={run.thinkingMs} thinking={!run.text} />
-          ) : null}
-          {run?.status === 'running' && run.text ? (
-            reply(run.text, undefined, true, null)
-          ) : run?.status === 'running' && run.thinking ? null : (
-            <Text tone="muted">
-              <Working>Thinking…</Working>
-            </Text>
-          )}
-        </li>
-      ) : null}
+        // At the place the reply will take, so a reply that arrives whole takes this element over.
+        drawn ? (
+          <li key={messages.length} aria-live="polite" className="flex flex-col gap-1">
+            <Fragment key="writing">
+              {writing?.thinking ? (
+                <Thought text={writing.thinking} ms={writing.thinkingMs} thinking={!writing.text} />
+              ) : null}
+              {writing?.text ? (
+                reply(writing.text, undefined, true, null)
+              ) : writing?.thinking ? null : (
+                <Text tone="muted">
+                  <Working>Thinking…</Working>
+                </Text>
+              )}
+            </Fragment>
+          </li>
+        ) : null,
+      ]}
       {error ? (
         <li>
           <Hint tone="destructive" role="alert">

@@ -445,14 +445,18 @@ export const dropsFact = (verdict: RewriteVerdict): boolean =>
   verdict.kept !== null && verdict.kept < DRIFTS
 
 /**
- * Help me improve walks these in this order. Each step is one question the
- * model asks in its own words, and one yes/no the judge answers about the
- * reply, so code decides when to move on. `when` says which steps are always
- * asked and which only when a finding stands on them.
+ * Help me improve walks these in this order. Each step is one question, put to
+ * the writer as written here the first time and by the model when it is put
+ * again, and one yes/no the judge answers about the reply, so code decides
+ * when to move on. `when` says which steps are always asked and which only
+ * when a finding stands on them.
  */
 export interface ImproveStep {
   id: Principle | 'complexity' | 'file'
-  /** The question, for the model to put to the writer in one or two sentences. */
+  /**
+   * The question as the writer reads it the first time it is put, so it is
+   * held to docs/design/copy.md. The model puts it again in its own words.
+   */
   ask: string
   /** The question the judge answers about the writer's reply: did it give what was asked? */
   answered: string
@@ -462,20 +466,20 @@ export interface ImproveStep {
 const IMPROVE_STEPS: readonly ImproveStep[] = [
   {
     id: 'earns',
-    ask: 'After reading this line, what does the agent do differently? If the honest answer is nothing, say so.',
+    ask: 'After reading this rule, what does the agent do differently? If the honest answer is nothing, say so.',
     answered: 'Does `answer` name something the agent does differently because of `rule`?',
     when: 'unless-holds',
   },
   {
     id: 'process',
-    ask: 'Is this a step the agent takes, or a quality you want the result to have? If a quality, what would the agent do to get it?',
+    ask: 'Is this rule a step the agent takes, or a quality you want the result to have? If it is a quality, what would the agent do to get it?',
     answered:
       'Does `answer` describe an action or decision the agent carries out, rather than a quality of the result?',
     when: 'unless-holds',
   },
   {
     id: 'complexity',
-    ask: 'This rule holds several conditions. Which one is decided first, and what follows from each answer?',
+    ask: 'This rule has several conditions. Which one comes first, and what follows from each outcome?',
     answered:
       'Does `answer` say which condition comes first, or lay out the conditions in an order?',
     when: 'flagged',
@@ -494,13 +498,13 @@ const IMPROVE_STEPS: readonly ImproveStep[] = [
   },
   {
     id: 'focused',
-    ask: 'Does this belong in this skill, or in another skill or a reference file? The description says what this skill is about.',
+    ask: 'Does this rule belong in this skill, or in another skill or a reference file? The description says what this skill is about.',
     answered: 'Does `answer` say where the rule belongs?',
     when: 'flagged',
   },
   {
     id: 'file',
-    ask: 'The file is long. What here can the agent already be assumed to know, so it can go?',
+    ask: 'The file is long. What in the selected text does the agent already know, so it can be cut?',
     answered: 'Does `answer` name something that can be cut, or say nothing can?',
     when: 'flagged',
   },
@@ -574,6 +578,16 @@ export const drafting = (thread: Pick<ImproveThread, 'steps' | 'at'>): boolean =
 /** The step in hand, null once the draft is due. */
 export const currentStep = (thread: Pick<ImproveThread, 'steps' | 'at'>): ImproveStep | null =>
   drafting(thread) ? null : stepById(thread.steps[thread.at])
+
+/**
+ * The question the walk puts next as written: the step in hand, the first time
+ * it is put, at no model call. Null when the model writes the next reply: a
+ * question put again, which says what the last answer lacked, or the draft.
+ */
+export function firstAsk(thread: Pick<ImproveThread, 'steps' | 'at' | 'asks'>): string | null {
+  const step = currentStep(thread)
+  return step && thread.asks === 0 ? step.ask : null
+}
 
 /** The judge's reading of a reply: whether it answered the step, and, on the first, whether it says the line does nothing. */
 export interface AnswerReading {
