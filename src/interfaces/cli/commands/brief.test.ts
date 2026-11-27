@@ -1126,6 +1126,54 @@ describe('what a run spent', () => {
     expect(await spentIn(skill, HAIKU_V1, { brief: true })).toMatch(/; grading, no model calls$/)
   })
 
+  it('reads a grading cost kept in another shape as not kept: never a crash, never a wrong number', async () => {
+    const skill = copyOf('launch-note')
+    const good = {
+      operation: 'grade',
+      provider: 'jev',
+      model: 'jev-1.14.0',
+      source: 'asked',
+      calls: 2,
+      input: 900,
+      output: 0,
+      seconds: 1,
+    }
+    const shapes: Stored[] = [
+      { whole: true },
+      5,
+      'x',
+      null,
+      { calls: [null], whole: true },
+      { calls: [good], whole: 'yes' },
+      { calls: [{ ...good, input: '900' }], whole: true },
+      { calls: [{ ...good, calls: -1 }], whole: true },
+      { calls: [{ ...good, calls: 1.5 }], whole: true },
+      { calls: [{ ...good, seconds: Number.NaN }], whole: true },
+      { calls: [{ ...good, source: 'guessed' }], whole: true },
+    ]
+    for (const shape of shapes) {
+      edited(skill, HAIKU_V1, 'report.json', (r) => {
+        r.gradingCost = shape
+      })
+      const line = await spentIn(skill, HAIKU_V1, { brief: true })
+      expect(line, JSON.stringify(shape)).toMatch(new RegExp(`; ${OLD}$`))
+      const json = JSON.parse(
+        (await printedBy(report, [skill], { run: HAIKU_V1, json: true })).text,
+      )
+      expect(json.spent.grading).toBeNull()
+      expect(json).not.toHaveProperty('gradingCost')
+      const two = await printedBy(compare, [skill, HAIKU_V0, HAIKU_V1], { brief: true })
+      expect(two.text).toMatch(new RegExp(`\\nB spent: .*; ${OLD}\\n`))
+    }
+    // The same in its shape is read and counted.
+    edited(skill, HAIKU_V1, 'report.json', (r) => {
+      r.gradingCost = { calls: [good], whole: true }
+    })
+    expect(await spentIn(skill, HAIKU_V1, { brief: true })).toMatch(
+      /; grading, 2 calls to Jev, 900 input tokens, 1 s$/,
+    )
+  })
+
   it('carries the totals in the JSON of report and compare, beside what was there', async () => {
     const skill = copyOf('launch-note')
     const one = JSON.parse((await printedBy(report, [skill], { run: HAIKU_V1, json: true })).text)

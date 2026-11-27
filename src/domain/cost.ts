@@ -65,6 +65,48 @@ export interface GradingCost {
   whole: boolean
 }
 
+/** A count as a file keeps one: a whole number, not below nought. */
+const isCount = (value: unknown): value is number =>
+  typeof value === 'number' && Number.isInteger(value) && value >= 0
+/** An amount as a file keeps one: a finite number, not below nought. */
+const isAmount = (value: unknown): value is number =>
+  typeof value === 'number' && Number.isFinite(value) && value >= 0
+
+/** One sum of calls as a file anyone may have written holds it; null for one in another shape. */
+function callTotalIn(raw: unknown): CallTotal | null {
+  if (!raw || typeof raw !== 'object') return null
+  const t = raw as Partial<Record<keyof CallTotal, unknown>>
+  const named = [t.operation, t.provider, t.model].every((v) => typeof v === 'string' && v)
+  const source = t.source === 'asked' || t.source === 'replayed'
+  if (!named || !source || ![t.calls, t.input, t.output].every(isCount) || !isAmount(t.seconds))
+    return null
+  const { operation, provider, model, calls, input, output, seconds } = t as CallTotal
+  return {
+    operation,
+    provider,
+    model,
+    source: t.source as CallTotal['source'],
+    calls,
+    input,
+    output,
+    seconds,
+  }
+}
+
+/**
+ * What the gradings of a run cost, as a file anyone may have written keeps
+ * it, checked whole: `calls` a list of sums of calls in their shape, counts
+ * whole and not below nought, and `whole` true or false. Null for anything
+ * else, which reads as a cost not kept: never a wrong number.
+ */
+export function gradingCostIn(raw: unknown): GradingCost | null {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null
+  const { calls, whole } = raw as Partial<Record<keyof GradingCost, unknown>>
+  if (!Array.isArray(calls) || typeof whole !== 'boolean') return null
+  const read = calls.map(callTotalIn)
+  return read.every((c) => c !== null) ? { calls: read as CallTotal[], whole } : null
+}
+
 /**
  * What one attempt's answer cost, as its `timing.json` keeps it: how long its
  * agent took, its tokens and its price, each null where it kept none. Input

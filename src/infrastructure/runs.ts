@@ -6,7 +6,7 @@
  */
 import { readFileSync, statSync } from 'node:fs'
 import { join } from 'node:path'
-import type { AnswerCost } from '@domain/cost.ts'
+import { type AnswerCost, gradingCostIn } from '@domain/cost.ts'
 import { OUTPUTS_DIR } from '@domain/prompt.ts'
 import { parseSampleDir } from '@domain/run-name.ts'
 import type {
@@ -296,6 +296,19 @@ export function readRunMeta(skillDir: string, name: string): RunMeta | null {
 }
 
 /**
+ * A report as every reader gets it: what its gradings cost (`gradingCost`)
+ * checked whole (`gradingCostIn`), and left out where it is in another shape,
+ * so it reads as a cost not kept. The report read is shared, so a checked one
+ * is a copy.
+ */
+function checkedReport(report: Report | null): Report | null {
+  if (!report || typeof report !== 'object' || !('gradingCost' in report)) return report
+  const { gradingCost, ...rest } = report
+  const checked = gradingCostIn(gradingCost)
+  return checked ? { ...rest, gradingCost: checked } : rest
+}
+
+/**
  * A run as every interface reads it. `live` is the skill's cases as they are
  * now, and `every` the checks for every case as they are now, each read once
  * for a list of runs.
@@ -316,7 +329,7 @@ export function readRun(
   return {
     name,
     meta,
-    report: readRunJson<Report | null>(join(dir, 'report.json'), null),
+    report: checkedReport(readRunJson<Report | null>(join(dir, 'report.json'), null)),
     samples: runSamples(dir),
     hasSkill: isDir(skillCopy(skillDir, name)),
     cases: runCases(skillDir, dir, live, kept, answered, every),

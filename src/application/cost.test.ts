@@ -587,6 +587,25 @@ describe('what a run spent', () => {
     expect(kept?.calls.map((c) => c.calls)).toEqual([jev.asked.length / 2])
   })
 
+  it('adds nothing of an earlier cost kept in another shape, and says the sum is not whole', async () => {
+    const { skill, run } = await noteRun()
+    await grade(skill, run)
+    const path = join(skill, 'evals/runs', run, 'report.json')
+    writeFileSync(
+      path,
+      JSON.stringify({
+        ...reportOf(skill, run),
+        gradingCost: { calls: [{ calls: '9' }], whole: true },
+      }),
+    )
+    rmSync(join(skill, 'evals/runs', run, 'judge-cache.json'))
+    await grade(skill, run)
+    expect(reportOf(skill, run).gradingCost).toMatchObject({
+      calls: [{ calls: jev.asked.length / 2 }],
+      whole: false,
+    })
+  })
+
   it('adds up each attempt’s answer from its timing.json, saying over how many each figure is', () => {
     const answer = (seconds: number, tokens: [number, number] | null, usd: number | null) => ({
       seconds,

@@ -21,6 +21,7 @@ import {
   type CallRecord,
   type CallTotal,
   type GradingCost,
+  gradingCostIn,
   sumCalls,
 } from '@domain/cost.ts'
 import { EXACT_VERSION } from '@domain/exact.ts'
@@ -1288,21 +1289,6 @@ async function gradeSubjects(
   return report
 }
 
-/** A sum of model calls as a report keeps it, where a hand-edited one may hold anything. */
-const isCallTotal = (total: unknown): total is CallTotal => {
-  const t = total as Partial<Record<keyof CallTotal, unknown>> | null
-  return (
-    typeof t === 'object' &&
-    t !== null &&
-    (['operation', 'provider', 'model', 'source'] as const).every(
-      (key) => typeof t[key] === 'string',
-    ) &&
-    (['calls', 'input', 'output', 'seconds'] as const).every(
-      (key) => typeof t[key] === 'number' && Number.isFinite(t[key]),
-    )
-  )
-}
-
 /**
  * What the gradings of the outputs in `dir` cost, this one's `calls` among
  * them. A grading again replaces the report, not what was spent: so the cost
@@ -1320,13 +1306,9 @@ function gradingCostOf(dir: string, calls: CallTotal[]): GradingCost {
   } catch {
     // A report that does not read keeps no cost that can be added.
   }
-  const kept = before?.gradingCost
-  if (!kept || !Array.isArray(kept.calls)) return { calls, whole: false }
-  const read = kept.calls.filter(isCallTotal)
-  return {
-    calls: addTotals(read, calls),
-    whole: kept.whole === true && read.length === kept.calls.length,
-  }
+  // Checked whole, as every reader of a report checks it: one in another shape was kept by no one.
+  const kept = gradingCostIn(before?.gradingCost)
+  return kept ? { calls: addTotals(kept.calls, calls), whole: kept.whole } : { calls, whole: false }
 }
 
 /**
