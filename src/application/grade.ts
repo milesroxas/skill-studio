@@ -17,7 +17,7 @@ import { type CaseEnds, type CaseResults, caseResults } from '@domain/case-resul
 import { type Answered, changeReading, comparableAnswers } from '@domain/change.ts'
 import { mergeConfig } from '@domain/config.ts'
 import { addTotals, type CallRecord, type GradingCost, sumCalls } from '@domain/cost.ts'
-import { EXACT_VERSION } from '@domain/exact.ts'
+import { EXACT_VERSION, type ExactSubject } from '@domain/exact.ts'
 import {
   fitForJev,
   imageTypeOf,
@@ -602,7 +602,7 @@ function wholeText(path: string): string | null {
  * its files, as `<folder>/<path>`.
  */
 function wholeFiles(
-  ctx: GradeContext,
+  ctx: InputContext,
   sample: Sample,
   testCase: Case | null,
   primary: Artifact | null,
@@ -1532,6 +1532,13 @@ export function gradingInput(
   sample: Sample,
   log: (line: string) => void = () => {},
 ): JudgeInput {
+  const ctx = runInputs(skillDir, run)
+  const taken = caseOf({ caseRef: parseSampleDir(sample.name)?.case ?? sample.name }, ctx)
+  return judgeInput(ctx, sample, taken?.case ?? null, log)
+}
+
+/** What a grading of `run` reads its outputs' inputs from: the skill the run kept, its cases, where it kept its input files. */
+function runInputs(skillDir: string, run: string): InputContext {
   const dir = runDir(skillDir, run)
   const config = benchFor(skillDir, {})
   const copy = skillCopy(skillDir, run)
@@ -1540,7 +1547,7 @@ export function gradingInput(
   const skillMd = skillText(ruled)
   const answered = readRunMeta(skillDir, run)?.cases
   const inputs = join(dir, INPUTS_DIR)
-  const ctx: InputContext = {
+  return {
     cases: loadCases(skillDir),
     every: loadEveryCase(skillDir),
     kept: readKept(dir, Array.isArray(answered) ? answered : []).kept,
@@ -1550,8 +1557,28 @@ export function gradingInput(
     inputs: isDir(inputs) ? inputs : null,
     judge: { skillDir },
   }
-  const taken = caseOf({ caseRef: parseSampleDir(sample.name)?.case ?? sample.name }, ctx)
-  return judgeInput(ctx, sample, taken?.case ?? null, log)
+}
+
+/**
+ * The graded outputs of `run` as code reads each (`ExactSubject`): the main
+ * file its grading named, the other text files the agent wrote, and the
+ * request with its files as the run kept them, whole. Nothing is drawn, so a
+ * page has no layout. Null for an output whose grading named no main file.
+ * What `st sort` holds a new exact reading to on the answers kept before it.
+ */
+export function storedSubjects(
+  skillDir: string,
+  run: string,
+): (result: Pick<ReportResult, 'case' | 'primary'>, sample: Sample) => ExactSubject | null {
+  const ctx = runInputs(skillDir, run)
+  return (result, sample) => {
+    const { primary } = result
+    if (!primary) return null
+    const caseRef = result.case ?? parseSampleDir(sample.name)?.case ?? sample.name
+    const taken = caseOf({ caseRef }, ctx)
+    const whole = wholeFiles(ctx, sample, taken?.case ?? null, primary)
+    return { ...whole, kind: primary.kind, layout: null }
+  }
 }
 
 /** Grade `evals/anchors/*.md` and write `evals/anchors/report.json`. */
