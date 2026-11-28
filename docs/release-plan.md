@@ -4,10 +4,10 @@ The plan for the next release: what is in it, what is still to do, and the check
 
 | | |
 | --- | --- |
-| Version | 0.20.3 |
-| Status | Released 2026-11-25 |
-| Previous release | [v0.20.2](https://github.com/milesroxas/skill-studio/releases/tag/v0.20.2), 2026-11-25 |
-| Target date | 2026-11-25 |
+| Version | 0.21.0 |
+| Status | Released 2026-11-27 |
+| Previous release | [v0.20.3](https://github.com/milesroxas/skill-studio/releases/tag/v0.20.3), 2026-11-25 |
+| Target date | 2026-11-27 |
 | Owner | Miles Roxas |
 
 The version follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html): a minor bump when the release adds a feature, a patch when it only fixes. Before 1.0, a change that breaks a skill or run file is a minor bump too.
@@ -21,14 +21,19 @@ The version follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html): 
 
 ## Shipped to main
 
-Everything merged since v0.20.2. A patch, at the writer's word: "add some improvements if you have any then cut a patch release".
+Everything merged since v0.20.3: the [agent loop plan](agent-loop-plan.md), which holds each item's numbers. A minor, since it adds commands. Released at the writer's word.
 
-- [x] Agent loop stage 1: a module per `st` command, `cost` on every model call with `--json`, and `ST_AI_RECORD` / `ST_AI_REPLAY` (92320da, PR #8). Taken in at the writer's word, since it landed on main before the tag.
-- [x] The Assistant's and Help me improve's empty conversation: left on the panel's 16px edge (`EmptyState align="start"`) and at the foot of the panel over the message box (`size="panel"`); the messages it offers are a `QuestionList` of `ghost-muted` `row`s in a `PlainList bleed`, muted until pointed at; a conversation started over comes up in turn (`arrive`); a centered empty state's words wrap balanced.
+- [x] Chain A, the `st` commands an agent drives the loop with: `st case add` and `case check`, `st run --from`, the Results address and `st open`, `--brief` and `--quiet`, the drawing host, `st sheet`, and the loop skill (aefd45e, PR #9).
+- [x] The acceptance run, and what it showed: run names, not-sure counts in `--brief`, and what a run spent (4816ae4 and 3d3baef, PRs #10 and #11).
+- [x] The baseline: `st sort`, `st propose` and `st read` measured live once, their replies kept and replayed in `pnpm check` (d5d4f8b, PR #12).
+- [x] Chain B: `st propose` asks Jev what a grading will ask, and `st read` asks Jev again before the assistant (aa3bd7d, PR #13).
+- [x] Chain E: Help me improve asks its own questions, Fix with AI starts from the verdict, Write with AI counts in code, the Assistant edits part of a file, and Jev's answers about a rule are kept (67766a9, PR #14).
+- [x] Chain C: `st sort` checks the assistant where both readings are exact (af6f1ea, PR #15).
+- [x] Chain D: reports name where code and a sure Jev disagree (059ff95, PR #16).
 
 ## Planned
 
-Nothing more for this patch.
+Nothing more for this release.
 
 ## Later
 
@@ -57,10 +62,10 @@ Checks that are not covered by `pnpm check`.
 The steps in [releasing.md](releasing.md), in order.
 
 1. [x] Every item under "Planned" is shipped or moved to "Later".
-2. [ ] Every item under "Before the release" is done. Not for 0.20.2: a patch at the writer's word; the unchecked items carry to the next release.
+2. [ ] Every item under "Before the release" is done. Not for 0.21.0: the unchecked items carry to the next release. The five assistant actions this release changes were looked at in the built app on 2026-11-27.
 3. [x] `pnpm check` and `pnpm build` pass on `main`, and main's own run passes on Windows, macOS and Linux before the tag.
-4. [x] The grading gate: nothing it covers changed since it ran on 2026-11-21. This change is motion in the app's look only.
-5. [ ] `gh workflow run release` builds every platform. Not run for 0.20.2; the tag's own run builds every platform.
-6. [x] In the changelog, add `## [0.20.2] - 2026-11-25` under a new `## [Unreleased]`, and commit.
-7. [x] `pnpm version patch -m "Release %s"`, then push `main` and the tag.
-8. [x] The release workflow publishes v0.20.2, with the changelog entry as its notes. The tag push started no run during a GitHub outage, so the run was started on the tag by hand.
+4. [x] The grading gate, run live on 2026-11-27: it passes, with 0 sure and wrong, and code's 191 exact answers all agree with the key.
+5. [ ] `gh workflow run release` builds every platform. Not run for 0.21.0; the tag's own run builds every platform.
+6. [x] In the changelog, add `## [0.21.0] - 2026-11-27` under a new `## [Unreleased]`, and commit.
+7. [x] `pnpm version minor -m "Release %s"`, then push `main` and the tag.
+8. [x] The release workflow publishes v0.21.0, with the changelog entry as its notes.

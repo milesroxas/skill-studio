@@ -446,7 +446,8 @@ export interface OpenServer {
     - No command added up a run's tokens and cost. `report`, `compare` and `run` end with `Spent: 6 attempts, 111 s between them, 592,830 tokens in, 23,760 out, $0.0374; grading cost not kept`, and `spent` with `--json`. A grading keeps its calls in the run's `grading-cost.json` as each is made, so one that is stopped or writes no report is still counted. A run graded before this says its grading cost was not kept, never a zero.
     - Still open, for Miles to weigh: Jev read only the start of each of React's two files, on every attempt, and nothing says whether that changes a grading.
     - Measured: 2,383 tests. The largest `--brief` case is held to 200 bytes in the code as well as the test; a head line to 30 bytes beyond its names and a Spent line to 100 beyond its figures.
-- [ ] **4.2 Release.** `pnpm reading-gate`, live, once ([releasing.md](releasing.md#check-grading-against-the-key)). `CHANGELOG.md` entry, docs checked against the code, release by [releasing.md](releasing.md).
+- [x] **4.2 Release.** `pnpm reading-gate`, live, once ([releasing.md](releasing.md#check-grading-against-the-key)). `CHANGELOG.md` entry, docs checked against the code, release by [releasing.md](releasing.md).
+  - Released as 0.21.0 on 2026-11-27. `pnpm reading-gate` ran live once and passes: 341 sure and right, 0 sure and wrong, 5 not sure, and code's 191 exact answers agree with the key on the stored outputs and on 1,173 changed to miss. It spent 1.1 minutes, 198,927 input tokens of the assistant's and 895 Jev questions.
 
 ## Habits for the agent
 

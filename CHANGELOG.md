@@ -6,6 +6,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [0.21.0] - 2026-11-27
+
 ### Added
 
 - On the command line, `st case add` writes a new case from flags, checked as the **Cases** screen checks one, and `st case check` lists each case and check file that will not load or is skipped, and each title two cases share.
@@ -36,7 +38,6 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - **Write with AI** keeps a skill's description to 50 words, and **Write checks with AI** leaves out any check your case has already or that it wrote twice, and says how many.
 - The **Assistant** changes part of a file by writing only the lines that change, so a one-line change to a long file comes in seconds where it took a minute. When those lines are not in the file as it is now, it writes the whole file in the same reply, and a change it still cannot make says why under it.
 - Auto refine, Suggest changes, Help me improve and Fix with AI keep Jev's answers about a rule, so a rule, rewrite or reply Jev has read is not asked about again, even after a restart.
-
 
 ### Fixed
 
