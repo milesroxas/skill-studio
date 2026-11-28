@@ -121,7 +121,9 @@ export function codeAnswerOf(answer: ExactAnswer & { tests?: ExactTest[] }): Cod
  * otherwise: their answer is met or missed, and it counts. A fact the
  * corrections leave out (`leavingOut`) is set aside whatever was answered. A
  * null `noul` is a fact Jev was asked of only part of what it needs: it stands
- * as not read, and the reader's own answer on it counts as on any other.
+ * as not read, and the reader's own answer on it counts as on any other. Where
+ * `noul` is no finite number, as in a grading that kept no probability for the
+ * fact, `jev` is null: Jev's answer is none.
  *
  * `code` is what code answered, for a fact read by code. Where code's answer
  * stands (`CodeAnswer.stands`) it is the fact's, in place of Jev's: met,
@@ -139,7 +141,15 @@ export function jevVerdict(
 ): JudgedVerdict {
   const id = fact.id ?? verdictId(fact.kind, fact.text)
   const own = readingOf(noul, cuts, applies)
-  const jev = own === 'met' ? true : own === 'missed' ? false : null
+  // Jev's own answer only where it gave a probability: a grading that kept none holds no answer of
+  // Jev's, whatever `own` reads it as. The reading itself is left as it is.
+  const jev = Number.isFinite(noul)
+    ? own === 'met'
+      ? true
+      : own === 'missed'
+        ? false
+        : null
+    : null
   const answer = code ? codeAnswerOf(code) : null
   const byCode = answer?.stands === true && own !== 'inapplicable'
   const reading: 'met' | 'missed' | Aside = !byCode

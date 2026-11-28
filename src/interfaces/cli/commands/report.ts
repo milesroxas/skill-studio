@@ -8,8 +8,10 @@ import { briefOrJson, printBrief } from './brief.ts'
 import type { Command, FlagValues } from './command.ts'
 import { shared } from './flags.ts'
 import {
+  disagreementsOf,
   oneRun,
   padEnd,
+  printDisagreements,
   printReport,
   runNamer,
   skillOf,
@@ -93,7 +95,12 @@ export const report: Command = {
       samples,
       corrections,
     })
-    if (values.json) console.log(JSON.stringify({ ...scored, run: named, spent }, null, 2))
+    // Where code's answer counts and Jev was sure of the other: where a code reading may be wrong.
+    const disputed = disagreementsOf(skill, name, view.report, context.scoring)
+    if (values.json)
+      console.log(
+        JSON.stringify({ ...scored, run: named, spent, disagreements: disputed }, null, 2),
+      )
     else {
       console.log(`Run: ${runShown(named)}`)
       printReport(scored)
@@ -109,6 +116,7 @@ export const report: Command = {
       )
       const fixed = Object.values(corrections).reduce((n, c) => n + Object.keys(c).length, 0)
       if (fixed) console.log(`Your ${fixed} correction(s) in the app count, as they do there.`)
+      printDisagreements(disputed.map((disagreement) => ({ disagreement })))
       console.log(`\n${spentLine(spent)}`)
     }
     return 0

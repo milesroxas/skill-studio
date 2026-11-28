@@ -10,17 +10,21 @@ import {
 } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
-import { runVerdicts } from '@application/grade.ts'
+import { disputedByJev, runVerdicts } from '@application/grade.ts'
 import { caseName, oneLineTitle } from '@domain/case-draft.ts'
 import { casesInOrder } from '@domain/results-address.ts'
 import { parseSampleDir, runNamed, runShown } from '@domain/run-name.ts'
+import { codeVerdict, jevVerdict } from '@domain/verdict.ts'
 import { loadCases } from '@infrastructure/cases.ts'
 import type { EngineRequest, EngineResult } from '@infrastructure/engines/types.ts'
+import { saveCorrection } from '@infrastructure/reviews.ts'
 import { GRADING_COST_FILE, readRun, versionsOf } from '@infrastructure/runs.ts'
+import { Jev } from '@judges/jev.ts'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { caseHead } from './brief.ts'
 import type { Values } from './command.ts'
 import { compare } from './compare.ts'
+import { grade } from './grade.ts'
 import { report } from './report.ts'
 import { run } from './run.ts'
 import { contextOf, spentLine, spentOf } from './shared.ts'
@@ -28,8 +32,12 @@ import { contextOf, spentLine, spentOf } from './shared.ts'
 /**
  * How each attempt of the engine that runs no agent ends, in the order they
  * start: it writes one short note, or ends with an error and writes nothing.
+ * `file` is where the note goes, `outputs/note.md` unless a test names another.
  */
-const ends = vi.hoisted(() => ({ list: [] as Array<'note' | 'error'> }))
+const ends = vi.hoisted(() => ({
+  list: [] as Array<'note' | 'error'>,
+  file: undefined as string | undefined,
+}))
 
 vi.mock('@infrastructure/engines/index.ts', () => {
   const engine = {
@@ -53,7 +61,7 @@ vi.mock('@infrastructure/engines/index.ts', () => {
           model: 'small',
           finalText: null,
         }
-      writeFileSync(join(request.cwd, 'outputs/note.md'), 'Search is faster.\n')
+      writeFileSync(join(request.cwd, ends.file ?? 'outputs/note.md'), 'Search is faster.\n')
       return { ok: true, error: null, costUsd: null, tokens: null, model: 'small', finalText: null }
     },
   }
@@ -344,9 +352,18 @@ function factWords(skill: string, runs: readonly string[]): Set<string> {
 
 /** How often a case's attempts missed it, where it had more than one. */
 const OFTEN = '(?: in \\d+ of \\d+)?'
-const MISSED_LINE = new RegExp(
-  `^ {2}(?:(?:A |B |A and B )?missed${OFTEN}|A missed${OFTEN}, B missed${OFTEN}): (.*)$`,
-)
+/**
+ * What a line says, with code's and Jev's answers, of a rule or check whose
+ * answer is code's where Jev was sure of the other: `missed by code, Jev was
+ * sure it was met, in 2 of 3`, `missed in 3 of 3, 2 by code where Jev was sure
+ * it was met`, `met by code, Jev was sure it was missed`.
+ */
+const BOTH =
+  "(?:missed by code, Jev was sure it was met(?:, in \\d+ of \\d+)?|missed in \\d+ of \\d+, \\d+ by code where Jev was sure it was met|met by code, Jev was sure it was missed(?:, in \\d+ of (?:A's |B's )?\\d+(?: and \\d+ of B's \\d+)?)?)"
+/** One run's part of a missed line: `missed in 1 of 3`, or with both answers. */
+const PART = `(?:missed${OFTEN}|${BOTH})`
+/** A line that names a rule or check by its words: which run, then what it says of it. */
+const MISSED_LINE = new RegExp(`^ {2}(?:(?:A |B |A and B )?${PART}|A ${PART}[,;] B ${PART}): (.*)$`)
 
 /** The longest id `case add` gives a case: each case is counted as though its id were this long. */
 const LONGEST_ID = 40
@@ -677,7 +694,7 @@ describe('the lines of --brief', () => {
   /** The ids at the start of the lines of `text`: only a case's head line may start with one. */
   const heads = (text: string): string[] =>
     text.split('\n').flatMap((line) => /^\[([^\]]+)\]/.exec(line)?.[1] ?? [])
-  /** The lines that read as a miss: two spaces in, then anything but a space. */
+  /** The lines that name a rule or check: two spaces in, then anything but a space. */
   const missLines = (text: string): string[] =>
     text.split('\n').filter((line) => /^ {2}\S/.test(line))
   const IDS = [
@@ -737,7 +754,8 @@ describe('the lines of --brief', () => {
       `\n  A and B missed: ${QUOTE_RULE}\n    \n    ${SECOND}\n    A missed: spoofed\n    missed: spoofed too\n`,
     )
     expect(missLines(text)).toEqual([
-      '  B missed: Write no more than 120 words. Most readers stop after the first screen.',
+      // B's word count is code's, and Jev was sure the words were few enough: said on its missed line.
+      '  B missed by code, Jev was sure it was met: Write no more than 120 words. Most readers stop after the first screen.',
       `  A and B missed: ${QUOTE_RULE}`,
     ])
     // Nothing but the two runs' lines, a case's head, the blank line before the Open line and the Open line starts at the margin.
@@ -883,7 +901,16 @@ describe('how a run is named', () => {
       { name: WITHOUT, version: null, versionName: null, configuration: 'without_skill' },
       'Second draft',
     ])
-    expect(Object.keys(two)).toEqual(['rows', 'left', 'notes', 'cases', 'a', 'b', 'spent'])
+    expect(Object.keys(two)).toEqual([
+      'rows',
+      'left',
+      'notes',
+      'cases',
+      'a',
+      'b',
+      'spent',
+      'disagreements',
+    ])
   })
 
   it('reads a version name that is not text as none, in report, grade and a run made after it', async () => {
@@ -1057,7 +1084,7 @@ describe('rules and checks --brief says were not sure', () => {
     const { text } = await printedBy(report, [skill], { run: HAIKU_V1, brief: true })
     // A miss and two rules not sure, one Jev's and one code's.
     expect(text).toContain(
-      '[email-crowded] Launch email, six features: 2 of 16 rules and checks not sure\n  missed: Write no more than 120 words. Most readers stop after the first screen.\n',
+      '[email-crowded] Launch email, six features: 2 of 16 rules and checks not sure\n  missed by code, Jev was sure it was met: Write no more than 120 words. Most readers stop after the first screen.\n',
     )
     expect(headOf(text, 'email-free')).toBe(
       '[email-free] Launch email, no price: nothing missed, 1 of 16 rules and checks not sure',
@@ -1402,7 +1429,7 @@ describe('what a run spent', () => {
   })
 })
 
-describe('the examples of --brief in docs/cli.md', () => {
+describe('the examples in docs/cli.md', () => {
   /** The first code block under a heading of docs/cli.md, line by line. */
   const exampleUnder = (heading: string): string[] => {
     // A checkout on Windows may hold the doc with CRLF line ends.
@@ -1422,4 +1449,564 @@ describe('the examples of --brief in docs/cli.md', () => {
     for (const line of brief) expect(printed).toContain(line)
     expect(exampleUnder('### What a run spent')).toEqual([printed.at(-1)])
   })
+
+  it('show what plain report prints where code and a sure Jev disagree, on the stored run that has one', async () => {
+    const skill = copyOf('launch-note')
+    const run = '2026-11-20-skill-v1-claude-haiku'
+    const printed = (await printedBy(report, [skill], { run })).text.split('\n')
+    const example = exampleUnder('### Where code and Jev disagree')
+    expect(example).toHaveLength(2)
+    const at = printed.indexOf(example[0])
+    expect(printed.slice(at, at + 2)).toEqual(example)
+  })
+})
+
+describe('where code’s answer counts and Jev was sure of the other', () => {
+  const V1 = '2026-11-20-skill-v1-claude-haiku'
+  const WORDS = 'Write no more than 120 words. Most readers stop after the first screen.'
+  const NUMBERS =
+    'Use only numbers the brief states, never a number of your own. An invented figure is a claim nobody checked.'
+  const SUPPORT = 'The email gives the support address, help@ferry.example.'
+  const SECTION = 'Rules for every announcement'
+  /** What plain report and compare print above the lines, where there is any. */
+  const HEADING = 'Where code and Jev gave different answers, and Jev was sure'
+  /** The one on the stored runs: code counted 129 to 136 words on v1's crowded email, and Jev answered 0.75. */
+  const CROWDED = {
+    sample: 'email-crowded-s1',
+    case: 'email-crowded',
+    kind: 'rule',
+    id: `rule:${WORDS}`,
+    text: WORDS,
+    section: SECTION,
+    met: false,
+    jev: true,
+  }
+  /** Plain report's line for the word count on one output, `who` naming the run in compare. */
+  const crowdedLine = (sample = 'email-crowded-s1', who = '') =>
+    `  ${`${who}${sample}`.padEnd(36)}rule not followed, by code; Jev was sure it was followed (${SECTION}): ${WORDS}`
+
+  /** A fresh copy of launch-note: one left by an earlier planting is removed first. */
+  function fresh(): string {
+    rmSync(join(scratch, 'launch-note'), { recursive: true, force: true })
+    return copyOf('launch-note')
+  }
+
+  /** One fact of an output in a stored grading, by its id: a rule's `r4`, a check's `02-support`. */
+  const factIn = (r: Stored, sample: string, id: string): Stored => {
+    const generic = r.results.find((x: { sample: string }) => x.sample === sample).packs.generic
+    return [...generic.adherence.rules, ...generic.rubric.statements].find(
+      (f: { id: string }) => f.id === id,
+    )
+  }
+
+  /** Change one fact of one output in a run's grading, in a copy. */
+  const plant = (
+    skill: string,
+    run: string,
+    sample: string,
+    id: string,
+    change: (fact: Stored) => void,
+  ): void => edited(skill, run, 'report.json', (r) => change(factIn(r, sample, id)))
+
+  /** What `report` prints of a run: plain, `--brief`, and its JSON. */
+  async function reportOf(skill: string, run: string) {
+    const plain = (await printedBy(report, [skill], { run })).text
+    const brief = (await printedBy(report, [skill], { run, brief: true })).text
+    const json = JSON.parse((await printedBy(report, [skill], { run, json: true })).text)
+    return { plain, brief, json }
+  }
+
+  /** What `compare` prints of two runs: plain, `--brief`, and its JSON. */
+  async function compareOf(skill: string, a: string, b: string) {
+    const plain = (await printedBy(compare, [skill, a, b], {})).text
+    const brief = (await printedBy(compare, [skill, a, b], { brief: true })).text
+    const json = JSON.parse((await printedBy(compare, [skill, a, b], { json: true })).text)
+    return { plain, brief, json }
+  }
+
+  /** Plain output's lines from the heading to the blank line after them; none where it has no heading. */
+  function section(text: string): string[] {
+    const lines = text.split('\n')
+    const at = lines.indexOf(HEADING)
+    if (at < 0) return []
+    const end = lines.indexOf('', at)
+    return lines.slice(at, end < 0 ? undefined : end)
+  }
+
+  /** The lines `--brief` prints that say where code's answer counts and Jev was sure of the other. */
+  const disputeLines = (text: string): string[] =>
+    text.split('\n').filter((line) => /^ {2}\S.*Jev was sure/.test(line))
+
+  /** Hold each case of a `--brief` printing to its 200 bytes beyond the words of the rules and checks it names. */
+  function heldTo200(skill: string, runs: readonly string[], text: string): void {
+    for (const bytes of bytesByCase(
+      text,
+      frameOf(skill, runs),
+      caseHeadsOf(skill, runs),
+      factWords(skill, runs),
+    ))
+      expect(bytes).toBeLessThanOrEqual(200)
+  }
+
+  it('lists the one of the stored runs: code counted more than 120 words, and Jev was sure there were not', async () => {
+    const skill = fresh()
+    const { plain, brief, json } = await reportOf(skill, V1)
+    expect(section(plain)).toEqual([HEADING, crowdedLine()])
+    // After the counts of each output, before what the run spent.
+    const lines = plain.split('\n')
+    expect(lines.indexOf(HEADING)).toBeGreaterThan(
+      lines.indexOf('Checks met and rules followed, counted apart'),
+    )
+    expect(lines.slice(-4)).toEqual([HEADING, crowdedLine(), '', expect.stringMatching(/^Spent: /)])
+    // The miss says, in its one line, that it is code's and that Jev was sure of the other.
+    expect(brief).toContain(
+      `\n[email-crowded] Launch email, six features: 2 of 16 rules and checks not sure\n  missed by code, Jev was sure it was met: ${WORDS}\n[email-free] `,
+    )
+    expect(disputeLines(brief)).toHaveLength(1)
+    heldTo200(skill, [V1], brief)
+    expect(json.disagreements).toEqual([CROWDED])
+  })
+
+  it('lists nothing else on any stored run or pair', async () => {
+    let read = 0
+    for (const fixture of ['code-skill', 'demo-skill', 'design-skill', 'launch-note']) {
+      const skill = copyOf(fixture)
+      const runs = runsOf(skill)
+      const listed = (run: string) => (fixture === 'launch-note' && run === V1 ? [CROWDED] : [])
+      for (const run of runs) {
+        const { plain, brief, json } = await reportOf(skill, run)
+        expect(json.disagreements, run).toEqual(listed(run))
+        expect(section(plain), run).toHaveLength(listed(run).length ? 2 : 0)
+        expect(disputeLines(brief), run).toHaveLength(listed(run).length)
+        read += 1
+      }
+      for (const [i, a] of runs.entries())
+        for (const b of runs.slice(i + 1)) {
+          const json = JSON.parse((await printedBy(compare, [skill, a, b], { json: true })).text)
+          expect(json.disagreements, `${a} ${b}`).toEqual({ a: listed(a), b: listed(b) })
+          read += 1
+        }
+    }
+    expect(read).toBe(20)
+  })
+
+  it('lists a rule code found met that a sure Jev says was missed, and not one where the two agree', async () => {
+    const skill = fresh()
+    // Code found only the brief's numbers, and a planted Jev is sure one is not; Jev now agrees the words run over.
+    plant(skill, V1, 'email-crowded-s1', 'r3', (fact) => {
+      fact.noul = 0.1
+    })
+    plant(skill, V1, 'email-crowded-s1', 'r4', (fact) => {
+      fact.noul = 0.1
+    })
+    const { plain, brief, json } = await reportOf(skill, V1)
+    expect(json.disagreements).toEqual([
+      { ...CROWDED, id: `rule:${NUMBERS}`, text: NUMBERS, met: true, jev: false },
+    ])
+    expect(section(plain)).toEqual([
+      HEADING,
+      `  ${'email-crowded-s1'.padEnd(36)}rule followed, by code; Jev was sure it was not followed (${SECTION}): ${NUMBERS}`,
+    ])
+    // The miss is still said; the rule code met is no miss.
+    expect(brief).toContain(
+      `\n  missed: ${WORDS}\n  met by code, Jev was sure it was missed: ${NUMBERS}\n[email-free] `,
+    )
+    expect(disputeLines(brief)).toHaveLength(1)
+    heldTo200(skill, [V1], brief)
+  })
+
+  it('lists nothing where code and a sure Jev agree', async () => {
+    const skill = fresh()
+    // Jev is now as sure as code that the crowded email runs over 120 words.
+    plant(skill, V1, 'email-crowded-s1', 'r4', (fact) => {
+      fact.noul = 0.1
+    })
+    const { plain, brief, json } = await reportOf(skill, V1)
+    expect(json.disagreements).toEqual([])
+    expect(plain).not.toContain(HEADING)
+    expect(disputeLines(brief)).toEqual([])
+    expect(brief).toContain(`\n  missed: ${WORDS}\n[email-free] `)
+  })
+
+  it('lists a check as well as a rule', async () => {
+    const skill = fresh()
+    // Code found the support address, and a planted Jev is sure it is not there.
+    plant(skill, V1, 'email-free-s1', '02-support', (fact) => {
+      fact.noul = 0.05
+    })
+    const { plain, brief, json } = await reportOf(skill, V1)
+    expect(json.disagreements).toEqual([
+      CROWDED,
+      {
+        sample: 'email-free-s1',
+        case: 'email-free',
+        kind: 'check',
+        id: `check:${SUPPORT}`,
+        text: SUPPORT,
+        section: null,
+        met: true,
+        jev: false,
+      },
+    ])
+    expect(section(plain)).toEqual([
+      HEADING,
+      crowdedLine(),
+      `  ${'email-free-s1'.padEnd(36)}check met, by code; Jev was sure it was not met: ${SUPPORT}`,
+    ])
+    expect(brief).toContain(
+      `\n[email-free] Launch email, no price: nothing missed, 1 of 16 rules and checks not sure\n  met by code, Jev was sure it was missed: ${SUPPORT}\n`,
+    )
+    heldTo200(skill, [V1], brief)
+  })
+
+  it('lists a rule of a run without the skill in plain report alone, and a check of it in --brief too', async () => {
+    const skill = fresh()
+    const WITHOUT = '2026-11-20-skill-v0-claude-sonnet-without-skill'
+    const PRICE = 'The page states the price as 12 USD a month.'
+    // Code counted the page's words as few enough, and a planted Jev is sure they are not;
+    // code found no price on the page, and a planted Jev is sure there is one.
+    plant(skill, WITHOUT, 'page-basic-s1', 'r4', (fact) => {
+      fact.noul = 0.1
+    })
+    plant(skill, WITHOUT, 'page-basic-s1', '01-price', (fact) => {
+      fact.noul = 0.95
+    })
+    const { plain, brief, json } = await reportOf(skill, WITHOUT)
+    const page = { ...CROWDED, sample: 'page-basic-s1', case: 'page-basic' }
+    expect(json.disagreements).toEqual([
+      { ...page, met: true, jev: false },
+      { ...page, kind: 'check', id: `check:${PRICE}`, text: PRICE, section: null },
+    ])
+    expect(section(plain)).toEqual([
+      HEADING,
+      `  ${'page-basic-s1'.padEnd(36)}rule followed, by code; Jev was sure it was not followed (${SECTION}): ${WORDS}`,
+      `  ${'page-basic-s1'.padEnd(36)}check not met, by code; Jev was sure it was met: ${PRICE}`,
+    ])
+    // There a rule is no miss, so --brief says nothing of what code made of one; the check is said on its missed line.
+    expect(brief).toContain(
+      `\n[page-basic] Launch page\n  missed by code, Jev was sure it was met: ${PRICE}\n[page-long] `,
+    )
+    expect(brief).not.toContain(WORDS)
+    heldTo200(skill, [WITHOUT], brief)
+  })
+
+  it('lists none Jev was not sure of or kept no answer on, none code could not settle, none the person marked, and none from before code answered', async () => {
+    const plantings: Array<[string, (skill: string) => void]> = [
+      [
+        'Jev not sure',
+        (skill) =>
+          plant(skill, V1, 'email-crowded-s1', 'r4', (fact) => {
+            fact.noul = 0.5
+          }),
+      ],
+      [
+        // As for a long output whose parts do not settle it: no answer of Jev's stands beside code's.
+        'no answer of Jev’s kept',
+        (skill) =>
+          plant(skill, V1, 'email-crowded-s1', 'r4', (fact) => {
+            fact.noul = null
+          }),
+      ],
+      [
+        'code could not settle it, and Jev was sure',
+        (skill) =>
+          plant(skill, V1, 'email-crowded-s1', 'r4', (fact) => {
+            fact.code = { answer: 'none', why: 'differ', saw: [], tests: [] }
+            fact.noul = 0.95
+          }),
+      ],
+      [
+        'the person marked it',
+        (skill) => saveCorrection(skill, `${V1}/email-crowded-s1`, `rule:${WORDS}`, false),
+      ],
+      [
+        'graded before code answers were kept',
+        (skill) =>
+          edited(skill, V1, 'report.json', (r) => {
+            for (const result of r.results)
+              for (const fact of [
+                ...result.packs.generic.adherence.rules,
+                ...result.packs.generic.rubric.statements,
+              ])
+                delete fact.code
+          }),
+      ],
+    ]
+    for (const [why, change] of plantings) {
+      const skill = fresh()
+      change(skill)
+      const { plain, brief, json } = await reportOf(skill, V1)
+      expect(json.disagreements, why).toEqual([])
+      expect(plain, why).not.toContain(HEADING)
+      expect(disputeLines(brief), why).toEqual([])
+    }
+  })
+
+  it('lists nothing of a run graded without Jev, nor of a fact code measured that Jev was never asked', async () => {
+    const skill = fresh()
+    expect(await grade.run(contextOf([skill], { run: V1, 'no-jev': true }, null))).toBe(0)
+    const { plain, brief, json } = await reportOf(skill, V1)
+    expect(json.model).toBeNull()
+    expect(json.disagreements).toEqual([])
+    expect(plain).not.toContain(HEADING)
+    expect(disputeLines(brief)).toEqual([])
+    const fact = { kind: 'check' as const, text: SUPPORT, layer: 'rubric' }
+    const cuts = { yes: 0.7, no: 0.3 }
+    // No answer of Jev's stands beside a measure.
+    expect(disputedByJev(codeVerdict(fact, false))).toBe(false)
+    // The same check answered by code, beside a sure Jev that says the other, is one.
+    const code = { answer: 'missed' as const, saw: [], tests: [] }
+    expect(disputedByJev(jevVerdict(fact, 0.95, cuts, {}, 1, code))).toBe(true)
+    expect(disputedByJev(jevVerdict(fact, 0.05, cuts, {}, 1, code))).toBe(false)
+  }, 30_000)
+
+  it('says in how many attempts it was so, as for a miss, and lists each in plain report', async () => {
+    const skill = fresh()
+    const runDir = join(skill, 'evals/runs', V1)
+    for (const n of [2, 3])
+      cpSync(join(runDir, 'email-crowded-s1'), join(runDir, `email-crowded-s${n}`), {
+        recursive: true,
+      })
+    edited(skill, V1, 'report.json', (r) => {
+      const first = r.results.find((x: { sample: string }) => x.sample === 'email-crowded-s1')
+      r.results.push(
+        ...[2, 3].map((n) => ({ ...structuredClone(first), sample: `email-crowded-s${n}` })),
+      )
+      // On the second attempt Jev is as sure as code that the words run over.
+      factIn(r, 'email-crowded-s2', 'r4').noul = 0.1
+    })
+    edited(skill, V1, 'run.json', (m) => {
+      const first = m.samples.find((s: { dir: string }) => s.dir === 'email-crowded-s1')
+      for (const n of [2, 3]) m.samples.push({ ...first, dir: `email-crowded-s${n}`, index: n })
+    })
+    const { plain, brief, json } = await reportOf(skill, V1)
+    // Missed on all three, and on two of them code's count stood against a sure Jev: one line says both.
+    expect(brief).toContain(
+      `\n[email-crowded] Launch email, six features: 2 of 16 rules and checks not sure at least once\n  missed in 3 of 3, 2 by code where Jev was sure it was met: ${WORDS}\n[email-free] `,
+    )
+    heldTo200(skill, [V1], brief)
+    expect(json.disagreements).toEqual([CROWDED, { ...CROWDED, sample: 'email-crowded-s3' }])
+    expect(section(plain)).toEqual([HEADING, crowdedLine(), crowdedLine('email-crowded-s3')])
+    // Beside a run with one attempt where code's count stands against a sure Jev too, each run says its own.
+    plant(skill, HAIKU_V0, 'email-crowded-s1', 'r4', (fact) => {
+      fact.code = { answer: 'missed', saw: [], tests: [] }
+    })
+    const two = (await printedBy(compare, [skill, HAIKU_V0, V1], { brief: true })).text
+    expect(disputeLines(two)).toEqual([
+      `  A missed by code, Jev was sure it was met; B missed in 3 of 3, 2 by code where Jev was sure it was met: ${WORDS}`,
+    ])
+    heldTo200(skill, [HAIKU_V0, V1], two)
+    // Where it was so on every attempt that missed it, how often is said as for a miss.
+    plant(skill, V1, 'email-crowded-s2', 'r4', (fact) => {
+      fact.noul = 0.75
+    })
+    const all = (await printedBy(report, [skill], { run: V1, brief: true })).text
+    expect(disputeLines(all)).toEqual([
+      `  missed by code, Jev was sure it was met, in 3 of 3: ${WORDS}`,
+    ])
+    heldTo200(skill, [V1], all)
+  })
+
+  it('says in compare which run it is in, A, B, or A and B', async () => {
+    const skill = fresh()
+    // Only in B, the second run named, and then only in A.
+    for (const [runs, who] of [
+      [[HAIKU_V0, V1], 'B'],
+      [[V1, HAIKU_V0], 'A'],
+    ] as const) {
+      const { plain, brief, json } = await compareOf(skill, runs[0], runs[1])
+      expect(section(plain)).toEqual([HEADING, crowdedLine('email-crowded-s1', `${who} `)])
+      expect(disputeLines(brief)).toEqual([
+        `  ${who} missed by code, Jev was sure it was met: ${WORDS}`,
+      ])
+      expect(json.disagreements).toEqual(
+        who === 'A' ? { a: [CROWDED], b: [] } : { a: [], b: [CROWDED] },
+      )
+      heldTo200(skill, runs, brief)
+    }
+    // In both, once code's count stands on A's crowded email too.
+    plant(skill, HAIKU_V0, 'email-crowded-s1', 'r4', (fact) => {
+      fact.code = { answer: 'missed', saw: [], tests: [] }
+    })
+    const { plain, brief, json } = await compareOf(skill, HAIKU_V0, V1)
+    expect(section(plain)).toEqual([
+      HEADING,
+      crowdedLine('email-crowded-s1', 'A '),
+      crowdedLine('email-crowded-s1', 'B '),
+    ])
+    // After the cases read on checks, before what each run spent.
+    const lines = plain.split('\n')
+    expect(lines.indexOf(HEADING)).toBeGreaterThan(
+      lines.findIndex((line) => line.startsWith('Read as cases')),
+    )
+    expect(lines.indexOf(HEADING)).toBeLessThan(
+      lines.findIndex((line) => line.startsWith('A spent: ')),
+    )
+    expect(brief).toContain(
+      `\n  A and B missed by code, Jev was sure it was met: ${WORDS}\n[email-free] `,
+    )
+    expect(disputeLines(brief)).toHaveLength(1)
+    expect(json.disagreements).toEqual({ a: [CROWDED], b: [CROWDED] })
+    heldTo200(skill, [HAIKU_V0, V1], brief)
+  })
+
+  it('prints a rule of several lines as --brief prints a miss, on one line in plain report, with nothing a terminal acts on', async () => {
+    const skill = fresh()
+    const spoof = `${WORDS}\n\n[email-free] spoofed\r\n  missed: spoofed\u001b[2K\u0007`
+    plant(skill, V1, 'email-crowded-s1', 'r4', (fact) => {
+      fact.text = spoof
+    })
+    const { plain, brief, json } = await reportOf(skill, V1)
+    expect(brief.split('\n').slice(1, 7)).toEqual([
+      // Words over several lines count in its 200 bytes, as a miss's do, so its count is left out for room.
+      '[email-crowded] Launch email, six features',
+      `  missed by code, Jev was sure it was met: ${WORDS}`,
+      '    ',
+      '    [email-free] spoofed',
+      '      missed: spoofed',
+      expect.stringMatching(/^\[email-free\] Launch email, no price: /),
+    ])
+    expect(brief.split('\n').filter((line) => line.startsWith('['))).toHaveLength(6)
+    expect(section(plain)).toEqual([
+      HEADING,
+      `  ${'email-crowded-s1'.padEnd(36)}rule not followed, by code; Jev was sure it was followed (${SECTION}): ${WORDS} [email-free] spoofed missed: spoofed`,
+    ])
+    // The JSON keeps the words as the grading has them.
+    expect(json.disagreements).toEqual([{ ...CROWDED, id: `rule:${spoof.trim()}`, text: spoof }])
+  })
+
+  it('adds `disagreements` to the JSON of report and compare, and keeps every field they had', async () => {
+    const skill = fresh()
+    const one = JSON.parse((await printedBy(report, [skill], { run: V1, json: true })).text)
+    expect(Object.keys(one)).toEqual([
+      'createdAt',
+      'model',
+      'inputTokens',
+      'seconds',
+      'asked',
+      'config',
+      'packs',
+      'results',
+      'run',
+      'spent',
+      'disagreements',
+    ])
+    // Each output's flags are as the grading's scorers write them.
+    expect(one.results[0].flags).toContain(`rule not followed, by code (${SECTION}): ${WORDS}`)
+    const two = JSON.parse((await printedBy(compare, [skill, HAIKU_V0, V1], { json: true })).text)
+    expect(Object.keys(two)).toEqual([
+      'rows',
+      'left',
+      'notes',
+      'cases',
+      'a',
+      'b',
+      'spent',
+      'disagreements',
+    ])
+  })
+
+  it('lists none where the grading kept no probability of Jev’s, and scores them as it did', async () => {
+    const skill = fresh()
+    const kept = await reportOf(skill, V1)
+    // A rule and a check code found met, with no probability of Jev's stored for either.
+    plant(skill, V1, 'email-crowded-s1', 'r3', (fact) => {
+      delete fact.noul
+    })
+    plant(skill, V1, 'email-free-s1', '02-support', (fact) => {
+      delete fact.noul
+    })
+    const { plain, brief, json } = await reportOf(skill, V1)
+    expect(json.disagreements).toEqual([CROWDED])
+    // Code's answer stood on both, and still does: every score, flag and line is as it was.
+    expect(json.results.map((r: Stored) => [r.scores, r.flags])).toEqual(
+      kept.json.results.map((r: Stored) => [r.scores, r.flags]),
+    )
+    expect(plain).toBe(kept.plain)
+    expect(brief).toBe(kept.brief)
+  })
+
+  it('keeps every not-sure count in compare --brief where a title runs four characters longer', async () => {
+    const skill = fresh()
+    const yaml = join(skill, 'evals/cases/email-crowded/case.yaml')
+    const before = readFileSync(yaml, 'utf8')
+    // `[^\r\n]*` stops at either line end, so the title line is found however the file ends its lines.
+    const after = before.replace(/^title: [^\r\n]*/m, 'title: Launch email, all six features')
+    expect(after).not.toBe(before)
+    writeFileSync(yaml, after)
+    const { text } = await printedBy(compare, [skill, HAIKU_V0, V1], { brief: true })
+    expect(text).toContain(
+      `\n[email-crowded] Launch email, all six features: neither did better; rules and checks not sure: A 1 of 11, B 2 of 16\n  B missed by code, Jev was sure it was met: ${WORDS}\n[email-free] `,
+    )
+    heldTo200(skill, [HAIKU_V0, V1], text)
+  })
+
+  it('prints the same in plain grade, and carries it in its JSON, as report does of the run', async () => {
+    const skill = fresh()
+    const replies = join(scratch, 'replies')
+    mkdirSync(replies)
+    const was = process.env.ST_AI_REPLAY
+    // Graded again from the answers it kept: a replay with no reply saved asks nobody, and needs none here.
+    process.env.ST_AI_REPLAY = replies
+    try {
+      const plain = (await printedBy(grade, [skill], { run: V1, 'no-draw': true })).text
+      const lines = plain.split('\n')
+      expect(section(plain)).toEqual([HEADING, crowdedLine()])
+      // Under the report, as its last lines.
+      expect(lines.indexOf(HEADING)).toBeGreaterThan(
+        lines.findIndex((line) => /^6 output\(s\), jev-/.test(line)),
+      )
+      const text = (await printedBy(grade, [skill], { run: V1, 'no-draw': true, json: true })).text
+      const json = JSON.parse(text.slice(text.indexOf('{')))
+      expect(json.disagreements).toEqual([CROWDED])
+      expect(Object.keys(json).slice(-3)).toEqual(['run', 'disagreements', 'cost'])
+    } finally {
+      if (was === undefined) delete process.env.ST_AI_REPLAY
+      else process.env.ST_AI_REPLAY = was
+    }
+    const after = await reportOf(skill, V1)
+    expect(section(after.plain)).toEqual([HEADING, crowdedLine()])
+    expect(after.json.disagreements).toEqual([CROWDED])
+  }, 30_000)
+
+  it('prints the same in plain run, and carries it in its JSON, as report does of the run it made', async () => {
+    const skill = fresh()
+    // An answer that writes a few words, graded by a Jev that is sure of every rule and check: none
+    // leaves the machine. Code finds the features, the subject and the link missing.
+    ends.file = 'outputs/email.txt'
+    vi.spyOn(Jev, 'available').mockReturnValue(true)
+    vi.spyOn(Jev.prototype, 'ask').mockImplementation(
+      async (_state, questions) =>
+        Object.fromEntries(Object.keys(questions).map((name) => [name, { noul: 0.95 }])) as never,
+    )
+    const ran = (json: boolean) =>
+      printedBy(run, [skill], {
+        engine: 'fake',
+        name: 'second',
+        cases: 'email-crowded',
+        samples: '1',
+        parallel: '1',
+        'no-draw': true,
+        ...(json ? { json: true } : {}),
+      })
+    try {
+      const earlier = new Set(runsOf(skill))
+      const plain = (await ran(false)).text
+      const made = runsOf(skill).filter((name) => !earlier.has(name))
+      expect(made).toHaveLength(1)
+      const listed = section(plain)
+      expect(listed.length).toBeGreaterThan(1)
+      expect(
+        listed.slice(1).every((line) => line.includes(', by code; Jev was sure it was ')),
+      ).toBe(true)
+      const one = await reportOf(skill, made[0])
+      expect(listed).toEqual(section(one.plain))
+      const json = JSON.parse((await ran(true)).text)
+      expect(json.disagreements.length).toBeGreaterThan(0)
+      expect(json.disagreements).toEqual((await reportOf(skill, json.run.name)).json.disagreements)
+      expect(Object.keys(json).slice(-4)).toEqual(['run', 'spent', 'disagreements', 'cost'])
+    } finally {
+      ends.file = undefined
+    }
+  }, 30_000)
 })

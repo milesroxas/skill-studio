@@ -47,6 +47,21 @@ describe('jevVerdict, with code’s answer', () => {
       })
   })
 
+  it('keeps no answer of Jev’s where no probability was kept, and reads the fact as it did', () => {
+    // As a grading holds it when the probability is not there at all, or not a number.
+    for (const kept of [undefined, Number.NaN] as unknown as Array<number | null>) {
+      expect(jevVerdict(rule, kept, CUTS, {}, 1, met)).toMatchObject({
+        met: true,
+        by: 'code',
+        jev: null,
+      })
+      // Without code's answer the reading is what it was; only Jev's own answer is none.
+      const alone = jevVerdict(rule, kept, CUTS, {})
+      expect(alone).toMatchObject({ met: false, by: 'jev', jev: null })
+      expect(alone.aside).toBeUndefined()
+    }
+  })
+
   it('sets aside a rule for another kind of work whoever answered it, and takes the reader’s answer over code’s', () => {
     expect(jevVerdict(rule, 0.9, CUTS, {}, 0.1, met)).toMatchObject({
       aside: 'inapplicable',

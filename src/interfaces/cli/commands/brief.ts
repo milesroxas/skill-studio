@@ -1,8 +1,9 @@
 /**
  * What `--brief` prints, for an agent in a chat to read in place of the full
  * report: for each case, by id and name and in the order `st cases` lists them, the
- * run that did better where two are read, and the words of each rule or check
- * an output missed. Nothing else.
+ * run that did better where two are read, the words of each rule or check
+ * an output missed, and where code's answer stood and Jev was sure of the
+ * other, both answers. Nothing else.
  */
 import {
   type Apart,
@@ -43,11 +44,12 @@ export const caseHead = (id: string, name: string): string => {
 const headLine = (head: string, said: string): string => oneLine(said ? `${head}: ${said}` : head)
 
 /**
- * A missed rule or check, `label` before its words, as indented lines: a rule
- * or check of several paragraphs keeps its line breaks, and loses only what a
- * terminal would act on rather than show (`printable`). The first line is two
- * spaces in, and every later line four, so none is read as a case's head, and
- * none as a miss of its own, whatever it starts with (`missed:` say).
+ * A rule or check a case names, missed or answered apart by code and a sure
+ * Jev, `label` before its words, as indented lines: a rule or check of
+ * several paragraphs keeps its line breaks, and loses only what a terminal
+ * would act on rather than show (`printable`). The first line is two spaces
+ * in, and every later line four, so none is read as a case's head, and none
+ * as a line of its own, whatever it starts with (`missed:` say).
  */
 const missedLines = (label: string, words: string): string =>
   words
@@ -153,7 +155,38 @@ const NONE: CaseBrief = {
   asked: 0,
   unsure: 0,
   whole: 0,
+  disputed: [],
 }
+
+/** One rule or check of a case that stood on code's answer where Jev was sure of the other (`CaseBrief.disputed`). */
+type Disputed = CaseBrief['disputed'][number]
+
+/**
+ * What a line says of a rule or check that stood on code's answer where Jev
+ * was sure of the other: both answers, code's first, as the report says "by
+ * code", and which of the two is right is not said. Code's miss is said on its
+ * missed line (`missWords`); code's met has a line of its own, since no miss
+ * names it.
+ */
+const MISSED_BY_CODE = 'missed by code, Jev was sure it was met'
+const MET_BY_CODE = 'met by code, Jev was sure it was missed'
+
+/**
+ * On how many attempts it was so, where the case had more than one, out of
+ * those it was marked on, as for a miss: `2 of 3`, or of one `run`'s, `2 of
+ * B's 3`. Null with one attempt.
+ */
+const disputeCount = (brief: CaseBrief, fact: Disputed, run?: 'A' | 'B'): string | null =>
+  brief.attempts > 1 ? `${fact.of} of ${run ? `${run}'s ` : ''}${fact.in}` : null
+
+/** The words of one run's line for a rule or check code met: `met by code, Jev was sure it was missed, in 2 of 3`. */
+function metWords(brief: CaseBrief, fact: Disputed): string {
+  const count = disputeCount(brief, fact)
+  return `${MET_BY_CODE}${count ? `, in ${count}` : ''}`
+}
+
+/** The key a fact is told apart by between two runs: code's answer, then its words. */
+const disputeKey = (fact: Disputed): string => `${fact.met}\n${fact.text}`
 
 /**
  * How many of a case's rules and checks were left not sure, out of those
@@ -186,6 +219,25 @@ function howOften(brief: CaseBrief, words: string): string {
 }
 
 /**
+ * What one run's missed line says before the words: `missed`, and how often
+ * where the case had more than one attempt (`howOften`). Where code's answer
+ * was the miss and Jev was sure it was met, both answers in its place, so the
+ * rule or check is named once: `missed by code, Jev was sure it was met`, with
+ * how often as for a miss, `, in 2 of 3`, and where that was so on only some
+ * of the attempts that missed it, how many: `missed in 3 of 3, 2 by code where
+ * Jev was sure it was met`.
+ */
+function missWords(brief: CaseBrief, words: string): string {
+  const fact = brief.disputed.find((d) => !d.met && d.text === words)
+  if (!fact) return `missed${howOften(brief, words)}`
+  const missed = brief.misses.get(words)
+  if (brief.attempts > 1 && missed && missed.of !== fact.of)
+    return `missed in ${missed.of} of ${missed.in}, ${fact.of} by code where Jev was sure it was met`
+  const count = disputeCount(brief, fact)
+  return `${MISSED_BY_CODE}${count ? `, in ${count}` : ''}`
+}
+
+/**
  * What a case's head line says of one run. Where an attempt was not read
  * whole, what became of it is said, as it always was, and that alone.
  * Otherwise how many of its rules and checks were left not sure, after
@@ -202,16 +254,16 @@ function caseWords(brief: CaseBrief, counted = true): string {
   return unsure ? `nothing missed, ${unsure}` : 'nothing missed'
 }
 
-/** The most a case prints, in bytes, beyond the words of the rules and checks it missed. */
+/** The most a case prints, in bytes, beyond the words of the rules and checks it names. */
 const CASE_BYTES = 200
 /** The longest a case's id runs to (`st case add`): a case is held to `CASE_BYTES` as though its id were this long. */
 const ID_LONGEST = 40
 
 /**
  * The bytes a case prints, as `CASE_BYTES` holds it: its head line and each
- * missed block, every line with its line end, less the words of each missed
- * rule or check that are printed whole on their one line, its id counted as
- * `ID_LONGEST` long.
+ * block that names a rule or check, every line with its line end, less the
+ * words of each rule or check that are printed whole on their one line, its
+ * id counted as `ID_LONGEST` long.
  */
 function caseBytes(
   id: string,
@@ -246,22 +298,29 @@ function fitted(
 
 /**
  * One run, brief: each case it took or has a grading of, then a line for each
- * rule or check an attempt missed. A case not read whole says why in place of
- * "nothing missed", and one with rules or checks left not sure says how many.
- * One run has no other to have done better than.
+ * rule or check an attempt missed, saying code's and Jev's answers where code
+ * missed it and Jev was sure it was met, then one for each code met where Jev
+ * was sure it was missed. A case not read whole says why in
+ * place of "nothing missed", and one with rules or checks left not sure says
+ * how many. One run has no other to have done better than.
  */
 export function printBrief(skill: string, side: Side, scoring: Context['scoring']): void {
   const briefs = briefsOf(skill, side, scoring)
   const { order, head } = namesOf(skill, [side.view])
   for (const id of casesInOrder(order, briefs.keys())) {
     const brief = briefs.get(id) ?? NONE
-    const missed = brief.missed.map((w): [string, string] => [
-      missedLines(`missed${howOften(brief, w)}`, w),
-      w,
-    ])
+    const named = [
+      ...brief.missed.map((w): [string, string] => [missedLines(missWords(brief, w), w), w]),
+      ...brief.disputed
+        .filter((fact) => fact.met)
+        .map((fact): [string, string] => [
+          missedLines(metWords(brief, fact), fact.text),
+          fact.text,
+        ]),
+    ]
     const count = brief.unsure ? 1 : 0
-    console.log(fitted(id, count, (n) => headLine(head(id), caseWords(brief, n > 0)), missed))
-    for (const [block] of missed) console.log(block)
+    console.log(fitted(id, count, (n) => headLine(head(id), caseWords(brief, n > 0)), named))
+    for (const [block] of named) console.log(block)
   }
 }
 
@@ -286,7 +345,10 @@ const APART: Readonly<Record<Apart, string>> = {
  * which did better on its checks (`compareCases`) or why the two were not
  * read against each other (`casesApart`), what became of attempts not read
  * whole, in A or in B, or else how many rules and checks each left not sure,
- * then each rule or check an attempt missed, with which run missed it.
+ * then each rule or check an attempt missed, with which run missed it, and
+ * code's and Jev's answers where code missed it and Jev was sure it was met,
+ * then each code met where Jev was sure it was missed, with the run it was so
+ * in.
  */
 export function printBriefCompare(
   skill: string,
@@ -325,7 +387,10 @@ export function printBriefCompare(
       ...notes,
     ].join('; ')
     const nothing = !words.length && !notes.length
-    const missed = words.map((w): [string, string] => [missedLines(whoMissed(one, two, w), w), w])
+    const missed = [
+      ...words.map((w): [string, string] => [missedLines(whoMissed(one, two, w), w), w]),
+      ...disputedLines(one, two),
+    ]
     // What is counted is said once for both runs: `rules and checks not sure: A 1 of 11, B 1 of 16`.
     // A count left out for room leaves "nothing missed" unsaid.
     const line = (n: number) =>
@@ -341,17 +406,54 @@ export function printBriefCompare(
   }
 }
 
-/** Which run missed a rule or check, and how often where it had more than one attempt: `A missed in 1 of 2, B missed`. */
+/**
+ * Which run missed a rule or check, and how often where it had more than one
+ * attempt, each as its own missed line says it (`missWords`): `A missed in 1
+ * of 2, B missed`. Where one says code's and Jev's answers, a semicolon keeps
+ * it apart from the other run's: `A missed; B missed by code, Jev was sure it
+ * was met`.
+ */
 function whoMissed(one: CaseBrief, two: CaseBrief, w: string): string {
   const [inA, inB] = [one.missed.includes(w), two.missed.includes(w)]
-  const [oftenA, oftenB] = [howOften(one, w), howOften(two, w)]
-  return inA && inB
-    ? oftenA === oftenB
-      ? `A and B missed${oftenA}`
-      : `A missed${oftenA}, B missed${oftenB}`
-    : inA
-      ? `A missed${oftenA}`
-      : `B missed${oftenB}`
+  const [a, b] = [missWords(one, w), missWords(two, w)]
+  if (!inA || !inB) return inA ? `A ${a}` : `B ${b}`
+  if (a === b) return `A and B ${a}`
+  return `A ${a}${a.includes(',') || b.includes(',') ? ';' : ','} B ${b}`
+}
+
+/**
+ * The line of a case for each rule or check code met where Jev was sure it
+ * was missed, with the run it was so in, one line for both: `A met by code,
+ * Jev was sure it was missed`, `A and B ...`. How often, where a run had more
+ * than one attempt, is said once where both say the same, as for a miss (`A
+ * and B ..., in 1 of 2`), else of each run that had more: `A and B ..., in 2
+ * of B's 3`. Each is a block and its words, as a missed line is. One code
+ * missed is said on its missed line (`whoMissed`).
+ */
+function disputedLines(one: CaseBrief, two: CaseBrief): Array<[block: string, words: string]> {
+  const met = (brief: CaseBrief) => brief.disputed.filter((fact) => fact.met)
+  const keys = [...new Set([...met(one), ...met(two)].map(disputeKey))]
+  return keys.map((key): [string, string] => {
+    // Each run it was so in, A's first: at least one, since the key is one of theirs.
+    const sides = (
+      [
+        ['A', one],
+        ['B', two],
+      ] as const
+    ).flatMap(([run, brief]) => {
+      const fact = brief.disputed.find((d) => disputeKey(d) === key)
+      return fact ? [{ run, brief, fact }] : []
+    })
+    const { fact } = sides[0]
+    const counts = sides.map((side) => disputeCount(side.brief, side.fact))
+    const often =
+      counts.length > 1 && counts[0] !== counts[1]
+        ? sides.flatMap((side) => disputeCount(side.brief, side.fact, side.run) ?? []).join(' and ')
+        : counts[0]
+    const run = sides.map((side) => side.run).join(' and ')
+    const label = `${run} ${MET_BY_CODE}${often ? `, in ${often}` : ''}`
+    return [missedLines(label, fact.text), fact.text]
+  })
 }
 
 /**

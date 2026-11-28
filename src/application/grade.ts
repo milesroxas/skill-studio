@@ -30,6 +30,7 @@ import {
 import { type PageLayout, readLayout } from '@domain/layout.ts'
 import {
   type Corrections,
+  type JudgedVerdict,
   NO_CORRECTIONS,
   noOutput,
   packFailedFlag,
@@ -1951,6 +1952,79 @@ export function compareCases(
 }
 
 /**
+ * Whether a rule or check stands on code's answer where Jev was sure of the
+ * other: code said met or missed and it counts (`by === 'code'`, not set
+ * aside as not sure), and Jev's own answer, kept beside it under the skill's
+ * `yes` and `no`, is the other one. That is where a code reading may be
+ * wrong. A fact the reader marked stands on their answer, so it is not one;
+ * nor is one Jev was not sure of or gave no answer on (`jev` null), nor one
+ * code measured, which Jev is never asked (`jev` absent).
+ */
+export const disputedByJev = (
+  v: Verdict,
+): v is JudgedVerdict & { kind: 'rule' | 'check'; jev: boolean } =>
+  (v.kind === 'rule' || v.kind === 'check') &&
+  v.layer !== null &&
+  v.open &&
+  v.by === 'code' &&
+  !v.aside &&
+  typeof v.jev === 'boolean' &&
+  v.jev !== v.met
+
+/** A rule or check of one output that stands on code's answer where Jev was sure of the other (`disputedByJev`). */
+export interface Disagreement {
+  sample: string
+  /** The case the output answers, by its id. */
+  case: string
+  kind: 'rule' | 'check'
+  /** Its name within the output (`verdictId`), as the reader's corrections name it. */
+  id: string
+  text: string
+  /** A rule's heading in SKILL.md; null for a check. */
+  section: string | null
+  /** Code's answer, the one that counts: true where code found it met. */
+  met: boolean
+  /** Jev's own answer under the skill's `yes` and `no`: the other one. */
+  jev: boolean
+}
+
+/**
+ * Every rule and check of a run's outputs still on disk that stands on code's
+ * answer where Jev was sure of the other (`disputedByJev`), output by output in
+ * the order the run lists them, each once, scored as `scoredReport` scores it:
+ * under `bench.json` as it is now, with the reader's corrections. A rule of a
+ * run without the skill is among them, as plain report flags it.
+ */
+export function disagreements(
+  skillDir: string,
+  side: RunScoring,
+  options: Pick<GradeOptions, 'packs' | 'config'> = {},
+): Disagreement[] {
+  const scoring = scoringNow(skillDir, options)
+  return present(side).results.flatMap((r) => {
+    const { verdicts } = scoredResult(r, side.report, side.cases, scoring, corrections(side, r))
+    // A check counted in two layers is one fact.
+    const seen = new Set<string>()
+    return verdicts.flatMap((v): Disagreement[] => {
+      if (!disputedByJev(v) || seen.has(v.id)) return []
+      seen.add(v.id)
+      return [
+        {
+          sample: r.sample,
+          case: caseIdOf(r),
+          kind: v.kind,
+          id: v.id,
+          text: v.text,
+          section: v.kind === 'rule' ? (v.section ?? null) : null,
+          met: v.met,
+          jev: v.jev,
+        },
+      ]
+    })
+  })
+}
+
+/**
  * What became of one attempt that was not read whole: it wrote nothing
  * (`empty`), it stands on a file Jev cannot read (`unreadable`), it has no
  * score for `why` (`unscored`: a pack failed on it, it is owed a grading, or
@@ -1990,6 +2064,15 @@ export interface CaseBrief {
   unsure: number
   /** The attempts read whole, which `asked` and `unsure` are counted over. */
   whole: number
+  /**
+   * Each rule and check that stood on code's answer where Jev was sure of the
+   * other (`disputedByJev`), once for each answer of code's, in the order
+   * first seen: its words, code's answer (`met`), and on how many attempts it
+   * was so (`of`), out of the attempts it was marked on (`in`), as `misses`
+   * counts them. A rule of a run without the skill is not among them: there a
+   * rule is no miss, so nothing here says code missed it.
+   */
+  disputed: Array<{ text: string; met: boolean; of: number; in: number }>
 }
 
 /** What became of an attempt a grading holds, where it was not read whole; null where it was. */
@@ -2012,7 +2095,9 @@ function stateOf(
  * an output of a run without the skill misses no rule: its agent never saw
  * the rules (`twoCounts`). Over the attempts read whole, each case counts the
  * rules and checks asked and those left not sure, apart from those that do
- * not apply or cannot be marked, as the grading recorded each. An attempt the
+ * not apply or cannot be marked, as the grading recorded each. Each counts the
+ * rules and checks that stood on code's answer where Jev was sure of the
+ * other (`disputedByJev`), over the attempts each was marked on. An attempt the
  * grading left out says why, from `RunMeta.samples`. A run with no report is
  * read as graded on nothing.
  */
@@ -2035,6 +2120,7 @@ export function caseBriefs(
       asked: 0,
       unsure: 0,
       whole: 0,
+      disputed: [],
     }
     briefs.set(id, known)
     return known
@@ -2043,6 +2129,8 @@ export function caseBriefs(
   const unread = new Map<string, Set<string>>()
   /** For each case, each fact's words, and the attempts that marked it and that missed it. */
   const marked = new Map<string, Map<string, { of: number; in: number }>>()
+  /** For each case, each fact that stood on code's answer against a sure Jev, by code's answer and its words, and on how many attempts. */
+  const disputes = new Map<string, Map<string, { text: string; met: boolean; of: number }>>()
   /** For each case, the words of each fact asked of an attempt read whole, and whether it was not sure on any. */
   const asked = new Map<string, Map<string, boolean>>()
   const graded = new Set<string>()
@@ -2068,6 +2156,7 @@ export function caseBriefs(
     const tally = marked.get(id) ?? new Map<string, { of: number; in: number }>()
     // An attempt marks a fact once, however many verdicts say it.
     const seen = new Map<string, boolean>()
+    const disputed = new Map<string, { text: string; met: boolean }>()
     for (const v of scored.verdicts) {
       if ((v.kind !== 'rule' && v.kind !== 'check') || v.layer === null) continue
       // Every rule and check the grading asked counts as asked, and as not sure where it was, as
@@ -2075,6 +2164,8 @@ export function caseBriefs(
       if (facts && v.aside !== 'inapplicable' && v.aside !== 'unmarkable')
         facts.set(v.text, (facts.get(v.text) ?? false) || v.aside === 'unsure')
       if (v.kind === 'rule' && configuration === 'without_skill') continue
+      // Counted as a miss is, so a line never says code missed what is no miss of the run.
+      if (disputedByJev(v)) disputed.set(`${v.met}\n${v.text}`, { text: v.text, met: v.met })
       if (v.aside === 'unread') notRead.add(v.text)
       else if (!v.aside) {
         seen.set(v.text, (seen.get(v.text) ?? false) || !v.met)
@@ -2086,6 +2177,11 @@ export function caseBriefs(
       tally.set(text, { of: count.of + (missed ? 1 : 0), in: count.in + 1 })
     }
     marked.set(id, tally)
+    const against =
+      disputes.get(id) ?? new Map<string, { text: string; met: boolean; of: number }>()
+    for (const [key, fact] of disputed)
+      against.set(key, { ...fact, of: (against.get(key)?.of ?? 0) + 1 })
+    disputes.set(id, against)
     unread.set(id, notRead)
     brief.unread = notRead.size
     if (facts) {
@@ -2103,6 +2199,11 @@ export function caseBriefs(
       }),
     )
   }
+  for (const [id, against] of disputes)
+    briefOf(id).disputed = [...against.values()].map((fact) => ({
+      ...fact,
+      in: marked.get(id)?.get(fact.text)?.in ?? fact.of,
+    }))
   for (const s of meta?.samples ?? []) {
     if (graded.has(s.dir)) continue
     const brief = briefOf(s.case)
