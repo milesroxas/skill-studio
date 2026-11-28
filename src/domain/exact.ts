@@ -131,6 +131,9 @@ const OUTPUT_OF: Partial<Record<ArtifactKind, ReadOutput>> = {
   code: 'code',
 }
 
+/** The kind of output an exact reading reads a file of `kind` as; null for one it reads none of, such as a picture. */
+export const outputOf = (kind: ArtifactKind): ReadOutput | null => OUTPUT_OF[kind] ?? null
+
 /**
  * The version of how code answers a reading (`answerExact`), kept in the key
  * a pack's answer is kept by wherever a rule or check is read by code (`judgeKey`
@@ -526,8 +529,23 @@ function globOf(pattern: string): (path: string) => boolean {
 
 type Drawn = { values: string[] } | { none: 'not there' }
 
+/** Where values are drawn from: the request's text and the files it came with. */
+type Source = Pick<ExactSubject, 'request' | 'files'>
+
+/**
+ * The values a `has` or an `order` test looks for, each once and none blank:
+ * written into the reading, or drawn from `from`. Null where they are not
+ * there, so the test has no answer.
+ */
+export function lookedFor(values: Values, from: Source): string[] | null {
+  const drawn = valuesOf(values, from)
+  if ('none' in drawn) return null
+  const found = [...new Set(drawn.values.filter((v) => v.trim()))]
+  return found.length ? found : null
+}
+
 /** The values a test looks for, from the reading or from the request. */
-function valuesOf(values: Values, subject: ExactSubject): Drawn {
+function valuesOf(values: Values, subject: Source): Drawn {
   if (values.from === 'listed') return { values: values.items }
   const regions =
     values.in === 'request'
@@ -894,10 +912,8 @@ function answerTest(test: ExactTest, reader: Reader): Seen {
   const { pieces } = read
   if (test.test === 'count') return counted(test, read)
   if (test.test === 'only') return only(test, pieces, reader.from)
-  const drawn = valuesOf(test.values, reader.from)
-  if ('none' in drawn) return none(drawn.none)
-  const values = [...new Set(drawn.values.filter((v) => v.trim()))]
-  if (!values.length) return none('not there')
+  const values = lookedFor(test.values, reader.from)
+  if (!values) return none('not there')
   const matcher = new Matcher(pieces, values, test.match, test.case)
   const looked = values.map((_, i) => i).filter((i) => matcher.usable(i))
   if (!looked.length) return none('not there')
@@ -912,6 +928,21 @@ const foundOf = (o: Occurrence, values: readonly string[]): Found => ({
   at: o.at,
   text: o.text,
 })
+
+/**
+ * Whether a part of one piece that reads `piece` meets a `has` test looking
+ * for `values`, as the test answers it on an output. For working out from two
+ * readings alone whether one output can meet both (`both-hold.ts`).
+ */
+export function hasInPiece(
+  test: Extract<ExactTest, { test: 'has' }>,
+  values: readonly string[],
+  piece: string,
+): boolean {
+  const matcher = new Matcher([{ text: piece }], values, test.match, test.case)
+  const looked = values.map((_, i) => i).filter((i) => matcher.usable(i))
+  return looked.length > 0 && has(test, matcher, values, looked).answer === 'met'
+}
 
 function has(
   test: Extract<ExactTest, { test: 'has' }>,

@@ -18,16 +18,21 @@
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { type AiChoice, type AiProviderId, type AiUsage, resolveChoice } from '@domain/ai.ts'
+import { type Asked, bothHold, everywhere, sameScope } from '@domain/both-hold.ts'
 import { inputName } from '@domain/case-draft.ts'
 import { isEveryCase, withEveryCase } from '@domain/every-case.ts'
+import { answerExact, type ExactSubject, outputOf } from '@domain/exact.ts'
+import type { Verdict } from '@domain/pack.ts'
 import { aiChoiceOf } from '@domain/preferences.ts'
 import type { RuleReading } from '@domain/rule-reading.ts'
-import { headingOf } from '@domain/rules.ts'
+import { headingOf, type Rule } from '@domain/rules.ts'
 import type { Case } from '@domain/schemas.ts'
 import {
   CHECKS_SCHEMA,
   checksPrompt,
+  type Decided,
   FALLBACK,
+  type Flagged,
   parseSorted,
   type RequestFile,
   type RequestShown,
@@ -37,6 +42,7 @@ import {
   SORT_PROMPT_VERSION,
   SORT_SCHEMA,
   type SortedEntry,
+  type SortedReading,
 } from '@domain/sorting.ts'
 import { checkIds, verdictId } from '@domain/verdict.ts'
 import { aiProvider, aiProviderInfo, isProviderError } from '@infrastructure/ai/index.ts'
@@ -52,7 +58,9 @@ import {
   type StoredReading,
   storeReadings,
 } from '@infrastructure/rule-readings.ts'
+import { listRuns } from '@infrastructure/runs.ts'
 import { savedReplies } from '@judges/replies.ts'
+import { correctionsOf, runVerdicts, storedSubjects } from './grade.ts'
 
 export interface SortOptions {
   /** The model to ask in place of the one set in Settings, on the same assistant. */
@@ -104,6 +112,10 @@ export interface SortResult {
   cases: Array<{ case: string; title: string; checks: SortedItem[] }>
   calls: SortCall[]
   usage: AiUsage
+  /** Each pair of exact readings code worked out, over every reading that stands now. */
+  decided: Decided[]
+  /** Each output a new exact reading answers otherwise than the sure answer a run kept there. */
+  flagged: Flagged[]
 }
 
 const NO_USAGE: AiUsage = { input: 0, output: 0 }
@@ -305,21 +317,224 @@ async function sortCall(
  * the same case, read beside another SKILL.md or another form of the
  * request. The model is shown it beside the words, so a reading moves between
  * versions only for a reason. A fallback is no reading, and is not shown.
+ * Where code set the assistant's reading aside, the assistant's own is
+ * shown, so code holds the next version's readings to the same test.
  */
 function earlierReadings(current: readonly StoredReading[]): (ask: Ask) => RuleReading | null {
   const latest = new Map<string, StoredReading>()
   const keyOf = (kind: string, caseId: string | null, text: string) =>
     JSON.stringify([kind, caseId, text.trim()])
   for (const entry of current) {
-    if (entry.reading.reading === 'judged' && entry.reading.span === null) continue
+    const own = ownReading(entry)
+    if (own.reading === 'judged' && own.span === null) continue
     const key = keyOf(entry.kind, entry.case, entry.text)
     const held = latest.get(key)
     if (!held || held.at < entry.at) latest.set(key, entry)
   }
   return (ask) => {
     const found = latest.get(keyOf(ask.kind, ask.case, ask.text))
-    return found && found.stamp !== ask.stamp ? (found.reading as RuleReading) : null
+    return found && found.stamp !== ask.stamp ? (ownReading(found) as RuleReading) : null
   }
+}
+
+/** One rule or check that has a reading after the calls, made by this sort or kept from one before. */
+interface Standing {
+  ask: Ask
+  entry: StoredReading
+}
+
+type Exact = Extract<RuleReading, { reading: 'exact' }>
+type Against = NonNullable<StoredReading['against']>
+
+const exactOf = (reading: SortedReading): Exact | null =>
+  reading.reading === 'exact' ? reading : null
+
+/** The assistant's own reading, and a check's own `against`, before code's word on them. */
+const ownReading = (entry: StoredReading): SortedReading =>
+  entry.assistant?.reading ?? entry.reading
+const ownAgainst = (entry: StoredReading): Against =>
+  entry.assistant?.against ?? entry.against ?? []
+
+const sameRule = (a: string, b: string): boolean => a.trim() === b.trim()
+const sameAgainst = (a: Against, b: Against): boolean =>
+  a.length === b.length && a.every((x, i) => sameRule(x.rule, b[i].rule) && x.fix === b[i].fix)
+
+/**
+ * `entry` with code's word kept: `reading` for a rule, `against` for a check,
+ * and what the assistant said under `assistant` where code's word differs.
+ */
+function withCodeWord(
+  entry: StoredReading,
+  reading: SortedReading,
+  against: Against | null,
+): StoredReading {
+  const { assistant: _said, ...rest } = entry
+  const said: NonNullable<StoredReading['assistant']> = {}
+  const own = ownReading(entry)
+  // Code makes a reading of its own only where it sets the assistant's aside.
+  if (reading !== own) said.reading = own
+  const ownList = ownAgainst(entry)
+  const changed = against !== null && !sameAgainst(against, ownList)
+  if (changed) said.against = ownList
+  return {
+    ...rest,
+    reading,
+    ...(changed ? { against } : entry.assistant?.against ? { against: ownList } : {}),
+    ...(Object.keys(said).length ? { assistant: said } : {}),
+  }
+}
+
+/** A case's request as code draws a reading's values from it, with the kind of output it is graded on. */
+function askedOf(skillDir: string, testCase: Case): Asked {
+  const shown = shownOf(skillDir, testCase)
+  const graded = testCase.bench.artifact
+  const kind = graded ? outputOf(graded) : null
+  return {
+    case: testCase.id,
+    request: shown.prompt,
+    files: Object.fromEntries(shown.files.map((file) => [file.name, file.text])),
+    kinds: graded ? (kind ? [kind] : []) : null,
+  }
+}
+
+/**
+ * Code's word on each pair of exact readings that stand: two rules, over
+ * every case's request, and each check beside each rule, over its own case's
+ * (`bothHold`). Two rules are held together only where grading surely asks
+ * both of the same outputs (`sameScope`: one heading, no condition of either's
+ * own), and a check only beside a rule grading asks of every output
+ * (`everywhere`). Where code finds two rules no output can meet both of, both
+ * are set aside as in conflict, each naming the first rule it cannot hold
+ * beside. Where code finds a rule cannot hold beside a check, or can, the
+ * check's `against` names it, or does not; a rule code set aside is not held
+ * beside a check. Everywhere else the assistant's word stands. What the
+ * assistant said is read from `assistant` where code spoke before, so the same
+ * readings over the same cases are decided the same way, and a case added or
+ * changed is held to on the next sort.
+ */
+function settle(
+  rules: ReadonlyArray<Standing & { rule: Rule }>,
+  cases: ReadonlyArray<{ asked: Asked; checks: readonly Standing[] }>,
+): { decided: Decided[]; entries: StoredReading[] } {
+  const decided: Decided[] = []
+  const requests = cases.map((c) => c.asked)
+  const own = rules.map((rule) => exactOf(ownReading(rule.entry)))
+  const beside = new Map<number, number>()
+  for (const [i, a] of own.entries())
+    for (const [j, b] of own.entries()) {
+      if (j <= i || !a || !b || !sameScope(rules[i].rule, rules[j].rule)) continue
+      const held = bothHold(a, b, requests)
+      if (!held) continue
+      decided.push({
+        kind: 'rules',
+        case: null,
+        ref: rules[i].ask.ref,
+        rule: rules[j].ask.ref,
+        holds: held.holds,
+        assistant: true,
+        on: held,
+      })
+      if (held.holds) continue
+      if (!beside.has(i)) beside.set(i, j)
+      if (!beside.has(j)) beside.set(j, i)
+    }
+  const entries: StoredReading[] = []
+  const standing = rules.map((rule, i) => {
+    const other = beside.get(i)
+    const reading: SortedReading =
+      other === undefined
+        ? ownReading(rule.entry)
+        : { reading: 'unmarkable', why: 'conflict', with: rules[other].ask.ref, fix: null }
+    entries.push(withCodeWord(rule.entry, reading, null))
+    return exactOf(reading)
+  })
+  for (const { asked, checks } of cases)
+    for (const check of checks) {
+      const reading = exactOf(check.entry.reading)
+      const said = ownAgainst(check.entry)
+      let against = [...said]
+      for (const [i, rule] of rules.entries()) {
+        const ruleReading = standing[i]
+        if (!reading || !ruleReading || !everywhere(rule.rule)) continue
+        const held = bothHold(reading, ruleReading, [asked])
+        if (!held) continue
+        const named = said.some((a) => sameRule(a.rule, rule.ask.text))
+        decided.push({
+          kind: 'check',
+          case: asked.case,
+          ref: check.ask.ref,
+          rule: rule.ask.ref,
+          holds: held.holds,
+          assistant: !named,
+          on: held,
+        })
+        if (held.holds) against = against.filter((a) => !sameRule(a.rule, rule.ask.text))
+        else if (!against.some((a) => sameRule(a.rule, rule.ask.text)))
+          against.push({ rule: rule.ask.text, fix: null })
+      }
+      entries.push(withCodeWord(check.entry, check.entry.reading, against))
+    }
+  return { decided, entries }
+}
+
+/** The answer an output's grading kept on a fact that counts as sure: the person's own mark, else Jev's where it was sure. */
+function keptAnswer(fact: Verdict): { met: boolean; by: 'jev' | 'reader' } | null {
+  if (fact.corrected) return { met: fact.met, by: 'reader' }
+  return fact.open && typeof fact.jev === 'boolean' ? { met: fact.jev, by: 'jev' } : null
+}
+
+/**
+ * Each new exact reading held to the answers every run's grading kept for
+ * the same rule, or the same check of the same case: on each graded output,
+ * code answers with the new reading, and where it answers met or missed and
+ * the answer kept is the other, the output is flagged. An answer Jev was not
+ * sure of, an output with no answer kept, and one code gives no answer on
+ * flag nothing. A run that cannot be read is said in the log and passed over.
+ */
+function flagsOf(
+  skillDir: string,
+  fresh: ReadonlyArray<{ ask: Ask; reading: Exact }>,
+  log: (line: string) => void,
+): Flagged[] {
+  const flagged: Flagged[] = []
+  for (const view of listRuns(skillDir)) {
+    const { report } = view
+    if (!report) continue
+    try {
+      const verdicts = runVerdicts(skillDir, report, view.cases, correctionsOf(skillDir, view.name))
+      const subjectOf = storedSubjects(skillDir, view.name)
+      for (const result of report.results) {
+        const sample = view.samples.find((s) => s.name === result.sample && !s.cut)
+        const facts = Object.hasOwn(verdicts, result.sample) ? verdicts[result.sample] : null
+        if (!sample || !facts) continue
+        let subject: ExactSubject | null | undefined
+        for (const { ask, reading } of fresh) {
+          if (ask.kind === 'check' && ask.case !== result.case) continue
+          const fact = facts.find((v) => v.kind === ask.kind && sameRule(v.text, ask.text))
+          const kept = fact ? keptAnswer(fact) : null
+          if (!kept) continue
+          if (subject === undefined) subject = subjectOf(result, sample)
+          if (!subject) break
+          const code = answerExact(reading, subject)
+          if (code.answer === 'none' || (code.answer === 'met') === kept.met) continue
+          flagged.push({
+            kind: ask.kind,
+            ref: ask.ref,
+            case: ask.case,
+            text: ask.text,
+            run: view.name,
+            sample: result.sample,
+            code: code.answer === 'met',
+            kept: kept.met,
+            by: kept.by,
+          })
+        }
+      }
+    } catch (error) {
+      log(`The new readings were not held to ${view.name}: ${(error as Error).message}`)
+    }
+  }
+  return flagged
 }
 
 /**
@@ -327,6 +542,10 @@ function earlierReadings(current: readonly StoredReading[]): (ask: Ask) => RuleR
  * of `bench.json`'s `rules`) and every check of every case. What is sorted is
  * kept in `evals/rule-readings.json` (`storeReadings`) as each call ends, so
  * a call that fails loses only its own.
+ *
+ * Then code has its word on every pair of exact readings that stand
+ * (`settle`), and what it changes is kept too; and each new exact reading is
+ * held to the answers the skill's runs kept for the same words (`flagsOf`).
  */
 export async function sortSkill(skillDir: string, options: SortOptions): Promise<SortResult> {
   const choice = await sortChoice(options)
@@ -449,19 +668,53 @@ export async function sortSkill(skillDir: string, options: SortOptions): Promise
     }
   })
 
-  const itemOf = (ask: Ask): SortedItem => {
-    const fresh = made.get(ask.stamp)
-    const old = stored.get(ask.stamp)
-    return {
-      kind: ask.kind,
-      ref: ask.ref,
-      id: ask.id,
-      text: ask.text,
-      stored: fresh ?? (isKept(ask.stamp) ? (old ?? null) : null),
-      kept: !fresh && isKept(ask.stamp),
-      ...(ask.every ? { every: true as const } : {}),
-    }
+  const entryOf = (ask: Ask): StoredReading | null =>
+    made.get(ask.stamp) ?? (isKept(ask.stamp) ? (stored.get(ask.stamp) ?? null) : null)
+  // Code's word on what stands, made now or kept: so readings kept from before code spoke are held to it too.
+  const settled = new Map<string, StoredReading>()
+  let decided: Decided[] = []
+  let flagged: Flagged[] = []
+  if (!options.signal.aborted) {
+    const standing = (asks: readonly Ask[]): Standing[] =>
+      asks.flatMap((ask) => {
+        const entry = entryOf(ask)
+        return entry ? [{ ask, entry }] : []
+      })
+    const worked = settle(
+      standing(ruleAsks).flatMap((held) => {
+        const rule = rules.find((r) => r.id === held.ask.ref)
+        return rule ? [{ ...held, rule }] : []
+      }),
+      caseAsks.map(({ testCase, asks }) => ({
+        asked: askedOf(skillDir, testCase),
+        checks: standing(asks),
+      })),
+    )
+    decided = worked.decided
+    const before = new Map(
+      [...ruleAsks, ...caseAsks.flatMap((c) => c.asks)].map((ask) => [ask.stamp, entryOf(ask)]),
+    )
+    const changed = worked.entries.filter(
+      (entry) => JSON.stringify(entry) !== JSON.stringify(before.get(entry.stamp)),
+    )
+    if (changed.length) storeReadings(skillDir, changed)
+    for (const entry of worked.entries) settled.set(entry.stamp, entry)
+    const fresh = [...ruleAsks, ...caseAsks.flatMap((c) => c.asks)].flatMap((ask) => {
+      const reading = made.has(ask.stamp) ? settled.get(ask.stamp)?.reading : undefined
+      return reading?.reading === 'exact' ? [{ ask, reading }] : []
+    })
+    if (fresh.length) flagged = flagsOf(skillDir, fresh, options.log)
   }
+
+  const itemOf = (ask: Ask): SortedItem => ({
+    kind: ask.kind,
+    ref: ask.ref,
+    id: ask.id,
+    text: ask.text,
+    stored: settled.get(ask.stamp) ?? entryOf(ask),
+    kept: !made.has(ask.stamp) && isKept(ask.stamp),
+    ...(ask.every ? { every: true as const } : {}),
+  })
   return {
     provider: choice.provider,
     model,
@@ -474,5 +727,7 @@ export async function sortSkill(skillDir: string, options: SortOptions): Promise
     })),
     calls,
     usage: calls.reduce((sum, c) => add(sum, c.usage), NO_USAGE),
+    decided,
+    flagged,
   }
 }

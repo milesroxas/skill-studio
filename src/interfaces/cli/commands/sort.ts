@@ -1,5 +1,11 @@
 import { type SortedItem, type SortResult, sortSkill } from '@application/sorting.ts'
-import { describeReading } from '@domain/sorting.ts'
+import {
+  type Decided,
+  decidedLine,
+  describeReading,
+  flaggedLine,
+  heldWords,
+} from '@domain/sorting.ts'
 import { countOf } from '../input.ts'
 import type { Command, FlagValues } from './command.ts'
 import { shared } from './flags.ts'
@@ -10,9 +16,14 @@ const flags = shared('model', 'effort', 'again', 'parallel', 'json')
 /**
  * Print one sorted rule or check: its words, then how it will be marked. For
  * a check, each rule that cannot hold beside it, on its case alone, by the
- * rule's short name (`refOf`).
+ * rule's short name (`refOf`). Where code's word is kept over the
+ * assistant's (`differs`), what code found, and what the assistant said.
  */
-function printSorted(item: SortedItem, refOf?: (rule: string) => string): void {
+function printSorted(
+  item: SortedItem,
+  differs: readonly Decided[],
+  refOf?: (rule: string) => string,
+): void {
   console.log(
     `  ${padEnd(item.ref, 5)}${item.text}${item.every ? '  (a check for every case)' : ''}`,
   )
@@ -23,7 +34,8 @@ function printSorted(item: SortedItem, refOf?: (rule: string) => string): void {
   const lines = describeReading(item.stored.reading)
   for (const line of lines) console.log(`       ${line}`)
   const { reading } = item.stored
-  if (reading.reading === 'unmarkable' && item.stored.reason)
+  // The assistant's reason is for its own reading: under one code set aside, it is not why.
+  if (reading.reading === 'unmarkable' && item.stored.reason && !item.stored.assistant?.reading)
     console.log(`       Why: ${item.stored.reason}`)
   if (item.stored.refused.length)
     console.log(
@@ -36,17 +48,46 @@ function printSorted(item: SortedItem, refOf?: (rule: string) => string): void {
     )
     if (against.fix) console.log(`       Fix for the rule: ${against.fix}`)
   }
+  // Code's word, kept over the assistant's: what code found, then what the assistant said.
+  const own = item.stored.assistant?.reading
+  if (own) {
+    const found = differs.find((d) => d.kind === 'rules' && !d.holds && d.ref === item.ref)
+    const other = differs.find((d) => d.kind === 'rules' && !d.holds && d.rule === item.ref)
+    const on = found?.on ?? other?.on
+    if (on) console.log(`       Code found this, not the assistant: ${heldWords(on)}`)
+    const [first, ...rest] = describeReading(own)
+    console.log(`       The assistant's reading: ${first}`)
+    for (const line of rest) console.log(`       ${line}`)
+  }
+  for (const d of differs)
+    if (d.kind === 'check' && d.ref === item.ref)
+      console.log(
+        d.holds
+          ? `       Code found rule ${d.rule} can hold beside this check, where the assistant said it cannot: ${heldWords(d.on)}`
+          : `       Code found rule ${d.rule} cannot hold beside this check, where the assistant said it can: ${heldWords(d.on)}`,
+      )
 }
 
 /** Print a sort: each rule, each case's checks, then the counts and what the calls spent. */
 function printSort(result: SortResult): void {
+  // Where code and the assistant said otherwise of a pair: code's word is kept, and both are shown.
+  const differs = result.decided.filter((d) => d.holds !== d.assistant)
   console.log('\nRules')
-  for (const item of result.rules) printSorted(item)
+  for (const item of result.rules)
+    printSorted(
+      item,
+      differs.filter((d) => d.kind === 'rules'),
+    )
   const refOf = (rule: string) => result.rules.find((r) => r.text.trim() === rule.trim())?.ref ?? ''
   for (const c of result.cases) {
     if (!c.checks.length) continue
     console.log(`\n${c.title || c.case} (${c.case})`)
-    for (const item of c.checks) printSorted(item, refOf)
+    for (const item of c.checks)
+      printSorted(
+        item,
+        differs.filter((d) => d.case === c.case),
+        refOf,
+      )
   }
   const all = [...result.rules, ...result.cases.flatMap((c) => c.checks)]
   const count = (kind: string) => all.filter((i) => i.stored?.reading.reading === kind).length
@@ -62,6 +103,13 @@ function printSort(result: SortResult): void {
         console.log(
           `On ${c.case}, rule ${refOf(against.rule) || `"${against.rule}"`} cannot hold beside ${check.ref} "${check.text}": the rule counts in no score on that case.`,
         )
+  // Code's word on pairs of exact readings, where it said otherwise than the assistant, and new readings that part from a sure answer kept.
+  if (result.decided.length)
+    console.log(
+      `Code worked out ${result.decided.length} pair(s) of readings answered by code: ${differs.length ? `it said otherwise than the assistant on ${differs.length}, and its word is kept.` : 'it agreed with the assistant on each.'}`,
+    )
+  for (const d of differs) console.log(decidedLine(d))
+  for (const flag of result.flagged) console.log(flaggedLine(flag))
   for (const call of result.calls) {
     const what = call.what === 'rules' ? 'rules' : call.what
     console.log(

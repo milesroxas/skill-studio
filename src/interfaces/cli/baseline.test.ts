@@ -187,6 +187,29 @@ const LIVE = {
   },
 }
 
+/**
+ * What code works out of the readings the live run gave, sent nothing (item 2.3): no two exact
+ * readings that code compares, so the assistant's word stands on every pair, and one output where
+ * the word limit, now read by code, is missed and Jev was sure it is met (136 words; Jev 0.75).
+ */
+const CODE = {
+  decided: { pairs: 0, differ: 0 },
+  flagged: [
+    {
+      ref: 'r4',
+      run: '2026-11-20-skill-v1-claude-haiku',
+      sample: 'email-crowded-s1',
+      code: false,
+      kept: true,
+      by: 'jev',
+    },
+  ],
+}
+
+/** Every field `st sort --json` printed before code had its word on pairs of readings. */
+const SORT_FIELDS = ['provider', 'model', 'effort', 'rules', 'cases', 'calls', 'usage', 'cost']
+const ITEM_FIELDS = ['kind', 'ref', 'id', 'text', 'stored', 'kept']
+
 const made: string[] = []
 const scratch = (prefix: string): string => {
   const dir = mkdtempSync(join(tmpdir(), prefix))
@@ -268,6 +291,27 @@ function sortCounts(sorted: SortResult) {
   }
 }
 
+/** What code worked out of the sort's readings, and the outputs it flagged. */
+function codeWord(sorted: SortResult) {
+  for (const field of SORT_FIELDS) expect(sorted).toHaveProperty(field)
+  for (const item of [...sorted.rules, ...sorted.cases.flatMap((c) => c.checks)])
+    for (const field of ITEM_FIELDS) expect(item).toHaveProperty(field)
+  return {
+    decided: {
+      pairs: sorted.decided.length,
+      differ: sorted.decided.filter((d) => d.holds !== d.assistant).length,
+    },
+    flagged: sorted.flagged.map(({ ref, run, sample, code, kept, by }) => ({
+      ref,
+      run,
+      sample,
+      code,
+      kept,
+      by,
+    })),
+  }
+}
+
 let v1 = ''
 let v2 = ''
 
@@ -293,6 +337,7 @@ describe('the baseline, replayed on a new copy of launch-note', () => {
     const sorted = st<SortResult>(['sort', v1, '--model', 'sonnet'])
     const { spent, ...counts } = LIVE.sortV1
     expect(sortCounts(sorted)).toEqual({ ...counts, spent })
+    expect(codeWord(sorted)).toEqual(CODE)
   }, 30_000)
 
   it("sorts version two beside version one's readings as the live run did, and agrees with the key as it did", () => {
@@ -300,6 +345,7 @@ describe('the baseline, replayed on a new copy of launch-note', () => {
     const sorted = st<SortResult>(['sort', v2, '--model', 'sonnet'])
     const { spent, ...counts } = LIVE.sortV2
     expect(sortCounts(sorted)).toEqual({ ...counts, spent })
+    expect(codeWord(sorted)).toEqual(CODE)
     const bench = countSorted(v2)
     const side = ({ agreed, disagreed, modelOnly, otherOnly }: typeof bench.stored) => ({
       agreed,

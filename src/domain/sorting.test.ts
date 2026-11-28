@@ -1,10 +1,16 @@
 import { describe, expect, it } from 'vitest'
-import type { RuleReading } from './rule-reading.ts'
+import type { BothHold } from './both-hold.ts'
+import type { ExactTest, RuleReading } from './rule-reading.ts'
 import {
   CHECKS_SCHEMA,
   checksPrompt,
+  type Decided,
+  decidedLine,
   describeReading,
   FALLBACK,
+  type Flagged,
+  flaggedLine,
+  heldWords,
   labelsIn,
   looseSchema,
   parseSorted,
@@ -339,5 +345,113 @@ describe('describeReading', () => {
       'It counts in no score until you mark it yourself.',
       'Fix: Write to the reader as you.',
     ])
+  })
+})
+
+describe('what code found of two readings, in words', () => {
+  const words = (compare: 'at most' | 'at least' | 'exactly', n: number): ExactTest => ({
+    test: 'count',
+    read: { part: 'text', skip: null },
+    what: 'words',
+    compare,
+    n,
+  })
+  const opens = (need: 'all' | 'any'): ExactTest => ({
+    test: 'has',
+    read: { part: 'line', label: 'Subject', number: null },
+    values: { from: 'listed', items: ['x'] },
+    need,
+    at: 'start',
+    match: 'words',
+    case: 'exact',
+  })
+  const limit: BothHold = {
+    holds: false,
+    a: words('at least', 200),
+    b: words('at most', 120),
+    values: null,
+    case: null,
+  }
+  const start: BothHold = {
+    holds: false,
+    a: opens('all'),
+    b: opens('any'),
+    values: { a: ['Bookings now confirm themselves.'], b: ['Ferry 3.2', 'Ferry'] },
+    case: 'email-price',
+  }
+
+  it('says two counts and two starts, each way, with the case the values came from', () => {
+    expect(heldWords(limit)).toBe(
+      'No output has at least 200 words and at most 120 words in the text a reader sees.',
+    )
+    expect(heldWords({ ...limit, holds: true, a: words('at least', 100) })).toBe(
+      'An output can have at least 100 words and at most 120 words in the text a reader sees.',
+    )
+    expect(heldWords(start)).toBe(
+      'On email-price, the "Subject:" line cannot start with both "Bookings now confirm themselves." and one of "Ferry 3.2" and "Ferry".',
+    )
+    expect(heldWords({ ...start, holds: true, case: null })).toBe(
+      'The "Subject:" line can start with both "Bookings now confirm themselves." and one of "Ferry 3.2" and "Ferry".',
+    )
+  })
+
+  it('says what is kept, what the assistant said and what code found, for two rules and a check', () => {
+    const rules: Decided = {
+      kind: 'rules',
+      case: null,
+      ref: 'r1',
+      rule: 'r2',
+      holds: false,
+      assistant: true,
+      on: start,
+    }
+    expect(decidedLine(rules)).toBe(
+      `Rules r1 and r2 cannot both hold, so neither counts in any score. The assistant read both as answered by code; code found: ${heldWords(start)}`,
+    )
+    const check: Decided = {
+      ...rules,
+      kind: 'check',
+      case: 'page-long',
+      ref: 'c1',
+      rule: 'r4',
+      on: limit,
+    }
+    expect(decidedLine(check)).toBe(
+      `On page-long, rule r4 cannot hold beside c1. The assistant said it can; code found: ${heldWords(limit)}`,
+    )
+    expect(decidedLine({ ...check, holds: true, assistant: false })).toBe(
+      `On page-long, rule r4 can hold beside c1, so it counts there. The assistant said it cannot; code found: ${heldWords(limit)}`,
+    )
+  })
+
+  it('flags a new reading by the output, the answer kept and whose it is', () => {
+    const flag: Flagged = {
+      kind: 'rule',
+      ref: 'r4',
+      case: null,
+      text: 'Write no more than 120 words. Most readers stop after the first screen.',
+      run: '2026-11-20-skill-v1-claude-haiku',
+      sample: 'email-crowded-s1',
+      code: false,
+      kept: true,
+      by: 'jev',
+    }
+    expect(flaggedLine(flag)).toBe(
+      'Read by code now, r4 "Write no more than 120 words. Most readers stop after the f…" is missed on 2026-11-20-skill-v1-claude-haiku email-crowded-s1, where Jev was sure it is met.',
+    )
+    expect(
+      flaggedLine({
+        ...flag,
+        kind: 'check',
+        ref: 'c1',
+        case: 'page-basic',
+        text: 'The page states the price as 12 USD a month.',
+        code: true,
+        kept: false,
+        by: 'reader',
+      }),
+    ).toBe(
+      'Read by code now, page-basic c1 "The page states the price as 12 USD a month." is met on 2026-11-20-skill-v1-claude-haiku email-crowded-s1, where you marked it missed.',
+    )
   })
 })
