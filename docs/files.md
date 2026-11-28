@@ -78,6 +78,7 @@ The announcement never mentions the codename Falcon, which the brief marks Inter
 | `kind`, `text`, `case` | `rule` or `check`, its words, and for a check the case's id |
 | `reading` | The reading: `exact` with its tests, `judged` with its `span`, or `unmarkable` with `why`, `with` and `fix` (`RuleReading` in `src/domain/rule-reading.ts`). A check's is never `unmarkable` with `why: "conflict"`. `{ "reading": "judged", "span": null }` is one the assistant could not fill in the shape twice |
 | `against` | For a check only: the rules that cannot hold beside it on its case, each `{ "rule": <its words>, "fix": <the rule rewritten, or null> }`. Each counts in no score on that case. An empty list when there is none |
+| `assistant` | Only where code, from two readings answered by code, said otherwise than the assistant and its word is the one in `reading` or `against` ([cli.md](cli.md#sorting-rules-and-checks)): what the assistant said, its `reading` for a rule, its `against` for a check. One that does not hold to that shape is left out alone when the file is read, with one warning, and the entry kept |
 | `reason` | The assistant's one sentence on why |
 | `refused` | Why each earlier reading of it did not fit the shape: none, one or two |
 | `provider`, `model`, `at`, `prompt` | Who read it, when, and the version of what it was told |

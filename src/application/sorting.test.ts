@@ -450,6 +450,404 @@ describe('currentReadings', () => {
     const current = currentReadings(dir, skillMd, quote())
     expect(current.rules.size + current.checks.size).toBe(0)
   })
+
+  it('leaves out only what the assistant said where it is off its shape, keeps the reading, and says so once', async () => {
+    const { dir, skillMd, quote } = await sorted()
+    const file = JSON.parse(readFileSync(readingsPath(dir), 'utf8'))
+    for (const entry of file.readings) entry.assistant = { reading: 'run this' }
+    writeFileSync(readingsPath(dir), JSON.stringify(file))
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    try {
+      const kept = readStored(dir)
+      expect(kept).toHaveLength(file.readings.length)
+      expect(kept.every((entry) => entry.assistant === undefined && entry.reading)).toBe(true)
+      expect(currentReadings(dir, skillMd, quote()).rules.size).toBe(19)
+      // A sort asks nothing again for them.
+      model.requests = []
+      await sortSkill(dir, options())
+      expect(model.requests).toHaveLength(0)
+      expect(warn).toHaveBeenCalledTimes(1)
+      expect(warn.mock.calls[0][0]).toContain('left out and the reading kept')
+    } finally {
+      warn.mockRestore()
+    }
+  })
+})
+
+describe('code’s word on two exact readings', () => {
+  const WORDS = 'Write no more than 120 words. Most readers stop after the first screen.'
+  const FIX = 'Write no more than 120 words, unless the request asks for a full list.'
+  const TEXT = { part: 'text', skip: null } as const
+  const opens = (value: string): RuleReading => ({
+    reading: 'exact',
+    outputs: ['text', 'page'],
+    join: 'all',
+    tests: [
+      {
+        test: 'has',
+        read: TEXT,
+        values: { from: 'listed', items: [value] },
+        need: 'all',
+        at: 'start',
+        match: 'words',
+        case: 'exact',
+      },
+    ],
+  })
+  const words = (compare: 'at most' | 'at least', n: number): RuleReading => ({
+    reading: 'exact',
+    outputs: ['text', 'page'],
+    join: 'all',
+    tests: [{ test: 'count', read: TEXT, what: 'words', compare, n }],
+  })
+  /** Opens with the request's own value under `label`, as each case's request gives it. */
+  const brief = (label: string): RuleReading => ({
+    reading: 'exact',
+    outputs: ['text', 'page'],
+    join: 'all',
+    tests: [
+      {
+        test: 'has',
+        read: TEXT,
+        values: {
+          from: 'request',
+          in: 'request and files',
+          file: null,
+          labels: [label],
+          take: 'whole',
+          level: null,
+        },
+        need: 'all',
+        at: 'start',
+        match: 'words',
+        case: 'exact',
+      },
+    ],
+  })
+  /** A SKILL.md of `body`, with front matter as launch-note's. */
+  const md = (body: string) =>
+    `---\nname: launch-note\ndescription: Write a launch note for a release, as an email or as a page.\n---\n\n${body}\n`
+  const TOP = 'Keep each note under 500 words. Nobody reads past that.'
+  /** A rule above every heading, which grading asks of every output, and the word limit under an email heading. */
+  const CHECK_SKILL = md(`- ${TOP}\n\n## Rules for an email\n\n- ${WORDS}`)
+  const SHORT = 'Keep the text to no more than 120 words. Short notes get read.'
+  const LONG = 'Write at least 300 words of text. A short report leaves gaps.'
+  const isLong = (request: AiRequest) => request.messages[0].text.includes('case="page-long"')
+  const checks = (request: AiRequest) => request.messages[0].text.includes('The checks to read')
+
+  /** Sorted with the rules and page-long's first check read as `pick` says, and `named` as the rules it names it cannot hold beside. */
+  async function sorted(
+    pick: Record<string, RuleReading>,
+    named: unknown[] = [],
+    written?: string,
+  ) {
+    const dir = skill()
+    if (written) writeFileSync(join(dir, 'SKILL.md'), written)
+    model.reply = answering(
+      (id, request) => {
+        const key = checks(request) ? (isLong(request) ? `page-long ${id}` : '') : id
+        return pick[key] ?? JUDGED
+      },
+      (id, request) => (id === 'c1' && isLong(request) ? named : []),
+    )
+    const result = await sortSkill(dir, options())
+    const skillMd = readFileSync(join(dir, 'SKILL.md'), 'utf8')
+    const long = loadCases(dir).find((c) => c.id === 'page-long')
+    if (!long) throw new Error('no page-long')
+    return { dir, result, current: currentReadings(dir, skillMd, long) }
+  }
+  const rule = (result: Awaited<ReturnType<typeof sorted>>['result'], ref: string) =>
+    result.rules.find((item) => item.ref === ref)
+  const longCheck = (result: Awaited<ReturnType<typeof sorted>>['result']) =>
+    result.cases.find((c) => c.case === 'page-long')?.checks[0]
+
+  it('finds two rules the assistant read as answered by code in conflict, keeps that, and keeps the assistant’s reading beside it', async () => {
+    const { dir, result, current } = await sorted({ r1: opens('Hello'), r2: opens('Dear reader') })
+    expect(rule(result, 'r1')?.stored).toMatchObject({
+      reading: { reading: 'unmarkable', why: 'conflict', with: 'r2', fix: null },
+      assistant: { reading: opens('Hello') },
+    })
+    expect(rule(result, 'r2')?.stored?.reading).toMatchObject({ with: 'r1' })
+    expect(result.decided).toEqual([
+      expect.objectContaining({
+        kind: 'rules',
+        ref: 'r1',
+        rule: 'r2',
+        holds: false,
+        assistant: true,
+      }),
+    ])
+    const r1 = rule(result, 'r1')?.text ?? ''
+    expect(current.rules.get(verdictId('rule', r1))?.reading).toMatchObject({ why: 'conflict' })
+    // Kept, it is decided the same, and nothing is written again.
+    const before = readFileSync(readingsPath(dir), 'utf8')
+    model.requests = []
+    const again = await sortSkill(dir, options())
+    expect(model.requests).toHaveLength(0)
+    expect(again.decided).toEqual(result.decided)
+    expect(readFileSync(readingsPath(dir), 'utf8')).toBe(before)
+  })
+
+  it('shows the next sort the assistant’s own reading as the earlier one, not code’s', async () => {
+    const { dir } = await sorted({ r1: opens('Hello'), r2: opens('Dear reader') })
+    const md = join(dir, 'SKILL.md')
+    writeFileSync(md, `${readFileSync(md, 'utf8')}\n- Sign every note with the team's name.\n`)
+    model.requests = []
+    await sortSkill(dir, options())
+    const shown = model.requests.find((r) => !checks(r))?.messages[0].text ?? ''
+    expect(shown).toContain(`<earlier for="r1">\n${JSON.stringify(opens('Hello'))}\n</earlier>`)
+  })
+
+  it('lets two rules stand that can both hold, and two not both read by code', async () => {
+    const both = await sorted({ r1: opens('Ferry'), r2: opens('Ferry 3.2 is here') })
+    expect(rule(both.result, 'r1')?.stored?.reading).toEqual(opens('Ferry'))
+    expect(rule(both.result, 'r1')?.stored?.assistant).toBeUndefined()
+    expect(both.result.decided).toEqual([expect.objectContaining({ holds: true, assistant: true })])
+    const one = await sorted({ r1: opens('Hello') })
+    expect(rule(one.result, 'r1')?.stored?.reading).toEqual(opens('Hello'))
+    expect(one.result.decided).toEqual([])
+  })
+
+  it('names a rule above every heading in a check’s against where code finds the two cannot hold, and leaves one under a heading to the assistant', async () => {
+    const { result, current } = await sorted(
+      {
+        r1: words('at most', 499),
+        r2: words('at most', 120),
+        'page-long c1': words('at least', 600),
+      },
+      [],
+      CHECK_SKILL,
+    )
+    // Both rules' readings clash with the check's, but grading asks of the email heading whether it is for a page at all.
+    expect(longCheck(result)?.stored).toMatchObject({
+      against: [{ rule: TOP, fix: null }],
+      assistant: { against: [] },
+    })
+    expect(result.decided).toEqual([
+      expect.objectContaining({
+        kind: 'check',
+        ref: 'c1',
+        rule: 'r1',
+        holds: false,
+        assistant: true,
+      }),
+    ])
+    expect(current.rules.get(verdictId('rule', TOP))?.reading).toEqual({
+      reading: 'unmarkable',
+      why: 'conflict',
+      with: 'c1',
+      fix: null,
+    })
+    expect(current.rules.get(verdictId('rule', WORDS))?.reading).toEqual(words('at most', 120))
+  })
+
+  it('takes a rule above every heading out of a check’s against where code finds the two can hold, and says what the assistant said', async () => {
+    const said = [
+      { rule: 'r1', fix: FIX },
+      { rule: 'r2', fix: FIX },
+    ]
+    const { result, current } = await sorted(
+      {
+        r1: words('at most', 499),
+        r2: words('at most', 120),
+        'page-long c1': words('at least', 100),
+      },
+      said,
+      CHECK_SKILL,
+    )
+    expect(longCheck(result)?.stored).toMatchObject({
+      against: [{ rule: WORDS, fix: FIX }],
+      assistant: {
+        against: [
+          { rule: TOP, fix: FIX },
+          { rule: WORDS, fix: FIX },
+        ],
+      },
+    })
+    expect(result.decided).toEqual([
+      expect.objectContaining({
+        kind: 'check',
+        case: 'page-long',
+        ref: 'c1',
+        rule: 'r1',
+        holds: true,
+        assistant: false,
+      }),
+    ])
+    expect(current.rules.get(verdictId('rule', TOP))?.reading).toEqual(words('at most', 499))
+  })
+
+  it('leaves the assistant’s against untouched where one reading is not read by code', async () => {
+    const { result } = await sorted(
+      { r1: words('at most', 499) },
+      [{ rule: 'r1', fix: FIX }],
+      CHECK_SKILL,
+    )
+    expect(longCheck(result)?.stored?.against).toEqual([{ rule: TOP, fix: FIX }])
+    expect(longCheck(result)?.stored?.assistant).toBeUndefined()
+    expect(result.decided).toEqual([])
+  })
+
+  it('leaves two rules to the assistant that stand under different headings, and finds the same two under one heading in conflict', async () => {
+    const counts = { r1: words('at most', 120), r2: words('at least', 300) }
+    const starts = { r1: opens('Hello'), r2: opens('Dear') }
+    for (const pick of [counts, starts]) {
+      const apart = await sorted(pick, [], md(`## Emails\n\n- ${SHORT}\n\n## Reports\n\n- ${LONG}`))
+      expect(apart.result.decided).toEqual([])
+      expect(rule(apart.result, 'r1')?.stored?.reading).toEqual(pick.r1)
+      expect(rule(apart.result, 'r2')?.stored?.assistant).toBeUndefined()
+      const together = await sorted(
+        pick,
+        [],
+        md(`## Rules for every note\n\n- ${SHORT}\n- ${LONG}`),
+      )
+      expect(together.result.decided).toEqual([
+        expect.objectContaining({ kind: 'rules', ref: 'r1', rule: 'r2', holds: false }),
+      ])
+      expect(rule(together.result, 'r1')?.stored?.reading).toMatchObject({
+        why: 'conflict',
+        with: 'r2',
+      })
+    }
+  })
+
+  it('leaves two rules to the assistant where one sets a condition of its own', async () => {
+    const own = 'When the note is an email, keep the text to no more than 120 words.'
+    const { result } = await sorted(
+      { r1: words('at most', 120), r2: words('at least', 300) },
+      [],
+      md(`## Rules for every note\n\n- ${own}\n- ${LONG}`),
+    )
+    expect(result.decided).toEqual([])
+    expect(rule(result, 'r1')?.stored?.reading).toEqual(words('at most', 120))
+  })
+
+  it('decides two rules again on the next sort once a case is changed or added, and gives the assistant its word back', async () => {
+    const headline = brief('Headline')
+    const pick = { r1: headline, r2: opens('Hello') }
+    // No brief's headline starts with Hello: the two cannot both hold on any case.
+    const edited = await sorted(pick)
+    expect(rule(edited.result, 'r1')?.stored?.reading).toMatchObject({ why: 'conflict' })
+    const file = join(edited.dir, 'evals/cases/email-price/files/brief.md')
+    writeFileSync(
+      file,
+      readFileSync(file, 'utf8').replace(
+        'Headline: Bookings now confirm themselves.',
+        'Headline: Hello, bookings now confirm themselves.',
+      ),
+    )
+    const after = await sortSkill(edited.dir, options())
+    expect(after.decided.filter((d) => d.kind === 'rules')).toEqual([])
+    expect(rule(after, 'r1')?.stored?.reading).toEqual(headline)
+    expect(rule(after, 'r1')?.stored?.assistant).toBeUndefined()
+    expect(readStored(edited.dir).some((entry) => entry.assistant)).toBe(false)
+
+    // A case whose brief gives no headline: code gives no answer there, so Jev's would stand.
+    const added = await sorted(pick)
+    const plain = join(added.dir, 'evals/cases/email-plain')
+    cpSync(join(added.dir, 'evals/cases/email-free'), plain, { recursive: true })
+    const yaml = join(plain, 'case.yaml')
+    writeFileSync(
+      yaml,
+      readFileSync(yaml, 'utf8').replace(/^title: .*$/m, 'title: Launch email, no headline'),
+    )
+    const plainBrief = join(plain, 'files/brief.md')
+    writeFileSync(plainBrief, readFileSync(plainBrief, 'utf8').replace(/^Headline: .*\r?\n/m, ''))
+    const grown = await sortSkill(added.dir, options())
+    expect(grown.cases.some((c) => c.case === 'email-plain')).toBe(true)
+    expect(rule(grown, 'r1')?.stored?.reading).toEqual(headline)
+    expect(rule(grown, 'r2')?.stored?.reading).toEqual(opens('Hello'))
+  })
+
+  it('still loads readings kept before code had its word, and asks nothing for them', async () => {
+    const dir = skill()
+    cpSync(join(FIXTURE, 'evals/rule-readings.json'), readingsPath(dir))
+    const kept = readStored(dir)
+    expect(kept.length).toBeGreaterThan(0)
+    expect(kept.every((entry) => entry.assistant === undefined)).toBe(true)
+    const result = await sortSkill(dir, options())
+    expect(model.requests).toHaveLength(0)
+    const items = [...result.rules, ...result.cases.flatMap((c) => c.checks)]
+    expect(items.every((item) => item.kept && item.stored)).toBe(true)
+    expect(result.decided.filter((d) => d.holds !== d.assistant)).toEqual([])
+    expect(readStored(dir)).toEqual(kept)
+  })
+})
+
+describe('a new exact reading held to the answers kept', () => {
+  const WORDS = 'Write no more than 120 words. Most readers stop after the first screen.'
+  const LIMIT: RuleReading = {
+    reading: 'exact',
+    outputs: ['text', 'page'],
+    join: 'all',
+    tests: [
+      {
+        test: 'count',
+        read: { part: 'text', skip: null },
+        what: 'words',
+        compare: 'at most',
+        n: 120,
+      },
+    ],
+  }
+  const HAIKU = '2026-11-20-skill-v1-claude-haiku'
+  const SONNET = '2026-11-20-skill-v0-claude-sonnet'
+
+  /** A copy of launch-note with its runs and their gradings, and without its readings. */
+  function graded(): string {
+    const dir = join(mkdtempSync(join(tmpdir(), 'st-sort-runs-')), 'launch-note')
+    made.push(dir)
+    cpSync(FIXTURE, dir, { recursive: true })
+    rmSync(readingsPath(dir))
+    return dir
+  }
+  const sortedWith = async (dir: string) => {
+    model.reply = answering((id, request) =>
+      id === 'r4' && !request.messages[0].text.includes('The checks to read') ? LIMIT : JUDGED,
+    )
+    return (await sortSkill(dir, options())).flagged
+  }
+  const flag = (
+    run: string,
+    sample: string,
+    code: boolean,
+    kept: boolean,
+    by: 'jev' | 'reader',
+  ) => ({
+    kind: 'rule',
+    ref: 'r4',
+    case: null,
+    text: WORDS,
+    run,
+    sample,
+    code,
+    kept,
+    by,
+  })
+
+  it('flags the one output where code’s answer is not Jev’s sure one, and none Jev was not sure of or has no answer on', async () => {
+    // On email-crowded Jev was sure the 136 words keep the limit (0.75). Where Jev was not sure
+    // (0.59, 0.38) nothing is flagged, nor on page-long, where the limit was set aside and Jev not asked.
+    expect(await sortedWith(graded())).toEqual([
+      flag(HAIKU, 'email-crowded-s1', false, true, 'jev'),
+    ])
+  })
+
+  it('holds it to the person’s own mark over Jev’s', async () => {
+    const dir = graded()
+    const reviews = {
+      reviews: {
+        [`${HAIKU}/email-crowded-s1`]: { corrections: { [verdictId('rule', WORDS)]: false } },
+        [`${SONNET}/email-free-s1`]: { corrections: { [verdictId('rule', WORDS)]: false } },
+      },
+    }
+    writeFileSync(join(dir, 'evals/reviews.json'), JSON.stringify(reviews))
+    expect(await sortedWith(dir)).toEqual([flag(SONNET, 'email-free-s1', true, false, 'reader')])
+  })
+
+  it('flags nothing on a skill with no runs', async () => {
+    expect(await sortedWith(skill())).toEqual([])
+  })
 })
 
 describe('sortSkill, on the checks for every case', () => {

@@ -21,6 +21,11 @@
  * the rule reworded, the check reworded or the case's request changed
  * leaves it unfound, and the rule is read as usual there again.
  *
+ * Where code worked out from two exact readings what the assistant said
+ * otherwise (`bothHold` in `domain/both-hold.ts`), the entry keeps code's
+ * word, which grading reads, and the assistant's under `assistant`, which the
+ * next sort shows the model as the earlier reading.
+ *
  * `currentReadings` is what grading reads.
  */
 import { createHash } from 'node:crypto'
@@ -54,6 +59,17 @@ export interface StoredReading {
    * out of that case's score alone. Absent for a rule.
    */
   against?: Array<{ rule: string; fix: string | null }>
+  /**
+   * What the assistant said, where code said otherwise from two exact
+   * readings and code's word is the one kept (`sortSkill`): a rule's own
+   * reading where code found it in conflict with another rule, a check's own
+   * `against` where code found otherwise of a rule beside it. Absent where
+   * code changed nothing, and in a reading kept from before code checked.
+   */
+  assistant?: {
+    reading?: SortedReading
+    against?: Array<{ rule: string; fix: string | null }>
+  }
   /** The model's one sentence on why; empty for the fallback. */
   reason: string
   /** Why the parser refused each reading the model gave before this one, in order: none, one, or two. */
@@ -106,20 +122,50 @@ export const checkStamp = (skillMd: string, ask: string, statement: string): str
     ]),
   )
 
+/** The files `readStored` has said so of once, so a file read many times in a grading says it once. */
+const warned = new Set<string>()
+
 /**
  * Every reading in the file that still holds to its shape. A file that cannot
  * be read throws, naming it, as the app's other JSON does; an entry that is
- * not a reading, or holds one the parser now refuses, is left out.
+ * not a reading, or holds one the parser now refuses, is left out. What the
+ * assistant said beside code's word (`assistant`) is a note, not the reading:
+ * one off its shape is left out alone, the entry kept, and one line says so.
  */
 export function readStored(skillDir: string): StoredReading[] {
-  const file = readJson<Partial<ReadingsFile>>(readingsPath(skillDir), { readings: [] })
+  const path = readingsPath(skillDir)
+  const file = readJson<Partial<ReadingsFile>>(path, { readings: [] })
   const list = Array.isArray(file?.readings) ? file.readings : []
-  return list.filter((entry): entry is StoredReading => {
-    if (!entry || typeof entry !== 'object' || typeof entry.stamp !== 'string') return false
-    if (entry.kind !== 'rule' && entry.kind !== 'check') return false
-    if (entry.prompt !== SORT_PROMPT_VERSION) return true
-    return isReading(entry.reading, entry.kind) && isAgainst(entry.against, entry.kind)
+  let dropped = 0
+  const kept = list.flatMap((entry): StoredReading[] => {
+    if (!entry || typeof entry !== 'object' || typeof entry.stamp !== 'string') return []
+    if (entry.kind !== 'rule' && entry.kind !== 'check') return []
+    if (entry.prompt !== SORT_PROMPT_VERSION) return [entry]
+    if (!isReading(entry.reading, entry.kind) || !isAgainst(entry.against, entry.kind)) return []
+    if (isAssistant(entry.assistant, entry.kind)) return [entry]
+    dropped += 1
+    const { assistant: _, ...rest } = entry
+    return [rest]
   })
+  if (dropped && !warned.has(path)) {
+    warned.add(path)
+    console.warn(
+      `${path}: what the assistant said is not in its shape in ${dropped} reading(s), so it was left out and the reading kept.`,
+    )
+  }
+  return kept
+}
+
+/** What the assistant said where code said otherwise: absent, or its own reading, its own `against`, or both, each to its shape. */
+const isAssistant = (value: unknown, kind: 'rule' | 'check'): boolean => {
+  if (value === undefined) return true
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false
+  const { reading, against, ...more } = value as Record<string, unknown>
+  return (
+    !Object.keys(more).length &&
+    (reading === undefined || isReading(reading, kind)) &&
+    isAgainst(against, kind)
+  )
 }
 
 /** A reading the parser takes for a rule or a check, or the fallback. */

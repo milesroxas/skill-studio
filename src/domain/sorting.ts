@@ -6,7 +6,7 @@
  * the shape of its reply (`SORT_SCHEMA`, and `CHECKS_SCHEMA` with the rules
  * that cannot hold beside a check on its case), the parser that holds the reply to
  * it (`parseSorted`), and the plain words a person is shown for a reading
- * (`describeReading`).
+ * (`describeReading`) and for what code found of two (`heldWords`).
  *
  * Nothing the model writes runs: each reading goes through `readRuleReading`,
  * and one it refuses is asked for again once, with what was wrong
@@ -15,6 +15,7 @@
  *
  * Pure data and functions.
  */
+import type { BothHold } from './both-hold.ts'
 import {
   type ExactTest,
   FIX_MAX,
@@ -605,6 +606,115 @@ function testWords(test: ExactTest): string {
       return `The ${prop} of ${test.each === 'every' ? 'every' : 'at least one'} <${test.tag}> is ${test.compare} ${test.px} px`
     }
   }
+}
+
+type CountTest = Extract<ExactTest, { test: 'count' }>
+
+/** Two counts of one thing in one part, in words: "at least 200 words and at most 120 words in the text a reader sees". */
+function countsWords(x: CountTest, y: CountTest): string {
+  const [one, many] = COUNT_WORDS[x.what]
+  const read = partWords(x.read)
+  if (!one)
+    return `${x.compare} ${x.n} and ${y.compare} ${y.n} ${read.replace(/^(each|the first|the last) /, '')}`
+  const counted = (t: CountTest) => `${t.compare} ${t.n} ${t.n === 1 ? one : many}`
+  return `${counted(x)} and ${counted(y)} in ${read}`
+}
+
+/** What a start test looks for, in words: the value, or one of several. */
+const startWords = (test: ExactTest, values: readonly string[]): string =>
+  test.test === 'has' && test.need === 'any' && values.length > 1
+    ? `one of ${quoted(values)}`
+    : quoted(values)
+
+/**
+ * What code found of two exact readings (`bothHold`), in one sentence: that
+ * one output can meet both, or that none can, by the two tests it compared,
+ * and the case whose request the values came from.
+ */
+export function heldWords(held: BothHold): string {
+  const on = held.case ? `On ${held.case}, ` : ''
+  const lead = (text: string) => (on ? `${on}${text}` : capital(text))
+  const { a, b } = held
+  if (a.test === 'count' && b.test === 'count') {
+    const both = countsWords(a, b)
+    return held.holds ? lead(`an output can have ${both}.`) : lead(`no output has ${both}.`)
+  }
+  if (a.test !== 'has' || !held.values)
+    return held.holds ? 'Both can hold.' : 'They cannot both hold.'
+  const read = partWords(a.read)
+  const both = `${startWords(a, held.values.a)} and ${startWords(b, held.values.b)}`
+  return held.holds
+    ? lead(`${read} can start with both ${both}.`)
+    : lead(`${read} cannot start with both ${both}.`)
+}
+
+/**
+ * What code worked out of two exact readings a sort holds (`bothHold`), beside
+ * what the assistant said of them. Code's word is the one kept.
+ */
+export interface Decided {
+  /** Two rules, or one of a case's checks and a rule. */
+  kind: 'rules' | 'check'
+  /** For a check, its case; null for two rules. */
+  case: string | null
+  /** The first rule, or the check, by its short name (`r1`, `c2`). */
+  ref: string
+  /** The rule beside it, by its short name. */
+  rule: string
+  /** Whether one output can meet both, as code found. */
+  holds: boolean
+  /** Whether the assistant said so: false where it named the rule as one that cannot hold beside the check. */
+  assistant: boolean
+  /** What code compared. */
+  on: BothHold
+}
+
+/**
+ * A new exact reading that answers an output a run kept otherwise than the
+ * sure answer kept for the same rule or check there: the person's own mark,
+ * or Jev's where it was sure.
+ */
+export interface Flagged {
+  kind: 'rule' | 'check'
+  /** Its short name in the sort (`r4`, or a check's `c1`). */
+  ref: string
+  /** For a check, its case; null for a rule. */
+  case: string | null
+  text: string
+  run: string
+  sample: string
+  /** What code answers there with the new reading: true where it is met. */
+  code: boolean
+  /** The answer kept: true where it is met. */
+  kept: boolean
+  /** Whose the answer kept is: Jev's, or the person's own mark. */
+  by: 'jev' | 'reader'
+}
+
+const clipped = (text: string, max = 60): string =>
+  text.length > max ? `${text.slice(0, max - 1).trimEnd()}…` : text
+
+/**
+ * One line of a sort's last lines for a pair code decided otherwise than the
+ * assistant: what is kept, what the assistant said, and what code found.
+ */
+export function decidedLine(decided: Decided): string {
+  const found = heldWords(decided.on)
+  // Two rules the assistant read as answered by code are two it said can both hold.
+  if (decided.kind === 'rules')
+    return `Rules ${decided.ref} and ${decided.rule} cannot both hold, so neither counts in any score. The assistant read both as answered by code; code found: ${found}`
+  const where = `On ${decided.case}, rule ${decided.rule}`
+  return decided.holds
+    ? `${where} can hold beside ${decided.ref}, so it counts there. The assistant said it cannot; code found: ${found}`
+    : `${where} cannot hold beside ${decided.ref}. The assistant said it can; code found: ${found}`
+}
+
+/** One line of a sort's last lines for a new exact reading that answers a kept output otherwise than a sure answer kept for it. */
+export function flaggedLine(flag: Flagged): string {
+  const word = (met: boolean) => (met ? 'met' : 'missed')
+  const what = `${flag.case ? `${flag.case} ` : ''}${flag.ref} "${clipped(flag.text)}"`
+  const kept = flag.by === 'reader' ? 'you marked it' : 'Jev was sure it is'
+  return `Read by code now, ${what} is ${word(flag.code)} on ${flag.run} ${flag.sample}, where ${kept} ${word(flag.kept)}.`
 }
 
 const SPAN_WORDS: Record<string, string> = {
