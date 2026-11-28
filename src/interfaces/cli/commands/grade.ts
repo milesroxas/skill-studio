@@ -6,11 +6,13 @@ import { runNameOf } from '../input.ts'
 import type { Command, FlagValues } from './command.ts'
 import { GRADING, shared } from './flags.ts'
 import {
+  disagreementsOf,
   drawingOf,
   held,
   noteNoKey,
   oneRun,
   printGraded,
+  reportWith,
   runNamer,
   skillOf,
   wantsJev,
@@ -51,9 +53,15 @@ export const grade: Command = {
           gradeRun(skill, name, { ...context.jev, useJev, render }),
         )
         const named = nameRun(name)
+        // Where code and a sure Jev gave different answers, as `st report` says it of the same run.
+        const disputed = disagreementsOf(skill, name, report, context.scoring)
         // With --json, the line before each report stays the run's folder alone: its JSON names the version.
         console.log(`\n${values.json ? name : runShown(named)}`)
-        judged = printGraded(report, values.json, undefined, { run: named }) && judged
+        judged =
+          printGraded(report, values.json, reportWith(disputed), {
+            run: named,
+            disagreements: disputed,
+          }) && judged
       })
     return judged ? 0 : 1
   },

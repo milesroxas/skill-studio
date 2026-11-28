@@ -10,12 +10,13 @@ import { attemptLine, briefOrJson, printBrief } from './brief.ts'
 import type { Command, FlagValues } from './command.ts'
 import { GRADING, shared } from './flags.ts'
 import {
+  disagreementsOf,
   drawingOf,
   held,
   noteNoKey,
   printGraded,
   printOpen,
-  printReport,
+  reportWith,
   runNamer,
   skillOf,
   spentLine,
@@ -144,9 +145,15 @@ export const run: Command = {
     if (!graded && brief) briefly(null)
     if (!graded && values.json)
       console.log(JSON.stringify(withCost({ run: named, spent }), null, 2))
+    // Where code and a sure Jev gave different answers, as `st report` says it of the same run.
+    const disputed = graded ? disagreementsOf(skill, name, graded, context.scoring) : []
     const fine =
       !graded ||
-      printGraded(graded, values.json, brief ? briefly : printReport, { run: named, spent })
+      printGraded(graded, values.json, brief ? briefly : reportWith(disputed), {
+        run: named,
+        spent,
+        disagreements: disputed,
+      })
     if (!values.json) console.log(brief ? spentLine(spent) : `\n${spentLine(spent)}`)
     printOpen(values.json, skill, name)
     return fine && !failed.length ? 0 : 1

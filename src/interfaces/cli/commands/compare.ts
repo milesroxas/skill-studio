@@ -1,4 +1,10 @@
-import { type ComparedCases, compareCases, compareRuns, correctionsOf } from '@application/grade.ts'
+import {
+  type ComparedCases,
+  compareCases,
+  compareRuns,
+  correctionsOf,
+  disagreements,
+} from '@application/grade.ts'
 import type { CaseMove, Met } from '@domain/case-result.ts'
 import { type RunNamed, runShown } from '@domain/run-name.ts'
 import { readRun } from '@infrastructure/runs.ts'
@@ -6,7 +12,17 @@ import { runNameOf } from '../input.ts'
 import { briefOrJson, printBriefCompare } from './brief.ts'
 import type { Command, FlagValues } from './command.ts'
 import { shared } from './flags.ts'
-import { pad, padEnd, printOpen, runNamer, skillOf, spentLine, spentOf, widthOf } from './shared.ts'
+import {
+  pad,
+  padEnd,
+  printDisagreements,
+  printOpen,
+  runNamer,
+  skillOf,
+  spentLine,
+  spentOf,
+  widthOf,
+} from './shared.ts'
 
 const flags = shared('json', 'brief', 'packs', 'bench')
 
@@ -108,9 +124,20 @@ export const compare: Command = {
       return 0
     }
     const { rows, left, notes } = compareRuns(skill, before, after, context.scoring)
+    // Where each run's rules and checks stood on code's answer and Jev was sure of the other.
+    const disputed = {
+      a: disagreements(skill, before, context.scoring),
+      b: disagreements(skill, after, context.scoring),
+    }
     if (values.json) {
       const ends = { a: before.named, b: after.named, spent: { a: before.spent, b: after.spent } }
-      console.log(JSON.stringify({ rows, left, notes, cases: byCase, ...ends }, null, 2))
+      console.log(
+        JSON.stringify(
+          { rows, left, notes, cases: byCase, ...ends, disagreements: disputed },
+          null,
+          2,
+        ),
+      )
       return 0
     }
     printHeads(before.named, after.named)
@@ -138,6 +165,10 @@ export const compare: Command = {
       for (const line of left) console.log(`  ${line}`)
     }
     printCases(byCase)
+    printDisagreements([
+      ...disputed.a.map((disagreement) => ({ who: 'A ', disagreement })),
+      ...disputed.b.map((disagreement) => ({ who: 'B ', disagreement })),
+    ])
     console.log(`\n${spentLines.join('\n')}`)
     printOpen(values.json, skill, a, b)
     return 0

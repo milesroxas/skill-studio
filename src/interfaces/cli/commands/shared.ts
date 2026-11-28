@@ -1,19 +1,27 @@
 /** What more than one command does: find the skill, hold its work, ask Jev, print a report. */
 import { existsSync, readFileSync } from 'node:fs'
 import { join, resolve } from 'node:path'
-import { gradingSpent, unjudged } from '@application/grade.ts'
+import {
+  correctionsOf,
+  type Disagreement,
+  disagreements,
+  gradingSpent,
+  unjudged,
+} from '@application/grade.ts'
 import type { PageRenderer } from '@domain/artifact-address.ts'
+import { oneLineTitle } from '@domain/case-draft.ts'
 import { type CallTotal, dollars, type RunSpent, runSpent, sumCalls } from '@domain/cost.ts'
 import { type RunNamed, runNamed } from '@domain/run-name.ts'
 import type { BenchConfig, Report, RunMeta } from '@domain/schemas.ts'
 import { layerOrder } from '@domain/scoring.ts'
 import type { SkillInfo, SkillVersion } from '@domain/views.ts'
 import { realPath } from '@infrastructure/fs.ts'
-import { answerCosts, readRunMeta, versionsOf } from '@infrastructure/runs.ts'
+import { answerCosts, readRun, readRunMeta, versionsOf } from '@infrastructure/runs.ts'
 import { skillInfo } from '@infrastructure/skill.ts'
 import { Jev } from '@judges/jev.ts'
 import { meterNow } from '@judges/meter.ts'
 import { scorers } from '@judges/scorers.ts'
+import { clip } from '@judges/shared/score.ts'
 import type { Lifecycle } from '../../lifecycle.ts'
 import { drawingHost } from '../drawing.ts'
 import type { Context, FlagValues, Values } from './command.ts'
@@ -276,6 +284,68 @@ export function printReport(report: Report): void {
     `\n${report.results.length} output(s), ${report.model ?? 'no Jev'}, ${report.inputTokens.toLocaleString()} input tokens${report.asked ? ` (${report.asked.inputTokens.toLocaleString()} paid by this grading)` : ''}, ${report.seconds} s`,
   )
 }
+
+/**
+ * What a line says of a rule or check that stood on code's answer where Jev
+ * was sure of the other, in the words of the report's own flags: code's
+ * answer "by code", then Jev's, and which of the two is right is not said.
+ * Its words are on one line, with nothing a terminal would act on, and cut
+ * short as a flag cuts them.
+ */
+function disagreementWords(d: Disagreement): string {
+  const words = clip(oneLineTitle(d.text))
+  if (d.kind === 'check') {
+    const [code, jev] = d.met ? ['met', 'not met'] : ['not met', 'met']
+    return `check ${code}, by code; Jev was sure it was ${jev}: ${words}`
+  }
+  const [code, jev] = d.met ? ['followed', 'not followed'] : ['not followed', 'followed']
+  return `rule ${code}, by code; Jev was sure it was ${jev} (${oneLineTitle(d.section ?? '')}): ${words}`
+}
+
+/**
+ * Where a run's rules and checks stood on code's answer and Jev was sure of
+ * the other, one line each under a heading, each output named, by `who` as
+ * well where two runs are printed (`B `). The heading says only what holds of
+ * every line, in `compare` too, where a change may leave one out. Nothing
+ * where there are none, so a report without one prints as it did.
+ */
+export function printDisagreements(
+  rows: ReadonlyArray<{ who?: string; disagreement: Disagreement }>,
+): void {
+  if (!rows.length) return
+  console.log('\nWhere code and Jev gave different answers, and Jev was sure')
+  const named = rows.map(({ who = '', disagreement }) => `${who}${disagreement.sample}`)
+  const width = widthOf(named, 36)
+  for (const [i, { disagreement }] of rows.entries())
+    console.log(`  ${padEnd(named[i], width)}${disagreementWords(disagreement)}`)
+}
+
+/**
+ * Where a run's rules and checks stood on code's answer and Jev was sure of
+ * the other, as `st report` reads them (`disagreements`): of `report`, the
+ * run's grading, over its outputs still on disk, with the reader's
+ * corrections, under the scoring the flags ask for. `st grade` and `st run`
+ * hand it the report they have just made.
+ */
+export function disagreementsOf(
+  skill: string,
+  run: string,
+  report: Report,
+  scoring: Context['scoring'],
+): Disagreement[] {
+  const view = readRun(skill, run)
+  const samples = view.samples.map((s) => s.name)
+  const corrections = correctionsOf(skill, run)
+  return disagreements(skill, { report, cases: view.cases, samples, corrections }, scoring)
+}
+
+/** How `st grade` and `st run` print a report (`printGraded`): the report, then where code and a sure Jev gave different answers. */
+export const reportWith =
+  (disputed: readonly Disagreement[]) =>
+  (report: Report): void => {
+    printReport(report)
+    printDisagreements(disputed.map((disagreement) => ({ disagreement })))
+  }
 
 /**
  * Print what a grading made of a run. False when it judged no output, so it
